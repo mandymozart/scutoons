@@ -18,6 +18,9 @@ path = "src/main.rs"
 [dependencies]
 # the descriptor types and the wasm's `deck.module` section reader (the loader's side of the ABI)
 deck-module = { path = "../module", features = ["host"] }
+# the strict test run (src/strict.rs): the compiled module played by the deck's own host, in wasmtime's sandbox (#344)
+deck-module-host = { path = "../module-host" }
+deck-catalog = { path = "../catalog" }
 anyhow = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

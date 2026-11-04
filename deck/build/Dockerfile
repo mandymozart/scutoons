@@ -10,7 +10,11 @@
 # What is inside: rustc + cargo pinned below, the wasm32-unknown-unknown target, the SDK (deck/module, deck/module-macros,
 # deck/catalog: sources with their standalone manifests from deck/build/sdk), the vendored closure of the SDK's dependencies (so every
 # compile runs `--offline`: no network needed at runtime), and a build folder primed with the SDK built once (so a compile is
-# seconds). The service writes every member's Cargo.toml itself (src/compile.rs); a member's files are only src/*.rs.
+# seconds). The service writes every member's Cargo.toml itself (src/compile.rs) and, beside it, the determinism rules of
+# ABI-V2 §6 (#344, src/determinism.rs): a clippy.toml (std's float functions are warnings: use deck_module::math) and pinned
+# RUSTFLAGS (no SIMD, relaxed SIMD or atomics); a member's files are only src/*.rs. After the build it plays the module for a
+# quarter of a second in strict mode (src/strict.rs: deck-module-host on wasmtime, an allocation inside process is an error).
+# `scutoons-build rebuild <dir>` compiles a folder of module sources the same way - the recompile list (the failures).
 # No secrets in the image or in what the compiled code can reach: MODULE_BUILD_TOKEN is the service's own env (bunny) and is
 # removed from the compiler's environment. User nobody. Env: MODULE_BUILD_TOKEN (required), BUILD_LISTEN, RELAY_STATUS_URL
 # (default http://127.0.0.1:7700/status, `off` = no live-show check), BUILD_JOBS, BUILD_WALL_SECS, BUILD_MEMORY_MB,
@@ -23,13 +27,15 @@ ARG RUST_VERSION=1.99.1
 FROM rust:${RUST_VERSION}-slim-bookworm AS service
 WORKDIR /src
 COPY . .
-# only the service (the workspace's other members are read for the lock file, not built)
+# only the service and what it links (deck-module-host with wasmtime for the strict run, deck-catalog, deck-core); the
+# workspace's other members are read for the lock file, not built
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/src/target \
     cargo build --release --locked -p scutoons-build && cp target/release/scutoons-build /scutoons-build
 
 FROM rust:${RUST_VERSION}-slim-bookworm
-RUN rustup target add wasm32-unknown-unknown
+# clippy: the determinism lints (clippy.toml, std's float functions, #344) are reported by a `cargo clippy` pass after the build
+RUN rustup target add wasm32-unknown-unknown && rustup component add clippy
 COPY --from=service /scutoons-build /usr/local/bin/scutoons-build
 
 # the SDK: the workspace's sources, the standalone manifests (a copy cannot inherit from the workspace)

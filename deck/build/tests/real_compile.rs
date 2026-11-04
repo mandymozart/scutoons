@@ -67,6 +67,33 @@ fn config(root: &Path, sdk: &Path, extra: &[(&str, &str)]) -> Arc<Config> {
     Arc::new(Config::from_env(|k| pairs.iter().rev().find(|(n, _)| n == k).map(|(_, v)| v.clone())).unwrap())
 }
 
+/// A one-port module whose `process` runs `body` for every sample `s` of the output (the shape of the stub the image primes with)
+fn probe(body: &str) -> String {
+    format!(
+        "use deck_module::{{Block, Ctx, Module}};
+
+#[derive(Module)]
+#[module(name = \"probe\")]
+#[port(output, audio, name = \"out\")]
+struct Probe {{
+    #[param(range = 0.0..1.0, default = 0.5)]
+    level: f32,
+}}
+
+impl Module for Probe {{
+    fn process(&mut self, block: &mut Block, _ctx: &Ctx) {{
+        let mut out = block.audio_out(0);
+        for c in 0..out.ch() {{
+            for s in out.chan(c).iter_mut() {{
+                {body}
+            }}
+        }}
+    }}
+}}
+"
+    )
+}
+
 fn files(lib: &str) -> Files {
     Files::from([("lib.rs".to_string(), lib.to_string())])
 }
@@ -139,6 +166,61 @@ async fn the_walk_module_compiles_and_the_rest_is_refused() {
     // a second file the way a module splits itself
     let two = Files::from([("lib.rs".to_string(), walk.replace("use deck_module::cv::GateCv;", "mod nothing;\nuse deck_module::cv::GateCv;")), ("nothing.rs".to_string(), "// empty\n".to_string())]);
     assert_eq!(compiler.compile(&two).await.unwrap().descriptor["name"], "walk");
+
+    // 5a. the template: the stub the image primes with (`scutoons-build stub`) is a v2 module, builds clean and plays strictly
+    let stub = compiler.compile(&files(scutoons_build::compile::STUB_SOURCE)).await.unwrap_or_else(|e| panic!("the stub does not compile: {e:?}"));
+    assert_eq!((stub.descriptor["abi"].as_u64(), stub.descriptor["name"].as_str(), stub.warnings.len()), (Some(2), Some("stub"), 0));
+
+    // 5b. the determinism rules (#344, ABI-V2 §6): the stored modules of the repository compile, play strictly, and say nothing
+    // about std's float functions (walk and analog use libm); the conformance fixture is a module like any other
+    assert!(built.warnings.iter().all(|w| !w.message.contains("disallowed")), "walk uses deck_module::math: {:?}", built.warnings);
+    let fixture = std::fs::read_to_string(deck().join("modules/fixture/src/lib.rs")).unwrap();
+    let fixture_built = compiler.compile(&files(&fixture)).await.unwrap_or_else(|e| panic!("the fixture does not compile or play: {e:?}"));
+    assert_eq!(fixture_built.descriptor["name"], "fixture");
+
+    // a module calling std's float transcendentals: built, with a warning for each call that says what to call instead
+    let sin = probe("*s = self.level.sin() + (self.level as f64).powf(2.0) as f32;");
+    let built_sin = compiler.compile(&files(&sin)).await.unwrap();
+    let lints: Vec<_> = built_sin.warnings.iter().filter(|w| w.message.contains("disallowed method")).collect();
+    assert_eq!(lints.len(), 2, "{:?}", built_sin.warnings);
+    assert_eq!((lints[0].file.as_str(), lints[0].line, lints[0].level.as_str()), ("lib.rs", 16, "warning"), "{lints:?}");
+    assert!(lints[0].message.contains("`f32::sin`") && lints[0].message.contains("use deck_module::math::sin"), "{lints:?}");
+    assert!(lints[1].message.contains("`f64::powf`") && lints[1].message.contains("deck_module::math::libm::pow"), "{lints:?}");
+    // the same through deck_module::math: nothing to say
+    let libm = compiler.compile(&files(&probe("*s = deck_module::math::sin(self.level) + deck_module::math::pow(self.level, 2.0);"))).await.unwrap();
+    assert!(libm.warnings.is_empty(), "{:?}", libm.warnings);
+
+    // the strict test run: an allocation inside process is an error that says so; so are a panic and a runaway
+    let CompileError::Failed(errors) = compiler.compile(&files(&probe("core::hint::black_box(vec![1u8; 16]); *s = 0.0;"))).await.unwrap_err() else { panic!("expected the strict run to stop it") };
+    assert!(errors[0].level == "error" && errors[0].message.contains("allocated inside process / control") && errors[0].message.contains("allocate in init"), "{errors:?}");
+    let CompileError::Failed(errors) = compiler.compile(&files(&probe("if self.level > 0.1 { panic!(\"boom\"); } *s = 0.0;"))).await.unwrap_err() else { panic!("expected the strict run to stop it") };
+    assert!(errors[0].message.contains("strict test run") && errors[0].message.contains("boom") && !errors[0].message.contains("allocated"), "{errors:?}");
+    let CompileError::Failed(errors) = compiler.compile(&files(&probe("loop { core::hint::black_box(0); }"))).await.unwrap_err() else { panic!("expected the strict run to stop it") };
+    assert!(errors[0].message.contains("time budget") && errors[0].message.contains("too much work for one block"), "{errors:?}");
+    // relaxed SIMD (its results are the CPU's) compiles when forced per function, and the deck's host refuses it at load
+    let relaxed = format!(
+        "{}\n#[target_feature(enable = \"relaxed-simd\")]\nfn relaxed(x: f32) -> f32 {{\n    use core::arch::wasm32::*;\n    let v = f32x4_splat(x);\n    f32x4_extract_lane::<0>(f32x4_relaxed_madd(v, v, v))\n}}\n",
+        probe("*s = unsafe { relaxed(self.level) };")
+    );
+    let relaxed_result = compiler.compile(&files(&relaxed)).await;
+    let CompileError::Failed(errors) = relaxed_result.unwrap_err() else { panic!("expected the strict run to refuse it") };
+    assert!(errors[0].message.contains("the module does not load"), "{errors:?}");
+    // an error brings the warnings along (the creator fixes both in one go)
+    let CompileError::Failed(errors) = compiler.compile(&files(&probe("*s = self.level.cos(); core::hint::black_box(vec![1u8; 16]);"))).await.unwrap_err() else { panic!("expected the strict run to stop it") };
+    assert_eq!(errors.iter().map(|d| d.level.as_str()).collect::<Vec<_>>(), ["error", "warning"], "{errors:?}");
+
+    // 5c. rebuild over a folder (`scutoons-build rebuild`): the sources of the repository's modules as a cargo layout, the
+    // old API as a single file; the failures are the list
+    let folder = root.path().join("modules");
+    copy_dir(&deck().join("modules/walk/src"), &folder.join("walk/src"));
+    copy_dir(&deck().join("modules/fixture/src"), &folder.join("fixture/src"));
+    std::fs::write(folder.join("old.rs"), "use deck_module::rt::Instance;\n").unwrap();
+    let rows = scutoons_build::rebuild::rebuild_all(&compiler, scutoons_build::rebuild::read_modules(&folder).unwrap()).await;
+    let (text, failed) = scutoons_build::rebuild::report(&rows);
+    assert_eq!(failed, 1, "{text}");
+    assert!(text.contains("fixture\tOK\tABI 2") && text.contains("walk\tOK\tABI 2"), "{text}");
+    assert!(text.contains("old\tFAILED\n    lib.rs:1:"), "{text}");
+    assert!(text.ends_with("rebuild: 3 module(s), 1 failed: old\n"), "{text}");
 
     // 6. over HTTP behind the token
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();

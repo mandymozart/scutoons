@@ -391,6 +391,33 @@ Estimate from the ledger's classes (M $2.2–2.9, L $4.7–11.2): **≈ $35–55
   the browser lost nothing. Loading modules in live-core through `deck_engine::register_module` needs deck-module-host's
   web backend – #290's (on hold for #306), not built here.
 
+### 9e. Built in A7 #344 – where the design left a choice (2026-11-04)
+- **The template is the service's own crate** (`compile::manifest` + `STUB_SOURCE`, already v2 since #343): the one dependency `deck-module`,
+  the fixed profile, and since #344 a `clippy.toml` and pinned flags beside it (`deck/build/src/determinism.rs`). The real compile proves the stub,
+  walk and the fixture (every region of the layout, `#[port(path = …)]`) build, play strictly and say nothing about std floats.
+- **Scan fix found by the fixture:** the reject scan took any identifier `path` inside an attribute for `#[path = "x.rs"]`, so v2's `#[port(…, path = "fx:@gain")]`
+  was refused. It now checks an attribute by its own name (inside `unsafe(…)` and `cfg_attr` too); an argument is the attribute's.
+- **`clippy.toml`:** `disallowed-methods` for f32 and f64 (`sin cos tan asin acos atan atan2 sinh cosh tanh exp exp2 ln log log2 log10 powf powi cbrt hypot exp_m1 ln_1p
+  asinh acosh atanh sin_cos`; `sqrt floor abs mul_add …` are exact and stay), each reason says what to call (`deck_module::math::sin`, or `deck_module::math::libm::…`
+  for f64 and the rest). A `cargo clippy` pass after the build (the image adds the clippy component), only `clippy::disallowed_methods` is reported, as warnings
+  with file / line in `warnings` (the Problems panel). A member can `#![allow]` it: a hint, the conformance suite is the guarantee. A clippy that fails costs nothing.
+- **Pinned flags:** `CARGO_ENCODED_RUSTFLAGS` = `-Ctarget-cpu=generic -Ctarget-feature=-simd128,-relaxed-simd` (the service's own environment flags are dropped).
+  `-atomics` is not nameable on stable (a warning), and threads need it, off by default on wasm32-unknown-unknown; relaxed SIMD forced per function compiles
+  and the host refuses it at load (a test), so the strict run is the net under the flags.
+- **"Strict test run" = the service plays the built wasm** (the design's "the host sets `strict` in the build service's tests"; it cannot run a member's native tests –
+  stranger's native code): deck-module-host on wasmtime, strict mode, 96 blocks of 128 frames at 48 kHz, noise on every audio input, 0.5 on control inputs, a note on and off
+  on every event input, once with the defaults and once with the factory preset. An allocation in `process`, a panic, a runaway, an overrun of 0.75 × the quantum
+  is a **422 error** (not a warning: it is the allocation-free path rule); a budget overrun is played again twice first (a loaded pod is not the module's fault).
+  The module's own log lines (the allocator's "allocated inside process / control", the panic's place) are caught with a tracing layer and are the message. A `needs`
+  module whose sensor is not live is not run (nothing to test). This is the one place the service *runs* member code – inside wasmtime, as every deck does –, so the
+  service links deck-module-host (workflow `build-image.yml` also watches module-host / catalog / core). Not tested: parameter extremes (the fixture's own modes would fail them).
+- **`rebuild --all`:** `scutoons-build rebuild <dir>` compiles every module source in a folder (`<id>/src/*.rs`, `<id>/*.rs` or `<id>.rs`) through the same path and lists the
+  failures (exit 1); the server's `modules:rebuild --all --apply` is the same list from the catalog through the service. Neither was run against production data;
+  the folder form works on an export of a copy. A module of more than flat files (analog has `dsp/`) is a repository crate, not a stored module: the service takes flat files only.
+- **Hole in module-host (not touched here):** a trap's text is the first line of wasmtime's error, "error while executing at wasm backtrace:" – the strict run replaces it
+  with "a trap"; the root cause (`wasm trap: …`) is on a later line.
+- **Not done:** the image is not built or deployed (docker is not run here; the service waits for #281); the service's `/health` has no strict-run state.
+
 ## 10. Questions for the owner – all decided 2026-11-03
 
 Settled by the owner's principle (2026-11-03: "dont worry about backwards compatibility. we are building this fresh. the refactor is design choice.") and therefore **not** questions: the TS module host, `module-abi.ts` and their test are deleted in A6 (§7; confirmed by the owner 2026-11-03: "Delete it", instead of porting it to v2); v1 shapes (`dm_set_param`, the second descriptor type, `deck.params` / `deck.presets`, cv-lane notes) simply go. Pitch is decided too (Q2).
