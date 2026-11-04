@@ -1,5 +1,5 @@
 // deck.ts (#197, #198): the browser deck's state – one for the lab page and the viewer's /live/deck. The parameter
-// values (the pads, the sliders, the being's 3D buttons all turn these), the mood ladder, the relay link and its values
+// values (the pads, the sliders, the being's 3D buttons all turn these), the mood (deck-space's ladder, #367), the relay link and its values
 // stream, and the sound: live-core – the native deck's engine (#320) – plays the whole scene (its own, #360, or the rig's);
 // the page only sends the values and reads back what is heard. No DOM: the page draws it; `tick` runs it once per
 // animation frame. With a CDN given it answers the conductor's scene sync (#195, sync.ts). The tempo clock (#321) is the
@@ -9,9 +9,9 @@ import { LiveCore, beatAt, nowMs, SOURCES, type Analysis, type ClockSource, type
 import type { DeckSynced } from '@scutoons/live';
 import { DeckLink, ValueStream, type WebSocketLike } from './client.ts';
 import { BrowserSync } from './sync.ts';
-import { ladderFor, Moods, type Spec } from './scene.ts';
+import type { Spec } from './scene.ts';
 import { knobTarget, rigDiff, rigGraph, rigParams, rigStreamed } from './rig.ts';
-import type { RigPlayed } from './space.ts';
+import type { DeckStateView, RigPlayed } from './space.ts';
 
 /** #321: the MIDI clock's messages: tick, start, continue, stop, song position */
 // core-only-ok: #321 the port's filter (as the native port's in tempo/midi.rs) – which bytes reach the core, no parsing
@@ -65,7 +65,8 @@ export class Deck {
 	sticks: [string, string][] | null = null;
 	character: string;
 	portraits: Portraits = {};
-	readonly moods = new Moods(['neutral'], 1.5);
+	/** #367: the deck's state in the core (space-web `DeckState`: the mood's energy ladder); null until the wasm came */
+	state: DeckStateView | null = null;
 	/** #321: the core's tempo clock as its last frame left it (null before the sound started) */
 	clock: ClockState | null = null;
 	/** #321: the show clock's last anchor the link brought (the core gets it when the sound starts) */
@@ -75,7 +76,8 @@ export class Deck {
 	/** #321: the MIDI clock out is on (kept for the next `start`), and where its bytes go (Web MIDI's outputs) */
 	private out = false;
 	onMidiOut: ((bytes: number[], atMs: number) => void) | null = null;
-	mood = 'neutral';
+	/** the mood the core's ladder shows ('' until it said) */
+	mood = '';
 	bands: Analysis = silence();
 	/** a finger on a pad (0 / 1): lifts the energy a little */
 	touch = 0;
@@ -173,10 +175,32 @@ export class Deck {
 		return this.rig ?? this.own;
 	}
 
-	/** the being on the wire now: the played scene's graph, the character, its ladder first, then every mood it has */
+	/** #367: the core's deck state (the mood ladder) – the character's portraits go in, the being on the wire anew */
+	useState(s: DeckStateView): void {
+		this.state = s;
+		s.set_portraits(Object.keys(this.portraits));
+		this.mood = s.mood();
+		this.link?.setGraph(this.graph());
+	}
+
+	/** #367: hold the mood (a portrait's name), or null to let the core's energy ladder walk it again */
+	pin(mood: string | null): void {
+		this.state?.pin(mood ?? '');
+	}
+
+	/** #367: the moods a picker offers (the core's) */
+	get choices(): string[] {
+		return this.state?.choices() ?? [];
+	}
+
+	/** #367: the portrait `mood` shows (the core's fallback), null when there is none */
+	face(mood: string): { path: string } | null {
+		return this.portraits[this.state?.face(mood) ?? ''] ?? null;
+	}
+
+	/** the being on the wire now: the played scene's graph, the character, the core's moods (its ladder first) */
 	graph(): DeckGraph {
-		const have = Object.keys(this.portraits);
-		const moods = [...this.moods.moods, ...have.filter((m) => !this.moods.moods.includes(m))];
+		const moods = this.state?.moods() ?? [];
 		const g = this.played ? rigGraph(this.played, moods) : { nodes: [], links: [], size: 0.5, moods, expose: [] };
 		// the deck's own scene wears the deck's character; a rig is its character's
 		return this.rig ? g : { ...g, character: this.character };
@@ -224,11 +248,11 @@ export class Deck {
 		return this.stream.paths;
 	}
 
-	/** Another character: its portraits from scene-content, its mood ladder, the being on the wire anew. */
+	/** Another character: its portraits from scene-content, its mood ladder (the core's), the being on the wire anew. */
 	async pickCharacter(id: string): Promise<void> {
 		this.character = id;
 		this.portraits = await portraitsOf(this.o.api, id);
-		this.moods.moods = ladderFor(Object.keys(this.portraits));
+		this.state?.set_portraits(Object.keys(this.portraits));
 		this.link?.setGraph(this.graph());
 	}
 
@@ -270,13 +294,14 @@ export class Deck {
 		return this.t0 < 0 ? 0 : this.last - this.t0;
 	}
 
-	/** One frame at `now` (s, performance.now() / 1000): the mood, the stream. */
+	/** One frame at `now` (s, performance.now() / 1000): the mood (the core's ladder: the level, the clock, the hand), the
+	 *  stream. */
 	tick(now: number): void {
 		if (this.t0 < 0) this.t0 = this.last = now;
-		const dt = Math.min(0.1, Math.max(0, now - this.last));
+		const dt = now - this.last;
 		this.last = now;
-		const m = this.moods.update(now, dt, this.bands.level, this.touch);
-		if (m !== this.mood) {
+		const m = this.state?.step(this.bands.level, this.clock?.bpm ?? 0, this.clock?.running ?? false, this.touch, dt);
+		if (m) {
 			this.mood = m;
 			this.onMood?.(m);
 		}
@@ -289,10 +314,9 @@ export class Deck {
 		const c = await LiveCore.start({ worker: files.worker, wasm: files.wasm, worklet: files.worklet, transport: files.transport ?? 'auto', device: files.device ?? deviceKind() });
 		c.onAnalysis((a) => (this.bands = a));
 		c.onSignal((s) => this.onSignal?.(s));
-		// #321: the core says when to ping and what a leading deck sends; the ladder reads its tempo
+		// #321: the core says when to ping and what a leading deck sends; the ladder reads its tempo (`tick`)
 		c.onClock((s) => {
 			this.clock = s;
-			this.moods.bpm = s.bpm;
 			if (s.ping) this.link?.sendPing();
 			if (s.send) this.link?.tempo({ bpm: s.send.bpm, per_bar: s.send.perBar, beat: s.send.beat, running: s.send.running, at: s.send.at });
 		});

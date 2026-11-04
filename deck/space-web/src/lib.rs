@@ -27,6 +27,8 @@
 //!   it works when the 3D can't, and before the sound): the page feeds each animation frame (drawn or skipped), the
 //!   worker's audio window (its words) and the dropout count; `report` is the stats bar's and the sound report's numbers,
 //!   judgement and words.
+//! - **The deck's state (#367):** `DeckState` – deck-space's `deck::Deck` without a GPU: the mood's energy ladder (the
+//!   native being's walk) from the level, the clock and a hand; the page shows the mood it answers.
 #![cfg(target_arch = "wasm32")]
 
 use deck_space::controls::{Controls, Midi, Selection};
@@ -349,7 +351,7 @@ impl SpaceView {
         self.space.being.strain(dt.clamp(0.0, 0.1), reduction_db);
     }
 
-    /// The head's mood (the page's – its energy ladder); an unknown one leaves the head as it is.
+    /// The head's mood (the deck's – `DeckState`'s ladder); an unknown one leaves the head as it is.
     pub fn set_mood(&mut self, mood: &str) {
         if let Some(i) = self.space.being.moods.iter().position(|m| m == mood) {
             self.space.being.head.fixed = Some(i);
@@ -797,5 +799,67 @@ impl DeckMonitor {
 impl Default for DeckMonitor {
     fn default() -> Self {
         DeckMonitor::new()
+    }
+}
+
+/// #367: the deck's state without a GPU (deck-space `deck::Deck`) – the mood's energy ladder (mood.rs, the walk the native
+/// being's head runs). The page passes the level, the clock and a hand each frame and shows the mood it answers.
+#[wasm_bindgen]
+pub struct DeckState {
+    d: deck_space::deck::Deck,
+}
+
+#[wasm_bindgen]
+impl DeckState {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> DeckState {
+        DeckState { d: deck_space::deck::Deck::new() }
+    }
+
+    /// the character's portraits (their moods): the ladder anew
+    pub fn set_portraits(&mut self, moods: Vec<String>) {
+        self.d.ladder.set_portraits(&moods);
+    }
+
+    /// hold the mood on `mood`; "" = the energy walks it again
+    pub fn pin(&mut self, mood: &str) {
+        self.d.ladder.pin(Some(mood));
+    }
+
+    /// One animation frame: the analysis level (0..1), the clock's bpm and whether it runs, a hand (0..1), `dt` s since
+    /// the last – the mood when it changed, else "".
+    pub fn step(&mut self, level: f32, bpm: f32, running: bool, touch: f32, dt: f32) -> String {
+        self.d.step(level, bpm, running, touch, dt).map(String::from).unwrap_or_default()
+    }
+
+    /// the mood now
+    pub fn mood(&self) -> String {
+        self.d.mood().to_string()
+    }
+
+    /// the energy now (0..1)
+    pub fn energy(&self) -> f32 {
+        self.d.ladder.energy()
+    }
+
+    /// the moods on the wire (the being's palette): the ladder, then the other portraits
+    pub fn moods(&self) -> Vec<String> {
+        self.d.ladder.wire()
+    }
+
+    /// the moods a picker offers
+    pub fn choices(&self) -> Vec<String> {
+        self.d.ladder.choices()
+    }
+
+    /// the portrait `mood` shows ("" = none)
+    pub fn face(&self, mood: &str) -> String {
+        self.d.ladder.face(mood).unwrap_or_default().to_string()
+    }
+}
+
+impl Default for DeckState {
+    fn default() -> Self {
+        DeckState::new()
     }
 }

@@ -19,9 +19,8 @@
 
 	let host = $state<EngineHost | null>(null);
 	let snap = $state<EngineSnapshot>(emptySnapshot());
-	let moods = $state<string[]>(['neutral']);
+	let moods = $state<string[]>([]);
 	let mood = $state('auto');
-	let portraits = $state<Record<string, { path: string }>>({});
 	let rigKnobs: KnobLike[] = [];
 	let columns = $state<KnobColumn[]>([]);
 	let reduction = $state(0);
@@ -59,9 +58,9 @@
 
 <div class="deck" data-testid="sound-deck">
 	<div class="stage">
-		<EngineStage {options} gate bind:host onmounted={(h) => ((moods = h.moods), (portraits = h.deck?.portraits ?? {}))} />
+		<EngineStage {options} gate bind:host onmounted={(h) => (moods = h.moods)} />
 		<div class="chips">
-			<MoodChip {moods} {portraits} playing={snap.mood} value={mood} onpick={pickMood} />
+			<MoodChip {moods} portrait={(md) => host?.deck?.face(md)?.path ?? ''} playing={snap.mood} value={mood} onpick={pickMood} />
 		</div>
 		<p class="perf" data-testid="sound-status" title={m['creator.sound_perf']()}>{stats.state} · <span data-testid="sound-fps">{stats.perf}</span></p>
 	</div>

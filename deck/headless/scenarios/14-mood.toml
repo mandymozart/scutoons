@@ -1,0 +1,28 @@
+name = "the energy ladder walks the being's moods"
+about = "#367: deck-space's mood ladder (mood.rs – the walk the native being's head runs, the browser's DeckState): level and tempo up quickly, down slowly, a hand lifts it a little; a rung shows once it held. Native and wasm walk the same rungs"
+
+[[step]]
+do = "load"
+scene = "native/scenes/cathedral.toml"
+
+[[step]]
+do = "run"
+ms = 1000
+expect = { sound = true }
+
+[[step]]
+do = "mood"
+with = { moods = ["neutral", "thinking", "happy", "laughing", "surprised"], level = [0.0, 0.2, 0.35, 0.5, 0.8, 1.0], bpm = 140.0, step_s = 3.0 }
+expect = { first = "neutral", last = "surprised", seen = { has = "happy" }, rungs = ["thinking", "thinking", "happy", "laughing", "surprised", "surprised"] }
+
+# down slowly: after the crescendo the calm takes seconds, and a rung passed quicker than the hold never shows
+[[step]]
+do = "mood"
+with = { moods = ["neutral", "thinking", "happy", "laughing", "surprised"], level = [1.0, 0.0, 0.0], bpm = 140.0, step_s = 3.0 }
+expect = { rungs = ["surprised", "surprised", "thinking"], seen = ["neutral", "surprised", "thinking"] }
+
+# a stopped clock adds nothing; a hand on the deck lifts a quiet one a rung
+[[step]]
+do = "mood"
+with = { moods = ["neutral", "thinking", "happy", "laughing", "surprised"], level = [0.0, 0.0], touch = [0.0, 1.0], running = false, bpm = 170.0, step_s = 3.0 }
+expect = { first = "neutral", rungs = ["neutral", "thinking"] }

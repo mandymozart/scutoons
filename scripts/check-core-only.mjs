@@ -114,12 +114,12 @@ export function bridgeFiles(at = root) {
 	return [...bridge].sort();
 }
 
-/** the deck's vocabulary: catalog kinds (kinds.json, generated from deck/catalog), the being's moods, Rust numbers */
+/** the deck's vocabulary: catalog kinds (kinds.json, generated from deck/catalog), the energy ladder's moods (deck-space mood.rs, #367), Rust numbers */
 export function context(at = root) {
 	const ctx = emptyContext();
 	const kinds = JSON.parse(read(join(at, 'server/src/Domain/Rigs/kinds.json'))).kinds;
 	for (const k of kinds) ctx.kinds.add(k.name);
-	const being = read(join(at, 'deck/space/src/space/being.rs'));
+	const being = read(join(at, 'deck/space/src/mood.rs'));
 	for (const m of /pub const MOODS: \[&str; \d+\] = \[([^\]]*)\]/.exec(being)?.[1].matchAll(/"(\w+)"/g) ?? []) ctx.moods.add(m[1]);
 	// the core crates and the platform crates whose constants a browser twin would copy (not the tests, not deck/lab)
 	const crates = ['core', 'engine', 'space', 'events', 'catalog', 'live-core', 'outputs', 'native', 'relay', 'link'];

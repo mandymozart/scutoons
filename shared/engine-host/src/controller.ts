@@ -12,11 +12,11 @@
 // The engine itself stays in Rust: live-deck's `Deck` (state, relay, sound) and `SpaceStage` (space-web's `rig_play`,
 // `core_rig`), live-core's worker and worklet. Nothing of the sound or the being is done in TS here.
 import type { DeviceSignal } from '@scutoons/live-core';
-import { Deck, SpaceStage, ladderFor, loadMonitor, type EngineFiles, type Hand, type MonitorReport, type MonitorView, type RigPlayed } from '@scutoons/live-deck';
+import { Deck, SpaceStage, loadMonitor, type EngineFiles, type Hand, type MonitorReport, type MonitorView, type RigPlayed } from '@scutoons/live-deck';
 import { EngineLog, formatLine, messageOf } from './log.ts';
 import { OutputMeters } from './meters.ts';
 import { SignalMonitor } from './monitor.ts';
-import { deckOptions, folder, rigSubject, moodChoices, type EngineHostOptions } from './options.ts';
+import { deckOptions, folder, rigSubject, type EngineHostOptions } from './options.ts';
 import { canStart, canStop, emptySnapshot, type EnginePhase, type EngineSnapshot } from './status.ts';
 import { deviceInfo, engineReport } from './report.ts';
 
@@ -65,12 +65,12 @@ export class EngineHost {
 	hud = '';
 	/** play the character's core rig (instead of the fixed patch) whenever the character changes */
 	rigs: boolean;
-	mood = 'neutral';
+	/** the mood the deck's core shows ('' before it said) */
+	mood = '';
 	private snap: EngineSnapshot = emptySnapshot();
 	private readonly listeners = new Set<(s: EngineSnapshot) => void>();
 	private bundle: string | null = null;
 	private persona = '';
-	private pinned = false;
 	private alive = false;
 	private raf = 0;
 	private timer: ReturnType<typeof setInterval> | undefined;
@@ -104,9 +104,9 @@ export class EngineHost {
 		return () => this.listeners.delete(f);
 	}
 
-	/** the moods the character's portraits give (`neutral` first) */
+	/** the moods a picker offers (the deck's core: the calm one first, then the character's portraits) */
 	get moods(): string[] {
-		return moodChoices(Object.keys(this.deck?.portraits ?? {}));
+		return this.deck?.choices ?? [];
 	}
 
 	/** The deck alone, synchronously – an app that sets itself up around the deck (controls, a relay) before the 3D
@@ -225,7 +225,6 @@ export class EngineHost {
 	async pickCharacter(id: string): Promise<void> {
 		const deck = this.init();
 		await deck.pickCharacter(id);
-		if (this.pinned) deck.moods.moods = [this.mood];
 		this.applyRig();
 		this.space?.setBeing();
 	}
@@ -265,12 +264,11 @@ export class EngineHost {
 		return true;
 	}
 
-	/** Hold the being on `mood` (a portrait's name), or null to let the energy ladder walk it again. The rig follows. */
+	/** Hold the being on `mood` (a portrait's name), or null to let the core's energy ladder walk it again. The rig follows. */
 	setMood(mood: string | null): void {
 		const deck = this.deck;
 		if (!deck) return;
-		this.pinned = mood !== null;
-		deck.moods.moods = mood === null ? ladderFor(Object.keys(deck.portraits)) : [mood];
+		deck.pin(mood);
 		if (mood !== null) this.log.push('host', `mood held: ${mood}`);
 	}
 

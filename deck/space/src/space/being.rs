@@ -36,6 +36,7 @@
 //! domain and audio meters, or another deck's stream (phase 4) – no per-node copies; `update` and `write` never
 //! allocate (tests/no_alloc.rs).
 use crate::graph::{Domain, Graph, Kind, PortType};
+use crate::mood::Energy;
 use crate::space::camera::{Frame, Ray};
 use crate::space::feel::{self, Feel, Senses};
 use crate::space::values::{Knobs, Path, Values};
@@ -51,8 +52,8 @@ pub const SEGMENTS: usize = 18;
 pub const SIDES: usize = 8;
 /// neck cables at most: the core's spine + the body's highest points
 pub const NECK: usize = 6;
-/// the head's moods from calm to wild when the scene names none (the sprites' `<char>_portrait-<mood>`)
-pub const MOODS: [&str; 5] = ["neutral", "thinking", "happy", "laughing", "surprised"];
+/// the head's moods from calm to wild when the scene names none – the energy ladder's (mood.rs, #367)
+pub use crate::mood::MOODS;
 /// bubbles per button's tether
 pub const TETHER_BUBBLES: usize = 4;
 /// a linked button's shake (s) and a double click's ease back to the scene's value (s)
@@ -65,8 +66,7 @@ pub const RING_GRIP: f32 = 2.5;
 pub const BUBBLE_FILL: f32 = 0.6;
 /// how long a linked knob's swing band remembers the modulation's reach (s)
 const SWING: f32 = 3.0;
-/// how long a new mood must hold before the head shows it (s), and the cross-fade (s)
-const MOOD_HOLD: f32 = 1.2;
+/// the mood's cross-fade (s); how long a new mood must hold is the energy ladder's (mood.rs `HOLD`)
 const MOOD_FADE: f32 = 0.5;
 /// #209 – the knobs face the camera: how quickly the layout follows the eye as it orbits (s), the core's spokes'
 /// angle off the view axis (a crown around the core, toward the eye), a chain's least lean toward the eye (cos), and
@@ -138,15 +138,12 @@ impl Default for Look {
 pub struct Head {
     pub pos: Vec3,
     pub radius: f32,
-    /// 0..1: the FFT level and the tempo, smoothed
-    pub energy: f32,
+    /// the energy's walk (mood.rs, #367 – the one every deck runs): the FFT level, the tempo, the hand, smoothed
+    pub walk: Energy,
     pub mood: usize,
     pub prev: usize,
     /// 0 = `prev` shows, 1 = `mood`
     pub fade: f32,
-    /// the mood the energy asks for, and since when
-    candidate: usize,
-    held: f32,
     /// the portrait sprite per mood (portrait.rs slots); empty = no face
     pub sprites: Vec<usize>,
     /// per mood: the moods to show instead while its sprite is missing, nearest first (portrait::near)
@@ -627,12 +624,10 @@ impl Being {
             head: Head {
                 pos: Vec3::ZERO,
                 radius: s * 0.55,
-                energy: 0.0,
+                walk: Energy::default(),
                 mood: 0,
                 prev: 0,
                 fade: 1.0,
-                candidate: 0,
-                held: 0.0,
                 sprites: Vec::new(),
                 near: super::portrait::near(&moods),
                 fixed: None,
@@ -969,29 +964,20 @@ impl Being {
         self.reset = Some(Reset { button: i, from: b.norm, to: b.spec.norm(b.scene), t: 0.0 });
     }
 
-    /// The head's place, its energy (the FFT level – this deck's sound – and the tempo: a fast clock is a little
-    /// wilder) and its mood: a feeling's rule that fires shows its mood at once (feel.rs); else a fixed mood (another
-    /// deck's stream says it) shows at once; else the energy's mood, once it has held MOOD_HOLD. Each turn cross-fades
-    /// and kicks the new mood's nudges.
+    /// The head's place, its energy and its mood – the energy ladder every deck walks (mood.rs `Energy`: the FFT level
+    /// – this deck's sound –, the tempo – a fast clock is a little wilder –, a hand on a button): a feeling's rule that
+    /// fires shows its mood at once (feel.rs); else a fixed mood (another deck's stream says it) shows at once; else the
+    /// energy's mood, once it has held. Each turn cross-fades and kicks the new mood's nudges.
     fn step_head(&mut self, dt: f32, vals: &dyn Values, beat: &tempo::Now) {
         let pos = self.head();
-        let felt = self.feel.step(dt, vals, &Senses { energy: self.head.energy, touching: self.dragging, beat, strain: self.strain });
+        let felt = self.feel.step(dt, vals, &Senses { energy: self.head.walk.energy, touching: self.dragging, beat, strain: self.strain });
         let h = &mut self.head;
         h.pos = pos;
-        let level = self.fft.map_or(0.0, |n| vals.output(n, 0)).clamp(0.0, 1.0);
-        let bpm = if beat.running { beat.bpm as f32 } else { 0.0 };
-        let target = (0.8 * (level * 1.3).min(1.0) + 0.2 * ((bpm - 60.0) / 100.0).clamp(0.0, 1.0)).clamp(0.0, 1.0);
-        // quick up, slow down: a crescendo shows at once, the calm comes back gently
-        let k = if target > h.energy { dt / 0.3 } else { dt / 1.5 };
-        h.energy += (target - h.energy) * k.min(1.0);
-        let n = self.look.moods.len().max(1);
-        let want = felt.or(h.fixed).unwrap_or(((h.energy * (n - 1) as f32).round() as usize).min(n - 1));
-        if want != h.candidate {
-            (h.candidate, h.held) = (want, 0.0);
-        }
-        h.held += dt;
-        if h.candidate != h.mood && (h.held >= MOOD_HOLD || h.fixed.is_some() || felt.is_some()) {
-            (h.prev, h.mood, h.fade) = (h.mood, h.candidate, 0.0);
+        let level = self.fft.map_or(0.0, |n| vals.output(n, 0));
+        let touch = if self.dragging { 1.0 } else { 0.0 };
+        let n = self.look.moods.len();
+        if let Some(turned) = h.walk.step(level, beat.bpm as f32, beat.running, touch, dt, n, felt.or(h.fixed)) {
+            (h.prev, h.mood, h.fade) = (h.mood, turned, 0.0);
             self.feel.turned(h.mood);
             tracing::debug!("mood {} < {}", self.moods[h.mood], self.feel.because().unwrap_or(if h.fixed.is_some() { "stream" } else { "energy" }));
         }
@@ -1026,7 +1012,7 @@ impl Being {
         let why = match (self.feel.because(), self.head.fixed) {
             (Some(w), _) => w.to_string(),
             (None, Some(_)) => "stream".into(),
-            _ => format!("energy {:.2}", self.head.energy),
+            _ => format!("energy {:.2}", self.head.walk.energy),
         };
         let kicks = match self.feel.nudging() {
             0 => String::new(),
@@ -1134,7 +1120,7 @@ impl Being {
             spheres.push(Sphere { pos: b.pos.into(), radius: r, color: [c[0], c[1], c[2], locked], extra: [kind::BUTTON, self.glow, b.hot + b.grip, b.shown] });
         }
         // the sockets: dark metal where the cables plug into the neck, lit up by the energy
-        let c = rgb(0.0, 0.3, 0.3 + 0.7 * self.head.energy);
+        let c = rgb(0.0, 0.3, 0.3 + 0.7 * self.head.walk.energy);
         for i in 0..self.neck.len() {
             let pos = self.head.socket(i, self.neck.len());
             spheres.push(Sphere { pos: pos.into(), radius: self.look.size * 0.03, color: [c[0], c[1], c[2], 1.0], extra: [kind::NUCLEUS, self.glow, 0.0, 0.0] });
@@ -1206,7 +1192,7 @@ impl Being {
         let k = self.strain * 0.85;
         let s = rgb(-0.05, 0.35, 1.0);
         let c = [s[0] + (1.0 - s[0]) * k, s[1] + (0.2 - s[1]) * k, s[2] + (0.15 - s[2]) * k];
-        spheres.push(Sphere { pos: self.head.pos.into(), radius: self.head.radius, color: [c[0], c[1], c[2], 0.5 + 0.3 * self.strain], extra: [kind::SKIN, self.glow, 0.0, self.head.energy.max(self.strain)] });
+        spheres.push(Sphere { pos: self.head.pos.into(), radius: self.head.radius, color: [c[0], c[1], c[2], 0.5 + 0.3 * self.strain], extra: [kind::SKIN, self.glow, 0.0, self.head.walk.energy.max(self.strain)] });
     }
 
     /// the tubes: the hoses, the tendrils, the neck's cables
@@ -1232,7 +1218,7 @@ impl Being {
             let out = (a - center).try_normalize().unwrap_or(Vec3::Y);
             let ctrl = [a, a + (out * 0.35 + Vec3::Y * 0.5) * len * 0.5, b - Vec3::Y * len * 0.45, b];
             let r = self.look.size * if Some(pi) == self.core_point { 0.05 } else { 0.028 };
-            tube(tubes, &ctrl, r, r * 0.8, 0.25 + 0.75 * self.head.energy, self.points[pi].tint, 2.0);
+            tube(tubes, &ctrl, r, r * 0.8, 0.25 + 0.75 * self.head.walk.energy, self.points[pi].tint, 2.0);
         }
         // the tethers: thin hoses in the parameter's colour (a colour control's: its value), thicker and brighter with
         // the value, pulsing while it moves
@@ -1606,12 +1592,12 @@ mod tests {
             }
         };
         run(&mut b, &m, &still, 60);
-        assert_eq!((b.head.mood, b.head.energy), (0, 0.0), "silence");
+        assert_eq!((b.head.mood, b.head.walk.energy), (0, 0.0), "silence");
         m.apply(&g, "fft.level", &[1.0]);
         run(&mut b, &m, &fast, 20);
         assert_eq!(b.head.mood, 0, "a third of a second is not yet a mood");
         run(&mut b, &m, &fast, 240);
-        assert!(b.head.energy > 0.95, "{}", b.head.energy);
+        assert!(b.head.walk.energy > 0.95, "{}", b.head.walk.energy);
         assert_eq!(b.head.mood, b.look.moods.len() - 1);
         assert_eq!(b.head.fade, 1.0, "faded in");
         b.head.fixed = Some(1);

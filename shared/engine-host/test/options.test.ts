@@ -1,18 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { deckOptions, folder, moodChoices, rigSubject } from '../src/options.ts';
+import { deckOptions, folder, rigSubject } from '../src/options.ts';
 
 test('folders end with a slash; a character is filed under character.<id>', () => {
 	assert.equal(folder('/live'), '/live/');
 	assert.equal(folder('/live/'), '/live/');
 	assert.equal(rigSubject('catpope'), 'character.catpope');
 	assert.equal(rigSubject('item.bell'), 'item.bell');
-});
-
-test('moods: neutral first, then the portraits sorted, no duplicates', () => {
-	assert.deepEqual(moodChoices([]), ['neutral']);
-	assert.deepEqual(moodChoices(['sad', 'happy', 'neutral', 'happy']), ['neutral', 'happy', 'sad']);
-	assert.deepEqual(moodChoices(['surprised']), ['neutral', 'surprised']);
 });
 
 test('the deck gets no relay unless one is asked for; the nick is trimmed to 24', () => {

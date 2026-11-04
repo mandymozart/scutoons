@@ -4,9 +4,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Deck, deviceKind, portraitsOf } from '../src/deck.ts';
 import { sniff } from '../src/space.ts';
-import { LADDER } from '../src/scene.ts';
 import { rigOutputs, rigParams, rigStreamed } from '../src/rig.ts';
-import { OWN } from './own.ts';
+import { OWN, stateOf } from './own.ts';
 
 const API = 'https://api.example/api';
 
@@ -56,7 +55,27 @@ test('#360: without a rig the deck plays its own scene as the core gave it – n
 	assert.ok(Math.abs(d.time - 0.25) < 1e-9);
 });
 
-test('another character: its portraits, its ladder, the being on the wire anew', async () => {
+test('#367: each frame the level, the clock and the hand go to the core’s ladder; the mood is what it says', () => {
+	const d = deckOf();
+	const s = stateOf(['neutral', 'happy'], ['neutral', '', 'happy']);
+	d.useState(s);
+	const said: string[] = [];
+	d.onMood = (m) => said.push(m);
+	d.bands = { ...d.bands, level: 0.5 };
+	d.touch = 1;
+	d.tick(10);
+	d.tick(10.25);
+	d.tick(10.75);
+	assert.deepEqual(said, ['neutral', 'happy'], 'only a turn is a mood change');
+	assert.equal(d.mood, 'happy');
+	assert.deepEqual(s.calls.filter((c) => c[0] === 'step')[2], ['step', 0.5, 0, false, 1, 0.5], 'no clock yet: no tempo; dt unclamped (the core clamps)');
+	d.pin('sad');
+	assert.equal(s.pinned, 'sad');
+	d.pin(null);
+	assert.equal(s.pinned, '', 'null lets the ladder walk again');
+});
+
+test('another character: its portraits go to the core (its ladder), the being on the wire anew with the core’s moods', async () => {
 	const realFetch = globalThis.fetch;
 	globalThis.fetch = (async (url: string) => {
 		assert.match(String(url), /scene-content\?characters=catpope$/);
@@ -65,12 +84,14 @@ test('another character: its portraits, its ladder, the being on the wire anew',
 	}) as typeof fetch;
 	try {
 		const d = deckOf();
+		const s = stateOf(['neutral', 'happy', 'surprised', 'sad']);
+		d.useState(s);
 		await d.pickCharacter('catpope');
-		assert.deepEqual(d.moods.moods, ['neutral', 'happy', 'surprised']);
+		assert.deepEqual(s.calls.at(-1), ['set_portraits', ['neutral', 'happy', 'surprised', 'sad']]);
 		const g = d.graph();
 		assert.equal(g.character, 'catpope');
-		assert.deepEqual(g.moods, ['neutral', 'happy', 'surprised', 'sad'], 'the ladder first, then every other mood it has');
-		assert.ok(LADDER.includes(d.mood));
+		assert.deepEqual(g.moods, ['neutral', 'happy', 'surprised', 'sad'], "the core's wire moods");
+		assert.equal(d.face('sad')?.path, 'characters/catpope/catpope_portrait-sad.webp', 'the face the core picks');
 	} finally {
 		globalThis.fetch = realFetch;
 	}

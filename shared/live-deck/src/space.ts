@@ -64,6 +64,26 @@ export interface SpaceView {
 	free(): void;
 }
 
+/** #367: the wasm-bindgen API of deck/space-web's `DeckState` – deck-space's `deck::Deck` without a GPU: the mood's
+ *  energy ladder (the walk the native being's head runs) */
+export interface DeckStateView {
+	/** the character's portraits (their moods): the ladder anew */
+	set_portraits(moods: string[]): void;
+	/** hold the mood; '' = the energy walks it again */
+	pin(mood: string): void;
+	/** one frame: the level 0..1, the clock's bpm and whether it runs, a hand 0..1, dt s → the mood when it changed, else '' */
+	step(level: number, bpm: number, running: boolean, touch: number, dt: number): string;
+	mood(): string;
+	/** the energy 0..1 */
+	energy(): number;
+	/** the moods on the wire: the ladder, then the other portraits */
+	moods(): string[];
+	/** the moods a picker offers */
+	choices(): string[];
+	/** the portrait a mood shows ('' none) */
+	face(mood: string): string;
+}
+
 /** a knob of a played rig (deck-space `rig::Knob`): an exposed parameter of the flattened scene */
 export interface RigKnob {
 	/** `<track>_<node>.<port>` */
@@ -162,6 +182,7 @@ interface SpaceModule {
 	};
 	DeckControls: new (paths: string[]) => DeckControlsView;
 	DeckMonitor: new () => MonitorView;
+	DeckState: new () => DeckStateView;
 }
 
 const modules = new Map<string, Promise<SpaceModule>>();
@@ -191,6 +212,12 @@ export async function loadDeckScene(base: string): Promise<RigPlayed> {
 export async function loadControls(base: string, paths: string[]): Promise<DeckControlsView> {
 	const mod = await spaceModule(base);
 	return new mod.DeckControls(paths);
+}
+
+/** #367: the deck's state – deck-space's mood ladder (as wasm, no GPU: it works when the 3D can't) */
+export async function loadDeckState(base: string): Promise<DeckStateView> {
+	const mod = await spaceModule(base);
+	return new mod.DeckState();
 }
 
 /** #364: deck-core's monitor (as wasm, no GPU: it works when the 3D can't, and before the sound) */
@@ -267,6 +294,8 @@ export class SpaceStage {
 		const mod = await spaceModule(o.base);
 		// #360: the deck's own scene, before the being is built from the deck's graph
 		if (!o.deck.own) o.deck.useOwn(JSON.parse(mod.deck_scene()) as RigPlayed);
+		// #367: the deck's mood ladder
+		if (!o.deck.state) o.deck.useState(new mod.DeckState());
 		const graph = JSON.stringify(o.deck.graph());
 		const values = JSON.stringify(o.deck.value);
 		let canvas = SpaceStage.canvas(o);

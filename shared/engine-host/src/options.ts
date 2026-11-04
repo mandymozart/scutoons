@@ -38,12 +38,6 @@ export const folder = (url: string): string => (url.endsWith('/') ? url : `${url
 /** the subject a character's core rig is filed under (deck-space `core_rig`) */
 export const rigSubject = (character: string): string => (character.includes('.') ? character : `character.${character}`);
 
-/** The moods a page offers: `neutral` first, then the character's portraits. */
-export function moodChoices(portraits: string[]): string[] {
-	const rest = [...new Set(portraits)].filter((m) => m !== 'neutral').sort();
-	return ['neutral', ...rest];
-}
-
 /** the options the deck gets from the host's: no relay → none, a nick of at most 24 characters */
 export function deckOptions(o: EngineHostOptions, onStatus: (s: string) => void): DeckOptions {
 	return {

@@ -14,7 +14,7 @@
 	// deck-space's (Hands → DeckControls, wasm), this page only bridges the DOM, Web MIDI and the pointer to it.
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { Hands, charactersOf, loadControls, loadDeckScene, pushLine, type QualityLevel, type QualityPresets, type SpaceQuality, type Spec } from '@scutoons/live-deck';
+	import { Hands, charactersOf, loadControls, loadDeckScene, loadDeckState, pushLine, type QualityLevel, type QualityPresets, type SpaceQuality, type Spec } from '@scutoons/live-deck';
 	// #298: the engine's bring-up (the deck, the 3D, the sound, the frame loop, the rig for a mood, the statistics) is
 	// @scutoons/engine-host's; this page keeps the relay, the controls and its UI
 	import { createEngineHost, type EngineHost } from '@scutoons/engine-host';
@@ -40,7 +40,7 @@
 	let params = $state<Record<string, Spec>>({});
 	let character = $state('');
 	let characters = $state<{ id: string; name?: Record<string, string> }[]>([]);
-	let mood = $state('neutral');
+	let mood = $state('');
 	let face = $state('');
 	let started = $state(false);
 	let starting = $state(false);
@@ -199,7 +199,7 @@
 
 	function showFace() {
 		const deck = engine?.deck;
-		const p = deck?.portraits[mood] ?? deck?.portraits.neutral ?? Object.values(deck?.portraits ?? {})[0];
+		const p = deck?.face(mood);
 		face = p ? cdn + p.path : '';
 	}
 
@@ -289,6 +289,8 @@
 			try {
 				// #360: the deck's own scene, played by the core (deck-space as wasm – no GPU needed): its knobs are the sliders
 				deck.useOwn(await loadDeckScene(WASM_BASE));
+				// #367: the deck's state – the mood's energy ladder (deck-space as wasm, no GPU)
+				deck.useState(await loadDeckState(WASM_BASE));
 				params = deck.params;
 				values = { ...deck.value };
 				const specs = deck.controlSpecs;
