@@ -457,7 +457,7 @@ wss:// (`config::dial` – tungstenite with rustls + the webpki roots, no OpenSS
   `resume` (the relay replays what it missed) or gets the snapshot (the outlet's cell and last preload) – shown at once.
 - **media.rs** – the preload: each item fetched with the deck token (`DECK_TOKEN`, else deck-link's run directory on a
   deck, #180; not paired = the code as the reason) into `<cache>/live/<hash>-<name>` (immutable URLs: once), then
-  `media.ready { ready, missing, why }`; what is missing is tried again after 2, 5, 10, 20, then every 30 s. Sets
+  `media.ready { ready, missing, why }`; what is missing is tried again after 2, 5, 10, 20, then every 30 s (deck-outlet's `preload.rs`, #391: the schedule and the HUD's line; here the fetching). Sets
   (#193: set + spot + mode, never a file) resolve through the `Resolve` trait – today `LocalSets`: the set's 3D
   (`cache::set_file`, low; with the sync on, where the sync puts it – the space node's gate fetches it),
   `<sets>/<set>/<spot>.<still|video>.<ext>`, else the item's `url`.
@@ -471,7 +471,7 @@ wss:// (`config::dial` – tungstenite with rustls + the webpki roots, no OpenSS
 - **render.rs** – the `outlet` pass (`shaders/outlet.wgsl`) uploads each plane and cross-fades it over its `in` by the
   cell's longest `enter` / `exit` (default 0.6 s); the backdrop shows only where the cell has a 3D set. The frame path
   only polls the channels and computes the fade – no allocation (tests/no_alloc.rs).
-- **HUD** – under the title: `LIVE <outlet>  OUTPUT c4 OF left @ CODE` (or joining / offline and why), `MEDIA n / m
+- **HUD** (the words are deck-outlet's `status.rs`, `preload.rs` and `recompose.rs`, #391; when the composer composes again is `recompose.rs`) – under the title: `LIVE <outlet>  OUTPUT c4 OF left @ CODE` (or joining / offline and why), `MEDIA n / m
   READY – <id>: <why>`, `CELL n LAYERS + SPACE`, then `! <layer>: <reason>` for everything the cell can't show.
 
 Try it without the conductor app: `cargo run --release -p relay -- 127.0.0.1:7070`, the stage with `--scene outlet
