@@ -81,12 +81,6 @@ struct State {
     start: Instant,
 }
 
-/// an export of either ABI: v1's calls take the frame count, v2's none (the header carries it)
-enum Call {
-    V1(TypedFunc<u32, ()>),
-    V2(TypedFunc<(), ()>),
-}
-
 /// one running module in its own store
 pub struct Wasmtime {
     store: Store<State>,
@@ -95,9 +89,9 @@ pub struct Wasmtime {
     f_io: TypedFunc<(), u32>,
     f_new: TypedFunc<(), ()>,
     f_layout: Option<TypedFunc<(), u32>>,
-    f_set_param: Option<TypedFunc<(u32, f32), ()>>,
-    f_process: Option<Call>,
-    f_control: Option<Call>,
+    /// `dm_process()` / `dm_control()`: no argument, the header carries the frames
+    f_process: Option<TypedFunc<(), ()>>,
+    f_control: Option<TypedFunc<(), ()>>,
     f_asset_buf: Option<TypedFunc<(u32, u32), u32>>,
     start: Instant,
 }
@@ -105,14 +99,6 @@ pub struct Wasmtime {
 /// an optional export with its signature checked (a wrong one is an error, a missing one `None`)
 fn typed<P: WasmParams, R: WasmResults>(store: &mut Store<State>, f: Option<Func>, name: &str) -> Result<Option<TypedFunc<P, R>>> {
     f.map(|f| f.typed::<P, R>(&*store).with_context(|| format!("the export `{name}` has the wrong signature"))).transpose()
-}
-
-fn call(store: &mut Store<State>, f: Option<Func>, name: &str) -> Result<Option<Call>> {
-    let Some(f) = f else { return Ok(None) };
-    if let Ok(t) = f.typed::<u32, ()>(&*store) {
-        return Ok(Some(Call::V1(t)));
-    }
-    Ok(Some(Call::V2(f.typed::<(), ()>(&*store).with_context(|| format!("the export `{name}` has the wrong signature"))?)))
 }
 
 impl Backend for Wasmtime {
@@ -177,17 +163,16 @@ impl Backend for Wasmtime {
         let instance = linker.instantiate(&mut store, module).context("instantiating the module")?;
         let memory = instance.get_memory(&mut store, "memory").ok_or_else(|| anyhow!("no memory export"))?;
         let mut get = |n: &str| instance.get_func(&mut store, n);
-        let (abi, io, new, layout, set_param, process, control, asset_buf) =
-            (get("dm_abi"), get("dm_io"), get("dm_new"), get("dm_layout"), get("dm_set_param"), get("dm_process"), get("dm_control"), get("dm_asset_buf"));
+        let (abi, io, new, layout, process, control, asset_buf) =
+            (get("dm_abi"), get("dm_io"), get("dm_new"), get("dm_layout"), get("dm_process"), get("dm_control"), get("dm_asset_buf"));
         let need = |f: Option<Func>, n: &str| f.ok_or_else(|| anyhow!("no `{n}` export"));
         Ok(Wasmtime {
             f_abi: need(abi, "dm_abi")?.typed(&store)?,
             f_io: need(io, "dm_io")?.typed(&store)?,
             f_new: need(new, "dm_new")?.typed(&store)?,
             f_layout: typed(&mut store, layout, "dm_layout")?,
-            f_set_param: typed(&mut store, set_param, "dm_set_param")?,
-            f_process: call(&mut store, process, "dm_process")?,
-            f_control: call(&mut store, control, "dm_control")?,
+            f_process: typed(&mut store, process, "dm_process")?,
+            f_control: typed(&mut store, control, "dm_control")?,
             f_asset_buf: typed(&mut store, asset_buf, "dm_asset_buf")?,
             store,
             memory,
@@ -207,20 +192,9 @@ impl Backend for Wasmtime {
             Export::Io => self.f_io.call(store, ()),
             Export::Layout => self.f_layout.as_ref().ok_or_else(missing)?.call(store, ()),
             Export::New => self.f_new.call(store, ()).map(|()| 0),
-            Export::SetParam => {
-                let v = match args.get(1) {
-                    Some(Arg::F32(v)) => *v,
-                    _ => 0.0,
-                };
-                self.f_set_param.as_ref().ok_or_else(missing)?.call(store, (u(0), v)).map(|()| 0)
-            }
             Export::Process | Export::Control => {
                 let f = if export == Export::Process { &self.f_process } else { &self.f_control };
-                match f.as_ref().ok_or_else(missing)? {
-                    Call::V1(f) => f.call(store, u(0)),
-                    Call::V2(f) => f.call(store, ()),
-                }
-                .map(|()| 0)
+                f.as_ref().ok_or_else(missing)?.call(store, ()).map(|()| 0)
             }
             Export::AssetBuf => self.f_asset_buf.as_ref().ok_or_else(missing)?.call(store, (u(0), u(1))),
         };

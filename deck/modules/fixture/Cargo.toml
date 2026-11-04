@@ -1,4 +1,6 @@
-# fixture – a module that misbehaves on request, for the hosts' tests (#280): a panic, a loop, log spam
+# fixture – the conformance fixture of the module ABI (#280; v2 #341, #343, research/ABI-V2.md §7): every region of the
+# layout and the hostile modes (a panic, a runaway loop, allocations, memory growth, log spam), for deck-module-host's
+# suite over every backend and the engine's module tests.
 [package]
 name = "fixture-module"
 version.workspace = true

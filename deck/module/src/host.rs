@@ -1,9 +1,9 @@
 //! The loader's side of the ABI (feature `host`): the descriptor a module declares, found in the wasm without running
-//! it, parsed into deck-catalog's one `Descriptor` (#339: the type the built-ins use too) and validated; and where the
-//! fields of `Io` lie in the module's memory. Used by deck-native's wasmtime host, the compile service (#281) and its tests. The browser reads the same JSON from `WebAssembly.Module.customSections`.
-use crate::abi::*;
-use core::mem::{offset_of, size_of};
-use deck_catalog::{Descriptor, Dir, PortType};
+//! it, parsed into deck-catalog's one `Descriptor` (#339: the type the built-ins use too) and validated into the
+//! shape its memory layout is derived from (`Shape::of`, ABI-V2 §1.1). Used by deck-module-host, the compile service
+//! (#281) and their tests.
+use crate::layout::ABI_VERSION;
+use deck_catalog::{Descriptor, PortType};
 
 /// the custom section the derive writes the descriptor into
 pub const SECTION: &str = "deck.module";
@@ -19,48 +19,13 @@ pub fn parse(json: &str) -> Result<Descriptor, String> {
     Ok(d)
 }
 
-/// A v1 module's descriptor against this host: the ABI version, the names, the ranges, the counts the ABI has room
-/// for, and the catalog's own rules for the v2 fields (`Descriptor::check`).
-pub fn validate(d: &Descriptor) -> Result<(), String> {
-    if d.abi != Some(ABI_VERSION) {
-        let abi = d.abi.map_or("no ABI".to_string(), |a| format!("ABI {a}"));
-        return Err(format!("module '{}' speaks {abi}, this host speaks {ABI_VERSION}", d.name));
-    }
-    if d.params.len() > MAX_PARAMS {
-        return Err(format!("module '{}' has {} parameters, at most {MAX_PARAMS}", d.name, d.params.len()));
-    }
-    names_and_ranges(d)?;
-    // a `cv` port is an audio port of two channels (pitch, gate): it takes an audio slot
-    let count = |dir: Dir, types: &[PortType]| d.ports.iter().filter(|p| p.dir == dir && types.contains(&p.ty)).count();
-    for (dir, types, max) in [
-        (Dir::In, &[PortType::Audio, PortType::Cv][..], MAX_AUDIO_PORTS),
-        (Dir::Out, &[PortType::Audio, PortType::Cv][..], MAX_AUDIO_PORTS),
-        (Dir::In, &[PortType::Control][..], MAX_CONTROL_IN),
-        (Dir::Out, &[PortType::Control][..], MAX_CONTROL_OUT),
-    ] {
-        let n = count(dir, types);
-        if n > max {
-            return Err(format!("module '{}' has {n} {:?} ports {dir:?}, at most {max}", d.name, types[0]));
-        }
-    }
-    d.check()
-}
-
-/// Parses an ABI v2 module's descriptor and [`validate_v2`]s it (#340; the v1 `parse` refuses it until #343).
-pub fn parse_v2(json: &str) -> Result<Descriptor, String> {
-    let d: Descriptor = serde_json::from_str(json).map_err(|e| format!("descriptor: {e}"))?;
-    validate_v2(&d)?;
-    Ok(d)
-}
-
-/// An ABI v2 descriptor: the version, the names and ranges (as v1), a domain a module can have, no audio port on a
+/// A module's descriptor against this host: the ABI version, the names and ranges, a domain a module can have, no audio port on a
 /// control-domain module, the limits of the derived layout (`Shape::of`: ports, channels, capacities, the closed sensor
 /// vocabulary), and the catalog's rules (`Descriptor::check`). Returns the shape the layout is computed from.
-pub fn validate_v2(d: &Descriptor) -> Result<crate::v2::Shape, String> {
-    use crate::v2::layout::ABI_VERSION as V2;
-    if d.abi != Some(V2) {
+pub fn validate(d: &Descriptor) -> Result<crate::Shape, String> {
+    if d.abi != Some(ABI_VERSION) {
         let abi = d.abi.map_or("no ABI".to_string(), |a| format!("ABI {a}"));
-        return Err(format!("module '{}' speaks {abi}, this host speaks {V2}", d.name));
+        return Err(format!("module '{}' speaks {abi}, this host speaks {ABI_VERSION} – recompile it against this SDK", d.name));
     }
     names_and_ranges(d)?;
     match d.domain {
@@ -72,12 +37,12 @@ pub fn validate_v2(d: &Descriptor) -> Result<crate::v2::Shape, String> {
         }
         deck_catalog::Domain::Video => return Err(format!("module '{}': the domain is audio or control", d.name)),
     }
-    let shape = crate::v2::Shape::of(d)?;
+    let shape = crate::Shape::of(d)?;
     d.check()?;
     Ok(shape)
 }
 
-/// v1 and v2 alike: the module's, parameters' and ports' names are identifiers in one namespace; every parameter has
+/// the module's, parameters' and ports' names are identifiers in one namespace; every parameter has
 /// min < max and a default inside
 fn names_and_ranges(d: &Descriptor) -> Result<(), String> {
     if !ident(&d.name) {
@@ -143,74 +108,4 @@ pub fn read_descriptor(wasm: &[u8]) -> Option<&str> {
         at = end;
     }
     None
-}
-
-/// Where the fields of `Io` lie, in bytes from the address `dm_io` returns.
-#[derive(Debug, Clone, Copy)]
-pub struct Offsets {
-    pub size: usize,
-    pub event_size: usize,
-    pub tempo_frame: usize,
-    pub tempo_beat: usize,
-    pub bpm: usize,
-    pub rate: usize,
-    pub frame: usize,
-    pub seed: usize,
-    pub frames: usize,
-    pub running: usize,
-    pub per_bar: usize,
-    pub vars_len: usize,
-    pub control_in: usize,
-    pub character_id: usize,
-    pub character_persona: usize,
-    pub character_mood: usize,
-    pub var_keys: usize,
-    pub var_values: usize,
-    pub audio_in: usize,
-    pub audio_out: usize,
-    pub control_out: usize,
-    pub events_len: usize,
-    pub events_dropped: usize,
-    pub events: usize,
-}
-
-impl Offsets {
-    pub const fn get() -> Offsets {
-        let i = offset_of!(Io, inp);
-        let o = offset_of!(Io, out);
-        Offsets {
-            size: size_of::<Io>(),
-            event_size: size_of::<EventRec>(),
-            tempo_frame: i + offset_of!(In, tempo_frame),
-            tempo_beat: i + offset_of!(In, tempo_beat),
-            bpm: i + offset_of!(In, bpm),
-            rate: i + offset_of!(In, rate),
-            frame: i + offset_of!(In, frame),
-            seed: i + offset_of!(In, seed),
-            frames: i + offset_of!(In, frames),
-            running: i + offset_of!(In, running),
-            per_bar: i + offset_of!(In, per_bar),
-            vars_len: i + offset_of!(In, vars_len),
-            control_in: i + offset_of!(In, control),
-            character_id: i + offset_of!(In, character_id),
-            character_persona: i + offset_of!(In, character_persona),
-            character_mood: i + offset_of!(In, character_mood),
-            var_keys: i + offset_of!(In, var_keys),
-            var_values: i + offset_of!(In, var_values),
-            audio_in: i + offset_of!(In, audio),
-            audio_out: o + offset_of!(Out, audio),
-            control_out: o + offset_of!(Out, control),
-            events_len: o + offset_of!(Out, events_len),
-            events_dropped: o + offset_of!(Out, events_dropped),
-            events: o + offset_of!(Out, events),
-        }
-    }
-}
-
-/// Reads the events of the last call from a copy of `Io::out`'s event region.
-pub fn event_at(events: &[u8], index: usize) -> Option<EventRec> {
-    let size = size_of::<EventRec>();
-    let b = events.get(index * size..(index + 1) * size)?;
-    // SAFETY: EventRec is plain numbers and bytes, any bit pattern is valid; `b` is exactly one record, read unaligned
-    Some(unsafe { core::ptr::read_unaligned(b.as_ptr() as *const EventRec) })
 }

@@ -29,5 +29,5 @@ wasmtime = { version = "38", default-features = false, features = ["cranelift", 
 [dev-dependencies]
 wat = "1"
 serde_json.workspace = true
-# the v2 conformance fixture natively: its derived shape and layout against the host's
-fixture-v2-module = { path = "../modules/fixture-v2" }
+# the conformance fixture natively: its derived shape and layout against the host's
+fixture-module = { path = "../modules/fixture" }

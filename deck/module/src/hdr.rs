@@ -1,7 +1,7 @@
 //! The two frozen headers at the start of `inp` and `out` (ABI-V2 §1.1, §3), and an asset slot's record (§1.5). Plain
 //! `repr(C)` numbers and byte arrays, little-endian, the same on wasm32 and the host. A field added here is a new ABI
 //! (v3), which is why the reserved bytes exist: a later field takes them only together with a version step.
-use super::layout::{MAX_AUDIO_PORTS, MAX_EVENT_PORTS};
+use crate::layout::{MAX_AUDIO_PORTS, MAX_EVENT_PORTS};
 
 /// bytes: a character's id / persona / mood (NUL-padded, cut on a char boundary)
 pub const STR_LEN: usize = 32;
@@ -148,6 +148,22 @@ impl InHdr {
         ev_in_len: [0; MAX_EVENT_PORTS],
         _reserved: [0; 24],
     };
+}
+
+/// write `s` into a NUL-padded byte field, cut on a char boundary
+pub fn put_str(field: &mut [u8], s: &str) {
+    let mut n = s.len().min(field.len());
+    while !s.is_char_boundary(n) {
+        n -= 1;
+    }
+    field[..n].copy_from_slice(&s.as_bytes()[..n]);
+    field[n..].fill(0);
+}
+
+/// read a NUL-padded byte field (up to the first NUL; invalid UTF-8 reads as empty)
+pub fn get_str(field: &[u8]) -> &str {
+    let n = field.iter().position(|&b| b == 0).unwrap_or(field.len());
+    core::str::from_utf8(&field[..n]).unwrap_or("")
 }
 
 const _: () = assert!(core::mem::size_of::<InHdr>() == 256);

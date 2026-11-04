@@ -1,48 +1,49 @@
-//! deck-module – the SDK for rig modules (#280, research/RIG-EDITING.md §4). A module is a crate that derives
-//! `Module` for a struct and implements the `Module` trait:
+//! deck-module – the SDK for rig modules (#280, module ABI v2 #323, research/ABI-V2.md). A module is a crate that
+//! derives `Module` for a struct and implements the `Module` trait:
 //!
 //! ```ignore
 //! use deck_module::{Block, Ctx, Module};
 //!
 //! #[derive(Module)]
 //! #[module(name = "gain")]
-//! #[port(input, audio, name = "in")]
-//! #[port(output, audio, name = "out")]
+//! #[port(input, audio, name = "in", channels = "any")]
+//! #[port(output, audio, name = "out", channels = "any")]
 //! struct Gain {
-//!     #[param(range = 0.0..2.0, default = 1.0)]
+//!     #[param(range = 0.0..2.0, default = 1.0, unit = "x", doc = "the gain")]
 //!     amount: f32,
 //! }
 //!
 //! impl Module for Gain {
 //!     fn process(&mut self, block: &mut Block, _: &Ctx) {
-//!         let n = block.frames();
-//!         let (il, ir) = block.audio_in(0);
-//!         let (mut l, mut r) = ([0.0; 1024], [0.0; 1024]); // no allocation in process
-//!         for i in 0..n { l[i] = il[i] * self.amount; r[i] = ir[i] * self.amount; }
-//!         let (ol, or) = block.audio_out(0);
-//!         ol.copy_from_slice(&l[..n]);
-//!         or.copy_from_slice(&r[..n]);
+//!         let inp = block.audio_in(0);
+//!         let mut out = block.audio_out(0);
+//!         for c in 0..out.ch() {
+//!             for (o, i) in out.chan(c).iter_mut().zip(inp.chan(c)) { *o = i * self.amount; }
+//!         }
 //!     }
 //! }
 //! ```
 //!
-//! The derive writes the **descriptor** (the parameters with range and default, the ports with their types, the ABI
-//! version) as JSON – in a `deck.module` custom section of the wasm, so a host reads it without running the module –
-//! and, on wasm32, the ABI's exports (README.md). The host feeds `process` (audio blocks, no allocation) and `control`
-//! (control rate); both see a read-only `Ctx` (tempo, character, variables, seed) and write only through the declared
-//! outputs. No `build.rs`, no macro of your own: the SDK's derive is the only one.
-//!
-//! The same code runs natively in a test (`testing::Rig`), which is how a module's output is proven against a built-in.
+//! The derive writes the **descriptor** (deck-catalog's one `Descriptor` as JSON, `abi: 2`) into a `deck.module`
+//! custom section of the wasm – a host reads it without running the module – and the module's **memory layout**,
+//! derived from it (`layout`: one `inp` block the host writes and one `out` block it reads per call), as constants,
+//! with the exports on wasm32. Inside: the frozen headers (`hdr`), the 40-byte event record (`ev`), planar audio and
+//! typed views (`io`), the parameter table (`params`), `Ctx`, `Block` / `Outputs`, the counting allocator (`alloc`),
+//! the runtime the exports call (`rt`) and the native harness (`testing::Rig`) – the same code a module's tests run.
+//! No `build.rs`, no macro of your own: the SDK's derive is the only one. deck/module/README.md is the guide.
 extern crate self as deck_module;
 
-pub mod abi;
+pub mod alloc;
 pub mod block;
 pub mod ctx;
 pub mod cv;
+pub mod ev;
+pub mod hdr;
+pub mod io;
+pub mod layout;
+pub mod params;
 pub mod rt;
 pub mod testing;
-/// ABI v2 (#340): opt in with `#[module(abi = 2)]`; replaces the v1 items above with #343
-pub mod v2;
 
 #[cfg(feature = "host")]
 pub mod host;
@@ -51,33 +52,58 @@ pub mod math;
 /// a one-pole step per block (ABI-V2 §2: the module smooths)
 pub mod smooth;
 
-pub use abi::ABI_VERSION;
-pub use block::{Block, Event, Outputs};
-pub use ctx::{Character, Ctx, Tempo};
+pub use block::{Block, Outputs};
+pub use ctx::{Asset, AssetSlot, CameraMotion, Character, Ctx, Face, Motion, Position, Status, Tempo, Var};
 pub use deck_module_macros::Module;
+pub use ev::{Ev, Expr, Kind};
+pub use hdr::{AssetInfo, AssetKind, InHdr, OutHdr};
+pub use io::{InpMut, Planar, PlanarMut};
+pub use layout::{Layout, Sensor, Shape, ABI_VERSION, QUANTUM};
+pub use params::{Dirty, ParamInfo};
+pub use smooth::Smooth;
 
-/// What the derive writes: the module's name and descriptor, its parameters by index (declaration order).
+/// where a module runs (the descriptor's `domain`): its one call, `process` or `control`
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Domain {
+    /// `dm_process`, in the audio half of a block
+    Audio,
+    /// `dm_control`, once per block in the control half (no audio regions)
+    Control,
+}
+
+/// What `#[derive(Module)]` writes: the descriptor, its shape and layout as constants, the parameter table's ranges,
+/// and the copy from the table into the struct's fields.
 pub trait Describe: Sized {
     const NAME: &'static str;
-    /// the descriptor as JSON (`host::parse` reads it into deck-catalog's `Descriptor`)
+    /// the descriptor as JSON (`abi: 2`; `host::parse` reads it into deck-catalog's `Descriptor`)
     const DESCRIPTOR: &'static str;
-    /// the number of `#[param]` fields
-    const PARAMS: usize;
+    const DOMAIN: Domain;
+    /// the numbers of the descriptor that place bytes – what `Shape::of` computes from the parsed descriptor
+    const SHAPE: Shape;
+    /// the module's memory layout, a constant (`dm_layout()` exports its hash)
+    const LAYOUT: Layout = Layout::of(&Self::SHAPE);
+    /// the parameters' ranges and defaults, by index
+    const PARAMS: &'static [ParamInfo];
+    /// the factory preset's values by parameter index (empty: none or all defaults)
+    const PRESET: &'static [(usize, f32)];
     /// a module with every parameter at its default (other fields `Default`)
     fn build() -> Self;
-    /// set parameter `index` – clamped to its range; a non-finite value or an unknown index is ignored
-    fn set_param(&mut self, index: usize, value: f32);
+    /// copy the table's `dirty` entries into the fields (the host has clamped them; a non-finite value is skipped)
+    fn load_params(&mut self, table: &[f32], dirty: Dirty);
+    /// parameter `index` as the fields hold it
     fn param(&self, index: usize) -> f32;
 }
 
-/// The code a creator writes. All three methods have an empty default.
+/// The code a creator writes; every method has an empty default. `process` runs for `domain = "audio"`, `control`
+/// for `domain = "control"` – the other is never called.
 pub trait Module: Describe + 'static {
-    /// once, after `build`: the seed, the rate and the first context are there
+    /// once, after `build` and the parameters: the seed, the rate, the first context and the assets are there
     fn init(&mut self, _ctx: &Ctx) {}
-    /// one audio block (≤ `abi::MAX_BLOCK` frames): fill the audio outputs, emit events, set control outputs. Runs on
-    /// the audio thread: no allocation, no locks.
+    /// before a call in which parameters changed (their fields already hold the new values)
+    fn params_changed(&mut self, _dirty: Dirty) {}
+    /// one audio block (≤ `QUANTUM` frames). Runs on the audio thread: no allocation (counted, strict = a trap), no locks.
     fn process(&mut self, _block: &mut Block, _ctx: &Ctx) {}
-    /// one control tick (the frame thread, ~60 Hz): set control outputs, emit events
+    /// one control block: control outputs (cables or `path` targets), events. The inputs are on `ctx`.
     fn control(&mut self, _ctx: &Ctx, _out: &mut Outputs) {}
 }
 
