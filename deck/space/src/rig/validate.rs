@@ -161,8 +161,8 @@ mod tests {
                 kind: "rigs".into(),
                 id: subject.into(),
                 document: v(&b.rig),
-                instruments: b.instruments.iter().map(|i| v(i)).collect(),
-                presets: b.presets.iter().map(|p| v(p)).collect(),
+                instruments: b.instruments.iter().map(v).collect(),
+                presets: b.presets.iter().map(v).collect(),
             };
             assert_eq!(request.problems().unwrap(), Vec::<String>::new(), "{subject}");
             for i in &b.instruments {
@@ -170,8 +170,8 @@ mod tests {
                 assert_eq!(r.problems().unwrap(), Vec::<String>::new(), "{}", i.id);
             }
             for p in &b.presets {
-                let others = b.presets.iter().filter(|q| q.id != p.id).map(|q| v(q)).collect();
-                let r = Request { kind: "presets".into(), id: p.id.clone(), document: v(p), instruments: b.instruments.iter().map(|i| v(i)).collect(), presets: others };
+                let others = b.presets.iter().filter(|q| q.id != p.id).map(v).collect();
+                let r = Request { kind: "presets".into(), id: p.id.clone(), document: v(p), instruments: b.instruments.iter().map(v).collect(), presets: others };
                 assert_eq!(r.problems().unwrap(), Vec::<String>::new(), "{}", p.id);
             }
         }
