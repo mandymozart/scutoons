@@ -1,41 +1,16 @@
-//! The module host's conformance suite (#305): every case is generic over [`Backend`], so a second backend (the
-//! browser's) runs the same fixtures by adding one `conformance!` line at the bottom.
-//! Fixtures: the real modules `walk` and `fixture` (built with deck-module for wasm32 – `rustup target add
-//! wasm32-unknown-unknown` – into their own target dir), and hostile modules written in WAT: an import the sandbox does not
-//! allow, a wrong ABI, an `Io` outside the memory, a runaway loop in `dm_new` and in `dm_process`, allocation-heavy memory.
+//! The module host's conformance suite (#305), ABI v1 – until #343 moves the modules (v2: conformance_v2.rs): every
+//! case is generic over [`Backend`], so a second backend (the browser's) runs the same fixtures by adding one
+//! `conformance!` line at the bottom. Fixtures: the real modules `walk` and `fixture` (built with deck-module for wasm32 –
+//! `rustup target add wasm32-unknown-unknown` – into their own target dir), and hostile modules written in WAT: an import
+//! the sandbox does not allow, a wrong ABI, an `Io` outside the memory, a runaway loop in `dm_new` and in `dm_process`,
+//! allocation-heavy memory.
 use deck_core::tempo::TempoMap;
-use deck_module_host::{Backend, Instance, Loaded, MEMORY_LIMIT};
-use std::path::PathBuf;
-use std::sync::{Arc, OnceLock};
+use deck_module_host::{Backend, Instance, MEMORY_LIMIT};
+use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
-const RATE: f64 = 48_000.0;
-
-fn deck_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).parent().unwrap().to_owned()
-}
-
-/// the release wasm of a module crate (built once for all the tests)
-fn wasm(file: &str) -> Vec<u8> {
-    static BUILD: OnceLock<()> = OnceLock::new();
-    let root = deck_root();
-    let dir = root.join("target").join("wasm-modules");
-    BUILD.get_or_init(|| {
-        let cargo = std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
-        let out = std::process::Command::new(cargo)
-            .current_dir(&root)
-            .args(["build", "--release", "--target", "wasm32-unknown-unknown", "-p", "walk-module", "-p", "fixture-module", "--target-dir"])
-            .arg(&dir)
-            .output()
-            .expect("running cargo");
-        assert!(
-            out.status.success(),
-            "building the example modules for wasm32 failed (rustup target add wasm32-unknown-unknown?):\n{}",
-            String::from_utf8_lossy(&out.stderr)
-        );
-    });
-    std::fs::read(dir.join("wasm32-unknown-unknown/release").join(file)).unwrap()
-}
+mod common;
+use common::{err_text, load, wasm, RATE};
 
 /// A module in WAT with the SDK's exports and a descriptor, for what the real SDK would never build. `imports` are WAT
 /// import lines, `new` / `process` the bodies of `dm_new` / `dm_process (param frames i32)`, `abi` / `io` what `dm_abi` /
@@ -61,17 +36,10 @@ fn ok_module() -> Vec<u8> {
     hostile("", "", "", 1, 0, 4)
 }
 
-fn load<B: Backend>(e: &B::Engine, bytes: &[u8]) -> anyhow::Result<Arc<Loaded<B>>> {
-    Loaded::<B>::load(e, bytes).map(Arc::new)
-}
-
 fn fixture_instance<B: Backend>(e: &B::Engine, seed: u64) -> Instance<B> {
     Instance::new(&load::<B>(e, &wasm("fixture_module.wasm")).unwrap(), RATE, seed).unwrap()
 }
 
-fn err_text<T>(r: anyhow::Result<T>) -> String {
-    format!("{:#}", r.err().expect("an error"))
-}
 
 fn a_module_is_read_and_checked_without_running_it<B: Backend>(e: &B::Engine) {
     let l = load::<B>(e, &wasm("walk_module.wasm")).unwrap();
@@ -215,11 +183,11 @@ fn memory_beyond_the_cap_is_refused_and_growth_stops_at_it<B: Backend>(e: &B::En
     let l = load::<B>(e, &hostile("", "", grow, 1, 0, 4)).unwrap();
     let mut i = Instance::new(&l, RATE, 1).unwrap();
     assert!(i.process(0.0, 64), "{:?}", i.silenced());
-    assert_eq!(i.backend().memory_size(), 104 * 65536);
-    assert!(i.backend().memory_size() <= MEMORY_LIMIT);
+    assert_eq!(i.backend().unwrap().memory_size(), 104 * 65536);
+    assert!(i.backend().unwrap().memory_size() <= MEMORY_LIMIT);
     // many instances at once, each with its own memory
     let many: Vec<Instance<B>> = (0..16).map(|k| Instance::new(&l, RATE, k).unwrap()).collect();
-    assert!(many.iter().all(|m| m.backend().memory_size() == 4 * 65536));
+    assert!(many.iter().all(|m| m.backend().unwrap().memory_size() == 4 * 65536));
 }
 
 macro_rules! conformance {

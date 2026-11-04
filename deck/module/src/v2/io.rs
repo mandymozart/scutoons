@@ -242,12 +242,18 @@ impl<'a> InpMut<'a> {
 
     /// audio input `p`'s channel `c` (`QUANTUM` frames); empty for a port or channel the module did not declare
     pub fn audio_in(&mut self, p: usize, c: usize) -> &mut [f32] {
+        InpMut { base: self.base, layout: self.layout, _io: PhantomData }.into_audio_in(p, c)
+    }
+
+    /// as `audio_in`, for the view's whole life (a host hands the channel out to be filled)
+    pub fn into_audio_in(self, p: usize, c: usize) -> &'a mut [f32] {
         let s = &self.layout.shape;
         if p >= s.audio_in_ports() || c >= s.audio_in[p] as usize {
             return &mut [];
         }
         let at = self.layout.audio_in[p] + (c * QUANTUM * 4) as u32;
-        self.f32s(at, QUANTUM)
+        // SAFETY: as `f32s`; the view's exclusive borrow ('a) moves into the slice
+        unsafe { slice::from_raw_parts_mut(self.base.add(at as usize) as *mut f32, QUANTUM) }
     }
 
     /// the declared variable slots (NaN = not set)

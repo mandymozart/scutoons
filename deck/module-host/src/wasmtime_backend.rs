@@ -1,11 +1,15 @@
 //! The wasmtime backend (what the native deck runs): the engine with its 1 ms epoch ticker – the time budget is
 //! wasmtime's epoch interruption –, the compile cache (in memory by the caller, on disk here, keyed by the wasm's SHA-256)
-//! and one store per instance with the memory capped at [`MEMORY_LIMIT`].
+//! and one store per instance with the memory capped at [`MEMORY_LIMIT`] (and frozen at its size by `freeze_memory`).
+//! Determinism (ABI-V2 §6): NaNs canonicalized, relaxed SIMD off, threads and shared memory off (a module using them
+//! fails to compile at load).
 use crate::{log_line, Arg, Backend, Export, Fault, LogLimiter, MEMORY_LIMIT};
 use anyhow::{anyhow, Context, Result};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
-use wasmtime::{Caller, Config, Engine, Linker, Memory, Module, Store, StoreLimits, StoreLimitsBuilder, TypedFunc};
+use wasmtime::{
+    Caller, Config, Engine, Func, Linker, Memory, Module, ResourceLimiter, Store, StoreLimits, StoreLimitsBuilder, TypedFunc, WasmParams, WasmResults,
+};
 
 /// wasmtime's engine, its ticker and the disk cache
 pub struct WasmtimeEngine {
@@ -18,6 +22,10 @@ impl WasmtimeEngine {
     pub fn new(cache: Option<PathBuf>) -> WasmtimeEngine {
         let mut config = Config::new();
         config.epoch_interruption(true);
+        // the same bits on every deck (ABI-V2 §6): one NaN, no relaxed SIMD (its results are the CPU's), no threads
+        config.cranelift_nan_canonicalization(true);
+        config.wasm_relaxed_simd(false);
+        config.wasm_shared_everything_threads(false);
         let engine = Engine::new(&config).expect("wasmtime engine");
         let ticker = engine.clone();
         std::thread::Builder::new()
@@ -35,11 +43,48 @@ impl WasmtimeEngine {
     }
 }
 
+/// [`MEMORY_LIMIT`] and the other store limits, plus the freeze: once set, the memory may not grow past it
+struct Limits {
+    store: StoreLimits,
+    frozen: Option<usize>,
+}
+
+impl ResourceLimiter for Limits {
+    fn memory_growing(&mut self, current: usize, desired: usize, maximum: Option<usize>) -> Result<bool> {
+        if self.frozen.is_some_and(|f| desired > f) {
+            return Ok(false);
+        }
+        self.store.memory_growing(current, desired, maximum)
+    }
+
+    fn table_growing(&mut self, current: usize, desired: usize, maximum: Option<usize>) -> Result<bool> {
+        self.store.table_growing(current, desired, maximum)
+    }
+
+    fn instances(&self) -> usize {
+        self.store.instances()
+    }
+
+    fn tables(&self) -> usize {
+        self.store.tables()
+    }
+
+    fn memories(&self) -> usize {
+        self.store.memories()
+    }
+}
+
 struct State {
     name: String,
-    limits: StoreLimits,
+    limits: Limits,
     log: LogLimiter,
     start: Instant,
+}
+
+/// an export of either ABI: v1's calls take the frame count, v2's none (the header carries it)
+enum Call {
+    V1(TypedFunc<u32, ()>),
+    V2(TypedFunc<(), ()>),
 }
 
 /// one running module in its own store
@@ -49,10 +94,25 @@ pub struct Wasmtime {
     f_abi: TypedFunc<(), u32>,
     f_io: TypedFunc<(), u32>,
     f_new: TypedFunc<(), ()>,
-    f_set_param: TypedFunc<(u32, f32), ()>,
-    f_process: TypedFunc<u32, ()>,
-    f_control: TypedFunc<u32, ()>,
+    f_layout: Option<TypedFunc<(), u32>>,
+    f_set_param: Option<TypedFunc<(u32, f32), ()>>,
+    f_process: Option<Call>,
+    f_control: Option<Call>,
+    f_asset_buf: Option<TypedFunc<(u32, u32), u32>>,
     start: Instant,
+}
+
+/// an optional export with its signature checked (a wrong one is an error, a missing one `None`)
+fn typed<P: WasmParams, R: WasmResults>(store: &mut Store<State>, f: Option<Func>, name: &str) -> Result<Option<TypedFunc<P, R>>> {
+    f.map(|f| f.typed::<P, R>(&*store).with_context(|| format!("the export `{name}` has the wrong signature"))).transpose()
+}
+
+fn call(store: &mut Store<State>, f: Option<Func>, name: &str) -> Result<Option<Call>> {
+    let Some(f) = f else { return Ok(None) };
+    if let Ok(t) = f.typed::<u32, ()>(&*store) {
+        return Ok(Some(Call::V1(t)));
+    }
+    Ok(Some(Call::V2(f.typed::<(), ()>(&*store).with_context(|| format!("the export `{name}` has the wrong signature"))?)))
 }
 
 impl Backend for Wasmtime {
@@ -107,7 +167,7 @@ impl Backend for Wasmtime {
         let start = Instant::now();
         let state = State {
             name: name.to_owned(),
-            limits: StoreLimitsBuilder::new().memory_size(MEMORY_LIMIT).instances(1).tables(10_000).memories(1).build(),
+            limits: Limits { store: StoreLimitsBuilder::new().memory_size(MEMORY_LIMIT).instances(1).tables(10_000).memories(1).build(), frozen: None },
             log: LogLimiter::default(),
             start,
         };
@@ -116,13 +176,19 @@ impl Backend for Wasmtime {
         store.set_epoch_deadline(1000);
         let instance = linker.instantiate(&mut store, module).context("instantiating the module")?;
         let memory = instance.get_memory(&mut store, "memory").ok_or_else(|| anyhow!("no memory export"))?;
+        let mut get = |n: &str| instance.get_func(&mut store, n);
+        let (abi, io, new, layout, set_param, process, control, asset_buf) =
+            (get("dm_abi"), get("dm_io"), get("dm_new"), get("dm_layout"), get("dm_set_param"), get("dm_process"), get("dm_control"), get("dm_asset_buf"));
+        let need = |f: Option<Func>, n: &str| f.ok_or_else(|| anyhow!("no `{n}` export"));
         Ok(Wasmtime {
-            f_abi: instance.get_typed_func(&mut store, "dm_abi")?,
-            f_io: instance.get_typed_func(&mut store, "dm_io")?,
-            f_new: instance.get_typed_func(&mut store, "dm_new")?,
-            f_set_param: instance.get_typed_func(&mut store, "dm_set_param")?,
-            f_process: instance.get_typed_func(&mut store, "dm_process")?,
-            f_control: instance.get_typed_func(&mut store, "dm_control")?,
+            f_abi: need(abi, "dm_abi")?.typed(&store)?,
+            f_io: need(io, "dm_io")?.typed(&store)?,
+            f_new: need(new, "dm_new")?.typed(&store)?,
+            f_layout: typed(&mut store, layout, "dm_layout")?,
+            f_set_param: typed(&mut store, set_param, "dm_set_param")?,
+            f_process: call(&mut store, process, "dm_process")?,
+            f_control: call(&mut store, control, "dm_control")?,
+            f_asset_buf: typed(&mut store, asset_buf, "dm_asset_buf")?,
             store,
             memory,
             start,
@@ -134,19 +200,29 @@ impl Backend for Wasmtime {
             Some(Arg::U32(v)) => *v,
             _ => 0,
         };
+        let missing = || Fault::Trap(format!("the module has no `{}` export", export.name()));
+        let store = &mut self.store;
         let r = match export {
-            Export::Abi => self.f_abi.call(&mut self.store, ()),
-            Export::Io => self.f_io.call(&mut self.store, ()),
-            Export::New => self.f_new.call(&mut self.store, ()).map(|()| 0),
+            Export::Abi => self.f_abi.call(store, ()),
+            Export::Io => self.f_io.call(store, ()),
+            Export::Layout => self.f_layout.as_ref().ok_or_else(missing)?.call(store, ()),
+            Export::New => self.f_new.call(store, ()).map(|()| 0),
             Export::SetParam => {
                 let v = match args.get(1) {
                     Some(Arg::F32(v)) => *v,
                     _ => 0.0,
                 };
-                self.f_set_param.call(&mut self.store, (u(0), v)).map(|()| 0)
+                self.f_set_param.as_ref().ok_or_else(missing)?.call(store, (u(0), v)).map(|()| 0)
             }
-            Export::Process => self.f_process.call(&mut self.store, u(0)).map(|()| 0),
-            Export::Control => self.f_control.call(&mut self.store, u(0)).map(|()| 0),
+            Export::Process | Export::Control => {
+                let f = if export == Export::Process { &self.f_process } else { &self.f_control };
+                match f.as_ref().ok_or_else(missing)? {
+                    Call::V1(f) => f.call(store, u(0)),
+                    Call::V2(f) => f.call(store, ()),
+                }
+                .map(|()| 0)
+            }
+            Export::AssetBuf => self.f_asset_buf.as_ref().ok_or_else(missing)?.call(store, (u(0), u(1))),
         };
         r.map_err(|e| {
             if e.downcast_ref::<wasmtime::Trap>().is_some_and(|t| *t == wasmtime::Trap::Interrupt) {
@@ -171,6 +247,11 @@ impl Backend for Wasmtime {
 
     fn set_budget(&mut self, ms: u64) {
         self.store.set_epoch_deadline(ms);
+    }
+
+    fn freeze_memory(&mut self) {
+        let size = self.memory_size();
+        self.store.data_mut().limits.frozen = Some(size);
     }
 
     fn clock_us(&self) -> u64 {
