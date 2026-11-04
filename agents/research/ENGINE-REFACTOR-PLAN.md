@@ -561,6 +561,13 @@ the binary). **simd128 on** (`-C target-feature=+simd128` for live-core; all tar
 PC (5.4 ms today).
 
 ### 3.6 Module ABI: control outputs, groups, capabilities, channels
+- **Built (ABI v2, #339–#344, 2026-11-04):** one ABI replaced v1 everywhere; the memory layout is derived from the descriptor
+  (`Layout::of`), the host copies `inp` in and `out` out once per call, 128-frame blocks, up to 32 planar channels a port, control
+  outputs (cable or `path` target, applied one block late), event ports (40-byte `Ev`) with the in-block event host, sensors and
+  assets as descriptor fields, strict and show modes (a trap restarts the instance in a show), the build service's strict run.
+  The SDK as it is: `deck/module/README.md`; the choices: research/ABI-V2.md §9a–§9e. Open: sensors' core table and web adapters
+  (#312), rig `policy` and path resolution (#314), module presets (#346), the browser backend (#290, on hold for #306).
+  The rest of this section is the design that led there.
 - **Control outputs (#289):** host work only (§1.4.7) – routes from `Out.control` into the graph.
 - **Channels:** ABI v1's audio ports are fixed stereo × 1,024 frames (`[[[f32; 1024]; 2]; 4]` each way ≈ 64 KB).
   ABI v2 makes them a planar pool of 128-frame channel buffers (the engine quantum) with per-port offsets and channel
@@ -793,6 +800,7 @@ core's message. ≈ $3–4 + $2–3 (#302).
 
 **P11 – Designs, then ABI v2 (#312, #314 design notes, then one build ticket, M each).** Design notes first (owner
 review), Opus only if named. Then ABI v2 (§3.6) replacing v1, the stored modules recompiled. ≈ $3–5 each.
+**Built 2026-11-04:** ABI v2 (#339–#344, docs #345; §3.6), v1 deleted, stored modules cleared and listed by `modules:rebuild`; the design notes #312 / #314 are the open build tickets.
 
 **P12 – Retirements (S).** `ControlGraph`, deck-core `SceneDef`, `synth.rs` blocks, `batch.rs` (its tests live on in
 the engine); `deck/lab` pinned to the last commit that builds it (a note in its README, it is outside the workspace);
@@ -817,7 +825,7 @@ P0 ──► P1 ──► P2 ──► P3 ──► P3b ──► P4 ──► P
  P0 ──► P13a ─► P13b ─► P13c / P13d (media; P13e with #311's video leg)
                                       │              │
                                       │              ├──► P8 (show clock; needs P3, P6)
-                                      │              └──► P9a native deck plays rigs (needs P4, P6)
+                                      │              └──► P9a native deck plays rigs (needs P4, P6) – in progress, #322
  #306 owner bench ───────────────────────────────────────► P9b modules in both (needs P1, P6)
                                                             P9c #289 ─► P11 ABI v2 ─► #314 build
  #302 ─► owner bunny step (#281) ─► P10 #313

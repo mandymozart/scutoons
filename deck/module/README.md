@@ -5,7 +5,8 @@ A rig module (research/RIG-EDITING.md §4) is a Rust crate against this one, com
 takes it with its web backend (#290). The examples are `deck/modules/walk` (the built-in `walk` node, proven equal to it),
 `deck/modules/analog` (an instrument with a note input) and `deck/modules/fixture` (the conformance fixture). Module ABI v2
 (research/ABI-V2.md, #339–#343) is the only ABI: a module built against v1 is refused and recompiled (owner 2026-11-03: no
-backwards compatibility; the server's `modules:rebuild` lists them). The full guide is #345's.
+backwards compatibility; see "Migration" below). Written against the code as built (#339–#344); the design and the reasons are
+research/ABI-V2.md.
 
 ```toml
 [dependencies]
@@ -65,6 +66,22 @@ reads and `host::validate` checks it (names, ranges, a domain a module can have,
 vocabulary, `Descriptor::check`) and returns the `Shape` the layout comes from. The server stores it with the compile
 (ModuleSource refuses any other ABI) and serves it as the kind `module:<id>` (GET /api/kinds).
 
+## Sensors, assets, presets
+
+- **Sensors** are a closed vocabulary (`Sensor`: `motion` 10 channels, `position` and `position.precise` 5, `camera.face` 55,
+  `camera.motion` 4). `needs` is hard: the host does not run a block while the status is not live, and the engine node stays
+  silent; `wants` runs with zeros. In the module: `ctx.motion()`, `position()`, `face()`, `camera_motion()` or `ctx.sensor(s)`
+  give `(Status, values)`; `Status` is `Unavailable · Asking · Denied · Live · Replay` (`status.live()` = Live or Replay). A
+  platform feeds them with `Instance::set_sensor(sensor, status, values)`; the core's channel table, permission prompts and the
+  web adapters are #312's, not built. The conformance suite replays a JSON-lines log (`{frame, channel, value}`).
+- **Assets** are read-only slots a descriptor declares (`#[asset]`, kind `pcm` planar f32 / `bytes` / `image` RGBA8). The host
+  binds them from `Setup::asset(AssetData::pcm(..) | ::bytes(..))` **before `dm_new`**, through `dm_asset_buf(slot, len)`; a slot
+  is filled once per instance. `ctx.asset(Self::KICK)` is `None` until ready - play silence, never wait. Resampling is the module's.
+- **Presets:** the descriptor holds one factory preset (`#[preset]`, only what differs from the defaults). `Preset::resolve(desc,
+  name, values)` maps parameter names to indices and reports unknown ones; `Instance::apply_preset` / `apply_factory_preset` write
+  defaults, then the values, without allocating. Other presets are documents (the module-preset form and its file import are
+  #346; analog's other three presets wait in `modules/analog/analog.preset.json`).
+
 ## Tests
 
 `testing::Rig<M>` runs a module natively through the same `rt` code the exports call – strict, as the build service's tests
@@ -77,6 +94,28 @@ against its native run the way `modules/walk/tests/wasm.rs` and `modules/analog/
 `cargo build --release --target wasm32-unknown-unknown -p <module>` → `target/wasm32-unknown-unknown/release/<module>.wasm`.
 No `build.rs`, no proc-macro of your own, no dependency beyond this crate (the compile service writes `Cargo.toml` itself).
 Clippy takes the repeated `#[port(…)]` lines of one struct for duplicates: put `#![allow(clippy::duplicated_attributes)]` at the top of the module crate.
+
+## The build service
+
+`deck/build` (`scutoons-build`, routes `POST /compile`, `GET /health`) writes the member's crate itself: the one dependency
+`deck-module` (`compile::manifest`, stub `STUB_SOURCE`), the fixed release profile, a `clippy.toml` and pinned flags
+(`determinism.rs`). The `clippy.toml` disallows the `std` float functions that differ between platforms (`sin exp powf ln tan` ...,
+the message names `deck_module::math::...`); the service runs `cargo clippy` after the build and returns only those as warnings
+(a hint, the conformance suite is the guarantee). The flags are `-Ctarget-cpu=generic -Ctarget-feature=-simd128,-relaxed-simd`.
+Then the **strict run** (`strict.rs`): the built wasm is played in deck-module-host's strict mode - 96 blocks of 128 frames at
+48 kHz, noise on audio inputs, 0.5 on control inputs, a note on / off on every event input, once with the defaults and once with
+the factory preset. An allocation in `process` / `control`, a panic, a runaway or an overrun of 0.75 x the quantum (retried twice
+first) is a 422 error carrying the module's own log line. Flat source files only (`lib.rs` + modules); a crate with a folder
+like `modules/analog` is a repository module. `scutoons-build rebuild <dir>` compiles every module of a folder through the same
+path and lists the failures (exit 1).
+
+## Migration
+
+ABI v1 is gone everywhere: the host reads `abi: 2` only (`host::validate`, `Instance::new`, the server's `ModuleSource`).
+Migration `2026-11-04-module-abi-v2` clears the compile result (`descriptor` + `wasm`) of every stored v1 module; the sources stay.
+`bin/console modules:rebuild` is the recompile list (a dry run; `--all` every module, `--apply --as <creator>` compiles through
+the service and saves the results as that creator's drafts); the failures are the sources that use a removed v1 API. The TS host
+(`modules.ts`, `module-abi.ts`, `build:modules`) is deleted.
 
 ## Hosts
 
