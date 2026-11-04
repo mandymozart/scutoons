@@ -14,6 +14,7 @@ for SCUTOONS, the owner's words win over both. The law is RULES.md (B = sessions
 - **Two local sessions at most** across all projects (RULES B1); an audit or review counts as one.
 
 ## Starting a worker (model and effort)
+**Default (owner 2026-11-04, no permission pills at night): the Agent tool** – `Agent(model: opus, effort: high, isolation: worktree, run_in_background: true, prompt: <the brief>)`. It runs on Opus from its first turn, needs no `set_session_model` / `archive_session` / `start_session`, and works over Remote Control. Complexity M and L tickets are Opus 5.5 high (models.json). Use `start_session` only when the owner is at the desktop and wants a session to talk to; then:
 `start_session` cannot pick a model above the orchestrator's own. To run a worker on a stronger model (Opus 5.5 for engine fundamentals,
 design, audits – RULES B5): 1. `start_session` with the brief's title and a one-line "wait for the full brief"; 2. at once
 `set_session_model` (+ `set_session_effort`) on the new session id; 3. `stop_session` its first turn (it only works while the session is
