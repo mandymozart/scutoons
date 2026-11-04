@@ -4,7 +4,7 @@
 resolver = "2"
 # deck/lab is its own workspace: the #182 experiments (wasm, wasmtime, plugins, benchmarks) stay out of CI and the deck builds
 exclude = ["lab"]
-members = ["catalog", "module", "module-macros", "module-host", "engine", "modules/walk", "modules/fixture", "modules/analog", "build", "core", "live-core", "scene-features", "protocol", "adapters/core", "adapters/midi", "adapters/osc", "adapters/dmx-usbpro", "outputs", "relay", "bridge", "os/check", "space", "space-web", "relay-web", "outlet", "ui", "native", "link", "update", "conformance", "conformance/engine-wasm", "headless"]
+members = ["catalog", "module", "module-macros", "module-host", "engine", "modules/walk", "modules/fixture", "modules/analog", "build", "core", "live-core", "scene-features", "protocol", "adapters/core", "adapters/midi", "adapters/osc", "adapters/dmx-usbpro", "outputs", "relay", "bridge", "os/check", "space", "space-web", "relay-web", "outlet", "ui", "native", "link", "update", "conformance", "conformance/engine-wasm", "headless", "module-bench", "module-bench/web", "module-bench/modules/fm16", "module-bench/modules/stress"]
 
 [workspace.package]
 version = "0.1.0"

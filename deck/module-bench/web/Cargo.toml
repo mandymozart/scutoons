@@ -1,0 +1,23 @@
+# module-bench-web – the #306 suite as a raw wasm a browser / Node worker loads (www/bench.ts): deck-module-host with
+# the `web` backend (the platform's own WebAssembly behind a handful of imports; the JS holds no logic) and, with the
+# `wasmi` feature, wasmi compiled in. Built twice by `module-bench prepare` (with and without wasmi: the size growth).
+[package]
+name = "module-bench-web"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = []
+wasmi = ["module-bench/wasmi"]
+
+[dependencies]
+module-bench = { path = "..", default-features = false }
+deck-module-host = { path = "../../module-host", default-features = false }
+anyhow.workspace = true
+serde_json.workspace = true

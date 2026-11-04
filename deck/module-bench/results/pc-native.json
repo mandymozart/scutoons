@@ -1,0 +1,298 @@
+{
+  "device": {
+    "label": "pc",
+    "os": "windows x86_64",
+    "cpu": "AMD64 Family 23 Model 113 Stepping 0, AuthenticAMD",
+    "user_agent": "module-bench native (wasmtime 38, wasmi 2.0, release)",
+    "when": "2026-11-04 22:05 UTC",
+    "cores": 12,
+    "notes": []
+  },
+  "runtimes": [
+    {
+      "runtime": "wasmtime",
+      "place": "native",
+      "workloads": [
+        {
+          "name": "fm16",
+          "frames": 128,
+          "samples": 2000,
+          "compile_us": 57885.899999999994,
+          "instantiate_us": 143.10000000000582,
+          "first_us": 131.60000000000582,
+          "p50_us": 87.80000000004657,
+          "p99_us": 165.3000000000029,
+          "max_us": 360.99999999998545,
+          "mean_us": 102.87955000000011,
+          "budget_us": 2666.6666666666665,
+          "p99_pct": 6.19875000000011,
+          "units": null,
+          "hash": "1b3d03e4a2d92145",
+          "memory_bytes": 1114112,
+          "error": null
+        },
+        {
+          "name": "fm16",
+          "frames": 1024,
+          "samples": 250,
+          "compile_us": 51112.3,
+          "instantiate_us": 29.20000000001164,
+          "first_us": 687.5,
+          "p50_us": 931.8999999999651,
+          "p99_us": 1690.4000000000233,
+          "max_us": 2758.5999999999767,
+          "mean_us": 887.3056000000045,
+          "budget_us": 21333.333333333332,
+          "p99_pct": 7.923750000000109,
+          "units": null,
+          "hash": "1b3d03e4a2d92145",
+          "memory_bytes": 1114112,
+          "error": null
+        },
+        {
+          "name": "walk",
+          "frames": 128,
+          "samples": 2000,
+          "compile_us": 54220.9,
+          "instantiate_us": 43.09999999997672,
+          "first_us": 25.5,
+          "p50_us": 12.399999999906868,
+          "p99_us": 26.599999999976717,
+          "max_us": 54.10000000009313,
+          "mean_us": 11.240549999999756,
+          "budget_us": 2666.6666666666665,
+          "p99_pct": 0.997499999999127,
+          "units": null,
+          "hash": "d074122c8c40a9a5",
+          "memory_bytes": 1114112,
+          "error": null
+        },
+        {
+          "name": "analog x2",
+          "frames": 128,
+          "samples": 2000,
+          "compile_us": 133707.4,
+          "instantiate_us": 39.95000000001164,
+          "first_us": 770.6999999999534,
+          "p50_us": 845.8999999999069,
+          "p99_us": 1948.4000000001397,
+          "max_us": 7897.299999999814,
+          "mean_us": 881.6609000000013,
+          "budget_us": 2666.6666666666665,
+          "p99_pct": 73.06500000000524,
+          "units": null,
+          "hash": "2fa5da638ccdb595",
+          "memory_bytes": 1114112,
+          "error": null
+        }
+      ],
+      "runaway": {
+        "how": "epoch",
+        "budget_ms": 2.0,
+        "stopped_after_us": 1606.3999999999069,
+        "over_budget_us": -393.60000000009313,
+        "restart_us": 116.0,
+        "fault": "dm_process ran past its time budget"
+      },
+      "grow": {
+        "results": [
+          -1.0,
+          -1.0,
+          -1.0,
+          -1.0,
+          -1.0,
+          -1.0,
+          -1.0,
+          -1.0
+        ],
+        "memory_before": 1114112,
+        "memory_after": 1114112,
+        "us_per_call": 1.8374999999650754,
+        "fault": null
+      },
+      "timer_us": 0.09999999999999964,
+      "error": null
+    },
+    {
+      "runtime": "wasmi",
+      "place": "native",
+      "workloads": [
+        {
+          "name": "fm16",
+          "frames": 128,
+          "samples": 2000,
+          "compile_us": 2040.1,
+          "instantiate_us": 361.5,
+          "first_us": 393.0,
+          "p50_us": 377.8999999994412,
+          "p99_us": 619.8999999999069,
+          "max_us": 1505.0000000004657,
+          "mean_us": 396.28135000000776,
+          "budget_us": 2666.6666666666665,
+          "p99_pct": 23.246249999996508,
+          "units": 2410407.4565,
+          "hash": "1b3d03e4a2d92145",
+          "memory_bytes": 1114112,
+          "error": null
+        },
+        {
+          "name": "fm16",
+          "frames": 1024,
+          "samples": 250,
+          "compile_us": 1136.8000000000002,
+          "instantiate_us": 306.10000000009313,
+          "first_us": 3203.2000000001863,
+          "p50_us": 3262.399999999441,
+          "p99_us": 4841.200000000186,
+          "max_us": 6365.799999999814,
+          "mean_us": 3290.671200000001,
+          "budget_us": 21333.333333333332,
+          "p99_pct": 22.693125000000876,
+          "units": 19283259.652,
+          "hash": "1b3d03e4a2d92145",
+          "memory_bytes": 1114112,
+          "error": null
+        },
+        {
+          "name": "walk",
+          "frames": 128,
+          "samples": 2000,
+          "compile_us": 1404.8000000000002,
+          "instantiate_us": 330.70000000018626,
+          "first_us": 70.3999999994412,
+          "p50_us": 32.5,
+          "p99_us": 128.20000000018626,
+          "max_us": 438.5,
+          "mean_us": 30.68364999999339,
+          "budget_us": 2666.6666666666665,
+          "p99_pct": 4.807500000006986,
+          "units": 60272.844,
+          "hash": "d074122c8c40a9a5",
+          "memory_bytes": 1114112,
+          "error": null
+        },
+        {
+          "name": "analog x2",
+          "frames": 128,
+          "samples": 2000,
+          "compile_us": 2800.0,
+          "instantiate_us": 253.39999999990687,
+          "first_us": 2147.5,
+          "p50_us": 2149.0,
+          "p99_us": 4569.899999999441,
+          "max_us": 9152.299999999814,
+          "mean_us": 2195.494299999996,
+          "budget_us": 2666.6666666666665,
+          "p99_pct": 171.37124999997906,
+          "units": 12975421.536,
+          "hash": "2fa5da638ccdb595",
+          "memory_bytes": 1114112,
+          "error": null
+        }
+      ],
+      "runaway": {
+        "how": "fuel",
+        "budget_ms": 2.0,
+        "stopped_after_us": 12626.700000001118,
+        "over_budget_us": 10626.700000001118,
+        "restart_us": 395.8000000026077,
+        "fault": "dm_process ran past its time budget"
+      },
+      "grow": {
+        "results": [
+          -1.0,
+          -1.0,
+          -1.0,
+          -1.0,
+          -1.0,
+          -1.0,
+          -1.0,
+          -1.0
+        ],
+        "memory_before": 1114112,
+        "memory_after": 1114112,
+        "us_per_call": 2.4124999998603016,
+        "fault": null
+      },
+      "timer_us": 0.09999999962747097,
+      "error": null
+    }
+  ],
+  "sizes": [
+    {
+      "name": "analog.gas.wasm",
+      "bytes": 123908,
+      "gz": 35802
+    },
+    {
+      "name": "analog.loops.wasm",
+      "bytes": 113242,
+      "gz": 33379
+    },
+    {
+      "name": "analog.wasm",
+      "bytes": 112289,
+      "gz": 33395
+    },
+    {
+      "name": "bench-web-wasmi.wasm",
+      "bytes": 1795456,
+      "gz": 468842
+    },
+    {
+      "name": "bench-web.wasm",
+      "bytes": 454163,
+      "gz": 167444
+    },
+    {
+      "name": "fm16.gas.wasm",
+      "bytes": 35750,
+      "gz": 14440
+    },
+    {
+      "name": "fm16.loops.wasm",
+      "bytes": 31573,
+      "gz": 13156
+    },
+    {
+      "name": "fm16.wasm",
+      "bytes": 30697,
+      "gz": 13108
+    },
+    {
+      "name": "stress.gas.wasm",
+      "bytes": 28350,
+      "gz": 11236
+    },
+    {
+      "name": "stress.loops.wasm",
+      "bytes": 25010,
+      "gz": 10212
+    },
+    {
+      "name": "stress.wasm",
+      "bytes": 24365,
+      "gz": 10181
+    },
+    {
+      "name": "walk.gas.wasm",
+      "bytes": 38935,
+      "gz": 15804
+    },
+    {
+      "name": "walk.loops.wasm",
+      "bytes": 34439,
+      "gz": 14527
+    },
+    {
+      "name": "walk.wasm",
+      "bytes": 33733,
+      "gz": 14472
+    },
+    {
+      "name": "live_core.wasm",
+      "bytes": 1433693,
+      "gz": 509804
+    }
+  ]
+}

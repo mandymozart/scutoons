@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Module bench</title>
+		<style>
+			:root {
+				--bg: #fff;
+				--fg: #1a1a1a;
+				--muted: #666;
+				--line: #ddd;
+			}
+			@media (prefers-color-scheme: dark) {
+				:root {
+					--bg: #141414;
+					--fg: #eee;
+					--muted: #999;
+					--line: #333;
+				}
+			}
+			body {
+				margin: 0;
+				padding: 1rem;
+				background: var(--bg);
+				color: var(--fg);
+				font: 1rem/1.4 system-ui, sans-serif;
+			}
+			p {
+				color: var(--muted);
+				margin: 0 0 1rem;
+			}
+			input,
+			button {
+				font: inherit;
+				height: 2.5rem;
+				padding: 0 0.75rem;
+			}
+			pre {
+				overflow-x: auto;
+				border-top: 1px solid var(--line);
+				padding-top: 1rem;
+				font-size: 0.75rem;
+			}
+		</style>
+	</head>
+	<body>
+		<h1>Module runtime bench (#306)</h1>
+		<p>
+			Runs the module suite on this browser's WebAssembly (plain, gas-metered, loop counter) and on wasmi compiled to wasm, each in a worker – about a
+			minute. Keep the screen on and the page in front. The results go back to the PC that serves this page.
+		</p>
+		<p id="coi"></p>
+		<label>Device <input id="label" size="8" /></label>
+		<button id="run">Run</button>
+		<a id="download" hidden>Download the results</a>
+		<pre id="log"></pre>
+		<pre id="table"></pre>
+		<script type="module" src="page.ts"></script>
+	</body>
+</html>
