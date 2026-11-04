@@ -63,9 +63,13 @@ impl Stage {
     }
 }
 
+/// How long the test waits for something to HAPPEN before it gives up (#382): a deadline, not a measurement - paid only
+/// when the test fails, so wide enough for a machine running three builds.
+const PATIENCE: Duration = Duration::from_secs(60);
+
 /// step every stage (the show's time `t` moves a frame per step; the network needs a little real time) until `done`
 fn run(stages: &mut [&mut Stage], t: &mut f32, what: &str, done: &mut dyn FnMut(&[&mut Stage]) -> bool) {
-    let until = Instant::now() + Duration::from_secs(10);
+    let until = Instant::now() + PATIENCE;
     while Instant::now() < until {
         for s in stages.iter_mut() {
             s.step(*t);

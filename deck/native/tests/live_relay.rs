@@ -119,6 +119,10 @@ fn sermon(f: &Frame) -> bool {
     f.backdrop == SPACE && f.plane.get_pixel(10, 10).0 == [0, 180, 0, 255]
 }
 
+/// How long the test waits for something to HAPPEN before it gives up (#382): a deadline, not a measurement - paid only
+/// when the test fails, so wide enough for a machine running three builds.
+const PATIENCE: Duration = Duration::from_secs(60);
+
 /// The conductor: joins with a (dev) token, sends, waits for a message.
 struct Conductor(Socket);
 
@@ -137,9 +141,9 @@ impl Conductor {
         self.0.send(Ws::Text(serde_json::to_string(&Envelope::new("", m)).unwrap())).unwrap();
     }
 
-    /// the first message within 10 s that `pick` takes
+    /// the first message within PATIENCE that `pick` takes
     fn wait<T>(&mut self, what: &str, mut pick: impl FnMut(&Message) -> Option<T>) -> T {
-        let until = Instant::now() + Duration::from_secs(10);
+        let until = Instant::now() + PATIENCE;
         while Instant::now() < until {
             match self.0.read() {
                 Ok(Ws::Text(t)) => {
@@ -165,9 +169,9 @@ impl Conductor {
     }
 }
 
-/// the next plane that satisfies `ok` within 10 s
+/// the next plane that satisfies `ok` within PATIENCE
 fn frame(rx: &Receiver<Frame>, what: &str, ok: impl Fn(&Frame) -> bool) -> Frame {
-    let until = Instant::now() + Duration::from_secs(10);
+    let until = Instant::now() + PATIENCE;
     while let Some(left) = until.checked_duration_since(Instant::now()) {
         match rx.recv_timeout(left) {
             Ok(f) if ok(&f) => return f,
@@ -175,11 +179,11 @@ fn frame(rx: &Receiver<Frame>, what: &str, ok: impl Fn(&Frame) -> bool) -> Frame
             Err(_) => break,
         }
     }
-    panic!("{what}: no such plane within 10 s");
+    panic!("{what}: no such plane within {PATIENCE:?}");
 }
 
 fn space(rx: &Receiver<SpaceTarget>) -> SpaceTarget {
-    rx.recv_timeout(Duration::from_secs(10)).expect("a space target")
+    rx.recv_timeout(PATIENCE).expect("a space target")
 }
 
 struct Deck {
