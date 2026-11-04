@@ -428,6 +428,34 @@ fn wide_scenes_batch_wide_and_cycles_are_refused() {
     assert!(Graph::build(&Scene::parse(cycle).unwrap()).unwrap_err().to_string().contains("cycle"));
 }
 
+/// deck-core's `synth.rs` `a_jumped_input_glides_across_the_block` (#188, retired with the reference blocks in #324), on the
+/// engine: a gain sent between two blocks glides in on the oscillator and on the FM voice – the largest step between two
+/// samples stays near the tone's own (a 50 Hz sine at gain 0.5 steps by ≤ 0.0033); held flat the jump would be the sine's
+/// value at once (≈ 0.37 here)
+#[test]
+fn a_jumped_gain_glides_across_the_block() {
+    for (kind, params) in [("osc", ""), ("fm", "ratio = 1.0\nindex = 0.0\n")] {
+        let g = graph(&format!(
+            "[[node]]\nid = \"o\"\nkind = \"{kind}\"\nfreq = 50.0\ngain = 0.0\n{params}[[node]]\nid = \"out\"\nkind = \"audio_out\"\n[[link]]\nfrom = \"o\"\nto = \"out.in\"\n"
+        ));
+        let gain = Kind::parse(kind).unwrap().input("gain").unwrap();
+        let (mut e, _) = engine(&g);
+        let mut out = vec![0.0f32; 2 * QUANTUM];
+        let mut left: Vec<f32> = Vec::new();
+        e.render(&mut out, 2, |x| x);
+        left.extend(out.iter().step_by(2));
+        assert!(e.control_mut().send(0, gain, 0.5, 1.0));
+        for _ in 0..40 {
+            e.render(&mut out, 2, |x| x);
+            left.extend(out.iter().step_by(2));
+        }
+        let worst = left.windows(2).map(|w| (w[1] - w[0]).abs()).fold(0.0f32, f32::max);
+        assert!(worst < 0.0075, "{kind}: the largest step {worst}");
+        let peak = left[left.len() - 1000..].iter().fold(0.0f32, |p, x| p.max(x.abs()));
+        assert!(peak > 0.3, "{kind}: settled at the sent gain: {peak}");
+    }
+}
+
 /// The smoother is the exact one-pole: after `t` seconds a step input is reached by 1 − e^(−t/τ), whatever the step size –
 /// so it glides the same at block rate as it did per frame
 #[test]

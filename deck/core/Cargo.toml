@@ -11,11 +11,9 @@ license.workspace = true
 publish.workspace = true
 
 [features]
-default = ["control", "synth", "analysis", "tempo"]
+default = ["control", "analysis", "tempo"]
 # LFOs, math, smoothing – the control domain (one f32 per frame)
 control = []
-# oscillators, FM, filters – audio blocks
-synth = []
 # sound → control values (an FFT: level, bass, mid, high)
 analysis = ["dep:rustfft"]
 # the tempo map (beat = f(audio frame)), quantize grids, tap tempo, the least squares fit – deck/native's tempo clock

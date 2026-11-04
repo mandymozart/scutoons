@@ -131,8 +131,6 @@ impl Registry {
         let mut r = Registry::empty();
         #[cfg(feature = "control")]
         r.add(Box::new(crate::control::ControlModule));
-        #[cfg(feature = "synth")]
-        r.add(Box::new(crate::synth::SynthModule));
         #[cfg(feature = "analysis")]
         r.add(Box::new(crate::analysis::AnalysisModule));
         r
@@ -184,12 +182,12 @@ mod tests {
         assert_eq!(r.find("teleport").err().unwrap(), "unknown kind 'teleport'");
     }
 
-    #[cfg(all(feature = "control", feature = "synth", feature = "analysis"))]
+    #[cfg(all(feature = "control", feature = "analysis"))]
     #[test]
-    fn the_default_build_carries_three_modules() {
+    fn the_default_build_carries_two_modules() {
         let r = Registry::compiled();
-        assert_eq!(r.names(), ["control", "synth", "analysis"]);
-        assert_eq!(r.find("fm").unwrap().1.module, "synth");
+        assert_eq!(r.names(), ["control", "analysis"]);
+        assert_eq!(r.find("lfo").unwrap().1.module, "control");
         // every compiled kind is in the platform table with the same module
         for name in r.names() {
             assert!(all_kinds().any(|k| k.module == name));

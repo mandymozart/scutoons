@@ -30,8 +30,6 @@ pub mod stage;
 pub mod analysis;
 #[cfg(feature = "control")]
 pub mod control;
-#[cfg(feature = "synth")]
-pub mod synth;
 #[cfg(feature = "tempo")]
 pub mod tempo;
 
