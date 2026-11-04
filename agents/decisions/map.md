@@ -1,7 +1,10 @@
 # decisions/map — the world map and places
 
 The owner's words, one line each, newest first, append-only (how: agents/DECISIONS.md). Grep by key, read only what you need.
-Keys here: `[map]` 35 the world map and places
+Keys here: `[map]` 36 the world map and places
+
+## 2026-11
+- 2026-11-04 · map · [map] Songlines (sung routes, verses as waypoints) become a long-term map epic: concept, how they navigate, a basic implementation, the relation to SCUTOONS, a composition grant; outlines only, not started · "embed the concept of songlines … verses of songs help navigation and map out physical places" · "rough outlines but not started. its a long term epic" · → #394
 
 ## 2026-10
 - 2026-10-30 · map · [map] A place's stagings are **sets** (film language, not Unreal's game "maps"); home scenes become sets too. Chain **place → set (n per place) → assets**: uses (webtoon scene, Live cell, deck scene, being) reference a set + spot, never a file. **Every spot can carry rendered variants – still (loading / static background), rendered video, 3D** – and the Live view picks the mode; a place grows from storyboard frame to a walkable 3D set step by step, and the variants feed the generators. Decks reference sets by id via the API; the image ships only a slim fixed configuration · "set und setting finde ich passend. Können wir für home nach ziehen" · "fix ausgeliefert wird nur ein gewissen Konfiguration. Das halten wir erstmal schmal" · → #193
