@@ -1,8 +1,8 @@
 {
-	"$comment": "check:deck-deps (#363 part B): the deck logic the native platform crate still holds (BRIDGE-AUDIT.md §1, the native layer) – recorded, not moved; the move tickets move it (#392 and #374 the F4 / F5 / volume / pairing model and the raster out of main.rs and its files, #388 the exit summary, #391 the Live outlet, #376 the keys and the wheel, #366 the deck's relay side, #360 the module registry). The ratchet: main.rs may not grow (lines) or gain a function; each file below may not grow; a logic function that disappeared from main.rs is a move done – drop its line (`npm run check:deck-deps -- --shrink`). Growth needs the owner: Owner-approved-baseline in a commit message.",
+	"$comment": "check:deck-deps (#363 part B): the deck logic the native platform crate still holds (BRIDGE-AUDIT.md §1, the native layer) – recorded, not moved; the move tickets move it (#392 and #374 the F4 / F5 / volume / pairing model and the raster out of main.rs and its files, #391 the Live outlet, #376 the keys and the wheel, #366 the deck's relay side, #360 the module registry). The ratchet: main.rs may not grow (lines) or gain a function; each file below may not grow; a logic function that disappeared from main.rs is a move done – drop its line (`npm run check:deck-deps -- --shrink`). Growth needs the owner: Owner-approved-baseline in a commit message.",
 	"main": {
 		"file": "deck/native/src/main.rs",
-		"lines": 1825,
+		"lines": 1799,
 		"functions": [
 			"args",
 			"outlet_settings",
@@ -39,7 +39,6 @@
 			"summary",
 			"check_hand",
 			"space_event",
-			"push_capped",
 			"user_event",
 			"resumed",
 			"new_events",
@@ -49,8 +48,6 @@
 			"run"
 		],
 		"logic": {
-			"summary": "#364 – the exit summary's numbers (avg fps, p99 frame, cpu)",
-			"push_capped": "#364 – the stats history (5 min at 60 fps)",
 			"open_switcher": "#374 – the F5 scene switcher's model",
 			"switch": "#374 – the F5 switch decision (in place, keep the old on error)",
 			"load_switch": "#374 – the F5 switch after the black",

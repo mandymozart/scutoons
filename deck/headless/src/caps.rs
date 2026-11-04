@@ -103,7 +103,11 @@ fn stats(i: &Value) -> Value {
         w.limiter(num(i, "limiter_db", 0.0) as f32);
         m.audio(t, w);
     }
-    serde_json::to_value(m.report(t)).unwrap_or(Value::Null)
+    let mut out = serde_json::to_value(m.report(t)).unwrap_or(Value::Null);
+    // #388: what the run came to – the exit line's numbers (`summary`) and the line as native prints it (`summary_line`)
+    out["summary"] = serde_json::to_value(m.summary()).unwrap_or(Value::Null);
+    out["summary_line"] = json!(m.summary().line());
+    out
 }
 
 /// #365: deck-core's adaptive lead for a device `class`, fed a `glitches` script of [s, running total] – the lead after

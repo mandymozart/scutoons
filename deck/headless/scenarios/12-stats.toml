@@ -6,6 +6,12 @@ do = "stats"
 with = { frame_ms = 16.667, frames = 180, work_ms = 3.0, glitches_at_s = [1.0, 2.5], blocks = [[0.02, 370], [0.4, 4]], lead = 2048, rate = 48000 }
 expect = { fps = { near = 60.0, tol = 0.5 }, frame_ms = { near = 16.67, tol = 0.05 }, cpu_ms = { near = 3.0, tol = 0.01 }, glitches = 2, recent = 2, alert = "underrun", load_max = 40, lead_ms = 43, levels = { fps = "ok", cpu = "ok", audio = "bad", limit = "ok" }, alert_line = "UNDERRUN - 2 IN 10 MIN" }
 
+# #388: the run's totals (the native deck's exit line) come from the same samples: 181 frames of 16.667 ms with 3 ms of work
+[[step]]
+do = "stats"
+with = { frame_ms = 16.667, frames = 180, work_ms = 3.0 }
+expect = { summary = { frames = 181, avg_fps = { near = 60.0, tol = 0.1 }, frame_ms = { near = 16.667, tol = 0.01 }, frame_p99_ms = { near = 16.7, tol = 1.5 }, cpu_ms = { near = 3.0, tol = 0.001 }, first_frame_ms = { near = 3.0, tol = 0.001 } }, summary_line = { starts = "frames=181 avg_fps=60.0 frame_ms avg=16.67 p99=" } }
+
 # the browser's FPS bug (BRIDGE-AUDIT §2): under a 30 fps cap every other animation frame is skipped – FPS is what was drawn
 [[step]]
 do = "stats"

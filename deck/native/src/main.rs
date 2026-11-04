@@ -276,14 +276,11 @@ fn args() -> Result<Args> {
     Ok(a)
 }
 
-/// what the app measures (printed at exit; the numbers of CYBERDECKS.md §8's dogma)
+/// what the app measures: the frame count the run's controls read, and deck-core's monitor (the HUD's numbers and the exit line's)
 #[derive(Default)]
 struct Stats {
     frames: u64,
-    intervals: Vec<f32>,
-    work: Vec<f32>,
-    first_frame_ms: Option<f32>,
-    /// #364: the HUD's numbers – deck-core's monitor (fed each frame, its report refreshed with the HUD)
+    /// #364 #388: deck-core's monitor (fed each frame, its report refreshed with the HUD; `summary()` is the exit line's numbers)
     feed: audio::glitch::MonitorFeed,
 }
 
@@ -1154,7 +1151,6 @@ impl App {
         let dt = self.last.map(|l| (now - l).as_secs_f32()).unwrap_or(1.0 / 60.0).min(0.25);
         if let Some(l) = self.last {
             let ms = (now - l).as_secs_f32() * 1000.0;
-            push_capped(&mut self.stats.intervals, ms);
             self.hud.push_frame(ms);
             // #220: the governor sees every interval (a stall over 250 ms is a hitch to it) and the audio's glitches
             let wall = self.started.elapsed().as_secs_f64();
@@ -1337,10 +1333,7 @@ impl App {
         let before = (now.elapsed().as_secs_f32()) * 1000.0;
         match r.frame(&self.show.graph, &self.show.controls, time, dt, shown, splash, self.show.space.as_mut()) {
             // the frame thread's work: controls + HUD before the render, the render after the surface's vsync wait
-            Ok(ms) => {
-                push_capped(&mut self.stats.work, before + ms);
-                self.stats.feed.monitor.frame(wall_ms, before + ms, true);
-            }
+            Ok(ms) => self.stats.feed.monitor.frame(wall_ms, before + ms, true),
             Err(e) => {
                 tracing::error!("render: {e:#}");
                 el.exit();
@@ -1349,10 +1342,8 @@ impl App {
             }
         }
         self.stats.frames += 1;
-        if self.stats.first_frame_ms.is_none() {
-            let ms = self.started.elapsed().as_secs_f32() * 1000.0;
-            self.stats.first_frame_ms = Some(ms);
-            tracing::info!("first frame {ms:.0} ms after start");
+        if self.stats.frames == 1 {
+            tracing::info!("first frame {:.0} ms after start", self.started.elapsed().as_secs_f32() * 1000.0);
         }
         if self.args.frames.is_some_and(|n| self.stats.frames >= n) {
             el.exit();
@@ -1372,10 +1363,6 @@ impl App {
     }
 
     fn summary(&self) -> String {
-        let mut iv = self.stats.intervals.clone();
-        iv.sort_by(f32::total_cmp);
-        let avg = |v: &[f32]| v.iter().sum::<f32>() / v.len().max(1) as f32;
-        let p99 = iv.get(((iv.len() as f32) * 0.99) as usize).or(iv.last()).copied().unwrap_or(0.0);
         let adapter = self.renderer.as_ref().map(|r| format!("{} ({:?})", r.adapter.name, r.adapter.backend)).unwrap_or_default();
         let error = self.error.as_ref().map(|e| format!(" scene_error=\"{e}\"")).unwrap_or_default();
         // #208: the glitches by cause, the device's buffer, the render lead at the end
@@ -1394,13 +1381,8 @@ impl App {
             None => glitches,
         };
         format!(
-            "deck-native: frames={} avg_fps={:.1} frame_ms avg={:.2} p99={:.2} cpu_ms avg={:.2} first_frame_ms={:.0} adapter={adapter} quality={} audio={}{glitches} modules={}{error}",
-            self.stats.frames,
-            1000.0 / avg(&iv).max(1e-3),
-            avg(&iv),
-            p99,
-            avg(&self.stats.work),
-            self.stats.first_frame_ms.unwrap_or(0.0),
+            "deck-native: {} adapter={adapter} quality={} audio={}{glitches} modules={}{error}",
+            self.stats.feed.monitor.summary().line(),
             self.governor.as_ref().map_or("-".into(), |g| format!("{} {:.2} of {}{}", g.level().name(), g.scale(), g.ceiling().name(), if g.auto() { "" } else { " fixed" })),
             self.show.audio.as_ref().map(|a| format!("{} {} Hz ({})", a.name, a.rate, self.show.audio_build)).unwrap_or_else(|| "off".into()),
             modules::summary(),
@@ -1493,14 +1475,6 @@ impl App {
         }
         true
     }
-}
-
-/// the stats keep the newest ~5 minutes at 60 fps (a kiosk runs for days)
-fn push_capped(v: &mut Vec<f32>, x: f32) {
-    if v.len() >= 18_000 {
-        v.drain(..9_000);
-    }
-    v.push(x);
 }
 
 impl ApplicationHandler<Event> for App {
