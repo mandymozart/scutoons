@@ -25,8 +25,6 @@
 		"shared/live-core/src/messages.ts": "types: worker and page messages",
 		"shared/live-core/src/modules.ts": "logic (#343): the unused TS module host",
 		"shared/live-core/src/ring.ts": "adapter: the SharedArrayBuffer audio rings",
-		"shared/live-core/src/signals.ts": "logic (#372): the device-signal codec, a hand twin of signals.rs",
-		"shared/live-core/src/wire.ts": "logic (#372): the boundary's wire records, a hand twin of wire.rs",
 		"shared/live-core/src/worker.ts": "adapter: the Web Worker hosting live_core.wasm (the lead and the monitor's audio side are the core's)",
 		"shared/live-core/src/worklet.ts": "adapter: the AudioWorklet playing the ring",
 		"shared/live-deck/scripts/build-wasm.ts": "adapter: builds space-web for the page",
