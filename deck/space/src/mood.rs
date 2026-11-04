@@ -36,12 +36,11 @@ impl Energy {
         (0.8 * (level * 1.3).min(1.0) + 0.2 * tempo + 0.25 * touch).clamp(0.0, 1.0)
     }
 
-    /// One frame of `dt` s over `n` rungs: the energy eases toward its target (up in ~0.3 s, down in ~1.5 s); the rung
-    /// it asks for – `over` (a feeling, a fixed mood) else the energy's – shows once it has held `HOLD`, an `over` at
-    /// once. Returns the new rung when it turned.
-    pub fn step(&mut self, level: f32, bpm: f32, running: bool, touch: f32, dt: f32, n: usize, over: Option<usize>) -> Option<usize> {
+    /// One frame of `dt` s over `n` rungs: the energy eases toward `target` (`Energy::target`; up in ~0.3 s, down in
+    /// ~1.5 s); the rung it asks for – `over` (a feeling, a fixed mood) else the energy's – shows once it has held
+    /// `HOLD`, an `over` at once. Returns the new rung when it turned.
+    pub fn step(&mut self, target: f32, dt: f32, n: usize, over: Option<usize>) -> Option<usize> {
         let dt = if dt.is_finite() { dt.clamp(0.0, MAX_DT) } else { 0.0 };
-        let target = Energy::target(level, bpm, running, touch);
         // quick up, slow down: a crescendo shows at once, the calm comes back gently
         let k = if target > self.energy { dt / 0.3 } else { dt / 1.5 };
         self.energy += (target - self.energy) * k.min(1.0);
@@ -122,7 +121,7 @@ impl Ladder {
 
     /// One frame: the level (0..1), the clock's tempo, a hand on the deck (0..1), `dt` s → the mood now.
     pub fn step(&mut self, level: f32, bpm: f32, running: bool, touch: f32, dt: f32) -> &str {
-        self.walk.step(level, bpm, running, touch, dt, self.rungs.len(), None);
+        self.walk.step(Energy::target(level, bpm, running, touch), dt, self.rungs.len(), None);
         self.mood()
     }
 
@@ -183,19 +182,19 @@ mod tests {
     fn the_energy_climbs_quickly_and_holds_each_rung() {
         let mut e = Energy::default();
         for _ in 0..60 {
-            assert_eq!(e.step(0.0, 0.0, false, 0.0, 1.0 / 60.0, 5, None), None);
+            assert_eq!(e.step(Energy::target(0.0, 0.0, false, 0.0), 1.0 / 60.0, 5, None), None);
         }
         assert_eq!((e.rung, e.energy), (0, 0.0));
         for _ in 0..20 {
-            e.step(1.0, 170.0, true, 0.0, 1.0 / 60.0, 5, None);
+            e.step(Energy::target(1.0, 170.0, true, 0.0), 1.0 / 60.0, 5, None);
         }
         assert_eq!(e.rung, 0, "a third of a second is not yet a mood");
         for _ in 0..240 {
-            e.step(1.0, 170.0, true, 0.0, 1.0 / 60.0, 5, None);
+            e.step(Energy::target(1.0, 170.0, true, 0.0), 1.0 / 60.0, 5, None);
         }
         assert!(e.energy > 0.95, "{}", e.energy);
         assert_eq!(e.rung, 4);
-        assert_eq!(e.step(1.0, 170.0, true, 0.0, 1.0 / 60.0, 5, Some(1)), Some(1), "an override shows at once");
+        assert_eq!(e.step(Energy::target(1.0, 170.0, true, 0.0), 1.0 / 60.0, 5, Some(1)), Some(1), "an override shows at once");
     }
 
     #[test]
@@ -206,7 +205,7 @@ mod tests {
         assert_eq!(Energy::target(1.0, 160.0, true, 1.0), 1.0);
         assert_eq!(Energy::target(f32::NAN, f32::NAN, true, f32::NAN), 0.0);
         let mut e = Energy::default();
-        e.step(1.0, 0.0, false, 0.0, 5.0, 5, None);
+        e.step(Energy::target(1.0, 0.0, false, 0.0), 5.0, 5, None);
         assert!((e.energy - 0.8 * MAX_DT / 0.3).abs() < 1e-6, "a long frame counts as MAX_DT: {}", e.energy);
     }
 

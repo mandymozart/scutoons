@@ -976,7 +976,7 @@ impl Being {
         let level = self.fft.map_or(0.0, |n| vals.output(n, 0));
         let touch = if self.dragging { 1.0 } else { 0.0 };
         let n = self.look.moods.len();
-        if let Some(turned) = h.walk.step(level, beat.bpm as f32, beat.running, touch, dt, n, felt.or(h.fixed)) {
+        if let Some(turned) = h.walk.step(Energy::target(level, beat.bpm as f32, beat.running, touch), dt, n, felt.or(h.fixed)) {
             (h.prev, h.mood, h.fade) = (h.mood, turned, 0.0);
             self.feel.turned(h.mood);
             tracing::debug!("mood {} < {}", self.moods[h.mood], self.feel.because().unwrap_or(if h.fixed.is_some() { "stream" } else { "energy" }));

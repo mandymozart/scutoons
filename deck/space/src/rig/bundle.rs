@@ -98,21 +98,24 @@ pub struct Played {
 }
 
 impl Played {
-    fn with(scene: String, nodes: Vec<NodeDef>, links: Vec<LinkDef>, character: String, knobs: Vec<Knob>, tracks: Vec<TrackPlays>, sticks: [[String; 2]; 2], engine: super::engine::Engine) -> Played {
-        let mut streamed: Vec<(String, Stream)> = knobs.iter().map(|k| (k.path.clone(), Stream::Input([k.min, k.max]))).collect();
-        if nodes.iter().any(|n| n.id == "fft") {
+    /// the facts a page needs beside the scene: what streams (the knobs' inputs, the analyser, a rig's sum) and what the
+    /// being shows
+    fn with_facts(mut self) -> Played {
+        let mut streamed: Vec<(String, Stream)> = self.knobs.iter().map(|k| (k.path.clone(), Stream::Input([k.min, k.max]))).collect();
+        if self.nodes.iter().any(|n| n.id == "fft") {
             streamed.extend(["fft.level", "fft.bass"].map(|p| (p.to_string(), Stream::Control)));
         }
         // a rig's sum: the last of the mixers Rig::flatten chains (`mix1`, `mix2` …) – it feeds `fft`
-        if !tracks.is_empty() {
-            if let Some(sum) = links.iter().find(|l| l.to == "fft.in").and_then(|l| l.from.strip_suffix(".out")) {
-                if nodes.iter().any(|n| n.id == sum && n.kind == "mixer") {
+        if !self.tracks.is_empty() {
+            if let Some(sum) = self.links.iter().find(|l| l.to == "fft.in").and_then(|l| l.from.strip_suffix(".out")) {
+                if self.nodes.iter().any(|n| n.id == sum && n.kind == "mixer") {
                     streamed.push((format!("{sum}.out"), Stream::Audio));
                 }
             }
         }
-        let expose = knobs.iter().map(|k| k.path.clone()).collect();
-        Played { scene, nodes, links, character, knobs, tracks, sticks, engine, streamed, expose }
+        self.expose = self.knobs.iter().map(|k| k.path.clone()).collect();
+        self.streamed = streamed;
+        self
     }
 
     /// #368: where a knob's (or a preset's param's) value goes in the engine: live-core plays the scene as it is, so the
@@ -178,7 +181,8 @@ impl Played {
         let mut it = knobs.iter().map(|k| k.path.clone());
         let sticks = [[it.next().unwrap_or_default(), it.next().unwrap_or_default()], [it.next().unwrap_or_default(), it.next().unwrap_or_default()]];
         let character = scene.being_character();
-        Ok(Played::with(text.to_string(), scene.nodes, scene.links, character, knobs, Vec::new(), sticks, engine))
+        let played = Played { scene: text.to_string(), nodes: scene.nodes, links: scene.links, character, knobs, tracks: Vec::new(), sticks, engine, streamed: Vec::new(), expose: Vec::new() };
+        Ok(played.with_facts())
     }
 
     /// The deck's own scene (#360): the one the X1 boots with – the browser deck plays the same file, never a copy.
@@ -297,7 +301,8 @@ impl Bundle {
         };
         let text = toml::to_string(&doc).context("writing the flattened scene")?;
         let engine = super::engine::lower(&scene)?;
-        Ok(Played::with(text, scene.nodes, scene.links, character, knobs, tracks, sticks, engine))
+        let played = Played { scene: text, nodes: scene.nodes, links: scene.links, character, knobs, tracks, sticks, engine, streamed: Vec::new(), expose: Vec::new() };
+        Ok(played.with_facts())
     }
 
     /// `play` as JSON – the wasm boundary's form (`persona` / `mood` empty = none)
