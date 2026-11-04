@@ -16,6 +16,6 @@ archive/DECISIONS-superseded.md (quotes kept). A built feature's history may mov
 | decisions/items.md | items, avatar, homes (cave), scores, campaigns and gifts | 98 | 7.6k | campaigns cave items scores |
 | decisions/creator.md | the creator app, text boxes, the timeline | 72 | 5.9k | creator text-boxes timeline |
 | decisions/reader.md | the reader app, PWA, FX, UI and design system | 95 | 5.9k | design fx pwa reader ui |
-| decisions/map.md | the world map and places | 38 | 2.2k | map |
+| decisions/map.md | the world map and places | 41 | 2.2k | map |
 | decisions/story.md | storyboard, studio, WEBTOON, content, characters, release dates | 66 | 6.5k | characters content release story storyboard studio webtoon |
 | decisions/server.md | data, assets, media, catalog, MCP, embassy, newsletter, deploy, dev, process | 115 | 6.5k | admin assets catalog data deploy embassy git legal mcp media newsletter process |
