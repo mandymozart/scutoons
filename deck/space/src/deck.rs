@@ -6,7 +6,7 @@
 use crate::mood::Ladder;
 use crate::rig::{Bundle, Played};
 use anyhow::Result;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// the being's size on the wire (its radius, m)
 const SIZE: f64 = 0.5;
@@ -50,16 +50,24 @@ pub struct Step {
     pub error: String,
 }
 
-/// A knob as a slider shows it: its range, value, curve and label in one locale.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+/// A knob as a slider shows it: its range, value, curve and label in one locale (the page hands it on to the controls, #369).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Slider {
     pub path: String,
     pub min: f32,
     pub max: f32,
     pub value: f32,
-    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub log: bool,
+    #[serde(default)]
     pub label: String,
+}
+
+impl Slider {
+    /// its range as a parameter (params.rs: value ↔ 0..1 on its curve)
+    pub fn spec(&self) -> crate::params::Spec {
+        crate::params::Spec::knob(self.min, self.max, self.value, self.log)
+    }
 }
 
 /// The deck: its mood ladder and the mood it last showed, its own scene and the rig it plays.
@@ -182,6 +190,17 @@ impl Deck {
     /// where a value of `path` goes in the engine (None: a node the engine does not play)
     pub fn target<'a>(&self, path: &'a str) -> Option<&'a str> {
         self.played().target(path)
+    }
+
+    /// #369: where `value` sits on knob `path`'s range, 0..1 on its curve (a value the host lacks – NaN – reads as the
+    /// knob's default; a path that is no knob: 0) – the creator's signal strip, the lab's sliders
+    pub fn norm(&self, path: &str, value: f32) -> f32 {
+        self.played().knobs.iter().find(|k| k.path == path).map_or(0.0, |k| crate::controls::norm_of(&k.spec(), value))
+    }
+
+    /// #369: knob `path`'s value at `t` (0..1 on its curve; None: no such knob)
+    pub fn value_at(&self, path: &str, t: f32) -> Option<f32> {
+        self.played().knobs.iter().find(|k| k.path == path).map(|k| k.spec().value(t))
     }
 
     /// the knobs as sliders, labelled in `locale` (else English, else any, else the path)
