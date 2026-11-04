@@ -29,8 +29,6 @@ pub use deck_space::{graph, params, scene};
 
 #[cfg(feature = "chapter")]
 pub mod library;
-#[cfg(any(feature = "chapter", feature = "space"))]
-pub mod text;
 #[cfg(feature = "space")]
 pub mod space;
 #[cfg(feature = "sync")]

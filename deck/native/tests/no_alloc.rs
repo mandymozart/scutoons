@@ -327,7 +327,7 @@ fn the_quality_governor_and_the_conductors_labels_do_not_allocate() {
 #[test]
 fn the_outlet_frame_does_not_allocate() {
     let _turn = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
-    use deck_native::live::frame::{Crossfade, Frame, SpaceTarget};
+    use deck_outlet::frame::{Crossfade, Frame, SpaceTarget};
     let (_frames_tx, frames) = std::sync::mpsc::sync_channel::<Frame>(2);
     let (_space_tx, space) = std::sync::mpsc::channel::<SpaceTarget>();
     let mut fade = Crossfade::default();

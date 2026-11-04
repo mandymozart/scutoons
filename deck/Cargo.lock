@@ -1090,7 +1090,6 @@ dependencies = [
 name = "deck-native"
 version = "0.1.0"
 dependencies = [
- "ab_glyph",
  "adapters-core",
  "adapters-dmx-usbpro",
  "adapters-midi",
@@ -1104,6 +1103,7 @@ dependencies = [
  "deck-events",
  "deck-link",
  "deck-module-host",
+ "deck-outlet",
  "deck-outputs",
  "deck-space",
  "font8x8",
@@ -1133,6 +1133,17 @@ dependencies = [
  "wgpu",
  "windows-sys 0.59.0",
  "winit",
+]
+
+[[package]]
+name = "deck-outlet"
+version = "0.1.0"
+dependencies = [
+ "ab_glyph",
+ "image",
+ "protocol",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

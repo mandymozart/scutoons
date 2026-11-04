@@ -7,8 +7,8 @@
 use std::fmt::{self, Write};
 use std::sync::OnceLock;
 
-/// IBM Plex Mono Bold (SIL OFL, deck/native/assets – the reader's mono font; deck-native's text.rs sets the chapters with it)
-static MONO: &[u8] = include_bytes!("../../../native/assets/IBMPlexMono-Bold-latin.ttf");
+/// IBM Plex Mono Bold (SIL OFL, deck/outlet/assets – the reader's mono font; deck-outlet's text.rs sets the chapters with it)
+static MONO: &[u8] = include_bytes!("../../../outlet/assets/IBMPlexMono-Bold-latin.ttf");
 
 /// the labels' font, parsed once
 pub fn mono() -> &'static ab_glyph::FontRef<'static> {

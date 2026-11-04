@@ -22,7 +22,7 @@ pub const DEFAULT_FADE_MS: u32 = 600;
 /// a running chapter's cut inside a cell (ms, like the chapter node's)
 pub const SCROLL_FADE_MS: u32 = 350;
 
-/// A medium a layer names: a preloaded item by id, or a set's spot in a mode (#193 – resolved by `media::Resolve`).
+/// A medium a layer names: a preloaded item by id, or a set's spot in a mode (#193 – resolved by the adapter: deck-native's `media::Resolve`).
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum MediaRef {
     Item(String),
@@ -326,10 +326,10 @@ mod tests {
         assert_eq!(plan(&cell(r#"{"mode":"own","layers":[]}"#), "de", |_| true).fades(), (DEFAULT_FADE_MS, DEFAULT_FADE_MS));
     }
 
-    /// the runnable sermon (examples/sermon.json, LIVE-LENSES.md §5): every step plans; only the choir's video waits for S4
+    /// the runnable sermon (deck-native's examples/sermon.json, LIVE-LENSES.md §5): every step plans; only the choir's video waits for S4
     #[test]
     fn the_sermon_script_plans() {
-        let script: serde_json::Value = serde_json::from_str(include_str!("../../examples/sermon.json")).unwrap();
+        let script: serde_json::Value = serde_json::from_str(include_str!("../../native/examples/sermon.json")).unwrap();
         let mut problems = vec![];
         for step in script["cells"].as_array().unwrap() {
             let c: Cell = serde_json::from_value(step["cell"].clone()).unwrap();

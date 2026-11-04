@@ -8,7 +8,7 @@
 
 use deck_native::library::Library;
 use deck_native::live::config::Config;
-use deck_native::live::frame::{Frame, SpaceTarget};
+use deck_outlet::frame::{Frame, SpaceTarget};
 use deck_native::live::media::{Fixed, HttpFetch, LocalSets, Media};
 use deck_native::live::Live;
 use image::{Rgba, RgbaImage};

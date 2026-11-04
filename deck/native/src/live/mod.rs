@@ -2,17 +2,16 @@
 //! cells the conductor sends to this deck's outlet, natively – no browser per outlet (DECISIONS 2026-10-30).
 //!
 //! Three threads, none on the frame path:
-//! - **client** (client.rs): the relay as `output` of the outlet – cells, preloads, the show's slice in; `media.ready`
-//!   out; resume / snapshot on a reconnect.
+//! - **client** (client.rs): the relay as `output` of the outlet – cells, preloads, the show's slice in (deck-outlet's
+//!   route.rs says where each goes); `media.ready` out; resume / snapshot on a reconnect.
 //! - **preloader**: `media.preload` → fetched with the deck token into `<cache>/live/` (media.rs) → `media.ready` (the
 //!   conductor's ready light); what is missing is tried again (2, 5, 10, 20, then every 30 s).
-//! - **composer**: a cell → its plan (plan.rs: layers → stage nodes) → one plane (compose.rs) → the renderer's
-//!   `outlet` pass, which cross-fades it over its `in` (the scene's space node, whose set and spot a 3D set picks –
-//!   `SpaceTarget`). A scroll steps its slices every 6 s; surtitles follow the show's slice; new media re-compose.
+//! - **composer**: a cell → its plan (deck-outlet's plan.rs: layers → stage nodes) → one plane (deck-outlet's compose.rs,
+//!   reading through compose.rs here: the library and the preloaded media) → the renderer's `outlet` pass, which
+//!   cross-fades it over its `in` (the scene's space node, whose set and spot a 3D set picks – `SpaceTarget`). A scroll
+//!   steps its slices every 6 s; surtitles follow the show's slice; new media re-compose.
 //!
-//! The renderer's side (frame.rs: `Frame`, `Crossfade`) is built with or without the `live` module.
-pub mod frame;
-
+//! The renderer's side (deck-outlet's frame.rs: `Frame`, `Crossfade`) is built with or without the `live` module.
 #[cfg(feature = "live")]
 pub mod client;
 #[cfg(feature = "live")]
@@ -21,8 +20,6 @@ pub mod compose;
 pub mod config;
 #[cfg(feature = "live")]
 pub mod media;
-#[cfg(feature = "live")]
-pub mod plan;
 #[cfg(feature = "live")]
 pub mod socket;
 
@@ -60,28 +57,17 @@ impl Status {
     }
 }
 
-/// What the composer thread reacts to.
-#[cfg(feature = "live")]
-#[derive(Debug, Clone)]
-pub enum Input {
-    Cell(protocol::Cell),
-    /// the show's slice (`state.slice`) – surtitles follow it
-    Slice(usize),
-    /// panic black
-    Black,
-    /// the preloader has new files: a cell waiting for them is composed again
-    Media,
-}
-
 #[cfg(feature = "live")]
 mod running {
-    use super::compose::{Composed, Composer};
+    use super::compose::{self, Composer};
     use super::config::Config;
-    use super::frame::{Frame, SpaceTarget};
     use super::media::{Media, RETRY_S};
-    use super::plan::{plan, Plan};
-    use super::{client, Input, Status};
+    use super::{client, Status};
     use crate::library::Library;
+    use deck_outlet::compose::Composed;
+    use deck_outlet::frame::{Frame, SpaceTarget};
+    use deck_outlet::plan::{plan, Plan};
+    use deck_outlet::route::Input;
     use protocol::{Cell, CellMode, MediaPreload, Message};
     use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
     use std::sync::mpsc::{channel, Receiver, RecvTimeoutError, Sender, SyncSender, TrySendError};
@@ -149,7 +135,7 @@ mod running {
             let preloader = Preloader { media: media.clone(), outlet: cfg.outlet.clone(), outbox, compose: to_compose.clone(), status: status.clone(), stop: stop.clone() };
             spawn("live-preload", move || preloader.run(preload_rx));
             let composer = Worker {
-                composer: Composer::new(lib, media, size_of(&size)),
+                composer: compose::composer(lib, media, size_of(&size)),
                 locale: cfg.locale.clone(),
                 frames: frames_tx,
                 space: space_tx,
