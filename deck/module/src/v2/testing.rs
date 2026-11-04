@@ -12,7 +12,6 @@ use super::layout::{Layout, Sensor, MAX_AUDIO_PORTS, QUANTUM};
 use super::params::{self, Dirty};
 use super::rt::Runtime;
 use super::{AssetInfo, AssetSlot, Module, Var};
-use crate::abi::put_str;
 
 /// A module, its io and its host's view of both.
 pub struct Rig<M: Module> {
@@ -94,11 +93,8 @@ impl<M: Module> Rig<M> {
     }
 
     pub fn set_character(&mut self, id: &str, persona: &str, mood: &str, mood_index: u32) {
-        let h = self.hdr_mut();
-        put_str(&mut h.character_id, id);
-        put_str(&mut h.character_persona, persona);
-        put_str(&mut h.character_mood, mood);
-        h.mood_index = mood_index;
+        self.inp_mut().set_character(id, persona, mood);
+        self.hdr_mut().mood_index = mood_index;
     }
 
     pub fn set_senses(&mut self, energy: f32, touch: f32, strain: f32) {
@@ -177,11 +173,7 @@ impl<M: Module> Rig<M> {
     /// a declared sensor's status (`Status as u32`) and channels
     pub fn set_sensor(&mut self, s: Sensor, status: super::Status, values: &[f32]) {
         let slot = self.layout.sensor_slot(s).unwrap_or_else(|| panic!("the module does not declare {}", s.name()));
-        let mut inp = self.inp_mut();
-        let (word, chans) = inp.sensor(slot).expect("a declared sensor");
-        *word = status as u32;
-        let n = values.len().min(chans.len());
-        chans[..n].copy_from_slice(&values[..n]);
+        self.inp_mut().set_sensor(slot, status as u32, values);
     }
 
     /// Fill asset `slot` as the host does at instantiation: `dm_asset_buf`, the bytes, the slot's record (ready).

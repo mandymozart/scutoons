@@ -22,7 +22,6 @@ use crate::{fault_text, Backend, Export, Fault, Loaded, ModuleStats, Preset, MEM
 use anyhow::{anyhow, bail, Result};
 use deck_catalog::AssetKind as CatalogAssetKind;
 use deck_core::tempo::TempoMap;
-use deck_module::abi::put_str;
 use deck_module::v2::io::{Inp, Out};
 use deck_module::v2::layout::MAX_AUDIO_PORTS;
 use deck_module::v2::{params, AssetInfo, AssetKind, Ev, InpMut, Layout as IoLayout, Planar, Sensor, Status, ABI_VERSION, QUANTUM};
@@ -119,11 +118,7 @@ fn out_view<'a>(io: &'a IoBuf, layout: &'a IoLayout) -> Out<'a> {
 
 /// every parameter dirty (the module loads the whole table at its next call)
 fn all_dirty(io: &mut IoBuf, layout: &IoLayout, n: usize) {
-    let mut inp = inp_mut(io, layout);
-    for (wi, w) in inp.table().1.iter_mut().enumerate() {
-        let left = n.saturating_sub(wi * 32).min(32);
-        *w = if left == 32 { u32::MAX } else { (1u32 << left) - 1 };
-    }
+    params::mark_all(inp_mut(io, layout).table().1, n);
 }
 
 /// Instantiates, checks and builds one backend instance from a staged `inp` (the parameters all dirty): `dm_abi`,
@@ -371,11 +366,7 @@ impl<B: Backend> Instance<B> {
 
     /// the character the module plays for (empty = none)
     pub fn set_character(&mut self, id: &str, persona: &str, mood: &str) {
-        let mut inp = self.inp();
-        let h = inp.hdr();
-        put_str(&mut h.character_id, id);
-        put_str(&mut h.character_persona, persona);
-        put_str(&mut h.character_mood, mood);
+        self.inp().set_character(id, persona, mood);
     }
 
     /// the mood's position in the scene's `moods` registry
@@ -410,13 +401,7 @@ impl<B: Backend> Instance<B> {
     /// a declared sensor's status and channels for the next call; false when the module does not declare it
     pub fn set_sensor(&mut self, sensor: Sensor, status: Status, values: &[f32]) -> bool {
         let Some(slot) = self.layout.sensor_slot(sensor) else { return false };
-        let mut inp = self.inp();
-        let Some((word, chans)) = inp.sensor(slot) else { return false };
-        *word = status as u32;
-        let n = values.len().min(chans.len());
-        chans[..n].copy_from_slice(&values[..n]);
-        chans[n..].fill(0.0);
-        true
+        self.inp().set_sensor(slot, status as u32, values)
     }
 
     // --- parameters (§2): the host clamps, the module smooths

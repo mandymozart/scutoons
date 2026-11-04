@@ -274,6 +274,24 @@ impl<'a> InpMut<'a> {
         }
     }
 
+    /// a declared sensor's status (`Status as u32`) and channels (the rest of them zero); false for an undeclared slot
+    pub fn set_sensor(&mut self, slot: usize, status: u32, values: &[f32]) -> bool {
+        let Some((word, chans)) = self.sensor(slot) else { return false };
+        *word = status;
+        let n = values.len().min(chans.len());
+        chans[..n].copy_from_slice(&values[..n]);
+        chans[n..].fill(0.0);
+        true
+    }
+
+    /// the character the module plays for (NUL-padded, cut on a char boundary; empty = none)
+    pub fn set_character(&mut self, id: &str, persona: &str, mood: &str) {
+        let h = self.hdr();
+        crate::abi::put_str(&mut h.character_id, id);
+        crate::abi::put_str(&mut h.character_persona, persona);
+        crate::abi::put_str(&mut h.character_mood, mood);
+    }
+
     /// asset slot `slot`'s record
     pub fn asset(&mut self, slot: usize) -> Option<&mut AssetInfo> {
         if slot >= (self.layout.shape.assets as usize).min(MAX_ASSETS) {
