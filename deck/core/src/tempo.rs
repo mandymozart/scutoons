@@ -17,7 +17,7 @@ mod time;
 
 pub use clock_out::{ClockOut, Out};
 pub use controller::{Cmd, Config, Controller, Event, Host, Key, NoHost, Now, Show, Source, What};
-pub use midi_in::{ClockIn, WallLine, LOST_S, PPQN};
+pub use midi_in::{ClockIn, WallLine, CLOCK_STATUS, CONTINUE, LOST_S, POSITION, PPQN, START, STOP, TICK};
 pub use mode::{ClockMode, Flash, FLASH_AHEAD_S, FLASH_S};
 pub use shared::{BeatReader, Shared};
 pub use sync::{Anchor, Filter};
