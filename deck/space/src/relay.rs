@@ -343,6 +343,11 @@ impl Client {
         self.joined
     }
 
+    /// the socket is open (welcomed or not)
+    pub fn open(&self) -> bool {
+        self.phase == Phase::Open
+    }
+
     pub fn status(&self) -> &Status {
         &self.status
     }
