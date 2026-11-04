@@ -1,4 +1,4 @@
-//! The adapters (EVENTS.md §12): the story's events (the same cases run in TypeScript – shared/live-deck/test/fixtures/
+//! The adapters (EVENTS.md §12): the story's events (no TypeScript copy any more, #377; shared/live-deck/test/fixtures/
 //! events.json is written from here and a stale file fails), the relay's moments, raw MIDI, the big-payload guard.
 use deck_events::adapters::midi::{hz, Midi};
 use deck_events::adapters::relay::{self, RelayClock};

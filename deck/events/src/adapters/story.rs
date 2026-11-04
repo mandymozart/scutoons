@@ -2,8 +2,8 @@
 //! as JSON (shared/content visual-novel.ts) – becomes `story.<type>`, a **trigger** (`Time::Now`, no steps). The story
 //! keeps its own runner: `if` is evaluated by the caller before it asks, `wait`, choices, labels and jumps stay the
 //! runner's (`Ok(None)`), a deck gets a copy of what happens. `duration` (ms) → `dur`; numeric params → props; the rest
-//! (text, character, mood, …) → `data`. The TypeScript twin is shared/live-deck/src/events.ts (`fromStory`); the shared
-//! fixture test/fixtures/events.json keeps the two identical.
+//! (text, character, mood, …) → `data`. There is no TypeScript copy (#377): the Rust adapter is the one place of the rules;
+//! test/fixtures/events.json is its written-out answers (UPDATE_FIXTURES=1).
 use super::{fill, AdapterError};
 use crate::event::Event;
 use crate::names::Names;

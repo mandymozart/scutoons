@@ -339,10 +339,10 @@ horizons, and preload"):
 ## 17. The adapters – built (#236)
 Rust `deck/events/src/adapters/` (+ `to_json`, the shared JSON form of §14); an `Event` now has `data` / `id` / `source`;
 names allow camelCase after the domain (`story.showMessage`); `MAX_DATA` = the boundary's `PAYLOAD_LIMIT` (1 KB, one limit), a bigger `data` is refused ("send a reference").
-- **story** (`story.rs`, TS twin `shared/live-deck/src/events.ts` `fromStory`): `story.<type>`, a **trigger** (`Time::Now`);
+- **story** (`story.rs`; the TS twin `fromStory` is gone, #377): `story.<type>`, a **trigger** (`Time::Now`);
   numbers → props (keys sorted, first 6, overflow → data), the rest → `data`, `duration` ms → `dur`, `id` kept, `wait` dropped.
   The runner keeps `showChoices` · `addChoice` · `label` · `divert` · `jumpTo` · `setVariable` · `askText` (→ none); `if` is the caller's.
-  `shared/live-deck/test/fixtures/events.json` (written by `cargo test -p deck-events`, stale = fails) keeps TS = Rust.
+  `shared/live-deck/test/fixtures/events.json` (written by `cargo test -p deck-events`, stale = fails) is the Rust answers written out (no TS reader any more, #377).
 - **relay** (`relay.rs`): the moments `cue fx say line colour story react pickup panic` → `relay.<kind>` (`at` → seconds through
   `RelayClock`, no `at` = trigger; a cue's `id` + `actions` → children `relay.<verb>`); state kinds → none, they stay messages.
   New protocol kind **`story`** (Loose `{ type, params, id? }`): a story trigger for the other decks; the receiver runs `from_story` itself.
