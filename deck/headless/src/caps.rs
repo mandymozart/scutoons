@@ -39,7 +39,6 @@ pub const CAPS: &[(&str, &str, &str, &str)] = &[
     ("sync", "#371", "the conductor's scene sync: items, progress, the PUSH line", "native sync.rs push_line, live-deck sync.ts"),
     ("quality_options", "#375", "the quality page's option tables (fps caps, ratios, sizes) and labels", "native quality.rs Page, deck-quality-sheet.svelte"),
     ("gesture", "#376", "stage gestures: the pinch and the two-finger state machine", "live-deck space.ts bind, native main.rs space_event"),
-    ("transport", "#359", "transport as engine state: start / stop / continue / position, sequencers following it", "nowhere yet (the MIDI clock's Start / Stop only move the tempo map)"),
 ];
 
 /// the steps the core answers now (their move tickets landed): name, ticket

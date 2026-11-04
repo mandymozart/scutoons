@@ -8,7 +8,9 @@
 //! live event (dispatch.rs) reaches the sound after this horizon + the render's own lead.
 //!
 //! Late: a window that ends before the render's frame has its events dropped and counted (`Counters::late`) – the
-//! patch still runs it, so its state stays continuous. Full: while a host's ring has no room for a window, the
+//! patch still runs it, so its state stays continuous. The transport (#359): when its epoch moves (a start, a stop, a
+//! position), the windows of the hosts that follow it are run again from the render on, on the new map – their notes
+//! carry the epoch, the block drops the older ones (walk.rs); the hosts that don't follow keep theirs. Full: while a host's ring has no room for a window, the
 //! sequencer waits (no event is lost to it). Nothing here allocates per window (graph, resolve and rings are reserved).
 use super::dispatch::Counters;
 use super::walk::Core;
@@ -31,11 +33,15 @@ pub struct Timed {
     pub len: u32,
     pub name: Sym,
     pub props: Props,
+    /// the transport epoch the note was computed on
+    pub epoch: u64,
 }
 
 struct SeqHost {
     core: Core,
     ring: rtrb::Producer<Timed>,
+    /// the frame up to which its windows are in its ring
+    done: u64,
 }
 
 pub struct Sequencer {
@@ -45,6 +51,8 @@ pub struct Sequencer {
     own: TempoMap,
     /// the next window's first frame (None until the first fill: then the render's frame)
     cursor: Option<u64>,
+    /// the transport epoch of the last window
+    epoch: Option<u64>,
     /// the cursor, for other threads (`progress`)
     done: Arc<AtomicU64>,
     rt: Vec<RtEvent>,
@@ -53,11 +61,11 @@ pub struct Sequencer {
 
 impl Sequencer {
     pub(super) fn new(beats: BeatReader, own: TempoMap, counters: Arc<Counters>) -> Sequencer {
-        Sequencer { hosts: Vec::new(), beats, own, cursor: None, done: Arc::default(), rt: Vec::with_capacity(EDGE_CAP), counters }
+        Sequencer { hosts: Vec::new(), beats, own, cursor: None, epoch: None, done: Arc::default(), rt: Vec::with_capacity(EDGE_CAP), counters }
     }
 
     pub(super) fn add(&mut self, core: Core, ring: rtrb::Producer<Timed>) {
-        self.hosts.push(SeqHost { core, ring });
+        self.hosts.push(SeqHost { core, ring, done: 0 });
     }
 
     pub fn hosts(&self) -> usize {
@@ -76,18 +84,34 @@ impl Sequencer {
         let mut at = *self.cursor.get_or_insert(rendered);
         let mut windows = 0;
         let (mut late, mut capped) = (0, 0);
+        // after a rewind: what lies before the render was played on the old epoch already – not again
+        let mut floor = 0;
         while at < rendered + ahead && self.hosts.iter().all(|h| h.ring.slots() >= EDGE_CAP) {
-            let map = self.beats.shared.map().map_or(self.own, |(m, _)| m);
+            let (map, epoch) = self.beats.shared.transport().map_or((self.own, 0), |(m, _, e)| (m, e));
+            if self.epoch.is_some_and(|was| was != epoch) && at > rendered {
+                // the transport moved: back to the window the render is in (on the same grid), the followers again
+                let back = (at - rendered).div_ceil(BLOCK as u64) * BLOCK as u64;
+                at = at.saturating_sub(back);
+                floor = rendered;
+                for h in self.hosts.iter_mut().filter(|h| h.core.follows()) {
+                    h.done = h.done.min(at);
+                }
+            }
+            self.epoch = Some(epoch);
             let behind = at + BLOCK as u64 <= rendered;
             for h in &mut self.hosts {
-                h.core.window(&map, at as f64, BLOCK, &mut self.rt);
+                if at < h.done {
+                    continue;
+                }
+                h.done = at + BLOCK as u64;
+                h.core.window(&map, epoch, at as f64, BLOCK, &mut self.rt);
                 if behind {
                     late += self.rt.len() as u64;
                     continue;
                 }
-                for e in &self.rt {
+                for e in self.rt.iter().filter(|e| at + u64::from(e.frame) >= floor) {
                     // room checked above for EDGE_CAP (an output's cap); only a compound event's children go past it
-                    if h.ring.push(Timed { at: at + u64::from(e.frame), len: e.len, name: e.name, props: e.props }).is_err() {
+                    if h.ring.push(Timed { at: at + u64::from(e.frame), len: e.len, name: e.name, props: e.props, epoch }).is_err() {
                         capped += 1;
                     }
                 }
@@ -136,6 +160,43 @@ mod tests {
         assert_eq!(s.fill(BLOCK as u64), 17);
         assert!(h.events.counters.late.load(Ordering::Relaxed) > 0, "the passed windows' notes are counted late");
         assert_eq!(s.progress().load(Ordering::Relaxed), 4096 + BLOCK as u64);
+    }
+
+    /// #359: a stop reaches the notes the sequencer computed ahead (they are dropped, the gate closes on the stop's frame)
+    /// and a continue plays on from where it stood – on the thread exactly as in the block
+    #[test]
+    fn a_stop_silences_what_was_computed_ahead_and_a_continue_plays_on() {
+        // a note every beat (120 BPM: 0.5 s), 0.9 of it long; a voice that releases in a few ms
+        let scene = WALK.replace("rate=48.0", "rate=1.0").replace("kind=\"fm\"\n", "kind=\"fm\"\nrelease=0.002\n");
+        let g = Graph::build(&Scene::parse(&scene).unwrap()).unwrap();
+        let play = |mode: Sequencing| {
+            let (mut e, mut h) = Engine::build_seq(&g, 48_000.0, 1.0, Build::detect(), mode).unwrap();
+            let mut s = h.events.take_sequencer();
+            let (mut all, mut buf) = (Vec::new(), vec![0.0f32; BLOCK * 2]);
+            let (stop, go) = (28_800, 72_000); // 0.6 s (beat 1.2, inside the second note) · 1.5 s
+            while all.len() < 120_000 {
+                if let Some(s) = s.as_mut() {
+                    s.fill(4096); // well ahead: the second note's whole length is in the ring before the stop
+                }
+                let at = h.clock.rendered();
+                if at >= stop && at < stop + BLOCK as u64 || at >= go && at < go + BLOCK as u64 {
+                    let (m, c) = h.tempo.map().unwrap();
+                    h.tempo.publish(&m.with_running(at as f64, at >= go), c);
+                }
+                e.render(&mut buf, 2, |x| x);
+                all.extend(buf.chunks_exact(2).map(|f| f[0]));
+            }
+            (all, h.events.counters.dropped())
+        };
+        let (thread, lost) = play(Sequencing::Thread);
+        let (block, _) = play(Sequencing::InBlock);
+        assert_eq!(lost, 0, "nothing late or capped");
+        let peak = |v: &[f32]| v.iter().fold(0.0f32, |m, x| m.max(x.abs()));
+        assert!(peak(&thread[24_000..28_000]) > 0.01, "the second note sounds");
+        assert!(peak(&thread[31_000..72_000]) < 1e-4, "stopped: silent at once, not after the note's 0.95 s");
+        // standing at beat 1.2 → the next step at beat 2, 0.4 s after the continue
+        assert!(peak(&thread[72_000..90_000]) < 1e-4 && peak(&thread[92_000..110_000]) > 0.01, "continued on the beat where it stood");
+        assert!(thread == block, "the thread plays what the block plays");
     }
 
     #[test]

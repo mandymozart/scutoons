@@ -6,7 +6,7 @@
 use super::click::Click;
 use super::{Block, Buf, Handles, MusicFeed, Param, Seams, Track};
 use anyhow::{bail, Result};
-use deck_core::tempo::BeatReader;
+use deck_core::tempo::{BeatReader, Follow};
 use deck_space::graph::{Kind, Node};
 use deck_core::dsp::{self, Pink, Svf, Wave, WaveTable, White};
 use deck_core::math::{round_fast, sin_turns};
@@ -65,13 +65,13 @@ pub fn make(node: &Node, index: usize, rate: f32, params: &[Param], h: &mut Hand
         Kind::Seq => {
             // a `bpm` of its own: free-running; else on the tempo clock's beat
             let beats = (!node.params.contains_key("bpm")).then(|| beats(h));
-            Box::new(Seq::new(node, rate, p("rate"), beats))
+            Box::new(Seq::new(node, rate, p("rate"), beats, follows(node)))
         }
-        Kind::Click => Box::new(Click::new(node, rate, p("gain"), beats(h))),
+        Kind::Click => Box::new(Click::new(node, rate, p("gain"), beats(h), follows(node))),
         #[cfg(feature = "events")]
-        Kind::Walk => Box::new(super::walk::Host::walk(node, rate, [p("spread"), p("rate"), p("glide")], beats(h), &mut h.events)?),
+        Kind::Walk => Box::new(super::walk::Host::walk(node, rate, [p("spread"), p("rate"), p("glide")], beats(h), follows(node), &mut h.events)?),
         #[cfg(feature = "events")]
-        Kind::Events => Box::new(super::walk::Host::events(node, rate, [p("a"), p("b"), p("c"), p("d")], beats(h), &mut h.events)?),
+        Kind::Events => Box::new(super::walk::Host::events(node, rate, [p("a"), p("b"), p("c"), p("d")], beats(h), follows(node), &mut h.events)?),
         Kind::ChapterMusic => {
             let (tx, rx) = rtrb::RingBuffer::new(2);
             let (trash_tx, trash_rx) = rtrb::RingBuffer::new(2);
@@ -102,6 +102,11 @@ pub fn make(node: &Node, index: usize, rate: f32, params: &[Param], h: &mut Hand
         }
         k => bail!("{k:?} is not an audio kind"),
     })
+}
+
+/// #359: the node follows the transport – its `follow_transport` param, else its kind's (the catalog's descriptor)
+pub(super) fn follows(node: &Node) -> Follow {
+    Follow::new(node.bool("follow_transport", node.kind.descriptor().is_some_and(|d| d.follow_transport)))
 }
 
 fn beats(h: &Handles) -> BeatReader {
@@ -315,10 +320,11 @@ struct Seq {
     rate: Param,
     division: f64,
     beats: Option<BeatReader>,
+    follow: Follow,
 }
 
 impl Seq {
-    fn new(node: &Node, sr: f32, rate: Param, beats: Option<BeatReader>) -> Seq {
+    fn new(node: &Node, sr: f32, rate: Param, beats: Option<BeatReader>, follow: Follow) -> Seq {
         let transpose = node.f32("transpose", 0.0);
         let mut hz: Vec<f32> = node
             .f32s("steps")
@@ -331,15 +337,18 @@ impl Seq {
         let held = hz.iter().copied().find(|&f| f > 0.0).unwrap_or(220.0);
         let steps_per_sec = node.f32("bpm", 120.0) / 60.0 * node.f32("division", 4.0);
         let division = node.f32("division", 4.0) as f64;
-        Seq { hz, step: 0, phase: 0.0, held, per_sample: steps_per_sec / sr, gate: node.f32("gate", 0.5), rate, division, beats }
+        Seq { hz, step: 0, phase: 0.0, held, per_sample: steps_per_sec / sr, gate: node.f32("gate", 0.5), rate, division, beats, follow }
     }
 
-    /// on the clock: the step and its phase from the beat of each frame
+    /// on the clock: the step and its phase from the beat of each frame; following the transport (#359), a stop holds
+    /// the step and closes the gate on its frame, a start or continue plays on from the transport's beat
     fn synced(&mut self, outs: &mut [Buf], n: usize) -> bool {
-        let Some((map, _, start)) = self.beats.as_ref().and_then(|b| b.block()) else { return false };
+        let Some((map, epoch, start)) = self.beats.as_ref().and_then(|b| b.transport()) else { return false };
+        let played = self.follow.block(map, epoch, start, n);
         let per_beat = self.division * self.rate.get().max(0.0) as f64;
         let len = self.hz.len() as f64;
         for i in 0..n {
+            let map = played.at(i);
             let s = map.beat_at(start + i as f64) * per_beat;
             let f = self.hz[s.floor().rem_euclid(len) as usize];
             if f > 0.0 {
@@ -498,6 +507,7 @@ mod tests {
             100.0,
             Param::new(1.0),
             None,
+            Follow::new(true),
         );
         let mut out = [Buf::default()];
         s.process(&[], &mut out, 300);
@@ -526,7 +536,7 @@ steps=[69, 81]
         let frames = Arc::new(AtomicU64::new(0));
         // 60 BPM at 100 Hz: a beat = 100 frames, a step (division 2) = 50
         shared.publish(&TempoMap::new(60.0, 4, 100.0), false);
-        let mut s = Seq::new(node, 100.0, Param::new(1.0), Some(BeatReader { shared: shared.clone(), frames: frames.clone() }));
+        let mut s = Seq::new(node, 100.0, Param::new(1.0), Some(BeatReader { shared: shared.clone(), frames: frames.clone() }), Follow::new(true));
         let mut out = [Buf::default()];
         s.process(&[], &mut out, 200);
         assert_eq!((out[0].ch(0)[0], out[0].ch(1)[0]), (440.0, 1.0), "step 0 on beat 0");
@@ -544,6 +554,79 @@ steps=[69, 81]
         shared.publish(&TempoMap::new(60.0, 4, 100.0).with_bpm(200.0, 120.0).with_running(300.0, false), false);
         s.process(&[], &mut out, 100);
         assert!(out[0].ch(1)[..100].iter().all(|g| *g == 0.0));
+        // #359: running again where it stood (beat 4): step 0 on the beat, the gate open – a continue
+        frames.store(400, Ordering::Relaxed);
+        let stopped = TempoMap::new(60.0, 4, 100.0).with_bpm(200.0, 120.0).with_running(300.0, false);
+        shared.publish(&stopped.with_running(400.0, true), false);
+        s.process(&[], &mut out, 100);
+        assert_eq!((out[0].ch(0)[0], out[0].ch(1)[0]), (440.0, 1.0), "continue: beat 4 is step 0");
+    }
+
+    #[test]
+    fn a_stop_inside_a_block_closes_the_gate_on_its_frame() {
+        use deck_core::tempo::{Shared, TempoMap};
+        use std::sync::atomic::{AtomicU64, Ordering};
+        let graph = Graph::build(&Scene::parse("[[node]]\nid=\"s\"\nkind=\"seq\"\ndivision=1\ngate=1.0\nsteps=[69]\n").unwrap()).unwrap();
+        let shared = Arc::new(Shared::default());
+        let frames = Arc::new(AtomicU64::new(0));
+        let run = TempoMap::new(60.0, 4, 100.0);
+        shared.publish(&run, false);
+        let mut s = Seq::new(&graph.nodes[0], 100.0, Param::new(1.0), Some(BeatReader { shared: shared.clone(), frames: frames.clone() }), Follow::new(true));
+        let mut out = [Buf::default()];
+        s.process(&[], &mut out, 100);
+        // the frame thread published ahead: stopped from frame 150, the block renders 100..200
+        frames.store(100, Ordering::Relaxed);
+        shared.publish(&run.with_running(150.0, false), false);
+        s.process(&[], &mut out, 100);
+        assert!(out[0].ch(1)[..50].iter().all(|g| *g == 1.0) && out[0].ch(1)[50..100].iter().all(|g| *g == 0.0));
+    }
+
+    #[test]
+    fn the_click_ticks_the_downbeat_a_start_lands_on() {
+        let scene = "[[node]]\nid=\"t\"\nkind=\"tempo\"\nbpm=120\nclick=true\n[[node]]\nid=\"c\"\nkind=\"click\"\n\
+                     [[node]]\nid=\"out\"\nkind=\"audio_out\"\nvolume=1\n[[link]]\nfrom=\"c\"\nto=\"out.in\"\n";
+        let (mut e, h) = build(scene);
+        let mut buf = vec![0.0f32; 480 * 2];
+        let mut render = |e: &mut Engine, blocks: usize| (0..blocks).map(|_| { e.render(&mut buf, 2, |x| x); buf.iter().fold(0.0f32, |m, x| m.max(x.abs())) }).fold(0.0f32, f32::max);
+        render(&mut e, 60); // 0.6 s: beat 1.2
+        let (m, c) = h.tempo.map().unwrap();
+        h.tempo.publish(&m.with_running(28_800.0, false), c);
+        render(&mut e, 40); // the tail of beat 1's tick (its decay, the limiter's look-ahead)
+        assert_eq!(render(&mut e, 100), 0.0, "stopped: no tick");
+        // back to bar 1 and running, from the frame the next block starts on: beat 0 ticks there
+        let at = h.clock.rendered() as f64;
+        let (m, c) = h.tempo.map().unwrap();
+        h.tempo.publish(&m.with_beat(at, 0.0).with_running(at, true), c);
+        assert!(render(&mut e, 2) > 0.1, "the downbeat it starts on");
+    }
+
+    #[test]
+    fn a_sequencer_that_does_not_follow_the_transport_plays_through_a_stop() {
+        use deck_core::tempo::{Shared, TempoMap};
+        use std::sync::atomic::{AtomicU64, Ordering};
+        let scene = "[[node]]
+id=\"s\"
+kind=\"seq\"
+division=2
+steps=[69, 81]
+follow_transport=false
+";
+        let graph = Graph::build(&Scene::parse(scene).unwrap()).unwrap();
+        let shared = Arc::new(Shared::default());
+        let frames = Arc::new(AtomicU64::new(0));
+        let run = TempoMap::new(60.0, 4, 100.0);
+        shared.publish(&run, false);
+        let beats = || Some(BeatReader { shared: shared.clone(), frames: frames.clone() });
+        let (mut free, mut tied) = (Seq::new(&graph.nodes[0], 100.0, Param::new(1.0), beats(), follows(&graph.nodes[0])), Seq::new(&graph.nodes[0], 100.0, Param::new(1.0), beats(), Follow::new(true)));
+        let mut out = [Buf::default()];
+        free.process(&[], &mut out, 100);
+        tied.process(&[], &mut out, 100);
+        frames.store(100, Ordering::Relaxed);
+        shared.publish(&run.with_running(100.0, false), false);
+        tied.process(&[], &mut out, 100);
+        assert!(out[0].ch(1)[..100].iter().all(|g| *g == 0.0), "following: silent");
+        free.process(&[], &mut out, 100);
+        assert_eq!((out[0].ch(1)[0], out[0].ch(0)[50], out[0].ch(1)[50]), (1.0, 880.0, 1.0), "free: beat 1 and its second step sound");
     }
 
     #[test]

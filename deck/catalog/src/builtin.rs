@@ -103,9 +103,10 @@ const F_SCENE: u8 = 1;
 const F_BATCH: u8 = 2;
 const F_INTERNAL: u8 = 4;
 const F_PLANNED: u8 = 8;
+const F_TRANSPORT: u8 = 16;
 
 /// a kind; `flags`: `F_SCENE` (a scene owns it once, never inside an instrument), `F_BATCH` (the batch evaluator runs
-/// it), `F_INTERNAL` / `F_PLANNED` (its scope; none = a `graph` kind)
+/// it), `F_INTERNAL` / `F_PLANNED` (its scope; none = a `graph` kind), `F_TRANSPORT` (it follows the transport, #359)
 #[allow(clippy::too_many_arguments)]
 fn kind(
     flags: u8,
@@ -133,6 +134,7 @@ fn kind(
         },
         scene_only: flags & F_SCENE != 0,
         batch: flags & F_BATCH != 0,
+        follow_transport: flags & F_TRANSPORT != 0,
         needs: Cow::Borrowed(&[]),
         abi: None,
         ports: Cow::Owned(ports.to_vec()),
@@ -278,7 +280,7 @@ fn build() -> Vec<Descriptor> {
         &[],
     ),
     kind(
-        0,
+        F_TRANSPORT,
         "click",
         Audio,
         "core",
@@ -338,7 +340,7 @@ fn build() -> Vec<Descriptor> {
         ],
     ),
     kind(
-        0,
+        F_TRANSPORT,
         "seq",
         Audio,
         "core",
@@ -348,7 +350,7 @@ fn build() -> Vec<Descriptor> {
         &[log("rate", 0.25, 4.0, 1.0, "ratio", "speed multiplier")],
     ),
     kind(
-        0,
+        F_TRANSPORT,
         "walk",
         Audio,
         "events",
@@ -358,7 +360,7 @@ fn build() -> Vec<Descriptor> {
         &[lin("spread", 0.0, 1.0, 0.0, "", "0 = the base held, 1 = ± `octaves`"), log("rate", 0.25, 8.0, 2.0, "ratio", "steps a beat"), lin("glide", 0.0, 1.0, 0.5, "", "glide into each step, rides along for the voice")],
     ),
     kind(
-        0,
+        F_TRANSPORT,
         "events",
         Audio,
         "events",

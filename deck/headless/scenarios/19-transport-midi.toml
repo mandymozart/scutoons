@@ -1,0 +1,99 @@
+name = "transport: MIDI Start / Stop / song position / Continue drive the sequencer"
+about = "#359: a device's clock (the A4 in the hardware test) is the transport: Stop silences the walk, a song position moves where it stands, Continue resumes there, Start begins on bar 1 again"
+
+[[step]]
+do = "load"
+toml = '''
+[[node]]
+id = "tempo"
+kind = "tempo"
+bpm = 120
+beats = 4
+
+[[node]]
+id = "w"
+kind = "walk"
+spread = 1.0
+rate = 1.0
+
+[[node]]
+id = "v"
+kind = "fm"
+release = 0.002
+
+[[node]]
+id = "out"
+kind = "audio_out"
+
+[[link]]
+from = "w.cv"
+to = "v.cv"
+
+[[link]]
+from = "v"
+to = "out.in"
+'''
+
+[[step]]
+do = "choose"
+source = "midi"
+
+[[step]]
+do = "midi_in"
+bpm = 120.0
+
+[[step]]
+do = "run"
+ms = 2000
+expect = { running = true, sound = true, bpm = { near = 120.0, tol = 0.5 } }
+
+[[step]]
+do = "midi_in"
+
+[[step]]
+do = "midi"
+bytes = [252]
+
+[[step]]
+do = "run"
+ms = 100
+expect = { running = false }
+
+[[step]]
+do = "run"
+ms = 1000
+expect = { running = false, sound = false }
+
+# song position 16 sixteenths = beat 4, then Continue and the ticks again (no Start)
+[[step]]
+do = "midi"
+bytes = [242, 16, 0]
+
+[[step]]
+do = "run"
+ms = 100
+expect = { running = false, beat = { near = 4.0, tol = 0.05 } }
+
+[[step]]
+do = "midi"
+bytes = [251]
+
+[[step]]
+do = "midi_in"
+bpm = 120.0
+start = false
+
+[[step]]
+do = "run"
+ms = 1000
+expect = { running = true, sound = true, beat = { near = 6.0, tol = 0.3 } }
+
+# Start: bar 1 again
+[[step]]
+do = "midi_in"
+bpm = 120.0
+
+[[step]]
+do = "run"
+ms = 1000
+expect = { running = true, sound = true, beat = { near = 2.0, tol = 0.3 } }

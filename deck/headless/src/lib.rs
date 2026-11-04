@@ -14,14 +14,14 @@
 //! |---|---|---|
 //! | `load` | `scene` (a deck/ path; `lower`: the browser's split, default on), `toml` (a small scene as it is) or `rig` (`character.catpope`) + `mood` | nodes, page (ids the engine does not carry), channels |
 //! | `warm` | as `load`, `quanta` | – |
-//! | `run` | `ms`; `mark` (keep the audio hash) | audio (hash), peak, frames, the clock state, line, clock_out, anchors, pings, signals |
+//! | `run` | `ms`; `mark` (keep the audio hash) | audio (hash), peak, frames, the clock state (+ the transport's `epoch`), line, clock_out, anchors, pings, signals |
 //! | `send` | `path`, `value`, `mode` (force / blend / base), `amount` | applied |
 //! | `heard` | `path` | value (the analysis frame's) |
 //! | `choose` | `source`, `lead` | the clock state |
 //! | `mode` | `mode` (show, own, lead, midi – the page's picker, #370; the next `run` shows it) | – |
 //! | `tempo_line` | – | line (the tempo line), status (the source's), hud (the panel's: both), the clock state (mode, out, flash …) |
 //! | `key` | `key` (tap, faster, slower, startstop, click) | – |
-//! | `clock_out` · `joined` · `midi_in` · `midi` · `leader` · `anchor` | the page's and the devices' input | – |
+//! | `clock_out` · `joined` · `midi_in` (`bpm`, `start`) · `midi` · `leader` · `anchor` | the page's and the devices' input | – |
 //! | `quality` / `frames` | `level`, `auto` / `ms`, `secs`, `glitches` | level, ceiling, scale, auto, changes |
 //! | `reset` | – | a fresh host (the clock too) |
 //! | `carried_part` | `with` = { `scene`, `modules` } | kept (nodes), dropped (ids) – deck-core's filter (#360) |
@@ -317,7 +317,7 @@ impl Run<'_> {
                 json!({})
             }
             "midi_in" => {
-                d.midi_in(step.get("bpm").map(|_| num("bpm", 120.0)));
+                d.midi_in(step.get("bpm").map(|_| num("bpm", 120.0)), flag("start", true));
                 json!({})
             }
             "midi" => {

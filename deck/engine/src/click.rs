@@ -1,10 +1,10 @@
 //! The click (#181, the owner's "ein richtiger Klick"): a short sine tick on every beat of the tempo map, higher on
 //! the bar's first beat, sample-accurate – the tick starts on the frame where the beat begins. Sounds only while the
-//! clock runs and the click is on (the tempo node's `click`, the K key). Params: `freq` (1000 Hz), `accent` (1500 Hz),
-//! `decay` (0.03 s); the `gain` input.
+//! clock runs and the click is on (the tempo node's `click`, the K key); it follows the transport (#359): a start or
+//! continue on a beat ticks that beat. Params: `freq` (1000 Hz), `accent` (1500 Hz), `decay` (0.03 s); the `gain` input.
 use super::{Block, Buf, Param};
 use deck_space::graph::Node;
-use deck_core::tempo::BeatReader;
+use deck_core::tempo::{BeatReader, Edge, Follow};
 
 pub struct Click {
     beats: BeatReader,
@@ -18,10 +18,11 @@ pub struct Click {
     inc: f32,
     /// the last beat that ticked (or that was passed while silent); None before the first block
     last: Option<i64>,
+    follow: Follow,
 }
 
 impl Click {
-    pub fn new(node: &Node, rate: f32, gain: Param, beats: BeatReader) -> Click {
+    pub fn new(node: &Node, rate: f32, gain: Param, beats: BeatReader, follow: Follow) -> Click {
         let decay = libm::expf(-1.0 / (node.f32("decay", 0.03).max(1e-3) * rate));
         Click {
             beats,
@@ -34,6 +35,7 @@ impl Click {
             phase: 0.0,
             inc: 0.0,
             last: None,
+            follow,
         }
     }
 }
@@ -41,12 +43,18 @@ impl Click {
 impl Block for Click {
     fn process(&mut self, _: &[Option<&Buf>], outs: &mut [Buf], n: usize) {
         let out = &mut outs[0];
-        let Some((map, on, start)) = self.beats.block() else {
+        let Some((map, on, epoch)) = self.beats.shared.transport() else {
             out.clear(n);
             return;
         };
+        let start = self.beats.frames.load(std::sync::atomic::Ordering::Relaxed) as f64;
+        let played = self.follow.block(map, epoch, start, n);
         let gain = self.gain.get();
         for i in 0..n {
+            if i == played.split && matches!(played.edge, Some(Edge::Start | Edge::Continue)) {
+                self.last = None; // running again: the beat it starts on ticks, like the first frame ever
+            }
+            let map = played.at(i);
             let b = map.beat_at(start + i as f64);
             let k = b.floor() as i64;
             // the first frame ever: a beat that starts right here ticks

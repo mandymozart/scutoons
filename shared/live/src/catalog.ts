@@ -30,6 +30,8 @@ export type Descriptor = {
 	domain?: Domain;
 	/** the stage's cargo feature that carries the kind (`core` = always); empty = none */
 	feature?: string;
+	/** the kind follows the transport by default (#359: stops, holds, resumes with it); a node's `follow_transport` overrides it */
+	follow_transport?: boolean;
 	/** deck-core's module for the kind (control · synth · analysis · stage · 3d …); empty = none */
 	module?: string;
 	name: string;

@@ -5,7 +5,8 @@
 //! quantize grids, the least squares fit (MIDI clock in, tap) and tap tempo. Platform-free: the tempo controller (`Controller`:
 //! sources, keys, tap, the followers of MIDI clock in / Link / OSC), the seqlock `Shared` / `BeatReader` and the time
 //! types are in here too (#308); deck/native only opens the sources' ports and feeds events in. The show clock over the
-//! relay – the offset filter, the anchor, when to ping and when a leader sends – is `sync` (#321).
+//! relay – the offset filter, the anchor, when to ping and when a leader sends – is `sync` (#321). The transport as
+//! a node plays it – the epoch, the edges, who follows – is `transport` (#359).
 
 mod clock_out;
 mod controller;
@@ -14,8 +15,10 @@ mod mode;
 mod shared;
 pub mod sync;
 mod time;
+mod transport;
 
 pub use clock_out::{ClockOut, Out};
+pub use transport::{Edge, Follow, Played, JUMP_BEATS};
 pub use controller::{Cmd, Config, Controller, Event, Host, Key, NoHost, Now, Show, Source, What};
 pub use midi_in::{ClockIn, WallLine, CLOCK_STATUS, CONTINUE, LOST_S, POSITION, PPQN, START, STOP, TICK};
 pub use mode::{ClockMode, Flash, FLASH_AHEAD_S, FLASH_S};
