@@ -2,7 +2,7 @@
 //! graph, the batches, every audio kind, the control domain – is the universal core's crate; what stays here is what only
 //! a native deck has:
 //! - `backend` – the device (PipeWire, cpal, ASIO, or a timer thread without a device) and its callback
-//! - `ring` / `lead` – the render thread, the lock-free ring to the callback and the adaptive lead
+//! - `ring` – the render thread, the lock-free ring to the callback and the adaptive lead (deck-core's `lead`)
 //! - `glitch` – the glitch indicator that measures every callback (#208)
 //! - `priority` – the audio threads' scheduling class
 //! - `sequencer` / `dispatch` – the threads the engine's event windows and routing run on (feature `events`)
@@ -14,7 +14,6 @@ pub mod backend;
 #[cfg(feature = "events")]
 pub mod dispatch;
 pub mod glitch;
-pub mod lead;
 #[cfg(feature = "modules")]
 pub mod modules;
 pub mod priority;

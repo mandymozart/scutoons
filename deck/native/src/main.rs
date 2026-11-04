@@ -43,7 +43,6 @@ const EXIT_BROWSER: i32 = 10;
 const SPLASH_MAX_S: f32 = 30.0;
 /// #208: the audio glitch warning – its HUD text's start and how long it flashes after a glitch (s)
 const ALERT: &str = "AUDIO!";
-const ALERT_S: f32 = 5.0;
 
 /// what other threads tell the event loop
 #[derive(Debug)]
@@ -284,20 +283,8 @@ struct Stats {
     intervals: Vec<f32>,
     work: Vec<f32>,
     first_frame_ms: Option<f32>,
-    window: (u32, f32),
-    fps: f32,
-    /// the limiter's gain reduction the HUD shows (dB, held a moment)
-    limit: f32,
-    /// #208: the audio glitches over the last 10 minutes (counted once a second), the peak callback load of that
-    /// second, the count last seen and until when (wall s) the warning flashes, and its text
-    glitches: Option<hud::PerMinute>,
-    glitch_rate: u64,
-    glitch_at: f32,
-    dsp: f32,
-    glitch_seen: u64,
-    alert_until: f32,
-    /// the newest glitch's cause, upper case
-    alert: String,
+    /// #364: the HUD's numbers – deck-core's monitor (fed each frame, its report refreshed with the HUD)
+    feed: audio::glitch::MonitorFeed,
 }
 
 /// A loaded scene and everything that plays it: the graph, the audio engine on its device, the control domain, the
@@ -1195,6 +1182,7 @@ impl App {
         }
         self.watch_quality();
         let now = Instant::now();
+        let wall_ms = self.started.elapsed().as_secs_f64() * 1000.0;
         let dt = self.last.map(|l| (now - l).as_secs_f32()).unwrap_or(1.0 / 60.0).min(0.25);
         if let Some(l) = self.last {
             let ms = (now - l).as_secs_f32() * 1000.0;
@@ -1202,7 +1190,7 @@ impl App {
             self.hud.push_frame(ms);
             // #220: the governor sees every interval (a stall over 250 ms is a hitch to it) and the audio's glitches
             let wall = self.started.elapsed().as_secs_f64();
-            if self.governor.as_mut().is_some_and(|g| g.frame(wall, ms, self.stats.glitch_seen)) {
+            if self.governor.as_mut().is_some_and(|g| g.frame(wall, ms, self.stats.feed.seen)) {
                 self.apply_quality();
             }
         }
@@ -1242,8 +1230,14 @@ impl App {
         // #188: the limiter's gain reduction since the last frame (the HUD holds it a moment; the being's red face); #208:
         // the audio glitches (logged, counted, the warning)
         let reduction = self.show.reduction.as_ref().map_or(0.0, |r| f32::from_bits(r.swap(0, std::sync::atomic::Ordering::Relaxed)));
-        self.stats.limit = reduction.max(self.stats.limit - dt * 6.0);
-        self.watch_glitches();
+        // #208: each glitch logged (its numbers from the callback's ring); #364: the monitor fed
+        if let Some(log) = self.show.glitch_log.as_mut() {
+            while let Ok(e) = log.pop() {
+                tracing::warn!("{} (at {:.3} s)", e.describe(), e.at_ns.saturating_sub(self.t0_ns) as f64 / 1e9);
+            }
+        }
+        let fps = self.governor.as_ref().map_or(0.0, |g| g.rung().fps as f32);
+        self.stats.feed.feed(wall_ms, self.show.glitches.as_deref(), reduction, self.show.clock.as_ref().map_or(48_000.0, |c| c.rate), fps);
         #[cfg(feature = "space")]
         if let Some(s) = self.show.space.as_mut() {
             let meters = self.show.meters.as_deref();
@@ -1269,12 +1263,6 @@ impl App {
                 }
             }
         }
-        self.stats.window.0 += 1;
-        self.stats.window.1 += dt;
-        if self.stats.window.1 >= 1.0 {
-            self.stats.fps = self.stats.window.0 as f32 / self.stats.window.1;
-            self.stats.window = (0, 0.0);
-        }
         // a scene that can't be played is explained even without the HUD
         if let Some(l) = self.volume.poll() {
             self.vol_overlay.show(time, l);
@@ -1296,6 +1284,7 @@ impl App {
         let hud_on = self.args.hud || self.error.is_some() || self.page.open || self.switcher.open || vol.is_some();
         if hud_on && time - self.hud_at >= 0.25 || self.stats.frames == 0 || self.hud_at < 0.0 {
             self.hud_at = time;
+            self.stats.feed.report = self.stats.feed.monitor.report(wall_ms);
             // #220: the settings page instead of the HUD's lines, its cursor's line lit
             let (lines, cursor) = if self.switcher.open {
                 let (l, c) = self.switcher.lines(self.current_scene());
@@ -1321,7 +1310,7 @@ impl App {
             let mut items = self.bar_items();
             if let Some(v) = &vol {
                 lines.insert(0, v.clone());
-                items.insert(0, hud::Item { text: v.clone(), bad: false });
+                items.insert(0, hud::Item { text: v.clone(), level: hud::Level::Ok });
             }
             self.hud.set_lines(lines);
             self.hud.set_items(items);
@@ -1379,7 +1368,10 @@ impl App {
         let before = (now.elapsed().as_secs_f32()) * 1000.0;
         match r.frame(&self.show.graph, &self.show.controls, time, dt, shown, splash, self.show.space.as_mut()) {
             // the frame thread's work: controls + HUD before the render, the render after the surface's vsync wait
-            Ok(ms) => push_capped(&mut self.stats.work, before + ms),
+            Ok(ms) => {
+                push_capped(&mut self.stats.work, before + ms);
+                self.stats.feed.monitor.frame(wall_ms, before + ms, true);
+            }
             Err(e) => {
                 tracing::error!("render: {e:#}");
                 el.exit();
@@ -1402,29 +1394,6 @@ impl App {
         }
     }
 
-    /// #208: the audio glitches – each one logged (its numbers from the monitor's ring), the warning armed for
-    /// ALERT_S, once a second the count over 10 minutes and the peak callback load
-    fn watch_glitches(&mut self) {
-        let Some(g) = self.show.glitches.clone() else { return };
-        let wall = self.started.elapsed().as_secs_f32();
-        if let Some(log) = self.show.glitch_log.as_mut() {
-            while let Ok(e) = log.pop() {
-                tracing::warn!("{} (at {:.3} s)", e.describe(), e.at_ns.saturating_sub(self.t0_ns) as f64 / 1e9);
-            }
-        }
-        let n = g.count();
-        if n != self.stats.glitch_seen {
-            self.stats.glitch_seen = n;
-            self.stats.alert_until = wall + ALERT_S;
-            self.stats.alert = g.last().map_or("glitch", |(c, _)| c.name()).to_uppercase();
-        }
-        if wall - self.stats.glitch_at >= 1.0 || self.stats.glitches.is_none() {
-            self.stats.glitch_at = wall;
-            self.stats.dsp = g.take_load();
-            self.stats.glitch_rate = self.stats.glitches.get_or_insert_with(|| hud::PerMinute::over(600.0)).push(wall, n);
-        }
-    }
-
     /// #236: events dropped on the way since the scene started (a scene with hosts)
     fn events_dropped(&self) -> Option<u64> {
         #[cfg(feature = "events")]
@@ -1433,27 +1402,15 @@ impl App {
         None
     }
 
-    /// #209: the collapsed bar's items – FPS, the frame's CPU, the audio (glitches in 10 minutes, the DSP load, the
-    /// limiter), the relay, the GPU backend; red where a number is out of the green
+    /// #209: the collapsed bar's items – the monitor's (FPS, CPU, AUDIO, LIM; #364: deck-core's words and judgement),
+    /// the quality, the relay, the GPU backend
     fn bar_items(&self) -> Vec<hud::Item> {
-        let item = |text: String, bad: bool| hud::Item { text, bad };
-        let cpu = self.stats.work.iter().rev().take(60).sum::<f32>() / self.stats.work.len().clamp(1, 60) as f32;
-        let warm = self.stats.frames > 120;
-        let mut out = vec![
-            item(format!("FPS {:.0}", self.stats.fps), warm && self.stats.fps < 50.0),
-            item(format!("CPU {cpu:.1}MS"), cpu > 14.0),
-        ];
-        // #220: the level now and the render scale – red while the governor holds it below the level chosen
+        let item = |text: String, warn: bool| hud::Item { text, level: if warn { hud::Level::Warn } else { hud::Level::Ok } };
+        let mut out: Vec<hud::Item> = self.stats.feed.report.bar.iter().map(|i| hud::Item { text: i.text(), level: i.level }).collect();
+        // #220: the level now and the render scale – amber while the governor holds it below the level chosen
         if let Some(g) = &self.governor {
-            out.push(item(format!("Q {} {:.2}{}", g.level().name().to_uppercase(), g.scale(), if g.auto() { "" } else { " FIX" }), g.level() != g.ceiling()));
+            out.insert(1, item(format!("Q {} {:.2}{}", g.level().name().to_uppercase(), g.scale(), if g.auto() { "" } else { " FIX" }), g.level() != g.ceiling()));
         }
-        out.push(match self.show.audio {
-            Some(_) => item(
-                format!("AUDIO GLITCH {}/10M DSP {:.0}% LIM {:.0}", self.stats.glitch_rate, self.stats.dsp * 100.0, self.stats.limit),
-                self.stats.glitch_rate > 0 || self.stats.dsp > 0.8,
-            ),
-            None => item("AUDIO OFF".into(), false),
-        });
         // the relay: the space's session (a deck, the conductor), else the Live outlet's
         let mut relay = String::new();
         #[cfg(feature = "space")]
@@ -1474,33 +1431,19 @@ impl App {
     }
 
     fn hud_lines(&self) -> Vec<String> {
-        let last = |v: &[f32]| v.iter().rev().take(60).sum::<f32>() / v.len().clamp(1, 60) as f32;
         let gpu = self.renderer.as_ref().map(|r| format!("{} {:?}", r.adapter.name, r.adapter.backend)).unwrap_or_default();
-        // #208: the device's buffer (its largest callback) and what it costs, the render thread's lead; then how far
-        // ahead of the ear the audio is rendered (#188), the peak callback load, the glitches in 10 minutes, the
-        // limiter's gain reduction (dB)
+        // #208: the device's buffer (its largest callback) and what it costs, how far ahead of the ear the audio is
+        // rendered (#188); #364: the monitor's lines (frames, the block loads, the lead, the limiter, the glitches)
         let rate = self.show.clock.as_ref().map_or(48_000.0, |c| c.rate);
         let ms = |frames: f32| frames * 1000.0 / rate;
-        let audio = match (&self.show.audio, &self.show.glitches) {
+        let device = match (&self.show.audio, &self.show.glitches) {
             (Some(a), Some(g)) => {
                 let buf = g.device_frames();
-                let lead = match g.lead() {
-                    0 => String::new(),
-                    l => format!(" LEAD {:.0}MS", ms(l as f32)),
-                };
-                [
-                    format!("AUDIO {} {}K BUF {buf} {:.0}MS{lead}", a.name.to_uppercase(), a.rate / 1000, ms(buf as f32)),
-                    format!(
-                        "OUT {:.0}MS DSP {:.0}% GLITCH {}/10M LIM {:.0}",
-                        ms(self.lead() as f32),
-                        self.stats.dsp * 100.0,
-                        self.stats.glitch_rate,
-                        self.stats.limit
-                    ),
-                ]
+                Some(format!("AUDIO {} {}K BUF {buf} {:.0}MS OUT {:.0}MS", a.name.to_uppercase(), a.rate / 1000, ms(buf as f32), ms(self.lead() as f32)))
             }
-            _ => ["AUDIO OFF".into(), String::new()],
+            _ => None,
         };
+        let report = &self.stats.feed.report;
         let mut lines = Vec::new();
         if let Some(e) = &self.error {
             // font8x8 has no dashes but the ASCII one
@@ -1520,14 +1463,13 @@ impl App {
         let live = live.iter().flat_map(|l| hud::wrap(l, hud::COLS));
         lines.push(format!("SCUTOONSDECK STAGE  {}", self.show.scene_name));
         // #208: a glitch flashes the warning right under the title for a few seconds (the frame sets its row red)
-        if self.started.elapsed().as_secs_f32() < self.stats.alert_until {
-            lines.push(format!("{ALERT} {} - {} IN 10 MIN", self.stats.alert, self.stats.glitch_rate.max(1)));
+        if !report.alert_line.is_empty() {
+            lines.push(format!("{ALERT} {}", report.alert_line));
         }
         lines.extend(live);
         lines.extend([
             "F12 WEB CTRL+ALT+ F2 SHELL / DEL OFF".into(),
             "T TAP +/- BPM SPACE RUN F3 SRC K CLICK".into(),
-            format!("FPS {:.1}  FRAME {:.1} MS  CPU {:.2} MS", self.stats.fps, last(&self.stats.intervals), last(&self.stats.work)),
             format!("GPU {gpu}"),
         ]);
         // #220: the quality now, the level chosen, the governor; the keys
@@ -1535,7 +1477,8 @@ impl App {
             let render = self.renderer.as_ref().map_or(1.0, |r| r.render_scale());
             lines.push(format!("Q {} {render:.2}X OF {} {} F4 SET", g.level().name(), g.ceiling().name(), if g.auto() { "AUTO" } else { "FIXED" }).to_uppercase());
         }
-        lines.extend(audio.into_iter().filter(|l| !l.is_empty()));
+        lines.extend(device);
+        lines.extend(report.lines.iter().cloned());
         // #236: the hosts' events – delivered by the dispatcher, lost on the way (capped, hops, refused, late)
         #[cfg(feature = "events")]
         if let Some(c) = self.show.events.as_ref().map(|e| &e.counters) {

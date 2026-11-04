@@ -13,22 +13,20 @@
 // `crossOriginIsolated` (COOP / COEP) records, audio and analysis go through SharedArrayBuffer rings and no message
 // is sent per value; without it the same bytes travel as transferred ArrayBuffers (`transport === 'transfer'`):
 // it works, at one postMessage per send, per analysis frame and per 512 audio frames.
-import { BLOCK, type Table } from './engine.ts';
+import type { Table } from './engine.ts';
 import { Latest, Ring, ringBuffers, sharedAvailable } from './ring.ts';
 import { readSignals, type DeviceSignal } from './signals.ts';
 import { analysisOf, FRAME, MAX_OUTPUTS, MAX_FRAME_VALUES, recordSize, writeSend, type Analysis, type Mode } from './wire.ts';
-import type { ClockOp, FromWorker, FromWorklet, SharedSetup, ToWorker, Transport, WorkerStats, WorkletOptions } from './messages.ts';
+import type { ClockOp, FromWorker, FromWorklet, SharedSetup, ToWorker, Transport, WorkletOptions } from './messages.ts';
 import { ClockWindow, clockOf, type ClockState } from './clock.ts';
 
 export * from './wire.ts';
 export * from './clock.ts';
 export type { ClockOp } from './messages.ts';
-export { BlockTimes } from './timing.ts';
 export * from './signals.ts';
 export { Ring, Latest, ringBuffers, sharedAvailable } from './ring.ts';
-export { LIMITING_DB } from './engine.ts';
-export type { BlockStats, Table, TableNode } from './engine.ts';
-export type { Transport, WorkerStats } from './messages.ts';
+export type { Table, TableNode } from './engine.ts';
+export type { Transport } from './messages.ts';
 
 export interface StartOptions {
 	/** the bundled worker.ts, started by the app (its bundler resolves the URL) */
@@ -43,12 +41,52 @@ export interface StartOptions {
 	output?: AudioNode;
 	/** 'auto' (default): shared when cross-origin isolated, else transfer */
 	transport?: 'auto' | Transport;
-	/** frames the worker keeps ahead of the speaker (default 1024 ≈ 21 ms at 48 kHz) – audio latency vs safety; the
-	 * start of the adaptive lead (#208): a dropout grows it 512 frames up to 6144, a calm minute shrinks it back */
-	lead?: number;
+	/** the device class the core's adaptive lead is chosen for (#365, deck-core `lead`: its floor, start and cap) – the
+	 *  page knows it (a coarse pointer = a phone); default desktop */
+	device?: DeviceKind;
 	/** the device channels the engine renders (default: the destination's `maxChannelCount` – `deviceChannels`) */
 	channels?: number;
 }
+
+/** #364: deck-core's monitor as the page holds it (deck/space-web `DeckMonitor`, no GPU): samples in – each animation
+ *  frame (drawn or skipped by the fps cap), this core's audio window (`audioTo`), the dropouts – the report out. The
+ *  numbers, their judgement and their words are the core's; the page feeds and draws. */
+export interface MonitorView {
+	/** the quality rung's fps cap (0 = none) */
+	target(fps: number): void;
+	frame(nowMs: number, workMs: number, drawn: boolean): void;
+	audio(nowMs: number, words: Float64Array): void;
+	/** the worklet's dropouts so far */
+	underruns(nowMs: number, total: number): void;
+	silent(): void;
+	/** deck-core `monitor::Report` as JSON (`MonitorReport`) */
+	report(nowMs: number): string;
+	/** the sound's first seconds as the report's table */
+	series(): string[];
+}
+
+/** #364: a bar item as the core worded and judged it */
+export interface MonitorItem {
+	label: string;
+	value: string;
+	level: 'ok' | 'warn' | 'bad';
+}
+
+/** #364: deck-core `monitor::Report` – the fields the pages read */
+export interface MonitorReport {
+	fps: number;
+	sound: boolean;
+	glitches: number;
+	alert: string;
+	alert_line: string;
+	warm_ms: number;
+	bar: MonitorItem[];
+	lines: string[];
+}
+
+/** #365: the device classes the core's lead knows a browser by (deck-core `DeviceClass` codes) */
+export type DeviceKind = 'phone' | 'desktop';
+const DEVICE_CODE: Record<DeviceKind, number> = { phone: 0, desktop: 1 };
 
 /** The device channels a destination offers (plan 2.6: its `maxChannelCount` – 2 on a phone; 0 (an old Safari) or
  * nothing = stereo), at most the engine's 32. The core decides how a scene's outlets fit them. */
@@ -89,33 +127,12 @@ export interface SetOptions {
 	amount?: number;
 }
 
-export interface Stats extends WorkerStats {
+export interface Stats {
 	transport: Transport;
+	/** the worklet's dropouts so far (the page's monitor counts them per window, #364) */
 	underruns: number;
-	/** underruns over the last minute (#188: the browser status shows it) */
-	underrunsPerMinute: number;
 	/** sends dropped because the control ring was full (shared transport) */
 	dropped: number;
-	/** #208: when the newest dropout reached the page (performance.now ms; -Infinity = none yet) */
-	lastDropoutMs: number;
-}
-
-/** #356: a second of the sound as the page saw it – the worker's stats with the worklet's dropout count so far, `t` =
- * seconds since the start */
-export interface Second extends WorkerStats {
-	t: number;
-	underruns: number;
-}
-
-/** #356: the seconds kept from the start (the warm-up and the steady state after it, for the copyable report) */
-export const SERIES = 120;
-
-/** #208: how long the page's warning stays after a dropout (ms) */
-export const ALERT_MS = 5000;
-
-/** #208: a dropout within the last `hold` ms – the page shows its warning */
-export function dropoutAlert(lastDropoutMs: number, now: number, hold = ALERT_MS): boolean {
-	return now - lastDropoutMs < hold;
 }
 
 const CONTROL_BYTES = 1 << 16;
@@ -143,8 +160,8 @@ export class LiveCore {
 	private seen = 0;
 	private frame: Float32Array = new Float32Array(FRAME + MAX_FRAME_VALUES);
 	private stats_: Stats;
-	/** the worklet's underrun count over the last minute: (ms, total) once a second */
-	private readonly runs: { t: number; n: number }[] = [];
+	/** #364: the monitor that gets the core's audio window once a second */
+	private monitor: Pick<MonitorView, 'audio'> | null = null;
 	/** #321: the core's tempo clock as its last frame left it (null before the first) */
 	clock: ClockState | null = null;
 	/** #321: the core's clock line as the worker last posted it */
@@ -154,9 +171,6 @@ export class LiveCore {
 	private readonly clockListeners = new Set<(c: ClockState) => void>();
 	private readonly midiOutListeners = new Set<(msgs: Float64Array) => void>();
 	private stampTimer: ReturnType<typeof setInterval> | null = null;
-	/** #356: the first `SERIES` seconds, one entry per worker stats message */
-	private readonly seconds: Second[] = [];
-	private readonly startedAt: number;
 
 	private constructor(o: { context: AudioContext; node: AudioWorkletNode; worker: Worker; transport: Transport; shared: SharedSetup | null; channels: number }) {
 		this.context = o.context;
@@ -166,29 +180,7 @@ export class LiveCore {
 		this.channels = o.channels;
 		this.control = o.shared ? Ring.bytes(o.shared.control) : null;
 		this.latest = o.shared ? new Latest(o.shared.analysis) : null;
-		this.stats_ = {
-			transport: o.transport,
-			underruns: 0,
-			underrunsPerMinute: 0,
-			dropped: 0,
-			blocks: 0,
-			records: 0,
-			renderUs: 0,
-			renderP50Us: 0,
-			renderP99Us: 0,
-			renderPeakUs: 0,
-			analysisPeakUs: 0,
-			budgetUs: 0,
-			limitPeakDb: 0,
-			limitMeanDb: 0,
-			limitingPct: 0,
-			warmMs: 0,
-			lead: 0,
-			gapMs: 0,
-			lastDropoutMs: -Infinity
-		};
-		this.startedAt = globalThis.performance?.now() ?? 0;
-		this.runs.push({ t: this.startedAt, n: 0 });
+		this.stats_ = { transport: o.transport, underruns: 0, dropped: 0 };
 	}
 
 	/** Starts the worker (wasm compiled there), the worklet and the rings. Call it from a user gesture. */
@@ -197,7 +189,6 @@ export class LiveCore {
 		const wanted = o.transport ?? 'auto';
 		if (wanted === 'shared' && !sharedAvailable()) throw new Error('live-core: no SharedArrayBuffer – the page needs COOP / COEP (cross-origin isolated)');
 		const transport: Transport = wanted === 'auto' ? (sharedAvailable() ? 'shared' : 'transfer') : wanted;
-		const lead = o.lead ?? 1024;
 		// the device's channels (plan 2.6): the engine renders them all, the worklet has as many outputs, the ring carries
 		// them interleaved; the destination takes them one to one (no up / down-mix by the browser)
 		const destination = context.destination;
@@ -227,7 +218,7 @@ export class LiveCore {
 			node.port.postMessage({ feed: ch.port2 }, [ch.port2]);
 			audioPort = ch.port1;
 		}
-		node.port.onmessage = (ev: MessageEvent<FromWorklet>) => core.underran(ev.data.underruns, performance.now());
+		node.port.onmessage = (ev: MessageEvent<FromWorklet>) => core.underran(ev.data.underruns);
 		// #321: when the context's samples are heard (the clock's time base) – getOutputTimestamp, ten times a second
 		core.stampTimer = setInterval(() => {
 			const ts = context.getOutputTimestamp?.();
@@ -238,7 +229,7 @@ export class LiveCore {
 			o.worker.onerror = (e) => reject(new Error(`live-core worker: ${e.message}`));
 		});
 		const wasm = new URL(String(o.wasm), globalThis.location?.href).href;
-		core.post({ type: 'init', wasm, rate: context.sampleRate, channels, lead: Math.max(lead, 4 * BLOCK), shared, audioPort }, audioPort ? [audioPort] : []);
+		core.post({ type: 'init', wasm, rate: context.sampleRate, channels, device: DEVICE_CODE[o.device ?? 'desktop'], shared, audioPort }, audioPort ? [audioPort] : []);
 		await ready;
 		o.worker.onmessage = (ev: MessageEvent<FromWorker>) => core.receive(ev.data);
 		if (context.state === 'suspended') await context.resume();
@@ -272,8 +263,7 @@ export class LiveCore {
 				for (const s of readSignals(new Uint8Array(m.bytes))) for (const cb of this.signalListeners) cb(s);
 				break;
 			case 'stats':
-				Object.assign(this.stats_, m.stats);
-				if (this.seconds.length < SERIES) this.seconds.push({ ...m.stats, t: (performance.now() - this.startedAt) / 1000, underruns: this.stats_.underruns });
+				this.monitor?.audio(performance.now(), m.words);
 				break;
 			case 'clock': {
 				const c = clockOf(m.state);
@@ -408,21 +398,14 @@ export class LiveCore {
 		return { ...this.stats_ };
 	}
 
-	/** #356: the sound's first seconds (up to `SERIES`), one per second – the warm-up as a time series */
-	series(): readonly Second[] {
-		return this.seconds;
+	/** #364: the core's audio window once a second to the page's monitor (null = to none) */
+	audioTo(monitor: Pick<MonitorView, 'audio'> | null): void {
+		this.monitor = monitor;
 	}
 
-	/** #208: a dropout in the last few seconds – the page's warning (a live tool may not crackle unnoticed) */
-	glitching(now = performance.now()): boolean {
-		return dropoutAlert(this.stats_.lastDropoutMs, now);
-	}
-
-	/** the worklet's running count `n` at `t` ms → the total and the last minute's */
-	underran(n: number, t: number): void {
-		if (n > this.stats_.underruns) this.stats_.lastDropoutMs = t;
+	/** the worklet's running dropout count */
+	underran(n: number): void {
 		this.stats_.underruns = n;
-		this.stats_.underrunsPerMinute = perMinute(this.runs, n, t);
 	}
 
 	async stop(): Promise<void> {
@@ -434,11 +417,4 @@ export class LiveCore {
 		this.worker.terminate();
 		await this.context.close();
 	}
-}
-
-/** Underruns over the last minute from a running count sampled about once a second (`runs` keeps the window). */
-export function perMinute(runs: { t: number; n: number }[], n: number, t: number): number {
-	runs.push({ t, n });
-	while (runs.length > 1 && t - runs[0].t > 60_000) runs.shift();
-	return Math.max(0, n - runs[0].n);
 }

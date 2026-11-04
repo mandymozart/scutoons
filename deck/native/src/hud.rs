@@ -6,6 +6,7 @@
 //! collapsed bar"): F1 cycles the full HUD → **the bar** (one dense line across the screen's whole top edge: FPS, CPU /
 //! frame, the audio's glitches and load, the relay, the backend – a number out of the green in red) → nothing. The bar
 //! is rastered at the screen's width in HUD pixels (`bar_width`), so it spans the screen at the HUD's integer scale.
+pub use deck_core::monitor::Level;
 use font8x8::UnicodeFonts;
 use std::collections::VecDeque;
 
@@ -21,6 +22,8 @@ const GRAPH_MS: f32 = 33.3;
 const TEXT: [u8; 4] = [235, 235, 235, 255];
 /// the audio glitch warning's red (#208)
 const ALERT: [u8; 4] = [230, 40, 40, 255];
+/// #364: a number out of the green but not bad yet (the browser bar's amber)
+const WARN: [u8; 4] = [240, 170, 40, 255];
 
 /// #209: what the HUD shows (F1 cycles them)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -56,11 +59,11 @@ pub fn bar_width(sw: f32, sh: f32) -> u32 {
     ((sw / scale(sh)) as u32).clamp(8, BAR_MAX)
 }
 
-/// one item of the bar: its text, and red when it is out of the green
+/// one item of the bar: its text, and amber / red when it is out of the green (deck-core's monitor judges, #364)
 #[derive(Debug, Clone, PartialEq)]
 pub struct Item {
     pub text: String,
-    pub bad: bool,
+    pub level: Level,
 }
 
 pub struct Hud {
@@ -96,38 +99,6 @@ pub struct Beat {
 impl Default for Hud {
     fn default() -> Self {
         Hud { pixels: vec![0; (W * H * 4) as usize], mode: Mode::Full, bar: Vec::new(), bar_w: 0, items: Vec::new(), lines: Vec::new(), times: VecDeque::new(), beat: None, alert: None }
-    }
-}
-
-/// A running count's increase over a window (a minute by default), from samples taken now and then (#188: the
-/// device's underruns per minute; #208: the audio glitches per 10 minutes).
-pub struct PerMinute {
-    samples: VecDeque<(f32, u64)>,
-    window: f32,
-}
-
-impl Default for PerMinute {
-    fn default() -> Self {
-        PerMinute::over(60.0)
-    }
-}
-
-impl PerMinute {
-    /// over the last `window` seconds
-    pub fn over(window: f32) -> PerMinute {
-        PerMinute { samples: VecDeque::new(), window }
-    }
-
-    /// the count `n` at `t` s → its increase over the window (counted from 0 at the first sample's moment)
-    pub fn push(&mut self, t: f32, n: u64) -> u64 {
-        if self.samples.is_empty() {
-            self.samples.push_back((t, 0));
-        }
-        self.samples.push_back((t, n));
-        while self.samples.len() > 1 && t - self.samples[0].0 > self.window {
-            self.samples.pop_front();
-        }
-        n.saturating_sub(self.samples[0].1)
     }
 }
 
@@ -193,7 +164,11 @@ impl Hud {
                     self.bar[i..i + 4].copy_from_slice(&c);
                 }
             };
-            glyphs(&mut put, 4 + col as u32 * 8, 1, &text, if it.bad { ALERT } else { TEXT });
+            glyphs(&mut put, 4 + col as u32 * 8, 1, &text, match it.level {
+                Level::Bad => ALERT,
+                Level::Warn => WARN,
+                Level::Ok => TEXT,
+            });
             col += n + 2;
         }
         self.items = items;
@@ -305,18 +280,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn per_minute_counts_the_last_minute() {
-        let mut p = PerMinute::default();
-        assert_eq!(p.push(0.0, 0), 0);
-        assert_eq!(p.push(1.0, 2), 2, "two underruns in the first second");
-        for s in 2..=61 {
-            p.push(s as f32, 2);
-        }
-        assert_eq!(p.push(62.0, 3), 1, "the first two are older than a minute");
-        assert!(p.samples.len() <= 62);
-    }
-
-    #[test]
     fn text_and_graph_land_in_the_image() {
         let mut h = Hud::default();
         h.set_lines(vec!["FPS 60".into()]);
@@ -326,15 +289,6 @@ mod tests {
         assert!(lit > 20, "text pixels: {lit}");
         let green = h.pixels.chunks_exact(4).filter(|p| p[1] == 220).count();
         assert!(green > 0);
-    }
-
-    #[test]
-    fn the_window_is_ten_minutes_for_glitches() {
-        let mut p = PerMinute::over(600.0);
-        p.push(0.0, 0);
-        assert_eq!(p.push(30.0, 1), 1);
-        assert_eq!(p.push(500.0, 1), 1, "still within 10 minutes");
-        assert_eq!(p.push(640.0, 1), 0, "older than 10 minutes");
     }
 
     /// #208: the warning row flashes – a red bar with white text, then red text on the HUD's black
@@ -373,7 +327,7 @@ mod tests {
         assert_eq!([Mode::Full.next(), Mode::Bar.next(), Mode::Off.next()], [Mode::Bar, Mode::Off, Mode::Full]);
         assert_eq!((bar_width(1920.0, 1080.0), bar_width(1280.0, 720.0), bar_width(9000.0, 540.0)), (960, 1280, BAR_MAX));
         let mut h = Hud::default();
-        h.set_items(vec![Item { text: "FPS 60".into(), bad: false }, Item { text: "GLITCH 2/10M".into(), bad: true }]);
+        h.set_items(vec![Item { text: "FPS 60".into(), level: Level::Ok }, Item { text: "GLITCH 2/10M".into(), level: Level::Bad }]);
         h.raster_bar(960);
         assert_eq!(h.bar.len(), (960 * BAR_H * 4) as usize);
         let count = |h: &Hud, c: [u8; 4]| h.bar.chunks_exact(4).filter(|p| *p == c).count();

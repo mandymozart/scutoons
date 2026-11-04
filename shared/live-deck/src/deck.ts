@@ -5,7 +5,7 @@
 // animation frame. With a CDN given it answers the conductor's scene sync (#195, sync.ts). The tempo clock (#321) is the
 // core's: the link's pongs and anchors and Web MIDI's clock go in, the core's pings and a leader's anchors go out.
 import type { DeckGraph, Tempo } from '@scutoons/live';
-import { LiveCore, beatAt, nowMs, SOURCES, type Analysis, type ClockSource, type ClockState, type DeviceSignal } from '@scutoons/live-core';
+import { LiveCore, beatAt, nowMs, SOURCES, type Analysis, type ClockSource, type ClockState, type DeviceKind, type DeviceSignal } from '@scutoons/live-core';
 import type { DeckSynced } from '@scutoons/live';
 import { DeckLink, ValueStream, type WebSocketLike } from './client.ts';
 import { BrowserSync } from './sync.ts';
@@ -44,7 +44,8 @@ export interface EngineFiles {
 	wasm: URL | string;
 	worklet: URL | string;
 	transport?: 'auto' | 'shared' | 'transfer';
-	lead?: number;
+	/** #365: the device class the core's lead is chosen for (default: `deviceKind()`) */
+	device?: DeviceKind;
 }
 
 /** who turned a value: the page's controls, the being's 3D buttons, or a mood's preset (the page moves its sliders
@@ -285,7 +286,7 @@ export class Deck {
 
 	/** Start the sound (needs a user gesture): live-core with the deck's own scene or the rig. */
 	async start(files: EngineFiles): Promise<void> {
-		const c = await LiveCore.start({ worker: files.worker, wasm: files.wasm, worklet: files.worklet, transport: files.transport ?? 'auto', lead: files.lead ?? defaultLead() });
+		const c = await LiveCore.start({ worker: files.worker, wasm: files.wasm, worklet: files.worklet, transport: files.transport ?? 'auto', device: files.device ?? deviceKind() });
 		c.onAnalysis((a) => (this.bands = a));
 		c.onSignal((s) => this.onSignal?.(s));
 		// #321: the core says when to ping and what a leading deck sends; the ladder reads its tempo
@@ -346,10 +347,10 @@ export class Deck {
 /** an analysis of nothing (before the sound starts, after it stops) */
 const silence = (): Analysis => ({ level: 0, bass: 0, mid: 0, high: 0, spectrum: new Float32Array(0), reduction: 0, outputs: new Float32Array(0), values: new Float32Array(0) });
 
-/** Frames the sound keeps ahead of the speaker (#188): 3072 (64 ms) on a phone – a touch screen, where the worklet
- * ran dry under load –, else 2048. */
-export function defaultLead(coarse = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches): number {
-	return coarse ? 3072 : 2048;
+/** #365: the device class the core's lead is chosen for – a coarse pointer (a touch screen) is a phone; the numbers
+ *  are the core's (deck-core `lead`) */
+export function deviceKind(coarse = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches): DeviceKind {
+	return coarse ? 'phone' : 'desktop';
 }
 
 /** scene-content's portraits of `id` (none offline) */

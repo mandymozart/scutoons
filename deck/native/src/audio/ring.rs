@@ -1,19 +1,19 @@
 //! Rendering decoupled from the device (#208, owner 2026-10-31: "the dropouts keep existing – research methods to
 //! compensate"): a render thread runs the graph in blocks into a lock-free SPSC ring (rtrb, interleaved, the device's channels) ahead of
 //! the device, and the device callback only copies out of it – a spike in a render (a page fault, the GPU driver, a busy
-//! CPU) is absorbed by the ring's lead instead of reaching the speaker. The lead adapts (lead.rs): an underrun grows it
-//! a block up to a cap, a calm minute shrinks it a block. Only an underrun – a late or long callback is the device's
+//! CPU) is absorbed by the ring's lead instead of reaching the speaker. The lead adapts (deck-core's `lead`, the native
+//! class: one block up to 16): an underrun grows it a block up to a cap, a calm minute shrinks it a block. Only an underrun – a late or long callback is the device's
 //! own thread stalling, which no lead can help, and at ASIO 64 (1.3 ms periods) such stalls pushed the lead to its cap
-//! for nothing (#230). live-core's worker does the same in the browser.
+//! for nothing (#230). live-core's worker runs the same rule in the browser (#365).
 //!
 //! The time base stays exact: the callback publishes (frames it has taken from the ring, the moment its first frame is
 //! heard) through a seqlock, and the render thread stamps each block it renders with that moment plus the frames between
 //! – so `Engine::mark` still says when a block is heard, the ring's lead included. Neither side allocates or locks: the
 //! callback copies, publishes two words and unparks the render thread (tests/no_alloc.rs).
 use super::glitch::{Glitches, Monitor};
-use super::lead::AdaptiveLead;
 use super::Engine;
 use crate::clock::{now_ns, SeqLock};
+use deck_core::lead::{AdaptiveLead, DeviceClass};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
@@ -22,9 +22,6 @@ use std::time::Duration;
 pub const BLOCK: usize = 256;
 // the render thread hands the engine whole quanta
 const _: () = assert!(BLOCK % deck_engine::QUANTUM == 0);
-/// the lead's range (frames): one block (5.3 ms at 48 kHz) up to 16 (85 ms)
-pub const LEAD_MIN: u32 = BLOCK as u32;
-pub const LEAD_CAP: u32 = 16 * BLOCK as u32;
 /// the ring's size in frames (× the device's channels in samples): the cap + the largest device buffer we expect, with room
 pub const CAPACITY: usize = 16_384;
 /// the device's buffer before its first callback says it (WASAPI shared runs ~1056 frames)
@@ -68,7 +65,9 @@ pub struct Renderer {
 
 /// The two halves around one ring, no thread yet (the tests drive both; `spawn` runs the renderer on its thread).
 pub fn pair(mut engine: Engine, first_guess: Option<u32>) -> (Feed, Renderer) {
-    let mon = engine.take_monitor();
+    let mut mon = engine.take_monitor();
+    // the render thread notes its blocks' loads; the callback only copies
+    mon.renders = false;
     let rate = engine.rate() as f64;
     let chans = engine.device_channels();
     let shared = Arc::new(Shared { stamp: SeqLock::default(), stop: AtomicBool::new(false), glitches: mon.shared.clone() });
@@ -79,7 +78,7 @@ pub fn pair(mut engine: Engine, first_guess: Option<u32>) -> (Feed, Renderer) {
         ring: tx,
         chans,
         shared,
-        lead: AdaptiveLead::new(LEAD_MIN, LEAD_CAP, BLOCK as u32),
+        lead: AdaptiveLead::of(DeviceClass::Native),
         buf: vec![0.0; BLOCK * chans],
         pushed: 0,
         rate,
@@ -205,8 +204,17 @@ mod tests {
     use crate::graph::Graph;
     use crate::scene::Scene;
 
+    /// the native class's floor (one block)
+    const LEAD_MIN: u32 = BLOCK as u32;
+
     const OSC: &str = "[[node]]\nid=\"o\"\nkind=\"osc\"\nfreq=440\ngain=0.5\n\
                        [[node]]\nid=\"out\"\nkind=\"audio_out\"\nvolume=1\n[[link]]\nfrom=\"o\"\nto=\"out.in\"\n";
+
+    #[test]
+    fn the_native_lead_starts_at_one_block() {
+        assert_eq!(DeviceClass::Native.policy().floor, LEAD_MIN);
+        assert!(DeviceClass::Native.policy().cap as usize + 4096 <= CAPACITY, "the cap and a big device buffer fit the ring");
+    }
 
     fn halves() -> (Feed, Renderer) {
         let g = Graph::build(&Scene::parse(OSC).unwrap()).unwrap();

@@ -3924,6 +3924,7 @@ name = "space-web"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "deck-core",
  "deck-space",
  "image",
  "js-sys",

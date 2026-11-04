@@ -8,7 +8,7 @@
 //! level is the ceiling (chosen, or its default from the GPU); the governor steps below it under load and back up with
 //! headroom. The same code steers the native stage and the browser deck (space-web).
 //!
-//! The governor is the adaptive audio lead's rule (deck/native/src/audio/lead.rs, #208) and the relay's link rate
+//! The governor is the adaptive audio lead's rule (deck-core lead.rs, #208 / #365) and the relay's link rate
 //! (deck/relay/src/link.rs, #223): take the margin at once, give it back slowly.
 //! - It looks at the drawn frames' interval in windows of `WINDOW_S`. A window whose mean is over the rung's budget
 //!   (its frame rate cap × `BUDGET`, 20 ms at 60 fps), or with a new audio glitch, is over budget. `OVER_WINDOWS` in a

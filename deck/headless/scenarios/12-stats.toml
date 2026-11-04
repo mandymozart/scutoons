@@ -1,0 +1,19 @@
+name = "one monitor: the stats from samples, judged once"
+about = "#364: deck-core's monitor – the samples an adapter feeds (animation frames drawn or skipped, their work, the glitch counts, a window of block loads), one report out: the numbers, ONE threshold set's judgement, the bar's and the HUD's words. Native and wasm give the same report"
+
+[[step]]
+do = "stats"
+with = { frame_ms = 16.667, frames = 180, work_ms = 3.0, glitches_at_s = [1.0, 2.5], blocks = [[0.02, 370], [0.4, 4]], lead = 2048, rate = 48000 }
+expect = { fps = { near = 60.0, tol = 0.5 }, frame_ms = { near = 16.67, tol = 0.05 }, cpu_ms = { near = 3.0, tol = 0.01 }, glitches = 2, recent = 2, alert = "underrun", load_max = 40, lead_ms = 43, levels = { fps = "ok", cpu = "ok", audio = "bad", limit = "ok" }, alert_line = "UNDERRUN - 2 IN 10 MIN" }
+
+# the browser's FPS bug (BRIDGE-AUDIT §2): under a 30 fps cap every other animation frame is skipped – FPS is what was drawn
+[[step]]
+do = "stats"
+with = { frame_ms = 16.667, frames = 180, work_ms = 2.0, drawn_every = 2, target_fps = 30 }
+expect = { fps = { near = 30.0, tol = 0.5 }, ticks = { near = 60.0, tol = 0.5 }, frame_ms = { near = 33.33, tol = 0.05 }, sound = false, levels = { fps = "ok", cpu = "ok" }, bar = { has = { label = "AUDIO", value = "OFF", level = "ok" } } }
+
+# a p99 past half the block's budget warns; 20 ms of work per 60 Hz frame is past the frame's budget
+[[step]]
+do = "stats"
+with = { frame_ms = 25.0, frames = 120, work_ms = 20.0, blocks = [[0.6, 100]], limiter_db = 7.5, lead = 3072, rate = 48000 }
+expect = { fps = { near = 40.0, tol = 0.5 }, load_p99 = 60, levels = { fps = "warn", cpu = "bad", audio = "warn", limit = "warn" }, bar = { has = { label = "LIM", value = "7.5DB", level = "warn" } } }

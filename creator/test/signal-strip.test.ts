@@ -56,10 +56,11 @@ test('input meters carry their source; no inputs, no meters', () => {
 	assert.equal(inputMeters([{ id: 'in2', source: 'usb', level: 0 }])[0].label, 'in2');
 });
 
-test('the stats line lists the frame rate once; drops only after the sound has run', () => {
-	const s = { phase: 'running', transport: 'shared', backend: 'webgl2', fps: 59.6, cpu: 4.24, dropouts: 0 };
-	assert.deepEqual(stripStatus(s), { state: 'running · shared · webgl2', perf: '60 fps · 4.2 ms · 0 drops' });
-	assert.equal(stripStatus({ ...s, phase: 'ready', transport: null, dropouts: null }).perf, '60 fps · 4.2 ms');
+test('the stats line: the state words, then the monitor’s items as the core worded them', () => {
+	const bar = [{ label: 'FPS', value: '60' }, { label: 'CPU', value: '4.2/6.0MS' }, { label: 'AUDIO', value: '0/10M 2/5/9% +43MS' }];
+	const s = { phase: 'running', transport: 'shared', backend: 'webgl2', stats: { bar } };
+	assert.deepEqual(stripStatus(s), { state: 'running · shared · webgl2', perf: 'FPS 60 · CPU 4.2/6.0MS · AUDIO 0/10M 2/5/9% +43MS' });
+	assert.equal(stripStatus({ ...s, stats: null }).perf, '', 'no report yet');
 	assert.equal(stripStatus({ ...s, phase: 'error', error: 'no audio' }).state, 'error: no audio · shared · webgl2');
 });
 

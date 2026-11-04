@@ -2,7 +2,8 @@
 //!
 //! - **The core** (always): ports and kinds (`module`), the registry that knows which modules this build carries, the
 //!   control graph (`graph`) that checks a scene and runs its control domain once per frame.
-//! - **Always:** `smooth` (control values glide into audio – no zipper, #188) and `limiter` (the output's soft cap).
+//! - **Always:** `smooth` (control values glide into audio – no zipper, #188), `limiter` (the output's soft cap),
+//!   `monitor` (the stats every deck shows, #364) and `lead` (the adaptive output lead, #365).
 //! - **Modules** (cargo features): `control` (LFOs, math), `synth` (audio blocks), `analysis` (the FFT: bands, the
 //!   stage's analyzer), `tempo` (the tempo map, quantize, tap – #181 / #185). The stage's
 //!   GPU nodes (shader, chapter, overlay, 3D, text) stay in deck/native – they need wgpu – but register the same way.
@@ -16,9 +17,11 @@ pub mod batch;
 pub mod dsp;
 pub mod graph;
 pub mod lanes;
+pub mod lead;
 pub mod limiter;
 pub mod math;
 pub mod module;
+pub mod monitor;
 pub mod smooth;
 pub mod stage;
 

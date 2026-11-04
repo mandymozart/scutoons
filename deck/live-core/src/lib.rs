@@ -13,7 +13,10 @@
 //! `lc_signals() -> len`, `lc_signals_at() -> ptr`; the tempo clock (#321, clock.rs): `lc_clock_frame(now_ms) -> ptr`
 //! (the state block, `clock::STATE` f64), `lc_clock_stamp`, `lc_clock_pong`, `lc_clock_tempo`, `lc_clock_midi`,
 //! `lc_clock_joined`, `lc_clock_choose`, `lc_clock_key`, `lc_clock_line(now_ms) -> len` (the line, in the outbox), the
-//! MIDI clock out `lc_clock_out_on(on)`, `lc_clock_out() -> count`, `lc_clock_out_at() -> ptr`. The control half steps
+//! MIDI clock out `lc_clock_out_on(on)`, `lc_clock_out() -> count`, `lc_clock_out_at() -> ptr`; the adaptive lead (#365,
+//! deck-core `lead`) `lc_lead_class(class) -> frames`, `lc_lead(now_ms, dropouts) -> frames`; the audio side of the
+//! monitor (#364, deck-core `monitor::AudioWindow`) `lc_note_block(us)`, `lc_note_analysis(us)`, `lc_note_gap(ms)`,
+//! `lc_note_warm(ms)`, `lc_monitor_take() -> ptr` (`lc_monitor_words()` f64 for the page's monitor). The control half steps
 //! inside the render (every 128-frame quantum) – there is no step export. A grown memory detaches the views – the host
 //! re-makes them (shared/live-core).
 pub mod clock;
@@ -25,6 +28,8 @@ use std::cell::RefCell;
 
 pub use crate::clock::Clock;
 pub use crate::core::Core;
+use deck_core::lead::{AdaptiveLead, DeviceClass};
+use deck_core::monitor::AudioWindow;
 use deck_core::tempo::Anchor;
 
 /// The inbox's first size; `lc_inbox(len)` grows it for a bigger scene.
@@ -40,11 +45,19 @@ pub struct Host {
     core: Option<Core>,
     /// the tempo clock: it outlives a scene (the show goes on)
     pub clock: Clock,
+    /// #365: the adaptive lead (the page's device class), #364: the audio side's window and its words for the page;
+    /// the last render's frames (a block's budget)
+    pub lead: AdaptiveLead,
+    pub audio: AudioWindow,
+    words: Vec<f64>,
+    rendered: usize,
 }
 
 impl Host {
     pub fn new(rate: f32, channels: usize) -> Host {
-        Host { rate, channels, inbox: vec![0; INBOX], outbox: Vec::new(), core: None, clock: Clock::new(rate) }
+        let lead = AdaptiveLead::of(DeviceClass::Desktop);
+        let audio = AudioWindow::with_lead(lead.current(), rate);
+        Host { rate, channels, inbox: vec![0; INBOX], outbox: Vec::new(), core: None, clock: Clock::new(rate), lead, audio, words: vec![0.0; AudioWindow::WORDS], rendered: 0 }
     }
 
     /// The inbox, at least `len` bytes.
@@ -118,13 +131,40 @@ impl Host {
     pub fn render(&mut self, frames: usize) -> Option<&[f32]> {
         let core = self.core.as_mut()?;
         self.clock.rendered(frames);
+        self.rendered = frames;
         Some(core.render(frames))
     }
 
     /// the analysis frame of what is heard now, the clock's position at the heard moment in it
     pub fn analyse(&mut self, dt: f32, lead: usize) -> Option<&[f32]> {
         let now = self.clock.controller().now();
-        Some(self.core.as_mut()?.analyse(dt, lead, &now))
+        let frame = self.core.as_mut()?.analyse(dt, lead, &now);
+        self.audio.limiter(frame[wire::REDUCTION]);
+        Some(frame)
+    }
+
+    /// #365: the lead for the page's device class (deck-core's table) – its first value (frames)
+    pub fn lead_class(&mut self, class: DeviceClass) -> u32 {
+        self.lead = AdaptiveLead::of(class);
+        self.audio.lead = self.lead.current();
+        self.audio.lead
+    }
+
+    /// #365: the worklet's dropouts so far at `now_ms` → the lead (frames)
+    pub fn lead(&mut self, now_ms: f64, dropouts: u64) -> u32 {
+        self.audio.lead = self.lead.update(now_ms / 1000.0, dropouts);
+        self.audio.lead
+    }
+
+    /// #364: the last render took `us` (the worker's stopwatch) – against its frames' budget
+    pub fn note_block(&mut self, us: f32) {
+        self.audio.block(us, self.rendered as f32 * 1e6 / self.rate);
+    }
+
+    /// #364: the window so far as words (the page's monitor reads them); it starts again
+    pub fn monitor_take(&mut self) -> &[f64] {
+        self.audio.take().to_words(&mut self.words);
+        &self.words
     }
 }
 
@@ -194,6 +234,56 @@ pub extern "C" fn lc_signals() -> usize {
 #[no_mangle]
 pub extern "C" fn lc_signals_at() -> *const u8 {
     with(|h| h.core().map_or(std::ptr::null(), |c| c.signals_ptr()))
+}
+
+/// #365: the adaptive lead for the page's device class (0 phone, 1 desktop – deck-core `DeviceClass`) → its first value
+/// (frames)
+#[no_mangle]
+pub extern "C" fn lc_lead_class(class: u32) -> u32 {
+    with(|h| h.lead_class(DeviceClass::from_code(class)))
+}
+
+/// #365: the worklet's dropouts so far (a running total) at the page's `now_ms` → the lead (frames)
+#[no_mangle]
+pub extern "C" fn lc_lead(now_ms: f64, dropouts: f64) -> u32 {
+    with(|h| h.lead(now_ms, dropouts as u64))
+}
+
+/// #364: the last `lc_render` took `us` (the worker's stopwatch)
+#[no_mangle]
+pub extern "C" fn lc_note_block(us: f32) {
+    with(|h| h.note_block(us))
+}
+
+/// #364: an analysis frame (+ its signals) took `us` – between blocks
+#[no_mangle]
+pub extern "C" fn lc_note_analysis(us: f32) {
+    with(|h| h.audio.analysis(us))
+}
+
+/// #364: the worker's pump paused `ms` since its last run
+#[no_mangle]
+pub extern "C" fn lc_note_gap(ms: f32) {
+    with(|h| h.audio.gap(ms))
+}
+
+/// #356: the warm-up before the first sound took `ms`
+#[no_mangle]
+pub extern "C" fn lc_note_warm(ms: f32) {
+    with(|h| h.audio.warm_ms = ms)
+}
+
+/// #364: the audio window since the last call as `lc_monitor_words()` f64 (deck-core `AudioWindow::to_words`) – the
+/// address; the window starts again
+#[no_mangle]
+pub extern "C" fn lc_monitor_take() -> *const f64 {
+    with(|h| h.monitor_take().as_ptr())
+}
+
+/// #364: how many words `lc_monitor_take` hands out (`AudioWindow::WORDS`)
+#[no_mangle]
+pub extern "C" fn lc_monitor_words() -> usize {
+    AudioWindow::WORDS
 }
 
 /// One clock frame at the page's `now_ms` (`performance.timeOrigin + performance.now()`): the state block's address
