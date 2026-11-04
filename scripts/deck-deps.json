@@ -10,7 +10,8 @@
 		{ "crate": "deck-module-host", "args": ["--no-default-features"], "why": "the module host without its JIT backend" },
 		{ "crate": "deck-outputs", "args": ["--no-default-features"], "why": "parameters as outputs without the adapters' runner" },
 		{ "crate": "live-core", "args": [], "why": "the engine behind the browser's raw wasm exports (the adapter API the headless host drives)" },
-		{ "crate": "deck-headless", "args": [], "why": "the headless deck host (#363): the third adapter, platform-free by construction" }
+		{ "crate": "deck-headless", "args": [], "why": "the headless deck host (#363): the third adapter, platform-free by construction" },
+		{ "crate": "deck-outlet", "args": [], "why": "the Live outlet's logic (#378): a cell's plan, the composer, the crossfade, the dialog / text layout, the relay messages' routing" }
 	],
 	"exceptions": [
 		{ "crate": "deck-space", "feature": "gpu", "pulls": "wgpu", "why": "the being's GPU passes – wgpu is itself the GPU adapter both platforms share (Vulkan / Metal / DX12 natively, WebGPU / WebGL2 in space-web); the core part is checked without it" },
@@ -62,7 +63,7 @@
 		"symphonia": "media decoding (deck-media later, behind an adapter)"
 	},
 	"allow": {
-		"ab_glyph": "deck-space being: the labels' font maths (CPU)",
+		"ab_glyph": "deck-space being: the labels' font maths; deck-outlet: the dialog / text layout (CPU)",
 		"ab_glyph_rasterizer": "via ab_glyph",
 		"anyhow": "errors",
 		"block-buffer": "via sha2",
@@ -86,7 +87,7 @@
 		"generic-array": "via sha2",
 		"glam": "deck-space being: vector maths",
 		"hashbrown": "via indexmap",
-		"image": "deck-space being: resizing and mip levels (no decoders without `native`)",
+		"image": "deck-space being: resizing and mip levels (no decoders without `native`); deck-outlet: the plane, crops, scaling, overlays (no decoders)",
 		"indexmap": "via toml",
 		"itoa": "via serde_json",
 		"libc": "via cpufeatures (aarch64 Linux reads the CPU features from getauxval) – no I/O",
@@ -128,6 +129,7 @@
 		"unicode-ident": "proc macros",
 		"winnow": "via toml",
 		"zmij": "via serde_json: float formatting",
-		"deck-headless": "core (the headless host)"
+		"deck-headless": "core (the headless host)",
+		"deck-outlet": "core (the Live outlet's logic)"
 	}
 }
