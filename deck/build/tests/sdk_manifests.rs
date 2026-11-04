@@ -16,9 +16,9 @@ fn section(manifest: &str, name: &str) -> Vec<String> {
     out
 }
 
-/// the names of a section's keys: `serde = { … }` → `serde`
+/// the names of a section's keys: `serde = { … }` and `serde.workspace = true` → `serde`
 fn names(lines: &[String]) -> Vec<String> {
-    lines.iter().filter_map(|l| l.split_once('=')).map(|(k, _)| k.trim().to_string()).collect()
+    lines.iter().filter_map(|l| l.split_once('=')).map(|(k, _)| k.trim().trim_end_matches(".workspace").to_string()).collect()
 }
 
 fn value(lines: &[String], key: &str) -> Option<String> {
@@ -30,6 +30,8 @@ const MODULE: &str = include_str!("../../module/Cargo.toml");
 const MODULE_BAKED: &str = include_str!("../sdk/module.Cargo.toml");
 const MACROS: &str = include_str!("../../module-macros/Cargo.toml");
 const MACROS_BAKED: &str = include_str!("../sdk/macros.Cargo.toml");
+const CATALOG: &str = include_str!("../../catalog/Cargo.toml");
+const CATALOG_BAKED: &str = include_str!("../sdk/catalog.Cargo.toml");
 
 #[test]
 fn the_baked_deck_module_is_the_workspaces() {
@@ -41,12 +43,26 @@ fn the_baked_deck_module_is_the_workspaces() {
     assert_eq!(section(MODULE_BAKED, "features"), section(MODULE, "features"));
     let (real, baked) = (section(MODULE, "dependencies"), section(MODULE_BAKED, "dependencies"));
     assert_eq!(names(&baked), names(&real), "the same dependencies");
-    assert_eq!(names(&baked), ["deck-module-macros", "serde", "serde_json"]);
-    // optional stays optional: a member must not get serde through the SDK
-    for dep in ["serde", "serde_json"] {
+    assert_eq!(names(&baked), ["deck-module-macros", "deck-catalog", "serde_json"]);
+    // optional stays optional: a member must not get serde (nor the catalog) through the SDK
+    for dep in ["deck-catalog", "serde_json"] {
         assert!(value(&baked, dep).unwrap().contains("optional = true"), "{dep}");
         assert!(value(&real, dep).unwrap().contains("optional = true"), "{dep}");
     }
+}
+
+/// deck-module's `host` reads descriptors into deck-catalog's type (#339): the baked catalog is the workspace's too
+#[test]
+fn the_baked_deck_catalog_is_the_workspaces() {
+    assert_eq!(value(&section(CATALOG_BAKED, "package"), "name"), value(&section(CATALOG, "package"), "name"));
+    let workspace = section(WORKSPACE, "workspace.package");
+    for key in ["version", "edition", "rust-version", "license", "publish"] {
+        assert_eq!(value(&section(CATALOG_BAKED, "package"), key), value(&workspace, key), "package.{key}");
+    }
+    assert_eq!(section(CATALOG_BAKED, "features"), section(CATALOG, "features"));
+    let (real, baked) = (section(CATALOG, "dependencies"), section(CATALOG_BAKED, "dependencies"));
+    assert_eq!(names(&baked), names(&real), "the same dependencies");
+    assert!(value(&baked, "schemars").unwrap().contains("optional = true"));
 }
 
 #[test]

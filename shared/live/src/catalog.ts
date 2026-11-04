@@ -3,6 +3,18 @@
 
 export type AnyChannels = "any";
 
+/** a read-only data slot of a module; a node binds an asset id to it, the host fills it at instantiation (ABI-V2 §1.5) */
+export type AssetDesc = {
+	doc?: string;
+	kind: AssetKind;
+	/** the largest asset the slot takes, in bytes (decoded) */
+	max_bytes: number;
+	name: string;
+};
+
+/** what an asset slot holds once the host has filled it: planar f32 PCM, raw bytes, or a small RGBA8 image (ABI-V2 §1.5) */
+export type AssetKind = "pcm" | "bytes" | "image";
+
 export type Bundle = {
 	instrument?: Instrument[];
 	preset?: Preset[];
@@ -24,6 +36,8 @@ export type Curve = "lin" | "log";
 export type Descriptor = {
 	/** modules only: the ABI version they speak */
 	abi?: number | null;
+	/** read-only data slots (samples, sequences, images) the host fills at instantiation */
+	assets?: AssetDesc[];
 	/** the batch evaluator (deck-core batch.rs, live-core, the browser) can run it */
 	batch?: boolean;
 	doc?: string;
@@ -32,17 +46,25 @@ export type Descriptor = {
 	feature?: string;
 	/** the kind follows the transport by default (#359: stops, holds, resumes with it); a node's `follow_transport` overrides it */
 	follow_transport?: boolean;
+	/** constant latency in frames, for the engine's compensation (ENGINE-REFACTOR-PLAN §2.6a) */
+	latency?: number;
 	/** deck-core's module for the kind (control · synth · analysis · stage · 3d …); empty = none */
 	module?: string;
 	name: string;
-	/** capabilities the kind needs (#312) – reserved */
+	/** capabilities the kind needs (#312): without one it does not run */
 	needs?: string[];
 	params?: ParamDesc[];
 	ports?: PortDesc[];
+	/** the kind's one factory preset */
+	preset?: FactoryPreset | null;
+	/** the show's variable slots the kind may read (`story.act` …, ABI-V2 §3) */
+	reads?: string[];
 	/** a scene owns it once: never inside an instrument */
 	scene_only?: boolean;
 	scope?: Scope;
 	version?: string;
+	/** capabilities the kind uses when they are there (#312): without one it runs on, the sensor reads "absent" */
+	wants?: string[];
 };
 
 export type Dir = "in" | "out";
@@ -54,6 +76,14 @@ export type Expose = {
 	label?: { [key: string]: string };
 	path: string;
 	range?: number[] | null;
+};
+
+/** a module's one factory preset (ABI-V2 §2); every other preset is a DB document (deck-space's rig `Preset`) */
+export type FactoryPreset = {
+	doc?: string;
+	name: string;
+	/** parameter name → value; a parameter not named keeps its default */
+	values?: { [key: string]: number };
 };
 
 export type Instrument = {
@@ -88,6 +118,9 @@ export type Mapping = {
 	target: string;
 };
 
+/** how a control output with a `path` acts on its target (ABI-V2 §1.2, §5): replace it, add to it, scale it */
+export type Mode = "set" | "add" | "mul";
+
 export type NodeDef = {
 	id: string;
 	kind: string;
@@ -111,13 +144,27 @@ export type ParamDesc = {
 };
 
 export type PortDesc = {
+	/** event ports: records per block (1 … `MAX_EVENT_CAPACITY`) */
+	capacity?: number;
 	/** audio ports: how many channels the port carries */
 	channels?: Channels | null;
+	/** control outputs: the value is an index into these names (an enum) */
+	choices?: string[];
 	dir: Dir;
 	doc?: string;
 	/** false = deck-core's control graph (its `KindInfo`) does not take this input, e.g. the `cv` of `osc` */
 	engine?: boolean;
+	/** control outputs with a `path`: how the value acts on the target */
+	mode?: Mode;
 	name: string;
+	/** event ports: the deck-events names it emits / accepts (`music.note`, `story.act` …); interned once at load */
+	names?: string[];
+	/** control outputs: the target it writes (a group child's parameter, preset, gain …, ABI-V2 §5); empty = a graph cable */
+	path?: string;
+	/** event ports: the positional meaning of the prop slots (at most `MAX_EVENT_PROPS`) */
+	props?: string[];
+	/** audio inputs: a second input fed by sends, not by the graph's sum (ENGINE-REFACTOR-PLAN §2.6) */
+	sidechain?: boolean;
 	/** ABI v1 module descriptors call it `kind` */
 	type: PortType;
 };

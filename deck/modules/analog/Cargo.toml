@@ -16,6 +16,7 @@ crate-type = ["cdylib", "rlib"]
 deck-module = { path = "../../module" }
 
 [dev-dependencies]
+deck-catalog = { path = "../../catalog" }
 deck-core = { workspace = true, features = ["tempo"] }
 deck-module = { path = "../../module", features = ["host"] }
 deck-module-host = { path = "../../module-host" }

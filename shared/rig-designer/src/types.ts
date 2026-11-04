@@ -30,7 +30,7 @@ export interface ModulePort {
 	kind: PortKind;
 }
 
-/** what a successful compile read from the wasm (deck-module `host::Descriptor`) */
+/** what a successful compile read from the wasm: the `deck.module` JSON as the module wrote it (ABI v1; deck-module `host::parse` validated it) */
 export interface Descriptor {
 	abi: number;
 	name: string;

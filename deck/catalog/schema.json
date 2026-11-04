@@ -6,6 +6,41 @@
       ],
       "type": "string"
     },
+    "AssetDesc": {
+      "description": "a read-only data slot of a module; a node binds an asset id to it, the host fills it at instantiation (ABI-V2 §1.5)",
+      "properties": {
+        "doc": {
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/AssetKind"
+        },
+        "max_bytes": {
+          "description": "the largest asset the slot takes, in bytes (decoded)",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "kind",
+        "max_bytes"
+      ],
+      "type": "object"
+    },
+    "AssetKind": {
+      "description": "what an asset slot holds once the host has filled it: planar f32 PCM, raw bytes, or a small RGBA8 image (ABI-V2 §1.5)",
+      "enum": [
+        "pcm",
+        "bytes",
+        "image"
+      ],
+      "type": "string"
+    },
     "Bundle": {
       "additionalProperties": false,
       "properties": {
@@ -94,6 +129,13 @@
             "null"
           ]
         },
+        "assets": {
+          "description": "read-only data slots (samples, sequences, images) the host fills at instantiation",
+          "items": {
+            "$ref": "#/$defs/AssetDesc"
+          },
+          "type": "array"
+        },
         "batch": {
           "description": "the batch evaluator (deck-core batch.rs, live-core, the browser) can run it",
           "type": "boolean"
@@ -113,6 +155,12 @@
           "description": "the kind follows the transport by default (#359: stops, holds, resumes with it); a node's `follow_transport` overrides it",
           "type": "boolean"
         },
+        "latency": {
+          "description": "constant latency in frames, for the engine's compensation (ENGINE-REFACTOR-PLAN §2.6a)",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
         "module": {
           "description": "deck-core's module for the kind (control · synth · analysis · stage · 3d …); empty = none",
           "type": "string"
@@ -121,7 +169,7 @@
           "type": "string"
         },
         "needs": {
-          "description": "capabilities the kind needs (#312) – reserved",
+          "description": "capabilities the kind needs (#312): without one it does not run",
           "items": {
             "type": "string"
           },
@@ -141,6 +189,24 @@
           },
           "type": "array"
         },
+        "preset": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactoryPreset"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "the kind's one factory preset"
+        },
+        "reads": {
+          "description": "the show's variable slots the kind may read (`story.act` …, ABI-V2 §3)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "scene_only": {
           "description": "a scene owns it once: never inside an instrument",
           "type": "boolean"
@@ -152,6 +218,13 @@
         "version": {
           "default": "1",
           "type": "string"
+        },
+        "wants": {
+          "description": "capabilities the kind uses when they are there (#312): without one it runs on, the sensor reads \"absent\"",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         }
       },
       "required": [
@@ -202,6 +275,30 @@
       },
       "required": [
         "path"
+      ],
+      "type": "object"
+    },
+    "FactoryPreset": {
+      "description": "a module's one factory preset (ABI-V2 §2); every other preset is a DB document (deck-space's rig `Preset`)",
+      "properties": {
+        "doc": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "values": {
+          "additionalProperties": {
+            "format": "float",
+            "type": "number"
+          },
+          "default": {},
+          "description": "parameter name → value; a parameter not named keeps its default",
+          "type": "object"
+        }
+      },
+      "required": [
+        "name"
       ],
       "type": "object"
     },
@@ -368,6 +465,15 @@
       ],
       "type": "object"
     },
+    "Mode": {
+      "description": "how a control output with a `path` acts on its target (ABI-V2 §1.2, §5): replace it, add to it, scale it",
+      "enum": [
+        "set",
+        "add",
+        "mul"
+      ],
+      "type": "string"
+    },
     "NodeDef": {
       "additionalProperties": true,
       "properties": {
@@ -438,6 +544,13 @@
     },
     "PortDesc": {
       "properties": {
+        "capacity": {
+          "description": "event ports: records per block (1 … `MAX_EVENT_CAPACITY`)",
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        },
         "channels": {
           "anyOf": [
             {
@@ -449,6 +562,13 @@
           ],
           "description": "audio ports: how many channels the port carries"
         },
+        "choices": {
+          "description": "control outputs: the value is an index into these names (an enum)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "dir": {
           "$ref": "#/$defs/Dir"
         },
@@ -459,8 +579,34 @@
           "description": "false = deck-core's control graph (its `KindInfo`) does not take this input, e.g. the `cv` of `osc`",
           "type": "boolean"
         },
+        "mode": {
+          "$ref": "#/$defs/Mode",
+          "description": "control outputs with a `path`: how the value acts on the target"
+        },
         "name": {
           "type": "string"
+        },
+        "names": {
+          "description": "event ports: the deck-events names it emits / accepts (`music.note`, `story.act` …); interned once at load",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "path": {
+          "description": "control outputs: the target it writes (a group child's parameter, preset, gain …, ABI-V2 §5); empty = a graph cable",
+          "type": "string"
+        },
+        "props": {
+          "description": "event ports: the positional meaning of the prop slots (at most `MAX_EVENT_PROPS`)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "sidechain": {
+          "description": "audio inputs: a second input fed by sends, not by the graph's sum (ENGINE-REFACTOR-PLAN §2.6)",
+          "type": "boolean"
         },
         "type": {
           "$ref": "#/$defs/PortType",

@@ -135,6 +135,7 @@ dependencies = [
 name = "analog-module"
 version = "0.1.0"
 dependencies = [
+ "deck-catalog",
  "deck-core",
  "deck-module",
  "deck-module-host",
@@ -1051,10 +1052,10 @@ dependencies = [
 name = "deck-module"
 version = "0.1.0"
 dependencies = [
+ "deck-catalog",
  "deck-core",
  "deck-module",
  "deck-module-macros",
- "serde",
  "serde_json",
 ]
 
@@ -1064,6 +1065,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "bytemuck",
+ "deck-catalog",
  "deck-core",
  "deck-module",
  "sha2",
@@ -1093,11 +1095,11 @@ dependencies = [
  "bytemuck",
  "cpal",
  "ctrlc",
+ "deck-catalog",
  "deck-core",
  "deck-engine",
  "deck-events",
  "deck-link",
- "deck-module",
  "deck-module-host",
  "deck-outputs",
  "deck-space",

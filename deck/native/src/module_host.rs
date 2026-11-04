@@ -19,7 +19,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 
 pub use deck_module_host::{InBind, Layout, LogLimiter, MEMORY_LIMIT};
-use deck_module::host::{Dir, PortKind};
+use deck_catalog::{Dir, PortType as P};
 
 /// A loaded module: checked, compiled, registered as a node kind. Cheap to share.
 pub struct Loaded {
@@ -75,19 +75,19 @@ impl Library {
         let port_names: Vec<&str> = desc
             .ports
             .iter()
-            .filter(|p| p.dir == Dir::In && matches!(p.kind, PortKind::Audio | PortKind::Control))
-            .map(|p| p.name.as_str())
-            .chain(desc.params.iter().map(|p| p.name.as_str()))
+            .filter(|p| p.dir == Dir::In && matches!(p.ty, P::Audio | P::Cv | P::Control))
+            .map(|p| p.name.as_ref())
+            .chain(desc.params.iter().map(|p| p.name.as_ref()))
             .collect();
         let inputs: Vec<(String, PortType)> = host.layout.inputs.iter().zip(&port_names).map(|(b, n)| ((*n).to_owned(), ty(b))).collect();
         let outputs: Vec<(String, PortType)> =
-            desc.ports.iter().filter(|p| p.dir == Dir::Out && p.kind == PortKind::Audio).map(|p| (p.name.clone(), PortType::Audio)).collect();
-        let defaults: Vec<(String, f32)> = desc.params.iter().map(|p| (p.name.clone(), p.default)).collect();
+            desc.ports.iter().filter(|p| p.dir == Dir::Out && matches!(p.ty, P::Audio | P::Cv)).map(|p| (p.name.to_string(), PortType::Audio)).collect();
+        let defaults: Vec<(String, f32)> = desc.params.iter().map(|p| (p.name.to_string(), p.default.unwrap_or(p.min))).collect();
         let kind = modreg::register(&desc.name, &inputs, &outputs, &defaults);
         let hash = host.hash.clone();
         let loaded = Arc::new(Loaded { host: Arc::new(host), kind });
         self.by_hash.lock().unwrap_or_else(|e| e.into_inner()).insert(hash, loaded.clone());
-        self.by_name.lock().unwrap_or_else(|e| e.into_inner()).insert(loaded.desc.name.clone(), loaded.clone());
+        self.by_name.lock().unwrap_or_else(|e| e.into_inner()).insert(loaded.desc.name.to_string(), loaded.clone());
         Ok(loaded)
     }
 

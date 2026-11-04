@@ -217,11 +217,12 @@ impl Compiler {
     }
 }
 
-/// The module's descriptor, read from the wasm's `deck.module` section and validated (ABI version, names, ranges, counts)
+/// The module's descriptor, read from the wasm's `deck.module` section and validated (ABI version, names, ranges,
+/// counts); handed on as the module wrote it (the stored form the server checks, ModuleSource.php)
 pub fn describe(wasm: &[u8]) -> Result<serde_json::Value, String> {
     let json = deck_module::host::read_descriptor(wasm).ok_or("the wasm has no module descriptor: derive `Module` on a struct (`#[derive(Module)]`)")?;
-    let descriptor = deck_module::host::Descriptor::parse(json)?;
-    serde_json::to_value(&descriptor).map_err(|e| e.to_string())
+    deck_module::host::parse(json)?;
+    serde_json::from_str(json).map_err(|e| e.to_string())
 }
 
 pub fn hex(bytes: &[u8]) -> String {

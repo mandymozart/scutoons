@@ -3,7 +3,7 @@
 //! `STAGE_MODULES`, and the batch evaluator's kind list all read it. The order of the `graph` kinds is the order of
 //! deck-space's `Kind::ALL` (the generated server file keeps it). A new kind = a variant in `Kind` + an entry here + its
 //! block; a test in deck-space checks both lists agree.
-use crate::{AnyChannels, Channels, Curve, Descriptor, Dir, Domain, ParamDesc, PortDesc, PortType, Scope};
+use crate::{AnyChannels, Channels, Curve, Descriptor, Dir, Domain, Mode, ParamDesc, PortDesc, PortType, Scope, EVENT_CAPACITY};
 use std::borrow::Cow;
 use std::sync::OnceLock;
 
@@ -23,7 +23,21 @@ fn d(doc: &'static str) -> &'static str {
 }
 
 fn port(name: &'static str, dir: Dir, ty: PortType, channels: Option<Channels>, engine: bool, doc: &'static str) -> PortDesc {
-    PortDesc { name: Cow::Borrowed(name), dir, ty, channels, engine, doc: Cow::Borrowed(d(doc)) }
+    PortDesc {
+        name: Cow::Borrowed(name),
+        dir,
+        ty,
+        channels,
+        engine,
+        doc: Cow::Borrowed(d(doc)),
+        sidechain: false,
+        names: Cow::Borrowed(&[]),
+        props: Cow::Borrowed(&[]),
+        capacity: EVENT_CAPACITY,
+        path: Cow::Borrowed(""),
+        mode: Mode::Set,
+        choices: Cow::Borrowed(&[]),
+    }
 }
 /// a control input (its parameter has the same name: `lin` / `log` / `driven`)
 fn ci(name: &'static str, doc: &'static str) -> PortDesc {
@@ -136,9 +150,14 @@ fn kind(
         batch: flags & F_BATCH != 0,
         follow_transport: flags & F_TRANSPORT != 0,
         needs: Cow::Borrowed(&[]),
+        wants: Cow::Borrowed(&[]),
+        reads: Cow::Borrowed(&[]),
         abi: None,
+        latency: 0,
         ports: Cow::Owned(ports.to_vec()),
         params: Cow::Owned(params.to_vec()),
+        assets: Cow::Borrowed(&[]),
+        preset: None,
     }
 }
 

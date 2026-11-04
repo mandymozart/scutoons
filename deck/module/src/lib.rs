@@ -53,7 +53,7 @@ pub use deck_module_macros::Module;
 /// What the derive writes: the module's name and descriptor, its parameters by index (declaration order).
 pub trait Describe: Sized {
     const NAME: &'static str;
-    /// the descriptor as JSON (`host::Descriptor` parses it)
+    /// the descriptor as JSON (`host::parse` reads it into deck-catalog's `Descriptor`)
     const DESCRIPTOR: &'static str;
     /// the number of `#[param]` fields
     const PARAMS: usize;

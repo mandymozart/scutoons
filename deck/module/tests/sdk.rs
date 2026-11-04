@@ -3,7 +3,8 @@
 #![allow(clippy::duplicated_attributes)]
 use deck_core::tempo::TempoMap;
 use deck_module::abi::*;
-use deck_module::host::{read_descriptor, Descriptor, Dir, Offsets, PortKind};
+use deck_catalog::{AssetKind, Dir, Mode, PortType};
+use deck_module::host::{self, read_descriptor, Offsets};
 use deck_module::testing::{take_log, Rig};
 use deck_module::{log, Block, Ctx, Describe, Event, Module, Outputs};
 
@@ -54,12 +55,12 @@ impl Module for Gain {
 
 #[test]
 fn the_derive_writes_the_descriptor() {
-    let d = Descriptor::parse(Gain::DESCRIPTOR).unwrap();
-    assert_eq!((d.abi, d.name.as_str(), d.version.as_str()), (ABI_VERSION, "gain", env!("CARGO_PKG_VERSION")));
+    let d = host::parse(Gain::DESCRIPTOR).unwrap();
+    assert_eq!((d.abi, d.name.as_ref(), d.version.as_ref()), (Some(ABI_VERSION), "gain", env!("CARGO_PKG_VERSION")));
     assert_eq!(d.params.len(), 2);
-    assert_eq!((d.params[1].name.as_str(), d.params[1].min, d.params[1].max, d.params[1].default), ("offset", -1.0, 1.0, -0.25));
-    assert_eq!(d.ports_of(Dir::In, PortKind::Audio).count(), 1);
-    assert_eq!(d.ports_of(Dir::Out, PortKind::Event).map(|p| p.name.as_str()).collect::<Vec<_>>(), ["beats"]);
+    assert_eq!((d.params[1].name.as_ref(), d.params[1].min, d.params[1].max, d.params[1].default), ("offset", -1.0, 1.0, Some(-0.25)));
+    assert_eq!(d.ports_of(Dir::In, PortType::Audio).count(), 1);
+    assert_eq!(d.ports_of(Dir::Out, PortType::Event).map(|p| p.name.as_ref()).collect::<Vec<_>>(), ["beats"]);
     assert_eq!(Gain::PARAMS, 2);
     assert_eq!(Gain::NAME, "gain");
 }
@@ -182,15 +183,49 @@ fn the_io_layout_is_what_the_host_computes() {
 #[test]
 fn descriptors_are_validated() {
     let ok = |extra: &str| format!("{{\"abi\":1,\"name\":\"m\",\"version\":\"1\",\"params\":[{extra}],\"ports\":[]}}");
-    assert!(Descriptor::parse(&ok("")).is_ok());
-    assert!(Descriptor::parse(&ok("{\"name\":\"a\",\"min\":0,\"max\":1,\"default\":2}")).unwrap_err().contains("default"));
-    assert!(Descriptor::parse(&ok("{\"name\":\"A\",\"min\":0,\"max\":1,\"default\":0}")).unwrap_err().contains("identifier"));
-    assert!(Descriptor::parse(&ok("{\"name\":\"a\",\"min\":0,\"max\":1,\"default\":0},{\"name\":\"a\",\"min\":0,\"max\":1,\"default\":0}")).unwrap_err().contains("twice"));
-    assert!(Descriptor::parse("{\"abi\":2,\"name\":\"m\",\"version\":\"1\",\"params\":[],\"ports\":[]}").unwrap_err().contains("ABI 2"));
+    assert!(host::parse(&ok("")).is_ok());
+    assert!(host::parse(&ok("{\"name\":\"a\",\"min\":0,\"max\":1,\"default\":2}")).unwrap_err().contains("default"));
+    assert!(host::parse(&ok("{\"name\":\"A\",\"min\":0,\"max\":1,\"default\":0}")).unwrap_err().contains("identifier"));
+    assert!(host::parse(&ok("{\"name\":\"a\",\"min\":0,\"max\":1,\"default\":0},{\"name\":\"a\",\"min\":0,\"max\":1,\"default\":0}")).unwrap_err().contains("twice"));
+    assert!(host::parse("{\"abi\":2,\"name\":\"m\",\"version\":\"1\",\"params\":[],\"ports\":[]}").unwrap_err().contains("ABI 2"));
     let many: Vec<String> = (0..5).map(|i| format!("{{\"name\":\"p{i}\",\"dir\":\"in\",\"kind\":\"audio\"}}")).collect();
     let d = format!("{{\"abi\":1,\"name\":\"m\",\"version\":\"1\",\"params\":[],\"ports\":[{}]}}", many.join(","));
-    assert!(Descriptor::parse(&d).unwrap_err().contains("at most 4"));
-    assert!(Descriptor::parse("not json").is_err());
+    assert!(host::parse(&d).unwrap_err().contains("at most 4"));
+    assert!(host::parse("not json").is_err());
+    assert!(host::parse("{\"name\":\"m\",\"version\":\"1\"}").unwrap_err().contains("no ABI"));
+}
+
+/// #339: every ABI v2 field of the one descriptor (deck-catalog) filled, through `validate`, JSON and back
+#[test]
+fn a_descriptor_with_every_v2_field_round_trips_through_validate() {
+    let json = r#"{"abi":1,"name":"moody","version":"2.0.0","latency":32,
+        "needs":["motion"],"wants":["position","camera"],"reads":["story.act","story.tension"],
+        "params":[{"name":"cutoff","min":20,"max":20000,"default":800},{"name":"drive","min":0,"max":1,"default":0}],
+        "ports":[{"name":"in","dir":"in","kind":"audio"},
+                 {"name":"side","dir":"in","type":"audio","channels":2,"sidechain":true},
+                 {"name":"notes","dir":"in","type":"event","names":["music.note"],"props":["pitch","vel","glide","key"],"capacity":128},
+                 {"name":"out","dir":"out","type":"audio","channels":"any"},
+                 {"name":"cues","dir":"out","type":"event","names":["story.cue","music.note"],"props":["strength"]},
+                 {"name":"level","dir":"out","type":"control"},
+                 {"name":"mood","dir":"out","type":"control","path":"lead.preset","mode":"set","choices":["calm","wild"]},
+                 {"name":"push","dir":"out","type":"control","path":"lead.gain","mode":"mul"}],
+        "assets":[{"name":"kick","kind":"pcm","doc":"the kick drum","max_bytes":8388608},{"name":"seq","kind":"bytes","max_bytes":65536},
+                  {"name":"face","kind":"image","max_bytes":262144}],
+        "preset":{"name":"warm","doc":"soft and round","values":{"cutoff":1200,"drive":0.25}}}"#;
+    let d = host::parse(json).unwrap();
+    let again = host::parse(&serde_json::to_string(&d).unwrap()).unwrap();
+    assert_eq!(again, d);
+    host::validate(&again).unwrap();
+    assert_eq!((d.latency, d.needs.len(), d.wants.len(), d.reads[1].as_ref()), (32, 1, 2, "story.tension"));
+    let port = |n: &str| d.ports.iter().find(|p| p.name == n).unwrap();
+    assert!(port("side").sidechain);
+    assert_eq!((port("notes").capacity, port("notes").props.len(), port("cues").capacity), (128, 4, deck_catalog::EVENT_CAPACITY));
+    assert_eq!((port("mood").path.as_ref(), port("mood").mode, port("mood").choices.len(), port("push").mode), ("lead.preset", Mode::Set, 2, Mode::Mul));
+    assert_eq!(d.assets.iter().map(|a| a.kind).collect::<Vec<_>>(), [AssetKind::Pcm, AssetKind::Bytes, AssetKind::Image]);
+    assert_eq!(d.preset.as_ref().map(|p| p.values["drive"]), Some(0.25));
+    // the catalog's rules hold for modules too: a misplaced field is refused by the host
+    assert!(host::parse(&json.replace(r#""sidechain":true"#, r#""sidechain":true,"path":"x.y""#)).unwrap_err().contains("control outputs"));
+    assert!(host::parse(&json.replace(r#""drive":0.25"#, r#""drive":2"#)).unwrap_err().contains("outside"));
 }
 
 #[test]

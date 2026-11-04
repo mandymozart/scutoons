@@ -52,7 +52,7 @@ final class ModuleSource
     }
 
     /**
-     * The shape of a descriptor a compile wrote (deck-module `host::Descriptor`: the service validated it deeply)
+     * The shape of a descriptor a compile wrote (the module's own `deck.module` JSON; deck-module `host::parse` validated it deeply)
      * @return list<string>
      */
     public static function descriptorProblems(mixed $d): array

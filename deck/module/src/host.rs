@@ -1,121 +1,72 @@
 //! The loader's side of the ABI (feature `host`): the descriptor a module declares, found in the wasm without running
-//! it, validated; and where the fields of `Io` lie in the module's memory. Used by deck-native's wasmtime host, the
-//! compile service (#281) and its tests. The browser reads the same JSON from `WebAssembly.Module.customSections`.
+//! it, parsed into deck-catalog's one `Descriptor` (#339: the type the built-ins use too) and validated; and where the
+//! fields of `Io` lie in the module's memory. Used by deck-native's wasmtime host, the compile service (#281) and its tests. The browser reads the same JSON from `WebAssembly.Module.customSections`.
 use crate::abi::*;
 use core::mem::{offset_of, size_of};
-use serde::{Deserialize, Serialize};
+use deck_catalog::{Descriptor, Dir, PortType};
 
 /// the custom section the derive writes the descriptor into
 pub const SECTION: &str = "deck.module";
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Dir {
-    In,
-    Out,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum PortKind {
-    Audio,
-    Control,
-    Video,
-    /// events out (deck-events' model): a module's notes and triggers, not a graph cable
-    Event,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ParamDesc {
-    pub name: String,
-    pub min: f32,
-    pub max: f32,
-    pub default: f32,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct PortDesc {
-    pub name: String,
-    pub dir: Dir,
-    pub kind: PortKind,
-}
-
-/// What a module declares: read before anything runs.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Descriptor {
-    pub abi: u32,
-    pub name: String,
-    pub version: String,
-    pub params: Vec<ParamDesc>,
-    pub ports: Vec<PortDesc>,
-}
 
 fn ident(s: &str) -> bool {
     !s.is_empty() && s.len() <= 24 && s.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_') && !s.as_bytes()[0].is_ascii_digit()
 }
 
-impl Descriptor {
-    /// Parses and checks: the ABI version, the names, the ranges, the counts the ABI has room for.
-    pub fn parse(json: &str) -> Result<Descriptor, String> {
-        let d: Descriptor = serde_json::from_str(json).map_err(|e| format!("descriptor: {e}"))?;
-        d.validate()?;
-        Ok(d)
-    }
-
-    pub fn validate(&self) -> Result<(), String> {
-        if self.abi != ABI_VERSION {
-            return Err(format!("module '{}' speaks ABI {}, this host speaks {ABI_VERSION}", self.name, self.abi));
-        }
-        if !ident(&self.name) {
-            return Err(format!("module name '{}' is not a lowercase identifier (a-z, 0-9, _; at most 24)", self.name));
-        }
-        if self.params.len() > MAX_PARAMS {
-            return Err(format!("module '{}' has {} parameters, at most {MAX_PARAMS}", self.name, self.params.len()));
-        }
-        let mut names: Vec<&str> = Vec::new();
-        for p in &self.params {
-            if !ident(&p.name) {
-                return Err(format!("parameter name '{}' is not a lowercase identifier", p.name));
-            }
-            if !(p.min.is_finite() && p.max.is_finite() && p.min < p.max && (p.min..=p.max).contains(&p.default)) {
-                return Err(format!("parameter '{}': needs min < max and a default inside", p.name));
-            }
-            names.push(&p.name);
-        }
-        for p in &self.ports {
-            if !ident(&p.name) {
-                return Err(format!("port name '{}' is not a lowercase identifier", p.name));
-            }
-            names.push(&p.name);
-        }
-        names.sort_unstable();
-        if let Some(w) = names.windows(2).find(|w| w[0] == w[1]) {
-            return Err(format!("module '{}': the name '{}' is used twice (parameters and ports share one namespace)", self.name, w[0]));
-        }
-        for (dir, kind, max) in [
-            (Dir::In, PortKind::Audio, MAX_AUDIO_PORTS),
-            (Dir::Out, PortKind::Audio, MAX_AUDIO_PORTS),
-            (Dir::In, PortKind::Control, MAX_CONTROL_IN),
-            (Dir::Out, PortKind::Control, MAX_CONTROL_OUT),
-        ] {
-            let n = self.ports_of(dir, kind).count();
-            if n > max {
-                return Err(format!("module '{}' has {n} {kind:?} ports {dir:?}, at most {max}", self.name));
-            }
-        }
-        Ok(())
-    }
-
-    /// the ports of one direction and kind, in declaration order – the n-th is `block.audio_in(n)` and so on
-    pub fn ports_of(&self, dir: Dir, kind: PortKind) -> impl Iterator<Item = &PortDesc> {
-        self.ports.iter().filter(move |p| p.dir == dir && p.kind == kind)
-    }
-
-    pub fn param_index(&self, name: &str) -> Option<usize> {
-        self.params.iter().position(|p| p.name == name)
-    }
+/// Parses a module's descriptor (the `deck.module` JSON) into the catalog's one `Descriptor` and [`validate`]s it.
+pub fn parse(json: &str) -> Result<Descriptor, String> {
+    let d: Descriptor = serde_json::from_str(json).map_err(|e| format!("descriptor: {e}"))?;
+    validate(&d)?;
+    Ok(d)
 }
 
+/// A module's descriptor against this host: the ABI version, the names, the ranges, the counts the ABI has room for,
+/// and the catalog's own rules for the v2 fields (`Descriptor::check`).
+pub fn validate(d: &Descriptor) -> Result<(), String> {
+    if d.abi != Some(ABI_VERSION) {
+        let abi = d.abi.map_or("no ABI".to_string(), |a| format!("ABI {a}"));
+        return Err(format!("module '{}' speaks {abi}, this host speaks {ABI_VERSION}", d.name));
+    }
+    if !ident(&d.name) {
+        return Err(format!("module name '{}' is not a lowercase identifier (a-z, 0-9, _; at most 24)", d.name));
+    }
+    if d.params.len() > MAX_PARAMS {
+        return Err(format!("module '{}' has {} parameters, at most {MAX_PARAMS}", d.name, d.params.len()));
+    }
+    let mut names: Vec<&str> = Vec::new();
+    for p in d.params.iter() {
+        if !ident(&p.name) {
+            return Err(format!("parameter name '{}' is not a lowercase identifier", p.name));
+        }
+        if !(p.min.is_finite() && p.max.is_finite() && p.min < p.max && p.default.is_some_and(|v| (p.min..=p.max).contains(&v))) {
+            return Err(format!("parameter '{}': needs min < max and a default inside", p.name));
+        }
+        names.push(&p.name);
+    }
+    for p in d.ports.iter() {
+        if !ident(&p.name) {
+            return Err(format!("port name '{}' is not a lowercase identifier", p.name));
+        }
+        names.push(&p.name);
+    }
+    names.sort_unstable();
+    if let Some(w) = names.windows(2).find(|w| w[0] == w[1]) {
+        return Err(format!("module '{}': the name '{}' is used twice (parameters and ports share one namespace)", d.name, w[0]));
+    }
+    // a `cv` port is an audio port of two channels (pitch, gate): it takes an audio slot
+    let count = |dir: Dir, types: &[PortType]| d.ports.iter().filter(|p| p.dir == dir && types.contains(&p.ty)).count();
+    for (dir, types, max) in [
+        (Dir::In, &[PortType::Audio, PortType::Cv][..], MAX_AUDIO_PORTS),
+        (Dir::Out, &[PortType::Audio, PortType::Cv][..], MAX_AUDIO_PORTS),
+        (Dir::In, &[PortType::Control][..], MAX_CONTROL_IN),
+        (Dir::Out, &[PortType::Control][..], MAX_CONTROL_OUT),
+    ] {
+        let n = count(dir, types);
+        if n > max {
+            return Err(format!("module '{}' has {n} {:?} ports {dir:?}, at most {max}", d.name, types[0]));
+        }
+    }
+    d.check()
+}
 /// The `deck.module` custom section of a wasm binary (the descriptor's JSON), without instantiating it.
 pub fn read_descriptor(wasm: &[u8]) -> Option<&str> {
     fn leb(b: &[u8], at: &mut usize) -> Option<usize> {

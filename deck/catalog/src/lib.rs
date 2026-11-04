@@ -8,6 +8,7 @@
 //! analyse, migrate the documents, then the code – RULES "Migrations and stored data"); adding is additive.
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
+use std::collections::BTreeMap;
 
 mod builtin;
 pub use builtin::builtin_kinds;
@@ -116,6 +117,40 @@ fn one() -> Cow<'static, str> {
 fn default_domain() -> Domain {
     Domain::Audio
 }
+fn event_capacity() -> u16 {
+    EVENT_CAPACITY
+}
+fn is_event_capacity(n: &u16) -> bool {
+    *n == EVENT_CAPACITY
+}
+fn is_zero(n: &u32) -> bool {
+    *n == 0
+}
+fn empty_assets() -> Cow<'static, [AssetDesc]> {
+    Cow::Borrowed(&[])
+}
+
+/// an event port's prop slots: deck-events' `Event` carries at most this many props (ABI-V2 §1.2, §1.4)
+pub const MAX_EVENT_PROPS: usize = 6;
+/// an event port's records per block when the descriptor does not say (`capacity`)
+pub const EVENT_CAPACITY: u16 = 64;
+/// the most records per block an event port may declare
+pub const MAX_EVENT_CAPACITY: u16 = 512;
+
+/// how a control output with a `path` acts on its target (ABI-V2 §1.2, §5): replace it, add to it, scale it
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "lowercase")]
+pub enum Mode {
+    #[default]
+    Set,
+    Add,
+    Mul,
+}
+
+fn is_set(m: &Mode) -> bool {
+    *m == Mode::Set
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
@@ -133,6 +168,61 @@ pub struct PortDesc {
     pub engine: bool,
     #[serde(default = "empty_str", skip_serializing_if = "is_empty_str")]
     pub doc: Cow<'static, str>,
+    /// audio inputs: a second input fed by sends, not by the graph's sum (ENGINE-REFACTOR-PLAN §2.6)
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub sidechain: bool,
+    /// event ports: the deck-events names it emits / accepts (`music.note`, `story.act` …); interned once at load
+    #[serde(default = "empty_strs", skip_serializing_if = "is_empty_slice")]
+    pub names: Cow<'static, [Cow<'static, str>]>,
+    /// event ports: the positional meaning of the prop slots (at most `MAX_EVENT_PROPS`)
+    #[serde(default = "empty_strs", skip_serializing_if = "is_empty_slice")]
+    pub props: Cow<'static, [Cow<'static, str>]>,
+    /// event ports: records per block (1 … `MAX_EVENT_CAPACITY`)
+    #[serde(default = "event_capacity", skip_serializing_if = "is_event_capacity")]
+    pub capacity: u16,
+    /// control outputs: the target it writes (a group child's parameter, preset, gain …, ABI-V2 §5); empty = a graph cable
+    #[serde(default = "empty_str", skip_serializing_if = "is_empty_str")]
+    pub path: Cow<'static, str>,
+    /// control outputs with a `path`: how the value acts on the target
+    #[serde(default, skip_serializing_if = "is_set")]
+    pub mode: Mode,
+    /// control outputs: the value is an index into these names (an enum)
+    #[serde(default = "empty_strs", skip_serializing_if = "is_empty_slice")]
+    pub choices: Cow<'static, [Cow<'static, str>]>,
+}
+
+/// what an asset slot holds once the host has filled it: planar f32 PCM, raw bytes, or a small RGBA8 image (ABI-V2 §1.5)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "lowercase")]
+pub enum AssetKind {
+    Pcm,
+    Bytes,
+    Image,
+}
+
+/// a read-only data slot of a module; a node binds an asset id to it, the host fills it at instantiation (ABI-V2 §1.5)
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+pub struct AssetDesc {
+    pub name: Cow<'static, str>,
+    pub kind: AssetKind,
+    #[serde(default = "empty_str", skip_serializing_if = "is_empty_str")]
+    pub doc: Cow<'static, str>,
+    /// the largest asset the slot takes, in bytes (decoded)
+    pub max_bytes: u32,
+}
+
+/// a module's one factory preset (ABI-V2 §2); every other preset is a DB document (deck-space's rig `Preset`)
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+pub struct FactoryPreset {
+    pub name: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub doc: String,
+    /// parameter name → value; a parameter not named keeps its default
+    #[serde(default)]
+    pub values: BTreeMap<String, f32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -189,16 +279,31 @@ pub struct Descriptor {
     /// the kind follows the transport by default (#359: stops, holds, resumes with it); a node's `follow_transport` overrides it
     #[serde(default, skip_serializing_if = "is_false")]
     pub follow_transport: bool,
-    /// capabilities the kind needs (#312) – reserved
+    /// capabilities the kind needs (#312): without one it does not run
     #[serde(default = "empty_strs", skip_serializing_if = "is_empty_slice")]
     pub needs: Cow<'static, [Cow<'static, str>]>,
+    /// capabilities the kind uses when they are there (#312): without one it runs on, the sensor reads "absent"
+    #[serde(default = "empty_strs", skip_serializing_if = "is_empty_slice")]
+    pub wants: Cow<'static, [Cow<'static, str>]>,
+    /// the show's variable slots the kind may read (`story.act` …, ABI-V2 §3)
+    #[serde(default = "empty_strs", skip_serializing_if = "is_empty_slice")]
+    pub reads: Cow<'static, [Cow<'static, str>]>,
     /// modules only: the ABI version they speak
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub abi: Option<u32>,
+    /// constant latency in frames, for the engine's compensation (ENGINE-REFACTOR-PLAN §2.6a)
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub latency: u32,
     #[serde(default = "empty_ports")]
     pub ports: Cow<'static, [PortDesc]>,
     #[serde(default = "empty_params")]
     pub params: Cow<'static, [ParamDesc]>,
+    /// read-only data slots (samples, sequences, images) the host fills at instantiation
+    #[serde(default = "empty_assets", skip_serializing_if = "is_empty_slice")]
+    pub assets: Cow<'static, [AssetDesc]>,
+    /// the kind's one factory preset
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preset: Option<FactoryPreset>,
 }
 
 impl Descriptor {
@@ -210,6 +315,84 @@ impl Descriptor {
     }
     pub fn param(&self, name: &str) -> Option<&ParamDesc> {
         self.params.iter().find(|p| p.name == name)
+    }
+    pub fn param_index(&self, name: &str) -> Option<usize> {
+        self.params.iter().position(|p| p.name == name)
+    }
+    /// the ports of one direction and type, in declaration order – for a module the n-th is `block.audio_in(n)` and so on
+    pub fn ports_of(&self, dir: Dir, ty: PortType) -> impl Iterator<Item = &PortDesc> {
+        self.ports.iter().filter(move |p| p.dir == dir && p.ty == ty)
+    }
+
+    /// The ABI v2 fields against their own rules (ABI-V2 §1.2): each port field only on the port it belongs to, the
+    /// event limits, no capability both needed and wanted, unique slots, a preset that names real parameters inside
+    /// their ranges. Built-ins and modules alike; a module host adds its own checks (`deck_module::host::validate`).
+    pub fn check(&self) -> Result<(), String> {
+        let me = &self.name;
+        let unique = |what: &str, list: &mut dyn Iterator<Item = &str>| -> Result<(), String> {
+            let mut seen = std::collections::BTreeSet::new();
+            for s in list {
+                if s.is_empty() {
+                    return Err(format!("'{me}': an empty name in {what}"));
+                }
+                if !seen.insert(s) {
+                    return Err(format!("'{me}': '{s}' is in {what} twice"));
+                }
+            }
+            Ok(())
+        };
+        for p in self.ports.iter() {
+            let at = format!("'{me}': port '{}'", p.name);
+            let event = p.ty == PortType::Event;
+            let control_out = p.ty == PortType::Control && p.dir == Dir::Out;
+            if p.sidechain && !(p.ty == PortType::Audio && p.dir == Dir::In) {
+                return Err(format!("{at}: `sidechain` is for audio inputs"));
+            }
+            if !event && (!p.names.is_empty() || !p.props.is_empty() || p.capacity != EVENT_CAPACITY) {
+                return Err(format!("{at}: `names`, `props` and `capacity` are for event ports"));
+            }
+            if !control_out && (!p.path.is_empty() || p.mode != Mode::Set || !p.choices.is_empty()) {
+                return Err(format!("{at}: `path`, `mode` and `choices` are for control outputs"));
+            }
+            if p.mode != Mode::Set && p.path.is_empty() {
+                return Err(format!("{at}: `mode` acts on a target – it needs a `path`"));
+            }
+            if p.props.len() > MAX_EVENT_PROPS {
+                return Err(format!("{at}: {} props, at most {MAX_EVENT_PROPS}", p.props.len()));
+            }
+            if !(1..=MAX_EVENT_CAPACITY).contains(&p.capacity) {
+                return Err(format!("{at}: capacity {}, 1 … {MAX_EVENT_CAPACITY}", p.capacity));
+            }
+            unique(&format!("{at}'s names"), &mut p.names.iter().map(|s| s.as_ref()))?;
+            unique(&format!("{at}'s props"), &mut p.props.iter().map(|s| s.as_ref()))?;
+            unique(&format!("{at}'s choices"), &mut p.choices.iter().map(|s| s.as_ref()))?;
+        }
+        unique("`needs`", &mut self.needs.iter().map(|s| s.as_ref()))?;
+        unique("`wants`", &mut self.wants.iter().map(|s| s.as_ref()))?;
+        if let Some(w) = self.wants.iter().find(|w| self.needs.contains(w)) {
+            return Err(format!("'{me}': '{w}' is in `needs` and in `wants` – a capability is one or the other"));
+        }
+        unique("`reads`", &mut self.reads.iter().map(|s| s.as_ref()))?;
+        unique("`assets`", &mut self.assets.iter().map(|a| a.name.as_ref()))?;
+        if let Some(a) = self.assets.iter().find(|a| a.max_bytes == 0) {
+            return Err(format!("'{me}': asset '{}' needs a `max_bytes` above 0", a.name));
+        }
+        if let Some(preset) = &self.preset {
+            if preset.name.is_empty() {
+                return Err(format!("'{me}': the preset needs a name"));
+            }
+            for (k, &v) in &preset.values {
+                let p = self.param(k).ok_or_else(|| format!("'{me}': preset '{}' sets '{k}', which is no parameter", preset.name))?;
+                if !p.choices.is_empty() {
+                    if !(v >= 0.0 && v.fract() == 0.0 && (v as usize) < p.choices.len()) {
+                        return Err(format!("'{me}': preset '{}': '{k}' = {v} is no index into its choices", preset.name));
+                    }
+                } else if !(v.is_finite() && (p.min..=p.max).contains(&v)) {
+                    return Err(format!("'{me}': preset '{}': '{k}' = {v} is outside {} … {}", preset.name, p.min, p.max));
+                }
+            }
+        }
+        Ok(())
     }
 }
 
@@ -293,7 +476,53 @@ mod tests {
             for p in d.inputs().filter(|p| p.ty == PortType::Control) {
                 assert!(d.param(&p.name).is_some_and(|q| q.port), "{}: control input {} has no parameter", d.name, p.name);
             }
+            d.check().unwrap();
         }
+    }
+
+    /// every ABI v2 field (ABI-V2 §1.2) filled, through JSON and back; then each misplaced field refused by `check`
+    #[test]
+    fn the_v2_fields_round_trip_and_check() {
+        let json = r#"{"name":"m","abi":1,"latency":64,"needs":["motion"],"wants":["position"],"reads":["story.act"],
+            "params":[{"name":"cutoff","min":20,"max":20000,"default":800},{"name":"wave","choices":["sine","saw"]}],
+            "ports":[{"name":"side","dir":"in","type":"audio","channels":2,"sidechain":true},
+                     {"name":"notes","dir":"in","type":"event","names":["music.note"],"props":["pitch","vel","glide"],"capacity":128},
+                     {"name":"sel","dir":"out","type":"control","path":"child.preset","mode":"add","choices":["calm","wild"]}],
+            "assets":[{"name":"kick","kind":"pcm","doc":"the kick","max_bytes":8388608}],
+            "preset":{"name":"warm","doc":"a soft start","values":{"cutoff":1200,"wave":1}}}"#;
+        let d: Descriptor = serde_json::from_str(json).unwrap();
+        d.check().unwrap();
+        assert_eq!(serde_json::from_str::<Descriptor>(&serde_json::to_string(&d).unwrap()).unwrap(), d);
+        assert_eq!((d.latency, d.wants[0].as_ref(), d.reads[0].as_ref(), d.assets[0].kind), (64, "position", "story.act", AssetKind::Pcm));
+        assert_eq!((d.ports[0].sidechain, d.ports[1].capacity, d.ports[2].mode), (true, 128, Mode::Add));
+        assert_eq!(d.preset.as_ref().unwrap().values["cutoff"], 1200.0);
+        // a port that sets none of them serializes without them
+        let plain = serde_json::to_string(&builtin_kinds()[0].ports[0]).unwrap();
+        for k in ["sidechain", "names", "props", "capacity", "path", "mode", "choices"] {
+            assert!(!plain.contains(k), "{plain}");
+        }
+
+        let bad = |f: &dyn Fn(&mut Descriptor)| {
+            let mut x = d.clone();
+            f(&mut x);
+            x.check().unwrap_err()
+        };
+        fn port(x: &mut Descriptor, i: usize) -> &mut PortDesc {
+            &mut x.ports.to_mut()[i]
+        }
+        assert!(bad(&|x| port(x, 2).sidechain = true).contains("sidechain"));
+        assert!(bad(&|x| port(x, 0).capacity = 8).contains("event ports"));
+        assert!(bad(&|x| port(x, 1).path = "a.b".into()).contains("control outputs"));
+        assert!(bad(&|x| port(x, 1).capacity = 0).contains("capacity"));
+        assert!(bad(&|x| port(x, 1).capacity = MAX_EVENT_CAPACITY + 1).contains("capacity"));
+        assert!(bad(&|x| port(x, 1).props = (0..7).map(|i| Cow::Owned(format!("p{i}"))).collect()).contains("at most 6"));
+        assert!(bad(&|x| port(x, 1).names.to_mut().push("music.note".into())).contains("twice"));
+        assert!(bad(&|x| port(x, 2).path = "".into()).contains("needs a `path`"));
+        assert!(bad(&|x| x.wants = Cow::Owned(vec!["motion".into()])).contains("needs` and in `wants"));
+        assert!(bad(&|x| x.assets.to_mut()[0].max_bytes = 0).contains("max_bytes"));
+        assert!(bad(&|x| _ = x.preset.as_mut().unwrap().values.insert("nope".into(), 1.0)).contains("no parameter"));
+        assert!(bad(&|x| _ = x.preset.as_mut().unwrap().values.insert("cutoff".into(), 1.0)).contains("outside"));
+        assert!(bad(&|x| _ = x.preset.as_mut().unwrap().values.insert("wave".into(), 2.0)).contains("choices"));
     }
 
     #[test]

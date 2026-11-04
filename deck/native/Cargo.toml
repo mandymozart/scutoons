@@ -38,7 +38,7 @@ events = ["dep:deck-events", "deck-engine/events"]
 # rig modules (#280, research/RIG-EDITING.md §4): compiled wasm instruments (deck-module's SDK) run in wasmtime – the
 # scene's `module:<name>` kinds, loaded from DECK_MODULES (module_host.rs). A trap or a time-budget overrun silences that
 # node, never the show. Not in the default (wasmtime's compiler is a big dependency)
-modules = ["dep:deck-module-host", "dep:deck-module", "deck-engine/modules"]
+modules = ["dep:deck-module-host", "dep:deck-catalog", "deck-engine/modules"]
 # MIDI clock in and out (the tempo clock's `midi` source, the tempo node's `midi_out`)
 midi = ["dep:midir"]
 # the parameters as outputs (#211): the scene's [outputs] – MIDI out (a port, or the conductor over the relay), DMX
@@ -72,7 +72,7 @@ deck-events = { path = "../events", optional = true }
 deck-engine = { path = "../engine" }
 # #280: the module host (feature `modules`) – the wasm engine, the SDK's descriptor + ABI layout, the compile cache's key
 deck-module-host = { path = "../module-host", optional = true }
-deck-module = { path = "../module", features = ["host"], optional = true }
+deck-catalog = { path = "../catalog", optional = true }
 anyhow.workspace = true
 serde.workspace = true
 serde_json = { workspace = true, optional = true }

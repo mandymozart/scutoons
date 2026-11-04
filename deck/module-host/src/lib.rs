@@ -9,7 +9,8 @@
 use anyhow::{anyhow, bail, Result};
 use deck_core::tempo::TempoMap;
 use deck_module::abi::{get_str, put_str, EventRec, ABI_VERSION, MAX_AUDIO_PORTS, MAX_BLOCK, MAX_CONTROL_IN, MAX_EVENTS, MAX_VARS, STR_LEN};
-use deck_module::host::{read_descriptor, Descriptor, Dir, Offsets, PortKind};
+use deck_catalog::{Descriptor, Dir, PortType};
+use deck_module::host::{read_descriptor, Offsets};
 use sha2::{Digest, Sha256};
 use std::sync::Arc;
 use std::time::Duration;
@@ -127,25 +128,25 @@ impl Layout {
         let mut inputs = Vec::new();
         let mut outputs = Vec::new();
         let mut audio_out = 0;
-        for p in &d.ports {
-            match (p.dir, p.kind) {
-                (_, PortKind::Video) => bail!("module '{}': video port '{}' – a video module is not supported by this host yet (#185)", d.name, p.name),
-                (Dir::Out, PortKind::Control) => {
+        for p in d.ports.iter() {
+            match (p.dir, p.ty) {
+                (_, PortType::Video) => bail!("module '{}': video port '{}' – a video module is not supported by this host yet (#185)", d.name, p.name),
+                (Dir::Out, PortType::Control) => {
                     bail!("module '{}': control output '{}' – control outputs of modules are not wired into the graph yet", d.name, p.name)
                 }
-                (Dir::In, PortKind::Audio) => {
+                (Dir::In, PortType::Audio | PortType::Cv) => {
                     inputs.push(InBind::Audio(audio));
                     audio += 1;
                 }
-                (Dir::In, PortKind::Control) => {
+                (Dir::In, PortType::Control) => {
                     inputs.push(InBind::Control(control));
                     control += 1;
                 }
-                (Dir::Out, PortKind::Audio) => {
+                (Dir::Out, PortType::Audio | PortType::Cv) => {
                     outputs.push(audio_out);
                     audio_out += 1;
                 }
-                (_, PortKind::Event) => {}
+                (_, PortType::Event) => {}
             }
         }
         inputs.extend((0..d.params.len()).map(InBind::Param));
@@ -175,7 +176,7 @@ impl<B: Backend> Loaded<B> {
     pub fn load(engine: &B::Engine, wasm: &[u8]) -> Result<Loaded<B>> {
         let hash = hex(&Sha256::digest(wasm));
         let json = read_descriptor(wasm).ok_or_else(|| anyhow!("no `deck.module` section – the wasm was not built with deck-module"))?;
-        let desc = Descriptor::parse(json).map_err(|e| anyhow!(e))?;
+        let desc = deck_module::host::parse(json).map_err(|e| anyhow!(e))?;
         let layout = Layout::of(&desc)?;
         let (compiled, from_disk, compile) = B::compile(engine, wasm, &hash)?;
         for (m, n) in B::imports(&compiled) {
@@ -505,7 +506,7 @@ mod tests {
     #[test]
     fn the_layout_maps_ports_then_params_and_refuses_what_it_cannot_run() {
         let d = |ports: &str| {
-            Descriptor::parse(&format!(
+            deck_module::host::parse(&format!(
                 "{{\"abi\":1,\"name\":\"m\",\"version\":\"1\",\"params\":[{{\"name\":\"a\",\"min\":0,\"max\":1,\"default\":0}}],\"ports\":[{ports}]}}"
             ))
             .unwrap()
