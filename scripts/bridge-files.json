@@ -29,7 +29,6 @@
 		"shared/live-deck/src/client.ts": "logic (#366): the relay deck client (join, backoff, ping, status texts)",
 		"shared/live-deck/src/controls.ts": "logic (#369): knob turn, value and position",
 		"shared/live-deck/src/deck.ts": "logic (#370): the browser deck – applies the core's state (the mood, the rig turns: #367, #368); the clock choices",
-		"shared/live-deck/src/events.ts": "logic (#377): the story-to-event adapter rules (unused)",
 		"shared/live-deck/src/gamepad.ts": "logic (#369): the gamepad press and release rules",
 		"shared/live-deck/src/index.ts": "types: the package's exports",
 		"shared/live-deck/src/midi.ts": "adapter: Web MIDI access",

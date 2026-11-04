@@ -65,12 +65,6 @@
 				"ticket": "#369"
 			}
 		},
-		"shared/live-deck/src/events.ts": {
-			"twin-comment": {
-				"count": 1,
-				"ticket": "#377"
-			}
-		},
 		"shared/live-deck/src/gamepad.ts": {
 			"twin-const": {
 				"count": 1,
@@ -456,12 +450,6 @@
 			"math": 0,
 			"escapes": 0
 		},
-		"shared/live-deck/src/events.ts": {
-			"lines": 77,
-			"functions": 2,
-			"math": 0,
-			"escapes": 0
-		},
 		"shared/live-deck/src/gamepad.ts": {
 			"lines": 90,
 			"functions": 9,
@@ -469,7 +457,7 @@
 			"escapes": 0
 		},
 		"shared/live-deck/src/index.ts": {
-			"lines": 18,
+			"lines": 17,
 			"functions": 0,
 			"math": 0,
 			"escapes": 0
