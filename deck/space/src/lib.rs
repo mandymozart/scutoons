@@ -12,6 +12,7 @@ pub mod graph;
 pub mod modreg;
 pub mod mood;
 pub mod params;
+pub mod push;
 pub mod quality;
 pub mod rig;
 pub mod scene;
