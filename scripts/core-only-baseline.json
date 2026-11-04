@@ -679,7 +679,7 @@
 			"escapes": 0
 		},
 		"viewer/src/lib/components/live-deck/deck-clock.svelte": {
-			"lines": 102,
+			"lines": 88,
 			"functions": 0,
 			"math": 0,
 			"escapes": 0
@@ -691,7 +691,7 @@
 			"escapes": 1
 		},
 		"viewer/src/lib/components/live-deck/deck-panel.svelte": {
-			"lines": 284,
+			"lines": 282,
 			"functions": 2,
 			"math": 0,
 			"escapes": 0
@@ -793,9 +793,9 @@
 			"escapes": 0
 		},
 		"viewer/src/routes/live/deck/[[code]]/+page.svelte": {
-			"lines": 461,
+			"lines": 453,
 			"functions": 40,
-			"math": 1,
+			"math": 0,
 			"escapes": 0
 		},
 		"viewer/src/routes/live/vote/[[code]]/+page.svelte": {

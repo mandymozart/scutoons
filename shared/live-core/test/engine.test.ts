@@ -69,7 +69,7 @@ test('#321: two browser decks on one anchor play the same beat (the show clock i
 		assert.equal(s.source, 'relay', 'a scene without a tempo node follows the show clock');
 		assert.ok(s.locked && s.anchor, JSON.stringify(s));
 		// the line is deck-core's, the native HUD's words (owner 2026-11-03: one overlay, not two)
-		assert.match(c.clockLine(t0 + 3000), /^SHOW [+-]\d+\.\dMS RTT \d+\.\dMS$/);
+		assert.match(c.clockLine(t0 + 3000), /^BPM 128\.0 {2}BAR \d+ BEAT \d( CLK)? {2}SHOW [+-]\d+\.\dMS RTT \d+\.\dMS$/);
 		return beatAt(s, t0 + 3000);
 	};
 	const a = await beatAtMs(777_000, 0, t0 + 900);
@@ -83,7 +83,7 @@ test('#321: MIDI clock out in the real wasm – the native schedule, handed out 
 	const c = await core();
 	c.load(SCENE);
 	const t0 = 1_762_000_000_000;
-	c.clock({ op: 'choose', source: 0, lead: false }, 0); // the deck's own clock
+	c.clock({ op: 'mode', mode: 1 }, 0); // the deck's own clock
 	c.clock({ op: 'out', on: true }, 0);
 	const msgs: number[][] = [];
 	for (let k = 0; k < 40; k++) {
@@ -97,6 +97,10 @@ test('#321: MIDI clock out in the real wasm – the native schedule, handed out 
 	const ticks = msgs.filter((m) => m[1] === 0xf8).map((m) => m[0]);
 	assert.ok(ticks.length >= 40, String(ticks.length));
 	assert.ok(ticks[0] >= t0 && ticks.every((t, i) => i === 0 || t > ticks[i - 1]), 'in time order, on the page\'s clock');
+	// #370: the state block says the choice, the clock out and the flash; the tempo line is deck-core's
+	const s = clockOf(c.clockFrame(t0 + 1000));
+	assert.deepEqual([s.mode, s.midiOut, s.flash?.ms], [1, true, 60]);
+	assert.match(c.clockLine(t0 + 1000), /^BPM 120\.0 {2}BAR \d+ BEAT \d( CLK)?$/, "the tempo line, deck-core's");
 	c.clock({ op: 'out', on: false }, 0);
 	c.clockFrame(t0 + 1100);
 	assert.equal(c.clockOut(), null);

@@ -42,8 +42,8 @@ function currentSkew(): number {
 	return status ? Atomics.load(status, 1) : skew;
 }
 
-/** #321: the clock's line every this many frames (4 a second), posted when it changed */
-const CLOCK_LINE_EVERY = 10;
+/** #321: the clock's line every this many frames (20 a second: its tempo line counts the beats, #370), posted when it changed */
+const CLOCK_LINE_EVERY = 2;
 let clockFrames = 0;
 let clockLine = '';
 

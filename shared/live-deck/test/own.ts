@@ -57,7 +57,9 @@ export function stateOf(o: { moods?: string[]; said?: (string | MoodStep)[] } = 
 		play_core: (character: string) => ((at = character.endsWith('catpope') ? 'catpope' : 'own'), s.now()),
 		sliders: (locale: string) => JSON.stringify(locale === 'de' && at === 'catpope' ? DECK.catpope.sliders_de : DECK[at].sliders),
 		graph: () => JSON.stringify(DECK[at].graph),
-		target: (path: string) => DECK[at].targets[path] ?? ''
+		target: (path: string) => DECK[at].targets[path] ?? '',
+		// deck-core `ClockMode::ALL` (space-web's answer)
+		clock_modes: () => ['show', 'own', 'lead', 'midi']
 	};
 	return s;
 }

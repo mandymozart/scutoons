@@ -6,7 +6,7 @@
 // animation frame. With a CDN given it answers the conductor's scene sync (#195, sync.ts). The tempo clock (#321) is the
 // core's: the link's pongs and anchors and Web MIDI's clock go in, the core's pings and a leader's anchors go out.
 import type { DeckGraph, Tempo } from '@scutoons/live';
-import { LiveCore, beatAt, nowMs, SOURCES, type Analysis, type ClockSource, type ClockState, type DeviceKind, type DeviceSignal } from '@scutoons/live-core';
+import { LiveCore, beatAt, nowMs, type Analysis, type ClockState, type DeviceKind, type DeviceSignal } from '@scutoons/live-core';
 import type { DeckSynced } from '@scutoons/live';
 import { DeckLink, ValueStream, type WebSocketLike } from './client.ts';
 import { BrowserSync } from './sync.ts';
@@ -72,10 +72,9 @@ export class Deck {
 	clock: ClockState | null = null;
 	/** #321: the show clock's last anchor the link brought (the core gets it when the sound starts) */
 	private anchor: { t: Tempo; arrived: number } | null = null;
-	/** #321: the picker's choice (kept over a stop / start) */
-	private choice: { source: ClockSource; lead: boolean } | null = null;
-	/** #321: the MIDI clock out is on (kept for the next `start`), and where its bytes go (Web MIDI's outputs) */
-	private out = false;
+	/** #370: the core's last word on its choice and MIDI clock out (its last frame's), for the next `start`'s core */
+	private resume: Pick<ClockState, 'mode' | 'midiOut'> | null = null;
+	/** #321: where the MIDI clock out's bytes go (Web MIDI's outputs) */
 	onMidiOut: ((bytes: number[], atMs: number) => void) | null = null;
 	/** the mood the core's ladder shows ('' until it said) */
 	mood = '';
@@ -142,16 +141,14 @@ export class Deck {
 		this.core?.clockOp({ op: 'tempo', bpm: a.t.bpm, perBar: a.t.per_bar, beat: a.t.beat, at: a.t.at, running: a.t.running, arrived: a.arrived });
 	}
 
-	/** #321: the clock's picker – a source (the show clock = `relay`) and whether this deck leads */
-	chooseClock(source: ClockSource, lead = false): void {
-		this.choice = { source, lead };
-		this.core?.clockOp({ op: 'choose', source: SOURCES.indexOf(source), lead });
+	/** #370: the clock's picker – a `ClockMode::ALL` index (`state.clock_modes()`; the clock frame says it: `clock.mode`) */
+	clockMode(mode: number): void {
+		this.core?.clockOp({ op: 'mode', mode });
 	}
 
 	/** #321: MIDI clock out on / off – deck-core's schedule (the native deck's), its bytes to `onMidiOut`; none while the
-	 *  deck follows MIDI clock in (the core's rule) */
+	 *  deck follows MIDI clock in (the core's rule); the clock frame says it (`clock.midiOut`, #370) */
 	clockOut(on: boolean): void {
-		this.out = on;
 		this.core?.clockOp({ op: 'out', on });
 	}
 
@@ -168,7 +165,7 @@ export class Deck {
 		if (CLOCK_MESSAGES.has(data[0])) this.core?.clockOp({ op: 'midi', bytes: [data[0], data[1] ?? 0, data[2] ?? 0], at: performance.timeOrigin + timeStamp });
 	}
 
-	/** #321: the beat the clock says at the page's ms (the strobe, the being's breath); NaN before the sound started */
+	/** #321: the beat the clock says at the page's ms (the being's breath); NaN before the sound started */
 	beatAt(ms = nowMs()): number {
 		return this.clock ? beatAt(this.clock, ms) : NaN;
 	}
@@ -301,8 +298,8 @@ export class Deck {
 			for (let i = 0; i + 3 < m.length; i += 4) this.onMidiOut?.([m[i + 1], m[i + 2], m[i + 3]].filter((b) => !Number.isNaN(b)), m[i]);
 		});
 		this.core = c;
-		if (this.choice) this.chooseClock(this.choice.source, this.choice.lead);
-		if (this.out) c.clockOp({ op: 'out', on: true });
+		if (this.resume && this.resume.mode >= 0) this.clockMode(this.resume.mode);
+		if (this.resume?.midiOut) this.clockOut(true);
 		this.giveAnchor();
 		await this.loadEngine(c);
 	}
@@ -315,6 +312,7 @@ export class Deck {
 		this.engineReady = false;
 		this.loadGen++;
 		this.bands = silence();
+		if (this.clock) this.resume = { mode: this.clock.mode, midiOut: this.clock.midiOut };
 		this.clock = null;
 		await c?.stop();
 	}

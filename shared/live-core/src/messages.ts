@@ -55,8 +55,8 @@ export type ClockOp =
 	/** a Web MIDI message (its first three bytes), stamped by the browser */
 	| { op: 'midi'; bytes: [number, number, number]; at: number }
 	| { op: 'joined'; now: number }
-	/** the picker: `source` = deck-core's `Source::ALL` index (internal, midi, link, osc, relay) */
-	| { op: 'choose'; source: number; lead: boolean }
+	/** #370: the picker: `mode` = deck-core's `ClockMode::ALL` index (show, own, lead, midi) */
+	| { op: 'mode'; mode: number }
 	/** 0 tap, 1 faster, 2 slower, 3 start / stop, 4 the click */
 	| { op: 'key'; key: number; at: number }
 	/** the page's MIDI OUT: deck-core's clock out on / off */
