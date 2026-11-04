@@ -248,7 +248,7 @@ fn sync(i: &Value) -> Value {
     let of = |name: &'static str| calls.iter().filter(move |c| c.name == name).map(|c| c.answer.clone());
     let lines: Vec<Value> = of("line").collect();
     let fetched: Vec<Value> = of("next_fetch").filter_map(|a| a.get(1).cloned()).collect();
-    let last = of("answer").last().unwrap_or(Value::Null);
+    let last = of("answer").next_back().unwrap_or(Value::Null);
     json!({
         "url": calls[0].answer, "fetched": fetched, "lines": lines, "push_line": lines.last(), "state": last["state"],
         "done": last["done"], "total": last["total"], "bytes": last["bytes"], "ready": last["ready"], "missing": last["missing"], "why": last["why"]
