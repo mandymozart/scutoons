@@ -63,8 +63,8 @@ owned = all. Saving into a carrier bag = the definition's right + the deck's gra
 Two layers (owner 2026-11-01: "factory presets and rigs and … modification by individual users"):
 - **Factory** = catalog kinds (agents/CATALOG.md: one row per entry, `id, toon, position, data` JSON, `catalog_history`
   + undo, edited in the creator like items): `catalog_instruments`, `catalog_presets`, `catalog_rigs` (id = the
-  subject). `data` is the serde form of `deck/space/src/rig` – the PHP validator (`Domain\Rigs\RigValidator`) mirrors it;
-  a TS one comes with the creator's rig editor.
+  subject). `data` is the serde form of `deck/space/src/rig` – validated by that code alone (#313: the API asks deck/build `POST /validate`;
+  the creator's hints are the same code in its wasm, space-web `rig_problems`).
 - **No member layer** (#302, owner 2026-11-02: readers save nothing): the `member_presets` / `member_rigs` rows #258 / #270 built are dropped (migration `2026-11-02-drop-member-layer`); presets, rigs and modules are the creator's drafts of catalog documents (RIG-EDITING.md §6).
 - **Instruments are items too** (owner 2026-11-01: "a image like any other item so instruments can be found or gained
   in the carrier bag"): a `category: "instrument"` item with `instrument: "<catalog_instruments id>"` – the pattern of

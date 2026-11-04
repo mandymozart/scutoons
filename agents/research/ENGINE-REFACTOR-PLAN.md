@@ -807,6 +807,10 @@ scutoons-build (deck-space checks, the same wording); the API forwards on **publ
 the same checks in its wasm core as hints on drafts (§8 D6); `RigValidator.php` + `NodeKinds.php` + their fixtures go.
 Accept: PHPUnit for the forwarding and the 503 path, deck:ci, a creator publish with a broken instrument shows the
 core's message. ≈ $3–4 + $2–3 (#302).
+**Built 2026-11-04 (#313):** deck-space `rig/validate.rs` (serde forms, `Instrument::check`, lineage + patch, `Rig::check` +
+`Bundle::play` in every variant) behind deck/build `POST /validate` and space-web `rig_problems`; the API's `CoreValidator`
+forwards on every catalog write (same `MODULE_BUILD_*` settings, 503 without the service), drafts save without it;
+`RigValidator.php`, `NodeKinds.php` and its generator output deleted; the core's messages took the old wording.
 
 **P11 – Designs, then ABI v2 (#312, #314 design notes, then one build ticket, M each).** Design notes first (owner
 review), Opus only if named. Then ABI v2 (§3.6) replacing v1, the stored modules recompiled. ≈ $3–5 each.
@@ -875,7 +879,7 @@ Plus orchestrator sessions (≈ 10, one per two or three merges, ≈ $5–10 eac
 | Thing | Now | Retired in | How |
 |---|---|---|---|
 | `shared/live-core/src/modules.ts` (TS module host) | **deleted** (#343, 2026-11-04: no backwards compatibility) | – | the browser takes modules through the web backend (#290) |
-| `server/.../RigValidator.php` + `NodeKinds.php` | in use (CatalogValidator) | P10 | `NodeKinds.php` generated from the catalog from P2; both deleted with #313 |
+| `server/.../RigValidator.php` + `NodeKinds.php` | **deleted (#313)** – the core validates (deck/build `/validate`) | P10 | `NodeKinds.php` generated from the catalog from P2; both deleted with #313 |
 | parked TS validator (`parked/269-rig-editor`) | parked | never revived | branch deletion is the owner's |
 | stage `control.rs`, `audio/{blocks,voices,click,walk,module}`, engine part of `mod.rs` | in use | P4 (moved, not copied) | the native deck keeps backend, ring, lead (until moved), priority, glitch, sequencer / dispatch threads |
 | `BatchGraph`, `ControlGraph`, `SceneDef`, `synth.rs` blocks | in use (live-core, lower, lab) | P6 / P12 | API merged in P5, live-core switched in P6, bodies removed in P12 |

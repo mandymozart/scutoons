@@ -188,8 +188,12 @@ field (edited with `PUT /catalog/items/<id>`).
 grants }`; id `default` = types not listed) · `toons` (`{ id, name, redirectUrl }`) · `meta` (`items` `{ version }`,
 `products` `{ version, currency, checked_at, source }`, `permissions` `{ version }`) · `home-scenes` · `airlift-carriers` ·
 `instruments` · `presets` (id `<a>.<b>` with dots) · `rigs` (id = the subject `character.<id>[.<persona>]` / `item.<id>`,
-data without `id`) – the last three are deck-space's serde forms (#258, `Domain\Rigs\RigValidator`: what
-`deck_space::rig` refuses is a `422`; agents/research/INSTRUMENTS.md §5). Kinds that are catalog documents (items, recipes,
+data without `id`) – the last three are deck-space's serde forms (#258), **validated by the Rust core** (#313): every
+write of them (a publish, an admin write, an undo) asks the build service's `POST /validate` (`MODULE_BUILD_URL` +
+`MODULE_BUILD_TOKEN`, `Domain\Rigs\CoreValidator`) with the document and what it names by value; its problems come back
+unchanged as `422 invalid_catalog { problems }`; without the service `503 no_build_service` (not set up) /
+`503 build_unavailable` (no answer), `502 build_failed` (an answer that is none) – nothing is written. A draft (`PUT
+/entities/<key>`) is saved without the service (only the ids and a rig's subject = its id are checked; agents/CATALOG.md). Kinds that are catalog documents (items, recipes,
 albums, products, editions, home scenes, airlift carriers, instruments, presets, rigs) are written in the creator:
 here `PUT` / `DELETE` / undo → `409 edited_in_creator`.
 

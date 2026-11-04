@@ -4,6 +4,10 @@ Versions: `composer.json` `version`; `GET /api/health/` returns `version` + `git
 
 ## Unreleased
 
+- Instruments, presets and rigs are validated by the Rust core (#313, docs/API.md "Catalog"): every catalog write of them asks the
+  build service's `POST /validate` (the same `MODULE_BUILD_URL` / `MODULE_BUILD_TOKEN` as the compile) and returns its problems
+  unchanged; no service = `503`, nothing written; drafts save without it. `Domain\Rigs\RigValidator` and the generated
+  `Domain\Rigs\NodeKinds` are deleted (no second implementation); the id rules moved to `CatalogValidator`.
 - The member save layer is removed (#302; owner 2026-11-02: readers save nothing). Migration `2026-11-02-drop-member-layer` drops
   `member_presets`, `member_rigs`, `member_modules` and `decks.scopes` (it refuses to drop a table that holds rows). Gone: `MemberRigs`,
   `MemberModules`, `/api/rigs/*`, the member routes of `/api/modules` (`GET|POST /modules`, `PUT|DELETE /modules/{m:id}`; the compile's
