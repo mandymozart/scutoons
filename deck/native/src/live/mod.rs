@@ -23,6 +23,8 @@ pub mod config;
 pub mod media;
 #[cfg(feature = "live")]
 pub mod plan;
+#[cfg(feature = "live")]
+pub mod socket;
 
 #[cfg(feature = "live")]
 pub use running::*;

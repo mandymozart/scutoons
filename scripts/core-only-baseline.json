@@ -31,34 +31,6 @@
 				"ticket": "#343"
 			}
 		},
-		"shared/live-deck/src/client.ts": {
-			"twin-const": {
-				"count": 1,
-				"ticket": "#366"
-			},
-			"twin-comment": {
-				"count": 4,
-				"ticket": "#366"
-			},
-			"text-shape": {
-				"count": 2,
-				"ticket": "#366"
-			},
-			"kind-branch": {
-				"count": 5,
-				"ticket": "#366"
-			}
-		},
-		"viewer/src/lib/live-vote-link.ts": {
-			"twin-const": {
-				"count": 1,
-				"ticket": "#366"
-			},
-			"kind-branch": {
-				"count": 8,
-				"ticket": "#366"
-			}
-		},
 		"viewer/src/lib/live-vote-sim.ts": {
 			"twin-comment": {
 				"count": 3,
@@ -101,27 +73,6 @@
 			"match": "const channels = Math.min(Math.max(1, Math.floor(o.channels ?? deviceChannels(destination)",
 			"count": 1,
 			"why": "the device's channel count bounded to the engine's outputs (an adapter fact)"
-		},
-		{
-			"file": "shared/live-deck/src/client.ts",
-			"rule": "scene-literal",
-			"match": "ws.send(envelope({ kind: 'hello', p: { code: this.code, role: 'musician', group: GROUP, ..",
-			"count": 1,
-			"why": "relay protocol envelopes (hello, ping, tempo), not scene nodes; the client moves in #366"
-		},
-		{
-			"file": "shared/live-deck/src/client.ts",
-			"rule": "scene-literal",
-			"match": "return this.raw({ kind: 'ping', p: { t0: Math.round(nowMs() * 1000) } });",
-			"count": 1,
-			"why": "relay protocol envelopes (hello, ping, tempo), not scene nodes; the client moves in #366"
-		},
-		{
-			"file": "shared/live-deck/src/client.ts",
-			"rule": "scene-literal",
-			"match": "return this.joined && this.raw({ kind: 'tempo', p: t });",
-			"count": 1,
-			"why": "relay protocol envelopes (hello, ping, tempo), not scene nodes; the client moves in #366"
 		},
 		{
 			"file": "viewer/src/lib/components/live-deck/deck-knob.svelte",
@@ -185,27 +136,6 @@
 			"match": "export const changesMind = (random: number): boolean => random < 0.12;",
 			"count": 1,
 			"why": "a demo's scripted odds – no deck behaviour"
-		},
-		{
-			"file": "viewer/src/lib/live-vote-link.ts",
-			"rule": "scene-literal",
-			"match": "kind: 'hello',",
-			"count": 1,
-			"why": "relay protocol envelopes (hello, ping, say), not scene nodes; the client moves in #366"
-		},
-		{
-			"file": "viewer/src/lib/live-vote-link.ts",
-			"rule": "scene-literal",
-			"match": "this.ping = setInterval(() => this.raw({ kind: 'ping', p: { t0: 0 } }), PING_MS);",
-			"count": 1,
-			"why": "relay protocol envelopes (hello, ping, say), not scene nodes; the client moves in #366"
-		},
-		{
-			"file": "viewer/src/lib/live-vote-link.ts",
-			"rule": "scene-literal",
-			"match": "if (say) this.emit(this.synthetic({ kind: 'say', p: say }));",
-			"count": 1,
-			"why": "relay protocol envelopes (hello, ping, say), not scene nodes; the client moves in #366"
 		},
 		{
 			"file": "viewer/src/lib/live-vote-sim.ts",
@@ -396,8 +326,8 @@
 		},
 		"shared/live-deck/src/client.ts": {
 			"lines": 263,
-			"functions": 26,
-			"math": 5,
+			"functions": 25,
+			"math": 1,
 			"escapes": 0
 		},
 		"shared/live-deck/src/controls.ts": {
@@ -545,9 +475,9 @@
 			"escapes": 0
 		},
 		"viewer/src/lib/live-vote-link.ts": {
-			"lines": 173,
-			"functions": 22,
-			"math": 1,
+			"lines": 100,
+			"functions": 20,
+			"math": 0,
 			"escapes": 0
 		},
 		"viewer/src/lib/live-vote-sim.ts": {

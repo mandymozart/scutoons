@@ -87,14 +87,14 @@
 			"what": "the scene load's sync board and its HUD line (Board::line: SYNC 2/5, SYNC OK … CACHED) and a scene's needs (needs_of) next to the fetch threads; the push is deck-space push.rs since #371"
 		},
 		"deck/native/src/space/link.rs": {
-			"lines": 416,
+			"lines": 181,
 			"ticket": "#366",
-			"what": "the relay join state machine, backoff, ping"
+			"what": "the deck's side of deck-space's relay client (the frame's outbox, the sync's answers, the show clock's pings and anchors) – the join, backoff, ping and status are relay.rs since #366"
 		},
 		"deck/native/src/live/client.rs": {
-			"lines": 184,
-			"ticket": "#366",
-			"what": "the Live outlet's relay client (join, resume)"
+			"lines": 108,
+			"ticket": "#378",
+			"what": "the Live outlet's message routing (cells, preloads, the slice, panic) – the join and resume are deck-space relay.rs since #366"
 		},
 		"deck/native/src/live/plan.rs": {
 			"lines": 354,

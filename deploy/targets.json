@@ -193,7 +193,8 @@
 				"deck/core/**",
 				"deck/live-core/**",
 				"deck/space/**",
-				"deck/space-web/**"
+				"deck/space-web/**",
+				"deck/relay-web/**"
 			],
 			"watchPackages": ["viewer"],
 			"source": "viewer",
@@ -263,7 +264,8 @@
 				"deck/core/**",
 				"deck/live-core/**",
 				"deck/space/**",
-				"deck/space-web/**"
+				"deck/space-web/**",
+				"deck/relay-web/**"
 			],
 			"watchPackages": ["creator"],
 			"source": "creator",

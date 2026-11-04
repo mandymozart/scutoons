@@ -1,13 +1,11 @@
 //! What a deck streams of its being (#188 phase 4): every value its body shows (values.rs paths – the buttons' inputs,
 //! the hoses' sources), sampled at most RATE times a second, sent only when it moved more than its epsilon; the head's
-//! mood when it changed. The relay client (link.rs) folds what it sent, so a reconnect sends everything once again.
-//! Platform-free: plain `(path, vector)` pairs – the protocol message is link.rs's.
+//! mood when it changed. The relay client (relay.rs) folds what it sent, so a reconnect sends everything once again;
+//! its `Pace` is this stream's schedule too. Platform-free: plain `(path, vector)` pairs.
 use super::being::Being;
 use super::values::{self, Path, Values};
 use crate::graph::{Graph, PortType};
-
-/// at most this many messages per second (the relay drops more than 30 / s)
-pub const RATE: f32 = 30.0;
+use crate::relay::Pace;
 
 struct Entry {
     path: String,
@@ -18,8 +16,8 @@ struct Entry {
 
 pub struct Stream {
     entries: Vec<Entry>,
-    /// when the next sample may be taken (s, the show's time)
-    next: f32,
+    /// when the next sample may be taken (the show's time)
+    pace: Pace,
     mood: Option<usize>,
 }
 
@@ -57,7 +55,7 @@ impl Stream {
             .into_iter()
             .map(|at| Entry { path: values::path_name(graph, at), at, eps: values::epsilon(graph, at), last: f32::NAN })
             .collect();
-        Stream { entries, next: 0.0, mood: None }
+        Stream { entries, pace: Pace::default(), mood: None }
     }
 
     /// how many values the stream carries
@@ -69,13 +67,12 @@ impl Stream {
         self.entries.is_empty()
     }
 
-    /// At `time`: None between two samples (RATE), else what moved since it was last sent (the first sample: all).
+    /// At `time` (s): None between two samples (relay.rs `RATE`), else what moved since it was last sent (the first
+    /// sample: all).
     pub fn sample(&mut self, time: f32, graph: &Graph, vals: &dyn Values, being: &Being) -> Option<Changes> {
-        // a frame may come a hair early (60 fps = every second frame); a long gap starts the schedule anew
-        if time + 1e-3 < self.next {
+        if !self.pace.due(f64::from(time)) {
             return None;
         }
-        self.next = if time - self.next > 1.0 / RATE { time + 1.0 / RATE } else { self.next + 1.0 / RATE };
         let mut c = Changes::default();
         for e in &mut self.entries {
             let v = read(graph, vals, e.at);

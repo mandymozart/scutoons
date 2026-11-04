@@ -4,7 +4,7 @@
 // wire, the knob targets and a mood's turn are the core's; the tests check that the deck applies them.
 import { readFileSync } from 'node:fs';
 import type { DeckGraph } from '@scutoons/live';
-import type { PathKind } from '../src/client.ts';
+import type { PathKind } from '../src/rig.ts';
 import type { MoodStep, RigSlider, RigTurn } from '../src/rig.ts';
 import type { DeckStateView } from '../src/space.ts';
 import { answer } from './controls-core.ts';

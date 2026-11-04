@@ -1,0 +1,22 @@
+# relay-web – deck-space's relay client (relay.rs, #366) for the browser: the deck page (live-deck client.ts) and the vote
+# screens (viewer live-vote-link.ts) drive it through a small wasm-bindgen API; the page keeps the WebSocket and one
+# timer. Its own small wasm so an audience phone does not load the 3D (space-web). Build: `npm run build:wasm -w
+# shared/live-deck` (or `-- --relay` for this one alone). Natively the crate is empty.
+[package]
+name = "relay-web"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+deck-space = { path = "../space", default-features = false }
+protocol = { workspace = true }
+serde.workspace = true
+serde_json.workspace = true
+# the CLI that writes the JS glue must be the same version (wasm-bindgen-cli 0.2.129)
+wasm-bindgen = "=0.2.129"

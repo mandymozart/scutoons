@@ -10,6 +10,8 @@
 // Start a relay first: `cargo run -p relay` in deck/ (listens on 127.0.0.1:7700; dev mode takes any key).
 import type { VoteOpen, VoteResult } from '@scutoons/live';
 import { changesMind, crowdFor, GROUPS, pickOption, SCENARIOS, voteDelay } from '../../viewer/src/lib/live-vote-demo.ts';
+import { readFileSync } from 'node:fs';
+import { loadRelay } from '../../shared/live-deck/src/client.ts';
 import { RelayVote } from '../../viewer/src/lib/live-vote-link.ts';
 
 const arg = (name: string, fallback = ''): string => process.argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3) ?? fallback;
@@ -20,13 +22,16 @@ const code = arg('code', 'DEMO');
 const phones = Math.max(1, Number(arg('phones', '12')));
 const relay = `${base}/live/${code}`;
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+// #366: the relay client is the core's (relay-web; `npm run build:wasm -w shared/live-deck -- --relay`)
+const wasmDir = new URL('../../shared/live-deck/wasm/', import.meta.url);
+const core = await loadRelay(wasmDir.href, readFileSync(new URL('relay_web_bg.wasm', wasmDir)));
 
 /** the lean per group for the vote that is open now (a vote of ours: the scenario's; yours: even) */
 let lean: Record<string, number[]> = {};
 const leanFor = (open: VoteOpen) => SCENARIOS.find((s) => s.open.vote === open.vote)?.crowd ?? Object.fromEntries(GROUPS.map((g) => [g, open.options.map(() => 1)]));
 
 function phone(group: string, n: number) {
-	const link = new RelayVote({ relay, role: 'audience', group, nick: `${group}-${n}` });
+	const link = new RelayVote({ relay, role: 'audience', group, nick: `${group}-${n}`, core });
 	let current = '';
 	link.on('audience', (e) => {
 		if (e.kind === 'vote.result') current = '';
@@ -46,7 +51,7 @@ const bots = GROUPS.flatMap((g) => Array.from({ length: phones }, (_, i) => phon
 console.log(`${bots.length} phones in ${GROUPS.join(', ')} → ${relay}`);
 
 if (flag('conductor')) {
-	const conductor = new RelayVote({ relay, role: 'conductor', token: arg('key', 'demo'), onStatus: (s) => console.log('conductor', s.state) });
+	const conductor = new RelayVote({ relay, role: 'conductor', token: arg('key', 'demo'), core, onStatus: (s) => console.log('conductor', s.state) });
 	let result: ((r: VoteResult) => void) | null = null;
 	conductor.on('conductor', (e) => {
 		if (e.kind === 'vote.result') result?.(e.p);

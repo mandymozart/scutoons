@@ -7,7 +7,8 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { LIVE_URL } from '$lib/config.ts';
-	import { relayOf } from '$lib/live-deck.ts';
+	import { WASM_BASE, relayOf } from '$lib/live-deck.ts';
+	import { loadRelay } from '@scutoons/live-deck';
 	import { RelayVote, type LinkStatus } from '$lib/live-vote-link.ts';
 	import ConductorVote from '$lib/components/live-vote/conductor-vote.svelte';
 	import OpenVoteForm from '$lib/components/live-vote/open-vote-form.svelte';
@@ -21,7 +22,7 @@
 
 	onMount(() => {
 		if (!key) return;
-		const link = new RelayVote({ relay: relayOf(page.url.searchParams, LIVE_URL, page.params.code), role: 'conductor', token: key, onStatus: (s) => (status = s) });
+		const link = new RelayVote({ relay: relayOf(page.url.searchParams, LIVE_URL, page.params.code), role: 'conductor', token: key, core: loadRelay(WASM_BASE), onStatus: (s) => (status = s) });
 		source = link;
 		const off = link.on('conductor', (e) => {
 			if (e.kind === 'vote.open') isOpen = true;

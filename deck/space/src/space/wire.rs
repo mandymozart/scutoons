@@ -1,28 +1,14 @@
 //! A deck's being on the wire (#188 phase 4, LIVE.md B.6): `deck.graph` from a graph and its look (`deck_graph`) and
 //! back (`from_wire`) – the conductor builds every deck's body from it, the browser deck (#198) its own; what a
-//! session's link hands the frame (`In`) and the link itself as the space sees it (`Wire` – deck-native's link.rs is
-//! the relay client on a thread; the browser's is TypeScript and stays outside).
-use protocol::{DeckGraph, DeckLink, DeckMidi, DeckNode, DeckQuality, DeckSynced, DeckValues, LinkQuality, SceneSync};
-use std::collections::HashMap;
+//! session's link hands the frame (`In`, the relay client's – relay.rs) and the link itself as the space sees it (`Wire` –
+//! deck-native's link.rs drives the relay client on a thread).
+use protocol::{DeckGraph, DeckLink, DeckMidi, DeckNode, DeckQuality, DeckValues, SceneSync};
 
 use super::being::Look;
 use crate::graph::Graph;
 
-/// what the conductor's frame thread learns
-#[derive(Debug, Clone, PartialEq)]
-pub enum In {
-    /// this stage's client id
-    Me(String),
-    /// a deck's being (joined, or its scene changed); its values and mood so far
-    Deck { client: String, graph: DeckGraph, values: HashMap<String, Vec<f64>>, mood: Option<String> },
-    Values { client: String, values: HashMap<String, Vec<f64>>, mood: Option<String> },
-    /// the decks there are and who sends to whom; each client's link (#223) and each deck's render quality (#220)
-    Presence { decks: Vec<String>, routes: Vec<(String, String)>, links: HashMap<String, LinkQuality>, quality: HashMap<String, DeckQuality> },
-    /// #195: the session's scene sync (the relay's snapshot, another conductor's push)
-    Pushed(SceneSync),
-    /// #195: a deck's answer to it
-    Synced { client: String, synced: DeckSynced },
-}
+/// what the conductor's frame thread learns (the relay client's, relay.rs)
+pub use crate::relay::In;
 
 /// a session's link as the frame sees it: a deck's changes out, the session's events in, a word for the HUD
 pub trait Wire: Send {

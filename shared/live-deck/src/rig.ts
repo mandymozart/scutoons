@@ -1,7 +1,8 @@
 // rig.ts (#191, #368): the core's answers about what a deck plays, as JSON types – no rule. The rig is played, replayed on
 // a mood, diffed and its facts (streamed paths, knob targets, sticks) are worked out in Rust once (deck-space's rig and
 // deck modules, space-web `DeckState`); the page applies the turns (deck.ts).
-import type { PathKind } from './client.ts';
+/** how a streamed path moves (deck-space `rig::Stream`; its epsilon is the core's) */
+export type PathKind = { input: [min: number, max: number] } | 'audio' | 'control' | 'shape';
 
 /** a knob of a played scene (deck-space `rig::Knob`): an exposed parameter of the flattened scene */
 export interface RigKnob {

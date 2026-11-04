@@ -1,0 +1,2188 @@
+{
+  "scripts": [
+    {
+      "graph": {
+        "character": "yellowmouse",
+        "links": [],
+        "nodes": [
+          {
+            "id": "voice",
+            "kind": "osc"
+          }
+        ]
+      },
+      "join": {
+        "group": "decks",
+        "messages": false,
+        "nick": "browser",
+        "relay": "ws://relay.test:7070/live/CATH",
+        "resume": false,
+        "role": "musician",
+        "token": null
+      },
+      "name": "deck",
+      "steps": [
+        {
+          "at": 0.01,
+          "do": "sample",
+          "with": {
+            "mood": "neutral",
+            "values": {
+              "voice.index": 2.0,
+              "voice.out": 0.5
+            }
+          }
+        },
+        {
+          "at": 0.02,
+          "do": "quality",
+          "with": {
+            "auto": true,
+            "ceiling": "medium",
+            "frame": 17.1,
+            "level": "medium",
+            "scale": 0.8
+          }
+        },
+        {
+          "at": 0.05,
+          "do": "open"
+        },
+        {
+          "at": 0.1,
+          "do": "message",
+          "with": {
+            "kind": "welcome",
+            "p": {
+              "client": "c5",
+              "now": 0,
+              "snapshot": {}
+            }
+          }
+        },
+        {
+          "at": 0.2,
+          "do": "sample",
+          "with": {
+            "mood": "happy",
+            "values": {
+              "voice.index": 2.0001,
+              "voice.out": 0.6
+            }
+          }
+        },
+        {
+          "at": 0.3,
+          "do": "sample",
+          "with": {
+            "mood": "happy",
+            "values": {
+              "voice.index": 3.0,
+              "voice.out": 0.6
+            }
+          }
+        },
+        {
+          "at": 25.0,
+          "do": "close",
+          "with": "the relay went"
+        },
+        {
+          "at": 25.3,
+          "do": "open"
+        },
+        {
+          "at": 25.4,
+          "do": "message",
+          "with": {
+            "kind": "welcome",
+            "p": {
+              "client": "c6",
+              "now": 0,
+              "snapshot": {}
+            }
+          }
+        },
+        {
+          "at": 26.0,
+          "do": "stop"
+        }
+      ],
+      "stream": [
+        [
+          "voice.index",
+          {
+            "input": [
+              0.0,
+              8.0
+            ]
+          }
+        ],
+        [
+          "voice.out",
+          "audio"
+        ]
+      ],
+      "turns": [
+        {
+          "at": 0.0,
+          "do": "start",
+          "outs": [
+            {
+              "status": {
+                "state": "joining"
+              }
+            },
+            {
+              "dial": "ws://relay.test:7070/live/CATH?role=musician&group=decks"
+            }
+          ]
+        },
+        {
+          "at": 0.01,
+          "do": "sample",
+          "outs": []
+        },
+        {
+          "at": 0.02,
+          "do": "quality",
+          "outs": []
+        },
+        {
+          "at": 0.05,
+          "do": "open",
+          "outs": [
+            {
+              "send": "{\"from\":\"\",\"kind\":\"hello\",\"p\":{\"code\":\"CATH\",\"group\":\"decks\",\"nick\":\"browser\",\"role\":\"musician\"},\"seq\":0,\"v\":1}"
+            }
+          ]
+        },
+        {
+          "at": 0.1,
+          "do": "message",
+          "outs": [
+            {
+              "status": {
+                "client": "c5",
+                "state": "connected"
+              }
+            },
+            {
+              "joined": {
+                "at": 100.0,
+                "client": "c5"
+              }
+            },
+            {
+              "send": "{\"from\":\"\",\"kind\":\"deck.graph\",\"p\":{\"character\":\"yellowmouse\",\"links\":[],\"nodes\":[{\"id\":\"voice\",\"kind\":\"osc\"}]},\"seq\":0,\"v\":1}"
+            },
+            {
+              "send": "{\"from\":\"\",\"kind\":\"deck.values\",\"p\":{\"mood\":\"neutral\",\"values\":{\"voice.index\":[2.0],\"voice.out\":[0.5]}},\"seq\":0,\"v\":1}"
+            },
+            {
+              "send": "{\"from\":\"\",\"kind\":\"deck.quality\",\"p\":{\"auto\":true,\"ceiling\":\"medium\",\"frame\":17.1,\"level\":\"medium\",\"scale\":0.8},\"seq\":0,\"v\":1}"
+            }
+          ]
+        },
+        {
+          "at": 0.2,
+          "do": "sample",
+          "outs": [
+            {
+              "send": "{\"from\":\"\",\"kind\":\"deck.values\",\"p\":{\"mood\":\"happy\",\"values\":{\"voice.out\":[0.6]}},\"seq\":0,\"v\":1}"
+            }
+          ]
+        },
+        {
+          "at": 0.3,
+          "do": "sample",
+          "outs": [
+            {
+              "send": "{\"from\":\"\",\"kind\":\"deck.values\",\"p\":{\"values\":{\"voice.index\":[3.0]}},\"seq\":0,\"v\":1}"
+            }
+          ]
+        },
+        {
+          "at": 20.05,
+          "do": "wake",
+          "outs": [
+            {
+              "send": "{\"from\":\"\",\"kind\":\"ping\",\"p\":{\"t0\":20050000},\"seq\":0,\"v\":1}"
+            }
+          ]
+        },
+        {
+          "at": 25.0,
+          "do": "close",
+          "outs": [
+            {
+              "status": {
+                "state": "offline",
+                "why": "the relay went"
+              }
+            }
+          ]
+        },
+        {
+          "at": 25.25,
+          "do": "wake",
+          "outs": [
+            {
+              "status": {
+                "state": "joining"
+              }
+            },
+            {
+              "dial": "ws://relay.test:7070/live/CATH?role=musician&group=decks"
+            }
+          ]
+        },
+        {
+          "at": 25.3,
+          "do": "open",
+          "outs": [
+            {
+              "send": "{\"from\":\"\",\"kind\":\"hello\",\"p\":{\"code\":\"CATH\",\"group\":\"decks\",\"nick\":\"browser\",\"role\":\"musician\"},\"seq\":0,\"v\":1}"
+            }
+          ]
+        },
+        {
+          "at": 25.4,
+          "do": "message",
+          "outs": [
+            {
+              "status": {
+                "client": "c6",
+                "state": "connected"
+              }
+            },
+            {
+              "joined": {
+                "at": 25400.0,
+                "client": "c6"
+              }
+            },
+            {
+              "send": "{\"from\":\"\",\"kind\":\"deck.graph\",\"p\":{\"character\":\"yellowmouse\",\"links\":[],\"nodes\":[{\"id\":\"voice\",\"kind\":\"osc\"}]},\"seq\":0,\"v\":1}"
+            },
+            {
+              "send": "{\"from\":\"\",\"kind\":\"deck.values\",\"p\":{\"mood\":\"happy\",\"values\":{\"voice.index\":[3.0],\"voice.out\":[0.6]}},\"seq\":0,\"v\":1}"
+            },
+            {
+              "send": "{\"from\":\"\",\"kind\":\"deck.quality\",\"p\":{\"auto\":true,\"ceiling\":\"medium\",\"frame\":17.1,\"level\":\"medium\",\"scale\":0.8},\"seq\":0,\"v\":1}"
+            }
+          ]
+        },
+        {
+          "at": 26.0,
+          "do": "stop",
+          "outs": [
+            {
+              "close": {}
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "graph": null,
+      "join": {
+        "group": "decks",
+        "messages": false,
+        "nick": null,
+        "relay": "wss://192.168.1.116:4100/relay/live/CLOCK",
+        "resume": false,
+        "role": "musician",
+        "token": null
+      },
+      "name": "backoff",
+      "steps": [
+        {
+          "at": 0.0,
+          "do": "open"
+        },
+        {
+          "at": 0.05,
+          "do": "message",
+          "with": {
+            "kind": "welcome",
+            "p": {
+              "client": "c1",
+              "now": 0,
+              "snapshot": {}
+            }
+          }
+        },
+        {
+          "at": 30.0,
+          "do": "close"
+        },
+        {
+          "at": 31.0,
+          "do": "fail",
+          "with": "refused"
+        },
+        {
+          "at": 33.0,
+          "do": "fail"
+        },
+        {
+          "at": 37.0,
+          "do": "fail"
+        },
+        {
+          "at": 45.0,
+          "do": "fail"
+        },
+        {
+          "at": 55.0,
+          "do": "fail"
+        },
+        {
+          "at": 66.0,
+          "do": "fail"
+        },
+        {
+          "at": 77.0,
+          "do": "open"
+        },
+        {
+          "at": 78.0,
+          "do": "fail"
+        }
+      ],
+      "stream": [],
+      "turns": [
+        {
+          "at": 0.0,
+          "do": "start",
+          "outs": [
+            {
+              "status": {
+                "state": "joining"
+              }
+            },
+            {
+              "dial": "wss://192.168.1.116:4100/relay/live/CLOCK?role=musician&group=decks"
+            }
+          ]
+        },
+        {
+          "at": 0.0,
+          "do": "open",
+          "outs": [
+            {
+              "send": "{\"from\":\"\",\"kind\":\"hello\",\"p\":{\"code\":\"CLOCK\",\"group\":\"decks\",\"role\":\"musician\"},\"seq\":0,\"v\":1}"
+            }
+          ]
+        },
+        {
+          "at": 0.05,
+          "do": "message",
+          "outs": [
+            {
+              "status": {
+                "client": "c1",
+                "state": "connected"
+              }
+            },
+            {
+              "joined": {
+                "at": 50.0,
+                "client": "c1"
+              }
+            }
+          ]
+        },
+        {
+          "at": 20.0,
+          "do": "wake",
+          "outs": [
+            {
+              "send": "{\"from\":\"\",\"kind\":\"ping\",\"p\":{\"t0\":20000000},\"seq\":0,\"v\":1}"
+            }
+          ]
+        },
+        {
+          "at": 30.0,
+          "do": "close",
+          "outs": [
+            {
+              "status": {
+                "state": "offline"
+              }
+            }
+          ]
+        },
+        {
+          "at": 30.25,
+          "do": "wake",
+          "outs": [
+            {
+              "status": {
+                "state": "joining"
+              }
+            },
+            {
+              "dial": "wss://192.168.1.116:4100/relay/live/CLOCK?role=musician&group=decks"
+            }
+          ]
+        },
+        {
+          "at": 31.0,
+          "do": "fail",
+          "outs": [
+            {
+              "status": {
+                "state": "offline",
+                "wait": 1,
+                "why": "refused"
+              }
+            }
+          ]
+        },
+        {
+          "at": 32.0,
+          "do": "wake",
+          "outs": [
+            {
+              "status": {
+                "state": "joining"
+              }
+            },
+            {
+              "dial": "wss://192.168.1.116:4100/relay/live/CLOCK?role=musician&group=decks"
+            }
+          ]
+        },
+        {
+          "at": 33.0,
+          "do": "fail",
+          "outs": [
+            {
+              "status": {
+                "state": "offline",
+                "wait": 2
+              }
+            }
+          ]
+        },
+        {
+          "at": 35.0,
+          "do": "wake",
+          "outs": [
+            {
+              "status": {
+                "state": "joining"
+              }
+            },
+            {
+              "dial": "wss://192.168.1.116:4100/relay/live/CLOCK?role=musician&group=decks"
+            }
+          ]
+        },
+        {
+          "at": 37.0,
+          "do": "fail",
+          "outs": [
+            {
+              "status": {
+                "state": "offline",
+                "wait": 4
+              }
+            }
+          ]
+        },
+        {
+          "at": 41.0,
+          "do": "wake",
+          "outs": [
+            {
+              "status": {
+                "state": "joining"
+              }
+            },
+            {
+              "dial": "wss://192.168.1.116:4100/relay/live/CLOCK?role=musician&group=decks"
+            }
+          ]
+        },
+        {
+          "at": 45.0,
+          "do": "fail",
+          "outs": [
+            {
+              "status": {
+                "state": "offline",
+                "wait": 8
+              }
+            }
+          ]
+        },
+        {
+          "at": 53.0,
+          "do": "wake",
+          "outs": [
+            {
+              "status": {
+                "state": "joining"
+              }
+            },
+            {
+              "dial": "wss://192.168.1.116:4100/relay/live/CLOCK?role=musician&group=decks"
+            }
+          ]
+        },
+        {
+          "at": 55.0,
+          "do": "fail",
+          "outs": [
+            {
+              "status": {
+                "state": "offline",
+                "wait": 10
+              }
+            }
+          ]
+        },
+        {
+          "at": 65.0,
+          "do": "wake",
+          "outs": [
+            {
+              "status": {
+                "state": "joining"
+              }
+            },
+            {
+              "dial": "wss://192.168.1.116:4100/relay/live/CLOCK?role=musician&group=decks"
+            }
+          ]
+        },
+        {
+          "at": 66.0,
+          "do": "fail",
+          "outs": [
+            {
+              "status": {
+                "state": "offline",
+                "wait": 10
+              }
+            }
+          ]
+        },
+        {
+          "at": 76.0,
+          "do": "wake",
+          "outs": [
+            {
+              "status": {
+                "state": "joining"
+              }
+            },
+            {
+              "dial": "wss://192.168.1.116:4100/relay/live/CLOCK?role=musician&group=decks"
+            }
+          ]
+        },
+        {
+          "at": 77.0,
+          "do": "open",
+          "outs": [
+            {
+              "send": "{\"from\":\"\",\"kind\":\"hello\",\"p\":{\"code\":\"CLOCK\",\"group\":\"decks\",\"role\":\"musician\"},\"seq\":0,\"v\":1}"
+            }
+          ]
+        },
+        {
+          "at": 78.0,
+          "do": "fail",
+          "outs": [
+            {
+              "status": {
+                "state": "offline",
+                "wait": 1
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "graph": {
+        "character": "yellowmouse",
+        "links": [],
+        "nodes": [
+          {
+            "id": "voice",
+            "kind": "osc"
+          }
+        ]
+      },
+      "join": {
+        "group": "decks",
+        "messages": false,
+        "nick": null,
+        "relay": "ws://relay.test/live/SYNC",
+        "resume": false,
+        "role": "musician",
+        "token": null
+      },
+      "name": "sync",
+      "steps": [
+        {
+          "at": 0.0,
+          "do": "open"
+        },
+        {
+          "at": 0.01,
+          "do": "synced",
+          "with": {
+            "missing": [],
+            "ready": [],
+            "scene": "x",
+            "state": "ready"
+          }
+        },
+        {
+          "at": 0.02,
+          "do": "message",
+          "with": {
+            "kind": "welcome",
+            "p": {
+              "client": "c7",
+              "now": 0,
+              "snapshot": {
+                "sync": {
+                  "characters": [
+                    "catpope"
+                  ],
+                  "scene": "cathedral",
+                  "sets": [
+                    "cathedral"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "at": 0.03,
+          "do": "message",
+          "with": {
+            "from": "c1",
+            "kind": "scene.sync",
+            "p": {
+              "characters": [],
+              "scene": "cathedral",
+              "sets": [
+                "cathedral"
+              ]
+            }
+          }
+        },
+        {
+          "at": 0.1,
+          "do": "synced",
+          "with": {
+            "bytes": 4,
+            "done": 1,
+            "missing": [],
+            "ready": [],
+            "scene": "cathedral",
+            "state": "syncing",
+            "total": 3
+          }
+        },
+        {
+          "at": 0.15,
+          "do": "synced",
+          "with": {
+            "bytes": 8,
+            "done": 2,
+            "missing": [],
+            "ready": [],
+            "scene": "cathedral",
+            "state": "syncing",
+            "total": 3
+          }
+        },
+        {
+          "at": 0.4,
+          "do": "synced",
+          "with": {
+            "bytes": 12,
+            "done": 3,
+            "missing": [],
+            "ready": [
+              "set:cathedral"
+            ],
+            "scene": "cathedral",
+            "state": "ready",
+            "total": 3
+          }
+        }
+      ],
+      "stream": [
+        [
+          "voice.index",
+          {
+            "input": [
+              0.0,
+              8.0
+            ]
+          }
+        ],
+        [
+          "voice.out",
+          "audio"
+        ]
+      ],
+      "turns": [
+        {
+          "at": 0.0,
+          "do": "start",
+          "outs": [
+            {
+              "status": {
+                "state": "joining"
+              }
+            },
+            {
+              "dial": "ws://relay.test/live/SYNC?role=musician&group=decks"
+            }
+          ]
+        },
+        {
+          "at": 0.0,
+          "do": "open",
+          "outs": [
+            {
+              "send": "{\"from\":\"\",\"kind\":\"hello\",\"p\":{\"code\":\"SYNC\",\"group\":\"decks\",\"role\":\"musician\"},\"seq\":0,\"v\":1}"
+            }
+          ]
+        },
+        {
+          "at": 0.01,
+          "do": "synced",
+          "outs": []
+        },
+        {
+          "at": 0.02,
+          "do": "message",
+          "outs": [
+            {
+              "status": {
+                "client": "c7",
+                "state": "connected"
+              }
+            },
+            {
+              "joined": {
+                "at": 20.0,
+                "client": "c7"
+              }
+            },
+            {
+              "sync": {
+                "characters": [
+                  "catpope"
+                ],
+                "scene": "cathedral",
+                "sets": [
+                  "cathedral"
+                ]
+              }
+            },
+            {
+              "send": "{\"from\":\"\",\"kind\":\"deck.graph\",\"p\":{\"character\":\"yellowmouse\",\"links\":[],\"nodes\":[{\"id\":\"voice\",\"kind\":\"osc\"}]},\"seq\":0,\"v\":1}"
+            },
+            {
+              "send": "{\"from\":\"\",\"kind\":\"deck.synced\",\"p\":{\"missing\":[],\"ready\":[],\"scene\":\"x\",\"state\":\"ready\"},\"seq\":0,\"v\":1}"
+            }
+          ]
+        },
+        {
+          "at": 0.03,
+          "do": "message",
+          "outs": [
+            {
+              "sync": {
+                "characters": [],
+                "scene": "cathedral",
+                "sets": [
+                  "cathedral"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "at": 0.1,
+          "do": "synced",
+          "outs": []
+        },
+        {
+          "at": 0.15,
+          "do": "synced",
+          "outs": []
+        },
+        {
+          "at": 0.22,
+          "do": "wake",
+          "outs": [
+            {
+              "send": "{\"from\":\"\",\"kind\":\"deck.synced\",\"p\":{\"bytes\":8,\"done\":2,\"missing\":[],\"ready\":[],\"scene\":\"cathedral\",\"state\":\"syncing\",\"total\":3},\"seq\":0,\"v\":1}"
+            }
+          ]
+        },
+        {
+          "at": 0.4,
+          "do": "synced",
+          "outs": [
+            {
+              "send": "{\"from\":\"\",\"kind\":\"deck.synced\",\"p\":{\"bytes\":12,\"done\":3,\"missing\":[],\"ready\":[\"set:cathedral\"],\"scene\":\"cathedral\",\"state\":\"ready\",\"total\":3},\"seq\":0,\"v\":1}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "graph": null,
+      "join": {
+        "group": "decks",
+        "messages": false,
+        "nick": null,
+        "relay": "ws://relay.test:7070/live/CATH",
+        "resume": false,
+        "role": "musician",
+        "token": null
+      },
+      "name": "clock",
+      "steps": [
+        {
+          "at": 0.0,
+          "do": "open"
+        },
+        {
+          "at": 0.01,
+          "do": "tempo",
+          "with": {
+            "beat": 32.0,
+            "bpm": 126.0,
+            "per_bar": 4,
+            "running": true
+          }
+        },
+        {
+          "at": 0.02,
+          "do": "message",
+          "with": {
+            "kind": "welcome",
+            "p": {
+              "client": "c2",
+              "now": 0,
+              "snapshot": {
+                "tempo": {
+                  "at": 1000,
+                  "beat": 8.0,
+                  "bpm": 120.0,
+                  "per_bar": 4,
+                  "running": true
+                }
+              }
+            }
+          }
+        },
+        {
+          "at": 0.5,
+          "do": "ping"
+        },
+        {
+          "at": 0.52,
+          "do": "message",
+          "with": {
+            "kind": "pong",
+            "p": {
+              "t0": 500000,
+              "t1": 1700000000000
+            }
+          }
+        },
+        {
+          "at": 1.0,
+          "do": "tempo",
+          "with": {
+            "beat": 32.0,
+            "bpm": 126.0,
+            "per_bar": 4,
+            "running": true
+          }
+        },
+        {
+          "at": 1.1,
+          "do": "message",
+          "with": {
+            "kind": "tempo",
+            "p": {
+              "at": 2000,
+              "beat": 1.0,
+              "bpm": 90.0,
+              "per_bar": 3,
+              "running": false
+            }
+          }
+        },
+        {
+          "at": 5.0,
+          "do": "message",
+          "with": {
+            "kind": "error",
+            "p": {
+              "code": "rate",
+              "message": "too many"
+            }
+          }
+        }
+      ],
+      "stream": [],
+      "turns": [
+        {
+          "at": 0.0,
+          "do": "start",
+          "outs": [
+            {
+              "status": {
+                "state": "joining"
+              }
+            },
+            {
+              "dial": "ws://relay.test:7070/live/CATH?role=musician&group=decks"
+            }
+          ]
+        },
+        {
+          "at": 0.0,
+          "do": "open",
+          "outs": [
+            {
+              "send": "{\"from\":\"\",\"kind\":\"hello\",\"p\":{\"code\":\"CATH\",\"group\":\"decks\",\"role\":\"musician\"},\"seq\":0,\"v\":1}"
+            }
+          ]
+        },
+        {
+          "at": 0.01,
+          "do": "tempo",
+          "outs": []
+        },
+        {
+          "at": 0.02,
+          "do": "message",
+          "outs": [
+            {
+              "status": {
+                "client": "c2",
+                "state": "connected"
+              }
+            },
+            {
+              "joined": {
+                "at": 20.0,
+                "client": "c2"
+              }
+            },
+            {
+              "tempo": {
+                "arrived": 20.0,
+                "tempo": {
+                  "at": 1000,
+                  "beat": 8.0,
+                  "bpm": 120.0,
+                  "per_bar": 4,
+                  "running": true
+                }
+              }
+            }
+          ]
+        },
+        {
+          "at": 0.5,
+          "do": "ping",
+          "outs": [
+            {
+              "send": "{\"from\":\"\",\"kind\":\"ping\",\"p\":{\"t0\":500000},\"seq\":0,\"v\":1}"
+            }
+          ]
+        },
+        {
+          "at": 0.52,
+          "do": "message",
+          "outs": [
+            {
+              "pong": {
+                "t0": 500000,
+                "t1": 1700000000000,
+                "t2": 520.0
+              }
+            }
+          ]
+        },
+        {
+          "at": 1.0,
+          "do": "tempo",
+          "outs": [
+            {
+              "send": "{\"from\":\"\",\"kind\":\"tempo\",\"p\":{\"beat\":32.0,\"bpm\":126.0,\"per_bar\":4,\"running\":true},\"seq\":0,\"v\":1}"
+            }
+          ]
+        },
+        {
+          "at": 1.1,
+          "do": "message",
+          "outs": [
+            {
+              "tempo": {
+                "arrived": 1100.0,
+                "tempo": {
+                  "at": 2000,
+                  "beat": 1.0,
+                  "bpm": 90.0,
+                  "per_bar": 3,
+                  "running": false
+                }
+              }
+            }
+          ]
+        },
+        {
+          "at": 5.0,
+          "do": "message",
+          "outs": [
+            {
+              "vote": {
+                "from": "relay",
+                "kind": "error",
+                "p": {
+                  "code": "rate",
+                  "message": "too many"
+                },
+                "seq": 1,
+                "v": 1
+              }
+            },
+            {
+              "status": {
+                "client": "c2",
+                "state": "connected"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "graph": null,
+      "join": {
+        "group": "balkon",
+        "messages": false,
+        "nick": "Mia",
+        "relay": "ws://relay.test:7070/live/CATH",
+        "resume": false,
+        "role": "audience",
+        "token": null
+      },
+      "name": "vote",
+      "steps": [
+        {
+          "at": 0.0,
+          "do": "open"
+        },
+        {
+          "at": 0.1,
+          "do": "vote_cast",
+          "with": 1
+        },
+        {
+          "at": 0.2,
+          "do": "message",
+          "with": {
+            "kind": "welcome",
+            "p": {
+              "client": "c7",
+              "now": 0,
+              "snapshot": {
+                "say": {
+                  "balkon": {
+                    "text": "Stand up"
+                  }
+                },
+                "vote": {
+                  "options": [
+                    "Yes",
+                    "No"
+                  ],
+                  "rule": "majority",
+                  "seconds": 20,
+                  "vote": "v1"
+                }
+              }
+            }
+          }
+        },
+        {
+          "at": 0.3,
+          "do": "vote_cast",
+          "with": 1
+        },
+        {
+          "at": 0.4,
+          "do": "message",
+          "with": {
+            "kind": "vote.tally",
+            "p": {
+              "counts": [
+                1,
+                0
+              ],
+              "left": 10,
+              "vote": "v1",
+              "voters": 1
+            }
+          }
+        },
+        {
+          "at": 0.5,
+          "do": "message",
+          "with": {
+            "kind": "vote.result",
+            "p": {
+              "counts": [
+                1,
+                0
+              ],
+              "how": "rule",
+              "option": 0,
+              "vote": "v1"
+            }
+          }
+        },
+        {
+          "at": 0.6,
+          "do": "vote_cast",
+          "with": 0
+        },
+        {
+          "at": 0.7,
+          "do": "message",
+          "with": {
+            "kind": "say",
+            "p": {
+              "text": "Sit down"
+            }
+          }
+        }
+      ],
+      "stream": [],
+      "turns": [
+        {
+          "at": 0.0,
+          "do": "start",
+          "outs": [
+            {
+              "status": {
+                "state": "joining"
+              }
+            },
+            {
+              "dial": "ws://relay.test:7070/live/CATH?role=audience&group=balkon"
+            }
+          ]
+        },
+        {
+          "at": 0.0,
+          "do": "open",
+          "outs": [
+            {
+              "send": "{\"from\":\"\",\"kind\":\"hello\",\"p\":{\"code\":\"CATH\",\"group\":\"balkon\",\"nick\":\"Mia\",\"role\":\"audience\"},\"seq\":0,\"v\":1}"
+            }
+          ]
+        },
+        {
+          "at": 0.1,
+          "do": "vote_cast",
+          "outs": []
+        },
+        {
+          "at": 0.2,
+          "do": "message",
+          "outs": [
+            {
+              "status": {
+                "client": "c7",
+                "state": "connected"
+              }
+            },
+            {
+              "joined": {
+                "at": 200.0,
+                "client": "c7"
+              }
+            },
+            {
+              "vote": {
+                "from": "relay",
+                "kind": "vote.open",
+                "p": {
+                  "options": [
+                    "Yes",
+                    "No"
+                  ],
+                  "rule": "majority",
+                  "seconds": 20,
+                  "vote": "v1"
+                },
+                "seq": 0,
+                "v": 1
+              }
+            },
+            {
+              "vote": {
+                "from": "relay",
+                "kind": "say",
+                "p": {
+                  "text": "Stand up"
+                },
+                "seq": 0,
+                "v": 1
+              }
+            }
+          ]
+        },
+        {
+          "at": 0.3,
+          "do": "vote_cast",
+          "outs": [
+            {
+              "send": "{\"from\":\"\",\"kind\":\"vote.cast\",\"p\":{\"option\":1,\"vote\":\"v1\"},\"seq\":0,\"v\":1}"
+            }
+          ]
+        },
+        {
+          "at": 0.4,
+          "do": "message",
+          "outs": [
+            {
+              "vote": {
+                "from": "relay",
+                "kind": "vote.tally",
+                "p": {
+                  "counts": [
+                    1,
+                    0
+                  ],
+                  "left": 10,
+                  "vote": "v1",
+                  "voters": 1
+                },
+                "seq": 1,
+                "v": 1
+              }
+            }
+          ]
+        },
+        {
+          "at": 0.5,
+          "do": "message",
+          "outs": [
+            {
+              "vote": {
+                "from": "relay",
+                "kind": "vote.result",
+                "p": {
+                  "counts": [
+                    1,
+                    0
+                  ],
+                  "how": "rule",
+                  "option": 0,
+                  "vote": "v1"
+                },
+                "seq": 1,
+                "v": 1
+              }
+            }
+          ]
+        },
+        {
+          "at": 0.6,
+          "do": "vote_cast",
+          "outs": []
+        },
+        {
+          "at": 0.7,
+          "do": "message",
+          "outs": [
+            {
+              "vote": {
+                "from": "relay",
+                "kind": "say",
+                "p": {
+                  "text": "Sit down"
+                },
+                "seq": 1,
+                "v": 1
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "graph": null,
+      "join": {
+        "group": null,
+        "messages": false,
+        "nick": null,
+        "relay": "ws://relay.test:7070/live/CATH",
+        "resume": false,
+        "role": "conductor",
+        "token": "tok"
+      },
+      "name": "conductor-vote",
+      "steps": [
+        {
+          "at": 0.0,
+          "do": "open"
+        },
+        {
+          "at": 0.1,
+          "do": "message",
+          "with": {
+            "kind": "welcome",
+            "p": {
+              "client": "c1",
+              "now": 0,
+              "snapshot": {}
+            }
+          }
+        },
+        {
+          "at": 0.2,
+          "do": "vote_close"
+        },
+        {
+          "at": 0.3,
+          "do": "vote_open",
+          "with": {
+            "options": [
+              "Yes",
+              "No"
+            ],
+            "rule": "majority",
+            "seconds": 20,
+            "vote": "v1"
+          }
+        },
+        {
+          "at": 0.4,
+          "do": "message",
+          "with": {
+            "kind": "vote.open",
+            "p": {
+              "options": [
+                "Yes",
+                "No"
+              ],
+              "rule": "majority",
+              "seconds": 20,
+              "vote": "v1"
+            }
+          }
+        },
+        {
+          "at": 0.5,
+          "do": "vote_hold",
+          "with": true
+        },
+        {
+          "at": 0.6,
+          "do": "vote_close",
+          "with": 1
+        },
+        {
+          "at": 0.7,
+          "do": "vote_cast",
+          "with": 1
+        }
+      ],
+      "stream": [],
+      "turns": [
+        {
+          "at": 0.0,
+          "do": "start",
+          "outs": [
+            {
+              "status": {
+                "state": "joining"
+              }
+            },
+            {
+              "dial": "ws://relay.test:7070/live/CATH?role=conductor"
+            }
+          ]
+        },
+        {
+          "at": 0.0,
+          "do": "open",
+          "outs": [
+            {
+              "send": "{\"from\":\"\",\"kind\":\"hello\",\"p\":{\"code\":\"CATH\",\"role\":\"conductor\",\"token\":\"tok\"},\"seq\":0,\"v\":1}"
+            }
+          ]
+        },
+        {
+          "at": 0.1,
+          "do": "message",
+          "outs": [
+            {
+              "status": {
+                "client": "c1",
+                "state": "connected"
+              }
+            },
+            {
+              "joined": {
+                "at": 100.0,
+                "client": "c1"
+              }
+            }
+          ]
+        },
+        {
+          "at": 0.2,
+          "do": "vote_close",
+          "outs": []
+        },
+        {
+          "at": 0.3,
+          "do": "vote_open",
+          "outs": [
+            {
+              "send": "{\"from\":\"\",\"kind\":\"vote.open\",\"p\":{\"options\":[\"Yes\",\"No\"],\"rule\":\"majority\",\"seconds\":20,\"vote\":\"v1\"},\"seq\":0,\"v\":1}"
+            }
+          ]
+        },
+        {
+          "at": 0.4,
+          "do": "message",
+          "outs": [
+            {
+              "vote": {
+                "from": "relay",
+                "kind": "vote.open",
+                "p": {
+                  "options": [
+                    "Yes",
+                    "No"
+                  ],
+                  "rule": "majority",
+                  "seconds": 20,
+                  "vote": "v1"
+                },
+                "seq": 1,
+                "v": 1
+              }
+            }
+          ]
+        },
+        {
+          "at": 0.5,
+          "do": "vote_hold",
+          "outs": [
+            {
+              "send": "{\"from\":\"\",\"kind\":\"vote.hold\",\"p\":{\"hold\":true,\"vote\":\"v1\"},\"seq\":0,\"v\":1}"
+            }
+          ]
+        },
+        {
+          "at": 0.6,
+          "do": "vote_close",
+          "outs": [
+            {
+              "send": "{\"from\":\"\",\"kind\":\"vote.close\",\"p\":{\"override\":1,\"vote\":\"v1\"},\"seq\":0,\"v\":1}"
+            }
+          ]
+        },
+        {
+          "at": 0.7,
+          "do": "vote_cast",
+          "outs": [
+            {
+              "send": "{\"from\":\"\",\"kind\":\"vote.cast\",\"p\":{\"option\":1,\"vote\":\"v1\"},\"seq\":0,\"v\":1}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "graph": null,
+      "join": {
+        "group": null,
+        "messages": false,
+        "nick": null,
+        "relay": "ws://relay.test:7070/live/CATH",
+        "resume": false,
+        "role": "conductor",
+        "token": "bad"
+      },
+      "name": "refused",
+      "steps": [
+        {
+          "at": 0.0,
+          "do": "open"
+        },
+        {
+          "at": 0.1,
+          "do": "message",
+          "with": {
+            "kind": "error",
+            "p": {
+              "code": "token",
+              "message": "bad signature"
+            }
+          }
+        },
+        {
+          "at": 0.11,
+          "do": "close"
+        },
+        {
+          "at": 1.2,
+          "do": "open"
+        }
+      ],
+      "stream": [],
+      "turns": [
+        {
+          "at": 0.0,
+          "do": "start",
+          "outs": [
+            {
+              "status": {
+                "state": "joining"
+              }
+            },
+            {
+              "dial": "ws://relay.test:7070/live/CATH?role=conductor"
+            }
+          ]
+        },
+        {
+          "at": 0.0,
+          "do": "open",
+          "outs": [
+            {
+              "send": "{\"from\":\"\",\"kind\":\"hello\",\"p\":{\"code\":\"CATH\",\"role\":\"conductor\",\"token\":\"bad\"},\"seq\":0,\"v\":1}"
+            }
+          ]
+        },
+        {
+          "at": 0.1,
+          "do": "message",
+          "outs": [
+            {
+              "vote": {
+                "from": "relay",
+                "kind": "error",
+                "p": {
+                  "code": "token",
+                  "message": "bad signature"
+                },
+                "seq": 1,
+                "v": 1
+              }
+            },
+            {
+              "status": {
+                "state": "refused",
+                "why": "bad signature"
+              }
+            },
+            {
+              "close": {}
+            }
+          ]
+        },
+        {
+          "at": 0.11,
+          "do": "close",
+          "outs": [
+            {
+              "status": {
+                "state": "offline",
+                "wait": 1
+              }
+            }
+          ]
+        },
+        {
+          "at": 1.11,
+          "do": "wake",
+          "outs": [
+            {
+              "status": {
+                "state": "joining"
+              }
+            },
+            {
+              "dial": "ws://relay.test:7070/live/CATH?role=conductor"
+            }
+          ]
+        },
+        {
+          "at": 1.2,
+          "do": "open",
+          "outs": [
+            {
+              "send": "{\"from\":\"\",\"kind\":\"hello\",\"p\":{\"code\":\"CATH\",\"role\":\"conductor\",\"token\":\"bad\"},\"seq\":0,\"v\":1}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "graph": null,
+      "join": {
+        "group": "decks",
+        "messages": false,
+        "nick": null,
+        "relay": "ws://relay.test:7070/live/CATH",
+        "resume": false,
+        "role": "conductor",
+        "token": null
+      },
+      "name": "conductor-push",
+      "steps": [
+        {
+          "at": 0.0,
+          "do": "push",
+          "with": {
+            "scene": "cathedral",
+            "sets": [
+              "cathedral"
+            ]
+          }
+        },
+        {
+          "at": 0.1,
+          "do": "open"
+        },
+        {
+          "at": 0.2,
+          "do": "message",
+          "with": {
+            "kind": "welcome",
+            "p": {
+              "client": "c1",
+              "now": 0,
+              "snapshot": {
+                "decks": {
+                  "c2": {
+                    "graph": {
+                      "links": [],
+                      "nodes": []
+                    },
+                    "values": {
+                      "a.b": [
+                        1.0
+                      ]
+                    }
+                  }
+                },
+                "synced": {
+                  "c2": {
+                    "missing": [],
+                    "ready": [],
+                    "scene": "cathedral",
+                    "state": "ready"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "at": 0.3,
+          "do": "message",
+          "with": {
+            "from": "c2",
+            "kind": "deck.values",
+            "p": {
+              "mood": "happy",
+              "values": {
+                "a.b": [
+                  2.0
+                ]
+              }
+            }
+          }
+        },
+        {
+          "at": 0.4,
+          "do": "message",
+          "with": {
+            "from": "c2",
+            "kind": "deck.synced",
+            "p": {
+              "missing": [
+                "set:cathedral"
+              ],
+              "ready": [],
+              "scene": "cathedral",
+              "state": "missing"
+            }
+          }
+        },
+        {
+          "at": 0.5,
+          "do": "message",
+          "with": {
+            "kind": "presence",
+            "p": {
+              "decks": [
+                "c2"
+              ],
+              "groups": {},
+              "ready": [],
+              "routes": [
+                {
+                  "from": "c2",
+                  "to": "c1"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "at": 1.0,
+          "do": "close"
+        },
+        {
+          "at": 1.3,
+          "do": "open"
+        },
+        {
+          "at": 1.4,
+          "do": "message",
+          "with": {
+            "kind": "welcome",
+            "p": {
+              "client": "c1",
+              "now": 0,
+              "snapshot": {
+                "sync": {
+                  "scene": "cathedral",
+                  "sets": [
+                    "cathedral"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ],
+      "stream": [],
+      "turns": [
+        {
+          "at": 0.0,
+          "do": "start",
+          "outs": [
+            {
+              "status": {
+                "state": "joining"
+              }
+            },
+            {
+              "dial": "ws://relay.test:7070/live/CATH?role=conductor&group=decks"
+            }
+          ]
+        },
+        {
+          "at": 0.0,
+          "do": "push",
+          "outs": []
+        },
+        {
+          "at": 0.1,
+          "do": "open",
+          "outs": [
+            {
+              "send": "{\"from\":\"\",\"kind\":\"hello\",\"p\":{\"code\":\"CATH\",\"group\":\"decks\",\"role\":\"conductor\",\"token\":\"dev\"},\"seq\":0,\"v\":1}"
+            }
+          ]
+        },
+        {
+          "at": 0.2,
+          "do": "message",
+          "outs": [
+            {
+              "status": {
+                "client": "c1",
+                "state": "connected"
+              }
+            },
+            {
+              "joined": {
+                "at": 200.0,
+                "client": "c1"
+              }
+            },
+            {
+              "deck": {
+                "deck": {
+                  "client": "c2",
+                  "graph": {
+                    "links": [],
+                    "nodes": []
+                  },
+                  "mood": null,
+                  "values": {
+                    "a.b": [
+                      1.0
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "deck": {
+                "synced": {
+                  "client": "c2",
+                  "synced": {
+                    "missing": [],
+                    "ready": [],
+                    "scene": "cathedral",
+                    "state": "ready"
+                  }
+                }
+              }
+            },
+            {
+              "send": "{\"from\":\"\",\"kind\":\"scene.sync\",\"p\":{\"scene\":\"cathedral\",\"sets\":[\"cathedral\"]},\"seq\":0,\"v\":1}"
+            }
+          ]
+        },
+        {
+          "at": 0.3,
+          "do": "message",
+          "outs": [
+            {
+              "deck": {
+                "values": {
+                  "client": "c2",
+                  "mood": "happy",
+                  "values": {
+                    "a.b": [
+                      2.0
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "at": 0.4,
+          "do": "message",
+          "outs": [
+            {
+              "deck": {
+                "synced": {
+                  "client": "c2",
+                  "synced": {
+                    "missing": [
+                      "set:cathedral"
+                    ],
+                    "ready": [],
+                    "scene": "cathedral",
+                    "state": "missing"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "at": 0.5,
+          "do": "message",
+          "outs": [
+            {
+              "deck": {
+                "presence": {
+                  "decks": [
+                    "c2"
+                  ],
+                  "links": {},
+                  "quality": {},
+                  "routes": [
+                    [
+                      "c2",
+                      "c1"
+                    ]
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "at": 1.0,
+          "do": "close",
+          "outs": [
+            {
+              "status": {
+                "state": "offline"
+              }
+            }
+          ]
+        },
+        {
+          "at": 1.25,
+          "do": "wake",
+          "outs": [
+            {
+              "status": {
+                "state": "joining"
+              }
+            },
+            {
+              "dial": "ws://relay.test:7070/live/CATH?role=conductor&group=decks"
+            }
+          ]
+        },
+        {
+          "at": 1.3,
+          "do": "open",
+          "outs": [
+            {
+              "send": "{\"from\":\"\",\"kind\":\"hello\",\"p\":{\"code\":\"CATH\",\"group\":\"decks\",\"role\":\"conductor\",\"token\":\"dev\"},\"seq\":0,\"v\":1}"
+            }
+          ]
+        },
+        {
+          "at": 1.4,
+          "do": "message",
+          "outs": [
+            {
+              "status": {
+                "client": "c1",
+                "state": "connected"
+              }
+            },
+            {
+              "joined": {
+                "at": 1400.0,
+                "client": "c1"
+              }
+            },
+            {
+              "deck": {
+                "pushed": {
+                  "scene": "cathedral",
+                  "sets": [
+                    "cathedral"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "graph": null,
+      "join": {
+        "group": "left",
+        "messages": true,
+        "nick": null,
+        "relay": "ws://relay.test:7070/live/CATH",
+        "resume": true,
+        "role": "output",
+        "token": null
+      },
+      "name": "outlet",
+      "steps": [
+        {
+          "at": 0.0,
+          "do": "open"
+        },
+        {
+          "at": 0.1,
+          "do": "message",
+          "with": {
+            "kind": "welcome",
+            "p": {
+              "client": "c3",
+              "now": 0,
+              "snapshot": {}
+            },
+            "seq": 4
+          }
+        },
+        {
+          "at": 0.2,
+          "do": "message",
+          "with": {
+            "kind": "say",
+            "p": {
+              "text": "Lights"
+            },
+            "seq": 9
+          }
+        },
+        {
+          "at": 1.0,
+          "do": "rejoin"
+        },
+        {
+          "at": 1.0,
+          "do": "close",
+          "with": "asked to join again"
+        },
+        {
+          "at": 1.3,
+          "do": "open"
+        }
+      ],
+      "stream": [],
+      "turns": [
+        {
+          "at": 0.0,
+          "do": "start",
+          "outs": [
+            {
+              "status": {
+                "state": "joining"
+              }
+            },
+            {
+              "dial": "ws://relay.test:7070/live/CATH?role=output&group=left"
+            }
+          ]
+        },
+        {
+          "at": 0.0,
+          "do": "open",
+          "outs": [
+            {
+              "send": "{\"from\":\"\",\"kind\":\"hello\",\"p\":{\"code\":\"CATH\",\"group\":\"left\",\"role\":\"output\"},\"seq\":0,\"v\":1}"
+            }
+          ]
+        },
+        {
+          "at": 0.1,
+          "do": "message",
+          "outs": [
+            {
+              "message": {
+                "from": "relay",
+                "kind": "welcome",
+                "p": {
+                  "client": "c3",
+                  "now": 0,
+                  "snapshot": {}
+                },
+                "seq": 4,
+                "v": 1
+              }
+            },
+            {
+              "status": {
+                "client": "c3",
+                "state": "connected"
+              }
+            },
+            {
+              "joined": {
+                "at": 100.0,
+                "client": "c3"
+              }
+            }
+          ]
+        },
+        {
+          "at": 0.2,
+          "do": "message",
+          "outs": [
+            {
+              "message": {
+                "from": "relay",
+                "kind": "say",
+                "p": {
+                  "text": "Lights"
+                },
+                "seq": 9,
+                "v": 1
+              }
+            },
+            {
+              "vote": {
+                "from": "relay",
+                "kind": "say",
+                "p": {
+                  "text": "Lights"
+                },
+                "seq": 9,
+                "v": 1
+              }
+            }
+          ]
+        },
+        {
+          "at": 1.0,
+          "do": "rejoin",
+          "outs": [
+            {
+              "close": {}
+            }
+          ]
+        },
+        {
+          "at": 1.0,
+          "do": "close",
+          "outs": [
+            {
+              "status": {
+                "state": "offline",
+                "why": "asked to join again"
+              }
+            }
+          ]
+        },
+        {
+          "at": 1.25,
+          "do": "wake",
+          "outs": [
+            {
+              "status": {
+                "state": "joining"
+              }
+            },
+            {
+              "dial": "ws://relay.test:7070/live/CATH?role=output&group=left"
+            }
+          ]
+        },
+        {
+          "at": 1.3,
+          "do": "open",
+          "outs": [
+            {
+              "send": "{\"from\":\"\",\"kind\":\"hello\",\"p\":{\"code\":\"CATH\",\"group\":\"left\",\"resume\":{\"client\":\"c3\",\"seq\":9},\"role\":\"output\"},\"seq\":0,\"v\":1}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

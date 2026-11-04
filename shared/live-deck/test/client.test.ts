@@ -1,26 +1,36 @@
-// `npm test -w shared/live-deck` (#197): the browser deck's
-// client logic – the graph message, the values stream (only what moved, ≤ 30 / s, the mood), and in process against a
-// real relay (deck/target/debug/relay.exe on LAB_RELAY_PORT, default 7072; skipped, saying so, when it isn't built):
-// a conductor sees the deck's `deck.graph` first, then its `deck.values`.
+// `npm test -w shared/live-deck` (#197, #366): the browser's relay link is deck-space's relay client (relay.rs, relay-web's
+// wasm) under client.ts's socket. The core's scripted links (test/fixtures/relay.json, written and kept current by
+// `UPDATE_FIXTURES=1 cargo test -p deck-space relay_fixture`) run through `RelaySocket` on a fake socket, clock and timer:
+// every turn must ask and say what the core said natively, and the socket must do it. Then, in process against a real
+// relay (deck/target/debug/relay.exe on LAB_RELAY_PORT, default 7072): a conductor sees the deck's `deck.graph` first,
+// then its `deck.values`, both again after a reconnect; the show clock's pong and anchors. The ones that need the wasm or
+// the relay skip, saying so, when it isn't built.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { DeckLink, envelope, epsilon, parseRelay, RATE, ValueStream } from '../src/client.ts';
-import { MOODS, OWN_PARAMS, OWN_STREAMED, ownGraph } from './own.ts';
+import { DeckLink, RelaySocket, type RelayCoreView, type RelayModule, type WebSocketLike } from '../src/client.ts';
+import { MOODS, OWN, OWN_PARAMS, OWN_STREAMED, ownGraph } from './own.ts';
+import { NO_CORE, relayCore } from './relay-core.ts';
 import type { Envelope, Tempo } from '@scutoons/live';
 
-test('the relay URL and the envelope', () => {
-	assert.deepEqual(parseRelay('ws://localhost:7070/live/CATH'), { base: 'ws://localhost:7070', code: 'CATH' });
-	// a venue's relay under our name – the deck's LAN IP with dashes (bunny DNS answers it) –, wss with the wildcard certificate (#201)
-	assert.deepEqual(parseRelay('wss://192-168-1-116.lan.scutoons.com:7700/live/CATH'), { base: 'wss://192-168-1-116.lan.scutoons.com:7700', code: 'CATH' });
-	assert.deepEqual(parseRelay('wss://live.scutoons.com/live/A7K2/'), { base: 'wss://live.scutoons.com', code: 'A7K2' });
-	// the LAN viewer passes the relay through a path of its own (scripts/dev/lan.mjs)
-	assert.deepEqual(parseRelay('wss://192.168.1.116:4100/relay/live/CLOCK'), { base: 'wss://192.168.1.116:4100/relay', code: 'CLOCK' });
-	assert.throws(() => parseRelay('http://x/live/CATH'));
-	assert.equal(envelope({ kind: 'ping', p: { t0: 0 } }), '{"v":1,"seq":0,"from":"","kind":"ping","p":{"t0":0}}');
-});
+interface Step {
+	at: number;
+	do: string;
+	with?: unknown;
+}
+interface Script {
+	name: string;
+	join: Record<string, unknown>;
+	graph: unknown;
+	stream: unknown[];
+	steps: Step[];
+	turns: { at: number; do: string; outs: Record<string, unknown>[] }[];
+}
+const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/relay.json', import.meta.url), 'utf8')) as { scripts: Script[] };
+/** the native roles' scripts (the conductor's push, the outlet's resume) – the browser has neither */
+const NATIVE_ONLY = new Set(['conductor-push', 'outlet']);
 
 test('deck.graph – its own scene as the core played it (#360): deck-native kinds, links between known ports, the character, its moods, the exposed params', () => {
 	const g = ownGraph();
@@ -36,37 +46,163 @@ test('deck.graph – its own scene as the core played it (#360): deck-native kin
 	assert.deepEqual(fixture, { kind: 'deck.graph', p: ownGraph() });
 });
 
-test('values: the first sample sends all, then only what moved past its epsilon, ≤ 30 / s, the mood on change', () => {
-	const s = new ValueStream({ 'voice.index': { input: [0, 8] }, 'voice.out': 'audio' });
-	const v: Record<string, number> = { 'voice.index': 2, 'voice.out': 0.5 };
-	const first = s.sample(0, (p) => v[p], 'neutral');
-	assert.deepEqual(first, { values: { 'voice.index': [2], 'voice.out': [0.5] }, mood: 'neutral' });
-	assert.equal(s.sample(0.01, (p) => v[p], 'neutral'), null, 'between two slots');
-	v['voice.index'] = 2 + epsilon({ input: [0, 8] }) / 2;
-	assert.equal(s.sample(1 / RATE, (p) => v[p], 'neutral'), null, 'under its epsilon');
-	v['voice.out'] = 0.6;
-	assert.deepEqual(s.sample(2 / RATE, (p) => v[p], 'happy'), { values: { 'voice.out': [0.6] }, mood: 'happy' });
-	// 120 frames a second for 2 s, always moving: ≈ 60 samples
-	let n = 0;
-	for (let f = 0; f < 240; f++) {
-		v['voice.out'] = f / 240;
-		if (s.sample(10 + f / 120, (p) => v[p], 'happy')) n++;
-	}
-	assert.ok(n >= 59 && n <= 61, `30 a second: ${n}`);
-});
-
 test('the streamed paths: every exposed input + the hoses', () => {
 	for (const p of Object.keys(OWN_PARAMS)) assert.ok(p in OWN_STREAMED, p);
 	for (const p of ['fft.level', 'fft.bass']) assert.ok(p in OWN_STREAMED, p);
 });
 
+/** a socket the script drives */
+class FakeSocket implements WebSocketLike {
+	static all: FakeSocket[] = [];
+	readyState = 0;
+	sent: string[] = [];
+	closed = false;
+	onopen: ((ev: unknown) => void) | null = null;
+	onmessage: ((ev: { data: unknown }) => void) | null = null;
+	onclose: ((ev: unknown) => void) | null = null;
+	onerror: ((ev: unknown) => void) | null = null;
+	constructor(readonly url: string) {
+		FakeSocket.all.push(this);
+	}
+	send(data: string) {
+		assert.equal(this.readyState, 1, 'sent on an open socket');
+		this.sent.push(data);
+	}
+	close() {
+		this.closed = true;
+	}
+}
+
+/** One script through `RelaySocket` on the real core: the outs of each step (with the timers it fired before it). */
+function replay(m: RelayModule, s: Script): { groups: Record<string, unknown>[][]; sockets: FakeSocket[] } {
+	FakeSocket.all = [];
+	let now = 0;
+	const timers: { at: number; fn: () => void; id: number }[] = [];
+	let ids = 0;
+	// a vote screen's moves too (the viewer's live-vote-link.ts types them)
+	const core = new m.RelayClient(JSON.stringify(s.join)) as RelayCoreView & { vote_open(j: string): boolean; vote_cast(o: number): boolean; vote_close(o?: number): boolean; vote_hold(h: boolean): boolean };
+	let group: Record<string, unknown>[] = [];
+	const groups = [group];
+	// every word of the core, as the socket took it
+	const spied = new Proxy(core, {
+		get(c, k) {
+			if (k === 'take')
+				return () => {
+					const t = c.take();
+					group.push(...(JSON.parse(t) as Record<string, unknown>[]));
+					return t;
+				};
+			const v = Reflect.get(c, k) as unknown;
+			return typeof v === 'function' ? (v as (...a: unknown[]) => unknown).bind(c) : v;
+		}
+	}) as RelayCoreView;
+	if (s.graph) core.set_graph(JSON.stringify(s.graph));
+	core.set_stream(JSON.stringify(s.stream));
+	const sock = new RelaySocket(spied, {}, {
+		socket: FakeSocket,
+		now: () => now,
+		setTimer: (fn, ms) => (timers.push({ at: now + ms, fn, id: ++ids }), ids),
+		clearTimer: (id) => timers.splice(timers.findIndex((t) => t.id === id) >>> 0, timers.some((t) => t.id === id) ? 1 : 0)
+	});
+	sock.start();
+	const ws = () => FakeSocket.all.at(-1)!;
+	for (const st of s.steps) {
+		group = [];
+		groups.push(group);
+		const t = st.at * 1000;
+		for (;;) {
+			timers.sort((a, b) => a.at - b.at);
+			const due = timers[0];
+			if (!due || due.at > t) break;
+			timers.shift();
+			now = Math.max(due.at, core.next_wake() ?? due.at);
+			due.fn();
+		}
+		now = t;
+		const w = st.with as never;
+		const call = (fn: () => unknown) => (fn(), sock.run());
+		switch (st.do) {
+			case 'open':
+				ws().readyState = 1;
+				ws().onopen?.({});
+				break;
+			case 'close':
+			case 'fail':
+				ws().readyState = 3;
+				ws().onclose?.({ reason: w ?? '' });
+				break;
+			case 'message':
+				ws().onmessage?.({ data: JSON.stringify({ v: 1, seq: 1, from: 'relay', ...(w as object) }) });
+				break;
+			case 'sample': {
+				const v = w as { values: Record<string, number>; mood?: string };
+				call(() => core.sample(t / 1000, Float64Array.from(core.paths(), (p) => v.values[p] ?? NaN), v.mood ?? ''));
+				break;
+			}
+			case 'quality':
+				call(() => core.quality(JSON.stringify(w)));
+				break;
+			case 'synced':
+				call(() => core.synced(now, JSON.stringify(w)));
+				break;
+			case 'tempo':
+				call(() => core.tempo(JSON.stringify(w)));
+				break;
+			case 'ping':
+				call(() => core.ping(now));
+				break;
+			case 'vote_open':
+				call(() => core.vote_open(JSON.stringify(w)));
+				break;
+			case 'vote_cast':
+				call(() => core.vote_cast(w));
+				break;
+			case 'vote_close':
+				call(() => core.vote_close(w ?? undefined));
+				break;
+			case 'vote_hold':
+				call(() => core.vote_hold(w));
+				break;
+			case 'stop':
+				sock.close();
+				break;
+			default:
+				throw new Error(`${s.name}: the browser has no step '${st.do}'`);
+		}
+	}
+	return { groups, sockets: FakeSocket.all };
+}
+
+for (const s of FIXTURE.scripts.filter((x) => !NATIVE_ONLY.has(x.name))) {
+	test(`#366 the core's script '${s.name}' through the socket: the same turns as natively, and the socket does them`, { skip: NO_CORE || false }, async () => {
+		const { groups, sockets } = replay(await relayCore(), s);
+		// the native turns per step: a step's = the timers' turns before it + its own
+		const steps: Record<string, unknown>[][] = [[]];
+		let pending: Record<string, unknown>[] = [];
+		for (const t of s.turns) {
+			if (t.do === 'start') steps[0].push(...t.outs);
+			else if (t.do === 'wake') pending.push(...t.outs);
+			else {
+				steps.push([...pending, ...t.outs]);
+				pending = [];
+			}
+		}
+		assert.equal(groups.length, steps.length);
+		groups.forEach((g, i) => assert.deepEqual(g, steps[i], `${s.name}: step ${i} (${i ? s.steps[i - 1].do : 'start'} at ${i ? s.steps[i - 1].at : 0} s)`));
+		// the socket did what the core asked: one socket per dial, at its URL, each sent text on it
+		const flat = steps.flat();
+		assert.deepEqual(sockets.map((w) => w.url), flat.filter((o) => 'dial' in o).map((o) => o.dial));
+		assert.deepEqual(sockets.flatMap((w) => w.sent), flat.filter((o) => 'send' in o).map((o) => o.send));
+	});
+}
+
 /** a raw conductor on the relay: its messages */
 function conductor(url: string): Promise<{ msgs: Envelope[]; ws: WebSocket }> {
-	const { code } = parseRelay(url);
+	const code = url.split('/live/')[1];
 	const ws = new WebSocket(`${url}?role=conductor&group=decks`);
 	const msgs: Envelope[] = [];
 	return new Promise((ok, fail) => {
-		ws.onopen = () => ws.send(envelope({ kind: 'hello', p: { code, role: 'conductor', group: 'decks', token: 'dev' } }));
+		ws.onopen = () => ws.send(JSON.stringify({ v: 1, seq: 0, from: '', kind: 'hello', p: { code, role: 'conductor', group: 'decks', token: 'dev' } }));
 		ws.onmessage = (e) => {
 			const m = JSON.parse(String(e.data)) as Envelope;
 			msgs.push(m);
@@ -85,7 +221,9 @@ const until = async (what: () => boolean, ms = 5000) => {
 };
 
 const relayExe = fileURLToPath(new URL('../../../deck/target/debug/relay.exe', import.meta.url));
-test('in process: a relay, a conductor, the deck – graph first, values rate-limited, again after a reconnect', { skip: !existsSync(relayExe) && 'deck/target/debug/relay.exe not built (cargo build -p relay)' }, async () => {
+const NO_RELAY = existsSync(relayExe) ? '' : 'deck/target/debug/relay.exe not built (cargo build -p relay)';
+
+test('in process: a relay, a conductor, the deck – graph first, values rate-limited, again after a reconnect', { skip: NO_RELAY || NO_CORE || false }, async () => {
 	const port = Number(process.env.LAB_RELAY_PORT ?? 7072);
 	const env = { ...process.env };
 	delete env.LIVE_TOKEN_SECRET;
@@ -102,15 +240,14 @@ test('in process: a relay, a conductor, the deck – graph first, values rate-li
 				await new Promise((r) => setTimeout(r, 100));
 			}
 		}
-		const deck = new DeckLink({ relay: url, graph: ownGraph(), socket: WebSocket as never });
+		const deck = new DeckLink({ relay: url, graph: ownGraph(), socket: WebSocket as never, core: relayCore() });
+		deck.setStream(OWN.streamed);
 		await until(() => deck.joined);
-		// 1 s of values at 120 frames a second, through the stream
-		const s = new ValueStream(OWN_STREAMED);
+		// 1 s of values at 120 frames a second, through the core's stream
 		const t0 = performance.now();
 		let f = 0;
 		while (performance.now() - t0 < 1000) {
-			const ch = s.sample((performance.now() - t0) / 1000, (p) => (p === 'fft.level' ? Math.abs(Math.sin(f)) : (OWN_PARAMS[p]?.value ?? 0)), f > 60 ? 'happy' : 'neutral');
-			if (ch) deck.send(ch);
+			deck.sample((performance.now() - t0) / 1000, (p) => (p === 'fft.level' ? Math.abs(Math.sin(f)) : (OWN_PARAMS[p]?.value ?? 0)), f > 60 ? 'happy' : 'neutral');
 			f++;
 			await new Promise((r) => setTimeout(r, 8));
 		}
@@ -122,7 +259,7 @@ test('in process: a relay, a conductor, the deck – graph first, values rate-li
 		assert.ok(values.length >= 20 && values.length <= 33, `≤ 30 / s: ${values.length}`);
 		// the relay drops the being when the deck leaves; the deck joins again with graph + keyframe
 		const before = c.msgs.length;
-		(deck as unknown as { ws: WebSocket }).ws.close();
+		(deck.socket as unknown as { ws: WebSocket }).ws.close();
 		await until(() => c!.msgs.slice(before).some((m) => m.kind === 'deck.values' && Object.keys(m.p.values).length >= Object.keys(OWN_STREAMED).length - 2));
 		const again = c.msgs.slice(before).filter((m) => m.kind === 'deck.graph' || m.kind === 'deck.values');
 		assert.equal(again[0].kind, 'deck.graph');
@@ -133,38 +270,7 @@ test('in process: a relay, a conductor, the deck – graph first, values rate-li
 	}
 });
 
-test('#220: the render quality goes out once joined and again after a rejoin', () => {
-	const sockets: FakeSocket[] = [];
-	class FakeSocket {
-		readyState = 1;
-		sent: { kind: string; p: unknown }[] = [];
-		onopen: ((ev: unknown) => void) | null = null;
-		onmessage: ((ev: { data: unknown }) => void) | null = null;
-		onclose: ((ev: unknown) => void) | null = null;
-		onerror: ((ev: unknown) => void) | null = null;
-		constructor() {
-			sockets.push(this);
-		}
-		send(data: string) {
-			this.sent.push(JSON.parse(data));
-		}
-		close() {}
-	}
-	const link = new DeckLink({ relay: 'ws://localhost:1/live/CATH', graph: ownGraph(), socket: FakeSocket });
-	const ws = sockets[0];
-	const q = { level: 'medium' as const, scale: 0.8, auto: true, frame: 17.1, ceiling: 'medium' as const };
-	link.quality(q);
-	assert.equal(link.count.quality, 0, 'not joined: kept');
-	const welcome = { kind: 'welcome', p: { client: 'c5', snapshot: { seq: 0 }, now: 0 } };
-	ws.onmessage!({ data: JSON.stringify(welcome) });
-	assert.deepEqual(ws.sent.map((m) => m.kind), ['deck.graph', 'deck.quality']);
-	link.quality({ ...q, level: 'low', scale: 0.6 });
-	assert.deepEqual(ws.sent.at(-1), { v: 1, seq: 0, from: '', kind: 'deck.quality', p: { ...q, level: 'low', scale: 0.6 } });
-	assert.equal(link.count.quality, 2);
-	link.close();
-});
-
-test("#321 in process: the show clock – a pong with the real t0, a leading deck's tempo to the others and into a late joiner's snapshot", { skip: !existsSync(relayExe) && 'deck/target/debug/relay.exe not built (cargo build -p relay)' }, async () => {
+test("#321 in process: the show clock – a pong with the real t0, a leading deck's tempo to the others and into a late joiner's snapshot", { skip: NO_RELAY || NO_CORE || false }, async () => {
 	const port = Number(process.env.LAB_RELAY_PORT ?? 7072) + 1;
 	const env = { ...process.env };
 	delete env.LIVE_TOKEN_SECRET;
@@ -173,7 +279,8 @@ test("#321 in process: the show clock – a pong with the real t0, a leading dec
 		const url = `ws://127.0.0.1:${port}/live/CLOCK`;
 		const pongs: [number, number, number][] = [];
 		const tempos: Tempo[] = [];
-		const link = (o: Partial<ConstructorParameters<typeof DeckLink>[0]>) => new DeckLink({ relay: url, graph: ownGraph(), socket: WebSocket as never, ...o });
+		const core = relayCore();
+		const link = (o: Partial<ConstructorParameters<typeof DeckLink>[0]>) => new DeckLink({ relay: url, graph: ownGraph(), socket: WebSocket as never, core, ...o });
 		// the relay is up once a conductor gets in
 		const end = Date.now() + 5000;
 		for (;;) {
@@ -185,7 +292,7 @@ test("#321 in process: the show clock – a pong with the real t0, a leading dec
 				await new Promise((r) => setTimeout(r, 100));
 			}
 		}
-		let leader = link({ onPong: (t0, t1, t2) => pongs.push([t0, t1, t2]) });
+		const leader = link({ onPong: (t0, t1, t2) => pongs.push([t0, t1, t2]) });
 		await until(() => leader.joined);
 		const follower = link({ onTempo: (t) => tempos.push(t) });
 		await until(() => follower.joined);
@@ -205,7 +312,6 @@ test("#321 in process: the show clock – a pong with the real t0, a leading dec
 		await until(() => late.length > 0);
 		assert.equal(late[0].beat, 32);
 		for (const l of [leader, follower, third]) l.close();
-		leader = null as never;
 	} finally {
 		relay.kill();
 	}

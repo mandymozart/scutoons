@@ -66,6 +66,12 @@ jobs:
         run: cargo build --profile wasm-web --target wasm32-unknown-unknown -p space-web
       - name: ⏱ deck-events as wasm32 (#236, the event layer – the browser runs it too)
         run: cargo check --target wasm32-unknown-unknown -p deck-events
+      # #366: the relay client's wasm (relay-web) – live-deck's tests run the core's scripted links through client.ts
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen@0.2.129
+      - run: npm run build:wasm -w shared/live-deck -- --relay
+        working-directory: .
       - run: npm run check -w shared/live-deck
         working-directory: .
 
