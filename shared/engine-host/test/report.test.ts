@@ -1,8 +1,7 @@
 // #356: the copyable sound report – the device, the block times against the budget, the first seconds as a table.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { clockOf } from '@scutoons/live-core';
-import { clockLine, deviceInfo, engineReport, playoutOf } from '../src/report.ts';
+import { deviceInfo, engineReport, playoutOf } from '../src/report.ts';
 import { emptySnapshot } from '../src/status.ts';
 
 /** a monitor report as deck-core gives it (only the fields the report reads) */
@@ -48,10 +47,10 @@ test("the browser's glitch count: Chrome's playbackStats in seconds, the spec's 
 	assert.equal(playoutOf(), null);
 });
 
-test("#321: the clock line – the source, the state, the show's error now and over the last minute", () => {
-	const c = { ...clockOf([0, 0, 84, 4, 1, 4, 1 | 2, 0, 3.2, -0.4, 0, 0, 0, 0, 0, 0]), line: 'SHOW -0.4MS RTT 3.2MS' };
-	assert.equal(clockLine(null, null), 'clock not running');
-	assert.equal(clockLine(c, null), 'clock relay · 84.0 BPM · SHOW -0.4MS RTT 3.2MS · no minute of following yet');
-	assert.match(clockLine(c, { n: 2400, p50: 0.3, p95: 1.2, max: 4.8, mean: -0.1, seconds: 60 }), /last 60 s \|show\| p50 0\.3 · p95 1\.2 · max 4\.8 ms \(mean -0\.1, 2400 frames\)$/);
-	assert.equal(clockLine({ ...clockOf([0, 0, 84, 4, 1, 0, 1 | 4, 0, 0, 0, 0, 0, 0, 0, 0, 0]), line: 'LEADS' }, null), 'clock internal · 84.0 BPM · LEADS · no minute of following yet');
+test("#387: the clock line is the core's, printed as it came (none before the sound)", () => {
+	const s = { ...emptySnapshot(), phase: 'running' as const, stats };
+	const base = { at: '', page: '', userAgent: '', cores: 0, memory: 0, simd: true, snapshot: s, channels: 2, baseLatency: 0, outputLatency: 0, playout: null, series: [], log: [] };
+	const line = 'clock relay · 84.0 BPM · SHOW -0.4MS RTT 3.2MS · last 60 s |show| p50 0.3 · p95 1.2 · max 4.8 ms (mean -0.1, 2400 frames)';
+	assert.ok(engineReport({ ...base, clock: line }).includes(`GLITCH 0/10M LATE 0 LONG 0 UND 0\n${line}\n`), 'after the monitor, as it came');
+	assert.ok(engineReport(base).includes('UND 0\n\n'), 'no line before the sound');
 });

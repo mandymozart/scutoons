@@ -4,7 +4,7 @@
 //
 //   const core = await LiveCore.start({ worker, wasm, worklet });   // after a user gesture (the AudioContext)
 //   await core.load(sceneToml);                                      // the edge: TOML in, the node table out
-//   core.onClock((c) => strobe(beatAt(c, nowMs())));                 // #321: the tempo clock (the show clock's)
+//   core.onClock((c) => strobe(c.flash));                            // #321: the tempo clock (the show clock's)
 //   core.set('lead.freq', new Float32Array([440, 2, 1, 0.1]), { mode: 'blend', amount: 0.5 });
 //   const off = core.onAnalysis((a) => draw(a.level, a.bass, a.mid, a.high, a.spectrum));
 //   core.value('sway.out');                                          // the heard block's value of a path
@@ -18,7 +18,7 @@ import { Latest, Ring, ringBuffers, sharedAvailable } from './ring.ts';
 import { readSignals, type DeviceSignal } from './signals.ts';
 import { analysisOf, FRAME, MAX_OUTPUTS, MAX_FRAME_VALUES, recordSize, writeSend, type Analysis, type Mode } from './wire.ts';
 import type { ClockOp, FromWorker, FromWorklet, SharedSetup, ToWorker, Transport, WorkletOptions } from './messages.ts';
-import { ClockWindow, clockOf, type ClockState } from './clock.ts';
+import { clockOf, type ClockState } from './clock.ts';
 
 export * from './wire.ts';
 export * from './clock.ts';
@@ -171,8 +171,8 @@ export class LiveCore {
 	clock: ClockState | null = null;
 	/** #321: the core's clock line as the worker last posted it */
 	private clockLine = '';
-	/** #321: the show clock's error over the last minute (the sound report's line) */
-	readonly clockWindow = new ClockWindow();
+	/** #387: the sound report's clock line – deck-core's words and its error window of the last minute, once a second */
+	clockReport = '';
 	private readonly clockListeners = new Set<(c: ClockState) => void>();
 	private readonly midiOutListeners = new Set<(msgs: Float64Array) => void>();
 	private stampTimer: ReturnType<typeof setInterval> | null = null;
@@ -269,12 +269,12 @@ export class LiveCore {
 				break;
 			case 'stats':
 				this.monitor?.audio(performance.now(), m.words);
+				this.clockReport = m.clock;
 				break;
 			case 'clock': {
 				const c = clockOf(m.state);
 				c.line = this.clockLine;
 				this.clock = c;
-				this.clockWindow.add(performance.timeOrigin + performance.now(), c);
 				for (const cb of this.clockListeners) cb(c);
 				break;
 			}
