@@ -25,7 +25,7 @@ fn unit(x: f32) -> f32 {
 
 /// A linear level (0..1, 1 = full scale) in dB, floored at the scale's bottom (silence = the floor).
 pub fn level_db(linear: f32) -> f32 {
-    if !(linear > 0.0) || !linear.is_finite() {
+    if !linear.is_finite() || linear <= 0.0 {
         return FLOOR_DB;
     }
     (20.0 * libm::log10f(linear)).max(FLOOR_DB)
