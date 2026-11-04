@@ -46,6 +46,14 @@ cd deck && cargo build --release
 cd deck && cargo test
 ```
 
+**No wall-clock assertions in `deck:ci` (#382).** The suite runs while other builds run, so a test never asserts how long something
+took and never gives a module a wall budget it is not about: a test of what a module plays or does uses `Setup::unbudgeted()` (module-host;
+the engine tests open their modules that way, `native/tests/modules.rs`), a test of the budget's logic runs on a virtual clock
+(`Virtual<B>` in module-host's conformance suite, deck-core's `tests/show_clock.rs`, the headless scenarios), a test that waits for something
+to HAPPEN polls for the state with a deadline of 60 s (`PATIENCE`, paid only on failure), and a runaway loop is asserted "stopped" with a
+margin of seconds. A real-time check that only means something on a quiet machine or on the hardware (the show clock's p95 over the loopback
+relay) is `#[ignore = "hardware rig / quiet machine: run with --ignored"]` – `cargo test -- --ignored` runs it by hand; `deck:ci` does not.
+
 Relay (default `0.0.0.0:7700`; `relay 127.0.0.1:7700` or `RELAY_ADDR`):
 
 ```bash
