@@ -14,7 +14,7 @@
 	// deck-space's (Hands → DeckControls, wasm), this page only bridges the DOM, Web MIDI and the pointer to it.
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { Hands, charactersOf, loadControls, loadDeckState, pushLine, type QualityLevel, type QualityPresets, type SpaceQuality, type Spec } from '@scutoons/live-deck';
+	import { Hands, charactersOf, loadControls, loadDeckState, pushLine, type QualityLevel, type QualityOptions, type QualityPresets, type SpaceQuality, type Spec } from '@scutoons/live-deck';
 	// #298: the engine's bring-up (the deck, the 3D, the sound, the frame loop, the rig for a mood, the statistics) is
 	// @scutoons/engine-host's; this page keeps the relay, the controls and its UI
 	import { createEngineHost, type EngineHost } from '@scutoons/engine-host';
@@ -75,6 +75,8 @@
 	let quality = $state<SpaceQuality | null>(null);
 	let presets = $state<QualityPresets | null>(null);
 	let presetsText = $state('');
+	/** #375: the option lists, the core's */
+	let qualityOptions = $state<QualityOptions | null>(null);
 	let sheetOpen = $state(false);
 	let screenInfo = $state<{ max: [number, number]; display: [number, number] }>({ max: [0, 0], display: [0, 0] });
 	function stored(key: string): string | null {
@@ -91,6 +93,7 @@
 		quality = space.quality;
 		presets = space.presets;
 		presetsText = space.presetsText;
+		qualityOptions = space.qualityOptions;
 		screenInfo = space.screen;
 		try {
 			localStorage.setItem(PRESETS_KEY, presetsText);
@@ -404,8 +407,8 @@
 			onmidiout={() => engine?.deck?.clockOut(!clock?.midiOut)}
 		/>
 	</div>
-	{#if presets && quality}
-		<DeckQualitySheet bind:open={sheetOpen} {presets} {quality} screen={screenInfo} text={presetsText} onchange={setPresets} ontext={setPresetsText} />
+	{#if presets && quality && qualityOptions}
+		<DeckQualitySheet bind:open={sheetOpen} {presets} {quality} options={qualityOptions} screen={screenInfo} text={presetsText} onchange={setPresets} ontext={setPresetsText} />
 	{/if}
 </div>
 

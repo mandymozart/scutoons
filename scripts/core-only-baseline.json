@@ -93,12 +93,6 @@
 				"ticket": "#369"
 			}
 		},
-		"viewer/src/lib/components/live-deck/deck-quality-sheet.svelte": {
-			"twin-const": {
-				"count": 1,
-				"ticket": "#375"
-			}
-		},
 		"viewer/src/lib/live-vote-link.ts": {
 			"twin-const": {
 				"count": 1,
@@ -541,7 +535,7 @@
 			"escapes": 0
 		},
 		"viewer/src/lib/components/live-deck/deck-quality-sheet.svelte": {
-			"lines": 276,
+			"lines": 271,
 			"functions": 7,
 			"math": 1,
 			"escapes": 0

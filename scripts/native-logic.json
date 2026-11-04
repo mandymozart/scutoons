@@ -79,7 +79,7 @@
 			"what": "the HUD's modes, the per-minute window (10 min), the bar's layout"
 		},
 		"deck/native/src/quality.rs": {
-			"lines": 390,
+			"lines": 378,
 			"ticket": "#375 #374",
 			"what": "the F4 settings page and its option tables"
 		},

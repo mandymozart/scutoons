@@ -6,16 +6,12 @@
 //! sizes under load and its own (a scale of the display, or **P** for a height in pixels), FXAA, bloom, lights, the
 //! frame rate cap – the level, the governor and the display mode (its modes from the monitor, the largest named as the
 //! hardware's maximum). Every change applies at once and is saved. Pure: the page knows keys, not winit (main.rs maps them).
-use deck_space::quality::{Level, Presets, Size, MAX_LIGHTS};
+use deck_space::quality::{step_fps, Level, Presets, Size, MAX_LIGHTS};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
 /// how often the file's time is looked at (s)
 const CHECK_S: f32 = 2.0;
-/// the scale steps (+ / −) and the heights in pixels (after **P**)
-const SCALES: [f32; 20] = [0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0, 1.1, 1.25, 1.5, 2.0];
-const HEIGHTS: [u32; 13] = [360, 480, 540, 600, 720, 810, 900, 1080, 1200, 1440, 1620, 1800, 2160];
-const FPS: [u32; 6] = [24, 30, 40, 48, 60, 120];
 
 /// `--quality-file`, else DECK_QUALITY_FILE, else the deck's DECKDATA (/var/lib/deck/quality.toml) when it exists, else
 /// next to the cache
@@ -155,10 +151,7 @@ impl Page {
         match (ROWS[self.row], k) {
             (Row::Min | Row::Max, Key::Pixels) => {
                 let s = if ROWS[self.row] == Row::Min { &mut pr.min } else { &mut pr.max };
-                *s = match *s {
-                    Size::Scale(x) => Size::Height(nearest(&HEIGHTS, (x * display_h as f32) as u32)),
-                    Size::Height(h) => Size::Scale(SCALES[nearest_f(&SCALES, h as f32 / display_h.max(1) as f32)]),
-                };
+                *s = s.other_unit(display_h);
             }
             (_, Key::Pixels) => return false,
             (Row::Level, _) => {
@@ -180,7 +173,7 @@ impl Page {
             (Row::Min | Row::Max, _) => {
                 let min = ROWS[self.row] == Row::Min;
                 let s = if min { &mut pr.min } else { &mut pr.max };
-                *s = step_size(*s, up);
+                *s = s.step(up);
                 // min never over max
                 let (lo, hi) = (pr.min.scale_for(display_h), pr.max.scale_for(display_h));
                 if lo > hi {
@@ -194,9 +187,7 @@ impl Page {
             (Row::Lights, Key::Toggle) | (Row::Fps, Key::Toggle) => return false,
             (Row::Lights, _) => pr.lights = if up { (pr.lights + 1).min(MAX_LIGHTS) } else { pr.lights.saturating_sub(1) },
             (Row::Fps, _) => {
-                let i = nearest(&FPS, pr.fps);
-                let i = FPS.iter().position(|f| *f == i).unwrap_or(4);
-                pr.fps = FPS[if up { (i + 1).min(FPS.len() - 1) } else { i.saturating_sub(1) }];
+                pr.fps = step_fps(pr.fps, up);
             }
         }
         true
@@ -211,7 +202,7 @@ impl Page {
         out.push(format!("{} {}  NOW {now}", mark(Row::Level, format!("LEVEL {level}")), mark(Row::Auto, format!("AUTO {}", if p.auto { "ON" } else { "OFF" }))));
         let max = modes.first().map_or("?".into(), |(w, h)| format!("{w}X{h}"));
         out.push(format!("{} MAX {max}", mark(Row::Display, format!("DISPLAY {}", p.display.as_deref().map_or("DESKTOP".into(), |d| d.to_uppercase())))));
-        out.push("         LOW   MED   HIGH  ULTRA".into());
+        out.push(format!("         {}", Level::ALL.map(|l| format!("{:<6}", l.label())).concat()).trim_end().to_string());
         let cell = |row: Row, l: Level| -> String {
             let pr = p.get(l);
             let on_off = |b: bool| if b { "ON" } else { "OFF" }.to_string();
@@ -255,28 +246,6 @@ fn size(s: Size) -> String {
         Size::Scale(x) => format!("{x:.2}"),
         Size::Height(h) => h.to_string(),
     }
-}
-
-fn step_size(s: Size, up: bool) -> Size {
-    match s {
-        Size::Scale(x) => {
-            let i = nearest_f(&SCALES, x);
-            Size::Scale(SCALES[if up { (i + 1).min(SCALES.len() - 1) } else { i.saturating_sub(1) }])
-        }
-        Size::Height(h) => {
-            let h = nearest(&HEIGHTS, h);
-            let i = HEIGHTS.iter().position(|x| *x == h).unwrap_or(0);
-            Size::Height(HEIGHTS[if up { (i + 1).min(HEIGHTS.len() - 1) } else { i.saturating_sub(1) }])
-        }
-    }
-}
-
-fn nearest(list: &[u32], v: u32) -> u32 {
-    *list.iter().min_by_key(|x| x.abs_diff(v)).unwrap_or(&v)
-}
-
-fn nearest_f(list: &[f32], v: f32) -> usize {
-    (0..list.len()).min_by(|&a, &b| (list[a] - v).abs().total_cmp(&(list[b] - v).abs())).unwrap_or(0)
 }
 
 /// the display's sizes from its modes, largest first, each once
@@ -358,6 +327,25 @@ mod tests {
         assert!(lines[2].contains("MAX 3840X2160"));
         assert!(lines[cursor].starts_with("MIN") && lines[cursor].contains("[.70]"), "{}", lines[cursor]);
         assert!(lines.iter().any(|l| l.starts_with("MAX") && l.contains("1080")));
+    }
+
+    #[test]
+    fn the_page_reads_the_cores_lists() {
+        use deck_space::quality::{FPS, SCALES};
+        let (lines, _) = Page::default().lines(&Presets::default(), "", &MODES, "");
+        let labels: Vec<&str> = Level::ALL.iter().map(|l| l.label()).collect();
+        assert_eq!(lines[3].split_whitespace().collect::<Vec<_>>(), labels, "the header is the core's level labels");
+        // + walks the core's lists: every fps cap and every scale, once each
+        let (mut page, mut p) = (Page::default(), Presets::default());
+        let walk: Vec<u32> = std::iter::successors(Some(FPS[0]), |f| Some(step_fps(*f, true)).filter(|n| n != f)).collect();
+        assert_eq!(walk, FPS);
+        p.low.min = Size::Scale(SCALES[0]);
+        p.low.max = Size::Scale(*SCALES.last().unwrap());
+        for _ in 0..4 {
+            page.key(Key::Down, &mut p, &MODES, 2160);
+        }
+        page.key(Key::More, &mut p, &MODES, 2160);
+        assert_eq!(p.low.min, Size::Scale(SCALES[1]), "the page's + is the core's step");
     }
 
     #[test]

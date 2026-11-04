@@ -59,6 +59,8 @@ export interface SpaceView {
 	presets_json(): string;
 	set_presets(text: string): string;
 	set_presets_json(json: string): string;
+	/** #375: the option lists the settings offer (JSON, see `QualityOptions`) – deck-space's, the stage's page reads the same */
+	options_json(): string;
 	/** #220: the presets' pixel ratio cap (0 = none) */
 	pixel_ratio(): number;
 	free(): void;
@@ -111,6 +113,21 @@ export interface SpaceQuality {
 	fps: number;
 	width: number;
 	height: number;
+}
+
+/** #375: the option lists the settings offer (deck-space quality.rs `options_json`) – the core's, the stage's page reads the same */
+export interface QualityOptions {
+	levels: { id: QualityLevel; label: string }[];
+	/** the frame rate caps */
+	fps: number[];
+	/** the render scales (× the display's pixels) */
+	scales: number[];
+	/** the render heights (px) */
+	heights: number[];
+	/** the device pixel ratio caps (0 = none) */
+	pixel_ratios: number[];
+	max_lights: number;
+	max_side: number;
 }
 
 /** #220: a render size – a scale of the display (≤ 4) or a height in pixels (≥ 100) */
@@ -376,6 +393,11 @@ export class SpaceStage {
 	/** #220: new presets – "" or why not */
 	setPresets(p: QualityPresets): string {
 		return this.view.set_presets_json(JSON.stringify(p));
+	}
+
+	/** #375: the option lists the settings offer, from the core */
+	get qualityOptions(): QualityOptions {
+		return JSON.parse(this.view.options_json()) as QualityOptions;
 	}
 
 	/** #220: the presets as the stage's quality file */
