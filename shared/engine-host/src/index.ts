@@ -4,8 +4,7 @@
 export { EngineHost, type EngineHooks } from './controller.ts';
 export { createEngineHost } from './host.ts';
 export { engineFiles } from './files.ts';
-export { FALL_SECONDS, MAX_OUTPUTS, OutputMeters } from './meters.ts';
-export { ACTIVITY_SECONDS, SIGNAL_KINDS, SignalMonitor, describeSignal, emptySignals, type SignalKind, type SignalState, type SignalsView } from './monitor.ts';
+export { METER_EDGES_DB, METER_MARKS, METER_ZONES, type DeviceRow, type MeterZone, type OutputReading } from '@scutoons/live-core';
 export { EngineLog, formatLine, messageOf, type LogLevel, type LogLine } from './log.ts';
 export { deviceInfo, engineReport, playoutOf, type Playout, type ReportInput } from './report.ts';
 export { deckOptions, folder, type EngineHostOptions } from './options.ts';

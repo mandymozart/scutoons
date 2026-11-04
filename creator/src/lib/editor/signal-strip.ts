@@ -1,7 +1,9 @@
 // The deck half's signal strip (#282, owner draft 2026-11-02): one vertical meter per audio output, one column per exposed
-// knob, a MIDI / DMX / OSC activity monitor, one stats line. Pure – what the strip shows is worked out here from what the
-// engine host reports; the DOM strip draws it today and the later canvas element (own issue: "super fast ui for audio
-// analytic feedback") reads the same model. Tested in test/signal-strip.test.ts.
+// knob, a MIDI / DMX / OSC activity monitor, one stats line. Pure – what the strip shows is arranged here from what the
+// engine host reports (the meters' levels, positions and zones and the device lines are the core's – #373); the DOM strip
+// draws it today and the later canvas element (own issue: "super fast ui for audio analytic feedback") reads the same model.
+// Tested in test/signal-strip.test.ts.
+import type { MeterZone } from '@scutoons/engine-host';
 
 /** an exposed knob as the rig plays it (live-deck `RigKnob`, structural so this stays free of the engine's packages) */
 export interface KnobLike {
@@ -44,62 +46,36 @@ export function sameColumns(a: readonly KnobColumn[], b: readonly KnobColumn[], 
 	return a.length === b.length && a.every((c, i) => c.path === b[i].path && c.label === b[i].label && Math.abs(c.position - b[i].position) < step);
 }
 
-/** a bus meter's scale: dBFS from `floor` to `top` (a little headroom above the 0.0 dB mark, so a clip shows) */
-export const METER_RANGE = { floor: -48, top: 3 } as const;
-/** the zones' edges in dB: below `ok` green, up to `hot` amber, above red (digital full scale is 0.0) */
-export const METER_ZONES = { ok: -12, hot: -3 } as const;
-
-/** a linear level (0..1, 1 = full scale) in dB, floored at the scale's bottom (silence = the floor) */
-export function levelDb(linear: number, range = METER_RANGE): number {
-	if (!(linear > 0) || !Number.isFinite(linear)) return range.floor;
-	return Math.max(range.floor, 20 * Math.log10(linear));
-}
-
-/** where a dB value sits on the meter, 0..1 from the bottom */
-export function dbPosition(db: number, range = METER_RANGE): number {
-	return clamp01((db - range.floor) / (range.top - range.floor));
-}
-
-export type MeterZone = 'ok' | 'hot' | 'clip';
-export const meterZone = (db: number): MeterZone => (db >= METER_ZONES.hot ? 'clip' : db >= METER_ZONES.ok ? 'hot' : 'ok');
-
-/** the scale's fixed marks as positions: the 0.0 dB line and the zone edges (the strip draws them on every bus meter) */
-export const METER_MARKS = {
-	zero: dbPosition(0),
-	ok: dbPosition(METER_ZONES.ok),
-	hot: dbPosition(METER_ZONES.hot)
-} as const;
-
-export interface OutputMeter {
-	/** 1-based, as a patch bay numbers outputs */
-	channel: number;
-	/** linear 0..1 as the engine reports it */
+/** one output's reading as the core's analysis frame carries it (engine-host `OutputReading`, structural): the held peak, its
+ *  place on the meter's dB scale and its zone – deck-core's meters (#373); the strip only draws them */
+export interface ReadingLike {
+	/** linear 0..1 */
 	level: number;
-	/** the same on the meter's dB scale, 0..1 from the bottom */
+	/** on the dB scale, 0..1 from the bottom */
 	position: number;
 	zone: MeterZone;
+}
+
+export interface OutputMeter extends ReadingLike {
+	/** 1-based, as a patch bay numbers outputs */
+	channel: number;
 	/** the engine renders this output (a slot beyond the count is only drawn dim) */
 	active: boolean;
 }
 
-function meterOf(level: number, channel: number, active: boolean): OutputMeter {
-	const db = levelDb(level);
-	return { channel, level: clamp01(level), position: dbPosition(db), zone: meterZone(db), active };
-}
+const DIM: ReadingLike = { level: 0, position: 0, zone: 'ok' };
 
-/** the output meters: one per reported peak, padded with dim slots up to `slots` (a stereo pair at least) */
-export function outputMeters(peaks: readonly number[], slots = 2): OutputMeter[] {
-	const n = Math.max(peaks.length, slots);
-	return Array.from({ length: n }, (_, i) => meterOf(i < peaks.length ? peaks[i] : 0, i + 1, i < peaks.length));
+/** the output meters: one per reported reading, padded with dim slots up to `slots` (a stereo pair at least) */
+export function outputMeters(readings: readonly ReadingLike[], slots = 2): OutputMeter[] {
+	const n = Math.max(readings.length, slots);
+	return Array.from({ length: n }, (_, i) => ({ ...(readings[i] ?? DIM), channel: i + 1, active: i < readings.length }));
 }
 
 /** an audio input the engine listens to; `source` names where it comes from (the source types: not decided yet – the engine reports none today) */
-export interface InputLike {
+export interface InputLike extends ReadingLike {
 	id: string;
 	source: string;
 	label?: string;
-	/** linear 0..1 */
-	level: number;
 }
 
 export interface InputMeter extends OutputMeter {
@@ -110,11 +86,8 @@ export interface InputMeter extends OutputMeter {
 
 /** the input meters – none when the engine reports no inputs (an empty group shows nothing) */
 export function inputMeters(inputs: readonly InputLike[]): InputMeter[] {
-	return inputs.map((x, i) => ({ ...meterOf(x.level, i + 1, true), id: x.id, source: x.source, label: x.label || x.id }));
+	return inputs.map((x, i) => ({ ...x, channel: i + 1, active: true, label: x.label || x.id }));
 }
-
-/** the limiter's gain reduction (dB, 0 = untouched) as a 0..1 bar: full at `fullAt` dB */
-export const reductionBar = (db: number, fullAt = 12): number => clamp01(Math.abs(db) / fullAt);
 
 /** the stats the engine host reports (EngineSnapshot, structural) */
 export interface StatsLike {
@@ -132,30 +105,4 @@ export function stripStatus(s: StatsLike): { state: string; perf: string } {
 	const state = [s.phase === 'error' && s.error ? `error: ${s.error}` : s.phase, ...(s.transport ? [s.transport] : []), ...(s.backend ? [s.backend] : [])].join(' · ');
 	const perf = (s.stats?.bar ?? []).map((i) => `${i.label} ${i.value}`).join(' · ');
 	return { state, perf };
-}
-
-export type SignalKind = 'midi' | 'osc' | 'dmx';
-export const SIGNAL_KINDS: readonly SignalKind[] = ['midi', 'osc', 'dmx'];
-
-/** what the engine host's monitor keeps per kind (engine-host `SignalState`, structural) */
-export interface SignalView {
-	count: number;
-	/** 1 on a message, falling to 0 */
-	activity: number;
-	/** the last message in a short line, '' = none */
-	text: string;
-}
-
-export interface SignalRow {
-	kind: SignalKind;
-	/** the last message, '' = none yet */
-	text: string;
-	/** traffic just now – the lamp is lit */
-	active: boolean;
-}
-
-/** a row per protocol that has carried a message (a protocol nothing uses shows nothing); lit while its activity is up */
-export function signalRows(view: Readonly<Record<SignalKind, SignalView>> | null, lit = 0.25): SignalRow[] {
-	if (!view) return [];
-	return SIGNAL_KINDS.filter((kind) => view[kind].count > 0).map((kind) => ({ kind, text: view[kind].text, active: view[kind].activity >= lit }));
 }

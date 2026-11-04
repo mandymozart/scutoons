@@ -10,6 +10,7 @@
 //! so the TypeScript has nothing of its own to keep honest; the fixtures (deck/live-core/fixtures) stay as the cross-check
 //! both sides run. The shapes of the codecs (a DataView walk, the OSC payload) are the templates beside this file.
 use deck_core::analysis::SPECTRUM;
+use deck_core::meters::{self, Zone};
 use deck_core::tempo::{Source, CLOCK_STATUS};
 use live_core::clock::{self, Gate, How, Read, Slot};
 use live_core::layout::{camel, upper, Field, Ty};
@@ -105,8 +106,11 @@ fn wire_ts() -> String {
         ("SPECTRUM_AT", wire::SPECTRUM_AT, "the frame's slot of the first spectrum bin (the bands come before it)"),
         ("REDUCTION", wire::REDUCTION, "the frame's slot of the limiter's gain reduction (dB)"),
         ("OUTPUT_COUNT", wire::OUTPUT_COUNT, "… of the number of device channels the engine renders (#282)"),
-        ("PEAKS", wire::PEAKS, "… of the first channel's peak"),
+        ("PEAKS", wire::PEAKS, "… of the first channel's held peak"),
         ("MAX_OUTPUTS", wire::MAX_OUTPUTS, "the most channels a frame carries peaks for (deck-engine's device channel limit)"),
+        ("POSITIONS", wire::POSITIONS, "… of the first channel's place on the meter's dB scale (#373)"),
+        ("ZONES", wire::ZONES, "… of the first channel's zone (an index into METER_ZONES)"),
+        ("LIMITER_BAR", wire::LIMITER_BAR, "… of the limiter's gain reduction as a 0..1 bar"),
         ("VALUE_COUNT", wire::VALUE_COUNT, "… of the number of values that follow"),
         ("VALUES_AT", wire::VALUES_AT, "… of the first value"),
         ("FRAME", wire::FRAME, "the frame's fixed part; the values follow it"),
@@ -136,6 +140,7 @@ fn wire_ts() -> String {
             ("FIELDS", f.iter().map(|f| format!("{} @ {}", f.name, f.at)).collect::<Vec<_>>().join(", ")),
             ("BANDS", bands.join(", ")),
             ("CONSTS", c.trim_end().to_owned()),
+            ("METER", meter_ts()),
             ("MODES", modes),
             ("WRITE", write.trim_end().to_owned()),
             ("GET_N", get(field(f, "n"), "at")),
@@ -148,6 +153,20 @@ fn wire_ts() -> String {
             ("BAND_VALUES", bands.iter().enumerate().map(|(i, b)| format!("\t{b}: frame[{i}],")).collect::<Vec<_>>().join("\n")),
         ],
     )
+}
+
+/// the meter's scale as the page draws it: the zones by code, the marks as places, the zone edges in dB (deck-core `meters`, #373)
+fn meter_ts() -> String {
+    let names = Zone::ALL.map(|z| format!("'{}'", z.name()));
+    let mut o = String::new();
+    let _ = writeln!(o, "/** a meter's zone, by the code the frame carries (deck-core meters::Zone) */");
+    let _ = writeln!(o, "export type MeterZone = {};", names.join(" | "));
+    let _ = writeln!(o, "export const METER_ZONES: readonly MeterZone[] = [{}];", names.join(", "));
+    let _ = writeln!(o, "/** the meter scale's fixed marks as places 0..1 from the bottom: the 0.0 dB line and the zone edges (deck-core meters: {} … +{} dB) */", meters::FLOOR_DB, meters::TOP_DB);
+    let _ = writeln!(o, "export const METER_MARKS = {{ zero: {}, ok: {}, hot: {} }} as const;", meters::position(0.0), meters::position(meters::OK_DB), meters::position(meters::HOT_DB));
+    let _ = writeln!(o, "/** the zone edges in dB, for the scale's labels */");
+    let _ = write!(o, "export const METER_EDGES_DB = {{ ok: {}, hot: {} }} as const;", meters::OK_DB, meters::HOT_DB);
+    o
 }
 
 fn signals_ts() -> String {

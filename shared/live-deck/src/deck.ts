@@ -6,7 +6,7 @@
 // animation frame. With a CDN given it answers the conductor's scene sync (#195, sync.ts). The tempo clock (#321) is the
 // core's: the link's pongs and anchors and Web MIDI's clock go in, the core's pings and a leader's anchors go out.
 import type { DeckGraph, Tempo } from '@scutoons/live';
-import { CLOCK_MESSAGES, LiveCore, beatAt, nowMs, type Analysis, type ClockState, type DeviceKind, type DeviceSignal } from '@scutoons/live-core';
+import { CLOCK_MESSAGES, FRAME, LiveCore, analysisOf, beatAt, nowMs, type Analysis, type ClockState, type DeviceKind, type DeviceSignal } from '@scutoons/live-core';
 import type { DeckSynced } from '@scutoons/live';
 import { DeckLink, ValueStream, type WebSocketLike } from './client.ts';
 import { BrowserSync } from './sync.ts';
@@ -339,7 +339,8 @@ export class Deck {
 }
 
 /** an analysis of nothing (before the sound starts, after it stops) */
-const silence = (): Analysis => ({ level: 0, bass: 0, mid: 0, high: 0, spectrum: new Float32Array(0), reduction: 0, outputs: new Float32Array(0), values: new Float32Array(0) });
+/** an analysis frame of silence: all zeros, no outputs, no values (the codec reads it like any frame) */
+const silence = (): Analysis => analysisOf(new Float32Array(FRAME));
 
 /** #365: the device class the core's lead is chosen for – a coarse pointer (a touch screen) is a phone; the numbers
  *  are the core's (deck-core `lead`) */

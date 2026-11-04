@@ -120,8 +120,18 @@ fn the_frame_reports_a_peak_per_channel() {
     assert!(peaks[0] > 0.3 && peaks[0] <= 1.0, "gain 0.5 on a sine: {peaks:?}");
     assert_eq!(peaks[0], peaks[1], "the stereo main: the same on both");
     assert!(peaks[2..].iter().all(|p| *p == 0.0), "no peaks past the count");
-    let f = c.analyse(1.0 / 60.0, 0, &Now::default()).to_vec();
-    assert!(f[PEAKS..PEAKS + MAX_OUTPUTS].iter().all(|p| *p == 0.0), "since the last frame: none rendered");
+    // #373: the frame carries the place on the dB scale and the zone beside the level; the limiter's bar
+    let (level, place, zone) = (f[PEAKS], f[POSITIONS], f[ZONES]);
+    let want = deck_core::meters::reading(level);
+    assert_eq!((place, zone), (want.position, want.zone as u8 as f32));
+    assert!(place > 0.5 && place < 1.0, "a half-scale sine sits high on the scale: {place}");
+    assert_eq!(f[LIMITER_BAR], deck_core::meters::limiter_bar(f[REDUCTION]));
+    assert!(f[POSITIONS + 2..POSITIONS + MAX_OUTPUTS].iter().chain(&f[ZONES + 2..ZONES + MAX_OUTPUTS]).all(|p| *p == 0.0));
+    // nothing rendered since: the held peak falls (×1/e per FALL_SECONDS), it does not jump to 0
+    let f = c.analyse(deck_core::meters::FALL_SECONDS, 0, &Now::default()).to_vec();
+    let fell = level * std::f32::consts::E.recip();
+    assert!((f[PEAKS] - fell).abs() < 1e-5 && (f[PEAKS + 1] - fell).abs() < 1e-5, "held, then falling: {} → {}", level, f[PEAKS]);
+    assert!(f[POSITIONS] < place);
 }
 
 /// #282: a scene's [outputs] run on the audio clock and their messages leave as signal records

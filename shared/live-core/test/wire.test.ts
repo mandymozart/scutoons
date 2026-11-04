@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { analysisOf, encodeSend, FRAME, HEADER, MAX_OUTPUTS, OUTPUT_COUNT, PEAKS, REDUCTION, VALUE_COUNT, VALUES_AT, readRecords, recordSize, writeSend, WireError, type SendRecord } from '../src/wire.ts';
+import { analysisOf, encodeSend, FRAME, HEADER, LIMITER_BAR, MAX_OUTPUTS, METER_MARKS, METER_ZONES, OUTPUT_COUNT, PEAKS, POSITIONS, REDUCTION, VALUE_COUNT, VALUES_AT, ZONES, readRecords, recordSize, writeSend, WireError, type SendRecord } from '../src/wire.ts';
 
 type Row = { name: string; record: SendRecord & { v: number[] }; hex: string };
 const fixture = fileURLToPath(new URL('../../../deck/live-core/fixtures/wire.json', import.meta.url));
@@ -67,8 +67,8 @@ test('the analysis frame names its values and views the spectrum', () => {
 });
 
 test('the frame carries the channel count and the peaks (#282), then the values (#320); an older frame has none', () => {
-	assert.equal(FRAME, 4 + 512 + 1 + 1 + MAX_OUTPUTS + 1);
-	assert.deepEqual([REDUCTION, OUTPUT_COUNT, PEAKS, VALUE_COUNT, VALUES_AT], [516, 517, 518, 550, 551]);
+	assert.equal(FRAME, 4 + 512 + 1 + 1 + 3 * MAX_OUTPUTS + 1 + 1);
+	assert.deepEqual([REDUCTION, OUTPUT_COUNT, PEAKS, POSITIONS, ZONES, LIMITER_BAR, VALUE_COUNT, VALUES_AT], [516, 517, 518, 550, 582, 614, 615, 616]);
 	const f = new Float32Array(FRAME + 3);
 	f[VALUE_COUNT] = 2;
 	f.set([7, 8, 9], VALUES_AT);
@@ -76,9 +76,15 @@ test('the frame carries the channel count and the peaks (#282), then the values 
 	f[REDUCTION] = 6;
 	f[OUTPUT_COUNT] = 2;
 	f.set([0.5, 0.25, 0.9], PEAKS);
+	f.set([0.8, 0.6], POSITIONS);
+	f.set([1, 0], ZONES);
+	f[LIMITER_BAR] = 0.5;
 	const a = analysisOf(f);
 	assert.equal(a.reduction, 6);
 	assert.deepEqual([...a.outputs], [0.5, 0.25], 'as many as the count says, a view on the frame');
+	assert.deepEqual([...a.positions], [Math.fround(0.8), Math.fround(0.6)]);
+	assert.deepEqual([...a.zones].map((z) => METER_ZONES[z]), ['hot', 'ok']);
+	assert.equal(a.limiterBar, 0.5);
 	f[PEAKS] = 0.75;
 	assert.equal(a.outputs[0], 0.75);
 	f[OUTPUT_COUNT] = 99;
@@ -88,4 +94,11 @@ test('the frame carries the channel count and the peaks (#282), then the values 
 	assert.equal(old.outputs.length, 0);
 	assert.equal(old.values.length, 0);
 	assert.equal(old.reduction, 0);
+	assert.equal(old.limiterBar, 0);
+});
+
+test('the meter scale arrives as generated constants of the core (deck-core meters)', () => {
+	const { zero, ok, hot } = METER_MARKS;
+	assert.ok(ok < hot && hot < zero && zero < 1, 'the marks climb, with headroom above 0 dB');
+	assert.deepEqual(METER_ZONES, ['ok', 'hot', 'clip']);
 });

@@ -8,7 +8,7 @@
 	import { API_URL, CDN_SERVER } from '$lib/config.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
-	import { inputMeters, knobColumns, outputMeters, reductionBar, sameColumns, signalRows, stripStatus, type KnobColumn, type KnobLike } from '$lib/editor/signal-strip.ts';
+	import { inputMeters, knobColumns, outputMeters, sameColumns, stripStatus, type KnobColumn, type KnobLike } from '$lib/editor/signal-strip.ts';
 	import MoodChip from '$lib/components/sound/mood-chip.svelte';
 	import SignalStrip from '$lib/components/sound/signal-strip.svelte';
 
@@ -36,7 +36,7 @@
 				if (!d) return;
 				const next = knobColumns(rigKnobs, d.value, getLocale());
 				if (!sameColumns(next, columns)) columns = next;
-				const gr = reductionBar(d.bands.reduction);
+				const gr = d.bands.limiterBar;
 				if (Math.abs(gr - reduction) >= 0.01) reduction = gr;
 			}
 		};
@@ -48,10 +48,11 @@
 		host?.setMood(value === 'auto' ? null : value);
 	}
 
-	// the engine host reports one peak per audio output (none while no sound runs: dim slots) and the scene's device messages
+	// the engine host reports one reading per audio output (none while no sound runs: dim slots) and the scene's device messages –
+	// the core's, held, placed on the dB scale and worded (#373)
 	const outputs = $derived(outputMeters(snap.outputs));
 	const stats = $derived(stripStatus(snap));
-	const signals = $derived(signalRows(snap.signals));
+	const signals = $derived(snap.signals);
 	// the engine reports no audio inputs yet (their sources are still to be decided); an empty group shows nothing
 	const inputs = inputMeters([]);
 </script>

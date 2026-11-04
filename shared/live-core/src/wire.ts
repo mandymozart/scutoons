@@ -8,7 +8,8 @@
 // Node and port are indices from the load table (names are resolved once, at load – JSON stays at the edge).
 // The analysis frame going out is a block of f32: level, bass, mid, high, then SPECTRUM bins, then the limiter's gain reduction (dB,
 // the deepest since the last frame – #188), then (#282) the number of device channels and MAX_OUTPUTS peaks (0..1, each
-// channel's largest sample since the last frame), then (#320) the number of values and the values: every load-table
+// channel's largest sample, held and falling – deck-core's meters, #373), their places on the meter's dB scale (0..1 from
+// the bottom), their zones, the limiter's bar (0..1), then (#320) the number of values and the values: every load-table
 // row's inputs and outputs of the heard block, from the row's `at`. Device messages come in their own records
 // (signals.ts).
 
@@ -22,20 +23,34 @@ export const SPECTRUM_AT = 4;
 export const REDUCTION = 516;
 /** … of the number of device channels the engine renders (#282) */
 export const OUTPUT_COUNT = 517;
-/** … of the first channel's peak */
+/** … of the first channel's held peak */
 export const PEAKS = 518;
 /** the most channels a frame carries peaks for (deck-engine's device channel limit) */
 export const MAX_OUTPUTS = 32;
+/** … of the first channel's place on the meter's dB scale (#373) */
+export const POSITIONS = 550;
+/** … of the first channel's zone (an index into METER_ZONES) */
+export const ZONES = 582;
+/** … of the limiter's gain reduction as a 0..1 bar */
+export const LIMITER_BAR = 614;
 /** … of the number of values that follow */
-export const VALUE_COUNT = 550;
+export const VALUE_COUNT = 615;
 /** … of the first value */
-export const VALUES_AT = 551;
+export const VALUES_AT = 616;
 /** the frame's fixed part; the values follow it */
-export const FRAME = 551;
+export const FRAME = 616;
 /** the most values a frame carries (a row past them reads `at` = -1 in the table) */
 export const MAX_FRAME_VALUES = 4096;
 /** the most values one record carries (u16 n) */
 export const MAX_VALUES = 65535;
+
+/** a meter's zone, by the code the frame carries (deck-core meters::Zone) */
+export type MeterZone = 'ok' | 'hot' | 'clip';
+export const METER_ZONES: readonly MeterZone[] = ['ok', 'hot', 'clip'];
+/** the meter scale's fixed marks as places 0..1 from the bottom: the 0.0 dB line and the zone edges (deck-core meters: -48 … +3 dB) */
+export const METER_MARKS = { zero: 0.9411765, ok: 0.7058824, hot: 0.88235295 } as const;
+/** the zone edges in dB, for the scale's labels */
+export const METER_EDGES_DB = { ok: -12, hot: -3 } as const;
 
 export type Mode = 'force' | 'blend' | 'release' | 'base';
 export const MODES: readonly Mode[] = ['force', 'blend', 'release', 'base'];
@@ -132,6 +147,15 @@ export function* readRecords(bytes: Uint8Array): Generator<SendRecord & { v: Flo
 	}
 }
 
+/** One audio output's meter reading from the frame (#373): the held peak, its place on the dB scale and its zone. */
+export interface OutputReading {
+	/** the held peak, linear 0..1 */
+	level: number;
+	/** where it sits on the meter's dB scale, 0..1 from the bottom */
+	position: number;
+	zone: MeterZone;
+}
+
 /** The analysis frame as named values; `spectrum` is a view on `frame` (no copy). */
 export interface Analysis {
 	level: number;
@@ -141,9 +165,15 @@ export interface Analysis {
 	spectrum: Float32Array;
 	/** the output limiter's gain reduction (dB, 0 = untouched) – the being's red face (#188) */
 	reduction: number;
-	/** #282: one peak (0..1) per device channel – the largest sample since the last frame; a view on `frame`, as many as
+	/** #282, #373: one peak (0..1) per device channel – the largest sample, held and falling; a view on `frame`, as many as
 	 * the engine renders */
 	outputs: Float32Array;
+	/** #373: where each output sits on the meter's dB scale, 0..1 from the bottom – a view, as many as `outputs` */
+	positions: Float32Array;
+	/** #373: each output's zone as a code – an index into `METER_ZONES` – a view, as many as `outputs` */
+	zones: Float32Array;
+	/** #373: the limiter's gain reduction as a 0..1 bar (full at 12 dB) */
+	limiterBar: number;
 	/** #320: the heard block's values of every load-table row (its inputs, then its outputs, from its `at`) – a view */
 	values: Float32Array;
 }
@@ -159,5 +189,8 @@ export const analysisOf = (frame: Float32Array): Analysis => ({
 	spectrum: frame.subarray(SPECTRUM_AT, SPECTRUM_AT + SPECTRUM),
 	reduction: frame[REDUCTION] ?? 0,
 	outputs: frame.subarray(PEAKS, PEAKS + counted(frame[OUTPUT_COUNT], MAX_OUTPUTS)),
+	positions: frame.subarray(POSITIONS, POSITIONS + counted(frame[OUTPUT_COUNT], MAX_OUTPUTS)),
+	zones: frame.subarray(ZONES, ZONES + counted(frame[OUTPUT_COUNT], MAX_OUTPUTS)),
+	limiterBar: frame[LIMITER_BAR] ?? 0,
 	values: frame.subarray(VALUES_AT, VALUES_AT + counted(frame[VALUE_COUNT], MAX_FRAME_VALUES))
 });

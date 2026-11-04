@@ -754,13 +754,33 @@ impl DeckControls {
 #[wasm_bindgen]
 pub struct DeckMonitor {
     m: deck_core::monitor::Monitor,
+    /// #373: the scene's device messages as a monitor reads them – their words and the lamps' activity (deck-core `devices`)
+    devices: deck_core::devices::DeviceMonitor,
 }
 
 #[wasm_bindgen]
 impl DeckMonitor {
     #[wasm_bindgen(constructor)]
     pub fn new() -> DeckMonitor {
-        DeckMonitor { m: deck_core::monitor::Monitor::new() }
+        DeckMonitor { m: deck_core::monitor::Monitor::new(), devices: deck_core::devices::DeviceMonitor::new() }
+    }
+
+    /// #373: a device message the scene's outputs resolved to, at `now_ms`, as the page decoded it (JSON, deck-space
+    /// `devices::push_json`): the core words it and lights the protocol's lamp
+    pub fn signal(&mut self, now_ms: f64, json: &str) {
+        if let Ok(v) = serde_json::from_str(json) {
+            deck_space::devices::push_json(&mut self.devices, &v, now_ms);
+        }
+    }
+
+    /// #373: a row per protocol that carried a message (JSON: deck-core `devices::Row`) as of `now_ms`
+    pub fn devices(&self, now_ms: f64) -> String {
+        serde_json::to_string(&self.devices.rows(now_ms)).unwrap_or_default()
+    }
+
+    /// #373: a new sound starts – the monitor of the device messages starts again
+    pub fn reset_devices(&mut self) {
+        self.devices.reset();
     }
 
     /// the frame target: the quality rung's fps cap (0 = none)

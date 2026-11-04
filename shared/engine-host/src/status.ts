@@ -1,7 +1,6 @@
 // status.ts (#298): the engine host's phases and how a page words them. Pure – no DOM, no wasm.
-import type { Transport } from '@scutoons/live-core';
+import type { DeviceRow, OutputReading, Transport } from '@scutoons/live-core';
 import type { MonitorReport } from '@scutoons/live-deck';
-import { emptySignals, type SignalsView } from './monitor.ts';
 
 /** where the host is: idle (nothing yet) → mounting (wasm, deck, the 3D) → ready (the being is there, no sound) →
  *  starting (the AudioContext, the worker) → running → stopped (the sound ended, the being stays) · error */
@@ -35,12 +34,12 @@ export interface EngineSnapshot {
 	high: number;
 	/** the limiter's gain reduction (dB) */
 	reduction: number;
-	/** #282: one peak per audio output the engine renders (the stereo master = 2), 0..1, held with a short fall
-	 *  (meters.ts) – [] while no sound runs */
-	outputs: number[];
-	/** #282: the scene's `[outputs]` as a monitor reads them – per kind (midi, osc, dmx) the last message, the count
-	 *  and an activity 1 → 0 (monitor.ts) */
-	signals: SignalsView;
+	/** #282, #373: one reading per audio output the engine renders (the stereo master = 2) as the core's analysis frame
+	 *  carries it – the held peak, its place on the meter's dB scale and its zone (deck-core meters) – [] while no sound runs */
+	outputs: OutputReading[];
+	/** #282, #373: the scene's `[outputs]` as deck-core's device monitor reads them – a row per protocol that carried a
+	 *  message: its last line, the count, the activity 1 → 0 and whether the lamp is lit */
+	signals: DeviceRow[];
 	/** #364: deck-core's monitor – FPS of drawn frames, CPU, the audio's load, glitches, lead, limiter: the numbers, their
 	 *  judgement and the bar's words; null while it is not loaded */
 	stats: MonitorReport | null;
@@ -67,7 +66,7 @@ export const emptySnapshot = (): EngineSnapshot => ({
 	high: 0,
 	reduction: 0,
 	outputs: [],
-	signals: emptySignals(),
+	signals: [],
 	stats: null,
 	quality: '',
 	hud: '',
