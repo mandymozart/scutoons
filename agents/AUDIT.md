@@ -33,7 +33,7 @@ Counting is the orchestrator's duty: it writes "merged since last audit: N" in i
    from `deck/` (hash), a second parser / validator / state machine for something the core has.
 6. UI authority (#362): every control and readout on `/live/deck` and the creator's deck half — who owns the state, who computes the number
    or text. Exactly one owner, and it is the core; the Svelte side formats nothing it could receive.
-7. Monitoring parity: FPS, frame time, CPU, audio load, glitches, lead, limiter — one definition and one threshold set in the core, shown
+7. Monitoring parity: FPS, frame time, CPU, audio load, glitches, lead, limiter, the show clock's error window (#387) — one definition and one threshold set in the core, shown
    alike in browser and native (BRIDGE-AUDIT §2 is the table to fill).
 8. Native side too: logic in a *platform* crate (main.rs, hud.rs …) that the wasm build cannot reach is the same defect mirrored.
 

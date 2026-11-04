@@ -1,8 +1,7 @@
 // report.ts (#356): the sound's measurement as one copyable text – what a phone owner pastes into an issue. The device
 // and the audio context (what the browser says), then deck-core's monitor (#364): its lines (frames, the blocks' load
-// against their budget, the lead, the limiter, the glitches) and the first seconds as its table; the engine log's last
-// lines. Pure, except `deviceInfo` (it reads the browser).
-import type { ClockState, ClockSummary } from '@scutoons/live-core';
+// against their budget, the lead, the limiter, the glitches), its clock line (#387) and the first seconds as its table;
+// the engine log's last lines. Pure, except `deviceInfo` (it reads the browser).
 import type { EngineSnapshot } from './status.ts';
 
 /** the browser's own count of output glitches – the device ran dry, which the worklet's ring cannot see (Chrome's
@@ -68,20 +67,9 @@ export interface ReportInput {
 	series: readonly string[];
 	/** the engine log's last lines, formatted */
 	log: string[];
-	/** #321: the tempo clock now and its error over the last minute (null before the sound / while not following) */
-	clock?: ClockState | null;
-	clockWindow?: ClockSummary | null;
-}
-
-/** #321: the show clock's line – where this deck takes its tempo from, the core's line for it (SHOW ±x MS RTT y MS),
- *  how far off the show's line it played over the last minute */
-export function clockLine(c: ClockState | null | undefined, w: ClockSummary | null | undefined): string {
-	if (!c) return 'clock not running';
-	const f = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}`;
-	// the state in deck-core's words (the native HUD's and the panel's line)
-	const now = `clock ${c.source} · ${c.bpm.toFixed(1)} BPM${c.line ? ` · ${c.line}` : ''}`;
-	if (!w) return `${now} · no minute of following yet`;
-	return `${now} · last ${w.seconds.toFixed(0)} s |show| p50 ${w.p50.toFixed(1)} · p95 ${w.p95.toFixed(1)} · max ${w.max.toFixed(1)} ms (mean ${f(w.mean)}, ${w.n} frames)`;
+	/** #387: the core's clock line – its source, tempo, status and how far off the show's line it played over the last
+	 *  minute (deck-core `Controller::report`); '' before the sound */
+	clock?: string;
 }
 
 const ms = (s: number): string => (s > 0 ? `${(1000 * s).toFixed(1)} ms` : '?');
@@ -100,7 +88,7 @@ export function engineReport(r: ReportInput): string {
 		`device glitches ${p ? `${p.glitches} (${p.glitchMs} ms in ${p.totalS} s) · latency avg ${p.averageLatencyMs} / max ${p.maximumLatencyMs} ms` : 'not reported by this browser'}`,
 		`warm-up ${st?.warm_ms ? `${st.warm_ms.toFixed(0)} ms` : 'none'} · 3D ${s.backend || '-'} ${s.quality}`,
 		...(st ? [st.alert_line, ...st.lines].filter(Boolean) : ['no monitor']),
-		clockLine(r.clock, r.clockWindow),
+		...(r.clock ? [r.clock] : []),
 		'',
 		...r.series
 	];

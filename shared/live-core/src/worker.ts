@@ -145,11 +145,11 @@ scope.onmessage = async (ev) => {
 					}
 				}
 				status = m.shared ? new Int32Array(m.shared.status) : null;
-				// #364: the core's audio window once a second, as words for the page's monitor
+				// #364: the core's audio window once a second, as words for the page's monitor; #387: the core's clock report line
 				statsTimer = setInterval(() => {
 					if (!engine) return;
 					const words = engine.core.monitorTake();
-					post({ type: 'stats', words }, [words.buffer]);
+					post({ type: 'stats', words, clock: engine.core.clockReport(nowMs()) }, [words.buffer]);
 				}, 1000);
 				clockTimer = setInterval(clockFrame, CLOCK_MS);
 				post({ type: 'ready' });

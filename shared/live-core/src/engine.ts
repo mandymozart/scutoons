@@ -35,6 +35,8 @@ export interface Exports {
 	lc_clock_key(key: number, atMs: number): void;
 	/** #321: the clock's line (deck-core `Controller::line`, #370: the native HUD's texts) into the outbox → its length */
 	lc_clock_line(nowMs: number): number;
+	/** #387: the sound report's clock line (deck-core `Controller::report`: the last minute's error) into the outbox → its length */
+	lc_clock_report(nowMs: number): number;
 	/** #321: the MIDI clock out (deck-core's `ClockOut`) on / off; its messages of the last frame: how many, where */
 	lc_clock_out_on(on: number): void;
 	lc_clock_out(): number;
@@ -138,6 +140,11 @@ export class WasmCore {
 	/** #321: the clock's line at the page's `nowMs` – deck-core's words (#370: the tempo line, the source's state), the native HUD's */
 	clockLine(nowMs: number): string {
 		return this.text(this.x.lc_clock_line(nowMs));
+	}
+
+	/** #387: the sound report's clock line at the page's `nowMs` – deck-core's words and its window of the last minute */
+	clockReport(nowMs: number): string {
+		return this.text(this.x.lc_clock_report(nowMs));
 	}
 
 

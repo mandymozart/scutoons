@@ -199,6 +199,10 @@ impl Deck {
     pub fn hud_line(&mut self) -> String {
         self.host.clock.hud_line(self.now)
     }
+    /// #387: the sound report's clock line now (`lc_clock_report`) and the window's numbers behind it
+    pub fn clock_report(&mut self) -> (String, Option<deck_core::tempo::SyncSummary>) {
+        (self.host.clock.report(self.now), self.host.clock.controller().window().summary())
+    }
     /// the device's clock from now at `bpm` (None: its ticks stop); `start` = it begins with a Start (0xFA), else it
     /// only ticks (after a Continue)
     pub fn midi_in(&mut self, bpm: Option<f64>, start: bool) {

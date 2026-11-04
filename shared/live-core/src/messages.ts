@@ -34,8 +34,9 @@ export type FromWorker =
 	| { type: 'analysis'; frame: Float32Array }
 	/** #282: signal records (signals.ts) of the scene's `[outputs]`, a few per second at most */
 	| { type: 'signals'; bytes: ArrayBuffer }
-	/** #364: once a second, the core's audio window as words (deck-core `AudioWindow::to_words`) for the page's monitor */
-	| { type: 'stats'; words: Float64Array }
+	/** #364: once a second, the core's audio window as words (deck-core `AudioWindow::to_words`) for the page's monitor;
+	 *  #387: the sound report's clock line (deck-core `Controller::report`) */
+	| { type: 'stats'; words: Float64Array; clock: string }
 	/** #321: the clock's state block (`clock.ts` STATE) after each clock frame */
 	| { type: 'clock'; state: Float64Array }
 	/** #321: the clock's line when it changed (at most every `CLOCK_LINE_EVERY` frames) */

@@ -320,6 +320,13 @@ impl Clock {
         self.ctl.line(now)
     }
 
+    /// the clock in the sound report's words at the page's `now_ms` – the source, the tempo, the status and the last
+    /// minute's error on the show's line (deck-core's `Controller::report`, #387)
+    pub fn report(&mut self, now_ms: f64) -> String {
+        let now = self.ns(now_ms);
+        self.ctl.report(now)
+    }
+
     /// One clock frame at the page's `now_ms`: the events in, the master followed, the map published to the engine; the
     /// state block out (see `STATE`). Before the first stamp the audio's frames run on the wall clock.
     pub fn frame(&mut self, now_ms: f64) -> &[f64; STATE] {

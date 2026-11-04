@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { BLOCK, Engine, WasmCore } from '../src/engine.ts';
-import { beatAt, clockOf } from '../src/clock.ts';
+import { clockOf } from '../src/clock.ts';
 import { Ring, ringBuffers } from '../src/ring.ts';
 import { valueIndex } from '../src/index.ts';
 import { analysisOf, FRAME, SPECTRUM, VALUE_COUNT, writeSend } from '../src/wire.ts';
@@ -70,7 +70,10 @@ test('#321: two browser decks on one anchor play the same beat (the show clock i
 		assert.ok(s.locked && s.anchor, JSON.stringify(s));
 		// the line is deck-core's, the native HUD's words (owner 2026-11-03: one overlay, not two)
 		assert.match(c.clockLine(t0 + 3000), /^BPM 128\.0 {2}BAR \d+ BEAT \d( CLK)? {2}SHOW [+-]\d+\.\dMS RTT \d+\.\dMS$/);
-		return beatAt(s, t0 + 3000);
+		// #387: the report's line too – the frame's snap onto the line is no error, so no window yet
+		assert.match(c.clockReport(t0 + 3000), /^clock relay · 128\.0 BPM · SHOW [+-]\d+\.\dMS RTT \d+\.\dMS · no minute of following yet$/);
+		// the frame's beat, heard at `heardMs`, a line on to t0 + 3000
+		return s.beat + ((t0 + 3000 - s.heardMs) / 60_000) * s.bpm;
 	};
 	const a = await beatAtMs(777_000, 0, t0 + 900);
 	const b = await beatAtMs(-12_345, 4096, t0 + 2500.5);

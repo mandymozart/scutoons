@@ -12,7 +12,8 @@
 //! `lc_load(len) -> ±len`, `lc_apply(len) -> count | -len`, `lc_render(frames) -> ptr`, `lc_analyse(dt, lead) -> ptr`,
 //! `lc_signals() -> len`, `lc_signals_at() -> ptr`; the tempo clock (#321, clock.rs): `lc_clock_frame(now_ms) -> ptr`
 //! (the state block, `clock::STATE` f64), `lc_clock_stamp`, `lc_clock_pong`, `lc_clock_tempo`, `lc_clock_midi`,
-//! `lc_clock_joined`, `lc_clock_mode` (#370), `lc_clock_key`, `lc_clock_line(now_ms) -> len` (the line, in the outbox), the
+//! `lc_clock_joined`, `lc_clock_mode` (#370), `lc_clock_key`, `lc_clock_line(now_ms) -> len` (the line, in the outbox),
+//! `lc_clock_report(now_ms) -> len` (#387: the report's clock line with the last minute's error, in the outbox), the
 //! MIDI clock out `lc_clock_out_on(on)`, `lc_clock_out() -> count`, `lc_clock_out_at() -> ptr`; the adaptive lead (#365,
 //! deck-core `lead`) `lc_lead_class(class) -> frames`, `lc_lead(now_ms, dropouts) -> frames`; the audio side of the
 //! monitor (#364, deck-core `monitor::AudioWindow`) `lc_note_block(us)`, `lc_note_analysis(us)`, `lc_note_gap(ms)`,
@@ -300,6 +301,16 @@ pub extern "C" fn lc_clock_frame(now_ms: f64) -> *const f64 {
 pub extern "C" fn lc_clock_line(now_ms: f64) -> i32 {
     with(|h| {
         let line = h.clock.hud_line(now_ms);
+        h.answer(Ok(line))
+    })
+}
+
+/// #387: the clock in the sound report's words at the page's `now_ms` (deck-core `Controller::report`: the source, the
+/// tempo, the status, the last minute's error on the show's line) → its length; the text is in the outbox.
+#[no_mangle]
+pub extern "C" fn lc_clock_report(now_ms: f64) -> i32 {
+    with(|h| {
+        let line = h.clock.report(now_ms);
         h.answer(Ok(line))
     })
 }

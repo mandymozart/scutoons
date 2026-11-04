@@ -10,7 +10,7 @@ import type { DeckControlsView } from './controls.ts';
 import type { Deck } from './deck.ts';
 import type { DeckPushView } from './sync.ts';
 import type { DeckQuality, QualityLevel } from '@scutoons/live';
-import type { MonitorView } from '@scutoons/live-core';
+import { nowMs, type MonitorView } from '@scutoons/live-core';
 export type { QualityLevel };
 export type { MonitorItem, MonitorReport, MonitorView } from '@scutoons/live-core';
 
@@ -24,7 +24,8 @@ export interface SpaceView {
 	set_base(path: string, value: number): boolean;
 	set_strain(reductionDb: number, dt: number): void;
 	set_mood(mood: string): void;
-	set_beat(bpm: number, beat: number, perBar: number, running: boolean): void;
+	/** #387: the clock frame's beat heard at `heardMs`, drawn by the core at the page's `nowMs` */
+	set_beat(bpm: number, beat: number, heardMs: number, nowMs: number, perBar: number, running: boolean): void;
 	changes(): string;
 	frame(dt: number, time: number): void;
 	give_set(glb: Uint8Array, images: unknown[]): void;
@@ -456,7 +457,7 @@ export class SpaceStage {
 		const t = deck.time;
 		// #321: the being breathes on the deck's clock (the show clock's); before the sound starts it keeps its own
 		const clock = deck.clock;
-		if (clock) this.view.set_beat(clock.bpm, deck.beatAt(), clock.perBar, clock.running);
+		if (clock) this.view.set_beat(clock.bpm, clock.beat, clock.heardMs, nowMs(), clock.perBar, clock.running);
 		const c = this.canvas;
 		const scale = this.pixelRatio();
 		const w = Math.max(1, Math.round(c.clientWidth * scale));

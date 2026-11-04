@@ -20,6 +20,7 @@
 //! | `choose` | `source`, `lead` | the clock state |
 //! | `mode` | `mode` (show, own, lead, midi – the page's picker, #370; the next `run` shows it) | – |
 //! | `tempo_line` | – | line (the tempo line), status (the source's), hud (the panel's: both), the clock state (mode, out, flash …) |
+//! | `clock_report` | – | line (the sound report's clock line, #387), n, p50, p95, max, mean, seconds (the last minute's error window) |
 //! | `key` | `key` (tap, faster, slower, startstop, click) | – |
 //! | `clock_out` · `joined` · `midi_in` (`bpm`, `start`) · `midi` · `leader` · `anchor` | the page's and the devices' input | – |
 //! | `quality` / `frames` | `level`, `auto` / `ms`, `secs`, `glitches` | level, ceiling, scale, auto, changes |
@@ -302,6 +303,13 @@ impl Run<'_> {
                 out.insert("status".into(), json!(d.line()));
                 out.insert("hud".into(), json!(d.hud_line()));
                 Value::Object(out)
+            }
+            // #387: the sound report's clock line – the last minute's error on the show's line, deck-core's
+            "clock_report" => {
+                let (line, s) = d.clock_report();
+                let s = s.map(|s| (s.n, round(s.p50, 3), round(s.p95, 3), round(s.max, 3), round(s.mean, 3), round(s.seconds, 3)));
+                let (n, p50, p95, max, mean, seconds) = s.unwrap_or_default();
+                json!({ "line": line, "n": n, "p50": p50, "p95": p95, "max": max, "mean": mean, "seconds": seconds })
             }
             "key" => {
                 const KEYS: [&str; 5] = ["tap", "faster", "slower", "startstop", "click"];

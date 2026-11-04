@@ -363,9 +363,11 @@ impl SpaceView {
         }
     }
 
-    /// the page's tempo: bpm, the beat (counted from the start), beats per bar, running
-    pub fn set_beat(&mut self, bpm: f64, beat: f64, per_bar: u32, running: bool) {
+    /// the core's tempo clock as its last frame left it – bpm, the beat (counted from the start) heard at the page's
+    /// `heard_ms`, beats per bar, running – drawn at the page's `now_ms` (the beat between two clock frames, #387)
+    pub fn set_beat(&mut self, bpm: f64, beat: f64, heard_ms: f64, now_ms: f64, per_bar: u32, running: bool) {
         let per_bar = per_bar.max(1);
+        let beat = deck_core::tempo::beat_after(beat, bpm, running, (now_ms - heard_ms) * 1e-3);
         self.beat = tempo::Now { bpm, pos: tempo::position(beat, per_bar), per_bar, running };
     }
 

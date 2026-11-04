@@ -376,8 +376,7 @@ export class EngineHost {
 			channels: core?.channels ?? 0,
 			series: this.perf?.series() ?? [],
 			log: this.log.lines.slice(-20).map(formatLine),
-			clock: core?.clock ?? null,
-			clockWindow: core?.clockWindow.summary() ?? null
+			clock: core?.clockReport ?? ''
 		});
 	}
 }
