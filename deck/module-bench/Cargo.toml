@@ -1,0 +1,41 @@
+# module-bench – the module runtime benchmark (#306, agents/research/MODULE-BENCH.md): one suite of workloads over
+# deck-module-host's `Backend`, run natively (wasmtime, wasmi) and in a browser / Node worker (the browser's
+# WebAssembly directly, with gas instrumentation, wasmi compiled to wasm: the `web` crate next to this one). A TOOL, not
+# a core crate (scripts/deck-deps.json `tools`): wasmi and wasm-instrument live here only, never in a production crate.
+#   cargo run --release -p module-bench -- prepare   modules + web wasm + instrumented copies → www/dist, sizes
+#   cargo run --release -p module-bench -- run       the native runtimes → results/<label>.json + .md
+#   cargo run --release -p module-bench -- compare   every results/*.json as one table + the issue's gates
+[package]
+name = "module-bench"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[features]
+default = ["wasmtime", "wasmi"]
+wasmtime = ["deck-module-host/wasmtime"]
+wasmi = ["dep:wasmi", "dep:wasmi_core"]
+# the binary carries the dist modules (`prepare` builds it so for another machine: www/dist/module-bench[.exe])
+embed = []
+
+[dependencies]
+deck-module-host = { path = "../module-host", default-features = false }
+deck-module = { path = "../module", features = ["host"] }
+deck-core = { workspace = true, features = ["tempo"] }
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+# what a browser bundle would carry: validation on (modules are untrusted), no WAT parser, no memory64
+wasmi = { version = "2", optional = true, default-features = false, features = ["std", "validate", "stable", "auto-dispatch"] }
+# `LimiterError` (the freeze needs a limiter of its own; wasmi does not re-export the type)
+wasmi_core = { version = "2", optional = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# the gas injection (mutable-global variant) a build service would run; unmaintained since 2022 (MODULE-BENCH.md)
+wasm-instrument = { version = "0.4", features = ["sign_ext"] }
+flate2 = "1"
+# a round trip that re-encodes what parity-wasm misreads (a padded call_indirect table index) – versions as wasmtime 38 uses
+wasm-encoder = { version = "0.239", features = ["wasmparser"] }
+wasmparser = "0.239"

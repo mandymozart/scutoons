@@ -1,5 +1,5 @@
 {
-	"$comment": "check:deck-deps (#363 part B, owner 2026-11-03: 'those that shouldnt will fail if the native deck is properly encapsulated'): the core crates of deck/ and the features they are checked with; every crate in their normal dependency tree (cargo tree, all targets) must be in `allow` with a reason, none may be in `deny` (a platform library: audio, window, GPU, sockets, MIDI / serial / input devices, an async runtime, HTTP). A platform need is an adapter crate's (deck-native, space-web, bridge, relay, the adapters) – never a core crate's. `exceptions` are the justified ones: the feature that pulls a platform library and why it stays.",
+	"$comment": "check:deck-deps (#363 part B, owner 2026-11-03: 'those that shouldnt will fail if the native deck is properly encapsulated'): the core crates of deck/ and the features they are checked with; every crate in their normal dependency tree (cargo tree, all targets) must be in `allow` with a reason, none may be in `deny` (a platform library: audio, window, GPU, sockets, MIDI / serial / input devices, an async runtime, HTTP). A platform need is an adapter crate's (deck-native, space-web, bridge, relay, the adapters) – never a core crate's. `exceptions` are the justified ones: the feature that pulls a platform library and why it stays. `tools` are workspace crates that are tools, not core (benches): listed so nobody takes them for core crates, not checked.",
 	"crates": [
 		{ "crate": "deck-catalog", "args": [], "why": "the node-kind catalog: ports, domains, ranges" },
 		{ "crate": "deck-core", "args": [], "why": "maths, F8 lanes, DSP units, tempo, analysis (default features)" },
@@ -13,6 +13,12 @@
 		{ "crate": "deck-headless", "args": [], "why": "the headless deck host (#363): the third adapter, platform-free by construction" },
 		{ "crate": "deck-outlet", "args": [], "why": "the Live outlet's logic (#378): a cell's plan, the composer, the crossfade, the dialog / text layout, the relay messages' routing" },
 		{ "crate": "deck-ui", "args": [], "why": "the deck's UI model (#374): the HUD's lines, the stats bar's items, the F1 mode" }
+	],
+	"tools": [
+		{ "crate": "module-bench", "why": "the module runtime benchmark (#306, agents/research/MODULE-BENCH.md): not a core crate and not checked here – wasmi, wasm-instrument, wasm-encoder live in this tool only; no production crate depends on it" },
+		{ "crate": "module-bench-web", "why": "the same suite as a raw wasm for a browser / Node worker (#306)" },
+		{ "crate": "fm16-module", "why": "#306's FM workload (sixteen voices), a bench module – not a factory module" },
+		{ "crate": "stress-module", "why": "#306's runaway loop and memory growth, a bench module" }
 	],
 	"exceptions": [
 		{ "crate": "deck-space", "feature": "gpu", "pulls": "wgpu", "why": "the being's GPU passes – wgpu is itself the GPU adapter both platforms share (Vulkan / Metal / DX12 natively, WebGPU / WebGL2 in space-web); the core part is checked without it" },

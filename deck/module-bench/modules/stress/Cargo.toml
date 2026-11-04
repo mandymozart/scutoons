@@ -1,0 +1,15 @@
+# stress – the #306 benchmark's hostile workloads (agents/research/MODULE-BENCH.md): `mode` 1 = a runaway `loop {}`,
+# 2 = grow the memory by 1 MB a call (memory.grow, past the host's freeze). A bench module, not a factory module.
+[package]
+name = "stress-module"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+deck-module = { path = "../../../module" }

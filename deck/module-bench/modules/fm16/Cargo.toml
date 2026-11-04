@@ -1,0 +1,15 @@
+# fm16 – the #306 benchmark's FM workload: sixteen two-operator FM voices, true FM (DECISIONS [engine] 2026-11-02), written
+# against the module SDK (ABI v2). A bench module, not a factory module: it lives with the harness, not in deck/modules.
+[package]
+name = "fm16-module"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+deck-module = { path = "../../../module" }
