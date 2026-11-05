@@ -65,7 +65,9 @@ const HELP: &str = "deck [--scene FILE|cathedral|conductor|outlet|rig:NAME] [--a
                `madness` = AV madness, scenes/madness.toml); `cathedral` = the built-in Cathedral of decks
                (scenes/cathedral.toml – a deck's being), `conductor` = its conductor in the middle (scenes/conductor.toml),
                `outlet` = the built-in Live outlet (scenes/outlet.toml – the default when an outlet is set);
-               `rig:catpope[@mood]` = a character's (or `item.<id>`'s) core rig in the deck's room (#322, rig.rs)
+               `rig:catpope[@mood]` = a character's (or `item.<id>`'s) core rig in the deck's room (#322, rig.rs);
+               `rig:catpope-analog` = catpope + the analog synth played by a 16-step sequencer (#417; needs --features modules, the
+               wasm of deck/modules/{stepseq,analog} in DECK_MODULES)
   --sync       the conductor's push (#195): what the decks fetch into their cache – sent at the start and on S
                (default: the scene's set and the characters on stage)
   --relay      the Live relay with the session code (default: deck.toml's `relay`, else the hosted

@@ -29,7 +29,7 @@ fn wasm(file: &str) -> Vec<u8> {
         let cargo = std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
         let out = std::process::Command::new(cargo)
             .current_dir(&root)
-            .args(["build", "--release", "--target", "wasm32-unknown-unknown", "-p", "walk-module", "-p", "fixture-module", "-p", "analog-module", "-p", "context-probe-module", "-p", "catpope-rig-module", "--target-dir"])
+            .args(["build", "--release", "--target", "wasm32-unknown-unknown", "-p", "walk-module", "-p", "fixture-module", "-p", "analog-module", "-p", "stepseq-module", "-p", "context-probe-module", "-p", "catpope-rig-module", "--target-dir"])
             .arg(&dir)
             .output()
             .expect("running cargo");
@@ -48,6 +48,10 @@ fn walk() -> Vec<u8> {
 
 fn fixture() -> Vec<u8> {
     wasm("fixture_module.wasm")
+}
+
+fn stepseq() -> Vec<u8> {
+    wasm("stepseq_module.wasm")
 }
 
 fn analog() -> Vec<u8> {
@@ -462,4 +466,84 @@ fn a_module_takes_and_gives_events() {
     assert_eq!((get("pitch"), get("key")), (Some(440.0), Some(69.0)), "the key filled from the deck's tuning");
     let more = outbox[0].pop();
     assert!(more.is_err(), "one note: {:?} then {more:?}", echo);
+}
+
+/// #417: stepseq → analog through the engine's event host: the sequencer's notes sound, and a slider is a pitch – the
+/// notes the module sends out to the world (their keys filled from the deck's tuning) move by the interval a slider moved
+#[test]
+fn the_stepseq_plays_the_analog_synth_and_a_slider_is_a_pitch() {
+    Library::global().load(&stepseq()).unwrap();
+    Library::global().load(&analog()).unwrap();
+    let scene = |step3: f32| {
+        Scene::parse(&format!(
+            "[[node]]\nid=\"q\"\nkind=\"module:stepseq\"\nstep3={step3}\n\
+             [[node]]\nid=\"a\"\nkind=\"module:analog\"\n[[node]]\nid=\"out\"\nkind=\"audio_out\"\nvolume=1\n\
+             [[link]]\nfrom=\"a.out\"\nto=\"out.in\"\n"
+        ))
+        .unwrap()
+    };
+    let a = render(&scene(0.25), 3);
+    let peak = a.iter().fold(0.0f32, |m, x| m.max(x.abs()));
+    assert!(peak > 0.05, "the synth plays the sequencer's notes: peak {peak}");
+    assert_eq!(a, render(&scene(0.25), 3), "the same every run: no randomness");
+    let diff = a.iter().zip(&render(&scene(0.75), 3)).fold(0.0f32, |m, (x, y)| m.max((x - y).abs()));
+    assert!(diff > 0.01, "another slider, another sound ({diff})");
+    // the keys it sends out: step 3 is the third note (id 2) – 6 semitones above the base at 0.25, 18 at 0.75
+    let key_of_third = |step3: f32| {
+        let g = Graph::build(&scene(step3)).unwrap();
+        let (mut e, mut h) = engine(&g, Build::detect(), Sequencing::InBlock, 2);
+        let mut outbox = h.events.take_outbox();
+        for _ in 0..(3 * 48_000 / 512) {
+            e.render(&mut vec![0.0f32; 512 * 2], 2, |x| x);
+        }
+        let names = &h.events.names;
+        let key = names.get("key").unwrap();
+        let mut keys = Vec::new();
+        while let Ok(n) = outbox[0].pop() {
+            keys.push(n.props.get(key).expect("the key is filled from the tuning"));
+        }
+        assert!(keys.len() >= 5, "five steps in 3 s at 120 bpm, 2 a beat: {keys:?}");
+        keys
+    };
+    let (low, high) = (key_of_third(0.25), key_of_third(0.75));
+    assert_eq!(high[2] - low[2], 12.0, "an octave apart: {low:?} {high:?}");
+    assert_eq!((low[0], low[1], low[3]), (high[0], high[1], high[3]), "the other steps do not move");
+}
+
+/// #417: `rig:catpope-analog` – catpope's rig with the analog module as one more track, the stepseq module playing it – in
+/// every mood: the synth's own voices sound (the render minus the render with its volume at 0 – the rest is the same
+/// voice and drone), and its volume follows the mood the way the drone's gain does
+#[test]
+fn catpope_plays_the_analog_synth_as_an_additional_track_in_every_mood() {
+    Library::global().load(&stepseq()).unwrap();
+    Library::global().load(&analog()).unwrap();
+    let stats = |x: &[f32]| (x.iter().fold(0.0f32, |m, v| m.max(v.abs())), (x.iter().map(|v| v * v).sum::<f32>() / x.len() as f32).sqrt());
+    let mut rms = std::collections::BTreeMap::new();
+    let b: deck_space::rig::Bundle = toml::from_str(deck_native::rig::MODULE_RIGS[0].1).unwrap();
+    // the signal strip: a slider per step, a toggle per step, the loop length, the synth's volume
+    let knobs: Vec<String> = b.play(None, None).unwrap().knobs.into_iter().map(|k| k.path).filter(|p| p.starts_with("analog_")).collect();
+    let want: Vec<String> = (1..=16).map(|i| format!("analog_seq.step{i}")).chain((1..=16).map(|i| format!("analog_seq.on{i}"))).chain(["analog_seq.steps".into(), "analog_synth.volume".into()]).collect();
+    assert_eq!(knobs, want);
+    for mood in ["neutral", "thinking", "sad", "happy", "laughing", "surprised"] {
+        let scene = deck_native::rig::scene(std::path::Path::new(&format!("rig:catpope-analog@{mood}"))).unwrap();
+        let ids: Vec<&str> = scene.nodes.iter().map(|n| n.id.as_str()).collect();
+        for id in ["voice_voice", "drone_drone", "drone_fifth", "analog_seq", "analog_synth"] {
+            assert!(ids.contains(&id), "{mood}: {id} in {ids:?}");
+        }
+        let mut quiet = scene.clone();
+        quiet.nodes.iter_mut().find(|n| n.id == "analog_synth").unwrap().params.insert("volume".into(), toml::Value::Float(0.0));
+        let (with, without) = (render(&scene, 8), render(&quiet, 8));
+        let (peak_all, rms_all) = stats(&with);
+        let (_, rms_rest) = stats(&without);
+        let only: Vec<f32> = with.iter().zip(&without).map(|(a, b)| a - b).collect();
+        let (peak, r) = stats(&only);
+        let (left, right): (Vec<f32>, Vec<f32>) = (only.iter().step_by(2).copied().collect(), only.iter().skip(1).step_by(2).copied().collect());
+        println!("{mood}: all peak {peak_all:.3} rms {rms_all:.4}; without analog rms {rms_rest:.4}; analog alone peak {peak:.3} rms {r:.4} (L {:.4} R {:.4})", stats(&left).1, stats(&right).1);
+        assert!(peak > 0.02 && r > 0.005, "{mood}: the synth's voices sound: peak {peak}, rms {r}");
+        assert!(stats(&left).1 > 0.002 && stats(&right).1 > 0.002, "{mood}: both channels");
+        assert!(r < rms_rest * 1.5, "{mood}: it does not bury the voice and the drone ({r} against {rms_rest})");
+        assert!(peak_all < 1.0, "{mood}: the sum stays below full scale ({peak_all})");
+        rms.insert(mood, r);
+    }
+    assert!(rms["sad"] > rms["neutral"] && rms["neutral"] > rms["surprised"], "the volume follows the mood like the drone's gain: {rms:?}");
 }
