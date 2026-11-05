@@ -53,8 +53,8 @@ differs only by the wasm engine. Per 128-frame call, mean µs (budget 2667 µs);
 **Recommendation (not a decision):** C′ with the loop counter – the numbers take B and metering out, the native editor gives the local
 builds the owner wants, and the browser keeps the smallest runtime surface (one backend, no interpreter, no second strict mode). If the S22
 shows web + loop counter fm16 p99 ≤ 25 % and analog ×2 within budget, D's browser audition is a later add-on on the same backend, not a
-second design. Separately (outside #306): the deck's NaN canonicalization costs 30–45 % per block with no bit difference on these fixtures –
-worth a ticket.
+second design. Separately: the deck's NaN canonicalization is the whole wasmtime-vs-V8 gap – #396, **research/WASM-RUNTIME-PAPER.md**
+(the variants, a NaN pass that keeps the bits on every runtime at about half the deck's cost, the LAC-26 paper).
 
 ## 2. What the owner runs (X1, S22) – about 10 minutes
 1. On the PC, once: `cd deck` → `cargo run --release -p module-bench -- prepare --exe` (≈ 10 min; builds the modules, the web suite, the X1's
@@ -77,6 +77,8 @@ worth a ticket.
   serve.ts (LAB ports 8100–8101; `.ts` served type-stripped, COOP / COEP, `POST /results`).
 - PC quick runs: `cargo run --release -p module-bench -- run` (native) · `node --experimental-strip-types deck/module-bench/www/node.ts` (V8 in
   Node) · `node --experimental-strip-types deck/module-bench/www/serve.ts` + http://127.0.0.1:8100/?label=pc (this browser).
+- #396: `-- variants` (wasmtime settings × module builds → results/variants/), `src/nan.rs` (the NaN pass, `.nan.wasm`), `.simd.wasm`
+  (+simd128); `node.ts --runtimes web,web-nan,web-simd` runs those in V8.
 - Measured: 2000 calls of 128 frames (250 blocks of 1024 for fm16), p50 / p99 / max / mean per sample, compile + instantiate, fuel / gas /
   counter units per sample, an FNV hash of every output sample, peak linear memory; the runaway (strict 2 ms budget → the stop; a show's
   rebuild); the growth after the freeze. Sizes: `www/dist/sizes.json` (live_core.wasm when `npm run build:wasm -w shared/live-core` ran).
