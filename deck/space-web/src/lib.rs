@@ -1021,6 +1021,12 @@ impl DeckState {
         json(&self.d.graph(character))
     }
 
+    /// #282: the played scene's wiring (JSON: deck-space `rig::wiring::Wiring` – nodes with their ports and depth, links
+    /// with the paths of their values) for the rig designer's Nodes tab
+    pub fn wiring(&self) -> String {
+        json(&self.d.wiring())
+    }
+
     /// #368: where a value of `path` goes in the engine ("" = nowhere: a node the engine does not play)
     pub fn target(&self, path: &str) -> String {
         self.d.target(path).unwrap_or_default().to_string()

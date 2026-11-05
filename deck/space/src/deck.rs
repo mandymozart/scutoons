@@ -209,6 +209,12 @@ impl Deck {
         k.iter().map(|k| Slider { path: k.path.clone(), min: k.min, max: k.max, value: k.value, log: k.log, label: k.label_in(locale).to_string() }).collect()
     }
 
+    /// #282: the played scene's wiring – its nodes, ports, links and the paths of the cables' values (the rig designer's
+    /// Nodes tab); none with the problem when it does not build
+    pub fn wiring(&self) -> crate::rig::wiring::Wiring {
+        self.played().wiring().unwrap_or_else(|e| crate::rig::wiring::Wiring::failed(format!("{e:#}")))
+    }
+
     /// The being on the wire: the played scene's nodes and links (no params – the values stream), its character – a
     /// rig's own, else the deck's `character` –, the mood ladder's moods, the knobs it shows.
     pub fn graph(&self, character: &str) -> protocol::DeckGraph {
@@ -277,9 +283,9 @@ mod tests {
         };
         let mut d = Deck::new();
         d.ladder.set_portraits(&MOODS.map(String::from));
-        let own = serde_json::json!({ "now": j(&d.now()), "sliders": j(&d.sliders("en")), "graph": j(&d.graph("yellowmouse")), "targets": targets(&d) });
+        let own = serde_json::json!({ "now": j(&d.now()), "sliders": j(&d.sliders("en")), "graph": j(&d.graph("yellowmouse")), "targets": targets(&d), "wiring": j(&d.wiring()) });
         let play = d.play_core("catpope", "");
-        let mut catpope = serde_json::json!({ "play": j(&play), "sliders": j(&d.sliders("en")), "sliders_de": j(&d.sliders("de")), "graph": j(&d.graph("yellowmouse")), "targets": targets(&d) });
+        let mut catpope = serde_json::json!({ "play": j(&play), "sliders": j(&d.sliders("en")), "sliders_de": j(&d.sliders("de")), "graph": j(&d.graph("yellowmouse")), "targets": targets(&d), "wiring": j(&d.wiring()) });
         d.ladder.pin(Some("laughing"));
         catpope["laughing"] = j(&quiet(&mut d).unwrap());
         let fixture = serde_json::json!({ "own": own, "catpope": catpope });
