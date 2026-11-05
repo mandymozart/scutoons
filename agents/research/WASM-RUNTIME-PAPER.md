@@ -1,4 +1,4 @@
-Status 2026-11-05: research (#396) – measured on the dev PC; the recommendation (§4) is not a decision: NaN canonicalization touches the determinism rule, the owner's call.
+Status 2026-11-05: research (#396) – measured on the dev PC; the owner chose option C (§4) on 2026-11-05 (decisions/deck.md [modules]); the build is a ticket of its own.
 
 # WASM-RUNTIME-PAPER – why the deck's wasmtime is slower than V8, and what the LAC-26 paper says
 
@@ -41,7 +41,14 @@ Mean µs per sample (p50), median of 3 interleaved rounds, 2000 calls; every row
 - **The gap is NaN canonicalization:** Cranelift's `enable_nan_canonicalization` adds a compare + select after every float operation; off,
   wasmtime is at V8's level (fm16 46 vs 39–46, analog 345 vs 274–307). The #306 probe's 30–45 % is 54–59 % here (means and p50).
 - **The epoch check** costs 11–33 % on top (fm16 46 → 31, analog 345 → 300). It is the budget (the strict / show restart), so it stays; Chrome's comparable row
-  is the loop counter (#306: 34 / 328), i.e. a budgeted V8 and a budgeted wasmtime without canonicalization are even.
+  is the loop counter (#306: 34 / 328), i.e. a budgeted V8 and a budgeted wasmtime without canonicalization are even. **The loop counter
+  instead of the epoch on wasmtime** (`loops`, `nan-pass+loops`; results/variants/pc-loops.md): as dear as the epoch (fm16 104 vs 100, analog
+  816 vs 825) – Cranelift keeps the counter global in memory –, 3–6 % cheaper on top of the pass (54 / 437 vs 58 / 452). Not worth a second
+  mechanism on the deck: the epoch stays there, the counter is the browser's.
+- **What the pass costs on wasmtime is its store points:** without them (`nan-light`: reinterpret + copysign only) analog is as fast as
+  canonicalization off (727 vs 763, 1004 vs 1060 µs), fm16 unchanged – measured under load (another process on ~2 cores; ratios only, the
+  native row 566 / 850 instead of 286). The light form needs the host to canonicalize the float outputs it reads and gives up int loads of
+  stored floats (a module hashing its own state) – a weaker guarantee, so C keeps the store points unless the X1 / S22 run short.
 - **Nothing else matters:** spectre flags, opt level, memory (the default 4 GiB reservation + guard pages already elide bounds checks), call
   overhead (one write in / one read out: walk's 4–10 µs whole). Instance reuse is what the host already does. No speed-only, bit-equal
   setting gives a measured gain – so deck-module-host's default is unchanged (only `deck_config()` / `from_config()` for the harness).
@@ -69,6 +76,5 @@ Mean µs per sample (p50), median of 3 interleaved rounds, 2000 calls; every row
 - **C – the NaN pass in the build service + canonicalization off on decks:** −48–49 % on decks, +0–17 % in V8, and the rule holds on every
   runtime incl. the browser (today it does not). Cost: one more wasm pass beside the loop counter, a review of its completeness.
 - **D – C + simd128 for modules:** another 8–16 % on analog-like code; needs a SIMD-aware pass (per-lane canonicalization) first.
-- **Recommendation: C**, as an owner decision (`[determinism]` line + ABI-V2 §6 + deck-module-host's `deck_config`), then the pass moves
-  from module-bench into the build service (#344's pipeline) with the conformance hashes as its guard. D later, if analog-class modules are
-  short of budget on the X1 / S22. Epoch stays.
+- **Recommendation: C – decided by the owner 2026-11-05** ("nan pass option C is also great."): the pass moves into the build service
+  (#407; #344's pipeline), ABI-V2 §6 and `deck_config` change with it, conformance hashes guard it. D later if the X1 / S22 run short. Epoch stays.
