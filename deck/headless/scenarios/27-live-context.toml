@@ -1,0 +1,48 @@
+name = "the deck's live context reaches the engine"
+about = "#409 (T2 of #314): the page's deck state (deck-space's Deck) steps every frame on the heard level and the clock; its live context (the mood, the persona, the energy, a hand) goes to the core (lc_context) and the engine applies it at the next quantum's start – what its module nodes read as ctx.character(). Native and wasm apply the same context, the sound stays as it was (no module in this scene; live-core runs none yet: #290)"
+
+[[step]]
+do = "load"
+scene = "native/scenes/cathedral.toml"
+
+[[step]]
+do = "context"
+expect = { engine = { mood = "" } }
+
+[[step]]
+do = "run"
+ms = 1000
+expect = { sound = true }
+
+# the ladder's mood (one rung: neutral) and its energy, walked up by the cathedral's level
+[[step]]
+do = "context"
+expect = { deck = { mood = "neutral", energy = { min = 0.01 } }, engine = { mood = "neutral", persona = "", touch = 0.0 } }
+
+# the deck pins a mood and a hand is on it: the engine has it after the next frames' quanta, not before
+[[step]]
+do = "context"
+pin = "laughing"
+touch = 1.0
+expect = { deck = { mood = "laughing" }, engine = { mood = "neutral" } }
+
+[[step]]
+do = "run"
+ms = 100
+
+[[step]]
+do = "context"
+expect = { engine = { mood = "laughing", touch = 1.0, energy = { min = 0.01 } } }
+
+[[step]]
+do = "context"
+pin = ""
+touch = 0.0
+
+[[step]]
+do = "run"
+ms = 100
+
+[[step]]
+do = "context"
+expect = { engine = { mood = "neutral", touch = 0.0 } }

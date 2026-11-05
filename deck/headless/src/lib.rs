@@ -27,6 +27,7 @@
 //! | `reset` | – | a fresh host (the clock too) |
 //! | `carried_part` | `with` = { `scene`, `modules` } | kept (nodes), dropped (ids) – deck-core's filter (#360) |
 //! | `hud` | `with` = { `scene`, `fps`, `audio` } | title, lines, bar, levels – deck-ui's HUD from this deck's clock and monitor (#374) |
+//! | `context` | `pin` (a mood, "" = the ladder's), `touch` | deck (its mood, energy), engine (the live context the engine applied last: mood, persona, energy, touch, strain – #409) |
 //! | a capability (caps.rs) | `with` | its answer, or `Missing` |
 //!
 //! Built for wasm32 too (`hl_inbox`, `hl_run`, `hl_outbox`): the same bundle in, the same report out – tests/wasm.rs
@@ -384,6 +385,22 @@ impl Run<'_> {
                     "lines": lines,
                     "bar": bar.iter().map(|i| i.text.as_str()).collect::<Vec<_>>(),
                     "levels": bar.iter().map(|i| i.level).collect::<Vec<_>>(),
+                })
+            }
+            // #409: the page's deck state – a pinned mood (`pin`, "" = the ladder again), a hand (`touch`) – and the live
+            // context the core's engine applied last (it goes in every clock frame of a `run`)
+            "context" => {
+                if let Some(m) = text("pin") {
+                    d.state.ladder.pin(Some(m.as_str()));
+                }
+                if step.contains_key("touch") {
+                    d.touch = num("touch", 0.0) as f32;
+                }
+                let c = d.applied_context().unwrap_or_default();
+                let r = |x: f32| round(f64::from(x), 4);
+                json!({
+                    "deck": { "mood": d.state.mood(), "energy": r(d.state.ladder.energy()) },
+                    "engine": { "mood": c.mood(), "persona": c.persona(), "energy": r(c.energy), "touch": r(c.touch), "strain": r(c.strain) },
                 })
             }
             c if caps::known(c) => {
