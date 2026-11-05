@@ -161,7 +161,7 @@ deck-update" -Direction Inbound -Protocol TCP -LocalPort 7790 -Action Allow -Pro
 The stage is built with the `modules` feature (#406) and the update ships the rig modules `walk` and `analog` (wasm, built
 on the PC with the wasm32 target) to `/usr/share/deck/modules`; `deck-session` sets `DECK_MODULES` to it and the compiled
 code is cached in `/var/lib/deck/cache/modules`. The ISO build carries the feature too but no wasm yet, so the module scenes
-(`module-walk`, `module-analog`) say "module not loaded" there.
+(`module-walk`, `module-analog`) fall back to the test pattern there (`unknown kind 'module:walk'`).
 
 **On the deck:** `deck-update.timer` runs `deck-update auto` every 2 minutes. Channel `dev` (deck.toml
 `update_channel`, the default until a stable release exists) asks deck.toml's `update_url`, the dev PC that answered
