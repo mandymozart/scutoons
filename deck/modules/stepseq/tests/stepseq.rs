@@ -13,6 +13,9 @@ const BPM: f64 = 120.0;
 /// the default phrase in semitones above the base (levels 0 … 0.5 of 2 octaves)
 const PHRASE: [i32; 16] = [0, 5, 7, 5, 10, 7, 5, 7, 0, 5, 7, 12, 10, 7, 5, 7];
 
+/// the default phrase's rests: steps 4, 8 and 16 are off
+const ON: [bool; 16] = [true, true, true, false, true, true, true, false, true, true, true, true, true, true, true, false];
+
 /// one note as the module gives it: its frame in the call, id, pitch (Hz), length (beats)
 type Note = (u32, u32, f32, f32);
 
@@ -53,12 +56,33 @@ const TWO_LOOPS: usize = 32 * 12_000;
 #[test]
 fn the_default_phrase_plays_on_the_tempo_clock_and_loops() {
     let notes = play(&mut module(&[]), TWO_LOOPS, QUANTUM);
-    assert_eq!(notes.len(), 32);
-    for (k, n) in notes.iter().enumerate() {
-        assert_eq!((n.0, n.1), (k as u32 * 12_000, k as u32), "step {k} on its beat");
+    let steps: Vec<u32> = (0..32).filter(|k| ON[k % 16]).map(|k| k as u32).collect();
+    assert_eq!(notes.len(), 26, "three rests a loop (steps 4, 8, 16)");
+    assert_eq!(notes.iter().map(|n| n.1).collect::<Vec<_>>(), steps);
+    for n in &notes {
+        let k = n.1 as usize;
+        assert_eq!(n.0, k as u32 * 12_000, "step {k} on its beat");
         assert!((semis(n.2, 110.0) - PHRASE[k % 16] as f32).abs() < 1e-3, "step {k}: {} semitones, want {}", semis(n.2, 110.0), PHRASE[k % 16]);
         assert!((n.3 - 0.35).abs() < 1e-6, "gate 0.7 of a step of 0.5 beat: {}", n.3);
     }
+}
+
+#[test]
+fn a_step_switched_off_is_a_rest_and_the_others_do_not_move() {
+    let all = play(&mut module(&[]), TWO_LOOPS, QUANTUM);
+    // on5 off: the fifth step of each loop (ids 4 and 20) is gone, every other note is the same, frame and pitch
+    let without = play(&mut module(&[("on5", 0.0)]), TWO_LOOPS, QUANTUM);
+    let want: Vec<Note> = all.iter().filter(|n| n.1 % 16 != 4).copied().collect();
+    assert_eq!(all.len() - without.len(), 2);
+    assert_eq!(without, want);
+    // a rest switched on plays (step 4, id 3): and it plays its slider's pitch
+    let with = play(&mut module(&[("on4", 1.0)]), TWO_LOOPS, QUANTUM);
+    assert_eq!(with.len(), all.len() + 2);
+    let third = with.iter().find(|n| n.1 == 3).unwrap();
+    assert!((semis(third.2, 110.0) - 5.0).abs() < 1e-3);
+    // switched off inside a shorter loop too (the step is the pattern's, not the song's)
+    let short = play(&mut module(&[("steps", 4.0), ("on2", 0.0)]), 8 * 12_000, QUANTUM);
+    assert_eq!(short.iter().map(|n| n.1).collect::<Vec<_>>(), [0, 2, 4, 6]);
 }
 
 #[test]
@@ -85,12 +109,13 @@ fn snap_lands_on_semitones_and_off_it_is_continuous() {
 #[test]
 fn steps_shortens_the_loop() {
     let notes = play(&mut module(&[("steps", 5.0)]), 12 * 12_000, QUANTUM);
-    let got: Vec<i32> = notes.iter().map(|n| semis(n.2, 110.0).round() as i32).collect();
-    assert_eq!(got.len(), 12);
-    let want: Vec<i32> = (0..12).map(|k| PHRASE[k % 5]).collect();
-    assert_eq!(got, want, "the first five steps, over and over");
+    let got: Vec<(u32, i32)> = notes.iter().map(|n| (n.1, semis(n.2, 110.0).round() as i32)).collect();
+    let want: Vec<(u32, i32)> = (0..12).filter(|k| ON[k % 5]).map(|k| (k as u32, PHRASE[k % 5])).collect();
+    assert_eq!(got, want, "the first five steps (the fourth a rest), over and over");
+    assert_eq!(got.len(), 10);
     // one step: a drone on step 1
     let one = play(&mut module(&[("steps", 1.0)]), 6 * 12_000, QUANTUM);
+    assert_eq!(one.len(), 6);
     assert!(one.iter().all(|n| n.2 == 110.0));
 }
 
@@ -142,7 +167,7 @@ mod wasm {
         static E: OnceLock<WasmtimeEngine> = OnceLock::new();
         let loaded = Arc::new(Loaded::<Wasmtime>::load(E.get_or_init(|| WasmtimeEngine::new(None)), &wasm()).expect("the stepseq module loads"));
         assert_eq!(loaded.desc.name, "stepseq");
-        assert_eq!(loaded.desc.params.len(), 22);
+        assert_eq!(loaded.desc.params.len(), 38);
         for params in [&[][..], &[("step7", 0.91), ("rate", 3.0)][..], &[("steps", 11.0), ("snap", 0.0), ("base", 97.0)][..]] {
             let want = play(&mut module(params), 100_000, QUANTUM);
             let mut i = Instance::new(&loaded, Setup::new(RATE, 1).unbudgeted()).unwrap();

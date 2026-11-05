@@ -26,5 +26,5 @@ fn process_never_allocates() {
         notes += rig.events_out(StepSeq::NOTES).len();
         start += n;
     }
-    assert!(notes > 100, "the run was not silent: {notes} notes");
+    assert!(notes > 20, "the run was not silent: {notes} notes");
 }

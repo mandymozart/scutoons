@@ -12,7 +12,8 @@
 use deck_module::{math, Block, Ctx, Ev, Module};
 
 /// The default phrase: a minor-pentatonic figure over an octave (semitones 0 5 7 5 10 7 5 7 / 0 5 7 12 10 7 5 7 of
-/// `octaves` = 2, i.e. level = semitones / 24). The defaults of `step1` … `step16` below are these.
+/// `octaves` = 2, i.e. level = semitones / 24), with a rest on steps 4, 8 and 16 (`on4`, `on8`, `on16` off): 0 5 7 – 10 7 5 –
+/// 0 5 7 12 10 7 5 –. The defaults of `step1` … `step16` and `on1` … `on16` below are these. A step is on when its `on` is 1.
 #[derive(Module)]
 #[module(name = "stepseq", doc = "a 16-step sequencer on the tempo clock: each step a slider, its level the pitch")]
 #[port(output, event, name = "notes", names = "music.note", props = "pitch|vel|glide", capacity = 64, doc = "every step as a note")]
@@ -49,6 +50,38 @@ pub struct StepSeq {
     step15: f32,
     #[param(range = 0.0..1.0, default = 0.292, doc = "step 16: its level is its pitch")]
     step16: f32,
+    #[param(choices = "off|on", default = 1, doc = "step 1 plays (on) or rests (off)")]
+    on1: f32,
+    #[param(choices = "off|on", default = 1, doc = "step 2 plays (on) or rests (off)")]
+    on2: f32,
+    #[param(choices = "off|on", default = 1, doc = "step 3 plays (on) or rests (off)")]
+    on3: f32,
+    #[param(choices = "off|on", default = 0, doc = "step 4 plays (on) or rests (off)")]
+    on4: f32,
+    #[param(choices = "off|on", default = 1, doc = "step 5 plays (on) or rests (off)")]
+    on5: f32,
+    #[param(choices = "off|on", default = 1, doc = "step 6 plays (on) or rests (off)")]
+    on6: f32,
+    #[param(choices = "off|on", default = 1, doc = "step 7 plays (on) or rests (off)")]
+    on7: f32,
+    #[param(choices = "off|on", default = 0, doc = "step 8 plays (on) or rests (off)")]
+    on8: f32,
+    #[param(choices = "off|on", default = 1, doc = "step 9 plays (on) or rests (off)")]
+    on9: f32,
+    #[param(choices = "off|on", default = 1, doc = "step 10 plays (on) or rests (off)")]
+    on10: f32,
+    #[param(choices = "off|on", default = 1, doc = "step 11 plays (on) or rests (off)")]
+    on11: f32,
+    #[param(choices = "off|on", default = 1, doc = "step 12 plays (on) or rests (off)")]
+    on12: f32,
+    #[param(choices = "off|on", default = 1, doc = "step 13 plays (on) or rests (off)")]
+    on13: f32,
+    #[param(choices = "off|on", default = 1, doc = "step 14 plays (on) or rests (off)")]
+    on14: f32,
+    #[param(choices = "off|on", default = 1, doc = "step 15 plays (on) or rests (off)")]
+    on15: f32,
+    #[param(choices = "off|on", default = 0, doc = "step 16 plays (on) or rests (off)")]
+    on16: f32,
     #[param(range = 1.0..16.0, default = 16.0, unit = "steps", doc = "the pattern's length: it wraps after this many steps")]
     steps: f32,
     #[param(range = 0.0..16.0, default = 2.0, unit = "steps/beat", doc = "steps a beat")]
@@ -79,6 +112,16 @@ impl StepSeq {
         ]
     }
 
+    /// whether the pattern's step `at` (0-based) plays; off, it is a rest: no note (what sounds of the step before ends at
+    /// its own gate)
+    pub fn plays(&self, at: usize) -> bool {
+        let on = [
+            self.on1, self.on2, self.on3, self.on4, self.on5, self.on6, self.on7, self.on8, self.on9, self.on10, self.on11,
+            self.on12, self.on13, self.on14, self.on15, self.on16,
+        ];
+        on[at.min(15)] >= 0.5
+    }
+
     /// the pitch (Hz) of the pattern's step `at` (0-based)
     pub fn pitch_of(&self, at: usize) -> f32 {
         let span = self.octaves * self.levels()[at.min(15)].clamp(0.0, 1.0);
@@ -101,6 +144,9 @@ impl Module for StepSeq {
         let len = self.length();
         for (k, beat) in steps(from, to, per_beat) {
             // the step's frame in this block, rounded as the built-in events are (deck-events `resolve`)
+            if !self.plays(k.rem_euclid(len) as usize) {
+                continue;
+            }
             let at = tempo.frame_of(beat).unwrap_or(ctx.frame());
             let frame = (at - ctx.frame()).max(0.0).round() as u32;
             let pitch = self.pitch_of(k.rem_euclid(len) as usize);
