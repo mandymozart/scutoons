@@ -64,12 +64,12 @@ test("the deck's own scene lays out too, its unplayed nodes kept", () => {
 	assert.ok(l.nodes.some((n) => !n.played));
 });
 
-test("a cable's value as text: none, an audio peak, a control value", () => {
-	assert.equal(cableText(NaN, 'audio'), '–');
-	assert.equal(cableText(0.4567, 'audio'), '0.46');
-	assert.equal(cableText(147, 'control'), '147');
-	assert.equal(cableText(12.34, 'control'), '12.3');
-	assert.equal(cableText(-0.5, 'control'), '-0.50');
+test("a cable's value as text: none, a peak, a pitch, a control value", () => {
+	assert.equal(cableText(NaN), '–');
+	assert.equal(cableText(0.4567), '0.46');
+	assert.equal(cableText(147), '147');
+	assert.equal(cableText(12.34), '12.3');
+	assert.equal(cableText(-0.5), '-0.50');
 	const read = (p: string) => (p === 'fft.level' ? 0.25 : NaN);
 	const texts = cableTexts(CATPOPE.links, read);
 	assert.equal(texts.length, CATPOPE.links.length);

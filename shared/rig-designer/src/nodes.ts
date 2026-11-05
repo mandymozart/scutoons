@@ -38,7 +38,7 @@ export interface GraphIn {
 export type GraphWiring = GraphIn & { problem?: string };
 
 /** the sizes the layout uses, in rem */
-export const NODE = { width: 11, head: 1.5, row: 1, gapX: 5, gapY: 1, margin: 1 } as const;
+export const NODE = { width: 8.5, head: 1.5, row: 1, gapX: 2.5, gapY: 1, margin: 1 } as const;
 
 export interface PlacedPort {
 	name: string;
@@ -125,18 +125,17 @@ export function layoutGraph(g: GraphIn): GraphLayout {
 	return { nodes, cables, width, height };
 }
 
-/** A cable's value as its label: '–' when there is none (no sound yet, a node the browser does not play), else a few
- *  digits – an audio cable's peak (0..1) with two decimals, a control value with three significant digits. */
-export function cableText(v: number, type: string): string {
+/** A cable's value as its label: '–' when there is none (no sound yet, a node the browser does not play), else about
+ *  three significant digits (an audio cable's value is its block's peak – a CV cable's pitch in Hz). */
+export function cableText(v: number): string {
 	if (!Number.isFinite(v)) return '–';
-	if (type === 'audio') return v.toFixed(2);
 	const a = Math.abs(v);
 	return a >= 100 ? v.toFixed(0) : a >= 10 ? v.toFixed(1) : v.toFixed(2);
 }
 
 /** the labels of every link, in the links' order (`read` gives a path's value) */
 export function cableTexts(links: readonly GraphLink[], read: (path: string) => number): string[] {
-	return links.map((l) => cableText(read(l.value), l.type));
+	return links.map((l) => cableText(read(l.value)));
 }
 
 /** whether two label lists are the same (redraw only on a change) */
