@@ -1,6 +1,6 @@
 // node.ts – the #306 suite's browser runtimes in Node's V8 (worker threads): the PC's quick V8 numbers without a
 // browser. `node --experimental-strip-types deck/module-bench/www/node.ts [--label pc] [--blocks 2000]`
-// → deck/module-bench/results/<label>-node.json + .md (MODULE-BENCH.md).
+// → deck/module-bench/results/<label>-node.json + .md (MODULE-BENCH.md). `--runtimes web,web-nan` runs a subset.
 import { Worker } from 'node:worker_threads';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import os from 'node:os';
@@ -19,7 +19,9 @@ const spawn = (): WorkerLike => {
 	return { post: (m) => w.postMessage(m), on: (f) => w.once('message', f), terminate: () => w.terminate() };
 };
 
-const runtimes = await runAll(spawn, { blocks: Number(arg('blocks', '2000')) }, (s) => console.log(s));
+// --runtimes web,web-nan,web-simd: a subset (#396); the default is bench.ts's four
+const only = arg('runtimes', '');
+const runtimes = await runAll(spawn, { blocks: Number(arg('blocks', '2000')) }, (s) => console.log(s), ...(only ? [only.split(',')] : []));
 const all = {
 	device: {
 		label,

@@ -343,7 +343,8 @@ fn run(runtime: &str, cfg: &str) -> Result<String> {
             &cfg,
             Some("loop counter"),
         ),
-        "web" => run_suite::<Web>(
+        // web-nan / web-simd: the NaN pass's and the simd128 build's modules (#396), run like `web`
+        "web" | "web-nan" | "web-simd" => run_suite::<Web>(
             &WebEngine {
                 gas: false,
                 per_ms: Arc::default(),
