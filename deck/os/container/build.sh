@@ -21,9 +21,9 @@ pacman -Syu --noconfirm --needed archiso rust base-devel alsa-lib git pipewire c
 echo "   archiso $(pacman -Q archiso | cut -d' ' -f2), rust $(rustc --version | cut -d' ' -f2), kernel package: $KERNEL"
 pacman -Si "$KERNEL" >/dev/null 2>&1 || { echo "no package '$KERNEL' in the repos – set DECK_KERNEL=linux"; exit 1; }
 
-echo "== the deck binaries (relay, bridge, deck-check, deck with PipeWire and the gamepad, deck-link, deck-update) – release, Linux x86_64"
+echo "== the deck binaries (relay, bridge, deck-check, deck with PipeWire, the gamepad and the rig modules (#406), deck-link, deck-update) – release, Linux x86_64"
 if [ "${DECK_SKIP_CARGO:-0}" != 1 ]; then
-  (cd "$SRC" && CARGO_TARGET_DIR=$WORK/target CARGO_HOME=$WORK/cargo-home cargo build --release --locked     -p relay -p bridge -p deck-check -p deck-native -p deck-link -p deck-update --features deck-native/pipewire,deck-native/gamepad 2>&1 | tail -3)
+  (cd "$SRC" && CARGO_TARGET_DIR=$WORK/target CARGO_HOME=$WORK/cargo-home cargo build --release --locked     -p relay -p bridge -p deck-check -p deck-native -p deck-link -p deck-update --features deck-native/pipewire,deck-native/gamepad,deck-native/modules 2>&1 | tail -3)
 fi
 for b in relay bridge deck-check deck deck-link deck-update; do [ -x "$WORK/target/release/$b" ] || { echo "missing $WORK/target/release/$b"; exit 1; }; done
 if [ "${DECK_BINARIES_ONLY:-0}" = 1 ]; then

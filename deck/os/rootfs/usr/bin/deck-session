@@ -17,6 +17,10 @@ export XDG_CONFIG_HOME="$STATE/home/.config"
 export XDG_CACHE_HOME="$STATE/home/.cache"
 export HOME="$STATE/home"
 mkdir -p "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME"
+# the rig modules (#406: compiled wasm instruments, `module:<name>` in a scene): the update ships them to /usr/share/deck/modules,
+# the stage loads every *.wasm there at a scene's load and keeps the compiled code on DECKDATA (a restart skips the compile)
+export DECK_MODULES=/usr/share/deck/modules DECK_MODULE_CACHE="$STATE/cache/modules"
+mkdir -p "$DECK_MODULE_CACHE"
 
 setting() { sed -n "s/^$1 *= *\"\([^\"]*\)\".*/\1/p" "$STATE/deck.toml" 2>/dev/null | head -1; }
 
