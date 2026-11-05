@@ -23,7 +23,7 @@
 	],
 	"scripts": {
 		"check": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings && npm run test",
-		"test": "node --experimental-transform-types --no-warnings --test test/files.test.ts test/diagnostics.test.ts test/console.test.ts test/descriptor.test.ts test/api.test.ts test/store.test.ts test/starter.test.ts"
+		"test": "node --experimental-transform-types --no-warnings --test test/files.test.ts test/diagnostics.test.ts test/console.test.ts test/descriptor.test.ts test/api.test.ts test/store.test.ts test/starter.test.ts test/nodes.test.ts"
 	},
 	"dependencies": {
 		"@codemirror/commands": "6.11.1",
