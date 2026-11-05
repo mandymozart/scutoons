@@ -168,7 +168,7 @@ export interface QualityPresets {
 	ultra: QualityPreset;
 }
 
-interface SpaceModule {
+export interface SpaceModule {
 	default: (o: { module_or_path: string | URL }) => Promise<unknown>;
 	SpaceView: {
 		create(canvas: HTMLCanvasElement, deckGraph: string, values: string, prefer: string): Promise<SpaceView>;
@@ -178,12 +178,14 @@ interface SpaceModule {
 	DeckMonitor: new () => MonitorView;
 	DeckState: new () => DeckStateView;
 	DeckPush: new (api: string, cdn: string) => DeckPushView;
+	rig_coverage(request: string): string;
+	rig_catalog_bundle(request: string): string;
 }
 
 const modules = new Map<string, Promise<SpaceModule>>();
 
-/** the wasm and its glue from `base`, loaded once per page */
-function spaceModule(base: string): Promise<SpaceModule> {
+/** the wasm and its glue from `base`, loaded once per page (assign.ts reads its free functions) */
+export function spaceModule(base: string): Promise<SpaceModule> {
 	let m = modules.get(base);
 	if (!m) {
 		m = (async () => {
