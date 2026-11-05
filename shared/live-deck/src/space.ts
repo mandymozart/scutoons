@@ -75,8 +75,11 @@ export interface DeckStateView {
 	set_portraits(moods: string[]): void;
 	/** hold the mood; '' = the energy walks it again */
 	pin(mood: string): void;
-	/** one frame: the level 0..1, the clock's bpm and whether it runs, a hand 0..1, dt s → a `MoodStep` when it turned, else '' */
-	step(level: number, bpm: number, running: boolean, touch: number, dt: number): string;
+	/** one frame: the level 0..1, the clock's bpm and whether it runs, a hand 0..1, dt s, a code rig's `presets` outputs as
+	 *  heard (#410, NaN = not heard) → a `MoodStep` when it turned or the policy chose another preset, else '' */
+	step(level: number, bpm: number, running: boolean, touch: number, dt: number, heard: Float32Array): string;
+	/** #410: the paths of a code rig's preset outputs (`policy.<out>`) the frame hands to `step` as heard, in order */
+	preset_paths(): string[];
 	mood(): string;
 	energy(): number;
 	/** the moods on the wire: the ladder, then the other portraits */

@@ -31,8 +31,9 @@ export interface EngineHooks {
 	tick?: (now: number) => void;
 	/** a tap on the being: '' (empty space), 'being' or `knob:node.port` */
 	tap?: (name: string) => void;
-	/** a rig was played (`play`: new knobs, sticks, graph) or only replayed for another mood (`mood`: values) */
-	rig?: (played: RigPlayed | null, why: 'play' | 'mood') => void;
+	/** a rig was played (`play`: new knobs, sticks, graph) or only replayed for another mood or its policy's preset choice
+	 *  (`mood`, `preset` #410: values) */
+	rig?: (played: RigPlayed | null, why: RigTurn['why']) => void;
 	/** the mood changed (the deck's ladder, or `setMood`) – the rig is already replayed for it */
 	mood?: (mood: string) => void;
 	/** a parameter turned: the page's controls, the being's buttons, a mood's preset */

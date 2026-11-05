@@ -13,7 +13,7 @@ use deck_core::lead::{AdaptiveLead, DeviceClass};
 use deck_core::meters::{self, Meters};
 use deck_core::monitor::{AudioWindow, Monitor};
 use deck_space::controls::Controls;
-use deck_space::deck::{Deck, Slider};
+use deck_space::deck::{Deck, Slider, Why};
 use deck_space::gamepad::Pad;
 use deck_space::gesture::{Act, Fingers, Touch, ZOOM_STEP};
 use deck_space::mood::Ladder;
@@ -46,16 +46,16 @@ impl std::fmt::Display for Missing {
 #[cfg(not(test))]
 pub const CAPS: &[(&str, &str, &str, &str)] = &[(
     "code_rig_moods",
-    "#409",
-    "a code rig's policy choosing per mood what the tables chose: the live mood in the module (T2, #409), the deck applying @preset (#410), a module runtime under this host",
-    "nowhere: a module node reads its mood once, at build; the browser's engine carries no module",
+    "#290",
+    "a code rig's policy RUN per mood under this host: a module runtime the headless host (native and wasm32) can carry – the live mood (#409) and the deck applying @preset (#410) are built",
+    "deck-native's engine (wasmtime, tests/modules.rs: the real catpope_rig module chooses the tables' presets); the browser's engine and this host carry no module",
 )];
 #[cfg(test)]
 pub const CAPS: &[(&str, &str, &str, &str)] = &[("test_missing", "#0", "a stand-in for the unit test of the runner", "nowhere")];
 
 /// the steps the core answers now (their move tickets landed): name, ticket – `hud` (#374, deck-ui) is a step of the
 /// runner's (lib.rs: it reads the deck's clock)
-pub const MOVED: &[(&str, &str)] = &[("stats", "#364"), ("lead", "#365"), ("mood", "#367"), ("rig_facts", "#368"), ("device_text", "#373"), ("meters", "#373"), ("gesture", "#376"), ("knob", "#369"), ("sync", "#371"), ("relay_join", "#366"), ("quality_options", "#375"), ("code_rig", "#408")];
+pub const MOVED: &[(&str, &str)] = &[("stats", "#364"), ("lead", "#365"), ("mood", "#367"), ("rig_facts", "#368"), ("device_text", "#373"), ("meters", "#373"), ("gesture", "#376"), ("knob", "#369"), ("sync", "#371"), ("relay_join", "#366"), ("quality_options", "#375"), ("code_rig", "#408"), ("code_rig_deck", "#410")];
 
 /// Call the capability `name` with the step's input: its answer, or what is missing.
 pub fn call(name: &str, input: &Value) -> Result<Value, Missing> {
@@ -72,6 +72,7 @@ pub fn call(name: &str, input: &Value) -> Result<Value, Missing> {
         "relay_join" => return Ok(relay_join(input)),
         "quality_options" => return Ok(quality_options()),
         "code_rig" => return Ok(code_rig(input)),
+        "code_rig_deck" => return Ok(code_rig_deck(input)),
         _ => {}
     }
     match CAPS.iter().find(|c| c.0 == name) {
@@ -310,20 +311,10 @@ fn quality_options() -> Value {
 /// (Rig::describe: each target resolved, the inputs the policy drives).
 fn code_rig(i: &Value) -> Value {
     let subject = i["core"].as_str().unwrap_or_default();
-    let mut b = match Bundle::core(subject) {
-        Some(Ok(b)) => b,
-        _ => return json!({ "error": format!("no core rig {subject}") }),
+    let b = match code_bundle(i) {
+        Ok(b) => b,
+        Err(e) => return e,
     };
-    if !i["keep_moods"].as_bool().unwrap_or(false) {
-        b.rig.moods.clear();
-    }
-    let parsed = serde_json::from_value(i["policy"].clone()).map(|p| b.rig.policy = Some(p)).and_then(|_| match i.get("module") {
-        Some(m) => serde_json::from_value(m.clone()).map(|d| b.modules = vec![d]),
-        None => Ok(()),
-    });
-    if let Err(e) = parsed {
-        return json!({ "error": e.to_string() });
-    }
     let request = Request {
         kind: "rigs".into(),
         id: subject.into(),
@@ -363,6 +354,64 @@ fn code_rig(i: &Value) -> Value {
     out["targets"] = json!(targets);
     out["driven"] = json!(driven);
     out
+}
+
+/// the core rig `core` as a code rig: `policy` (its mood tables dropped unless `keep_moods`) and the policy module's
+/// descriptor `module`
+fn code_bundle(i: &Value) -> Result<Bundle, Value> {
+    let subject = i["core"].as_str().unwrap_or_default();
+    let mut b = match Bundle::core(subject) {
+        Some(Ok(b)) => b,
+        _ => return Err(json!({ "error": format!("no core rig {subject}") })),
+    };
+    if !i["keep_moods"].as_bool().unwrap_or(false) {
+        b.rig.moods.clear();
+    }
+    let parsed = serde_json::from_value(i["policy"].clone()).map(|p| b.rig.policy = Some(p)).and_then(|_| match i.get("module") {
+        Some(m) => serde_json::from_value(m.clone()).map(|d| b.modules = vec![d]),
+        None => Ok(()),
+    });
+    parsed.map(|_| b).map_err(|e| json!({ "error": e.to_string() }))
+}
+
+/// #410 (T3 of #314): the deck playing a code rig (`code_bundle`) beside the declarative core rig, fed like an adapter
+/// feeds it (`Deck::frame`): for each of `moods` the mood's frame, then a frame with the policy's preset outputs as the
+/// engine would stream them (`outputs.<mood>`, in `paths`' order – a stand-in: this host runs no module). What it did: the
+/// paths it reads, the inputs the policy owns, the voice's preset per mood, the moods whose choice replayed the rig,
+/// whether every track plays the tables' preset in every mood and whether a turn ever moved an owned input.
+fn code_rig_deck(i: &Value) -> Value {
+    let b = match code_bundle(i) {
+        Ok(b) => b,
+        Err(e) => return e,
+    };
+    let (mut code, mut tables) = (Deck::new(), Deck::new());
+    if let Err(e) = code.play(Some(b), "") {
+        return json!({ "error": format!("{e:#}") });
+    }
+    tables.play_core(i["core"].as_str().unwrap_or_default(), "");
+    let paths: Vec<String> = code.preset_paths().map(String::from).collect();
+    let owned = code.played().owned.clone();
+    let plays = |d: &Deck| d.played().tracks.iter().map(|t| (t.track.clone(), t.preset.clone())).collect::<Vec<_>>();
+    let (mut presets, mut chose, mut same, mut moved) = (serde_json::Map::new(), Vec::new(), true, false);
+    for mood in i["moods"].as_array().into_iter().flatten().filter_map(Value::as_str) {
+        tables.ladder.pin(Some(mood));
+        tables.step(0.0, 0.0, false, 0.0, 1.0 / 60.0);
+        // the platforms' one call: the mood's frame with the outputs as heard (the frame after it: the policy hears late)
+        code.ladder.pin(Some(mood));
+        let heard: Vec<f32> = i["outputs"][mood].as_array().into_iter().flatten().filter_map(Value::as_f64).map(|x| x as f32).collect();
+        for h in [&[][..], &heard] {
+            if let Some(t) = code.frame(0.0, 0.0, false, 0.0, 1.0 / 60.0, h).and_then(|s| s.turn) {
+                if t.why == Why::Preset {
+                    chose.push(mood.to_string());
+                }
+                moved |= t.values.iter().any(|(p, _)| owned.contains(p));
+            }
+        }
+        same &= plays(&code) == plays(&tables);
+        let voice = code.played().tracks.iter().find(|t| t.track == "voice").and_then(|t| t.preset.clone());
+        presets.insert(mood.to_string(), json!(voice));
+    }
+    json!({ "paths": paths, "owned": owned, "presets": presets, "chose": chose, "same_as_tables": same, "owned_moved": moved })
 }
 
 /// a document as the validate request carries it (by value)

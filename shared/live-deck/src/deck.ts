@@ -267,12 +267,13 @@ export class Deck {
 	}
 
 	/** One frame at `now` (s, performance.now() / 1000): the mood (the core's ladder: the level, the clock, the hand) and
-	 *  the rig the core replayed for it, the stream. */
+	 *  the rig the core replayed for it or for a code rig's preset choice (#410), the stream. */
 	tick(now: number): void {
 		if (this.t0 < 0) this.t0 = this.last = now;
 		const dt = now - this.last;
 		this.last = now;
-		const said = this.state?.step(this.bands.level, this.clock?.bpm ?? 0, this.clock?.running ?? false, this.touch, dt);
+		const heard = Float32Array.from(this.state?.preset_paths() ?? [], this.read, this); // #410: a code rig's preset outputs
+		const said = this.state?.step(this.bands.level, this.clock?.bpm ?? 0, this.clock?.running ?? false, this.touch, dt, heard);
 		if (said) {
 			const s = JSON.parse(said) as MoodStep;
 			if (s.turn) this.apply(s.turn);

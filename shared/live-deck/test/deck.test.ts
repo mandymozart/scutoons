@@ -68,7 +68,7 @@ test('#367: each frame the level, the clock and the hand go to the core’s ladd
 	d.tick(10.75);
 	assert.deepEqual(said, ['neutral', 'happy'], 'only a turn is a mood change');
 	assert.equal(d.mood, 'happy');
-	assert.deepEqual(s.calls.filter((c) => c[0] === 'step')[2], ['step', 0.5, 0, false, 1, 0.5], 'no clock yet: no tempo; dt unclamped (the core clamps)');
+	assert.deepEqual(s.calls.filter((c) => c[0] === 'step')[2], ['step', 0.5, 0, false, 1, 0.5, []], 'no clock yet: no tempo; dt unclamped (the core clamps)');
 });
 
 test('another character: its portraits go to the core (its ladder), the face is the core’s pick', async () => {
