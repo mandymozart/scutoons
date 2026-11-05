@@ -29,8 +29,8 @@ use anyhow::{anyhow, Result};
 use deck_core::tempo::{BeatReader, TempoMap};
 use deck_module_host::{Backend, Ev, InBind, Layout, OutBind};
 use deck_space::context::mood_index;
-use deck_space::graph::{Domain, Graph, Kind, Node, PortType, MAX_CHANNELS};
-use deck_space::modreg::{self, ModuleDef, ModuleKind, PortDef};
+use deck_space::graph::{Graph, Kind, Node, MAX_CHANNELS};
+use deck_space::modreg::{self, ModuleDef, ModuleKind};
 use std::any::Any;
 use std::sync::Arc;
 
