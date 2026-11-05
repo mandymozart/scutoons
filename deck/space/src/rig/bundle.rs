@@ -10,6 +10,7 @@ use crate::params::{self, Curve};
 use crate::scene::{split_ref, LinkDef, NodeDef, Scene, CATHEDRAL_SCENE};
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 /// The core rigs a deck carries without an account (#191 "core"): subject → the bundle's TOML (deck/native/rigs/).
 pub const CORE: [(&str, &str); 2] = [
@@ -26,6 +27,18 @@ pub struct Bundle {
     pub instruments: Vec<Instrument>,
     #[serde(default, rename = "preset")]
     pub presets: Vec<Preset>,
+    /// a code rig's policy module: its descriptor (the `module:<id>` document's, #408)
+    #[serde(default, rename = "module", skip_serializing_if = "Vec::is_empty")]
+    pub modules: Vec<deck_catalog::Descriptor>,
+}
+
+/// A code rig's `@preset` target (#408): the policy's output (`policy.<out>`, streamed) chooses the track's preset by
+/// its index into `choices` – the deck replays the rig with it (`Bundle::play_with`, #410).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct PresetChoice {
+    pub track: String,
+    pub path: String,
+    pub choices: Vec<String>,
 }
 
 /// A knob the page shows: an exposed parameter of the flattened scene (`<track>_<node>.<port>`).
@@ -114,6 +127,9 @@ pub struct Played {
     pub streamed: Vec<(String, Stream)>,
     /// #368: the knobs the being shows as buttons (its `expose` on the wire)
     pub expose: Vec<String>,
+    /// a code rig's preset choices (#408): which policy output chooses which track's preset
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub presets: Vec<PresetChoice>,
 }
 
 impl Played {
@@ -132,6 +148,8 @@ impl Played {
                 }
             }
         }
+        // a code rig's preset choices: the deck reads them each frame (#410)
+        streamed.extend(self.presets.iter().map(|c| (c.path.clone(), Stream::Control)));
         self.expose = self.knobs.iter().map(|k| k.path.clone()).collect();
         self.streamed = streamed;
         self
@@ -200,7 +218,7 @@ impl Played {
         let mut it = knobs.iter().map(|k| k.path.clone());
         let sticks = [[it.next().unwrap_or_default(), it.next().unwrap_or_default()], [it.next().unwrap_or_default(), it.next().unwrap_or_default()]];
         let character = scene.being_character();
-        let played = Played { scene: text.to_string(), nodes: scene.nodes, links: scene.links, character, knobs, tracks: Vec::new(), sticks, engine, streamed: Vec::new(), expose: Vec::new() };
+        let played = Played { scene: text.to_string(), nodes: scene.nodes, links: scene.links, character, knobs, tracks: Vec::new(), sticks, engine, streamed: Vec::new(), expose: Vec::new(), presets: Vec::new() };
         Ok(played.with_facts())
     }
 
@@ -256,15 +274,20 @@ impl Bundle {
     }
 
     pub fn library(&self) -> Library {
-        Library::new(self.instruments.clone(), self.presets.clone())
+        Library::new(self.instruments.clone(), self.presets.clone()).with_modules(self.modules.clone())
     }
 
     pub fn play(&self, persona: Option<&str>, mood: Option<&str>) -> Result<Played> {
+        self.play_with(persona, mood, &BTreeMap::new())
+    }
+
+    /// `play` with presets chosen per track (track → preset: a code rig's `@preset` outputs, the deck's replay #410)
+    pub fn play_with(&self, persona: Option<&str>, mood: Option<&str>, chosen: &BTreeMap<String, String>) -> Result<Played> {
         let lib = self.library();
-        let scene = self.rig.flatten(&lib, persona, mood)?;
+        let scene = self.rig.flatten_with(&lib, persona, mood, chosen)?;
         let tracks = self
             .rig
-            .play(&lib, persona, mood)?
+            .play_with(&lib, persona, mood, chosen)?
             .into_iter()
             .map(|t| TrackPlays { track: t.track, preset: t.preset })
             .collect();
@@ -298,6 +321,21 @@ impl Bundle {
                 });
             }
         }
+        // a code rig's parameters are rig knobs too (`policy.<param>`, #408), and its preset choices are facts
+        let mut presets = Vec::new();
+        if let Some((_, d)) = self.rig.policy_module(&lib)? {
+            let node = scene.nodes.iter().find(|n| n.id == super::policy::NODE).context("the policy node is in the scene")?;
+            for p in d.params.iter().filter(|p| p.choices.is_empty()) {
+                let value = node.params.get(p.name.as_ref()).and_then(|v| v.as_float()).map_or(p.default.unwrap_or(p.min), |f| f as f32);
+                let label = if p.doc.is_empty() { Text::new() } else { Text::from([("en".to_string(), p.doc.to_string())]) };
+                knobs.push(Knob { path: format!("{}.{}", super::policy::NODE, p.name), label, min: p.min, max: p.max, value, log: p.curve == deck_catalog::Curve::Log });
+            }
+            for t in self.rig.targets(&lib)? {
+                if let super::policy::Member::Preset(choices) = t.member {
+                    presets.push(PresetChoice { track: t.track, path: format!("{}.{}", super::policy::NODE, t.output), choices });
+                }
+            }
+        }
         let sticks = match &self.rig.sticks {
             Some(pairs) => {
                 for p in pairs.iter().flatten() {
@@ -320,7 +358,7 @@ impl Bundle {
         };
         let text = toml::to_string(&doc).context("writing the flattened scene")?;
         let engine = super::engine::lower(&scene)?;
-        let played = Played { scene: text, nodes: scene.nodes, links: scene.links, character, knobs, tracks, sticks, engine, streamed: Vec::new(), expose: Vec::new() };
+        let played = Played { scene: text, nodes: scene.nodes, links: scene.links, character, knobs, tracks, sticks, engine, streamed: Vec::new(), expose: Vec::new(), presets };
         Ok(played.with_facts())
     }
 

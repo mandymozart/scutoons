@@ -154,7 +154,8 @@ pub fn catalog_bundle(rig: Rig, instruments: &[Value], presets: &[Value]) -> Res
             chosen.entry(p.id.clone()).or_insert_with(|| p.clone());
         }
     }
-    Ok(Bundle { rig, instruments: picked, presets: chosen.into_values().collect() })
+    // a code rig's policy module (#408) is not looked up here yet: its descriptor and its preset choices come with T6
+    Ok(Bundle { rig, instruments: picked, presets: chosen.into_values().collect(), modules: Vec::new() })
 }
 
 /// `{ rig, instruments: [..], presets: [..] }` (the catalog's documents) → the bundle as JSON for `rig_play`

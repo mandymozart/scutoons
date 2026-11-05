@@ -3,14 +3,17 @@
 //! `rig_problems`) – the code the decks play with, no second copy: serde's forms (unknown fields refused), then
 //! - an instrument: `Instrument::check`;
 //! - a preset: its instrument known, `PresetBook::lineage` / `resolve` with this preset in the book, `Instrument::patch`;
-//! - a rig: `Rig::check`, then `Bundle::play` (flatten, the knobs and sticks, the engine's lowering) without a variant,
-//!   for every persona and for every mood.
+//! - a rig: `Rig::check` (a code rig's policy too, #408: its module, targets and who writes which input), then
+//!   `Bundle::play` (flatten, the knobs and sticks, the engine's lowering) without a variant, for every persona and for
+//!   every mood; `Rig::warnings` (a preset's value on an input the policy owns is dropped – said, not refused).
 //!
-//! The lookups travel by value: the instruments it names, the presets it names with their ancestors (the API reads them
-//! from its catalog). The core stops at the first problem, so the answer holds at most one.
+//! The lookups travel by value: the instruments it names, the presets it names with their ancestors, a code rig's policy
+//! module's descriptor (the API reads them from its catalog). The core stops at the first problem, so the answer holds at
+//! most one.
 use super::bundle::Bundle;
 use super::{Instrument, Library, Preset, PresetBook, Rig};
 use anyhow::{Context, Result};
+use deck_catalog::Descriptor;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -30,12 +33,17 @@ pub struct Request {
     /// the presets it names and their ancestors (a preset's lineage without itself, a rig's), by value
     #[serde(default)]
     pub presets: Vec<Value>,
+    /// a code rig's policy module: the descriptor of the `module:<id>` document it names, by value (#408)
+    #[serde(default)]
+    pub modules: Vec<Value>,
 }
 
-/// The answer: the problems, none = valid.
+/// The answer: the problems, none = valid; the warnings (RULES H7: they can be accepted).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Answer {
     pub problems: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub warnings: Vec<String>,
 }
 
 fn parse<T: DeserializeOwned>(who: &str, v: &Value) -> Result<T, String> {
@@ -53,6 +61,11 @@ fn said(e: anyhow::Error) -> String {
 impl Request {
     /// The document's problems (empty = valid); `Err` for a kind that is none of the three.
     pub fn problems(&self) -> Result<Vec<String>, String> {
+        self.answer().map(|a| a.problems)
+    }
+
+    /// The document's problems and warnings; `Err` for a kind that is none of the three.
+    pub fn answer(&self) -> Result<Answer, String> {
         let label = match self.kind.as_str() {
             "instruments" => "instrument",
             "presets" => "preset",
@@ -61,11 +74,14 @@ impl Request {
         };
         let who = format!("{label} {}", self.id);
         let checked = match label {
-            "instrument" => self.instrument(&who),
-            "preset" => self.preset(&who),
+            "instrument" => self.instrument(&who).map(|_| Vec::new()),
+            "preset" => self.preset(&who).map(|_| Vec::new()),
             _ => self.rig(&who),
         };
-        Ok(checked.err().into_iter().collect())
+        Ok(match checked {
+            Ok(warnings) => Answer { problems: Vec::new(), warnings },
+            Err(p) => Answer { problems: vec![p], warnings: Vec::new() },
+        })
     }
 
     fn instrument(&self, who: &str) -> Result<(), String> {
@@ -87,29 +103,34 @@ impl Request {
         instrument.patch(&resolved).map(|_| ()).map_err(said)
     }
 
-    fn rig(&self, who: &str) -> Result<(), String> {
+    /// a rig's problem, or its warnings
+    fn rig(&self, who: &str) -> Result<Vec<String>, String> {
         let rig: Rig = parse(who, &self.document)?;
         let instruments: Vec<Instrument> = lookups("instrument", &self.instruments)?;
         let presets: Vec<Preset> = lookups("preset", &self.presets)?;
-        rig.check(&Library::new(instruments.clone(), presets.clone())).map_err(said)?;
+        let modules: Vec<Descriptor> =
+            self.modules.iter().map(|v| parse(&format!("module {}", v.get("name").and_then(Value::as_str).unwrap_or("?")), v)).collect::<Result<_, _>>()?;
+        let lib = Library::new(instruments.clone(), presets.clone()).with_modules(modules.clone());
+        rig.check(&lib).map_err(said)?;
+        let warnings = rig.warnings(&lib).map_err(said)?;
         let personas: Vec<String> = rig.personas.keys().cloned().collect();
         let moods: Vec<String> = rig.moods.keys().cloned().collect();
-        let bundle = Bundle { rig, instruments, presets };
+        let bundle = Bundle { rig, instruments, presets, modules };
         let variants = std::iter::once((None, None))
             .chain(personas.iter().map(|p| (Some(p.as_str()), None)))
             .chain(moods.iter().map(|m| (None, Some(m.as_str()))));
         for (persona, mood) in variants {
             bundle.play(persona, mood).map_err(said)?;
         }
-        Ok(())
+        Ok(warnings)
     }
 }
 
 /// `Request` as JSON → `Answer` as JSON – the wasm boundary's and the build service's form
 pub fn problems_json(request: &str) -> Result<String> {
-    let request: Request = serde_json::from_str(request).context("not a validate request { kind, id, document, instruments?, presets? }")?;
-    let problems = request.problems().map_err(anyhow::Error::msg)?;
-    Ok(serde_json::to_string(&Answer { problems })?)
+    let request: Request = serde_json::from_str(request).context("not a validate request { kind, id, document, instruments?, presets?, modules? }")?;
+    let answer = request.answer().map_err(anyhow::Error::msg)?;
+    Ok(serde_json::to_string(&answer)?)
 }
 
 #[cfg(test)]
@@ -163,15 +184,16 @@ mod tests {
                 document: v(&b.rig),
                 instruments: b.instruments.iter().map(v).collect(),
                 presets: b.presets.iter().map(v).collect(),
+                modules: vec![],
             };
             assert_eq!(request.problems().unwrap(), Vec::<String>::new(), "{subject}");
             for i in &b.instruments {
-                let r = Request { kind: "instruments".into(), id: i.id.clone(), document: v(i), instruments: vec![], presets: vec![] };
+                let r = Request { kind: "instruments".into(), id: i.id.clone(), document: v(i), instruments: vec![], presets: vec![], modules: vec![] };
                 assert_eq!(r.problems().unwrap(), Vec::<String>::new(), "{}", i.id);
             }
             for p in &b.presets {
                 let others = b.presets.iter().filter(|q| q.id != p.id).map(v).collect();
-                let r = Request { kind: "presets".into(), id: p.id.clone(), document: v(p), instruments: b.instruments.iter().map(v).collect(), presets: others };
+                let r = Request { kind: "presets".into(), id: p.id.clone(), document: v(p), instruments: b.instruments.iter().map(v).collect(), presets: others, modules: vec![] };
                 assert_eq!(r.problems().unwrap(), Vec::<String>::new(), "{}", p.id);
             }
         }

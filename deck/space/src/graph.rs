@@ -300,8 +300,10 @@ pub const MAX_CHANNELS: usize = 32;
 /// `<node>.<port>`, or `<track>:<node>.<port>` for the flattened rig's `<track>_<node>` – becomes a control link from the
 /// output to that input (mode `set`: the output alone; `add`: the target's own value + the output; `mul`: its own value ×
 /// the output), and the output holds a value until the module first writes it (`Graph::holds`: set → the target's own
-/// value, add → 0, mul → 1). A reserved member (`@preset`, `@gain` …) and a node the scene does not have are a rig's to
-/// resolve (#314): unbound here. A port the node lacks, or a target that already has a link, is an error.
+/// value, add → 0, mul → 1). `<track>:@gain` binds to the strip input the module node's `@gain` table names (a code
+/// rig's flatten writes it, #408); `@preset` (the deck applies it, #410) and a node the scene does not have stay
+/// unbound – the rig's check refuses what does not resolve. A port the node lacks, or a target that already has a link,
+/// is an error.
 #[derive(Debug, Clone)]
 pub struct Graph {
     pub nodes: Vec<Node>,
@@ -396,14 +398,20 @@ fn bind_targets(nodes: &[Node], by_id: &HashMap<String, usize>, links: &mut Vec<
     for (mi, m) in nodes.iter().enumerate() {
         let Kind::Module(kind) = m.kind else { continue };
         for &(out, path, mode) in kind.spec().targets {
-            // `<track>:<node>.<port>` → the flattened `<track>_<node>`; a reserved member is the rig's (#314)
-            if path.contains('@') {
+            // `<track>:<node>.<port>` → the flattened `<track>_<node>`; `<track>:@gain` → the strip the node's `@gain`
+            // table names (a code rig's flatten writes it, #408); another reserved member (`@preset`) is the deck's (#410)
+            let (id, port) = if let Some(track) = path.strip_suffix(":@gain") {
+                let strip = m.params.get(crate::rig::policy::GAIN_TABLE).and_then(|t| t.get(track)).and_then(|v| v.as_str());
+                let Some((node, port)) = strip.map(split_ref) else { continue };
+                (node.to_owned(), port)
+            } else if path.contains('@') {
                 continue;
-            }
-            let (node, port) = split_ref(path);
-            let id = match node.split_once(':') {
-                Some((track, node)) => format!("{track}_{node}"),
-                None => node.to_owned(),
+            } else {
+                let (node, port) = split_ref(path);
+                match node.split_once(':') {
+                    Some((track, node)) => (format!("{track}_{node}"), port),
+                    None => (node.to_owned(), port),
+                }
             };
             let Some(&ti) = by_id.get(&id) else { continue };
             let t = &nodes[ti];
