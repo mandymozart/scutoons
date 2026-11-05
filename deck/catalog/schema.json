@@ -165,6 +165,13 @@
           "description": "deck-core's module for the kind (control · synth · analysis · stage · 3d …); empty = none",
           "type": "string"
         },
+        "moods": {
+          "description": "modules only (A1, #409): the moods the module knows, in its own order – the deck hands a module the mood's place\nhere + 1 as `mood_index` (0 = a mood not in the list; deck-space context.rs)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "name": {
           "type": "string"
         },

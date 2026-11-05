@@ -50,6 +50,8 @@ export type Descriptor = {
 	latency?: number;
 	/** deck-core's module for the kind (control · synth · analysis · stage · 3d …); empty = none */
 	module?: string;
+	/** modules only (A1, #409): the moods the module knows, in its own order – the deck hands a module the mood's place here + 1 as `mood_index` (0 = a mood not in the list; deck-space context.rs) */
+	moods?: string[];
 	name: string;
 	/** capabilities the kind needs (#312): without one it does not run */
 	needs?: string[];

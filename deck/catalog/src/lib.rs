@@ -288,6 +288,10 @@ pub struct Descriptor {
     /// the show's variable slots the kind may read (`story.act` …, ABI-V2 §3)
     #[serde(default = "empty_strs", skip_serializing_if = "is_empty_slice")]
     pub reads: Cow<'static, [Cow<'static, str>]>,
+    /// modules only (A1, #409): the moods the module knows, in its own order – the deck hands a module the mood's place
+    /// here + 1 as `mood_index` (0 = a mood not in the list; deck-space context.rs)
+    #[serde(default = "empty_strs", skip_serializing_if = "is_empty_slice")]
+    pub moods: Cow<'static, [Cow<'static, str>]>,
     /// modules only: the ABI version they speak
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub abi: Option<u32>,
@@ -373,6 +377,7 @@ impl Descriptor {
             return Err(format!("'{me}': '{w}' is in `needs` and in `wants` – a capability is one or the other"));
         }
         unique("`reads`", &mut self.reads.iter().map(|s| s.as_ref()))?;
+        unique("`moods`", &mut self.moods.iter().map(|s| s.as_ref()))?;
         unique("`assets`", &mut self.assets.iter().map(|a| a.name.as_ref()))?;
         if let Some(a) = self.assets.iter().find(|a| a.max_bytes == 0) {
             return Err(format!("'{me}': asset '{}' needs a `max_bytes` above 0", a.name));
@@ -484,7 +489,7 @@ mod tests {
     #[test]
     fn the_v2_fields_round_trip_and_check() {
         let json = r#"{"name":"m","abi":1,"latency":64,"needs":["motion"],"wants":["position"],"reads":["story.act"],
-            "params":[{"name":"cutoff","min":20,"max":20000,"default":800},{"name":"wave","choices":["sine","saw"]}],
+            "moods":["thinking","sad"],"params":[{"name":"cutoff","min":20,"max":20000,"default":800},{"name":"wave","choices":["sine","saw"]}],
             "ports":[{"name":"side","dir":"in","type":"audio","channels":2,"sidechain":true},
                      {"name":"notes","dir":"in","type":"event","names":["music.note"],"props":["pitch","vel","glide"],"capacity":128},
                      {"name":"sel","dir":"out","type":"control","path":"child.preset","mode":"add","choices":["calm","wild"]}],
@@ -494,6 +499,7 @@ mod tests {
         d.check().unwrap();
         assert_eq!(serde_json::from_str::<Descriptor>(&serde_json::to_string(&d).unwrap()).unwrap(), d);
         assert_eq!((d.latency, d.wants[0].as_ref(), d.reads[0].as_ref(), d.assets[0].kind), (64, "position", "story.act", AssetKind::Pcm));
+        assert_eq!(d.moods.iter().map(|m| m.as_ref()).collect::<Vec<_>>(), ["thinking", "sad"]);
         assert_eq!((d.ports[0].sidechain, d.ports[1].capacity, d.ports[2].mode), (true, 128, Mode::Add));
         assert_eq!(d.preset.as_ref().unwrap().values["cutoff"], 1200.0);
         // a port that sets none of them serializes without them
@@ -520,6 +526,8 @@ mod tests {
         assert!(bad(&|x| port(x, 2).path = "".into()).contains("needs a `path`"));
         assert!(bad(&|x| x.wants = Cow::Owned(vec!["motion".into()])).contains("needs` and in `wants"));
         assert!(bad(&|x| x.assets.to_mut()[0].max_bytes = 0).contains("max_bytes"));
+        assert!(bad(&|x| x.moods.to_mut().push("sad".into())).contains("`moods` twice"));
+        assert!(bad(&|x| x.moods.to_mut().push("".into())).contains("empty name in `moods`"));
         assert!(bad(&|x| _ = x.preset.as_mut().unwrap().values.insert("nope".into(), 1.0)).contains("no parameter"));
         assert!(bad(&|x| _ = x.preset.as_mut().unwrap().values.insert("cutoff".into(), 1.0)).contains("outside"));
         assert!(bad(&|x| _ = x.preset.as_mut().unwrap().values.insert("wave".into(), 2.0)).contains("choices"));

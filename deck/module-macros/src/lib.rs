@@ -5,7 +5,8 @@
 //! AssetSlot`), and on wasm32 the descriptor in the `deck.module` custom section and the exports (`dm_*`) with the
 //! counting allocator (deck/module/README.md).
 //!
-//! Attributes: `#[module(name, domain = "audio"|"control", doc, needs / wants = "motion|position", latency)]`;
+//! Attributes: `#[module(name, domain = "audio"|"control", doc, needs / wants = "motion|position", latency,
+//! moods = "thinking|sad" (A1, #409: the moods it knows – `ctx.character().mood_index` is the deck's mood's place + 1))]`;
 //! `#[reads("story.act", …)]`; `#[port(input|output, audio|cv|control|event|video, name, channels = n|"any",
 //! sidechain, doc, names / props = "a|b", capacity, path, mode, choices)]`; on `f32` fields `#[param(range = a..b,
 //! default, curve = log, unit, choices = "saw|pulse" (the value is the index), doc)]`; `#[asset(name, kind, max_bytes,
@@ -76,6 +77,7 @@ struct Spec {
     wants: Vec<String>,
     latency: u32,
     reads: Vec<String>,
+    moods: Vec<String>,
     ports: Vec<Port>,
     params: Vec<Param>,
     others: Vec<syn::Ident>,
@@ -177,6 +179,13 @@ fn parse_module(a: &Attribute, spec: &mut Spec) -> Result<(), Error> {
             "doc" => spec.doc = lit_str(&m)?.value(),
             "needs" => spec.needs = pipe_list(&lit_str(&m)?)?,
             "wants" => spec.wants = pipe_list(&lit_str(&m)?)?,
+            "moods" => {
+                let s = lit_str(&m)?;
+                spec.moods = pipe_list(&s)?;
+                if let Some(x) = spec.moods.iter().find(|x| x.len() > 32) {
+                    return Err(Error::new(s.span(), format!("mood '{x}': at most 32 bytes (the context's name)")));
+                }
+            }
             "latency" => {
                 let e: Expr = m.value()?.parse()?;
                 let v = number(&e)?;
@@ -185,7 +194,7 @@ fn parse_module(a: &Attribute, spec: &mut Spec) -> Result<(), Error> {
                 }
                 spec.latency = v as u32;
             }
-            _ => return Err(m.error("module(name, domain, doc, needs, wants, latency)")),
+            _ => return Err(m.error("module(name, domain, doc, needs, wants, latency, moods)")),
         }
         Ok(())
     })
@@ -415,6 +424,7 @@ fn parse(input: &DeriveInput) -> Result<Spec, Error> {
         wants: vec![],
         latency: 0,
         reads: vec![],
+        moods: vec![],
         ports: vec![],
         params: vec![],
         others: vec![],
@@ -513,7 +523,7 @@ fn module(ty: &syn::Ident, spec: &Spec) -> Result<proc_macro2::TokenStream, Erro
     if let Some(w) = spec.wants.iter().find(|w| spec.needs.contains(w)) {
         return Err(Error::new(Span::call_site(), format!("'{w}' is in needs and in wants – a capability is one or the other")));
     }
-    for (what, list) in [("reads", &spec.reads), ("needs", &spec.needs), ("wants", &spec.wants)] {
+    for (what, list) in [("reads", &spec.reads), ("needs", &spec.needs), ("wants", &spec.wants), ("moods", &spec.moods)] {
         if let Some((_, x)) = list.iter().enumerate().find(|(i, x)| x.is_empty() || list[..*i].contains(x)) {
             return Err(Error::new(Span::call_site(), format!("{what}: '{x}' is empty or listed twice")));
         }
@@ -545,7 +555,7 @@ fn module(ty: &syn::Ident, spec: &Spec) -> Result<proc_macro2::TokenStream, Erro
     if !spec.doc.is_empty() {
         json += &format!(",\"doc\":{}", js(&spec.doc));
     }
-    for (key, list) in [("needs", &spec.needs), ("wants", &spec.wants), ("reads", &spec.reads)] {
+    for (key, list) in [("needs", &spec.needs), ("wants", &spec.wants), ("reads", &spec.reads), ("moods", &spec.moods)] {
         if !list.is_empty() {
             json += &format!(",\"{key}\":{}", js_list(list));
         }

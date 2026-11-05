@@ -115,7 +115,7 @@ impl Module for Synth {
 
 /// a code rig's policy (§5): control domain, path outputs, a variable, the character's senses
 #[derive(Module)]
-#[module(name = "policy", domain = "control")]
+#[module(name = "policy", domain = "control", moods = "calm|bright|angry")]
 #[reads("story.act", "being.glow")]
 #[port(input, control, name = "meter")]
 #[port(output, control, name = "lead_preset", path = "lead:@preset", choices = "calm|bright|angry")]
@@ -202,7 +202,8 @@ fn the_host_computes_the_layout_the_derive_compiled() {
 }
 
 /// the hash a module exports as `dm_layout()`, frozen for these descriptors: a change here means every module built
-/// before is refused by the host – only together with a new ABI version (§7)
+/// before is refused by the host – only together with a new ABI version (§7). `Policy` lists `moods` (A1, #409): a list
+/// that places no byte, so its hash is the one it had before
 #[test]
 fn the_layout_hash_of_the_fixture_modules_is_frozen() {
     let got = [Gain::LAYOUT, Synth::LAYOUT, Policy::LAYOUT, Tilt::LAYOUT].map(|l| (l.size, l.hash));
@@ -221,6 +222,11 @@ fn the_derive_writes_the_descriptor() {
     assert_eq!((beats.names[0].as_ref(), beats.props[0].as_ref(), beats.capacity), ("music.beat", "n", 4));
     assert_eq!(d.ports_of(Dir::In, PortType::Audio).next().unwrap().channels, Some(deck_catalog::Channels::Any(deck_catalog::AnyChannels::Any)));
     assert_eq!((Gain::IN, Gain::OUT, Gain::MOD, Gain::PEAK, Gain::BEATS, Gain::AMOUNT, Gain::OFFSET), (0, 0, 0, 0, 0, 0, 1));
+
+    // A1 (#409): the moods a module knows, in its order; none listed = none in the JSON
+    let p = parse(Policy::DESCRIPTOR).unwrap();
+    assert_eq!(p.moods.iter().map(|m| m.as_ref()).collect::<Vec<_>>(), ["calm", "bright", "angry"]);
+    assert!(!Gain::DESCRIPTOR.contains("moods"));
 
     let s = parse(Synth::DESCRIPTOR).unwrap();
     assert_eq!((s.latency, s.params[0].choices.len(), s.params[0].max, s.params[0].default), (32, 4, 3.0, Some(3.0)));

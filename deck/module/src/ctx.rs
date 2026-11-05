@@ -68,7 +68,8 @@ pub struct Character<'a> {
     pub id: &'a str,
     pub persona: &'a str,
     pub mood: &'a str,
-    /// the mood's position in the scene's `moods` registry (cheaper to switch on than the string)
+    /// the mood's place in the module's own `#[module(moods = "…")]` list + 1, 0 = a mood it does not list (A1, #409;
+    /// cheaper to switch on than the string). The deck sets it with the mood, from the block its live context arrives on
     pub mood_index: u32,
     pub energy: f32,
     pub touch: f32,
