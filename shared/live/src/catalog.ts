@@ -17,6 +17,8 @@ export type AssetKind = "pcm" | "bytes" | "image";
 
 export type Bundle = {
 	instrument?: Instrument[];
+	/** a code rig's policy module: its descriptor (the `module:<id>` document's, #408) */
+	module?: Descriptor[];
 	preset?: Preset[];
 	rig: Rig;
 };
@@ -143,6 +145,16 @@ export type ParamDesc = {
 	unit?: string;
 };
 
+/** A rig's policy: the module that drives its tracks, the node's seed and its parameters' values. */
+export type Policy = {
+	/** the `module:<id>` document's id – its descriptor's name */
+	module: string;
+	/** the node's seed (the module seed rule: 1 unless set) */
+	seed?: number | null;
+	/** its parameters' values by name (the rest keep their defaults); persona / mood values `policy:<param>` go on top */
+	values?: { [key: string]: number };
+};
+
 export type PortDesc = {
 	/** event ports: records per block (1 … `MAX_EVENT_CAPACITY`) */
 	capacity?: number;
@@ -197,6 +209,8 @@ export type Rig = {
 	moods?: { [key: string]: Variant };
 	/** persona → overrides (applied first) */
 	personas?: { [key: string]: Variant };
+	/** a code rig (#408): the control module that drives the tracks (policy.rs); none = the tables alone */
+	policy?: Policy | null;
 	rights?: Rights;
 	/** sends and modulation between tracks, and to the being's look (`being:hue`) – everything is audiovisual */
 	route?: Route[];

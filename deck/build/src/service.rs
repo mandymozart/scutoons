@@ -5,8 +5,9 @@
 //!   · `422 { errors: [{ file, line, column, level, message }] }` – the files break a rule, or rustc's errors
 //!   · `503 { error: "live_show" }` while the relay reports a live session · `503 { error: "busy" }` when the queue is full
 //!     or the wait too long · `401` without the token · `400` / `413` for a body that is not one
-//! `POST /validate` (header `X-Build-Token`, #313) `{ kind: instruments | presets | rigs, id, document, instruments?, presets? }`
-//!   → `200 { problems: [..] }` (none = valid) – deck-space's own checks (rig/validate.rs), the words the creator shows;
+//! `POST /validate` (header `X-Build-Token`, #313) `{ kind: instruments | presets | rigs, id, document, instruments?, presets?,
+//!   modules? }` (`modules`: a code rig's policy descriptor, #408)
+//!   → `200 { problems: [..], warnings?: [..] }` (none = valid) – deck-space's own checks (rig/validate.rs), the words the creator shows;
 //!   the API asks before every catalog write of the three kinds. No queue and no live-show refusal: a check is
 //!   microseconds of the core, never rustc. `400` for a body that is not such a request, `401` without the token.
 //! `GET /health` → `{ ok, waiting }` (no token: a probe).
@@ -92,8 +93,8 @@ impl Service {
         let Ok(request) = serde_json::from_slice::<validate::Request>(&req.body) else {
             return Response::error(400, "bad_request");
         };
-        match request.problems() {
-            Ok(problems) => Response::json(200, &json!(validate::Answer { problems })),
+        match request.answer() {
+            Ok(answer) => Response::json(200, &json!(answer)),
             Err(_) => Response::error(400, "unknown_kind"),
         }
     }
