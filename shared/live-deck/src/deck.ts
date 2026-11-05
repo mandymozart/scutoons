@@ -13,6 +13,7 @@ import { BrowserSync } from './sync.ts';
 import type { Spec } from './scene.ts';
 import type { MoodStep, RigPlayed, RigSlider, RigTurn } from './rig.ts';
 import type { DeckStateView } from './space.ts';
+import type { RigWiring } from './wiring.ts';
 
 /** a character's portraits by mood (scene-content's `characters.<id>.portraits`) */
 export type Portraits = Record<string, { path: string }>;
@@ -202,6 +203,11 @@ export class Deck {
 	/** the being on the wire now (the core's: the played scene, its character – the deck's for its own scene –, the moods) */
 	graph(): DeckGraph {
 		return this.state ? (JSON.parse(this.state.graph(this.character)) as DeckGraph) : { nodes: [], links: [] };
+	}
+
+	/** #282: the played scene's wiring as the core resolved it (none before the wasm came) */
+	wiring(): RigWiring {
+		return this.state ? (JSON.parse(this.state.wiring()) as RigWiring) : { nodes: [], links: [] };
 	}
 
 	/** the paths the deck streams (and the 3D being reads): the played scene's */

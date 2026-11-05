@@ -11,8 +11,9 @@
 	import { goto, beforeNavigate } from '$app/navigation';
 	import { page } from '$app/state';
 	import { Divider, Icon, askDialog, choiceDialog, confirmDialog, panelWidth } from '@scutoons/ui';
-	import { createDesignerApi, RigDesigner, setupRigDesigner, STARTER_FILES } from '@scutoons/rig-designer';
+	import { createDesignerApi, RigDesigner, setupRigDesigner, STARTER_FILES, type GraphWiring } from '@scutoons/rig-designer';
 	import { getSessionToken } from '@scutoons/api';
+	import type { EngineHost } from '@scutoons/engine-host';
 	import { API_URL } from '$lib/config.ts';
 	import { api, putDraft } from '$lib/api.ts';
 	import { usePageNav } from '$lib/nav.svelte.ts';
@@ -42,11 +43,8 @@
 	/** a refused New module, one muted sentence */
 	let notice = $state('');
 	async function loadModules(): Promise<void> {
-		try {
-			catalog = readCatalog((await api.get<{ entries: { id: string; removed: boolean; content: unknown }[] }>('/catalog/docs/modules')).entries);
-		} catch {
-			catalog = NO_MODULES;
-		}
+		const r = await api.get<{ entries: { id: string; removed: boolean; content: unknown }[] }>('/catalog/docs/modules').catch(() => null);
+		catalog = r ? readCatalog(r.entries) : NO_MODULES;
 	}
 	onMount(() => void loadModules());
 
@@ -63,21 +61,15 @@
 		void goto(editHref(target.key, { w: 'sound', sel: id ? moduleKey(id) : null }), { replaceState: true, keepFocus: true, noScroll: true });
 	}
 
-	/** New module: a copy of the factory module the user picks (a derivative) – the walk starter while the catalog has none;
-	 * Derive: a copy of the open factory module. Its id, a draft right away (lib/editor/module-catalog.ts), then it opens. */
+	/** New module (a copy of a picked factory module, else the starter) or Derive (of the open one): a draft, then it opens */
 	async function create(derive: boolean): Promise<void> {
 		const choices = factoryChoices(catalog);
 		const pick = derive || choices.length === 0 ? null : await choiceDialog({ title: m['creator.sound_start_from'](), message: m['creator.sound_start_from_hint'](), choices });
 		if (!derive && choices.length > 0 && !pick) return;
 		const from = derive && designer.moduleId ? templateOf(designer.moduleId, designer.name, designer.files, designer.outcome) : pick ? { id: pick, module: catalog.factory[pick] } : null;
-		const typed = await askDialog({
-			title: from ? m['creator.sound_derive']() : m['creator.sound_new_module'](),
-			message: from ? m['creator.sound_derive_hint']({ origin: from.id }) : m['creator.sound_new_module_hint'](),
-			label: 'id',
-			placeholder: `e.g. my_${from?.id ?? 'walk'}`,
-			confirmLabel: m['creator.sound_new_module_create']()
-		});
-		const id = typed?.trim();
+		const message = from ? m['creator.sound_derive_hint']({ origin: from.id }) : m['creator.sound_new_module_hint']();
+		const typed = await askDialog({ title: from ? m['creator.sound_derive']() : m['creator.sound_new_module'](), message, label: 'id', placeholder: `e.g. my_${from?.id ?? 'walk'}`, confirmLabel: m['creator.sound_new_module_create']() });
+		const id = typed?.trim() ?? '';
 		if (!id) return;
 		await loadModules();
 		const problem = idProblem(id, catalog.ids);
@@ -116,6 +108,9 @@
 	const stacked = new MediaQuery('max-width: 56rem');
 	let splitEl = $state<HTMLElement>();
 	const deckSize = panelWidth('sc-panel-width:sound-deck', 26, () => splitEl?.getBoundingClientRect().right ?? window.innerWidth);
+	// the deck half's engine and the core's wiring of what it plays: the designer's Nodes tab draws them (#282)
+	let host = $state<EngineHost | null>(null);
+	let wiring = $state<GraphWiring>();
 </script>
 
 {#snippet topBar()}
@@ -133,6 +128,8 @@
 			factory={Object.keys(catalog.factory)}
 			{selected}
 			{notice}
+			{host}
+			{wiring}
 			onselect={select}
 			onnew={() => create(false)}
 			onderive={() => create(true)}
@@ -140,7 +137,7 @@
 	</section>
 	<section class="half deck-half" id="sound-deck" aria-label={m['creator.sound_deck']()}>
 		{#key target.key}
-			<DeckHalf character={target.kind === 'rig' ? target.character : 'catpope'} />
+			<DeckHalf character={'character' in target ? target.character : 'catpope'} bind:host bind:wiring />
 		{/key}
 	</section>
 	{#if !stacked.current}

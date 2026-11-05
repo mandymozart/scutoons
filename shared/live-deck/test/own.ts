@@ -7,12 +7,14 @@ import type { DeckGraph } from '@scutoons/live';
 import type { PathKind } from '../src/rig.ts';
 import type { MoodStep, RigSlider, RigTurn } from '../src/rig.ts';
 import type { DeckStateView } from '../src/space.ts';
+import type { RigWiring } from '../src/wiring.ts';
 import { answer } from './controls-core.ts';
 
 interface Scene {
 	sliders: RigSlider[];
 	graph: DeckGraph;
 	targets: Record<string, string>;
+	wiring: RigWiring;
 }
 export const DECK = JSON.parse(readFileSync(new URL('./fixtures/deck.json', import.meta.url), 'utf8')) as {
 	own: Scene & { now: RigTurn };
@@ -58,6 +60,7 @@ export function stateOf(o: { moods?: string[]; said?: (string | MoodStep)[] } = 
 		play_core: (character: string) => ((at = character.endsWith('catpope') ? 'catpope' : 'own'), s.now()),
 		sliders: (locale: string) => JSON.stringify(locale === 'de' && at === 'catpope' ? DECK.catpope.sliders_de : DECK[at].sliders),
 		graph: () => JSON.stringify(DECK[at].graph),
+		wiring: () => JSON.stringify(DECK[at].wiring),
 		target: (path: string) => DECK[at].targets[path] ?? '',
 		// #369: a knob's value ↔ 0..1 – the core's answers for its own scene (test/fixtures/controls.json)
 		norm: (path: string, value: number) => answer<number>('norm', path, value),

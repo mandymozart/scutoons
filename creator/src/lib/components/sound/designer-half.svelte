@@ -1,12 +1,15 @@
 <script lang="ts">
 	// The designer half of the Sound design workspace (#282): the module being edited (a rig page picks one of the stored
-	// modules, a module page IS one), Derive (a factory module, #350: read-only), New module, and the designer's tab row –
-	// Parameters · Nodes · Rust · Assignment, of which Parameters (read-only) and Rust are live. Both tabs stay mounted.
-	import { DesignerTabs, ParametersTab, RustTab, type DesignerTabId, type RigDesigner } from '@scutoons/rig-designer';
+	// modules, a module page IS one), Derive (a factory module, #350: read-only), New module, and the tab row – Parameters ·
+	// Nodes · Rust · Assignment; Parameters, Nodes (read-only: the deck's wiring) and Rust are live, mounted while hidden.
+	import { DesignerTabs, NodesTab, ParametersTab, RustTab, type DesignerTabId, type GraphWiring, type RigDesigner } from '@scutoons/rig-designer';
+	import type { EngineHost } from '@scutoons/engine-host';
 	import { Icon } from '@scutoons/ui';
 	import { m } from '$lib/paraglide/messages.js';
 
-	let { designer, fixed = null, modules, factory = [], selected, notice = '', onselect, onnew, onderive }: {
+	let { designer, fixed = null, modules, factory = [], selected, notice = '', host, wiring, onselect, onnew, onderive }: {
+		/** the deck half's engine and the core's wiring of what it plays (the Nodes tab) */
+		host: EngineHost | null; wiring?: GraphWiring;
 		designer: RigDesigner;
 		/** a module page: the module's id, shown as the title (no picker) */
 		fixed?: string | null;
@@ -45,8 +48,9 @@
 	{#if notice}<p class="note" role="status">{notice}</p>{/if}
 	<DesignerTabs value={tab} onchange={(id) => (tab = id)} />
 	<div class="body">
+		<div class="pane" hidden={tab !== 'nodes'}><NodesTab {wiring} read={(p) => host?.deck?.read(p) ?? NaN} active={tab === 'nodes'} /></div>
 		{#if !designer.moduleId}
-			<p class="sc-empty pad">{m['creator.sound_pick_module']()}</p>
+			{#if tab !== 'nodes'}<p class="sc-empty pad">{m['creator.sound_pick_module']()}</p>{/if}
 		{:else}
 			<div class="pane" hidden={tab !== 'rust'}><RustTab {designer} /></div>
 			<div class="pane" hidden={tab !== 'parameters'}><ParametersTab {designer} /></div>
@@ -70,13 +74,12 @@
 		padding: var(--space-05) var(--space-1);
 		border-bottom: var(--border-width-regular) solid var(--ink);
 	}
-	.head select {
+	.head select,
+	.title {
 		flex: 1;
 		min-width: 0;
 	}
 	.title {
-		flex: 1;
-		min-width: 0;
 		overflow: hidden;
 		white-space: nowrap;
 		text-overflow: ellipsis;
