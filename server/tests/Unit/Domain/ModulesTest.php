@@ -110,6 +110,9 @@ final class ModulesTest extends TestCase
         $d['params'][0]['min'] = 'low';
         $this->refused(['descriptor' => $d], 'descriptor.params[0]');
         $this->refused(['descriptor' => self::compiled()['descriptor'] + ['entry' => 'main']], 'descriptor has no field entry');
+        // #409 A1: the moods a module knows, in its own order – a policy module's descriptor carries them
+        $this->refused(['descriptor' => self::compiled()['descriptor'] + ['moods' => 'sad']], 'descriptor.moods must be a list of names');
+        self::assertSame([], $this->problems(['descriptor' => self::compiled()['descriptor'] + ['moods' => ['thinking', 'sad']]]));
     }
 
     public function testAnInvalidModuleIsRefusedByAPut(): void

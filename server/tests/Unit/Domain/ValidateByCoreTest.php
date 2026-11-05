@@ -130,6 +130,100 @@ final class ValidateByCoreTest extends TestCase
         self::assertNotNull($this->row('instruments', 'choir'));
     }
 
+    /**
+     * #414: a code rig (catpope's mood switching as a policy module, research/RIG-MODULE-GROUPS.md §3) is checked with the
+     * descriptor of its `module:<id>` document, by value, and the presets its `@preset` outputs choose from. The request
+     * is fixtures/rigs/validate-code-rig.json's, which deck/build's validate_accepts_a_code_rig_with_its_policy_module
+     * sends to the real core (accepted; refused without `modules`). The module document is a fixture: no compile runs.
+     * @param bool $withModule false leaves the module out of the catalog
+     * @return stdClass the fixture's case
+     */
+    private function seedCodeRig(bool $withModule = true): stdClass
+    {
+        $case = self::codeRigFixture()->cases[0];
+        $store = $this->get(CatalogStore::class);
+        foreach ($case->instruments as $instrument) $store->save('instruments', $instrument->id, $instrument, self::BY);
+        foreach ($case->presets as $preset) $store->save('presets', $preset->id, $preset, self::BY);
+        if ($withModule) $store->save('modules', 'catpope_rig', self::codeRigFixture()->module, self::BY);
+        return $case;
+    }
+
+    private static function codeRigFixture(): stdClass
+    {
+        $set = json_decode((string) file_get_contents(self::root() . '/tests/fixtures/rigs/validate-code-rig.json'));
+        self::assertInstanceOf(stdClass::class, $set);
+        return $set;
+    }
+
+    public function testACodeRigIsCheckedWithItsPolicyModulesDescriptor(): void
+    {
+        $case = $this->seedCodeRig();
+        $validator = $this->get(CatalogValidator::class);
+        $json = CatalogStore::encode($case->document);
+        $this->core->answer = fn(array $request): array => [];
+        self::assertSame([], $validator->problems('rigs', $case->id, json_decode($json, true), json_decode($json)));
+        $sent = $this->core->requests[count($this->core->requests) - 1]['request'];
+        $expected = ['kind' => $case->kind, 'id' => $case->id, 'document' => $case->document, 'instruments' => $case->instruments, 'presets' => $case->presets, 'modules' => $case->modules];
+        self::assertEquals(self::normal($expected), self::normal($sent), 'the rig, what it names, the presets its @preset output chooses from, and the descriptor, by value');
+        self::assertSame(['catpope_rig'], array_column($sent['modules'], 'name'), 'the descriptor of the module document, not the document (no sources)');
+    }
+
+    public function testACodeRigSavesAndPublishesThroughTheApi(): void
+    {
+        $case = $this->seedCodeRig();
+        $writer = $this->creator('writer@example.com');
+        self::assertSame(200, $this->request('PUT', '/api/entities/rig:character.catpope', $writer, ['content' => $case->document])->getStatusCode());
+        $published = $this->request('POST', '/api/entities/rig:character.catpope/publish', $writer, (object) []);
+        self::assertSame(200, $published->getStatusCode(), (string) $published->getBody());
+        $row = json_decode((string) $this->row('rigs', 'character.catpope'));
+        self::assertSame('catpope_rig', $row->policy->module ?? null, 'the code rig is in the catalog');
+        $sent = $this->core->requests[count($this->core->requests) - 1]['request'];
+        self::assertSame(['catpope_rig'], array_column($sent['modules'], 'name'));
+
+        // the service down: still a 503 and nothing written – a code rig does not pass silently either
+        $this->core->answer = fn(array $request) => new RuntimeException('connection refused');
+        $this->db->exec('DELETE FROM ' . CatalogStore::table('rigs') . " WHERE id = 'character.catpope'");
+        self::assertSame(200, $this->request('PUT', '/api/entities/rig:character.catpope', $writer, ['content' => $case->document])->getStatusCode());
+        $down = $this->request('POST', '/api/entities/rig:character.catpope/publish', $writer, (object) []);
+        self::assertSame([503, 'build_unavailable'], [$down->getStatusCode(), self::json($down)['error'] ?? null]);
+        self::assertNull($this->row('rigs', 'character.catpope'));
+    }
+
+    public function testACodeRigWhoseModuleIsNotReadySaysSo(): void
+    {
+        $validator = $this->get(CatalogValidator::class);
+        $problems = function (stdClass $case) use ($validator): array {
+            $json = CatalogStore::encode($case->document);
+            return $validator->problems('rigs', $case->id, json_decode($json, true), json_decode($json));
+        };
+        $store = $this->get(CatalogStore::class);
+
+        $case = $this->seedCodeRig(false);
+        self::assertSame(['rig character.catpope: the policy module "catpope_rig" is not in the catalog'], $problems($case), 'no such module');
+
+        // sources saved, not compiled yet: no descriptor (a compile writes it with the wasm)
+        $uncompiled = clone self::codeRigFixture()->module;
+        unset($uncompiled->descriptor, $uncompiled->wasm);
+        $store->save('modules', 'catpope_rig', $uncompiled, self::BY);
+        self::assertSame(['rig character.catpope: the policy module "catpope_rig" has no descriptor yet – compile it first'], $problems($case));
+
+        // a descriptor under another name: the core looks the policy up by it
+        $misnamed = (object) json_decode((string) json_encode(self::codeRigFixture()->module));
+        $misnamed->descriptor->name = 'other_rig';
+        $store->save('modules', 'catpope_rig', $misnamed, self::BY);
+        $message = 'rig character.catpope: the module document "catpope_rig" carries the descriptor of "other_rig"';
+        self::assertSame([$message], $problems($case));
+        self::assertSame([], $this->core->requests, 'the API says so itself: the core is not asked');
+
+        // through the API: a 422 in its usual style, nothing written
+        $writer = $this->creator('writer@example.com');
+        self::assertSame(200, $this->request('PUT', '/api/entities/rig:character.catpope', $writer, ['content' => $case->document])->getStatusCode());
+        $refused = $this->request('POST', '/api/entities/rig:character.catpope/publish', $writer, (object) []);
+        $body = self::json($refused);
+        self::assertSame([422, 'invalid_catalog', [$message]], [$refused->getStatusCode(), $body['error'] ?? null, $body['problems'] ?? null]);
+        self::assertSame([], $this->core->requests);
+    }
+
     public function testWithoutTheServiceNothingIsWrittenButDraftsAreSaved(): void
     {
         $doc = json_decode('{"id":"drone.dark","instrument":"drone","parent":"drone.base","values":{"drone.freq":41.0}}');

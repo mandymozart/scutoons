@@ -75,6 +75,15 @@ pub fn mode_name(m: Mode) -> &'static str {
     }
 }
 
+/// The presets a policy module may choose from: the `choices` of its `<track>:@preset` outputs. A rig's bundle carries
+/// them with their ancestors, though no track, persona or mood names them (the catalog's bundle, scene-content, #414).
+pub fn preset_choices(d: &Descriptor) -> impl Iterator<Item = &str> {
+    d.ports
+        .iter()
+        .filter(|p| p.dir == Dir::Out && p.ty == PortType::Control && scoped(&p.path).is_some_and(|(_, member)| member == "@preset"))
+        .flat_map(|p| p.choices.iter().map(|c| &**c))
+}
+
 impl Rig {
     /// the policy and its module's descriptor; None for a rig without a policy
     pub fn policy_module<'a>(&'a self, lib: &'a Library) -> Result<Option<(&'a Policy, &'a Descriptor)>> {

@@ -26,7 +26,9 @@ use stdClass;
  *   `data` = deck-space's `Rig`, `instruments` / `presets` = the ids it needs, presets **with their ancestors** (a lineage
  *   resolves offline). The top-level `instruments` / `presets` maps hold each one once as `{ id, version, data }`;
  *   `version` = a hash of the stored data, so a deck's cache skips what it has. `{ rig: data, instrument: […], preset: […] }`
- *   is a deck-space `rig::Bundle` (its the_servers_scene_content_reads_as_bundles test reads this answer).
+ *   is a deck-space `rig::Bundle` (its the_servers_scene_content_reads_as_bundles test reads this answer). A code rig (`policy`,
+ *   #408 / #414) also names its policy module, `modules: [id]`; the top-level `modules` map (there only when a rig has one)
+ *   holds its descriptor as `data` (`Bundle.module`) – never its sources.
  * - `&presets=<ids>` adds factory presets to the top-level map with their ancestors; an unknown id lands in
  *   `missing.presets`. Everything is public like the catalog and the registry (readers save nothing, #302).
  */
@@ -35,7 +37,7 @@ final class SceneContent
     public const MAX_IDS = 32;
     public const ID = '#^[a-z0-9][a-z0-9_-]{0,63}$#';
     /** the rig kinds as scene-content names them → their catalog kinds */
-    private const RIG_KINDS = ['instruments' => 'instruments', 'presets' => 'presets', 'rigs' => 'rigs'];
+    private const RIG_KINDS = ['instruments' => 'instruments', 'presets' => 'presets', 'rigs' => 'rigs', 'modules' => 'modules'];
 
     public function __construct(
         private readonly Library $library,
@@ -115,7 +117,14 @@ final class SceneContent
             foreach ($tracks as $t) {
                 if ($t instanceof stdClass && is_string($t->instrument ?? null)) $instruments[] = $t->instrument;
             }
-            foreach (CatalogValidator::rigPresets(json_decode((string) $json, true)) as $id) {
+            // a code rig's policy module (#414): its descriptor, once, in the top-level `modules`; the presets it chooses from
+            // come along with the ones the rig names
+            $policy = $data->policy ?? null;
+            $module = $policy instanceof stdClass ? ($policy->module ?? null) : null;
+            $descriptor = is_string($module) ? self::module($stored, $module, $out) : null;
+            $modules = $descriptor !== null ? [$module] : [];
+            $named = [...CatalogValidator::rigPresets(json_decode((string) $json, true)), ...($descriptor !== null ? CatalogValidator::policyPresets($descriptor) : [])];
+            foreach ($named as $id) {
                 $presets = [...$presets, ...$lineage($id, $instruments)];
             }
             $instruments = array_values(array_unique($instruments));
@@ -127,7 +136,7 @@ final class SceneContent
                 'data' => $data,
                 'instruments' => array_values(array_filter($instruments, $have('instruments'))),
                 'presets' => array_values(array_filter(array_values(array_unique($presets)), $have('presets'))),
-            ];
+            ] + ($modules === [] ? [] : ['modules' => $modules]);
         };
         foreach ($answer['characters'] as $id => $c) {
             $persona = is_string($c['persona'] ?? null) ? $c['persona'] : 'regular';
@@ -149,7 +158,27 @@ final class SceneContent
         }
         ksort($out['instruments']);
         ksort($out['presets']);
+        if (isset($out['modules'])) ksort($out['modules']);
         return [...$answer, ...$out];
+    }
+
+    /**
+     * A code rig's policy module (#414, research/RIG-MODULE-GROUPS.md decision 5) as the answer's `modules` entry: the
+     * descriptor the compile service stored in the `module:<id>` document (not its sources), `version` = its hash. Null
+     * when there is none – no such module, not compiled yet, or a descriptor under another name (the deck's bundle then
+     * misses it, as it misses an instrument that is gone).
+     * @param callable(string, string): ?string $stored
+     * @param array<string, array<string, mixed>> $out
+     */
+    private static function module(callable $stored, string $id, array &$out): ?stdClass
+    {
+        if (isset($out['modules'][$id])) return $out['modules'][$id]['data'];
+        $json = $stored('modules', $id);
+        $doc = $json !== null ? CatalogStore::reader($json, false) : null;
+        $descriptor = $doc instanceof stdClass ? ($doc->descriptor ?? null) : null;
+        if (!$descriptor instanceof stdClass || ($descriptor->name ?? null) !== $id) return null;
+        $out['modules'][$id] = ['id' => $id, 'version' => self::version((string) json_encode($descriptor, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION)), 'data' => $descriptor];
+        return $descriptor;
     }
 
     /**
@@ -179,6 +208,7 @@ final class SceneContent
             'items' => (object) ($content['items'] ?? []),
             'instruments' => (object) ($content['instruments'] ?? []),
             'presets' => (object) ($content['presets'] ?? []),
+            ...(($content['modules'] ?? []) === [] ? [] : ['modules' => (object) $content['modules']]),
             'missing' => $content['missing'],
         ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION);
     }

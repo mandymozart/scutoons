@@ -312,6 +312,34 @@ mod tests {
         assert_eq!(fake.started.load(Ordering::SeqCst), 0, "no compile");
     }
 
+    /// #414: a code rig as the API sends it – the rig, what it names and the descriptor of its policy module from the
+    /// catalog's `module:<id>` document (server/tests/fixtures/rigs/validate-code-rig.json, the request ValidateByCoreTest
+    /// builds from the catalog): the real core accepts it with `modules`, refuses it without, and says what it warns about
+    #[tokio::test]
+    async fn validate_accepts_a_code_rig_with_its_policy_module() {
+        let service = Service::new(config(0, 100), Fake::new());
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../server/tests/fixtures/rigs/validate-code-rig.json");
+        let set: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+        for case in set["cases"].as_array().unwrap() {
+            let mut request = case.clone();
+            let o = request.as_object_mut().unwrap();
+            let name = o.remove("name").unwrap();
+            let problems = o.remove("problems").unwrap();
+            let warnings = o.remove("warnings").unwrap();
+            assert_eq!(request["modules"], json!([set["module"]["descriptor"]]), "{name}: the module document's descriptor, by value");
+            let r = service.handle(&validate(Some("sesame"), &request.to_string())).await;
+            assert_eq!(r.status, 200, "{name}: {}", r.body);
+            let v: serde_json::Value = serde_json::from_str(&r.body).unwrap();
+            assert_eq!(v["problems"], problems, "{name}");
+            assert_eq!(v["warnings"], warnings, "{name}");
+            // the API never leaves the descriptor out of a code rig's request: if it did, the core would refuse it
+            request.as_object_mut().unwrap().remove("modules");
+            let r = service.handle(&validate(Some("sesame"), &request.to_string())).await;
+            let v: serde_json::Value = serde_json::from_str(&r.body).unwrap();
+            assert_eq!(v["problems"], json!(["rig character.catpope: no module 'catpope_rig' for its policy – the policy's module:catpope_rig document comes with the rig"]),"{name}: without `modules`");
+        }
+    }
+
     #[tokio::test]
     async fn validate_wants_the_token_and_a_request() {
         let service = Service::new(config(2, 100), Fake::new());
