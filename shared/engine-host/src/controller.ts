@@ -189,7 +189,7 @@ export class EngineHost {
 			this.log.push('sound', `running: ${core?.transport} transport, ${core?.context.sampleRate} Hz, crossOriginIsolated ${globalThis.crossOriginIsolated === true}`);
 			this.snap = { ...this.snap, error: '' };
 			core?.audioTo(this.perf);
-			this.perf?.resetDevices();
+			this.perf?.reset_devices();
 			this.setPhase('running');
 			return true;
 		} catch (e) {

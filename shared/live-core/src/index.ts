@@ -67,7 +67,8 @@ export interface MonitorView {
 	signal(nowMs: number, json: string): void;
 	/** #373: the rows of the protocols that carried a message (JSON `DeviceRow[]`) as of `nowMs` */
 	devices(nowMs: number): string;
-	resetDevices(): void;
+	/** #373: a new sound starts – the device monitor starts again (wasm-bindgen keeps the Rust name) */
+	reset_devices(): void;
 }
 
 /** #364: a bar item as the core worded and judged it */
