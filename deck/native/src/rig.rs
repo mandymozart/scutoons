@@ -12,7 +12,7 @@
 //! it chose – the values that moved go into the control domain like a mood's.
 use crate::control::Controls;
 use crate::graph::Graph;
-use crate::scene::Scene;
+use crate::scene::{LinkDef, NodeDef, Scene};
 use anyhow::{anyhow, Result};
 use deck_space::deck::{Deck, Step, Turn};
 use deck_space::rig::{Bundle, Played};
@@ -172,13 +172,19 @@ fn log(turn: &Turn) {
 }
 
 /// A rig's space node comes bare ("the caller sets its set", `Played::scene`): the deck plays it in its own scene's room –
-/// every param of the own space node (set, spot, camera, light, join, post) the rig's does not set itself.
+/// every param of the own space node (set, spot, camera, light, join, post) the rig's does not set itself – and puts its
+/// picture on the window: the flattened rig has no `screen` node (the browser deck draws the space itself), so without
+/// `space → screen` a native deck showed only the HUD on black (#418).
 fn staged(mut scene: Scene) -> Scene {
     let own = Played::deck_scene().ok().and_then(|p| p.nodes.into_iter().find(|n| n.kind == "space"));
     if let (Some(own), Some(space)) = (own, scene.nodes.iter_mut().find(|n| n.kind == "space")) {
         for (k, v) in own.params {
             space.params.entry(k).or_insert(v);
         }
+    }
+    if scene.nodes.iter().any(|n| n.kind == "space") && !scene.nodes.iter().any(|n| n.kind == "screen") {
+        scene.nodes.push(NodeDef { id: "screen".into(), kind: "screen".into(), params: toml::Table::new() });
+        scene.links.push(LinkDef { from: "space".into(), to: "screen.in".into(), scale: 1.0, offset: 0.0, map: Vec::new() });
     }
     scene
 }
@@ -204,8 +210,13 @@ mod tests {
         let played = deck.play_core("catpope", "").played;
         assert_eq!(scene.stage.name, "character.catpope");
         let ids = |s: &[crate::scene::NodeDef]| s.iter().map(|n| (n.id.clone(), n.kind.clone())).collect::<Vec<_>>();
-        assert_eq!(ids(&scene.nodes), ids(&played.nodes));
-        assert_eq!(scene.links, played.links);
+        // the played scene's nodes and links as they are, plus the window's `screen` fed by the space (#418)
+        let mut nodes = ids(&played.nodes);
+        nodes.push(("screen".into(), "screen".into()));
+        assert_eq!(ids(&scene.nodes), nodes);
+        assert_eq!(scene.links[..played.links.len()], played.links[..]);
+        let last = scene.links.last().unwrap();
+        assert_eq!((scene.links.len(), last.from.as_str(), last.to.as_str()), (played.links.len() + 1, "space", "screen.in"));
         let space = scene.nodes.iter().find(|n| n.kind == "space").unwrap();
         assert_eq!(space.params.get("set").and_then(|v| v.as_str()), Some("cathedral"), "the deck's own room");
         crate::modules::check(&scene).unwrap();
