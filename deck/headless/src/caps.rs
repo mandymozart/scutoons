@@ -20,6 +20,11 @@ use deck_space::mood::Ladder;
 use deck_space::push;
 use deck_space::quality;
 use deck_space::relay;
+use deck_space::rig::face::Resolved;
+use deck_space::rig::policy;
+use deck_space::rig::validate::Request;
+use deck_space::rig::wiring::Wiring;
+use deck_space::rig::Bundle;
 use serde_json::{json, Value};
 
 /// a capability the core lacks: its move ticket, what it is, where it lives today
@@ -40,17 +45,17 @@ impl std::fmt::Display for Missing {
 /// the unit test of the `expected_fail` rule has its own stand-in
 #[cfg(not(test))]
 pub const CAPS: &[(&str, &str, &str, &str)] = &[(
-    "code_rig",
-    "#408",
-    "a rig with a policy module: checked with the module's descriptor, flattened with the policy node, described (T1 of #314)",
-    "nowhere: a rig document has no policy (research/RIG-MODULE-GROUPS.md)",
+    "code_rig_moods",
+    "#409",
+    "a code rig's policy choosing per mood what the tables chose: the live mood in the module (T2, #409), the deck applying @preset (#410), a module runtime under this host",
+    "nowhere: a module node reads its mood once, at build; the browser's engine carries no module",
 )];
 #[cfg(test)]
 pub const CAPS: &[(&str, &str, &str, &str)] = &[("test_missing", "#0", "a stand-in for the unit test of the runner", "nowhere")];
 
 /// the steps the core answers now (their move tickets landed): name, ticket – `hud` (#374, deck-ui) is a step of the
 /// runner's (lib.rs: it reads the deck's clock)
-pub const MOVED: &[(&str, &str)] = &[("stats", "#364"), ("lead", "#365"), ("mood", "#367"), ("rig_facts", "#368"), ("device_text", "#373"), ("meters", "#373"), ("gesture", "#376"), ("knob", "#369"), ("sync", "#371"), ("relay_join", "#366"), ("quality_options", "#375")];
+pub const MOVED: &[(&str, &str)] = &[("stats", "#364"), ("lead", "#365"), ("mood", "#367"), ("rig_facts", "#368"), ("device_text", "#373"), ("meters", "#373"), ("gesture", "#376"), ("knob", "#369"), ("sync", "#371"), ("relay_join", "#366"), ("quality_options", "#375"), ("code_rig", "#408")];
 
 /// Call the capability `name` with the step's input: its answer, or what is missing.
 pub fn call(name: &str, input: &Value) -> Result<Value, Missing> {
@@ -66,6 +71,7 @@ pub fn call(name: &str, input: &Value) -> Result<Value, Missing> {
         "sync" => return Ok(sync(input)),
         "relay_join" => return Ok(relay_join(input)),
         "quality_options" => return Ok(quality_options()),
+        "code_rig" => return Ok(code_rig(input)),
         _ => {}
     }
     match CAPS.iter().find(|c| c.0 == name) {
@@ -295,6 +301,73 @@ fn relay_join(i: &Value) -> Value {
 /// page reads the same constants): levels with their labels, fps caps, scales, heights, pixel ratios, light and size limits.
 fn quality_options() -> Value {
     serde_json::from_str(&quality::options_json()).unwrap_or(Value::Null)
+}
+
+/// #408: a code rig as the core takes it (T1 of #314) – the core rig `core` with `policy` (its mood tables dropped
+/// unless `keep_moods`) and the policy module's descriptor `module`: the validator's answer (validate.rs, what the build
+/// service's POST /validate runs: problems, warnings), then, when valid, what it plays – the nodes, the policy's kind,
+/// its cables (the wiring's links out of it), the preset choices, the streamed paths, the knobs – and its face
+/// (Rig::describe: each target resolved, the inputs the policy drives).
+fn code_rig(i: &Value) -> Value {
+    let subject = i["core"].as_str().unwrap_or_default();
+    let mut b = match Bundle::core(subject) {
+        Some(Ok(b)) => b,
+        _ => return json!({ "error": format!("no core rig {subject}") }),
+    };
+    if !i["keep_moods"].as_bool().unwrap_or(false) {
+        b.rig.moods.clear();
+    }
+    let parsed = serde_json::from_value(i["policy"].clone()).map(|p| b.rig.policy = Some(p)).and_then(|_| match i.get("module") {
+        Some(m) => serde_json::from_value(m.clone()).map(|d| b.modules = vec![d]),
+        None => Ok(()),
+    });
+    if let Err(e) = parsed {
+        return json!({ "error": e.to_string() });
+    }
+    let request = Request {
+        kind: "rigs".into(),
+        id: subject.into(),
+        document: by_value(&b.rig),
+        instruments: b.instruments.iter().map(by_value).collect(),
+        presets: b.presets.iter().map(by_value).collect(),
+        modules: b.modules.iter().map(by_value).collect(),
+    };
+    let answer = match request.answer() {
+        Ok(a) => a,
+        Err(e) => return json!({ "error": e }),
+    };
+    let mut out = json!({ "problems": answer.problems, "problem": answer.problems.first().cloned().unwrap_or_default(), "warnings": answer.warnings });
+    if !answer.problems.is_empty() {
+        return out;
+    }
+    let (p, face) = match (b.play(None, None), b.rig.describe(&b.library())) {
+        (Ok(p), Ok(f)) => (p, f),
+        (Err(e), _) | (_, Err(e)) => return json!({ "error": format!("{e:#}") }),
+    };
+    let w = p.wiring().unwrap_or_else(|e| Wiring::failed(format!("{e:#}")));
+    let mut cables: Vec<String> = w.links.iter().filter(|l| w.nodes[l.from].id == policy::NODE).map(|l| format!("{} → {}.{}", l.value, w.nodes[l.to].id, l.input)).collect();
+    cables.sort();
+    let presets: serde_json::Map<String, Value> = p.presets.iter().map(|c| (c.track.clone(), json!(c.choices))).collect();
+    let targets: Vec<String> = face.policy.iter().flat_map(|f| &f.targets).map(|t| match &t.resolved {
+        Resolved::Input { input } | Resolved::Strip { input } => format!("{} → {input}", t.path),
+        Resolved::Preset { track, .. } => format!("{} → preset of {track}", t.path),
+    }).collect();
+    let mut driven: Vec<&str> = face.tracks.iter().flat_map(|t| &t.addressable).filter(|a| a.driven.is_some()).map(|a| a.path.as_str()).collect();
+    driven.sort();
+    out["nodes"] = json!(p.nodes.iter().map(|n| &n.id).collect::<Vec<_>>());
+    out["kind"] = json!(p.nodes.iter().find(|n| n.id == policy::NODE).map(|n| &n.kind));
+    out["cables"] = json!(cables);
+    out["presets"] = Value::Object(presets);
+    out["streamed"] = json!(p.streamed.iter().map(|(s, _)| s).collect::<Vec<_>>());
+    out["knobs"] = json!(p.knobs.iter().map(|k| &k.path).collect::<Vec<_>>());
+    out["targets"] = json!(targets);
+    out["driven"] = json!(driven);
+    out
+}
+
+/// a document as the validate request carries it (by value)
+fn by_value<T: serde::Serialize>(x: &T) -> Value {
+    serde_json::to_value(x).unwrap_or(Value::Null)
 }
 
 /// #369: deck-space's controls over one knob (`min`, `max`, `log`) as a page hands it in – its value at `position`, that
