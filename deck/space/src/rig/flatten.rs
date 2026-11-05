@@ -3,10 +3,16 @@
 //! the scene's `audio_out`, an `fft` on the sum (the being's energy and feelings read it), the rig's routes as links,
 //! and a bare `space` node the caller completes (its set, spot, camera) – the being, breathing with the sum's level
 //! (`fft.level` → `space.pulse`, as the phone deck's patch did) unless a route drives `being:pulse` itself.
+//! A code rig (#408, policy.rs) adds its policy: the node `policy` (`module:<id>`, registered from the library's
+//! descriptor), its parameters and seed, the context it starts with (character, persona, mood – the live one is #409's),
+//! and the strips its `@gain` targets drive; routes reach it as `policy:<port>`.
 //! The being's `character` (from the subject) and `expose` (the instruments' shown parameters) come along.
+use super::policy::{self, Member};
 use super::{scoped, Library, Rig, TrackPatch};
+use crate::modreg::{self, ModuleDef};
 use crate::scene::{split_ref, LinkDef, NodeDef, Scene};
 use anyhow::{bail, Result};
+use std::collections::BTreeMap;
 
 /// a mixer's inputs (graph.rs `Kind::Mixer`)
 const MIXER_INPUTS: usize = 4;
@@ -24,7 +30,7 @@ fn link(from: String, to: String, scale: f32, offset: f32) -> LinkDef {
 }
 
 /// `node.port` inside track `t` → `<t>_<node>.<port>`
-fn prefixed(track: &str, r: &str) -> String {
+pub(crate) fn prefixed(track: &str, r: &str) -> String {
     let (n, p) = split_ref(r);
     format!("{track}_{n}.{p}")
 }
@@ -32,8 +38,13 @@ fn prefixed(track: &str, r: &str) -> String {
 impl Rig {
     /// The rig played for `persona` and `mood` (`Rig::play`) as one scene; checked as a graph.
     pub fn flatten(&self, lib: &Library, persona: Option<&str>, mood: Option<&str>) -> Result<Scene> {
+        self.flatten_with(lib, persona, mood, &BTreeMap::new())
+    }
+
+    /// `flatten` with presets chosen per track (`Rig::play_with`: a code rig's `@preset` outputs, #410)
+    pub fn flatten_with(&self, lib: &Library, persona: Option<&str>, mood: Option<&str>, chosen: &BTreeMap<String, String>) -> Result<Scene> {
         self.check(lib)?;
-        let played = self.play(lib, persona, mood)?;
+        let played = self.play_with(lib, persona, mood, chosen)?;
         if played.is_empty() {
             bail!("rig {}: every track is muted", self.subject);
         }
@@ -48,7 +59,8 @@ impl Rig {
             }
         }
         self.mix(&played, &mut scene);
-        let playing = |t: &str| played.iter().any(|p| p.track == t);
+        self.policy_node(lib, &played, persona, mood, &mut scene)?;
+        let playing = |t: &str| played.iter().any(|p| p.track == t) || (t == policy::NODE && self.policy.is_some());
         let mut pulse = false;
         for r in &self.routes {
             let (Some((ft, from)), Some((tt, to))) = (scoped(&r.from), scoped(&r.to)) else { continue };
@@ -56,13 +68,14 @@ impl Rig {
             if !playing(ft) || (tt != "being" && !playing(tt)) {
                 continue;
             }
+            let end = |track: &str, r: &str| if track == policy::NODE { format!("{}.{r}", policy::NODE) } else { prefixed(track, r) };
             let to = if tt == "being" {
                 pulse |= to == "pulse";
                 format!("space.{to}")
             } else {
-                prefixed(tt, to)
+                end(tt, to)
             };
-            scene.links.push(link(prefixed(ft, from), to, r.scale, r.offset));
+            scene.links.push(link(end(ft, from), to, r.scale, r.offset));
         }
         scene.nodes.push(node("space", "space", &[]));
         if !pulse {
@@ -76,6 +89,9 @@ impl Rig {
             for TrackPatch { track, .. } in &played {
                 let inst = lib.instrument(&self.tracks.iter().find(|t| &t.id == track).expect("played").instrument)?;
                 scene.being.expose.extend(inst.expose.iter().map(|e| prefixed(track, &super::instrument::canonical(&e.path))));
+            }
+            if let Some((_, d)) = self.policy_module(lib)? {
+                scene.being.expose.extend(d.params.iter().map(|p| format!("{}.{}", policy::NODE, p.name)));
             }
         }
         crate::graph::Graph::build(&scene).map_err(|e| e.context(format!("rig {} flattened", self.subject)))?;
@@ -113,5 +129,41 @@ impl Rig {
             }
             inputs.insert(0, (format!("{id}.out"), 1.0));
         }
+    }
+
+    /// A code rig's policy as the node `policy`: its module registered as a node kind (the library's descriptor, the
+    /// mapping the native library uses too), its seed and parameters, the context it starts with, and the strip of
+    /// each `@gain` target (`@gain = { <track> = "mixN.gainK" }`, bound by graph.rs). `@preset` stays unbound: the deck
+    /// applies it (#410).
+    fn policy_node(&self, lib: &Library, played: &[TrackPatch], persona: Option<&str>, mood: Option<&str>, scene: &mut Scene) -> Result<()> {
+        let Some((policy, d)) = self.policy_module(lib)? else { return Ok(()) };
+        modreg::register(&d.name, &ModuleDef::of(d));
+        let mut params = toml::Table::new();
+        if let Some(seed) = policy.seed {
+            params.insert("seed".into(), toml::Value::Integer(i64::from(seed)));
+        }
+        for (k, v) in self.policy_values(persona, mood) {
+            params.insert(k, toml::Value::Float(f64::from(v)));
+        }
+        if let Some(c) = self.subject.strip_prefix("character.") {
+            params.insert("character".into(), toml::Value::String(c.split('.').next().unwrap_or(c).to_string()));
+        }
+        for (k, v) in [("persona", persona), ("mood", mood)] {
+            if let Some(v) = v {
+                params.insert(k.into(), toml::Value::String(v.to_string()));
+            }
+        }
+        let mut gains = toml::Table::new();
+        for t in self.targets(lib)?.iter().filter(|t| t.member == Member::Gain) {
+            if let Some(i) = played.iter().position(|p| p.track == t.track) {
+                let (n, k) = policy::strip(i);
+                gains.insert(t.track.clone(), toml::Value::String(format!("mix{n}.gain{k}")));
+            }
+        }
+        if !gains.is_empty() {
+            params.insert(policy::GAIN_TABLE.into(), toml::Value::Table(gains));
+        }
+        scene.nodes.push(NodeDef { id: policy::NODE.to_string(), kind: format!("{}{}", modreg::PREFIX, d.name), params });
+        Ok(())
     }
 }

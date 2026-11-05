@@ -219,6 +219,24 @@ mod tests {
         assert!(d("mix1") < d("out") && d("mix1") < d("fft") && d("fft") < d("space"));
     }
 
+    /// #408: a code rig's policy is a node like any other – the scene's own (no track), in the control domain, its
+    /// target links drawn as bound cables, the browser not playing it yet
+    #[test]
+    fn a_code_rig_s_policy_and_its_cables() {
+        let w = crate::rig::policy::tests::code_catpope().play(None, None).unwrap().wiring().unwrap();
+        let (policy, n) = node(&w, "policy");
+        assert_eq!((n.kind.as_str(), n.track.as_str(), n.domain, n.played), ("module:catpope_rig", "", "control", false));
+        assert_eq!(n.outputs.iter().map(|p| p.name.as_str()).collect::<Vec<_>>(), ["voice_preset", "voice_index", "drone_gain"]);
+        assert!(n.inputs.iter().any(|p| p.name == "heat" && p.ty == "control"), "its parameter is an input");
+        let cables: Vec<(String, &str, String, bool)> = w.links.iter().filter(|l| l.from == policy).map(|l| (l.value.clone(), w.nodes[l.to].id.as_str(), l.input.clone(), l.bound)).collect();
+        assert_eq!(
+            cables,
+            [("policy.voice_index".to_string(), "voice_voice", "index".to_string(), true), ("policy.drone_gain".to_string(), "drone_drone", "gain".to_string(), true)]
+        );
+        // fed by nothing, it is a source; its cables into the audio half cross threads, so they order nothing
+        assert_eq!(node(&w, "policy").1.depth, 0);
+    }
+
     #[test]
     fn the_deck_s_own_scene_marks_what_the_browser_does_not_play() {
         let own = Played::deck_scene().unwrap();
