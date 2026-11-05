@@ -252,8 +252,8 @@ fn same_member(a: &Member, b: &Member) -> bool {
 #[path = "policy_tests.rs"]
 pub(crate) mod tests;
 
-/// The mixer strip of the `i`-th played track (flatten.rs's chain: `mix1` takes the first four tracks, each next mixer
-/// the one before on `in1` and three more tracks) → (mixer number, its input).
+/// The mixer strip of the `i`-th played track → (mixer number, its input): `mix1` takes the first four tracks, each next
+/// mixer the one before on `in1` and three more tracks – the chain flatten.rs builds and `@gain` / `describe` name.
 pub(crate) fn strip(i: usize) -> (usize, usize) {
     if i < 4 {
         (1, i + 1)

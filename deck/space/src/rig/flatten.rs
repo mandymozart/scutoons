@@ -98,37 +98,31 @@ impl Rig {
         Ok(scene)
     }
 
-    /// `mix1` takes the first four tracks; each next mixer takes the one before on `in1` and three more tracks; the
-    /// last feeds `out` (audio_out) and `fft`.
+    /// The tracks summed on their strips (`policy::strip`: `mix1` takes the first four tracks, each next mixer the one
+    /// before on `in1` – gain 1 – and three more tracks); the last mixer feeds `out` (audio_out) and `fft`.
     fn mix(&self, played: &[TrackPatch], scene: &mut Scene) {
-        let mut inputs: Vec<(String, f32)> = played
-            .iter()
-            .map(|p| {
-                let gain = self.tracks.iter().find(|t| t.id == p.track).map_or(1.0, |t| t.gain);
-                (prefixed(&p.track, &p.patch.out), gain)
-            })
-            .collect();
-        let mut n = 0;
-        loop {
-            n += 1;
+        let last = policy::strip(played.len() - 1).0;
+        for n in 1..=last {
             let id = format!("mix{n}");
-            let take: Vec<(String, f32)> = inputs.drain(..inputs.len().min(MIXER_INPUTS)).collect();
-            let gains: Vec<(String, f32)> =
-                take.iter().enumerate().map(|(i, (_, g))| (format!("gain{}", i + 1), *g)).collect();
+            let (mut gains, mut links) = (Vec::new(), Vec::new());
+            if n > 1 {
+                gains.push(("gain1".to_string(), 1.0));
+                links.push(link(format!("mix{}.out", n - 1), format!("{id}.in1"), 1.0, 0.0));
+            }
+            for (i, p) in played.iter().enumerate().filter(|(i, _)| policy::strip(*i).0 == n) {
+                let k = policy::strip(i).1;
+                debug_assert!(k <= MIXER_INPUTS);
+                gains.push((format!("gain{k}"), self.tracks.iter().find(|t| t.id == p.track).map_or(1.0, |t| t.gain)));
+                links.push(link(prefixed(&p.track, &p.patch.out), format!("{id}.in{k}"), 1.0, 0.0));
+            }
             let params: Vec<(&str, f32)> = gains.iter().map(|(k, g)| (k.as_str(), *g)).collect();
             scene.nodes.push(node(&id, "mixer", &params));
-            for (i, (from, _)) in take.into_iter().enumerate() {
-                scene.links.push(link(from, format!("{id}.in{}", i + 1), 1.0, 0.0));
-            }
-            if inputs.is_empty() {
-                scene.nodes.push(node("out", "audio_out", &[]));
-                scene.nodes.push(node("fft", "fft", &[]));
-                scene.links.push(link(format!("{id}.out"), "out.in".into(), 1.0, 0.0));
-                scene.links.push(link(format!("{id}.out"), "fft.in".into(), 1.0, 0.0));
-                return;
-            }
-            inputs.insert(0, (format!("{id}.out"), 1.0));
+            scene.links.extend(links);
         }
+        scene.nodes.push(node("out", "audio_out", &[]));
+        scene.nodes.push(node("fft", "fft", &[]));
+        scene.links.push(link(format!("mix{last}.out"), "out.in".into(), 1.0, 0.0));
+        scene.links.push(link(format!("mix{last}.out"), "fft.in".into(), 1.0, 0.0));
     }
 
     /// A code rig's policy as the node `policy`: its module registered as a node kind (the library's descriptor, the
