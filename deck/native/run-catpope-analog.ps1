@@ -14,4 +14,6 @@ if (-not (Test-Path (Join-Path $modules 'analog_module.wasm'))) {
 }
 $env:DECK_MODULES = $modules
 $env:RUST_LOG = 'info'
-& $exe --scene catpope-analog --windowed @args
+# --audio-host wasapi: this build has no ASIO (cargo build --features asio needs Steinberg's ASIO SDK); the deck otherwise says
+# "Cpal not available (this build has no ASIO)" and falls back to NO audio when the config asks for ASIO. Later flags win.
+& $exe --scene catpope-analog --windowed --audio-host wasapi @args
