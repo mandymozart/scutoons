@@ -217,12 +217,9 @@ mod tests {
         for name in BUILTIN {
             let src = builtin(name).unwrap_or_else(|| panic!("{name}: no source"));
             let s = scene::Scene::parse(src).unwrap_or_else(|e| panic!("{name}: {e:#}"));
-            // a scene of wasm modules builds only with its modules loaded (DECK_MODULES): tests/modules.rs builds it with them
-            if s.nodes.iter().any(|n| n.kind.starts_with("module:")) {
-                continue;
-            }
             // a scene needing a module this build lacks is refused with the feature's name – everything else must build
             match crate::modules::check(&s) {
+                Ok(()) if s.nodes.iter().any(|n| n.kind.starts_with("module:")) => {} // its wasm: tests/modules.rs
                 Ok(()) => {
                     crate::graph::Graph::build(&s).unwrap_or_else(|e| panic!("{name}: {e:#}"));
                 }
@@ -253,10 +250,7 @@ mod tests {
         let mut s = Switcher::default();
         s.open(Path::new("/none"), Some("cathedral"));
         assert_eq!(s.key(Key::Enter).unwrap().value, "cathedral");
-        s.key(Key::Up);
-        s.key(Key::Up);
-        s.key(Key::Up);
-        s.key(Key::Up);
+        (0..4).for_each(|_| drop(s.key(Key::Up)));
         assert_eq!(s.key(Key::Enter).unwrap().value, "idle");
         for _ in 0..20 {
             s.key(Key::Down);
