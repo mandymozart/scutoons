@@ -20,11 +20,18 @@ final class ModulesTest extends TestCase
 {
     private const HASH = 'f1d2d2f924e986ac86fdf7b36c94bcdf32beec15f1d2d2f924e986ac86fdf7b3';
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // the kind on its own: the factory modules the migrations seed (#350) are FactoryModulesTest's
+        $this->db->exec('DELETE FROM catalog_modules');
+    }
+
     /** @return array<string, mixed> a module as a successful compile leaves it */
     private static function compiled(): array
     {
-        return ['id' => 'walk', 'name' => ['en' => 'Walk'], 'files' => ['lib.rs' => '// walk', 'osc.rs' => '// osc'],
-            'descriptor' => ['abi' => 2, 'name' => 'walk', 'version' => '0.1.0', 'domain' => 'audio', 'doc' => 'a walk',
+        return ['id' => 'wander', 'name' => ['en' => 'Walk'], 'files' => ['lib.rs' => '// walk', 'osc.rs' => '// osc'],
+            'descriptor' => ['abi' => 2, 'name' => 'wander', 'version' => '0.1.0', 'domain' => 'audio', 'doc' => 'a walk',
                 'params' => [['name' => 'spread', 'min' => 0.0, 'max' => 1.0, 'default' => 0.0, 'doc' => 'how far']],
                 'ports' => [['name' => 'cv', 'dir' => 'out', 'type' => 'cv', 'doc' => 'pitch, gate'], ['name' => 'notes', 'dir' => 'out', 'type' => 'event', 'names' => ['music.note'], 'props' => ['pitch', 'vel', 'glide'], 'capacity' => 64]]],
             'wasm' => ['hash' => self::HASH, 'bytes' => 4096, 'toolchain' => 'rustc 1.99.1']];
@@ -34,14 +41,14 @@ final class ModulesTest extends TestCase
      * @param array<string, mixed> $over
      * @return list<string>
      */
-    private function problems(array $over = [], string $id = 'walk'): array
+    private function problems(array $over = [], string $id = 'wander'): array
     {
         $data = array_filter(array_merge(self::compiled(), $over), fn($v) => $v !== null);
         return $this->get(CatalogValidator::class)->problems('modules', $id, $data);
     }
 
     /** @param array<string, mixed> $over */
-    private function refused(array $over, string $part, string $id = 'walk'): void
+    private function refused(array $over, string $part, string $id = 'wander'): void
     {
         $problems = $this->problems($over, $id);
         self::assertNotSame([], array_filter($problems, fn(string $p) => str_contains($p, $part)), "$part in " . json_encode($problems));
@@ -49,16 +56,16 @@ final class ModulesTest extends TestCase
 
     public function testAModuleIsACatalogDocument(): void
     {
-        $key = EntityKey::parse('module:walk');
-        self::assertSame(['modules', 'walk'], [$key->catalogKind(), $key->id]);
+        $key = EntityKey::parse('module:wander');
+        self::assertSame(['modules', 'wander'], [$key->catalogKind(), $key->id]);
         self::assertSame([], $this->problems());
         self::assertSame([], $this->problems(['descriptor' => null, 'wasm' => null, 'name' => null]), 'sources alone are a draft');
 
         $admin = $this->get(CatalogAdmin::class);
-        $admin->put('modules', 'walk', json_decode((string) json_encode(self::compiled())), 'admin:boss@example.com');
+        $admin->put('modules', 'wander', json_decode((string) json_encode(self::compiled())), 'admin:boss@example.com');
         $store = $this->get(CatalogStore::class);
-        self::assertSame(['walk'], array_column($store->rows('modules'), 'id'));
-        self::assertSame(self::HASH, $store->get('modules', 'walk')['wasm']['hash'] ?? null);
+        self::assertSame(['wander'], array_column($store->rows('modules'), 'id'));
+        self::assertSame(self::HASH, $store->get('modules', 'wander')['wasm']['hash'] ?? null);
     }
 
     public function testTheRulesOfASource(): void
@@ -108,7 +115,7 @@ final class ModulesTest extends TestCase
     public function testAnInvalidModuleIsRefusedByAPut(): void
     {
         try {
-            $this->get(CatalogAdmin::class)->put('modules', 'walk', json_decode((string) json_encode(['id' => 'walk', 'files' => ['osc.rs' => '//']])), 'admin:boss@example.com');
+            $this->get(CatalogAdmin::class)->put('modules', 'wander', json_decode((string) json_encode(['id' => 'wander', 'files' => ['osc.rs' => '//']])), 'admin:boss@example.com');
             self::fail('invalid_catalog expected');
         } catch (ApiError $e) {
             self::assertSame('invalid_catalog', $e->errorCode);
@@ -139,13 +146,13 @@ final class ModulesTest extends TestCase
     public function testTheRebuildListNamesTheModulesOfAnotherAbi(): void
     {
         $store = $this->get(CatalogStore::class);
-        $store->save('modules', 'walk', self::compiled(), 'test');
+        $store->save('modules', 'wander', self::compiled(), 'test');
         $store->save('modules', 'bare', ['id' => 'bare', 'files' => ['lib.rs' => '//']], 'test');
         $store->save('modules', 'old', ['descriptor' => ['abi' => 1] + self::compiled()['descriptor']] + self::compiled(), 'test');
         $store->forget();
         $rebuild = $this->get(\Scutoons\Console\ModulesRebuildCommand::class);
         self::assertSame(['bare' => null, 'old' => 1], $rebuild->due(false));
-        self::assertSame(['bare' => null, 'old' => 1, 'walk' => 2], $rebuild->due(true));
+        self::assertSame(['bare' => null, 'old' => 1, 'wander' => 2], $rebuild->due(true));
     }
 
     /** #343: an ABI v1 compile result leaves the published rows (sources stay); an ABI v2 one and a bare draft are untouched */
@@ -153,7 +160,7 @@ final class ModulesTest extends TestCase
     {
         $v1 = ['id' => 'old', 'files' => ['lib.rs' => '//'], 'descriptor' => ['abi' => 1, 'name' => 'old', 'version' => '0.1.0', 'params' => [], 'ports' => []],
             'wasm' => ['hash' => self::HASH, 'bytes' => 9]];
-        $rows = ['old' => $v1, 'walk' => self::compiled(), 'bare' => ['id' => 'bare', 'files' => ['lib.rs' => '//']]];
+        $rows = ['old' => $v1, 'wander' => self::compiled(), 'bare' => ['id' => 'bare', 'files' => ['lib.rs' => '//']]];
         foreach ($rows as $id => $data) {
             $this->db->run('INSERT INTO catalog_modules (id, position, data, updated_at) VALUES (?, 0, ?, UTC_TIMESTAMP())', [$id, json_encode($data, JSON_PRESERVE_ZERO_FRACTION)]);
         }
@@ -170,8 +177,8 @@ final class ModulesTest extends TestCase
             }
             $now = $data();
             self::assertSame(['id' => 'old', 'files' => ['lib.rs' => '//']], $now['old'], "run $run: the v1 result is gone, the sources stay");
-            self::assertSame(self::compiled()['descriptor'], $now['walk']['descriptor'], "run $run: an ABI 2 module is untouched");
-            self::assertSame(self::HASH, $now['walk']['wasm']['hash']);
+            self::assertSame(self::compiled()['descriptor'], $now['wander']['descriptor'], "run $run: an ABI 2 module is untouched");
+            self::assertSame(self::HASH, $now['wander']['wasm']['hash']);
             self::assertSame($rows['bare'], $now['bare']);
         }
     }

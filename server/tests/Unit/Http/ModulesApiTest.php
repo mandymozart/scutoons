@@ -172,8 +172,8 @@ final class ModulesApiTest extends TestCase
 
     public function testADeckMayReadButNotWriteModules(): void
     {
-        DeckTokenScope::guard('GET', '/api/modules/walk');
-        foreach ([['PUT', '/api/modules/walk'], ['DELETE', '/api/modules/walk'], ['POST', '/api/modules/compile']] as [$method, $path]) {
+        DeckTokenScope::guard('GET', '/api/modules/wander');
+        foreach ([['PUT', '/api/modules/wander'], ['DELETE', '/api/modules/wander'], ['POST', '/api/modules/compile']] as [$method, $path]) {
             try {
                 DeckTokenScope::guard($method, $path);
                 self::fail("$method $path");
@@ -230,18 +230,18 @@ final class ModulesApiTest extends TestCase
         $hash = $this->builds();
         $creator = $this->as('boss@scutoons.test', true);
         $files = ['lib.rs' => '// walk', 'osc.rs' => '// osc'];
-        $r = $this->request('POST', '/api/modules/compile', $creator, ['factory' => 'walk', 'files' => $files]);
+        $r = $this->request('POST', '/api/modules/compile', $creator, ['factory' => 'wander', 'files' => $files]);
         self::assertSame(200, $r->getStatusCode(), (string) $r->getBody());
-        self::assertSame('module:walk', self::json($r)['module']);
-        $key = EntityKey::parse('module:walk');
-        $draft = json_decode((string) $this->db->value('SELECT json FROM entity_versions WHERE entity_key = ? ORDER BY id DESC LIMIT 1', ['module:walk']), true);
-        self::assertSame(['walk', $files, self::DESCRIPTOR, $hash], [$draft['id'], $draft['files'], $draft['descriptor'], $draft['wasm']['hash']]);
-        self::assertNull($this->get(\Scutoons\Domain\Catalog\CatalogStore::class)->get('modules', 'walk'), 'a draft is not the catalog');
-        self::assertSame(404, $this->request('GET', '/api/modules/walk', $creator)->getStatusCode(), 'readers see published modules only');
+        self::assertSame('module:wander', self::json($r)['module']);
+        $key = EntityKey::parse('module:wander');
+        $draft = json_decode((string) $this->db->value('SELECT json FROM entity_versions WHERE entity_key = ? ORDER BY id DESC LIMIT 1', ['module:wander']), true);
+        self::assertSame(['wander', $files, self::DESCRIPTOR, $hash], [$draft['id'], $draft['files'], $draft['descriptor'], $draft['wasm']['hash']]);
+        self::assertNull($this->get(\Scutoons\Domain\Catalog\CatalogStore::class)->get('modules', 'wander'), 'a draft is not the catalog');
+        self::assertSame(404, $this->request('GET', '/api/modules/wander', $creator)->getStatusCode(), 'readers see published modules only');
 
         // the compile of the draft without files uses the draft's sources
         $asked = count($this->build->requests);
-        $this->request('POST', '/api/modules/compile', $creator, ['factory' => 'walk']);
+        $this->request('POST', '/api/modules/compile', $creator, ['factory' => 'wander']);
         self::assertSame(['files' => $files], json_decode((string) $this->build->requests[$asked]['body'], true));
         // an unknown factory module needs files
         self::assertSame(404, $this->request('POST', '/api/modules/compile', $creator, ['factory' => 'nothing'])->getStatusCode());
@@ -251,14 +251,73 @@ final class ModulesApiTest extends TestCase
         $user = $this->db->one('SELECT * FROM users WHERE email = ?', ['boss@scutoons.test']);
         $this->get(CatalogDocs::class)->publish((array) $user, $key, null);
         $member = $this->as('listener@scutoons.test');
-        $module = self::json($this->request('GET', '/api/modules/walk', $member))['module'];
-        self::assertSame(['walk', $files, "http://cdn.test/modules/$hash.wasm"], [$module['id'], $module['files'], $module['wasm']['url']]);
+        $module = self::json($this->request('GET', '/api/modules/wander', $member))['module'];
+        self::assertSame(['wander', $files, "http://cdn.test/modules/$hash.wasm"], [$module['id'], $module['files'], $module['wasm']['url']]);
         // the admin reads the kind like the instruments, and writes answer 409 edited_in_creator
         $admin = $this->as('admin@scutoons.test');
         $this->get(Roles::class)->grant((string) $this->db->value('SELECT id FROM users WHERE email = ?', ['admin@scutoons.test']), Roles::ADMIN);
-        self::assertSame(['walk'], array_column(self::json($this->request('GET', '/api/admin/catalog/modules', $admin))['items'], 'id'));
-        $put = $this->request('PUT', '/api/admin/catalog/modules/walk', $admin, ['data' => ['id' => 'walk', 'files' => $files]]);
+        self::assertContains('wander', array_column(self::json($this->request('GET', '/api/admin/catalog/modules', $admin))['items'], 'id'));
+        $put = $this->request('PUT', '/api/admin/catalog/modules/wander', $admin, ['data' => ['id' => 'wander', 'files' => $files]]);
         self::assertSame([409, 'edited_in_creator'], [$put->getStatusCode(), self::json($put)['error'] ?? null]);
+    }
+
+    public function testAFactoryModuleIsReadOnlyAndOnlyItsOwnBuildIsWritten(): void
+    {
+        // #350: the migration made walk / analog / fixture factory modules (sources only, published)
+        $hash = $this->builds();
+        $creator = $this->as('boss@scutoons.test', true);
+        $store = $this->get(\Scutoons\Domain\Catalog\CatalogStore::class);
+        $walk = (array) $store->get('modules', 'walk');
+        self::assertTrue($walk['factory']);
+        self::assertArrayNotHasKey('wasm', $walk, 'not compiled yet');
+        $refused = function (ResponseInterface $r, string $what): void {
+            self::assertSame([403, 'factory_module'], [$r->getStatusCode(), self::json($r)['error'] ?? null], $what . ': ' . $r->getBody());
+            self::assertStringContainsString('derive a module of your own', (string) self::json($r)['message'], $what);
+        };
+
+        // no draft, no compile into it, no restore – for anybody
+        $refused($this->request('PUT', '/api/entities/module:walk', $creator, ['content' => ['files' => ['lib.rs' => '// mine']] + $walk]), 'a draft');
+        $refused($this->request('POST', '/api/entities/batch', $creator, ['saves' => [['key' => 'module:walk', 'content' => $walk]]]), 'a batch save');
+        $refused($this->request('POST', '/api/modules/compile', $creator, ['factory' => 'walk', 'files' => ['lib.rs' => '// mine']]), 'a compile with files');
+        $refused($this->request('POST', '/api/modules/compile', $creator, ['factory' => 'walk']), 'a creator\'s build');
+        $version = (int) $this->db->value("SELECT id FROM entity_versions WHERE entity_key = 'module:walk' AND status = 'published'");
+        $refused($this->request('POST', '/api/entities/module:walk/restore', $creator, ['version' => $version]), 'a restore');
+        // no draft makes itself a factory module
+        $refused($this->request('PUT', '/api/entities/module:sneaky', $creator, ['content' => ['id' => 'sneaky', 'factory' => true, 'files' => self::SOURCE]]), 'a new factory');
+        self::assertSame([], $this->build->requests, 'the service was not asked');
+        // a draft from before the migration cannot be published over it (CatalogAdmin)
+        $old = $this->get(\Scutoons\Domain\Content\EntityStore::class)->insert(EntityKey::parse('module:walk'), (string) json_encode(['id' => 'walk', 'files' => ['lib.rs' => '// old']]), null, 'draft', 'old');
+        $refused($this->request('POST', '/api/entities/module:walk/publish', $creator, ['version' => $old]), 'a publish');
+        try {
+            $this->get(\Scutoons\Domain\Catalog\CatalogAdmin::class)->delete('modules', 'walk', 'admin:boss@scutoons.test');
+            self::fail('an admin delete');
+        } catch (ApiError $e) {
+            self::assertSame('factory_module', $e->errorCode);
+        }
+
+        // an admin builds it from its own sources: descriptor + wasm go into the catalog entry, the sources stay
+        $this->get(Roles::class)->grant((string) $this->db->value('SELECT id FROM users WHERE email = ?', ['boss@scutoons.test']), Roles::ADMIN);
+        $refused($this->request('POST', '/api/modules/compile', $creator, ['factory' => 'walk', 'files' => ['lib.rs' => '// mine']]), 'an admin\'s compile with other files');
+        $r = $this->request('POST', '/api/modules/compile', $creator, ['factory' => 'walk']);
+        self::assertSame(200, $r->getStatusCode(), (string) $r->getBody());
+        self::assertSame(['files' => $walk['files']], json_decode((string) $this->build->requests[0]['body'], true), 'its own sources');
+        $answer = self::json($r);
+        $store->forget();
+        $built = (array) $store->get('modules', 'walk');
+        self::assertSame([true, $walk['files'], self::DESCRIPTOR, $hash], [$built['factory'], $built['files'], $built['descriptor'], $built['wasm']['hash']]);
+        $published = $this->db->one("SELECT id, json FROM entity_versions WHERE entity_key = 'module:walk' AND status = 'published'");
+        self::assertSame(['module:walk', (int) ($published['id'] ?? 0)], [$answer['module'], $answer['version']]);
+        self::assertSame($hash, json_decode((string) ($published['json'] ?? ''), true)['wasm']['hash'] ?? null, 'the creator\'s document is the built one');
+        self::assertFileExists($this->dir . "/cdn/modules/$hash.wasm");
+        self::assertArrayHasKey('module:walk', array_column(self::json($this->request('GET', '/api/kinds', $creator))['kinds'], null, 'name'));
+
+        // a derivative: a module of one's own that names its origin – a normal draft
+        $derived = ['id' => 'my_walk', 'name' => 'my_walk', 'origin' => 'walk', 'files' => $built['files'], 'descriptor' => $built['descriptor'], 'wasm' => $built['wasm']];
+        $r = $this->request('PUT', '/api/entities/module:my_walk', $creator, ['content' => $derived]);
+        self::assertSame(200, $r->getStatusCode(), (string) $r->getBody());
+        $r = $this->request('PUT', '/api/entities/module:bad_origin', $creator, ['content' => ['origin' => 'Not An Id'] + $derived]);
+        self::assertSame([422, 'invalid_catalog'], [$r->getStatusCode(), self::json($r)['error']]);
+        self::assertStringContainsString('origin must be a module id', (string) $r->getBody());
     }
 
     public function testTheServicesRefusalsComeBackAsTheyAre(): void

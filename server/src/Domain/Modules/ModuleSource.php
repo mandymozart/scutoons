@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace Scutoons\Domain\Modules;
 
+use Scutoons\Domain\ApiError;
+
 /**
  * What a rig module's source is allowed to be (#281, agents/research/RIG-EDITING.md §4, §7): the rules of the
  * factory's `module:<id>` documents (CatalogValidator) – and the same ones the
@@ -140,6 +142,25 @@ final class ModuleSource
         if (array_key_exists('wasm', $data)) $p = [...$p, ...self::wasmProblems($data['wasm'])];
         if (array_key_exists('descriptor', $data) !== array_key_exists('wasm', $data)) $p[] = 'descriptor and wasm come together (a compile writes both)';
         return $p;
+    }
+
+    /**
+     * A factory module (#350, owner 2026-11-03: "factory modules should be protected by read-only"): one of the platform's
+     * own modules (walk, analog, fixture – migration 2026-11-05-factory-modules), `factory: true` in its catalog entry.
+     * Nobody edits it in place: no draft, no publish, no admin write changes its sources; a member derives a module of
+     * their own (`origin` = its id). Only its build result (descriptor + wasm) is written, by an admin's compile of its
+     * own unchanged sources (ModuleCompiler).
+     * @param array<string, mixed>|null $data the catalog entry (null: none)
+     */
+    public static function isFactory(?array $data): bool
+    {
+        return is_array($data) && ($data['factory'] ?? null) === true;
+    }
+
+    /** The 403 a change of a factory module gets: the sentence the creator shows */
+    public static function readOnly(string $id): ApiError
+    {
+        return new ApiError(403, 'factory_module', "module:$id is a factory module and read-only – derive a module of your own from it.", ['module' => $id]);
     }
 
     /** The CDN path of a compiled module (immutable: the hash is the name) */

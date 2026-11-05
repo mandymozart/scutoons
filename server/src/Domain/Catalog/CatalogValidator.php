@@ -115,16 +115,20 @@ final class CatalogValidator
     }
 
     /**
-     * A rig module (#281, ModuleSource): { id, name?, files, descriptor?, wasm? } – the sources, and what a compile wrote
+     * A rig module (#281, ModuleSource): { id, name?, factory?, origin?, files, descriptor?, wasm? } – the sources, and what
+     * a compile wrote; `factory: true` marks one of the platform's read-only modules (#350, only a migration sets it),
+     * `origin` the module a derivative was copied from
      * @param array<string, mixed> $module
      * @return list<string>
      */
     private static function module(array $module): array
     {
         $p = [];
-        $extra = array_diff(array_keys($module), ['id', 'name', 'files', 'descriptor', 'wasm', CatalogStore::ACCEPTED_WARNINGS]);
+        $extra = array_diff(array_keys($module), ['id', 'name', 'factory', 'origin', 'files', 'descriptor', 'wasm', CatalogStore::ACCEPTED_WARNINGS]);
         if ($extra) $p[] = 'a module has no field ' . implode(', ', $extra);
         if (array_key_exists('name', $module) && !self::text($module['name'])) $p[] = 'name must be a text or { <locale>: text }';
+        if (array_key_exists('factory', $module) && $module['factory'] !== true) $p[] = 'factory is true or absent';
+        if (array_key_exists('origin', $module) && !(is_string($module['origin']) && preg_match(ModuleSource::ID_PATTERN, $module['origin']))) $p[] = 'origin must be a module id';
         return [...$p, ...ModuleSource::filesProblems($module['files'] ?? null), ...ModuleSource::resultProblems($module)];
     }
 

@@ -7,6 +7,7 @@ use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Assets\AssetUsages;
 use Scutoons\Domain\Content\EntityKey;
 use Scutoons\Domain\Content\EntityStore;
+use Scutoons\Domain\Modules\ModuleSource;
 use Scutoons\Infrastructure\Clock\Clock;
 use Scutoons\Infrastructure\Database\Database;
 use Scutoons\Support\Time;
@@ -106,6 +107,7 @@ final class CatalogAdmin
         $problems = $this->validator->problems($kind, $id, json_decode($json, true), json_decode($json));
         if ($problems) throw new ApiError(422, 'invalid_catalog', implode('; ', $problems), ['problems' => $problems, 'kind' => $kind, 'id' => $id]);
         $before = $this->store->row($kind, $id);
+        if ($kind === 'modules') self::guardFactory($id, $before, json_decode($json, true));
         if ($before !== null && $before['data'] === $json && ($position === null || $position === $before['position'])) {
             return ['created' => false, 'changed' => false, 'entry' => self::entryOf($before), 'history_id' => null];
         }
@@ -125,6 +127,7 @@ final class CatalogAdmin
         $result = $this->db->transaction(function () use ($kind, $id, $by, $undoOf) {
             $kind = CatalogStore::kind($kind);
                 $row = $this->store->row($kind, $id) ?? throw new ApiError(404, 'not_found', "No $kind entry $id.");
+            if ($kind === 'modules' && ModuleSource::isFactory(json_decode((string) $row['data'], true))) throw ModuleSource::readOnly($id);
             $uses = $this->validator->uses($kind, $id);
             if ($uses) throw new ApiError(409, 'in_use', "$id is still used: " . implode(', ', $uses) . '.', ['uses' => $uses]);
             $this->store->remove($kind, $id);
@@ -300,6 +303,38 @@ final class CatalogAdmin
         if ($published && CatalogStore::encode(json_decode((string) $published['json'])) === $json) return;
         $versionId = $this->entities->insert(EntityKey::parse($key), $json, null, 'draft', mb_substr('catalog: ' . ($note ?? 'admin') . " ($by)", 0, 255));
         $this->entities->setPublished(['id' => $versionId, 'entity_key' => $key]);
+    }
+
+    /**
+     * A factory module (#350, ModuleSource::isFactory) is read-only on every write path that reaches the table (a publish, the
+     * admin's catalog page, an undo): only its build result – descriptor and wasm, an admin's compile of its own sources
+     * (ModuleCompiler) – may change; and no write makes a module a factory one (only the migration does)
+     * @param array<string, mixed>|null $before the table row
+     */
+    private static function guardFactory(string $id, ?array $before, mixed $after): void
+    {
+        $was = $before !== null ? json_decode((string) $before['data'], true) : null;
+        $was = is_array($was) ? $was : null;
+        $after = is_array($after) ? $after : null;
+        if (!ModuleSource::isFactory($was)) {
+            if (ModuleSource::isFactory($after)) throw ModuleSource::readOnly($id);
+            return;
+        }
+        if (self::sources($was) !== self::sources($after)) throw ModuleSource::readOnly($id);
+    }
+
+    /**
+     * A module without its build result, as one comparable text (keys sorted at every level)
+     * @param array<string, mixed>|null $module
+     */
+    private static function sources(?array $module): string
+    {
+        $sorted = function (mixed $v) use (&$sorted): mixed {
+            if (!is_array($v)) return $v;
+            if (!array_is_list($v)) ksort($v);
+            return array_map($sorted, $v);
+        };
+        return (string) json_encode($sorted(array_diff_key($module ?? [], ['descriptor' => 0, 'wasm' => 0, CatalogStore::ACCEPTED_WARNINGS => 0])));
     }
 
     /** The asset usage index after writes made with putIn (a published catalog document) */

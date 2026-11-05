@@ -5,7 +5,9 @@ namespace Scutoons\Domain\Modules;
 
 use RuntimeException;
 use Scutoons\Domain\ApiError;
+use Scutoons\Domain\Catalog\CatalogAdmin;
 use Scutoons\Domain\Catalog\CatalogDocs;
+use Scutoons\Domain\Catalog\CatalogStore;
 use Scutoons\Domain\Content\EntityKey;
 use Scutoons\Domain\Content\EntityStore;
 use Scutoons\Domain\Roles\Roles;
@@ -24,6 +26,11 @@ use Throwable;
  * it is stored on the CDN as `modules/<hash>.wasm` (content-addressed, so immutable) and the descriptor + hash are written
  * into the module – a new draft of the factory document `module:<id>` (versions, review, publish as
  * any catalog document). Compile errors come back as `422 compile_failed { errors: [{ file, line, column, level, message }] }`.
+ *
+ * A factory module (#350, ModuleSource::isFactory) is read-only: a compile into it is refused (403 factory_module) – except
+ * its own build: an admin compiles its stored sources unchanged (no `files`), and the descriptor + wasm go straight into
+ * its catalog entry (CatalogAdmin, a published version; no draft – there is nothing to review, the sources did not change).
+ * That is how the factory modules the migration imports get their wasm: the service compiles them once.
  */
 final class ModuleCompiler
 {
@@ -37,6 +44,8 @@ final class ModuleCompiler
         private readonly CatalogDocs $docs,
         private readonly Roles $roles,
         private readonly HttpClient $http,
+        private readonly CatalogStore $catalog,
+        private readonly CatalogAdmin $admin,
     ) {
     }
 
@@ -60,6 +69,8 @@ final class ModuleCompiler
         if ($factory !== null) {
             if (!preg_match(ModuleSource::ID_PATTERN, $factory)) throw new ApiError(400, 'invalid_target', "\"$factory\" is not a module id.");
             $key = EntityKey::parse("module:$factory");
+            $entry = $this->catalog->get('modules', $factory);
+            if (ModuleSource::isFactory(is_array($entry) ? $entry : null)) return $this->buildFactory($user, $factory, (array) $entry, $files, $url, $token);
             $latest = $this->entities->latest((string) $key);
             $document = $latest !== null ? json_decode((string) $latest['json'], true) : null;
             if ($files === null && !is_array($document)) throw new ApiError(404, 'not_found', "No module $factory – send its files to start one.");
@@ -90,6 +101,29 @@ final class ModuleCompiler
             $result['version'] = $saved['version'];
         }
         return ['hash' => $built['hash'], 'descriptor' => $built['descriptor'], 'wasm' => $wasm + ['url' => $this->wasmUrl($path)], 'warnings' => $built['warnings']] + $result;
+    }
+
+    /**
+     * A factory module's own build (an admin, its stored sources unchanged): the result is written into the catalog entry
+     * @param array<string, mixed> $user
+     * @param array<string, mixed> $entry the catalog entry
+     * @param array<string, mixed>|null $files
+     * @return array<string, mixed>
+     */
+    private function buildFactory(array $user, string $id, array $entry, ?array $files, string $url, string $token): array
+    {
+        if ($files !== null || !$this->roles->has($user, Roles::ADMIN)) throw ModuleSource::readOnly($id);
+        $built = $this->build($url, $token, (array) ($entry['files'] ?? []));
+        $path = ModuleSource::wasmPath($built['hash']);
+        $this->storeWasm($path, $built['wasm']);
+        $wasm = ['hash' => $built['hash'], 'bytes' => strlen($built['wasm'])];
+        if ($built['toolchain'] !== null) $wasm['toolchain'] = $built['toolchain'];
+        $entry['descriptor'] = $built['descriptor'];
+        $entry['wasm'] = $wasm;
+        $this->admin->put('modules', $id, json_decode((string) json_encode($entry, JSON_PRESERVE_ZERO_FRACTION)), (string) ($user['email'] ?? $user['id'] ?? 'admin'), null, 'built ' . substr($built['hash'], 0, 12));
+        $published = $this->entities->published("module:$id");
+        return ['hash' => $built['hash'], 'descriptor' => $built['descriptor'], 'wasm' => $wasm + ['url' => $this->wasmUrl($path)], 'warnings' => $built['warnings'],
+            'module' => "module:$id"] + ($published !== null ? ['version' => (int) $published['id']] : []);
     }
 
     /** The CDN URL of a stored module's .wasm (GET /api/modules/<id>) */
