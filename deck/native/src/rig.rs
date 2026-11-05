@@ -35,6 +35,25 @@ pub fn scene(arg: &Path) -> Result<Scene> {
     Player::start(arg).ok_or_else(|| anyhow!("'{}' names no rig ({PREFIX}<character>)", arg.display()))?.scene()
 }
 
+/// The rigs that need modules (#417): name → the bundle's TOML (deck/native/rigs/). Their nodes are `module:<name>` kinds that
+/// only a deck built with the `modules` feature (wasmtime) and its wasm in `DECK_MODULES` has, so they are not in the core's
+/// `rig::bundle::CORE` (the browser, the headless host and the server's catalog carry no module): `--scene rig:catpope-analog`.
+pub const MODULE_RIGS: [(&str, &str); 1] = [("catpope-analog", include_str!("../rigs/catpope_analog.toml"))];
+
+/// A module rig played (`MODULE_RIGS`): the modules of `DECK_MODULES` register their kinds first; a build without them (or
+/// without the wasm) says so in the log and plays the deck's own scene, like a rig that fails.
+fn module_rig(deck: &mut Deck, name: &str, text: &str) -> Turn {
+    #[cfg(feature = "modules")]
+    crate::module_host::autoload();
+    match toml::from_str::<Bundle>(text).map_err(anyhow::Error::from).and_then(|b| deck.play(Some(b), "")) {
+        Ok(turn) => turn,
+        Err(e) => {
+            tracing::warn!("rig: {name}: {e:#} – it needs the modules (build with --features modules, their wasm in DECK_MODULES); the deck's own scene plays");
+            deck.play(None, "").expect("the deck's own scene plays")
+        }
+    }
+}
+
 /// A rig played on this deck: the core's deck (its ladder pinned to the being's mood) and the played scene's name.
 pub struct Player {
     deck: Deck,
@@ -47,7 +66,10 @@ impl Player {
         let (subject, mood) = named(arg)?;
         let mut deck = Deck::new();
         deck.ladder.pin(mood);
-        let turn = deck.play_core(subject, "");
+        let turn = match MODULE_RIGS.iter().find(|(n, _)| *n == subject) {
+            Some((n, text)) => module_rig(&mut deck, n, text),
+            None => deck.play_core(subject, ""),
+        };
         log(&turn);
         let name = Scene::parse(&turn.played.scene).map(|s| s.stage.name).unwrap_or_default();
         Some(Player { deck, name })
@@ -198,6 +220,36 @@ mod tests {
         assert_eq!(scene.stage.name, own.stage.name);
         assert!(Player::of(Some(Path::new("rig:nobody")), &scene).is_none());
         assert!(Player::of(Some(Path::new("cathedral")), &own).is_none());
+    }
+
+    /// #417: `catpope-analog` is catpope plus the analog track and nothing else – its rig, instruments and presets equal
+    /// catpope.toml's once the track, its instrument and its mood values are taken out
+    #[test]
+    fn catpope_analog_is_catpope_and_one_more_track() {
+        let toml_of = |text: &str| toml::Value::try_from(toml::from_str::<Bundle>(text).unwrap()).unwrap();
+        let catpope = toml_of(deck_space::rig::bundle::CORE.iter().find(|(s, _)| *s == "character.catpope").unwrap().1);
+        let mut with = toml_of(MODULE_RIGS[0].1);
+        let rig = with["rig"].as_table_mut().unwrap();
+        let tracks = rig["track"].as_array_mut().unwrap();
+        assert_eq!(tracks.pop().unwrap()["id"].as_str(), Some("analog"));
+        for mood in rig["moods"].as_table_mut().unwrap().iter_mut().map(|(_, v)| v) {
+            if let Some(values) = mood.get_mut("values").and_then(|v| v.as_table_mut()) {
+                values.retain(|k, _| !k.starts_with("analog:"));
+            }
+        }
+        with["instrument"].as_array_mut().unwrap().retain(|i| i["id"].as_str() != Some("analog_seq"));
+        assert_eq!(with, catpope);
+        // and nothing in the core carries it: the browser, the headless host and the catalog play without modules
+        assert!(deck_space::rig::bundle::CORE.iter().all(|(_, text)| !text.contains("module:")));
+    }
+
+    /// a build (or a deck) without the modules says so and plays the deck's own scene, like a rig that fails
+    #[cfg(not(feature = "modules"))]
+    #[test]
+    fn a_module_rig_without_the_modules_plays_the_deck_s_own_scene() {
+        let scene = scene(Path::new("rig:catpope-analog")).unwrap();
+        assert_eq!(scene.stage.name, Scene::parse(crate::scene::CATHEDRAL_SCENE).unwrap().stage.name);
+        assert!(Player::of(Some(Path::new("rig:catpope-analog")), &scene).is_none());
     }
 
     /// a mood moves the core's values into the control domain – laughing: the voice's FM index 4, its ratio 3 (deck.rs)
