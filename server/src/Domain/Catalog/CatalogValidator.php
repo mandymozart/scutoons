@@ -158,6 +158,12 @@ final class CatalogValidator
         foreach (array_unique(array_filter($instrumentIds, 'is_string')) as $i) {
             if (($entry = $this->rigEntry('instruments', $i)) !== null) $instruments[] = $entry;
         }
+        $modules = [];
+        if ($kind === 'rigs' && $data instanceof stdClass) {
+            $policy = self::policyModule($id, $data, $modules);
+            if ($policy !== []) return [...$p, ...$policy];
+            foreach ($modules as $descriptor) $presetIds = [...$presetIds, ...self::policyPresets($descriptor)];
+        }
         $presets = [];
         $queue = array_values(array_filter($presetIds, 'is_string'));
         $seen = $kind === 'presets' ? [$id => true] : [];
@@ -170,7 +176,46 @@ final class CatalogValidator
             $presets[] = $entry;
             if (is_string($entry->parent ?? null)) $queue[] = $entry->parent;
         }
-        return [...$p, ...$this->core->problems($kind, $id, $data, $instruments, $presets)];
+        return [...$p, ...$this->core->problems($kind, $id, $data, $instruments, $presets, $modules)];
+    }
+
+    /**
+     * The presets a policy module may choose from – the `choices` of its `<track>:@preset` outputs: the rig's presets
+     * with them are what the core is sent and the decks are served (deck-space `policy::preset_choices` is the rule)
+     * @return list<string>
+     */
+    public static function policyPresets(stdClass $descriptor): array
+    {
+        $ids = [];
+        foreach (is_array($descriptor->ports ?? null) ? $descriptor->ports : [] as $port) {
+            if (!$port instanceof stdClass || ($port->dir ?? null) !== 'out' || !is_string($port->path ?? null) || !str_ends_with($port->path, ':@preset')) continue;
+            foreach (is_array($port->choices ?? null) ? $port->choices : [] as $choice) {
+                if (is_string($choice)) $ids[] = $choice;
+            }
+        }
+        return array_values(array_unique($ids));
+    }
+
+    /**
+     * A code rig's policy module (#414, research/RIG-MODULE-GROUPS.md decision 5): the descriptor of the `module:<id>` document
+     * its `policy.module` names, which the compile service wrote into it – the core checks the policy against it. Added to
+     * $modules (none for a declarative rig); the problems say what keeps it from being checked: no such module, not compiled
+     * yet, or a descriptor under another name (the core looks the policy up by its descriptor's name).
+     * @param list<mixed> $modules
+     * @return list<string>
+     */
+    private function policyModule(string $id, stdClass $rig, array &$modules): array
+    {
+        $policy = $rig->policy ?? null;
+        $module = $policy instanceof stdClass ? ($policy->module ?? null) : null;
+        if (!is_string($module)) return []; // no policy, or a malformed one: the core says what is wrong with it
+        $entry = $this->rigEntry('modules', $module);
+        if ($entry === null) return ["rig $id: the policy module \"$module\" is not in the catalog"];
+        $descriptor = $entry->descriptor ?? null;
+        if (!$descriptor instanceof stdClass) return ["rig $id: the policy module \"$module\" has no descriptor yet – compile it first"];
+        if (($descriptor->name ?? null) !== $module) return ["rig $id: the module document \"$module\" carries the descriptor of \"" . (is_string($descriptor->name ?? null) ? $descriptor->name : '?') . '"'];
+        $modules[] = $descriptor;
+        return [];
     }
 
     /** an instrument / preset of the catalog decoded with objects (as deck-space reads it), null when there is none */
