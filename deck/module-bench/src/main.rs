@@ -118,7 +118,14 @@ fn prepare(args: &[String]) -> Result<()> {
         let (canon, points) =
             nan::canonicalize(&plain).with_context(|| format!("{name}: the NaN pass"))?;
         println!("{name}: {points} NaN observation points canonicalized");
+        // #396: the loop counter on wasmtime instead of the epoch – started full, so only its cost shows
+        let free = gas::inject_from(&plain, gas::Scheme::Loops, i64::MAX)?;
+        std::fs::write(out.join(format!("{name}.loops-max.wasm")), free)?;
+        let both = gas::inject_from(&canon, gas::Scheme::Loops, i64::MAX)?;
+        std::fs::write(out.join(format!("{name}.nan-loops.wasm")), both)?;
         std::fs::write(out.join(format!("{name}.nan.wasm")), canon)?;
+        let (light, _) = nan::canonicalize_at(&plain, false)?;
+        std::fs::write(out.join(format!("{name}.nan-light.wasm")), light)?;
     }
     // #396: the same modules with simd128 (LLVM's auto-vectorizer; the build service pins it off)
     cargo(

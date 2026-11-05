@@ -113,6 +113,27 @@ pub const VARIANTS: &[Variant] = &[
         what: "modules with simd128, canonicalization off",
         set: nan_off,
     },
+    Variant {
+        name: "nan-light",
+        modules: ".nan-light",
+        what: "the NaN pass without the store points (reinterpret, copysign); canonicalization off",
+        set: nan_off,
+    },
+    Variant {
+        name: "loops",
+        modules: ".loops-max",
+        what: "the loop counter in the wasm instead of the epoch (canonicalization on)",
+        set: epoch_off,
+    },
+    Variant {
+        name: "nan-pass+loops",
+        modules: ".nan-loops",
+        what: "NaN pass + loop counter in the wasm; Cranelift canonicalization and epoch off (option C + the counter)",
+        set: |c| {
+            nan_off(c);
+            epoch_off(c);
+        },
+    },
 ];
 
 /// workload name with its frames → (mean µs, p50 µs, hash)

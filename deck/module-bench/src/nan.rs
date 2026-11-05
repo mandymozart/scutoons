@@ -62,6 +62,7 @@ fn body(
     re: &mut RoundtripReencoder,
     f: wasmparser::FunctionBody,
     params: u32,
+    stores: bool,
 ) -> Result<(Function, usize)> {
     let mut locals = Vec::new();
     let mut count = params;
@@ -77,7 +78,8 @@ fn body(
     let mut points = 0;
     for op in f.get_operators_reader()? {
         let op = op?;
-        if let Some(wide) = observes(&op) {
+        let store = matches!(op, Operator::F32Store { .. } | Operator::F64Store { .. });
+        if let Some(wide) = observes(&op).filter(|_| stores || !store) {
             canon(&mut func, wide, if wide { l64 } else { l32 });
             points += 1;
         }
@@ -95,6 +97,13 @@ fn body(
 
 /// the module with NaNs canonicalized at every observation point; also the number of points
 pub fn canonicalize(wasm: &[u8]) -> Result<(Vec<u8>, usize)> {
+    canonicalize_at(wasm, true)
+}
+
+/// `stores: false` – the light variant (#396 measures its cost): reinterpret and copysign only; float stores keep the
+/// CPU's NaN, so the host would canonicalize the float outputs it reads, and an int load of a float the module stored
+/// (a hash of its state, a byte-wise compare) is no longer covered
+pub fn canonicalize_at(wasm: &[u8], stores: bool) -> Result<(Vec<u8>, usize)> {
     let mut re = RoundtripReencoder;
     let mut out = Module::new();
     let mut params: Vec<u32> = Vec::new();
@@ -121,7 +130,7 @@ pub fn canonicalize(wasm: &[u8]) -> Result<(Vec<u8>, usize)> {
                 let ty = *funcs
                     .get(next)
                     .ok_or_else(|| anyhow!("more bodies than functions"))?;
-                let (func, n) = body(&mut re, f, params[ty as usize])?;
+                let (func, n) = body(&mut re, f, params[ty as usize], stores)?;
                 code.function(&func);
                 points += n;
                 next += 1;
