@@ -2400,11 +2400,13 @@ dependencies = [
 name = "module-bench"
 version = "0.1.0"
 dependencies = [
+ "analog-module",
  "anyhow",
  "deck-core",
  "deck-module",
  "deck-module-host",
  "flate2",
+ "fm16-module",
  "serde",
  "serde_json",
  "wasm-encoder 0.239.0",
@@ -2412,6 +2414,7 @@ dependencies = [
  "wasmi",
  "wasmi_core",
  "wasmparser 0.239.0",
+ "wasmtime",
 ]
 
 [[package]]

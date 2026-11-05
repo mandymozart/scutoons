@@ -12,7 +12,7 @@ archive/DECISIONS-superseded.md (quotes kept). A built feature's history may mov
 | File | What | Lines | ≈ tokens | Keys |
 |---|---|---|---|---|
 | decisions/law.md | the law book's evidence – every key RULES / AUDIT / ORCHESTRATION cite | 94 | 9.4k | ai-license api-content audiovisual audit board board-move bold branch-names browser-is-ui carrier-bag codes config-small … |
-| decisions/deck.md | deck, live, engine, modules, rigs, relay | 81 | 10.2k | bunny clock deck-access deck-os engine events live modules outputs perf platform rigs … |
+| decisions/deck.md | deck, live, engine, modules, rigs, relay | 106 | 12.2k | bunny clock deck-access deck-os engine events live modules outputs perf platform rigs … |
 | decisions/items.md | items, avatar, homes (cave), scores, campaigns and gifts | 98 | 7.6k | campaigns cave items scores |
 | decisions/creator.md | the creator app, text boxes, the timeline | 72 | 5.9k | creator text-boxes timeline |
 | decisions/reader.md | the reader app, PWA, FX, UI and design system | 95 | 5.9k | design fx pwa reader ui |

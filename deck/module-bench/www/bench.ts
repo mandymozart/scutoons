@@ -120,7 +120,9 @@ export async function table(wasm: Bytes, all: object[]): Promise<string> {
 /** the files of one runtime, by name in dist/ */
 export function filesOf(runtime: string): { wasm: string; modules: Record<string, string> } {
 	const wasm = runtime === 'web-wasmi' ? 'bench-web-wasmi.wasm' : 'bench-web.wasm';
-	const suffix = runtime === 'web-gas' ? '.gas.wasm' : runtime === 'web-loops' ? '.loops.wasm' : '.wasm';
+	// web-gas / web-loops / web-nan / web-simd → <kind>.<gas|loops|nan|simd>.wasm (prepare writes them)
+	const variant = ['web-gas', 'web-loops', 'web-nan', 'web-simd'].includes(runtime) ? runtime.slice(4) : '';
+	const suffix = variant ? `.${variant}.wasm` : '.wasm';
 	return { wasm, modules: Object.fromEntries(KINDS.map((k) => [k, k + suffix])) };
 }
 

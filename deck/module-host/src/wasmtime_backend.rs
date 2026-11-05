@@ -20,13 +20,24 @@ pub struct WasmtimeEngine {
 impl WasmtimeEngine {
     /// an engine of its own; its epoch ticker (1 ms) starts with it. `cache`: where compiled modules are kept.
     pub fn new(cache: Option<PathBuf>) -> WasmtimeEngine {
+        WasmtimeEngine::from_config(&WasmtimeEngine::deck_config(), cache)
+    }
+
+    /// what every deck compiles with: the epoch budget and the determinism settings
+    pub fn deck_config() -> Config {
         let mut config = Config::new();
         config.epoch_interruption(true);
         // the same bits on every deck (ABI-V2 §6): one NaN, no relaxed SIMD (its results are the CPU's), no threads
         config.cranelift_nan_canonicalization(true);
         config.wasm_relaxed_simd(false);
         config.wasm_shared_everything_threads(false);
-        let engine = Engine::new(&config).expect("wasmtime engine");
+        config
+    }
+
+    /// an engine from another config – module-bench's experiments (#396, research/WASM-RUNTIME-PAPER.md); a deck uses
+    /// [`WasmtimeEngine::new`]. Without `epoch_interruption` nothing stops a runaway.
+    pub fn from_config(config: &Config, cache: Option<PathBuf>) -> WasmtimeEngine {
+        let engine = Engine::new(config).expect("wasmtime engine");
         let ticker = engine.clone();
         std::thread::Builder::new()
             .name("module-epoch".into())

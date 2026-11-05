@@ -137,6 +137,12 @@ fn charge_fn(global: u32) -> Function {
 
 /// the module with gas metering; its `gas_left` export is the budget the host sets before a call
 pub fn inject(wasm: &[u8], scheme: Scheme) -> Result<Vec<u8>> {
+    inject_from(wasm, scheme, 0)
+}
+
+/// [`inject`] with `gas_left` starting at `start` – i64::MAX: the checks run but never stop (#396 measures their cost on
+/// a host that does not set the global)
+pub fn inject_from(wasm: &[u8], scheme: Scheme, start: i64) -> Result<Vec<u8>> {
     let mut re = RoundtripReencoder;
     let mut out = Module::new();
     let (mut types, mut imported_funcs, mut funcs, mut globals) = (None::<u32>, 0u32, 0u32, 0u32);
@@ -180,7 +186,7 @@ pub fn inject(wasm: &[u8], scheme: Scheme) -> Result<Vec<u8>> {
                         mutable: true,
                         shared: false,
                     },
-                    &ConstExpr::i64_const(0),
+                    &ConstExpr::i64_const(start),
                 );
                 out.section(&s);
             }

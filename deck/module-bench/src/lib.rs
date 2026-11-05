@@ -17,6 +17,8 @@ use deck_module_host::{Backend, Instance, Loaded, Mode, Setup};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
+#[cfg(not(target_arch = "wasm32"))]
+pub mod native;
 pub mod report;
 #[cfg(feature = "wasmi")]
 pub mod wasmi_backend;
