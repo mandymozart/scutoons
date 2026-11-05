@@ -612,6 +612,38 @@ fn the_servers_scene_content_reads_as_bundles() {
     assert_eq!(core_seen, bundle::CORE.len(), "every core rig is in the server's catalog");
 }
 
+/// #414: a code rig as the server serves it (server/tests/fixtures/rigs/scene-content-code-rig.json, written by its
+/// SceneContentRigsTest from the catalog's rig, its `module:catpope_rig` document and what the rig names): the rig names its
+/// policy module, the answer's `modules` holds its descriptor, and the bundle reads, checks and plays like the one the
+/// tests build by hand (policy_tests) – the presets the policy chooses from come with it though no mood names them.
+#[test]
+fn a_code_rig_from_scene_content_reads_as_a_bundle() {
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../server/tests/fixtures/rigs/scene-content-code-rig.json");
+    let text = std::fs::read_to_string(path).unwrap();
+    let answer = content::SceneRigs::parse_json(&text).unwrap();
+    let entry = answer.character("catpope").unwrap();
+    assert_eq!(entry.modules, ["catpope_rig"]);
+    assert!(answer.modules["catpope_rig"].version.len() == 16 && content::safe_id("catpope_rig"));
+    let b = answer.bundle(entry).unwrap();
+    let by_hand = crate::rig::policy::tests::code_catpope();
+    assert_eq!(b.modules.len(), 1);
+    assert_eq!(b.modules[0].name, "catpope_rig");
+    assert_eq!(b.modules[0].ports, by_hand.modules[0].ports, "the served descriptor says what the hand-built one does");
+    assert_eq!(b.rig, by_hand.rig, "the same rig document");
+    let lib = b.library();
+    b.rig.check(&lib).unwrap();
+    let (mine, theirs) = (b.play(None, None).unwrap(), by_hand.play(None, None).unwrap());
+    assert_eq!(mine.presets, theirs.presets);
+    assert_eq!(mine.scene, theirs.scene);
+    // a rig that names a module the answer does not hold says so, as for an instrument
+    let mut gone = content::SceneRigs::parse_json(&text).unwrap();
+    gone.modules.clear();
+    assert!(format!("{:#}", gone.bundle(entry).unwrap_err()).contains("names the module 'catpope_rig', which is not there"));
+    // the scene-content of declarative rigs holds no `modules`: their bundles carry none
+    let plain = content::SceneRigs::parse_json(&std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../server/tests/fixtures/rigs/scene-content.json")).unwrap()).unwrap();
+    assert!(plain.modules.is_empty() && plain.rigs().all(|(_, _, e)| e.modules.is_empty()));
+}
+
 /// #271: one holder's bundle from scene-content, as the wasm boundary hands it; what is missing or misfiled is named,
 /// a holder without a rig is empty, an unknown group refused – and an id a cache can't use as a file name is spotted.
 #[test]

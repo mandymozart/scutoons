@@ -9,8 +9,9 @@
 //! The standard rig per instrument kind (§9.4, the fallback of a character without a default rig) does not exist yet:
 //! until it does, a deck without a rig plays its own scene (`Played::deck_scene`). A code rig (#314) is a policy module
 //! over the same document (DECISIONS 2026-11-03 [rigs]); the form edits the document, the code drives its parameters.
-use super::{Bundle, Instrument, Preset, PresetBook, Rig};
+use super::{policy, Bundle, Instrument, Preset, PresetBook, Rig};
 use anyhow::{bail, Context, Result};
+use deck_catalog::Descriptor;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::BTreeMap;
@@ -116,6 +117,9 @@ struct BundleRequest {
     instruments: Vec<Value>,
     #[serde(default)]
     presets: Vec<Value>,
+    /// the catalog's `module:<id>` documents (`{ id, descriptor, … }`, #414): a code rig's policy is looked up in them
+    #[serde(default)]
+    modules: Vec<Value>,
 }
 
 fn id_of(v: &Value) -> Option<&str> {
@@ -123,8 +127,9 @@ fn id_of(v: &Value) -> Option<&str> {
 }
 
 /// The rig with what it names from the catalog: its tracks' instruments, the presets its tracks, personas and moods name
-/// with their ancestors. Only what it names is read – a broken entry it does not name is not its problem.
-pub fn catalog_bundle(rig: Rig, instruments: &[Value], presets: &[Value]) -> Result<Bundle> {
+/// with their ancestors, and a code rig's policy module with its descriptor (#414: the `module:<id>` document the compile
+/// service wrote it into). Only what it names is read – a broken entry it does not name is not its problem.
+pub fn catalog_bundle(rig: Rig, instruments: &[Value], presets: &[Value], modules: &[Value]) -> Result<Bundle> {
     let mut picked: Vec<Instrument> = Vec::new();
     for t in &rig.tracks {
         if picked.iter().any(|i| i.id == t.instrument) {
@@ -137,15 +142,21 @@ pub fn catalog_bundle(rig: Rig, instruments: &[Value], presets: &[Value]) -> Res
     }
     // the book of every preset that reads; a named one that does not read says why
     let book = PresetBook::new(presets.iter().filter_map(|v| serde_json::from_value::<Preset>(v.clone()).ok()));
+    // a code rig's policy: its module, and the presets its `@preset` outputs choose from – the deck replays the rig with them
+    let modules = match &rig.policy {
+        Some(policy) => vec![policy_descriptor(&rig.subject, &policy.module, modules)?],
+        None => Vec::new(),
+    };
     let named = rig
         .tracks
         .iter()
-        .filter_map(|t| t.preset.as_ref())
-        .chain(rig.personas.values().chain(rig.moods.values()).flat_map(|v| v.presets.values()));
+        .filter_map(|t| t.preset.as_deref())
+        .chain(rig.personas.values().chain(rig.moods.values()).flat_map(|v| v.presets.values().map(String::as_str)))
+        .chain(modules.iter().flat_map(policy::preset_choices));
     let mut chosen: BTreeMap<String, Preset> = BTreeMap::new();
     for id in named {
         if !book.presets.contains_key(id) {
-            match presets.iter().find(|v| id_of(v) == Some(id.as_str())) {
+            match presets.iter().find(|v| id_of(v) == Some(id)) {
                 Some(v) => serde_json::from_value::<Preset>(v.clone()).map(|_| ()).with_context(|| format!("preset {id}"))?,
                 None => bail!("rig {}: the preset \"{id}\" is not in the catalog", rig.subject),
             }
@@ -154,15 +165,30 @@ pub fn catalog_bundle(rig: Rig, instruments: &[Value], presets: &[Value]) -> Res
             chosen.entry(p.id.clone()).or_insert_with(|| p.clone());
         }
     }
-    // a code rig's policy module (#408) is not looked up here yet: its descriptor and its preset choices come with T6
-    Ok(Bundle { rig, instruments: picked, presets: chosen.into_values().collect(), modules: Vec::new() })
+    Ok(Bundle { rig, instruments: picked, presets: chosen.into_values().collect(), modules })
 }
 
-/// `{ rig, instruments: [..], presets: [..] }` (the catalog's documents) → the bundle as JSON for `rig_play`
+/// A code rig's policy module from the catalog's module documents: the descriptor the compile service stored in it. The
+/// document's id is the policy's name (`Policy.module`), so the descriptor must carry it – the checks look it up by name.
+fn policy_descriptor(subject: &str, module: &str, docs: &[Value]) -> Result<Descriptor> {
+    let Some(doc) = docs.iter().find(|v| id_of(v) == Some(module)) else {
+        bail!("rig {subject}: the policy module \"{module}\" is not in the catalog")
+    };
+    let Some(descriptor) = doc.get("descriptor").filter(|d| !d.is_null()) else {
+        bail!("rig {subject}: the policy module \"{module}\" has no descriptor yet – compile it first")
+    };
+    let d: Descriptor = serde_json::from_value(descriptor.clone()).with_context(|| format!("the descriptor of module {module}"))?;
+    if d.name != module {
+        bail!("rig {subject}: the module document \"{module}\" carries the descriptor of \"{}\"", d.name)
+    }
+    Ok(d)
+}
+
+/// `{ rig, instruments: [..], presets: [..], modules?: [..] }` (the catalog's documents) → the bundle as JSON for `rig_play`
 pub fn catalog_bundle_json(request: &str) -> Result<String> {
-    let r: BundleRequest = serde_json::from_str(request).context("not a bundle request { rig, instruments, presets }")?;
+    let r: BundleRequest = serde_json::from_str(request).context("not a bundle request { rig, instruments, presets, modules? }")?;
     let rig: Rig = serde_json::from_value(r.rig).context("the rig")?;
-    Ok(serde_json::to_string(&catalog_bundle(rig, &r.instruments, &r.presets)?)?)
+    Ok(serde_json::to_string(&catalog_bundle(rig, &r.instruments, &r.presets, &r.modules)?)?)
 }
 
 #[cfg(test)]
@@ -258,5 +284,43 @@ mod tests {
         let orphan: Vec<Value> = presets.iter().filter(|p| id_of(p) != Some("cathedral_voice.bright")).cloned().collect();
         assert_eq!(ask(&rig_doc, &instruments, &orphan).unwrap_err(), "rig character.catpope: the preset \"cathedral_voice.bright\" is not in the catalog");
         assert!(ask(&json!({ "subject": "character.x" }), &[], &[]).unwrap_err().starts_with("the rig"));
+    }
+
+    /// #414: a code rig's bundle carries the policy module's descriptor from the catalog's `module:<id>` document
+    #[test]
+    fn a_catalog_bundle_of_a_code_rig_holds_the_policy_s_descriptor() {
+        use crate::rig::policy::tests::{code_catpope, CATPOPE_RIG};
+        let code = code_catpope();
+        let (rig_doc, instruments, presets) = (v(&code.rig), code.instruments.iter().map(v).collect::<Vec<_>>(), code.presets.iter().map(v).collect::<Vec<_>>());
+        let descriptor: Value = serde_json::from_str(CATPOPE_RIG).unwrap();
+        let ask = |modules: &[Value]| {
+            catalog_bundle_json(&json!({ "rig": rig_doc, "instruments": instruments, "presets": presets, "modules": modules }).to_string()).map_err(|e| format!("{e:#}"))
+        };
+        // other modules in the catalog are not its problem; the document carries more than the descriptor (sources, wasm)
+        let docs = [json!({ "id": "kazoo", "descriptor": "broken" }), json!({ "id": "catpope_rig", "files": { "lib.rs": "//" }, "descriptor": descriptor })];
+        let b = Bundle::parse_json(&ask(&docs).unwrap()).unwrap();
+        assert_eq!(b.modules, code.modules);
+        // the presets the policy chooses from come along (no track, persona or mood names them), ancestors included
+        let ids = |b: &Bundle| b.presets.iter().map(|p| p.id.clone()).collect::<std::collections::BTreeSet<_>>();
+        assert!(code.rig.moods.is_empty() && ids(&b).contains("cathedral_voice.bright") && ids(&b).contains("cathedral_voice.low"));
+        assert_eq!(ids(&b), ids(&code));
+        assert_eq!(b.play(None, None).unwrap(), code.play(None, None).unwrap(), "it plays with the policy node");
+        // a declarative rig takes no module, whatever the catalog holds
+        let (declarative, di, dp) = catpope();
+        let plain = catalog_bundle_json(&json!({ "rig": declarative, "instruments": di, "presets": dp, "modules": docs }).to_string()).unwrap();
+        assert!(Bundle::parse_json(&plain).unwrap().modules.is_empty());
+        // what is wrong with the module, in words
+        assert_eq!(ask(&[]).unwrap_err(), "rig character.catpope: the policy module \"catpope_rig\" is not in the catalog");
+        assert_eq!(
+            ask(&[json!({ "id": "catpope_rig", "files": {} })]).unwrap_err(),
+            "rig character.catpope: the policy module \"catpope_rig\" has no descriptor yet – compile it first"
+        );
+        assert_eq!(ask(&[json!({ "id": "catpope_rig", "descriptor": null })]).unwrap_err(), ask(&[json!({ "id": "catpope_rig" })]).unwrap_err());
+        let other = CATPOPE_RIG.replace("\"catpope_rig\"", "\"other_rig\"");
+        assert_eq!(
+            ask(&[json!({ "id": "catpope_rig", "descriptor": serde_json::from_str::<Value>(&other).unwrap() })]).unwrap_err(),
+            "rig character.catpope: the module document \"catpope_rig\" carries the descriptor of \"other_rig\""
+        );
+        assert!(ask(&[json!({ "id": "catpope_rig", "descriptor": { "domain": "control" } })]).unwrap_err().starts_with("the descriptor of module catpope_rig: "));
     }
 }

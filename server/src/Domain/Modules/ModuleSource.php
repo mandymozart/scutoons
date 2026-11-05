@@ -30,7 +30,7 @@ final class ModuleSource
     private const DIRS = ['in', 'out'];
     private const TYPES = ['audio', 'cv', 'control', 'event', 'video'];
     /** what the derive writes (deck-catalog's `Descriptor`, deck-module-macros) */
-    private const FIELDS = ['abi', 'name', 'version', 'domain', 'doc', 'needs', 'wants', 'reads', 'latency', 'params', 'ports', 'assets', 'preset'];
+    private const FIELDS = ['abi', 'name', 'version', 'domain', 'doc', 'needs', 'wants', 'reads', 'moods', 'latency', 'params', 'ports', 'assets', 'preset'];
     private const PARAM_FIELDS = ['name', 'min', 'max', 'default', 'curve', 'unit', 'choices', 'doc'];
     private const PORT_FIELDS = ['name', 'dir', 'type', 'channels', 'sidechain', 'doc', 'names', 'props', 'capacity', 'path', 'mode', 'choices'];
     /** the layout's sanity bounds (deck-module layout.rs) */
@@ -78,7 +78,7 @@ final class ModuleSource
         if (!is_string($d['name'] ?? null) || !preg_match(self::IDENT, $d['name'])) $p[] = 'descriptor.name must be a lowercase identifier';
         if (!is_string($d['version'] ?? null) || $d['version'] === '' || strlen($d['version']) > 32) $p[] = 'descriptor.version must be a text';
         if (array_key_exists('domain', $d) && !in_array($d['domain'], ['audio', 'control'], true)) $p[] = 'descriptor.domain must be audio or control';
-        foreach (['needs', 'wants', 'reads'] as $list) {
+        foreach (['needs', 'wants', 'reads', 'moods'] as $list) {
             if (array_key_exists($list, $d) && !self::texts($d[$list])) $p[] = "descriptor.$list must be a list of names";
         }
         $params = $d['params'] ?? null;
