@@ -37,9 +37,14 @@ impl std::fmt::Display for Missing {
 }
 
 /// every capability the runner knows by name: (name, ticket, what, where it lives today)
-/// none is missing today (every move ticket landed); the unit test of the `expected_fail` rule has its own stand-in
+/// the unit test of the `expected_fail` rule has its own stand-in
 #[cfg(not(test))]
-pub const CAPS: &[(&str, &str, &str, &str)] = &[];
+pub const CAPS: &[(&str, &str, &str, &str)] = &[(
+    "code_rig",
+    "#408",
+    "a rig with a policy module: checked with the module's descriptor, flattened with the policy node, described (T1 of #314)",
+    "nowhere: a rig document has no policy (research/RIG-MODULE-GROUPS.md)",
+)];
 #[cfg(test)]
 pub const CAPS: &[(&str, &str, &str, &str)] = &[("test_missing", "#0", "a stand-in for the unit test of the runner", "nowhere")];
 
