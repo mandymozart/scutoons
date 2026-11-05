@@ -3,7 +3,7 @@
 	"version": "0.1.0",
 	"private": true,
 	"type": "module",
-	"description": "SCUTOONS rig designer (#282, agents/research/RIG-EDITING.md §8): the designer of the creator's Sound design workspace – Rust (files, CodeMirror editor, Save, Compile, problems, console), Parameters (read-only) and Nodes (read-only: the core's wiring with live values, #282), Assignment later; the module is a document the app's ModuleStore loads and saves; de/en texts in the package, the app calls setupRigDesigner once; no app state, routing or paraglide inside",
+	"description": "SCUTOONS rig designer (#282, agents/research/RIG-EDITING.md §8): the designer of the creator's Sound design workspace – Rust (files, CodeMirror editor, Save, Compile, problems, console), Parameters (read-only) and Nodes (read-only: the core's wiring with live values, #282), Assignment (#283: the declarative rig as a form); the module is a document the app's ModuleStore loads and saves; de/en texts in the package, the app calls setupRigDesigner once; no app state, routing or paraglide inside",
 	"sideEffects": [
 		"**/*.css",
 		"**/*.svelte"
@@ -23,7 +23,7 @@
 	],
 	"scripts": {
 		"check": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings && npm run test",
-		"test": "node --experimental-transform-types --no-warnings --test test/files.test.ts test/diagnostics.test.ts test/console.test.ts test/descriptor.test.ts test/api.test.ts test/store.test.ts test/starter.test.ts test/nodes.test.ts"
+		"test": "node --experimental-transform-types --no-warnings --test test/files.test.ts test/diagnostics.test.ts test/console.test.ts test/descriptor.test.ts test/api.test.ts test/store.test.ts test/starter.test.ts test/nodes.test.ts test/assignment.test.ts"
 	},
 	"dependencies": {
 		"@codemirror/commands": "6.11.1",
