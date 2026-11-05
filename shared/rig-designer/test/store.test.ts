@@ -32,6 +32,15 @@ test('a stored document reads back; no sources = no module', () => {
 	assert.equal(readModuleContent({ files, descriptor }, 'x')?.descriptor, undefined);
 });
 
+test('a factory module reads as one; a derivative keeps its origin (#350)', () => {
+	assert.equal(readModuleContent({ files, factory: true }, 'walk')?.factory, true);
+	assert.equal(readModuleContent({ files, factory: 'yes' }, 'walk')?.factory, undefined);
+	assert.equal(readModuleContent({ files, origin: 'walk' }, 'mine')?.origin, 'walk');
+	assert.equal(readModuleContent({ files, origin: 'Not An Id' }, 'mine')?.origin, undefined);
+	assert.deepEqual(moduleContent('mine', 'mine', files, null, 'walk'), { id: 'mine', name: 'mine', origin: 'walk', files });
+	assert.deepEqual(moduleContent('mine', 'mine', files, null), { id: 'mine', name: 'mine', files });
+});
+
 test('sameFiles compares names and texts', () => {
 	assert.ok(sameFiles(files, { 'lib.rs': 'fn a() {}' }));
 	assert.ok(!sameFiles(files, { 'lib.rs': 'fn a() {}', 'b.rs': '' }));

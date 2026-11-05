@@ -58,11 +58,16 @@ export interface StoredModule {
 	files: ModuleFiles;
 	descriptor?: Descriptor;
 	wasm?: WasmInfo;
+	/** one of the platform's read-only modules (#350: the API refuses every change, 403 factory_module) */
+	factory?: boolean;
+	/** a derivative: the module it was copied from */
+	origin?: string;
 }
 
 /** the compile request: the files as they are in the editor; `factory` writes the result into a new draft of `module:<factory>` */
 export interface CompileRequest {
-	files: ModuleFiles;
+	/** absent with `factory`: the stored sources (a factory module's own build, #350 – the API lets an admin do it) */
+	files?: ModuleFiles;
 	factory?: string;
 }
 
@@ -80,6 +85,8 @@ export interface CompiledModule {
 export type FailureReason =
 	/** 403 creator_only: the user may not compile – a muted sentence, not an error */
 	| 'creator_only'
+	/** 403 factory_module: a factory module is read-only (#350) – a muted sentence; Derive is the way to change it */
+	| 'factory'
 	/** 401 */
 	| 'signed_out'
 	/** 503 live_show | build_busy | no_build_service | build_unavailable (the code in `code`) */

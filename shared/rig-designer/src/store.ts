@@ -31,11 +31,13 @@ export interface CompileOutcome {
  * The document to store: the sources always; descriptor and wasm only together and only when the sources are the ones the
  * compile read them from (other sources drop the old result, as on the server)
  */
-export function moduleContent(id: string, name: string, files: ModuleFiles, result: CompileOutcome | null): Record<string, unknown> {
+export function moduleContent(id: string, name: string, files: ModuleFiles, result: CompileOutcome | null, origin: string | null = null): Record<string, unknown> {
 	const keep = result !== null && sameFiles(result.files, files);
 	return {
 		id,
 		name,
+		// a derivative names the module it was copied from (#350)
+		...(origin ? { origin } : {}),
 		files,
 		...(keep
 			? { descriptor: result.descriptor, wasm: { hash: result.wasm.hash, bytes: result.wasm.bytes, ...(result.wasm.toolchain ? { toolchain: result.wasm.toolchain } : {}) } }
@@ -53,5 +55,11 @@ export function readModuleContent(content: unknown, fallbackName: string): Store
 	if (Object.keys(files).length === 0) return null;
 	const wasm = readWasm(c.wasm);
 	const descriptor = typeof c.descriptor === 'object' && c.descriptor !== null ? (c.descriptor as Descriptor) : undefined;
-	return { name: typeof c.name === 'string' && c.name !== '' ? c.name : fallbackName, files, ...(descriptor && wasm ? { descriptor, wasm } : {}) };
+	return {
+		name: typeof c.name === 'string' && c.name !== '' ? c.name : fallbackName,
+		files,
+		...(descriptor && wasm ? { descriptor, wasm } : {}),
+		...(c.factory === true ? { factory: true } : {}),
+		...(typeof c.origin === 'string' && isModuleId(c.origin) ? { origin: c.origin } : {})
+	};
 }

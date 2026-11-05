@@ -5,7 +5,7 @@ import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirro
 import { bracketMatching, defaultHighlightStyle, indentOnInput, syntaxHighlighting } from '@codemirror/language';
 import { rust } from '@codemirror/lang-rust';
 import { lintGutter, setDiagnostics, type Diagnostic as CmDiagnostic } from '@codemirror/lint';
-import { EditorState } from '@codemirror/state';
+import { Compartment, EditorState } from '@codemirror/state';
 import { drawSelection, EditorView, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers } from '@codemirror/view';
 import { rangeFor, type Marker } from './diagnostics.ts';
 
@@ -18,6 +18,8 @@ export interface EditorHandle {
 	goTo(line: number, column: number): void;
 	/** forgets a file's state (removed / renamed) */
 	forget(file: string): void;
+	/** a read-only module (a factory module, #350): the text can be read and selected, not changed */
+	setReadOnly(readOnly: boolean): void;
 	destroy(): void;
 }
 
@@ -46,8 +48,15 @@ export function createEditor(parent: HTMLElement, o: EditorOptions): EditorHandl
 	const states = new Map<string, EditorState>();
 	let current = '';
 	let view: EditorView | null = null;
+	// read-only is the editor's, not a file's: every state carries the compartment, show() brings it up to date
+	const lock = new Compartment();
+	let readOnly = false;
+	const sync = () => {
+		if (view && view.state.facet(EditorState.readOnly) !== readOnly) view.dispatch({ effects: lock.reconfigure(EditorState.readOnly.of(readOnly)) });
+	};
 
 	const extensions = (file: string) => [
+		lock.of(EditorState.readOnly.of(readOnly)),
 		lineNumbers(),
 		EditorView.lineWrapping,
 		highlightActiveLineGutter(),
@@ -81,6 +90,11 @@ export function createEditor(parent: HTMLElement, o: EditorOptions): EditorHandl
 			states.set(file, state);
 			if (!view) view = new EditorView({ state, parent });
 			else view.setState(state);
+			sync();
+		},
+		setReadOnly(value) {
+			readOnly = value;
+			sync();
 		},
 		markers(list) {
 			if (!view) return;
