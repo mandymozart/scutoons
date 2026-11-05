@@ -5,6 +5,7 @@
 //! - `sad` = 1 while the mood's string is "sad" (a policy that matches strings, the design note's example), else 0.
 //!
 //! A test module (deck-native tests/modules.rs builds it for wasm32 and plays it in the engine), not a factory module.
+#![allow(clippy::duplicated_attributes)]
 use deck_module::{Ctx, Module, Outputs};
 
 #[derive(Module)]
