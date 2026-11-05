@@ -547,3 +547,59 @@ fn catpope_plays_the_analog_synth_as_an_additional_track_in_every_mood() {
     }
     assert!(rms["sad"] > rms["neutral"] && rms["neutral"] > rms["surprised"], "the volume follows the mood like the drone's gain: {rms:?}");
 }
+
+/// #418: the built-in scene `catpope-analog` – the being (its room, catpope's head) with the stepseq module playing the
+/// analog module: it loads, its sound is not silent, a slider is a pitch (step 3 up an octave moves that note by 12
+/// semitones and no other), and the being's 3D buttons are the sliders, the switches, the loop and the synth's main controls
+#[test]
+fn the_catpope_analog_scene_plays_and_its_sliders_are_buttons() {
+    Library::global().load(&stepseq()).unwrap();
+    Library::global().load(&analog()).unwrap();
+    let text = deck_native::switcher::builtin("catpope-analog").expect("a built-in scene");
+    let base = Scene::parse(text).unwrap();
+    let with_step3 = |v: f64| {
+        let mut s = base.clone();
+        s.nodes.iter_mut().find(|n| n.id == "seq").unwrap().params.insert("step3".into(), toml::Value::Float(v));
+        s
+    };
+    // staged: the space draws on the window, the sound reaches the stereo outputs
+    modules::check(&base).unwrap();
+    assert!(base.nodes.iter().any(|n| n.kind == "space") && base.nodes.iter().any(|n| n.kind == "screen"));
+    let low = render(&with_step3(0.25), 4);
+    let peak = low.iter().fold(0.0f32, |m, x| m.max(x.abs()));
+    let rms = (low.iter().map(|v| v * v).sum::<f32>() / low.len() as f32).sqrt();
+    assert!(peak > 0.01 && peak < 0.9 && rms > 0.002, "the scene sounds, quietly: peak {peak} rms {rms}");
+    let (left, right): (f32, f32) = (low.iter().step_by(2).map(|v| v * v).sum(), low.iter().skip(1).step_by(2).map(|v| v * v).sum());
+    assert!(left > 0.0 && right > 0.0, "both channels");
+    let diff = low.iter().zip(&render(&with_step3(0.75), 4)).fold(0.0f32, |m, (x, y)| m.max((x - y).abs()));
+    assert!(diff > 0.005, "another step 3, another sound ({diff})");
+    // the keys sent out: step 3 is the third note – 6 semitones above the base at 0.25, 18 at 0.75
+    let keys_of = |s: &Scene| {
+        let g = Graph::build(s).unwrap();
+        let (mut e, mut h) = engine(&g, Build::detect(), Sequencing::InBlock, 2);
+        let mut outbox = h.events.take_outbox();
+        for _ in 0..(4 * 48_000 / 512) {
+            e.render(&mut vec![0.0f32; 512 * 2], 2, |x| x);
+        }
+        let key = h.events.names.get("key").unwrap();
+        let mut keys = Vec::new();
+        while let Ok(n) = outbox[0].pop() {
+            keys.push(n.props.get(key).expect("the key is filled from the tuning"));
+        }
+        assert!(keys.len() >= 5, "the sequencer plays on the scene's tempo: {keys:?}");
+        keys
+    };
+    let (low, high) = (keys_of(&with_step3(0.25)), keys_of(&with_step3(0.75)));
+    assert_eq!(high[2] - low[2], 12.0, "an octave apart: {low:?} {high:?}");
+    assert_eq!((low[0], low[1], low[3]), (high[0], high[1], high[3]), "the other steps do not move");
+    // the being's 3D buttons, as the native deck builds them from the scene's graph and `[being] expose`
+    let graph = Graph::build(&base).unwrap();
+    let being = deck_native::space::being::Being::new(&graph, &base.being);
+    let knobs: Vec<String> = being.buttons.iter().map(|b| format!("{}.{}", graph.nodes[b.node].id, b.name)).collect();
+    let mut want: Vec<String> = (1..=16).map(|i| format!("seq.step{i}")).chain((1..=16).map(|i| format!("seq.on{i}"))).collect();
+    want.extend(["seq.steps", "seq.rate", "seq.gate", "synth.volume", "synth.f1_cutoff", "synth.f1_res", "synth.f1_env", "synth.ae1_d", "synth.ae1_r", "synth.o2_fine", "synth.l1_rate"].map(String::from));
+    let mut got = knobs.clone();
+    got.sort();
+    want.sort();
+    assert_eq!(got, want, "the 16 sliders, the 16 switches, the loop, the clock and the synth's main knobs: {knobs:?}");
+}

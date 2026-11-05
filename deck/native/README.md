@@ -362,13 +362,25 @@ the bass), pink-noise incense swayed by an LFO → mixer → FFT (its level kick
 bass, a voice swelling with a slow LFO. An audio oscillator's `wave` can't change while it plays yet (an engine
 rebuild); MIDI / OSC learn onto the same `Controls::set` is S6.
 
+`scenes/catpope-analog.toml` ("Catpope plays analog", #418, `--scene catpope-analog`, in the F5 list) – the being in the
+cathedral's room with the `stepseq` module playing the `analog` module (its `lead` preset; the event host routes the
+notes): the being's `expose` makes the 16 step sliders, the 16 on/off switches (each a plain 0..1 button: the module
+reads ≥ 0.5 as on – the knob widget has no two-state look yet), the loop length, rate, gate and eight synth controls
+(volume, cutoff, resonance, filter envelope, amp decay / release, oscillator 2 detune, LFO rate) its 3D buttons.
+Modules play only on a deck built with `--features modules` and their wasm in `DECK_MODULES`; from `deck/`:
+`cargo build --release --target wasm32-unknown-unknown -p analog-module -p stepseq-module --target-dir target/wasm-modules`,
+PowerShell `$env:DECK_MODULES = "$PWD\target\wasm-modules\wasm32-unknown-unknown\release"`, then
+`cargo run -p deck-native --features modules --release -- --scene catpope-analog --windowed` (the folder's other `*.wasm`
+files load too and are ignored unless a scene names them). `rig:` scenes stage the being too now: `Player::scene` adds the
+`screen` node the flattened rig lacks (it showed only the HUD on black).
+
 `scenes/madness.toml` ("AV madness (S3)", `--scene madness`) – the tempo clock at 96 BPM; catpope 1's music + an FM voice sequenced on
 the beat + pink noise + the click (off until K) → mixer → FFT; test pattern (pulsing on the beat) → kaleidoscope → the
 chapter's slices (cut on a bass hit snapped to the beat, every 6 s at the latest) → RGB shift → the caption overlay →
 screen. `scenes/test-pattern.toml` – the picture alone (no sound, no network). Both land in
 `/usr/share/deck/scenes` on the deck; `scene = "…"` in `/var/lib/deck/deck.toml` picks one.
 
-**The scene switcher (#250, `switcher.rs`):** **F5** lists the built-in scenes (`idle`, `madness`, `cathedral`, `conductor`,
+**The scene switcher (#250, `switcher.rs`):** **F5** lists the built-in scenes (`idle`, `madness`, `cathedral`, `catpope-analog`, `conductor`,
 `outlet`, `strobe`, `test-pattern`) and every `*.toml` of the scenes folder (`--scenes DIR`, default
 `/usr/share/deck/scenes`; a file named like a built-in is skipped); ↑ ↓ move, **Enter** loads the scene in place – the same
 path as a `--dev` reload, no process restart: the old show stops (audio graph dropped), the new one is built, the window

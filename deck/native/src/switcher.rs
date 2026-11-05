@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 pub const SCENES_DIR: &str = "/usr/share/deck/scenes";
 
 /// the built-in scenes in the list's order (the first is the stage's default)
-pub const BUILTIN: [&str; 9] = ["idle", "madness", "cathedral", "conductor", "outlet", "strobe", "pulse-thunderwash", "lamps-off", "test-pattern"];
+pub const BUILTIN: [&str; 10] = ["idle", "madness", "cathedral", "catpope-analog", "conductor", "outlet", "strobe", "pulse-thunderwash", "lamps-off", "test-pattern"];
 
 /// the source of a built-in scene by name
 pub fn builtin(name: &str) -> Option<&'static str> {
@@ -16,6 +16,7 @@ pub fn builtin(name: &str) -> Option<&'static str> {
         "idle" => scene::IDLE_SCENE,
         "madness" => scene::MADNESS_SCENE,
         "cathedral" => scene::CATHEDRAL_SCENE,
+        "catpope-analog" => include_str!("../scenes/catpope-analog.toml"),
         "conductor" => scene::CONDUCTOR_SCENE,
         "outlet" => scene::OUTLET_SCENE,
         "strobe" => include_str!("../scenes/strobe.toml"),
@@ -216,6 +217,10 @@ mod tests {
         for name in BUILTIN {
             let src = builtin(name).unwrap_or_else(|| panic!("{name}: no source"));
             let s = scene::Scene::parse(src).unwrap_or_else(|e| panic!("{name}: {e:#}"));
+            // a scene of wasm modules builds only with its modules loaded (DECK_MODULES): tests/modules.rs builds it with them
+            if s.nodes.iter().any(|n| n.kind.starts_with("module:")) {
+                continue;
+            }
             // a scene needing a module this build lacks is refused with the feature's name – everything else must build
             match crate::modules::check(&s) {
                 Ok(()) => {
