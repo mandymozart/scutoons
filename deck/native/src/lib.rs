@@ -6,6 +6,7 @@ pub mod audio;
 pub mod cache;
 pub mod chapter;
 pub mod clock;
+pub mod demo_scenes;
 pub mod hud;
 pub mod live;
 pub mod modules;

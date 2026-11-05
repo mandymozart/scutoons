@@ -367,9 +367,16 @@ the beat + pink noise + the click (off until K) → mixer → FFT; test pattern 
 chapter's slices (cut on a bass hit snapped to the beat, every 6 s at the latest) → RGB shift → the caption overlay →
 screen. `scenes/test-pattern.toml` – the picture alone (no sound, no network). Both land in
 `/usr/share/deck/scenes` on the deck; `scene = "…"` in `/var/lib/deck/deck.toml` picks one.
+`scenes/module-walk.toml` and `scenes/module-analog.toml` (#406) are the module demos – the first scenes whose sound comes from
+compiled rig modules (`--features modules`, the wasm in `DECK_MODULES`; the X1 update ships `walk` and `analog` to
+`/usr/share/deck/modules`): **module-walk** = `module:walk` (a seeded melody on the tempo clock) → its `cv` (pitch Hz left, gate right) →
+an `fm` voice → the device, 96 BPM; **module-analog** = `module:walk`'s note events play `module:analog` (no cable: the event host
+routes `music.note` by name), 84 BPM. Both quiet by default (voice gain 0.2, device volume 0.5), a pulsing test pattern as the
+picture. Built in like `madness`: `--scene module-walk` or F5; a build without the feature, or with the module missing, refuses them with the reason.
+Test: `cargo test -p deck-native --features modules --test modules` (`the_demo_scenes_play_the_modules`).
 
 **The scene switcher (#250, `switcher.rs`):** **F5** lists the built-in scenes (`idle`, `madness`, `cathedral`, `conductor`,
-`outlet`, `strobe`, `test-pattern`) and every `*.toml` of the scenes folder (`--scenes DIR`, default
+`outlet`, `strobe`, `test-pattern`, `module-walk`, `module-analog`) and every `*.toml` of the scenes folder (`--scenes DIR`, default
 `/usr/share/deck/scenes`; a file named like a built-in is skipped); ↑ ↓ move, **Enter** loads the scene in place – the same
 path as a `--dev` reload, no process restart: the old show stops (audio graph dropped), the new one is built, the window
 stays (about 0.6 s on a PC) – **Esc** / F5 closes; the playing one is starred. A scene that doesn't build (a module this build lacks,

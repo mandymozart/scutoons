@@ -1,0 +1,55 @@
+# #406 module demo: the `walk` module plays the `analog` synth module through note events – module to module, no cable: the
+# engine's event host delivers walk's `music.note` events to analog's `notes` input by name (deck-native tests/modules.rs
+# proves it). analog's own defaults (a two-oscillator subtractive voice, 8 voices) sound; its factory preset `pad` is not
+# applied here. Quiet by default: analog `volume` 0.5, device volume 0.5.
+# Needs the `modules` build and both modules in DECK_MODULES (walk.wasm, analog.wasm – the X1 update ships them).
+#   cargo run --release -p deck-native --features modules -- --scene module-analog
+[stage]
+name = "module: walk plays analog (#406)"
+
+[[node]]
+id = "tempo"
+kind = "tempo"
+bpm = 84
+beats = 4
+source = "internal"
+
+# a slower, lower walk than module-walk: 1 step a beat, long notes, a seed of its own
+[[node]]
+id = "walk"
+kind = "module:walk"
+seed = 11
+spread = 0.5
+rate = 1.0
+length = 0.9
+base = 110
+
+[[node]]
+id = "synth"
+kind = "module:analog"
+volume = 0.5
+
+[[node]]
+id = "out"
+kind = "audio_out"
+volume = 0.5
+
+[[link]]
+from = "synth.out"
+to = "out.in"
+
+[[node]]
+id = "pattern"
+kind = "test_pattern"
+
+[[node]]
+id = "screen"
+kind = "screen"
+
+[[link]]
+from = "tempo.pulse"
+to = "pattern.pulse"
+
+[[link]]
+from = "pattern"
+to = "screen.in"

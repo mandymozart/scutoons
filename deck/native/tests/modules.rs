@@ -221,6 +221,33 @@ fn the_walk_plays_the_analog_synth_through_note_events() {
     assert!(diff > 0.01, "another seed, another melody ({diff})");
 }
 
+/// the demo scenes (#406, deck/native/scenes): the files the deck's F5 list offers parse, pass the module check and play
+/// non-silent, quiet audio through the engine – `module-walk` (the walk module's cv into an FM voice) and `module-analog`
+/// (the walk's notes into the analog synth). The scenes carry a tempo clock and a picture besides; the audio engine plays
+/// its part of the graph.
+#[test]
+fn the_demo_scenes_play_the_modules() {
+    Library::global().load(&walk()).unwrap();
+    Library::global().load(&analog()).unwrap();
+    let dir = deck_root().join("native").join("scenes");
+    for name in ["module-walk", "module-analog"] {
+        let scene = Scene::parse(&std::fs::read_to_string(dir.join(format!("{name}.toml"))).unwrap()).unwrap();
+        // refused by name on a build without the modules feature, accepted with it
+        assert!(modules::check_with(&scene, |f| f == "core").unwrap_err().to_string().contains("'modules'"), "{name}");
+        let out = render(&scene, 4);
+        assert!(out.iter().all(|x| x.is_finite()), "{name}: finite samples");
+        let peak = out.iter().fold(0.0f32, |m, x| m.max(x.abs()));
+        // audible, and quiet by default (the X1 plays to speakers or a mixer)
+        assert!(peak > 0.02, "{name} plays: peak {peak}");
+        assert!(peak < 0.5, "{name} is quiet by default: peak {peak}");
+        // it keeps sounding over the four seconds (not one note and then silence)
+        let blocks: Vec<f32> = out.chunks(512 * 2).map(|b| b.iter().fold(0.0f32, |m, x| m.max(x.abs()))).collect();
+        let (lo, hi) = blocks.iter().fold((f32::MAX, 0.0f32), |(lo, hi), &p| (lo.min(p), hi.max(p)));
+        assert!(blocks.iter().filter(|&&p| p > 0.01).count() > blocks.len() / 4, "{name}: sounds through the run");
+        println!("{name}: peak {peak:.3}, block peaks {lo:.3}..{hi:.3}");
+    }
+}
+
 /// numbers for the record (`cargo test -p deck-native --features modules -- --nocapture module_costs`)
 #[test]
 fn module_costs() {

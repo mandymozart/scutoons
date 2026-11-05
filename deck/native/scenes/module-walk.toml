@@ -1,0 +1,66 @@
+# #406 module demo: the `walk` rig module (deck/modules/walk, compiled to wasm, run by the deck's module host) plays an FM
+# voice – the first scene whose sound comes from a compiled module. The module walks a seeded melody on the tempo clock;
+# its `cv` output is the sequencer's lane (pitch Hz left, gate 0 / 1 right), so one link gives the voice its pitch AND its
+# envelope. Quiet by default: voice gain 0.2, device volume 0.5 (the limiter and the grand master stay in the path).
+# Needs the `modules` build (`--features modules`) and the module in DECK_MODULES (the X1 update ships
+# /usr/share/deck/modules/walk.wasm and deck-session sets DECK_MODULES); a build without it refuses the scene by name.
+#   cargo run --release -p deck-native --features modules -- --scene module-walk   (DECK_MODULES = a folder with walk_module.wasm)
+[stage]
+name = "module: walk (#406)"
+
+[[node]]
+id = "tempo"
+kind = "tempo"
+bpm = 96
+beats = 4
+source = "internal"
+
+# the compiled module: a seeded random walk (the same seed, the same melody on every deck); spread 0.6 of ±2 octaves
+# around 147 Hz, 2 steps a beat, a little glide, notes at 80 % of a step
+[[node]]
+id = "walk"
+kind = "module:walk"
+seed = 7
+spread = 0.6
+rate = 2.0
+glide = 0.25
+length = 0.8
+
+[[node]]
+id = "voice"
+kind = "fm"
+ratio = 2.0
+index = 1.2
+gain = 0.2
+attack = 0.01
+release = 0.15
+
+[[node]]
+id = "out"
+kind = "audio_out"
+volume = 0.5
+
+[[link]]
+from = "walk.cv"
+to = "voice.cv"
+
+[[link]]
+from = "voice"
+to = "out.in"
+
+# the picture: the test pattern pulsing on the beat (nothing to look at, but it shows the clock runs)
+[[node]]
+id = "pattern"
+kind = "test_pattern"
+
+[[node]]
+id = "screen"
+kind = "screen"
+
+[[link]]
+from = "tempo.pulse"
+to = "pattern.pulse"
+
+[[link]]
+from = "pattern"
+to = "screen.in"
