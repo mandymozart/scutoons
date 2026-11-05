@@ -25,6 +25,7 @@
 		"shared/live-core/src/worker.ts": "adapter: the Web Worker hosting live_core.wasm (the lead and the monitor's audio side are the core's)",
 		"shared/live-core/src/worklet.ts": "adapter: the AudioWorklet playing the ring",
 		"shared/live-deck/scripts/build-wasm.ts": "adapter: builds space-web for the page",
+		"shared/live-deck/src/assign.ts": "adapter: space-web's assignment rules (rig_coverage, rig_catalog_bundle – deck-space rig::assign) for the creator's Assignment tab (#283)",
 		"shared/live-deck/src/client.ts": "adapter: the WebSocket and one timer under deck-space's relay client (relay-web, #366); a deck's link",
 		"shared/live-deck/src/controls.ts": "adapter: the controls (DeckControls) on the deck's values, the mappings in localStorage, the arc's drawing",
 		"shared/live-deck/src/deck.ts": "adapter: the browser deck – applies the core's state (the mood, the rig turns: #367, #368), hands the clock choices, keys and Web MIDI clock bytes to the core (#370)",

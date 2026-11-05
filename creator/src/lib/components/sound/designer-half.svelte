@@ -1,18 +1,20 @@
 <script lang="ts">
 	// The designer half of the Sound design workspace (#282): the module being edited (a rig page picks one of the stored
 	// modules, a module page IS one), Derive (a factory module, #350: read-only), New module, and the tab row – Parameters ·
-	// Nodes · Rust · Assignment; Parameters, Nodes (read-only: the deck's wiring) and Rust are live, mounted while hidden.
+	// Nodes · Rust · Assignment (a rig page: the character's rig as a form, #283), all live and mounted while hidden.
 	import { DesignerTabs, NodesTab, ParametersTab, RustTab, type DesignerTabId, type GraphWiring, type RigDesigner } from '@scutoons/rig-designer';
 	import type { EngineHost } from '@scutoons/engine-host';
 	import { Icon } from '@scutoons/ui';
+	import { loadRigRules } from '@scutoons/live-deck/assign';
+	import AssignmentPane from '$lib/components/rigs/assignment-pane.svelte';
 	import { m } from '$lib/paraglide/messages.js';
 
-	let { designer, fixed = null, modules, factory = [], selected, notice = '', host, wiring, onselect, onnew, onderive }: {
+	let { designer, fixed = null, rig = null, modules, factory = [], selected, notice = '', host, wiring, onselect, onnew, onderive }: {
 		/** the deck half's engine and the core's wiring of what it plays (the Nodes tab) */
 		host: EngineHost | null; wiring?: GraphWiring;
 		designer: RigDesigner;
-		/** a module page: the module's id, shown as the title (no picker) */
-		fixed?: string | null;
+		/** a module page: the module's id, shown as the title (no picker); a rig page: the rig's subject (the Assignment tab) */
+		fixed?: string | null; rig?: string | null;
 		/** the stored modules a rig page can pick; `factory`: which of them are factory modules (#350, marked) */
 		modules: string[];
 		factory?: string[];
@@ -26,6 +28,7 @@
 	} = $props();
 
 	let tab = $state<DesignerTabId>('rust');
+	const rules = loadRigRules('/live/');
 </script>
 
 <div class="designer" data-testid="sound-designer">
@@ -48,9 +51,10 @@
 	{#if notice}<p class="note" role="status">{notice}</p>{/if}
 	<DesignerTabs value={tab} onchange={(id) => (tab = id)} />
 	<div class="body">
+		{#if rig}<div class="pane" hidden={tab !== 'assignment'}><AssignmentPane subject={rig} {rules} play={(b) => host?.playRig(b)} moods={host?.moods ?? []} /></div>{/if}
 		<div class="pane" hidden={tab !== 'nodes'}><NodesTab {wiring} read={(p) => host?.deck?.read(p) ?? NaN} active={tab === 'nodes'} /></div>
 		{#if !designer.moduleId}
-			{#if tab !== 'nodes'}<p class="sc-empty pad">{m['creator.sound_pick_module']()}</p>{/if}
+			{#if tab !== 'nodes' && tab !== 'assignment'}<p class="sc-empty pad">{m['creator.sound_pick_module']()}</p>{/if}
 		{:else}
 			<div class="pane" hidden={tab !== 'rust'}><RustTab {designer} /></div>
 			<div class="pane" hidden={tab !== 'parameters'}><ParametersTab {designer} /></div>

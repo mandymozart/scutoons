@@ -124,6 +124,7 @@
 		<DesignerHalf
 			{designer}
 			fixed={target.kind === 'module' ? target.id : null}
+			rig={'subject' in target ? target.subject : null}
 			modules={catalog.ids}
 			factory={Object.keys(catalog.factory)}
 			{selected}
