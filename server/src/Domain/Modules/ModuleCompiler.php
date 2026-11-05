@@ -171,16 +171,36 @@ final class ModuleCompiler
      */
     private function accept(array $body): array
     {
-        $bytes = is_string($body['wasm_b64'] ?? null) ? base64_decode($body['wasm_b64'], true) : false;
-        $descriptor = $body['descriptor'] ?? null;
-        $ok = is_string($bytes) && $bytes !== '' && strlen($bytes) <= self::MAX_WASM_BYTES && str_starts_with($bytes, "\0asm")
-            && is_array($descriptor) && ModuleSource::descriptorProblems($descriptor) === [];
-        if (!$ok) throw new ApiError(502, 'build_failed', 'The module build service answered with something that is not a module.');
-        /** @var string $bytes */
+        $problems = self::answerProblems($body);
+        // #416: the message names the check that failed (and the toolchain that answered), so a version skew between the
+        // service and the API explains itself; no body, no secret
+        if ($problems) throw new ApiError(502, 'build_failed', 'The module build service answered with something that is not a module: ' . implode('; ', array_slice($problems, 0, 5))
+            . (is_string($body['toolchain'] ?? null) ? ' (service toolchain ' . substr($body['toolchain'], 0, 60) . ')' : '') . '.', ['problems' => array_slice($problems, 0, 20)]);
+        $bytes = (string) base64_decode((string) $body['wasm_b64'], true);
+        /** @var array<string, mixed> $descriptor */
+        $descriptor = $body['descriptor'];
         $hash = hash('sha256', $bytes);
         if (($body['hash'] ?? null) !== $hash) throw new ApiError(502, 'build_failed', 'The build service\'s hash does not match its module.');
         $toolchain = is_string($body['toolchain'] ?? null) ? substr($body['toolchain'], 0, 100) : null;
         return ['hash' => $hash, 'descriptor' => $descriptor, 'wasm' => $bytes, 'toolchain' => $toolchain, 'warnings' => self::diagnostics($body['warnings'] ?? null)];
+    }
+
+    /**
+     * Why a 200 answer of the build service is not a module ([] = it is): the wasm's bytes, then the descriptor's shape
+     * @param array<string, mixed> $body
+     * @return list<string>
+     */
+    public static function answerProblems(array $body): array
+    {
+        $bytes = is_string($body['wasm_b64'] ?? null) ? base64_decode($body['wasm_b64'], true) : false;
+        $p = [];
+        if (!is_string($bytes) || $bytes === '') $p[] = 'wasm_b64 is not base64 of a file';
+        elseif (strlen($bytes) > self::MAX_WASM_BYTES) $p[] = 'the wasm is larger than ' . self::MAX_WASM_BYTES . ' bytes';
+        elseif (!str_starts_with($bytes, "\0asm")) $p[] = 'the file is not a wasm';
+        $descriptor = $body['descriptor'] ?? null;
+        if (!is_array($descriptor)) $p[] = 'no descriptor';
+        else array_push($p, ...ModuleSource::descriptorProblems($descriptor));
+        return $p;
     }
 
     /**
