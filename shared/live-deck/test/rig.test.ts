@@ -83,6 +83,23 @@ test('the deck plays a rig and back: sliders, stream and wire follow; a mood mov
 	d.close();
 });
 
+test("#282: the deck hands on the core's wiring of what plays – the rig's, then its own scene's again", () => {
+	const d = new Deck({ character: 'catpope', nick: 'guest', api: API });
+	assert.deepEqual(d.wiring(), { nodes: [], links: [] }, 'no core yet: no graph');
+	d.useState(stateOf());
+	d.play('catpope', '', true);
+	const w = d.wiring();
+	assert.deepEqual(w, DECK.catpope.wiring);
+	const id = (i: number) => w.nodes[i].id;
+	assert.ok(w.links.some((l) => id(l.from) === 'voice_melody' && id(l.to) === 'voice_voice' && l.value === 'voice_melody.cv' && l.type === 'audio'));
+	assert.ok(w.links.some((l) => l.value === 'drone_drone.out' && l.out === 'out'), 'a bare node is its first output (the core resolved it)');
+	assert.ok(w.nodes.every((n) => n.played), 'catpope plays whole');
+	d.play('');
+	assert.deepEqual(d.wiring(), DECK.own.wiring);
+	assert.ok(DECK.own.wiring.nodes.some((n) => !n.played), 'a node the browser does not carry yet');
+	d.close();
+});
+
 test("the rig's corner sticks reach the deck; no rig restores the deck's own", () => {
 	const d = new Deck({ character: 'catpope', nick: 'guest', api: API });
 	assert.equal(d.sticks, null);
