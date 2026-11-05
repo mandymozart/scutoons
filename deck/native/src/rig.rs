@@ -7,12 +7,15 @@
 //! F5 switcher's value): `rig:catpope`, `rig:item.incense_burner@happy`.
 //!
 //! The rigs are the core rigs the image carries (`rig::bundle::CORE`); scene-content's catalog rigs and their cache are #271.
+//! A code rig (#410, T3 of #314) plays the same way: its policy is a module node of the scene, and each frame its
+//! `@preset` outputs, read from the heard block, go to the core (`Deck::choose`), which replays the rig with the presets
+//! it chose – the values that moved go into the control domain like a mood's.
 use crate::control::Controls;
 use crate::graph::Graph;
 use crate::scene::Scene;
 use anyhow::{anyhow, Result};
-use deck_space::deck::{Deck, Turn};
-use deck_space::rig::Played;
+use deck_space::deck::{Deck, Step, Turn};
+use deck_space::rig::{Bundle, Played};
 use std::path::Path;
 
 /// the scene argument's prefix that names a rig
@@ -50,6 +53,22 @@ impl Player {
         Some(Player { deck, name })
     }
 
+    /// A rig bundle played on this deck at `mood` (a catalog rig, a code rig with its policy's descriptor) – an error when
+    /// it does not play (no fallback: the caller asked for this bundle).
+    pub fn play(bundle: Bundle, mood: Option<&str>) -> Result<Player> {
+        let mut deck = Deck::new();
+        deck.ladder.pin(mood);
+        let turn = deck.play(Some(bundle), "")?;
+        log(&turn);
+        let name = Scene::parse(&turn.played.scene)?.stage.name;
+        Ok(Player { deck, name })
+    }
+
+    /// what the core plays now (the presets each track plays, the scene)
+    pub fn played(&self) -> &Played {
+        self.deck.played()
+    }
+
     /// The player of the rig `arg` names, when `scene` is what it plays (not the test pattern after a failed load, not the
     /// deck's own scene after a failed rig: nothing to replay then).
     pub fn of(arg: Option<&Path>, scene: &Scene) -> Option<Player> {
@@ -63,32 +82,53 @@ impl Player {
 
     /// One frame: the being's mood (`mood` – the head's, the same energy walk as every deck's) to the core; when it turned,
     /// the values the core's replay moved go into the control domain as their inputs' bases (a knob's, a preset's param).
-    /// A replay that changes the rig's shape needs a new scene: the core says so, the deck keeps the shape it plays until
-    /// the next load (F5, `--dev`) – no core rig changes its shape with a mood.
+    /// Then a code rig's `@preset` outputs as the heard block left them (#410): when the policy chose another preset, the
+    /// core's replay with it, applied the same way. A replay that changes the rig's shape needs a new scene: the core
+    /// says so, the deck keeps the shape it plays until the next load (F5, `--dev`) – no core rig changes its shape with
+    /// a mood.
     pub fn frame(&mut self, mood: &str, graph: &Graph, ctl: &mut Controls, dt: f32) {
         self.deck.ladder.pin(Some(mood));
-        let Some(step) = self.deck.step(0.0, 0.0, false, 0.0, dt) else { return };
-        let Some(turn) = step.turn else {
-            if !step.error.is_empty() {
-                tracing::warn!("rig: mood {}: {} – it plays on as it was", step.mood, step.error);
-            }
-            return;
-        };
-        if turn.reload {
-            tracing::warn!("rig: {} – a new shape, loaded with the next scene load (F5)", turn.note);
-            return;
+        if let Some(step) = self.deck.step(0.0, 0.0, false, 0.0, dt) {
+            apply(step, graph, ctl);
         }
-        for (path, value) in &turn.values {
-            let at = path.rsplit_once('.').and_then(|(node, port)| {
-                let i = graph.nodes.iter().position(|n| n.id == node)?;
-                Some((i, graph.nodes[i].kind.input(port)?))
-            });
-            if let Some((node, port)) = at {
-                ctl.set_base(node, port, *value);
-            }
+        let heard: Vec<f32> = self.deck.preset_paths().map(|p| output(graph, ctl, p)).collect();
+        if let Some(step) = Some(heard).filter(|h| !h.is_empty()).and_then(|h| self.deck.choose(&h)) {
+            apply(step, graph, ctl);
         }
-        tracing::info!("rig: {}", turn.note);
     }
+}
+
+/// a replay's values into the control domain as their inputs' bases
+fn apply(step: Step, graph: &Graph, ctl: &mut Controls) {
+    let Some(turn) = step.turn else {
+        if !step.error.is_empty() {
+            tracing::warn!("rig: mood {}: {} – it plays on as it was", step.mood, step.error);
+        }
+        return;
+    };
+    if turn.reload {
+        tracing::warn!("rig: {} – a new shape, loaded with the next scene load (F5)", turn.note);
+        return;
+    }
+    for (path, value) in &turn.values {
+        let at = path.rsplit_once('.').and_then(|(node, port)| {
+            let i = graph.nodes.iter().position(|n| n.id == node)?;
+            Some((i, graph.nodes[i].kind.input(port)?))
+        });
+        if let Some((node, port)) = at {
+            ctl.set_base(node, port, *value);
+        }
+    }
+    tracing::info!("rig: {}", turn.note);
+}
+
+/// a control output's value in the heard block (`node.output`; NaN: no such node or output)
+fn output(graph: &Graph, ctl: &Controls, path: &str) -> f32 {
+    let at = path.rsplit_once('.').and_then(|(node, out)| {
+        let i = graph.nodes.iter().position(|n| n.id == node)?;
+        Some((i, graph.nodes[i].kind.output(out)?))
+    });
+    at.and_then(|(i, o)| ctl.outputs(i).get(o).copied()).unwrap_or(f32::NAN)
 }
 
 /// One frame of the being (#409, T2 of #314): its live context to every module node of the engine – the mood its head

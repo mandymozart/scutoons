@@ -1,0 +1,21 @@
+# catpope-rig – catpope's mood switching as a code rig's policy (#410, T3 of #314; agents/research/RIG-MODULE-GROUPS.md §3):
+# a control-domain module that chooses the voice's preset (`voice:@preset`), sets its FM index and the drone's level per
+# mood – the table the declarative catpope (deck/native/rigs/catpope.toml) plays. A test module, not a factory module (no
+# catalog document): deck-native's tests/modules.rs builds it for wasm32 and plays catpope with it on the native deck.
+[package]
+name = "catpope-rig-module"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+deck-module = { path = "../../../module" }
+
+[dev-dependencies]
+# the descriptor as a host reads it
+deck-module = { path = "../../../module", features = ["host"] }

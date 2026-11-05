@@ -29,7 +29,7 @@ fn wasm(file: &str) -> Vec<u8> {
         let cargo = std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
         let out = std::process::Command::new(cargo)
             .current_dir(&root)
-            .args(["build", "--release", "--target", "wasm32-unknown-unknown", "-p", "walk-module", "-p", "fixture-module", "-p", "analog-module", "-p", "context-probe-module", "--target-dir"])
+            .args(["build", "--release", "--target", "wasm32-unknown-unknown", "-p", "walk-module", "-p", "fixture-module", "-p", "analog-module", "-p", "context-probe-module", "-p", "catpope-rig-module", "--target-dir"])
             .arg(&dir)
             .output()
             .expect("running cargo");
@@ -347,6 +347,72 @@ fn a_module_reads_the_deck_s_live_mood() {
         [0.0, 0.0, 0.0, 0.0],     // neutral: a mood it does not list
     ];
     assert_eq!(seen, want);
+}
+
+/// #410 (T3 of #314): catpope as a code rig on the native deck – its policy the REAL compiled module
+/// (deck/conformance/modules/catpope-rig, research/RIG-MODULE-GROUPS.md §3) in the engine, reading the deck's live mood
+/// (#409); each frame the deck reads its `@preset` output from the heard block and the core replays the rig with the
+/// preset it chose (`Deck::choose`). For all six moods, one frame after the mood turned: the preset the voice plays is the
+/// declarative catpope's, and what the voice's and the drone's inputs read is what the tables give.
+#[test]
+fn catpope_as_a_code_rig_chooses_what_the_tables_choose() {
+    use deck_native::control::{Context, Controls};
+    use deck_native::rig::Player;
+    use deck_space::deck::Deck;
+    use deck_space::rig::Bundle;
+    let loaded = Library::global().load(&wasm("catpope_rig_module.wasm")).unwrap();
+    // the code rig: the core catpope's tracks, instruments and presets, its mood tables replaced by the policy – with the
+    // descriptor the compiled module carries (what the build service stores with its module:<id> document)
+    let mut bundle = Bundle::core("character.catpope").unwrap().unwrap();
+    bundle.rig.moods.clear();
+    bundle.rig.policy = Some(deck_space::rig::policy::Policy { module: "catpope_rig".into(), seed: None, values: Default::default() });
+    bundle.modules = vec![loaded.desc.clone()];
+    let mut player = Player::play(bundle, Some("neutral")).unwrap();
+    let scene = player.scene().unwrap();
+    modules::check(&scene).unwrap();
+    let g = Graph::build(&scene).unwrap();
+    let (mut e, mut h) = engine_for(&g, 2);
+    let mut ctl = Controls::new(&g, Some(&mut h));
+    let at = |id: &str| g.nodes.iter().position(|n| n.id == id).unwrap();
+    let (voice, drone) = (at("voice_voice"), at("drone_drone"));
+    let tempo = deck_native::tempo::Now::default();
+    let voice_preset = |p: &Player| p.played().tracks.iter().find(|t| t.track == "voice").and_then(|t| t.preset.clone());
+    // the declarative catpope: what its tables play for a mood (the voice's preset; index, ratio, drone gain)
+    let mut tables = Deck::new();
+    tables.play_core("catpope", "");
+    let mut table = |mood: &str| {
+        tables.ladder.pin(Some(mood));
+        tables.step(0.0, 0.0, false, 0.0, 1.0 / 60.0);
+        let p = tables.played();
+        let param = |node: &str, k: &str| p.nodes.iter().find(|n| n.id == node).and_then(|n| n.params.get(k)).and_then(|v| v.as_float()).unwrap() as f32;
+        let preset = p.tracks.iter().find(|t| t.track == "voice").and_then(|t| t.preset.clone());
+        (preset, [param("voice_voice", "index"), param("voice_voice", "ratio"), param("drone_drone", "gain")])
+    };
+    // one deck frame as the native deck runs it (rig.rs `frame`): a frame's blocks, the heard values, then the being's
+    // context to the module nodes and the rig's frame (the mood's replay, the policy's choice)
+    let mut frame = |mood: &str, player: &mut Player, ctl: &mut Controls| {
+        for _ in 0..4 {
+            let mut buf = vec![0.0f32; deck_native::audio::QUANTUM * 2];
+            e.render(&mut buf, 2, |x| x);
+        }
+        ctl.update(1.0 / 60.0, 0, &tempo);
+        ctl.set_context(Context::new(mood, "", 0.0, 0.0, 0.0));
+        player.frame(mood, &g, ctl, 1.0 / 60.0);
+    };
+    let mut before = None;
+    for mood in ["neutral", "thinking", "sad", "happy", "laughing", "surprised"] {
+        let (preset, values) = table(mood);
+        frame(mood, &mut player, &mut ctl);
+        if before.is_some() && before != Some(preset.clone()) {
+            assert_eq!(Some(voice_preset(&player)), before, "{mood}: the frame the mood turned the policy has not heard it yet");
+        }
+        frame(mood, &mut player, &mut ctl);
+        assert_eq!(voice_preset(&player), preset, "{mood}: one frame later the policy's choice plays");
+        frame(mood, &mut player, &mut ctl);
+        let read = [ctl.input(voice, "index", f32::NAN), ctl.input(voice, "ratio", f32::NAN), ctl.input(drone, "gain", f32::NAN)];
+        assert_eq!(read, values, "{mood}: the voice's index and ratio, the drone's gain");
+        before = Some(preset);
+    }
 }
 
 /// a trap in a show (the deck opens its instances so) restarts the module: the loader thread rebuilds it, it plays again
