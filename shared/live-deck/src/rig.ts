@@ -41,9 +41,10 @@ export interface RigPlayed {
 	expose: string[];
 }
 
-/** what changed in what the deck plays (deck-space `deck::Turn`): a scene to load whole, or the values a mood moved */
+/** what changed in what the deck plays (deck-space `deck::Turn`): a scene to load whole, or the values a mood (or a code
+ *  rig's preset choice, #410) moved */
 export interface RigTurn {
-	why: 'play' | 'mood';
+	why: 'play' | 'mood' | 'preset';
 	/** a rig plays (false: the deck's own scene) */
 	rig: boolean;
 	reload: boolean;

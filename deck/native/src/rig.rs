@@ -88,17 +88,14 @@ impl Player {
     /// a mood.
     pub fn frame(&mut self, mood: &str, graph: &Graph, ctl: &mut Controls, dt: f32) {
         self.deck.ladder.pin(Some(mood));
-        if let Some(step) = self.deck.step(0.0, 0.0, false, 0.0, dt) {
-            apply(step, graph, ctl);
-        }
         let heard: Vec<f32> = self.deck.preset_paths().map(|p| output(graph, ctl, p)).collect();
-        if let Some(step) = Some(heard).filter(|h| !h.is_empty()).and_then(|h| self.deck.choose(&h)) {
+        if let Some(step) = self.deck.frame(0.0, 0.0, false, 0.0, dt, &heard) {
             apply(step, graph, ctl);
         }
     }
 }
 
-/// a replay's values into the control domain as their inputs' bases
+/// a replay's values into the control domain as their inputs' bases (in order: a later one on a path wins)
 fn apply(step: Step, graph: &Graph, ctl: &mut Controls) {
     let Some(turn) = step.turn else {
         if !step.error.is_empty() {

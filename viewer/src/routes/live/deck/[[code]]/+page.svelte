@@ -263,7 +263,7 @@
 				rig: (_played, why) => {
 					const deck = host.deck;
 					if (!deck) return;
-					if (why === 'mood') return;
+					if (why !== 'play') return;
 					params = deck.params;
 					values = { ...deck.value };
 					// the corner sticks follow the rig's knobs (or the deck's own scene's again)

@@ -994,9 +994,18 @@ impl DeckState {
     }
 
     /// One animation frame: the analysis level (0..1), the clock's bpm and whether it runs, a hand (0..1), `dt` s since
-    /// the last – when the mood changed its `Step` as JSON (the mood, the rig's turn for it or why not), else "".
-    pub fn step(&mut self, level: f32, bpm: f32, running: bool, touch: f32, dt: f32) -> String {
-        self.d.step(level, bpm, running, touch, dt).map(|s| json(&s)).unwrap_or_default()
+    /// the last, and a code rig's preset outputs as heard (#410: the played scene's `presets` paths in order – what the
+    /// engine streamed as `policy.<out>`, NaN = not heard; empty without a code rig) – when the mood changed or the
+    /// policy chose another preset its `Step` as JSON (the mood, the rig's turn for it or why not), else ""
+    /// (deck-space `Deck::frame`).
+    pub fn step(&mut self, level: f32, bpm: f32, running: bool, touch: f32, dt: f32, heard: Vec<f32>) -> String {
+        self.d.frame(level, bpm, running, touch, dt, &heard).map(|s| json(&s)).unwrap_or_default()
+    }
+
+    /// #410: the paths of a code rig's preset outputs (`policy.<out>`) the page hands to `step` as heard, in order (none
+    /// without a code rig)
+    pub fn preset_paths(&self) -> Vec<String> {
+        self.d.preset_paths().map(String::from).collect()
     }
 
     /// #368: what plays now, as a `Turn` to load whole (JSON)

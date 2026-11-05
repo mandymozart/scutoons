@@ -4,8 +4,8 @@
 //! GPU: it works when the 3D can't), the headless host drives it directly. The page passes its inputs each frame,
 //! applies the turns (a new scene to load, values that moved) and draws the answers.
 //! A code rig (#410, T3 of #314): its policy chooses a track's preset through an `@preset` output; the platform hands the
-//! deck those outputs' values each frame (`choose`), and the deck replays the rig with the choices – the mood's replay,
-//! the same diff (without the inputs the policy owns), at most one frame after the policy wrote.
+//! deck those outputs' values each frame (`frame`: the mood's `step`, then `choose`), and the deck replays the rig with the
+//! choices – the mood's replay, the same diff (without the inputs the policy owns), at most one frame after the policy wrote.
 use crate::context::Context;
 use crate::mood::Ladder;
 use crate::rig::{Bundle, Played};
@@ -241,6 +241,26 @@ impl Deck {
         })
     }
 
+    /// One frame of a deck that may play a code rig (#410): `step`, then `choose` with the policy's preset outputs as
+    /// heard (`preset_paths`' order; none: no code rig) – one answer when the mood turned or a choice replayed the rig:
+    /// the mood, the two turns as one (the values in order – the choice's last –, the scene the choice played, a reload
+    /// when either reloads), the errors. The platforms call this, so a mood and a choice in one frame are one turn.
+    pub fn frame(&mut self, level: f32, bpm: f32, running: bool, touch: f32, dt: f32, heard: &[f32]) -> Option<Step> {
+        let mood = self.step(level, bpm, running, touch, dt);
+        let chose = if heard.is_empty() { None } else { self.choose(heard) };
+        let (a, b) = match (mood, chose) {
+            (a, None) => return a,
+            (None, b) => return b,
+            (Some(a), Some(b)) => (a, b),
+        };
+        let turn = match (a.turn, b.turn) {
+            (Some(x), Some(y)) => Some(Turn { reload: x.reload || y.reload, values: [x.values, y.values].concat(), note: format!("{}; {}", x.note, y.note), ..y }),
+            (x, y) => y.or(x),
+        };
+        let error = [a.error, b.error].into_iter().filter(|e| !e.is_empty()).collect::<Vec<_>>().join("; ");
+        Some(Step { mood: b.mood, turn, error })
+    }
+
     /// the mood now (the ladder's or the pinned one)
     pub fn mood(&self) -> &str {
         self.ladder.mood()
@@ -471,6 +491,29 @@ mod tests {
         code.play(Some(crate::rig::policy::tests::code_catpope()), "").unwrap();
         assert_eq!(preset(&code).as_deref(), Some("cathedral_voice.base"));
         assert_eq!(tables.choose(&[1.0]), None, "a declarative rig chooses nothing");
+    }
+
+    /// #410: the platforms' one call – a mood that turns and the policy's choice in the same frame are one step
+    #[test]
+    fn a_frame_answers_the_mood_and_the_choice_as_one_turn() {
+        let mut d = Deck::new();
+        d.play(Some(crate::rig::policy::tests::code_catpope()), "").unwrap();
+        let frame = |d: &mut Deck, heard: &[f32]| d.frame(0.0, 0.0, false, 0.0, 1.0 / 60.0, heard);
+        d.ladder.pin(Some("neutral"));
+        let s = frame(&mut d, &[0.0]).unwrap();
+        assert_eq!((s.mood.as_str(), s.turn.map(|t| t.why)), ("neutral", Some(Why::Mood)));
+        assert_eq!(frame(&mut d, &[0.0]), None, "nothing turned, nothing chosen");
+        d.ladder.pin(Some("thinking"));
+        let s = frame(&mut d, &[1.0]).unwrap();
+        let t = s.turn.unwrap();
+        assert_eq!((s.mood.as_str(), t.why, t.reload), ("thinking", Why::Preset, false));
+        assert_eq!(t.values, [("voice_voice.ratio".to_string(), 0.5)], "low's ratio; its index is the policy's");
+        assert!(t.note.starts_with("mood thinking") && t.note.contains("presets voice=cathedral_voice.low"), "{}", t.note);
+        let s = frame(&mut d, &[2.0]).unwrap();
+        assert_eq!((s.mood.as_str(), s.turn.unwrap().values), ("thinking", vec![("voice_voice.ratio".to_string(), 3.0)]), "a choice alone");
+        let mut own = Deck::new();
+        own.ladder.set_portraits(&MOODS.map(String::from));
+        assert!(own.frame(0.0, 0.0, false, 0.0, 0.1, &[]).is_some_and(|s| s.mood == "neutral"), "no code rig: the mood's step");
     }
 
     #[test]

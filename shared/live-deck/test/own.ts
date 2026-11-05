@@ -1,7 +1,8 @@
 // The core's answers as the tests get them (#360, #367, #368): deck-space's deck – space-web's `DeckState` – playing its
 // own scene (the X1's cathedral) and catpope's core rig, recorded in test/fixtures/deck.json (written and kept current
 // by `cargo test -p deck-space deck_fixture`). No rule of the page's: the knobs, the streamed paths, the being on the
-// wire, the knob targets and a mood's turn are the core's; the tests check that the deck applies them.
+// wire, the knob targets, a mood's turn and a code rig's preset choice (#410) are the core's; the tests check that the
+// deck applies them.
 import { readFileSync } from 'node:fs';
 import type { DeckGraph } from '@scutoons/live';
 import type { PathKind } from '../src/rig.ts';
@@ -32,7 +33,7 @@ export const MOODS = ['neutral', 'thinking', 'happy', 'laughing', 'surprised'];
 /** A stand-in for space-web's `DeckState` (the wasm is not loaded in node) answering from the fixture: the scene it
  *  plays (its own, or catpope after `play_core('catpope')` / a bundle), the moods `step` says (a name or a recorded
  *  `MoodStep`), and a record of what the deck handed it. */
-export function stateOf(o: { moods?: string[]; said?: (string | MoodStep)[] } = {}): DeckStateView & { calls: unknown[][]; pinned: string } {
+export function stateOf(o: { moods?: string[]; said?: (string | MoodStep)[]; presets?: string[] } = {}): DeckStateView & { calls: unknown[][]; pinned: string } {
 	const calls: unknown[][] = [];
 	const said = [...(o.said ?? [])];
 	let at: 'own' | 'catpope' = 'own';
@@ -42,14 +43,17 @@ export function stateOf(o: { moods?: string[]; said?: (string | MoodStep)[] } = 
 		pinned: '',
 		set_portraits: (m: string[]) => void calls.push(['set_portraits', m]),
 		pin: (m: string) => void ((s.pinned = m), calls.push(['pin', m])),
-		step: (...args: [number, number, boolean, number, number]) => {
-			calls.push(['step', ...args]);
+		// #410: `heard` (a code rig's preset outputs) is recorded as numbers
+		step: (...args: [number, number, boolean, number, number, Float32Array]) => {
+			calls.push(['step', ...args.slice(0, 5), [...args[5]]]);
 			const next = said.shift();
 			if (!next) return '';
 			const step = typeof next === 'string' ? { mood: next } : next;
 			shown = step.mood;
 			return JSON.stringify(step);
 		},
+		// #410: catpope played as a code rig: its policy's preset outputs (`presets`)
+		preset_paths: () => (at === 'catpope' ? (o.presets ?? []) : []),
 		mood: () => shown,
 		energy: () => 0,
 		moods: () => o.moods ?? [],

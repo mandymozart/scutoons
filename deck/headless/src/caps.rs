@@ -13,7 +13,7 @@ use deck_core::lead::{AdaptiveLead, DeviceClass};
 use deck_core::meters::{self, Meters};
 use deck_core::monitor::{AudioWindow, Monitor};
 use deck_space::controls::Controls;
-use deck_space::deck::{Deck, Slider};
+use deck_space::deck::{Deck, Slider, Why};
 use deck_space::gamepad::Pad;
 use deck_space::gesture::{Act, Fingers, Touch, ZOOM_STEP};
 use deck_space::mood::Ladder;
@@ -375,8 +375,8 @@ fn code_bundle(i: &Value) -> Result<Bundle, Value> {
 }
 
 /// #410 (T3 of #314): the deck playing a code rig (`code_bundle`) beside the declarative core rig, fed like an adapter
-/// feeds it: for each of `moods` the mood's frame, then the policy's preset outputs as the engine would stream them
-/// (`outputs.<mood>`, in `paths`' order – a stand-in: this host runs no module) to `Deck::choose`. What the deck did: the
+/// feeds it (`Deck::frame`): for each of `moods` the mood's frame, then a frame with the policy's preset outputs as the
+/// engine would stream them (`outputs.<mood>`, in `paths`' order – a stand-in: this host runs no module). What it did: the
 /// paths it reads, the inputs the policy owns, the voice's preset per mood, the moods whose choice replayed the rig,
 /// whether every track plays the tables' preset in every mood and whether a turn ever moved an owned input.
 fn code_rig_deck(i: &Value) -> Value {
@@ -396,14 +396,17 @@ fn code_rig_deck(i: &Value) -> Value {
     for mood in i["moods"].as_array().into_iter().flatten().filter_map(Value::as_str) {
         tables.ladder.pin(Some(mood));
         tables.step(0.0, 0.0, false, 0.0, 1.0 / 60.0);
+        // the platforms' one call: the mood's frame with the outputs as heard (the frame after it: the policy hears late)
         code.ladder.pin(Some(mood));
-        let mut turns: Vec<_> = code.step(0.0, 0.0, false, 0.0, 1.0 / 60.0).and_then(|s| s.turn).into_iter().collect();
         let heard: Vec<f32> = i["outputs"][mood].as_array().into_iter().flatten().filter_map(Value::as_f64).map(|x| x as f32).collect();
-        if let Some(t) = code.choose(&heard).and_then(|s| s.turn) {
-            chose.push(mood.to_string());
-            turns.push(t);
+        for h in [&[][..], &heard] {
+            if let Some(t) = code.frame(0.0, 0.0, false, 0.0, 1.0 / 60.0, h).and_then(|s| s.turn) {
+                if t.why == Why::Preset {
+                    chose.push(mood.to_string());
+                }
+                moved |= t.values.iter().any(|(p, _)| owned.contains(p));
+            }
         }
-        moved |= turns.iter().flat_map(|t| &t.values).any(|(p, _)| owned.contains(p));
         same &= plays(&code) == plays(&tables);
         let voice = code.played().tracks.iter().find(|t| t.track == "voice").and_then(|t| t.preset.clone());
         presets.insert(mood.to_string(), json!(voice));

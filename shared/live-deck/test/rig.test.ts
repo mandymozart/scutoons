@@ -121,6 +121,24 @@ test("the rig's corner sticks reach the deck; no rig restores the deck's own", (
 	d.close();
 });
 
+test("#410: a code rig's preset outputs go to the core each frame as heard; the core's replay for its choice is applied", () => {
+	const d = new Deck({ character: 'catpope', nick: 'guest', api: API });
+	const low = { mood: 'neutral', turn: { ...DECK.catpope.play, why: 'preset' as const, reload: false, values: [['voice_voice.ratio', 0.5]] as [string, number][] } };
+	const s = stateOf({ said: ['', low], presets: ['policy.voice_preset'] });
+	d.useState(s);
+	d.tick(1);
+	const steps = () => s.calls.filter((c) => c[0] === 'step').map((c) => c[6] as number[]);
+	assert.deepEqual(steps(), [[]], 'no code rig: nothing heard to hand on');
+	d.play('catpope', '', true);
+	const heard: [string, number, string][] = [];
+	d.onValue = (p, v, hand) => heard.push([p, v, hand]);
+	d.tick(1.02);
+	assert.equal(steps()[1].length, 1, 'its one preset output, with the frame');
+	assert.ok(Number.isNaN(steps()[1][0]), 'no engine: not heard (the core chooses nothing then)');
+	assert.deepEqual(heard, [['voice_voice.ratio', 0.5, 'mood']], "the core's replay for a choice moves the knob");
+	d.close();
+});
+
 /** live-core as the deck sees it: a scene that loads later (the worker's round trip), a `set` that throws for a path
  *  the loaded scene lacks (the real one does), the heard values by path */
 function fakeCore() {
