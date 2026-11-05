@@ -244,7 +244,67 @@ async fn the_walk_module_compiles_and_the_rest_is_refused() {
     assert_eq!(answer["errors"][0]["file"], "lib.rs");
     assert!(answer["errors"][0]["line"].as_u64().unwrap() >= 1);
     assert_eq!(post(addr, Some("sesame"), "{}").await.0, 422);
+
+    // 7. the factory modules as the API sends them (#350, #416: ModuleCompiler posts the catalog entry's flat `files`): every
+    // answer's descriptor uses only the fields and values the API's ModuleSource::descriptorProblems knows – a field the core
+    // adds to the descriptor must be added there too, or the compile answers 502. With CAPTURE_SERVICE_ANSWERS=1 the answers
+    // are written to server/tests/fixtures/modules/service-answer-<id>.json (the API's regression fixtures).
+    let php = std::fs::read_to_string(deck().join("../server/src/Domain/Modules/ModuleSource.php")).unwrap();
+    for id in ["walk", "fixture", "analog"] {
+        let mut files = serde_json::Map::new();
+        for entry in std::fs::read_dir(deck().join(format!("modules/{id}/src"))).unwrap().flatten() {
+            files.insert(entry.file_name().to_string_lossy().into_owned(), std::fs::read_to_string(entry.path()).unwrap().into());
+        }
+        let (status, answer) = post(addr, Some("sesame"), &serde_json::json!({ "files": files }).to_string()).await;
+        assert_eq!(status, 200, "{id}: {answer}");
+        let problems = api_descriptor_problems(&php, &answer["descriptor"]);
+        assert!(problems.is_empty(), "{id}: the API would refuse this descriptor (ModuleSource.php): {problems:?}");
+        if std::env::var_os("CAPTURE_SERVICE_ANSWERS").is_some() {
+            let out = deck().join(format!("../server/tests/fixtures/modules/service-answer-{id}.json"));
+            std::fs::create_dir_all(out.parent().unwrap()).unwrap();
+            std::fs::write(out, serde_json::to_string_pretty(&answer).unwrap() + "\n").unwrap();
+        }
+    }
     server.abort();
+}
+
+/// the quoted names of `const <name> = [...]` in ModuleSource.php
+fn php_list(php: &str, name: &str) -> Vec<String> {
+    let start = php.find(&format!("const {name} = [")).unwrap_or_else(|| panic!("ModuleSource.php has no {name}")) + name.len() + 10;
+    let list = &php[start..start + php[start..].find(']').unwrap()];
+    list.split(',').map(|s| s.trim().trim_matches('\'').to_string()).filter(|s| !s.is_empty()).collect()
+}
+
+/// The keys and values of a service descriptor that ModuleSource.php does not know (its FIELDS, PARAM_FIELDS, PORT_FIELDS,
+/// DIRS, TYPES and ABI)
+fn api_descriptor_problems(php: &str, d: &serde_json::Value) -> Vec<String> {
+    let unknown = |v: &serde_json::Value, list: &str, at: &str| -> Vec<String> {
+        let known = php_list(php, list);
+        v.as_object().map(|o| o.keys().filter(|k| !known.contains(k)).map(|k| format!("{at}.{k} (not in {list})")).collect()).unwrap_or_else(|| vec![format!("{at} is no object")])
+    };
+    let mut p = unknown(d, "FIELDS", "descriptor");
+    let abi = php.split("const ABI = ").nth(1).and_then(|s| s.split(';').next()).unwrap().trim().to_string();
+    if d["abi"].as_u64().map(|n| n.to_string()).as_deref() != Some(abi.as_str()) {
+        p.push(format!("descriptor.abi {} (the API expects {abi})", d["abi"]));
+    }
+    for (i, param) in d["params"].as_array().into_iter().flatten().enumerate() {
+        p.extend(unknown(param, "PARAM_FIELDS", &format!("params[{i}]")));
+        for key in ["min", "max", "default"] {
+            if !param[key].is_number() {
+                p.push(format!("params[{i}].{key} = {} is no number", param[key]));
+            }
+        }
+    }
+    let (dirs, types) = (php_list(php, "DIRS"), php_list(php, "TYPES"));
+    for (i, port) in d["ports"].as_array().into_iter().flatten().enumerate() {
+        p.extend(unknown(port, "PORT_FIELDS", &format!("ports[{i}]")));
+        for (key, known) in [("dir", &dirs), ("type", &types)] {
+            if !port[key].as_str().is_some_and(|v| known.iter().any(|k| k == v)) {
+                p.push(format!("ports[{i}].{key} = {}", port[key]));
+            }
+        }
+    }
+    p
 }
 
 #[tokio::test]

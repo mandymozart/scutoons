@@ -111,6 +111,17 @@ final class ModulesApiTest extends TestCase
         return $hash;
     }
 
+    /**
+     * the build service's real answer for factory module $id (tests/fixtures/modules, #416)
+     * @return array<string, mixed>
+     */
+    private function buildsReally(string $id): array
+    {
+        $body = (string) file_get_contents(dirname(__DIR__, 2) . "/fixtures/modules/service-answer-$id.json");
+        $this->build->answer = ['status' => 200, 'headers' => [], 'body' => $body];
+        return (array) json_decode($body, true);
+    }
+
     public function testTheKindCatalogListsTheBuiltInsAndThePublishedModules(): void
     {
         $me = $this->as('writer@scutoons.test');
@@ -263,8 +274,10 @@ final class ModulesApiTest extends TestCase
 
     public function testAFactoryModuleIsReadOnlyAndOnlyItsOwnBuildIsWritten(): void
     {
-        // #350: the migration made walk / analog / fixture factory modules (sources only, published)
-        $hash = $this->builds();
+        // #350: the migration made walk / analog / fixture factory modules (sources only, published); the service answers
+        // as the real one does for walk (#416: its descriptor's `port: true` made every factory compile a 502)
+        $real = $this->buildsReally('walk');
+        $hash = (string) $real['hash'];
         $creator = $this->as('boss@scutoons.test', true);
         $store = $this->get(\Scutoons\Domain\Catalog\CatalogStore::class);
         $walk = (array) $store->get('modules', 'walk');
@@ -304,7 +317,7 @@ final class ModulesApiTest extends TestCase
         $answer = self::json($r);
         $store->forget();
         $built = (array) $store->get('modules', 'walk');
-        self::assertSame([true, $walk['files'], self::DESCRIPTOR, $hash], [$built['factory'], $built['files'], $built['descriptor'], $built['wasm']['hash']]);
+        self::assertSame([true, $walk['files'], $real['descriptor'], $hash], [$built['factory'], $built['files'], $built['descriptor'], $built['wasm']['hash']]);
         $published = $this->db->one("SELECT id, json FROM entity_versions WHERE entity_key = 'module:walk' AND status = 'published'");
         self::assertSame(['module:walk', (int) ($published['id'] ?? 0)], [$answer['module'], $answer['version']]);
         self::assertSame($hash, json_decode((string) ($published['json'] ?? ''), true)['wasm']['hash'] ?? null, 'the creator\'s document is the built one');
@@ -348,9 +361,13 @@ final class ModulesApiTest extends TestCase
         $this->build->answer = ['status' => 200, 'headers' => [], 'body' => (string) json_encode(['hash' => hash('sha256', 'GIF89a'), 'descriptor' => self::DESCRIPTOR, 'wasm_b64' => base64_encode('GIF89a')])];
         $r = $compile();
         self::assertSame(502, $r->getStatusCode());
-        $this->build->answer = ['status' => 200, 'headers' => [], 'body' => (string) json_encode(['hash' => $hash, 'descriptor' => ['abi' => 'one'], 'wasm_b64' => base64_encode(self::WASM)])];
+        $this->build->answer = ['status' => 200, 'headers' => [], 'body' => (string) json_encode(['hash' => $hash, 'descriptor' => ['abi' => 'one'], 'wasm_b64' => base64_encode(self::WASM), 'toolchain' => 'rustc 1.98.0'])];
         $r = $compile();
         self::assertSame(502, $r->getStatusCode());
+        // #416: the 502 says which check failed and which toolchain answered
+        self::assertStringContainsString('descriptor.abi must be 2', (string) self::json($r)['message']);
+        self::assertStringContainsString('(service toolchain rustc 1.98.0)', (string) self::json($r)['message']);
+        self::assertContains('descriptor.abi must be 2 (a module built against another ABI is recompiled)', (array) self::json($r)['problems']);
         self::assertFileDoesNotExist($this->dir . "/cdn/modules/$hash.wasm", 'nothing refused reaches the CDN');
     }
 }
