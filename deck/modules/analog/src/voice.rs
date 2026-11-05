@@ -2,13 +2,13 @@
 //! Amp 1 / Amp 2 → stereo – with its two LFOs and four envelopes. Modulation is read every sample; what is costly (the
 //! pitch, the cutoffs, the pan) is recomputed every `CTRL` samples of the voice's own clock, so a render does not
 //! depend on how the host cut the audio into blocks.
-use crate::dsp::adsr::{Adsr, Times};
-use crate::dsp::lfo::{self, Lfo, Settings as LfoSettings, Shape};
-use crate::dsp::math::{exp2, log2, C4};
-use crate::dsp::noise::{mix, Noise};
-use crate::dsp::osc::{Osc, Sub, Wave};
-use crate::dsp::pan;
-use crate::dsp::svf::{self, Coef, Mode, Svf};
+use crate::adsr::{Adsr, Times};
+use crate::lfo::{self, Lfo, Settings as LfoSettings, Shape};
+use crate::math::{exp2, log2, C4};
+use crate::noise::{mix, Noise};
+use crate::osc::{Osc, Sub, Wave};
+use crate::pan;
+use crate::svf::{self, Coef, Mode, Svf};
 use crate::params::Patch;
 
 /// samples between the control-rate updates (0.33 ms at 48 kHz)

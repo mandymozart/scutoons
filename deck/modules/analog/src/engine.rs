@@ -4,7 +4,7 @@
 //! change of that voice; a bend (a per-note expression, semitones) moves the voice's pitch from the note's own; a reset
 //! releases everything. The sustain control holds released notes while it is up. Events take effect at their frame: the
 //! render cuts the block there, so a note lands on its sample however the host cuts the blocks.
-use crate::dsp::math::exp2;
+use crate::math::exp2;
 use crate::params::Patch;
 use crate::voice::{Note, Voice};
 use deck_module::{Ev, Expr, Kind, Tempo};

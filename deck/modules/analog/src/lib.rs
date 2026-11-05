@@ -10,7 +10,18 @@
 //! `target/wasm32-unknown-unknown/release/analog_module.wasm`).
 // one `#[port(…)]` a port: clippy takes them for duplicates (deck/module/README.md)
 #![allow(clippy::duplicated_attributes)]
-pub mod dsp;
+// The synth's DSP units, plain Rust with no SDK in sight: band-limited oscillators, the state-variable filter, the ADSR,
+// the LFO, the pan law and seeded noise. Nothing here allocates, reads a clock or calls the platform's maths: every
+// transcendental is `math`'s own arithmetic, so a render is bit-identical native ≡ wasm (ENGINE-REFACTOR-PLAN §3.4).
+// Flat files beside lib.rs (#350): the build service takes a module as flat `src/*.rs` files only, so the catalog's
+// `module:analog` stores exactly these. They are candidates to become deck-engine kinds later (#317 / #318).
+pub mod adsr;
+pub mod lfo;
+pub mod math;
+pub mod noise;
+pub mod osc;
+pub mod pan;
+pub mod svf;
 mod engine;
 mod params;
 mod voice;
