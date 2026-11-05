@@ -57,6 +57,21 @@ impl ModuleDef {
     pub fn new(inputs: Vec<PortDef>, outputs: Vec<PortDef>, defaults: Vec<(String, f32)>) -> ModuleDef {
         ModuleDef { inputs, outputs, defaults, domain: Domain::Audio, targets: Vec::new() }
     }
+
+    /// What a module's descriptor registers: its graph ports as the catalog numbers them (`Descriptor::graph`, the
+    /// module host binds by the same), its parameters' defaults (else their minimum), its domain, its path targets – the
+    /// one mapping from a module to the graph (the native library's loaded modules, a rig's policy in a validation).
+    pub fn of(desc: &deck_catalog::Descriptor) -> ModuleDef {
+        let g = desc.graph();
+        let port = |p: &deck_catalog::GraphPort| PortDef { name: p.name.clone(), ty: if p.audio { PortType::Audio } else { PortType::Control }, channels: p.channels };
+        ModuleDef {
+            inputs: g.inputs.iter().map(port).collect(),
+            outputs: g.outputs.iter().map(port).collect(),
+            defaults: desc.params.iter().map(|p| (p.name.to_string(), p.default.unwrap_or(p.min))).collect(),
+            domain: if desc.domain == deck_catalog::Domain::Control { Domain::Control } else { Domain::Audio },
+            targets: g.targets,
+        }
+    }
 }
 
 /// A registered module kind (an index into the registry).

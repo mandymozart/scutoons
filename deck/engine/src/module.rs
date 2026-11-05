@@ -144,14 +144,9 @@ impl<B: Backend + Send + 'static> ModuleInstance for deck_module_host::Instance<
 /// parameters' defaults, its domain and path targets – as the host's `layout` binds them. The one mapping from a module
 /// to the graph; a platform's library calls it when it loads a module.
 pub fn register(desc: &deck_catalog::Descriptor, layout: &Layout) -> ModuleKind {
-    let port = |p: &deck_module_host::GraphPort| PortDef { name: p.name.clone(), ty: if p.audio { PortType::Audio } else { PortType::Control }, channels: p.channels };
-    let def = ModuleDef {
-        inputs: layout.in_ports.iter().map(port).collect(),
-        outputs: layout.out_ports.iter().map(port).collect(),
-        defaults: desc.params.iter().map(|p| (p.name.to_string(), p.default.unwrap_or(p.min))).collect(),
-        domain: if layout.domain == deck_catalog::Domain::Control { Domain::Control } else { Domain::Audio },
-        targets: layout.targets.clone(),
-    };
+    // deck-space's ModuleDef::of numbers the ports by the catalog's rule – the one the host's layout binds by
+    let def = ModuleDef::of(desc);
+    debug_assert_eq!(def.inputs.len(), layout.in_ports.len(), "the graph and the host number a module's ports alike");
     modreg::register(&desc.name, &def)
 }
 
