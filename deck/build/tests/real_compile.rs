@@ -214,13 +214,15 @@ async fn the_walk_module_compiles_and_the_rest_is_refused() {
     let folder = root.path().join("modules");
     copy_dir(&deck().join("modules/walk/src"), &folder.join("walk/src"));
     copy_dir(&deck().join("modules/fixture/src"), &folder.join("fixture/src"));
+    // analog is flat files since #350 (the catalog's factory module:analog stores them): it builds and plays strictly too
+    copy_dir(&deck().join("modules/analog/src"), &folder.join("analog/src"));
     std::fs::write(folder.join("old.rs"), "use deck_module::rt::Instance;\n").unwrap();
     let rows = scutoons_build::rebuild::rebuild_all(&compiler, scutoons_build::rebuild::read_modules(&folder).unwrap()).await;
     let (text, failed) = scutoons_build::rebuild::report(&rows);
     assert_eq!(failed, 1, "{text}");
     assert!(text.contains("fixture\tOK\tABI 2") && text.contains("walk\tOK\tABI 2"), "{text}");
     assert!(text.contains("old\tFAILED\n    lib.rs:1:"), "{text}");
-    assert!(text.ends_with("rebuild: 3 module(s), 1 failed: old\n"), "{text}");
+    assert!(text.ends_with("rebuild: 4 module(s), 1 failed: old\n"), "{text}");
 
     // 6. over HTTP behind the token
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();

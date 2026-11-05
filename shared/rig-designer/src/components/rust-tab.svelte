@@ -30,7 +30,7 @@
 
 {#snippet actions()}
 	<span class="state" data-testid="designer-state">
-		{#if reason && !designer.compiling}<span class="why" title={reason}>{reason}</span>{:else if designer.dirty}{m['designer.unsaved']()}{/if}
+		{#if reason && !designer.compiling}<span class="why" title={reason}>{reason}</span>{:else if designer.factoryNote}<span class="why" title={designer.factoryNote}>{designer.factoryNote}</span>{:else if designer.dirty}{m['designer.unsaved']()}{/if}
 	</span>
 	<button type="button" class="sc-round" disabled={!designer.canSave} title={m['designer.save_title']()} aria-label={m['designer.save']()} onclick={() => designer.save()} data-testid="designer-save">
 		<Icon name="save" size="1rem" />

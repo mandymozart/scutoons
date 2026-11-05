@@ -4,13 +4,14 @@
 	// above the deck. The subject is a rig (`rig:character.<id>`: its character plays on the deck, the Rust tab picks a
 	// module) or a module (`module:<id>`: the Rust tab IS it). The modules are `module:<id>` documents, drafts and history
 	// like any catalog document; the compile service writes the descriptor into them (#281). Playing the compiled module
-	// in the engine comes with #290.
+	// in the engine comes with #290. Factory modules (walk, analog, fixture – #350) are read-only: the API refuses every
+	// change; the designer shows them locked with Derive, and New module starts as a copy of one (a derivative, `origin`).
 	import { onMount, untrack } from 'svelte';
 	import { MediaQuery } from 'svelte/reactivity';
 	import { goto, beforeNavigate } from '$app/navigation';
 	import { page } from '$app/state';
-	import { Divider, Icon, askDialog, confirmDialog, panelWidth } from '@scutoons/ui';
-	import { createDesignerApi, isModuleId, moduleContent, RigDesigner, setupRigDesigner, STARTER_FILES, type GraphWiring } from '@scutoons/rig-designer';
+	import { Divider, Icon, askDialog, choiceDialog, confirmDialog, panelWidth } from '@scutoons/ui';
+	import { createDesignerApi, RigDesigner, setupRigDesigner, STARTER_FILES, type GraphWiring } from '@scutoons/rig-designer';
 	import { getSessionToken } from '@scutoons/api';
 	import type { EngineHost } from '@scutoons/engine-host';
 	import { API_URL } from '$lib/config.ts';
@@ -20,6 +21,7 @@
 	import { leaveGuard } from '$lib/editor/ask.ts';
 	import { editHref, selectedModule, type EditTarget } from '$lib/editor/edit-key.ts';
 	import { createModuleStore, moduleKey } from '$lib/editor/module-store.ts';
+	import { factoryChoices, firstDraft, idProblem, NO_MODULES, readCatalog, templateOf, type ModuleCatalog } from '$lib/editor/module-catalog.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import { isolateThisPage } from '$lib/isolation.svelte.ts';
@@ -36,17 +38,13 @@
 	const designer = new RigDesigner(createDesignerApi({ fetch: (...args) => fetch(...args), baseUrl: API_URL, getToken: getSessionToken }), store);
 	beforeNavigate(leaveGuard(() => designer.dirty));
 
-	let modules = $state<string[]>([]);
+	// the catalog kind `modules` (server CatalogDocs) – the factory modules (#350) marked, New module's templates
+	let catalog = $state<ModuleCatalog>(NO_MODULES);
 	/** a refused New module, one muted sentence */
 	let notice = $state('');
 	async function loadModules(): Promise<void> {
-		try {
-			// the catalog kind `modules`: every `module:<id>` document, a removed one is gone (server CatalogDocs)
-			const r = await api.get<{ entries: { id: string; removed: boolean }[] }>('/catalog/docs/modules');
-			modules = r.entries.filter((e) => !e.removed && isModuleId(e.id)).map((e) => e.id).sort();
-		} catch {
-			modules = [];
-		}
+		const r = await api.get<{ entries: { id: string; removed: boolean; content: unknown }[] }>('/catalog/docs/modules').catch(() => null);
+		catalog = r ? readCatalog(r.entries) : NO_MODULES;
 	}
 	onMount(() => void loadModules());
 
@@ -63,23 +61,22 @@
 		void goto(editHref(target.key, { w: 'sound', sel: id ? moduleKey(id) : null }), { replaceState: true, keepFocus: true, noScroll: true });
 	}
 
-	/** a new module: its id, the walk module as the template, a draft right away – then it opens */
-	async function newModule(): Promise<void> {
-		const typed = await askDialog({
-			title: m['creator.sound_new_module'](),
-			message: m['creator.sound_new_module_hint'](),
-			label: 'id',
-			placeholder: 'e.g. my_walk',
-			confirmLabel: m['creator.sound_new_module_create']()
-		});
-		const id = typed?.trim();
+	/** New module (a copy of a picked factory module, else the starter) or Derive (of the open one): a draft, then it opens */
+	async function create(derive: boolean): Promise<void> {
+		const choices = factoryChoices(catalog);
+		const pick = derive || choices.length === 0 ? null : await choiceDialog({ title: m['creator.sound_start_from'](), message: m['creator.sound_start_from_hint'](), choices });
+		if (!derive && choices.length > 0 && !pick) return;
+		const from = derive && designer.moduleId ? templateOf(designer.moduleId, designer.name, designer.files, designer.outcome) : pick ? { id: pick, module: catalog.factory[pick] } : null;
+		const message = from ? m['creator.sound_derive_hint']({ origin: from.id }) : m['creator.sound_new_module_hint']();
+		const typed = await askDialog({ title: from ? m['creator.sound_derive']() : m['creator.sound_new_module'](), message, label: 'id', placeholder: `e.g. my_${from?.id ?? 'walk'}`, confirmLabel: m['creator.sound_new_module_create']() });
+		const id = typed?.trim() ?? '';
 		if (!id) return;
-		notice = '';
-		if (!isModuleId(id)) return void (notice = m['creator.sound_id_invalid']({ id }));
 		await loadModules();
-		if (modules.includes(id)) return void (notice = m['creator.sound_id_taken']({ id }));
+		const problem = idProblem(id, catalog.ids);
+		notice = problem === 'invalid' ? m['creator.sound_id_invalid']({ id }) : problem === 'taken' ? m['creator.sound_id_taken']({ id }) : '';
+		if (problem) return;
 		try {
-			await putDraft(moduleKey(id), moduleContent(id, id, STARTER_FILES, null), null, 'new module');
+			await putDraft(moduleKey(id), firstDraft(id, from, STARTER_FILES), null, from ? `derived from module:${from.id}` : 'new module');
 		} catch (e) {
 			return void (notice = e instanceof Error ? e.message : String(e));
 		}
@@ -90,7 +87,7 @@
 
 	// ── the top bar (owner 2026-11-02: the editor's actions move there step by step, as the map's did): Publish of the open
 	// module – needs a saved draft whose compile is current (a module without its descriptor cannot be played) ──
-	const canPublish = $derived(!!designer.moduleId && !designer.dirty && !!designer.outcome && !designer.stale && !designer.compiling && !designer.saving);
+	const canPublish = $derived(!!designer.moduleId && !designer.factory && !designer.dirty && !!designer.outcome && !designer.stale && !designer.compiling && !designer.saving);
 	async function publish(): Promise<void> {
 		const id = designer.moduleId;
 		if (!id || !canPublish) return;
@@ -127,13 +124,15 @@
 		<DesignerHalf
 			{designer}
 			fixed={target.kind === 'module' ? target.id : null}
-			{modules}
+			modules={catalog.ids}
+			factory={Object.keys(catalog.factory)}
 			{selected}
 			{notice}
 			{host}
 			{wiring}
 			onselect={select}
-			onnew={newModule}
+			onnew={() => create(false)}
+			onderive={() => create(true)}
 		/>
 	</section>
 	<section class="half deck-half" id="sound-deck" aria-label={m['creator.sound_deck']()}>

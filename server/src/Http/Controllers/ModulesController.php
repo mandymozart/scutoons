@@ -25,7 +25,9 @@ use Scutoons\Support\Json as JsonEncoding;
  *                                  a published factory module · 404 not_found
  *   POST   /modules/compile      { files?, factory?: "<id>" } → { status, hash, descriptor, wasm: { hash, bytes, url }, warnings, module? }
  *                                  creators only (403 creator_only); with `factory` the result goes into a new draft of
- *                                  `module:<id>` · 422 compile_failed { errors: [{ file, line, column, level, message }] } ·
+ *                                  `module:<id>` – a factory module (#350): 403 factory_module, except an admin's build
+ *                                  (no files: its stored sources, the result into its catalog entry) ·
+ *                                  422 compile_failed { errors: [{ file, line, column, level, message }] } ·
  *                                  503 live_show | build_busy | no_build_service | build_unavailable
  */
 final class ModulesController

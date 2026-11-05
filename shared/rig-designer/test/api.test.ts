@@ -73,3 +73,11 @@ test('a network failure is a value too', async () => {
 	const r = await createDesignerApi({ fetch: down, baseUrl: 'x' }).compile({ files });
 	assert.deepEqual(r, { ok: false, reason: 'error', code: 'network', message: 'offline' });
 });
+
+test('a factory module (#350): 403 factory_module is a quiet reason; its own build sends no files', async () => {
+	const refusal = { status: 'error', error: 'factory_module', message: 'module:walk is a factory module and read-only – derive a module of your own from it.' };
+	assert.deepEqual(failureOf(403, refusal), { ok: false, reason: 'factory', code: 'factory_module', message: refusal.message });
+	const calls: Call[] = [];
+	await createDesignerApi({ fetch: fake(403, refusal, calls), baseUrl: 'x' }).compile({ factory: 'walk' });
+	assert.deepEqual(calls[0].body, { factory: 'walk' });
+});

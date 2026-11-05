@@ -23,6 +23,7 @@ export function failureOf(status: number, body: Record<string, unknown>): Failur
 	const problems = Array.isArray(body.problems) ? body.problems.filter((p): p is string => typeof p === 'string') : undefined;
 	let reason: FailureReason = 'error';
 	if (status === 403 && code === 'creator_only') reason = 'creator_only';
+	else if (status === 403 && code === 'factory_module') reason = 'factory';
 	else if (status === 401) reason = 'signed_out';
 	else if (UNAVAILABLE.has(code)) reason = 'unavailable';
 	else if (status === 422) reason = 'invalid';
@@ -56,7 +57,7 @@ export function createDesignerApi(o: DesignerApiOptions) {
 	return {
 		/** POST /modules/compile – creators only. `factory` writes the result (sources, descriptor, wasm hash) into a new draft of `module:<factory>` */
 		async compile(request: CompileRequest): Promise<CompileResult> {
-			const { status, body } = await call('POST', '/modules/compile', { files: request.files, ...(request.factory ? { factory: request.factory } : {}) });
+			const { status, body } = await call('POST', '/modules/compile', { ...(request.files ? { files: request.files } : {}), ...(request.factory ? { factory: request.factory } : {}) });
 			if (status === 200) {
 				const wasm = readWasm(body.wasm);
 				const descriptor = body.descriptor as Descriptor | undefined;

@@ -850,7 +850,16 @@ Admin (`/api/admin`): `GET /review-rules` → `{ items: [{ toon, rule, user: { i
 An instrument written as a Rust module against the SDK `deck/module` (agents/research/RIG-EDITING.md §4–7). Code:
 `Domain\Modules\{ModuleSource, ModuleCompiler}`, `ModulesController`. The sources are versioned documents
 (factory: `module:<id>`, the catalog kind `modules`, table `catalog_modules` – drafts, versions, review, publish like the
-instruments; the admin reads the kind and answers `409 edited_in_creator` to writes). A **document** is `{ id, name?, files, descriptor?, wasm? }`; `descriptor` + `wasm` come only from a compile.
+instruments; the admin reads the kind and answers `409 edited_in_creator` to writes). A **document** is `{ id, name?, factory?, origin?, files, descriptor?, wasm? }`; `descriptor` + `wasm` come only from a compile.
+- **Factory modules** (#350, migration `2026-11-05-factory-modules`; owner 2026-11-03 "factory modules should be protected by
+  read-only"): `walk`, `analog`, `fixture` – the repository's `deck/modules/<id>/src/*.rs` – with `factory: true`. Read-only:
+  a draft (PUT / batch), a restore, a publish, a compile into it and an admin write or delete answer **`403 factory_module`**
+  ("module:<id> is a factory module and read-only – derive a module of your own from it."); no document may set `factory`
+  itself. A **derivative** is a module of one's own (a new `module:<id>` draft) with `origin: "<factory id>"`. The one write
+  a factory module takes is its **build**: an admin's `POST /modules/compile { factory }` without `files` compiles its
+  stored sources and writes descriptor + wasm straight into the catalog entry (a published version, no draft) – how the
+  migration's modules (sources only) get their wasm, once, after the deploy. Whether a factory update reaches its
+  derivatives is open (#350).
 - **Sources**: `files` = `{ "lib.rs": "…", "osc.rs": "…" }` – 1–32 files named `[a-z0-9_]+.rs`, a `lib.rs`, each at most 256 KB,
   together at most 512 KB. Factory ids `[a-z0-9][a-z0-9_-]{0,31}`.
 - **The wasm** is stored on the CDN as `modules/<sha256>.wasm` (content-addressed, so immutable; the platform's own folder
@@ -867,7 +876,7 @@ instruments; the admin reads the kind and answers `409 edited_in_creator` to wri
 | --- | --- | --- |
 | GET | `/kinds` | `{ status, catalog_version, kinds: [Descriptor] }` (#315) – the node-kind catalog: every built-in kind (generated `Domain\Rigs\kinds.json` from deck/catalog; the Rust types are the source – `deck/catalog/schema.json`, `shared/live/src/catalog.ts`) with its ports (type, direction, channels, doc) and parameters (range, curve, unit, default, choices, doc), plus the **published** modules as `module:<id>` (their module ABI v2 descriptors, the same shape; a module of another ABI is left out until it is recompiled – `bin/console modules:rebuild`, #343). A session or a deck token |
 | GET | `/modules/{id}` | `{ status, module: { id, name?, files, descriptor?, wasm?: { hash, bytes, toolchain?, url } } }` – a **published** factory module by its id · `404 not_found` |
-| POST | `/modules/compile` | `{ files?, factory?: "<id>" }` – `factory`: writes a new draft of `module:<id>` (sources of its newest version unless `files`; `404` without either; `400 invalid_target`). → `{ status, hash, descriptor, wasm: { hash, bytes, toolchain, url }, warnings, module?, version? }` · `422 compile_failed { errors: [{ file, line, column, level, message }] }` · `503 live_show \| build_busy \| no_build_service \| build_unavailable` · `502 build_failed` (the service answered with something that is no module) |
+| POST | `/modules/compile` | `{ files?, factory?: "<id>" }` – `factory`: writes a new draft of `module:<id>` (sources of its newest version unless `files`; `404` without either; `400 invalid_target`); a **factory module**: `403 factory_module`, except an admin without `files` (its build, into the catalog entry). → `{ status, hash, descriptor, wasm: { hash, bytes, toolchain, url }, warnings, module?, version? }` · `422 compile_failed { errors: [{ file, line, column, level, message }] }` · `503 live_show \| build_busy \| no_build_service \| build_unavailable` · `502 build_failed` (the service answered with something that is no module) |
 
 ### Catalog documents and the `physical` rule (2026-10-12 draft, migration `2026-10-12-catalog-docs` – agents/CATALOG-IN-CREATOR.md)
 

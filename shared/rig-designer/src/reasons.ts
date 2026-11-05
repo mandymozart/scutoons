@@ -9,6 +9,7 @@ type Params = Record<string, string | number | null | undefined>;
 export function failureText(f: { reason: string; code: string; message: string }): string {
 	if (f.reason === 'creator_only') return m['designer.reason_creator_only']();
 	if (f.reason === 'signed_out') return m['designer.reason_signed_out']();
+	if (f.reason === 'factory') return m['designer.reason_factory']();
 	if (f.reason === 'unavailable') {
 		if (f.code === 'live_show') return m['designer.reason_live_show']();
 		if (f.code === 'build_busy') return m['designer.reason_build_busy']();
@@ -18,8 +19,8 @@ export function failureText(f: { reason: string; code: string; message: string }
 	return m['designer.reason_error']({ message: f.message });
 }
 
-/** the problems that are the user's alone (not creator, not signed in): the actions are disabled, nothing is an error */
-export const isQuiet = (reason: string): boolean => reason === 'creator_only' || reason === 'signed_out';
+/** the problems that are the user's alone (not creator, not signed in, a factory module): the actions are disabled, nothing is an error */
+export const isQuiet = (reason: string): boolean => reason === 'creator_only' || reason === 'signed_out' || reason === 'factory';
 
 export function problemText(p: FileProblem): string {
 	const params: Params = { file: p.file, limit: p.limit, actual: p.actual };

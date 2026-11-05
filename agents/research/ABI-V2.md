@@ -413,10 +413,20 @@ Estimate from the ledger's classes (M $2.2–2.9, L $4.7–11.2): **≈ $35–55
   service links deck-module-host (workflow `build-image.yml` also watches module-host / catalog / core). Not tested: parameter extremes (the fixture's own modes would fail them).
 - **`rebuild --all`:** `scutoons-build rebuild <dir>` compiles every module source in a folder (`<id>/src/*.rs`, `<id>/*.rs` or `<id>.rs`) through the same path and lists the
   failures (exit 1); the server's `modules:rebuild --all --apply` is the same list from the catalog through the service. Neither was run against production data;
-  the folder form works on an export of a copy. A module of more than flat files (analog has `dsp/`) is a repository crate, not a stored module: the service takes flat files only.
+  the folder form works on an export of a copy. The service takes flat files only (analog had `dsp/` until #350 flattened it, §9f).
 - **Hole in module-host (not touched here):** a trap's text is the first line of wasmtime's error, "error while executing at wasm backtrace:" – the strict run replaces it
   with "a trap"; the root cause (`wasm trap: …`) is on a later line.
 - **Not done:** the image was not built by the worker (docker is not run here); the service itself is deployed on production and tested by the owner (2026-11-04, #281 done); the service's `/health` has no strict-run state.
+
+### 9f. The factory modules in the catalog – #350 (2026-11-05)
+- **analog's data:** nothing is `include_str!`'d any more (#343 moved the 91 rows into `#[param]` attributes and `pad` into the descriptor;
+  `bass`, `lead`, `sync lead` stay in `analog.preset.json` for #346's import). What kept analog out of the service was its `src/dsp/` folder:
+  the service takes flat `src/*.rs` only. **Chosen: analog is flat files** – `adsr osc svf lfo pan noise math` sit beside `lib.rs` (`crate::dsp::x`
+  became `crate::x`; nothing outside used the path), 11 files, 87 KB; the real-compile test builds and strictly plays it through the service's rebuild.
+- **The wasm: the service compiles once,** not CI: migration 2026-11-05-factory-modules writes the sources with `factory: true` (no descriptor /
+  wasm), and an admin's `POST /api/modules/compile { factory }` without files builds the stored sources into the catalog entry (ModuleCompiler).
+  The bytes and their hash are the service's pinned toolchain's – a CI build would be a second toolchain and would need the CDN's key in a workflow.
+  The repository's sources stay the SDK's test fixtures; server `FactoryModulesTest` keeps the catalog's copy equal to them (a source change needs a migration).
 
 ## 10. Questions for the owner – all decided 2026-11-03
 

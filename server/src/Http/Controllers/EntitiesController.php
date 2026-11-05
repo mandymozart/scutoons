@@ -225,6 +225,7 @@ final class EntitiesController
             throw new ApiError(422, 'not_supported', 'A catalog entry is not unpublished – the admin removes it from the catalog (its uses are checked there).');
         }
         if ($args['action'] !== 'restore') $this->reviews->guardPublish($user, EntityKey::parse($key), $version, $args['action'] === 'unpublish');
+        elseif ($parsed->isCatalog()) $this->docs->guardFactory($parsed);
         $result = match ($args['action']) {
             'publish' => $parsed->isCatalog() ? $this->docs->publish($user, $parsed, $version) : $this->store->publish($key, $version),
             'unpublish' => $this->store->unpublish($key),
