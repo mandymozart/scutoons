@@ -3,11 +3,15 @@
 //! every mood: rig/bundle.rs `Played`, the lifecycle here once). The browser deck has it as space-web's `DeckState` (no
 //! GPU: it works when the 3D can't), the headless host drives it directly. The page passes its inputs each frame,
 //! applies the turns (a new scene to load, values that moved) and draws the answers.
+//! A code rig (#410, T3 of #314): its policy chooses a track's preset through an `@preset` output; the platform hands the
+//! deck those outputs' values each frame (`choose`), and the deck replays the rig with the choices – the mood's replay,
+//! the same diff (without the inputs the policy owns), at most one frame after the policy wrote.
 use crate::context::Context;
 use crate::mood::Ladder;
 use crate::rig::{Bundle, Played};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 /// the being's size on the wire (its radius, m)
 const SIZE: f64 = 0.5;
@@ -17,12 +21,14 @@ fn wire(x: f32) -> f64 {
     x.to_string().parse().unwrap_or(f64::from(x))
 }
 
-/// Why the deck's scene changed: a scene played (the deck's own or a rig) or the rig replayed for a mood.
+/// Why the deck's scene changed: a scene played (the deck's own or a rig), the rig replayed for a mood, or for the
+/// presets its policy chose (#410).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Why {
     Play,
     Mood,
+    Preset,
 }
 
 /// What changed in what the deck plays – the platform applies it: on `reload` the scene anew (its knobs, sticks, streamed
@@ -41,7 +47,8 @@ pub struct Turn {
     pub failed: bool,
 }
 
-/// A frame's answer when the mood turned: the mood, and the rig replayed for it (or why it could not be).
+/// A frame's answer when the mood turned (or a code rig's policy chose another preset, `choose`): the mood, and the rig
+/// replayed for it (or why it could not be).
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Step {
     pub mood: String,
@@ -81,6 +88,8 @@ pub struct Deck {
     own: Played,
     /// the rig, its persona, and how it plays for the mood now
     rig: Option<(Bundle, String, Played)>,
+    /// #410: the presets a code rig's policy chose (track → preset), played over the tables on every replay
+    chosen: BTreeMap<String, String>,
     /// the last frame's hand on the deck (0..1, `step`)
     touch: f32,
     /// how hard the output's limiter works (0..1, the being's red flush) – the platform's, where it has one (#409)
@@ -96,7 +105,7 @@ impl Default for Deck {
 impl Deck {
     pub fn new() -> Deck {
         let own = Played::deck_scene().expect("the deck's own scene is embedded and checked by the tests");
-        Deck { ladder: Ladder::default(), shown: String::new(), own, rig: None, touch: 0.0, strain: 0.0 }
+        Deck { ladder: Ladder::default(), shown: String::new(), own, rig: None, chosen: BTreeMap::new(), touch: 0.0, strain: 0.0 }
     }
 
     /// the scene that plays: the rig's for the mood now, else the deck's own
@@ -127,6 +136,7 @@ impl Deck {
                 Some((b, persona.to_string(), played))
             }
         };
+        self.chosen.clear();
         let note = match self.rig.as_ref() {
             Some((b, _, p)) => format!("played {}: {} knobs, {} nodes", b.rig.subject, p.knobs.len(), p.nodes.len()),
             None => "the deck's own scene plays".into(),
@@ -152,24 +162,67 @@ impl Deck {
             Ok(Some(t)) => t,
             Ok(None) => {
                 self.rig = None;
+                self.chosen.clear();
                 self.turn(Why::Play, true, Vec::new(), format!("no core rig for {subject} – the deck's own scene plays"), false)
             }
             Err(e) => {
                 self.rig = None;
+                self.chosen.clear();
                 self.turn(Why::Play, true, Vec::new(), format!("{subject}: {e:#} – the deck's own scene plays"), true)
             }
         }
     }
 
-    /// The rig replayed for the mood now: what moved, or a new scene to load; None without a rig.
-    fn replay(&mut self) -> Result<Option<Turn>> {
+    /// The rig replayed for the mood now and the presets its policy chose: what moved (without the inputs the policy
+    /// owns, `Played::diff`), or a new scene to load; None without a rig.
+    fn replay(&mut self, why: Why) -> Result<Option<Turn>> {
         let mood = self.mood_arg();
         let Some((bundle, persona, played)) = self.rig.as_mut() else { return Ok(None) };
-        let next = bundle.play(Some(persona.as_str()).filter(|p| !p.is_empty()), mood.as_deref())?;
+        let next = bundle.play_with(Some(persona.as_str()).filter(|p| !p.is_empty()), mood.as_deref(), &self.chosen)?;
         let d = played.diff(&next);
         *played = next;
-        let note = format!("mood {}: {} values{}", mood.unwrap_or_default(), d.values.len(), if d.reload { ", a new scene" } else { "" });
-        Ok(Some(self.turn(Why::Mood, d.reload, d.values, note, false)))
+        let what = match why {
+            Why::Preset => format!("presets {}", self.chosen.iter().map(|(t, p)| format!("{t}={p}")).collect::<Vec<_>>().join(" ")),
+            _ => format!("mood {}", mood.unwrap_or_default()),
+        };
+        let note = format!("{what}: {} values{}", d.values.len(), if d.reload { ", a new scene" } else { "" });
+        Ok(Some(self.turn(why, d.reload, d.values, note, false)))
+    }
+
+    /// #410: the code rig's preset outputs – the paths the platform reads each frame and hands to `choose`, in order
+    /// (`policy.<out>`, streamed as control outputs); none without a code rig
+    pub fn preset_paths(&self) -> impl Iterator<Item = &str> + '_ {
+        self.rig.iter().flat_map(|(_, _, p)| p.presets.iter().map(|c| c.path.as_str()))
+    }
+
+    /// #410: one frame's values of the code rig's preset outputs (`preset_paths`' order; the index into the output's
+    /// choices, rounded and clamped; NaN = not heard, nothing chosen). When a track's choice is another preset than it
+    /// plays: the rig replayed with the choices – a `Step` like a mood's (why `preset`); else None. A choice holds over
+    /// every later mood replay until the policy chooses again or another rig plays. An output the policy has not
+    /// written yet reads 0: its first choice.
+    pub fn choose(&mut self, values: &[f32]) -> Option<Step> {
+        let (_, _, played) = self.rig.as_ref()?;
+        let mut picks = Vec::new();
+        for (c, &v) in played.presets.iter().zip(values) {
+            let Some(last) = c.choices.len().checked_sub(1) else { continue };
+            if !v.is_finite() {
+                continue;
+            }
+            let pick = &c.choices[(v.round().max(0.0) as usize).min(last)];
+            let plays = played.tracks.iter().find(|t| t.track == c.track).and_then(|t| t.preset.as_ref());
+            if self.chosen.get(&c.track).or(plays) != Some(pick) {
+                picks.push((c.track.clone(), pick.clone()));
+            }
+        }
+        if picks.is_empty() {
+            return None;
+        }
+        self.chosen.extend(picks);
+        let mood = self.ladder.mood().to_string();
+        Some(match self.replay(Why::Preset) {
+            Ok(turn) => Step { mood, turn, error: String::new() },
+            Err(e) => Step { mood, turn: None, error: format!("{e:#}") },
+        })
     }
 
     /// One frame: the sound's level (0..1), the clock's tempo and whether it runs, a hand on the deck (0..1), `dt` s →
@@ -182,7 +235,7 @@ impl Deck {
             return None;
         }
         self.shown = mood.clone();
-        Some(match self.replay() {
+        Some(match self.replay(Why::Mood) {
             Ok(turn) => Step { mood, turn, error: String::new() },
             Err(e) => Step { mood, turn: None, error: format!("{e:#}") },
         })
@@ -256,6 +309,7 @@ impl Deck {
 mod tests {
     use super::*;
     use crate::mood::MOODS;
+    use std::collections::BTreeMap;
 
     fn quiet(d: &mut Deck) -> Option<Step> {
         d.step(0.0, 0.0, false, 0.0, 1.0 / 60.0)
@@ -355,6 +409,68 @@ mod tests {
         rerouted.links.push(crate::scene::LinkDef { from: "fft.level".into(), to: "voice_voice.index".into(), scale: 1.0, offset: 0.0, map: Vec::new() });
         assert!(d.played().diff(&rerouted).reload);
         assert!(!d.played().diff(&d.played().clone()).reload && d.played().diff(&d.played().clone()).values.is_empty());
+    }
+
+    /// what the engine's inputs read: every numeric param of the played nodes (the policy's aside), the inputs the policy
+    /// owns set to its outputs (`owned` in `Played::owned`'s order)
+    fn effective(p: &Played, owned: &[f32]) -> BTreeMap<String, f32> {
+        let mut v = BTreeMap::new();
+        for n in p.nodes.iter().filter(|n| n.id != crate::rig::policy::NODE) {
+            for (k, x) in &n.params {
+                if let Some(f) = x.as_float() {
+                    v.insert(format!("{}.{k}", n.id), f as f32);
+                }
+            }
+        }
+        assert_eq!(p.owned.len(), owned.len(), "{:?}", p.owned);
+        v.extend(p.owned.iter().cloned().zip(owned.iter().copied()));
+        v
+    }
+
+    /// #410 (T3 of #314): catpope as a code rig on the deck, its policy a stand-in – the outputs research/RIG-MODULE-GROUPS
+    /// §3's module writes per mood, as the engine streams them – against the declarative catpope: after each mood's
+    /// replay, the policy's `voice_preset` output replays the rig with the preset the tables choose; what the engine's
+    /// inputs read is the same, and no turn moves an input the policy owns
+    #[test]
+    fn a_code_rig_s_preset_outputs_replay_it_with_the_tables_choices() {
+        // mood → the policy's outputs (voice_preset, voice_index, drone_gain)
+        let policy = [("neutral", 0.0, 2.0, 0.1), ("thinking", 1.0, 1.0, 0.1), ("sad", 1.0, 1.0, 0.14), ("happy", 2.0, 2.0, 0.1), ("laughing", 2.0, 4.0, 0.1), ("surprised", 2.0, 6.0, 0.05)];
+        let mut tables = Deck::new();
+        tables.play_core("catpope", "");
+        let mut code = Deck::new();
+        code.play(Some(crate::rig::policy::tests::code_catpope()), "").unwrap();
+        assert_eq!(code.preset_paths().collect::<Vec<_>>(), ["policy.voice_preset"]);
+        assert_eq!(code.played().owned, ["voice_voice.index", "drone_drone.gain"]);
+        assert_eq!(tables.preset_paths().count(), 0, "a declarative rig has none");
+        let preset = |d: &Deck| d.played().tracks.iter().find(|t| t.track == "voice").and_then(|t| t.preset.clone());
+        let mut chose = Vec::new();
+        for (mood, choice, index, drone) in policy {
+            for d in [&mut tables, &mut code] {
+                d.ladder.pin(Some(mood));
+                let turn = quiet(d).and_then(|s| s.turn).expect("the mood replayed");
+                assert!(!turn.values.iter().any(|(p, _)| d.played().owned.contains(p)), "{mood}: {:?}", turn.values);
+            }
+            // the policy's output: once it is another preset than the voice plays, a replay (why preset)
+            if let Some(s) = code.choose(&[choice]) {
+                let turn = s.turn.expect("replayed");
+                assert_eq!((s.mood.as_str(), turn.why, turn.reload, s.error.as_str()), (mood, Why::Preset, false, ""));
+                assert!(!turn.values.iter().any(|(p, _)| p == "voice_voice.index"), "low's index is the policy's: {:?}", turn.values);
+                chose.push(mood);
+            }
+            assert_eq!(code.choose(&[choice]), None, "{mood}: the same choice again replays nothing");
+            assert_eq!(code.choose(&[f32::NAN]), None, "not heard: nothing chosen");
+            assert_eq!(preset(&code), preset(&tables), "{mood}: the preset the tables choose");
+            assert_eq!(effective(code.played(), &[index, drone]), effective(tables.played(), &[]), "{mood}");
+        }
+        assert_eq!(chose, ["thinking", "happy"], "a choice holds over the moods that keep it");
+        // out of range clamps to the last choice; another rig forgets the choices
+        code.choose(&[-3.0]);
+        assert_eq!(preset(&code).as_deref(), Some("cathedral_voice.base"));
+        code.choose(&[9.0]);
+        assert_eq!(preset(&code).as_deref(), Some("cathedral_voice.bright"));
+        code.play(Some(crate::rig::policy::tests::code_catpope()), "").unwrap();
+        assert_eq!(preset(&code).as_deref(), Some("cathedral_voice.base"));
+        assert_eq!(tables.choose(&[1.0]), None, "a declarative rig chooses nothing");
     }
 
     #[test]
