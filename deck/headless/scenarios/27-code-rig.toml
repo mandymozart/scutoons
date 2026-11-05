@@ -1,6 +1,6 @@
 name = "catpope as a code rig: its mood switching is a policy module over the tracks"
-about = "#408 (T1 of #314, research/RIG-MODULE-GROUPS.md §3): the core catpope rig with a `policy` instead of its mood tables – the module catpope_rig chooses the voice's preset, sets its FM index and the drone's level. The core checks it with the module's descriptor (validate.rs, what the build service's POST /validate runs), flattens it with the policy node and its target links (@preset a table of the choices), describes its face (Rig::describe). Then the moods: the policy must choose what the tables chose – that needs the live mood in the module (T2, #409) and the deck applying @preset (#410). Native and wasm give the same answers"
-expected_fail = "#409 needs the live mood context (T2): a policy node sees the deck's mood only once, at build – and #410 to apply @preset"
+about = "#408 (T1 of #314, research/RIG-MODULE-GROUPS.md §3): the core catpope rig with a `policy` instead of its mood tables – the module catpope_rig chooses the voice's preset, sets its FM index and the drone's level. The core checks it with the module's descriptor (validate.rs, what the build service's POST /validate runs), flattens it with the policy node and its target links (@preset a table of the choices), describes its face (Rig::describe). Then the deck applying @preset (#410): the policy's preset outputs, as the engine streams them (a stand-in here), replay the rig with the tables' presets for every mood. Then the moods with the policy RUN: that needs a module runtime under this host (#290; deck-native's tests/modules.rs plays the real module). Native and wasm give the same answers"
+expected_fail = "#290 needs a module runtime under the headless host (native and wasm32): the policy module runs only in deck-native's engine (wasmtime) – the live mood (#409) and the deck applying @preset (#410) are built, the native test plays the real module"
 
 # the policy as its module document's descriptor says (the build service stores it; `module:catpope_rig`)
 [[step]]
@@ -58,7 +58,35 @@ do = "code_rig"
 with = { core = "character.catpope", policy = { module = "catpope_rig" } }
 expect = { problem = { contains = "no module 'catpope_rig'" } }
 
-# the moods: what the policy chooses for each must be what catpope's tables choose (the same values on the same inputs)
+# #410: the deck applies @preset – each mood's frame, then the policy's preset output as the engine streams it (the §3
+# module's choice per mood: a stand-in, this host runs no module) → the rig replayed with the preset the tables choose;
+# no turn moves an input the policy owns
+[[step]]
+do = "code_rig_deck"
+[step.with]
+core = "character.catpope"
+policy = { module = "catpope_rig" }
+moods = ["neutral", "thinking", "sad", "happy", "laughing", "surprised"]
+outputs = { neutral = [0], thinking = [1], sad = [1], happy = [2], laughing = [2], surprised = [2] }
+[step.with.module]
+name = "catpope_rig"
+domain = "control"
+abi = 2
+ports = [
+  { name = "voice_preset", dir = "out", type = "control", path = "voice:@preset", choices = ["cathedral_voice.base", "cathedral_voice.low", "cathedral_voice.bright"] },
+  { name = "voice_index", dir = "out", type = "control", path = "voice:voice.index" },
+  { name = "drone_gain", dir = "out", type = "control", path = "drone:drone.gain" },
+]
+params = [{ name = "heat", min = 0.0, max = 1.0, default = 0.0 }]
+[step.expect]
+paths = ["policy.voice_preset"]
+owned = ["voice_voice.index", "drone_drone.gain"]
+presets = { neutral = "cathedral_voice.base", thinking = "cathedral_voice.low", sad = "cathedral_voice.low", happy = "cathedral_voice.bright", laughing = "cathedral_voice.bright", surprised = "cathedral_voice.bright" }
+chose = ["thinking", "happy"]
+same_as_tables = true
+owned_moved = false
+
+# the moods with the policy run: what it chooses for each must be what catpope's tables choose (the same values on the same inputs)
 [[step]]
 do = "code_rig_moods"
 [step.with]
