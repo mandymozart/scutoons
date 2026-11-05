@@ -1,6 +1,7 @@
 // @scutoons/rig-designer: the rig designer (agents/research/RIG-EDITING.md §2, §8) for the creator's Sound design workspace
-// (#282) – the Rust tab (files, CodeMirror 6 loaded lazily, Save, Compile, problems, console), Parameters (read-only) and
-// Nodes (read-only: the core's wiring of what the deck plays, placed and drawn, the live values on the cables).
+// (#282) – the Rust tab (files, CodeMirror 6 loaded lazily, Save, Compile, problems, console), Parameters (read-only),
+// Nodes (read-only: the core's wiring of what the deck plays, placed and drawn, the live values on the cables) and
+// Assignment (#283: a character's rig as a form, the characters without a default rig – the rules are the core's).
 // The app calls setupRigDesigner({ locale }) once and gives the designer a ModuleStore (the module's document). No app
 // state, routing or paraglide.
 export { setupRigDesigner, designerLocale, type RigDesignerSetup } from './setup.ts';
@@ -20,3 +21,6 @@ export { default as ParametersTab } from './components/parameters-tab.svelte';
 export { default as NodesTab } from './components/nodes-tab.svelte';
 export { layoutGraph, cableText, cableTexts, NODE, type GraphIn, type GraphWiring, type GraphNode, type GraphLink, type GraphPort, type GraphLayout } from './nodes.ts';
 export { default as DesignerTabs, type DesignerTabId } from './components/designer-tabs.svelte';
+export { default as AssignmentTab } from './components/assignment-tab.svelte';
+export { default as RigCoverageList } from './components/rig-coverage-list.svelte';
+export * from './assignment.ts';

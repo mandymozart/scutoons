@@ -1,6 +1,7 @@
 //! Instruments, presets and character rigs (#191, research/INSTRUMENTS.md): the data a being's sound is made of.
 //! - instrument.rs – a patch of the node graph with its exposed parameters and a kind (drum, lead, pad, voice …)
 //! - preset.rs – values + routing changes + mappings for one instrument, with a parent (derivatives, lineage)
+//! - assign.rs – the assignment (#283): which characters have a default rig, a draft rig's bundle from the catalog
 //! - bundle.rs – a rig with what it names (scene-content's answer) → the played scene + the page's knobs
 //! - content.rs – scene-content's answer (its rigs, instruments, presets with their versions) → a bundle per holder
 //! - engine.rs – a flattened rig split for live-core (deck-engine in the browser): the kinds it carries, and the rest
@@ -13,6 +14,7 @@
 //!   between tracks and to the being's look, and per-persona / per-mood variants; `Rig::play` resolves it.
 //!
 //! JSON (the platform's entity documents) and TOML (the core set in the deck image) read the same serde forms.
+pub mod assign;
 pub mod bundle;
 pub mod content;
 pub mod engine;
