@@ -91,6 +91,19 @@ impl Player {
     }
 }
 
+/// One frame of the being (#409, T2 of #314): its live context to every module node of the engine – the mood its head
+/// shows, the persona (the native deck plays none yet), its energy, a hand on it, its strain – then, when a rig plays,
+/// the rig's replay on that mood (`Player::frame`). The face sends an unchanged context only once.
+#[cfg(feature = "space")]
+pub fn frame(rig: Option<&mut Player>, being: &crate::space::being::Being, graph: &Graph, ctl: &mut Controls, dt: f32) {
+    let mood = being.moods.get(being.head.mood).map_or("", String::as_str);
+    let touch = if being.dragging { 1.0 } else { 0.0 };
+    ctl.set_context(crate::control::Context::new(mood, "", being.head.walk.energy, touch, being.strain));
+    if let Some(r) = rig.filter(|_| !mood.is_empty()) {
+        r.frame(mood, graph, ctl, dt);
+    }
+}
+
 fn log(turn: &Turn) {
     if turn.failed {
         tracing::warn!("rig: {}", turn.note);

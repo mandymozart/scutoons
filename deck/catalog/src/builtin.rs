@@ -152,6 +152,7 @@ fn kind(
         needs: Cow::Borrowed(&[]),
         wants: Cow::Borrowed(&[]),
         reads: Cow::Borrowed(&[]),
+        moods: Cow::Borrowed(&[]),
         abi: None,
         latency: 0,
         ports: Cow::Owned(ports.to_vec()),

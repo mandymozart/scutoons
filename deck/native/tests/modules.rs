@@ -29,7 +29,7 @@ fn wasm(file: &str) -> Vec<u8> {
         let cargo = std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
         let out = std::process::Command::new(cargo)
             .current_dir(&root)
-            .args(["build", "--release", "--target", "wasm32-unknown-unknown", "-p", "walk-module", "-p", "fixture-module", "-p", "analog-module", "--target-dir"])
+            .args(["build", "--release", "--target", "wasm32-unknown-unknown", "-p", "walk-module", "-p", "fixture-module", "-p", "analog-module", "-p", "context-probe-module", "--target-dir"])
             .arg(&dir)
             .output()
             .expect("running cargo");
@@ -299,6 +299,54 @@ fn a_module_is_a_node_with_channel_slices_and_control_outputs() {
     // `info` = bpm / 100 + the beat / 1000, read one block late: the hold (0) first, then 1.2 and a little
     assert_eq!(info[0], 0.0);
     assert!(info[1..].iter().all(|&v| (1.2..1.21).contains(&v)), "{info:?}");
+}
+
+/// #409 (T2 of #314): the deck's mood changes between blocks and a real module's output changes with it – the live
+/// context through the face's command ring, applied at the next block's start, read by the module as
+/// `ctx.character()`: the mood's index in its own `moods` (A1), the string, the energy, the touch
+#[test]
+fn a_module_reads_the_deck_s_live_mood() {
+    use deck_native::control::{Context, Controls};
+    Library::global().load(&wasm("context_probe_module.wasm")).unwrap();
+    let scene = Scene::parse(
+        "[[node]]\nid=\"p\"\nkind=\"module:context_probe\"\nmood=\"happy\"\n\
+         [[node]]\nid=\"o\"\nkind=\"osc\"\ngain=0.01\n[[node]]\nid=\"out\"\nkind=\"audio_out\"\n[[link]]\nfrom=\"o\"\nto=\"out.in\"\n",
+    )
+    .unwrap();
+    let g = Graph::build(&scene).unwrap();
+    let p = g.nodes.iter().position(|n| n.id == "p").unwrap();
+    let (mut e, mut h) = engine_for(&g, 2);
+    let mut face = Controls::new(&g, Some(&mut h));
+    let mut seen = Vec::new();
+    let mut quantum = |e: &mut Engine| {
+        let mut buf = vec![0.0f32; deck_native::audio::QUANTUM * 2];
+        e.render(&mut buf, 2, |x| x);
+        // what the module wrote in the block before (its outputs act one block late): index, energy, touch, sad
+        let o = e.control().outputs(p);
+        seen.push([o[0], o[1], o[2], o[3]]);
+    };
+    quantum(&mut e);
+    quantum(&mut e);
+    face.set_context(Context::new("sad", "", 0.5, 0.25, 0.0));
+    quantum(&mut e);
+    quantum(&mut e);
+    face.set_context(Context::new("laughing", "", 0.875, 0.0, 0.0));
+    quantum(&mut e);
+    quantum(&mut e);
+    face.set_context(Context::new("neutral", "", 0.0, 0.0, 0.0));
+    quantum(&mut e);
+    quantum(&mut e);
+    let want = [
+        [0.0; 4],                 // the first block: nothing written yet (held)
+        [3.0, 0.0, 0.0, 0.0],     // the node's `mood` param (happy, the third of its list) until the deck says one
+        [3.0, 0.0, 0.0, 0.0],     // the block the context arrives on – written then, read one block late
+        [2.0, 0.5, 0.25, 1.0],    // sad
+        [2.0, 0.5, 0.25, 1.0],
+        [4.0, 0.875, 0.0, 0.0],   // laughing
+        [4.0, 0.875, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0],     // neutral: a mood it does not list
+    ];
+    assert_eq!(seen, want);
 }
 
 /// a trap in a show (the deck opens its instances so) restarts the module: the loader thread rebuilds it, it plays again

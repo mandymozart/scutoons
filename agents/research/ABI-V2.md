@@ -67,6 +67,7 @@ One shape, `deck_catalog::Descriptor`, for built-ins and modules (plan §2.4). F
 | `wants: [...]` | descriptor | soft sensor needs (`needs` is the hard list, §4) |
 | `preset: {name, doc, values}` | descriptor | the module's **one** factory preset (§2) |
 | `latency: frames` | descriptor | constant latency for the engine's compensation (plan §2.6a); 0 default |
+| `moods: ["thinking", "sad"]` | descriptor | A1 (#409): the moods the module knows; `mood_index` = a mood's place here + 1 (§3, §9g) |
 
 `deck_module::host::Descriptor` (v1's second type) is **deleted**; `deck_module::host` keeps `validate(&catalog::Descriptor)` and `read_descriptor`. The derive writes the JSON; the custom section is still **`deck.module`** (`SECTION`, `host.rs`). The macro never needs serde (it emits a string); the host feature depends on `deck-catalog`. `video` ports stay declarable and refused by the host with a message until the video leg (#185).
 
@@ -119,7 +120,7 @@ Read-only, written once per block by the host into `InHdr`. What a module may re
 | **Time (plan §2.8)** | `frame: f64` (sample frame on the tempo map's axis, as v1), `frames`, `rate`, **`show_ms: f64`** + `show_valid` (the relay-mapped show time at the block start, #321) | three times, no wall clock; a module never reads a platform clock |
 | **Tempo** | anchor `(tempo_frame, tempo_beat, bpm, per_bar, running)` as v1; `beat_at`, `frame_of`, `beats()`, `phase()`, plus `bar()` | deck-core's `TempoMap` formulas (`ctx.rs`), unchanged: analog's LFO sync and walk keep working |
 | **Seed** | `seed: u64` | see below |
-| **Character (#314)** | `id`, `persona`, `mood` (strings), `mood_index: u32` (the position in the scene's `moods` registry), **`energy`, `touch`, `strain`** (0…1, the being's `Senses`: `deck/space/src/space/feel.rs` l. 207–217) | strings stay for readability; the index makes a switch cheap; more senses are new header fields in a future ABI, not a runtime list |
+| **Character (#314)** | `id`, `persona`, `mood` (strings), `mood_index: u32` (the mood's place in the module's own `moods` list + 1, 0 = not in it – A1, §9g), **`energy`, `touch`, `strain`** (0…1, the being's `Senses`: `deck/space/src/space/feel.rs` l. 207–217) – live: the deck's context reaches them at a block start (§9g) | strings stay for readability; the index makes a switch cheap; more senses are new header fields in a future ABI, not a runtime list |
 | **Variables** | `ctx.var(Var) -> Option<f32>` | **declared slots**, below |
 | **Sensors, assets** | §4, §1.5 | |
 
@@ -428,6 +429,28 @@ Estimate from the ledger's classes (M $2.2–2.9, L $4.7–11.2): **≈ $35–55
   wasm), and an admin's `POST /api/modules/compile { factory }` without files builds the stored sources into the catalog entry (ModuleCompiler).
   The bytes and their hash are the service's pinned toolchain's – a CI build would be a second toolchain and would need the CDN's key in a workflow.
   The repository's sources stay the SDK's test fixtures; server `FactoryModulesTest` keeps the catalog's copy equal to them (a source change needs a migration).
+
+### 9g. Built in #409 – the live context (T2 of #314) and A1 (2026-11-05)
+- **A1 is built:** `Descriptor::moods` (deck-catalog, additive, checked unique and non-empty by `check()` – the build service's
+  descriptor check), the derive's `#[module(moods = "thinking|sad|happy|laughing|surprised")]` (≤ 32 bytes a mood), modreg keeps
+  the list per kind. **No header change:** `InHdr` is as it was; the SDK test's `Policy` lists moods and its frozen layout hash holds.
+- **The context command:** deck-space `context::Context` (mood and persona as 32 NUL-padded bytes, energy / touch / strain; `Copy`)
+  is `Command::Context` on the control half's existing command ring (P5 #319) – `Controls::set_context` sends a changed one.
+  At the next block's start the control half applies it to its module steppers and the engine to the audio half's module
+  blocks before they run (`Block::context`); each node writes `set_character(id, persona, mood)`, `set_mood_index`,
+  `set_senses` into its instance's header. No allocation (engine no_alloc, the native being's frame).
+- **Where the mood is mapped (a hole in RIG-MODULE-GROUPS §4, chosen here):** the note says the frame thread maps the mood to
+  the module's index. The frame thread sends **one** context for every node and each node maps it at the block it arrives
+  (deck-space's one rule, `context::mood_index`: place + 1, 0 = not listed; the list cached at build, a compare per listed
+  mood, lock-free) – the frame thread need not know which module each node runs, and one command serves all of them.
+  The node's `mood` / `persona` params still hold until the first context arrives; `character` (the id) stays the node's.
+- **Who sends it:** the native deck every frame from its being (`rig::frame`: the head's mood, energy, a hand, strain; no
+  persona yet); the browser deck through `lc_context` (live-core keeps the context across scene loads) – the page's
+  `DeckState` → worker call is not wired (nothing in the browser runs a module before #290); the headless host steps
+  deck-space's `Deck` every clock frame and sends its `Deck::context` (scenario 27). Scene variables: a later field of `Context`.
+- **Tests:** engine `the_live_context_reaches_every_module_node_at_the_next_block` (stand-ins in both halves), native
+  `a_module_reads_the_deck_s_live_mood` (the real wasm probe `deck/conformance/modules/context`, a test module, not a
+  factory one – changing the fixture would need a catalog migration, §9f), headless 27 (native ≡ wasm32 ≡ wasm32 + simd128).
 
 ## 10. Questions for the owner – all decided 2026-11-03
 

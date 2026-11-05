@@ -1,4 +1,4 @@
-Status 2026-11-05: design note for the owner's review (#314) – nothing built from it. The example (§3) compiles against deck/module as it is (native and wasm32) and passes a strict `testing::Rig` run. Open decisions: §5.
+Status 2026-11-05: accepted by the owner ("all recommendations good for now" · "go", the six decisions of §5); building: T2 + A1 built (#409, ABI-V2 §9g: the live context reaches every module node; the mood is mapped at the node, §4), T1 (#408) in progress, T3 next.
 
 # RIG-MODULE-GROUPS – rigs as module groups: a code rig is a policy over the data tracks
 
@@ -86,7 +86,7 @@ impl Module for CatpopeRig {
   - routes from and to `policy:`;
   - `Rig::describe`;
   - the checks of Q5, with `Request.modules`.
-- **T2** engine + Deck (M, new ticket): a context command from the frame thread's `Deck` (mood index / string, persona, the being's energy / touch / strain; later scene variables) to every module node. It applies at a block start without allocating, natively and in live-core alike. Includes A1.
+- **T2** engine + Deck (M, #409 – **built**, ABI-V2 §9g): a context command from the frame thread's `Deck` (mood index / string, persona, the being's energy / touch / strain; later scene variables) to every module node. It applies at a block start without allocating, natively and in live-core alike. Includes A1. *Where the note had a hole:* the frame thread sends one context (the mood as a string) and each node maps it to its own list's index (deck-space `context::mood_index`) – not the frame thread per node as §4 says.
 - **T3** Deck (S, new ticket or inside T1) applies `@preset`. The Deck reads the policy's preset outputs (streamed as `policy.<out>`, `Stream::Control`) each frame and replays the bundle with those presets as per-track overrides. It passes the diff, minus owned paths, to `set_base`. This is at most one frame late and reuses #368's replay unchanged.
 - **T5** (S) the stats rollup by node prefix → #307.
 - **T6** (M, after #282 / #283) the editor: the Rust tab on a rig, the `rig_policy` template from `RigFace`, Assignment marking owned rows.

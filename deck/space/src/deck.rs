@@ -3,6 +3,7 @@
 //! every mood: rig/bundle.rs `Played`, the lifecycle here once). The browser deck has it as space-web's `DeckState` (no
 //! GPU: it works when the 3D can't), the headless host drives it directly. The page passes its inputs each frame,
 //! applies the turns (a new scene to load, values that moved) and draws the answers.
+use crate::context::Context;
 use crate::mood::Ladder;
 use crate::rig::{Bundle, Played};
 use anyhow::Result;
@@ -80,6 +81,10 @@ pub struct Deck {
     own: Played,
     /// the rig, its persona, and how it plays for the mood now
     rig: Option<(Bundle, String, Played)>,
+    /// the last frame's hand on the deck (0..1, `step`)
+    touch: f32,
+    /// how hard the output's limiter works (0..1, the being's red flush) – the platform's, where it has one (#409)
+    pub strain: f32,
 }
 
 impl Default for Deck {
@@ -91,7 +96,7 @@ impl Default for Deck {
 impl Deck {
     pub fn new() -> Deck {
         let own = Played::deck_scene().expect("the deck's own scene is embedded and checked by the tests");
-        Deck { ladder: Ladder::default(), shown: String::new(), own, rig: None }
+        Deck { ladder: Ladder::default(), shown: String::new(), own, rig: None, touch: 0.0, strain: 0.0 }
     }
 
     /// the scene that plays: the rig's for the mood now, else the deck's own
@@ -171,6 +176,7 @@ impl Deck {
     /// when the mood is another than the last frame's (the ladder's turn, a pinned mood, another character's ladder):
     /// the mood and the rig replayed for it.
     pub fn step(&mut self, level: f32, bpm: f32, running: bool, touch: f32, dt: f32) -> Option<Step> {
+        self.touch = touch;
         let mood = self.ladder.step(level, bpm, running, touch, dt).to_string();
         if mood == self.shown {
             return None;
@@ -185,6 +191,13 @@ impl Deck {
     /// the mood now (the ladder's or the pinned one)
     pub fn mood(&self) -> &str {
         self.ladder.mood()
+    }
+
+    /// #409: the context the engine's module nodes play in now – the mood, the rig's persona, the energy, the last
+    /// frame's touch, the strain (context.rs); the platform sends it every frame (deck-engine `Controls::set_context`)
+    pub fn context(&self) -> Context {
+        let persona = self.rig.as_ref().map_or("", |(_, p, _)| p.as_str());
+        Context::new(self.ladder.mood(), persona, self.ladder.energy(), self.touch, self.strain)
     }
 
     /// where a value of `path` goes in the engine (None: a node the engine does not play)
@@ -296,6 +309,21 @@ mod tests {
         }
         let on_disk = std::fs::read_to_string(path).unwrap_or_default().replace('\r', "");
         assert!(on_disk == text, "{path} is stale: UPDATE_FIXTURES=1 cargo test -p deck-space deck_fixture");
+    }
+
+    /// #409: what the module nodes get – the mood the step said, the rig's persona, the walk's energy, the hand
+    #[test]
+    fn the_context_is_the_deck_s_mood_persona_and_senses() {
+        let mut d = Deck::new();
+        d.ladder.set_portraits(&MOODS.map(String::from));
+        assert_eq!(d.context().mood(), "neutral");
+        d.play_core("catpope", "dream");
+        d.ladder.pin(Some("laughing"));
+        d.step(1.0, 120.0, true, 0.5, 0.1);
+        d.strain = 0.25;
+        let c = d.context();
+        assert_eq!((c.mood(), c.persona(), c.touch, c.strain), ("laughing", "dream", 0.5, 0.25));
+        assert!(c.energy > 0.0 && c.energy == d.ladder.energy(), "{}", c.energy);
     }
 
     #[test]

@@ -389,7 +389,7 @@ impl<B: Backend> Instance<B> {
         self.inp().set_character(id, persona, mood);
     }
 
-    /// the mood's position in the scene's `moods` registry
+    /// the mood's place in the module's own `moods` list + 1, 0 = not in it (A1, #409: deck-space `context::mood_index`)
     pub fn set_mood_index(&mut self, i: u32) {
         self.inp().hdr().mood_index = i;
     }

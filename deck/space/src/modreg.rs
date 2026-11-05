@@ -24,6 +24,8 @@ pub struct ModuleSpec {
     pub domain: Domain,
     /// (output port, path, mode) per control output bound to a target instead of a cable (ABI-V2 §5; graph.rs binds them)
     pub targets: &'static [(usize, &'static str, Mode)],
+    /// the moods the module knows (A1, #409): a mood's `mood_index` is its place here + 1 (context.rs)
+    pub moods: &'static [&'static str],
 }
 
 /// One port of a module as the registry takes it: its name, type and – an audio port of ABI v2 – its channels (None: the
@@ -50,12 +52,14 @@ pub struct ModuleDef {
     pub domain: Domain,
     /// (output port, path, mode)
     pub targets: Vec<(usize, String, Mode)>,
+    /// the moods it knows (the descriptor's `moods`, A1)
+    pub moods: Vec<String>,
 }
 
 impl ModuleDef {
     /// an audio-domain module with these ports and no targets
     pub fn new(inputs: Vec<PortDef>, outputs: Vec<PortDef>, defaults: Vec<(String, f32)>) -> ModuleDef {
-        ModuleDef { inputs, outputs, defaults, domain: Domain::Audio, targets: Vec::new() }
+        ModuleDef { inputs, outputs, defaults, domain: Domain::Audio, targets: Vec::new(), moods: Vec::new() }
     }
 }
 
@@ -88,6 +92,8 @@ pub fn register(name: &str, def: &ModuleDef) -> ModuleKind {
             && s.domain == def.domain
             && s.targets.len() == def.targets.len()
             && s.targets.iter().zip(&def.targets).all(|(a, b)| a.0 == b.0 && a.1 == b.1 && a.2 == b.2)
+            && s.moods.len() == def.moods.len()
+            && s.moods.iter().zip(&def.moods).all(|(a, b)| a == b)
     };
     if let Some(i) = reg.iter().rposition(|s| same(s)) {
         return ModuleKind(i as u32);
@@ -101,6 +107,7 @@ pub fn register(name: &str, def: &ModuleDef) -> ModuleKind {
         defaults: Box::leak(defaults.into_boxed_slice()),
         domain: def.domain,
         targets: Box::leak(targets.into_boxed_slice()),
+        moods: Box::leak(def.moods.iter().map(|m| leak(m)).collect::<Vec<_>>().into_boxed_slice()),
     }));
     reg.push(spec);
     ModuleKind(reg.len() as u32 - 1)

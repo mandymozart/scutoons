@@ -75,6 +75,11 @@ pub struct Deck {
     frame: Vec<f32>,
     /// a pace for a real-time run: called with the ms of each virtual frame (the CLI sleeps; None = as fast as it goes)
     pub pace: Option<Box<dyn FnMut(f64)>>,
+    /// #409: the page's deck state (deck-space's `Deck`, space-web's `DeckState`): stepped every clock frame on the heard
+    /// level and the clock, its live context handed to the core (`lc_context`) – as the browser deck's page does
+    pub state: deck_space::deck::Deck,
+    /// a hand on the deck (0..1) for the state's steps
+    pub touch: f32,
 }
 
 /// what one `run` saw
@@ -107,7 +112,22 @@ impl Deck {
             last_flags: 0,
             frame: Vec::new(),
             pace: None,
+            state: deck_space::deck::Deck::new(),
+            touch: 0.0,
         }
+    }
+
+    /// #409: the deck state's live context into the core (`lc_context`: `mood\npersona` in the inbox, the senses)
+    fn send_context(&mut self) {
+        let c = self.state.context();
+        let text = format!("{}\n{}", c.mood(), c.persona());
+        self.host.inbox(text.len())[..text.len()].copy_from_slice(text.as_bytes());
+        self.host.context(text.len(), c.energy, c.touch, c.strain);
+    }
+
+    /// #409: the live context the core's engine applied last (None before a scene is loaded)
+    pub fn applied_context(&mut self) -> Option<deck_space::context::Context> {
+        self.host.core().map(|c| *c.applied_context())
     }
 
     /// `lc_load`: a scene's TOML → the load table (or the core's error)
@@ -287,6 +307,10 @@ impl Deck {
                     self.frame.clear();
                     self.frame.extend_from_slice(f);
                 }
+                // the page's frame: the deck state steps on the heard level and the clock, its context goes to the core
+                let level = self.frame.first().copied().unwrap_or(0.0);
+                self.state.step(level, state[2] as f32, state[4] != 0.0, self.touch, (FRAME_MS / 1e3) as f32);
+                self.send_context();
                 if let Some(core) = self.host.core() {
                     let s = core.take_signals();
                     if !s.is_empty() {

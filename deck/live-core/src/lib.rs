@@ -9,7 +9,8 @@
 //!   (once); errors too (a negative length).
 //!
 //! Exports (all `lc_*`, no imports): `lc_init(rate, channels)`, `lc_inbox(len) -> ptr`, `lc_outbox() -> ptr`,
-//! `lc_load(len) -> ±len`, `lc_apply(len) -> count | -len`, `lc_render(frames) -> ptr`, `lc_analyse(dt, lead) -> ptr`,
+//! `lc_load(len) -> ±len`, `lc_apply(len) -> count | -len`, `lc_context(len, energy, touch, strain) -> 0 | -len` (#409:
+//! the deck's live context for the module nodes), `lc_render(frames) -> ptr`, `lc_analyse(dt, lead) -> ptr`,
 //! `lc_signals() -> len`, `lc_signals_at() -> ptr`; the tempo clock (#321, clock.rs): `lc_clock_frame(now_ms) -> ptr`
 //! (the state block, `clock::STATE` f64), `lc_clock_stamp`, `lc_clock_pong`, `lc_clock_tempo`, `lc_clock_midi`,
 //! `lc_clock_joined`, `lc_clock_mode` (#370), `lc_clock_key`, `lc_clock_line(now_ms) -> len` (the line, in the outbox),
@@ -33,6 +34,7 @@ pub use crate::core::Core;
 use deck_core::lead::{AdaptiveLead, DeviceClass};
 use deck_core::monitor::AudioWindow;
 use deck_core::tempo::Anchor;
+use deck_engine::control::Context;
 
 /// The inbox's first size; `lc_inbox(len)` grows it for a bigger scene.
 pub const INBOX: usize = 64 * 1024;
@@ -53,13 +55,15 @@ pub struct Host {
     pub audio: AudioWindow,
     words: Vec<f64>,
     rendered: usize,
+    /// #409: the deck's live context last given (it outlives a scene, like the clock)
+    context: Option<Context>,
 }
 
 impl Host {
     pub fn new(rate: f32, channels: usize) -> Host {
         let lead = AdaptiveLead::of(DeviceClass::Desktop);
         let audio = AudioWindow::with_lead(lead.current(), rate);
-        Host { rate, channels, inbox: vec![0; INBOX], outbox: Vec::new(), core: None, clock: Clock::new(rate), lead, audio, words: vec![0.0; AudioWindow::WORDS], rendered: 0 }
+        Host { rate, channels, inbox: vec![0; INBOX], outbox: Vec::new(), core: None, clock: Clock::new(rate), lead, audio, words: vec![0.0; AudioWindow::WORDS], rendered: 0, context: None }
     }
 
     /// The inbox, at least `len` bytes.
@@ -93,9 +97,12 @@ impl Host {
         let r = std::str::from_utf8(&self.inbox[..len.min(self.inbox.len())])
             .map_err(|e| format!("the scene is not UTF-8: {e}"))
             .and_then(|text| Core::load(text, self.rate, self.channels));
-        let r = r.map(|core| {
+        let r = r.map(|mut core| {
             let table = core.table_json();
             self.clock.loaded(core.tempo(), core.tempo_node());
+            if let Some(c) = self.context {
+                core.context(c);
+            }
             self.core = Some(core);
             table
         });
@@ -123,6 +130,22 @@ impl Host {
             Ok(n) => n as i32,
             Err(e) => self.answer(Err(e)),
         }
+    }
+
+    /// #409: the deck's live context for the module nodes – the inbox's first `len` bytes are `mood\npersona` (UTF-8),
+    /// the senses 0 … 1 – kept across scene loads (a scene loaded later gets it at once). 0, or an error (< 0).
+    pub fn context(&mut self, len: usize, energy: f32, touch: f32, strain: f32) -> i32 {
+        let text = match std::str::from_utf8(&self.inbox[..len.min(self.inbox.len())]) {
+            Ok(t) => t,
+            Err(e) => return self.answer(Err(format!("the context is not UTF-8: {e}"))),
+        };
+        let (mood, persona) = text.split_once('\n').unwrap_or((text, ""));
+        let c = Context::new(mood, persona, energy, touch, strain);
+        self.context = Some(c);
+        if let Some(core) = self.core.as_mut() {
+            core.context(c);
+        }
+        0
     }
 
     pub fn core(&mut self) -> Option<&mut Core> {
@@ -211,6 +234,13 @@ pub extern "C" fn lc_warm(len: usize, quanta: usize) -> i32 {
 #[no_mangle]
 pub extern "C" fn lc_apply(len: usize) -> i32 {
     with(|h| h.apply(len))
+}
+
+/// #409: the deck's live context (space-web `DeckState`'s) for the engine's module nodes: `mood\npersona` in the inbox's
+/// first `len` bytes, the being's energy, touch and strain (0 … 1). 0 or −len.
+#[no_mangle]
+pub extern "C" fn lc_context(len: usize, energy: f32, touch: f32, strain: f32) -> i32 {
+    with(|h| h.context(len, energy, touch, strain))
 }
 
 /// `frames` frames rendered (× the device channels, interleaved); their address (null before a scene is loaded).
