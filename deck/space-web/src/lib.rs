@@ -192,6 +192,21 @@ pub fn rig_problems(request: &str) -> Result<String, JsValue> {
     deck_space::rig::validate::problems_json(request).map_err(|e| JsValue::from_str(&format!("{e:#}")))
 }
 
+/// #283: every character's default rig – plays, drafted or missing – and its personas' own (deck-space
+/// `rig::assign::coverage`): `request` = `{ characters: [{ id, personas }], rigs: [{ id, live, draft, removed }] }` as
+/// JSON (the registry and the catalog's rig list), the answer `[{ character, subject, default, personas?, missing }]`.
+#[wasm_bindgen]
+pub fn rig_coverage(request: &str) -> Result<String, JsValue> {
+    deck_space::rig::assign::coverage_json(request).map_err(|e| JsValue::from_str(&format!("{e:#}")))
+}
+
+/// #283: a rig document with what it names from the catalog (`{ rig, instruments, presets }` as JSON, every entry's
+/// document) – the bundle as JSON for `rig_play`, so a draft is heard before it is published.
+#[wasm_bindgen]
+pub fn rig_catalog_bundle(request: &str) -> Result<String, JsValue> {
+    deck_space::rig::assign::catalog_bundle_json(request).map_err(|e| JsValue::from_str(&format!("{e:#}")))
+}
+
 #[wasm_bindgen]
 pub struct SpaceView {
     space: Space,
