@@ -95,6 +95,8 @@ export interface DeckStateView {
 	sliders(locale: string): string;
 	/** the being on the wire (`deck.graph`); the deck's own scene wears `character` */
 	graph(character: string): string;
+	/** #282: the played scene's wiring (a `RigWiring`) */
+	wiring(): string;
 	/** where a value of a path goes in the engine ('' = nowhere) */
 	target(path: string): string;
 	/** #369: where a value sits on knob `path`'s range, 0..1 on its curve (NaN: its default; no such knob: 0) */

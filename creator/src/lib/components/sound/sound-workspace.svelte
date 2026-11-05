@@ -10,8 +10,9 @@
 	import { goto, beforeNavigate } from '$app/navigation';
 	import { page } from '$app/state';
 	import { Divider, Icon, askDialog, confirmDialog, panelWidth } from '@scutoons/ui';
-	import { createDesignerApi, isModuleId, moduleContent, RigDesigner, setupRigDesigner, STARTER_FILES } from '@scutoons/rig-designer';
+	import { createDesignerApi, isModuleId, moduleContent, RigDesigner, setupRigDesigner, STARTER_FILES, type GraphWiring } from '@scutoons/rig-designer';
 	import { getSessionToken } from '@scutoons/api';
+	import type { EngineHost } from '@scutoons/engine-host';
 	import { API_URL } from '$lib/config.ts';
 	import { api, putDraft } from '$lib/api.ts';
 	import { usePageNav } from '$lib/nav.svelte.ts';
@@ -110,6 +111,9 @@
 	const stacked = new MediaQuery('max-width: 56rem');
 	let splitEl = $state<HTMLElement>();
 	const deckSize = panelWidth('sc-panel-width:sound-deck', 26, () => splitEl?.getBoundingClientRect().right ?? window.innerWidth);
+	// the deck half's engine and the core's wiring of what it plays: the designer's Nodes tab draws them (#282)
+	let host = $state<EngineHost | null>(null);
+	let wiring = $state<GraphWiring>();
 </script>
 
 {#snippet topBar()}
@@ -126,13 +130,15 @@
 			{modules}
 			{selected}
 			{notice}
+			{host}
+			{wiring}
 			onselect={select}
 			onnew={newModule}
 		/>
 	</section>
 	<section class="half deck-half" id="sound-deck" aria-label={m['creator.sound_deck']()}>
 		{#key target.key}
-			<DeckHalf character={target.kind === 'rig' ? target.character : 'catpope'} />
+			<DeckHalf character={'character' in target ? target.character : 'catpope'} bind:host bind:wiring />
 		{/key}
 	</section>
 	{#if !stacked.current}

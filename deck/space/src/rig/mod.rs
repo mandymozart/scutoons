@@ -8,6 +8,7 @@
 //! - flatten.rs – a rig as one playable scene (the tracks summed into audio_out, the routes as links)
 //! - validate.rs – an instrument / preset / rig document checked with what it names (#313: the API's catalog writes via
 //!   deck/build `POST /validate`, the creator's hints via space-web)
+//! - wiring.rs – a played scene's nodes, ports and links as the rig designer's Nodes tab draws them (#282)
 //! - here – a rig: a character's (or a scene object's, #210) tracks, each an instrument + its default preset, routes
 //!   between tracks and to the being's look, and per-persona / per-mood variants; `Rig::play` resolves it.
 //!
@@ -20,6 +21,7 @@ pub mod horizon;
 pub mod instrument;
 pub mod preset;
 pub mod validate;
+pub mod wiring;
 
 pub use bundle::{Bundle, Diff, Knob, Played, Stream};
 pub use horizon::Prebuilt;

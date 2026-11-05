@@ -891,6 +891,419 @@
       "voice_voice.gain": "voice_voice.gain",
       "voice_voice.index": "voice_voice.index",
       "voice_voice.ratio": "voice_voice.ratio"
+    },
+    "wiring": {
+      "links": [
+        {
+          "from": 1,
+          "input": "cv",
+          "offset": 0.0,
+          "out": "cv",
+          "scale": 1.0,
+          "to": 0,
+          "type": "audio",
+          "value": "voice_melody.cv"
+        },
+        {
+          "from": 2,
+          "input": "in1",
+          "offset": 0.0,
+          "out": "out",
+          "scale": 1.0,
+          "to": 4,
+          "type": "audio",
+          "value": "drone_drone.out"
+        },
+        {
+          "from": 3,
+          "input": "in2",
+          "offset": 0.0,
+          "out": "out",
+          "scale": 1.0,
+          "to": 4,
+          "type": "audio",
+          "value": "drone_fifth.out"
+        },
+        {
+          "from": 0,
+          "input": "in1",
+          "offset": 0.0,
+          "out": "out",
+          "scale": 1.0,
+          "to": 5,
+          "type": "audio",
+          "value": "voice_voice.out"
+        },
+        {
+          "from": 4,
+          "input": "in2",
+          "offset": 0.0,
+          "out": "out",
+          "scale": 1.0,
+          "to": 5,
+          "type": "audio",
+          "value": "drone_mix.out"
+        },
+        {
+          "from": 5,
+          "input": "in",
+          "offset": 0.0,
+          "out": "out",
+          "scale": 1.0,
+          "to": 6,
+          "type": "audio",
+          "value": "mix1.out"
+        },
+        {
+          "from": 5,
+          "input": "in",
+          "offset": 0.0,
+          "out": "out",
+          "scale": 1.0,
+          "to": 7,
+          "type": "audio",
+          "value": "mix1.out"
+        },
+        {
+          "from": 7,
+          "input": "pulse",
+          "offset": 0.0,
+          "out": "level",
+          "scale": 0.6000000238418579,
+          "to": 8,
+          "type": "control",
+          "value": "fft.level"
+        }
+      ],
+      "nodes": [
+        {
+          "depth": 1,
+          "domain": "audio",
+          "id": "voice_voice",
+          "inputs": [
+            {
+              "name": "cv",
+              "type": "audio"
+            },
+            {
+              "name": "freq",
+              "type": "control"
+            },
+            {
+              "name": "ratio",
+              "type": "control"
+            },
+            {
+              "name": "index",
+              "type": "control"
+            },
+            {
+              "name": "gain",
+              "type": "control"
+            }
+          ],
+          "kind": "fm",
+          "outputs": [
+            {
+              "name": "out",
+              "type": "audio"
+            }
+          ],
+          "played": true,
+          "track": "voice"
+        },
+        {
+          "depth": 0,
+          "domain": "audio",
+          "id": "voice_melody",
+          "inputs": [
+            {
+              "name": "spread",
+              "type": "control"
+            },
+            {
+              "name": "rate",
+              "type": "control"
+            },
+            {
+              "name": "glide",
+              "type": "control"
+            }
+          ],
+          "kind": "walk",
+          "outputs": [
+            {
+              "name": "cv",
+              "type": "audio"
+            }
+          ],
+          "played": true,
+          "track": "voice"
+        },
+        {
+          "depth": 0,
+          "domain": "audio",
+          "id": "drone_drone",
+          "inputs": [
+            {
+              "name": "cv",
+              "type": "audio"
+            },
+            {
+              "name": "freq",
+              "type": "control"
+            },
+            {
+              "name": "gain",
+              "type": "control"
+            }
+          ],
+          "kind": "osc",
+          "outputs": [
+            {
+              "name": "out",
+              "type": "audio"
+            }
+          ],
+          "played": true,
+          "track": "drone"
+        },
+        {
+          "depth": 0,
+          "domain": "audio",
+          "id": "drone_fifth",
+          "inputs": [
+            {
+              "name": "cv",
+              "type": "audio"
+            },
+            {
+              "name": "freq",
+              "type": "control"
+            },
+            {
+              "name": "gain",
+              "type": "control"
+            }
+          ],
+          "kind": "osc",
+          "outputs": [
+            {
+              "name": "out",
+              "type": "audio"
+            }
+          ],
+          "played": true,
+          "track": "drone"
+        },
+        {
+          "depth": 1,
+          "domain": "audio",
+          "id": "drone_mix",
+          "inputs": [
+            {
+              "name": "in1",
+              "type": "audio"
+            },
+            {
+              "name": "in2",
+              "type": "audio"
+            },
+            {
+              "name": "in3",
+              "type": "audio"
+            },
+            {
+              "name": "in4",
+              "type": "audio"
+            },
+            {
+              "name": "gain1",
+              "type": "control"
+            },
+            {
+              "name": "gain2",
+              "type": "control"
+            },
+            {
+              "name": "gain3",
+              "type": "control"
+            },
+            {
+              "name": "gain4",
+              "type": "control"
+            }
+          ],
+          "kind": "mixer",
+          "outputs": [
+            {
+              "name": "out",
+              "type": "audio"
+            }
+          ],
+          "played": true,
+          "track": "drone"
+        },
+        {
+          "depth": 2,
+          "domain": "audio",
+          "id": "mix1",
+          "inputs": [
+            {
+              "name": "in1",
+              "type": "audio"
+            },
+            {
+              "name": "in2",
+              "type": "audio"
+            },
+            {
+              "name": "in3",
+              "type": "audio"
+            },
+            {
+              "name": "in4",
+              "type": "audio"
+            },
+            {
+              "name": "gain1",
+              "type": "control"
+            },
+            {
+              "name": "gain2",
+              "type": "control"
+            },
+            {
+              "name": "gain3",
+              "type": "control"
+            },
+            {
+              "name": "gain4",
+              "type": "control"
+            }
+          ],
+          "kind": "mixer",
+          "outputs": [
+            {
+              "name": "out",
+              "type": "audio"
+            }
+          ],
+          "played": true,
+          "track": ""
+        },
+        {
+          "depth": 3,
+          "domain": "audio",
+          "id": "out",
+          "inputs": [
+            {
+              "name": "in",
+              "type": "audio"
+            },
+            {
+              "name": "volume",
+              "type": "control"
+            }
+          ],
+          "kind": "audio_out",
+          "outputs": [],
+          "played": true,
+          "track": ""
+        },
+        {
+          "depth": 3,
+          "domain": "audio",
+          "id": "fft",
+          "inputs": [
+            {
+              "name": "in",
+              "type": "audio"
+            }
+          ],
+          "kind": "fft",
+          "outputs": [
+            {
+              "name": "level",
+              "type": "control"
+            },
+            {
+              "name": "bass",
+              "type": "control"
+            },
+            {
+              "name": "mid",
+              "type": "control"
+            },
+            {
+              "name": "high",
+              "type": "control"
+            }
+          ],
+          "played": true,
+          "track": ""
+        },
+        {
+          "depth": 4,
+          "domain": "video",
+          "id": "space",
+          "inputs": [
+            {
+              "name": "hue",
+              "type": "control"
+            },
+            {
+              "name": "glow",
+              "type": "control"
+            },
+            {
+              "name": "light",
+              "type": "control"
+            },
+            {
+              "name": "pulse",
+              "type": "control"
+            },
+            {
+              "name": "bloom",
+              "type": "control"
+            },
+            {
+              "name": "threshold",
+              "type": "control"
+            },
+            {
+              "name": "lift",
+              "type": "control"
+            },
+            {
+              "name": "gamma",
+              "type": "control"
+            },
+            {
+              "name": "gain",
+              "type": "control"
+            },
+            {
+              "name": "pixel",
+              "type": "control"
+            },
+            {
+              "name": "levels",
+              "type": "control"
+            }
+          ],
+          "kind": "space",
+          "outputs": [
+            {
+              "name": "out",
+              "type": "video"
+            }
+          ],
+          "played": true,
+          "track": ""
+        }
+      ]
     }
   },
   "own": {
@@ -1813,6 +2226,513 @@
       "voice.gain": "voice.gain",
       "voice.index": "voice.index",
       "voice.ratio": "voice.ratio"
+    },
+    "wiring": {
+      "links": [
+        {
+          "from": 2,
+          "input": "cv",
+          "offset": 0.0,
+          "out": "cv",
+          "scale": 1.0,
+          "to": 3,
+          "type": "audio",
+          "value": "seq.cv"
+        },
+        {
+          "from": 1,
+          "input": "in1",
+          "offset": 0.0,
+          "out": "out",
+          "scale": 1.0,
+          "to": 7,
+          "type": "audio",
+          "value": "music.out"
+        },
+        {
+          "from": 3,
+          "input": "in2",
+          "offset": 0.0,
+          "out": "out",
+          "scale": 1.0,
+          "to": 7,
+          "type": "audio",
+          "value": "voice.out"
+        },
+        {
+          "from": 4,
+          "input": "in3",
+          "offset": 0.0,
+          "out": "out",
+          "scale": 1.0,
+          "to": 7,
+          "type": "audio",
+          "value": "drone.out"
+        },
+        {
+          "from": 5,
+          "input": "in4",
+          "offset": 0.0,
+          "out": "out",
+          "scale": 1.0,
+          "to": 7,
+          "type": "audio",
+          "value": "incense.out"
+        },
+        {
+          "from": 7,
+          "input": "in",
+          "offset": 0.0,
+          "out": "out",
+          "scale": 1.0,
+          "to": 8,
+          "type": "audio",
+          "value": "mix.out"
+        },
+        {
+          "from": 7,
+          "input": "in",
+          "offset": 0.0,
+          "out": "out",
+          "scale": 1.0,
+          "to": 9,
+          "type": "audio",
+          "value": "mix.out"
+        },
+        {
+          "from": 6,
+          "input": "cutoff",
+          "offset": 600.0,
+          "out": "out",
+          "scale": 3000.0,
+          "to": 5,
+          "type": "control",
+          "value": "sway.out"
+        },
+        {
+          "from": 8,
+          "input": "pulse",
+          "offset": 0.0,
+          "out": "level",
+          "scale": 0.6000000238418579,
+          "to": 10,
+          "type": "control",
+          "value": "fft.level"
+        },
+        {
+          "from": 8,
+          "input": "gain",
+          "offset": 0.03999999910593033,
+          "out": "bass",
+          "scale": 0.25,
+          "to": 4,
+          "type": "control",
+          "value": "fft.bass"
+        },
+        {
+          "from": 10,
+          "input": "in",
+          "offset": 0.0,
+          "out": "out",
+          "scale": 1.0,
+          "to": 11,
+          "type": "video",
+          "value": "space.out"
+        },
+        {
+          "from": 12,
+          "input": "in",
+          "offset": 0.0,
+          "out": "out",
+          "scale": 1.0,
+          "to": 9,
+          "type": "audio",
+          "value": "click.out"
+        }
+      ],
+      "nodes": [
+        {
+          "depth": 0,
+          "domain": "control",
+          "id": "tempo",
+          "inputs": [],
+          "kind": "tempo",
+          "outputs": [
+            {
+              "name": "bpm",
+              "type": "control"
+            },
+            {
+              "name": "beat",
+              "type": "control"
+            },
+            {
+              "name": "bar",
+              "type": "control"
+            },
+            {
+              "name": "phase",
+              "type": "control"
+            },
+            {
+              "name": "bar_phase",
+              "type": "control"
+            },
+            {
+              "name": "pulse",
+              "type": "control"
+            }
+          ],
+          "played": true,
+          "track": ""
+        },
+        {
+          "depth": 0,
+          "domain": "audio",
+          "id": "music",
+          "inputs": [
+            {
+              "name": "gain",
+              "type": "control"
+            }
+          ],
+          "kind": "chapter_music",
+          "outputs": [
+            {
+              "name": "out",
+              "type": "audio"
+            }
+          ],
+          "played": false,
+          "track": ""
+        },
+        {
+          "depth": 0,
+          "domain": "audio",
+          "id": "seq",
+          "inputs": [
+            {
+              "name": "rate",
+              "type": "control"
+            }
+          ],
+          "kind": "seq",
+          "outputs": [
+            {
+              "name": "cv",
+              "type": "audio"
+            }
+          ],
+          "played": true,
+          "track": ""
+        },
+        {
+          "depth": 1,
+          "domain": "audio",
+          "id": "voice",
+          "inputs": [
+            {
+              "name": "cv",
+              "type": "audio"
+            },
+            {
+              "name": "freq",
+              "type": "control"
+            },
+            {
+              "name": "ratio",
+              "type": "control"
+            },
+            {
+              "name": "index",
+              "type": "control"
+            },
+            {
+              "name": "gain",
+              "type": "control"
+            }
+          ],
+          "kind": "fm",
+          "outputs": [
+            {
+              "name": "out",
+              "type": "audio"
+            }
+          ],
+          "played": true,
+          "track": ""
+        },
+        {
+          "depth": 0,
+          "domain": "audio",
+          "id": "drone",
+          "inputs": [
+            {
+              "name": "cv",
+              "type": "audio"
+            },
+            {
+              "name": "freq",
+              "type": "control"
+            },
+            {
+              "name": "gain",
+              "type": "control"
+            }
+          ],
+          "kind": "osc",
+          "outputs": [
+            {
+              "name": "out",
+              "type": "audio"
+            }
+          ],
+          "played": true,
+          "track": ""
+        },
+        {
+          "depth": 0,
+          "domain": "audio",
+          "id": "incense",
+          "inputs": [
+            {
+              "name": "cutoff",
+              "type": "control"
+            },
+            {
+              "name": "gain",
+              "type": "control"
+            }
+          ],
+          "kind": "noise",
+          "outputs": [
+            {
+              "name": "out",
+              "type": "audio"
+            }
+          ],
+          "played": true,
+          "track": ""
+        },
+        {
+          "depth": 0,
+          "domain": "control",
+          "id": "sway",
+          "inputs": [
+            {
+              "name": "rate",
+              "type": "control"
+            },
+            {
+              "name": "depth",
+              "type": "control"
+            }
+          ],
+          "kind": "lfo",
+          "outputs": [
+            {
+              "name": "out",
+              "type": "control"
+            }
+          ],
+          "played": true,
+          "track": ""
+        },
+        {
+          "depth": 2,
+          "domain": "audio",
+          "id": "mix",
+          "inputs": [
+            {
+              "name": "in1",
+              "type": "audio"
+            },
+            {
+              "name": "in2",
+              "type": "audio"
+            },
+            {
+              "name": "in3",
+              "type": "audio"
+            },
+            {
+              "name": "in4",
+              "type": "audio"
+            },
+            {
+              "name": "gain1",
+              "type": "control"
+            },
+            {
+              "name": "gain2",
+              "type": "control"
+            },
+            {
+              "name": "gain3",
+              "type": "control"
+            },
+            {
+              "name": "gain4",
+              "type": "control"
+            }
+          ],
+          "kind": "mixer",
+          "outputs": [
+            {
+              "name": "out",
+              "type": "audio"
+            }
+          ],
+          "played": true,
+          "track": ""
+        },
+        {
+          "depth": 3,
+          "domain": "audio",
+          "id": "fft",
+          "inputs": [
+            {
+              "name": "in",
+              "type": "audio"
+            }
+          ],
+          "kind": "fft",
+          "outputs": [
+            {
+              "name": "level",
+              "type": "control"
+            },
+            {
+              "name": "bass",
+              "type": "control"
+            },
+            {
+              "name": "mid",
+              "type": "control"
+            },
+            {
+              "name": "high",
+              "type": "control"
+            }
+          ],
+          "played": true,
+          "track": ""
+        },
+        {
+          "depth": 3,
+          "domain": "audio",
+          "id": "out",
+          "inputs": [
+            {
+              "name": "in",
+              "type": "audio"
+            },
+            {
+              "name": "volume",
+              "type": "control"
+            }
+          ],
+          "kind": "audio_out",
+          "outputs": [],
+          "played": true,
+          "track": ""
+        },
+        {
+          "depth": 4,
+          "domain": "video",
+          "id": "space",
+          "inputs": [
+            {
+              "name": "hue",
+              "type": "control"
+            },
+            {
+              "name": "glow",
+              "type": "control"
+            },
+            {
+              "name": "light",
+              "type": "control"
+            },
+            {
+              "name": "pulse",
+              "type": "control"
+            },
+            {
+              "name": "bloom",
+              "type": "control"
+            },
+            {
+              "name": "threshold",
+              "type": "control"
+            },
+            {
+              "name": "lift",
+              "type": "control"
+            },
+            {
+              "name": "gamma",
+              "type": "control"
+            },
+            {
+              "name": "gain",
+              "type": "control"
+            },
+            {
+              "name": "pixel",
+              "type": "control"
+            },
+            {
+              "name": "levels",
+              "type": "control"
+            }
+          ],
+          "kind": "space",
+          "outputs": [
+            {
+              "name": "out",
+              "type": "video"
+            }
+          ],
+          "played": true,
+          "track": ""
+        },
+        {
+          "depth": 5,
+          "domain": "video",
+          "id": "screen",
+          "inputs": [
+            {
+              "name": "in",
+              "type": "video"
+            }
+          ],
+          "kind": "screen",
+          "outputs": [],
+          "played": true,
+          "track": ""
+        },
+        {
+          "depth": 0,
+          "domain": "audio",
+          "id": "click",
+          "inputs": [
+            {
+              "name": "gain",
+              "type": "control"
+            }
+          ],
+          "kind": "click",
+          "outputs": [
+            {
+              "name": "out",
+              "type": "audio"
+            }
+          ],
+          "played": true,
+          "track": ""
+        }
+      ]
     }
   }
 }

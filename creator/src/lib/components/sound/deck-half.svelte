@@ -5,6 +5,7 @@
 	// as chips (the mood is the first; look, persona … follow); under it the signal strip (owner draft 2026-11-02). The
 	// compiled module plays here with #290 (what the deck plays today is the Info panel's to say once the editor has one).
 	import { EngineStage, emptySnapshot, type EngineHost, type EngineSnapshot } from '@scutoons/engine-host';
+	import type { GraphWiring } from '@scutoons/rig-designer';
 	import { API_URL, CDN_SERVER } from '$lib/config.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
@@ -12,12 +13,12 @@
 	import MoodChip from '$lib/components/sound/mood-chip.svelte';
 	import SignalStrip from '$lib/components/sound/signal-strip.svelte';
 
-	let { character }: { character: string } = $props();
+	// `host` and `wiring` (the core's graph of what plays, anew after every rig turn) go up to the designer's Nodes tab
+	let { character, host = $bindable(null), wiring = $bindable() }: { character: string; host?: EngineHost | null; wiring?: GraphWiring } = $props();
 
 	// svelte-ignore state_referenced_locally
 	const options = { api: API_URL, cdn: `${CDN_SERVER}/`, wasmBase: '/live/', character, nick: 'creator', rigs: true } as const;
 
-	let host = $state<EngineHost | null>(null);
 	let snap = $state<EngineSnapshot>(emptySnapshot());
 	let moods = $state<string[]>([]);
 	let mood = $state('auto');
@@ -28,8 +29,9 @@
 	$effect(() => {
 		if (!host) return;
 		const h = host;
+		wiring = h.deck?.wiring();
 		h.hooks = {
-			rig: (played) => (rigKnobs = played?.knobs ?? []),
+			rig: (played) => ((rigKnobs = played?.knobs ?? []), (wiring = h.deck?.wiring())),
 			// once per animation frame: the knobs' live values (the being's buttons, a mood's preset) and the limiter
 			tick: () => {
 				const d = h.deck;

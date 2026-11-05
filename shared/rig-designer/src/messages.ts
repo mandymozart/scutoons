@@ -75,7 +75,11 @@ export const DESIGNER_MESSAGES = {
 		'designer.port_dir': 'Richtung',
 		'designer.port_kind': 'Art',
 		'designer.dir_in': 'Eingang',
-		'designer.dir_out': 'Ausgang'
+		'designer.dir_out': 'Ausgang',
+		'designer.nodes_graph': 'Verkabelung dessen, was das Deck spielt',
+		'designer.nodes_empty': 'Die Nodes erscheinen, sobald das Deck ein Rig spielt.',
+		'designer.nodes_hint': 'nur lesen · die Werte auf den Kabeln kommen aus dem Deck, sobald es klingt',
+		'designer.nodes_not_played': 'spielt im Browser noch nicht'
 	},
 	en: {
 		'designer.tabs': 'Designer',
@@ -149,7 +153,11 @@ export const DESIGNER_MESSAGES = {
 		'designer.port_dir': 'Direction',
 		'designer.port_kind': 'Kind',
 		'designer.dir_in': 'in',
-		'designer.dir_out': 'out'
+		'designer.dir_out': 'out',
+		'designer.nodes_graph': 'The wiring of what the deck plays',
+		'designer.nodes_empty': 'The nodes appear once the deck plays a rig.',
+		'designer.nodes_hint': 'read-only · the values on the cables come from the deck once it sounds',
+		'designer.nodes_not_played': 'not played in the browser yet'
 	}
 } as const;
 
