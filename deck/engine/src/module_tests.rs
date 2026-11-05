@@ -25,6 +25,8 @@ struct Seen {
     events: Vec<(f64, Ev)>,
     late: u32,
     offered: Vec<u32>,
+    /// (mood, persona, mood_index, energy, touch, strain) per call – the context the module played in (#409)
+    ctx: Vec<(String, String, u32, f32, f32, f32)>,
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -55,6 +57,11 @@ struct Fake {
     trapped: bool,
     job_out: bool,
     swap: bool,
+    /// the header's character fields and senses as the engine set them
+    mood: String,
+    persona: String,
+    mood_index: u32,
+    senses: (f32, f32, f32),
 }
 
 struct Job(u32);
@@ -69,7 +76,15 @@ impl ModuleInstance for Fake {
     fn silenced(&self) -> bool {
         false
     }
-    fn set_character(&mut self, _: &str, _: &str, _: &str) {}
+    fn set_character(&mut self, _: &str, persona: &str, mood: &str) {
+        (self.persona, self.mood) = (persona.to_string(), mood.to_string());
+    }
+    fn set_mood_index(&mut self, i: u32) {
+        self.mood_index = i;
+    }
+    fn set_senses(&mut self, energy: f32, touch: f32, strain: f32) {
+        self.senses = (energy, touch, strain);
+    }
     fn set_vars(&mut self, _: &[(String, f32)]) {}
     fn set_tempo(&mut self, _: &TempoMap) {}
     fn set_param(&mut self, _: usize, _: f32) {}
@@ -90,6 +105,7 @@ impl ModuleInstance for Fake {
         seen.calls.push((frame, frames));
         seen.ch_in.push(self.ch_in);
         seen.control.push(self.control_in);
+        seen.ctx.push((self.mood.clone(), self.persona.clone(), self.mood_index, self.senses.0, self.senses.1, self.senses.2));
         for e in self.ev_in.drain(..) {
             seen.events.push((frame, e));
         }
@@ -165,12 +181,12 @@ const MODULES: [(&str, &str, Plays); 5] = [
         r#"{"abi":2,"name":"t_wide","version":"1","params":[{"name":"p","min":0,"max":1,"default":0.5}],"ports":[
             {"name":"in","dir":"in","type":"audio","channels":"any"},{"name":"push","dir":"in","type":"control"},
             {"name":"out","dir":"out","type":"audio","channels":"any"},{"name":"level","dir":"out","type":"control"},
-            {"name":"drive","dir":"out","type":"control","path":"f.gain"}]}"#,
+            {"name":"drive","dir":"out","type":"control","path":"f.gain"}],"moods":["calm","wild"]}"#,
         Plays::Wide,
     ),
     (
         "t_policy",
-        r#"{"abi":2,"name":"t_policy","version":"1","domain":"control","params":[],"ports":[
+        r#"{"abi":2,"name":"t_policy","version":"1","domain":"control","params":[],"moods":["thinking","sad","wild"],"ports":[
             {"name":"push","dir":"in","type":"control"},{"name":"cut","dir":"out","type":"control"}]}"#,
         Plays::Policy,
     ),
@@ -236,6 +252,10 @@ impl ModuleSource for Source {
             trapped: false,
             job_out: false,
             swap: false,
+            mood: String::new(),
+            persona: String::new(),
+            mood_index: 0,
+            senses: (0.0, 0.0, 0.0),
         };
         let params = layout.inputs.iter().filter(|b| matches!(b, InBind::Param(_))).count();
         Ok(Opened { instance: Box::new(fake), layout: layout.clone(), params })
@@ -338,6 +358,34 @@ fn a_control_module_steps_in_the_control_half() {
         let seen = seen.lock().unwrap();
     assert_eq!(seen.calls, [(0.0, Q as u32), (Q as f64, Q as u32), (2.0 * Q as f64, Q as u32), (3.0 * Q as f64, Q as u32)], "once per block");
     assert!(seen.control.iter().all(|&v| v == 0.7), "its control input from the control half's table: {:?}", seen.control);
+}
+
+/// #409: the deck's live context reaches every module node at the next block's start – the audio half's block and the
+/// control half's stepper alike, through the face's command ring – each counting the mood in its own `moods` list (A1)
+#[test]
+fn the_live_context_reaches_every_module_node_at_the_next_block() {
+    let text = format!("{WIDE}[[node]]\nid=\"p\"\nkind=\"module:t_policy\"\nmood=\"sad\"\npersona=\"day\"\n");
+    let (mut e, mut h, src) = build(&text, 5);
+    let g = Graph::build(&Scene::parse(&text).unwrap()).unwrap();
+    let mut face = crate::control::Controls::new(&g, Some(&mut h));
+    let ctx = |s: &Arc<Mutex<Seen>>| s.lock().unwrap().ctx.clone();
+    let row = |m: &str, p: &str, i: u32, e: f32| (m.to_string(), p.to_string(), i, e, 0.25, 0.5);
+    quantum(&mut e, 5);
+    face.set_context(Context::new("wild", "night", 0.75, 0.25, 0.5));
+    quantum(&mut e, 5);
+    face.set_context(Context::new("sad", "night", 0.5, 0.25, 0.5));
+    face.set_context(Context::new("sad", "night", 0.5, 0.25, 0.5)); // unchanged: not sent again
+    quantum(&mut e, 5);
+    face.set_context(Context::new("neutral", "", 0.0, 0.25, 0.5));
+    quantum(&mut e, 5);
+    let (wide, policy) = (ctx(&src.seen(0)), ctx(&src.seen(1)));
+    // before the first context: the node's params (t_wide has none; t_policy's `sad` is its list's second)
+    assert_eq!(wide[0], (String::new(), String::new(), 0, 0.0, 0.0, 0.0));
+    assert_eq!(policy[0], ("sad".to_string(), "day".to_string(), 2, 0.0, 0.0, 0.0));
+    // then the deck's, from the block after each send; each module counts in its own list, 0 = a mood it does not know
+    assert_eq!(wide[1..], [row("wild", "night", 2, 0.75), row("sad", "night", 0, 0.5), row("neutral", "", 0, 0.0)]);
+    assert_eq!(policy[1..], [row("wild", "night", 3, 0.75), row("sad", "night", 2, 0.5), row("neutral", "", 0, 0.0)]);
+    assert_eq!(e.control().context().mood(), "neutral", "what the engine applied last");
 }
 
 #[test]

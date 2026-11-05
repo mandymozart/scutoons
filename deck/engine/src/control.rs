@@ -13,7 +13,9 @@
 //!
 //! What the frame thread may change (a MIDI CC, a 3D button, the being's waveform, a sent value) goes to the engine as a
 //! `Command` through a lock-free ring; the face keeps its own copy of the input table, so it reads every input of the
-//! heard snapshot without asking the audio thread.
+//! heard snapshot without asking the audio thread. The live context (#409: the deck's mood, persona and the being's
+//! senses, deck-space context.rs) is one such command: applied at the next block's start, the control half hands it to
+//! its module steppers at once and the engine to its audio module blocks before they run (lib.rs `quantum`).
 use crate::cols::{levels, Col};
 use crate::fft::Analyzer;
 use crate::Param;
@@ -26,6 +28,8 @@ use std::sync::Arc;
 
 /// an LFO's shapes by name (its `shape` param), in the order `lfo_shape` counts them (deck-space's params.rs)
 pub use deck_space::params::LFO_SHAPES;
+/// the live context the module nodes play in (#409)
+pub use deck_space::context::Context;
 
 /// how many blocks the snapshot ring holds (64 × 128 frames ≈ 170 ms at 48 kHz: more than the lead + output latency)
 pub const DEPTH: usize = 64;
@@ -289,6 +293,8 @@ pub enum Command {
     Base { node: u32, port: u32, value: f32 },
     Send { node: u32, port: u32, value: f32, amount: f32 },
     Shape { node: u32, shape: u32 },
+    /// the live context for every module node (#409; plain bytes – no allocation crosses)
+    Context(Context),
 }
 
 /// The engine's side of the link to the frame thread: the commands it applies and the ring it writes.
@@ -386,6 +392,8 @@ impl Snapshots {
 /// writes reaches the slots through a feed at the next block (one block late, like every module output).
 pub(crate) trait Stepper: Send {
     fn step(&mut self, ins: &[f32], frame: u64, n: usize);
+    /// the live context changed (#409): from this block on
+    fn context(&mut self, _: &Context) {}
 }
 
 struct Stepped {
@@ -423,6 +431,9 @@ pub struct Control {
     feeds: Vec<(u32, Param)>,
     /// the `domain: control` modules, in scene order
     steppers: Vec<Stepped>,
+    /// the live context last applied (#409), and whether the audio half has yet to get it (`take_context`)
+    context: Context,
+    fresh: bool,
 }
 
 impl Control {
@@ -447,6 +458,8 @@ impl Control {
             tempo: tempo::Now::default(),
             feeds: Vec::new(),
             steppers: Vec::new(),
+            context: Context::default(),
+            fresh: false,
             table,
         };
         // the computed nodes in levels: a node reading another computed node sits a level above it
@@ -615,11 +628,35 @@ impl Control {
         true
     }
 
+    /// The live context (#409) from now on: the module steppers get it at once, the audio half's module blocks before
+    /// their next call (the engine takes it, `take_context`). Never allocates.
+    pub fn set_context(&mut self, c: Context) {
+        self.context = c;
+        self.fresh = true;
+        for s in &mut self.steppers {
+            s.stepper.context(&c);
+        }
+    }
+
+    /// the live context last applied (the default before any)
+    pub fn context(&self) -> &Context {
+        &self.context
+    }
+
+    /// a context the audio half has not had yet (the engine hands it to its blocks)
+    pub(crate) fn take_context(&mut self) -> Option<Context> {
+        std::mem::take(&mut self.fresh).then_some(self.context)
+    }
+
     fn command(&mut self, c: Command) {
         match c {
             Command::Base { node, port, value } => self.set_base(node as usize, port as usize, value),
             Command::Send { node, port, value, amount } => self.send(node as usize, port as usize, value, amount),
             Command::Shape { node, shape } => self.set_lfo_shape(node as usize, shape as usize),
+            Command::Context(c) => {
+                self.set_context(c);
+                true
+            }
         };
     }
 
@@ -742,6 +779,8 @@ pub struct Controls {
     waiting: Vec<Command>,
     /// the clock at the heard moment (quantised cuts read it)
     pub tempo: tempo::Now,
+    /// the live context last sent (#409): an unchanged one is not sent again
+    sent: Option<Context>,
 }
 
 enum Half {
@@ -757,7 +796,7 @@ impl Controls {
             Some(link) => Half::Engine(link),
             None => Half::Own(Box::new(Control::detached(graph))),
         };
-        Controls { values: vec![0.0; table.slots], table, half, waiting: Vec::new(), tempo: tempo::Now::default() }
+        Controls { values: vec![0.0; table.slots], table, half, waiting: Vec::new(), tempo: tempo::Now::default(), sent: None }
     }
 
     /// One video frame: `tempo` = the clock at the heard moment, `lead` = how many frames the engine has rendered past
@@ -819,6 +858,17 @@ impl Controls {
         self.table.shapes[node] = Some(Shape::of(shape) as usize);
         self.command(Command::Shape { node: node as u32, shape: shape as u32 });
         true
+    }
+
+    /// The live context for the engine's module nodes (#409: the deck's mood, persona and the being's senses – the
+    /// platform's frame sends `Deck::context` or its being's): applied at the next block's start; an unchanged one is
+    /// not sent again.
+    pub fn set_context(&mut self, c: Context) {
+        if self.sent == Some(c) {
+            return;
+        }
+        self.sent = Some(c);
+        self.command(Command::Context(c));
     }
 
     pub fn input(&self, node: usize, port: &str, default: f32) -> f32 {
