@@ -284,7 +284,7 @@ fn api_descriptor_problems(php: &str, d: &serde_json::Value) -> Vec<String> {
     };
     let mut p = unknown(d, "FIELDS", "descriptor");
     let abi = php.split("const ABI = ").nth(1).and_then(|s| s.split(';').next()).unwrap().trim().to_string();
-    if d["abi"].to_string() != abi {
+    if d["abi"].as_u64().map(|n| n.to_string()).as_deref() != Some(abi.as_str()) {
         p.push(format!("descriptor.abi {} (the API expects {abi})", d["abi"]));
     }
     for (i, param) in d["params"].as_array().into_iter().flatten().enumerate() {
