@@ -68,9 +68,9 @@
 	}
 	.line {
 		min-width: 0;
-		overflow: hidden;
-		white-space: nowrap;
-		text-overflow: ellipsis;
+	}
+	.bar button {
+		flex: none;
 	}
 	.said {
 		flex: none;

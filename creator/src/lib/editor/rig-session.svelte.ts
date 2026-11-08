@@ -151,8 +151,10 @@ export class RigSession {
 	/** the rig driven by `module:<id>`, saved as a draft (its module is one too; the publish asks the core again) */
 	async attachPolicy(id: string): Promise<RigResult> {
 		if (!this.rig) return { ok: false, message: this.subject };
-		this.change(setPolicy($state.snapshot(this.rig), id));
-		return this.save();
+		this.rig = setPolicy($state.snapshot(this.rig), id);
+		const saved = await this.save();
+		await this.hear(); // after the save's lists: the catalog has the new module
+		return saved;
 	}
 }
 
