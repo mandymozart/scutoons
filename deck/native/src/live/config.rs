@@ -168,6 +168,8 @@ mod tests {
         let c = s.config().unwrap().unwrap();
         assert_eq!((c.base.as_str(), c.code.as_str(), c.outlet.as_str(), c.locale.as_str()), ("ws://127.0.0.1:7700", "DECK", "nave", "de"));
         assert_eq!(c.join_url(), "ws://127.0.0.1:7700/live/DECK?role=output&group=nave");
+        let door = Config::new("wss://h:7700/live/A?x=1&quic=u:443&quichash=ab", "left", "de").unwrap();
+        assert_eq!(door.door, "?quic=u:443&quichash=ab", "#438: the door survives, the rest of the query does not");
         assert!(Settings::parse("relay = \"\"\n").config().is_none(), "no outlet: no outlet node");
         let hosted = Settings::parse("relay = \"\"\noutlet = \"left\"\n").config().unwrap().unwrap();
         assert_eq!((hosted.base.as_str(), hosted.code.as_str()), ("wss://live.scutoons.com", "CATH"), "no relay: the hosted one");

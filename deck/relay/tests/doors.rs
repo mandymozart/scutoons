@@ -134,7 +134,7 @@ async fn a_cue_on_the_datagram_lane_is_ignored_and_the_settle_repairs() {
     let (_e2, deck, _dsend, _dlines) = through_door(addr, hash, "musician", &[GRAPH]).await;
 
     let cue = r#"{"v":1,"seq":5,"from":"","kind":"cue","p":{"id":"x","actions":[]}}"#;
-    conductor.send_datagram(cue.as_bytes().to_vec()).unwrap();
+    conductor.send_datagram(cue.as_bytes()).unwrap();
     // "lost" on the way to the conductor: the reliable lane still brings it within a settle
     deck.send_datagram(values(1, 0.125).into_bytes()).unwrap();
     let settled = tokio::time::timeout(WAIT, async {

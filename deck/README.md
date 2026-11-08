@@ -81,6 +81,13 @@ with 0x16, an HTTP request with a letter), so the LAN decks keep `ws://<ip>:7700
 used from the next connection on, a half-written one (the key not yet the cert's) keeps the old certificate. A broken pair
 at start stops the relay. On the deck image: `deck-tls` (deck/os/README.md "wss in the venue").
 
+QUIC (#438 – deck.values as datagrams, no TCP stalls on a cue): `relay 0.0.0.0:7700 --tls-cert … --tls-key … --quic 0.0.0.0:7700` (or
+`RELAY_QUIC_ADDR`) opens a WebTransport door on that UDP port under the same certificate, reloaded the same way; without `--quic` no UDP port
+is opened. A client takes it from its relay URL: `wss://host:7700/live/<code>?quic=` (the relay's own host and port) or `?quic=udp-host:443`,
+`&quichash=<sha-256 hex>` to pin a self-signed certificate (a browser takes one only if ECDSA and valid for at most 14 days). The viewer:
+`VITE_LIVE_QUIC=host:port` for the hosted relay, or `?quic=` on the page. QUIC gets 250 ms, then a WebSocket is dialled beside it; the HUD
+line ends in `QUIC` when it won.
+
 The hosted relay's image (#199; build context = `deck/`, `deck/.dockerignore` keeps the targets, lab and ISOs out):
 `docker build -f deck/relay/Dockerfile -t scutoons-live deck`, then `docker run --rm -p 7700:7700 scutoons-live`.
 

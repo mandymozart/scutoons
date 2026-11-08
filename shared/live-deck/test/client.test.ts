@@ -10,7 +10,8 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { DeckLink, RelaySocket, type QuicEvents, type QuicPipe, type RelayCoreView, type RelayModule, type WebSocketLike } from '../src/client.ts';
+import { DeckLink, RelaySocket, type RelayCoreView, type RelayModule, type WebSocketLike } from '../src/client.ts';
+import type { QuicEvents, QuicPipe } from '../src/quic.ts';
 import { MOODS, OWN, OWN_PARAMS, OWN_STREAMED, ownGraph } from './own.ts';
 import { NO_CORE, relayCore } from './relay-core.ts';
 import type { Envelope, Tempo } from '@scutoons/live';
@@ -77,7 +78,6 @@ class FakeSocket implements WebSocketLike {
 class FakeQuic implements QuicPipe {
 	static all: FakeQuic[] = [];
 	sent: string[] = [];
-	grams: string[] = [];
 	closed = false;
 	constructor(
 		readonly url: string,
@@ -85,11 +85,8 @@ class FakeQuic implements QuicPipe {
 	) {
 		FakeQuic.all.push(this);
 	}
-	stream(text: string) {
+	write(_lane: string, text: string) {
 		this.sent.push(text);
-	}
-	datagram(text: string) {
-		this.grams.push(text);
 	}
 	close() {
 		this.closed = true;
@@ -160,18 +157,18 @@ function replay(m: RelayModule, s: Script): { groups: Record<string, unknown>[][
 				ws().onclose?.({ reason: w ?? '' });
 				break;
 			case 'quic_open':
-				qc().on.opened();
+				qc().on('opened');
 				break;
 			case 'quic_close':
 			case 'quic_fail':
-				qc().on.closed((w as string | null) ?? '');
+				qc().on('closed', (w as string | null) ?? '');
 				break;
 			case 'quic_stream':
-				qc().on.stream(bytes(relayed(w)));
-				qc().on.stream(bytes('\n'));
+				qc().on('stream', bytes(relayed(w)));
+				qc().on('stream', bytes('\n'));
 				break;
 			case 'quic_datagram':
-				qc().on.datagram(bytes(relayed(w)));
+				qc().on('datagram', bytes(relayed(w)));
 				break;
 			case 'tick':
 				call(() => core.tick(now));

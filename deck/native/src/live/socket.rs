@@ -35,7 +35,7 @@ pub trait Side {
 
 /// what the helper threads report; the number is the dial's, so a late word from a socket given up counts for nothing
 enum Ev {
-    Ws(u64, Result<Socket, String>),
+    Ws(u64, Result<Box<Socket>, String>),
     Quic(u64, quic::Event),
 }
 
@@ -97,7 +97,7 @@ fn hear(c: &mut Client, l: &mut Links, wait: Option<Duration>) {
                 l.dialing = false;
                 match r {
                     Ok(s) => {
-                        l.ws = Some(s);
+                        l.ws = Some(*s);
                         c.opened(now);
                     }
                     Err(e) => c.closed(now, &e),
@@ -142,7 +142,7 @@ fn act(c: &mut Client, l: &mut Links, side: &mut impl Side) {
                     l.dialing = true;
                     let (n, tx, poll) = (l.ws_dial, l.tx.clone(), l.poll);
                     std::thread::spawn(move || {
-                        let _ = tx.send(Ev::Ws(n, config::dial(&url, poll)));
+                        let _ = tx.send(Ev::Ws(n, config::dial(&url, poll).map(Box::new)));
                     });
                 }
                 Out::Send(text) => {

@@ -50,6 +50,7 @@ async fn pump(doors: Arc<Doors>, conn: Arc<Connection>, send: SendStream, mut re
             return Ok(());
         }
     };
+    tracing::info!(code = %member.code, client = %member.id, "through the quic door");
     for text in waiting {
         member.text(&text);
     }

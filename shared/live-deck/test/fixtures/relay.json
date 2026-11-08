@@ -2371,6 +2371,11 @@
         {
           "at": 1.05,
           "do": "wake",
+          "outs": []
+        },
+        {
+          "at": 1.09,
+          "do": "wake",
           "outs": [
             {
               "stream": "{\"from\":\"\",\"kind\":\"deck.values\",\"p\":{\"mood\":\"neutral\",\"values\":{\"voice.index\":[2.0],\"voice.out\":[0.5]}},\"seq\":0,\"v\":1}\n"

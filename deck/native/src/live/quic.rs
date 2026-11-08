@@ -41,8 +41,8 @@ impl Handle {
     }
 }
 
-/// Dial `url` (`https://host:port/live/<code>?…`); `hash` pins a certificate (SHA-256, hex) instead of the webpki roots.
-pub fn dial(url: String, hash: Option<String>, on: impl Fn(Event) + Send + 'static) -> Handle {
+/// Dial `url` (`https://host:port/live/<code>?…`); `hash` pins a certificate (SHA-256) instead of the webpki roots.
+pub fn dial(url: String, hash: Option<Vec<u8>>, on: impl Fn(Event) + Send + 'static) -> Handle {
     let (tx, rx) = mpsc::unbounded_channel();
     let thread = std::thread::Builder::new().name("relay-quic".into()).spawn(move || {
         let why = match tokio::runtime::Builder::new_current_thread().enable_all().build() {
@@ -57,12 +57,11 @@ pub fn dial(url: String, hash: Option<String>, on: impl Fn(Event) + Send + 'stat
     Handle { tx }
 }
 
-fn pin(hash: &str) -> Result<Sha256Digest, String> {
-    let bytes: Vec<u8> = (0..hash.len()).step_by(2).filter_map(|i| hash.get(i..i + 2).and_then(|h| u8::from_str_radix(h, 16).ok())).collect();
-    <[u8; 32]>::try_from(bytes).map(Sha256Digest::new).map_err(|_| format!("quichash '{hash}': not a SHA-256 in hex"))
+fn pin(hash: &[u8]) -> Result<Sha256Digest, String> {
+    <[u8; 32]>::try_from(hash).map(Sha256Digest::new).map_err(|_| "quichash: not a SHA-256".to_string())
 }
 
-fn config(hash: Option<&str>) -> Result<ClientConfig, String> {
+fn config(hash: Option<&[u8]>) -> Result<ClientConfig, String> {
     // IPv4: bunny's Anycast and a venue's LAN are; a host that has only IPv6 stays on the WebSocket
     let builder = ClientConfig::builder().with_bind_config(IpBindConfig::InAddrAnyV4);
     let builder = match hash {
@@ -82,7 +81,7 @@ fn config(hash: Option<&str>) -> Result<ClientConfig, String> {
 }
 
 /// The connection until it ends (Ok: the handle was dropped).
-async fn run(url: String, hash: Option<String>, mut rx: mpsc::UnboundedReceiver<Say>, on: &(impl Fn(Event) + Send)) -> Result<(), String> {
+async fn run(url: String, hash: Option<Vec<u8>>, mut rx: mpsc::UnboundedReceiver<Say>, on: &(impl Fn(Event) + Send)) -> Result<(), String> {
     let endpoint = Endpoint::client(config(hash.as_deref())?).map_err(|e| e.to_string())?;
     let conn = endpoint.connect(&url).await.map_err(|e| e.to_string())?;
     let (mut send, mut recv) = conn.open_bi().await.map_err(|e| e.to_string())?.await.map_err(|e| e.to_string())?;

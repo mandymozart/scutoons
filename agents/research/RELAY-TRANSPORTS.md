@@ -1,18 +1,17 @@
-Status: measured 2026-11-08 on one Linux host under `tc netem` (#438); prototype behind feature `doors`, off the default path; the transport choice is the owner's open decision; nothing tested over the internet or on bunny.
+Status: built 2026-11-08 on branch feature/438-relay-transports (the owner chose QUIC for every client, WebSocket last); off until a relay is started with --quic and a client names the door; tested on one Linux host under `tc netem`, on Windows localhost and in a real Chromium, not over the internet or on bunny (#438).
 
 # Relay transports: TCP, QUIC, RUDP
 
 The owner asked for RUDP for the Rust applications, QUIC for browsers, a bridge between them, and what running them in parallel costs (agents/decisions/deck.md, 2026-11-08 `[live]`). Short answer: one relay can serve all of them in the same session, it costs almost nothing, and QUIC does the job for native decks as well, so a separate RUDP door does not earn its place.
 
-## Recommendation
+## Decision
 
-| Question | Recommendation | Why |
+The owner chose QUIC for every client, native and browser, through one WebTransport door, WebSocket last (2026-11-08, "Quic it is"). RUDP measured no better than QUIC (below), and QUIC is needed for browsers anyway.
+
+| Path | Now | Before it goes live |
 |---|---|---|
-| Rust clients | **QUIC, through the same WebTransport door as browsers; WebSocket as last resort** | RUDP measured no better than QUIC (below), and QUIC is needed for browsers anyway |
-| Hosted path (bunny) | **No-go for the 2026-11-16 restart; go after an owner-run test on a real Anycast endpoint** | UDP through Anycast, TLS at the relay and certificate renewal are untested; nothing here touched bunny |
-| Venue LAN | **Keep WebSocket for 2026-11-16; add the QUIC door afterwards, after a test on real venue Wi-Fi** | With no loss every transport gives p99 ≈ 11 ms; `netem` loss is random, Wi-Fi loss comes in bursts |
-
-The owner's order is RUDP > QUIC > WebSocket. If RUDP is wanted regardless, the ladder and the door are built and tested (option B on #438); the price is in "RUDP against QUIC".
+| Hosted (bunny) | built, off | an owner-run test on a real Anycast endpoint: UDP through Anycast, TLS at the relay and certificate renewal are untested |
+| Venue LAN | built, off | a test on real venue Wi-Fi: with no loss every transport gives p99 ≈ 11 ms; `netem` loss is random, Wi-Fi loss comes in bursts |
 
 ## How it was measured
 
@@ -94,19 +93,36 @@ The browser's constraint is that it cannot open raw UDP, so WebTransport is requ
 - **`renet2` / netcode:** `ServerAuthentication::Secure` seals a connect token with a key shared with whoever mints it, and encrypts every packet with ChaCha20-Poly1305. The benches ran in this mode. `Unsecure` sends everything in clear and must never go near the internet. It requires a new step: every client first fetches a connect token over HTTPS, so the API needs the netcode key and token format.
 - A `resume` is authenticated only by the client id (visible to others in presence). This already applies to the WebSocket path; a resume secret belongs in the adoption work.
 
-## The prototype
+## What was built
 
-Feature `doors` in `deck/relay` (off the default build; default tests and clippy unchanged). The relay is the hub, a door only moves bytes: `src/doors/` joins the same `Relay` as WebSocket, with the same `hello` checks.
+The owner chose QUIC for every client on 2026-11-08 ("Quic it is"). The RUDP and raw `quinn` doors of the comparison are gone; they are in git at `a31148de` (`deck/relay/src/doors/renet.rs`, `ladder.rs`). Every number above comes from that comparison.
 
-- **Lanes:** `deck.values` go unreliable, latest value wins, through a new `Outbox::take_lanes` beside `take`. Everything else stays reliable and ordered. A datagram carrying anything but `deck.values` is ignored.
-- **Settle:** `deck.values` carry only what changed, so a lost datagram could leave a value wrong until it changes again. Every second the relay sends each door conductor every deck's current values on the reliable lane. A receiver applies a key only if the frame's `seq` is not older. The real client has to do the same for its own uplink (not built).
-- **Reordering:** the door drops an older datagram per client; the receiver side compares `seq`.
+- **Relay:** `src/doors/` joins the same `Relay` as WebSocket, with the same `hello` checks. `--quic ADDR` / `RELAY_QUIC_ADDR` opens one WebTransport door under the `--tls-*` certificate, reloaded when the files change like the wss port. Without it no UDP port is opened.
+- **Lanes:** `deck.values` go unreliable, latest value wins (`Outbox::take_lanes`). Everything else stays reliable and ordered. A datagram carrying anything but `deck.values` is ignored. The framing and `DATAGRAM_MAX` are in `protocol/src/lines.rs`, once.
+- **Settle:** every second each door conductor gets every deck's current values on the reliable lane. A deck does the same upward, in the place of its next change (the relay allows a deck 30 `deck.values` a second). A receiver applies a key only if the frame's `seq` is not older. A datagram never moves the resume's `seq`.
+- **The choice of socket** is in the core client (`deck/space/src/relay.rs`, RULES A1); the native adapter (`deck/native/src/live/quic.rs`, `socket.rs`) and the browser adapter (`shared/live-deck/src/client.ts`) only dial what it says.
+- **The HUD line** ends in `QUIC` on QUIC; the relay logs `through the quic door`.
 
-Size, excluding the bench and tests: shared layer 186 lines, QUIC doors 266, RUDP door 287 (about 60 of them its client), ladder 333 (about 100 of them tests), additions to `outbox.rs` 59 and `lib.rs` 2. Crates in the relay's build go from 77 to 199 with all doors. The native and browser client adapters are not built; the bench's `dial` is about 60 lines per transport and the browser page's transport code about 30. Retransmission, congestion and crypto stay in the libraries.
+The door as built, under the same `tc netem` (20 decks, 100 phones, median of 3 × 30 s, ms; its clients are the door's own `wtransport`, which honour the 5 ms ack delay the door asks for; a browser does not):
 
-## The ladder
+| loss | door | values p50 / p99 / max | arrived | cues p50 / p99 / max | relay CPU |
+|---|---|---|---|---|---|
+| 0 % | WebSocket | 10.3 / 10.6 / 12.8 | 100 % | 10.7 / 11.2 / 11.5 | 5.6 % |
+| 0 % | QUIC | 10.3 / 10.7 / 11.9 | 99.9 % | 10.8 / 11.4 / 11.6 | 9.6 % |
+| 1 % | WebSocket | 10.2 / 29.9 / 258.0 | 98.9 % | 10.7 / 220.3 / 458.0 | 4.8 % |
+| 1 % | QUIC | 10.3 / 17.5 / 20.7 | 97.9 % | 10.7 / **40.7** / 77.4 | 9.0 % |
+| 5 % | WebSocket | 14.7 / 203.4 / 965.8 | 89.7 % | 10.7 / 290.0 / 1462.5 | 4.3 % |
+| 5 % | QUIC | 10.3 / 17.1 / 28.4 | 90.6 % | 10.7 / 51.6 / 166.4 | 9.5 % |
 
-`src/doors/ladder.rs` decides without any I/O; on adoption it moves into the sans-IO core client (`deck/space/src/relay.rs`, RULES A1). A platform only dials what it says. Only the winner of a climb says `hello`, so a race leaves no ghost in the session.
+Checked end to end as well: the deck's real socket thread against the real relay (`deck/native/tests/live_quic.rs`), and Chromium 152 through `client.ts` and the wasm core (a conductor and a deck on QUIC, values as datagrams, a dial refused to the WebSocket in 61 ms).
+
+Size: the relay's doors 335 lines, the native QUIC adapter 123, the framing 80 (with tests). The relay's build goes from 77 crates to 151. Retransmission, congestion and crypto stay in the libraries.
+
+## The fallback
+
+`deck/space/src/relay.rs`. QUIC gets 250 ms, then a WebSocket is dialled beside it; only the winner says `hello`, so a race leaves no ghost client. A browser with no WebTransport or a refused dial goes to the WebSocket at once (61 ms in Chromium). When QUIC dies mid-show the connection's idle timeout (3 s) ends it, the client resumes on the WebSocket as the same client, values are gone for about 3 s and no cue is lost. On the WebSocket it tries QUIC again after 60 s, doubling to 5 minutes; a step up closes the WebSocket and says `hello` 300 ms later, so the relay has seen the old link go.
+
+The numbers below are from the prototype's ladder (RUDP > QUIC > WebSocket and QUIC > WebSocket); the built one is the second.
 
 Time to `welcome`, 1 % loss, 40 joins:
 
@@ -148,9 +164,11 @@ From bunny's documentation, not tested:
 
 **`owner` steps** (none done here): create an Anycast endpoint on `scutoons-live` with UDP 443 → the door's port; the hostname and its certificate; put the door into the deployed image; test from a phone and a venue network.
 
-## Before adopting
+## Open
 
-- Wait for or rebase on branch `chore/437-tungstenite-0-30`: no commits yet, but its worktree has uncommitted changes to `lib.rs` and `outbox.rs` (`Frame.text` and `take` become `Utf8Bytes`). `take_lanes` and the doors use `String` and need the same change; `Cargo.lock` will conflict.
-- The wire framing (`line`, newline-delimited JSON) and the key-by-key `seq` rule belong in the one core (`protocol` / the sans-IO client, RULES A1, A4).
-- `take_lanes` duplicates `take` so the default path stays unchanged; on adoption `take` becomes `take_lanes` without the lane.
-- The browser page used for the Chromium row is not in the repo (RULES J1, new code is TypeScript); it is with the raw results in the shared notes folder of this session group.
+- Branch `chore/437-tungstenite-0-30` changes `Frame.text` and `Outbox::take` to `Utf8Bytes`; whichever merges second has to follow, and `Cargo.lock` will conflict.
+- Frames over about 50 keys take the reliable lane; no per-key splitting.
+- The adaptive rate on QUIC sees the round trip only, no loss signal.
+- A `resume` is authenticated only by the client id; every QUIC client now resumes.
+- Safari's WebTransport was not tried; a browser without it goes to the WebSocket.
+- Owner steps before the hosted path (issue #438): an Anycast endpoint with UDP 443 to the door's port, a hostname and a certificate at the relay (DNS-01 renewal), `RELAY_QUIC_ADDR`, `VITE_LIVE_QUIC`, a test from a phone and a venue network.

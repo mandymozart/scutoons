@@ -107,6 +107,7 @@ client-side filtering, a raw cache of 100 messages) is not taken over. New, in t
 - **Local: the same relay on a deck in the venue** (or the conductor laptop; owner 2026-10-31: definitely, next to
   bunny – DECISIONS). Decks, outputs and the bridge join `ws://<ip>:7700`. **Phones on https pages need wss** (a
   browser may not open `ws://192.168.…` from https://scutoons.com), so since #201 (Phase A):
+  - **QUIC first, WebSocket last (#438, owner 2026-11-08):** with `--quic` the relay also opens a WebTransport door under the same certificate; a client whose relay URL names it (`?quic=`, `VITE_LIVE_QUIC`) dials it first, native and browser alike. How and what it measured: research/RELAY-TRANSPORTS.md, deck/README.md.
   - **The relay speaks wss** with a certificate (`--tls-cert` / `--tls-key`, `RELAY_TLS_CERT` / `_KEY`; rustls) on the
     same port as ws (the first byte decides); a renewed pair is used from the next handshake. deck-relay.service uses
     `/var/lib/deck/tls/{fullchain,privkey}.pem` when present (deck/os/README.md "wss in the venue").

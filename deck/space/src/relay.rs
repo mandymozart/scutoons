@@ -56,6 +56,9 @@ pub const STEP_UP_MAX_MS: f64 = 300_000.0;
 pub const STEP_UP_HOLD_MS: f64 = 300.0;
 /// on QUIC, the full values go on the stream this often while they change (ms): what a lost datagram would have said
 pub const SETTLE_MS: f64 = 1000.0;
+/// a due settle waits this long (ms, a frame and a bit) to take the place of the next change: the relay allows a deck 30
+/// `deck.values` a second, a deck at full pace has none to spare
+pub const SETTLE_GRACE_MS: f64 = 40.0;
 
 /// `ws://host:port/live/<code>` (or `wss://`, a path before `/live/` – the LAN viewer's `…/relay/live/<code>`) → the
 /// base and the session code; a query is dropped (the client adds its own)
@@ -77,14 +80,22 @@ pub fn parse_relay(url: &str) -> Result<(String, String), String> {
 
 /// The relay URL's QUIC door (#438): `?quic=host:port`, an empty `?quic=` for the relay's own host and port, and
 /// `&quichash=<sha-256 of the certificate, hex>` to pin a self-signed one – the base (`https://host:port`) and the hash.
-pub fn parse_quic(url: &str) -> Option<(String, Option<String>)> {
+pub fn parse_quic(url: &str) -> Option<(String, Option<Vec<u8>>)> {
     let url = url.trim();
     let rest = url.strip_prefix("wss://").or_else(|| url.strip_prefix("ws://"))?;
     let query = rest.split('#').next().unwrap_or("").split_once('?')?.1;
     let param = |name: &str| query.split('&').find_map(|kv| kv.strip_prefix(name)?.strip_prefix('=').map(decode));
     let door = param("quic")?;
     let authority = if door.is_empty() { rest.split(['/', '?', '#']).next().unwrap_or("").to_string() } else { door };
-    Some((format!("https://{authority}"), param("quichash").filter(|h| !h.is_empty())))
+    Some((format!("https://{authority}"), param("quichash").and_then(|h| hex(&h))))
+}
+
+/// a hex string's bytes; None when it is empty or not hex
+fn hex(s: &str) -> Option<Vec<u8>> {
+    if s.is_empty() || s.len() % 2 != 0 {
+        return None;
+    }
+    (0..s.len()).step_by(2).map(|i| u8::from_str_radix(s.get(i..i + 2)?, 16).ok()).collect()
 }
 
 /// %XX → the byte (a session code in a URL)
@@ -197,8 +208,8 @@ pub enum Out {
     /// close the socket (then `closed`)
     Close {},
     /// #438: open a QUIC / WebTransport connection and its bidirectional stream (then `quic_opened`, or `quic_closed`);
-    /// `hash`: the certificate's SHA-256 in hex to pin instead of the usual trust
-    DialQuic { url: String, hash: Option<String> },
+    /// `hash`: the certificate's SHA-256 to pin instead of the usual trust
+    DialQuic { url: String, hash: Option<Vec<u8>> },
     /// write these bytes (the framing included) to the QUIC stream
     Stream(String),
     /// send this as one QUIC datagram (it may be lost)
@@ -310,7 +321,7 @@ enum Sock {
 /// The QUIC door and how the two sockets stand (#438).
 struct Quic {
     base: String,
-    hash: Option<String>,
+    hash: Option<Vec<u8>>,
     quic: Sock,
     ws: Sock,
     /// a WebSocket is due beside QUIC at this ms
@@ -334,12 +345,14 @@ struct Quic {
     /// values went as datagrams since the last settle
     dirty: bool,
     settle_at: f64,
+    /// a settle is due: the next change goes as the full values, on the stream
+    carry: bool,
     /// each deck's value: the newest `seq` applied
     seen: HashMap<(String, String), u64>,
 }
 
 impl Quic {
-    fn new(base: String, hash: Option<String>) -> Quic {
+    fn new(base: String, hash: Option<Vec<u8>>) -> Quic {
         Quic {
             base,
             hash,
@@ -357,6 +370,7 @@ impl Quic {
             up_seq: 0,
             dirty: false,
             settle_at: 0.0,
+            carry: false,
             seen: HashMap::new(),
         }
     }
@@ -562,6 +576,7 @@ impl Client {
             q.lines.clear();
             q.seen.clear();
             q.dirty = false;
+            q.carry = false;
             if !q.fell {
                 q.quic = Sock::Dialing;
                 q.ws = Sock::Idle;
@@ -793,18 +808,26 @@ impl Client {
         }
     }
 
-    /// on QUIC: every value this deck sent so far, on the stream, while they change
+    /// on QUIC, while values change: every value this deck sent so far, on the stream, in the place of a change if one comes
     fn settle(&mut self, now: f64) {
-        let due = self.joined && self.door.as_ref().is_some_and(|q| q.on_quic && q.dirty && now >= q.settle_at);
-        if !due {
+        let joined = self.joined;
+        let Some(q) = self.door.as_mut().filter(|q| joined && q.on_quic && q.dirty && now >= q.settle_at) else { return };
+        if !q.carry {
+            q.carry = true;
+            q.settle_at = now + SETTLE_GRACE_MS;
             return;
+        }
+        q.settle_at = now + SETTLE_MS;
+        self.send_settle();
+    }
+
+    fn send_settle(&mut self) {
+        if let Some(q) = self.door.as_mut() {
+            q.dirty = false;
+            q.carry = false;
         }
         let all = DeckValues { values: self.sent.clone().into_iter().collect(), mood: self.mood.clone() };
         self.send(Message::DeckValues(all));
-        if let Some(q) = self.door.as_mut() {
-            q.dirty = false;
-            q.settle_at = now + SETTLE_MS;
-        }
     }
 
     /// leave for good: the socket closes, nothing more happens
@@ -906,7 +929,13 @@ impl Client {
         if v.mood.is_some() {
             self.mood.clone_from(&v.mood);
         }
-        if self.joined {
+        if !self.joined {
+            return;
+        }
+        if let Some(q) = self.door.as_mut().filter(|q| q.on_quic && q.carry) {
+            q.settle_at += SETTLE_MS - SETTLE_GRACE_MS;
+            self.send_settle();
+        } else {
             self.send_on(Message::DeckValues(v), true);
         }
     }
@@ -1681,7 +1710,8 @@ mod tests {
         assert_eq!(parse_quic("ws://h:7700/live/A"), None);
         assert_eq!(parse_quic("wss://live.test/live/A?quic=udp.test:443"), Some(("https://udp.test:443".into(), None)));
         assert_eq!(parse_quic("wss://h:7700/live/A?quic="), Some(("https://h:7700".into(), None)), "empty: the relay's own host and port");
-        assert_eq!(parse_quic("ws://h:7700/live/A?quic=h%3A7701&quichash=ab12"), Some(("https://h:7701".into(), Some("ab12".into()))));
+        assert_eq!(parse_quic("ws://h:7700/live/A?quic=h%3A7701&quichash=ab12"), Some(("https://h:7701".into(), Some(vec![0xab, 0x12]))));
+        assert_eq!(parse_quic("ws://h/live/A?quic=&quichash=xyz"), Some(("https://h".into(), None)), "not hex: no pin");
         assert_eq!(parse_relay("wss://h/live/A?quic=x:1").unwrap().1, "A", "the code is untouched by it");
     }
 
@@ -1704,6 +1734,29 @@ mod tests {
         assert_eq!(settles.len(), 1, "one settle in the 1.4 s after the first datagram");
         assert_eq!(settles[0]["p"]["values"]["voice.index"], json!([2.0]));
         assert_eq!(settles[0]["seq"], 0);
+    }
+
+    #[test]
+    fn a_due_settle_takes_the_place_of_the_next_change() {
+        let mut c = Client::new(serde_json::from_value(json!({ "relay": QUIC_RELAY, "role": "musician", "group": DECKS })).unwrap()).unwrap();
+        c.set_graph(graph());
+        c.start(0.0);
+        c.quic_opened(0.0);
+        c.quic_stream(1.0, (stamped(welcome("c1", json!({}))).to_string() + "\n").as_bytes());
+        let change = |x: f64, k: &str| DeckValues { values: HashMap::from([(k.to_string(), vec![x])]), mood: None };
+        c.values(change(1.0, "a"));
+        c.values(change(2.0, "b"));
+        c.take();
+        c.tick(SETTLE_MS);
+        assert_eq!(c.take(), [], "first a frame's grace");
+        c.values(change(3.0, "a"));
+        let outs = c.take();
+        assert_eq!(outs.len(), 1, "one message, not a datagram and a settle: {outs:?}");
+        let Out::Stream(full) = &outs[0] else { panic!("{outs:?}") };
+        let e: Value = serde_json::from_str(full.trim_end()).unwrap();
+        assert_eq!(e["p"]["values"], json!({ "a": [3.0], "b": [2.0] }));
+        c.values(change(4.0, "a"));
+        assert!(matches!(c.take()[..], [Out::Datagram(_)]), "and back to datagrams");
     }
 
     #[test]

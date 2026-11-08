@@ -229,14 +229,15 @@ impl Outbox {
     /// state-like messages before their next turn; they keep merging meanwhile. An ordered message behind them takes them
     /// along (nothing is reordered).
     pub fn take(&self, now: Instant, out: &mut Vec<String>) -> Took {
-        let mut lanes = Vec::new();
-        let took = self.take_lanes(now, &mut lanes);
-        out.extend(lanes.into_iter().map(|(_, text)| text));
-        took
+        self.release(now, |_, text| out.push(text))
     }
 
     /// `take`, with each message's lane (a transport that has two).
     pub fn take_lanes(&self, now: Instant, out: &mut Vec<(Lane, String)>) -> Took {
+        self.release(now, |lane, text| out.push((lane, text)))
+    }
+
+    fn release(&self, now: Instant, mut out: impl FnMut(Lane, String)) -> Took {
         let mut q = self.lock();
         let mut took = Took::default();
         let paced = q.link.interval().and(q.next_paced).filter(|t| *t > now);
@@ -255,7 +256,7 @@ impl Outbox {
                     q.ordered -= 1;
                     q.bytes -= frame.text.len();
                     took.waited = took.waited.max(now.saturating_duration_since(t));
-                    out.push((Lane::Reliable, frame.text.clone()));
+                    out(Lane::Reliable, frame.text.clone());
                 }
                 Entry::Latest(slot) => {
                     if q.open.get(&slot.key) == Some(&abs) {
@@ -265,7 +266,7 @@ impl Outbox {
                     took.waited = took.waited.max(now.saturating_duration_since(from));
                     latest = true;
                     let lane = if matches!(slot.key, Latest::Values(_)) { Lane::Unreliable } else { Lane::Reliable };
-                    out.push((lane, slot.text()));
+                    out(lane, slot.text());
                 }
             }
         }

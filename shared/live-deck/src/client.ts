@@ -1,9 +1,8 @@
-// client.ts (#197, #366): the browser's socket under deck-space's relay client (relay.rs, relay-web's wasm), which decides
-// all a relay client does (join, hello, keyframe, value stream, backoff, pings, status, what a deck or a vote screen
-// hears); this keeps the WebSocket and one timer (`RelaySocket`) and hands the core's words on (`DeckLink`; the viewer's
-// vote link). The core's scripted links (test/fixtures/relay.json) run through it in client.test.ts.
+// client.ts (#197, #366): the WebSocket (WebTransport: quic.ts) and one timer (`RelaySocket`) under deck-space's relay client, which decides all
+// a relay client does; hands the core's words on (`DeckLink`; the viewer's vote link). Its scripted links: test/fixtures/relay.json, in client.test.ts.
 import type { DeckGraph, DeckQuality, DeckSynced, Envelope, SceneSync, Tempo } from '@scutoons/live';
 import type { PathKind } from './rig.ts';
+import { QuicLink, type QuicCore, type QuicPlatform } from './quic.ts';
 
 export interface WebSocketLike {
 	readonly readyState: number;
@@ -17,15 +16,11 @@ export interface WebSocketLike {
 
 /** relay-web's `RelayClient` (deck-space `relay::Client`): the socket's events and a deck's moves in, `take` out (a vote
  *  screen's moves: the viewer's live-vote-link.ts) */
-export interface RelayCoreView {
+export interface RelayCoreView extends QuicCore {
 	start(now: number): void;
 	opened(now: number): void;
 	closed(now: number, why: string): void;
 	text(now: number, data: string): void;
-	quic_opened(now: number): void;
-	quic_closed(now: number, why: string): void;
-	quic_stream(now: number, bytes: Uint8Array): void;
-	quic_datagram(now: number, bytes: Uint8Array): void;
 	tick(now: number): void;
 	next_wake(): number | undefined;
 	take(): string;
@@ -65,87 +60,9 @@ export interface RelayHooks {
 	onMessage?: (e: Envelope) => void;
 }
 
-/** #438: an open (or opening) QUIC connection – the core says what goes where, this only moves it */
-export interface QuicPipe {
-	stream(text: string): void;
-	datagram(text: string): void;
-	close(): void;
-}
-
-export interface QuicEvents {
-	opened(): void;
-	closed(why: string): void;
-	stream(bytes: Uint8Array): void;
-	datagram(bytes: Uint8Array): void;
-}
-
-export type QuicDial = (url: string, hash: string | null, on: QuicEvents) => QuicPipe;
-
-type Pipe = { readable: ReadableStream<Uint8Array>; writable: WritableStream<Uint8Array> };
-interface WebTransportLike {
-	ready: Promise<unknown>;
-	closed: Promise<unknown>;
-	datagrams: Pipe;
-	createBidirectionalStream(): Promise<Pipe>;
-	close(): void;
-}
-type WebTransportCtor = new (url: string, options?: { serverCertificateHashes: { algorithm: string; value: Uint8Array }[] }) => WebTransportLike;
-
-async function drain(from: ReadableStream<Uint8Array>, to: (bytes: Uint8Array) => void): Promise<void> {
-	const r = from.getReader();
-	for (;;) {
-		const { done, value } = await r.read();
-		if (done) return;
-		to(value);
-	}
-}
-
-/** The browser's WebTransport under the core's QUIC words; a browser without it (or a refused dial) reports it closed. */
-export const webTransport: QuicDial = (url, hash, on) => {
-	const encode = new TextEncoder();
-	let stream: WritableStreamDefaultWriter<Uint8Array> | undefined;
-	let datagrams: WritableStreamDefaultWriter<Uint8Array> | undefined;
-	let wt: WebTransportLike | undefined;
-	let over = false;
-	const end = (why: string) => {
-		if (!over) on.closed(why);
-		over = true;
-	};
-	const open = async () => {
-		const WT = (globalThis as { WebTransport?: WebTransportCtor }).WebTransport;
-		if (!WT) throw new Error('no WebTransport here');
-		const pinned = hash ? { serverCertificateHashes: [{ algorithm: 'sha-256', value: Uint8Array.from(hash.match(/../g) ?? [], (h) => parseInt(h, 16)) }] } : undefined;
-		wt = new WT(url, pinned);
-		await wt.ready;
-		const bi = await wt.createBidirectionalStream();
-		stream = bi.writable.getWriter();
-		datagrams = wt.datagrams.writable.getWriter();
-		on.opened();
-		void drain(bi.readable, on.stream).catch(() => {});
-		void drain(wt.datagrams.readable, on.datagram).catch(() => {});
-		await wt.closed;
-	};
-	open().then(
-		() => end(''),
-		(e: unknown) => end(String(e))
-	);
-	return {
-		stream: (text) => void stream?.write(encode.encode(text)).catch(() => {}),
-		datagram: (text) => void datagrams?.write(encode.encode(text)).catch(() => {}),
-		close: () => {
-			try {
-				wt?.close();
-			} catch {
-				// a session not yet ready: its `ready` rejects and says so
-			}
-		}
-	};
-};
-
 /** the page's platform – its WebSocket, its QUIC, clock (ms since the epoch) and timer; tests pass their own */
-export interface Platform {
+export interface Platform extends QuicPlatform {
 	socket?: new (url: string) => WebSocketLike;
-	quic?: QuicDial;
 	now?: () => number;
 	setTimer?: (fn: () => void, ms: number) => unknown;
 	clearTimer?: (id: unknown) => void;
@@ -172,9 +89,7 @@ async function load(base: string, wasm?: BufferSource): Promise<RelayModule> {
 /** The socket and the timer under one core client: after every call into the core, `run` does what it asks. */
 export class RelaySocket {
 	private ws: WebSocketLike | null = null;
-	private quic: QuicPipe | null = null;
-	/** the QUIC dial that still counts: a word from an older one is dropped */
-	private quicDial = 0;
+	private door?: QuicLink;
 	private timer: unknown = null;
 
 	constructor(
@@ -219,10 +134,7 @@ export class RelaySocket {
 		else if ('send' in o) this.ws?.send(o.send);
 		// the socket's onclose tells the core
 		else if ('close' in o) this.ws?.close();
-		else if ('dial_quic' in o) this.dialQuic(o.dial_quic['url'], o.dial_quic['hash']);
-		else if ('stream' in o) this.quic?.stream(o.stream);
-		else if ('datagram' in o) this.quic?.datagram(o.datagram);
-		else if ('close_quic' in o) this.closeQuic();
+		else if ((this.door ??= new QuicLink(this, this.p.quic)).act(o)) return;
 		else if ('status' in o) h.onStatus?.(this.core.line(), o.status);
 		else if ('joined' in o) h.onJoined?.(o.joined['at'], o.joined['client']);
 		else if ('pong' in o) h.onPong?.(o.pong['t0'], o.pong['t1'], o.pong['t2']);
@@ -246,33 +158,6 @@ export class RelaySocket {
 		this.ws.onerror = null;
 	}
 
-	private dialQuic(url: string, hash: string | null): void {
-		const dial = ++this.quicDial;
-		const when = (f: () => void) => {
-			if (this.quicDial !== dial) return;
-			f();
-			this.run();
-		};
-		this.quic = (this.p.quic ?? webTransport)(url, hash, {
-			opened: () => when(() => this.core.quic_opened(this.now())),
-			closed: (why) =>
-				when(() => {
-					this.quic = null;
-					this.core.quic_closed(this.now(), why);
-				}),
-			stream: (bytes) => when(() => this.core.quic_stream(this.now(), bytes)),
-			datagram: (bytes) => when(() => this.core.quic_datagram(this.now(), bytes))
-		});
-	}
-
-	/** the core is done with it: it hears the close now, whatever the browser does later */
-	private closeQuic(): void {
-		this.quicDial++;
-		this.quic?.close();
-		this.quic = null;
-		this.core.quic_closed(this.now(), '');
-	}
-
 	/** a socket's event – only the current socket's count */
 	private on(ws: WebSocketLike, what: 'open' | 'text' | 'close', ev: unknown): void {
 		if (this.ws !== ws) return;
@@ -289,7 +174,6 @@ export class RelaySocket {
 	close(): void {
 		this.call('stop');
 		this.ws = null;
-		this.quic = null;
 	}
 }
 

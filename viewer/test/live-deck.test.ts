@@ -27,6 +27,12 @@ test('the relay: the hosted one by default; ?relay= a whole session URL or a hos
 	assert.equal(relayOf(q('relay=ws://localhost:7070'), LIVE), 'ws://localhost:7070/live/CATH');
 	assert.equal(relayOf(q('relay=http://localhost:7070/live/CATH'), LIVE), 'wss://live.scutoons.com/live/CATH', 'not ws: ignored');
 	assert.equal(relayOf(q(''), 'ws://127.0.0.1:7071'), 'ws://127.0.0.1:7071/live/CATH', 'VITE_LIVE_URL');
+	// #438: the QUIC door, for the core to read from the URL
+	assert.equal(relayOf(q(''), LIVE, 'A', 'udp.scutoons.com:443'), 'wss://live.scutoons.com/live/A?quic=udp.scutoons.com%3A443', 'LIVE_QUIC');
+	assert.equal(relayOf(q(''), LIVE, 'A'), 'wss://live.scutoons.com/live/A', 'no door named: WebSocket only');
+	assert.equal(relayOf(q('relay=ws://localhost:7070/live/CATH'), LIVE, 'X', 'udp.scutoons.com:443'), 'ws://localhost:7070/live/CATH', 'a local relay is not the hosted door');
+	assert.equal(relayOf(q('relay=ws://localhost:7070/live/CATH&quic=localhost:7070&quichash=ab'), LIVE), 'ws://localhost:7070/live/CATH?quic=localhost%3A7070&quichash=ab');
+	assert.equal(relayOf(q('relay=ws://localhost:7070/live/CATH&quic='), LIVE), 'ws://localhost:7070/live/CATH?quic=', 'the relay is its own door');
 	// a venue's relay under our name – the deck's LAN IP with dashes (bunny DNS answers it) – with the wildcard certificate (#201): wss on the deck's port
 	const venue = 'wss://192-168-1-116.lan.scutoons.com:7700/live/CATH';
 	assert.equal(relayOf(q(`relay=${encodeURIComponent(venue)}`), LIVE, 'X'), venue, 'the QR code / link of #201');
