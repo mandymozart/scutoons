@@ -1,6 +1,6 @@
 //! A deck's state without a stage, a window or a sound device (#367, #368): what a platform's deck holds around the
-//! engine and the 3D – its mood (mood.rs `Ladder`) and what it plays (its own scene, or a character's rig replayed on
-//! every mood: rig/bundle.rs `Played`, the lifecycle here once). The browser deck has it as space-web's `DeckState` (no
+//! engine and the 3D – its mood (mood.rs `Ladder`) and what it plays (a character's rig replayed on every mood:
+//! rig/bundle.rs `Played`, the lifecycle here once – or, when no rig plays, the silent scene: the being, no sound, #425). The browser deck has it as space-web's `DeckState` (no
 //! GPU: it works when the 3D can't), the headless host drives it directly. The page passes its inputs each frame,
 //! applies the turns (a new scene to load, values that moved) and draws the answers.
 //! A code rig (#410, T3 of #314): its policy chooses a track's preset through an `@preset` output; the platform hands the
@@ -21,7 +21,7 @@ fn wire(x: f32) -> f64 {
     x.to_string().parse().unwrap_or(f64::from(x))
 }
 
-/// Why the deck's scene changed: a scene played (the deck's own or a rig), the rig replayed for a mood, or for the
+/// Why the deck's scene changed: a scene played (a rig, or the silent scene), the rig replayed for a mood, or for the
 /// presets its policy chose (#410).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -36,14 +36,14 @@ pub enum Why {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Turn {
     pub why: Why,
-    /// a rig plays (false = the deck's own scene)
+    /// a rig plays (false = no rig plays: the silent scene, #425)
     pub rig: bool,
     pub reload: bool,
     pub values: Vec<(String, f32)>,
     pub played: Played,
-    /// what happened, for the page's log: which rig, or why the deck's own scene plays instead
+    /// what happened, for the page's log: which rig, or why no rig plays (the deck is silent)
     pub note: String,
-    /// the rig failed and the deck's own scene plays instead
+    /// the rig failed and the deck is silent instead
     pub failed: bool,
 }
 
@@ -78,14 +78,17 @@ impl Slider {
     }
 }
 
-/// The deck: its mood ladder and the mood it last showed, its own scene and the rig it plays.
+/// The deck: its mood ladder and the mood it last showed, its own (silent) scene and the rig it plays.
 #[derive(Debug, Clone)]
 pub struct Deck {
     pub ladder: Ladder,
     /// the mood last handed out by `step` ("" before the first frame)
     shown: String,
-    /// the deck's own scene (the X1's cathedral) – it plays whenever no rig does
+    /// the deck's own scene – it plays whenever no rig does: the silent scene, the being and no sound (#425; the
+    /// cathedral only for the tests, `Deck::testing`)
     own: Played,
+    /// the set of the room the being floats in ("" = none: the empty rigging stage, #425) – the platform loads it
+    room: String,
     /// the rig, its persona, and how it plays for the mood now
     rig: Option<(Bundle, String, Played)>,
     /// #410: the presets a code rig's policy chose (track → preset), played over the tables on every replay
@@ -103,12 +106,44 @@ impl Default for Deck {
 }
 
 impl Deck {
+    /// The deck as every platform has it: no rig plays – the silent scene (#425: no rig, no sound; the picture stays) –
+    /// and the being floats in the deck's room (the set of the deck's old boot scene, the cathedral's).
     pub fn new() -> Deck {
-        let own = Played::deck_scene().expect("the deck's own scene is embedded and checked by the tests");
-        Deck { ladder: Ladder::default(), shown: String::new(), own, rig: None, chosen: BTreeMap::new(), touch: 0.0, strain: 0.0 }
+        let own = Played::silent().expect("the silent scene is embedded and checked by the tests");
+        let room = Played::deck_scene()
+            .ok()
+            .and_then(|p| p.nodes.into_iter().find(|n| n.kind == "space"))
+            .and_then(|n| n.params.get("set").and_then(|v| v.as_str()).map(String::from))
+            .unwrap_or_default();
+        Deck::with(own, room)
     }
 
-    /// the scene that plays: the rig's for the mood now, else the deck's own
+    /// The deck on the rig editor's rigging stage (#425, owner 2026-11-08: "eine leere rigging stage"): the same deck,
+    /// the being and its knobs with NO room, set or scene behind it – the scene editor is not designed yet and nothing
+    /// here assumes one.
+    pub fn rigging() -> Deck {
+        Deck::with(Played::silent().expect("the silent scene is embedded and checked by the tests"), String::new())
+    }
+
+    /// A deck whose own scene is the Cathedral (a TEST scene since #425): the tests' fixtures need a scene with knobs, a
+    /// sound and paths to stream; no platform plays it as a fallback.
+    pub fn testing() -> Deck {
+        let mut d = Deck::new();
+        d.own = Played::deck_scene().expect("the cathedral is embedded and checked by the tests");
+        d
+    }
+
+    fn with(own: Played, room: String) -> Deck {
+        Deck { ladder: Ladder::default(), shown: String::new(), own, room, rig: None, chosen: BTreeMap::new(), touch: 0.0, strain: 0.0 }
+    }
+
+    /// the set the being floats in ("" = none: the rigging stage) – the browser loads its model (native stages a rig in
+    /// the deck's room itself, rig.rs `staged`)
+    pub fn room(&self) -> &str {
+        &self.room
+    }
+
+    /// the scene that plays: the rig's for the mood now, else the deck's own (silent)
     pub fn played(&self) -> &Played {
         self.rig.as_ref().map_or(&self.own, |(_, _, p)| p)
     }
@@ -126,7 +161,7 @@ impl Deck {
         Some(self.ladder.mood().to_string()).filter(|m| !m.is_empty())
     }
 
-    /// Play a rig for `persona` and the mood now (None = the deck's own scene again). An error leaves what played.
+    /// Play a rig for `persona` and the mood now (None = no rig: the deck is silent again). An error leaves what played.
     pub fn play(&mut self, bundle: Option<Bundle>, persona: &str) -> Result<Turn> {
         self.rig = match bundle {
             None => None,
@@ -139,19 +174,19 @@ impl Deck {
         self.chosen.clear();
         let note = match self.rig.as_ref() {
             Some((b, _, p)) => format!("played {}: {} knobs, {} nodes", b.rig.subject, p.knobs.len(), p.nodes.len()),
-            None => "the deck's own scene plays".into(),
+            None => "no rig plays – the deck is silent".into(),
         };
         Ok(self.turn(Why::Play, true, Vec::new(), note, false))
     }
 
-    /// `play` with a bundle as JSON ("" = the deck's own scene)
+    /// `play` with a bundle as JSON ("" = no rig)
     pub fn play_json(&mut self, bundle: &str, persona: &str) -> Result<Turn> {
         let b = if bundle.is_empty() { None } else { Some(Bundle::parse_json(bundle)?) };
         self.play(b, persona)
     }
 
-    /// The core rig of a character (`catpope`) or a subject (`character.catpope`, `item.<id>`) – the deck's own scene
-    /// when the deck carries none or it fails (the note says which, `failed` that it failed).
+    /// The core rig of a character (`catpope`) or a subject (`character.catpope`, `item.<id>`) – no sound when the deck
+    /// carries none or it fails (#425: the silent scene plays, the note says which, `failed` that it failed).
     pub fn play_core(&mut self, character: &str, persona: &str) -> Turn {
         let subject = if character.contains('.') { character.to_string() } else { format!("character.{character}") };
         let tried = match Bundle::core(&subject) {
@@ -163,12 +198,12 @@ impl Deck {
             Ok(None) => {
                 self.rig = None;
                 self.chosen.clear();
-                self.turn(Why::Play, true, Vec::new(), format!("no core rig for {subject} – the deck's own scene plays"), false)
+                self.turn(Why::Play, true, Vec::new(), format!("no core rig for {subject} – the deck is silent"), false)
             }
             Err(e) => {
                 self.rig = None;
                 self.chosen.clear();
-                self.turn(Why::Play, true, Vec::new(), format!("{subject}: {e:#} – the deck's own scene plays"), true)
+                self.turn(Why::Play, true, Vec::new(), format!("{subject}: {e:#} – the deck is silent"), true)
             }
         }
     }
@@ -336,10 +371,10 @@ mod tests {
     }
 
     /// The browser deck wears the X1's cathedral as the conductor builds it (deck/lab/fixtures/deck-graph.json, read by
-    /// space/wire.rs's test): the being on the wire is this graph, byte for byte.
+    /// space/wire.rs's test): the being on the wire is this graph, byte for byte (a deck on the cathedral test scene).
     #[test]
-    fn the_deck_s_own_being_on_the_wire_is_the_fixture() {
-        let mut d = Deck::new();
+    fn the_cathedral_s_being_on_the_wire_is_the_fixture() {
+        let mut d = Deck::testing();
         d.ladder.set_portraits(&MOODS.map(String::from));
         let fixture: serde_json::Value = serde_json::from_str(include_str!("../../lab/fixtures/deck-graph.json")).unwrap();
         // numbers as a page reads them (3000 and 3000.0 are one number)
@@ -368,14 +403,20 @@ mod tests {
             let paths = p.knobs.iter().map(|k| k.path.clone()).chain(p.nodes.iter().map(|n| format!("{}.gain", n.id))).chain(["nobody.gain".to_string()]);
             paths.map(|path| (path.clone(), serde_json::json!(d.target(&path).unwrap_or_default()))).collect()
         };
-        let mut d = Deck::new();
+        // `own`: a deck on the cathedral (a test scene since #425: the tests need knobs, paths and a sound); `silent`: the
+        // deck as every platform has it, no rig playing (#425)
+        let mut d = Deck::testing();
         d.ladder.set_portraits(&MOODS.map(String::from));
         let own = serde_json::json!({ "now": j(&d.now()), "sliders": j(&d.sliders("en")), "graph": j(&d.graph("yellowmouse")), "targets": targets(&d), "wiring": j(&d.wiring()) });
         let play = d.play_core("catpope", "");
         let mut catpope = serde_json::json!({ "play": j(&play), "sliders": j(&d.sliders("en")), "sliders_de": j(&d.sliders("de")), "graph": j(&d.graph("yellowmouse")), "targets": targets(&d), "wiring": j(&d.wiring()) });
         d.ladder.pin(Some("laughing"));
         catpope["laughing"] = j(&quiet(&mut d).unwrap());
-        let fixture = serde_json::json!({ "own": own, "catpope": catpope });
+        let mut none = Deck::new();
+        none.ladder.set_portraits(&MOODS.map(String::from));
+        let nobody = none.play_core("nobody", "");
+        let silent = serde_json::json!({ "now": j(&none.now()), "nobody": j(&nobody), "room": none.room(), "sliders": j(&none.sliders("en")), "graph": j(&none.graph("yellowmouse")), "targets": targets(&none), "wiring": j(&none.wiring()) });
+        let fixture = serde_json::json!({ "own": own, "silent": silent, "rigging_room": Deck::rigging().room(), "catpope": catpope });
         let text = serde_json::to_string_pretty(&fixture).unwrap() + "\n";
         let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../shared/live-deck/test/fixtures/deck.json");
         if std::env::var_os("UPDATE_FIXTURES").is_some() {
@@ -534,20 +575,54 @@ mod tests {
         let g = d.graph("yellowmouse");
         assert_eq!(g.character.as_deref(), Some("catpope"), "a rig wears its own character");
         assert_eq!(g.expose.as_ref().map(Vec::len), Some(p.knobs.len()));
-        // the deck's own scene: no rig sum, the deck's character, a node the browser does not carry yet takes nothing
+        // no rig: the silent scene – the deck's character, the being's own look knobs (the space's hue, glow, light), nothing that sounds
         d.play(None, "").unwrap();
-        let own = d.played();
-        assert!(!own.streamed.iter().any(|(_, s)| *s == crate::rig::Stream::Audio));
         assert_eq!(d.graph("yellowmouse").character.as_deref(), Some("yellowmouse"));
-        assert_eq!(d.target("music.gain"), None, "chapter_music is the page's");
+        assert!(d.played().knobs.iter().all(|k| k.path.starts_with("space.")), "{:?}", d.played().knobs);
+        assert!(!d.played().streamed.iter().any(|(p, s)| p.starts_with("fft.") || *s == crate::rig::Stream::Audio), "{:?}", d.played().streamed);
+        assert_eq!(d.target("voice.gain"), None);
     }
 
+    /// the audio kinds of the engine's part of a scene – none means the engine renders silence
+    fn sounding(p: &Played) -> Vec<String> {
+        let audio = ["audio_out", "osc", "fm", "noise", "mixer", "click", "chapter_music", "walk", "seq"];
+        let e = crate::scene::Scene::parse(&p.engine.scene).unwrap();
+        e.nodes.iter().filter(|n| audio.contains(&n.kind.as_str())).map(|n| n.id.clone()).collect()
+    }
+
+    /// #425 (owner 2026-11-08: "eine figur ohne rig, sollte nicht klingen"): no rig plays – no sound, with or without a
+    /// chosen character; the picture stays (the being in its space)
     #[test]
-    fn a_missing_or_broken_rig_falls_back_to_the_deck_s_own_scene() {
+    fn no_rig_means_no_sound() {
         let mut d = Deck::new();
+        assert!(!d.now().rig && sounding(d.played()).is_empty(), "a fresh deck, no character chosen: {:?}", sounding(d.played()));
+        let ids: Vec<&str> = d.played().nodes.iter().map(|n| n.id.as_str()).collect();
+        assert_eq!(ids, ["space", "screen"], "the picture stays: the being in its space");
+        assert_eq!(d.room(), "cathedral", "in the deck's room");
         let t = d.play_core("nobody", "");
-        assert!(!t.rig && !t.failed && t.note.contains("no core rig for character.nobody"), "{}", t.note);
+        assert!(!t.rig && !t.failed && t.note.contains("no core rig for character.nobody") && t.note.contains("silent"), "{}", t.note);
+        assert!(sounding(&t.played).is_empty() && t.played.engine.page.is_empty(), "a chosen character without a rig is silent");
+        // a rig sounds, and when it is gone the deck is silent again
+        assert!(!sounding(&d.play_core("catpope", "").played).is_empty());
+        assert!(sounding(&d.play(None, "").unwrap().played).is_empty());
         assert!(d.play_json("{\"rig\": 1}", "").is_err(), "an explicit bad bundle is an error");
         assert!(!d.now().rig, "and what played stays");
+    }
+
+    /// #425: the rig editor's deck stands on an empty rigging stage – the same silent being, no room
+    #[test]
+    fn the_rigging_stage_has_no_room() {
+        let mut d = Deck::rigging();
+        assert_eq!(d.room(), "");
+        d.play_core("catpope", "");
+        assert_eq!(d.room(), "", "a rig on it does not bring a room along");
+        assert_eq!(Deck::new().room(), "cathedral");
+    }
+
+    /// #425: the cathedral is a TEST scene – a deck can be made to play it, none does by itself
+    #[test]
+    fn the_cathedral_is_a_test_scene() {
+        assert!(!sounding(Deck::new().played()).iter().any(|id| id == "voice"));
+        assert!(sounding(Deck::testing().played()).iter().any(|id| id == "voice"));
     }
 }

@@ -181,7 +181,8 @@ fn rig_facts(i: &Value) -> Value {
     let sticks: Vec<&String> = p.sticks.iter().flatten().filter(|s| !s.is_empty()).collect();
     let streamed: Vec<&String> = p.streamed.iter().map(|(path, _)| path).collect();
     let targets: Vec<&str> = p.knobs.iter().filter_map(|k| d.target(&k.path)).collect();
-    let mut out = json!({ "rig": play.rig, "failed": play.failed, "note": play.note, "sticks": sticks, "streamed": streamed, "targets": targets });
+    let audio_out = p.nodes.iter().filter(|n| n.kind == "audio_out").count();
+    let mut out = json!({ "rig": play.rig, "failed": play.failed, "note": play.note, "sticks": sticks, "streamed": streamed, "targets": targets, "audio_out": audio_out, "room": d.room() });
     d.ladder.pin(Some(&text("to")));
     let step = d.step(0.0, 0.0, false, 0.0, 1.0 / 60.0);
     let turn = step.as_ref().and_then(|s| s.turn.as_ref());

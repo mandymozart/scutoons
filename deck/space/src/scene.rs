@@ -13,6 +13,8 @@ pub const IDLE_SCENE: &str = include_str!("../../native/scenes/idle.toml");
 pub const MADNESS_SCENE: &str = include_str!("../../native/scenes/madness.toml");
 /// The Cathedral of decks (#188): the set `cathedral` from Cat Pope chapter 2 and this deck's being in it.
 pub const CATHEDRAL_SCENE: &str = include_str!("../../native/scenes/cathedral.toml");
+/// The silent scene (#425): the being in its space, no audio graph – what the deck plays when no rig does.
+pub const SILENT_SCENE: &str = include_str!("../../native/scenes/silent.toml");
 /// Its conductor (#188 phase 4): the bigger being in the middle of the nave, PLF's portrait as its head, the decks' beings
 /// around it over the relay.
 pub const CONDUCTOR_SCENE: &str = include_str!("../../native/scenes/conductor.toml");
@@ -219,7 +221,7 @@ transition = \"wipe\"
 
     #[test]
     fn the_bundled_scenes_parse() {
-        for text in [CATHEDRAL_SCENE, CONDUCTOR_SCENE, OUTLET_SCENE, TEST_PATTERN_SCENE] {
+        for text in [CATHEDRAL_SCENE, SILENT_SCENE, CONDUCTOR_SCENE, OUTLET_SCENE, TEST_PATTERN_SCENE] {
             let s = Scene::parse(text).unwrap();
             assert!(s.nodes.iter().any(|n| n.kind == "screen"));
         }

@@ -12,7 +12,7 @@
 //!
 //! | do | arguments | answer |
 //! |---|---|---|
-//! | `load` | `scene` (a deck/ path; `lower`: the browser's split, default on), `toml` (a small scene as it is) or `rig` (`character.catpope`) + `mood` | nodes, page (ids the engine does not carry), channels |
+//! | `load` | `scene` (a deck/ path; `lower`: the browser's split, default on), `toml` (a small scene as it is), `rig` (`character.catpope`) + `mood`, or `silent = true` (no rig plays, #425) | nodes, page (ids the engine does not carry), channels |
 //! | `warm` | as `load`, `quanta` | – |
 //! | `run` | `ms`; `mark` (keep the audio hash) | audio (hash), peak, frames, the clock state (+ the transport's `epoch`), line, clock_out, anchors, pings, signals |
 //! | `send` | `path`, `value`, `mode` (force / blend / base), `amount` | applied |
@@ -208,6 +208,12 @@ impl Run<'_> {
             let page = played.engine.page.iter().map(|n| n.id.clone()).collect();
             let facts = json!({ "knobs": played.knobs.len(), "tracks": played.tracks.len(), "character": played.character });
             return Ok((played.engine.scene, page, facts));
+        }
+        // #425: no rig plays – the deck's own scene, silent (what `Deck::new` and `play_core` of a character without a rig play)
+        if step.get("silent").and_then(|v| v.as_bool()).unwrap_or(false) {
+            let played = deck_space::rig::Played::silent().map_err(|e| err(format!("{e:#}")))?;
+            let page = played.engine.page.iter().map(|n| n.id.clone()).collect();
+            return Ok((played.engine.scene, page, json!({ "knobs": played.knobs.len(), "tracks": played.tracks.len(), "character": played.character })));
         }
         // a scene file of deck/, or a small one written into the scenario (`toml`, loaded as it is)
         let text = match (step.get("scene").and_then(|v| v.as_str()), step.get("toml").and_then(|v| v.as_str())) {

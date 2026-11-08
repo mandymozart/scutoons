@@ -64,3 +64,21 @@ fn the_headless_rig_player_hears_what_the_native_deck_plays() {
     let native = native_rig_render("catpope", "neutral", 128, frames);
     assert_eq!(format!("{:016x}", hash(&native)), heard, "the native deck and the headless host play catpope alike");
 }
+
+/// #425 (owner 2026-11-08: "eine figur ohne rig, sollte nicht klingen"): a character without a rig is silent on the native
+/// deck and on the browser's – the core plays the silent scene for both, every sample of it is zero, in every block
+/// pattern. (The cathedral, the old fallback, is a test scene: `--scene cathedral`.)
+#[test]
+fn a_character_without_a_rig_is_silent_on_the_native_deck_and_the_browser_deck() {
+    let mut d = deck_space::deck::Deck::new();
+    let t = d.play_core("nobody", "");
+    assert!(!t.rig && !t.failed && t.played.engine.page.is_empty(), "{}", t.note);
+    for &block in &PATTERNS {
+        let native = native_rig_render("nobody", "neutral", block, FRAMES);
+        let browser = core_render_device(&t.played.engine.scene, 2, block, FRAMES);
+        let d = diff(&native, &browser);
+        assert!(d.exact, "nobody/{block}: {d:?}");
+        assert_eq!(peak(&native), 0.0, "no rig, no sound: block {block}");
+    }
+    assert!(peak(&native_rig_render("catpope", "neutral", 128, FRAMES)) > 1e-3, "and a rig still sounds");
+}

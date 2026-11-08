@@ -1,4 +1,4 @@
-// `npm test -w shared/live-deck` (#320): the deck's scenes in the real engine – its own scene (#360) and the core rigs load in
+// `npm test -w shared/live-deck` (#320): the deck's scenes in the real engine – the Cathedral test scene (#360), the silent scene (#425) and the core rigs load in
 // live_core.wasm (deck-engine), sound, and every knob and hose the page uses is a path the engine answers (skipped,
 // saying so, when live_core.wasm is not built: `npm run build:wasm -w shared/live-core`).
 import { test } from 'node:test';
@@ -34,7 +34,7 @@ async function play(scene: string, knobs: Record<string, number>) {
 	return { table, a: analysisOf(last), loud };
 }
 
-test("#360: the deck's own scene – the X1's cathedral as deck-space plays it – sounds in the engine: the seq's arp, its knobs inputs, its hoses outputs", { skip }, async () => {
+test("#360: the Cathedral, a test scene since #425 – the X1's old boot scene as deck-space plays it – sounds in the engine: the seq's arp, its knobs inputs, its hoses outputs", { skip }, async () => {
 	const own = DECK.own.now.played;
 	// every knob the core sends to the engine (its target), at its value – the core's sliders
 	const knobs = Object.fromEntries(DECK.own.sliders.filter((s) => DECK.own.targets[s.path]).map((s) => [s.path, s.value]));
@@ -45,6 +45,14 @@ test("#360: the deck's own scene – the X1's cathedral as deck-space plays it �
 	const sway = a.values[valueIndex(table, 'sway.out')];
 	assert.ok(sway >= 0 && sway <= 1, `the LFO is unipolar: ${sway}`);
 	assert.ok(Math.abs(a.values[valueIndex(table, 'incense.cutoff')] - (knobs['incense.cutoff'] + 3000 * sway)) < 1, 'the cutoff: its base, the sway on top');
+});
+
+test('#425: no rig, no sound – the silent scene loads in the engine and renders nothing', { skip }, async () => {
+	const silent = DECK.silent.now.played;
+	const { table, loud } = await play(silent.engine.scene, {});
+	assert.equal(loud, 0, `the silent scene is silent: ${loud}`);
+	assert.ok(!table.nodes.some((n) => ['seq', 'voice', 'mix', 'out'].includes(n.id)), 'no audio graph');
+	for (const [p] of silent.streamed) assert.ok(valueIndex(table, p) >= 0 || p.startsWith('space.'), p);
 });
 
 test('every core rig plays in the engine with its knobs and streams', { skip }, async () => {

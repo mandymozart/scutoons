@@ -20,8 +20,12 @@ interface Scene {
 export const DECK = JSON.parse(readFileSync(new URL('./fixtures/deck.json', import.meta.url), 'utf8')) as {
 	own: Scene & { now: RigTurn };
 	catpope: Scene & { play: RigTurn; sliders_de: RigSlider[]; laughing: MoodStep };
+	/** #425: no rig plays – the deck as every platform has it (own = a deck on the cathedral, a TEST scene) */
+	silent: Scene & { now: RigTurn; nobody: RigTurn; room: string };
+	rigging_room: string;
 };
 export const OWN = DECK.own.now.played;
+export const SILENT = DECK.silent.now.played;
 export const CATPOPE = DECK.catpope.play.played;
 /** the deck's sliders for its own scene */
 export const OWN_PARAMS = Object.fromEntries(DECK.own.sliders.map((s) => [s.path, s]));
@@ -33,10 +37,12 @@ export const MOODS = ['neutral', 'thinking', 'happy', 'laughing', 'surprised'];
 /** A stand-in for space-web's `DeckState` (the wasm is not loaded in node) answering from the fixture: the scene it
  *  plays (its own, or catpope after `play_core('catpope')` / a bundle), the moods `step` says (a name or a recorded
  *  `MoodStep`), and a record of what the deck handed it. */
-export function stateOf(o: { moods?: string[]; said?: (string | MoodStep)[]; presets?: string[] } = {}): DeckStateView & { calls: unknown[][]; pinned: string } {
+export function stateOf(o: { moods?: string[]; said?: (string | MoodStep)[]; presets?: string[]; silent?: boolean } = {}): DeckStateView & { calls: unknown[][]; pinned: string } {
 	const calls: unknown[][] = [];
 	const said = [...(o.said ?? [])];
-	let at: 'own' | 'catpope' = 'own';
+	// `silent`: the deck as every platform has it (no rig plays, #425); else a deck on the cathedral test scene
+	const none = o.silent ? 'silent' : 'own';
+	let at: 'own' | 'silent' | 'catpope' = none;
 	let shown = '';
 	const s = {
 		calls,
@@ -59,9 +65,10 @@ export function stateOf(o: { moods?: string[]; said?: (string | MoodStep)[]; pre
 		moods: () => o.moods ?? [],
 		choices: () => o.moods ?? [],
 		face: (m: string) => m,
-		now: () => JSON.stringify(at === 'own' ? DECK.own.now : DECK.catpope.play),
-		play: (bundle: string) => ((at = bundle ? 'catpope' : 'own'), s.now()),
-		play_core: (character: string) => ((at = character.endsWith('catpope') ? 'catpope' : 'own'), s.now()),
+		now: () => JSON.stringify(at === 'own' ? DECK.own.now : at === 'silent' ? DECK.silent.now : DECK.catpope.play),
+		play: (bundle: string) => ((at = bundle ? 'catpope' : none), s.now()),
+		room: () => DECK.silent.room,
+		play_core: (character: string) => ((at = character.endsWith('catpope') ? 'catpope' : none), at === 'silent' ? JSON.stringify(DECK.silent.nobody) : s.now()),
 		sliders: (locale: string) => JSON.stringify(locale === 'de' && at === 'catpope' ? DECK.catpope.sliders_de : DECK[at].sliders),
 		graph: () => JSON.stringify(DECK[at].graph),
 		wiring: () => JSON.stringify(DECK[at].wiring),

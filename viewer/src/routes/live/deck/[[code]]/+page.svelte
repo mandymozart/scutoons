@@ -35,7 +35,7 @@
 	let stage: HTMLDivElement | undefined = $state();
 	// the controls show the scene's values once the core gave the scene (#360)
 	let values = $state<Record<string, number>>({});
-	// the sliders: the deck's own scene's knobs (the X1's cathedral, #360), or the character's rig's (#191, `?rig=1`)
+	// the sliders: the silent scene's look knobs (#425), or the character's rig's (#191, `?rig=1`)
 	let params = $state<Record<string, Spec>>({});
 	let character = $state('');
 	let characters = $state<{ id: string; name?: Record<string, string> }[]>([]);
@@ -232,7 +232,7 @@
 			if (!alive || !mayJoin(session.me)) return;
 			const q = page.url.searchParams;
 			character = characterOf(q, session.me, store.get());
-			// #191: `?rig=1` plays the character's rig (and its bundle while it has one) instead of the deck's own scene (#360)
+			// #191: `?rig=1` plays the character's rig (and its bundle while it has one) instead of the silent scene (#425)
 			const host = createEngineHost({
 				api: API_URL,
 				cdn,
@@ -266,7 +266,7 @@
 					if (why !== 'play') return;
 					params = deck.params;
 					values = { ...deck.value };
-					// the corner sticks follow the rig's knobs (or the deck's own scene's again)
+					// the corner sticks follow the rig's knobs (or the silent scene's again)
 					ctl.useParams(deck.params, deck.sticks);
 				},
 				// #191: the mood's variant of the rig (its presets, its values) is already played – the sliders follow by the mood's hand
@@ -282,8 +282,8 @@
 			deck.onMidiOut = (bytes, at) => ctl.midiSend(bytes, at);
 			values = { ...deck.value };
 			try {
-				// #360: the deck's own scene, played by the core (deck-space as wasm – no GPU needed): its knobs are the sliders
-				// #367, #368: the deck's state – its own scene, the mood ladder, the rig's lifecycle (deck-space as wasm, no GPU)
+				// #360: the silent scene (no rig), played by the core (deck-space as wasm – no GPU needed): its knobs are the sliders
+				// #367, #368: the deck's state – the silent scene, the mood ladder, the rig's lifecycle (deck-space as wasm, no GPU)
 				deck.useState(await loadDeckState(WASM_BASE));
 				params = deck.params;
 				values = { ...deck.value };

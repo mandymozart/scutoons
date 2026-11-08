@@ -124,7 +124,7 @@ export class Hands {
 		if (v !== undefined) this.deck.setParam(path, v);
 	}
 
-	/** The deck's knobs changed (a rig's, or the deck's own scene's again, #191, #360): the controls follow, with the being's
+	/** The deck's knobs changed (a rig's, or none again, #191, #360): the controls follow, with the being's
 	 *  stick pairs (null = the defaults), the knobs as the core answered them. The selection goes back to the master section. */
 	useParams(specs: Record<string, Spec>, sticks: [string, string][] | null) {
 		this.c.set_deck(JSON.stringify(Object.entries(specs).map(([path, s]) => ({ ...s, path }))), sticks ? sticks.flat() : []);

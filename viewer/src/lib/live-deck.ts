@@ -57,7 +57,7 @@ export function mayJoin(me: Me | null): boolean {
 }
 
 /**
- * Play the character's rig instead of the deck's own scene (#191, #360, research/INSTRUMENTS.md §7): `?rig=1`, while the
+ * Play the character's rig instead of the silent scene (#425: no rig, no sound) (#191, #360, research/INSTRUMENTS.md §7): `?rig=1`, while the
  * phone check is open – then it becomes the default for every character with a rig.
  */
 export const rigOf = (search: URLSearchParams): boolean => search.get('rig') === '1';

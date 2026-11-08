@@ -2734,5 +2734,404 @@
         }
       ]
     }
+  },
+  "rigging_room": "",
+  "silent": {
+    "graph": {
+      "character": "yellowmouse",
+      "expose": [
+        "space.hue",
+        "space.glow",
+        "space.light",
+        "space.pulse"
+      ],
+      "links": [
+        {
+          "from": "space",
+          "to": "screen.in"
+        }
+      ],
+      "moods": [
+        "neutral",
+        "thinking",
+        "happy",
+        "laughing",
+        "surprised"
+      ],
+      "nodes": [
+        {
+          "id": "space",
+          "kind": "space"
+        },
+        {
+          "id": "screen",
+          "kind": "screen"
+        }
+      ],
+      "size": 0.5
+    },
+    "nobody": {
+      "failed": false,
+      "note": "no core rig for character.nobody – the deck is silent",
+      "played": {
+        "character": "",
+        "engine": {
+          "dropped": [],
+          "page": [],
+          "scene": "[[node]]\nid = \"space\"\nkind = \"space\"\n\n[[node]]\nid = \"screen\"\nkind = \"screen\"\n\n[[link]]\nfrom = \"space\"\nto = \"screen.in\"\nscale = 1.0\noffset = 0.0\n"
+        },
+        "expose": [
+          "space.hue",
+          "space.glow",
+          "space.light",
+          "space.pulse"
+        ],
+        "knobs": [
+          {
+            "max": 1.0,
+            "min": 0.0,
+            "path": "space.hue",
+            "value": 0.5199999809265137
+          },
+          {
+            "max": 2.0,
+            "min": 0.0,
+            "path": "space.glow",
+            "value": 0.6000000238418579
+          },
+          {
+            "max": 1.5,
+            "min": 0.0,
+            "path": "space.light",
+            "value": 0.8500000238418579
+          },
+          {
+            "max": 1.0,
+            "min": 0.0,
+            "path": "space.pulse",
+            "value": 0.0
+          }
+        ],
+        "links": [
+          {
+            "from": "space",
+            "offset": 0.0,
+            "scale": 1.0,
+            "to": "screen.in"
+          }
+        ],
+        "nodes": [
+          {
+            "id": "space",
+            "kind": "space"
+          },
+          {
+            "id": "screen",
+            "kind": "screen"
+          }
+        ],
+        "scene": "# The silent scene (#425, owner 2026-11-08: \"eine figur ohne rig, sollte nicht klingen. weil ja kein rig\"): what a deck\n# plays when no rig does – the being in its space and the window's screen, NO audio graph at all. deck-space's\n# `Played::silent` is the deck's own scene (`Deck::new`); the picture stays, the sound does not. Its space node is bare\n# like a rig's: the room is the platform's (the native `staged` puts the deck's room around it, the browser asks\n# `Deck::room`). The Cathedral (cathedral.toml) is a TEST scene now: `--scene cathedral`, F5.\n[stage]\nname = \"silent\"\n\n[[node]]\nid = \"space\"\nkind = \"space\"\n\n[[node]]\nid = \"screen\"\nkind = \"screen\"\n\n[[link]]\nfrom = \"space\"\nto = \"screen.in\"\n",
+        "sticks": [
+          [
+            "space.hue",
+            "space.glow"
+          ],
+          [
+            "space.light",
+            "space.pulse"
+          ]
+        ],
+        "streamed": [
+          [
+            "space.hue",
+            {
+              "input": [
+                0.0,
+                1.0
+              ]
+            }
+          ],
+          [
+            "space.glow",
+            {
+              "input": [
+                0.0,
+                2.0
+              ]
+            }
+          ],
+          [
+            "space.light",
+            {
+              "input": [
+                0.0,
+                1.5
+              ]
+            }
+          ],
+          [
+            "space.pulse",
+            {
+              "input": [
+                0.0,
+                1.0
+              ]
+            }
+          ]
+        ],
+        "tracks": []
+      },
+      "reload": true,
+      "rig": false,
+      "values": [],
+      "why": "play"
+    },
+    "now": {
+      "failed": false,
+      "note": "",
+      "played": {
+        "character": "",
+        "engine": {
+          "dropped": [],
+          "page": [],
+          "scene": "[[node]]\nid = \"space\"\nkind = \"space\"\n\n[[node]]\nid = \"screen\"\nkind = \"screen\"\n\n[[link]]\nfrom = \"space\"\nto = \"screen.in\"\nscale = 1.0\noffset = 0.0\n"
+        },
+        "expose": [
+          "space.hue",
+          "space.glow",
+          "space.light",
+          "space.pulse"
+        ],
+        "knobs": [
+          {
+            "max": 1.0,
+            "min": 0.0,
+            "path": "space.hue",
+            "value": 0.5199999809265137
+          },
+          {
+            "max": 2.0,
+            "min": 0.0,
+            "path": "space.glow",
+            "value": 0.6000000238418579
+          },
+          {
+            "max": 1.5,
+            "min": 0.0,
+            "path": "space.light",
+            "value": 0.8500000238418579
+          },
+          {
+            "max": 1.0,
+            "min": 0.0,
+            "path": "space.pulse",
+            "value": 0.0
+          }
+        ],
+        "links": [
+          {
+            "from": "space",
+            "offset": 0.0,
+            "scale": 1.0,
+            "to": "screen.in"
+          }
+        ],
+        "nodes": [
+          {
+            "id": "space",
+            "kind": "space"
+          },
+          {
+            "id": "screen",
+            "kind": "screen"
+          }
+        ],
+        "scene": "# The silent scene (#425, owner 2026-11-08: \"eine figur ohne rig, sollte nicht klingen. weil ja kein rig\"): what a deck\n# plays when no rig does – the being in its space and the window's screen, NO audio graph at all. deck-space's\n# `Played::silent` is the deck's own scene (`Deck::new`); the picture stays, the sound does not. Its space node is bare\n# like a rig's: the room is the platform's (the native `staged` puts the deck's room around it, the browser asks\n# `Deck::room`). The Cathedral (cathedral.toml) is a TEST scene now: `--scene cathedral`, F5.\n[stage]\nname = \"silent\"\n\n[[node]]\nid = \"space\"\nkind = \"space\"\n\n[[node]]\nid = \"screen\"\nkind = \"screen\"\n\n[[link]]\nfrom = \"space\"\nto = \"screen.in\"\n",
+        "sticks": [
+          [
+            "space.hue",
+            "space.glow"
+          ],
+          [
+            "space.light",
+            "space.pulse"
+          ]
+        ],
+        "streamed": [
+          [
+            "space.hue",
+            {
+              "input": [
+                0.0,
+                1.0
+              ]
+            }
+          ],
+          [
+            "space.glow",
+            {
+              "input": [
+                0.0,
+                2.0
+              ]
+            }
+          ],
+          [
+            "space.light",
+            {
+              "input": [
+                0.0,
+                1.5
+              ]
+            }
+          ],
+          [
+            "space.pulse",
+            {
+              "input": [
+                0.0,
+                1.0
+              ]
+            }
+          ]
+        ],
+        "tracks": []
+      },
+      "reload": true,
+      "rig": false,
+      "values": [],
+      "why": "play"
+    },
+    "room": "cathedral",
+    "sliders": [
+      {
+        "label": "space.hue",
+        "max": 1.0,
+        "min": 0.0,
+        "path": "space.hue",
+        "value": 0.5199999809265137
+      },
+      {
+        "label": "space.glow",
+        "max": 2.0,
+        "min": 0.0,
+        "path": "space.glow",
+        "value": 0.6000000238418579
+      },
+      {
+        "label": "space.light",
+        "max": 1.5,
+        "min": 0.0,
+        "path": "space.light",
+        "value": 0.8500000238418579
+      },
+      {
+        "label": "space.pulse",
+        "max": 1.0,
+        "min": 0.0,
+        "path": "space.pulse",
+        "value": 0.0
+      }
+    ],
+    "targets": {
+      "nobody.gain": "",
+      "screen.gain": "screen.gain",
+      "space.gain": "space.gain",
+      "space.glow": "space.glow",
+      "space.hue": "space.hue",
+      "space.light": "space.light",
+      "space.pulse": "space.pulse"
+    },
+    "wiring": {
+      "links": [
+        {
+          "from": 0,
+          "input": "in",
+          "offset": 0.0,
+          "out": "out",
+          "scale": 1.0,
+          "to": 1,
+          "type": "video",
+          "value": "space.out"
+        }
+      ],
+      "nodes": [
+        {
+          "depth": 0,
+          "domain": "video",
+          "id": "space",
+          "inputs": [
+            {
+              "name": "hue",
+              "type": "control"
+            },
+            {
+              "name": "glow",
+              "type": "control"
+            },
+            {
+              "name": "light",
+              "type": "control"
+            },
+            {
+              "name": "pulse",
+              "type": "control"
+            },
+            {
+              "name": "bloom",
+              "type": "control"
+            },
+            {
+              "name": "threshold",
+              "type": "control"
+            },
+            {
+              "name": "lift",
+              "type": "control"
+            },
+            {
+              "name": "gamma",
+              "type": "control"
+            },
+            {
+              "name": "gain",
+              "type": "control"
+            },
+            {
+              "name": "pixel",
+              "type": "control"
+            },
+            {
+              "name": "levels",
+              "type": "control"
+            }
+          ],
+          "kind": "space",
+          "outputs": [
+            {
+              "name": "out",
+              "type": "video"
+            }
+          ],
+          "played": true,
+          "track": ""
+        },
+        {
+          "depth": 1,
+          "domain": "video",
+          "id": "screen",
+          "inputs": [
+            {
+              "name": "in",
+              "type": "video"
+            }
+          ],
+          "kind": "screen",
+          "outputs": [],
+          "played": true,
+          "track": ""
+        }
+      ]
+    }
   }
 }

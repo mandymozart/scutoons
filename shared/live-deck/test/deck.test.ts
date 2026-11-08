@@ -5,11 +5,11 @@ import assert from 'node:assert/strict';
 import { FRAME, LiveCore, analysisOf, clockOf, type ClockOp, type ClockState } from '@scutoons/live-core';
 import { Deck, deviceKind, portraitsOf } from '../src/deck.ts';
 import { sniff } from '../src/space.ts';
-import { MOODS, OWN, OWN_PARAMS, OWN_STREAMED, stateOf } from './own.ts';
+import { DECK, MOODS, OWN, OWN_PARAMS, OWN_STREAMED, SILENT, stateOf } from './own.ts';
 
 const API = 'https://api.example/api';
 
-/** a deck on the core's state (its own scene), as the page's wasm gives it */
+/** a deck on the core's state (the cathedral test scene as its own: knobs and a sound to check; `stateOf({ silent: true })` = the deck as every platform has it), as the page's wasm gives it */
 function deckOf(character = 'yellowmouse', state = stateOf()): Deck {
 	const d = new Deck({ character, nick: 'guest', api: API });
 	d.useState(state);
@@ -41,19 +41,33 @@ test('one state: the being turns a value, the page hears whose hand it was; unkn
 	assert.equal(d.value['voice.gain'], OWN_PARAMS['voice.gain'].value);
 });
 
-test('#360: without a rig the deck plays its own scene as the core gave it – nothing of it before, its graph and knobs after', () => {
+test('#360: the deck plays the scene the core gave it – nothing of it before, its graph and knobs after (the cathedral test scene)', () => {
 	const d = new Deck({ character: 'yellowmouse', nick: 'guest', api: API });
 	assert.deepEqual(d.params, {}, 'no scene of the page: no sliders before the wasm gave one');
 	assert.deepEqual(d.graph().nodes, []);
 	d.useState(stateOf());
 	assert.deepEqual(Object.keys(d.params), Object.keys(OWN_PARAMS));
-	assert.equal(d.rig, null, "no rig: the deck's own scene");
+	assert.equal(d.rig, null, 'no rig plays');
 	const g = d.graph();
 	assert.deepEqual(g.nodes.map((n) => n.id), OWN.nodes.map((n) => n.id), 'the being on the wire: the scene the X1 plays');
 	assert.ok(g.nodes.some((n) => n.id === 'seq' && n.kind === 'seq') && !g.nodes.some((n) => n.kind === 'walk'), "the cathedral's arp, no page melody");
 	assert.equal(g.character, 'yellowmouse', "the deck's own scene wears the deck's character");
 	for (let k = 0; k <= 5; k++) d.tick(10 + k * 0.05);
 	assert.ok(Math.abs(d.time - 0.25) < 1e-9);
+});
+
+test('#425: no rig, no sound – the deck on the core\'s silent scene: the being in its room, no audio stream; a character without a rig changes nothing', () => {
+	const state = stateOf({ silent: true });
+	const d = deckOf('yellowmouse', state);
+	assert.equal(d.rig, null);
+	assert.deepEqual(d.graph().nodes.map((n) => n.id), SILENT.nodes.map((n) => n.id), 'the picture: what the core played');
+	assert.ok(!d.paths.some((p) => p.startsWith('fft.')) && !d.graph().nodes.some((n) => n.kind === 'audio_out'), 'nothing sounds, nothing is analysed');
+	assert.equal(state.room(), DECK.silent.room, "the room is the core's");
+	const t = d.play('nobody', '', true);
+	assert.equal(t.rig, false);
+	assert.equal(d.rig, null, 'a character without a rig stays silent');
+	assert.ok(t.note.includes('silent'), t.note);
+	assert.deepEqual(d.graph().nodes.map((n) => n.id), SILENT.nodes.map((n) => n.id));
 });
 
 test('#367: each frame the level, the clock and the hand go to the core’s ladder; the mood is what it says', () => {

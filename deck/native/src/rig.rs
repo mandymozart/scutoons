@@ -1,6 +1,7 @@
 //! The native deck plays a rig (#322, plan P9a) the way every deck does: deck-space's `Deck` (deck.rs, #368 – the browser's
 //! space-web `DeckState`, the headless host) plays it – `Bundle::play` flattens it (`Rig::flatten`) at the mood now, or
-//! falls back to the deck's own scene when the deck carries no such rig or it fails – and replays it when the mood turns.
+//! plays no sound when the deck carries no such rig or it fails (#425: the core's silent scene – the being, no audio
+//! graph) – and replays it when the mood turns.
 //! This file only moves what the core says: the played scene is loaded like any scene (its sound through deck-engine – the
 //! browser's live-core plays the same `engine` part of it, bit for bit: deck-conformance tests/rig.rs), and a replay's
 //! values go into the control domain. Asked for as `--scene rig:<character | subject>[@<mood>]` (deck.toml's `scene`, the
@@ -30,7 +31,7 @@ pub fn named(arg: &Path) -> Option<(&str, Option<&str>)> {
     })
 }
 
-/// The scene `arg` names (`named`): what the core plays for it – the rig at its mood, else the deck's own scene.
+/// The scene `arg` names (`named`): what the core plays for it – the rig at its mood, else the silent scene (#425).
 pub fn scene(arg: &Path) -> Result<Scene> {
     Player::start(arg).ok_or_else(|| anyhow!("'{}' names no rig ({PREFIX}<character>)", arg.display()))?.scene()
 }
@@ -41,15 +42,15 @@ pub fn scene(arg: &Path) -> Result<Scene> {
 pub const MODULE_RIGS: [(&str, &str); 1] = [("catpope-analog", include_str!("../rigs/catpope_analog.toml"))];
 
 /// A module rig played (`MODULE_RIGS`): the modules of `DECK_MODULES` register their kinds first; a build without them (or
-/// without the wasm) says so in the log and plays the deck's own scene, like a rig that fails.
+/// without the wasm) says so in the log and plays the silent scene (#425), like a rig that fails.
 fn module_rig(deck: &mut Deck, name: &str, text: &str) -> Turn {
     #[cfg(feature = "modules")]
     crate::module_host::autoload();
     match toml::from_str::<Bundle>(text).map_err(anyhow::Error::from).and_then(|b| deck.play(Some(b), "")) {
         Ok(turn) => turn,
         Err(e) => {
-            tracing::warn!("rig: {name}: {e:#} – it needs the modules (build with --features modules, their wasm in DECK_MODULES); the deck's own scene plays");
-            deck.play(None, "").expect("the deck's own scene plays")
+            tracing::warn!("rig: {name}: {e:#} – it needs the modules (build with --features modules, their wasm in DECK_MODULES); the deck is silent");
+            deck.play(None, "").expect("the silent scene plays")
         }
     }
 }
@@ -92,7 +93,7 @@ impl Player {
     }
 
     /// The player of the rig `arg` names, when `scene` is what it plays (not the test pattern after a failed load, not the
-    /// deck's own scene after a failed rig: nothing to replay then).
+    /// silent scene after a failed rig: nothing to replay then).
     pub fn of(arg: Option<&Path>, scene: &Scene) -> Option<Player> {
         Player::start(arg?).filter(|p| p.deck.now().rig && p.name == scene.stage.name)
     }
@@ -223,14 +224,18 @@ mod tests {
         assert!(Player::of(Some(Path::new("rig:catpope")), &scene).is_some());
     }
 
-    /// no such rig: the core plays the deck's own scene (said in the log), nothing to replay
+    /// no such rig (#425): the core plays the silent scene (said in the log) – the being in the deck's room, no audio
+    /// graph, nothing to replay. The cathedral is a test scene: no rig player, and no fallback either.
     #[test]
-    fn a_rig_the_deck_lacks_plays_the_deck_s_own_scene() {
+    fn a_rig_the_deck_lacks_plays_the_silent_scene() {
         let scene = scene(Path::new("rig:nobody")).unwrap();
-        let own = Scene::parse(crate::scene::CATHEDRAL_SCENE).unwrap();
-        assert_eq!(scene.stage.name, own.stage.name);
+        let cathedral = Scene::parse(crate::scene::CATHEDRAL_SCENE).unwrap();
+        assert_eq!(scene.stage.name, "silent");
+        assert!(scene.nodes.iter().all(|n| matches!(n.kind.as_str(), "space" | "screen")), "no audio node: {:?}", scene.nodes.iter().map(|n| &n.kind).collect::<Vec<_>>());
+        let space = scene.nodes.iter().find(|n| n.kind == "space").unwrap();
+        assert_eq!(space.params.get("set").and_then(|v| v.as_str()), Some("cathedral"), "the picture stays: the deck's room");
         assert!(Player::of(Some(Path::new("rig:nobody")), &scene).is_none());
-        assert!(Player::of(Some(Path::new("cathedral")), &own).is_none());
+        assert!(Player::of(Some(Path::new("cathedral")), &cathedral).is_none());
     }
 
     /// #417: `catpope-analog` is catpope plus the analog track and nothing else – its rig, instruments and presets equal
@@ -254,12 +259,12 @@ mod tests {
         assert!(deck_space::rig::bundle::CORE.iter().all(|(_, text)| !text.contains("module:")));
     }
 
-    /// a build (or a deck) without the modules says so and plays the deck's own scene, like a rig that fails
+    /// a build (or a deck) without the modules says so and plays the silent scene (#425), like a rig that fails
     #[cfg(not(feature = "modules"))]
     #[test]
-    fn a_module_rig_without_the_modules_plays_the_deck_s_own_scene() {
+    fn a_module_rig_without_the_modules_plays_the_silent_scene() {
         let scene = scene(Path::new("rig:catpope-analog")).unwrap();
-        assert_eq!(scene.stage.name, Scene::parse(crate::scene::CATHEDRAL_SCENE).unwrap().stage.name);
+        assert_eq!(scene.stage.name, "silent");
         assert!(Player::of(Some(Path::new("rig:catpope-analog")), &scene).is_none());
     }
 

@@ -186,8 +186,8 @@ $('#start').addEventListener('click', async () => {
 		$('#status').textContent = `failed: ${(e as Error).message}`;
 	}
 });
-// #360, #367, #368: the deck's state from the core (space-web's `DeckState`): its own scene (the X1's cathedral) – its
-// knobs are the sliders –, the mood ladder
+// #360, #367, #368: the deck's state from the core (space-web's `DeckState`): the silent scene (#425: no rig, no sound) – its
+// look knobs are the sliders –, the mood ladder
 loadDeckState(SPACE_WEB)
 	.then((s) => {
 		deck.useState(s);
