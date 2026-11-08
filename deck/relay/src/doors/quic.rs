@@ -10,6 +10,7 @@ use std::time::{Duration, Instant};
 
 use protocol::lines::{line, Lines};
 use tokio::sync::mpsc;
+use tokio_tungstenite::tungstenite::Utf8Bytes;
 use wtransport::quinn::{AckFrequencyConfig, TransportConfig};
 use wtransport::{Connection, Endpoint, RecvStream, SendStream, ServerConfig};
 
@@ -93,7 +94,7 @@ async fn stream_writer(mut send: SendStream, mut rx: mpsc::UnboundedReceiver<Vec
 /// One client's writer: what its outbox lets go, each message on its lane; the transport's round trip once a second.
 async fn write(conn: Arc<Connection>, member: Arc<Member>, tx: mpsc::UnboundedSender<Vec<u8>>, queued: Arc<AtomicUsize>) {
     let outbox = member.outbox.clone();
-    let mut batch: Vec<(Lane, String)> = Vec::with_capacity(64);
+    let mut batch: Vec<(Lane, Utf8Bytes)> = Vec::with_capacity(64);
     let mut next_rtt = tokio::time::Instant::now() + PING_EVERY;
     loop {
         let now = tokio::time::Instant::now();

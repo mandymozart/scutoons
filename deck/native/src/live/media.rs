@@ -47,7 +47,7 @@ const VIDEO_EXT: &[&str] = &["webm", "mp4"];
 impl Resolve for LocalSets {
     fn spot(&self, set: &str, spot: Option<&str>, mode: SpotMode) -> Result<Source, String> {
         let safe = |s: &str| !s.is_empty() && !s.contains(['/', '\\', ':']) && s != "..";
-        if !safe(set) || !spot.map_or(true, safe) {
+        if !safe(set) || !spot.is_none_or(safe) {
             return Err(format!("set '{set}' spot '{}': not a plain name", spot.unwrap_or("")));
         }
         let spot_name = spot.unwrap_or("default");

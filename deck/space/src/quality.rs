@@ -720,7 +720,7 @@ impl Governor {
                 }
             }
             let sustained = self.over >= OVER_WINDOWS || mean > budget * 2.0;
-            let may = self.last_down.map_or(true, |t| now - t >= STEP_GAP_S);
+            let may = self.last_down.is_none_or(|t| now - t >= STEP_GAP_S);
             return sustained && may && self.step_down(now);
         }
         self.over = 0;

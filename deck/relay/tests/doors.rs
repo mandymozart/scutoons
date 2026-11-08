@@ -55,12 +55,12 @@ async fn relay_ws(relay: Arc<relay::Relay>) -> String {
 async fn ws_client(url: &str, role: &str) -> (mpsc::UnboundedSender<String>, mpsc::UnboundedReceiver<String>) {
     let (ws, _) = tokio_tungstenite::connect_async(url).await.unwrap();
     let (mut tx, mut rx) = ws.split();
-    tx.send(Ws::Text(hello(role))).await.unwrap();
+    tx.send(Ws::Text(hello(role).into())).await.unwrap();
     let (out, mut out_rx) = mpsc::unbounded_channel::<String>();
     let (in_tx, in_rx) = mpsc::unbounded_channel();
     tokio::spawn(async move {
         while let Some(text) = out_rx.recv().await {
-            if tx.send(Ws::Text(text)).await.is_err() {
+            if tx.send(Ws::Text(text.into())).await.is_err() {
                 return;
             }
         }
@@ -68,7 +68,7 @@ async fn ws_client(url: &str, role: &str) -> (mpsc::UnboundedSender<String>, mps
     tokio::spawn(async move {
         while let Some(Ok(frame)) = rx.next().await {
             if let Ws::Text(t) = frame {
-                if in_tx.send(t).is_err() {
+                if in_tx.send(t.to_string()).is_err() {
                     return;
                 }
             }

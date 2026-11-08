@@ -213,7 +213,7 @@ async fn dial(net: &Net, via: Via, path: &str) -> Wire {
             let (mut w, mut r) = ws.split();
             tokio::spawn(async move {
                 while let Some((_, text)) = out.recv().await {
-                    if w.send(Ws::Text(text)).await.is_err() {
+                    if w.send(Ws::Text(text.into())).await.is_err() {
                         return;
                     }
                 }
@@ -221,7 +221,7 @@ async fn dial(net: &Net, via: Via, path: &str) -> Wire {
             tokio::spawn(async move {
                 while let Some(Ok(frame)) = r.next().await {
                     if let Ws::Text(t) = frame {
-                        if inc.send(t).is_err() {
+                        if inc.send(t.to_string()).is_err() {
                             return;
                         }
                     }

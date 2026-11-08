@@ -52,7 +52,7 @@ fn watch(relay: String, tx: mpsc::Sender<(f64, f64, f64, bool)>) {
             Err(e) => return eprintln!("relay: {e}"),
         };
         let hello = Message::Hello(Hello { code, role: Role::Output, group: Some("clock-check".into()), nick: Some("midi-clock".into()), token: Some("dev".into()), resume: None });
-        let _ = ws.send(Ws::Text(serde_json::to_string(&Envelope::new("", hello)).unwrap()));
+        let _ = ws.send(Ws::Text(serde_json::to_string(&Envelope::new("", hello)).unwrap().into()));
         loop {
             match ws.read() {
                 Ok(Ws::Text(t)) => {

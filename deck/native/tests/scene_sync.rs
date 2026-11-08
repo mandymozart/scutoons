@@ -190,7 +190,7 @@ fn only_the_conductor_pushes() {
     let join = |nick: &str| {
         let (mut ws, _) = tungstenite::connect(format!("ws://127.0.0.1:{port}/live/AUTH?role=musician&group=decks")).unwrap();
         let hello = Hello { code: "AUTH".into(), role: Role::Musician, group: Some("decks".into()), nick: Some(nick.into()), token: None, resume: None };
-        ws.send(Ws::Text(serde_json::to_string(&Envelope::new("", Message::Hello(hello))).unwrap())).unwrap();
+        ws.send(Ws::Text(serde_json::to_string(&Envelope::new("", Message::Hello(hello))).unwrap().into())).unwrap();
         ws
     };
     let next = |ws: &mut tungstenite::WebSocket<_>| -> Envelope {
@@ -204,10 +204,10 @@ fn only_the_conductor_pushes() {
     let mut b = join("b");
     assert_eq!(next(&mut a).message.kind(), "welcome");
     assert_eq!(next(&mut b).message.kind(), "welcome");
-    a.send(Ws::Text(serde_json::to_string(&Envelope::new("", Message::SceneSync(push(&["catpope"])))).unwrap())).unwrap();
+    a.send(Ws::Text(serde_json::to_string(&Envelope::new("", Message::SceneSync(push(&["catpope"])))).unwrap().into())).unwrap();
     let e = next(&mut a);
     assert!(matches!(&e.message, Message::Error(x) if x.code == "authority"), "{e:?}");
     // b hears nothing but the relay's own (a ping's pong proves the line is quiet otherwise)
-    b.send(Ws::Text(serde_json::to_string(&Envelope::new("", Message::Ping(protocol::Ping { t0: 7 }))).unwrap())).unwrap();
+    b.send(Ws::Text(serde_json::to_string(&Envelope::new("", Message::Ping(protocol::Ping { t0: 7 }))).unwrap().into())).unwrap();
     assert_eq!(next(&mut b).message.kind(), "pong");
 }

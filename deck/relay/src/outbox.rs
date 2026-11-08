@@ -11,12 +11,14 @@
 //! ordered message, else it queues anew. A client whose ordered backlog grows past `MAX_QUEUED` / `MAX_BYTES`, or whose
 //! oldest ordered message waited `MAX_WAIT`, is dropped – it reconnects and resyncs from its snapshot (B.6).
 //!
-//! A message is serialized once (`Frame`, shared by every client it goes to); the writer copies its text into the
-//! WebSocket frame (tungstenite 0.24 takes an owned String) – a coalesced-away message is never copied.
+//! A message is serialized once (`Frame`, shared by every client it goes to); its text is a `Utf8Bytes`, so a client's
+//! WebSocket frame shares that one buffer instead of copying it (#437).
 use std::collections::{HashMap, VecDeque};
 use std::fmt;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
+
+use tokio_tungstenite::tungstenite::Utf8Bytes;
 
 use protocol::{Envelope, LinkQuality, Message};
 use tokio::sync::Notify;
@@ -43,7 +45,7 @@ pub enum Latest {
 /// One message as it goes out – serialized once, shared by every client it reaches.
 #[derive(Debug)]
 pub struct Frame {
-    pub text: String,
+    pub text: Utf8Bytes,
     key: Option<Latest>,
     /// `deck.values`: the envelope, to merge a newer one into
     values: Option<Envelope>,
@@ -52,7 +54,7 @@ pub struct Frame {
 impl Frame {
     /// Serialize `e` (its `seq` and `from` already stamped) and classify it.
     pub fn of(e: Envelope) -> Arc<Frame> {
-        let text = serde_json::to_string(&e).expect("envelope serializes");
+        let text = serde_json::to_string(&e).expect("envelope serializes").into();
         let key = match &e.message {
             Message::DeckValues(_) => Some(Latest::Values(Arc::from(e.from.as_str()))),
             Message::Presence(_) => Some(Latest::Presence),
@@ -65,7 +67,7 @@ impl Frame {
     }
 
     /// An already serialized ordered message (the replay log).
-    pub fn ordered(text: String) -> Arc<Frame> {
+    pub fn ordered(text: Utf8Bytes) -> Arc<Frame> {
         Arc::new(Frame { text, key: None, values: None })
     }
 }
@@ -93,9 +95,9 @@ impl Slot {
         self.frame = newer;
     }
 
-    fn text(self) -> String {
+    fn text(self) -> Utf8Bytes {
         match self.merged {
-            Some(e) => serde_json::to_string(&e).expect("envelope serializes"),
+            Some(e) => serde_json::to_string(&e).expect("envelope serializes").into(),
             None => self.frame.text.clone(),
         }
     }
@@ -228,16 +230,16 @@ impl Outbox {
     /// Move what may go now into `out` (texts, in order) at `now`: everything – except, while the link is paced (link.rs),
     /// state-like messages before their next turn; they keep merging meanwhile. An ordered message behind them takes them
     /// along (nothing is reordered).
-    pub fn take(&self, now: Instant, out: &mut Vec<String>) -> Took {
+    pub fn take(&self, now: Instant, out: &mut Vec<Utf8Bytes>) -> Took {
         self.release(now, |_, text| out.push(text))
     }
 
     /// `take`, with each message's lane (a transport that has two).
-    pub fn take_lanes(&self, now: Instant, out: &mut Vec<(Lane, String)>) -> Took {
+    pub fn take_lanes(&self, now: Instant, out: &mut Vec<(Lane, Utf8Bytes)>) -> Took {
         self.release(now, |lane, text| out.push((lane, text)))
     }
 
-    fn release(&self, now: Instant, mut out: impl FnMut(Lane, String)) -> Took {
+    fn release(&self, now: Instant, mut out: impl FnMut(Lane, Utf8Bytes)) -> Took {
         let mut q = self.lock();
         let mut took = Took::default();
         let paced = q.link.interval().and(q.next_paced).filter(|t| *t > now);
@@ -336,7 +338,7 @@ impl Outbox {
     }
 
     /// Everything waiting, as texts (tests, and the session's own unit tests).
-    pub fn drain(&self) -> Vec<String> {
+    pub fn drain(&self) -> Vec<Utf8Bytes> {
         let mut out = vec![];
         self.take(Instant::now(), &mut out);
         out
@@ -367,7 +369,7 @@ mod tests {
         Frame::of(Envelope::new("cond", Message::Cue(Cue { id: id.into(), actions: vec![] })))
     }
 
-    fn parse(texts: Vec<String>) -> Vec<Envelope> {
+    fn parse(texts: Vec<Utf8Bytes>) -> Vec<Envelope> {
         texts.iter().map(|t| serde_json::from_str(t).unwrap()).collect()
     }
 

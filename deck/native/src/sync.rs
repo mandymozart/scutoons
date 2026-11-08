@@ -302,8 +302,8 @@ impl Index {
 impl push::Cache for Config {
     fn has(&self, w: &Want) -> bool {
         match w {
-            Want::Set { id, quality } => self.sets.as_ref().map_or(true, |d| d.join(id).join(format!("{id}.{quality}.glb")).is_file()),
-            Want::Portrait { character, mood } => self.portraits.as_ref().map_or(true, |d| {
+            Want::Set { id, quality } => self.sets.as_ref().is_none_or(|d| d.join(id).join(format!("{id}.{quality}.glb")).is_file()),
+            Want::Portrait { character, mood } => self.portraits.as_ref().is_none_or(|d| {
                 let stem = d.join(character).join(format!("{character}_portrait-{mood}"));
                 ["webp", "png"].iter().any(|ext| stem.with_extension(ext).is_file())
             }),
@@ -544,7 +544,7 @@ impl Worker {
     fn download(&mut self, local: &Path, file: &File) -> Result<Got, String> {
         let key = local.to_string_lossy().to_string();
         let len = std::fs::metadata(local).ok().map(|m| m.len());
-        if len.is_some() && self.index.files.get(&key).is_some_and(|f| f.path == file.path) && file.size.map_or(true, |s| Some(s) == len) {
+        if len.is_some() && self.index.files.get(&key).is_some_and(|f| f.path == file.path) && file.size.is_none_or(|s| Some(s) == len) {
             self.publish(|b| b.cached += 1);
             return Ok(Got::Cached);
         }

@@ -257,7 +257,7 @@ impl Pinger {
     /// a ping is due at local `now` s for a filter of `samples` samples
     pub fn due(&mut self, now: f64, samples: usize) -> bool {
         let every = if samples < QUICK { FAST_S } else { SLOW_S };
-        let due = self.last.map_or(true, |l| now - l >= every || now < l);
+        let due = self.last.is_none_or(|l| now - l >= every || now < l);
         if due {
             self.last = Some(now);
         }

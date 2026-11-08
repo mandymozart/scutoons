@@ -93,7 +93,7 @@ pub async fn session(patch: &Patch, adapters: &mut [(String, Box<dyn Adapter>)],
     let (ws, _) = tokio_tungstenite::connect_async(&patch.relay).await.context("relay")?;
     let (mut sink, mut source) = ws.split();
     let hello = Hello { code, role: Role::Bridge, group: None, nick: None, token: Some(token), resume: None };
-    sink.send(Ws::Text(serde_json::to_string(&Envelope::new("", Message::Hello(hello)))?)).await?;
+    sink.send(Ws::Text(serde_json::to_string(&Envelope::new("", Message::Hello(hello)))?.into())).await?;
 
     let welcome: Envelope = match source.next().await {
         Some(Ok(Ws::Text(t))) => serde_json::from_str(&t)?,
@@ -104,7 +104,7 @@ pub async fn session(patch: &Patch, adapters: &mut [(String, Box<dyn Adapter>)],
     let mut samples = vec![];
     for _ in 0..SAMPLES {
         let t0 = now_ms();
-        sink.send(Ws::Text(serde_json::to_string(&Envelope::new("", Message::Ping(protocol::Ping { t0 })))?)).await?;
+        sink.send(Ws::Text(serde_json::to_string(&Envelope::new("", Message::Ping(protocol::Ping { t0 })))?.into())).await?;
         loop {
             let Some(Ok(Ws::Text(t))) = source.next().await else { return Err(anyhow!("relay closed during the clock")) };
             if let Ok(Envelope { message: Message::Pong(p), .. }) = serde_json::from_str::<Envelope>(&t) {
@@ -118,7 +118,7 @@ pub async fn session(patch: &Patch, adapters: &mut [(String, Box<dyn Adapter>)],
     let offset_ms = clock_offset(&samples).unwrap_or_else(|| now_ms() - w.now);
     tracing::info!(client = w.client, offset_ms, "joined the relay");
 
-    sink.send(Ws::Text(serde_json::to_string(&Envelope::new("", Message::Devices(Devices { ports: ports(adapters) })))?)).await?;
+    sink.send(Ws::Text(serde_json::to_string(&Envelope::new("", Message::Devices(Devices { ports: ports(adapters) })))?.into())).await?;
 
     let mut by_outlet: HashMap<&str, &mut Box<dyn Adapter>> = adapters.iter_mut().map(|(o, a)| (o.as_str(), a)).collect();
     // device messages waiting for their time (local ms), earliest first; `n` keeps the arrival order on equal times
@@ -173,11 +173,11 @@ pub async fn session(patch: &Patch, adapters: &mut [(String, Box<dyn Adapter>)],
             }
             Some(inbound) = inbound.recv() => {
                 let m = Message::DeviceIn(DeviceIn { outlet: inbound.outlet, msg: inbound.msg });
-                sink.send(Ws::Text(serde_json::to_string(&Envelope::new("", m).to(To::role(Role::Conductor)))?)).await?;
+                sink.send(Ws::Text(serde_json::to_string(&Envelope::new("", m).to(To::role(Role::Conductor)))?.into())).await?;
             }
             _ = keepalive.tick() => {
                 let ping = Message::Ping(protocol::Ping { t0: now_ms() });
-                sink.send(Ws::Text(serde_json::to_string(&Envelope::new("", ping))?)).await?;
+                sink.send(Ws::Text(serde_json::to_string(&Envelope::new("", ping))?.into())).await?;
             }
         }
     }

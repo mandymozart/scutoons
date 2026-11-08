@@ -157,11 +157,11 @@ fn settle(s: &mut session::Session, members: &[String]) {
             e.seq = seq;
             e.to = Some(To::client(id));
             // reliable lane: `ordered`, not state-like (a settle must not be merged into a datagram's slot)
-            c.outbox.push(Frame::ordered(serde_json::to_string(&e).expect("envelope serializes")), t);
+            c.outbox.push(Frame::ordered(serde_json::to_string(&e).expect("envelope serializes").into()), t);
         }
     }
 }
 
 fn refusal(code: &str, message: &str) -> String {
-    crate::refusal(code, message)
+    crate::refusal(code, message).to_string()
 }

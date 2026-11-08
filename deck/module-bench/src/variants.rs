@@ -190,7 +190,7 @@ pub fn run(
     // `--only a,b`: those and the deck's (the reference, always the first row)
     let chosen: Vec<&Variant> = VARIANTS
         .iter()
-        .filter(|v| v.name == "deck" || only.map_or(true, |o| o.split(',').any(|n| n == v.name)))
+        .filter(|v| v.name == "deck" || only.is_none_or(|o| o.split(',').any(|n| n == v.name)))
         .collect();
     let mut sets = BTreeMap::new();
     for v in &chosen {

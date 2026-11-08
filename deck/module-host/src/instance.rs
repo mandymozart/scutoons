@@ -151,7 +151,7 @@ fn boot<B: Backend>(loaded: &Loaded<B>, io: &mut IoBuf, assets: &[AssetData], wa
     if hash != layout.hash {
         bail!("module '{name}': its layout ({hash:08x}) is not the one its descriptor gives ({:08x}) – built against another SDK?", layout.hash);
     }
-    if at % 16 != 0 || at.checked_add(layout.size as usize).map_or(true, |end| end > b.memory_size()) {
+    if at % 16 != 0 || at.checked_add(layout.size as usize).is_none_or(|end| end > b.memory_size()) {
         bail!("module '{name}': its io does not lie in its memory");
     }
     // the assets: the module's own buffer per slot, the bytes, the record – before `dm_new`, so `init` sees them
@@ -159,7 +159,7 @@ fn boot<B: Backend>(loaded: &Loaded<B>, io: &mut IoBuf, assets: &[AssetData], wa
         let ptr = b
             .call(Export::AssetBuf, &[crate::Arg::U32(a.slot as u32), crate::Arg::U32(a.bytes.len() as u32)])
             .map_err(|f| anyhow!("{name}: dm_asset_buf: {}", fault_text(&f)))? as usize;
-        if ptr == 0 || ptr.checked_add(a.bytes.len()).map_or(true, |end| end > b.memory_size()) {
+        if ptr == 0 || ptr.checked_add(a.bytes.len()).is_none_or(|end| end > b.memory_size()) {
             bail!("module '{name}': asset slot {} – the module gave no buffer for it", a.slot);
         }
         b.write(ptr, &a.bytes);

@@ -30,7 +30,7 @@ pub fn pick_caption(dialog: &[Dialog]) -> Option<String> {
             (_, Some("bubble")) => 1,
             _ => 2,
         };
-        if best.as_ref().map_or(true, |(r, len, _)| (rank, n) < (*r, *len)) {
+        if best.as_ref().is_none_or(|(r, len, _)| (rank, n) < (*r, *len)) {
             best = Some((rank, n, t));
         }
     }

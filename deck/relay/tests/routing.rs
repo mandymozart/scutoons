@@ -51,7 +51,7 @@ async fn nothing(ws: &mut Socket) {
 async fn send(ws: &mut Socket, message: Message, to: Option<To>) {
     let mut e = Envelope::new("", message);
     e.to = to;
-    ws.send(Ws::Text(serde_json::to_string(&e).unwrap())).await.unwrap();
+    ws.send(Ws::Text(serde_json::to_string(&e).unwrap().into())).await.unwrap();
 }
 
 /// Connect, say hello, return the socket + the client id from `welcome`.
@@ -113,6 +113,18 @@ async fn routes_by_role_and_group() {
     assert!(matches!(a.message, Message::Panic(_)));
     assert_eq!(a.seq, b.seq, "one broadcast, one seq");
     nothing(&mut other).await;
+}
+
+/// A frame far larger than the relay's 4 KiB read buffer (a big `deck.graph` or `scene.sync`) arrives whole (#437).
+#[tokio::test]
+async fn a_frame_larger_than_the_read_buffer_arrives_whole() {
+    let port = start().await;
+    let (mut cond, _) = join(port, "BIG", Role::Conductor, None, Some("dev-token")).await;
+    let (mut out, _) = join(port, "BIG", Role::Output, None, None).await;
+    let id = "x".repeat(64 * relay::READ_BUFFER);
+    send(&mut cond, Message::Cue(Cue { id: id.clone(), actions: vec![] }), None).await;
+    let got = recv(&mut out).await;
+    assert!(matches!(got.message, Message::Cue(ref c) if c.id == id));
 }
 
 #[tokio::test]

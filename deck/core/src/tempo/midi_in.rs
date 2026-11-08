@@ -197,7 +197,7 @@ impl ClockIn {
 
     /// no tick for LOST_S (or none yet)
     pub fn lost(&self, now: f64) -> bool {
-        self.last.map_or(true, |l| now - l > LOST_S)
+        self.last.is_none_or(|l| now - l > LOST_S)
     }
 
     /// the clock's line – None below two ticks
