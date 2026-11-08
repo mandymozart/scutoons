@@ -143,7 +143,11 @@ final class CatalogValidator
     {
         $p = [];
         if ($kind === 'rigs' && (!$data instanceof stdClass || ($data->subject ?? null) !== $id)) $p[] = "rig $id: subject must be \"$id\"";
-        if (!$core) return $p;
+        if (!$core) {
+            // #412: a draft may name a module that is only a draft or not compiled yet (the publish asks again), not one that does not exist
+            $none = [];
+            return $kind === 'rigs' && $data instanceof stdClass ? [...$p, ...array_filter($this->policyModule($id, $data, $none), fn(string $m) => str_contains($m, 'is not in the catalog'))] : $p;
+        }
         $instrumentIds = [];
         $presetIds = [];
         if ($data instanceof stdClass && $kind === 'presets') {
