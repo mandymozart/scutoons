@@ -243,6 +243,7 @@ An input takes one link; an output feeds any number. Every control input can als
 | `fm` | cv, freq, ratio, index, gain | out | `attack`, `release` |
 | `seq` | rate | cv (audio: pitch Hz left, gate 0 / 1 right) | `steps` = MIDI notes (0 = rest), `division` (steps per beat), `gate`, `transpose`; on the tempo clock (step k from beat k / division, `rate` scales the division) unless it has a `bpm` of its own |
 | `walk` | spread, rate, glide | cv (audio: pitch Hz left, gate 0 / 1 right – seq's) | module `events` (#236, deck-events): a seeded random walk on a continuous pitch scale on the tempo clock – `seed` (the same seed, the same melody on every deck), `base` (Hz, 147), `octaves` (2), `length` (of a step, 1 = legato); `spread` 0 = the base held, 1 = ±`octaves`; `rate` = steps a beat (2); `glide` rides along |
+| `world` | – | events (event) | module `events` (#430): a source from outside as a node, cabled like a module's event output (`[[link]]`, a rig's `route`). `source` = `midi` · `generator`; `listen` = the names it lets through (`["midi.note"]`, a generator's `["music.note"]`); a generator's `patch` = a deck-events patch run by the node, its notes going down its cables only. An event input with no cable hears nothing |
 | `chapter_music` | gain | out | `toon`, `chapter`, `track` (default: the chapter's default track), `quality` = low · medium · high, `loop` |
 | `mixer` | in1–in4 (audio), gain1–gain4 | out | – |
 | `fft` | in (audio) | level, bass, mid, high (control, 0–1) | `release` (s) |
@@ -392,9 +393,15 @@ the beat + pink noise + the click (off until K) → mixer → FFT; test pattern 
 chapter's slices (cut on a bass hit snapped to the beat, every 6 s at the latest) → RGB shift → the caption overlay →
 screen. `scenes/test-pattern.toml` – the picture alone (no sound, no network). Both land in
 `/usr/share/deck/scenes` on the deck; `scene = "…"` in `/var/lib/deck/deck.toml` picks one.
+`scenes/module-walk.toml` and `scenes/module-analog.toml` (#406) are the module demos – the first scenes whose sound comes from
+compiled rig modules (`--features modules`, the wasm in `DECK_MODULES`; the X1 update ships `walk` and `analog` to
+`/usr/share/deck/modules`): **module-walk** = `module:walk` (a seeded melody on the tempo clock) → its `cv` (pitch Hz left, gate right) →
+an `fm` voice → the device, 96 BPM; **module-analog** = `module:walk`'s note events play `module:analog` over an event cable (#430: `walk.notes` → `synth.notes`), 84 BPM. Both quiet by default (voice gain 0.2, device volume 0.5), a pulsing test pattern as the
+picture. Built in like `madness`: `--scene module-walk` or F5; a build without the feature, or with the module missing, refuses them with the reason.
+Test: `cargo test -p deck-native --features modules --test modules` (`the_module_walk_scene_plays_the_walk_module`, `the_module_analog_scene_plays_walk_into_analog`).
 
 **The scene switcher (#250, `switcher.rs`):** **F5** lists the built-in scenes (`idle`, `madness`, `cathedral`, `catpope-analog`, `conductor`,
-`outlet`, `strobe`, `test-pattern`, `module-walk`) and every `*.toml` of the scenes folder (`--scenes DIR`, default
+`outlet`, `strobe`, `test-pattern`, `module-walk`, `module-analog`) and every `*.toml` of the scenes folder (`--scenes DIR`, default
 `/usr/share/deck/scenes`; a file named like a built-in is skipped); ↑ ↓ move, **Enter** loads the scene in place – the same
 path as a `--dev` reload, no process restart: the old show stops (audio graph dropped), the new one is built, the window
 stays (about 0.6 s on a PC) – **Esc** / F5 closes; the playing one is starred. A scene that doesn't build (a module this build lacks,

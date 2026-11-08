@@ -403,7 +403,11 @@ mod events {
     use deck_events::{Event, Time};
     use deck_module_host::EvKind;
 
-    const PAIR: &str = "[[node]]\nid=\"em\"\nkind=\"module:t_emitter\"\n[[node]]\nid=\"li\"\nkind=\"module:t_listener\"\n";
+    const PAIR: &str = "[[node]]\nid=\"em\"\nkind=\"module:t_emitter\"\n[[node]]\nid=\"li\"\nkind=\"module:t_listener\"\n\
+                        [[link]]\nfrom=\"em.echo\"\nto=\"li.notes\"\n[[link]]\nfrom=\"em.cues\"\nto=\"li.cues\"\n";
+    /// a world node feeding the listener: MIDI notes, the MIDI adapter's name, on the `notes` input
+    const WORLD_NOTES: &str = "[[node]]\nid=\"w\"\nkind=\"world\"\nsource=\"midi\"\nlisten=[\"midi.note\"]\n\
+                               [[node]]\nid=\"li\"\nkind=\"module:t_listener\"\n[[link]]\nfrom=\"w.events\"\nto=\"li.notes\"\n";
 
     #[test]
     fn module_events_reach_another_module_one_block_late_at_their_frame_with_the_length_expanded() {
@@ -425,6 +429,59 @@ mod events {
         // the named event: props by key – the listener's slot 0 is `x`, slot 1 `level`
         let cue = seen.events.iter().find(|(_, ev)| ev.kind() == Some(EvKind::Event)).unwrap();
         assert_eq!((cue.0, cue.1.frame, cue.1.name, cue.1.v[0], cue.1.v[1]), (q, 3, 0, 0.75, 0.25));
+    }
+
+    /// #430: the event host joins by cable: two sequencer + synth pairs in one graph stay apart, a listener with no cable
+    /// hears nothing, and a module's outputs stay out of the dispatcher's by-name routes
+    #[test]
+    fn two_pairs_stay_apart_and_an_input_with_no_cable_hears_nothing() {
+        let two = "[[node]]\nid=\"a\"\nkind=\"module:t_emitter\"\n[[node]]\nid=\"la\"\nkind=\"module:t_listener\"\n\
+                   [[node]]\nid=\"lone\"\nkind=\"module:t_listener\"\n[[node]]\nid=\"b\"\nkind=\"module:t_emitter\"\n\
+                   [[node]]\nid=\"lb\"\nkind=\"module:t_listener\"\n[[link]]\nfrom=\"a.echo\"\nto=\"la.notes\"\n[[link]]\nfrom=\"b.echo\"\nto=\"lb.notes\"\n";
+        let (mut e, h, src) = build(two, 2);
+        assert!(!h.events.has_routes(), "no cable names the world, so no route exists");
+        for _ in 0..4 {
+            quantum(&mut e, 2);
+        }
+        // the listeners are opened 2nd, 3rd and 5th: a's, the lone one, b's
+        let notes = |i: usize| src.seen(i).lock().unwrap().events.iter().filter(|(_, ev)| ev.kind() == Some(EvKind::NoteOn)).count();
+        assert_eq!((notes(1), notes(2), notes(4)), (1, 0, 1), "each its own emitter's one note, and silence for the uncabled");
+    }
+
+    /// #430: an event output cabled to two inputs reaches both; one input takes two cables
+    #[test]
+    fn event_cables_are_many_to_many() {
+        let text = "[[node]]\nid=\"a\"\nkind=\"module:t_emitter\"\n[[node]]\nid=\"b\"\nkind=\"module:t_emitter\"\n\
+                    [[node]]\nid=\"l1\"\nkind=\"module:t_listener\"\n[[node]]\nid=\"l2\"\nkind=\"module:t_listener\"\n\
+                    [[link]]\nfrom=\"a.echo\"\nto=\"l1.notes\"\n[[link]]\nfrom=\"a.echo\"\nto=\"l2.notes\"\n[[link]]\nfrom=\"b.echo\"\nto=\"l2.notes\"\n";
+        let (mut e, _h, src) = build(text, 2);
+        for _ in 0..4 {
+            quantum(&mut e, 2);
+        }
+        let notes = |i: usize| src.seen(i).lock().unwrap().events.iter().filter(|(_, ev)| ev.kind() == Some(EvKind::NoteOn)).count();
+        assert_eq!((notes(2), notes(3)), (1, 2));
+    }
+
+    /// #430: a `generator` world node runs its patch and sends its notes down its cables only; a MIDI world node's cable
+    /// joins the dispatcher (its route), and without a cable the same event name reaches nobody
+    #[test]
+    fn a_generator_world_node_plays_down_its_cables_only() {
+        const GENERATOR: &str = "source=\"generator\"\nlisten=[\"music.note\"]\npatch = { out = \"g.notes\", generator = [{ id = \"g\", kind = \"random_walk\", seed = 3, spread = 1.0, rate = 16.0 }] }\n";
+        let text = format!(
+            "[[node]]\nid=\"w\"\nkind=\"world\"\n{GENERATOR}[[node]]\nid=\"li\"\nkind=\"module:t_listener\"\n\
+             [[node]]\nid=\"off\"\nkind=\"module:t_listener\"\n[[link]]\nfrom=\"w.events\"\nto=\"li.notes\"\n"
+        );
+        let (mut e, h, src) = build(&text, 2);
+        assert!(!h.events.has_routes(), "a generator goes straight down its cables");
+        for _ in 0..64 {
+            quantum(&mut e, 2);
+        }
+        let seen = src.seen(0);
+        let seen = seen.lock().unwrap();
+        let ons = seen.events.iter().filter(|(_, ev)| ev.kind() == Some(EvKind::NoteOn)).count();
+        assert!(ons > 0, "the generator's notes arrive");
+        assert!(seen.events.iter().any(|(_, ev)| ev.kind() == Some(EvKind::NoteOff)), "their offs follow from their lengths");
+        assert!(src.seen(1).lock().unwrap().events.is_empty(), "the uncabled listener hears nothing");
     }
 
     #[test]
@@ -449,9 +506,9 @@ mod events {
 
     #[test]
     fn world_events_land_on_their_frame_with_the_off_from_their_duration_and_late_ones_at_zero() {
-        let (mut e, mut h, src) = build("[[node]]\nid=\"li\"\nkind=\"module:t_listener\"\n", 2);
+        let (mut e, mut h, src) = build(WORLD_NOTES, 2);
         let routing = h.events.take_routing();
-        let note = h.events.names.get("music.note").unwrap();
+        let note = h.events.names.get("midi.note").unwrap();
         let pitch = h.events.names.get("pitch").unwrap();
         let mut outlets = routing.outlets;
         let send = |outlets: &mut Vec<rtrb::Producer<Event>>, ev: Event| {
@@ -480,9 +537,9 @@ mod events {
 
     #[test]
     fn a_show_restart_goes_through_the_loader_lane_and_gets_the_held_notes_again() {
-        let (mut e, mut h, src) = build("[[node]]\nid=\"r\"\nkind=\"module:t_restarting\"\n", 2);
+        let (mut e, mut h, src) = build("[[node]]\nid=\"w\"\nkind=\"world\"\nsource=\"midi\"\nlisten=[\"midi.note\"]\n[[node]]\nid=\"r\"\nkind=\"module:t_restarting\"\n[[link]]\nfrom=\"w.events\"\nto=\"r.notes\"\n", 2);
         let routing = h.events.take_routing();
-        let note = h.events.names.get("music.note").unwrap();
+        let note = h.events.names.get("midi.note").unwrap();
         let mut outlets = routing.outlets;
         for &t in routing.table.targets(note) {
             outlets[t as usize].push(Event::new(note, Time::Seconds(10.0 / f64::from(RATE)))).unwrap();

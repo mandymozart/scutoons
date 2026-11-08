@@ -53,7 +53,10 @@
 					<rect class="box" x={n.x} y={n.y} width={n.w} height={n.h} />
 					<rect class="head" x={n.x} y={n.y} width={n.w} height="1.5" />
 					<text class="id" x={n.x + 0.5} y={n.y + 1}>{n.id}</text>
-					<text class="kind" x={n.x + n.w - 0.5} y={n.y + 1}>{n.kind}</text>
+					<text class="kind" x={n.x + n.w - 0.5} y={n.y + 1}>{n.world ? n.world.source : n.kind}</text>
+					{#if n.world}
+						<text class="port-name" x={n.x + 0.5} y={n.y + n.h - 0.25} data-testid="designer-world-filter">{n.world.listen.join(' ')}</text>
+					{/if}
 					{#each n.inputs as p (p.name)}
 						<circle class="port {p.type}" class:wired={p.wired} cx={p.x} cy={p.y} r="0.1875" />
 						<text class="port-name" x={p.x + 0.5} y={p.y + 0.25}>{p.name}</text>
@@ -104,6 +107,10 @@
 	.cable.video {
 		stroke: var(--primary-cyan);
 		stroke-width: 0.125;
+	}
+	.cable.event {
+		stroke-width: 0.125;
+		stroke-dasharray: 0.5 0.1875;
 	}
 	.cable.back {
 		stroke-dasharray: 0.0625 0.1875;

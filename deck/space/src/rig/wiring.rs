@@ -5,7 +5,7 @@
 //! it; the live values on the cables are the engine's analysis frame's (live-core `value(path)`, the native deck's
 //! value table), read by the paths named here.
 use super::Played;
-use crate::graph::{Domain, Graph, PortType};
+use crate::graph::{Domain, Graph, Kind, PortType};
 use crate::scene::Scene;
 use anyhow::Result;
 use serde::Serialize;
@@ -35,6 +35,16 @@ pub struct WireNode {
     pub outputs: Vec<WirePort>,
     /// the browser's engine plays it (false: a module the browser does not carry yet – no values on its cables there)
     pub played: bool,
+    /// a world node's source and name filter (#430)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub world: Option<WireWorld>,
+}
+
+/// What a world node shows (#430): where its events come from, and the names it lets through.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct WireWorld {
+    pub source: &'static str,
+    pub listen: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -67,6 +77,7 @@ fn port_type(t: PortType) -> &'static str {
         PortType::Audio => "audio",
         PortType::Control => "control",
         PortType::Video => "video",
+        PortType::Event => "event",
     }
 }
 
@@ -126,6 +137,13 @@ impl Played {
                 inputs: ports(n.kind.inputs()),
                 outputs: ports(n.kind.outputs()),
                 played: !self.engine.page.iter().any(|p| p.id == n.id),
+                world: (n.kind == Kind::World).then(|| crate::world::World::of(n)).transpose().ok().flatten().map(|w| WireWorld {
+                    source: match w.source {
+                        crate::world::Source::Midi => "midi",
+                        crate::world::Source::Generator => "generator",
+                    },
+                    listen: w.listen,
+                }),
             })
             .collect();
         // the scene's links come first in the graph's list, a module's bound outputs after them

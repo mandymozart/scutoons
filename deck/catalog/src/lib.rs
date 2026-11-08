@@ -330,45 +330,63 @@ impl Descriptor {
 
     /// A module's ports as the node graph numbers them (#342) – the one rule the module host binds by
     /// (deck-module-host's `Layout`) and the graph registers by (deck-space's `ModuleDef::of`): inputs = the audio inputs,
-    /// then the control inputs (each in declaration order), then the parameters (a parameter is also a control input);
-    /// outputs = the audio and control outputs in declaration order; a control output with a `path` is a target too.
-    /// An audio port carries its declared channels (a `cv` port and an undeclared one two). Event ports are no graph
-    /// ports (the event host routes them by name); video ports are skipped (no module host plays one yet).
+    /// then the control inputs (each in declaration order), then the parameters (a parameter is also a control input),
+    /// then the event inputs; outputs = the audio and control outputs in declaration order, then the event outputs; a
+    /// control output with a `path` is a target too. An audio port carries its declared channels (a `cv` port and an
+    /// undeclared one two). An event port is a cable end like any other (#430: event cables, many to many – the event host
+    /// joins by them), numbered last so the bound ports keep their places; video ports are skipped (no module host plays one yet).
     pub fn graph(&self) -> GraphPorts {
         let channels = |p: &PortDesc| match (p.ty, p.channels) {
             (PortType::Cv, _) | (_, None) => Some(Channels::Count(2)),
             (_, c) => c,
         };
-        let port = |p: &PortDesc, audio: bool| GraphPort { name: p.name.to_string(), audio, channels: if audio { channels(p) } else { None } };
+        let port = |p: &PortDesc| GraphPort {
+            name: p.name.to_string(),
+            ty: p.ty,
+            channels: matches!(p.ty, PortType::Audio | PortType::Cv).then(|| channels(p)).flatten(),
+            names: p.names.iter().map(|n| n.to_string()).collect(),
+        };
         let mut g = GraphPorts { inputs: Vec::new(), outputs: Vec::new(), targets: Vec::new() };
-        let mut control_in = Vec::new();
+        let (mut control_in, mut events_in, mut events_out) = (Vec::new(), Vec::new(), Vec::new());
         for p in self.ports.iter() {
             match (p.dir, p.ty) {
-                (Dir::In, PortType::Audio | PortType::Cv) => g.inputs.push(port(p, true)),
-                (Dir::In, PortType::Control) => control_in.push(port(p, false)),
-                (Dir::Out, PortType::Audio | PortType::Cv) => g.outputs.push(port(p, true)),
+                (Dir::In, PortType::Audio | PortType::Cv) => g.inputs.push(port(p)),
+                (Dir::In, PortType::Control) => control_in.push(port(p)),
+                (Dir::In, PortType::Event) => events_in.push(port(p)),
+                (Dir::Out, PortType::Audio | PortType::Cv) => g.outputs.push(port(p)),
                 (Dir::Out, PortType::Control) => {
                     if !p.path.is_empty() {
                         g.targets.push((g.outputs.len(), p.path.to_string(), p.mode));
                     }
-                    g.outputs.push(port(p, false));
+                    g.outputs.push(port(p));
                 }
+                (Dir::Out, PortType::Event) => events_out.push(port(p)),
                 _ => {}
             }
         }
         g.inputs.extend(control_in);
-        g.inputs.extend(self.params.iter().map(|p| GraphPort { name: p.name.to_string(), audio: false, channels: None }));
+        g.inputs.extend(self.params.iter().map(|p| GraphPort { name: p.name.to_string(), ty: PortType::Control, channels: None, names: Vec::new() }));
+        g.inputs.extend(events_in);
+        g.outputs.extend(events_out);
         g
     }
 }
 
-/// One graph port of a module: its name, whether it carries audio (else a control value) and – an audio port – its
-/// channels (None: a control port).
+/// One graph port of a module: its name, its type, an audio port's channels (None otherwise) and an event port's names
+/// (`music.note` …; what its cables can carry).
 #[derive(Debug, Clone, PartialEq)]
 pub struct GraphPort {
     pub name: String,
-    pub audio: bool,
+    pub ty: PortType,
     pub channels: Option<Channels>,
+    pub names: Vec<String>,
+}
+
+impl GraphPort {
+    /// it carries audio (a `cv` port is audio on the graph)
+    pub fn audio(&self) -> bool {
+        matches!(self.ty, PortType::Audio | PortType::Cv)
+    }
 }
 
 /// A module's graph ports (`Descriptor::graph`): inputs, outputs, and (graph output, path, mode) per control output

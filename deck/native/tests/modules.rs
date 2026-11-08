@@ -1,6 +1,6 @@
 //! The module host (#280, feature `modules`; module ABI v2 #342, #343): real wasm built with deck-module, run in
 //! wasmtime inside the engine. The `walk` module is proven against the built-in `walk` node through the whole engine;
-//! `walk` plays `analog` through the event host (module to module, by name); the fixture module misbehaves on request to
+//! `walk` plays `analog` through the event host (module to module, by cable, #430); the fixture module misbehaves on request to
 //! show that a panic never cuts the rest of the scene. The host's own cases (the io staging, a panic, a runaway loop,
 //! hostile imports, memory) are the conformance suite of deck-module-host, generic over its backend. The wasm is built
 //! here with the wasm32 target (`rustup target add wasm32-unknown-unknown`), into its own target dir.
@@ -97,7 +97,7 @@ fn a_module_is_read_checked_and_registered_without_running_it() {
     let kind = Kind::parse("module:walk").expect("registered");
     assert_eq!(kind, Kind::Module(l.kind));
     assert_eq!(kind.inputs().iter().map(|p| p.name).collect::<Vec<_>>(), ["spread", "rate", "glide", "base", "octaves", "length"]);
-    assert_eq!(kind.outputs().iter().map(|p| p.name).collect::<Vec<_>>(), ["cv"]);
+    assert_eq!(kind.outputs().iter().map(|p| p.name).collect::<Vec<_>>(), ["cv", "notes"], "its notes are an event port, numbered last (#430)");
     assert_eq!(deck_native::params::default_for(kind, "rate"), 2.0);
     let same = Library::global().load(&walk()).unwrap();
     assert!(std::sync::Arc::ptr_eq(&l, &same), "the compile is cached");
@@ -204,7 +204,7 @@ fn a_trapped_node_never_cuts_the_show() {
 }
 
 /// walk → analog (#343): the walk's note events reach the synth's note input through the engine's event host (module
-/// to module, by the name `music.note`) – a melody, the same every run, another with another seed
+/// to module, by its event cable) – a melody, the same every run, another with another seed
 #[test]
 fn the_walk_plays_the_analog_synth_through_note_events() {
     Library::global().load(&walk()).unwrap();
@@ -213,7 +213,7 @@ fn the_walk_plays_the_analog_synth_through_note_events() {
         Scene::parse(&format!(
             "[[node]]\nid=\"w\"\nkind=\"module:walk\"\nseed={seed}\nspread=1.0\nrate=3.0\n\
              [[node]]\nid=\"a\"\nkind=\"module:analog\"\n[[node]]\nid=\"out\"\nkind=\"audio_out\"\nvolume=1\n\
-             [[link]]\nfrom=\"a.out\"\nto=\"out.in\"\n"
+             [[link]]\nfrom=\"w.notes\"\nto=\"a.notes\"\n[[link]]\nfrom=\"a.out\"\nto=\"out.in\"\n"
         ))
         .unwrap()
     };
@@ -232,6 +232,24 @@ fn the_walk_plays_the_analog_synth_through_note_events() {
 fn the_module_walk_scene_plays_the_walk_module() {
     Library::global().load(&walk()).unwrap();
     let scene = Scene::parse(deck_native::switcher::builtin("module-walk").expect("a built-in scene")).unwrap();
+    assert!(modules::check_with(&scene, |f| f == "core").unwrap_err().to_string().contains("'modules'"));
+    let out = render(&scene, 4);
+    assert!(out.iter().all(|x| x.is_finite()), "finite samples");
+    let peak = out.iter().fold(0.0f32, |m, x| m.max(x.abs()));
+    assert!(peak > 0.02, "it plays: peak {peak}");
+    assert!(peak < 0.5, "quiet by default (the X1 plays to speakers or a mixer): peak {peak}");
+    let blocks: Vec<f32> = out.chunks(512 * 2).map(|b| b.iter().fold(0.0f32, |m, x| m.max(x.abs()))).collect();
+    assert!(blocks.iter().filter(|&&p| p > 0.01).count() > blocks.len() / 4, "sounds through the run");
+}
+
+/// #406: the demo scene `module-analog` (built in, the F5 list offers it): the walk module's `music.note` events reach the analog
+/// synth module's `notes` input by name – module to module, no cable. Parses, passes the module check, plays non-silent, quiet
+/// audio and keeps sounding. A build without the modules feature refuses it by name.
+#[test]
+fn the_module_analog_scene_plays_walk_into_analog() {
+    Library::global().load(&walk()).unwrap();
+    Library::global().load(&analog()).unwrap();
+    let scene = Scene::parse(deck_native::switcher::builtin("module-analog").expect("a built-in scene")).unwrap();
     assert!(modules::check_with(&scene, |f| f == "core").unwrap_err().to_string().contains("'modules'"));
     let out = render(&scene, 4);
     assert!(out.iter().all(|x| x.is_finite()), "finite samples");
@@ -305,8 +323,8 @@ fn a_module_is_a_node_with_channel_slices_and_control_outputs() {
     let g = v2_scene("");
     let fx = g.nodes.iter().position(|n| n.id == "fx").unwrap();
     let kind = g.nodes[fx].kind;
-    assert_eq!(kind.inputs().iter().map(|p| p.name).collect::<Vec<_>>(), ["in", "wide_in", "push", "mode", "bias", "work"]);
-    assert_eq!(kind.outputs().iter().map(|p| p.name).collect::<Vec<_>>(), ["out", "wide_out", "level", "tilt", "info"]);
+    assert_eq!(kind.inputs().iter().map(|p| p.name).collect::<Vec<_>>(), ["in", "wide_in", "push", "mode", "bias", "work", "notes"]);
+    assert_eq!(kind.outputs().iter().map(|p| p.name).collect::<Vec<_>>(), ["out", "wide_out", "level", "tilt", "info", "echo"]);
     assert_eq!(kind.inputs()[1].channels, Some(deck_catalog::Channels::Count(5)));
     let o2 = g.nodes.iter().position(|n| n.id == "o2").unwrap();
     let (mut e, _h) = engine_for(&g, 5);
@@ -454,15 +472,16 @@ fn a_trapped_module_restarts_in_a_show() {
     assert!(heard >= 1000, "the rebuilt instance plays ({heard} frames in {:?})", t.elapsed());
 }
 
-/// a note from the deck's events into the fixture's `notes`, its echo out as a deck-events note with its duration
+/// a note from the deck's events, through a MIDI world node's cable (#430), into the fixture's `notes`, its echo out as a
+/// deck-events note with its duration
 #[cfg(feature = "events")]
 #[test]
 fn a_module_takes_and_gives_events() {
     use deck_events::{Event, Time};
-    let g = v2_scene("");
+    let g = v2_scene("[[node]]\nid=\"w\"\nkind=\"world\"\nsource=\"midi\"\nlisten=[\"midi.note\"]\n[[link]]\nfrom=\"w.events\"\nto=\"fx.notes\"\n");
     let (mut e, mut h) = engine_for(&g, 5);
     let names = &h.events.names;
-    let (note, pitch) = (names.get("music.note").unwrap(), names.get("pitch").unwrap());
+    let (note, pitch) = (names.get("midi.note").unwrap(), names.get("pitch").unwrap());
     let routing = h.events.take_routing();
     let mut outlets = routing.outlets;
     // 120 bpm: beat 0.01 = frame 240, 0.02 beats long
@@ -495,7 +514,7 @@ fn the_stepseq_plays_the_analog_synth_and_a_slider_is_a_pitch() {
         Scene::parse(&format!(
             "[[node]]\nid=\"q\"\nkind=\"module:stepseq\"\nstep3={step3}\n\
              [[node]]\nid=\"a\"\nkind=\"module:analog\"\n[[node]]\nid=\"out\"\nkind=\"audio_out\"\nvolume=1\n\
-             [[link]]\nfrom=\"a.out\"\nto=\"out.in\"\n"
+             [[link]]\nfrom=\"q.notes\"\nto=\"a.notes\"\n[[link]]\nfrom=\"a.out\"\nto=\"out.in\"\n"
         ))
         .unwrap()
     };
@@ -525,6 +544,100 @@ fn the_stepseq_plays_the_analog_synth_and_a_slider_is_a_pitch() {
     let (low, high) = (key_of_third(0.25), key_of_third(0.75));
     assert_eq!(high[2] - low[2], 12.0, "an octave apart: {low:?} {high:?}");
     assert_eq!((low[0], low[1], low[3]), (high[0], high[1], high[3]), "the other steps do not move");
+}
+
+/// #430, the acceptance on the real modules: two stepseq + analog pairs in one graph stay apart – what the first synth plays
+/// does not change with the second sequencer – and a synth with no event cable stays silent
+#[test]
+fn two_sequencer_and_synth_pairs_stay_apart_and_a_synth_with_no_cable_stays_silent() {
+    Library::global().load(&stepseq()).unwrap();
+    Library::global().load(&analog()).unwrap();
+    let pairs = |other_base: f32, cable: bool| {
+        let notes = if cable { "[[link]]\nfrom=\"q1.notes\"\nto=\"a1.notes\"\n" } else { "" };
+        Scene::parse(&format!(
+            "[[node]]\nid=\"q1\"\nkind=\"module:stepseq\"\nbase=220.0\n[[node]]\nid=\"a1\"\nkind=\"module:analog\"\n\
+             [[node]]\nid=\"q2\"\nkind=\"module:stepseq\"\nbase={other_base}\n[[node]]\nid=\"a2\"\nkind=\"module:analog\"\n\
+             [[node]]\nid=\"out\"\nkind=\"audio_out\"\nvolume=1\n[[link]]\nfrom=\"a1.out\"\nto=\"out.in\"\n\
+             [[link]]\nfrom=\"q2.notes\"\nto=\"a2.notes\"\n{notes}"
+        ))
+        .unwrap()
+    };
+    let one = render(&pairs(880.0, true), 3);
+    let peak = one.iter().fold(0.0f32, |m, x| m.max(x.abs()));
+    assert!(peak > 0.05, "the first pair plays: peak {peak}");
+    assert_eq!(one, render(&pairs(110.0, true), 3), "what the other sequencer plays never reaches the first synth");
+    let silent = render(&pairs(880.0, false), 3);
+    assert!(silent.iter().all(|x| x.abs() < 1e-6), "a synth with no event cable hears nothing");
+}
+
+/// #430, the acceptance: a MIDI world node cabled to a synth plays it – the deck's `midi.note` events through the
+/// dispatcher's routes, on the world node's filter; the same events reach nothing without the cable
+#[cfg(feature = "events")]
+#[test]
+fn a_midi_world_node_cabled_to_a_synth_plays_it() {
+    use deck_events::Event;
+    Library::global().load(&analog()).unwrap();
+    let scene = |cable: bool| {
+        let link = if cable { "[[link]]\nfrom=\"w.events\"\nto=\"a.notes\"\n" } else { "" };
+        Scene::parse(&format!(
+            "[[node]]\nid=\"w\"\nkind=\"world\"\nsource=\"midi\"\nlisten=[\"midi.note\"]\n\
+             [[node]]\nid=\"a\"\nkind=\"module:analog\"\n[[node]]\nid=\"out\"\nkind=\"audio_out\"\nvolume=1\n\
+             [[link]]\nfrom=\"a.out\"\nto=\"out.in\"\n{link}"
+        ))
+        .unwrap()
+    };
+    let play = |cable: bool| {
+        let s = scene(cable);
+        modules::check(&s).unwrap();
+        let g = Graph::build(&s).unwrap();
+        let (mut e, mut h) = engine(&g, Build::detect(), Sequencing::InBlock, 2);
+        assert_eq!(h.events.has_routes(), cable, "only a cable makes a route");
+        let (note, pitch) = (h.events.names.event("midi.note").unwrap(), h.events.names.key("pitch").unwrap());
+        let routing = h.events.take_routing();
+        let mut outlets = routing.outlets;
+        for &t in routing.table.targets(note) {
+            outlets[t as usize].push(Event::now(note).with(pitch, 440.0)).unwrap();
+        }
+        let mut peak = 0.0f32;
+        for _ in 0..48_000 / 512 {
+            let mut buf = vec![0.0f32; 512 * 2];
+            e.render(&mut buf, 2, |x| x);
+            peak = buf.iter().fold(peak, |m, x| m.max(x.abs()));
+        }
+        peak
+    };
+    assert!(play(true) > 0.05, "the MIDI note plays the synth");
+    assert_eq!(play(false), 0.0, "without the cable nothing arrives");
+}
+
+/// #430: a note source as a silent track of a rig: stepseq on a track of its own (no strip, no outlet), its event cable to
+/// a synth's track as a rig `route` – and only that track plays
+#[test]
+fn a_note_source_is_a_silent_track_cabled_to_a_synth() {
+    Library::global().load(&stepseq()).unwrap();
+    Library::global().load(&analog()).unwrap();
+    let text = r#"
+        [rig]
+        subject = "character.silenttrack"
+        track = [{ id = "seq", instrument = "stepseq" }, { id = "synth", instrument = "analog" }]
+        route = [{ from = "seq:seq.notes", to = "synth:synth.notes" }]
+        [[instrument]]
+        id = "stepseq"
+        kind = "pad"
+        node = [{ id = "seq", kind = "module:stepseq" }]
+        [[instrument]]
+        id = "analog"
+        kind = "pad"
+        out = "synth.out"
+        node = [{ id = "synth", kind = "module:analog", volume = 0.6, f1_cutoff = 3200.0 }]
+    "#;
+    let b: deck_space::rig::Bundle = toml::from_str(text).unwrap();
+    let scene = b.rig.flatten(&b.library(), None, None).unwrap();
+    assert!(scene.links.iter().any(|l| l.from == "seq_seq.notes" && l.to == "synth_synth.notes"), "the event cable is in the played scene");
+    assert!(!scene.links.iter().any(|l| l.from.starts_with("seq_") && l.to.starts_with("mix")), "the silent track has no strip");
+    let out = render(&scene, 3);
+    let peak = out.iter().fold(0.0f32, |m, x| m.max(x.abs()));
+    assert!(peak > 0.02, "the synth plays the silent track's notes: peak {peak}");
 }
 
 /// #417: `rig:catpope-analog` – catpope's rig with the analog module as one more track, the stepseq module playing it – in

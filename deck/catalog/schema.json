@@ -52,7 +52,7 @@
           "type": "array"
         },
         "module": {
-          "description": "a code rig's policy module: its descriptor (the `module:<id>` document's, #408)",
+          "description": "the modules it plays: a code rig's policy (#408), a track's module (#430) – the `module:<id>` documents' descriptors",
           "items": {
             "$ref": "#/$defs/Descriptor"
           },
@@ -351,8 +351,11 @@
           "type": "array"
         },
         "out": {
-          "description": "the track's output: an audio output `node.port` (a bare node = its `out`)",
-          "type": "string"
+          "description": "the track's output: an audio output `node.port` (a bare node = its `out`). None (#430): a silent track – a note\nsource (a step sequencer, a world node) with no strip and no outlet, wired by event cables",
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "rights": {
           "$ref": "#/$defs/Rights",
@@ -378,8 +381,7 @@
       "required": [
         "id",
         "kind",
-        "node",
-        "out"
+        "node"
       ],
       "type": "object"
     },
@@ -926,7 +928,7 @@
     },
     "Route": {
       "additionalProperties": false,
-      "description": "`from` / `to` are `<track>:<node>.<port>`; `to` may be `being:<input>` (the space node's hue, glow, light, pulse).\nEvery track reaches the master through its mixer strip; an audio route is a send into another track's audio input\n(an fx track; `scale` = its level), a control route a modulation.",
+      "description": "`from` / `to` are `<track>:<node>.<port>`; `to` may be `being:<input>` (the space node's hue, glow, light, pulse).\nEvery sounding track reaches the master through its mixer strip; an audio route is a send into another track's audio\ninput (an fx track; `scale` = its level), a control route a modulation, an event route an event cable (#430: many to\nmany, a note source's silent track to a synth's track).",
       "properties": {
         "from": {
           "type": "string"

@@ -107,6 +107,9 @@ impl Rig {
                     if t.mute {
                         bail!("{at} – the track is muted, so it has no strip");
                     }
+                    if lib.instrument(&t.instrument)?.out.is_none() {
+                        bail!("{at} – the track is silent (no `out`), so it has no strip");
+                    }
                     Member::Gain
                 }
                 "@preset" => {

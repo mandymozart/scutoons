@@ -151,8 +151,9 @@ fn one() -> f32 {
 }
 
 /// `from` / `to` are `<track>:<node>.<port>`; `to` may be `being:<input>` (the space node's hue, glow, light, pulse).
-/// Every track reaches the master through its mixer strip; an audio route is a send into another track's audio input
-/// (an fx track; `scale` = its level), a control route a modulation.
+/// Every sounding track reaches the master through its mixer strip; an audio route is a send into another track's audio
+/// input (an fx track; `scale` = its level), a control route a modulation, an event route an event cable (#430: many to
+/// many, a note source's silent track to a synth's track).
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -198,6 +199,15 @@ impl Library {
     pub fn with_modules(mut self, modules: impl IntoIterator<Item = deck_catalog::Descriptor>) -> Library {
         self.modules.extend(modules.into_iter().map(|d| (d.name.to_string(), d)));
         self
+    }
+
+    /// the library's modules registered as node kinds (`module:<name>`), so its rigs build as graphs anywhere – the
+    /// browser's, the build service's and the headless host's validation (a loaded module's registration is the same
+    /// kind). Done when a checked rig is played: a refused draft's descriptor must never become the newest of its name.
+    pub(crate) fn register_modules(&self) {
+        for d in self.modules.values() {
+            crate::modreg::register(&d.name, &crate::modreg::ModuleDef::of(d));
+        }
     }
 
     pub fn instrument(&self, id: &str) -> Result<&Instrument> {
@@ -294,6 +304,7 @@ impl Rig {
     /// `play` with presets chosen per track (`chosen`: track → preset – a code rig's `@preset` outputs, #410): a choice
     /// wins over the tables. A code rig's owned inputs (a `set` / `mul` target's) lose their preset values (policy.rs).
     pub fn play_with(&self, lib: &Library, persona: Option<&str>, mood: Option<&str>, chosen: &BTreeMap<String, String>) -> Result<Vec<TrackPatch>> {
+        lib.register_modules();
         let variants = self.variants(persona, mood);
         let owned = self.owned(lib)?;
         let mut out = Vec::new();
@@ -336,3 +347,6 @@ impl Rig {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod event_tests;

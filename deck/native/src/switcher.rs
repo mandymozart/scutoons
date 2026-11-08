@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 pub const SCENES_DIR: &str = "/usr/share/deck/scenes";
 
 /// the built-in scenes in the list's order (the first is the stage's default)
-pub const BUILTIN: [&str; 11] = ["idle", "madness", "cathedral", "catpope-analog", "conductor", "outlet", "strobe", "pulse-thunderwash", "lamps-off", "test-pattern", "module-walk"];
+pub const BUILTIN: [&str; 12] = ["idle", "madness", "cathedral", "catpope-analog", "conductor", "outlet", "strobe", "pulse-thunderwash", "lamps-off", "test-pattern", "module-walk", "module-analog"];
 
 /// the source of a built-in scene by name
 pub fn builtin(name: &str) -> Option<&'static str> {
@@ -23,8 +23,7 @@ pub fn builtin(name: &str) -> Option<&'static str> {
         "pulse-thunderwash" => include_str!("../scenes/pulse-thunderwash.toml"),
         "lamps-off" => include_str!("../scenes/lamps-off.toml"),
         "test-pattern" => scene::TEST_PATTERN_SCENE,
-        "module-walk" => include_str!("../scenes/module-walk.toml"), // #406: the walk module plays an FM voice (needs the modules build)
-        _ => return None,
+        _ => return crate::demo_scenes::get(name), // #406: module-walk, module-analog
     })
 }
 
@@ -256,10 +255,10 @@ mod tests {
         for _ in 0..20 {
             s.key(Key::Down);
         }
-        assert_eq!(s.key(Key::Enter).unwrap().value, "module-walk");
+        assert_eq!(s.key(Key::Enter).unwrap().value, "module-analog");
         let (lines, cursor) = s.lines(Some("cathedral"));
-        assert!(lines[cursor].starts_with('>') && lines[cursor].contains("MODULE-WALK"));
-        assert!(lines.iter().any(|l| l.contains("*CATHEDRAL")));
+        assert!(lines[cursor].starts_with('>') && lines[cursor].contains("MODULE-ANALOG"));
+        assert!(s.lines(Some("module-analog")).0.iter().any(|l| l.contains("*MODULE-ANALOG"))); // the playing scene is starred (cathedral has scrolled out of the 9 visible lines)
         assert!(lines.len() <= 13 && lines.iter().all(|l| l.chars().count() <= WIDTH));
     }
 

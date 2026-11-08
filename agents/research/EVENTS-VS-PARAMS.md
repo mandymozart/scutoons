@@ -1,4 +1,4 @@
-Status 2026-11-08: research for W2 of MODULE-WIRING.md (#203, #425), undecided. Recommendation: every event inside a document is a visible cable, the world's events enter through world nodes, and an input with no cable hears nothing. The owner decides.
+Status 2026-11-08: research for W2 of MODULE-WIRING.md (#203, #425); W2 built as recommended (#430: MIDI and generator world nodes; the live MIDI-in adapter is a separate ticket). Recommendation: every event inside a document is a visible cable, the world's events enter through world nodes, and an input with no cable hears nothing. The owner decides.
 
 # EVENTS-VS-PARAMS – how Unreal and TouchDesigner handle events against parameters, and what W2 should take
 
