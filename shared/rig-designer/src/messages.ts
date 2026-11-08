@@ -110,7 +110,14 @@ export const DESIGNER_MESSAGES = {
 		'designer.assign_publish': 'Veröffentlichen',
 		'designer.assign_publish_title': 'Veröffentlicht den gespeicherten Entwurf: die Decks spielen ihn dann',
 		'designer.assign_publish_confirm': 'rig:{subject} veröffentlichen? Die Decks spielen ihn dann für alle.',
-		'designer.assign_published': 'rig:{subject} veröffentlicht'
+		'designer.assign_published': 'rig:{subject} veröffentlicht',
+		'designer.assign_code': 'Code',
+		'designer.assign_driven': 'Vom Code gesteuert ({output}, {mode}): Das ändert die Policy, nicht dieses Formular.',
+		'designer.assign_owned': 'Vom Code gesteuert',
+		'designer.assign_owned_hint': 'Diese Eingänge schreibt allein die Policy module:{module}; ein Preset- oder Stimmungswert dort gilt nicht.',
+		'designer.assign_input': 'Eingang',
+		'designer.assign_output': 'Policy-Ausgang',
+		'designer.assign_mode': 'Art'
 	},
 	en: {
 		'designer.tabs': 'Designer',
@@ -219,7 +226,14 @@ export const DESIGNER_MESSAGES = {
 		'designer.assign_publish': 'Publish',
 		'designer.assign_publish_title': 'Publishes the saved draft: the decks play it then',
 		'designer.assign_publish_confirm': 'Publish rig:{subject}? The decks play it for everyone then.',
-		'designer.assign_published': 'rig:{subject} published'
+		'designer.assign_published': 'rig:{subject} published',
+		'designer.assign_code': 'code',
+		'designer.assign_driven': 'Driven by code ({output}, {mode}): change it in the policy, not in this form.',
+		'designer.assign_owned': 'Driven by code',
+		'designer.assign_owned_hint': 'Only the policy module:{module} writes these inputs; a preset\'s or a mood\'s value there does not count.',
+		'designer.assign_input': 'Input',
+		'designer.assign_output': 'Policy output',
+		'designer.assign_mode': 'Mode'
 	}
 } as const;
 

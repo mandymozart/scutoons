@@ -171,6 +171,28 @@ async fn the_walk_module_compiles_and_the_rest_is_refused() {
     let stub = compiler.compile(&files(scutoons_build::compile::STUB_SOURCE)).await.unwrap_or_else(|e| panic!("the stub does not compile: {e:?}"));
     assert_eq!((stub.descriptor["abi"].as_u64(), stub.descriptor["name"].as_str(), stub.warnings.len()), (Some(2), Some("stub"), 0));
 
+    // 5a'. a rig's policy template (#412): what "New policy" starts from builds clean against the SDK, plays strictly, and
+    // the rig that names it passes the core's checks with the descriptor that came out (the same as a declarative rig's)
+    let catpope = deck_space::rig::Bundle::core("character.catpope").unwrap().unwrap();
+    let face = catpope.rig.describe(&catpope.library()).unwrap();
+    let policy = compiler.compile(&deck_space::rig::template::rig_policy_template(&face, "catpope_policy").into_iter().collect()).await.unwrap_or_else(|e| panic!("the policy template does not compile: {e:?}"));
+    assert_eq!((policy.descriptor["abi"].as_u64(), policy.descriptor["name"].as_str(), policy.descriptor["domain"].as_str()), (Some(2), Some("catpope_policy"), Some("control")));
+    assert!(policy.warnings.is_empty(), "{:?}", policy.warnings);
+    let moods: Vec<serde_json::Value> = catpope.rig.moods.keys().map(|m| serde_json::json!(m)).collect();
+    assert_eq!(policy.descriptor["moods"].as_array().unwrap(), &moods);
+    let mut code_rig = catpope.rig.clone();
+    code_rig.policy = Some(deck_space::rig::Policy { module: "catpope_policy".to_string(), seed: None, values: Default::default() });
+    let request = deck_space::rig::validate::Request {
+        kind: "rigs".to_string(),
+        id: code_rig.subject.clone(),
+        document: serde_json::to_value(&code_rig).unwrap(),
+        instruments: catpope.instruments.iter().map(|i| serde_json::to_value(i).unwrap()).collect(),
+        presets: catpope.presets.iter().map(|p| serde_json::to_value(p).unwrap()).collect(),
+        modules: vec![policy.descriptor.clone()],
+    };
+    let answer = request.answer().unwrap();
+    assert_eq!((answer.problems.as_slice(), answer.warnings.as_slice()), (&[][..] as &[String], &[][..] as &[String]), "the template leaves the rig valid");
+
     // 5b. the determinism rules (#344, ABI-V2 §6): the stored modules of the repository compile, play strictly, and say nothing
     // about std's float functions (walk and analog use libm); the conformance fixture is a module like any other
     assert!(built.warnings.iter().all(|w| !w.message.contains("disallowed")), "walk uses deck_module::math: {:?}", built.warnings);

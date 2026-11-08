@@ -27,6 +27,7 @@ pub mod horizon;
 pub mod instrument;
 pub mod policy;
 pub mod preset;
+pub mod template;
 pub mod validate;
 pub mod wiring;
 

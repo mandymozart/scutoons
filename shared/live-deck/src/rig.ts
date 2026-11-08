@@ -1,6 +1,5 @@
-// rig.ts (#191, #368): the core's answers about what a deck plays, as JSON types – no rule. The rig is played, replayed on
-// a mood, diffed and its facts (streamed paths, knob targets, sticks) are worked out in Rust once (deck-space's rig and
-// deck modules, space-web `DeckState`); the page applies the turns (deck.ts). #282: what plays, wired (wiring.ts).
+// rig.ts (#191, #368): the core's answers about what a deck plays, as JSON types – no rule: the rig is played, replayed and its
+// facts are worked out in Rust once (deck-space's rig and deck modules); the page applies the turns (deck.ts). #282: wiring.ts.
 export type { RigWiring, WireLink, WireNode, WirePort, WireType } from './wiring.ts';
 /** how a streamed path moves (deck-space `rig::Stream`; its epsilon is the core's) */
 export type PathKind = { input: [min: number, max: number] } | 'audio' | 'control' | 'shape';
@@ -34,6 +33,7 @@ export interface RigPlayed {
 		/** the nodes of modules the browser does not carry yet (chapter_music, module:*) – not played */
 		page: { id: string; kind: string; [param: string]: unknown }[];
 		dropped: { from: string; to: string; scale: number; offset: number }[];
+		note?: string; // what the browser does not play of it, in the core's words
 	};
 	/** every path the deck streams, with how it moves */
 	streamed: [string, PathKind][];

@@ -183,6 +183,8 @@ export interface SpaceModule {
 	DeckPush: new (api: string, cdn: string) => DeckPushView;
 	rig_coverage(request: string): string;
 	rig_catalog_bundle(request: string): string;
+	rig_face(bundle: string): string;
+	rig_policy_template(request: string): string;
 }
 
 const modules = new Map<string, Promise<SpaceModule>>();

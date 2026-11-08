@@ -207,6 +207,20 @@ pub fn rig_catalog_bundle(request: &str) -> Result<String, JsValue> {
     deck_space::rig::assign::catalog_bundle_json(request).map_err(|e| JsValue::from_str(&format!("{e:#}")))
 }
 
+/// #412: a bundle's face (deck-space `Rig::describe`): its tracks and what a code rig's policy owns of them, as JSON – the
+/// Assignment tab marks the rows from it.
+#[wasm_bindgen]
+pub fn rig_face(bundle: &str) -> Result<String, JsValue> {
+    deck_space::rig::face::face_json(bundle).map_err(|e| JsValue::from_str(&format!("{e:#}")))
+}
+
+/// #412: a rig's policy template (deck-space `rig_policy_template`): `request` = `{ module, rig, instruments, presets }` as
+/// JSON (the rig document and the catalog's documents), the answer `{ "lib.rs": … }` – the first files of `module:<module>`.
+#[wasm_bindgen]
+pub fn rig_policy_template(request: &str) -> Result<String, JsValue> {
+    deck_space::rig::template::template_json(request).map_err(|e| JsValue::from_str(&format!("{e:#}")))
+}
+
 #[wasm_bindgen]
 pub struct SpaceView {
     space: Space,

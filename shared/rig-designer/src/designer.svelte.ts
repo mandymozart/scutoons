@@ -41,6 +41,9 @@ export class RigDesigner {
 	/** the open module is a derivative of this one (#350); kept on every save */
 	origin = $state<string | null>(null);
 
+	/** told after a successful compile (the service wrote the descriptor): a rig page's deck hears its policy anew (#412) */
+	onCompiled: ((id: string) => void) | null = null;
+
 	private readonly buffer = new ConsoleBuffer();
 	private seq = 0;
 
@@ -238,6 +241,7 @@ export class RigDesigner {
 				for (const line of detailLines(r.descriptor)) this.log('info', line);
 				this.log('ok', m['designer.log_ok']({ hash: r.hash.slice(0, 12), bytes: r.wasm.bytes }));
 				this.log('ok', headline(r.descriptor));
+				this.onCompiled?.(id);
 				return true;
 			}
 			if (r.reason === 'errors') {
