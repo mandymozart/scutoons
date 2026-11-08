@@ -27,7 +27,7 @@ pub struct Bundle {
     pub instruments: Vec<Instrument>,
     #[serde(default, rename = "preset")]
     pub presets: Vec<Preset>,
-    /// a code rig's policy module: its descriptor (the `module:<id>` document's, #408)
+    /// the modules it plays: a code rig's policy (#408), a track's module (#430) – the `module:<id>` documents' descriptors
     #[serde(default, rename = "module", skip_serializing_if = "Vec::is_empty")]
     pub modules: Vec<deck_catalog::Descriptor>,
 }

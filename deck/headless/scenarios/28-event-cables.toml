@@ -1,0 +1,115 @@
+name = "event cables: two sequencer + synth pairs, a silent track, a MIDI world node"
+about = "#430 (W2 of research/MODULE-WIRING.md, research/EVENTS-VS-PARAMS.md §5): module-to-module events are cables, written in a rig's `route`, in the core's graph; the event host joins by them and has no by-name fallback. A note source is a silent track (no strip, no outlet). A world node holds its name filter and is cabled like a module. A cable between event and non-event is refused with a sentence. This host has no module runtime (#290), so this is what the core builds; the sound is deck-native's tests/modules.rs"
+
+# two sequencer + synth pairs stay apart: each sequencer is a silent track, and only its own cable leaves it
+[[step]]
+do = "event_rig"
+[step.with.rig]
+subject = "character.two"
+track = [{ id = "a_seq", instrument = "seq" }, { id = "a_synth", instrument = "synth" }, { id = "b_seq", instrument = "seq" }, { id = "b_synth", instrument = "synth" }, { id = "lone", instrument = "synth" }]
+route = [{ from = "a_seq:seq.notes", to = "a_synth:synth.notes" }, { from = "b_seq:seq.notes", to = "b_synth:synth.notes" }]
+[[step.with.instrument]]
+id = "seq"
+kind = "pad"
+node = [{ id = "seq", kind = "module:hl_seq" }]
+[[step.with.instrument]]
+id = "synth"
+kind = "pad"
+out = "synth.out"
+node = [{ id = "synth", kind = "module:hl_synth" }]
+[[step.with.module]]
+name = "hl_seq"
+domain = "control"
+abi = 2
+ports = [{ name = "notes", dir = "out", type = "event", names = ["music.note"] }]
+[[step.with.module]]
+name = "hl_synth"
+abi = 2
+ports = [{ name = "notes", dir = "in", type = "event", names = ["music.note"] }, { name = "out", dir = "out", type = "audio", channels = 2 }]
+[step.expect]
+problems = []
+cables = ["a_seq_seq.notes → a_synth_synth.notes", "b_seq_seq.notes → b_synth_synth.notes"]
+deaf = ["lone_synth.notes"]
+silent = ["a_seq", "b_seq"]
+strips = ["a_synth_synth.out", "b_synth_synth.out", "lone_synth.out"]
+
+# a MIDI world node on a silent track, cabled to a synth: the name filter is the node's, the cable the only thing that names it
+[[step]]
+do = "event_rig"
+[step.with.rig]
+subject = "character.keys"
+track = [{ id = "keys", instrument = "keys" }, { id = "synth", instrument = "synth" }]
+route = [{ from = "keys:midi.events", to = "synth:synth.notes" }]
+[[step.with.instrument]]
+id = "keys"
+kind = "pad"
+node = [{ id = "midi", kind = "world", source = "midi", listen = ["midi.note"] }]
+[[step.with.instrument]]
+id = "synth"
+kind = "pad"
+out = "synth.out"
+node = [{ id = "synth", kind = "module:hl_synth" }]
+[[step.with.module]]
+name = "hl_synth"
+abi = 2
+ports = [{ name = "notes", dir = "in", type = "event", names = ["music.note"] }, { name = "out", dir = "out", type = "audio", channels = 2 }]
+[step.expect]
+problems = []
+cables = ["keys_midi.events → synth_synth.notes"]
+deaf = []
+silent = ["keys"]
+world = { keys_midi = { source = "midi", listen = ["midi.note"] } }
+
+# a generator world node holds its deck-events patch; its notes go down its cable only (no route through the dispatcher)
+[[step]]
+do = "event_rig"
+[step.with.rig]
+subject = "character.gen"
+track = [{ id = "gen", instrument = "gen" }, { id = "synth", instrument = "synth" }]
+route = [{ from = "gen:walk.events", to = "synth:synth.notes" }]
+[[step.with.instrument]]
+id = "gen"
+kind = "pad"
+node = [{ id = "walk", kind = "world", source = "generator", listen = ["music.note"], patch = { out = "g.notes", generator = [{ id = "g", kind = "random_walk", seed = 3 }] } }]
+[[step.with.instrument]]
+id = "synth"
+kind = "pad"
+out = "synth.out"
+node = [{ id = "synth", kind = "module:hl_synth" }]
+[[step.with.module]]
+name = "hl_synth"
+abi = 2
+ports = [{ name = "notes", dir = "in", type = "event", names = ["music.note"] }, { name = "out", dir = "out", type = "audio", channels = 2 }]
+[step.expect]
+problems = []
+cables = ["gen_walk.events → synth_synth.notes"]
+world = { gen_walk = { source = "generator", listen = ["music.note"] } }
+
+# a cable between an event port and a control value is the core's refusal, with its sentence
+[[step]]
+do = "event_rig"
+[step.with.rig]
+subject = "character.bad"
+track = [{ id = "s", instrument = "seq" }, { id = "t", instrument = "synth" }]
+route = [{ from = "s:seq.notes", to = "t:synth.volume" }]
+[[step.with.instrument]]
+id = "seq"
+kind = "pad"
+node = [{ id = "seq", kind = "module:hl_seq" }]
+[[step.with.instrument]]
+id = "synth"
+kind = "pad"
+out = "synth.out"
+node = [{ id = "synth", kind = "module:hl_synth2" }]
+[[step.with.module]]
+name = "hl_seq"
+domain = "control"
+abi = 2
+ports = [{ name = "notes", dir = "out", type = "event", names = ["music.note"] }]
+[[step.with.module]]
+name = "hl_synth2"
+abi = 2
+params = [{ name = "volume", min = 0.0, max = 1.0, default = 0.5 }]
+ports = [{ name = "notes", dir = "in", type = "event", names = ["music.note"] }, { name = "out", dir = "out", type = "audio", channels = 2 }]
+[step.expect]
+problem = { contains = "'notes' is an event port and 'volume' is a control value" }

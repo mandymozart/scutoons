@@ -9,6 +9,14 @@ const DECK = JSON.parse(readFileSync(new URL('../../live-deck/test/fixtures/deck
 const CATPOPE = DECK.catpope.wiring;
 const byId = (l: ReturnType<typeof layoutGraph>, id: string) => l.nodes.find((n) => n.id === id)!;
 
+test('a world node keeps the source and the filter the core gave it (#430)', () => {
+	const l = layoutGraph({
+		nodes: [{ id: 'keys', kind: 'world', track: 'keys', depth: 0, inputs: [], outputs: [{ name: 'events', type: 'event' }], played: true, world: { source: 'midi', listen: ['midi.note'] } }],
+		links: []
+	});
+	assert.deepEqual(l.nodes[0].world, { source: 'midi', listen: ['midi.note'] });
+});
+
 test('a column per depth, the nodes of a column one under the other without overlapping', () => {
 	const l = layoutGraph(CATPOPE);
 	assert.equal(l.nodes.length, CATPOPE.nodes.length);

@@ -161,7 +161,7 @@ impl<B: Backend + Send + 'static> ModuleInstance for deck_module_host::Instance<
 pub fn register(desc: &deck_catalog::Descriptor, layout: &Layout) -> ModuleKind {
     // deck-space's ModuleDef::of numbers the ports by the catalog's rule – the one the host's layout binds by
     let def = ModuleDef::of(desc);
-    debug_assert_eq!(def.inputs.len(), layout.in_ports.len(), "the graph and the host number a module's ports alike");
+    debug_assert_eq!(def.inputs.iter().filter(|p| p.ty != deck_space::graph::PortType::Event).count(), layout.in_ports.len(), "the graph and the host number a module's ports alike");
     modreg::register(&desc.name, &def)
 }
 

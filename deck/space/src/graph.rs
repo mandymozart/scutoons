@@ -1,10 +1,10 @@
 //! The node graph core (CYBERDECKS.md §8, ossia score's model): nodes with typed ports – video (a GPU texture), audio
-//! (a stereo block), control (one f32 per frame) – checked and ordered once at load. Each kind runs in one domain:
+//! (a stereo block), control (one f32 per frame), event (#430: timed events, many to many, the event host's) – checked and ordered once at load. Each kind runs in one domain:
 //! video nodes on the render thread per frame, audio nodes in the realtime callback per block, control nodes on the
 //! frame thread. Control links into audio nodes cross threads as atomics (audio::Param); the FFT is an audio node with
 //! control outputs (its samples cross through a lock-free ring).
 use crate::modreg::{self, ModuleKind};
-use crate::scene::{split_ref, Scene};
+use crate::scene::{split_ref, LinkDef, Scene};
 use anyhow::{bail, Result};
 use std::collections::HashMap;
 
@@ -13,6 +13,8 @@ pub enum PortType {
     Video,
     Audio,
     Control,
+    /// #430: a cable the engine's event host joins – many to many, one block late between modules, so it orders nothing
+    Event,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -29,6 +31,8 @@ pub struct Port {
     /// an audio port's channel count from the catalog (`any` = what the links carry, plan 2.6); None = not declared (a
     /// module's ports: the stereo pair of ABI v1)
     pub channels: Option<deck_catalog::Channels>,
+    /// an event port's names: what its cables can carry (none for a built-in's port: a world node's filter is its `listen`)
+    pub names: &'static [&'static str],
 }
 
 /// Every node kind the stage knows, built or not – a kind's implementation lives in its module (a cargo feature, #185:
@@ -95,6 +99,8 @@ pub enum Kind {
     Downmix,
     /// the explicit loop: `in` one block late
     Feedback,
+    /// #430: a source from outside as a node (world.rs): its `source`, its name filter `listen`, one event output
+    World,
     /// control helpers (the catalog's `internal` scope, #319): a one-pole smoother over `time` s, a product, a sum – what
     /// the rig lowering writes (a mixer strip's gain is a `mul`); no author places them, so they are not in `ALL`
     Smooth,
@@ -107,7 +113,7 @@ pub enum Kind {
 
 impl Kind {
     /// every kind with its name in a scene: the `graph` kinds (`ALL`), then the internal control helpers
-    const NAMES: [(&'static str, Kind); 28] = [
+    const NAMES: [(&'static str, Kind); 29] = [
         ("test_pattern", Kind::TestPattern),
         ("shader", Kind::Shader),
         ("screen", Kind::Screen),
@@ -133,15 +139,16 @@ impl Kind {
         ("pan", Kind::Pan),
         ("downmix", Kind::Downmix),
         ("feedback", Kind::Feedback),
+        ("world", Kind::World),
         ("smooth", Kind::Smooth),
         ("mul", Kind::Mul),
         ("add", Kind::Add),
     ];
     /// the `graph` kinds – what an author places (the catalog's `graph` scope, in its order)
-    pub const ALL: [Kind; 25] = {
-        let mut all = [Kind::Screen; 25];
+    pub const ALL: [Kind; 26] = {
+        let mut all = [Kind::Screen; 26];
         let mut i = 0;
-        while i < 25 {
+        while i < 26 {
             all[i] = Kind::NAMES[i].1;
             i += 1;
         }
@@ -197,9 +204,11 @@ impl Kind {
                         channels: p.channels,
                         ty: match p.ty {
                             T::Audio | T::Cv => PortType::Audio,
-                            T::Control | T::Event => PortType::Control,
+                            T::Control => PortType::Control,
+                            T::Event => PortType::Event,
                             T::Video => PortType::Video,
                         },
+                        names: &[],
                     })
                     .collect()
             };
@@ -294,8 +303,8 @@ pub struct Link {
 pub const MAX_CHANNELS: usize = 32;
 
 /// A checked graph: every link joins an output to an input of the same type, a control input has at most one link, an
-/// audio input sums its links (in the scene's order), no cycles but through a `feedback` node; `order` is a
-/// topological order (sources first).
+/// audio input sums its links (in the scene's order), an event input takes any number of event cables (#430: each once,
+/// with a name in common – world.rs), no cycles but through a `feedback` node; `order` is a topological order (sources first).
 /// A module's control outputs with a `path` (ABI-V2 §5) are bound here: a path that names a node of the scene –
 /// `<node>.<port>`, or `<track>:<node>.<port>` for the flattened rig's `<track>_<node>` – becomes a control link from the
 /// output to that input (mode `set`: the output alone; `add`: the target's own value + the output; `mul`: its own value ×
@@ -326,6 +335,9 @@ impl Graph {
             }
             nodes.push(Node { id: n.id.clone(), kind, params: n.params.clone() });
         }
+        for n in nodes.iter().filter(|n| n.kind == Kind::World) {
+            crate::world::World::of(n)?;
+        }
         for sink in [Kind::Screen, Kind::AudioOut, Kind::Tempo, Kind::Space, Kind::Outlet] {
             if nodes.iter().filter(|n| n.kind == sink).count() > 1 {
                 bail!("a scene has at most one {sink:?} node");
@@ -345,10 +357,20 @@ impl Graph {
             };
             let (fty, tty) = (nodes[fi].kind.outputs()[fp].ty, nodes[ti].kind.inputs()[tp].ty);
             if fty != tty {
+                if fty == PortType::Event || tty == PortType::Event {
+                    bail!(
+                        "link {} → {}: '{fport}' is {} and '{tport}' is {} – an event cable joins two event ports; a level becoming an event (or the reverse) needs a node of its own",
+                        l.from, l.to, type_words(fty), type_words(tty)
+                    );
+                }
                 bail!("link {} → {}: a {fty:?} output cannot feed a {tty:?} input", l.from, l.to);
             }
-            // several audio links into one input are summed (a bus, a mixer's channel); a control input takes one
-            if fty != PortType::Audio && links.iter().any(|x: &Link| x.to == (ti, tp)) {
+            if fty == PortType::Event {
+                event_cable(l, &nodes, (fi, fp), (ti, tp), &links)?;
+            }
+            // several audio links into one input are summed (a bus, a mixer's channel), an event input hears all its
+            // cables; a control input takes one
+            if !matches!(fty, PortType::Audio | PortType::Event) && links.iter().any(|x: &Link| x.to == (ti, tp)) {
                 bail!("link {} → {}: the input already has a link", l.from, l.to);
             }
             if !l.map.is_empty() && fty != PortType::Audio {
@@ -383,6 +405,10 @@ impl Link {
     /// param) crosses threads a frame late – the analyzer runs before the frame's control nodes, params are written
     /// after them – so it never orders, and feedback through it (FFT → synth → mix → FFT) is allowed, like a patch cable.
     pub fn orders(&self, nodes: &[Node]) -> bool {
+        // an event arrives one block late at its frame: an event cable orders nothing, a loop through two modules is fine
+        if self.ty == PortType::Event {
+            return false;
+        }
         // a link into a `feedback` node is read one block late: it orders nothing, so it closes a loop
         if self.ty == PortType::Audio && nodes[self.to.0].kind == Kind::Feedback {
             return false;
@@ -390,6 +416,39 @@ impl Link {
         self.ty != PortType::Control
             || (nodes[self.from.0].kind.domain() != Domain::Audio && nodes[self.to.0].kind.domain() != Domain::Audio)
     }
+}
+
+/// a port's type in a sentence
+fn type_words(ty: PortType) -> &'static str {
+    match ty {
+        PortType::Video => "video",
+        PortType::Audio => "audio",
+        PortType::Control => "a control value",
+        PortType::Event => "an event port",
+    }
+}
+
+/// An event cable checked (#430): one link per pair, not into itself, no scale or offset, and a name both ends share – a
+/// cable nothing can pass on is the core's refusal, not a silent input.
+fn event_cable(l: &LinkDef, nodes: &[Node], from: (usize, usize), to: (usize, usize), links: &[Link]) -> Result<()> {
+    if from.0 == to.0 {
+        bail!("link {} → {}: a node does not hear its own events (an echo would feed itself forever)", l.from, l.to);
+    }
+    if links.iter().any(|x| x.from == from && x.to == to) {
+        bail!("link {} → {}: this event cable is there already", l.from, l.to);
+    }
+    if l.scale != 1.0 || l.offset != 0.0 {
+        bail!("link {} → {}: an event cable has no scale or offset", l.from, l.to);
+    }
+    let names = |n: &Node, port: &Port| -> Result<Vec<String>> {
+        Ok(if n.kind == Kind::World { crate::world::World::of(n)?.listen } else { port.names.iter().map(|s| s.to_string()).collect() })
+    };
+    let (out, inp) = (&nodes[from.0], &nodes[to.0]);
+    let (sends, takes) = (names(out, &out.kind.outputs()[from.1])?, names(inp, &inp.kind.inputs()[to.1])?);
+    if !crate::world::shares_a_name(&sends, &takes) {
+        bail!("link {} → {}: it sends {} and the input takes {} – no event can pass", l.from, l.to, sends.join(", "), takes.join(", "));
+    }
+    Ok(())
 }
 
 /// The module path outputs bound to the scene's inputs (see `Graph`): links appended, the holds returned.
