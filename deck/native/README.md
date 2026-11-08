@@ -243,6 +243,7 @@ An input takes one link; an output feeds any number. Every control input can als
 | `fm` | cv, freq, ratio, index, gain | out | `attack`, `release` |
 | `seq` | rate | cv (audio: pitch Hz left, gate 0 / 1 right) | `steps` = MIDI notes (0 = rest), `division` (steps per beat), `gate`, `transpose`; on the tempo clock (step k from beat k / division, `rate` scales the division) unless it has a `bpm` of its own |
 | `walk` | spread, rate, glide | cv (audio: pitch Hz left, gate 0 / 1 right – seq's) | module `events` (#236, deck-events): a seeded random walk on a continuous pitch scale on the tempo clock – `seed` (the same seed, the same melody on every deck), `base` (Hz, 147), `octaves` (2), `length` (of a step, 1 = legato); `spread` 0 = the base held, 1 = ±`octaves`; `rate` = steps a beat (2); `glide` rides along |
+| `world` | – | events (event) | module `events` (#430): a source from outside as a node, cabled like a module's event output (`[[link]]`, a rig's `route`). `source` = `midi` · `generator`; `listen` = the names it lets through (`["midi.note"]`, a generator's `["music.note"]`); a generator's `patch` = a deck-events patch run by the node, its notes going down its cables only. An event input with no cable hears nothing |
 | `chapter_music` | gain | out | `toon`, `chapter`, `track` (default: the chapter's default track), `quality` = low · medium · high, `loop` |
 | `mixer` | in1–in4 (audio), gain1–gain4 | out | – |
 | `fft` | in (audio) | level, bass, mid, high (control, 0–1) | `release` (s) |
