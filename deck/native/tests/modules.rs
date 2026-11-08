@@ -225,6 +225,23 @@ fn the_walk_plays_the_analog_synth_through_note_events() {
     assert!(diff > 0.01, "another seed, another melody ({diff})");
 }
 
+/// #406: the demo scene `module-walk` (the built-in the F5 list offers): the walk module's cv into an FM voice – parses, passes the
+/// module check, plays non-silent and quiet audio through the engine and keeps sounding (not one note and then silence). A build
+/// without the modules feature refuses it by name.
+#[test]
+fn the_module_walk_scene_plays_the_walk_module() {
+    Library::global().load(&walk()).unwrap();
+    let scene = Scene::parse(deck_native::switcher::builtin("module-walk").expect("a built-in scene")).unwrap();
+    assert!(modules::check_with(&scene, |f| f == "core").unwrap_err().to_string().contains("'modules'"));
+    let out = render(&scene, 4);
+    assert!(out.iter().all(|x| x.is_finite()), "finite samples");
+    let peak = out.iter().fold(0.0f32, |m, x| m.max(x.abs()));
+    assert!(peak > 0.02, "it plays: peak {peak}");
+    assert!(peak < 0.5, "quiet by default (the X1 plays to speakers or a mixer): peak {peak}");
+    let blocks: Vec<f32> = out.chunks(512 * 2).map(|b| b.iter().fold(0.0f32, |m, x| m.max(x.abs()))).collect();
+    assert!(blocks.iter().filter(|&&p| p > 0.01).count() > blocks.len() / 4, "sounds through the run");
+}
+
 /// numbers for the record (`cargo test -p deck-native --features modules -- --nocapture module_costs`)
 #[test]
 fn module_costs() {
