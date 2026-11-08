@@ -704,9 +704,9 @@ mod tests {
         assert_eq!(c.stick_paths(LEFT), ["space.hue", "space.glow"]);
     }
 
-    /// the deck's own scene's knobs as the page hands them in (its sliders) and its stick pairs
+    /// a deck on the cathedral test scene: its knobs as the page hands them in (its sliders) and its stick pairs
     fn own_deck() -> Controls {
-        let d = crate::deck::Deck::new();
+        let d = crate::deck::Deck::testing();
         let mut c = Controls::new::<&str>(&[]);
         let s = &d.now().played.sticks;
         c.set_knobs(&d.sliders("en"), Some([[&s[0][0], &s[0][1]], [&s[1][0], &s[1][1]]]));
@@ -717,7 +717,7 @@ mod tests {
     #[test]
     fn a_knob_turns_on_its_range() {
         let c = own_deck();
-        let k = &crate::deck::Deck::new().sliders("en")[0];
+        let k = &crate::deck::Deck::testing().sliders("en")[0];
         let (lo, hi) = (k.min, k.max);
         assert_eq!(c.norm(&k.path, lo), 0.0);
         assert_eq!(c.norm(&k.path, hi * 10.0), 1.0, "clamped");
@@ -799,7 +799,7 @@ mod tests {
     fn controls_fixture_for_the_browser_deck_is_current() {
         use serde_json::{json, Value};
         let mut c = own_deck();
-        let knobs = crate::deck::Deck::new().sliders("en");
+        let knobs = crate::deck::Deck::testing().sliders("en");
         let mut pad = Vec::new();
         for (axes, buttons) in PAD_SCRIPT {
             let events: Vec<[f32; 4]> = c.pad(&axes, &buttons).iter().map(|e| e.code()).collect();

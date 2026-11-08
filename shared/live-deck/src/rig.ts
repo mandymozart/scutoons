@@ -45,14 +45,14 @@ export interface RigPlayed {
  *  rig's preset choice, #410) moved */
 export interface RigTurn {
 	why: 'play' | 'mood' | 'preset';
-	/** a rig plays (false: the deck's own scene) */
+	/** a rig plays (false: no rig, the silent scene #425) */
 	rig: boolean;
 	reload: boolean;
 	values: [string, number][];
 	played: RigPlayed;
-	/** for the log: which rig, or why the deck's own scene plays */
+	/** for the log: which rig, or why no rig plays (the deck is silent) */
 	note: string;
-	/** the rig failed, the deck's own scene plays */
+	/** the rig failed, the deck is silent */
 	failed: boolean;
 }
 

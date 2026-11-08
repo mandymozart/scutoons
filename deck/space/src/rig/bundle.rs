@@ -7,7 +7,7 @@
 use super::{Instrument, Library, Preset, Rig, Text};
 use crate::graph::{Graph, Kind, PortType};
 use crate::params::{self, Curve};
-use crate::scene::{split_ref, LinkDef, NodeDef, Scene, CATHEDRAL_SCENE};
+use crate::scene::{split_ref, LinkDef, NodeDef, Scene, CATHEDRAL_SCENE, SILENT_SCENE};
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -227,7 +227,16 @@ impl Played {
         Ok(played.with_facts())
     }
 
-    /// The deck's own scene (#360): the one the X1 boots with – the browser deck plays the same file, never a copy.
+    /// The deck's own scene (#425): what plays when no rig does – the being in its space, no audio graph at all, so
+    /// no sound (owner 2026-11-08: "eine figur ohne rig, sollte nicht klingen"). Every deck has it from here (native,
+    /// browser, headless: `Deck::new`), never a copy.
+    pub fn silent() -> Result<Played> {
+        Played::scene(SILENT_SCENE)
+    }
+
+    /// The Cathedral of decks (#360), a TEST scene since #425 (owner 2026-11-08: "die scene cathedral is ein test
+    /// gewesen"): the X1's old boot scene, the one `--scene cathedral` and F5 play and the room a native rig is staged
+    /// in. No deck plays it as a fallback any more; `Deck::testing` plays it for the tests that need knobs and a sound.
     pub fn deck_scene() -> Result<Played> {
         Played::scene(CATHEDRAL_SCENE)
     }

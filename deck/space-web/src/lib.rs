@@ -163,8 +163,9 @@ pub fn rig_play(bundle: &str, persona: &str, mood: &str) -> Result<String, JsVal
     deck_space::rig::Bundle::play_json(bundle, persona, mood).map_err(|e| JsValue::from_str(&format!("{e:#}")))
 }
 
-/// The deck's own scene (#360: the one the X1 boots with, embedded in this build) played as `rig_play` answers – what
-/// the page plays when its character has no rig; its `engine.scene` is what live-core loads.
+/// The Cathedral (#360: the X1's old boot scene, embedded in this build) played as `rig_play` answers – a TEST scene since
+/// #425: no deck plays it when its character has no rig (that is silent: `DeckState.now`); its `engine.scene` is what
+/// live-core loads.
 #[wasm_bindgen]
 pub fn deck_scene() -> Result<String, JsValue> {
     deck_space::rig::Played::deck_scene_json().map_err(|e| JsValue::from_str(&format!("{e:#}")))
@@ -219,6 +220,14 @@ pub fn rig_face(bundle: &str) -> Result<String, JsValue> {
 #[wasm_bindgen]
 pub fn rig_policy_template(request: &str) -> Result<String, JsValue> {
     deck_space::rig::template::template_json(request).map_err(|e| JsValue::from_str(&format!("{e:#}")))
+}
+
+/// #425: the instrument that wraps one module (`{ module: <the catalog's module document> }` as JSON → the instrument
+/// document as JSON) – the rig page's "start from existing modules" adds it to the catalog and a track of it to the rig;
+/// throws why a module cannot be one (no descriptor yet, no audio output).
+#[wasm_bindgen]
+pub fn rig_module_instrument(request: &str) -> Result<String, JsValue> {
+    deck_space::rig::assign::module_instrument_json(request).map_err(|e| JsValue::from_str(&format!("{e:#}")))
 }
 
 #[wasm_bindgen]
@@ -995,6 +1004,16 @@ impl DeckState {
     #[wasm_bindgen(constructor)]
     pub fn new() -> DeckState {
         DeckState { d: deck_space::deck::Deck::new() }
+    }
+
+    /// #425: the rig editor's deck – the same, on an empty rigging stage (`room` answers "": no set behind the being)
+    pub fn rigging() -> DeckState {
+        DeckState { d: deck_space::deck::Deck::rigging() }
+    }
+
+    /// #425: the set the being floats in (the page loads its model); "" = none, the empty rigging stage
+    pub fn room(&self) -> String {
+        self.d.room().to_string()
     }
 
     /// the character's portraits (their moods): the ladder anew

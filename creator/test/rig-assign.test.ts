@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ApiError } from '@scutoons/api';
-import { bundleRequest, coverageRequest, createRigStore, moduleIdsOf, policyIdFor, rigLists, templateRequest, type CatalogEntryLike } from '../src/lib/editor/rig-assign.ts';
+import { bundleRequest, coverageRequest, createRigStore, instrumentKey, moduleIdsOf, moduleInstrumentRequest, policyIdFor, rigLists, templateRequest, type CatalogEntryLike } from '../src/lib/editor/rig-assign.ts';
 
 const entry = (id: string, content: unknown, state: Partial<CatalogEntryLike> = {}): CatalogEntryLike => ({ id, live: true, draft: false, removed: false, content, ...state });
 
@@ -12,6 +12,12 @@ const LISTS = rigLists(
 	[entry('drone.base', { id: 'drone.base', instrument: 'drone' }), entry('broken', null)],
 	[entry('character.catpope', {}, { draft: true, published: 3 } as Partial<CatalogEntryLike>), entry('character.boy', {}, { live: false, draft: true })]
 );
+
+test('#425: a module goes to the core as its catalog document with the entry’s id; the instrument it becomes is a catalog draft', () => {
+	assert.deepEqual(JSON.parse(moduleInstrumentRequest({ id: 'analog', content: { name: 'Analog', descriptor: { name: 'analog' } } })), { module: { name: 'Analog', descriptor: { name: 'analog' }, id: 'analog' } });
+	assert.deepEqual(JSON.parse(moduleInstrumentRequest({ id: 'raw', content: null })), { module: { id: 'raw' } });
+	assert.equal(instrumentKey('analog'), 'instrument:analog');
+});
 
 test('the lists: removed and unreadable entries gone, the pickers by id, the documents as stored, the rigs’ states only', () => {
 	assert.deepEqual(LISTS.instruments, [{ id: 'cathedral_voice', kind: 'voice', name: undefined }, { id: 'drone', kind: 'pad', name: { en: 'Drone', de: 'Bordun' } }]);

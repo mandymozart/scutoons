@@ -10,10 +10,12 @@ export interface RigRulesView {
 	bundle(request: string): string;
 	face(bundle: string): string;
 	policyTemplate(request: string): string;
+	/** #425: the instrument that wraps one module (`{ module }` → the instrument document); throws why it cannot be one */
+	moduleInstrument(request: string): string;
 }
 
 /** the rules from the wasm at `base` (the same module the deck loads: loaded once per page) */
 export async function loadRigRules(base: string): Promise<RigRulesView> {
 	const mod = await spaceModule(base);
-	return { coverage: mod.rig_coverage, bundle: mod.rig_catalog_bundle, face: mod.rig_face, policyTemplate: mod.rig_policy_template };
+	return { coverage: mod.rig_coverage, bundle: mod.rig_catalog_bundle, face: mod.rig_face, policyTemplate: mod.rig_policy_template, moduleInstrument: mod.rig_module_instrument };
 }

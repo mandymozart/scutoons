@@ -1,8 +1,5 @@
 <script lang="ts">
-	// The Sound design workspace (#282, research/EDITOR.md): the designer beside the deck (the engine host, #298), so every edit is
-	// heard and seen at once; below ~900 px they stack. The subject is a rig (`rig:character.<id>`: its character plays, the Rust tab
-	// is its policy, #412, or a picked module) or a module (`module:<id>`: the Rust tab IS it). A module plays in the browser's engine
-	// with #290; factory modules (#350) are read-only: the API refuses every change, the designer shows them locked with Derive.
+	// The Sound design workspace (#282, EDITOR.md): designer beside deck; a rig's Rust tab is its policy (#412), no rig = RigGate (#425).
 	import { onMount, untrack } from 'svelte';
 	import { MediaQuery } from 'svelte/reactivity';
 	import { goto, beforeNavigate } from '$app/navigation';
@@ -26,6 +23,7 @@
 	import { isolateThisPage } from '$lib/isolation.svelte.ts';
 	import DeckHalf from '$lib/components/sound/deck-half.svelte';
 	import DesignerHalf from '$lib/components/sound/designer-half.svelte';
+	import RigGate from '$lib/components/sound/rig-gate.svelte';
 
 	let { target }: { target: EditTarget } = $props();
 
@@ -123,6 +121,7 @@
 
 <div class="split" class:stacked={stacked.current} bind:this={splitEl} style:--deck-width={deckSize.css} data-testid="sound-workspace">
 	<section class="half designer-half" aria-label={m['creator.sound_designer']()}>
+		<RigGate subject={'subject' in target ? target.subject : null} character={'character' in target ? target.character : ''} {selected} modules={catalog.ids} factory={Object.keys(catalog.factory)} onopen={select} reload={loadModules}>
 		<DesignerHalf
 			{designer}
 			fixed={target.kind === 'module' ? target.id : null}
@@ -137,6 +136,7 @@
 			onnew={() => create(false)}
 			onderive={() => create(true)}
 		/>
+		</RigGate>
 	</section>
 	<section class="half deck-half" id="sound-deck" aria-label={m['creator.sound_deck']()}>
 		{#key target.key}

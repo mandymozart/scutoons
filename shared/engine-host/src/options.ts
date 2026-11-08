@@ -18,8 +18,8 @@ export interface EngineHostOptions {
 	token?: string;
 	/** WebGL2 only */
 	prefer?: 'auto' | 'webgl2';
-	/** the 3D's set (default: the cathedral) */
-	set?: string;
+	/** #425: the rig editor's empty rigging stage – the being and its knobs, no room behind it (the deck's room is the core's) */
+	rigging?: boolean;
 	/** the 3D's pixel ratio cap */
 	maxScale?: number;
 	/** play the character's core rig instead of the fixed patch (the viewer's `?rig=1`), also after a character switch */

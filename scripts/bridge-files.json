@@ -4,6 +4,8 @@
 		"creator/src/lib/components/sound/deck-half.svelte": "ui: the creator's deck half (stage, mood chip, signal strip)",
 		"creator/src/lib/components/sound/designer-half.svelte": "ui: the rig designer half",
 		"creator/src/lib/components/sound/mood-chip.svelte": "ui: the mood chip",
+		"creator/src/lib/components/sound/rig-empty-state.svelte": "ui: a character without a rig – the two ways in (existing modules, a new module), #425",
+		"creator/src/lib/components/sound/rig-gate.svelte": "ui: asks the core's coverage whether the character has a rig; stores the first track / the new module draft (#425)",
 		"creator/src/lib/components/sound/signal-strip.svelte": "ui: draws the signal strip's model",
 		"creator/src/lib/components/sound/sound-workspace.svelte": "ui: the sound workspace (designer and deck halves)",
 		"creator/src/lib/editor/signal-strip.ts": "ui: arranges what the engine reports for the strip – the knob positions (#369), the meters and device lines (#373) are the core's",

@@ -57,9 +57,9 @@ export class Deck {
 	readonly value: Record<string, number> = {};
 	/** the sliders: the knobs of the scene that plays – the deck's own or the rig's (#191) */
 	params: Record<string, Spec> = {};
-	/** what plays as the core played it (the rig for the mood now, else the deck's own scene); null until the wasm came */
+	/** what plays as the core played it (the rig for the mood now, else none: the silent scene, #425); null until the wasm came */
 	played: RigPlayed | null = null;
-	/** the character's rig as played for the mood now; null = the deck's own scene (#360, the X1's cathedral) plays */
+	/** the character's rig as played for the mood now; null = no rig plays: the deck is silent (#425; the cathedral is a test scene) */
 	rig: RigPlayed | null = null;
 	/** the corner sticks' (x, y) pairs, left then right: the played scene's (#191) */
 	sticks: [string, string][] | null = null;
@@ -162,7 +162,7 @@ export class Deck {
 		if (CLOCK_MESSAGES.has(data[0])) this.core?.clockOp({ op: 'midi', bytes: [data[0], data[1] ?? 0, data[2] ?? 0], at: performance.timeOrigin + timeStamp });
 	}
 
-	/** #367, #368: the core's deck state – the character's portraits go in, what it plays (its own scene) is loaded */
+	/** #367, #368: the core's deck state – the character's portraits go in, what it plays (no rig yet: the silent scene) is loaded */
 	useState(s: DeckStateView): void {
 		this.state = s;
 		s.set_portraits(Object.keys(this.portraits));
@@ -170,8 +170,8 @@ export class Deck {
 		this.apply(JSON.parse(s.now()) as RigTurn);
 	}
 
-	/** #368: a rig bundle (JSON) for a persona at the mood now ('' = the deck's own scene; throws on a bad one), or with
-	 *  `core` the core rig of a character / subject (else the deck's own scene – the turn's note says so) */
+	/** #368: a rig bundle (JSON) for a persona at the mood now ('' = no rig: silent; throws on a bad one), or with
+	 *  `core` the core rig of a character / subject (else silent, #425 – the turn's note says so) */
 	play(what: string, persona = '', core = false): RigTurn {
 		const s = this.state;
 		if (!s) throw new Error('the deck has no core yet (space-web was not loaded)');
@@ -200,7 +200,7 @@ export class Deck {
 		return this.portraits[this.state?.face(mood) ?? ''] ?? null;
 	}
 
-	/** the being on the wire now (the core's: the played scene, its character – the deck's for its own scene –, the moods) */
+	/** the being on the wire now (the core's: the played scene, its character – the deck's while no rig plays –, the moods) */
 	graph(): DeckGraph {
 		return this.state ? (JSON.parse(this.state.graph(this.character)) as DeckGraph) : { nodes: [], links: [] };
 	}
@@ -284,7 +284,7 @@ export class Deck {
 		this.link?.sample(now, (p) => this.read(p), this.mood);
 	}
 
-	/** Start the sound (needs a user gesture): live-core with the deck's own scene or the rig. */
+	/** Start the sound (needs a user gesture): live-core with the rig (or, with none, the silent scene). */
 	async start(files: EngineFiles): Promise<void> {
 		const c = await LiveCore.start({ worker: files.worker, wasm: files.wasm, worklet: files.worklet, transport: files.transport ?? 'auto', device: files.device ?? deviceKind() });
 		c.onAnalysis((a) => (this.bands = a));
