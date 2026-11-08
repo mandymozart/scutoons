@@ -390,7 +390,7 @@ impl Feel {
         }
         let mut best: Option<(usize, f32)> = None;
         for (i, r) in self.rules.iter().enumerate() {
-            if eligible(r) && best.map_or(true, |(_, w)| r.weight > w) {
+            if eligible(r) && best.is_none_or(|(_, w)| r.weight > w) {
                 best = Some((i, r.weight));
             }
         }

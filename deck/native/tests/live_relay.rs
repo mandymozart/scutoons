@@ -133,12 +133,12 @@ impl Conductor {
             s.set_read_timeout(Some(Duration::from_millis(100))).unwrap();
         }
         let hello = Hello { code: code.into(), role: Role::Conductor, group: None, nick: None, token: Some("dev".into()), resume: None };
-        ws.send(Ws::Text(serde_json::to_string(&Envelope::new("", Message::Hello(hello))).unwrap())).unwrap();
+        ws.send(Ws::Text(serde_json::to_string(&Envelope::new("", Message::Hello(hello))).unwrap().into())).unwrap();
         Conductor(ws)
     }
 
     fn send(&mut self, m: Message) {
-        self.0.send(Ws::Text(serde_json::to_string(&Envelope::new("", m)).unwrap())).unwrap();
+        self.0.send(Ws::Text(serde_json::to_string(&Envelope::new("", m)).unwrap().into())).unwrap();
     }
 
     /// the first message within PATIENCE that `pick` takes

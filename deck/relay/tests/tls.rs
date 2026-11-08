@@ -67,7 +67,7 @@ async fn next<S: AsyncRead + AsyncWrite + Unpin>(ws: &mut WebSocketStream<S>) ->
 
 async fn hello<S: AsyncRead + AsyncWrite + Unpin>(ws: &mut WebSocketStream<S>, role: Role, token: Option<&str>) {
     let hello = Hello { code: "LAN".into(), role, group: None, nick: None, token: token.map(str::to_owned), resume: None };
-    ws.send(Ws::Text(serde_json::to_string(&Envelope::new("", Message::Hello(hello))).unwrap())).await.unwrap();
+    ws.send(Ws::Text(serde_json::to_string(&Envelope::new("", Message::Hello(hello))).unwrap().into())).await.unwrap();
 }
 
 #[tokio::test]

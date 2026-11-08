@@ -24,8 +24,9 @@ use futures_util::{SinkExt, StreamExt};
 use protocol::{Envelope, Message};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
+use tokio_tungstenite::tungstenite::protocol::WebSocketConfig;
 use tokio_tungstenite::tungstenite::Message as Ws;
-use tokio_tungstenite::{client_async, WebSocketStream};
+use tokio_tungstenite::{client_async_with_config, WebSocketStream};
 
 const CODE: &str = "BENCH";
 /// a TCP segment's payload
@@ -212,7 +213,7 @@ async fn run(a: Args, net: Arc<Net>, stats: Arc<Stats>) -> Duration {
     let conductor = dial(&net, &url("conductor", "")).await;
     let (mut cond_tx, mut cond_rx) = conductor.split();
     cond_tx
-        .send(Ws::Text(format!(r#"{{"v":1,"seq":0,"from":"","kind":"hello","p":{{"code":"{CODE}","role":"conductor","token":"bench"}}}}"#)))
+        .send(Ws::Text(format!(r#"{{"v":1,"seq":0,"from":"","kind":"hello","p":{{"code":"{CODE}","role":"conductor","token":"bench"}}}}"#).into()))
         .await
         .unwrap();
     let s = stats.clone();
@@ -249,7 +250,7 @@ async fn run(a: Args, net: Arc<Net>, stats: Arc<Stats>) -> Duration {
         tokio::spawn(async move {
             let (mut tx, mut rx) = ws.split();
             let hello = format!(r#"{{"v":1,"seq":0,"from":"","kind":"hello","p":{{"code":"{CODE}","role":"audience","group":"a","nick":"p{i}"}}}}"#);
-            tx.send(Ws::Text(hello)).await.unwrap();
+            tx.send(Ws::Text(hello.into())).await.unwrap();
             let mut last: Option<u64> = None;
             while let Some(Ok(frame)) = rx.next().await {
                 let Ws::Text(text) = frame else { continue };
@@ -279,7 +280,7 @@ async fn run(a: Args, net: Arc<Net>, stats: Arc<Stats>) -> Duration {
             let (mut tx, mut rx) = ws.split();
             tokio::spawn(async move { while let Some(Ok(_)) = rx.next().await {} });
             let hello = format!(r#"{{"v":1,"seq":0,"from":"","kind":"hello","p":{{"code":"{CODE}","role":"musician","group":"decks"}}}}"#);
-            tx.send(Ws::Text(hello)).await.unwrap();
+            tx.send(Ws::Text(hello.into())).await.unwrap();
             let graph = r#"{"v":1,"seq":0,"from":"","kind":"deck.graph","p":{"nodes":[{"id":"lfo","kind":"lfo"},{"id":"space","kind":"space"}],"links":[{"from":"lfo.out","to":"space.hue"}],"character":"catpope"}}"#;
             tx.send(Ws::Text(graph.into())).await.unwrap();
             // 30 Hz, the decks out of phase
@@ -294,7 +295,7 @@ async fn run(a: Args, net: Arc<Net>, stats: Arc<Stats>) -> Duration {
                     r#"{{"v":1,"seq":0,"from":"","kind":"deck.values","p":{{"values":{{"bench.t":[{}],"lfo.rate":[{x:.3}],"space.hue":[{x:.3}]}}}}}}"#,
                     t_us()
                 );
-                if tx.send(Ws::Text(msg)).await.is_err() {
+                if tx.send(Ws::Text(msg.into())).await.is_err() {
                     s.reconnects.fetch_add(1, Ordering::Relaxed);
                     break;
                 }
@@ -317,7 +318,7 @@ async fn run(a: Args, net: Arc<Net>, stats: Arc<Stats>) -> Duration {
         let cue = format!(r#"{{"v":1,"seq":0,"from":"","to":{{"group":"a"}},"kind":"cue","p":{{"id":"{n}:{}","actions":[]}}}}"#, t_us());
         n += 1;
         stats.cues_sent.fetch_add(1, Ordering::Relaxed);
-        if cond_tx.send(Ws::Text(cue)).await.is_err() {
+        if cond_tx.send(Ws::Text(cue.into())).await.is_err() {
             stats.reconnects.fetch_add(1, Ordering::Relaxed);
             break;
         }
@@ -431,7 +432,10 @@ async fn dial(net: &Net, path: &str) -> WebSocketStream<Box<dyn Io>> {
             Box::new(client_end)
         }
     };
-    client_async(format!("ws://relay{path}"), io).await.expect("the WebSocket handshake").0
+    // the clients' read buffer as small as the relay's: tungstenite's 128 KiB default is zeroed on every read, and 500
+    // of them in this one process would measure the bench, not the relay (#437)
+    let config = WebSocketConfig::default().read_buffer_size(relay::READ_BUFFER);
+    client_async_with_config(format!("ws://relay{path}"), io, Some(config)).await.expect("the WebSocket handshake").0
 }
 
 /// What one direction of the link carries: segments with their arrival time, in order

@@ -12,6 +12,8 @@ deck/README.md "Relay". The rules of a session: `src/session.rs`; the sockets: `
   snapshots, welcome, votes, errors) stay complete and in order; state-like ones replace the one of their kind still
   waiting – `deck.values` per sending deck (merged key by key), `presence`, `vote.tally`, `state` – never across an
   ordered message. Serialized once per message, the writer sends a batch with one flush.
+- **One buffer per frame, small reads** (#437): a frame's text is shared by every client it goes to, not copied per
+  client; each connection reads through 4 KB (`READ_BUFFER`, tungstenite's default 128 KB is zeroed on every read).
 - **A client too far behind is dropped** (2048 ordered messages, 8 MB, or its oldest waited 5 s): it reconnects and
   resyncs from its snapshot.
 - **Adaptive rate per client** (`src/link.rs`): a link that stays behind (the socket full / messages waiting for 500 ms

@@ -106,7 +106,7 @@ rusty_link = { version = "0.4.9", optional = true }
 protocol = { workspace = true, optional = true }
 # wss:// (#199 – the hosted relay wss://live.scutoons.com): rustls with the webpki roots, no OpenSSL; rustls (ring) is
 # the one ureq already links, named here so `live` has its crypto provider on its own
-tungstenite = { version = "0.24", optional = true, features = ["rustls-tls-webpki-roots"] }
+tungstenite = { version = "0.30", optional = true, features = ["rustls-tls-webpki-roots"] }
 rustls = { version = "0.23", optional = true, default-features = false, features = ["ring", "std", "tls12"] }
 # #211: the outputs' engine + runner and the bridge's adapters (USB-DMX, MIDI out)
 deck-outputs = { workspace = true, optional = true }

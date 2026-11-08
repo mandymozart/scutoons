@@ -66,7 +66,7 @@ impl Link {
         let before = self.level;
         if strained {
             self.calm_since = Some(now);
-            let may = self.last_step.map_or(true, |t| now.saturating_duration_since(t) >= STEP_GAP);
+            let may = self.last_step.is_none_or(|t| now.saturating_duration_since(t) >= STEP_GAP);
             if may && self.level + 1 < HZ.len() {
                 self.level += 1;
                 self.last_step = Some(now);
