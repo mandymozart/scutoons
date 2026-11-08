@@ -202,7 +202,8 @@ impl Library {
     }
 
     /// the library's modules registered as node kinds (`module:<name>`), so its rigs build as graphs anywhere – the
-    /// browser's, the build service's and the headless host's validation (a loaded module's registration is the same kind)
+    /// browser's, the build service's and the headless host's validation (a loaded module's registration is the same
+    /// kind). Done when a checked rig is played: a refused draft's descriptor must never become the newest of its name.
     pub(crate) fn register_modules(&self) {
         for d in self.modules.values() {
             crate::modreg::register(&d.name, &crate::modreg::ModuleDef::of(d));
@@ -234,7 +235,6 @@ impl Rig {
     /// The rig checked against `lib`: unique tracks, known instruments and presets (of the track's instrument), variants
     /// and routes naming known tracks; a code rig's policy, its targets and who writes which input (policy.rs).
     pub fn check(&self, lib: &Library) -> Result<()> {
-        lib.register_modules();
         let mut seen = std::collections::BTreeSet::new();
         for t in &self.tracks {
             if !seen.insert(t.id.as_str()) {
