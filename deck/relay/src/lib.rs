@@ -33,7 +33,8 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ReadBuf};
 use tokio::net::{TcpListener, TcpStream};
 use tokio_rustls::TlsAcceptor;
 use tokio_tungstenite::tungstenite::handshake::server::{ErrorResponse, Request, Response};
-use tokio_tungstenite::tungstenite::Message as Ws;
+use tokio_tungstenite::tungstenite::protocol::WebSocketConfig;
+use tokio_tungstenite::tungstenite::{Message as Ws, Utf8Bytes};
 
 pub use outbox::Outbox;
 pub use session::{targets, After, Client, Session};
@@ -48,6 +49,9 @@ pub const PING_EVERY: Duration = Duration::from_secs(1);
 pub const IDLE_TIMEOUT: Duration = Duration::from_secs(15);
 /// B.6: the vote tally goes to the conductor every 250 ms.
 pub const TALLY_EVERY: Duration = Duration::from_millis(250);
+/// a client's WebSocket read buffer. tungstenite's default is 128 KiB, allocated and zeroed per connection (~128 MB at
+/// `MAX_CLIENTS`) for bulk reads the relay's small frames never make (#437); a larger frame just takes more reads.
+pub const READ_BUFFER: usize = 4 * 1024;
 
 /// How this relay runs: on a deck in the venue LAN or hosted (B.4).
 #[derive(Debug, Clone)]
@@ -145,7 +149,7 @@ impl Relay {
         let now = now_ms();
         let mut sessions = self.sessions.lock().unwrap();
         // empty sessions are kept for a resume (the conductor's laptop restarts), then dropped
-        sessions.retain(|_, s| s.empty_since.map_or(true, |t| t >= now - session::REPLAY_MS));
+        sessions.retain(|_, s| s.empty_since.is_none_or(|t| t >= now - session::REPLAY_MS));
         let s = sessions.entry(hello.code.clone()).or_default();
         if s.clients.len() >= MAX_CLIENTS {
             return Err("session full");
@@ -367,11 +371,12 @@ where
 
     let mut uri = String::new();
     let stream = Prefixed { head, at: 0, inner: stream };
-    let ws = tokio_tungstenite::accept_hdr_async(stream, |req: &Request, res: Response| {
+    let callback = |req: &Request, res: Response| {
         uri = req.uri().to_string();
         Ok::<_, ErrorResponse>(res)
-    })
-    .await?;
+    };
+    let config = WebSocketConfig::default().read_buffer_size(READ_BUFFER);
+    let ws = tokio_tungstenite::accept_hdr_async_with_config(stream, callback, Some(config)).await?;
     let join = parse_join(&uri);
     let (mut sink, mut source) = ws.split();
 
@@ -460,7 +465,7 @@ async fn write<S>(mut sink: S, outbox: Arc<Outbox>, relay: Arc<Relay>, code: Str
 where
     S: futures_util::Sink<Ws> + Unpin,
 {
-    let mut batch: Vec<String> = Vec::with_capacity(64);
+    let mut batch: Vec<Utf8Bytes> = Vec::with_capacity(64);
     let mut next_ping = tokio::time::Instant::now() + PING_EVERY;
     let mut pings = 0u64;
     'out: loop {
@@ -470,7 +475,7 @@ where
             next_ping = now + PING_EVERY;
             pings += 1;
             outbox.pinged(pings, now.into_std());
-            if sink.feed(Ws::Ping(pings.to_be_bytes().to_vec())).await.is_err() {
+            if sink.feed(Ws::Ping(pings.to_be_bytes().to_vec().into())).await.is_err() {
                 break;
             }
             fed = true;
@@ -503,9 +508,9 @@ where
     sink.close().await.ok();
 }
 
-fn refusal(code: &str, message: &str) -> String {
+fn refusal(code: &str, message: &str) -> Utf8Bytes {
     let e = Envelope::new("relay", Message::Error(ProtocolError { code: code.into(), message: message.into() }));
-    serde_json::to_string(&e).expect("envelope serializes")
+    serde_json::to_string(&e).expect("envelope serializes").into()
 }
 
 #[cfg(test)]

@@ -55,7 +55,7 @@ impl Board {
 
     /// a deck's answer – kept when it answers the push this board knows (or none is known yet)
     pub fn answer(&mut self, client: String, synced: DeckSynced) {
-        if self.pushed.as_ref().map_or(true, |p| p.scene == synced.scene) {
+        if self.pushed.as_ref().is_none_or(|p| p.scene == synced.scene) {
             self.synced.insert(client, synced);
         }
     }
@@ -67,7 +67,7 @@ impl Board {
 
     /// is `client` one the push is for (every deck, or the listed ones)?
     pub fn addressed(&self, client: &str) -> bool {
-        self.pushed.as_ref().is_some_and(|p| p.decks.as_ref().map_or(true, |d| d.iter().any(|c| c == client)))
+        self.pushed.as_ref().is_some_and(|p| p.decks.as_ref().is_none_or(|d| d.iter().any(|c| c == client)))
     }
 
     /// `client`'s state; None = nothing pushed, or the push isn't for it

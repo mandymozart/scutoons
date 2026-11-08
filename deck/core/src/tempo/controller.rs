@@ -521,7 +521,7 @@ impl Controller {
             What::Midi(b) => self.midi.message(e.at_ns as f64 * 1e-9, &b),
             What::Tempo(a) => {
                 // a start, a stop or another bar is taken as it is; the rest of a new line is followed by the nudge
-                if self.anchor.map_or(true, |o| o.running != a.running || o.per_bar != a.per_bar) {
+                if self.anchor.is_none_or(|o| o.running != a.running || o.per_bar != a.per_bar) {
                     self.following = false;
                 }
                 self.anchor = Some(a);

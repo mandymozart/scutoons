@@ -31,7 +31,7 @@ struct Step {
 type Socket = tungstenite::WebSocket<MaybeTlsStream<std::net::TcpStream>>;
 
 fn send(ws: &mut Socket, m: Message) -> anyhow::Result<()> {
-    ws.send(Ws::Text(serde_json::to_string(&Envelope::new("", m))?))?;
+    ws.send(Ws::Text(serde_json::to_string(&Envelope::new("", m))?.into()))?;
     Ok(())
 }
 

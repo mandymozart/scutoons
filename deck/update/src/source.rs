@@ -158,7 +158,7 @@ pub fn newest(
     for b in bases {
         match offer(fetch, b, keys, channel) {
             Ok(o) => {
-                if best.as_ref().map_or(true, |x| o.manifest.build > x.manifest.build) {
+                if best.as_ref().is_none_or(|x| o.manifest.build > x.manifest.build) {
                     best = Some(o);
                 }
             }

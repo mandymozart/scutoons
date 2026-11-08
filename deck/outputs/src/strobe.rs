@@ -115,7 +115,7 @@ impl Rate {
 
     /// the flash period in beats for `p` at `bps` beats per second, the cap applied
     pub fn period(&self, p: f32, bps: f64) -> f64 {
-        let fastest = |beats: f64| self.max_hz.map_or(true, |hz| bps / beats <= hz + 1e-9);
+        let fastest = |beats: f64| self.max_hz.is_none_or(|hz| bps / beats <= hz + 1e-9);
         match self.mode {
             Mode::Steps => {
                 let mut i = self.step(p);

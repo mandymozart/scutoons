@@ -112,7 +112,7 @@ pub fn reaches(id: &str, role: Role, group: Option<&str>, from: &str, to: Option
     if id == from {
         return false;
     }
-    to.role.map_or(true, |r| r == role) && to.group.as_deref().map_or(true, |g| group == Some(g))
+    to.role.is_none_or(|r| r == role) && to.group.as_deref().is_none_or(|g| group == Some(g))
 }
 
 /// Who a message reaches, as client ids.
@@ -310,7 +310,7 @@ impl Session {
     }
 
     /// The logged messages after `seq` that reach the client `id`, in order (B.6 resume).
-    pub fn missed(&self, id: &str, after: u64) -> Vec<String> {
+    pub fn missed(&self, id: &str, after: u64) -> Vec<tokio_tungstenite::tungstenite::Utf8Bytes> {
         let Some(c) = self.clients.get(id) else { return vec![] };
         self.log
             .iter()
@@ -651,7 +651,7 @@ impl Session {
                 // #195: a deck's answer – kept for the conductor's snapshot (when it answers the sync the relay keeps),
                 // ready in presence once everything is there; to the conductor
                 let ready = d.state == SyncState::Ready;
-                if self.sync.as_ref().map_or(true, |s| s.scene == d.scene) {
+                if self.sync.as_ref().is_none_or(|s| s.scene == d.scene) {
                     self.synced.insert(id.to_owned(), d.clone());
                 }
                 if e.to.is_none() {

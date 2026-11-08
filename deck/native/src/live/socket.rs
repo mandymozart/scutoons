@@ -84,7 +84,7 @@ fn act(c: &mut Client, ws: &mut Option<Socket>, side: &mut impl Side, poll: Dura
                     Err(e) => c.closed(now_ms(), &e),
                 },
                 Out::Send(text) => {
-                    if let Some(Err(e)) = ws.as_mut().map(|s| s.send(Ws::Text(text)).map_err(|e| e.to_string())) {
+                    if let Some(Err(e)) = ws.as_mut().map(|s| s.send(Ws::Text(text.into())).map_err(|e| e.to_string())) {
                         lost(c, ws, &e);
                     }
                 }

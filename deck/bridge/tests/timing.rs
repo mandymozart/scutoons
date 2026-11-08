@@ -50,7 +50,7 @@ fn device(at: i64, note: u8) -> Message {
 type Conductor = tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
 
 fn send(m: Message) -> Ws {
-    Ws::Text(serde_json::to_string(&Envelope::new("", m)).unwrap())
+    Ws::Text(serde_json::to_string(&Envelope::new("", m)).unwrap().into())
 }
 
 /// A relay, a bridge session with `adapters` (started), and a conductor that waits until the bridge has joined.

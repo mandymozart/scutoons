@@ -167,7 +167,7 @@ mod tests {
     fn the_window_ends_at_the_heard_moment() {
         // a bass tone, then 2048 samples of silence rendered ahead: with that lead the analyzer still hears the tone
         let mut a = Analyzer::new(48_000.0, 0.2);
-        sine(100.0).into_iter().chain(std::iter::repeat(0.0).take(2048)).for_each(|x| a.push(x));
+        sine(100.0).into_iter().chain(std::iter::repeat_n(0.0, 2048)).for_each(|x| a.push(x));
         let mut heard = 0.0;
         for _ in 0..8 {
             heard = a.update(1.0 / 60.0, 2048)[1];

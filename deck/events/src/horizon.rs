@@ -87,9 +87,9 @@ impl Bound {
     }
 
     fn within(&self, d: &Dist) -> bool {
-        self.rows.map_or(true, |r| d.rows <= r)
-            && self.secs.map_or(true, |s| d.secs <= s)
-            && self.depth.map_or(true, |c| d.depth <= c)
+        self.rows.is_none_or(|r| d.rows <= r)
+            && self.secs.is_none_or(|s| d.secs <= s)
+            && self.depth.is_none_or(|c| d.depth <= c)
     }
 }
 
