@@ -24,12 +24,13 @@ size = 0.9
 drift = 0.06
 breath = 0.04
 wobble = 0.025
+# (#424) the list's order is the knobs' order on a node: the loop length `steps` first (it hangs nearest the
+# sequencer's point and stays where it is as the others come and go); `seq.step1..16 <= seq.steps` shows only as many
+# pitch knobs as the sequence has steps (the first N, N = the value of `seq.steps` now, live) – the on/off switches the
+# same; a hidden knob keeps its value
 expose = [
-  "seq.step1", "seq.step2", "seq.step3", "seq.step4", "seq.step5", "seq.step6", "seq.step7", "seq.step8",
-  "seq.step9", "seq.step10", "seq.step11", "seq.step12", "seq.step13", "seq.step14", "seq.step15", "seq.step16",
-  "seq.on1", "seq.on2", "seq.on3", "seq.on4", "seq.on5", "seq.on6", "seq.on7", "seq.on8",
-  "seq.on9", "seq.on10", "seq.on11", "seq.on12", "seq.on13", "seq.on14", "seq.on15", "seq.on16",
-  "seq.steps", "seq.rate", "seq.gate", "synth.volume", "synth.f1_cutoff", "synth.f1_res",
+  "seq.steps", "seq.step1..16 <= seq.steps", "seq.on1..16 <= seq.steps", "seq.rate", "seq.gate",
+  "synth.volume", "synth.f1_cutoff", "synth.f1_res",
   "synth.f1_env", "synth.ae1_d", "synth.ae1_r", "synth.o2_fine", "synth.l1_rate",
 ]
 

@@ -68,6 +68,8 @@ pub struct Label {
     pub color: [f32; 4],
     pub scale: f32,
     pub line: f32,
+    /// drawn over everything (no pillar in front hides it): a knob's hover name among its neighbours (#424)
+    pub top: bool,
 }
 
 /// a value in ≤ 6 characters (as the HUD writes it): 1234 · 12.3 · 0.60

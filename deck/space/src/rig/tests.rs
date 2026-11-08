@@ -291,6 +291,8 @@ fn a_rig_flattens_into_one_scene() {
     {
         assert_eq!(s.being.character, "catpope");
         assert_eq!(s.being.expose, ["voice_voice.ratio", "voice_voice.gain", "voice_sway.rate"]);
+        // #424: the knobs' hover names come along (the instrument's labels, per locale)
+        assert_eq!(s.being.labels["voice_voice.ratio"]["en"], "FM ratio");
     }
     let sad = rig.flatten(&lib, None, Some("sad")).unwrap();
     assert_eq!(param(&sad, "voice_voice.ratio"), Some(0.5), "the mood's preset");

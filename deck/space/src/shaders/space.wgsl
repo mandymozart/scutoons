@@ -406,7 +406,8 @@ fn vs_label(
     if clip.w < 1e-3 {
         clip = vec4<f32>(2.0, 2.0, 2.0, 1.0);
     }
-    clip = vec4<f32>(clip.xy + px * 2.0 / frame.screen.xy * clip.w, clip.z, clip.w);
+    // anchor.w = 1: on top of everything (a hovered knob's name among its neighbours), at the near plane
+    clip = vec4<f32>(clip.xy + px * 2.0 / frame.screen.xy * clip.w, select(clip.z, 0.0, anchor.w > 0.5), clip.w);
     o.clip = clip;
     o.uv = vec2<f32>(mix(uv.x, uv.z, k.x), mix(uv.w, uv.y, k.y));
     o.color = color;

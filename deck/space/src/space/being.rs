@@ -103,7 +103,16 @@ pub struct Look {
     /// bubble rate × this
     pub bubbles: f32,
     /// the parameters shown as buttons: "node" (all its inputs) or "node.port"; empty = every control input
+    ///   – or a counted group `"seq.step1..16 <= seq.steps"` (#424, params.rs `Expose`): the first N of those knobs, N = the
+    ///   value of `seq.steps` now. The list's order is the knobs' order on a node (the first named hangs nearest its point).
     pub expose: Vec<String>,
+    /// knob names for the hover label (#424): the parameter path `node.port` → its label per locale (a rig's `expose`
+    /// labels; flatten fills it) – a knob without one is named by its parameter. Not a scene key.
+    #[serde(skip)]
+    pub labels: std::collections::BTreeMap<String, std::collections::BTreeMap<String, String>>,
+    /// the locale the labels are read in (empty = English, else any)
+    #[serde(skip)]
+    pub locale: String,
     /// the head's character (its portrait sprites `<character>_portrait-<mood>`); empty = a head without a face
     pub character: String,
     /// the moods the energy walks through, calm → wild (default MOODS)
@@ -124,6 +133,8 @@ impl Default for Look {
             hose: 1.0,
             bubbles: 1.0,
             expose: Vec::new(),
+            labels: Default::default(),
+            locale: String::new(),
             character: String::new(),
             moods: MOODS.iter().map(|m| m.to_string()).collect(),
             feel: Vec::new(),
@@ -218,6 +229,18 @@ pub struct Hose {
     acc: f32,
 }
 
+/// A counted group member's limit (`params::Limit` resolved against the graph): the count parameter's node and input,
+/// the knob's number in its group and the group's size.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Limit {
+    pub node: usize,
+    pub port: usize,
+    pub name: &'static str,
+    pub default: f32,
+    pub index: u32,
+    pub size: u32,
+}
+
 #[derive(Debug, Clone)]
 pub struct Button {
     pub point: usize,
@@ -246,9 +269,16 @@ pub struct Button {
     /// this frame's value (the knob's: a linked one's base) and its 0..1
     pub value: f32,
     pub norm: f32,
-    /// its place among its node's buttons, and how many the node has
+    /// its place among its node's SHOWN buttons, and how many the node shows now (a counted group hides its tail – `limit`;
+    /// `step_buttons` renumbers them every frame, so the chain closes up over a hidden knob)
     pub rank: usize,
     pub count: usize,
+    /// #424: shown only while this count parameter holds at least `index` (`expose`'s counted group); hidden = not drawn,
+    /// not picked, no tether – the knob keeps its value
+    pub limit: Option<Limit>,
+    pub hidden: bool,
+    /// the hover label's text (a rig's label in the locale, else the parameter's name – `Being::name`)
+    pub label: String,
     /// the parameter's own colour (a hue per parameter name; the hue button shows its value)
     pub hue: f32,
     /// what it hangs from: None = its node point, Some(j) = button j before it on the same node (a chain)
@@ -285,6 +315,11 @@ pub struct Reset {
     pub from: f32,
     pub to: f32,
     pub t: f32,
+}
+
+/// a knob's label in `locale`, else English, else any (a rig's `expose` label map)
+fn pick_label<'a>(labels: &'a std::collections::BTreeMap<String, String>, locale: &str) -> Option<&'a str> {
+    labels.get(locale).or_else(|| labels.get("en")).or_else(|| labels.values().next()).map(String::as_str)
 }
 
 /// The parameter's own colour: a fixed hue for the common ones (each its own, apart enough to tell), a stable hash
@@ -526,6 +561,8 @@ impl Being {
                 .filter(|(_, port)| port.ty == PortType::Control && params::shown(node.kind, &node.id, port.name, &look.expose))
                 .map(|(k, _)| k)
                 .collect();
+            // #424: the knobs sit in the order `expose` names them (a stable sort: the rest keep the ports' own order)
+            ports.sort_by_key(|&k| params::place(&node.id, node.kind.inputs()[k].name, &look.expose));
             // the waveform: an LFO's shape (an audio oscillator's `wave` can't change while it plays yet)
             let shape = node.kind == Kind::Lfo && params::shown(node.kind, &node.id, "shape", &look.expose);
             if shape {
@@ -548,6 +585,18 @@ impl Being {
                     }
                 };
                 let source = graph.link_into(p.node, k).map(|l| graph.nodes[l.from.0].id.clone()).unwrap_or_default();
+                // #424: a counted group's member – its count parameter must be a control input of a node of the graph
+                let limit = (k != usize::MAX)
+                    .then(|| params::limit(&node.id, name, &look.expose))
+                    .flatten()
+                    .and_then(|l| {
+                        let cn = graph.nodes.iter().position(|n| n.id == l.count.0)?;
+                        let cp = graph.nodes[cn].kind.inputs().iter().position(|x| x.name == l.count.1 && x.ty == PortType::Control)?;
+                        let name = graph.nodes[cn].kind.inputs()[cp].name;
+                        Some(Limit { node: cn, port: cp, name, default: params::spec(graph.nodes[cn].kind, name).default, index: l.index, size: l.size })
+                    });
+                let path = format!("{}.{name}", node.id);
+                let label = look.labels.get(&path).and_then(|m| pick_label(m, &look.locale)).unwrap_or(name).to_string();
                 let n0 = spec.norm(scene);
                 buttons.push(Button {
                     point: pi,
@@ -569,6 +618,9 @@ impl Being {
                     norm: n0,
                     rank,
                     count,
+                    limit,
+                    hidden: false,
+                    label,
                     hue: param_hue(name),
                     // the core's buttons are spokes around it; any other node's hang one from the other
                     prev: (rank > 0 && !core).then(|| buttons.len() - 1),
@@ -774,10 +826,6 @@ impl Being {
     fn step_buttons(&mut self, dt: f32, vals: &dyn Values) {
         let s = self.look.size;
         let center = self.center;
-        let hovered = match self.hover {
-            Some(Hit::Button(i)) => Some(i),
-            _ => None,
-        };
         let ease = |x: &mut f32, to: f32, tau: f32| *x += (to - *x) * (dt / tau).min(1.0);
         for p in &mut self.points {
             p.flash = (p.flash - dt * 2.5).max(0.0);
@@ -792,6 +840,11 @@ impl Being {
         if let Some(f) = facing {
             (self.face, self.faced) = (f, true);
         }
+        self.fit_counts(vals);
+        let hovered = match self.hover {
+            Some(Hit::Button(i)) => Some(i),
+            _ => None,
+        };
         let shadows = [(center, self.core_radius * self.swell), (self.head(), self.head.radius)];
         let frame = self.frame;
         for i in 0..self.buttons.len() {
@@ -814,8 +867,15 @@ impl Being {
             } else {
                 (b.lo, b.hi) = (b.norm, b.norm);
             }
+            // #424: a counted group's hidden tail: nothing shows, nothing is picked, no tether – it keeps its value
+            if b.hidden {
+                (b.hot, b.grip, b.motion, b.shake, b.shown) = (0.0, 0.0, 0.0, 0.0, b.norm);
+                (b.pos, b.free, b.root, b.radius, b.tether) = (p.pos, p.pos, p.pos, 0.0, [p.pos; 4]);
+                b.bubbles = [Bubble::default(); TETHER_BUBBLES];
+                continue;
+            }
             // a hand on it – one that can't be turned only shakes
-            let gripped = self.dragging && hovered == Some(i) && b.turnable;
+            let gripped =self.dragging && hovered == Some(i) && b.turnable;
             ease(&mut b.hot, if hovered == Some(i) { 1.0 } else { 0.0 }, 0.08);
             ease(&mut b.grip, if gripped { 1.0 } else { 0.0 }, 0.06);
             // shown follows the value: at once under the hand, eased otherwise (a stream's steps, a reset's glide)
@@ -905,6 +965,61 @@ impl Being {
         }
     }
 
+    /// #424: which of a counted group's knobs show now (the count parameter's value, rounded and clamped – params.rs
+    /// `shown_count`), and the node's shown knobs renumbered so the chain closes up over the hidden ones: `rank`,
+    /// `count` and `prev` (a core's knobs stay spokes – no `prev`). A hidden knob can't be hovered or selected. Never
+    /// allocates.
+    fn fit_counts(&mut self, vals: &dyn Values) {
+        let (mut point, mut rank, mut last) = (usize::MAX, 0usize, None);
+        let core = self.core_point;
+        for i in 0..self.buttons.len() {
+            let b = &mut self.buttons[i];
+            b.hidden = b.limit.is_some_and(|l| l.index > params::shown_count(vals.input(l.node, l.name, l.default), l.size));
+            if b.point != point {
+                (point, rank, last) = (b.point, 0, None);
+            }
+            if b.hidden {
+                (b.rank, b.prev) = (rank, None);
+                continue;
+            }
+            (b.rank, b.prev) = (rank, if Some(b.point) == core { None } else { last });
+            (rank, last) = (rank + 1, Some(i));
+        }
+        // each node's shown count: walking back, the first shown knob of a node says it (hidden ones sit before the end)
+        let (mut point, mut total) = (usize::MAX, 0usize);
+        for b in self.buttons.iter_mut().rev() {
+            if b.point != point {
+                (point, total) = (b.point, 0);
+            }
+            if !b.hidden && total == 0 {
+                total = b.rank + 1;
+            }
+            b.count = total;
+        }
+        let gone = |h: Option<Hit>, buttons: &[Button]| matches!(h, Some(Hit::Button(i)) if buttons.get(i).is_some_and(|b| b.hidden));
+        if gone(self.hover, &self.buttons) {
+            self.hover = None;
+        }
+        if gone(self.selected, &self.buttons) {
+            self.selected = None;
+        }
+    }
+
+    /// The hover label's text for button `i` (#424, owner 2026-11-08 "for now"): a rig's label in the being's locale, else
+    /// the parameter's own name (`step3`, `on5`, `f1_cutoff`). No numbers.
+    pub fn name(&self, i: usize) -> &str {
+        self.buttons.get(i).map_or("", |b| b.label.as_str())
+    }
+
+    /// The knob whose name the deck shows now: the hovered one, else the selected one (the white ring, #209) – never a
+    /// hidden one
+    pub fn named(&self) -> Option<usize> {
+        match (self.hover, self.selected) {
+            (Some(Hit::Button(i)), _) | (None, Some(Hit::Button(i))) => self.buttons.get(i).filter(|b| !b.hidden).map(|_| i),
+            _ => None,
+        }
+    }
+
     /// #224: the knobs folded into the view crowd its edge – a few rounds pushing apart those that overlap on the screen
     /// (in the view's tangents, SPREAD × the sum of their radii apart, each of a folded pair half the way), kept inside the fold's
     /// frame; then the tethers to where they are now. Only folded knobs move; fixed rounds, so it is smooth frame to
@@ -918,11 +1033,11 @@ impl Being {
         };
         for _ in 0..12 {
             for i in 0..n {
-                if self.buttons[i].pos == self.buttons[i].free {
+                if self.buttons[i].pos == self.buttons[i].free || self.buttons[i].hidden {
                     continue;
                 }
                 for j in 0..n {
-                    if i == j {
+                    if i == j || self.buttons[j].hidden {
                         continue;
                     }
                     let (xi, yi, zi, ri) = at(&self.buttons[i]);
@@ -942,6 +1057,9 @@ impl Being {
             }
         }
         for i in 0..n {
+            if self.buttons[i].hidden {
+                continue;
+            }
             let end = match self.buttons[i].prev {
                 Some(j) => self.buttons[j].pos,
                 None => self.points[self.buttons[i].point].pos,
@@ -1035,12 +1153,12 @@ impl Being {
         // reach) the one it passes closest to, against its size – on a chain the neighbour behind never steals it; a
         // node point (its nucleus) only where no button is
         let off = |c: Vec3| (c - ray.origin).cross(ray.dir).length();
-        nearest(&mut self.buttons.iter().enumerate().map(|(i, b)| (ray.sphere(b.pos, b.radius), Hit::Button(i))))
+        nearest(&mut self.buttons.iter().enumerate().filter(|(_, b)| !b.hidden).map(|(i, b)| (ray.sphere(b.pos, b.radius), Hit::Button(i))))
             .or_else(|| {
                 self.buttons
                     .iter()
                     .enumerate()
-                    .filter(|(_, b)| ray.sphere(b.pos, b.radius * 1.5 * reach).is_some())
+                    .filter(|(_, b)| !b.hidden && ray.sphere(b.pos, b.radius * 1.5 * reach).is_some())
                     .min_by(|(_, a), (_, b)| (off(a.pos) / a.radius).total_cmp(&(off(b.pos) / b.radius)))
                     .map(|(i, _)| Hit::Button(i))
             })
@@ -1052,11 +1170,13 @@ impl Being {
     pub fn shown(&self) -> Vec<Path> {
         let mut out: Vec<Path> = Vec::new();
         let buttons = self.buttons.iter().map(|b| if b.shape { Path::Shape(b.node) } else { Path::Input(b.node, b.port) });
+        // a counted group's count parameter is streamed too (a mirrored being hides and shows the knobs by it – #424)
+        let counts = self.buttons.iter().filter_map(|b| b.limit).map(|l| Path::Input(l.node, l.port));
         let hoses = self.hoses.iter().filter_map(|h| match h.flow {
             Flow::Control(n, p) | Flow::Audio(n, p) => Some(Path::Output(n, p)),
             Flow::Video => None,
         });
-        for p in buttons.chain(hoses) {
+        for p in buttons.chain(counts).chain(hoses) {
             if !out.contains(&p) {
                 out.push(p);
             }
@@ -1112,7 +1232,7 @@ impl Being {
             let r = p.radius * 0.45 * (1.0 + 0.3 * p.flash + 0.35 * p.level);
             spheres.push(Sphere { pos: p.pos.into(), radius: r, color: [c[0], c[1], c[2], 1.0], extra: [kind::NUCLEUS, self.glow, lit.max(p.flash * 0.8).max(p.level * 0.9), 0.0] });
         }
-        for b in &self.buttons {
+        for b in self.buttons.iter().filter(|b| !b.hidden) {
             let c = button_rgb(b);
             let locked = if b.turnable { 0.0 } else { 1.0 };
             // hover swells it, a grip a little more; extra.z: 0..1 hover, 1..2 the hand on it
@@ -1152,7 +1272,7 @@ impl Being {
             spheres.push(Sphere { pos: p.pos.into(), radius: p.radius, color: [c[0], c[1], c[2], 0.45], extra: [kind::SHELL, self.glow, p.flash.max(p.level * 0.5), 0.0] });
         }
         let hose = self.look.hose;
-        for (i, b) in self.buttons.iter().enumerate() {
+        for (i, b) in self.buttons.iter().enumerate().filter(|(_, b)| !b.hidden) {
             let c = hsv(colour_of(b), 0.6, 1.0);
             let r = b.radius * (1.0 + 0.35 * b.hot + 0.15 * b.grip);
             // the thin ring: hover's, the selection's (#209: the sticks drive it – always, white), or the dashed lock
@@ -1223,6 +1343,11 @@ impl Being {
         // the tethers: thin hoses in the parameter's colour (a colour control's: its value), thicker and brighter with
         // the value, pulsing while it moves
         for b in &self.buttons {
+            // #424: a hidden knob keeps its (fixed-count) tube, as a point with no radius
+            if b.hidden {
+                tube(tubes, &b.tether, 0.0, 0.0, 0.0, 0.0, 4.0);
+                continue;
+            }
             let r = tether_radius(self.look.size, self.look.hose, b.shown);
             let flow = (0.25 + 0.75 * b.shown) * (1.0 + 0.8 * b.hot);
             tube(tubes, &b.tether, r, r * 0.7, flow, colour_of(b), 4.0 + 0.9 * b.motion.max(b.grip * 0.6).min(1.0));
@@ -1477,6 +1602,96 @@ mod tests {
         let b = Being::new(&g, &look);
         let names: Vec<_> = b.buttons.iter().map(|x| (g.nodes[x.node].id.as_str(), x.name)).collect();
         assert_eq!(names, [("space", "hue"), ("space", "glow"), ("space", "light"), ("space", "pulse"), ("fm", "index")]);
+    }
+
+    /// #424: a counted group in `expose` – `mix.gain1..4 <= len.rate`: the first N of the mixer's gains show, N = the
+    /// LFO's rate now (rounded, clamped 0..4); hidden ones keep their values, are not drawn, picked or tethered; the
+    /// order is the list's (the count knob first) and the shown ones stay where they are as the count changes
+    #[test]
+    fn a_counted_group_shows_only_as_many_knobs_as_its_count() {
+        let text = "[[node]]\nid=\"space\"\nkind=\"space\"\n[[node]]\nid=\"screen\"\nkind=\"screen\"\n[[node]]\nid=\"len\"\nkind=\"lfo\"\n\
+            [[node]]\nid=\"mix\"\nkind=\"mixer\"\n[[node]]\nid=\"out\"\nkind=\"audio_out\"\n\
+            [[link]]\nfrom=\"space\"\nto=\"screen.in\"\n[[link]]\nfrom=\"mix\"\nto=\"out.in\"\n";
+        let g = graph(text);
+        // the count knob is named after `depth`, which the LFO's own port order puts after `rate`: the list wins
+        let look = Look { expose: vec!["len.depth".into(), "len.rate".into(), "mix.gain1..4 <= len.rate".into()], ..Look::default() };
+        let mut b = Being::new(&g, &look);
+        let node = |id: &str| g.nodes.iter().position(|n| n.id == id).unwrap();
+        let (len, mix) = (node("len"), node("mix"));
+        let rate = g.nodes[len].kind.inputs().iter().position(|p| p.name == "rate").unwrap();
+        let gain3 = g.nodes[mix].kind.inputs().iter().position(|p| p.name == "gain3").unwrap();
+        let of = |b: &Being, n: usize| b.buttons.iter().filter(|x| x.node == n && !x.hidden).map(|x| x.name).collect::<Vec<_>>();
+        let mut c = Table::new(&g);
+        let silent = |_: usize, _: usize| 0.0;
+        let run = |b: &mut Being, c: &mut Table, rate_now: f32| {
+            c.set(len, rate, rate_now);
+            for f in 0..3 {
+                b.update(1.0 / 60.0, f as f32 / 60.0, &Local { ctl: &*c, meter: &silent }, &now(0.0));
+            }
+        };
+        // N from the value: 2 → the first two; the order is the list's (depth before rate)
+        run(&mut b, &mut c, 2.0);
+        assert_eq!(of(&b, mix), ["gain1", "gain2"]);
+        assert_eq!(of(&b, len), ["depth", "rate"], "the list's order, not the ports'");
+        let two: Vec<_> = b.buttons.iter().filter(|x| x.node == mix && !x.hidden).map(|x| (x.dir, x.root, x.rank, x.count)).collect();
+        // a hidden knob: no radius, no tether, never picked, not drawn – and its value is kept while it is hidden
+        let hidden = b.buttons.iter().position(|x| x.name == "gain3").unwrap();
+        assert!(b.buttons[hidden].hidden && b.buttons[hidden].radius == 0.0);
+        assert!(c.set(mix, gain3, 0.7));
+        run(&mut b, &mut c, 2.0);
+        let mut solid = Vec::new();
+        b.write_solid(&mut solid);
+        let drawn = solid.iter().filter(|s| s.extra[0] == kind::BUTTON).count();
+        assert_eq!(drawn, b.buttons.iter().filter(|x| !x.hidden).count(), "a hidden knob is not drawn");
+        let (mut spheres, mut tubes) = (Vec::new(), Vec::new());
+        b.write(&mut spheres, &mut tubes);
+        assert_eq!(tubes.len(), b.capacity().1, "its tube stays (a point), the buffers keep their size");
+        assert!(b.pick(&Ray { origin: b.buttons[hidden].pos + Vec3::Z, dir: -Vec3::Z }) != Some(Hit::Button(hidden)), "never picked");
+        assert!(b.shown().contains(&Path::Input(len, rate)), "its count parameter is streamed");
+        // more: the first two stay where they are (the order is stable), the others appear with the value they kept
+        run(&mut b, &mut c, 4.0);
+        assert_eq!(of(&b, mix), ["gain1", "gain2", "gain3", "gain4"]);
+        assert_eq!(b.buttons[hidden].value, 0.7, "a hidden knob keeps its value");
+        assert_eq!(b.buttons.iter().filter(|x| x.node == mix).take(2).map(|x| (x.dir, x.root, x.rank)).collect::<Vec<_>>(), two.iter().map(|x| (x.0, x.1, x.2)).collect::<Vec<_>>());
+        assert!(b.buttons.iter().filter(|x| x.node == mix).all(|x| x.count == 4));
+        // clamps: more than the group has = all of it; none = none (the count knob stays)
+        run(&mut b, &mut c, 19.0);
+        assert_eq!(of(&b, mix).len(), 4);
+        run(&mut b, &mut c, 0.4);
+        assert!(of(&b, mix).is_empty());
+        assert_eq!(of(&b, len), ["depth", "rate"]);
+        // a hovered knob that goes away is let go
+        run(&mut b, &mut c, 3.0);
+        b.hover = Some(Hit::Button(hidden));
+        run(&mut b, &mut c, 2.0);
+        assert_eq!(b.hover, None);
+    }
+
+    /// #424 (owner 2026-11-08: "whenever i hover knobs, please show their name"): the hovered (else the selected) knob's
+    /// name – a rig's label in the locale (else English, else any), else the parameter's own name; never a hidden knob
+    #[test]
+    fn the_hovered_knob_is_named() {
+        let g = graph(SCENE);
+        let mut look = Look { expose: vec!["fm.ratio".into(), "fm.index".into(), "lfo.rate".into()], ..Look::default() };
+        look.labels.insert("fm.ratio".into(), [("en", "FM ratio"), ("de", "FM-Verhältnis")].map(|(k, v)| (k.to_string(), v.to_string())).into());
+        look.labels.insert("fm.index".into(), [("en", "FM index")].map(|(k, v)| (k.to_string(), v.to_string())).into());
+        let name = |look: &Look, port: &str| {
+            let b = Being::new(&g, look);
+            let i = b.buttons.iter().position(|x| x.name == port).unwrap();
+            b.name(i).to_string()
+        };
+        assert_eq!(name(&look, "ratio"), "FM ratio", "no locale: English");
+        assert_eq!(name(&Look { locale: "de".into(), ..look.clone() }, "ratio"), "FM-Verhältnis");
+        assert_eq!(name(&Look { locale: "de".into(), ..look.clone() }, "index"), "FM index", "no German label: English");
+        assert_eq!(name(&look, "rate"), "rate", "no label: the parameter's name");
+        let mut b = Being::new(&g, &look);
+        assert_eq!(b.named(), None);
+        let i = b.buttons.iter().position(|x| x.name == "ratio").unwrap();
+        b.hover = Some(Hit::Button(i));
+        assert_eq!(b.named(), Some(i));
+        b.hover = None;
+        b.selected = Some(Hit::Button(i));
+        assert_eq!(b.named(), Some(i), "the selected knob, while nothing is hovered");
     }
 
     #[test]

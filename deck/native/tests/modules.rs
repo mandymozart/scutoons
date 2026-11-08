@@ -619,4 +619,46 @@ fn the_catpope_analog_scene_plays_and_its_sliders_are_buttons() {
     got.sort();
     want.sort();
     assert_eq!(got, want, "the 16 sliders, the 16 switches, the loop, the clock and the synth's main knobs: {knobs:?}");
+    assert_eq!(knobs[0], "seq.steps", "#424: the loop length is the very first knob");
+}
+
+/// #424 (owner 2026-11-08): the being shows only as many pitch knobs (and on/off switches) as the sequence has steps, the
+/// loop length `steps` the first knob – as the native deck builds it from the real scene and the real modules, the
+/// count live: the scene's `steps`, then another value pushed into the control table
+#[test]
+fn the_being_shows_only_as_many_step_knobs_as_the_sequence_has_steps() {
+    use deck_native::space::being::{Being, Hit};
+    use deck_native::space::values::{Knobs, Local, Table};
+    Library::global().load(&stepseq()).unwrap();
+    Library::global().load(&analog()).unwrap();
+    let base = Scene::parse(deck_native::switcher::builtin("catpope-analog").expect("a built-in scene")).unwrap();
+    let mut scene = base.clone();
+    scene.nodes.iter_mut().find(|n| n.id == "seq").unwrap().params.insert("steps".into(), toml::Value::Float(6.0));
+    let graph = Graph::build(&scene).unwrap();
+    let mut being = Being::new(&graph, &scene.being);
+    let mut ctl = Table::new(&graph);
+    let silent = |_: usize, _: usize| 0.0;
+    let beat = deck_native::tempo::Now { bpm: 100.0, pos: deck_native::tempo::position(0.0, 4), per_bar: 4, running: true };
+    let shown = |being: &mut Being, ctl: &Table| -> Vec<String> {
+        being.update(1.0 / 60.0, 0.0, &Local { ctl, meter: &silent }, &beat);
+        being.buttons.iter().filter(|b| !b.hidden).map(|b| format!("{}.{}", graph.nodes[b.node].id, b.name)).collect()
+    };
+    let others = ["synth.volume", "synth.f1_cutoff", "synth.f1_res", "synth.f1_env", "synth.ae1_d", "synth.ae1_r", "synth.o2_fine", "synth.l1_rate"];
+    let want = |n: usize| -> Vec<String> {
+        let seq = ["seq.steps".to_string()].into_iter().chain((1..=n).map(|i| format!("seq.step{i}"))).chain((1..=n).map(|i| format!("seq.on{i}"))).chain(["seq.rate", "seq.gate"].map(String::from));
+        seq.chain(others.iter().map(|s| s.to_string())).collect()
+    };
+    let six = shown(&mut being, &ctl);
+    assert_eq!(six, want(6), "steps = 6: 6 pitch knobs, 6 switches, the length first, the others");
+    // the hidden knobs are no longer buttons to pick (a flag, the list keeps its length) and keep their place in it
+    assert_eq!(being.buttons.len(), 1 + 16 + 16 + 2 + 8);
+    let hidden = being.buttons.iter().position(|b| b.name == "step9").unwrap();
+    assert!(being.buttons[hidden].hidden && being.hover != Some(Hit::Button(hidden)));
+    // live: the owner turns the length knob (the table's value) – 16 shows all of them, 3 the first three
+    let (seq, port) = (being.buttons[0].node, being.buttons[0].port);
+    assert_eq!(being.buttons[0].name, "steps", "the length is the first knob");
+    assert!(ctl.set(seq, port, 16.0));
+    assert_eq!(shown(&mut being, &ctl), want(16), "steps = 16: all of them");
+    assert!(ctl.set(seq, port, 3.0));
+    assert_eq!(shown(&mut being, &ctl), want(3));
 }

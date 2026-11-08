@@ -678,6 +678,15 @@ impl Space {
     /// 2026-10-31) – at most label::LABELS (`out` cleared first; its capacity from the renderer – no allocation).
     pub fn write_labels(&self, out: &mut Vec<Label>) {
         out.clear();
+        // #424 (owner 2026-11-08: "whenever i hover knobs, please show their name" – for now, the one exception to the
+        // no-labels rule of 2026-10-31): the hovered knob's name beside it – its parameter, never a number
+        if let Some(i) = self.being.named() {
+            let b = &self.being.buttons[i];
+            let mut text = label::Text::default();
+            let _ = std::fmt::Write::write_str(&mut text, self.being.name(i));
+            let c = being::hsv(being::colour_of(b), 0.35, 1.0);
+            out.push(Label { pos: b.pos.into(), offset: b.radius * 2.0, text, color: [c[0], c[1], c[2], 0.95], scale: 1.0, line: 0.0, top: true });
+        }
         // #195: the conductor's word over each deck's being – its sync for the push (first: the decks' state matters), then
         // its render quality (#220) and its link (#223), a line each
         for r in &self.others {
@@ -686,7 +695,7 @@ impl Space {
             let mut put = |out: &mut Vec<Label>, text: label::Text, hue: f32| {
                 if out.len() < label::LABELS {
                     let c = being::hsv(hue, 0.55, 1.0);
-                    out.push(Label { pos: (head.pos + Vec3::Y * head.radius * 1.4).into(), offset: head.radius, text, color: [c[0], c[1], c[2], 0.9], scale: 0.85, line });
+                    out.push(Label { pos: (head.pos + Vec3::Y * head.radius * 1.4).into(), offset: head.radius, text, color: [c[0], c[1], c[2], 0.9], scale: 0.85, line, top: false });
                 }
                 line += 1.0;
             };
