@@ -614,7 +614,7 @@ fn the_catpope_analog_scene_plays_and_its_sliders_are_buttons() {
     let being = deck_native::space::being::Being::new(&graph, &base.being);
     let knobs: Vec<String> = being.buttons.iter().map(|b| format!("{}.{}", graph.nodes[b.node].id, b.name)).collect();
     let mut want: Vec<String> = (1..=16).map(|i| format!("seq.step{i}")).chain((1..=16).map(|i| format!("seq.on{i}"))).collect();
-    want.extend(["seq.steps", "seq.rate", "seq.gate", "synth.volume", "synth.f1_cutoff", "synth.f1_res", "synth.f1_env", "synth.ae1_d", "synth.ae1_r", "synth.o2_fine", "synth.l1_rate"].map(String::from));
+    want.extend(["seq.steps", "seq.rate", "seq.gate", "synth.volume", "synth.f1_cutoff", "synth.f1_res", "synth.f1_env", "synth.ae1_d", "synth.ae1_r", "synth.o2_fine", "synth.l1_rate", "cue.gain", "stem.gain"].map(String::from));
     let mut got = knobs.clone();
     got.sort();
     want.sort();
@@ -643,7 +643,7 @@ fn the_being_shows_only_as_many_step_knobs_as_the_sequence_has_steps() {
         being.update(1.0 / 60.0, 0.0, &Local { ctl, meter: &silent }, &beat);
         being.buttons.iter().filter(|b| !b.hidden).map(|b| format!("{}.{}", graph.nodes[b.node].id, b.name)).collect()
     };
-    let others = ["synth.volume", "synth.f1_cutoff", "synth.f1_res", "synth.f1_env", "synth.ae1_d", "synth.ae1_r", "synth.o2_fine", "synth.l1_rate"];
+    let others = ["synth.volume", "synth.f1_cutoff", "synth.f1_res", "synth.f1_env", "synth.ae1_d", "synth.ae1_r", "synth.o2_fine", "synth.l1_rate", "cue.gain", "stem.gain"];
     let want = |n: usize| -> Vec<String> {
         let seq = ["seq.steps".to_string()].into_iter().chain((1..=n).map(|i| format!("seq.step{i}"))).chain((1..=n).map(|i| format!("seq.on{i}"))).chain(["seq.rate", "seq.gate"].map(String::from));
         seq.chain(others.iter().map(|s| s.to_string())).collect()
@@ -651,7 +651,7 @@ fn the_being_shows_only_as_many_step_knobs_as_the_sequence_has_steps() {
     let six = shown(&mut being, &ctl);
     assert_eq!(six, want(6), "steps = 6: 6 pitch knobs, 6 switches, the length first, the others");
     // the hidden knobs are no longer buttons to pick (a flag, the list keeps its length) and keep their place in it
-    assert_eq!(being.buttons.len(), 1 + 16 + 16 + 2 + 8);
+    assert_eq!(being.buttons.len(), 1 + 16 + 16 + 2 + 8 + 2);
     let hidden = being.buttons.iter().position(|b| b.name == "step9").unwrap();
     assert!(being.buttons[hidden].hidden && being.hover != Some(Hit::Button(hidden)));
     // live: the owner turns the length knob (the table's value) – 16 shows all of them, 3 the first three
