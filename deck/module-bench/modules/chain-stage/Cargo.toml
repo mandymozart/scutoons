@@ -1,0 +1,14 @@
+# chain-stage – the wiring bench's one stage (#393): a module wired to the next by the host. A bench module, not a factory module.
+[package]
+name = "chain-stage-module"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+deck-module = { path = "../../../module" }
