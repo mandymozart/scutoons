@@ -1,6 +1,14 @@
 Status 2026-11-08: design note for the owner's review (#203, slice 3 of #425). Nothing built. Owner 2026-11-08: wiring is configuration, not Rust: question 1 and slice W3 fall away, §2 is to be reread against that (decisions/deck.md [rigs]); the other answers are there too.
 
 # MODULE-WIRING – wiring modules in the editor
+
+**The owner's answers, 2026-11-08 (decisions/deck.md [rigs]); they override the text below where it differs:**
+- **Wiring is configuration, not code** (the bench: at most 0.6 % of the audio budget, PC only). The "two file forms" of §2, question 1 and slice W3 fall away. A code rig's `path` outputs stay as they are until a ticket reworks them.
+- **Events:** module to module = explicit cables only, no by-name fallback; the world (MIDI, generators, carrier bag, VN state, other scenes, rigs, decks) enters through world nodes, with an image of the origin where there is one; an event input with no cable hears nothing (research/EVENTS-VS-PARAMS.md §5).
+- **A note source is a silent track** wired by event cables.
+- **When it takes effect:** data on every gesture, Rust on the Compile button.
+- **Text view:** TOML if it makes sense long-term for saving configurations, else an alternative view of the nodes; the two must be identifiably related.
+- **Reach is wide from the start:** other scenes, characters and rigs, so linked decks can affect each other. Cables in a rig stay relative; the absolute address sits on the world node (changes §3 and W4).
 Owner 2026-11-08, binding ([rigs] in decisions/deck.md): the code is the ONE source of a wiring, no override layer; rewiring by hand changes the code and takes effect through the compile; the editor exists only outside the deck ("somit ist das node on the fly verkabel verboten"); addressing must finally reach everything in the Scutooniverse, for now the stage, probably the active scene; what is shown depends on where you are, "aehnlich dem flow editor". The note does not depend on which GUI the editor runs in (#393). Every rule below lives in the core (RULES A1, A2, `check:core-only`).
 
 ## 1. What exists (read from the code, main 86a08194)
