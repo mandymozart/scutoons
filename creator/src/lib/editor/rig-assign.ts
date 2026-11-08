@@ -55,6 +55,15 @@ export function bundleRequest(rig: RigDoc, lists: RigLists): string {
 	return JSON.stringify({ rig, instruments: lists.instrumentDocs, presets: lists.presetDocs });
 }
 
+/** #425: the core's request for the instrument that wraps a module (space-web `rig_module_instrument`): the catalog's
+ *  module document, its id put in (the entry's id, the content may not carry it) */
+export function moduleInstrumentRequest(entry: { id: string; content: unknown }): string {
+	return JSON.stringify({ module: { ...(isObject(entry.content) ? entry.content : {}), id: entry.id } });
+}
+
+/** the key of a catalog instrument document */
+export const instrumentKey = (id: string) => `instrument:${id}`;
+
 /** the creator's draft calls (`$lib/api.ts`); tests pass fakes */
 export type Drafts = Pick<ContentApi, 'getDraft' | 'putDraft' | 'publishVersion'>;
 export type RigResult = { ok: true } | { ok: false; message: string };

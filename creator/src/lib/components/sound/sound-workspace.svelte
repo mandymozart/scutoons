@@ -3,9 +3,9 @@
 	// deck (the engine host, #298) on the other, so every edit is heard and seen at once; below ~900 px the designer stacks
 	// above the deck. The subject is a rig (`rig:character.<id>`: its character plays on the deck, the Rust tab picks a
 	// module) or a module (`module:<id>`: the Rust tab IS it). The modules are `module:<id>` documents, drafts and history
-	// like any catalog document; the compile service writes the descriptor into them (#281). Playing the compiled module
-	// in the engine comes with #290. Factory modules (walk, analog, fixture – #350) are read-only: the API refuses every
-	// change; the designer shows them locked with Derive, and New module starts as a copy of one (a derivative, `origin`).
+	// like any catalog document; the compile service writes the descriptor into them (#281; playing it comes with #290). Factory
+	// modules (#350) are read-only: the designer shows them locked with Derive, and New module starts as a copy of one. A rig
+	// page of a character without a rig is the RigGate's (#425): two ways in, until a module is open.
 	import { onMount, untrack } from 'svelte';
 	import { MediaQuery } from 'svelte/reactivity';
 	import { goto, beforeNavigate } from '$app/navigation';
@@ -27,6 +27,7 @@
 	import { isolateThisPage } from '$lib/isolation.svelte.ts';
 	import DeckHalf from '$lib/components/sound/deck-half.svelte';
 	import DesignerHalf from '$lib/components/sound/designer-half.svelte';
+	import RigGate from '$lib/components/sound/rig-gate.svelte';
 
 	let { target }: { target: EditTarget } = $props();
 
@@ -40,8 +41,7 @@
 
 	// the catalog kind `modules` (server CatalogDocs) – the factory modules (#350) marked, New module's templates
 	let catalog = $state<ModuleCatalog>(NO_MODULES);
-	/** a refused New module, one muted sentence */
-	let notice = $state('');
+	let notice = $state(''); // a refused New module, one muted sentence
 	async function loadModules(): Promise<void> {
 		const r = await api.get<{ entries: { id: string; removed: boolean; content: unknown }[] }>('/catalog/docs/modules').catch(() => null);
 		catalog = r ? readCatalog(r.entries) : NO_MODULES;
@@ -121,6 +121,7 @@
 
 <div class="split" class:stacked={stacked.current} bind:this={splitEl} style:--deck-width={deckSize.css} data-testid="sound-workspace">
 	<section class="half designer-half" aria-label={m['creator.sound_designer']()}>
+		<RigGate subject={'subject' in target ? target.subject : null} character={'character' in target ? target.character : ''} {selected} modules={catalog.ids} factory={Object.keys(catalog.factory)} onopen={select} reload={loadModules}>
 		<DesignerHalf
 			{designer}
 			fixed={target.kind === 'module' ? target.id : null}
@@ -135,6 +136,7 @@
 			onnew={() => create(false)}
 			onderive={() => create(true)}
 		/>
+		</RigGate>
 	</section>
 	<section class="half deck-half" id="sound-deck" aria-label={m['creator.sound_deck']()}>
 		{#key target.key}
