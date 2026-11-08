@@ -91,7 +91,7 @@ Storing is like git, not like a zip of everything. Every resolved scene, rig and
 The editor's local build makes a `dev` package and offers it on the LAN: change a rig on the PC and it plays on a real X1 seconds later, with no server and no separate path. The split into sandboxes and real scenes becomes the channel: sandboxes are `dev` packages, real scenes are `stable`. The TOML files in `native/scenes/` shrink to the idle scene and test fixtures, as already decided.
 
 ## 6. Questions for the owner
-1. **Pinning.** You decided a scene uses a set's *current* version, with no pinning. A package has to freeze something to be safe offline. *Recommend:* documents keep "current"; a package freezes what current was when it was built, and rebuilding it brings the new versions.
+1. ~~Pinning.~~ **Decided by the owner 2026-11-08:** documents keep "current" (as decided 2026-11-02); a package freezes what current was when it was built, and rebuilding it brings the new versions.
 2. **Embedded rigs.** *Recommend the rule in §2:* embed only what the scene alone owns; a holder may change values and preset choices, never the graph.
 3. **Who builds and when.** *Recommend:* the Rust build service builds it (the resolve step is the core's, no second copy in PHP), on a "Build package" action after publishing, not automatically at every publish.
 4. **Media.** *Recommend:* config by default, full only when asked for.
