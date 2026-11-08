@@ -1,6 +1,6 @@
-# #406 module demo: the `walk` module plays the `analog` synth module through note events – module to module, no cable: the
-# engine's event host delivers walk's `music.note` events to analog's `notes` input by name (deck-native tests/modules.rs
-# proves it). analog's own defaults (a two-oscillator subtractive voice, 8 voices) sound; its factory preset `pad` is not
+# #406 module demo: the `walk` module plays the `analog` synth module through note events – module to module, over an event
+# cable (#430: events are a port type and reach a synth only by a cable; the first `[[link]]` below, walk's `notes` to the
+# synth's `notes`). analog's own defaults (a two-oscillator subtractive voice, 8 voices) sound; its factory preset `pad` is not
 # applied here. Quiet by default: analog `volume` 0.5, device volume 0.5.
 # Needs the `modules` build and both modules in DECK_MODULES (walk.wasm, analog.wasm – the X1 update ships them).
 #   cargo run --release -p deck-native --features modules -- --scene module-analog
@@ -33,6 +33,10 @@ volume = 0.5
 id = "out"
 kind = "audio_out"
 volume = 0.5
+
+[[link]]
+from = "walk.notes"
+to = "synth.notes"
 
 [[link]]
 from = "synth.out"

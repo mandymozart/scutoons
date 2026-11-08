@@ -187,6 +187,10 @@ pub struct DeckAudio {
     pub audio_device: Option<String>,
     #[serde(default)]
     pub audio_thread: Option<bool>,
+    /// this machine's channel map (#428): `[[audio_outlet]]`, `group = "cue"`, `channels = [3, 4]`, counted from 1 – the scene names
+    /// the group, this says where it plays. `main` without an entry plays on channels 1.., any other group without one is silent
+    #[serde(default)]
+    pub audio_outlet: Vec<deck_engine::OutletMap>,
 }
 
 impl DeckAudio {
@@ -899,7 +903,14 @@ mod tests {
     #[test]
     fn deck_toml_names_the_machines_audio() {
         let d = DeckAudio::parse("kiosk = \"stage\"\nrelay = \"\"\naudio_buffer = 256\naudio_host = \"asio\"\naudio_device = \"Fireface\"\n");
-        assert_eq!(d, DeckAudio { audio_buffer: Some(256), audio_host: Some("asio".into()), audio_device: Some("Fireface".into()), audio_thread: None });
+        assert_eq!(d, DeckAudio { audio_buffer: Some(256), audio_host: Some("asio".into()), audio_device: Some("Fireface".into()), audio_thread: None, audio_outlet: vec![] });
+        let map = DeckAudio::parse("outlet = \"stage\"
+audio_host = \"asio\"
+[[audio_outlet]]
+group = \"cue\"
+channels = [3, 4]
+");
+        assert_eq!(map.audio_outlet, [deck_engine::OutletMap { group: "cue".into(), channels: vec![3, 4] }]);
         assert_eq!(DeckAudio::parse("audio_thread = false\n").audio_thread, Some(false));
         // the file a deck starts with: the device's default buffer, the render thread on
         let shipped = DeckAudio::parse(include_str!("../../../os/rootfs/usr/share/deck/deck.default.toml"));

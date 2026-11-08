@@ -40,6 +40,13 @@
 		if (ed) untrack(() => ed.show(file, text));
 	});
 
+	// a factory module is read-only (#350)
+	$effect(() => {
+		const ed = editor;
+		const locked = designer.factory;
+		if (ed) untrack(() => ed.setReadOnly(locked));
+	});
+
 	// the compiler's places in the file shown
 	$effect(() => {
 		const ed = editor;

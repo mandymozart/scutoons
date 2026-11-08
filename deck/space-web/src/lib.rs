@@ -163,8 +163,9 @@ pub fn rig_play(bundle: &str, persona: &str, mood: &str) -> Result<String, JsVal
     deck_space::rig::Bundle::play_json(bundle, persona, mood).map_err(|e| JsValue::from_str(&format!("{e:#}")))
 }
 
-/// The deck's own scene (#360: the one the X1 boots with, embedded in this build) played as `rig_play` answers – what
-/// the page plays when its character has no rig; its `engine.scene` is what live-core loads.
+/// The Cathedral (#360: the X1's old boot scene, embedded in this build) played as `rig_play` answers – a TEST scene since
+/// #425: no deck plays it when its character has no rig (that is silent: `DeckState.now`); its `engine.scene` is what
+/// live-core loads.
 #[wasm_bindgen]
 pub fn deck_scene() -> Result<String, JsValue> {
     deck_space::rig::Played::deck_scene_json().map_err(|e| JsValue::from_str(&format!("{e:#}")))
@@ -190,6 +191,43 @@ pub fn scene_rig(answer: &str, group: &str, id: &str) -> Result<String, JsValue>
 #[wasm_bindgen]
 pub fn rig_problems(request: &str) -> Result<String, JsValue> {
     deck_space::rig::validate::problems_json(request).map_err(|e| JsValue::from_str(&format!("{e:#}")))
+}
+
+/// #283: every character's default rig – plays, drafted or missing – and its personas' own (deck-space
+/// `rig::assign::coverage`): `request` = `{ characters: [{ id, personas }], rigs: [{ id, live, draft, removed }] }` as
+/// JSON (the registry and the catalog's rig list), the answer `[{ character, subject, default, personas?, missing }]`.
+#[wasm_bindgen]
+pub fn rig_coverage(request: &str) -> Result<String, JsValue> {
+    deck_space::rig::assign::coverage_json(request).map_err(|e| JsValue::from_str(&format!("{e:#}")))
+}
+
+/// #283: a rig document with what it names from the catalog (`{ rig, instruments, presets }` as JSON, every entry's
+/// document) – the bundle as JSON for `rig_play`, so a draft is heard before it is published.
+#[wasm_bindgen]
+pub fn rig_catalog_bundle(request: &str) -> Result<String, JsValue> {
+    deck_space::rig::assign::catalog_bundle_json(request).map_err(|e| JsValue::from_str(&format!("{e:#}")))
+}
+
+/// #412: a bundle's face (deck-space `Rig::describe`): its tracks and what a code rig's policy owns of them, as JSON – the
+/// Assignment tab marks the rows from it.
+#[wasm_bindgen]
+pub fn rig_face(bundle: &str) -> Result<String, JsValue> {
+    deck_space::rig::face::face_json(bundle).map_err(|e| JsValue::from_str(&format!("{e:#}")))
+}
+
+/// #412: a rig's policy template (deck-space `rig_policy_template`): `request` = `{ module, rig, instruments, presets }` as
+/// JSON (the rig document and the catalog's documents), the answer `{ "lib.rs": … }` – the first files of `module:<module>`.
+#[wasm_bindgen]
+pub fn rig_policy_template(request: &str) -> Result<String, JsValue> {
+    deck_space::rig::template::template_json(request).map_err(|e| JsValue::from_str(&format!("{e:#}")))
+}
+
+/// #425: the instrument that wraps one module (`{ module: <the catalog's module document> }` as JSON → the instrument
+/// document as JSON) – the rig page's "start from existing modules" adds it to the catalog and a track of it to the rig;
+/// throws why a module cannot be one (no descriptor yet, no audio output).
+#[wasm_bindgen]
+pub fn rig_module_instrument(request: &str) -> Result<String, JsValue> {
+    deck_space::rig::assign::module_instrument_json(request).map_err(|e| JsValue::from_str(&format!("{e:#}")))
 }
 
 #[wasm_bindgen]
@@ -968,6 +1006,16 @@ impl DeckState {
         DeckState { d: deck_space::deck::Deck::new() }
     }
 
+    /// #425: the rig editor's deck – the same, on an empty rigging stage (`room` answers "": no set behind the being)
+    pub fn rigging() -> DeckState {
+        DeckState { d: deck_space::deck::Deck::rigging() }
+    }
+
+    /// #425: the set the being floats in (the page loads its model); "" = none, the empty rigging stage
+    pub fn room(&self) -> String {
+        self.d.room().to_string()
+    }
+
     /// the character's portraits (their moods): the ladder anew
     pub fn set_portraits(&mut self, moods: Vec<String>) {
         self.d.ladder.set_portraits(&moods);
@@ -979,9 +1027,18 @@ impl DeckState {
     }
 
     /// One animation frame: the analysis level (0..1), the clock's bpm and whether it runs, a hand (0..1), `dt` s since
-    /// the last – when the mood changed its `Step` as JSON (the mood, the rig's turn for it or why not), else "".
-    pub fn step(&mut self, level: f32, bpm: f32, running: bool, touch: f32, dt: f32) -> String {
-        self.d.step(level, bpm, running, touch, dt).map(|s| json(&s)).unwrap_or_default()
+    /// the last, and a code rig's preset outputs as heard (#410: the played scene's `presets` paths in order – what the
+    /// engine streamed as `policy.<out>`, NaN = not heard; empty without a code rig) – when the mood changed or the
+    /// policy chose another preset its `Step` as JSON (the mood, the rig's turn for it or why not), else ""
+    /// (deck-space `Deck::frame`).
+    pub fn step(&mut self, level: f32, bpm: f32, running: bool, touch: f32, dt: f32, heard: Vec<f32>) -> String {
+        self.d.frame(level, bpm, running, touch, dt, &heard).map(|s| json(&s)).unwrap_or_default()
+    }
+
+    /// #410: the paths of a code rig's preset outputs (`policy.<out>`) the page hands to `step` as heard, in order (none
+    /// without a code rig)
+    pub fn preset_paths(&self) -> Vec<String> {
+        self.d.preset_paths().map(String::from).collect()
     }
 
     /// #368: what plays now, as a `Turn` to load whole (JSON)
@@ -1019,6 +1076,12 @@ impl DeckState {
     /// #368: the being on the wire (a `deck.graph`, JSON) – the deck's own scene wears `character`
     pub fn graph(&self, character: &str) -> String {
         json(&self.d.graph(character))
+    }
+
+    /// #282: the played scene's wiring (JSON: deck-space `rig::wiring::Wiring` – nodes with their ports and depth, links
+    /// with the paths of their values) for the rig designer's Nodes tab
+    pub fn wiring(&self) -> String {
+        json(&self.d.wiring())
     }
 
     /// #368: where a value of `path` goes in the engine ("" = nowhere: a node the engine does not play)

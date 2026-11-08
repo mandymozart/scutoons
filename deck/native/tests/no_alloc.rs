@@ -204,6 +204,8 @@ fn the_being_steps_without_allocating() {
         };
         being.update(1.0 / 60.0, f as f32 / 60.0, &Local { ctl: &ctl, meter: &meter }, &beat);
         being.push(&mut ctl);
+        // #409: the being's live context to the module nodes (no rig plays here)
+        deck_native::rig::frame(None, &being, &graph, &mut ctl, 1.0 / 60.0);
         // the deck's sound swells and drops: its rules see jumps, quiet and noise
         let loud = ((f / 90) % 2) as f32;
         mirror.apply(&graph, "fft.level", &[0.9 * loud]);

@@ -1,0 +1,473 @@
+{
+    "sets": {},
+    "characters": {
+        "catpope": {
+            "character": "catpope",
+            "persona": "regular",
+            "look": "default",
+            "portraits": {
+                "neutral": {
+                    "path": "characters/catpope/catpope_portrait-neutral.webp",
+                    "size": null
+                }
+            },
+            "rig": {
+                "id": "character.catpope",
+                "version": "94d7465228284f33",
+                "data": {
+                    "subject": "character.catpope",
+                    "track": [
+                        {
+                            "id": "voice",
+                            "instrument": "cathedral_voice",
+                            "preset": "cathedral_voice.base",
+                            "gain": 1.0,
+                            "pan": 0.0,
+                            "mute": false
+                        },
+                        {
+                            "id": "drone",
+                            "instrument": "drone",
+                            "preset": "drone.base",
+                            "gain": 1.0,
+                            "pan": 0.0,
+                            "mute": false
+                        }
+                    ],
+                    "rights": {
+                        "lent": [
+                            "play",
+                            "tweak"
+                        ],
+                        "owned": [
+                            "play",
+                            "tweak",
+                            "derive",
+                            "copy"
+                        ],
+                        "core": [
+                            "play",
+                            "tweak",
+                            "derive"
+                        ]
+                    },
+                    "sticks": [
+                        [
+                            "voice_voice.ratio",
+                            "voice_voice.index"
+                        ],
+                        [
+                            "voice_melody.spread",
+                            "drone_drone.freq"
+                        ]
+                    ],
+                    "policy": {
+                        "module": "catpope_rig"
+                    }
+                },
+                "instruments": [
+                    "cathedral_voice",
+                    "drone"
+                ],
+                "presets": [
+                    "cathedral_voice.base",
+                    "drone.base",
+                    "cathedral_voice.low",
+                    "cathedral_voice.bright"
+                ],
+                "modules": [
+                    "catpope_rig"
+                ]
+            }
+        },
+        "boy": {
+            "character": "boy",
+            "persona": "regular",
+            "look": "default",
+            "portraits": {},
+            "rig": null
+        }
+    },
+    "items": {},
+    "instruments": {
+        "cathedral_voice": {
+            "id": "cathedral_voice",
+            "version": "9c29f6db0ed5471b",
+            "data": {
+                "id": "cathedral_voice",
+                "kind": "voice",
+                "name": {
+                    "de": "Kathedralenstimme",
+                    "en": "Cathedral voice"
+                },
+                "node": [
+                    {
+                        "id": "voice",
+                        "kind": "fm",
+                        "freq": 147.0,
+                        "gain": 0.16,
+                        "index": 2.0,
+                        "ratio": 1.5
+                    },
+                    {
+                        "id": "melody",
+                        "kind": "walk",
+                        "base": 147.0,
+                        "bpm": 84.0,
+                        "glide": 0.5,
+                        "octaves": 2.0,
+                        "rate": 2.0,
+                        "seed": 84,
+                        "spread": 0.0
+                    }
+                ],
+                "link": [
+                    {
+                        "from": "melody.cv",
+                        "to": "voice.cv",
+                        "scale": 1.0,
+                        "offset": 0.0
+                    }
+                ],
+                "out": "voice",
+                "expose": [
+                    {
+                        "path": "voice.ratio",
+                        "label": {
+                            "de": "FM-Verhältnis",
+                            "en": "FM ratio"
+                        },
+                        "range": [
+                            0.5,
+                            4.0
+                        ]
+                    },
+                    {
+                        "path": "voice.index",
+                        "label": {
+                            "de": "FM-Index",
+                            "en": "FM index"
+                        },
+                        "range": [
+                            0.0,
+                            8.0
+                        ]
+                    },
+                    {
+                        "path": "voice.gain",
+                        "label": {
+                            "de": "Stimme",
+                            "en": "voice"
+                        },
+                        "range": [
+                            0.0,
+                            0.3
+                        ]
+                    },
+                    {
+                        "path": "melody.spread",
+                        "label": {
+                            "de": "Weite",
+                            "en": "spread"
+                        }
+                    },
+                    {
+                        "path": "melody.rate",
+                        "label": {
+                            "de": "Schritte / Schlag",
+                            "en": "steps / beat"
+                        }
+                    },
+                    {
+                        "path": "melody.glide",
+                        "label": {
+                            "de": "Gleiten",
+                            "en": "glide"
+                        }
+                    }
+                ],
+                "rights": {
+                    "lent": [
+                        "play",
+                        "tweak"
+                    ],
+                    "owned": [
+                        "play",
+                        "tweak",
+                        "derive",
+                        "copy"
+                    ],
+                    "core": [
+                        "play",
+                        "tweak",
+                        "derive"
+                    ]
+                }
+            }
+        },
+        "drone": {
+            "id": "drone",
+            "version": "fbfdff1387e37e43",
+            "data": {
+                "id": "drone",
+                "kind": "pad",
+                "name": {
+                    "de": "Bordun",
+                    "en": "Drone"
+                },
+                "node": [
+                    {
+                        "id": "drone",
+                        "kind": "osc",
+                        "freq": 55.0,
+                        "gain": 0.1
+                    },
+                    {
+                        "id": "fifth",
+                        "kind": "osc",
+                        "freq": 82.5,
+                        "gain": 0.03
+                    },
+                    {
+                        "id": "mix",
+                        "kind": "mixer"
+                    }
+                ],
+                "link": [
+                    {
+                        "from": "drone",
+                        "to": "mix.in1",
+                        "scale": 1.0,
+                        "offset": 0.0
+                    },
+                    {
+                        "from": "fifth",
+                        "to": "mix.in2",
+                        "scale": 1.0,
+                        "offset": 0.0
+                    }
+                ],
+                "out": "mix",
+                "expose": [
+                    {
+                        "path": "drone.freq",
+                        "label": {
+                            "de": "Bordun-Tonhöhe",
+                            "en": "drone pitch"
+                        },
+                        "range": [
+                            30.0,
+                            220.0
+                        ]
+                    },
+                    {
+                        "path": "drone.gain",
+                        "label": {
+                            "de": "Bordun",
+                            "en": "drone"
+                        },
+                        "range": [
+                            0.0,
+                            0.3
+                        ]
+                    }
+                ],
+                "rights": {
+                    "lent": [
+                        "play",
+                        "tweak"
+                    ],
+                    "owned": [
+                        "play",
+                        "tweak",
+                        "derive",
+                        "copy"
+                    ],
+                    "core": [
+                        "play",
+                        "tweak",
+                        "derive"
+                    ]
+                }
+            }
+        }
+    },
+    "presets": {
+        "cathedral_voice.base": {
+            "id": "cathedral_voice.base",
+            "version": "44af7a07553307a7",
+            "data": {
+                "id": "cathedral_voice.base",
+                "instrument": "cathedral_voice",
+                "tags": [
+                    "cathedral"
+                ],
+                "rights": {
+                    "lent": [
+                        "play",
+                        "tweak"
+                    ],
+                    "owned": [
+                        "play",
+                        "tweak",
+                        "derive",
+                        "copy"
+                    ],
+                    "core": [
+                        "play",
+                        "tweak",
+                        "derive"
+                    ]
+                }
+            }
+        },
+        "cathedral_voice.bright": {
+            "id": "cathedral_voice.bright",
+            "version": "d714b9b9352be5a8",
+            "data": {
+                "id": "cathedral_voice.bright",
+                "instrument": "cathedral_voice",
+                "parent": "cathedral_voice.base",
+                "tags": [
+                    "cathedral",
+                    "happy"
+                ],
+                "values": {
+                    "voice.ratio": 3.0
+                },
+                "rights": {
+                    "lent": [
+                        "play",
+                        "tweak"
+                    ],
+                    "owned": [
+                        "play",
+                        "tweak",
+                        "derive",
+                        "copy"
+                    ],
+                    "core": [
+                        "play",
+                        "tweak",
+                        "derive"
+                    ]
+                }
+            }
+        },
+        "cathedral_voice.low": {
+            "id": "cathedral_voice.low",
+            "version": "ea67534e61c8afb8",
+            "data": {
+                "id": "cathedral_voice.low",
+                "instrument": "cathedral_voice",
+                "parent": "cathedral_voice.base",
+                "tags": [
+                    "cathedral",
+                    "sad"
+                ],
+                "values": {
+                    "voice.index": 1.0,
+                    "voice.ratio": 0.5
+                },
+                "rights": {
+                    "lent": [
+                        "play",
+                        "tweak"
+                    ],
+                    "owned": [
+                        "play",
+                        "tweak",
+                        "derive",
+                        "copy"
+                    ],
+                    "core": [
+                        "play",
+                        "tweak",
+                        "derive"
+                    ]
+                }
+            }
+        },
+        "drone.base": {
+            "id": "drone.base",
+            "version": "97193afdd1818be9",
+            "data": {
+                "id": "drone.base",
+                "instrument": "drone",
+                "tags": [
+                    "cathedral"
+                ],
+                "rights": {
+                    "lent": [
+                        "play",
+                        "tweak"
+                    ],
+                    "owned": [
+                        "play",
+                        "tweak",
+                        "derive",
+                        "copy"
+                    ],
+                    "core": [
+                        "play",
+                        "tweak",
+                        "derive"
+                    ]
+                }
+            }
+        }
+    },
+    "modules": {
+        "catpope_rig": {
+            "id": "catpope_rig",
+            "version": "26360a26da20cc75",
+            "data": {
+                "name": "catpope_rig",
+                "version": "1",
+                "domain": "control",
+                "abi": 2,
+                "doc": "catpope: the voice's preset and FM index, the drone's level, by mood",
+                "ports": [
+                    {
+                        "name": "voice_preset",
+                        "dir": "out",
+                        "type": "control",
+                        "path": "voice:@preset",
+                        "choices": [
+                            "cathedral_voice.base",
+                            "cathedral_voice.low",
+                            "cathedral_voice.bright"
+                        ]
+                    },
+                    {
+                        "name": "voice_index",
+                        "dir": "out",
+                        "type": "control",
+                        "path": "voice:voice.index"
+                    },
+                    {
+                        "name": "drone_gain",
+                        "dir": "out",
+                        "type": "control",
+                        "path": "drone:drone.gain"
+                    }
+                ],
+                "params": [
+                    {
+                        "name": "heat",
+                        "min": 0.0,
+                        "max": 1.0,
+                        "default": 0.0,
+                        "doc": "how far the being's energy opens the FM index (0 = the table alone)"
+                    }
+                ]
+            }
+        }
+    },
+    "missing": {
+        "sets": [],
+        "characters": [],
+        "items": [],
+        "presets": []
+    }
+}

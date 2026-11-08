@@ -27,7 +27,8 @@
 	}
 
 	async function rename(file: string) {
-		if (file === MAIN_FILE) return;
+		// a factory module's files are read-only (#350)
+		if (file === MAIN_FILE || designer.factory) return;
 		const typed = await askDialog({
 			title: m['designer.file_rename'](),
 			confirmLabel: m['designer.file_rename'](),
@@ -62,14 +63,16 @@
 			>
 				{file}{#if marks[file]}<i class="dot {marks[file]}" aria-hidden="true"></i>{/if}
 			</button>
-			{#if file === designer.active && file !== MAIN_FILE}
+			{#if file === designer.active && file !== MAIN_FILE && !designer.factory}
 				<button type="button" class="x" title={m['designer.file_remove']()} aria-label={m['designer.file_remove']()} onclick={() => remove(file)}>
 					<Icon name="x" />
 				</button>
 			{/if}
 		</span>
 	{/each}
-	<button type="button" class="add" title={m['designer.file_add_title']()} onclick={add} data-testid="designer-file-add">+ {m['designer.file_add']()}</button>
+	{#if !designer.factory}
+		<button type="button" class="add" title={m['designer.file_add_title']()} onclick={add} data-testid="designer-file-add">+ {m['designer.file_add']()}</button>
+	{/if}
 </div>
 
 <style>

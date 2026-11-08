@@ -211,6 +211,8 @@ impl Default for Buf {
 /// An audio node's DSP: reads its inputs (by input port index; None = not linked or a control port), writes its outputs.
 pub trait Block: Send {
     fn process(&mut self, ins: &[Option<&Buf>], outs: &mut [Buf], n: usize);
+    /// the live context changed (#409, control.rs): a module block hands it to its module before its next call
+    fn context(&mut self, _: &control::Context) {}
 }
 
 /// How an engine is built. A deck runs `Build::detect()`; the patcher build is the reference the tests and the bench
@@ -761,6 +763,14 @@ impl Engine {
     fn quantum(&mut self) {
         let n = QUANTUM;
         self.control.block(self.frames.load(Ordering::Relaxed), n, self.rate);
+        // a new live context reaches the audio half's module blocks before they run (#409)
+        if let Some(c) = self.control.take_context() {
+            for step in &mut self.steps {
+                if let Step::Node { block, .. } = step {
+                    block.context(&c);
+                }
+            }
+        }
         self.run(n);
         if let Some(m) = &self.meters {
             for (b, &(at, _)) in self.bufs.iter().zip(&m.at) {
@@ -993,6 +1003,10 @@ fn plan_outlets(feeds: &[Feed], deck: &DeckConfig, rate: f32) -> Plan {
                 }
             }
         }
+        let mut played: Vec<usize> = pairs.iter().map(|p| p.1 + 1).collect();
+        played.sort_unstable();
+        played.dedup();
+        notes.push(format!("outlet '{}' ({}): device channels {played:?}", f.group, f.id));
         let g = match groups.iter().position(|(name, _)| *name == f.group) {
             Some(g) => g,
             None => {

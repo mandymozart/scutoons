@@ -1,6 +1,7 @@
 //! Instruments, presets and character rigs (#191, research/INSTRUMENTS.md): the data a being's sound is made of.
 //! - instrument.rs – a patch of the node graph with its exposed parameters and a kind (drum, lead, pad, voice …)
 //! - preset.rs – values + routing changes + mappings for one instrument, with a parent (derivatives, lineage)
+//! - assign.rs – the assignment (#283): which characters have a default rig, a draft rig's bundle from the catalog
 //! - bundle.rs – a rig with what it names (scene-content's answer) → the played scene + the page's knobs
 //! - content.rs – scene-content's answer (its rigs, instruments, presets with their versions) → a bundle per holder
 //! - engine.rs – a flattened rig split for live-core (deck-engine in the browser): the kinds it carries, and the rest
@@ -8,20 +9,31 @@
 //! - flatten.rs – a rig as one playable scene (the tracks summed into audio_out, the routes as links)
 //! - validate.rs – an instrument / preset / rig document checked with what it names (#313: the API's catalog writes via
 //!   deck/build `POST /validate`, the creator's hints via space-web)
+//! - wiring.rs – a played scene's nodes, ports and links as the rig designer's Nodes tab draws them (#282)
+//! - policy.rs – a code rig's policy (#408): the module that drives the tracks through path targets, its checks and the
+//!   paths it owns
+//! - face.rs – `Rig::describe`: what a rig lists to the editor and the validator (tracks, addressable inputs, the policy)
 //! - here – a rig: a character's (or a scene object's, #210) tracks, each an instrument + its default preset, routes
 //!   between tracks and to the being's look, and per-persona / per-mood variants; `Rig::play` resolves it.
 //!
 //! JSON (the platform's entity documents) and TOML (the core set in the deck image) read the same serde forms.
+pub mod assign;
 pub mod bundle;
 pub mod content;
 pub mod engine;
+pub mod face;
 mod flatten;
 pub mod horizon;
 pub mod instrument;
+pub mod policy;
 pub mod preset;
+pub mod template;
 pub mod validate;
+pub mod wiring;
 
-pub use bundle::{Bundle, Diff, Knob, Played, Stream};
+pub use bundle::{Bundle, Diff, Knob, Played, PresetChoice, Stream};
+pub use face::RigFace;
+pub use policy::Policy;
 pub use horizon::Prebuilt;
 pub use instrument::{Expose, Instrument, InstrumentKind, Patch};
 pub use preset::{Mapping, Preset, PresetBook, Resolved};
@@ -111,6 +123,9 @@ pub struct Rig {
     /// (`<track>_<node>.<port>`); none = the first four knobs (#191)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sticks: Option<[[String; 2]; 2]>,
+    /// a code rig (#408): the control module that drives the tracks (policy.rs); none = the tables alone
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub policy: Option<Policy>,
 }
 
 /// One track: an instrument, its default preset, its mixer strip.
@@ -136,8 +151,9 @@ fn one() -> f32 {
 }
 
 /// `from` / `to` are `<track>:<node>.<port>`; `to` may be `being:<input>` (the space node's hue, glow, light, pulse).
-/// Every track reaches the master through its mixer strip; an audio route is a send into another track's audio input
-/// (an fx track; `scale` = its level), a control route a modulation.
+/// Every sounding track reaches the master through its mixer strip; an audio route is a send into another track's audio
+/// input (an fx track; `scale` = its level), a control route a modulation, an event route an event cable (#430: many to
+/// many, a note source's silent track to a synth's track).
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -161,11 +177,13 @@ pub struct Variant {
     pub values: BTreeMap<String, f32>,
 }
 
-/// What a rig needs to play: the instruments and presets by id (scene-content delivers them, #195).
+/// What a rig needs to play: the instruments and presets by id (scene-content delivers them, #195), and the descriptor
+/// of a code rig's policy module by its name (#408).
 #[derive(Debug, Clone, Default)]
 pub struct Library {
     pub instruments: BTreeMap<String, Instrument>,
     pub presets: PresetBook,
+    pub modules: BTreeMap<String, deck_catalog::Descriptor>,
 }
 
 impl Library {
@@ -173,6 +191,22 @@ impl Library {
         Library {
             instruments: instruments.into_iter().map(|i| (i.id.clone(), i)).collect(),
             presets: PresetBook::new(presets),
+            modules: BTreeMap::new(),
+        }
+    }
+
+    /// the library with these module descriptors (a policy's), by name
+    pub fn with_modules(mut self, modules: impl IntoIterator<Item = deck_catalog::Descriptor>) -> Library {
+        self.modules.extend(modules.into_iter().map(|d| (d.name.to_string(), d)));
+        self
+    }
+
+    /// the library's modules registered as node kinds (`module:<name>`), so its rigs build as graphs anywhere – the
+    /// browser's, the build service's and the headless host's validation (a loaded module's registration is the same
+    /// kind). Done when a checked rig is played: a refused draft's descriptor must never become the newest of its name.
+    pub(crate) fn register_modules(&self) {
+        for d in self.modules.values() {
+            crate::modreg::register(&d.name, &crate::modreg::ModuleDef::of(d));
         }
     }
 
@@ -199,7 +233,7 @@ fn scoped(r: &str) -> Option<(&str, &str)> {
 
 impl Rig {
     /// The rig checked against `lib`: unique tracks, known instruments and presets (of the track's instrument), variants
-    /// and routes naming known tracks.
+    /// and routes naming known tracks; a code rig's policy, its targets and who writes which input (policy.rs).
     pub fn check(&self, lib: &Library) -> Result<()> {
         let mut seen = std::collections::BTreeSet::new();
         for t in &self.tracks {
@@ -208,6 +242,9 @@ impl Rig {
             }
             if t.id.contains([':', '.']) {
                 bail!("rig {}: a track id has no ':' or '.' ({})", self.subject, t.id);
+            }
+            if t.id == policy::NODE {
+                bail!("rig {}: the track id '{}' is reserved for a code rig's policy", self.subject, t.id);
             }
             if !lib.instruments.contains_key(&t.instrument) {
                 bail!("rig {}: unknown instrument \"{}\"", self.subject, t.instrument);
@@ -224,18 +261,23 @@ impl Rig {
             }
             for path in v.values.keys() {
                 let (track, inner) = scoped(path).with_context(|| format!("{name}: '{path}' is not <track>:<node>.<port>"))?;
+                if track == policy::NODE && self.policy.is_some() {
+                    self.policy_param(lib, inner).with_context(|| name.clone())?;
+                    continue;
+                }
                 lib.instrument(&self.track(track).with_context(|| name.clone())?.instrument)?.control_input(inner)?;
             }
         }
         for r in &self.routes {
             for end in [&r.from, &r.to] {
                 let Some((scope, _)) = scoped(end) else { bail!("rig {}: route end '{end}' has no scope", self.subject) };
-                if !(scope == "being" && end == &r.to) {
+                // `being:` only as a target; `policy:` both ways in a code rig (its ports: Graph::build at flatten)
+                if !(scope == "being" && end == &r.to) && !(scope == policy::NODE && self.policy.is_some()) {
                     self.track(scope)?;
                 }
             }
         }
-        Ok(())
+        self.check_policy(lib)
     }
 
     fn track(&self, id: &str) -> Result<&Track> {
@@ -256,13 +298,18 @@ impl Rig {
     /// Every unmuted track patched for `persona` and `mood`: the track's preset ← the persona's ← the mood's (the last
     /// one named wins), folded through its lineage, then the persona's and the mood's single values on top.
     pub fn play(&self, lib: &Library, persona: Option<&str>, mood: Option<&str>) -> Result<Vec<TrackPatch>> {
-        let variants: Vec<&Variant> = [persona.and_then(|p| self.personas.get(p)), mood.and_then(|m| self.moods.get(m))]
-            .into_iter()
-            .flatten()
-            .collect();
+        self.play_with(lib, persona, mood, &BTreeMap::new())
+    }
+
+    /// `play` with presets chosen per track (`chosen`: track → preset – a code rig's `@preset` outputs, #410): a choice
+    /// wins over the tables. A code rig's owned inputs (a `set` / `mul` target's) lose their preset values (policy.rs).
+    pub fn play_with(&self, lib: &Library, persona: Option<&str>, mood: Option<&str>, chosen: &BTreeMap<String, String>) -> Result<Vec<TrackPatch>> {
+        lib.register_modules();
+        let variants = self.variants(persona, mood);
+        let owned = self.owned(lib)?;
         let mut out = Vec::new();
         for t in self.tracks.iter().filter(|t| !t.mute) {
-            let preset = variants.iter().rev().find_map(|v| v.presets.get(&t.id)).or(t.preset.as_ref());
+            let preset = chosen.get(&t.id).or_else(|| variants.iter().rev().find_map(|v| v.presets.get(&t.id))).or(t.preset.as_ref());
             let mut resolved = match preset {
                 Some(p) => {
                     self.preset_fits(lib, t, p)?;
@@ -270,6 +317,13 @@ impl Rig {
                 }
                 None => Resolved::bare(&t.instrument),
             };
+            // decision 2 (#314): a set / mul target is the only writer of its input – the preset's value there is dropped
+            // (Rig::warnings says so)
+            for (track, path) in &owned {
+                if *track == t.id {
+                    resolved.values.remove(path);
+                }
+            }
             for v in &variants {
                 for (path, value) in &v.values {
                     if let Some((track, inner)) = scoped(path) {
@@ -284,7 +338,15 @@ impl Rig {
         }
         Ok(out)
     }
+
+    /// the persona's and the mood's variants, in the order they apply
+    fn variants(&self, persona: Option<&str>, mood: Option<&str>) -> Vec<&Variant> {
+        [persona.and_then(|p| self.personas.get(p)), mood.and_then(|m| self.moods.get(m))].into_iter().flatten().collect()
+    }
 }
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod event_tests;

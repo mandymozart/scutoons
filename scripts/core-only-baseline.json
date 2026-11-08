@@ -48,13 +48,6 @@
 			"why": "an edit target's kind (module / rig), not a catalog kind"
 		},
 		{
-			"file": "creator/src/lib/components/sound/sound-workspace.svelte",
-			"rule": "kind-branch",
-			"match": "<DeckHalf character={target.kind === 'rig' ? target.character : 'catpope'} />",
-			"count": 1,
-			"why": "an edit target's kind (module / rig), not a catalog kind"
-		},
-		{
 			"file": "shared/live-core/src/index.ts",
 			"rule": "clamp-shape",
 			"match": "const channels = Math.min(Math.max(1, Math.floor(o.channels ?? deviceChannels(destination)",

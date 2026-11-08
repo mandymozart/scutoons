@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 pub const SCENES_DIR: &str = "/usr/share/deck/scenes";
 
 /// the built-in scenes in the list's order (the first is the stage's default)
-pub const BUILTIN: [&str; 11] = ["idle", "madness", "cathedral", "conductor", "outlet", "strobe", "pulse-thunderwash", "lamps-off", "test-pattern", "module-walk", "module-analog"];
+pub const BUILTIN: [&str; 12] = ["idle", "madness", "cathedral", "catpope-analog", "conductor", "outlet", "strobe", "pulse-thunderwash", "lamps-off", "test-pattern", "module-walk", "module-analog"];
 
 /// the source of a built-in scene by name
 pub fn builtin(name: &str) -> Option<&'static str> {
@@ -16,6 +16,7 @@ pub fn builtin(name: &str) -> Option<&'static str> {
         "idle" => scene::IDLE_SCENE,
         "madness" => scene::MADNESS_SCENE,
         "cathedral" => scene::CATHEDRAL_SCENE,
+        "catpope-analog" => include_str!("../scenes/catpope-analog.toml"),
         "conductor" => scene::CONDUCTOR_SCENE,
         "outlet" => scene::OUTLET_SCENE,
         "strobe" => include_str!("../scenes/strobe.toml"),
@@ -218,7 +219,7 @@ mod tests {
             let s = scene::Scene::parse(src).unwrap_or_else(|e| panic!("{name}: {e:#}"));
             // a scene needing a module this build lacks is refused with the feature's name – everything else must build
             match crate::modules::check(&s) {
-                Ok(()) if s.nodes.iter().any(|n| n.kind.starts_with("module:") && crate::graph::Kind::parse(&n.kind).is_none()) => {} // #406: needs its wasm loaded
+                Ok(()) if s.nodes.iter().any(|n| n.kind.starts_with("module:")) => {} // its wasm: tests/modules.rs
                 Ok(()) => {
                     crate::graph::Graph::build(&s).unwrap_or_else(|e| panic!("{name}: {e:#}"));
                 }
@@ -249,7 +250,7 @@ mod tests {
         let mut s = Switcher::default();
         s.open(Path::new("/none"), Some("cathedral"));
         assert_eq!(s.key(Key::Enter).unwrap().value, "cathedral");
-        (0..4).for_each(|_| _ = s.key(Key::Up));
+        (0..4).for_each(|_| drop(s.key(Key::Up)));
         assert_eq!(s.key(Key::Enter).unwrap().value, "idle");
         for _ in 0..20 {
             s.key(Key::Down);
@@ -257,7 +258,7 @@ mod tests {
         assert_eq!(s.key(Key::Enter).unwrap().value, "module-analog");
         let (lines, cursor) = s.lines(Some("cathedral"));
         assert!(lines[cursor].starts_with('>') && lines[cursor].contains("MODULE-ANALOG"));
-        assert!(lines.iter().any(|l| l.contains("*CATHEDRAL")));
+        assert!(s.lines(Some("module-analog")).0.iter().any(|l| l.contains("*MODULE-ANALOG"))); // the playing scene is starred (cathedral has scrolled out of the 9 visible lines)
         assert!(lines.len() <= 13 && lines.iter().all(|l| l.chars().count() <= WIDTH));
     }
 

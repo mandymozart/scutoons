@@ -5,7 +5,9 @@ namespace Scutoons\Domain\Modules;
 
 use RuntimeException;
 use Scutoons\Domain\ApiError;
+use Scutoons\Domain\Catalog\CatalogAdmin;
 use Scutoons\Domain\Catalog\CatalogDocs;
+use Scutoons\Domain\Catalog\CatalogStore;
 use Scutoons\Domain\Content\EntityKey;
 use Scutoons\Domain\Content\EntityStore;
 use Scutoons\Domain\Roles\Roles;
@@ -24,6 +26,11 @@ use Throwable;
  * it is stored on the CDN as `modules/<hash>.wasm` (content-addressed, so immutable) and the descriptor + hash are written
  * into the module – a new draft of the factory document `module:<id>` (versions, review, publish as
  * any catalog document). Compile errors come back as `422 compile_failed { errors: [{ file, line, column, level, message }] }`.
+ *
+ * A factory module (#350, ModuleSource::isFactory) is read-only: a compile into it is refused (403 factory_module) – except
+ * its own build: an admin compiles its stored sources unchanged (no `files`), and the descriptor + wasm go straight into
+ * its catalog entry (CatalogAdmin, a published version; no draft – there is nothing to review, the sources did not change).
+ * That is how the factory modules the migration imports get their wasm: the service compiles them once.
  */
 final class ModuleCompiler
 {
@@ -37,6 +44,8 @@ final class ModuleCompiler
         private readonly CatalogDocs $docs,
         private readonly Roles $roles,
         private readonly HttpClient $http,
+        private readonly CatalogStore $catalog,
+        private readonly CatalogAdmin $admin,
     ) {
     }
 
@@ -60,6 +69,8 @@ final class ModuleCompiler
         if ($factory !== null) {
             if (!preg_match(ModuleSource::ID_PATTERN, $factory)) throw new ApiError(400, 'invalid_target', "\"$factory\" is not a module id.");
             $key = EntityKey::parse("module:$factory");
+            $entry = $this->catalog->get('modules', $factory);
+            if (ModuleSource::isFactory(is_array($entry) ? $entry : null)) return $this->buildFactory($user, $factory, (array) $entry, $files, $url, $token);
             $latest = $this->entities->latest((string) $key);
             $document = $latest !== null ? json_decode((string) $latest['json'], true) : null;
             if ($files === null && !is_array($document)) throw new ApiError(404, 'not_found', "No module $factory – send its files to start one.");
@@ -90,6 +101,29 @@ final class ModuleCompiler
             $result['version'] = $saved['version'];
         }
         return ['hash' => $built['hash'], 'descriptor' => $built['descriptor'], 'wasm' => $wasm + ['url' => $this->wasmUrl($path)], 'warnings' => $built['warnings']] + $result;
+    }
+
+    /**
+     * A factory module's own build (an admin, its stored sources unchanged): the result is written into the catalog entry
+     * @param array<string, mixed> $user
+     * @param array<string, mixed> $entry the catalog entry
+     * @param array<string, mixed>|null $files
+     * @return array<string, mixed>
+     */
+    private function buildFactory(array $user, string $id, array $entry, ?array $files, string $url, string $token): array
+    {
+        if ($files !== null || !$this->roles->has($user, Roles::ADMIN)) throw ModuleSource::readOnly($id);
+        $built = $this->build($url, $token, (array) ($entry['files'] ?? []));
+        $path = ModuleSource::wasmPath($built['hash']);
+        $this->storeWasm($path, $built['wasm']);
+        $wasm = ['hash' => $built['hash'], 'bytes' => strlen($built['wasm'])];
+        if ($built['toolchain'] !== null) $wasm['toolchain'] = $built['toolchain'];
+        $entry['descriptor'] = $built['descriptor'];
+        $entry['wasm'] = $wasm;
+        $this->admin->put('modules', $id, json_decode((string) json_encode($entry, JSON_PRESERVE_ZERO_FRACTION)), (string) ($user['email'] ?? $user['id'] ?? 'admin'), null, 'built ' . substr($built['hash'], 0, 12));
+        $published = $this->entities->published("module:$id");
+        return ['hash' => $built['hash'], 'descriptor' => $built['descriptor'], 'wasm' => $wasm + ['url' => $this->wasmUrl($path)], 'warnings' => $built['warnings'],
+            'module' => "module:$id"] + ($published !== null ? ['version' => (int) $published['id']] : []);
     }
 
     /** The CDN URL of a stored module's .wasm (GET /api/modules/<id>) */
@@ -137,16 +171,36 @@ final class ModuleCompiler
      */
     private function accept(array $body): array
     {
-        $bytes = is_string($body['wasm_b64'] ?? null) ? base64_decode($body['wasm_b64'], true) : false;
-        $descriptor = $body['descriptor'] ?? null;
-        $ok = is_string($bytes) && $bytes !== '' && strlen($bytes) <= self::MAX_WASM_BYTES && str_starts_with($bytes, "\0asm")
-            && is_array($descriptor) && ModuleSource::descriptorProblems($descriptor) === [];
-        if (!$ok) throw new ApiError(502, 'build_failed', 'The module build service answered with something that is not a module.');
-        /** @var string $bytes */
+        $problems = self::answerProblems($body);
+        // #416: the message names the check that failed (and the toolchain that answered), so a version skew between the
+        // service and the API explains itself; no body, no secret
+        if ($problems) throw new ApiError(502, 'build_failed', 'The module build service answered with something that is not a module: ' . implode('; ', array_slice($problems, 0, 5))
+            . (is_string($body['toolchain'] ?? null) ? ' (service toolchain ' . substr($body['toolchain'], 0, 60) . ')' : '') . '.', ['problems' => array_slice($problems, 0, 20)]);
+        $bytes = (string) base64_decode((string) $body['wasm_b64'], true);
+        /** @var array<string, mixed> $descriptor */
+        $descriptor = $body['descriptor'];
         $hash = hash('sha256', $bytes);
         if (($body['hash'] ?? null) !== $hash) throw new ApiError(502, 'build_failed', 'The build service\'s hash does not match its module.');
         $toolchain = is_string($body['toolchain'] ?? null) ? substr($body['toolchain'], 0, 100) : null;
         return ['hash' => $hash, 'descriptor' => $descriptor, 'wasm' => $bytes, 'toolchain' => $toolchain, 'warnings' => self::diagnostics($body['warnings'] ?? null)];
+    }
+
+    /**
+     * Why a 200 answer of the build service is not a module ([] = it is): the wasm's bytes, then the descriptor's shape
+     * @param array<string, mixed> $body
+     * @return list<string>
+     */
+    public static function answerProblems(array $body): array
+    {
+        $bytes = is_string($body['wasm_b64'] ?? null) ? base64_decode($body['wasm_b64'], true) : false;
+        $p = [];
+        if (!is_string($bytes) || $bytes === '') $p[] = 'wasm_b64 is not base64 of a file';
+        elseif (strlen($bytes) > self::MAX_WASM_BYTES) $p[] = 'the wasm is larger than ' . self::MAX_WASM_BYTES . ' bytes';
+        elseif (!str_starts_with($bytes, "\0asm")) $p[] = 'the file is not a wasm';
+        $descriptor = $body['descriptor'] ?? null;
+        if (!is_array($descriptor)) $p[] = 'no descriptor';
+        else array_push($p, ...ModuleSource::descriptorProblems($descriptor));
+        return $p;
     }
 
     /**

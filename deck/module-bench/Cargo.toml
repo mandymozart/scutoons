@@ -5,6 +5,8 @@
 #   cargo run --release -p module-bench -- prepare   modules + web wasm + instrumented copies → www/dist, sizes
 #   cargo run --release -p module-bench -- run       the native runtimes → results/<label>.json + .md
 #   cargo run --release -p module-bench -- compare   every results/*.json as one table + the issue's gates
+#   cargo run --release -p module-bench -- variants  wasmtime settings and module builds side by side (#396)
+#   cargo run --release -p module-bench -- wiring    wired modules vs merged vs native, and the engine's batches (#393)
 [package]
 name = "module-bench"
 version.workspace = true
@@ -15,7 +17,7 @@ publish.workspace = true
 
 [features]
 default = ["wasmtime", "wasmi"]
-wasmtime = ["deck-module-host/wasmtime"]
+wasmtime = ["deck-module-host/wasmtime", "dep:wasmtime"]
 wasmi = ["dep:wasmi", "dep:wasmi_core"]
 # the binary carries the dist modules (`prepare` builds it so for another machine: www/dist/module-bench[.exe])
 embed = []
@@ -29,6 +31,8 @@ serde.workspace = true
 serde_json.workspace = true
 # what a browser bundle would carry: validation on (modules are untrusted), no WAT parser, no memory64
 wasmi = { version = "2", optional = true, default-features = false, features = ["std", "validate", "stable", "auto-dispatch"] }
+# the engine's Config for `variants` (#396: Cranelift settings beside the deck's); the deck's version and features
+wasmtime = { version = "38", default-features = false, features = ["cranelift", "runtime", "std"], optional = true }
 # `LimiterError` (the freeze needs a limiter of its own; wasmi does not re-export the type)
 wasmi_core = { version = "2", optional = true }
 
@@ -36,6 +40,13 @@ wasmi_core = { version = "2", optional = true }
 # the gas injection (mutable-global variant) a build service would run; unmaintained since 2022 (MODULE-BENCH.md)
 wasm-instrument = { version = "0.4", features = ["sign_ext"] }
 flate2 = "1"
+# the native row (#396): the modules' own crates compiled for this machine
+fm16-module = { path = "modules/fm16" }
+analog-module = { path = "../modules/analog" }
+# `wiring` (#393): the merged chain native, and sixteen FM voices through the real engine
+chain-merged-module = { path = "modules/chain-merged" }
+deck-engine = { path = "../engine" }
+deck-space = { path = "../space", default-features = false }
 # a round trip that re-encodes what parity-wasm misreads (a padded call_indirect table index) – versions as wasmtime 38 uses
 wasm-encoder = { version = "0.239", features = ["wasmparser"] }
 wasmparser = "0.239"

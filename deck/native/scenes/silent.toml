@@ -1,0 +1,19 @@
+# The silent scene (#425, owner 2026-11-08: "eine figur ohne rig, sollte nicht klingen. weil ja kein rig"): what a deck
+# plays when no rig does – the being in its space and the window's screen, NO audio graph at all. deck-space's
+# `Played::silent` is the deck's own scene (`Deck::new`); the picture stays, the sound does not. Its space node is bare
+# like a rig's: the room is the platform's (the native `staged` puts the deck's room around it, the browser asks
+# `Deck::room`). The Cathedral (cathedral.toml) is a TEST scene now: `--scene cathedral`, F5.
+[stage]
+name = "silent"
+
+[[node]]
+id = "space"
+kind = "space"
+
+[[node]]
+id = "screen"
+kind = "screen"
+
+[[link]]
+from = "space"
+to = "screen.in"

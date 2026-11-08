@@ -1,0 +1,178 @@
+# The being plays the analog synth and the 16-step sequencer (#418): the cathedral's being (cathedral.toml: the room, the
+# portrait head) with the `stepseq` module (16 pitch sliders `step1`..`step16`, 16 on/off switches `on1`..`on16`, `steps`,
+# `rate`, `gate`) playing the `analog` module (its `lead` preset written out) through an event cable (#430: the sequencer's
+# `notes` to the synth's `notes`, the first `[[link]]` below). The being's `expose` below is
+# the list of its 3D buttons: the sliders, the switches (a plain 0..1 button each: the module reads >= 0.5 as on), the loop
+# length, the clock and the synth's main controls – no numbers, no labels (owner 2026-10-31): grab one, drag it. The same
+# sound as the rig `catpope-analog` (rigs/catpope_analog.toml) without catpope's voice and drone. Modules play only on a
+# deck built with the `modules` feature and their wasm in DECK_MODULES; without them the scene says so and the deck's own scene
+# plays. From deck/:
+#   cargo build --release --target wasm32-unknown-unknown -p analog-module -p stepseq-module --target-dir target/wasm-modules
+#   $env:DECK_MODULES = "$PWD\target\wasm-modules\wasm32-unknown-unknown\release"      (PowerShell)
+#   cargo run -p deck-native --features modules --release -- --scene catpope-analog --windowed
+# (the room and the portraits come from the sync, or --sets ../media/scutoons/rooms --portraits ../media/characters)
+# Mouse: drag = turn the camera (or a button's value), wheel = zoom; <- -> turn, up down zoom, R the camera's home.
+#
+# (#428) Three outlets, no hardware named here: `main` the mix, `cue` a click only the player hears, `stem` the synth alone.
+# The machine's deck.toml says where they play, e.g. [[audio_outlet]] group = "cue" channels = [3, 4]; a group it does not map is
+# silent (the log says so), `main` needs no entry. K turns the click off and on.
+
+[stage]
+name = "Catpope plays analog"
+render_scale = 1.0
+
+[being]
+character = "catpope"
+moods = ["neutral", "thinking", "happy", "laughing", "surprised"]
+size = 0.9
+drift = 0.06
+breath = 0.04
+wobble = 0.025
+# (#424) the list's order is the knobs' order on a node: the loop length `steps` first (it hangs nearest the
+# sequencer's point and stays where it is as the others come and go); `seq.step1..16 <= seq.steps` shows only as many
+# pitch knobs as the sequence has steps (the first N, N = the value of `seq.steps` now, live) – the on/off switches the
+# same; a hidden knob keeps its value
+expose = [
+  "seq.steps", "seq.step1..16 <= seq.steps", "seq.on1..16 <= seq.steps", "seq.rate", "seq.gate",
+  "synth.volume", "synth.f1_cutoff", "synth.f1_res",
+  "synth.f1_env", "synth.ae1_d", "synth.ae1_r", "synth.o2_fine", "synth.l1_rate",
+  "cue.gain", "stem.gain",
+]
+
+[[node]]
+id = "tempo"
+kind = "tempo"
+bpm = 100
+beats = 4
+click = true
+
+# the sequencer: base 220 Hz (A3), two steps a beat, a step sounds for 0.7 of its length; the default phrase (minor
+# pentatonic, rests on steps 4, 8 and 16) – each slider a pitch from the base up two octaves
+[[node]]
+id = "seq"
+kind = "module:stepseq"
+base = 220.0
+rate = 2.0
+gate = 0.7
+
+# the synth: analog's `lead` preset (modules/analog/analog.preset.json)
+[[node]]
+id = "synth"
+kind = "module:analog"
+volume = 0.6
+o1_wave = 0.0
+o1_fine = -6.0
+o1_level = 0.65
+o1_route = 0.0
+o2_wave = 0.0
+o2_fine = 6.0
+o2_level = 0.65
+o2_route = 0.0
+f1_cutoff = 3200.0
+f1_res = 0.3
+f1_drive = 0.1
+f1_key = 0.6
+f1_env = 0.25
+f1_vel = 0.4
+fe1_a = 0.005
+fe1_d = 0.35
+fe1_s = 0.4
+fe1_r = 0.3
+a1_level = 0.85
+a1_pan = -0.15
+a1_vel = 0.5
+ae1_a = 0.01
+ae1_d = 0.2
+ae1_s = 0.8
+ae1_r = 0.3
+l1_shape = 0.0
+l1_rate = 5.5
+l1_delay = 0.25
+l1_attack = 0.4
+l1_pitch = 0.35
+
+[[node]]
+id = "mix"
+kind = "mixer"
+gain1 = 0.5
+
+[[node]]
+id = "fft"
+kind = "fft"
+release = 0.35
+
+# quiet like the cathedral (its output limiter guards the rest)
+[[node]]
+id = "out"
+kind = "audio_out"
+volume = 0.7
+
+# (#428) the metronome, on the cue outlet only: it is not in the mix
+[[node]]
+id = "click"
+kind = "click"
+gain = 0.5
+
+[[node]]
+id = "cue"
+kind = "out"
+group = "cue"
+
+# (#428) the synth alone, at the level it has in the mix (0.5 x 0.7)
+[[node]]
+id = "stem"
+kind = "out"
+group = "stem"
+gain = 0.35
+
+# the space: the cathedral's room, the being in the nave; alone = no session with a relay
+[[node]]
+id = "space"
+kind = "space"
+set = "cathedral"
+quality = "low"
+at = [2.4, 0.2, 5.2]
+yaw = 279
+pitch = 6
+distance = 3.4
+hue = 0.52
+glow = 0.6
+light = 0.85
+join = "alone"
+post = ["bloom", "curves", "pixelate", "fxaa"]
+bloom = 0.6
+threshold = 0.55
+glow_range = 7.0
+glow_light = 1.0
+
+[[node]]
+id = "screen"
+kind = "screen"
+
+[[link]]
+from = "seq.notes"
+to = "synth.notes"
+
+[[link]]
+from = "synth.out"
+to = "mix.in1"
+
+[[link]]
+from = "mix"
+to = "fft.in"
+
+[[link]]
+from = "mix"
+to = "out.in"
+
+[[link]]
+from = "click"
+to = "cue.in"
+
+[[link]]
+from = "synth.out"
+to = "stem.in"
+
+[[link]]
+from = "space"
+to = "screen.in"

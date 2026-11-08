@@ -1,0 +1,14 @@
+# chain-merged – the wiring bench's hard-wired chain (#393): the stages merged into one module. A bench module, not a factory module.
+[package]
+name = "chain-merged-module"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+deck-module = { path = "../../../module" }

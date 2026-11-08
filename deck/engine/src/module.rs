@@ -15,17 +15,22 @@
 //!   host re-sends the notes still held at the swap.
 //! - **Context.** Node params besides the module's own: `seed` (the module's seed – every node starts at 1, the node's
 //!   `seed` changes it, owner 2026-11-03), `character`, `persona`, `mood` (strings), `vars` (a table of key → number).
+//!   The live context (#409, control.rs `Command::Context`: the deck's mood, persona, the being's energy / touch /
+//!   strain) replaces persona, mood and the senses from the block it arrives on; the mood's `mood_index` counts in the
+//!   module's own `moods` list (A1: its place + 1, 0 = not in it – deck-space `context::mood_index`).
 //!
 //! The module runtime is a seam: the platform hands the engine a `ModuleSource` (the native deck: wasmtime behind
 //! deck-module-host's `Backend`) and the engine drives the instances it opens through `ModuleInstance` – implemented for
 //! deck-module-host's `Instance<B>`, so the host logic stays in that crate. Nothing here allocates per block (a show's
 //! restart aside: its job is boxed when a trap happened); the module's own code may not allocate either.
+use super::control::Context;
 use super::{Block, Buf, Handles, Param, QUANTUM};
 use anyhow::{anyhow, Result};
 use deck_core::tempo::{BeatReader, TempoMap};
 use deck_module_host::{Backend, Ev, InBind, Layout, OutBind};
-use deck_space::graph::{Domain, Graph, Kind, Node, PortType, MAX_CHANNELS};
-use deck_space::modreg::{self, ModuleDef, ModuleKind, PortDef};
+use deck_space::context::mood_index;
+use deck_space::graph::{Graph, Kind, Node, MAX_CHANNELS};
+use deck_space::modreg::{self, ModuleDef, ModuleKind};
 use std::any::Any;
 use std::sync::Arc;
 
@@ -34,6 +39,10 @@ pub trait ModuleInstance: Send {
     /// set once a trap or an overrun silenced the instance (it then renders zeros)
     fn silenced(&self) -> bool;
     fn set_character(&mut self, id: &str, persona: &str, mood: &str);
+    /// the mood's place in the module's own `moods` list + 1 (A1, #409; 0 = not in it)
+    fn set_mood_index(&mut self, _i: u32) {}
+    /// the being's senses, 0 … 1 (#409)
+    fn set_senses(&mut self, _energy: f32, _touch: f32, _strain: f32) {}
     fn set_vars(&mut self, vars: &[(String, f32)]);
     fn set_tempo(&mut self, map: &TempoMap);
     fn set_param(&mut self, index: usize, value: f32);
@@ -91,6 +100,12 @@ impl<B: Backend + Send + 'static> ModuleInstance for deck_module_host::Instance<
     fn set_character(&mut self, id: &str, persona: &str, mood: &str) {
         deck_module_host::Instance::set_character(self, id, persona, mood)
     }
+    fn set_mood_index(&mut self, i: u32) {
+        deck_module_host::Instance::set_mood_index(self, i)
+    }
+    fn set_senses(&mut self, energy: f32, touch: f32, strain: f32) {
+        deck_module_host::Instance::set_senses(self, energy, touch, strain)
+    }
     fn set_vars(&mut self, vars: &[(String, f32)]) {
         deck_module_host::Instance::set_vars(self, vars)
     }
@@ -144,14 +159,9 @@ impl<B: Backend + Send + 'static> ModuleInstance for deck_module_host::Instance<
 /// parameters' defaults, its domain and path targets – as the host's `layout` binds them. The one mapping from a module
 /// to the graph; a platform's library calls it when it loads a module.
 pub fn register(desc: &deck_catalog::Descriptor, layout: &Layout) -> ModuleKind {
-    let port = |p: &deck_module_host::GraphPort| PortDef { name: p.name.clone(), ty: if p.audio { PortType::Audio } else { PortType::Control }, channels: p.channels };
-    let def = ModuleDef {
-        inputs: layout.in_ports.iter().map(port).collect(),
-        outputs: layout.out_ports.iter().map(port).collect(),
-        defaults: desc.params.iter().map(|p| (p.name.to_string(), p.default.unwrap_or(p.min))).collect(),
-        domain: if layout.domain == deck_catalog::Domain::Control { Domain::Control } else { Domain::Audio },
-        targets: layout.targets.clone(),
-    };
+    // deck-space's ModuleDef::of numbers the ports by the catalog's rule – the one the host's layout binds by
+    let def = ModuleDef::of(desc);
+    debug_assert_eq!(def.inputs.iter().filter(|p| p.ty != deck_space::graph::PortType::Event).count(), layout.in_ports.len(), "the graph and the host number a module's ports alike");
     modreg::register(&desc.name, &def)
 }
 
@@ -266,6 +276,10 @@ struct Core {
     done: rtrb::Consumer<Box<dyn Any + Send>>,
     #[cfg(feature = "events")]
     ports: Option<super::evhost::Ports>,
+    /// the character the node plays for (its `character` param; the live context does not move it)
+    id: String,
+    /// the module's own moods (A1): a live mood's `mood_index` counts in them
+    moods: &'static [&'static str],
 }
 
 impl Core {
@@ -276,7 +290,15 @@ impl Core {
         let ports = p.ports;
         let Opened { instance: mut inst, layout, params } = p.opened;
         let holds = p.holds;
-        inst.set_character(node.str("character").unwrap_or(""), node.str("persona").unwrap_or(""), node.str("mood").unwrap_or(""));
+        let id = node.str("character").unwrap_or("").to_string();
+        let moods = match node.kind {
+            Kind::Module(k) => k.spec().moods,
+            _ => &[],
+        };
+        // the node's params until the deck's first live context (#409)
+        let mood = node.str("mood").unwrap_or("");
+        inst.set_character(&id, node.str("persona").unwrap_or(""), mood);
+        inst.set_mood_index(mood_index(moods, mood));
         if let Some(toml::Value::Table(t)) = node.params.get("vars") {
             let vars: Vec<(String, f32)> = t
                 .iter()
@@ -308,8 +330,19 @@ impl Core {
             done,
             #[cfg(feature = "events")]
             ports,
+            id,
+            moods,
         };
         (core, layout, params)
+    }
+
+    /// The deck's live context (#409) into the module's header for its next call: the mood and persona (the character
+    /// stays the node's), the mood's index in the module's own list (A1), the senses. No allocation (bytes into the
+    /// header, a compare per listed mood).
+    fn context(&mut self, c: &Context) {
+        self.inst.set_character(&self.id, c.persona(), c.mood());
+        self.inst.set_mood_index(mood_index(self.moods, c.mood()));
+        self.inst.set_senses(c.energy, c.touch, c.strain);
     }
 
     /// the block's tempo map and first frame (the deck's clock, or our own count without one)
@@ -441,6 +474,10 @@ impl ModuleBlock {
 }
 
 impl Block for ModuleBlock {
+    fn context(&mut self, c: &Context) {
+        self.core.context(c);
+    }
+
     fn process(&mut self, ins: &[Option<&Buf>], outs: &mut [Buf], n: usize) {
         if !self.told {
             self.told = true;
@@ -477,6 +514,10 @@ impl ControlModule {
 }
 
 impl super::control::Stepper for ControlModule {
+    fn context(&mut self, c: &Context) {
+        self.core.context(c);
+    }
+
     fn step(&mut self, ins: &[f32], _frame: u64, n: usize) {
         let (map, start) = self.core.clock(n);
         let core = &mut self.core;

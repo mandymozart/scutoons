@@ -1,0 +1,21 @@
+# context-probe – a conformance probe of the live context (#409, T2 of #314; agents/research/RIG-MODULE-GROUPS.md): a
+# control-domain module that writes what `ctx.character()` says each block, so a test sees the deck's mood, its index in
+# the module's own `moods` (A1) and the being's energy reach a module node. A test module, not a factory module (it is
+# no catalog document): deck-native's tests/modules.rs builds it for wasm32 and plays it in the engine.
+[package]
+name = "context-probe-module"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+deck-module = { path = "../../../module" }
+
+[dev-dependencies]
+# the descriptor as a host reads it
+deck-module = { path = "../../../module", features = ["host"] }

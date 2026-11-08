@@ -459,6 +459,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "catpope-rig-module"
+version = "0.1.0"
+dependencies = [
+ "deck-module",
+]
+
+[[package]]
 name = "cc"
 version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -506,6 +513,20 @@ name = "cfg_aliases"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f079e83a288787bcd14a6aea84cee5c87a67c5a3e660c30f557a3d24761b3527"
+
+[[package]]
+name = "chain-merged-module"
+version = "0.1.0"
+dependencies = [
+ "deck-module",
+]
+
+[[package]]
+name = "chain-stage-module"
+version = "0.1.0"
+dependencies = [
+ "deck-module",
+]
 
 [[package]]
 name = "clang-sys"
@@ -571,6 +592,13 @@ name = "const-oid"
 version = "0.9.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2459377285ad874054d797f3ccebf984978aa39129f6eafde5cdc8315b612f8"
+
+[[package]]
+name = "context-probe-module"
+version = "0.1.0"
+dependencies = [
+ "deck-module",
+]
 
 [[package]]
 name = "cookie-factory"
@@ -2400,11 +2428,16 @@ dependencies = [
 name = "module-bench"
 version = "0.1.0"
 dependencies = [
+ "analog-module",
  "anyhow",
+ "chain-merged-module",
  "deck-core",
+ "deck-engine",
  "deck-module",
  "deck-module-host",
+ "deck-space",
  "flate2",
+ "fm16-module",
  "serde",
  "serde_json",
  "wasm-encoder 0.239.0",
@@ -2412,6 +2445,7 @@ dependencies = [
  "wasmi",
  "wasmi_core",
  "wasmparser 0.239.0",
+ "wasmtime",
 ]
 
 [[package]]
@@ -4055,6 +4089,15 @@ name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
+
+[[package]]
+name = "stepseq-module"
+version = "0.1.0"
+dependencies = [
+ "deck-core",
+ "deck-module",
+ "deck-module-host",
+]
 
 [[package]]
 name = "strength_reduce"

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # deck/os/update.sh – a remote update for the decks on the LAN (#237): `npm run deck:update` (Git Bash / WSL / Linux).
 #   1. the Linux binaries in Docker (the ISO build's container and cargo volume, DECK_BINARIES_ONLY=1) → deck/os/out/bin
-#   2. `deck-update bundle` on this PC: the binaries + deck/os/rootfs's deck paths + the scenes, signed with the dev key
+#   2. `deck-update bundle` on this PC: the binaries + deck/os/rootfs's deck paths + the scenes + the rig modules' wasm
+#      (modules.sh → /usr/share/deck/modules, #406), signed with the dev key
 #      (~/.scutoons/deck-update.key, made on first use; its public half is in rootfs/usr/share/deck/update-keys)
 #      → deck/os/out/update (manifest.json, manifest.json.sig, bundle-<build>.tar.gz)
 #   3. `deck-update serve` on port 7790 – decks on the dev channel find it by their scan and update within ~2 minutes
@@ -28,6 +29,12 @@ while [ $# -gt 0 ]; do
   shift
 done
 
+# #423: ONE version for the bundle and for the label the binaries draw top right (os/version.sh; the container has no .git,
+# so the build gets it as DECK_BUILD_VERSION). With --no-build the binaries keep the label of the build that made them.
+if [ "$build" = 1 ] || [ "$bundle" = 1 ]; then
+  DECK_BUILD_VERSION=${DECK_BUILD_VERSION:-$(bash "$here/version.sh")}
+  export DECK_BUILD_VERSION
+fi
 if [ "$build" = 1 ]; then
   DECK_BINARIES_ONLY=1 bash "$here/build.sh"
 fi
@@ -37,16 +44,14 @@ tool="$deck/target/release/deck-update"
 [ -x "$tool" ] || tool="$tool.exe"
 
 if [ "$bundle" = 1 ]; then
-  v=$(sed -n 's/^version = "\(.*\)"/\1/p' "$deck/Cargo.toml" | head -1)
-  version="$v.r$(git -C "$deck" rev-list --count HEAD).g$(git -C "$deck" rev-parse --short HEAD)"
-  [ -z "$(git -C "$deck" status --porcelain -- . 2>/dev/null)" ] || version="$version.dirty"
-  # the rig modules the module scenes play (#406): walk and analog as wasm (built here with the wasm32 target, `rustup target
-  # add wasm32-unknown-unknown`) go into the bundle's usr/share/deck/modules; deck-session points DECK_MODULES there
-  wasm_dir="$deck/target/wasm-modules"
-  cargo build --release -q --target wasm32-unknown-unknown -p walk-module -p analog-module --manifest-path "$deck/Cargo.toml" --target-dir "$wasm_dir"
+  version=$DECK_BUILD_VERSION
+  # the rig modules the module scenes play (#406): walk, stepseq and analog as wasm (modules.sh: the build service's pinned
+  # flags) go into the bundle's usr/share/deck/modules; deck-session points DECK_MODULES there. The bundle's rootfs is a copy
+  # of deck/os/rootfs plus those files.
+  bash "$here/modules.sh" "$out/modules"
   stage="$out/rootfs-stage"
   rm -rf "$stage"; mkdir -p "$stage"; cp -r "$here/rootfs/." "$stage/"
-  install -Dm644 -t "$stage/usr/share/deck/modules" "$wasm_dir/wasm32-unknown-unknown/release/walk_module.wasm" "$wasm_dir/wasm32-unknown-unknown/release/analog_module.wasm"
+  install -Dm644 -t "$stage/usr/share/deck/modules" "$out"/modules/*.wasm
   "$tool" bundle --bin "$out/bin" --rootfs "$stage" --scenes "$deck/native/scenes" --out "$out/update" \
     --version "$version" --channel dev ${extra[@]+"${extra[@]}"}
 fi

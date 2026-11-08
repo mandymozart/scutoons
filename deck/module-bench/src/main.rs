@@ -4,6 +4,10 @@
 //!                                        the sizes (raw + gz) → www/dist/sizes.json; --exe also a binary that carries them
 //!   run [--label pc] [--blocks N] [--post URL]   wasmtime + wasmi natively → results/<label>-native.json + .md
 //!   compare [dir]                        every results/*.json as one table + the issue's gates
+//!   variants [--label pc] [--blocks N] [--rounds 3] [--only a,b]   wasmtime settings × module builds + the native
+//!                                        row (#396) → results/variants/
+//!   wiring [--label pc] [--blocks N] [--rounds 3]   wired modules vs merged vs native, the engine's batches (#393)
+//!                                        → results/wiring/
 use anyhow::{anyhow, bail, Context, Result};
 use module_bench::{report, run_suite, Config, Device, Modules, Results, Size};
 use std::io::{Read, Write};
@@ -11,6 +15,9 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 mod gas;
+mod nan;
+mod variants;
+mod wiring;
 
 fn here() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -92,6 +99,10 @@ fn prepare(args: &[String]) -> Result<()> {
         "analog-module",
         "-p",
         "stress-module",
+        "-p",
+        "chain-stage-module",
+        "-p",
+        "chain-merged-module",
     ];
     cargo(&modules, &target.join("bench-wasm"), "")?;
     for (name, file) in CRATES {
@@ -111,6 +122,40 @@ fn prepare(args: &[String]) -> Result<()> {
         let loops = gas::inject(&plain, gas::Scheme::Loops)
             .with_context(|| format!("{name}: the loop-counter pass"))?;
         std::fs::write(out.join(format!("{name}.loops.wasm")), loops)?;
+        let (canon, points) =
+            nan::canonicalize(&plain).with_context(|| format!("{name}: the NaN pass"))?;
+        println!("{name}: {points} NaN observation points canonicalized");
+        // #396: the loop counter on wasmtime instead of the epoch – started full, so only its cost shows
+        let free = gas::inject_from(&plain, gas::Scheme::Loops, i64::MAX)?;
+        std::fs::write(out.join(format!("{name}.loops-max.wasm")), free)?;
+        let both = gas::inject_from(&canon, gas::Scheme::Loops, i64::MAX)?;
+        std::fs::write(out.join(format!("{name}.nan-loops.wasm")), both)?;
+        std::fs::write(out.join(format!("{name}.nan.wasm")), canon)?;
+        let (light, _) = nan::canonicalize_at(&plain, false)?;
+        std::fs::write(out.join(format!("{name}.nan-light.wasm")), light)?;
+    }
+    // #393: the wiring bench's two modules (plain only, not the suite's instrumented sets)
+    for (name, file) in CHAIN {
+        std::fs::copy(
+            target
+                .join("bench-wasm/wasm32-unknown-unknown/release")
+                .join(format!("{file}.wasm")),
+            out.join(format!("{name}.wasm")),
+        )?;
+    }
+    // #396: the same modules with simd128 (LLVM's auto-vectorizer; the build service pins it off)
+    cargo(
+        &modules,
+        &target.join("bench-wasm-simd"),
+        "-Ctarget-feature=+simd128",
+    )?;
+    for (name, file) in CRATES {
+        std::fs::copy(
+            target
+                .join("bench-wasm-simd/wasm32-unknown-unknown/release")
+                .join(format!("{file}.wasm")),
+            out.join(format!("{name}.simd.wasm")),
+        )?;
     }
     let web = [
         "build",
@@ -363,11 +408,98 @@ fn compare(args: &[String]) -> Result<()> {
     Ok(())
 }
 
+fn variants(args: &[String]) -> Result<()> {
+    if cfg!(feature = "embed") {
+        bail!("variants reads www/dist (the .nan / .simd builds): not in the embed build");
+    }
+    let label = arg(args, "--label").unwrap_or_else(|| "pc".into());
+    let blocks = arg(args, "--blocks").map(|n| n.parse()).transpose()?;
+    let rounds = arg(args, "--rounds").map_or(Ok(3), |n| n.parse())?;
+    let results = here().join("results");
+    let md = variants::run(
+        &results,
+        &label,
+        blocks,
+        rounds,
+        arg(args, "--only").as_deref(),
+        modules,
+    )?;
+    println!("{md}");
+    let dir = results.join("variants");
+    std::fs::create_dir_all(&dir)?;
+    std::fs::write(dir.join(format!("{label}.md")), &md)?;
+    println!("→ {}", dir.join(format!("{label}.md")).display());
+    Ok(())
+}
+
+const CHAIN: [(&str, &str); 2] = [
+    ("chain-stage", "chain_stage_module"),
+    ("chain-merged", "chain_merged_module"),
+];
+
+#[cfg(feature = "embed")]
+fn chain() -> Result<(Vec<u8>, Vec<u8>)> {
+    Ok((
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/www/dist/chain-stage.wasm"
+        ))
+        .to_vec(),
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/www/dist/chain-merged.wasm"
+        ))
+        .to_vec(),
+    ))
+}
+
+#[cfg(not(feature = "embed"))]
+fn chain() -> Result<(Vec<u8>, Vec<u8>)> {
+    let target = here().parent().unwrap().join("target/bench-wasm");
+    cargo(
+        &[
+            "build",
+            "--release",
+            "--target",
+            "wasm32-unknown-unknown",
+            "-p",
+            "chain-stage-module",
+            "-p",
+            "chain-merged-module",
+        ],
+        &target,
+        "",
+    )?;
+    let read = |file: &str| {
+        std::fs::read(
+            target
+                .join("wasm32-unknown-unknown/release")
+                .join(format!("{file}.wasm")),
+        )
+    };
+    Ok((read(CHAIN[0].1)?, read(CHAIN[1].1)?))
+}
+
+fn wiring_cmd(args: &[String]) -> Result<()> {
+    let label = arg(args, "--label").unwrap_or_else(|| "pc".into());
+    let blocks = arg(args, "--blocks").map_or(Ok(5000), |n| n.parse())?;
+    let rounds = arg(args, "--rounds").map_or(Ok(3), |n| n.parse())?;
+    let (stage, whole) = chain()?;
+    let md = wiring::run(&label, &stage, &whole, blocks, rounds)?;
+    println!("{md}");
+    let dir = here().join("results/wiring");
+    std::fs::create_dir_all(&dir)?;
+    std::fs::write(dir.join(format!("{label}.md")), &md)?;
+    Ok(())
+}
+
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
         Some("prepare") => prepare(&args),
         Some("compare") => compare(&args),
+        Some("variants") => variants(&args),
+        Some("wiring") => wiring_cmd(&args),
         Some("run") | None => run(&args),
         Some(x) => {
             bail!("unknown command {x}: prepare | run | compare (the header of src/main.rs)")

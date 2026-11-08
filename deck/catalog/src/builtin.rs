@@ -10,6 +10,7 @@ use std::sync::OnceLock;
 const A: PortType = PortType::Audio;
 const C: PortType = PortType::Control;
 const V: PortType = PortType::Video;
+const E: PortType = PortType::Event;
 
 /// doc strings are data for `kinds.json`, the editor and the agents: only the `docs` feature (the generator, native
 /// builds) carries them – a wasm build keeps the table's shape without the text
@@ -45,6 +46,10 @@ fn ci(name: &'static str, doc: &'static str) -> PortDesc {
 }
 fn co(name: &'static str, doc: &'static str) -> PortDesc {
     port(name, Dir::Out, C, None, true, doc)
+}
+/// an event output (#430: an event cable's source)
+fn eo(name: &'static str, doc: &'static str) -> PortDesc {
+    port(name, Dir::Out, E, None, true, doc)
 }
 fn vi(name: &'static str, doc: &'static str) -> PortDesc {
     port(name, Dir::In, V, None, true, doc)
@@ -152,6 +157,7 @@ fn kind(
         needs: Cow::Borrowed(&[]),
         wants: Cow::Borrowed(&[]),
         reads: Cow::Borrowed(&[]),
+        moods: Cow::Borrowed(&[]),
         abi: None,
         latency: 0,
         ports: Cow::Owned(ports.to_vec()),
@@ -505,6 +511,16 @@ fn build() -> Vec<Descriptor> {
         "The explicit loop (Max's tapin~ / tapout~): `out` plays what came into `in` one block (128 frames, 2.7 ms) ago. Every other cycle in a graph is an error.",
         &[aanyi("in", "the sound fed back (padded or cut to `channels`)"), aanyo("out", "`in`, one block late")],
         &[knob("channels", 1.0, 32.0, 2.0, "", "how many channels the loop carries")],
+    ),
+    kind(
+        F_TRANSPORT,
+        "world",
+        Audio,
+        "events",
+        "stage",
+        "A source from outside as a node (#430): `source` says which, `listen` is its name filter – the one place in a document that names a world event; its `events` output is cabled like a module's. `midi`: the events of the MIDI adapter. `generator`: the deck-events patch in its `patch` table runs here and its notes go down its cables only. An event input with no cable hears nothing.",
+        &[eo("events", "what the source sends, the names in `listen`")],
+        &[choice("source", &[Cow::Borrowed("midi"), Cow::Borrowed("generator")], "where the events come from")],
     ),
     // helpers only the batch evaluator runs (control strips of the browser's lowering)
     kind(F_BATCH | F_INTERNAL, "smooth", Control, "core", "control", "Smooths its input over `time` (a control helper).", &[ci("in", "the value"), ci("time", "glide time"), co("out", "the smoothed value")], &[lin("in", -1000.0, 1000.0, 0.0, "", "the value"), log("time", 0.001, 10.0, 0.1, "s", "glide time")]),

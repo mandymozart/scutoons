@@ -1,0 +1,162 @@
+//! Event cables, silent tracks and world nodes in a rig (#430, research/EVENTS-VS-PARAMS.md §5): what the rig's flatten and
+//! the wiring view answer – the engine's side is deck-engine's module_tests, the real modules deck-native's tests/modules.rs.
+use super::instrument::Instrument;
+use super::wiring::Wiring;
+use super::{Bundle, Library};
+use crate::modreg::{self, ModuleDef};
+use crate::scene::Scene;
+use deck_catalog::Descriptor;
+
+const SEQ: &str = r#"{"abi":2,"name":"ev_seq","version":"1","domain":"control","params":[],"ports":[{"name":"notes","dir":"out","type":"event","names":["music.note"]}]}"#;
+const SYNTH: &str = r#"{"abi":2,"name":"ev_synth","version":"1","params":[{"name":"volume","min":0,"max":1,"default":0.5}],"ports":[{"name":"notes","dir":"in","type":"event","names":["music.note"]},{"name":"cues","dir":"in","type":"event","names":["story.cue"]},{"name":"out","dir":"out","type":"audio","channels":2}]}"#;
+
+fn descriptors() -> Vec<Descriptor> {
+    [SEQ, SYNTH].iter().map(|j| serde_json::from_str(j).unwrap()).collect()
+}
+
+fn register() {
+    for d in descriptors() {
+        modreg::register(&d.name, &ModuleDef::of(&d));
+    }
+}
+
+const INSTRUMENTS: &str = r#"
+    [[instrument]]
+    id = "seq"
+    kind = "pad"
+    node = [{ id = "seq", kind = "module:ev_seq" }]
+    [[instrument]]
+    id = "synth"
+    kind = "pad"
+    out = "synth.out"
+    node = [{ id = "synth", kind = "module:ev_synth" }]
+"#;
+
+/// a bundle of `rig` (its `[rig]` table's text) over the two instruments
+fn bundle(rig: &str, extra: &str) -> Bundle {
+    register();
+    toml::from_str(&format!("{rig}\n{INSTRUMENTS}\n{extra}")).unwrap()
+}
+
+fn lib_of(b: &Bundle) -> Library {
+    b.library()
+}
+
+fn flat(b: &Bundle) -> Scene {
+    b.rig.flatten(&lib_of(b), None, None).unwrap()
+}
+
+const TWO_PAIRS: &str = r#"
+    [rig]
+    subject = "character.two"
+    track = [{ id = "a_seq", instrument = "seq" }, { id = "a_synth", instrument = "synth" }, { id = "b_seq", instrument = "seq" }, { id = "b_synth", instrument = "synth" }]
+    route = [{ from = "a_seq:seq.notes", to = "a_synth:synth.notes" }, { from = "b_seq:seq.notes", to = "b_synth:synth.notes" }]
+"#;
+
+fn event_cables(w: &Wiring) -> Vec<String> {
+    w.links.iter().filter(|l| l.ty == "event").map(|l| format!("{}.{} → {}.{}", w.nodes[l.from].id, l.out, w.nodes[l.to].id, l.input)).collect()
+}
+
+#[test]
+fn two_pairs_are_two_cables_and_the_ports_are_events() {
+    let b = bundle(TWO_PAIRS, "");
+    let w = b.play(None, None).unwrap().wiring().unwrap();
+    assert_eq!(event_cables(&w), ["a_seq_seq.notes → a_synth_synth.notes", "b_seq_seq.notes → b_synth_synth.notes"]);
+    let synth = w.nodes.iter().find(|n| n.id == "a_synth_synth").unwrap();
+    assert!(synth.inputs.iter().any(|p| p.name == "notes" && p.ty == "event"), "{:?}", synth.inputs);
+    let seq = w.nodes.iter().find(|n| n.id == "a_seq_seq").unwrap();
+    assert_eq!(seq.outputs.iter().map(|p| (p.name.as_str(), p.ty)).collect::<Vec<_>>(), [("notes", "event")]);
+    for l in w.links.iter().filter(|l| l.ty == "event") {
+        assert!(w.nodes[l.from].outputs.iter().any(|p| p.name == l.out && p.ty == l.ty));
+        assert!(w.nodes[l.to].inputs.iter().any(|p| p.name == l.input && p.ty == l.ty));
+    }
+}
+
+#[test]
+fn a_silent_track_has_no_strip_and_no_outlet() {
+    let b = bundle(TWO_PAIRS, "");
+    let s = flat(&b);
+    assert!(s.links.iter().all(|l| !(l.from.starts_with("a_seq_") || l.from.starts_with("b_seq_")) || l.to.ends_with(".notes")));
+    let strips: Vec<&str> = s.links.iter().filter(|l| l.to.starts_with("mix")).map(|l| l.from.as_str()).collect();
+    assert_eq!(strips, ["a_synth_synth.out", "b_synth_synth.out"], "the two synths share the strips, no gap for the silent tracks");
+}
+
+#[test]
+fn a_rig_of_only_silent_tracks_flattens_with_nothing_to_sum() {
+    let b = bundle("[rig]\nsubject = \"character.quiet\"\ntrack = [{ id = \"s\", instrument = \"seq\" }]", "");
+    let s = flat(&b);
+    assert!(s.nodes.iter().any(|n| n.id == "out") && s.nodes.iter().all(|n| !n.id.starts_with("mix")));
+}
+
+#[test]
+fn a_cable_between_event_and_non_event_is_refused_with_a_sentence_at_the_port() {
+    for (from, to, says) in [("a_seq:seq.notes", "a_synth:synth.volume", "'notes' is an event port and 'volume' is a control value"), ("a_synth:synth.out", "b_synth:synth.notes", "'out' is audio and 'notes' is an event port")] {
+        let mut b = bundle(TWO_PAIRS, "");
+        b.rig.routes[0].from = from.into();
+        b.rig.routes[0].to = to.into();
+        let e = format!("{:#}", b.rig.flatten(&lib_of(&b), None, None).unwrap_err());
+        assert!(e.contains(says) && e.contains("an event cable joins two event ports"), "{e}");
+    }
+}
+
+#[test]
+fn an_event_cable_with_no_name_in_common_or_with_a_scale_is_refused() {
+    let mut b = bundle(TWO_PAIRS, "");
+    b.rig.routes[0].to = "a_synth:synth.cues".into();
+    assert!(format!("{:#}", b.rig.flatten(&lib_of(&b), None, None).unwrap_err()).contains("it sends music.note and the input takes story.cue"));
+    let mut b = bundle(TWO_PAIRS, "");
+    b.rig.routes[0].scale = 0.5;
+    assert!(format!("{:#}", b.rig.flatten(&lib_of(&b), None, None).unwrap_err()).contains("no scale or offset"));
+}
+
+#[test]
+fn a_silent_instrument_must_have_something_to_send() {
+    register();
+    let i: Instrument = toml::from_str("id = \"quiet\"\nkind = \"pad\"\nnode = [{ id = \"o\", kind = \"osc\" }]").unwrap();
+    assert!(i.check().unwrap_err().to_string().contains("nothing to send"));
+    let i: Instrument = toml::from_str("id = \"ok\"\nkind = \"pad\"\nnode = [{ id = \"seq\", kind = \"module:ev_seq\" }]").unwrap();
+    i.check().unwrap();
+}
+
+#[test]
+fn a_world_node_on_a_silent_track_is_cabled_like_a_module_and_shows_its_filter() {
+    let b = bundle(
+        r#"
+        [rig]
+        subject = "character.keys"
+        track = [{ id = "keys", instrument = "keys" }, { id = "synth", instrument = "synth" }]
+        route = [{ from = "keys:midi.events", to = "synth:synth.notes" }]
+        "#,
+        r#"
+        [[instrument]]
+        id = "keys"
+        kind = "pad"
+        node = [{ id = "midi", kind = "world", source = "midi", listen = ["midi.note"] }]
+        "#,
+    );
+    let w = b.play(None, None).unwrap().wiring().unwrap();
+    assert_eq!(event_cables(&w), ["keys_midi.events → synth_synth.notes"]);
+    let world = w.nodes.iter().find(|n| n.id == "keys_midi").unwrap();
+    assert_eq!(world.kind, "world");
+    let shown = world.world.as_ref().expect("the world node's source and filter");
+    assert_eq!((shown.source, shown.listen.as_slice()), ("midi", &["midi.note".to_string()][..]));
+    assert!(w.nodes.iter().all(|n| n.kind == "world" || n.world.is_none()));
+}
+
+#[test]
+fn a_bad_world_node_is_refused_when_the_rig_is_played() {
+    let b = bundle(
+        "[rig]\nsubject = \"character.bad\"\ntrack = [{ id = \"k\", instrument = \"k\" }]",
+        "[[instrument]]\nid = \"k\"\nkind = \"pad\"\nnode = [{ id = \"w\", kind = \"world\", source = \"carrier_bag\", listen = [\"x.y\"] }]",
+    );
+    let e = format!("{:#}", b.rig.flatten(&lib_of(&b), None, None).unwrap_err());
+    assert!(e.contains("unknown source 'carrier_bag'"), "{e}");
+}
+
+/// an instrument without `out` is a document like any, in JSON too (#430)
+#[test]
+fn an_instrument_without_out_is_a_document_like_any() {
+    let i: Instrument = serde_json::from_str(r#"{"id":"q","kind":"pad","node":[{"id":"s","kind":"module:ev_seq"}]}"#).unwrap();
+    assert_eq!(i.out, None);
+    assert!(!serde_json::to_string(&i).unwrap().contains("\"out\""), "no `out` key");
+}

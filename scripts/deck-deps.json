@@ -18,6 +18,8 @@
 		{ "crate": "module-bench", "why": "the module runtime benchmark (#306, agents/research/MODULE-BENCH.md): not a core crate and not checked here – wasmi, wasm-instrument, wasm-encoder live in this tool only; no production crate depends on it" },
 		{ "crate": "module-bench-web", "why": "the same suite as a raw wasm for a browser / Node worker (#306)" },
 		{ "crate": "fm16-module", "why": "#306's FM workload (sixteen voices), a bench module – not a factory module" },
+		{ "crate": "chain-stage-module", "why": "the wiring bench (#393): one stage of a chain wired by the host, a bench module" },
+		{ "crate": "chain-merged-module", "why": "the wiring bench (#393): the same stages merged into one module, a bench module" },
 		{ "crate": "stress-module", "why": "#306's runaway loop and memory growth, a bench module" }
 	],
 	"exceptions": [

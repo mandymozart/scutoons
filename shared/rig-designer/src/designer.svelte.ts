@@ -36,6 +36,13 @@ export class RigDesigner {
 	jump = $state<(JumpTarget & { seq: number }) | null>(null);
 	/** the user's sentence about the last save / name edit that was refused */
 	notice = $state('');
+	/** the open module is a factory module (#350): read-only – no save, no edit; Compile only builds it once (the API: an admin) */
+	factory = $state(false);
+	/** the open module is a derivative of this one (#350); kept on every save */
+	origin = $state<string | null>(null);
+
+	/** told after a successful compile (the service wrote the descriptor): a rig page's deck hears its policy anew (#412) */
+	onCompiled: ((id: string) => void) | null = null;
 
 	private readonly buffer = new ConsoleBuffer();
 	private seq = 0;
@@ -73,14 +80,20 @@ export class RigDesigner {
 		if (this.compiling) return m['designer.compiling']();
 		if (!this.moduleId) return m['designer.no_module']();
 		if (this.blocked) return failureText({ reason: this.blocked, code: this.blocked, message: '' });
+		// a built factory module: nothing to compile, Derive is the way to change it
+		if (this.factory && this.outcome) return m['designer.reason_factory']();
 		const p = this.limitProblems[0];
 		return p ? problemText(p) : '';
 	}
 	get canCompile(): boolean {
-		return !!this.moduleId && !this.compiling && !this.saving && !this.loading && !this.blocked && this.limitProblems.length === 0;
+		return !!this.moduleId && !this.compiling && !this.saving && !this.loading && !this.blocked && !(this.factory && this.outcome) && this.limitProblems.length === 0;
 	}
 	get canSave(): boolean {
-		return !!this.moduleId && !this.compiling && !this.saving && !this.loading && this.limitProblems.length === 0 && this.blocked !== 'signed_out';
+		return !!this.moduleId && !this.factory && !this.compiling && !this.saving && !this.loading && this.limitProblems.length === 0 && this.blocked !== 'signed_out';
+	}
+	/** a factory module not built yet: the muted line says who builds it (the API decides: an admin) */
+	get factoryNote(): string {
+		return this.factory && !this.outcome ? m['designer.factory_build']() : '';
 	}
 
 	private log(level: ConsoleLine['level'], text: string): void {
@@ -98,6 +111,7 @@ export class RigDesigner {
 	}
 
 	edit(file: string, text: string): void {
+		if (this.factory) return;
 		this.files = setText(this.files, file, text);
 	}
 
@@ -147,6 +161,10 @@ export class RigDesigner {
 		this.diagnostics = [];
 		this.outcome = null;
 		this.notice = '';
+		this.factory = false;
+		this.origin = null;
+		// a factory module's refusal was that module's, not the user's
+		if (this.blocked === 'factory') this.blocked = '';
 		if (!id) return;
 		this.loading = true;
 		try {
@@ -165,6 +183,8 @@ export class RigDesigner {
 				return;
 			}
 			this.name = r.module.name;
+			this.factory = r.module.factory === true;
+			this.origin = r.module.origin ?? null;
 			this.files = r.module.files;
 			this.saved = r.module.files;
 			this.active = neighbour(r.module.files, 'lib.rs');
@@ -184,7 +204,7 @@ export class RigDesigner {
 		this.saving = true;
 		this.notice = '';
 		try {
-			const r = await this.store.save(id, moduleContent(id, this.name || id, this.files, this.outcome));
+			const r = await this.store.save(id, moduleContent(id, this.name || id, this.files, this.outcome, this.origin));
 			if (!r.ok) {
 				this.log('error', failureText(r) + (r.problems?.length ? ` ${r.problems.join('; ')}` : ''));
 				if (isQuiet(r.reason)) this.blocked = r.reason;
@@ -207,7 +227,8 @@ export class RigDesigner {
 		this.log('info', m['designer.log_compiling']({ files: Object.keys(files).length }));
 		try {
 			// `factory`: the service writes the sources, the descriptor and the hash into a new draft of module:<id> itself
-			const r = await this.api.compile({ files, factory: id });
+			// a factory module builds from its stored sources, unchanged (#350)
+			const r = await this.api.compile(this.factory ? { factory: id } : { files, factory: id });
 			if (r.ok) {
 				this.outcome = { files, descriptor: r.descriptor, wasm: r.wasm };
 				if (r.version !== undefined) {
@@ -220,6 +241,7 @@ export class RigDesigner {
 				for (const line of detailLines(r.descriptor)) this.log('info', line);
 				this.log('ok', m['designer.log_ok']({ hash: r.hash.slice(0, 12), bytes: r.wasm.bytes }));
 				this.log('ok', headline(r.descriptor));
+				this.onCompiled?.(id);
 				return true;
 			}
 			if (r.reason === 'errors') {

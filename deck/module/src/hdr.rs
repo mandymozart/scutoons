@@ -30,7 +30,7 @@ pub struct InHdr {
     pub show_valid: u32,
     /// ≠ 0: an allocation inside `dm_process` / `dm_control` traps (tests and Play); 0: it is only counted (a show, §6)
     pub strict: u32,
-    /// the mood's position in the scene's `moods` registry
+    /// the mood's place in the module's own `moods` list + 1, 0 = not in it (A1, #409)
     pub mood_index: u32,
     /// bit p: audio input p has nothing linked (zero-filled) – a module may early-out
     pub in_silent: u32,

@@ -7,7 +7,7 @@
 //! render (#319): the FFT's analysis, the LFOs, the helpers, the snapshot ring and the frame thread's commands (bases,
 //! sends, an LFO's shape) cost no allocation either. The ring, the sequencer's thread and the dispatcher are the native
 //! deck's: its tests/no_alloc.rs keeps those.
-use deck_engine::control::Controls;
+use deck_engine::control::{Context, Controls};
 use deck_engine::{Build, Engine, Track};
 use deck_space::graph::Graph;
 use deck_space::scene::{Scene, MADNESS_SCENE};
@@ -209,10 +209,15 @@ to = \"out.in\"
         // the face's first commands (their ring is made at build; a push never allocates)
         measure(true);
         for i in 0..1000 {
-            match i % 4 {
+            match i % 5 {
                 0 => face.set_base(7, 0, 200.0 + i as f32),
                 1 => face.send(4, 1, 100.0, (i % 7) as f32 / 7.0),
                 2 => face.set_lfo_shape(1 + i % 3, i / 4 % 3),
+                // #409: the live context through the same ring, handed to the blocks at the next block's start
+                3 => {
+                    face.set_context(Context::new(if i % 10 == 3 { "sad" } else { "laughing" }, "dream", (i % 9) as f32 / 9.0, 0.0, 0.0));
+                    true
+                }
                 _ => face.set_base(5, 1, 0.05),
             };
             engine.render(&mut buf, 2, |x| x);

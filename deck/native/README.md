@@ -19,7 +19,7 @@ cd deck && cargo run --release -p deck-native -- --windowed
 `--scene FILE` (default: the built-in `scenes/idle.toml` – fireflies on black, no sound, no network (#252); `--scene madness` = "AV madness"; `--scene cathedral` / `conductor` = the
 built-in `scenes/cathedral.toml` / `conductor.toml`; `--scene rig:catpope[@mood]` = a core rig – `rig:item.incense_burner` an
 item's –, played by deck-space's `Deck` as on every deck (#322, src/rig.rs: flattened, in the cathedral's room, replayed when
-the being's mood turns; no such rig = the deck's own scene)) · `--sets DIR` (a local folder of sets instead of the synced
+the being's mood turns; no such rig = the silent scene: the being, no sound, #425)) · `--sets DIR` (a local folder of sets instead of the synced
 `<cache>/sets`, `DECK_SETS` – e.g. `../media/scutoons/rooms`, tools/rooms' output) · `--portraits DIR` (a local folder
 of the heads' sprites instead of the synced `<cache>/portraits`, `DECK_PORTRAITS` – e.g. `../media/characters`) ·
 `DECK_TOKEN` (a fixed deck token for the API and show media – a dev deck; a deck reads deck-link's, #180) · `--token T`
@@ -147,6 +147,10 @@ A live tool may not crackle unnoticed, and should not crackle at all:
   cpal's `BufferSize::Fixed(N)` clamped to the device's range (a log line says so), a refused one falls back to the
   default; PipeWire's latency request (default 128). **WASAPI shared can only grow it**: on the RME the engine runs a
   1056-frame (22 ms) buffer whatever is asked below that – a smaller buffer needs ASIO.
+- **Which channels an outlet plays on** (#428): a scene names outlet groups (`out` nodes, `group = "cue"`), never hardware; the
+  machine's deck.toml binds them, counted from 1, after its plain keys: `[[audio_outlet]]` / `group = "cue"` / `channels = [3, 4]`.
+  `main` without an entry plays on 1.., any other group without one is silent. The log prints each outlet's device channels
+  ("audio: outlet 'cue' (cue): device channels [3, 4]"). Who assigns this at a venue: #330.
 - **Host and device**: `--audio-host default|wasapi|asio` (deck.toml `audio_host`), `--audio-device NAME` (a part of
   the name, any case; deck.toml `audio_device`), `--audio-list` prints the hosts, devices, formats and buffer ranges.
   On PipeWire the name picks the **sink** (`target.object`, #285): the first `Audio/Sink` node whose name or description
@@ -239,6 +243,7 @@ An input takes one link; an output feeds any number. Every control input can als
 | `fm` | cv, freq, ratio, index, gain | out | `attack`, `release` |
 | `seq` | rate | cv (audio: pitch Hz left, gate 0 / 1 right) | `steps` = MIDI notes (0 = rest), `division` (steps per beat), `gate`, `transpose`; on the tempo clock (step k from beat k / division, `rate` scales the division) unless it has a `bpm` of its own |
 | `walk` | spread, rate, glide | cv (audio: pitch Hz left, gate 0 / 1 right – seq's) | module `events` (#236, deck-events): a seeded random walk on a continuous pitch scale on the tempo clock – `seed` (the same seed, the same melody on every deck), `base` (Hz, 147), `octaves` (2), `length` (of a step, 1 = legato); `spread` 0 = the base held, 1 = ±`octaves`; `rate` = steps a beat (2); `glide` rides along |
+| `world` | – | events (event) | module `events` (#430): a source from outside as a node, cabled like a module's event output (`[[link]]`, a rig's `route`). `source` = `midi` · `generator`; `listen` = the names it lets through (`["midi.note"]`, a generator's `["music.note"]`); a generator's `patch` = a deck-events patch run by the node, its notes going down its cables only. An event input with no cable hears nothing |
 | `chapter_music` | gain | out | `toon`, `chapter`, `track` (default: the chapter's default track), `quality` = low · medium · high, `loop` |
 | `mixer` | in1–in4 (audio), gain1–gain4 | out | – |
 | `fft` | in (audio) | level, bass, mid, high (control, 0–1) | `release` (s) |
@@ -294,7 +299,7 @@ sound: the audio graph has no cheap one-shot path from the frame thread (the cli
 body drifts, sways and breathes on the tempo clock (a swell on each beat, a wave over the bar; `pulse` kicks it); `hue`
 / `glow` colour it, `light` dims the set. The scene's `[being]` table is its shape: `size` (body radius, 0.5 m),
 `drift` (0.06 m), `breath` (0.035), `wobble` (0.025), `hose` / `bubbles` (thickness / rate factors), `expose` (the
-buttons: `"node"` or `"node.port"`, empty = all), `character` + `moods` (the head), `feel` + `react` (its feelings,
+buttons: `"node"` or `"node.port"`, empty = all; the list's order is the knobs' order on a node – the first named hangs nearest its point; a counted group `"seq.step1..16 <= seq.steps"` (#424) shows the first N of those ports, N = the value of `seq.steps` now (rounded, clamped 0..16), live – a hidden knob is not drawn, not picked, has no tether and keeps its value; the shown ones keep their place as N changes), `character` + `moods` (the head), `feel` + `react` (its feelings,
 below) – with the graph that is what a being preset saves (#191).
 
 **The head** (phase 5; owner 2026-10-30: the portrait *is* the head, organic on synthetic, Ghost in the Shell): the
@@ -362,6 +367,27 @@ the bass), pink-noise incense swayed by an LFO → mixer → FFT (its level kick
 bass, a voice swelling with a slow LFO. An audio oscillator's `wave` can't change while it plays yet (an engine
 rebuild); MIDI / OSC learn onto the same `Controls::set` is S6.
 
+`scenes/catpope-analog.toml` ("Catpope plays analog", #418, `--scene catpope-analog`, in the F5 list) – the being in the
+cathedral's room with the `stepseq` module playing the `analog` module (its `lead` preset; the event host routes the
+notes): the being's `expose` makes the loop length `steps` (the first knob), the step sliders, the on/off switches (each a plain
+0..1 button: the module reads ≥ 0.5 as on – the knob widget has no two-state look yet) – both only as many as the sequence
+has steps (`seq.step1..16 <= seq.steps`, #424: turn `steps` and the knobs come and go) –, rate, gate and eight synth controls
+(volume, cutoff, resonance, filter envelope, amp decay / release, oscillator 2 detune, LFO rate) its 3D buttons.
+**Hover name** (owner 2026-11-08, "for now": the one exception to the 2026-10-31 no-numbers-no-labels rule): the knob under the
+pointer (else the selected one) wears its name beside it – a rig's `expose` label in the locale, else the parameter's name
+(`step3`, `f1_cutoff`); never a number. Drawn by the space's own label pass (deck-space, so native ≡ browser).
+Modules play only on a deck built with `--features modules` and their wasm in `DECK_MODULES`; from `deck/`:
+`cargo build --release --target wasm32-unknown-unknown -p analog-module -p stepseq-module --target-dir target/wasm-modules`,
+PowerShell `$env:DECK_MODULES = "$PWD\target\wasm-modules\wasm32-unknown-unknown\release"`, then
+`cargo run -p deck-native --features modules --release -- --scene catpope-analog --windowed` (the folder's other `*.wasm`
+files load too and are ignored unless a scene names them). `rig:` scenes stage the being too now: `Player::scene` adds the
+`screen` node the flattened rig lacks (it showed only the HUD on black).
+
+`scenes/module-walk.toml` (#406, `--scene module-walk`, in the F5 list) is the smallest module demo: `module:walk` (a seeded melody on the tempo
+clock, 96 BPM) → its `cv` (pitch Hz left, gate right) → an `fm` voice → the device, quiet by default (voice gain 0.2, device volume 0.5), a pulsing
+test pattern as the picture. The X1 update ships the wasm of `walk`, `stepseq` and `analog` to `/usr/share/deck/modules` (`DECK_MODULES`; `deck/os/modules.sh`)
+and builds the stage with `--features modules`. Test: `cargo test -p deck-native --features modules --test modules`.
+
 `scenes/madness.toml` ("AV madness (S3)", `--scene madness`) – the tempo clock at 96 BPM; catpope 1's music + an FM voice sequenced on
 the beat + pink noise + the click (off until K) → mixer → FFT; test pattern (pulsing on the beat) → kaleidoscope → the
 chapter's slices (cut on a bass hit snapped to the beat, every 6 s at the latest) → RGB shift → the caption overlay →
@@ -370,12 +396,11 @@ screen. `scenes/test-pattern.toml` – the picture alone (no sound, no network).
 `scenes/module-walk.toml` and `scenes/module-analog.toml` (#406) are the module demos – the first scenes whose sound comes from
 compiled rig modules (`--features modules`, the wasm in `DECK_MODULES`; the X1 update ships `walk` and `analog` to
 `/usr/share/deck/modules`): **module-walk** = `module:walk` (a seeded melody on the tempo clock) → its `cv` (pitch Hz left, gate right) →
-an `fm` voice → the device, 96 BPM; **module-analog** = `module:walk`'s note events play `module:analog` (no cable: the event host
-routes `music.note` by name), 84 BPM. Both quiet by default (voice gain 0.2, device volume 0.5), a pulsing test pattern as the
+an `fm` voice → the device, 96 BPM; **module-analog** = `module:walk`'s note events play `module:analog` over an event cable (#430: `walk.notes` → `synth.notes`), 84 BPM. Both quiet by default (voice gain 0.2, device volume 0.5), a pulsing test pattern as the
 picture. Built in like `madness`: `--scene module-walk` or F5; a build without the feature, or with the module missing, refuses them with the reason.
-Test: `cargo test -p deck-native --features modules --test modules` (`the_demo_scenes_play_the_modules`).
+Test: `cargo test -p deck-native --features modules --test modules` (`the_module_walk_scene_plays_the_walk_module`, `the_module_analog_scene_plays_walk_into_analog`).
 
-**The scene switcher (#250, `switcher.rs`):** **F5** lists the built-in scenes (`idle`, `madness`, `cathedral`, `conductor`,
+**The scene switcher (#250, `switcher.rs`):** **F5** lists the built-in scenes (`idle`, `madness`, `cathedral`, `catpope-analog`, `conductor`,
 `outlet`, `strobe`, `test-pattern`, `module-walk`, `module-analog`) and every `*.toml` of the scenes folder (`--scenes DIR`, default
 `/usr/share/deck/scenes`; a file named like a built-in is skipped); ↑ ↓ move, **Enter** loads the scene in place – the same
 path as a `--dev` reload, no process restart: the old show stops (audio graph dropped), the new one is built, the window

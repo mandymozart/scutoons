@@ -4,17 +4,17 @@
 
 <script lang="ts">
 	// The designer's tab row in the creator's Sound design workspace: Parameters · Nodes · Rust · Assignment (RIG-EDITING.md
-	// §2). Parameters and Rust are live; Nodes and Assignment are labels with the title "coming next". One horizontally
-	// scrolling row on a phone. A grouped row of text buttons: square (DESIGN "Round vs square").
+	// §2). All four are live (Assignment: #283's first slice, the declarative rig as a form). One horizontally scrolling row
+	// on a phone. A grouped row of text buttons: square (DESIGN "Round vs square").
 	import { m } from '../messages.ts';
 
 	let { value = 'rust', onchange }: { value?: DesignerTabId; onchange: (id: DesignerTabId) => void } = $props();
 
 	const tabs: { id: DesignerTabId; label: () => string; live: boolean }[] = [
 		{ id: 'parameters', label: m['designer.tab_parameters'], live: true },
-		{ id: 'nodes', label: m['designer.tab_nodes'], live: false },
+		{ id: 'nodes', label: m['designer.tab_nodes'], live: true },
 		{ id: 'rust', label: m['designer.tab_rust'], live: true },
-		{ id: 'assignment', label: m['designer.tab_assignment'], live: false }
+		{ id: 'assignment', label: m['designer.tab_assignment'], live: true }
 	];
 </script>
 

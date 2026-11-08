@@ -288,6 +288,10 @@ pub struct Descriptor {
     /// the show's variable slots the kind may read (`story.act` …, ABI-V2 §3)
     #[serde(default = "empty_strs", skip_serializing_if = "is_empty_slice")]
     pub reads: Cow<'static, [Cow<'static, str>]>,
+    /// modules only (A1, #409): the moods the module knows, in its own order – the deck hands a module the mood's place
+    /// here + 1 as `mood_index` (0 = a mood not in the list; deck-space context.rs)
+    #[serde(default = "empty_strs", skip_serializing_if = "is_empty_slice")]
+    pub moods: Cow<'static, [Cow<'static, str>]>,
     /// modules only: the ABI version they speak
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub abi: Option<u32>,
@@ -323,6 +327,78 @@ impl Descriptor {
     pub fn ports_of(&self, dir: Dir, ty: PortType) -> impl Iterator<Item = &PortDesc> {
         self.ports.iter().filter(move |p| p.dir == dir && p.ty == ty)
     }
+
+    /// A module's ports as the node graph numbers them (#342) – the one rule the module host binds by
+    /// (deck-module-host's `Layout`) and the graph registers by (deck-space's `ModuleDef::of`): inputs = the audio inputs,
+    /// then the control inputs (each in declaration order), then the parameters (a parameter is also a control input),
+    /// then the event inputs; outputs = the audio and control outputs in declaration order, then the event outputs; a
+    /// control output with a `path` is a target too. An audio port carries its declared channels (a `cv` port and an
+    /// undeclared one two). An event port is a cable end like any other (#430: event cables, many to many – the event host
+    /// joins by them), numbered last so the bound ports keep their places; video ports are skipped (no module host plays one yet).
+    pub fn graph(&self) -> GraphPorts {
+        let channels = |p: &PortDesc| match (p.ty, p.channels) {
+            (PortType::Cv, _) | (_, None) => Some(Channels::Count(2)),
+            (_, c) => c,
+        };
+        let port = |p: &PortDesc| GraphPort {
+            name: p.name.to_string(),
+            ty: p.ty,
+            channels: matches!(p.ty, PortType::Audio | PortType::Cv).then(|| channels(p)).flatten(),
+            names: p.names.iter().map(|n| n.to_string()).collect(),
+        };
+        let mut g = GraphPorts { inputs: Vec::new(), outputs: Vec::new(), targets: Vec::new() };
+        let (mut control_in, mut events_in, mut events_out) = (Vec::new(), Vec::new(), Vec::new());
+        for p in self.ports.iter() {
+            match (p.dir, p.ty) {
+                (Dir::In, PortType::Audio | PortType::Cv) => g.inputs.push(port(p)),
+                (Dir::In, PortType::Control) => control_in.push(port(p)),
+                (Dir::In, PortType::Event) => events_in.push(port(p)),
+                (Dir::Out, PortType::Audio | PortType::Cv) => g.outputs.push(port(p)),
+                (Dir::Out, PortType::Control) => {
+                    if !p.path.is_empty() {
+                        g.targets.push((g.outputs.len(), p.path.to_string(), p.mode));
+                    }
+                    g.outputs.push(port(p));
+                }
+                (Dir::Out, PortType::Event) => events_out.push(port(p)),
+                _ => {}
+            }
+        }
+        g.inputs.extend(control_in);
+        g.inputs.extend(self.params.iter().map(|p| GraphPort { name: p.name.to_string(), ty: PortType::Control, channels: None, names: Vec::new() }));
+        g.inputs.extend(events_in);
+        g.outputs.extend(events_out);
+        g
+    }
+}
+
+/// One graph port of a module: its name, its type, an audio port's channels (None otherwise) and an event port's names
+/// (`music.note` …; what its cables can carry).
+#[derive(Debug, Clone, PartialEq)]
+pub struct GraphPort {
+    pub name: String,
+    pub ty: PortType,
+    pub channels: Option<Channels>,
+    pub names: Vec<String>,
+}
+
+impl GraphPort {
+    /// it carries audio (a `cv` port is audio on the graph)
+    pub fn audio(&self) -> bool {
+        matches!(self.ty, PortType::Audio | PortType::Cv)
+    }
+}
+
+/// A module's graph ports (`Descriptor::graph`): inputs, outputs, and (graph output, path, mode) per control output
+/// bound to a target (ABI-V2 §5).
+#[derive(Debug, Clone, PartialEq)]
+pub struct GraphPorts {
+    pub inputs: Vec<GraphPort>,
+    pub outputs: Vec<GraphPort>,
+    pub targets: Vec<(usize, String, Mode)>,
+}
+
+impl Descriptor {
 
     /// The ABI v2 fields against their own rules (ABI-V2 §1.2): each port field only on the port it belongs to, the
     /// event limits, no capability both needed and wanted, unique slots, a preset that names real parameters inside
@@ -373,6 +449,7 @@ impl Descriptor {
             return Err(format!("'{me}': '{w}' is in `needs` and in `wants` – a capability is one or the other"));
         }
         unique("`reads`", &mut self.reads.iter().map(|s| s.as_ref()))?;
+        unique("`moods`", &mut self.moods.iter().map(|s| s.as_ref()))?;
         unique("`assets`", &mut self.assets.iter().map(|a| a.name.as_ref()))?;
         if let Some(a) = self.assets.iter().find(|a| a.max_bytes == 0) {
             return Err(format!("'{me}': asset '{}' needs a `max_bytes` above 0", a.name));
@@ -484,7 +561,7 @@ mod tests {
     #[test]
     fn the_v2_fields_round_trip_and_check() {
         let json = r#"{"name":"m","abi":1,"latency":64,"needs":["motion"],"wants":["position"],"reads":["story.act"],
-            "params":[{"name":"cutoff","min":20,"max":20000,"default":800},{"name":"wave","choices":["sine","saw"]}],
+            "moods":["thinking","sad"],"params":[{"name":"cutoff","min":20,"max":20000,"default":800},{"name":"wave","choices":["sine","saw"]}],
             "ports":[{"name":"side","dir":"in","type":"audio","channels":2,"sidechain":true},
                      {"name":"notes","dir":"in","type":"event","names":["music.note"],"props":["pitch","vel","glide"],"capacity":128},
                      {"name":"sel","dir":"out","type":"control","path":"child.preset","mode":"add","choices":["calm","wild"]}],
@@ -494,6 +571,7 @@ mod tests {
         d.check().unwrap();
         assert_eq!(serde_json::from_str::<Descriptor>(&serde_json::to_string(&d).unwrap()).unwrap(), d);
         assert_eq!((d.latency, d.wants[0].as_ref(), d.reads[0].as_ref(), d.assets[0].kind), (64, "position", "story.act", AssetKind::Pcm));
+        assert_eq!(d.moods.iter().map(|m| m.as_ref()).collect::<Vec<_>>(), ["thinking", "sad"]);
         assert_eq!((d.ports[0].sidechain, d.ports[1].capacity, d.ports[2].mode), (true, 128, Mode::Add));
         assert_eq!(d.preset.as_ref().unwrap().values["cutoff"], 1200.0);
         // a port that sets none of them serializes without them
@@ -520,6 +598,8 @@ mod tests {
         assert!(bad(&|x| port(x, 2).path = "".into()).contains("needs a `path`"));
         assert!(bad(&|x| x.wants = Cow::Owned(vec!["motion".into()])).contains("needs` and in `wants"));
         assert!(bad(&|x| x.assets.to_mut()[0].max_bytes = 0).contains("max_bytes"));
+        assert!(bad(&|x| x.moods.to_mut().push("sad".into())).contains("`moods` twice"));
+        assert!(bad(&|x| x.moods.to_mut().push("".into())).contains("empty name in `moods`"));
         assert!(bad(&|x| _ = x.preset.as_mut().unwrap().values.insert("nope".into(), 1.0)).contains("no parameter"));
         assert!(bad(&|x| _ = x.preset.as_mut().unwrap().values.insert("cutoff".into(), 1.0)).contains("outside"));
         assert!(bad(&|x| _ = x.preset.as_mut().unwrap().values.insert("wave".into(), 2.0)).contains("choices"));

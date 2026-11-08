@@ -1,19 +1,22 @@
 //! The module event host (#342, research/ABI-V2.md §1.4): deck-events events into a module's event inputs at their
 //! frames, a module's event outputs back out as deck-events events – both ways inside the block, no thread.
 //!
-//! - **In from the world.** An event input listens to the names its descriptor declares: one route per name to one ring
-//!   per port (the platform's dispatcher fans the deck's events out to it, like a host's `listen`). Each block the host
-//!   places the due events on their frame (a beat on the block's tempo map, seconds on the audio timebase, a trigger at
-//!   frame 0); one already past is late – frame 0, counted (`InHdr.late`, ModuleStats); one still ahead waits.
+//! - **In from the world.** A `world` node (#430, deck-space's world.rs) holds its name filter and is cabled like a module:
+//!   an event input with a cable from a MIDI world node gets one ring and one route per name of the filter it can take
+//!   (the platform's dispatcher fans the deck's events out to it, like a host's `listen`). An event input with no cable
+//!   hears nothing. Each block the host places the due events on their frame (a beat on the block's tempo map, seconds on
+//!   the audio timebase, a trigger at frame 0); one already past is late – frame 0, counted (`InHdr.late`, ModuleStats);
+//!   one still ahead waits. A `generator` world node runs its deck-events patch itself (walk.rs `Host`) and sends its
+//!   notes down its cables like a module's outputs, so two generators stay apart.
 //! - **Notes.** `music.note` / `midi.note` become `NOTE_ON` with a host-assigned id, and a note with a duration gets its
 //!   `NOTE_OFF` from the host at its end – a module never counts beats to end a note. Its pitch both ways: the Hz or the
 //!   key the source gave, the other filled from the deck's tuning (`deck_events::Tuning`; `Seams::tuning`). A velocity
 //!   the source lacks is 1.
-//! - **Module to module.** An event output reaches every module event input that takes one of its names (by name, the
-//!   props by key): directly, one block late at the same frame (`at + QUANTUM`), like a control output – so the order the
-//!   nodes run in never changes the sound. A note's length is expanded into its off here; ids are re-tagged per link.
-//!   A module does not hear its own outputs (an echo would feed itself forever); a loop through two modules is one
-//!   block late per turn, like an audio loop through `feedback` – the patch's to design.
+//! - **Module to module, by cable (#430).** An event output reaches exactly the inputs its cables name (`Graph::links` of
+//!   type event, many to many): names and props mapped by name (a note is a note whatever name it comes as),
+//!   one block late at the same frame (`at + QUANTUM`), like a control output – so the order the nodes run in never changes
+//!   the sound. A note's length is expanded into its off here; ids are re-tagged per link. A module does not hear its own
+//!   outputs (the graph refuses that cable); a loop through two modules is one block late per turn – the patch's to design.
 //! - **Out to the world.** Every event output also writes deck-events events into an outbox ring the platform drains into
 //!   its dispatcher (`Events::take_outbox`): a named event with its props, a note with `dur` (a `len` > 0 at once; a note
 //!   held until its `NOTE_OFF` when the off comes – one event with its true start and length), stamped at their true time.
@@ -28,8 +31,10 @@ use super::QUANTUM;
 use anyhow::{anyhow, Result};
 use deck_core::tempo::TempoMap;
 use deck_events::{Event, Match, Names, Route, Sym, Time, Tuning};
+use deck_events::rt::RtEvent;
 use deck_module_host::{Ev, EvKind};
-use deck_space::graph::Graph;
+use deck_space::graph::{Graph, Kind, PortType};
+use deck_space::world::{self, Source, NOTE_NAMES};
 
 /// records a ring holds (a link's, the world's, the outbox's)
 const RING: usize = 512;
@@ -40,9 +45,6 @@ const HELD: usize = 64;
 /// no such name / prop slot on the other side
 const NONE: u16 = u16::MAX;
 const NO_SLOT: u8 = u8::MAX;
-/// the names a note comes as: the generators' `music.note`, the MIDI adapter's `midi.note`
-const NOTE_NAMES: [&str; 2] = ["music.note", "midi.note"];
-
 /// the prop keys of a note
 #[derive(Clone, Copy)]
 struct Keys {
@@ -52,10 +54,13 @@ struct Keys {
     key: Sym,
     /// the MIDI adapter's key prop
     note: Sym,
+    /// the event names a note comes as
+    notes: [Sym; 2],
 }
 
-/// An output linked to a module's input: its records go one block late, names and props mapped by name.
-struct Link {
+/// An output (a module's, a generator world node's) cabled to a module's input: its records go one block late, names and
+/// props mapped by name.
+pub(crate) struct Link {
     ring: rtrb::Producer<(u64, Ev)>,
     /// the output's name index → the input's (NONE: the input does not take it)
     names: Vec<u16>,
@@ -102,12 +107,15 @@ pub(crate) struct Ports {
     tuning: Tuning,
 }
 
-/// Wires the event ports of every prepared module of `graph`: routes and rings from the world, the links between
-/// modules, an outbox per output; the ports go into each `Prepared`.
+/// Wires the event ports of every prepared module of `graph` along its event cables: a ring and routes per input a MIDI
+/// world node feeds, the links between modules and from a generator world node, an outbox per output; the ports go into
+/// each `Prepared`, a generator's links into `Events` for its block (walk.rs).
 pub(crate) fn wire(graph: &Graph, prepared: &mut [Option<Prepared>], ev: &mut Events, tuning: Tuning) -> Result<()> {
     let keys = {
         let mut key = |s: &str| ev.names.key(s).map_err(|e| anyhow!("{s}: {e:?}"));
-        Keys { pitch: key("pitch")?, vel: key("vel")?, glide: key("glide")?, key: key("key")?, note: key("note")? }
+        let (pitch, vel, glide, k, note) = (key("pitch")?, key("vel")?, key("glide")?, key("key")?, key("note")?);
+        let mut event = |s: &str| ev.names.event(s).map_err(|e| anyhow!("{s}: {e:?}"));
+        Keys { pitch, vel, glide, key: k, note, notes: [event(NOTE_NAMES[0])?, event(NOTE_NAMES[1])?] }
     };
     let mut all: Vec<Option<Ports>> = (0..prepared.len()).map(|_| None).collect();
     for (i, p) in prepared.iter().enumerate() {
@@ -120,15 +128,7 @@ pub(crate) fn wire(graph: &Graph, prepared: &mut [Option<Prepared>], ev: &mut Ev
         let mut ins = Vec::new();
         for (port, e) in l.events_in.iter().enumerate() {
             let (names, note, props) = intern(&mut ev.names, &e.names, &e.props, &at(&e.name))?;
-            let world = (!names.is_empty()).then(|| {
-                let (tx, rx) = rtrb::RingBuffer::new(RING);
-                for &s in &names {
-                    ev.routes.push(Route { on: Match::Name(s), to: ev.outlets.len() });
-                }
-                ev.outlets.push(tx);
-                rx
-            });
-            ins.push(In { port, names, props, note, world, links: Vec::new(), pending: Vec::with_capacity(PENDING), held: Vec::with_capacity(HELD), next_id: 1 });
+            ins.push(In { port, names, props, note, world: None, links: Vec::new(), pending: Vec::with_capacity(PENDING), held: Vec::with_capacity(HELD), next_id: 1 });
         }
         let mut outs = Vec::new();
         for (port, e) in l.events_out.iter().enumerate() {
@@ -139,34 +139,76 @@ pub(crate) fn wire(graph: &Graph, prepared: &mut [Option<Prepared>], ev: &mut Ev
         }
         all[i] = Some(Ports { ins, outs, scratch: Vec::with_capacity(PENDING + HELD), keys, tuning });
     }
-    // the links: every output to every input that takes one of its names (in node and port order – deterministic)
+    // the cables (in the scene's order – deterministic)
+    let mut world_rings: Vec<((usize, usize), usize)> = Vec::new();
     let mut specs = Vec::new();
-    for (a, pa) in all.iter().enumerate() {
-        let Some(pa) = pa else { continue };
-        for (o, out) in pa.outs.iter().enumerate() {
-            for (b, pb) in all.iter().enumerate() {
-                // a module never hears its own outputs (an echo would feed itself forever – MIDI's "thru off")
-                let Some(pb) = pb.as_ref().filter(|_| b != a) else { continue };
-                for (k, inp) in pb.ins.iter().enumerate() {
-                    if out.names.iter().any(|n| inp.names.contains(n)) {
-                        let names = out.names.iter().map(|n| inp.names.iter().position(|m| m == n).map_or(NONE, |x| x as u16)).collect::<Vec<_>>();
-                        let mut props = [NO_SLOT; 6];
-                        for (s, key) in out.props.iter().enumerate().take(6) {
-                            if let Some(t) = inp.props.iter().position(|k| k == key) {
-                                props[s] = t as u8;
-                            }
-                        }
-                        specs.push((a, o, b, k, names, props, out.note.is_some() && inp.note.is_some()));
+    let mut generators: Vec<(usize, usize, usize, Vec<u16>)> = Vec::new();
+    for l in graph.links.iter().filter(|l| l.ty == PortType::Event) {
+        let (a, o) = l.from;
+        let (b, kb) = l.to;
+        let Some(pb) = all[b].as_ref() else { continue };
+        let inputs = &prepared[b].as_ref().expect("a module of the graph").layout().events_in;
+        let port = graph.nodes[b].kind.inputs()[kb].name;
+        let k = inputs.iter().position(|e| e.name == port).ok_or_else(|| anyhow!("node '{}': no event input '{port}'", graph.nodes[b].id))?;
+        if graph.nodes[a].kind == Kind::World {
+            let w = world::World::of(&graph.nodes[a])?;
+            if w.source == Source::Midi {
+                let outlet = match world_rings.iter().find(|(at, _)| *at == (b, k)) {
+                    Some(&(_, t)) => t,
+                    None => {
+                        let (tx, rx) = rtrb::RingBuffer::new(RING);
+                        let t = ev.outlets.len();
+                        ev.outlets.push(tx);
+                        all[b].as_mut().expect("wired above").ins[k].world = Some(rx);
+                        world_rings.push(((b, k), t));
+                        t
+                    }
+                };
+                for name in &w.listen {
+                    let s = ev.names.event(name).map_err(|e| anyhow!("{name}: {e:?}"))?;
+                    let inp = &all[b].as_ref().expect("wired above").ins[k];
+                    let takes = inp.names.contains(&s) || (keys.notes.contains(&s) && inp.note.is_some());
+                    if takes && !ev.routes.iter().any(|r| r.on == Match::Name(s) && r.to == outlet) {
+                        ev.routes.push(Route { on: Match::Name(s), to: outlet });
                     }
                 }
+            } else {
+                // a generator's notes come straight down its cables; its one name maps onto the input's note
+                let note = pb.ins[k].note.ok_or_else(|| anyhow!("node '{}': a generator's cable needs a note input", graph.nodes[b].id))?;
+                generators.push((a, b, k, vec![note]));
+            }
+            continue;
+        }
+        let Some(pa) = all[a].as_ref() else { continue };
+        let out_port = graph.nodes[a].kind.outputs()[o].name;
+        let o = prepared[a].as_ref().expect("a module of the graph").layout().events_out.iter().position(|e| e.name == out_port).ok_or_else(|| anyhow!("node '{}': no event output '{out_port}'", graph.nodes[a].id))?;
+        let (out, inp) = (&pa.outs[o], &pb.ins[k]);
+        let names = out.names.iter().map(|n| inp.names.iter().position(|m| m == n).map_or(NONE, |x| x as u16)).collect::<Vec<_>>();
+        let mut props = [NO_SLOT; 6];
+        for (s, key) in out.props.iter().enumerate().take(6) {
+            if let Some(t) = inp.props.iter().position(|k| k == key) {
+                props[s] = t as u8;
             }
         }
+        specs.push((a, o, b, k, names, props, out.note.is_some() && inp.note.is_some()));
     }
-    for (n, (a, o, b, k, names, props, notes)) in specs.into_iter().enumerate() {
+    let tag = |n: usize| ((n as u32 + 1) & 0xff) << 24;
+    let mut n = 0;
+    for (a, o, b, k, names, props, notes) in specs {
         let (tx, rx) = rtrb::RingBuffer::new(RING);
-        let tag = ((n as u32 + 1) & 0xff) << 24;
-        all[a].as_mut().expect("wired above").outs[o].links.push(Link { ring: tx, names, props, notes, tag });
+        all[a].as_mut().expect("wired above").outs[o].links.push(Link { ring: tx, names, props, notes, tag: tag(n) });
         all[b].as_mut().expect("wired above").ins[k].links.push(rx);
+        n += 1;
+    }
+    for (a, b, k, names) in generators {
+        let (tx, rx) = rtrb::RingBuffer::new(RING);
+        all[b].as_mut().expect("wired above").ins[k].links.push(rx);
+        let link = Link { ring: tx, names, props: [NO_SLOT; 6], notes: true, tag: tag(n) };
+        n += 1;
+        match ev.generators.iter_mut().find(|(at, _)| *at == a) {
+            Some((_, links)) => links.push(link),
+            None => ev.generators.push((a, vec![link])),
+        }
     }
     for (p, ports) in prepared.iter_mut().zip(all) {
         if let Some(p) = p {
@@ -209,9 +251,16 @@ impl In {
         }
     }
 
-    /// a world event (deck-events) as records on this port
+    /// a world event (deck-events) as records on this port (a note is a note whatever name it comes as)
     fn take(&mut self, e: &Event, map: &TempoMap, start: f64, keys: &Keys, tuning: &Tuning) {
-        let Some(idx) = self.names.iter().position(|s| *s == e.name) else { return };
+        let idx = match self.names.iter().position(|s| *s == e.name) {
+            Some(i) => i,
+            None if keys.notes.contains(&e.name) => match self.note {
+                Some(n) => usize::from(n),
+                None => return,
+            },
+            None => return,
+        };
         let at = e.frame(map, start).max(0.0).round() as u64;
         if Some(idx as u16) == self.note {
             let get = |k: Sym| e.props.get(k).unwrap_or(f32::NAN);
@@ -329,7 +378,57 @@ impl Ports {
     }
 }
 
+/// A `generator` world node's way out (#430): its window's notes down its cables, one block late at their frame, a note's
+/// off from its length – as a module's outputs go.
+pub(crate) struct WorldOut {
+    links: Vec<Link>,
+    pitch: Sym,
+    vel: Sym,
+    glide: Sym,
+    tuning: Tuning,
+    next_id: u32,
+}
+
+impl WorldOut {
+    /// None without a cable: the generator has nobody to play to
+    pub(crate) fn new(links: Vec<Link>, names: &mut Names, tuning: Tuning) -> Result<Option<WorldOut>> {
+        if links.is_empty() {
+            return Ok(None);
+        }
+        let mut key = |s: &str| names.key(s).map_err(|e| anyhow!("{s}: {e:?}"));
+        Ok(Some(WorldOut { links, pitch: key("pitch")?, vel: key("vel")?, glide: key("glide")?, tuning, next_id: 1 }))
+    }
+
+    /// a window's events (`from` = its first frame) sent on
+    pub(crate) fn send(&mut self, events: &[RtEvent], from: u64) {
+        for e in events {
+            let get = |k: Sym| e.props.get(k).unwrap_or(f32::NAN);
+            let (hz, key) = self.tuning.complete(get(self.pitch), f32::NAN);
+            let id = self.next_id;
+            self.next_id = self.next_id.wrapping_add(1) & 0x00ff_ffff;
+            let vel = e.props.get(self.vel).unwrap_or(1.0);
+            let mut on = Ev::note_on(0, id, hz, key, vel);
+            on.v[2] = get(self.glide);
+            let at = from + u64::from(e.frame) + QUANTUM as u64;
+            for l in &mut self.links {
+                l.note(on, at, u64::from(e.len));
+            }
+        }
+    }
+}
+
 impl Link {
+    /// a note on at `at` and its off `frames` later, under this link's ids
+    fn note(&mut self, on: Ev, at: u64, frames: u64) {
+        let mut r = on;
+        r.id = self.tag | (on.id & 0x00ff_ffff);
+        r.len = 0.0;
+        let _ = self.ring.push((at, r));
+        if frames > 0 {
+            let _ = self.ring.push((at + frames, Ev::note_off(0, r.id)));
+        }
+    }
+
     fn send(&mut self, e: &Ev, at: u64, map: &TempoMap) {
         match e.kind() {
             Some(EvKind::Event) => {
@@ -342,14 +441,9 @@ impl Link {
                 }
                 let _ = self.ring.push((at, r));
             }
-            Some(_) if self.notes => {
-                let mut r = *e;
-                r.id = self.tag | (e.id & 0x00ff_ffff);
-                r.len = 0.0;
-                let _ = self.ring.push((at, r));
-                if e.kind() == Some(EvKind::NoteOn) && e.len > 0.0 {
-                    let _ = self.ring.push((at + beats_to_frames(map, e.len), Ev::note_off(0, r.id)));
-                }
+            Some(kind) if self.notes => {
+                let frames = if kind == EvKind::NoteOn { beats_to_frames(map, e.len) } else { 0 };
+                self.note(*e, at, frames);
             }
             _ => {}
         }

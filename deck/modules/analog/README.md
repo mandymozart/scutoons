@@ -46,12 +46,16 @@ hard-sync sweep).
 
 **One factory preset in the descriptor** (research/ABI-V2.md §2, owner 2026-11-03): `pad` (`#[preset]` in `src/params.rs`) –
 the host's `Preset::apply` sets every parameter to its default, then its values. The other three – `bass`, `lead`,
-`sync lead` – are `preset:` documents: until the module is a catalog document (#350) and preset files import (#346) they wait
-in **`analog.preset.json`** (format `scutoons.preset`, version 1, `module`, `module_version`, `presets: [{name, doc, values
+`sync lead` – are `preset:` documents: the module is the catalog's factory document `module:analog` (#350); until preset
+files import (#346) they wait in **`analog.preset.json`** (format `scutoons.preset`, version 1, `module`, `module_version`, `presets: [{name, doc, values
 by parameter name}]`), the file the creator imports as drafts. A preset lists only what differs from the defaults. The tests
 apply all four (`tests/common`).
 
-## The DSP (`src/dsp`, plain Rust, no SDK)
+## The DSP (`src/*.rs` beside `lib.rs`, plain Rust, no SDK)
+
+Flat files on purpose (#350): the build service compiles a module as flat `src/*.rs` files, and the catalog's factory
+document `module:analog` stores exactly these (migration 2026-11-05-factory-modules; the server's FactoryModulesTest keeps
+the two equal). A sub-folder would make it a repository crate the service cannot build.
 
 - `osc` – saw, pulse (width), triangle, sine; PolyBLEP steps and PolyBLAMP corners, **hard sync as a band-limited step** (a one-sample
   output delay lets the pre-step half of the correction in), the sub as a flip-flop on the parent's wraps (an exact octave).

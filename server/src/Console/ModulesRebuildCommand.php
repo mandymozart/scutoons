@@ -19,7 +19,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  * the catalog's modules, the failures are the list"). A module compiled against another ABI (or not compiled since the
  * 2026-11-04-module-abi-v2 migration removed its v1 result) is compiled again from its own sources through the build
  * service – the same path as `POST /api/modules/compile { factory }` (ModuleCompiler), each result a new draft of
- * `module:<id>` to review and publish. A dry run by default; `--apply --as <creator>` compiles.
+ * `module:<id>` to review and publish – a factory module (#350) is built into its catalog entry instead, which needs `--as`
+ * an admin. A dry run by default; `--apply --as <creator>` compiles.
  */
 #[AsCommand(name: 'modules:rebuild', description: 'List (and with --apply recompile) the catalog modules not built against the current module ABI')]
 final class ModulesRebuildCommand extends Command

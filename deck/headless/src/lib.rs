@@ -12,7 +12,7 @@
 //!
 //! | do | arguments | answer |
 //! |---|---|---|
-//! | `load` | `scene` (a deck/ path; `lower`: the browser's split, default on), `toml` (a small scene as it is) or `rig` (`character.catpope`) + `mood` | nodes, page (ids the engine does not carry), channels |
+//! | `load` | `scene` (a deck/ path; `lower`: the browser's split, default on), `toml` (a small scene as it is), `rig` (`character.catpope`) + `mood`, or `silent = true` (no rig plays, #425) | nodes, page (ids the engine does not carry), channels |
 //! | `warm` | as `load`, `quanta` | – |
 //! | `run` | `ms`; `mark` (keep the audio hash) | audio (hash), peak, frames, the clock state (+ the transport's `epoch`), line, clock_out, anchors, pings, signals |
 //! | `send` | `path`, `value`, `mode` (force / blend / base), `amount` | applied |
@@ -27,6 +27,7 @@
 //! | `reset` | – | a fresh host (the clock too) |
 //! | `carried_part` | `with` = { `scene`, `modules` } | kept (nodes), dropped (ids) – deck-core's filter (#360) |
 //! | `hud` | `with` = { `scene`, `fps`, `audio` } | title, lines, bar, levels – deck-ui's HUD from this deck's clock and monitor (#374) |
+//! | `context` | `pin` (a mood, "" = the ladder's), `touch` | deck (its mood, energy), engine (the live context the engine applied last: mood, persona, energy, touch, strain – #409) |
 //! | a capability (caps.rs) | `with` | its answer, or `Missing` |
 //!
 //! Built for wasm32 too (`hl_inbox`, `hl_run`, `hl_outbox`): the same bundle in, the same report out – tests/wasm.rs
@@ -208,6 +209,12 @@ impl Run<'_> {
             let facts = json!({ "knobs": played.knobs.len(), "tracks": played.tracks.len(), "character": played.character });
             return Ok((played.engine.scene, page, facts));
         }
+        // #425: no rig plays – the deck's own scene, silent (what `Deck::new` and `play_core` of a character without a rig play)
+        if step.get("silent").and_then(|v| v.as_bool()).unwrap_or(false) {
+            let played = deck_space::rig::Played::silent().map_err(|e| err(format!("{e:#}")))?;
+            let page = played.engine.page.iter().map(|n| n.id.clone()).collect();
+            return Ok((played.engine.scene, page, json!({ "knobs": played.knobs.len(), "tracks": played.tracks.len(), "character": played.character })));
+        }
         // a scene file of deck/, or a small one written into the scenario (`toml`, loaded as it is)
         let text = match (step.get("scene").and_then(|v| v.as_str()), step.get("toml").and_then(|v| v.as_str())) {
             (Some(path), _) => self.file(path)?.to_string(),
@@ -384,6 +391,22 @@ impl Run<'_> {
                     "lines": lines,
                     "bar": bar.iter().map(|i| i.text.as_str()).collect::<Vec<_>>(),
                     "levels": bar.iter().map(|i| i.level).collect::<Vec<_>>(),
+                })
+            }
+            // #409: the page's deck state – a pinned mood (`pin`, "" = the ladder again), a hand (`touch`) – and the live
+            // context the core's engine applied last (it goes in every clock frame of a `run`)
+            "context" => {
+                if let Some(m) = text("pin") {
+                    d.state.ladder.pin(Some(m.as_str()));
+                }
+                if step.contains_key("touch") {
+                    d.touch = num("touch", 0.0) as f32;
+                }
+                let c = d.applied_context().unwrap_or_default();
+                let r = |x: f32| round(f64::from(x), 4);
+                json!({
+                    "deck": { "mood": d.state.mood(), "energy": r(d.state.ladder.energy()) },
+                    "engine": { "mood": c.mood(), "persona": c.persona(), "energy": r(c.energy), "touch": r(c.touch), "strain": r(c.strain) },
                 })
             }
             c if caps::known(c) => {

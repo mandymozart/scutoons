@@ -13,13 +13,18 @@ use deck_core::lead::{AdaptiveLead, DeviceClass};
 use deck_core::meters::{self, Meters};
 use deck_core::monitor::{AudioWindow, Monitor};
 use deck_space::controls::Controls;
-use deck_space::deck::{Deck, Slider};
+use deck_space::deck::{Deck, Slider, Why};
 use deck_space::gamepad::Pad;
 use deck_space::gesture::{Act, Fingers, Touch, ZOOM_STEP};
 use deck_space::mood::Ladder;
 use deck_space::push;
 use deck_space::quality;
 use deck_space::relay;
+use deck_space::rig::face::Resolved;
+use deck_space::rig::policy;
+use deck_space::rig::validate::Request;
+use deck_space::rig::wiring::Wiring;
+use deck_space::rig::Bundle;
 use serde_json::{json, Value};
 
 /// a capability the core lacks: its move ticket, what it is, where it lives today
@@ -37,15 +42,20 @@ impl std::fmt::Display for Missing {
 }
 
 /// every capability the runner knows by name: (name, ticket, what, where it lives today)
-/// none is missing today (every move ticket landed); the unit test of the `expected_fail` rule has its own stand-in
+/// the unit test of the `expected_fail` rule has its own stand-in
 #[cfg(not(test))]
-pub const CAPS: &[(&str, &str, &str, &str)] = &[];
+pub const CAPS: &[(&str, &str, &str, &str)] = &[(
+    "code_rig_moods",
+    "#290",
+    "a code rig's policy RUN per mood under this host: a module runtime the headless host (native and wasm32) can carry – the live mood (#409) and the deck applying @preset (#410) are built",
+    "deck-native's engine (wasmtime, tests/modules.rs: the real catpope_rig module chooses the tables' presets); the browser's engine and this host carry no module",
+)];
 #[cfg(test)]
 pub const CAPS: &[(&str, &str, &str, &str)] = &[("test_missing", "#0", "a stand-in for the unit test of the runner", "nowhere")];
 
 /// the steps the core answers now (their move tickets landed): name, ticket – `hud` (#374, deck-ui) is a step of the
 /// runner's (lib.rs: it reads the deck's clock)
-pub const MOVED: &[(&str, &str)] = &[("stats", "#364"), ("lead", "#365"), ("mood", "#367"), ("rig_facts", "#368"), ("device_text", "#373"), ("meters", "#373"), ("gesture", "#376"), ("knob", "#369"), ("sync", "#371"), ("relay_join", "#366"), ("quality_options", "#375")];
+pub const MOVED: &[(&str, &str)] = &[("stats", "#364"), ("lead", "#365"), ("mood", "#367"), ("rig_facts", "#368"), ("device_text", "#373"), ("meters", "#373"), ("gesture", "#376"), ("knob", "#369"), ("sync", "#371"), ("relay_join", "#366"), ("quality_options", "#375"), ("code_rig", "#408"), ("code_rig_deck", "#410"), ("event_rig", "#430")];
 
 /// Call the capability `name` with the step's input: its answer, or what is missing.
 pub fn call(name: &str, input: &Value) -> Result<Value, Missing> {
@@ -61,6 +71,9 @@ pub fn call(name: &str, input: &Value) -> Result<Value, Missing> {
         "sync" => return Ok(sync(input)),
         "relay_join" => return Ok(relay_join(input)),
         "quality_options" => return Ok(quality_options()),
+        "code_rig" => return Ok(code_rig(input)),
+        "code_rig_deck" => return Ok(code_rig_deck(input)),
+        "event_rig" => return Ok(event_rig(input)),
         _ => {}
     }
     match CAPS.iter().find(|c| c.0 == name) {
@@ -169,7 +182,8 @@ fn rig_facts(i: &Value) -> Value {
     let sticks: Vec<&String> = p.sticks.iter().flatten().filter(|s| !s.is_empty()).collect();
     let streamed: Vec<&String> = p.streamed.iter().map(|(path, _)| path).collect();
     let targets: Vec<&str> = p.knobs.iter().filter_map(|k| d.target(&k.path)).collect();
-    let mut out = json!({ "rig": play.rig, "failed": play.failed, "note": play.note, "sticks": sticks, "streamed": streamed, "targets": targets });
+    let audio_out = p.nodes.iter().filter(|n| n.kind == "audio_out").count();
+    let mut out = json!({ "rig": play.rig, "failed": play.failed, "note": play.note, "sticks": sticks, "streamed": streamed, "targets": targets, "audio_out": audio_out, "room": d.room() });
     d.ladder.pin(Some(&text("to")));
     let step = d.step(0.0, 0.0, false, 0.0, 1.0 / 60.0);
     let turn = step.as_ref().and_then(|s| s.turn.as_ref());
@@ -290,6 +304,168 @@ fn relay_join(i: &Value) -> Value {
 /// page reads the same constants): levels with their labels, fps caps, scales, heights, pixel ratios, light and size limits.
 fn quality_options() -> Value {
     serde_json::from_str(&quality::options_json()).unwrap_or(Value::Null)
+}
+
+/// #408: a code rig as the core takes it (T1 of #314) – the core rig `core` with `policy` (its mood tables dropped
+/// unless `keep_moods`) and the policy module's descriptor `module`: the validator's answer (validate.rs, what the build
+/// service's POST /validate runs: problems, warnings), then, when valid, what it plays – the nodes, the policy's kind,
+/// its cables (the wiring's links out of it), the preset choices, the streamed paths, the knobs – and its face
+/// (Rig::describe: each target resolved, the inputs the policy drives).
+fn code_rig(i: &Value) -> Value {
+    let subject = i["core"].as_str().unwrap_or_default();
+    let b = match code_bundle(i) {
+        Ok(b) => b,
+        Err(e) => return e,
+    };
+    let request = Request {
+        kind: "rigs".into(),
+        id: subject.into(),
+        document: by_value(&b.rig),
+        instruments: b.instruments.iter().map(by_value).collect(),
+        presets: b.presets.iter().map(by_value).collect(),
+        modules: b.modules.iter().map(by_value).collect(),
+    };
+    let answer = match request.answer() {
+        Ok(a) => a,
+        Err(e) => return json!({ "error": e }),
+    };
+    let mut out = json!({ "problems": answer.problems, "problem": answer.problems.first().cloned().unwrap_or_default(), "warnings": answer.warnings });
+    if !answer.problems.is_empty() {
+        return out;
+    }
+    let (p, face) = match (b.play(None, None), b.rig.describe(&b.library())) {
+        (Ok(p), Ok(f)) => (p, f),
+        (Err(e), _) | (_, Err(e)) => return json!({ "error": format!("{e:#}") }),
+    };
+    let w = p.wiring().unwrap_or_else(|e| Wiring::failed(format!("{e:#}")));
+    let mut cables: Vec<String> = w.links.iter().filter(|l| w.nodes[l.from].id == policy::NODE).map(|l| format!("{} → {}.{}", l.value, w.nodes[l.to].id, l.input)).collect();
+    cables.sort();
+    let presets: serde_json::Map<String, Value> = p.presets.iter().map(|c| (c.track.clone(), json!(c.choices))).collect();
+    let targets: Vec<String> = face.policy.iter().flat_map(|f| &f.targets).map(|t| match &t.resolved {
+        Resolved::Input { input } | Resolved::Strip { input } => format!("{} → {input}", t.path),
+        Resolved::Preset { track, .. } => format!("{} → preset of {track}", t.path),
+    }).collect();
+    let mut driven: Vec<&str> = face.tracks.iter().flat_map(|t| &t.addressable).filter(|a| a.driven.is_some()).map(|a| a.path.as_str()).collect();
+    driven.sort();
+    out["nodes"] = json!(p.nodes.iter().map(|n| &n.id).collect::<Vec<_>>());
+    out["kind"] = json!(p.nodes.iter().find(|n| n.id == policy::NODE).map(|n| &n.kind));
+    out["cables"] = json!(cables);
+    out["presets"] = Value::Object(presets);
+    out["streamed"] = json!(p.streamed.iter().map(|(s, _)| s).collect::<Vec<_>>());
+    out["knobs"] = json!(p.knobs.iter().map(|k| &k.path).collect::<Vec<_>>());
+    out["targets"] = json!(targets);
+    out["driven"] = json!(driven);
+    out
+}
+
+/// #430: a rig of tracks and event cables as the core answers it (the headless host has no module runtime – #290 – so the
+/// sound is deck-native's tests/modules.rs): the document's problems, the played scene's event cables, the event inputs no
+/// cable reaches (they hear nothing), the tracks' strips, the silent tracks, the world nodes' filters (`rig`, `instrument`,
+/// `module` as the bundle's documents).
+fn event_rig(i: &Value) -> Value {
+    let b: Bundle = match serde_json::from_value(i.clone()) {
+        Ok(b) => b,
+        Err(e) => return json!({ "error": format!("{e:#}") }),
+    };
+    let request = Request {
+        kind: "rigs".into(),
+        id: b.rig.subject.clone(),
+        document: by_value(&b.rig),
+        instruments: b.instruments.iter().map(by_value).collect(),
+        presets: b.presets.iter().map(by_value).collect(),
+        modules: b.modules.iter().map(by_value).collect(),
+    };
+    let answer = match request.answer() {
+        Ok(a) => a,
+        Err(e) => return json!({ "error": e }),
+    };
+    let mut out = json!({ "problems": answer.problems, "problem": answer.problems.first().cloned().unwrap_or_default() });
+    if !answer.problems.is_empty() {
+        return out;
+    }
+    let p = match b.play(None, None) {
+        Ok(p) => p,
+        Err(e) => return json!({ "error": format!("{e:#}") }),
+    };
+    let w = p.wiring().unwrap_or_else(|e| Wiring::failed(format!("{e:#}")));
+    let mut cables: Vec<String> = w.links.iter().filter(|l| l.ty == "event").map(|l| format!("{}.{} → {}.{}", w.nodes[l.from].id, l.out, w.nodes[l.to].id, l.input)).collect();
+    cables.sort();
+    let mut deaf: Vec<String> = w.nodes.iter().enumerate().flat_map(|(n, node)| {
+        node.inputs.iter().filter(|p| p.ty == "event" && !w.links.iter().any(|l| l.to == n && l.input == p.name)).map(|p| format!("{}.{}", node.id, p.name)).collect::<Vec<_>>()
+    }).collect();
+    deaf.sort();
+    let strips: Vec<String> = p.links.iter().filter(|l| l.to.starts_with("mix")).map(|l| l.from.clone()).collect();
+    let silent: Vec<&str> = b.rig.tracks.iter().filter(|t| b.instruments.iter().any(|ins| ins.id == t.instrument && ins.out.is_none())).map(|t| t.id.as_str()).collect();
+    let world: serde_json::Map<String, Value> = w.nodes.iter().filter_map(|n| n.world.as_ref().map(|s| (n.id.clone(), json!({ "source": s.source, "listen": s.listen })))).collect();
+    out["cables"] = json!(cables);
+    out["deaf"] = json!(deaf);
+    out["strips"] = json!(strips);
+    out["silent"] = json!(silent);
+    out["world"] = Value::Object(world);
+    out
+}
+
+/// the core rig `core` as a code rig: `policy` (its mood tables dropped unless `keep_moods`) and the policy module's
+/// descriptor `module`
+fn code_bundle(i: &Value) -> Result<Bundle, Value> {
+    let subject = i["core"].as_str().unwrap_or_default();
+    let mut b = match Bundle::core(subject) {
+        Some(Ok(b)) => b,
+        _ => return Err(json!({ "error": format!("no core rig {subject}") })),
+    };
+    if !i["keep_moods"].as_bool().unwrap_or(false) {
+        b.rig.moods.clear();
+    }
+    let parsed = serde_json::from_value(i["policy"].clone()).map(|p| b.rig.policy = Some(p)).and_then(|_| match i.get("module") {
+        Some(m) => serde_json::from_value(m.clone()).map(|d| b.modules = vec![d]),
+        None => Ok(()),
+    });
+    parsed.map(|_| b).map_err(|e| json!({ "error": e.to_string() }))
+}
+
+/// #410 (T3 of #314): the deck playing a code rig (`code_bundle`) beside the declarative core rig, fed like an adapter
+/// feeds it (`Deck::frame`): for each of `moods` the mood's frame, then a frame with the policy's preset outputs as the
+/// engine would stream them (`outputs.<mood>`, in `paths`' order – a stand-in: this host runs no module). What it did: the
+/// paths it reads, the inputs the policy owns, the voice's preset per mood, the moods whose choice replayed the rig,
+/// whether every track plays the tables' preset in every mood and whether a turn ever moved an owned input.
+fn code_rig_deck(i: &Value) -> Value {
+    let b = match code_bundle(i) {
+        Ok(b) => b,
+        Err(e) => return e,
+    };
+    let (mut code, mut tables) = (Deck::new(), Deck::new());
+    if let Err(e) = code.play(Some(b), "") {
+        return json!({ "error": format!("{e:#}") });
+    }
+    tables.play_core(i["core"].as_str().unwrap_or_default(), "");
+    let paths: Vec<String> = code.preset_paths().map(String::from).collect();
+    let owned = code.played().owned.clone();
+    let plays = |d: &Deck| d.played().tracks.iter().map(|t| (t.track.clone(), t.preset.clone())).collect::<Vec<_>>();
+    let (mut presets, mut chose, mut same, mut moved) = (serde_json::Map::new(), Vec::new(), true, false);
+    for mood in i["moods"].as_array().into_iter().flatten().filter_map(Value::as_str) {
+        tables.ladder.pin(Some(mood));
+        tables.step(0.0, 0.0, false, 0.0, 1.0 / 60.0);
+        // the platforms' one call: the mood's frame with the outputs as heard (the frame after it: the policy hears late)
+        code.ladder.pin(Some(mood));
+        let heard: Vec<f32> = i["outputs"][mood].as_array().into_iter().flatten().filter_map(Value::as_f64).map(|x| x as f32).collect();
+        for h in [&[][..], &heard] {
+            if let Some(t) = code.frame(0.0, 0.0, false, 0.0, 1.0 / 60.0, h).and_then(|s| s.turn) {
+                if t.why == Why::Preset {
+                    chose.push(mood.to_string());
+                }
+                moved |= t.values.iter().any(|(p, _)| owned.contains(p));
+            }
+        }
+        same &= plays(&code) == plays(&tables);
+        let voice = code.played().tracks.iter().find(|t| t.track == "voice").and_then(|t| t.preset.clone());
+        presets.insert(mood.to_string(), json!(voice));
+    }
+    json!({ "paths": paths, "owned": owned, "presets": presets, "chose": chose, "same_as_tables": same, "owned_moved": moved })
+}
+
+/// a document as the validate request carries it (by value)
+fn by_value<T: serde::Serialize>(x: &T) -> Value {
+    serde_json::to_value(x).unwrap_or(Value::Null)
 }
 
 /// #369: deck-space's controls over one knob (`min`, `max`, `log`) as a page hands it in – its value at `position`, that

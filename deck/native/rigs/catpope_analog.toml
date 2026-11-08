@@ -1,0 +1,147 @@
+# catpope + the analog module (#417): catpope's core rig (catpope.toml, unchanged: the cathedral voice, the drone) with ONE
+# more track – `analog`, the `analog` module (modules/analog; its `lead` preset written out below) played by the `stepseq`
+# module (modules/stepseq: 16 sliders, each level a pitch, on the tempo clock; its `notes` events reach the synth's `notes`
+# input through the instrument's event cable, #430). Modules play only on a native deck built with the `modules` feature, their wasm
+# in DECK_MODULES: so this rig is NOT in `rig::bundle::CORE` (the browser deck, the headless host and the server's catalog
+# carry no module) but in deck-native's `rig::MODULE_RIGS`: `--scene rig:catpope-analog[@mood]`. A test (native/src/rig.rs)
+# keeps it equal to catpope.toml apart from the analog track.
+
+[rig]
+subject = "character.catpope"
+track = [
+  { id = "voice", instrument = "cathedral_voice", preset = "cathedral_voice.base" },
+  { id = "drone", instrument = "drone", preset = "drone.base" },
+  { id = "analog", instrument = "analog_seq", gain = 0.5 },
+]
+# the phone deck's corner sticks (#191), (x, y) per stick: left = the voice's FM ratio / index, right = the melody's
+# spread / the drone's pitch
+sticks = [["voice_voice.ratio", "voice_voice.index"], ["voice_melody.spread", "drone_drone.freq"]]
+# the moods the energy ladder walks (being.rs MOODS) and sad from the feelings
+[rig.moods.thinking]
+presets = { voice = "cathedral_voice.low" }
+[rig.moods.sad]
+presets = { voice = "cathedral_voice.low" }
+values = { "drone:drone.gain" = 0.14, "analog:synth.volume" = 0.84 }
+[rig.moods.happy]
+presets = { voice = "cathedral_voice.bright" }
+[rig.moods.laughing]
+presets = { voice = "cathedral_voice.bright" }
+values = { "voice:voice.index" = 4.0 }
+[rig.moods.surprised]
+presets = { voice = "cathedral_voice.bright" }
+values = { "voice:voice.index" = 6.0, "drone:drone.gain" = 0.05, "analog:synth.volume" = 0.3 }
+
+[[instrument]]
+id = "cathedral_voice"
+kind = "voice"
+name = { en = "Cathedral voice", de = "Kathedralenstimme" }
+out = "voice"
+# the melody (#236): a seeded walk on a continuous scale around the voice's base pitch – spread 0 = the held drone
+# (the phone patch's default), more = wider; on the stage it follows the tempo clock, in the browser its own 84 bpm
+node = [
+  { id = "voice", kind = "fm", freq = 147.0, ratio = 1.5, index = 2.0, gain = 0.16 },
+  { id = "melody", kind = "walk", seed = 84, base = 147.0, octaves = 2.0, bpm = 84.0, spread = 0.0, rate = 2.0, glide = 0.5 },
+]
+link = [{ from = "melody.cv", to = "voice.cv" }]
+expose = [
+  { path = "voice.ratio", label = { en = "FM ratio", de = "FM-Verhältnis" }, range = [0.5, 4.0] },
+  { path = "voice.index", label = { en = "FM index", de = "FM-Index" }, range = [0.0, 8.0] },
+  { path = "voice.gain", label = { en = "voice", de = "Stimme" }, range = [0.0, 0.3] },
+  { path = "melody.spread", label = { en = "spread", de = "Weite" } },
+  { path = "melody.rate", label = { en = "steps / beat", de = "Schritte / Schlag" } },
+  { path = "melody.glide", label = { en = "glide", de = "Gleiten" } },
+]
+
+[[instrument]]
+id = "drone"
+kind = "pad"
+name = { en = "Drone", de = "Bordun" }
+out = "mix"
+node = [
+  { id = "drone", kind = "osc", freq = 55.0, gain = 0.1 },
+  { id = "fifth", kind = "osc", freq = 82.5, gain = 0.03 },
+  { id = "mix", kind = "mixer" },
+]
+link = [{ from = "drone", to = "mix.in1" }, { from = "fifth", to = "mix.in2" }]
+expose = [
+  { path = "drone.freq", label = { en = "drone pitch", de = "Bordun-Tonhöhe" }, range = [30.0, 220.0] },
+  { path = "drone.gain", label = { en = "drone", de = "Bordun" }, range = [0.0, 0.3] },
+]
+
+[[instrument]]
+id = "analog_seq"
+kind = "pad"
+name = { en = "Analog sequence", de = "Analog-Sequenz" }
+out = "synth.out"
+# `seq` (the stepseq module) plays the synth (the event cable `link` below): 16 steps, two to a beat, each step's
+# slider a pitch – the module's default phrase (minor pentatonic) from A3, `snap` on. The synth is analog's `lead`
+# preset (modules/analog/analog.preset.json; the descriptor's own `pad` is too slow for eighth notes), volume 0.6.
+node = [
+  { id = "seq", kind = "module:stepseq", base = 220.0, rate = 2.0, gate = 0.7 },
+  { id = "synth", kind = "module:analog", volume = 0.6, o1_wave = 0.0, o1_fine = -6.0, o1_level = 0.65, o1_route = 0.0, o2_wave = 0.0, o2_fine = 6.0, o2_level = 0.65, o2_route = 0.0, f1_cutoff = 3200.0, f1_res = 0.3, f1_drive = 0.1, f1_key = 0.6, f1_env = 0.25, f1_vel = 0.4, fe1_a = 0.005, fe1_d = 0.35, fe1_s = 0.4, fe1_r = 0.3, a1_level = 0.85, a1_pan = -0.15, a1_vel = 0.5, ae1_a = 0.01, ae1_d = 0.2, ae1_s = 0.8, ae1_r = 0.3, l1_shape = 0.0, l1_rate = 5.5, l1_delay = 0.25, l1_attack = 0.4, l1_pitch = 0.35 },
+]
+link = [{ from = "seq.notes", to = "synth.notes" }]
+# the signal strip: 16 sliders, one per step, its level the pitch (0 = the base, 1 = two octaves above), then 16 on/off
+# toggles (`on<n>`: 0 = a rest, 1 = plays; exposed as 0…1 sliders, the module reads ≥ 0.5 as on; the descriptor says
+# `choices = off|on`), the loop length and the synth's volume
+
+expose = [
+  { path = "seq.step1", label = { en = "step 1", de = "Schritt 1" }, range = [0.0, 1.0] },
+  { path = "seq.step2", label = { en = "step 2", de = "Schritt 2" }, range = [0.0, 1.0] },
+  { path = "seq.step3", label = { en = "step 3", de = "Schritt 3" }, range = [0.0, 1.0] },
+  { path = "seq.step4", label = { en = "step 4", de = "Schritt 4" }, range = [0.0, 1.0] },
+  { path = "seq.step5", label = { en = "step 5", de = "Schritt 5" }, range = [0.0, 1.0] },
+  { path = "seq.step6", label = { en = "step 6", de = "Schritt 6" }, range = [0.0, 1.0] },
+  { path = "seq.step7", label = { en = "step 7", de = "Schritt 7" }, range = [0.0, 1.0] },
+  { path = "seq.step8", label = { en = "step 8", de = "Schritt 8" }, range = [0.0, 1.0] },
+  { path = "seq.step9", label = { en = "step 9", de = "Schritt 9" }, range = [0.0, 1.0] },
+  { path = "seq.step10", label = { en = "step 10", de = "Schritt 10" }, range = [0.0, 1.0] },
+  { path = "seq.step11", label = { en = "step 11", de = "Schritt 11" }, range = [0.0, 1.0] },
+  { path = "seq.step12", label = { en = "step 12", de = "Schritt 12" }, range = [0.0, 1.0] },
+  { path = "seq.step13", label = { en = "step 13", de = "Schritt 13" }, range = [0.0, 1.0] },
+  { path = "seq.step14", label = { en = "step 14", de = "Schritt 14" }, range = [0.0, 1.0] },
+  { path = "seq.step15", label = { en = "step 15", de = "Schritt 15" }, range = [0.0, 1.0] },
+  { path = "seq.step16", label = { en = "step 16", de = "Schritt 16" }, range = [0.0, 1.0] },
+  { path = "seq.on1", label = { en = "on 1", de = "an 1" }, range = [0.0, 1.0] },
+  { path = "seq.on2", label = { en = "on 2", de = "an 2" }, range = [0.0, 1.0] },
+  { path = "seq.on3", label = { en = "on 3", de = "an 3" }, range = [0.0, 1.0] },
+  { path = "seq.on4", label = { en = "on 4", de = "an 4" }, range = [0.0, 1.0] },
+  { path = "seq.on5", label = { en = "on 5", de = "an 5" }, range = [0.0, 1.0] },
+  { path = "seq.on6", label = { en = "on 6", de = "an 6" }, range = [0.0, 1.0] },
+  { path = "seq.on7", label = { en = "on 7", de = "an 7" }, range = [0.0, 1.0] },
+  { path = "seq.on8", label = { en = "on 8", de = "an 8" }, range = [0.0, 1.0] },
+  { path = "seq.on9", label = { en = "on 9", de = "an 9" }, range = [0.0, 1.0] },
+  { path = "seq.on10", label = { en = "on 10", de = "an 10" }, range = [0.0, 1.0] },
+  { path = "seq.on11", label = { en = "on 11", de = "an 11" }, range = [0.0, 1.0] },
+  { path = "seq.on12", label = { en = "on 12", de = "an 12" }, range = [0.0, 1.0] },
+  { path = "seq.on13", label = { en = "on 13", de = "an 13" }, range = [0.0, 1.0] },
+  { path = "seq.on14", label = { en = "on 14", de = "an 14" }, range = [0.0, 1.0] },
+  { path = "seq.on15", label = { en = "on 15", de = "an 15" }, range = [0.0, 1.0] },
+  { path = "seq.on16", label = { en = "on 16", de = "an 16" }, range = [0.0, 1.0] },
+  { path = "seq.steps", label = { en = "length", de = "Länge" }, range = [1.0, 16.0] },
+  { path = "synth.volume", label = { en = "analog", de = "Analog" }, range = [0.0, 1.0] },
+]
+
+[[preset]]
+id = "cathedral_voice.base"
+instrument = "cathedral_voice"
+tags = ["cathedral"]
+
+[[preset]]
+id = "cathedral_voice.bright"
+instrument = "cathedral_voice"
+parent = "cathedral_voice.base"
+tags = ["cathedral", "happy"]
+values = { "voice.ratio" = 3.0 }
+
+[[preset]]
+id = "cathedral_voice.low"
+instrument = "cathedral_voice"
+parent = "cathedral_voice.base"
+tags = ["cathedral", "sad"]
+values = { "voice.ratio" = 0.5, "voice.index" = 1.0 }
+
+[[preset]]
+id = "drone.base"
+instrument = "drone"
+tags = ["cathedral"]

@@ -13,6 +13,7 @@ import { BrowserSync } from './sync.ts';
 import type { Spec } from './scene.ts';
 import type { MoodStep, RigPlayed, RigSlider, RigTurn } from './rig.ts';
 import type { DeckStateView } from './space.ts';
+import type { RigWiring } from './wiring.ts';
 
 /** a character's portraits by mood (scene-content's `characters.<id>.portraits`) */
 export type Portraits = Record<string, { path: string }>;
@@ -56,9 +57,9 @@ export class Deck {
 	readonly value: Record<string, number> = {};
 	/** the sliders: the knobs of the scene that plays – the deck's own or the rig's (#191) */
 	params: Record<string, Spec> = {};
-	/** what plays as the core played it (the rig for the mood now, else the deck's own scene); null until the wasm came */
+	/** what plays as the core played it (the rig for the mood now, else none: the silent scene, #425); null until the wasm came */
 	played: RigPlayed | null = null;
-	/** the character's rig as played for the mood now; null = the deck's own scene (#360, the X1's cathedral) plays */
+	/** the character's rig as played for the mood now; null = no rig plays: the deck is silent (#425; the cathedral is a test scene) */
 	rig: RigPlayed | null = null;
 	/** the corner sticks' (x, y) pairs, left then right: the played scene's (#191) */
 	sticks: [string, string][] | null = null;
@@ -161,7 +162,7 @@ export class Deck {
 		if (CLOCK_MESSAGES.has(data[0])) this.core?.clockOp({ op: 'midi', bytes: [data[0], data[1] ?? 0, data[2] ?? 0], at: performance.timeOrigin + timeStamp });
 	}
 
-	/** #367, #368: the core's deck state – the character's portraits go in, what it plays (its own scene) is loaded */
+	/** #367, #368: the core's deck state – the character's portraits go in, what it plays (no rig yet: the silent scene) is loaded */
 	useState(s: DeckStateView): void {
 		this.state = s;
 		s.set_portraits(Object.keys(this.portraits));
@@ -169,8 +170,8 @@ export class Deck {
 		this.apply(JSON.parse(s.now()) as RigTurn);
 	}
 
-	/** #368: a rig bundle (JSON) for a persona at the mood now ('' = the deck's own scene; throws on a bad one), or with
-	 *  `core` the core rig of a character / subject (else the deck's own scene – the turn's note says so) */
+	/** #368: a rig bundle (JSON) for a persona at the mood now ('' = no rig: silent; throws on a bad one), or with
+	 *  `core` the core rig of a character / subject (else silent, #425 – the turn's note says so) */
 	play(what: string, persona = '', core = false): RigTurn {
 		const s = this.state;
 		if (!s) throw new Error('the deck has no core yet (space-web was not loaded)');
@@ -199,9 +200,14 @@ export class Deck {
 		return this.portraits[this.state?.face(mood) ?? ''] ?? null;
 	}
 
-	/** the being on the wire now (the core's: the played scene, its character – the deck's for its own scene –, the moods) */
+	/** the being on the wire now (the core's: the played scene, its character – the deck's while no rig plays –, the moods) */
 	graph(): DeckGraph {
 		return this.state ? (JSON.parse(this.state.graph(this.character)) as DeckGraph) : { nodes: [], links: [] };
+	}
+
+	/** #282: the played scene's wiring as the core resolved it (none before the wasm came) */
+	wiring(): RigWiring {
+		return this.state ? (JSON.parse(this.state.wiring()) as RigWiring) : { nodes: [], links: [] };
 	}
 
 	/** the paths the deck streams (and the 3D being reads): the played scene's */
@@ -261,12 +267,13 @@ export class Deck {
 	}
 
 	/** One frame at `now` (s, performance.now() / 1000): the mood (the core's ladder: the level, the clock, the hand) and
-	 *  the rig the core replayed for it, the stream. */
+	 *  the rig the core replayed for it or for a code rig's preset choice (#410), the stream. */
 	tick(now: number): void {
 		if (this.t0 < 0) this.t0 = this.last = now;
 		const dt = now - this.last;
 		this.last = now;
-		const said = this.state?.step(this.bands.level, this.clock?.bpm ?? 0, this.clock?.running ?? false, this.touch, dt);
+		const heard = Float32Array.from(this.state?.preset_paths() ?? [], this.read, this); // #410: a code rig's preset outputs
+		const said = this.state?.step(this.bands.level, this.clock?.bpm ?? 0, this.clock?.running ?? false, this.touch, dt, heard);
 		if (said) {
 			const s = JSON.parse(said) as MoodStep;
 			if (s.turn) this.apply(s.turn);
@@ -277,7 +284,7 @@ export class Deck {
 		this.link?.sample(now, (p) => this.read(p), this.mood);
 	}
 
-	/** Start the sound (needs a user gesture): live-core with the deck's own scene or the rig. */
+	/** Start the sound (needs a user gesture): live-core with the rig (or, with none, the silent scene). */
 	async start(files: EngineFiles): Promise<void> {
 		const c = await LiveCore.start({ worker: files.worker, wasm: files.wasm, worklet: files.worklet, transport: files.transport ?? 'auto', device: files.device ?? deviceKind() });
 		c.onAnalysis((a) => (this.bands = a));
@@ -328,7 +335,7 @@ export class Deck {
 		}
 		if (gen !== this.loadGen) return;
 		this.engineReady = true;
-		if (rig?.engine.page.length) this.o.onStatus?.(`sound: not in the browser yet – ${rig.engine.page.map((n) => `${n.id} (${n.kind})`).join(', ')}`);
+		if (rig?.engine.note) this.o.onStatus?.(rig.engine.note);
 		for (const p of Object.keys(this.params)) this.setParam(p, this.value[p]);
 	}
 

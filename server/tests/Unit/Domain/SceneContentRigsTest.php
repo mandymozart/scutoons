@@ -85,6 +85,58 @@ final class SceneContentRigsTest extends TestCase
         self::assertSame(['x.a', 'x.b', 'x.c'], array_keys($a['presets']));
     }
 
+    /**
+     * #414: a code rig (catpope's mood switching as a policy) is served with its policy module's descriptor – in the
+     * top-level `modules`, never the module's sources – and the presets the policy chooses from with their ancestors.
+     * The contract with the decks: fixtures/rigs/scene-content-code-rig.json (UPDATE_FIXTURES=1 writes it), which
+     * deck-space reads as a `rig::Bundle` (a_code_rig_from_scene_content_reads_as_a_bundle).
+     */
+    public function testACodeRigCarriesItsPolicyModule(): void
+    {
+        $set = json_decode((string) file_get_contents(self::root() . '/tests/fixtures/rigs/validate-code-rig.json'));
+        $case = $set->cases[0];
+        $flags = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION;
+        $json = fn(object $o): string => (string) json_encode($o, $flags);
+        $rows = [
+            'rigs' => ['character.catpope' => $json($case->document)],
+            'instruments' => array_column(array_map(fn($i) => [$i->id, $json($i)], $case->instruments), 1, 0),
+            'presets' => array_column(array_map(fn($p) => [$p->id, $json($p)], $case->presets), 1, 0),
+            'modules' => ['catpope_rig' => $json($set->module)],
+        ];
+        $stored = function (string $kind, string $id) use (&$rows): ?string {
+            return $rows[$kind][$id] ?? null;
+        };
+        $answer = SceneContent::compose([], fn() => null, ['catpope', 'boy'], self::registry());
+        $served = SceneContent::json(SceneContent::withRigs($answer, [], $stored));
+        $pretty = json_encode(json_decode($served), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION) . "\n";
+        $path = self::root() . '/tests/fixtures/rigs/scene-content-code-rig.json';
+        if (getenv('UPDATE_FIXTURES')) file_put_contents($path, $pretty);
+        self::assertSame(str_replace("\r", '', (string) @file_get_contents($path)), $pretty, 'stale: UPDATE_FIXTURES=1 npm run dev:db -- test --filter SceneContentRigs (deck-space\'s contract test reads it)');
+
+        $a = json_decode($served, true);
+        $rig = $a['characters']['catpope']['rig'];
+        self::assertSame(['catpope_rig'], $rig['modules']);
+        self::assertSame(['catpope_rig'], array_keys($a['modules']));
+        $descriptor = $json($set->module->descriptor);
+        self::assertEquals(json_decode($descriptor, true), $a['modules']['catpope_rig']['data'], 'the descriptor, not the module document (no sources, no wasm)');
+        self::assertSame(['id', 'version', 'data'], array_keys($a['modules']['catpope_rig']));
+        self::assertSame(SceneContent::version($descriptor), $a['modules']['catpope_rig']['version']);
+        // no track, persona or mood names the low and bright presets: the policy's @preset choices bring them
+        self::assertSame(['cathedral_voice.base', 'drone.base', 'cathedral_voice.low', 'cathedral_voice.bright'], $rig['presets']);
+        self::assertSame(['cathedral_voice.base', 'cathedral_voice.bright', 'cathedral_voice.low', 'drone.base'], array_keys($a['presets']));
+        self::assertArrayNotHasKey('moods', $rig['data']);
+        self::assertSame(['module' => 'catpope_rig'], $rig['data']['policy']);
+
+        // a module that is gone, or not compiled yet (no descriptor): the rig names none, the answer holds none
+        foreach (['gone' => [], 'uncompiled' => ['catpope_rig' => '{"id":"catpope_rig","files":{"lib.rs":"//"}}'],
+                  'misnamed' => ['catpope_rig' => $json((object) ['id' => 'catpope_rig', 'descriptor' => (object) ['name' => 'other_rig']])]] as $why => $modules) {
+            $rows['modules'] = $modules;
+            $b = json_decode(SceneContent::json(SceneContent::withRigs($answer, [], $stored)), true);
+            self::assertArrayNotHasKey('modules', $b['characters']['catpope']['rig'], $why);
+            self::assertArrayNotHasKey('modules', $b, $why);
+        }
+    }
+
     public function testNoRigsAnswerEmptyMaps(): void
     {
         $a = SceneContent::json(SceneContent::withRigs(SceneContent::compose([], fn() => null, [], []), [], fn() => null));

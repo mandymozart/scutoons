@@ -51,6 +51,13 @@
           },
           "type": "array"
         },
+        "module": {
+          "description": "the modules it plays: a code rig's policy (#408), a track's module (#430) – the `module:<id>` documents' descriptors",
+          "items": {
+            "$ref": "#/$defs/Descriptor"
+          },
+          "type": "array"
+        },
         "preset": {
           "default": [],
           "items": {
@@ -164,6 +171,13 @@
         "module": {
           "description": "deck-core's module for the kind (control · synth · analysis · stage · 3d …); empty = none",
           "type": "string"
+        },
+        "moods": {
+          "description": "modules only (A1, #409): the moods the module knows, in its own order – the deck hands a module the mood's place\nhere + 1 as `mood_index` (0 = a mood not in the list; deck-space context.rs)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "name": {
           "type": "string"
@@ -337,8 +351,11 @@
           "type": "array"
         },
         "out": {
-          "description": "the track's output: an audio output `node.port` (a bare node = its `out`)",
-          "type": "string"
+          "description": "the track's output: an audio output `node.port` (a bare node = its `out`). None (#430): a silent track – a note\nsource (a step sequencer, a world node) with no strip and no outlet, wired by event cables",
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "rights": {
           "$ref": "#/$defs/Rights",
@@ -364,8 +381,7 @@
       "required": [
         "id",
         "kind",
-        "node",
-        "out"
+        "node"
       ],
       "type": "object"
     },
@@ -539,6 +555,37 @@
       },
       "required": [
         "name"
+      ],
+      "type": "object"
+    },
+    "Policy": {
+      "additionalProperties": false,
+      "description": "A rig's policy: the module that drives its tracks, the node's seed and its parameters' values.",
+      "properties": {
+        "module": {
+          "description": "the `module:<id>` document's id – its descriptor's name",
+          "type": "string"
+        },
+        "seed": {
+          "description": "the node's seed (the module seed rule: 1 unless set)",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "values": {
+          "additionalProperties": {
+            "format": "float",
+            "type": "number"
+          },
+          "description": "its parameters' values by name (the rest keep their defaults); persona / mood values `policy:<param>` go on top",
+          "type": "object"
+        }
+      },
+      "required": [
+        "module"
       ],
       "type": "object"
     },
@@ -742,6 +789,17 @@
           "description": "persona → overrides (applied first)",
           "type": "object"
         },
+        "policy": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Policy"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "a code rig (#408): the control module that drives the tracks (policy.rs); none = the tables alone"
+        },
         "rights": {
           "$ref": "#/$defs/Rights",
           "default": {
@@ -870,7 +928,7 @@
     },
     "Route": {
       "additionalProperties": false,
-      "description": "`from` / `to` are `<track>:<node>.<port>`; `to` may be `being:<input>` (the space node's hue, glow, light, pulse).\nEvery track reaches the master through its mixer strip; an audio route is a send into another track's audio input\n(an fx track; `scale` = its level), a control route a modulation.",
+      "description": "`from` / `to` are `<track>:<node>.<port>`; `to` may be `being:<input>` (the space node's hue, glow, light, pulse).\nEvery sounding track reaches the master through its mixer strip; an audio route is a send into another track's audio\ninput (an fx track; `scale` = its level), a control route a modulation, an event route an event cable (#430: many to\nmany, a note source's silent track to a synth's track).",
       "properties": {
         "from": {
           "type": "string"

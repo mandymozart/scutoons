@@ -2,7 +2,9 @@
 //! holder's rig as `{ id, version, data, instruments: [ids], presets: [ids] }` and holds every instrument / preset once
 //! in its top-level maps (`{ id, version, data }`, presets with their ancestors); `version` = 16 hex of the stored data's
 //! SHA-256, what a deck's cache compares. The data stays JSON here until a bundle is built, so one broken rig never
-//! hides the others, and a cache can store the entries as they came (deck/native sync, shared/live-deck).
+//! hides the others, and a cache can store the entries as they came (deck/native sync, shared/live-deck). A code rig
+//! (#408) also names its policy module in `modules: [id]`; the top-level `modules` map (only there when a rig has one)
+//! holds the module's descriptor as `data`, filed as `module:<id>`'s id.
 use super::Bundle;
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
@@ -27,6 +29,9 @@ pub struct Entry {
     pub instruments: Vec<String>,
     #[serde(default)]
     pub presets: Vec<String>,
+    /// a code rig's policy module (#414): the id of its entry in the answer's `modules` – absent for a declarative rig
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub modules: Vec<String>,
 }
 
 /// a character or item of the answer: only its rig matters here (portraits, look … are the caller's)
@@ -47,6 +52,10 @@ pub struct SceneRigs {
     pub instruments: BTreeMap<String, Stored>,
     #[serde(default)]
     pub presets: BTreeMap<String, Stored>,
+    /// the policy modules of the code rigs, once each: `data` = the module's descriptor (`Bundle.module`, #414); only
+    /// there when a rig of the answer has a policy
+    #[serde(default)]
+    pub modules: BTreeMap<String, Stored>,
 }
 
 /// an id a cache may use as a file name: letters, digits, `.`, `_`, `-`, not starting with a dot
@@ -78,13 +87,18 @@ impl SceneRigs {
 
     /// `entry` with what it names from the answer's maps, as a bundle (unknown fields refused, a missing one named)
     pub fn bundle(&self, entry: &Entry) -> Result<Bundle> {
-        bundle_of(entry, |id| self.instruments.get(id).cloned(), |id| self.presets.get(id).cloned())
+        bundle_of(entry, |id| self.instruments.get(id).cloned(), |id| self.presets.get(id).cloned(), |id| self.modules.get(id).cloned())
     }
 }
 
 /// A bundle from a rig entry and a lookup for what it names (the answer's maps, or a cache's files): each named
-/// instrument / preset must be there and carry the id it is filed under.
-pub fn bundle_of(entry: &Entry, instrument: impl Fn(&str) -> Option<Stored>, preset: impl Fn(&str) -> Option<Stored>) -> Result<Bundle> {
+/// instrument / preset / policy module (its descriptor) must be there and carry the id it is filed under.
+pub fn bundle_of(
+    entry: &Entry,
+    instrument: impl Fn(&str) -> Option<Stored>,
+    preset: impl Fn(&str) -> Option<Stored>,
+    module: impl Fn(&str) -> Option<Stored>,
+) -> Result<Bundle> {
     let pick = |what: &str, ids: &[String], get: &dyn Fn(&str) -> Option<Stored>| -> Result<Vec<Value>> {
         ids.iter()
             .map(|id| match get(id) {
@@ -98,6 +112,7 @@ pub fn bundle_of(entry: &Entry, instrument: impl Fn(&str) -> Option<Stored>, pre
         "rig": entry.data,
         "instrument": pick("instrument", &entry.instruments, &instrument)?,
         "preset": pick("preset", &entry.presets, &preset)?,
+        "module": pick("module", &entry.modules, &module)?,
     });
     let b: Bundle = serde_json::from_value(doc).with_context(|| format!("rig '{}' is not a valid bundle", entry.id))?;
     if b.rig.subject != entry.id {

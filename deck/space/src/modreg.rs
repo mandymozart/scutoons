@@ -10,8 +10,8 @@ use std::sync::RwLock;
 /// the prefix of a module's kind name in a scene
 pub const PREFIX: &str = "module:";
 
-/// A module's ports as the graph sees them: the inputs (audio ports, control ports, then the parameters), the outputs
-/// (audio and control ports) – in the order the host's layout binds them (deck-module-host's `Layout`); its domain (an
+/// A module's ports as the graph sees them: the inputs (audio ports, control ports, the parameters, then the event ports),
+/// the outputs (audio and control ports, then the event ports) – in the order the host's layout binds them (deck-module-host's `Layout`); its domain (an
 /// ABI v2 module may be `control`: it runs in the control half); the control outputs that write a `path` target.
 #[derive(Debug)]
 pub struct ModuleSpec {
@@ -21,9 +21,13 @@ pub struct ModuleSpec {
     pub outputs: &'static [Port],
     /// a control input's default (its name, the value) – the parameters' defaults
     pub defaults: &'static [(&'static str, f32)],
+    /// a parameter's range and curve (#429: its knob's travel): its name, min, max, curve, only whole values (it has choices)
+    pub ranges: &'static [(&'static str, f32, f32, deck_catalog::Curve, bool)],
     pub domain: Domain,
     /// (output port, path, mode) per control output bound to a target instead of a cable (ABI-V2 §5; graph.rs binds them)
     pub targets: &'static [(usize, &'static str, Mode)],
+    /// the moods the module knows (A1, #409): a mood's `mood_index` is its place here + 1 (context.rs)
+    pub moods: &'static [&'static str],
 }
 
 /// One port of a module as the registry takes it: its name, type and – an audio port of ABI v2 – its channels (None: the
@@ -33,11 +37,13 @@ pub struct PortDef {
     pub name: String,
     pub ty: PortType,
     pub channels: Option<Channels>,
+    /// an event port's names (what a cable can carry); empty for the others
+    pub names: Vec<String>,
 }
 
 impl PortDef {
     pub fn new(name: &str, ty: PortType) -> PortDef {
-        PortDef { name: name.to_owned(), ty, channels: None }
+        PortDef { name: name.to_owned(), ty, channels: None, names: Vec::new() }
     }
 }
 
@@ -47,15 +53,45 @@ pub struct ModuleDef {
     pub inputs: Vec<PortDef>,
     pub outputs: Vec<PortDef>,
     pub defaults: Vec<(String, f32)>,
+    /// (parameter, min, max, curve, only whole values) – empty: its knobs run 0..1
+    pub ranges: Vec<(String, f32, f32, deck_catalog::Curve, bool)>,
     pub domain: Domain,
     /// (output port, path, mode)
     pub targets: Vec<(usize, String, Mode)>,
+    /// the moods it knows (the descriptor's `moods`, A1)
+    pub moods: Vec<String>,
 }
 
 impl ModuleDef {
     /// an audio-domain module with these ports and no targets
     pub fn new(inputs: Vec<PortDef>, outputs: Vec<PortDef>, defaults: Vec<(String, f32)>) -> ModuleDef {
-        ModuleDef { inputs, outputs, defaults, domain: Domain::Audio, targets: Vec::new() }
+        ModuleDef { inputs, outputs, defaults, ranges: Vec::new(), domain: Domain::Audio, targets: Vec::new(), moods: Vec::new() }
+    }
+
+    /// What a module's descriptor registers: its graph ports as the catalog numbers them (`Descriptor::graph`, the
+    /// module host binds by the same), its parameters' defaults (else their minimum), its domain, its path targets – the
+    /// one mapping from a module to the graph (the native library's loaded modules, a rig's policy in a validation).
+    pub fn of(desc: &deck_catalog::Descriptor) -> ModuleDef {
+        let g = desc.graph();
+        let port = |p: &deck_catalog::GraphPort| PortDef {
+            name: p.name.clone(),
+            ty: match p.ty {
+                deck_catalog::PortType::Audio | deck_catalog::PortType::Cv => PortType::Audio,
+                deck_catalog::PortType::Event => PortType::Event,
+                _ => PortType::Control,
+            },
+            channels: p.channels,
+            names: p.names.clone(),
+        };
+        ModuleDef {
+            inputs: g.inputs.iter().map(port).collect(),
+            outputs: g.outputs.iter().map(port).collect(),
+            defaults: desc.params.iter().map(|p| (p.name.to_string(), p.default.unwrap_or(p.min))).collect(),
+            ranges: desc.params.iter().map(|p| (p.name.to_string(), p.min, p.max, p.curve, !p.choices.is_empty())).collect(),
+            domain: if desc.domain == deck_catalog::Domain::Control { Domain::Control } else { Domain::Audio },
+            targets: g.targets,
+            moods: desc.moods.iter().map(|m| m.to_string()).collect(),
+        }
     }
 }
 
@@ -70,7 +106,8 @@ fn leak(s: &str) -> &'static str {
 }
 
 fn ports(list: &[PortDef]) -> &'static [Port] {
-    Box::leak(list.iter().map(|p| Port { name: leak(&p.name), ty: p.ty, channels: p.channels }).collect::<Vec<_>>().into_boxed_slice())
+    let names = |p: &PortDef| -> &'static [&'static str] { Box::leak(p.names.iter().map(|n| leak(n)).collect::<Vec<_>>().into_boxed_slice()) };
+    Box::leak(list.iter().map(|p| Port { name: leak(&p.name), ty: p.ty, channels: p.channels, names: names(p) }).collect::<Vec<_>>().into_boxed_slice())
 }
 
 /// Registers `module:<name>` as `def` says. The same name with the same ports, defaults, domain and targets is the kind
@@ -78,7 +115,7 @@ fn ports(list: &[PortDef]) -> &'static [Port] {
 pub fn register(name: &str, def: &ModuleDef) -> ModuleKind {
     let kind = format!("{PREFIX}{name}");
     let mut reg = REGISTRY.write().unwrap_or_else(|e| e.into_inner());
-    let same_ports = |a: &[Port], b: &[PortDef]| a.len() == b.len() && a.iter().zip(b).all(|(p, d)| p.name == d.name && p.ty == d.ty && p.channels == d.channels);
+    let same_ports = |a: &[Port], b: &[PortDef]| a.len() == b.len() && a.iter().zip(b).all(|(p, d)| p.name == d.name && p.ty == d.ty && p.channels == d.channels && p.names.iter().copied().eq(d.names.iter().map(String::as_str)));
     let same = |s: &ModuleSpec| {
         s.kind == kind
             && same_ports(s.inputs, &def.inputs)
@@ -86,8 +123,12 @@ pub fn register(name: &str, def: &ModuleDef) -> ModuleKind {
             && s.defaults.len() == def.defaults.len()
             && s.defaults.iter().zip(&def.defaults).all(|(a, b)| a.0 == b.0 && a.1.to_bits() == b.1.to_bits())
             && s.domain == def.domain
+            && s.ranges.len() == def.ranges.len()
+            && s.ranges.iter().zip(&def.ranges).all(|(a, b)| a.0 == b.0 && a.1 == b.1 && a.2 == b.2 && a.3 == b.3 && a.4 == b.4)
             && s.targets.len() == def.targets.len()
             && s.targets.iter().zip(&def.targets).all(|(a, b)| a.0 == b.0 && a.1 == b.1 && a.2 == b.2)
+            && s.moods.len() == def.moods.len()
+            && s.moods.iter().zip(&def.moods).all(|(a, b)| a == b)
     };
     if let Some(i) = reg.iter().rposition(|s| same(s)) {
         return ModuleKind(i as u32);
@@ -99,8 +140,10 @@ pub fn register(name: &str, def: &ModuleDef) -> ModuleKind {
         inputs: ports(&def.inputs),
         outputs: ports(&def.outputs),
         defaults: Box::leak(defaults.into_boxed_slice()),
+        ranges: Box::leak(def.ranges.iter().map(|(n, min, max, c, w)| (leak(n), *min, *max, *c, *w)).collect::<Vec<_>>().into_boxed_slice()),
         domain: def.domain,
         targets: Box::leak(targets.into_boxed_slice()),
+        moods: Box::leak(def.moods.iter().map(|m| leak(m)).collect::<Vec<_>>().into_boxed_slice()),
     }));
     reg.push(spec);
     ModuleKind(reg.len() as u32 - 1)

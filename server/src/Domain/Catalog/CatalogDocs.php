@@ -6,6 +6,7 @@ namespace Scutoons\Domain\Catalog;
 use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Content\EntityKey;
 use Scutoons\Domain\Content\EntityStore;
+use Scutoons\Domain\Modules\ModuleSource;
 use Scutoons\Infrastructure\Database\Database;
 use Scutoons\Support\Time;
 
@@ -52,12 +53,21 @@ final class CatalogDocs
         $kind = (string) $key->catalogKind();
         $json = (string) json_encode($content);
         $data = json_decode($json, true);
+        // a factory module is read-only (#350): no draft of it, and no draft makes itself one (only a migration does)
+        $this->guardFactory($key);
+        if ($kind === 'modules' && ModuleSource::isFactory(is_array($data) ? $data : null)) throw ModuleSource::readOnly((string) $key->id);
         // a tombstone is the entry's last document as it was – not checked again
         if (self::isTombstone($data)) return;
         $problems = array_values(array_filter($this->validator->problems($kind, (string) $key->id, $data, json_decode($json), false), fn(string $p) => !$this->draftReference($p)));
         if ($problems) {
             throw new ApiError(422, 'invalid_catalog', implode('; ', $problems), ['problems' => $problems, 'kind' => $kind, 'id' => $key->id]);
         }
+    }
+
+    /** 403 factory_module before anything writes a version of a factory module (a restore: #350) */
+    public function guardFactory(EntityKey $key): void
+    {
+        if ($key->catalogKind() === 'modules' && ModuleSource::isFactory($this->publishedData($key))) throw ModuleSource::readOnly((string) $key->id);
     }
 
     /** a removed entry's last version (`removed: true`) */
@@ -79,6 +89,8 @@ final class CatalogDocs
 
     private function draftReference(string $problem): bool
     {
+        // a code rig's draft may name its policy before that module is compiled and published (#412); the publish asks again
+        if (preg_match('/the policy module "([^"]+)" (?:is not in the catalog|has no descriptor yet)/', $problem, $m)) return $this->entities->latest("module:$m[1]") !== null;
         if (!preg_match('/unknown (item|edition|product|album|instrument|preset) "([^"]+)"/', $problem, $m)) return false;
         return $this->entities->latest("$m[1]:$m[2]") !== null;
     }

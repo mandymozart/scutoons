@@ -1,17 +1,13 @@
 <script lang="ts">
-	// The Sound design workspace (#282, research/EDITOR.md, owner 2026-11-02): a split screen – the designer on one side, the
-	// deck (the engine host, #298) on the other, so every edit is heard and seen at once; below ~900 px the designer stacks
-	// above the deck. The subject is a rig (`rig:character.<id>`: its character plays on the deck, the Rust tab picks a
-	// module) or a module (`module:<id>`: the Rust tab IS it). The modules are `module:<id>` documents, drafts and history
-	// like any catalog document; the compile service writes the descriptor into them (#281). Playing the compiled module
-	// in the engine comes with #290.
+	// The Sound design workspace (#282, EDITOR.md): designer beside deck; a rig's Rust tab is its policy (#412), no rig = RigGate (#425).
 	import { onMount, untrack } from 'svelte';
 	import { MediaQuery } from 'svelte/reactivity';
 	import { goto, beforeNavigate } from '$app/navigation';
 	import { page } from '$app/state';
-	import { Divider, Icon, askDialog, confirmDialog, panelWidth } from '@scutoons/ui';
-	import { createDesignerApi, isModuleId, moduleContent, RigDesigner, setupRigDesigner, STARTER_FILES } from '@scutoons/rig-designer';
+	import { Divider, Icon, askDialog, choiceDialog, confirmDialog, panelWidth } from '@scutoons/ui';
+	import { createDesignerApi, RigDesigner, setupRigDesigner, STARTER_FILES, type GraphWiring } from '@scutoons/rig-designer';
 	import { getSessionToken } from '@scutoons/api';
+	import type { EngineHost } from '@scutoons/engine-host';
 	import { API_URL } from '$lib/config.ts';
 	import { api, putDraft } from '$lib/api.ts';
 	import { usePageNav } from '$lib/nav.svelte.ts';
@@ -19,11 +15,15 @@
 	import { leaveGuard } from '$lib/editor/ask.ts';
 	import { editHref, selectedModule, type EditTarget } from '$lib/editor/edit-key.ts';
 	import { createModuleStore, moduleKey } from '$lib/editor/module-store.ts';
+	import { factoryChoices, firstDraft, idProblem, NO_MODULES, readCatalog, templateOf, type ModuleCatalog } from '$lib/editor/module-catalog.ts';
+	import { openRigSession } from '$lib/editor/rig-session.svelte.ts';
+	import { loadRigRules } from '@scutoons/live-deck/assign';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import { isolateThisPage } from '$lib/isolation.svelte.ts';
 	import DeckHalf from '$lib/components/sound/deck-half.svelte';
 	import DesignerHalf from '$lib/components/sound/designer-half.svelte';
+	import RigGate from '$lib/components/sound/rig-gate.svelte';
 
 	let { target }: { target: EditTarget } = $props();
 
@@ -35,22 +35,20 @@
 	const designer = new RigDesigner(createDesignerApi({ fetch: (...args) => fetch(...args), baseUrl: API_URL, getToken: getSessionToken }), store);
 	beforeNavigate(leaveGuard(() => designer.dirty));
 
-	let modules = $state<string[]>([]);
-	/** a refused New module, one muted sentence */
-	let notice = $state('');
+	// the catalog kind `modules` (server CatalogDocs) – the factory modules (#350) marked, New module's templates
+	let catalog = $state<ModuleCatalog>(NO_MODULES);
+	let notice = $state(''); // a refused New module, one muted sentence
 	async function loadModules(): Promise<void> {
-		try {
-			// the catalog kind `modules`: every `module:<id>` document, a removed one is gone (server CatalogDocs)
-			const r = await api.get<{ entries: { id: string; removed: boolean }[] }>('/catalog/docs/modules');
-			modules = r.entries.filter((e) => !e.removed && isModuleId(e.id)).map((e) => e.id).sort();
-		} catch {
-			modules = [];
-		}
+		const r = await api.get<{ entries: { id: string; removed: boolean; content: unknown }[] }>('/catalog/docs/modules').catch(() => null);
+		catalog = r ? readCatalog(r.entries) : NO_MODULES;
 	}
 	onMount(() => void loadModules());
 
-	// the address decides the module: a module page's own id, or a rig page's ?sel=module:<id>
-	const selected = $derived(selectedModule(target, page.url.searchParams.get('sel')));
+	// svelte-ignore state_referenced_locally
+	const session = openRigSession(target, loadRigRules('/live/'), designer); // the rig open (a rig page): the Assignment tab's and the policy's (#412)
+
+	// the address decides the module: a module page's own id, a rig page's ?sel=module:<id>, else the rig's policy
+	const selected = $derived(selectedModule(target, page.url.searchParams.get('sel')) ?? session?.policy ?? null);
 	$effect(() => {
 		const id = selected;
 		untrack(() => {
@@ -59,26 +57,26 @@
 	});
 
 	function select(id: string | null) {
+		void loadModules(); // New policy (#412): the picker knows it
 		void goto(editHref(target.key, { w: 'sound', sel: id ? moduleKey(id) : null }), { replaceState: true, keepFocus: true, noScroll: true });
 	}
 
-	/** a new module: its id, the walk module as the template, a draft right away – then it opens */
-	async function newModule(): Promise<void> {
-		const typed = await askDialog({
-			title: m['creator.sound_new_module'](),
-			message: m['creator.sound_new_module_hint'](),
-			label: 'id',
-			placeholder: 'e.g. my_walk',
-			confirmLabel: m['creator.sound_new_module_create']()
-		});
-		const id = typed?.trim();
+	/** New module (a copy of a picked factory module, else the starter) or Derive (of the open one): a draft, then it opens */
+	async function create(derive: boolean): Promise<void> {
+		const choices = factoryChoices(catalog);
+		const pick = derive || choices.length === 0 ? null : await choiceDialog({ title: m['creator.sound_start_from'](), message: m['creator.sound_start_from_hint'](), choices });
+		if (!derive && choices.length > 0 && !pick) return;
+		const from = derive && designer.moduleId ? templateOf(designer.moduleId, designer.name, designer.files, designer.outcome) : pick ? { id: pick, module: catalog.factory[pick] } : null;
+		const message = from ? m['creator.sound_derive_hint']({ origin: from.id }) : m['creator.sound_new_module_hint']();
+		const typed = await askDialog({ title: from ? m['creator.sound_derive']() : m['creator.sound_new_module'](), message, label: 'id', placeholder: `e.g. my_${from?.id ?? 'walk'}`, confirmLabel: m['creator.sound_new_module_create']() });
+		const id = typed?.trim() ?? '';
 		if (!id) return;
-		notice = '';
-		if (!isModuleId(id)) return void (notice = m['creator.sound_id_invalid']({ id }));
 		await loadModules();
-		if (modules.includes(id)) return void (notice = m['creator.sound_id_taken']({ id }));
+		const problem = idProblem(id, catalog.ids);
+		notice = problem === 'invalid' ? m['creator.sound_id_invalid']({ id }) : problem === 'taken' ? m['creator.sound_id_taken']({ id }) : '';
+		if (problem) return;
 		try {
-			await putDraft(moduleKey(id), moduleContent(id, id, STARTER_FILES, null), null, 'new module');
+			await putDraft(moduleKey(id), firstDraft(id, from, STARTER_FILES), null, from ? `derived from module:${from.id}` : 'new module');
 		} catch (e) {
 			return void (notice = e instanceof Error ? e.message : String(e));
 		}
@@ -89,7 +87,7 @@
 
 	// ── the top bar (owner 2026-11-02: the editor's actions move there step by step, as the map's did): Publish of the open
 	// module – needs a saved draft whose compile is current (a module without its descriptor cannot be played) ──
-	const canPublish = $derived(!!designer.moduleId && !designer.dirty && !!designer.outcome && !designer.stale && !designer.compiling && !designer.saving);
+	const canPublish = $derived(!!designer.moduleId && !designer.factory && !designer.dirty && !!designer.outcome && !designer.stale && !designer.compiling && !designer.saving);
 	async function publish(): Promise<void> {
 		const id = designer.moduleId;
 		if (!id || !canPublish) return;
@@ -110,6 +108,9 @@
 	const stacked = new MediaQuery('max-width: 56rem');
 	let splitEl = $state<HTMLElement>();
 	const deckSize = panelWidth('sc-panel-width:sound-deck', 26, () => splitEl?.getBoundingClientRect().right ?? window.innerWidth);
+	// the deck half's engine and the core's wiring of what it plays: the designer's Nodes tab draws them (#282)
+	let host = $state<EngineHost | null>(null);
+	let wiring = $state<GraphWiring>();
 </script>
 
 {#snippet topBar()}
@@ -120,19 +121,26 @@
 
 <div class="split" class:stacked={stacked.current} bind:this={splitEl} style:--deck-width={deckSize.css} data-testid="sound-workspace">
 	<section class="half designer-half" aria-label={m['creator.sound_designer']()}>
+		<RigGate subject={'subject' in target ? target.subject : null} character={'character' in target ? target.character : ''} {selected} modules={catalog.ids} factory={Object.keys(catalog.factory)} onopen={select} reload={loadModules}>
 		<DesignerHalf
 			{designer}
 			fixed={target.kind === 'module' ? target.id : null}
-			{modules}
+			{session}
+			modules={catalog.ids}
+			factory={Object.keys(catalog.factory)}
 			{selected}
 			{notice}
+			{host}
+			{wiring}
 			onselect={select}
-			onnew={newModule}
+			onnew={() => create(false)}
+			onderive={() => create(true)}
 		/>
+		</RigGate>
 	</section>
 	<section class="half deck-half" id="sound-deck" aria-label={m['creator.sound_deck']()}>
 		{#key target.key}
-			<DeckHalf character={target.kind === 'rig' ? target.character : 'catpope'} />
+			<DeckHalf character={'character' in target ? target.character : 'catpope'} bind:host bind:wiring />
 		{/key}
 	</section>
 	{#if !stacked.current}

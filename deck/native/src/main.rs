@@ -1205,7 +1205,7 @@ impl App {
             let meters = self.show.meters.as_deref();
             s.being.strain(dt, reduction);
             s.update(dt, time, &mut self.show.controls, &beat, &|n, p| meters.map_or(0.0, |m| m.level(n, p)));
-            if let (Some(r), Some(mood)) = (self.show.rig.as_mut(), s.being.moods.get(s.being.head.mood)) { r.frame(mood, &self.show.graph, &mut self.show.controls, dt) }
+            deck_native::rig::frame(self.show.rig.as_mut(), &s.being, &self.show.graph, &mut self.show.controls, dt);
             // #220: a deck reports its quality to the session (at once on a change, else at most every 2 s)
             if let Some(q) = self.governor.as_mut().and_then(|g| g.report_due(self.started.elapsed().as_secs_f64())) {
                 s.report_quality(q.wire());

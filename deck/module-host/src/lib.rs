@@ -11,7 +11,7 @@
 //!   `set_budget`, `freeze_memory`. The native deck uses [`wasmtime_backend::Wasmtime`]; the conformance suite (tests/)
 //!   is generic over it.
 use anyhow::{anyhow, bail, Result};
-use deck_catalog::{Channels, Descriptor, Dir, Domain, PortType};
+use deck_catalog::{Descriptor, Dir, Domain, PortType};
 use deck_module::host::read_descriptor;
 use deck_module::{Layout as IoLayout, ParamInfo};
 use sha2::{Digest, Sha256};
@@ -133,14 +133,9 @@ pub enum OutBind {
     Control(usize),
 }
 
-/// One graph port of a module: its name, whether it carries audio (else a control value) and – an audio port – its
-/// channels (None: a control port). What the platform registers as the node kind's port (deck-space modreg).
-#[derive(Debug, Clone, PartialEq)]
-pub struct GraphPort {
-    pub name: String,
-    pub audio: bool,
-    pub channels: Option<Channels>,
-}
+/// One graph port of a module (the catalog's: `Descriptor::graph` numbers them). What the platform registers as the node
+/// kind's port (deck-space modreg).
+pub use deck_catalog::GraphPort;
 
 /// One event port of a module: the deck-events names it takes / emits, its props in slot order, its capacity.
 #[derive(Debug, Clone, PartialEq)]
@@ -154,8 +149,8 @@ pub struct EventPort {
 /// How a module's descriptor maps onto the graph (#342): inputs are the declared audio inputs, then the control inputs
 /// (each in declaration order), then the parameters (every parameter is also a control input); outputs are the declared
 /// audio outputs and the control outputs, in declaration order (a control output with a `path` is a graph
-/// output too: deck-space binds it to its target). Event ports are not graph ports: the engine's event host routes them
-/// by their deck-events names. `in_ports` / `out_ports` name the graph ports (parallel to `inputs` / `outputs`).
+/// output too: deck-space binds it to its target). Event ports stand last in the graph's numbering and are no binds here:
+/// the engine's event host joins them by their cables (#430). `in_ports` / `out_ports` name the bound ports (parallel to `inputs` / `outputs`).
 #[derive(Debug, Clone, PartialEq)]
 pub struct Layout {
     pub inputs: Vec<InBind>,
@@ -173,40 +168,31 @@ pub struct Layout {
 impl Layout {
     /// Err when the module needs something this host cannot do yet (video)
     pub fn of(d: &Descriptor) -> Result<Layout> {
+        // the graph's numbering is the catalog's (one rule for the binds here and the graph's registration)
+        let graph = d.graph();
         let mut l = Layout {
             inputs: Vec::new(),
             outputs: Vec::new(),
-            in_ports: Vec::new(),
-            out_ports: Vec::new(),
+            in_ports: graph.inputs.into_iter().filter(|p| p.ty != PortType::Event).collect(),
+            out_ports: graph.outputs.into_iter().filter(|p| p.ty != PortType::Event).collect(),
             events_in: Vec::new(),
             events_out: Vec::new(),
-            targets: Vec::new(),
+            targets: graph.targets,
             domain: d.domain,
         };
-        // an audio port's channels: as declared; a cv port and an undeclared one 2
-        let channels = |p: &deck_catalog::PortDesc| match (p.ty, p.channels) {
-            (PortType::Cv, _) | (_, None) => Some(Channels::Count(2)),
-            (_, c) => c,
-        };
-        let port = |p: &deck_catalog::PortDesc, audio: bool| GraphPort { name: p.name.to_string(), audio, channels: if audio { channels(p) } else { None } };
-        let (mut audio_in, mut control_in) = (Vec::new(), Vec::new());
+        let (mut audio_in, mut control_in) = (0, 0);
         let (mut audio_out, mut control_out) = (0, 0);
         for p in d.ports.iter() {
             match (p.dir, p.ty) {
                 (_, PortType::Video) => bail!("module '{}': video port '{}' – a video module is not supported by this host yet (#185)", d.name, p.name),
-                (Dir::In, PortType::Audio | PortType::Cv) => audio_in.push(port(p, true)),
-                (Dir::In, PortType::Control) => control_in.push(port(p, false)),
+                (Dir::In, PortType::Audio | PortType::Cv) => audio_in += 1,
+                (Dir::In, PortType::Control) => control_in += 1,
                 (Dir::Out, PortType::Audio | PortType::Cv) => {
                     l.outputs.push(OutBind::Audio(audio_out));
-                    l.out_ports.push(port(p, true));
                     audio_out += 1;
                 }
                 (Dir::Out, PortType::Control) => {
-                    if !p.path.is_empty() {
-                        l.targets.push((l.outputs.len(), p.path.to_string(), p.mode));
-                    }
                     l.outputs.push(OutBind::Control(control_out));
-                    l.out_ports.push(port(p, false));
                     control_out += 1;
                 }
                 (dir, PortType::Event) => {
@@ -220,12 +206,10 @@ impl Layout {
                 }
             }
         }
-        l.inputs.extend((0..audio_in.len()).map(InBind::Audio));
-        l.inputs.extend((0..control_in.len()).map(InBind::Control));
+        l.inputs.extend((0..audio_in).map(InBind::Audio));
+        l.inputs.extend((0..control_in).map(InBind::Control));
         l.inputs.extend((0..d.params.len()).map(InBind::Param));
-        l.in_ports.extend(audio_in);
-        l.in_ports.extend(control_in);
-        l.in_ports.extend(d.params.iter().map(|p| GraphPort { name: p.name.to_string(), audio: false, channels: None }));
+        debug_assert!(l.inputs.len() == l.in_ports.len() && l.outputs.len() == l.out_ports.len(), "the binds follow the catalog's graph ports");
         Ok(l)
     }
 }
@@ -366,6 +350,7 @@ pub(crate) fn fault_text(f: &Fault) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use deck_catalog::Channels;
 
     #[test]
     fn the_log_limiter_lets_a_burst_through_then_a_steady_rate() {
@@ -396,7 +381,7 @@ mod tests {
         ))
         .unwrap();
         assert_eq!(l.inputs, [InBind::Audio(0), InBind::Control(0), InBind::Param(0)]);
-        assert_eq!(l.in_ports.iter().map(|p| (p.name.as_str(), p.audio)).collect::<Vec<_>>(), [("w", true), ("k", false), ("a", false)]);
+        assert_eq!(l.in_ports.iter().map(|p| (p.name.as_str(), p.audio())).collect::<Vec<_>>(), [("w", true), ("k", false), ("a", false)]);
         assert_eq!(l.in_ports[0].channels, Some(Channels::Count(5)));
         assert_eq!(l.outputs, [OutBind::Audio(0), OutBind::Control(0), OutBind::Audio(1)]);
         assert_eq!(l.out_ports[0].channels, Some(Channels::Any(deck_catalog::AnyChannels::Any)));

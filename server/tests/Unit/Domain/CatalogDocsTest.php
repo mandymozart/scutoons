@@ -136,6 +136,19 @@ final class CatalogDocsTest extends TestCase
         self::assertSame(422, $this->put($writer, 'rig:character.girl', ['subject' => 'character.boy', 'track' => []])->getStatusCode(), 'subject = the id');
     }
 
+    /** #412: "New policy" – a rig's draft may name its policy while that module is only a draft; the publish asks again */
+    public function testARigDraftMayNameADraftPolicyModule(): void
+    {
+        $writer = $this->creator('writer@example.com');
+        $rig = ['subject' => 'character.boy', 'track' => [], 'policy' => ['module' => 'boy_rig']];
+        $none = $this->put($writer, 'rig:character.boy', $rig);
+        self::assertSame([422, ['rig character.boy: the policy module "boy_rig" is not in the catalog']], [$none->getStatusCode(), self::json($none)['problems'] ?? null], 'no such module, not even a draft');
+        self::assertSame(200, $this->put($writer, 'module:boy_rig', ['id' => 'boy_rig', 'name' => 'boy_rig', 'files' => ['lib.rs' => '// a draft']])->getStatusCode());
+        self::assertSame(200, $this->put($writer, 'rig:character.boy', $rig)->getStatusCode(), 'its module is a draft');
+        $early = $this->request('POST', '/api/entities/rig:character.boy/publish', $this->bearer($writer), '{}');
+        self::assertSame([422, ['rig character.boy: the policy module "boy_rig" is not in the catalog']], [$early->getStatusCode(), self::json($early)['problems'] ?? null], 'the publish asks again');
+    }
+
     public function testAnAdminWriteBecomesThePublishedVersion(): void
     {
         $admin = $this->get(CatalogAdmin::class);

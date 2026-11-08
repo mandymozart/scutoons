@@ -9,7 +9,7 @@ use deck_core::analysis::{Analyzer, SPECTRUM};
 use deck_core::meters::Meters;
 use deck_core::tempo::{Config, Now, Shared};
 use std::sync::Arc;
-use deck_engine::control::Controls;
+use deck_engine::control::{Context, Controls};
 use deck_engine::{tempo_config, Build, DeckConfig, Engine, Handles, Seams, Sequencing, QUANTUM};
 use deck_space::graph::{Graph, Kind, PortType};
 use deck_core::stage::carries_node;
@@ -140,6 +140,17 @@ impl Core {
     pub fn tempo_node(&self) -> Option<Config> {
         self.graph.first(Kind::Tempo)?;
         tempo_config(&self.graph).ok()
+    }
+
+    /// #409: the deck's live context (its `Deck::context` – the mood, persona, the being's senses) for the engine's
+    /// module nodes, applied at the next quantum's start (the face's command ring, as on the native deck)
+    pub fn context(&mut self, c: Context) {
+        self.controls.set_context(c);
+    }
+
+    /// the live context the engine applied last (the default before any)
+    pub fn applied_context(&self) -> &Context {
+        self.engine.control().context()
     }
 
     /// The parameter paths a mapping may read: every node's `node.<input>`, its control outputs `node.<output>`, and

@@ -31,8 +31,9 @@ export interface EngineHooks {
 	tick?: (now: number) => void;
 	/** a tap on the being: '' (empty space), 'being' or `knob:node.port` */
 	tap?: (name: string) => void;
-	/** a rig was played (`play`: new knobs, sticks, graph) or only replayed for another mood (`mood`: values) */
-	rig?: (played: RigPlayed | null, why: 'play' | 'mood') => void;
+	/** a rig was played (`play`: new knobs, sticks, graph) or only replayed for another mood or its policy's preset choice
+	 *  (`mood`, `preset` #410: values) */
+	rig?: (played: RigPlayed | null, why: RigTurn['why']) => void;
 	/** the mood changed (the deck's ladder, or `setMood`) – the rig is already replayed for it */
 	mood?: (mood: string) => void;
 	/** a parameter turned: the page's controls, the being's buttons, a mood's preset */
@@ -151,7 +152,7 @@ export class EngineHost {
 				deck,
 				api: o.api,
 				cdn: folder(o.cdn),
-				set: o.set,
+				rigging: o.rigging,
 				prefer: o.prefer,
 				maxScale: o.maxScale,
 				onStatus: (s) => {
@@ -230,7 +231,7 @@ export class EngineHost {
 	}
 
 	/** The core rig of `subject` (`character.catpope`, or just `catpope`) – false when the deck carries none (or before its
-	 *  core loaded): the deck's own scene plays then. */
+	 *  core loaded): the deck is silent then (#425: no rig, no sound). */
 	playCoreRig(subject: string, persona = ''): boolean {
 		const deck = this.init();
 		return deck.state ? deck.play(subject, persona, true).rig !== null : false;

@@ -90,14 +90,14 @@ analog! {
     #[param(range = 0.0..1.0, default = 0.0, doc = "velocity to filter 2 cutoff: four octaves at full velocity")] f2_vel;
     #[param(range = 0.0..1.0, default = 0.0, doc = "velocity to filter 2 resonance")] f2_velres;
 
-    #[param(range = 0.001..10.0, default = 0.005, unit = "s", doc = "filter envelope 1 attack")] fe1_a;
-    #[param(range = 0.001..10.0, default = 0.3, unit = "s", doc = "filter envelope 1 decay")] fe1_d;
+    #[param(range = 0.001..10.0, default = 0.005, curve = log, unit = "s", doc = "filter envelope 1 attack")] fe1_a;
+    #[param(range = 0.001..10.0, default = 0.3, curve = log, unit = "s", doc = "filter envelope 1 decay")] fe1_d;
     #[param(range = 0.0..1.0, default = 0.5, doc = "filter envelope 1 sustain level")] fe1_s;
-    #[param(range = 0.001..10.0, default = 0.3, unit = "s", doc = "filter envelope 1 release")] fe1_r;
-    #[param(range = 0.001..10.0, default = 0.005, unit = "s", doc = "filter envelope 2 attack")] fe2_a;
-    #[param(range = 0.001..10.0, default = 0.3, unit = "s", doc = "filter envelope 2 decay")] fe2_d;
+    #[param(range = 0.001..10.0, default = 0.3, curve = log, unit = "s", doc = "filter envelope 1 release")] fe1_r;
+    #[param(range = 0.001..10.0, default = 0.005, curve = log, unit = "s", doc = "filter envelope 2 attack")] fe2_a;
+    #[param(range = 0.001..10.0, default = 0.3, curve = log, unit = "s", doc = "filter envelope 2 decay")] fe2_d;
     #[param(range = 0.0..1.0, default = 0.5, doc = "filter envelope 2 sustain level")] fe2_s;
-    #[param(range = 0.001..10.0, default = 0.3, unit = "s", doc = "filter envelope 2 release")] fe2_r;
+    #[param(range = 0.001..10.0, default = 0.3, curve = log, unit = "s", doc = "filter envelope 2 release")] fe2_r;
     #[param(range = -24.0..24.0, default = 0.0, unit = "st", doc = "filter envelope 2 to oscillator 2 pitch only: semitones at full (the classic sync sweep)")] fe2_p2;
 
     #[param(range = 0.0..1.0, default = 0.8, doc = "amp 1 level (filter 1's output)")] a1_level;
@@ -109,14 +109,14 @@ analog! {
     #[param(range = 0.0..1.0, default = 0.5, doc = "velocity to amp 2 level")] a2_vel;
     #[param(range = -1.0..1.0, default = 0.0, doc = "amp 2 key tracking: level change with pitch, 3 dB an octave at full")] a2_key;
 
-    #[param(range = 0.001..10.0, default = 0.003, unit = "s", doc = "amp envelope 1 attack")] ae1_a;
-    #[param(range = 0.001..10.0, default = 0.3, unit = "s", doc = "amp envelope 1 decay")] ae1_d;
+    #[param(range = 0.001..10.0, default = 0.003, curve = log, unit = "s", doc = "amp envelope 1 attack")] ae1_a;
+    #[param(range = 0.001..10.0, default = 0.3, curve = log, unit = "s", doc = "amp envelope 1 decay")] ae1_d;
     #[param(range = 0.0..1.0, default = 0.8, doc = "amp envelope 1 sustain level")] ae1_s;
-    #[param(range = 0.001..10.0, default = 0.25, unit = "s", doc = "amp envelope 1 release")] ae1_r;
-    #[param(range = 0.001..10.0, default = 0.003, unit = "s", doc = "amp envelope 2 attack")] ae2_a;
-    #[param(range = 0.001..10.0, default = 0.3, unit = "s", doc = "amp envelope 2 decay")] ae2_d;
+    #[param(range = 0.001..10.0, default = 0.25, curve = log, unit = "s", doc = "amp envelope 1 release")] ae1_r;
+    #[param(range = 0.001..10.0, default = 0.003, curve = log, unit = "s", doc = "amp envelope 2 attack")] ae2_a;
+    #[param(range = 0.001..10.0, default = 0.3, curve = log, unit = "s", doc = "amp envelope 2 decay")] ae2_d;
     #[param(range = 0.0..1.0, default = 0.8, doc = "amp envelope 2 sustain level")] ae2_s;
-    #[param(range = 0.001..10.0, default = 0.25, unit = "s", doc = "amp envelope 2 release")] ae2_r;
+    #[param(range = 0.001..10.0, default = 0.25, curve = log, unit = "s", doc = "amp envelope 2 release")] ae2_r;
 
     #[param(choices = "sine|triangle|saw|square|sample & hold", default = 0, doc = "LFO 1 shape")] l1_shape;
     #[param(range = 0.01..40.0, default = 4.0, curve = log, unit = "Hz", doc = "LFO 1 rate when free-running")] l1_rate;

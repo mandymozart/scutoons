@@ -38,7 +38,8 @@ The memory layout is derived from the descriptor (`Layout::of(&Shape)`, one `con
 `dm_layout()` exports its hash), so ports, channels, parameters, events, sensors and assets are descriptor fields, not ABI
 limits (sanity bounds: 8 audio and 8 event ports a direction, 256 control ports, 1024 parameters, 32 channels a port).
 
-- `#[module(name, domain = "audio"|"control", doc, needs = "motion", wants = "position|camera.motion", latency = 32)]`,
+- `#[module(name, domain = "audio"|"control", doc, needs = "motion", wants = "position|camera.motion", latency = 32,
+  moods = "thinking|sad|happy")]` (`moods`, A1 #409: the moods the module knows – `character().mood_index` counts in them),
   `#[reads("story.act", …)]` (→ `Self::STORY_ACT: Var`, `ctx.var(Self::STORY_ACT)`), `#[asset(name, kind = "pcm"|"bytes"|"image",
   max_bytes, doc)]` (→ `Self::KICK: AssetSlot`, `ctx.asset(Self::KICK)`), `#[preset(name, doc, values(p = x, …))]` (the one
   factory preset; every other preset is a document).
@@ -49,8 +50,14 @@ limits (sanity bounds: 8 audio and 8 event ports a direction, 256 control ports,
 - `Block`: `audio_in(p) -> Planar` / `audio_out(p) -> PlanarMut` (`ch()`, `chan(c)`, `stereo()`), `events_in(p) -> &[Ev]`
   (sorted by frame; notes on / off paired by id, Hz and key both filled by the host), `control_in(i)`, `set(i, v)`,
   `emit(port, Ev)`, `set_silent(p)`, `audio_out_with_events`. `Outputs` (control domain): `set`, `emit`. `Ctx`: times
-  (`frame`, `show_ms`, `tempo`, `beats`, `bar`), `seed`, `character()` (+ mood index, energy / touch / strain), `var`, sensors
-  (`motion()`, `position()`, `face()`, `camera_motion()` with a `Status`), `asset`, and the inputs `control_in` / `events_in`.
+  (`frame`, `show_ms`, `tempo`, `beats`, `bar`), `seed`, `character()`, `var`, sensors (`motion()`, `position()`, `face()`,
+  `camera_motion()` with a `Status`), `asset`, and the inputs `control_in` / `events_in`.
+- `ctx.character()` is **live** (#409): `id` (the node's `character`), `persona`, `mood` (strings), `mood_index` (the mood's
+  place in the module's own `moods` + 1; 0 = a mood it does not list), `energy`, `touch`, `strain` (0 … 1, the being's).
+  The node's params give them until the deck's first live context; from then on the deck's frame thread sends its mood,
+  persona and the being's senses (deck-space `Deck::context`, the native being) through the engine's command ring, and
+  every module node has them from the next block's start – natively and in live-core alike (`lc_context`). Match the
+  string or switch on the index; both change on the same block.
 - Parameters are a table the host writes (clamped, NaN ignored); the dirty ones are copied into the fields before a call and
   `Module::params_changed(dirty)` follows. `Smooth` and `deck_module::math` (libm: the same bits native and wasm) for the DSP;
   `cv::GateCv::render_notes` renders a module's own notes into a `cv` port.
@@ -138,7 +145,7 @@ the service and saves the results as that creator's drafts); the failures are th
 - **deck** (deck-native, feature `modules`, `deck/native/src/module_host.rs`): wasmtime (NaNs canonicalized, relaxed SIMD
   and threads off). `DECK_MODULES=<folder of .wasm>` is loaded before a scene is built and each module becomes the node kind
   `module:<name>`; compile cached in memory and, with `DECK_MODULE_CACHE=<dir>`, on disk by SHA-256. A deck opens its
-  instances in the show mode. Node params besides the module's own: `seed` (default 1), `character`, `persona`, `mood`,
-  `vars` (table key → number). Video ports are refused with the reason (#185).
+  instances in the show mode. Node params besides the module's own: `seed` (default 1), `character`, `persona`, `mood`
+  (until the deck's live context, #409), `vars` (table key → number). Video ports are refused with the reason (#185).
 - **browser**: the TS module host of ABI v1 is deleted (#343); the browser's engine (live-core) takes modules through the
   same `deck_engine::register_module` path once deck-module-host has its web backend (#290).
