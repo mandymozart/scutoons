@@ -12,9 +12,9 @@ use quinn::rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::sync::mpsc;
 
-use super::{line, Doors, Member, MAX_LINE};
+use super::{line, Doors, Member, DOOR_IDLE, MAX_LINE};
 use crate::outbox::{Lane, MAX_BYTES};
-use crate::{parse_join, Join, HELLO_TIMEOUT, IDLE_TIMEOUT, PING_EVERY};
+use crate::{parse_join, Join, HELLO_TIMEOUT, PING_EVERY};
 
 pub const ALPN: &[u8] = b"scutoons-live";
 
@@ -176,7 +176,7 @@ async fn write<C: Conn>(conn: C, member: Arc<Member>, tx: mpsc::UnboundedSender<
 
 fn transport() -> quinn::TransportConfig {
     let mut t = quinn::TransportConfig::default();
-    t.max_idle_timeout(Some(IDLE_TIMEOUT.try_into().expect("a small timeout")));
+    t.max_idle_timeout(Some(DOOR_IDLE.try_into().expect("a small timeout")));
     t.keep_alive_interval(Some(PING_EVERY));
     let ms = ACK_DELAY_MS.load(Ordering::Relaxed);
     if ms > 0 {
@@ -241,7 +241,7 @@ pub fn wt_door(doors: Arc<Doors>, addr: SocketAddr, identity: wtransport::Identi
         .with_bind_address(addr)
         .with_identity(identity)
         .keep_alive_interval(Some(PING_EVERY))
-        .max_idle_timeout(Some(IDLE_TIMEOUT))?
+        .max_idle_timeout(Some(DOOR_IDLE))?
         .build();
     let endpoint = wtransport::Endpoint::server(config)?;
     Ok(async move {

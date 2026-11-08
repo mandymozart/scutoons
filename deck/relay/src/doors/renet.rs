@@ -17,7 +17,7 @@ use renet2_netcode::{
 use tokio::net::UdpSocket;
 use tokio::sync::mpsc;
 
-use super::{Doors, Member};
+use super::{Doors, Member, DOOR_IDLE};
 use crate::outbox::Lane;
 use crate::{Join, PING_EVERY};
 
@@ -240,10 +240,11 @@ pub async fn netcode_door(doors: Arc<Doors>, socket: Arc<UdpSocket>, extra: Vec<
 pub async fn client(server: SocketAddr, key: [u8; 32], client_id: u64, resend: Duration, mut outgoing: mpsc::UnboundedReceiver<(Lane, String)>, incoming: mpsc::UnboundedSender<String>) -> anyhow::Result<()> {
     let socket = Arc::new(UdpSocket::bind("127.0.0.1:0").await?);
     let now = since_epoch();
-    let token = ConnectToken::generate(now, PROTOCOL_ID, 3600, client_id, 15, 0, vec![server], None, &key)?;
+    let token = ConnectToken::generate(now, PROTOCOL_ID, 3600, client_id, DOOR_IDLE.as_secs() as i32, 0, vec![server], None, &key)?;
     let mut transport = NetcodeClientTransport::new(now, ClientAuthentication::Secure { connect_token: token }, TokioUdp(socket.clone()))?;
     let mut client = RenetClient::new(connection_config(resend), false);
     let mut waiting: Vec<(Lane, String)> = vec![];
+    let mut told = false;
     let mut last = Instant::now();
     loop {
         tokio::select! {
@@ -263,6 +264,11 @@ pub async fn client(server: SocketAddr, key: [u8; 32], client_id: u64, resend: D
         client.update(dt);
         transport.update(dt, &mut client)?;
         if client.is_connected() {
+            if !told {
+                told = true;
+                // the ladder waits for the handshake before it says hello; an empty text is no message
+                incoming.send(String::new()).ok();
+            }
             for (lane, text) in waiting.drain(..) {
                 client.send_message(if lane == Lane::Reliable { RELIABLE } else { UNRELIABLE }, text.into_bytes());
             }

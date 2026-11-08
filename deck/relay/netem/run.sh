@@ -67,10 +67,80 @@ smoke() {
   done
 }
 
+# The relay alone in its own process (RSS, CPU), the clients in another; the egress from iptables counters on the doors.
+cost_one() { # cost_one <loss> <label> <decks> <phones> <client args …>
+  local loss=$1 label=$2 decks=$3 phones=$4; shift 4
+  path "$loss"
+  iptables -F OUTPUT
+  iptables -A OUTPUT -p tcp --sport 7070 -j ACCEPT
+  iptables -A OUTPUT -p udp -m multiport --sports 7071,7072,7073 -j ACCEPT
+  for i in $(seq "$runs"); do
+    rm -f /tmp/438/ready
+    "$doors" --serve --label "$label loss$loss ${decks}x$phones" >> "$out/cost.jsonl" 2>> "$out/cost.err" &
+    local server=$!
+    while [ ! -e /tmp/438/ready ]; do sleep 0.05; done
+    "$doors" --connect --count-egress --seconds "$secs" --decks "$decks" --listeners "$phones" --label "$label loss$loss ${decks}x$phones" "$@" >> "$out/cost.jsonl" 2>> "$out/cost.err"
+    wait "$server"
+  done
+  iptables -F OUTPUT
+}
+
+cost() {
+  for size in "20 100" "50 500"; do
+    read -r decks phones <<< "$size"
+    for via in ws wt renet2; do cost_one 1 "alone-$via" "$decks" "$phones" --via "$via"; done
+    cost_one 1 mixed "$decks" "$phones" --decks-via renet2,wt,ws --phones-via renet2,wt,ws --conductor-via wt
+    # the target layout: native decks on RUDP, browser decks on QUIC, the audience's browsers on QUIC
+    cost_one 1 target "$decks" "$phones" --decks-via renet2,wt --phones-via wt --conductor-via wt
+  done
+}
+
+# what fits one datagram; a shared 2 Mbit path (does the adaptive rate see it?)
+limits() {
+  for via in quinn wt renet2; do one 1 40 "keys60-$via" --via "$via" --keys 60; done
+  tc qdisc del dev lo root 2>/dev/null
+  for via in ws wt renet2; do
+    tc qdisc del dev lo root 2>/dev/null
+    tc qdisc add dev lo root netem delay 5ms rate 2mbit limit 200
+    for i in $(seq "$runs"); do "$doors" --seconds "$secs" --via "$via" --label "bottleneck-$via 2mbit" >> "$out/doors.jsonl" 2>> "$out/doors.err"; done
+  done
+}
+
+# UDP blocked outright: the WebSocket rung is the worst case
+udp_blocked() {
+  path 1
+  iptables -I INPUT -p udp -j DROP
+  for i in $(seq "$runs"); do "$doors" --seconds "$secs" --via ws --label "udp-blocked ws loss1" >> "$out/doors.jsonl" 2>> "$out/doors.err"; done
+  iptables -D INPUT -p udp -j DROP
+}
+
+ladder() {
+  path 1
+  for stack in native browser; do
+    for climb in race turn; do
+      # nothing blocked
+      "$doors" --ladder-join "$stack" --climb "$climb" --joins 40 --label "none" >> "$out/ladder.jsonl" 2>> "$out/ladder.err"
+      # the RUDP port filtered, UDP 443 passing (the case for the middle rung)
+      [ "$stack" = native ] && { iptables -I INPUT -p udp --dport 7073 -j DROP
+        "$doors" --ladder-join "$stack" --climb "$climb" --joins 40 --label "rudp-blocked" >> "$out/ladder.jsonl" 2>> "$out/ladder.err"
+        iptables -D INPUT -p udp --dport 7073 -j DROP; }
+      # all UDP blocked
+      iptables -I INPUT -p udp -j DROP
+      "$doors" --ladder-join "$stack" --climb "$climb" --joins 40 --label "udp-blocked" >> "$out/ladder.jsonl" 2>> "$out/ladder.err"
+      iptables -D INPUT -p udp -j DROP
+    done
+  done
+  for i in 1 2 3; do "$doors" --ladder-show --seconds 12 --block-at 8 --label "udp-dies-midshow loss1" >> "$out/ladder.jsonl" 2>> "$out/ladder.err"; done
+}
+
 case "${1:-}" in
+  cost) cost ;;
+  limits) limits ;;
+  udp-blocked) udp_blocked ;;
+  ladder) ladder ;;
   baseline) baseline ;;
   doors) doors_matrix ;;
   mixed) mixed ;;
   smoke) smoke ;;
-  *) echo "usage: run.sh baseline|doors|mixed|smoke" >&2; exit 2 ;;
+  *) echo "usage: run.sh baseline|doors|mixed|cost|limits|udp-blocked|ladder|smoke" >&2; exit 2 ;;
 esac

@@ -10,6 +10,7 @@
 //! again. The **settle** repairs that: every `SETTLE` the relay sends each door member what every deck showed last, on
 //! the reliable lane. A receiver applies a key only when the frame's `seq` is not older than the key's.
 
+pub mod ladder;
 pub mod quic;
 pub mod renet;
 
@@ -25,6 +26,9 @@ use crate::{now_ms, session, After, Join, Relay};
 
 /// how often a door member gets every deck's current values on the reliable lane
 pub const SETTLE: Duration = Duration::from_secs(1);
+/// A door lets a silent connection go after this: the ladder steps down after 2 s and resumes once the relay is free of
+/// the old connection (a resume while it is still attached is refused, session.rs `resume`).
+pub const DOOR_IDLE: Duration = Duration::from_secs(3);
 /// a reliable line longer than this ends the connection
 pub const MAX_LINE: usize = 1 << 20;
 
