@@ -242,6 +242,24 @@ fn the_module_walk_scene_plays_the_walk_module() {
     assert!(blocks.iter().filter(|&&p| p > 0.01).count() > blocks.len() / 4, "sounds through the run");
 }
 
+/// #406: the demo scene `module-analog` (built in, the F5 list offers it): the walk module's `music.note` events reach the analog
+/// synth module's `notes` input by name – module to module, no cable. Parses, passes the module check, plays non-silent, quiet
+/// audio and keeps sounding. A build without the modules feature refuses it by name.
+#[test]
+fn the_module_analog_scene_plays_walk_into_analog() {
+    Library::global().load(&walk()).unwrap();
+    Library::global().load(&analog()).unwrap();
+    let scene = Scene::parse(deck_native::switcher::builtin("module-analog").expect("a built-in scene")).unwrap();
+    assert!(modules::check_with(&scene, |f| f == "core").unwrap_err().to_string().contains("'modules'"));
+    let out = render(&scene, 4);
+    assert!(out.iter().all(|x| x.is_finite()), "finite samples");
+    let peak = out.iter().fold(0.0f32, |m, x| m.max(x.abs()));
+    assert!(peak > 0.02, "it plays: peak {peak}");
+    assert!(peak < 0.5, "quiet by default (the X1 plays to speakers or a mixer): peak {peak}");
+    let blocks: Vec<f32> = out.chunks(512 * 2).map(|b| b.iter().fold(0.0f32, |m, x| m.max(x.abs()))).collect();
+    assert!(blocks.iter().filter(|&&p| p > 0.01).count() > blocks.len() / 4, "sounds through the run");
+}
+
 /// numbers for the record (`cargo test -p deck-native --features modules -- --nocapture module_costs`)
 #[test]
 fn module_costs() {
