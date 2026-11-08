@@ -52,7 +52,7 @@ from = "character:catpope/@energy"
 to = "item:incense/hiss:noise.gain"
 ```
 
-- **Embedded or referenced, by one rule:** a rig used by several things is a reference; a rig only this scene has is embedded. **Embedding a copy of a shared rig is refused** (that would be a second copy, A6); to change one for a scene, derive a new rig. "Extract to catalog" is one move in the editor.
+- **Who may change what (corrected 2026-11-08 after the owner's question):** a *holder* is the place on a stage that carries a rig (character, item, scene, later show or world), not a person. A holder that references a rig changes values and preset choices. Any change to the graph is the moment of a **derivative**: the editor asks "used by N: change it for everyone, or make a version for this holder?", and the second makes an embedded rig that names its origin and version (preset.rs's lineage, #350's derive). A copy with no origin is refused (A6). Deriving copies only the rig's own graph, a few KB; instruments and modules stay shared references. "Extract to catalog" makes it reusable. For this a rig's `subject` must move out of the rig and onto the holder, so any holder can use any rig.
 - **Holders may hold scenes** (`scene = "scene:choir"`), which gives the nesting the editor needs. It stays depth-limited and refuses cycles.
 - **One resolve step, in the core:** holders flatten to the one `Scene` the engine plays, using today's `flatten` with `<place>/` as the prefix. The engine, knobs and relay keep compiled slots and never see nesting.
 - **Rust where it must be:** a module stays code. A code rig's marked table (the #203 answer, W3) stays in its Rust and arrives in the package as that module's descriptor, so "graph" and the marked table do not collide: documents hold graphs, modules hold code.
@@ -92,7 +92,7 @@ The editor's local build makes a `dev` package and offers it on the LAN: change 
 
 ## 6. Questions for the owner
 1. ~~Pinning.~~ **Decided by the owner 2026-11-08:** documents keep "current" (as decided 2026-11-02); a package freezes what current was when it was built, and rebuilding it brings the new versions.
-2. **Embedded rigs.** *Recommend the rule in §2:* embed only what the scene alone owns; a holder may change values and preset choices, never the graph.
+2. **Changing a shared rig.** *Recommend §2:* the derivative is the switch. No overlay that patches a rig from outside: it keeps the origin's updates, but breaks when the origin changes. The price is that a derivative gets no updates by itself; the editor shows "origin has a newer version".
 3. **Who builds and when.** *Recommend:* the Rust build service builds it (the resolve step is the core's, no second copy in PHP), on a "Build package" action after publishing, not automatically at every publish.
 4. **Media.** *Recommend:* config by default, full only when asked for.
 5. **Nesting depth.** *Recommend:* a limit of four levels until the scene editor is designed.
