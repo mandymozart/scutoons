@@ -7,7 +7,7 @@
 # (ASCII only: Windows PowerShell 5.1 reads a script without a BOM as ANSI)
 $deck = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $modules = Join-Path $deck 'target\hear-modules'
-$exe = Join-Path $deck 'targetsio\debug\deck.exe'
+$exe = Join-Path $deck 'target\asio\debug\deck.exe'
 if (-not (Test-Path $exe)) {
     Write-Error "missing $exe - build it in deck/: cargo build -p deck-native --features modules,asio --target-dir target/asio"
     exit 1
