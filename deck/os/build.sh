@@ -12,10 +12,13 @@ out=${DECK_OUT:-$here/out}
 mkdir -p "$out"; out=$(cd "$out" && pwd)   # docker wants an absolute path (a relative DECK_OUT is a volume name to it)
 if command -v cygpath >/dev/null 2>&1; then deck_m=$(cygpath -m "$deck"); out_m=$(cygpath -m "$out"); else deck_m=$deck; out_m=$out; fi
 
+# #423: the build's version label (the container has no .git): os/version.sh unless the caller (update.sh) set it
+DECK_BUILD_VERSION=${DECK_BUILD_VERSION:-$(bash "$here/version.sh")}
+export DECK_BUILD_VERSION
 docker version >/dev/null 2>&1 || { echo "Docker does not answer – start Docker Desktop"; exit 1; }
 echo "building the deck ISO in Docker (kernel ${DECK_KERNEL:-linux-rt}) – the first run downloads ~1 GB"
 MSYS_NO_PATHCONV=1 docker run --rm --privileged \
-  -e DECK_KERNEL -e DECK_SKIP_CARGO -e DECK_TRACE -e DECK_BINARIES_ONLY -e CARGO_BUILD_JOBS \
+  -e DECK_KERNEL -e DECK_SKIP_CARGO -e DECK_TRACE -e DECK_BINARIES_ONLY -e DECK_BUILD_VERSION -e CARGO_BUILD_JOBS \
   -v "$deck_m:/src:ro" \
   -v scutoons-deck-work:/work \
   -v scutoons-deck-pkg:/var/cache/pacman/pkg \

@@ -162,6 +162,11 @@ The stage is built with the `modules` feature (#406) and the update ships the ri
 `os/modules.sh`: the module build service's pinned flags, the host's wasm32 target) to `/usr/share/deck/modules`; `deck-session` sets
 `DECK_MODULES` to it and keeps the compiled code in `/var/lib/deck/cache/modules`. So the scenes `catpope-analog` and `module-walk` play on the
 X1. The ISO build carries the feature too but no wasm yet: there those scenes fall back to the test pattern (`unknown kind 'module:walk'`).
+**The build's version (#423):** `os/version.sh` is the one formula (`0.1.0.r<commits>.g<sha>[.dirty]`); update.sh uses it for the bundle's
+version and hands it to the container build as `DECK_BUILD_VERSION` (os/build.sh does the same for the ISO; the container has no `.git`),
+deck-native's build.rs bakes it in as `deck_native::BUILD` (git itself, else `dev`, when the env is not set – a PC build), and every deck
+draws it small in the top right corner of the screen, in every scene and HUD mode, and logs `deck: build <version>` at start – so
+`deck-update status` and the screen show the same string. (`-- --no-build` bundles the binaries as they are: their label stays the old build's.)
 
 **On the deck:** `deck-update.timer` runs `deck-update auto` every 2 minutes. Channel `dev` (deck.toml
 `update_channel`, the default until a stable release exists) asks deck.toml's `update_url`, the dev PC that answered
