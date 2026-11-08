@@ -55,7 +55,7 @@ pub const CAPS: &[(&str, &str, &str, &str)] = &[("test_missing", "#0", "a stand-
 
 /// the steps the core answers now (their move tickets landed): name, ticket – `hud` (#374, deck-ui) is a step of the
 /// runner's (lib.rs: it reads the deck's clock)
-pub const MOVED: &[(&str, &str)] = &[("stats", "#364"), ("lead", "#365"), ("mood", "#367"), ("rig_facts", "#368"), ("device_text", "#373"), ("meters", "#373"), ("gesture", "#376"), ("knob", "#369"), ("sync", "#371"), ("relay_join", "#366"), ("quality_options", "#375"), ("code_rig", "#408"), ("code_rig_deck", "#410")];
+pub const MOVED: &[(&str, &str)] = &[("stats", "#364"), ("lead", "#365"), ("mood", "#367"), ("rig_facts", "#368"), ("device_text", "#373"), ("meters", "#373"), ("gesture", "#376"), ("knob", "#369"), ("sync", "#371"), ("relay_join", "#366"), ("quality_options", "#375"), ("code_rig", "#408"), ("code_rig_deck", "#410"), ("event_rig", "#430")];
 
 /// Call the capability `name` with the step's input: its answer, or what is missing.
 pub fn call(name: &str, input: &Value) -> Result<Value, Missing> {
@@ -73,6 +73,7 @@ pub fn call(name: &str, input: &Value) -> Result<Value, Missing> {
         "quality_options" => return Ok(quality_options()),
         "code_rig" => return Ok(code_rig(input)),
         "code_rig_deck" => return Ok(code_rig_deck(input)),
+        "event_rig" => return Ok(event_rig(input)),
         _ => {}
     }
     match CAPS.iter().find(|c| c.0 == name) {
@@ -354,6 +355,53 @@ fn code_rig(i: &Value) -> Value {
     out["knobs"] = json!(p.knobs.iter().map(|k| &k.path).collect::<Vec<_>>());
     out["targets"] = json!(targets);
     out["driven"] = json!(driven);
+    out
+}
+
+/// #430: a rig of tracks and event cables as the core answers it (the headless host has no module runtime – #290 – so the
+/// sound is deck-native's tests/modules.rs): the document's problems, the played scene's event cables, the event inputs no
+/// cable reaches (they hear nothing), the tracks' strips, the silent tracks, the world nodes' filters (`rig`, `instrument`,
+/// `module` as the bundle's documents).
+fn event_rig(i: &Value) -> Value {
+    let b: Bundle = match serde_json::from_value(i.clone()) {
+        Ok(b) => b,
+        Err(e) => return json!({ "error": format!("{e:#}") }),
+    };
+    let request = Request {
+        kind: "rigs".into(),
+        id: b.rig.subject.clone(),
+        document: by_value(&b.rig),
+        instruments: b.instruments.iter().map(by_value).collect(),
+        presets: b.presets.iter().map(by_value).collect(),
+        modules: b.modules.iter().map(by_value).collect(),
+    };
+    let answer = match request.answer() {
+        Ok(a) => a,
+        Err(e) => return json!({ "error": e }),
+    };
+    let mut out = json!({ "problems": answer.problems, "problem": answer.problems.first().cloned().unwrap_or_default() });
+    if !answer.problems.is_empty() {
+        return out;
+    }
+    let p = match b.play(None, None) {
+        Ok(p) => p,
+        Err(e) => return json!({ "error": format!("{e:#}") }),
+    };
+    let w = p.wiring().unwrap_or_else(|e| Wiring::failed(format!("{e:#}")));
+    let mut cables: Vec<String> = w.links.iter().filter(|l| l.ty == "event").map(|l| format!("{}.{} → {}.{}", w.nodes[l.from].id, l.out, w.nodes[l.to].id, l.input)).collect();
+    cables.sort();
+    let mut deaf: Vec<String> = w.nodes.iter().enumerate().flat_map(|(n, node)| {
+        node.inputs.iter().filter(|p| p.ty == "event" && !w.links.iter().any(|l| l.to == n && l.input == p.name)).map(|p| format!("{}.{}", node.id, p.name)).collect::<Vec<_>>()
+    }).collect();
+    deaf.sort();
+    let strips: Vec<String> = p.links.iter().filter(|l| l.to.starts_with("mix")).map(|l| l.from.clone()).collect();
+    let silent: Vec<&str> = b.rig.tracks.iter().filter(|t| b.instruments.iter().any(|ins| ins.id == t.instrument && ins.out.is_none())).map(|t| t.id.as_str()).collect();
+    let world: serde_json::Map<String, Value> = w.nodes.iter().filter_map(|n| n.world.as_ref().map(|s| (n.id.clone(), json!({ "source": s.source, "listen": s.listen })))).collect();
+    out["cables"] = json!(cables);
+    out["deaf"] = json!(deaf);
+    out["strips"] = json!(strips);
+    out["silent"] = json!(silent);
+    out["world"] = Value::Object(world);
     out
 }
 

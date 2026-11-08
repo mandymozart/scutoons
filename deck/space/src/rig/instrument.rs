@@ -1,6 +1,6 @@
 //! An instrument (#191, research/INSTRUMENTS.md §1): a patch of the scene's node graph – `[[node]]` + `[[link]]` in
-//! scene.rs's forms, node ids local to the instrument – with one audio output (the track's `out`) and the control inputs
-//! it shows (`expose`, the being's 3D buttons, the knobs, the mapping targets). `patch` applies a folded preset to it.
+//! scene.rs's forms, node ids local to the instrument – with one audio output (the track's `out`; none = a silent track of
+//! event sources, #430) and the control inputs it shows (`expose`, the being's 3D buttons, the knobs, the mapping targets). `patch` applies a folded preset to it.
 use super::preset::{Mapping, Resolved};
 use super::{Rights, Text};
 use crate::graph::{Graph, Kind, PortType};
@@ -38,8 +38,10 @@ pub struct Instrument {
     pub nodes: Vec<NodeDef>,
     #[serde(default, rename = "link", skip_serializing_if = "Vec::is_empty")]
     pub links: Vec<LinkDef>,
-    /// the track's output: an audio output `node.port` (a bare node = its `out`)
-    pub out: String,
+    /// the track's output: an audio output `node.port` (a bare node = its `out`). None (#430): a silent track – a note
+    /// source (a step sequencer, a world node) with no strip and no outlet, wired by event cables
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub out: Option<String>,
     /// the parameters it shows; empty = every control input
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub expose: Vec<Expose>,
@@ -65,7 +67,8 @@ pub struct Expose {
 pub struct Patch {
     pub nodes: Vec<NodeDef>,
     pub links: Vec<LinkDef>,
-    pub out: String,
+    /// the track's output; None = a silent track
+    pub out: Option<String>,
     pub mappings: Vec<Mapping>,
 }
 
@@ -89,8 +92,8 @@ impl Patch {
 }
 
 impl Instrument {
-    /// The instrument checked on its own: a valid graph without scene-only kinds, `out` an audio output, every exposed
-    /// path a control input.
+    /// The instrument checked on its own: a valid graph without scene-only kinds, `out` an audio output (without one it
+    /// must be a silent track: something with an event output to cable), every exposed path a control input.
     pub fn check(&self) -> Result<Graph> {
         let unpatched =
             Patch { nodes: self.nodes.clone(), links: self.links.clone(), out: self.out.clone(), mappings: vec![] };
@@ -98,13 +101,22 @@ impl Instrument {
         if let Some(n) = graph.nodes.iter().find(|n| SCENE_ONLY.contains(&n.kind)) {
             bail!("instrument {}: a {} node belongs to the scene, not to an instrument ({})", self.id, n.kind.name(), n.id);
         }
-        let (node, port) = split_ref(&self.out);
-        let ok = graph.nodes.iter().find(|n| n.id == node).and_then(|n| {
-            let i = n.kind.output(port)?;
-            (n.kind.outputs()[i].ty == PortType::Audio).then_some(())
-        });
-        if ok.is_none() {
-            bail!("instrument {}: out '{}' is not an audio output", self.id, self.out);
+        match &self.out {
+            Some(out) => {
+                let (node, port) = split_ref(out);
+                let ok = graph.nodes.iter().find(|n| n.id == node).and_then(|n| {
+                    let i = n.kind.output(port)?;
+                    (n.kind.outputs()[i].ty == PortType::Audio).then_some(())
+                });
+                if ok.is_none() {
+                    bail!("instrument {}: out '{out}' is not an audio output", self.id);
+                }
+            }
+            None => {
+                if !graph.nodes.iter().any(|n| n.kind.outputs().iter().any(|p| p.ty == PortType::Event)) {
+                    bail!("instrument {}: no `out` and no event output – a silent track sends events, this one has nothing to send", self.id);
+                }
+            }
         }
         for e in &self.expose {
             self.control_input(&e.path)?;

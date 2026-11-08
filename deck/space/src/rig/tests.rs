@@ -96,9 +96,9 @@ fn instruments_check_as_graphs() {
     bad.nodes.push(toml::from_str("id = \"out\"\nkind = \"audio_out\"").unwrap());
     assert!(bad.check().unwrap_err().to_string().contains("belongs to the scene"));
     let mut bad = lib.instrument("choir").unwrap().clone();
-    bad.out = "sway".into();
+    bad.out = Some("sway".into());
     assert!(bad.check().unwrap_err().to_string().contains("not an audio output"));
-    bad.out = "voice".into();
+    bad.out = Some("voice".into());
     bad.expose.push(Expose { path: "voice.cv".into(), label: Text::new(), range: None });
     assert!(bad.check().unwrap_err().to_string().contains("not a control input"));
 }

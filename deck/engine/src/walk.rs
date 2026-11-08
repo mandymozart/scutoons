@@ -5,6 +5,7 @@
 //! unset input) leaves the patch's own value. Two kinds use it:
 //! - `walk` – a patch of one random walk, its inputs spread · rate · glide
 //! - `events` – the patch in the node's params (`generator`, `edge`, `out`, `knobs`, `listen`), its inputs a–d
+//! - `world` with `source = "generator"` (#430) – the patch in its `patch` table, no cv: its notes go down its event cables
 //!
 //! Where the generators run (`Sequencing`, EVENTS.md §16 "events first, playback second"):
 //! - **thread** (the stage's default): the patch (`Core`) runs on the sequencer thread one window ahead of the render
@@ -20,9 +21,13 @@
 //! transport epoch); a start or continue plays on from the transport's beat. A `listen` to `clock.start`, `clock.stop`,
 //! `clock.continue` (or the domain `clock`) gets the edge as an event (prop `beat`) from here, not from the dispatcher.
 use super::dispatch::{Counters, Events};
+#[cfg(feature = "modules")]
+use super::evhost::WorldOut;
 use super::sequencer::{Timed, SEQ_RING};
 use super::{Block, Buf, Param, Sequencing};
 use deck_space::graph::Node;
+#[cfg(feature = "modules")]
+use deck_space::world::{Source as WorldSource, World};
 use deck_core::tempo::{BeatReader, Edge, Follow};
 use anyhow::{anyhow, Result};
 use deck_core::tempo::TempoMap;
@@ -134,6 +139,9 @@ pub(super) struct Host {
     /// the ring's side of the transport (the patch's own is in its `Core`)
     follow: Follow,
     counters: Arc<Counters>,
+    /// a generator world node (#430): its notes go down its event cables, not into the cv
+    #[cfg(feature = "modules")]
+    sink: Option<WorldOut>,
 }
 
 impl Host {
@@ -190,6 +198,8 @@ impl Host {
             frame: 0.0,
             follow,
             counters: ev.counters.clone(),
+            #[cfg(feature = "modules")]
+            sink: None,
         })
     }
 
@@ -220,6 +230,33 @@ impl Host {
         let patch = Patch::from_table(&node.params).map_err(|e| anyhow!("node '{}': {e}", node.id))?;
         Host::new(node, &patch, inputs.into_iter().collect(), rate, beats, follow, ev)
     }
+}
+
+/// a world node with nothing to run: MIDI comes through the dispatcher and the event host
+struct Quiet;
+
+impl Block for Quiet {
+    fn process(&mut self, _: &[Option<&Buf>], _: &mut [Buf], _: usize) {}
+}
+
+/// A `world` node's block (#430): a generator's patch with its event cables as its sink; a MIDI node, or a generator no
+/// cable reaches (the event host joins only modules – a build without any), has nothing to run.
+pub(super) fn world_block(node: &Node, index: usize, rate: f32, beats: BeatReader, follow: Follow, tuning: deck_events::Tuning, ev: &mut Events) -> Result<Box<dyn Block>> {
+    #[cfg(feature = "modules")]
+    {
+        let links = ev.take_generator(index);
+        if World::of(node).map_err(|e| anyhow!("{e}"))?.source == WorldSource::Generator && !links.is_empty() {
+            let table = node.params.get("patch").and_then(|p| p.as_table()).expect("checked by World::of");
+            let patch = Patch::from_table(table).map_err(|e| anyhow!("node '{}': {e}", node.id))?;
+            let sink = WorldOut::new(links, &mut ev.names, tuning)?;
+            let mut host = Host::new(node, &patch, Vec::new(), rate, beats, follow, ev)?;
+            host.sink = sink;
+            return Ok(Box::new(host));
+        }
+    }
+    #[cfg(not(feature = "modules"))]
+    let _ = (node, index, rate, beats, follow, tuning, ev);
+    Ok(Box::new(Quiet))
 }
 
 impl Block for Host {
@@ -268,6 +305,11 @@ impl Block for Host {
                 played.edge.map(|e| (e, played.split))
             }
         };
+        #[cfg(feature = "modules")]
+        if let Some(sink) = &mut self.sink {
+            sink.send(&self.rt, start as u64);
+            return;
+        }
         let out = &mut outs[0];
         let (l, r) = out.lr_mut();
         match edge {

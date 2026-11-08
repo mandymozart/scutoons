@@ -1,7 +1,7 @@
 # catpope + the analog module (#417): catpope's core rig (catpope.toml, unchanged: the cathedral voice, the drone) with ONE
 # more track – `analog`, the `analog` module (modules/analog; its `lead` preset written out below) played by the `stepseq`
 # module (modules/stepseq: 16 sliders, each level a pitch, on the tempo clock; its `notes` events reach the synth's `notes`
-# input by name, the event host's module-to-module routing). Modules play only on a native deck built with the `modules` feature, their wasm
+# input through the instrument's event cable, #430). Modules play only on a native deck built with the `modules` feature, their wasm
 # in DECK_MODULES: so this rig is NOT in `rig::bundle::CORE` (the browser deck, the headless host and the server's catalog
 # carry no module) but in deck-native's `rig::MODULE_RIGS`: `--scene rig:catpope-analog[@mood]`. A test (native/src/rig.rs)
 # keeps it equal to catpope.toml apart from the analog track.
@@ -73,13 +73,14 @@ id = "analog_seq"
 kind = "pad"
 name = { en = "Analog sequence", de = "Analog-Sequenz" }
 out = "synth.out"
-# `seq` (the stepseq module) plays the synth (its notes events reach the synth by name): 16 steps, two to a beat, each step's
+# `seq` (the stepseq module) plays the synth (the event cable `link` below): 16 steps, two to a beat, each step's
 # slider a pitch – the module's default phrase (minor pentatonic) from A3, `snap` on. The synth is analog's `lead`
 # preset (modules/analog/analog.preset.json; the descriptor's own `pad` is too slow for eighth notes), volume 0.6.
 node = [
   { id = "seq", kind = "module:stepseq", base = 220.0, rate = 2.0, gate = 0.7 },
   { id = "synth", kind = "module:analog", volume = 0.6, o1_wave = 0.0, o1_fine = -6.0, o1_level = 0.65, o1_route = 0.0, o2_wave = 0.0, o2_fine = 6.0, o2_level = 0.65, o2_route = 0.0, f1_cutoff = 3200.0, f1_res = 0.3, f1_drive = 0.1, f1_key = 0.6, f1_env = 0.25, f1_vel = 0.4, fe1_a = 0.005, fe1_d = 0.35, fe1_s = 0.4, fe1_r = 0.3, a1_level = 0.85, a1_pan = -0.15, a1_vel = 0.5, ae1_a = 0.01, ae1_d = 0.2, ae1_s = 0.8, ae1_r = 0.3, l1_shape = 0.0, l1_rate = 5.5, l1_delay = 0.25, l1_attack = 0.4, l1_pitch = 0.35 },
 ]
+link = [{ from = "seq.notes", to = "synth.notes" }]
 # the signal strip: 16 sliders, one per step, its level the pitch (0 = the base, 1 = two octaves above), then 16 on/off
 # toggles (`on<n>`: 0 = a rest, 1 = plays; exposed as 0…1 sliders, the module reads ≥ 0.5 as on; the descriptor says
 # `choices = off|on`), the loop length and the synth's volume

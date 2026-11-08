@@ -18,6 +18,7 @@ pub mod quality;
 pub mod rig;
 pub mod splash;
 pub mod stop;
+pub mod demo_scenes;
 pub mod switcher;
 pub mod tempo;
 pub mod volume;

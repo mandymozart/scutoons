@@ -52,6 +52,9 @@ pub struct Events {
     pub(super) outlets: Vec<rtrb::Producer<Event>>,
     /// the module event outputs' deck-events events (#342, evhost.rs) for the platform to route
     pub(super) outbox: Vec<rtrb::Consumer<Event>>,
+    /// (world node, its cables) of the `generator` world nodes (#430): taken by the node's block
+    #[cfg(feature = "modules")]
+    pub(super) generators: Vec<(usize, Vec<super::evhost::Link>)>,
     sequencer: Option<Sequencer>,
     pub counters: Arc<Counters>,
 }
@@ -64,6 +67,8 @@ impl Events {
             routes: Vec::new(),
             outlets: Vec::new(),
             outbox: Vec::new(),
+            #[cfg(feature = "modules")]
+            generators: Vec::new(),
             sequencer: None,
             counters: Arc::new(Counters::default()),
         }
@@ -96,6 +101,13 @@ impl Events {
     /// (a note with its `dur`) – the platform drains them into its dispatcher. Taken once.
     pub fn take_outbox(&mut self) -> Vec<rtrb::Consumer<Event>> {
         std::mem::take(&mut self.outbox)
+    }
+
+    /// the cables of the generator world node `node` (#430), taken once
+    #[cfg(feature = "modules")]
+    pub(super) fn take_generator(&mut self, node: usize) -> Vec<super::evhost::Link> {
+        let at = self.generators.iter().position(|(n, _)| *n == node);
+        at.map(|i| self.generators.swap_remove(i).1).unwrap_or_default()
     }
 
     /// the routing for a dispatcher: the table over every name interned so far, the hosts' input rings (taken)

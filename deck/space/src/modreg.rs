@@ -10,8 +10,8 @@ use std::sync::RwLock;
 /// the prefix of a module's kind name in a scene
 pub const PREFIX: &str = "module:";
 
-/// A module's ports as the graph sees them: the inputs (audio ports, control ports, then the parameters), the outputs
-/// (audio and control ports) – in the order the host's layout binds them (deck-module-host's `Layout`); its domain (an
+/// A module's ports as the graph sees them: the inputs (audio ports, control ports, the parameters, then the event ports),
+/// the outputs (audio and control ports, then the event ports) – in the order the host's layout binds them (deck-module-host's `Layout`); its domain (an
 /// ABI v2 module may be `control`: it runs in the control half); the control outputs that write a `path` target.
 #[derive(Debug)]
 pub struct ModuleSpec {
@@ -37,11 +37,13 @@ pub struct PortDef {
     pub name: String,
     pub ty: PortType,
     pub channels: Option<Channels>,
+    /// an event port's names (what a cable can carry); empty for the others
+    pub names: Vec<String>,
 }
 
 impl PortDef {
     pub fn new(name: &str, ty: PortType) -> PortDef {
-        PortDef { name: name.to_owned(), ty, channels: None }
+        PortDef { name: name.to_owned(), ty, channels: None, names: Vec::new() }
     }
 }
 
@@ -71,7 +73,16 @@ impl ModuleDef {
     /// one mapping from a module to the graph (the native library's loaded modules, a rig's policy in a validation).
     pub fn of(desc: &deck_catalog::Descriptor) -> ModuleDef {
         let g = desc.graph();
-        let port = |p: &deck_catalog::GraphPort| PortDef { name: p.name.clone(), ty: if p.audio { PortType::Audio } else { PortType::Control }, channels: p.channels };
+        let port = |p: &deck_catalog::GraphPort| PortDef {
+            name: p.name.clone(),
+            ty: match p.ty {
+                deck_catalog::PortType::Audio | deck_catalog::PortType::Cv => PortType::Audio,
+                deck_catalog::PortType::Event => PortType::Event,
+                _ => PortType::Control,
+            },
+            channels: p.channels,
+            names: p.names.clone(),
+        };
         ModuleDef {
             inputs: g.inputs.iter().map(port).collect(),
             outputs: g.outputs.iter().map(port).collect(),
@@ -95,7 +106,8 @@ fn leak(s: &str) -> &'static str {
 }
 
 fn ports(list: &[PortDef]) -> &'static [Port] {
-    Box::leak(list.iter().map(|p| Port { name: leak(&p.name), ty: p.ty, channels: p.channels }).collect::<Vec<_>>().into_boxed_slice())
+    let names = |p: &PortDef| -> &'static [&'static str] { Box::leak(p.names.iter().map(|n| leak(n)).collect::<Vec<_>>().into_boxed_slice()) };
+    Box::leak(list.iter().map(|p| Port { name: leak(&p.name), ty: p.ty, channels: p.channels, names: names(p) }).collect::<Vec<_>>().into_boxed_slice())
 }
 
 /// Registers `module:<name>` as `def` says. The same name with the same ports, defaults, domain and targets is the kind
@@ -103,7 +115,7 @@ fn ports(list: &[PortDef]) -> &'static [Port] {
 pub fn register(name: &str, def: &ModuleDef) -> ModuleKind {
     let kind = format!("{PREFIX}{name}");
     let mut reg = REGISTRY.write().unwrap_or_else(|e| e.into_inner());
-    let same_ports = |a: &[Port], b: &[PortDef]| a.len() == b.len() && a.iter().zip(b).all(|(p, d)| p.name == d.name && p.ty == d.ty && p.channels == d.channels);
+    let same_ports = |a: &[Port], b: &[PortDef]| a.len() == b.len() && a.iter().zip(b).all(|(p, d)| p.name == d.name && p.ty == d.ty && p.channels == d.channels && p.names.iter().copied().eq(d.names.iter().map(String::as_str)));
     let same = |s: &ModuleSpec| {
         s.kind == kind
             && same_ports(s.inputs, &def.inputs)

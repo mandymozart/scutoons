@@ -1760,6 +1760,38 @@
       ]
     },
     {
+      "name": "world",
+      "version": "1",
+      "domain": "audio",
+      "doc": "A source from outside as a node (#430): `source` says which, `listen` is its name filter – the one place in a document that names a world event; its `events` output is cabled like a module's. `midi`: the events of the MIDI adapter. `generator`: the deck-events patch in its `patch` table runs here and its notes go down its cables only. An event input with no cable hears nothing.",
+      "feature": "events",
+      "module": "stage",
+      "scope": "graph",
+      "follow_transport": true,
+      "ports": [
+        {
+          "name": "events",
+          "dir": "out",
+          "type": "event",
+          "doc": "what the source sends, the names in `listen`"
+        }
+      ],
+      "params": [
+        {
+          "name": "source",
+          "min": 0.0,
+          "max": 0.0,
+          "default": null,
+          "curve": "lin",
+          "choices": [
+            "midi",
+            "generator"
+          ],
+          "doc": "where the events come from"
+        }
+      ]
+    },
+    {
       "name": "smooth",
       "version": "1",
       "domain": "control",

@@ -1,4 +1,4 @@
-Status 2026-11-08: design note for the owner's review (#203, slice 3 of #425). Nothing built. Owner 2026-11-08: wiring is configuration, not Rust: question 1 and slice W3 fall away, §2 is to be reread against that (decisions/deck.md [rigs]); the other answers are there too.
+Status 2026-11-08: design note for the owner's review (#203, slice 3 of #425). W2 built (#430, event cables, silent tracks, world nodes); W1 and W4–W6 not built. Owner 2026-11-08: wiring is configuration, not Rust: question 1 and slice W3 fall away, §2 is to be reread against that (decisions/deck.md [rigs]); the other answers are there too.
 
 # MODULE-WIRING – wiring modules in the editor
 

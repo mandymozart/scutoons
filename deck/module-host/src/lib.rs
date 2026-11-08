@@ -149,8 +149,8 @@ pub struct EventPort {
 /// How a module's descriptor maps onto the graph (#342): inputs are the declared audio inputs, then the control inputs
 /// (each in declaration order), then the parameters (every parameter is also a control input); outputs are the declared
 /// audio outputs and the control outputs, in declaration order (a control output with a `path` is a graph
-/// output too: deck-space binds it to its target). Event ports are not graph ports: the engine's event host routes them
-/// by their deck-events names. `in_ports` / `out_ports` name the graph ports (parallel to `inputs` / `outputs`).
+/// output too: deck-space binds it to its target). Event ports stand last in the graph's numbering and are no binds here:
+/// the engine's event host joins them by their cables (#430). `in_ports` / `out_ports` name the bound ports (parallel to `inputs` / `outputs`).
 #[derive(Debug, Clone, PartialEq)]
 pub struct Layout {
     pub inputs: Vec<InBind>,
@@ -173,8 +173,8 @@ impl Layout {
         let mut l = Layout {
             inputs: Vec::new(),
             outputs: Vec::new(),
-            in_ports: graph.inputs,
-            out_ports: graph.outputs,
+            in_ports: graph.inputs.into_iter().filter(|p| p.ty != PortType::Event).collect(),
+            out_ports: graph.outputs.into_iter().filter(|p| p.ty != PortType::Event).collect(),
             events_in: Vec::new(),
             events_out: Vec::new(),
             targets: graph.targets,
@@ -381,7 +381,7 @@ mod tests {
         ))
         .unwrap();
         assert_eq!(l.inputs, [InBind::Audio(0), InBind::Control(0), InBind::Param(0)]);
-        assert_eq!(l.in_ports.iter().map(|p| (p.name.as_str(), p.audio)).collect::<Vec<_>>(), [("w", true), ("k", false), ("a", false)]);
+        assert_eq!(l.in_ports.iter().map(|p| (p.name.as_str(), p.audio())).collect::<Vec<_>>(), [("w", true), ("k", false), ("a", false)]);
         assert_eq!(l.in_ports[0].channels, Some(Channels::Count(5)));
         assert_eq!(l.outputs, [OutBind::Audio(0), OutBind::Control(0), OutBind::Audio(1)]);
         assert_eq!(l.out_ports[0].channels, Some(Channels::Any(deck_catalog::AnyChannels::Any)));

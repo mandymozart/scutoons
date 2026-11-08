@@ -1,7 +1,7 @@
 # The being plays the analog synth and the 16-step sequencer (#418): the cathedral's being (cathedral.toml: the room, the
 # portrait head) with the `stepseq` module (16 pitch sliders `step1`..`step16`, 16 on/off switches `on1`..`on16`, `steps`,
-# `rate`, `gate`) playing the `analog` module (its `lead` preset written out) through the event host's module-to-module
-# routing (the sequencer's `notes` events reach the synth's `notes` input by name – no link needed). The being's `expose` below is
+# `rate`, `gate`) playing the `analog` module (its `lead` preset written out) through an event cable (#430: the sequencer's
+# `notes` to the synth's `notes`, the first `[[link]]` below). The being's `expose` below is
 # the list of its 3D buttons: the sliders, the switches (a plain 0..1 button each: the module reads >= 0.5 as on), the loop
 # length, the clock and the synth's main controls – no numbers, no labels (owner 2026-10-31): grab one, drag it. The same
 # sound as the rig `catpope-analog` (rigs/catpope_analog.toml) without catpope's voice and drone. Modules play only on a
@@ -148,6 +148,10 @@ glow_light = 1.0
 [[node]]
 id = "screen"
 kind = "screen"
+
+[[link]]
+from = "seq.notes"
+to = "synth.notes"
 
 [[link]]
 from = "synth.out"
