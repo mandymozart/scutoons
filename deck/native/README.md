@@ -294,7 +294,7 @@ sound: the audio graph has no cheap one-shot path from the frame thread (the cli
 body drifts, sways and breathes on the tempo clock (a swell on each beat, a wave over the bar; `pulse` kicks it); `hue`
 / `glow` colour it, `light` dims the set. The scene's `[being]` table is its shape: `size` (body radius, 0.5 m),
 `drift` (0.06 m), `breath` (0.035), `wobble` (0.025), `hose` / `bubbles` (thickness / rate factors), `expose` (the
-buttons: `"node"` or `"node.port"`, empty = all), `character` + `moods` (the head), `feel` + `react` (its feelings,
+buttons: `"node"` or `"node.port"`, empty = all; the list's order is the knobs' order on a node – the first named hangs nearest its point; a counted group `"seq.step1..16 <= seq.steps"` (#424) shows the first N of those ports, N = the value of `seq.steps` now (rounded, clamped 0..16), live – a hidden knob is not drawn, not picked, has no tether and keeps its value; the shown ones keep their place as N changes), `character` + `moods` (the head), `feel` + `react` (its feelings,
 below) – with the graph that is what a being preset saves (#191).
 
 **The head** (phase 5; owner 2026-10-30: the portrait *is* the head, organic on synthetic, Ghost in the Shell): the
@@ -364,9 +364,13 @@ rebuild); MIDI / OSC learn onto the same `Controls::set` is S6.
 
 `scenes/catpope-analog.toml` ("Catpope plays analog", #418, `--scene catpope-analog`, in the F5 list) – the being in the
 cathedral's room with the `stepseq` module playing the `analog` module (its `lead` preset; the event host routes the
-notes): the being's `expose` makes the 16 step sliders, the 16 on/off switches (each a plain 0..1 button: the module
-reads ≥ 0.5 as on – the knob widget has no two-state look yet), the loop length, rate, gate and eight synth controls
+notes): the being's `expose` makes the loop length `steps` (the first knob), the step sliders, the on/off switches (each a plain
+0..1 button: the module reads ≥ 0.5 as on – the knob widget has no two-state look yet) – both only as many as the sequence
+has steps (`seq.step1..16 <= seq.steps`, #424: turn `steps` and the knobs come and go) –, rate, gate and eight synth controls
 (volume, cutoff, resonance, filter envelope, amp decay / release, oscillator 2 detune, LFO rate) its 3D buttons.
+**Hover name** (owner 2026-11-08, "for now": the one exception to the 2026-10-31 no-numbers-no-labels rule): the knob under the
+pointer (else the selected one) wears its name beside it – a rig's `expose` label in the locale, else the parameter's name
+(`step3`, `f1_cutoff`); never a number. Drawn by the space's own label pass (deck-space, so native ≡ browser).
 Modules play only on a deck built with `--features modules` and their wasm in `DECK_MODULES`; from `deck/`:
 `cargo build --release --target wasm32-unknown-unknown -p analog-module -p stepseq-module --target-dir target/wasm-modules`,
 PowerShell `$env:DECK_MODULES = "$PWD\target\wasm-modules\wasm32-unknown-unknown\release"`, then

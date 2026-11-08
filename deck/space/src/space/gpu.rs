@@ -69,7 +69,8 @@ struct FrameUniform {
 #[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 struct Glyph {
     anchor: [f32; 3],
-    _pad: f32,
+    /// 1 = on top of everything (the shader puts it at the near plane), 0 = at its anchor's depth
+    top: f32,
     rect: [f32; 4],
     uv: [f32; 4],
     color: [f32; 4],
@@ -419,13 +420,15 @@ impl SpaceGpu {
             if self.glyphs.len() + l.text.len + 1 > GLYPHS {
                 break;
             }
-            self.glyphs.push(Glyph { anchor, _pad: 0.0, rect: [-0.3 * w, y - 0.5 * h, (n + 0.3) * w, y + 0.5 * h], uv: solid, color: [0.01, 0.012, 0.03, 0.6 * a] });
+            let top = if l.top { 1.0 } else { 0.0 };
+            let back = if l.top { 0.85 } else { 0.6 };
+            self.glyphs.push(Glyph { anchor, top, rect: [-0.3 * w, y - 0.5 * h, (n + 0.3) * w, y + 0.5 * h], uv: solid, color: [0.01, 0.012, 0.03, back * a] });
             for (k, &b) in l.text.bytes[..l.text.len].iter().enumerate() {
                 if b == b' ' {
                     continue;
                 }
                 let x = k as f32 * w;
-                self.glyphs.push(Glyph { anchor, _pad: 0.0, rect: [x, y - 0.5 * h, x + w, y + 0.5 * h], uv: self.atlas.uv(label::glyph(b)), color: l.color });
+                self.glyphs.push(Glyph { anchor, top, rect: [x, y - 0.5 * h, x + w, y + 0.5 * h], uv: self.atlas.uv(label::glyph(b)), color: l.color });
             }
         }
     }

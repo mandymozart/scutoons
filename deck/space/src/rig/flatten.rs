@@ -89,6 +89,10 @@ impl Rig {
             for TrackPatch { track, .. } in &played {
                 let inst = lib.instrument(&self.tracks.iter().find(|t| &t.id == track).expect("played").instrument)?;
                 scene.being.expose.extend(inst.expose.iter().map(|e| prefixed(track, &super::instrument::canonical(&e.path))));
+                // #424: the knobs' hover names – the labels the instrument gave its exposed parameters
+                for e in inst.expose.iter().filter(|e| !e.label.is_empty()) {
+                    scene.being.labels.insert(prefixed(track, &super::instrument::canonical(&e.path)), e.label.clone());
+                }
             }
             if let Some((_, d)) = self.policy_module(lib)? {
                 scene.being.expose.extend(d.params.iter().map(|p| format!("{}.{}", policy::NODE, p.name)));
