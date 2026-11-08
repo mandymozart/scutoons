@@ -29,6 +29,7 @@ transition = "fade"
 [[holder]]                         # a rig used by many: a reference
 place = "character:catpope"
 rig = "character.catpope"
+version = 88                       # the version it was wired against
 values = { "voice:voice.index" = 4.0 }   # only values and preset choices may differ
 
 [[holder]]                         # a rig only this scene has: embedded
@@ -53,6 +54,7 @@ to = "item:incense/hiss:noise.gain"
 ```
 
 - **Who may change what (corrected 2026-11-08 after the owner's question):** a *holder* is the place on a stage that carries a rig (character, item, scene, later show or world), not a person. A holder that references a rig changes values and preset choices. Any change to the graph is the moment of a **derivative**: the editor asks "used by N: change it for everyone, or make a version for this holder?", and the second makes an embedded rig that names its origin and version (preset.rs's lineage, #350's derive). A copy with no origin is refused (A6). Deriving copies only the rig's own graph, a few KB; instruments and modules stay shared references. "Extract to catalog" makes it reusable. For this a rig's `subject` must move out of the rig and onto the holder, so any holder can use any rig.
+- **The owner of a rig may rewrite all of it; the old version must survive (owner 2026-11-08).** Every save is already a version, but only the newest published one is served, so a rewrite would break everything pointing at the rig. *Recommended:* a reference names the version it was wired against, at every level (a holder its rig, a rig its instruments and presets; modules are pinned by hash already). A new version changes nothing for its users until each moves, which is one action, with the core checking that every address it uses still exists; the editor shows "newer version". A version something references stays readable, and any clean-up of old versions skips it. A derivative is its own document with its own versions and is not affected. Built packages are safe either way: they hold their own frozen parts.
 - **Holders may hold scenes** (`scene = "scene:choir"`), which gives the nesting the editor needs. It stays depth-limited and refuses cycles.
 - **One resolve step, in the core:** holders flatten to the one `Scene` the engine plays, using today's `flatten` with `<place>/` as the prefix. The engine, knobs and relay keep compiled slots and never see nesting.
 - **Rust where it must be:** a module stays code. A code rig's marked table (the #203 answer, W3) stays in its Rust and arrives in the package as that module's descriptor, so "graph" and the marked table do not collide: documents hold graphs, modules hold code.
@@ -91,7 +93,7 @@ Storing is like git, not like a zip of everything. Every resolved scene, rig and
 The editor's local build stays in the editor: unpublished work plays there and on no other deck (owner 2026-11-08). Trying it on a real X1 means publishing it, or running the editor on that X1. How sandboxes and real scenes split stays with the sandbox ticket. The TOML files in `native/scenes/` shrink to the idle scene and test fixtures, as already decided.
 
 ## 6. Questions for the owner
-1. ~~Pinning.~~ **Decided by the owner 2026-11-08:** documents keep "current" (as decided 2026-11-02); a package freezes what current was when it was built, and rebuilding it brings the new versions.
+1. ~~Pinning.~~ **Decided by the owner 2026-11-08:** documents keep "current" (as decided 2026-11-02); a package freezes what current was when it was built, and rebuilding it brings the new versions. Sets keep this; for rigs and instruments see §2, where a reference stays on its version.
 2. **Changing a shared rig.** *Recommend §2:* the derivative is the switch. No overlay that patches a rig from outside: it keeps the origin's updates, but breaks when the origin changes. The price is that a derivative gets no updates by itself; the editor shows "origin has a newer version".
 3. ~~Who builds and when.~~ **Decided by the owner 2026-11-08:** the Rust build service, on publish; before that it is usable only in the editor. *Recommended detail, open:* publishing the scene or show builds its package; publishing a rig it references does not, or a frozen show would change by itself.
 4. **Media.** *Recommend:* config by default, full only when asked for.
