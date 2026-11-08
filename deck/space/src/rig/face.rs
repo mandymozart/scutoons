@@ -141,7 +141,7 @@ impl Rig {
         let policy = match self.policy_module(lib)? {
             None => None,
             Some((p, d)) => {
-                let played: Vec<&str> = self.tracks.iter().filter(|t| !t.mute).map(|t| t.id.as_str()).collect();
+                let strips: Vec<&str> = self.tracks.iter().filter(|t| !t.mute && lib.instrument(&t.instrument).is_ok_and(|i| i.out.is_some())).map(|t| t.id.as_str()).collect();
                 let params = d
                     .params
                     .iter()
@@ -154,7 +154,7 @@ impl Rig {
                         let resolved = match &g.member {
                             Member::Input(inner) => Resolved::Input { input: prefixed(&g.track, inner) },
                             Member::Gain => {
-                                let (n, k) = policy::strip(played.iter().position(|t| *t == g.track).expect("checked: an unmuted track"));
+                                let (n, k) = policy::strip(strips.iter().position(|t| *t == g.track).expect("checked: an unmuted track that sounds"));
                                 Resolved::Strip { input: format!("mix{n}.gain{k}") }
                             }
                             Member::Preset(choices) => Resolved::Preset { track: g.track.clone(), choices: choices.clone() },

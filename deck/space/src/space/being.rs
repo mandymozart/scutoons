@@ -179,6 +179,8 @@ enum Flow {
     /// the source's audio output buffer's peak (node, port)
     Audio(usize, usize),
     Video,
+    /// #430: an event cable carries no level
+    Event,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
@@ -531,6 +533,7 @@ impl Being {
                     PortType::Control => (Flow::Control(l.from.0, l.from.1), 0.016),
                     PortType::Audio => (Flow::Audio(l.from.0, l.from.1), 0.028),
                     PortType::Video => (Flow::Video, 0.026),
+                    PortType::Event => (Flow::Event, 0.016),
                 };
                 Hose {
                     link: li,
@@ -797,7 +800,7 @@ impl Being {
                     }
                     (level.sqrt() * 9.0, 0.3 + 0.7 * level.sqrt())
                 }
-                Flow::Video => (1.5, 0.35),
+                Flow::Video | Flow::Event => (1.5, 0.35),
             };
             let rate = rate * look.bubbles;
             h.activity += ((rate / 8.0).min(1.0) - h.activity) * (dt * 3.0).min(1.0);
@@ -1176,7 +1179,7 @@ impl Being {
         let counts = self.buttons.iter().filter_map(|b| b.limit).map(|l| Path::Input(l.node, l.port));
         let hoses = self.hoses.iter().filter_map(|h| match h.flow {
             Flow::Control(n, p) | Flow::Audio(n, p) => Some(Path::Output(n, p)),
-            Flow::Video => None,
+            Flow::Video | Flow::Event => None,
         });
         for p in buttons.chain(counts).chain(hoses) {
             if !out.contains(&p) {

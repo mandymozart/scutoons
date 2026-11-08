@@ -17,7 +17,7 @@ export type AssetKind = "pcm" | "bytes" | "image";
 
 export type Bundle = {
 	instrument?: Instrument[];
-	/** a code rig's policy module: its descriptor (the `module:<id>` document's, #408) */
+	/** the modules it plays: a code rig's policy (#408), a track's module (#430) – the `module:<id>` documents' descriptors */
 	module?: Descriptor[];
 	preset?: Preset[];
 	rig: Rig;
@@ -98,8 +98,8 @@ export type Instrument = {
 	link?: LinkDef[];
 	name?: { [key: string]: string };
 	node: NodeDef[];
-	/** the track's output: an audio output `node.port` (a bare node = its `out`) */
-	out: string;
+	/** the track's output: an audio output `node.port` (a bare node = its `out`). None (#430): a silent track – a note source (a step sequencer, a world node) with no strip and no outlet, wired by event cables */
+	out?: string | null;
 	rights?: Rights;
 };
 
@@ -233,7 +233,7 @@ export type Rights = {
 	owned?: Right[];
 };
 
-/** `from` / `to` are `<track>:<node>.<port>`; `to` may be `being:<input>` (the space node's hue, glow, light, pulse). Every track reaches the master through its mixer strip; an audio route is a send into another track's audio input (an fx track; `scale` = its level), a control route a modulation. */
+/** `from` / `to` are `<track>:<node>.<port>`; `to` may be `being:<input>` (the space node's hue, glow, light, pulse). Every sounding track reaches the master through its mixer strip; an audio route is a send into another track's audio input (an fx track; `scale` = its level), a control route a modulation, an event route an event cable (#430: many to many, a note source's silent track to a synth's track). */
 export type Route = {
 	from: string;
 	offset?: number;

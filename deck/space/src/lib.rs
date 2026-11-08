@@ -10,6 +10,7 @@ pub mod devices;
 pub mod gamepad;
 pub mod gesture;
 pub mod graph;
+pub mod world;
 pub mod modreg;
 pub mod mood;
 pub mod params;

@@ -156,7 +156,7 @@ fn drive(inst: &mut Instance<Wasmtime>, pass: Pass) {
             InBind::Param(_) => {}
         }
     }
-    for (p, out) in loaded.layout.out_ports.iter().filter(|p| p.audio).enumerate() {
+    for (p, out) in loaded.layout.out_ports.iter().filter(|p| p.audio()).enumerate() {
         inst.set_channels(false, p, channels(out, shape.audio_out[p]));
     }
     let mut noise = 0x2545_f491u32;

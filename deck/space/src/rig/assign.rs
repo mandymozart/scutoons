@@ -191,15 +191,17 @@ const MODULE_KNOBS: usize = 8;
 
 /// The instrument that wraps ONE module (#425, the way deck/native/rigs/catpope_analog.toml does by hand): a single
 /// `module:<name>` node `module`, its first audio output as the track's `out`, the first few numeric parameters exposed.
-/// A module without an audio output (a note source such as stepseq) cannot be a track on its own: it says so.
+/// A module with no audio output that sends events (a note source such as stepseq) is a silent track wired by event cables
+/// (#430, #425 slice 3); one with neither has nothing a track could carry: it says so.
 pub fn module_instrument(module: &str, descriptor: &Descriptor) -> Result<Instrument> {
     use deck_catalog::{Dir, PortType};
     if descriptor.name != module {
         bail!("the module document \"{module}\" carries the descriptor of \"{}\"", descriptor.name)
     }
-    let Some(out) = descriptor.ports_of(Dir::Out, PortType::Audio).next() else {
-        bail!("module:{module} has no audio output – it makes notes or control, not sound: wire it into a synth (the patch editor, #203)")
-    };
+    let out = descriptor.ports_of(Dir::Out, PortType::Audio).next();
+    if out.is_none() && descriptor.ports_of(Dir::Out, PortType::Event).next().is_none() {
+        bail!("module:{module} has no audio output and no event output – a track needs sound or events to send")
+    }
     let expose = descriptor
         .params
         .iter()
@@ -213,7 +215,7 @@ pub fn module_instrument(module: &str, descriptor: &Descriptor) -> Result<Instru
         name: super::Text::from([("en".to_string(), module.to_string())]),
         nodes: vec![crate::scene::NodeDef { id: "module".into(), kind: format!("module:{module}"), params: toml::Table::new() }],
         links: Vec::new(),
-        out: format!("module.{}", out.name),
+        out: out.map(|p| format!("module.{}", p.name)),
         expose,
         rights: Default::default(),
     })
@@ -384,12 +386,16 @@ mod tests {
                 "params": [{ "name": "volume", "min": 0.0, "max": 1.0, "default": 0.6 }, { "name": "wave", "choices": ["saw", "sine"] }, { "name": "flat", "min": 1.0, "max": 1.0 }] }
         });
         let i: Instrument = serde_json::from_str(&module_instrument_json(&json!({ "module": synth }).to_string()).unwrap()).unwrap();
-        assert_eq!((i.id.as_str(), i.out.as_str()), ("synthx", "module.out"));
+        assert_eq!((i.id.as_str(), i.out.as_deref()), ("synthx", Some("module.out")));
         assert_eq!(i.nodes.iter().map(|n| (n.id.as_str(), n.kind.as_str())).collect::<Vec<_>>(), [("module", "module:synthx")]);
         assert_eq!(i.expose.iter().map(|e| (e.path.as_str(), e.range)).collect::<Vec<_>>(), [("module.volume", Some([0.0, 1.0]))], "a choice and a flat range are no knobs");
-        // a note source has no sound of its own; a module nobody compiled has no descriptor; a wrong descriptor is refused
-        let notes = json!({ "id": "steps", "descriptor": { "name": "steps", "ports": [{ "name": "notes", "dir": "out", "type": "event" }] } });
-        assert!(module_instrument_json(&json!({ "module": notes }).to_string()).unwrap_err().to_string().contains("module:steps has no audio output"));
+        // #430, #425 slice 3: a note source is a silent track; a module with neither sound nor events is refused; a module
+        // nobody compiled has no descriptor; a wrong descriptor is refused
+        let notes = json!({ "id": "steps", "descriptor": { "name": "steps", "ports": [{ "name": "notes", "dir": "out", "type": "event", "names": ["music.note"] }] } });
+        let silent: Instrument = serde_json::from_str(&module_instrument_json(&json!({ "module": notes }).to_string()).unwrap()).unwrap();
+        assert_eq!((silent.id.as_str(), silent.out), ("steps", None), "no `out`: no strip");
+        let nothing = json!({ "id": "plain", "descriptor": { "name": "plain", "ports": [{ "name": "k", "dir": "out", "type": "control" }] } });
+        assert!(module_instrument_json(&json!({ "module": nothing }).to_string()).unwrap_err().to_string().contains("no audio output and no event output"));
         assert_eq!(module_instrument_json(&json!({ "module": { "id": "raw" } }).to_string()).unwrap_err().to_string(), "module:raw has no descriptor yet – compile it first");
         let other = json!({ "id": "synthx", "descriptor": { "name": "other", "ports": [] } });
         assert!(module_instrument_json(&json!({ "module": other }).to_string()).unwrap_err().to_string().contains("carries the descriptor of \"other\""));

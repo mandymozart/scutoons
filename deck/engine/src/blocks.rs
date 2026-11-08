@@ -72,6 +72,8 @@ pub fn make(node: &Node, index: usize, rate: f32, params: &[Param], h: &mut Hand
         Kind::Walk => Box::new(super::walk::Host::walk(node, rate, [p("spread"), p("rate"), p("glide")], beats(h), follows(node), &mut h.events)?),
         #[cfg(feature = "events")]
         Kind::Events => Box::new(super::walk::Host::events(node, rate, [p("a"), p("b"), p("c"), p("d")], beats(h), follows(node), &mut h.events)?),
+        #[cfg(feature = "events")]
+        Kind::World => super::walk::world_block(node, index, rate, beats(h), follows(node), seams.tuning, &mut h.events)?,
         Kind::ChapterMusic => {
             let (tx, rx) = rtrb::RingBuffer::new(2);
             let (trash_tx, trash_rx) = rtrb::RingBuffer::new(2);

@@ -18,6 +18,8 @@ export interface GraphNode {
 	inputs: GraphPort[];
 	outputs: GraphPort[];
 	played: boolean;
+	/** a world node's source and name filter (the core's) */
+	world?: { source: string; listen: string[] };
 }
 
 export interface GraphLink {
@@ -61,6 +63,7 @@ export interface PlacedNode {
 	h: number;
 	inputs: PlacedPort[];
 	outputs: PlacedPort[];
+	world?: { source: string; listen: string[] };
 }
 
 export interface PlacedCable {
@@ -105,6 +108,7 @@ export function layoutGraph(g: GraphIn): GraphLayout {
 			y,
 			w: NODE.width,
 			h,
+			world: n.world,
 			inputs: n.inputs.map((p, k) => ({ name: p.name, type: p.type, x, y: row(k), wired: wired.has(`${i}<${p.name}`) })),
 			outputs: n.outputs.map((p, k) => ({ name: p.name, type: p.type, x: x + NODE.width, y: row(k), wired: wired.has(`${i}>${p.name}`) }))
 		};
