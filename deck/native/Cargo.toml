@@ -32,7 +32,7 @@ sync = ["dep:ureq", "dep:serde_json", "dep:protocol"]
 chapter = ["dep:ureq", "dep:serde_json", "dep:symphonia", "image/webp"]
 # a Live outlet (#186): the `outlet` node joins the relay as `output` of this deck's outlet, preloads the show media with
 # the deck token (deck-link) and renders the outlet's cells natively (live/); slices and text come from `chapter`
-live = ["chapter", "dep:protocol", "dep:tungstenite", "dep:rustls"]
+live = ["chapter", "dep:protocol", "dep:tungstenite", "dep:rustls", "dep:wtransport", "dep:webpki-roots", "dep:tokio"]
 # generators that talk in events (#236, deck-events): the `walk` node – a seeded melody as seq's cv
 events = ["dep:deck-events", "deck-engine/events"]
 # rig modules (#280, research/RIG-EDITING.md §4): compiled wasm instruments (deck-module's SDK) run in wasmtime – the
@@ -108,6 +108,9 @@ protocol = { workspace = true, optional = true }
 # the one ureq already links, named here so `live` has its crypto provider on its own
 tungstenite = { version = "0.24", optional = true, features = ["rustls-tls-webpki-roots"] }
 rustls = { version = "0.23", optional = true, default-features = false, features = ["ring", "std", "tls12"] }
+# QUIC to the relay (#438, live/quic.rs): the door browsers open as WebTransport; ring, as above; a live deck has no CA store of its own
+wtransport = { version = "0.7", optional = true, default-features = false, features = ["ring"] }
+webpki-roots = { version = "1", optional = true }
 # #211: the outputs' engine + runner and the bridge's adapters (USB-DMX, MIDI out)
 deck-outputs = { workspace = true, optional = true }
 adapters-core = { workspace = true, optional = true }
@@ -141,6 +144,8 @@ harness = false
 [dev-dependencies]
 # tests/live_relay.rs: the deck's outlet against the real relay on 127.0.0.1 (#186)
 relay = { path = "../relay" }
+# tests/live_quic.rs: a certificate pinned by hash, as a venue's self-signed relay would be
+wtransport = { version = "0.7", default-features = false, features = ["ring", "self-signed"] }
 tokio = { workspace = true }
 
 # a stand-in conductor for trying an outlet (#186): `cargo run -p deck-native --example live-cue -- <relay> examples/sermon.json`

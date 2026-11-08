@@ -1,117 +1,72 @@
-//! #438: the QUIC doors – raw `quinn` (ALPN `scutoons-live`) and WebTransport (`wtransport`, what a browser opens). One
-//! bidirectional stream carries the reliable lane (newline-delimited, `line`), datagrams the unreliable one. TLS 1.3 from
-//! the first flight, so `hello.token` never crosses the internet in clear.
+//! #438: the QUIC door – WebTransport (`wtransport`), what a browser opens and what the native decks dial too (the owner,
+//! 2026-11-08: "Quic it is"). One bidirectional stream carries the reliable lane (`protocol::lines`), datagrams the
+//! unreliable one. TLS 1.3 from the first flight, so `hello.token` never crosses the internet in clear.
 
 use std::future::Future;
 use std::net::SocketAddr;
-use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use quinn::rustls::pki_types::{CertificateDer, PrivateKeyDer};
-use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader};
+use protocol::lines::{line, Lines};
 use tokio::sync::mpsc;
+use wtransport::quinn::{AckFrequencyConfig, TransportConfig};
+use wtransport::{Connection, Endpoint, RecvStream, SendStream, ServerConfig};
 
-use super::{line, Doors, Member, DOOR_IDLE, MAX_LINE};
+use super::{Doors, Member, DOOR_IDLE};
 use crate::outbox::{Lane, MAX_BYTES};
+use crate::tls::TlsFiles;
 use crate::{parse_join, Join, HELLO_TIMEOUT, PING_EVERY};
 
-pub const ALPN: &[u8] = b"scutoons-live";
-
-/// Prototype knob (0 = quinn's default, 25 ms): the ack delay asked of the peer through the ack-frequency extension.
-/// It shortens the probe timeout, which is what a lost cue on an idle stream waits for.
-pub static ACK_DELAY_MS: AtomicU64 = AtomicU64::new(0);
-
-/// What the pump needs from a QUIC connection.
-pub trait Conn: Clone + Send + Sync + 'static {
-    /// false: too large for one datagram or not allowed – the caller sends it on the reliable lane
-    fn send_dgram(&self, payload: &[u8]) -> bool;
-    fn rtt(&self) -> Duration;
-    fn recv_dgram(&self) -> impl Future<Output = Option<Vec<u8>>> + Send;
-}
-
-impl Conn for quinn::Connection {
-    fn send_dgram(&self, payload: &[u8]) -> bool {
-        self.send_datagram(payload.to_vec().into()).is_ok()
-    }
-    fn rtt(&self) -> Duration {
-        quinn::Connection::rtt(self)
-    }
-    async fn recv_dgram(&self) -> Option<Vec<u8>> {
-        self.read_datagram().await.ok().map(|b| b.to_vec())
-    }
-}
-
-/// a WebTransport session (the same shape as a raw QUIC connection)
-#[derive(Clone)]
-pub struct Wt(pub Arc<wtransport::Connection>);
-
-impl Conn for Wt {
-    fn send_dgram(&self, payload: &[u8]) -> bool {
-        self.0.send_datagram(payload).is_ok()
-    }
-    fn rtt(&self) -> Duration {
-        self.0.rtt()
-    }
-    async fn recv_dgram(&self) -> Option<Vec<u8>> {
-        self.0.receive_datagram().await.ok().map(|d| d.payload().to_vec())
-    }
-}
-
-/// One line from `reader` into `buf` (without the newline). None: the stream ended or the line is too long.
-async fn next_line<R: AsyncRead + Unpin>(reader: &mut BufReader<R>, buf: &mut Vec<u8>) -> Option<()> {
-    let room = (MAX_LINE + 1).saturating_sub(buf.len()) as u64;
-    let n = (&mut *reader).take(room).read_until(b'\n', buf).await.ok()?;
-    if n == 0 || buf.last() != Some(&b'\n') {
-        return None;
-    }
-    buf.pop();
-    Some(())
-}
+/// The ack delay asked of the peer (quinn's default is 25 ms): it shortens the probe timeout, which is what a lost cue on
+/// an idle stream waits for (cues p99 at 1 % loss: 57 → 39 ms, a peer that honours it; browsers do not).
+const ACK_DELAY: Duration = Duration::from_millis(5);
 
 /// One connection, after the transport's handshake: admit on the first line, then both lanes until it ends.
-pub async fn pump<C, W, R>(doors: Arc<Doors>, conn: C, send: W, recv: R, join: Join) -> anyhow::Result<()>
-where
-    C: Conn,
-    W: AsyncWrite + Unpin + Send + 'static,
-    R: AsyncRead + Unpin + Send + 'static,
-{
-    let mut reader = BufReader::new(recv);
-    let mut buf = Vec::with_capacity(1024);
+async fn pump(doors: Arc<Doors>, conn: Arc<Connection>, send: SendStream, mut recv: RecvStream, join: Join) -> anyhow::Result<()> {
     let (tx, rx) = mpsc::unbounded_channel::<Vec<u8>>();
     let queued = Arc::new(AtomicUsize::new(0));
     let stream = tokio::spawn(stream_writer(send, rx, queued.clone()));
+    let mut lines = Lines::default();
+    let mut chunk = vec![0u8; 16 * 1024];
 
-    tokio::time::timeout(HELLO_TIMEOUT, next_line(&mut reader, &mut buf)).await?.ok_or_else(|| anyhow::anyhow!("no hello"))?;
-    let member = match doors.admit(std::str::from_utf8(&buf)?, join) {
+    let mut waiting = tokio::time::timeout(HELLO_TIMEOUT, async {
+        loop {
+            let n = recv.read(&mut chunk).await?.ok_or_else(|| anyhow::anyhow!("no hello"))?;
+            let got = lines.push(&chunk[..n]).map_err(|_| anyhow::anyhow!("hello too long"))?;
+            if !got.is_empty() {
+                return anyhow::Ok(got.into_iter());
+            }
+        }
+    })
+    .await??;
+    let first = waiting.next().expect("at least the hello");
+    let member = match doors.admit(&first, join) {
         Ok(m) => Arc::new(m),
         Err(refusal) => {
-            let mut out = Vec::new();
-            line(&refusal, &mut out);
-            tx.send(out).ok();
+            tx.send(line(&refusal)).ok();
             drop(tx);
             stream.await.ok();
             return Ok(());
         }
     };
-    buf.clear();
+    for text in waiting {
+        member.text(&text);
+    }
     let writer = tokio::spawn(write(conn.clone(), member.clone(), tx, queued));
 
     loop {
         tokio::select! {
-            got = next_line(&mut reader, &mut buf) => {
-                if got.is_none() {
-                    break;
+            got = recv.read(&mut chunk) => {
+                let Ok(Some(n)) = got else { break };
+                let Ok(got) = lines.push(&chunk[..n]) else { break };
+                for text in got {
+                    member.text(&text);
                 }
-                match std::str::from_utf8(&buf) {
-                    Ok(text) => member.text(text),
-                    Err(_) => break,
-                }
-                buf.clear();
             }
-            d = conn.recv_dgram() => match d {
-                Some(d) => member.datagram(&d),
-                None => break,
+            d = conn.receive_datagram() => match d {
+                Ok(d) => member.datagram(d.payload().as_ref()),
+                Err(_) => break,
             },
             _ = member.outbox.dropped() => break, // too far behind: it reconnects and resyncs from its snapshot
         }
@@ -123,7 +78,7 @@ where
 }
 
 /// The reliable lane on its own task: a stalled stream must not hold up the datagrams behind it.
-async fn stream_writer<W: AsyncWrite + Unpin>(mut send: W, mut rx: mpsc::UnboundedReceiver<Vec<u8>>, queued: Arc<AtomicUsize>) {
+async fn stream_writer(mut send: SendStream, mut rx: mpsc::UnboundedReceiver<Vec<u8>>, queued: Arc<AtomicUsize>) {
     while let Some(bytes) = rx.recv().await {
         let n = bytes.len();
         if send.write_all(&bytes).await.is_err() {
@@ -131,11 +86,11 @@ async fn stream_writer<W: AsyncWrite + Unpin>(mut send: W, mut rx: mpsc::Unbound
         }
         queued.fetch_sub(n, Ordering::Relaxed);
     }
-    send.shutdown().await.ok();
+    send.finish().await.ok();
 }
 
 /// One client's writer: what its outbox lets go, each message on its lane; the transport's round trip once a second.
-async fn write<C: Conn>(conn: C, member: Arc<Member>, tx: mpsc::UnboundedSender<Vec<u8>>, queued: Arc<AtomicUsize>) {
+async fn write(conn: Arc<Connection>, member: Arc<Member>, tx: mpsc::UnboundedSender<Vec<u8>>, queued: Arc<AtomicUsize>) {
     let outbox = member.outbox.clone();
     let mut batch: Vec<(Lane, String)> = Vec::with_capacity(64);
     let mut next_rtt = tokio::time::Instant::now() + PING_EVERY;
@@ -149,8 +104,8 @@ async fn write<C: Conn>(conn: C, member: Arc<Member>, tx: mpsc::UnboundedSender<
         if !batch.is_empty() {
             let mut reliable = Vec::new();
             for (lane, text) in batch.drain(..) {
-                if lane == Lane::Reliable || !conn.send_dgram(text.as_bytes()) {
-                    line(&text, &mut reliable);
+                if lane == Lane::Reliable || text.len() > protocol::lines::DATAGRAM_MAX || conn.send_datagram(text.as_bytes()).is_err() {
+                    reliable.extend_from_slice(&line(&text));
                 }
             }
             if !reliable.is_empty() {
@@ -160,8 +115,7 @@ async fn write<C: Conn>(conn: C, member: Arc<Member>, tx: mpsc::UnboundedSender<
                     break;
                 }
             }
-            let done = Instant::now();
-            if outbox.sent(done, Duration::ZERO, took.waited) {
+            if outbox.sent(Instant::now(), Duration::ZERO, took.waited) {
                 member.tell_presence();
             }
             continue;
@@ -174,76 +128,23 @@ async fn write<C: Conn>(conn: C, member: Arc<Member>, tx: mpsc::UnboundedSender<
     }
 }
 
-fn transport() -> quinn::TransportConfig {
-    let mut t = quinn::TransportConfig::default();
-    t.max_idle_timeout(Some(DOOR_IDLE.try_into().expect("a small timeout")));
+fn transport() -> anyhow::Result<TransportConfig> {
+    let mut t = TransportConfig::default();
+    t.max_idle_timeout(Some(DOOR_IDLE.try_into()?));
     t.keep_alive_interval(Some(PING_EVERY));
-    let ms = ACK_DELAY_MS.load(Ordering::Relaxed);
-    if ms > 0 {
-        let mut ack = quinn::AckFrequencyConfig::default();
-        ack.max_ack_delay(Some(Duration::from_millis(ms)));
-        t.ack_frequency_config(Some(ack));
-    }
-    t
+    let mut ack = AckFrequencyConfig::default();
+    ack.max_ack_delay(Some(ACK_DELAY));
+    t.ack_frequency_config(Some(ack));
+    Ok(t)
 }
 
-/// The raw QUIC door. Binds now (a port in use is an error at once); the returned future accepts until the endpoint closes.
-pub fn quinn_door(doors: Arc<Doors>, addr: SocketAddr, chain: Vec<CertificateDer<'static>>, key: PrivateKeyDer<'static>) -> anyhow::Result<impl Future<Output = ()> + Send> {
-    let provider = Arc::new(rustls::crypto::ring::default_provider());
-    let mut crypto = rustls::ServerConfig::builder_with_provider(provider)
-        .with_protocol_versions(&[&rustls::version::TLS13])?
-        .with_no_client_auth()
-        .with_single_cert(chain, key)?;
-    crypto.alpn_protocols = vec![ALPN.to_vec()];
-    let mut config = quinn::ServerConfig::with_crypto(Arc::new(quinn::crypto::rustls::QuicServerConfig::try_from(crypto)?));
-    config.transport_config(Arc::new(transport()));
-    let endpoint = quinn::Endpoint::server(config, addr)?;
-    Ok(async move {
-        while let Some(incoming) = endpoint.accept().await {
-            let doors = doors.clone();
-            tokio::spawn(async move {
-                let ended: anyhow::Result<()> = async {
-                    let conn = incoming.await?;
-                    let (send, recv) = conn.accept_bi().await?;
-                    pump(doors, conn, send, recv, Join::default()).await
-                }
-                .await;
-                if let Err(e) = ended {
-                    tracing::debug!("quinn door: {e}");
-                }
-            });
-        }
-    })
-}
-
-/// A client's end of the raw door (tests, the bench).
-pub async fn quinn_client(addr: SocketAddr, trust: CertificateDer<'static>) -> anyhow::Result<(quinn::Connection, quinn::SendStream, quinn::RecvStream)> {
-    let mut roots = rustls::RootCertStore::empty();
-    roots.add(trust)?;
-    let provider = Arc::new(rustls::crypto::ring::default_provider());
-    let mut crypto = rustls::ClientConfig::builder_with_provider(provider)
-        .with_protocol_versions(&[&rustls::version::TLS13])?
-        .with_root_certificates(roots)
-        .with_no_client_auth();
-    crypto.alpn_protocols = vec![ALPN.to_vec()];
-    let mut config = quinn::ClientConfig::new(Arc::new(quinn::crypto::rustls::QuicClientConfig::try_from(crypto)?));
-    config.transport_config(Arc::new(transport()));
-    let mut endpoint = quinn::Endpoint::client("127.0.0.1:0".parse()?)?;
-    endpoint.set_default_client_config(config);
-    let conn = endpoint.connect(addr, "localhost")?.await?;
-    let (send, recv) = conn.open_bi().await?;
-    Ok((conn, send, recv))
-}
-
-/// The WebTransport door: the URL's path is the join (`/live/<code>?role=…`), as on the WebSocket path.
-pub fn wt_door(doors: Arc<Doors>, addr: SocketAddr, identity: wtransport::Identity) -> anyhow::Result<impl Future<Output = ()> + Send> {
-    let config = wtransport::ServerConfig::builder()
-        .with_bind_address(addr)
-        .with_identity(identity)
-        .keep_alive_interval(Some(PING_EVERY))
-        .max_idle_timeout(Some(DOOR_IDLE))?
-        .build();
-    let endpoint = wtransport::Endpoint::server(config)?;
+/// The door on `addr` (UDP), under the certificate of `files` – loaded again when the files change, as on the wss port
+/// (tls.rs). The URL's path is the join (`/live/<code>?role=…`), as on the WebSocket path. Binds now (a port in use is
+/// an error at once); the returned future accepts until the relay stops.
+pub fn door(doors: Arc<Doors>, addr: SocketAddr, files: TlsFiles) -> anyhow::Result<impl Future<Output = ()> + Send> {
+    let tls = crate::tls::quic_config(files).map_err(anyhow::Error::msg)?;
+    let config = ServerConfig::builder().with_bind_address(addr).with_custom_tls_and_transport(tls, transport()?).build();
+    let endpoint = Endpoint::server(config)?;
     Ok(async move {
         loop {
             let incoming = endpoint.accept().await;
@@ -254,11 +155,11 @@ pub fn wt_door(doors: Arc<Doors>, addr: SocketAddr, identity: wtransport::Identi
                     let join = parse_join(request.path());
                     let conn = request.accept().await?;
                     let (send, recv) = conn.accept_bi().await?;
-                    pump(doors, Wt(Arc::new(conn)), send, recv, join).await
+                    pump(doors, Arc::new(conn), send, recv, join).await
                 }
                 .await;
                 if let Err(e) = ended {
-                    tracing::debug!("webtransport door: {e}");
+                    tracing::debug!("quic door: {e}");
                 }
             });
         }

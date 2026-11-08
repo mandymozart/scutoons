@@ -32,37 +32,31 @@ baseline() {
   done
 }
 
-one() { # one <loss> <resend> <label> <doors args …>
-  local loss=$1 resend=$2 label=$3; shift 3
+one() { # one <loss> <label> <doors args …>
+  local loss=$1 label=$2; shift 2
   path "$loss"
   for i in $(seq "$runs"); do
     nstat -n
-    "$doors" --seconds "$secs" --resend "$resend" --label "$label loss$loss" "$@" >> "$out/doors.jsonl" 2>> "$out/doors.err"
+    "$doors" --seconds "$secs" --label "$label loss$loss" "$@" >> "$out/doors.jsonl" 2>> "$out/doors.err"
     echo "$label loss$loss run $i: $(counters)" >> "$out/doors.counters.txt"
   done
 }
 
 doors_matrix() {
   for loss in 0 1 5; do
-    for via in ws quinn wt renet2; do one "$loss" 40 "$via" --via "$via"; done
+    for via in ws wt; do one "$loss" "$via" --via "$via"; done
   done
 }
 
+# both doors at once, one session
 mixed() {
-  for loss in 1 5; do
-    # every door at once, one session
-    one "$loss" 40 mixed --decks-via renet2 --conductor-via wt --phones-via ws
-    # renet2's fixed retransmit timer: its default class (300 ms) and shorter
-    for resend in 20 300; do one "$loss" "$resend" "renet2-resend$resend" --via renet2; done
-    # quinn's ack delay, so a lost cue on an idle stream waits a shorter probe timeout
-    one "$loss" 40 quinn-ack5 --via quinn --ack-delay 5
-  done
+  for loss in 1 5; do one "$loss" mixed --decks-via wt,ws --conductor-via wt --phones-via wt,ws; done
 }
 
 smoke() {
   secs=5 runs=1
   path 1
-  for via in ws quinn wt renet2; do
+  for via in ws wt; do
     "$doors" --seconds 5 --label "smoke $via" --via "$via" 2>&1 | cut -c1-900
   done
 }
@@ -88,18 +82,16 @@ cost_one() { # cost_one <loss> <label> <decks> <phones> <client args …>
 cost() {
   for size in "20 100" "50 500"; do
     read -r decks phones <<< "$size"
-    for via in ws wt renet2; do cost_one 1 "alone-$via" "$decks" "$phones" --via "$via"; done
-    cost_one 1 mixed "$decks" "$phones" --decks-via renet2,wt,ws --phones-via renet2,wt,ws --conductor-via wt
-    # the target layout: native decks on RUDP, browser decks on QUIC, the audience's browsers on QUIC
-    cost_one 1 target "$decks" "$phones" --decks-via renet2,wt --phones-via wt --conductor-via wt
+    for via in ws wt; do cost_one 1 "alone-$via" "$decks" "$phones" --via "$via"; done
+    cost_one 1 mixed "$decks" "$phones" --decks-via wt,ws --phones-via wt,ws --conductor-via wt
   done
 }
 
 # what fits one datagram; a shared 2 Mbit path (does the adaptive rate see it?)
 limits() {
-  for via in quinn wt renet2; do one 1 40 "keys60-$via" --via "$via" --keys 60; done
+  one 1 keys60-wt --via wt --keys 60
   tc qdisc del dev lo root 2>/dev/null
-  for via in ws wt renet2; do
+  for via in ws wt; do
     tc qdisc del dev lo root 2>/dev/null
     tc qdisc add dev lo root netem delay 5ms rate 2mbit limit 200
     for i in $(seq "$runs"); do "$doors" --seconds "$secs" --via "$via" --label "bottleneck-$via 2mbit" >> "$out/doors.jsonl" 2>> "$out/doors.err"; done
@@ -114,52 +106,13 @@ udp_blocked() {
   iptables -D INPUT -p udp -j DROP
 }
 
-# the matrix's rows again on an idle machine; frames too large for one datagram
-control() {
-  for via in ws quinn wt renet2; do one 1 40 "control-$via" --via "$via"; done
-  for via in quinn wt renet2; do one 1 40 "keys100-$via" --via "$via" --keys 100; done
-}
-
-# the rows with TCP clients again
-tcp() {
-  one 1 40 "control-ws" --via ws
-  udp_blocked
-  for size in "20 100" "50 500"; do
-    read -r decks phones <<< "$size"
-    cost_one 1 alone-ws "$decks" "$phones" --via ws
-    cost_one 1 mixed "$decks" "$phones" --decks-via renet2,wt,ws --phones-via renet2,wt,ws --conductor-via wt
-  done
-}
-
-ladder() {
-  path 1
-  for stack in native browser; do
-    for climb in race turn; do
-      # nothing blocked
-      "$doors" --ladder-join "$stack" --climb "$climb" --joins 40 --label "none" >> "$out/ladder.jsonl" 2>> "$out/ladder.err"
-      # the RUDP port filtered, UDP 443 passing (the case for the middle rung)
-      [ "$stack" = native ] && { iptables -I INPUT -p udp --dport 7073 -j DROP
-        "$doors" --ladder-join "$stack" --climb "$climb" --joins 40 --label "rudp-blocked" >> "$out/ladder.jsonl" 2>> "$out/ladder.err"
-        iptables -D INPUT -p udp --dport 7073 -j DROP; }
-      # all UDP blocked
-      iptables -I INPUT -p udp -j DROP
-      "$doors" --ladder-join "$stack" --climb "$climb" --joins 40 --label "udp-blocked" >> "$out/ladder.jsonl" 2>> "$out/ladder.err"
-      iptables -D INPUT -p udp -j DROP
-    done
-  done
-  for i in 1 2 3; do "$doors" --ladder-show --seconds 12 --block-at 8 --label "udp-dies-midshow loss1" >> "$out/ladder.jsonl" 2>> "$out/ladder.err"; done
-}
-
 case "${1:-}" in
   cost) cost ;;
-  control) control ;;
-  tcp) tcp ;;
   limits) limits ;;
   udp-blocked) udp_blocked ;;
-  ladder) ladder ;;
   baseline) baseline ;;
   doors) doors_matrix ;;
   mixed) mixed ;;
   smoke) smoke ;;
-  *) echo "usage: run.sh baseline|doors|mixed|control|tcp|cost|limits|udp-blocked|ladder|smoke" >&2; exit 2 ;;
+  *) echo "usage: run.sh baseline|doors|mixed|cost|limits|udp-blocked|smoke" >&2; exit 2 ;;
 esac

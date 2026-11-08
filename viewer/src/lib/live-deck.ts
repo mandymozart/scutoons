@@ -23,15 +23,18 @@ export function codeOf(search: URLSearchParams, pathCode?: string): string {
  * The relay the deck joins (#199, owner 2026-10-31: "the relay needs a fixed, pre-built socket address"): the hosted
  * one, `<live>/live/<code>` – `live` = LIVE_URL (`VITE_LIVE_URL`, default wss://live.scutoons.com). `?relay=` overrides
  * it (a local relay): a whole session URL `?relay=ws://host:port/live/CODE`, or a host and the code as above. A
- * `?relay=` that is no ws:// / wss:// URL is ignored.
+ * `?relay=` that is no ws:// / wss:// URL is ignored. #438: `quic` (LIVE_QUIC, or the page's `?quic=` and `?quichash=`)
+ * names the relay's QUIC door; the core reads it from the URL.
  */
-export function relayOf(search: URLSearchParams, live: string, pathCode?: string): string {
+export function relayOf(search: URLSearchParams, live: string, pathCode?: string, quic?: string): string {
 	const code = encodeURIComponent(codeOf(search, pathCode));
 	const relay = search.get('relay')?.trim();
-	if (relay && /^wss?:\/\/[^/]/.test(relay)) {
-		return /\/live\/[^/?#]+\/?$/.test(relay) ? relay : `${relay.replace(/\/+$/, '')}/live/${code}`;
-	}
-	return `${live.replace(/\/+$/, '')}/live/${code}`;
+	const named = relay && /^wss?:\/\/[^/]/.test(relay) ? relay : null;
+	const url = named ? (/\/live\/[^/?#]+\/?$/.test(named) ? named : `${named.replace(/\/+$/, '')}/live/${code}`) : `${live.replace(/\/+$/, '')}/live/${code}`;
+	const door = search.get('quic') ?? (named ? null : (quic ?? null));
+	if (door === null) return url;
+	const hash = search.get('quichash');
+	return `${url}?quic=${encodeURIComponent(door)}${hash ? `&quichash=${hash}` : ''}`;
 }
 
 /** The deck's character: `?character=`, else the member's avatar body, else the device's last one, else the default. */

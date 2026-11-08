@@ -1,12 +1,10 @@
-//! The transport bench (#438, feature `doors`): the load of examples/bench.rs – N decks with `deck.values` at 30 Hz to the
-//! conductor, M phones getting the conductor's cues at 5 Hz – over any door, under whatever the kernel does to the path
-//! (`tc netem` on lo, deck/relay/netem/run.sh). Every door joins one relay, so `--decks-via` and `--phones-via` may be
-//! lists (`renet2,wt,ws`, round robin) and the report has each door's own numbers.
+//! The transport bench (#438): the load of examples/bench.rs – N decks with `deck.values` at 30 Hz to the conductor, M
+//! phones getting the conductor's cues at 5 Hz – over either door, under whatever the kernel does to the path (`tc netem`
+//! on lo, deck/relay/netem/run.sh). Both doors join one relay, so `--decks-via` and `--phones-via` may be lists (`wt,ws`,
+//! round robin) and the report has each door's own numbers.
 //!
-//! `cargo run --release -p relay --features doors --example doors_bench -- [--via ws|quinn|wt|renet2] [--decks-via …]
-//!  [--conductor-via …] [--phones-via …] [--decks 20] [--listeners 100] [--seconds 30] [--resend 40] [--keys 0]
-//!  [--label x] [--serve | --connect] [--count-egress] [--ladder-join native|browser --climb race|turn --joins 40]
-//!  [--ladder-show --block-at 8]`
+//! `cargo run --release -p relay --example doors_bench -- [--via ws|wt] [--decks-via …] [--conductor-via …] [--phones-via …]
+//!  [--decks 20] [--listeners 100] [--seconds 30] [--keys 0] [--label x] [--serve | --connect] [--count-egress]`
 //!
 //! An unreliable lane always looks fast (what is lost is not counted), so `hold` is reported too: how old a deck's value
 //! has become when the next one replaces it – what the conductor really shows, comparable across TCP and UDP.
@@ -23,35 +21,29 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use futures_util::{SinkExt, StreamExt};
 use protocol::{Envelope, Message};
-use relay::doors::ladder::{Action, Climb, Event, Ladder, Policy, Rung};
-use relay::doors::{quic, renet, Doors};
+use relay::doors::{quic, Doors};
 use relay::outbox::Lane;
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
-use tokio::net::{TcpListener, UdpSocket};
+use tokio::net::TcpListener;
 use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite::Message as Ws;
 
 const CODE: &str = "BENCH";
 const WARMUP: Duration = Duration::from_secs(2);
-const KEY: [u8; 32] = [11; 32];
 const SHARED: &str = "/tmp/438";
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 enum Via {
     Ws = 0,
-    Quinn = 1,
-    Wt = 2,
-    Renet2 = 3,
+    Wt = 1,
 }
-const VIAS: [Via; 4] = [Via::Ws, Via::Quinn, Via::Wt, Via::Renet2];
+const VIAS: [Via; 2] = [Via::Ws, Via::Wt];
 
 fn via(v: &str) -> Via {
     match v {
         "ws" => Via::Ws,
-        "quinn" => Via::Quinn,
         "wt" => Via::Wt,
-        "renet2" => Via::Renet2,
-        _ => panic!("--via ws|quinn|wt|renet2"),
+        _ => panic!("--via ws|wt"),
     }
 }
 
@@ -67,19 +59,12 @@ struct Args {
     decks_via: Vec<Via>,
     conductor_via: Via,
     phones_via: Vec<Via>,
-    resend: Duration,
     label: String,
     hash_file: Option<String>,
-    ack_delay_ms: u64,
     keys: usize,
     serve: bool,
     connect: bool,
     count_egress: bool,
-    ladder_join: Option<String>,
-    climb: Climb,
-    joins: usize,
-    ladder_show: bool,
-    block_at: u64,
 }
 
 fn args() -> Args {
@@ -90,19 +75,12 @@ fn args() -> Args {
         decks_via: vec![Via::Ws],
         conductor_via: Via::Ws,
         phones_via: vec![Via::Ws],
-        resend: Duration::from_millis(40),
         label: String::new(),
         hash_file: None,
-        ack_delay_ms: 0,
         keys: 0,
         serve: false,
         connect: false,
         count_egress: false,
-        ladder_join: None,
-        climb: Climb::Race,
-        joins: 40,
-        ladder_show: false,
-        block_at: 8,
     };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
@@ -117,10 +95,6 @@ fn args() -> Args {
             }
             "--count-egress" => {
                 a.count_egress = true;
-                continue;
-            }
-            "--ladder-show" => {
-                a.ladder_show = true;
                 continue;
             }
             _ => {}
@@ -138,15 +112,9 @@ fn args() -> Args {
             "--decks" => a.decks = v.parse().unwrap(),
             "--listeners" => a.listeners = v.parse().unwrap(),
             "--seconds" => a.seconds = v.parse().unwrap(),
-            "--resend" => a.resend = Duration::from_millis(v.parse().unwrap()),
             "--label" => a.label = v,
             "--hash-file" => a.hash_file = Some(v),
-            "--ack-delay" => a.ack_delay_ms = v.parse().unwrap(),
             "--keys" => a.keys = v.parse().unwrap(),
-            "--ladder-join" => a.ladder_join = Some(v),
-            "--climb" => a.climb = if v == "turn" { Climb::InTurn } else { Climb::Race },
-            "--joins" => a.joins = v.parse().unwrap(),
-            "--block-at" => a.block_at = v.parse().unwrap(),
             _ => panic!("unknown argument {k}"),
         }
     }
@@ -163,8 +131,8 @@ struct Stats {
     values_us: Mutex<Vec<f64>>,
     hold_us: Mutex<Vec<f64>>,
     cues_us: Mutex<Vec<f64>>,
-    values_by: [Mutex<Vec<f64>>; 4],
-    cues_by: [Mutex<Vec<f64>>; 4],
+    values_by: [Mutex<Vec<f64>>; 2],
+    cues_by: [Mutex<Vec<f64>>; 2],
     values_sent: AtomicU64,
     values_got: AtomicU64,
     values_stale: AtomicU64,
@@ -225,12 +193,8 @@ fn egress_bytes(zero: bool) -> u64 {
 #[derive(Clone)]
 struct Net {
     ws: SocketAddr,
-    quinn: SocketAddr,
     wt: SocketAddr,
-    renet: SocketAddr,
-    chain: quinn::rustls::pki_types::CertificateDer<'static>,
     hash: wtransport::tls::Sha256Digest,
-    resend: Duration,
 }
 
 /// A client whichever door it came through: `(lane, text)` out, texts in.
@@ -238,8 +202,6 @@ struct Wire {
     tx: mpsc::UnboundedSender<(Lane, String)>,
     rx: mpsc::UnboundedReceiver<String>,
 }
-
-static NEXT_ID: AtomicU64 = AtomicU64::new(1);
 
 async fn dial(net: &Net, via: Via, path: &str) -> Wire {
     let (tx, mut out) = mpsc::unbounded_channel::<(Lane, String)>();
@@ -266,23 +228,6 @@ async fn dial(net: &Net, via: Via, path: &str) -> Wire {
                 }
             });
         }
-        Via::Quinn => {
-            let (conn, send, recv) = quic::quinn_client(net.quinn, net.chain.clone()).await.expect("quinn");
-            let c2 = conn.clone();
-            tokio::spawn(async move {
-                let _keep = c2.clone();
-                pump_out(send, &mut out, |t| c2.send_datagram(t.into_bytes().into()).is_ok()).await;
-            });
-            let inc2 = inc.clone();
-            tokio::spawn(async move {
-                while let Ok(d) = conn.read_datagram().await {
-                    if inc2.send(String::from_utf8_lossy(&d).into_owned()).is_err() {
-                        return;
-                    }
-                }
-            });
-            tokio::spawn(pump_in(recv, inc));
-        }
         Via::Wt => {
             let config = wtransport::ClientConfig::builder().with_bind_default().with_server_certificate_hashes([net.hash.clone()]).build();
             let endpoint = wtransport::Endpoint::client(config).expect("wt endpoint");
@@ -302,15 +247,6 @@ async fn dial(net: &Net, via: Via, path: &str) -> Wire {
                 }
             });
             tokio::spawn(pump_in(recv, inc));
-        }
-        Via::Renet2 => {
-            let id = NEXT_ID.fetch_add(1, Ordering::Relaxed) + ((std::process::id() as u64) << 20);
-            let (server, resend) = (net.renet, net.resend);
-            tokio::spawn(async move {
-                if let Err(e) = renet::client(server, KEY, id, resend, out, inc).await {
-                    eprintln!("renet2 client {id}: {e}");
-                }
-            });
         }
     }
     Wire { tx, rx }
@@ -344,15 +280,12 @@ fn is_welcome(t: &str) -> bool {
 
 fn main() {
     let a = args();
-    relay::doors::init_crypto();
-    quic::ACK_DELAY_MS.store(a.ack_delay_ms, Ordering::Relaxed);
     let _ = std::fs::create_dir_all(SHARED);
     let clients = tokio::runtime::Builder::new_multi_thread().worker_threads(8).enable_all().build().expect("client runtime");
 
     let (net, relay_rt) = if a.connect {
-        let chain: quinn::rustls::pki_types::CertificateDer<'static> = std::fs::read(format!("{SHARED}/chain.der")).expect("--serve first").into();
-        let hash: [u8; 32] = std::fs::read(format!("{SHARED}/hash")).unwrap().try_into().unwrap();
-        (net_of(chain, wtransport::tls::Sha256Digest::new(hash), a.resend), None)
+        let hash: [u8; 32] = std::fs::read(format!("{SHARED}/hash")).expect("--serve first").try_into().unwrap();
+        (net_of(wtransport::tls::Sha256Digest::new(hash)), None)
     } else {
         let rt = tokio::runtime::Builder::new_multi_thread().worker_threads(2).thread_name("relay").enable_all().build().expect("relay runtime");
         let net = start_doors(&rt, &a);
@@ -363,21 +296,15 @@ fn main() {
         serve_loop(&a.label);
         return;
     }
-    if let Some(stack) = a.ladder_join.clone() {
-        clients.block_on(ladder_join(&a, &net, &stack));
-    } else if a.ladder_show {
-        clients.block_on(ladder_show(&a, &net));
-    } else {
-        let stats = Arc::new(Stats { lowest_hz: AtomicU64::new(u64::MAX), ..Stats::default() });
-        let w = clients.block_on(run(a.clone(), net, stats.clone()));
-        report(&a, &stats, w);
-    }
+    let stats = Arc::new(Stats { lowest_hz: AtomicU64::new(u64::MAX), ..Stats::default() });
+    let w = clients.block_on(run(a.clone(), net, stats.clone()));
+    report(&a, &stats, w);
     let _ = (&relay_rt, &clients);
     std::process::exit(0);
 }
 
-fn net_of(chain: quinn::rustls::pki_types::CertificateDer<'static>, hash: wtransport::tls::Sha256Digest, resend: Duration) -> Net {
-    Net { ws: "127.0.0.1:7070".parse().unwrap(), quinn: "127.0.0.1:7071".parse().unwrap(), wt: "127.0.0.1:7072".parse().unwrap(), renet: "127.0.0.1:7073".parse().unwrap(), chain, hash, resend }
+fn net_of(hash: wtransport::tls::Sha256Digest) -> Net {
+    Net { ws: "127.0.0.1:7070".parse().unwrap(), wt: "127.0.0.1:7072".parse().unwrap(), hash }
 }
 
 fn start_doors(rt: &tokio::runtime::Runtime, a: &Args) -> Net {
@@ -386,26 +313,18 @@ fn start_doors(rt: &tokio::runtime::Runtime, a: &Args) -> Net {
     if let Some(f) = &a.hash_file {
         std::fs::write(f, hash.fmt(wtransport::tls::Sha256DigestFmt::BytesArray)).unwrap();
     }
-    let chain: quinn::rustls::pki_types::CertificateDer<'static> = identity.certificate_chain().as_slice()[0].der().to_vec().into();
-    std::fs::write(format!("{SHARED}/chain.der"), chain.as_ref()).unwrap();
     std::fs::write(format!("{SHARED}/hash"), hash.as_ref()).unwrap();
-    let key = quinn::rustls::pki_types::PrivateKeyDer::Pkcs8(identity.private_key().secret_der().to_vec().into());
-    let net = net_of(chain.clone(), hash, a.resend);
+    let files = relay::tls::TlsFiles { cert: format!("{SHARED}/cert.pem").into(), key: format!("{SHARED}/key.pem").into() };
+    std::fs::write(&files.cert, identity.certificate_chain().as_slice()[0].to_pem()).unwrap();
+    std::fs::write(&files.key, identity.private_key().to_secret_pem()).unwrap();
+    let net = net_of(hash);
     let n = net.clone();
-    let resend = a.resend;
     rt.block_on(async move {
         let relay = Arc::new(relay::Relay::new());
         let doors = Doors::new(relay.clone());
         let ws = TcpListener::bind(n.ws).await.expect("7070");
         tokio::spawn(relay::serve(ws, relay));
-        tokio::spawn(quic::quinn_door(doors.clone(), n.quinn, vec![chain], key).unwrap());
-        tokio::spawn(quic::wt_door(doors.clone(), n.wt, identity).unwrap());
-        let udp = Arc::new(UdpSocket::bind(n.renet).await.expect("7073"));
-        tokio::spawn(async move {
-            if let Err(e) = renet::netcode_door(doors, udp, vec![], KEY, resend).await {
-                eprintln!("netcode door: {e}");
-            }
-        });
+        tokio::spawn(quic::door(doors, n.wt, files).unwrap());
     });
     net
 }
@@ -626,7 +545,7 @@ fn report(a: &Args, s: &Stats, w: Window) {
     let record = serde_json::json!({
         "label": a.label,
         "decks_via": format!("{:?}", a.decks_via), "conductor_via": format!("{:?}", a.conductor_via), "phones_via": format!("{:?}", a.phones_via),
-        "decks": a.decks, "listeners": a.listeners, "seconds": a.seconds, "resend_ms": a.resend.as_millis() as u64, "ack_delay_ms": a.ack_delay_ms, "keys": a.keys,
+        "decks": a.decks, "listeners": a.listeners, "seconds": a.seconds, "keys": a.keys,
         "values": trio(&v), "values_sent": s.values_sent.load(Ordering::Relaxed), "values_got": s.values_got.load(Ordering::Relaxed), "values_stale": s.values_stale.load(Ordering::Relaxed), "settles": s.settles.load(Ordering::Relaxed),
         "hold": trio(&h),
         "cues": trio(&c), "cues_expected": s.cues_sent.load(Ordering::Relaxed) * a.listeners as u64, "cues_got": s.cues_got.load(Ordering::Relaxed), "cues_bad": s.cues_bad.load(Ordering::Relaxed),
@@ -638,251 +557,4 @@ fn report(a: &Args, s: &Stats, w: Window) {
         "egress_kbps": (w.egress as f64 / 1024.0 / secs).round(),
     });
     println!("{record}");
-}
-
-fn via_of(r: Rung) -> Via {
-    match r {
-        Rung::Rudp => Via::Renet2,
-        Rung::Quic => Via::Wt,
-        Rung::WebSocket => Via::Ws,
-    }
-}
-
-fn hello_text(role: &str, nick: &str, resume: Option<&(String, i64)>) -> String {
-    let resume = resume.map_or(String::new(), |(client, seq)| format!(r#","resume":{{"client":"{client}","seq":{seq}}}"#));
-    let group = if role == "audience" { "a" } else { "decks" };
-    format!(r#"{{"v":1,"seq":0,"from":"","kind":"hello","p":{{"code":"{CODE}","role":"{role}","group":"{group}","nick":"{nick}"{resume}}}}}"#)
-}
-
-/// One client on the ladder: `Ladder` decides, this only dials and moves texts (what a platform adapter would do). Returns
-/// the rung in use when `on_text` says stop.
-async fn ladder_client(net: Net, policy: Policy, role: &'static str, init: Vec<String>, mut out: mpsc::UnboundedReceiver<(Lane, String)>, mut on_text: impl FnMut(&str, Rung) -> bool) -> Rung {
-    let mut ladder = Ladder::new(policy, Instant::now());
-    let (up_tx, mut up_rx) = mpsc::unbounded_channel::<(Rung, Wire)>();
-    let mut tasks: HashMap<Rung, tokio::task::JoinHandle<()>> = HashMap::new();
-    let mut wires: HashMap<Rung, Wire> = HashMap::new();
-    let mut active: Option<Rung> = None;
-    let mut me: Option<(String, i64)> = None;
-    let mut ping = tokio::time::interval(Duration::from_secs(1));
-    let nick = format!("l{}", NEXT_ID.fetch_add(1, Ordering::Relaxed));
-    let mut actions: Vec<Action> = vec![];
-    loop {
-        actions.extend(ladder.poll(Instant::now()));
-        for action in actions.drain(..) {
-            match action {
-                Action::Dial(r) => {
-                    let (net, up) = (net.clone(), up_tx.clone());
-                    let p = path(role, if role == "audience" { "a" } else { "decks" });
-                    tasks.insert(
-                        r,
-                        tokio::spawn(async move {
-                            let mut w = dial(&net, via_of(r), &p).await;
-                            if r == Rung::Rudp {
-                                // renet2's client reports its handshake with an empty text
-                                while let Some(t) = w.rx.recv().await {
-                                    if t.is_empty() {
-                                        break;
-                                    }
-                                }
-                            }
-                            up.send((r, w)).ok();
-                        }),
-                    );
-                }
-                Action::Close(r) => {
-                    if let Some(t) = tasks.remove(&r) {
-                        t.abort();
-                    }
-                    wires.remove(&r);
-                    if active == Some(r) {
-                        active = None;
-                    }
-                }
-                Action::Join { rung, resume } => {
-                    active = Some(rung);
-                    let w = wires.get(&rung).expect("a rung that came up");
-                    w.tx.send((Lane::Reliable, hello_text(role, &nick, if resume { me.as_ref() } else { None }))).ok();
-                    for text in &init {
-                        w.tx.send((Lane::Reliable, text.clone())).ok();
-                    }
-                }
-            }
-        }
-        let wake = ladder.next_wake(Instant::now());
-        let text = async {
-            match active {
-                Some(r) => wires.get_mut(&r).expect("the active rung").rx.recv().await,
-                None => std::future::pending().await,
-            }
-        };
-        tokio::select! {
-            Some((r, w)) = up_rx.recv() => {
-                wires.insert(r, w);
-                actions = ladder.on(Event::Connected(r), Instant::now());
-            }
-            t = text => match t {
-                Some(t) if t.is_empty() => {}
-                Some(t) => {
-                    ladder.on(Event::Inbound, Instant::now());
-                    if let Ok(e) = serde_json::from_str::<Envelope>(&t) {
-                        if let Message::Welcome(w) = &e.message {
-                            let seq = me.as_ref().map_or(0, |m| m.1);
-                            me = Some((w.client.clone(), seq));
-                        } else if !matches!(e.message, Message::DeckValues(_)) && e.seq > 0 {
-                            // the resume point: only messages of the reliable lane count
-                            if let Some(m) = &mut me {
-                                m.1 = m.1.max(e.seq as i64);
-                            }
-                        }
-                    }
-                    if on_text(&t, active.expect("a text from the active rung")) {
-                        for t in tasks.values() { t.abort(); }
-                        return active.expect("the active rung");
-                    }
-                }
-                None => {
-                    let r = active.expect("the active rung");
-                    actions = ladder.on(Event::Failed(r), Instant::now());
-                }
-            },
-            Some(m) = out.recv(), if active.is_some() => {
-                if let Some(w) = active.and_then(|r| wires.get(&r)) { w.tx.send(m).ok(); }
-            }
-            _ = ping.tick(), if active.is_some() => {
-                let ping = format!(r#"{{"v":1,"seq":0,"from":"","kind":"ping","p":{{"t0":{}}}}}"#, (t_us() / 1000.0) as i64);
-                if let Some(w) = active.and_then(|r| wires.get(&r)) { w.tx.send((Lane::Reliable, ping)).ok(); }
-            }
-            _ = tokio::time::sleep_until(wake.into()) => {}
-        }
-    }
-}
-
-/// How long a client needs from "go" to its `welcome`, with whatever iptables blocks now (run.sh `ladder`).
-async fn ladder_join(a: &Args, net: &Net, stack: &str) {
-    let policy = if stack == "browser" { Policy::browser(a.climb) } else { Policy::native(a.climb) };
-    let mut times = vec![];
-    let mut rungs: HashMap<String, u64> = HashMap::new();
-    for _ in 0..a.joins {
-        let start = Instant::now();
-        let (_keep, out) = mpsc::unbounded_channel();
-        let rung = tokio::time::timeout(Duration::from_secs(20), ladder_client(net.clone(), policy.clone(), "audience", vec![], out, |t, _| is_welcome(t))).await;
-        match rung {
-            Ok(r) => {
-                times.push(start.elapsed().as_secs_f64() * 1000.0);
-                *rungs.entry(format!("{r:?}")).or_default() += 1;
-            }
-            Err(_) => *rungs.entry("timeout".into()).or_default() += 1,
-        }
-        tokio::time::sleep(Duration::from_millis(30)).await;
-    }
-    times.sort_by(f64::total_cmp);
-    let r = |x: f64| (x * 10.0).round() / 10.0;
-    println!("{}", serde_json::json!({ "label": a.label, "stack": stack, "climb": format!("{:?}", a.climb), "joins": times.len(), "p50_ms": r(percentile(&times, 0.5)), "p99_ms": r(percentile(&times, 0.99)), "max_ms": r(times.last().copied().unwrap_or(f64::NAN)), "rungs": rungs }));
-}
-
-/// UDP dies mid-show: a deck and a phone on the ladder, a conductor on WebSocket (it stays). What did they lose?
-async fn ladder_show(a: &Args, net: &Net) {
-    let mut conductor = dial(net, Via::Ws, &path("conductor", "")).await;
-    conductor.tx.send((Lane::Reliable, format!(r#"{{"v":1,"seq":0,"from":"","kind":"hello","p":{{"code":"{CODE}","role":"conductor","token":"bench"}}}}"#))).unwrap();
-    let mut blocked_at: Option<Instant> = None;
-
-    // the phone
-    let phone_log = Arc::new(Mutex::new((Vec::<(u64, Rung)>::new(), Vec::<String>::new())));
-    let (_keep_phone, phone_out) = mpsc::unbounded_channel();
-    let log = phone_log.clone();
-    tokio::spawn(ladder_client(net.clone(), Policy::native(Climb::Race), "audience", vec![], phone_out, move |t, r| {
-        if let Ok(e) = serde_json::from_str::<Envelope>(t) {
-            let mut g = log.lock().unwrap();
-            match e.message {
-                Message::Welcome(w) => g.1.push(w.client),
-                Message::Cue(c) => {
-                    if let Some(n) = c.id.split_once(':').and_then(|(n, _)| n.parse().ok()) {
-                        g.0.push((n, r));
-                    }
-                }
-                _ => {}
-            }
-        }
-        false
-    }));
-    // the deck: its graph after every (re)join, values at 30 Hz through whichever rung is up
-    let (deck_tx, deck_out) = mpsc::unbounded_channel();
-    let graph = r#"{"v":1,"seq":0,"from":"","kind":"deck.graph","p":{"nodes":[{"id":"lfo","kind":"lfo"}],"links":[]}}"#.to_owned();
-    let deck_rung = Arc::new(Mutex::new(None::<Rung>));
-    let rung_log = deck_rung.clone();
-    tokio::spawn(ladder_client(net.clone(), Policy::native(Climb::Race), "musician", vec![graph], deck_out, move |_, r| {
-        *rung_log.lock().unwrap() = Some(r);
-        false
-    }));
-    tokio::spawn(async move {
-        let mut every = tokio::time::interval(Duration::from_micros(33_334));
-        let mut seq = 0u64;
-        loop {
-            every.tick().await;
-            seq += 1;
-            let msg = format!(r#"{{"v":1,"seq":{seq},"from":"","kind":"deck.values","p":{{"values":{{"bench.t":[{}]}}}}}}"#, t_us());
-            if deck_tx.send((Lane::Unreliable, msg)).is_err() {
-                return;
-            }
-        }
-    });
-
-    // the conductor's cues and what it sees
-    let cond_tx = conductor.tx.clone();
-    tokio::spawn(async move {
-        let mut every = tokio::time::interval(Duration::from_millis(200));
-        let mut n = 0u64;
-        loop {
-            every.tick().await;
-            let cue = format!(r#"{{"v":1,"seq":0,"from":"","to":{{"group":"a"}},"kind":"cue","p":{{"id":"{n}:{}","actions":[]}}}}"#, t_us());
-            n += 1;
-            if cond_tx.send((Lane::Reliable, cue)).is_err() {
-                return;
-            }
-        }
-    });
-    let (mut last_value, mut gap_ms, mut values_after) = (None::<Instant>, 0f64, 0u64);
-    let end = Instant::now() + Duration::from_secs(a.block_at + a.seconds);
-    let block_time = Instant::now() + Duration::from_secs(a.block_at);
-    let mut first_after: Option<f64> = None;
-    loop {
-        let wake = if blocked_at.is_some() { end } else { block_time };
-        let next = tokio::select! {
-            t = conductor.rx.recv() => t,
-            _ = tokio::time::sleep_until(wake.into()) => None,
-        };
-        let now = Instant::now();
-        if blocked_at.is_none() && now >= block_time {
-            let _ = Command::new("iptables").args(["-I", "INPUT", "-p", "udp", "-j", "DROP"]).output();
-            blocked_at = Some(now);
-        }
-        if now >= end {
-            break;
-        }
-        let Some(t) = next else { continue };
-        if !t.contains("\"deck.values\"") || !t.contains("bench.t") {
-            continue;
-        }
-        if let Some(l) = last_value {
-            gap_ms = f64::max(gap_ms, (now - l).as_secs_f64() * 1000.0);
-        }
-        last_value = Some(now);
-        if let Some(at) = blocked_at {
-            values_after += 1;
-            if first_after.is_none() && now - at > Duration::from_millis(500) {
-                first_after = Some((now - at).as_secs_f64() * 1000.0);
-            }
-        }
-    }
-    let g = phone_log.lock().unwrap();
-    let numbers: Vec<u64> = g.0.iter().map(|(n, _)| *n).collect();
-    let (first, last) = (numbers.first().copied().unwrap_or(0), numbers.last().copied().unwrap_or(0));
-    let unique: std::collections::BTreeSet<u64> = numbers.iter().copied().collect();
-    println!(
-        "{}",
-        serde_json::json!({ "label": a.label, "value_gap_ms": gap_ms.round(), "first_value_after_block_ms": first_after, "values_after_block": values_after,
-            "deck_rung_at_end": format!("{:?}", *deck_rung.lock().unwrap()),
-            "phone_rung_at_end": format!("{:?}", g.0.last().map(|x| x.1)), "phone_client_ids": g.1, "cues_seen": numbers.len(), "cues_range": [first, last], "cues_missing": (last - first + 1).saturating_sub(unique.len() as u64) })
-    );
-    let _ = Command::new("iptables").args(["-D", "INPUT", "-p", "udp", "-j", "DROP"]).output();
 }

@@ -229,6 +229,14 @@ impl Outbox {
     /// state-like messages before their next turn; they keep merging meanwhile. An ordered message behind them takes them
     /// along (nothing is reordered).
     pub fn take(&self, now: Instant, out: &mut Vec<String>) -> Took {
+        let mut lanes = Vec::new();
+        let took = self.take_lanes(now, &mut lanes);
+        out.extend(lanes.into_iter().map(|(_, text)| text));
+        took
+    }
+
+    /// `take`, with each message's lane (a transport that has two).
+    pub fn take_lanes(&self, now: Instant, out: &mut Vec<(Lane, String)>) -> Took {
         let mut q = self.lock();
         let mut took = Took::default();
         let paced = q.link.interval().and(q.next_paced).filter(|t| *t > now);
@@ -247,7 +255,7 @@ impl Outbox {
                     q.ordered -= 1;
                     q.bytes -= frame.text.len();
                     took.waited = took.waited.max(now.saturating_duration_since(t));
-                    out.push(frame.text.clone());
+                    out.push((Lane::Reliable, frame.text.clone()));
                 }
                 Entry::Latest(slot) => {
                     if q.open.get(&slot.key) == Some(&abs) {
@@ -256,7 +264,8 @@ impl Outbox {
                     let from = released.map_or(slot.since, |r| r.max(slot.since));
                     took.waited = took.waited.max(now.saturating_duration_since(from));
                     latest = true;
-                    out.push(slot.text());
+                    let lane = if matches!(slot.key, Latest::Values(_)) { Lane::Unreliable } else { Lane::Reliable };
+                    out.push((lane, slot.text()));
                 }
             }
         }
@@ -264,6 +273,11 @@ impl Outbox {
             q.next_paced = q.link.interval().map(|i| now + i);
         }
         took
+    }
+
+    /// The transport measured the round trip itself (QUIC – no WebSocket ping). True when the rate changed.
+    pub fn link_rtt(&self, now: Instant, rtt: Duration) -> bool {
+        self.lock().link.rtt(now, rtt)
     }
 
     /// The writer sent a batch: the socket took `flush`, its oldest message had waited `waited`. True when the rate
@@ -328,63 +342,12 @@ impl Outbox {
     }
 }
 
-/// #438 (feature `doors`): which lane a message takes on a transport that has two. Only `deck.values` may be lost – a newer
-/// one follows within 33 ms and the settle (doors/mod.rs) repairs the rest; everything else stays reliable and in order.
-#[cfg(feature = "doors")]
+/// #438: which lane a message takes on a transport that has two. Only `deck.values` may be lost – a newer one follows
+/// within 33 ms and the settle (doors/mod.rs) repairs the rest; everything else stays reliable and in order.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Lane {
     Reliable,
     Unreliable,
-}
-
-/// A prototype beside `take`, not instead of it: the default path stays byte for byte what it was. On adoption `take`
-/// becomes this without the lane.
-#[cfg(feature = "doors")]
-impl Outbox {
-    /// `take`, with each message's lane.
-    pub fn take_lanes(&self, now: Instant, out: &mut Vec<(Lane, String)>) -> Took {
-        let mut q = self.lock();
-        let mut took = Took::default();
-        let paced = q.link.interval().and(q.next_paced).filter(|t| *t > now);
-        let released = q.next_paced;
-        let mut latest = false;
-        while let Some(front) = q.entries.front() {
-            if matches!(front, Entry::Latest(_)) && paced.is_some() && q.ordered == 0 {
-                took.until = paced;
-                break;
-            }
-            let entry = q.entries.pop_front().expect("a front");
-            let abs = q.taken;
-            q.taken += 1;
-            match entry {
-                Entry::Ordered(frame, t) => {
-                    q.ordered -= 1;
-                    q.bytes -= frame.text.len();
-                    took.waited = took.waited.max(now.saturating_duration_since(t));
-                    out.push((Lane::Reliable, frame.text.clone()));
-                }
-                Entry::Latest(slot) => {
-                    if q.open.get(&slot.key) == Some(&abs) {
-                        q.open.remove(&slot.key);
-                    }
-                    let from = released.map_or(slot.since, |r| r.max(slot.since));
-                    took.waited = took.waited.max(now.saturating_duration_since(from));
-                    latest = true;
-                    let lane = if matches!(slot.key, Latest::Values(_)) { Lane::Unreliable } else { Lane::Reliable };
-                    out.push((lane, slot.text()));
-                }
-            }
-        }
-        if latest {
-            q.next_paced = q.link.interval().map(|i| now + i);
-        }
-        took
-    }
-
-    /// The transport measured the round trip itself (QUIC, netcode – no WebSocket ping). True when the rate changed.
-    pub fn link_rtt(&self, now: Instant, rtt: Duration) -> bool {
-        self.lock().link.rtt(now, rtt)
-    }
 }
 
 #[cfg(test)]

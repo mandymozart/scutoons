@@ -11,14 +11,6 @@ publish.workspace = true
 name = "relay"
 path = "src/main.rs"
 
-[[example]]
-name = "doors_bench"
-required-features = ["doors"]
-
-[[test]]
-name = "doors"
-required-features = ["doors"]
-
 [dependencies]
 protocol = { workspace = true }
 anyhow = { workspace = true }
@@ -40,18 +32,14 @@ tokio-rustls = { version = "0.26", default-features = false, features = ["ring",
 # #223: the accepted sockets' send buffer / TCP_NOTSENT_LOWAT (the backlog stays in the outbox, where it can be coalesced)
 socket2 = { version = "0.6", features = ["all"] }
 
-# #438 prototype, off the default path: every transport into the same sessions (src/doors, agents/research/RELAY-TRANSPORTS.md)
-quinn = { version = "0.11", optional = true }
-wtransport = { version = "0.7", default-features = false, features = ["ring", "self-signed"], optional = true }
-renet2 = { version = "1", default-features = false, optional = true }
-renet2_netcode = { version = "1", default-features = false, features = ["native_transport", "wt_server_transport"], optional = true }
-
-[features]
-doors = ["dep:quinn", "dep:wtransport", "dep:renet2", "dep:renet2_netcode"]
+# #438: the QUIC door (src/doors), which browsers open as WebTransport and the native decks dial; opens only with --quic
+wtransport = { version = "0.7", default-features = false, features = ["ring", "quinn"] }
 
 [dev-dependencies]
 # a self-signed certificate for the wss tests (tests/tls.rs)
 rcgen = "0.13"
+# the QUIC door's client end in tests and the bench, and a two-week certificate a browser pins by hash
+wtransport = { version = "0.7", default-features = false, features = ["ring", "quinn", "self-signed"] }
 
 # the bench's thread CPU time (examples/bench.rs; Windows calls kernel32 directly)
 [target.'cfg(unix)'.dev-dependencies]

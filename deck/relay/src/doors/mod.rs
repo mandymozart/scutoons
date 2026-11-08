@@ -1,6 +1,6 @@
-//! #438 prototype (feature `doors`, off the default path): several transports into the same sessions. There is no bridge
-//! process: the relay is the hub, a door is only an adapter that moves bytes between a transport and the session's outbox
-//! (RULES A1, A4 – `Envelope` stays the one wire format, nothing is decided here that the session does not decide).
+//! #438: the QUIC door beside the WebSocket path, into the same sessions. There is no bridge process: the relay is the
+//! hub, a door is only an adapter that moves bytes between a transport and the session's outbox (RULES A1, A4 – `Envelope`
+//! stays the one wire format, nothing is decided here that the session does not decide).
 //!
 //! Two lanes (`outbox::Lane`): `deck.values` may be lost, latest value wins; everything else is reliable and in order, so
 //! cues, votes, `scene.sync` and snapshots wait for nothing but their own lane. WebSocket stays the fallback (`lib.rs`,
@@ -10,9 +10,7 @@
 //! again. The **settle** repairs that: every `SETTLE` the relay sends each door member what every deck showed last, on
 //! the reliable lane. A receiver applies a key only when the frame's `seq` is not older than the key's.
 
-pub mod ladder;
 pub mod quic;
-pub mod renet;
 
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -26,18 +24,9 @@ use crate::{now_ms, session, After, Join, Relay};
 
 /// how often a door member gets every deck's current values on the reliable lane
 pub const SETTLE: Duration = Duration::from_secs(1);
-/// A door lets a silent connection go after this: the ladder steps down after 2 s and resumes once the relay is free of
-/// the old connection (a resume while it is still attached is refused, session.rs `resume`).
+/// A door lets a silent connection go after this, and the client's QUIC notices at the same moment, so its resume on
+/// the WebSocket finds the relay free of the old connection (a resume while it is attached is refused, session.rs `resume`).
 pub const DOOR_IDLE: Duration = Duration::from_secs(3);
-/// a reliable line longer than this ends the connection
-pub const MAX_LINE: usize = 1 << 20;
-
-/// rustls refuses to choose when two crypto providers are linked (`renet2_netcode` brings aws-lc-rs through its
-/// wtransport 0.6, the relay uses ring): ring, once, before any door opens.
-pub fn init_crypto() {
-    let _ = rustls::crypto::ring::default_provider().install_default();
-}
-
 /// The doors of one relay: what the transports share.
 pub struct Doors {
     pub relay: Arc<Relay>,
@@ -57,7 +46,6 @@ pub struct Member {
 
 impl Doors {
     pub fn new(relay: Arc<Relay>) -> Arc<Doors> {
-        init_crypto();
         Arc::new(Doors { relay, members: Mutex::new(HashMap::new()) })
     }
 
@@ -176,11 +164,4 @@ fn settle(s: &mut session::Session, members: &[String]) {
 
 fn refusal(code: &str, message: &str) -> String {
     crate::refusal(code, message)
-}
-
-/// The reliable lane of a byte stream is newline-delimited `Envelope` JSON (serde_json escapes newlines, so a line is a
-/// message). A message-based transport (netcode) needs no framing.
-pub fn line(text: &str, out: &mut Vec<u8>) {
-    out.extend_from_slice(text.as_bytes());
-    out.push(b'\n');
 }

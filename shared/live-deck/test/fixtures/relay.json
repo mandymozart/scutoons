@@ -2183,6 +2183,701 @@
           ]
         }
       ]
+    },
+    {
+      "graph": {
+        "character": "yellowmouse",
+        "links": [],
+        "nodes": [
+          {
+            "id": "voice",
+            "kind": "osc"
+          }
+        ]
+      },
+      "join": {
+        "group": "decks",
+        "messages": false,
+        "nick": "browser",
+        "relay": "wss://relay.test:7070/live/CATH?quic=udp.test:443",
+        "resume": false,
+        "role": "musician",
+        "token": null
+      },
+      "name": "quic",
+      "steps": [
+        {
+          "at": 0.05,
+          "do": "quic_open"
+        },
+        {
+          "at": 0.1,
+          "do": "quic_stream",
+          "with": {
+            "kind": "welcome",
+            "p": {
+              "client": "c5",
+              "now": 0,
+              "snapshot": {}
+            }
+          }
+        },
+        {
+          "at": 0.2,
+          "do": "sample",
+          "with": {
+            "mood": "neutral",
+            "values": {
+              "voice.index": 1.0,
+              "voice.out": 0.5
+            }
+          }
+        },
+        {
+          "at": 0.3,
+          "do": "sample",
+          "with": {
+            "mood": "neutral",
+            "values": {
+              "voice.index": 2.0,
+              "voice.out": 0.5
+            }
+          }
+        },
+        {
+          "at": 0.4,
+          "do": "quic_stream",
+          "with": {
+            "kind": "cue",
+            "p": {
+              "actions": [],
+              "id": "a"
+            },
+            "seq": 9
+          }
+        },
+        {
+          "at": 0.5,
+          "do": "quic_datagram",
+          "with": {
+            "kind": "error",
+            "p": {
+              "code": "x",
+              "message": "no"
+            },
+            "seq": 10
+          }
+        },
+        {
+          "at": 1.4,
+          "do": "tick"
+        },
+        {
+          "at": 2.0,
+          "do": "stop"
+        }
+      ],
+      "stream": [
+        [
+          "voice.index",
+          {
+            "input": [
+              0.0,
+              8.0
+            ]
+          }
+        ],
+        [
+          "voice.out",
+          "audio"
+        ]
+      ],
+      "turns": [
+        {
+          "at": 0.0,
+          "do": "start",
+          "outs": [
+            {
+              "status": {
+                "state": "joining"
+              }
+            },
+            {
+              "dial_quic": {
+                "hash": null,
+                "url": "https://udp.test:443/live/CATH?role=musician&group=decks"
+              }
+            }
+          ]
+        },
+        {
+          "at": 0.05,
+          "do": "quic_open",
+          "outs": [
+            {
+              "stream": "{\"from\":\"\",\"kind\":\"hello\",\"p\":{\"code\":\"CATH\",\"group\":\"decks\",\"nick\":\"browser\",\"role\":\"musician\"},\"seq\":0,\"v\":1}\n"
+            }
+          ]
+        },
+        {
+          "at": 0.1,
+          "do": "quic_stream",
+          "outs": [
+            {
+              "status": {
+                "client": "c5",
+                "state": "connected"
+              }
+            },
+            {
+              "joined": {
+                "at": 100.0,
+                "client": "c5"
+              }
+            },
+            {
+              "stream": "{\"from\":\"\",\"kind\":\"deck.graph\",\"p\":{\"character\":\"yellowmouse\",\"links\":[],\"nodes\":[{\"id\":\"voice\",\"kind\":\"osc\"}]},\"seq\":0,\"v\":1}\n"
+            }
+          ]
+        },
+        {
+          "at": 0.2,
+          "do": "sample",
+          "outs": [
+            {
+              "datagram": "{\"from\":\"\",\"kind\":\"deck.values\",\"p\":{\"mood\":\"neutral\",\"values\":{\"voice.index\":[1.0],\"voice.out\":[0.5]}},\"seq\":1,\"v\":1}"
+            }
+          ]
+        },
+        {
+          "at": 0.3,
+          "do": "sample",
+          "outs": [
+            {
+              "datagram": "{\"from\":\"\",\"kind\":\"deck.values\",\"p\":{\"values\":{\"voice.index\":[2.0]}},\"seq\":2,\"v\":1}"
+            }
+          ]
+        },
+        {
+          "at": 0.4,
+          "do": "quic_stream",
+          "outs": []
+        },
+        {
+          "at": 0.5,
+          "do": "quic_datagram",
+          "outs": []
+        },
+        {
+          "at": 1.05,
+          "do": "wake",
+          "outs": [
+            {
+              "stream": "{\"from\":\"\",\"kind\":\"deck.values\",\"p\":{\"mood\":\"neutral\",\"values\":{\"voice.index\":[2.0],\"voice.out\":[0.5]}},\"seq\":0,\"v\":1}\n"
+            }
+          ]
+        },
+        {
+          "at": 1.4,
+          "do": "tick",
+          "outs": []
+        },
+        {
+          "at": 2.0,
+          "do": "stop",
+          "outs": [
+            {
+              "close_quic": {}
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "graph": null,
+      "join": {
+        "group": "decks",
+        "messages": false,
+        "nick": "browser",
+        "relay": "wss://relay.test:7070/live/CATH?quic=udp.test:443",
+        "resume": false,
+        "role": "musician",
+        "token": null
+      },
+      "name": "quic-blocked",
+      "steps": [
+        {
+          "at": 0.3,
+          "do": "open"
+        },
+        {
+          "at": 0.4,
+          "do": "message",
+          "with": {
+            "kind": "welcome",
+            "p": {
+              "client": "c6",
+              "now": 0,
+              "snapshot": {}
+            }
+          }
+        },
+        {
+          "at": 0.5,
+          "do": "quic_fail",
+          "with": "late"
+        },
+        {
+          "at": 1.0,
+          "do": "stop"
+        }
+      ],
+      "stream": [],
+      "turns": [
+        {
+          "at": 0.0,
+          "do": "start",
+          "outs": [
+            {
+              "status": {
+                "state": "joining"
+              }
+            },
+            {
+              "dial_quic": {
+                "hash": null,
+                "url": "https://udp.test:443/live/CATH?role=musician&group=decks"
+              }
+            }
+          ]
+        },
+        {
+          "at": 0.25,
+          "do": "wake",
+          "outs": [
+            {
+              "dial": "wss://relay.test:7070/live/CATH?role=musician&group=decks"
+            }
+          ]
+        },
+        {
+          "at": 0.3,
+          "do": "open",
+          "outs": [
+            {
+              "close_quic": {}
+            },
+            {
+              "send": "{\"from\":\"\",\"kind\":\"hello\",\"p\":{\"code\":\"CATH\",\"group\":\"decks\",\"nick\":\"browser\",\"role\":\"musician\"},\"seq\":0,\"v\":1}"
+            }
+          ]
+        },
+        {
+          "at": 0.4,
+          "do": "message",
+          "outs": [
+            {
+              "status": {
+                "client": "c6",
+                "state": "connected"
+              }
+            },
+            {
+              "joined": {
+                "at": 400.0,
+                "client": "c6"
+              }
+            }
+          ]
+        },
+        {
+          "at": 0.5,
+          "do": "quic_fail",
+          "outs": []
+        },
+        {
+          "at": 1.0,
+          "do": "stop",
+          "outs": [
+            {
+              "close": {}
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "graph": null,
+      "join": {
+        "group": "decks",
+        "messages": false,
+        "nick": "browser",
+        "relay": "wss://relay.test:7070/live/CATH?quic=udp.test:443",
+        "resume": false,
+        "role": "musician",
+        "token": null
+      },
+      "name": "quic-refused-at-once",
+      "steps": [
+        {
+          "at": 0.01,
+          "do": "quic_fail",
+          "with": "no WebTransport here"
+        },
+        {
+          "at": 0.05,
+          "do": "open"
+        },
+        {
+          "at": 0.1,
+          "do": "message",
+          "with": {
+            "kind": "welcome",
+            "p": {
+              "client": "c7",
+              "now": 0,
+              "snapshot": {}
+            }
+          }
+        },
+        {
+          "at": 0.2,
+          "do": "stop"
+        }
+      ],
+      "stream": [],
+      "turns": [
+        {
+          "at": 0.0,
+          "do": "start",
+          "outs": [
+            {
+              "status": {
+                "state": "joining"
+              }
+            },
+            {
+              "dial_quic": {
+                "hash": null,
+                "url": "https://udp.test:443/live/CATH?role=musician&group=decks"
+              }
+            }
+          ]
+        },
+        {
+          "at": 0.01,
+          "do": "quic_fail",
+          "outs": [
+            {
+              "dial": "wss://relay.test:7070/live/CATH?role=musician&group=decks"
+            }
+          ]
+        },
+        {
+          "at": 0.05,
+          "do": "open",
+          "outs": [
+            {
+              "send": "{\"from\":\"\",\"kind\":\"hello\",\"p\":{\"code\":\"CATH\",\"group\":\"decks\",\"nick\":\"browser\",\"role\":\"musician\"},\"seq\":0,\"v\":1}"
+            }
+          ]
+        },
+        {
+          "at": 0.1,
+          "do": "message",
+          "outs": [
+            {
+              "status": {
+                "client": "c7",
+                "state": "connected"
+              }
+            },
+            {
+              "joined": {
+                "at": 100.0,
+                "client": "c7"
+              }
+            }
+          ]
+        },
+        {
+          "at": 0.2,
+          "do": "stop",
+          "outs": [
+            {
+              "close": {}
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "graph": null,
+      "join": {
+        "group": "decks",
+        "messages": false,
+        "nick": "browser",
+        "relay": "wss://relay.test:7070/live/CATH?quic=udp.test:443",
+        "resume": false,
+        "role": "musician",
+        "token": null
+      },
+      "name": "quic-falls-and-steps-up",
+      "steps": [
+        {
+          "at": 0.02,
+          "do": "quic_open"
+        },
+        {
+          "at": 0.03,
+          "do": "quic_stream",
+          "with": {
+            "kind": "welcome",
+            "p": {
+              "client": "c8",
+              "now": 0,
+              "snapshot": {}
+            }
+          }
+        },
+        {
+          "at": 5.0,
+          "do": "quic_close",
+          "with": "timed out"
+        },
+        {
+          "at": 5.3,
+          "do": "open"
+        },
+        {
+          "at": 5.35,
+          "do": "message",
+          "with": {
+            "kind": "welcome",
+            "p": {
+              "client": "c8",
+              "now": 0,
+              "snapshot": {}
+            }
+          }
+        },
+        {
+          "at": 65.5,
+          "do": "quic_open"
+        },
+        {
+          "at": 65.6,
+          "do": "close"
+        },
+        {
+          "at": 65.9,
+          "do": "tick"
+        },
+        {
+          "at": 66.0,
+          "do": "quic_stream",
+          "with": {
+            "kind": "welcome",
+            "p": {
+              "client": "c8",
+              "now": 0,
+              "snapshot": {}
+            }
+          }
+        },
+        {
+          "at": 67.0,
+          "do": "stop"
+        }
+      ],
+      "stream": [],
+      "turns": [
+        {
+          "at": 0.0,
+          "do": "start",
+          "outs": [
+            {
+              "status": {
+                "state": "joining"
+              }
+            },
+            {
+              "dial_quic": {
+                "hash": null,
+                "url": "https://udp.test:443/live/CATH?role=musician&group=decks"
+              }
+            }
+          ]
+        },
+        {
+          "at": 0.02,
+          "do": "quic_open",
+          "outs": [
+            {
+              "stream": "{\"from\":\"\",\"kind\":\"hello\",\"p\":{\"code\":\"CATH\",\"group\":\"decks\",\"nick\":\"browser\",\"role\":\"musician\"},\"seq\":0,\"v\":1}\n"
+            }
+          ]
+        },
+        {
+          "at": 0.03,
+          "do": "quic_stream",
+          "outs": [
+            {
+              "status": {
+                "client": "c8",
+                "state": "connected"
+              }
+            },
+            {
+              "joined": {
+                "at": 30.0,
+                "client": "c8"
+              }
+            }
+          ]
+        },
+        {
+          "at": 5.0,
+          "do": "quic_close",
+          "outs": [
+            {
+              "status": {
+                "state": "offline",
+                "why": "timed out"
+              }
+            }
+          ]
+        },
+        {
+          "at": 5.25,
+          "do": "wake",
+          "outs": [
+            {
+              "status": {
+                "state": "joining"
+              }
+            },
+            {
+              "dial": "wss://relay.test:7070/live/CATH?role=musician&group=decks"
+            }
+          ]
+        },
+        {
+          "at": 5.3,
+          "do": "open",
+          "outs": [
+            {
+              "send": "{\"from\":\"\",\"kind\":\"hello\",\"p\":{\"code\":\"CATH\",\"group\":\"decks\",\"nick\":\"browser\",\"resume\":{\"client\":\"c8\",\"seq\":1},\"role\":\"musician\"},\"seq\":0,\"v\":1}"
+            }
+          ]
+        },
+        {
+          "at": 5.35,
+          "do": "message",
+          "outs": [
+            {
+              "status": {
+                "client": "c8",
+                "state": "connected"
+              }
+            },
+            {
+              "joined": {
+                "at": 5350.0,
+                "client": "c8"
+              }
+            }
+          ]
+        },
+        {
+          "at": 25.3,
+          "do": "wake",
+          "outs": [
+            {
+              "send": "{\"from\":\"\",\"kind\":\"ping\",\"p\":{\"t0\":25300000},\"seq\":0,\"v\":1}"
+            }
+          ]
+        },
+        {
+          "at": 45.3,
+          "do": "wake",
+          "outs": [
+            {
+              "send": "{\"from\":\"\",\"kind\":\"ping\",\"p\":{\"t0\":45300000},\"seq\":0,\"v\":1}"
+            }
+          ]
+        },
+        {
+          "at": 65.3,
+          "do": "wake",
+          "outs": [
+            {
+              "dial_quic": {
+                "hash": null,
+                "url": "https://udp.test:443/live/CATH?role=musician&group=decks"
+              }
+            },
+            {
+              "send": "{\"from\":\"\",\"kind\":\"ping\",\"p\":{\"t0\":65300000},\"seq\":0,\"v\":1}"
+            }
+          ]
+        },
+        {
+          "at": 65.5,
+          "do": "quic_open",
+          "outs": [
+            {
+              "close": {}
+            }
+          ]
+        },
+        {
+          "at": 65.6,
+          "do": "close",
+          "outs": []
+        },
+        {
+          "at": 65.8,
+          "do": "wake",
+          "outs": [
+            {
+              "stream": "{\"from\":\"\",\"kind\":\"hello\",\"p\":{\"code\":\"CATH\",\"group\":\"decks\",\"nick\":\"browser\",\"resume\":{\"client\":\"c8\",\"seq\":1},\"role\":\"musician\"},\"seq\":0,\"v\":1}\n"
+            }
+          ]
+        },
+        {
+          "at": 65.9,
+          "do": "tick",
+          "outs": []
+        },
+        {
+          "at": 66.0,
+          "do": "quic_stream",
+          "outs": [
+            {
+              "status": {
+                "client": "c8",
+                "state": "connected"
+              }
+            },
+            {
+              "joined": {
+                "at": 66000.0,
+                "client": "c8"
+              }
+            }
+          ]
+        },
+        {
+          "at": 67.0,
+          "do": "stop",
+          "outs": [
+            {
+              "close_quic": {}
+            }
+          ]
+        }
+      ]
     }
   ]
 }

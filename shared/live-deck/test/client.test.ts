@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { DeckLink, RelaySocket, type RelayCoreView, type RelayModule, type WebSocketLike } from '../src/client.ts';
+import { DeckLink, RelaySocket, type QuicEvents, type QuicPipe, type RelayCoreView, type RelayModule, type WebSocketLike } from '../src/client.ts';
 import { MOODS, OWN, OWN_PARAMS, OWN_STREAMED, ownGraph } from './own.ts';
 import { NO_CORE, relayCore } from './relay-core.ts';
 import type { Envelope, Tempo } from '@scutoons/live';
@@ -73,9 +73,33 @@ class FakeSocket implements WebSocketLike {
 	}
 }
 
+/** a QUIC connection the script drives */
+class FakeQuic implements QuicPipe {
+	static all: FakeQuic[] = [];
+	sent: string[] = [];
+	grams: string[] = [];
+	closed = false;
+	constructor(
+		readonly url: string,
+		readonly on: QuicEvents
+	) {
+		FakeQuic.all.push(this);
+	}
+	stream(text: string) {
+		this.sent.push(text);
+	}
+	datagram(text: string) {
+		this.grams.push(text);
+	}
+	close() {
+		this.closed = true;
+	}
+}
+
 /** One script through `RelaySocket` on the real core: the outs of each step (with the timers it fired before it). */
 function replay(m: RelayModule, s: Script): { groups: Record<string, unknown>[][]; sockets: FakeSocket[] } {
 	FakeSocket.all = [];
+	FakeQuic.all = [];
 	let now = 0;
 	const timers: { at: number; fn: () => void; id: number }[] = [];
 	let ids = 0;
@@ -100,12 +124,16 @@ function replay(m: RelayModule, s: Script): { groups: Record<string, unknown>[][
 	core.set_stream(JSON.stringify(s.stream));
 	const sock = new RelaySocket(spied, {}, {
 		socket: FakeSocket,
+		quic: (url, _hash, on) => new FakeQuic(url, on),
 		now: () => now,
 		setTimer: (fn, ms) => (timers.push({ at: now + ms, fn, id: ++ids }), ids),
 		clearTimer: (id) => timers.splice(timers.findIndex((t) => t.id === id) >>> 0, timers.some((t) => t.id === id) ? 1 : 0)
 	});
 	sock.start();
 	const ws = () => FakeSocket.all.at(-1)!;
+	const qc = () => FakeQuic.all.at(-1)!;
+	const relayed = (w: unknown) => JSON.stringify({ v: 1, seq: 1, from: 'relay', ...(w as object) });
+	const bytes = (t: string) => new TextEncoder().encode(t);
 	for (const st of s.steps) {
 		group = [];
 		groups.push(group);
@@ -130,6 +158,23 @@ function replay(m: RelayModule, s: Script): { groups: Record<string, unknown>[][
 			case 'fail':
 				ws().readyState = 3;
 				ws().onclose?.({ reason: w ?? '' });
+				break;
+			case 'quic_open':
+				qc().on.opened();
+				break;
+			case 'quic_close':
+			case 'quic_fail':
+				qc().on.closed((w as string | null) ?? '');
+				break;
+			case 'quic_stream':
+				qc().on.stream(bytes(relayed(w)));
+				qc().on.stream(bytes('\n'));
+				break;
+			case 'quic_datagram':
+				qc().on.datagram(bytes(relayed(w)));
+				break;
+			case 'tick':
+				call(() => core.tick(now));
 				break;
 			case 'message':
 				ws().onmessage?.({ data: JSON.stringify({ v: 1, seq: 1, from: 'relay', ...(w as object) }) });

@@ -18,7 +18,7 @@
 	// #298: the engine's bring-up (the deck, the 3D, the sound, the frame loop, the rig for a mood, the statistics) is
 	// @scutoons/engine-host's; this page keeps the relay, the controls and its UI
 	import { createEngineHost, type EngineHost } from '@scutoons/engine-host';
-	import { API_URL, CDN_SERVER, LIVE_URL } from '$lib/config.ts';
+	import { API_URL, CDN_SERVER, LIVE_QUIC, LIVE_URL } from '$lib/config.ts';
 	import { getSessionContext } from '$lib/contexts/session.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { CHARACTER_KEY, WASM_BASE, characterOf, mayJoin, nickOf, preferOf, relayOf, rigOf } from '$lib/live-deck.ts';
@@ -239,7 +239,7 @@
 				wasmBase: WASM_BASE,
 				character,
 				nick: nickOf(session.me, m['live_deck.guest']()),
-				relay: relayOf(q, LIVE_URL, page.params.code),
+				relay: relayOf(q, LIVE_URL, page.params.code, LIVE_QUIC),
 				prefer: preferOf(q),
 				rigs: rigOf(q),
 				onStatus: (s) => (relayStatus = s),

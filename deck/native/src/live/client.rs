@@ -35,7 +35,7 @@ pub struct Client {
 impl Client {
     /// the thread's body: the relay client until `stop`
     pub fn run(mut self) {
-        let mut o = Options::new(&format!("{}/live/{}", self.cfg.base, self.cfg.code), Role::Output, Some(&self.cfg.outlet));
+        let mut o = Options::new(&format!("{}/live/{}{}", self.cfg.base, self.cfg.code, self.cfg.door), Role::Output, Some(&self.cfg.outlet));
         o.nick = self.nick.take();
         o.resume = true;
         o.messages = true;
