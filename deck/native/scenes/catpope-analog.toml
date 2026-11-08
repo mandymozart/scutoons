@@ -137,10 +137,5 @@ from = "mix"
 to = "out.in"
 
 [[link]]
-from = "fft.level"
-to = "space.pulse"
-scale = 0.6
-
-[[link]]
 from = "space"
 to = "screen.in"
