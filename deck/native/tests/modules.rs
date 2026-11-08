@@ -657,6 +657,10 @@ fn the_being_shows_only_as_many_step_knobs_as_the_sequence_has_steps() {
     // live: the owner turns the length knob (the table's value) – 16 shows all of them, 3 the first three
     let (seq, port) = (being.buttons[0].node, being.buttons[0].port);
     assert_eq!(being.buttons[0].name, "steps", "the length is the first knob");
+    // #429: a module's knob runs over the module's own range: the whole loop, not 0 / 1
+    assert_eq!((being.buttons[0].spec.min, being.buttons[0].spec.max), (1.0, 16.0));
+    let cutoff = being.buttons.iter().find(|b| b.name == "f1_cutoff").unwrap();
+    assert!(cutoff.spec.max > 1000.0, "the synth's cutoff is in Hz: {:?}", cutoff.spec.max);
     assert!(ctl.set(seq, port, 16.0));
     assert_eq!(shown(&mut being, &ctl), want(16), "steps = 16: all of them");
     assert!(ctl.set(seq, port, 3.0));

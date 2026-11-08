@@ -161,6 +161,13 @@ pub fn default_for(kind: Kind, port: &str) -> f32 {
 /// `kind`'s control input `port` as a parameter: its range, curve and default from the catalog; a module's ports and
 /// unknown ones read 0..1 linear
 pub fn spec(kind: Kind, port: &str) -> Spec {
+    // #429: a module has no catalog descriptor here, its parameters' ranges are in the registry
+    if let Kind::Module(m) = kind {
+        if let Some(&(_, min, max, curve)) = m.spec().ranges.iter().find(|r| r.0 == port) {
+            let log = curve == deck_catalog::Curve::Log && min > 0.0;
+            return Spec { min, max, default: default_for(kind, port), curve: if log { Curve::Log } else { Curve::Lin } };
+        }
+    }
     match kind.descriptor().and_then(|d| d.param(port)) {
         Some(p) => Spec {
             min: p.min,
