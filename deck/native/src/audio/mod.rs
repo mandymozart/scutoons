@@ -43,11 +43,12 @@ pub fn detect_sequencing() -> Sequencing {
     }
 }
 
-/// What the build asks of the native platform: the device (its channel count is the deck configuration, plan 2.6b: main on
-/// the first channels, nothing else configured) and the module library, when the build has modules.
+/// What the build asks of the native platform: the device (its channel count and deck.toml's `[[audio_outlet]]` map are the deck
+/// configuration, plan 2.6b, #428: nothing mapped = main on the first channels) and the module library, when the build has modules.
 fn seams(device_channels: usize) -> deck_engine::Seams {
+    let deck = backend::DeckAudio::read().audio_outlet.iter().fold(deck_engine::DeckConfig::device(device_channels), |d, o| d.with_outlet(&o.group, &o.channels));
     #[allow(unused_mut)] // the module runtime is a field of a feature
-    let mut seams = deck_engine::Seams::with_deck(deck_engine::DeckConfig::device(device_channels));
+    let mut seams = deck_engine::Seams::with_deck(deck);
     #[cfg(feature = "modules")]
     {
         seams.modules = Some(Arc::new(modules::Global));

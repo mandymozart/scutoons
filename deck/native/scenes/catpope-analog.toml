@@ -12,6 +12,10 @@
 #   cargo run -p deck-native --features modules --release -- --scene catpope-analog --windowed
 # (the room and the portraits come from the sync, or --sets ../media/scutoons/rooms --portraits ../media/characters)
 # Mouse: drag = turn the camera (or a button's value), wheel = zoom; <- -> turn, up down zoom, R the camera's home.
+#
+# (#428) Three outlets, no hardware named here: `main` the mix, `cue` a click only the player hears, `stem` the synth alone.
+# The machine's deck.toml says where they play, e.g. [[audio_outlet]] group = "cue" channels = [3, 4]; a group it does not map is
+# silent (the log says so), `main` needs no entry. K turns the click off and on.
 
 [stage]
 name = "Catpope plays analog"
@@ -32,6 +36,7 @@ expose = [
   "seq.steps", "seq.step1..16 <= seq.steps", "seq.on1..16 <= seq.steps", "seq.rate", "seq.gate",
   "synth.volume", "synth.f1_cutoff", "synth.f1_res",
   "synth.f1_env", "synth.ae1_d", "synth.ae1_r", "synth.o2_fine", "synth.l1_rate",
+  "cue.gain", "stem.gain",
 ]
 
 [[node]]
@@ -39,6 +44,7 @@ id = "tempo"
 kind = "tempo"
 bpm = 100
 beats = 4
+click = true
 
 # the sequencer: base 220 Hz (A3), two steps a beat, a step sounds for 0.7 of its length; the default phrase (minor
 # pentatonic, rests on steps 4, 8 and 16) – each slider a pitch from the base up two octaves
@@ -101,6 +107,24 @@ id = "out"
 kind = "audio_out"
 volume = 0.7
 
+# (#428) the metronome, on the cue outlet only: it is not in the mix
+[[node]]
+id = "click"
+kind = "click"
+gain = 0.5
+
+[[node]]
+id = "cue"
+kind = "out"
+group = "cue"
+
+# (#428) the synth alone, at the level it has in the mix (0.5 x 0.7)
+[[node]]
+id = "stem"
+kind = "out"
+group = "stem"
+gain = 0.35
+
 # the space: the cathedral's room, the being in the nave; alone = no session with a relay
 [[node]]
 id = "space"
@@ -136,6 +160,14 @@ to = "fft.in"
 [[link]]
 from = "mix"
 to = "out.in"
+
+[[link]]
+from = "click"
+to = "cue.in"
+
+[[link]]
+from = "synth.out"
+to = "stem.in"
 
 [[link]]
 from = "space"

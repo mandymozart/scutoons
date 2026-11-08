@@ -21,7 +21,7 @@ pub enum Fold {
 }
 
 /// The device channels an outlet group plays on, counted from 1, in the group's channel order.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OutletMap {
     pub group: String,
     pub channels: Vec<usize>,
