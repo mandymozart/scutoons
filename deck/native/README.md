@@ -147,6 +147,10 @@ A live tool may not crackle unnoticed, and should not crackle at all:
   cpal's `BufferSize::Fixed(N)` clamped to the device's range (a log line says so), a refused one falls back to the
   default; PipeWire's latency request (default 128). **WASAPI shared can only grow it**: on the RME the engine runs a
   1056-frame (22 ms) buffer whatever is asked below that – a smaller buffer needs ASIO.
+- **Which channels an outlet plays on** (#428): a scene names outlet groups (`out` nodes, `group = "cue"`), never hardware; the
+  machine's deck.toml binds them, counted from 1, after its plain keys: `[[audio_outlet]]` / `group = "cue"` / `channels = [3, 4]`.
+  `main` without an entry plays on 1.., any other group without one is silent. The log prints each outlet's device channels
+  ("audio: outlet 'cue' (cue): device channels [3, 4]"). Who assigns this at a venue: #330.
 - **Host and device**: `--audio-host default|wasapi|asio` (deck.toml `audio_host`), `--audio-device NAME` (a part of
   the name, any case; deck.toml `audio_device`), `--audio-list` prints the hosts, devices, formats and buffer ranges.
   On PipeWire the name picks the **sink** (`target.object`, #285): the first `Audio/Sink` node whose name or description

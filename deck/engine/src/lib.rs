@@ -1003,6 +1003,10 @@ fn plan_outlets(feeds: &[Feed], deck: &DeckConfig, rate: f32) -> Plan {
                 }
             }
         }
+        let mut played: Vec<usize> = pairs.iter().map(|p| p.1 + 1).collect();
+        played.sort_unstable();
+        played.dedup();
+        notes.push(format!("outlet '{}' ({}): device channels {played:?}", f.group, f.id));
         let g = match groups.iter().position(|(name, _)| *name == f.group) {
             Some(g) => g,
             None => {
