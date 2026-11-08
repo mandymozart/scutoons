@@ -1,9 +1,13 @@
 # decisions/map — the world map and places
 
 The owner's words, one line each, newest first, append-only (how: agents/DECISIONS.md). Grep by key, read only what you need.
-Keys here: `[map]` 42 the world map and places
+Keys here: `[map]` 46 the world map and places
 
 ## 2026-11
+- 2026-11-08 · map · [map] The MA 7 Medienkunst application (submitted 2026-11-08) is titled SCUTOONS: Geister U-Bahnen; it refers to the Prater ghost train and Vienna's morbid taste; Undertale and the Songlines are named as inspirations, nothing is taken from either · "das sagt am besten aus worum es geht" · "bezug zur prater geisterbahn und dem morbiden geschmack der wiener. vom Tunnelbau der Türken belagerung bis zum Dritten Mann" · "undertale ist toll" · → #395
+- 2026-11-08 · map · [map] Part of the Geister U-Bahnen work is an exchange of Cuban, Korean shamanic and Buddhist, Bulgarian and Austro-Hungarian oral traditions; orientation through symbols and rituals rather than rule-based digitalisation · "teil der arbeit ist eine austauschform" · "fern ab von Google Maps" · → #395
+- 2026-11-08 · map · [map] The exhibit moves from the Medienwerkstatt (replaces 2026-11-04) to Kollektiv Kaorle, working days at Westbahnstudios: MA 7 Bildende Kunst excludes projects in institutions with a Gesamtförderung from its Referat, which also rules out Ve.Sch and Discotec · "miete ausstellungsraum, dann doch lieber gleich kollektiv kaorle. weil westbahnstudios kein ausstellungsraum ist." · → #395
+- 2026-11-08 · map · [map] The MA 7 application is the indoor exhibit only; the songs on their real places go to KÖR Wien later, published on the artificial museum website or in the SCUTOONS app at their geolocations · "KOER is more suitable for this" · "so we plan this as issue and reduce the im oeffentlichen raum" · → #395, #422
 - 2026-11-04 · map · [map] The songlines exhibit is at the Medienwerkstatt: large screens with SCUTOONS creatures chanting the songs, fabric and 3D prints · "exhibiting at Medienwerkstatt … large screens with scutoons creatures chanting those songs. and somefabric and 3d prints" · → #395
 - 2026-11-04 · map · [map] Songlines are only the inspiration for the SCUTOONS layer (no Aboriginal content); the framing is refined later · "drawing the inspiration from only, we will have to refine it." · → #394, #395
 - 2026-11-04 · map · [map] Songlines MA 7 application: framed as an exhibit (not public-space art, which is KÖR Wien's), asking up to € 10.000 to develop it in the app; work on it 2026-11-05, deadline 2026-11-08 · "add the proposal as an issue to the epic … deadline is the 8th, so we can ask for some money. to develop it in our app" · "than it is just an exhibit 😉 same stuff." · → #395
