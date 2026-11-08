@@ -1464,6 +1464,7 @@
               "to": "mix.in1"
             }
           ],
+          "note": "sound: not in the browser yet – music (chapter_music)",
           "page": [
             {
               "chapter": 2,
