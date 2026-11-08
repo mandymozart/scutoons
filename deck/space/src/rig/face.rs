@@ -5,8 +5,8 @@
 //! and moods the tables name. The children are the rig document's, not the module's: the module's descriptor only lists
 //! what it needs (its params and its target paths).
 use super::flatten::prefixed;
-use super::policy::{self, mode_name, Member};
-use super::{Library, Rig};
+use super::policy::{self, mode_name, Member, Target};
+use super::{Bundle, Library, Rig};
 use crate::graph::{Kind, PortType};
 use crate::params::{self, Curve};
 use anyhow::Result;
@@ -30,6 +30,15 @@ pub struct FaceTrack {
     pub preset: Option<String>,
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub mute: bool,
+    /// the presets of its instrument the library knows, its own first – what a `@preset` target may choose from
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub presets: Vec<String>,
+    /// the policy output that chooses its preset (`<track>:@preset`)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub preset_driven: Option<Driven>,
+    /// the policy output that writes its mixer strip (`<track>:@gain`)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub gain_driven: Option<Driven>,
     pub addressable: Vec<Addressable>,
 }
 
@@ -53,6 +62,8 @@ pub struct Addressable {
 pub struct Driven {
     pub output: String,
     pub mode: &'static str,
+    /// the policy is the only writer (`Target::owns`: `set` / `mul`): the editor's form does not write it
+    pub owned: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -91,6 +102,17 @@ pub enum Resolved {
     Preset { track: String, choices: Vec<String> },
 }
 
+/// which policy output writes a track's `member` – one at most (`Rig::targets` refuses two)
+fn driven_by(targets: &[Target], track: &str, member: impl Fn(&Member) -> bool) -> Option<Driven> {
+    targets.iter().find(|g| g.track == track && member(&g.member)).map(|g| Driven { output: format!("{}.{}", policy::NODE, g.output), mode: mode_name(g.mode), owned: g.owns() })
+}
+
+/// a bundle as JSON (`rig_catalog_bundle`'s answer, a draft as the deck hears it) → its `RigFace` as JSON (the wasm boundary, #412)
+pub fn face_json(bundle: &str) -> Result<String> {
+    let b = Bundle::parse_json(bundle)?;
+    Ok(serde_json::to_string(&b.rig.describe(&b.library())?)?)
+}
+
 impl Rig {
     /// The rig's face (see the module doc); the rig is checked first.
     pub fn describe(&self, lib: &Library) -> Result<RigFace> {
@@ -105,14 +127,16 @@ impl Rig {
                 for port in kind.inputs().iter().filter(|p| p.ty == PortType::Control) {
                     let inner = format!("{}.{}", n.id, port.name);
                     let spec = params::spec(kind, port.name);
-                    let driven = targets
-                        .iter()
-                        .find(|g| g.track == t.id && g.member == Member::Input(inner.clone()))
-                        .map(|g| Driven { output: format!("{}.{}", policy::NODE, g.output), mode: mode_name(g.mode) });
+                    let driven = driven_by(&targets, &t.id, |m| *m == Member::Input(inner.clone()));
                     addressable.push(Addressable { path: format!("{}:{inner}", t.id), input: prefixed(&t.id, &inner), min: spec.min, max: spec.max, log: spec.curve == Curve::Log, driven });
                 }
             }
-            tracks.push(FaceTrack { id: t.id.clone(), instrument: t.instrument.clone(), preset: t.preset.clone(), mute: t.mute, addressable });
+            let preset_driven = driven_by(&targets, &t.id, |m| matches!(m, Member::Preset(_)));
+            let gain_driven = driven_by(&targets, &t.id, |m| *m == Member::Gain);
+            // its own preset first: a `@preset` output that has not chosen yet reads 0, the first choice (#410)
+            let mut presets: Vec<String> = lib.presets.presets.values().filter(|p| p.instrument == t.instrument).map(|p| p.id.clone()).collect();
+            presets.sort_by_key(|p| Some(p) != t.preset.as_ref());
+            tracks.push(FaceTrack { id: t.id.clone(), instrument: t.instrument.clone(), preset: t.preset.clone(), mute: t.mute, presets, preset_driven, gain_driven, addressable });
         }
         let policy = match self.policy_module(lib)? {
             None => None,

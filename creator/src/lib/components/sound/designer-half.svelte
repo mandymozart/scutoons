@@ -1,26 +1,26 @@
 <script lang="ts">
 	// The designer half of the Sound design workspace (#282): the module being edited (a rig page picks one of the stored
-	// modules, a module page IS one), Derive (a factory module, #350: read-only), New module, and the tab row – Parameters ·
-	// Nodes · Rust · Assignment (a rig page: the character's rig as a form, #283), all live and mounted while hidden.
+	// modules, its policy by default, #412 – a module page IS one), Derive (a factory module, #350: read-only), New module, and
+	// the tab row – Parameters · Nodes · Rust · Assignment (a rig page: the character's rig as a form, #283), all mounted while hidden.
 	import { DesignerTabs, NodesTab, ParametersTab, RustTab, type DesignerTabId, type GraphWiring, type RigDesigner } from '@scutoons/rig-designer';
 	import type { EngineHost } from '@scutoons/engine-host';
 	import { Icon } from '@scutoons/ui';
-	import { loadRigRules } from '@scutoons/live-deck/assign';
 	import AssignmentPane from '$lib/components/rigs/assignment-pane.svelte';
+	import PolicyBar from '$lib/components/rigs/policy-bar.svelte';
+	import type { RigSession } from '$lib/editor/rig-session.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
 
-	let { designer, fixed = null, rig = null, modules, factory = [], selected, notice = '', host, wiring, onselect, onnew, onderive }: {
+	let { designer, fixed = null, session = null, modules, factory = [], selected, notice = '', host, wiring, onselect, onnew, onderive }: {
 		/** the deck half's engine and the core's wiring of what it plays (the Nodes tab) */
 		host: EngineHost | null; wiring?: GraphWiring;
 		designer: RigDesigner;
-		/** a module page: the module's id, shown as the title (no picker); a rig page: the rig's subject (the Assignment tab) */
-		fixed?: string | null; rig?: string | null;
+		/** a module page: the module's id, shown as the title (no picker); a rig page: the rig open (Assignment, the policy) */
+		fixed?: string | null; session?: RigSession | null;
 		/** the stored modules a rig page can pick; `factory`: which of them are factory modules (#350, marked) */
 		modules: string[];
 		factory?: string[];
 		selected: string | null;
-		/** a refused New module */
-		notice?: string;
+		notice?: string; // a refused New module
 		onselect: (id: string | null) => void;
 		onnew: () => void;
 		/** Derive: a module of one's own from the open factory module */
@@ -28,7 +28,6 @@
 	} = $props();
 
 	let tab = $state<DesignerTabId>('rust');
-	const rules = loadRigRules('/live/');
 </script>
 
 <div class="designer" data-testid="sound-designer">
@@ -37,7 +36,7 @@
 			<span class="title" data-testid="sound-module-title">module:{fixed}</span>
 		{:else}
 			<select onchange={(e) => onselect(e.currentTarget.value || null)} aria-label={m['creator.sound_module']()} title={m['creator.sound_module']()} data-testid="sound-module">
-				<option value="" selected={!selected}>{m['creator.sound_module_none']()}</option>
+				{#if !session?.policy}<option value="" selected={!selected}>{m['creator.sound_module_none']()}</option>{/if}
 				{#each modules as id (id)}<option value={id} selected={id === selected}>module:{id}{factory.includes(id) ? ` · ${m['creator.sound_factory']()}` : ''}</option>{/each}
 			</select>
 		{/if}
@@ -51,7 +50,8 @@
 	{#if notice}<p class="note" role="status">{notice}</p>{/if}
 	<DesignerTabs value={tab} onchange={(id) => (tab = id)} />
 	<div class="body">
-		{#if rig}<div class="pane" hidden={tab !== 'assignment'}><AssignmentPane subject={rig} {rules} play={(b) => host?.playRig(b)} moods={host?.moods ?? []} /></div>{/if}
+		{#if session && tab === 'rust'}<PolicyBar {session} open={designer.moduleId} {onselect} />{/if}
+		{#if session}<div class="pane" hidden={tab !== 'assignment'}><AssignmentPane {session} {host} moods={host?.moods ?? []} /></div>{/if}
 		<div class="pane" hidden={tab !== 'nodes'}><NodesTab {wiring} read={(p) => host?.deck?.read(p) ?? NaN} active={tab === 'nodes'} /></div>
 		{#if !designer.moduleId}
 			{#if tab !== 'nodes' && tab !== 'assignment'}<p class="sc-empty pad">{m['creator.sound_pick_module']()}</p>{/if}

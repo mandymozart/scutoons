@@ -23,15 +23,17 @@ export interface RigLists {
 	instrumentDocs: unknown[];
 	presetDocs: unknown[];
 	rigs: { id: string; live: boolean; draft: boolean; removed: boolean }[];
+	/** the catalog's `module:<id>` documents: a code rig's policy (the core reads the descriptor the compile wrote, #414) */
+	moduleDocs: unknown[];
 }
 
-export const NO_RIG_LISTS: RigLists = { instruments: [], presets: [], instrumentDocs: [], presetDocs: [], rigs: [] };
+export const NO_RIG_LISTS: RigLists = { instruments: [], presets: [], instrumentDocs: [], presetDocs: [], rigs: [], moduleDocs: [] };
 
 const isObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 const text = (v: unknown) => (isObject(v) ? (Object.fromEntries(Object.entries(v).filter(([, s]) => typeof s === 'string')) as Record<string, string>) : undefined);
 
-/** the three catalog lists as the form reads them; removed entries are gone, the pickers sorted by id */
-export function rigLists(instruments: CatalogEntryLike[], presets: CatalogEntryLike[], rigs: CatalogEntryLike[]): RigLists {
+/** the catalog lists as the form reads them; removed entries are gone, the pickers sorted by id */
+export function rigLists(instruments: CatalogEntryLike[], presets: CatalogEntryLike[], rigs: CatalogEntryLike[], modules: CatalogEntryLike[] = []): RigLists {
 	const keep = (list: CatalogEntryLike[]) => list.filter((e) => !e.removed && isObject(e.content));
 	const byId = <T extends { id: string }>(a: T, b: T) => a.id.localeCompare(b.id);
 	const i = keep(instruments);
@@ -41,9 +43,13 @@ export function rigLists(instruments: CatalogEntryLike[], presets: CatalogEntryL
 		presets: p.map((e) => ({ id: e.id, instrument: String((e.content as { instrument?: unknown }).instrument ?? ''), name: text((e.content as { name?: unknown }).name) })).sort(byId),
 		instrumentDocs: i.map((e) => e.content),
 		presetDocs: p.map((e) => e.content),
-		rigs: rigs.map(({ id, live, draft, removed }) => ({ id, live, draft, removed }))
+		rigs: rigs.map(({ id, live, draft, removed }) => ({ id, live, draft, removed })),
+		moduleDocs: keep(modules).map((e) => e.content)
 	};
 }
+
+/** the ids of the catalog's module documents */
+export const moduleIdsOf = (lists: RigLists): string[] => lists.moduleDocs.flatMap((d) => (isObject(d) && typeof d.id === 'string' ? [d.id] : []));
 
 /** the core's coverage request (space-web `rig_coverage`): the registry's characters with their personas, the rigs' states */
 export function coverageRequest(characters: { id: string; personas?: { id: string }[] }[], lists: RigLists): string {
@@ -52,7 +58,18 @@ export function coverageRequest(characters: { id: string; personas?: { id: strin
 
 /** the core's bundle request (space-web `rig_catalog_bundle`): the rig with the catalog's documents */
 export function bundleRequest(rig: RigDoc, lists: RigLists): string {
-	return JSON.stringify({ rig, instruments: lists.instrumentDocs, presets: lists.presetDocs });
+	return JSON.stringify({ rig, instruments: lists.instrumentDocs, presets: lists.presetDocs, modules: lists.moduleDocs });
+}
+
+/** the core's template request (space-web `rig_policy_template`): the rig and the catalog's documents for `module:<module>` */
+export function templateRequest(module: string, rig: RigDoc, lists: RigLists): string {
+	return JSON.stringify({ module, rig, instruments: lists.instrumentDocs, presets: lists.presetDocs });
+}
+
+/** the id "New policy" suggests: `character.catpope.dj` → `catpope_dj_rig` (a module id, ≤ 32 characters) */
+export function policyIdFor(subject: string): string {
+	const stem = subject.replace(/^(character|item)\./, '').replace(/[^a-z0-9_-]+/gi, '_').toLowerCase().replace(/^[^a-z0-9]+/, '');
+	return `${stem.slice(0, 28)}_rig`;
 }
 
 /** the creator's draft calls (`$lib/api.ts`); tests pass fakes */

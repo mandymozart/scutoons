@@ -11,7 +11,38 @@ export interface RigDoc {
 	route?: { from: string; to: string; scale?: number; offset?: number }[];
 	personas?: Record<string, RigVariant>;
 	moods?: Record<string, RigVariant>;
+	/** a code rig: the `module:<id>` document that drives the tracks (#412) */
+	policy?: { module: string; seed?: number; values?: Record<string, number> };
 	[other: string]: unknown;
+}
+
+/** a rig's face as the core describes it (deck-space `rig::face::RigFace`, space-web `rig_face`): the editor only shows it */
+export interface RigFace {
+	subject: string;
+	tracks: FaceTrack[];
+	policy?: { module: string };
+	personas: string[];
+	moods: string[];
+}
+
+export interface FaceTrack {
+	id: string;
+	instrument: string;
+	preset?: string;
+	mute?: boolean;
+	presets?: string[];
+	/** the policy output that chooses its preset (`<track>:@preset`) */
+	preset_driven?: RigDriven;
+	/** the policy output that writes its mixer strip (`<track>:@gain`) */
+	gain_driven?: RigDriven;
+	addressable: { path: string; input: string; min: number; max: number; log?: boolean; driven?: RigDriven }[];
+}
+
+/** a policy output on an input; `owned`: the core says the form does not write it */
+export interface RigDriven {
+	output: string;
+	mode: string;
+	owned: boolean;
 }
 
 export interface RigTrack {
@@ -50,6 +81,22 @@ export interface RigCoverage {
 	personas?: Record<string, RigStatus>;
 	missing: boolean;
 }
+
+/** the module the rig's policy names (null: none, a declarative rig) */
+export const policyOf = (rig: RigDoc | null): string | null => rig?.policy?.module ?? null;
+
+/** the rig driven by `module:<module>` (what a policy's seed and values were stays with it) */
+export const setPolicy = (rig: RigDoc, module: string): RigDoc => ({ ...rig, policy: { ...rig.policy, module } });
+
+/** what the face says of a track's row */
+export const faceTrack = (face: RigFace | null, id: string): FaceTrack | undefined => face?.tracks.find((t) => t.id === id);
+
+/** the driven the form may not write, else null */
+export const ownedBy = (driven?: RigDriven): RigDriven | null => (driven?.owned ? driven : null);
+
+/** the inputs the policy owns (the rows the form has no field for), with who drives them */
+export const ownedInputs = (face: RigFace | null): { path: string; by: RigDriven }[] =>
+	(face?.tracks ?? []).flatMap((t) => t.addressable.flatMap((a) => (a.driven?.owned ? [{ path: a.path, by: a.driven }] : [])));
 
 /** a new rig of `subject`: no tracks yet */
 export const emptyRig = (subject: string): RigDoc => ({ subject, track: [] });

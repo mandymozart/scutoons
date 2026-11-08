@@ -89,6 +89,8 @@ final class CatalogDocs
 
     private function draftReference(string $problem): bool
     {
+        // a code rig's draft may name its policy before that module is compiled and published (#412); the publish asks again
+        if (preg_match('/the policy module "([^"]+)" (?:is not in the catalog|has no descriptor yet)/', $problem, $m)) return $this->entities->latest("module:$m[1]") !== null;
         if (!preg_match('/unknown (item|edition|product|album|instrument|preset) "([^"]+)"/', $problem, $m)) return false;
         return $this->entities->latest("$m[1]:$m[2]") !== null;
     }

@@ -1,11 +1,8 @@
 <script lang="ts">
-	// The Sound design workspace (#282, research/EDITOR.md, owner 2026-11-02): a split screen – the designer on one side, the
-	// deck (the engine host, #298) on the other, so every edit is heard and seen at once; below ~900 px the designer stacks
-	// above the deck. The subject is a rig (`rig:character.<id>`: its character plays on the deck, the Rust tab picks a
-	// module) or a module (`module:<id>`: the Rust tab IS it). The modules are `module:<id>` documents, drafts and history
-	// like any catalog document; the compile service writes the descriptor into them (#281). Playing the compiled module
-	// in the engine comes with #290. Factory modules (walk, analog, fixture – #350) are read-only: the API refuses every
-	// change; the designer shows them locked with Derive, and New module starts as a copy of one (a derivative, `origin`).
+	// The Sound design workspace (#282, research/EDITOR.md): the designer beside the deck (the engine host, #298), so every edit is
+	// heard and seen at once; below ~900 px they stack. The subject is a rig (`rig:character.<id>`: its character plays, the Rust tab
+	// is its policy, #412, or a picked module) or a module (`module:<id>`: the Rust tab IS it). A module plays in the browser's engine
+	// with #290; factory modules (#350) are read-only: the API refuses every change, the designer shows them locked with Derive.
 	import { onMount, untrack } from 'svelte';
 	import { MediaQuery } from 'svelte/reactivity';
 	import { goto, beforeNavigate } from '$app/navigation';
@@ -22,6 +19,8 @@
 	import { editHref, selectedModule, type EditTarget } from '$lib/editor/edit-key.ts';
 	import { createModuleStore, moduleKey } from '$lib/editor/module-store.ts';
 	import { factoryChoices, firstDraft, idProblem, NO_MODULES, readCatalog, templateOf, type ModuleCatalog } from '$lib/editor/module-catalog.ts';
+	import { openRigSession } from '$lib/editor/rig-session.svelte.ts';
+	import { loadRigRules } from '@scutoons/live-deck/assign';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import { isolateThisPage } from '$lib/isolation.svelte.ts';
@@ -40,16 +39,18 @@
 
 	// the catalog kind `modules` (server CatalogDocs) – the factory modules (#350) marked, New module's templates
 	let catalog = $state<ModuleCatalog>(NO_MODULES);
-	/** a refused New module, one muted sentence */
-	let notice = $state('');
+	let notice = $state(''); // a refused New module, one muted sentence
 	async function loadModules(): Promise<void> {
 		const r = await api.get<{ entries: { id: string; removed: boolean; content: unknown }[] }>('/catalog/docs/modules').catch(() => null);
 		catalog = r ? readCatalog(r.entries) : NO_MODULES;
 	}
 	onMount(() => void loadModules());
 
-	// the address decides the module: a module page's own id, or a rig page's ?sel=module:<id>
-	const selected = $derived(selectedModule(target, page.url.searchParams.get('sel')));
+	// svelte-ignore state_referenced_locally
+	const session = openRigSession(target, loadRigRules('/live/'), designer); // the rig open (a rig page): the Assignment tab's and the policy's (#412)
+
+	// the address decides the module: a module page's own id, a rig page's ?sel=module:<id>, else the rig's policy
+	const selected = $derived(selectedModule(target, page.url.searchParams.get('sel')) ?? session?.policy ?? null);
 	$effect(() => {
 		const id = selected;
 		untrack(() => {
@@ -58,6 +59,7 @@
 	});
 
 	function select(id: string | null) {
+		void loadModules(); // New policy (#412): the picker knows it
 		void goto(editHref(target.key, { w: 'sound', sel: id ? moduleKey(id) : null }), { replaceState: true, keepFocus: true, noScroll: true });
 	}
 
@@ -124,7 +126,7 @@
 		<DesignerHalf
 			{designer}
 			fixed={target.kind === 'module' ? target.id : null}
-			rig={'subject' in target ? target.subject : null}
+			{session}
 			modules={catalog.ids}
 			factory={Object.keys(catalog.factory)}
 			{selected}

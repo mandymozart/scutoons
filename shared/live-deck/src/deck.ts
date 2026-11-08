@@ -335,7 +335,7 @@ export class Deck {
 		}
 		if (gen !== this.loadGen) return;
 		this.engineReady = true;
-		if (rig?.engine.page.length) this.o.onStatus?.(`sound: not in the browser yet – ${rig.engine.page.map((n) => `${n.id} (${n.kind})`).join(', ')}`);
+		if (rig?.engine.note) this.o.onStatus?.(rig.engine.note);
 		for (const p of Object.keys(this.params)) this.setParam(p, this.value[p]);
 	}
 
