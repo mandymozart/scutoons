@@ -37,8 +37,8 @@ impl Conn for quinn::Connection {
     fn rtt(&self) -> Duration {
         quinn::Connection::rtt(self)
     }
-    fn recv_dgram(&self) -> impl Future<Output = Option<Vec<u8>>> + Send {
-        async move { self.read_datagram().await.ok().map(|b| b.to_vec()) }
+    async fn recv_dgram(&self) -> Option<Vec<u8>> {
+        self.read_datagram().await.ok().map(|b| b.to_vec())
     }
 }
 
@@ -53,8 +53,8 @@ impl Conn for Wt {
     fn rtt(&self) -> Duration {
         self.0.rtt()
     }
-    fn recv_dgram(&self) -> impl Future<Output = Option<Vec<u8>>> + Send {
-        async move { self.0.receive_datagram().await.ok().map(|d| d.payload().to_vec()) }
+    async fn recv_dgram(&self) -> Option<Vec<u8>> {
+        self.0.receive_datagram().await.ok().map(|d| d.payload().to_vec())
     }
 }
 

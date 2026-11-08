@@ -246,7 +246,8 @@ async fn dial(net: &Net, via: Via, path: &str) -> Wire {
     let (inc, rx) = mpsc::unbounded_channel::<String>();
     match via {
         Via::Ws => {
-            let (ws, _) = tokio_tungstenite::connect_async(format!("ws://{}{path}", net.ws)).await.expect("ws");
+            // Nagle off, as in examples/bench.rs and every browser
+            let (ws, _) = tokio_tungstenite::connect_async_with_config(format!("ws://{}{path}", net.ws), None, true).await.expect("ws");
             let (mut w, mut r) = ws.split();
             tokio::spawn(async move {
                 while let Some((_, text)) = out.recv().await {
@@ -562,13 +563,13 @@ async fn run(a: Args, net: Net, stats: Arc<Stats>) -> Window {
 
     // measure only once every client has its welcome, after a warm-up of the running load
     let all = (a.listeners + a.decks + 1) as u64;
-    let deadline = Instant::now() + Duration::from_secs(90);
+    let deadline = Instant::now() + Duration::from_secs(25);
     while welcomed.load(Ordering::Relaxed) < all && Instant::now() < deadline {
         tokio::time::sleep(Duration::from_millis(20)).await;
     }
     let joined = welcomed.load(Ordering::Relaxed);
     if joined < all {
-        eprintln!("only {joined} of {all} clients joined within 90 s");
+        eprintln!("only {joined} of {all} clients joined within 25 s");
     }
     tokio::time::sleep(WARMUP).await;
     let wire0 = wire_bytes();

@@ -114,6 +114,23 @@ udp_blocked() {
   iptables -D INPUT -p udp -j DROP
 }
 
+# the matrix's rows again on an idle machine; frames too large for one datagram
+control() {
+  for via in ws quinn wt renet2; do one 1 40 "control-$via" --via "$via"; done
+  for via in quinn wt renet2; do one 1 40 "keys100-$via" --via "$via" --keys 100; done
+}
+
+# the rows with TCP clients again
+tcp() {
+  one 1 40 "control-ws" --via ws
+  udp_blocked
+  for size in "20 100" "50 500"; do
+    read -r decks phones <<< "$size"
+    cost_one 1 alone-ws "$decks" "$phones" --via ws
+    cost_one 1 mixed "$decks" "$phones" --decks-via renet2,wt,ws --phones-via renet2,wt,ws --conductor-via wt
+  done
+}
+
 ladder() {
   path 1
   for stack in native browser; do
@@ -135,6 +152,8 @@ ladder() {
 
 case "${1:-}" in
   cost) cost ;;
+  control) control ;;
+  tcp) tcp ;;
   limits) limits ;;
   udp-blocked) udp_blocked ;;
   ladder) ladder ;;
@@ -142,5 +161,5 @@ case "${1:-}" in
   doors) doors_matrix ;;
   mixed) mixed ;;
   smoke) smoke ;;
-  *) echo "usage: run.sh baseline|doors|mixed|cost|limits|udp-blocked|ladder|smoke" >&2; exit 2 ;;
+  *) echo "usage: run.sh baseline|doors|mixed|control|tcp|cost|limits|udp-blocked|ladder|smoke" >&2; exit 2 ;;
 esac
