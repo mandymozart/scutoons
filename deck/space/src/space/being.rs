@@ -574,7 +574,7 @@ impl Being {
                 let (name, spec, linked, scene) = if k == usize::MAX {
                     let names = crate::params::LFO_SHAPES;
                     let scene = node.str("shape").and_then(|n| names.iter().position(|x| *x == n)).unwrap_or(0) as f32;
-                    ("shape", Spec { min: 0.0, max: (names.len() - 1) as f32, default: 0.0, curve: params::Curve::Lin }, false, scene)
+                    ("shape", Spec { min: 0.0, max: (names.len() - 1) as f32, default: 0.0, curve: params::Curve::Lin, whole: false }, false, scene)
                 } else {
                     let name = node.kind.inputs()[k].name;
                     let spec = params::spec(node.kind, name);
@@ -597,6 +597,8 @@ impl Being {
                     });
                 let path = format!("{}.{name}", node.id);
                 let label = look.labels.get(&path).and_then(|m| pick_label(m, &look.locale)).unwrap_or(name).to_string();
+                // #429: the count of a counted group clicks from one whole number to the next
+                let spec = Spec { whole: spec.whole || params::is_count(&node.id, name, &look.expose), ..spec };
                 let n0 = spec.norm(scene);
                 buttons.push(Button {
                     point: pi,

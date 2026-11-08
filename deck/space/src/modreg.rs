@@ -21,8 +21,8 @@ pub struct ModuleSpec {
     pub outputs: &'static [Port],
     /// a control input's default (its name, the value) – the parameters' defaults
     pub defaults: &'static [(&'static str, f32)],
-    /// a parameter's range and curve (#429: its knob's travel): its name, min, max, curve
-    pub ranges: &'static [(&'static str, f32, f32, deck_catalog::Curve)],
+    /// a parameter's range and curve (#429: its knob's travel): its name, min, max, curve, only whole values (it has choices)
+    pub ranges: &'static [(&'static str, f32, f32, deck_catalog::Curve, bool)],
     pub domain: Domain,
     /// (output port, path, mode) per control output bound to a target instead of a cable (ABI-V2 §5; graph.rs binds them)
     pub targets: &'static [(usize, &'static str, Mode)],
@@ -51,8 +51,8 @@ pub struct ModuleDef {
     pub inputs: Vec<PortDef>,
     pub outputs: Vec<PortDef>,
     pub defaults: Vec<(String, f32)>,
-    /// (parameter, min, max, curve) – empty: its knobs run 0..1
-    pub ranges: Vec<(String, f32, f32, deck_catalog::Curve)>,
+    /// (parameter, min, max, curve, only whole values) – empty: its knobs run 0..1
+    pub ranges: Vec<(String, f32, f32, deck_catalog::Curve, bool)>,
     pub domain: Domain,
     /// (output port, path, mode)
     pub targets: Vec<(usize, String, Mode)>,
@@ -76,7 +76,7 @@ impl ModuleDef {
             inputs: g.inputs.iter().map(port).collect(),
             outputs: g.outputs.iter().map(port).collect(),
             defaults: desc.params.iter().map(|p| (p.name.to_string(), p.default.unwrap_or(p.min))).collect(),
-            ranges: desc.params.iter().map(|p| (p.name.to_string(), p.min, p.max, p.curve)).collect(),
+            ranges: desc.params.iter().map(|p| (p.name.to_string(), p.min, p.max, p.curve, !p.choices.is_empty())).collect(),
             domain: if desc.domain == deck_catalog::Domain::Control { Domain::Control } else { Domain::Audio },
             targets: g.targets,
             moods: desc.moods.iter().map(|m| m.to_string()).collect(),
@@ -112,7 +112,7 @@ pub fn register(name: &str, def: &ModuleDef) -> ModuleKind {
             && s.defaults.iter().zip(&def.defaults).all(|(a, b)| a.0 == b.0 && a.1.to_bits() == b.1.to_bits())
             && s.domain == def.domain
             && s.ranges.len() == def.ranges.len()
-            && s.ranges.iter().zip(&def.ranges).all(|(a, b)| a.0 == b.0 && a.1 == b.1 && a.2 == b.2 && a.3 == b.3)
+            && s.ranges.iter().zip(&def.ranges).all(|(a, b)| a.0 == b.0 && a.1 == b.1 && a.2 == b.2 && a.3 == b.3 && a.4 == b.4)
             && s.targets.len() == def.targets.len()
             && s.targets.iter().zip(&def.targets).all(|(a, b)| a.0 == b.0 && a.1 == b.1 && a.2 == b.2)
             && s.moods.len() == def.moods.len()
@@ -128,7 +128,7 @@ pub fn register(name: &str, def: &ModuleDef) -> ModuleKind {
         inputs: ports(&def.inputs),
         outputs: ports(&def.outputs),
         defaults: Box::leak(defaults.into_boxed_slice()),
-        ranges: Box::leak(def.ranges.iter().map(|(n, min, max, c)| (leak(n), *min, *max, *c)).collect::<Vec<_>>().into_boxed_slice()),
+        ranges: Box::leak(def.ranges.iter().map(|(n, min, max, c, w)| (leak(n), *min, *max, *c, *w)).collect::<Vec<_>>().into_boxed_slice()),
         domain: def.domain,
         targets: Box::leak(targets.into_boxed_slice()),
         moods: Box::leak(def.moods.iter().map(|m| leak(m)).collect::<Vec<_>>().into_boxed_slice()),

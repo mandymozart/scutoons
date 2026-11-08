@@ -20,15 +20,17 @@ pub struct Spec {
     pub max: f32,
     pub default: f32,
     pub curve: Curve,
+    /// #429: only whole values (a switch, a choice, a count): the knob clicks from one to the next
+    pub whole: bool,
 }
 
 impl Spec {
     /// 0..1, linear: a path without a range of its own
-    pub const UNIT: Spec = Spec { min: 0.0, max: 1.0, default: 0.0, curve: Curve::Lin };
+    pub const UNIT: Spec = Spec { min: 0.0, max: 1.0, default: 0.0, curve: Curve::Lin, whole: false };
 
     /// a knob's range as a deck's scene names it (#369: the page's sliders, a rig's knobs – `log` for pitches, cutoffs, rates)
     pub fn knob(min: f32, max: f32, default: f32, log: bool) -> Spec {
-        Spec { min, max, default, curve: if log { Curve::Log } else { Curve::Lin } }
+        Spec { min, max, default, curve: if log { Curve::Log } else { Curve::Lin }, whole: false }
     }
 
     /// value → 0..1 (clamped)
@@ -47,9 +49,14 @@ impl Spec {
     /// 0..1 → value
     pub fn value(&self, n: f32) -> f32 {
         let n = n.clamp(0.0, 1.0);
-        match self.curve {
+        let v = match self.curve {
             Curve::Lin => self.min + n * (self.max - self.min),
             Curve::Log => (self.min.ln() + n * (self.max.ln() - self.min.ln())).exp(),
+        };
+        if self.whole {
+            v.round().clamp(self.min, self.max)
+        } else {
+            v
         }
     }
 }
@@ -111,6 +118,11 @@ impl<'a> Expose<'a> {
     }
 }
 
+/// #429: whether `node.port` is the count parameter of a counted group in `expose` (a count is a whole number)
+pub fn is_count(node: &str, port: &str, expose: &[String]) -> bool {
+    expose.iter().any(|e| matches!(Expose::parse(e), Expose::Group { count, .. } if count == (node, port)))
+}
+
 /// how many of a group of `size` knobs the count parameter's `value` shows: rounded, clamped 0..=size (not a number: all)
 pub fn shown_count(value: f32, size: u32) -> u32 {
     if value.is_finite() {
@@ -163,9 +175,9 @@ pub fn default_for(kind: Kind, port: &str) -> f32 {
 pub fn spec(kind: Kind, port: &str) -> Spec {
     // #429: a module has no catalog descriptor here, its parameters' ranges are in the registry
     if let Kind::Module(m) = kind {
-        if let Some(&(_, min, max, curve)) = m.spec().ranges.iter().find(|r| r.0 == port) {
+        if let Some(&(_, min, max, curve, whole)) = m.spec().ranges.iter().find(|r| r.0 == port) {
             let log = curve == deck_catalog::Curve::Log && min > 0.0;
-            return Spec { min, max, default: default_for(kind, port), curve: if log { Curve::Log } else { Curve::Lin } };
+            return Spec { min, max, default: default_for(kind, port), curve: if log { Curve::Log } else { Curve::Lin }, whole };
         }
     }
     match kind.descriptor().and_then(|d| d.param(port)) {
@@ -177,8 +189,9 @@ pub fn spec(kind: Kind, port: &str) -> Spec {
                 deck_catalog::Curve::Lin => Curve::Lin,
                 deck_catalog::Curve::Log => Curve::Log,
             },
+            whole: !p.choices.is_empty(),
         },
-        None => Spec { min: 0.0, max: 1.0, default: default_for(kind, port), curve: Curve::Lin },
+        None => Spec { min: 0.0, max: 1.0, default: default_for(kind, port), curve: Curve::Lin, whole: false },
     }
 }
 

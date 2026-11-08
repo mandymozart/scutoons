@@ -661,6 +661,13 @@ fn the_being_shows_only_as_many_step_knobs_as_the_sequence_has_steps() {
     assert_eq!((being.buttons[0].spec.min, being.buttons[0].spec.max), (1.0, 16.0));
     let cutoff = being.buttons.iter().find(|b| b.name == "f1_cutoff").unwrap();
     assert!(cutoff.spec.max > 1000.0, "the synth's cutoff is in Hz: {:?}", cutoff.spec.max);
+    let decay = being.buttons.iter().find(|b| b.name == "ae1_d").unwrap();
+    assert_eq!(format!("{:?}", decay.spec.curve), "Log", "an envelope time is logarithmic");
+    assert!((decay.spec.value(decay.spec.norm(0.2)) - 0.2).abs() < 0.001 && decay.spec.norm(0.2) > 0.5, "0.2 s sits past the middle: {}", decay.spec.norm(0.2));
+    // the count and the switches click into whole values
+    assert_eq!(being.buttons[0].spec.value(0.5), 9.0, "1 + 7.5 steps, rounded");
+    let on = being.buttons.iter().find(|b| b.name == "on1").unwrap();
+    assert_eq!((on.spec.value(0.4), on.spec.value(0.6)), (0.0, 1.0), "a switch is off or on");
     assert!(ctl.set(seq, port, 16.0));
     assert_eq!(shown(&mut being, &ctl), want(16), "steps = 16: all of them");
     assert!(ctl.set(seq, port, 3.0));
