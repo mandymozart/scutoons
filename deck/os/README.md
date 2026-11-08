@@ -158,6 +158,10 @@ into `out/update/`, and serves that folder on port 7790 (`-- --serve` only serve
 each change with `-- --no-serve` (the server reads the folder on every request). Windows' firewall needs an inbound
 rule for TCP 7790 on private networks once (an admin PowerShell: `New-NetFirewallRule -DisplayName "SCUTOONS
 deck-update" -Direction Inbound -Protocol TCP -LocalPort 7790 -Action Allow -Profile Private`).
+The stage is built with the `modules` feature (#406) and the update ships the rig modules `walk`, `stepseq` and `analog` (wasm,
+`os/modules.sh`: the module build service's pinned flags, the host's wasm32 target) to `/usr/share/deck/modules`; `deck-session` sets
+`DECK_MODULES` to it and keeps the compiled code in `/var/lib/deck/cache/modules`. So the scenes `catpope-analog` and `module-walk` play on the
+X1. The ISO build carries the feature too but no wasm yet: there those scenes fall back to the test pattern (`unknown kind 'module:walk'`).
 
 **On the deck:** `deck-update.timer` runs `deck-update auto` every 2 minutes. Channel `dev` (deck.toml
 `update_channel`, the default until a stable release exists) asks deck.toml's `update_url`, the dev PC that answered

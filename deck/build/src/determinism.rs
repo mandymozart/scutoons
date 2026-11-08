@@ -150,4 +150,12 @@ mod tests {
         assert_eq!(encoded_rustflags(), "-Ctarget-cpu=generic\u{1f}-Ctarget-feature=-simd128,-relaxed-simd");
         assert!(RUSTFLAGS.iter().any(|f| f.contains("-relaxed-simd") && f.contains("-simd128")));
     }
+
+    /// deck/os/modules.sh builds the X1's modules (#406) with the flags the service pins: the script's copy equals this file's
+    #[test]
+    fn os_modules_script_pins_the_service_s_flags() {
+        let script = include_str!("../../os/modules.sh");
+        let wanted = format!("CARGO_ENCODED_RUSTFLAGS=$'{}'", RUSTFLAGS.join("\\x1f"));
+        assert!(script.contains(&wanted), "deck/os/modules.sh must export {wanted}");
+    }
 }

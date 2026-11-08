@@ -374,6 +374,11 @@ PowerShell `$env:DECK_MODULES = "$PWD\target\wasm-modules\wasm32-unknown-unknown
 files load too and are ignored unless a scene names them). `rig:` scenes stage the being too now: `Player::scene` adds the
 `screen` node the flattened rig lacks (it showed only the HUD on black).
 
+`scenes/module-walk.toml` (#406, `--scene module-walk`, in the F5 list) is the smallest module demo: `module:walk` (a seeded melody on the tempo
+clock, 96 BPM) → its `cv` (pitch Hz left, gate right) → an `fm` voice → the device, quiet by default (voice gain 0.2, device volume 0.5), a pulsing
+test pattern as the picture. The X1 update ships the wasm of `walk`, `stepseq` and `analog` to `/usr/share/deck/modules` (`DECK_MODULES`; `deck/os/modules.sh`)
+and builds the stage with `--features modules`. Test: `cargo test -p deck-native --features modules --test modules`.
+
 `scenes/madness.toml` ("AV madness (S3)", `--scene madness`) – the tempo clock at 96 BPM; catpope 1's music + an FM voice sequenced on
 the beat + pink noise + the click (off until K) → mixer → FFT; test pattern (pulsing on the beat) → kaleidoscope → the
 chapter's slices (cut on a bass hit snapped to the beat, every 6 s at the latest) → RGB shift → the caption overlay →
@@ -381,7 +386,7 @@ screen. `scenes/test-pattern.toml` – the picture alone (no sound, no network).
 `/usr/share/deck/scenes` on the deck; `scene = "…"` in `/var/lib/deck/deck.toml` picks one.
 
 **The scene switcher (#250, `switcher.rs`):** **F5** lists the built-in scenes (`idle`, `madness`, `cathedral`, `catpope-analog`, `conductor`,
-`outlet`, `strobe`, `test-pattern`) and every `*.toml` of the scenes folder (`--scenes DIR`, default
+`outlet`, `strobe`, `test-pattern`, `module-walk`) and every `*.toml` of the scenes folder (`--scenes DIR`, default
 `/usr/share/deck/scenes`; a file named like a built-in is skipped); ↑ ↓ move, **Enter** loads the scene in place – the same
 path as a `--dev` reload, no process restart: the old show stops (audio graph dropped), the new one is built, the window
 stays (about 0.6 s on a PC) – **Esc** / F5 closes; the playing one is starred. A scene that doesn't build (a module this build lacks,

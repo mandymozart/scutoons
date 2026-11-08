@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # deck/os/update.sh – a remote update for the decks on the LAN (#237): `npm run deck:update` (Git Bash / WSL / Linux).
 #   1. the Linux binaries in Docker (the ISO build's container and cargo volume, DECK_BINARIES_ONLY=1) → deck/os/out/bin
-#   2. `deck-update bundle` on this PC: the binaries + deck/os/rootfs's deck paths + the scenes, signed with the dev key
+#   2. `deck-update bundle` on this PC: the binaries + deck/os/rootfs's deck paths + the scenes + the rig modules' wasm
+#      (modules.sh → /usr/share/deck/modules, #406), signed with the dev key
 #      (~/.scutoons/deck-update.key, made on first use; its public half is in rootfs/usr/share/deck/update-keys)
 #      → deck/os/out/update (manifest.json, manifest.json.sig, bundle-<build>.tar.gz)
 #   3. `deck-update serve` on port 7790 – decks on the dev channel find it by their scan and update within ~2 minutes
@@ -40,7 +41,14 @@ if [ "$bundle" = 1 ]; then
   v=$(sed -n 's/^version = "\(.*\)"/\1/p' "$deck/Cargo.toml" | head -1)
   version="$v.r$(git -C "$deck" rev-list --count HEAD).g$(git -C "$deck" rev-parse --short HEAD)"
   [ -z "$(git -C "$deck" status --porcelain -- . 2>/dev/null)" ] || version="$version.dirty"
-  "$tool" bundle --bin "$out/bin" --rootfs "$here/rootfs" --scenes "$deck/native/scenes" --out "$out/update" \
+  # the rig modules the module scenes play (#406): walk, stepseq and analog as wasm (modules.sh: the build service's pinned
+  # flags) go into the bundle's usr/share/deck/modules; deck-session points DECK_MODULES there. The bundle's rootfs is a copy
+  # of deck/os/rootfs plus those files.
+  bash "$here/modules.sh" "$out/modules"
+  stage="$out/rootfs-stage"
+  rm -rf "$stage"; mkdir -p "$stage"; cp -r "$here/rootfs/." "$stage/"
+  install -Dm644 -t "$stage/usr/share/deck/modules" "$out"/modules/*.wasm
+  "$tool" bundle --bin "$out/bin" --rootfs "$stage" --scenes "$deck/native/scenes" --out "$out/update" \
     --version "$version" --channel dev ${extra[@]+"${extra[@]}"}
 fi
 
