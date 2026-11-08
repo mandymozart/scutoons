@@ -1,4 +1,4 @@
-Status 2026-11-08: design note for the owner's review (#203, slice 3 of #425). Nothing built. Open: the six questions of §6.
+Status 2026-11-08: design note for the owner's review (#203, slice 3 of #425). Nothing built. Owner 2026-11-08: wiring is configuration, not Rust: question 1 and slice W3 fall away, §2 is to be reread against that (decisions/deck.md [rigs]); the other answers are there too.
 
 # MODULE-WIRING – wiring modules in the editor
 Owner 2026-11-08, binding ([rigs] in decisions/deck.md): the code is the ONE source of a wiring, no override layer; rewiring by hand changes the code and takes effect through the compile; the editor exists only outside the deck ("somit ist das node on the fly verkabel verboten"); addressing must finally reach everything in the Scutooniverse, for now the stage, probably the active scene; what is shown depends on where you are, "aehnlich dem flow editor". The note does not depend on which GUI the editor runs in (#393). Every rule below lives in the core (RULES A1, A2, `check:core-only`).
