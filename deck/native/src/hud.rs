@@ -210,7 +210,7 @@ impl Hud {
 }
 
 /// `s` in font8x8 from (x, y), through `put`
-fn glyphs(put: &mut dyn FnMut(u32, u32, [u8; 4]), x: u32, y: u32, s: &str, color: [u8; 4]) {
+pub(crate) fn glyphs(put: &mut dyn FnMut(u32, u32, [u8; 4]), x: u32, y: u32, s: &str, color: [u8; 4]) {
     for (i, ch) in s.chars().enumerate() {
         let glyph = font8x8::BASIC_FONTS.get(ch).or_else(|| font8x8::BASIC_FONTS.get('?')).unwrap_or([0; 8]);
         for (gy, bits) in glyph.iter().enumerate() {

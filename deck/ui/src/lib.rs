@@ -124,6 +124,38 @@ pub struct Status {
     pub slices: Vec<String>,
 }
 
+/// #423: characters the build label has room for (its raster is 8 px a character)
+pub const LABEL_COLS: usize = 40;
+
+/// #423: the build label's text for the build string (`deck_native::BUILD`, e.g. `0.1.0.r3093.g8eccc753.dirty`): the string
+/// itself – what the update bundle carries – in ASCII (font8x8 has no more), `dev` when empty; over [`LABEL_COLS`] the
+/// leading workspace version goes first (`r3093.g8eccc753.dirty`), then the cut.
+pub fn build_label(build: &str) -> String {
+    let ascii: String = build.trim().chars().map(|c| if c.is_ascii_graphic() { c } else { '?' }).collect();
+    let mut s = ascii.as_str();
+    if s.chars().count() > LABEL_COLS {
+        if let Some(i) = s.find(".r") {
+            s = &s[i + 1..];
+        }
+    }
+    let s: String = s.chars().take(LABEL_COLS).collect();
+    if s.is_empty() {
+        "dev".into()
+    } else {
+        s
+    }
+}
+
+/// #423: where the build label sits: `[x, y, w, h]` in screen pixels for a `sw` × `sh` screen when its raster is `w` × `h`
+/// pixels drawn at the integer `scale` (the HUD's, 2 at 1080p): the TOP RIGHT corner, a 1rem (16 px at that scale) margin
+/// from the top and the right edge. The full HUD and the F5 switcher are top left (the same margin, 320 px wide at that
+/// scale), the pairing card lower right: the label clears them whenever the screen is wider than the HUD plus the label.
+pub fn label_rect(sw: f32, sh: f32, scale: f32, w: u32, h: u32) -> [f32; 4] {
+    let (lw, lh) = ((w as f32 * scale).min(sw), (h as f32 * scale).min(sh));
+    let m = 16.0 * scale;
+    [(sw - lw - m).max(0.0), m.min((sh - lh).max(0.0)), lw, lh]
+}
+
 /// `text` broken into HUD lines at spaces (a word longer than a line is cut)
 pub fn wrap(text: &str, cols: usize) -> Vec<String> {
     let mut out: Vec<String> = Vec::new();
@@ -248,6 +280,32 @@ pub fn beat_row(lines: &[String]) -> Option<usize> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// #423: the label is the build string itself; a long one loses the workspace version, then is cut
+    #[test]
+    fn the_build_label_is_the_build_string() {
+        assert_eq!(build_label("0.1.0.r3093.g8eccc753"), "0.1.0.r3093.g8eccc753");
+        assert_eq!(build_label(" 0.1.0.r3093.g8eccc753.dirty\n"), "0.1.0.r3093.g8eccc753.dirty");
+        assert_eq!(build_label("dev"), "dev");
+        assert_eq!(build_label(""), "dev");
+        assert_eq!(build_label("0.1.0.r3093.g8eccc753.é"), "0.1.0.r3093.g8eccc753.?");
+        let long = format!("0.1.0.r3093.g8eccc753{}", ".x".repeat(10));
+        assert_eq!(build_label(&long), format!("r3093.g8eccc753{}", ".x".repeat(10)));
+        assert_eq!(build_label(&"a".repeat(60)).len(), LABEL_COLS);
+    }
+
+    /// #423: top right, a 1rem margin, never off screen
+    #[test]
+    fn the_build_label_sits_top_right() {
+        // 1080p at scale 2: a 224 x 12 raster = 448 x 24 px, 32 px from the top and right edges
+        assert_eq!(label_rect(1920.0, 1080.0, 2.0, 224, 12), [1920.0 - 448.0 - 32.0, 32.0, 448.0, 24.0]);
+        assert_eq!(label_rect(1280.0, 720.0, 1.0, 224, 12), [1280.0 - 224.0 - 16.0, 16.0, 224.0, 12.0]);
+        // clear of the full HUD (x 16..336 at scale 1) on a 1280 px screen
+        assert!(label_rect(1280.0, 720.0, 1.0, 224, 12)[0] > 16.0 + 320.0);
+        // a tiny screen: clamped, never negative
+        let r = label_rect(100.0, 50.0, 1.0, 224, 12);
+        assert!(r[0] >= 0.0 && r[1] >= 0.0 && r[2] <= 100.0);
+    }
 
     #[test]
     fn f1_cycles_full_bar_off() {

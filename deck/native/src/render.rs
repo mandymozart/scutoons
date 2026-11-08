@@ -140,6 +140,10 @@ pub struct Renderer {
     pair_pass: Pass,
     pair_tex: wgpu::Texture,
     pairing: bool,
+    /// #423: the build label (build_label.rs) – rastered once at start, drawn top right over everything, always
+    label_pass: Pass,
+    label_tex: wgpu::Texture,
+    label_size: (u32, u32),
     render_scale: f32,
     /// #220: the quality rung's knobs (deck-space quality.rs – the governor in main.rs sets them) and the scene's
     /// render_scale under them
@@ -293,6 +297,16 @@ impl Renderer {
         let hud_pass = overlay_pass("hud", builtin("pass").unwrap())?;
         let bar_pass = overlay_pass("hud bar", builtin("pass").unwrap())?;
         let pair_pass = overlay_pass("pairing", builtin("pass").unwrap())?;
+        let label_pass = overlay_pass("build label", builtin("pass").unwrap())?;
+        tracing::info!("deck: build {}", crate::BUILD);
+        let (lw, lh, lpx) = crate::build_label::raster(crate::BUILD);
+        let label_tex = texture(&device, lw, lh, OFFSCREEN, wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST);
+        queue.write_texture(
+            wgpu::TexelCopyTextureInfo { texture: &label_tex, mip_level: 0, origin: wgpu::Origin3d::ZERO, aspect: wgpu::TextureAspect::All },
+            &lpx,
+            wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(lw * 4), rows_per_image: None },
+            wgpu::Extent3d { width: lw, height: lh, depth_or_array_layers: 1 },
+        );
 
         let mut r = Renderer {
             hud_pass,
@@ -302,6 +316,9 @@ impl Renderer {
             pair_pass,
             pair_tex,
             pairing: false,
+            label_pass,
+            label_tex,
+            label_size: (lw, lh),
             splash,
             veil_only: veil,
             logo,
@@ -584,6 +601,8 @@ impl Renderer {
         let bar_bind = bind(&self.bar_pass, [&bar_view, &self.dummy, &self.dummy], &self.nearest);
         let pair_view = self.pair_tex.create_view(&Default::default());
         let pair_bind = bind(&self.pair_pass, [&pair_view, &self.dummy, &self.dummy], &self.nearest);
+        let label_view = self.label_tex.create_view(&Default::default());
+        let label_bind = bind(&self.label_pass, [&label_view, &self.dummy, &self.dummy], &self.nearest);
         let splash_bind = bind(&self.splash, [&self.logo.view, &self.dummy, &self.dummy], &self.linear);
         for (p, b) in self.passes.iter_mut().zip(binds) {
             p.bind = Some(b);
@@ -594,6 +613,7 @@ impl Renderer {
         self.hud_pass.bind = Some(hud_bind);
         self.bar_pass.bind = Some(bar_bind);
         self.pair_pass.bind = Some(pair_bind);
+        self.label_pass.bind = Some(label_bind);
         self.splash.bind = Some(splash_bind);
     }
 
@@ -833,6 +853,12 @@ impl Renderer {
                 rp.set_bind_group(0, self.pair_pass.bind.as_ref(), &[]);
                 rp.draw(0..3, 0..1);
             }
+            // #423: the build label in the top right corner – over everything, in every scene and HUD mode (deck-ui places it)
+            let [x, y, w, h] = deck_ui::label_rect(sw, sh, hud::scale(sh), self.label_size.0, self.label_size.1);
+            rp.set_viewport(x, y, w, h, 0.0, 1.0);
+            rp.set_pipeline(self.label_pass.pipeline.as_ref().expect("the build label's pipeline"));
+            rp.set_bind_group(0, self.label_pass.bind.as_ref(), &[]);
+            rp.draw(0..3, 0..1);
         }
         let shot = self.capture.take().filter(|_| self.can_capture).map(|path| {
             let (w, h) = (self.config.width, self.config.height);
