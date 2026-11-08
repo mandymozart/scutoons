@@ -6,10 +6,10 @@
 //! - `catalog_bundle`: a rig document with what it names picked from the catalog's instruments and presets (the presets'
 //!   ancestors included) – the bundle `rig_play` plays, so a draft is heard before it is published.
 //!
-//! The standard rig per instrument kind (§9.4, the fallback of a character without a default rig) does not exist yet:
-//! until it does, a deck without a rig plays its own scene (`Played::deck_scene`). A code rig (#314) is a policy module
+//! No standard rig (owner 2026-11-08 [rigs], #425: "eine figur ohne rig, sollte nicht klingen"): a character without a
+//! default rig plays no sound – the deck's silent scene (`Played::silent`), the being without a sound. A code rig (#314) is a policy module
 //! over the same document (DECISIONS 2026-11-03 [rigs]); the form edits the document, the code drives its parameters.
-use super::{policy, Bundle, Instrument, Preset, PresetBook, Rig};
+use super::{policy, Bundle, Expose, Instrument, Preset, PresetBook, Rig};
 use anyhow::{bail, Context, Result};
 use deck_catalog::Descriptor;
 use serde::{Deserialize, Serialize};
@@ -72,7 +72,7 @@ pub struct Coverage {
     /// the personas with a rig of their own (drafted or playing) and its state
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub personas: BTreeMap<String, Status>,
-    /// no published default rig: a deck plays the fallback for it (today the deck's own scene, §9.4)
+    /// no published default rig: the deck plays no sound for it (#425: the silent scene)
     pub missing: bool,
 }
 
@@ -182,6 +182,57 @@ fn policy_descriptor(subject: &str, module: &str, docs: &[Value]) -> Result<Desc
         bail!("rig {subject}: the module document \"{module}\" carries the descriptor of \"{}\"", d.name)
     }
     Ok(d)
+}
+
+/// How many of a module's parameters its instrument shows (the signal strip's knobs): the first step of "start from an
+/// existing module" (#425) shows the first few in the descriptor's order – choosing which, and wiring modules together,
+/// is the patch editor's (#203).
+const MODULE_KNOBS: usize = 8;
+
+/// The instrument that wraps ONE module (#425, the way deck/native/rigs/catpope_analog.toml does by hand): a single
+/// `module:<name>` node `module`, its first audio output as the track's `out`, the first few numeric parameters exposed.
+/// A module without an audio output (a note source such as stepseq) cannot be a track on its own: it says so.
+pub fn module_instrument(module: &str, descriptor: &Descriptor) -> Result<Instrument> {
+    use deck_catalog::{Dir, PortType};
+    if descriptor.name != module {
+        bail!("the module document \"{module}\" carries the descriptor of \"{}\"", descriptor.name)
+    }
+    let Some(out) = descriptor.ports_of(Dir::Out, PortType::Audio).next() else {
+        bail!("module:{module} has no audio output – it makes notes or control, not sound: wire it into a synth (the patch editor, #203)")
+    };
+    let expose = descriptor
+        .params
+        .iter()
+        .filter(|p| p.choices.is_empty() && p.max > p.min)
+        .take(MODULE_KNOBS)
+        .map(|p| Expose { path: format!("module.{}", p.name), label: super::Text::from([("en".to_string(), p.name.to_string())]), range: Some([p.min, p.max]) })
+        .collect();
+    Ok(Instrument {
+        id: module.to_string(),
+        kind: super::InstrumentKind::Pad,
+        name: super::Text::from([("en".to_string(), module.to_string())]),
+        nodes: vec![crate::scene::NodeDef { id: "module".into(), kind: format!("module:{module}"), params: toml::Table::new() }],
+        links: Vec::new(),
+        out: format!("module.{}", out.name),
+        expose,
+        rights: Default::default(),
+    })
+}
+
+/// `{ module: { id, descriptor, … } }` (a catalog `module:<id>` document, the descriptor the compile service wrote into
+/// it) → the instrument that wraps it, as JSON for the catalog's `instruments` (the rig page's "start from existing modules")
+pub fn module_instrument_json(request: &str) -> Result<String> {
+    #[derive(Deserialize)]
+    struct Request {
+        module: Value,
+    }
+    let r: Request = serde_json::from_str(request).context("not a request { module }")?;
+    let id = id_of(&r.module).context("the module document has no id")?;
+    let Some(descriptor) = r.module.get("descriptor").filter(|d| !d.is_null()) else {
+        bail!("module:{id} has no descriptor yet – compile it first")
+    };
+    let d: Descriptor = serde_json::from_value(descriptor.clone()).with_context(|| format!("the descriptor of module {id}"))?;
+    Ok(serde_json::to_string(&module_instrument(id, &d)?)?)
 }
 
 /// `{ rig, instruments: [..], presets: [..], modules?: [..] }` (the catalog's documents) → the bundle as JSON for `rig_play`
@@ -322,5 +373,25 @@ mod tests {
             "rig character.catpope: the module document \"catpope_rig\" carries the descriptor of \"other_rig\""
         );
         assert!(ask(&[json!({ "id": "catpope_rig", "descriptor": { "domain": "control" } })]).unwrap_err().starts_with("the descriptor of module catpope_rig: "));
+    }
+
+    /// #425: "start from existing modules" – an instrument that wraps one module, as catpope_analog.toml does by hand
+    #[test]
+    fn a_module_becomes_an_instrument_with_one_node() {
+        let synth = json!({
+            "id": "synthx",
+            "descriptor": { "name": "synthx", "domain": "audio", "ports": [{ "name": "notes", "dir": "in", "type": "control" }, { "name": "out", "dir": "out", "type": "audio" }],
+                "params": [{ "name": "volume", "min": 0.0, "max": 1.0, "default": 0.6 }, { "name": "wave", "choices": ["saw", "sine"] }, { "name": "flat", "min": 1.0, "max": 1.0 }] }
+        });
+        let i: Instrument = serde_json::from_str(&module_instrument_json(&json!({ "module": synth }).to_string()).unwrap()).unwrap();
+        assert_eq!((i.id.as_str(), i.out.as_str()), ("synthx", "module.out"));
+        assert_eq!(i.nodes.iter().map(|n| (n.id.as_str(), n.kind.as_str())).collect::<Vec<_>>(), [("module", "module:synthx")]);
+        assert_eq!(i.expose.iter().map(|e| (e.path.as_str(), e.range)).collect::<Vec<_>>(), [("module.volume", Some([0.0, 1.0]))], "a choice and a flat range are no knobs");
+        // a note source has no sound of its own; a module nobody compiled has no descriptor; a wrong descriptor is refused
+        let notes = json!({ "id": "steps", "descriptor": { "name": "steps", "ports": [{ "name": "notes", "dir": "out", "type": "event" }] } });
+        assert!(module_instrument_json(&json!({ "module": notes }).to_string()).unwrap_err().to_string().contains("module:steps has no audio output"));
+        assert_eq!(module_instrument_json(&json!({ "module": { "id": "raw" } }).to_string()).unwrap_err().to_string(), "module:raw has no descriptor yet – compile it first");
+        let other = json!({ "id": "synthx", "descriptor": { "name": "other", "ports": [] } });
+        assert!(module_instrument_json(&json!({ "module": other }).to_string()).unwrap_err().to_string().contains("carries the descriptor of \"other\""));
     }
 }

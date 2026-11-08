@@ -69,7 +69,7 @@ export interface SpaceView {
 }
 
 /** #367, #368: the wasm-bindgen API of deck/space-web's `DeckState` – deck-space's `deck::Deck` without a GPU: the mood's
- *  energy ladder and what plays (its own scene or a rig, replayed on every mood). JSON answers: rig.ts. */
+ *  energy ladder and what plays (a rig, replayed on every mood – no rig: silent, #425). JSON answers: rig.ts. */
 export interface DeckStateView {
 	/** the character's portraits (their moods): the ladder anew */
 	set_portraits(moods: string[]): void;
@@ -90,13 +90,15 @@ export interface DeckStateView {
 	face(mood: string): string;
 	/** what plays now, a `RigTurn` to load whole */
 	now(): string;
-	/** a rig bundle (JSON) for a persona and the mood now ('' = the deck's own scene) → a `RigTurn`; throws on a bad bundle */
+	/** a rig bundle (JSON) for a persona and the mood now ('' = no rig: silent, #425) → a `RigTurn`; throws on a bad bundle */
 	play(bundle: string, persona: string): string;
-	/** the core rig of a character or a subject, else the deck's own scene → a `RigTurn` (its note says which) */
+	/** the core rig of a character or a subject, else no sound (the silent scene, #425) → a `RigTurn` (its note says which) */
 	play_core(character: string, persona: string): string;
+	/** #425: the set the being floats in ('' = none: the empty rigging stage) */
+	room(): string;
 	/** the knobs as `RigSlider`s in a locale ('' = English) */
 	sliders(locale: string): string;
-	/** the being on the wire (`deck.graph`); the deck's own scene wears `character` */
+	/** the being on the wire (`deck.graph`); the deck wears `character` */
 	graph(character: string): string;
 	/** #282: the played scene's wiring (a `RigWiring`) */
 	wiring(): string;
@@ -179,10 +181,11 @@ export interface SpaceModule {
 	};
 	DeckControls: new () => DeckControlsView;
 	DeckMonitor: new () => MonitorView;
-	DeckState: new () => DeckStateView;
+	DeckState: (new () => DeckStateView) & { rigging(): DeckStateView };
 	DeckPush: new (api: string, cdn: string) => DeckPushView;
 	rig_coverage(request: string): string;
 	rig_catalog_bundle(request: string): string;
+	rig_module_instrument(request: string): string;
 }
 
 const modules = new Map<string, Promise<SpaceModule>>();
@@ -208,8 +211,8 @@ export async function loadControls(base: string): Promise<DeckControlsView> {
 	return new mod.DeckControls();
 }
 
-/** #367, #368: the deck's state – deck-space's mood ladder and what plays, its own scene (the X1's cathedral, #360) at
- *  first (as wasm, no GPU: it works when the 3D can't) */
+/** #367, #368: the deck's state – deck-space's mood ladder and what plays, the silent scene (#425) at first (as wasm, no
+ *  GPU: it works when the 3D can't) */
 export async function loadDeckState(base: string): Promise<DeckStateView> {
 	const mod = await spaceModule(base);
 	return new mod.DeckState();
@@ -236,8 +239,8 @@ export interface SpaceOptions {
 	/** the library API and the CDN (ends with /) */
 	api: string;
 	cdn: string;
-	/** the set and its quality (scene-content) */
-	set?: string;
+	/** #425: the rig editor's empty rigging stage (the core's `DeckState.rigging`): no set behind the being; the room is the core's */
+	rigging?: boolean;
 	quality?: 'low' | 'medium' | 'high';
 	/** "auto" (WebGPU if there is an adapter, else WebGL2) or "webgl2" */
 	prefer?: 'auto' | 'webgl2';
@@ -290,8 +293,8 @@ export class SpaceStage {
 		const say = (s: string) => o.onStatus?.(s);
 		say('3D: loading');
 		const mod = await spaceModule(o.base);
-		// #367, #368: the deck's state (its own scene, #360, the mood ladder) before the being is built from the deck's graph
-		if (!o.deck.state) o.deck.useState(new mod.DeckState());
+		// #367, #368: the deck's state (the silent scene, #425, the mood ladder) before the being is built from the deck's graph
+		if (!o.deck.state) o.deck.useState(o.rigging ? mod.DeckState.rigging() : new mod.DeckState());
 		const graph = JSON.stringify(o.deck.graph());
 		const values = JSON.stringify(o.deck.value);
 		let canvas = SpaceStage.canvas(o);
@@ -331,7 +334,8 @@ export class SpaceStage {
 	}
 
 	private async loadSet() {
-		const set = this.o.set ?? 'cathedral';
+		const set = this.o.deck.state?.room() ?? ''; // #425: the core's (`Deck::room`); none on the rigging stage
+		if (!set) return;
 		const quality = this.o.quality ?? 'low';
 		const r = await fetch(`${this.o.api}/library/scene-content?sets=${encodeURIComponent(set)}`);
 		const model = ((await r.json()) as { sets?: Record<string, { model?: Record<string, { path: string }> }> }).sets?.[set]?.model;

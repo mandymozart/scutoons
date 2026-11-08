@@ -1,5 +1,6 @@
 <script lang="ts">
-	// The deck half of the Sound design workspace (#282): the engine host of #298 (`<EngineStage gate>`) playing the
+	// The deck half of the Sound design workspace (#282): the engine host of #298 (`<EngineStage gate>`) on the empty rigging
+	// stage (#425: no room behind the being) playing the
 	// character's rig – the being, the knobs and the sound. The sound starts with the round Play button on the stage (or the
 	// first click on it; the browser holds the first sound back until a gesture). The character's properties sit on the stage
 	// as chips (the mood is the first; look, persona … follow); under it the signal strip (owner draft 2026-11-02). The
@@ -16,8 +17,9 @@
 	// `host` and `wiring` (the core's graph of what plays, anew after every rig turn) go up to the designer's Nodes tab
 	let { character, host = $bindable(null), wiring = $bindable() }: { character: string; host?: EngineHost | null; wiring?: GraphWiring } = $props();
 
+	// #425: `rigging` – the core's empty rigging stage: the being and its knobs, no room, set or scene behind it (owner 2026-11-08)
 	// svelte-ignore state_referenced_locally
-	const options = { api: API_URL, cdn: `${CDN_SERVER}/`, wasmBase: '/live/', character, nick: 'creator', rigs: true } as const;
+	const options = { api: API_URL, cdn: `${CDN_SERVER}/`, wasmBase: '/live/', character, nick: 'creator', rigs: true, rigging: true } as const;
 
 	let snap = $state<EngineSnapshot>(emptySnapshot());
 	let moods = $state<string[]>([]);
