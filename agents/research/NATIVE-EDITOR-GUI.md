@@ -62,7 +62,7 @@ It changes the weighing. GPUI Kit's largest gift is 75 ready components; if maki
 - **What only this option gives:** one set of controls for the editor, the deck's own UI (#386) and the browser deck's canvas (RULES A1 / A6, "the deck's own UI is the only UI"). 2D controls and a module's 3D interface (#419) in one pass. No dependence on Zed's roadmap.
 - **Where it can go wrong, measured by the proof (§6):**
   1. **Text.** Umlauts, dead keys, selection, IME: this is what the browser hid.
-  2. **The design loop.** Svelte shows an edit at once; Rust rebuilds. Tokens and spacing in a watched data file (generated from `shared/tokens`) and a gallery binary, which is both the library's showcase and the design tool, must keep it short.
+  2. **The design loop.** Svelte shows an edit at once; Rust rebuilds. The answer is Unreal's split (owner 2026-11-08): what is data changes live in the running editor, what is behaviour compiles. Live: tokens, a control's position, size and layout (kept as data, not Rust), parameters, 3D placement and outlet mapping. Compiled without leaving the app: module code and wirings (decided: a wiring takes effect through the compile), the instance swapped while the editor keeps running. Rebuild and restart: only a new kind of control or new behaviour, in a gallery binary that is also the design tool. Final build: publish through the compile service.
   3. **Size in the browser deck.** Parley with Unicode data costs wasm (space-web is about 1 MB gzip today); the deck may need a smaller text path with our own fonts only.
   4. **The code editor** is the one truly large component (§7, question 2).
 
@@ -125,7 +125,7 @@ It changes the weighing. GPUI Kit's largest gift is 75 ready components; if maki
 - UI pass ≤ 2 ms per frame at 1080p with 200 controls, and the stage's frame time is unchanged;
 - no audio glitch in 10 minutes of dragging and resizing (deck-core's monitor);
 - the text field handles umlauts, dead keys, selection, copy and paste, and an IME;
-- a changed token shows in under 1 s, a changed widget in under 15 s;
+- a changed token or a moved / resized control shows in under 1 s with no restart, new widget code in under 15 s in the gallery;
 - the code stays under about 2,500 lines.
 
 **What would change this.**
