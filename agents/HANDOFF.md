@@ -55,6 +55,12 @@ orchestrator ≈ $445 list over 2026-10-29 … 11-01, `agents/costs.json`), so s
   `python C:\Developmentgents\costs
 eport.py`.
 
+## State (2026-11-08, before the owner restarts the PC)
+- Local main is 62+ commits ahead of origin; nothing pushed. deck:ci green up to fc99a571; after it only notes and the #393 research merge (module-bench clippy green).
+- **Next: start the #430 worker (W2, event cables and world nodes) after the restart.** The issue and research/MODULE-WIRING.md (owner's answers at the top) hold the scope; Opus 5.5 high, cap 200 turns / $40. W1, W4-W6 = #431-#434. W3 dropped: wiring is configuration.
+- Before a push: PHPUnit for #412 (`SCUTOONS_DB_NAME=scutoons_412 npm run dev:db test -- --filter CatalogDocsTest`; Docker needed the restart). Warn the owner that `/live/deck` without a rig goes silent (#425). After a push: the analog factory module needs a recompile (#429 curves).
+- Demo on this PC: `deck/native/run-catpope-analog.ps1` (ASIO build in deck/target/asio, module wasm in deck/target/hear-modules); this PC's deck.toml has `[[audio_outlet]]` cue 3/4, stem 5/6 (#428). The owner has not yet confirmed the knobs live (#429).
+
 ## State (2026-11-05, end of the 2026-11-04 night shift – the deck engine / one-core leg)
 - `origin/main` = 6533318a; **everything after is local only** (200 commits ahead of origin/main: the guards #363, the law book #380, the fix tickets, ABI v2, P9a, P10).
   Nothing was pushed (rule B4). A push deploys the viewer and builds / deploys the new crate `deck/relay-web` (deck-ci / deck.yml / deploy targets know it).
