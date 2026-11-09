@@ -4,7 +4,7 @@
 //! reach. A strip: its level on the core's meter scale beside a fader on the same scale with the 0 dB mark, the highest
 //! peak until you click it; a track's has pan and mute. Folds to its head. The scale, the zones and the slots are the core's.
 use crate::stage::Stage;
-use deck_core::meters::{self, Zone};
+use deck_core::meters;
 use deck_kit::controls::{self, Rect};
 use deck_kit::draw::DrawList;
 use deck_kit::tokens::Tokens;
@@ -50,13 +50,7 @@ pub fn position_gain(position: f32) -> f32 {
 }
 
 fn meter(d: &mut DrawList, t: &Tokens, r: Rect, peak: f32) {
-    let db = meters::level_db(peak);
-    let color = match Zone::of_db(db) {
-        Zone::Ok => t.color.go,
-        Zone::Hot => t.color.warn,
-        Zone::Clip => t.color.stop,
-    };
-    controls::level(d, t, r, meters::position(db), color);
+    controls::level(d, t, r, meters::position(meters::level_db(peak)), meters::position(meters::OK_DB), meters::position(meters::HOT_DB));
 }
 
 /// the 0 dB mark across a strip's meter and fader
@@ -154,6 +148,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, open: bool, stage: &Stage,
         let x = area.x + t.size.pad + n as f32 * STRIP;
         let name: String = row.name.chars().take(7).collect();
         d.text(x, y0, small, &name, t.color.text);
+        d.rect(x, area.y + area.h - 3.0, STRIP - 10.0, 3.0, t.color.strips[n % t.color.strips.len()]);
         let pan_y = y0 + small + 4.0;
         if let (Some((pan, _)), Target::Track(i)) = (row.track, row.target) {
             let p = Rect { x, y: pan_y, w: STRIP - 10.0, h: 7.0 };
@@ -163,7 +158,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, open: bool, stage: &Stage,
         }
         // meter and fader on one scale, the 0 dB mark across both
         let y = pan_y + 11.0;
-        let inner = area.y + area.h - y - 5.0;
+        let inner = area.y + area.h - y - 7.0;
         meter(d, t, Rect { x, y, w: 6.0, h: inner }, row.peak);
         let f = Rect { x: x + 8.0, y, w: 11.0, h: inner };
         controls::fader(d, t, f, gain_position(row.value), v.hot == Some(row.target));

@@ -77,12 +77,27 @@ pub fn row(d: &mut DrawList, t: &Tokens, area: Rect, y: &mut f32, label: &str, v
     *y += t.size.tree_row;
 }
 
-/// a vertical level: filled from the bottom to `position` (0..1) in `color`
-pub fn level(d: &mut DrawList, t: &Tokens, r: Rect, position: f32, color: [f32; 4]) {
+/// a vertical level, filled from the bottom to `position` (0..1) on a gradient: green to `ok`, through amber to `hot`, red above
+pub fn level(d: &mut DrawList, t: &Tokens, r: Rect, position: f32, ok: f32, hot: f32) {
+    const SLICES: usize = 32;
+    let mix = |a: [f32; 4], b: [f32; 4], k: f32| [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k, 1.0];
     d.round_rect(r.x, r.y, r.w, r.h, 2.0, t.color.surface_head);
-    let h = r.h * position.clamp(0.0, 1.0);
-    if h >= 1.0 {
-        d.round_rect(r.x, r.y + r.h - h, r.w, h, 2.0, color);
+    let top = position.clamp(0.0, 1.0);
+    let slice = r.h / SLICES as f32;
+    for i in 0..SLICES {
+        let at = i as f32 / SLICES as f32;
+        if at >= top {
+            break;
+        }
+        let color = if at < ok {
+            t.color.go
+        } else if at < hot {
+            mix(t.color.go, t.color.warn, (at - ok) / (hot - ok).max(1e-3))
+        } else {
+            mix(t.color.warn, t.color.stop, ((at - hot) / (1.0 - hot).max(1e-3)).min(1.0))
+        };
+        let h = slice.min((top - at) * r.h);
+        d.rect(r.x, r.y + r.h - (at * r.h) - h, r.w, h, color);
     }
 }
 
@@ -91,7 +106,7 @@ pub fn fader(d: &mut DrawList, t: &Tokens, r: Rect, fraction: f32, hot: bool) {
     let cx = r.x + r.w * 0.5;
     d.round_rect(cx - 1.5, r.y, 3.0, r.h, 1.5, t.color.control);
     let y = r.y + r.h * (1.0 - fraction.clamp(0.0, 1.0));
-    d.round_rect(r.x, y - 4.0, r.w, 8.0, 2.0, if hot { t.color.text } else { t.color.muted });
+    d.round_rect(r.x, y - 6.0, r.w, 12.0, 2.0, if hot { t.color.text } else { t.color.muted });
 }
 
 /// a small button that is on or off; its place

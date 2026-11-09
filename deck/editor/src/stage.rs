@@ -102,6 +102,8 @@ pub struct Inner {
     pub linked: bool,
     max_value: f32,
     from: (usize, usize),
+    /// the source sits before this gain (a mixer's input): the level reads after it
+    before_gain: bool,
     pub peak: f32,
     pub max: f32,
 }
@@ -261,9 +263,13 @@ impl Stage {
                 let Some(from) = source else { continue };
                 let label = if input.name == "gain" { local.clone() } else { graph.nodes[from.0].id.strip_prefix(&format!("{track}_")).unwrap_or(&graph.nodes[from.0].id).to_string() };
                 let spec = params::spec(node.kind, input.name);
-                inner.push(Inner { track: track.clone(), label, node: n, port, name: input.name.to_string(), path: format!("{local}.{}", input.name), linked, max_value: spec.max, from, peak: 0.0, max: 0.0 });
+                inner.push(Inner { track: track.clone(), label, node: n, port, name: input.name.to_string(), path: format!("{local}.{}", input.name), linked, max_value: spec.max, from, before_gain: input.name != "gain", peak: 0.0, max: 0.0 });
             }
         }
+        // one strip per source: a source that feeds an internal mixer is that mixer's input; its own `gain` is a sound
+        // parameter (the inspector's), not a second fader on the same signal
+        let summed: Vec<(usize, usize)> = inner.iter().filter(|s: &&Inner| s.before_gain).map(|s| s.from).collect();
+        inner.retain(|s: &Inner| s.before_gain || !summed.contains(&s.from));
         let master = sum.as_deref().and_then(|s| slot(s, true)).map(|(n, p, _)| (n, p));
         let node_ids = graph.nodes.iter().map(|n| n.id.clone()).collect();
         let kinds = graph.nodes.iter().map(|n| n.kind).collect();
@@ -380,12 +386,14 @@ impl Stage {
         let fall = (-dt / deck_core::meters::FALL_SECONDS).exp();
         let level = |(n, p): (usize, usize)| meters.as_ref().map_or(0.0, |m| m.level(n, p));
         for s in &mut self.strips {
-            let now = level(s.from);
+            // after the fader, as a channel's meter reads
+            let now = level(s.from) * self.controls.input(s.node, &s.name, 1.0);
             s.peak = now.max(s.peak * fall);
             s.max = s.max.max(now);
         }
         for s in &mut self.inner {
-            let now = level(s.from);
+            let after = if s.before_gain { self.controls.input(s.node, &s.name, 1.0) } else { 1.0 };
+            let now = level(s.from) * after;
             s.peak = now.max(s.peak * fall);
             s.max = s.max.max(now);
         }
