@@ -7,6 +7,7 @@
 //! (the UI's build time per frame, the frame interval, the audio glitches); `--screenshot FILE` saves the last frame.
 //!
 //! deck-editor [--rig catpope] [--frames N] [--screenshot FILE] [--tokens FILE] [--stress] [--volume V]
+mod bar;
 mod stage;
 mod text;
 mod tokens;
@@ -245,7 +246,8 @@ impl App {
             None => {
                 if let Hit::Stage = self.hit(x, y) {
                     let s = self.scale();
-                    self.stage.pointer(x * s, y * s);
+                    let top = self.tokens.tokens.size.bar;
+                    self.stage.pointer(x * s, (y - top) * s);
                 }
             }
         }
@@ -359,26 +361,27 @@ impl App {
         let panel_w = self.panel.width.min(wf - 100.0);
         let divider = t.size.divider;
         let stage_w = (wf - panel_w - divider).max(1.0);
+        // the regions start under the top bar (bar.rs: the title, the status, the version)
+        let top = t.size.bar;
+        let body = (hf - top).max(1.0);
         let mut enc = gpu.device.create_command_encoder(&Default::default());
         // the stage at its viewport's size in pixels
-        let (stage_view, fresh) = self.stage.frame(&gpu.device, &gpu.queue, &mut enc, ((stage_w * scale) as u32, h), dt);
+        let (stage_view, fresh) = self.stage.frame(&gpu.device, &gpu.queue, &mut enc, ((stage_w * scale) as u32, (body * scale) as u32), dt);
         if fresh {
             ui.set_stage(&gpu.device, stage_view);
         }
         // the panel: everything in logical pixels, the pass scales
         let t0 = Instant::now();
         ui.begin();
-        ui.stage(0.0, 0.0, stage_w, hf);
+        ui.stage(0.0, top, stage_w, body);
         let px = panel_w;
         let x0 = wf - panel_w;
-        ui.rect(x0 - divider, 0.0, divider, hf, t.color.divider);
-        ui.rect(x0, 0.0, px, hf, t.color.panel);
+        ui.rect(x0 - divider, top, divider, body, t.color.divider);
+        ui.rect(x0, top, px, body, t.color.panel);
         self.panel.hits.clear();
-        self.panel.hits.push((Rect { x: x0 - divider - 3.0, y: 0.0, w: divider + 6.0, h: hf }, Hit::Divider));
+        self.panel.hits.push((Rect { x: x0 - divider - 3.0, y: top, w: divider + 6.0, h: body }, Hit::Divider));
         let (pad, font, row) = (t.size.pad, t.size.font, t.size.row);
-        let mut y = pad;
-        ui.text(x0 + pad, y, font, "SCUTOONS editor · proof", t.color.text);
-        y += row;
+        let mut y = top + pad;
         // the tabs
         let mut tx = x0 + pad;
         for (tab, name) in TABS {
@@ -399,7 +402,7 @@ impl App {
                 y += row * 0.8;
                 let inner = px - 2.0 * pad;
                 for i in 0..self.stage.knobs.len() {
-                    if y + row > hf - row * 2.0 {
+                    if y + row > hf - pad {
                         break;
                     }
                     let k = &self.stage.knobs[i];
@@ -454,7 +457,7 @@ impl App {
                 y += row * 0.8;
                 let cols = 4;
                 let cw = (px - 2.0 * pad) / cols as f32;
-                let rh = ((hf - y - row * 2.0) / (STRESS / cols) as f32).clamp(8.0, row);
+                let rh = ((hf - y - pad) / (STRESS / cols) as f32).clamp(8.0, row);
                 for i in 0..STRESS {
                     let (c, r) = ((i % cols) as f32, (i / cols) as f32);
                     let (cx, cy) = (x0 + pad + c * cw, y + r * rh);
@@ -468,21 +471,20 @@ impl App {
                 }
             }
         }
-        // the status line: the numbers of the gates, live
+        // the status: the numbers of the gates, live (a broken tokens file first: the bar cuts from the end)
         let recent = &self.frame_ms[self.frame_ms.len().saturating_sub(30)..];
         let mean = if recent.is_empty() { 16.7 } else { recent.iter().sum::<f32>() / recent.len() as f32 };
         let status = format!(
-            "{:.0} fps · ui {:.2} ms · {} quads · {} · {}{}",
+            "{}{:.0} fps · ui {:.2} ms · {} quads · {} · {}",
+            self.tokens.problem.as_ref().map(|p| format!("{p} – ")).unwrap_or_default(),
             1000.0 / mean.max(0.1),
             self.ui_ms.last().copied().unwrap_or(0.0),
             ui.quads(),
             self.stage.glitch_text(),
-            self.tokens.path.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default(),
-            self.tokens.problem.as_ref().map(|p| format!(" – {p}")).unwrap_or_default()
+            self.stage.audio
         );
-        ui.text(x0 + pad, hf - row - 2.0, font * 0.8, &status, t.color.muted);
-        ui.text(x0 + pad, hf - row * 0.5 - 4.0, font * 0.8, &self.stage.audio, t.color.muted);
-        self.panel.hits.push((Rect { x: 0.0, y: 0.0, w: stage_w, h: hf }, Hit::Stage));
+        bar::draw(ui, t, wf, &status);
+        self.panel.hits.push((Rect { x: 0.0, y: top, w: stage_w, h: body }, Hit::Stage));
         // the pass: logical pixels → the surface's, through the screen uniform
         let view = frame.texture.create_view(&Default::default());
         ui.flush(&gpu.device, &gpu.queue, &mut enc, &view, (wf, hf), t.color.background);

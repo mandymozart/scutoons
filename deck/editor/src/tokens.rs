@@ -45,11 +45,13 @@ pub struct Sizes {
     pub pad: f32,
     pub font: f32,
     pub row: f32,
+    /// the height of the window's top bar
+    pub bar: f32,
 }
 
 impl Default for Sizes {
     fn default() -> Sizes {
-        Sizes { panel: 320.0, divider: 6.0, pad: 12.0, font: 15.0, row: 28.0 }
+        Sizes { panel: 320.0, divider: 6.0, pad: 12.0, font: 15.0, row: 28.0, bar: 26.0 }
     }
 }
 
