@@ -11,7 +11,8 @@ use deck_native::space::portrait::Portraits;
 use deck_native::space::Space;
 use deck_native::tempo::{self, Tempo};
 use deck_space::deck::Deck;
-use deck_space::graph::{Graph, Kind};
+use deck_space::graph::{Graph, Kind, PortType};
+use deck_space::params;
 use deck_space::quality::Rung;
 use deck_space::rig::address::node_port;
 use deck_space::rig::Bundle;
@@ -63,7 +64,17 @@ pub struct Stage {
     core_node: usize,
     /// the graph's node ids: a being's point is its node
     pub node_ids: Vec<String>,
+    kinds: Vec<Kind>,
     volume: f32,
+}
+
+/// a control input of a node, as the inspector shows it
+pub struct Param {
+    pub name: &'static str,
+    pub port: usize,
+    pub spec: params::Spec,
+    pub value: f32,
+    pub linked: Option<String>,
 }
 
 /// a rig ready to sound: everything that can refuse it, before the running engine is stopped
@@ -182,7 +193,8 @@ impl Stage {
             knobs.push(Knob { label, path: k.path.clone(), node, port: port.to_string(), port_index, min: k.min, max: k.max, log: k.log });
         }
         let node_ids = graph.nodes.iter().map(|n| n.id.clone()).collect();
-        Stage { controls, space, gpu: None, texture: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, volume, path: Vec::new(), core_node: node }
+        let kinds = graph.nodes.iter().map(|n| n.kind).collect();
+        Stage { controls, space, gpu: None, texture: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, kinds, volume, path: Vec::new(), core_node: node }
     }
 
     /// show this level of the tree in Wire; empty = the rig
@@ -202,6 +214,29 @@ impl Stage {
     /// the sound's rate, if there is sound
     pub fn khz(&self) -> Option<f64> {
         self.handles.as_ref().map(|_| self.rate / 1000.0)
+    }
+
+    /// the kind's name of a graph node
+    pub fn kind_name(&self, node: usize) -> &'static str {
+        self.kinds.get(node).map_or("", |k| k.name())
+    }
+
+    /// what can be set on a node: its control inputs, with their ranges and values; a linked one says from where
+    pub fn params(&self, node: usize) -> Vec<Param> {
+        let (Some(&kind), Some(id)) = (self.kinds.get(node), self.node_ids.get(node)) else { return Vec::new() };
+        let controls = kind.inputs().iter().enumerate().filter(|(_, p)| p.ty == PortType::Control);
+        controls
+            .map(|(port, p)| {
+                let spec = params::spec(kind, p.name);
+                let linked = self.ports.iter().find(|q| q.input && q.node == *id && q.name == p.name).and_then(|q| q.cables.last()).map(|c| c.from.clone());
+                Param { name: p.name, port, spec, value: self.controls.input(node, p.name, spec.default), linked }
+            })
+            .collect()
+    }
+
+    /// one input of a node
+    pub fn param(&self, node: usize, port: usize) -> Option<Param> {
+        self.params(node).into_iter().find(|p| p.port == port)
     }
 
     pub fn glitches(&self) -> u64 {

@@ -263,10 +263,6 @@ impl Ui {
         self.stage_quad = Some(Quad { rect: [x, y, w, h], uv: [0.0, 0.0, 1.0, 1.0], color: [1.0; 4], shape: [0.0; 4] });
     }
 
-    pub fn quads(&self) -> usize {
-        self.quads.len() + usize::from(self.stage_quad.is_some())
-    }
-
     /// draw this frame's quads over `view` (cleared to `clear`); `logical` = the window's size in the pixels the quads
     /// were laid out in (the surface may be larger on a HiDPI screen – the pass scales)
     pub fn flush(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, enc: &mut wgpu::CommandEncoder, view: &wgpu::TextureView, logical: (f32, f32), clear: [f32; 4]) {

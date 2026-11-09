@@ -68,6 +68,15 @@ pub fn meter(d: &mut DrawList, t: &Tokens, x: f32, y: f32, label: &str, value: f
     lw + BAR
 }
 
+/// a row that shows a value: label left, value in its place; moves `y` on
+pub fn row(d: &mut DrawList, t: &Tokens, area: Rect, y: &mut f32, label: &str, value: &str) {
+    let font = t.size.font;
+    let at = *y + (t.size.tree_row - font * 1.25) * 0.5;
+    d.text(area.x, at, font, label, t.color.muted);
+    d.text(area.x + (area.w * 0.42).min(96.0), at, font, value, t.color.text);
+    *y += t.size.tree_row;
+}
+
 /// a section's head: its label; the height it took
 pub fn section(d: &mut DrawList, t: &Tokens, x: f32, y: f32, w: f32, label: &str, first: bool) -> f32 {
     if !first {

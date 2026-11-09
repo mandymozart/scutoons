@@ -2,17 +2,18 @@
 //! on deck-native's pieces (#443 `host::window`, `gpu::Gpu`), the stage on the left – catpope's core rig played and drawn
 //! as the deck does it (stage.rs) –, a panel on the right: a draggable divider, three tabs, the rig's knobs as
 //! scrub-numbers (drag turns them in the engine), one text field (umlauts, dead keys, the IME, selection, copy and
-//! paste), a stress tab of 200 controls. The design tokens come from a watched file (tokens.rs). Everything is drawn in
+//! paste), The design tokens come from a watched file (tokens.rs). Everything is drawn in
 //! one 2D pass (ui.rs). The gates are measured and printed at exit: `--frames N` quits after N frames with the numbers
 //! (the UI's build time per frame, the frame interval, the audio glitches); `--screenshot FILE` saves the last frame.
 //!
 //! The Wire side (#431, wires.rs): the top bar's switch or `w`; the ports around the being's points, a dragged cable is a
 //! route in the rig through the core's edit and validate, the rig replays, the draft is a file; ctrl+z takes it back.
 //!
-//! deck-editor [--rig catpope] [--frames N] [--screenshot FILE] [--tokens FILE] [--stress] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO]
+//! deck-editor [--rig catpope] [--frames N] [--screenshot FILE] [--tokens FILE] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO]
 mod bar;
 mod gpu_time;
 mod logo;
+mod inspector;
 mod stage;
 mod tokens;
 mod ui;
@@ -38,7 +39,6 @@ struct Args {
     frames: Option<u64>,
     screenshot: Option<PathBuf>,
     tokens: Option<PathBuf>,
-    stress: bool,
     volume: f32,
     /// the window's logical size (the gate is measured at 1920,1080)
     size: Option<(u32, u32)>,
@@ -52,6 +52,8 @@ struct Args {
     view: Option<usize>,
     /// a check run's level: enter this track
     enter: Option<String>,
+    /// a check run's selection: this graph node's id, or a track's
+    select: Option<String>,
     /// a check run's knob pull on the stage, in Play
     pull: bool,
     /// a check run's typeahead: arm this port, open it, type this; pick the first row if asked
@@ -59,7 +61,7 @@ struct Args {
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { rig: "catpope".into(), frames: None, screenshot: None, tokens: None, stress: false, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, pull: false, menu: None };
+    let mut a = Args { rig: "catpope".into(), frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -69,9 +71,9 @@ fn args() -> Result<Args> {
             "--screenshot" => a.screenshot = Some(PathBuf::from(val()?)),
             "--tokens" => a.tokens = Some(PathBuf::from(val()?)),
             "--volume" => a.volume = val()?.parse()?,
-            "--stress" => a.stress = true,
             "--wire" => a.wire = true,
             "--view" => a.view = Some(val()?.parse()?),
+            "--select" => a.select = Some(val()?),
             "--pull" => {
                 a.pull = true;
                 a.wire = false;
@@ -100,7 +102,7 @@ fn args() -> Result<Args> {
                 a.size = Some((w.trim().parse()?, h.trim().parse()?));
             }
             "--help" | "-h" => {
-                println!("deck-editor [--rig catpope] [--frames N] [--screenshot FILE] [--tokens FILE] [--stress] [--size W,H] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5] [--menu PORT,QUERY[,pick]]");
+                println!("deck-editor [--rig catpope] [--frames N] [--screenshot FILE] [--tokens FILE] [--size W,H] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5] [--menu PORT,QUERY[,pick]]");
                 std::process::exit(0);
             }
             other => anyhow::bail!("unknown argument {other}"),
@@ -113,12 +115,9 @@ fn args() -> Result<Args> {
 enum Tab {
     Rig,
     Text,
-    Stress,
 }
 
-const TABS: [(Tab, &str); 3] = [(Tab::Rig, "Rig"), (Tab::Text, "Text"), (Tab::Stress, "Stress")];
-/// the stress tab's controls (the gate: 200 controls at 1080p)
-const STRESS: usize = 200;
+const TABS: [(Tab, &str); 2] = [(Tab::Rig, "Inspector"), (Tab::Text, "Text")];
 /// a scrub-number's travel for the knob's whole range (pixels)
 const SCRUB_PX: f32 = 240.0;
 
@@ -131,7 +130,8 @@ enum Hit {
     Tab(Tab),
     Knob(usize),
     Field(f32),
-    Stress(usize),
+    /// a parameter of a node in the inspector
+    Param(usize, usize),
     /// the Play / Wire switch (true = Wire)
     Mode(bool),
     /// a port, by its index in the stage's list
@@ -154,7 +154,8 @@ enum Hit {
 enum Drag {
     Divider,
     Knob(usize, f32, f32),
-    Stress(usize, f32, f32),
+    /// a node's parameter: node, port, the pointer's start, the start's 0..1
+    Param(usize, usize, f32, f32),
     Select,
     /// a new cable from this port
     Cable(usize),
@@ -199,7 +200,6 @@ struct Panel {
     width: f32,
     tab: Tab,
     field: text::Field,
-    stress: Vec<f32>,
     drag: Option<Drag>,
     hits: Vec<(Rect, Hit)>,
     field_rect: Rect,
@@ -241,8 +241,8 @@ struct App {
     /// a port clicked (not dragged): the next right click connects from it
     armed: Option<usize>,
     menu: Option<Menu>,
-    /// this frame's bodies at the rig level: (x, y, track)
-    bodies: Vec<(f32, f32, String)>,
+    /// this frame's bodies you can click: (x, y, name, what it selects)
+    bodies: Vec<(f32, f32, String, inspector::Sel)>,
     /// the last press on a body: for a double click
     last_body: Option<(usize, Instant)>,
     /// is the stage showing a level (Wire) now
@@ -252,8 +252,10 @@ struct App {
     info_file: PathBuf,
     /// where the stage starts (logical pixels), after the tree
     stage_x: f32,
-    /// the tree's rows this frame: the level each one goes to (empty = the rig)
-    rows: Vec<Vec<String>>,
+    /// the tree's rows this frame: the level each one goes to (empty = the rig), what it selects
+    rows: Vec<(Vec<String>, inspector::Sel)>,
+    /// what the inspector shows
+    sel: inspector::Sel,
 }
 
 fn main() {
@@ -278,7 +280,7 @@ fn run() -> Result<i32> {
     let width = tokens.tokens.size.inspector;
     let wire = args.wire;
     let mut app = App {
-        panel: Panel { width, tab: if args.stress { Tab::Stress } else { Tab::Rig }, field: text::Field::with("Grüße an die Bühne – type here"), stress: (0..STRESS).map(|i| (i % 17) as f32 / 16.0).collect(), drag: None, hits: Vec::new(), field_rect: Rect { x: 0.0, y: 0.0, w: 0.0, h: 0.0 }, advance: 8.0 },
+        panel: Panel { width, tab: Tab::Rig, field: text::Field::with("Grüße an die Bühne – type here"), drag: None, hits: Vec::new(), field_rect: Rect { x: 0.0, y: 0.0, w: 0.0, h: 0.0 }, advance: 8.0 },
         args,
         window: None,
         gpu: None,
@@ -313,6 +315,7 @@ fn run() -> Result<i32> {
         info_file,
         stage_x: 0.0,
         rows: Vec::new(),
+        sel: inspector::Sel::Rig,
     };
     event_loop.run_app(&mut app).context("the event loop")?;
     let summary = app.summary();
@@ -339,7 +342,7 @@ impl App {
             self.frames,
             size.0,
             size.1,
-            if self.panel.tab == Tab::Stress { STRESS } else { self.stage.knobs.len() },
+            self.stage.knobs.len(),
             self.stage.glitches(),
             self.stage.audio,
             self.token_changes,
@@ -390,12 +393,13 @@ impl App {
             Hit::Divider => Help::new("Panel edge", "Drag to resize the panel."),
             Hit::Tab(_) => Help::new("Tab", "Switches what the panel shows."),
             Hit::InfoHead => Help::new("Info", "What is under the pointer. Click to fold or open it."),
-            Hit::Field(_) | Hit::Stress(_) | Hit::InfoBody | Hit::Nothing => return None,
+            Hit::Param(n, p) => Help::new(self.stage.param(n, p)?.name, "Drag or use the wheel to set it in the engine."),
+            Hit::Field(_) | Hit::InfoBody | Hit::Nothing => return None,
         })
     }
 
     fn body_at(&self, x: f32, y: f32) -> Option<usize> {
-        self.bodies.iter().position(|(bx, by, _)| (bx - x).hypot(by - y) < 26.0)
+        self.bodies.iter().position(|(bx, by, ..)| (bx - x).hypot(by - y) < 26.0)
     }
 
     /// down into a track
@@ -435,7 +439,12 @@ impl App {
                 self.panel.width = (w - x).clamp(160.0, w * 0.6);
             }
             Some(Drag::Knob(i, _, _)) => self.knob_at(i, x),
-            Some(Drag::Stress(i, x0, v0)) => self.panel.stress[i] = (v0 + (x - x0) / SCRUB_PX).clamp(0.0, 1.0),
+            Some(Drag::Param(node, port, x0, f0)) => {
+                if let Some(p) = self.stage.param(node, port) {
+                    let v = p.spec.value((f0 + (x - x0) / SCRUB_PX).clamp(0.0, 1.0));
+                    self.stage.set(node, port, v, p.spec.min, p.spec.max);
+                }
+            }
             Some(Drag::Select) => {
                 let col = ((x - self.panel.field_rect.x) / self.panel.advance).round().max(0.0) as usize;
                 let to = self.panel.field.byte_at_char(col);
@@ -499,7 +508,11 @@ impl App {
                 self.panel.drag = Some(Drag::Knob(i, x, v));
                 self.focus(false);
             }
-            Hit::Stress(i) => self.panel.drag = Some(Drag::Stress(i, x, self.panel.stress[i])),
+            Hit::Param(n, p) => {
+                if let Some(q) = self.stage.param(n, p) {
+                    self.panel.drag = Some(Drag::Param(n, p, x, q.spec.norm(q.value)));
+                }
+            }
             Hit::Field(_) => {
                 let col = ((x - self.panel.field_rect.x) / self.panel.advance).round().max(0.0) as usize;
                 let to = self.panel.field.byte_at_char(col);
@@ -528,10 +541,13 @@ impl App {
             Hit::Axis(a) => self.panel.drag = Some(Drag::Gizmo(a, false, x, y)),
             Hit::Crumb(depth) => self.up_to(depth),
             Hit::Row(i) => {
-                if let (Some(path), true) = (self.rows.get(i).cloned(), self.wire) {
-                    self.armed = None;
-                    self.reach.clear();
-                    self.stage.enter(path);
+                if let Some((path, sel)) = self.rows.get(i).cloned() {
+                    self.sel = sel;
+                    if self.wire {
+                        self.armed = None;
+                        self.reach.clear();
+                        self.stage.enter(path);
+                    }
                 }
             }
             Hit::InfoHead => {
@@ -542,7 +558,8 @@ impl App {
             Hit::Body(i) => {
                 let double = self.last_body.is_some_and(|(j, at)| j == i && at.elapsed().as_millis() < 400);
                 self.last_body = Some((i, Instant::now()));
-                if double {
+                self.sel = self.bodies[i].3.clone();
+                if double && matches!(self.sel, inspector::Sel::Track(_)) {
                     let track = self.bodies[i].2.clone();
                     self.enter(track);
                 } else {
@@ -897,6 +914,12 @@ impl App {
             if let Some(track) = self.args.enter.clone() {
                 self.stage.enter(vec![track]);
             }
+            if let Some(id) = self.args.select.clone() {
+                self.sel = match self.stage.node_ids.iter().position(|n| *n == id) {
+                    Some(n) => inspector::Sel::Node(n),
+                    None => inspector::Sel::Track(id),
+                };
+            }
         }
         if self.tokens.poll() {
             self.token_changes += 1;
@@ -957,21 +980,22 @@ impl App {
         self.panel.hits.push((edge, Hit::Divider));
         let (pad, font, row) = (t.size.pad, t.size.font, t.size.row);
         // the tree on the left: the rig, its tracks, the nodes of the one entered
-        let mut rows = vec![controls::TreeRow { depth: 0, label: "rig".into(), detail: String::new(), icon: "nodes", open: Some(true), selected: self.wire && self.stage.path.is_empty() }];
+        let mut rows = vec![controls::TreeRow { depth: 0, label: "rig".into(), detail: String::new(), icon: "nodes", open: Some(true), selected: self.sel == inspector::Sel::Rig }];
         self.rows.clear();
-        self.rows.push(Vec::new());
+        self.rows.push((Vec::new(), inspector::Sel::Rig));
         for track in &self.stage.bundle.rig.tracks {
             let inside = self.stage.path.first() == Some(&track.id);
-            rows.push(controls::TreeRow { depth: 1, label: track.id.clone(), detail: track.instrument.clone(), icon: "folder", open: Some(inside), selected: self.wire && inside });
-            self.rows.push(vec![track.id.clone()]);
+            rows.push(controls::TreeRow { depth: 1, label: track.id.clone(), detail: track.instrument.clone(), icon: "folder", open: Some(inside), selected: self.sel == inspector::Sel::Track(track.id.clone()) });
+            self.rows.push((vec![track.id.clone()], inspector::Sel::Track(track.id.clone())));
             if inside {
                 let mut seen: Vec<&str> = Vec::new();
                 for p in self.stage.ports.iter().filter(|p| p.track == track.id) {
                     let name = p.address.split_once(':').and_then(|(_, r)| r.split_once('.')).map_or("", |(n, _)| n);
                     if !seen.contains(&name) {
                         seen.push(name);
-                        rows.push(controls::TreeRow { depth: 2, label: name.to_string(), detail: String::new(), icon: "sliders", open: None, selected: false });
-                        self.rows.push(vec![track.id.clone()]);
+                        let node = self.stage.node_ids.iter().position(|id| *id == p.node).unwrap_or(0);
+                        rows.push(controls::TreeRow { depth: 2, label: name.to_string(), detail: String::new(), icon: "sliders", open: None, selected: self.sel == inspector::Sel::Node(node) });
+                        self.rows.push((vec![track.id.clone()], inspector::Sel::Node(node)));
                     }
                 }
             }
@@ -989,23 +1013,18 @@ impl App {
         y += row + pad / 2.0;
         match self.panel.tab {
             Tab::Rig => {
-                let inner = px - 2.0 * pad;
-                y += controls::section(ui, t, x0 + pad, y, inner, "KNOBS", true);
-                for i in 0..self.stage.knobs.len() {
-                    // inside a track, its knobs
-                    if self.wire && self.stage.path.last().is_some_and(|tr| !self.stage.knobs[i].path.starts_with(&format!("{tr}_"))) {
-                        continue;
-                    }
-                    if y + row > hf - pad {
-                        break;
-                    }
-                    let k = &self.stage.knobs[i];
-                    let v = self.stage.value(k);
-                    let frac = fraction(v, k.min, k.max, k.log);
-                    let dragging = matches!(self.panel.drag, Some(Drag::Knob(j, _, _)) if j == i);
-                    let bar = controls::scrub(ui, t, Rect { x: x0 + pad, y, w: inner, h: row }, &k.label, &number(v), frac, dragging);
-                    self.panel.hits.push((bar, Hit::Knob(i)));
-                    y += row;
+                let area = Rect { x: x0 + pad, y, w: px - 2.0 * pad, h: hf - y - pad };
+                let hot = match self.panel.drag {
+                    Some(Drag::Knob(i, ..)) => Some(inspector::Field::Knob(i)),
+                    Some(Drag::Param(n, p, ..)) => Some(inspector::Field::Param(n, p)),
+                    _ => None,
+                };
+                for (r, field) in inspector::draw(ui, t, area, &self.stage, &self.sel, hot) {
+                    let hit = match field {
+                        inspector::Field::Knob(i) => Hit::Knob(i),
+                        inspector::Field::Param(n, p) => Hit::Param(n, p),
+                    };
+                    self.panel.hits.push((r, hit));
                 }
             }
             Tab::Text => {
@@ -1042,24 +1061,6 @@ impl App {
                 y += row + pad;
                 ui.text(x0 + pad, y, font * 0.85, &format!("{} chars · cursor {} · selected {:?}", self.panel.field.text.chars().count(), cursor_col, self.panel.field.selected()), t.color.muted);
             }
-            Tab::Stress => {
-                ui.text(x0 + pad, y, font * 0.85, &format!("{STRESS} scrub-numbers (the gate: UI ≤ 2 ms at 1080p)"), t.color.muted);
-                y += row * 0.8;
-                let cols = 4;
-                let cw = (px - 2.0 * pad) / cols as f32;
-                let rh = ((hf - y - pad) / (STRESS / cols) as f32).clamp(8.0, row);
-                for i in 0..STRESS {
-                    let (c, r) = ((i % cols) as f32, (i / cols) as f32);
-                    let (cx, cy) = (x0 + pad + c * cw, y + r * rh);
-                    let v = self.panel.stress[i];
-                    ui.rect(cx + 1.0, cy + 1.0, cw - 2.0, rh - 2.0, t.color.control);
-                    ui.rect(cx + 1.0, cy + 1.0, (cw - 2.0) * v, rh - 2.0, [t.color.accent[0], t.color.accent[1], t.color.accent[2], 0.35]);
-                    if rh >= 12.0 {
-                        ui.text(cx + 4.0, cy + (rh - font * 0.7) * 0.5, font * 0.7, &format!("{:.2}", v), t.color.text);
-                    }
-                    self.panel.hits.push((Rect { x: cx, y: cy, w: cw, h: rh }, Hit::Stress(i)));
-                }
-            }
         }
         // the status: the numbers of the gates, live (a broken tokens file first: the bar cuts from the end)
         let recent = &self.frame_ms[self.frame_ms.len().saturating_sub(30)..];
@@ -1087,8 +1088,24 @@ impl App {
                     let place = node.and_then(|n| being.point_world(n)).and_then(|w| self.stage.space.to_pixel(w));
                     if let Some((sx, sy)) = place {
                         let (bx, by) = (sx / scale + stage_x, sy / scale + top);
-                        self.bodies.push((bx, by, track.id.clone()));
-                        ui.text(bx - 16.0, by + 18.0, font * 0.8, &track.id, t.color.text);
+                        self.bodies.push((bx, by, track.id.clone(), inspector::Sel::Track(track.id.clone())));
+                        ui.text(bx - 16.0, by + 18.0, font, &track.id, t.color.text);
+                    }
+                }
+            } else {
+                // inside a track: its nodes
+                let mut seen: Vec<usize> = Vec::new();
+                for p in self.stage.ports.iter().filter(|p| self.stage.path.last() == Some(&p.track)) {
+                    let Some(n) = self.stage.node_ids.iter().position(|id| *id == p.node) else { continue };
+                    if seen.contains(&n) {
+                        continue;
+                    }
+                    seen.push(n);
+                    if let Some((sx, sy)) = being.point_world(n).and_then(|w| self.stage.space.to_pixel(w)) {
+                        let (bx, by) = (sx / scale + stage_x, sy / scale + top);
+                        let name = p.address.split_once(':').and_then(|(_, r)| r.split_once('.')).map_or("", |(n, _)| n).to_string();
+                        ui.text(bx - 16.0, by + 18.0, font, &name, t.color.text);
+                        self.bodies.push((bx, by, name, inspector::Sel::Node(n)));
                     }
                 }
             }
@@ -1301,6 +1318,12 @@ impl ApplicationHandler for App {
                         let (node, port, min, max) = (k.node, k.port_index, k.min, k.max);
                         self.stage.set(node, port, v, min, max);
                     }
+                    Hit::Param(n, port) => {
+                        if let Some(p) = self.stage.param(n, port) {
+                            let v = p.spec.value((p.spec.norm(p.value) + steps * 12.0 / SCRUB_PX).clamp(0.0, 1.0));
+                            self.stage.set(n, port, v, p.spec.min, p.spec.max);
+                        }
+                    }
                     Hit::Stage | Hit::Port(_) | Hit::Axis(_) => self.stage.space.camera.zoom(steps),
                     _ => {}
                 }
@@ -1316,7 +1339,7 @@ impl ApplicationHandler for App {
                 } else if self.wire && event.state == ElementState::Pressed && event.logical_key == Key::Named(NamedKey::Tab) && !self.panel.field.focused {
                     if self.mods.shift_key() {
                         self.up_to(self.stage.path.len().saturating_sub(1));
-                    } else if let Some(i) = self.body_at(self.cursor.0, self.cursor.1) {
+                    } else if let Some(i) = self.body_at(self.cursor.0, self.cursor.1).filter(|&i| matches!(self.bodies[i].3, inspector::Sel::Track(_))) {
                         let track = self.bodies[i].2.clone();
                         self.enter(track);
                     }
