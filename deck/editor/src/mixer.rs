@@ -49,8 +49,20 @@ pub fn position_gain(position: f32) -> f32 {
     10f32.powf(db / 20.0).min(GAIN_MAX)
 }
 
-fn meter(d: &mut DrawList, t: &Tokens, r: Rect, peak: f32) {
-    controls::level(d, t, r, meters::position(meters::level_db(peak)), meters::position(meters::OK_DB), meters::position(meters::HOT_DB));
+/// a channel's two bars, narrow and side by side, as in Live
+fn meter(d: &mut DrawList, t: &Tokens, r: Rect, peak: [f32; 2]) {
+    let (ok, hot) = (meters::position(meters::OK_DB), meters::position(meters::HOT_DB));
+    let w = (r.w - 1.0) * 0.5;
+    for (i, p) in peak.into_iter().enumerate() {
+        controls::level(d, t, Rect { x: r.x + i as f32 * (w + 1.0), w, ..r }, meters::position(meters::level_db(p)), ok, hot);
+    }
+}
+
+/// the dB scale's ticks beside a meter
+fn scale(d: &mut DrawList, t: &Tokens, x: f32, y: f32, h: f32) {
+    for db in [-12.0, -24.0, -36.0] {
+        d.rect(x, y + h * (1.0 - meters::position(db)), 2.0, 1.0, t.color.muted);
+    }
 }
 
 /// the 0 dB mark across a strip's meter and fader
@@ -81,7 +93,7 @@ fn peak_readout(d: &mut DrawList, t: &Tokens, x: f32, y: f32, w: f32, max: f32) 
 struct Row {
     target: Target,
     name: String,
-    peak: f32,
+    peak: [f32; 2],
     max: f32,
     value: f32,
     /// no hand on the fader: a policy owns it, or a cable feeds it
@@ -146,7 +158,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, open: bool, stage: &Stage,
     let y0 = area.y + FOLDED;
     for (n, row) in rows(stage, v).into_iter().enumerate() {
         let x = area.x + t.size.pad + n as f32 * STRIP;
-        let name: String = row.name.chars().take(7).collect();
+        let name = controls::fit(&row.name, ((STRIP - 8.0) / d.advance(small)) as usize);
         d.text(x, y0, small, &name, t.color.text);
         d.rect(x, area.y + area.h - 3.0, STRIP - 10.0, 3.0, t.color.strips[n % t.color.strips.len()]);
         let pan_y = y0 + small + 4.0;
@@ -159,10 +171,11 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, open: bool, stage: &Stage,
         // meter and fader on one scale, the 0 dB mark across both
         let y = pan_y + 11.0;
         let inner = area.y + area.h - y - 7.0;
-        meter(d, t, Rect { x, y, w: 6.0, h: inner }, row.peak);
-        let f = Rect { x: x + 8.0, y, w: 11.0, h: inner };
+        meter(d, t, Rect { x, y, w: 7.0, h: inner }, row.peak);
+        scale(d, t, x + 8.0, y, inner);
+        let f = Rect { x: x + 9.0, y, w: 11.0, h: inner };
         controls::fader(d, t, f, gain_position(row.value), v.hot == Some(row.target));
-        zero(d, t, x, y, 19.0, inner);
+        zero(d, t, x, y, 12.0, inner);
         if !row.fixed {
             out.push((f, Part::Fader(row.target, f)));
         }
@@ -181,8 +194,8 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, open: bool, stage: &Stage,
     d.text(x, y0, small, "OUT", t.color.muted);
     let y = y0 + small + 15.0;
     let inner = area.y + area.h - y - 5.0;
-    meter(d, t, Rect { x, y, w: 8.0, h: inner }, stage.master_peak);
-    zero(d, t, x, y, 8.0, inner);
+    meter(d, t, Rect { x, y, w: 9.0, h: inner }, stage.master_peak);
+    zero(d, t, x, y, 11.0, inner);
     let r = peak_readout(d, t, x + 12.0, y, 34.0, stage.master_max);
     out.push((r, Part::Peak(None)));
     out

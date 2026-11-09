@@ -70,7 +70,7 @@ pub struct Stage {
     /// the gains inside the tracks
     pub inner: Vec<Inner>,
     master: Option<(usize, usize)>,
-    pub master_peak: f32,
+    pub master_peak: [f32; 2],
     pub master_max: f32,
     volume: f32,
 }
@@ -83,8 +83,8 @@ pub struct Strip {
     pub name: String,
     pub owned: bool,
     from: (usize, usize),
-    /// the held peak
-    pub peak: f32,
+    /// the held peak, left and right
+    pub peak: [f32; 2],
     /// the highest peak since it was last cleared
     pub max: f32,
 }
@@ -93,6 +93,8 @@ pub struct Strip {
 pub struct Inner {
     pub track: String,
     pub label: String,
+    /// the node whose sound it sets
+    pub source: String,
     pub node: usize,
     pub port: usize,
     pub name: String,
@@ -104,7 +106,7 @@ pub struct Inner {
     from: (usize, usize),
     /// the source sits before this gain (a mixer's input): the level reads after it
     before_gain: bool,
-    pub peak: f32,
+    pub peak: [f32; 2],
     pub max: f32,
 }
 
@@ -245,7 +247,7 @@ impl Stage {
             .iter()
             .filter_map(|s| {
                 let ((node, port, name), (fnode, fport, _)) = (slot(&s.gain, false)?, slot(&s.from, true)?);
-                Some(Strip { track: s.track.clone(), node, port, name, owned: s.owned, from: (fnode, fport), peak: 0.0, max: 0.0 })
+                Some(Strip { track: s.track.clone(), node, port, name, owned: s.owned, from: (fnode, fport), peak: [0.0; 2], max: 0.0 })
             })
             .collect();
         // the gains inside each track: a node's `gain` (its output's level), a mixer's `gainK` (what feeds its `inK`)
@@ -261,9 +263,11 @@ impl Stage {
                     None => (!node.kind.outputs().is_empty()).then_some((n, 0)),
                 };
                 let Some(from) = source else { continue };
-                let label = if input.name == "gain" { local.clone() } else { graph.nodes[from.0].id.strip_prefix(&format!("{track}_")).unwrap_or(&graph.nodes[from.0].id).to_string() };
+                // its internal address, what the documents call it
+                let label = format!("{local}.{}", input.name);
+                let source_name = graph.nodes[from.0].id.strip_prefix(&format!("{track}_")).unwrap_or(&graph.nodes[from.0].id).to_string();
                 let spec = params::spec(node.kind, input.name);
-                inner.push(Inner { track: track.clone(), label, node: n, port, name: input.name.to_string(), path: format!("{local}.{}", input.name), linked, max_value: spec.max, from, before_gain: input.name != "gain", peak: 0.0, max: 0.0 });
+                inner.push(Inner { track: track.clone(), label, source: source_name, node: n, port, name: input.name.to_string(), path: format!("{local}.{}", input.name), linked, max_value: spec.max, from, before_gain: input.name != "gain", peak: [0.0; 2], max: 0.0 });
             }
         }
         // one strip per source: a source that feeds an internal mixer is that mixer's input; its own `gain` is a sound
@@ -273,7 +277,7 @@ impl Stage {
         let master = sum.as_deref().and_then(|s| slot(s, true)).map(|(n, p, _)| (n, p));
         let node_ids = graph.nodes.iter().map(|n| n.id.clone()).collect();
         let kinds = graph.nodes.iter().map(|n| n.kind).collect();
-        Stage { controls, space, gpu: None, texture: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, kinds, strips, inner, master, master_peak: 0.0, master_max: 0.0, volume, path: Vec::new(), core_node: node }
+        Stage { controls, space, gpu: None, texture: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, kinds, strips, inner, master, master_peak: [0.0; 2], master_max: 0.0, volume, path: Vec::new(), core_node: node }
     }
 
     /// show this level of the tree in Wire; empty = the rig
@@ -384,22 +388,29 @@ impl Stage {
         let time = self.started.elapsed().as_secs_f32();
         let meters = self.handles.as_ref().and_then(|h| h.meters.clone());
         let fall = (-dt / deck_core::meters::FALL_SECONDS).exp();
-        let level = |(n, p): (usize, usize)| meters.as_ref().map_or(0.0, |m| m.level(n, p));
+        // left and right; a mono output is the same on both
+        let level = |(n, p): (usize, usize)| -> [f32; 2] {
+            meters.as_ref().map_or([0.0; 2], |m| {
+                let left = m.channel_level(n, p, 0);
+                [left, if m.width(n, p) > 1 { m.channel_level(n, p, 1) } else { left }]
+            })
+        };
         for s in &mut self.strips {
             // after the fader, as a channel's meter reads
-            let now = level(s.from) * self.controls.input(s.node, &s.name, 1.0);
-            s.peak = now.max(s.peak * fall);
-            s.max = s.max.max(now);
+            let g = self.controls.input(s.node, &s.name, 1.0);
+            let [l, r] = level(s.from);
+            s.peak = [(l * g).max(s.peak[0] * fall), (r * g).max(s.peak[1] * fall)];
+            s.max = s.max.max((l * g).max(r * g));
         }
         for s in &mut self.inner {
             let after = if s.before_gain { self.controls.input(s.node, &s.name, 1.0) } else { 1.0 };
-            let now = level(s.from) * after;
-            s.peak = now.max(s.peak * fall);
-            s.max = s.max.max(now);
+            let [l, r] = level(s.from);
+            s.peak = [(l * after).max(s.peak[0] * fall), (r * after).max(s.peak[1] * fall)];
+            s.max = s.max.max((l * after).max(r * after));
         }
-        let out_level = self.master.map_or(0.0, level);
-        self.master_peak = out_level.max(self.master_peak * fall);
-        self.master_max = self.master_max.max(out_level);
+        let [l, r] = self.master.map_or([0.0; 2], level);
+        self.master_peak = [l.max(self.master_peak[0] * fall), r.max(self.master_peak[1] * fall)];
+        self.master_max = self.master_max.max(l.max(r));
         self.space.update(dt, time, &mut self.controls, &now, &|n, p| meters.as_ref().map_or(0.0, |m| m.level(n, p)));
         let space = &mut self.space;
         let gpu = self.gpu.get_or_insert_with(|| {

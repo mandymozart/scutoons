@@ -415,7 +415,10 @@ impl App {
             Hit::MixerHead => Help::new("Mixer", "One strip per track. Click to fold or open it."),
             Hit::MixerTab(_) => Help::new("Level", "The mixer at this level of the tree: the rig's tracks, or the gains inside a track."),
             Hit::Fader(mixer::Target::Track(i), _) => Help::new(self.stage.strips.get(i)?.track.clone(), "The track's level. Drag it; it goes into the draft when you let go."),
-            Hit::Fader(mixer::Target::Inner(i), _) => Help::new(self.stage.inner.get(i)?.label.clone(), "A gain inside this track. Drag it; it goes into the draft when you let go."),
+            Hit::Fader(mixer::Target::Inner(i), _) => {
+                let s = self.stage.inner.get(i)?;
+                Help::new(format!("{}:{}", s.track, s.label), format!("How much of {} goes on. Drag it; it goes into the draft when you let go.", s.source))
+            }
             Hit::Balance(i) => Help::new(format!("Pan {}", self.stage.strips.get(i)?.track), "Left and right on a stereo pair. Drag it; it applies when you let go."),
             Hit::Peak(_) => Help::new("Highest peak", "The loudest moment in dB, red once it went over 0. Click to clear it."),
             Hit::Mute(i) => Help::new(format!("Mute {}", self.stage.strips.get(i)?.track), "Takes the track out of the sound."),

@@ -17,6 +17,18 @@ impl Rect {
     }
 }
 
+/// `text` in at most `cols` characters, an ellipsis where it is cut
+pub fn fit(text: &str, cols: usize) -> String {
+    if text.chars().count() <= cols {
+        return text.to_string();
+    }
+    let mut s: String = text.chars().take(cols.saturating_sub(1)).collect();
+    if cols > 0 {
+        s.push('…');
+    }
+    s
+}
+
 /// a sentence on a filled strip, kept inside `max_x`
 pub fn chip(d: &mut DrawList, t: &Tokens, at: (f32, f32), max_x: f32, text: &str, bad: bool) {
     let px = t.size.font;
@@ -101,12 +113,11 @@ pub fn level(d: &mut DrawList, t: &Tokens, r: Rect, position: f32, ok: f32, hot:
     }
 }
 
-/// a vertical fader at `fraction` (0..1)
+/// a fader as a triangle beside its meter, at `fraction` (0..1)
 pub fn fader(d: &mut DrawList, t: &Tokens, r: Rect, fraction: f32, hot: bool) {
-    let cx = r.x + r.w * 0.5;
-    d.round_rect(cx - 1.5, r.y, 3.0, r.h, 1.5, t.color.control);
+    const SIZE: f32 = 13.0;
     let y = r.y + r.h * (1.0 - fraction.clamp(0.0, 1.0));
-    d.round_rect(r.x, y - 6.0, r.w, 12.0, 2.0, if hot { t.color.text } else { t.color.muted });
+    d.icon(r.x - 1.0, y - SIZE * 0.5, SIZE, "left-fill", if hot { t.color.text } else { t.color.muted });
 }
 
 /// a small button that is on or off; its place
@@ -241,6 +252,14 @@ mod tests {
         let row = |depth| TreeRow { depth, label: "x".into(), detail: String::new(), icon: "nodes", open: None, selected: false };
         let cells = tree(&mut list(), &t, 0.0, 10.0, 200.0, &[row(0), row(1), row(9)], (0.0, 0.0));
         assert_eq!(cells[2].y, 10.0 + 2.0 * t.size.tree_row);
+    }
+
+    #[test]
+    fn a_long_text_is_cut_with_an_ellipsis() {
+        assert_eq!(fit("tokens.toml", 7), "tokens…");
+        assert_eq!(fit("short", 7), "short");
+        assert_eq!(fit("äöü", 3), "äöü");
+        assert_eq!(fit("anything", 0), "");
     }
 
     #[test]
