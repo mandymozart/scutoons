@@ -28,6 +28,7 @@ Builds on LIVE.md B.5 (show, outlets, cells), LIVE-LENSES.md, and the decisions 
 | A parent may lock another member's sub conductor only if that seat accepted it | 2026-11-09 `[live]` |
 | Each subtree launches its own rows | 2026-11-09 `[live]` |
 | One show document per conductor, related by seats saved in the parent's document | 2026-11-10 `[live]` |
+| The workshop scope is the cut in §10, with sub conductors in it | 2026-11-10 `[live]` |
 | **GO is always allowed.** The conductor can start whatever; it is their responsibility | 2026-11-09 `[live]` |
 | Relations are built on hierarchy with fallbacks: "callcenter or Arbeitsamt". For every entity, down to module and parameter | 2026-11-09 `[events]` |
 | **An address that finds nobody does not fall back upward. It stays silent, and that is logged** | 2026-11-09 `[events]` |
@@ -164,7 +165,23 @@ A cell is a piece and its values. A piece is a scene, rig or module; the current
 | LIVE.md B.2 | The conductor runs the reader | A separate reader's phone is connected to the conductor |
 | LIVE.md B.5.2 | A cell is a list of layers | A piece and its values |
 
-**Timing:** LIVE.md has building start 2026-11-16 in lane 2 (research/KANON.md §8, issues #89–#91) for the Top Toy workshop on 2027-02-17. This concept must either fit that or be cut for it.
+**Timing and scope** (owner, 2026-11-10): building starts 2026-11-16 in lane 2 (research/KANON.md §8, #89–#91), code complete 2027-02-05, workshop 2027-02-17. The four changes above stand. For the workshop:
+
+| | For the workshop | After |
+|---|---|---|
+| Data model | Show document per conductor with seats, recursive from day one | |
+| Conductors | Main conductor and sub conductors on the owner's own decks: own rows, own operator, own clock | Sub conductors of other members |
+| Relay | A tree: rows, cells, events and the clock pass down, values, readiness and events up (today it is flat) | |
+| Parent and child | The child treats its parent like a reader: follow, suggest, free. Local GO always works | |
+| Show and Perform | Both workspaces in deck-editor: matrix, rows, cells as a piece plus values, entering a sub conductor, the 2D overlay | |
+| Launching | Row ▶, single cell ▶ by hand, GO, moments | |
+| Triggers | Reader events firing rows: auto, suggest, hand; the log | |
+| Addressing | Kind and id, `character:yellowmouse > dance:samba`, silent and logged | Down to module and parameter over the wire |
+| Filters | Group and device | Inventory, stats, periphery |
+| Saving | Show documents with versions; a flash resolves the tree to exact versions, down own decks or on a stick | |
+| Other members | Nothing | Invitations, faces, lent media, locks across members |
+
+Largest new piece of work: the relay tree. Everything else in the table reuses what the deck already has or is editor work.
 
 ## 11. What exists in the code (read 2026-11-09)
 
@@ -184,9 +201,7 @@ A cell is a piece and its values. A piece is a scene, rig or module; the current
 
 ## 12. Open
 
-1. Do the LIVE.md changes in §10 stand, above all the stage builder moving and "not a clip launcher"?
-2. What fits before the Top Toy workshop?
-3. Multichannel pan (#459), labels (#461) and nesting (#458) touch this; nesting should follow §4.
+1. Multichannel pan (#459), labels (#461) and nesting (#458) touch this; nesting should follow §4.
 
 ## 13. Drafts
 
