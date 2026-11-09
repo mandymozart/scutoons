@@ -76,16 +76,37 @@ pub fn parse_relay(url: &str) -> Result<(String, String), String> {
     Ok((format!("{scheme}{base}"), decode(code)))
 }
 
-/// The relay URL's QUIC door (#438): `?quic=host:port`, an empty `?quic=` for the relay's own host and port, and
-/// `&quichash=<sha-256 of the certificate, hex>` to pin a self-signed one – the base (`https://host:port`) and the hash.
+/// The hosted relay: bunny's edge ends its TLS and carries no UDP, so a client there would give QUIC its head start for
+/// nothing. It takes the door by name (`?quic=`, `VITE_LIVE_QUIC`) once it has one (#441).
+const NO_DOOR_YET: &str = "live.scutoons.com";
+
+/// The relay's QUIC door (#438), from its URL – the base (`https://host:port`) and the hash to pin. A `wss://` relay under
+/// a name has one on its own host and port, a relay opens it with its certificate. `?quic=host:port` names another,
+/// an empty `?quic=` asks for the relay's own, `?quic=off` for none, `&quichash=<sha-256 of the certificate, hex>` pins a
+/// self-signed one.
 pub fn parse_quic(url: &str) -> Option<(String, Option<Vec<u8>>)> {
     let url = url.trim();
-    let rest = url.strip_prefix("wss://").or_else(|| url.strip_prefix("ws://"))?;
-    let query = rest.split('#').next().unwrap_or("").split_once('?')?.1;
+    let (secure, rest) = match url.strip_prefix("wss://") {
+        Some(rest) => (true, rest),
+        None => (false, url.strip_prefix("ws://")?),
+    };
+    let query = rest.split('#').next().unwrap_or("").split_once('?').map_or("", |(_, q)| q);
     let param = |name: &str| query.split('&').find_map(|kv| kv.strip_prefix(name)?.strip_prefix('=').map(decode));
-    let door = param("quic")?;
-    let authority = if door.is_empty() { rest.split(['/', '?', '#']).next().unwrap_or("").to_string() } else { door };
-    Some((format!("https://{authority}"), param("quichash").and_then(|h| hex(&h))))
+    let own = rest.split(['/', '?', '#']).next().unwrap_or("");
+    let door = match param("quic") {
+        Some(off) if off == "off" => return None,
+        Some(door) if !door.is_empty() => door,
+        Some(_) => own.to_string(),
+        None if secure && door_by_default(own) => own.to_string(),
+        None => return None,
+    };
+    Some((format!("https://{door}"), param("quichash").and_then(|h| hex(&h))))
+}
+
+/// An address cannot have a public certificate, so a `wss://` by IP is a proxy or a pinned relay, which name their door.
+fn door_by_default(authority: &str) -> bool {
+    let host = authority.rsplit_once(':').map_or(authority, |(host, _)| host);
+    host != NO_DOOR_YET && !host.starts_with('[') && host.parse::<std::net::IpAddr>().is_err()
 }
 
 /// a hex string's bytes; None when it is empty or not hex
@@ -130,7 +151,7 @@ fn role_name(r: Role) -> String {
 /// How a client joins.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct Options {
-    /// `ws://host:port/live/<code>`, with `?quic=…` for a relay that has the QUIC door (`parse_quic`)
+    /// `ws://host:port/live/<code>` or `wss://…`; which QUIC door it has: `parse_quic`
     pub relay: String,
     pub role: Role,
     #[serde(default)]
@@ -1698,6 +1719,13 @@ mod tests {
     #[test]
     fn the_quic_door_comes_from_the_relay_url() {
         assert_eq!(parse_quic("ws://h:7700/live/A"), None);
+        assert_eq!(parse_quic("wss://10-0-0-1.lan.scutoons.com:7700/live/A"), Some(("https://10-0-0-1.lan.scutoons.com:7700".into(), None)), "wss under a name: the door by default");
+        assert_eq!(parse_quic("wss://h.test:7700/live/A?role=x"), Some(("https://h.test:7700".into(), None)));
+        assert_eq!(parse_quic("wss://h.test:7700/live/A?quic=off"), None, "unless told otherwise");
+        assert_eq!(parse_quic("wss://live.scutoons.com/live/A"), None, "the hosted relay has no UDP yet");
+        assert_eq!(parse_quic("wss://live.scutoons.com/live/A?quic=udp.test:443"), Some(("https://udp.test:443".into(), None)), "by name it may");
+        assert_eq!(parse_quic("wss://192.168.1.116:4100/relay/live/A"), None, "by IP: no public certificate");
+        assert_eq!(parse_quic("wss://[::1]:7700/live/A"), None);
         assert_eq!(parse_quic("wss://live.test/live/A?quic=udp.test:443"), Some(("https://udp.test:443".into(), None)));
         assert_eq!(parse_quic("wss://h:7700/live/A?quic="), Some(("https://h:7700".into(), None)), "empty: the relay's own host and port");
         assert_eq!(parse_quic("ws://h:7700/live/A?quic=h%3A7701&quichash=ab12"), Some(("https://h:7701".into(), Some(vec![0xab, 0x12]))));

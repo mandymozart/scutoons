@@ -11,6 +11,8 @@
 //!   loaded; changed → loaded again. A pair that does not load (written half, the key not yet the cert's) keeps the old
 //!   certificate, logs a warning and is tried again on the next handshake. No timer, no file watcher (the dogma: no
 //!   polling) – two `stat`s per handshake.
+//! - A certificate also opens the QUIC door (#438), on the same port number over UDP, unless `--no-quic` or
+//!   `RELAY_QUIC_ADDR=off` says not to; `--quic ADDR` puts it on another address.
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -31,12 +33,15 @@ pub struct TlsFiles {
     pub key: PathBuf,
 }
 
-/// What `relay` listens on: `relay [addr] [--tls-cert FILE --tls-key FILE] [--quic ADDR]`, the env as the fallback.
+const USAGE: &str = "relay [addr] [--tls-cert FILE --tls-key FILE] [--quic ADDR | --no-quic]";
+
+/// What `relay` listens on (`USAGE`), the env as the fallback.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Listen {
     pub addr: String,
     pub tls: Option<TlsFiles>,
-    /// #438: the QUIC door's UDP address (`--quic` / `RELAY_QUIC_ADDR`); none: no UDP port is opened at all
+    /// #438: the QUIC door's UDP address (`addr` when there is a certificate, or `--quic` / `RELAY_QUIC_ADDR`); none: no UDP
+    /// port is opened at all
     pub quic: Option<String>,
 }
 
@@ -44,14 +49,15 @@ impl Listen {
     /// `args` without the program name; `env` = `std::env::var(..).ok()` (a closure, so the tests need no real env).
     /// Empty values count as unset; a cert without a key (or the reverse) is an error, not a silent plain relay.
     pub fn parse(args: impl IntoIterator<Item = String>, env: impl Fn(&str) -> Option<String>) -> Result<Listen, String> {
-        let (mut addr, mut cert, mut key, mut quic) = (None, None, None, None);
+        let (mut addr, mut cert, mut key, mut quic, mut no_quic) = (None, None, None, None, false);
         let mut args = args.into_iter();
         while let Some(arg) = args.next() {
             match arg.as_str() {
                 "--tls-cert" => cert = Some(args.next().ok_or("--tls-cert needs a file")?),
                 "--tls-key" => key = Some(args.next().ok_or("--tls-key needs a file")?),
                 "--quic" => quic = Some(args.next().ok_or("--quic needs an address")?),
-                a if a.starts_with("--") => return Err(format!("unknown option {a} (relay [addr] [--tls-cert FILE --tls-key FILE] [--quic ADDR])")),
+                "--no-quic" => no_quic = true,
+                a if a.starts_with("--") => return Err(format!("unknown option {a} ({USAGE})")),
                 _ if addr.is_none() => addr = Some(arg),
                 _ => return Err(format!("one address only, got {arg} too")),
             }
@@ -67,9 +73,11 @@ impl Listen {
             (Some(_), None) => return Err("a certificate without its key (--tls-key / RELAY_TLS_KEY)".into()),
             (None, Some(_)) => return Err("a key without its certificate (--tls-cert / RELAY_TLS_CERT)".into()),
         };
-        if quic.is_some() && tls.is_none() {
+        let off = no_quic || quic.as_deref() == Some("off");
+        if !off && quic.is_some() && tls.is_none() {
             return Err("the QUIC door needs a certificate (--tls-cert and --tls-key)".into());
         }
+        let quic = if off { None } else { quic.or_else(|| tls.as_ref().map(|_| addr.clone())) };
         Ok(Listen { addr, tls, quic })
     }
 }
@@ -191,13 +199,20 @@ mod tests {
     }
 
     #[test]
-    fn the_quic_door_is_opened_by_name_and_needs_the_certificate() {
+    fn a_certificate_opens_the_quic_door_unless_told_otherwise() {
         let pair = ["--tls-cert", "/c.pem", "--tls-key", "/k.pem"];
-        assert_eq!(Listen::parse(args(&pair), env(&[])).unwrap().quic, None, "no UDP port unless asked");
-        let mut named = args(&pair);
-        named.extend(args(&["--quic", "0.0.0.0:7700"]));
-        assert_eq!(Listen::parse(named, env(&[])).unwrap().quic.as_deref(), Some("0.0.0.0:7700"));
-        assert_eq!(Listen::parse(args(&pair), env(&[("RELAY_QUIC_ADDR", "0.0.0.0:443")])).unwrap().quic.as_deref(), Some("0.0.0.0:443"));
+        let with = |more: &[&str], e: &'static [(&'static str, &'static str)]| {
+            let mut a = args(&pair);
+            a.extend(args(more));
+            Listen::parse(a, env(e)).unwrap().quic
+        };
+        assert_eq!(with(&[], &[]).as_deref(), Some("0.0.0.0:7700"), "the relay's own port number, over UDP");
+        assert_eq!(with(&["1.2.3.4:9"], &[]).as_deref(), Some("1.2.3.4:9"));
+        assert_eq!(with(&["--quic", "0.0.0.0:443"], &[]).as_deref(), Some("0.0.0.0:443"));
+        assert_eq!(with(&[], &[("RELAY_QUIC_ADDR", "0.0.0.0:443")]).as_deref(), Some("0.0.0.0:443"));
+        assert_eq!(with(&["--no-quic"], &[]), None);
+        assert_eq!(with(&[], &[("RELAY_QUIC_ADDR", "off")]), None);
+        assert_eq!(Listen::parse(args(&[]), env(&[("RELAY_QUIC_ADDR", "off")])).unwrap().quic, None, "off needs no certificate");
         assert!(Listen::parse(args(&["--quic", "0.0.0.0:7700"]), env(&[])).unwrap_err().contains("needs a certificate"));
     }
 
