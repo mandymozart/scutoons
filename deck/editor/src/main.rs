@@ -14,6 +14,7 @@ mod bar;
 mod stage;
 mod text;
 mod tokens;
+mod typeahead;
 mod ui;
 mod wires;
 
@@ -46,10 +47,14 @@ struct Args {
     gesture: Option<(String, String)>,
     /// a check run's view along an axis: 0 1 2 = +x +y +z, 3 4 5 = -x -y -z
     view: Option<usize>,
+    /// a check run's knob pull on the stage, in Play
+    pull: bool,
+    /// a check run's typeahead: arm this port, open it, type this; pick the first row if asked
+    menu: Option<(String, String, bool)>,
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { rig: "catpope".into(), frames: None, screenshot: None, tokens: None, stress: false, volume: 0.5, size: None, wire: false, draft: None, gesture: None, view: None };
+    let mut a = Args { rig: "catpope".into(), frames: None, screenshot: None, tokens: None, stress: false, volume: 0.5, size: None, wire: false, draft: None, gesture: None, view: None, pull: false, menu: None };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -62,6 +67,13 @@ fn args() -> Result<Args> {
             "--stress" => a.stress = true,
             "--wire" => a.wire = true,
             "--view" => a.view = Some(val()?.parse()?),
+            "--pull" => a.pull = true,
+            "--menu" => {
+                let v = val()?;
+                let mut p = v.split(',');
+                a.menu = Some((p.next().unwrap_or("").to_string(), p.next().unwrap_or("").to_string(), p.next() == Some("pick")));
+                a.wire = true;
+            }
             "--draft" => a.draft = Some(PathBuf::from(val()?)),
             "--gesture" => {
                 let v = val()?;
@@ -75,7 +87,7 @@ fn args() -> Result<Args> {
                 a.size = Some((w.trim().parse()?, h.trim().parse()?));
             }
             "--help" | "-h" => {
-                println!("deck-editor [--rig catpope] [--frames N] [--screenshot FILE] [--tokens FILE] [--stress] [--size W,H] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5]");
+                println!("deck-editor [--rig catpope] [--frames N] [--screenshot FILE] [--tokens FILE] [--stress] [--size W,H] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5] [--menu PORT,QUERY[,pick]]");
                 std::process::exit(0);
             }
             other => anyhow::bail!("unknown argument {other}"),
@@ -126,6 +138,10 @@ enum Drag {
     Cable(usize),
     /// the cable into this input, pulled off: dropped on nothing it is cut, on another input it moves
     Grab(usize),
+    /// the right button down, not moved yet: a pan if it moves, the context menu if it does not
+    Right(f32, f32),
+    /// the stage's own press (Play): its knobs, or its orbit
+    Space,
     /// the camera, from this pointer position
     Orbit(f32, f32),
     Pan(f32, f32),
@@ -138,6 +154,13 @@ struct Mark {
     port: usize,
     x: f32,
     y: f32,
+}
+
+/// the typeahead open on the stage
+struct Menu {
+    ta: typeahead::Typeahead,
+    /// the armed port it connects from; none: every port, a pick arms it
+    from: Option<usize>,
 }
 
 /// a sentence at the place of a gesture, for a few seconds
@@ -202,6 +225,9 @@ struct App {
     draft: PathBuf,
     /// the ports the cable in the hand may reach (the core's answer, per port)
     reach: Vec<bool>,
+    /// a port clicked (not dragged): the next right click connects from it
+    armed: Option<usize>,
+    menu: Option<Menu>,
 }
 
 fn main() {
@@ -248,6 +274,8 @@ fn run() -> Result<i32> {
         undo: Vec::new(),
         draft,
         reach: Vec::new(),
+        armed: None,
+        menu: None,
     };
     event_loop.run_app(&mut app).context("the event loop")?;
     let summary = app.summary();
@@ -304,6 +332,9 @@ impl App {
 
     fn pointer(&mut self, x: f32, y: f32) {
         self.cursor = (x, y);
+        if let Some(m) = self.menu.as_mut() {
+            m.ta.hover(x, y);
+        }
         match self.panel.drag {
             Some(Drag::Divider) => {
                 let w = self.gpu.as_ref().map_or(1280.0, |g| g.size().0 as f32);
@@ -317,6 +348,16 @@ impl App {
                 self.panel.field.go(to, true);
             }
             Some(Drag::Cable(_) | Drag::Grab(_)) => {}
+            Some(Drag::Space) => {
+                let s = self.scale();
+                let top = self.tokens.tokens.size.bar;
+                self.stage.pointer(x * s, (y - top) * s);
+            }
+            Some(Drag::Right(lx, ly)) => {
+                if (x - lx).abs() + (y - ly).abs() > 3.0 {
+                    self.panel.drag = Some(Drag::Pan(x, y));
+                }
+            }
             Some(Drag::Orbit(lx, ly)) => {
                 self.stage.space.camera.drag(x - lx, y - ly);
                 self.panel.drag = Some(Drag::Orbit(x, y));
@@ -345,6 +386,13 @@ impl App {
 
     fn press(&mut self) {
         let (x, y) = self.cursor;
+        if let Some(m) = &self.menu {
+            match m.ta.id_at(x, y) {
+                Some(id) => self.pick(id),
+                None => self.menu = None,
+            }
+            return;
+        }
         match self.hit(x, y) {
             Hit::Divider => self.panel.drag = Some(Drag::Divider),
             Hit::Tab(t) => {
@@ -384,18 +432,95 @@ impl App {
             Hit::Axis(a) => self.panel.drag = Some(Drag::Gizmo(a, false, x, y)),
             Hit::Stage => {
                 self.focus(false);
-                self.panel.drag = Some(Drag::Orbit(x, y));
+                self.armed = None;
+                // Play: the deck's own hand – a knob under the pointer turns, anywhere else it orbits
+                if self.wire {
+                    self.panel.drag = Some(Drag::Orbit(x, y));
+                } else {
+                    self.stage.space.press();
+                    self.panel.drag = Some(Drag::Space);
+                }
             }
             Hit::Nothing => self.focus(false),
         }
     }
 
-    /// the middle button orbits, with shift it pans; the right button pans
+    /// the middle button orbits, with shift it pans; the right button: a drag pans, a click is the context menu – at
+    /// once while a port is held down (#455)
     fn press_view(&mut self, button: MouseButton) {
         let (x, y) = self.cursor;
+        if self.menu.take().is_some() {
+            return;
+        }
+        if let (MouseButton::Right, Some(Drag::Cable(a) | Drag::Grab(a))) = (button, self.panel.drag) {
+            self.panel.drag = None;
+            self.open_menu(Some(a), x, y);
+            return;
+        }
         if matches!(self.hit(x, y), Hit::Stage | Hit::Port(_)) {
-            let pan = button == MouseButton::Right || self.mods.shift_key();
-            self.panel.drag = Some(if pan { Drag::Pan(x, y) } else { Drag::Orbit(x, y) });
+            self.panel.drag = Some(match button {
+                MouseButton::Right => Drag::Right(x, y),
+                _ if self.mods.shift_key() => Drag::Pan(x, y),
+                _ => Drag::Orbit(x, y),
+            });
+        }
+    }
+
+    /// `port` is active: what it may reach lights up
+    fn arm(&mut self, port: usize) {
+        self.armed = Some(port);
+        self.reach = wires::reachable(&self.stage.bundle, &self.stage.ports, &self.stage.ports[port]);
+    }
+
+    /// the typeahead: what the armed port may reach (the core's answer), or every port to find one
+    fn open_menu(&mut self, from: Option<usize>, x: f32, y: f32) {
+        if !self.wire {
+            return;
+        }
+        if let Some(a) = from {
+            self.arm(a);
+        }
+        let items = self.stage.ports.iter().enumerate().filter(|(i, _)| from.is_none() || self.reach.get(*i).copied().unwrap_or(false));
+        let items = items.map(|(id, p)| typeahead::Item { id, label: p.address.clone(), detail: format!("{} {}", if p.input { "in" } else { "out" }, p.ty) }).collect();
+        self.menu = Some(Menu { ta: typeahead::Typeahead::new(items, x, y), from });
+    }
+
+    /// a row chosen: connected from the armed port, or the port found is armed
+    fn pick(&mut self, id: usize) {
+        let Some(menu) = self.menu.take() else { return };
+        let Some(a) = menu.from else { return self.arm(id) };
+        let (x, y) = (menu.ta.x, menu.ta.y);
+        let (Some(pa), Some(pb)) = (self.stage.ports.get(a), self.stage.ports.get(id)) else { return };
+        let done = wires::connect(&self.stage.bundle, pa, pb);
+        let text = format!("{} → {}", pa.address, pb.address);
+        self.armed = None;
+        self.change(done, text, x, y);
+    }
+
+    /// a key while the typeahead is open
+    fn menu_key(&mut self, k: &KeyEvent) {
+        if k.state != ElementState::Pressed {
+            return;
+        }
+        let Some(m) = self.menu.as_mut() else { return };
+        match k.logical_key.as_ref() {
+            Key::Named(NamedKey::Escape) => self.menu = None,
+            Key::Named(NamedKey::Enter) => {
+                if let Some(id) = m.ta.chosen() {
+                    self.pick(id);
+                }
+            }
+            Key::Named(NamedKey::ArrowUp) => m.ta.step(-1),
+            Key::Named(NamedKey::ArrowDown) => m.ta.step(1),
+            Key::Named(NamedKey::ArrowLeft) => m.ta.left(),
+            Key::Named(NamedKey::ArrowRight) => m.ta.right(),
+            Key::Named(NamedKey::Backspace) => m.ta.backspace(),
+            Key::Named(NamedKey::Delete) => m.ta.delete(),
+            _ => {
+                if let Some(t) = k.text.as_ref().filter(|t| !t.chars().any(char::is_control)) {
+                    m.ta.insert(t);
+                }
+            }
         }
     }
 
@@ -404,6 +529,14 @@ impl App {
         let a = match self.panel.drag.take() {
             Some(Drag::Cable(a)) => a,
             Some(Drag::Grab(a)) => return self.drop_grabbed(a),
+            Some(Drag::Space) => return self.stage.space.release(),
+            Some(Drag::Right(x, y)) => {
+                let on = match self.hit(x, y) {
+                    Hit::Port(i) => Some(i),
+                    _ => self.armed,
+                };
+                return self.open_menu(on, x, y);
+            }
             Some(Drag::Gizmo(Some(axis), false, ..)) => {
                 self.stage.space.camera.view_along(axis % 3, axis < 3);
                 return;
@@ -413,11 +546,12 @@ impl App {
         let (x, y) = self.cursor;
         let Hit::Port(b) = self.hit(x, y) else { return };
         if a == b {
-            return;
+            return self.arm(a);
         }
         let (Some(pa), Some(pb)) = (self.stage.ports.get(a), self.stage.ports.get(b)) else { return };
         let done = wires::connect(&self.stage.bundle, pa, pb);
         let text = format!("{} → {}", pa.address, pb.address);
+        self.armed = None;
         self.change(done, text, x, y);
     }
 
@@ -426,7 +560,7 @@ impl App {
         let (x, y) = self.cursor;
         let Some(port) = self.stage.ports.get(a) else { return };
         let (done, text) = match self.hit(x, y) {
-            Hit::Port(b) if b == a => return,
+            Hit::Port(b) if b == a => return self.arm(a),
             Hit::Port(b) if self.stage.ports.get(b).is_some_and(|q| q.input) => {
                 let to = &self.stage.ports[b];
                 (wires::moved(&self.stage.bundle, &self.stage.ports, port, to), format!("moved to {}", to.address))
@@ -477,6 +611,63 @@ impl App {
     /// a check run's drag at fixed frames: the pointer's own path, through hit test, press, move and release
     fn script(&mut self) {
         const START: u64 = 60;
+        if self.args.pull {
+            let top = self.tokens.tokens.size.bar;
+            let s = self.scale();
+            let values = |app: &App| app.stage.knobs.iter().map(|k| app.stage.value(k)).collect::<Vec<f32>>();
+            match self.frames {
+                f if f == START => {
+                    let b = self.stage.space.being.buttons.iter().find(|b| !b.hidden && b.turnable).map(|b| b.pos);
+                    if let Some((px, py)) = b.and_then(|p| self.stage.space.to_pixel(p)) {
+                        let (x, y) = (px / s, py / s + top);
+                        self.pointer(x, y);
+                        tracing::info!("wire: pull at {x:.0},{y:.0} before {:?}", values(self));
+                        self.press();
+                    }
+                }
+                f if f == START + 10 => {
+                    let (x, y) = self.cursor;
+                    self.pointer(x + 40.0, y - 40.0);
+                }
+                f if f == START + 20 => {
+                    self.release();
+                    tracing::info!("wire: pull after {:?}", values(self));
+                }
+                _ => {}
+            }
+            return;
+        }
+        if let Some((port, query, pick)) = self.args.menu.clone() {
+            let i = self.stage.ports.iter().position(|p| p.address == port);
+            let at = i.and_then(|i| self.marks.iter().find(|m| m.port == i)).map(|m| (m.x, m.y));
+            match self.frames {
+                f if f == START => {
+                    if let Some((x, y)) = at {
+                        self.pointer(x, y);
+                        self.press();
+                        self.release();
+                    } else {
+                        tracing::error!("--menu: no port {port} on the stage");
+                    }
+                }
+                f if f == START + 5 => {
+                    self.press_view(MouseButton::Right);
+                    self.release();
+                }
+                f if f == START + 10 => {
+                    if let Some(m) = self.menu.as_mut() {
+                        m.ta.insert(&query);
+                    }
+                }
+                f if f == START + 20 && pick => {
+                    if let Some(id) = self.menu.as_ref().and_then(|m| m.ta.chosen()) {
+                        self.pick(id);
+                    }
+                }
+                _ => {}
+            }
+            return;
+        }
         let Some((from, to)) = self.args.gesture.clone() else { return };
         let at = |app: &App, address: &str| {
             let i = app.stage.ports.iter().position(|p| p.address == address);
@@ -739,8 +930,15 @@ impl App {
                         self.marks.push(Mark { port: index, x: mx, y: my });
                         let hover = (self.cursor.0 - mx).hypot(self.cursor.1 - my) < 9.0;
                         let c = if q.input { t.color.text } else { t.color.cable };
-                        let dragging = matches!(self.panel.drag, Some(Drag::Cable(_) | Drag::Grab(_)));
-                        let open = self.reach.get(index).copied().unwrap_or(false);
+                        let dragging = self.menu.is_some() || self.armed.is_some() || matches!(self.panel.drag, Some(Drag::Cable(_) | Drag::Grab(_)));
+                        // what the typeahead still shows, else what the cable in the hand may reach
+                        let open = match &self.menu {
+                            Some(m) => m.ta.shows(index),
+                            None => self.reach.get(index).copied().unwrap_or(false),
+                        };
+                        if self.armed == Some(index) {
+                            ui.ring(mx, my, 13.0, t.color.accent);
+                        }
                         let c = if dragging && !open { [c[0], c[1], c[2], 0.22] } else { c };
                         if dragging && open {
                             ui.ring(mx, my, 10.0, t.color.cable);
@@ -782,7 +980,7 @@ impl App {
         }
         if self.wire {
             let small = font * 0.75;
-            ui.text(pad, hf - small * 1.25 - 8.0, small, "drag out → in: connect · pull a filled in off: cut · onto another in: move · ctrl+z undo · f frame", t.color.muted);
+            ui.text(pad, hf - small * 1.25 - 8.0, small, "drag out → in: connect · pull a filled in off: cut · onto another in: move · click a port, right click: find · ctrl+z undo · f frame", t.color.muted);
         }
         // the view gizmo, top right of the stage: its ball orbits, an axis looks along itself
         {
@@ -814,6 +1012,9 @@ impl App {
                 self.panel.hits.push((Rect { x: x - 11.0, y: y - 11.0, w: 22.0, h: 22.0 }, Hit::Axis(Some(a))));
             }
             self.panel.hits.push((Rect { x: gx - R - 16.0, y: gy - R - 16.0, w: 2.0 * (R + 16.0), h: 2.0 * (R + 16.0) }, Hit::Axis(None)));
+        }
+        if let Some(m) = self.menu.as_mut() {
+            m.ta.draw(ui, t, (wf, hf));
         }
         if self.notice.as_ref().is_some_and(|n| Instant::now() > n.until) {
             self.notice = None;
@@ -915,6 +1116,7 @@ impl ApplicationHandler for App {
                     _ => {}
                 }
             }
+            WindowEvent::KeyboardInput { event, .. } if self.menu.is_some() => self.menu_key(&event),
             WindowEvent::KeyboardInput { event, .. } => {
                 if event.state == ElementState::Pressed && event.logical_key == Key::Named(NamedKey::Escape) && !self.panel.field.focused {
                     el.exit();
