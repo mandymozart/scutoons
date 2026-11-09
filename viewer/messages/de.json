@@ -901,8 +901,6 @@
 	},
 	"live_deck": {
 		"title": "Deck",
-		"character": "Figur",
-		"choose_character": "Figur wählen",
 		"start": "Sound starten",
 		"starting": "Startet …",
 		"controls": "Regler",

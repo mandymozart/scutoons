@@ -901,8 +901,6 @@
 	},
 	"live_deck": {
 		"title": "Deck",
-		"character": "Character",
-		"choose_character": "Choose a character",
 		"start": "Start the sound",
 		"starting": "Starting …",
 		"controls": "Controls",
