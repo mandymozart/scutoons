@@ -65,7 +65,23 @@ pub struct Stage {
     /// the graph's node ids: a being's point is its node
     pub node_ids: Vec<String>,
     kinds: Vec<Kind>,
+    /// the mixer's strips, and what goes out
+    pub strips: Vec<Strip>,
+    master: Option<(usize, usize)>,
+    pub master_peak: f32,
     volume: f32,
+}
+
+/// a track's strip on the mixer
+pub struct Strip {
+    pub track: String,
+    pub node: usize,
+    pub port: usize,
+    pub name: String,
+    pub owned: bool,
+    from: (usize, usize),
+    /// the held peak
+    pub peak: f32,
 }
 
 /// a control input of a node, as the inspector shows it
@@ -81,6 +97,8 @@ pub struct Param {
 struct Ready {
     bundle: Bundle,
     knobs: Vec<deck_space::rig::bundle::Knob>,
+    strips: Vec<deck_space::rig::bundle::Strip>,
+    sum: Option<String>,
     scene: Scene,
     graph: Graph,
     tempo: tempo::Config,
@@ -99,7 +117,7 @@ fn prepare(bundle: Bundle) -> Result<Ready> {
     let tempo = tempo::config_from_graph(&graph)?;
     let space_node = graph.first(Kind::Space).context("the rig's scene has a space node")?;
     let ports = wires::ports(&turn.played)?;
-    Ok(Ready { bundle, knobs: turn.played.knobs.clone(), scene, graph, tempo, space_node, ports })
+    Ok(Ready { bundle, knobs: turn.played.knobs.clone(), strips: turn.played.strips(), sum: turn.played.sum(), scene, graph, tempo, space_node, ports })
 }
 
 /// the deck's audio options from deck.toml (`DECK_TOML`): host, device, buffer
@@ -149,7 +167,7 @@ impl Stage {
     }
 
     fn start(ready: Ready, volume: f32) -> Stage {
-        let Ready { bundle, knobs: played_knobs, scene, graph, tempo: tempo_cfg, space_node: node, ports } = ready;
+        let Ready { bundle, knobs: played_knobs, strips: played_strips, sum, scene, graph, tempo: tempo_cfg, space_node: node, ports } = ready;
         let mut handles = None;
         let mut audio_name = "off".to_string();
         let audio = {
@@ -192,9 +210,24 @@ impl Stage {
             let label = k.label.get("en").cloned().unwrap_or_else(|| k.path.clone());
             knobs.push(Knob { label, path: k.path.clone(), node, port: port.to_string(), port_index, min: k.min, max: k.max, log: k.log });
         }
+        let slot = |s: &str, out: bool| -> Option<(usize, usize, String)> {
+            let (id, port) = node_port(s);
+            let n = graph.nodes.iter().position(|x| x.id == id)?;
+            let k = graph.nodes[n].kind;
+            let i = if out { k.output(port) } else { k.input(port) }?;
+            Some((n, i, port.to_string()))
+        };
+        let strips = played_strips
+            .iter()
+            .filter_map(|s| {
+                let ((node, port, name), (fnode, fport, _)) = (slot(&s.gain, false)?, slot(&s.from, true)?);
+                Some(Strip { track: s.track.clone(), node, port, name, owned: s.owned, from: (fnode, fport), peak: 0.0 })
+            })
+            .collect();
+        let master = sum.as_deref().and_then(|s| slot(s, true)).map(|(n, p, _)| (n, p));
         let node_ids = graph.nodes.iter().map(|n| n.id.clone()).collect();
         let kinds = graph.nodes.iter().map(|n| n.kind).collect();
-        Stage { controls, space, gpu: None, texture: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, kinds, volume, path: Vec::new(), core_node: node }
+        Stage { controls, space, gpu: None, texture: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, kinds, strips, master, master_peak: 0.0, volume, path: Vec::new(), core_node: node }
     }
 
     /// show this level of the tree in Wire; empty = the rig
@@ -209,6 +242,11 @@ impl Stage {
     pub fn show_all(&mut self) {
         self.space.being.show_level(None);
         self.visible = vec![true; self.ports.len()];
+    }
+
+    /// a strip's gain as the engine has it
+    pub fn strip_gain(&self, s: &Strip) -> f32 {
+        self.controls.input(s.node, &s.name, 1.0)
     }
 
     /// the sound's rate, if there is sound
@@ -286,6 +324,12 @@ impl Stage {
         self.controls.update(dt, moment.lead(), &now);
         let time = self.started.elapsed().as_secs_f32();
         let meters = self.handles.as_ref().and_then(|h| h.meters.clone());
+        let fall = (-dt / deck_core::meters::FALL_SECONDS).exp();
+        let level = |(n, p): (usize, usize)| meters.as_ref().map_or(0.0, |m| m.level(n, p));
+        for s in &mut self.strips {
+            s.peak = level(s.from).max(s.peak * fall);
+        }
+        self.master_peak = self.master.map_or(0.0, level).max(self.master_peak * fall);
         self.space.update(dt, time, &mut self.controls, &now, &|n, p| meters.as_ref().map_or(0.0, |m| m.level(n, p)));
         let space = &mut self.space;
         let gpu = self.gpu.get_or_insert_with(|| {

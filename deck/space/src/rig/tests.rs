@@ -724,3 +724,18 @@ fn scene_content_gives_one_holder_s_bundle_and_names_what_is_wrong() {
     }
     assert!(content::safe_id("cathedral_voice.base") && content::safe_id("character.catpope"));
 }
+
+#[test]
+fn a_tracks_pan_goes_through_a_panner_and_centre_through_none() {
+    let b = Bundle::core("character.catpope").expect("the core rig").expect("it reads");
+    let centre = b.play(None, None).expect("it plays");
+    assert!(centre.nodes.iter().all(|n| n.kind != "pan"), "a centred track has no panner");
+    let mut left = b.clone();
+    left.rig.tracks.iter_mut().find(|t| t.id == "voice").expect("the track").pan = -1.0;
+    let played = left.play(None, None).expect("it plays");
+    let p = played.nodes.iter().find(|n| n.kind == "pan").expect("a panner");
+    assert_eq!(p.id, "voice_strip_pan");
+    assert_eq!(p.params.get("azimuth").and_then(|v| v.as_float()), Some(-30.0));
+    assert!(played.links.iter().any(|l| l.from == "voice_strip_pan.out" && l.to.starts_with("mix")), "it feeds the strip");
+    assert_eq!(played.strips().iter().find(|s| s.track == "voice").expect("the strip").from, "voice_strip_pan.out");
+}

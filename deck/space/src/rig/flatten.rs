@@ -140,7 +140,19 @@ impl Rig {
                 let k = policy::strip(i).1;
                 debug_assert!(k <= MIXER_INPUTS);
                 gains.push((format!("gain{k}"), self.tracks.iter().find(|t| t.id == p.track).map_or(1.0, |t| t.gain)));
-                links.push(link(prefixed(&p.track, p.patch.out.as_deref().expect("a sounding track")), format!("{id}.in{k}"), 1.0, 0.0));
+                let out = prefixed(&p.track, p.patch.out.as_deref().expect("a sounding track"));
+                // a track's `pan` (−1 left … 1 right): the core's panner between the two speakers of a stereo pair (±30°); a
+                // centred track stays as it is. More speakers are the multichannel panner's (#459)
+                let pan = self.tracks.iter().find(|t| t.id == p.track).map_or(0.0, |t| t.pan).clamp(-1.0, 1.0);
+                let out = if pan.abs() > 1e-4 {
+                    let panner = format!("{}_strip_pan", p.track);
+                    scene.nodes.push(node(&panner, "pan", &[("azimuth", pan * 30.0)]));
+                    links.push(link(out, format!("{panner}.in"), 1.0, 0.0));
+                    format!("{panner}.out")
+                } else {
+                    out
+                };
+                links.push(link(out, format!("{id}.in{k}"), 1.0, 0.0));
             }
             let params: Vec<(&str, f32)> = gains.iter().map(|(k, g)| (k.as_str(), *g)).collect();
             scene.nodes.push(node(&id, "mixer", &params));

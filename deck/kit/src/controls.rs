@@ -77,6 +77,31 @@ pub fn row(d: &mut DrawList, t: &Tokens, area: Rect, y: &mut f32, label: &str, v
     *y += t.size.tree_row;
 }
 
+/// a vertical level: filled from the bottom to `position` (0..1) in `color`
+pub fn level(d: &mut DrawList, t: &Tokens, r: Rect, position: f32, color: [f32; 4]) {
+    d.round_rect(r.x, r.y, r.w, r.h, 2.0, t.color.surface_head);
+    let h = r.h * position.clamp(0.0, 1.0);
+    if h >= 1.0 {
+        d.round_rect(r.x, r.y + r.h - h, r.w, h, 2.0, color);
+    }
+}
+
+/// a vertical fader at `fraction` (0..1)
+pub fn fader(d: &mut DrawList, t: &Tokens, r: Rect, fraction: f32, hot: bool) {
+    let cx = r.x + r.w * 0.5;
+    d.round_rect(cx - 1.5, r.y, 3.0, r.h, 1.5, t.color.control);
+    let y = r.y + r.h * (1.0 - fraction.clamp(0.0, 1.0));
+    d.round_rect(r.x, y - 4.0, r.w, 8.0, 2.0, if hot { t.color.text } else { t.color.muted });
+}
+
+/// a small button that is on or off; its place
+pub fn toggle(d: &mut DrawList, t: &Tokens, r: Rect, label: &str, on: bool) -> Rect {
+    d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, if on { t.color.danger } else { t.color.control });
+    let w = d.advance(t.size.small) * label.chars().count() as f32;
+    d.text(r.x + (r.w - w) * 0.5, r.y + (r.h - t.size.small * 1.25) * 0.5, t.size.small, label, if on { t.color.text } else { t.color.muted });
+    r
+}
+
 /// a section's head: its label; the height it took
 pub fn section(d: &mut DrawList, t: &Tokens, x: f32, y: f32, w: f32, label: &str, first: bool) -> f32 {
     if !first {

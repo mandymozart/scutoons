@@ -140,7 +140,42 @@ pub struct Played {
     pub homes: Vec<super::wiring::Home>,
 }
 
+/// A track's strip in the played scene: the mixer input that sets its level and the output that feeds it.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Strip {
+    pub track: String,
+    /// the slot of its gain (`mix1.gain2`)
+    pub gain: String,
+    /// the slot of what feeds it (`voice_voice.out`)
+    pub from: String,
+    /// a code rig's policy owns the gain: no hand on it
+    pub owned: bool,
+}
+
 impl Played {
+    /// the tracks' strips (flatten's sum: a track's output into a `mixN`), in the rig's order
+    pub fn strips(&self) -> Vec<Strip> {
+        self.links
+            .iter()
+            .filter_map(|l| {
+                let (node, port) = l.to.split_once('.')?;
+                let k = port.strip_prefix("in")?;
+                let n = node.strip_prefix("mix")?;
+                if n.is_empty() || !n.bytes().all(|b| b.is_ascii_digit()) {
+                    return None;
+                }
+                let t = self.tracks.iter().find(|t| l.from.starts_with(&format!("{}_", t.track)))?;
+                let gain = format!("{node}.gain{k}");
+                Some(Strip { track: t.track.clone(), owned: self.owned.contains(&gain), gain, from: l.from.clone() })
+            })
+            .collect()
+    }
+
+    /// the slot of the rig's sum, what goes out
+    pub fn sum(&self) -> Option<String> {
+        self.links.iter().find(|l| l.to == "fft.in").map(|l| l.from.clone())
+    }
+
     /// the facts a page needs beside the scene: what streams (the knobs' inputs, the analyser, a rig's sum) and what the
     /// being shows
     fn with_facts(mut self) -> Played {

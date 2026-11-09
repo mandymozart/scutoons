@@ -50,6 +50,20 @@ pub enum Op {
         #[serde(default)]
         offset: f32,
     },
+    /// a track's fields, those given (#456: the mixer and the assignment move into the editor)
+    SetTrack {
+        id: String,
+        #[serde(default)]
+        instrument: Option<String>,
+        #[serde(default)]
+        preset: Option<String>,
+        #[serde(default)]
+        gain: Option<f32>,
+        #[serde(default)]
+        pan: Option<f32>,
+        #[serde(default)]
+        mute: Option<bool>,
+    },
     Disconnect {
         to: String,
         #[serde(default)]
@@ -180,6 +194,30 @@ fn rig(r: &mut Rig, op: &Op, lib: &Library) -> Result<(), String> {
             }
             Ok(())
         }
+        Op::SetTrack { id, instrument, preset, gain, pan, mute } => {
+            if let Some(i) = instrument {
+                if !lib.instruments.contains_key(i) {
+                    return Err(format!("{who}: unknown instrument \"{i}\""));
+                }
+            }
+            let t = r.tracks.iter_mut().find(|t| &t.id == id).ok_or_else(|| format!("{who}: no track '{id}'"))?;
+            if let Some(i) = instrument {
+                t.instrument = i.clone();
+            }
+            if let Some(p) = preset {
+                t.preset = Some(p.clone());
+            }
+            if let Some(g) = gain {
+                t.gain = *g;
+            }
+            if let Some(p) = pan {
+                t.pan = *p;
+            }
+            if let Some(m) = mute {
+                t.mute = *m;
+            }
+            Ok(())
+        }
         Op::AddNode { .. } | Op::RemoveNode { .. } => Err(format!("{who}: a rig has tracks, not nodes – add a track, or edit the track's instrument")),
         Op::AddTrack { id, instrument, preset } => {
             word(id, "a track id")?;
@@ -275,6 +313,7 @@ fn instrument(i: &mut Instrument, op: &Op) -> Result<(), String> {
             }
             Ok(())
         }
+        Op::SetTrack { .. } => Err(format!("{who}: a track is the rig's")),
         Op::AddTrack { .. } | Op::RemoveTrack { .. } => Err(format!("{who}: an instrument has nodes, not tracks – edit the rig")),
     }
 }
@@ -337,6 +376,11 @@ impl Bundle {
         doc.apply(op, &self.library())?;
         let Doc::Rigs(rig) = doc else { unreachable!("a rig stays a rig") };
         Ok(Bundle { rig, ..self.clone() })
+    }
+
+    /// A track's fields set on the rig (the mixer, the inspector).
+    pub fn track_set(&self, op: &Op) -> Result<Bundle, String> {
+        self.on_rig(op)
     }
 
     /// A cable drawn between two `track:node.port` ends, on the document that holds it (#431): inside one track its
@@ -417,6 +461,15 @@ mod gesture_tests {
         let next = b.connected("drone:drone.out", "drone:fifth.cv").expect("inside the track");
         assert_eq!(next.rig, b.rig, "the rig is not its home");
         assert_ne!(next.instruments, b.instruments);
+    }
+
+    #[test]
+    fn a_tracks_fields_are_set_on_the_rig() {
+        let b = catpope();
+        let next = b.track_set(&Op::SetTrack { id: "voice".into(), instrument: None, preset: None, gain: Some(0.5), pan: None, mute: Some(true) }).expect("set");
+        let t = next.rig.tracks.iter().find(|t| t.id == "voice").expect("the track");
+        assert_eq!((t.gain, t.mute), (0.5, true));
+        assert!(b.track_set(&Op::SetTrack { id: "nope".into(), instrument: None, preset: None, gain: None, pan: None, mute: None }).is_err());
     }
 
     #[test]

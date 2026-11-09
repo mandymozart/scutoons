@@ -25,6 +25,7 @@ pub struct Colors {
     pub danger: [f32; 4],
     /// the play button: go, and stop
     pub go: [f32; 4],
+    pub warn: [f32; 4],
     pub stop: [f32; 4],
     /// the view gizmo's x, y, z
     pub axis: [[f32; 4]; 3],
@@ -53,6 +54,7 @@ impl Default for Colors {
             selection: [0.3, 0.45, 0.7, 0.6],
             danger: rgb(0xc0392b),
             go: rgb(0x4cc35a),
+            warn: rgb(0xf0a030),
             stop: rgb(0xe5483b),
             axis: [[0.93, 0.27, 0.32, 1.0], [0.47, 0.75, 0.2, 1.0], [0.25, 0.53, 0.95, 1.0]],
         }

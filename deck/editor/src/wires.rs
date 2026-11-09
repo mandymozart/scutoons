@@ -5,6 +5,7 @@
 //! is tried. The draft is a TOML file (the rig, the instruments that changed) until the editor can sign in and save.
 use anyhow::{Context, Result};
 use deck_space::rig::bundle::Played;
+use deck_space::rig::edit::Op;
 use deck_space::rig::validate::Request;
 use deck_space::rig::wiring::Home;
 use deck_space::rig::{Bundle, Instrument, Rig};
@@ -117,6 +118,21 @@ pub fn level(bundle: &Bundle, ports: &[Port], node_ids: &[String], core_node: us
 pub fn connect(bundle: &Bundle, a: &Port, b: &Port) -> Result<Bundle, String> {
     let (from, to) = if a.input && !b.input { (b, a) } else { (a, b) };
     checked(bundle.connected(&from.address, &to.address)?)
+}
+
+/// a track's gain set; the changed bundle
+pub fn set_gain(bundle: &Bundle, track: &str, gain: f32) -> Result<Bundle, String> {
+    checked(bundle.track_set(&Op::SetTrack { id: track.to_string(), instrument: None, preset: None, gain: Some(gain), pan: None, mute: None })?)
+}
+
+/// a track's pan set (−1 … 1); the changed bundle
+pub fn set_pan(bundle: &Bundle, track: &str, pan: f32) -> Result<Bundle, String> {
+    checked(bundle.track_set(&Op::SetTrack { id: track.to_string(), instrument: None, preset: None, gain: None, pan: Some(pan), mute: None })?)
+}
+
+/// a track muted or not; the changed bundle
+pub fn set_mute(bundle: &Bundle, track: &str, mute: bool) -> Result<Bundle, String> {
+    checked(bundle.track_set(&Op::SetTrack { id: track.to_string(), instrument: None, preset: None, gain: None, pan: None, mute: Some(mute) })?)
 }
 
 /// the last cable into input `port` taken off: the bundle without it, and the address it came from

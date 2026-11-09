@@ -13,6 +13,7 @@
 mod bar;
 mod gpu_time;
 mod logo;
+mod mixer;
 mod inspector;
 mod stage;
 mod tokens;
@@ -132,6 +133,11 @@ enum Hit {
     Field(f32),
     /// a parameter of a node in the inspector
     Param(usize, usize),
+    /// the mixer's head, a strip's fader, a strip's mute
+    MixerHead,
+    Fader(usize, Rect),
+    Mute(usize),
+    Balance(usize),
     /// the Play / Wire switch (true = Wire)
     Mode(bool),
     /// a port, by its index in the stage's list
@@ -154,6 +160,10 @@ enum Hit {
 enum Drag {
     Divider,
     Knob(usize, f32, f32),
+    /// a strip's fader: which, its travel's rect
+    Fader(usize, Rect),
+    /// a strip's pan: which, the pointer's start, the start's value, now
+    Balance(usize, f32, f32, f32),
     /// a node's parameter: node, port, the pointer's start, the start's 0..1
     Param(usize, usize, f32, f32),
     Select,
@@ -256,6 +266,7 @@ struct App {
     rows: Vec<(Vec<String>, inspector::Sel)>,
     /// what the inspector shows
     sel: inspector::Sel,
+    mixer_open: bool,
 }
 
 fn main() {
@@ -316,6 +327,7 @@ fn run() -> Result<i32> {
         stage_x: 0.0,
         rows: Vec::new(),
         sel: inspector::Sel::Rig,
+        mixer_open: true,
     };
     event_loop.run_app(&mut app).context("the event loop")?;
     let summary = app.summary();
@@ -394,6 +406,10 @@ impl App {
             Hit::Tab(_) => Help::new("Tab", "Switches what the panel shows."),
             Hit::InfoHead => Help::new("Info", "What is under the pointer. Click to fold or open it."),
             Hit::Param(n, p) => Help::new(self.stage.param(n, p)?.name, "Drag or use the wheel to set it in the engine."),
+            Hit::MixerHead => Help::new("Mixer", "One strip per track. Click to fold or open it."),
+            Hit::Fader(i, _) => Help::new(self.stage.strips.get(i)?.track.clone(), "The track's level. Drag it; it goes into the draft when you let go."),
+            Hit::Balance(i) => Help::new(format!("Pan {}", self.stage.strips.get(i)?.track), "Left and right on a stereo pair. Drag it; it applies when you let go."),
+            Hit::Mute(i) => Help::new(format!("Mute {}", self.stage.strips.get(i)?.track), "Takes the track out of the sound."),
             Hit::Field(_) | Hit::InfoBody | Hit::Nothing => return None,
         })
     }
@@ -456,6 +472,8 @@ impl App {
                 let top = self.tokens.tokens.size.top;
                 self.stage.pointer((x - self.stage_x) * s, (y - top) * s);
             }
+            Some(Drag::Fader(i, r)) => self.fader_to(i, r, y),
+            Some(Drag::Balance(i, x0, v0, _)) => self.panel.drag = Some(Drag::Balance(i, x0, v0, (v0 + (x - x0) / 40.0).clamp(-1.0, 1.0))),
             Some(Drag::Right(lx, ly)) => {
                 if (x - lx).abs() + (y - ly).abs() > 3.0 {
                     self.panel.drag = Some(Drag::Pan(x, y));
@@ -540,6 +558,25 @@ impl App {
             }
             Hit::Axis(a) => self.panel.drag = Some(Drag::Gizmo(a, false, x, y)),
             Hit::Crumb(depth) => self.up_to(depth),
+            Hit::MixerHead => self.mixer_open = !self.mixer_open,
+            Hit::Fader(i, r) => {
+                self.panel.drag = Some(Drag::Fader(i, r));
+                self.fader_to(i, r, y);
+            }
+            Hit::Balance(i) => {
+                if let Some(s) = self.stage.strips.get(i) {
+                    let v = self.stage.bundle.rig.tracks.iter().find(|t| t.id == s.track).map_or(0.0, |t| t.pan);
+                    self.panel.drag = Some(Drag::Balance(i, x, v, v));
+                }
+            }
+            Hit::Mute(i) => {
+                if let Some(s) = self.stage.strips.get(i) {
+                    let track = s.track.clone();
+                    let muted = self.stage.bundle.rig.tracks.iter().find(|t| t.id == track).is_some_and(|t| t.mute);
+                    let done = wires::set_mute(&self.stage.bundle, &track, !muted);
+                    self.change(done, format!("{track}: {}", if muted { "on" } else { "muted" }), x, y);
+                }
+            }
             Hit::Row(i) => {
                 if let Some((path, sel)) = self.rows.get(i).cloned() {
                     self.sel = sel;
@@ -599,6 +636,15 @@ impl App {
                 _ if self.mods.shift_key() => Drag::Orbit(x, y),
                 _ => Drag::Pan(x, y),
             });
+        }
+    }
+
+    /// a fader under the pointer: the engine at once
+    fn fader_to(&mut self, i: usize, r: Rect, y: f32) {
+        let f = (1.0 - (y - r.y) / r.h).clamp(0.0, 1.0);
+        if let Some(s) = self.stage.strips.get(i) {
+            let (node, port) = (s.node, s.port);
+            self.stage.set(node, port, f * mixer::GAIN_MAX, 0.0, mixer::GAIN_MAX);
         }
     }
 
@@ -672,6 +718,36 @@ impl App {
             Some(Drag::Cable(a)) => a,
             Some(Drag::Grab(a)) => return self.drop_grabbed(a),
             Some(Drag::Space) => return self.stage.space.release(),
+            Some(Drag::Balance(i, _, v0, v)) => {
+                if v != v0 {
+                    if let Some(track) = self.stage.strips.get(i).map(|s| s.track.clone()) {
+                        let (x, y) = self.cursor;
+                        let done = wires::set_pan(&self.stage.bundle, &track, v);
+                        self.change(done, format!("{track}: pan {}", number(v)), x, y);
+                    }
+                }
+                return;
+            }
+            // the fader let go: the gain goes into the rig, no replay: the engine has it already
+            Some(Drag::Fader(i, _)) => {
+                let Some(s) = self.stage.strips.get(i) else { return };
+                let (track, gain) = (s.track.clone(), self.stage.strip_gain(s));
+                match wires::set_gain(&self.stage.bundle, &track, gain) {
+                    Ok(next) => {
+                        self.undo.push(self.stage.bundle.clone());
+                        self.stage.bundle = next;
+                        if let Err(e) = wires::save_draft(&self.draft, &self.stage.base, &self.stage.bundle) {
+                            let (x, y) = self.cursor;
+                            self.say(format!("{e:#}"), x, y, true);
+                        }
+                    }
+                    Err(sentence) => {
+                        let (x, y) = self.cursor;
+                        self.say(sentence, x, y, true);
+                    }
+                }
+                return;
+            }
             Some(Drag::Right(x, y)) => {
                 let on = match self.hit(x, y) {
                     Hit::Port(i) => Some(i),
@@ -952,20 +1028,22 @@ impl App {
         // the regions start under the top bar (bar.rs: the title, the status, the version)
         let top = t.size.top;
         let body = (hf - top).max(1.0);
+        let band = if self.mixer_open { mixer::OPEN } else { mixer::FOLDED };
+        let stage_h = (body - band).max(1.0);
         let work_start = Instant::now();
         let mut enc = gpu.device.create_command_encoder(&Default::default());
         if let Some(g) = self.gpu_time.as_mut() {
             g.begin(&mut enc);
         }
         // the stage at its viewport's size in pixels
-        let (stage_view, fresh) = self.stage.frame(&gpu.device, &gpu.queue, &mut enc, ((stage_w * scale) as u32, (body * scale) as u32), dt);
+        let (stage_view, fresh) = self.stage.frame(&gpu.device, &gpu.queue, &mut enc, ((stage_w * scale) as u32, (stage_h * scale) as u32), dt);
         if fresh {
             ui.set_stage(&gpu.device, stage_view);
         }
         // the panel: everything in logical pixels, the pass scales
         let t0 = Instant::now();
         ui.begin();
-        ui.stage(stage_x, top, stage_w, body);
+        ui.stage(stage_x, top, stage_w, stage_h);
         let px = panel_w;
         let x0 = wf - panel_w;
         ui.rect(x0, top, px, body, t.color.surface);
@@ -1114,7 +1192,7 @@ impl App {
                 let Some(world) = being.port_world(node, &q.name, q.input) else { continue };
                 let Some((sx, sy)) = self.stage.space.to_pixel(world) else { continue };
                 let (mx, my) = (sx / scale + stage_x, sy / scale + top);
-                if mx > stage_x + stage_w || mx < stage_x || my < top {
+                if mx > stage_x + stage_w || mx < stage_x || my < top || my > top + stage_h {
                     continue;
                 }
                 self.marks.push(Mark { port: index, x: mx, y: my });
@@ -1217,7 +1295,24 @@ impl App {
         if let Some(n) = &self.notice {
             controls::chip(ui, t, (n.x + 14.0, n.y - 34.0), stage_x + stage_w, &n.text, n.bad);
         }
-        self.panel.hits.push((Rect { x: stage_x, y: top, w: stage_w, h: body }, Hit::Stage));
+        let panning = match self.panel.drag {
+            Some(Drag::Balance(i, _, _, v)) => Some((i, v)),
+            _ => None,
+        };
+        let hot_fader = match self.panel.drag {
+            Some(Drag::Fader(i, _)) => Some(i),
+            _ => None,
+        };
+        for (r, part) in mixer::draw(ui, t, Rect { x: stage_x, y: top + stage_h, w: stage_w, h: band }, self.mixer_open, &self.stage, hot_fader, panning) {
+            let hit = match part {
+                mixer::Part::Head => Hit::MixerHead,
+                mixer::Part::Fader(i, f) => Hit::Fader(i, f),
+                mixer::Part::Mute(i) => Hit::Mute(i),
+                mixer::Part::Pan(i) => Hit::Balance(i),
+            };
+            self.panel.hits.push((r, hit));
+        }
+        self.panel.hits.push((Rect { x: stage_x, y: top, w: stage_w, h: stage_h }, Hit::Stage));
         // the pass: logical pixels → the surface's, through the screen uniform
         let view = frame.texture.create_view(&Default::default());
         ui.flush(&gpu.device, &gpu.queue, &mut enc, &view, (wf, hf), t.color.stage);
@@ -1227,11 +1322,13 @@ impl App {
         if let Some(g) = self.gpu_time.as_mut() {
             g.end(&mut enc);
         }
+        // the CPU's part ends here: present waits for the display
+        let cpu_ms = work_start.elapsed().as_secs_f32() * 1000.0;
         gpu.queue.submit([enc.finish()]);
         frame.present();
         let budget = self.frame_ms.last().copied().unwrap_or(16.7).max(1.0);
         let ease = |load: f32, now: f32| load + (now - load) * 0.08;
-        self.cpu_load = ease(self.cpu_load, work_start.elapsed().as_secs_f32() * 1000.0 / budget);
+        self.cpu_load = ease(self.cpu_load, cpu_ms / budget);
         if let Some(g) = self.gpu_time.as_mut() {
             g.after_submit(&gpu.device);
             self.gpu_load = ease(self.gpu_load, g.last_ms / budget);
