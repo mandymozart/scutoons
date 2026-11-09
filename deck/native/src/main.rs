@@ -1050,7 +1050,7 @@ impl App {
                     l.resize((size.width as f32 * k) as u32, (size.height as f32 * k) as u32);
                 }
                 // #220: the level by the GPU (unless chosen), kept over a reload; the renderer at its rung
-                let gpu = match r.adapter.device_type {
+                let gpu = match r.gpu.adapter.device_type {
                     wgpu::DeviceType::Cpu => quality::Gpu::Software,
                     wgpu::DeviceType::IntegratedGpu => quality::Gpu::Integrated,
                     wgpu::DeviceType::DiscreteGpu => quality::Gpu::Discrete,
@@ -1140,8 +1140,7 @@ impl App {
         if let (Some(g), Some(l)) = (&self.governor, self.last) {
             let since = l.elapsed().as_secs_f32() * 1000.0;
             if !g.due(since) {
-                let wait = (g.rung().interval_ms() - since - 1.5).max(0.0);
-                el.set_control_flow(ControlFlow::WaitUntil(Instant::now() + std::time::Duration::from_secs_f32(wait / 1000.0)));
+                deck_native::host::wait(el, g.rung().interval_ms() - since - 1.5);
                 return;
             }
         }
@@ -1363,7 +1362,7 @@ impl App {
     }
 
     fn summary(&self) -> String {
-        let adapter = self.renderer.as_ref().map(|r| format!("{} ({:?})", r.adapter.name, r.adapter.backend)).unwrap_or_default();
+        let adapter = self.renderer.as_ref().map(|r| format!("{} ({:?})", r.gpu.adapter.name, r.gpu.adapter.backend)).unwrap_or_default();
         let error = self.error.as_ref().map(|e| format!(" scene_error=\"{e}\"")).unwrap_or_default();
         // #208: the glitches by cause, the device's buffer, the render lead at the end
         let glitches = self
@@ -1502,14 +1501,8 @@ impl ApplicationHandler<Event> for App {
         if self.window.is_some() {
             return;
         }
-        let mut attrs = Window::default_attributes().with_title("SCUTOONSDECK stage");
-        if !self.args.windowed {
-            attrs = attrs.with_fullscreen(Some(Fullscreen::Borderless(None)));
-        } else {
-            attrs = attrs.with_inner_size(winit::dpi::LogicalSize::new(1280.0, 720.0));
-        }
-        let window = match el.create_window(attrs) {
-            Ok(w) => Arc::new(w),
+        let window = match deck_native::host::window(el, "SCUTOONSDECK stage", self.args.windowed) {
+            Ok(w) => w,
             Err(e) => {
                 tracing::error!("no window: {e}");
                 self.exit = 1;
@@ -1518,7 +1511,7 @@ impl ApplicationHandler<Event> for App {
             }
         };
         // #220: the display's sizes (the settings page; the largest is the hardware's maximum)
-        self.modes = window.current_monitor().map(|m| settings::sizes(m.video_modes().map(|v| (v.size().width, v.size().height)).collect())).unwrap_or_default();
+        self.modes = deck_native::host::display_sizes(&window);
         self.start_renderer(&window);
         if self.exit != 0 {
             el.exit();

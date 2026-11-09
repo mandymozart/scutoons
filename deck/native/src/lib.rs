@@ -7,6 +7,8 @@ pub mod build_label;
 pub mod cache;
 pub mod chapter;
 pub mod clock;
+pub mod gpu;
+pub mod host;
 pub mod hud;
 pub mod live;
 pub mod modules;
