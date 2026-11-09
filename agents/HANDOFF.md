@@ -56,6 +56,7 @@ orchestrator ≈ $445 list over 2026-10-29 … 11-01, `agents/costs.json`), so s
 eport.py`.
 
 ## State (2026-11-09, the wiring leg, the orchestrator builds alone on Fable)
+- **The show concept (#462, not built):** research/SHOW.md collects rows, cells, the conductor tree, the workspaces Build / Show / Perform, triggers, addressing and filters; §12 is what the owner still has to decide.
 - Pushed 2026-11-09 up to 5a023a4b (W2 #430, #428, #429, #437 …); the deploy applied the migrations up to 2026-11-08. Owner's step after it: Compile on `module:analog`.
 - Owner 2026-11-09: "Use fable for this big chunk … you can handle alone": the wiring slices are built in the orchestrator session itself, no worker (the W4 worker was stopped before it wrote anything, $1.38 booked).
 - **W4 (#432) built on local main:** rig/address.rs (one parser, `Reach::Wide`), problem.rs (every problem at its cable), far world nodes (`source = "far"`, `address`), sticks as addresses + migration 2026-11-09-rig-sticks-addresses (catalog_rigs, 1 row on production). Checks: deck-space 261 tests, deck-engine 67, clippy, core-only, deck-deps, generate, PHPUnit RigSticksMigrationTest (own DB scutoons_432). deck:ci: see the commit's note.
