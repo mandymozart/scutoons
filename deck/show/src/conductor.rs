@@ -59,9 +59,19 @@ pub enum Says {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Out {
     /// over the relay
-    Send(Envelope),
+    Send(Box<Envelope>),
     /// to a seat's child conductor; the relay tree carries it later (#90)
     Seat { seat: String, word: Word, says: Says, at: Option<i64> },
+}
+
+impl Out {
+    /// what goes over the relay, if this does
+    pub fn envelope(&self) -> Option<&Envelope> {
+        match self {
+            Out::Send(e) => Some(e),
+            Out::Seat { .. } => None,
+        }
+    }
 }
 
 /// A row waiting for the operator.
@@ -165,7 +175,7 @@ fn black_cell() -> protocol::Cell {
 fn envelope(message: Message, at: Option<i64>) -> Out {
     let mut e = Envelope::new("", message);
     e.at = at;
-    Out::Send(e)
+    Out::Send(Box::new(e))
 }
 
 /// when a moment falls (relay ms); None = at once
@@ -346,7 +356,7 @@ impl Conductor {
         let Some(story) = story.as_object().cloned() else { return vec![] };
         let mut e = Envelope::new("", Message::Story(story));
         e.to = Some(To { role: Some(Role::Output), group: None, client: None });
-        vec![Out::Send(e)]
+        vec![Out::Send(Box::new(e))]
     }
 
     fn fire_row(&mut self, id: &str, origin: Origin, now: Now) -> Vec<Out> {

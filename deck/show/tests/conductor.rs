@@ -31,8 +31,8 @@ impl Reader {
 
 /// the outlet's full cell in `out`: the piece and its values
 fn piece<'a>(out: &'a [Out], outlet: &str) -> Option<(&'a str, serde_json::Value)> {
-    out.iter().find_map(|o| match o {
-        Out::Send(Envelope { message: Message::Cell(c), .. }) if c.outlet == outlet => match c.cell.layers.as_deref()?.first().map(|l| &l.src) {
+    out.iter().filter_map(Out::envelope).find_map(|e| match &e.message {
+        Message::Cell(c) if c.outlet == outlet => match c.cell.layers.as_deref()?.first().map(|l| &l.src) {
             Some(LayerSrc::Piece(p)) => Some((p.piece.as_str(), serde_json::to_value(p.values.clone().unwrap_or_default()).unwrap())),
             _ => None,
         },
@@ -41,7 +41,7 @@ fn piece<'a>(out: &'a [Out], outlet: &str) -> Option<(&'a str, serde_json::Value
 }
 
 fn cells(out: &[Out]) -> usize {
-    out.iter().filter(|o| matches!(o, Out::Send(Envelope { message: Message::Cell(_), .. }))).count()
+    out.iter().filter_map(Out::envelope).filter(|e| matches!(e.message, Message::Cell(_))).count()
 }
 
 fn logged(c: &Conductor) -> Vec<Logged> {
@@ -123,8 +123,7 @@ fn a_full_cell_goes_out_as_the_protocols_message() {
     // the mirror gets the source's cell itself (a deck takes a mirror as black), and only stage outlets get a `cell`
     assert_eq!(cells(&out), 2);
     assert_eq!(piece(&out, "right"), piece(&out, "left"));
-    for o in &out {
-        let Out::Send(e) = o else { continue };
+    for e in out.iter().filter_map(Out::envelope) {
         let back: Envelope = serde_json::from_str(&serde_json::to_string(e).unwrap()).unwrap();
         assert_eq!(&back, e);
     }
@@ -144,8 +143,8 @@ fn a_mirror_follows_its_source_when_only_the_source_changed() {
 fn a_device_outlet_gets_a_device_message_the_bridge_reads() {
     let mut c = conductor();
     let out = c.fire("opening", Now::at(0));
-    let device = out.iter().find_map(|o| match o {
-        Out::Send(Envelope { message: Message::Device(d), .. }) => Some(d),
+    let device = out.iter().filter_map(Out::envelope).find_map(|e| match &e.message {
+        Message::Device(d) => Some(d),
         _ => None,
     });
     let device = device.expect("a device message");
@@ -157,13 +156,13 @@ fn a_device_outlet_gets_a_device_message_the_bridge_reads() {
 fn black_and_keep_along_the_path() {
     let mut c = opened();
     let out = c.fire("finale", Now::at(1_000));
-    let black = out.iter().find_map(|o| match o {
-        Out::Send(Envelope { message: Message::Cell(c), .. }) if c.outlet == "left" => Some(c.cell.mode),
+    let black = out.iter().filter_map(Out::envelope).find_map(|e| match &e.message {
+        Message::Cell(c) if c.outlet == "left" => Some(c.cell.mode),
         _ => None,
     });
     assert_eq!(black, Some(CellMode::Black));
     // `lamps` is kept: nothing goes out for it, and it counts as the row that kept it
-    assert!(!out.iter().any(|o| matches!(o, Out::Send(Envelope { message: Message::Device(_), .. }))));
+    assert!(!out.iter().filter_map(Out::envelope).any(|e| matches!(e.message, Message::Device(_))));
     assert_eq!(c.on_stage("lamps").map(|s| s.row.as_str()), Some("finale"));
 }
 
@@ -211,7 +210,8 @@ fn an_address_finds_what_plays_it_or_stays_silent() {
 
     c.launch_cell("yellowmouse-enters", "left", Now::at(2));
     let out = c.address("character:yellowmouse", "dance:samba", Now::at(3));
-    assert!(matches!(out.as_slice(), [Out::Send(Envelope { message: Message::Story(_), .. })]));
+    assert_eq!(out.len(), 1);
+    assert!(matches!(out[0].envelope().map(|e| &e.message), Some(Message::Story(_))));
     assert_eq!(logged(&c).last(), Some(&Logged::Addressed { address: "character:yellowmouse".into(), action: "dance:samba".into(), reached: 1 }));
 }
 
@@ -221,10 +221,7 @@ fn a_moment_waits_for_its_grid() {
     // beat 5.5 of a 4/4 bar at 120 bpm: the next bar line is beat 8, 2.5 beats = 1250 ms away
     let now = Now { ms: 10_000, clock: Some(Clock { bpm: 120.0, beat: 5.5, per_bar: 4 }) };
     let out = c.fire("yellowmouse-enters", now);
-    let at = out.iter().find_map(|o| match o {
-        Out::Send(e) if matches!(e.message, Message::Cell(_)) => e.at,
-        _ => None,
-    });
+    let at = out.iter().filter_map(Out::envelope).find(|e| matches!(e.message, Message::Cell(_))).and_then(|e| e.at);
     assert_eq!(at, Some(11_250));
 }
 
