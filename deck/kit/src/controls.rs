@@ -109,7 +109,8 @@ pub fn level(d: &mut DrawList, t: &Tokens, r: Rect, position: f32, ok: f32, hot:
             mix(t.color.warn, t.color.stop, ((at - hot) / (1.0 - hot).max(1e-3)).min(1.0))
         };
         let h = slice.min((top - at) * r.h);
-        d.rect(r.x, r.y + r.h - (at * r.h) - h, r.w, h, color);
+        // a little over the next slice: their edges would show between them
+        d.rect(r.x, r.y + r.h - (at * r.h) - h, r.w, h + 0.75, color);
     }
 }
 

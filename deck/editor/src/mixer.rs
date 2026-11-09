@@ -33,6 +33,18 @@ pub enum Part {
     Pan(usize),
     /// a highest-peak readout: a strip's, or the output's
     Peak(Option<Target>),
+    /// a strip's value in dB: a double click types it
+    GainText(Target),
+    /// the strip itself: a click selects what it is the level of
+    Select(Target),
+}
+
+/// what was typed into a level, in dB: a gain; `-inf` is silence
+pub fn typed_gain(text: &str) -> Option<f32> {
+    if text.trim().eq_ignore_ascii_case("-inf") {
+        return Some(0.0);
+    }
+    crate::typed_number(text).map(|db| 10f32.powf(db / 20.0).min(GAIN_MAX))
 }
 
 /// a gain on the meter's scale, 0..1 from the bottom
@@ -107,6 +119,8 @@ pub struct View {
     /// the tree's levels: "rig", then the tracks entered
     pub tabs: Vec<String>,
     pub tab: usize,
+    /// the strip of what is selected
+    pub selected: Option<Target>,
     /// the fader in the hand
     pub hot: Option<Target>,
     pub panning: Option<(usize, f32)>,
@@ -159,6 +173,10 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, open: bool, stage: &Stage,
     for (n, row) in rows(stage, v).into_iter().enumerate() {
         let x = area.x + t.size.pad + n as f32 * STRIP;
         let name = controls::fit(&row.name, ((STRIP - 8.0) / d.advance(small)) as usize);
+        let column = Rect { x: x - 3.0, y: y0 - 1.0, w: STRIP - 5.0, h: area.y + area.h - y0 + 1.0 };
+        if v.selected == Some(row.target) {
+            d.round_rect(column.x, column.y, column.w, column.h - 4.0, t.size.radius, t.color.selected);
+        }
         d.text(x, y0, small, &name, t.color.text);
         d.rect(x, area.y + area.h - 3.0, STRIP - 10.0, 3.0, t.color.strips[n % t.color.strips.len()]);
         let pan_y = y0 + small + 4.0;
@@ -183,11 +201,17 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, open: bool, stage: &Stage,
         let w = STRIP - 33.0;
         let r = peak_readout(d, t, col, y, w, row.max);
         out.push((r, Part::Peak(Some(row.target))));
+        let gain_text = Rect { x: col, y: y + small + 5.0, w, h: small + 5.0 };
         d.text(col, y + small + 7.0, small, &db_text(row.value), t.color.muted);
+        if !row.fixed {
+            out.push((gain_text, Part::GainText(row.target)));
+        }
         if let (Some((_, muted)), Target::Track(i)) = (row.track, row.target) {
             let m = controls::toggle(d, t, Rect { x: col, y: y + inner - 16.0, w, h: 16.0 }, "M", muted);
             out.push((m, Part::Mute(i)));
         }
+        // last: the controls above take their own clicks
+        out.push((column, Part::Select(row.target)));
     }
     // what goes out
     let x = area.x + area.w - 54.0;
@@ -215,6 +239,15 @@ mod tests {
     fn the_bottom_of_the_fader_is_silence_and_its_top_the_mixers_limit() {
         assert_eq!(position_gain(0.0), 0.0);
         assert!(position_gain(1.0) <= GAIN_MAX);
+    }
+
+    #[test]
+    fn a_typed_level_is_in_db() {
+        assert_eq!(typed_gain("0"), Some(1.0));
+        assert!((typed_gain("-6").expect("a number") - 0.501).abs() < 0.001);
+        assert_eq!(typed_gain("-inf"), Some(0.0));
+        assert_eq!(typed_gain("loud"), None);
+        assert_eq!(typed_gain("60"), Some(GAIN_MAX), "held at the mixer's top");
     }
 
     #[test]

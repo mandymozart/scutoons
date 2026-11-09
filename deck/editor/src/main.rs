@@ -136,6 +136,9 @@ enum Hit {
     /// the mixer's head, a strip's fader, a strip's mute
     MixerHead,
     MixerTab(usize),
+    GainText(mixer::Target),
+    /// a mixer strip: selects what it is the level of; moving its fader does not
+    StripSelect(mixer::Target),
     Fader(mixer::Target, Rect),
     Mute(usize),
     Balance(usize),
@@ -190,6 +193,21 @@ struct Mark {
     port: usize,
     x: f32,
     y: f32,
+}
+
+/// what a typed value goes into
+#[derive(Clone, Copy, PartialEq)]
+enum Editing {
+    Knob(usize),
+    Param(usize, usize),
+    Gain(mixer::Target),
+}
+
+/// a value being typed, in place of its field
+struct ValueEdit {
+    what: Editing,
+    at: Rect,
+    field: text::Field,
 }
 
 /// the typeahead open on the stage
@@ -272,6 +290,10 @@ struct App {
     mixer_open: bool,
     /// the level the mixer shows; none = the one the stage is at
     mixer_tab: Option<usize>,
+    /// a value being typed
+    edit: Option<ValueEdit>,
+    /// the last press on a field: for a double click
+    last_field: Option<(Editing, Instant)>,
 }
 
 fn main() {
@@ -334,6 +356,8 @@ fn run() -> Result<i32> {
         sel: inspector::Sel::Rig,
         mixer_open: true,
         mixer_tab: None,
+        edit: None,
+        last_field: None,
     };
     event_loop.run_app(&mut app).context("the event loop")?;
     let summary = app.summary();
@@ -413,6 +437,8 @@ impl App {
             Hit::InfoHead => Help::new("Info", "What is under the pointer. Click to fold or open it."),
             Hit::Param(n, p) => Help::new(self.stage.param(n, p)?.name, "Drag or use the wheel to set it in the engine."),
             Hit::MixerHead => Help::new("Mixer", "One strip per track. Click to fold or open it."),
+            Hit::GainText(_) => Help::new("Level", "In dB. Double click to type a value, enter to set it, esc to leave it."),
+            Hit::StripSelect(_) => Help::new("Strip", "Click to show what it belongs to in the inspector and on the stage."),
             Hit::MixerTab(_) => Help::new("Level", "The mixer at this level of the tree: the rig's tracks, or the gains inside a track."),
             Hit::Fader(mixer::Target::Track(i), _) => Help::new(self.stage.strips.get(i)?.track.clone(), "The track's level. Drag it; it goes into the draft when you let go."),
             Hit::Fader(mixer::Target::Inner(i), _) => {
@@ -521,6 +547,13 @@ impl App {
 
     fn press(&mut self) {
         let (x, y) = self.cursor;
+        // a click elsewhere finishes the typing
+        if let Some(e) = &self.edit {
+            if e.at.has(x, y) {
+                return;
+            }
+            self.commit_edit();
+        }
         if let Some(m) = &self.menu {
             match m.ta.id_at(x, y) {
                 Some(id) => self.pick(id),
@@ -535,12 +568,22 @@ impl App {
                 self.focus(false);
             }
             Hit::Knob(i) => {
+                if self.double(Editing::Knob(i)) {
+                    let v = self.stage.value(&self.stage.knobs[i]);
+                    return self.begin_edit(Editing::Knob(i), Hit::Knob(i), number(v));
+                }
                 let k = &self.stage.knobs[i];
                 let v = self.stage.value(k);
                 self.panel.drag = Some(Drag::Knob(i, x, v));
                 self.focus(false);
             }
             Hit::Param(n, p) => {
+                if self.double(Editing::Param(n, p)) {
+                    if let Some(q) = self.stage.param(n, p) {
+                        self.begin_edit(Editing::Param(n, p), Hit::Param(n, p), number(q.value));
+                    }
+                    return;
+                }
                 if let Some(q) = self.stage.param(n, p) {
                     self.panel.drag = Some(Drag::Param(n, p, x, q.spec.norm(q.value)));
                 }
@@ -574,6 +617,26 @@ impl App {
             Hit::Crumb(depth) => self.up_to(depth),
             Hit::MixerHead => self.mixer_open = !self.mixer_open,
             Hit::MixerTab(depth) => self.mixer_tab = Some(depth),
+            Hit::GainText(target) => {
+                if self.double(Editing::Gain(target)) {
+                    let gain = match target {
+                        mixer::Target::Track(i) => self.stage.strips.get(i).map(|s| self.stage.strip_gain(s)),
+                        mixer::Target::Inner(i) => self.stage.inner.get(i).map(|s| self.stage.inner_gain(s)),
+                    }
+                    .unwrap_or(1.0);
+                    self.begin_edit(Editing::Gain(target), Hit::GainText(target), format!("{:.1}", deck_core::meters::level_db(gain)));
+                }
+            }
+            Hit::StripSelect(mixer::Target::Track(i)) => {
+                if let Some(s) = self.stage.strips.get(i) {
+                    self.sel = inspector::Sel::Track(s.track.clone());
+                }
+            }
+            Hit::StripSelect(mixer::Target::Inner(i)) => {
+                if let Some(s) = self.stage.inner.get(i) {
+                    self.sel = inspector::Sel::Node(self.stage.inner_source(s));
+                }
+            }
             Hit::Peak(Some(mixer::Target::Track(i))) => {
                 if let Some(s) = self.stage.strips.get_mut(i) {
                     s.max = 0.0;
@@ -681,6 +744,128 @@ impl App {
         }
     }
 
+    /// is this press the second of a double click on this field
+    fn double(&mut self, what: Editing) -> bool {
+        let twice = self.last_field.is_some_and(|(w, at)| w == what && at.elapsed().as_millis() < 400);
+        self.last_field = if twice { None } else { Some((what, Instant::now())) };
+        twice
+    }
+
+    /// type into the field of this hit, its value selected
+    fn begin_edit(&mut self, what: Editing, hit: Hit, value: String) {
+        let Some(at) = self.panel.hits.iter().find(|(_, h)| *h == hit).map(|(r, _)| *r) else { return };
+        let mut field = text::Field::with(&value);
+        field.select_all();
+        field.focused = true;
+        self.panel.drag = None;
+        self.edit = Some(ValueEdit { what, at, field });
+    }
+
+    /// what was typed goes into the engine and the draft; what does not read as a number leaves everything as it was
+    fn commit_edit(&mut self) {
+        let Some(e) = self.edit.take() else { return };
+        let text = e.field.text.clone();
+        match e.what {
+            Editing::Knob(i) => {
+                let Some(k) = self.stage.knobs.get(i) else { return };
+                let (node, port, name, min, max) = (k.node, k.port_index, k.port.clone(), k.min, k.max);
+                if let Some(v) = typed_number(&text) {
+                    self.stage.set(node, port, v, min, max);
+                    self.persist(node, &name);
+                }
+            }
+            Editing::Param(n, p) => {
+                let Some(q) = self.stage.param(n, p) else { return };
+                if let Some(v) = typed_number(&text) {
+                    self.stage.set(n, p, v, q.spec.min, q.spec.max);
+                    self.persist(n, q.name);
+                }
+            }
+            Editing::Gain(target) => {
+                let Some(gain) = mixer::typed_gain(&text) else { return };
+                match target {
+                    mixer::Target::Track(i) => {
+                        if let Some(s) = self.stage.strips.get(i) {
+                            let (node, port) = (s.node, s.port);
+                            self.stage.set(node, port, gain, 0.0, mixer::GAIN_MAX);
+                        }
+                    }
+                    mixer::Target::Inner(i) => self.stage.inner_set(i, gain),
+                }
+                self.store_fader(target);
+            }
+        }
+    }
+
+    /// a node's input as the engine has it now goes into the draft (no replay: the engine has it already)
+    fn persist(&mut self, node: usize, name: &str) {
+        let Some(id) = self.stage.node_ids.get(node) else { return };
+        let Some(p) = self.stage.ports.iter().find(|q| q.input && q.node == *id && q.name == name) else { return };
+        let Some((_, local)) = p.address.split_once(':') else { return };
+        let done = wires::set_value(&self.stage.bundle, &p.track, local, self.stage.controls.input(node, name, 0.0));
+        self.store(done);
+    }
+
+    /// a changed document the engine already plays: into the rig, the undo and the draft
+    fn store(&mut self, done: Result<deck_space::rig::Bundle, String>) {
+        let (x, y) = self.cursor;
+        match done {
+            Ok(next) => {
+                self.undo.push(self.stage.bundle.clone());
+                self.stage.bundle = next;
+                if let Err(e) = wires::save_draft(&self.draft, &self.stage.base, &self.stage.bundle) {
+                    self.say(format!("{e:#}"), x, y, true);
+                }
+            }
+            Err(sentence) => self.say(sentence, x, y, true),
+        }
+    }
+
+    /// a fader's value goes into the document that holds it
+    fn store_fader(&mut self, target: mixer::Target) {
+        let done = match target {
+            mixer::Target::Track(i) => {
+                let Some(s) = self.stage.strips.get(i) else { return };
+                wires::set_gain(&self.stage.bundle, &s.track, self.stage.strip_gain(s))
+            }
+            mixer::Target::Inner(i) => {
+                let Some(s) = self.stage.inner.get(i) else { return };
+                wires::set_value(&self.stage.bundle, &s.track, &s.path, self.stage.inner_gain(s))
+            }
+        };
+        self.store(done);
+    }
+
+    /// a key while a value is typed
+    fn edit_key(&mut self, k: &KeyEvent) {
+        if k.state != ElementState::Pressed {
+            return;
+        }
+        let ctrl = self.mods.control_key() || self.mods.super_key();
+        let shift = self.mods.shift_key();
+        match k.logical_key.as_ref() {
+            Key::Named(NamedKey::Escape) => self.edit = None,
+            Key::Named(NamedKey::Enter) => self.commit_edit(),
+            _ => {
+                let Some(f) = self.edit.as_mut().map(|e| &mut e.field) else { return };
+                match k.logical_key.as_ref() {
+                    Key::Named(NamedKey::Backspace) => f.backspace(),
+                    Key::Named(NamedKey::Delete) => f.delete(),
+                    Key::Named(NamedKey::ArrowLeft) => f.left(ctrl, shift),
+                    Key::Named(NamedKey::ArrowRight) => f.right(ctrl, shift),
+                    Key::Named(NamedKey::Home) => f.home(shift),
+                    Key::Named(NamedKey::End) => f.end(shift),
+                    Key::Character(c) if ctrl && c.eq_ignore_ascii_case("a") => f.select_all(),
+                    _ => {
+                        if let Some(t) = k.text.as_ref().filter(|t| !ctrl && !t.chars().any(char::is_control)) {
+                            f.insert(t);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     /// a fader under the pointer: the engine at once
     fn fader_to(&mut self, target: mixer::Target, r: Rect, y: f32) {
         let f = (1.0 - (y - r.y) / r.h).clamp(0.0, 1.0);
@@ -777,30 +962,18 @@ impl App {
                 return;
             }
             // the fader let go: the gain goes into the rig, no replay: the engine has it already
-            Some(Drag::Fader(target, _)) => {
-                let done = match target {
-                    mixer::Target::Track(i) => {
-                        let Some(s) = self.stage.strips.get(i) else { return };
-                        wires::set_gain(&self.stage.bundle, &s.track, self.stage.strip_gain(s))
-                    }
-                    mixer::Target::Inner(i) => {
-                        let Some(s) = self.stage.inner.get(i) else { return };
-                        wires::set_value(&self.stage.bundle, &s.track, &s.path, self.stage.inner_gain(s))
-                    }
-                };
-                match done {
-                    Ok(next) => {
-                        self.undo.push(self.stage.bundle.clone());
-                        self.stage.bundle = next;
-                        if let Err(e) = wires::save_draft(&self.draft, &self.stage.base, &self.stage.bundle) {
-                            let (x, y) = self.cursor;
-                            self.say(format!("{e:#}"), x, y, true);
-                        }
-                    }
-                    Err(sentence) => {
-                        let (x, y) = self.cursor;
-                        self.say(sentence, x, y, true);
-                    }
+            Some(Drag::Fader(target, _)) => return self.store_fader(target),
+            // a knob or a parameter let go: its value goes into the draft
+            Some(Drag::Knob(i, ..)) => {
+                if let Some(k) = self.stage.knobs.get(i) {
+                    let (node, name) = (k.node, k.port.clone());
+                    self.persist(node, &name);
+                }
+                return;
+            }
+            Some(Drag::Param(n, p, ..)) => {
+                if let Some(q) = self.stage.param(n, p) {
+                    self.persist(n, q.name);
                 }
                 return;
             }
@@ -1363,6 +1536,20 @@ impl App {
         let landed = info::view(ui, t, 0.0, hf, tree_w - 1.0, self.info_open, help.as_ref());
         self.panel.hits.push((landed.head, Hit::InfoHead));
         self.panel.hits.push((landed.whole, Hit::InfoBody));
+        if let Some(e) = &self.edit {
+            let px = font;
+            let adv = ui.advance(px);
+            let tx = e.at.x + 6.0;
+            ui.round_rect(e.at.x, e.at.y, e.at.w.max(52.0), e.at.h, t.size.radius, t.color.control);
+            ui.outline(e.at.x, e.at.y, e.at.w.max(52.0), e.at.h, (t.size.radius, 1.0), t.color.accent);
+            if let Some((a, b)) = e.field.selection() {
+                let (ca, cb) = (e.field.chars_before(a) as f32, e.field.chars_before(b) as f32);
+                ui.rect(tx + ca * adv, e.at.y + 2.0, (cb - ca) * adv, e.at.h - 4.0, t.color.selection);
+            }
+            let (shown, column) = e.field.shown();
+            ui.text(tx, e.at.y + (e.at.h - px * 1.25) * 0.5, px, &shown, t.color.text);
+            ui.rect(tx + column as f32 * adv, e.at.y + 3.0, 1.5, e.at.h - 6.0, t.color.text);
+        }
         if let Some(m) = self.menu.as_mut() {
             m.ta.draw(ui, t, (wf, hf));
         }
@@ -1385,11 +1572,18 @@ impl App {
             tabs.extend(self.stage.path.iter().cloned());
         }
         let tab = self.mixer_tab.unwrap_or(tabs.len() - 1).min(tabs.len() - 1);
-        let view = mixer::View { tabs, tab, hot, panning };
+        let selected = match &self.sel {
+            inspector::Sel::Track(id) if tab == 0 => self.stage.strips.iter().position(|s| s.track == *id).map(mixer::Target::Track),
+            inspector::Sel::Node(n) if tab > 0 => self.stage.inner.iter().position(|s| self.stage.inner_source(s) == *n).map(mixer::Target::Inner),
+            _ => None,
+        };
+        let view = mixer::View { tabs, tab, selected, hot, panning };
         for (r, part) in mixer::draw(ui, t, Rect { x: stage_x, y: top + stage_h, w: stage_w, h: band }, self.mixer_open, &self.stage, &view) {
             let hit = match part {
                 mixer::Part::Head => Hit::MixerHead,
                 mixer::Part::Tab(depth) => Hit::MixerTab(depth),
+                mixer::Part::Select(target) => Hit::StripSelect(target),
+                mixer::Part::GainText(target) => Hit::GainText(target),
                 mixer::Part::Fader(i, f) => Hit::Fader(i, f),
                 mixer::Part::Mute(i) => Hit::Mute(i),
                 mixer::Part::Pan(i) => Hit::Balance(i),
@@ -1510,6 +1704,7 @@ impl ApplicationHandler for App {
                     _ => {}
                 }
             }
+            WindowEvent::KeyboardInput { event, .. } if self.edit.is_some() => self.edit_key(&event),
             WindowEvent::KeyboardInput { event, .. } if self.menu.is_some() => self.menu_key(&event),
             WindowEvent::KeyboardInput { event, .. } => {
                 if event.state == ElementState::Pressed && event.logical_key == Key::Named(NamedKey::Escape) && !self.panel.field.focused {
@@ -1563,6 +1758,11 @@ fn remember_info(file: &std::path::Path, open: bool) {
         }
         std::fs::write(file, "").ok();
     }
+}
+
+/// a number as someone types it: a point or a German comma, a typographic minus
+pub(crate) fn typed_number(text: &str) -> Option<f32> {
+    text.trim().replace(',', ".").replace('−', "-").parse().ok().filter(|v: &f32| v.is_finite())
 }
 
 /// the port under (x, y): the nearest one, the being's points lie close together
@@ -1638,4 +1838,18 @@ fn save(device: &wgpu::Device, buf: &wgpu::Buffer, stride: u32, (w, h): (u32, u3
     drop(data);
     buf.unmap();
     image::RgbaImage::from_raw(w, h, px).context("the screenshot's pixels")?.save(path).with_context(|| format!("writing {}", path.display()))
+}
+
+#[cfg(test)]
+mod typed {
+    use super::typed_number;
+
+    #[test]
+    fn a_number_reads_as_people_write_it() {
+        assert_eq!(typed_number(" 1.5 "), Some(1.5));
+        assert_eq!(typed_number("1,5"), Some(1.5));
+        assert_eq!(typed_number("−3"), Some(-3.0));
+        assert_eq!(typed_number("abc"), None);
+        assert_eq!(typed_number("inf"), None);
+    }
 }

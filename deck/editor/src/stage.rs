@@ -294,6 +294,11 @@ impl Stage {
         self.visible = vec![true; self.ports.len()];
     }
 
+    /// the node whose sound an inner gain sets
+    pub fn inner_source(&self, s: &Inner) -> usize {
+        s.from.0
+    }
+
     /// an inner gain as the engine has it
     pub fn inner_gain(&self, s: &Inner) -> f32 {
         self.controls.input(s.node, &s.name, 1.0)
