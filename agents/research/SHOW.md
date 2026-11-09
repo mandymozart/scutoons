@@ -121,7 +121,7 @@ A cell is a piece and its values. A piece is a scene, rig or module; the current
 `address where filter > action`, for example `person:* where device:browser and inventory:sword >= 1 > haptic:pulse`.
 
 - Reuses the chapter editor's "Only if": `{ variable, op, value }` or an expression.
-- Facts are named by where they come from (A14): `group:`, `device:`, `periphery:`, `story:`, `inventory:`, `stat:`.
+- Facts are named by where they come from (A14): `group:`, `device:`, `periphery:`, `story:`, `inventory:`, `stat:`. The reader stats today are `stat:testo` and `stat:appetite`; health does not exist yet (owner 2026-11-09).
 - The receiver tests itself, so inventories and stats need not travel. The filter tests whoever picked up. A missing fact means the filter fails.
 - People become a kind on the ladder (`person:*`).
 
