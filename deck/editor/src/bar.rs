@@ -1,8 +1,9 @@
 //! The window's top bar (#444, #423: every build shows its version top right, always; owner 2026-11-09: "the editor pane
 //! overlaps the version number ... so perhapse this should go to the top"): the whole width, above the stage and the
 //! panel, so no region can cover it. The version keeps its place, then the title; the status line gets what is left.
-use crate::tokens::Tokens;
-use crate::ui::Ui;
+use deck_kit::controls::{self, Rect};
+use deck_kit::draw::DrawList;
+use deck_kit::tokens::Tokens;
 
 const TITLE: &str = "SCUTOONS editor · proof";
 /// the bar's font size against the panel's
@@ -39,11 +40,11 @@ fn fit(text: &str, cols: usize) -> String {
 }
 
 /// the bar across the top of a window `width` wide; its answer: the Play and the Wire switch as (x, w)
-pub fn draw(ui: &mut Ui, t: &Tokens, width: f32, status: &str, wire: bool) -> [(f32, f32); 2] {
+pub fn draw(ui: &mut DrawList, t: &Tokens, width: f32, status: &str, wire: bool) -> Vec<Rect> {
     let (h, pad, px) = (t.size.bar, t.size.pad, t.size.font * FONT);
     ui.rect(0.0, 0.0, width, h, t.color.panel);
     ui.rect(0.0, h - 1.0, width, 1.0, t.color.divider);
-    let adv = ui.atlas.advance(px);
+    let adv = ui.advance(px);
     let cell = adv * 4.0 + pad;
     let l = lay(width, adv, pad, TITLE.chars().count(), 2.0 * cell, deck_native::BUILD.chars().count());
     let y = (h - px * 1.25) * 0.5;
@@ -51,12 +52,7 @@ pub fn draw(ui: &mut Ui, t: &Tokens, width: f32, status: &str, wire: bool) -> [(
     ui.text(l.status_x, y, px, &fit(status, l.status_cols), t.color.muted);
     ui.text(l.version_x, y, px, deck_native::BUILD, t.color.muted);
     let sx = pad + l.title_cols as f32 * adv + 2.0 * pad;
-    let cells = [(sx, cell), (sx + cell, cell)];
-    for ((x, w), (name, on)) in cells.into_iter().zip([("PLAY", !wire), ("WIRE", wire)]) {
-        ui.rect(x, 3.0, w, h - 7.0, if on { t.color.cable } else { t.color.tab });
-        ui.text(x + pad * 0.5, y, px, name, if on { t.color.panel } else { t.color.muted });
-    }
-    cells
+    controls::switch(ui, t, sx, 3.0, h - 7.0, &["PLAY", "WIRE"], usize::from(wire))
 }
 
 #[cfg(test)]

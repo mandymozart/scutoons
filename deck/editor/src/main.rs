@@ -12,13 +12,13 @@
 //! deck-editor [--rig catpope] [--frames N] [--screenshot FILE] [--tokens FILE] [--stress] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO]
 mod bar;
 mod stage;
-mod text;
 mod tokens;
-mod typeahead;
 mod ui;
 mod wires;
 
 use anyhow::{Context, Result};
+use deck_kit::controls::{self, Rect};
+use deck_kit::{text, typeahead};
 use deck_native::gpu::Gpu;
 use deck_native::host;
 use std::path::PathBuf;
@@ -170,19 +170,6 @@ struct Notice {
     y: f32,
     until: Instant,
     bad: bool,
-}
-
-struct Rect {
-    x: f32,
-    y: f32,
-    w: f32,
-    h: f32,
-}
-
-impl Rect {
-    fn has(&self, x: f32, y: f32) -> bool {
-        x >= self.x && y >= self.y && x < self.x + self.w && y < self.y + self.h
-    }
 }
 
 /// the panel's state and this frame's hit rectangles
@@ -806,17 +793,10 @@ impl App {
         let (pad, font, row) = (t.size.pad, t.size.font, t.size.row);
         let mut y = top + pad;
         // the tabs
-        let mut tx = x0 + pad;
-        for (tab, name) in TABS {
-            let tw = ui.atlas.advance(font) * name.chars().count() as f32 + pad;
-            let active = tab == self.panel.tab;
-            ui.rect(tx, y, tw, row - 4.0, if active { t.color.tab_active } else { t.color.tab });
-            if active {
-                ui.rect(tx, y + row - 6.0, tw, 2.0, t.color.accent);
-            }
-            ui.text(tx + pad / 2.0, y + 4.0, font, name, if active { t.color.text } else { t.color.muted });
-            self.panel.hits.push((Rect { x: tx, y, w: tw, h: row }, Hit::Tab(tab)));
-            tx += tw + 4.0;
+        let names = TABS.map(|(_, name)| name);
+        let active = TABS.iter().position(|(tab, _)| *tab == self.panel.tab).unwrap_or(0);
+        for (r, (tab, _)) in controls::tabs(ui, t, x0 + pad, y, &names, active).into_iter().zip(TABS) {
+            self.panel.hits.push((r, Hit::Tab(tab)));
         }
         y += row + pad / 2.0;
         match self.panel.tab {
@@ -831,13 +811,9 @@ impl App {
                     let k = &self.stage.knobs[i];
                     let v = self.stage.value(k);
                     let frac = fraction(v, k.min, k.max, k.log);
-                    ui.text(x0 + pad, y + 5.0, font * 0.9, &k.label, t.color.text);
-                    let bx = x0 + pad + inner * 0.5;
-                    ui.rect(bx, y + 2.0, inner * 0.5, row - 6.0, t.color.field);
-                    ui.rect(bx, y + 2.0, inner * 0.5 * frac, row - 6.0, [t.color.accent[0], t.color.accent[1], t.color.accent[2], 0.35]);
                     let dragging = matches!(self.panel.drag, Some(Drag::Knob(j, _, _)) if j == i);
-                    ui.text(bx + 6.0, y + 5.0, font * 0.9, &number(v), if dragging { t.color.accent } else { t.color.text });
-                    self.panel.hits.push((Rect { x: bx, y, w: inner * 0.5, h: row }, Hit::Knob(i)));
+                    let bar = controls::scrub(ui, t, x0 + pad, y, inner, &k.label, &number(v), frac, dragging);
+                    self.panel.hits.push((bar, Hit::Knob(i)));
                     y += row;
                 }
             }
@@ -851,7 +827,7 @@ impl App {
                 if focused {
                     ui.rect(fx, y + row - 2.0, fw, 2.0, t.color.accent);
                 }
-                let adv = ui.atlas.advance(font);
+                let adv = ui.advance(font);
                 self.panel.advance = adv;
                 self.panel.field_rect = Rect { x: fx + 6.0, y, w: fw - 6.0, h: row };
                 let (shown, cursor_col) = self.panel.field.shown();
@@ -907,8 +883,8 @@ impl App {
             self.stage.audio
         );
         let status = if self.undo.is_empty() { status } else { format!("{} change{} · {status}", self.undo.len(), if self.undo.len() == 1 { "" } else { "s" }) };
-        for ((x, w), on) in bar::draw(ui, t, wf, &status, self.wire).into_iter().zip([false, true]) {
-            self.panel.hits.push((Rect { x, y: 0.0, w, h: top }, Hit::Mode(on)));
+        for (r, on) in bar::draw(ui, t, wf, &status, self.wire).into_iter().zip([false, true]) {
+            self.panel.hits.push((Rect { y: 0.0, h: top, ..r }, Hit::Mode(on)));
         }
         // the Wire side: the ports around the being's points, the core's list on this frame's places
         if self.wire {
@@ -953,7 +929,7 @@ impl App {
                         }
                         if near {
                             let small = font * 0.75;
-                            let w = ui.atlas.advance(small) * q.name.chars().count() as f32;
+                            let w = ui.advance(small) * q.name.chars().count() as f32;
                             let lx = if q.input { mx - w - 10.0 } else { mx + 10.0 };
                             ui.text(lx, my - small * 0.6, small, &q.name, t.color.text);
                         }
@@ -974,7 +950,7 @@ impl App {
             }
             if matches!(self.panel.drag, Some(Drag::Cable(_) | Drag::Grab(_))) {
                 if let Some(q) = nearest(&self.marks, self.cursor.0, self.cursor.1).and_then(|b| self.stage.ports.get(b)) {
-                    chip(ui, t, (self.cursor.0 + 14.0, self.cursor.1 + 14.0), stage_w, &format!("{} · {}", q.address, q.ty), false);
+                    controls::chip(ui, t, (self.cursor.0 + 14.0, self.cursor.1 + 14.0), stage_w, &format!("{} · {}", q.address, q.ty), false);
                 }
             }
         }
@@ -1002,7 +978,8 @@ impl App {
                     ui.line((gx, gy), (x, y), 1.5, c);
                     ui.disc(x, y, 11.0, c);
                     let small = font * 0.8;
-                    ui.text(x - ui.atlas.advance(small) * 0.5, y - small * 0.62, small, ["X", "Y", "Z"][a], t.color.panel);
+                    let half = ui.advance(small) * 0.5;
+                    ui.text(x - half, y - small * 0.62, small, ["X", "Y", "Z"][a], t.color.panel);
                 } else {
                     ui.ring(x, y, 9.0, c);
                 }
@@ -1020,7 +997,7 @@ impl App {
             self.notice = None;
         }
         if let Some(n) = &self.notice {
-            chip(ui, t, (n.x + 14.0, n.y - 34.0), stage_w, &n.text, n.bad);
+            controls::chip(ui, t, (n.x + 14.0, n.y - 34.0), stage_w, &n.text, n.bad);
         }
         self.panel.hits.push((Rect { x: 0.0, y: top, w: stage_w, h: body }, Hit::Stage));
         // the pass: logical pixels → the surface's, through the screen uniform
@@ -1148,16 +1125,6 @@ impl ApplicationHandler for App {
 fn nearest(marks: &[Mark], x: f32, y: f32) -> Option<usize> {
     const REACH: f32 = 12.0;
     marks.iter().map(|m| (m.port, (m.x - x).hypot(m.y - y))).filter(|(_, d)| *d < REACH).min_by(|a, b| a.1.total_cmp(&b.1)).map(|(p, _)| p)
-}
-
-/// a sentence on a filled strip, inside the stage
-fn chip(ui: &mut ui::Ui, t: &tokens::Tokens, at: (f32, f32), stage_w: f32, text: &str, bad: bool) {
-    let px = t.size.font * 0.85;
-    let w = ui.atlas.advance(px) * text.chars().count() as f32 + 16.0;
-    let x = at.0.min(stage_w - w - 8.0).max(8.0);
-    let h = px * 1.25 + 8.0;
-    ui.rect(x, at.1, w, h, if bad { t.color.refused } else { t.color.panel });
-    ui.text(x + 8.0, at.1 + 4.0, px, text, t.color.text);
 }
 
 /// a knob's value under the pointer's travel `dx` from `v0` (the whole range over SCRUB_PX; a log knob in its exponent)

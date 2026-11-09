@@ -1141,6 +1141,7 @@ dependencies = [
  "bytemuck",
  "deck-core",
  "deck-engine",
+ "deck-kit",
  "deck-native",
  "deck-space",
  "image",
@@ -1206,6 +1207,14 @@ dependencies = [
  "serde_json",
  "toml 0.8.23",
  "wasmtime",
+]
+
+[[package]]
+name = "deck-kit"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "toml 0.8.23",
 ]
 
 [[package]]

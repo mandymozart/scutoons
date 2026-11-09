@@ -4,7 +4,9 @@
 //! preallocated vectors; no retained tree – the smallest thing that measures.
 use ab_glyph::{point, Font, PxScale, ScaleFont};
 use anyhow::Result;
+use deck_kit::draw::{DrawList, Prim};
 use std::collections::HashMap;
+use std::ops::{Deref, DerefMut};
 
 /// the characters the atlas holds: ASCII, then what German and the panel's symbols need
 pub const EXTRA: &str = "äöüÄÖÜß€–·…×→←↑↓°≤≥";
@@ -140,6 +142,9 @@ pub struct Ui {
     stage_bind: Option<wgpu::BindGroup>,
     instances: wgpu::Buffer,
     capacity: usize,
+    /// what the kit drew this frame
+    list: DrawList,
+    /// the last frame's quads
     quads: Vec<Quad>,
     /// the stage's quad, drawn first with its own texture
     stage_quad: Option<Quad>,
@@ -188,9 +193,10 @@ impl Ui {
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor { mag_filter: wgpu::FilterMode::Linear, min_filter: wgpu::FilterMode::Linear, ..Default::default() });
         let screen = device.create_buffer(&wgpu::BufferDescriptor { label: Some("ui screen"), size: std::mem::size_of::<Screen>() as u64, usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let atlas = Atlas::new(device, queue, font_px * 2.0);
+        let list = DrawList::new(atlas.advance(1.0));
         let atlas_bind = bind(device, &layout, &screen, &atlas.texture.create_view(&Default::default()), &sampler);
         let instances = device.create_buffer(&wgpu::BufferDescriptor { label: Some("ui quads"), size: (FIRST_CAPACITY * std::mem::size_of::<Quad>()) as u64, usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
-        Ok(Ui { pipeline, layout, sampler, screen, atlas, atlas_bind, stage_bind: None, instances, capacity: FIRST_CAPACITY, quads: Vec::with_capacity(FIRST_CAPACITY), stage_quad: None })
+        Ok(Ui { pipeline, layout, sampler, screen, atlas, atlas_bind, stage_bind: None, instances, capacity: FIRST_CAPACITY, list, quads: Vec::with_capacity(FIRST_CAPACITY), stage_quad: None })
     }
 
     /// the stage's texture (made again when the stage's texture changes)
@@ -199,68 +205,39 @@ impl Ui {
     }
 
     pub fn begin(&mut self) {
-        self.quads.clear();
+        self.list.clear();
         self.stage_quad = None;
     }
 
-    pub fn rect(&mut self, x: f32, y: f32, w: f32, h: f32, color: [f32; 4]) {
-        let uv = self.atlas.uv('\u{0}', self.atlas.cell.0 * 0.4);
-        self.quads.push(Quad { rect: [x, y, w, h], uv, color });
-    }
-
-    fn round(&mut self, c: char, x: f32, y: f32, r: f32, color: [f32; 4]) {
+    fn round(atlas: &Atlas, c: char, x: f32, y: f32, r: f32, color: [f32; 4]) -> Quad {
         // the middle square of the cell
-        let [u0, v0, u1, v1] = self.atlas.uv(c, 0.0);
-        let dv = (v1 - v0) * (1.0 - self.atlas.cell.0 / self.atlas.cell.1) * 0.5;
-        self.quads.push(Quad { rect: [x - r, y - r, 2.0 * r, 2.0 * r], uv: [u0, v0 + dv, u1, v1 - dv], color });
+        let [u0, v0, u1, v1] = atlas.uv(c, 0.0);
+        let dv = (v1 - v0) * (1.0 - atlas.cell.0 / atlas.cell.1) * 0.5;
+        Quad { rect: [x - r, y - r, 2.0 * r, 2.0 * r], uv: [u0, v0 + dv, u1, v1 - dv], color }
     }
 
-    /// a filled circle around (x, y)
-    pub fn disc(&mut self, x: f32, y: f32, r: f32, color: [f32; 4]) {
-        self.round(DISC, x, y, r, color);
-    }
-
-    /// a circle's outline around (x, y)
-    pub fn ring(&mut self, x: f32, y: f32, r: f32, color: [f32; 4]) {
-        self.round(RING, x, y, r, color);
-    }
-
-    /// a thin straight line of beads
-    pub fn line(&mut self, a: (f32, f32), b: (f32, f32), r: f32, color: [f32; 4]) {
-        const BEADS: usize = 14;
-        for i in 0..=BEADS {
-            let t = i as f32 / BEADS as f32;
-            self.disc(a.0 + (b.0 - a.0) * t, a.1 + (b.1 - a.1) * t, r, color);
-        }
-    }
-
-    /// a cable being dragged: beads along a hanging curve
-    pub fn cable(&mut self, a: (f32, f32), b: (f32, f32), color: [f32; 4]) {
-        const BEADS: usize = 56;
-        let sag = 40.0 + (b.0 - a.0).abs().max((b.1 - a.1).abs()) * 0.35;
-        for i in 0..=BEADS {
-            let t = i as f32 / BEADS as f32;
-            let s = 1.0 - t;
-            let (c1, c2) = ((a.0, a.1 + sag), (b.0, b.1 + sag));
-            let x = s * s * s * a.0 + 3.0 * s * s * t * c1.0 + 3.0 * s * t * t * c2.0 + t * t * t * b.0;
-            let y = s * s * s * a.1 + 3.0 * s * s * t * c1.1 + 3.0 * s * t * t * c2.1 + t * t * t * b.1;
-            self.disc(x, y, 3.0, color);
-        }
-    }
-
-    /// `text` from (x, y) (its top left) at font size `px`; the width drawn
-    pub fn text(&mut self, x: f32, y: f32, px: f32, text: &str, color: [f32; 4]) -> f32 {
-        let adv = self.atlas.advance(px);
-        let (cw, ch) = (self.atlas.cell.0 * px / self.atlas.px, self.atlas.cell.1 * px / self.atlas.px);
-        let mut cx = x;
-        for c in text.chars() {
-            if c != ' ' {
-                let uv = self.atlas.uv(c, 0.5);
-                self.quads.push(Quad { rect: [cx - 1.0 * px / self.atlas.px, y, cw, ch], uv, color });
+    /// the kit's list as quads
+    fn build(&mut self) {
+        self.quads.clear();
+        let (atlas, list, quads) = (&self.atlas, &self.list, &mut self.quads);
+        for p in list.prims() {
+            match *p {
+                Prim::Rect { x, y, w, h, color } => quads.push(Quad { rect: [x, y, w, h], uv: atlas.uv('\u{0}', atlas.cell.0 * 0.4), color }),
+                Prim::Disc { x, y, r, color } => quads.push(Self::round(atlas, DISC, x, y, r, color)),
+                Prim::Ring { x, y, r, color } => quads.push(Self::round(atlas, RING, x, y, r, color)),
+                Prim::Text { x, y, px, start, end, color } => {
+                    let adv = atlas.advance(px);
+                    let (cw, ch) = (atlas.cell.0 * px / atlas.px, atlas.cell.1 * px / atlas.px);
+                    let mut cx = x;
+                    for c in list.text_of(start, end).chars() {
+                        if c != ' ' {
+                            quads.push(Quad { rect: [cx - px / atlas.px, y, cw, ch], uv: atlas.uv(c, 0.5), color });
+                        }
+                        cx += adv;
+                    }
+                }
             }
-            cx += adv;
         }
-        cx - x
     }
 
     /// the stage into this rectangle
@@ -275,6 +252,7 @@ impl Ui {
     /// draw this frame's quads over `view` (cleared to `clear`); `logical` = the window's size in the pixels the quads
     /// were laid out in (the surface may be larger on a HiDPI screen – the pass scales)
     pub fn flush(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, enc: &mut wgpu::CommandEncoder, view: &wgpu::TextureView, logical: (f32, f32), clear: [f32; 4]) {
+        self.build();
         queue.write_buffer(&self.screen, 0, bytemuck::bytes_of(&Screen { size: [logical.0, logical.1], _pad: [0.0; 2] }));
         let all: Vec<Quad> = self.stage_quad.iter().copied().chain(self.quads.iter().copied()).collect();
         if all.len() > self.capacity {
@@ -308,6 +286,19 @@ impl Ui {
             rp.set_bind_group(0, &self.atlas_bind, &[]);
             rp.draw(0..6, at..at + n);
         }
+    }
+}
+
+impl Deref for Ui {
+    type Target = DrawList;
+    fn deref(&self) -> &DrawList {
+        &self.list
+    }
+}
+
+impl DerefMut for Ui {
+    fn deref_mut(&mut self) -> &mut DrawList {
+        &mut self.list
     }
 }
 

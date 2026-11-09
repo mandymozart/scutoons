@@ -3,7 +3,7 @@
 //! with an id and gets the id back, and can ask which ids the filter still shows (the stage highlights only those).
 use crate::text::Field;
 use crate::tokens::Tokens;
-use crate::ui::Ui;
+use crate::draw::DrawList;
 
 const WIDTH: f32 = 380.0;
 const ROWS: usize = 10;
@@ -114,7 +114,7 @@ impl Typeahead {
     }
 
     /// draw it, kept inside `limit` (the window, in logical pixels)
-    pub fn draw(&mut self, ui: &mut Ui, t: &Tokens, limit: (f32, f32)) {
+    pub fn draw(&mut self, ui: &mut DrawList, t: &Tokens, limit: (f32, f32)) {
         let (font, row, pad) = (t.size.font * 0.85, t.size.row * 0.9, t.size.pad * 0.7);
         let visible = self.shown.len().min(ROWS);
         let height = row * (visible.max(1) as f32 + 1.0) + 4.0;
@@ -125,7 +125,7 @@ impl Typeahead {
         ui.rect(x, y, WIDTH, height, t.color.panel);
         ui.rect(x, y, WIDTH, row, t.color.field);
         let text_y = (row - font * 1.25) * 0.5;
-        let adv = ui.atlas.advance(font);
+        let adv = ui.advance(font);
         if self.field.text.is_empty() {
             ui.text(x + pad, y + text_y, font, "type to find", t.color.muted);
         } else {
