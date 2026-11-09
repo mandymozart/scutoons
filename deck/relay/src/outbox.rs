@@ -318,7 +318,7 @@ impl Outbox {
         self.wake.notified().await
     }
 
-    /// Wait until this client is dropped for falling behind.
+    /// Wait until this client is dropped for falling behind, or its link was `end`ed.
     pub async fn dropped(&self) {
         self.kill.notified().await
     }
@@ -326,6 +326,12 @@ impl Outbox {
     /// The writer is gone: later pushes fail (a session still holding the client sees it as unreachable).
     pub fn close(&self) {
         self.lock().closed = true;
+    }
+
+    /// The link is over (its stream failed, or a resume took the client to a new link): later pushes fail, `dropped` wakes.
+    pub fn end(&self) {
+        self.close();
+        self.kill.notify_one();
     }
 
     pub fn is_closed(&self) -> bool {
@@ -363,6 +369,11 @@ mod tests {
         let mut e = Envelope::new(from, Message::DeckValues(DeckValues { values, mood: mood.map(str::to_owned) }));
         e.seq = seq;
         Frame::of(e)
+    }
+
+    #[test]
+    fn a_stream_line_can_carry_whatever_the_outbox_lets_through() {
+        assert_eq!(protocol::lines::MAX_LINE, MAX_BYTES);
     }
 
     fn cue(id: &str) -> Arc<Frame> {

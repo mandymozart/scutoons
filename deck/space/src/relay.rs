@@ -37,7 +37,7 @@ use std::collections::{BTreeMap, HashMap};
 pub const PING_MS: f64 = 20_000.0;
 /// a link that never got a welcome dials again after these waits (s), the last one from then on
 pub const BACKOFF_S: [u32; 5] = [1, 2, 4, 8, 10];
-/// a joined link that dropped dials again after this (ms) – the relay frees the client id for a resume
+/// a joined link that dropped dials again after this (ms)
 pub const REJOIN_MS: f64 = 250.0;
 /// a deck's sync progress at most this often (ms); the final state goes at once
 pub const PROGRESS_MS: f64 = 200.0;
@@ -52,8 +52,6 @@ pub const QUIC_GIVE_UP_MS: f64 = 3000.0;
 /// on the WebSocket this long, try QUIC again in the background (ms); doubles after each failure, up to `STEP_UP_MAX_MS`
 pub const STEP_UP_MS: f64 = 60_000.0;
 pub const STEP_UP_MAX_MS: f64 = 300_000.0;
-/// QUIC is up and the WebSocket closed: the hello waits this long, so the relay has seen the old link go and takes the resume (ms)
-pub const STEP_UP_HOLD_MS: f64 = 300.0;
 /// on QUIC, the full values go on the stream this often while they change (ms): what a lost datagram would have said
 pub const SETTLE_MS: f64 = 1000.0;
 /// a due settle waits this long (ms, a frame and a bit) to take the place of the next change: the relay allows a deck 30
@@ -337,8 +335,6 @@ struct Quic {
     /// on the WebSocket: try QUIC at this ms, after this wait
     step_up_at: Option<f64>,
     step_up_wait: f64,
-    /// stepped up: the hello goes at this ms
-    hello_at: Option<f64>,
     lines: Lines,
     /// our datagrams' number, so the door drops one that was overtaken
     up_seq: u64,
@@ -365,7 +361,6 @@ impl Quic {
             keep: false,
             step_up_at: None,
             step_up_wait: STEP_UP_MS,
-            hello_at: None,
             lines: Lines::default(),
             up_seq: 0,
             dirty: false,
@@ -545,8 +540,7 @@ impl Client {
                 let answer = (self.joined && self.answer_due).then_some(self.answered + PROGRESS_MS);
                 let settle = door.filter(|q| self.joined && q.on_quic && q.dirty).map(|q| q.settle_at);
                 let step_up = door.and_then(|q| q.step_up_at.filter(|_| q.quic == Sock::Idle));
-                let hello = door.and_then(|q| q.hello_at);
-                Some([answer, settle, step_up, hello].into_iter().flatten().fold(ping, f64::min))
+                Some([answer, settle, step_up].into_iter().flatten().fold(ping, f64::min))
             }
             _ => None,
         }
@@ -571,7 +565,6 @@ impl Client {
         let path = self.path();
         if let Some(q) = self.door.as_mut() {
             q.on_quic = false;
-            q.hello_at = None;
             q.step_up_at = None;
             q.lines.clear();
             q.seen.clear();
@@ -644,15 +637,16 @@ impl Client {
                 self.won(now);
             }
             Phase::Open => {
-                // stepping up: the WebSocket goes first, the hello a moment later (a resume needs the old link gone)
+                // stepping up: the WebSocket goes, the hello at once (the relay gives a resume the old link's place)
                 q.quic = Sock::Up;
                 q.on_quic = true;
                 q.ws = Sock::Idle;
                 q.step_up_wait = STEP_UP_MS;
                 q.settle_at = now + SETTLE_MS;
-                q.hello_at = Some(now + STEP_UP_HOLD_MS);
                 self.joined = false;
                 self.out.push(Out::Close {});
+                self.last_ping = now;
+                self.hello();
             }
             _ => {
                 q.quic = Sock::Idle;
@@ -718,7 +712,6 @@ impl Client {
             Phase::Open if q.on_quic => {
                 q.fell = !std::mem::take(&mut q.keep);
                 q.on_quic = false;
-                q.hello_at = None;
                 self.lost(now, why);
             }
             Phase::Open => {
@@ -788,11 +781,7 @@ impl Client {
             Phase::Open => {
                 let path = self.path();
                 if let Some(q) = self.door.as_mut() {
-                    if q.hello_at.is_some_and(|at| now >= at) {
-                        q.hello_at = None;
-                        self.last_ping = now;
-                        self.hello();
-                    } else if !q.on_quic && q.quic == Sock::Idle && q.step_up_at.is_some_and(|at| now >= at) {
+                    if !q.on_quic && q.quic == Sock::Idle && q.step_up_at.is_some_and(|at| now >= at) {
                         q.step_up_at = None;
                         q.quic = Sock::Dialing;
                         self.out.push(Out::DialQuic { url: format!("{}{path}", q.base), hash: q.hash.clone() });
@@ -869,14 +858,15 @@ impl Client {
 
     /// `may_lose`: a value change, which on QUIC goes as a datagram when it fits one
     fn send_on(&mut self, m: Message, may_lose: bool) -> bool {
-        if self.phase != Phase::Open || (self.door.as_ref().is_some_and(|q| q.hello_at.is_some())) {
+        if self.phase != Phase::Open {
             return false;
         }
         *self.counts.entry(m.kind()).or_default() += 1;
         let mut e = Envelope::new("", m);
         let on_quic = self.on_quic();
-        if let Some(q) = self.door.as_mut().filter(|_| on_quic && may_lose) {
-            q.up_seq += 1;
+        // values on the stream say which datagram they follow: the door keeps what a newer one has said since
+        if let Some(q) = self.door.as_mut().filter(|_| on_quic && matches!(e.message, Message::DeckValues(_))) {
+            q.up_seq += u64::from(may_lose);
             e.seq = q.up_seq;
         }
         // through a Value: its maps are sorted – the same text natively and in wasm, whatever a HashMap's order
@@ -1733,7 +1723,7 @@ mod tests {
         let settles: Vec<Value> = sent_on_stream(&t).into_iter().filter(|e| e["kind"] == "deck.values").collect();
         assert_eq!(settles.len(), 1, "one settle in the 1.4 s after the first datagram");
         assert_eq!(settles[0]["p"]["values"]["voice.index"], json!([2.0]));
-        assert_eq!(settles[0]["seq"], 0);
+        assert_eq!(settles[0]["seq"], 2, "numbered by the datagram it follows");
     }
 
     #[test]
@@ -1791,10 +1781,8 @@ mod tests {
 
         let probe = t.iter().find(|x| x.at > 60.0 && x.outs.iter().any(|o| matches!(o, Out::DialQuic { .. }))).unwrap();
         assert!((probe.at - 65.3).abs() < 1e-6, "STEP_UP_MS after joining on the WebSocket, at {}", probe.at);
-        assert!(at("quic_open", 65.5).outs.contains(&Out::Close {}), "the WebSocket goes first");
-        assert!(!at("quic_open", 65.5).outs.iter().any(|o| matches!(o, Out::Stream(_))), "the hello waits for the relay to see it go");
-        let held = t.iter().find(|x| x.at > 65.5 && x.outs.iter().any(|o| matches!(o, Out::Stream(_)))).unwrap();
-        assert!((held.at - 65.8).abs() < 1e-6, "STEP_UP_HOLD_MS later, at {}", held.at);
+        assert!(at("quic_open", 65.5).outs.contains(&Out::Close {}), "the WebSocket goes");
+        assert!(at("quic_open", 65.5).outs.iter().any(|o| matches!(o, Out::Stream(h) if h.contains(r#""resume":{"client":"c"#))), "and the resume at once: the relay gives it the old link's place");
     }
 
     #[test]

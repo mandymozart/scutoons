@@ -4,18 +4,16 @@
 
 use std::future::Future;
 use std::net::SocketAddr;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use protocol::lines::{line, Lines};
-use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite::Utf8Bytes;
 use wtransport::quinn::{AckFrequencyConfig, TransportConfig};
-use wtransport::{Connection, Endpoint, RecvStream, SendStream, ServerConfig};
+use wtransport::{Connection, Endpoint, RecvStream, SendStream, ServerConfig, VarInt};
 
 use super::{Doors, Member, DOOR_IDLE};
-use crate::outbox::{Lane, MAX_BYTES};
+use crate::outbox::Lane;
 use crate::tls::TlsFiles;
 use crate::{parse_join, Join, HELLO_TIMEOUT, PING_EVERY};
 
@@ -24,10 +22,7 @@ use crate::{parse_join, Join, HELLO_TIMEOUT, PING_EVERY};
 const ACK_DELAY: Duration = Duration::from_millis(5);
 
 /// One connection, after the transport's handshake: admit on the first line, then both lanes until it ends.
-async fn pump(doors: Arc<Doors>, conn: Arc<Connection>, send: SendStream, mut recv: RecvStream, join: Join) -> anyhow::Result<()> {
-    let (tx, rx) = mpsc::unbounded_channel::<Vec<u8>>();
-    let queued = Arc::new(AtomicUsize::new(0));
-    let stream = tokio::spawn(stream_writer(send, rx, queued.clone()));
+async fn pump(doors: Arc<Doors>, conn: Arc<Connection>, mut send: SendStream, mut recv: RecvStream, join: Join) -> anyhow::Result<()> {
     let mut lines = Lines::default();
     let mut chunk = vec![0u8; 16 * 1024];
 
@@ -45,9 +40,8 @@ async fn pump(doors: Arc<Doors>, conn: Arc<Connection>, send: SendStream, mut re
     let member = match doors.admit(&first, join) {
         Ok(m) => Arc::new(m),
         Err(refusal) => {
-            tx.send(line(&refusal)).ok();
-            drop(tx);
-            stream.await.ok();
+            send.write_all(&line(&refusal)).await.ok();
+            send.finish().await.ok();
             return Ok(());
         }
     };
@@ -55,7 +49,7 @@ async fn pump(doors: Arc<Doors>, conn: Arc<Connection>, send: SendStream, mut re
     for text in waiting {
         member.text(&text);
     }
-    let writer = tokio::spawn(write(conn.clone(), member.clone(), tx, queued));
+    let writer = tokio::spawn(write(conn.clone(), member.clone(), send));
 
     loop {
         tokio::select! {
@@ -70,29 +64,20 @@ async fn pump(doors: Arc<Doors>, conn: Arc<Connection>, send: SendStream, mut re
                 Ok(d) => member.datagram(d.payload().as_ref()),
                 Err(_) => break,
             },
-            _ = member.outbox.dropped() => break, // too far behind: it reconnects and resyncs from its snapshot
+            _ = member.outbox.dropped() => break, // too far behind, or a resume took it elsewhere
         }
     }
     member.leave();
     writer.abort();
-    stream.abort();
+    conn.close(VarInt::from_u32(0), b"");
     Ok(())
 }
 
-/// The reliable lane on its own task: a stalled stream must not hold up the datagrams behind it.
-async fn stream_writer(mut send: SendStream, mut rx: mpsc::UnboundedReceiver<Vec<u8>>, queued: Arc<AtomicUsize>) {
-    while let Some(bytes) = rx.recv().await {
-        let n = bytes.len();
-        if send.write_all(&bytes).await.is_err() {
-            break;
-        }
-        queued.fetch_sub(n, Ordering::Relaxed);
-    }
-    send.finish().await.ok();
-}
-
-/// One client's writer: what its outbox lets go, each message on its lane; the transport's round trip once a second.
-async fn write(conn: Arc<Connection>, member: Arc<Member>, tx: mpsc::UnboundedSender<Vec<u8>>, queued: Arc<AtomicUsize>) {
+/// One client's writer: what its outbox lets go, each message on its lane, and the transport's round trip once a second.
+/// It waits for the stream like the WebSocket writer waits for its flush, so what a stalled stream cannot take stays in the
+/// outbox under its limits (`MAX_WAIT`, the latest value wins, the backlog's rate steps). The stream takes everything
+/// short of a full flow-control window at once, loss or not: only a client over the limits anyway holds up the datagrams.
+async fn write(conn: Arc<Connection>, member: Arc<Member>, mut send: SendStream) {
     let outbox = member.outbox.clone();
     let mut batch: Vec<(Lane, Utf8Bytes)> = Vec::with_capacity(64);
     let mut next_rtt = tokio::time::Instant::now() + PING_EVERY;
@@ -110,14 +95,12 @@ async fn write(conn: Arc<Connection>, member: Arc<Member>, tx: mpsc::UnboundedSe
                     reliable.extend_from_slice(&line(&text));
                 }
             }
-            if !reliable.is_empty() {
-                // the same limit as the outbox's own: a client this far behind is dropped
-                if queued.fetch_add(reliable.len(), Ordering::Relaxed) + reliable.len() > MAX_BYTES || tx.send(reliable).is_err() {
-                    outbox.close();
-                    break;
-                }
+            if !reliable.is_empty() && send.write_all(&reliable).await.is_err() {
+                outbox.end();
+                return;
             }
-            if outbox.sent(Instant::now(), Duration::ZERO, took.waited) {
+            let done = tokio::time::Instant::now();
+            if outbox.sent(done.into_std(), done - now, took.waited) {
                 member.tell_presence();
             }
             continue;
@@ -153,10 +136,14 @@ pub fn door(doors: Arc<Doors>, addr: SocketAddr, files: TlsFiles) -> anyhow::Res
             let doors = doors.clone();
             tokio::spawn(async move {
                 let ended: anyhow::Result<()> = async {
-                    let request = incoming.await?;
-                    let join = parse_join(request.path());
-                    let conn = request.accept().await?;
-                    let (send, recv) = conn.accept_bi().await?;
+                    let opened = async {
+                        let request = incoming.await?;
+                        let join = parse_join(request.path());
+                        let conn = request.accept().await?;
+                        let (send, recv) = conn.accept_bi().await?;
+                        anyhow::Ok((conn, send, recv, join))
+                    };
+                    let (conn, send, recv, join) = tokio::time::timeout(HELLO_TIMEOUT, opened).await??;
                     pump(doors, Arc::new(conn), send, recv, join).await
                 }
                 .await;

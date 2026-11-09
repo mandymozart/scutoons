@@ -294,14 +294,27 @@ impl Session {
         }
     }
 
-    /// A `resume { client, seq }`: may the client take its old id again (it left, same role, nobody holds it)? Then
-    /// `Some(replay)` – `replay` = whether the missed messages are still in the log (else it gets the snapshot).
+    /// #438: a `resume` whose old link the relay has not seen go yet (QUIC to WebSocket and back): that link is ended and
+    /// the client counts as left, so `resume` gives the new link its id. Its own leave then finds another link (`Relay::leave`).
+    pub fn take_over(&mut self, resume: &Resume, role: Role, now: i64) {
+        let Some(old) = self.clients.get(&resume.client).filter(|c| c.role == role).map(|c| c.outbox.clone()) else { return };
+        self.leave(&resume.client, now);
+        old.end();
+    }
+
+    /// A `resume { client, seq }`: may the client take its old id again (it left, same role)? Then `Some(replay)` –
+    /// `replay` = whether the missed messages are still in the log (else it gets the snapshot).
     pub fn resume(&self, resume: &Resume, role: Role) -> Option<bool> {
         let d = self.departed.get(&resume.client)?;
-        if d.role != role || self.clients.contains_key(&resume.client) {
+        if d.role != role {
             return None;
         }
         Some(resume.seq >= 0 && resume.seq as u64 >= self.trimmed)
+    }
+
+    /// Every deck's being and latest values (the settle, doors/mod.rs).
+    pub fn deck_states(&self) -> &HashMap<String, DeckState> {
+        &self.decks
     }
 
     /// The group a resumed client had (its QR's group stays unless the hello names another).

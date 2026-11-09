@@ -2378,7 +2378,7 @@
           "do": "wake",
           "outs": [
             {
-              "stream": "{\"from\":\"\",\"kind\":\"deck.values\",\"p\":{\"mood\":\"neutral\",\"values\":{\"voice.index\":[2.0],\"voice.out\":[0.5]}},\"seq\":0,\"v\":1}\n"
+              "stream": "{\"from\":\"\",\"kind\":\"deck.values\",\"p\":{\"mood\":\"neutral\",\"values\":{\"voice.index\":[2.0],\"voice.out\":[0.5]}},\"seq\":2,\"v\":1}\n"
             }
           ]
         },
@@ -2833,6 +2833,9 @@
           "outs": [
             {
               "close": {}
+            },
+            {
+              "stream": "{\"from\":\"\",\"kind\":\"hello\",\"p\":{\"code\":\"CATH\",\"group\":\"decks\",\"nick\":\"browser\",\"resume\":{\"client\":\"c8\",\"seq\":1},\"role\":\"musician\"},\"seq\":0,\"v\":1}\n"
             }
           ]
         },
@@ -2840,15 +2843,6 @@
           "at": 65.6,
           "do": "close",
           "outs": []
-        },
-        {
-          "at": 65.8,
-          "do": "wake",
-          "outs": [
-            {
-              "stream": "{\"from\":\"\",\"kind\":\"hello\",\"p\":{\"code\":\"CATH\",\"group\":\"decks\",\"nick\":\"browser\",\"resume\":{\"client\":\"c8\",\"seq\":1},\"role\":\"musician\"},\"seq\":0,\"v\":1}\n"
-            }
-          ]
         },
         {
           "at": 65.9,

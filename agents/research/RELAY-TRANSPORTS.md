@@ -98,8 +98,8 @@ The browser's constraint is that it cannot open raw UDP, so WebTransport is requ
 The owner chose QUIC for every client on 2026-11-08 ("Quic it is"). The RUDP and raw `quinn` doors of the comparison are gone; they are in git at `a31148de` (`deck/relay/src/doors/renet.rs`, `ladder.rs`). Every number above comes from that comparison.
 
 - **Relay:** `src/doors/` joins the same `Relay` as WebSocket, with the same `hello` checks. `--quic ADDR` / `RELAY_QUIC_ADDR` opens one WebTransport door under the `--tls-*` certificate, reloaded when the files change like the wss port. Without it no UDP port is opened.
-- **Lanes:** `deck.values` go unreliable, latest value wins (`Outbox::take_lanes`). Everything else stays reliable and ordered. A datagram carrying anything but `deck.values` is ignored. The framing and `DATAGRAM_MAX` are in `protocol/src/lines.rs`, once.
-- **Settle:** every second each door conductor gets every deck's current values on the reliable lane. A deck does the same upward, in the place of its next change (the relay allows a deck 30 `deck.values` a second). A receiver applies a key only if the frame's `seq` is not older. A datagram never moves the resume's `seq`.
+- **Lanes:** `deck.values` go unreliable, latest value wins (`Outbox::take_lanes`). Everything else stays reliable and ordered. The door's writer waits for the stream as the WebSocket writer waits for its flush, so what a stalled stream cannot take stays in the outbox under `MAX_WAIT`, `MAX_QUEUED` and the rate steps; while it waits the datagrams wait too, which only a client past a full flow-control window ever sees. A datagram carrying anything but `deck.values` is ignored. The framing and `DATAGRAM_MAX` are in `protocol/src/lines.rs`, once.
+- **Settle:** every second each door conductor gets the values of the decks that changed since the last settle on the reliable lane (a conductor new to the door: all of them). A deck does the same upward, in the place of its next change (the relay allows a deck 30 `deck.values` a second), numbered by its last datagram: the door keeps a key from a late settle only if no newer datagram has said it. A receiver applies a key only if the frame's `seq` is not older. A datagram never moves the resume's `seq`.
 - **The choice of socket** is in the core client (`deck/space/src/relay.rs`, RULES A1); the native adapter (`deck/native/src/live/quic.rs`, `socket.rs`) and the browser adapter (`shared/live-deck/src/client.ts`) only dial what it says.
 - **The HUD line** ends in `QUIC` on QUIC; the relay logs `through the quic door`.
 
@@ -107,12 +107,14 @@ The door as built, under the same `tc netem` (20 decks, 100 phones, median of 3 
 
 | loss | door | values p50 / p99 / max | arrived | cues p50 / p99 / max | relay CPU |
 |---|---|---|---|---|---|
-| 0 % | WebSocket | 10.3 / 10.6 / 12.8 | 100 % | 10.7 / 11.2 / 11.5 | 5.6 % |
-| 0 % | QUIC | 10.3 / 10.7 / 11.9 | 99.9 % | 10.8 / 11.4 / 11.6 | 9.6 % |
-| 1 % | WebSocket | 10.2 / 29.9 / 258.0 | 98.9 % | 10.7 / 220.3 / 458.0 | 4.8 % |
-| 1 % | QUIC | 10.3 / 17.5 / 20.7 | 97.9 % | 10.7 / **40.7** / 77.4 | 9.0 % |
-| 5 % | WebSocket | 14.7 / 203.4 / 965.8 | 89.7 % | 10.7 / 290.0 / 1462.5 | 4.3 % |
-| 5 % | QUIC | 10.3 / 17.1 / 28.4 | 90.6 % | 10.7 / 51.6 / 166.4 | 9.5 % |
+| 0 % | WebSocket | 10.2 / 10.4 / 11.9 | 100 % | 10.9 / 11.5 / 11.8 | 4.1 % |
+| 0 % | QUIC | 10.3 / 10.6 / 11.0 | 99.9 % | 10.8 / 11.3 / 11.8 | 7.9 % |
+| 1 % | WebSocket | 10.2 / 29.1 / 265.7 | 98.9 % | 10.9 / 220.6 / 440.9 | 4.2 % |
+| 1 % | QUIC | 10.3 / 14.3 / 19.4 | 97.9 % | 10.7 / **11.4** / 76.7 | 9.7 % |
+| 5 % | WebSocket | 15.6 / 199.5 / 755.7 | 89.7 % | 10.9 / 249.3 / 1426.8 | 4.1 % |
+| 5 % | QUIC | 10.3 / 16.7 / 27.5 | 90.1 % | 10.8 / 60.6 / 185.7 | 10.5 % |
+
+The writer waits for the stream since the first run of this table (11.4 ms was 40.7, 60.6 was 51.6). At 1 % loss about 1 % of the cues are delayed, so the p99 sits on the edge between delayed and not: read the 11.4 with the max (77 both times), not as a gain from the change.
 
 Checked end to end as well: the deck's real socket thread against the real relay (`deck/native/tests/live_quic.rs`), and Chromium 152 through `client.ts` and the wasm core (a conductor and a deck on QUIC, values as datagrams, a dial refused to the WebSocket in 61 ms).
 
@@ -120,7 +122,7 @@ Size: the relay's doors 335 lines, the native QUIC adapter 123, the framing 80 (
 
 ## The fallback
 
-`deck/space/src/relay.rs`. QUIC gets 250 ms, then a WebSocket is dialled beside it; only the winner says `hello`, so a race leaves no ghost client. A browser with no WebTransport or a refused dial goes to the WebSocket at once (61 ms in Chromium). When QUIC dies mid-show the connection's idle timeout (3 s) ends it, the client resumes on the WebSocket as the same client, values are gone for about 3 s and no cue is lost. On the WebSocket it tries QUIC again after 60 s, doubling to 5 minutes; a step up closes the WebSocket and says `hello` 300 ms later, so the relay has seen the old link go.
+`deck/space/src/relay.rs`. QUIC gets 250 ms, then a WebSocket is dialled beside it; only the winner says `hello`, so a race leaves no ghost client. A browser with no WebTransport or a refused dial goes to the WebSocket at once (61 ms in Chromium). When QUIC dies mid-show the connection's idle timeout (3 s) ends it, the client resumes on the WebSocket as the same client, values are gone for about 3 s and no cue is lost. On the WebSocket it tries QUIC again after 60 s, doubling to 5 minutes; a step up closes the WebSocket and says `hello` at once. A `resume` takes over a link the relay has not seen go yet: the old link is ended, and its own leave finds the new one in its place and leaves it alone.
 
 The numbers below are from the prototype's ladder (RUDP > QUIC > WebSocket and QUIC > WebSocket); the built one is the second.
 

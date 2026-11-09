@@ -2,8 +2,8 @@
 //! is one bidirectional stream of newline-delimited JSON (JSON escapes its newlines, so a line is a message); only
 //! `deck.values` may take a datagram, and only when it fits `DATAGRAM_MAX`.
 
-/// a reliable line longer than this ends the connection
-pub const MAX_LINE: usize = 1 << 20;
+/// a reliable line longer than this ends the connection: the relay's outbox (`MAX_BYTES`) cannot pass a longer message
+pub const MAX_LINE: usize = 8 << 20;
 /// the largest envelope sent as a datagram; a longer one takes the stream. QUIC guarantees 1200 bytes of path, minus its
 /// own and WebTransport's headers.
 pub const DATAGRAM_MAX: usize = 1100;

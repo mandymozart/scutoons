@@ -332,3 +332,35 @@ async fn the_conductor_sees_each_link() {
     assert!(!links.contains_key(&phone_id), "no audience phones");
     reader.abort();
 }
+
+/// #438: a client whose new link comes before the relay saw the old one go (QUIC to WebSocket and back) takes its own id
+/// over; the old link ends, and its ending does not take the new one along.
+#[tokio::test]
+async fn a_resume_takes_over_a_client_still_attached() {
+    let port = start().await;
+    let (mut cond, _) = join(port, "R9", Role::Conductor, None, Some("dev-token")).await;
+    let (mut old, id) = join(port, "R9", Role::Output, Some("a"), None).await;
+    let resume = Resume { client: id.clone(), seq: 0 };
+    let (mut new, again) = join_resume(port, "R9", Role::Output, Some("a"), None, Some(resume)).await;
+    assert_eq!(again, id, "the same client, not a new one beside a ghost");
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while let Some(Ok(frame)) = old.next().await {
+            if frame.is_close() {
+                break;
+            }
+        }
+    })
+    .await
+    .expect("the old link is ended");
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    send(&mut cond, Message::Cue(Cue { id: "after".into(), actions: vec![] }), Some(To::role_group(Role::Output, "a"))).await;
+    tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            if matches!(recv(&mut new).await.message, Message::Cue(c) if c.id == "after") {
+                break;
+            }
+        }
+    })
+    .await
+    .expect("the new link is still the client");
+}

@@ -152,6 +152,9 @@ impl Relay {
         // empty sessions are kept for a resume (the conductor's laptop restarts), then dropped
         sessions.retain(|_, s| s.empty_since.is_none_or(|t| t >= now - session::REPLAY_MS));
         let s = sessions.entry(hello.code.clone()).or_default();
+        if let Some(r) = &hello.resume {
+            s.take_over(r, hello.role, now);
+        }
         if s.clients.len() >= MAX_CLIENTS {
             return Err("session full");
         }
@@ -180,8 +183,43 @@ impl Relay {
         Ok(id)
     }
 
-    fn leave(&self, code: &str, id: &str) {
-        self.with_session(code, |s| s.leave(id, now_ms()));
+    /// The link with `outbox` is gone. One a resume replaced leaves nothing behind: the id is the new link's now.
+    fn leave(&self, code: &str, id: &str, outbox: &Arc<Outbox>) {
+        self.with_session(code, |s| {
+            if s.clients.get(id).is_some_and(|c| Arc::ptr_eq(&c.outbox, outbox)) {
+                s.leave(id, now_ms());
+            }
+        });
+    }
+
+    /// B.6: a connection's first message, whichever door it came through (`None`: it said nothing readable). The client's
+    /// id and its hello, or the refusal to send.
+    fn admit(&self, first: Option<&str>, join: Join, outbox: Arc<Outbox>) -> Result<(String, protocol::Hello), Utf8Bytes> {
+        let hello = first.and_then(|text| serde_json::from_str::<Envelope>(text).ok());
+        let Some(Envelope { message: Message::Hello(hello), .. }) = hello else {
+            return Err(refusal("hello", "the first message must be hello"));
+        };
+        if join.code.as_deref().is_some_and(|c| c != hello.code) {
+            return Err(refusal("code", "hello.code differs from the URL"));
+        }
+        self.check_token(&hello.code, hello.role, hello.token.as_deref()).map_err(|why| refusal("token", &why))?;
+        let id = self.join(&hello, join.group, outbox).map_err(|why| refusal("full", why))?;
+        Ok((id, hello))
+    }
+
+    /// A client's message from the reliable lane, whichever door it came through.
+    fn receive(self: &Arc<Relay>, code: &str, id: &str, envelope: Result<Envelope, serde_json::Error>) {
+        let lead = self.config.lead_ms;
+        let after = self.with_session(code, |s| match envelope {
+            Ok(envelope) => s.handle(id, envelope, now_ms(), lead),
+            Err(e) => {
+                s.send_to(id, Message::Error(ProtocolError { code: "parse".into(), message: e.to_string() }));
+                After::Nothing
+            }
+        });
+        if after == Some(After::VoteOpened) {
+            spawn_vote_timer(self.clone(), code.to_owned());
+        }
     }
 }
 
@@ -382,33 +420,19 @@ where
     let (mut sink, mut source) = ws.split();
 
     // B.6: the first message is `hello`.
-    let hello = tokio::time::timeout(HELLO_TIMEOUT, source.next()).await;
-    let hello = match hello {
-        Ok(Some(Ok(Ws::Text(text)))) => serde_json::from_str::<Envelope>(&text).ok(),
+    let first = match tokio::time::timeout(HELLO_TIMEOUT, source.next()).await {
+        Ok(Some(Ok(Ws::Text(text)))) => Some(text),
         _ => None,
     };
-    let Some(Envelope { message: Message::Hello(hello), .. }) = hello else {
-        sink.send(Ws::Text(refusal("hello", "the first message must be hello"))).await.ok();
-        return Ok(());
-    };
-    if join.code.as_deref().is_some_and(|c| c != hello.code) {
-        sink.send(Ws::Text(refusal("code", "hello.code differs from the URL"))).await.ok();
-        return Ok(());
-    }
-    if let Err(why) = relay.check_token(&hello.code, hello.role, hello.token.as_deref()) {
-        sink.send(Ws::Text(refusal("token", &why))).await.ok();
-        return Ok(());
-    }
-
-    let code = hello.code.clone();
     let outbox = Outbox::new();
-    let id = match relay.join(&hello, join.group, outbox.clone()) {
-        Ok(id) => id,
-        Err(why) => {
-            sink.send(Ws::Text(refusal("full", why))).await.ok();
+    let (id, hello) = match relay.admit(first.as_deref(), join, outbox.clone()) {
+        Ok(admitted) => admitted,
+        Err(refusal) => {
+            sink.send(Ws::Text(refusal)).await.ok();
             return Ok(());
         }
     };
+    let code = hello.code.clone();
     tracing::info!(code, client = id, role = hello.role.as_str(), resume = hello.resume.is_some(), "joined");
     let writer = tokio::spawn(write(sink, outbox.clone(), relay.clone(), code.clone()));
 
@@ -437,20 +461,10 @@ where
             }
             Ok(_) => continue, // binary / ping frames: nothing in B.6
         };
-        let lead = relay.config.lead_ms;
-        let after = relay.with_session(&code, |s| match serde_json::from_str::<Envelope>(&text) {
-            Ok(envelope) => s.handle(&id, envelope, now_ms(), lead),
-            Err(e) => {
-                s.send_to(&id, Message::Error(ProtocolError { code: "parse".into(), message: e.to_string() }));
-                After::Nothing
-            }
-        });
-        if after == Some(After::VoteOpened) {
-            spawn_vote_timer(relay.clone(), code.clone());
-        }
+        relay.receive(&code, &id, serde_json::from_str(&text));
     }
 
-    relay.leave(&code, &id);
+    relay.leave(&code, &id, &outbox);
     outbox.close();
     writer.abort();
     tracing::info!(code, client = id, "left");
