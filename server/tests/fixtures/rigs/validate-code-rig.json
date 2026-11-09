@@ -98,12 +98,12 @@
                 },
                 "sticks": [
                     [
-                        "voice_voice.ratio",
-                        "voice_voice.index"
+                        "voice:voice.ratio",
+                        "voice:voice.index"
                     ],
                     [
-                        "voice_melody.spread",
-                        "drone_drone.freq"
+                        "voice:melody.spread",
+                        "drone:drone.freq"
                     ]
                 ],
                 "policy": {

@@ -2,11 +2,16 @@
 //! event outputs, cabled like a module's. It holds the name filter (`listen`) – the one place a document names a world
 //! event. Module to module there are only cables; an event input with no cable hears nothing.
 //!
-//! Two sources now, the others (carrier bag, VN state, other scenes and decks) are later tickets:
+//! Three sources now, the others (carrier bag, VN state) are later tickets:
 //! - `midi` – the MIDI adapter's events through the dispatcher, `listen = ["midi.note"]`
 //! - `generator` – the deck-events patch in its `patch` table run by the node itself (the engine's `Host`), its notes
 //!   going down its cables and nowhere else, so two generators stay apart; `listen` names what leaves it (`music.note`)
+//! - `far` – another scene, character, rig or deck, named by its `address` (rig/address.rs: a place before the leaf,
+//!   `character:catpope/analog:seq.notes`, or absolute `/deck:left/scene:nave/…`; #432, owner: reach is wide from the
+//!   start). Valid, and nothing carries its events into this deck yet (#442): the node sends nothing, the wiring and the
+//!   validator list it as "not connected yet". `listen` names what it lets through.
 use crate::graph::Node;
+use crate::rig::address::Address;
 use anyhow::{anyhow, bail, Result};
 use deck_events::patch::{NoteNames, Patch};
 use deck_events::Names;
@@ -23,10 +28,12 @@ pub fn shares_a_name(sends: &[String], takes: &[String]) -> bool {
     sends.iter().any(|s| takes.contains(s)) || (sends.iter().any(|s| is_note(s)) && takes.iter().any(|t| is_note(t)))
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Source {
     Midi,
     Generator,
+    /// another place's events (#432): valid, not carried into this deck yet (#442) – the node sends nothing
+    Far(Address),
 }
 
 /// A world node's meaning: where its events come from and its name filter.
@@ -38,16 +45,35 @@ pub struct World {
 
 impl World {
     /// `node`'s world params, checked: a known `source`, a `listen` of valid names that this source can send, a
-    /// generator's `patch` that builds
+    /// generator's `patch` that builds, a far source's `address` that parses and names a place
     pub fn of(node: &Node) -> Result<World> {
-        let at = |what: String| anyhow!("world node '{}': {what}", node.id);
-        let source = match node.str("source") {
+        World::read(&node.id, &node.params)
+    }
+
+    /// `of` from a document's node (its id and params), before it is a graph node
+    pub fn read(id: &str, params: &toml::Table) -> Result<World> {
+        let at = |what: String| anyhow!("world node '{id}': {what}");
+        let str = |key: &str| params.get(key).and_then(|v| v.as_str());
+        let source = match str("source") {
             Some("midi") => Source::Midi,
             Some("generator") => Source::Generator,
-            Some(other) => return Err(at(format!("unknown source '{other}' (midi, generator)"))),
-            None => return Err(at("it needs a `source` (midi, generator)".into())),
+            Some("far") => match str("address") {
+                Some(text) => {
+                    let a = Address::parse(text).map_err(|e| at(format!("`address` '{text}': {e}")))?;
+                    if a.is_relative() {
+                        return Err(at(format!("`address` '{text}' names no place – a far source is another scene, character, rig or deck (character:<id>/<track>:<node>.<port>, /deck:<id>/scene:<id>/…); inside the rig a cable joins the ports")));
+                    }
+                    Source::Far(a)
+                }
+                None => return Err(at("a far source needs an `address` (character:<id>/<track>:<node>.<port>, /deck:<id>/scene:<id>/…)".into())),
+            },
+            Some(other) => return Err(at(format!("unknown source '{other}' (midi, generator, far)"))),
+            None => return Err(at("it needs a `source` (midi, generator, far)".into())),
         };
-        let listen = node.strs("listen");
+        let listen: Vec<String> = match params.get("listen") {
+            Some(toml::Value::Array(a)) => a.iter().filter_map(|v| v.as_str().map(str::to_owned)).collect(),
+            _ => Vec::new(),
+        };
         if listen.is_empty() {
             return Err(at("it needs a `listen`: the names it lets through".into()));
         }
@@ -58,19 +84,21 @@ impl World {
         match source {
             Source::Midi => {
                 if let Some(n) = listen.iter().find(|n| !n.starts_with("midi.")) {
-                    bail!("world node '{}': MIDI sends midi.* names, not '{n}'", node.id);
+                    bail!("world node '{id}': MIDI sends midi.* names, not '{n}'");
                 }
             }
             Source::Generator => {
                 if listen != ["music.note"] {
-                    bail!("world node '{}': a generator sends music.note, so `listen` is [\"music.note\"]", node.id);
+                    bail!("world node '{id}': a generator sends music.note, so `listen` is [\"music.note\"]");
                 }
-                let Some(table) = node.params.get("patch").and_then(|p| p.as_table()) else {
-                    bail!("world node '{}': a generator needs a `patch` table (`generator`, `edge`, `out`)", node.id)
+                let Some(table) = params.get("patch").and_then(|p| p.as_table()) else {
+                    bail!("world node '{id}': a generator needs a `patch` table (`generator`, `edge`, `out`)")
                 };
                 let notes = NoteNames::new(&mut names);
                 Patch::from_table(table).and_then(|p| p.build(notes, &mut names).map(|_| ())).map_err(|e| at(format!("its patch: {e}")))?;
             }
+            // what a far place sends is its own business; the filter says what this node lets through
+            Source::Far(_) => {}
         }
         Ok(World { source, listen })
     }
@@ -102,6 +130,25 @@ mod tests {
             ("source=\"midi\"\nlisten=[\"story.fx\"]\n", "MIDI sends midi.*"),
             ("source=\"generator\"\nlisten=[\"midi.note\"]\n", "a generator sends music.note"),
             ("source=\"generator\"\nlisten=[\"music.note\"]\n", "needs a `patch`"),
+        ] {
+            let e = build(&format!("[[node]]\nid=\"w\"\nkind=\"world\"\n{text}")).unwrap_err().to_string();
+            assert!(e.contains("world node 'w'") && e.contains(says), "{e}");
+        }
+    }
+
+    /// #432: a far source names a place outside the rig; it builds, and sends nothing until #442 carries it
+    #[test]
+    fn a_far_world_node_names_a_place_and_builds() {
+        let g = build("[[node]]\nid=\"far\"\nkind=\"world\"\nsource=\"far\"\naddress=\"character:catpope/analog:seq.notes\"\nlisten=[\"music.note\"]\n").unwrap();
+        let w = World::of(&g.nodes[0]).unwrap();
+        assert_eq!(w.source, Source::Far(Address::parse("character:catpope/analog:seq.notes").unwrap()));
+        assert_eq!(w.listen, ["music.note"]);
+        let absolute = build("[[node]]\nid=\"far\"\nkind=\"world\"\nsource=\"far\"\naddress=\"/deck:left/scene:nave/character:catpope/@energy\"\nlisten=[\"story.cue\"]\n").unwrap();
+        assert!(matches!(World::of(&absolute.nodes[0]).unwrap().source, Source::Far(a) if a.absolute));
+        for (text, says) in [
+            ("source=\"far\"\nlisten=[\"music.note\"]\n", "needs an `address`"),
+            ("source=\"far\"\naddress=\"seq.notes\"\nlisten=[\"music.note\"]\n", "names no place"),
+            ("source=\"far\"\naddress=\"nave/seq.notes\"\nlisten=[\"music.note\"]\n", "not a place"),
         ] {
             let e = build(&format!("[[node]]\nid=\"w\"\nkind=\"world\"\n{text}")).unwrap_err().to_string();
             assert!(e.contains("world node 'w'") && e.contains(says), "{e}");

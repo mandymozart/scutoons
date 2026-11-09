@@ -14,6 +14,7 @@ pub mod world;
 pub mod modreg;
 pub mod mood;
 pub mod params;
+pub mod problem;
 pub mod push;
 pub mod quality;
 pub mod relay;

@@ -8,10 +8,11 @@
 //!   every mood; `Rig::warnings` (a preset's value on an input the policy owns is dropped – said, not refused).
 //!
 //! The lookups travel by value: the instruments it names, the presets it names with their ancestors, a code rig's policy
-//! module's descriptor (the API reads them from its catalog). The core stops at the first problem, so the answer holds at
-//! most one.
+//! module's descriptor (the API reads them from its catalog). Every problem a check lists is in the answer, each naming
+//! its cable, node or track (problem.rs, #432); a far world node is a warning – valid, not connected yet (#442).
 use super::bundle::Bundle;
 use super::{Instrument, Library, Preset, PresetBook, Rig};
+use crate::problem::sentences;
 use anyhow::{Context, Result};
 use deck_catalog::Descriptor;
 use serde::de::DeserializeOwned;
@@ -46,16 +47,19 @@ pub struct Answer {
     pub warnings: Vec<String>,
 }
 
-fn parse<T: DeserializeOwned>(who: &str, v: &Value) -> Result<T, String> {
-    serde_json::from_value(v.clone()).map_err(|e| format!("{who}: {e}"))
+/// the problems of a check: every sentence listed
+type Problems = Vec<String>;
+
+fn parse<T: DeserializeOwned>(who: &str, v: &Value) -> Result<T, Problems> {
+    serde_json::from_value(v.clone()).map_err(|e| vec![format!("{who}: {e}")])
 }
 
-fn lookups<T: DeserializeOwned>(label: &str, list: &[Value]) -> Result<Vec<T>, String> {
+fn lookups<T: DeserializeOwned>(label: &str, list: &[Value]) -> Result<Vec<T>, Problems> {
     list.iter().map(|v| parse(&format!("{label} {}", v.get("id").and_then(Value::as_str).unwrap_or("?")), v)).collect()
 }
 
-fn said(e: anyhow::Error) -> String {
-    format!("{e:#}")
+fn said(e: anyhow::Error) -> Problems {
+    sentences(&e)
 }
 
 impl Request {
@@ -74,26 +78,28 @@ impl Request {
         };
         let who = format!("{label} {}", self.id);
         let checked = match label {
-            "instrument" => self.instrument(&who).map(|_| Vec::new()),
+            "instrument" => self.instrument(&who),
             "preset" => self.preset(&who).map(|_| Vec::new()),
             _ => self.rig(&who),
         };
         Ok(match checked {
             Ok(warnings) => Answer { problems: Vec::new(), warnings },
-            Err(p) => Answer { problems: vec![p], warnings: Vec::new() },
+            Err(problems) => Answer { problems, warnings: Vec::new() },
         })
     }
 
-    fn instrument(&self, who: &str) -> Result<(), String> {
+    /// an instrument's problems, or its warnings
+    fn instrument(&self, who: &str) -> Result<Vec<String>, Problems> {
         let i: Instrument = parse(who, &self.document)?;
-        i.check().map(|_| ()).map_err(said)
+        i.check().map_err(said)?;
+        Ok(i.warnings())
     }
 
-    fn preset(&self, who: &str) -> Result<(), String> {
+    fn preset(&self, who: &str) -> Result<(), Problems> {
         let p: Preset = parse(who, &self.document)?;
         let instruments: Vec<Instrument> = lookups("instrument", &self.instruments)?;
         let Some(instrument) = instruments.iter().find(|i| i.id == p.instrument) else {
-            return Err(format!("{who}: unknown instrument \"{}\"", p.instrument));
+            return Err(vec![format!("{who}: unknown instrument \"{}\"", p.instrument)]);
         };
         // the book as it will be: this preset counts with its new data
         let mut presets: Vec<Preset> = lookups::<Preset>("preset", &self.presets)?.into_iter().filter(|q| q.id != p.id).collect();
@@ -103,8 +109,8 @@ impl Request {
         instrument.patch(&resolved).map(|_| ()).map_err(said)
     }
 
-    /// a rig's problem, or its warnings
-    fn rig(&self, who: &str) -> Result<Vec<String>, String> {
+    /// a rig's problems, or its warnings
+    fn rig(&self, who: &str) -> Result<Vec<String>, Problems> {
         let rig: Rig = parse(who, &self.document)?;
         let instruments: Vec<Instrument> = lookups("instrument", &self.instruments)?;
         let presets: Vec<Preset> = lookups("preset", &self.presets)?;

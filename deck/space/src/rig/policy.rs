@@ -11,7 +11,8 @@
 //! `set` or `mul` target is its only writer – no table value, route or second target may write it, and a preset's value
 //! there is dropped with a warning (`Rig::warnings`); an `add` target layers over the tables. Only `@preset` and `@gain`
 //! are reserved members (decision 4).
-use super::{instrument::canonical, scoped, Library, Rig};
+use super::address::{Address, Leaf};
+use super::{instrument::canonical, Library, Rig};
 use anyhow::{bail, Context, Result};
 use deck_catalog::{Descriptor, Dir, Domain, Mode, PortType};
 use serde::{Deserialize, Serialize};
@@ -80,7 +81,7 @@ pub fn mode_name(m: Mode) -> &'static str {
 pub fn preset_choices(d: &Descriptor) -> impl Iterator<Item = &str> {
     d.ports
         .iter()
-        .filter(|p| p.dir == Dir::Out && p.ty == PortType::Control && scoped(&p.path).is_some_and(|(_, member)| member == "@preset"))
+        .filter(|p| p.dir == Dir::Out && p.ty == PortType::Control && matches!(Address::leaf(&p.path), Ok(Leaf::Member { member, .. }) if member == "preset"))
         .flat_map(|p| p.choices.iter().map(|c| &**c))
 }
 
@@ -100,9 +101,13 @@ impl Rig {
         let mut out: Vec<Target> = Vec::new();
         for p in d.ports.iter().filter(|p| p.dir == Dir::Out && p.ty == PortType::Control && !p.path.is_empty()) {
             let at = format!("rig {}: the policy's output '{}' drives '{}'", self.subject, p.name, p.path);
-            let Some((track, inner)) = scoped(&p.path) else { bail!("{at} – a target is <track>:<node>.<port>, <track>:@gain or <track>:@preset") };
-            let t = self.track(track).with_context(|| at.clone())?;
-            let member = match inner {
+            let (track, inner) = match Address::leaf(&p.path) {
+                Ok(Leaf::Port { track: Some(t), node, port }) => (t, format!("{node}.{port}")),
+                Ok(Leaf::Member { track, member }) => (track, format!("@{member}")),
+                _ => bail!("{at} – a target is <track>:<node>.<port>, <track>:@gain or <track>:@preset"),
+            };
+            let t = self.track(&track).with_context(|| at.clone())?;
+            let member = match inner.as_str() {
                 "@gain" => {
                     if t.mute {
                         bail!("{at} – the track is muted, so it has no strip");
@@ -126,11 +131,11 @@ impl Rig {
                 }
                 m if m.starts_with('@') => bail!("{at} – only @preset and @gain are a track's reserved members"),
                 _ => {
-                    lib.instrument(&t.instrument)?.control_input(inner).with_context(|| at.clone())?;
-                    Member::Input(canonical(inner))
+                    lib.instrument(&t.instrument)?.control_input(&inner).with_context(|| at.clone())?;
+                    Member::Input(canonical(&inner))
                 }
             };
-            let target = Target { output: p.name.to_string(), path: p.path.to_string(), track: track.to_string(), member, mode: p.mode };
+            let target = Target { output: p.name.to_string(), path: p.path.to_string(), track, member, mode: p.mode };
             if let Some(o) = out.iter().find(|o| o.track == target.track && same_member(&o.member, &target.member)) {
                 bail!("{at} – the output '{}' drives it too", o.output);
             }
@@ -159,7 +164,7 @@ impl Rig {
         for t in self.targets(lib)?.iter().filter(|t| t.owns()) {
             match &t.member {
                 Member::Input(path) => {
-                    let writes = |p: &str| scoped(p).is_some_and(|(track, inner)| track == t.track && canonical(inner) == *path);
+                    let writes = |p: &str| matches!(Address::leaf(p), Ok(Leaf::Port { track: Some(track), node, port }) if track == t.track && format!("{node}.{port}") == *path);
                     let only = "a set / mul target is the only writer of its input";
                     for (name, v) in variants() {
                         if v.values.keys().any(|p| writes(p)) {
@@ -209,10 +214,14 @@ impl Rig {
     }
 
     /// What the core says but does not refuse (decision 2): each preset a track may play (its own, a persona's or mood's,
-    /// a policy's choice) whose value on an owned input is dropped – once per preset and input.
+    /// a policy's choice) whose value on an owned input is dropped – once per preset and input; and a far world node
+    /// (#432) whose address nothing carries into this deck yet (#442).
     pub fn warnings(&self, lib: &Library) -> Result<Vec<String>> {
         let targets = self.targets(lib)?;
         let mut out = Vec::new();
+        for (track, node, a) in self.far_world_nodes(lib) {
+            out.push(format!("world node '{node}' (track {track}): not connected yet – nothing carries '{a}' into this deck (#442)"));
+        }
         for t in targets.iter().filter(|t| t.owns()) {
             let Member::Input(path) = &t.member else { continue };
             let track = self.track(&t.track)?;
@@ -242,8 +251,8 @@ impl Rig {
         let mut out = self.policy.as_ref().map(|p| p.values.clone()).unwrap_or_default();
         for v in self.variants(persona, mood) {
             for (path, value) in &v.values {
-                if let Some((NODE, name)) = scoped(path) {
-                    out.insert(name.to_string(), *value);
+                if let Ok(Leaf::Policy(name)) = Address::leaf(path) {
+                    out.insert(name, *value);
                 }
             }
         }

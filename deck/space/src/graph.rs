@@ -4,7 +4,9 @@
 //! frame thread. Control links into audio nodes cross threads as atomics (audio::Param); the FFT is an audio node with
 //! control outputs (its samples cross through a lock-free ring).
 use crate::modreg::{self, ModuleKind};
-use crate::scene::{split_ref, LinkDef, Scene};
+use crate::problem::Problems;
+use crate::rig::address::{node_port, Address, Leaf};
+use crate::scene::{LinkDef, Scene};
 use anyhow::{bail, Result};
 use std::collections::HashMap;
 
@@ -324,69 +326,50 @@ pub struct Graph {
 
 impl Graph {
     /// The scene's graph, checked as a graph. Whether a build carries the modules its kinds need is deck-native's check
-    /// (its modules.rs, before it builds a scene); the space draws any kind.
+    /// (its modules.rs, before it builds a scene); the space draws any kind. Every problem is listed at its node or
+    /// link (problem.rs `Problems`), not the first alone (#432).
     pub fn build(scene: &Scene) -> Result<Graph> {
+        let mut problems = Problems::default();
         let mut nodes = Vec::new();
         let mut by_id = HashMap::new();
         for n in &scene.nodes {
-            let Some(kind) = Kind::parse(&n.kind) else { bail!("node '{}': unknown kind '{}'", n.id, n.kind) };
-            if by_id.insert(n.id.clone(), nodes.len()).is_some() {
-                bail!("node id '{}' is used twice", n.id);
+            let Some(kind) = Kind::parse(&n.kind) else {
+                problems.push(format!("node '{}'", n.id), format!("unknown kind '{}'", n.kind));
+                continue;
+            };
+            if by_id.contains_key(&n.id) {
+                problems.push(format!("node '{}'", n.id), "its id is used twice");
+                continue;
             }
+            by_id.insert(n.id.clone(), nodes.len());
             nodes.push(Node { id: n.id.clone(), kind, params: n.params.clone() });
         }
         for n in nodes.iter().filter(|n| n.kind == Kind::World) {
-            crate::world::World::of(n)?;
+            if let Err(e) = crate::world::World::of(n) {
+                problems.note(e);
+            }
         }
         for sink in [Kind::Screen, Kind::AudioOut, Kind::Tempo, Kind::Space, Kind::Outlet] {
             if nodes.iter().filter(|n| n.kind == sink).count() > 1 {
-                bail!("a scene has at most one {sink:?} node");
+                problems.push("", format!("a scene has at most one {sink:?} node"));
             }
         }
         let mut links = Vec::new();
         for l in &scene.links {
-            let (fnode, fport) = split_ref(&l.from);
-            let (tnode, tport) = split_ref(&l.to);
-            let Some(&fi) = by_id.get(fnode) else { bail!("link {} → {}: no node '{fnode}'", l.from, l.to) };
-            let Some(&ti) = by_id.get(tnode) else { bail!("link {} → {}: no node '{tnode}'", l.from, l.to) };
-            let Some(fp) = nodes[fi].kind.output(fport) else {
-                bail!("link {} → {}: {:?} has no output '{fport}'", l.from, l.to, nodes[fi].kind)
-            };
-            let Some(tp) = nodes[ti].kind.input(tport) else {
-                bail!("link {} → {}: {:?} has no input '{tport}'", l.from, l.to, nodes[ti].kind)
-            };
-            let (fty, tty) = (nodes[fi].kind.outputs()[fp].ty, nodes[ti].kind.inputs()[tp].ty);
-            if fty != tty {
-                if fty == PortType::Event || tty == PortType::Event {
-                    bail!(
-                        "link {} → {}: '{fport}' is {} and '{tport}' is {} – an event cable joins two event ports; a level becoming an event (or the reverse) needs a node of its own",
-                        l.from, l.to, type_words(fty), type_words(tty)
-                    );
-                }
-                bail!("link {} → {}: a {fty:?} output cannot feed a {tty:?} input", l.from, l.to);
+            match link_of(l, &nodes, &by_id, &links) {
+                Ok(link) => links.push(link),
+                Err(says) => problems.push(format!("link {} → {}", l.from, l.to), says),
             }
-            if fty == PortType::Event {
-                event_cable(l, &nodes, (fi, fp), (ti, tp), &links)?;
-            }
-            // several audio links into one input are summed (a bus, a mixer's channel), an event input hears all its
-            // cables; a control input takes one
-            if !matches!(fty, PortType::Audio | PortType::Event) && links.iter().any(|x: &Link| x.to == (ti, tp)) {
-                bail!("link {} → {}: the input already has a link", l.from, l.to);
-            }
-            if !l.map.is_empty() && fty != PortType::Audio {
-                bail!("link {} → {}: only an audio link has a channel map", l.from, l.to);
-            }
-            let mut map = Vec::with_capacity(l.map.len());
-            for &[s, t] in &l.map {
-                if s == 0 || t == 0 || usize::from(s) > MAX_CHANNELS || usize::from(t) > MAX_CHANNELS {
-                    bail!("link {} → {}: the channel map names channels 1..={MAX_CHANNELS}, not {s} → {t}", l.from, l.to);
-                }
-                map.push((s - 1, t - 1));
-            }
-            links.push(Link { from: (fi, fp), to: (ti, tp), ty: fty, scale: l.scale, offset: l.offset, map });
         }
-        let holds = bind_targets(&nodes, &by_id, &mut links)?;
-        let order = topo_order(nodes.len(), &links, &nodes)?;
+        let holds = bind_targets(&nodes, &by_id, &mut links, &mut problems);
+        let order = match topo_order(nodes.len(), &links, &nodes) {
+            Ok(order) => order,
+            Err(e) => {
+                problems.note(e);
+                Vec::new()
+            }
+        };
+        problems.into_result()?;
         Ok(Graph { nodes, links, order, holds })
     }
 
@@ -428,59 +411,101 @@ fn type_words(ty: PortType) -> &'static str {
     }
 }
 
+/// One of the scene's links checked and resolved to ports (see `Graph`); `Err` says what is wrong, the caller names the link.
+fn link_of(l: &LinkDef, nodes: &[Node], by_id: &HashMap<String, usize>, links: &[Link]) -> Result<Link, String> {
+    let (fnode, fport) = node_port(&l.from);
+    let (tnode, tport) = node_port(&l.to);
+    let Some(&fi) = by_id.get(fnode) else { return Err(format!("no node '{fnode}'")) };
+    let Some(&ti) = by_id.get(tnode) else { return Err(format!("no node '{tnode}'")) };
+    let Some(fp) = nodes[fi].kind.output(fport) else { return Err(format!("{:?} has no output '{fport}'", nodes[fi].kind)) };
+    let Some(tp) = nodes[ti].kind.input(tport) else { return Err(format!("{:?} has no input '{tport}'", nodes[ti].kind)) };
+    let (fty, tty) = (nodes[fi].kind.outputs()[fp].ty, nodes[ti].kind.inputs()[tp].ty);
+    if fty != tty {
+        if fty == PortType::Event || tty == PortType::Event {
+            return Err(format!(
+                "'{fport}' is {} and '{tport}' is {} – an event cable joins two event ports; a level becoming an event (or the reverse) needs a node of its own",
+                type_words(fty),
+                type_words(tty)
+            ));
+        }
+        return Err(format!("a {fty:?} output cannot feed a {tty:?} input"));
+    }
+    if fty == PortType::Event {
+        event_cable(l, nodes, (fi, fp), (ti, tp), links)?;
+    }
+    // several audio links into one input are summed (a bus, a mixer's channel), an event input hears all its
+    // cables; a control input takes one
+    if !matches!(fty, PortType::Audio | PortType::Event) && links.iter().any(|x: &Link| x.to == (ti, tp)) {
+        return Err("the input already has a link".into());
+    }
+    if !l.map.is_empty() && fty != PortType::Audio {
+        return Err("only an audio link has a channel map".into());
+    }
+    let mut map = Vec::with_capacity(l.map.len());
+    for &[s, t] in &l.map {
+        if s == 0 || t == 0 || usize::from(s) > MAX_CHANNELS || usize::from(t) > MAX_CHANNELS {
+            return Err(format!("the channel map names channels 1..={MAX_CHANNELS}, not {s} → {t}"));
+        }
+        map.push((s - 1, t - 1));
+    }
+    Ok(Link { from: (fi, fp), to: (ti, tp), ty: fty, scale: l.scale, offset: l.offset, map })
+}
+
 /// An event cable checked (#430): one link per pair, not into itself, no scale or offset, and a name both ends share – a
 /// cable nothing can pass on is the core's refusal, not a silent input.
-fn event_cable(l: &LinkDef, nodes: &[Node], from: (usize, usize), to: (usize, usize), links: &[Link]) -> Result<()> {
+fn event_cable(l: &LinkDef, nodes: &[Node], from: (usize, usize), to: (usize, usize), links: &[Link]) -> Result<(), String> {
     if from.0 == to.0 {
-        bail!("link {} → {}: a node does not hear its own events (an echo would feed itself forever)", l.from, l.to);
+        return Err("a node does not hear its own events (an echo would feed itself forever)".into());
     }
     if links.iter().any(|x| x.from == from && x.to == to) {
-        bail!("link {} → {}: this event cable is there already", l.from, l.to);
+        return Err("this event cable is there already".into());
     }
     if l.scale != 1.0 || l.offset != 0.0 {
-        bail!("link {} → {}: an event cable has no scale or offset", l.from, l.to);
+        return Err("an event cable has no scale or offset".into());
     }
-    let names = |n: &Node, port: &Port| -> Result<Vec<String>> {
-        Ok(if n.kind == Kind::World { crate::world::World::of(n)?.listen } else { port.names.iter().map(|s| s.to_string()).collect() })
+    let names = |n: &Node, port: &Port| -> Result<Vec<String>, String> {
+        Ok(if n.kind == Kind::World { crate::world::World::of(n).map_err(|e| format!("{e:#}"))?.listen } else { port.names.iter().map(|s| s.to_string()).collect() })
     };
     let (out, inp) = (&nodes[from.0], &nodes[to.0]);
     let (sends, takes) = (names(out, &out.kind.outputs()[from.1])?, names(inp, &inp.kind.inputs()[to.1])?);
     if !crate::world::shares_a_name(&sends, &takes) {
-        bail!("link {} → {}: it sends {} and the input takes {} – no event can pass", l.from, l.to, sends.join(", "), takes.join(", "));
+        return Err(format!("it sends {} and the input takes {} – no event can pass", sends.join(", "), takes.join(", ")));
     }
     Ok(())
 }
 
-/// The module path outputs bound to the scene's inputs (see `Graph`): links appended, the holds returned.
-fn bind_targets(nodes: &[Node], by_id: &HashMap<String, usize>, links: &mut Vec<Link>) -> Result<Vec<((usize, usize), f32)>> {
+/// The module path outputs bound to the scene's inputs (see `Graph`): links appended, the holds returned, a target that
+/// does not fit listed in `problems` at its node.
+fn bind_targets(nodes: &[Node], by_id: &HashMap<String, usize>, links: &mut Vec<Link>, problems: &mut Problems) -> Vec<((usize, usize), f32)> {
     let mut holds = Vec::new();
     for (mi, m) in nodes.iter().enumerate() {
         let Kind::Module(kind) = m.kind else { continue };
         for &(out, path, mode) in kind.spec().targets {
-            // `<track>:<node>.<port>` → the flattened `<track>_<node>`; `<track>:@gain` → the strip the node's `@gain`
-            // table names (a code rig's flatten writes it, #408); another reserved member (`@preset`) is the deck's (#410)
-            let (id, port) = if let Some(track) = path.strip_suffix(":@gain") {
-                let strip = m.params.get(crate::rig::policy::GAIN_TABLE).and_then(|t| t.get(track)).and_then(|v| v.as_str());
-                let Some((node, port)) = strip.map(split_ref) else { continue };
-                (node.to_owned(), port)
-            } else if path.contains('@') {
-                continue;
-            } else {
-                let (node, port) = split_ref(path);
-                match node.split_once(':') {
-                    Some((track, node)) => (format!("{track}_{node}"), port),
-                    None => (node.to_owned(), port),
+            // the descriptor's target is an address (rig/address.rs): `<track>:<node>.<port>` → the flattened
+            // `<track>_<node>`; `<track>:@gain` → the strip the node's `@gain` table names (a code rig's flatten writes
+            // it, #408); `<node>.<port>` a node of the scene. Another member (`@preset`, the deck's, #410), the being, the
+            // policy or no address at all bind nothing here – the rig's check judges the path.
+            let (id, port) = match Address::leaf(path) {
+                Ok(Leaf::Member { track, member }) if member == "gain" => {
+                    let strip = m.params.get(crate::rig::policy::GAIN_TABLE).and_then(|t| t.get(track.as_str())).and_then(|v| v.as_str());
+                    let Some((node, port)) = strip.map(node_port) else { continue };
+                    (node.to_owned(), port.to_owned())
                 }
+                Ok(Leaf::Port { track: Some(track), node, port }) => (format!("{track}_{node}"), port),
+                Ok(Leaf::Port { track: None, node, port }) => (node, port),
+                _ => continue,
             };
             let Some(&ti) = by_id.get(&id) else { continue };
             let t = &nodes[ti];
-            let Some(tp) = t.kind.input(port).filter(|&k| t.kind.inputs()[k].ty == PortType::Control) else {
-                bail!("node '{}': its output '{}' drives '{path}' – '{}' has no control input '{port}'", m.id, kind.spec().outputs[out].name, t.id)
+            let Some(tp) = t.kind.input(&port).filter(|&k| t.kind.inputs()[k].ty == PortType::Control) else {
+                problems.push(format!("node '{}'", m.id), format!("its output '{}' drives '{path}' – '{}' has no control input '{port}'", kind.spec().outputs[out].name, t.id));
+                continue;
             };
             if links.iter().any(|l| l.to == (ti, tp)) {
-                bail!("node '{}': its output '{}' drives '{path}', which already has a link", m.id, kind.spec().outputs[out].name);
+                problems.push(format!("node '{}'", m.id), format!("its output '{}' drives '{path}', which already has a link", kind.spec().outputs[out].name));
+                continue;
             }
-            let own = t.f32(port, crate::params::default_for(t.kind, port));
+            let own = t.f32(&port, crate::params::default_for(t.kind, &port));
             let (scale, offset, hold) = match mode {
                 deck_catalog::Mode::Set => (1.0, 0.0, own),
                 deck_catalog::Mode::Add => (1.0, own, 0.0),
@@ -490,7 +515,7 @@ fn bind_targets(nodes: &[Node], by_id: &HashMap<String, usize>, links: &mut Vec<
             holds.push(((mi, out), hold));
         }
     }
-    Ok(holds)
+    holds
 }
 
 /// Kahn's algorithm over the ordering links, stable by declaration order (the scene's order wins among independent nodes)
@@ -577,6 +602,21 @@ mod tests {
         assert!(graph(&format!("{two}[[link]]\nfrom=\"a.nope\"\nto=\"b.rate\"\n")).is_err());
         assert!(graph(&format!("{two}[[link]]\nfrom=\"a\"\nto=\"b.rate\"\n[[link]]\nfrom=\"a\"\nto=\"b.rate\"\n")).is_err());
         assert!(graph("[[node]]\nid=\"a\"\nkind=\"blender\"\n").is_err());
+    }
+
+    /// #432: a build lists every problem at its link or node, not the first alone; one problem reads as before
+    #[test]
+    fn every_problem_is_listed_at_its_link_or_node() {
+        let two = "[[node]]\nid=\"a\"\nkind=\"lfo\"\n[[node]]\nid=\"b\"\nkind=\"lfo\"\n[[node]]\nid=\"c\"\nkind=\"blender\"\n";
+        let e = graph(&format!("{two}[[link]]\nfrom=\"a.nope\"\nto=\"b.rate\"\n[[link]]\nfrom=\"a\"\nto=\"nobody.rate\"\n")).unwrap_err();
+        let listed = crate::problem::listed(&e);
+        let ats: Vec<&str> = listed.iter().map(|p| p.at.as_str()).collect();
+        assert_eq!(ats, ["node 'c'", "link a.nope → b.rate", "link a → nobody.rate"], "{listed:?}");
+        assert_eq!(listed[0].says, "unknown kind 'blender'");
+        assert_eq!(listed[2].says, "no node 'nobody'");
+        assert_eq!(e.to_string(), "node 'c': unknown kind 'blender'; link a.nope → b.rate: Lfo has no output 'nope'; link a → nobody.rate: no node 'nobody'");
+        let one = graph(&format!("{two}[[link]]\nfrom=\"a\"\nto=\"b.rate\"\n[[link]]\nfrom=\"a\"\nto=\"b.rate\"\n").replace("[[node]]\nid=\"c\"\nkind=\"blender\"\n", "")).unwrap_err();
+        assert_eq!(one.to_string(), "link a → b.rate: the input already has a link");
     }
 
     #[test]

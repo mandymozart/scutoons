@@ -1,4 +1,4 @@
-Status 2026-11-08: research for #393, undecided. Recommendation: browser for content, a native Rust editor for live-sensitive creation, on our own component library over winit + wgpu; a small proof first, GPUI not as the host. The owner decides from §6 / §7.
+Status 2026-11-09: research for #393; the owner answered §7 (decisions/deck.md [platform], 2026-11-09; those lines override the text below): our own UI, not GPUI; nodes in 3D joined by the existing tubes, one UI with the play mode, a 2D node overlay to explore as well; hand rewiring native only; the Rust tab external for now; #386 uses the same library; publishing stays in the browser; Windows, Linux and macOS from the start. A small proof comes first.
 
 # NATIVE-EDITOR-GUI – a native Rust GUI for the editor, and the split from content management
 

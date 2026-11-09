@@ -7,7 +7,8 @@
 use super::{Instrument, Library, Preset, Rig, Text};
 use crate::graph::{Graph, Kind, PortType};
 use crate::params::{self, Curve};
-use crate::scene::{split_ref, LinkDef, NodeDef, Scene, CATHEDRAL_SCENE, SILENT_SCENE};
+use super::address::node_port as split_ref;
+use crate::scene::{LinkDef, NodeDef, Scene, CATHEDRAL_SCENE, SILENT_SCENE};
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -356,14 +357,21 @@ impl Bundle {
                 }
             }
         }
+        // the sticks: the rig's addresses (#432) as the knob slots the page turns
         let sticks = match &self.rig.sticks {
             Some(pairs) => {
-                for p in pairs.iter().flatten() {
-                    if !p.is_empty() && !knobs.iter().any(|k| &k.path == p) {
+                let mut slots: [[String; 2]; 2] = Default::default();
+                for (i, p) in pairs.iter().flatten().enumerate() {
+                    if p.is_empty() {
+                        continue;
+                    }
+                    let slot = self.rig.stick_slot(p)?;
+                    if !knobs.iter().any(|k| k.path == slot) {
                         bail!("rig {}: stick '{p}' is not one of its knobs", self.rig.subject);
                     }
+                    slots[i / 2][i % 2] = slot;
                 }
-                pairs.clone()
+                slots
             }
             None => {
                 let mut it = knobs.iter().map(|k| k.path.clone());

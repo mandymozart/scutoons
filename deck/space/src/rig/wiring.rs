@@ -6,6 +6,7 @@
 //! value table), read by the paths named here.
 use super::Played;
 use crate::graph::{Domain, Graph, Kind, PortType};
+use crate::problem::Problem;
 use crate::scene::Scene;
 use anyhow::Result;
 use serde::Serialize;
@@ -15,9 +16,13 @@ use serde::Serialize;
 pub struct Wiring {
     pub nodes: Vec<WireNode>,
     pub links: Vec<WireLink>,
-    /// why there is no graph ("" = there is one)
+    /// why there is no graph ("" = there is one), in one sentence
     #[serde(skip_serializing_if = "String::is_empty")]
     pub problem: String,
+    /// each problem at its cable or node (#432): the ones behind `problem`, or on a graph that built, what is listed but
+    /// not refused – a far world node not connected yet (#442)
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub problems: Vec<Problem>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -43,8 +48,12 @@ pub struct WireNode {
 /// What a world node shows (#430): where its events come from, and the names it lets through.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct WireWorld {
+    /// `midi` · `generator` · `far`
     pub source: &'static str,
     pub listen: Vec<String>,
+    /// a far source's address (#432)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub address: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -90,9 +99,9 @@ fn domain(d: Domain) -> &'static str {
 }
 
 impl Wiring {
-    /// no graph, and why
-    pub fn failed(problem: String) -> Wiring {
-        Wiring { nodes: Vec::new(), links: Vec::new(), problem }
+    /// no graph, and why: the one sentence, and each problem at its cable or node
+    pub fn of_error(e: &anyhow::Error) -> Wiring {
+        Wiring { nodes: Vec::new(), links: Vec::new(), problem: format!("{e:#}"), problems: crate::problem::listed(e) }
     }
 }
 
@@ -137,14 +146,20 @@ impl Played {
                 inputs: ports(n.kind.inputs()),
                 outputs: ports(n.kind.outputs()),
                 played: !self.engine.page.iter().any(|p| p.id == n.id),
-                world: (n.kind == Kind::World).then(|| crate::world::World::of(n)).transpose().ok().flatten().map(|w| WireWorld {
-                    source: match w.source {
-                        crate::world::Source::Midi => "midi",
-                        crate::world::Source::Generator => "generator",
-                    },
-                    listen: w.listen,
+                world: (n.kind == Kind::World).then(|| crate::world::World::of(n)).transpose().ok().flatten().map(|w| {
+                    let (source, address) = match &w.source {
+                        crate::world::Source::Midi => ("midi", None),
+                        crate::world::Source::Generator => ("generator", None),
+                        crate::world::Source::Far(a) => ("far", Some(a.to_string())),
+                    };
+                    WireWorld { source, listen: w.listen, address }
                 }),
             })
+            .collect::<Vec<WireNode>>();
+        // #432: a far world node is drawn and cabled, and listed as not connected until #442 carries its events
+        let problems = nodes
+            .iter()
+            .filter_map(|n| n.world.as_ref().and_then(|w| w.address.as_ref()).map(|a| Problem::new(format!("world node '{}'", n.id), format!("not connected yet – nothing carries '{a}' into this deck (#442)"))))
             .collect();
         // the scene's links come first in the graph's list, a module's bound outputs after them
         let links = g
@@ -167,7 +182,7 @@ impl Played {
                 }
             })
             .collect();
-        Ok(Wiring { nodes, links, problem: String::new() })
+        Ok(Wiring { nodes, links, problem: String::new(), problems })
     }
 }
 

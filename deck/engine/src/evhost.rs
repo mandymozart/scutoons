@@ -152,30 +152,35 @@ pub(crate) fn wire(graph: &Graph, prepared: &mut [Option<Prepared>], ev: &mut Ev
         let k = inputs.iter().position(|e| e.name == port).ok_or_else(|| anyhow!("node '{}': no event input '{port}'", graph.nodes[b].id))?;
         if graph.nodes[a].kind == Kind::World {
             let w = world::World::of(&graph.nodes[a])?;
-            if w.source == Source::Midi {
-                let outlet = match world_rings.iter().find(|(at, _)| *at == (b, k)) {
-                    Some(&(_, t)) => t,
-                    None => {
-                        let (tx, rx) = rtrb::RingBuffer::new(RING);
-                        let t = ev.outlets.len();
-                        ev.outlets.push(tx);
-                        all[b].as_mut().expect("wired above").ins[k].world = Some(rx);
-                        world_rings.push(((b, k), t));
-                        t
-                    }
-                };
-                for name in &w.listen {
-                    let s = ev.names.event(name).map_err(|e| anyhow!("{name}: {e:?}"))?;
-                    let inp = &all[b].as_ref().expect("wired above").ins[k];
-                    let takes = inp.names.contains(&s) || (keys.notes.contains(&s) && inp.note.is_some());
-                    if takes && !ev.routes.iter().any(|r| r.on == Match::Name(s) && r.to == outlet) {
-                        ev.routes.push(Route { on: Match::Name(s), to: outlet });
+            match &w.source {
+                Source::Midi => {
+                    let outlet = match world_rings.iter().find(|(at, _)| *at == (b, k)) {
+                        Some(&(_, t)) => t,
+                        None => {
+                            let (tx, rx) = rtrb::RingBuffer::new(RING);
+                            let t = ev.outlets.len();
+                            ev.outlets.push(tx);
+                            all[b].as_mut().expect("wired above").ins[k].world = Some(rx);
+                            world_rings.push(((b, k), t));
+                            t
+                        }
+                    };
+                    for name in &w.listen {
+                        let s = ev.names.event(name).map_err(|e| anyhow!("{name}: {e:?}"))?;
+                        let inp = &all[b].as_ref().expect("wired above").ins[k];
+                        let takes = inp.names.contains(&s) || (keys.notes.contains(&s) && inp.note.is_some());
+                        if takes && !ev.routes.iter().any(|r| r.on == Match::Name(s) && r.to == outlet) {
+                            ev.routes.push(Route { on: Match::Name(s), to: outlet });
+                        }
                     }
                 }
-            } else {
-                // a generator's notes come straight down its cables; its one name maps onto the input's note
-                let note = pb.ins[k].note.ok_or_else(|| anyhow!("node '{}': a generator's cable needs a note input", graph.nodes[b].id))?;
-                generators.push((a, b, k, vec![note]));
+                Source::Generator => {
+                    // a generator's notes come straight down its cables; its one name maps onto the input's note
+                    let note = pb.ins[k].note.ok_or_else(|| anyhow!("node '{}': a generator's cable needs a note input", graph.nodes[b].id))?;
+                    generators.push((a, b, k, vec![note]));
+                }
+                // #432: a far place's events – nothing carries them into this deck yet (#442): the input hears nothing from it
+                Source::Far(_) => {}
             }
             continue;
         }

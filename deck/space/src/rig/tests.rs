@@ -221,6 +221,35 @@ fn a_rig_naming_the_wrong_things_is_refused() {
     assert!(r.check(&lib).is_err());
 }
 
+/// #432: every problem is listed at its route or variant, not the first alone; a rig's cable stays relative – an
+/// absolute address on it is refused and told where it belongs
+#[test]
+fn a_rig_lists_every_problem_at_its_cable() {
+    let (lib, rig) = set();
+    let mut r = rig.clone();
+    r.routes.push(super::Route { from: "voice:voice.out".into(), to: "nobody:x.y".into(), scale: 1.0, offset: 0.0 });
+    r.routes.push(super::Route { from: "/deck:left/scene:nave/character:x/voice:voice.out".into(), to: "being:glow".into(), scale: 1.0, offset: 0.0 });
+    r.routes.push(super::Route { from: "voice:@gain".into(), to: "being:glow".into(), scale: 1.0, offset: 0.0 });
+    r.moods.get_mut("sad").unwrap().values.insert("air:hiss.nope".into(), 1.0);
+    let e = r.check(&lib).unwrap_err();
+    let listed = crate::problem::listed(&e);
+    let ats: Vec<&str> = listed.iter().map(|p| p.at.as_str()).collect();
+    assert_eq!(
+        ats,
+        ["mood sad", "route voice:voice.out → nobody:x.y", "route /deck:left/scene:nave/character:x/voice:voice.out → being:glow", "route voice:@gain → being:glow"],
+        "{listed:?}"
+    );
+    assert!(listed[0].says.contains("hiss.nope is not a control input"), "{}", listed[0]);
+    assert!(listed[1].says.contains("no track 'nobody'"), "{}", listed[1]);
+    assert!(listed[2].says.contains("leaves the rig") && listed[2].says.contains("world node"), "{}", listed[2]);
+    assert!(listed[3].says.contains("is not a port"), "{}", listed[3]);
+    assert_eq!(crate::problem::sentences(&e).len(), 4);
+    // the one-problem case reads as it always did
+    let mut r = rig.clone();
+    r.tracks.push(r.tracks[0].clone());
+    assert_eq!(format!("{:#}", r.check(&lib).unwrap_err()), format!("rig {}: track 'voice' twice", r.subject));
+}
+
 #[test]
 fn a_derivative_keeps_only_what_changed() {
     let (lib, _) = set();
@@ -259,7 +288,7 @@ fn documents_round_trip_as_json() {
 }
 
 fn param(s: &crate::scene::Scene, path: &str) -> Option<f64> {
-    let (n, p) = crate::scene::split_ref(path);
+    let (n, p) = crate::rig::address::node_port(path);
     s.nodes.iter().find(|x| x.id == n)?.params.get(p)?.as_float()
 }
 
@@ -362,13 +391,17 @@ fn a_rig_names_its_sticks_or_they_come_from_its_first_knobs() {
     // three knobs: left (x, y), right x; no fourth
     let p = b.play(None, None).unwrap();
     assert_eq!(p.sticks, [["voice_voice.ratio", "voice_voice.gain"], ["voice_sway.rate", ""]]);
-    // named
-    b.rig.sticks = Some([["voice_sway.rate".into(), "voice_voice.ratio".into()], ["".into(), "voice_voice.gain".into()]]);
+    // named, as addresses (#432: `<track>:<node>.<port>`); the page gets the compiled slots
+    b.rig.sticks = Some([["voice:sway.rate".into(), "voice:voice.ratio".into()], ["".into(), "voice:voice.gain".into()]]);
     let p = b.play(None, None).unwrap();
     assert_eq!(p.sticks, [["voice_sway.rate", "voice_voice.ratio"], ["", "voice_voice.gain"]]);
     // a stick that is no knob of the rig is an error, not a silent dead stick
-    b.rig.sticks = Some([["voice_voice.nope".into(), "".into()], ["".into(), "".into()]]);
-    assert!(b.play(None, None).unwrap_err().to_string().contains("voice_voice.nope"));
+    b.rig.sticks = Some([["voice:voice.nope".into(), "".into()], ["".into(), "".into()]]);
+    assert!(b.play(None, None).unwrap_err().to_string().contains("voice:voice.nope"));
+    // the compiled form the documents held before the 2026-11-09 migration is no address of the rig
+    b.rig.sticks = Some([["voice_voice.ratio".into(), "".into()], ["".into(), "".into()]]);
+    let e = b.play(None, None).unwrap_err().to_string();
+    assert!(e.contains("names no track") && e.contains("<track>:<node>.<port>"), "{e}");
     // the answer carries them to the page; a rig without `sticks` stays out of its document
     b.rig.sticks = None;
     let json = serde_json::to_string(&b).unwrap();

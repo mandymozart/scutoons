@@ -55,11 +55,13 @@ orchestrator ≈ $445 list over 2026-10-29 … 11-01, `agents/costs.json`), so s
   `python C:\Developmentgents\costs
 eport.py`.
 
-## State (2026-11-08, before the owner restarts the PC)
-- Local main is 62+ commits ahead of origin; nothing pushed. deck:ci green up to fc99a571; after it only notes and the #393 research merge (module-bench clippy green).
-- **Next: start the #430 worker (W2, event cables and world nodes) after the restart.** The issue and research/MODULE-WIRING.md (owner's answers at the top) hold the scope; Opus 5.5 high, cap 200 turns / $40. W1, W4-W6 = #431-#434. W3 dropped: wiring is configuration.
-- Before a push: PHPUnit for #412 (`SCUTOONS_DB_NAME=scutoons_412 npm run dev:db test -- --filter CatalogDocsTest`; Docker needed the restart). Warn the owner that `/live/deck` without a rig goes silent (#425). After a push: the analog factory module needs a recompile (#429 curves).
-- Demo on this PC: `deck/native/run-catpope-analog.ps1` (ASIO build in deck/target/asio, module wasm in deck/target/hear-modules); this PC's deck.toml has `[[audio_outlet]]` cue 3/4, stem 5/6 (#428). The owner has not yet confirmed the knobs live (#429).
+## State (2026-11-09, the wiring leg, the orchestrator builds alone on Fable)
+- Pushed 2026-11-09 up to 5a023a4b (W2 #430, #428, #429, #437 …); the deploy applied the migrations up to 2026-11-08. Owner's step after it: Compile on `module:analog`.
+- Owner 2026-11-09: "Use fable for this big chunk … you can handle alone": the wiring slices are built in the orchestrator session itself, no worker (the W4 worker was stopped before it wrote anything, $1.38 booked).
+- **W4 (#432) built on local main:** rig/address.rs (one parser, `Reach::Wide`), problem.rs (every problem at its cable), far world nodes (`source = "far"`, `address`), sticks as addresses + migration 2026-11-09-rig-sticks-addresses (catalog_rigs, 1 row on production). Checks: deck-space 261 tests, deck-engine 67, clippy, core-only, deck-deps, generate, PHPUnit RigSticksMigrationTest (own DB scutoons_432). deck:ci: see the commit's note.
+- **Next: #442** (events between linked decks: a far world node's `deck:` place subscribes through the relay; the owner: "precondition or done right after" W4), then W5 (#433) and W6 (#434) core parts. Native path afterwards: #443 renderer library → #444 editor proof (the owner's old Intel Mac on 10.13 is the macOS test machine) → #431 W1 → #445 3D nodes (the owner's Tripo GLBs in Proton Drive characters/*/modules) → #446 2D overlay.
+- Owner's answers of 2026-11-09 are in decisions/deck.md ([platform], [rigs]); the research notes' status lines point to them.
+- Demo on this PC: `deck/native/run-catpope-analog.ps1` (ASIO build in deck/target/asio, module wasm in deck/target/hear-modules); this PC's deck.toml has `[[audio_outlet]]` cue 3/4, stem 5/6 (#428). The owner has not yet confirmed the knobs live (#429); the length knob stays where it is (owner 2026-11-09).
 
 ## State (2026-11-05, end of the 2026-11-04 night shift – the deck engine / one-core leg)
 - `origin/main` = 6533318a; **everything after is local only** (200 commits ahead of origin/main: the guards #363, the law book #380, the fix tickets, ABI v2, P9a, P10).

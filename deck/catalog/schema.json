@@ -828,7 +828,7 @@
           "type": "array"
         },
         "sticks": {
-          "description": "the two corner sticks of the phone deck, `[[x, y], [x, y]]` (left, right) as knob paths\n(`<track>_<node>.<port>`); none = the first four knobs (#191)",
+          "description": "the two corner sticks of the phone deck, `[[x, y], [x, y]]` (left, right) as addresses of its knobs\n(`<track>:<node>.<port>`, a code rig's `policy:<param>`; \"\" = none); none = the first four knobs (#191, #432)",
           "items": {
             "items": {
               "type": "string"
