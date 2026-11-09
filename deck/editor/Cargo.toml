@@ -1,0 +1,32 @@
+[package]
+name = "deck-editor"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "The native editor's proof (#444): one window, the stage beside a panel, on deck-native's pieces"
+
+[[bin]]
+name = "deck-editor"
+path = "src/main.rs"
+
+[dependencies]
+# the deck's own pieces: the window and its GPU (#443), the audio stack, the rig player, the stage
+deck-native = { path = "../native" }
+deck-space = { path = "../space", default-features = false, features = ["being", "gpu", "native"] }
+deck-engine = { path = "../engine" }
+deck-core = { workspace = true, features = ["tempo"] }
+anyhow.workspace = true
+serde.workspace = true
+toml.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+wgpu = "25"
+winit = "0.30"
+pollster = "0.4"
+bytemuck = { version = "1", features = ["derive"] }
+ab_glyph = "0.2"
+image = { version = "0.25", default-features = false, features = ["png"] }
+# the OS clipboard for the text field's copy and paste
+arboard = { version = "3", default-features = false }
