@@ -238,6 +238,11 @@ fn node_of(layer: &Layer, locale: &str, problems: &mut Vec<String>) -> Option<La
             }
         },
         LayerSrc::Camera(c) => LayerNode::VideoIn { input: c.input.clone() },
+        // a show's cell (#89): the conductor sends it, the deck does not load a piece from a cell yet
+        LayerSrc::Piece(p) => {
+            problems.push(format!("{}: the piece '{}' – this deck does not play a show's pieces yet", layer.id, p.piece));
+            return None;
+        }
     })
 }
 
@@ -260,6 +265,13 @@ mod tests {
         { "id": "choir", "src": { "kind": "set", "p": { "set": "cathedral", "spot": "choir", "mode": "video" } } },
         { "id": "wash", "src": { "kind": "colour", "p": { "colour": "#1a0b2e80" } } }
     ] }"##;
+
+    #[test]
+    fn a_shows_piece_is_a_problem_until_the_deck_plays_it() {
+        let p = plan(&cell(r#"{ "mode": "own", "layers": [{ "id": "piece", "src": { "kind": "piece", "p": { "piece": "scene:nave", "values": { "light": 0.2 } } } }] }"#), "de", |_| true);
+        assert!(p.layers.is_empty());
+        assert_eq!(p.problems, vec!["piece: the piece 'scene:nave' – this deck does not play a show's pieces yet"]);
+    }
 
     #[test]
     fn the_sermon_maps_to_space_text_chapter_video_and_a_solid() {

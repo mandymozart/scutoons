@@ -607,7 +607,7 @@ pub struct Transition {
 	pub ms: u64,
 }
 
-/// What a layer shows (B.5.2 ToonSrc / LiveSrc, resolved). From the toon (the public library): scroll, slice, panel, surtitles. Live: video / image / model3d (a preloaded medium by id), set (a set's spot in a mode, #193), text, colour, camera.
+/// What a layer shows (B.5.2 ToonSrc / LiveSrc, resolved). From the toon (the public library): scroll, slice, panel, surtitles. Live: video / image / model3d (a preloaded medium by id), set (a set's spot in a mode, #193), text, colour, camera. A show's cell: piece (#89).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", content = "p")]
 pub enum LayerSrc {
@@ -633,6 +633,8 @@ pub enum LayerSrc {
 	Colour(ColourSrc),
 	#[serde(rename = "camera")]
 	Camera(CameraSrc),
+	#[serde(rename = "piece")]
+	Piece(PieceSrc),
 }
 
 impl LayerSrc {
@@ -650,8 +652,17 @@ impl LayerSrc {
 			LayerSrc::Text(_) => "text",
 			LayerSrc::Colour(_) => "colour",
 			LayerSrc::Camera(_) => "camera",
+			LayerSrc::Piece(_) => "piece",
 		}
 	}
+}
+
+/// SHOW.md §5, a cell is a piece plus values: the piece (a place, `scene:nave`, `rig:storm`, `character:yellowmouse`) and all its values, resolved by the conductor along the path really taken (keep, values). The deck compares: same piece, the values glide; other piece, load and crossfade.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PieceSrc {
+	pub piece: String,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub values: Option<Loose>,
 }
 
 /// scroll: the chapter's slices running one after the other.

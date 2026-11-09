@@ -1,0 +1,20 @@
+# deck-show (#89, research/SHOW.md §3 "Show core"): the show document (recursive: one document per conductor, seats in the
+# parent's), its validation and the bare conductor that fires rows and sends full cells. Nothing else fitted (RULES A1):
+# deck-core has no idea of the wire or a show, deck-events generates events, deck-outlet is one outlet's picture.
+# Platform-free (native + wasm32, deck:ci builds it): no socket, no window, no clock of its own – the adapter passes the time in.
+[package]
+name = "deck-show"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+protocol = { workspace = true }
+serde.workspace = true
+serde_json.workspace = true
+# the grid a row's moment waits for (tempo::Quantize)
+deck-core = { workspace = true, features = ["tempo"] }
+# the one parser of places (rig/address.rs, RULES A14)
+deck-space = { path = "../space", default-features = false }
