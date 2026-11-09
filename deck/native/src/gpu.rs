@@ -36,6 +36,11 @@ pub(crate) fn backends_fallback(tried: wgpu::Backends) -> Option<wgpu::Backends>
 impl Gpu {
     /// the device and the surface for `window`, configured at its size
     pub fn new(window: Arc<Window>) -> Result<Gpu> {
+        Gpu::with_features(window, wgpu::Features::empty())
+    }
+
+    /// `new`, with these features where the adapter has them (the editor's GPU timing)
+    pub fn with_features(window: Arc<Window>, wanted: wgpu::Features) -> Result<Gpu> {
         let mut backends = backends_first();
         let (surface, adapter) = loop {
             let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor { backends, ..wgpu::InstanceDescriptor::from_env_or_default() });
@@ -66,7 +71,7 @@ impl Gpu {
         tracing::info!("render: {} ({:?}, {:?}, driver {})", info.name, info.backend, info.device_type, info.driver_info);
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("deck-native"),
-            required_features: wgpu::Features::empty(),
+            required_features: adapter.features() & wanted,
             required_limits: wgpu::Limits::downlevel_webgl2_defaults().using_resolution(adapter.limits()),
             memory_hints: wgpu::MemoryHints::Performance,
             trace: wgpu::Trace::Off,

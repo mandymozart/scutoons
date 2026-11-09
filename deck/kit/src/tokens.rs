@@ -23,6 +23,9 @@ pub struct Colors {
     pub accent: [f32; 4],
     pub selection: [f32; 4],
     pub danger: [f32; 4],
+    /// the play button: go, and stop
+    pub go: [f32; 4],
+    pub stop: [f32; 4],
     /// the view gizmo's x, y, z
     pub axis: [[f32; 4]; 3],
 }
@@ -49,6 +52,8 @@ impl Default for Colors {
             accent: [0.0, 0.82, 1.0, 1.0],
             selection: [0.3, 0.45, 0.7, 0.6],
             danger: rgb(0xc0392b),
+            go: rgb(0x4cc35a),
+            stop: rgb(0xe5483b),
             axis: [[0.93, 0.27, 0.32, 1.0], [0.47, 0.75, 0.2, 1.0], [0.25, 0.53, 0.95, 1.0]],
         }
     }
@@ -78,7 +83,7 @@ pub struct Sizes {
 
 impl Default for Sizes {
     fn default() -> Sizes {
-        Sizes { top: 40.0, tree: 220.0, inspector: 280.0, edge: 1.0, pad: 8.0, font: 12.0, small: 11.0, row: 28.0, tree_row: 24.0, radius: 5.0 }
+        Sizes { top: 36.0, tree: 220.0, inspector: 280.0, edge: 1.0, pad: 8.0, font: 12.0, small: 11.0, row: 28.0, tree_row: 24.0, radius: 5.0 }
     }
 }
 

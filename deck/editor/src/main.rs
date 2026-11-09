@@ -11,6 +11,7 @@
 //!
 //! deck-editor [--rig catpope] [--frames N] [--screenshot FILE] [--tokens FILE] [--stress] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO]
 mod bar;
+mod gpu_time;
 mod logo;
 mod stage;
 mod tokens;
@@ -58,7 +59,7 @@ struct Args {
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { rig: "catpope".into(), frames: None, screenshot: None, tokens: None, stress: false, volume: 0.5, size: None, wire: false, draft: None, gesture: None, view: None, enter: None, pull: false, menu: None };
+    let mut a = Args { rig: "catpope".into(), frames: None, screenshot: None, tokens: None, stress: false, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, pull: false, menu: None };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -71,7 +72,11 @@ fn args() -> Result<Args> {
             "--stress" => a.stress = true,
             "--wire" => a.wire = true,
             "--view" => a.view = Some(val()?.parse()?),
-            "--pull" => a.pull = true,
+            "--pull" => {
+                a.pull = true;
+                a.wire = false;
+            }
+            "--play" => a.wire = false,
             "--enter" => {
                 a.enter = Some(val()?);
                 a.wire = true;
@@ -206,6 +211,10 @@ struct App {
     window: Option<Arc<Window>>,
     gpu: Option<Gpu>,
     ui: Option<ui::Ui>,
+    gpu_time: Option<gpu_time::GpuTime>,
+    /// how much of the frame the CPU and the GPU work, smoothed
+    cpu_load: f32,
+    gpu_load: f32,
     stage: stage::Stage,
     tokens: tokens::Watched,
     panel: Panel,
@@ -274,6 +283,9 @@ fn run() -> Result<i32> {
         window: None,
         gpu: None,
         ui: None,
+        gpu_time: None,
+        cpu_load: 0.0,
+        gpu_load: 0.0,
         stage,
         tokens,
         mods: ModifiersState::empty(),
@@ -368,8 +380,8 @@ impl App {
             Hit::Crumb(0) => Help::new("rig", "Back to the rig, every track one body."),
             Hit::Row(_) => Help::new("Tree", "The rig, its tracks and their nodes. In Wire a click goes to that level."),
             Hit::Crumb(d) => Help::new(self.stage.path.get(d - 1)?.clone(), "Back to this level. Esc or shift+tab goes one level up."),
-            Hit::Mode(false) => Help::new("Play", "The stage as a deck shows it: every node, knobs turn on the stage. W switches."),
-            Hit::Mode(true) => Help::new("Wire", "The wiring: the body holds still, the ports show, one level of the tree at a time. W switches."),
+            Hit::Mode(false) => Help::new("Play", "Play it as a deck shows it: every node, knobs turn on the stage. W does the same."),
+            Hit::Mode(true) => Help::new("Stop", "Back to the wiring: the body holds still, the ports show, one level of the tree at a time. W does the same."),
             Hit::Axis(Some(a)) => Help::new(format!("{}{}", if a < 3 { "+" } else { "-" }, ["X", "Y", "Z"][a % 3]), "Click to look along this axis, drag to orbit."),
             Hit::Axis(None) => Help::new("View", "Drag to orbit, click an axis to look along it."),
             Hit::Stage if self.wire => Help::new("Stage", "Left drag orbits, middle or right drag pans, the wheel zooms, F frames. Right click finds any port."),
@@ -917,7 +929,11 @@ impl App {
         // the regions start under the top bar (bar.rs: the title, the status, the version)
         let top = t.size.top;
         let body = (hf - top).max(1.0);
+        let work_start = Instant::now();
         let mut enc = gpu.device.create_command_encoder(&Default::default());
+        if let Some(g) = self.gpu_time.as_mut() {
+            g.begin(&mut enc);
+        }
         // the stage at its viewport's size in pixels
         let (stage_view, fresh) = self.stage.frame(&gpu.device, &gpu.queue, &mut enc, ((stage_w * scale) as u32, (body * scale) as u32), dt);
         if fresh {
@@ -1048,21 +1064,19 @@ impl App {
         // the status: the numbers of the gates, live (a broken tokens file first: the bar cuts from the end)
         let recent = &self.frame_ms[self.frame_ms.len().saturating_sub(30)..];
         let mean = if recent.is_empty() { 16.7 } else { recent.iter().sum::<f32>() / recent.len() as f32 };
+        let glitches = self.stage.glitches();
         let status = format!(
-            "{}{:.0} fps · ui {:.2} ms · {} quads · {} · {}",
+            "{}{:.0} fps{}{}",
             self.tokens.problem.as_ref().map(|p| format!("{p} – ")).unwrap_or_default(),
             1000.0 / mean.max(0.1),
-            self.ui_ms.last().copied().unwrap_or(0.0),
-            ui.quads(),
-            self.stage.glitch_text(),
-            self.stage.audio
+            self.stage.khz().map(|k| format!(" · {k:.0} kHz")).unwrap_or_default(),
+            if glitches > 0 { format!(" · {glitches} glitches") } else { String::new() },
         );
         let status = if self.undo.is_empty() { status } else { format!("{} change{} · {status}", self.undo.len(), if self.undo.len() == 1 { "" } else { "s" }) };
         let logo_frame = ((self.started.elapsed().as_secs_f32() / logo::SECONDS).fract() * logo::FRAMES as f32) as usize;
         let title = self.stage.bundle.rig.subject.as_str();
-        for (r, on) in bar::draw(ui, t, wf, title, &status, self.wire, logo_frame).into_iter().zip([false, true]) {
-            self.panel.hits.push((Rect { y: 0.0, h: top, ..r }, Hit::Mode(on)));
-        }
+        let button = bar::draw(ui, t, wf, &bar::Bar { title, status: &status, wire: self.wire, logo_frame, pointer: self.cursor, cpu: self.cpu_load, gpu: self.gpu_time.as_ref().map(|_| self.gpu_load) });
+        self.panel.hits.push((button, Hit::Mode(!self.wire)));
         // the Wire side: the ports around the being's points, the core's list on this frame's places
         if self.wire {
             let being = &self.stage.space.being;
@@ -1193,8 +1207,18 @@ impl App {
         self.ui_ms.push(t0.elapsed().as_secs_f32() * 1000.0);
         let shot = self.args.screenshot.clone().filter(|_| self.args.frames.is_some_and(|n| self.frames + 1 >= n) && gpu.can_capture);
         let readback = shot.as_ref().map(|_| copy_out(&gpu.device, &mut enc, &frame.texture, (w, h)));
+        if let Some(g) = self.gpu_time.as_mut() {
+            g.end(&mut enc);
+        }
         gpu.queue.submit([enc.finish()]);
         frame.present();
+        let budget = self.frame_ms.last().copied().unwrap_or(16.7).max(1.0);
+        let ease = |load: f32, now: f32| load + (now - load) * 0.08;
+        self.cpu_load = ease(self.cpu_load, work_start.elapsed().as_secs_f32() * 1000.0 / budget);
+        if let Some(g) = self.gpu_time.as_mut() {
+            g.after_submit(&gpu.device);
+            self.gpu_load = ease(self.gpu_load, g.last_ms / budget);
+        }
         if let (Some(path), Some((buf, stride))) = (shot, readback) {
             if let Err(e) = save(&gpu.device, &buf, stride, (w, h), gpu.format(), &path) {
                 tracing::error!("screenshot: {e:#}");
@@ -1226,8 +1250,9 @@ impl ApplicationHandler for App {
                 return;
             }
         };
-        match Gpu::new(window.clone()).and_then(|gpu| ui::Ui::new(&gpu.device, &gpu.queue, gpu.format(), self.tokens.tokens.size.font).map(|ui| (gpu, ui))) {
+        match Gpu::with_features(window.clone(), gpu_time::FEATURES).and_then(|gpu| ui::Ui::new(&gpu.device, &gpu.queue, gpu.format(), self.tokens.tokens.size.font).map(|ui| (gpu, ui))) {
             Ok((gpu, ui)) => {
+                self.gpu_time = gpu_time::GpuTime::new(&gpu.device, &gpu.queue);
                 self.gpu = Some(gpu);
                 self.ui = Some(ui);
             }

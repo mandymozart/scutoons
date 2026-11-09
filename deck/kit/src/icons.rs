@@ -43,6 +43,9 @@ pub const ICONS: &[(&str, &str)] = &[
     ("open", r#"<line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline>"#),
     ("trash", r#"<polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line>"#),
     ("link", r#"<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>"#),
+    // filled, for the one button that starts and stops (owner 2026-11-09: "a play icon and a stop icon like in unreal")
+    ("play-fill", r##"<polygon fill="#fff" points="6 3 20 12 6 21 6 3"></polygon>"##),
+    ("stop-fill", r##"<rect fill="#fff" x="5" y="5" width="14" height="14" rx="1"></rect>"##),
 ];
 
 /// is there an icon of this name
@@ -56,7 +59,7 @@ mod tests {
 
     #[test]
     fn the_ones_the_editor_uses_are_there() {
-        for name in ["up", "down", "next", "close"] {
+        for name in ["up", "down", "next", "close", "play-fill", "stop-fill"] {
             assert!(has(name), "{name}");
         }
     }

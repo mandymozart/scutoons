@@ -44,6 +44,30 @@ pub fn pills(d: &mut DrawList, t: &Tokens, x: f32, y: f32, h: f32, names: &[&str
     out
 }
 
+/// a lone icon you press, its ground showing under the pointer; its place
+pub fn icon_button(d: &mut DrawList, t: &Tokens, at: Rect, name: &'static str, color: [f32; 4], pointer: (f32, f32)) -> Rect {
+    if at.has(pointer.0, pointer.1) {
+        d.round_rect(at.x, at.y, at.w, at.h, t.size.radius, t.color.hover);
+    }
+    let size = at.h * 0.6;
+    d.icon(at.x + (at.w - size) * 0.5, at.y + (at.h - size) * 0.5, size, name, color);
+    at
+}
+
+/// a small labelled meter of how much of something is in use (0..1); the width it took
+pub fn meter(d: &mut DrawList, t: &Tokens, x: f32, y: f32, label: &str, value: f32) -> f32 {
+    const BAR: f32 = 40.0;
+    let px = t.size.small;
+    let lw = d.text(x, y, px, label, t.color.muted) + 5.0;
+    let v = value.clamp(0.0, 1.0);
+    let by = y + px * 0.35;
+    d.round_rect(x + lw, by, BAR, 6.0, 3.0, t.color.control);
+    if v > 0.01 {
+        d.round_rect(x + lw, by, (BAR * v).max(6.0), 6.0, 3.0, if v > 0.85 { t.color.danger } else { t.color.muted });
+    }
+    lw + BAR
+}
+
 /// a section's head: its label; the height it took
 pub fn section(d: &mut DrawList, t: &Tokens, x: f32, y: f32, w: f32, label: &str, first: bool) -> f32 {
     if !first {

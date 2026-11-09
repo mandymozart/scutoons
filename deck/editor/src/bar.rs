@@ -6,7 +6,7 @@ use deck_kit::draw::DrawList;
 use deck_kit::tokens::Tokens;
 
 /// the logo's side
-const LOGO: f32 = 30.0;
+const LOGO: f32 = 22.0;
 
 /// what fits in a bar `width` wide: where the texts start and how many characters each may show
 #[derive(Debug, PartialEq)]
@@ -39,21 +39,49 @@ fn fit(text: &str, cols: usize) -> String {
 }
 
 /// the bar across the top of a window `width` wide; its answer: the Play and the Wire switch as (x, w)
-pub fn draw(ui: &mut DrawList, t: &Tokens, width: f32, title: &str, status: &str, wire: bool, frame: usize) -> Vec<Rect> {
+/// what the bar shows
+pub struct Bar<'a> {
+    pub title: &'a str,
+    pub status: &'a str,
+    pub wire: bool,
+    pub logo_frame: usize,
+    pub pointer: (f32, f32),
+    /// how much of a frame's time the CPU and the GPU work (0..1); the GPU where it can be measured
+    pub cpu: f32,
+    pub gpu: Option<f32>,
+}
+
+pub fn draw(ui: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Rect {
+    let Bar { title, status, wire, logo_frame: frame, pointer, cpu, gpu } = *b;
     let (h, pad, px) = (t.size.top, t.size.pad, t.size.font);
     ui.rect(0.0, 0.0, width, h, t.color.surface_head);
     ui.rect(0.0, h - 1.0, width, 1.0, t.color.line);
     ui.logo(pad, (h - LOGO) * 0.5, LOGO, frame);
     let left = pad + LOGO + pad;
     let adv = ui.advance(px);
-    let switch = 2.0 * (ui.advance(t.size.small) * 4.0 + 2.0 * pad) + 2.0;
+    let switch = t.size.row;
     let l = lay(width, adv, pad, left, title.chars().count(), switch, deck_native::BUILD.chars().count());
     let y = (h - px * 1.25) * 0.5;
     ui.text(left, y, px, &fit(title, l.title_cols), t.color.text);
     ui.text(l.status_x, y, px, &fit(status, l.status_cols), t.color.muted);
     ui.text(l.version_x, y, px, deck_native::BUILD, t.color.muted);
+    // how busy: left of the version, where there is room
+    let room = l.version_x - (l.status_x + status.chars().count() as f32 * adv) - 2.0 * pad;
+    if room > 200.0 {
+        let mut mx = l.version_x - 200.0;
+        mx += controls::meter(ui, t, mx, y, "CPU", cpu) + 2.0 * pad;
+        if let Some(g) = gpu {
+            controls::meter(ui, t, mx, y, "GPU", g);
+        }
+    }
     let sx = left + l.title_cols as f32 * adv + 2.0 * pad;
-    controls::pills(ui, t, sx, (h - t.size.row) * 0.5, t.size.row, &["PLAY", "WIRE"], usize::from(wire))
+    // one button, as in Unreal: green starts playing, red stops it
+    let at = Rect { x: sx, y: (h - t.size.row) * 0.5, w: t.size.row, h: t.size.row };
+    if wire {
+        controls::icon_button(ui, t, at, "play-fill", t.color.go, pointer)
+    } else {
+        controls::icon_button(ui, t, at, "stop-fill", t.color.stop, pointer)
+    }
 }
 
 #[cfg(test)]

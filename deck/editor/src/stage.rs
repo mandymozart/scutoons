@@ -199,6 +199,11 @@ impl Stage {
         self.visible = vec![true; self.ports.len()];
     }
 
+    /// the sound's rate, if there is sound
+    pub fn khz(&self) -> Option<f64> {
+        self.handles.as_ref().map(|_| self.rate / 1000.0)
+    }
+
     pub fn glitches(&self) -> u64 {
         self.handles.as_ref().map_or(0, |h| h.glitches.count())
     }
@@ -259,7 +264,4 @@ impl Stage {
         (view, fresh)
     }
 
-    pub fn glitch_text(&self) -> String {
-        format!("glitches {}", self.glitches())
-    }
 }
