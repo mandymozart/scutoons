@@ -40,11 +40,11 @@ test('the relay: the hosted one by default; ?relay= a whole session URL or a hos
 	assert.equal(relayOf(q('relay=wss://192-168-1-116.lan.scutoons.com:7700'), LIVE, 'A7K2'), 'wss://192-168-1-116.lan.scutoons.com:7700/live/A7K2', 'the name + the path code');
 });
 
-test("the character: the address, the member's avatar, the device, the default", () => {
-	assert.equal(characterOf(q('character=catpope'), me('Tilman', 'billthefrog'), 'x'), 'catpope');
-	assert.equal(characterOf(q(''), me('Tilman', 'billthefrog'), 'x'), 'billthefrog');
-	assert.equal(characterOf(q(''), me('Tilman'), 'x'), 'x');
-	assert.equal(characterOf(q(''), null, null), DEFAULT_CHARACTER);
+test("the character: the address, the member's avatar, the default", () => {
+	assert.equal(characterOf(q('character=catpope'), me('Tilman', 'billthefrog')), 'catpope');
+	assert.equal(characterOf(q(''), me('Tilman', 'billthefrog')), 'billthefrog');
+	assert.equal(characterOf(q(''), me('Tilman')), DEFAULT_CHARACTER);
+	assert.equal(characterOf(q(''), null), DEFAULT_CHARACTER);
 });
 
 test("the nick: the member's name, else the guest's, at most 24 characters", () => {
