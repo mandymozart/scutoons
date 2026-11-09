@@ -222,7 +222,7 @@ async fn a_stalled_stream_leaves_its_backlog_in_the_outbox() {
 #[tokio::test]
 async fn a_quick_return_does_not_start_a_second_settle() {
     let doors = Doors::new(Arc::new(relay::Relay::new()));
-    let admit = || doors.admit(&hello("conductor"), relay::Join::default()).ok().expect("admitted");
+    let admit = || doors.admit(&hello("conductor"), relay::Join::default()).expect("admitted");
     let first = admit();
     first.leave();
     let _second = admit();
