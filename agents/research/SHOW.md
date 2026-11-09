@@ -25,6 +25,7 @@ Builds on LIVE.md B.5 (show, outlets, cells), LIVE-LENSES.md, and the decisions 
 | First use case: one phone reader connected to the conductor. Events set up in the chapter editor trigger rows. A character entering can be listened to or triggered in the viewer | 2026-11-09 `[live]` |
 | The conductor takes events on autopilot or as suggestions, so accidental scrolls cannot create chaos | 2026-11-09 `[live]` |
 | The conductor has a performance mode and needs a way to configure and create; it may belong in the deck editor | 2026-11-09 `[live]` |
+| A parent may lock another member's sub conductor only if that seat accepted it | 2026-11-09 `[live]` |
 | **GO is always allowed.** The conductor can start whatever; it is their responsibility | 2026-11-09 `[live]` |
 | Relations are built on hierarchy with fallbacks: "callcenter or Arbeitsamt". For every entity, down to module and parameter | 2026-11-09 `[events]` |
 | **An address that finds nobody does not fall back upward. It stays silent, and that is logged** | 2026-11-09 `[events]` |
@@ -71,7 +72,8 @@ Three separate things: the **show** (a document saved in an account, versioned, 
 - **Flashing:** a flash is one assignment: the show at a pinned version, what it references, the deck configuration, the role. A conductor gets the same as a deck. Online it trickles down the tree as set on 2026-11-02 (a lock from above wins, otherwise the nearest wins, a deck may refuse, every deck reports what it runs). Offline the same package goes on a stick (2026-11-08 `[scenes]`: flash configs to decks).
 - **A child treats its parent like a reader:** the parent's row arrives as an event and the child's rule applies: follow = auto, suggest = its operator decides, free = ignored. One mechanism for triggers and delegation. The local GO always works.
 - Today: decks pair with a key pair and get exactly their owner's rights (`server/src/Domain/Decks/Decks.php`); rigs have `lent / owned / core`; the relay token names session, role, show. No show documents, seats or invitations, and a deck of one member cannot read another's media.
-- Open: may a parent lock another member's child (proposed: only if the seat accepted it)? Can a seat be handed on? Does an organisation own a show?
+- **A parent may lock another member's child only if the seat accepted it** (owner). Without that, the lock from above does not cross members. Proposal: the invitation says whether the seat can be locked, so accepting the seat is accepting the lock, and every seat shows it.
+- Open: can a seat be handed on? Does an organisation own a show?
 
 ## 5. Cells
 
