@@ -76,6 +76,8 @@ export function creatorHref(links: AppLinks, key: string): string | null {
 	const ref = parseEntityKey(key);
 	// a Kanon text (research/KANON.md): its own page, whatever its subject
 	if (ref?.kind === 'kanon') return `${links.creator}/kanon/${ref.id}`;
+	// a rig or module: the editor's address (agents/research/EDITOR.md §4)
+	if (ref?.kind === 'rig' || ref?.kind === 'module') return `${links.creator}/edit/${key}`;
 	if (!ref?.toon) return null;
 	const base = `${links.creator}/${ref.toon}`;
 	switch (ref.kind) {

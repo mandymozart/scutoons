@@ -258,6 +258,7 @@ Open:
 The chapter storyboard `storyboard:<toon>:<n>` and its generations (research/STUDIO-IN-CREATOR.md §2.3, server/docs/API.md
 "Storyboard"), `src/storyboard.ts` (tools) + `storyboard-model.ts` (pure: outline, shot paths, record bodies – unit tests
 in `test/`) + `storyboard-refs.ts` (the files on the member's machine). Content editors; an admin who isn't a creator reads.
+- `compile_module` (#449: the newest draft of `module:<id>` through `POST /api/modules/compile`, like the creator's Compile button; the result goes into a new draft, a refused compile answers with file and line; creators only, publishing stays the member's click).
 - `read_kinds` (#315: the node-kind catalog from `GET /api/kinds` – built-in deck kinds + published modules with ports, parameters, docs; no filter = index, `names` / `q` = full descriptors; source: deck/catalog, server/docs/API.md)
 - `read_storyboard` (an outline: scenes → groups → shots with their JSON `path` for save_draft ops; `scene` / `shot` /
   `full` add the JSON), `storyboard_validate` (content's validateChapter + summarize's rhythm; `ops` = check before
