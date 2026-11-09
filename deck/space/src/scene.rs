@@ -165,14 +165,6 @@ impl Scene {
     }
 }
 
-/// `"node.port"` → (node, port); a bare `"node"` → (node, "out")
-pub fn split_ref(r: &str) -> (&str, &str) {
-    match r.split_once('.') {
-        Some((n, p)) => (n, p),
-        None => (r, "out"),
-    }
-}
-
 /// A set's 3D file at `quality` under `sets` (`--sets`, default `<cache>/sets`): `<sets>/<id>/<id>.<quality>.glb` (the
 /// sync's layout), else `<sets>/<id>.<quality>.glb` (tools/rooms' build output, e.g. media/scutoons/rooms) – the first
 /// that exists, else the first (where the sync puts it).
@@ -225,12 +217,6 @@ transition = \"wipe\"
             let s = Scene::parse(text).unwrap();
             assert!(s.nodes.iter().any(|n| n.kind == "screen"));
         }
-    }
-
-    #[test]
-    fn refs_default_to_out() {
-        assert_eq!(split_ref("fft.bass"), ("fft", "bass"));
-        assert_eq!(split_ref("music"), ("music", "out"));
     }
 
     #[test]

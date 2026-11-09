@@ -153,6 +153,52 @@ fn a_bad_world_node_is_refused_when_the_rig_is_played() {
     assert!(e.contains("unknown source 'carrier_bag'"), "{e}");
 }
 
+/// #432: a far world node names another place (here a deck): the rig builds and plays, the node is drawn with its
+/// address, the wiring and the validator list it as not connected (a warning, not a refusal), and a cable from it hears
+/// nothing until #442 carries the events. Naming the rig itself is a cable's job.
+#[test]
+fn a_far_world_node_is_accepted_silent_and_listed() {
+    let b = bundle(
+        r#"
+        [rig]
+        subject = "character.keys"
+        track = [{ id = "far", instrument = "far" }, { id = "synth", instrument = "synth" }]
+        route = [{ from = "far:in.events", to = "synth:synth.notes" }]
+        "#,
+        r#"
+        [[instrument]]
+        id = "far"
+        kind = "pad"
+        node = [{ id = "in", kind = "world", source = "far", address = "/deck:left/scene:nave/character:catpope/analog:seq.notes", listen = ["music.note"] }]
+        "#,
+    );
+    let w = b.play(None, None).unwrap().wiring().unwrap();
+    assert_eq!(event_cables(&w), ["far_in.events → synth_synth.notes"]);
+    let world = w.nodes.iter().find(|n| n.id == "far_in").unwrap().world.as_ref().unwrap();
+    assert_eq!((world.source, world.address.as_deref()), ("far", Some("/deck:left/scene:nave/character:catpope/analog:seq.notes")));
+    assert_eq!(w.problems.len(), 1, "{:?}", w.problems);
+    assert_eq!(w.problems[0].at, "world node 'far_in'");
+    assert!(w.problems[0].says.contains("not connected yet") && w.problems[0].says.contains("#442"), "{}", w.problems[0]);
+    // the validator: no problem, one warning naming the node and its track
+    let request = super::validate::Request {
+        kind: "rigs".into(),
+        id: b.rig.subject.clone(),
+        document: serde_json::to_value(&b.rig).unwrap(),
+        instruments: b.instruments.iter().map(|i| serde_json::to_value(i).unwrap()).collect(),
+        presets: vec![],
+        modules: [SEQ, SYNTH].iter().map(|j| serde_json::from_str(j).unwrap()).collect(),
+    };
+    let a = request.answer().unwrap();
+    assert_eq!(a.problems, Vec::<String>::new());
+    assert_eq!(a.warnings.len(), 1, "{:?}", a.warnings);
+    assert!(a.warnings[0].contains("world node 'in' (track far)") && a.warnings[0].contains("not connected yet"), "{:?}", a.warnings);
+    // the rig's own place is the rig itself: inside it a cable joins the ports
+    let mut own = b.clone();
+    own.instruments[2].nodes[0].params.insert("address".into(), toml::Value::String("character:keys/synth:synth.notes".into()));
+    let e = format!("{:#}", own.rig.check(&lib_of(&own)).unwrap_err());
+    assert!(e.contains("world node 'in' (track far)") && e.contains("names this rig itself"), "{e}");
+}
+
 /// an instrument without `out` is a document like any, in JSON too (#430)
 #[test]
 fn an_instrument_without_out_is_a_document_like_any() {

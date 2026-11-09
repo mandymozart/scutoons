@@ -196,11 +196,12 @@ mod tests {
         let mut b = catpope();
         b.rig.moods.clear();
         b.rig.tracks[1].mute = true;
-        b.rig.tracks[1].id = "2-drone\n//x".into();
+        // a track id that is no Rust identifier (a track id holds no ':', '.', '/', '@', '#' or space – rig/address.rs – but may start with a digit or hold a '-')
+        b.rig.tracks[1].id = "2-drone".into();
         let text = source(&b);
-        assert!(text.contains("// #[port(output, control, name = \"t_2_drone___x_gain\", path = \"2-drone\\n//x:@gain\", mode = \"mul\")]"), "{text}");
+        assert!(text.contains("// #[port(output, control, name = \"t_2_drone_gain\", path = \"2-drone:@gain\", mode = \"mul\")]"), "{text}");
         assert!(!text.contains("T_2_DRONE"), "not written: {text}");
-        assert!(text.contains("// track 2-drone //x ·"), "a name stays on its comment line: {text}");
+        assert!(text.contains("// track 2-drone ·"), "a name stays on its comment line: {text}");
         assert!(text.contains("the rig's tables name no mood"), "{text}");
         assert!(!text.contains(", moods = "), "{text}");
         // nothing live at all: the module still uses `out`

@@ -1,10 +1,12 @@
 //! An instrument (#191, research/INSTRUMENTS.md §1): a patch of the scene's node graph – `[[node]]` + `[[link]]` in
 //! scene.rs's forms, node ids local to the instrument – with one audio output (the track's `out`; none = a silent track of
 //! event sources, #430) and the control inputs it shows (`expose`, the being's 3D buttons, the knobs, the mapping targets). `patch` applies a folded preset to it.
+use super::address::node_port as split_ref;
 use super::preset::{Mapping, Resolved};
 use super::{Rights, Text};
 use crate::graph::{Graph, Kind, PortType};
-use crate::scene::{split_ref, LinkDef, NodeDef, Scene};
+use crate::scene::{LinkDef, NodeDef, Scene};
+use crate::world::{Source, World};
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -130,6 +132,19 @@ impl Instrument {
                 .map_err(|e| anyhow::anyhow!("instrument {}: events node '{}': {e}", self.id, n.id))?;
         }
         Ok(graph)
+    }
+
+    /// What the core says but does not refuse (#432): a far world node's address is valid, and nothing carries its events
+    /// into this deck yet (#442).
+    pub fn warnings(&self) -> Vec<String> {
+        self.nodes
+            .iter()
+            .filter(|n| n.kind == Kind::World.name())
+            .filter_map(|n| match World::read(&n.id, &n.params) {
+                Ok(World { source: Source::Far(a), .. }) => Some(format!("instrument {}: world node '{}': not connected yet – nothing carries '{a}' into this deck (#442)", self.id, n.id)),
+                _ => None,
+            })
+            .collect()
     }
 
     /// `node.port` → the node's kind, when `port` is one of its control inputs

@@ -337,7 +337,7 @@ fn code_rig(i: &Value) -> Value {
         (Ok(p), Ok(f)) => (p, f),
         (Err(e), _) | (_, Err(e)) => return json!({ "error": format!("{e:#}") }),
     };
-    let w = p.wiring().unwrap_or_else(|e| Wiring::failed(format!("{e:#}")));
+    let w = p.wiring().unwrap_or_else(|e| Wiring::of_error(&e));
     let mut cables: Vec<String> = w.links.iter().filter(|l| w.nodes[l.from].id == policy::NODE).map(|l| format!("{} → {}.{}", l.value, w.nodes[l.to].id, l.input)).collect();
     cables.sort();
     let presets: serde_json::Map<String, Value> = p.presets.iter().map(|c| (c.track.clone(), json!(c.choices))).collect();
@@ -387,7 +387,7 @@ fn event_rig(i: &Value) -> Value {
         Ok(p) => p,
         Err(e) => return json!({ "error": format!("{e:#}") }),
     };
-    let w = p.wiring().unwrap_or_else(|e| Wiring::failed(format!("{e:#}")));
+    let w = p.wiring().unwrap_or_else(|e| Wiring::of_error(&e));
     let mut cables: Vec<String> = w.links.iter().filter(|l| l.ty == "event").map(|l| format!("{}.{} → {}.{}", w.nodes[l.from].id, l.out, w.nodes[l.to].id, l.input)).collect();
     cables.sort();
     let mut deaf: Vec<String> = w.nodes.iter().enumerate().flat_map(|(n, node)| {

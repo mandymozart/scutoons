@@ -333,7 +333,7 @@ impl Deck {
     /// #282: the played scene's wiring – its nodes, ports, links and the paths of the cables' values (the rig designer's
     /// Nodes tab); none with the problem when it does not build
     pub fn wiring(&self) -> crate::rig::wiring::Wiring {
-        self.played().wiring().unwrap_or_else(|e| crate::rig::wiring::Wiring::failed(format!("{e:#}")))
+        self.played().wiring().unwrap_or_else(|e| crate::rig::wiring::Wiring::of_error(&e))
     }
 
     /// The being on the wire: the played scene's nodes and links (no params – the values stream), its character – a

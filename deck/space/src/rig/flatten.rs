@@ -7,10 +7,11 @@
 //! descriptor), its parameters and seed, the context it starts with (character, persona, mood – the live one is #409's),
 //! and the strips its `@gain` targets drive; routes reach it as `policy:<port>`.
 //! The being's `character` (from the subject) and `expose` (the instruments' shown parameters) come along.
+use super::address::{node_port, Address, Leaf};
 use super::policy::{self, Member};
-use super::{scoped, Library, Rig, TrackPatch};
+use super::{Library, Rig, TrackPatch};
 use crate::modreg::{self, ModuleDef};
-use crate::scene::{split_ref, LinkDef, NodeDef, Scene};
+use crate::scene::{LinkDef, NodeDef, Scene};
 use anyhow::{bail, Result};
 use std::collections::BTreeMap;
 
@@ -31,7 +32,7 @@ fn link(from: String, to: String, scale: f32, offset: f32) -> LinkDef {
 
 /// `node.port` inside track `t` → `<t>_<node>.<port>`
 pub(crate) fn prefixed(track: &str, r: &str) -> String {
-    let (n, p) = split_ref(r);
+    let (n, p) = node_port(r);
     format!("{track}_{n}.{p}")
 }
 
@@ -62,20 +63,23 @@ impl Rig {
         self.policy_node(lib, &played, persona, mood, &mut scene)?;
         let playing = |t: &str| played.iter().any(|p| p.track == t) || (t == policy::NODE && self.policy.is_some());
         let mut pulse = false;
+        // a route end as the compiled slot it lands on, and the track it is off with (`check` refused every other form)
+        let end = |s: &str| -> Option<(String, Option<String>)> {
+            match Address::leaf(s).ok()? {
+                Leaf::Port { track: Some(t), node, port } => Some((prefixed(&t, &format!("{node}.{port}")), Some(t))),
+                Leaf::Policy(port) => Some((format!("{}.{port}", policy::NODE), Some(policy::NODE.to_string()))),
+                Leaf::Being(input) => Some((format!("space.{input}"), None)),
+                _ => None,
+            }
+        };
         for r in &self.routes {
-            let (Some((ft, from)), Some((tt, to))) = (scoped(&r.from), scoped(&r.to)) else { continue };
+            let (Some((from, ft)), Some((to, tt))) = (end(&r.from), end(&r.to)) else { continue };
             // a route from or to a muted track is off with it
-            if !playing(ft) || (tt != "being" && !playing(tt)) {
+            if !ft.as_deref().is_none_or(playing) || !tt.as_deref().is_none_or(playing) {
                 continue;
             }
-            let end = |track: &str, r: &str| if track == policy::NODE { format!("{}.{r}", policy::NODE) } else { prefixed(track, r) };
-            let to = if tt == "being" {
-                pulse |= to == "pulse";
-                format!("space.{to}")
-            } else {
-                end(tt, to)
-            };
-            scene.links.push(link(end(ft, from), to, r.scale, r.offset));
+            pulse |= to == "space.pulse";
+            scene.links.push(link(from, to, r.scale, r.offset));
         }
         scene.nodes.push(node("space", "space", &[]));
         if !pulse {

@@ -216,7 +216,7 @@ export type Rig = {
 	rights?: Rights;
 	/** sends and modulation between tracks, and to the being's look (`being:hue`) – everything is audiovisual */
 	route?: Route[];
-	/** the two corner sticks of the phone deck, `[[x, y], [x, y]]` (left, right) as knob paths (`<track>_<node>.<port>`); none = the first four knobs (#191) */
+	/** the two corner sticks of the phone deck, `[[x, y], [x, y]]` (left, right) as addresses of its knobs (`<track>:<node>.<port>`, a code rig's `policy:<param>`; "" = none); none = the first four knobs (#191, #432) */
 	sticks?: string[][] | null;
 	/** whose rig: `character.<id>` (`character.<id>.<persona>` for a persona's own) or `item.<id>` – KANON's subjects */
 	subject: string;

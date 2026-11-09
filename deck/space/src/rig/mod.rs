@@ -13,10 +13,14 @@
 //! - policy.rs – a code rig's policy (#408): the module that drives the tracks through path targets, its checks and the
 //!   paths it owns
 //! - face.rs – `Rig::describe`: what a rig lists to the editor and the validator (tracks, addressable inputs, the policy)
+//! - address.rs – the one address format every cable, value and stick is written in, and `Reach`: how far an address
+//!   may reach from its document (#432, research/MODULE-WIRING.md §3)
 //! - here – a rig: a character's (or a scene object's, #210) tracks, each an instrument + its default preset, routes
 //!   between tracks and to the being's look, and per-persona / per-mood variants; `Rig::play` resolves it.
 //!
-//! JSON (the platform's entity documents) and TOML (the core set in the deck image) read the same serde forms.
+//! JSON (the platform's entity documents) and TOML (the core set in the deck image) read the same serde forms. A check
+//! lists every problem it finds at its cable, node or track (problem.rs), not the first alone.
+pub mod address;
 pub mod assign;
 pub mod bundle;
 pub mod content;
@@ -38,6 +42,9 @@ pub use horizon::Prebuilt;
 pub use instrument::{Expose, Instrument, InstrumentKind, Patch};
 pub use preset::{Mapping, Preset, PresetBook, Resolved};
 
+use crate::problem::Problems;
+use crate::world::{Source, World};
+use address::{Address, Leaf};
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -119,8 +126,8 @@ pub struct Rig {
     pub moods: BTreeMap<String, Variant>,
     #[serde(default)]
     pub rights: Rights,
-    /// the two corner sticks of the phone deck, `[[x, y], [x, y]]` (left, right) as knob paths
-    /// (`<track>_<node>.<port>`); none = the first four knobs (#191)
+    /// the two corner sticks of the phone deck, `[[x, y], [x, y]]` (left, right) as addresses of its knobs
+    /// (`<track>:<node>.<port>`, a code rig's `policy:<param>`; "" = none); none = the first four knobs (#191, #432)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sticks: Option<[[String; 2]; 2]>,
     /// a code rig (#408): the control module that drives the tracks (policy.rs); none = the tables alone
@@ -226,58 +233,130 @@ pub struct TrackPatch {
     pub patch: Patch,
 }
 
-/// `<scope>:<rest>` → (scope, rest)
-fn scoped(r: &str) -> Option<(&str, &str)> {
-    r.split_once(':')
-}
-
 impl Rig {
     /// The rig checked against `lib`: unique tracks, known instruments and presets (of the track's instrument), variants
-    /// and routes naming known tracks; a code rig's policy, its targets and who writes which input (policy.rs).
+    /// and routes naming known tracks, every route end a relative address of a port (#432: a rig's cable stays relative,
+    /// an absolute address sits on a world node), a far world node naming something outside the rig; a code rig's
+    /// policy, its targets and who writes which input (policy.rs). Every problem found is listed (problem.rs), at its
+    /// track, variant, route or node.
     pub fn check(&self, lib: &Library) -> Result<()> {
+        let mut out = Problems::default();
+        let rig = format!("rig {}", self.subject);
         let mut seen = std::collections::BTreeSet::new();
         for t in &self.tracks {
             if !seen.insert(t.id.as_str()) {
-                bail!("rig {}: track '{}' twice", self.subject, t.id);
+                out.push(&rig, format!("track '{}' twice", t.id));
             }
-            if t.id.contains([':', '.']) {
-                bail!("rig {}: a track id has no ':' or '.' ({})", self.subject, t.id);
+            if t.id.contains([':', '.', '/', '@', '#']) || t.id.chars().any(char::is_whitespace) {
+                out.push(&rig, format!("a track id has no ':', '.', '/', '@', '#' or space ({})", t.id));
             }
             if t.id == policy::NODE {
-                bail!("rig {}: the track id '{}' is reserved for a code rig's policy", self.subject, t.id);
+                out.push(&rig, format!("the track id '{}' is reserved for a code rig's policy", t.id));
+            }
+            if t.id == address::BEING {
+                out.push(&rig, format!("the track id '{}' is reserved for the being's look", t.id));
             }
             if !lib.instruments.contains_key(&t.instrument) {
-                bail!("rig {}: unknown instrument \"{}\"", self.subject, t.instrument);
-            }
-            if let Some(p) = &t.preset {
-                self.preset_fits(lib, t, p)?;
+                out.push(&rig, format!("unknown instrument \"{}\"", t.instrument));
+            } else if let Some(p) = &t.preset {
+                if let Err(e) = self.preset_fits(lib, t, p) {
+                    out.note(e);
+                }
             }
         }
         for (name, v) in self.personas.iter().map(|(n, v)| (format!("persona {n}"), v)).chain(
             self.moods.iter().map(|(n, v)| (format!("mood {n}"), v)),
         ) {
             for (track, p) in &v.presets {
-                self.preset_fits(lib, self.track(track).with_context(|| name.clone())?, p)?;
+                let fits = self.track(track).and_then(|t| self.preset_fits(lib, t, p));
+                if let Err(e) = fits {
+                    out.push(&name, format!("{e:#}"));
+                }
             }
             for path in v.values.keys() {
-                let (track, inner) = scoped(path).with_context(|| format!("{name}: '{path}' is not <track>:<node>.<port>"))?;
-                if track == policy::NODE && self.policy.is_some() {
-                    self.policy_param(lib, inner).with_context(|| name.clone())?;
-                    continue;
+                if let Err(e) = self.value_input(lib, path) {
+                    out.push(&name, e);
                 }
-                lib.instrument(&self.track(track).with_context(|| name.clone())?.instrument)?.control_input(inner)?;
             }
         }
         for r in &self.routes {
-            for end in [&r.from, &r.to] {
-                let Some((scope, _)) = scoped(end) else { bail!("rig {}: route end '{end}' has no scope", self.subject) };
-                // `being:` only as a target; `policy:` both ways in a code rig (its ports: Graph::build at flatten)
-                if !(scope == "being" && end == &r.to) && !(scope == policy::NODE && self.policy.is_some()) {
-                    self.track(scope)?;
+            let at = format!("route {} → {}", r.from, r.to);
+            for (end, is_to) in [(&r.from, false), (&r.to, true)] {
+                if let Err(e) = self.route_end(end, is_to) {
+                    out.push(&at, e);
                 }
             }
         }
-        self.check_policy(lib)
+        if let Err(e) = self.check_policy(lib) {
+            out.note(e);
+        }
+        // a far world node (#432) brings in what is outside the rig: naming the rig itself is a cable's job
+        let context = address::Context { own: address::Place::of_subject(&self.subject) };
+        for (track, node, a) in self.far_world_nodes(lib) {
+            let at = format!("world node '{node}' (track {track})");
+            match address::resolve(&a, &context, address::Reach::Wide) {
+                Ok(r) if r.is_far() => {}
+                Ok(_) => out.push(at, format!("'{a}' names this rig itself – inside the rig a cable joins the ports; a world node brings in what is outside")),
+                Err(e) => out.push(at, e),
+            }
+        }
+        out.into_result()
+    }
+
+    /// a persona's or mood's value path: `<track>:<node>.<port>`, a control input of the track's instrument, or a code
+    /// rig's `policy:<param>`
+    fn value_input(&self, lib: &Library, path: &str) -> Result<(), String> {
+        let leaf = Address::leaf(path).map_err(|e| format!("'{path}': {e}"))?;
+        match leaf {
+            Leaf::Port { track: Some(track), node, port } => {
+                let t = self.track(&track).map_err(|e| format!("{e:#}"))?;
+                lib.instrument(&t.instrument).and_then(|i| i.control_input(&format!("{node}.{port}"))).map(|_| ()).map_err(|e| format!("{e:#}"))
+            }
+            Leaf::Policy(name) if self.policy.is_some() => self.policy_param(lib, &name).map_err(|e| format!("{e:#}")),
+            Leaf::Policy(_) => Err(format!("'{path}': no track 'policy' and no policy in this rig")),
+            _ => Err(format!("'{path}' is not <track>:<node>.<port>")),
+        }
+    }
+
+    /// a route's end: a relative address of a port – a track's node's, the being's (`to` only), a code rig's policy's
+    fn route_end(&self, end: &str, is_to: bool) -> Result<(), String> {
+        let a = Address::parse(end).map_err(|e| format!("'{end}': {e}"))?;
+        if !a.is_relative() {
+            return Err(format!("'{end}' leaves the rig – a rig's cable stays relative, the absolute address sits on a world node"));
+        }
+        match a.leaf {
+            Leaf::Port { track: Some(t), .. } => self.track(&t).map(|_| ()).map_err(|e| format!("{e:#}")),
+            Leaf::Port { track: None, .. } => Err(format!("'{end}' has no track – a route end is <track>:<node>.<port>")),
+            Leaf::Being(_) if is_to => Ok(()),
+            Leaf::Being(_) => Err(format!("'{end}': the being's look is a target only")),
+            Leaf::Policy(_) if self.policy.is_some() => Ok(()),
+            Leaf::Policy(_) => Err(format!("'{end}': no track 'policy' and no policy in this rig")),
+            Leaf::Member { .. } | Leaf::State(_) => Err(format!("'{end}' is not a port – a route joins ports (<track>:<node>.<port>)")),
+        }
+    }
+
+    /// the world nodes of the rig's instruments whose source is far (#432): (track, node id, its address)
+    pub(crate) fn far_world_nodes(&self, lib: &Library) -> Vec<(String, String, Address)> {
+        let mut out = Vec::new();
+        for t in &self.tracks {
+            let Ok(i) = lib.instrument(&t.instrument) else { continue };
+            for n in i.nodes.iter().filter(|n| n.kind == crate::graph::Kind::World.name()) {
+                if let Ok(World { source: Source::Far(a), .. }) = World::read(&n.id, &n.params) {
+                    out.push((t.id.clone(), n.id.clone(), a));
+                }
+            }
+        }
+        out
+    }
+
+    /// A stick's address → the knob slot it turns (`<track>:<node>.<port>` → `<track>_<node>.<port>`, `policy:<param>` →
+    /// `policy.<param>`); whether the slot is one of the rig's knobs is `Bundle::play`'s check.
+    pub fn stick_slot(&self, stick: &str) -> Result<String> {
+        let leaf = Address::leaf(stick).map_err(|e| anyhow::anyhow!("rig {}: stick '{stick}': {e}", self.subject))?;
+        match &leaf {
+            Leaf::Port { track: Some(_), .. } | Leaf::Policy(_) => Ok(leaf.slot().expect("a port has a slot")),
+            _ => bail!("rig {}: stick '{stick}' names no track – a stick is <track>:<node>.<port> or policy:<param>", self.subject),
+        }
     }
 
     fn track(&self, id: &str) -> Result<&Track> {
@@ -326,9 +405,9 @@ impl Rig {
             }
             for v in &variants {
                 for (path, value) in &v.values {
-                    if let Some((track, inner)) = scoped(path) {
+                    if let Ok(Leaf::Port { track: Some(track), node, port }) = Address::leaf(path) {
                         if track == t.id {
-                            resolved.values.insert(instrument::canonical(inner), *value);
+                            resolved.values.insert(format!("{node}.{port}"), *value);
                         }
                     }
                 }
