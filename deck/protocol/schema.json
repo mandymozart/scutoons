@@ -192,7 +192,11 @@
     },
     "Resume": {
       "type": "object",
-      "properties": { "client": { "type": "string" }, "seq": { "type": "integer" } },
+      "properties": {
+        "client": { "type": "string" },
+        "seq": { "type": "integer" },
+        "key": { "type": "string", "description": "the `key` of this client's `welcome`: the proof that it is the client it names" }
+      },
       "required": ["client", "seq"],
       "additionalProperties": false
     },
@@ -203,7 +207,8 @@
         "client": { "type": "string" },
         "group": { "type": "string" },
         "snapshot": { "$ref": "#/definitions/Snapshot" },
-        "now": { "type": "integer", "description": "relay time, ms" }
+        "now": { "type": "integer", "description": "relay time, ms" },
+        "key": { "type": "string", "description": "this client's secret for a later `resume`; no other client ever sees it" }
       },
       "required": ["client", "snapshot", "now"],
       "additionalProperties": false

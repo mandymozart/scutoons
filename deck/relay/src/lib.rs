@@ -148,6 +148,7 @@ impl Relay {
     /// snapshot followed by the missed messages.
     fn join(&self, hello: &protocol::Hello, url_group: Option<String>, outbox: Arc<Outbox>) -> Result<String, &'static str> {
         let now = now_ms();
+        let fresh = new_key();
         let mut sessions = self.sessions.lock().unwrap();
         // empty sessions are kept for a resume (the conductor's laptop restarts), then dropped
         sessions.retain(|_, s| s.empty_since.is_none_or(|t| t >= now - session::REPLAY_MS));
@@ -159,13 +160,15 @@ impl Relay {
             return Err("session full");
         }
         let resumed = hello.resume.as_ref().and_then(|r| s.resume(r, hello.role).map(|replay| (r, replay)));
-        let id = match resumed {
-            Some((r, _)) => r.client.clone(),
-            None => format!("c{}", self.next_client.fetch_add(1, Ordering::Relaxed)),
+        let (id, key) = match resumed {
+            Some((r, _)) => (r.client.clone(), r.key.clone().unwrap_or_default()),
+            None => (format!("c{}", self.next_client.fetch_add(1, Ordering::Relaxed)), fresh),
         };
         let group = hello.group.clone().or(url_group).or_else(|| resumed.and_then(|_| s.departed_group(&id)));
         let nick = session::clean_nick(hello.nick.as_deref(), &self.config.blocklist);
-        s.join(id.clone(), Client::new(hello.role, group.clone(), nick, outbox, now));
+        let mut client = Client::new(hello.role, group.clone(), nick, outbox, now);
+        client.key.clone_from(&key);
+        s.join(id.clone(), client);
         let snapshot = match resumed {
             Some((_, true)) => Snapshot { seq: Some(s.seq as i64), ..Default::default() },
             _ => {
@@ -175,7 +178,7 @@ impl Relay {
                 snap
             }
         };
-        s.send_to(&id, Message::Welcome(Welcome { client: id.clone(), group, snapshot, now }));
+        s.send_to(&id, Message::Welcome(Welcome { client: id.clone(), group, snapshot, now, key: Some(key) }));
         if let Some((r, true)) = resumed {
             s.replay(&id, r.seq as u64);
         }
@@ -521,6 +524,14 @@ where
     }
     outbox.close();
     sink.close().await.ok();
+}
+
+/// A client's resume key (#438): 128 random bits that only it and the relay ever know.
+fn new_key() -> String {
+    use base64::Engine;
+    let mut bytes = [0u8; 16];
+    rustls::crypto::ring::default_provider().secure_random.fill(&mut bytes).expect("the system's random source");
+    base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)
 }
 
 fn refusal(code: &str, message: &str) -> Utf8Bytes {

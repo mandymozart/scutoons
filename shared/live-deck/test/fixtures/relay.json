@@ -55,6 +55,7 @@
             "kind": "welcome",
             "p": {
               "client": "c5",
+              "key": "key-c5",
               "now": 0,
               "snapshot": {}
             }
@@ -98,6 +99,7 @@
             "kind": "welcome",
             "p": {
               "client": "c6",
+              "key": "key-c6",
               "now": 0,
               "snapshot": {}
             }
@@ -308,6 +310,7 @@
             "kind": "welcome",
             "p": {
               "client": "c1",
+              "key": "key-c1",
               "now": 0,
               "snapshot": {}
             }
@@ -651,6 +654,7 @@
             "kind": "welcome",
             "p": {
               "client": "c7",
+              "key": "key-c7",
               "now": 0,
               "snapshot": {
                 "sync": {
@@ -881,6 +885,7 @@
             "kind": "welcome",
             "p": {
               "client": "c2",
+              "key": "key-c2",
               "now": 0,
               "snapshot": {
                 "tempo": {
@@ -1109,6 +1114,7 @@
             "kind": "welcome",
             "p": {
               "client": "c7",
+              "key": "key-c7",
               "now": 0,
               "snapshot": {
                 "say": {
@@ -1361,6 +1367,7 @@
             "kind": "welcome",
             "p": {
               "client": "c1",
+              "key": "key-c1",
               "now": 0,
               "snapshot": {}
             }
@@ -1684,6 +1691,7 @@
             "kind": "welcome",
             "p": {
               "client": "c1",
+              "key": "key-c1",
               "now": 0,
               "snapshot": {
                 "decks": {
@@ -1778,6 +1786,7 @@
             "kind": "welcome",
             "p": {
               "client": "c1",
+              "key": "key-c1",
               "now": 0,
               "snapshot": {
                 "sync": {
@@ -2023,6 +2032,7 @@
             "kind": "welcome",
             "p": {
               "client": "c3",
+              "key": "key-c3",
               "now": 0,
               "snapshot": {}
             },
@@ -2089,6 +2099,7 @@
                 "kind": "welcome",
                 "p": {
                   "client": "c3",
+                  "key": "key-c3",
                   "now": 0,
                   "snapshot": {}
                 },
@@ -2178,7 +2189,7 @@
           "do": "open",
           "outs": [
             {
-              "send": "{\"from\":\"\",\"kind\":\"hello\",\"p\":{\"code\":\"CATH\",\"group\":\"left\",\"resume\":{\"client\":\"c3\",\"seq\":9},\"role\":\"output\"},\"seq\":0,\"v\":1}"
+              "send": "{\"from\":\"\",\"kind\":\"hello\",\"p\":{\"code\":\"CATH\",\"group\":\"left\",\"resume\":{\"client\":\"c3\",\"key\":\"key-c3\",\"seq\":9},\"role\":\"output\"},\"seq\":0,\"v\":1}"
             }
           ]
         }
@@ -2217,6 +2228,7 @@
             "kind": "welcome",
             "p": {
               "client": "c5",
+              "key": "key-c5",
               "now": 0,
               "snapshot": {}
             }
@@ -2422,6 +2434,7 @@
             "kind": "welcome",
             "p": {
               "client": "c6",
+              "key": "key-c6",
               "now": 0,
               "snapshot": {}
             }
@@ -2540,6 +2553,7 @@
             "kind": "welcome",
             "p": {
               "client": "c7",
+              "key": "key-c7",
               "now": 0,
               "snapshot": {}
             }
@@ -2640,6 +2654,7 @@
             "kind": "welcome",
             "p": {
               "client": "c8",
+              "key": "key-c8",
               "now": 0,
               "snapshot": {}
             }
@@ -2661,6 +2676,7 @@
             "kind": "welcome",
             "p": {
               "client": "c8",
+              "key": "key-c8",
               "now": 0,
               "snapshot": {}
             }
@@ -2685,6 +2701,7 @@
             "kind": "welcome",
             "p": {
               "client": "c8",
+              "key": "key-c8",
               "now": 0,
               "snapshot": {}
             }
@@ -2772,7 +2789,7 @@
           "do": "open",
           "outs": [
             {
-              "send": "{\"from\":\"\",\"kind\":\"hello\",\"p\":{\"code\":\"CATH\",\"group\":\"decks\",\"nick\":\"browser\",\"resume\":{\"client\":\"c8\",\"seq\":1},\"role\":\"musician\"},\"seq\":0,\"v\":1}"
+              "send": "{\"from\":\"\",\"kind\":\"hello\",\"p\":{\"code\":\"CATH\",\"group\":\"decks\",\"nick\":\"browser\",\"resume\":{\"client\":\"c8\",\"key\":\"key-c8\",\"seq\":1},\"role\":\"musician\"},\"seq\":0,\"v\":1}"
             }
           ]
         },
@@ -2835,7 +2852,7 @@
               "close": {}
             },
             {
-              "stream": "{\"from\":\"\",\"kind\":\"hello\",\"p\":{\"code\":\"CATH\",\"group\":\"decks\",\"nick\":\"browser\",\"resume\":{\"client\":\"c8\",\"seq\":1},\"role\":\"musician\"},\"seq\":0,\"v\":1}\n"
+              "stream": "{\"from\":\"\",\"kind\":\"hello\",\"p\":{\"code\":\"CATH\",\"group\":\"decks\",\"nick\":\"browser\",\"resume\":{\"client\":\"c8\",\"key\":\"key-c8\",\"seq\":1},\"role\":\"musician\"},\"seq\":0,\"v\":1}\n"
             }
           ]
         },

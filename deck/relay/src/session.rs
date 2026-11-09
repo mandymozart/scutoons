@@ -14,6 +14,7 @@
 //! conductor's snapshot (`synced`), and a deck whose state is ready counts as ready in presence.
 use std::collections::{BTreeSet, HashMap, VecDeque};
 
+use subtle::ConstantTimeEq;
 use protocol::{
     Assign, Cell, CellMode, Cue, DeckQuality, DeckState, DeckSynced, Envelope, Error as ProtocolError, Loose, MediaPreload, Message,
     Presence, Resume, Role, Route, SceneSync, Snapshot, State, SyncState, Tempo, To, VoteTally,
@@ -47,6 +48,8 @@ pub struct Client {
     pub ready: bool,
     /// #223: its send queue (outbox.rs) – the latest value wins, ordered messages stay in order
     pub outbox: Arc<Outbox>,
+    /// #438: its secret for a `resume` (in its `welcome` only); empty: it cannot be resumed
+    pub key: String,
     bucket: Bucket,
     /// #188: the deck's values stream
     values: Bucket,
@@ -56,7 +59,7 @@ impl Client {
     pub fn new(role: Role, group: Option<String>, nick: Option<String>, outbox: Arc<Outbox>, now: i64) -> Self {
         let bucket = Bucket { tokens: AUDIENCE_RATE, at: now, rate: AUDIENCE_RATE, burst: AUDIENCE_RATE };
         let values = Bucket { tokens: VALUES_BURST, at: now, rate: VALUES_RATE, burst: VALUES_BURST };
-        Client { role, group, nick, ready: false, outbox, bucket, values }
+        Client { role, group, nick, ready: false, outbox, key: String::new(), bucket, values }
     }
 }
 
@@ -98,7 +101,13 @@ struct Logged {
 struct Departed {
     role: Role,
     group: Option<String>,
+    key: String,
     at: i64,
+}
+
+/// Does `resume` carry the key of the client it names? An id proves nothing: ids are `c<n>`, and most roles need no token.
+fn proves(key: &str, resume: &Resume) -> bool {
+    !key.is_empty() && resume.key.as_deref().is_some_and(|k| bool::from(key.as_bytes().ct_eq(k.as_bytes())))
 }
 
 /// Does a message from `from` addressed `to` reach the client `id` (role, group)? B.6: `to` narrows by role, group,
@@ -275,7 +284,7 @@ impl Session {
 
     pub fn leave(&mut self, id: &str, now: i64) {
         if let Some(c) = self.clients.remove(id) {
-            self.departed.insert(id.to_owned(), Departed { role: c.role, group: c.group, at: now });
+            self.departed.insert(id.to_owned(), Departed { role: c.role, group: c.group, key: c.key, at: now });
         }
         // a deck that left takes its being and its routes along (it sends its graph again when it comes back)
         self.decks.remove(id);
@@ -294,19 +303,20 @@ impl Session {
         }
     }
 
-    /// #438: a `resume` whose old link the relay has not seen go yet (QUIC to WebSocket and back): that link is ended and
-    /// the client counts as left, so `resume` gives the new link its id. Its own leave then finds another link (`Relay::leave`).
+    /// #438: a `resume` with the client's key whose old link the relay has not seen go yet (QUIC to WebSocket and back): that
+    /// link is ended and the client counts as left, so `resume` gives the new link its id. Its own leave then finds another
+    /// link (`Relay::leave`). Without the key nothing happens to the client it names.
     pub fn take_over(&mut self, resume: &Resume, role: Role, now: i64) {
-        let Some(old) = self.clients.get(&resume.client).filter(|c| c.role == role).map(|c| c.outbox.clone()) else { return };
+        let Some(old) = self.clients.get(&resume.client).filter(|c| c.role == role && proves(&c.key, resume)).map(|c| c.outbox.clone()) else { return };
         self.leave(&resume.client, now);
         old.end();
     }
 
-    /// A `resume { client, seq }`: may the client take its old id again (it left, same role)? Then `Some(replay)` –
+    /// A `resume { client, seq, key }`: may the client take its old id again (it left, same role, its key)? Then `Some(replay)` –
     /// `replay` = whether the missed messages are still in the log (else it gets the snapshot).
     pub fn resume(&self, resume: &Resume, role: Role) -> Option<bool> {
         let d = self.departed.get(&resume.client)?;
-        if d.role != role {
+        if d.role != role || !proves(&d.key, resume) {
             return None;
         }
         Some(resume.seq >= 0 && resume.seq as u64 >= self.trimmed)
@@ -1223,11 +1233,15 @@ mod tests {
         r.send("cond", Message::Say(loose(r#"{"outlet":"left","text":"one"}"#)), 0);
         let seen = r.s.seq;
         r.drain();
+        r.s.clients.get_mut("a1").unwrap().key = "k".into();
         r.s.leave("a1", 100);
         r.send("cond", Message::Say(loose(r#"{"outlet":"left","text":"two"}"#)), 200);
         r.send("cond", Message::Say(loose(r#"{"outlet":"right","text":"not yours"}"#)), 200);
-        assert_eq!(r.s.resume(&Resume { client: "a1".into(), seq: seen as i64 }, Role::Audience), Some(true));
-        assert_eq!(r.s.resume(&Resume { client: "a1".into(), seq: seen as i64 }, Role::Conductor), None, "same role only");
+        let resume = |key: Option<&str>| Resume { client: "a1".into(), seq: seen as i64, key: key.map(str::to_owned) };
+        assert_eq!(r.s.resume(&resume(Some("k")), Role::Audience), Some(true));
+        assert_eq!(r.s.resume(&resume(Some("k")), Role::Conductor), None, "same role only");
+        assert_eq!(r.s.resume(&resume(Some("x")), Role::Audience), None, "its key only");
+        assert_eq!(r.s.resume(&resume(None), Role::Audience), None);
         assert_eq!(r.s.departed_group("a1").as_deref(), Some("left"));
         r.add("a1", Role::Audience, Some("left"));
         let missed = r.s.missed("a1", seen);
@@ -1238,11 +1252,12 @@ mod tests {
     #[test]
     fn replay_log_is_bounded() {
         let mut r = room();
+        r.s.clients.get_mut("a1").unwrap().key = "k".into();
         r.s.leave("a1", 0);
         for i in 0..(REPLAY_MESSAGES as i64 + 10) {
             r.send("cond", Message::Say(loose(r#"{"outlet":"left","text":"x"}"#)), i);
         }
-        assert_eq!(r.s.resume(&Resume { client: "a1".into(), seq: 1 }, Role::Audience), Some(false), "too old: snapshot");
+        assert_eq!(r.s.resume(&Resume { client: "a1".into(), seq: 1, key: Some("k".into()) }, Role::Audience), Some(false), "too old: snapshot");
         // and by time: one message 5 min later drops the rest
         r.send("cond", Message::Say(loose(r#"{"outlet":"left","text":"late"}"#)), REPLAY_MS + 1_000);
         assert_eq!(r.s.log.len(), 1);

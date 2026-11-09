@@ -1075,7 +1075,7 @@ impl Client {
         let conductor = self.o.role == Role::Conductor;
         let from = e.from.clone();
         match e.message.clone() {
-            Message::Welcome(w) => self.welcome(now, w.client, w.snapshot),
+            Message::Welcome(w) => self.welcome(now, w.client, w.snapshot, w.key),
             Message::Pong(p) => self.out.push(Out::Pong { t0: p.t0, t1: p.t1, t2: now }),
             Message::Tempo(t) => self.out.push(Out::Tempo { tempo: t, arrived: now }),
             Message::SceneSync(s) if conductor => self.out.push(Out::Deck(In::Pushed(s))),
@@ -1121,12 +1121,12 @@ impl Client {
         }
     }
 
-    fn welcome(&mut self, now: f64, client: String, snap: Snapshot) {
+    fn welcome(&mut self, now: f64, client: String, snap: Snapshot, key: Option<String>) {
         self.client.clone_from(&client);
         self.joined = true;
         self.note = None;
         if self.o.resume {
-            self.resume = Some(Resume { client: client.clone(), seq: self.seq });
+            self.resume = Some(Resume { client: client.clone(), seq: self.seq, key });
         }
         self.set_status(Status { state: State::Connected, client: Some(client.clone()), why: None, wait: None });
         self.out.push(Out::Joined { client, at: now });
@@ -1331,7 +1331,7 @@ mod tests {
     }
 
     fn welcome(client: &str, snapshot: Value) -> Value {
-        json!({ "kind": "welcome", "p": { "client": client, "snapshot": snapshot, "now": 0 } })
+        json!({ "kind": "welcome", "p": { "client": client, "snapshot": snapshot, "now": 0, "key": format!("key-{client}") } })
     }
 
     fn graph() -> DeckGraph {
@@ -1501,7 +1501,7 @@ mod tests {
                     false,
                     vec![
                         st(0.0, "open", Value::Null),
-                        st(0.1, "message", json!({ "seq": 4, "kind": "welcome", "p": { "client": "c3", "snapshot": {}, "now": 0 } })),
+                        st(0.1, "message", json!({ "seq": 4, "kind": "welcome", "p": { "client": "c3", "snapshot": {}, "now": 0, "key": "key-c3" } })),
                         st(0.2, "message", json!({ "seq": 9, "kind": "say", "p": { "text": "Lights" } })),
                         st(1.0, "rejoin", Value::Null),
                         st(1.0, "close", json!("asked to join again")),
@@ -1683,7 +1683,7 @@ mod tests {
         let t = turns("outlet");
         let hellos: Vec<Value> = sent(&t).into_iter().filter(|e| e["kind"] == "hello").collect();
         assert_eq!(hellos[0]["p"], json!({ "code": "CATH", "role": "output", "group": "left" }));
-        assert_eq!(hellos[1]["p"]["resume"], json!({ "client": "c3", "seq": 9 }));
+        assert_eq!(hellos[1]["p"]["resume"], json!({ "client": "c3", "seq": 9, "key": "key-c3" }));
         assert_eq!(t.iter().flat_map(|x| &x.outs).filter(|o| matches!(o, Out::Message(_))).count(), 2, "every envelope for the composer");
         let mut c = Client::new(scripts()[8].1.join.clone()).unwrap();
         c.start(0.0);
@@ -1805,12 +1805,12 @@ mod tests {
         assert!(dialed.outs.iter().any(|o| matches!(o, Out::Dial(_))), "the WebSocket, not QUIC again");
         assert!((dialed.at - 5.25).abs() < 1e-6, "after REJOIN_MS");
         let hello = at("open", 5.3).outs.iter().find_map(|o| if let Out::Send(h) = o { Some(h.clone()) } else { None }).unwrap();
-        assert!(hello.contains(r#""resume":{"client":"c8""#), "{hello}");
+        assert!(hello.contains(r#""resume":{"client":"c8","key":"key-c8""#), "{hello}");
 
         let probe = t.iter().find(|x| x.at > 60.0 && x.outs.iter().any(|o| matches!(o, Out::DialQuic { .. }))).unwrap();
         assert!((probe.at - 65.3).abs() < 1e-6, "STEP_UP_MS after joining on the WebSocket, at {}", probe.at);
         assert!(at("quic_open", 65.5).outs.contains(&Out::Close {}), "the WebSocket goes");
-        assert!(at("quic_open", 65.5).outs.iter().any(|o| matches!(o, Out::Stream(h) if h.contains(r#""resume":{"client":"c"#))), "and the resume at once: the relay gives it the old link's place");
+        assert!(at("quic_open", 65.5).outs.iter().any(|o| matches!(o, Out::Stream(h) if h.contains(r#""resume":{"client":"c8","key":"key-c8""#))), "and the resume at once: the relay gives it the old link's place");
     }
 
     #[test]

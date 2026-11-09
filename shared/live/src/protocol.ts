@@ -174,6 +174,8 @@ export interface Hello {
 export interface Resume {
 	client: string;
 	seq: number;
+	/** the `key` of this client's `welcome`: the proof that it is the client it names */
+	key?: string;
 }
 
 /** relay → client after `hello`: the snapshot of what this client should show now (B.6). On a `resume` inside the replay buffer the snapshot is empty and the missed messages follow. */
@@ -183,6 +185,8 @@ export interface Welcome {
 	snapshot: Snapshot;
 	/** relay time, ms */
 	now: number;
+	/** this client's secret for a later `resume`; no other client ever sees it */
+	key?: string;
 }
 
 /** client → relay. `t0`: the client's own clock when it sent the ping, in a unit of its choosing (the relay only echoes it; a deck sends µs – #321, the show clock's offset filter). */

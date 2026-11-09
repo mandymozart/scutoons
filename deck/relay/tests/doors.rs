@@ -6,7 +6,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use futures_util::{SinkExt, StreamExt};
-use protocol::{Cue, DeckValues, Envelope, Message, Role};
+use protocol::{Cue, DeckValues, Envelope, Message, Role, Welcome};
 use relay::doors::{quic, Doors};
 use relay::outbox::{Frame, Outbox, MAX_WAIT};
 use relay::tls::TlsFiles;
@@ -54,9 +54,13 @@ async fn relay_ws(relay: Arc<relay::Relay>) -> String {
 
 /// a WebSocket conductor: what it receives; the sender for what it sends
 async fn ws_client(url: &str, role: &str) -> (mpsc::UnboundedSender<String>, mpsc::UnboundedReceiver<String>) {
+    ws_saying(url, hello(role)).await
+}
+
+async fn ws_saying(url: &str, first: String) -> (mpsc::UnboundedSender<String>, mpsc::UnboundedReceiver<String>) {
     let (ws, _) = tokio_tungstenite::connect_async(url).await.unwrap();
     let (mut tx, mut rx) = ws.split();
-    tx.send(Ws::Text(hello(role).into())).await.unwrap();
+    tx.send(Ws::Text(first.into())).await.unwrap();
     let (out, mut out_rx) = mpsc::unbounded_channel::<String>();
     let (in_tx, in_rx) = mpsc::unbounded_channel();
     tokio::spawn(async move {
@@ -97,19 +101,36 @@ fn open_door(doors: Arc<Doors>) -> (SocketAddr, wtransport::tls::Sha256Digest) {
 
 type Lines = tokio::io::Lines<BufReader<wtransport::RecvStream>>;
 
+type Door = (wtransport::Endpoint<wtransport::endpoint::endpoint_side::Client>, wtransport::Connection, wtransport::SendStream, Lines);
+
 /// a client through the door, welcomed; `after`: what it says right behind its hello
-async fn through_door(addr: SocketAddr, hash: wtransport::tls::Sha256Digest, role: &str, after: &[&str]) -> (wtransport::Endpoint<wtransport::endpoint::endpoint_side::Client>, wtransport::Connection, wtransport::SendStream, Lines) {
+async fn through_door(addr: SocketAddr, hash: wtransport::tls::Sha256Digest, role: &str, after: &[&str]) -> Door {
+    let (door, _) = door_saying(addr, hash, role, hello(role), after).await;
+    door
+}
+
+/// … with `first` for its hello; also its welcome
+async fn door_saying(addr: SocketAddr, hash: wtransport::tls::Sha256Digest, role: &str, first: String, after: &[&str]) -> (Door, Welcome) {
     let config = wtransport::ClientConfig::builder().with_bind_default().with_server_certificate_hashes([hash]).build();
     let endpoint = wtransport::Endpoint::client(config).unwrap();
     let conn = endpoint.connect(format!("https://127.0.0.1:{}/live/ROOM?role={role}", addr.port())).await.unwrap();
     let (mut send, recv) = conn.open_bi().await.unwrap().await.unwrap();
-    send.write_all(format!("{}\n", hello(role)).as_bytes()).await.unwrap();
+    send.write_all(format!("{first}\n").as_bytes()).await.unwrap();
     for line in after {
         send.write_all(format!("{line}\n").as_bytes()).await.unwrap();
     }
     let mut lines = BufReader::new(recv).lines();
-    tokio::time::timeout(WAIT, async { assert!(lines.next_line().await.unwrap().unwrap().contains("welcome")) }).await.unwrap();
-    (endpoint, conn, send, lines)
+    let line = tokio::time::timeout(WAIT, lines.next_line()).await.unwrap().unwrap().unwrap();
+    let Message::Welcome(w) = serde_json::from_str::<Envelope>(&line).unwrap().message else { panic!("welcome expected: {line}") };
+    ((endpoint, conn, send, lines), w)
+}
+
+fn resume_hello(role: &str, w: &Welcome) -> String {
+    format!(
+        r#"{{"v":1,"seq":0,"from":"","kind":"hello","p":{{"code":"ROOM","role":"{role}","group":"decks","token":"t","resume":{{"client":"{}","seq":0,"key":"{}"}}}}}}"#,
+        w.client,
+        w.key.as_deref().expect("a welcome has its key")
+    )
 }
 
 /// A deck through the QUIC door reaches a conductor on WebSocket, in one session.
@@ -260,4 +281,24 @@ async fn a_late_settle_does_not_overwrite_a_newer_datagram() {
     })
     .await;
     assert_eq!(rate, None, "the settle's older lfo.rate is left out");
+}
+
+/// Falling back to the WebSocket and stepping up to QUIC again keep the id, each while the other link is still attached.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_fall_back_and_a_step_up_keep_their_id() {
+    let relay = Arc::new(relay::Relay::new());
+    let url = relay_ws(relay.clone()).await.replace("role=conductor", "role=musician");
+    let (addr, hash) = open_door(Doors::new(relay.clone()));
+    let ((_e, on_quic, _send, _lines), first) = door_saying(addr, hash.clone(), "musician", hello("musician"), &[]).await;
+
+    let (_out, mut on_ws) = ws_saying(&url, resume_hello("musician", &first)).await;
+    let fell = until(&mut on_ws, |e: &Envelope| if let Message::Welcome(w) = &e.message { Some(w.clone()) } else { None }).await;
+    assert_eq!(fell.client, first.client, "the fall back keeps the id");
+    tokio::time::timeout(WAIT, on_quic.closed()).await.expect("the old QUIC link is ended");
+
+    let (_up, stepped) = door_saying(addr, hash, "musician", resume_hello("musician", &fell), &[]).await;
+    assert_eq!(stepped.client, first.client, "the step up keeps the id");
+    tokio::time::timeout(WAIT, async { while on_ws.recv().await.is_some() {} }).await.expect("the old WebSocket is ended");
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    assert_eq!(relay.with_session("ROOM", |s| s.clients.len()).unwrap(), 1, "one client, no ghost");
 }
