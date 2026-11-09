@@ -1,0 +1,34 @@
+# A deck that listens to another one (#442; the two-deck demo deck/native/run-far-demo.ps1): the boy's rig with ONE far
+# world node that names the PC deck's analog sequencer – `/deck:pc/scene:demo/character:catpope/analog:seq.notes` – cabled
+# into its own analog synth (catpope_analog.toml's `lead` sound). Nothing plays until the deck named `pc` (deck.toml `name`)
+# is in the same relay session and plays rig:catpope-analog: this deck asks (`deck.listen`), that one answers with what
+# leaves its sequencer (`deck.events`), the notes play on the next block (deck-space far.rs). In deck-native's
+# `rig::MODULE_RIGS`: `--scene rig:far-listener` (the modules' wasm in DECK_MODULES, like catpope-analog).
+
+[rig]
+subject = "character.boy"
+track = [
+  { id = "far", instrument = "far_in" },
+  { id = "synth", instrument = "analog_voice", gain = 0.5 },
+]
+route = [{ from = "far:in.events", to = "synth:synth.notes" }]
+
+# the far world node: a silent track that brings the pc deck's notes in (its `listen` lets the notes through)
+[[instrument]]
+id = "far_in"
+kind = "pad"
+name = { en = "From the pc deck", de = "Vom PC-Deck" }
+node = [{ id = "in", kind = "world", source = "far", address = "/deck:pc/scene:demo/character:catpope/analog:seq.notes", listen = ["music.note"] }]
+
+[[instrument]]
+id = "analog_voice"
+kind = "pad"
+name = { en = "Analog voice", de = "Analog-Stimme" }
+out = "synth.out"
+node = [
+  { id = "synth", kind = "module:analog", volume = 0.6, o1_wave = 0.0, o1_fine = -6.0, o1_level = 0.65, o1_route = 0.0, o2_wave = 0.0, o2_fine = 6.0, o2_level = 0.65, o2_route = 0.0, f1_cutoff = 3200.0, f1_res = 0.3, f1_drive = 0.1, f1_key = 0.6, f1_env = 0.25, f1_vel = 0.4, fe1_a = 0.005, fe1_d = 0.35, fe1_s = 0.4, fe1_r = 0.3, a1_level = 0.85, a1_pan = -0.15, a1_vel = 0.5, ae1_a = 0.01, ae1_d = 0.2, ae1_s = 0.8, ae1_r = 0.3, l1_shape = 0.0, l1_rate = 5.5, l1_delay = 0.25, l1_attack = 0.4, l1_pitch = 0.35 },
+]
+expose = [
+  { path = "synth.volume", label = { en = "analog", de = "Analog" }, range = [0.0, 1.0] },
+  { path = "synth.f1_cutoff", label = { en = "cutoff", de = "Cutoff" }, range = [200.0, 12000.0] },
+]

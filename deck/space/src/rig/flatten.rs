@@ -8,7 +8,9 @@
 //! and the strips its `@gain` targets drive; routes reach it as `policy:<port>`.
 //! The being's `character` (from the subject) and `expose` (the instruments' shown parameters) come along.
 use super::address::{node_port, Address, Leaf};
+use super::instrument::canonical;
 use super::policy::{self, Member};
+use super::wiring::Home;
 use super::{Library, Rig, TrackPatch};
 use crate::modreg::{self, ModuleDef};
 use crate::scene::{LinkDef, NodeDef, Scene};
@@ -44,22 +46,33 @@ impl Rig {
 
     /// `flatten` with presets chosen per track (`Rig::play_with`: a code rig's `@preset` outputs, #410)
     pub fn flatten_with(&self, lib: &Library, persona: Option<&str>, mood: Option<&str>, chosen: &BTreeMap<String, String>) -> Result<Scene> {
+        Ok(self.flatten_homes(lib, persona, mood, chosen)?.0)
+    }
+
+    /// `flatten_with`, and where each link of the scene is written (#433, wiring.rs `Home`), one per link in order
+    pub fn flatten_homes(&self, lib: &Library, persona: Option<&str>, mood: Option<&str>, chosen: &BTreeMap<String, String>) -> Result<(Scene, Vec<Home>)> {
         self.check(lib)?;
         let played = self.play_with(lib, persona, mood, chosen)?;
         if played.is_empty() {
             bail!("rig {}: every track is muted", self.subject);
         }
         let mut scene = Scene::parse("")?;
+        let mut homes = Vec::new();
         scene.stage.name = self.subject.clone();
-        for TrackPatch { track, patch, .. } in &played {
+        for TrackPatch { track, patch, preset } in &played {
             for n in &patch.nodes {
                 scene.nodes.push(NodeDef { id: format!("{track}_{}", n.id), ..n.clone() });
             }
             for l in &patch.links {
                 scene.links.push(LinkDef { map: l.map.clone(), ..link(prefixed(track, &l.from), prefixed(track, &l.to), l.scale, l.offset) });
+                homes.push(if patch.preset_links.contains(&canonical(&l.to)) {
+                    Home::Preset { track: track.clone(), preset: preset.clone().unwrap_or_default() }
+                } else {
+                    Home::Instrument { track: track.clone() }
+                });
             }
         }
-        self.mix(&played, &mut scene);
+        self.mix(&played, &mut scene, &mut homes);
         self.policy_node(lib, &played, persona, mood, &mut scene)?;
         let playing = |t: &str| played.iter().any(|p| p.track == t) || (t == policy::NODE && self.policy.is_some());
         let mut pulse = false;
@@ -72,7 +85,7 @@ impl Rig {
                 _ => None,
             }
         };
-        for r in &self.routes {
+        for (index, r) in self.routes.iter().enumerate() {
             let (Some((from, ft)), Some((to, tt))) = (end(&r.from), end(&r.to)) else { continue };
             // a route from or to a muted track is off with it
             if !ft.as_deref().is_none_or(playing) || !tt.as_deref().is_none_or(playing) {
@@ -80,10 +93,12 @@ impl Rig {
             }
             pulse |= to == "space.pulse";
             scene.links.push(link(from, to, r.scale, r.offset));
+            homes.push(Home::Route { index });
         }
         scene.nodes.push(node("space", "space", &[]));
         if !pulse {
             scene.links.push(link("fft.level".into(), "space.pulse".into(), 0.6, 0.0));
+            homes.push(Home::Compiled);
         }
         #[cfg(feature = "being")]
         {
@@ -103,13 +118,15 @@ impl Rig {
             }
         }
         crate::graph::Graph::build(&scene).map_err(|e| e.context(format!("rig {} flattened", self.subject)))?;
-        Ok(scene)
+        debug_assert_eq!(homes.len(), scene.links.len(), "one home per link");
+        Ok((scene, homes))
     }
 
     /// The tracks that sound summed on their strips (`policy::strip` over them: `mix1` takes the first four, each next
     /// mixer the one before on `in1` – gain 1 – and three more); the last mixer feeds `out` (audio_out) and `fft`. Silent
-    /// tracks (#430) have no strip; with nothing but silent tracks `out` and `fft` stay unfed.
-    fn mix(&self, played: &[TrackPatch], scene: &mut Scene) {
+    /// tracks (#430) have no strip; with nothing but silent tracks `out` and `fft` stay unfed. Every link is compiled.
+    fn mix(&self, played: &[TrackPatch], scene: &mut Scene, homes: &mut Vec<Home>) {
+        let before = scene.links.len();
         let sounding: Vec<&TrackPatch> = played.iter().filter(|p| p.patch.out.is_some()).collect();
         let last = sounding.len().checked_sub(1).map(|i| policy::strip(i).0);
         for n in 1..=last.unwrap_or(0) {
@@ -135,6 +152,7 @@ impl Rig {
             scene.links.push(link(format!("mix{last}.out"), "out.in".into(), 1.0, 0.0));
             scene.links.push(link(format!("mix{last}.out"), "fft.in".into(), 1.0, 0.0));
         }
+        homes.extend(std::iter::repeat_n(Home::Compiled, scene.links.len() - before));
     }
 
     /// A code rig's policy as the node `policy`: its module registered as a node kind (the library's descriptor, the

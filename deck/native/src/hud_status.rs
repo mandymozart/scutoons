@@ -41,7 +41,7 @@ impl App {
             live,
             live_note: show.live_note.clone(),
             scene: show.scene_name.clone(),
-            gpu: r.map(|r| Gpu { name: r.adapter.name.clone(), backend: format!("{:?}", r.adapter.backend) }),
+            gpu: r.map(|r| Gpu { name: r.gpu.adapter.name.clone(), backend: format!("{:?}", r.gpu.adapter.backend) }),
             quality: self.governor.as_ref().map(|g| Quality {
                 level: g.level().name().into(),
                 ceiling: g.ceiling().name().into(),

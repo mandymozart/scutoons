@@ -10,8 +10,10 @@
 //! - **The show clock (#321):** pongs, the relay's `tempo` anchors and the welcome go to the clock (`ShowLink`, stamped
 //!   when read); the pings it asks for go out with the client's clock (µs of `now_ns`), and so does the anchor of a deck
 //!   that leads. A link for the clock alone (`Join::Deck` without a being) sends no graph.
+//! - **Far events (#442):** the engine's far side (`Wire::far`) goes to deck-space's `far::Side`, which asks, serves and moves them.
 use crate::live::socket::{self, Side};
 use crate::tempo::relay::ShowLink;
+use deck_space::far::{self, FarTable};
 use deck_space::relay::{Client, Options, Out, DECKS};
 use protocol::{DeckGraph, DeckMidi, DeckQuality, DeckSynced, DeckValues, Pong, Role, SceneSync};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -33,13 +35,14 @@ pub trait Syncs: Send {
     fn synced(&self, seen: u64) -> Option<(u64, DeckSynced)>;
 }
 
-/// what the frame hands the link
+/// what the frame hands the link: values, a push, the render quality, MIDI for the conductor (#211: only while joined –
+/// stale MIDI is dropped, not sent later), the engine's far side (#442)
 enum Give {
     Values(DeckValues),
     Push(SceneSync),
     Quality(DeckQuality),
-    /// #211: the deck's MIDI outputs for the conductor (only while joined – stale MIDI is dropped, not sent later)
     Midi(DeckMidi),
+    Far(FarTable),
 }
 
 /// the running client: its events, its outbox, its HUD line; stops when dropped
@@ -72,7 +75,7 @@ impl Link {
         let (tx, outbox) = mpsc::channel();
         let status = Arc::new(Mutex::new(client.line()));
         let stop = Arc::new(AtomicBool::new(false));
-        let mut side = Deck { outbox, events, status: status.clone(), sync, seen: 0, show };
+        let mut side = Deck { outbox, events, status: status.clone(), sync, seen: 0, show, far: far::Side::default() };
         let halt = stop.clone();
         std::thread::Builder::new().name("cathedral".into()).spawn(move || socket::run(client, &mut side, &halt, None, POLL)).map_err(|e| e.to_string())?;
         Ok(Link { rx, tx, status, stop })
@@ -80,21 +83,12 @@ impl Link {
 }
 
 impl Wire for Link {
-    fn send(&self, values: DeckValues) {
-        let _ = self.tx.send(Give::Values(values));
-    }
-
-    fn push(&self, sync: SceneSync) {
-        let _ = self.tx.send(Give::Push(sync));
-    }
-
-    fn quality(&self, quality: DeckQuality) {
-        let _ = self.tx.send(Give::Quality(quality));
-    }
-
-    fn midi(&self, midi: DeckMidi) {
-        let _ = self.tx.send(Give::Midi(midi));
-    }
+    // what the frame hands the link, in its order
+    fn send(&self, values: DeckValues) { let _ = self.tx.send(Give::Values(values)); }
+    fn push(&self, sync: SceneSync) { let _ = self.tx.send(Give::Push(sync)); }
+    fn quality(&self, quality: DeckQuality) { let _ = self.tx.send(Give::Quality(quality)); }
+    fn midi(&self, midi: DeckMidi) { let _ = self.tx.send(Give::Midi(midi)); }
+    fn far(&self, table: FarTable) { let _ = self.tx.send(Give::Far(table)); }
 
     fn recv(&self) -> Option<In> {
         self.rx.try_recv().ok()
@@ -114,6 +108,7 @@ struct Deck {
     /// the last sync answer handed to the client
     seen: u64,
     show: Option<Arc<ShowLink>>,
+    far: far::Side,
 }
 
 impl Side for Deck {
@@ -124,8 +119,10 @@ impl Side for Deck {
                 Give::Push(s) => c.push(s),
                 Give::Quality(q) => c.quality(q),
                 Give::Midi(m) => c.midi(m),
+                Give::Far(t) => self.far.attach(t, c, now),
             }
         }
+        self.far.poll(c, now);
         if let Some((n, r)) = self.sync.as_ref().and_then(|y| y.synced(self.seen)) {
             self.seen = n;
             c.synced(now, r);
@@ -175,7 +172,7 @@ impl Side for Deck {
             Out::Deck(i) => {
                 let _ = self.events.send(i);
             }
-            _ => {}
+            other => { self.far.hear(&other, socket::now_ms()); }
         }
     }
 }

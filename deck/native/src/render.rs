@@ -12,6 +12,7 @@
 use crate::chapter::{ChapterFeed, Prepared};
 use crate::control::Controls;
 use crate::graph::{Graph, Kind};
+use crate::gpu::Gpu;
 use crate::hud::{self, Hud};
 use deck_outlet::frame::{Crossfade, Frame};
 #[cfg(feature = "space")]
@@ -119,11 +120,8 @@ struct OutletPlanes {
 pub enum Space {}
 
 pub struct Renderer {
-    surface: wgpu::Surface<'static>,
-    device: wgpu::Device,
-    queue: wgpu::Queue,
-    config: wgpu::SurfaceConfiguration,
-    pub adapter: wgpu::AdapterInfo,
+    /// the window's device and surface (gpu.rs, #443)
+    pub gpu: Gpu,
     layout: wgpu::BindGroupLayout,
     linear: wgpu::Sampler,
     nearest: wgpu::Sampler,
@@ -161,82 +159,16 @@ pub struct Renderer {
     space: Option<SpaceGpu>,
     /// save the next frame here (PNG), then forget it
     pub capture: Option<PathBuf>,
-    can_capture: bool,
-}
-
-/// #257: the backends the first instance gets – `WGPU_BACKEND` if set, else Vulkan alone on Linux (all elsewhere)
-fn backends_first() -> wgpu::Backends {
-    wgpu::Backends::from_env().unwrap_or_else(|| default_backends(cfg!(target_os = "linux")))
-}
-
-fn default_backends(linux: bool) -> wgpu::Backends {
-    if linux { wgpu::Backends::VULKAN } else { wgpu::Backends::all() }
-}
-
-/// where to go when `tried` had no adapter: GL, only after Vulkan alone found nothing (None = nothing left)
-fn backends_fallback(tried: wgpu::Backends) -> Option<wgpu::Backends> {
-    (tried == wgpu::Backends::VULKAN).then_some(wgpu::Backends::all())
 }
 
 impl Renderer {
     /// `veil` = the splash's first frame is black without the logo (#250: a scene switch fades through black)
     pub fn new(window: Arc<Window>, graph: &Graph, render_scale: f32, feeds: Vec<ChapterFeed>, veil: bool) -> Result<Renderer> {
-        // #257: on Linux the instance starts with Vulkan alone – a GL backend in the instance opens its own EGL
-        // display on the Wayland connection, and when the compositor dies that one segfaults (libEGL_mesa)
-        let mut backends = backends_first();
-        let (surface, adapter) = loop {
-            let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor { backends, ..wgpu::InstanceDescriptor::from_env_or_default() });
-            let surface = instance.create_surface(window.clone()).context("creating the window surface")?;
-            let ask = |fallback| {
-                pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-                    power_preference: wgpu::PowerPreference::HighPerformance,
-                    force_fallback_adapter: fallback,
-                    compatible_surface: Some(&surface),
-                }))
-            };
-            match ask(false) {
-                Ok(a) => break (surface, a),
-                Err(e) => match backends_fallback(backends) {
-                    Some(next) => {
-                        tracing::warn!("render: no adapter on {backends:?} ({e}) – trying {next:?}");
-                        backends = next;
-                    }
-                    None => {
-                        tracing::warn!("render: no hardware adapter ({e}) – the software fallback");
-                        let a = ask(true).context("no GPU adapter at all, not even a software one")?;
-                        break (surface, a);
-                    }
-                },
-            }
-        };
-        let info = adapter.get_info();
-        let software = info.device_type == wgpu::DeviceType::Cpu;
-        tracing::info!("render: {} ({:?}, {:?}, driver {})", info.name, info.backend, info.device_type, info.driver_info);
-        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
-            label: Some("deck-native"),
-            required_features: wgpu::Features::empty(),
-            required_limits: wgpu::Limits::downlevel_webgl2_defaults().using_resolution(adapter.limits()),
-            memory_hints: wgpu::MemoryHints::Performance,
-            trace: wgpu::Trace::Off,
-        }))?;
-        let size = window.inner_size();
-        let caps = surface.get_capabilities(&adapter);
-        let Some(&first) = caps.formats.first() else { bail!("the surface offers no format") };
-        // shaders write display values: a non-sRGB surface keeps them as written
-        let format = caps.formats.iter().copied().find(|f| !f.is_srgb()).unwrap_or(first);
-        // a screenshot copies the surface's texture – where the surface allows it
-        let can_capture = caps.usages.contains(wgpu::TextureUsages::COPY_SRC);
-        let config = wgpu::SurfaceConfiguration {
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | if can_capture { wgpu::TextureUsages::COPY_SRC } else { wgpu::TextureUsages::empty() },
-            format,
-            width: size.width.max(1),
-            height: size.height.max(1),
-            present_mode: wgpu::PresentMode::AutoVsync,
-            desired_maximum_frame_latency: 2,
-            alpha_mode: caps.alpha_modes[0],
-            view_formats: vec![],
-        };
-        surface.configure(&device, &config);
+        // the device and the surface (gpu.rs, #443): the backends' fallbacks, the format, the size
+        let gpu = Gpu::new(window)?;
+        let software = gpu.software();
+        let format = gpu.format();
+        let (device, queue) = (&gpu.device, &gpu.queue);
 
         let tex_entry = |binding, ty| wgpu::BindGroupLayoutEntry {
             binding,
@@ -273,21 +205,21 @@ impl Renderer {
             })
         };
         let (linear, nearest) = (sampler(wgpu::FilterMode::Linear), sampler(wgpu::FilterMode::Nearest));
-        let dummy = texture(&device, 1, 1, OFFSCREEN, wgpu::TextureUsages::TEXTURE_BINDING)
+        let dummy = texture(device, 1, 1, OFFSCREEN, wgpu::TextureUsages::TEXTURE_BINDING)
             .create_view(&Default::default());
-        let hud_tex = texture(&device, hud::W, hud::H, OFFSCREEN, wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST);
-        let bar_w = hud::bar_width(config.width as f32, config.height as f32);
-        let bar_tex = bar_texture(&device, bar_w);
-        let pair_tex = texture(&device, crate::pairing::W, crate::pairing::H, OFFSCREEN, wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST);
+        let hud_tex = texture(device, hud::W, hud::H, OFFSCREEN, wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST);
+        let bar_w = hud::bar_width(gpu.config.width as f32, gpu.config.height as f32);
+        let bar_tex = bar_texture(device, bar_w);
+        let pair_tex = texture(device, crate::pairing::W, crate::pairing::H, OFFSCREEN, wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST);
         // the splash first – one frame of it at once, the scene's shaders compile behind it
-        let (lw, lh, px) = crate::splash::logo((config.width / 2).clamp(64, 2048))?;
-        let logo = upload(&device, &queue, lw, lh, &px);
+        let (lw, lh, px) = crate::splash::logo((gpu.config.width / 2).clamp(64, 2048))?;
+        let logo = upload(device, queue, lw, lh, &px);
         let overlay_pass = |label: &str, body: &str| -> Result<Pass> {
             Ok(Pass {
                 node: usize::MAX,
                 kind: Kind::Screen,
-                pipeline: Some(pipeline(&device, &layout, label, body, format, true)?),
-                ubuf: uniform_buffer(&device),
+                pipeline: Some(pipeline(device, &layout, label, body, format, true)?),
+                ubuf: uniform_buffer(device),
                 inputs: [None; 3],
                 target: None,
                 bind: None,
@@ -300,7 +232,7 @@ impl Renderer {
         let label_pass = overlay_pass("build label", builtin("pass").unwrap())?;
         tracing::info!("deck: build {}", crate::BUILD);
         let (lw, lh, lpx) = crate::build_label::raster(crate::BUILD);
-        let label_tex = texture(&device, lw, lh, OFFSCREEN, wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST);
+        let label_tex = texture(device, lw, lh, OFFSCREEN, wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST);
         queue.write_texture(
             wgpu::TexelCopyTextureInfo { texture: &label_tex, mip_level: 0, origin: wgpu::Origin3d::ZERO, aspect: wgpu::TextureAspect::All },
             &lpx,
@@ -322,11 +254,7 @@ impl Renderer {
             splash,
             veil_only: veil,
             logo,
-            surface,
-            device,
-            queue,
-            config,
-            adapter: info,
+            gpu,
             layout,
             linear,
             nearest,
@@ -342,7 +270,6 @@ impl Renderer {
             #[cfg(feature = "space")]
             space: None,
             capture: None,
-            can_capture,
         };
         r.rebind();
         r.show_splash();
@@ -359,17 +286,17 @@ impl Renderer {
                     builtin("outlet").unwrap().to_string()
                 }
                 Kind::Space => {
-                    r.passes.push(Pass { node: i, kind: Kind::Space, pipeline: None, ubuf: uniform_buffer(&r.device), inputs: [None; 3], target: None, bind: None });
+                    r.passes.push(Pass { node: i, kind: Kind::Space, pipeline: None, ubuf: uniform_buffer(&r.gpu.device), inputs: [None; 3], target: None, bind: None });
                     continue;
                 }
                 _ => continue,
             };
             let fmt = if node.kind == Kind::Screen { format } else { OFFSCREEN };
-            let pipeline = match pipeline(&r.device, &r.layout, &node.id, &body, fmt, false) {
+            let pipeline = match pipeline(&r.gpu.device, &r.layout, &node.id, &body, fmt, false) {
                 Ok(p) => p,
                 Err(e) => {
                     tracing::error!("node '{}': the shader does not compile – showing its input instead\n{e:#}", node.id);
-                    pipeline(&r.device, &r.layout, &node.id, builtin("pass").unwrap(), fmt, false)?
+                    pipeline(&r.gpu.device, &r.layout, &node.id, builtin("pass").unwrap(), fmt, false)?
                 }
             };
             let link = |port| node.kind.input(port).and_then(|k| graph.link_into(i, k)).map(|l| Src::Out(l.from.0, l.from.1));
@@ -378,7 +305,7 @@ impl Renderer {
                 Kind::Overlay => [link("in"), link("top"), None],
                 _ => [link("in"), None, None],
             };
-            let pass = Pass { node: i, kind: node.kind, pipeline: Some(pipeline), ubuf: uniform_buffer(&r.device), inputs, target: None, bind: None };
+            let pass = Pass { node: i, kind: node.kind, pipeline: Some(pipeline), ubuf: uniform_buffer(&r.gpu.device), inputs, target: None, bind: None };
             if node.kind == Kind::Screen {
                 r.screen = Some(pass);
             } else {
@@ -443,7 +370,7 @@ impl Renderer {
         let mut errors = Vec::new();
         for p in self.passes.iter_mut().filter(|p| nodes.contains(&p.node) && p.pipeline.is_some()) {
             let node = &graph.nodes[p.node];
-            match shader_body(node).and_then(|body| pipeline(&self.device, &self.layout, &node.id, &body, OFFSCREEN, false)) {
+            match shader_body(node).and_then(|body| pipeline(&self.gpu.device, &self.layout, &node.id, &body, OFFSCREEN, false)) {
                 Ok(pl) => {
                     p.pipeline = Some(pl);
                     tracing::info!("node '{}': shader reloaded", node.id);
@@ -474,9 +401,9 @@ impl Renderer {
                     continue;
                 }
             };
-            self.device.push_error_scope(wgpu::ErrorFilter::Validation);
-            let pipes = gpu.compile_post(&self.device, e, &src.0, &src.1);
-            match pollster::block_on(self.device.pop_error_scope()) {
+            self.gpu.device.push_error_scope(wgpu::ErrorFilter::Validation);
+            let pipes = gpu.compile_post(&self.gpu.device, e, &src.0, &src.1);
+            match pollster::block_on(self.gpu.device.pop_error_scope()) {
                 Some(err) => {
                     tracing::error!("post '{}': the shader does not compile – the last one runs on\n{err}", e.name());
                     errors.push(format!("post '{}': {err}", e.name()));
@@ -511,7 +438,7 @@ impl Renderer {
 
     /// the scene's render_scale × the rung's size on this window
     fn quality_scale(&self) -> f32 {
-        (self.scene_scale * self.quality.size.scale_for(self.config.height)).clamp(0.1, 4.0)
+        (self.scene_scale * self.quality.size.scale_for(self.gpu.config.height)).clamp(0.1, 4.0)
     }
 
     /// the render size × the screen's
@@ -522,20 +449,17 @@ impl Renderer {
     fn render_size(&self) -> (u32, u32) {
         let s = self.render_scale;
         let side = |v: u32| ((v as f32 * s) as u32).clamp(1, MAX_SIDE);
-        (side(self.config.width), side(self.config.height))
+        (side(self.gpu.config.width), side(self.gpu.config.height))
     }
 
     pub fn resize(&mut self, w: u32, h: u32) {
-        if w == 0 || h == 0 {
+        if !self.gpu.resize(w, h) {
             return;
         }
-        self.config.width = w;
-        self.config.height = h;
-        self.surface.configure(&self.device, &self.config);
         let bar_w = hud::bar_width(w as f32, h as f32);
         if bar_w != self.bar_w {
             self.bar_w = bar_w;
-            self.bar_tex = bar_texture(&self.device, bar_w);
+            self.bar_tex = bar_texture(&self.gpu.device, bar_w);
         }
         // a rung with a height in pixels: its scale follows the window
         self.render_scale = self.quality_scale();
@@ -547,11 +471,11 @@ impl Renderer {
         let (w, h) = self.render_size();
         let usage = wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING;
         for p in &mut self.passes {
-            p.target = Some(Target { view: texture(&self.device, w, h, OFFSCREEN, usage).create_view(&Default::default()) });
+            p.target = Some(Target { view: texture(&self.gpu.device, w, h, OFFSCREEN, usage).create_view(&Default::default()) });
         }
         #[cfg(feature = "space")]
         if let Some(s) = self.space.as_mut() {
-            s.resize(&self.device, (w, h));
+            s.resize(&self.gpu.device, (w, h));
         }
         self.rebind();
     }
@@ -581,7 +505,7 @@ impl Renderer {
         }
         let find = |s: Option<Src>| s.and_then(|s| views.get(&s).copied()).unwrap_or(&self.dummy);
         let bind = |p: &Pass, v: [&wgpu::TextureView; 3], sampler: &wgpu::Sampler| {
-            self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            self.gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
                 label: None,
                 layout: &self.layout,
                 entries: &[
@@ -626,7 +550,7 @@ impl Renderer {
     /// lower right corner over everything; None = gone. Called when it changes, not every frame.
     pub fn set_pairing(&mut self, card: Option<&[u8]>) {
         if let Some(px) = card {
-            self.queue.write_texture(
+            self.gpu.queue.write_texture(
                 wgpu::TexelCopyTextureInfo { texture: &self.pair_tex, mip_level: 0, origin: wgpu::Origin3d::ZERO, aspect: wgpu::TextureAspect::All },
                 px,
                 wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(crate::pairing::W * 4), rows_per_image: None },
@@ -638,11 +562,11 @@ impl Renderer {
 
     /// one frame of the splash alone (the window's first, before the scene's passes exist)
     fn show_splash(&mut self) {
-        let Ok(frame) = self.surface.get_current_texture() else { return };
-        let res = [self.config.width as f32, self.config.height as f32];
+        let Ok(frame) = self.gpu.surface.get_current_texture() else { return };
+        let res = [self.gpu.config.width as f32, self.gpu.config.height as f32];
         let u = Uniforms { time: 0.0, dt: 0.0, res, p: [1.0, self.logo.aspect, 1.0, if self.veil_only { 1.0 } else { 0.0 }, 0.0, 0.0, 0.0, 0.0] };
-        self.queue.write_buffer(&self.splash.ubuf, 0, bytemuck::bytes_of(&u));
-        let mut enc = self.device.create_command_encoder(&Default::default());
+        self.gpu.queue.write_buffer(&self.splash.ubuf, 0, bytemuck::bytes_of(&u));
+        let mut enc = self.gpu.device.create_command_encoder(&Default::default());
         {
             let view = frame.texture.create_view(&Default::default());
             let mut rp = begin(&mut enc, &view);
@@ -650,7 +574,7 @@ impl Renderer {
             rp.set_bind_group(0, self.splash.bind.as_ref(), &[]);
             rp.draw(0..3, 0..1);
         }
-        self.queue.submit([enc.finish()]);
+        self.gpu.queue.submit([enc.finish()]);
         frame.present();
     }
 
@@ -662,7 +586,7 @@ impl Renderer {
         // the outlet: a composed cell → its plane on the GPU, the crossfade from the last one (#186)
         if let Some(o) = self.outlet.as_mut() {
             if let Some(f) = o.rx.as_ref().and_then(|rx| rx.try_recv().ok()) {
-                let img = upload(&self.device, &self.queue, f.plane.width(), f.plane.height(), f.plane.as_raw());
+                let img = upload(&self.gpu.device, &self.gpu.queue, f.plane.width(), f.plane.height(), f.plane.as_raw());
                 o.previous = o.current.replace(img);
                 o.fade.cut(time, f.backdrop, f.enter_ms, f.exit_ms);
                 changed = true;
@@ -687,9 +611,9 @@ impl Renderer {
             }
             let Ok(Prepared { index, count, slice, caption }) = s.feed.rx.try_recv() else { continue };
             s.pending = false;
-            let img = upload(&self.device, &self.queue, slice.width(), slice.height(), slice.as_raw());
+            let img = upload(&self.gpu.device, &self.gpu.queue, slice.width(), slice.height(), slice.as_raw());
             s.previous = s.current.replace(img);
-            s.caption = caption.map(|c| upload(&self.device, &self.queue, c.width(), c.height(), c.as_raw()));
+            s.caption = caption.map(|c| upload(&self.gpu.device, &self.gpu.queue, c.width(), c.height(), c.as_raw()));
             s.index = (index, count);
             s.cut_at = time;
             changed = true;
@@ -734,18 +658,7 @@ impl Renderer {
     /// `space` = the scene's space node's state (its set's 3D arrives through it once).
     #[allow(clippy::too_many_arguments)]
     pub fn frame(&mut self, graph: &Graph, ctl: &Controls, time: f32, dt: f32, hud: Option<&Hud>, splash: (f32, bool), space: Option<&mut Space>) -> Result<f32> {
-        let frame = match self.surface.get_current_texture() {
-            Ok(f) => f,
-            Err(wgpu::SurfaceError::Outdated | wgpu::SurfaceError::Lost) => {
-                self.surface.configure(&self.device, &self.config);
-                return Ok(0.0);
-            }
-            Err(wgpu::SurfaceError::OutOfMemory) => bail!("the GPU is out of memory"),
-            Err(e) => {
-                tracing::debug!("render: skipping a frame ({e})");
-                return Ok(0.0);
-            }
-        };
+        let Some(frame) = self.gpu.acquire()? else { return Ok(0.0) };
         let work = std::time::Instant::now();
         if self.advance(graph, ctl, time) {
             self.rebind();
@@ -758,11 +671,11 @@ impl Renderer {
             Some(s) => {
                 let quality = self.quality;
                 let gpu = self.space.get_or_insert_with(|| {
-                    let mut g = SpaceGpu::new(&self.device, &self.queue, s, OFFSCREEN, (w, h));
+                    let mut g = SpaceGpu::new(&self.gpu.device, &self.gpu.queue, s, OFFSCREEN, (w, h));
                     g.set_quality(quality);
                     g
                 });
-                gpu.sync(&self.device, &self.queue, s);
+                gpu.sync(&self.gpu.device, &self.gpu.queue, s);
                 Some(&*s)
             }
             None => None,
@@ -771,21 +684,21 @@ impl Renderer {
             let mut params = params(ctl, p);
             self.extra(p, time, &mut params);
             let u = Uniforms { time, dt, res: [w as f32, h as f32], p: params };
-            self.queue.write_buffer(&p.ubuf, 0, bytemuck::bytes_of(&u));
+            self.gpu.queue.write_buffer(&p.ubuf, 0, bytemuck::bytes_of(&u));
         }
-        let (sw, sh) = (self.config.width as f32, self.config.height as f32);
+        let (sw, sh) = (self.gpu.config.width as f32, self.gpu.config.height as f32);
         if splash.0 > 0.0 {
             let p = [splash.0, self.logo.aspect, if splash.1 { 1.0 } else { 0.0 }, if self.veil_only { 1.0 } else { 0.0 }, 0.0, 0.0, 0.0, 0.0];
             let u = Uniforms { time, dt, res: [sw, sh], p };
-            self.queue.write_buffer(&self.splash.ubuf, 0, bytemuck::bytes_of(&u));
+            self.gpu.queue.write_buffer(&self.splash.ubuf, 0, bytemuck::bytes_of(&u));
         }
-        let mut enc = self.device.create_command_encoder(&Default::default());
+        let mut enc = self.gpu.device.create_command_encoder(&Default::default());
         for p in &self.passes {
             let target = &p.target.as_ref().unwrap().view;
             let Some(pipeline) = &p.pipeline else {
                 #[cfg(feature = "space")]
                 if let (Some(gpu), Some(s)) = (self.space.as_mut(), space) {
-                    gpu.draw(&self.queue, &mut enc, target, (w, h), s, time);
+                    gpu.draw(&self.gpu.queue, &mut enc, target, (w, h), s, time);
                 }
                 continue;
             };
@@ -804,7 +717,7 @@ impl Renderer {
             }
             // #209: the collapsed bar across the top edge, at the HUD's scale (its raster is as wide as the screen)
             if let Some(hud) = hud.filter(|h| h.mode == hud::Mode::Bar && h.bar_w == self.bar_w && !h.bar.is_empty()) {
-                self.queue.write_texture(
+                self.gpu.queue.write_texture(
                     wgpu::TexelCopyTextureInfo { texture: &self.bar_tex, mip_level: 0, origin: wgpu::Origin3d::ZERO, aspect: wgpu::TextureAspect::All },
                     &hud.bar,
                     wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(self.bar_w * 4), rows_per_image: None },
@@ -817,7 +730,7 @@ impl Renderer {
                 rp.draw(0..3, 0..1);
             }
             if let Some(hud) = hud.filter(|h| h.mode == hud::Mode::Full) {
-                self.queue.write_texture(
+                self.gpu.queue.write_texture(
                     wgpu::TexelCopyTextureInfo {
                         texture: &self.hud_tex,
                         mip_level: 0,
@@ -860,10 +773,10 @@ impl Renderer {
             rp.set_bind_group(0, self.label_pass.bind.as_ref(), &[]);
             rp.draw(0..3, 0..1);
         }
-        let shot = self.capture.take().filter(|_| self.can_capture).map(|path| {
-            let (w, h) = (self.config.width, self.config.height);
+        let shot = self.capture.take().filter(|_| self.gpu.can_capture).map(|path| {
+            let (w, h) = (self.gpu.config.width, self.gpu.config.height);
             let row = (w * 4).div_ceil(wgpu::COPY_BYTES_PER_ROW_ALIGNMENT) * wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
-            let buf = self.device.create_buffer(&wgpu::BufferDescriptor {
+            let buf = self.gpu.device.create_buffer(&wgpu::BufferDescriptor {
                 label: Some("screenshot"),
                 size: (row * h) as u64,
                 usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
@@ -876,7 +789,7 @@ impl Renderer {
             );
             (path, buf, row, w, h)
         });
-        self.queue.submit([enc.finish()]);
+        self.gpu.queue.submit([enc.finish()]);
         let ms = work.elapsed().as_secs_f32() * 1000.0;
         if let Some((path, buf, row, w, h)) = shot {
             if let Err(e) = self.save(&path, &buf, row, w, h) {
@@ -891,9 +804,9 @@ impl Renderer {
     fn save(&self, path: &std::path::Path, buf: &wgpu::Buffer, row: u32, w: u32, h: u32) -> Result<()> {
         let slice = buf.slice(..);
         slice.map_async(wgpu::MapMode::Read, |_| {});
-        self.device.poll(wgpu::PollType::Wait)?;
+        self.gpu.device.poll(wgpu::PollType::Wait)?;
         let data = slice.get_mapped_range();
-        let bgra = matches!(self.config.format, wgpu::TextureFormat::Bgra8Unorm | wgpu::TextureFormat::Bgra8UnormSrgb);
+        let bgra = matches!(self.gpu.config.format, wgpu::TextureFormat::Bgra8Unorm | wgpu::TextureFormat::Bgra8UnormSrgb);
         let mut px = Vec::with_capacity((w * h * 4) as usize);
         for y in 0..h {
             for p in data[(y * row) as usize..(y * row + w * 4) as usize].chunks_exact(4) {
@@ -1051,7 +964,7 @@ fn uniform_buffer(device: &wgpu::Device) -> wgpu::Buffer {
 
 #[cfg(test)]
 mod backend_tests {
-    use super::*;
+    use crate::gpu::{backends_fallback, default_backends};
 
     #[test]
     fn linux_starts_on_vulkan_alone_and_falls_back_once() {

@@ -15,6 +15,8 @@
 //! - face.rs – `Rig::describe`: what a rig lists to the editor and the validator (tracks, addressable inputs, the policy)
 //! - address.rs – the one address format every cable, value and stick is written in, and `Reach`: how far an address
 //!   may reach from its document (#432, research/MODULE-WIRING.md §3)
+//! - edit.rs – a graph gesture as one change of the one document that holds the cable or node (`Op`, #434), "used by N",
+//!   and the text view: the same document as TOML
 //! - here – a rig: a character's (or a scene object's, #210) tracks, each an instrument + its default preset, routes
 //!   between tracks and to the being's look, and per-persona / per-mood variants; `Rig::play` resolves it.
 //!
@@ -22,6 +24,7 @@
 //! lists every problem it finds at its cable, node or track (problem.rs), not the first alone.
 pub mod address;
 pub mod assign;
+pub mod edit;
 pub mod bundle;
 pub mod content;
 pub mod engine;
@@ -319,7 +322,7 @@ impl Rig {
     }
 
     /// a route's end: a relative address of a port – a track's node's, the being's (`to` only), a code rig's policy's
-    fn route_end(&self, end: &str, is_to: bool) -> Result<(), String> {
+    pub(crate) fn route_end(&self, end: &str, is_to: bool) -> Result<(), String> {
         let a = Address::parse(end).map_err(|e| format!("'{end}': {e}"))?;
         if !a.is_relative() {
             return Err(format!("'{end}' leaves the rig – a rig's cable stays relative, the absolute address sits on a world node"));

@@ -72,6 +72,27 @@ fn two_pairs_are_two_cables_and_the_ports_are_events() {
     }
 }
 
+/// #433: the rig's routes are the rig level's cables (home: the route), and a track level shows the one into it as a
+/// stub named by the other end's rig-level leaf
+#[test]
+fn routes_are_rig_level_cables_and_track_level_stubs() {
+    use super::wiring::Home;
+    let p = bundle(TWO_PAIRS, "").play(None, None).unwrap();
+    let rig = p.wire_view("").unwrap();
+    assert_eq!(rig.nodes.iter().map(|n| n.id.as_str()).collect::<Vec<_>>(), ["a_seq", "a_synth", "b_seq", "b_synth", "being"]);
+    let cables: Vec<(&str, &str, &str, &str)> = rig.links.iter().map(|l| (rig.nodes[l.from].id.as_str(), l.out.as_str(), rig.nodes[l.to].id.as_str(), l.input.as_str())).collect();
+    assert_eq!(cables, [("a_seq", "seq.notes", "a_synth", "synth.notes"), ("b_seq", "seq.notes", "b_synth", "synth.notes")]);
+    assert_eq!(rig.links.iter().map(|l| (&l.home, l.ty, l.readonly)).collect::<Vec<_>>(), [(&Home::Route { index: 0 }, "event", None), (&Home::Route { index: 1 }, "event", None)]);
+    assert!(rig.nodes[0].outputs.iter().any(|p| p.name == "seq.notes" && p.ty == "event"));
+    let track = p.wire_view("a_synth").unwrap();
+    assert_eq!(track.levels, ["rig", "track:a_synth"]);
+    let stubs: Vec<(&str, &str, bool, &str, &Home)> = track.stubs.iter().map(|s| (track.nodes[s.node].id.as_str(), s.port.as_str(), s.input, s.other.as_str(), &s.home)).collect();
+    // in the scene's link order: the strip into the sum first, the route after it
+    assert_eq!(stubs, [("synth", "out", false, "sum", &Home::Compiled), ("synth", "notes", true, "a_seq:seq.notes", &Home::Route { index: 0 })]);
+    let module = p.wire_view("a_synth:synth").unwrap();
+    assert_eq!(module.stubs.iter().map(|s| s.other.as_str()).collect::<Vec<_>>(), ["sum", "a_seq:seq.notes"], "another track's end by its rig-level leaf");
+}
+
 #[test]
 fn a_silent_track_has_no_strip_and_no_outlet() {
     let b = bundle(TWO_PAIRS, "");
@@ -154,8 +175,8 @@ fn a_bad_world_node_is_refused_when_the_rig_is_played() {
 }
 
 /// #432: a far world node names another place (here a deck): the rig builds and plays, the node is drawn with its
-/// address, the wiring and the validator list it as not connected (a warning, not a refusal), and a cable from it hears
-/// nothing until #442 carries the events. Naming the rig itself is a cable's job.
+/// address, the wiring and the validator list that it plays only while that deck is in the session (a warning, not a
+/// refusal; the link carries the events, far.rs #442). Naming the rig itself is a cable's job.
 #[test]
 fn a_far_world_node_is_accepted_silent_and_listed() {
     let b = bundle(
@@ -178,7 +199,7 @@ fn a_far_world_node_is_accepted_silent_and_listed() {
     assert_eq!((world.source, world.address.as_deref()), ("far", Some("/deck:left/scene:nave/character:catpope/analog:seq.notes")));
     assert_eq!(w.problems.len(), 1, "{:?}", w.problems);
     assert_eq!(w.problems[0].at, "world node 'far_in'");
-    assert!(w.problems[0].says.contains("not connected yet") && w.problems[0].says.contains("#442"), "{}", w.problems[0]);
+    assert!(w.problems[0].says.contains("over the relay") && w.problems[0].says.contains("#442"), "{}", w.problems[0]);
     // the validator: no problem, one warning naming the node and its track
     let request = super::validate::Request {
         kind: "rigs".into(),
@@ -191,7 +212,7 @@ fn a_far_world_node_is_accepted_silent_and_listed() {
     let a = request.answer().unwrap();
     assert_eq!(a.problems, Vec::<String>::new());
     assert_eq!(a.warnings.len(), 1, "{:?}", a.warnings);
-    assert!(a.warnings[0].contains("world node 'in' (track far)") && a.warnings[0].contains("not connected yet"), "{:?}", a.warnings);
+    assert!(a.warnings[0].contains("world node 'in' (track far)") && a.warnings[0].contains("over the relay"), "{:?}", a.warnings);
     // the rig's own place is the rig itself: inside it a cable joins the ports
     let mut own = b.clone();
     own.instruments[2].nodes[0].params.insert("address".into(), toml::Value::String("character:keys/synth:synth.notes".into()));

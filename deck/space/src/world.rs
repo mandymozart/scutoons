@@ -8,8 +8,9 @@
 //!   going down its cables and nowhere else, so two generators stay apart; `listen` names what leaves it (`music.note`)
 //! - `far` – another scene, character, rig or deck, named by its `address` (rig/address.rs: a place before the leaf,
 //!   `character:catpope/analog:seq.notes`, or absolute `/deck:left/scene:nave/…`; #432, owner: reach is wide from the
-//!   start). Valid, and nothing carries its events into this deck yet (#442): the node sends nothing, the wiring and the
-//!   validator list it as "not connected yet". `listen` names what it lets through.
+//!   start). The deck's link asks the named deck over the relay and feeds what it sends into the cable's ring (far.rs,
+//!   #442); the wiring and the validator list that it plays only while that deck is in the session. `listen` names
+//!   what it lets through.
 use crate::graph::Node;
 use crate::rig::address::Address;
 use anyhow::{anyhow, bail, Result};
@@ -32,7 +33,7 @@ pub fn shares_a_name(sends: &[String], takes: &[String]) -> bool {
 pub enum Source {
     Midi,
     Generator,
-    /// another place's events (#432): valid, not carried into this deck yet (#442) – the node sends nothing
+    /// another place's events (#432), carried over the relay by the deck's link (far.rs, #442)
     Far(Address),
 }
 

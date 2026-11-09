@@ -27,8 +27,8 @@
 use crate::rig::Stream;
 use protocol::lines::{line, Lines, DATAGRAM_MAX};
 use protocol::{
-    DeckGraph, DeckMidi, DeckQuality, DeckSynced, DeckValues, Envelope, Hello, LinkQuality, Message, Ping, Resume, Role, SceneSync, Snapshot, SyncState, Tempo, VoteCast, VoteClose,
-    VoteHold, VoteOpen,
+    DeckEvent, DeckEvents, DeckGraph, DeckListen, DeckMidi, DeckQuality, DeckSynced, DeckValues, Envelope, Hello, LinkQuality, Message, Ping, Resume, Role, SceneSync, Snapshot,
+    SyncState, Tempo, To, VoteCast, VoteClose, VoteHold, VoteOpen,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
@@ -248,6 +248,10 @@ pub enum Out {
     Deck(In),
     /// what a vote screen hears (#231): the open vote and the group's instruction from the welcome, the votes, errors
     Vote(Envelope),
+    /// #442: a deck asks for the far addresses it names (far.rs: this deck answers those that name it)
+    Listen { client: String, addresses: Vec<String> },
+    /// #442: events a deck sends for this deck's far world nodes
+    Events { client: String, events: Vec<DeckEvent> },
     /// every envelope as it came (`Options::messages`)
     Message(Envelope),
 }
@@ -439,6 +443,9 @@ pub struct Client {
     vote: Option<VoteOpen>,
     /// #438: the relay has a QUIC door
     door: Option<Quic>,
+    // #442: the far addresses this deck asks for, and when it last asked
+    listen: Vec<String>,
+    listen_sent: f64,
 }
 
 impl Client {
@@ -475,6 +482,8 @@ impl Client {
             push_due: false,
             vote: None,
             door,
+            listen: Vec::new(),
+            listen_sent: f64::NEG_INFINITY,
         })
     }
 
@@ -813,6 +822,7 @@ impl Client {
                 }
                 self.flush(now);
                 self.settle(now);
+                self.flush_listen(now);
             }
             _ => {}
         }
@@ -879,11 +889,21 @@ impl Client {
 
     /// `may_lose`: a value change, which on QUIC goes as a datagram when it fits one
     fn send_on(&mut self, m: Message, may_lose: bool) -> bool {
+        self.send_envelope(Envelope::new("", m), may_lose)
+    }
+
+    /// a message addressed to `to` (the relay's default otherwise); on QUIC it takes the stream
+    fn send_to(&mut self, m: Message, to: To) -> bool {
+        let mut e = Envelope::new("", m);
+        e.to = Some(to);
+        self.send_envelope(e, false)
+    }
+
+    fn send_envelope(&mut self, mut e: Envelope, may_lose: bool) -> bool {
         if self.phase != Phase::Open {
             return false;
         }
-        *self.counts.entry(m.kind()).or_default() += 1;
-        let mut e = Envelope::new("", m);
+        *self.counts.entry(e.message.kind()).or_default() += 1;
         let on_quic = self.on_quic();
         // values on the stream say which datagram they follow: the door keeps what a newer one has said since
         if let Some(q) = self.door.as_mut().filter(|_| on_quic && matches!(e.message, Message::DeckValues(_))) {
@@ -995,6 +1015,26 @@ impl Client {
         }
     }
 
+    /// #442: the far addresses this deck's world nodes name – asked for once joined, at each welcome and every
+    /// `far::LISTEN_MS` (far.rs); empty = nothing to ask
+    pub fn set_listen(&mut self, now: f64, addresses: Vec<String>) {
+        self.listen = addresses;
+        self.listen_sent = f64::NEG_INFINITY;
+        self.flush_listen(now);
+    }
+
+    fn flush_listen(&mut self, now: f64) {
+        if self.joined && !self.listen.is_empty() && now - self.listen_sent >= crate::far::LISTEN_MS {
+            self.listen_sent = now;
+            self.send_to(Message::DeckListen(DeckListen { addresses: self.listen.clone() }), To { role: None, group: Some(DECKS.to_string()), client: None });
+        }
+    }
+
+    /// #442: events for one subscriber's far world nodes (only while joined – stale events are dropped)
+    pub fn events(&mut self, client: &str, events: Vec<DeckEvent>) -> bool {
+        self.joined && !events.is_empty() && self.send_to(Message::DeckEvents(DeckEvents { events }), To { role: None, group: None, client: Some(client.to_string()) })
+    }
+
     fn flush_quality(&mut self) {
         if self.joined && self.quality_due {
             if let Some(q) = self.quality.clone() {
@@ -1089,6 +1129,8 @@ impl Client {
                     self.out.push(Out::Deck(In::Values { client: from, values: v.values, mood: v.mood }));
                 }
             }
+            Message::DeckListen(l) => self.out.push(Out::Listen { client: from, addresses: l.addresses }),
+            Message::DeckEvents(ev) => self.out.push(Out::Events { client: from, events: ev.events }),
             Message::DeckSynced(synced) if conductor => self.out.push(Out::Deck(In::Synced { client: from, synced })),
             Message::Presence(p) => {
                 let routes = p.routes.unwrap_or_default().into_iter().map(|r| (r.from, r.to)).collect();
@@ -1153,11 +1195,13 @@ impl Client {
                 self.send(Message::DeckValues(all));
             }
         }
-        // the relay forgot this deck's quality and answer when it left
+        // the relay forgot this deck's quality and answer when it left; the decks it asked for far events forget it too
         self.quality_due = self.quality.is_some();
         self.answer_due = self.answer.is_some();
         self.answered = f64::NEG_INFINITY;
+        self.listen_sent = f64::NEG_INFINITY;
         self.flush(now);
+        self.flush_listen(now);
         if let Some(t) = snap.tempo {
             self.out.push(Out::Tempo { tempo: t, arrived: now });
         }
@@ -1690,6 +1734,42 @@ mod tests {
         c.opened(0.0);
         c.text(0.0, &json!({ "v": 1, "seq": 1, "from": "relay", "kind": "welcome", "p": { "client": "c3", "snapshot": {}, "now": 0 } }).to_string());
         assert_eq!(c.line(), "OUTPUT c3 OF left @ CATH");
+    }
+
+    /// #442: a deck asks for its far addresses once joined, to the decks' group, and again every `far::LISTEN_MS`; its
+    /// events go to one subscriber; other decks' asks and events come out typed
+    #[test]
+    fn far_asks_go_out_on_the_join_and_events_come_in_typed() {
+        let sent = |outs: Vec<Out>| -> Vec<Value> { outs.into_iter().filter_map(|o| if let Out::Send(t) = o { serde_json::from_str(&t).ok() } else { None }).collect() };
+        let address = "/deck:left/scene:nave/character:catpope/analog:seq.notes";
+        let mut c = Client::new(Options::new("ws://h:7700/live/CATH", Role::Musician, Some(DECKS))).unwrap();
+        c.start(0.0);
+        c.opened(0.0);
+        c.set_listen(0.0, vec![address.to_string()]);
+        assert!(sent(c.take()).iter().all(|e| e["kind"] != "deck.listen"), "nothing before the welcome");
+        c.text(0.0, &json!({ "v": 1, "seq": 1, "from": "relay", "kind": "welcome", "p": { "client": "c3", "snapshot": {}, "now": 0 } }).to_string());
+        let listens: Vec<Value> = sent(c.take()).into_iter().filter(|e| e["kind"] == "deck.listen").collect();
+        assert_eq!(listens.len(), 1);
+        assert_eq!(listens[0]["to"], json!({ "group": "decks" }));
+        assert_eq!(listens[0]["p"], json!({ "addresses": [address] }));
+        c.tick(crate::far::LISTEN_MS - 1.0);
+        assert!(sent(c.take()).iter().all(|e| e["kind"] != "deck.listen"));
+        c.tick(crate::far::LISTEN_MS);
+        assert_eq!(sent(c.take()).iter().filter(|e| e["kind"] == "deck.listen").count(), 1, "asked again");
+        // this deck's events for one subscriber
+        let ev = DeckEvent { address: address.into(), name: "music.note".into(), props: [("pitch".to_string(), 440.0)].into_iter().collect(), dur_s: Some(0.25) };
+        assert!(c.events("c9", vec![ev.clone()]));
+        let s = sent(c.take());
+        assert_eq!(s.len(), 1);
+        assert_eq!((s[0]["kind"].as_str(), &s[0]["to"]), (Some("deck.events"), &json!({ "client": "c9" })));
+        assert_eq!(s[0]["p"]["events"][0]["props"]["pitch"], 440.0);
+        assert!(!c.events("c9", vec![]), "nothing to send");
+        // another deck's ask, and events for this deck, typed
+        c.text(1.0, &json!({ "v": 1, "seq": 2, "from": "c8", "kind": "deck.listen", "to": { "group": "decks" }, "p": { "addresses": ["/deck:me/scene:x/character:boy/voice:voice.cv"] } }).to_string());
+        c.text(1.0, &json!({ "v": 1, "seq": 3, "from": "c8", "kind": "deck.events", "to": { "client": "c3" }, "p": { "events": [ev] } }).to_string());
+        let outs = c.take();
+        assert!(matches!(&outs[0], Out::Listen { client, addresses } if client == "c8" && addresses == &["/deck:me/scene:x/character:boy/voice:voice.cv".to_string()]), "{outs:?}");
+        assert!(matches!(&outs[1], Out::Events { client, events } if client == "c8" && events.len() == 1 && events[0].name == "music.note"), "{outs:?}");
     }
 
     #[test]

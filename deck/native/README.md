@@ -480,7 +480,9 @@ Owner 2026-10-30: "Baked into the image is not what I want … The API should de
 A deck is a screen outlet of a Live show (research/LIVE-LENSES.md, DECISIONS 2026-10-30): the scene's `outlet` node
 joins the relay as `output` of this deck's outlet and draws the cells the conductor sends – no browser. Settings:
 `relay = "ws://<host>:7700/live/<code>"`, `outlet = "left"`, `locale` in `/var/lib/deck/deck.toml`, or `--relay`,
-`--outlet`, `--locale`; with an outlet set and no `--scene` the stage plays `scenes/outlet.toml` (a space node → the
+`--outlet`, `--locale`; `name = "left"` there names the deck for other decks' far world nodes (`/deck:left/…`, #442,
+deck-space far.rs – a deck without a name answers none), `join = "deck"` makes a rig scene (`--scene rig:…`, whose space
+node has no `join` of its own) join the relay (`run-far-demo.ps1`: two decks on this PC over a local relay); with an outlet set and no `--scene` the stage plays `scenes/outlet.toml` (a space node → the
 outlet → the screen). No relay set = the hosted `wss://live.scutoons.com/live/CATH` (#199); both clients speak ws:// and
 wss:// (`config::dial` – tungstenite with rustls + the webpki roots, no OpenSSL). `src/live/`:
 
@@ -567,7 +569,9 @@ with the token, ready, the cell, resume, the snapshot after a restart). Not yet:
   `/tempo/bpm f`, `/tempo/beat f`, `/tempo/start`, `/tempo/stop`, `/tempo/tap`; the relay: the show clock (#321) – the deck follows the leader's anchor through its offset filter (HUD `SHOW ±x MS`), a deck that leads (`lead = true`, or on MIDI clock in) sends it.
   Ableton Link is the cargo feature `link` (rusty_link 0.4.9: cmake, a C++ compiler and libclang at build time; on
   Windows a debug build needs `--config 'profile.dev.package.rusty_link.opt-level=1'`, else its debug CRT doesn't link).
-- **Video** (`src/render.rs`): one fullscreen pass per video node into its own texture (Rgba8), the screen blits to the
+- **Video** (`src/render.rs`; the window's device and surface are `src/gpu.rs`, the window itself and the frame-rate
+  cap's wait `src/host.rs` – #443: the native editor's proof (#444) makes its window and draws the stage on the same
+  pieces): one fullscreen pass per video node into its own texture (Rgba8), the screen blits to the
   surface, the HUD (`src/hud.rs`, font8x8 into a small texture, integer scale by the screen height) on top – what its
   lines and the bar's items say and the F1 mode are deck-ui's (#374, deck/ui; `src/hud_status.rs` reads the deck's
   objects into its `Status`). No hardware

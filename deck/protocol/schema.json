@@ -73,6 +73,8 @@
         { "type": "object", "properties": { "kind": { "const": "deck.graph" }, "p": { "$ref": "#/definitions/DeckGraph" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "deck.values" }, "p": { "$ref": "#/definitions/DeckValues" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "deck.midi" }, "p": { "$ref": "#/definitions/DeckMidi" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "deck.listen" }, "p": { "$ref": "#/definitions/DeckListen" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "deck.events" }, "p": { "$ref": "#/definitions/DeckEvents" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "scene.sync" }, "p": { "$ref": "#/definitions/SceneSync" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "deck.synced" }, "p": { "$ref": "#/definitions/DeckSynced" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "deck.quality" }, "p": { "$ref": "#/definitions/DeckQuality" } }, "required": ["kind", "p"] },
@@ -536,6 +538,31 @@
       "type": "object",
       "properties": { "msgs": { "type": "array", "items": { "$ref": "#/definitions/MidiBytes" } } },
       "required": ["msgs"],
+      "additionalProperties": false
+    },
+    "DeckListen": {
+      "description": "#442: a deck → relay → the group `decks`: the absolute addresses its far world nodes name (deck-space rig/address.rs: `/deck:<name>/scene:<id>/character:<id>/<track>:<node>.<port>`), sent on each welcome and again every 10 s while it has any (a subscription not refreshed for 30 s lapses). The deck whose name and rig the address names answers with `deck.events` to this client; the relay never parses an address. Ordered, not kept for replay.",
+      "type": "object",
+      "properties": { "addresses": { "type": "array", "items": { "type": "string" } } },
+      "required": ["addresses"],
+      "additionalProperties": false
+    },
+    "DeckEvents": {
+      "description": "#442: a deck → relay → one subscriber (`to.client`): what left the event outputs it asked for, in order, as deck-events events by name – the world node's `listen` filters them on arrival. Ordered, never merged or replayed (a value stream, not state).",
+      "type": "object",
+      "properties": { "events": { "type": "array", "items": { "$ref": "#/definitions/DeckEvent" } } },
+      "required": ["events"],
+      "additionalProperties": false
+    },
+    "DeckEvent": {
+      "type": "object",
+      "properties": {
+        "address": { "type": "string", "description": "the absolute address the subscriber asked for" },
+        "name": { "type": "string", "description": "the event's name (`music.note`, `story.cue`)" },
+        "props": { "type": "object", "additionalProperties": { "type": "number" }, "description": "its numeric props by key (`pitch`, `vel`, `key`, `glide` …)" },
+        "dur_s": { "type": "number", "description": "a note's length in seconds (beats become seconds on the sender's tempo map); missing = a moment" }
+      },
+      "required": ["address", "name", "props"],
       "additionalProperties": false
     },
     "SceneSync": {

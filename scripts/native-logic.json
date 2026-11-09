@@ -2,7 +2,7 @@
 	"$comment": "check:deck-deps (#363 part B): the deck logic the native platform crate still holds (BRIDGE-AUDIT.md §1, the native layer) – recorded, not moved; the move tickets move it (#392 and #374 the F4 / F5 / volume / pairing model and the raster out of main.rs and its files, #391 the Live outlet, #376 the keys and the wheel, #366 the deck's relay side, #360 the module registry). The ratchet: main.rs may not grow (lines) or gain a function; each file below may not grow; a logic function that disappeared from main.rs is a move done – drop its line (`npm run check:deck-deps -- --shrink`). Growth needs the owner: Owner-approved-baseline in a commit message.",
 	"main": {
 		"file": "deck/native/src/main.rs",
-		"lines": 1799,
+		"lines": 1792,
 		"functions": [
 			"args",
 			"outlet_settings",
@@ -68,7 +68,7 @@
 			"what": "the F4 settings page (its option lists are deck-space quality.rs's since #375)"
 		},
 		"deck/native/src/switcher.rs": {
-			"lines": 314,
+			"lines": 313,
 			"ticket": "#392 #374",
 			"what": "the F5 scene switcher's list model"
 		},
@@ -78,7 +78,7 @@
 			"what": "the scene load's sync board and its HUD line (Board::line: SYNC 2/5, SYNC OK … CACHED) and a scene's needs (needs_of) next to the fetch threads; the push is deck-space push.rs since #371"
 		},
 		"deck/native/src/space/link.rs": {
-			"lines": 181,
+			"lines": 178,
 			"ticket": "#366",
 			"what": "the deck's side of deck-space's relay client (the frame's outbox, the sync's answers, the show clock's pings and anchors) – the join, backoff, ping and status are relay.rs since #366"
 		},

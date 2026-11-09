@@ -52,6 +52,11 @@ pub struct Events {
     pub(super) outlets: Vec<rtrb::Producer<Event>>,
     /// the module event outputs' deck-events events (#342, evhost.rs) for the platform to route
     pub(super) outbox: Vec<rtrb::Consumer<Event>>,
+    /// the slot of each outbox ring, `<node>.<port>` (#442: what another deck may ask for)
+    pub(super) outbox_slots: Vec<String>,
+    /// #442: the far world nodes' cables (evhost.rs): (the address, its `listen`, the ring into the cabled input) –
+    /// the platform's link fills them with the events another deck sends
+    pub(super) far: Vec<(String, Vec<String>, rtrb::Producer<Event>)>,
     /// (world node, its cables) of the `generator` world nodes (#430): taken by the node's block
     #[cfg(feature = "modules")]
     pub(super) generators: Vec<(usize, Vec<super::evhost::Link>)>,
@@ -67,6 +72,8 @@ impl Events {
             routes: Vec::new(),
             outlets: Vec::new(),
             outbox: Vec::new(),
+            outbox_slots: Vec::new(),
+            far: Vec::new(),
             #[cfg(feature = "modules")]
             generators: Vec::new(),
             sequencer: None,
@@ -100,7 +107,20 @@ impl Events {
     /// What the modules' event outputs emit (#342): one ring per output port, deck-events events with their true time
     /// (a note with its `dur`) – the platform drains them into its dispatcher. Taken once.
     pub fn take_outbox(&mut self) -> Vec<rtrb::Consumer<Event>> {
+        self.outbox_slots.clear();
         std::mem::take(&mut self.outbox)
+    }
+
+    /// `take_outbox` with each ring's slot, `<node>.<port>` (#442: the link offers them to other decks). Taken once.
+    pub fn take_outbox_slots(&mut self) -> Vec<(String, rtrb::Consumer<Event>)> {
+        let slots = std::mem::take(&mut self.outbox_slots);
+        slots.into_iter().zip(std::mem::take(&mut self.outbox)).collect()
+    }
+
+    /// #442: the far world nodes' cables – (the address, its `listen`, the ring into the cabled input), one per cable;
+    /// the platform's link pushes what the named deck sends. Taken once.
+    pub fn take_far(&mut self) -> Vec<(String, Vec<String>, rtrb::Producer<Event>)> {
+        std::mem::take(&mut self.far)
     }
 
     /// the cables of the generator world node `node` (#430), taken once

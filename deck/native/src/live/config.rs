@@ -28,6 +28,30 @@ pub struct Settings {
     pub outlet: Option<String>,
     #[serde(default)]
     pub locale: Option<String>,
+    /// #442: this deck's name – the place `deck:<name>` other decks' far world nodes address; none = it answers none
+    #[serde(default)]
+    pub name: Option<String>,
+    /// #442: how a scene without a `join` of its own – a rig (`--scene rig:…`) – joins the relay: `deck` · `conductor` ·
+    /// `alone` (none = alone, as before). A scene file's own `join` stays.
+    #[serde(default)]
+    pub join: Option<String>,
+}
+
+/// the deck's file: the user variable `DECK_TOML` names another (a dev machine's, audio/backend.rs reads it the same way),
+/// else `DECK_TOML`
+pub fn deck_toml() -> std::path::PathBuf {
+    std::env::var_os("DECK_TOML").map(std::path::PathBuf::from).unwrap_or_else(|| DECK_TOML.into())
+}
+
+/// #442: `scene` with deck.toml's `join` on a space node that has none of its own (a rig's); a scene file's `join` stays.
+pub fn with_join(mut scene: deck_space::scene::Scene, cli: &Settings) -> deck_space::scene::Scene {
+    let join = cli.join.clone().or_else(|| Settings::read(&deck_toml()).join);
+    if let Some(j) = join {
+        for n in scene.nodes.iter_mut().filter(|n| n.kind == "space" && !n.params.contains_key("join")) {
+            n.params.insert("join".into(), toml::Value::String(j.clone()));
+        }
+    }
+    scene
 }
 
 impl Settings {
@@ -47,7 +71,7 @@ impl Settings {
     /// `over`'s keys win (the CLI over deck.toml); empty strings count as unset
     pub fn merged(self, over: Settings) -> Settings {
         let pick = |a: Option<String>, b: Option<String>| b.filter(|s| !s.is_empty()).or(a.filter(|s| !s.is_empty()));
-        Settings { relay: pick(self.relay, over.relay), outlet: pick(self.outlet, over.outlet), locale: pick(self.locale, over.locale) }
+        Settings { relay: pick(self.relay, over.relay), outlet: pick(self.outlet, over.outlet), locale: pick(self.locale, over.locale), name: pick(self.name, over.name), join: pick(self.join, over.join) }
     }
 
     /// The outlet to play: None when the outlet is unset; the hosted relay when the relay is (#199); Err when the

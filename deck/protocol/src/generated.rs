@@ -139,6 +139,10 @@ pub enum Message {
 	DeckValues(DeckValues),
 	#[serde(rename = "deck.midi")]
 	DeckMidi(DeckMidi),
+	#[serde(rename = "deck.listen")]
+	DeckListen(DeckListen),
+	#[serde(rename = "deck.events")]
+	DeckEvents(DeckEvents),
 	#[serde(rename = "scene.sync")]
 	SceneSync(SceneSync),
 	#[serde(rename = "deck.synced")]
@@ -188,6 +192,8 @@ impl Message {
 			Message::DeckGraph(_) => "deck.graph",
 			Message::DeckValues(_) => "deck.values",
 			Message::DeckMidi(_) => "deck.midi",
+			Message::DeckListen(_) => "deck.listen",
+			Message::DeckEvents(_) => "deck.events",
 			Message::SceneSync(_) => "scene.sync",
 			Message::DeckSynced(_) => "deck.synced",
 			Message::DeckQuality(_) => "deck.quality",
@@ -802,6 +808,31 @@ pub struct DeckValues {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DeckMidi {
 	pub msgs: Vec<MidiBytes>,
+}
+
+/// #442: a deck → relay → the group `decks`: the absolute addresses its far world nodes name (deck-space rig/address.rs: `/deck:<name>/scene:<id>/character:<id>/<track>:<node>.<port>`), sent on each welcome and again every 10 s while it has any (a subscription not refreshed for 30 s lapses). The deck whose name and rig the address names answers with `deck.events` to this client; the relay never parses an address. Ordered, not kept for replay.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DeckListen {
+	pub addresses: Vec<String>,
+}
+
+/// #442: a deck → relay → one subscriber (`to.client`): what left the event outputs it asked for, in order, as deck-events events by name – the world node's `listen` filters them on arrival. Ordered, never merged or replayed (a value stream, not state).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DeckEvents {
+	pub events: Vec<DeckEvent>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DeckEvent {
+	/// the absolute address the subscriber asked for
+	pub address: String,
+	/// the event's name (`music.note`, `story.cue`)
+	pub name: String,
+	/// its numeric props by key (`pitch`, `vel`, `key`, `glide` …)
+	pub props: std::collections::HashMap<String, f64>,
+	/// a note's length in seconds (beats become seconds on the sender's tempo map); missing = a moment
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub dur_s: Option<f64>,
 }
 
 /// #195: conductor → relay → the decks (the group `decks`, or only the client ids in `decks`): fetch what this scene needs into the cache – the same scene-content request (`GET /api/library/scene-content`) and cache as a deck's own scene, skipping what is there – and answer `deck.synced`. Only the conductor sends it; the relay logs it and keeps the last one for the snapshot, so a deck that joins later syncs too.

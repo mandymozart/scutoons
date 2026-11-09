@@ -343,7 +343,7 @@ struct Show {
 /// the Live outlet's settings from the CLI (deck.toml's under them – live/config.rs)
 #[cfg(feature = "live")]
 fn outlet_settings(args: &Args) -> deck_native::live::config::Settings {
-    deck_native::live::config::Settings { relay: args.relay.clone(), outlet: args.outlet.clone(), locale: args.locale.clone() }
+    deck_native::live::config::Settings { relay: args.relay.clone(), outlet: args.outlet.clone(), locale: args.locale.clone(), name: None, join: None }
 }
 
 /// a relay and an outlet are set (deck.toml or the CLI): the deck is a Live outlet
@@ -381,13 +381,13 @@ fn audio_options(args: &Args, scene: &scene::Scene) -> backend::Options {
 /// the scene the arguments name: a file, `cathedral` / `conductor` / `outlet` / `madness` / `idle` (built in), the outlet
 /// when one is set, or the idle scene (#252)
 fn read_scene(args: &Args) -> Result<scene::Scene> {
-    match &args.scene {
+    (match &args.scene {
         Some(p) if !p.exists() && p.to_str().and_then(switcher::builtin).is_some() => scene::Scene::parse(p.to_str().and_then(switcher::builtin).unwrap_or_default()),
         Some(p) if deck_native::rig::named(p).is_some() => deck_native::rig::scene(p),
         Some(p) => scene::Scene::load(p),
         None if outlet_configured(args) => scene::Scene::parse(scene::OUTLET_SCENE),
         None => scene::Scene::parse(scene::IDLE_SCENE),
-    }
+    }).map(|s| deck_native::live::config::with_join(s, &outlet_settings(args)))
 }
 
 /// #264: the outputs of the scene before, on their way into the next one (or out): `Show::load` takes them over when the
@@ -553,7 +553,7 @@ impl Show {
                 let hook = sync.clone().map(|y| Box::new(y) as Box<dyn deck_native::space::link::Syncs>);
                 #[cfg(not(feature = "sync"))]
                 let hook = None;
-                s.connect(relay.as_deref(), args.token.clone(), Some(scene.stage.name.clone()), hook, Some(show_link.clone()));
+                s.connect(relay.as_deref(), args.token.clone(), Some(scene.stage.name.clone()), hook, Some(show_link.clone()), handles.as_mut().and_then(|h| deck_native::space::far_table(h, &scene.stage.name)));
                 // the conductor pushes the scene's sync once joined (decks that come later find it in their snapshot)
                 if s.join == deck_native::space::Join::Conductor {
                     match s.push_for(args.scene.as_deref(), &scene.stage.name, args.sync.as_deref()) {
@@ -1050,7 +1050,7 @@ impl App {
                     l.resize((size.width as f32 * k) as u32, (size.height as f32 * k) as u32);
                 }
                 // #220: the level by the GPU (unless chosen), kept over a reload; the renderer at its rung
-                let gpu = match r.adapter.device_type {
+                let gpu = match r.gpu.adapter.device_type {
                     wgpu::DeviceType::Cpu => quality::Gpu::Software,
                     wgpu::DeviceType::IntegratedGpu => quality::Gpu::Integrated,
                     wgpu::DeviceType::DiscreteGpu => quality::Gpu::Discrete,
@@ -1140,8 +1140,7 @@ impl App {
         if let (Some(g), Some(l)) = (&self.governor, self.last) {
             let since = l.elapsed().as_secs_f32() * 1000.0;
             if !g.due(since) {
-                let wait = (g.rung().interval_ms() - since - 1.5).max(0.0);
-                el.set_control_flow(ControlFlow::WaitUntil(Instant::now() + std::time::Duration::from_secs_f32(wait / 1000.0)));
+                deck_native::host::wait(el, g.rung().interval_ms() - since - 1.5);
                 return;
             }
         }
@@ -1363,7 +1362,7 @@ impl App {
     }
 
     fn summary(&self) -> String {
-        let adapter = self.renderer.as_ref().map(|r| format!("{} ({:?})", r.adapter.name, r.adapter.backend)).unwrap_or_default();
+        let adapter = self.renderer.as_ref().map(|r| format!("{} ({:?})", r.gpu.adapter.name, r.gpu.adapter.backend)).unwrap_or_default();
         let error = self.error.as_ref().map(|e| format!(" scene_error=\"{e}\"")).unwrap_or_default();
         // #208: the glitches by cause, the device's buffer, the render lead at the end
         let glitches = self
@@ -1502,14 +1501,8 @@ impl ApplicationHandler<Event> for App {
         if self.window.is_some() {
             return;
         }
-        let mut attrs = Window::default_attributes().with_title("SCUTOONSDECK stage");
-        if !self.args.windowed {
-            attrs = attrs.with_fullscreen(Some(Fullscreen::Borderless(None)));
-        } else {
-            attrs = attrs.with_inner_size(winit::dpi::LogicalSize::new(1280.0, 720.0));
-        }
-        let window = match el.create_window(attrs) {
-            Ok(w) => Arc::new(w),
+        let window = match deck_native::host::window(el, "SCUTOONSDECK stage", self.args.windowed) {
+            Ok(w) => w,
             Err(e) => {
                 tracing::error!("no window: {e}");
                 self.exit = 1;
@@ -1518,7 +1511,7 @@ impl ApplicationHandler<Event> for App {
             }
         };
         // #220: the display's sizes (the settings page; the largest is the hardware's maximum)
-        self.modes = window.current_monitor().map(|m| settings::sizes(m.video_modes().map(|v| (v.size().width, v.size().height)).collect())).unwrap_or_default();
+        self.modes = deck_native::host::display_sizes(&window);
         self.start_renderer(&window);
         if self.exit != 0 {
             el.exit();

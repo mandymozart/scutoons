@@ -331,7 +331,10 @@ instruction per group) · `cell { outlet, cell }` (row change) · `cue`, `say`, 
 client for the conductor's snapshot `decks`) · `deck.values { values: { "node.port": number[] }, mood? }` (only what
 changed, ≤ 30 / s – the relay drops more; folded, never replayed; to the conductor, and to `to` too) · `deck.midi { msgs:
 [{ bytes }] }` (#211: a deck's parameters as MIDI outputs for the conductor to route on; ordered, never merged or
-replayed – deck/outputs) · presence adds
+replayed – deck/outputs) · `deck.listen { addresses }` (#442: the absolute addresses a deck's far world nodes name, to the
+group `decks` on each welcome and every 10 s; the deck the address names answers) · `deck.events { events: [{ address, name,
+props, dur_s? }] }` (#442: what left the asked-for event outputs, to that one subscriber; ordered, never merged or replayed;
+the relay parses no address) · presence adds
 `decks`, `routes` (who sent values to whom) and `links` (#223: each client's round trip, value rate, values replaced –
 not the audience's) and `quality` (#220: each deck's last `deck.quality { level, scale, auto, frame, ceiling? }` – its
 render quality, sent at once on a change, else ≤ every 2 s; kept, not forwarded). The deck side: deck/native/README.md "space", "Quality". **Send path** (#223): per client the latest

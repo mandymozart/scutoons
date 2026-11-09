@@ -20,6 +20,9 @@ pub trait Wire: Send {
     fn quality(&self, _quality: DeckQuality) {}
     /// #211: the deck's MIDI outputs for the conductor (`deck.midi`); a wire without the relay drops them
     fn midi(&self, _midi: DeckMidi) {}
+    /// #442: the engine's far world nodes and event outputs (far.rs): the link asks for the addresses, answers other
+    /// decks' asks and moves the events; a wire without the relay drops the table
+    fn far(&self, _table: crate::far::FarTable) {}
     /// the next event, if any (never blocks)
     fn recv(&self) -> Option<In>;
     /// the link's state in a word (the HUD)

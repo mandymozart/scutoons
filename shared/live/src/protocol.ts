@@ -60,6 +60,8 @@ export type Message =
 	| { kind: 'deck.graph'; p: DeckGraph }
 	| { kind: 'deck.values'; p: DeckValues }
 	| { kind: 'deck.midi'; p: DeckMidi }
+	| { kind: 'deck.listen'; p: DeckListen }
+	| { kind: 'deck.events'; p: DeckEvents }
 	| { kind: 'scene.sync'; p: SceneSync }
 	| { kind: 'deck.synced'; p: DeckSynced }
 	| { kind: 'deck.quality'; p: DeckQuality }
@@ -446,6 +448,27 @@ export interface DeckValues {
 /** #211: a deck → relay → the conductor (and `to`, if set): MIDI its parameters send as outputs (a mapping's target `port = "conductor"` – CC / note / pitch bend, status byte first), for the conductor to route on like device input. Only decks send it; not kept for replay (a value stream, not state). */
 export interface DeckMidi {
 	msgs: MidiBytes[];
+}
+
+/** #442: a deck → relay → the group `decks`: the absolute addresses its far world nodes name (deck-space rig/address.rs: `/deck:<name>/scene:<id>/character:<id>/<track>:<node>.<port>`), sent on each welcome and again every 10 s while it has any (a subscription not refreshed for 30 s lapses). The deck whose name and rig the address names answers with `deck.events` to this client; the relay never parses an address. Ordered, not kept for replay. */
+export interface DeckListen {
+	addresses: string[];
+}
+
+/** #442: a deck → relay → one subscriber (`to.client`): what left the event outputs it asked for, in order, as deck-events events by name – the world node's `listen` filters them on arrival. Ordered, never merged or replayed (a value stream, not state). */
+export interface DeckEvents {
+	events: DeckEvent[];
+}
+
+export interface DeckEvent {
+	/** the absolute address the subscriber asked for */
+	address: string;
+	/** the event's name (`music.note`, `story.cue`) */
+	name: string;
+	/** its numeric props by key (`pitch`, `vel`, `key`, `glide` …) */
+	props: Record<string, number>;
+	/** a note's length in seconds (beats become seconds on the sender's tempo map); missing = a moment */
+	dur_s?: number;
 }
 
 /** #195: conductor → relay → the decks (the group `decks`, or only the client ids in `decks`): fetch what this scene needs into the cache – the same scene-content request (`GET /api/library/scene-content`) and cache as a deck's own scene, skipping what is there – and answer `deck.synced`. Only the conductor sends it; the relay logs it and keeps the last one for the snapshot, so a deck that joins later syncs too. */

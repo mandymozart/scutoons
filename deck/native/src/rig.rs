@@ -39,7 +39,7 @@ pub fn scene(arg: &Path) -> Result<Scene> {
 /// The rigs that need modules (#417): name → the bundle's TOML (deck/native/rigs/). Their nodes are `module:<name>` kinds that
 /// only a deck built with the `modules` feature (wasmtime) and its wasm in `DECK_MODULES` has, so they are not in the core's
 /// `rig::bundle::CORE` (the browser, the headless host and the server's catalog carry no module): `--scene rig:catpope-analog`.
-pub const MODULE_RIGS: [(&str, &str); 1] = [("catpope-analog", include_str!("../rigs/catpope_analog.toml"))];
+pub const MODULE_RIGS: [(&str, &str); 2] = [("catpope-analog", include_str!("../rigs/catpope_analog.toml")), ("far-listener", include_str!("../rigs/far_listener.toml"))];
 
 /// A module rig played (`MODULE_RIGS`): the modules of `DECK_MODULES` register their kinds first; a build without them (or
 /// without the wasm) says so in the log and plays the silent scene (#425), like a rig that fails.
