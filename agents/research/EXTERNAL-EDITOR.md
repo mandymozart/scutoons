@@ -1,4 +1,4 @@
-Status 2026-11-09: research for #450, answered; nothing built. External editor is enough for Rust, and the world's strings need a small language server of ours, not a built-in editor. rust-analyzer itself is not installed on this PC, so that part is read, not measured.
+Status 2026-11-09: research for #450, answered and decided by the owner (§7): external editor for module code, `deck-lsp` is ours, the visual editor will use it too; nothing built. rust-analyzer itself is not installed on this PC, so that part is read, not measured.
 
 # EXTERNAL-EDITOR – how good is an existing editor for module code, and what can its autocomplete know
 
@@ -79,3 +79,8 @@ Scratchpad `…\scratchpad\walk-proof` (`Cargo.toml` as `compile::manifest` writ
 
 ## 6. Tickets (not filed)
 S: working folder as a Cargo project + vendor + editor settings + `deck-build check` as `overrideCommand` · S: deny-list rule in `check:deck-deps`, name the packages in `deck.yml` · S: spans on `Address::parse` and the problems · M: `deck-lsp` for rig TOML, then the attribute strings · M, optional: per-document schema from the core for taplo / Tombi users · hand step: VS Code + rust-analyzer on the proof folder (§4's open line).
+
+## 7. Owner's answer, 2026-11-09 (to record in decisions/deck.md `[platform]`)
+"lsp makes sense. and yes, the visual editor will rely on those too. so that is smart development. a plugin for an external editor is fine. we are not doing live coding, so it's nice to externalize it. also this way contributers can share development on individual github repos for modules."
+- **Decided:** `deck-lsp` is built (§2.3, §6); the visual editor is a second client of it; module code is written in an external editor, with a plugin or settings for it where useful. No in-app code editor planned: owner, same day: "internal editor goes to the very future. proposal, but only required if the tool gets broader syndication." (#451). Filed: `deck-lsp` #452, modules in their own repos #453.
+- **New from the last line, a module in its own GitHub repo** (my reading, not asked yet): the repo holds the member's `src/*.rs` (the service takes flat files only and writes the `Cargo.toml` itself, `compile.rs`, `files.rs`), plus the generated manifest, `clippy.toml` and editor settings so it opens as a real project. `deck-build check` runs the same in a GitHub Action, so a contributor's pull request gets the service's scan and determinism lints. Two things to settle first: the SDK is path-only and `UNLICENSED` (`deck/module/Cargo.toml`, workspace `license`), so an outside repo cannot depend on it until it has a licence and a way to fetch it (a git dependency on the public repo, or a published crate); and how a repo's sources reach the catalog's `module:<id>` document (import by the API, or `save_draft` over the MCP) with the factory-module rule (decisions [modules] 2026-11-03: read-only, derive to change). Both are for a `decide` ticket, not this one.
