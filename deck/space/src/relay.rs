@@ -16,10 +16,16 @@
 //!   joins again after `REJOIN_MS`, a failed one backs off `BACKOFF_S`; a refused token closes it.
 //! - **The stream** (`Values`): a deck's values at most `RATE` a second, a value only when it moved more than its
 //!   epsilon (`rig::Stream::epsilon`), the mood when it changed.
+//! - **QUIC first, WebSocket last** (#438, `?quic=` on the relay URL – none: only the WebSocket, as ever): QUIC gets
+//!   `QUIC_HEAD_START_MS`, then a WebSocket is dialled beside it; the first one up says `hello`, so a race leaves no ghost.
+//!   A QUIC link that dies falls to the WebSocket with a resume; a WebSocket link tries QUIC again after `STEP_UP_MS`.
+//!   On QUIC `deck.values` go as datagrams (they may be lost; every `SETTLE_MS` the full values go on the stream, and
+//!   what arrives is applied key by key, only when not older), everything else on the stream.
 //!
 //! `script` runs scripted socket events through a `Client` – the outs every adapter's test compares against
 //! (shared/live-deck/test/fixtures/relay.json, the headless scenario `relay_join`).
 use crate::rig::Stream;
+use protocol::lines::{line, Lines, DATAGRAM_MAX};
 use protocol::{
     DeckEvent, DeckEvents, DeckGraph, DeckListen, DeckMidi, DeckQuality, DeckSynced, DeckValues, Envelope, Hello, LinkQuality, Message, Ping, Resume, Role, SceneSync, Snapshot,
     SyncState, Tempo, To, VoteCast, VoteClose, VoteHold, VoteOpen,
@@ -31,7 +37,7 @@ use std::collections::{BTreeMap, HashMap};
 pub const PING_MS: f64 = 20_000.0;
 /// a link that never got a welcome dials again after these waits (s), the last one from then on
 pub const BACKOFF_S: [u32; 5] = [1, 2, 4, 8, 10];
-/// a joined link that dropped dials again after this (ms) – the relay frees the client id for a resume
+/// a joined link that dropped dials again after this (ms)
 pub const REJOIN_MS: f64 = 250.0;
 /// a deck's sync progress at most this often (ms); the final state goes at once
 pub const PROGRESS_MS: f64 = 200.0;
@@ -39,6 +45,18 @@ pub const PROGRESS_MS: f64 = 200.0;
 pub const RATE: f64 = 30.0;
 /// the decks' group
 pub const DECKS: &str = "decks";
+/// how long QUIC tries alone before a WebSocket is dialled beside it (ms)
+pub const QUIC_HEAD_START_MS: f64 = 250.0;
+/// a QUIC dial nothing else is waiting for ends after this (ms): a path that drops UDP never says no
+pub const QUIC_GIVE_UP_MS: f64 = 3000.0;
+/// on the WebSocket this long, try QUIC again in the background (ms); doubles after each failure, up to `STEP_UP_MAX_MS`
+pub const STEP_UP_MS: f64 = 60_000.0;
+pub const STEP_UP_MAX_MS: f64 = 300_000.0;
+/// on QUIC, the full values go on the stream this often while they change (ms): what a lost datagram would have said
+pub const SETTLE_MS: f64 = 1000.0;
+/// a due settle waits this long (ms, a frame and a bit) to take the place of the next change: the relay allows a deck 30
+/// `deck.values` a second, a deck at full pace has none to spare
+pub const SETTLE_GRACE_MS: f64 = 40.0;
 
 /// `ws://host:port/live/<code>` (or `wss://`, a path before `/live/` – the LAN viewer's `…/relay/live/<code>`) → the
 /// base and the session code; a query is dropped (the client adds its own)
@@ -56,6 +74,47 @@ pub fn parse_relay(url: &str) -> Result<(String, String), String> {
     }
     let scheme = &url[..url.len() - rest.len()];
     Ok((format!("{scheme}{base}"), decode(code)))
+}
+
+/// The hosted relay: bunny's edge ends its TLS and carries no UDP, so a client there would give QUIC its head start for
+/// nothing. It takes the door by name (`?quic=`, `VITE_LIVE_QUIC`) once it has one (#441).
+const NO_DOOR_YET: &str = "live.scutoons.com";
+
+/// The relay's QUIC door (#438), from its URL – the base (`https://host:port`) and the hash to pin. A `wss://` relay under
+/// a name has one on its own host and port, a relay opens it with its certificate. `?quic=host:port` names another,
+/// an empty `?quic=` asks for the relay's own, `?quic=off` for none, `&quichash=<sha-256 of the certificate, hex>` pins a
+/// self-signed one.
+pub fn parse_quic(url: &str) -> Option<(String, Option<Vec<u8>>)> {
+    let url = url.trim();
+    let (secure, rest) = match url.strip_prefix("wss://") {
+        Some(rest) => (true, rest),
+        None => (false, url.strip_prefix("ws://")?),
+    };
+    let query = rest.split('#').next().unwrap_or("").split_once('?').map_or("", |(_, q)| q);
+    let param = |name: &str| query.split('&').find_map(|kv| kv.strip_prefix(name)?.strip_prefix('=').map(decode));
+    let own = rest.split(['/', '?', '#']).next().unwrap_or("");
+    let door = match param("quic") {
+        Some(off) if off == "off" => return None,
+        Some(door) if !door.is_empty() => door,
+        Some(_) => own.to_string(),
+        None if secure && door_by_default(own) => own.to_string(),
+        None => return None,
+    };
+    Some((format!("https://{door}"), param("quichash").and_then(|h| hex(&h))))
+}
+
+/// An address cannot have a public certificate, so a `wss://` by IP is a proxy or a pinned relay, which name their door.
+fn door_by_default(authority: &str) -> bool {
+    let host = authority.rsplit_once(':').map_or(authority, |(host, _)| host);
+    host != NO_DOOR_YET && !host.starts_with('[') && host.parse::<std::net::IpAddr>().is_err()
+}
+
+/// a hex string's bytes; None when it is empty or not hex
+fn hex(s: &str) -> Option<Vec<u8>> {
+    if s.is_empty() || s.len() % 2 != 0 {
+        return None;
+    }
+    (0..s.len()).step_by(2).map(|i| u8::from_str_radix(s.get(i..i + 2)?, 16).ok()).collect()
 }
 
 /// %XX → the byte (a session code in a URL)
@@ -92,7 +151,7 @@ fn role_name(r: Role) -> String {
 /// How a client joins.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct Options {
-    /// `ws://host:port/live/<code>`
+    /// `ws://host:port/live/<code>` or `wss://…`; which QUIC door it has: `parse_quic`
     pub relay: String,
     pub role: Role,
     #[serde(default)]
@@ -167,6 +226,15 @@ pub enum Out {
     Send(String),
     /// close the socket (then `closed`)
     Close {},
+    /// #438: open a QUIC / WebTransport connection and its bidirectional stream (then `quic_opened`, or `quic_closed`);
+    /// `hash`: the certificate's SHA-256 to pin instead of the usual trust
+    DialQuic { url: String, hash: Option<Vec<u8>> },
+    /// write these bytes (the framing included) to the QUIC stream
+    Stream(String),
+    /// send this as one QUIC datagram (it may be lost)
+    Datagram(String),
+    /// close the QUIC connection (then `quic_closed`)
+    CloseQuic {},
     Status(Status),
     /// welcomed as `client` at the adapter's ms
     Joined { client: String, at: f64 },
@@ -265,6 +333,79 @@ enum Phase {
     Stopped,
 }
 
+/// one of the two sockets
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Sock {
+    Idle,
+    Dialing,
+    Up,
+}
+
+/// The QUIC door and how the two sockets stand (#438).
+struct Quic {
+    base: String,
+    hash: Option<Vec<u8>>,
+    quic: Sock,
+    ws: Sock,
+    /// a WebSocket is due beside QUIC at this ms
+    ws_at: Option<f64>,
+    /// a dial nothing else waits for ends at this ms
+    give_up_at: f64,
+    /// the open link is QUIC
+    on_quic: bool,
+    /// it died: the next join goes straight to the WebSocket
+    fell: bool,
+    /// `rejoin`: the next join is on QUIC again
+    keep: bool,
+    /// on the WebSocket: try QUIC at this ms, after this wait
+    step_up_at: Option<f64>,
+    step_up_wait: f64,
+    lines: Lines,
+    /// our datagrams' number, so the door drops one that was overtaken
+    up_seq: u64,
+    /// values went as datagrams since the last settle
+    dirty: bool,
+    settle_at: f64,
+    /// a settle is due: the next change goes as the full values, on the stream
+    carry: bool,
+    /// each deck's value: the newest `seq` applied
+    seen: HashMap<(String, String), u64>,
+}
+
+impl Quic {
+    fn new(base: String, hash: Option<Vec<u8>>) -> Quic {
+        Quic {
+            base,
+            hash,
+            quic: Sock::Idle,
+            ws: Sock::Idle,
+            ws_at: None,
+            give_up_at: 0.0,
+            on_quic: false,
+            fell: false,
+            keep: false,
+            step_up_at: None,
+            step_up_wait: STEP_UP_MS,
+            lines: Lines::default(),
+            up_seq: 0,
+            dirty: false,
+            settle_at: 0.0,
+            carry: false,
+            seen: HashMap::new(),
+        }
+    }
+
+    /// `seq` is not older than what this deck's `key` showed last
+    fn fresh(&mut self, from: &str, key: &str, seq: u64) -> bool {
+        let at = self.seen.entry((from.to_string(), key.to_string())).or_default();
+        let fresh = seq >= *at;
+        if fresh {
+            *at = seq;
+        }
+        fresh
+    }
+}
+
 /// The relay client of one app. Drive it: `start`, then the socket's `opened` / `closed` / `text`, `tick` at
 /// `next_wake`; after each call `take` what it asks and says.
 pub struct Client {
@@ -300,14 +441,19 @@ pub struct Client {
     push_due: bool,
     // a vote screen: the vote open now
     vote: Option<VoteOpen>,
+    /// #438: the relay has a QUIC door
+    door: Option<Quic>,
     // #442: the far addresses this deck asks for, and when it last asked
     listen: Vec<String>,
     listen_sent: f64,
 }
 
 impl Client {
-    pub fn new(o: Options) -> Result<Client, String> {
+    pub fn new(mut o: Options) -> Result<Client, String> {
         let (base, code) = parse_relay(&o.relay)?;
+        let door = parse_quic(&o.relay).map(|(base, hash)| Quic::new(base, hash));
+        // moving between the two sockets keeps the client: what it missed is replayed
+        o.resume |= door.is_some();
         Ok(Client {
             o,
             base,
@@ -335,6 +481,7 @@ impl Client {
             push: None,
             push_due: false,
             vote: None,
+            door,
             listen: Vec::new(),
             listen_sent: f64::NEG_INFINITY,
         })
@@ -373,8 +520,17 @@ impl Client {
 
     /// the URL a join dials (the role and group in the query; the hello repeats them)
     pub fn url(&self) -> String {
+        format!("{}{}", self.base, self.path())
+    }
+
+    fn path(&self) -> String {
         let group = self.o.group.as_deref().map(|g| format!("&group={}", encode(g))).unwrap_or_default();
-        format!("{}/live/{}?role={}{group}", self.base, encode(&self.code), role_name(self.o.role))
+        format!("/live/{}?role={}{group}", encode(&self.code), role_name(self.o.role))
+    }
+
+    /// the link in use is QUIC
+    pub fn on_quic(&self) -> bool {
+        self.door.as_ref().is_some_and(|q| q.on_quic)
     }
 
     /// The status as one HUD line: `JOINING CATH` · `DECK c3 @ CATH` · `OFFLINE … - JOINING AGAIN` · `NO RELAY … - AGAIN IN 2 S`
@@ -387,11 +543,12 @@ impl Client {
             State::Connected if self.note.is_some() => self.note.clone().unwrap_or_default(),
             State::Connected => {
                 let (c, code) = (s.client.as_deref().unwrap_or(""), &self.code);
+                let via = if self.on_quic() { " QUIC" } else { "" };
                 match self.o.role {
-                    Role::Conductor => format!("CONDUCTOR {c} @ {code}"),
-                    Role::Output => format!("OUTPUT {c} OF {} @ {code}", self.o.group.as_deref().unwrap_or("")),
-                    Role::Audience => format!("AUDIENCE {c} @ {code}"),
-                    _ => format!("DECK {c} @ {code}"),
+                    Role::Conductor => format!("CONDUCTOR {c} @ {code}{via}"),
+                    Role::Output => format!("OUTPUT {c} OF {} @ {code}{via}", self.o.group.as_deref().unwrap_or("")),
+                    Role::Audience => format!("AUDIENCE {c} @ {code}{via}"),
+                    _ => format!("DECK {c} @ {code}{via}"),
                 }
             }
             State::Offline => match s.wait {
@@ -404,12 +561,16 @@ impl Client {
 
     /// the earliest ms `tick` has something to do
     pub fn next_wake(&self) -> Option<f64> {
+        let door = self.door.as_ref();
         match self.phase {
             Phase::Waiting(at) => Some(at),
+            Phase::Dialing => door.and_then(|q| q.ws_at.or((q.quic == Sock::Dialing && q.ws == Sock::Idle).then_some(q.give_up_at))),
             Phase::Open => {
                 let ping = self.last_ping + PING_MS;
                 let answer = (self.joined && self.answer_due).then_some(self.answered + PROGRESS_MS);
-                Some(answer.map_or(ping, |a| a.min(ping)))
+                let settle = door.filter(|q| self.joined && q.on_quic && q.dirty).map(|q| q.settle_at);
+                let step_up = door.and_then(|q| q.step_up_at.filter(|_| q.quic == Sock::Idle));
+                Some([answer, settle, step_up].into_iter().flatten().fold(ping, f64::min))
             }
             _ => None,
         }
@@ -427,21 +588,112 @@ impl Client {
         }
     }
 
-    fn dial(&mut self, _now: f64) {
+    fn dial(&mut self, now: f64) {
         self.phase = Phase::Dialing;
         self.joined = false;
         self.set_status(Status { state: State::Joining, client: None, why: None, wait: None });
+        let path = self.path();
+        if let Some(q) = self.door.as_mut() {
+            q.on_quic = false;
+            q.step_up_at = None;
+            q.lines.clear();
+            q.seen.clear();
+            q.dirty = false;
+            q.carry = false;
+            if !q.fell {
+                q.quic = Sock::Dialing;
+                q.ws = Sock::Idle;
+                q.ws_at = Some(now + QUIC_HEAD_START_MS);
+                q.give_up_at = now + QUIC_GIVE_UP_MS;
+                self.out.push(Out::DialQuic { url: format!("{}{path}", q.base), hash: q.hash.clone() });
+                return;
+            }
+            q.ws = Sock::Dialing;
+            q.ws_at = None;
+        }
         self.out.push(Out::Dial(self.url()));
     }
 
-    /// the socket is open: hello first
+    /// the WebSocket beside the QUIC dial
+    fn dial_ws(&mut self) {
+        if let Some(q) = self.door.as_mut() {
+            q.ws = Sock::Dialing;
+            q.ws_at = None;
+        }
+        self.out.push(Out::Dial(self.url()));
+    }
+
+    /// the WebSocket is open: hello first
     pub fn opened(&mut self, now: f64) {
+        if let Some(q) = self.door.as_mut() {
+            if self.phase == Phase::Open && q.on_quic {
+                // the race's loser got there late
+                q.ws = Sock::Idle;
+                self.out.push(Out::Close {});
+                return;
+            }
+            if self.phase != Phase::Dialing {
+                return;
+            }
+            q.ws = Sock::Up;
+            q.ws_at = None;
+            q.fell = false;
+            q.step_up_at = Some(now + q.step_up_wait);
+            if q.quic != Sock::Idle {
+                q.quic = Sock::Idle;
+                self.out.push(Out::CloseQuic {});
+            }
+        }
         if self.phase != Phase::Dialing {
             return;
         }
+        self.won(now);
+    }
+
+    /// #438: the QUIC connection and its stream are up
+    pub fn quic_opened(&mut self, now: f64) {
+        let Some(q) = self.door.as_mut().filter(|q| q.quic == Sock::Dialing) else { return };
+        match self.phase {
+            Phase::Dialing => {
+                q.quic = Sock::Up;
+                q.on_quic = true;
+                q.fell = false;
+                q.ws_at = None;
+                q.step_up_wait = STEP_UP_MS;
+                q.settle_at = now + SETTLE_MS;
+                if std::mem::replace(&mut q.ws, Sock::Idle) != Sock::Idle {
+                    self.out.push(Out::Close {});
+                }
+                self.won(now);
+            }
+            Phase::Open => {
+                // stepping up: the WebSocket goes, the hello at once (the relay gives a resume the old link's place)
+                q.quic = Sock::Up;
+                q.on_quic = true;
+                q.ws = Sock::Idle;
+                q.step_up_wait = STEP_UP_MS;
+                q.settle_at = now + SETTLE_MS;
+                self.joined = false;
+                self.out.push(Out::Close {});
+                self.last_ping = now;
+                self.hello();
+            }
+            _ => {
+                q.quic = Sock::Idle;
+                self.out.push(Out::CloseQuic {});
+            }
+        }
+    }
+
+    /// a socket won the race: hello first
+    fn won(&mut self, now: f64) {
         self.phase = Phase::Open;
         self.tries = 0;
         self.last_ping = now;
+        self.hello();
+    }
+
+    fn hello(&mut self) {
         let conductor = self.o.role == Role::Conductor;
         let hello = Hello {
             code: self.code.clone(),
@@ -454,9 +706,77 @@ impl Client {
         self.send(Message::Hello(hello));
     }
 
-    /// The socket closed, or the dial failed (`why`: what the adapter knows, may be empty): a joined link joins again
+    /// The WebSocket closed, or its dial failed (`why`: what the adapter knows, may be empty): a joined link joins again
     /// soon, another backs off.
     pub fn closed(&mut self, now: f64, why: &str) {
+        if let Some(q) = self.door.as_mut() {
+            let on_quic = q.on_quic;
+            q.ws = Sock::Idle;
+            if self.phase == Phase::Open && on_quic {
+                return; // the race's loser, or the socket left behind by a step up
+            }
+            if self.phase == Phase::Dialing {
+                q.ws_at = None;
+                if q.quic == Sock::Dialing {
+                    return; // QUIC may still come; `tick` ends the wait
+                }
+            }
+            if q.quic != Sock::Idle {
+                q.quic = Sock::Idle;
+                self.out.push(Out::CloseQuic {});
+            }
+            q.fell = false;
+        }
+        self.lost(now, why);
+    }
+
+    /// #438: the QUIC connection ended, or its dial failed.
+    pub fn quic_closed(&mut self, now: f64, why: &str) {
+        let Some(q) = self.door.as_mut().filter(|q| q.quic != Sock::Idle) else { return };
+        q.quic = Sock::Idle;
+        match self.phase {
+            Phase::Dialing if q.ws == Sock::Dialing => {}
+            // no WebSocket yet: no reason to wait out the head start
+            Phase::Dialing if q.ws_at.is_some() => self.dial_ws(),
+            Phase::Dialing => self.lost(now, why),
+            Phase::Open if q.on_quic => {
+                q.fell = !std::mem::take(&mut q.keep);
+                q.on_quic = false;
+                self.lost(now, why);
+            }
+            Phase::Open => {
+                q.step_up_wait = (q.step_up_wait * 2.0).min(STEP_UP_MAX_MS);
+                q.step_up_at = Some(now + q.step_up_wait);
+            }
+            _ => {}
+        }
+    }
+
+    /// #438: bytes of the QUIC stream, as they came
+    pub fn quic_stream(&mut self, now: f64, bytes: &[u8]) {
+        let Some(q) = self.door.as_mut().filter(|q| q.on_quic) else { return };
+        match q.lines.push(bytes) {
+            Ok(lines) => {
+                for text in lines {
+                    self.text(now, &text);
+                }
+            }
+            Err(_) => self.out.push(Out::CloseQuic {}),
+        }
+    }
+
+    /// #438: a QUIC datagram – only `deck.values`, and it does not move the resume's `seq` (it can overtake the stream)
+    pub fn quic_datagram(&mut self, now: f64, bytes: &[u8]) {
+        if !self.on_quic() {
+            return;
+        }
+        let Ok(e) = serde_json::from_slice::<Envelope>(bytes) else { return };
+        if matches!(e.message, Message::DeckValues(_)) {
+            self.envelope(now, e, false);
+        }
+    }
+
+    fn lost(&mut self, now: f64, why: &str) {
         if !matches!(self.phase, Phase::Dialing | Phase::Open) {
             return;
         }
@@ -478,21 +798,72 @@ impl Client {
     pub fn tick(&mut self, now: f64) {
         match self.phase {
             Phase::Waiting(at) if now >= at => self.dial(now),
+            Phase::Dialing => {
+                let Some(q) = self.door.as_mut() else { return };
+                if q.ws_at.is_some_and(|at| now >= at) {
+                    self.dial_ws();
+                } else if q.quic == Sock::Dialing && q.ws == Sock::Idle && q.ws_at.is_none() && now >= q.give_up_at {
+                    q.quic = Sock::Idle;
+                    self.out.push(Out::CloseQuic {});
+                    self.lost(now, "QUIC did not answer");
+                }
+            }
             Phase::Open => {
+                let path = self.path();
+                if let Some(q) = self.door.as_mut() {
+                    if !q.on_quic && q.quic == Sock::Idle && q.step_up_at.is_some_and(|at| now >= at) {
+                        q.step_up_at = None;
+                        q.quic = Sock::Dialing;
+                        self.out.push(Out::DialQuic { url: format!("{}{path}", q.base), hash: q.hash.clone() });
+                    }
+                }
                 if now - self.last_ping >= PING_MS {
                     self.ping(now);
                 }
                 self.flush(now);
+                self.settle(now);
                 self.flush_listen(now);
             }
             _ => {}
         }
     }
 
+    /// on QUIC, while values change: every value this deck sent so far, on the stream, in the place of a change if one comes
+    fn settle(&mut self, now: f64) {
+        let joined = self.joined;
+        let Some(q) = self.door.as_mut().filter(|q| joined && q.on_quic && q.dirty && now >= q.settle_at) else { return };
+        if !q.carry {
+            q.carry = true;
+            q.settle_at = now + SETTLE_GRACE_MS;
+            return;
+        }
+        q.settle_at = now + SETTLE_MS;
+        self.send_settle();
+    }
+
+    fn send_settle(&mut self) {
+        if let Some(q) = self.door.as_mut() {
+            q.dirty = false;
+            q.carry = false;
+        }
+        let all = DeckValues { values: self.sent.clone().into_iter().collect(), mood: self.mood.clone() };
+        self.send(Message::DeckValues(all));
+    }
+
     /// leave for good: the socket closes, nothing more happens
     pub fn stop(&mut self) {
         if matches!(self.phase, Phase::Dialing | Phase::Open) {
-            self.out.push(Out::Close {});
+            match self.door.as_mut() {
+                Some(q) => {
+                    if std::mem::replace(&mut q.quic, Sock::Idle) != Sock::Idle {
+                        self.out.push(Out::CloseQuic {});
+                    }
+                    if std::mem::replace(&mut q.ws, Sock::Idle) != Sock::Idle {
+                        self.out.push(Out::Close {});
+                    }
+                }
+                None => self.out.push(Out::Close {}),
+            }
         }
         self.phase = Phase::Stopped;
         self.joined = false;
@@ -500,30 +871,57 @@ impl Client {
 
     /// drop the connection now and join again (with resume) – a network change, tests
     pub fn rejoin(&mut self) {
-        if matches!(self.phase, Phase::Dialing | Phase::Open) {
-            self.out.push(Out::Close {});
+        if !matches!(self.phase, Phase::Dialing | Phase::Open) {
+            return;
+        }
+        match self.door.as_mut() {
+            Some(q) if q.on_quic => {
+                q.keep = true;
+                self.out.push(Out::CloseQuic {});
+            }
+            _ => self.out.push(Out::Close {}),
         }
     }
 
     fn send(&mut self, m: Message) -> bool {
-        self.envelope(Envelope::new("", m))
+        self.send_on(m, false)
     }
 
-    /// a message addressed to `to` (the relay's default otherwise)
+    /// `may_lose`: a value change, which on QUIC goes as a datagram when it fits one
+    fn send_on(&mut self, m: Message, may_lose: bool) -> bool {
+        self.send_envelope(Envelope::new("", m), may_lose)
+    }
+
+    /// a message addressed to `to` (the relay's default otherwise); on QUIC it takes the stream
     fn send_to(&mut self, m: Message, to: To) -> bool {
         let mut e = Envelope::new("", m);
         e.to = Some(to);
-        self.envelope(e)
+        self.send_envelope(e, false)
     }
 
-    fn envelope(&mut self, e: Envelope) -> bool {
+    fn send_envelope(&mut self, mut e: Envelope, may_lose: bool) -> bool {
         if self.phase != Phase::Open {
             return false;
         }
         *self.counts.entry(e.message.kind()).or_default() += 1;
+        let on_quic = self.on_quic();
+        // values on the stream say which datagram they follow: the door keeps what a newer one has said since
+        if let Some(q) = self.door.as_mut().filter(|_| on_quic && matches!(e.message, Message::DeckValues(_))) {
+            q.up_seq += u64::from(may_lose);
+            e.seq = q.up_seq;
+        }
         // through a Value: its maps are sorted – the same text natively and in wasm, whatever a HashMap's order
         let text = serde_json::to_value(e).map(|v| v.to_string()).unwrap_or_default();
-        self.out.push(Out::Send(text));
+        if !on_quic {
+            self.out.push(Out::Send(text));
+        } else if may_lose && text.len() <= DATAGRAM_MAX {
+            if let Some(q) = self.door.as_mut() {
+                q.dirty = true;
+            }
+            self.out.push(Out::Datagram(text));
+        } else {
+            self.out.push(Out::Stream(String::from_utf8_lossy(&line(&text)).into_owned()));
+        }
         true
     }
 
@@ -562,8 +960,14 @@ impl Client {
         if v.mood.is_some() {
             self.mood.clone_from(&v.mood);
         }
-        if self.joined {
-            self.send(Message::DeckValues(v));
+        if !self.joined {
+            return;
+        }
+        if let Some(q) = self.door.as_mut().filter(|q| q.on_quic && q.carry) {
+            q.settle_at += SETTLE_MS - SETTLE_GRACE_MS;
+            self.send_settle();
+        } else {
+            self.send_on(Message::DeckValues(v), true);
         }
     }
 
@@ -693,24 +1097,38 @@ impl Client {
 
     /// A message's text arrived.
     pub fn text(&mut self, now: f64, text: &str) {
+        let Ok(e) = serde_json::from_str::<Envelope>(text) else { return };
+        self.envelope(now, e, true);
+    }
+
+    /// `in_order`: it came on the reliable lane, so the resume may count it
+    fn envelope(&mut self, now: f64, e: Envelope, in_order: bool) {
         if self.phase != Phase::Open {
             return;
         }
-        let Ok(e) = serde_json::from_str::<Envelope>(text) else { return };
-        self.seq = self.seq.max(e.seq as i64);
+        if in_order {
+            self.seq = self.seq.max(e.seq as i64);
+        }
         if self.o.messages {
             self.out.push(Out::Message(e.clone()));
         }
         let conductor = self.o.role == Role::Conductor;
         let from = e.from.clone();
         match e.message.clone() {
-            Message::Welcome(w) => self.welcome(now, w.client, w.snapshot),
+            Message::Welcome(w) => self.welcome(now, w.client, w.snapshot, w.key),
             Message::Pong(p) => self.out.push(Out::Pong { t0: p.t0, t1: p.t1, t2: now }),
             Message::Tempo(t) => self.out.push(Out::Tempo { tempo: t, arrived: now }),
             Message::SceneSync(s) if conductor => self.out.push(Out::Deck(In::Pushed(s))),
             Message::SceneSync(s) => self.out.push(Out::Sync(s)),
             Message::DeckGraph(graph) => self.out.push(Out::Deck(In::Deck { client: from, graph, values: HashMap::new(), mood: None })),
-            Message::DeckValues(v) => self.out.push(Out::Deck(In::Values { client: from, values: v.values, mood: v.mood })),
+            Message::DeckValues(mut v) => {
+                if let Some(q) = self.door.as_mut().filter(|q| q.on_quic) {
+                    v.values.retain(|key, _| q.fresh(&from, key, e.seq));
+                }
+                if !v.values.is_empty() || v.mood.is_some() {
+                    self.out.push(Out::Deck(In::Values { client: from, values: v.values, mood: v.mood }));
+                }
+            }
             Message::DeckListen(l) => self.out.push(Out::Listen { client: from, addresses: l.addresses }),
             Message::DeckEvents(ev) => self.out.push(Out::Events { client: from, events: ev.events }),
             Message::DeckSynced(synced) if conductor => self.out.push(Out::Deck(In::Synced { client: from, synced })),
@@ -745,12 +1163,12 @@ impl Client {
         }
     }
 
-    fn welcome(&mut self, now: f64, client: String, snap: Snapshot) {
+    fn welcome(&mut self, now: f64, client: String, snap: Snapshot, key: Option<String>) {
         self.client.clone_from(&client);
         self.joined = true;
         self.note = None;
         if self.o.resume {
-            self.resume = Some(Resume { client: client.clone(), seq: self.seq });
+            self.resume = Some(Resume { client: client.clone(), seq: self.seq, key });
         }
         self.set_status(Status { state: State::Connected, client: Some(client.clone()), why: None, wait: None });
         self.out.push(Out::Joined { client, at: now });
@@ -832,6 +1250,16 @@ pub struct Turn {
     pub outs: Vec<Out>,
 }
 
+/// a scripted message as the relay would stamp it
+fn stamped(mut e: serde_json::Value) -> serde_json::Value {
+    if let Some(o) = e.as_object_mut() {
+        o.entry("v").or_insert(1.into());
+        o.entry("seq").or_insert(1.into());
+        o.entry("from").or_insert("relay".into());
+    }
+    e
+}
+
 /// One scripted step on a client at `now` ms (what an adapter calls for it).
 pub fn step(c: &mut Client, now: f64, s: &Step) -> Result<(), String> {
     use serde_json::from_value;
@@ -841,15 +1269,18 @@ pub fn step(c: &mut Client, now: f64, s: &Step) -> Result<(), String> {
         "start" => c.start(now),
         "open" => c.opened(now),
         "close" | "fail" => c.closed(now, &text(&w)),
-        "message" => {
-            let mut e = w;
-            if let Some(o) = e.as_object_mut() {
-                o.entry("v").or_insert(1.into());
-                o.entry("seq").or_insert(1.into());
-                o.entry("from").or_insert("relay".into());
-            }
-            c.text(now, &e.to_string());
+        "quic_open" => c.quic_opened(now),
+        "quic_close" | "quic_fail" => c.quic_closed(now, &text(&w)),
+        "quic_stream" => {
+            let e = stamped(w);
+            c.quic_stream(now, e.to_string().as_bytes());
+            c.quic_stream(now, b"\n");
         }
+        "quic_datagram" => {
+            let e = stamped(w);
+            c.quic_datagram(now, e.to_string().as_bytes());
+        }
+        "message" => c.text(now, &stamped(w).to_string()),
         "sample" => {
             let read: Vec<f64> = c.stream_paths().iter().map(|p| w["values"][p].as_f64().unwrap_or(f64::NAN)).collect();
             c.sample(now / 1000.0, &read, w["mood"].as_str());
@@ -912,6 +1343,7 @@ mod tests {
     use serde_json::{json, Value};
 
     const RELAY: &str = "ws://relay.test:7070/live/CATH";
+    const QUIC_RELAY: &str = "wss://relay.test:7070/live/CATH?quic=udp.test:443";
 
     fn sent(turns: &[Turn]) -> Vec<Value> {
         turns.iter().flat_map(|t| &t.outs).filter_map(|o| if let Out::Send(s) = o { serde_json::from_str(s).ok() } else { None }).collect()
@@ -943,7 +1375,7 @@ mod tests {
     }
 
     fn welcome(client: &str, snapshot: Value) -> Value {
-        json!({ "kind": "welcome", "p": { "client": client, "snapshot": snapshot, "now": 0 } })
+        json!({ "kind": "welcome", "p": { "client": client, "snapshot": snapshot, "now": 0, "key": format!("key-{client}") } })
     }
 
     fn graph() -> DeckGraph {
@@ -966,6 +1398,8 @@ mod tests {
         };
         let deck = json!({ "relay": RELAY, "role": "musician", "group": DECKS, "nick": "browser" });
         let q = json!({ "level": "medium", "scale": 0.8, "auto": true, "frame": 17.1, "ceiling": "medium" });
+        let quic_deck = json!({ "relay": QUIC_RELAY, "role": "musician", "group": DECKS, "nick": "browser" });
+        let moved = |x: f64| json!({ "values": { "voice.index": x, "voice.out": 0.5 }, "mood": "neutral" });
         vec![
             (
                 "deck",
@@ -1111,11 +1545,60 @@ mod tests {
                     false,
                     vec![
                         st(0.0, "open", Value::Null),
-                        st(0.1, "message", json!({ "seq": 4, "kind": "welcome", "p": { "client": "c3", "snapshot": {}, "now": 0 } })),
+                        st(0.1, "message", json!({ "seq": 4, "kind": "welcome", "p": { "client": "c3", "snapshot": {}, "now": 0, "key": "key-c3" } })),
                         st(0.2, "message", json!({ "seq": 9, "kind": "say", "p": { "text": "Lights" } })),
                         st(1.0, "rejoin", Value::Null),
                         st(1.0, "close", json!("asked to join again")),
                         st(1.3, "open", Value::Null),
+                    ],
+                ),
+            ),
+            (
+                "quic",
+                mk(
+                    quic_deck.clone(),
+                    true,
+                    vec![
+                        st(0.05, "quic_open", Value::Null),
+                        st(0.1, "quic_stream", welcome("c5", json!({}))),
+                        st(0.2, "sample", moved(1.0)),
+                        st(0.3, "sample", moved(2.0)),
+                        st(0.4, "quic_stream", json!({ "seq": 9, "kind": "cue", "p": { "id": "a", "actions": [] } })),
+                        // a cue can't come on the lane that may lose it
+                        st(0.5, "quic_datagram", json!({ "seq": 10, "kind": "error", "p": { "code": "x", "message": "no" } })),
+                        st(1.4, "tick", Value::Null),
+                        st(2.0, "stop", Value::Null),
+                    ],
+                ),
+            ),
+            (
+                "quic-blocked",
+                mk(
+                    quic_deck.clone(),
+                    false,
+                    vec![st(0.3, "open", Value::Null), st(0.4, "message", welcome("c6", json!({}))), st(0.5, "quic_fail", json!("late")), st(1.0, "stop", Value::Null)],
+                ),
+            ),
+            (
+                "quic-refused-at-once",
+                mk(quic_deck.clone(), false, vec![st(0.01, "quic_fail", json!("no WebTransport here")), st(0.05, "open", Value::Null), st(0.1, "message", welcome("c7", json!({}))), st(0.2, "stop", Value::Null)]),
+            ),
+            (
+                "quic-falls-and-steps-up",
+                mk(
+                    quic_deck,
+                    false,
+                    vec![
+                        st(0.02, "quic_open", Value::Null),
+                        st(0.03, "quic_stream", welcome("c8", json!({}))),
+                        st(5.0, "quic_close", json!("timed out")),
+                        st(5.3, "open", Value::Null),
+                        st(5.35, "message", welcome("c8", json!({}))),
+                        st(65.5, "quic_open", Value::Null),
+                        st(65.6, "close", Value::Null),
+                        st(65.9, "tick", Value::Null),
+                        st(66.0, "quic_stream", welcome("c8", json!({}))),
+                        st(67.0, "stop", Value::Null),
                     ],
                 ),
             ),
@@ -1244,7 +1727,7 @@ mod tests {
         let t = turns("outlet");
         let hellos: Vec<Value> = sent(&t).into_iter().filter(|e| e["kind"] == "hello").collect();
         assert_eq!(hellos[0]["p"], json!({ "code": "CATH", "role": "output", "group": "left" }));
-        assert_eq!(hellos[1]["p"]["resume"], json!({ "client": "c3", "seq": 9 }));
+        assert_eq!(hellos[1]["p"]["resume"], json!({ "client": "c3", "seq": 9, "key": "key-c3" }));
         assert_eq!(t.iter().flat_map(|x| &x.outs).filter(|o| matches!(o, Out::Message(_))).count(), 2, "every envelope for the composer");
         let mut c = Client::new(scripts()[8].1.join.clone()).unwrap();
         c.start(0.0);
@@ -1303,6 +1786,150 @@ mod tests {
             }
         }
         assert!((59..=61).contains(&n), "30 a second: {n}");
+    }
+
+    fn sent_on_stream(t: &[Turn]) -> Vec<Value> {
+        t.iter().flat_map(|t| &t.outs).filter_map(|o| if let Out::Stream(s) = o { serde_json::from_str(s.trim_end()).ok() } else { None }).collect()
+    }
+
+    fn all_outs(t: &[Turn]) -> Vec<&Out> {
+        t.iter().flat_map(|t| &t.outs).collect()
+    }
+
+    #[test]
+    fn the_quic_door_comes_from_the_relay_url() {
+        assert_eq!(parse_quic("ws://h:7700/live/A"), None);
+        assert_eq!(parse_quic("wss://10-0-0-1.lan.scutoons.com:7700/live/A"), Some(("https://10-0-0-1.lan.scutoons.com:7700".into(), None)), "wss under a name: the door by default");
+        assert_eq!(parse_quic("wss://h.test:7700/live/A?role=x"), Some(("https://h.test:7700".into(), None)));
+        assert_eq!(parse_quic("wss://h.test:7700/live/A?quic=off"), None, "unless told otherwise");
+        assert_eq!(parse_quic("wss://live.scutoons.com/live/A"), None, "the hosted relay has no UDP yet");
+        assert_eq!(parse_quic("wss://live.scutoons.com/live/A?quic=udp.test:443"), Some(("https://udp.test:443".into(), None)), "by name it may");
+        assert_eq!(parse_quic("wss://192.168.1.116:4100/relay/live/A"), None, "by IP: no public certificate");
+        assert_eq!(parse_quic("wss://[::1]:7700/live/A"), None);
+        assert_eq!(parse_quic("wss://live.test/live/A?quic=udp.test:443"), Some(("https://udp.test:443".into(), None)));
+        assert_eq!(parse_quic("wss://h:7700/live/A?quic="), Some(("https://h:7700".into(), None)), "empty: the relay's own host and port");
+        assert_eq!(parse_quic("ws://h:7700/live/A?quic=h%3A7701&quichash=ab12"), Some(("https://h:7701".into(), Some(vec![0xab, 0x12]))));
+        assert_eq!(parse_quic("ws://h/live/A?quic=&quichash=xyz"), Some(("https://h".into(), None)), "not hex: no pin");
+        assert_eq!(parse_relay("wss://h/live/A?quic=x:1").unwrap().1, "A", "the code is untouched by it");
+    }
+
+    #[test]
+    fn quic_gets_a_head_start_and_says_hello_alone() {
+        let t = turns("quic");
+        assert_eq!(t[0].outs[1], Out::DialQuic { url: "https://udp.test:443/live/CATH?role=musician&group=decks".into(), hash: None });
+        assert!(!all_outs(&t).iter().any(|o| matches!(o, Out::Dial(_) | Out::Send(_))), "up inside the head start: no WebSocket at all");
+        assert_eq!(sent_on_stream(&t)[0]["kind"], "hello");
+    }
+
+    #[test]
+    fn values_go_as_datagrams_and_settle_on_the_stream() {
+        let t = turns("quic");
+        let grams: Vec<&String> = all_outs(&t).into_iter().filter_map(|o| if let Out::Datagram(d) = o { Some(d) } else { None }).collect();
+        assert_eq!(grams.len(), 2);
+        let seqs: Vec<u64> = grams.iter().map(|g| serde_json::from_str::<Envelope>(g).unwrap().seq).collect();
+        assert_eq!(seqs, [1, 2], "numbered: the door drops one that was overtaken");
+        let settles: Vec<Value> = sent_on_stream(&t).into_iter().filter(|e| e["kind"] == "deck.values").collect();
+        assert_eq!(settles.len(), 1, "one settle in the 1.4 s after the first datagram");
+        assert_eq!(settles[0]["p"]["values"]["voice.index"], json!([2.0]));
+        assert_eq!(settles[0]["seq"], 2, "numbered by the datagram it follows");
+    }
+
+    #[test]
+    fn a_due_settle_takes_the_place_of_the_next_change() {
+        let mut c = Client::new(serde_json::from_value(json!({ "relay": QUIC_RELAY, "role": "musician", "group": DECKS })).unwrap()).unwrap();
+        c.set_graph(graph());
+        c.start(0.0);
+        c.quic_opened(0.0);
+        c.quic_stream(1.0, (stamped(welcome("c1", json!({}))).to_string() + "\n").as_bytes());
+        let change = |x: f64, k: &str| DeckValues { values: HashMap::from([(k.to_string(), vec![x])]), mood: None };
+        c.values(change(1.0, "a"));
+        c.values(change(2.0, "b"));
+        c.take();
+        c.tick(SETTLE_MS);
+        assert_eq!(c.take(), [], "first a frame's grace");
+        c.values(change(3.0, "a"));
+        let outs = c.take();
+        assert_eq!(outs.len(), 1, "one message, not a datagram and a settle: {outs:?}");
+        let Out::Stream(full) = &outs[0] else { panic!("{outs:?}") };
+        let e: Value = serde_json::from_str(full.trim_end()).unwrap();
+        assert_eq!(e["p"]["values"], json!({ "a": [3.0], "b": [2.0] }));
+        c.values(change(4.0, "a"));
+        assert!(matches!(c.take()[..], [Out::Datagram(_)]), "and back to datagrams");
+    }
+
+    #[test]
+    fn a_blocked_quic_lets_the_websocket_win() {
+        let t = turns("quic-blocked");
+        let dials: Vec<&Out> = all_outs(&t).into_iter().filter(|o| matches!(o, Out::Dial(_))).collect();
+        assert_eq!(dials.len(), 1);
+        let turn = t.iter().find(|t| t.outs.iter().any(|o| matches!(o, Out::Dial(_)))).unwrap();
+        assert_eq!(turn.at, 0.25, "after the head start");
+        assert!(all_outs(&t).contains(&&Out::CloseQuic {}), "the slower one is closed at once");
+        let wake = t.iter().find(|t| t.what == "open").unwrap();
+        assert!(wake.outs.iter().any(|o| matches!(o, Out::Send(h) if h.contains("hello"))));
+    }
+
+    #[test]
+    fn no_webtransport_dials_the_websocket_at_once() {
+        let t = turns("quic-refused-at-once");
+        let turn = t.iter().find(|t| t.what == "quic_fail").unwrap();
+        assert!(turn.outs.iter().any(|o| matches!(o, Out::Dial(_))), "no reason to wait out the head start");
+    }
+
+    #[test]
+    fn a_dead_quic_falls_to_the_websocket_with_a_resume_and_steps_up_later() {
+        let t = turns("quic-falls-and-steps-up");
+        let at = |what: &str, when: f64| t.iter().find(|x| x.what == what && (x.at - when).abs() < 1e-6).unwrap();
+        assert!(at("quic_close", 5.0).outs.iter().any(|o| matches!(o, Out::Status(_))));
+        let dialed = t.iter().find(|x| x.at > 5.0 && x.outs.iter().any(|o| matches!(o, Out::Dial(_) | Out::DialQuic { .. }))).unwrap();
+        assert!(dialed.outs.iter().any(|o| matches!(o, Out::Dial(_))), "the WebSocket, not QUIC again");
+        assert!((dialed.at - 5.25).abs() < 1e-6, "after REJOIN_MS");
+        let hello = at("open", 5.3).outs.iter().find_map(|o| if let Out::Send(h) = o { Some(h.clone()) } else { None }).unwrap();
+        assert!(hello.contains(r#""resume":{"client":"c8","key":"key-c8""#), "{hello}");
+
+        let probe = t.iter().find(|x| x.at > 60.0 && x.outs.iter().any(|o| matches!(o, Out::DialQuic { .. }))).unwrap();
+        assert!((probe.at - 65.3).abs() < 1e-6, "STEP_UP_MS after joining on the WebSocket, at {}", probe.at);
+        assert!(at("quic_open", 65.5).outs.contains(&Out::Close {}), "the WebSocket goes");
+        assert!(at("quic_open", 65.5).outs.iter().any(|o| matches!(o, Out::Stream(h) if h.contains(r#""resume":{"client":"c8","key":"key-c8""#))), "and the resume at once: the relay gives it the old link's place");
+    }
+
+    #[test]
+    fn a_datagram_can_be_overtaken_key_by_key_and_never_moves_the_resume() {
+        let mut c = Client::new(serde_json::from_value(json!({ "relay": QUIC_RELAY, "role": "conductor" })).unwrap()).unwrap();
+        c.start(0.0);
+        c.quic_opened(1.0);
+        let frame = |e: Value| e.to_string() + "\n";
+        c.quic_stream(2.0, frame(stamped(welcome("c1", json!({})))).as_bytes());
+        c.take();
+        let values = |seq: u64, k: &str, x: f64| json!({ "v": 1, "seq": seq, "from": "d1", "kind": "deck.values", "p": { "values": { k: [x] } } }).to_string();
+        c.quic_datagram(3.0, values(50, "a", 1.0).as_bytes());
+        c.quic_datagram(3.0, values(40, "a", 0.5).as_bytes()); // overtaken
+        c.quic_stream(3.0, frame(serde_json::from_str(&values(45, "b", 2.0)).unwrap()).as_bytes());
+        let heard: Vec<(String, f64)> = c
+            .take()
+            .into_iter()
+            .filter_map(|o| if let Out::Deck(In::Values { values, .. }) = o { values.into_iter().next().map(|(k, v)| (k, v[0])) } else { None })
+            .collect();
+        assert_eq!(heard, [("a".to_string(), 1.0), ("b".to_string(), 2.0)]);
+        c.quic_closed(4.0, "gone");
+        c.tick(4.0 + REJOIN_MS);
+        c.opened(4.5 + REJOIN_MS);
+        let hello = c.take().into_iter().find_map(|o| if let Out::Send(h) = o { Some(h) } else { None }).unwrap();
+        assert!(hello.contains(r#""seq":45"#), "the stream's newest, not the datagram's 50: {hello}");
+    }
+
+    #[test]
+    fn a_silent_udp_path_ends_the_wait_when_the_websocket_fails_too() {
+        let mut c = Client::new(serde_json::from_value(json!({ "relay": QUIC_RELAY, "role": "audience" })).unwrap()).unwrap();
+        c.start(0.0);
+        c.tick(QUIC_HEAD_START_MS);
+        c.closed(300.0, "refused");
+        c.take();
+        assert_eq!(c.next_wake(), Some(QUIC_GIVE_UP_MS));
+        c.tick(QUIC_GIVE_UP_MS);
+        let outs = c.take();
+        assert!(outs.contains(&Out::CloseQuic {}));
+        assert_eq!(c.status().state, State::Offline);
     }
 
     /// shared/live-deck/test/fixtures/relay.json: the scripted links and every turn's outs – the browser's adapter

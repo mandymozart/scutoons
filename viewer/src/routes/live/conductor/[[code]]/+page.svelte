@@ -6,7 +6,7 @@
 	// (B.7) will hold more than votes – this is its vote panel on its own page.
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { LIVE_URL } from '$lib/config.ts';
+	import { LIVE_QUIC, LIVE_URL } from '$lib/config.ts';
 	import { WASM_BASE, relayOf } from '$lib/live-deck.ts';
 	import { loadRelay } from '@scutoons/live-deck';
 	import { RelayVote, type LinkStatus } from '$lib/live-vote-link.ts';
@@ -22,7 +22,7 @@
 
 	onMount(() => {
 		if (!key) return;
-		const link = new RelayVote({ relay: relayOf(page.url.searchParams, LIVE_URL, page.params.code), role: 'conductor', token: key, core: loadRelay(WASM_BASE), onStatus: (s) => (status = s) });
+		const link = new RelayVote({ relay: relayOf(page.url.searchParams, LIVE_URL, page.params.code, LIVE_QUIC), role: 'conductor', token: key, core: loadRelay(WASM_BASE), onStatus: (s) => (status = s) });
 		source = link;
 		const off = link.on('conductor', (e) => {
 			if (e.kind === 'vote.open') isOpen = true;

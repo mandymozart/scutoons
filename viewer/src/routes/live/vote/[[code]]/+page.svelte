@@ -5,7 +5,7 @@
 	// `?lang=` overrides the device's language. Unlisted, open to everyone (B.2: the audience joins with the code).
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { LIVE_URL } from '$lib/config.ts';
+	import { LIVE_QUIC, LIVE_URL } from '$lib/config.ts';
 	import { WASM_BASE, relayOf } from '$lib/live-deck.ts';
 	import { loadRelay } from '@scutoons/live-deck';
 	import { deviceLocale, groupLook } from '$lib/live-vote.ts';
@@ -19,7 +19,7 @@
 	const locale = $derived(query.get('lang') ?? deviceLocale(typeof navigator === 'undefined' ? undefined : navigator.languages));
 
 	onMount(() => {
-		const link = new RelayVote({ relay: relayOf(page.url.searchParams, LIVE_URL, page.params.code), role: 'audience', group, core: loadRelay(WASM_BASE), onStatus: (s) => (status = s) });
+		const link = new RelayVote({ relay: relayOf(page.url.searchParams, LIVE_URL, page.params.code, LIVE_QUIC), role: 'audience', group, core: loadRelay(WASM_BASE), onStatus: (s) => (status = s) });
 		source = link;
 		return () => link.dispose();
 	});

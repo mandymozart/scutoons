@@ -35,7 +35,7 @@ after its recovery (`2.5 × rtt`, RACK / TLP), a lost retransmit after the 200 m
 per direction, then the relay's socket backs up (`--unsent` = what its kernel keeps unsent). Nothing is dropped –
 real loss can't be made in-process; **the real test is Linux `tc netem`** with real TCP (RACK, TLP, the RTO):
 `sudo tc qdisc add dev lo root netem delay 5ms loss 1%`, the bench without `--loss`, `sudo tc qdisc del dev lo root`
-after (not run yet – no Linux box here).
+after (run 2026-11-08, below).
 
 Results (2026-10-31, Windows 10 workstation, release build, median of 3 × 30 s; "before" = c6dc54c2 with only
 `serve_stream` added, its kernel buffer modelled as 64 KB unsent – Linux autotuning without NOTSENT_LOWAT):
@@ -58,3 +58,15 @@ max 455 → 265 ms, up to 18 % of stale values never sent, the rate steps to 15 
 the link in presence. What it can't: TCP's head-of-line blocking – bytes in flight can't be replaced. The model's lost
 retransmit is pessimistic (RACK finds most without the RTO), so the next step is the `tc netem` run on Linux; if it
 shows the same tail, the issue's "later" item (an unreliable side channel for values, WebTransport datagrams) is due.
+
+**Real loss (2026-11-08, #438):** Linux `tc netem` on lo in a container (`deck/relay/netem/run.sh baseline`, delay 5 ms each way, 20 decks · 100 phones,
+median of 3 × 30 s). The model above was pessimistic for values and optimistic for cues:
+
+| loss | values p50 / p99 / max (ms) | cues p50 / p99 / max (ms) | arrived | lowest rate |
+|---|---|---|---|---|
+| 0 % | 10.3 / 10.9 / 47.9 | 10.8 / 11.3 / 14.3 | 100 % | 30 |
+| 1 % | 10.3 / 28.7 / 275.7 | 10.8 / 220.8 / 420.9 | 98.9 % | 30 |
+| 5 % | 16.0 / 184.5 / 766.2 | 10.7 / 245.1 / 1166.7 | 85–91 % | 5 |
+
+At 1 % values pass the 50 ms mark; cues fail in two runs of three (21 / 221 / 223 ms): a lost segment of a thin stream waits for the RTO. Other transports,
+the costs and the recommendation: agents/research/RELAY-TRANSPORTS.md.

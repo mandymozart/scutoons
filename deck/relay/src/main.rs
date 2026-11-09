@@ -1,7 +1,9 @@
-//! `relay` – the Live relay binary (agents/research/LIVE.md B.4). `relay [addr] [--tls-cert FILE --tls-key FILE]`,
+//! `relay` – the Live relay binary (agents/research/LIVE.md B.4). `relay [addr] [--tls-cert FILE --tls-key FILE] [--quic ADDR | --no-quic]`,
 //! default `0.0.0.0:7700` (`RELAY_ADDR` env). Clients connect to `ws://<host>:7700/live/<code>?role=<role>&group=<group>`
 //! and send `hello`; with a certificate (`RELAY_TLS_CERT` / `RELAY_TLS_KEY` too) the same port also takes
 //! `wss://<name>:7700/…` (tls.rs, #201 – a venue's relay for phones on https pages; reloaded when the files change).
+//! A certificate also opens the QUIC door under it, on the same port number over UDP (#438, doors/; `--quic ADDR` or
+//! `RELAY_QUIC_ADDR` for another address, `--no-quic` or `RELAY_QUIC_ADDR=off` for none). Without a certificate no UDP port is opened.
 //! Env: `LIVE_TOKEN_SECRET` (the HMAC secret shared with the API), `RELAY_LEAD_MS` (50 LAN, 150 hosted),
 //! `RELAY_BLOCKLIST` (nickname words, comma-separated). `GET /status` → `{ "sessions": n, "live": n }` (the deploy
 //! freeze check of B.4), over http and https.
@@ -38,6 +40,17 @@ async fn main() -> anyhow::Result<()> {
     }
     tracing::info!(lead_ms = config.lead_ms, "clock lead");
     let relay = Arc::new(relay::Relay::with_config(config));
+    if let (Some(quic), Some(files)) = (&listen.quic, &listen.tls) {
+        let at: SocketAddr = quic.parse()?;
+        // a door that cannot open is no reason to stop: every client falls to the WebSocket
+        match relay::doors::quic::door(relay::doors::Doors::new(relay.clone()), at, files.clone()) {
+            Ok(door) => {
+                tokio::spawn(door);
+                tracing::info!(%at, "quic door open");
+            }
+            Err(e) => tracing::error!(%at, "no quic door: {e}"),
+        }
+    }
     tokio::select! {
         r = relay::serve_with(listener, relay, tls) => r,
         _ = stop_signal() => {

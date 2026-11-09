@@ -1,9 +1,8 @@
-// client.ts (#197, #366): the browser's socket under deck-space's relay client (relay.rs, relay-web's wasm), which decides
-// all a relay client does (join, hello, keyframe, value stream, backoff, pings, status, what a deck or a vote screen
-// hears); this keeps the WebSocket and one timer (`RelaySocket`) and hands the core's words on (`DeckLink`; the viewer's
-// vote link). The core's scripted links (test/fixtures/relay.json) run through it in client.test.ts.
+// client.ts (#197, #366): the WebSocket (WebTransport: quic.ts) and one timer (`RelaySocket`) under deck-space's relay client, which decides all
+// a relay client does; hands the core's words on (`DeckLink`; the viewer's vote link). Its scripted links: test/fixtures/relay.json, in client.test.ts.
 import type { DeckGraph, DeckQuality, DeckSynced, Envelope, SceneSync, Tempo } from '@scutoons/live';
 import type { PathKind } from './rig.ts';
+import { QuicLink, type QuicCore, type QuicPlatform } from './quic.ts';
 
 export interface WebSocketLike {
 	readonly readyState: number;
@@ -17,7 +16,7 @@ export interface WebSocketLike {
 
 /** relay-web's `RelayClient` (deck-space `relay::Client`): the socket's events and a deck's moves in, `take` out (a vote
  *  screen's moves: the viewer's live-vote-link.ts) */
-export interface RelayCoreView {
+export interface RelayCoreView extends QuicCore {
 	start(now: number): void;
 	opened(now: number): void;
 	closed(now: number, why: string): void;
@@ -61,8 +60,8 @@ export interface RelayHooks {
 	onMessage?: (e: Envelope) => void;
 }
 
-/** the page's platform – its WebSocket, clock (ms since the epoch) and timer; tests pass their own */
-export interface Platform {
+/** the page's platform – its WebSocket, its QUIC, clock (ms since the epoch) and timer; tests pass their own */
+export interface Platform extends QuicPlatform {
 	socket?: new (url: string) => WebSocketLike;
 	now?: () => number;
 	setTimer?: (fn: () => void, ms: number) => unknown;
@@ -90,6 +89,7 @@ async function load(base: string, wasm?: BufferSource): Promise<RelayModule> {
 /** The socket and the timer under one core client: after every call into the core, `run` does what it asks. */
 export class RelaySocket {
 	private ws: WebSocketLike | null = null;
+	private door?: QuicLink;
 	private timer: unknown = null;
 
 	constructor(
@@ -134,6 +134,7 @@ export class RelaySocket {
 		else if ('send' in o) this.ws?.send(o.send);
 		// the socket's onclose tells the core
 		else if ('close' in o) this.ws?.close();
+		else if ((this.door ??= new QuicLink(this, this.p.quic)).act(o)) return;
 		else if ('status' in o) h.onStatus?.(this.core.line(), o.status);
 		else if ('joined' in o) h.onJoined?.(o.joined['at'], o.joined['client']);
 		else if ('pong' in o) h.onPong?.(o.pong['t0'], o.pong['t1'], o.pong['t2']);

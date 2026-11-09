@@ -91,13 +91,15 @@ pub struct Config {
     pub base: String,
     /// the session code
     pub code: String,
+    /// `?quic=…` as the relay URL had it, or empty (#438)
+    pub door: String,
     pub outlet: String,
     pub locale: String,
 }
 
 impl Config {
     /// `relay` = `ws://host:port/live/<code>`, or `wss://…` (TLS – the hosted relay, #199); a query is dropped – the
-    /// deck adds its own
+    /// deck adds its own – except what names the relay's QUIC door (`?quic=`, #438)
     pub fn new(relay: &str, outlet: &str, locale: &str) -> Result<Config> {
         let relay = relay.trim();
         let (scheme, rest) = match (relay.strip_prefix("wss://"), relay.strip_prefix("ws://")) {
@@ -105,7 +107,8 @@ impl Config {
             (None, Some(rest)) => ("ws", rest),
             (None, None) => bail!("{relay}: the relay is a ws:// or wss:// URL"),
         };
-        let rest = rest.split('?').next().unwrap_or("");
+        let (rest, query) = rest.split_once('?').unwrap_or((rest, ""));
+        let door: Vec<&str> = query.split('&').filter(|kv| kv.starts_with("quic=") || kv.starts_with("quichash=")).collect();
         let Some((host, path)) = rest.split_once('/') else { bail!("{relay}: no session code (ws://host:7700/live/<code>)") };
         let Some(code) = path.strip_prefix("live/").map(|c| c.trim_matches('/')).filter(|c| !c.is_empty() && !c.contains('/')) else {
             bail!("{relay}: no session code (ws://host:7700/live/<code>)")
@@ -114,7 +117,8 @@ impl Config {
         if outlet.is_empty() || !outlet.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') {
             bail!("outlet '{outlet}': letters, digits, - and _ only");
         }
-        Ok(Config { base: format!("{scheme}://{host}"), code: code.into(), outlet: outlet.into(), locale: locale.into() })
+        let door = if door.is_empty() { String::new() } else { format!("?{}", door.join("&")) };
+        Ok(Config { base: format!("{scheme}://{host}"), code: code.into(), door, outlet: outlet.into(), locale: locale.into() })
     }
 
     /// what the client connects to (B.2: the role and group from the URL; the hello repeats them)
@@ -188,6 +192,8 @@ mod tests {
         let c = s.config().unwrap().unwrap();
         assert_eq!((c.base.as_str(), c.code.as_str(), c.outlet.as_str(), c.locale.as_str()), ("ws://127.0.0.1:7700", "DECK", "nave", "de"));
         assert_eq!(c.join_url(), "ws://127.0.0.1:7700/live/DECK?role=output&group=nave");
+        let door = Config::new("wss://h:7700/live/A?x=1&quic=u:443&quichash=ab", "left", "de").unwrap();
+        assert_eq!(door.door, "?quic=u:443&quichash=ab", "#438: the door survives, the rest of the query does not");
         assert!(Settings::parse("relay = \"\"\n").config().is_none(), "no outlet: no outlet node");
         let hosted = Settings::parse("relay = \"\"\noutlet = \"left\"\n").config().unwrap().unwrap();
         assert_eq!((hosted.base.as_str(), hosted.code.as_str()), ("wss://live.scutoons.com", "CATH"), "no relay: the hosted one");

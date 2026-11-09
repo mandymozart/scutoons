@@ -231,6 +231,15 @@ impl Outbox {
     /// state-like messages before their next turn; they keep merging meanwhile. An ordered message behind them takes them
     /// along (nothing is reordered).
     pub fn take(&self, now: Instant, out: &mut Vec<Utf8Bytes>) -> Took {
+        self.release(now, |_, text| out.push(text))
+    }
+
+    /// `take`, with each message's lane (a transport that has two).
+    pub fn take_lanes(&self, now: Instant, out: &mut Vec<(Lane, Utf8Bytes)>) -> Took {
+        self.release(now, |lane, text| out.push((lane, text)))
+    }
+
+    fn release(&self, now: Instant, mut out: impl FnMut(Lane, Utf8Bytes)) -> Took {
         let mut q = self.lock();
         let mut took = Took::default();
         let paced = q.link.interval().and(q.next_paced).filter(|t| *t > now);
@@ -249,7 +258,7 @@ impl Outbox {
                     q.ordered -= 1;
                     q.bytes -= frame.text.len();
                     took.waited = took.waited.max(now.saturating_duration_since(t));
-                    out.push(frame.text.clone());
+                    out(Lane::Reliable, frame.text.clone());
                 }
                 Entry::Latest(slot) => {
                     if q.open.get(&slot.key) == Some(&abs) {
@@ -258,7 +267,8 @@ impl Outbox {
                     let from = released.map_or(slot.since, |r| r.max(slot.since));
                     took.waited = took.waited.max(now.saturating_duration_since(from));
                     latest = true;
-                    out.push(slot.text());
+                    let lane = if matches!(slot.key, Latest::Values(_)) { Lane::Unreliable } else { Lane::Reliable };
+                    out(lane, slot.text());
                 }
             }
         }
@@ -266,6 +276,11 @@ impl Outbox {
             q.next_paced = q.link.interval().map(|i| now + i);
         }
         took
+    }
+
+    /// The transport measured the round trip itself (QUIC – no WebSocket ping). True when the rate changed.
+    pub fn link_rtt(&self, now: Instant, rtt: Duration) -> bool {
+        self.lock().link.rtt(now, rtt)
     }
 
     /// The writer sent a batch: the socket took `flush`, its oldest message had waited `waited`. True when the rate
@@ -303,7 +318,7 @@ impl Outbox {
         self.wake.notified().await
     }
 
-    /// Wait until this client is dropped for falling behind.
+    /// Wait until this client is dropped for falling behind, or its link was `end`ed.
     pub async fn dropped(&self) {
         self.kill.notified().await
     }
@@ -311,6 +326,12 @@ impl Outbox {
     /// The writer is gone: later pushes fail (a session still holding the client sees it as unreachable).
     pub fn close(&self) {
         self.lock().closed = true;
+    }
+
+    /// The link is over (its stream failed, or a resume took the client to a new link): later pushes fail, `dropped` wakes.
+    pub fn end(&self) {
+        self.close();
+        self.kill.notify_one();
     }
 
     pub fn is_closed(&self) -> bool {
@@ -330,6 +351,14 @@ impl Outbox {
     }
 }
 
+/// #438: which lane a message takes on a transport that has two. Only `deck.values` may be lost – a newer one follows
+/// within 33 ms and the settle (doors/mod.rs) repairs the rest; everything else stays reliable and in order.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Lane {
+    Reliable,
+    Unreliable,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -340,6 +369,11 @@ mod tests {
         let mut e = Envelope::new(from, Message::DeckValues(DeckValues { values, mood: mood.map(str::to_owned) }));
         e.seq = seq;
         Frame::of(e)
+    }
+
+    #[test]
+    fn a_stream_line_can_carry_whatever_the_outbox_lets_through() {
+        assert_eq!(protocol::lines::MAX_LINE, MAX_BYTES);
     }
 
     fn cue(id: &str) -> Arc<Frame> {

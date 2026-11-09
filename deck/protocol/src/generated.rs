@@ -379,6 +379,9 @@ pub struct Hello {
 pub struct Resume {
 	pub client: String,
 	pub seq: i64,
+	/// the `key` of this client's `welcome`: the proof that it is the client it names
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub key: Option<String>,
 }
 
 /// relay → client after `hello`: the snapshot of what this client should show now (B.6). On a `resume` inside the replay buffer the snapshot is empty and the missed messages follow.
@@ -390,6 +393,9 @@ pub struct Welcome {
 	pub snapshot: Snapshot,
 	/// relay time, ms
 	pub now: i64,
+	/// this client's secret for a later `resume`; no other client ever sees it
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub key: Option<String>,
 }
 
 /// client → relay. `t0`: the client's own clock when it sent the ping, in a unit of its choosing (the relay only echoes it; a deck sends µs – #321, the show clock's offset filter).

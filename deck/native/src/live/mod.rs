@@ -25,6 +25,8 @@ pub mod config;
 #[cfg(feature = "live")]
 pub mod media;
 #[cfg(feature = "live")]
+pub mod quic;
+#[cfg(feature = "live")]
 pub mod socket;
 
 /// What the HUD says about the outlet (each part written by its thread; the wording is deck-outlet's, #391).

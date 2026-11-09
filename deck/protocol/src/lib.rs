@@ -3,6 +3,7 @@
 //! `protocol.ts`, so the web clients and the relay never drift. Hand-written here: only helpers.
 
 mod generated;
+pub mod lines;
 
 pub use generated::*;
 

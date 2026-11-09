@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use futures_util::{SinkExt, StreamExt};
-use protocol::{Cue, Envelope, Hello, Message, Panic, Ping, Resume, Role, To, VoteCast, VoteHow, VoteOpen, VoteRule};
+use protocol::{Cue, Envelope, Hello, Message, Panic, Ping, Resume, Role, To, VoteCast, VoteHow, VoteOpen, VoteRule, Welcome};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio_tungstenite::tungstenite::Message as Ws;
@@ -67,6 +67,18 @@ async fn join_resume(
     token: Option<&str>,
     resume: Option<Resume>,
 ) -> (Socket, String) {
+    let (ws, w) = join_welcome(port, code, role, group, token, resume).await;
+    (ws, w.client)
+}
+
+async fn join_welcome(
+    port: u16,
+    code: &str,
+    role: Role,
+    group: Option<&str>,
+    token: Option<&str>,
+    resume: Option<Resume>,
+) -> (Socket, Welcome) {
     let url = format!("ws://127.0.0.1:{port}/live/{code}?role={}", role.as_str());
     let (mut ws, _) = connect_async(url).await.unwrap();
     let hello = Hello {
@@ -84,7 +96,7 @@ async fn join_resume(
         assert_eq!(w.group.as_deref(), group);
     }
     assert_eq!(welcome.from, "relay");
-    (ws, w.client)
+    (ws, w)
 }
 
 #[tokio::test]
@@ -205,7 +217,7 @@ async fn a_vote_closes_by_itself() {
 async fn a_phone_resumes_without_losing_messages() {
     let port = start().await;
     let (mut cond, _) = join(port, "R1", Role::Conductor, None, Some("t")).await;
-    let (mut phone, phone_id) = join(port, "R1", Role::Audience, Some("left"), None).await;
+    let (mut phone, Welcome { client: phone_id, key, .. }) = join_welcome(port, "R1", Role::Audience, Some("left"), None, None).await;
     let say = |t: &str| Message::Say(serde_json::from_str(&format!(r#"{{"outlet":"left","text":"{t}"}}"#)).unwrap());
     send(&mut cond, say("one"), None).await;
     let seen = recv(&mut phone).await.seq;
@@ -214,7 +226,7 @@ async fn a_phone_resumes_without_losing_messages() {
     send(&mut cond, say("two"), None).await;
     send(&mut cond, say("three"), None).await;
     tokio::time::sleep(Duration::from_millis(100)).await;
-    let resume = Resume { client: phone_id.clone(), seq: seen as i64 };
+    let resume = Resume { client: phone_id.clone(), seq: seen as i64, key };
     let (mut phone, again) = join_resume(port, "R1", Role::Audience, None, None, Some(resume)).await;
     assert_eq!(again, phone_id, "the same client id (its vote stays counted)");
     // (join_resume skipped the group check: a resumed phone keeps its QR's group "left" without naming it)
@@ -331,4 +343,80 @@ async fn the_conductor_sees_each_link() {
     assert!(links[&out_id].rtt.is_some(), "a pong came back: {links:?}");
     assert!(!links.contains_key(&phone_id), "no audience phones");
     reader.abort();
+}
+
+/// #438: a client whose new link comes before the relay saw the old one go (QUIC to WebSocket and back) takes its own id
+/// over; the old link ends, and its ending does not take the new one along.
+#[tokio::test]
+async fn a_resume_takes_over_a_client_still_attached() {
+    let port = start().await;
+    let (mut cond, _) = join(port, "R9", Role::Conductor, None, Some("dev-token")).await;
+    let (mut old, Welcome { client: id, key, .. }) = join_welcome(port, "R9", Role::Output, Some("a"), None, None).await;
+    let resume = Resume { client: id.clone(), seq: 0, key };
+    let (mut new, again) = join_resume(port, "R9", Role::Output, Some("a"), None, Some(resume)).await;
+    assert_eq!(again, id, "the same client, not a new one beside a ghost");
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while let Some(Ok(frame)) = old.next().await {
+            if frame.is_close() {
+                break;
+            }
+        }
+    })
+    .await
+    .expect("the old link is ended");
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    send(&mut cond, Message::Cue(Cue { id: "after".into(), actions: vec![] }), Some(To::role_group(Role::Output, "a"))).await;
+    tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            if matches!(recv(&mut new).await.message, Message::Cue(c) if c.id == "after") {
+                break;
+            }
+        }
+    })
+    .await
+    .expect("the new link is still the client");
+}
+
+const GRAPH: &str = r#"{"v":1,"seq":0,"from":"","kind":"deck.graph","p":{"nodes":[{"id":"lfo","kind":"lfo"}],"links":[]}}"#;
+const VALUES: &str = r#"{"v":1,"seq":0,"from":"","kind":"deck.values","p":{"values":{"lfo.rate":[0.5]}}}"#;
+
+/// #438: knowing a client's id proves nothing (ids are `c<n>`, and a musician needs no token): a resume without the key
+/// from that client's welcome gets a new id, and the client it named goes on as if nothing had happened.
+#[tokio::test]
+async fn a_resume_without_the_key_takes_nothing() {
+    let port = start().await;
+    let (mut cond, _) = join(port, "R10", Role::Conductor, None, Some("dev-token")).await;
+    let (mut deck, id) = join(port, "R10", Role::Musician, Some("decks"), None).await;
+    deck.send(Ws::Text(GRAPH.into())).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    let guess = Resume { client: id.clone(), seq: 0, key: Some("guess".into()) };
+    let (_thief, got) = join_resume(port, "R10", Role::Musician, Some("decks"), None, Some(guess)).await;
+    assert_ne!(got, id, "the id stays with its client");
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    deck.send(Ws::Text(VALUES.into())).await.unwrap();
+    tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            let e = recv(&mut cond).await;
+            if matches!(e.message, Message::DeckValues(_)) {
+                assert_eq!(e.from, id);
+                break;
+            }
+        }
+    })
+    .await
+    .expect("the deck is still attached, with its being");
+}
+
+/// #438: nor can a client that left be taken by naming it.
+#[tokio::test]
+async fn a_departed_id_needs_its_key_too() {
+    let port = start().await;
+    let (mut phone, id) = join(port, "R11", Role::Audience, None, None).await;
+    phone.close(None).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let guess = Resume { client: id.clone(), seq: 0, key: None };
+    let (_thief, got) = join_resume(port, "R11", Role::Audience, None, None, Some(guess)).await;
+    assert_ne!(got, id);
 }
