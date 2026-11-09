@@ -56,6 +56,23 @@ show › row › cell › rig or scene › track › node › parameter
 - In the editor a sub conductor is entered like an instrument: a breadcrumb, its own matrix, tabs for the parents.
 - If a parent goes offline, its children keep playing their last row.
 
+## 4b. Saving and delegating (proposal)
+
+Three separate things: the **show** (a document saved in an account, versioned, with lineage), the **deck** (paired to a member) and the **seat** (the place a parent keeps for a child).
+
+| | Same member | Another member |
+|---|---|---|
+| The child's show | Their own, a separate document | Stays with its owner, the parent gets no copy |
+| Getting a seat | Picks their own deck | Invite and accept, like pairing a deck |
+| What the parent sees | Everything | Only the face: named rows, events, outlets (like `rig/face.rs`) |
+| Parent's word | Follow, suggest or free, per seat | Same, the child's owner decides |
+| Media and rigs | Own rights | Lent for the show, gone after it (`Rights.lent`) |
+
+- **Flashing:** a flash is one assignment: the show at a pinned version, what it references, the deck configuration, the role. A conductor gets the same as a deck. Online it trickles down the tree as set on 2026-11-02 (a lock from above wins, otherwise the nearest wins, a deck may refuse, every deck reports what it runs). Offline the same package goes on a stick (2026-11-08 `[scenes]`: flash configs to decks).
+- **A child treats its parent like a reader:** the parent's row arrives as an event and the child's rule applies: follow = auto, suggest = its operator decides, free = ignored. One mechanism for triggers and delegation. The local GO always works.
+- Today: decks pair with a key pair and get exactly their owner's rights (`server/src/Domain/Decks/Decks.php`); rigs have `lent / owned / core`; the relay token names session, role, show. No show documents, seats or invitations, and a deck of one member cannot read another's media.
+- Open: may a parent lock another member's child (proposed: only if the seat accepted it)? Can a seat be handed on? Does an organisation own a show?
+
 ## 5. Cells
 
 A cell is a piece and its values. A piece is a scene, rig or module; the current layer kinds become factory pieces (`chapter`, video player, poll …), so nothing breaks.
@@ -92,7 +109,8 @@ A cell is a piece and its values. A piece is a scene, rig or module; the current
 - **GO is always allowed**, also before the reader got there or with media not ready. A warning can show; it never blocks.
 - A row can fire an event back into the viewer (a character enters, a vote result).
 - On autopilot, a row whose media is not ready is held and shown as a suggestion (proposal).
-- Launch model, proposal: **row per subtree, starting as one tree with every outlet**, which is exactly row by row. A single free cell is a subtree of one, which can only exchange events. Any-cell launching (5 rows × 4 outlets = 625 states to check, in the example) is what makes availability unknowable, so it is not proposed.
+- **Rows are the main way to launch** (owner). Any single cell can also be launched by hand (the clip launcher era, amending 2026-10-07): it is the operator's responsibility, like GO. A cell launched off its row is marked, links it breaks end, and a `values` cell that then meets the wrong piece is skipped and logged. The editor checks rows, not hand launches, so availability stays knowable.
+- Proposal: each subtree launches its own rows.
 
 ## 8. Addressing
 
@@ -156,7 +174,7 @@ A cell is a piece and its values. A piece is a scene, rig or module; the current
 
 ## 12. Open
 
-1. Launch model: row per subtree, starting as one tree (§7)?
+1. Does each subtree launch its own rows, starting as one tree (§7)?
 2. One show document per conductor, the parent pointing to it (proposed: a child can be built, rehearsed and reused alone), or one for the whole tree?
 3. Do the LIVE.md changes in §10 stand, above all the stage builder moving and "not a clip launcher"?
 4. What fits before the Top Toy workshop?
@@ -164,4 +182,4 @@ A cell is a piece and its values. A piece is a scene, rig or module; the current
 
 ## 13. Drafts
 
-Concept images (sent to the owner in the chat, not in the repository): `n0-tree`, `n1-reach`, `n2-cells`, `n3-launch`, `n4-editor`, `n5-conductor`, `n6-build`, `n7-show`, `n8-perform`, `n9-flow`. `n1`–`n5` still draw groups and one flat conductor; §4 is the correction.
+Concept images (sent to the owner in the chat, not in the repository): `n0-tree`, `n1-reach`, `n2-cells`, `n3-launch`, `n4-editor`, `n5-conductor`, `n6-build`, `n7-show`, `n8-perform`, `n9-flow`; current: `m1-show`, `m2-perform`, `m3-tree`. `n1`–`n5` still draw groups and one flat conductor; §4 is the correction.
