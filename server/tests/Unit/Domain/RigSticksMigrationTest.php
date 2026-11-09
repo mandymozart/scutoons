@@ -28,7 +28,7 @@ final class RigSticksMigrationTest extends TestCase
             'subject' => 'character.test',
             'track' => [['id' => 'a', 'instrument' => 'x'], ['id' => 'a_b', 'instrument' => 'x'], ['id' => 'c', 'instrument' => 'x']],
             'sticks' => $sticks,
-        ], JSON_UNESCAPED_SLASHES);
+        ], JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
         $this->db->exec("DELETE FROM catalog_rigs WHERE id IN ('character.test', 'character.plain', 'character.half')");
         // a track id with a `_` wins by length; a moved stick, an empty one and one of no track stay
         $this->db->run('INSERT INTO catalog_rigs (id, position, data, updated_at) VALUES (?, 9, ?, UTC_TIMESTAMP())', ['character.test', $rig([['a_b_synth.cutoff', 'a_lfo.rate'], ['', 'zz_x.y']])]);
