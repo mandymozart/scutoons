@@ -26,6 +26,7 @@ Builds on LIVE.md B.5 (show, outlets, cells), LIVE-LENSES.md, and the decisions 
 | The conductor takes events on autopilot or as suggestions, so accidental scrolls cannot create chaos | 2026-11-09 `[live]` |
 | The conductor has a performance mode and needs a way to configure and create; it may belong in the deck editor | 2026-11-09 `[live]` |
 | A parent may lock another member's sub conductor only if that seat accepted it | 2026-11-09 `[live]` |
+| Each subtree launches its own rows | 2026-11-09 `[live]` |
 | **GO is always allowed.** The conductor can start whatever; it is their responsibility | 2026-11-09 `[live]` |
 | Relations are built on hierarchy with fallbacks: "callcenter or Arbeitsamt". For every entity, down to module and parameter | 2026-11-09 `[events]` |
 | **An address that finds nobody does not fall back upward. It stays silent, and that is logged** | 2026-11-09 `[events]` |
@@ -112,7 +113,7 @@ A cell is a piece and its values. A piece is a scene, rig or module; the current
 - A row can fire an event back into the viewer (a character enters, a vote result).
 - On autopilot, a row whose media is not ready is held and shown as a suggestion (proposal).
 - **Rows are the main way to launch** (owner). Any single cell can also be launched by hand (the clip launcher era, amending 2026-10-07): it is the operator's responsibility, like GO. A cell launched off its row is marked, links it breaks end, and a `values` cell that then meets the wrong piece is skipped and logged. The editor checks rows, not hand launches, so availability stays knowable.
-- Proposal: each subtree launches its own rows.
+- **Each subtree launches its own rows** (owner): a sub conductor has its own matrix, the parent fires it or leaves it free. The show core is recursive from the start; a show can still begin as a single conductor.
 
 ## 8. Addressing
 
@@ -176,11 +177,10 @@ A cell is a piece and its values. A piece is a scene, rig or module; the current
 
 ## 12. Open
 
-1. Does each subtree launch its own rows, starting as one tree (§7)?
-2. One show document per conductor, the parent pointing to it (proposed: a child can be built, rehearsed and reused alone), or one for the whole tree?
-3. Do the LIVE.md changes in §10 stand, above all the stage builder moving and "not a clip launcher"?
-4. What fits before the Top Toy workshop?
-5. Multichannel pan (#459), labels (#461) and nesting (#458) touch this; nesting should follow §4.
+1. One show document per conductor, the parent pointing to it (proposed: a child can be built, rehearsed and reused alone), or one for the whole tree?
+2. Do the LIVE.md changes in §10 stand, above all the stage builder moving and "not a clip launcher"?
+3. What fits before the Top Toy workshop?
+4. Multichannel pan (#459), labels (#461) and nesting (#458) touch this; nesting should follow §4.
 
 ## 13. Drafts
 
