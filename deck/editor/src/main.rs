@@ -1536,23 +1536,6 @@ impl App {
         let landed = info::view(ui, t, 0.0, hf, tree_w - 1.0, self.info_open, help.as_ref());
         self.panel.hits.push((landed.head, Hit::InfoHead));
         self.panel.hits.push((landed.whole, Hit::InfoBody));
-        if let Some(e) = &self.edit {
-            let px = font;
-            let adv = ui.advance(px);
-            let tx = e.at.x + 6.0;
-            ui.round_rect(e.at.x, e.at.y, e.at.w.max(52.0), e.at.h, t.size.radius, t.color.control);
-            ui.outline(e.at.x, e.at.y, e.at.w.max(52.0), e.at.h, (t.size.radius, 1.0), t.color.accent);
-            if let Some((a, b)) = e.field.selection() {
-                let (ca, cb) = (e.field.chars_before(a) as f32, e.field.chars_before(b) as f32);
-                ui.rect(tx + ca * adv, e.at.y + 2.0, (cb - ca) * adv, e.at.h - 4.0, t.color.selection);
-            }
-            let (shown, column) = e.field.shown();
-            ui.text(tx, e.at.y + (e.at.h - px * 1.25) * 0.5, px, &shown, t.color.text);
-            ui.rect(tx + column as f32 * adv, e.at.y + 3.0, 1.5, e.at.h - 6.0, t.color.text);
-        }
-        if let Some(m) = self.menu.as_mut() {
-            m.ta.draw(ui, t, (wf, hf));
-        }
         if self.notice.as_ref().is_some_and(|n| Instant::now() > n.until) {
             self.notice = None;
         }
@@ -1590,6 +1573,24 @@ impl App {
                 mixer::Part::Peak(p) => Hit::Peak(p),
             };
             self.panel.hits.push((r, hit));
+        }
+        // over everything else: what is being typed, the typeahead
+        if let Some(e) = &self.edit {
+            let px = font;
+            let adv = ui.advance(px);
+            let tx = e.at.x + 6.0;
+            ui.round_rect(e.at.x, e.at.y, e.at.w.max(52.0), e.at.h, t.size.radius, t.color.control);
+            ui.outline(e.at.x, e.at.y, e.at.w.max(52.0), e.at.h, (t.size.radius, 1.0), t.color.accent);
+            if let Some((a, b)) = e.field.selection() {
+                let (ca, cb) = (e.field.chars_before(a) as f32, e.field.chars_before(b) as f32);
+                ui.rect(tx + ca * adv, e.at.y + 2.0, (cb - ca) * adv, e.at.h - 4.0, t.color.selection);
+            }
+            let (shown, column) = e.field.shown();
+            ui.text(tx, e.at.y + (e.at.h - px * 1.25) * 0.5, px, &shown, t.color.text);
+            ui.rect(tx + column as f32 * adv, e.at.y + 3.0, 1.5, e.at.h - 6.0, t.color.text);
+        }
+        if let Some(m) = self.menu.as_mut() {
+            m.ta.draw(ui, t, (wf, hf));
         }
         self.panel.hits.push((Rect { x: stage_x, y: top, w: stage_w, h: stage_h }, Hit::Stage));
         // the pass: logical pixels → the surface's, through the screen uniform
