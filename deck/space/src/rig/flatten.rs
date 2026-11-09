@@ -76,12 +76,14 @@ impl Rig {
         self.policy_node(lib, &played, persona, mood, &mut scene)?;
         let playing = |t: &str| played.iter().any(|p| p.track == t) || (t == policy::NODE && self.policy.is_some());
         let mut pulse = false;
+        let mut clock = false;
         // a route end as the compiled slot it lands on, and the track it is off with (`check` refused every other form)
         let end = |s: &str| -> Option<(String, Option<String>)> {
             match Address::leaf(s).ok()? {
                 Leaf::Port { track: Some(t), node, port } => Some((prefixed(&t, &format!("{node}.{port}")), Some(t))),
                 Leaf::Policy(port) => Some((format!("{}.{port}", policy::NODE), Some(policy::NODE.to_string()))),
                 Leaf::Being(input) => Some((format!("space.{input}"), None)),
+                Leaf::Scene(name) => super::address::scene_slot(&name).map(|slot| (slot.to_string(), None)),
                 _ => None,
             }
         };
@@ -92,8 +94,13 @@ impl Rig {
                 continue;
             }
             pulse |= to == "space.pulse";
+            clock |= from.starts_with("tempo.");
             scene.links.push(link(from, to, r.scale, r.offset));
             homes.push(Home::Route { index });
+        }
+        // the clock joins the rig's scene only when a route reads it
+        if clock {
+            scene.nodes.push(node("tempo", "tempo", &[]));
         }
         scene.nodes.push(node("space", "space", &[]));
         if !pulse {

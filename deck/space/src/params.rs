@@ -149,7 +149,8 @@ pub fn place(node: &str, port: &str, expose: &[String]) -> usize {
 /// being's: `limit`.)
 pub fn shown(kind: Kind, node: &str, port: &str, expose: &[String]) -> bool {
     let named = expose.iter().any(|e| !matches!(Expose::parse(e), Expose::Node(_)) && Expose::parse(e).names(node, port));
-    if kind == Kind::Space && POST_PORTS.contains(&port) {
+    // the bounce is wired, not turned (#455)
+    if kind == Kind::Space && (POST_PORTS.contains(&port) || port == "bounce") {
         return named;
     }
     named || expose.is_empty() || expose.iter().any(|e| Expose::parse(e) == Expose::Node(node))

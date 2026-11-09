@@ -1265,6 +1265,10 @@
               "type": "control"
             },
             {
+              "name": "bounce",
+              "type": "control"
+            },
+            {
               "name": "bloom",
               "type": "control"
             },
@@ -2660,6 +2664,10 @@
               "type": "control"
             },
             {
+              "name": "bounce",
+              "type": "control"
+            },
+            {
               "name": "bloom",
               "type": "control"
             },
@@ -3076,6 +3084,10 @@
             },
             {
               "name": "pulse",
+              "type": "control"
+            },
+            {
+              "name": "bounce",
               "type": "control"
             },
             {
