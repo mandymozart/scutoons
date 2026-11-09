@@ -48,6 +48,7 @@ import type { Config } from './config.ts';
 import { RULES } from './resources.ts';
 import { creatorHref, type AppLinks } from './services.ts';
 import { checkStoryboard } from './storyboard-model.ts';
+import { compiled, compileRefused, compileRequest, MODULE_ID, type CompileAnswer } from './modules.ts';
 
 type Json = any;
 type Result = { content: { type: 'text'; text: string }[]; isError?: boolean };
@@ -766,6 +767,25 @@ export function registerContentTools(server: McpServer, config: Config, options:
 			const note = message || 'AI edit';
 			const r = await content.putDraft(key, doc, base, config.token.startsWith('sct_') ? note : `${note} (agent)`);
 			return text({ saved: !r.unchanged, unchanged: r.unchanged, version: r.version.id, status: r.version.status, open: creatorHref(options.links, key), ...s });
+		})
+	);
+
+	server.registerTool(
+		'compile_module',
+		{
+			description:
+				'Compiles the newest draft of a Rust module (`module:<id>`, saved with save_draft: `files` { "lib.rs": "…" }) with the compile service, like the Compile button in the creator. The result (descriptor, wasm hash) is written into a NEW draft – read_entity gives its version as your next base. A refused compile answers with the errors by file and line: fix the sources, save, compile again. Creators only. Publishing stays the member\'s click in the creator (the `open` link).',
+			inputSchema: z.object({ id: z.string().regex(MODULE_ID).describe('the module id, without "module:"') }),
+			annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }
+		},
+		guard(async ({ id }) => {
+			try {
+				return text(compiled(await client.post<CompileAnswer>('/modules/compile', compileRequest(id)), creatorHref(options.links, `module:${id}`)));
+			} catch (e) {
+				const refused = compileRefused(e);
+				if (refused) return { ...text(refused), isError: true };
+				throw e;
+			}
 		})
 	);
 
