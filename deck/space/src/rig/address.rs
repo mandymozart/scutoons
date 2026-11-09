@@ -22,25 +22,27 @@ use std::fmt;
 
 /// the reserved scope of the being's look (`being:<input>`)
 pub const BEING: &str = "being";
-/// the reserved scope of what a rig takes from where it plays (`scene:<name>`, #455: the sound's level, the beat)
-pub const SCENE: &str = "scene";
-/// what a rig can take from where it plays: its name and the compiled slot it reads
-pub const SCENE_SOURCES: [(&str, &str); 10] = [
-    ("level", "fft.level"),
-    ("bass", "fft.bass"),
-    ("mid", "fft.mid"),
-    ("high", "fft.high"),
-    ("beat", "tempo.beat"),
-    ("bar", "tempo.bar"),
-    ("phase", "tempo.phase"),
-    ("bar_phase", "tempo.bar_phase"),
-    ("pulse", "tempo.pulse"),
-    ("bpm", "tempo.bpm"),
+/// the reserved scope of the analyser on the rig's own sum (`sound:<name>`, #455; RULES A14: a scope says where it comes from)
+pub const SOUND: &str = "sound";
+/// the reserved scope of the show's clock (`clock:<name>`)
+pub const CLOCK: &str = "clock";
+/// what a rig can read from outside its tracks: scope, name, the compiled slot it reads
+pub const SOURCES: [(&str, &str, &str); 10] = [
+    (SOUND, "level", "fft.level"),
+    (SOUND, "bass", "fft.bass"),
+    (SOUND, "mid", "fft.mid"),
+    (SOUND, "high", "fft.high"),
+    (CLOCK, "beat", "tempo.beat"),
+    (CLOCK, "bar", "tempo.bar"),
+    (CLOCK, "phase", "tempo.phase"),
+    (CLOCK, "bar_phase", "tempo.bar_phase"),
+    (CLOCK, "pulse", "tempo.pulse"),
+    (CLOCK, "bpm", "tempo.bpm"),
 ];
 
-/// the compiled slot of a scene parameter
-pub fn scene_slot(name: &str) -> Option<&'static str> {
-    SCENE_SOURCES.iter().find(|(n, _)| *n == name).map(|(_, s)| *s)
+/// the compiled slot of a source
+pub fn source_slot(scope: &str, name: &str) -> Option<&'static str> {
+    SOURCES.iter().find(|(s, n, _)| *s == scope && *n == name).map(|(_, _, slot)| *slot)
 }
 
 /// the reserved scope of a code rig's policy node (`policy:<port>`), the node's id too (policy.rs `NODE`)
@@ -84,8 +86,8 @@ pub enum Leaf {
     Member { track: String, member: String },
     /// `being:<input>` – an input of the being's look (hue, glow, light, pulse, bounce)
     Being(String),
-    /// `scene:<name>` – what a rig takes from where it plays (`SCENE_SOURCES`), a source only
-    Scene(String),
+    /// `sound:<name>`, `clock:<name>` – what a rig reads from outside its tracks (`SOURCES`), a source only
+    Source(String, String),
     /// `policy:<port>` – a port or parameter of a code rig's policy node
     Policy(String),
     /// `@<member>` – a holder's own state, read only (`character:catpope/@energy`)
@@ -100,7 +102,7 @@ impl Leaf {
             Leaf::Port { track: Some(t), node, port } => Some(format!("{t}_{node}.{port}")),
             Leaf::Port { track: None, node, port } => Some(format!("{node}.{port}")),
             Leaf::Policy(port) => Some(format!("{POLICY}.{port}")),
-            Leaf::Scene(name) => scene_slot(name).map(String::from),
+            Leaf::Source(scope, name) => source_slot(scope, name).map(String::from),
             Leaf::Member { .. } | Leaf::Being(_) | Leaf::State(_) => None,
         }
     }
@@ -113,7 +115,7 @@ impl fmt::Display for Leaf {
             Leaf::Port { track: None, node, port } => write!(f, "{node}.{port}"),
             Leaf::Member { track, member } => write!(f, "{track}:@{member}"),
             Leaf::Being(input) => write!(f, "{BEING}:{input}"),
-            Leaf::Scene(name) => write!(f, "{SCENE}:{name}"),
+            Leaf::Source(scope, name) => write!(f, "{scope}:{name}"),
             Leaf::Policy(port) => write!(f, "{POLICY}:{port}"),
             Leaf::State(member) => write!(f, "@{member}"),
         }
@@ -202,12 +204,13 @@ fn leaf(s: &str) -> Result<Leaf, String> {
                 word(rest, "the being's input")?;
                 return Ok(Leaf::Being(rest.to_string()));
             }
-            if scope == SCENE {
-                word(rest, "the scene's parameter")?;
-                if scene_slot(rest).is_none() {
-                    return Err(format!("the scene has no parameter '{rest}' ({})", SCENE_SOURCES.map(|(n, _)| n).join(", ")));
+            if scope == SOUND || scope == CLOCK {
+                word(rest, "the source's name")?;
+                if source_slot(scope, rest).is_none() {
+                    let names: Vec<&str> = SOURCES.iter().filter(|(s, ..)| *s == scope).map(|(_, n, _)| *n).collect();
+                    return Err(format!("{scope} has no '{rest}' ({})", names.join(", ")));
                 }
-                return Ok(Leaf::Scene(rest.to_string()));
+                return Ok(Leaf::Source(scope.to_string(), rest.to_string()));
             }
             if scope == POLICY {
                 word(rest, "the policy's port")?;

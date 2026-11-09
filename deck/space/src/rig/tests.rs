@@ -741,20 +741,20 @@ fn a_tracks_pan_goes_through_a_panner_and_centre_through_none() {
 }
 
 #[test]
-fn the_scenes_level_and_beat_can_be_wired() {
+fn the_sound_and_the_clock_can_be_wired() {
     let b = Bundle::core("character.catpope").expect("the core rig").expect("it reads");
-    let level = b.connected("scene:level", "being:bounce").expect("a route");
+    let level = b.connected("sound:level", "being:bounce").expect("a route");
     let played = level.play(None, None).expect("it plays");
     assert!(played.links.iter().any(|l| l.from == "fft.level" && l.to == "space.bounce"));
     assert!(played.nodes.iter().all(|n| n.kind != "tempo"), "no clock unless a route reads it");
-    let beat = b.connected("scene:beat", "being:bounce").expect("a route").play(None, None).expect("it plays");
+    let beat = b.connected("clock:beat", "being:bounce").expect("a route").play(None, None).expect("it plays");
     assert!(beat.nodes.iter().any(|n| n.kind == "tempo"));
     assert!(beat.links.iter().any(|l| l.from == "tempo.beat" && l.to == "space.bounce"));
 }
 
 #[test]
-fn a_scene_parameter_is_only_a_source() {
+fn a_source_is_only_a_source() {
     let b = Bundle::core("character.catpope").expect("the core rig").expect("it reads");
-    assert!(b.connected("voice:voice.out", "scene:level").is_err());
-    assert!(b.connected("scene:nothing", "being:bounce").is_err());
+    assert!(b.connected("voice:voice.out", "sound:level").is_err());
+    assert!(b.connected("sound:nothing", "being:bounce").is_err());
 }

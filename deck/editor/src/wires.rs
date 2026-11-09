@@ -4,7 +4,7 @@
 //! `rig::validate`, its sentence is shown as it comes. The ports a dragged cable may reach are the core's answer too: each
 //! is tried. The draft is a TOML file (the rig, the instruments that changed) until the editor can sign in and save.
 use anyhow::{Context, Result};
-use deck_space::rig::address::{BEING, SCENE, SCENE_SOURCES};
+use deck_space::rig::address::{BEING, SOURCES};
 use deck_space::rig::bundle::Played;
 use deck_space::rig::edit::Op;
 use deck_space::rig::validate::Request;
@@ -58,9 +58,9 @@ pub fn ports(played: &Played) -> Result<Vec<Port>> {
             }
         }
     }
-    // what the rig can take from where it plays, and the being's inputs: no marks on the stage, the typeahead finds them
-    for (name, _) in SCENE_SOURCES {
-        out.push(Port { node: String::new(), name: name.to_string(), input: false, ty: "control", address: format!("{SCENE}:{name}"), track: String::new(), cables: Vec::new() });
+    // what a rig reads from outside its tracks, and the being's inputs: no marks on the stage, the typeahead finds them
+    for (scope, name, _) in SOURCES {
+        out.push(Port { node: String::new(), name: name.to_string(), input: false, ty: "control", address: format!("{scope}:{name}"), track: String::new(), cables: Vec::new() });
     }
     if let Some((b, being)) = w.nodes.iter().enumerate().find(|(_, n)| n.id == "space") {
         for p in being.inputs.iter().filter(|p| p.ty == "control") {
@@ -115,7 +115,7 @@ pub fn level(bundle: &Bundle, ports: &[Port], node_ids: &[String], core_node: us
         }
     }
     for (i, p) in ports.iter().enumerate() {
-        // the scene's and the being's: at every level, without a place on the stage
+        // the sources and the being's inputs: at every level, without a place on the stage
         if p.track.is_empty() {
             visible[i] = true;
             continue;
@@ -397,11 +397,11 @@ mod tests {
     }
 
     #[test]
-    fn the_scenes_parameters_are_offered_to_a_being_input() {
+    fn the_sound_and_the_clock_are_offered_to_a_being_input() {
         let (b, p) = catpope();
         let r = reachable(&b, &p, port(&p, "being:bounce"));
         let can: Vec<&str> = p.iter().zip(&r).filter(|(_, ok)| **ok).map(|(q, _)| q.address.as_str()).collect();
-        assert!(can.contains(&"scene:level") && can.contains(&"scene:beat"), "{can:?}");
+        assert!(can.contains(&"sound:level") && can.contains(&"clock:beat"), "{can:?}");
     }
 
     #[test]

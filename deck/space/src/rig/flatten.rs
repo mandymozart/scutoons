@@ -83,7 +83,7 @@ impl Rig {
                 Leaf::Port { track: Some(t), node, port } => Some((prefixed(&t, &format!("{node}.{port}")), Some(t))),
                 Leaf::Policy(port) => Some((format!("{}.{port}", policy::NODE), Some(policy::NODE.to_string()))),
                 Leaf::Being(input) => Some((format!("space.{input}"), None)),
-                Leaf::Scene(name) => super::address::scene_slot(&name).map(|slot| (slot.to_string(), None)),
+                Leaf::Source(scope, name) => super::address::source_slot(&scope, &name).map(|slot| (slot.to_string(), None)),
                 _ => None,
             }
         };
