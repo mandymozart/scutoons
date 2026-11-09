@@ -30,3 +30,4 @@ ab_glyph = "0.2"
 image = { version = "0.25", default-features = false, features = ["png"] }
 # the OS clipboard for the text field's copy and paste
 arboard = { version = "3", default-features = false }
+serde_json.workspace = true

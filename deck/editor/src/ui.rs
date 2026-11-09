@@ -9,6 +9,9 @@ use std::collections::HashMap;
 /// the characters the atlas holds: ASCII, then what German and the panel's symbols need
 pub const EXTRA: &str = "äöüÄÖÜß€–·…×→←↑↓°≤≥";
 
+const DISC: char = '\u{1}';
+const RING: char = '\u{2}';
+
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 struct Quad {
@@ -42,7 +45,7 @@ impl Atlas {
         let cw = sf.h_advance(font.glyph_id('0')).ceil() as u32 + 2;
         let ch = (sf.ascent() - sf.descent()).ceil() as u32 + 2;
         let cols = 16u32;
-        let rows = (chars.len() as u32 + 1).div_ceil(cols);
+        let rows = (chars.len() as u32 + 3).div_ceil(cols);
         let (w, h) = (cw * cols, ch * rows);
         let mut pixels = vec![255u8; (w * h * 4) as usize];
         pixels.chunks_exact_mut(4).for_each(|p| p[3] = 0);
@@ -51,7 +54,13 @@ impl Atlas {
             let i = i as u32;
             cells.insert(c, i);
             let (x0, y0) = (i % cols * cw, i / cols * ch);
-            let g = font.glyph_id(c).with_scale_and_position(PxScale::from(px), point(x0 as f32 + 1.0, y0 as f32 + 1.0 + sf.ascent()));
+            // the mono font carries no arrows: the sentences of the core have them
+            let shown = match c {
+                '→' if font.glyph_id(c).0 == 0 => '>',
+                '←' if font.glyph_id(c).0 == 0 => '<',
+                other => other,
+            };
+            let g = font.glyph_id(shown).with_scale_and_position(PxScale::from(px), point(x0 as f32 + 1.0, y0 as f32 + 1.0 + sf.ascent()));
             if let Some(o) = font.outline_glyph(g) {
                 let b = o.px_bounds();
                 o.draw(|x, y, cov| {
@@ -71,6 +80,20 @@ impl Atlas {
                 pixels[((y * w + x) * 4 + 3) as usize] = 255;
             }
         }
+        // and two more cells: a disc and a ring, for the ports (a square in the middle of the cell)
+        for (n, hollow) in [(1u32, false), (2, true)] {
+            let i = solid + n;
+            let (x0, y0) = (i % cols * cw, i / cols * ch);
+            let (cx, cy, r) = (cw as f32 * 0.5, ch as f32 * 0.5, cw as f32 * 0.5 - 1.0);
+            for y in 0..ch {
+                for x in 0..cw {
+                    let d = ((x as f32 + 0.5 - cx).powi(2) + (y as f32 + 0.5 - cy).powi(2)).sqrt();
+                    let outer = (r - d + 0.5).clamp(0.0, 1.0);
+                    let inner = if hollow { (r - 3.0 - d + 0.5).clamp(0.0, 1.0) } else { 0.0 };
+                    pixels[(((y0 + y) * w + x0 + x) * 4 + 3) as usize] = ((outer - inner).max(0.0) * 255.0) as u8;
+                }
+            }
+        }
         let texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("ui atlas"),
             size: wgpu::Extent3d { width: w, height: h, depth_or_array_layers: 1 },
@@ -88,6 +111,8 @@ impl Atlas {
             wgpu::Extent3d { width: w, height: h, depth_or_array_layers: 1 },
         );
         cells.insert('\u{0}', solid);
+        cells.insert(DISC, solid + 1);
+        cells.insert(RING, solid + 2);
         Atlas { texture, cell: (cw as f32, ch as f32), px, cells, cols, size: (w, h) }
     }
 
@@ -181,6 +206,37 @@ impl Ui {
     pub fn rect(&mut self, x: f32, y: f32, w: f32, h: f32, color: [f32; 4]) {
         let uv = self.atlas.uv('\u{0}', self.atlas.cell.0 * 0.4);
         self.quads.push(Quad { rect: [x, y, w, h], uv, color });
+    }
+
+    fn round(&mut self, c: char, x: f32, y: f32, r: f32, color: [f32; 4]) {
+        // the middle square of the cell
+        let [u0, v0, u1, v1] = self.atlas.uv(c, 0.0);
+        let dv = (v1 - v0) * (1.0 - self.atlas.cell.0 / self.atlas.cell.1) * 0.5;
+        self.quads.push(Quad { rect: [x - r, y - r, 2.0 * r, 2.0 * r], uv: [u0, v0 + dv, u1, v1 - dv], color });
+    }
+
+    /// a filled circle around (x, y)
+    pub fn disc(&mut self, x: f32, y: f32, r: f32, color: [f32; 4]) {
+        self.round(DISC, x, y, r, color);
+    }
+
+    /// a circle's outline around (x, y)
+    pub fn ring(&mut self, x: f32, y: f32, r: f32, color: [f32; 4]) {
+        self.round(RING, x, y, r, color);
+    }
+
+    /// a cable being dragged: beads along a hanging curve
+    pub fn cable(&mut self, a: (f32, f32), b: (f32, f32), color: [f32; 4]) {
+        const BEADS: usize = 56;
+        let sag = 40.0 + (b.0 - a.0).abs().max((b.1 - a.1).abs()) * 0.35;
+        for i in 0..=BEADS {
+            let t = i as f32 / BEADS as f32;
+            let s = 1.0 - t;
+            let (c1, c2) = ((a.0, a.1 + sag), (b.0, b.1 + sag));
+            let x = s * s * s * a.0 + 3.0 * s * s * t * c1.0 + 3.0 * s * t * t * c2.0 + t * t * t * b.0;
+            let y = s * s * s * a.1 + 3.0 * s * s * t * c1.1 + 3.0 * s * t * t * c2.1 + t * t * t * b.1;
+            self.disc(x, y, 3.0, color);
+        }
     }
 
     /// `text` from (x, y) (its top left) at font size `px`; the width drawn

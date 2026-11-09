@@ -45,6 +45,15 @@ pub struct WireNode {
     pub world: Option<WireWorld>,
 }
 
+impl WireNode {
+    /// the address a rig's route names this node's `port` by (`voice:melody.cv`); None for the scene's own nodes (the
+    /// mixers summing the tracks, the outlet, the analyser, the being): no route ends there
+    pub fn address(&self, port: &str) -> Option<String> {
+        let node = self.id.strip_prefix(self.track.as_str())?.strip_prefix('_')?;
+        (!self.track.is_empty()).then(|| format!("{}:{node}.{port}", self.track))
+    }
+}
+
 /// What a world node shows (#430): where its events come from, and the names it lets through.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct WireWorld {

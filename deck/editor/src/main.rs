@@ -6,12 +6,16 @@
 //! one 2D pass (ui.rs). The gates are measured and printed at exit: `--frames N` quits after N frames with the numbers
 //! (the UI's build time per frame, the frame interval, the audio glitches); `--screenshot FILE` saves the last frame.
 //!
-//! deck-editor [--rig catpope] [--frames N] [--screenshot FILE] [--tokens FILE] [--stress] [--volume V]
+//! The Wire side (#431, wires.rs): the top bar's switch or `w`; the ports around the being's points, a dragged cable is a
+//! route in the rig through the core's edit and validate, the rig replays, the draft is a file; ctrl+z takes it back.
+//!
+//! deck-editor [--rig catpope] [--frames N] [--screenshot FILE] [--tokens FILE] [--stress] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO]
 mod bar;
 mod stage;
 mod text;
 mod tokens;
 mod ui;
+mod wires;
 
 use anyhow::{Context, Result};
 use deck_native::gpu::Gpu;
@@ -34,10 +38,16 @@ struct Args {
     volume: f32,
     /// the window's logical size (the gate is measured at 1920,1080)
     size: Option<(u32, u32)>,
+    /// start on the Wire side
+    wire: bool,
+    /// the rig's draft file (default: the cache's drafts folder)
+    draft: Option<PathBuf>,
+    /// a check run's drag, by the pointer's own path: from a port to a port (their addresses)
+    gesture: Option<(String, String)>,
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { rig: "catpope".into(), frames: None, screenshot: None, tokens: None, stress: false, volume: 0.5, size: None };
+    let mut a = Args { rig: "catpope".into(), frames: None, screenshot: None, tokens: None, stress: false, volume: 0.5, size: None, wire: false, draft: None, gesture: None };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -48,13 +58,21 @@ fn args() -> Result<Args> {
             "--tokens" => a.tokens = Some(PathBuf::from(val()?)),
             "--volume" => a.volume = val()?.parse()?,
             "--stress" => a.stress = true,
+            "--wire" => a.wire = true,
+            "--draft" => a.draft = Some(PathBuf::from(val()?)),
+            "--gesture" => {
+                let v = val()?;
+                let (from, to) = v.split_once(',').with_context(|| format!("--gesture takes FROM,TO, not {v}"))?;
+                a.gesture = Some((from.to_string(), to.to_string()));
+                a.wire = true;
+            }
             "--size" => {
                 let v = val()?;
                 let (w, h) = v.split_once([',', 'x']).with_context(|| format!("--size takes W,H, not {v}"))?;
                 a.size = Some((w.trim().parse()?, h.trim().parse()?));
             }
             "--help" | "-h" => {
-                println!("deck-editor [--rig catpope] [--frames N] [--screenshot FILE] [--tokens FILE] [--stress] [--size W,H] [--volume V]");
+                println!("deck-editor [--rig catpope] [--frames N] [--screenshot FILE] [--tokens FILE] [--stress] [--size W,H] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO]");
                 std::process::exit(0);
             }
             other => anyhow::bail!("unknown argument {other}"),
@@ -86,6 +104,10 @@ enum Hit {
     Knob(usize),
     Field(f32),
     Stress(usize),
+    /// the Play / Wire switch (true = Wire)
+    Mode(bool),
+    /// a port, by its index in the stage's list
+    Port(usize),
 }
 
 /// what is being dragged
@@ -95,6 +117,24 @@ enum Drag {
     Knob(usize, f32, f32),
     Stress(usize, f32, f32),
     Select,
+    /// a cable from this port
+    Cable(usize),
+}
+
+/// a port on the screen this frame (logical pixels)
+struct Mark {
+    port: usize,
+    x: f32,
+    y: f32,
+}
+
+/// a sentence at the place of a gesture, for a few seconds
+struct Notice {
+    text: String,
+    x: f32,
+    y: f32,
+    until: Instant,
+    bad: bool,
 }
 
 struct Rect {
@@ -141,6 +181,13 @@ struct App {
     exit: i32,
     clipboard: Option<arboard::Clipboard>,
     token_changes: u32,
+    /// the Wire side: the ports show, a drag from one is a cable
+    wire: bool,
+    marks: Vec<Mark>,
+    notice: Option<Notice>,
+    /// the rigs before each change: ctrl+z
+    undo: Vec<deck_space::rig::Rig>,
+    draft: PathBuf,
 }
 
 fn main() {
@@ -156,10 +203,13 @@ fn main() {
 
 fn run() -> Result<i32> {
     let args = args()?;
-    let stage = stage::Stage::new(&args.rig, args.volume)?;
+    let subject = if args.rig.contains('.') { args.rig.clone() } else { format!("character.{}", args.rig) };
+    let draft = args.draft.clone().unwrap_or_else(|| deck_native::cache::default_dir().join("drafts").join(format!("{subject}.rig.toml")));
+    let stage = stage::Stage::new(&args.rig, args.volume, Some(&draft))?;
     let tokens = tokens::Watched::new(args.tokens.clone().unwrap_or_else(tokens::default_path));
     let event_loop = EventLoop::new().context("no event loop (no display?)")?;
     let width = tokens.tokens.size.panel;
+    let wire = args.wire;
     let mut app = App {
         panel: Panel { width, tab: if args.stress { Tab::Stress } else { Tab::Rig }, field: text::Field::with("Grüße an die Bühne – type here"), stress: (0..STRESS).map(|i| (i % 17) as f32 / 16.0).collect(), drag: None, hits: Vec::new(), field_rect: Rect { x: 0.0, y: 0.0, w: 0.0, h: 0.0 }, advance: 8.0 },
         args,
@@ -178,6 +228,11 @@ fn run() -> Result<i32> {
         exit: 0,
         clipboard: arboard::Clipboard::new().map_err(|e| tracing::warn!("no clipboard: {e}")).ok(),
         token_changes: 0,
+        wire,
+        marks: Vec::new(),
+        notice: None,
+        undo: Vec::new(),
+        draft,
     };
     event_loop.run_app(&mut app).context("the event loop")?;
     let summary = app.summary();
@@ -218,6 +273,9 @@ impl App {
 
     /// what is under the pointer, from the last frame's layout
     fn hit(&self, x: f32, y: f32) -> Hit {
+        if let Some(port) = nearest(&self.marks, x, y) {
+            return Hit::Port(port);
+        }
         self.panel.hits.iter().find(|(r, _)| r.has(x, y)).map_or(Hit::Nothing, |(_, h)| *h)
     }
 
@@ -243,6 +301,7 @@ impl App {
                 let to = self.panel.field.byte_at_char(col);
                 self.panel.field.go(to, true);
             }
+            Some(Drag::Cable(_)) => {}
             None => {
                 if let Hit::Stage = self.hit(x, y) {
                     let s = self.scale();
@@ -275,7 +334,84 @@ impl App {
                 self.panel.drag = Some(Drag::Select);
                 self.focus(true);
             }
+            Hit::Mode(on) => self.wire = on,
+            Hit::Port(i) => self.panel.drag = Some(Drag::Cable(i)),
             Hit::Stage | Hit::Nothing => self.focus(false),
+        }
+    }
+
+    /// the button let go: a cable dropped on a port is a gesture on the rig
+    fn release(&mut self) {
+        let Some(Drag::Cable(a)) = self.panel.drag.take() else { return };
+        let (x, y) = self.cursor;
+        let Hit::Port(b) = self.hit(x, y) else { return };
+        if a == b {
+            return;
+        }
+        let (Some(pa), Some(pb)) = (self.stage.ports.get(a), self.stage.ports.get(b)) else { return };
+        match wires::connect(&self.stage.bundle, pa, pb) {
+            Ok(next) => {
+                let text = format!("{} → {}", pa.address, pb.address);
+                let before = self.stage.bundle.rig.clone();
+                if self.take(next, x, y) {
+                    self.undo.push(before);
+                    self.say(text, x, y, false);
+                }
+            }
+            Err(sentence) => self.say(sentence, x, y, true),
+        }
+    }
+
+    /// a changed rig on the stage and in the draft; false and the sentence when it does not play
+    fn take(&mut self, next: deck_space::rig::Bundle, x: f32, y: f32) -> bool {
+        if let Err(e) = self.stage.replay(next) {
+            self.say(format!("{e:#}"), x, y, true);
+            return false;
+        }
+        if let Err(e) = wires::save_draft(&self.draft, &self.stage.bundle.rig) {
+            self.say(format!("{e:#}"), x, y, true);
+        }
+        true
+    }
+
+    fn say(&mut self, text: String, x: f32, y: f32, bad: bool) {
+        tracing::info!("wire: {}{text}", if bad { "refused: " } else { "" });
+        self.notice = Some(Notice { text, x, y, until: Instant::now() + std::time::Duration::from_secs(6), bad });
+    }
+
+    fn take_back(&mut self) {
+        let Some(rig) = self.undo.pop() else { return };
+        let next = deck_space::rig::Bundle { rig, ..self.stage.bundle.clone() };
+        let (x, y) = self.cursor;
+        self.take(next, x, y);
+    }
+
+    /// a check run's drag at fixed frames: the pointer's own path, through hit test, press, move and release
+    fn script(&mut self) {
+        const START: u64 = 60;
+        let Some((from, to)) = self.args.gesture.clone() else { return };
+        let at = |app: &App, address: &str| {
+            let i = app.stage.ports.iter().position(|p| p.address == address);
+            i.and_then(|i| app.marks.iter().find(|m| m.port == i)).map(|m| (m.x, m.y))
+        };
+        match self.frames {
+            f if f == START => {
+                if let Some((x, y)) = at(self, &from) {
+                    self.pointer(x, y);
+                    self.press();
+                } else {
+                    tracing::error!("--gesture: no port {from} on the stage");
+                }
+            }
+            f if f == START + 10 => {
+                if let Some((x, y)) = at(self, &to) {
+                    self.pointer(x, y);
+                } else {
+                    tracing::error!("--gesture: no port {to} on the stage");
+                }
+            }
+            f if f == START + 20 => self.release(),
+            _ => {}
         }
     }
 
@@ -379,6 +515,7 @@ impl App {
         ui.rect(x0 - divider, top, divider, body, t.color.divider);
         ui.rect(x0, top, px, body, t.color.panel);
         self.panel.hits.clear();
+        self.marks.clear();
         self.panel.hits.push((Rect { x: x0 - divider - 3.0, y: top, w: divider + 6.0, h: body }, Hit::Divider));
         let (pad, font, row) = (t.size.pad, t.size.font, t.size.row);
         let mut y = top + pad;
@@ -483,7 +620,61 @@ impl App {
             self.stage.glitch_text(),
             self.stage.audio
         );
-        bar::draw(ui, t, wf, &status);
+        let status = if self.undo.is_empty() { status } else { format!("{} change{} · {status}", self.undo.len(), if self.undo.len() == 1 { "" } else { "s" }) };
+        for ((x, w), on) in bar::draw(ui, t, wf, &status, self.wire).into_iter().zip([false, true]) {
+            self.panel.hits.push((Rect { x, y: 0.0, w, h: top }, Hit::Mode(on)));
+        }
+        // the Wire side: the ports around the being's points, the core's list on this frame's places
+        if self.wire {
+            let being = &self.stage.space.being;
+            for p in &being.points {
+                let id = &self.stage.node_ids[p.node];
+                let Some((px0, py0)) = self.stage.space.to_pixel(p.pos) else { continue };
+                let (cx, cy) = (px0 / scale, py0 / scale + top);
+                if cx > stage_w || cy < top {
+                    continue;
+                }
+                let of = |input: bool| self.stage.ports.iter().enumerate().filter(move |(_, q)| q.node == *id && q.input == input).collect::<Vec<_>>();
+                let near = (self.cursor.0 - cx).hypot(self.cursor.1 - cy) < 90.0;
+                for side in [of(true), of(false)] {
+                    for (n, &(index, q)) in side.iter().enumerate() {
+                        let (dx, dy) = wires::around(n, side.len(), q.input);
+                        let (mx, my) = (cx + dx, cy + dy);
+                        self.marks.push(Mark { port: index, x: mx, y: my });
+                        let hover = (self.cursor.0 - mx).hypot(self.cursor.1 - my) < 9.0;
+                        let c = if q.input { t.color.text } else { t.color.cable };
+                        if hover {
+                            ui.ring(mx, my, 11.0, t.color.cable);
+                        }
+                        if q.input && !q.linked {
+                            ui.ring(mx, my, 6.0, c);
+                        } else {
+                            ui.disc(mx, my, 6.0, c);
+                        }
+                        if near {
+                            let small = font * 0.75;
+                            let w = ui.atlas.advance(small) * q.name.chars().count() as f32;
+                            let lx = if q.input { mx - w - 10.0 } else { mx + 10.0 };
+                            ui.text(lx, my - small * 0.6, small, &q.name, t.color.text);
+                        }
+                    }
+                }
+            }
+            if let Some(Drag::Cable(a)) = self.panel.drag {
+                if let Some(m) = self.marks.iter().find(|m| m.port == a) {
+                    ui.cable((m.x, m.y), self.cursor, t.color.cable);
+                }
+                if let Some(q) = nearest(&self.marks, self.cursor.0, self.cursor.1).and_then(|b| self.stage.ports.get(b)) {
+                    chip(ui, t, (self.cursor.0 + 14.0, self.cursor.1 + 14.0), stage_w, &format!("{} · {}", q.address, q.ty), false);
+                }
+            }
+        }
+        if self.notice.as_ref().is_some_and(|n| Instant::now() > n.until) {
+            self.notice = None;
+        }
+        if let Some(n) = &self.notice {
+            chip(ui, t, (n.x + 14.0, n.y - 34.0), stage_w, &n.text, n.bad);
+        }
         self.panel.hits.push((Rect { x: 0.0, y: top, w: stage_w, h: body }, Hit::Stage));
         // the pass: logical pixels → the surface's, through the screen uniform
         let view = frame.texture.create_view(&Default::default());
@@ -500,6 +691,7 @@ impl App {
                 tracing::info!("screenshot: {}", path.display());
             }
         }
+        self.script();
         self.frames += 1;
         if self.args.frames.is_some_and(|n| self.frames >= n) {
             el.exit();
@@ -558,7 +750,7 @@ impl ApplicationHandler for App {
                 self.pointer(position.x as f32 / s, position.y as f32 / s);
             }
             WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Left, .. } => self.press(),
-            WindowEvent::MouseInput { state: ElementState::Released, button: MouseButton::Left, .. } => self.panel.drag = None,
+            WindowEvent::MouseInput { state: ElementState::Released, button: MouseButton::Left, .. } => self.release(),
             WindowEvent::MouseWheel { delta, .. } => {
                 let steps = match delta {
                     MouseScrollDelta::LineDelta(_, y) => y,
@@ -577,6 +769,10 @@ impl ApplicationHandler for App {
                     el.exit();
                 } else if self.panel.field.focused {
                     self.key(&event);
+                } else if event.state == ElementState::Pressed && event.logical_key == Key::Character("z".into()) && self.mods.control_key() {
+                    self.take_back();
+                } else if event.state == ElementState::Pressed && event.logical_key == Key::Character("w".into()) {
+                    self.wire = !self.wire;
                 } else if event.state == ElementState::Pressed && event.logical_key == Key::Named(NamedKey::Tab) {
                     let i = TABS.iter().position(|(t, _)| *t == self.panel.tab).unwrap_or(0);
                     self.panel.tab = TABS[(i + 1) % TABS.len()].0;
@@ -591,6 +787,22 @@ impl ApplicationHandler for App {
             _ => {}
         }
     }
+}
+
+/// the port under (x, y): the nearest one, the being's points lie close together
+fn nearest(marks: &[Mark], x: f32, y: f32) -> Option<usize> {
+    const REACH: f32 = 12.0;
+    marks.iter().map(|m| (m.port, (m.x - x).hypot(m.y - y))).filter(|(_, d)| *d < REACH).min_by(|a, b| a.1.total_cmp(&b.1)).map(|(p, _)| p)
+}
+
+/// a sentence on a filled strip, inside the stage
+fn chip(ui: &mut ui::Ui, t: &tokens::Tokens, at: (f32, f32), stage_w: f32, text: &str, bad: bool) {
+    let px = t.size.font * 0.85;
+    let w = ui.atlas.advance(px) * text.chars().count() as f32 + 16.0;
+    let x = at.0.min(stage_w - w - 8.0).max(8.0);
+    let h = px * 1.25 + 8.0;
+    ui.rect(x, at.1, w, h, if bad { t.color.refused } else { t.color.panel });
+    ui.text(x + 8.0, at.1 + 4.0, px, text, t.color.text);
 }
 
 /// a knob's value under the pointer's travel `dx` from `v0` (the whole range over SCRUB_PX; a log knob in its exponent)

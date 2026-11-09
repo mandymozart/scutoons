@@ -2,6 +2,7 @@
 //! audio engine through deck-native's backend (deck.toml's device, like the deck), its being drawn by deck-space's
 //! `SpaceGpu` into a texture of the viewport's size – the pieces the deck plays and draws with, nothing of the stage
 //! rewritten here. The knobs are the rig's (`Played::knobs`), turned through the engine's `Controls` like a 3D button.
+use crate::wires::{self, Port};
 use anyhow::{bail, Context, Result};
 use deck_native::audio::{self, backend};
 use deck_native::clock::{self, Moment};
@@ -13,6 +14,7 @@ use deck_space::deck::Deck;
 use deck_space::graph::{Graph, Kind};
 use deck_space::quality::Rung;
 use deck_space::rig::address::node_port;
+use deck_space::rig::Bundle;
 use deck_space::scene::Scene;
 use deck_space::space::gpu::SpaceGpu;
 use std::time::Instant;
@@ -23,6 +25,8 @@ pub const FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
 /// one rig knob as the panel turns it
 pub struct Knob {
     pub label: String,
+    /// the rig's name for it: a replay carries its value over by this
+    pub path: String,
     pub node: usize,
     pub port: String,
     pub port_index: usize,
@@ -46,6 +50,38 @@ pub struct Stage {
     pub knobs: Vec<Knob>,
     /// the audio backend's name and rate, for the status line
     pub audio: String,
+    /// the rig as it plays (#431: the document a gesture changes)
+    pub bundle: Bundle,
+    /// the ports a route can end at
+    pub ports: Vec<Port>,
+    /// the graph's node ids: a being's point is its node
+    pub node_ids: Vec<String>,
+    volume: f32,
+}
+
+/// a rig ready to sound: everything that can refuse it, before the running engine is stopped
+struct Ready {
+    bundle: Bundle,
+    knobs: Vec<deck_space::rig::bundle::Knob>,
+    scene: Scene,
+    graph: Graph,
+    tempo: tempo::Config,
+    space_node: usize,
+    ports: Vec<Port>,
+}
+
+fn prepare(bundle: Bundle) -> Result<Ready> {
+    let mut deck = Deck::new();
+    let turn = deck.play(Some(bundle.clone()), "")?;
+    if !turn.rig {
+        bail!("rig {}: it does not play on this build ({})", bundle.rig.subject, turn.note);
+    }
+    let scene = Scene::parse(&turn.played.scene)?;
+    let graph = Graph::build(&scene)?;
+    let tempo = tempo::config_from_graph(&graph)?;
+    let space_node = graph.first(Kind::Space).context("the rig's scene has a space node")?;
+    let ports = wires::ports(&turn.played)?;
+    Ok(Ready { bundle, knobs: turn.played.knobs.clone(), scene, graph, tempo, space_node, ports })
 }
 
 /// the deck's audio options from deck.toml (`DECK_TOML`): host, device, buffer
@@ -56,16 +92,44 @@ fn options() -> backend::Options {
 }
 
 impl Stage {
-    /// `rig` = a core rig's character (`catpope`) or subject; the scene plays at `volume`
-    pub fn new(rig: &str, volume: f32) -> Result<Stage> {
-        let mut deck = Deck::new();
-        let turn = deck.play_core(rig, "");
-        if !turn.rig {
-            bail!("rig {rig}: it does not play on this build ({})", if turn.note.is_empty() { "no core rig of that name" } else { turn.note.as_str() });
+    /// `rig` = a core rig's character (`catpope`) or subject, with the `draft` file's rig over it if there is one; it plays at `volume`
+    pub fn new(rig: &str, volume: f32, draft: Option<&std::path::Path>) -> Result<Stage> {
+        let subject = if rig.contains('.') { rig.to_string() } else { format!("character.{rig}") };
+        let bundle = Bundle::core(&subject).with_context(|| format!("no core rig {subject}"))??;
+        let bundle = match draft {
+            Some(path) => wires::load_draft(path, bundle),
+            None => bundle,
+        };
+        Ok(Stage::start(prepare(bundle)?, volume))
+    }
+
+    /// a changed rig takes the stage: refused before anything stops; the sound device is let go before the new engine
+    /// opens it; the camera and the turned knobs stay
+    pub fn replay(&mut self, bundle: Bundle) -> Result<()> {
+        let ready = prepare(bundle)?;
+        let knobs: Vec<(String, f32)> = self.knobs.iter().map(|k| (k.path.clone(), self.value(k))).collect();
+        let camera = self.space.camera;
+        self._events = None;
+        self._audio = None;
+        self.handles = None;
+        let mut next = Stage::start(ready, self.volume);
+        next.space.camera = camera;
+        for (path, value) in knobs {
+            if let Some(k) = next.knobs.iter().find(|k| k.path == path) {
+                let (node, port, min, max) = (k.node, k.port_index, k.min, k.max);
+                next.set(node, port, value, min, max);
+            }
         }
-        let scene = Scene::parse(&turn.played.scene)?;
-        let graph = Graph::build(&scene)?;
-        let tempo_cfg = tempo::config_from_graph(&graph)?;
+        if let Some((tex, view, size)) = self.texture.take() {
+            next.space.set_view(size.0 as f32, size.1 as f32);
+            next.texture = Some((tex, view, size));
+        }
+        *self = next;
+        Ok(())
+    }
+
+    fn start(ready: Ready, volume: f32) -> Stage {
+        let Ready { bundle, knobs: played_knobs, scene, graph, tempo: tempo_cfg, space_node: node, ports } = ready;
         let mut handles = None;
         let mut audio_name = "off".to_string();
         let audio = {
@@ -93,21 +157,19 @@ impl Stage {
         let shared = handles.as_ref().map(|h| h.tempo.clone()).unwrap_or_default();
         let mut tempo = Tempo::new(tempo_cfg, shared, rate);
         tempo.start();
-        let node = graph.first(Kind::Space).context("the rig's scene has a space node")?;
         let cache = deck_native::cache::default_dir();
-        let sets = cache.join("sets");
-        let mut space = Space::with_gate(&graph, node, &scene.being, &sets, Portraits::local(&cache.join("portraits")), None);
-        // the cathedral around the being, as the deck's scene shows it (the cache's set at low quality; nothing without the file)
-        space.show(Some(&deck_space::scene::set_file(&sets, "cathedral", "low")), None);
+        // the rig editor's stage is empty ([rigs] 2026-11-08): no set around the being
+        let space = Space::with_gate(&graph, node, &scene.being, &cache.join("sets"), Portraits::local(&cache.join("portraits")), None);
         let mut knobs = Vec::new();
-        for k in &turn.played.knobs {
+        for k in &played_knobs {
             let (id, port) = node_port(&k.path);
             let Some(node) = graph.nodes.iter().position(|n| n.id == id) else { continue };
             let Some(port_index) = graph.nodes[node].kind.input(port) else { continue };
             let label = k.label.get("en").cloned().unwrap_or_else(|| k.path.clone());
-            knobs.push(Knob { label, node, port: port.to_string(), port_index, min: k.min, max: k.max, log: k.log });
+            knobs.push(Knob { label, path: k.path.clone(), node, port: port.to_string(), port_index, min: k.min, max: k.max, log: k.log });
         }
-        Ok(Stage { controls, space, gpu: None, texture: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name })
+        let node_ids = graph.nodes.iter().map(|n| n.id.clone()).collect();
+        Stage { controls, space, gpu: None, texture: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, bundle, ports, node_ids, volume }
     }
 
     pub fn glitches(&self) -> u64 {

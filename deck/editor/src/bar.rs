@@ -17,10 +17,11 @@ struct Layout {
     version_x: f32,
 }
 
-fn lay(width: f32, adv: f32, pad: f32, title: usize, version: usize) -> Layout {
+/// `switch` = the width of the Play / Wire switch after the title
+fn lay(width: f32, adv: f32, pad: f32, title: usize, switch: f32, version: usize) -> Layout {
     let version_x = (width - pad - version as f32 * adv).max(0.0);
     let title_cols = title.min(((version_x - 2.0 * pad) / adv).max(0.0) as usize);
-    let status_x = pad + title_cols as f32 * adv + 2.0 * pad;
+    let status_x = pad + title_cols as f32 * adv + 2.0 * pad + switch + pad;
     let status_cols = ((version_x - pad - status_x) / adv).max(0.0) as usize;
     Layout { title_cols, status_x, status_cols, version_x }
 }
@@ -37,16 +38,25 @@ fn fit(text: &str, cols: usize) -> String {
     s
 }
 
-/// the bar across the top of a window `width` wide
-pub fn draw(ui: &mut Ui, t: &Tokens, width: f32, status: &str) {
+/// the bar across the top of a window `width` wide; its answer: the Play and the Wire switch as (x, w)
+pub fn draw(ui: &mut Ui, t: &Tokens, width: f32, status: &str, wire: bool) -> [(f32, f32); 2] {
     let (h, pad, px) = (t.size.bar, t.size.pad, t.size.font * FONT);
     ui.rect(0.0, 0.0, width, h, t.color.panel);
     ui.rect(0.0, h - 1.0, width, 1.0, t.color.divider);
-    let l = lay(width, ui.atlas.advance(px), pad, TITLE.chars().count(), deck_native::BUILD.chars().count());
+    let adv = ui.atlas.advance(px);
+    let cell = adv * 4.0 + pad;
+    let l = lay(width, adv, pad, TITLE.chars().count(), 2.0 * cell, deck_native::BUILD.chars().count());
     let y = (h - px * 1.25) * 0.5;
     ui.text(pad, y, px, &fit(TITLE, l.title_cols), t.color.text);
     ui.text(l.status_x, y, px, &fit(status, l.status_cols), t.color.muted);
     ui.text(l.version_x, y, px, deck_native::BUILD, t.color.muted);
+    let sx = pad + l.title_cols as f32 * adv + 2.0 * pad;
+    let cells = [(sx, cell), (sx + cell, cell)];
+    for ((x, w), (name, on)) in cells.into_iter().zip([("PLAY", !wire), ("WIRE", wire)]) {
+        ui.rect(x, 3.0, w, h - 7.0, if on { t.color.cable } else { t.color.tab });
+        ui.text(x + pad * 0.5, y, px, name, if on { t.color.panel } else { t.color.muted });
+    }
+    cells
 }
 
 #[cfg(test)]
@@ -56,7 +66,7 @@ mod tests {
     #[test]
     fn the_version_ends_at_the_right_edge_however_wide_the_window() {
         for width in [400.0, 1280.0, 3840.0] {
-            let l = lay(width, 7.0, 12.0, 23, 27);
+            let l = lay(width, 7.0, 12.0, 23, 112.0, 27);
             assert_eq!(l.version_x + 27.0 * 7.0 + 12.0, width);
         }
     }
@@ -64,7 +74,7 @@ mod tests {
     #[test]
     fn nothing_reaches_the_version() {
         for width in [120.0, 300.0, 400.0, 900.0, 1280.0] {
-            let l = lay(width, 7.0, 12.0, 23, 27);
+            let l = lay(width, 7.0, 12.0, 23, 112.0, 27);
             assert!(l.title_cols == 0 || 12.0 + l.title_cols as f32 * 7.0 <= l.version_x, "the title at {width}");
             assert!(l.status_cols == 0 || l.status_x + l.status_cols as f32 * 7.0 <= l.version_x, "the status at {width}");
         }
