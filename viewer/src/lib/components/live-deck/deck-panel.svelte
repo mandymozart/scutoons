@@ -133,7 +133,7 @@
 					<DeckKnob {path} {spec} value={values[path]} {turns} mapped={mapped(path)} selected={selected === path} learning={learning === path} {onset} {onpick} {ontouch} />
 				{/each}
 			</div>
-			<p class="line" data-testid="deck-status" title={status}>{status}</p>
+			<p class="line status" data-testid="deck-status" title={status}>{status}</p>
 		</div>
 	{/if}
 	{#if alert}<p class="alert" role="alert" data-testid="deck-alert">{alert}</p>{/if}
@@ -260,6 +260,11 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		text-transform: uppercase;
+	}
+	/* #441: the whole status is readable on a phone, the connection (QUIC) sits in its middle */
+	.line.status {
+		white-space: normal;
+		overflow-wrap: anywhere;
 	}
 	/* #208: a live tool may not crackle unnoticed – the warning flashes */
 	.alert {
