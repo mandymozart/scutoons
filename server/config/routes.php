@@ -557,6 +557,9 @@ return static function (App $app): void {
     $app->post('/api/deploy/migrate', [DevController::class, 'deploy']);
     // the workflow lan-cert.yml hands over the renewed *.lan.scutoons.com certificate (#201) – the same deploy key
     $app->put('/api/deploy/lan-cert', [LanController::class, 'storeCert']);
+    // #441: the same for the hosted relay's live.scutoons.com, and the relay fetching it with its own key
+    $app->put('/api/deploy/live-cert', [LanController::class, 'storeLiveCert']);
+    $app->get('/api/relay/live-cert', [LanController::class, 'relayCert']);
 
     // Everything else below /api/ is unknown (ErrorHandler → 404 not_found "Unknown endpoint.")
     $app->any('/api[/{rest:.*}]', NotFoundController::class);

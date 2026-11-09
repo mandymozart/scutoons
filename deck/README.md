@@ -85,8 +85,8 @@ QUIC (#438 – deck.values as datagrams, no TCP stalls on a cue): a relay with a
 number over UDP, under that certificate, reloaded the same way (open the UDP port in the venue's firewall). `--quic ADDR` / `RELAY_QUIC_ADDR` puts it
 elsewhere, `--no-quic` / `RELAY_QUIC_ADDR=off` leaves it shut; without a certificate no UDP port is opened. A client on a `wss://` URL under a name
 tries it by default. `?quic=off` says no, `?quic=udp-host:443` names another door, `&quichash=<sha-256 hex>` pins a self-signed certificate (a browser
-takes one only if ECDSA and valid for at most 14 days). `ws://` URLs, a `wss://` by IP and the hosted relay (`live.scutoons.com`, #441) use a door only
-by name; the viewer's `VITE_LIVE_QUIC=host:port` names the hosted one, `?quic=` on the page any. QUIC gets 250 ms, then a WebSocket is dialled beside it; the HUD
+takes one only if ECDSA and valid for at most 14 days). `ws://` URLs and a `wss://` by IP use a door only
+by name; the viewer's `VITE_LIVE_QUIC=host:port` or `?quic=` on the page name one. The hosted relay fetches its certificate from the API (`RELAY_CERT_URL`, `RELAY_CERT_KEY`, #441). QUIC gets 250 ms, then a WebSocket is dialled beside it; the HUD
 line ends in `QUIC` when it won.
 
 The hosted relay's image (#199; build context = `deck/`, `deck/.dockerignore` keeps the targets, lab and ISOs out):

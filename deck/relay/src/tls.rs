@@ -1,6 +1,6 @@
 //! wss for the relay in the venue (#201, LIVE.md B.4): a phone on https://scutoons.com/live/deck may not open
 //! `ws://192.168.…`, so a deck's relay answers under a name of ours (`<lan-ip-with-dashes>.lan.scutoons.com`, bunny DNS) with the wildcard
-//! certificate. rustls (ring), no OpenSSL. The hosted relay on bunny never gets a certificate: bunny's edge ends TLS.
+//! certificate. rustls (ring), no OpenSSL. The hosted relay has one too, for `live.scutoons.com`, which it fetches itself (cert.rs, #441).
 //!
 //! - `relay [addr] --tls-cert FILE --tls-key FILE` (or `RELAY_TLS_CERT`, `RELAY_TLS_KEY`): PEM files, the full chain and
 //!   its private key (PKCS#8, PKCS#1 or SEC1 – what acme.sh / Let's Encrypt write).
@@ -43,7 +43,13 @@ pub struct Listen {
     /// #438: the QUIC door's UDP address (`addr` when there is a certificate, or `--quic` / `RELAY_QUIC_ADDR`); none: no UDP
     /// port is opened at all
     pub quic: Option<String>,
+    /// #441: fetch the certificate from here (cert.rs); `tls` then says where it goes
+    pub cert_source: Option<crate::cert::Source>,
 }
+
+/// #441: where a fetched pair goes when nothing else is named: the folder the hosted image makes for it (Dockerfile)
+const FETCHED_CERT: &str = "/certs/fullchain.pem";
+const FETCHED_KEY: &str = "/certs/privkey.pem";
 
 impl Listen {
     /// `args` without the program name; `env` = `std::env::var(..).ok()` (a closure, so the tests need no real env).
@@ -67,8 +73,14 @@ impl Listen {
         let cert = set(cert).or_else(|| set(env("RELAY_TLS_CERT")));
         let key = set(key).or_else(|| set(env("RELAY_TLS_KEY")));
         let quic = set(quic).or_else(|| set(env("RELAY_QUIC_ADDR")));
+        let cert_source = match (set(env("RELAY_CERT_URL")), set(env("RELAY_CERT_KEY"))) {
+            (Some(url), Some(key)) => Some(crate::cert::Source { url, key }),
+            (None, _) => None,
+            (Some(_), None) => return Err("RELAY_CERT_URL without RELAY_CERT_KEY".into()),
+        };
         let tls = match (cert, key) {
             (Some(cert), Some(key)) => Some(TlsFiles { cert: cert.into(), key: key.into() }),
+            (None, None) if cert_source.is_some() => Some(TlsFiles { cert: FETCHED_CERT.into(), key: FETCHED_KEY.into() }),
             (None, None) => None,
             (Some(_), None) => return Err("a certificate without its key (--tls-key / RELAY_TLS_KEY)".into()),
             (None, Some(_)) => return Err("a key without its certificate (--tls-cert / RELAY_TLS_CERT)".into()),
@@ -78,7 +90,7 @@ impl Listen {
             return Err("the QUIC door needs a certificate (--tls-cert and --tls-key)".into());
         }
         let quic = if off { None } else { quic.or_else(|| tls.as_ref().map(|_| addr.clone())) };
-        Ok(Listen { addr, tls, quic })
+        Ok(Listen { addr, tls, quic, cert_source })
     }
 }
 
@@ -184,7 +196,7 @@ mod tests {
 
     #[test]
     fn plain_by_default() {
-        assert_eq!(Listen::parse(args(&[]), env(&[])).unwrap(), Listen { addr: "0.0.0.0:7700".into(), tls: None, quic: None });
+        assert_eq!(Listen::parse(args(&[]), env(&[])).unwrap(), Listen { addr: "0.0.0.0:7700".into(), tls: None, quic: None, cert_source: None });
         assert_eq!(Listen::parse(args(&["127.0.0.1:7071"]), env(&[("RELAY_ADDR", "x")])).unwrap().addr, "127.0.0.1:7071");
         assert_eq!(Listen::parse(args(&[]), env(&[("RELAY_ADDR", "0.0.0.0:7072"), ("RELAY_TLS_CERT", "")])).unwrap().tls, None);
     }
@@ -214,6 +226,15 @@ mod tests {
         assert_eq!(with(&[], &[("RELAY_QUIC_ADDR", "off")]), None);
         assert_eq!(Listen::parse(args(&[]), env(&[("RELAY_QUIC_ADDR", "off")])).unwrap().quic, None, "off needs no certificate");
         assert!(Listen::parse(args(&["--quic", "0.0.0.0:7700"]), env(&[])).unwrap_err().contains("needs a certificate"));
+    }
+
+    #[test]
+    fn a_certificate_url_means_tls_and_the_door_with_the_files_in_the_image() {
+        let l = Listen::parse(args(&[]), env(&[("RELAY_CERT_URL", "https://a.test/c"), ("RELAY_CERT_KEY", "k")])).unwrap();
+        assert_eq!(l.cert_source, Some(crate::cert::Source { url: "https://a.test/c".into(), key: "k".into() }));
+        assert_eq!(l.tls, Some(TlsFiles { cert: "/certs/fullchain.pem".into(), key: "/certs/privkey.pem".into() }));
+        assert_eq!(l.quic.as_deref(), Some("0.0.0.0:7700"));
+        assert!(Listen::parse(args(&[]), env(&[("RELAY_CERT_URL", "https://a.test/c")])).unwrap_err().contains("RELAY_CERT_KEY"));
     }
 
     #[test]

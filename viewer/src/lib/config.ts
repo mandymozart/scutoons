@@ -24,7 +24,7 @@ export const API_URL: string = (
  * `<LIVE_URL>/live/<code>` unless `?relay=` names another. `VITE_LIVE_URL` – the same in dev (a local relay: `?relay=`).
  */
 export const LIVE_URL: string = (import.meta.env.VITE_LIVE_URL || 'wss://live.scutoons.com').replace(/\/+$/, '');
-/** #438: the hosted relay's QUIC door (`host:port`, `VITE_LIVE_QUIC`); unset: phones and decks stay on the WebSocket */
+/** #438: a QUIC door under another name than the relay's (`host:port`, `VITE_LIVE_QUIC`); unset: the relay's own (#441) */
 export const LIVE_QUIC: string | undefined = import.meta.env.VITE_LIVE_QUIC || undefined;
 
 /** Hosts whose QR codes carry SCUTOONS items (`https://qr.scutoons.com/?c=CODE`). */

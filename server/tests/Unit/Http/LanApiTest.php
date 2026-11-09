@@ -25,9 +25,42 @@ final class LanApiTest extends TestCase
 {
     private const KEY = 'kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk';
 
+    private const RELAY_KEY = 'rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr';
+
     protected function settings(): array
     {
-        return ['MIGRATE_KEY' => self::KEY, 'LAN_CERT_PATH' => $this->dir . '/lan-cert'] + parent::settings();
+        return ['MIGRATE_KEY' => self::KEY, 'RELAY_CERT_KEY' => self::RELAY_KEY, 'LAN_CERT_PATH' => $this->dir . '/lan-cert', 'LIVE_CERT_PATH' => $this->dir . '/live-cert'] + parent::settings();
+    }
+
+    public function testTheHostedRelayFetchesItsOwnCertificateWithItsKey(): void
+    {
+        $relay = ['X-Relay-Key' => self::RELAY_KEY];
+        $r = $this->request('GET', '/api/relay/live-cert', $relay);
+        self::assertSame([404, 'no_certificate'], [$r->getStatusCode(), self::json($r)['error'] ?? null], (string) $r->getBody());
+
+        [$pem, $key] = LanCertTest::pair('live.scutoons.com');
+        $body = ['fullchain' => $pem, 'privkey' => $key];
+        self::assertSame(403, $this->request('PUT', '/api/deploy/live-cert', $relay, $body)->getStatusCode(), 'the relay only reads');
+        $r = $this->request('PUT', '/api/deploy/live-cert', ['X-Migrate-Key' => self::KEY], $body);
+        self::assertSame(200, $r->getStatusCode(), (string) $r->getBody());
+
+        $r = $this->request('GET', '/api/relay/live-cert', $relay);
+        self::assertSame([200, 'application/x-pem-file', 'no-store'], [$r->getStatusCode(), $r->getHeaderLine('Content-Type'), $r->getHeaderLine('Cache-Control')]);
+        self::assertSame(trim($pem) . "\n" . trim($key) . "\n", (string) $r->getBody());
+
+        self::assertSame(403, $this->request('GET', '/api/relay/live-cert', ['X-Relay-Key' => 'wrong'])->getStatusCode());
+        self::assertSame(403, $this->request('GET', '/api/relay/live-cert')->getStatusCode());
+        self::assertSame(404, $this->request('GET', '/api/relay/live-cert', $relay, null, ['RELAY_CERT_KEY' => ''])->getStatusCode(), 'without a key the route does not exist');
+    }
+
+    public function testTheTwoCertificatesDoNotMix(): void
+    {
+        [$venue, $venueKey] = LanCertTest::pair('*.lan.scutoons.com');
+        $r = $this->request('PUT', '/api/deploy/live-cert', ['X-Migrate-Key' => self::KEY], ['fullchain' => $venue, 'privkey' => $venueKey]);
+        self::assertSame([422, 'wrong_certificate'], [$r->getStatusCode(), self::json($r)['error'] ?? null]);
+        [$live, $liveKey] = LanCertTest::pair('live.scutoons.com');
+        $r = $this->request('PUT', '/api/deploy/lan-cert', ['X-Migrate-Key' => self::KEY], ['fullchain' => $live, 'privkey' => $liveKey]);
+        self::assertSame([422, 'wrong_certificate'], [$r->getStatusCode(), self::json($r)['error'] ?? null]);
     }
 
     /**

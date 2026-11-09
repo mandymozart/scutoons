@@ -10,6 +10,7 @@
 # (Actions → 🔐 LAN certificate → Run workflow; `staging` = Let's Encrypt's test CA: issued and shown, never stored).
 # Every run issues a fresh certificate (the runner keeps no acme.sh state): 12 a year, far under Let's Encrypt's limits.
 # The decks pick a new one up with `deck-tls` (it runs at boot and once a day).
+# The same run issues `live.scutoons.com` for the hosted relay (#441, the matrix below).
 #
 # Settings, all in the GitHub environment `production`:
 #   secret BUNNY_API_KEY   the bunny account's API key (bunny dashboard → Account settings → API key) – only here,
@@ -37,16 +38,35 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  DOMAIN: '*.lan.scutoons.com'
   API: https://api.scutoons.com/api
   # acme.sh, pinned (github.com/acmesh-official/acme.sh tags)
   ACME_SH: '3.1.6'
 
 jobs:
   cert:
+    name: ${{ matrix.domain }}
     runs-on: ubuntu-latest
     environment: production
     timeout-minutes: 20
+    strategy:
+      # one after the other: both write _acme-challenge.lan.scutoons.com. A failing live name leaves the decks' alone.
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        include:
+          - domain: '*.lan.scutoons.com'
+            route: lan-cert
+            alias: ''
+          # #441: the hosted relay. scutoons.com is at all-inkl, so `_acme-challenge.live.scutoons.com` there is a fixed
+          # CNAME to `_acme-challenge.lan.scutoons.com`, and the challenge is answered in the bunny zone. The relay
+          # fetches it with RELAY_CERT_KEY (GET /api/relay/live-cert, deck/relay/src/cert.rs).
+          - domain: live.scutoons.com
+            route: live-cert
+            alias: lan.scutoons.com
+    env:
+      DOMAIN: ${{ matrix.domain }}
+      ROUTE: ${{ matrix.route }}
+      ALIAS: ${{ matrix.alias }}
     steps:
       - name: What runs (the bunny + deploy secrets)
         id: gate
@@ -69,7 +89,7 @@ jobs:
           ./acme.sh --install --home "$RUNNER_TEMP/acme" --nocron --noprofile > /dev/null
           "$RUNNER_TEMP/acme/acme.sh" --version
 
-      - name: Issue ${{ env.DOMAIN }} (Let's Encrypt, DNS-01 at bunny DNS)
+      - name: Issue ${{ matrix.domain }} (Let's Encrypt, DNS-01 at bunny DNS)
         if: steps.gate.outputs.run == 'true'
         env:
           # the name dns_bunny reads (acme.sh dnsapi/dns_bunny.sh)
@@ -80,25 +100,25 @@ jobs:
           if [ "$STAGING" = true ]; then server=letsencrypt_test; fi
           install -d -m 700 "$RUNNER_TEMP/cert"
           acme="$RUNNER_TEMP/acme/acme.sh --home $RUNNER_TEMP/acme"
-          $acme --issue --server "$server" --dns dns_bunny -d "$DOMAIN" --keylength ec-256 --force
+          $acme --issue --server "$server" --dns dns_bunny -d "$DOMAIN" ${ALIAS:+--challenge-alias "$ALIAS"} --keylength ec-256 --force
           $acme --install-cert -d "$DOMAIN" --ecc \
             --fullchain-file "$RUNNER_TEMP/cert/fullchain.pem" --key-file "$RUNNER_TEMP/cert/privkey.pem"
           chmod 600 "$RUNNER_TEMP/cert/privkey.pem"
           {
-            echo "### LAN certificate ($server)"
+            echo "### $DOMAIN ($server)"
             echo '```'
             openssl x509 -in "$RUNNER_TEMP/cert/fullchain.pem" -noout -subject -issuer -enddate -ext subjectAltName
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Hand it to the API (PUT /api/deploy/lan-cert)
+      - name: Hand it to the API (PUT /api/deploy/${{ matrix.route }})
         if: steps.gate.outputs.run == 'true' && !(github.event_name == 'workflow_dispatch' && inputs.staging)
         env:
           MIGRATE_KEY: ${{ secrets.MIGRATE_KEY }}
         run: |
           jq -n --rawfile fullchain "$RUNNER_TEMP/cert/fullchain.pem" --rawfile privkey "$RUNNER_TEMP/cert/privkey.pem" \
             '{ fullchain: $fullchain, privkey: $privkey }' > "$RUNNER_TEMP/cert/body.json"
-          status=$(curl -sS -o "$RUNNER_TEMP/answer.json" -w '%{http_code}' -X PUT "$API/deploy/lan-cert" \
+          status=$(curl -sS -o "$RUNNER_TEMP/answer.json" -w '%{http_code}' -X PUT "$API/deploy/$ROUTE" \
             -H 'Content-Type: application/json' -H "X-Migrate-Key: $MIGRATE_KEY" --data-binary "@$RUNNER_TEMP/cert/body.json")
           rm -f "$RUNNER_TEMP/cert/body.json"
           if [ "$status" != 200 ]; then
@@ -107,7 +127,7 @@ jobs:
             exit 1
           fi
           echo "Stored: $(jq -c '{ names, expires }' "$RUNNER_TEMP/answer.json")" | tee -a "$GITHUB_STEP_SUMMARY"
-          echo "Decks pick it up with \`deck-tls\` at boot and once a day (deck/os/README.md \"wss in the venue\")." >> "$GITHUB_STEP_SUMMARY"
+          echo "Decks and the hosted relay pick it up by themselves within a day (deck/os/README.md \"wss in the venue\", deck/relay/src/cert.rs)." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Remove the key from the runner
         if: always()

@@ -798,6 +798,8 @@ A phone on https://scutoons.com may not open `ws://192.168.…`, so a deck's rel
 | --- | --- | --- |
 | GET | `/decks/lan-cert` | a deck token: `{ status, domain: "lan.scutoons.com", names, expires, stored_at, fullchain, privkey }` (`no-store`) · `?format=pem` → the chain, then the key, as one `application/x-pem-file` text (`deck-tls`) · `404 no_certificate` · `401` · `403 deck_only` |
 | PUT | `/deploy/lan-cert` | no session: `X-Migrate-Key: <MIGRATE_KEY>` (the workflow), `{ fullchain, privkey }` → `{ status, names, expires, stored_at }` · `422 invalid_body / invalid_certificate / invalid_key / wrong_certificate / expired_certificate / key_mismatch` · `403` wrong key · `404` when `MIGRATE_KEY` is empty |
+| PUT | `/deploy/live-cert` | the same for the hosted relay's `live.scutoons.com` (#441) |
+| GET | `/relay/live-cert` | no session: `X-Relay-Key: <RELAY_CERT_KEY>` (the hosted relay, `deck/relay/src/cert.rs`) → the chain, then the key, as one `application/x-pem-file` text (`no-store`) · `404 no_certificate` · `403` wrong key · `404` when `RELAY_CERT_KEY` is empty |
 
 ## Developer API (`/api/dev/*`, role `developer` – BACKLOG 10.61)
 

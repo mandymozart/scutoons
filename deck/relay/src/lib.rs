@@ -11,6 +11,7 @@
 // tungstenite's handshake callback must return its (large) `ErrorResponse` – not ours to shrink.
 #![allow(clippy::result_large_err)]
 
+pub mod cert;
 pub mod doors;
 pub mod link;
 pub mod outbox;

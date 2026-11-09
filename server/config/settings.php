@@ -191,6 +191,11 @@ return [
     'MIGRATE_KEY' => '',
     // The *.lan.scutoons.com certificate the workflow lan-cert.yml stores (PUT /api/deploy/lan-cert) – private
     'LAN_CERT_PATH' => 'storage/lan-cert',
+    // #441: the hosted relay's live.scutoons.com certificate (PUT /api/deploy/live-cert) – private
+    'LIVE_CERT_PATH' => 'storage/live-cert',
+    // #441: the key the hosted relay shows to fetch it (GET /api/relay/live-cert; the relay's RELAY_CERT_KEY,
+    // >= 32 random chars). Empty = switched off (404).
+    'RELAY_CERT_KEY' => '',
     // 1 = toons / chapters with the status `draft` are readable through the public library endpoints (local
     // development, like the viewer's dev mode); production 0. Creators read drafts with ?draft=1 either way.
     'CONTENT_SHOW_DRAFTS' => '0',
