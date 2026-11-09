@@ -82,6 +82,8 @@ storyboard generations, default `GENERATION_BUDGET`; 0 = no budget = paid jobs r
 | `MIGRATION_BACKUP_PATH` | `storage/migration-backups` | the developer's migration runs (`/api/dev`, BACKLOG 10.61) back up the rows each UPDATE / DELETE changes here first – JSON lines, one file per run; private |
 | `MIGRATE_KEY` | – | `POST /api/deploy/migrate` with `X-Migrate-Key: <this>` runs the pending migrations (the deploy, GitHub secret `MIGRATE_KEY`, ≥ 32 random characters); empty = 404 |
 | `LAN_CERT_PATH` | `storage/lan-cert` | the `*.lan.scutoons.com` certificate the workflow lan-cert.yml stores (`PUT /api/deploy/lan-cert`): fullchain.pem, privkey.pem (0600), meta.json; private, never deployed over |
+| `LIVE_CERT_PATH` | `storage/live-cert` | the same for the hosted relay's `live.scutoons.com` (#441, `PUT /api/deploy/live-cert`) |
+| `RELAY_CERT_KEY` | empty | the key the hosted relay shows for that certificate (`GET /api/relay/live-cert`, the relay's env of the same name), >= 32 random chars; empty = the route does not exist |
 | `MIGRATIONS_PATH` | `migrations` | the migration files the developer's runs plan and apply (`<path>/mysql/*.mysql.sql`; tests point it elsewhere) |
 | `CONTENT_SHOW_DRAFTS` | `0` | `1` = the library endpoints show `draft` toons/chapters (local development, like the dev viewer); production `0` |
 | `FILES_PATH` | `storage/files` | batch manifests, QR SVGs, certificates, signatures, ZIPs (was `generate/files/`) |

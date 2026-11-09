@@ -23,9 +23,15 @@ use Scutoons\Infrastructure\Config\Settings;
  * The workflow lan-cert.yml (no session – the deploy key `X-Migrate-Key: <MIGRATE_KEY>`, like /deploy/migrate):
  *   PUT /deploy/lan-cert          { fullchain, privkey } → { status, names, expires, stored_at } · 422 when it is not
  *                                 the wildcard, expired or the key is not its key · 404 when MIGRATE_KEY is empty
+ *   PUT /deploy/live-cert         the same for `live.scutoons.com` (#441)
+ * The hosted relay (#441, deck/relay/src/cert.rs; `X-Relay-Key: <RELAY_CERT_KEY>`, no session):
+ *   GET /relay/live-cert          → the chain and then the key as one PEM text · 404 no_certificate, or when
+ *                                 RELAY_CERT_KEY is empty · 403 wrong key
  */
 final class LanController
 {
+    public const RELAY_KEY_HEADER = 'X-Relay-Key';
+
     public function __construct(private readonly LanCert $cert, private readonly Settings $settings)
     {
     }
@@ -46,7 +52,28 @@ final class LanController
             ->withHeader('Cache-Control', 'no-store');
     }
 
+    public function relayCert(Request $request, Response $response): Response
+    {
+        $key = $this->settings->get('RELAY_CERT_KEY');
+        if ($key === '') throw new ApiError(404, 'not_found', 'Not found.');
+        $given = $request->getHeaderLine(self::RELAY_KEY_HEADER);
+        if ($given === '' || !hash_equals($key, $given)) throw new ApiError(403, 'forbidden', 'Wrong key.');
+        $cert = $this->cert->get(LanCert::LIVE);
+        return Json::raw($response, 200, rtrim($cert['fullchain']) . "\n" . rtrim($cert['privkey']) . "\n", 'application/x-pem-file')
+            ->withHeader('Cache-Control', 'no-store');
+    }
+
     public function storeCert(Request $request, Response $response): Response
+    {
+        return $this->store($request, $response, LanCert::VENUE);
+    }
+
+    public function storeLiveCert(Request $request, Response $response): Response
+    {
+        return $this->store($request, $response, LanCert::LIVE);
+    }
+
+    private function store(Request $request, Response $response, string $name): Response
     {
         $key = $this->settings->get('MIGRATE_KEY');
         if ($key === '') throw new ApiError(404, 'not_found', 'Not found.');
@@ -56,6 +83,6 @@ final class LanController
         $fullchain = $body['fullchain'] ?? null;
         $privkey = $body['privkey'] ?? null;
         if (!is_string($fullchain) || !is_string($privkey)) throw new ApiError(422, 'invalid_body', 'The body is { "fullchain": "<PEM>", "privkey": "<PEM>" }.');
-        return Json::response($response, 200, ['status' => 'success'] + $this->cert->store($fullchain, $privkey));
+        return Json::response($response, 200, ['status' => 'success'] + $this->cert->store($fullchain, $privkey, $name));
     }
 }

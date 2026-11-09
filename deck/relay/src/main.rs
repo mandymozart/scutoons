@@ -4,6 +4,7 @@
 //! `wss://<name>:7700/…` (tls.rs, #201 – a venue's relay for phones on https pages; reloaded when the files change).
 //! A certificate also opens the QUIC door under it, on the same port number over UDP (#438, doors/; `--quic ADDR` or
 //! `RELAY_QUIC_ADDR` for another address, `--no-quic` or `RELAY_QUIC_ADDR=off` for none). Without a certificate no UDP port is opened.
+//! `RELAY_CERT_URL` + `RELAY_CERT_KEY`: the relay fetches its certificate from the API (cert.rs, #441, the hosted relay).
 //! Env: `LIVE_TOKEN_SECRET` (the HMAC secret shared with the API), `RELAY_LEAD_MS` (50 LAN, 150 hosted),
 //! `RELAY_BLOCKLIST` (nickname words, comma-separated). `GET /status` → `{ "sessions": n, "live": n }` (the deploy
 //! freeze check of B.4), over http and https.
@@ -24,6 +25,12 @@ async fn main() -> anyhow::Result<()> {
 
     let listen = relay::tls::Listen::parse(std::env::args().skip(1), |k| std::env::var(k).ok()).map_err(anyhow::Error::msg)?;
     let addr: SocketAddr = listen.addr.parse()?;
+    // #441: no certificate is no relay; the container comes back and asks again
+    if let (Some(source), Some(files)) = (&listen.cert_source, &listen.tls) {
+        relay::cert::refresh(source.clone(), files.clone()).await.map_err(anyhow::Error::msg)?;
+        tracing::info!(cert = %files.cert.display(), "certificate fetched");
+        tokio::spawn(relay::cert::keep_fresh(source.clone(), files.clone()));
+    }
     let tls = match &listen.tls {
         Some(files) => Some(relay::tls::acceptor(files.clone()).map_err(anyhow::Error::msg)?),
         None => None,

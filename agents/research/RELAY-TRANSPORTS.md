@@ -10,7 +10,7 @@ The owner chose QUIC for every client, native and browser, through one WebTransp
 
 | Path | Now | Before it goes live |
 |---|---|---|
-| Hosted (bunny, #441) | built, off | an owner-run test on a real Anycast endpoint: UDP through Anycast, TLS at the relay and certificate renewal are untested |
+| Hosted (bunny, #441) | built, off | owner steps on bunny and All-Inkl; UDP through Anycast and TCP + UDP on one port are untested on a real endpoint |
 | Venue LAN | built, on with the certificate | a test on real venue Wi-Fi: with no loss every transport gives p99 ≈ 11 ms; `netem` loss is random, Wi-Fi loss comes in bursts |
 
 ## How it was measured
@@ -159,13 +159,13 @@ A datagram holds a little under 1200 bytes on any path (QUIC's guaranteed minimu
 
 From bunny's documentation, not tested:
 
-- **Anycast endpoint:** IPv4 only, $2 a month, billed while attached. `portMappings` take `containerPort`, `exposedPort` and `protocols` (`tcp`, `udp`, `sctp`), several per endpoint. So one endpoint can map UDP 443 → the WebTransport door. It "reaches your container without the edge in the path".
-- **TLS moves to the relay:** today bunny's CDN endpoint terminates TLS. WebTransport needs a certificate at the relay: a hostname with an A record on the Anycast IP (say `live-udp.scutoons.com`), and a certificate with renewal. Renewal needs DNS-01 (HTTP-01 and TLS-ALPN-01 need TCP on that IP). The sessions are in memory, so the certificate has to be reloaded, not the container restarted: `quinn::Endpoint::set_server_config` and `wtransport`'s `reload_config` exist for that (not tried).
-- **WebSocket stays on the CDN endpoint** as it is, so the fallback does not depend on the new path.
+- **Anycast endpoint:** IPv4 only, $2 a month, billed while attached. `portMappings` take `containerPort`, `exposedPort` and `protocols`, an array of `tcp` / `udp` / `sctp`, several per endpoint. So one mapping can carry both: 443 → 7700 with `["tcp", "udp"]`. The schema allows it, the docs show no example. It "reaches your container without the edge in the path".
+- **One endpoint, one name (2026-11-09, #441):** `live.scutoons.com` is an A record on the Anycast IP, and the relay ends wss and QUIC itself on port 7700. No CDN endpoint. If bunny refuses TCP and UDP on one port, the WebSocket stays on the CDN under `live` and QUIC gets a second name that doesn't state the protocol.
+- **The certificate:** `deck/relay/src/cert.rs` fetches it from the API at start and every 6 h; `tls::Reloading` picks up the files on the next handshake, for wss and QUIC alike, with no restart. The monthly `lan-cert.yml` issues it. `scutoons.com` is at All-Inkl, so a fixed CNAME sends `_acme-challenge.live` to the bunny zone (`--challenge-alias`, not tried). No certificate at start stops the relay and the container retries.
 - **Open, to be tested on a real endpoint:** whether a one-region app (min = max = 1) gets the same address from every PoP, what happens to UDP flows at a container restart, NAT timeouts, MTU through Anycast encapsulation, whether the client source address is preserved (QUIC and netcode key on it; QUIC can migrate).
 - **Venues that block UDP:** the ladder reaches WebSocket in about 0.3–0.5 s, numbers above.
 
-**`owner` steps** (none done here): create an Anycast endpoint on `scutoons-live` with UDP 443 → the door's port; the hostname and its certificate; put the door into the deployed image; test from a phone and a venue network.
+**`owner` steps:** in issue #441.
 
 ## Open
 
@@ -174,4 +174,4 @@ From bunny's documentation, not tested:
 - The adaptive rate on QUIC sees the round trip only, no loss signal.
 - A `resume` is authenticated only by the client id; every QUIC client now resumes.
 - Safari's WebTransport was not tried; a browser without it goes to the WebSocket.
-- Owner steps before the hosted path (issue #441): an Anycast endpoint with UDP 443 to the door's port, a hostname and a certificate at the relay (DNS-01 renewal), `VITE_LIVE_QUIC`, a test from a phone and a venue network.
+- The hosted path's owner steps are in issue #441.
