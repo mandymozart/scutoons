@@ -212,21 +212,54 @@ pub struct Point {
     pub colour: Option<usize>,
     /// its node's kind: the ports around it
     kind: Kind,
+    /// where it rests when every node shows
+    own_rest: Vec3,
+    /// not at the level shown (#457)
+    hidden: bool,
 }
 
 /// how far a node's ports sit from its point, against the being's size
 const PORT_REACH: f32 = 0.16;
 
-/// where port `i` of a point sits this frame: around the point in the plane facing the eye, inputs left, outputs right
-fn port_at(p: &Point, eye: Option<Vec3>, reach: f32, i: usize, input: bool) -> Vec3 {
+/// One level of a tree of nodes, as the body shows it (#457): the rest is not drawn.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct Level {
+    /// per graph node: the node whose point stands for it (itself, or the one its group collapses into), None = not here
+    pub shown: Vec<Option<usize>>,
+    /// the ports this level shows: (graph node, port name, is it an input)
+    pub outlets: Vec<(usize, String, bool)>,
+}
+
+/// a port this level shows, placed: on `point`, the `i`th of `n` on its side
+#[derive(Debug, Clone, PartialEq)]
+struct Outlet {
+    node: usize,
+    port: String,
+    input: bool,
+    point: usize,
+    i: usize,
+    n: usize,
+}
+
+/// where the `i`th of a point's `n` inputs or outputs sits this frame: around the point in the plane facing the eye, inputs
+/// left, outputs right
+fn port_at(p: &Point, eye: Option<Vec3>, reach: f32, i: usize, n: usize, input: bool) -> Vec3 {
     const STEP: f32 = 0.5;
-    let n = if input { p.kind.inputs().len() } else { p.kind.outputs().len() };
     let to_eye = eye.and_then(|e| (e - p.pos).try_normalize()).unwrap_or(Vec3::Z);
     let right = Vec3::Y.cross(to_eye).try_normalize().unwrap_or(Vec3::X);
     let up = to_eye.cross(right);
     let (base, side) = if input { (std::f32::consts::PI, -1.0) } else { (0.0, 1.0) };
     let angle = base + side * (i as f32 - (n as f32 - 1.0) * 0.5) * STEP;
     p.pos + (right * angle.cos() + up * angle.sin()) * reach
+}
+
+/// a hose's ends at a level: the points they stand on, the outlet's (i, n) where the level shows one
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct HoseEnds {
+    from: usize,
+    to: usize,
+    from_slot: Option<(usize, usize)>,
+    to_slot: Option<(usize, usize)>,
 }
 
 #[derive(Debug, Clone)]
@@ -238,6 +271,9 @@ pub struct Hose {
     /// its ends' ports: the output's index on `from`, the input's on `to`
     from_port: usize,
     to_port: usize,
+    /// the level's view of it (#457): not drawn, or its ends on these points and places
+    hidden: bool,
+    ends: Option<HoseEnds>,
     pub ty: PortType,
     pub radius: f32,
     /// the curve's four control points (world, this frame)
@@ -300,6 +336,8 @@ pub struct Button {
     /// not picked, no tether – the knob keeps its value
     pub limit: Option<Limit>,
     pub hidden: bool,
+    /// its node is not at the level shown, or collapsed into a body (#457)
+    out_of_level: bool,
     /// the hover label's text (a rig's label in the locale, else the parameter's name – `Being::name`)
     pub label: String,
     /// the parameter's own colour (a hue per parameter name; the hue button shows its value)
@@ -460,6 +498,8 @@ pub struct Being {
     still: bool,
     /// 0..1, how far it has settled
     held: f32,
+    /// the level shown (#457): the ports it places; none = every node
+    outlets: Option<Vec<Outlet>>,
     pub points: Vec<Point>,
     pub hoses: Vec<Hose>,
     pub buttons: Vec<Button>,
@@ -546,7 +586,7 @@ impl Being {
                 Domain::Video => 0.0,
                 Domain::Control => -0.18,
             };
-            points.push(Point { node: i, rest, pos: rest, radius, tint, phase: h * TAU, flash: 0.0, level: 0.0, colour: None, kind: graph.nodes[i].kind });
+            points.push(Point { node: i, rest, pos: rest, radius, tint, phase: h * TAU, flash: 0.0, level: 0.0, colour: None, kind: graph.nodes[i].kind, own_rest: rest, hidden: false });
         }
         let point_of = |node: usize| points.iter().position(|p| p.node == node).expect("a point per node");
         let hoses = graph
@@ -566,6 +606,8 @@ impl Being {
                     to: point_of(l.to.0),
                     from_port: l.from.1,
                     to_port: l.to.1,
+                    hidden: false,
+                    ends: None,
                     ty: l.ty,
                     radius: s * r * look.hose,
                     ctrl: [Vec3::ZERO; 4],
@@ -652,6 +694,7 @@ impl Being {
                     count,
                     limit,
                     hidden: false,
+                    out_of_level: false,
                     label,
                     hue: param_hue(name),
                     // the core's buttons are spokes around it; any other node's hang one from the other
@@ -689,6 +732,7 @@ impl Being {
             look: look.clone(),
             still: false,
             held: 0.0,
+            outlets: None,
             points,
             hoses,
             buttons,
@@ -774,11 +818,95 @@ impl Being {
         }
     }
 
-    /// where a node's port sits this frame (world)
+    /// where a node's port sits this frame (world); at a level only the ports it shows
     pub fn port_world(&self, node: usize, port: &str, input: bool) -> Option<Vec3> {
+        let reach = self.look.size * PORT_REACH;
+        if let Some(outlets) = &self.outlets {
+            let o = outlets.iter().find(|o| o.node == node && o.input == input && o.port == port)?;
+            return Some(port_at(&self.points[o.point], self.eye, reach, o.i, o.n, input));
+        }
         let p = self.points.iter().find(|p| p.node == node)?;
-        let i = if input { p.kind.input(port) } else { p.kind.output(port) }?;
-        Some(port_at(p, self.eye, self.look.size * PORT_REACH, i, input))
+        let (i, n) = if input { (p.kind.input(port)?, p.kind.inputs().len()) } else { (p.kind.output(port)?, p.kind.outputs().len()) };
+        Some(port_at(p, self.eye, reach, i, n, input))
+    }
+
+    /// a node's point this frame, if the level shows it
+    pub fn point_world(&self, node: usize) -> Option<Vec3> {
+        self.points.iter().find(|p| p.node == node && !p.hidden).map(|p| p.pos)
+    }
+
+    /// Show one level of the tree (#457), or every node. A group collapsed into one point rests at the middle of its
+    /// members; what is not at the level is not drawn and cannot be picked.
+    pub fn show_level(&mut self, level: Option<&Level>) {
+        for p in &mut self.points {
+            p.hidden = false;
+            p.rest = p.own_rest;
+        }
+        for h in &mut self.hoses {
+            h.hidden = false;
+            h.ends = None;
+        }
+        for b in &mut self.buttons {
+            b.out_of_level = false;
+        }
+        self.outlets = None;
+        let Some(level) = level else { return };
+        let rep = |node: usize| level.shown.get(node).copied().flatten();
+        let point_of = |points: &[Point], node: usize| points.iter().position(|p| p.node == node);
+        for i in 0..self.points.len() {
+            let node = self.points[i].node;
+            let members: Vec<Vec3> = self.points.iter().filter(|p| rep(p.node) == Some(node)).map(|p| p.own_rest).collect();
+            let p = &mut self.points[i];
+            p.hidden = rep(node) != Some(node);
+            if members.len() > 1 {
+                p.rest = members.iter().copied().sum::<Vec3>() / members.len() as f32;
+            }
+        }
+        // bodies collapsed from groups would all rest near the middle: they stand apart on a ring under the being
+        if level.shown.iter().enumerate().any(|(n, r)| r.is_some_and(|r| r != n)) {
+            let core = self.core_point;
+            let bodies: Vec<usize> = (0..self.points.len()).filter(|&i| !self.points[i].hidden && Some(i) != core).collect();
+            let s = self.look.size;
+            for (k, &i) in bodies.iter().enumerate() {
+                let a = std::f32::consts::PI + (k as f32 + 0.5) / bodies.len() as f32 * std::f32::consts::PI;
+                self.points[i].rest = Vec3::new(a.cos() * s * 1.1, -s * 0.55 + a.sin() * s * 0.25, 0.0);
+            }
+        }
+        let collapsed = |node: usize, shown: &[Option<usize>]| shown.iter().enumerate().any(|(n, r)| n != node && *r == Some(node));
+        for b in &mut self.buttons {
+            b.out_of_level = rep(b.node) != Some(b.node) || collapsed(b.node, &level.shown);
+        }
+        // the outlets, numbered on each side of their point
+        let mut outlets: Vec<Outlet> = Vec::with_capacity(level.outlets.len());
+        for (node, port, input) in &level.outlets {
+            let Some(point) = rep(*node).and_then(|r| point_of(&self.points, r)) else { continue };
+            outlets.push(Outlet { node: *node, port: port.clone(), input: *input, point, i: 0, n: 0 });
+        }
+        for k in 0..outlets.len() {
+            let side = |o: &Outlet, a: &Outlet| o.point == a.point && o.input == a.input;
+            let of = outlets[k].clone();
+            outlets[k].i = outlets[..k].iter().filter(|o| side(o, &of)).count();
+            outlets[k].n = outlets.iter().filter(|o| side(o, &of)).count();
+        }
+        let slot = |node: usize, name: &str, input: bool| outlets.iter().find(|o| o.node == node && o.input == input && o.port == name).map(|o| (o.i, o.n));
+        for h in &mut self.hoses {
+            let (fp, tp) = (&self.points[h.from], &self.points[h.to]);
+            let (Some(rf), Some(rt)) = (rep(fp.node), rep(tp.node)) else {
+                h.hidden = true;
+                continue;
+            };
+            if rf == rt && collapsed(rf, &level.shown) {
+                h.hidden = true;
+                continue;
+            }
+            let (from_slot, to_slot) = (slot(fp.node, fp.kind.outputs()[h.from_port].name, false), slot(tp.node, tp.kind.inputs()[h.to_port].name, true));
+            let (Some(from), Some(to)) = (point_of(&self.points, rf), point_of(&self.points, rt)) else {
+                h.hidden = true;
+                continue;
+            };
+            h.ends = Some(HoseEnds { from, to, from_slot, to_slot });
+        }
+        self.outlets = Some(outlets);
     }
 
     /// is it held still
@@ -820,9 +948,19 @@ impl Being {
         for h in &mut self.hoses {
             // held for an editor, the hoses plug into the ports (owner 2026-11-09: "those tubes should go between ins and outs")
             let reach = s * PORT_REACH;
-            let (pa, pb) = (&self.points[h.from], &self.points[h.to]);
-            let a = pa.pos.lerp(port_at(pa, self.eye, reach, h.from_port, false), self.held);
-            let b = pb.pos.lerp(port_at(pb, self.eye, reach, h.to_port, true), self.held);
+            let end = |point: usize, slot: Option<(usize, usize)>, port: usize, input: bool, level: bool| -> Vec3 {
+                let p = &self.points[point];
+                let all = if input { p.kind.inputs().len() } else { p.kind.outputs().len() };
+                match (slot, level) {
+                    (Some((i, n)), _) => port_at(p, self.eye, reach, i, n, input),
+                    (None, true) => p.pos,
+                    (None, false) => port_at(p, self.eye, reach, port, all, input),
+                }
+            };
+            let level = h.ends.is_some();
+            let e = h.ends.unwrap_or(HoseEnds { from: h.from, to: h.to, from_slot: None, to_slot: None });
+            let a = self.points[e.from].pos.lerp(end(e.from, e.from_slot, h.from_port, false, level), self.held);
+            let b = self.points[e.to].pos.lerp(end(e.to, e.to_slot, h.to_port, true, level), self.held);
             let out = |p: Vec3| (p - center).try_normalize().unwrap_or(Vec3::Y);
             let bow = 0.35 * (b - a).length() + 0.1 * s;
             h.ctrl = [a, a + out(a) * bow, b + out(b) * bow, b];
@@ -1029,7 +1167,7 @@ impl Being {
         let core = self.core_point;
         for i in 0..self.buttons.len() {
             let b = &mut self.buttons[i];
-            b.hidden = b.limit.is_some_and(|l| l.index > params::shown_count(vals.input(l.node, l.name, l.default), l.size));
+            b.hidden = b.out_of_level || b.limit.is_some_and(|l| l.index > params::shown_count(vals.input(l.node, l.name, l.default), l.size));
             if b.point != point {
                 (point, rank, last) = (b.point, 0, None);
             }
@@ -1217,7 +1355,7 @@ impl Being {
                     .min_by(|(_, a), (_, b)| (off(a.pos) / a.radius).total_cmp(&(off(b.pos) / b.radius)))
                     .map(|(i, _)| Hit::Button(i))
             })
-            .or_else(|| nearest(&mut self.points.iter().enumerate().map(|(i, p)| (ray.sphere(p.pos, p.radius * 0.7), Hit::Point(i)))))
+            .or_else(|| nearest(&mut self.points.iter().enumerate().filter(|(_, p)| !p.hidden).map(|(i, p)| (ray.sphere(p.pos, p.radius * 0.7), Hit::Point(i)))))
     }
 
     /// What the body shows of the graph's values: every button's input (or an LFO's shape) and every hose's source
@@ -1280,7 +1418,7 @@ impl Being {
     /// the solid spheres: nuclei (they glow with their audio level), buttons, the neck's sockets
     pub fn write_solid(&self, spheres: &mut Vec<Sphere>) {
         let rgb = |tint: f32, sat: f32, val: f32| hsv(self.hue + tint, sat, val);
-        for (i, p) in self.points.iter().enumerate() {
+        for (i, p) in self.points.iter().enumerate().filter(|(_, p)| !p.hidden) {
             let c = self.point_rgb(p, 0.55);
             // hovered: lit; one of its buttons moving: it flashes (what the button reaches); its sound: it glows
             let lit: f32 = if self.hover == Some(Hit::Point(i)) { 1.0 } else { 0.0 };
@@ -1322,7 +1460,7 @@ impl Being {
         if matches!(self.selected, Some(Hit::Point(_))) {
             spheres.push(Sphere { pos: self.center.into(), radius: self.core_radius * self.swell * 1.35, color: [1.0, 1.0, 1.0, 0.8], extra: [kind::RING, self.glow, 1.0, 0.0] });
         }
-        for p in self.points.iter().filter(|p| p.rest != Vec3::ZERO) {
+        for p in self.points.iter().filter(|p| p.rest != Vec3::ZERO && !p.hidden) {
             let c = self.point_rgb(p, 0.6);
             spheres.push(Sphere { pos: p.pos.into(), radius: p.radius, color: [c[0], c[1], c[2], 0.45], extra: [kind::SHELL, self.glow, p.flash.max(p.level * 0.5), 0.0] });
         }
@@ -1353,7 +1491,7 @@ impl Being {
                 spheres.push(Sphere { pos: pos.into(), radius: r, color: [bc[0], bc[1], bc[2], 0.9], extra: [kind::BUBBLE, self.glow, 0.0, x.size] });
             }
         }
-        for h in &self.hoses {
+        for h in self.hoses.iter().filter(|h| !h.hidden) {
             let tint = self.points[h.from].tint;
             let c = rgb(tint + 0.04, 0.25, 1.0);
             for b in h.bubbles.iter().filter(|b| b.size > 0.0) {
@@ -1375,14 +1513,15 @@ impl Being {
         for h in &self.hoses {
             // a button moving on its source node: the hoses out of it glow too (what the button reaches)
             let flow = h.activity.max(self.points[h.from].flash * 0.5);
-            tube(tubes, &h.ctrl, h.radius, h.radius, flow, self.points[h.from].tint, 0.0);
+            let r = if h.hidden { 0.0 } else { h.radius };
+            tube(tubes, &h.ctrl, r, r, flow, self.points[h.from].tint, 0.0);
         }
         let center = self.center;
         for p in self.points.iter().filter(|p| p.rest != Vec3::ZERO) {
             let up = (p.pos - center).try_normalize().unwrap_or(Vec3::Y);
             let len = (p.pos - center).length();
             let ctrl = [center, center + up * len * 0.4 + Vec3::Y * len * 0.15, p.pos - up * len * 0.25, p.pos];
-            let r = self.look.size * 0.009;
+            let r = if p.hidden { 0.0 } else { self.look.size * 0.009 };
             tube(tubes, &ctrl, r * 1.8, r, 0.0, p.tint, 1.0);
         }
         // the neck: from each point up into its socket (t 0 → 1: the data rising into the head)
@@ -1392,7 +1531,7 @@ impl Being {
             let len = (b - a).length();
             let out = (a - center).try_normalize().unwrap_or(Vec3::Y);
             let ctrl = [a, a + (out * 0.35 + Vec3::Y * 0.5) * len * 0.5, b - Vec3::Y * len * 0.45, b];
-            let r = self.look.size * if Some(pi) == self.core_point { 0.05 } else { 0.028 };
+            let r = if self.points[pi].hidden { 0.0 } else { self.look.size * if Some(pi) == self.core_point { 0.05 } else { 0.028 } };
             tube(tubes, &ctrl, r, r * 0.8, 0.25 + 0.75 * self.head.walk.energy, self.points[pi].tint, 2.0);
         }
         // the tethers: thin hoses in the parameter's colour (a colour control's: its value), thicker and brighter with
@@ -1860,6 +1999,28 @@ mod tests {
         assert_eq!(h.ctrl[0], b.port_world(l.from.0, out, false).expect("its output"));
         assert_eq!(h.ctrl[3], b.port_world(l.to.0, inp, true).expect("its input"));
         assert_ne!(h.ctrl[0], b.points[h.from].pos, "not the node's middle");
+    }
+
+    #[test]
+    fn a_level_hides_what_is_not_at_it_and_collapses_a_group() {
+        let g = graph(SCENE);
+        let mut b = Being::new(&g, &Look::default());
+        let c = Table::new(&g);
+        let n = g.nodes.len();
+        assert!(n >= 3, "the test's graph");
+        // everything collapses into node 0, node 1 is not at the level
+        let mut shown = vec![Some(0); n];
+        shown[1] = None;
+        let l = &g.links[0];
+        let out = g.nodes[l.from.0].kind.outputs()[l.from.1].name.to_string();
+        b.show_level(Some(&Level { shown, outlets: vec![(l.from.0, out.clone(), false)] }));
+        b.hold(true, true);
+        b.update(0.016, 1.0, &Local { ctl: &c, meter: &|_, _| 0.0 }, &now(8.0));
+        assert!(b.points.iter().filter(|p| !p.hidden).count() == 1, "one body");
+        assert!(b.hoses.iter().all(|h| h.hidden), "every hose is inside it or leaves the level");
+        assert!(b.port_world(l.from.0, "no such port", false).is_none());
+        b.show_level(None);
+        assert!(b.points.iter().all(|p| !p.hidden && p.rest == p.own_rest), "and back");
     }
 
     #[test]

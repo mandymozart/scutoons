@@ -8,6 +8,7 @@ use deck_space::rig::bundle::Played;
 use deck_space::rig::validate::Request;
 use deck_space::rig::wiring::Home;
 use deck_space::rig::{Bundle, Instrument, Rig};
+use deck_space::space::being::Level;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
@@ -29,6 +30,8 @@ pub struct Port {
     pub ty: &'static str,
     /// the cable's name for it (`voice:voice.out`)
     pub address: String,
+    /// the track it belongs to
+    pub track: String,
     /// the cables feeding an input
     pub cables: Vec<Cable>,
 }
@@ -47,11 +50,67 @@ pub fn ports(played: &Played) -> Result<Vec<Port>> {
                 } else {
                     Vec::new()
                 };
-                out.push(Port { node: n.id.clone(), name: p.name.clone(), input, ty: p.ty, address, cables });
+                out.push(Port { node: n.id.clone(), name: p.name.clone(), input, ty: p.ty, address, track: n.track.clone(), cables });
             }
         }
     }
     Ok(out)
+}
+
+/// what a port is seen as from outside its track (#457): an output nothing inside takes, or the instrument's own; a free
+/// audio input
+fn is_outlet(bundle: &Bundle, ports: &[Port], p: &Port) -> bool {
+    if p.input {
+        return p.ty == "audio" && p.cables.is_empty();
+    }
+    let own = bundle.rig.tracks.iter().find(|t| t.id == p.track).and_then(|t| bundle.instruments.iter().find(|i| i.id == t.instrument)).and_then(|i| i.out.as_deref());
+    let local = p.address.split_once(':').map_or(p.address.as_str(), |(_, l)| l);
+    let is_out = own.is_some_and(|o| o == local || format!("{o}.out") == local);
+    is_out || !ports.iter().any(|q| q.track == p.track && q.cables.iter().any(|c| c.from == p.address))
+}
+
+/// One level of the tree on the stage (#457): the path's last step, or the rig. At the rig each track is one body with only
+/// its outlets; inside a track all its nodes and ports. The answer: what the being shows, and which ports are at the level.
+pub fn level(bundle: &Bundle, ports: &[Port], node_ids: &[String], core_node: usize, track: Option<&str>) -> (Level, Vec<bool>) {
+    let index = |id: &str| node_ids.iter().position(|n| n == id);
+    let mut shown: Vec<Option<usize>> = vec![None; node_ids.len()];
+    let mut visible = vec![false; ports.len()];
+    let mut outlets = Vec::new();
+    match track {
+        None => {
+            shown[core_node] = Some(core_node);
+            let mut first: Vec<(String, usize)> = Vec::new();
+            for p in ports {
+                let Some(n) = index(&p.node) else { continue };
+                let rep = match first.iter().find(|(t, _)| *t == p.track) {
+                    Some((_, r)) => *r,
+                    None => {
+                        first.push((p.track.clone(), n));
+                        n
+                    }
+                };
+                shown[n] = Some(rep);
+            }
+        }
+        Some(track) => {
+            for p in ports.iter().filter(|p| p.track == track) {
+                if let Some(n) = index(&p.node) {
+                    shown[n] = Some(n);
+                }
+            }
+        }
+    }
+    for (i, p) in ports.iter().enumerate() {
+        let here = match track {
+            None => is_outlet(bundle, ports, p),
+            Some(t) => p.track == t,
+        };
+        if let (true, Some(n)) = (here, index(&p.node)) {
+            visible[i] = true;
+            outlets.push((n, p.name.clone(), p.input));
+        }
+    }
+    (Level { shown, outlets }, visible)
 }
 
 /// `a` joined to `b` (dragged either way): the changed bundle, or the core's sentence
@@ -245,6 +304,38 @@ mod tests {
         let read = load_draft(&file, &b);
         assert_eq!((&read.rig, &read.instruments), (&next.rig, &next.instruments));
         std::fs::remove_file(&file).ok();
+    }
+
+    fn node_ids(p: &[Port]) -> Vec<String> {
+        let mut ids: Vec<String> = p.iter().map(|q| q.node.clone()).collect();
+        ids.dedup();
+        ids.push("being".to_string());
+        ids
+    }
+
+    #[test]
+    fn from_outside_a_track_is_one_body_with_only_its_outlets() {
+        let (b, p) = catpope();
+        let ids = node_ids(&p);
+        let core = ids.len() - 1;
+        let (l, visible) = level(&b, &p, &ids, core, None);
+        let seen: Vec<&str> = p.iter().zip(&visible).filter(|(_, v)| **v).map(|(q, _)| q.address.as_str()).collect();
+        assert!(seen.contains(&"voice:voice.out"), "{seen:?}");
+        assert!(seen.contains(&"drone:mix.in3"), "a free audio input: {seen:?}");
+        assert!(!seen.contains(&"voice:voice.cv"), "fed inside the track: {seen:?}");
+        assert!(!seen.contains(&"voice:melody.cv"), "taken inside the track: {seen:?}");
+        assert!(!seen.contains(&"drone:drone.out"), "taken inside the track: {seen:?}");
+        let reps: std::collections::BTreeSet<usize> = l.shown.iter().flatten().copied().collect();
+        assert_eq!(reps.len(), 3, "two tracks and the being: {:?}", l.shown);
+    }
+
+    #[test]
+    fn inside_a_track_is_all_of_it_and_nothing_else() {
+        let (b, p) = catpope();
+        let ids = node_ids(&p);
+        let (l, visible) = level(&b, &p, &ids, ids.len() - 1, Some("voice"));
+        assert!(p.iter().zip(&visible).all(|(q, v)| *v == (q.track == "voice")));
+        assert_eq!(l.shown.iter().flatten().count(), 2, "melody and voice: {:?}", l.shown);
     }
 
     #[test]

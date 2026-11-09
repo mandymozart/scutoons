@@ -54,8 +54,13 @@ pub struct Stage {
     pub bundle: Bundle,
     /// the rig before any draft: what the draft is the difference to
     pub base: Bundle,
-    /// the ports a route can end at
+    /// the ports a cable can end at
     pub ports: Vec<Port>,
+    /// which of them the level shown holds
+    pub visible: Vec<bool>,
+    /// the level shown: the tracks entered, top down (#457; a path, so it can go deep: #458)
+    pub path: Vec<String>,
+    core_node: usize,
     /// the graph's node ids: a being's point is its node
     pub node_ids: Vec<String>,
     volume: f32,
@@ -115,6 +120,7 @@ impl Stage {
         self.handles = None;
         let mut next = Stage::start(ready, self.volume);
         next.base = self.base.clone();
+        next.enter(self.path.clone());
         next.space.camera = camera;
         next.space.being.hold(self.space.being.held(), true);
         for (path, value) in knobs {
@@ -176,7 +182,21 @@ impl Stage {
             knobs.push(Knob { label, path: k.path.clone(), node, port: port.to_string(), port_index, min: k.min, max: k.max, log: k.log });
         }
         let node_ids = graph.nodes.iter().map(|n| n.id.clone()).collect();
-        Stage { controls, space, gpu: None, texture: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, ports, node_ids, volume }
+        Stage { controls, space, gpu: None, texture: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, volume, path: Vec::new(), core_node: node }
+    }
+
+    /// show this level of the tree in Wire; empty = the rig
+    pub fn enter(&mut self, path: Vec<String>) {
+        let (level, visible) = wires::level(&self.bundle, &self.ports, &self.node_ids, self.core_node, path.last().map(String::as_str));
+        self.space.being.show_level(Some(&level));
+        self.visible = visible;
+        self.path = path;
+    }
+
+    /// Play: every node, as the deck shows it
+    pub fn show_all(&mut self) {
+        self.space.being.show_level(None);
+        self.visible = vec![true; self.ports.len()];
     }
 
     pub fn glitches(&self) -> u64 {

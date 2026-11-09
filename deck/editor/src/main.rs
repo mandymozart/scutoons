@@ -47,6 +47,8 @@ struct Args {
     gesture: Option<(String, String)>,
     /// a check run's view along an axis: 0 1 2 = +x +y +z, 3 4 5 = -x -y -z
     view: Option<usize>,
+    /// a check run's level: enter this track
+    enter: Option<String>,
     /// a check run's knob pull on the stage, in Play
     pull: bool,
     /// a check run's typeahead: arm this port, open it, type this; pick the first row if asked
@@ -54,7 +56,7 @@ struct Args {
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { rig: "catpope".into(), frames: None, screenshot: None, tokens: None, stress: false, volume: 0.5, size: None, wire: false, draft: None, gesture: None, view: None, pull: false, menu: None };
+    let mut a = Args { rig: "catpope".into(), frames: None, screenshot: None, tokens: None, stress: false, volume: 0.5, size: None, wire: false, draft: None, gesture: None, view: None, enter: None, pull: false, menu: None };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -68,6 +70,10 @@ fn args() -> Result<Args> {
             "--wire" => a.wire = true,
             "--view" => a.view = Some(val()?.parse()?),
             "--pull" => a.pull = true,
+            "--enter" => {
+                a.enter = Some(val()?);
+                a.wire = true;
+            }
             "--menu" => {
                 let v = val()?;
                 let mut p = v.split(',');
@@ -123,6 +129,10 @@ enum Hit {
     Mode(bool),
     /// a port, by its index in the stage's list
     Port(usize),
+    /// a step of the way down the tree, 0 = the rig
+    Crumb(usize),
+    /// a track's body at the rig level
+    Body(usize),
     /// the view gizmo: an axis (0 1 2 = +x +y +z, 3 4 5 = the minus sides), or its ball
     Axis(Option<usize>),
 }
@@ -215,6 +225,12 @@ struct App {
     /// a port clicked (not dragged): the next right click connects from it
     armed: Option<usize>,
     menu: Option<Menu>,
+    /// this frame's bodies at the rig level: (x, y, track)
+    bodies: Vec<(f32, f32, String)>,
+    /// the last press on a body: for a double click
+    last_body: Option<(usize, Instant)>,
+    /// is the stage showing a level (Wire) now
+    leveled: bool,
 }
 
 fn main() {
@@ -263,6 +279,9 @@ fn run() -> Result<i32> {
         reach: Vec::new(),
         armed: None,
         menu: None,
+        bodies: Vec::new(),
+        last_body: None,
+        leveled: false,
     };
     event_loop.run_app(&mut app).context("the event loop")?;
     let summary = app.summary();
@@ -306,7 +325,32 @@ impl App {
         if let Some(port) = nearest(&self.marks, x, y) {
             return Hit::Port(port);
         }
+        if let Some(i) = self.body_at(x, y) {
+            return Hit::Body(i);
+        }
         self.panel.hits.iter().find(|(r, _)| r.has(x, y)).map_or(Hit::Nothing, |(_, h)| *h)
+    }
+
+    fn body_at(&self, x: f32, y: f32) -> Option<usize> {
+        self.bodies.iter().position(|(bx, by, _)| (bx - x).hypot(by - y) < 26.0)
+    }
+
+    /// down into a track
+    fn enter(&mut self, track: String) {
+        self.armed = None;
+        self.reach.clear();
+        let mut path = self.stage.path.clone();
+        path.push(track);
+        self.stage.enter(path);
+    }
+
+    /// up to the level at this depth of the path (0 = the rig)
+    fn up_to(&mut self, depth: usize) {
+        self.armed = None;
+        self.reach.clear();
+        let mut path = self.stage.path.clone();
+        path.truncate(depth);
+        self.stage.enter(path);
     }
 
     fn knob_at(&mut self, i: usize, x: f32) {
@@ -406,17 +450,30 @@ impl App {
                 if p.input && !p.cables.is_empty() {
                     match wires::pulled(&self.stage.bundle, p) {
                         Ok(_) => {
-                            self.reach = wires::reachable_moved(&self.stage.bundle, &self.stage.ports, p);
+                            let reach = wires::reachable_moved(&self.stage.bundle, &self.stage.ports, p);
+                            self.reach = self.at_level(reach);
                             self.panel.drag = Some(Drag::Grab(i));
                         }
                         Err(sentence) => self.say(sentence, x, y, true),
                     }
                 } else {
-                    self.reach = wires::reachable(&self.stage.bundle, &self.stage.ports, p);
+                    let reach = wires::reachable(&self.stage.bundle, &self.stage.ports, p);
+                    self.reach = self.at_level(reach);
                     self.panel.drag = Some(Drag::Cable(i));
                 }
             }
             Hit::Axis(a) => self.panel.drag = Some(Drag::Gizmo(a, false, x, y)),
+            Hit::Crumb(depth) => self.up_to(depth),
+            Hit::Body(i) => {
+                let double = self.last_body.is_some_and(|(j, at)| j == i && at.elapsed().as_millis() < 400);
+                self.last_body = Some((i, Instant::now()));
+                if double {
+                    let track = self.bodies[i].2.clone();
+                    self.enter(track);
+                } else {
+                    self.panel.drag = Some(Drag::Orbit(x, y));
+                }
+            }
             Hit::Stage => {
                 self.focus(false);
                 self.armed = None;
@@ -456,7 +513,13 @@ impl App {
     /// `port` is active: what it may reach lights up
     fn arm(&mut self, port: usize) {
         self.armed = Some(port);
-        self.reach = wires::reachable(&self.stage.bundle, &self.stage.ports, &self.stage.ports[port]);
+        let reach = wires::reachable(&self.stage.bundle, &self.stage.ports, &self.stage.ports[port]);
+        self.reach = self.at_level(reach);
+    }
+
+    /// only what the level shows
+    fn at_level(&self, reach: Vec<bool>) -> Vec<bool> {
+        reach.into_iter().zip(&self.stage.visible).map(|(r, v)| r && *v).collect()
     }
 
     /// the typeahead: what the armed port may reach (the core's answer), or every port to find one
@@ -467,7 +530,7 @@ impl App {
         if let Some(a) = from {
             self.arm(a);
         }
-        let items = self.stage.ports.iter().enumerate().filter(|(i, _)| from.is_none() || self.reach.get(*i).copied().unwrap_or(false));
+        let items = self.stage.ports.iter().enumerate().filter(|(i, _)| if from.is_none() { self.stage.visible[*i] } else { self.reach.get(*i).copied().unwrap_or(false) });
         let items = items.map(|(id, p)| typeahead::Item { id, label: p.address.clone(), detail: format!("{} {}", if p.input { "in" } else { "out" }, p.ty) }).collect();
         self.menu = Some(Menu { ta: typeahead::Typeahead::new(items, x, y), from });
     }
@@ -740,9 +803,23 @@ impl App {
     fn redraw(&mut self, el: &ActiveEventLoop) {
         let (Some(window), Some(gpu), Some(ui)) = (self.window.clone(), self.gpu.as_mut(), self.ui.as_mut()) else { return };
         self.stage.space.being.hold(self.wire, false);
+        // Wire shows a level of the tree, Play every node
+        if self.wire != self.leveled {
+            self.leveled = self.wire;
+            if self.wire {
+                let path = self.stage.path.clone();
+                self.stage.enter(path);
+            } else {
+                self.stage.show_all();
+                self.bodies.clear();
+            }
+        }
         if self.frames == 0 {
             if let Some(a) = self.args.view {
                 self.stage.space.camera.view_along(a % 3, a < 3);
+            }
+            if let Some(track) = self.args.enter.clone() {
+                self.stage.enter(vec![track]);
             }
         }
         if self.tokens.poll() {
@@ -812,7 +889,7 @@ impl App {
                     let v = self.stage.value(k);
                     let frac = fraction(v, k.min, k.max, k.log);
                     let dragging = matches!(self.panel.drag, Some(Drag::Knob(j, _, _)) if j == i);
-                    let bar = controls::scrub(ui, t, x0 + pad, y, inner, &k.label, &number(v), frac, dragging);
+                    let bar = controls::scrub(ui, t, Rect { x: x0 + pad, y, w: inner, h: row }, &k.label, &number(v), frac, dragging);
                     self.panel.hits.push((bar, Hit::Knob(i)));
                     y += row;
                 }
@@ -889,52 +966,63 @@ impl App {
         // the Wire side: the ports around the being's points, the core's list on this frame's places
         if self.wire {
             let being = &self.stage.space.being;
-            for p in &being.points {
-                let id = &self.stage.node_ids[p.node];
-                let Some((px0, py0)) = self.stage.space.to_pixel(p.pos) else { continue };
-                let (cx, cy) = (px0 / scale, py0 / scale + top);
-                if cx > stage_w || cy < top {
-                    continue;
-                }
-                let of = |input: bool| self.stage.ports.iter().enumerate().filter(move |(_, q)| q.node == *id && q.input == input).collect::<Vec<_>>();
-                let near = (self.cursor.0 - cx).hypot(self.cursor.1 - cy) < 90.0;
-                for side in [of(true), of(false)] {
-                    for &(index, q) in &side {
-                        let Some(world) = being.port_world(p.node, &q.name, q.input) else { continue };
-                        let Some((sx, sy)) = self.stage.space.to_pixel(world) else { continue };
-                        let (mx, my) = (sx / scale, sy / scale + top);
-                        self.marks.push(Mark { port: index, x: mx, y: my });
-                        let hover = (self.cursor.0 - mx).hypot(self.cursor.1 - my) < 9.0;
-                        let c = if q.input { t.color.text } else { t.color.cable };
-                        let dragging = self.menu.is_some() || self.armed.is_some() || matches!(self.panel.drag, Some(Drag::Cable(_) | Drag::Grab(_)));
-                        // what the typeahead still shows, else what the cable in the hand may reach
-                        let open = match &self.menu {
-                            Some(m) => m.ta.shows(index),
-                            None => self.reach.get(index).copied().unwrap_or(false),
-                        };
-                        if self.armed == Some(index) {
-                            ui.ring(mx, my, 13.0, t.color.accent);
-                        }
-                        let c = if dragging && !open { [c[0], c[1], c[2], 0.22] } else { c };
-                        if dragging && open {
-                            ui.ring(mx, my, 10.0, t.color.cable);
-                        }
-                        if hover {
-                            ui.ring(mx, my, 11.0, t.color.cable);
-                        }
-                        if q.input && q.cables.is_empty() {
-                            ui.ring(mx, my, 6.0, c);
-                        } else {
-                            ui.disc(mx, my, 6.0, c);
-                        }
-                        if near {
-                            let small = font * 0.75;
-                            let w = ui.advance(small) * q.name.chars().count() as f32;
-                            let lx = if q.input { mx - w - 10.0 } else { mx + 10.0 };
-                            ui.text(lx, my - small * 0.6, small, &q.name, t.color.text);
-                        }
+            self.bodies.clear();
+            if self.stage.path.is_empty() {
+                for track in &self.stage.bundle.rig.tracks {
+                    let node = self.stage.ports.iter().filter(|p| p.track == track.id).find_map(|p| self.stage.node_ids.iter().position(|n| *n == p.node).filter(|n| being.point_world(*n).is_some()));
+                    let place = node.and_then(|n| being.point_world(n)).and_then(|w| self.stage.space.to_pixel(w));
+                    if let Some((sx, sy)) = place {
+                        let (bx, by) = (sx / scale, sy / scale + top);
+                        self.bodies.push((bx, by, track.id.clone()));
+                        ui.text(bx - 16.0, by + 18.0, font * 0.8, &track.id, t.color.text);
                     }
                 }
+            }
+            for (index, q) in self.stage.ports.iter().enumerate().filter(|(i, _)| self.stage.visible[*i]) {
+                let Some(node) = self.stage.node_ids.iter().position(|n| *n == q.node) else { continue };
+                let Some(world) = being.port_world(node, &q.name, q.input) else { continue };
+                let Some((sx, sy)) = self.stage.space.to_pixel(world) else { continue };
+                let (mx, my) = (sx / scale, sy / scale + top);
+                if mx > stage_w || my < top {
+                    continue;
+                }
+                self.marks.push(Mark { port: index, x: mx, y: my });
+                let near = (self.cursor.0 - mx).hypot(self.cursor.1 - my) < 110.0;
+                let hover = (self.cursor.0 - mx).hypot(self.cursor.1 - my) < 9.0;
+                let c = if q.input { t.color.text } else { t.color.cable };
+                let dragging = self.menu.is_some() || self.armed.is_some() || matches!(self.panel.drag, Some(Drag::Cable(_) | Drag::Grab(_)));
+                // what the typeahead still shows, else what the cable in the hand may reach
+                let open = match &self.menu {
+                    Some(m) => m.ta.shows(index),
+                    None => self.reach.get(index).copied().unwrap_or(false),
+                };
+                if self.armed == Some(index) {
+                    ui.ring(mx, my, 13.0, t.color.accent);
+                }
+                let c = if dragging && !open { [c[0], c[1], c[2], 0.22] } else { c };
+                if dragging && open {
+                    ui.ring(mx, my, 10.0, t.color.cable);
+                }
+                if hover {
+                    ui.ring(mx, my, 11.0, t.color.cable);
+                }
+                if q.input && q.cables.is_empty() {
+                    ui.ring(mx, my, 6.0, c);
+                } else {
+                    ui.disc(mx, my, 6.0, c);
+                }
+                if near {
+                    let small = font * 0.75;
+                    let w = ui.advance(small) * q.name.chars().count() as f32;
+                    let lx = if q.input { mx - w - 10.0 } else { mx + 10.0 };
+                    ui.text(lx, my - small * 0.6, small, &q.name, t.color.text);
+                }
+            }
+            // where we are in the tree, at any depth
+            let mut crumbs = vec!["rig".to_string()];
+            crumbs.extend(self.stage.path.iter().cloned());
+            for (depth, r) in controls::breadcrumb(ui, t, pad, top + pad, &crumbs).into_iter().enumerate() {
+                self.panel.hits.push((r, Hit::Crumb(depth)));
             }
             if let Some(Drag::Cable(a)) = self.panel.drag {
                 if let Some(m) = self.marks.iter().find(|m| m.port == a) {
@@ -956,7 +1044,7 @@ impl App {
         }
         if self.wire {
             let small = font * 0.75;
-            ui.text(pad, hf - small * 1.25 - 8.0, small, "drag out → in: connect · pull a filled in off: cut · onto another in: move · click a port, right click: find · ctrl+z undo · f frame", t.color.muted);
+            ui.text(pad, hf - small * 1.25 - 8.0, small, "drag out → in: connect · pull a filled in off: cut · onto another in: move · click a port, right click: find · double click a body or tab: enter · esc: back · ctrl+z undo · f frame", t.color.muted);
         }
         // the view gizmo, top right of the stage: its ball orbits, an axis looks along itself
         {
@@ -1096,7 +1184,18 @@ impl ApplicationHandler for App {
             WindowEvent::KeyboardInput { event, .. } if self.menu.is_some() => self.menu_key(&event),
             WindowEvent::KeyboardInput { event, .. } => {
                 if event.state == ElementState::Pressed && event.logical_key == Key::Named(NamedKey::Escape) && !self.panel.field.focused {
-                    el.exit();
+                    if self.wire && !self.stage.path.is_empty() {
+                        self.up_to(self.stage.path.len() - 1);
+                    } else {
+                        el.exit();
+                    }
+                } else if self.wire && event.state == ElementState::Pressed && event.logical_key == Key::Named(NamedKey::Tab) && !self.panel.field.focused {
+                    if self.mods.shift_key() {
+                        self.up_to(self.stage.path.len().saturating_sub(1));
+                    } else if let Some(i) = self.body_at(self.cursor.0, self.cursor.1) {
+                        let track = self.bodies[i].2.clone();
+                        self.enter(track);
+                    }
                 } else if self.panel.field.focused {
                     self.key(&event);
                 } else if event.state == ElementState::Pressed && event.logical_key == Key::Character("z".into()) && self.mods.control_key() {

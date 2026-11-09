@@ -62,7 +62,8 @@ pub fn tabs(d: &mut DrawList, t: &Tokens, x: f32, y: f32, names: &[&str], active
 }
 
 /// a number you drag: its label left, a bar filled to `fraction` (0..1) on the right half; the bar's place
-pub fn scrub(d: &mut DrawList, t: &Tokens, x: f32, y: f32, w: f32, label: &str, value: &str, fraction: f32, hot: bool) -> Rect {
+pub fn scrub(d: &mut DrawList, t: &Tokens, at: Rect, label: &str, value: &str, fraction: f32, hot: bool) -> Rect {
+    let Rect { x, y, w, .. } = at;
     let (font, row) = (t.size.font * 0.9, t.size.row);
     let bar = Rect { x: x + w * 0.5, y, w: w * 0.5, h: row };
     d.text(x, y + 5.0, font, label, t.color.text);
