@@ -203,7 +203,11 @@ impl Side {
         match out {
             Out::Listen { client, addresses } => {
                 if let Some(t) = &self.table {
-                    self.subs.listen(client, t.offers(addresses), now);
+                    let offered = t.offers(addresses);
+                    if !offered.is_empty() {
+                        tracing::info!("far events: {client} asks for {}", offered.iter().map(|(a, _)| a.as_str()).collect::<Vec<_>>().join(", "));
+                    }
+                    self.subs.listen(client, offered, now);
                 }
                 true
             }

@@ -62,7 +62,7 @@ pub fn far_table(handles: &mut crate::audio::Handles, subject: &str) -> Option<d
     if far.is_empty() && outlets.is_empty() {
         return None;
     }
-    let name = crate::live::config::Settings::read(std::path::Path::new(crate::live::config::DECK_TOML)).name;
+    let name = crate::live::config::Settings::read(&crate::live::config::deck_toml()).name;
     if name.is_none() && !outlets.is_empty() {
         tracing::info!("far events: deck.toml names this deck not (`name = …`), so no other deck can address its outputs");
     }

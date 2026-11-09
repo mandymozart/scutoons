@@ -343,7 +343,7 @@ struct Show {
 /// the Live outlet's settings from the CLI (deck.toml's under them – live/config.rs)
 #[cfg(feature = "live")]
 fn outlet_settings(args: &Args) -> deck_native::live::config::Settings {
-    deck_native::live::config::Settings { relay: args.relay.clone(), outlet: args.outlet.clone(), locale: args.locale.clone(), name: None }
+    deck_native::live::config::Settings { relay: args.relay.clone(), outlet: args.outlet.clone(), locale: args.locale.clone(), name: None, join: None }
 }
 
 /// a relay and an outlet are set (deck.toml or the CLI): the deck is a Live outlet
@@ -381,13 +381,13 @@ fn audio_options(args: &Args, scene: &scene::Scene) -> backend::Options {
 /// the scene the arguments name: a file, `cathedral` / `conductor` / `outlet` / `madness` / `idle` (built in), the outlet
 /// when one is set, or the idle scene (#252)
 fn read_scene(args: &Args) -> Result<scene::Scene> {
-    match &args.scene {
+    (match &args.scene {
         Some(p) if !p.exists() && p.to_str().and_then(switcher::builtin).is_some() => scene::Scene::parse(p.to_str().and_then(switcher::builtin).unwrap_or_default()),
         Some(p) if deck_native::rig::named(p).is_some() => deck_native::rig::scene(p),
         Some(p) => scene::Scene::load(p),
         None if outlet_configured(args) => scene::Scene::parse(scene::OUTLET_SCENE),
         None => scene::Scene::parse(scene::IDLE_SCENE),
-    }
+    }).map(|s| deck_native::live::config::with_join(s, &outlet_settings(args)))
 }
 
 /// #264: the outputs of the scene before, on their way into the next one (or out): `Show::load` takes them over when the

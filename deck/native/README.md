@@ -481,7 +481,8 @@ A deck is a screen outlet of a Live show (research/LIVE-LENSES.md, DECISIONS 202
 joins the relay as `output` of this deck's outlet and draws the cells the conductor sends – no browser. Settings:
 `relay = "ws://<host>:7700/live/<code>"`, `outlet = "left"`, `locale` in `/var/lib/deck/deck.toml`, or `--relay`,
 `--outlet`, `--locale`; `name = "left"` there names the deck for other decks' far world nodes (`/deck:left/…`, #442,
-deck-space far.rs – a deck without a name answers none); with an outlet set and no `--scene` the stage plays `scenes/outlet.toml` (a space node → the
+deck-space far.rs – a deck without a name answers none), `join = "deck"` makes a rig scene (`--scene rig:…`, whose space
+node has no `join` of its own) join the relay (`run-far-demo.ps1`: two decks on this PC over a local relay); with an outlet set and no `--scene` the stage plays `scenes/outlet.toml` (a space node → the
 outlet → the screen). No relay set = the hosted `wss://live.scutoons.com/live/CATH` (#199); both clients speak ws:// and
 wss:// (`config::dial` – tungstenite with rustls + the webpki roots, no OpenSSL). `src/live/`:
 
