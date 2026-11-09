@@ -17,6 +17,7 @@
 //!   far events up on relay time is a later slice.
 //!
 //! The rings are the engine's (rtrb); here they are closures, so this crate names no ring type.
+use crate::relay::{Client, Out};
 use crate::rig::address::{Address, Place};
 use deck_events::{Event, Names, Time};
 use protocol::DeckEvent;
@@ -163,6 +164,65 @@ pub fn arrived(e: &DeckEvent, names: &Names) -> Option<Event> {
     Some(ev)
 }
 
+/// A deck's side of far events on its link thread, platform-free: the table once the frame handed it over, who asked
+/// this deck for what, the per-poll drain. deck-native's link.rs only calls `attach`, `poll` and `hear`.
+#[derive(Default)]
+pub struct Side {
+    table: Option<FarTable>,
+    subs: Subscriptions,
+    /// scratch: (client, event) per poll
+    sending: Vec<(String, DeckEvent)>,
+}
+
+impl Side {
+    /// the engine's side arrived from the frame: ask for its far addresses, forget who asked the old engine
+    pub fn attach(&mut self, table: FarTable, c: &mut Client, now: f64) {
+        c.set_listen(now, table.addresses());
+        self.table = Some(table);
+        self.subs = Subscriptions::default();
+    }
+
+    /// each poll: this deck's event outputs to their subscribers (one message per client, in arrival order), lapsed
+    /// subscriptions dropped
+    pub fn poll(&mut self, c: &mut Client, now: f64) {
+        let Some(table) = self.table.as_mut() else { return };
+        self.subs.expire(now);
+        self.sending.clear();
+        table.drain(&self.subs, &mut self.sending);
+        while let Some((client, _)) = self.sending.first() {
+            let client = client.clone();
+            let events: Vec<DeckEvent> = self.sending.iter().filter(|(cl, _)| *cl == client).map(|(_, e)| e.clone()).collect();
+            self.sending.retain(|(cl, _)| *cl != client);
+            c.events(&client, events);
+        }
+    }
+
+    /// what the client says: another deck's ask (what names this deck's outputs is served from now on) or events for
+    /// this deck's far world nodes (into their rings). True when it was one of these.
+    pub fn hear(&mut self, out: &Out, now: f64) -> bool {
+        match out {
+            Out::Listen { client, addresses } => {
+                if let Some(t) = &self.table {
+                    self.subs.listen(client, t.offers(addresses), now);
+                }
+                true
+            }
+            Out::Events { events, .. } => {
+                if let Some(t) = self.table.as_mut() {
+                    t.take(events);
+                }
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// who asks this deck now (the HUD, tests)
+    pub fn asked_by(&self) -> usize {
+        self.subs.by_client.len()
+    }
+}
+
 /// Who asked this deck for which of its outputs: client → ((address, slot) pairs, when it last asked).
 #[derive(Default)]
 pub struct Subscriptions {
@@ -272,5 +332,45 @@ mod tests {
         assert_eq!((out[0].0.as_str(), out[0].1.name.as_str()), ("c7", "music.note"));
         assert_eq!(table.take(&out.iter().map(|(_, e)| e.clone()).collect::<Vec<_>>()), 1, "the note inlet takes it, the cue inlet does not");
         assert_eq!(got.lock().unwrap().len(), 1);
+    }
+
+    /// the link's side: the table attached asks once joined, another deck's ask is served on the next poll, events for
+    /// this deck land in their ring, anything else is not its business
+    #[test]
+    fn the_side_asks_serves_and_takes() {
+        use crate::relay::{Options, DECKS};
+        use protocol::Role;
+        let mut names = Names::new();
+        let note = names.event("music.note").unwrap();
+        let queue = Arc::new(Mutex::new(Vec::<Event>::new()));
+        let got = Arc::new(Mutex::new(Vec::<Event>::new()));
+        let (q, g) = (queue.clone(), got.clone());
+        let table = FarTable {
+            name: Some("left".into()),
+            subject: "character.catpope".into(),
+            names,
+            inlets: vec![FarInlet { address: "/deck:right/scene:x/character:boy/voice:seq.notes".into(), listen: s(&["music.note"]), push: Box::new(move |e| { g.lock().unwrap().push(e); true }) }],
+            outlets: vec![FarOutlet { slot: "analog_seq.notes".into(), pop: Box::new(move || q.lock().unwrap().pop()) }],
+            tempo: None,
+        };
+        let mut c = Client::new(Options::new("ws://h:7700/live/CATH", Role::Musician, Some(DECKS))).unwrap();
+        c.start(0.0);
+        c.opened(0.0);
+        c.text(0.0, r#"{"v":1,"seq":1,"from":"relay","kind":"welcome","p":{"client":"c3","snapshot":{},"now":0}}"#);
+        c.take();
+        let mut side = Side::default();
+        side.attach(table, &mut c, 0.0);
+        let kinds = |outs: Vec<Out>| -> Vec<String> { outs.into_iter().filter_map(|o| if let Out::Send(t) = o { serde_json::from_str::<serde_json::Value>(&t).ok().map(|v| v["kind"].as_str().unwrap_or("").to_string()) } else { None }).collect() };
+        assert_eq!(kinds(c.take()), ["deck.listen"]);
+        assert!(side.hear(&Out::Listen { client: "c7".into(), addresses: s(&[SEQ]) }, 1.0));
+        assert_eq!(side.asked_by(), 1);
+        queue.lock().unwrap().push(Event::now(note));
+        side.poll(&mut c, 2.0);
+        assert_eq!(kinds(c.take()), ["deck.events"], "the subscriber gets the note");
+        assert!(side.hear(&Out::Events { client: "c9".into(), events: vec![DeckEvent { address: "/deck:right/scene:x/character:boy/voice:seq.notes".into(), name: "music.note".into(), props: HashMap::new(), dur_s: None }] }, 3.0));
+        assert_eq!(got.lock().unwrap().len(), 1);
+        assert!(!side.hear(&Out::Close {}, 3.0));
+        side.poll(&mut c, 3.0 + LAPSE_MS);
+        assert_eq!(side.asked_by(), 0, "c7 never asked again");
     }
 }
