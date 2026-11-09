@@ -3,9 +3,8 @@
 // frame the deck's values go in (`set`), what the being's buttons turned comes back (`changes` → `deck.setParam(…,
 // 'being')`). The set and the portraits come from scene-content and the CDN, decoded by the browser.
 //
-// The wasm and its glue are files the host serves (`base`: space_web.js + space_web_bg.wasm, written by
-// `npm run build:wasm -w shared/live-deck`) and imports at run time – a build without them still runs the deck, the
-// page says the 3D is missing.
+// The wasm and its glue are files the host serves (`base`: space_web.js + space_web_bg.wasm, build:wasm) and imports at
+// run time – a build without them still runs the deck, the page says the 3D is missing.
 import type { DeckControlsView } from './controls.ts';
 import type { Deck } from './deck.ts';
 import type { DeckPushView } from './sync.ts';
@@ -28,6 +27,7 @@ export interface SpaceView {
 	set_beat(bpm: number, beat: number, heardMs: number, nowMs: number, perBar: number, running: boolean): void;
 	changes(): string;
 	frame(dt: number, time: number): void;
+	uncover(): void;
 	give_set(glb: Uint8Array, images: unknown[]): void;
 	portrait_requests(): unknown[];
 	give_portrait(slot: number, width: number, height: number, rgba: Uint8Array): void;
@@ -180,6 +180,7 @@ export interface SpaceModule {
 		encoded_images(glb: Uint8Array): unknown[];
 	};
 	DeckControls: new () => DeckControlsView;
+	SceneView: { create(canvas: HTMLCanvasElement, scene: string, prefer: string): Promise<import('./scene-stage.ts').SceneView> };
 	DeckMonitor: new () => MonitorView;
 	DeckState: (new () => DeckStateView) & { rigging(): DeckStateView };
 	DeckPush: new (api: string, cdn: string) => DeckPushView;
@@ -274,6 +275,15 @@ function at(canvas: HTMLCanvasElement, e: { clientX: number; clientY: number }):
 	return [((e.clientX - r.left) * canvas.width) / Math.max(1, r.width), ((e.clientY - r.top) * canvas.height) / Math.max(1, r.height)];
 }
 
+export function stageCanvas(o: { host: HTMLElement; maxScale?: number }): HTMLCanvasElement {
+	const c = document.createElement('canvas');
+	c.style.cssText = 'display:block;width:100%;height:100%;touch-action:none;';
+	o.host.append(c);
+	const k = Math.min(devicePixelRatio || 1, o.maxScale ?? 2);
+	[c.width, c.height] = [c.clientWidth * k, c.clientHeight * k];
+	return c;
+}
+
 export class SpaceStage {
 	private canvas!: HTMLCanvasElement;
 	private stopped = false;
@@ -298,7 +308,7 @@ export class SpaceStage {
 		if (!o.deck.state) o.deck.useState(o.rigging ? mod.DeckState.rigging() : new mod.DeckState());
 		const graph = JSON.stringify(o.deck.graph());
 		const values = JSON.stringify(o.deck.value);
-		let canvas = SpaceStage.canvas(o);
+		let canvas = stageCanvas(o);
 		let view: SpaceView;
 		try {
 			view = await mod.SpaceView.create(canvas, graph, values, o.prefer ?? 'auto');
@@ -307,7 +317,7 @@ export class SpaceStage {
 			// a canvas that had a WebGPU context can't give WebGL2: a fresh one
 			console.warn('space: WebGPU failed, WebGL2 instead', e);
 			canvas.remove();
-			canvas = SpaceStage.canvas(o);
+			canvas = stageCanvas(o);
 			view = await mod.SpaceView.create(canvas, graph, values, 'webgl2');
 		}
 		const s = new SpaceStage(o, mod, view);
@@ -319,16 +329,6 @@ export class SpaceStage {
 		return s;
 	}
 
-	private static canvas(o: SpaceOptions): HTMLCanvasElement {
-		const c = document.createElement('canvas');
-		c.style.cssText = 'display:block;width:100%;height:100%;touch-action:none;';
-		o.host.append(c);
-		const scale = Math.min(devicePixelRatio || 1, o.maxScale ?? 2);
-		c.width = Math.max(1, Math.round(c.clientWidth * scale));
-		c.height = Math.max(1, Math.round(c.clientHeight * scale));
-		return c;
-	}
-
 	/** "webgpu" or "webgl2" */
 	get backend(): string {
 		return this.view.backend();
@@ -336,7 +336,7 @@ export class SpaceStage {
 
 	private async loadSet() {
 		const set = this.o.deck.state?.room() ?? ''; // #425: the core's (`Deck::room`); none on the rigging stage
-		if (!set) return;
+		if (!set) return this.view.uncover(); // #463: no set is coming: the splash goes
 		const quality = this.o.quality ?? 'low';
 		const r = await fetch(`${this.o.api}/library/scene-content?sets=${encodeURIComponent(set)}`);
 		const model = ((await r.json()) as { sets?: Record<string, { model?: Record<string, { path: string }> }> }).sets?.[set]?.model;

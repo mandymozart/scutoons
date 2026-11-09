@@ -1309,7 +1309,7 @@ impl App {
         }
         let veil = self.trans.is_some();
         let Some(r) = self.renderer.as_mut() else { return };
-        r.veil_only = veil;
+        r.set_veil(veil);
         // #180: while the deck waits for a member, the code + QR in the corner (deck-link's run directory, a small file)
         if time - self.pairing_at >= 2.0 || time < self.pairing_at {
             self.pairing_at = time;
