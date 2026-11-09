@@ -4,8 +4,6 @@ import type { Me } from '@scutoons/content';
 
 /** the character a deck wears when nothing else says one */
 export const DEFAULT_CHARACTER = 'yellowmouse';
-/** where the device remembers the last character (a guest's choice) */
-export const CHARACTER_KEY = 'scutoons.deck.character';
 /** where the browser deck's wasm lives (viewer/static/live/, `npm run build:wasm -w shared/live-deck`) */
 export const WASM_BASE = '/live/';
 
@@ -37,9 +35,9 @@ export function relayOf(search: URLSearchParams, live: string, pathCode?: string
 	return `${url}?quic=${encodeURIComponent(door)}${hash ? `&quichash=${hash}` : ''}`;
 }
 
-/** The deck's character: `?character=`, else the member's avatar body, else the device's last one, else the default. */
-export function characterOf(search: URLSearchParams, me: Me | null, stored: string | null): string {
-	return search.get('character')?.trim() || me?.avatar?.body?.character || stored || DEFAULT_CHARACTER;
+/** The deck's character: `?character=`, else the member's avatar body, else the default. */
+export function characterOf(search: URLSearchParams, me: Me | null): string {
+	return search.get('character')?.trim() || me?.avatar?.body?.character || DEFAULT_CHARACTER;
 }
 
 /** The deck's name at the relay: the member's name, else the guest default (at most 24 characters). */

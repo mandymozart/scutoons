@@ -2,8 +2,8 @@
 	// /live/deck (#198, owner 2026-10-31: "On the S22 I want the same visual as the Rust stage, just in wasm … the
 	// character switcher could be superimposed … with regular Svelte or HTML UI"; "I'd rather ship it in the reader … in
 	// the PWA"): a phone joins the Cathedral of decks as a being. The being and the cathedral fill the screen – deck-space,
-	// the native stage's own code as wasm (@scutoons/live-deck's SpaceStage); over it the character chip and the
-	// controls. Sound: live-core. The relay stream: as the lab's deck (deck.graph / deck.values). Unlisted (no link in
+	// the native stage's own code as wasm (@scutoons/live-deck's SpaceStage); over it the round Play and the
+	// controls (#460: what a member may choose comes later, from the scene's rules). Sound: live-core. The relay stream: as the lab's deck (deck.graph / deck.values). Unlisted (no link in
 	// the navigation); everyone may open it (lib/live-deck.ts `mayJoin` – the one place a gate goes later). A member
 	// joins under their name with their avatar's character; a guest under the guest name. The relay (#199): the hosted
 	// one, wss://live.scutoons.com/live/<code> (VITE_LIVE_URL), the code from the path `/live/deck/<code>` or `?code=`
@@ -14,15 +14,14 @@
 	// deck-space's (Hands → DeckControls, wasm), this page only bridges the DOM, Web MIDI and the pointer to it.
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { Hands, charactersOf, loadControls, loadDeckState, type QualityLevel, type QualityOptions, type QualityPresets, type SpaceQuality, type Spec } from '@scutoons/live-deck';
+	import { Hands, loadControls, loadDeckState, type QualityLevel, type QualityOptions, type QualityPresets, type SpaceQuality, type Spec } from '@scutoons/live-deck';
 	// #298: the engine's bring-up (the deck, the 3D, the sound, the frame loop, the rig for a mood, the statistics) is
 	// @scutoons/engine-host's; this page keeps the relay, the controls and its UI
 	import { createEngineHost, type EngineHost } from '@scutoons/engine-host';
 	import { API_URL, CDN_SERVER, LIVE_QUIC, LIVE_URL } from '$lib/config.ts';
 	import { getSessionContext } from '$lib/contexts/session.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import { CHARACTER_KEY, WASM_BASE, characterOf, mayJoin, nickOf, preferOf, relayOf, rigOf } from '$lib/live-deck.ts';
-	import CharacterChip from '$lib/components/live-deck/character-chip.svelte';
+	import { WASM_BASE, characterOf, mayJoin, nickOf, preferOf, relayOf, rigOf } from '$lib/live-deck.ts';
 	import DeckPanel from '$lib/components/live-deck/deck-panel.svelte';
 	import DeckQualitySheet from '$lib/components/live-deck/deck-quality-sheet.svelte';
 	import DeckSticks from '$lib/components/live-deck/deck-sticks.svelte';
@@ -38,7 +37,6 @@
 	// the sliders: the silent scene's look knobs (#425), or the character's rig's (#191, `?rig=1`)
 	let params = $state<Record<string, Spec>>({});
 	let character = $state('');
-	let characters = $state<{ id: string; name?: Record<string, string> }[]>([]);
 	let mood = $state('');
 	let face = $state('');
 	let started = $state(false);
@@ -169,23 +167,6 @@
 		};
 	});
 
-	const store = {
-		get: () => {
-			try {
-				return localStorage.getItem(CHARACTER_KEY);
-			} catch {
-				return null;
-			}
-		},
-		set: (v: string) => {
-			try {
-				localStorage.setItem(CHARACTER_KEY, v);
-			} catch {
-				/* private mode */
-			}
-		}
-	};
-
 	const status = $derived([syncStatus, spaceStatus, hud].filter(Boolean).join(' · '));
 
 	function showFace() {
@@ -231,7 +212,7 @@
 			await settled();
 			if (!alive || !mayJoin(session.me)) return;
 			const q = page.url.searchParams;
-			character = characterOf(q, session.me, store.get());
+			character = characterOf(q, session.me);
 			// #191: `?rig=1` plays the character's rig (and its bundle while it has one) instead of the silent scene (#425)
 			const host = createEngineHost({
 				api: API_URL,
@@ -297,7 +278,6 @@
 			}
 			await deck.pickCharacter(character);
 			showFace();
-			charactersOf(API_URL, character).then((list) => (characters = list));
 			if (!alive || !stage) return;
 			await host.attach(stage);
 		})();
@@ -311,16 +291,6 @@
 			engine = null;
 		};
 	});
-
-	async function pick(id: string) {
-		if (!engine) return;
-		character = id;
-		store.set(id);
-		await engine.pickCharacter(id);
-		ctl.load(id);
-		ctl.choose('', true);
-		showFace();
-	}
 
 	/** #356: the sound's measurement to the clipboard (the owner pastes it into the issue), else the phone's share sheet;
 	 *  the console has it too */
@@ -361,20 +331,22 @@
 	<div class="stage" bind:this={stage}>
 		{#if !threeD && face}<img class="face" src={face} alt="" crossorigin="anonymous" />{/if}
 	</div>
-	<div class="top">
-		{#if character}
-			<CharacterChip current={character} {characters} {face} {mood} onpick={pick} />
-		{/if}
-	</div>
 	{#if sticksOn}
 		<DeckSticks labels={ctl.labels} ondown={(s) => ctl.hands?.stickDown(s)} onmove={(s, x, y) => ctl.hands?.stickMove(s, x, y)} onup={(s) => ctl.hands?.stickUp(s)} />
+	{/if}
+	<!-- #460: the sound needs a tap; the same round Play as <EngineStage gate> (#298) -->
+	{#if !started}
+		<div class="play sc-tool">
+			<button type="button" class="sc-round" title={starting ? m['live_deck.starting']() : m['live_deck.start']()} aria-label={m['live_deck.start']()} disabled={starting} data-testid="deck-start" onclick={start}>
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor" /></svg>
+			</button>
+		</div>
 	{/if}
 	<div class="bottom">
 		<DeckPanel
 			{values}
 			{params}
 			{started}
-			{starting}
 			{stats}
 			{status}
 			alert={audioAlert}
@@ -385,7 +357,6 @@
 			midi={ctl.midiStatus}
 			mapped={ctl.mapped}
 			turns={ctl.hands?.c ?? null}
-			onstart={start}
 			onset={(p, v) => engine?.deck?.setParam(p, v)}
 			onpick={ctl.pick}
 			onlearn={ctl.toggleLearn}
@@ -440,12 +411,16 @@
 		height: 60%;
 		object-fit: contain;
 	}
-	/* the chip between the menu's round toggles (top left / right) */
-	.top {
+	.play {
 		position: absolute;
-		top: calc(0.5rem + env(safe-area-inset-top));
+		top: 50%;
 		left: 50%;
-		transform: translateX(-50%);
+		transform: translate(-50%, -50%);
+		background: none;
+	}
+	.play svg {
+		width: 1.5rem;
+		height: 1.5rem;
 	}
 	.bottom {
 		position: absolute;

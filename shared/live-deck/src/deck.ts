@@ -364,14 +364,3 @@ export async function portraitsOf(api: string, id: string): Promise<Portraits> {
 	}
 }
 
-/** the characters a deck can wear (`/library/characters`), the current one first if the list lacks it */
-export async function charactersOf(api: string, current: string): Promise<{ id: string; name?: Record<string, string> }[]> {
-	let list: { id: string; name?: Record<string, string> }[] = [];
-	try {
-		list = ((await (await fetch(`${api}/library/characters`)).json()) as { characters?: typeof list }).characters ?? [];
-	} catch {
-		/* offline: the current one only */
-	}
-	if (!list.some((c) => c.id === current)) list.unshift({ id: current });
-	return list;
-}

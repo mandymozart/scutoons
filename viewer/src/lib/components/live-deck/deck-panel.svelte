@@ -1,11 +1,11 @@
 <script lang="ts">
 	// The browser deck's controls over its 3D (#198, #188; #209, owner 2026-10-31: "the debug UI uses OSCT's style …
 	// sliders become circular knobs, like Ableton's … the collapsed panel shows very basic statistics … using the
-	// entire width"): collapsed, one full-width bar – Start (the sound needs a tap), the statistics, the fold; open,
+	// entire width"): collapsed, one full-width bar – the statistics, the fold; open,
 	// every knob as a rotary dial in a dense grid, what the sticks drive now, MIDI learn, the status line. Dense, mono,
 	// the shared tokens – OSCT's debug overlay as #209 describes it. Every control turns the deck's one state; the
 	// being's 3D buttons, the sticks and MIDI turn the same values, so the dials follow them.
-	import { Button, Icon } from '@scutoons/ui';
+	import { Icon } from '@scutoons/ui';
 	import type { KnobTurns, QualityLevel, SpaceQuality, Spec } from '@scutoons/live-deck';
 	import DeckKnob from './deck-knob.svelte';
 	import DeckQuality from './deck-quality.svelte';
@@ -18,7 +18,6 @@
 		values,
 		params = {},
 		started,
-		starting,
 		stats,
 		status,
 		alert = '',
@@ -29,7 +28,6 @@
 		midi = '',
 		mapped,
 		turns = null,
-		onstart,
 		onset,
 		onpick,
 		onlearn,
@@ -52,7 +50,6 @@
 		/** the sliders: the knobs of the scene that plays – the deck's own (#360) or the character's rig's (#191) */
 		params?: Record<string, Spec>;
 		started: boolean;
-		starting: boolean;
 		stats: Stats;
 		/** the detail line: 3D, sync, the hovered button */
 		status: string;
@@ -71,7 +68,6 @@
 		mapped: (path: string) => string;
 		/** #369: the core's controls the knobs turn by (null: none yet) */
 		turns?: KnobTurns | null;
-		onstart: () => void;
 		onset: (path: string, value: number) => void;
 		/** a knob tapped: select it (and arm MIDI learn) */
 		onpick: (path: string) => void;
@@ -138,9 +134,6 @@
 	{/if}
 	{#if alert}<p class="alert" role="alert" data-testid="deck-alert">{alert}</p>{/if}
 	<div class="bar">
-		{#if !started}
-			<Button onclick={onstart} disabled={starting} data-testid="deck-start">{starting ? m['live_deck.starting']() : m['live_deck.start']()}</Button>
-		{/if}
 		<DeckStats {stats} />
 		<button
 			type="button"
@@ -172,7 +165,6 @@
 		background: color-mix(in srgb, var(--ink) 72%, transparent);
 	}
 	/* the full width, edge to edge (OSCT's collapsed bar) */
-	/* before the sound starts a narrow screen puts the statistics under Start; then they have the whole width */
 	.bar {
 		display: flex;
 		flex-wrap: wrap;
@@ -181,9 +173,6 @@
 		padding: 0 var(--space-05) env(safe-area-inset-bottom) var(--space-1);
 		min-height: var(--control-height);
 		border-top: var(--border-width-regular) solid color-mix(in srgb, var(--paper) 15%, transparent);
-	}
-	.bar > :global(button:not(.fold)) {
-		flex: none;
 	}
 	.bar > :global(.stats) {
 		flex: 1 1 16rem;
