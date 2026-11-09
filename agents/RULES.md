@@ -33,6 +33,7 @@ Old section names in code comments (until 2026-11-03): "Backlog" = C · "Git, se
   "leader–follower", never master / slave; a bus that sums children is a folder bus. (2026-11-02 [names])
 - **A12** Readers save nothing; the sound designer lives in the creator (creators / admins), the deck page holds only performance + hardware settings. (2026-11-02 [readers-save-nothing] [designer-in-creator])
 - **A13** `npm run deck:ci` runs locally before every merge / push of deck work (GitHub's deck CI is by hand); phones test over the LAN (`npm run dev:lan`). (2026-10-31 [deck-ci-local])
+- **A14** Naming addresses: the part before `:` says where it comes from (`sound:`, `clock:`, `being:`, a track); places (`deck:`, `scene:`, `character:`, `item:`) and sources never share a word; the part after says what it is, a whole lowercase word, the same everywhere; the address is the identity, what a person reads is a label; every reserved word is listed once in the one parser (rig/address.rs) with a reason. (2026-11-09 [names])
 
 ## B · Sessions, orchestration, models (workspace rules: C:\Development\agents\ORCHESTRATION.md)
 - **B1** At most TWO local sessions at a time across all projects; workers one after another; no cloud sessions. (2026-11-02 [no-cloud]: "no cloud sessions anymore please we have credits")
