@@ -222,6 +222,18 @@ fn routes_reach_the_policy_both_ways() {
     assert!(format!("{:#}", b.play(None, None).unwrap_err()).contains("has no input 'pull'"));
 }
 
+/// #433: a code rig's bound cables leave the policy's box at the rig level, their home the module's Rust, read-only
+#[test]
+fn the_policy_s_bound_cables_are_read_only_at_the_rig_level() {
+    use crate::rig::wiring::Home;
+    let v = code_catpope().play(None, None).unwrap().wire_view("").unwrap();
+    let policy = v.nodes.iter().position(|n| n.id == "policy").expect("the policy's box");
+    let bound: Vec<(&str, &str, &str)> = v.links.iter().filter(|l| l.from == policy).map(|l| (l.out.as_str(), v.nodes[l.to].id.as_str(), l.input.as_str())).collect();
+    assert_eq!(bound, [("voice_index", "voice", "voice.index"), ("drone_gain", "drone", "drone.gain")]);
+    assert!(v.links.iter().filter(|l| l.from == policy).all(|l| l.home == Home::Bound && l.readonly == Some("bound")));
+    assert!(v.nodes[policy].outputs.iter().any(|p| p.name == "voice_index"));
+}
+
 #[test]
 fn the_core_refuses_a_policy_that_does_not_resolve() {
     let refuse = |json: &str, edit: &dyn Fn(&mut Bundle), says: &str| {

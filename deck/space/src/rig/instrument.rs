@@ -72,6 +72,8 @@ pub struct Patch {
     /// the track's output; None = a silent track
     pub out: Option<String>,
     pub mappings: Vec<Mapping>,
+    /// the inputs (`node.port`) whose link the preset added (#433: a cable's home is the preset, not the instrument)
+    pub preset_links: std::collections::BTreeSet<String>,
 }
 
 /// Kinds a scene owns once (graph.rs's sinks + the clock): never inside an instrument – the rig / scene adds them.
@@ -98,7 +100,7 @@ impl Instrument {
     /// must be a silent track: something with an event output to cable), every exposed path a control input.
     pub fn check(&self) -> Result<Graph> {
         let unpatched =
-            Patch { nodes: self.nodes.clone(), links: self.links.clone(), out: self.out.clone(), mappings: vec![] };
+            Patch { nodes: self.nodes.clone(), links: self.links.clone(), out: self.out.clone(), mappings: vec![], preset_links: Default::default() };
         let graph = unpatched.graph().with_context(|| format!("instrument {}", self.id))?;
         if let Some(n) = graph.nodes.iter().find(|n| SCENE_ONLY.contains(&n.kind)) {
             bail!("instrument {}: a {} node belongs to the scene, not to an instrument ({})", self.id, n.kind.name(), n.id);
@@ -197,8 +199,13 @@ impl Instrument {
         for m in preset.mappings.values() {
             self.control_input(&m.target)?;
         }
-        let patch =
-            Patch { nodes, links, out: self.out.clone(), mappings: preset.mappings.values().cloned().collect() };
+        let patch = Patch {
+            nodes,
+            links,
+            out: self.out.clone(),
+            mappings: preset.mappings.values().cloned().collect(),
+            preset_links: preset.links.keys().map(|k| canonical(k)).collect(),
+        };
         patch.graph().with_context(|| format!("instrument {} with its preset", self.id))?;
         Ok(patch)
     }

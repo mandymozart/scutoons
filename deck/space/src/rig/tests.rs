@@ -410,6 +410,21 @@ fn a_rig_names_its_sticks_or_they_come_from_its_first_knobs() {
     assert_eq!(out["sticks"][0][0], "voice_voice.ratio");
 }
 
+/// #433: a preset's re-route is a cable whose home is the preset – shown at the track level, marked read-only
+#[test]
+fn a_presets_link_has_the_preset_as_its_home() {
+    use super::wiring::Home;
+    let mut b = bundle();
+    b.presets.push(toml::from_str("id = \"choir.swayed\"\ninstrument = \"choir\"\nparent = \"choir.base\"\nlink = [{ from = \"sway\", to = \"seq.rate\", scale = 2.0 }]").unwrap());
+    b.rig.tracks[0].preset = Some("choir.swayed".into());
+    let p = b.play(None, None).unwrap();
+    let v = p.wire_view("voice").unwrap();
+    let swayed = v.links.iter().find(|l| v.nodes[l.to].id == "seq" && l.input == "rate").expect("the preset's cable");
+    assert_eq!((&swayed.home, swayed.readonly, swayed.scale), (&Home::Preset { track: "voice".into(), preset: "choir.swayed".into() }, Some("preset"), 2.0));
+    let own = v.links.iter().find(|l| l.input == "cv").expect("the instrument's cable");
+    assert_eq!((&own.home, own.readonly), (&Home::Instrument { track: "voice".into() }, None));
+}
+
 /// catpope's core rig: left = the voice's ratio / index, right = the melody's spread / the drone's pitch
 #[test]
 fn catpopes_core_rig_has_sensible_sticks() {

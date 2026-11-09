@@ -135,6 +135,9 @@ pub struct Played {
     /// a replay's diff leaves them out: a base under such a link would sum with it (decision 2)
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub owned: Vec<String>,
+    /// #433: where each of `links` is written (wiring.rs `Home`), one per link – the editor's, not the page's
+    #[serde(skip)]
+    pub homes: Vec<super::wiring::Home>,
 }
 
 impl Played {
@@ -224,7 +227,7 @@ impl Played {
         let mut it = knobs.iter().map(|k| k.path.clone());
         let sticks = [[it.next().unwrap_or_default(), it.next().unwrap_or_default()], [it.next().unwrap_or_default(), it.next().unwrap_or_default()]];
         let character = scene.being_character();
-        let played = Played { scene: text.to_string(), nodes: scene.nodes, links: scene.links, character, knobs, tracks: Vec::new(), sticks, engine, streamed: Vec::new(), expose: Vec::new(), presets: Vec::new(), owned: Vec::new() };
+        let played = Played { scene: text.to_string(), nodes: scene.nodes, links: scene.links, character, knobs, tracks: Vec::new(), sticks, engine, streamed: Vec::new(), expose: Vec::new(), presets: Vec::new(), owned: Vec::new(), homes: Vec::new() };
         Ok(played.with_facts())
     }
 
@@ -299,7 +302,7 @@ impl Bundle {
     /// `play` with presets chosen per track (track → preset: a code rig's `@preset` outputs, the deck's replay #410)
     pub fn play_with(&self, persona: Option<&str>, mood: Option<&str>, chosen: &BTreeMap<String, String>) -> Result<Played> {
         let lib = self.library();
-        let scene = self.rig.flatten_with(&lib, persona, mood, chosen)?;
+        let (scene, homes) = self.rig.flatten_homes(&lib, persona, mood, chosen)?;
         let tracks = self
             .rig
             .play_with(&lib, persona, mood, chosen)?
@@ -386,7 +389,7 @@ impl Bundle {
         };
         let text = toml::to_string(&doc).context("writing the flattened scene")?;
         let engine = super::engine::lower(&scene)?;
-        let played = Played { scene: text, nodes: scene.nodes, links: scene.links, character, knobs, tracks, sticks, engine, streamed: Vec::new(), expose: Vec::new(), presets, owned };
+        let played = Played { scene: text, nodes: scene.nodes, links: scene.links, character, knobs, tracks, sticks, engine, streamed: Vec::new(), expose: Vec::new(), presets, owned, homes };
         Ok(played.with_facts())
     }
 

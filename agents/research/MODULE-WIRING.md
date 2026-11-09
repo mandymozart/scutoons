@@ -125,7 +125,7 @@ The last segment is always the leaf; a `/` separates levels. Without a leading `
 | W2 | Event ports in the graph, event cables in `route` / `link`, `evhost` joins by them; `Instrument.out` optional (a silent track); stepseq → analog drawn and rewired (finishes #425 slice 3) | M | two sequencer + synth pairs in one rig stay apart (headless, native) |
 | W3 | The fenced `#[port]` table: template, line edits, `real_compile` | S | retarget a policy output by a cable; hand-written code byte-identical in a test |
 | W4 | **Built (#432):** `rig/address.rs`, `Reach`, `Problem.at` (problem.rs), the `sticks` migration, the far world node | M | one parser in the core; all problems listed with their cable |
-| W5 | `wire_view` by level, stubs, `home`; the Nodes tab's level switch; the old `Played::wiring` removed | M | the rules of §4 tested in the core |
+| W5 | **Built (#433), core only:** `Played::wire_view(context)` by level (rig · track · node), stubs named by the other end's rig-level leaf, every cable's `home` (`Rig::flatten_homes`) and read-only reason. Owner 2026-11-09: no browser level switch (hand-wiring UI is native, #444); `Played::wiring` stays as the whole graph the Nodes tab draws until then | M | the rules of §4 tested in the core |
 | W6 | Add / remove nodes, instrument `link` editing with "used by N", the TOML view of a document | M | a rig built from modules with no hand-edited file |
 
 **For the owner (my recommendation first):**

@@ -8,7 +8,7 @@ use super::Played;
 use crate::graph::{Domain, Graph, Kind, PortType};
 use crate::problem::Problem;
 use crate::scene::Scene;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use serde::Serialize;
 
 /// The graph of what a deck plays, for drawing.
@@ -102,6 +102,268 @@ impl Wiring {
     /// no graph, and why: the one sentence, and each problem at its cable or node
     pub fn of_error(e: &anyhow::Error) -> Wiring {
         Wiring { nodes: Vec::new(), links: Vec::new(), problem: format!("{e:#}"), problems: crate::problem::listed(e) }
+    }
+}
+
+/// Where a cable of the played scene is written (#433): the document a gesture on it would change.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Home {
+    /// this track's instrument's `link`
+    Instrument { track: String },
+    /// a preset's re-route (`link`) on this track – shown, marked, not edited here
+    Preset { track: String, preset: String },
+    /// the rig's `route` at this index
+    Route { index: usize },
+    /// flatten made it: the mixer sum, the default `fft.level → space.pulse`
+    Compiled,
+    /// a module's path output bound by `Graph::build` (a code rig's policy): the module's Rust names it
+    Bound,
+}
+
+/// One level of the wiring (research/MODULE-WIRING.md §4): the rig (its tracks, policy and being as boxes), one track
+/// (its instrument's nodes), one node (its ports). The context is an address prefix relative to the rig: "" · `<track>` ·
+/// `<track>:<node>` (a node of the rig's own: `policy`, `fft`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Level {
+    Rig,
+    Track(String),
+    /// the flattened node id
+    Node(String),
+}
+
+/// What one level shows: boxes with the ports cables touch, the cables inside it with their home and whether a gesture
+/// may change them, the cables crossing its edge as stubs named by the other end (one hop: its rig-level leaf), and the
+/// levels above it (the rig first) so a GUI can step up.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct View {
+    pub context: String,
+    pub levels: Vec<String>,
+    pub nodes: Vec<ViewNode>,
+    pub links: Vec<ViewLink>,
+    pub stubs: Vec<Stub>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ViewNode {
+    /// a track's id, `policy`, `being`; at a track level the node's own id (without the track's prefix)
+    pub id: String,
+    /// `track` for a track's box, else the node's kind
+    pub kind: String,
+    pub inputs: Vec<WirePort>,
+    pub outputs: Vec<WirePort>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub world: Option<WireWorld>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ViewLink {
+    /// the cable's index in the played scene's links (a bound one counts on after them): what an edit names
+    pub id: usize,
+    pub from: usize,
+    pub out: String,
+    pub to: usize,
+    pub input: String,
+    #[serde(rename = "type")]
+    pub ty: &'static str,
+    pub scale: f32,
+    pub offset: f32,
+    /// the slot whose value flows on it (`WireLink::value`)
+    pub value: String,
+    pub home: Home,
+    /// why a gesture may not change it (§4 rule 3): `compiled` · `bound` · `owned` · `preset` · `module`; none = editable
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub readonly: Option<&'static str>,
+}
+
+/// A cable crossing the level's edge: the port here, and the other end named by its rig-level leaf (`voice:melody.cv`,
+/// `policy:heat`, `being:pulse`, `sum` for the compiled mix).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Stub {
+    pub id: usize,
+    pub node: usize,
+    pub port: String,
+    /// the cable comes in here (else it leaves)
+    pub input: bool,
+    pub other: String,
+    #[serde(rename = "type")]
+    pub ty: &'static str,
+    pub value: String,
+    pub home: Home,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub readonly: Option<&'static str>,
+}
+
+/// a flattened node's place at the rig level
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum Group {
+    Track(String),
+    Policy,
+    Being,
+    /// the compiled sum: the mixers, `out`, `fft`
+    Sum,
+    /// a node of a scene that is no rig (a deck's own)
+    Own(String),
+}
+
+fn port(ports: &mut Vec<WirePort>, name: &str, ty: &'static str) {
+    if !ports.iter().any(|p| p.name == name) {
+        ports.push(WirePort { name: name.to_string(), ty });
+    }
+}
+
+impl Played {
+    /// the level `context` names (see `Level`): a track's id, `<track>:<node>`, a node of the rig's own, "" = the rig
+    fn level(&self, context: &str) -> Result<Level> {
+        let context = context.trim();
+        if context.is_empty() {
+            return Ok(Level::Rig);
+        }
+        if let Some((track, node)) = context.split_once(':') {
+            let id = format!("{track}_{node}");
+            return if self.nodes.iter().any(|n| n.id == id) { Ok(Level::Node(id)) } else { anyhow::bail!("no node '{node}' in track '{track}'") };
+        }
+        if self.tracks.iter().any(|t| t.track == context) {
+            return Ok(Level::Track(context.to_string()));
+        }
+        if self.nodes.iter().any(|n| n.id == context) {
+            return Ok(Level::Node(context.to_string()));
+        }
+        anyhow::bail!("no track or node '{context}' (a level is \"\", <track> or <track>:<node>)")
+    }
+
+    /// One level of the wiring (#433, MODULE-WIRING §4): see `View`. Errors when the scene does not build as a graph
+    /// or `context` names nothing.
+    pub fn wire_view(&self, context: &str) -> Result<View> {
+        let w = self.wiring()?;
+        let level = self.level(context)?;
+        let is_rig = !self.tracks.is_empty();
+        let group = |n: &WireNode| -> Group {
+            if !n.track.is_empty() {
+                Group::Track(n.track.clone())
+            } else if n.id == super::policy::NODE {
+                Group::Policy
+            } else if n.kind == "space" {
+                Group::Being
+            } else if is_rig && (n.kind == "mixer" || n.kind == "audio_out" || n.kind == "fft") {
+                Group::Sum
+            } else {
+                Group::Own(n.id.clone())
+            }
+        };
+        let local = |n: &WireNode| -> String { n.id.strip_prefix(&format!("{}_", n.track)).filter(|_| !n.track.is_empty()).unwrap_or(&n.id).to_string() };
+        // the rig-level leaf of a node's port – a stub's name
+        let leaf = |i: usize, p: &str| -> String {
+            let n = &w.nodes[i];
+            match group(n) {
+                Group::Track(t) => format!("{t}:{}.{p}", local(n)),
+                Group::Policy => format!("{}:{p}", super::policy::NODE),
+                Group::Being => format!("{}:{p}", super::address::BEING),
+                Group::Sum => "sum".to_string(),
+                Group::Own(id) => format!("{id}.{p}"),
+            }
+        };
+        let scene_links = self.links.len();
+        let home = |k: usize| -> Home { if k < scene_links { self.homes.get(k).cloned().unwrap_or(Home::Compiled) } else { Home::Bound } };
+        let readonly = |l: &WireLink, h: &Home| -> Option<&'static str> {
+            if l.bound {
+                Some("bound")
+            } else if *h == Home::Compiled {
+                Some("compiled")
+            } else if matches!(h, Home::Preset { .. }) {
+                Some("preset")
+            } else if self.owned.contains(&format!("{}.{}", w.nodes[l.to].id, l.input)) {
+                Some("owned")
+            } else {
+                None
+            }
+        };
+        let mut view = View { context: context.trim().to_string(), levels: vec!["rig".to_string()], nodes: Vec::new(), links: Vec::new(), stubs: Vec::new() };
+        match &level {
+            Level::Rig => {
+                // the boxes: the tracks in their order, the policy, the being, a plain scene's own nodes
+                let mut boxes: Vec<(Group, ViewNode)> = self.tracks.iter().map(|t| (Group::Track(t.track.clone()), ViewNode { id: t.track.clone(), kind: "track".into(), inputs: Vec::new(), outputs: Vec::new(), world: None })).collect();
+                for n in &w.nodes {
+                    let g = group(n);
+                    if g != Group::Sum && !boxes.iter().any(|(b, _)| *b == g) {
+                        let id = match &g {
+                            Group::Policy => super::policy::NODE.to_string(),
+                            Group::Being => super::address::BEING.to_string(),
+                            _ => n.id.clone(),
+                        };
+                        let own = matches!(g, Group::Own(_));
+                        boxes.push((g, ViewNode { id, kind: n.kind.clone(), inputs: if own { n.inputs.clone() } else { Vec::new() }, outputs: if own { n.outputs.clone() } else { Vec::new() }, world: n.world.clone() }));
+                    }
+                }
+                let groups: Vec<Group> = boxes.iter().map(|(g, _)| g.clone()).collect();
+                let at = |i: usize| groups.iter().position(|g| *g == group(&w.nodes[i]));
+                // a port's name on its box: `<node>.<port>` in a track, the port alone on the policy and the being
+                let name = |i: usize, p: &str| -> String { if matches!(group(&w.nodes[i]), Group::Track(_)) { format!("{}.{p}", local(&w.nodes[i])) } else { p.to_string() } };
+                for (k, l) in w.links.iter().enumerate() {
+                    let (h, ro) = (home(k), readonly(l, &home(k)));
+                    match (at(l.from), at(l.to)) {
+                        (Some(a), Some(b)) if a != b => {
+                            let (out, input) = (name(l.from, &l.out), name(l.to, &l.input));
+                            port(&mut boxes[a].1.outputs, &out, l.ty);
+                            port(&mut boxes[b].1.inputs, &input, l.ty);
+                            view.links.push(ViewLink { id: k, from: a, out, to: b, input, ty: l.ty, scale: l.scale, offset: l.offset, value: l.value.clone(), home: h, readonly: ro });
+                        }
+                        (Some(a), None) => {
+                            let out = name(l.from, &l.out);
+                            port(&mut boxes[a].1.outputs, &out, l.ty);
+                            view.stubs.push(Stub { id: k, node: a, port: out, input: false, other: leaf(l.to, &l.input), ty: l.ty, value: l.value.clone(), home: h, readonly: ro });
+                        }
+                        (None, Some(b)) => {
+                            let input = name(l.to, &l.input);
+                            port(&mut boxes[b].1.inputs, &input, l.ty);
+                            view.stubs.push(Stub { id: k, node: b, port: input, input: true, other: leaf(l.from, &l.out), ty: l.ty, value: l.value.clone(), home: h, readonly: ro });
+                        }
+                        // inside one box, or inside the sum
+                        _ => {}
+                    }
+                }
+                view.nodes = boxes.into_iter().map(|(_, n)| n).collect();
+            }
+            Level::Track(t) => {
+                view.levels.push(format!("track:{t}"));
+                let inside: Vec<usize> = (0..w.nodes.len()).filter(|&i| group(&w.nodes[i]) == Group::Track(t.clone())).collect();
+                view.nodes = inside.iter().map(|&i| ViewNode { id: local(&w.nodes[i]), kind: w.nodes[i].kind.clone(), inputs: w.nodes[i].inputs.clone(), outputs: w.nodes[i].outputs.clone(), world: w.nodes[i].world.clone() }).collect();
+                let at = |i: usize| inside.iter().position(|&x| x == i);
+                for (k, l) in w.links.iter().enumerate() {
+                    let (h, ro) = (home(k), readonly(l, &home(k)));
+                    match (at(l.from), at(l.to)) {
+                        (Some(a), Some(b)) => view.links.push(ViewLink { id: k, from: a, out: l.out.clone(), to: b, input: l.input.clone(), ty: l.ty, scale: l.scale, offset: l.offset, value: l.value.clone(), home: h, readonly: ro }),
+                        (Some(a), None) => view.stubs.push(Stub { id: k, node: a, port: l.out.clone(), input: false, other: leaf(l.to, &l.input), ty: l.ty, value: l.value.clone(), home: h, readonly: ro }),
+                        (None, Some(b)) => view.stubs.push(Stub { id: k, node: b, port: l.input.clone(), input: true, other: leaf(l.from, &l.out), ty: l.ty, value: l.value.clone(), home: h, readonly: ro }),
+                        (None, None) => {}
+                    }
+                }
+            }
+            Level::Node(id) => {
+                let i = w.nodes.iter().position(|n| &n.id == id).context("the node is in the graph")?;
+                let n = &w.nodes[i];
+                if !n.track.is_empty() {
+                    view.levels.push(format!("track:{}", n.track));
+                    view.levels.push(format!("module:{}:{}", n.track, local(n)));
+                } else {
+                    view.levels.push(format!("module:{}", n.id));
+                }
+                view.nodes.push(ViewNode { id: local(n), kind: n.kind.clone(), inputs: n.inputs.clone(), outputs: n.outputs.clone(), world: n.world.clone() });
+                // the other end of a cable: inside the same track its own `node.port`, else its rig-level leaf
+                let other = |j: usize, p: &str| -> String { if !n.track.is_empty() && w.nodes[j].track == n.track { format!("{}.{p}", local(&w.nodes[j])) } else { leaf(j, p) } };
+                for (k, l) in w.links.iter().enumerate() {
+                    let h = home(k);
+                    // a node's insides are the engine's (a module's: its Rust): nothing here is edited
+                    let ro = Some("module");
+                    if l.from == i {
+                        view.stubs.push(Stub { id: k, node: 0, port: l.out.clone(), input: false, other: other(l.to, &l.input), ty: l.ty, value: l.value.clone(), home: h, readonly: ro });
+                    } else if l.to == i {
+                        view.stubs.push(Stub { id: k, node: 0, port: l.input.clone(), input: true, other: other(l.from, &l.out), ty: l.ty, value: l.value.clone(), home: h, readonly: ro });
+                    }
+                }
+            }
+        }
+        Ok(view)
     }
 }
 
@@ -268,6 +530,54 @@ mod tests {
         );
         // fed by nothing, it is a source; its cables into the audio half cross threads, so they order nothing
         assert_eq!(node(&w, "policy").1.depth, 0);
+    }
+
+    /// #433 §4: the rig level – the tracks and the being as boxes with the ports cables touch, the compiled sum as stubs
+    /// (read-only), the default pulse into the being from the sum; the level chain is the rig alone
+    #[test]
+    fn the_rig_level_shows_tracks_the_being_and_the_sum_as_stubs() {
+        let p = Bundle::core("character.catpope").unwrap().unwrap().play(None, None).unwrap();
+        let v = p.wire_view("").unwrap();
+        assert_eq!(v.levels, ["rig"]);
+        assert_eq!(v.nodes.iter().map(|n| (n.id.as_str(), n.kind.as_str())).collect::<Vec<_>>(), [("voice", "track"), ("drone", "track"), ("being", "space")]);
+        assert!(v.links.is_empty(), "catpope's core rig has no route");
+        let stubs: Vec<(&str, &str, bool, &str)> = v.stubs.iter().map(|s| (v.nodes[s.node].id.as_str(), s.port.as_str(), s.input, s.other.as_str())).collect();
+        assert_eq!(stubs, [("voice", "voice.out", false, "sum"), ("drone", "mix.out", false, "sum"), ("being", "pulse", true, "sum")], "{stubs:?}");
+        assert!(v.stubs.iter().all(|s| s.home == Home::Compiled && s.readonly == Some("compiled")));
+        assert_eq!(v.nodes[0].outputs.iter().map(|p| (p.name.as_str(), p.ty)).collect::<Vec<_>>(), [("voice.out", "audio")]);
+        assert_eq!(v.nodes[2].inputs.iter().map(|p| p.name.as_str()).collect::<Vec<_>>(), ["pulse"]);
+        assert!(p.wire_view("nobody").is_err() && p.wire_view("voice:nobody").is_err());
+    }
+
+    /// the track level: the instrument's nodes by their own ids, its links with their home (editable), the sum as a stub
+    #[test]
+    fn the_track_level_shows_the_instrument_and_names_its_cables_home() {
+        let p = Bundle::core("character.catpope").unwrap().unwrap().play(None, None).unwrap();
+        let v = p.wire_view("voice").unwrap();
+        assert_eq!(v.levels, ["rig", "track:voice"]);
+        assert_eq!(v.nodes.iter().map(|n| (n.id.as_str(), n.kind.as_str())).collect::<Vec<_>>(), [("voice", "fm"), ("melody", "walk")]);
+        assert_eq!(v.links.len(), 1);
+        let l = &v.links[0];
+        assert_eq!((v.nodes[l.from].id.as_str(), l.out.as_str(), v.nodes[l.to].id.as_str(), l.input.as_str(), l.value.as_str()), ("melody", "cv", "voice", "cv", "voice_melody.cv"));
+        assert_eq!((&l.home, l.readonly), (&Home::Instrument { track: "voice".into() }, None));
+        assert_eq!(v.stubs.iter().map(|s| (v.nodes[s.node].id.as_str(), s.port.as_str(), s.input, s.other.as_str(), s.readonly)).collect::<Vec<_>>(), [("voice", "out", false, "sum", Some("compiled"))]);
+        assert_eq!(p.links.len(), p.homes.len(), "one home per link");
+    }
+
+    /// the node level: its ports, every cable at them as a stub (inside the track by the node's own name), all read-only
+    #[test]
+    fn the_node_level_is_its_ports_and_stubs() {
+        let p = Bundle::core("character.catpope").unwrap().unwrap().play(None, None).unwrap();
+        let v = p.wire_view("voice:voice").unwrap();
+        assert_eq!(v.levels, ["rig", "track:voice", "module:voice:voice"]);
+        assert_eq!((v.nodes.len(), v.nodes[0].id.as_str(), v.nodes[0].kind.as_str()), (1, "voice", "fm"));
+        assert!(v.nodes[0].inputs.iter().any(|p| p.name == "ratio"), "every port, cabled or not");
+        let stubs: Vec<(&str, bool, &str)> = v.stubs.iter().map(|s| (s.port.as_str(), s.input, s.other.as_str())).collect();
+        assert_eq!(stubs, [("cv", true, "melody.cv"), ("out", false, "sum")]);
+        assert!(v.stubs.iter().all(|s| s.readonly == Some("module")));
+        let own = p.wire_view("fft").unwrap();
+        assert_eq!(own.levels, ["rig", "module:fft"]);
+        assert!(own.stubs.iter().any(|s| s.port == "level" && !s.input && s.other == "being:pulse"));
     }
 
     #[test]

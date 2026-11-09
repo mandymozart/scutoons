@@ -72,6 +72,27 @@ fn two_pairs_are_two_cables_and_the_ports_are_events() {
     }
 }
 
+/// #433: the rig's routes are the rig level's cables (home: the route), and a track level shows the one into it as a
+/// stub named by the other end's rig-level leaf
+#[test]
+fn routes_are_rig_level_cables_and_track_level_stubs() {
+    use super::wiring::Home;
+    let p = bundle(TWO_PAIRS, "").play(None, None).unwrap();
+    let rig = p.wire_view("").unwrap();
+    assert_eq!(rig.nodes.iter().map(|n| n.id.as_str()).collect::<Vec<_>>(), ["a_seq", "a_synth", "b_seq", "b_synth", "being"]);
+    let cables: Vec<(&str, &str, &str, &str)> = rig.links.iter().map(|l| (rig.nodes[l.from].id.as_str(), l.out.as_str(), rig.nodes[l.to].id.as_str(), l.input.as_str())).collect();
+    assert_eq!(cables, [("a_seq", "seq.notes", "a_synth", "synth.notes"), ("b_seq", "seq.notes", "b_synth", "synth.notes")]);
+    assert_eq!(rig.links.iter().map(|l| (&l.home, l.ty, l.readonly)).collect::<Vec<_>>(), [(&Home::Route { index: 0 }, "event", None), (&Home::Route { index: 1 }, "event", None)]);
+    assert!(rig.nodes[0].outputs.iter().any(|p| p.name == "seq.notes" && p.ty == "event"));
+    let track = p.wire_view("a_synth").unwrap();
+    assert_eq!(track.levels, ["rig", "track:a_synth"]);
+    let stubs: Vec<(&str, &str, bool, &str, &Home)> = track.stubs.iter().map(|s| (track.nodes[s.node].id.as_str(), s.port.as_str(), s.input, s.other.as_str(), &s.home)).collect();
+    // in the scene's link order: the strip into the sum first, the route after it
+    assert_eq!(stubs, [("synth", "out", false, "sum", &Home::Compiled), ("synth", "notes", true, "a_seq:seq.notes", &Home::Route { index: 0 })]);
+    let module = p.wire_view("a_synth:synth").unwrap();
+    assert_eq!(module.stubs.iter().map(|s| s.other.as_str()).collect::<Vec<_>>(), ["sum", "a_seq:seq.notes"], "another track's end by its rig-level leaf");
+}
+
 #[test]
 fn a_silent_track_has_no_strip_and_no_outlet() {
     let b = bundle(TWO_PAIRS, "");
