@@ -27,7 +27,7 @@ Builds on LIVE.md B.5 (show, outlets, cells), LIVE-LENSES.md, and the decisions 
 | The conductor has a performance mode and needs a way to configure and create; it may belong in the deck editor | 2026-11-09 `[live]` |
 | A parent may lock another member's sub conductor only if that seat accepted it | 2026-11-09 `[live]` |
 | Each subtree launches its own rows | 2026-11-09 `[live]` |
-| Show documents need a relation to the tree | 2026-11-10 `[live]` |
+| One show document per conductor, related by seats saved in the parent's document | 2026-11-10 `[live]` |
 | **GO is always allowed.** The conductor can start whatever; it is their responsibility | 2026-11-09 `[live]` |
 | Relations are built on hierarchy with fallbacks: "callcenter or Arbeitsamt". For every entity, down to module and parameter | 2026-11-09 `[events]` |
 | **An address that finds nobody does not fall back upward. It stays silent, and that is logged** | 2026-11-09 `[events]` |
@@ -75,7 +75,7 @@ Three separate things: the **show** (a document saved in an account, versioned, 
 - **A child treats its parent like a reader:** the parent's row arrives as an event and the child's rule applies: follow = auto, suggest = its operator decides, free = ignored. One mechanism for triggers and delegation. The local GO always works.
 - Today: decks pair with a key pair and get exactly their owner's rights (`server/src/Domain/Decks/Decks.php`); rigs have `lent / owned / core`; the relay token names session, role, show. No show documents, seats or invitations, and a deck of one member cannot read another's media.
 - **A parent may lock another member's child only if the seat accepted it** (owner). Without that, the lock from above does not cross members. Proposal: the invitation says whether the seat can be locked, so accepting the seat is accepting the lock, and every seat shows it.
-- **The relation between show documents** (the owner asks for one, 2026-11-10; the form is a proposal): **the seat is the relation, and it is saved in the parent's document.** A seat holds: its name, the child show and its version, the deck or member sitting there, the word (follow, suggest, free), whether it can be locked, and what the parent uses of the child's face (rows, events, outlets).
+- **The relation between show documents** (owner, 2026-11-10): **one document per conductor, and the seat is the relation, saved in the parent's document.** A seat holds: its name, the child show and its version, the deck or member sitting there, the word (follow, suggest, free), whether it can be locked, and what the parent uses of the child's face (rows, events, outlets).
   - The child does not name its parent, so it stays reusable. Same direction as a rig: "the children are the rig document's, not the module's" (`rig/face.rs`).
   - The tree is read by following seats from the top. No third document, and a cycle is refused on save.
   - "Used by" is a server question, as for assets; another member sees the seats they accepted.
@@ -184,10 +184,9 @@ A cell is a piece and its values. A piece is a scene, rig or module; the current
 
 ## 12. Open
 
-1. One show document per conductor, related through seats in the parent's document (§4b; proposed: a child can be built, rehearsed and reused alone), or one for the whole tree?
-2. Do the LIVE.md changes in §10 stand, above all the stage builder moving and "not a clip launcher"?
-3. What fits before the Top Toy workshop?
-4. Multichannel pan (#459), labels (#461) and nesting (#458) touch this; nesting should follow §4.
+1. Do the LIVE.md changes in §10 stand, above all the stage builder moving and "not a clip launcher"?
+2. What fits before the Top Toy workshop?
+3. Multichannel pan (#459), labels (#461) and nesting (#458) touch this; nesting should follow §4.
 
 ## 13. Drafts
 
