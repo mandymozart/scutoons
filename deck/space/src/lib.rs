@@ -7,6 +7,7 @@ pub mod context;
 pub mod controls;
 pub mod deck;
 pub mod devices;
+pub mod far;
 pub mod gamepad;
 pub mod gesture;
 pub mod graph;

@@ -678,6 +678,14 @@ impl Session {
                 }
                 self.deliver(id, e);
             }
+            Message::DeckListen(_) | Message::DeckEvents(_) => {
+                // #442: a deck's far asks and the events answering them – to `to` (the decks' group, one subscriber), in
+                // order, never logged or replayed; the relay reads no address
+                if e.to.is_none() {
+                    e.to = Some(To::group(DECKS));
+                }
+                self.deliver(id, e);
+            }
             Message::React(_) | Message::Pickup(_) | Message::Devices(_) | Message::DeviceIn(_) => {
                 // to the conductor (B.6: pickups are checked against the API there, like the reader does – TODO with
                 // the session API; reacts feed its meter; device input is mapped to actions there)

@@ -49,7 +49,7 @@ impl Stage {
         let nowhere = Path::new("/nowhere");
         let mut space = Space::new(&graph, node, &scene.being, nowhere, Portraits::local(nowhere));
         let (sync, cache) = sync.map_or((None, None), |(s, c)| (Some(s), Some(c)));
-        space.connect(Some(relay), Some("dev".into()), None, sync.clone().map(|s| Box::new(s) as Box<dyn Syncs>), None);
+        space.connect(Some(relay), Some("dev".into()), None, sync.clone().map(|s| Box::new(s) as Box<dyn Syncs>), None, None);
         Stage { ctl: Controls::new(&graph, None), space, sync, cache }
     }
 

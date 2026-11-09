@@ -12,6 +12,7 @@
 //!   that leads. A link for the clock alone (`Join::Deck` without a being) sends no graph.
 use crate::live::socket::{self, Side};
 use crate::tempo::relay::ShowLink;
+use deck_space::far::{FarTable, Subscriptions};
 use deck_space::relay::{Client, Options, Out, DECKS};
 use protocol::{DeckGraph, DeckMidi, DeckQuality, DeckSynced, DeckValues, Pong, Role, SceneSync};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -40,6 +41,8 @@ enum Give {
     Quality(DeckQuality),
     /// #211: the deck's MIDI outputs for the conductor (only while joined – stale MIDI is dropped, not sent later)
     Midi(DeckMidi),
+    /// #442: the engine's far world nodes and event outputs
+    Far(FarTable),
 }
 
 /// the running client: its events, its outbox, its HUD line; stops when dropped
@@ -72,7 +75,7 @@ impl Link {
         let (tx, outbox) = mpsc::channel();
         let status = Arc::new(Mutex::new(client.line()));
         let stop = Arc::new(AtomicBool::new(false));
-        let mut side = Deck { outbox, events, status: status.clone(), sync, seen: 0, show };
+        let mut side = Deck { outbox, events, status: status.clone(), sync, seen: 0, show, far: None, subs: Subscriptions::default(), sending: Vec::new() };
         let halt = stop.clone();
         std::thread::Builder::new().name("cathedral".into()).spawn(move || socket::run(client, &mut side, &halt, None, POLL)).map_err(|e| e.to_string())?;
         Ok(Link { rx, tx, status, stop })
@@ -96,6 +99,10 @@ impl Wire for Link {
         let _ = self.tx.send(Give::Midi(midi));
     }
 
+    fn far(&self, table: FarTable) {
+        let _ = self.tx.send(Give::Far(table));
+    }
+
     fn recv(&self) -> Option<In> {
         self.rx.try_recv().ok()
     }
@@ -114,6 +121,29 @@ struct Deck {
     /// the last sync answer handed to the client
     seen: u64,
     show: Option<Arc<ShowLink>>,
+    /// #442: the engine's far world nodes and event outputs, once the frame handed them over
+    far: Option<FarTable>,
+    /// who asked this deck for which outputs
+    subs: Subscriptions,
+    /// scratch: (client, event) per poll
+    sending: Vec<(String, protocol::DeckEvent)>,
+}
+
+impl Deck {
+    /// #442, each poll: this deck's event outputs to their subscribers (one message per client, in order), lapsed
+    /// subscriptions dropped
+    fn far_out(&mut self, c: &mut Client, now: f64) {
+        let Some(table) = self.far.as_mut() else { return };
+        self.subs.expire(now);
+        self.sending.clear();
+        table.drain(&self.subs, &mut self.sending);
+        while let Some((client, _)) = self.sending.first() {
+            let client = client.clone();
+            let events: Vec<protocol::DeckEvent> = self.sending.iter().filter(|(cl, _)| *cl == client).map(|(_, e)| e.clone()).collect();
+            self.sending.retain(|(cl, _)| *cl != client);
+            c.events(&client, events);
+        }
+    }
 }
 
 impl Side for Deck {
@@ -124,8 +154,14 @@ impl Side for Deck {
                 Give::Push(s) => c.push(s),
                 Give::Quality(q) => c.quality(q),
                 Give::Midi(m) => c.midi(m),
+                Give::Far(table) => {
+                    c.set_listen(now, table.addresses());
+                    self.far = Some(table);
+                    self.subs = Subscriptions::default();
+                }
             }
         }
+        self.far_out(c, now);
         if let Some((n, r)) = self.sync.as_ref().and_then(|y| y.synced(self.seen)) {
             self.seen = n;
             c.synced(now, r);
@@ -174,6 +210,22 @@ impl Side for Deck {
             }
             Out::Deck(i) => {
                 let _ = self.events.send(i);
+            }
+            // #442: another deck asks for far addresses – what names this deck's outputs is served from now on
+            Out::Listen { client, addresses } => {
+                if let Some(t) = &self.far {
+                    let offered = t.offers(&addresses);
+                    if !offered.is_empty() {
+                        tracing::info!("far events: {client} asks for {}", offered.iter().map(|(a, _)| a.as_str()).collect::<Vec<_>>().join(", "));
+                    }
+                    self.subs.listen(&client, offered, socket::now_ms());
+                }
+            }
+            // #442: events for this deck's far world nodes, into their rings
+            Out::Events { events, .. } => {
+                if let Some(t) = self.far.as_mut() {
+                    t.take(&events);
+                }
             }
             _ => {}
         }

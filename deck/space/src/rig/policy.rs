@@ -215,12 +215,12 @@ impl Rig {
 
     /// What the core says but does not refuse (decision 2): each preset a track may play (its own, a persona's or mood's,
     /// a policy's choice) whose value on an owned input is dropped – once per preset and input; and a far world node
-    /// (#432) whose address nothing carries into this deck yet (#442).
+    /// (#432), which plays only while the deck its address names is in the session (#442).
     pub fn warnings(&self, lib: &Library) -> Result<Vec<String>> {
         let targets = self.targets(lib)?;
         let mut out = Vec::new();
         for (track, node, a) in self.far_world_nodes(lib) {
-            out.push(format!("world node '{node}' (track {track}): not connected yet – nothing carries '{a}' into this deck (#442)"));
+            out.push(format!("world node '{node}' (track {track}): listens over the relay for '{a}' – it plays only while the deck it names is in the session (#442)"));
         }
         for t in targets.iter().filter(|t| t.owns()) {
             let Member::Input(path) = &t.member else { continue };

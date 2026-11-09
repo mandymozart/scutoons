@@ -30,7 +30,7 @@ fn main() {
         let node = graph.first(Kind::Space).unwrap();
         let nowhere = Path::new("/nowhere");
         let mut space = Space::new(&graph, node, &scene.being, nowhere, Portraits::local(nowhere));
-        space.connect(Some(&relay), None, Some(format!("stand-in {}", i + 1)), None, None);
+        space.connect(Some(&relay), None, Some(format!("stand-in {}", i + 1)), None, None, None);
         let ctl = Controls::new(&graph, None);
         decks.push((graph, ctl, space));
     }

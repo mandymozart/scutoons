@@ -480,7 +480,8 @@ Owner 2026-10-30: "Baked into the image is not what I want … The API should de
 A deck is a screen outlet of a Live show (research/LIVE-LENSES.md, DECISIONS 2026-10-30): the scene's `outlet` node
 joins the relay as `output` of this deck's outlet and draws the cells the conductor sends – no browser. Settings:
 `relay = "ws://<host>:7700/live/<code>"`, `outlet = "left"`, `locale` in `/var/lib/deck/deck.toml`, or `--relay`,
-`--outlet`, `--locale`; with an outlet set and no `--scene` the stage plays `scenes/outlet.toml` (a space node → the
+`--outlet`, `--locale`; `name = "left"` there names the deck for other decks' far world nodes (`/deck:left/…`, #442,
+deck-space far.rs – a deck without a name answers none); with an outlet set and no `--scene` the stage plays `scenes/outlet.toml` (a space node → the
 outlet → the screen). No relay set = the hosted `wss://live.scutoons.com/live/CATH` (#199); both clients speak ws:// and
 wss:// (`config::dial` – tungstenite with rustls + the webpki roots, no OpenSSL). `src/live/`:
 

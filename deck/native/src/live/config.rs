@@ -28,6 +28,9 @@ pub struct Settings {
     pub outlet: Option<String>,
     #[serde(default)]
     pub locale: Option<String>,
+    /// #442: this deck's name – the place `deck:<name>` other decks' far world nodes address; none = it answers none
+    #[serde(default)]
+    pub name: Option<String>,
 }
 
 impl Settings {
@@ -47,7 +50,7 @@ impl Settings {
     /// `over`'s keys win (the CLI over deck.toml); empty strings count as unset
     pub fn merged(self, over: Settings) -> Settings {
         let pick = |a: Option<String>, b: Option<String>| b.filter(|s| !s.is_empty()).or(a.filter(|s| !s.is_empty()));
-        Settings { relay: pick(self.relay, over.relay), outlet: pick(self.outlet, over.outlet), locale: pick(self.locale, over.locale) }
+        Settings { relay: pick(self.relay, over.relay), outlet: pick(self.outlet, over.outlet), locale: pick(self.locale, over.locale), name: pick(self.name, over.name) }
     }
 
     /// The outlet to play: None when the outlet is unset; the hosted relay when the relay is (#199); Err when the

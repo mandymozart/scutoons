@@ -154,8 +154,8 @@ fn a_bad_world_node_is_refused_when_the_rig_is_played() {
 }
 
 /// #432: a far world node names another place (here a deck): the rig builds and plays, the node is drawn with its
-/// address, the wiring and the validator list it as not connected (a warning, not a refusal), and a cable from it hears
-/// nothing until #442 carries the events. Naming the rig itself is a cable's job.
+/// address, the wiring and the validator list that it plays only while that deck is in the session (a warning, not a
+/// refusal; the link carries the events, far.rs #442). Naming the rig itself is a cable's job.
 #[test]
 fn a_far_world_node_is_accepted_silent_and_listed() {
     let b = bundle(
@@ -178,7 +178,7 @@ fn a_far_world_node_is_accepted_silent_and_listed() {
     assert_eq!((world.source, world.address.as_deref()), ("far", Some("/deck:left/scene:nave/character:catpope/analog:seq.notes")));
     assert_eq!(w.problems.len(), 1, "{:?}", w.problems);
     assert_eq!(w.problems[0].at, "world node 'far_in'");
-    assert!(w.problems[0].says.contains("not connected yet") && w.problems[0].says.contains("#442"), "{}", w.problems[0]);
+    assert!(w.problems[0].says.contains("over the relay") && w.problems[0].says.contains("#442"), "{}", w.problems[0]);
     // the validator: no problem, one warning naming the node and its track
     let request = super::validate::Request {
         kind: "rigs".into(),
@@ -191,7 +191,7 @@ fn a_far_world_node_is_accepted_silent_and_listed() {
     let a = request.answer().unwrap();
     assert_eq!(a.problems, Vec::<String>::new());
     assert_eq!(a.warnings.len(), 1, "{:?}", a.warnings);
-    assert!(a.warnings[0].contains("world node 'in' (track far)") && a.warnings[0].contains("not connected yet"), "{:?}", a.warnings);
+    assert!(a.warnings[0].contains("world node 'in' (track far)") && a.warnings[0].contains("over the relay"), "{:?}", a.warnings);
     // the rig's own place is the rig itself: inside it a cable joins the ports
     let mut own = b.clone();
     own.instruments[2].nodes[0].params.insert("address".into(), toml::Value::String("character:keys/synth:synth.notes".into()));

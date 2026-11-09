@@ -134,14 +134,14 @@ impl Instrument {
         Ok(graph)
     }
 
-    /// What the core says but does not refuse (#432): a far world node's address is valid, and nothing carries its events
-    /// into this deck yet (#442).
+    /// What the core says but does not refuse (#432): a far world node's address is valid, and it plays only while the
+    /// deck it names is in the session (#442).
     pub fn warnings(&self) -> Vec<String> {
         self.nodes
             .iter()
             .filter(|n| n.kind == Kind::World.name())
             .filter_map(|n| match World::read(&n.id, &n.params) {
-                Ok(World { source: Source::Far(a), .. }) => Some(format!("instrument {}: world node '{}': not connected yet – nothing carries '{a}' into this deck (#442)", self.id, n.id)),
+                Ok(World { source: Source::Far(a), .. }) => Some(format!("instrument {}: world node '{}': listens over the relay for '{a}' – it plays only while the deck it names is in the session (#442)", self.id, n.id)),
                 _ => None,
             })
             .collect()

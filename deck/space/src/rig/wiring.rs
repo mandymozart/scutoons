@@ -20,7 +20,7 @@ pub struct Wiring {
     #[serde(skip_serializing_if = "String::is_empty")]
     pub problem: String,
     /// each problem at its cable or node (#432): the ones behind `problem`, or on a graph that built, what is listed but
-    /// not refused – a far world node not connected yet (#442)
+    /// not refused – a far world node that depends on another deck being in the session (#442)
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub problems: Vec<Problem>,
 }
@@ -159,7 +159,7 @@ impl Played {
         // #432: a far world node is drawn and cabled, and listed as not connected until #442 carries its events
         let problems = nodes
             .iter()
-            .filter_map(|n| n.world.as_ref().and_then(|w| w.address.as_ref()).map(|a| Problem::new(format!("world node '{}'", n.id), format!("not connected yet – nothing carries '{a}' into this deck (#442)"))))
+            .filter_map(|n| n.world.as_ref().and_then(|w| w.address.as_ref()).map(|a| Problem::new(format!("world node '{}'", n.id), format!("listens over the relay for '{a}' – it plays only while the deck it names is in the session (#442)"))))
             .collect();
         // the scene's links come first in the graph's list, a module's bound outputs after them
         let links = g

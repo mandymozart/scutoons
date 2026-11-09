@@ -12,7 +12,7 @@
 //!
 //! **Reach** (owner 2026-11-08, decisions/deck.md [rigs]: wide from the start – other scenes, characters and rigs, so linked
 //! decks can affect each other): `resolve` is the one function that says what an address stands for in a document –
-//! `Local` (the leaf, here) or `Far` (another place: valid, and nothing carries it yet – the transport between decks is
+//! `Local` (the leaf, here) or `Far` (another place: the deck's link asks the named deck for it over the relay, far.rs,
 //! #442). Widening or narrowing the reach changes this function, never a document. A rig holds relative addresses only
 //! (it stays portable); the absolute address sits on a world node (world.rs `Source::Far`).
 //!

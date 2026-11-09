@@ -504,6 +504,32 @@ mod events {
         assert_eq!((cue.props.get(names.get("level").unwrap()), cue.props.get(names.get("x").unwrap())), (Some(0.25), Some(0.75)));
     }
 
+    /// #442: a far world node's cable gets a ring of its own, handed out with its address and filter; what the link
+    /// pushes there plays like a MIDI world node's events – and the outbox rings come with their slots
+    #[test]
+    fn a_far_world_node_has_its_own_ring_and_the_outbox_names_its_slots() {
+        let text = "[[node]]\nid=\"w\"\nkind=\"world\"\nsource=\"far\"\naddress=\"/deck:left/scene:nave/character:catpope/analog:seq.notes\"\nlisten=[\"music.note\"]\n\
+                    [[node]]\nid=\"li\"\nkind=\"module:t_listener\"\n[[node]]\nid=\"e\"\nkind=\"module:t_emitter\"\n[[link]]\nfrom=\"w.events\"\nto=\"li.notes\"\n";
+        let (mut e, mut h, src) = build(text, 2);
+        assert!(!h.events.has_routes(), "a far node joins no dispatcher route");
+        let mut far = h.events.take_far();
+        assert_eq!(far.len(), 1);
+        assert_eq!((far[0].0.as_str(), far[0].1.as_slice()), ("/deck:left/scene:nave/character:catpope/analog:seq.notes", &["music.note".to_string()][..]));
+        let slots: Vec<String> = h.events.take_outbox_slots().into_iter().map(|(s, _)| s).collect();
+        assert_eq!(slots, ["e.echo", "e.cues"], "each outbox ring with its slot");
+        let note = h.events.names.get("music.note").unwrap();
+        let pitch = h.events.names.get("pitch").unwrap();
+        far[0].2.push(Event::now(note).lasting(Time::Seconds(0.001)).with(pitch, 440.0)).unwrap();
+        for _ in 0..3 {
+            quantum(&mut e, 2);
+        }
+        let seen = src.seen(0);
+        let seen = seen.lock().unwrap();
+        let kinds: Vec<Option<EvKind>> = seen.events.iter().map(|(_, ev)| ev.kind()).collect();
+        assert_eq!(kinds, [Some(EvKind::NoteOn), Some(EvKind::NoteOff)], "the far note plays at once, its off from its length");
+        assert_eq!(seen.events[0].1.frame, 0);
+    }
+
     #[test]
     fn world_events_land_on_their_frame_with_the_off_from_their_duration_and_late_ones_at_zero() {
         let (mut e, mut h, src) = build(WORLD_NOTES, 2);

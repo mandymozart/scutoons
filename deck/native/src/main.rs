@@ -343,7 +343,7 @@ struct Show {
 /// the Live outlet's settings from the CLI (deck.toml's under them – live/config.rs)
 #[cfg(feature = "live")]
 fn outlet_settings(args: &Args) -> deck_native::live::config::Settings {
-    deck_native::live::config::Settings { relay: args.relay.clone(), outlet: args.outlet.clone(), locale: args.locale.clone() }
+    deck_native::live::config::Settings { relay: args.relay.clone(), outlet: args.outlet.clone(), locale: args.locale.clone(), name: None }
 }
 
 /// a relay and an outlet are set (deck.toml or the CLI): the deck is a Live outlet
@@ -553,7 +553,7 @@ impl Show {
                 let hook = sync.clone().map(|y| Box::new(y) as Box<dyn deck_native::space::link::Syncs>);
                 #[cfg(not(feature = "sync"))]
                 let hook = None;
-                s.connect(relay.as_deref(), args.token.clone(), Some(scene.stage.name.clone()), hook, Some(show_link.clone()));
+                s.connect(relay.as_deref(), args.token.clone(), Some(scene.stage.name.clone()), hook, Some(show_link.clone()), handles.as_mut().and_then(|h| deck_native::space::far_table(h, &scene.stage.name)));
                 // the conductor pushes the scene's sync once joined (decks that come later find it in their snapshot)
                 if s.join == deck_native::space::Join::Conductor {
                     match s.push_for(args.scene.as_deref(), &scene.stage.name, args.sync.as_deref()) {

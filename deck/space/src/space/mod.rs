@@ -330,6 +330,13 @@ impl Space {
         (self.join == Join::Deck).then(|| wire::deck_graph(&self.graph, &self.being.look, &self.being.moods))
     }
 
+    /// #442: the engine's far world nodes and event outputs to the link (nothing without one)
+    pub fn wire_far(&self, table: crate::far::FarTable) {
+        if let Some(l) = &self.link {
+            l.far(table);
+        }
+    }
+
     /// The session's link (deck-native's link.rs: the relay at `ws://host:port/live/<code>`, joined as the space node's
     /// `join` says – a deck streams its being, the conductor gathers the decks'), or why there is none (the HUD).
     pub fn attach(&mut self, link: Result<Box<dyn Wire>, String>) {

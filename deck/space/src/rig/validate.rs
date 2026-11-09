@@ -9,7 +9,8 @@
 //!
 //! The lookups travel by value: the instruments it names, the presets it names with their ancestors, a code rig's policy
 //! module's descriptor (the API reads them from its catalog). Every problem a check lists is in the answer, each naming
-//! its cable, node or track (problem.rs, #432); a far world node is a warning – valid, not connected yet (#442).
+//! its cable, node or track (problem.rs, #432); a far world node is a warning – valid, and it plays only while the deck
+//! it names is in the session (#442).
 use super::bundle::Bundle;
 use super::{Instrument, Library, Preset, PresetBook, Rig};
 use crate::problem::sentences;

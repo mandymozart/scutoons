@@ -78,7 +78,8 @@ struct In {
     props: Vec<Sym>,
     /// the index of the port's note name, if it takes notes
     note: Option<u16>,
-    world: Option<rtrb::Consumer<Event>>,
+    /// the world's rings into this input: the dispatcher's (a MIDI world node's cable), a far deck's (#442) – any number
+    world: Vec<rtrb::Consumer<Event>>,
     links: Vec<rtrb::Consumer<(u64, Ev)>>,
     /// (absolute frame, the record) not due yet, in arrival order
     pending: Vec<(u64, Ev)>,
@@ -128,13 +129,14 @@ pub(crate) fn wire(graph: &Graph, prepared: &mut [Option<Prepared>], ev: &mut Ev
         let mut ins = Vec::new();
         for (port, e) in l.events_in.iter().enumerate() {
             let (names, note, props) = intern(&mut ev.names, &e.names, &e.props, &at(&e.name))?;
-            ins.push(In { port, names, props, note, world: None, links: Vec::new(), pending: Vec::with_capacity(PENDING), held: Vec::with_capacity(HELD), next_id: 1 });
+            ins.push(In { port, names, props, note, world: Vec::new(), links: Vec::new(), pending: Vec::with_capacity(PENDING), held: Vec::with_capacity(HELD), next_id: 1 });
         }
         let mut outs = Vec::new();
         for (port, e) in l.events_out.iter().enumerate() {
             let (names, note, props) = intern(&mut ev.names, &e.names, &e.props, &at(&e.name))?;
             let (tx, rx) = rtrb::RingBuffer::new(RING);
             ev.outbox.push(rx);
+            ev.outbox_slots.push(format!("{}.{}", graph.nodes[i].id, e.name));
             outs.push(Out { port, names, props, note, links: Vec::new(), world: tx, open: Vec::with_capacity(HELD) });
         }
         all[i] = Some(Ports { ins, outs, scratch: Vec::with_capacity(PENDING + HELD), keys, tuning });
@@ -160,7 +162,7 @@ pub(crate) fn wire(graph: &Graph, prepared: &mut [Option<Prepared>], ev: &mut Ev
                             let (tx, rx) = rtrb::RingBuffer::new(RING);
                             let t = ev.outlets.len();
                             ev.outlets.push(tx);
-                            all[b].as_mut().expect("wired above").ins[k].world = Some(rx);
+                            all[b].as_mut().expect("wired above").ins[k].world.push(rx);
                             world_rings.push(((b, k), t));
                             t
                         }
@@ -179,8 +181,13 @@ pub(crate) fn wire(graph: &Graph, prepared: &mut [Option<Prepared>], ev: &mut Ev
                     let note = pb.ins[k].note.ok_or_else(|| anyhow!("node '{}': a generator's cable needs a note input", graph.nodes[b].id))?;
                     generators.push((a, b, k, vec![note]));
                 }
-                // #432: a far place's events – nothing carries them into this deck yet (#442): the input hears nothing from it
-                Source::Far(_) => {}
+                // #442: a far place's events come through the link (deck-space far.rs): a ring of this cable's own, the
+                // address and the filter for the link to match on
+                Source::Far(a) => {
+                    let (tx, rx) = rtrb::RingBuffer::new(RING);
+                    all[b].as_mut().expect("wired above").ins[k].world.push(rx);
+                    ev.far.push((a.to_string(), w.listen.clone(), tx));
+                }
             }
             continue;
         }
@@ -319,12 +326,13 @@ impl Ports {
         let (from, to) = (start.max(0.0) as u64, start.max(0.0) as u64 + n as u64);
         let swapping = inst.swapping();
         for inp in &mut self.ins {
-            if let Some(mut w) = inp.world.take() {
+            let mut worlds = std::mem::take(&mut inp.world);
+            for w in &mut worlds {
                 while let Ok(e) = w.pop() {
                     inp.take(&e, map, start, &self.keys, &self.tuning);
                 }
-                inp.world = Some(w);
             }
+            inp.world = worlds;
             for k in 0..inp.links.len() {
                 while let Ok((at, ev)) = inp.links[k].pop() {
                     inp.queue(at, ev);
