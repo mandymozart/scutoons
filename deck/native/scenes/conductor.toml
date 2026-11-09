@@ -90,7 +90,7 @@ react = [
   { mood = "acceptance", set = "space.light", by = 0.1, release = 5 },
 ]
 
-# the show's clock – the decks' beings breathe on it too
+# the show's clock
 [[node]]
 id = "tempo"
 kind = "tempo"

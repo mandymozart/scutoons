@@ -10,6 +10,8 @@ pub const IDLE_S: f32 = 4.0;
 pub const AUTO_RAD_S: f32 = 0.05;
 const PITCH_MIN: f32 = -1.2;
 const PITCH_MAX: f32 = 1.4;
+/// a free camera's limit: just short of the poles, where "up" would be undefined
+const POLE: f32 = 1.56;
 /// the zoom glides to where the wheel / pinch sent it (owner 2026-10-31: "a bit of damping … it should ease in and
 /// smooth out. Flowing", #224): the time constant of the distance's ease, s – ~95 % there after 3 of them
 pub const ZOOM_EASE_S: f32 = 0.12;
@@ -70,6 +72,8 @@ pub struct Orbit {
     pub idle: f32,
     /// turn slowly by itself once idle (the space node's `auto_turn`; off by default)
     pub auto: bool,
+    /// an editor's camera (#454): the pivot stays where the hand put it, the pitch goes to the poles
+    pub free: bool,
     home: (f32, f32, f32),
 }
 
@@ -87,6 +91,7 @@ impl Orbit {
             fov_y: 55f32.to_radians(),
             idle: IDLE_S,
             auto: false,
+            free: false,
             home: (yaw, pitch, distance),
         }
     }
@@ -140,8 +145,44 @@ impl Orbit {
     /// a drag by (dx, dy) pixels: right turns the camera to the left around the target, up looks from above
     pub fn drag(&mut self, dx: f32, dy: f32) {
         self.yaw = wrap_angle(self.yaw - dx * 0.006);
-        self.pitch = (self.pitch + dy * 0.006).clamp(PITCH_MIN, PITCH_MAX);
+        let (lo, hi) = if self.free { (-POLE, POLE) } else { (PITCH_MIN, PITCH_MAX) };
+        self.pitch = (self.pitch + dy * 0.006).clamp(lo, hi);
         self.idle = 0.0;
+    }
+
+    /// the camera's right, up and back in the world
+    fn basis(&self) -> [Vec3; 3] {
+        let v = self.view();
+        [Vec3::new(v.x_axis.x, v.y_axis.x, v.z_axis.x), Vec3::new(v.x_axis.y, v.y_axis.y, v.z_axis.y), Vec3::new(v.x_axis.z, v.y_axis.z, v.z_axis.z)]
+    }
+
+    /// a drag by (dx, dy) pixels of a view `view_h` pixels high moves the view sideways, the pivot with it: the point at
+    /// the pivot's depth stays under the pointer
+    pub fn pan(&mut self, dx: f32, dy: f32, view_h: f32) {
+        let [right, up, _] = self.basis();
+        let per_pixel = 2.0 * self.distance * (self.fov_y * 0.5).tan() / view_h.max(1.0);
+        let by = (up * dy - right * dx) * per_pixel;
+        self.target += by;
+        self.goal += by;
+        self.idle = 0.0;
+    }
+
+    /// look along a world axis (0 x, 1 y, 2 z) from its plus side, or from its minus side
+    pub fn view_along(&mut self, axis: usize, plus: bool) {
+        use std::f32::consts::{FRAC_PI_2, PI};
+        let s = if plus { 1.0 } else { -1.0 };
+        (self.yaw, self.pitch) = match axis {
+            0 => (s * FRAC_PI_2, 0.0),
+            1 => (0.0, s * POLE),
+            _ => (if plus { 0.0 } else { PI }, 0.0),
+        };
+        self.idle = 0.0;
+    }
+
+    /// the world's x, y and z on the screen: each axis as (right, down, toward the eye), of length 1 in all three
+    pub fn axes(&self) -> [(f32, f32, f32); 3] {
+        let [right, up, back] = self.basis();
+        [Vec3::X, Vec3::Y, Vec3::Z].map(|a| (a.dot(right), -a.dot(up), a.dot(back)))
     }
 
     /// `steps` > 0 moves in (a wheel notch = 1, 12 % each); the camera glides there in `step`
@@ -213,6 +254,46 @@ fn wrap_angle(a: f32) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_pan_moves_the_pivot_sideways_and_keeps_the_distance() {
+        let mut c = Orbit::new(Vec3::ZERO, 0.0, 0.0, 4.0);
+        c.pan(100.0, 0.0, 800.0);
+        assert!(c.target.x < 0.0, "dragged right, the world follows the hand: {:?}", c.target);
+        assert!(c.target.y.abs() < 1e-5 && c.target.z.abs() < 1e-5);
+        assert_eq!(c.goal, c.target);
+        assert_eq!(c.distance, 4.0);
+    }
+
+    #[test]
+    fn looking_along_an_axis_puts_the_eye_on_it() {
+        let mut c = Orbit::new(Vec3::ZERO, 0.3, 0.2, 4.0);
+        c.free = true;
+        for (axis, plus, want) in [(0, true, Vec3::X), (0, false, -Vec3::X), (2, true, Vec3::Z), (2, false, -Vec3::Z), (1, true, Vec3::Y), (1, false, -Vec3::Y)] {
+            c.view_along(axis, plus);
+            assert!(c.eye().normalize().distance(want) < 0.02, "{axis} {plus}: {:?}", c.eye());
+        }
+    }
+
+    #[test]
+    fn the_axes_on_the_screen_follow_the_view() {
+        let mut c = Orbit::new(Vec3::ZERO, 0.0, 0.0, 4.0);
+        c.view_along(2, true);
+        let [x, y, z] = c.axes();
+        assert!((x.0 - 1.0).abs() < 1e-4, "x points right: {x:?}");
+        assert!((y.1 + 1.0).abs() < 1e-4, "y points up the screen: {y:?}");
+        assert!((z.2 - 1.0).abs() < 1e-4, "z points at the eye: {z:?}");
+    }
+
+    #[test]
+    fn only_a_free_camera_reaches_the_poles() {
+        let mut c = Orbit::new(Vec3::ZERO, 0.0, 0.0, 4.0);
+        c.drag(0.0, 10_000.0);
+        assert_eq!(c.pitch, PITCH_MAX);
+        c.free = true;
+        c.drag(0.0, 10_000.0);
+        assert_eq!(c.pitch, POLE);
+    }
 
     fn close(a: Vec3, b: Vec3) -> bool {
         (a - b).length() < 1e-3

@@ -4,7 +4,8 @@
 //! direction, more and bigger the more it changes (control links: the change against the value's recent range; audio
 //! links: the block peak of the source's output buffer; video links: a steady trickle). Every point carries its node's
 //! control inputs as 3D buttons (crate::params ranges); a button on a linked input shows the hose's value and can't be
-//! turned. The body drifts slowly and breathes on the tempo clock.
+//! turned. The body drifts slowly and breathes calmly, whatever the music does (owner 2026-11-09: "the characters are
+//! still bouncing to the beat. can we remove this finally."); the sound shows in the light, the hoses and the bubbles.
 //!
 //! **The head** (phase 5, owner 2026-10-30: "the portrait becomes the being's head … the interface between organic and
 //! synthetic", Ghost in the Shell): the character's portrait mood sprite on a curved face plate over a dark machine
@@ -94,7 +95,7 @@ pub struct Look {
     pub size: f32,
     /// how far it floats around its spot (m)
     pub drift: f32,
-    /// how much it swells on the beat (a fraction of its size)
+    /// how much its slow breath swells it (a fraction of its size)
     pub breath: f32,
     /// each point's own small sway (a fraction of the size)
     pub wobble: f32,
@@ -209,6 +210,23 @@ pub struct Point {
     pub level: f32,
     /// a colour control on this node (a hue button): the point wears the colour it is set to
     pub colour: Option<usize>,
+    /// its node's kind: the ports around it
+    kind: Kind,
+}
+
+/// how far a node's ports sit from its point, against the being's size
+const PORT_REACH: f32 = 0.16;
+
+/// where port `i` of a point sits this frame: around the point in the plane facing the eye, inputs left, outputs right
+fn port_at(p: &Point, eye: Option<Vec3>, reach: f32, i: usize, input: bool) -> Vec3 {
+    const STEP: f32 = 0.5;
+    let n = if input { p.kind.inputs().len() } else { p.kind.outputs().len() };
+    let to_eye = eye.and_then(|e| (e - p.pos).try_normalize()).unwrap_or(Vec3::Z);
+    let right = Vec3::Y.cross(to_eye).try_normalize().unwrap_or(Vec3::X);
+    let up = to_eye.cross(right);
+    let (base, side) = if input { (std::f32::consts::PI, -1.0) } else { (0.0, 1.0) };
+    let angle = base + side * (i as f32 - (n as f32 - 1.0) * 0.5) * STEP;
+    p.pos + (right * angle.cos() + up * angle.sin()) * reach
 }
 
 #[derive(Debug, Clone)]
@@ -217,6 +235,9 @@ pub struct Hose {
     pub link: usize,
     pub from: usize,
     pub to: usize,
+    /// its ends' ports: the output's index on `from`, the input's on `to`
+    from_port: usize,
+    to_port: usize,
     pub ty: PortType,
     pub radius: f32,
     /// the curve's four control points (world, this frame)
@@ -435,6 +456,10 @@ pub struct TubeVertex {
 
 pub struct Being {
     pub look: Look,
+    /// an editor's hand is on it (#454): no drift, no sway, no breath; the points hold still
+    still: bool,
+    /// 0..1, how far it has settled
+    held: f32,
     pub points: Vec<Point>,
     pub hoses: Vec<Hose>,
     pub buttons: Vec<Button>,
@@ -521,7 +546,7 @@ impl Being {
                 Domain::Video => 0.0,
                 Domain::Control => -0.18,
             };
-            points.push(Point { node: i, rest, pos: rest, radius, tint, phase: h * TAU, flash: 0.0, level: 0.0, colour: None });
+            points.push(Point { node: i, rest, pos: rest, radius, tint, phase: h * TAU, flash: 0.0, level: 0.0, colour: None, kind: graph.nodes[i].kind });
         }
         let point_of = |node: usize| points.iter().position(|p| p.node == node).expect("a point per node");
         let hoses = graph
@@ -539,6 +564,8 @@ impl Being {
                     link: li,
                     from: point_of(l.from.0),
                     to: point_of(l.to.0),
+                    from_port: l.from.1,
+                    to_port: l.to.1,
                     ty: l.ty,
                     radius: s * r * look.hose,
                     ctrl: [Vec3::ZERO; 4],
@@ -660,6 +687,8 @@ impl Being {
         let feel = Feel::new(graph, &look.feel, &look.react, &mut moods, (hash(&look.character) * 16_777_216.0) as u32 ^ 0x9e37_79b9);
         Being {
             look: look.clone(),
+            still: false,
+            held: 0.0,
             points,
             hoses,
             buttons,
@@ -737,6 +766,26 @@ impl Being {
         self.center + Vec3::Y * self.look.size * 1.3 * self.swell
     }
 
+    /// an editor holds the body still (at once: no easing, a rig replayed under the hand)
+    pub fn hold(&mut self, still: bool, at_once: bool) {
+        self.still = still;
+        if at_once {
+            self.held = if still { 1.0 } else { 0.0 };
+        }
+    }
+
+    /// where a node's port sits this frame (world)
+    pub fn port_world(&self, node: usize, port: &str, input: bool) -> Option<Vec3> {
+        let p = self.points.iter().find(|p| p.node == node)?;
+        let i = if input { p.kind.input(port) } else { p.kind.output(port) }?;
+        Some(port_at(p, self.eye, self.look.size * PORT_REACH, i, input))
+    }
+
+    /// is it held still
+    pub fn held(&self) -> bool {
+        self.still
+    }
+
     /// One frame: the body's pose (drift, breath, sway), the hoses' curves and bubbles, the buttons' values, the head's
     /// energy and mood. Never allocates.
     pub fn update(&mut self, dt: f32, time: f32, vals: &dyn Values, beat: &tempo::Now) {
@@ -747,20 +796,17 @@ impl Being {
             self.hue = vals.input(node, "hue", params::default(Kind::Space, "hue"));
             self.glow = vals.input(node, "glow", params::default(Kind::Space, "glow"));
         }
-        // breath: a swell on each beat and a slow wave over the bar; without a running clock a calm 0.2 Hz
-        let b = if beat.running {
-            let on = (1.0 - beat.pos.phase as f32).powi(3);
-            0.6 * on + 0.4 * (0.5 - 0.5 * (TAU * beat.pos.bar_phase as f32).cos())
-        } else {
-            0.5 - 0.5 * (TAU * 0.2 * time).cos()
-        };
-        let pulse = self.core_point.map_or(0.0, |c| vals.input(self.points[c].node, "pulse", 0.0));
-        self.pulse = pulse;
-        self.swell = 1.0 + look.breath * (b + 0.5 * pulse);
-        let d = look.drift;
+        let goal = if self.still { 1.0 } else { 0.0 };
+        self.held += (goal - self.held) * (1.0 - (-dt.max(0.0) / 0.25).exp());
+        let calm = 1.0 - self.held;
+        // breath: a calm 0.2 Hz, never the beat or the level (the core's light takes `pulse`)
+        let b = 0.5 - 0.5 * (TAU * 0.2 * time).cos();
+        self.pulse = self.core_point.map_or(0.0, |c| vals.input(self.points[c].node, "pulse", 0.0));
+        self.swell = 1.0 + look.breath * b * calm;
+        let d = look.drift * calm;
         self.center = self.anchor + Vec3::new(d * (0.13 * time).sin(), 0.6 * d * (0.21 * time + 1.0).sin(), d * (0.17 * time + 2.0).sin());
         for p in &mut self.points {
-            let w = look.wobble * s;
+            let w = look.wobble * s * calm;
             let ph = p.phase;
             let sway = Vec3::new((1.3 * time + ph).sin(), (1.7 * time + 2.0 * ph).sin(), (1.1 * time + 3.0 * ph).sin()) * w;
             p.pos = self.center + p.rest * self.swell + if p.rest == Vec3::ZERO { Vec3::ZERO } else { sway };
@@ -772,7 +818,11 @@ impl Being {
             p.level *= fall;
         }
         for h in &mut self.hoses {
-            let (a, b) = (self.points[h.from].pos, self.points[h.to].pos);
+            // held for an editor, the hoses plug into the ports (owner 2026-11-09: "those tubes should go between ins and outs")
+            let reach = s * PORT_REACH;
+            let (pa, pb) = (&self.points[h.from], &self.points[h.to]);
+            let a = pa.pos.lerp(port_at(pa, self.eye, reach, h.from_port, false), self.held);
+            let b = pb.pos.lerp(port_at(pb, self.eye, reach, h.to_port, true), self.held);
             let out = |p: Vec3| (p - center).try_normalize().unwrap_or(Vec3::Y);
             let bow = 0.35 * (b - a).length() + 0.1 * s;
             h.ctrl = [a, a + out(a) * bow, b + out(b) * bow, b];
@@ -1785,15 +1835,44 @@ mod tests {
     }
 
     #[test]
-    fn it_breathes_on_the_beat() {
+    fn the_beat_does_not_move_it() {
         let g = graph(SCENE);
         let mut b = Being::new(&g, &Look::default());
         let c = Table::new(&g);
-        b.update(0.0, 0.0, &Local { ctl: &c, meter: &|_, _| 0.0 }, &now(8.0));
-        let on = b.swell;
-        b.update(0.0, 0.0, &Local { ctl: &c, meter: &|_, _| 0.0 }, &now(8.9));
-        assert!(on > b.swell, "fuller on the beat than just before the next");
+        b.update(0.0, 1.0, &Local { ctl: &c, meter: &|_, _| 0.0 }, &now(8.0));
+        let on = (b.swell, b.points[0].pos);
+        b.update(0.0, 1.0, &Local { ctl: &c, meter: &|_, _| 0.0 }, &now(8.9));
+        assert_eq!(on, (b.swell, b.points[0].pos), "the same on the beat and just before the next");
         assert!(b.head().y > b.center.y + b.look.size);
+    }
+
+    #[test]
+    fn held_still_the_hoses_end_at_the_ports() {
+        let g = graph(SCENE);
+        let mut b = Being::new(&g, &Look::default());
+        let c = Table::new(&g);
+        b.hold(true, true);
+        b.update(0.016, 1.0, &Local { ctl: &c, meter: &|_, _| 0.0 }, &now(8.0));
+        let h = &b.hoses[0];
+        let l = &g.links[h.link];
+        let out = g.nodes[l.from.0].kind.outputs()[l.from.1].name;
+        let inp = g.nodes[l.to.0].kind.inputs()[l.to.1].name;
+        assert_eq!(h.ctrl[0], b.port_world(l.from.0, out, false).expect("its output"));
+        assert_eq!(h.ctrl[3], b.port_world(l.to.0, inp, true).expect("its input"));
+        assert_ne!(h.ctrl[0], b.points[h.from].pos, "not the node's middle");
+    }
+
+    #[test]
+    fn held_still_it_does_not_move_at_all() {
+        let g = graph(SCENE);
+        let mut b = Being::new(&g, &Look::default());
+        let c = Table::new(&g);
+        b.hold(true, true);
+        b.update(0.016, 1.0, &Local { ctl: &c, meter: &|_, _| 0.0 }, &now(8.0));
+        let first: Vec<Vec3> = b.points.iter().map(|p| p.pos).collect();
+        b.update(0.016, 7.3, &Local { ctl: &c, meter: &|_, _| 0.0 }, &now(9.5));
+        assert_eq!(first, b.points.iter().map(|p| p.pos).collect::<Vec<_>>());
+        assert_eq!(b.swell, 1.0);
     }
 
     /// phase 5: silence is the first mood; a loud, fast deck walks up to the last – a new mood only once it has held,

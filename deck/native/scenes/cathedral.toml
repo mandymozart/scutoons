@@ -174,7 +174,7 @@ volume = 0.8
 # the space: the set by id (its 3D at `quality`: <sets>/cathedral/cathedral.<quality>.glb, synced from the API), where
 # the being floats (`at` in the set's metres – in the nave, ahead of the reader's view; or `spot` = a spot of the set +
 # `lift`), the camera's start (yaw / pitch in degrees, distance in metres – yaw 279 looks the way the reader's view
-# does); hue / glow colour the being, light dims the set, pulse kicks its breath; `join` = how it takes part in a session with a relay set (deck · conductor ·
+# does); hue / glow colour the being, light dims the set, pulse kicks its light; `join` = how it takes part in a session with a relay set (deck · conductor ·
 # alone)
 [[node]]
 id = "space"

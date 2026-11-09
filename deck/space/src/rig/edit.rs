@@ -20,6 +20,8 @@
 //!   related to the nodes): the same serde form the core sets ship in (deck/native/rigs) and the deck image reads; the
 //!   ids in the text are the view's ids. Stored as JSON as today; comments are not kept (§6 Q5).
 use super::address::{Address, Leaf};
+use super::bundle::Bundle;
+use super::wiring::Home;
 use super::instrument::canonical;
 use super::{Instrument, Library, Preset, Rig, Route, Track};
 use crate::graph::{Kind, PortType};
@@ -310,6 +312,57 @@ fn preset(p: &mut Preset, op: &Op, lib: &Library) -> Result<(), String> {
     }
 }
 
+/// both ends in one track: that track and the ends as its instrument names them (`node.port`)
+fn inside_track(from: &str, to: &str) -> Result<Option<(String, String, String)>, String> {
+    Ok(match (Address::leaf(from)?, Address::leaf(to)?) {
+        (Leaf::Port { track: Some(x), node: n1, port: p1 }, Leaf::Port { track: Some(y), node: n2, port: p2 }) if x == y => Some((x, format!("{n1}.{p1}"), format!("{n2}.{p2}"))),
+        _ => None,
+    })
+}
+
+impl Bundle {
+    fn on_instrument(&self, track: &str, op: &Op) -> Result<Bundle, String> {
+        let id = &self.rig.tracks.iter().find(|t| t.id == track).ok_or_else(|| format!("rig {}: no track '{track}'", self.rig.subject))?.instrument;
+        let at = self.instruments.iter().position(|i| &i.id == id).ok_or_else(|| format!("rig {}: unknown instrument \"{id}\"", self.rig.subject))?;
+        let mut doc = Doc::Instruments(self.instruments[at].clone());
+        doc.apply(op, &self.library())?;
+        let Doc::Instruments(changed) = doc else { unreachable!("an instrument stays an instrument") };
+        let mut next = self.clone();
+        next.instruments[at] = changed;
+        Ok(next)
+    }
+
+    fn on_rig(&self, op: &Op) -> Result<Bundle, String> {
+        let mut doc = Doc::Rigs(self.rig.clone());
+        doc.apply(op, &self.library())?;
+        let Doc::Rigs(rig) = doc else { unreachable!("a rig stays a rig") };
+        Ok(Bundle { rig, ..self.clone() })
+    }
+
+    /// A cable drawn between two `track:node.port` ends, on the document that holds it (#431): inside one track its
+    /// instrument's `link`, between tracks the rig's `route`.
+    pub fn connected(&self, from: &str, to: &str) -> Result<Bundle, String> {
+        match inside_track(from, to)? {
+            Some((track, f, t)) => self.on_instrument(&track, &Op::Connect { from: f, to: t, scale: 1.0, offset: 0.0 }),
+            None => self.on_rig(&Op::Connect { from: from.to_string(), to: to.to_string(), scale: 1.0, offset: 0.0 }),
+        }
+    }
+
+    /// The cable `from` → `to` cut, on the document its `home` says (#431); the sentence why when no gesture may change it.
+    pub fn cut(&self, from: &str, to: &str, home: &Home) -> Result<Bundle, String> {
+        match home {
+            Home::Route { .. } => self.on_rig(&Op::Disconnect { to: to.to_string(), from: Some(from.to_string()) }),
+            Home::Instrument { track } => {
+                let (_, f, t) = inside_track(from, to)?.ok_or_else(|| format!("{from} → {to} is not inside track '{track}'"))?;
+                self.on_instrument(track, &Op::Disconnect { to: t, from: Some(f) })
+            }
+            Home::Preset { preset, .. } => Err(format!("{from} → {to} is a re-route of preset {preset}: edit the preset")),
+            Home::Compiled => Err(format!("{from} → {to} is made by the rig's flatten: it cannot be cut")),
+            Home::Bound => Err(format!("{from} → {to} is bound by the module's Rust: it cannot be cut")),
+        }
+    }
+}
+
 /// Which tracks of which rigs play `instrument`: (subject, track), in the rigs' order – "used by N" before an edit.
 pub fn used_by(rigs: &[Rig], instrument: &str) -> Vec<(String, String)> {
     rigs.iter().flat_map(|r| r.tracks.iter().filter(|t| t.instrument == instrument).map(|t| (r.subject.clone(), t.id.clone()))).collect()
@@ -348,6 +401,50 @@ pub fn from_toml_json(request: &str) -> Result<String> {
     let r: Request = serde_json::from_str(request).context("not a text { kind, toml }")?;
     let doc = Doc::from_toml(&r.kind, &r.toml).map_err(anyhow::Error::msg)?;
     Ok(serde_json::to_string(&doc)?)
+}
+
+#[cfg(test)]
+mod gesture_tests {
+    use super::*;
+
+    fn catpope() -> Bundle {
+        Bundle::core("character.catpope").expect("the core rig").expect("it reads")
+    }
+
+    #[test]
+    fn a_cable_inside_a_track_lands_in_the_instrument() {
+        let b = catpope();
+        let next = b.connected("drone:drone.out", "drone:fifth.cv").expect("inside the track");
+        assert_eq!(next.rig, b.rig, "the rig is not its home");
+        assert_ne!(next.instruments, b.instruments);
+    }
+
+    #[test]
+    fn a_cable_between_tracks_lands_in_the_rig() {
+        let b = catpope();
+        let next = b.connected("voice:voice.out", "drone:mix.in3").expect("between tracks");
+        assert_eq!(next.rig.routes.len(), b.rig.routes.len() + 1);
+        assert_eq!(next.instruments, b.instruments);
+    }
+
+    #[test]
+    fn a_cut_goes_to_the_home_of_the_cable() {
+        let b = catpope();
+        let home = Home::Instrument { track: "voice".into() };
+        let next = b.cut("voice:melody.cv", "voice:voice.cv", &home).expect("the instrument's link");
+        assert_ne!(next.instruments, b.instruments);
+        let drawn = b.connected("voice:voice.out", "drone:mix.in3").expect("drawn");
+        let back = drawn.cut("voice:voice.out", "drone:mix.in3", &Home::Route { index: 0 }).expect("the route");
+        assert_eq!(back.rig.routes, b.rig.routes);
+    }
+
+    #[test]
+    fn what_no_gesture_may_change_says_so() {
+        let b = catpope();
+        assert!(b.cut("a:b.c", "d:e.f", &Home::Compiled).expect_err("compiled").contains("cannot be cut"));
+        assert!(b.cut("a:b.c", "d:e.f", &Home::Bound).expect_err("bound").contains("cannot be cut"));
+        assert!(b.cut("a:b.c", "a:e.f", &Home::Preset { track: "a".into(), preset: "p".into() }).expect_err("preset").contains("edit the preset"));
+    }
 }
 
 #[cfg(test)]

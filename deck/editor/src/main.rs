@@ -44,10 +44,12 @@ struct Args {
     draft: Option<PathBuf>,
     /// a check run's drag, by the pointer's own path: from a port to a port (their addresses)
     gesture: Option<(String, String)>,
+    /// a check run's view along an axis: 0 1 2 = +x +y +z, 3 4 5 = -x -y -z
+    view: Option<usize>,
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { rig: "catpope".into(), frames: None, screenshot: None, tokens: None, stress: false, volume: 0.5, size: None, wire: false, draft: None, gesture: None };
+    let mut a = Args { rig: "catpope".into(), frames: None, screenshot: None, tokens: None, stress: false, volume: 0.5, size: None, wire: false, draft: None, gesture: None, view: None };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -59,6 +61,7 @@ fn args() -> Result<Args> {
             "--volume" => a.volume = val()?.parse()?,
             "--stress" => a.stress = true,
             "--wire" => a.wire = true,
+            "--view" => a.view = Some(val()?.parse()?),
             "--draft" => a.draft = Some(PathBuf::from(val()?)),
             "--gesture" => {
                 let v = val()?;
@@ -72,7 +75,7 @@ fn args() -> Result<Args> {
                 a.size = Some((w.trim().parse()?, h.trim().parse()?));
             }
             "--help" | "-h" => {
-                println!("deck-editor [--rig catpope] [--frames N] [--screenshot FILE] [--tokens FILE] [--stress] [--size W,H] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO]");
+                println!("deck-editor [--rig catpope] [--frames N] [--screenshot FILE] [--tokens FILE] [--stress] [--size W,H] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5]");
                 std::process::exit(0);
             }
             other => anyhow::bail!("unknown argument {other}"),
@@ -108,6 +111,8 @@ enum Hit {
     Mode(bool),
     /// a port, by its index in the stage's list
     Port(usize),
+    /// the view gizmo: an axis (0 1 2 = +x +y +z, 3 4 5 = the minus sides), or its ball
+    Axis(Option<usize>),
 }
 
 /// what is being dragged
@@ -117,8 +122,15 @@ enum Drag {
     Knob(usize, f32, f32),
     Stress(usize, f32, f32),
     Select,
-    /// a cable from this port
+    /// a new cable from this port
     Cable(usize),
+    /// the cable into this input, pulled off: dropped on nothing it is cut, on another input it moves
+    Grab(usize),
+    /// the camera, from this pointer position
+    Orbit(f32, f32),
+    Pan(f32, f32),
+    /// the view gizmo: the axis pressed, whether it has moved, the last position
+    Gizmo(Option<usize>, bool, f32, f32),
 }
 
 /// a port on the screen this frame (logical pixels)
@@ -186,8 +198,10 @@ struct App {
     marks: Vec<Mark>,
     notice: Option<Notice>,
     /// the rigs before each change: ctrl+z
-    undo: Vec<deck_space::rig::Rig>,
+    undo: Vec<deck_space::rig::Bundle>,
     draft: PathBuf,
+    /// the ports the cable in the hand may reach (the core's answer, per port)
+    reach: Vec<bool>,
 }
 
 fn main() {
@@ -233,6 +247,7 @@ fn run() -> Result<i32> {
         notice: None,
         undo: Vec::new(),
         draft,
+        reach: Vec::new(),
     };
     event_loop.run_app(&mut app).context("the event loop")?;
     let summary = app.summary();
@@ -301,7 +316,23 @@ impl App {
                 let to = self.panel.field.byte_at_char(col);
                 self.panel.field.go(to, true);
             }
-            Some(Drag::Cable(_)) => {}
+            Some(Drag::Cable(_) | Drag::Grab(_)) => {}
+            Some(Drag::Orbit(lx, ly)) => {
+                self.stage.space.camera.drag(x - lx, y - ly);
+                self.panel.drag = Some(Drag::Orbit(x, y));
+            }
+            Some(Drag::Pan(lx, ly)) => {
+                let (s, top) = (self.scale(), self.tokens.tokens.size.bar);
+                let h = self.gpu.as_ref().map_or(720.0, |g| g.size().1 as f32 / s) - top;
+                self.stage.space.camera.pan(x - lx, y - ly, h);
+                self.panel.drag = Some(Drag::Pan(x, y));
+            }
+            Some(Drag::Gizmo(axis, moved, lx, ly)) => {
+                if moved || (x - lx).abs() + (y - ly).abs() > 3.0 {
+                    self.stage.space.camera.drag(x - lx, y - ly);
+                    self.panel.drag = Some(Drag::Gizmo(axis, true, x, y));
+                }
+            }
             None => {
                 if let Hit::Stage = self.hit(x, y) {
                     let s = self.scale();
@@ -335,24 +366,82 @@ impl App {
                 self.focus(true);
             }
             Hit::Mode(on) => self.wire = on,
-            Hit::Port(i) => self.panel.drag = Some(Drag::Cable(i)),
-            Hit::Stage | Hit::Nothing => self.focus(false),
+            Hit::Port(i) => {
+                let p = &self.stage.ports[i];
+                if p.input && !p.cables.is_empty() {
+                    match wires::pulled(&self.stage.bundle, p) {
+                        Ok(_) => {
+                            self.reach = wires::reachable_moved(&self.stage.bundle, &self.stage.ports, p);
+                            self.panel.drag = Some(Drag::Grab(i));
+                        }
+                        Err(sentence) => self.say(sentence, x, y, true),
+                    }
+                } else {
+                    self.reach = wires::reachable(&self.stage.bundle, &self.stage.ports, p);
+                    self.panel.drag = Some(Drag::Cable(i));
+                }
+            }
+            Hit::Axis(a) => self.panel.drag = Some(Drag::Gizmo(a, false, x, y)),
+            Hit::Stage => {
+                self.focus(false);
+                self.panel.drag = Some(Drag::Orbit(x, y));
+            }
+            Hit::Nothing => self.focus(false),
+        }
+    }
+
+    /// the middle button orbits, with shift it pans; the right button pans
+    fn press_view(&mut self, button: MouseButton) {
+        let (x, y) = self.cursor;
+        if matches!(self.hit(x, y), Hit::Stage | Hit::Port(_)) {
+            let pan = button == MouseButton::Right || self.mods.shift_key();
+            self.panel.drag = Some(if pan { Drag::Pan(x, y) } else { Drag::Orbit(x, y) });
         }
     }
 
     /// the button let go: a cable dropped on a port is a gesture on the rig
     fn release(&mut self) {
-        let Some(Drag::Cable(a)) = self.panel.drag.take() else { return };
+        let a = match self.panel.drag.take() {
+            Some(Drag::Cable(a)) => a,
+            Some(Drag::Grab(a)) => return self.drop_grabbed(a),
+            Some(Drag::Gizmo(Some(axis), false, ..)) => {
+                self.stage.space.camera.view_along(axis % 3, axis < 3);
+                return;
+            }
+            _ => return,
+        };
         let (x, y) = self.cursor;
         let Hit::Port(b) = self.hit(x, y) else { return };
         if a == b {
             return;
         }
         let (Some(pa), Some(pb)) = (self.stage.ports.get(a), self.stage.ports.get(b)) else { return };
-        match wires::connect(&self.stage.bundle, pa, pb) {
+        let done = wires::connect(&self.stage.bundle, pa, pb);
+        let text = format!("{} → {}", pa.address, pb.address);
+        self.change(done, text, x, y);
+    }
+
+    /// the pulled cable let go: on another input it moves, on nothing it is cut, back on its port nothing happened
+    fn drop_grabbed(&mut self, a: usize) {
+        let (x, y) = self.cursor;
+        let Some(port) = self.stage.ports.get(a) else { return };
+        let (done, text) = match self.hit(x, y) {
+            Hit::Port(b) if b == a => return,
+            Hit::Port(b) if self.stage.ports.get(b).is_some_and(|q| q.input) => {
+                let to = &self.stage.ports[b];
+                (wires::moved(&self.stage.bundle, &self.stage.ports, port, to), format!("moved to {}", to.address))
+            }
+            Hit::Port(_) => return,
+            _ => (wires::cut(&self.stage.bundle, port), format!("cut: {}", port.address)),
+        };
+        self.change(done, text, x, y);
+    }
+
+    /// a gesture's outcome: on the stage, the sentence at the place either way
+    fn change(&mut self, done: Result<deck_space::rig::Bundle, String>, text: String, x: f32, y: f32) {
+        match done {
             Ok(next) => {
-                let text = format!("{} → {}", pa.address, pb.address);
-                let before = self.stage.bundle.rig.clone();
+                let before = self.stage.bundle.clone();
                 if self.take(next, x, y) {
                     self.undo.push(before);
                     self.say(text, x, y, false);
@@ -368,7 +457,7 @@ impl App {
             self.say(format!("{e:#}"), x, y, true);
             return false;
         }
-        if let Err(e) = wires::save_draft(&self.draft, &self.stage.bundle.rig) {
+        if let Err(e) = wires::save_draft(&self.draft, &self.stage.base, &self.stage.bundle) {
             self.say(format!("{e:#}"), x, y, true);
         }
         true
@@ -380,8 +469,7 @@ impl App {
     }
 
     fn take_back(&mut self) {
-        let Some(rig) = self.undo.pop() else { return };
-        let next = deck_space::rig::Bundle { rig, ..self.stage.bundle.clone() };
+        let Some(next) = self.undo.pop() else { return };
         let (x, y) = self.cursor;
         self.take(next, x, y);
     }
@@ -403,6 +491,7 @@ impl App {
                     tracing::error!("--gesture: no port {from} on the stage");
                 }
             }
+            f if f == START + 10 && to == "-" => self.pointer(30.0, self.tokens.tokens.size.bar + 60.0),
             f if f == START + 10 => {
                 if let Some((x, y)) = at(self, &to) {
                     self.pointer(x, y);
@@ -472,6 +561,12 @@ impl App {
 
     fn redraw(&mut self, el: &ActiveEventLoop) {
         let (Some(window), Some(gpu), Some(ui)) = (self.window.clone(), self.gpu.as_mut(), self.ui.as_mut()) else { return };
+        self.stage.space.being.hold(self.wire, false);
+        if self.frames == 0 {
+            if let Some(a) = self.args.view {
+                self.stage.space.camera.view_along(a % 3, a < 3);
+            }
+        }
         if self.tokens.poll() {
             self.token_changes += 1;
         }
@@ -637,16 +732,23 @@ impl App {
                 let of = |input: bool| self.stage.ports.iter().enumerate().filter(move |(_, q)| q.node == *id && q.input == input).collect::<Vec<_>>();
                 let near = (self.cursor.0 - cx).hypot(self.cursor.1 - cy) < 90.0;
                 for side in [of(true), of(false)] {
-                    for (n, &(index, q)) in side.iter().enumerate() {
-                        let (dx, dy) = wires::around(n, side.len(), q.input);
-                        let (mx, my) = (cx + dx, cy + dy);
+                    for &(index, q) in &side {
+                        let Some(world) = being.port_world(p.node, &q.name, q.input) else { continue };
+                        let Some((sx, sy)) = self.stage.space.to_pixel(world) else { continue };
+                        let (mx, my) = (sx / scale, sy / scale + top);
                         self.marks.push(Mark { port: index, x: mx, y: my });
                         let hover = (self.cursor.0 - mx).hypot(self.cursor.1 - my) < 9.0;
                         let c = if q.input { t.color.text } else { t.color.cable };
+                        let dragging = matches!(self.panel.drag, Some(Drag::Cable(_) | Drag::Grab(_)));
+                        let open = self.reach.get(index).copied().unwrap_or(false);
+                        let c = if dragging && !open { [c[0], c[1], c[2], 0.22] } else { c };
+                        if dragging && open {
+                            ui.ring(mx, my, 10.0, t.color.cable);
+                        }
                         if hover {
                             ui.ring(mx, my, 11.0, t.color.cable);
                         }
-                        if q.input && !q.linked {
+                        if q.input && q.cables.is_empty() {
                             ui.ring(mx, my, 6.0, c);
                         } else {
                             ui.disc(mx, my, 6.0, c);
@@ -664,10 +766,54 @@ impl App {
                 if let Some(m) = self.marks.iter().find(|m| m.port == a) {
                     ui.cable((m.x, m.y), self.cursor, t.color.cable);
                 }
+            }
+            if let Some(Drag::Grab(a)) = self.panel.drag {
+                let from = self.stage.ports.get(a).and_then(|p| p.cables.last()).map(|c| c.from.clone());
+                let source = from.and_then(|f| self.stage.ports.iter().position(|p| p.address == f));
+                if let Some(m) = source.and_then(|s| self.marks.iter().find(|m| m.port == s)) {
+                    ui.cable((m.x, m.y), self.cursor, t.color.cable);
+                }
+            }
+            if matches!(self.panel.drag, Some(Drag::Cable(_) | Drag::Grab(_))) {
                 if let Some(q) = nearest(&self.marks, self.cursor.0, self.cursor.1).and_then(|b| self.stage.ports.get(b)) {
                     chip(ui, t, (self.cursor.0 + 14.0, self.cursor.1 + 14.0), stage_w, &format!("{} · {}", q.address, q.ty), false);
                 }
             }
+        }
+        if self.wire {
+            let small = font * 0.75;
+            ui.text(pad, hf - small * 1.25 - 8.0, small, "drag out → in: connect · pull a filled in off: cut · onto another in: move · ctrl+z undo · f frame", t.color.muted);
+        }
+        // the view gizmo, top right of the stage: its ball orbits, an axis looks along itself
+        {
+            const R: f32 = 40.0;
+            let (gx, gy) = (stage_w - R - 22.0, top + R + 22.0);
+            let axes = self.stage.space.camera.axes();
+            ui.disc(gx, gy, R + 16.0, [t.color.panel[0], t.color.panel[1], t.color.panel[2], 0.55]);
+            // back to front to draw; the front ones are hit first
+            let mut ends: Vec<(f32, usize)> = (0..6).map(|a| (if a < 3 { axes[a].2 } else { -axes[a % 3].2 }, a)).collect();
+            ends.sort_by(|a, b| a.0.total_cmp(&b.0));
+            let place = |a: usize| {
+                let s = if a < 3 { 1.0 } else { -1.0 };
+                (gx + s * axes[a % 3].0 * R, gy + s * axes[a % 3].1 * R)
+            };
+            for &(_, a) in &ends {
+                let (x, y) = place(a);
+                let c = t.color.axis[a % 3];
+                if a < 3 {
+                    ui.line((gx, gy), (x, y), 1.5, c);
+                    ui.disc(x, y, 11.0, c);
+                    let small = font * 0.8;
+                    ui.text(x - ui.atlas.advance(small) * 0.5, y - small * 0.62, small, ["X", "Y", "Z"][a], t.color.panel);
+                } else {
+                    ui.ring(x, y, 9.0, c);
+                }
+            }
+            for &(_, a) in ends.iter().rev() {
+                let (x, y) = place(a);
+                self.panel.hits.push((Rect { x: x - 11.0, y: y - 11.0, w: 22.0, h: 22.0 }, Hit::Axis(Some(a))));
+            }
+            self.panel.hits.push((Rect { x: gx - R - 16.0, y: gy - R - 16.0, w: 2.0 * (R + 16.0), h: 2.0 * (R + 16.0) }, Hit::Axis(None)));
         }
         if self.notice.as_ref().is_some_and(|n| Instant::now() > n.until) {
             self.notice = None;
@@ -750,18 +896,23 @@ impl ApplicationHandler for App {
                 self.pointer(position.x as f32 / s, position.y as f32 / s);
             }
             WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Left, .. } => self.press(),
-            WindowEvent::MouseInput { state: ElementState::Released, button: MouseButton::Left, .. } => self.release(),
+            WindowEvent::MouseInput { state: ElementState::Pressed, button: button @ (MouseButton::Middle | MouseButton::Right), .. } => self.press_view(button),
+            WindowEvent::MouseInput { state: ElementState::Released, .. } => self.release(),
             WindowEvent::MouseWheel { delta, .. } => {
                 let steps = match delta {
                     MouseScrollDelta::LineDelta(_, y) => y,
                     MouseScrollDelta::PixelDelta(p) => p.y as f32 / 40.0,
                 };
-                if let Hit::Knob(i) = self.hit(self.cursor.0, self.cursor.1) {
-                    let k = &self.stage.knobs[i];
-                    let v = self.stage.value(k);
-                    let v = scrub(v, steps * 12.0, k.min, k.max, k.log);
-                    let (node, port, min, max) = (k.node, k.port_index, k.min, k.max);
-                    self.stage.set(node, port, v, min, max);
+                match self.hit(self.cursor.0, self.cursor.1) {
+                    Hit::Knob(i) => {
+                        let k = &self.stage.knobs[i];
+                        let v = self.stage.value(k);
+                        let v = scrub(v, steps * 12.0, k.min, k.max, k.log);
+                        let (node, port, min, max) = (k.node, k.port_index, k.min, k.max);
+                        self.stage.set(node, port, v, min, max);
+                    }
+                    Hit::Stage | Hit::Port(_) | Hit::Axis(_) => self.stage.space.camera.zoom(steps),
+                    _ => {}
                 }
             }
             WindowEvent::KeyboardInput { event, .. } => {
@@ -773,6 +924,8 @@ impl ApplicationHandler for App {
                     self.take_back();
                 } else if event.state == ElementState::Pressed && event.logical_key == Key::Character("w".into()) {
                     self.wire = !self.wire;
+                } else if event.state == ElementState::Pressed && event.logical_key == Key::Character("f".into()) {
+                    self.stage.space.frame_being();
                 } else if event.state == ElementState::Pressed && event.logical_key == Key::Named(NamedKey::Tab) {
                     let i = TABS.iter().position(|(t, _)| *t == self.panel.tab).unwrap_or(0);
                     self.panel.tab = TABS[(i + 1) % TABS.len()].0;

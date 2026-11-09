@@ -225,6 +225,15 @@ impl Ui {
         self.round(RING, x, y, r, color);
     }
 
+    /// a thin straight line of beads
+    pub fn line(&mut self, a: (f32, f32), b: (f32, f32), r: f32, color: [f32; 4]) {
+        const BEADS: usize = 14;
+        for i in 0..=BEADS {
+            let t = i as f32 / BEADS as f32;
+            self.disc(a.0 + (b.0 - a.0) * t, a.1 + (b.1 - a.1) * t, r, color);
+        }
+    }
+
     /// a cable being dragged: beads along a hanging curve
     pub fn cable(&mut self, a: (f32, f32), b: (f32, f32), color: [f32; 4]) {
         const BEADS: usize = 56;

@@ -1,15 +1,25 @@
-//! The first dragged cable (#431, W1 of research/MODULE-WIRING.md; owner 2026-11-09: on the being as it is, the Wire side
-//! of the one stage). Nothing is decided here (RULES A1): the ports and their addresses are the core's wiring, a gesture
-//! is `rig::edit::Op` on the rig document, whether it may stand is `rig::validate`, its sentence is shown as it comes.
-//! The draft is a TOML file of the rig document (`Doc::to_toml`) until the editor can sign in and save to the API.
+//! Wiring on the being (#431, W1 of research/MODULE-WIRING.md; owner 2026-11-09: on the being as it is, the Wire side of
+//! the one stage). Nothing is decided here (RULES A1): the ports, their addresses and every cable's home are the core's
+//! wiring, a gesture is `Bundle::connected` / `cut` on the document that holds the cable, whether it may stand is
+//! `rig::validate`, its sentence is shown as it comes. The ports a dragged cable may reach are the core's answer too: each
+//! is tried. The draft is a TOML file (the rig, the instruments that changed) until the editor can sign in and save.
 use anyhow::{Context, Result};
 use deck_space::rig::bundle::Played;
-use deck_space::rig::edit::{Doc, Op};
 use deck_space::rig::validate::Request;
-use deck_space::rig::{Bundle, Rig};
+use deck_space::rig::wiring::Home;
+use deck_space::rig::{Bundle, Instrument, Rig};
+use serde::{Deserialize, Serialize};
 use std::path::Path;
 
-/// one port a route can end at
+/// one cable into an input
+#[derive(Debug, Clone, PartialEq)]
+pub struct Cable {
+    /// the other end's address, its node's id and its port (`""` address: a node of the scene's own)
+    pub from: String,
+    pub home: Home,
+}
+
+/// one port a cable can end at
 #[derive(Debug, Clone, PartialEq)]
 pub struct Port {
     /// the flattened node's id: the graph's, so the being's point
@@ -17,45 +27,77 @@ pub struct Port {
     pub name: String,
     pub input: bool,
     pub ty: &'static str,
-    /// the route's name for it (`voice:voice.out`)
+    /// the cable's name for it (`voice:voice.out`)
     pub address: String,
-    /// an input a cable already feeds
-    pub linked: bool,
+    /// the cables feeding an input
+    pub cables: Vec<Cable>,
 }
 
 /// every port of the played rig's tracks
 pub fn ports(played: &Played) -> Result<Vec<Port>> {
     let w = played.wiring()?;
+    let home = |k: usize| -> Home { played.homes.get(k).cloned().unwrap_or(Home::Bound) };
     let mut out = Vec::new();
     for (i, n) in w.nodes.iter().enumerate() {
         for (input, list) in [(true, &n.inputs), (false, &n.outputs)] {
             for p in list {
                 let Some(address) = n.address(&p.name) else { continue };
-                let linked = input && w.links.iter().any(|l| l.to == i && l.input == p.name);
-                out.push(Port { node: n.id.clone(), name: p.name.clone(), input, ty: p.ty, address, linked });
+                let cables = if input {
+                    w.links.iter().enumerate().filter(|(_, l)| l.to == i && l.input == p.name).map(|(k, l)| Cable { from: w.nodes[l.from].address(&l.out).unwrap_or_default(), home: home(k) }).collect()
+                } else {
+                    Vec::new()
+                };
+                out.push(Port { node: n.id.clone(), name: p.name.clone(), input, ty: p.ty, address, cables });
             }
         }
     }
     Ok(out)
 }
 
-/// `a` joined to `b` (dragged either way): the rig with the new route, or the core's sentence
+/// `a` joined to `b` (dragged either way): the changed bundle, or the core's sentence
 pub fn connect(bundle: &Bundle, a: &Port, b: &Port) -> Result<Bundle, String> {
     let (from, to) = if a.input && !b.input { (b, a) } else { (a, b) };
-    let mut doc = Doc::Rigs(bundle.rig.clone());
-    doc.apply(&Op::Connect { from: from.address.clone(), to: to.address.clone(), scale: 1.0, offset: 0.0 }, &bundle.library())?;
-    let Doc::Rigs(rig) = doc else { unreachable!("a rig stays a rig") };
-    checked(bundle, rig)
+    checked(bundle.connected(&from.address, &to.address)?)
 }
 
-/// the rig as the core's validate judges it, beside the bundle's instruments, presets and modules
-fn checked(bundle: &Bundle, rig: Rig) -> Result<Bundle, String> {
+/// the last cable into input `port` taken off: the bundle without it, and the address it came from
+pub fn pulled(bundle: &Bundle, port: &Port) -> Result<(Bundle, String), String> {
+    let cable = port.cables.last().ok_or_else(|| format!("nothing feeds {}", port.address))?;
+    Ok((bundle.cut(&cable.from, &port.address, &cable.home)?, cable.from.clone()))
+}
+
+/// the cable into `port` cut
+pub fn cut(bundle: &Bundle, port: &Port) -> Result<Bundle, String> {
+    checked(pulled(bundle, port)?.0)
+}
+
+/// the cable into `port` moved to the input `to`
+pub fn moved(bundle: &Bundle, ports: &[Port], port: &Port, to: &Port) -> Result<Bundle, String> {
+    let (without, from) = pulled(bundle, port)?;
+    let source = ports.iter().find(|p| p.address == from).ok_or_else(|| format!("{from} is not a port"))?;
+    connect(&without, source, to)
+}
+
+/// which ports a cable from `start` may reach: each tried on the core (the dragged one itself: no)
+pub fn reachable(bundle: &Bundle, ports: &[Port], start: &Port) -> Vec<bool> {
+    ports.iter().map(|q| q.address != start.address && q.input != start.input && connect(bundle, start, q).is_ok()).collect()
+}
+
+/// which inputs the cable into `port` may be moved to
+pub fn reachable_moved(bundle: &Bundle, ports: &[Port], port: &Port) -> Vec<bool> {
+    let Ok((without, from)) = pulled(bundle, port) else { return vec![false; ports.len()] };
+    let Some(source) = ports.iter().find(|p| p.address == from) else { return vec![false; ports.len()] };
+    ports.iter().map(|q| q.input && q.address != port.address && connect(&without, source, q).is_ok()).collect()
+}
+
+/// the bundle as the core's validate judges it
+fn checked(bundle: Bundle) -> Result<Bundle, String> {
     let values = |v: Result<serde_json::Value, serde_json::Error>| v.map_err(|e| e.to_string());
     let list = |v: serde_json::Value| v.as_array().cloned().unwrap_or_default();
     let request = Request {
         kind: "rigs".into(),
-        id: rig.subject.clone(),
-        document: values(serde_json::to_value(&rig))?,
+        id: bundle.rig.subject.clone(),
+        document: values(serde_json::to_value(&bundle.rig))?,
         instruments: list(values(serde_json::to_value(&bundle.instruments))?),
         presets: list(values(serde_json::to_value(&bundle.presets))?),
         modules: list(values(serde_json::to_value(&bundle.modules))?),
@@ -64,15 +106,28 @@ fn checked(bundle: &Bundle, rig: Rig) -> Result<Bundle, String> {
     if !problems.is_empty() {
         return Err(problems.join("; "));
     }
-    Ok(Bundle { rig, ..bundle.clone() })
+    Ok(bundle)
 }
 
-/// the draft's rig over the bundle, if the file is there and still valid
-pub fn load_draft(path: &Path, bundle: Bundle) -> Bundle {
-    let Ok(text) = std::fs::read_to_string(path) else { return bundle };
-    let read = Doc::from_toml("rigs", &text).map_err(|e| format!("{e:#}")).and_then(|doc| match doc {
-        Doc::Rigs(rig) => checked(&bundle, rig),
-        _ => Err("not a rig".to_string()),
+/// the draft: the rig, and the instruments that differ from the rig's own
+#[derive(Serialize, Deserialize)]
+struct Draft {
+    rig: Rig,
+    #[serde(default, rename = "instrument")]
+    instruments: Vec<Instrument>,
+}
+
+/// the draft over `base`, if the file is there and still valid
+pub fn load_draft(path: &Path, base: &Bundle) -> Bundle {
+    let Ok(text) = std::fs::read_to_string(path) else { return base.clone() };
+    let read = toml::from_str::<Draft>(&text).map_err(|e| e.to_string()).and_then(|d| {
+        let mut b = Bundle { rig: d.rig, ..base.clone() };
+        for i in d.instruments {
+            if let Some(at) = b.instruments.iter().position(|x| x.id == i.id) {
+                b.instruments[at] = i;
+            }
+        }
+        checked(b)
     });
     match read {
         Ok(b) => {
@@ -81,26 +136,18 @@ pub fn load_draft(path: &Path, bundle: Bundle) -> Bundle {
         }
         Err(e) => {
             tracing::warn!("draft {}: {e}, left out", path.display());
-            bundle
+            base.clone()
         }
     }
 }
 
-pub fn save_draft(path: &Path, rig: &Rig) -> Result<()> {
+pub fn save_draft(path: &Path, base: &Bundle, bundle: &Bundle) -> Result<()> {
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir).with_context(|| format!("making {}", dir.display()))?;
     }
-    std::fs::write(path, Doc::Rigs(rig.clone()).to_toml()?).with_context(|| format!("writing {}", path.display()))
-}
-
-/// where the `i`th of a node's `n` inputs or outputs sits around its point (logical pixels): inputs left, outputs right
-pub fn around(i: usize, n: usize, input: bool) -> (f32, f32) {
-    const REACH: f32 = 32.0;
-    const STEP: f32 = 0.5;
-    let base = if input { std::f32::consts::PI } else { 0.0 };
-    let side = if input { -1.0 } else { 1.0 };
-    let angle = base + side * (i as f32 - (n as f32 - 1.0) * 0.5) * STEP;
-    (angle.cos() * REACH, angle.sin() * REACH)
+    let instruments = bundle.instruments.iter().filter(|i| !base.instruments.contains(i)).cloned().collect();
+    let text = toml::to_string(&Draft { rig: bundle.rig.clone(), instruments }).context("the draft as TOML")?;
+    std::fs::write(path, text).with_context(|| format!("writing {}", path.display()))
 }
 
 #[cfg(test)]
@@ -109,29 +156,36 @@ mod tests {
 
     fn catpope() -> (Bundle, Vec<Port>) {
         let b = Bundle::core("character.catpope").expect("the core rig").expect("it reads");
-        let p = ports(&b.play(None, None).expect("it plays")).expect("it wires");
+        let p = again(&b);
         (b, p)
     }
 
+    fn again(b: &Bundle) -> Vec<Port> {
+        ports(&b.play(None, None).expect("it plays")).expect("it wires")
+    }
+
     fn port<'a>(all: &'a [Port], address: &str) -> &'a Port {
-        all.iter().find(|p| p.address == address).unwrap_or_else(|| panic!("no port {address} in {:?}", all.iter().map(|p| &p.address).collect::<Vec<_>>()))
+        all.iter().find(|p| p.address == address).unwrap_or_else(|| panic!("no port {address}"))
+    }
+
+    fn draft_file(name: &str) -> std::path::PathBuf {
+        std::env::temp_dir().join(format!("deck-editor-{name}-{}", std::process::id())).join("rig.toml")
     }
 
     #[test]
-    fn the_ports_are_the_tracks_by_their_route_addresses() {
+    fn the_ports_are_the_tracks_by_their_addresses() {
         let (_, p) = catpope();
         assert!(!port(&p, "voice:voice.out").input);
-        assert!(port(&p, "voice:voice.cv").linked, "the melody feeds it");
+        assert_eq!(port(&p, "voice:voice.cv").cables[0].from, "voice:melody.cv");
         assert!(p.iter().all(|x| x.address.contains(':')), "the scene's own nodes have no address");
     }
 
     #[test]
-    fn a_dragged_cable_lands_in_the_rig_and_plays() {
+    fn a_dragged_cable_lands_and_plays() {
         let (b, p) = catpope();
-        let before = b.rig.routes.len();
         let next = connect(&b, port(&p, "voice:voice.out"), port(&p, "drone:mix.in3")).expect("it may stand");
-        assert_eq!(next.rig.routes.len(), before + 1);
-        next.play(None, None).expect("the new rig plays");
+        assert_eq!(next.rig.routes.len(), b.rig.routes.len() + 1);
+        assert_eq!(port(&again(&next), "drone:mix.in3").cables[0].from, "voice:voice.out");
     }
 
     #[test]
@@ -150,39 +204,56 @@ mod tests {
     }
 
     #[test]
-    fn a_cable_inside_a_track_is_the_instruments_and_refused() {
+    fn a_cable_inside_a_track_can_be_drawn() {
         let (b, p) = catpope();
-        let e = connect(&b, port(&p, "drone:drone.out"), port(&p, "drone:drone.cv")).expect_err("the instrument's link is its home");
-        assert!(e.contains("both ends are in track"), "{e}");
+        let next = connect(&b, port(&p, "drone:drone.out"), port(&p, "drone:fifth.cv")).expect("the instrument holds it");
+        assert_eq!(port(&again(&next), "drone:fifth.cv").cables[0].from, "drone:drone.out");
     }
 
     #[test]
-    fn a_reload_shows_the_same_cable() {
+    fn a_cable_is_cut_and_gone() {
         let (b, p) = catpope();
-        let next = connect(&b, port(&p, "voice:voice.out"), port(&p, "drone:mix.in3")).expect("it may stand");
-        let dir = std::env::temp_dir().join(format!("deck-editor-draft-{}", std::process::id()));
-        let file = dir.join("rig.toml");
-        save_draft(&file, &next.rig).expect("written");
-        assert_eq!(load_draft(&file, b.clone()).rig, next.rig);
-        std::fs::remove_dir_all(dir).ok();
+        let next = cut(&b, port(&p, "voice:voice.cv")).expect("the instrument's link");
+        assert!(port(&again(&next), "voice:voice.cv").cables.is_empty());
+    }
+
+    #[test]
+    fn a_cable_is_moved_to_another_input() {
+        let (b, p) = catpope();
+        let next = moved(&b, &p, port(&p, "voice:voice.cv"), port(&p, "drone:mix.in3")).expect("moved");
+        let q = again(&next);
+        assert!(port(&q, "voice:voice.cv").cables.is_empty());
+        assert_eq!(port(&q, "drone:mix.in3").cables[0].from, "voice:melody.cv");
+    }
+
+    #[test]
+    fn a_dragged_cable_can_reach_something_and_not_a_control_input() {
+        let (b, p) = catpope();
+        let r = reachable(&b, &p, port(&p, "voice:melody.cv"));
+        let can: Vec<&str> = p.iter().zip(&r).filter(|(_, ok)| **ok).map(|(q, _)| q.address.as_str()).collect();
+        assert!(can.contains(&"drone:mix.in3"), "{can:?}");
+        assert!(!can.contains(&"voice:voice.freq"), "{can:?}");
+    }
+
+    #[test]
+    fn a_reload_shows_the_same_cables_rig_and_instrument() {
+        let (b, p) = catpope();
+        let a = connect(&b, port(&p, "voice:voice.out"), port(&p, "drone:mix.in3")).expect("a route");
+        let next = cut(&a, port(&p, "voice:voice.cv")).expect("an instrument's link");
+        let file = draft_file("draft");
+        save_draft(&file, &b, &next).expect("written");
+        let read = load_draft(&file, &b);
+        assert_eq!((&read.rig, &read.instruments), (&next.rig, &next.instruments));
+        std::fs::remove_file(&file).ok();
     }
 
     #[test]
     fn a_broken_draft_is_left_out() {
         let (b, _) = catpope();
-        let dir = std::env::temp_dir().join(format!("deck-editor-broken-{}", std::process::id()));
-        std::fs::create_dir_all(&dir).expect("made");
-        let file = dir.join("rig.toml");
+        let file = draft_file("broken");
+        std::fs::create_dir_all(file.parent().expect("a folder")).expect("made");
         std::fs::write(&file, "not toml [").expect("written");
-        assert_eq!(load_draft(&file, b.clone()).rig, b.rig);
-        std::fs::remove_dir_all(dir).ok();
-    }
-
-    #[test]
-    fn inputs_sit_left_of_the_point_and_outputs_right() {
-        for i in 0..5 {
-            assert!(around(i, 5, true).0 < 0.0);
-            assert!(around(i, 5, false).0 > 0.0);
-        }
+        assert_eq!(load_draft(&file, &b).rig, b.rig);
+        std::fs::remove_file(&file).ok();
     }
 }

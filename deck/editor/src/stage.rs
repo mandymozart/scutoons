@@ -50,8 +50,10 @@ pub struct Stage {
     pub knobs: Vec<Knob>,
     /// the audio backend's name and rate, for the status line
     pub audio: String,
-    /// the rig as it plays (#431: the document a gesture changes)
+    /// the rig as it plays (#431: the documents a gesture changes)
     pub bundle: Bundle,
+    /// the rig before any draft: what the draft is the difference to
+    pub base: Bundle,
     /// the ports a route can end at
     pub ports: Vec<Port>,
     /// the graph's node ids: a being's point is its node
@@ -95,12 +97,11 @@ impl Stage {
     /// `rig` = a core rig's character (`catpope`) or subject, with the `draft` file's rig over it if there is one; it plays at `volume`
     pub fn new(rig: &str, volume: f32, draft: Option<&std::path::Path>) -> Result<Stage> {
         let subject = if rig.contains('.') { rig.to_string() } else { format!("character.{rig}") };
-        let bundle = Bundle::core(&subject).with_context(|| format!("no core rig {subject}"))??;
-        let bundle = match draft {
-            Some(path) => wires::load_draft(path, bundle),
-            None => bundle,
-        };
-        Ok(Stage::start(prepare(bundle)?, volume))
+        let base = Bundle::core(&subject).with_context(|| format!("no core rig {subject}"))??;
+        let bundle = draft.map_or_else(|| base.clone(), |path| wires::load_draft(path, &base));
+        let mut stage = Stage::start(prepare(bundle)?, volume);
+        stage.base = base;
+        Ok(stage)
     }
 
     /// a changed rig takes the stage: refused before anything stops; the sound device is let go before the new engine
@@ -113,7 +114,9 @@ impl Stage {
         self._audio = None;
         self.handles = None;
         let mut next = Stage::start(ready, self.volume);
+        next.base = self.base.clone();
         next.space.camera = camera;
+        next.space.being.hold(self.space.being.held(), true);
         for (path, value) in knobs {
             if let Some(k) = next.knobs.iter().find(|k| k.path == path) {
                 let (node, port, min, max) = (k.node, k.port_index, k.min, k.max);
@@ -159,7 +162,11 @@ impl Stage {
         tempo.start();
         let cache = deck_native::cache::default_dir();
         // the rig editor's stage is empty ([rigs] 2026-11-08): no set around the being
-        let space = Space::with_gate(&graph, node, &scene.being, &cache.join("sets"), Portraits::local(&cache.join("portraits")), None);
+        let mut space = Space::with_gate(&graph, node, &scene.being, &cache.join("sets"), Portraits::local(&cache.join("portraits")), None);
+        // an editor's view: no breath, the camera stays where the hand puts it (owner 2026-11-09)
+        space.being.look.breath = 0.0;
+        space.camera.free = true;
+        space.camera.auto = false;
         let mut knobs = Vec::new();
         for k in &played_knobs {
             let (id, port) = node_port(&k.path);
@@ -169,7 +176,7 @@ impl Stage {
             knobs.push(Knob { label, path: k.path.clone(), node, port: port.to_string(), port_index, min: k.min, max: k.max, log: k.log });
         }
         let node_ids = graph.nodes.iter().map(|n| n.id.clone()).collect();
-        Stage { controls, space, gpu: None, texture: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, bundle, ports, node_ids, volume }
+        Stage { controls, space, gpu: None, texture: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, ports, node_ids, volume }
     }
 
     pub fn glitches(&self) -> u64 {

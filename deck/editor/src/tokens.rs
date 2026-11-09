@@ -22,6 +22,8 @@ pub struct Colors {
     pub cable: [f32; 4],
     /// a refused gesture's sentence
     pub refused: [f32; 4],
+    /// the view gizmo's x, y, z
+    pub axis: [[f32; 4]; 3],
 }
 
 impl Default for Colors {
@@ -39,6 +41,7 @@ impl Default for Colors {
             tab_active: [0.22, 0.22, 0.26, 1.0],
             cable: [0.0, 0.82, 1.0, 1.0],
             refused: [0.8, 0.1, 0.0, 1.0],
+            axis: [[0.93, 0.27, 0.32, 1.0], [0.47, 0.75, 0.2, 1.0], [0.25, 0.53, 0.95, 1.0]],
         }
     }
 }

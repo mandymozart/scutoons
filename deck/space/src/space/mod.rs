@@ -374,7 +374,7 @@ impl Space {
         // the focus follows the zoom: the whole being far out, its head close up (owner 2026-10-31) – or, with a knob
         // selected, that knob (#224: "zooming then brings you closer to that point"); the camera glides there – held
         // still while a hand is on a knob (a press selects it: the knob would slide away under the finger)
-        if !matches!(self.drag, Drag::Knob { .. } | Drag::Hold) {
+        if !self.camera.free && !matches!(self.drag, Drag::Knob { .. } | Drag::Hold) {
             self.camera.goal = self.focus_goal(self.camera.distance);
         }
         self.camera.step(dt);
@@ -396,6 +396,14 @@ impl Space {
     /// Where the camera's focus goes at `distance` (camera::focus_target): from the whole being's centre far out to its
     /// head close up – to the selected knob instead of the head while one is (#224; where it sits unfolded, so the
     /// knob comes to the middle of the picture as the camera nears it).
+    /// the whole being in the view, from where the camera looks now (an editor's `f`)
+    pub fn frame_being(&mut self) {
+        let want = self.frame_distance();
+        self.camera.want = want;
+        self.camera.goal = self.focus_goal(want);
+        self.camera.idle = 0.0;
+    }
+
     fn focus_goal(&self, distance: f32) -> Vec3 {
         let (body, head) = self.being.focus();
         let near = match self.being.selected {
