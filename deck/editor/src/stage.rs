@@ -67,8 +67,11 @@ pub struct Stage {
     kinds: Vec<Kind>,
     /// the mixer's strips, and what goes out
     pub strips: Vec<Strip>,
+    /// the gains inside the tracks
+    pub inner: Vec<Inner>,
     master: Option<(usize, usize)>,
     pub master_peak: f32,
+    pub master_max: f32,
     volume: f32,
 }
 
@@ -82,6 +85,25 @@ pub struct Strip {
     from: (usize, usize),
     /// the held peak
     pub peak: f32,
+    /// the highest peak since it was last cleared
+    pub max: f32,
+}
+
+/// a gain inside a track, as the mixer shows it
+pub struct Inner {
+    pub track: String,
+    pub label: String,
+    pub node: usize,
+    pub port: usize,
+    pub name: String,
+    /// `node.port` in the track's documents
+    pub path: String,
+    /// a cable feeds it: no hand on it
+    pub linked: bool,
+    max_value: f32,
+    from: (usize, usize),
+    pub peak: f32,
+    pub max: f32,
 }
 
 /// a control input of a node, as the inspector shows it
@@ -221,13 +243,31 @@ impl Stage {
             .iter()
             .filter_map(|s| {
                 let ((node, port, name), (fnode, fport, _)) = (slot(&s.gain, false)?, slot(&s.from, true)?);
-                Some(Strip { track: s.track.clone(), node, port, name, owned: s.owned, from: (fnode, fport), peak: 0.0 })
+                Some(Strip { track: s.track.clone(), node, port, name, owned: s.owned, from: (fnode, fport), peak: 0.0, max: 0.0 })
             })
             .collect();
+        // the gains inside each track: a node's `gain` (its output's level), a mixer's `gainK` (what feeds its `inK`)
+        let mut inner = Vec::new();
+        for (n, node) in graph.nodes.iter().enumerate() {
+            let Some(port_of) = ports.iter().find(|p| p.node == node.id) else { continue };
+            let track = port_of.track.clone();
+            let local = node.id.strip_prefix(&format!("{track}_")).unwrap_or(&node.id).to_string();
+            for (port, input) in node.kind.inputs().iter().enumerate().filter(|(_, p)| p.ty == PortType::Control && p.name.starts_with("gain")) {
+                let linked = graph.links.iter().any(|l| l.to == (n, port));
+                let source = match input.name.strip_prefix("gain").filter(|k| !k.is_empty()) {
+                    Some(k) => node.kind.input(&format!("in{k}")).and_then(|i| graph.links.iter().find(|l| l.to == (n, i))).map(|l| l.from),
+                    None => (!node.kind.outputs().is_empty()).then_some((n, 0)),
+                };
+                let Some(from) = source else { continue };
+                let label = if input.name == "gain" { local.clone() } else { graph.nodes[from.0].id.strip_prefix(&format!("{track}_")).unwrap_or(&graph.nodes[from.0].id).to_string() };
+                let spec = params::spec(node.kind, input.name);
+                inner.push(Inner { track: track.clone(), label, node: n, port, name: input.name.to_string(), path: format!("{local}.{}", input.name), linked, max_value: spec.max, from, peak: 0.0, max: 0.0 });
+            }
+        }
         let master = sum.as_deref().and_then(|s| slot(s, true)).map(|(n, p, _)| (n, p));
         let node_ids = graph.nodes.iter().map(|n| n.id.clone()).collect();
         let kinds = graph.nodes.iter().map(|n| n.kind).collect();
-        Stage { controls, space, gpu: None, texture: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, kinds, strips, master, master_peak: 0.0, volume, path: Vec::new(), core_node: node }
+        Stage { controls, space, gpu: None, texture: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, kinds, strips, inner, master, master_peak: 0.0, master_max: 0.0, volume, path: Vec::new(), core_node: node }
     }
 
     /// show this level of the tree in Wire; empty = the rig
@@ -242,6 +282,19 @@ impl Stage {
     pub fn show_all(&mut self) {
         self.space.being.show_level(None);
         self.visible = vec![true; self.ports.len()];
+    }
+
+    /// an inner gain as the engine has it
+    pub fn inner_gain(&self, s: &Inner) -> f32 {
+        self.controls.input(s.node, &s.name, 1.0)
+    }
+
+    /// an inner gain set in the engine
+    pub fn inner_set(&mut self, i: usize, value: f32) {
+        if let Some(s) = self.inner.get(i) {
+            let (node, port, max) = (s.node, s.port, s.max_value);
+            self.set(node, port, value, 0.0, max);
+        }
     }
 
     /// a strip's gain as the engine has it
@@ -327,9 +380,18 @@ impl Stage {
         let fall = (-dt / deck_core::meters::FALL_SECONDS).exp();
         let level = |(n, p): (usize, usize)| meters.as_ref().map_or(0.0, |m| m.level(n, p));
         for s in &mut self.strips {
-            s.peak = level(s.from).max(s.peak * fall);
+            let now = level(s.from);
+            s.peak = now.max(s.peak * fall);
+            s.max = s.max.max(now);
         }
-        self.master_peak = self.master.map_or(0.0, level).max(self.master_peak * fall);
+        for s in &mut self.inner {
+            let now = level(s.from);
+            s.peak = now.max(s.peak * fall);
+            s.max = s.max.max(now);
+        }
+        let out_level = self.master.map_or(0.0, level);
+        self.master_peak = out_level.max(self.master_peak * fall);
+        self.master_max = self.master_max.max(out_level);
         self.space.update(dt, time, &mut self.controls, &now, &|n, p| meters.as_ref().map_or(0.0, |m| m.level(n, p)));
         let space = &mut self.space;
         let gpu = self.gpu.get_or_insert_with(|| {

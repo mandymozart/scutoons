@@ -135,9 +135,12 @@ enum Hit {
     Param(usize, usize),
     /// the mixer's head, a strip's fader, a strip's mute
     MixerHead,
-    Fader(usize, Rect),
+    MixerTab(usize),
+    Fader(mixer::Target, Rect),
     Mute(usize),
     Balance(usize),
+    /// a highest-peak readout: a strip's, or the output's
+    Peak(Option<mixer::Target>),
     /// the Play / Wire switch (true = Wire)
     Mode(bool),
     /// a port, by its index in the stage's list
@@ -161,7 +164,7 @@ enum Drag {
     Divider,
     Knob(usize, f32, f32),
     /// a strip's fader: which, its travel's rect
-    Fader(usize, Rect),
+    Fader(mixer::Target, Rect),
     /// a strip's pan: which, the pointer's start, the start's value, now
     Balance(usize, f32, f32, f32),
     /// a node's parameter: node, port, the pointer's start, the start's 0..1
@@ -267,6 +270,8 @@ struct App {
     /// what the inspector shows
     sel: inspector::Sel,
     mixer_open: bool,
+    /// the level the mixer shows; none = the one the stage is at
+    mixer_tab: Option<usize>,
 }
 
 fn main() {
@@ -328,6 +333,7 @@ fn run() -> Result<i32> {
         rows: Vec::new(),
         sel: inspector::Sel::Rig,
         mixer_open: true,
+        mixer_tab: None,
     };
     event_loop.run_app(&mut app).context("the event loop")?;
     let summary = app.summary();
@@ -407,8 +413,11 @@ impl App {
             Hit::InfoHead => Help::new("Info", "What is under the pointer. Click to fold or open it."),
             Hit::Param(n, p) => Help::new(self.stage.param(n, p)?.name, "Drag or use the wheel to set it in the engine."),
             Hit::MixerHead => Help::new("Mixer", "One strip per track. Click to fold or open it."),
-            Hit::Fader(i, _) => Help::new(self.stage.strips.get(i)?.track.clone(), "The track's level. Drag it; it goes into the draft when you let go."),
+            Hit::MixerTab(_) => Help::new("Level", "The mixer at this level of the tree: the rig's tracks, or the gains inside a track."),
+            Hit::Fader(mixer::Target::Track(i), _) => Help::new(self.stage.strips.get(i)?.track.clone(), "The track's level. Drag it; it goes into the draft when you let go."),
+            Hit::Fader(mixer::Target::Inner(i), _) => Help::new(self.stage.inner.get(i)?.label.clone(), "A gain inside this track. Drag it; it goes into the draft when you let go."),
             Hit::Balance(i) => Help::new(format!("Pan {}", self.stage.strips.get(i)?.track), "Left and right on a stereo pair. Drag it; it applies when you let go."),
+            Hit::Peak(_) => Help::new("Highest peak", "The loudest moment in dB, red once it went over 0. Click to clear it."),
             Hit::Mute(i) => Help::new(format!("Mute {}", self.stage.strips.get(i)?.track), "Takes the track out of the sound."),
             Hit::Field(_) | Hit::InfoBody | Hit::Nothing => return None,
         })
@@ -420,6 +429,7 @@ impl App {
 
     /// down into a track
     fn enter(&mut self, track: String) {
+        self.mixer_tab = None;
         self.armed = None;
         self.reach.clear();
         let mut path = self.stage.path.clone();
@@ -429,6 +439,7 @@ impl App {
 
     /// up to the level at this depth of the path (0 = the rig)
     fn up_to(&mut self, depth: usize) {
+        self.mixer_tab = None;
         self.armed = None;
         self.reach.clear();
         let mut path = self.stage.path.clone();
@@ -559,6 +570,18 @@ impl App {
             Hit::Axis(a) => self.panel.drag = Some(Drag::Gizmo(a, false, x, y)),
             Hit::Crumb(depth) => self.up_to(depth),
             Hit::MixerHead => self.mixer_open = !self.mixer_open,
+            Hit::MixerTab(depth) => self.mixer_tab = Some(depth),
+            Hit::Peak(Some(mixer::Target::Track(i))) => {
+                if let Some(s) = self.stage.strips.get_mut(i) {
+                    s.max = 0.0;
+                }
+            }
+            Hit::Peak(Some(mixer::Target::Inner(i))) => {
+                if let Some(s) = self.stage.inner.get_mut(i) {
+                    s.max = 0.0;
+                }
+            }
+            Hit::Peak(None) => self.stage.master_max = 0.0,
             Hit::Fader(i, r) => {
                 self.panel.drag = Some(Drag::Fader(i, r));
                 self.fader_to(i, r, y);
@@ -581,6 +604,7 @@ impl App {
                 if let Some((path, sel)) = self.rows.get(i).cloned() {
                     self.sel = sel;
                     if self.wire {
+                        self.mixer_tab = None;
                         self.armed = None;
                         self.reach.clear();
                         self.stage.enter(path);
@@ -612,9 +636,24 @@ impl App {
                 } else {
                     self.stage.space.press();
                     self.panel.drag = Some(Drag::Space);
+                    self.sel_from_stage();
                 }
             }
             Hit::Nothing => self.focus(false),
+        }
+    }
+
+    /// what a press on the stage selected (Play: the deck's own hand) becomes the selection
+    fn sel_from_stage(&mut self) {
+        use deck_space::space::being::Hit as Picked;
+        let being = &self.stage.space.being;
+        let node = match being.selected {
+            Some(Picked::Button(i)) => being.buttons.get(i).map(|b| b.node),
+            Some(Picked::Point(i)) => being.points.get(i).map(|p| p.node),
+            None => None,
+        };
+        if let Some(n) = node {
+            self.sel = if self.stage.ports.iter().any(|p| Some(&p.node) == self.stage.node_ids.get(n)) { inspector::Sel::Node(n) } else { inspector::Sel::Rig };
         }
     }
 
@@ -640,11 +679,17 @@ impl App {
     }
 
     /// a fader under the pointer: the engine at once
-    fn fader_to(&mut self, i: usize, r: Rect, y: f32) {
+    fn fader_to(&mut self, target: mixer::Target, r: Rect, y: f32) {
         let f = (1.0 - (y - r.y) / r.h).clamp(0.0, 1.0);
-        if let Some(s) = self.stage.strips.get(i) {
-            let (node, port) = (s.node, s.port);
-            self.stage.set(node, port, f * mixer::GAIN_MAX, 0.0, mixer::GAIN_MAX);
+        let gain = mixer::position_gain(f);
+        match target {
+            mixer::Target::Track(i) => {
+                if let Some(s) = self.stage.strips.get(i) {
+                    let (node, port) = (s.node, s.port);
+                    self.stage.set(node, port, gain, 0.0, mixer::GAIN_MAX);
+                }
+            }
+            mixer::Target::Inner(i) => self.stage.inner_set(i, gain),
         }
     }
 
@@ -729,10 +774,18 @@ impl App {
                 return;
             }
             // the fader let go: the gain goes into the rig, no replay: the engine has it already
-            Some(Drag::Fader(i, _)) => {
-                let Some(s) = self.stage.strips.get(i) else { return };
-                let (track, gain) = (s.track.clone(), self.stage.strip_gain(s));
-                match wires::set_gain(&self.stage.bundle, &track, gain) {
+            Some(Drag::Fader(target, _)) => {
+                let done = match target {
+                    mixer::Target::Track(i) => {
+                        let Some(s) = self.stage.strips.get(i) else { return };
+                        wires::set_gain(&self.stage.bundle, &s.track, self.stage.strip_gain(s))
+                    }
+                    mixer::Target::Inner(i) => {
+                        let Some(s) = self.stage.inner.get(i) else { return };
+                        wires::set_value(&self.stage.bundle, &s.track, &s.path, self.stage.inner_gain(s))
+                    }
+                };
+                match done {
                     Ok(next) => {
                         self.undo.push(self.stage.bundle.clone());
                         self.stage.bundle = next;
@@ -1251,6 +1304,27 @@ impl App {
                 }
             }
         }
+        // what is selected shows on the stage
+        {
+            let being = &self.stage.space.being;
+            let nodes: Vec<usize> = match &self.sel {
+                inspector::Sel::Rig => Vec::new(),
+                inspector::Sel::Node(n) => vec![*n],
+                inspector::Sel::Track(id) => {
+                    let mut all: Vec<usize> = self.stage.ports.iter().filter(|p| p.track == *id).filter_map(|p| self.stage.node_ids.iter().position(|n| *n == p.node)).collect();
+                    all.dedup();
+                    all
+                }
+            };
+            for n in nodes {
+                if let Some((sx, sy)) = being.point_world(n).and_then(|w| self.stage.space.to_pixel(w)) {
+                    let (bx, by) = (sx / scale + stage_x, sy / scale + top);
+                    if by < top + stage_h {
+                        ui.ring(bx, by, 20.0, t.color.text);
+                    }
+                }
+            }
+        }
         // the view gizmo, top right of the stage: its ball orbits, an axis looks along itself
         {
             const R: f32 = 24.0;
@@ -1299,16 +1373,24 @@ impl App {
             Some(Drag::Balance(i, _, _, v)) => Some((i, v)),
             _ => None,
         };
-        let hot_fader = match self.panel.drag {
-            Some(Drag::Fader(i, _)) => Some(i),
+        let hot = match self.panel.drag {
+            Some(Drag::Fader(target, _)) => Some(target),
             _ => None,
         };
-        for (r, part) in mixer::draw(ui, t, Rect { x: stage_x, y: top + stage_h, w: stage_w, h: band }, self.mixer_open, &self.stage, hot_fader, panning) {
+        let mut tabs = vec!["rig".to_string()];
+        if self.wire {
+            tabs.extend(self.stage.path.iter().cloned());
+        }
+        let tab = self.mixer_tab.unwrap_or(tabs.len() - 1).min(tabs.len() - 1);
+        let view = mixer::View { tabs, tab, hot, panning };
+        for (r, part) in mixer::draw(ui, t, Rect { x: stage_x, y: top + stage_h, w: stage_w, h: band }, self.mixer_open, &self.stage, &view) {
             let hit = match part {
                 mixer::Part::Head => Hit::MixerHead,
+                mixer::Part::Tab(depth) => Hit::MixerTab(depth),
                 mixer::Part::Fader(i, f) => Hit::Fader(i, f),
                 mixer::Part::Mute(i) => Hit::Mute(i),
                 mixer::Part::Pan(i) => Hit::Balance(i),
+                mixer::Part::Peak(p) => Hit::Peak(p),
             };
             self.panel.hits.push((r, hit));
         }

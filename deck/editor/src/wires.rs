@@ -8,7 +8,7 @@ use deck_space::rig::bundle::Played;
 use deck_space::rig::edit::Op;
 use deck_space::rig::validate::Request;
 use deck_space::rig::wiring::Home;
-use deck_space::rig::{Bundle, Instrument, Rig};
+use deck_space::rig::{Bundle, Instrument, Preset, Rig};
 use deck_space::space::being::Level;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -130,6 +130,11 @@ pub fn set_pan(bundle: &Bundle, track: &str, pan: f32) -> Result<Bundle, String>
     checked(bundle.track_set(&Op::SetTrack { id: track.to_string(), instrument: None, preset: None, gain: None, pan: Some(pan), mute: None })?)
 }
 
+/// a value inside a track (`node.port`); the changed bundle
+pub fn set_value(bundle: &Bundle, track: &str, path: &str, value: f32) -> Result<Bundle, String> {
+    checked(bundle.value_set(track, path, value)?)
+}
+
 /// a track muted or not; the changed bundle
 pub fn set_mute(bundle: &Bundle, track: &str, mute: bool) -> Result<Bundle, String> {
     checked(bundle.track_set(&Op::SetTrack { id: track.to_string(), instrument: None, preset: None, gain: None, pan: None, mute: Some(mute) })?)
@@ -190,6 +195,8 @@ struct Draft {
     rig: Rig,
     #[serde(default, rename = "instrument")]
     instruments: Vec<Instrument>,
+    #[serde(default, rename = "preset")]
+    presets: Vec<Preset>,
 }
 
 /// the draft over `base`, if the file is there and still valid
@@ -200,6 +207,11 @@ pub fn load_draft(path: &Path, base: &Bundle) -> Bundle {
         for i in d.instruments {
             if let Some(at) = b.instruments.iter().position(|x| x.id == i.id) {
                 b.instruments[at] = i;
+            }
+        }
+        for p in d.presets {
+            if let Some(at) = b.presets.iter().position(|x| x.id == p.id) {
+                b.presets[at] = p;
             }
         }
         checked(b)
@@ -221,7 +233,8 @@ pub fn save_draft(path: &Path, base: &Bundle, bundle: &Bundle) -> Result<()> {
         std::fs::create_dir_all(dir).with_context(|| format!("making {}", dir.display()))?;
     }
     let instruments = bundle.instruments.iter().filter(|i| !base.instruments.contains(i)).cloned().collect();
-    let text = toml::to_string(&Draft { rig: bundle.rig.clone(), instruments }).context("the draft as TOML")?;
+    let presets = bundle.presets.iter().filter(|p| !base.presets.contains(p)).cloned().collect();
+    let text = toml::to_string(&Draft { rig: bundle.rig.clone(), instruments, presets }).context("the draft as TOML")?;
     std::fs::write(path, text).with_context(|| format!("writing {}", path.display()))
 }
 
@@ -352,6 +365,16 @@ mod tests {
         let (l, visible) = level(&b, &p, &ids, ids.len() - 1, Some("voice"));
         assert!(p.iter().zip(&visible).all(|(q, v)| *v == (q.track == "voice")));
         assert_eq!(l.shown.iter().flatten().count(), 2, "melody and voice: {:?}", l.shown);
+    }
+
+    #[test]
+    fn a_reload_shows_the_same_preset_values() {
+        let (b, _) = catpope();
+        let next = set_value(&b, "drone", "drone.gain", 0.33).expect("set");
+        let file = draft_file("values");
+        save_draft(&file, &b, &next).expect("written");
+        assert_eq!(load_draft(&file, &b).presets, next.presets);
+        std::fs::remove_file(&file).ok();
     }
 
     #[test]
