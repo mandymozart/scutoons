@@ -18,6 +18,7 @@ mod wires;
 
 use anyhow::{Context, Result};
 use deck_kit::controls::{self, Rect};
+use deck_kit::info::{self, Help};
 use deck_kit::{text, typeahead};
 use deck_native::gpu::Gpu;
 use deck_native::host;
@@ -129,6 +130,9 @@ enum Hit {
     Mode(bool),
     /// a port, by its index in the stage's list
     Port(usize),
+    /// the Info view's head, and the view itself
+    InfoHead,
+    InfoBody,
     /// a step of the way down the tree, 0 = the rig
     Crumb(usize),
     /// a track's body at the rig level
@@ -231,6 +235,9 @@ struct App {
     last_body: Option<(usize, Instant)>,
     /// is the stage showing a level (Wire) now
     leveled: bool,
+    /// the Info view is open (remembered in `info_file`)
+    info_open: bool,
+    info_file: PathBuf,
 }
 
 fn main() {
@@ -249,6 +256,7 @@ fn run() -> Result<i32> {
     let subject = if args.rig.contains('.') { args.rig.clone() } else { format!("character.{}", args.rig) };
     let draft = args.draft.clone().unwrap_or_else(|| deck_native::cache::default_dir().join("drafts").join(format!("{subject}.rig.toml")));
     let stage = stage::Stage::new(&args.rig, args.volume, Some(&draft))?;
+    let info_file = deck_native::cache::default_dir().join("editor-info-closed");
     let tokens = tokens::Watched::new(args.tokens.clone().unwrap_or_else(tokens::default_path));
     let event_loop = EventLoop::new().context("no event loop (no display?)")?;
     let width = tokens.tokens.size.panel;
@@ -282,6 +290,8 @@ fn run() -> Result<i32> {
         bodies: Vec::new(),
         last_body: None,
         leveled: false,
+        info_open: !info_closed(&info_file),
+        info_file,
     };
     event_loop.run_app(&mut app).context("the event loop")?;
     let summary = app.summary();
@@ -329,6 +339,37 @@ impl App {
             return Hit::Body(i);
         }
         self.panel.hits.iter().find(|(r, _)| r.has(x, y)).map_or(Hit::Nothing, |(_, h)| *h)
+    }
+
+    /// what the Info view says about what is under the pointer: the name and what it does
+    fn help_now(&self) -> Option<Help> {
+        let (x, y) = self.cursor;
+        Some(match self.hit(x, y) {
+            Hit::Port(i) => {
+                let p = self.stage.ports.get(i)?;
+                let what = format!("{} {}.", if p.input { "An input," } else { "An output," }, p.ty);
+                let how = match (p.input, p.cables.last()) {
+                    (true, Some(c)) => format!("Fed by {}. Pull it off and let go to cut it, drop it on another in to move it.", c.from),
+                    (true, None) => "Free. Drag an out here to connect it.".to_string(),
+                    (false, _) => "Drag to an in to connect it.".to_string(),
+                };
+                Help::new(p.address.clone(), format!("{what} {how} Click to make it active, then right click to find what it can reach. Ctrl+z takes a change back."))
+            }
+            Hit::Body(i) => Help::new(self.bodies.get(i)?.2.clone(), "A track, one body from outside: only its outlets show. Double click, or point at it and press tab, to go in."),
+            Hit::Crumb(0) => Help::new("rig", "Back to the rig, every track one body."),
+            Hit::Crumb(d) => Help::new(self.stage.path.get(d - 1)?.clone(), "Back to this level. Esc or shift+tab goes one level up."),
+            Hit::Mode(false) => Help::new("Play", "The stage as a deck shows it: every node, knobs turn on the stage. W switches."),
+            Hit::Mode(true) => Help::new("Wire", "The wiring: the body holds still, the ports show, one level of the tree at a time. W switches."),
+            Hit::Axis(Some(a)) => Help::new(format!("{}{}", if a < 3 { "+" } else { "-" }, ["X", "Y", "Z"][a % 3]), "Click to look along this axis, drag to orbit."),
+            Hit::Axis(None) => Help::new("View", "Drag to orbit, click an axis to look along it."),
+            Hit::Stage if self.wire => Help::new("Stage", "Left drag orbits, middle or right drag pans, the wheel zooms, F frames. Right click finds any port."),
+            Hit::Stage => Help::new("Stage", "Drag a knob to turn it, anywhere else to orbit. Middle drag pans, the wheel zooms."),
+            Hit::Knob(i) => Help::new(self.stage.knobs.get(i)?.label.clone(), "Drag or use the wheel to turn it in the engine."),
+            Hit::Divider => Help::new("Panel edge", "Drag to resize the panel."),
+            Hit::Tab(_) => Help::new("Tab", "Switches what the panel shows."),
+            Hit::InfoHead => Help::new("Info", "What is under the pointer. Click to fold or open it."),
+            Hit::Field(_) | Hit::Stress(_) | Hit::InfoBody | Hit::Nothing => return None,
+        })
     }
 
     fn body_at(&self, x: f32, y: f32) -> Option<usize> {
@@ -464,6 +505,11 @@ impl App {
             }
             Hit::Axis(a) => self.panel.drag = Some(Drag::Gizmo(a, false, x, y)),
             Hit::Crumb(depth) => self.up_to(depth),
+            Hit::InfoHead => {
+                self.info_open = !self.info_open;
+                remember_info(&self.info_file, self.info_open);
+            }
+            Hit::InfoBody => {}
             Hit::Body(i) => {
                 let double = self.last_body.is_some_and(|(j, at)| j == i && at.elapsed().as_millis() < 400);
                 self.last_body = Some((i, Instant::now()));
@@ -489,7 +535,7 @@ impl App {
         }
     }
 
-    /// the middle button orbits, with shift it pans; the right button: a drag pans, a click is the context menu – at
+    /// the middle button pans (owner 2026-11-09), with shift it orbits; the right button: a drag pans, a click is the context menu – at
     /// once while a port is held down (#455)
     fn press_view(&mut self, button: MouseButton) {
         let (x, y) = self.cursor;
@@ -504,8 +550,8 @@ impl App {
         if matches!(self.hit(x, y), Hit::Stage | Hit::Port(_)) {
             self.panel.drag = Some(match button {
                 MouseButton::Right => Drag::Right(x, y),
-                _ if self.mods.shift_key() => Drag::Pan(x, y),
-                _ => Drag::Orbit(x, y),
+                _ if self.mods.shift_key() => Drag::Orbit(x, y),
+                _ => Drag::Pan(x, y),
             });
         }
     }
@@ -801,6 +847,7 @@ impl App {
     }
 
     fn redraw(&mut self, el: &ActiveEventLoop) {
+        let help = self.help_now();
         let (Some(window), Some(gpu), Some(ui)) = (self.window.clone(), self.gpu.as_mut(), self.ui.as_mut()) else { return };
         self.stage.space.being.hold(self.wire, false);
         // Wire shows a level of the tree, Play every node
@@ -1042,10 +1089,6 @@ impl App {
                 }
             }
         }
-        if self.wire {
-            let small = font * 0.75;
-            ui.text(pad, hf - small * 1.25 - 8.0, small, "drag out → in: connect · pull a filled in off: cut · onto another in: move · click a port, right click: find · double click a body or tab: enter · esc: back · ctrl+z undo · f frame", t.color.muted);
-        }
         // the view gizmo, top right of the stage: its ball orbits, an axis looks along itself
         {
             const R: f32 = 40.0;
@@ -1078,6 +1121,9 @@ impl App {
             }
             self.panel.hits.push((Rect { x: gx - R - 16.0, y: gy - R - 16.0, w: 2.0 * (R + 16.0), h: 2.0 * (R + 16.0) }, Hit::Axis(None)));
         }
+        let landed = info::view(ui, t, pad, hf - pad, self.info_open, help.as_ref());
+        self.panel.hits.push((landed.head, Hit::InfoHead));
+        self.panel.hits.push((landed.whole, Hit::InfoBody));
         if let Some(m) = self.menu.as_mut() {
             m.ta.draw(ui, t, (wf, hf));
         }
@@ -1217,6 +1263,22 @@ impl ApplicationHandler for App {
             WindowEvent::RedrawRequested => self.redraw(el),
             _ => {}
         }
+    }
+}
+
+/// is the Info view folded (a file in the cache)
+fn info_closed(file: &std::path::Path) -> bool {
+    file.is_file()
+}
+
+fn remember_info(file: &std::path::Path, open: bool) {
+    if open {
+        std::fs::remove_file(file).ok();
+    } else {
+        if let Some(dir) = file.parent() {
+            std::fs::create_dir_all(dir).ok();
+        }
+        std::fs::write(file, "").ok();
     }
 }
 

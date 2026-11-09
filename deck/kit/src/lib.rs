@@ -3,6 +3,7 @@
 //! a control draws into a `DrawList`, an adapter turns the list into draws.
 pub mod controls;
 pub mod draw;
+pub mod info;
 pub mod text;
 pub mod tokens;
 pub mod typeahead;
