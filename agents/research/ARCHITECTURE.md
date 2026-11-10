@@ -1,4 +1,4 @@
-Status 2026-11-10: research, nothing built, no direction chosen (#476). The map (§1–§3) is measured from the code and the deploy files; the options (§4–§5) wait for the owner's answers to §6.
+Status 2026-11-10: parked by the owner the same day (#476, §7): the architecture stays, a rebuild only if the platform is scaled and its deployment containerized. The map (§1–§3) is measured from the code and the deploy files; the options (§4–§5) are the starting point for that day. Open: the typeahead route (§5).
 
 # ARCHITECTURE: languages, runtimes, satellites, and how to have fewer
 
@@ -100,4 +100,6 @@ T2 is option D in small: Rust is the source, a generated file crosses the bounda
 
 ## 7 · Decisions
 
-None yet beyond [architecture] (2026-11-10, decisions/deck.md): the research itself.
+- 2026-11-10 [architecture] (decisions/deck.md): "we keep the architecture for now. rebuilding only makes sense if we ever scale the platform and containerize deployment." So options A, C and E are parked, and the questions of §6 are not asked again. The condition that reopens this note: the platform is scaled and its deployment moves to containers (then question 1 is answered and A becomes possible).
+- What goes on without a change of architecture: #474 (the one resolver), and whatever keeps one rule in one place inside today's layout (B and D in small steps, each by its own issue, only when the owner asks).
+- Not decided: the typeahead route of §5. T2 needs no new runtime and no wasm in the creator; it belongs to #472.
