@@ -74,6 +74,8 @@ pub struct SceneView {
     outlet: Option<Outlet>,
     /// a set the space should show next (the page fetches it)
     set_wanted: Option<String>,
+    /// #470: the pairing card's code ("" = no card)
+    pairing_code: String,
 }
 
 #[wasm_bindgen]
@@ -129,17 +131,17 @@ impl SceneView {
         let controls = Controls::new(&graph, None);
         let bpm = tempo.bpm;
         let per_bar = tempo.per_bar;
-        Ok(SceneView { surface, device, queue, config, canvas: element, graph, stage, controls, space, room, pumps, beats: 0.0, bpm, per_bar, beat: tempo::Now::default(), now: 0.0, age: 0.0, fade: Fade { alpha: 1.0 }, backend: backend.into(), outlet: None, set_wanted: None })
+        Ok(SceneView { surface, device, queue, config, canvas: element, graph, stage, controls, space, room, pumps, beats: 0.0, bpm, per_bar, beat: tempo::Now::default(), now: 0.0, age: 0.0, fade: Fade { alpha: 1.0 }, backend: backend.into(), outlet: None, set_wanted: None, pairing_code: String::new() })
     }
 
-    /// #465: join `relay` ("" = the hosted show) as output of `outlet`, its text in `locale` – when the scene has an
-    /// `outlet` node; false: it has none
-    pub fn join_outlet(&mut self, relay: &str, outlet: &str, locale: &str) -> Result<bool, JsValue> {
+    /// #465: join `relay` ("" = the hosted show) as output of `outlet`, its text in `locale`, show media's signed links from
+    /// `api` (#470) - when the scene has an `outlet` node; false: it has none
+    pub fn join_outlet(&mut self, relay: &str, outlet: &str, locale: &str, api: &str) -> Result<bool, JsValue> {
         if self.graph.first(Kind::Outlet).is_none() {
             return Ok(false);
         }
         let (tx, rx) = sync_channel(2);
-        let o = Outlet::new(relay, outlet, if locale.is_empty() { "de" } else { locale }, (self.config.width, self.config.height), tx).map_err(err)?;
+        let o = Outlet::new(relay, outlet, if locale.is_empty() { "de" } else { locale }, api, (self.config.width, self.config.height), tx).map_err(err)?;
         self.stage.set_outlet(rx);
         self.outlet = Some(o);
         Ok(true)
@@ -192,7 +194,7 @@ impl SceneView {
     }
 
     /// what the outlet asks the page to fetch: key, path, … (key c: a chapter under the API, p: a slice under the CDN,
-    /// m: a medium's URL)
+    /// m: a medium's URL - never with the token, s: a show medium's signed link from the API - with the deck's token, #470)
     pub fn outlet_asks(&mut self) -> js_sys::Array {
         let out = js_sys::Array::new();
         for (k, path) in self.outlet.as_mut().map(|o| o.asks()).unwrap_or_default() {
@@ -229,10 +231,34 @@ impl SceneView {
         }
     }
 
+    /// #470: the API's answer to an `s:` ask (its status and body) - the signed link is asked next as `m:`
+    pub fn outlet_signed(&mut self, key: &str, status: u16, body: &str) {
+        if let (Some(o), Some(id)) = (self.outlet.as_mut(), key.strip_prefix("s:")) {
+            o.signed(id, status, body);
+        }
+    }
+
+    /// #470: the deck's link (DeckLink) - why it has no token ("" = it has one) and the code to pair with ("" = none: the
+    /// pairing card hides); `app` = the viewer the member pairs on
+    pub fn deck_link(&mut self, why: &str, code: &str, app: &str) {
+        if let Some(o) = self.outlet.as_mut() {
+            if o.unpaired != why {
+                o.unpaired = why.to_owned();
+            }
+        }
+        if self.pairing_code != code {
+            self.pairing_code = code.to_owned();
+            let shown = (!code.is_empty()).then(|| deck_link::pairing::Shown::Pending { code: code.to_owned() });
+            let card = deck_space::pairing::Card::of(shown.as_ref(), app).map(|c| c.raster());
+            self.stage.set_pairing(&self.queue, card.as_deref());
+        }
+    }
+
     pub fn outlet_failed(&mut self, key: &str, why: String) {
         if let Some(o) = self.outlet.as_mut() {
             o.shelf().failed(key, why.clone());
-            o.medium(key.strip_prefix("m:").unwrap_or(""), Some(why));
+            // a medium (m:) or its signed link (s:, #470) – either way the medium is missing
+            o.medium(key.strip_prefix("m:").or_else(|| key.strip_prefix("s:")).unwrap_or(""), Some(why));
         }
     }
 

@@ -3,10 +3,12 @@
 import { sniff, spaceModule, stageCanvas, type SpaceModule } from './space.ts';
 import { askPortraits, fetchChapter, fetchOutletAsks, fetchSet, fetchSlice, portraitsAt, type ChapterView, type OutletView, type SetView } from './stage-assets.ts';
 import { RelaySocket, type RelayCoreView } from './client.ts';
+import { deckKey, driveLink, type Paired } from './deck-key.ts';
 
 /** #463: the wasm-bindgen API of deck/space-web's `SceneView` */
 export interface SceneView extends SetView, ChapterView, OutletView {
-	join_outlet(relay: string, outlet: string, locale: string): boolean;
+	join_outlet(relay: string, outlet: string, locale: string, api: string): boolean;
+	deck_link(why: string, code: string, app: string): void;
 	set_request(): string;
 	resize(w: number, h: number): void;
 	frame(dt: number, time: number): void;
@@ -29,6 +31,8 @@ export interface SceneOptions {
 	maxScale?: number;
 	/** #465: the Live outlet an `outlet` node shows (relay "" = the hosted show) */
 	outlet?: { relay: string; name: string; locale: string };
+	/** #470: the build label the deck names when it asks to be paired */
+	build?: string;
 }
 
 /** #463: a scene playing in `host` */
@@ -41,6 +45,8 @@ export class SceneStage {
 	/** #465: the outlet's relay socket (the client is the view's) */
 	private relay: RelaySocket | null = null;
 	private spaceModule: SpaceModule | null = null;
+	/** #470: the deck's pairing (an outlet's show media need its token) and the key it signs with */
+	private link: Paired | null = null;
 
 	private constructor(
 		private readonly o: SceneOptions,
@@ -69,7 +75,11 @@ export class SceneStage {
 		}
 		const s = new SceneStage(o, canvas, view);
 		s.spaceModule = mod;
-		if (o.outlet && view.join_outlet(o.outlet.relay, o.outlet.name, o.outlet.locale)) (s.relay = new RelaySocket(view as unknown as RelayCoreView, {})).start();
+		if (o.outlet && view.join_outlet(o.outlet.relay, o.outlet.name, o.outlet.locale, o.api)) {
+			(s.relay = new RelaySocket(view as unknown as RelayCoreView, {})).start();
+			const key = await deckKey();
+			if (key) s.link = { view: new mod.DeckLink(key.publicHex, o.build ?? ''), key: key.pair.privateKey, busy: false };
+		}
 		const room = view.room();
 		if (room) void fetchSet(s, mod.SpaceView.encoded_images, sniff, o, room).catch((e) => console.warn('scene: the set failed', e));
 		view.chapters().forEach((path, i) => void fetchChapter(s, o.api + path, i));
@@ -97,7 +107,10 @@ export class SceneStage {
 		if (!this.relay) return;
 		// what the outlet says (media.ready) goes out; what it asks for is fetched; a cell's set loads
 		this.relay.run();
-		fetchOutletAsks(this, this.o);
+		const link = this.link;
+		if (link) void driveLink(link, this.o.api);
+		this.view.deck_link(link ? link.view.why(ms) : 'this browser cannot pair (no WebCrypto Ed25519)', link?.view.code() ?? '', location.origin);
+		fetchOutletAsks(this, { api: this.o.api, cdn: this.o.cdn, link: link?.view });
 		const set = this.view.set_request();
 		if (set && this.spaceModule) void fetchSet(this, this.spaceModule.SpaceView.encoded_images, sniff, this.o, set).catch((e) => console.warn('scene: the set failed', e));
 	};
@@ -105,6 +118,7 @@ export class SceneStage {
 	stop() {
 		this.stopped = true;
 		this.relay?.close();
+		this.link?.view.free();
 		cancelAnimationFrame(this.raf);
 		this.size.disconnect();
 		this.canvas.remove();

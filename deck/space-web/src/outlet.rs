@@ -4,15 +4,19 @@
 //! relay client is deck-space's. This is only the browser's side of the three native threads, run from the frame loop:
 //! the page's socket drives the relay client (client.ts `RelaySocket`), and the page fetches what the shelf asks for
 //! (a chapter, a slice, a preloaded medium) and hands it back decoded.
+//! Show media (#470, deck-outlet's `show`): a preload url `live/<toon>/<file>` is asked as `s:<id>` - the API's signed
+//! link, which the page asks for with the deck's token (link.rs) - and then fetched as `m:<id>` from that link, without
+//! the token. A deck that is not paired answers the conductor why (the code to pair with).
 //!
-//! Not yet in the browser: the deck token for show media (public files load), a preloaded .glb as the set (a set by
-//! name loads from the library), video (its still stands in, as on the native deck).
+//! Not yet in the browser: a preloaded .glb as the set (a set by name loads from the library), video (its still stands
+//! in, as on the native deck).
 use deck_outlet::compose::{Composer, Shelf};
 use deck_outlet::frame::{Frame, SpaceTarget};
 use deck_outlet::plan::MediaRef;
 use deck_outlet::preload::Preload;
 use deck_outlet::recompose::Recompose;
 use deck_outlet::route::{route, Input, Routed};
+use deck_outlet::show::{show_path, signed_link, signed_link_request};
 use deck_outlet::status::Status;
 use deck_outlet::text::Dialog;
 use deck_space::chapter::Chapter;
@@ -175,11 +179,16 @@ pub struct Outlet {
     said: Vec<String>,
     /// the space node's new target (the scene view applies it)
     pub space: Option<SpaceTarget>,
+    /// the API base: show media's signed links (#470)
+    api: String,
+    /// why the deck has no token ("" = it has one - the page says, from DeckLink)
+    pub unpaired: String,
 }
 
 impl Outlet {
-    /// join `relay` (ws:// or wss://…/live/<code>) as output of `outlet`, its text in `locale`; the planes go to `frames`
-    pub fn new(relay: &str, outlet: &str, locale: &str, size: (u32, u32), frames: SyncSender<Frame>) -> Result<Outlet, String> {
+    /// join `relay` (ws:// or wss://…/live/<code>) as output of `outlet`, its text in `locale`, show media's links from `api`;
+    /// the planes go to `frames`
+    pub fn new(relay: &str, outlet: &str, locale: &str, api: &str, size: (u32, u32), frames: SyncSender<Frame>) -> Result<Outlet, String> {
         let relay = if relay.trim().is_empty() { HOSTED_RELAY } else { relay.trim() };
         if outlet.is_empty() || !outlet.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') {
             return Err(format!("outlet '{outlet}': letters, digits, - and _ only"));
@@ -206,6 +215,8 @@ impl Outlet {
             status,
             said: Vec::new(),
             space: None,
+            api: api.trim_end_matches('/').to_owned(),
+            unpaired: "the deck is not paired yet".into(),
         })
     }
 
@@ -253,6 +264,18 @@ impl Outlet {
         }
         // a chapter or a slice arrived: a cell waiting for it is composed again
         self.inputs.push(Input::Media);
+    }
+
+    /// The API's answer to a show medium's `s:<id>` -> its signed link is fetched (`m:<id>`), or the medium is missing
+    pub fn signed(&mut self, id: &str, status: u16, body: &str) {
+        let body = serde_json::from_str(body).unwrap_or(serde_json::Value::Null);
+        match signed_link(status, &body) {
+            Ok(url) => self.composer.shelf.asks.push((format!("m:{id}"), url)),
+            Err(why) => {
+                self.composer.shelf.failed(&format!("m:{id}"), why.clone());
+                self.medium(id, Some(why));
+            }
+        }
     }
 
     pub fn shelf(&mut self) -> &mut WebShelf {
@@ -320,10 +343,18 @@ impl Outlet {
                 // a set's 3D: the space loads it by name from the library
                 (_, Some(SpotMode::Model3d)) if item.set.is_some() => self.ready.push(item.id.clone()),
                 (Some(_), _) if matches!(self.composer.shelf.media.get(&item.id), Some(Got::Have(_))) => self.ready.push(item.id.clone()),
+                // a show medium without a token: the conductor hears why (the code to pair with)
+                (Some(url), _) if show_path(url).is_some() && !self.unpaired.is_empty() => {
+                    self.why.insert(item.id.clone(), format!("show medium: {}", self.unpaired));
+                }
                 (Some(url), _) => {
                     self.flying.insert(item.id.clone());
                     self.composer.shelf.media.insert(item.id.clone(), Got::Asked);
-                    self.composer.shelf.asks.push((format!("m:{}", item.id), url.clone()));
+                    let ask = match show_path(url) {
+                        Some(path) => (format!("s:{}", item.id), signed_link_request(&self.api, path)),
+                        None => (format!("m:{}", item.id), url.clone()),
+                    };
+                    self.composer.shelf.asks.push(ask);
                 }
                 (None, _) => {
                     self.why.insert(item.id.clone(), "no URL and no set data yet (#193)".into());

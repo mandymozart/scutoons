@@ -183,6 +183,7 @@ export interface SpaceModule {
 	};
 	DeckControls: new () => DeckControlsView;
 	SceneView: { create(canvas: HTMLCanvasElement, scene: string, prefer: string): Promise<import('./scene-stage.ts').SceneView> };
+	DeckLink: new (publicKeyHex: string, build: string) => import('./deck-key.ts').DeckLinkView;
 	DeckMonitor: new () => MonitorView;
 	DeckState: (new () => DeckStateView) & { rigging(): DeckStateView };
 	DeckPush: new (api: string, cdn: string) => DeckPushView;

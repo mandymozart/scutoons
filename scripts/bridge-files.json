@@ -30,6 +30,7 @@
 		"shared/live-deck/src/assign.ts": "adapter: space-web's assignment rules (rig_coverage, rig_catalog_bundle, rig_face, rig_policy_template – deck-space rig::assign, face, template) for the creator's Assignment and Rust tabs (#283, #412)",
 		"shared/live-deck/src/client.ts": "adapter: the WebSocket and one timer under deck-space's relay client (relay-web, #366); a deck's link",
 		"shared/live-deck/src/controls.ts": "adapter: the controls (DeckControls) on the deck's values, the mappings in localStorage, the arc's drawing",
+		"shared/live-deck/src/deck-key.ts": "adapter: the browser deck's non-extractable WebCrypto Ed25519 key in IndexedDB and the fetches of its pairing – the handshake and its schedule are deck-link's (space-web DeckLink, #470)",
 		"shared/live-deck/src/deck.ts": "adapter: the browser deck – applies the core's state (the mood, the rig turns: #367, #368), hands the clock choices, keys and Web MIDI clock bytes to the core (#370)",
 		"shared/live-deck/src/gamepad.ts": "adapter: the Gamepad API's poll into DeckControls.pad, its events to the sticks",
 		"shared/live-deck/src/index.ts": "types: the package's exports",
