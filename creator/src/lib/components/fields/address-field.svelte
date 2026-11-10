@@ -23,8 +23,7 @@
 		doc: ContentDoc;
 		/** the target object (the jump target, a cast row, the event's params …) */
 		path: Path;
-		/** whose book (default: the document's toon) */
-		toon?: string;
+		toon?: string; // whose book (default: the document's toon)
 		spec: TargetSpec;
 		label: string;
 		free?: string;
@@ -32,7 +31,6 @@
 		accept?: (entry: AddressEntry) => boolean;
 		/** more changes in the pick's edit (the target object, the picked entry or null for a typed text, the fields' values before) */
 		onpick?: (target: any, entry: AddressEntry | null, before: Record<string, string | undefined>) => void;
-		/** an option's picture (an asset path) */
 		icon?: (entry: AddressEntry) => string | undefined;
 		lead?: Snippet;
 		children?: Snippet;
@@ -49,21 +47,23 @@
 	let active = $state(0);
 	/** while open: the toon the field is narrowed to (null = this toon's book) */
 	let picked = $state<string | null>(null);
-	/** the toon whose book the field shows: the picked one while open, else the one the target is in */
-	const scope = $derived(open ? picked : scopeOf(target, spec, toon));
+	/** the toon the stored target is in (null: this one); the list shows the picked one's book while open */
+	const stored = $derived(scopeOf(target, spec, toon));
+	const scope = $derived(open ? picked : stored);
 	const held = $derived(scope ? addressBooks.of(scope) : home);
 	const book = $derived(held.book);
 	const scopeEntry = $derived(scope ? home.book?.entries.find((e) => e.kind === spec.scope?.kind && e.name === scope) : undefined);
 	const scopeLabel = $derived(scope ? (scopeEntry && home.book ? entryLabel(scopeEntry, locale, home.book.source) : scope) : '');
-
-	const current = $derived(book ? currentEntry(book, spec, target, scope) : null);
+	/** what the target is now, from the book of the toon it is in */
+	const storedBook = $derived((stored ? addressBooks.of(stored) : home).book);
+	const current = $derived(storedBook ? currentEntry(storedBook, spec, target, stored) : null);
 	const raw = $derived.by(() => {
 		const values = Object.values(currentValues(target, spec.fields)).filter((v) => v !== undefined);
 		if (!values.length) return legacy && target?.[legacy] ? String(target[legacy]) : '';
 		const kind = spec.type ? target?.[spec.type.field] : undefined;
 		return [...new Set([...(kind ? [String(kind)] : []), ...values])].join(' · ');
 	});
-	const shown = $derived(current && book ? chainLabel(current, indexOf(book), locale, book.source) : raw);
+	const shown = $derived(current && storedBook ? chainLabel(current, indexOf(storedBook), locale, storedBook.source) : raw);
 
 	const options = $derived.by(() => {
 		if (!open || !book) return [];
@@ -155,7 +155,7 @@
 		</div>
 		<span class="note">{m['creator.address_offline']()}</span>
 	{:else}
-		<div class="combo" class:unknown={!current && !!raw && !!book}>
+		<div class="combo" class:unknown={!current && !!raw && !!storedBook}>
 			{@render lead?.()}
 			{#if scope}
 				<!-- the toon the field is narrowed to (#477 slice D): a click or Backspace on the empty field leaves it -->
@@ -169,7 +169,7 @@
 				aria-controls="{uid}-list"
 				aria-autocomplete="list"
 				aria-activedescendant={open && count ? `${uid}-${active}` : undefined}
-				title={current?.ref ?? (raw && book ? m['creator.address_unknown']() : undefined)}
+				title={current?.ref ?? (raw && storedBook ? m['creator.address_unknown']() : undefined)}
 				value={open ? query : shown}
 				placeholder={open && shown ? shown : m['creator.address_search']()}
 				autocomplete="off"
@@ -195,7 +195,7 @@
 						<li id="{uid}-{i}" role="option" aria-selected={i === active} class:sc-selected={i === active} onmousedown={(e) => e.preventDefault()} onclick={() => choose(i)} onmousemove={() => (active = i)} data-testid="{testid}-option">
 							{#if src}<img src={asset(src)} alt="" onerror={(e) => ((e.currentTarget as HTMLImageElement).hidden = true)} />{/if}
 							<span class="label">{chainLabel(entry, indexOf(book!), locale, book!.source)}{enters ? ' ›' : ''}</span>
-							<span class="meta">{enters ? m['creator.address_scope_enter']() : kindName(entry.kind)}{#if entry.origin.state === 'draft'} · {m['creator.address_draft']()}{/if}</span>
+							<span class="meta">{enters ? m['creator.address_scope_enter']() : kindName(entry.kind)}{entry.origin.state === 'draft' ? ` · ${m['creator.address_draft']()}` : ''}</span>
 						</li>
 					{/each}
 					{#if typed}
