@@ -20,6 +20,9 @@ pub struct Status {
     /// #91: the deck's answer to the last flash (deck-show `ready::line`) and what it lacks, one line each
     pub flash: Option<String>,
     pub flash_lacks: Vec<String>,
+    /// #471: "please don't flash", the notice after a flash replaced the deck's own version and how the switch stands
+    /// (deck-show `ready::Deck::keep_line`, `notice`)
+    pub flash_notice: Vec<String>,
 }
 
 impl Status {
@@ -40,6 +43,7 @@ impl Status {
             out.push(up(f));
         }
         out.extend(self.flash_lacks.iter().map(|l| up(&format!("! {l}"))));
+        out.extend(self.flash_notice.iter().map(|l| up(l)));
         out.extend(self.problems.iter().chain(&self.problems_relay).map(|p| up(&format!("! {p}"))));
         out
     }
@@ -72,5 +76,7 @@ mod tests {
         s.flash = Some("FLASH top@3: 1 missing".into());
         s.flash_lacks = vec!["row exit: scene:ghost is not on this deck".into()];
         assert_eq!(s.lines("left")[3..], ["FLASH TOP@3: 1 MISSING".to_string(), "! ROW EXIT: SCENE:GHOST IS NOT ON THIS DECK".to_string()]);
+        s.flash_notice = vec!["please don't flash: rehearsing".into(), "flashed by force by ana – your top@2 is kept".into()];
+        assert_eq!(s.lines("left")[5..], ["PLEASE DON'T FLASH: REHEARSING".to_string(), "FLASHED BY FORCE BY ANA - YOUR TOP@2 IS KEPT".to_string()]);
     }
 }

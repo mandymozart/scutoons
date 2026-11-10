@@ -1,0 +1,68 @@
+name = "a value says where it came from: the one resolver"
+about = "#474: deck-space's resolver answers a key with its value, its origin and what it falls back to; the order is written once (timed › local › flashed › draft › look › persona › character › default › shipped); a timed change holds for its own length from its own start, a second call by the same caller replaces the first, and when it ends the next source shows again. Native and wasm give the same answers"
+
+# the ladder: the persona beats the character and the kind's default
+[[step]]
+do = "resolve"
+key = "character:catpope/being:glow"
+set = [
+  { strength = "default", id = "character:*", value = "low" },
+  { strength = "character", id = "character:catpope", value = "warm" },
+  { strength = "persona", id = "character:catpope.mountaintiger", value = "wild" },
+]
+expect = { value = "wild", origin = "persona character:catpope.mountaintiger", fallback = { value = "warm", origin = "character character:catpope" } }
+
+# a timed change by a scene, from beat 4 for 4 beats: not yet at 3
+[[step]]
+do = "resolve"
+key = "character:catpope/being:glow"
+call = [{ caller = "scene:party", value = "laughing", start = 4, length = 4 }]
+now = 3
+expect = { value = "wild", origin = "persona character:catpope.mountaintiger" }
+
+[[step]]
+do = "resolve"
+key = "character:catpope/being:glow"
+now = 5
+expect = { value = "laughing", origin = "timed scene:party", fallback = { value = "wild" } }
+
+# called again at 6 for 4: it replaces the first and runs from its own start, so it still holds at 9
+[[step]]
+do = "resolve"
+key = "character:catpope/being:glow"
+call = [{ caller = "scene:party", value = "crying", start = 6, length = 4 }]
+now = 9
+expect = { value = "crying", origin = "timed scene:party" }
+
+# ended: the next source shows again
+[[step]]
+do = "resolve"
+key = "character:catpope/being:glow"
+now = 10
+expect = { value = "wild", origin = "persona character:catpope.mountaintiger" }
+
+# the persona's opinion taken back: the character shows, the kind's default below it
+[[step]]
+do = "resolve"
+key = "character:catpope/being:glow"
+clear = [{ strength = "persona", id = "character:catpope.mountaintiger" }]
+now = 10
+expect = { value = "warm", origin = "character character:catpope", fallback = { value = "low", origin = "default character:*" } }
+
+# a call beats a deck's own local change; the local change beats the flash
+[[step]]
+do = "resolve"
+key = "deck:left/light"
+set = [
+  { strength = "flashed", id = "show:a", value = "dim" },
+  { strength = "local", id = "local", value = "bright" },
+]
+call = [{ caller = "scene:storm", value = "flicker", start = 0, length = 4 }]
+now = 1
+expect = { value = "flicker", origin = "timed scene:storm", fallback = { value = "bright", origin = "local local" } }
+
+# a key nobody has an opinion on: no value
+[[step]]
+do = "resolve"
+key = "item:lamp/being:glow"
+expect = { found = false }

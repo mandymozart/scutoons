@@ -11,7 +11,9 @@
 //! - [`ready`]: a deck's side of a flash (#91): the show its outlet plays, kept at the pinned version, every piece checked,
 //!   the report in words; it never blocks GO.
 //! - [`view`]: what the deck editor's Show and Perform workspaces draw: the matrix, the log in words, the inspector (#91).
+//! - [`choose`]: choosing what to flash (#471): every device of the tree, the filters, the prompt, what the flash names.
 pub mod address;
+pub mod choose;
 pub mod conductor;
 pub mod document;
 pub mod flash;

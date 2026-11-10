@@ -1,0 +1,59 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"$id": "https://scutoons.com/schema/api/address-book.v1.json",
+	"title": "AddressBook",
+	"description": "One toon's address book (#477, decisions/deck.md [contract] [typeahead]): every addressable thing of the toon's catalog with its address, kind, labels and where it comes from. The server writes it (GET /api/addresses/<toon>), the creator's VN events and the deck editor filter it in one typeahead each; whether an address is valid stays the core's on save (/validate). Edit this file, run `npm run generate` (server/schema/generate.ts writes the Rust, TS and PHP types), commit the outputs.",
+	"$ref": "#/definitions/AddressBook",
+	"definitions": {
+		"AddressKind": {
+			"description": "What an entry is – the one thing a typeahead filters by: an asker takes the kinds it can address (a VN character event: character, persona, look; unlockLocation: location; an item event: item; a jump: chapter, group; setVariable: variable). character / persona / look are the levels of address.rs's `Target` (`character:<id>[.<persona>[.<look>]]`); location, item and chapter are a place `<kind>:<id>`. Proposals the owner has not confirmed (#477): a chapter's group `chapter:<number>.<group>` (its `name` the label as an event stores it, the address word a safe form of it) and a story variable `variable:<scope>.<name>` (scope = the owning toon or `global`; its `name` the variable as written in this toon).",
+			"type": "string",
+			"enum": ["character", "persona", "look", "location", "item", "chapter", "group", "variable"]
+		},
+		"OriginState": {
+			"description": "`published`: the newest version of the origin document is the published one; `draft`: a newer draft exists (or nothing is published yet), and the entry is the draft's.",
+			"type": "string",
+			"enum": ["published", "draft"]
+		},
+		"LocaleText": {
+			"description": "Content text: locale → text (the one shape of authored text; pick a locale with the one locale order, server/schema/tables/locale-order.json).",
+			"type": "object",
+			"additionalProperties": { "type": "string" }
+		},
+		"Origin": {
+			"description": "The catalog document an entry comes from.",
+			"type": "object",
+			"properties": {
+				"key": { "description": "the document's entity key (`character:catpope`, `place:dom`, `chapter:catpope:3`) or catalog entry (`item:incense`)", "type": "string" },
+				"state": { "$ref": "#/definitions/OriginState" }
+			},
+			"required": ["key", "state"]
+		},
+		"AddressEntry": {
+			"description": "One addressable thing.",
+			"type": "object",
+			"properties": {
+				"address": { "description": "the address, in address.rs's grammar: `character:catpope.human.default`, `location:dom`, `item:incense`, `chapter:3`, `chapter:3.intro`, `variable:global.coins`", "type": "string" },
+				"kind": { "$ref": "#/definitions/AddressKind" },
+				"name": { "description": "its own id at its level (`default` for the look above, `3` for a chapter, a group's label, a variable as written in this toon: `coins`, `global.coins`, `toptoy.coins`): what a document's field holds", "type": "string" },
+				"parent": { "description": "the address one level up (a look's persona, a persona's character); absent at the top", "type": "string" },
+				"labels": { "$ref": "#/definitions/LocaleText" },
+				"origin": { "$ref": "#/definitions/Origin" },
+				"moods": { "description": "a look only: the moods it has art for, in the document's order", "type": "array", "items": { "type": "string" } }
+			},
+			"required": ["address", "kind", "name", "labels", "origin"]
+		},
+		"AddressBook": {
+			"description": "The document: one per toon, versioned by the catalog it was built from.",
+			"type": "object",
+			"properties": {
+				"address_book": { "description": "the format's version", "const": 1 },
+				"toon": { "type": "string" },
+				"version": { "description": "the catalog's version it was built from (the response's ETag)", "type": "string" },
+				"source": { "description": "the toon's source language: the second step of the locale order", "type": "string" },
+				"entries": { "description": "parents before their children; characters, locations, items, chapters (each followed by its groups), variables", "type": "array", "items": { "$ref": "#/definitions/AddressEntry" } }
+			},
+			"required": ["address_book", "toon", "version", "source", "entries"]
+		}
+	}
+}

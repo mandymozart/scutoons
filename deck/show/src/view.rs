@@ -648,14 +648,10 @@ mod tests {
         doc["seats"][0]["sits"] = serde_json::json!("phone:x");
         let show: Show = serde_json::from_value(doc).unwrap();
         let mut sub = Subtree::new(show.clone(), ClockChoice::Parent);
-        let lack = protocol::FlashReport {
-            running: protocol::Pinned { id: "top-toy".into(), version: 1 },
-            accepted: true,
-            why: None,
-            outlet: Some("left".into()),
-            ready: Some(false),
-            lacks: Some(vec!["row yellowmouse-enters: character:yellowmouse is not on this deck".into()]),
-        };
+        let mut lack = crate::flash::report(&crate::Pinned { id: "top-toy".into(), version: 1 }, true, None);
+        lack.outlet = Some("left".into());
+        lack.ready = Some(false);
+        lack.lacks = Some(vec!["row yellowmouse-enters: character:yellowmouse is not on this deck".into()]);
         sub.on_wire(&protocol::Envelope::new("c7", protocol::Message::FlashReport(lack)), 10);
         let p = problems(&show, Some(&sub));
         let points: Vec<(&Points, bool)> = p.iter().map(|p| (&p.points, p.error)).collect();

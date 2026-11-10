@@ -37,6 +37,20 @@ final class Variables
         return $owner === $toon ? $name : $owner . '.' . $name;
     }
 
+    /** whose a storage key is: the owning toon (`catpope/x` → catpope), `global` for a key without one (`x`) */
+    public static function scope(string $key): string
+    {
+        $slash = strpos($key, '/');
+        return $slash === false ? self::GLOBAL : substr($key, 0, $slash);
+    }
+
+    /** the plain name of a storage key (`toptoy/coins` → `coins`) */
+    public static function name(string $key): string
+    {
+        $slash = strpos($key, '/');
+        return $slash === false ? $key : substr($key, $slash + 1);
+    }
+
     /**
      * whether a name an expression reads is a story variable: `coins`, `global.coins`, `toptoy.coins` – not a namespace
      * member (`reader.name`)

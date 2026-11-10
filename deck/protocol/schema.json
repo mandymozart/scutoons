@@ -189,6 +189,7 @@
         "seat": { "$ref": "#/definitions/SeatWord", "description": "#90: the parent's last word to this subtree (a conductor), or to this seat (a child relay)" },
         "seats": { "type": "object", "additionalProperties": { "$ref": "#/definitions/SeatState" }, "description": "#90: each seat's readout (the conductor's snapshot)" },
         "flash": { "$ref": "#/definitions/Flash", "description": "#90: the last flash" },
+        "reports": { "type": "object", "additionalProperties": { "$ref": "#/definitions/FlashReport" }, "description": "#471: each deck's and sub conductor's last flash.report, by its path (the conductor's snapshot): the flash list of a conductor that joins later" },
         "seq": { "type": "integer", "description": "the session's seq when the snapshot was taken" }
       },
       "additionalProperties": false
@@ -554,7 +555,11 @@
         "shows": { "type": "array", "items": { "$ref": "#/definitions/Pinned" }, "description": "the root first, each show once" },
         "lock": { "type": "boolean", "description": "a lock from above" },
         "hops": { "type": "integer", "minimum": 0, "description": "how many conductors it came through; 0 = from this conductor's own operator" },
-        "here": { "$ref": "#/definitions/Pinned", "description": "#91: the show of the conductor whose session it is in now, at the version the flash pins; a deck takes its outlet's cells of that one" }
+        "here": { "$ref": "#/definitions/Pinned", "description": "#91: the show of the conductor whose session it is in now, at the version the flash pins; a deck takes its outlet's cells of that one" },
+        "id": { "type": "string", "description": "#471: this flash's identity; a deck takes one flash once (a rejoin hands it the same one again)" },
+        "by": { "type": "string", "description": "#471: who flashed, for the deck's notice" },
+        "skip": { "type": "array", "items": { "type": "string" }, "description": "#471: the paths the operator left out, relative to the session it is in now (a client id; `<show>/…` for a sub conductor's session, the show its seat sits). A deck not named here takes it, also one that joins later" },
+        "force": { "type": "array", "items": { "type": "string" }, "description": "#471: the paths the prompt warned of and the operator accepted (asked not to be flashed, unsaved configuration): flashed anyway" }
       },
       "required": ["root", "shows", "hops"],
       "additionalProperties": false
@@ -568,7 +573,13 @@
         "why": { "type": "string", "description": "why it refused" },
         "outlet": { "type": "string", "description": "#91: a deck's outlet (none: a conductor)" },
         "ready": { "type": "boolean", "description": "#91: a deck has everything its outlet's cells name (the show and each piece); never blocks GO" },
-        "lacks": { "type": "array", "items": { "type": "string" }, "description": "#91: what it lacks, in words (deck-show's), one line each" }
+        "lacks": { "type": "array", "items": { "type": "string" }, "description": "#91: what it lacks, in words (deck-show's), one line each" },
+        "keep": { "type": "string", "description": "#471: the deck asks not to be flashed, and why (a request, not a lock)" },
+        "unsaved": { "type": "boolean", "description": "#471: the deck has configuration a flash would replace" },
+        "mappings": { "type": "integer", "minimum": 0, "description": "#471: how many local mappings the deck has (they stay through a flash)" },
+        "device": { "type": "string", "description": "#471: native, browser, phone … (the flash list's filter)" },
+        "kept": { "$ref": "#/definitions/Pinned", "description": "#471: the deck's own version, kept when a flash replaced it" },
+        "own": { "type": "boolean", "description": "#471: the deck runs its own kept version, not the flashed one" }
       },
       "required": ["running", "accepted"],
       "additionalProperties": false

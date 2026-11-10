@@ -20,6 +20,7 @@ pub mod problem;
 pub mod push;
 pub mod quality;
 pub mod relay;
+pub mod resolver;
 pub mod rig;
 pub mod scene;
 pub mod tempo;

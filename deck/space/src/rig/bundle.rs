@@ -56,10 +56,15 @@ pub struct Knob {
     pub log: bool,
 }
 
+/// a knob's label in `locale`, else English, else any (a rig's `expose` label map; the one order, #474)
+pub fn pick_label<'a>(labels: &'a Text, locale: &str) -> Option<&'a str> {
+    labels.get(locale).or_else(|| labels.get("en")).or_else(|| labels.values().next()).map(String::as_str)
+}
+
 impl Knob {
     /// its label in `locale`, else English, else any, else its path
     pub fn label_in(&self, locale: &str) -> &str {
-        self.label.get(locale).or_else(|| self.label.get("en")).or_else(|| self.label.values().next()).map_or(&self.path, String::as_str)
+        pick_label(&self.label, locale).unwrap_or(&self.path)
     }
 
     /// its range as a parameter (#369: value ↔ 0..1 on its curve, params.rs)

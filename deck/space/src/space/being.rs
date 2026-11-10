@@ -381,11 +381,6 @@ pub struct Reset {
     pub t: f32,
 }
 
-/// a knob's label in `locale`, else English, else any (a rig's `expose` label map)
-fn pick_label<'a>(labels: &'a std::collections::BTreeMap<String, String>, locale: &str) -> Option<&'a str> {
-    labels.get(locale).or_else(|| labels.get("en")).or_else(|| labels.values().next()).map(String::as_str)
-}
-
 /// The parameter's own colour: a fixed hue for the common ones (each its own, apart enough to tell), a stable hash
 /// of the name for the rest.
 pub fn param_hue(name: &str) -> f32 {
@@ -671,7 +666,7 @@ impl Being {
                         Some(Limit { node: cn, port: cp, name, default: params::spec(graph.nodes[cn].kind, name).default, index: l.index, size: l.size })
                     });
                 let path = format!("{}.{name}", node.id);
-                let label = look.labels.get(&path).and_then(|m| pick_label(m, &look.locale)).unwrap_or(name).to_string();
+                let label = look.labels.get(&path).and_then(|m| crate::rig::bundle::pick_label(m, &look.locale)).unwrap_or(name).to_string();
                 // #429: the count of a counted group clicks from one whole number to the next
                 let spec = Spec { whole: spec.whole || params::is_count(&node.id, name, &look.expose), ..spec };
                 let n0 = spec.norm(scene);

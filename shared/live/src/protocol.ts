@@ -174,6 +174,8 @@ export interface Snapshot {
 	seats?: Record<string, SeatState>;
 	/** #90: the last flash */
 	flash?: Flash;
+	/** #471: each deck's and sub conductor's last flash.report, by its path (the conductor's snapshot): the flash list of a conductor that joins later */
+	reports?: Record<string, FlashReport>;
 	/** the session's seq when the snapshot was taken */
 	seq?: number;
 }
@@ -475,6 +477,14 @@ export interface Flash {
 	hops: number;
 	/** #91: the show of the conductor whose session it is in now, at the version the flash pins; a deck takes its outlet's cells of that one */
 	here?: Pinned;
+	/** #471: this flash's identity; a deck takes one flash once (a rejoin hands it the same one again) */
+	id?: string;
+	/** #471: who flashed, for the deck's notice */
+	by?: string;
+	/** #471: the paths the operator left out, relative to the session it is in now (a client id; `<show>/…` for a sub conductor's session, the show its seat sits). A deck not named here takes it, also one that joins later */
+	skip?: string[];
+	/** #471: the paths the prompt warned of and the operator accepted (asked not to be flashed, unsaved configuration): flashed anyway */
+	force?: string[];
 }
 
 /** #90: what a deck or conductor runs after a flash, to its conductor and on up. `from` of the envelope is the path it came along. */
@@ -489,6 +499,18 @@ export interface FlashReport {
 	ready?: boolean;
 	/** #91: what it lacks, in words (deck-show's), one line each */
 	lacks?: string[];
+	/** #471: the deck asks not to be flashed, and why (a request, not a lock) */
+	keep?: string;
+	/** #471: the deck has configuration a flash would replace */
+	unsaved?: boolean;
+	/** #471: how many local mappings the deck has (they stay through a flash) */
+	mappings?: number;
+	/** #471: native, browser, phone … (the flash list's filter) */
+	device?: string;
+	/** #471: the deck's own version, kept when a flash replaced it */
+	kept?: Pinned;
+	/** #471: the deck runs its own kept version, not the flashed one */
+	own?: boolean;
 }
 
 /** #90, SHOW.md §9, for the workshop group and device. The receiver tests itself; a missing fact fails the filter. */

@@ -62,6 +62,7 @@ Locally `http://localhost:9000/api` (`VITE_API_URL`; the qr app on :9001). Publi
 | GET/POST/DELETE | `/me/decks`, `/me/decks/pending`, `/me/decks/approve`, `/me/decks/{id}` | session (every member) | the member's paired decks – see "Decks" |
 | GET | `/decks/lan-cert` | a deck token | the venue certificate for `deck-tls` – see "The venue certificate" |
 | GET | `/decks/media?path=live/<toon>/<file>` | a deck token | a show medium as a short signed link (#470) – see "Decks" |
+| GET | `/addresses/<toon>` | creator, admin, live; a deck token | the toon's address book (#477): the document of `server/schema/api/address-book.schema.json` itself, `ETag` = its `version`, `If-None-Match` → 304; `404 unknown_toon` (Domain\Addresses\AddressBook) |
 | GET/POST | `/validate/` | – | PUBLIC URL (printed): legacy, backwards compatible – success for any existing, unexpired, unrevoked code (claimed or not); CORS `*` |
 | GET | `/keys/keys.php` | – | PUBLIC URL (printed): the public key of the certificate signatures |
 | * | `/admin/*` | admin | the admin API – see "Admin API" |

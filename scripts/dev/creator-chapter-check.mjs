@@ -1168,7 +1168,7 @@ try {
 		/** what each type's form shows once its line is opened */
 		const FORMS = {
 			showMessage: (i) => `!!document.querySelector('[data-testid="event-${i}"] textarea') && !!document.querySelector('[data-testid="event-${i}"] .sc-fields')`,
-			joinScene: (i) => `!!document.querySelector('[data-testid="event-${i}"] [data-testid="character-ref-open"]')`,
+			joinScene: (i) => `!!document.querySelector('[data-testid="event-${i}"] [data-testid="cast-character-input"]')`,
 			addChoice: (i) => `!!document.querySelector('[data-testid="choice-actions-${i}"]')`,
 			setVariable: (i) => `document.querySelectorAll('[data-testid="event-${i}"] .sc-fields input, [data-testid="event-${i}"] .sc-fields select').length >= 3`,
 			label: (i) => `!!document.querySelector('[data-testid="event-${i}"] .sc-fields input')`,
