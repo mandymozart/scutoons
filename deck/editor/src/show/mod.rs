@@ -1,0 +1,338 @@
+//! The Show and Perform workspaces (#91; SHOW.md §3, §7, §10; the owner's drafts m1-show, m2-perform, m3-tree): beside
+//! Build (the rig editor), the editor shows a show's conductor. The conductor is deck-show's `Subtree` (RULES A1, A2): the
+//! editor hands it the operator's presses and the relay's envelopes with the time, sends what it answers through its
+//! relay link (link.rs), and draws what deck-show's view.rs says – the matrix, the log in words, the inspector. Nothing
+//! here decides what plays.
+//!
+//! - **Perform** (perform.rs): the matrix of rows × outlets and seats, the big row ▶, a small ▶ per cell (a hand launch,
+//!   marked off its row), GO, the suggestion with GO / Drop, the log, the conductors rail; the stage on top.
+//! - **Show** (author.rs): the conductors tree with a breadcrumb into a sub conductor, the rows band, the inspector, the
+//!   seats; the 2D node overlay over the dimmed stage (#446) with a 2D / 3D switch; save and load through /api/shows (api.rs).
+//!
+//! The editor runs one conductor, this deck's (the tree's top it was given). A sub conductor runs on its own deck with its
+//! own operator; entering it here shows its document, it does not run it.
+mod api;
+pub mod author;
+mod link;
+pub mod perform;
+
+use deck_kit::controls::Rect;
+use deck_show::{ClockChoice, Show, Subtree};
+use std::collections::BTreeMap;
+use std::path::PathBuf;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Workspace {
+    Build,
+    Show,
+    Perform,
+}
+
+pub const WORKSPACES: [(Workspace, &str); 3] = [(Workspace::Build, "Build"), (Workspace::Show, "Show"), (Workspace::Perform, "Perform")];
+
+impl Workspace {
+    pub fn parse(s: &str) -> Option<Workspace> {
+        WORKSPACES.iter().find(|(_, n)| n.eq_ignore_ascii_case(s)).map(|(w, _)| *w)
+    }
+
+    pub fn index(self) -> usize {
+        WORKSPACES.iter().position(|(w, _)| *w == self).unwrap_or(0)
+    }
+}
+
+/// what a press in a show workspace means
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Hit {
+    /// a row's big ▶ (Perform)
+    Fire(usize),
+    /// a cell's small ▶: row, column (Perform)
+    Launch(usize, usize),
+    Go,
+    Drop,
+    /// a seat of the document shown: enter its sub conductor (Show)
+    Enter(usize),
+    /// a step of the breadcrumb, 0 = the top
+    Crumb(usize),
+    /// a row of the document shown: the inspector shows it (Show)
+    Row(usize),
+    Save,
+    Load,
+    /// the tree resolved to exact versions, sent down to this deck's decks and sub conductors
+    Flash,
+    /// the overlay: 2D (true) or the stage alone (3D)
+    View(bool),
+}
+
+/// The editor's conductor and the documents it shows.
+pub struct Host {
+    pub sub: Subtree,
+    /// the sub conductors' documents, by show id (from the API or the cache, when entered)
+    library: BTreeMap<String, Show>,
+    /// the seats from the top into the document shown
+    pub path: Vec<String>,
+    /// the row the Show workspace inspects
+    pub row: usize,
+    /// the last thing done, or why not
+    pub status: String,
+    pub two_d: bool,
+    /// this frame's places
+    pub hits: Vec<(Rect, Hit)>,
+    link: Option<link::Link>,
+    api: api::Api,
+}
+
+/// the relay's clock: ms since the epoch (a show's moments are relay ms)
+pub fn now() -> u64 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_millis() as u64)
+}
+
+/// the demo document when none is named: one outlet, one row by hand (the editor opens on something it can show)
+const EMPTY: &str = r#"{ "id": "new-show", "version": 1, "outlets": [{ "id": "left" }], "rows": [{ "id": "start", "cells": { "left": { "mode": "black" } } }] }"#;
+
+impl Host {
+    /// The show `file` holds (a document's JSON), else show `id` from the API / cache, else an empty one; joined to `relay`
+    /// as its conductor when one is named.
+    pub fn new(file: Option<PathBuf>, id: Option<String>, relay: Option<String>, api: String) -> Host {
+        let api = api::Api::new(api);
+        let mut status = String::new();
+        let text = match (&file, &id) {
+            (Some(f), _) => std::fs::read_to_string(f).map_err(|e| format!("{}: {e}", f.display())),
+            (None, Some(id)) => api.load(id).map(|(t, why)| {
+                if let Some(w) = why {
+                    status = format!("from the cache: {w}");
+                }
+                t
+            }),
+            (None, None) => Ok(EMPTY.to_string()),
+        };
+        let show = match text.and_then(|t| deck_show::parse(&t).map_err(|e| e.to_string())) {
+            Ok(s) => s,
+            Err(e) => {
+                status = e;
+                deck_show::parse(EMPTY).expect("the empty show parses")
+            }
+        };
+        let link = relay.and_then(|r| {
+            link::Link::start(&r, std::env::var("SCUTOONS_LIVE_TOKEN").ok())
+                .map_err(|e| {
+                    status = format!("relay: {e}");
+                })
+                .ok()
+        });
+        Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, status, two_d: true, hits: Vec::new(), link, api }
+    }
+
+    /// the document at the end of the path (the top's when a step is missing)
+    pub fn shown(&self) -> &Show {
+        let mut show = self.sub.conductor().show();
+        for seat in &self.path {
+            match show.seat(seat).and_then(|s| self.library.get(&s.show.id)) {
+                Some(child) => show = child,
+                None => break,
+            }
+        }
+        show
+    }
+
+    /// the breadcrumb's words: `main`, then each seat
+    pub fn crumbs(&self) -> Vec<String> {
+        std::iter::once(self.sub.conductor().show().id.clone()).chain(self.path.iter().cloned()).collect()
+    }
+
+    /// the relay link's line
+    pub fn link_line(&self) -> String {
+        self.link.as_ref().map_or("no relay (--relay ws://host:port/live/CODE)".into(), |l| l.line.lock().unwrap().clone())
+    }
+
+    fn send(&mut self, out: Vec<protocol::Envelope>) {
+        if let Some(l) = &self.link {
+            l.send(out);
+        }
+    }
+
+    /// Each frame: the relay's envelopes and the clock to the core, what it answers out.
+    pub fn frame(&mut self) {
+        let ms = now();
+        let mut out = self.sub.tick(ms);
+        if let Some(l) = &self.link {
+            while let Ok(e) = l.inbox.try_recv() {
+                out.extend(self.sub.on_wire(&e, ms));
+            }
+        }
+        self.send(out);
+    }
+
+    pub fn hit(&self, x: f32, y: f32) -> Option<Hit> {
+        self.hits.iter().rev().find(|(r, _)| r.has(x, y)).map(|(_, h)| *h)
+    }
+
+    /// The operator's press: to the core (always allowed, SHOW.md §7) or to what the editor shows.
+    pub fn press(&mut self, hit: Hit) {
+        let ms = now();
+        let rows: Vec<String> = self.sub.conductor().show().rows.iter().map(|r| r.id.clone()).collect();
+        match hit {
+            Hit::Fire(i) => {
+                if let Some(row) = rows.get(i) {
+                    let out = self.sub.fire(row, ms);
+                    self.send(out);
+                }
+            }
+            Hit::Launch(r, c) => {
+                let m = deck_show::view::matrix(&self.sub);
+                if let (Some(row), Some(col)) = (rows.get(r), m.columns.get(c)) {
+                    let out = self.sub.launch_cell(row, &col.id.clone(), ms);
+                    self.send(out);
+                }
+            }
+            Hit::Go => {
+                let out = self.sub.go(ms);
+                self.send(out);
+            }
+            Hit::Drop => {
+                self.sub.drop_suggestion(ms);
+            }
+            Hit::Enter(i) => self.enter(i),
+            Hit::Crumb(d) => {
+                self.path.truncate(d);
+                self.row = 0;
+            }
+            Hit::Row(i) => self.row = i,
+            Hit::Save => self.save(),
+            Hit::Load => self.load(),
+            Hit::Flash => self.flash(),
+            Hit::View(two_d) => self.two_d = two_d,
+        }
+    }
+
+    /// into the sub conductor of the shown document's seat `i`: its document from the library, the API or the cache
+    fn enter(&mut self, i: usize) {
+        let Some(seat) = self.shown().seats.get(i).cloned() else { return };
+        if !self.library.contains_key(&seat.show.id) {
+            match self.api.load(&seat.show.id).and_then(|(t, why)| deck_show::parse(&t).map(|s| (s, why)).map_err(|e| e.to_string())) {
+                Ok((s, why)) => {
+                    self.status = why.map_or(format!("{} loaded", seat.show), |w| format!("{} from the cache: {w}", seat.show));
+                    self.library.insert(seat.show.id.clone(), s);
+                }
+                Err(e) => {
+                    self.status = format!("{}: {e}", seat.show);
+                    return;
+                }
+            }
+        }
+        self.path.push(seat.id);
+        self.row = 0;
+    }
+
+    /// Flash (#91 item 5, SHOW.md §4b): the tree from the top, every show its seats pin fetched once (the API, else the
+    /// cache), resolved by the core to exact versions (`deck_show::resolve`, like a lock file) and sent down as one flash
+    /// (`Subtree::flash`); a broken reference is the core's problem, said here, and nothing goes out.
+    fn flash(&mut self) {
+        let mut todo: Vec<deck_show::Pinned> = self.sub.conductor().show().seats.iter().map(|s| s.show.clone()).collect();
+        while let Some(p) = todo.pop() {
+            if self.library.contains_key(&p.id) {
+                continue;
+            }
+            if let Some(s) = self.api.load(&p.id).ok().and_then(|(t, _)| deck_show::parse(&t).ok()) {
+                todo.extend(s.seats.iter().map(|x| x.show.clone()));
+                self.library.insert(p.id.clone(), s);
+            }
+        }
+        let lib: BTreeMap<deck_show::Pinned, Show> = self.library.values().map(|s| (deck_show::Pinned { id: s.id.clone(), version: s.version }, s.clone())).collect();
+        match deck_show::resolve(self.sub.conductor().show(), &lib) {
+            Ok(lock) => {
+                let out = self.sub.flash(&lock, false, now());
+                self.status = format!("flashed {}", lock.shows.iter().map(ToString::to_string).collect::<Vec<_>>().join(", "));
+                self.send(out);
+            }
+            Err(problems) => self.status = format!("not flashed: {}", problems.iter().map(ToString::to_string).collect::<Vec<_>>().join("; ")),
+        }
+    }
+
+    fn save(&mut self) {
+        let show = self.shown().clone();
+        self.status = match serde_json::to_value(&show).map_err(|e| e.to_string()).and_then(|v| self.api.save(&show.id, &v)) {
+            Ok(v) => format!("saved {} as version {v}", show.id),
+            Err(e) => format!("not saved: {e}"),
+        };
+    }
+
+    fn load(&mut self) {
+        let id = self.shown().id.clone();
+        match self.api.load(&id).and_then(|(t, why)| deck_show::parse(&t).map(|s| (s, why)).map_err(|e| e.to_string())) {
+            Ok((s, why)) => {
+                self.status = why.map_or(format!("loaded {}@{}", s.id, s.version), |w| format!("{}@{} from the cache: {w}", s.id, s.version));
+                if self.path.is_empty() {
+                    // a new document at the top: the conductor starts over on it (what plays stays until a row changes it)
+                    self.sub = Subtree::new(s, ClockChoice::Parent);
+                } else {
+                    self.library.insert(id, s);
+                }
+            }
+            Err(e) => self.status = format!("not loaded: {e}"),
+        }
+    }
+}
+
+/// A check run's presses (`--event`, `--fire`, `--launch`, `--go`): what the operator and a reader would do, at fixed
+/// frames, so a screenshot shows a fired row and a suggestion.
+#[derive(Debug, Clone, Default)]
+pub struct Script {
+    pub event: Option<String>,
+    pub fire: Option<String>,
+    pub launch: Option<(String, String)>,
+    pub go: bool,
+    pub flash: bool,
+    /// Show: enter this seat's sub conductor, inspect this row
+    pub seat: Option<String>,
+    pub row: Option<String>,
+}
+
+impl Host {
+    pub fn script(&mut self, frame: u64, s: &Script) {
+        let ms = now();
+        let rows: Vec<String> = self.sub.conductor().show().rows.iter().map(|r| r.id.clone()).collect();
+        let row = |id: &Option<String>| id.as_ref().and_then(|r| rows.iter().position(|x| x == r));
+        match frame {
+            20 => {
+                if let Some(i) = s.seat.as_ref().and_then(|id| self.shown().seats.iter().position(|x| x.id == *id)) {
+                    self.press(Hit::Enter(i));
+                }
+            }
+            30 => {
+                if let Some(i) = s.row.as_ref().and_then(|id| self.shown().rows.iter().position(|x| x.id == *id)) {
+                    self.press(Hit::Row(i));
+                }
+            }
+            40 => {
+                if let Some(i) = row(&s.fire) {
+                    self.press(Hit::Fire(i));
+                }
+            }
+            70 => {
+                let cols = deck_show::view::matrix(&self.sub).columns;
+                if let Some((r, c)) = s.launch.as_ref().and_then(|(r, c)| Some((rows.iter().position(|x| x == r)?, cols.iter().position(|x| x.id == *c)?))) {
+                    self.press(Hit::Launch(r, c));
+                }
+            }
+            100 => {
+                // a reader's event, as the relay hands it on
+                if let Some(e) = &s.event {
+                    let story = serde_json::json!({ "id": e }).as_object().cloned().unwrap_or_default();
+                    let out = self.sub.on_wire(&protocol::Envelope::new("reader", protocol::Message::Story(story)), ms);
+                    self.send(out);
+                }
+            }
+            130 if s.go => self.press(Hit::Go),
+            50 if s.flash => self.press(Hit::Flash),
+            _ => {}
+        }
+    }
+}
+
+/// The places of a show workspace in a window of `w` × `h` (logical px) under the top bar: where the stage draws.
+pub fn stage_rect(ws: Workspace, w: f32, h: f32, t: &deck_kit::tokens::Tokens) -> Rect {
+    match ws {
+        Workspace::Perform => perform::layout(w, h, t).stage,
+        _ => author::layout(w, h, t).stage,
+    }
+}

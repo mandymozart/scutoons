@@ -34,3 +34,7 @@ image = { version = "0.25", default-features = false, features = ["png"] }
 # the OS clipboard for the text field's copy and paste
 arboard = { version = "3", default-features = false }
 serde_json.workspace = true
+# #91: the Show and Perform workspaces draw deck-show's conductor; the relay's envelopes; show documents over /api/shows
+deck-show = { path = "../show" }
+protocol = { workspace = true }
+ureq = { version = "2", features = ["json"] }

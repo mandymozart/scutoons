@@ -15,6 +15,8 @@ pub struct Status {
     pub problems: Vec<String>,
     /// the relay's last refusal
     pub problems_relay: Option<String>,
+    /// #91: what the deck's piece side did with the last cell, and why a piece does not play
+    pub piece: Option<String>,
 }
 
 impl Status {
@@ -28,8 +30,17 @@ impl Status {
         if !self.cell.is_empty() {
             out.push(up(&format!("CELL {}", self.cell)));
         }
+        if let Some(p) = &self.piece {
+            out.push(up(&format!("PIECE {p}")));
+        }
         out.extend(self.problems.iter().chain(&self.problems_relay).map(|p| up(&format!("! {p}"))));
         out
+    }
+
+    /// #91: the piece side's answer to a cell (deck-space piece.rs) in the HUD's words: what it does, then why not
+    pub fn set_piece(&mut self, did: &str, problems: &[String]) {
+        let why = problems.iter().map(String::as_str).collect::<Vec<_>>().join("; ");
+        self.piece = Some(if why.is_empty() { did.to_string() } else { format!("{did} – {why}") });
     }
 }
 

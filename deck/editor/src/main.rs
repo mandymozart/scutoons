@@ -18,6 +18,7 @@ mod inspector;
 mod stage;
 mod tokens;
 mod ui;
+mod show;
 mod wires;
 
 use anyhow::{Context, Result};
@@ -59,10 +60,18 @@ struct Args {
     pull: bool,
     /// a check run's typeahead: arm this port, open it, type this; pick the first row if asked
     menu: Option<(String, String, bool)>,
+    /// #91: the workspace it opens on, the show (a file, or an id of /api/shows), the relay its conductor joins, the API,
+    /// and a check run's presses (a reader's event, a row, a cell, GO)
+    workspace: show::Workspace,
+    show_file: Option<PathBuf>,
+    show_id: Option<String>,
+    relay: Option<String>,
+    api: String,
+    script: show::Script,
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { rig: "catpope".into(), frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None };
+    let mut a = Args { rig: "catpope".into(), frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default() };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -91,6 +100,20 @@ fn args() -> Result<Args> {
                 a.wire = true;
             }
             "--draft" => a.draft = Some(PathBuf::from(val()?)),
+            "--workspace" => a.workspace = show::Workspace::parse(&val()?).context("--workspace build | show | perform")?,
+            "--show" => match val()? {
+                v if v.ends_with(".json") => a.show_file = Some(PathBuf::from(v)),
+                v => a.show_id = Some(v),
+            },
+            "--relay" => a.relay = Some(val()?),
+            "--api" => a.api = val()?,
+            "--event" => a.script.event = Some(val()?),
+            "--fire" => a.script.fire = Some(val()?),
+            "--launch" => a.script.launch = val()?.split_once(',').map(|(r, c)| (r.to_string(), c.to_string())),
+            "--go" => a.script.go = true,
+            "--flash" => a.script.flash = true,
+            "--seat" => a.script.seat = Some(val()?),
+            "--row" => a.script.row = Some(val()?),
             "--gesture" => {
                 let v = val()?;
                 let (from, to) = v.split_once(',').with_context(|| format!("--gesture takes FROM,TO, not {v}"))?;
@@ -159,6 +182,8 @@ enum Hit {
     Body(usize),
     /// the view gizmo: an axis (0 1 2 = +x +y +z, 3 4 5 = the minus sides), or its ball
     Axis(Option<usize>),
+    /// #91: a workspace pill in the top bar
+    Workspace(show::Workspace),
 }
 
 /// what is being dragged
@@ -294,6 +319,9 @@ struct App {
     edit: Option<ValueEdit>,
     /// the last press on a field: for a double click
     last_field: Option<(Editing, Instant)>,
+    /// #91: Build, Show or Perform; the show's conductor and what the show workspaces show
+    workspace: show::Workspace,
+    show: show::Host,
 }
 
 fn main() {
@@ -317,6 +345,8 @@ fn run() -> Result<i32> {
     let event_loop = EventLoop::new().context("no event loop (no display?)")?;
     let width = tokens.tokens.size.inspector;
     let wire = args.wire;
+    let app_workspace = args.workspace;
+    let app_show = show::Host::new(args.show_file.clone(), args.show_id.clone(), args.relay.clone(), args.api.clone());
     let mut app = App {
         panel: Panel { width, tab: Tab::Rig, field: text::Field::with("Grüße an die Bühne – type here"), drag: None, hits: Vec::new(), field_rect: Rect { x: 0.0, y: 0.0, w: 0.0, h: 0.0 }, advance: 8.0 },
         args,
@@ -358,6 +388,8 @@ fn run() -> Result<i32> {
         mixer_tab: None,
         edit: None,
         last_field: None,
+        workspace: app_workspace,
+        show: app_show,
     };
     event_loop.run_app(&mut app).context("the event loop")?;
     let summary = app.summary();
@@ -411,6 +443,7 @@ impl App {
     fn help_now(&self) -> Option<Help> {
         let (x, y) = self.cursor;
         Some(match self.hit(x, y) {
+            Hit::Workspace(_) => Help::new("Workspaces", "Build: rigs and scenes. Show: rows, cells, seats, saved through /api/shows. Perform: the matrix, GO, the log."),
             Hit::Port(i) => {
                 let p = self.stage.ports.get(i)?;
                 let what = format!("{} {}.", if p.input { "An input," } else { "An output," }, p.ty);
@@ -561,7 +594,13 @@ impl App {
             }
             return;
         }
+        if self.workspace != show::Workspace::Build {
+            if let Some(h) = self.show.hit(x, y) {
+                return self.show.press(h);
+            }
+        }
         match self.hit(x, y) {
+            Hit::Workspace(w) => self.workspace = w,
             Hit::Divider => self.panel.drag = Some(Drag::Divider),
             Hit::Tab(t) => {
                 self.panel.tab = t;
@@ -1057,6 +1096,7 @@ impl App {
 
     /// a check run's drag at fixed frames: the pointer's own path, through hit test, press, move and release
     fn script(&mut self) {
+        self.show.script(self.frames, &self.args.script);
         const START: u64 = 60;
         if self.args.pull {
             let top = self.tokens.tokens.size.top;
@@ -1259,6 +1299,14 @@ impl App {
         let body = (hf - top).max(1.0);
         let band = if self.mixer_open { mixer::OPEN } else { mixer::FOLDED };
         let stage_h = (body - band).max(1.0);
+        // #91: a show workspace puts the stage where its layout says
+        let (stage_x, stage_w, stage_h) = match self.workspace {
+            show::Workspace::Build => (stage_x, stage_w, stage_h),
+            ws => {
+                let r = show::stage_rect(ws, wf, hf, t);
+                (r.x, r.w, r.h)
+            }
+        };
         let work_start = Instant::now();
         let mut enc = gpu.device.create_command_encoder(&Default::default());
         if let Some(g) = self.gpu_time.as_mut() {
@@ -1273,6 +1321,26 @@ impl App {
         let t0 = Instant::now();
         ui.begin();
         ui.stage(stage_x, top, stage_w, stage_h);
+        self.show.frame();
+        'build: {
+        if self.workspace != show::Workspace::Build {
+            self.panel.hits.clear();
+            self.marks.clear();
+            self.show.hits.clear();
+            match self.workspace {
+                show::Workspace::Show => show::author::draw(ui, t, &mut self.show, wf, hf, self.cursor),
+                _ => show::perform::draw(ui, t, &mut self.show, wf, hf, self.cursor),
+            }
+            let names = show::WORKSPACES.map(|(_, n)| n);
+            let logo_frame = ((self.started.elapsed().as_secs_f32() / logo::SECONDS).fract() * logo::FRAMES as f32) as usize;
+            let title = self.show.sub.conductor().show().id.clone();
+            let bar = bar::Bar { title: &title, status: &self.show.link_line(), wire: self.wire, logo_frame, pointer: self.cursor, cpu: self.cpu_load, gpu: None, workspaces: &names, workspace: self.workspace.index() };
+            let (_, pills) = bar::draw(ui, t, wf, &bar);
+            for (r, (w, _)) in pills.into_iter().zip(show::WORKSPACES) {
+                self.panel.hits.push((r, Hit::Workspace(w)));
+            }
+            break 'build;
+        }
         let px = panel_w;
         let x0 = wf - panel_w;
         ui.rect(x0, top, px, body, t.color.surface);
@@ -1383,8 +1451,13 @@ impl App {
         let status = if self.undo.is_empty() { status } else { format!("{} change{} · {status}", self.undo.len(), if self.undo.len() == 1 { "" } else { "s" }) };
         let logo_frame = ((self.started.elapsed().as_secs_f32() / logo::SECONDS).fract() * logo::FRAMES as f32) as usize;
         let title = self.stage.bundle.rig.subject.as_str();
-        let button = bar::draw(ui, t, wf, &bar::Bar { title, status: &status, wire: self.wire, logo_frame, pointer: self.cursor, cpu: self.cpu_load, gpu: self.gpu_time.as_ref().map(|_| self.gpu_load) });
+        let names = show::WORKSPACES.map(|(_, n)| n);
+        let bar = bar::Bar { title, status: &status, wire: self.wire, logo_frame, pointer: self.cursor, cpu: self.cpu_load, gpu: self.gpu_time.as_ref().map(|_| self.gpu_load), workspaces: &names, workspace: 0 };
+        let (button, pills) = bar::draw(ui, t, wf, &bar);
         self.panel.hits.push((button, Hit::Mode(!self.wire)));
+        for (r, (w, _)) in pills.into_iter().zip(show::WORKSPACES) {
+            self.panel.hits.push((r, Hit::Workspace(w)));
+        }
         // the Wire side: the ports around the being's points, the core's list on this frame's places
         if self.wire {
             let being = &self.stage.space.being;
@@ -1593,6 +1666,7 @@ impl App {
             m.ta.draw(ui, t, (wf, hf));
         }
         self.panel.hits.push((Rect { x: stage_x, y: top, w: stage_w, h: stage_h }, Hit::Stage));
+        }
         // the pass: logical pixels → the surface's, through the screen uniform
         let view = frame.texture.create_view(&Default::default());
         ui.flush(&gpu.device, &gpu.queue, &mut enc, &view, (wf, hf), t.color.stage);

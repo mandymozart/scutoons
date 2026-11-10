@@ -216,6 +216,12 @@ impl Subtree {
         self.done(outs)
     }
 
+    /// Drop: the held suggestion goes, nothing fires (#91).
+    pub fn drop_suggestion(&mut self, ms: u64) -> bool {
+        let now = self.now(ms);
+        self.conductor.drop_suggestion(now)
+    }
+
     pub fn launch_cell(&mut self, row: &str, column: &str, ms: u64) -> Vec<Envelope> {
         let now = self.now(ms);
         let outs = self.conductor.launch_cell(row, column, now);

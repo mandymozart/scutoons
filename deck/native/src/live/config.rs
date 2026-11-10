@@ -19,6 +19,11 @@ pub const HOSTED_RELAY: &str = "wss://live.scutoons.com/live/CATH";
 /// The deck's settings file (deck/os/rootfs/usr/share/deck/deck.default.toml, copied at first boot).
 pub const DECK_TOML: &str = "/var/lib/deck/deck.toml";
 
+/// A relay and an outlet are set (deck.toml under the CLI's `cli`): the deck is a Live outlet.
+pub fn configured(cli: Settings) -> bool {
+    Settings::read(Path::new(DECK_TOML)).merged(cli).config().is_some()
+}
+
 /// The outlet keys of deck.toml (the file holds others: kiosk, scene, conductor …)
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
 pub struct Settings {
