@@ -40,7 +40,8 @@
 <!-- another item: the old one's variant goes -->
 <AddressField {doc} {path} spec={TARGETS.item} accept={offered} onpick={(t) => delete t.variant} icon={iconOf} label={m['creator.field_item']()} testid="{testid}-item">
 	{#snippet lead()}
-		{#if shownIcon}<img class="icon" src={asset(shownIcon)} alt="" />{/if}
+		<!-- a picture that does not load is hidden, not drawn broken (a new item, a new image element) -->
+		{#key shownIcon}{#if shownIcon}<img class="icon" src={asset(shownIcon)} alt="" onerror={(e) => ((e.currentTarget as HTMLImageElement).hidden = true)} />{/if}{/key}
 	{/snippet}
 </AddressField>
 <PropField {doc} path={[...path, 'qty']} label={m['creator.field_qty']()} type="number" step={1} min={1} max={GIVE_ITEM_MAX} placeholder="1" />
