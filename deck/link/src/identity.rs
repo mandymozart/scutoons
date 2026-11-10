@@ -62,17 +62,16 @@ impl Identity {
 
     /// The signature of a server challenge (64 bytes, hex) over the domain-separated message
     pub fn sign_challenge(&self, challenge: &str) -> String {
-        hex(&self
-            .key
-            .sign(signed_message(challenge, &self.public_key_hex()).as_bytes())
-            .to_bytes())
+        self.sign(signed_message(challenge, &self.public_key_hex()).as_bytes())
+    }
+
+    /// The signature of a message the handshake names (`Ask::Sign`), 64 bytes as hex
+    pub fn sign(&self, message: &[u8]) -> String {
+        hex(&self.key.sign(message).to_bytes())
     }
 }
 
-/// What the deck signs (server Decks::SIGNED_PREFIX): bound to this protocol, the challenge and the deck's key
-pub fn signed_message(challenge: &str, public_key_hex: &str) -> String {
-    format!("scutoons-deck-token:v1:{challenge}:{public_key_hex}")
-}
+pub use crate::handshake::signed_message;
 
 pub fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
