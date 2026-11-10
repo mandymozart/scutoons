@@ -48,6 +48,18 @@ pub fn deck_toml() -> std::path::PathBuf {
     std::env::var_os("DECK_TOML").map(std::path::PathBuf::from).unwrap_or_else(|| DECK_TOML.into())
 }
 
+/// #471: deck.toml's `dont_flash = "why"`: this deck asks not to be flashed. A request the conductor sees (the deck starts
+/// unticked there); a flash its operator was warned of and accepted goes over it.
+pub fn dont_flash(path: &Path) -> Option<String> {
+    #[derive(Deserialize)]
+    struct Keys {
+        #[serde(default)]
+        dont_flash: Option<String>,
+    }
+    let text = std::fs::read_to_string(path).ok()?;
+    toml::from_str::<Keys>(&text).ok()?.dont_flash
+}
+
 /// #442: `scene` with deck.toml's `join` on a space node that has none of its own (a rig's); a scene file's `join` stays.
 pub fn with_join(mut scene: deck_space::scene::Scene, cli: &Settings) -> deck_space::scene::Scene {
     let join = cli.join.clone().or_else(|| Settings::read(&deck_toml()).join);
