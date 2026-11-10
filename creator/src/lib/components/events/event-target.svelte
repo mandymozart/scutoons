@@ -1,91 +1,55 @@
 <script lang="ts">
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
-	import { getAt, JumpToTargetType, type Path } from '@scutoons/content';
+	import { getAt, type Path } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
-	import PropField from '$lib/components/fields/prop-field.svelte';
 	import AddressField from '$lib/components/fields/address-field.svelte';
 	import { getJumpPlaces } from '$lib/editor/jump-places.svelte.ts';
 	import { addressBooks } from '$lib/editor/address-book.svelte.ts';
-	import { childNames, TARGETS } from '$lib/editor/address-targets.ts';
+	import { childNames, scopeOf, TARGETS } from '$lib/editor/address-targets.ts';
 
 	/**
-	 * A jump's target (a jumpTo event, a choice's jump action, a group's end): a chapter – of this toon or another one
-	 * (owner 2026-10-06, "at label") – + group, or a random group of a list (never the current one); a season, a toon's
-	 * page, a product, XR. Renders its fields into the parent's field grid. A chapter target's chapter and group are ONE
-	 * typeahead over the address book of the toon it leads into (#477); the other types keep their value field.
-	 * `groupLabels`: the open chapter's (live).
+	 * A jump's target (a jumpTo event, a choice's jump action, a group's end) is ONE typeahead (#477 slice D; owner
+	 * 2026-11-10 [typeahead]: "Should all this become a single field with type head ? Because the scope is in the typehead
+	 * anyhow"): the entry picked is the target – a chapter or a group of this toon, a season, a product, the toon's page; a
+	 * toon narrows the field to that toon's chapters and groups (a chip). The event keeps its fields (`type`, `value`,
+	 * `label`, `toon`), filled from the entry and its scope. "Random, one of" stays its own control: a list, not a target.
+	 * Renders its fields into the parent's field grid. `groupLabels`: the open chapter's (live).
 	 */
 	let { doc, path, target, groupLabels }: { doc: ContentDoc; path: Path; target: any; groupLabels: string[] } = $props();
 
 	const places = getJumpPlaces();
-	const isChapter = $derived(target?.type === 'chapter');
-	/** the toon the chapter target leads into ('' = this toon) */
 	const here = $derived(places?.toon ?? doc.toon);
-	const otherToon = $derived(typeof target?.toon === 'string' && target.toon && target.toon !== here ? (target.toon as string) : '');
-	const toon = $derived(otherToon || here);
+	/** the toon a chapter target leads into (another one's, else this one) */
+	const toon = $derived(scopeOf(target, TARGETS.jump, here) ?? here);
 	const value = $derived(target?.value === undefined || target?.value === null ? '' : String(target.value));
 	/** the chosen chapter's group labels: the open chapter's live, another chapter's from its toon's address book */
 	const labels = $derived.by<string[]>(() => {
-		if (!isChapter || !value) return [];
-		if (!places || (!otherToon && value === String(places.chapter))) return groupLabels;
+		if (target?.type !== 'chapter' || !value) return [];
+		if (!places || (toon === here && value === String(places.chapter))) return groupLabels;
 		const book = addressBooks.of(toon).book;
 		return book ? childNames(book, 'chapter', value, 'group') : [];
 	});
-	const otherToons = $derived((places?.toons ?? []).filter((t) => t.id !== here));
 
-	function edit(change: (t: any) => void, key: string) {
-		doc.edit((file) => {
-			const t = getAt(file, path);
-			if (t) change(t);
-		}, `${path.join('.')}.${key}`);
-	}
-
-	/** another toon (or this one again): its chapter's groups are others – the group choice starts over */
-	function setToon(id: string) {
-		edit((t) => {
-			if (id) t.toon = id;
-			else delete t.toon;
-			delete t.label;
-			delete t.anyOf;
-		}, 'toon');
-	}
-
-	/** a picked group replaces the random list; another chapter's random list goes */
+	/** a picked group replaces the random list; another chapter, toon or kind of target drops it */
 	function picked(t: any, _entry: unknown, before: Record<string, string | undefined>) {
-		if (t.label || String(t.value ?? '') !== before.value) delete t.anyOf;
+		if (t.label || ['type', 'value', 'toon'].some((f) => String(t[f] ?? '') !== (before[f] ?? ''))) delete t.anyOf;
 	}
 
 	function toggleAnyOf(labelName: string, on: boolean) {
-		edit((t) => {
+		doc.edit((file) => {
+			const t = getAt(file, path);
+			if (!t) return;
 			const list: string[] = Array.isArray(t.anyOf) ? t.anyOf.filter((l: string) => l !== labelName) : [];
 			if (on) list.push(labelName);
 			if (list.length) t.anyOf = labels.filter((l) => list.includes(l)).concat(list.filter((l) => !labels.includes(l)));
 			else delete t.anyOf;
-		}, 'anyOf');
+		}, `${path.join('.')}.anyOf`);
 	}
-	const id = $derived(`f-${path.join('-')}-toon`);
 </script>
 
-<PropField {doc} path={[...path, 'type']} label={m['creator.target_type']()} type="select" options={Object.values(JumpToTargetType).map((t) => ({ value: t, label: m[`creator.target_${t}`]() }))} required />
-<!-- `toon` belongs to chapter targets (validation: an error elsewhere) – shown then too, so it can be cleared -->
-{#if places && ((isChapter && otherToons.length) || otherToon)}
-	<div class="field" title={m['creator.target_toon_hint']()}>
-		<label for={id}>{m['creator.target_in_toon']()}</label>
-		<select {id} value={otherToon} onchange={(e) => setToon(e.currentTarget.value)} data-testid="target-toon">
-			<option value="">({m['creator.target_this_toon']()})</option>
-			{#each otherToons as t (t.id)}<option value={t.id}>{t.name}</option>{/each}
-			{#if otherToon && !otherToons.some((t) => t.id === otherToon)}<option value={otherToon}>{otherToon} (?)</option>{/if}
-		</select>
-	</div>
-{/if}
-{#if isChapter}
-	<AddressField {doc} {path} {toon} kinds={TARGETS.jump.kinds} fields={TARGETS.jump.fields} label={m['creator.target_place']()} onpick={picked} testid="target-place" />
-{:else}
-	<PropField {doc} path={[...path, 'value']} label={m['creator.target_value']()} required />
-	{#if !target?.anyOf?.length}
-		<PropField {doc} path={[...path, 'label']} label={m['creator.target_group']()} placeholder={m['creator.vn_group_first']()} testid="target-label" />
-	{/if}
-{/if}
+<div class="target" title={m['creator.target_toon_hint']()}>
+	<AddressField {doc} {path} toon={here} spec={TARGETS.jump} label={m['creator.target_type']()} onpick={picked} testid="target-place" />
+</div>
 {#if labels.length}
 	<fieldset class="any-of">
 		<legend title={m['creator.vn_random_hint']()}>{m['creator.vn_random']()}</legend>
@@ -96,19 +60,10 @@
 {/if}
 
 <style>
-	.field {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-025);
+	/* the one field takes the room of two of the parent's cells (it had three controls there) */
+	.target {
+		grid-column: span 2;
 		min-width: 0;
-	}
-	.field label {
-		font-size: var(--type-caption-size);
-		line-height: var(--type-caption-line);
-		font-weight: var(--font-weight-regular);
-		text-transform: uppercase;
-		letter-spacing: var(--tracking-label);
-		color: var(--ink);
 	}
 	.any-of {
 		grid-column: 1 / -1;
