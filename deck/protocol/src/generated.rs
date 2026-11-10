@@ -910,6 +910,18 @@ pub struct Flash {
 	/// #91: the show of the conductor whose session it is in now, at the version the flash pins; a deck takes its outlet's cells of that one
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub here: Option<Pinned>,
+	/// #471: this flash's identity; a deck takes one flash once (a rejoin hands it the same one again)
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub id: Option<String>,
+	/// #471: who flashed, for the deck's notice
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub by: Option<String>,
+	/// #471: the paths the operator left out, relative to the session it is in now (a client id; `<show>/…` for a sub conductor's session, the show its seat sits). A deck not named here takes it, also one that joins later
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub skip: Option<Vec<String>>,
+	/// #471: the paths the prompt warned of and the operator accepted (asked not to be flashed, unsaved configuration): flashed anyway
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub force: Option<Vec<String>>,
 }
 
 /// #90: what a deck or conductor runs after a flash, to its conductor and on up. `from` of the envelope is the path it came along.
@@ -929,6 +941,24 @@ pub struct FlashReport {
 	/// #91: what it lacks, in words (deck-show's), one line each
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub lacks: Option<Vec<String>>,
+	/// #471: the deck asks not to be flashed, and why (a request, not a lock)
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub keep: Option<String>,
+	/// #471: the deck has configuration a flash would replace
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub unsaved: Option<bool>,
+	/// #471: how many local mappings the deck has (they stay through a flash)
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub mappings: Option<u64>,
+	/// #471: native, browser, phone … (the flash list's filter)
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub device: Option<String>,
+	/// #471: the deck's own version, kept when a flash replaced it
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub kept: Option<Pinned>,
+	/// #471: the deck runs its own kept version, not the flashed one
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub own: Option<bool>,
 }
 
 /// #90, SHOW.md §9, for the workshop group and device. The receiver tests itself; a missing fact fails the filter.

@@ -75,6 +75,11 @@ pub struct Subtree {
     linked: Option<bool>,
     /// #91: what each deck and sub conductor answered to the last flash, by the path it came along (`from`)
     reports: BTreeMap<String, protocol::FlashReport>,
+    /// #471: the last thing each deck and sub conductor said about its flash side (also before any flash), never cleared:
+    /// the flash list (choose.rs) is made of it
+    devices: BTreeMap<String, protocol::FlashReport>,
+    /// #471: who is here now: this session's client ids (presence) and the seats whose relay is linked
+    online: BTreeSet<String>,
     ready: u64,
     clients: u64,
     reported: Option<SeatState>,
@@ -104,6 +109,8 @@ impl Subtree {
             next_address: 0,
             linked: None,
             reports: BTreeMap::new(),
+            devices: BTreeMap::new(),
+            online: BTreeSet::new(),
             ready: 0,
             clients: 0,
             reported: None,
@@ -138,6 +145,16 @@ impl Subtree {
     /// What each deck and sub conductor answered to the last flash (#91), by the path it came along.
     pub fn reports(&self) -> &BTreeMap<String, protocol::FlashReport> {
         &self.reports
+    }
+
+    /// #471: what each deck and sub conductor last said about its flash side, by its path.
+    pub fn devices(&self) -> &BTreeMap<String, protocol::FlashReport> {
+        &self.devices
+    }
+
+    /// #471: whether the device at `path` is here: its client (this session) or its seat's relay (a sub conductor's session).
+    pub fn is_online(&self, path: &str) -> bool {
+        self.online.contains(path.split('/').next().unwrap_or(path))
     }
 
     /// The show a flash wants that the adapter has yet to fetch.
@@ -310,10 +327,27 @@ impl Subtree {
         vec![message(Message::Address(Address { id, address: address.to_string(), action: action.to_string(), r#where: filter }), None)]
     }
 
-    /// The operator's flash, the tree resolved to exact versions (`validate::resolve`).
+    /// The operator's flash to every device, the tree resolved to exact versions (`validate::resolve`).
     pub fn flash(&mut self, lock: &Lock, locked: bool, ms: u64) -> Vec<Envelope> {
+        self.flash_to(lock, &crate::choose::Pick { locked, ..Default::default() }, ms)
+    }
+
+    /// #471: the operator's flash as the confirmed prompt chose it (`choose::Choice::pick`): who is left out, who is flashed
+    /// although the prompt warned, whether it is locked. A deck that is not here takes it when it joins, unless left out.
+    pub fn flash_to(&mut self, lock: &Lock, pick: &crate::choose::Pick, ms: u64) -> Vec<Envelope> {
         let Some(root) = lock.shows.first() else { return vec![] };
-        let flash = Flash { root: flash::wire(root), shows: lock.shows.iter().map(flash::wire).collect(), lock: locked.then_some(true), hops: 0, here: None };
+        let list = |l: &[String]| (!l.is_empty()).then(|| l.to_vec());
+        let flash = Flash {
+            root: flash::wire(root),
+            shows: lock.shows.iter().map(flash::wire).collect(),
+            lock: pick.locked.then_some(true),
+            hops: 0,
+            here: None,
+            id: Some(format!("{root}/{ms}")),
+            by: Some(pick.by.clone().unwrap_or_else(|| format!("the conductor of {}", self.conductor.show().id))),
+            skip: list(&pick.skip),
+            force: list(&pick.force),
+        };
         self.take_flash(&flash, ms)
     }
 
@@ -326,7 +360,7 @@ impl Subtree {
         self.conductor.replace(show);
         self.wanted = None;
         self.conductor.note(ms, Logged::Installed);
-        let report = protocol::FlashReport { running: flash::wire(&self.pinned()), accepted: true, why: None, outlet: None, ready: None, lacks: None };
+        let report = flash::report(&self.pinned(), true, None);
         let mut out = vec![up_envelope(Message::FlashReport(report))];
         self.report(&mut out);
         out
@@ -334,7 +368,12 @@ impl Subtree {
 
     fn take_flash(&mut self, flash: &Flash, ms: u64) -> Vec<Envelope> {
         let running = self.pinned();
-        let report = flash::take(&mut self.assignment, flash, &running, self.cannot.as_deref());
+        // #471: from above, this subtree may have been left out (named by its show); then nothing goes down either
+        let report = if flash.hops > 0 && flash::left_out(flash, &running.id) {
+            flash::report(&running, false, Some("left out by the conductor above".to_string()))
+        } else {
+            flash::take(&mut self.assignment, flash, &running, self.cannot.as_deref())
+        };
         let mut out = vec![];
         if report.accepted {
             self.conductor.note(ms, Logged::Flashed { root: flash.root.id.clone(), hops: flash.hops as u32 });
@@ -346,7 +385,10 @@ impl Subtree {
             self.reports.clear();
             // down: this subtree's decks and its seats, one hop further; `here` = this show at the version the flash pins,
             // the one this session's decks take their outlet's cells of (#91)
-            let mut next = flash.clone();
+            // #471: the lists relative to this session (this subtree's part, its seats named by the shows they sit)
+            let show = self.conductor.show();
+            let me = (flash.hops > 0).then_some(running.id.as_str());
+            let mut next = flash::down(flash, me, |seat| show.seat(seat).map(|s| s.show.id.clone()));
             next.hops += 1;
             next.here = Some(flash::wire(&Pinned { id: running.id.clone(), version: wanted.unwrap_or(running.version) }));
             out.push(message(Message::Flash(next), None));
@@ -389,6 +431,7 @@ impl Subtree {
             Message::Panic(p) if from_parent => vec![message(Message::Panic(Panic { black: p.black, stop: p.stop }), e.at)],
             Message::AddressAnswer(a) => self.on_answer(a),
             Message::FlashReport(r) => {
+                self.devices.insert(e.from.clone(), r.clone());
                 self.reports.insert(e.from.clone(), r.clone());
                 self.conductor.note(ms, Logged::Reported { from: e.from.clone(), running: format!("{}@{}", r.running.id, r.running.version), refused: r.why.clone() });
                 vec![up_envelope(Message::FlashReport(r.clone()))]
@@ -396,6 +439,8 @@ impl Subtree {
             Message::Presence(p) => {
                 self.ready = p.ready.len() as u64;
                 self.clients = p.groups.values().copied().sum::<i64>().max(0) as u64;
+                self.online = p.links.iter().flat_map(|l| l.keys().cloned()).collect();
+                self.online.extend(p.seats.iter().flatten().filter(|(_, s)| s.online != Some(false)).map(|(seat, _)| seat.clone()));
                 let was = self.linked;
                 self.linked = p.parent.or(was);
                 if self.linked != was {
