@@ -356,6 +356,13 @@ impl Conductor {
         }
     }
 
+    /// Drop (#91, Perform): the operator lets the held suggestion go; nothing fires. False when none was held.
+    pub fn drop_suggestion(&mut self, now: Now) -> bool {
+        let Some(s) = self.suggestion.take() else { return false };
+        self.record(now.ms, Logged::Withdrawn { row: s.row });
+        true
+    }
+
     /// A parent's row, taken by the seat's word: a child treats its parent like a reader. The local GO always works.
     pub fn on_parent(&mut self, word: Word, says: &Says, now: Now) -> Vec<Out> {
         self.on_parent_at(word, says, None, now)

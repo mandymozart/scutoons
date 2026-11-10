@@ -8,12 +8,14 @@
 //! - [`conductor`]: the bare conductor. Loads a show, takes events, fires rows, always sends a full cell.
 //! - [`subtree`]: one conductor in the tree (#90): its seats below, its parent above, its clock, the word and the lock.
 //! - [`flash`], [`address`]: the rule of a flash, what a receiver of an address answers.
+//! - [`view`]: what the deck editor's Show and Perform workspaces draw: the matrix, the log in words, the inspector (#91).
 pub mod address;
 pub mod conductor;
 pub mod document;
 pub mod flash;
 pub mod subtree;
 pub mod validate;
+pub mod view;
 
 pub use conductor::{Clock, Conductor, Entry, Logged, Now, Origin, Out, Says, Suggestion};
 pub use document::{parse, Cell, Face, Fire, How, Moment, Outlet, OutletKind, ParseError, Pinned, Row, Seat, Show, Values, Word};
