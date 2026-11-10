@@ -8,7 +8,7 @@ use super::socket::{self, Side};
 use super::Status;
 use deck_outlet::route::{route, Input, Routed};
 use deck_space::relay::{Client as Relay, Options, Out};
-use protocol::{MediaPreload, Message, Role};
+use protocol::{Cell, MediaPreload, Message, Role};
 use std::sync::atomic::AtomicBool;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, Mutex};
@@ -24,6 +24,8 @@ pub struct Client {
     pub compose: Sender<Input>,
     /// preloads → the preloader
     pub preload: Sender<MediaPreload>,
+    /// #91: every cell → the deck's piece side (the frame thread: piece.rs)
+    pub pieces: Sender<Cell>,
     /// what the deck says (media.ready)
     pub outbox: Receiver<Message>,
     pub status: Arc<Mutex<Status>>,
@@ -77,6 +79,9 @@ impl Side for Client {
                 }
                 Routed::Preload(m) => {
                     let _ = self.preload.send(m);
+                }
+                Routed::Piece(c) => {
+                    let _ = self.pieces.send(c);
                 }
                 Routed::Refused { code, message } => {
                     tracing::warn!("live: the relay says {code}: {message}");

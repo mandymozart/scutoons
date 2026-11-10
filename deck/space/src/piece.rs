@@ -314,6 +314,62 @@ fn load(place: &Place, mood: Option<&str>, find: impl FnOnce(&Place) -> Option<F
     }
 }
 
+/// the node kinds a deck's outlet scene keeps when a piece plays beside it (the picture's way out, the clock)
+const OUTLET_KINDS: [&str; 3] = ["outlet", "screen", "tempo"];
+
+/// The scene a deck with an outlet plays for a piece (#91, the native deck's live outlet): the piece's whole scene
+/// (`Played::scene`, its sound and its space) with the deck scene's `outlet` and `screen` kept, so the outlet goes on
+/// drawing its cells over the piece's space; the deck's space and tempo stand in when the piece has none. `values` (a
+/// Load's) are set as the nodes' params where the slot is `node.port`; the rest come with the next frame's glide.
+/// TOML text in and out: every deck reads its scene the same way.
+pub fn beside(piece: &str, deck: &str, values: &[(String, f32)]) -> Result<String, String> {
+    let table = |t: &str, what: &str| t.parse::<toml::Table>().map_err(|e| format!("{what}: {e}"));
+    let (mut out, deck) = (table(piece, "the piece's scene")?, table(deck, "the deck's scene")?);
+    let nodes = |t: &toml::Table| t.get("node").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+    let kind = |n: &toml::Value| n.get("kind").and_then(|k| k.as_str()).unwrap_or_default().to_string();
+    let id = |n: &toml::Value| n.get("id").and_then(|k| k.as_str()).unwrap_or_default().to_string();
+    let mut mine: Vec<toml::Value> = nodes(&out).into_iter().filter(|n| !matches!(kind(n).as_str(), "outlet" | "screen")).collect();
+    let dropped: Vec<String> = nodes(&out).iter().filter(|n| matches!(kind(n).as_str(), "outlet" | "screen")).map(id).collect();
+    let has = |nodes: &[toml::Value], k: &str| nodes.iter().any(|n| kind(n) == k);
+    let theirs = nodes(&deck);
+    for n in &theirs {
+        let k = kind(n);
+        let keep = OUTLET_KINDS.contains(&k.as_str()) && !(k == "tempo" && has(&mine, "tempo"));
+        if keep || (k == "space" && !has(&mine, "space")) {
+            mine.push(n.clone());
+        }
+    }
+    let Some(outlet) = theirs.iter().find(|n| kind(n) == "outlet").map(id) else { return Err("the deck's scene has no outlet".into()) };
+    let screen = theirs.iter().find(|n| kind(n) == "screen").map(id);
+    let space = mine.iter().find(|n| kind(n) == "space").map(id);
+    // the piece's own links, but none into what it lost; then the outlet's: space → outlet → screen
+    let ends = |l: &toml::Value, k: &str| l.get(k).and_then(|v| v.as_str()).map(|s| s.split('.').next().unwrap_or_default().to_string()).unwrap_or_default();
+    let mut links: Vec<toml::Value> = out.get("link").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+    links.retain(|l| !dropped.contains(&ends(l, "from")) && !dropped.contains(&ends(l, "to")));
+    let link = |from: &str, to: String| {
+        let mut t = toml::Table::new();
+        t.insert("from".into(), from.into());
+        t.insert("to".into(), to.into());
+        toml::Value::Table(t)
+    };
+    if let Some(s) = &space {
+        links.retain(|l| !(ends(l, "from") == *s && ends(l, "to") == outlet));
+        links.push(link(s, format!("{outlet}.in")));
+    }
+    if let Some(sc) = &screen {
+        links.push(link(&outlet, format!("{sc}.in")));
+    }
+    for (path, v) in values {
+        let Some((node, port)) = path.rsplit_once('.') else { continue };
+        if let Some(t) = mine.iter_mut().find(|n| id(n) == node).and_then(|n| n.as_table_mut()) {
+            t.insert(port.into(), toml::Value::Float(f64::from(*v)));
+        }
+    }
+    out.insert("node".into(), toml::Value::Array(mine));
+    out.insert("link".into(), toml::Value::Array(links));
+    toml::to_string(&out).map_err(|e| format!("the scene beside the outlet: {e}"))
+}
+
 /// the cell's numbers → the slots of the piece they set (the one parser; a bare name is its node's first knob)
 fn resolve(played: &Played, piece: &str, numbers: &[(String, f32)], problems: &mut Vec<String>) -> Vec<(String, f32)> {
     let mut out = Vec::new();
@@ -452,6 +508,22 @@ to = "out.in"
         assert!(matches!(&v.what, What::Glide { glides, .. } if glides.len() == 1 && glides[0].path == "light.freq"), "{v:?}");
         assert_eq!(v.problems, ["scene:nave: the value 'dim' is no number", "scene:nave: the value 'fog' names nothing it plays"]);
         assert!(d.log().any(|l| l == "character:yellowmouse is not on this deck"));
+    }
+
+    #[test]
+    fn a_piece_plays_beside_the_decks_outlet() {
+        let deck = crate::scene::OUTLET_SCENE;
+        let text = beside(NAVE, deck, &[("light.gain".into(), 0.2)]).unwrap();
+        let s = Scene::parse(&text).unwrap();
+        let kinds: Vec<&str> = s.nodes.iter().map(|n| n.kind.as_str()).collect();
+        assert_eq!(kinds, ["osc", "noise", "mixer", "audio_out", "tempo", "space", "outlet", "screen"], "the piece, then the outlet's");
+        assert_eq!(s.stage.name, "nave", "the piece's stage");
+        let light = s.nodes.iter().find(|n| n.id == "light").unwrap();
+        assert_eq!(light.params.get("gain").and_then(|v| v.as_float()), Some(f64::from(0.2f32)), "a Load's value, set");
+        let links: Vec<(&str, &str)> = s.links.iter().map(|l| (l.from.as_str(), l.to.as_str())).collect();
+        assert!(links.contains(&("space", "outlet.in")) && links.contains(&("outlet", "screen.in")) && links.contains(&("mix", "out.in")), "{links:?}");
+        assert!(crate::graph::Graph::build(&s).is_ok(), "it builds");
+        assert_eq!(beside(NAVE, NAVE, &[]), Err("the deck's scene has no outlet".into()));
     }
 
     #[test]
