@@ -208,12 +208,12 @@ export function createContentApi(client: ApiClient) {
 			client.get<{ status: string; entities: ContentIndexEntity[] }>(`/entities?toon=${encodeURIComponent(toon)}`),
 
 		/**
-		 * The toon's address book (#477, GET /api/toons/<toon>/addresses): `version` = the one already held – null when
+		 * The toon's address book (#477, GET /api/addresses/<toon>): `version` = the one already held – null when
 		 * it is still current (304), else the new document
 		 */
 		addressBook: async (toon: string, version?: string): Promise<AddressBook | null> => {
 			try {
-				const response = await client.fetchRaw(`/toons/${encodeURIComponent(toon)}/addresses`, version ? { headers: { 'If-None-Match': `"${version}"` } } : {});
+				const response = await client.fetchRaw(`/addresses/${encodeURIComponent(toon)}`, version ? { headers: { 'If-None-Match': `"${version}"` } } : {});
 				return (await response.json()) as AddressBook;
 			} catch (error) {
 				if (error instanceof ApiError && error.status === 304) return null;

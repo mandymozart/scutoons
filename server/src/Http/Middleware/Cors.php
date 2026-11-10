@@ -26,7 +26,7 @@ final class Cors implements MiddlewareInterface
 {
     private const METHODS = 'GET, POST, PUT, OPTIONS';
     private const ADMIN_METHODS = 'GET, POST, PUT, DELETE, OPTIONS';
-    private const HEADERS = 'Content-Type, Authorization, X-Device-Id';
+    private const HEADERS = 'Content-Type, Authorization, X-Device-Id, If-None-Match';
 
     public function __construct(private readonly Settings $settings, private readonly ResponseFactoryInterface $responses)
     {

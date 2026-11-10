@@ -19,7 +19,7 @@ use Scutoons\Tests\TestCase;
 use Slim\Psr7\Factory\ServerRequestFactory;
 
 /**
- * GET /api/toons/<toon>/addresses (#477): every addressable thing of a toon's catalog in the generated shape
+ * GET /api/addresses/<toon> (#477): every addressable thing of a toon's catalog in the generated shape
  * (server/schema/api/address-book.schema.json) – read by the team (creator, admin, live) and approved decks, versioned by
  * the catalog it was built from (ETag, 304).
  */
@@ -29,7 +29,7 @@ final class AddressBookApiTest extends TestCase
     {
         $this->catalog();
         [$creator] = $this->session([Roles::CREATOR], 'creator@scutoons.test');
-        $r = $this->request('/api/toons/catpope/addresses', $creator);
+        $r = $this->request('/api/addresses/catpope', $creator);
         self::assertSame(200, $r->getStatusCode(), (string) $r->getBody());
         $book = self::json($r);
         self::assertSame(AddressBookTypes::FORMAT, $book['address_book']);
@@ -76,7 +76,7 @@ final class AddressBookApiTest extends TestCase
         self::assertSame(['key' => 'toon:toptoy', 'state' => 'published'], $by['variable:toptoy.luck']['origin']);
 
         // the other toon: only the shared items, its own character; the same variables, as written there
-        $other = self::json($this->request('/api/toons/toptoy/addresses', $creator));
+        $other = self::json($this->request('/api/addresses/toptoy', $creator));
         self::assertSame(['character:mouse'], array_column(array_filter($other['entries'], fn(array $e) => $e['kind'] === 'character'), 'address'));
         self::assertNotContains('item:camera', array_column($other['entries'], 'address'));
         $otherVariables = array_column(array_filter($other['entries'], fn(array $e) => $e['kind'] === 'variable'), 'name', 'address');
@@ -87,14 +87,14 @@ final class AddressBookApiTest extends TestCase
     {
         $this->catalog();
         [$creator] = $this->session([Roles::CREATOR], 'creator@scutoons.test');
-        $first = $this->request('/api/toons/catpope/addresses', $creator);
+        $first = $this->request('/api/addresses/catpope', $creator);
         $etag = $first->getHeaderLine('ETag');
-        $again = $this->request('/api/toons/catpope/addresses', $creator, ['If-None-Match' => $etag]);
+        $again = $this->request('/api/addresses/catpope', $creator, ['If-None-Match' => $etag]);
         self::assertSame([304, '', $etag], [$again->getStatusCode(), (string) $again->getBody(), $again->getHeaderLine('ETag')]);
-        self::assertSame($etag, $this->request('/api/toons/catpope/addresses', $creator)->getHeaderLine('ETag'), 'unchanged: the same version');
+        self::assertSame($etag, $this->request('/api/addresses/catpope', $creator)->getHeaderLine('ETag'), 'unchanged: the same version');
         // a saved character changes it, and the new document has the change
         $this->store('character:catpope', ['name' => ['de' => 'Papst'], 'color' => 'red', 'personas' => []], false);
-        $changed = $this->request('/api/toons/catpope/addresses', $creator, ['If-None-Match' => $etag]);
+        $changed = $this->request('/api/addresses/catpope', $creator, ['If-None-Match' => $etag]);
         self::assertSame(200, $changed->getStatusCode());
         self::assertNotSame($etag, $changed->getHeaderLine('ETag'));
         $by = array_column(self::json($changed)['entries'], null, 'address');
@@ -103,7 +103,7 @@ final class AddressBookApiTest extends TestCase
         // a variable another toon sets (one save game) changes it too
         $before = $changed->getHeaderLine('ETag');
         $this->store('chapter:toptoy:2', ['number' => 2, 'groups' => [['label' => 'a', 'events' => [['type' => 'setVariable', 'params' => ['variable' => 'global.moons', 'value' => '1']]]]]], false);
-        $moons = $this->request('/api/toons/catpope/addresses', $creator, ['If-None-Match' => $before]);
+        $moons = $this->request('/api/addresses/catpope', $creator, ['If-None-Match' => $before]);
         self::assertSame(200, $moons->getStatusCode());
         self::assertContains('variable:global.moons', array_column(self::json($moons)['entries'], 'address'));
     }
@@ -111,7 +111,7 @@ final class AddressBookApiTest extends TestCase
     public function testWhoReadsIt(): void
     {
         $this->catalog();
-        $path = '/api/toons/catpope/addresses';
+        $path = '/api/addresses/catpope';
         self::assertSame(401, $this->request($path)->getStatusCode());
         [$member] = $this->session([], 'reader@scutoons.test');
         self::assertSame([403, 'forbidden'], [$this->request($path, $member)->getStatusCode(), self::json($this->request($path, $member))['error'] ?? null]);
@@ -126,7 +126,7 @@ final class AddressBookApiTest extends TestCase
         [$creator, $creatorUser] = $this->session([Roles::CREATOR], 'writer@scutoons.test');
         $ai = ['Authorization' => 'Bearer ' . $this->get(ApiTokens::class)->create($creatorUser, 'a script')['token']];
         self::assertSame(200, $this->request($path, $ai)->getStatusCode());
-        self::assertSame([404, 'unknown_toon'], [$this->request('/api/toons/nope/addresses', $creator)->getStatusCode(), self::json($this->request('/api/toons/nope/addresses', $creator))['error'] ?? null]);
+        self::assertSame([404, 'unknown_toon'], [$this->request('/api/addresses/nope', $creator)->getStatusCode(), self::json($this->request('/api/addresses/nope', $creator))['error'] ?? null]);
     }
 
     /** A small catalog: two toons, characters (cast, own toon, a draft, a removed one), places, chapters */
