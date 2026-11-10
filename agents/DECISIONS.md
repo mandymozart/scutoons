@@ -18,5 +18,5 @@ archive/DECISIONS-superseded.md (quotes kept). A built feature's history may mov
 | decisions/reader.md | the reader app, PWA, FX, UI and design system | 95 | 5.9k | design fx pwa reader ui |
 | decisions/map.md | the world map and places | 42 | 2.2k | map |
 | decisions/story.md | storyboard, studio, WEBTOON, content, characters, release dates | 66 | 6.5k | characters content release story storyboard studio webtoon |
-| decisions/xr.md | XR: experiences, the reader's XR mode, the XR editor (#482; the ten lines of 2026-11-10 are in deck.md) | 10 | 0.5k | xr |
+| decisions/xr.md | XR: experiences, the reader's XR mode, the XR editor (#482; the ten lines of 2026-11-10 are in deck.md) | 11 | 0.9k | xr |
 | decisions/server.md | data, assets, media, catalog, MCP, embassy, newsletter, deploy, dev, process | 115 | 6.5k | admin assets catalog data deploy embassy git legal mcp media newsletter process |
