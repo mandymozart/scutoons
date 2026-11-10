@@ -138,7 +138,7 @@
 				aria-autocomplete="list"
 				aria-activedescendant={open && count ? `${uid}-${active}` : undefined}
 				class:unknown={!current && !!raw && !!book}
-				title={current?.address ?? (raw && book ? m['creator.address_unknown']() : undefined)}
+				title={current?.ref ?? (raw && book ? m['creator.address_unknown']() : undefined)}
 				value={open ? query : shown}
 				placeholder={open && shown ? shown : m['creator.address_search']()}
 				autocomplete="off"
@@ -157,7 +157,7 @@
 			{#if open}
 				<ul id="{uid}-list" role="listbox" aria-label={label}>
 					<!-- the keys are the combobox's (aria-activedescendant): an option is only clicked -->
-					{#each options as entry, i (entry.address)}
+					{#each options as entry, i (entry.ref)}
 						<!-- svelte-ignore a11y_click_events_have_key_events -->
 						<li id="{uid}-{i}" role="option" aria-selected={i === active} class:sc-selected={i === active} onmousedown={(e) => e.preventDefault()} onclick={() => choose(i)} onmousemove={() => (active = i)} data-testid="{testid}-option">
 							<span class="label">{chainLabel(entry, indexOf(book!), locale, book!.source)}</span>

@@ -21,9 +21,10 @@ test('every language gets every definition, under this file\'s header and withou
 		assert.match(rs, new RegExp(`pub (struct|enum|type) ${name}\\b`), `Rust ${name}`);
 		assert.match(php, new RegExp(`@phpstan-type ${name} `), `PHP ${name}`);
 	}
-	assert.match(php, /@phpstan-type AddressEntry array\{address: string, kind: AddressKind, name: string, parent\?: string, labels: LocaleText, origin: Origin, moods\?: list<string>\}/);
+	// every entry has its reference; an address only where a receiver exists (decisions/deck.md [address])
+	assert.match(php, /@phpstan-type AddressEntry array\{ref: string, address\?: string, kind: AddressKind, name: string, parent\?: string, labels: LocaleText, origin: Origin, moods\?: list<string>\}/);
 	assert.match(php, /public const ADDRESS_KIND = \['character', 'persona', 'look', 'location', 'item', 'chapter', 'group', 'variable'\];/);
-	assert.match(php, /public const FORMAT = 1;/);
+	assert.match(php, /public const FORMAT = 2;/);
 });
 
 test('the tables: the same data in each language', () => {

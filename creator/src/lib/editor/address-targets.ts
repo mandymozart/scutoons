@@ -1,7 +1,8 @@
-// A VN event's target in the toon's address book (#477 slice B; decisions/deck.md [contract] [typeahead]): the one
+// A VN event's target in the toon's address book (#477; decisions/deck.md [contract] [typeahead] [address]): the one
 // typeahead (components/fields/address-field.svelte) filters the server's entries by the kinds the target may be and fills
-// the event's existing fields from an entry's `name`, walking `parent` up. No address is parsed here and no fallback is
-// guessed: the server wrote every entry; this only filters, looks up by `parent` and copies names.
+// the event's existing fields from an entry's `name`, walking `parent` (a reference) up. An event's target is a reference:
+// the creator never needs an entry's address (only what can receive a word has one). No reference is parsed here and no
+// fallback is guessed: the server wrote every entry; this only filters, looks up by `parent` and copies names.
 import type { AddressBook, AddressEntry, AddressKind } from '@scutoons/api';
 import { pickContentText } from '@scutoons/content';
 
@@ -22,11 +23,11 @@ export const TARGETS = {
 	variable: { kinds: ['variable'], fields: { variable: 'variable' } }
 } as const satisfies Record<string, { kinds: readonly AddressKind[]; fields: TargetFields }>;
 
-/** a book's entries by address (made once per book) */
+/** a book's entries by reference (made once per book) */
 const indexes = new WeakMap<AddressBook, Map<string, AddressEntry>>();
 export function indexOf(book: AddressBook): Map<string, AddressEntry> {
 	let index = indexes.get(book);
-	if (!index) indexes.set(book, (index = new Map(book.entries.map((e) => [e.address, e]))));
+	if (!index) indexes.set(book, (index = new Map(book.entries.map((e) => [e.ref, e]))));
 	return index;
 }
 
@@ -52,7 +53,7 @@ export function chainLabel(entry: AddressEntry, index: Map<string, AddressEntry>
 
 /**
  * The entries a target may be: of `kinds`, `accept`ed, every word of `query` in the label (the creator's locale), the
- * name or the address (case-insensitive); in the book's order (parents before their children)
+ * name or the reference (case-insensitive); in the book's order (parents before their children)
  */
 export function matchEntries(
 	book: AddressBook,
@@ -66,7 +67,7 @@ export function matchEntries(
 	const out: AddressEntry[] = [];
 	for (const entry of book.entries) {
 		if (!kinds.includes(entry.kind) || (accept && !accept(entry))) continue;
-		const hay = `${entryLabel(entry, locale, book.source)} ${entry.name} ${entry.address}`.toLowerCase();
+		const hay = `${entryLabel(entry, locale, book.source)} ${entry.name} ${entry.ref}`.toLowerCase();
 		if (!words.every((w) => hay.includes(w))) continue;
 		out.push(entry);
 		if (out.length >= limit) break;
@@ -104,5 +105,5 @@ export function currentEntry(book: AddressBook, kinds: readonly AddressKind[], f
 /** the names of the `child` entries under the `parent`-kind entry called `name` (a chapter's groups) */
 export function childNames(book: AddressBook, parent: AddressKind, name: string, child: AddressKind): string[] {
 	const up = book.entries.find((e) => e.kind === parent && e.name === name);
-	return up ? book.entries.filter((e) => e.kind === child && e.parent === up.address).map((e) => e.name) : [];
+	return up ? book.entries.filter((e) => e.kind === child && e.parent === up.ref).map((e) => e.name) : [];
 }

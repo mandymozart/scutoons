@@ -36,28 +36,31 @@ final class AddressBookApiTest extends TestCase
         self::assertSame(['catpope', 'en'], [$book['toon'], $book['source']], 'the toon\'s source language');
         self::assertSame('"' . $book['version'] . '"', $r->getHeaderLine('ETag'));
         self::assertMatchesRegularExpression('/"labels":\{\}/', (string) $r->getBody(), 'an empty label map stays an object');
-        $by = array_column($book['entries'], null, 'address');
+        $by = array_column($book['entries'], null, 'ref');
         // every key of the shape, nothing else (the generated PHP shape is what PHPStan checks; this is the wire)
         foreach ($book['entries'] as $e) {
-            self::assertSame([], array_diff(array_keys($e), ['address', 'kind', 'name', 'parent', 'labels', 'origin', 'moods']), $e['address']);
+            self::assertSame([], array_diff(array_keys($e), ['ref', 'address', 'kind', 'name', 'parent', 'labels', 'origin', 'moods']), $e['ref']);
             self::assertContains($e['kind'], AddressBookTypes::ADDRESS_KIND);
             self::assertContains($e['origin']['state'], AddressBookTypes::ORIGIN_STATE);
+            // an address only where a receiver of the kind exists, and then the reference's text (decisions/deck.md [address])
+            $addressed = in_array($e['kind'], ['character', 'persona', 'look', 'item'], true);
+            self::assertSame($addressed ? $e['ref'] : null, $e['address'] ?? null, $e['ref']);
         }
         // characters: the cast (season order), then own_toon; the removed one and the other toon's are not in it
         $characters = array_values(array_filter($book['entries'], fn(array $e) => $e['kind'] === 'character'));
-        self::assertSame(['character:catpope', 'character:boy', 'character:crow'], array_column($characters, 'address'));
-        self::assertSame(['kind' => 'character', 'name' => 'catpope', 'labels' => ['de' => 'Katzenpapst', 'en' => 'Cat Pope'], 'origin' => ['key' => 'character:catpope', 'state' => 'published']],
-            array_diff_key($by['character:catpope'], ['address' => 1]));
-        self::assertSame(['address' => 'character:catpope.human', 'kind' => 'persona', 'name' => 'human', 'parent' => 'character:catpope', 'labels' => ['de' => 'Mensch', 'en' => 'human']],
+        self::assertSame(['character:catpope', 'character:boy', 'character:crow'], array_column($characters, 'ref'));
+        self::assertSame(['address' => 'character:catpope', 'kind' => 'character', 'name' => 'catpope', 'labels' => ['de' => 'Katzenpapst', 'en' => 'Cat Pope'], 'origin' => ['key' => 'character:catpope', 'state' => 'published']],
+            array_diff_key($by['character:catpope'], ['ref' => 1]));
+        self::assertSame(['ref' => 'character:catpope.human', 'address' => 'character:catpope.human', 'kind' => 'persona', 'name' => 'human', 'parent' => 'character:catpope', 'labels' => ['de' => 'Mensch', 'en' => 'human']],
             array_diff_key($by['character:catpope.human'], ['origin' => 1]));
-        self::assertSame(['address' => 'character:catpope.human.helmet', 'kind' => 'look', 'name' => 'helmet', 'parent' => 'character:catpope.human', 'moods' => ['neutral', 'happy']],
+        self::assertSame(['ref' => 'character:catpope.human.helmet', 'address' => 'character:catpope.human.helmet', 'kind' => 'look', 'name' => 'helmet', 'parent' => 'character:catpope.human', 'moods' => ['neutral', 'happy']],
             array_diff_key($by['character:catpope.human.helmet'], ['origin' => 1, 'labels' => 1]));
         self::assertSame('draft', $by['character:boy']['origin']['state'], 'a newer draft: the draft is the entry');
         self::assertSame(['de' => 'Junge (neu)'], $by['character:boy']['labels']);
         self::assertArrayNotHasKey('character:ghost', $by, 'removed');
         self::assertArrayNotHasKey('character:mouse', $by, 'another toon\'s');
         // locations: the places whose toons hold it
-        self::assertSame(['location:dom'], array_column(array_filter($book['entries'], fn(array $e) => $e['kind'] === 'location'), 'address'));
+        self::assertSame(['location:dom'], array_column(array_filter($book['entries'], fn(array $e) => $e['kind'] === 'location'), 'ref'));
         self::assertSame(['key' => 'place:dom', 'state' => 'published'], $by['location:dom']['origin']);
         // items: the toon's and the shared ones (the fixture catalog: catpope's and no toon's)
         self::assertSame(['de' => 'Kamera', 'en' => 'Camera'], $by['item:camera']['labels']);
@@ -65,21 +68,21 @@ final class AddressBookApiTest extends TestCase
         // chapters by number, each followed by its groups (a label once; a label that is no address word gets a safe form), then
         // the variables of the one save game
         $chapters = array_values(array_filter($book['entries'], fn(array $e) => in_array($e['kind'], ['chapter', 'group'], true)));
-        self::assertSame(['chapter:2', 'chapter:2.intro', 'chapter:2.Das-Ende', 'chapter:2.Das-Ende-2', 'chapter:10'], array_column($chapters, 'address'));
+        self::assertSame(['chapter:2', 'chapter:2.intro', 'chapter:2.Das-Ende', 'chapter:2.Das-Ende-2', 'chapter:10'], array_column($chapters, 'ref'));
         self::assertSame(['2', ['de' => 'Zwei']], [$by['chapter:2']['name'], $by['chapter:2']['labels']]);
         self::assertSame(['kind' => 'group', 'name' => 'Das Ende?', 'parent' => 'chapter:2', 'labels' => [], 'origin' => ['key' => 'chapter:catpope:2', 'state' => 'published']],
-            array_diff_key($by['chapter:2.Das-Ende-2'], ['address' => 1]), 'the name is the label as the event stores it');
+            array_diff_key($by['chapter:2.Das-Ende-2'], ['ref' => 1]), 'the name is the label as the event stores it');
         $variables = array_values(array_filter($book['entries'], fn(array $e) => $e['kind'] === 'variable'));
         self::assertSame(array_fill(0, count($variables), 'variable'), array_column(array_slice($book['entries'], -count($variables)), 'kind'), 'variables last');
         self::assertSame(['variable:catpope.coins' => 'coins', 'variable:global.stars' => 'global.stars', 'variable:toptoy.luck' => 'toptoy.luck'],
-            array_column($variables, 'name', 'address'), 'as written in this toon');
+            array_column($variables, 'name', 'ref'), 'as written in this toon');
         self::assertSame(['key' => 'toon:toptoy', 'state' => 'published'], $by['variable:toptoy.luck']['origin']);
 
         // the other toon: only the shared items, its own character; the same variables, as written there
         $other = self::json($this->request('/api/addresses/toptoy', $creator));
-        self::assertSame(['character:mouse'], array_column(array_filter($other['entries'], fn(array $e) => $e['kind'] === 'character'), 'address'));
-        self::assertNotContains('item:camera', array_column($other['entries'], 'address'));
-        $otherVariables = array_column(array_filter($other['entries'], fn(array $e) => $e['kind'] === 'variable'), 'name', 'address');
+        self::assertSame(['character:mouse'], array_column(array_filter($other['entries'], fn(array $e) => $e['kind'] === 'character'), 'ref'));
+        self::assertNotContains('item:camera', array_column($other['entries'], 'ref'));
+        $otherVariables = array_column(array_filter($other['entries'], fn(array $e) => $e['kind'] === 'variable'), 'name', 'ref');
         self::assertSame(['catpope.coins', 'luck'], [$otherVariables['variable:catpope.coins'], $otherVariables['variable:toptoy.luck']]);
     }
 
@@ -97,7 +100,7 @@ final class AddressBookApiTest extends TestCase
         $changed = $this->request('/api/addresses/catpope', $creator, ['If-None-Match' => $etag]);
         self::assertSame(200, $changed->getStatusCode());
         self::assertNotSame($etag, $changed->getHeaderLine('ETag'));
-        $by = array_column(self::json($changed)['entries'], null, 'address');
+        $by = array_column(self::json($changed)['entries'], null, 'ref');
         self::assertSame(['de' => 'Papst'], $by['character:catpope']['labels']);
         self::assertArrayNotHasKey('character:catpope.human', $by);
         // a variable another toon sets (one save game) changes it too
@@ -105,7 +108,7 @@ final class AddressBookApiTest extends TestCase
         $this->store('chapter:toptoy:2', ['number' => 2, 'groups' => [['label' => 'a', 'events' => [['type' => 'setVariable', 'params' => ['variable' => 'global.moons', 'value' => '1']]]]]], false);
         $moons = $this->request('/api/addresses/catpope', $creator, ['If-None-Match' => $before]);
         self::assertSame(200, $moons->getStatusCode());
-        self::assertContains('variable:global.moons', array_column(self::json($moons)['entries'], 'address'));
+        self::assertContains('variable:global.moons', array_column(self::json($moons)['entries'], 'ref'));
     }
 
     public function testWhoReadsIt(): void
