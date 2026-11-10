@@ -17,6 +17,9 @@ pub struct Item {
     pub detail: String,
 }
 
+/// a caller's rule: the ids a query finds, in its order
+type Find = Box<dyn Fn(&str) -> Vec<usize>>;
+
 pub struct Typeahead {
     items: Vec<Item>,
     field: Field,
@@ -31,7 +34,7 @@ pub struct Typeahead {
     rows: Vec<(f32, usize)>,
     frame: (f32, f32, f32),
     /// the caller's rule: the ids a query finds, in its order; none = every word in the label or the detail
-    find: Option<Box<dyn Fn(&str) -> Vec<usize>>>,
+    find: Option<Find>,
 }
 
 /// every word of `query` somewhere in the item, whatever the case
