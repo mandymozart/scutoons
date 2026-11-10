@@ -144,7 +144,7 @@ impl Conductor {
         if let MaybeTlsStream::Plain(s) = ws.get_ref() {
             s.set_read_timeout(Some(Duration::from_millis(100))).unwrap();
         }
-        let hello = Hello { code: code.into(), role: Role::Conductor, group: None, nick: None, token: Some("dev".into()), resume: None };
+        let hello = Hello { code: code.into(), role: Role::Conductor, group: None, nick: None, token: Some("dev".into()), device: None, resume: None };
         ws.send(Ws::Text(serde_json::to_string(&Envelope::new("", Message::Hello(hello))).unwrap().into())).unwrap();
         Conductor(ws)
     }
@@ -290,7 +290,8 @@ fn preload_cells_ready_and_the_snapshot_on_a_restart() {
     } else {
         assert!(live.hud_lines().iter().any(|l| l.contains("MODULE 'SPACE'")), "{:?}", live.hud_lines());
     }
-    assert!(live.hud_lines()[0].starts_with("LIVE LEFT  OUTPUT "), "{:?}", live.hud_lines());
+    // #478: `role: name` once joined (no roles here: the outlet is its own label)
+    assert!(live.hud_lines()[0].starts_with("LIVE LEFT: TEST-DECK  OUTPUT "), "{:?}", live.hud_lines());
 
     // a dropped connection: the deck joins again with resume (its client id kept) and gets what was sent meanwhile
     let joined = live.hud_lines()[0].clone();
@@ -319,5 +320,67 @@ fn preload_cells_ready_and_the_snapshot_on_a_restart() {
     }
     drop(again);
     drop(files);
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// the next cell the piece side gets that `ok` takes, within PATIENCE
+fn piece(rx: &Receiver<protocol::Cell>, what: &str, ok: impl Fn(&protocol::Cell) -> bool) -> protocol::Cell {
+    let until = Instant::now() + PATIENCE;
+    while let Some(left) = until.checked_duration_since(Instant::now()) {
+        match rx.recv_timeout(left) {
+            Ok(c) if ok(&c) => return c,
+            Ok(_) => {}
+            Err(_) => break,
+        }
+    }
+    panic!("{what}: no such cell within {PATIENCE:?}");
+}
+
+/// #478: a deck takes a role at runtime – the relay offers the conductor's roles, the deck's own assign moves it, the
+/// piece side gets that role's cell (the crossfade is the piece side's); no role plays the idle scene (a black cell); the
+/// name it says reaches the conductor's presence; deck.toml keeps the choice
+#[test]
+fn a_deck_takes_a_role_and_no_role_at_runtime() {
+    use deck_ui::live::Do;
+    use protocol::{Roles, ShowRole};
+    let root = std::env::temp_dir().join(format!("deck-live-roles-{}", std::process::id()));
+    std::fs::create_dir_all(&root).unwrap();
+    std::env::set_var("DECK_TOML", root.join("deck.toml"));
+    let (_rt, port) = relay();
+    let deck = Deck { root: root.clone(), port };
+    let mut cond = Conductor::join(port, "T478");
+    cond.wait("welcome", |m| matches!(m, Message::Welcome(_)).then_some(()));
+    let role = |id: &str| ShowRole { id: id.into(), label: Some(id.to_uppercase()), r#for: None, here: None };
+    cond.send(Message::Roles(Roles { roles: vec![role("left"), role("tenor")] }));
+    cond.send(Message::Cell(CellChange { outlet: "tenor".into(), cell: sermon_cell() }));
+
+    let live = deck.start("T478", "offline://api");
+    cond.outlets(1);
+    let until = Instant::now() + PATIENCE;
+    while live.session().offers.len() < 2 {
+        assert!(Instant::now() < until, "the roles were not offered: {:?}", live.session());
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    assert_eq!(live.session().role.as_deref(), Some("left"));
+
+    live.act(Do::Take(Some("tenor".into())));
+    let cell = piece(&live.pieces, "the tenor's cell", |c| c.mode == protocol::CellMode::Own);
+    assert_eq!(cell, sermon_cell());
+    cond.wait("the deck in tenor", |m| match m {
+        Message::Presence(p) if p.who.as_ref().and_then(|w| w.values().next()).is_some_and(|d| d.group.as_deref() == Some("tenor")) => Some(()),
+        _ => None,
+    });
+    live.act(Do::Name("Anna".into()));
+    cond.wait("its name", |m| match m {
+        Message::Presence(p) if p.who.as_ref().and_then(|w| w.values().next()).is_some_and(|d| d.nick.as_deref() == Some("Anna")) => Some(()),
+        _ => None,
+    });
+    assert!(live.hud_lines()[0].starts_with("LIVE TENOR: ANNA"), "{:?}", live.hud_lines());
+
+    live.act(Do::Take(None));
+    piece(&live.pieces, "no role: black, the idle scene", |c| c.mode == protocol::CellMode::Black);
+    let kept = std::fs::read_to_string(root.join("deck.toml")).unwrap();
+    assert!(kept.contains("role = \"\"") && kept.contains("nick = \"Anna\""), "{kept}");
+    drop(live);
     let _ = std::fs::remove_dir_all(&root);
 }

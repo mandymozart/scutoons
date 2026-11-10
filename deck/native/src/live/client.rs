@@ -115,6 +115,12 @@ impl Side for Client {
                     tracing::warn!("live: the relay says {code}: {message}");
                     self.status.lock().unwrap().problems_relay = Some(format!("RELAY {code}: {message}"));
                 }
+                // #478: a role taken (its own or the conductor's assign): that role's cells from now, kept for the next start
+                Routed::Moved(role) => {
+                    tracing::info!("live: now in role '{}'", role.as_deref().unwrap_or("-"));
+                    self.cfg.outlet = role.unwrap_or_default();
+                    keep("role", &self.cfg.outlet);
+                }
             }
         }
         *self.session.lock().unwrap() = c.live();

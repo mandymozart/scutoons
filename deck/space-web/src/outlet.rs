@@ -263,6 +263,8 @@ impl Outlet {
                 // the browser deck keeps no show yet and does not answer – the conductor's list has it without a report
                 Routed::Flash(_) => {}
                 Routed::Refused { code, message } => self.status.problems_relay = Some(format!("RELAY {code}: {message}")),
+                // #478: a role taken – its cells from now (the black of no role is routed to the piece side too)
+                Routed::Moved(role) => self.name = role.unwrap_or_default(),
             }
         }
     }

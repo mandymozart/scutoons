@@ -142,7 +142,7 @@ mod running {
                 stop: stop.clone(),
             };
             spawn("live-flash", move || flasher.run(flash_rx));
-            let preloader = Preloader { media: media.clone(), outlet: cfg.outlet.clone(), outbox, compose: to_compose.clone(), status: status.clone(), stop: stop.clone() };
+            let preloader = Preloader { media: media.clone(), outbox, compose: to_compose.clone(), status: status.clone(), stop: stop.clone() };
             spawn("live-preload", move || preloader.run(preload_rx));
             let composer = Worker {
                 composer: compose::composer(lib, media, size_of(&size)),
@@ -227,7 +227,6 @@ mod running {
 
     struct Preloader {
         media: Arc<Media>,
-        outlet: String,
         outbox: Sender<Message>,
         compose: Sender<Input>,
         status: Arc<Mutex<Status>>,
@@ -247,7 +246,8 @@ mod running {
                 }
                 let Some(p) = machine.due(start.elapsed()) else { continue };
                 self.status.lock().unwrap().media = machine.loading_line();
-                let ready = self.media.preload(&self.outlet, &p.items);
+                // the outlet the preload names (#478: a deck that took another role preloads that role's)
+                let ready = self.media.preload(&p.outlet, &p.items);
                 self.status.lock().unwrap().media = machine.done(&ready, start.elapsed());
                 let _ = self.compose.send(Input::Media);
                 let _ = self.outbox.send(Message::MediaReady(ready));
