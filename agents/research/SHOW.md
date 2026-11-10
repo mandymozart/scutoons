@@ -208,6 +208,8 @@ Largest new piece of work: the relay tree. Everything else in the table reuses w
 
 1. Multichannel pan (#459), labels (#461) and nesting (#458) touch this; nesting should follow §4.
 
+2. The link to the creator's catalog and what each entity plays (assignments per character, persona, look, location, item): research/CATALOG-LINK.md, #472.
+
 ## 13. Drafts
 
 Concept images (sent to the owner in the chat, not in the repository): `n0-tree`, `n1-reach`, `n2-cells`, `n3-launch`, `n4-editor`, `n5-conductor`, `n6-build`, `n7-show`, `n8-perform`, `n9-flow`; current: `m1-show`, `m2-perform`, `m3-tree`. `n1`–`n5` still draw groups and one flat conductor; §4 is the correction.

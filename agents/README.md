@@ -29,7 +29,7 @@ Before 2026-11-03 this set was 312 lines / ≈ 7.6k tokens and was *followed* by
 | texts, variables, logic | `EXPRESSIONS.md` | 368 |
 | MCP / AI connections | `MCP.md` | 300 |
 | embassy / newsletter | `EMBASSY.md`, `NEWSLETTER.md` | 337 · 168 |
-| deck / live / engine | `research/ENGINE-REFACTOR-PLAN.md`, `research/ENGINE-ALIGNMENT.md` §0, `research/LIVE.md`, `research/SHOW.md` (the show concept, #462), `deck/*/README.md`, + the module/rig docs `research/ABI-V2.md`, `RIG-EDITING.md`, `EDITOR.md`, `EVENTS.md`, `INSTRUMENTS.md` | line 1 = status, read that first |
+| deck / live / engine | `research/ENGINE-REFACTOR-PLAN.md`, `research/ENGINE-ALIGNMENT.md` §0, `research/LIVE.md`, `research/SHOW.md` (the show concept, #462), `research/CATALOG-LINK.md` (catalog ↔ show, assignments per entity, #472), `deck/*/README.md`, + the module/rig docs `research/ABI-V2.md`, `RIG-EDITING.md`, `EDITOR.md`, `EVENTS.md`, `INSTRUMENTS.md` | line 1 = status, read that first |
 
 Topic docs describe **how it is now** (read the section you touch, never the whole file: DESIGN, ITEMS, MAP and PLATFORM are
 24–38k tokens each).
