@@ -55,6 +55,7 @@ show › row › cell › rig or scene › track › node › parameter
 
 - A cable is saved one level above what it joins, and a row is what joins cells. The row takes the place of the "scene" level drafted earlier, and outlets replace the roles like `deck:left`.
 - **Conductors form a tree.** A subtree is what goes together: it fires its own rows (following its parent, the reader, its operator or the clock), links stay inside it, and it can have its own clock.
+- **"Show runner" is the topmost conductor**, a synonym, not a role of its own (owner 2026-11-10, decision [role]).
 - **Down:** rows, cells, events, the clock. **Up:** values, readiness, events.
 - A cell on a child conductor says "go to your row 3" or "you are free", so a show nests as a rig does.
 - In the editor a sub conductor is entered like an instrument: a breadcrumb, its own matrix, tabs for the parents.
