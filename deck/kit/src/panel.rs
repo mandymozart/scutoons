@@ -38,6 +38,13 @@ pub fn tokens() -> Tokens {
     }
 }
 
+/// How many device pixels one logical pixel of the deck's UI is on a `w × h` screen: whole steps by the shorter side, so
+/// a phone held upright (780 wide at two pixels per point) and a 1080p stage screen both read like the reader does – 2
+/// and 3; never under 1, at most 4.
+pub fn scale(w: f32, h: f32) -> f32 {
+    (w.min(h) / 400.0).round().clamp(1.0, 4.0)
+}
+
 /// the title's size, and a line's height per pixel of font size (the reader's 1.35)
 const TITLE: f32 = 20.0;
 const LINE: f32 = 1.35;
@@ -291,6 +298,11 @@ mod tests {
         let (a, edge) = (places[0], t.size.edge);
         let line = Prim::Rect { x: a.x, y: a.y + a.h - edge, w: a.w * 0.5, h: edge, r: 0.0, color: t.color.surface };
         assert!(d.prims().contains(&line), "the countdown's line");
+    }
+
+    #[test]
+    fn the_scale_follows_the_shorter_side_in_whole_steps() {
+        assert_eq!((scale(780.0, 1688.0), scale(1920.0, 1080.0), scale(800.0, 600.0), scale(320.0, 240.0), scale(3840.0, 2160.0)), (2.0, 3.0, 2.0, 1.0, 4.0));
     }
 
     #[test]
