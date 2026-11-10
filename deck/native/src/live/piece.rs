@@ -14,7 +14,7 @@ use crate::control::Controls;
 use crate::graph::Graph;
 use deck_space::piece::{beside, Found, Pieces, What};
 use deck_space::rig::address::Place;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 pub struct Side {
@@ -36,13 +36,7 @@ impl Side {
     }
 
     fn find(&self, place: &Place) -> Option<Found> {
-        if place.kind == "scene" {
-            if let Some(text) = crate::switcher::builtin(&place.id) {
-                return Some(Found::Scene(text.to_string()));
-            }
-        }
-        let text = std::fs::read_to_string(self.cache.join("pieces").join(format!("{}.{}.toml", place.kind, place.id))).ok()?;
-        Some(if place.kind == "scene" { Found::Scene(text) } else { Found::Rig(text) })
+        find(&self.cache, place)
     }
 
     /// One frame: the cells the outlet routed, then the glides. Some(scene) = the deck switches to it (a file, or `outlet`).
@@ -81,4 +75,16 @@ impl Side {
         std::fs::write(&file, text).map_err(|e| tracing::warn!("piece: {}: {e}", file.display())).ok()?;
         Some(file.to_string_lossy().into_owned())
     }
+}
+
+/// What the deck has of a piece beyond its core rigs: a built-in scene by its name, else `<cache>/pieces/<kind>.<id>.toml`
+/// (the cells here, a flash's check in flash.rs).
+pub fn find(cache: &Path, place: &Place) -> Option<Found> {
+    if place.kind == "scene" {
+        if let Some(text) = crate::switcher::builtin(&place.id) {
+            return Some(Found::Scene(text.to_string()));
+        }
+    }
+    let text = std::fs::read_to_string(cache.join("pieces").join(format!("{}.{}.toml", place.kind, place.id))).ok()?;
+    Some(if place.kind == "scene" { Found::Scene(text) } else { Found::Rig(text) })
 }

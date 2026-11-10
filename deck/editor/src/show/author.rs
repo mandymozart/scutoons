@@ -221,8 +221,30 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
         d.text(rx + rw * 0.38, y + 2.0, small, &fit(d, &s.sits, small, rw * 0.62), t.color.muted);
         y += t.size.row;
     }
+    // #91 item 5: what each deck and sub conductor answered to the last flash (deck-show's words)
     let bh = 34.0;
     let foot = l.right.y + l.right.h - bh - pad - small * 2.0;
+    y += controls::section(d, t, rx, y, rw, "FLASH REPORTS", false);
+    let reports = view::reports(&host.sub);
+    if reports.is_empty() {
+        d.text(rx, y + 4.0, small, "no answer yet: Flash sends the tree down", t.color.muted);
+    }
+    for r in &reports {
+        if y + font * 1.5 > foot {
+            break;
+        }
+        d.disc(rx + 4.0, y + 4.0 + font * 0.62, 3.5, if r.ok { t.color.go } else { t.color.warn });
+        d.text(rx + 14.0, y + 4.0, font, &fit(d, &format!("{} · {}", r.what, r.from), font, rw - 14.0), t.color.text);
+        y += font * 1.5;
+        for l in std::iter::once(&r.line).chain(&r.lacks) {
+            if y + small * 1.6 > foot {
+                break;
+            }
+            d.text(rx + 14.0, y + 2.0, small, &fit(d, l, small, rw - 14.0), t.color.muted);
+            y += small * 1.6;
+        }
+        y += pad * 0.5;
+    }
     let bw = (rw - 2.0 * pad) / 3.0;
     let load = Rect { x: rx, y: foot, w: bw, h: bh };
     let flash = Rect { x: rx + bw + pad, y: foot, w: bw, h: bh };

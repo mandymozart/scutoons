@@ -17,6 +17,9 @@ pub struct Status {
     pub problems_relay: Option<String>,
     /// #91: what the deck's piece side did with the last cell, and why a piece does not play
     pub piece: Option<String>,
+    /// #91: the deck's answer to the last flash (deck-show `ready::line`) and what it lacks, one line each
+    pub flash: Option<String>,
+    pub flash_lacks: Vec<String>,
 }
 
 impl Status {
@@ -33,6 +36,10 @@ impl Status {
         if let Some(p) = &self.piece {
             out.push(up(&format!("PIECE {p}")));
         }
+        if let Some(f) = &self.flash {
+            out.push(up(f));
+        }
+        out.extend(self.flash_lacks.iter().map(|l| up(&format!("! {l}"))));
         out.extend(self.problems.iter().chain(&self.problems_relay).map(|p| up(&format!("! {p}"))));
         out
     }
@@ -60,5 +67,10 @@ mod tests {
             s.lines("left"),
             ["LIVE LEFT  JOINING WSS://X - Y", "MEDIA 1 / 2 READY", "CELL 3 LAYERS + SPACE 12 MS", "! PANEL: NOT PRELOADED", "! RELAY FORBIDDEN: NO"]
         );
+        s.problems.clear();
+        s.problems_relay = None;
+        s.flash = Some("FLASH top@3: 1 missing".into());
+        s.flash_lacks = vec!["row exit: scene:ghost is not on this deck".into()];
+        assert_eq!(s.lines("left")[3..], ["FLASH TOP@3: 1 MISSING".to_string(), "! ROW EXIT: SCENE:GHOST IS NOT ON THIS DECK".to_string()]);
     }
 }
