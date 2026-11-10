@@ -77,6 +77,16 @@ final class AddressBookApiTest extends TestCase
         self::assertSame(['variable:catpope.coins' => 'coins', 'variable:global.stars' => 'global.stars', 'variable:toptoy.luck' => 'toptoy.luck'],
             array_column($variables, 'name', 'ref'), 'as written in this toon');
         self::assertSame(['key' => 'toon:toptoy', 'state' => 'published'], $by['variable:toptoy.luck']['origin']);
+        // what else a jump reaches (slice D): the seasons by number, the toon's products (the fixture catalog's are all
+        // catpope's; a product's one name stands under the source language), every toon with this one first – references
+        $refs = fn(array $book, string $kind) => array_column(array_values(array_filter($book['entries'], fn(array $e) => $e['kind'] === $kind)), 'ref');
+        self::assertSame(['season:1', 'season:2'], $refs($book, 'season'));
+        self::assertSame(['1', ['de' => 'Staffel Eins'], 'published'], [$by['season:1']['name'], $by['season:1']['labels'], $by['season:1']['origin']['state']]);
+        self::assertSame('draft', $by['season:2']['origin']['state']);
+        self::assertSame(['en' => 'Cat Pope Dago Hoodie'], $by['product:dago_hoodie']['labels']);
+        self::assertSame(['product', 'dago_hoodie'], [$by['product:dago_hoodie']['kind'], $by['product:dago_hoodie']['name']]);
+        self::assertSame(['toon:catpope', 'toon:toptoy'], $refs($book, 'toon'));
+        self::assertSame(['toptoy', ['de' => 'Top Toy']], [$by['toon:toptoy']['name'], $by['toon:toptoy']['labels']]);
 
         // the other toon: only the shared items, its own character; the same variables, as written there
         $other = self::json($this->request('/api/addresses/toptoy', $creator));
@@ -84,6 +94,7 @@ final class AddressBookApiTest extends TestCase
         self::assertNotContains('item:camera', array_column($other['entries'], 'ref'));
         $otherVariables = array_column(array_filter($other['entries'], fn(array $e) => $e['kind'] === 'variable'), 'name', 'ref');
         self::assertSame(['catpope.coins', 'luck'], [$otherVariables['variable:catpope.coins'], $otherVariables['variable:toptoy.luck']]);
+        self::assertSame([[], [], ['toon:toptoy', 'toon:catpope']], [$refs($other, 'season'), $refs($other, 'product'), $refs($other, 'toon')], 'its own toon first');
     }
 
     public function testTheVersionIsTheCatalogs(): void
@@ -152,6 +163,8 @@ final class AddressBookApiTest extends TestCase
         $this->store('place:dom', ['name' => ['de' => 'Dom'], 'toons' => ['catpope'], 'x' => 1, 'y' => 2]);
         $this->store('place:shop', ['name' => ['de' => 'Laden'], 'toons' => ['toptoy'], 'x' => 1, 'y' => 2]);
         $this->store('place:gone', ['removed' => true, 'name' => ['de' => 'Weg'], 'toons' => ['catpope'], 'x' => 1, 'y' => 2]);
+        $this->store('season:catpope:2', ['number' => 2, 'title' => ['de' => 'Staffel Zwei'], 'sequence' => []], false);
+        $this->store('season:catpope:1', ['number' => 1, 'title' => ['de' => 'Staffel Eins'], 'sequence' => []]);
         $this->store('chapter:catpope:10', ['number' => 10, 'title' => ['de' => 'Zehn'], 'groups' => []]);
         $set = fn(string $variable) => ['type' => 'setVariable', 'params' => ['variable' => $variable, 'value' => '1']];
         $this->store('chapter:catpope:2', ['number' => 2, 'title' => ['de' => 'Zwei'], 'groups' => [

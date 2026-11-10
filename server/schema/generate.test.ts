@@ -23,7 +23,7 @@ test('every language gets every definition, under this file\'s header and withou
 	}
 	// every entry has its reference; an address only where a receiver exists (decisions/deck.md [address])
 	assert.match(php, /@phpstan-type AddressEntry array\{ref: string, address\?: string, kind: AddressKind, name: string, parent\?: string, labels: LocaleText, origin: Origin, moods\?: list<string>\}/);
-	assert.match(php, /public const ADDRESS_KIND = \['character', 'persona', 'look', 'location', 'item', 'chapter', 'group', 'variable'\];/);
+	assert.match(php, /public const ADDRESS_KIND = \['character', 'persona', 'look', 'location', 'item', 'chapter', 'group', 'variable', 'season', 'toon', 'product'\];/);
 	assert.match(php, /public const FORMAT = 2;/);
 });
 

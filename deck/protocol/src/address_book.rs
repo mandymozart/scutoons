@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 /// A payload whose shape is not fixed yet: any JSON object.
 pub type Loose = serde_json::Map<String, serde_json::Value>;
 
-/// What an entry is – the one thing a typeahead filters by: an asker takes the kinds it may pick (a VN character event: character, persona, look; unlockLocation: location; an item event: item; a jump: chapter, group; setVariable: variable). character / persona / look are the levels of address.rs's `Target` (`character:<id>[.<persona>[.<look>]]`); location, item and chapter are referenced `<kind>:<id>`. Proposals the owner has not confirmed (#477): a chapter's group is referenced `chapter:<number>.<group>` (its `name` the label as an event stores it, the reference word a safe form of it) and a story variable `variable:<scope>.<name>` (scope = the owning toon or `global`; its `name` the variable as written in this toon).
+/// What an entry is – the one thing a typeahead filters by: an asker takes the kinds it may pick (a VN character event: character, persona, look; unlockLocation: location; an item event: item; a jump: chapter, group, season, toon, product; setVariable: variable). A jump's kinds are its target types (`JumpToTargetType`, a group is a chapter target with its label): `season:<number>` (the toon's season), `toon:<id>` (a toon: its page, and in the creator's jump field the way into its own book), `product:<id>` (a shop product of the toon or a shared one); XR is not listed: there is no catalog of XR targets. character / persona / look are the levels of address.rs's `Target` (`character:<id>[.<persona>[.<look>]]`); location, item and chapter are referenced `<kind>:<id>`. Proposals the owner has not confirmed (#477): a chapter's group is referenced `chapter:<number>.<group>` (its `name` the label as an event stores it, the reference word a safe form of it) and a story variable `variable:<scope>.<name>` (scope = the owning toon or `global`; its `name` the variable as written in this toon).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum AddressKind {
 	#[serde(rename = "character")]
@@ -25,6 +25,12 @@ pub enum AddressKind {
 	Group,
 	#[serde(rename = "variable")]
 	Variable,
+	#[serde(rename = "season")]
+	Season,
+	#[serde(rename = "toon")]
+	Toon,
+	#[serde(rename = "product")]
+	Product,
 }
 
 impl AddressKind {
@@ -38,6 +44,9 @@ impl AddressKind {
 			AddressKind::Chapter => "chapter",
 			AddressKind::Group => "group",
 			AddressKind::Variable => "variable",
+			AddressKind::Season => "season",
+			AddressKind::Toon => "toon",
+			AddressKind::Product => "product",
 		}
 	}
 }
@@ -66,7 +75,7 @@ pub type LocaleText = std::collections::HashMap<String, String>;
 /// The catalog document an entry comes from.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Origin {
-	/// the document's entity key (`character:catpope`, `place:dom`, `chapter:catpope:3`) or catalog entry (`item:incense`)
+	/// the document's entity key (`character:catpope`, `place:dom`, `chapter:catpope:3`, `season:catpope:1`, `toon:catpope`) or catalog entry (`item:incense`, `product:dago_hoodie`)
 	pub key: String,
 	pub state: OriginState,
 }
@@ -74,7 +83,7 @@ pub struct Origin {
 /// One thing of the catalog: its reference always, its address only where a receiver of its kind exists (decisions/deck.md [address]: there is no interpreter, sending a word somewhere needs a possible receiver of the same type).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AddressEntry {
-	/// the reference – which thing; every entry has one, stable; what a typeahead picks and a document's fields are filled from: `character:catpope.human.default`, `location:dom`, `item:incense`, `chapter:3`, `chapter:3.intro`, `variable:global.coins`
+	/// the reference – which thing; every entry has one, stable; what a typeahead picks and a document's fields are filled from: `character:catpope.human.default`, `location:dom`, `item:incense`, `chapter:3`, `chapter:3.intro`, `season:1`, `toon:toptoy`, `product:dago_hoodie`, `variable:global.coins`
 	#[serde(rename = "ref")]
 	pub r#ref: String,
 	/// the address – who hears a word, in address.rs's grammar, the same text as `ref`; only where a receiver of the kind exists: character and item (deck-space far.rs), persona and look (the show's addressing, `picks_up`). A location, chapter, group or variable has none: nothing receives a word sent there today.
@@ -103,6 +112,6 @@ pub struct AddressBook {
 	pub version: String,
 	/// the toon's source language: the second step of the locale order
 	pub source: String,
-	/// parents before their children; characters, locations, items, chapters (each followed by its groups), variables
+	/// parents before their children; characters, locations, items, seasons, chapters (each followed by its groups), products, toons (this one first), variables
 	pub entries: Vec<AddressEntry>,
 }
