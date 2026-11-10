@@ -189,6 +189,7 @@
         "seat": { "$ref": "#/definitions/SeatWord", "description": "#90: the parent's last word to this subtree (a conductor), or to this seat (a child relay)" },
         "seats": { "type": "object", "additionalProperties": { "$ref": "#/definitions/SeatState" }, "description": "#90: each seat's readout (the conductor's snapshot)" },
         "flash": { "$ref": "#/definitions/Flash", "description": "#90: the last flash" },
+        "reports": { "type": "object", "additionalProperties": { "$ref": "#/definitions/FlashReport" }, "description": "#471: each deck's and sub conductor's last flash.report, by its path (the conductor's snapshot): the flash list of a conductor that joins later" },
         "seq": { "type": "integer", "description": "the session's seq when the snapshot was taken" }
       },
       "additionalProperties": false

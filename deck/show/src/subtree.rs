@@ -430,6 +430,12 @@ impl Subtree {
             Message::Cell(c) if from_parent => self.on_parent_cell(c, e.at, ms),
             Message::Panic(p) if from_parent => vec![message(Message::Panic(Panic { black: p.black, stop: p.stop }), e.at)],
             Message::AddressAnswer(a) => self.on_answer(a),
+            // #471: joining (or back), this conductor learns what its decks and sub conductors last said about their flash
+            // side – the flash list starts complete. Nothing else of the welcome is taken here.
+            Message::Welcome(w) => {
+                self.devices.extend(w.snapshot.reports.iter().flatten().map(|(p, r)| (p.clone(), r.clone())));
+                vec![]
+            }
             Message::FlashReport(r) => {
                 self.devices.insert(e.from.clone(), r.clone());
                 self.reports.insert(e.from.clone(), r.clone());

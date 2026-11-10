@@ -174,6 +174,8 @@ export interface Snapshot {
 	seats?: Record<string, SeatState>;
 	/** #90: the last flash */
 	flash?: Flash;
+	/** #471: each deck's and sub conductor's last flash.report, by its path (the conductor's snapshot): the flash list of a conductor that joins later */
+	reports?: Record<string, FlashReport>;
 	/** the session's seq when the snapshot was taken */
 	seq?: number;
 }

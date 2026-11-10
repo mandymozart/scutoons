@@ -407,6 +407,9 @@ pub struct Snapshot {
 	/// #90: the last flash
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub flash: Option<Flash>,
+	/// #471: each deck's and sub conductor's last flash.report, by its path (the conductor's snapshot): the flash list of a conductor that joins later
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub reports: Option<std::collections::HashMap<String, FlashReport>>,
 	/// the session's seq when the snapshot was taken
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub seq: Option<i64>,
