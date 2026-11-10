@@ -72,10 +72,11 @@ struct Fading {
 }
 
 /// The crossfade's gains at `t` (0..1 of its length): (the new scene's, the old one's) – equal power, so the sum holds
-/// its loudness through the middle (a linear one dips 3 dB).
+/// its loudness through the middle (a linear one dips 3 dB). Square roots, not sin / cos: IEEE rounds them exactly, so
+/// native ≡ wasm (headless/tests/wasm.rs) – a target's own sin may differ in the last bit.
 pub fn crossfade_gains(t: f32) -> (f32, f32) {
-    let a = t.clamp(0.0, 1.0) * std::f32::consts::FRAC_PI_2;
-    (a.sin(), a.cos())
+    let t = t.clamp(0.0, 1.0);
+    (t.sqrt(), (1.0 - t).sqrt())
 }
 
 impl Host {
