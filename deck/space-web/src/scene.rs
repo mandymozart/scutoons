@@ -3,18 +3,28 @@
 //! idle scene, as on the native deck. The control domain is deck-engine's, the clock the scene's own tempo. The page
 //! only fetches and decodes what is asked for: the space's set and portraits, a chapter and its slices, an outlet's media.
 //! An `outlet` node joins the relay once the page names the outlet (`join_outlet`, outlet.rs). Not yet: the sound.
+//!
+//! A show's piece (#91, #473) plays here as on the native deck: the core decides (deck-space piece.rs `Side`, veil.rs),
+//! this brings the three things a platform has – **find** (a built-in scene by its name), **switch** (the scene's text
+//! is built into a new `Show` behind the black veil, the canvas and its GPU stay), **set** (a gliding value into the
+//! control domain). What the page fetched for the show before carries its number (`TURN`) and is dropped.
 use crate::outlet::Outlet;
 use crate::{err, frame_for, open_canvas, portrait_asks, set_from_page, CanvasGpu, SPLASH_AT_MOST};
 use deck_engine::control::Controls;
 use deck_space::chapter::{finish_slice, Chapter, Dialog, Source};
 use deck_space::graph::{Graph, Kind};
 use deck_space::quality::MAX_SIDE;
+use deck_space::piece::{Found, Side, Switch};
+use deck_space::rig::address::Place;
 use deck_space::scene::{builtin, Scene, IDLE_SCENE};
 use deck_space::space::portrait::Portraits;
 use deck_space::space::Space;
 use deck_space::splash::Fade;
 use deck_space::stage::{ChapterFeed, Over, Prepared, Stage, Tick};
 use deck_space::tempo;
+use deck_space::veil::Change;
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{sync_channel, SyncSender};
 use std::sync::{Arc, Mutex};
@@ -23,6 +33,9 @@ use wasm_bindgen::prelude::*;
 
 /// a chapter that loads nothing is asked again after this (s)
 const RETRY_S: f32 = 10.0;
+/// what the page fetches for a show (a chapter, a slice, a sprite) is numbered `show × TURN + index`: an answer for a
+/// show that is gone is dropped
+const TURN: usize = 4096;
 
 /// A `chapter` node's slices on their way: the page fetches, this keeps the order and hands them to the stage.
 struct Pump {
@@ -49,6 +62,70 @@ impl Pump {
     }
 }
 
+/// A scene as it plays: all that a scene load replaces (the canvas, its GPU and the outlet stay).
+struct Show {
+    graph: Graph,
+    stage: Stage,
+    controls: Controls,
+    space: Option<Space>,
+    room: String,
+    pumps: Vec<Pump>,
+    bpm: f64,
+    per_bar: u32,
+    size: (u32, u32),
+}
+
+impl Show {
+    /// the scene `text` (TOML) for a surface of `format` and `size`
+    async fn build(device: &wgpu::Device, queue: &wgpu::Queue, format: wgpu::TextureFormat, size: (u32, u32), text: &str) -> Result<Show, String> {
+        let why = |e: anyhow::Error| format!("{e:#}");
+        let scene = Scene::parse(text).map_err(why)?;
+        let mut graph = Graph::build(&scene).map_err(why)?;
+        let tempo = deck_engine::tempo_config(&graph).map_err(why)?;
+        // the page has no relay session of a scene's own
+        let space_node = graph.first(Kind::Space);
+        if let Some(s) = space_node {
+            graph.nodes[s].params.remove("join");
+        }
+        let scale = scene.stage.render_scale;
+        let mut stage = Stage::new(device, queue, format, size, scale, scale, false).await.map_err(why)?;
+        let (mut feeds, mut pumps) = (Vec::new(), Vec::new());
+        for (i, node) in graph.nodes.iter().enumerate().filter(|(_, n)| n.kind == Kind::Chapter) {
+            let (tx, rx) = sync_channel(1);
+            let (status, ready) = (Arc::new(Mutex::new("waiting".to_string())), Arc::new(AtomicBool::new(false)));
+            feeds.push(ChapterFeed { node: i, rx, status: status.clone(), ready: ready.clone() });
+            let source = Source::of(node);
+            let next = source.start;
+            pumps.push(Pump { source, tx, status, ready, strip: Vec::new(), next, flying: false, held: None, failed: 0, wait_until: 0.0 });
+        }
+        stage.load(device, format, &graph, feeds).await.map_err(why)?;
+        let mut room = String::new();
+        let space = space_node.map(|n| {
+            room = graph.nodes[n].str("set").unwrap_or_default().to_string();
+            let mut s = Space::new(&graph, n, &scene.being, std::path::Path::new(""), Portraits::manual());
+            s.set_view(size.0 as f32, size.1 as f32);
+            frame_for(&mut s, size.0, size.1);
+            s
+        });
+        let controls = Controls::new(&graph, None);
+        Ok(Show { graph, stage, controls, space, room, pumps, bpm: tempo.bpm, per_bar: tempo.per_bar, size })
+    }
+
+    fn resize(&mut self, device: &wgpu::Device, (w, h): (u32, u32)) {
+        self.size = (w, h);
+        self.stage.resize(device, (w, h));
+        if let Some(s) = self.space.as_mut() {
+            s.set_view(w as f32, h as f32);
+            frame_for(s, w, h);
+        }
+    }
+}
+
+/// find: a piece this deck carries – a built-in scene by its name (`scene:cathedral`)
+fn find(place: &Place) -> Option<Found> {
+    builtin(&place.id).filter(|_| place.kind == "scene").map(|text| Found::Scene(text.to_string()))
+}
+
 #[wasm_bindgen]
 pub struct SceneView {
     surface: wgpu::Surface<'static>,
@@ -56,15 +133,12 @@ pub struct SceneView {
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
     canvas: web_sys::HtmlCanvasElement,
-    graph: Graph,
-    stage: Stage,
-    controls: Controls,
-    space: Option<Space>,
-    room: String,
-    pumps: Vec<Pump>,
+    show: Show,
+    /// the shows so far (the first is 0): what the page fetches is numbered with it (`TURN`)
+    turn: usize,
+    /// a scene loaded in place: the page fetches its chapters (`reloaded`)
+    reloaded: bool,
     beats: f64,
-    bpm: f64,
-    per_bar: u32,
     beat: tempo::Now,
     now: f32,
     age: f32,
@@ -74,8 +148,17 @@ pub struct SceneView {
     outlet: Option<Outlet>,
     /// a set the space should show next (the page fetches it)
     set_wanted: Option<String>,
-    /// #470: the pairing card's code ("" = no card)
+    /// #470: the pairing card's code ("" = no card) and its pixels (a new stage gets them again)
     pairing_code: String,
+    card: Option<Vec<u8>>,
+    /// the deck's own scene (TOML): a piece plays beside its outlet, black comes back to it
+    deck: String,
+    /// #473: the piece side, once the outlet is joined
+    side: Option<Side>,
+    /// the change through black to the scene (TOML) the piece side asks for, the show being built behind it, the built one
+    change: Change,
+    building: bool,
+    built: Rc<RefCell<Option<Result<Show, String>>>>,
 }
 
 #[wasm_bindgen]
@@ -83,15 +166,8 @@ impl SceneView {
     /// `scene` on `canvas` (its size in device pixels is the canvas' width / height): a built-in's name, a scene document,
     /// or "" = the idle scene. `prefer` as `SpaceView::create`.
     pub async fn create(canvas: web_sys::HtmlCanvasElement, scene: String, prefer: String) -> Result<SceneView, JsValue> {
-        let text = if scene.is_empty() { IDLE_SCENE } else { builtin(&scene).unwrap_or(&scene) };
-        let scene = Scene::parse(text).map_err(err)?;
-        let mut graph = Graph::build(&scene).map_err(err)?;
-        let tempo = deck_engine::tempo_config(&graph).map_err(err)?;
-        // the page has no relay session of a scene's own
-        let space_node = graph.first(Kind::Space);
-        if let Some(s) = space_node {
-            graph.nodes[s].params.remove("join");
-        }
+        let deck = if scene.is_empty() { IDLE_SCENE } else { builtin(&scene).unwrap_or(&scene) }.to_owned();
+        Graph::build(&Scene::parse(&deck).map_err(err)?).map_err(err)?;
         let element = canvas.clone();
         let (w, h) = (canvas.width().clamp(1, MAX_SIDE), canvas.height().clamp(1, MAX_SIDE));
         let CanvasGpu { surface, device, queue, format, alpha, backend, .. } = open_canvas(canvas, &prefer).await?;
@@ -108,42 +184,45 @@ impl SceneView {
             view_formats: vec![],
         };
         surface.configure(&device, &config);
-        let scale = scene.stage.render_scale;
-        let mut stage = Stage::new(&device, &queue, format, (w, h), scale, scale, false).await.map_err(err)?;
-        let (mut feeds, mut pumps) = (Vec::new(), Vec::new());
-        for (i, node) in graph.nodes.iter().enumerate().filter(|(_, n)| n.kind == Kind::Chapter) {
-            let (tx, rx) = sync_channel(1);
-            let (status, ready) = (Arc::new(Mutex::new("waiting".to_string())), Arc::new(AtomicBool::new(false)));
-            feeds.push(ChapterFeed { node: i, rx, status: status.clone(), ready: ready.clone() });
-            let source = Source::of(node);
-            let next = source.start;
-            pumps.push(Pump { source, tx, status, ready, strip: Vec::new(), next, flying: false, held: None, failed: 0, wait_until: 0.0 });
-        }
-        stage.load(&device, format, &graph, feeds).await.map_err(err)?;
-        let mut room = String::new();
-        let space = space_node.map(|n| {
-            room = graph.nodes[n].str("set").unwrap_or_default().to_string();
-            let mut s = Space::new(&graph, n, &scene.being, std::path::Path::new(""), Portraits::manual());
-            s.set_view(w as f32, h as f32);
-            frame_for(&mut s, w, h);
-            s
-        });
-        let controls = Controls::new(&graph, None);
-        let bpm = tempo.bpm;
-        let per_bar = tempo.per_bar;
-        Ok(SceneView { surface, device, queue, config, canvas: element, graph, stage, controls, space, room, pumps, beats: 0.0, bpm, per_bar, beat: tempo::Now::default(), now: 0.0, age: 0.0, fade: Fade { alpha: 1.0 }, backend: backend.into(), outlet: None, set_wanted: None, pairing_code: String::new() })
+        let show = Show::build(&device, &queue, format, (w, h), &deck).await.map_err(err)?;
+        Ok(SceneView {
+            surface,
+            device,
+            queue,
+            config,
+            canvas: element,
+            show,
+            turn: 0,
+            reloaded: false,
+            beats: 0.0,
+            beat: tempo::Now::default(),
+            now: 0.0,
+            age: 0.0,
+            fade: Fade { alpha: 1.0 },
+            backend: backend.into(),
+            outlet: None,
+            set_wanted: None,
+            pairing_code: String::new(),
+            card: None,
+            deck,
+            side: None,
+            change: Change::default(),
+            building: false,
+            built: Rc::default(),
+        })
     }
 
     /// #465: join `relay` ("" = the hosted show) as output of `outlet`, its text in `locale`, show media's signed links from
     /// `api` (#470) - when the scene has an `outlet` node; false: it has none
     pub fn join_outlet(&mut self, relay: &str, outlet: &str, locale: &str, api: &str) -> Result<bool, JsValue> {
-        if self.graph.first(Kind::Outlet).is_none() {
+        if self.show.graph.first(Kind::Outlet).is_none() {
             return Ok(false);
         }
         let (tx, rx) = sync_channel(2);
         let o = Outlet::new(relay, outlet, if locale.is_empty() { "de" } else { locale }, api, (self.config.width, self.config.height), tx).map_err(err)?;
-        self.stage.set_outlet(rx);
+        self.show.stage.set_outlet(rx);
         self.outlet = Some(o);
+        self.side = Some(Side::new(&self.deck));
         Ok(true)
     }
 
@@ -249,8 +328,8 @@ impl SceneView {
         if self.pairing_code != code {
             self.pairing_code = code.to_owned();
             let shown = (!code.is_empty()).then(|| deck_link::pairing::Shown::Pending { code: code.to_owned() });
-            let card = deck_space::pairing::Card::of(shown.as_ref(), app).map(|c| c.raster());
-            self.stage.set_pairing(&self.queue, card.as_deref());
+            self.card = deck_space::pairing::Card::of(shown.as_ref(), app).map(|c| c.raster());
+            self.show.stage.set_pairing(&self.queue, self.card.as_deref());
         }
     }
 
@@ -267,6 +346,26 @@ impl SceneView {
         self.set_wanted.take().unwrap_or_default()
     }
 
+    /// a scene was loaded in place since the last call: the number its chapters are given with (`chapters()`' index is
+    /// added), else -1
+    pub fn reloaded(&mut self) -> i32 {
+        if std::mem::take(&mut self.reloaded) {
+            (self.turn * TURN) as i32
+        } else {
+            -1
+        }
+    }
+
+    /// `index` of this show, as the page hears it
+    fn numbered(&self, index: usize) -> u32 {
+        (self.turn * TURN + index) as u32
+    }
+
+    /// the index an answer of the page is for; None = for a show that is gone
+    fn mine(&self, numbered: usize) -> Option<usize> {
+        (numbered / TURN == self.turn).then_some(numbered % TURN)
+    }
+
     /// "webgpu" or "webgl2"
     pub fn backend(&self) -> String {
         self.backend.clone()
@@ -274,12 +373,12 @@ impl SceneView {
 
     /// the set the space node floats in ("" = no space, or none)
     pub fn room(&self) -> String {
-        self.room.clone()
+        self.show.room.clone()
     }
 
     /// the set's .glb and its images, decoded by the browser (`SpaceView.encoded_images`)
     pub fn give_set(&mut self, glb_bytes: &[u8], images: js_sys::Array) -> Result<(), JsValue> {
-        match self.space.as_mut() {
+        match self.show.space.as_mut() {
             Some(s) => set_from_page(s, glb_bytes, images),
             None => Ok(()),
         }
@@ -287,31 +386,35 @@ impl SceneView {
 
     /// the sprites the heads ask for: slot, character, mood, …
     pub fn portrait_requests(&mut self) -> js_sys::Array {
-        self.space.as_mut().map(portrait_asks).unwrap_or_default()
+        let asks = self.show.space.as_mut().map(portrait_asks).unwrap_or_default();
+        for i in (0..asks.length()).step_by(3) {
+            asks.set(i, JsValue::from(self.numbered(asks.get(i).as_f64().unwrap_or(0.0) as usize)));
+        }
+        asks
     }
 
     pub fn give_portrait(&mut self, slot: u32, width: u32, height: u32, rgba: Vec<u8>) {
         let img = image::RgbaImage::from_raw(width, height, rgba).ok_or_else(|| "a sprite of the wrong size".to_string());
-        if let Some(s) = self.space.as_mut() {
-            s.portraits.deliver(slot as usize, img);
+        if let (Some(slot), Some(s)) = (self.mine(slot as usize), self.show.space.as_mut()) {
+            s.portraits.deliver(slot, img);
         }
     }
 
     pub fn no_portrait(&mut self, slot: u32, why: String) {
-        if let Some(s) = self.space.as_mut() {
-            s.portraits.deliver(slot as usize, Err(why));
+        if let (Some(slot), Some(s)) = (self.mine(slot as usize), self.show.space.as_mut()) {
+            s.portraits.deliver(slot, Err(why));
         }
     }
 
     /// the chapters to fetch, per chapter node: their paths under the library API
     pub fn chapters(&self) -> Vec<String> {
-        self.pumps.iter().map(|p| p.source.api_path()).collect()
+        self.show.pumps.iter().map(|p| p.source.api_path()).collect()
     }
 
     /// chapter node `i`'s chapter as the API answered (JSON)
     pub fn give_chapter(&mut self, i: usize, text: &str) -> Result<(), JsValue> {
+        let Some(p) = self.mine(i).and_then(|i| self.show.pumps.get_mut(i)) else { return Ok(()) };
         let ch: Chapter = serde_json::from_str(text).map_err(err)?;
-        let p = &mut self.pumps[i];
         p.strip = ch.strip(&p.source.quality);
         let line = if p.strip.is_empty() { format!("'{}' has no slices", ch.title) } else { format!("'{}': {} slices", ch.title, p.strip.len()) };
         p.say(line);
@@ -321,13 +424,13 @@ impl SceneView {
     /// the slices to fetch now: chapter node, its CDN path, …
     pub fn slice_requests(&mut self) -> js_sys::Array {
         let out = js_sys::Array::new();
-        let now = self.now;
-        for (i, p) in self.pumps.iter_mut().enumerate() {
+        let (now, turn) = (self.now, self.turn * TURN);
+        for (i, p) in self.show.pumps.iter_mut().enumerate() {
             if p.strip.is_empty() || p.flying || p.held.is_some() || now < p.wait_until {
                 continue;
             }
             p.flying = true;
-            out.push(&JsValue::from(i as u32));
+            out.push(&JsValue::from((turn + i) as u32));
             out.push(&JsValue::from_str(&format!("{}/{}", p.source.toon, p.strip[p.at()].0)));
         }
         out
@@ -335,8 +438,8 @@ impl SceneView {
 
     /// chapter node `i`'s slice, decoded by the browser
     pub fn give_slice(&mut self, i: usize, width: u32, height: u32, rgba: Vec<u8>) -> Result<(), JsValue> {
+        let Some(p) = self.mine(i).and_then(|i| self.show.pumps.get_mut(i)) else { return Ok(()) };
         let img = image::RgbaImage::from_raw(width, height, rgba).ok_or_else(|| err("a slice of the wrong size"))?;
-        let p = &mut self.pumps[i];
         let (index, count) = (p.at(), p.strip.len());
         let (slice, caption) = finish_slice(img, &p.strip[index].1, p.source.bake);
         p.held = Some(Prepared { index, count, slice, caption });
@@ -350,7 +453,7 @@ impl SceneView {
     /// chapter node `i`'s slice could not be fetched: the next one; when none loads, again later
     pub fn no_slice(&mut self, i: usize, why: String) {
         let now = self.now;
-        let p = &mut self.pumps[i];
+        let Some(p) = self.mine(i).and_then(|i| self.show.pumps.get_mut(i)) else { return };
         p.next += 1;
         p.flying = false;
         p.failed += 1;
@@ -372,18 +475,93 @@ impl SceneView {
         self.config.width = w;
         self.config.height = h;
         self.surface.configure(&self.device, &self.config);
-        self.stage.resize(&self.device, (w, h));
-        if let Some(s) = self.space.as_mut() {
-            s.set_view(w as f32, h as f32);
-            frame_for(s, w, h);
+        self.show.resize(&self.device, (w, h));
+    }
+
+    /// switch, the load: the scene `text` is built behind the veil (the page's GPU compiles between frames); `frame` takes it
+    fn load(&mut self, text: String) {
+        self.building = true;
+        let (device, queue, format, size, built) = (self.device.clone(), self.queue.clone(), self.config.format, (self.config.width, self.config.height), self.built.clone());
+        wasm_bindgen_futures::spawn_local(async move {
+            let show = Show::build(&device, &queue, format, size, &text).await;
+            *built.borrow_mut() = Some(show);
+        });
+    }
+
+    /// switch, the change: the built show plays – the outlet's planes go to its stage and the cell on is composed for it,
+    /// the page fetches its set and chapters, the pairing card is drawn again
+    fn play(&mut self, mut show: Show) {
+        let size = (self.config.width, self.config.height);
+        if show.size != size {
+            show.resize(&self.device, size);
         }
+        self.show = show;
+        self.turn += 1;
+        self.reloaded = true;
+        self.age = 0.0;
+        self.set_wanted = Some(self.show.room.clone()).filter(|r| !r.is_empty());
+        if let Some(o) = self.outlet.as_mut() {
+            let (tx, rx) = sync_channel(2);
+            self.show.stage.set_outlet(rx);
+            o.rewire(tx);
+        }
+        self.show.stage.set_pairing(&self.queue, self.card.as_deref());
+    }
+
+    /// The piece side's frame (#473): the outlet's cells to the core, what it asks to switch to, the gliding values into
+    /// the playing scene. A scene asked for while a change runs waits for it (the newest wins).
+    fn pieces(&mut self, time: f32) {
+        let (Some(o), Some(side)) = (self.outlet.as_mut(), self.side.as_mut()) else { return };
+        let now = time as f64 * 1000.0;
+        for cell in std::mem::take(&mut o.pieces) {
+            let said = side.cell(&cell, now, find);
+            o.status.set_piece(&said.did, &said.problems);
+            match said.switch {
+                Some(Switch::Scene(text)) => self.change.ask(&text),
+                Some(Switch::Deck) => self.change.ask(&self.deck),
+                None => {}
+            }
+        }
+        for (path, v) in side.values_at(now) {
+            // a value whose node the scene lacks was said when the cell came (piece.rs `resolve`)
+            self.show.controls.set_path(&self.show.graph, &path, v);
+        }
+    }
+
+    /// The change through black (veil.rs), one frame: Some = the veil's opacity.
+    fn through_black(&mut self, dt: f32) -> Option<f32> {
+        if let Some(text) = self.change.due() {
+            self.change.start(&text);
+        }
+        let built = self.built.borrow_mut().take();
+        if let Some(built) = built {
+            self.building = false;
+            match built {
+                Ok(show) => self.play(show),
+                // what played stays, and the HUD's piece line says why
+                Err(e) => {
+                    if let Some(o) = self.outlet.as_mut() {
+                        o.status.set_piece("not loaded", &[e]);
+                    }
+                }
+            }
+        }
+        let ready = !self.building && (self.show.stage.slides_ready() || self.age >= SPLASH_AT_MOST);
+        let (load, veil) = self.change.step(dt, ready);
+        if let Some(text) = load {
+            self.load(text);
+        }
+        veil
     }
 
     /// One frame: `dt` since the last (s), `time` the page's clock (s).
     pub fn frame(&mut self, dt: f32, time: f32) -> Result<(), JsValue> {
         self.now = time;
         let dt = dt.clamp(0.0, 0.1);
-        for p in &mut self.pumps {
+        self.pieces(time);
+        self.age += dt;
+        let veil = self.through_black(dt);
+        for p in &mut self.show.pumps {
             if let Some(ready) = p.held.take() {
                 if let Err(std::sync::mpsc::TrySendError::Full(back)) = p.tx.try_send(ready) {
                     p.held = Some(back);
@@ -392,22 +570,23 @@ impl SceneView {
         }
         if let Some(o) = self.outlet.as_mut() {
             o.frame(Duration::from_secs_f32(time.max(0.0)), (self.config.width, self.config.height));
-            if let (Some(t), Some(s)) = (o.space.take(), self.space.as_mut()) {
+            if let (Some(t), Some(s)) = (o.space.take(), self.show.space.as_mut()) {
                 s.show(None, t.spot.as_deref());
-                let set = t.set.map(|p| p.to_string_lossy().into_owned()).filter(|set| *set != self.room);
+                let set = t.set.map(|p| p.to_string_lossy().into_owned()).filter(|set| *set != self.show.room);
                 if let Some(set) = set {
-                    self.room = set.clone();
+                    self.show.room = set.clone();
                     self.set_wanted = Some(set);
                 }
             }
         }
-        if self.graph.first(Kind::Tempo).is_some() {
-            self.beats += dt as f64 * self.bpm / 60.0;
-            self.beat = tempo::Now { bpm: self.bpm, pos: tempo::position(self.beats, self.per_bar), per_bar: self.per_bar, running: true };
+        let show = &mut self.show;
+        if show.graph.first(Kind::Tempo).is_some() {
+            self.beats += dt as f64 * show.bpm / 60.0;
+            self.beat = tempo::Now { bpm: show.bpm, pos: tempo::position(self.beats, show.per_bar), per_bar: show.per_bar, running: true };
         }
-        self.controls.update(dt, 0, &self.beat);
-        if let Some(s) = self.space.as_mut() {
-            s.update(dt, time, &mut self.controls, &self.beat, &|_, _| 0.0);
+        show.controls.update(dt, 0, &self.beat);
+        if let Some(s) = show.space.as_mut() {
+            s.update(dt, time, &mut show.controls, &self.beat, &|_, _| 0.0);
         }
         let frame = match self.surface.get_current_texture() {
             Ok(f) => f,
@@ -417,14 +596,16 @@ impl SceneView {
             }
             Err(e) => return Err(err(e)),
         };
-        let (graph, controls) = (&self.graph, &self.controls);
+        let (graph, controls) = (&show.graph, &show.controls);
         let input = |n: usize, p: &str, d: f32| controls.input(n, p, d);
         let mut enc = self.device.create_command_encoder(&Default::default());
         let view = frame.texture.create_view(&Default::default());
-        // the splash waits for a chapter's first slice, as on the native deck, but not for ever
-        self.age += dt;
-        self.fade.step(!self.stage.slides_ready() && self.age < SPLASH_AT_MOST, dt);
-        self.stage.frame(&self.device, &self.queue, &mut enc, &view, &Tick { graph, input: &input, tempo: &self.beat, time, dt }, &Over { hud: None, splash: (self.fade.alpha, false), label_centred: true }, self.space.as_mut());
+        // the splash waits for a chapter's first slice, as on the native deck, but not for ever; a scene change is a black
+        // veil without the logo (#250)
+        self.fade.step(veil.is_none() && !show.stage.slides_ready() && self.age < SPLASH_AT_MOST, dt);
+        show.stage.veil_only = veil.is_some();
+        let splash = (veil.unwrap_or(self.fade.alpha), false);
+        show.stage.frame(&self.device, &self.queue, &mut enc, &view, &Tick { graph, input: &input, tempo: &self.beat, time, dt }, &Over { hud: None, splash, label_centred: true }, show.space.as_mut());
         self.queue.submit([enc.finish()]);
         frame.present();
         Ok(())

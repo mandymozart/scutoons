@@ -24,6 +24,7 @@ pub mod resolver;
 pub mod rig;
 pub mod scene;
 pub mod tempo;
+pub mod veil;
 
 #[cfg(feature = "being")]
 pub mod space;

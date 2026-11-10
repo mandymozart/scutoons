@@ -728,8 +728,8 @@ struct App {
     page: settings::Page,
     /// #250: the scene switcher (F5)
     switcher: switcher::Switcher,
-    /// #250: the fade through black while a picked scene loads
-    trans: Option<switcher::Transition>,
+    /// #250: the fade through black while a picked scene loads; one asked for meanwhile waits (deck-space's veil.rs)
+    change: switcher::Change,
     /// #264: the lamps of a scene without outputs, fading to 0 – dropped (dark) when the time is up
     #[cfg(feature = "outputs")]
     dying: Option<(deck_native::outputs::Outputs, Instant)>,
@@ -904,12 +904,10 @@ impl App {
         self.switcher.status.clear();
     }
 
-    /// #250: Enter on a scene – loaded in place like a `--dev` reload (the window and the Live link's process stay; a
-    /// scene that doesn't build keeps the old one and the list says why), then written into deck.toml for the next boot
+    /// #250: a scene that was asked for (Enter on the list, a show's piece: `change.ask`) and is due – loaded in place
+    /// like a `--dev` reload (the window and the Live link's process stay; a scene that doesn't build keeps the old one
+    /// and the list says why), then written into deck.toml for the next boot
     fn switch(&mut self, value: &str) {
-        if self.trans.is_some() {
-            return;
-        }
         // checked first: a scene that doesn't build keeps the old one playing, nothing fades
         let old_scene = self.args.scene.replace(value.into());
         let checked = read_scene(&self.args).and_then(|s| modules::check(&s).and_then(|_| graph::Graph::build(&s)).map(|_| ()));
@@ -920,7 +918,7 @@ impl App {
         }
         // the picture fades to black and the sound out as long (PipeWire), then `load_switch`
         self.show.audio.iter().for_each(|a| a.fade_out());
-        self.trans = Some(switcher::Transition::new(value));
+        self.change.start(value);
         self.switcher.status = format!("FADING TO {}", value.rsplit(['/', '\\']).next().unwrap_or(value).to_uppercase());
     }
 
@@ -1027,7 +1025,7 @@ impl App {
         // the kiosk hides the pointer – unless the scene has a space to point into
         window.set_cursor_visible(self.args.windowed || self.show.space.is_some());
         let feeds = std::mem::take(&mut self.show.feeds);
-        match render::Renderer::new(window.clone(), &self.show.graph, self.show.render_scale, feeds, self.trans.is_some()) {
+        match render::Renderer::new(window.clone(), &self.show.graph, self.show.render_scale, feeds, self.change.running()) {
             #[allow(unused_mut)]
             Ok(mut r) => {
                 #[cfg(feature = "live")]
@@ -1115,7 +1113,7 @@ impl App {
         self.poll_watch();
         if self.stats.frames >= 30 {
             if let Some(name) = self.args.switch_to.take() {
-                self.switch(&name);
+                self.change.ask(&name);
                 if let Some(w) = &self.window {
                     w.request_redraw();
                 }
@@ -1178,7 +1176,7 @@ impl App {
         }
         #[cfg(feature = "live")]
         if let Some(to) = self.show.live.as_ref().and_then(|l| self.pieces.frame(l, &self.show.graph, &mut self.show.controls)) {
-            self.switch(&to);
+            self.change.ask(&to);
         }
         #[cfg(feature = "space")]
         self.check_hand();
@@ -1287,21 +1285,21 @@ impl App {
         // #250: a scene change fades through a black veil (no logo): out, the load behind it, in
         let mut splash = (self.splash.alpha, cover);
         let ready = !self.loading();
-        if let Some(t) = self.trans.as_mut() {
-            let (step, done) = t.step(dt, ready);
-            splash = (t.veil, false);
-            if done {
-                self.trans = None;
-            } else if step == switcher::Step::Load {
-                let to = t.to.clone();
-                self.load_switch(&to);
-                if let Some(w) = &self.window {
-                    w.request_redraw();
-                }
-                return;
-            }
+        if let Some(to) = self.change.due() {
+            self.switch(&to);
         }
-        let veil = self.trans.is_some();
+        let (load, black) = self.change.step(dt, ready);
+        if let Some(black) = black {
+            splash = (black, false);
+        }
+        if let Some(to) = load {
+            self.load_switch(&to);
+            if let Some(w) = &self.window {
+                w.request_redraw();
+            }
+            return;
+        }
+        let veil = self.change.running();
         let Some(r) = self.renderer.as_mut() else { return };
         r.set_veil(veil);
         // #180: while the deck waits for a member, the code + QR in the corner (deck-link's run directory, a small file)
@@ -1541,7 +1539,7 @@ impl ApplicationHandler<Event> for App {
                 };
                 self.hud_at = -1.0;
                 if let Some(entry) = key.and_then(|key| self.switcher.key(key)) {
-                    self.switch(&entry.value);
+                    self.change.ask(&entry.value);
                 }
                 return;
             }
@@ -1744,7 +1742,7 @@ fn run() -> Result<i32> {
         presets,
         page: { let mut p = settings::Page::default(); p.open = args_settings; p },
         switcher: switcher::Switcher::default(),
-        trans: None,
+        change: switcher::Change::default(),
         #[cfg(feature = "outputs")]
         dying: None,
         quality_note,
