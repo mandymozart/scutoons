@@ -1291,6 +1291,7 @@ dependencies = [
  "deck-module-host",
  "deck-outlet",
  "deck-outputs",
+ "deck-show",
  "deck-space",
  "deck-ui",
  "gilrs",

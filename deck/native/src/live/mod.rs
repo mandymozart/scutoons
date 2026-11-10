@@ -6,6 +6,8 @@
 //!   route.rs says where each goes); `media.ready` out; resume / snapshot on a reconnect.
 //! - **preloader**: `media.preload` → fetched with the deck token into `<cache>/live/` (media.rs) → `media.ready` (the
 //!   conductor's ready light); what is missing is tried again (deck-outlet's preload.rs: 2, 5, 10, 20, then every 30 s).
+//! - **flash** (flash.rs, #91): a `flash` → deck-show's `ready::Deck` (the show this outlet plays kept at its pinned
+//!   version, every piece checked) → `flash.report` and the HUD's FLASH line.
 //! - **composer**: a cell → its plan (deck-outlet's plan.rs: layers → stage nodes) → one plane (deck-outlet's compose.rs,
 //!   reading through compose.rs here: the library and the preloaded media) → the renderer's `outlet` pass, which
 //!   cross-fades it over its `in` (the scene's space node, whose set and spot a 3D set picks – `SpaceTarget`). When it
@@ -22,6 +24,8 @@ pub mod client;
 pub mod compose;
 #[cfg(feature = "live")]
 pub mod config;
+#[cfg(feature = "live")]
+pub mod flash;
 #[cfg(feature = "live")]
 pub mod media;
 #[cfg(feature = "live")]
@@ -113,7 +117,17 @@ mod running {
             let (frames_tx, frames) = mpsc::sync_channel::<Frame>(2);
             let (space_tx, space) = channel::<SpaceTarget>();
             let (pieces_tx, pieces) = channel::<protocol::Cell>();
+            let (flash_tx, flash_rx) = channel::<protocol::Flash>();
 
+            let flasher = super::flash::Flasher {
+                deck: deck_show::ready::Deck::new(&cfg.outlet),
+                api: lib.api.clone(),
+                media: media.clone(),
+                outbox: outbox.clone(),
+                status: status.clone(),
+                stop: stop.clone(),
+            };
+            spawn("live-flash", move || flasher.run(flash_rx));
             let preloader = Preloader { media: media.clone(), outlet: cfg.outlet.clone(), outbox, compose: to_compose.clone(), status: status.clone(), stop: stop.clone() };
             spawn("live-preload", move || preloader.run(preload_rx));
             let composer = Worker {
@@ -132,6 +146,7 @@ mod running {
                 compose: to_compose,
                 preload: to_preload,
                 pieces: pieces_tx,
+                flash: flash_tx,
                 outbox: outbox_rx,
                 status: status.clone(),
                 stop: stop.clone(),

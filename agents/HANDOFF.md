@@ -55,21 +55,22 @@ orchestrator ≈ $445 list over 2026-10-29 … 11-01, `agents/costs.json`), so s
   `python C:\Developmentgents\costs
 eport.py`.
 
-## State (2026-11-10, end of the show night shift: #89 → #90 → #467 → #91)
+## State (2026-11-10 morning, the show night shift: #89 → #90 → #467 → #91 twice, the input concept #468, #469 running)
 - **Concept closed for the workshop:** research/SHOW.md §10 (scope with sub conductors), §4b (lock only if the seat accepted; one show document per conductor, related by seats in the parent's document), §7 (each subtree launches its own rows). Owner's words in decisions/deck.md `## 2026-11`.
-- **Pushed up to d7ed14d3** (owner's "Yes, push", one push). **Not pushed since:** 19 commits on local main, up to the #91 merge and this file:
-  - a7bcd647: #89, the show document. New crate `deck/show`, fixtures top-toy / foyer-loop, protocol layer kind `piece`.
-  - 1bccef4b: #90, the conductor tree. Relay tree, roles reader / seat, subtree / flash / address in deck-show, `/api/shows`, `POST /api/live/sessions`, migration `2026-11-10-live-role`. PHPUnit on the merge: 547 OK.
-  - a42ccf1a: #467, a deck plays a piece. deck-space piece.rs (glide, crossfade, modes), live-core `lc_crossfade`, headless scenario 29.
-  - e07fc2c4: #91, Show / Perform. Editor workspaces on deck-show's `Subtree` (view.rs); native deck plays cells via `live/piece.rs`; 2D overlay; flash. main.rs 1792 → 1788 lines. Worker's deck:ci green, check:deck-deps / core-only ok on the merge.
-  - Rule: a push deploys and applies the migration `2026-11-10-live-role`.
+- **Pushed up to 2939ebf1** (the owner's "Push and continue" covered up to 3b2e5a82: #89, #90, #467, #91 first leg, with the migration `2026-11-10-live-role`; 2939ebf1 arrived on origin by another hand). **Not pushed since** (local main):
+  - 5c401f20, 24e5b13c, 5a1aa73e, f578d338: the input concept (#468, research/INPUT.md §6a handheld session, the live road, takeover and vectors; §6b mapping layers; §8 ten decisions) and the owner's words in decisions/deck.md. Drafts 5 and 6 are in the shared notes folder `468-input-concept`.
+  - 12b4bb2e: #91 second leg. Decks answer a flash (deck-show `ready.rs`, native `live/flash.rs`, `flash.report` with outlet / ready / lacks, the HUD's FLASH line); rows carry addresses (one parser, deck-space `rig/address.rs`); the cue sheet and the problems list (`sheets.rs`, view.rs); fixtures and looks in the document. Worker's deck:ci green; check:deck-deps / core-only ok on the merge; the web side of the diff is the generated protocol.ts only.
+- **Running when this was written: the #469 worker** (handheld camera from WebRTC to the live road, owner 2026-11-10 "Change the handheld to the new dogma as well."), branch `feature/469-handheld-live-road` from 12b4bb2e, a background agent of the orchestrator, Rust target `D:\scutoons-target-91`. If no merge of #469 is in `git log`, the branch is unreviewed: do the diff check (AUDIT.md §3.4), `npm run dev:db test` if it touched the server, then merge. It drops the pairing's offer / answer columns: a push applies that migration.
 - **Open on #91:**
-  - Item 4: rows have no addresses yet, so the overlay shows only device sends.
-  - Item 5: the decks' side of a flash.
-  - Items 6–8: cue sheet, venue patches, fixtures, problems; rehearsal and musician sheets; run-through drills.
+  - Item 7 (rehearsal and musician sheets), item 8 (run-through drills).
+  - No editing UI for fixtures and looks; venue patches need the owner (LIVE.md B.5.4 against the `[venue]` decision of 2026-11-02).
+  - A native deck answering an `address` row is not wired.
+  - The piece check reads `media.cache`, `Side` reads `cache::default_dir()` (the same unless `--cache`).
+  - In the rows tree the selected row's label overlaps its detail text.
   - Save against a live `/api/shows` was not tried.
-  - The native load fades through black; it is not a crossfade yet.
-  - The browser deck doesn't call `lc_crossfade` yet.
+  - The native load fades through black; it is not a crossfade yet. The browser deck doesn't call `lc_crossfade` yet.
+- **Open on #468, the owner's:** INPUT.md §8, above all 7 (the S22 test of the pose's delay on QUIC), 8 (pose maths as a Rust crate), 9 (forced flash: backup and lock), 10 (when a silent handheld gives the camera back).
+- **Merged since the last audit: 5** (#89, #90, #467, #91 twice). The next orchestrator runs the audit pass (AUDIT.md §2).
 - **Open on #90, the owner's:**
   - Item 8 (audience, QR, lobby, bots).
   - Linked mode would count votes twice: needs a decision.
@@ -77,8 +78,8 @@ eport.py`.
   - `pickup` not checked against the API.
 - **Hardware spikes for the owner:** iPhone audio and wake lock; MIDI on real ports, mac and win; a DMX test frame through the USB widget.
 - **Leftovers to delete:**
-  - D: `scutoons-agent-target-90`, `scutoons-target-467`, `scutoons-target-91` (≈ 19 GB).
-  - Locked worktree folders under `.claude/worktrees/agent-*`.
+  - D: `scutoons-agent-target-90`, `scutoons-target-467` (77 GB; `rm -rf` was refused by the harness's safety check, the owner removes them: `Remove-Item -Recurse -Force D:\scutoons-agent-target-90, D:\scutoons-target-467`), and `scutoons-target-91` (51 GB) once the #469 worker is done.
+  - Locked worktree folders under `.claude/worktrees/agent-*` (the #91 second-leg one, `agent-a531501e21a583f80`, was still locked by its agent). The 106 GB worktree `396-wasmtime-speed-13376a` belongs to another live session.
   - Deck cache `shows/foyer-loop.json` and `live/piece.toml` (test files of the #91 worker).
 - **Not mine, uncommitted:** `agents/research/EXTERNAL-EDITOR.md` and `deck/module/src/{cv,layout}.rs` (archived research session).
 

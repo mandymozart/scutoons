@@ -161,6 +161,36 @@ impl RelayClient {
         self.c.vote_hold(hold)
     }
 
+    /// #469: the rung the joined link is on (`QUIC`, `WebSocket`); '' while not joined
+    pub fn rung(&self) -> String {
+        self.c.rung().unwrap_or_default().to_string()
+    }
+
+    /// #469: a phone's pose at `t` (its clock, ms): `p` 3 numbers, `q` 4; false: not joined
+    pub fn hand_pose(&mut self, t: f64, p: &[f64], q: &[f64]) -> bool {
+        self.c.hand_pose(t, p, q)
+    }
+
+    /// #469: what the phone tracks (`hand.state`, JSON)
+    pub fn hand_state(&mut self, json: &str) -> Result<(), JsValue> {
+        self.c.hand_state(parse(json)?);
+        Ok(())
+    }
+
+    pub fn hand_record(&mut self, on: bool) -> bool {
+        self.c.hand_record(on)
+    }
+
+    pub fn hand_recenter(&mut self) -> bool {
+        self.c.hand_recenter()
+    }
+
+    /// #469: the editor's view for its phones (`hand.view`, JSON)
+    pub fn hand_view(&mut self, json: &str) -> Result<(), JsValue> {
+        self.c.hand_view(parse(json)?);
+        Ok(())
+    }
+
     /// the vote open now as a screen hears it (an envelope, JSON); '' when none is open
     pub fn current_vote(&self) -> String {
         self.c.current_vote().and_then(|e| serde_json::to_string(&e).ok()).unwrap_or_default()

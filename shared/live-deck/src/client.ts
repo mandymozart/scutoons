@@ -49,7 +49,7 @@ export type RelayStatus = { state: 'joining' | 'connected' | 'offline' | 'refuse
 /** What the app hears (deck-space `relay::Out` past the socket's own): the core's status line (JOINING · DECK c3 @ CATH · OFFLINE …)
  *  and status; joined at the page's ms; #321 a pong (its ping's `t0` µs, the relay's `t1` ms, back at the page's `t2` ms)
  *  and the show clock's anchor (arrived at the page's ms); #195 the conductor's push; #231 what a vote screen hears;
- *  every envelope (the core's `messages`). */
+ *  every envelope (the core's `messages`); #469 every other word (`onOther`: the handheld camera's, hand.ts). */
 export interface RelayHooks {
 	onStatus?: (line: string, s: RelayStatus) => void;
 	onJoined?: (at: number, client: string) => void;
@@ -58,6 +58,7 @@ export interface RelayHooks {
 	onSync?: (s: SceneSync) => void;
 	onVote?: (e: Envelope) => void;
 	onMessage?: (e: Envelope) => void;
+	onOther?: (o: Record<string, never>) => void;
 }
 
 /** the page's platform – its WebSocket, its QUIC, clock (ms since the epoch) and timer; tests pass their own */
@@ -120,20 +121,14 @@ export class RelaySocket {
 		for (let outs = JSON.parse(this.core.take()) as Record<string, never>[]; outs.length; outs = JSON.parse(this.core.take())) for (const o of outs) this.act(o);
 		(this.p.clearTimer ?? clearTimeout)(this.timer as never);
 		const at = this.core.next_wake();
-		this.timer = at === undefined ? null : (this.p.setTimer ?? setTimeout)(this.wake.bind(this), Math.max(0, at - this.now()));
-	}
-
-	private wake(): void {
-		this.core.tick(this.now());
-		this.run();
+		this.timer = at === undefined ? null : (this.p.setTimer ?? setTimeout)(() => this.call('tick', this.now()), Math.max(0, at - this.now()));
 	}
 
 	private act(o: Record<string, never>): void {
 		const h = this.hooks;
 		if ('dial' in o) this.dial(o.dial);
 		else if ('send' in o) this.ws?.send(o.send);
-		// the socket's onclose tells the core
-		else if ('close' in o) this.ws?.close();
+		else if ('close' in o) this.ws?.close(); // the socket's onclose tells the core
 		else if ((this.door ??= new QuicLink(this, this.p.quic)).act(o)) return;
 		else if ('status' in o) h.onStatus?.(this.core.line(), o.status);
 		else if ('joined' in o) h.onJoined?.(o.joined['at'], o.joined['client']);
@@ -142,6 +137,7 @@ export class RelaySocket {
 		else if ('sync' in o) h.onSync?.(o.sync);
 		else if ('vote' in o) h.onVote?.(o.vote);
 		else if ('message' in o) h.onMessage?.(o.message);
+		else h.onOther?.(o);
 	}
 
 	private dial(url: string): void {

@@ -283,6 +283,11 @@ mod tests {
         let ports = Ports { midi: Some(Box::new(midi.clone())), conductor: Some(Box::new(move |b| c.lock().unwrap().push(b))), ..Ports::default() };
         let clock = Box::new(Fixed { epoch: Instant::now(), tempo: Clock::new(0.0, 0.0, 120.0, 4) });
         let mut r = spawn(p, ports, values.clone(), clock).unwrap();
+        // the runner's first frame sends the value it starts with; on a loaded machine its thread starts late, so wait for it
+        let started = Instant::now();
+        while midi.0.lock().unwrap().is_empty() && started.elapsed() < Duration::from_secs(60) {
+            std::thread::sleep(Duration::from_millis(5));
+        }
         // the frame thread turns the knob: 0 → 1 in 11 steps
         for i in 0..=10 {
             values.set(0, i as f32 / 10.0);

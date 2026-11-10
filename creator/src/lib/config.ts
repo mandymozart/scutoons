@@ -20,6 +20,15 @@ export const VIEWER_URL: string = trim(
 	import.meta.env.VITE_WWW_URL || import.meta.env.VITE_VIEWER_URL || (import.meta.env.PROD ? 'https://scutoons.com' : `http://localhost:${ports.viewer}`)
 );
 
+/**
+ * The Live relay the handheld camera's phone and the storyboard editor meet on (#469; the viewer's LIVE_URL): no trailing
+ * slash, `VITE_LIVE_URL` (a local relay in dev: `ws://127.0.0.1:7070`, a LAN relay with a certificate for QUIC). Default:
+ * the hosted relay (WebSocket only until its UDP endpoint exists, #441).
+ */
+export const LIVE_URL: string = trim(import.meta.env.VITE_LIVE_URL || 'wss://live.scutoons.com');
+/** #438: its QUIC door under another name (`host:port`, `VITE_LIVE_QUIC`); unset: the relay's own */
+export const LIVE_QUIC: string | undefined = import.meta.env.VITE_LIVE_QUIC || undefined;
+
 /** The admin: links to codes / batches from the catalog's editions (`VITE_ADMIN_URL`; dev: shared/dev-ports.json). */
 export const ADMIN_URL: string = trim(
 	import.meta.env.VITE_ADMIN_URL || (import.meta.env.PROD ? 'https://admin.scutoons.com' : `http://localhost:${ports.admin}`)

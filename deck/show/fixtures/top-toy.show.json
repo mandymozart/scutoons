@@ -30,7 +30,8 @@
       "id": "dialog",
       "fire": { "event": "ch3.dialog-start", "how": "auto" },
       "cells": {
-        "left": { "mode": "values", "piece": "scene:nave", "values": { "dim": 0.5 } }
+        "left": { "mode": "values", "piece": "scene:nave", "values": { "dim": 0.5 } },
+        "lamps": { "mode": "look", "look": "warm", "fade": 800 }
       }
     },
     {
@@ -39,7 +40,11 @@
       "cells": {
         "left": { "mode": "play", "piece": "character:yellowmouse", "values": { "mood": "shy" } },
         "foyer": { "mode": "go", "row": "storm" }
-      }
+      },
+      "addresses": [
+        { "address": "character:yellowmouse", "action": "dance:samba", "where": { "group": "left" } },
+        { "address": "location:*", "action": "close_doors" }
+      ]
     },
     {
       "id": "finale",
@@ -50,5 +55,12 @@
         "foyer": { "mode": "free" }
       }
     }
+  ],
+  "fixtures": [
+    { "id": "strobe", "outlet": "lamps", "address": 1, "profile": "rgbw-strobe" },
+    { "id": "panel", "outlet": "lamps", "address": 10, "profile": "rgb" }
+  ],
+  "looks": [
+    { "id": "warm", "values": { "panel": { "r": 255, "g": 120 }, "strobe": { "w": 80 } } }
   ]
 }

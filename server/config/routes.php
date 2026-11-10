@@ -339,12 +339,10 @@ return static function (App $app): void {
     $app->get('/api/storyboard/work', [StoryboardController::class, 'listWork']);
     $app->put('/api/storyboard/work', [StoryboardController::class, 'putWork']);
     $app->get('/api/storyboard/work/{toon:[a-z0-9_-]{1,64}}/{chapter:[0-9]{1,6}}/{name:[A-Za-z0-9._%-]{1,200}}', [StoryboardController::class, 'getWork']);
-    // the handheld camera's pairing (#126): a one-time code for the phone, the WebRTC offer / answer – no session for
-    // the phone's calls (the code is the right), rate-limited per client IP
+    // the handheld camera's pairing (#126, #469): a one-time code for the phone and a relay session; the phone's claim
+    // has no session (the code is the right, once) and is rate-limited per client IP
     $app->post('/api/storyboard/pairings', [StoryboardPairingsController::class, 'create']);
-    $app->get('/api/storyboard/pairings/{code:[A-Za-z0-9_-]{22}}', [StoryboardPairingsController::class, 'get'])->add($pairingLimit);
-    $app->put('/api/storyboard/pairings/{code:[A-Za-z0-9_-]{22}}/offer', [StoryboardPairingsController::class, 'offer'])->add($pairingLimit);
-    $app->put('/api/storyboard/pairings/{code:[A-Za-z0-9_-]{22}}/answer', [StoryboardPairingsController::class, 'answer'])->add($pairingLimit);
+    $app->post('/api/storyboard/pairings/{code:[A-Za-z0-9_-]{22}}/claim', [StoryboardPairingsController::class, 'claim'])->add($pairingLimit);
     $app->delete('/api/storyboard/pairings/{code:[A-Za-z0-9_-]{22}}', [StoryboardPairingsController::class, 'delete']);
 
     // Library: the reader's entities composed from the content store (agents/DATA.md, docs/API.md "Library")

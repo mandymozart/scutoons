@@ -1,4 +1,4 @@
-Status: built and in the creator (4003fa79, the phone at /h/<code>, WebRTC pairing via storyboard_pairings); the owner tested it on the S22 and it works very well (2026-10-31). Reused for the deck camera (#213).
+Status: built and in the creator (4003fa79, the phone at /h/<code>); since #469 (2026-11-10) on the live road – one relay session, QUIC first, the WebSocket last, the code claimed once for a handheld token (§4); the WebRTC road the owner tested on the S22 (2026-10-31) is gone, the S22 test of the live road is the owner's. Reused for the deck camera (#213).
 
 # HANDHELD-CAMERA — the phone as a handheld camera for storyboard shots (research, 2026-10-19)
 
@@ -46,15 +46,38 @@ Later the same day: also as downloads (GLB with the animated camera, a JSON of t
 On the LAN the studio's API could write files and run scripts – so in LAN mode requests from other machines get
 only GETs (the page, the render files) and the WebSocket; every write stays on the PC.
 
-## 4. Transport
+## 4. Transport (how it is now: the live road, #469)
 
-- **WebSocket relay through the studio's own dev server** (Vite's HMR socket, custom events `hh`): the phone sends its
-  pose, the dev server forwards it to the PC page of the same pairing code. The relay runs on the same PC as the
-  receiving page, so it is one LAN hop (USB: < 5 ms, Wi-Fi: 5–20 ms). No dependency, no extra port.
-- **WebRTC data channel**: peer to peer, unreliable/unordered mode avoids head-of-line blocking – the right choice
-  when phone and viewer are on different networks. Here both ends meet at the PC anyway; it would add signalling
-  (which again needs the socket) for no gain. Not now.
+Owner 2026-11-10: *"We have to update our communication for the handheld to the new dogma. Real time is key. So quic and
+fallback rules apply"*. The phone and the PC are two clients of one relay session (research/RELAY-TRANSPORTS.md,
+research/INPUT.md §6a "The road"):
+
+- **The right to join.** The Handheld panel's `POST /storyboard/pairings` makes a one-time code (the QR to `/h/<code>`,
+  10 minutes) and a fresh relay session (`H` + 11 characters) and gives the PC a `conductor` token for it. The phone's
+  page claims the code (`POST …/{code}/claim`, no sign-in, ONE claim, then `409 claimed`) and gets the session and a
+  `handheld` token for it. Both are the relay's HMAC tokens (`LIVE_TOKEN_SECRET`; `dev` on a dev relay), 12 hours long;
+  the relay refuses a `handheld` without one (`check_token`), and a token names one session and one role. The code opens
+  nothing else of the API (server/docs/API.md "Handheld pairing", Domain\Storyboard\Pairings).
+- **The one client.** Both pages join through `@scutoons/live-deck/hand` (`HandLink`) on deck-space's relay client
+  (`deck/space/src/relay.rs`, relay-web's wasm, the creator's `/live/`), handed in by the page's Svelte side
+  (`creator/src/lib/handheld/hand-link.ts`, `hand-port.ts`). The core picks the socket: QUIC gets 250 ms, then the
+  WebSocket is dialled beside it; QUIC dying resumes on the WebSocket as the same client; from the WebSocket it tries QUIC
+  again after 60 s. No ladder logic in TS.
+- **The lanes.** `hand.pose` (`t` the phone's clock in ms, `p` 3, `q` 4 numbers) is latest-wins: on QUIC a datagram,
+  never logged or replayed; the relay and the editor's core drop a pose that is malformed or not newer than that phone's
+  last. `hand.state` (mode `xr` · `orientation` · `none`, tracking, browser), `hand.record`, `hand.recenter` (phone →
+  the session's conductor) and `hand.view` (editor → its phones: shot, on, recording, seconds) are reliable. The core
+  sends the phone's state and the editor's view again after every rejoin, the view also to a phone that joins later, and
+  tells the editor when a phone left (the relay's presence lacks it; it may come back as the same client).
+- **The rung.** The phone's top bar and the panel's state line end in the core's word for the rung: `QUIC` or
+  `WebSocket`.
+- **Where the relay is:** the creator's `VITE_LIVE_URL` (default `wss://live.scutoons.com`, WebSocket only until its UDP
+  endpoint exists, #441) and `VITE_LIVE_QUIC`. QUIC needs a relay with a certificate near the phone (a LAN relay under
+  `*.lan.scutoons.com`); a browser without WebTransport goes to the WebSocket at once. The phone no longer has to be in
+  the PC's Wi-Fi.
 - Samples carry the phone's own timestamps, so jitter in transport never shows in the recorded track.
+- **Not measured** (the owner's, afterwards): the pose's delay phone → relay → PC on QUIC against the old WebRTC road, and
+  WebTransport on the S22 inside an AR session.
 
 ## 5. Smoothing
 
@@ -82,6 +105,7 @@ WebSocket as relay, raw samples + one exponential filter, passes beauty / depth 
 studio's browser with its own renderer and encoded by ffmpeg.** DeviceOrientation + drag as the fallback (and for
 tests on the desktop). Built: `workflows/storyboard-studio/README.md` "Handheld camera". Not built: FBX (convert the GLB
 in Blender: File → Import → glTF 2.0, then File → Export → FBX), animated lens (glTF has no animated `yfov` without
-KHR_animation_pointer – the lens is constant per take; the JSON carries `fov` per sample), WebRTC, zoom on the phone.
+KHR_animation_pointer – the lens is constant per take; the JSON carries `fov` per sample), zoom on the phone. The
+transport of the creator's version is the live road (§4, #469).
 
 The owner's test with the real S22: the steps are in the studio README "Handheld camera – first test with the phone".

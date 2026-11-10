@@ -1,6 +1,7 @@
 //! Addressing across the tree (#90, SHOW.md §8, §9), for the workshop kind and id, filters group and device. Who picks up goes
 //! down, the receiver tests itself and says what it did. An address that finds nobody stays silent, and that is logged: it
 //! never goes up to a wider one (owner 2026-11-09).
+use deck_space::rig::address::Target;
 use protocol::{Address, AddressAnswer, AddressFilter};
 
 /// One receiver: what it plays and the facts about itself.
@@ -14,11 +15,10 @@ pub struct Receiver<'a> {
     pub handles: &'a dyn Fn(&str) -> bool,
 }
 
-/// `character:*` is every character; `character:yellowmouse` every persona and look of it (SHOW.md §8).
+/// `character:*` is every character; `character:yellowmouse` every persona and look of it (SHOW.md §8). The one parser's
+/// (deck-space `rig/address.rs` `Target`, RULES A14).
 pub fn picks_up(address: &str, playing: &str) -> bool {
-    let Some((kind, id)) = address.split_once(':') else { return false };
-    let Some((there_kind, there)) = playing.split_once(':') else { return false };
-    kind == there_kind && (id == "*" || there == id || there.strip_prefix(id).is_some_and(|rest| rest.starts_with('.')))
+    Target::parse(address).is_ok_and(|t| t.picks_up(playing))
 }
 
 /// A missing fact fails the filter (SHOW.md §9).

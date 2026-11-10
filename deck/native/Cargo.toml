@@ -32,7 +32,7 @@ sync = ["dep:ureq", "dep:serde_json", "dep:protocol"]
 chapter = ["dep:ureq", "dep:serde_json", "dep:symphonia", "image/webp"]
 # a Live outlet (#186): the `outlet` node joins the relay as `output` of this deck's outlet, preloads the show media with
 # the deck token (deck-link) and renders the outlet's cells natively (live/); slices and text come from `chapter`
-live = ["chapter", "dep:protocol", "dep:tungstenite", "dep:rustls", "dep:wtransport", "dep:webpki-roots", "dep:tokio"]
+live = ["chapter", "dep:protocol", "dep:deck-show", "dep:tungstenite", "dep:rustls", "dep:wtransport", "dep:webpki-roots", "dep:tokio"]
 # generators that talk in events (#236, deck-events): the `walk` node – a seeded melody as seq's cv
 events = ["dep:deck-events", "deck-engine/events"]
 # rig modules (#280, research/RIG-EDITING.md §4): compiled wasm instruments (deck-module's SDK) run in wasmtime – the
@@ -76,6 +76,9 @@ deck-catalog = { path = "../catalog", optional = true }
 # #378: the Live outlet's logic (the plan, the composer, the crossfade, the dialog / text layout in the reader's fonts, the
 # relay messages' routing) – platform-free; this crate keeps its threads, socket, HTTP, disk cache and decoding (live/)
 deck-outlet = { path = "../outlet" }
+# #91: a flash's deck side (the show this outlet plays at its pinned version, its pieces checked, the report's words) –
+# deck-show's ready.rs; live/flash.rs is its thread
+deck-show = { path = "../show", optional = true }
 # #374: the deck's UI model (the HUD's lines, the bar's items, the F1 mode) – platform-free; this crate reads its objects
 # into deck-ui's Status (hud_status.rs) and rasters the answer (hud.rs)
 deck-ui = { path = "../ui" }

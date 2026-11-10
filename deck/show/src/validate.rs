@@ -1,8 +1,8 @@
 //! Validity is the core's (RULES A2). [`validate`] reads one document; [`resolve`] follows the seats from the top, the only
 //! way a tree exists (the child does not name its parent, SHOW.md §4b), and writes down the exact versions a flash carries.
-use crate::document::{Cell, Face, OutletKind, Pinned, Row, Seat, Show};
+use crate::document::{Addressed, Cell, Face, OutletKind, Pinned, Row, Seat, Show};
 use protocol::PARENT;
-use deck_space::rig::address::Place;
+use deck_space::rig::address::{Place, Target};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
@@ -11,13 +11,48 @@ use std::fmt;
 pub enum Problem {
     Duplicate { what: &'static str, id: String },
     /// a reference that finds nothing
-    Unknown { what: &'static str, id: String, at: String },
+    Unknown { what: &'static str, id: String, at: Spot },
     /// a cell or a field its place cannot hold
-    Refused { at: String, why: String },
+    Refused { at: Spot, why: String },
     /// a seat uses what the child's face does not show
     FaceLacks { seat: String, what: &'static str, id: String },
     /// `a › b › a`, by show id
     Cycle { path: Vec<String> },
+}
+
+/// Where in a document a problem is (#91: the problems list points at it, a click selects it).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Spot {
+    /// the document as a whole (its id, its columns)
+    Show,
+    Face,
+    Seat(String),
+    Row(String),
+    Cell { row: String, column: String },
+}
+
+impl fmt::Display for Spot {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Spot::Show => write!(f, "show"),
+            Spot::Face => write!(f, "the face"),
+            Spot::Seat(s) => write!(f, "seat '{s}'"),
+            Spot::Row(r) => write!(f, "row '{r}'"),
+            Spot::Cell { row, column } => write!(f, "row '{row}', '{column}'"),
+        }
+    }
+}
+
+impl Problem {
+    /// where it is
+    pub fn spot(&self) -> Spot {
+        match self {
+            Problem::Unknown { at, .. } | Problem::Refused { at, .. } => at.clone(),
+            Problem::Duplicate { what: "row", id } => Spot::Row(id.clone()),
+            Problem::Duplicate { what: "seat", id } | Problem::FaceLacks { seat: id, .. } => Spot::Seat(id.clone()),
+            Problem::Duplicate { .. } | Problem::Cycle { .. } => Spot::Show,
+        }
+    }
 }
 
 impl fmt::Display for Problem {
@@ -32,27 +67,27 @@ impl fmt::Display for Problem {
     }
 }
 
-fn refused(at: &str, why: impl Into<String>) -> Problem {
-    Problem::Refused { at: at.to_string(), why: why.into() }
+fn refused(at: &Spot, why: impl Into<String>) -> Problem {
+    Problem::Refused { at: at.clone(), why: why.into() }
 }
 
 /// ids that must be unique among `seen`
 fn unique<'a>(what: &'static str, ids: impl Iterator<Item = &'a String>, seen: &mut BTreeSet<&'a str>, out: &mut Vec<Problem>) {
     for id in ids {
         if id.is_empty() {
-            out.push(refused(what, "an empty id"));
+            out.push(refused(&Spot::Show, format!("an empty {what} id")));
         } else if !seen.insert(id) {
             out.push(Problem::Duplicate { what, id: id.clone() });
         }
     }
 }
 
-fn place(at: &str, text: &str, out: &mut Vec<Problem>) -> Option<Place> {
+fn place(at: &Spot, text: &str, out: &mut Vec<Problem>) -> Option<Place> {
     Place::parse(text).map_err(|why| out.push(refused(at, why))).ok()
 }
 
 /// a cell on a stage outlet
-fn stage_cell(show: &Show, at: &str, cell: &Cell, out: &mut Vec<Problem>) {
+fn stage_cell(show: &Show, at: &Spot, cell: &Cell, out: &mut Vec<Problem>) {
     match cell {
         Cell::Play { piece, send, .. } => {
             match piece {
@@ -65,28 +100,72 @@ fn stage_cell(show: &Show, at: &str, cell: &Cell, out: &mut Vec<Problem>) {
         }
         Cell::Values { piece, .. } => drop(place(at, piece, out)),
         Cell::Mirror { of } => match show.outlet(of) {
-            None => out.push(Problem::Unknown { what: "outlet", id: of.clone(), at: at.to_string() }),
+            None => out.push(Problem::Unknown { what: "outlet", id: of.clone(), at: at.clone() }),
             Some(o) if o.kind == OutletKind::Device => out.push(refused(at, "a device outlet cannot be mirrored")),
             Some(_) => {}
         },
         Cell::Keep | Cell::Black => {}
         Cell::Go { .. } | Cell::Free => out.push(refused(at, "`go` and `free` are for a seat's column")),
+        Cell::Look { .. } => out.push(refused(at, "a look is for a device outlet's lamps")),
     }
 }
 
-/// a cell on a device outlet: `play` with messages, or `keep`
-fn device_cell(at: &str, cell: &Cell, out: &mut Vec<Problem>) {
+/// a cell on a device outlet: `play` with messages, a look that lights a fixture there, or `keep`
+fn device_cell(show: &Show, outlet: &str, at: &Spot, cell: &Cell, out: &mut Vec<Problem>) {
     match cell {
         Cell::Play { piece: None, send, .. } if !send.is_empty() => {}
         Cell::Keep => {}
-        _ => out.push(refused(at, "a device outlet takes `play` with `send`, or `keep`")),
+        Cell::Look { look, .. } => match show.look(look) {
+            None => out.push(Problem::Unknown { what: "look", id: look.clone(), at: at.clone() }),
+            Some(l) if l.dmx(show, outlet, None).is_empty() => out.push(refused(at, format!("the look '{look}' lights no fixture on '{outlet}'"))),
+            Some(_) => {}
+        },
+        _ => out.push(refused(at, "a device outlet takes `play` with `send`, a `look`, or `keep`")),
+    }
+}
+
+/// the fixtures (on a device outlet, inside the universe, each channel once) and the looks (known fixtures and channels)
+fn lights(show: &Show, out: &mut Vec<Problem>) {
+    let mut ids = BTreeSet::new();
+    unique("fixture", show.fixtures.iter().map(|f| &f.id), &mut ids, out);
+    let mut taken: BTreeMap<(&str, u16), &str> = BTreeMap::new();
+    for f in &show.fixtures {
+        let at = Spot::Show;
+        match show.outlet(&f.outlet) {
+            None => out.push(Problem::Unknown { what: "outlet", id: f.outlet.clone(), at: at.clone() }),
+            Some(o) if o.kind != OutletKind::Device => out.push(refused(&at, format!("fixture '{}': '{}' is no device outlet", f.id, f.outlet))),
+            Some(_) => {}
+        }
+        let last = f.address as usize + f.profile.channels().len() - 1;
+        if f.address == 0 || last > 512 {
+            out.push(refused(&at, format!("fixture '{}': channels {}–{last} are outside 1–512", f.id, f.address)));
+        }
+        for ch in f.address..=(last.min(512) as u16) {
+            if let Some(other) = taken.insert((f.outlet.as_str(), ch), &f.id) {
+                out.push(refused(&at, format!("fixture '{}': channel {ch} is already '{other}'s", f.id)));
+                break;
+            }
+        }
+    }
+    let mut looks = BTreeSet::new();
+    unique("look", show.looks.iter().map(|l| &l.id), &mut looks, out);
+    for l in &show.looks {
+        for (fixture, set) in &l.values {
+            let Some(f) = show.fixture(fixture) else {
+                out.push(Problem::Unknown { what: "fixture", id: fixture.clone(), at: Spot::Show });
+                continue;
+            };
+            for c in set.keys().filter(|c| !f.profile.channels().contains(&c.as_str())) {
+                out.push(refused(&Spot::Show, format!("look '{}': fixture '{fixture}' has no channel '{c}'", l.id)));
+            }
+        }
     }
 }
 
 /// a cell on a seat's column: a row the seat uses, `free` or `keep`
-fn seat_cell(seat: &Seat, at: &str, cell: &Cell, out: &mut Vec<Problem>) {
+fn seat_cell(seat: &Seat, at: &Spot, cell: &Cell, out: &mut Vec<Problem>) {
     match cell {
-        Cell::Go { row } if !seat.uses.rows.contains(row) => out.push(Problem::Unknown { what: "row in the seat's `uses`", id: row.clone(), at: at.to_string() }),
+        Cell::Go { row } if !seat.uses.rows.contains(row) => out.push(Problem::Unknown { what: "row in the seat's `uses`", id: row.clone(), at: at.clone() }),
         Cell::Go { .. } | Cell::Free | Cell::Keep => {}
         _ => out.push(refused(at, "a seat takes `go`, `free` or `keep`")),
     }
@@ -106,7 +185,22 @@ fn mirror_circles(row: &Row, out: &mut Vec<Problem>) {
             }
         }
         if next == start.as_str() && path.len() > 1 && path.iter().min() == Some(&start.as_str()) {
-            out.push(refused(&format!("row '{}'", row.id), format!("mirrors go in a circle: {}", path.join(" › "))));
+            out.push(refused(&Spot::Row(row.id.clone()), format!("mirrors go in a circle: {}", path.join(" › "))));
+        }
+    }
+}
+
+/// an address a row sends to: the one parser's address and action (RULES A14); a filter names something
+fn addressed(at: &Spot, a: &Addressed, out: &mut Vec<Problem>) {
+    if let Err(why) = Target::parse(&a.address) {
+        out.push(refused(at, why));
+    }
+    if let Err(why) = Target::action(&a.action) {
+        out.push(refused(at, format!("{}: {why}", a.address)));
+    }
+    if let Some(f) = &a.filter {
+        if f.group.as_deref() == Some("") || f.device.as_deref() == Some("") {
+            out.push(refused(at, format!("{}: an empty filter", a.address)));
         }
     }
 }
@@ -115,7 +209,7 @@ fn mirror_circles(row: &Row, out: &mut Vec<Problem>) {
 pub fn validate(show: &Show) -> Vec<Problem> {
     let mut out = vec![];
     if show.id.is_empty() {
-        out.push(refused("show", "an empty id"));
+        out.push(refused(&Spot::Show, "an empty id"));
     }
     // outlets and seats are the matrix's columns, one name for each
     let mut columns = BTreeSet::new();
@@ -127,12 +221,12 @@ pub fn validate(show: &Show) -> Vec<Problem> {
     // #90: `foyer/wall` is an outlet of the child in a seat, `parent` is the far end of the link
     for id in show.outlets.iter().map(|o| &o.id).chain(show.seats.iter().map(|s| &s.id)) {
         if id == PARENT || id.contains('/') {
-            out.push(refused("show", format!("a column cannot be named '{id}'")));
+            out.push(refused(&Spot::Show, format!("a column cannot be named '{id}'")));
         }
     }
 
     for seat in &show.seats {
-        let at = format!("seat '{}'", seat.id);
+        let at = Spot::Seat(seat.id.clone());
         if seat.show.id.is_empty() {
             out.push(refused(&at, "it names no show"));
         }
@@ -146,7 +240,7 @@ pub fn validate(show: &Show) -> Vec<Problem> {
     let mut events: BTreeMap<&str, &str> = BTreeMap::new();
     for row in &show.rows {
         if let Some(event) = &row.fire.event {
-            let at = format!("row '{}'", row.id);
+            let at = Spot::Row(row.id.clone());
             if event.is_empty() {
                 out.push(refused(&at, "an empty event id"));
             } else if let Some(first) = events.insert(event, &row.id) {
@@ -154,11 +248,11 @@ pub fn validate(show: &Show) -> Vec<Problem> {
             }
         }
         for (column, cell) in &row.cells {
-            let at = format!("row '{}', '{column}'", row.id);
+            let at = Spot::Cell { row: row.id.clone(), column: column.clone() };
             if let Some(outlet) = show.outlet(column) {
                 match outlet.kind {
                     OutletKind::Stage => stage_cell(show, &at, cell, &mut out),
-                    OutletKind::Device => device_cell(&at, cell, &mut out),
+                    OutletKind::Device => device_cell(show, column, &at, cell, &mut out),
                 }
                 if matches!(cell, Cell::Mirror { of } if of == column) {
                     out.push(refused(&at, "an outlet cannot mirror itself"));
@@ -170,13 +264,17 @@ pub fn validate(show: &Show) -> Vec<Problem> {
             }
         }
         mirror_circles(row, &mut out);
+        for a in &row.addresses {
+            addressed(&Spot::Row(row.id.clone()), a, &mut out);
+        }
     }
 
+    lights(show, &mut out);
     for id in show.face.rows.iter().filter(|r| show.row(r).is_none()) {
-        out.push(Problem::Unknown { what: "row", id: id.clone(), at: "the face".into() });
+        out.push(Problem::Unknown { what: "row", id: id.clone(), at: Spot::Face });
     }
     for id in show.face.outlets.iter().filter(|o| show.outlet(o).is_none()) {
-        out.push(Problem::Unknown { what: "outlet", id: id.clone(), at: "the face".into() });
+        out.push(Problem::Unknown { what: "outlet", id: id.clone(), at: Spot::Face });
     }
     out
 }
@@ -242,7 +340,7 @@ fn walk(show: &Show, library: &impl Library, path: &mut Vec<String>, lock: &mut 
     out.extend(validate(show));
     for seat in &show.seats {
         let Some(child) = library.show(&seat.show) else {
-            out.push(Problem::Unknown { what: "show", id: seat.show.to_string(), at: format!("seat '{}'", seat.id) });
+            out.push(Problem::Unknown { what: "show", id: seat.show.to_string(), at: Spot::Seat(seat.id.clone()) });
             continue;
         };
         face_uses(seat, &child.face, out);

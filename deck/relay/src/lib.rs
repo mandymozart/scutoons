@@ -136,9 +136,10 @@ impl Relay {
         self.sessions.lock().unwrap().get_mut(code).map(f)
     }
 
-    /// The token check of B.6 for conductor / bridge / uplink; other roles need none.
+    /// The token check of B.6 for conductor / bridge / uplink / seat, and #469 the handheld (its token is the API's answer
+    /// to its one-time pairing code); other roles need none.
     fn check_token(&self, code: &str, role: Role, token: Option<&str>) -> Result<(), String> {
-        if !matches!(role, Role::Conductor | Role::Bridge | Role::Uplink | Role::Seat) {
+        if !matches!(role, Role::Conductor | Role::Bridge | Role::Uplink | Role::Seat | Role::Handheld) {
             return Ok(());
         }
         let token = token.unwrap_or("");
@@ -638,5 +639,11 @@ mod tests {
         assert!(prod.check_token("A", Role::Conductor, Some("anything")).is_err());
         let claims = token::Claims { session: "A".into(), role: Role::Conductor, exp: now_ms() / 1000 + 60, show: None };
         assert!(prod.check_token("A", Role::Conductor, Some(&token::sign(&secret, &claims))).is_ok());
+        // #469: a handheld joins only with the API's token for its one session
+        assert!(dev.check_token("H", Role::Handheld, None).is_err());
+        let hand = token::Claims { session: "H".into(), role: Role::Handheld, exp: now_ms() / 1000 + 60, show: None };
+        assert!(prod.check_token("H", Role::Handheld, Some(&token::sign(&secret, &hand))).is_ok());
+        assert!(prod.check_token("OTHER", Role::Handheld, Some(&token::sign(&secret, &hand))).is_err(), "another session");
+        assert!(prod.check_token("H", Role::Conductor, Some(&token::sign(&secret, &hand))).is_err(), "not the editor's");
     }
 }

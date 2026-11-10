@@ -82,11 +82,59 @@ A rig, a module (#312 `needs`) and a show row name the sources they use. A deck 
 - Far sources play on arrival today (#442's known gap); relay-time alignment is its own piece.
 - Nothing here runs on the audio thread except audio in.
 
+## 6a. The handheld camera session (owner 2026-11-10)
+The storyboard editor's handheld camera (#126, research/HANDHELD-CAMERA.md, built and tested on the S22) is an input of this concept, and its code is shared, not rebuilt (#213 asked the same for the deck's camera).
+
+- **A pose is a source.** Scope `pose:`: `pose:camera` (position, rotation, lens as one), each part also as a value (`pose:yaw`, `pose:roll`, `pose:x` …), `pose:record` and `pose:recenter` as events. Mapped whole onto a camera or a being's head, or in parts onto any parameter.
+- **A session** hands one target to a device for a time: a QR code with a one-time code (the phone's only right, no sign-in), Recenter, steer, Record, and one button on the deck takes it back. The phone surface (§4 `touch:`, `motion:`) pairs the same way: one small phone page with a camera mode and a surface mode.
+- **Time:** a pose is latest-wins (a late one is dropped); a take is on the clock.
+
+| Part | Storyboard today | For the deck |
+|---|---|---|
+| Phone page `creator/src/routes/h/[code]`, `lib/handheld/phone-session.svelte.ts` (WebXR `immersive-ar`, else DeviceOrientation + drag) | built | the same page, as is (it runs on the phone, so it is no deck logic) |
+| Pairing `lib/editor/storyboard-pairing.ts`, `server/.../Storyboard/Pairings.php` (one-time code → a relay session; the PC's conductor token, the phone's one claim → a handheld token) | built (#469; offer / answer and STUN are gone) | the same: the code names the session and the target on the relay |
+| Pose maths `lib/editor/storyboard-handheld.ts` (origin / recenter, mapPose, smoother, sampleAt, bake; 204 lines, tested) | TypeScript | the deck needs it in Rust (no deck logic in TS): one crate, built to wasm for the creator, the TS file's tests as its vectors. The phone page keeps only `orientationQuat` and `dragStep` |
+| Take: `TakeSample {t, position, quaternion, fov}` (`@scutoons/content/storyboard`) | built | the same format: a storyboard take plays on a deck as a camera move (#213), a deck's camera performance is recorded as a take and opens in the storyboard editor |
+| Road for poses | the live road since #469: one relay session through `@scutoons/live-deck/hand`, `hand.pose` a datagram on QUIC (research/HANDHELD-CAMERA.md §4) | **the live road, for the deck and the storyboard alike (owner 2026-11-10):** QUIC first through the relay's WebTransport door, WebSocket last, with the built ladder (research/RELAY-TRANSPORTS.md). See "The road" below |
+| What the pose drives | the shot camera (`Stage3d.hold`) | the deck's camera in deck-space: new |
+
+**The use case (owner 2026-11-10).** *"Hand held camera takes over a decks current camera as long as it is active in the 3d scene and its Vectors can also be assigned to spatial Vectors so movement i space controls parameters mapped to anything through our rules"*
+
+- **Takeover while active.** A handheld that is active in a deck's 3D scene is that deck's camera: the deck's current camera (a preset, a move of #213, the editor's view) is put aside, not changed, and comes back the moment the handheld is no longer active (the session ends, the phone leaves, the deck takes it back, or no pose arrives for a set time). Recenter starts from the camera the deck had, so the picture does not jump at the handover.
+- **Its vectors are sources.** Besides the whole pose, the handheld gives vectors: `pose:position` (x, y, z), `pose:rotation`, `pose:forward` (where it points), `pose:velocity`. A vector source is assigned to a spatial vector of the scene with one mapping (a being's position, a light's direction, a sound's place in the room, an emitter's wind), and each part is a value like any other (`pose:x`, `pose:yaw`), so walking through the room drives any parameter through the same mapping rules: range, curve, smoothing, and the layers of §6b.
+- **Both at once.** The takeover and the mappings do not exclude each other: the phone can be the camera and drive a filter with its height in the same session; or drive only parameters, with the deck keeping its camera (the session's "camera" switch off).
+- **New for this:** a vector as a kind of source and of mapping target beside value and event (today a mapping is one value onto one parameter); "active" as a state the deck knows and shows; the put-aside camera.
+
+**The road (owner 2026-11-10: real time is key, QUIC and the fallback rules apply).** The handheld leaves its own WebRTC connection and rides the live road like every other client (#438, research/RELAY-TRANSPORTS.md):
+
+- **Poses are datagrams:** unreliable, unordered, latest wins, as values already travel on QUIC. Each carries its time, so a late one is dropped.
+- **Record, recenter, state are on the reliable stream,** as cues are.
+- **The ladder as built:** QUIC gets 250 ms, then a WebSocket is dialled beside it and the winner says `hello`; QUIC dying mid-session resumes on the WebSocket as the same client (poses gone for about 3 s, no event lost); from the WebSocket it tries QUIC again after 60 s.
+- **On the WebSocket the session still works but is not real time** (measured for values at 1 % loss: p99 14 ms on QUIC against 33 ms on the WebSocket, with stalls of a quarter second for what must arrive). The phone and the deck show which rung they are on; the smoothing is raised there.
+- **What this settles:** a native deck needs no WebRTC, so the question "relay first or a WebRTC feature" is gone. The phone no longer has to be in the same Wi-Fi as the PC. The pairing's offer / answer and the STUN server go; the QR code and the one-time code stay and now name the session and the target on the relay.
+- **What it needs:** a relay with a certificate near the phone (a LAN relay under `*.lan.scutoons.com`, or the hosted one once its UDP endpoint exists, #441; until then the hosted relay is WebSocket only). The phone's browser must have WebTransport; one without goes to the WebSocket at once.
+- **Not measured:** the pose's delay phone → relay → deck against the old direct WebRTC, and WebTransport on the S22 inside an AR session – the owner's test on the S22 (#469 removed the WebRTC road from the storyboard; dev mode, breaking allowed).
+
+Later: any source recorded and replayed as a take (a gamepad run, a fader ride).
+
+## 6b. Mapping layers (owner 2026-11-10)
+Peripheral mappings are written ahead, one device can overwrite them for itself, and a flash can force the defaults.
+
+1. **Precoded:** what a device type does out of the box (the standard gamepad drives the selected being, #212; a known controller's knobs have names and targets). In the profile, ships with the build. The floor.
+2. **Flashed:** the mappings a show, its rigs and presets carry (`Mapping {source, target, range}` exists). Wins over 1.
+3. **Local:** what was changed on one deck (a learned knob, another range, a source switched off). Stored on that deck only, wins over 2, each change marked and undoable by itself ("Reset this mapping", "Reset this device", "Send to the editor" to make it part of the show).
+
+- **Flash:** replaces layer 2, local changes stay; the flash report lists them per deck.
+- **Flash, force defaults:** replaces layer 2 and clears the local layer, on all decks or the chosen ones; asks once.
+- Proposed on top: a **lock** per show (no local changes until the next flash), and the cleared local layer kept as one backup on the deck.
+
 ## 7. Design drafts (in the chat, files in `468-input-concept/`)
 1. **The map:** hardware → adapter (in / beside / far) → profile → source → mapping → parameter, with every family on it.
 2. **Inputs in the editor:** the devices this deck sees, their sources with live values, learn and the profile; one mapping with range, curve and smoothing; the controller map as a list.
 3. **Builds:** the profiles as columns, the adapters as rows, and what a show needs against what a deck has.
 4. **The phone surface:** XY, knobs, pads, tilt, as a far source of a deck.
+5. **The handheld camera session:** the session, what the deck sees, what is shared with the storyboard editor, one take both ways.
+6. **Mapping layers:** precoded, flashed, local; flash and forced flash.
 
 ## 8. For the owner to decide
 1. **Three places** (in / beside / far) as the rule, with the phone staying a browser. Recommended: yes.
@@ -95,3 +143,7 @@ A rig, a module (#312 `needs`) and a show row name the sources they use. A deck 
 4. **Camera tracking:** a helper beside the deck (recommended), and whether face or body comes first.
 5. **Order.** Recommended: MIDI notes in (#439) → gamepad and keys as sources (#228) → the phone surface over the relay → OSC in with learn → audio in → DMX in, Art-Net → camera → IMU, lidar.
 6. **Privacy** as proposed in #312: on the device, off by default, shown before it is enabled.
+7. **The road for poses: decided 2026-11-10,** the live road, QUIC first and WebSocket last (§6a). Open under it: whether the storyboard's WebRTC road is removed at once or after the S22 test (recommended: after the test).
+8. **The pose maths as one Rust crate** (wasm for the creator) instead of a second copy. Recommended: yes; it touches the storyboard editor, so not while that is being worked on.
+9. **Forced flash: decided 2026-11-10.** Warned and accepted, it forces. The deck keeps the replaced local layer as its own copy; the deck's operator gets a notice and, if their rights allow, goes back to it or switches between the forced version and their own (SHOW.md §4, #471). Open under it: which right allows going back, and the per-show lock (recommended: a locked flash leaves the switch to the deck's owner only).
+10. **When a silent handheld gives the camera back.** Recommended: after 2 s without a pose the deck's own camera returns with a short blend, and the handheld takes over again when poses come back.
