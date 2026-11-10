@@ -237,13 +237,17 @@ rewrite.
 ### 2.6 Handheld camera online
 
 Both the phone and the PC open the creator (HTTPS, a real certificate, so the self-signed one and its "Continue" are
-gone). The phone connects through a **WebRTC data channel**. Pairing is a QR code with a one-time code, and the offer and
-answer travel through two short API calls (a small table, deleted after pairing). On the same Wi-Fi no TURN server is
-needed. The poses run peer to peer, so nothing per frame goes through PHP. The take is recorded in the browser
-(MediaRecorder, replacing ffmpeg) and saved into the workspace folder. The phone page needs no sign-in, because the one-time code
-grants only this channel. **A barebone page** (owner 2026-10-20: "a barebone page so it doesnt need to load so much
-grap. it is only accessed through a qr code when linked anyhow"): its own small route without the creator's shell,
-menus or editors – only the camera, the pose sensor and the channel.
+gone). Since #469 (owner 2026-11-10: "Change the handheld to the new dogma as well") the two meet in **one relay
+session on the live road**: QUIC first through the relay's WebTransport door, the WebSocket last, with the built
+ladder (research/RELAY-TRANSPORTS.md); the WebRTC data channel, its offer / answer and the STUN servers are gone. Pairing
+is a QR code with a one-time code: the PC's call that makes the code also makes a relay session and gives the PC its
+conductor token; the phone claims the code once and gets a `handheld` token for that session (server/docs/API.md
+"Handheld pairing"). Nothing per frame goes through PHP; the poses go through the relay (as datagrams on QUIC). Both
+pages show the rung they are on (QUIC / WebSocket). The take is recorded in the browser (MediaRecorder, replacing
+ffmpeg) and saved into the workspace folder. The phone page needs no sign-in, because the one-time code grants only this
+session. **A barebone page** (owner 2026-10-20: "a barebone page so it doesnt need to load so much grap. it is only
+accessed through a qr code when linked anyhow"): its own small route without the creator's shell, menus or editors –
+only the camera, the pose sensor and the link (plus the relay client's small wasm).
 
 ## 3. What stays local, what is deleted
 
