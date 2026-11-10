@@ -69,7 +69,7 @@ impl Flasher {
 
     fn one(&mut self, flash: &Flash) {
         let report = match self.deck.take(flash) {
-            Err(refused) => refused,
+            Err(refused) => *refused,
             Ok(show) => self.check(&show),
         };
         self.say(report);

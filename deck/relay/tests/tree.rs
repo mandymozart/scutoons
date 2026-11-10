@@ -480,12 +480,12 @@ async fn a_chosen_flash_leaves_out_who_was_unticked_and_a_deck_that_joins_later_
     t.top.all(out).await;
     let (top, foyer, left, wall) = (&mut t.top, &mut t.foyer, &mut t.left, &mut t.wall);
     let got = |p: &Peer| p.inbox.iter().any(|e| matches!(e.message, Message::Flash(_)));
-    wait(&mut [top, foyer, left, wall], |p| got(&p[2]) && got(&p[3])).await;
+    wait(&mut [top, foyer, left, wall], |p| got(p[2]) && got(p[3])).await;
     let mut left = Deck::new("left");
     left.set_id(&t.left.id);
     let refused = left.take(&last_flash(&t.left)).unwrap_err();
     assert_eq!(refused.why.as_deref(), Some("left out by the conductor"));
-    t.left.send(Envelope::new("", Message::FlashReport(refused))).await;
+    t.left.send(Envelope::new("", Message::FlashReport(*refused))).await;
     let (top, left_peer) = (&mut t.top, &mut t.left);
     wait(&mut [top, left_peer], |p| p[0].inbox.iter().any(|e| matches!(e.message, Message::FlashReport(_)))).await;
     // a conductor that joins later finds what each deck last said

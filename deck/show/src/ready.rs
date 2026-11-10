@@ -205,21 +205,21 @@ impl Deck {
     /// operator left out refuses it; a deck that asks not to be flashed or has unsaved configuration takes it only when the
     /// operator was warned and accepted (`force`). A deck that was not here when it went out takes it when it joins. What
     /// it replaces is kept as the deck's own copy.
-    pub fn take(&mut self, flash: &Flash) -> Result<Pinned, FlashReport> {
+    pub fn take(&mut self, flash: &Flash) -> Result<Pinned, Box<FlashReport>> {
         if flash.id.is_some() && flash.id == self.taken {
             return Ok(self.running());
         }
         let me = self.id.clone().unwrap_or_default();
         if flash::left_out(flash, &me) {
-            return Err(self.refuse("left out by the conductor".to_string()));
+            return Err(Box::new(self.refuse("left out by the conductor".to_string())));
         }
         let forced = flash::forced(flash, &me);
         if !forced {
             if let Some(why) = self.keep.clone() {
-                return Err(self.refuse(format!("asks not to be flashed: {why}")));
+                return Err(Box::new(self.refuse(format!("asks not to be flashed: {why}"))));
             }
             if self.unsaved {
-                return Err(self.refuse("has unsaved configuration".to_string()));
+                return Err(Box::new(self.refuse("has unsaved configuration".to_string())));
             }
         }
         let running = self.running();
@@ -227,7 +227,7 @@ impl Deck {
         if !report.accepted {
             let r = self.stamp(report);
             self.last = Some(r.clone());
-            return Err(r);
+            return Err(Box::new(r));
         }
         let here = flash.here.as_ref().unwrap_or(&flash.root);
         let show = flash::pinned(here);
@@ -503,7 +503,7 @@ mod tests {
         let r = deck.take(&flash(None, 2)).unwrap_err();
         assert!(!r.accepted);
         assert_eq!(line(&r), "FLASH refused: assigned by a nearer hand – runs top@3");
-        assert_eq!(deck.last(), Some(&r));
+        assert_eq!(deck.last(), Some(&*r));
     }
 
     #[test]
