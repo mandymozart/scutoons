@@ -32,6 +32,7 @@ pub enum Routed {
     Flash(protocol::Flash),
     /// the relay refused something (its code and message – the HUD's line)
     Refused { code: String, message: String },
+    /// #478 (proposal: a role without a cell yet keeps what plays; only no role goes to the idle scene)
     /// #478: this outlet moved – a role taken (the deck's own or the conductor's assign), or none: from now the cells of
     /// that role are its own (the snapshot that follows brings its cell); no role plays the idle scene (a black cell)
     Moved(Option<String>),

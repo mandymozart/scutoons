@@ -205,7 +205,8 @@ fn addressed(at: &Spot, a: &Addressed, out: &mut Vec<Problem>) {
     }
 }
 
-/// #478: a role's filter – a stage outlet's only (a device outlet is a bridge's, no deck takes it); every fact once, each a
+/// #478: a role's filter – a stage outlet's only (proposal, no owner word yet: a device outlet is a bridge's, no deck takes
+/// it, so it is no role); every fact once, each a
 /// place the one parser reads (`device:<word>`, `group:<word>`, RULES A14); a filter that names nothing lets nobody in.
 fn admits(outlet: &crate::document::Outlet, out: &mut Vec<Problem>) {
     let Some(a) = &outlet.admits else { return };

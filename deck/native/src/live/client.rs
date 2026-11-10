@@ -116,6 +116,7 @@ impl Side for Client {
                     self.status.lock().unwrap().problems_relay = Some(format!("RELAY {code}: {message}"));
                 }
                 // #478: a role taken (its own or the conductor's assign): that role's cells from now, kept for the next start
+                // (proposal: the conductor's assign is kept like the deck's own choice)
                 Routed::Moved(role) => {
                     tracing::info!("live: now in role '{}'", role.as_deref().unwrap_or("-"));
                     self.cfg.outlet = role.unwrap_or_default();

@@ -6,7 +6,8 @@
 //! sits where under which name, so it can say `role: name`.
 //!
 //! What the relay tests itself (the facts it can know without the server): `account: guest` (anyone with the code), the
-//! `device` a client says in its `hello`, the `group` it joined with. The account facts (member, creator, admin, live) need
+//! `device` a client says in its `hello`, the `group` it joined with (proposal: its QR's, a deck's configured outlet – the
+//! group it sits in is its role, so that cannot be the fact). The account facts (member, creator, admin, live) need
 //! the server's signed proof (#478 slice 4): they are kept and admit nobody yet; nor does "an approved deck" – the relay
 //! cannot tell a paired deck yet.
 use crate::session::{Client, Session};
@@ -58,7 +59,8 @@ pub fn refusal(s: &Session, id: &str, c: &Client, client: &str, group: &str, loc
     }
 }
 
-/// Who sits where (presence's `who`): every deck, and a phone that sits in a role.
+/// Who sits where (presence's `who`): every deck, and a phone that sits in a role (proposal: a phone in no role is left out –
+/// hundreds of them would be sent on every join).
 pub fn who(s: &Session) -> HashMap<String, Present> {
     let role_ids: Vec<&str> = s.roles().iter().map(|r| r.id.as_str()).collect();
     s.clients
