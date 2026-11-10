@@ -22,6 +22,7 @@ use stdClass;
  *   with the moods it has art for – `character:<id>`, `character:<id>.<persona>`, `character:<id>.<persona>.<look>`
  *   (address.rs `Target`, SHOW.md §8); addresses
  * - **locations**: the world map's places whose `toons` hold the toon – `location:<place>` (SHOW.md §8); references
+ * - **regions**: every region of the world map (one map for all toons) – `region:<id>`; references
  * - **items**: the catalog's items of the toon and the shared ones (no toon) – `item:<id>`; addresses
  * - **seasons**: the toon's seasons – `season:<number>`; references
  * - **chapters**: the toon's chapters – `chapter:<number>`, each followed by its **groups** – `chapter:<number>.<group>`; references
@@ -33,8 +34,8 @@ use stdClass;
  * schema's AddressKind only. A group's `name` is its label exactly as an event stores it; its reference word is a safe form
  * of the label (letters, digits, `_` and `-`; anything else becomes `-`, a second label with the same form gets `-2` …). A
  * variable's `name` is the variable as written in this toon (`coins`, `global.coins`, `toptoy.coins`).
- * Not in it yet: deck scenes and sets (no toon in the catalog), the map's regions. Removed characters and places
- * (tombstones) are left out.
+ * Not in it yet: deck scenes and sets (no toon in the catalog), XR targets (no catalog). Removed characters, places,
+ * regions and toons (tombstones) are left out.
  *
  * Each document's newest version counts (drafts included: the creator and the editor author against them); `origin.state`
  * says whether that version is the published one. Built on request and cached under the version ids it was built from
@@ -68,7 +69,7 @@ final class AddressBook
     {
         $rows = $this->db->all(
             "SELECT entity_key, MAX(id) AS latest, MAX(CASE WHEN status = 'published' THEN id END) AS published FROM entity_versions
-             WHERE locale IS NULL AND ((kind IN ('cast', 'chapter', 'season') AND toon = ?) OR kind IN ('toon', 'character', 'place'))
+             WHERE locale IS NULL AND ((kind IN ('cast', 'chapter', 'season') AND toon = ?) OR kind IN ('toon', 'character', 'place', 'region'))
              GROUP BY entity_key ORDER BY entity_key",
             [$toon]
         );
@@ -157,6 +158,12 @@ final class AddressBook
             if (!in_array($toon, is_array($doc->toons ?? null) ? $doc->toons : [], true)) continue;
             $id = substr($key, strlen('place:'));
             $entries[] = ['ref' => "location:$id", 'kind' => 'location', 'name' => $id, 'labels' => self::text($doc->name ?? null), 'origin' => ['key' => $key, 'state' => $state]];
+        }
+        // the world map's regions (one map for every toon; where migrate registers someone)
+        foreach ($docs as $key => ['doc' => $doc, 'state' => $state]) {
+            if (!str_starts_with($key, 'region:') || !$doc instanceof stdClass || ($doc->removed ?? false) === true) continue;
+            $id = substr($key, strlen('region:'));
+            $entries[] = ['ref' => $key, 'kind' => 'region', 'name' => $id, 'labels' => self::text($doc->name ?? null), 'origin' => ['key' => $key, 'state' => $state]];
         }
         foreach ($items as $row) {
             $item = CatalogStore::reader($row['data'], false);

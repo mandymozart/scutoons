@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 /// A payload whose shape is not fixed yet: any JSON object.
 pub type Loose = serde_json::Map<String, serde_json::Value>;
 
-/// What an entry is – the one thing a typeahead filters by: an asker takes the kinds it may pick (a VN character event: character, persona, look; unlockLocation: location; an item event: item; a jump: chapter, group, season, toon, product; setVariable: variable). A jump's kinds are its target types (`JumpToTargetType`, a group is a chapter target with its label): `season:<number>` (the toon's season), `toon:<id>` (a toon: its page, and in the creator's jump field the way into its own book), `product:<id>` (a shop product of the toon or a shared one); XR is not listed: there is no catalog of XR targets. character / persona / look are the levels of address.rs's `Target` (`character:<id>[.<persona>[.<look>]]`); location, item and chapter are referenced `<kind>:<id>`. Proposals the owner has not confirmed (#477): a chapter's group is referenced `chapter:<number>.<group>` (its `name` the label as an event stores it, the reference word a safe form of it) and a story variable `variable:<scope>.<name>` (scope = the owning toon or `global`; its `name` the variable as written in this toon).
+/// What an entry is – the one thing a typeahead filters by: an asker takes the kinds it may pick (a VN character event: character, persona, look; unlockLocation: location; migrate: region; an item event: item; a jump: chapter, group, season, toon, product; setVariable: variable). A jump's kinds are its target types (`JumpToTargetType`, a group is a chapter target with its label): `season:<number>` (the toon's season), `toon:<id>` (a toon: its page, and in the creator's jump field the way into its own book), `product:<id>` (a shop product of the toon or a shared one); XR is not listed: there is no catalog of XR targets. `region:<id>`: a region of the world map, where migrate registers someone. character / persona / look are the levels of address.rs's `Target` (`character:<id>[.<persona>[.<look>]]`); location, item and chapter are referenced `<kind>:<id>`. Proposals the owner has not confirmed (#477): a chapter's group is referenced `chapter:<number>.<group>` (its `name` the label as an event stores it, the reference word a safe form of it) and a story variable `variable:<scope>.<name>` (scope = the owning toon or `global`; its `name` the variable as written in this toon).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum AddressKind {
 	#[serde(rename = "character")]
@@ -31,6 +31,8 @@ pub enum AddressKind {
 	Toon,
 	#[serde(rename = "product")]
 	Product,
+	#[serde(rename = "region")]
+	Region,
 }
 
 impl AddressKind {
@@ -47,6 +49,7 @@ impl AddressKind {
 			AddressKind::Season => "season",
 			AddressKind::Toon => "toon",
 			AddressKind::Product => "product",
+			AddressKind::Region => "region",
 		}
 	}
 }
@@ -112,6 +115,6 @@ pub struct AddressBook {
 	pub version: String,
 	/// the toon's source language: the second step of the locale order
 	pub source: String,
-	/// parents before their children; characters, locations, items, seasons, chapters (each followed by its groups), products, toons (this one first), variables
+	/// parents before their children; characters, locations, regions, items, seasons, chapters (each followed by its groups), products, toons (this one first), variables
 	pub entries: Vec<AddressEntry>,
 }

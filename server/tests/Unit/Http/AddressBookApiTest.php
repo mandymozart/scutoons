@@ -62,6 +62,9 @@ final class AddressBookApiTest extends TestCase
         // locations: the places whose toons hold it
         self::assertSame(['location:dom'], array_column(array_filter($book['entries'], fn(array $e) => $e['kind'] === 'location'), 'ref'));
         self::assertSame(['key' => 'place:dom', 'state' => 'published'], $by['location:dom']['origin']);
+        // regions: the world map's, every toon's (migrate); the removed one is not in it
+        self::assertSame(['region:hills'], array_column(array_values(array_filter($book['entries'], fn(array $e) => $e['kind'] === 'region')), 'ref'));
+        self::assertSame(['hills', ['de' => 'Hügel'], ['key' => 'region:hills', 'state' => 'published']], [$by['region:hills']['name'], $by['region:hills']['labels'], $by['region:hills']['origin']]);
         // items: the toon's and the shared ones (the fixture catalog: catpope's and no toon's)
         self::assertSame(['de' => 'Kamera', 'en' => 'Camera'], $by['item:camera']['labels']);
         self::assertArrayHasKey('item:scutoons_tshirt', $by, 'a shared item');
@@ -163,6 +166,8 @@ final class AddressBookApiTest extends TestCase
         $this->store('place:dom', ['name' => ['de' => 'Dom'], 'toons' => ['catpope'], 'x' => 1, 'y' => 2]);
         $this->store('place:shop', ['name' => ['de' => 'Laden'], 'toons' => ['toptoy'], 'x' => 1, 'y' => 2]);
         $this->store('place:gone', ['removed' => true, 'name' => ['de' => 'Weg'], 'toons' => ['catpope'], 'x' => 1, 'y' => 2]);
+        $this->store('region:hills', ['name' => ['de' => 'Hügel'], 'cells' => [[0, 0]]]);
+        $this->store('region:sunk', ['removed' => true, 'name' => ['de' => 'Versunken'], 'cells' => []]);
         $this->store('season:catpope:2', ['number' => 2, 'title' => ['de' => 'Staffel Zwei'], 'sequence' => []], false);
         $this->store('season:catpope:1', ['number' => 1, 'title' => ['de' => 'Staffel Eins'], 'sequence' => []]);
         $this->store('chapter:catpope:10', ['number' => 10, 'title' => ['de' => 'Zehn'], 'groups' => []]);

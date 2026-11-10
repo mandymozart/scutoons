@@ -27,6 +27,7 @@ const BOOK: AddressBook = {
 		e('character:catpope.human.helmet', 'look', 'helmet', { de: 'Helm' }, 'character:catpope.human'),
 		e('character:boy', 'character', 'boy', { de: 'Junge' }, undefined, 'draft'),
 		e('location:dom', 'location', 'dom', { de: 'Dom', en: 'Cathedral' }),
+		e('region:hills', 'region', 'hills', { de: 'Hügel' }),
 		e('item:camera', 'item', 'camera', { de: 'Kamera', en: 'Camera' }),
 		e('season:1', 'season', '1', { de: 'Staffel Eins' }),
 		e('chapter:2', 'chapter', '2', { de: 'Zwei' }),
@@ -162,4 +163,11 @@ test('a chapter\'s groups by the chapter\'s name', () => {
 	assert.deepEqual(childNames(BOOK, 'chapter', '2', 'group'), ['intro', 'Das Ende.']);
 	assert.deepEqual(childNames(BOOK, 'chapter', '10', 'group'), []);
 	assert.deepEqual(childNames(BOOK, 'chapter', '99', 'group'), []);
+});
+
+test('migrate: a region of the world map, filled and shown like any other target', () => {
+	assert.deepEqual(refs(matchEntries(BOOK, TARGETS.region.kinds, 'hüg', 'de')), ['region:hills']);
+	assert.deepEqual(pickValues(at(BOOK, 'region:hills'), BOOK, TARGETS.region), { region: 'hills' });
+	assert.equal(currentEntry(BOOK, TARGETS.region, { region: 'hills', who: 'catpope' })?.ref, 'region:hills');
+	assert.equal(currentEntry(BOOK, TARGETS.region, { region: 'gone' }), null, 'a region no longer on the map: shown as stored');
 });

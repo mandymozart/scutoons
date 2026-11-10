@@ -40,6 +40,8 @@ export const TARGETS = {
 	cast: { kinds: ['character', 'persona', 'look'], fields: { character: 'character', persona: 'persona', look: 'look' } },
 	/** unlockLocation, setAvatarLocation – `params` */
 	location: { kinds: ['location'], fields: { location: 'location' } },
+	/** migrate – `params` (a region of the world map) */
+	region: { kinds: ['region'], fields: { region: 'region' } },
 	/** giveItem / takeItem, a choice's give / take */
 	item: { kinds: ['item'], fields: { item: 'item' } },
 	/** setVariable – `params` */
