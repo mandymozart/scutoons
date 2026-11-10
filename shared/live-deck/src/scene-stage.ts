@@ -3,7 +3,7 @@
 import { sniff, spaceModule, stageCanvas, type SpaceModule } from './space.ts';
 import { askPortraits, fetchChapter, fetchOutletAsks, fetchSet, fetchSlice, portraitsAt, type ChapterView, type OutletView, type SetView } from './stage-assets.ts';
 import { RelaySocket, type RelayCoreView } from './client.ts';
-import { deckKey, driveLink, type Paired } from './deck-key.ts';
+import { driveLink, ensureLink, type Paired } from './deck-key.ts';
 
 /** #463: the wasm-bindgen API of deck/space-web's `SceneView` */
 export interface SceneView extends SetView, ChapterView, OutletView {
@@ -34,6 +34,8 @@ export interface SceneOptions {
 	outlet?: { relay: string; name: string; locale: string };
 	/** #470: the build label the deck names when it asks to be paired */
 	build?: string;
+	/** #484: the viewer's sign-in, if any – a signed-in browser deck is its user and is not paired */
+	token?: () => string | null;
 }
 
 /** #463: a scene playing in `host` */
@@ -46,8 +48,10 @@ export class SceneStage {
 	/** #465: the outlet's relay socket (the client is the view's) */
 	private relay: RelaySocket | null = null;
 	private spaceModule: SpaceModule | null = null;
-	/** #470: the deck's pairing (an outlet's show media need its token) and the key it signs with */
-	private link: Paired | null = null;
+	/** #470: the deck's pairing (an outlet's show media need its token) and the key it signs with – #484: made only
+	 * when nobody is signed in (deck-key.ts `ensureLink`) */
+	link: Paired | null = null;
+	pairing = false;
 
 	private constructor(
 		private readonly o: SceneOptions,
@@ -78,8 +82,6 @@ export class SceneStage {
 		s.spaceModule = mod;
 		if (o.outlet && view.join_outlet(o.outlet.relay, o.outlet.name, o.outlet.locale, o.api)) {
 			(s.relay = new RelaySocket(view as unknown as RelayCoreView, {})).start();
-			const key = await deckKey();
-			if (key) s.link = { view: new mod.DeckLink(key.publicHex, o.build ?? ''), key: key.pair.privateKey, busy: false };
 		}
 		const room = view.room();
 		if (room) void fetchSet(s, mod.SpaceView.encoded_images, sniff, o, room).catch((e) => console.warn('scene: the set failed', e));
@@ -110,10 +112,13 @@ export class SceneStage {
 		if (!this.relay) return;
 		// what the outlet says (media.ready) goes out; what it asks for is fetched; a cell's set loads
 		this.relay.run();
-		const link = this.link;
+		// #484: signed in – the deck is its user; else its own key and the pairing (a sign-out mid-show lands here)
+		const user = this.o.token?.() ?? undefined;
+		if (!user && this.spaceModule) void ensureLink(this, this.spaceModule.DeckLink, this.o.build ?? '');
+		const link = user ? null : this.link;
 		if (link) void driveLink(link, this.o.api);
-		this.view.deck_link(link ? link.view.why(ms) : 'this browser cannot pair (no WebCrypto Ed25519)', link?.view.code() ?? '', location.origin);
-		fetchOutletAsks(this, { api: this.o.api, cdn: this.o.cdn, link: link?.view });
+		this.view.deck_link(user ? '' : link ? link.view.why(ms) : 'this browser cannot pair (no WebCrypto Ed25519)', link?.view.code() ?? '', location.origin);
+		fetchOutletAsks(this, { api: this.o.api, cdn: this.o.cdn, link: link?.view, user });
 		const set = this.view.set_request();
 		if (set && this.spaceModule) void fetchSet(this, this.spaceModule.SpaceView.encoded_images, sniff, this.o, set).catch((e) => console.warn('scene: the set failed', e));
 	};

@@ -75,17 +75,26 @@ export async function driveLink(link: Paired, api: string): Promise<void> {
 	}
 }
 
+/** #484: the deck's own key and its link, made once and only when nobody is signed in */
+export async function ensureLink(s: { link: Paired | null; pairing: boolean; stopped: boolean }, Link: new (publicHex: string, build: string) => DeckLinkView, build: string) {
+	if (s.pairing) return;
+	s.pairing = true;
+	const key = await deckKey();
+	if (key && !s.stopped) s.link = { view: new Link(key.publicHex, build), key: key.pair.privateKey, busy: false };
+}
+
 /** the outlet's side of a signed link (space-web SceneView) */
 export interface SignedView {
 	outlet_signed(key: string, status: number, body: string): void;
 }
 
 /** #470: a show medium's signed link (the outlet's `s:` ask), #475: a flashed show at its version (`sf:`) – the deck token goes to these two API routes and nowhere else */
-export async function fetchShowLink(host: { view: SignedView; stopped: boolean }, o: { api: string; link?: DeckLinkView }, key: string, url: string) {
-	const token = o.link?.token(performance.now());
+export async function fetchShowLink(host: { view: SignedView; stopped: boolean }, o: { api: string; link?: DeckLinkView; user?: string }, key: string, url: string) {
+	// #484: the sign-in of the viewer's user, else the paired deck's token
+	const token = o.user ?? o.link?.token(performance.now());
 	if (!url.startsWith(`${o.api}/decks/media?`) && !url.startsWith(`${o.api}/shows/`)) throw new Error('not the API');
-	if (!token) throw new Error('the deck has no token');
+	if (!token) throw new Error('the deck has no token and nobody is signed in');
 	const r = await fetch(url, { credentials: 'omit', headers: { Authorization: `Bearer ${token}` } });
-	if (r.status === 401) o.link?.forget(performance.now());
+	if (r.status === 401 && !o.user) o.link?.forget(performance.now());
 	if (!host.stopped) host.view.outlet_signed(key, r.status, await r.text());
 }

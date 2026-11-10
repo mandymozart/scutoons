@@ -17,9 +17,10 @@ use Scutoons\Tests\TestCase;
 use Slim\Psr7\Factory\ServerRequestFactory;
 
 /**
- * Show media for decks (#470, DecksController::media): only an approved deck's own token gets a show medium, as a short
- * signed link on the vault's pull zone; a sign-in or an AI connection (an admin's too) gets 403, no token / an unknown or
- * revoked deck 401; only `live/<toon>/…` paths – never another vault file (a score's PDF) and never `..`.
+ * Show media for decks (#470, #484, DecksController::media): a deck with an account gets a show medium, as a short
+ * signed link on the vault's pull zone – an approved deck's own token, or the sign-in of a browser deck's user; an AI
+ * connection (an admin's too) gets 403, no token / an unknown or revoked deck 401; only `live/<toon>/…` paths – never
+ * another vault file (a score's PDF) and never `..`.
  */
 final class DeckMediaApiTest extends TestCase
 {
@@ -57,14 +58,19 @@ final class DeckMediaApiTest extends TestCase
         self::assertSame(400, $this->request('GET', '/api/decks/media?path[]=live/catpope/x.ogg', $deck)->getStatusCode(), 'not a string');
     }
 
-    public function testNoSessionsNoAiConnectionsNoUnpairedDecks(): void
+    public function testASignInIsADeckOfItsUserNoAiConnectionsNoUnpairedDecks(): void
     {
         [$admin, $user] = $this->session([Roles::ADMIN], 'admin@scutoons.test');
-        $ai = ['Authorization' => 'Bearer ' . $this->get(ApiTokens::class)->create($user, 'a script')['token']];
-        foreach ([$admin, $ai] as $headers) {
+        // #484: a browser deck in a signed-in viewer is its user – a member without any role too
+        [$member] = $this->session([], 'member@scutoons.test');
+        foreach ([$admin, $member] as $headers) {
             $r = $this->request('GET', '/api/decks/media?path=live/catpope/x.ogg', $headers);
-            self::assertSame([403, 'deck_only'], [$r->getStatusCode(), self::json($r)['error'] ?? null], (string) $r->getBody());
+            self::assertSame(200, $r->getStatusCode(), (string) $r->getBody());
+            self::assertStringContainsString('live/catpope/x.ogg', (string) self::json($r)['url']);
         }
+        $ai = ['Authorization' => 'Bearer ' . $this->get(ApiTokens::class)->create($user, 'a script')['token']];
+        $r = $this->request('GET', '/api/decks/media?path=live/catpope/x.ogg', $ai);
+        self::assertSame([403, 'deck_only'], [$r->getStatusCode(), self::json($r)['error'] ?? null], (string) $r->getBody());
         self::assertSame(401, $this->request('GET', '/api/decks/media?path=live/catpope/x.ogg')->getStatusCode());
         self::assertSame(401, $this->request('GET', '/api/decks/media?path=live/catpope/x.ogg', ['Authorization' => 'Bearer scd_' . str_repeat('a', 40)])->getStatusCode());
         // revoked: 401 at once

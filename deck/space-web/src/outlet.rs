@@ -5,8 +5,9 @@
 //! the page's socket drives the relay client (client.ts `RelaySocket`), and the page fetches what the shelf asks for
 //! (a chapter, a slice, a preloaded medium) and hands it back decoded.
 //! Show media (#470, deck-outlet's `show`): a preload url `live/<toon>/<file>` is asked as `s:<id>` - the API's signed
-//! link, which the page asks for with the deck's token (link.rs) - and then fetched as `m:<id>` from that link, without
-//! the token. A deck that is not paired answers the conductor why (the code to pair with).
+//! link, which the page asks for with the deck's token (link.rs) or, in a signed-in viewer, with its user's sign-in
+//! (#484: that deck is its user and is not paired) - and then fetched as `m:<id>` from that link, without the token. A
+//! deck that is not paired and has no user answers the conductor why (the code to pair with).
 //! Pieces and a flash (#479, #475): a piece the deck does not carry is asked as `cr:<piece>` (deck-space `fetched.rs`:
 //! the API's scene-content); a flash is answered by deck-show's `flashed.rs` – the show at its version is asked as
 //! `sf:<kept name>` with the deck's token, its pieces through the same store, the `flash.report` goes to the conductor.

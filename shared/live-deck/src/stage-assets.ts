@@ -128,12 +128,12 @@ export interface OutletView extends SignedView {
 }
 
 /** what the outlet asked for: a chapter or a fetched piece (c:, cr:, API), a slice (p:, CDN), a medium (m:, URL), a signed link or a flashed show (s:, sf:, deck-key.ts) */
-export function fetchOutletAsks(host: { view: OutletView; stopped: boolean }, o: { api: string; cdn: string; link?: DeckLinkView }) {
+export function fetchOutletAsks(host: { view: OutletView; stopped: boolean }, o: { api: string; cdn: string; link?: DeckLinkView; user?: string }) {
 	const asked = host.view.outlet_asks();
 	for (let i = 0; i + 1 < asked.length; i += 2) void fetchOutletAsk(host, o, asked[i] as string, asked[i + 1] as string);
 }
 
-async function fetchOutletAsk(host: { view: OutletView; stopped: boolean }, o: { api: string; cdn: string; link?: DeckLinkView }, key: string, path: string) {
+async function fetchOutletAsk(host: { view: OutletView; stopped: boolean }, o: { api: string; cdn: string; link?: DeckLinkView; user?: string }, key: string, path: string) {
 	try {
 		if (key[0] === 's') return void (await fetchShowLink(host, o, key, path));
 		const r = await fetch(key[0] === 'c' ? o.api + path : key[0] === 'p' ? o.cdn + path : path, { credentials: 'omit' });
