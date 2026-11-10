@@ -92,11 +92,21 @@ The storyboard editor's handheld camera (#126, research/HANDHELD-CAMERA.md, buil
 | Part | Storyboard today | For the deck |
 |---|---|---|
 | Phone page `creator/src/routes/h/[code]`, `lib/handheld/phone-session.svelte.ts` (WebXR `immersive-ar`, else DeviceOrientation + drag) | built | the same page, as is (it runs on the phone, so it is no deck logic) |
-| Pairing `lib/editor/storyboard-pairing.ts`, `server/.../Storyboard/Pairings.php` (one-time code, offer / answer, `pose` unordered + `ctl` reliable) | built | the same calls |
+| Pairing `lib/editor/storyboard-pairing.ts`, `server/.../Storyboard/Pairings.php` (one-time code, offer / answer, `pose` unordered + `ctl` reliable) | built | the QR code and the one-time code stay; offer / answer and STUN go with the WebRTC road |
 | Pose maths `lib/editor/storyboard-handheld.ts` (origin / recenter, mapPose, smoother, sampleAt, bake; 204 lines, tested) | TypeScript | the deck needs it in Rust (no deck logic in TS): one crate, built to wasm for the creator, the TS file's tests as its vectors. The phone page keeps only `orientationQuat` and `dragStep` |
 | Take: `TakeSample {t, position, quaternion, fov}` (`@scutoons/content/storyboard`) | built | the same format: a storyboard take plays on a deck as a camera move (#213), a deck's camera performance is recorded as a take and opens in the storyboard editor |
-| Road for poses | WebRTC data channel, phone ↔ PC browser | the browser deck: the same. The native deck has no WebRTC: over the relay first (no new dependency; the added delay is not measured), a native data channel as a build feature if the delay shows |
+| Road for poses | WebRTC data channel, phone ↔ PC browser (same Wi-Fi, no TURN) | **the live road, for the deck and the storyboard alike (owner 2026-11-10):** QUIC first through the relay's WebTransport door, WebSocket last, with the built ladder (research/RELAY-TRANSPORTS.md). See "The road" below |
 | What the pose drives | the shot camera (`Stage3d.hold`) | the deck's camera in deck-space: new |
+
+**The road (owner 2026-11-10: real time is key, QUIC and the fallback rules apply).** The handheld leaves its own WebRTC connection and rides the live road like every other client (#438, research/RELAY-TRANSPORTS.md):
+
+- **Poses are datagrams:** unreliable, unordered, latest wins, as values already travel on QUIC. Each carries its time, so a late one is dropped.
+- **Record, recenter, state are on the reliable stream,** as cues are.
+- **The ladder as built:** QUIC gets 250 ms, then a WebSocket is dialled beside it and the winner says `hello`; QUIC dying mid-session resumes on the WebSocket as the same client (poses gone for about 3 s, no event lost); from the WebSocket it tries QUIC again after 60 s.
+- **On the WebSocket the session still works but is not real time** (measured for values at 1 % loss: p99 14 ms on QUIC against 33 ms on the WebSocket, with stalls of a quarter second for what must arrive). The phone and the deck show which rung they are on; the smoothing is raised there.
+- **What this settles:** a native deck needs no WebRTC, so the question "relay first or a WebRTC feature" is gone. The phone no longer has to be in the same Wi-Fi as the PC. The pairing's offer / answer and the STUN server go; the QR code and the one-time code stay and now name the session and the target on the relay.
+- **What it needs:** a relay with a certificate near the phone (a LAN relay under `*.lan.scutoons.com`, or the hosted one once its UDP endpoint exists, #441; until then the hosted relay is WebSocket only). The phone's browser must have WebTransport; one without goes to the WebSocket at once.
+- **Not measured:** the pose's delay phone → relay → deck against today's direct WebRTC, and WebTransport on the S22 inside an AR session. Both are one test before the WebRTC road is removed from the storyboard.
 
 Later: any source recorded and replayed as a take (a gamepad run, a fader ride).
 
@@ -126,6 +136,6 @@ Peripheral mappings are written ahead, one device can overwrite them for itself,
 4. **Camera tracking:** a helper beside the deck (recommended), and whether face or body comes first.
 5. **Order.** Recommended: MIDI notes in (#439) → gamepad and keys as sources (#228) → the phone surface over the relay → OSC in with learn → audio in → DMX in, Art-Net → camera → IMU, lidar.
 6. **Privacy** as proposed in #312: on the device, off by default, shown before it is enabled.
-7. **The road for poses to a native deck.** Recommended: over the relay first, a native data channel only if the delay shows in a test with the S22.
+7. **The road for poses: decided 2026-11-10,** the live road, QUIC first and WebSocket last (§6a). Open under it: whether the storyboard's WebRTC road is removed at once or after the S22 test (recommended: after the test).
 8. **The pose maths as one Rust crate** (wasm for the creator) instead of a second copy. Recommended: yes; it touches the storyboard editor, so not while that is being worked on.
 9. **Forced flash:** keep the cleared local layer as one backup on the deck, and a per-show lock. Recommended: both.
