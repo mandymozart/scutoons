@@ -78,6 +78,8 @@ pub enum Hit {
     Crumb(usize),
     /// a row of the document shown: the inspector shows it (Show)
     Row(usize),
+    /// #478: a role of the document shown (deck-show's `roles` order): the tree and its column mark it (Show)
+    Role(usize),
     Save,
     Load,
     /// the tree resolved to exact versions: the list of the devices to flash opens (#471)
@@ -108,6 +110,8 @@ pub struct Host {
     pub path: Vec<String>,
     /// the row the Show workspace inspects
     pub row: usize,
+    /// #478: the role selected (a stage outlet's id); none = the row is inspected
+    pub role: Option<String>,
     /// the last thing done, or why not
     pub status: String,
     pub two_d: bool,
@@ -168,7 +172,7 @@ impl Host {
                 })
                 .ok()
         });
-        Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, link, api }
+        Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, link, api }
     }
 
     /// the document at the end of the path (the top's when a step is missing)
@@ -248,8 +252,13 @@ impl Host {
             Hit::Crumb(d) => {
                 self.path.truncate(d);
                 self.row = 0;
+                self.role = None;
             }
-            Hit::Row(i) => self.row = i,
+            Hit::Row(i) => {
+                self.row = i;
+                self.role = None;
+            }
+            Hit::Role(i) => self.role = deck_show::roles::roles(self.shown(), None).get(i).map(|r| r.id.clone()),
             Hit::Save => self.save(),
             Hit::Load => self.load(),
             Hit::Flash => self.open_flash(),
@@ -298,6 +307,7 @@ impl Host {
         }
         self.path.push(seat.id);
         self.row = 0;
+        self.role = None;
     }
 
     /// Flash (#91 item 5, SHOW.md §4b): the tree from the top, every show its seats pin fetched once (the API, else the

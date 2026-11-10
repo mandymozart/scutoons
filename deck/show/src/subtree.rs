@@ -85,6 +85,9 @@ pub struct Subtree {
     reported: Option<SeatState>,
     /// #478: who sits where under which name (presence's `who`), by client id
     who: BTreeMap<String, protocol::Present>,
+    /// #478 slice 3: how many sit in each role, as the relay last counted them (its `roles` to the conductor); none = no
+    /// count yet
+    counts: Option<BTreeMap<String, u64>>,
 }
 
 fn word_of(w: &SeatWord) -> Says {
@@ -117,6 +120,7 @@ impl Subtree {
             clients: 0,
             reported: None,
             who: BTreeMap::new(),
+            counts: None,
         }
     }
 
@@ -145,6 +149,11 @@ impl Subtree {
             .collect();
         lines.sort();
         lines.into_iter().map(|(_, l)| l).collect()
+    }
+
+    /// #478 slice 3: how many sit in role `id`, as the relay last counted (none: no count yet, or not a role it knows)
+    pub fn here_count(&self, id: &str) -> Option<u64> {
+        self.counts.as_ref()?.get(id).copied()
     }
 
     pub fn conductor(&self) -> &Conductor {
@@ -472,6 +481,11 @@ impl Subtree {
                 self.reports.insert(e.from.clone(), r.clone());
                 self.conductor.note(ms, Logged::Reported { from: e.from.clone(), running: format!("{}@{}", r.running.id, r.running.version), refused: r.why.clone() });
                 vec![up_envelope(Message::FlashReport(r.clone()))]
+            }
+            // #478 slice 3: the relay's count per role, for the editor's tree and matrix
+            Message::Roles(r) if !from_parent => {
+                self.counts = Some(r.roles.iter().map(|x| (x.id.clone(), x.here.unwrap_or(0))).collect());
+                vec![]
             }
             Message::Presence(p) => {
                 self.ready = p.ready.len() as u64;

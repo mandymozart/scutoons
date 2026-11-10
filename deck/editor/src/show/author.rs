@@ -111,6 +111,19 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
         host.hits.push((r, if i == 0 { Hit::Crumb(depth) } else { Hit::Enter(i - 1) }));
     }
     y += tree.len() as f32 * t.size.tree_row + pad;
+    // #478: the roles this conductor gives out, with how many are in each (the running top only: a sub conductor's
+    // document shown here runs elsewhere)
+    let roles = deck_show::roles::roles(&show, host.path.is_empty().then_some(&host.sub));
+    d.text(pad, y + 4.0, small, "ROLES", t.color.muted);
+    y += t.size.tree_row;
+    let role_rows: Vec<controls::TreeRow> = roles
+        .iter()
+        .map(|r| controls::TreeRow { depth: 0, label: r.name.clone(), detail: deck_show::roles::here_text(r.here), icon: "node", open: None, selected: host.role.as_ref() == Some(&r.id) })
+        .collect();
+    for (i, r) in controls::tree(d, t, 0.0, y, l.left.w - 1.0, &role_rows, pointer).into_iter().enumerate() {
+        host.hits.push((r, Hit::Role(i)));
+    }
+    y += role_rows.len() as f32 * t.size.tree_row + pad;
     d.text(pad, y + 4.0, small, "ROWS", t.color.muted);
     y += t.size.tree_row;
     let rows: Vec<controls::TreeRow> = plan
@@ -171,17 +184,31 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
         d.text(cx, l.stage.y + l.stage.h - small * 2.0, small, &fit(d, note, small, l.stage.w - 2.0 * pad), t.color.muted);
     }
 
-    // the rows band: fires on, then each column's cell
+    // the rows band: fires on, then each column's cell; #478: a role's header says its name, how many are here and who
+    // may take it (deck-show's words), and selects the role
     let (bx, mut by) = (l.band.x + pad, l.band.y + pad);
     let first_w = (l.band.w * 0.24).clamp(140.0, 300.0);
     let cols = plan.columns.len().max(1) as f32;
     let col_w = ((l.band.w - first_w - 2.0 * pad) / cols).max(40.0);
+    let head_h = small * 2.9;
     d.text(bx + first_w * 0.4, by, small, "fires on", t.color.muted);
     for (c, col) in plan.columns.iter().enumerate() {
-        d.text(bx + first_w + c as f32 * col_w + 4.0, by, small, &fit(d, &col.id, small, col_w - 8.0), t.color.muted);
+        let x = bx + first_w + c as f32 * col_w;
+        let role = roles.iter().position(|r| r.id == col.id);
+        let here = role.map(|i| deck_show::roles::here_text(roles[i].here)).unwrap_or_default();
+        if role.is_some() && host.role.as_ref() == Some(&col.id) {
+            d.round_rect(x - 2.0, by - 3.0, col_w - 2.0, head_h, t.size.radius, t.color.selected);
+        }
+        let hw = d.advance(small) * here.chars().count() as f32;
+        d.text(x + 4.0, by, small, &fit(d, &col.name, small, col_w - hw - 14.0), t.color.text);
+        d.text(x + col_w - hw - 10.0, by, small, &here, t.color.muted);
+        d.text(x + 4.0, by + small * 1.3, small, &fit(d, col.filter.as_ref().unwrap_or(&col.detail), small, col_w - 8.0), t.color.muted);
+        if let Some(i) = role {
+            host.hits.push((Rect { x, y: by - 3.0, w: col_w - 2.0, h: head_h }, Hit::Role(i)));
+        }
     }
-    by += small * 1.8;
-    let rh = ((l.band.h - small * 2.6 - pad) / plan.rows.len().max(1) as f32).clamp(18.0, t.size.row + 4.0);
+    by += head_h + 2.0;
+    let rh = ((l.band.h - head_h - 2.0 - 2.0 * pad) / plan.rows.len().max(1) as f32).clamp(18.0, t.size.row);
     for (i, r) in plan.rows.iter().enumerate() {
         let y = by + i as f32 * rh;
         if y + rh > l.band.y + l.band.h {
