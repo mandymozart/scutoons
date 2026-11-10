@@ -12,7 +12,7 @@
 //!
 //! The editor runs one conductor, this deck's (the tree's top it was given). A sub conductor runs on its own deck with its
 //! own operator; entering it here shows its document, it does not run it.
-mod api;
+pub mod api;
 pub mod author;
 mod flash;
 mod link;

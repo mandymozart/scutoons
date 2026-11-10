@@ -23,6 +23,8 @@ pub enum Field {
     Knob(usize),
     /// an input of a node
     Param(usize, usize),
+    /// a far world node's address (by its graph node): a click opens the address book (#477)
+    Address(usize),
 }
 
 fn knobs(d: &mut DrawList, t: &Tokens, stage: &Stage, (area, y): (Rect, &mut f32), track: Option<&str>, hot: Option<Field>, out: &mut Vec<(Rect, Field)>) {
@@ -88,6 +90,12 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, stage: &Stage, sel: &Sel, 
             let id = stage.node_ids.get(*node).cloned().unwrap_or_default();
             controls::row(d, t, area, &mut y, "name", &id);
             controls::row(d, t, area, &mut y, "kind", stage.kind_name(*node));
+            if let Some((_, _, address)) = stage.far(*node) {
+                let top = y;
+                let room = ((area.w - (area.w * 0.42).min(96.0)) / d.advance(t.size.font)).max(0.0) as usize;
+                controls::row(d, t, area, &mut y, "address", &controls::fit(&address.to_string(), room));
+                out.push((Rect { x: area.x, y: top, w: area.w, h: y - top }, Field::Address(*node)));
+            }
             let params = stage.params(*node);
             if !params.is_empty() {
                 y += controls::section(d, t, area.x, y, area.w, "PARAMETERS", false);
