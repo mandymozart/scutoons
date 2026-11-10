@@ -49,7 +49,7 @@ pub fn view_switch(d: &mut DrawList, t: &Tokens, host: &mut Host, stage: Rect) {
 }
 
 /// one node of the overlay: a head (name, detail) and its lines (a dot before an input, after an output)
-fn node(d: &mut DrawList, t: &Tokens, x: f32, y: f32, w: f32, head: (&str, &str), lines: &[(String, bool)], far: bool) -> f32 {
+fn node(d: &mut DrawList, t: &Tokens, (x, y, w): (f32, f32, f32), head: (&str, &str), lines: &[(String, bool)], far: bool) -> f32 {
     let (font, small, pad) = (t.size.font, t.size.small, t.size.pad);
     let lh = font * 1.5;
     let h = lh + lines.len() as f32 * lh + pad;
@@ -132,8 +132,8 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
         d.text(sx, top, small, "THIS ROW SENDS", t.color.muted);
         let mut fy = top + small * 1.8;
         let events: Vec<(String, bool)> = show.rows.iter().filter_map(|r| r.fire.event.as_ref()).map(|e| (format!("event: {e}"), true)).collect();
-        fy += node(d, t, fx, fy, colw, ("reader", "phone"), &events, true) + pad;
-        node(d, t, fx, fy, colw, ("clock", "show"), &[("beat".into(), true), ("bar".into(), true)], true);
+        fy += node(d, t, (fx, fy, colw), ("reader", "phone"), &events, true) + pad;
+        node(d, t, (fx, fy, colw), ("clock", "show"), &[("beat".into(), true), ("bar".into(), true)], true);
         let insp = view::inspector(&show, &sel);
         let mut cy = top + small * 1.8;
         let row_cells = show.rows.get(host.row).map(|r| r.cells.clone()).unwrap_or_default();
@@ -148,12 +148,12 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
                 other => view::cell_text(other),
             };
             let head = if matches!(cell, deck_show::Cell::Keep) { format!("{} ↑", o.id) } else { o.id.clone() };
-            cy += node(d, t, cx, cy, colw * 1.6, (&head, &detail), &lines, false) + pad;
+            cy += node(d, t, (cx, cy, colw * 1.6), (&head, &detail), &lines, false) + pad;
         }
         let sends: Vec<(String, bool)> = insp.iter().find(|(h, _)| h == "this row sends").map(|(_, ls)| ls.iter().map(|(a, b)| (if a.is_empty() { b.clone() } else { format!("{a} · {b}") }, false)).collect()).unwrap_or_default();
         // a line without a target is the view's "nothing else": no send to count
         let count = insp.iter().find(|(h, _)| h == "this row sends").map_or(0, |(_, ls)| ls.iter().filter(|(a, _)| !a.is_empty()).count());
-        node(d, t, sx, top + small * 1.8, (l.stage.x + l.stage.w - sx - pad).max(80.0), ("on fire", &format!("{count} sends")), &sends, false);
+        node(d, t, (sx, top + small * 1.8, (l.stage.x + l.stage.w - sx - pad).max(80.0)), ("on fire", &format!("{count} sends")), &sends, false);
         let note = "Grey boxes are far away: only events reach another subtree.";
         d.text(cx, l.stage.y + l.stage.h - small * 2.0, small, &fit(d, note, small, l.stage.w - 2.0 * pad), t.color.muted);
     }
