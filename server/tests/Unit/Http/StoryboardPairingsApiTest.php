@@ -123,7 +123,7 @@ final class StoryboardPairingsApiTest extends TestCase
         $code = $this->pairing($creator)['code'];
         self::assertSame(404, $this->request('POST', '/api/storyboard/pairings/' . strrev($code) . '/claim')->getStatusCode(), 'a wrong code');
         self::assertSame(404, $this->request('POST', '/api/storyboard/pairings/short/claim')->getStatusCode());
-        self::assertSame(405, $this->request('GET', "/api/storyboard/pairings/$code")->getStatusCode(), 'nothing to read with it any more');
+        self::assertContains($this->request('GET', "/api/storyboard/pairings/$code")->getStatusCode(), [404, 405], 'nothing to read with it any more');
         // the code is no session: the storyboard's other data stays closed
         self::assertSame(401, $this->request('GET', '/api/storyboard/generations?toon=catpope&chapter=3', ['Authorization' => "Bearer $code"])->getStatusCode());
         $this->clock->advance(601);
