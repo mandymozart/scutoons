@@ -4,7 +4,7 @@ Status 2026-11-10: research, nothing built (#482); owned by the XR session (bran
 
 Owner 2026-11-10 ([xr], decisions/deck.md, five lines): XR targets are built in and the jump type XR stays; XR items are offered; OSCT's design (data, table structure) is taken over fairly directly, its methods and not its content; XR is a mode of its own in the browser, not a deck; an XR scene can appear in a story, be opened directly from outside (the vinyl record), activate objects in a room, or sit on an image a deck shows on a screen; VR scenes are walkable deck scenes, later, out of scope. Open: the unit that groups XR content (toon, chapter, or an order of its own by format: book, show, space).
 
-Sources: a read-only survey of both repositories on 2026-11-10; OSCT is `C:\Development\osct\osct`. File references are in the survey's report on #482.
+Sources: a read-only survey of both repositories on 2026-11-10; OSCT is `C:\Development\osct\osct`. File references are in the survey's report on #482. The shared core the owner postponed is researched in XR-SHARED-CORE.md; its §5 (advice for the copy) is applied before slice 2 and 3.
 
 ## 1 · XR in SCUTOONS today
 
