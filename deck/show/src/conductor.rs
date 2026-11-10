@@ -5,7 +5,6 @@
 //! cell**, so a deck that reboots mid-show is right at once from the snapshot. GO and the hand are always allowed.
 use crate::document::{Cell, How, Moment, OutletKind, Show, Values, Word};
 use deck_core::tempo::Quantize;
-use deck_space::rig::address::Place;
 use protocol::{CellChange, CellMode, Device, DeviceMsg, Envelope, Layer, LayerSrc, Message, PieceSrc, Role, To};
 use serde_json::json;
 use std::collections::{BTreeMap, VecDeque};
@@ -62,6 +61,8 @@ pub enum Out {
     Send(Box<Envelope>),
     /// to a seat's child conductor; the relay tree carries it later (#90)
     Seat { seat: String, word: Word, says: Says, at: Option<i64> },
+    /// #91: a fired row's address, down this subtree (the subtree asks it and logs the answers)
+    Address(crate::document::Addressed),
 }
 
 impl Out {
@@ -69,7 +70,7 @@ impl Out {
     pub fn envelope(&self) -> Option<&Envelope> {
         match self {
             Out::Send(e) => Some(e),
-            Out::Seat { .. } => None,
+            Out::Seat { .. } | Out::Address(_) => None,
         }
     }
 }
@@ -411,8 +412,7 @@ impl Conductor {
     /// `kind:id > action`, to what plays that piece on this conductor's stage. Finding nobody stays silent and is logged;
     /// nothing goes up (owner 2026-11-09).
     pub fn address(&mut self, address: &str, action: &str, now: Now) -> Vec<Out> {
-        let place = Place::parse(address).ok().map(|p| p.to_string());
-        let reached = self.stage.values().filter(|s| matches!(&s.playing, Playing::Piece { piece, .. } if Some(piece) == place.as_ref())).count();
+        let reached = self.stage.values().filter(|s| matches!(&s.playing, Playing::Piece { piece, .. } if crate::address::picks_up(address, piece))).count();
         self.record(now.ms, Logged::Addressed { address: address.to_string(), action: action.to_string(), reached });
         if reached == 0 {
             return vec![];
@@ -443,6 +443,7 @@ impl Conductor {
             self.apply(Launch { row: id, off_row: false, at, ms: now.ms }, column, cell, &mut out);
         }
         self.update_mirrors(at, &mut out);
+        out.extend(row.addresses.iter().cloned().map(Out::Address));
         out
     }
 

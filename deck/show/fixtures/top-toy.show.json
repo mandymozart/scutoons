@@ -39,7 +39,11 @@
       "cells": {
         "left": { "mode": "play", "piece": "character:yellowmouse", "values": { "mood": "shy" } },
         "foyer": { "mode": "go", "row": "storm" }
-      }
+      },
+      "addresses": [
+        { "address": "character:yellowmouse", "action": "dance:samba", "where": { "group": "left" } },
+        { "address": "location:*", "action": "close_doors" }
+      ]
     },
     {
       "id": "finale",

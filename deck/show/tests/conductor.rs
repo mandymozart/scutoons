@@ -253,3 +253,11 @@ fn the_tree_is_one_mechanism_a_child_takes_its_parent_like_a_reader() {
     assert_eq!(foyer.current(), None);
     assert_eq!(foyer.go(Now::at(1)).len(), 1);
 }
+
+#[test]
+fn a_fired_row_sends_its_addresses() {
+    let mut c = opened();
+    let out = c.fire("yellowmouse-enters", Now::at(1_000));
+    let sent: Vec<String> = out.iter().filter_map(|o| if let Out::Address(a) = o { Some(format!("{} > {}", a.address, a.action)) } else { None }).collect();
+    assert_eq!(sent, ["character:yellowmouse > dance:samba", "location:* > close_doors"]);
+}

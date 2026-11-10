@@ -3,7 +3,7 @@
 //! words and every decision about a cell's state live here once (RULES A1, A6); the editor lays them out and hands the
 //! operator's presses back to the [`Subtree`].
 use crate::conductor::{Entry, Logged, OnStage, Origin, Playing, Suggestion};
-use crate::document::{Cell, Fire, How, Moment, OutletKind, Show, Values, Word};
+use crate::document::{Addressed, Cell, Fire, How, Moment, OutletKind, Show, Values, Word};
 use crate::subtree::Subtree;
 use protocol::DeviceMsg;
 
@@ -94,6 +94,18 @@ pub fn values_text(values: &Values) -> String {
 
 fn device_text(m: &DeviceMsg) -> String {
     m.kind().to_string()
+}
+
+/// `character:yellowmouse > dance:samba`, `person:* > haptic:pulse where group left · device browser` (SHOW.md §8, §9)
+pub fn address_text(a: &Addressed) -> String {
+    let mut s = format!("{} > {}", a.address, a.action);
+    if let Some(f) = &a.filter {
+        let parts: Vec<String> = [("group", &f.group), ("device", &f.device)].iter().filter_map(|(k, v)| v.as_ref().map(|v| format!("{k} {v}"))).collect();
+        if !parts.is_empty() {
+            s = format!("{s} where {}", parts.join(" · "));
+        }
+    }
+    s
 }
 
 /// A cell's words (on its column; `device` = a device outlet).
@@ -374,6 +386,9 @@ pub fn inspector(show: &Show, row: &str) -> Vec<Section> {
             }
         }
     }
+    for a in &r.addresses {
+        sends.push(("address".to_string(), address_text(a)));
+    }
     let mut out = vec![(format!("row {} · {}", i + 1, r.id), fire), ("cells of this row".to_string(), cells)];
     out.push((
         "this row sends".to_string(),
@@ -441,6 +456,25 @@ mod tests {
         let lines = log(sub.log(), 10);
         assert_eq!(lines[0], ("00:00:03".to_string(), "roar: suggestion gone".to_string()));
         assert_eq!(lines[1].1, "suggests roar");
+    }
+
+    #[test]
+    fn a_rows_addresses_show_in_the_inspector_and_go_down_when_it_fires() {
+        let doc = include_str!("../fixtures/top-toy.show.json");
+        let show = parse(doc).unwrap();
+        let s = inspector(&show, "yellowmouse-enters");
+        let sends = &s.iter().find(|(h, _)| h == "this row sends").unwrap().1;
+        assert_eq!(sends, &[("address".to_string(), "character:yellowmouse > dance:samba where group left".to_string()), ("address".to_string(), "location:* > close_doors".to_string())]);
+        let mut sub = Subtree::new(show, ClockChoice::Parent);
+        let out = sub.fire("yellowmouse-enters", 1000);
+        let asked: Vec<&protocol::Address> = out.iter().filter_map(|e| if let protocol::Message::Address(a) = &e.message { Some(a) } else { None }).collect();
+        assert_eq!(asked.len(), 2);
+        assert_eq!(asked[0].r#where.as_ref().and_then(|w| w.group.as_deref()), Some("left"));
+        sub.on_wire(&protocol::Envelope::new("c4", protocol::Message::AddressAnswer(protocol::AddressAnswer { id: asked[0].id.clone(), reached: 1, passed: 1, answered: 1 })), 1200);
+        sub.tick(1000 + crate::subtree::ANSWER_MS);
+        let lines: Vec<String> = log(sub.log(), 5).into_iter().map(|(_, l)| l).collect();
+        assert!(lines.contains(&"character:yellowmouse > dance:samba: reached 1 · passed 1 · answered 1".to_string()), "{lines:?}");
+        assert!(lines.contains(&"location:* > close_doors: nobody".to_string()), "{lines:?}");
     }
 
     #[test]

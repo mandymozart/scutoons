@@ -162,17 +162,18 @@ impl Subtree {
         Some(crate::conductor::Clock { bpm: t.bpm, beat, per_bar: t.per_bar.max(1) as u32 })
     }
 
-    fn wire(&self, outs: Vec<Out>) -> Vec<Envelope> {
+    fn wire(&mut self, outs: Vec<Out>, ms: u64) -> Vec<Envelope> {
         outs.into_iter()
-            .map(|o| match o {
-                Out::Send(e) => *e,
+            .flat_map(|o| match o {
+                Out::Send(e) => vec![*e],
+                Out::Address(a) => self.address(&a.address, &a.action, a.filter, ms),
                 Out::Seat { seat, word, says, at } => {
                     let (says, row) = match says {
                         Says::Go(r) => (protocol::Says::Go, Some(r)),
                         Says::Free => (protocol::Says::Free, None),
                     };
                     let lock = self.locks.contains(&seat).then_some(true);
-                    message(Message::Seat(SeatWord { seat, word, says, row, lock }), at)
+                    vec![message(Message::Seat(SeatWord { seat, word, says, row, lock }), at)]
                 }
             })
             .collect()
@@ -204,8 +205,8 @@ impl Subtree {
         }
     }
 
-    fn done(&mut self, outs: Vec<Out>) -> Vec<Envelope> {
-        let mut out = self.wire(outs);
+    fn done(&mut self, outs: Vec<Out>, ms: u64) -> Vec<Envelope> {
+        let mut out = self.wire(outs, ms);
         self.report(&mut out);
         out
     }
@@ -215,13 +216,13 @@ impl Subtree {
     pub fn fire(&mut self, row: &str, ms: u64) -> Vec<Envelope> {
         let now = self.now(ms);
         let outs = self.conductor.fire(row, now);
-        self.done(outs)
+        self.done(outs, ms)
     }
 
     pub fn go(&mut self, ms: u64) -> Vec<Envelope> {
         let now = self.now(ms);
         let outs = self.conductor.go(now);
-        self.done(outs)
+        self.done(outs, ms)
     }
 
     /// Drop: the held suggestion goes, nothing fires (#91).
@@ -233,7 +234,7 @@ impl Subtree {
     pub fn launch_cell(&mut self, row: &str, column: &str, ms: u64) -> Vec<Envelope> {
         let now = self.now(ms);
         let outs = self.conductor.launch_cell(row, column, now);
-        self.done(outs)
+        self.done(outs, ms)
     }
 
     pub fn tick(&mut self, ms: u64) -> Vec<Envelope> {
@@ -245,7 +246,7 @@ impl Subtree {
                 self.conductor.note(ms, Logged::Reached { address: a.address, action: a.action, reached: a.reached, passed: a.passed, answered: a.answered });
             }
         }
-        self.done(outs)
+        self.done(outs, ms)
     }
 
     /// This subtree's own word. Refused under a lock from above (and logged); the local GO is not touched by that.
@@ -255,7 +256,7 @@ impl Subtree {
             return Err(vec![]);
         }
         self.own_word = word;
-        Ok(self.done(vec![]))
+        Ok(self.done(vec![], ms))
     }
 
     /// Lock a seat below: its word from here on is the one in force there. Only a seat that may be locked (RULES: across members
@@ -405,7 +406,7 @@ impl Subtree {
                     }
                     self.reported = None;
                 }
-                self.done(vec![])
+                self.done(vec![], ms)
             }
             _ => vec![],
         }
@@ -421,7 +422,7 @@ impl Subtree {
                 return vec![];
             }
             let outs = self.conductor.on_message(whole, now);
-            return self.done(outs);
+            return self.done(outs, ms);
         }
         if let Some((seat, _)) = from.split_once('/') {
             // an event from a child: only what this parent uses of its face
@@ -432,7 +433,7 @@ impl Subtree {
             }
         }
         let outs = self.conductor.on_message(whole, now);
-        let mut out = self.done(outs);
+        let mut out = self.done(outs, ms);
         // on up, if this show shows it: nothing travels unless asked (owner 2026-11-02 [events])
         if self.linked == Some(true) && id.is_some_and(|id| self.conductor.show().face.events.contains(&id)) {
             out.push(up_envelope(whole.clone()));
@@ -450,12 +451,12 @@ impl Subtree {
             self.conductor.note(ms, if self.locked { Logged::Locked } else { Logged::Unlocked });
         }
         if w.says == protocol::Says::None {
-            return self.done(vec![]);
+            return self.done(vec![], ms);
         }
         let now = self.now(ms);
         let word = self.word().unwrap_or(Word::Free);
         let outs = self.conductor.on_parent_at(word, &word_of(w), at, now);
-        self.done(outs)
+        self.done(outs, ms)
     }
 
     fn on_parent_tempo(&mut self, t: &Tempo, ms: u64) -> Vec<Envelope> {
@@ -479,7 +480,7 @@ impl Subtree {
             return vec![];
         }
         let outs = self.conductor.take_cell(outlet, c.cell.clone(), at, ms);
-        self.done(outs)
+        self.done(outs, ms)
     }
 
     fn on_answer(&mut self, a: &AddressAnswer) -> Vec<Envelope> {

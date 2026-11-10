@@ -110,6 +110,21 @@ pub struct Row {
     /// by outlet or seat id. You write only what changes: no cell = `keep`
     #[serde(default)]
     pub cells: BTreeMap<String, Cell>,
+    /// #91: what the row sends to addresses when it fires (SHOW.md §8, §9): down this subtree, whoever plays it picks up;
+    /// finding nobody stays silent and is logged
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub addresses: Vec<Addressed>,
+}
+
+/// One address a row sends to: `character:yellowmouse > dance:samba`, filtered (for the workshop by group and device).
+/// The address and the action are read by the one parser (deck-space `rig/address.rs` `Target`, RULES A14).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Addressed {
+    pub address: String,
+    pub action: String,
+    #[serde(rename = "where", default, skip_serializing_if = "Option::is_none")]
+    pub filter: Option<protocol::AddressFilter>,
 }
 
 /// A row's firing (SHOW.md §7). GO and the hand always work, whatever stands here.

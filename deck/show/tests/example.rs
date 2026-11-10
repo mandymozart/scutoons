@@ -123,3 +123,30 @@ fn a_seat_cycle_is_refused() {
     let problems = tree_problems(root, child);
     assert!(problems.iter().any(|p| matches!(p, Problem::Cycle { path } if path == &["top-toy", "foyer-loop", "top-toy"])), "{problems:?}");
 }
+
+#[test]
+fn a_rows_addresses_are_read_by_the_one_parser() {
+    let (mut doc, _) = example();
+    doc["rows"][1]["addresses"] = json!([
+        { "address": "yellowmouse", "action": "dance" },
+        { "address": "location:nave.west", "action": "close_doors" },
+        { "address": "character:catpope", "action": "dance samba" },
+        { "address": "character:*", "action": "wave", "where": { "group": "" } }
+    ]);
+    let found = problems(doc);
+    let at_dialog: Vec<String> = found.iter().filter(|p| p.spot() == deck_show::validate::Spot::Row("dialog".into())).map(ToString::to_string).collect();
+    assert_eq!(at_dialog.len(), 4, "{found:?}");
+    assert!(at_dialog[0].contains("not an address"), "{at_dialog:?}");
+    assert!(at_dialog[1].contains("characters only"));
+    assert!(at_dialog[2].starts_with("row 'dialog': character:catpope: "));
+    assert!(at_dialog[3].contains("an empty filter"));
+}
+
+#[test]
+fn a_problem_says_where_it_is() {
+    let (mut doc, _) = example();
+    doc["rows"][0]["cells"]["foyer"] = json!({ "mode": "go", "row": "nowhere" });
+    let found = problems(doc);
+    assert_eq!(found[0].spot(), deck_show::validate::Spot::Cell { row: "opening".into(), column: "foyer".into() });
+    assert_eq!(found[0].to_string(), "row 'opening', 'foyer': no row in the seat's `uses` 'nowhere'");
+}
