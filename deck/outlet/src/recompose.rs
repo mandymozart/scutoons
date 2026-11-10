@@ -39,12 +39,14 @@ pub struct Recompose {
     waiting_for_media: bool,
     size: (u32, u32),
     space_sent: Option<SpaceTarget>,
+    /// the plane goes to a new stage: compose the cell on again
+    again: bool,
 }
 
 impl Recompose {
     /// for an outlet reading cells in `locale`, its plane `size` pixels
     pub fn new(locale: &str, size: (u32, u32)) -> Recompose {
-        Recompose { locale: locale.to_owned(), cell: false, planned: Plan::default(), slice: None, scroll: 0, next_step: None, waiting_for_media: false, size, space_sent: None }
+        Recompose { locale: locale.to_owned(), cell: false, planned: Plan::default(), slice: None, scroll: 0, next_step: None, waiting_for_media: false, size, space_sent: None, again: false }
     }
 
     /// how long to wait for the next input at `now`: until the scroll is due, at most `POLL`
@@ -52,11 +54,18 @@ impl Recompose {
         self.next_step.map_or(POLL, |t| t.saturating_sub(now).min(POLL))
     }
 
+    /// The deck loaded a scene in place (#473): its stage has no plane yet and its space no target – the cell on is composed
+    /// again on the next turn and its space target said again.
+    pub fn again(&mut self) {
+        self.again = true;
+        self.space_sent = None;
+    }
+
     /// One turn: `input` (None: the wait ran out), the plane's `size` now and `now`; `carried` says which modules this
     /// build carries (the plan marks the others as problems). Some = compose now, with `plan()`, `slice()`, `scroll()`
     /// and `size()` as the composer reads them.
     pub fn step(&mut self, input: Option<Input>, size: (u32, u32), now: Duration, carried: impl Fn(&str) -> bool) -> Option<Compose> {
-        let (mut fresh, mut step) = (false, false);
+        let (mut fresh, mut step) = (std::mem::take(&mut self.again), false);
         match input {
             Some(Input::Cell(c)) => {
                 self.planned = plan(&c, &self.locale, carried);
@@ -252,5 +261,20 @@ mod tests {
         assert_eq!(m.composed(T0, 1.0, false, &[], &None).space, None, "no target: the node keeps what it has");
         assert_eq!(m.composed(T0, 1.0, false, &[], &b).space, b, "…and hears the same target again after a cell without one");
         assert_eq!(m.composed(T0, 2.0, true, &[], &None).cell, "1 LAYERS + SPACE 2 MS");
+    }
+
+    #[test]
+    fn a_scene_loaded_in_place_gets_the_cell_and_its_space_target_again() {
+        let mut m = machine();
+        m.again();
+        assert_eq!(turn(&mut m, None, T0), None, "no cell on: nothing to compose again");
+        turn(&mut m, Some(text()), T0);
+        let a = Some(SpaceTarget { set: None, spot: Some("nave".into()) });
+        assert_eq!(m.composed(T0, 1.0, true, &[], &a).space, a);
+        assert_eq!(turn(&mut m, None, T0), None);
+        m.again();
+        assert_eq!(turn(&mut m, None, T0), Some(Compose { fresh: true }));
+        assert_eq!(m.composed(T0, 1.0, true, &[], &a).space, a, "the new space hears the target");
+        assert_eq!(turn(&mut m, None, T0), None, "once");
     }
 }

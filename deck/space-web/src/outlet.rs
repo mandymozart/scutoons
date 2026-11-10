@@ -22,7 +22,7 @@ use deck_outlet::text::Dialog;
 use deck_space::chapter::Chapter;
 use deck_space::relay::{Client, Options, Out};
 use image::RgbaImage;
-use protocol::{MediaItem, MediaReady, Message, Role, SpotMode};
+use protocol::{Cell, MediaItem, MediaReady, Message, Role, SpotMode};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::mpsc::{SyncSender, TrySendError};
@@ -179,6 +179,8 @@ pub struct Outlet {
     said: Vec<String>,
     /// the space node's new target (the scene view applies it)
     pub space: Option<SpaceTarget>,
+    /// #473: the cells for the deck's piece side (deck-space piece.rs `Side`; the scene view runs it)
+    pub pieces: Vec<Cell>,
     /// the API base: show media's signed links (#470)
     api: String,
     /// why the deck has no token ("" = it has one - the page says, from DeckLink)
@@ -215,6 +217,7 @@ impl Outlet {
             status,
             said: Vec::new(),
             space: None,
+            pieces: Vec::new(),
             api: api.trim_end_matches('/').to_owned(),
             unpaired: "the deck is not paired yet".into(),
         })
@@ -242,12 +245,17 @@ impl Outlet {
                 Routed::Joined(_) => {}
                 Routed::Compose(i) => self.inputs.push(i),
                 Routed::Preload(p) => self.preload.job(p, now),
-                // a cell's piece (#91) loads its scene on the native deck (live/piece.rs); the browser has no scene switch
-                // yet and plays the composed cell only
-                Routed::Piece(_) => {}
+                Routed::Piece(c) => self.pieces.push(c),
                 Routed::Refused { code, message } => self.status.problems_relay = Some(format!("RELAY {code}: {message}")),
             }
         }
+    }
+
+    /// The deck loaded a scene in place (#473): the planes go to its stage, the cell on is composed again for it.
+    pub fn rewire(&mut self, frames: SyncSender<Frame>) {
+        self.frames = frames;
+        self.pending = None;
+        self.recompose.again();
     }
 
     /// what the page should fetch: key, path or URL, …

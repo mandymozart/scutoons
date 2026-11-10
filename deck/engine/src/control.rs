@@ -841,6 +841,16 @@ impl Controls {
         true
     }
 
+    /// One value by its slot (`node.port`) as that input's base: a rig's replay, a show piece's glide (deck-space's
+    /// piece.rs). False: the scene has no such node or input.
+    pub fn set_path(&mut self, graph: &Graph, path: &str, value: f32) -> bool {
+        let at = path.rsplit_once('.').and_then(|(node, port)| {
+            let i = graph.nodes.iter().position(|n| n.id == node)?;
+            Some((i, graph.nodes[i].kind.input(port)?))
+        });
+        at.is_some_and(|(node, port)| self.set_base(node, port, value))
+    }
+
     /// Send a value onto `node`'s input `port` (`Control::send`). False: no such input.
     pub fn send(&mut self, node: usize, port: usize, value: f32, amount: f32) -> bool {
         if !self.table.send(node, port, value, amount) {

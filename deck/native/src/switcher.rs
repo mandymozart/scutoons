@@ -132,62 +132,8 @@ pub fn deck_toml() -> PathBuf {
     std::env::var_os("DECK_TOML").map(PathBuf::from).unwrap_or_else(|| crate::live::config::DECK_TOML.into())
 }
 
-/// seconds the picture takes to fade to black and back (the audio fades out as long, backend.rs)
-pub const FADE_OUT: f32 = 0.25;
-pub const FADE_IN: f32 = 0.4;
-
-/// What the transition asks of the stage on a step.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Step {
-    None,
-    /// black now: build the new show (once)
-    Load,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Phase {
-    Out,
-    Hold,
-    In,
-}
-
-/// A scene change through black (#250): the picture fades out, the stage loads the new show behind the black, it fades
-/// in once the show has what it waits for. `veil` is the black's opacity.
-#[derive(Debug, Clone)]
-pub struct Transition {
-    pub to: String,
-    pub veil: f32,
-    phase: Phase,
-}
-
-impl Transition {
-    pub fn new(to: &str) -> Transition {
-        Transition { to: to.to_owned(), veil: 0.0, phase: Phase::Out }
-    }
-
-    /// One frame of `dt` seconds; `ready` = the loaded show waits for nothing. Returns true when the veil is gone.
-    pub fn step(&mut self, dt: f32, ready: bool) -> (Step, bool) {
-        match self.phase {
-            Phase::Out => {
-                self.veil = (self.veil + dt / FADE_OUT).min(1.0);
-                if self.veil >= 1.0 {
-                    self.phase = Phase::Hold;
-                    return (Step::Load, false);
-                }
-            }
-            Phase::Hold => {
-                if ready {
-                    self.phase = Phase::In;
-                }
-            }
-            Phase::In => {
-                self.veil = (self.veil - dt / FADE_IN).max(0.0);
-                return (Step::None, self.veil <= 0.0);
-            }
-        }
-        (Step::None, false)
-    }
-}
+// the change through black itself is the core's (#473: every deck fades the same way)
+pub use deck_space::veil::{Step, Transition, FADE_IN, FADE_OUT};
 
 #[cfg(test)]
 mod tests {
@@ -241,27 +187,6 @@ mod tests {
         assert!(lines[cursor].starts_with('>') && lines[cursor].contains("MODULE-ANALOG"));
         assert!(s.lines(Some("module-analog")).0.iter().any(|l| l.contains("*MODULE-ANALOG"))); // the playing scene is starred (cathedral has scrolled out of the 9 visible lines)
         assert!(lines.len() <= 13 && lines.iter().all(|l| l.chars().count() <= WIDTH));
-    }
-
-    #[test]
-    fn a_transition_goes_black_loads_once_then_clears() {
-        let mut t = Transition::new("madness");
-        let mut loads = 0;
-        let mut frames = 0;
-        let mut peak = 0.0f32;
-        loop {
-            // not ready for 10 frames after the load
-            let (step, done) = t.step(1.0 / 60.0, loads > 0 && frames > 40);
-            loads += (step == Step::Load) as u32;
-            peak = peak.max(t.veil);
-            frames += 1;
-            assert!(frames < 600, "never ends");
-            if done {
-                break;
-            }
-        }
-        assert_eq!((loads, peak), (1, 1.0));
-        assert_eq!(t.veil, 0.0);
     }
 
     #[test]

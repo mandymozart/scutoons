@@ -286,6 +286,68 @@ impl Pieces {
     }
 }
 
+/// What a deck's scene switch gets for a cell (the change through black is veil.rs).
+#[derive(Debug, Clone, PartialEq)]
+pub enum Switch {
+    /// this scene (TOML): the piece beside the deck's outlet (`beside`)
+    Scene(String),
+    /// the deck's own scene again: no piece plays
+    Deck,
+}
+
+/// What a cell did on this deck: the HUD's line, the reasons, the switch it asks for (none: what plays stays, or glides).
+#[derive(Debug, Clone, PartialEq)]
+pub struct Said {
+    pub did: String,
+    pub problems: Vec<String>,
+    pub switch: Option<Switch>,
+}
+
+/// A deck's piece side (#91, #473): the outlet's cells in (deck-outlet's `Routed::Piece`), what the deck does out. Every
+/// deck runs this one; a platform brings three things – `find` (a piece's TOML beyond the core rigs), its scene switch
+/// (`Said::switch`), and a value into the playing scene (`values_at`, each frame). It outlives the scene loads it asks for.
+#[derive(Debug, Clone)]
+pub struct Side {
+    pieces: Pieces,
+    /// the deck's own scene (TOML): its outlet and screen stay beside a piece
+    deck: String,
+}
+
+impl Side {
+    pub fn new(deck: &str) -> Side {
+        Side { pieces: Pieces::new(), deck: deck.to_owned() }
+    }
+
+    pub fn pieces(&self) -> &Pieces {
+        &self.pieces
+    }
+
+    /// A cell the outlet routed, at `now` (ms, the deck's clock).
+    pub fn cell(&mut self, cell: &Cell, now: f64, find: impl FnOnce(&Place) -> Option<Found>) -> Said {
+        let Answer { what, mut problems } = self.pieces.cell(cell, now, find);
+        // the line the cell logged first (`Pieces::cell`): what it did; its reasons follow it
+        let did = self.pieces.log.iter().rev().nth(problems.len()).cloned().unwrap_or_default();
+        let switch = match what {
+            What::Load { scene, values, .. } => match beside(&scene, &self.deck, &values) {
+                Ok(text) => Some(Switch::Scene(text)),
+                Err(e) => {
+                    self.pieces.note(e.clone());
+                    problems.push(e);
+                    None
+                }
+            },
+            What::Black { .. } => Some(Switch::Deck),
+            What::Glide { .. } | What::Same | What::Kept => None,
+        };
+        Said { did, problems, switch }
+    }
+
+    /// the gliding values at `now`: the deck sets each into its playing scene, every frame (`Pieces::values_at`)
+    pub fn values_at(&mut self, now: f64) -> Vec<(String, f32)> {
+        self.pieces.values_at(now)
+    }
+}
+
 /// a piece → how it plays: a scene from the adapter; a character or an item from the deck's core rigs, else the adapter;
 /// a rig from the adapter. Err = why it cannot play here.
 fn load(place: &Place, mood: Option<&str>, find: impl FnOnce(&Place) -> Option<Found>, problems: &mut Vec<String>) -> Result<Played, String> {
@@ -560,5 +622,30 @@ to = "out.in"
             log -= 1;
         }
         assert_eq!(d.log().count(), LOG_CAP, "the log is bounded");
+    }
+
+    #[test]
+    fn the_side_says_what_the_deck_switches_to() {
+        let mut d = Side::new(crate::scene::OUTLET_SCENE);
+        let a = d.cell(&pc("scene:nave", r#"{"light":0.2}"#), 0.0, nave);
+        assert_eq!((a.did.as_str(), a.problems.len()), ("load scene:nave (1 values), crossfade 500 ms", 0));
+        let Some(Switch::Scene(text)) = &a.switch else { panic!("{a:?}") };
+        let s = Scene::parse(text).unwrap();
+        assert!(s.nodes.iter().any(|n| n.kind == "outlet") && s.nodes.iter().any(|n| n.id == "light"), "the piece beside the outlet");
+        // the same piece glides: no switch, the values each frame
+        let b = d.cell(&pc("scene:nave", r#"{"light":0.6}"#), 1000.0, |_| None);
+        assert_eq!((b.did.as_str(), b.switch), ("glide scene:nave: 1 values over 500 ms", None));
+        assert_eq!(d.values_at(1500.0), vec![("light.gain".to_string(), 0.6)]);
+        // not on this deck: what plays stays, the line is what it did and the reason is beside it
+        let c = d.cell(&pc("scene:crypt", "{}"), 2000.0, |_| None);
+        assert_eq!((c.did.as_str(), c.switch), ("kept scene:nave", None));
+        assert_eq!(c.problems, ["scene:crypt is not on this deck"]);
+        // black: the deck's own scene again
+        assert_eq!(d.cell(&cell(r#"{"mode":"black"}"#), 3000.0, nave).switch, Some(Switch::Deck));
+        assert_eq!(d.pieces().piece(), None);
+        // a deck whose scene has no outlet cannot play a piece beside it: said, nothing switches
+        let mut bare = Side::new(NAVE);
+        let e = bare.cell(&pc("scene:nave", "{}"), 0.0, nave);
+        assert_eq!((e.switch, e.problems), (None, vec!["the deck's scene has no outlet".to_string()]));
     }
 }

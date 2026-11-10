@@ -10,6 +10,7 @@ export interface SceneView extends SetView, ChapterView, OutletView {
 	join_outlet(relay: string, outlet: string, locale: string, api: string): boolean;
 	deck_link(why: string, code: string, app: string): void;
 	set_request(): string;
+	reloaded(): number;
 	resize(w: number, h: number): void;
 	frame(dt: number, time: number): void;
 	room(): string;
@@ -101,6 +102,8 @@ export class SceneStage {
 		const now = ms / 1000;
 		this.view.frame(this.last < 0 ? 0 : now - this.last, now);
 		this.last = now;
+		const at = this.view.reloaded();
+		if (at >= 0) this.view.chapters().forEach((path, i) => void fetchChapter(this, this.o.api + path, at + i));
 		askPortraits(this, this.o.cdn, (c) => portraitsAt(this.o.api, this.portraitsByChar, c));
 		const asked = this.view.slice_requests();
 		for (let i = 0; i + 1 < asked.length; i += 2) void fetchSlice(this, this.o.cdn + (asked[i + 1] as string), asked[i] as number);
