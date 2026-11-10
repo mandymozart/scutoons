@@ -1,0 +1,11 @@
+{
+  "id": "foyer-loop",
+  "version": 2,
+  "outlets": [{ "id": "wall" }],
+  "rows": [
+    { "id": "idle", "cells": { "wall": { "mode": "play", "piece": "scene:fireflies" } } },
+    { "id": "storm", "cells": { "wall": { "mode": "play", "piece": "scene:storm", "values": { "rain": 1 } } } },
+    { "id": "backstage", "cells": { "wall": { "mode": "black" } } }
+  ],
+  "face": { "rows": ["idle", "storm"], "events": ["door"], "outlets": ["wall"] }
+}

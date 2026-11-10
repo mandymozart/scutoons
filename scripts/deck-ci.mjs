@@ -83,6 +83,8 @@ const steps = [
 				['🧊 space-web wasm32', 'cargo', ['build', '--profile', 'wasm-web', '--target', 'wasm32-unknown-unknown', '-p', 'space-web'], `${root}/deck`],
 				// #378: the Live outlet's logic (plan, composer, crossfade, text layout, routing) builds for the browser – a build check, not a feature
 				['🎭 deck-outlet wasm32', 'cargo', ['build', '--target', 'wasm32-unknown-unknown', '-p', 'deck-outlet'], `${root}/deck`],
+				// #89: the show core builds for the browser – a build check
+				['🎼 deck-show wasm32', 'cargo', ['build', '--target', 'wasm32-unknown-unknown', '-p', 'deck-show'], `${root}/deck`],
 				// #374: the deck's UI model (the HUD's lines, the bar's items, the F1 mode) builds for the browser – a build check
 				['🪟 deck-ui wasm32', 'cargo', ['build', '--target', 'wasm32-unknown-unknown', '-p', 'deck-ui'], `${root}/deck`],
 				// live-deck's in-process relay tests spawn deck/target/debug/relay.exe: a stale binary fails them after a relay change (the P8 merge)

@@ -1,4 +1,4 @@
-Status 2026-11-09: concept, under discussion (#462), nothing built. Rows, cells, the conductor tree, workspaces, triggers, addressing, filters. §2 is the owner's word; the rest is a proposal until the owner says otherwise. Would change LIVE.md B.2 and B.5.5 (§10).
+Status 2026-11-10: concept (#462); the show document and a bare conductor exist in `deck/show` (#89), the relay tree, saving and the workspaces do not (#90, #91). Rows, cells, the conductor tree, workspaces, triggers, addressing, filters. §2 is the owner's word; the rest is a proposal until the owner says otherwise. Would change LIVE.md B.2 and B.5.5 (§10).
 
 # SHOW — how a live show is organized
 
@@ -185,6 +185,7 @@ Largest new piece of work: the relay tree. Everything else in the table reuses w
 
 ## 11. What exists in the code (read 2026-11-09)
 
+- `deck/show` (#89): the show document, validation, the tree's lock, the bare conductor. A wire cell carries a piece as a layer (`LayerSrc` `piece`); a deck does not play it yet (a HUD reason). A phone reader cannot reach a conductor over the wire yet: no `reader` role, `story` is conductor-only.
 - `cell` is per outlet and full (`deck/protocol/schema.json`), compiled in `deck/outlet/src/plan.rs`. No layer kind for a scene or rig. The `outlet` node sits inside a scene (`scenes/outlet.toml`).
 - Video: a layer exists, the native outlet shows its still (#179). `video` in the catalog is `F_PLANNED`, not a graph kind.
 - Poll: `vote.*` messages exist. No poll layer, and no vote handling on the native outlet.

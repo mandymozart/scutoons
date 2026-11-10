@@ -369,7 +369,7 @@
       "additionalProperties": false
     },
     "LayerSrc": {
-      "description": "What a layer shows (B.5.2 ToonSrc / LiveSrc, resolved). From the toon (the public library): scroll, slice, panel, surtitles. Live: video / image / model3d (a preloaded medium by id), set (a set's spot in a mode, #193), text, colour, camera.",
+      "description": "What a layer shows (B.5.2 ToonSrc / LiveSrc, resolved). From the toon (the public library): scroll, slice, panel, surtitles. Live: video / image / model3d (a preloaded medium by id), set (a set's spot in a mode, #193), text, colour, camera. A show's cell: piece (#89).",
       "oneOf": [
         { "type": "object", "properties": { "kind": { "const": "scroll" }, "p": { "$ref": "#/definitions/ToonChapter" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "slice" }, "p": { "$ref": "#/definitions/ToonSlice" } }, "required": ["kind", "p"] },
@@ -381,8 +381,19 @@
         { "type": "object", "properties": { "kind": { "const": "set" }, "p": { "$ref": "#/definitions/SetSrc" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "text" }, "p": { "$ref": "#/definitions/TextSrc" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "colour" }, "p": { "$ref": "#/definitions/ColourSrc" } }, "required": ["kind", "p"] },
-        { "type": "object", "properties": { "kind": { "const": "camera" }, "p": { "$ref": "#/definitions/CameraSrc" } }, "required": ["kind", "p"] }
+        { "type": "object", "properties": { "kind": { "const": "camera" }, "p": { "$ref": "#/definitions/CameraSrc" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "piece" }, "p": { "$ref": "#/definitions/PieceSrc" } }, "required": ["kind", "p"] }
       ]
+    },
+    "PieceSrc": {
+      "description": "SHOW.md §5, a cell is a piece plus values: the piece (a place, `scene:nave`, `rig:storm`, `character:yellowmouse`) and all its values, resolved by the conductor along the path really taken (keep, values). The deck compares: same piece, the values glide; other piece, load and crossfade.",
+      "type": "object",
+      "properties": {
+        "piece": { "type": "string" },
+        "values": { "$ref": "#/definitions/Loose" }
+      },
+      "required": ["piece"],
+      "additionalProperties": false
     },
     "ToonChapter": {
       "description": "scroll: the chapter's slices running one after the other.",

@@ -60,6 +60,14 @@ impl Place {
         Place { kind: kind.to_string(), id: id.to_string() }
     }
 
+    /// `<kind>:<id>`, the place alone (a show's piece, what an event is addressed to; SHOW.md §8, kind and id)
+    pub fn parse(s: &str) -> Result<Place, String> {
+        let Some((kind, id)) = s.split_once(':') else { return Err(format!("'{s}' is not a place (<kind>:<id>)")) };
+        word(kind, "a place's kind")?;
+        word(id, "a place's id")?;
+        Ok(Place::new(kind, id))
+    }
+
     /// a rig's subject as its place: `character.catpope` / `character.catpope.pope` → `character:catpope`, `item.x` → `item:x`
     pub fn of_subject(subject: &str) -> Option<Place> {
         let mut it = subject.split('.');
@@ -145,10 +153,7 @@ impl Address {
         let last = segments.pop().expect("split gives one");
         let mut places = Vec::new();
         for p in segments {
-            let Some((kind, id)) = p.split_once(':') else { return Err(format!("'{p}' is not a place (<kind>:<id>)")) };
-            word(kind, "a place's kind")?;
-            word(id, "a place's id")?;
-            places.push(Place::new(kind, id));
+            places.push(Place::parse(p)?);
         }
         if absolute && places.is_empty() {
             return Err("an absolute address names at least one place before its leaf (/deck:<id>/…)".into());
@@ -299,6 +304,14 @@ mod tests {
 
     fn port(track: Option<&str>, node: &str, port: &str) -> Leaf {
         Leaf::Port { track: track.map(str::to_string), node: node.to_string(), port: port.to_string() }
+    }
+
+    #[test]
+    fn a_place_alone_is_kind_and_id() {
+        assert_eq!(Place::parse("character:yellowmouse"), Ok(Place::new("character", "yellowmouse")));
+        assert!(Place::parse("yellowmouse").is_err());
+        assert!(Place::parse("scene:").is_err());
+        assert!(Place::parse("a:b/c").is_err());
     }
 
     /// every path written today is an address unchanged

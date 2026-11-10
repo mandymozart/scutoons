@@ -314,7 +314,7 @@ export interface Transition {
 	ms: number;
 }
 
-/** What a layer shows (B.5.2 ToonSrc / LiveSrc, resolved). From the toon (the public library): scroll, slice, panel, surtitles. Live: video / image / model3d (a preloaded medium by id), set (a set's spot in a mode, #193), text, colour, camera. */
+/** What a layer shows (B.5.2 ToonSrc / LiveSrc, resolved). From the toon (the public library): scroll, slice, panel, surtitles. Live: video / image / model3d (a preloaded medium by id), set (a set's spot in a mode, #193), text, colour, camera. A show's cell: piece (#89). */
 export type LayerSrc =
 	| { kind: 'scroll'; p: ToonChapter }
 	| { kind: 'slice'; p: ToonSlice }
@@ -326,7 +326,14 @@ export type LayerSrc =
 	| { kind: 'set'; p: SetSrc }
 	| { kind: 'text'; p: TextSrc }
 	| { kind: 'colour'; p: ColourSrc }
-	| { kind: 'camera'; p: CameraSrc };
+	| { kind: 'camera'; p: CameraSrc }
+	| { kind: 'piece'; p: PieceSrc };
+
+/** SHOW.md §5, a cell is a piece plus values: the piece (a place, `scene:nave`, `rig:storm`, `character:yellowmouse`) and all its values, resolved by the conductor along the path really taken (keep, values). The deck compares: same piece, the values glide; other piece, load and crossfade. */
+export interface PieceSrc {
+	piece: string;
+	values?: Loose;
+}
 
 /** scroll: the chapter's slices running one after the other. */
 export interface ToonChapter {
