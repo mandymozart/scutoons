@@ -21,14 +21,18 @@
 //!   A QUIC link that dies falls to the WebSocket with a resume; a WebSocket link tries QUIC again after `STEP_UP_MS`.
 //!   On QUIC `deck.values` go as datagrams (they may be lost; every `SETTLE_MS` the full values go on the stream, and
 //!   what arrives is applied key by key, only when not older), everything else on the stream.
+//! - **The handheld camera** (#469, research/HANDHELD-CAMERA.md): a phone (`handheld`) sends its pose (`hand_pose`: latest
+//!   wins, a datagram on QUIC, the socket on the WebSocket), state, Record and Recenter; the editor (the session's
+//!   conductor) its view. The receiver drops a pose that is malformed or not newer than that phone's last. `rung` says
+//!   which socket a page is on.
 //!
 //! `script` runs scripted socket events through a `Client` – the outs every adapter's test compares against
 //! (shared/live-deck/test/fixtures/relay.json, the headless scenario `relay_join`).
 use crate::rig::Stream;
 use protocol::lines::{line, Lines, DATAGRAM_MAX};
 use protocol::{
-    DeckEvent, DeckEvents, DeckGraph, DeckListen, DeckMidi, DeckQuality, DeckSynced, DeckValues, Envelope, Hello, LinkQuality, Message, Ping, Resume, Role, SceneSync, Snapshot,
-    SyncState, Tempo, To, VoteCast, VoteClose, VoteHold, VoteOpen,
+    DeckEvent, DeckEvents, DeckGraph, DeckListen, DeckMidi, DeckQuality, DeckSynced, DeckValues, Empty, Envelope, HandPose, HandRecord, HandState, HandView, Hello, LinkQuality,
+    Message, Ping, Resume, Role, SceneSync, Snapshot, SyncState, Tempo, To, VoteCast, VoteClose, VoteHold, VoteOpen,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
@@ -248,6 +252,9 @@ pub enum Out {
     Listen { client: String, addresses: Vec<String> },
     /// #442: events a deck sends for this deck's far world nodes
     Events { client: String, events: Vec<DeckEvent> },
+    /// #469: what a handheld session hears – the editor (a conductor) a phone's pose (a late or malformed one never comes
+    /// out), state, Record and Recenter; a phone the editor's view
+    Hand(Envelope),
     /// every envelope as it came (`Options::messages`)
     Message(Envelope),
 }
@@ -442,6 +449,10 @@ pub struct Client {
     // #442: the far addresses this deck asks for, and when it last asked
     listen: Vec<String>,
     listen_sent: f64,
+    // #469: a phone's state and the editor's view, sent again after every welcome; each phone's newest pose heard (its `t`)
+    hand_state: Option<HandState>,
+    hand_view: Option<HandView>,
+    poses: HashMap<String, f64>,
 }
 
 impl Client {
@@ -480,6 +491,9 @@ impl Client {
             door,
             listen: Vec::new(),
             listen_sent: f64::NEG_INFINITY,
+            hand_state: None,
+            hand_view: None,
+            poses: HashMap::new(),
         })
     }
 
@@ -529,6 +543,11 @@ impl Client {
         self.door.as_ref().is_some_and(|q| q.on_quic)
     }
 
+    /// #469: the rung of the ladder the joined link is on, as a page shows it (`QUIC`, `WebSocket`); None while not joined
+    pub fn rung(&self) -> Option<&'static str> {
+        self.joined.then(|| if self.on_quic() { "QUIC" } else { "WebSocket" })
+    }
+
     /// The status as one HUD line: `JOINING CATH` · `DECK c3 @ CATH` · `OFFLINE … - JOINING AGAIN` · `NO RELAY … - AGAIN IN 2 S`
     /// · `RELAY token: …`
     pub fn line(&self) -> String {
@@ -544,6 +563,7 @@ impl Client {
                     Role::Conductor => format!("CONDUCTOR {c} @ {code}{via}"),
                     Role::Output => format!("OUTPUT {c} OF {} @ {code}{via}", self.o.group.as_deref().unwrap_or("")),
                     Role::Audience => format!("AUDIENCE {c} @ {code}{via}"),
+                    Role::Handheld => format!("HANDHELD {c} @ {code}{via}"),
                     _ => format!("DECK {c} @ {code}{via}"),
                 }
             }
@@ -761,13 +781,14 @@ impl Client {
         }
     }
 
-    /// #438: a QUIC datagram – only `deck.values`, and it does not move the resume's `seq` (it can overtake the stream)
+    /// #438: a QUIC datagram – only `deck.values` and #469 `hand.pose`, and it does not move the resume's `seq` (it can
+    /// overtake the stream)
     pub fn quic_datagram(&mut self, now: f64, bytes: &[u8]) {
         if !self.on_quic() {
             return;
         }
         let Ok(e) = serde_json::from_slice::<Envelope>(bytes) else { return };
-        if matches!(e.message, Message::DeckValues(_)) {
+        if matches!(e.message, Message::DeckValues(_) | Message::HandPose(_)) {
             self.envelope(now, e, false);
         }
     }
@@ -901,8 +922,9 @@ impl Client {
         }
         *self.counts.entry(e.message.kind()).or_default() += 1;
         let on_quic = self.on_quic();
+        let values = matches!(e.message, Message::DeckValues(_));
         // values on the stream say which datagram they follow: the door keeps what a newer one has said since
-        if let Some(q) = self.door.as_mut().filter(|_| on_quic && matches!(e.message, Message::DeckValues(_))) {
+        if let Some(q) = self.door.as_mut().filter(|_| on_quic && values) {
             q.up_seq += u64::from(may_lose);
             e.seq = q.up_seq;
         }
@@ -911,7 +933,8 @@ impl Client {
         if !on_quic {
             self.out.push(Out::Send(text));
         } else if may_lose && text.len() <= DATAGRAM_MAX {
-            if let Some(q) = self.door.as_mut() {
+            // a pose says all of itself: only values need the settle
+            if let Some(q) = self.door.as_mut().filter(|_| values) {
                 q.dirty = true;
             }
             self.out.push(Out::Datagram(text));
@@ -1069,6 +1092,48 @@ impl Client {
         self.send(Message::DeckSynced(r));
     }
 
+    /// #469: a phone's pose at `t` (its clock, ms) – only while joined (a stale pose is worth nothing); on QUIC a datagram
+    pub fn hand_pose(&mut self, t: f64, p: &[f64], q: &[f64]) -> bool {
+        self.joined && self.send_on(Message::HandPose(HandPose { t, p: p.to_vec(), q: q.to_vec() }), true)
+    }
+
+    /// #469: what the phone tracks – kept, sent again after every welcome (`ua` trimmed to 300 characters)
+    pub fn hand_state(&mut self, mut s: HandState) {
+        s.ua = s.ua.map(|ua| ua.chars().take(300).collect());
+        self.hand_state = Some(s.clone());
+        if self.joined {
+            self.send(Message::HandState(s));
+        }
+    }
+
+    /// #469: the phone's Record (`on`) or Stop – only while joined
+    pub fn hand_record(&mut self, on: bool) -> bool {
+        self.joined && self.send(Message::HandRecord(HandRecord { on }))
+    }
+
+    /// #469: the phone's Recenter – only while joined
+    pub fn hand_recenter(&mut self) -> bool {
+        self.joined && self.send(Message::HandRecenter(Empty {}))
+    }
+
+    /// #469: the editor's view for its phones – kept, sent again after every welcome
+    pub fn hand_view(&mut self, v: HandView) {
+        self.hand_view = Some(v.clone());
+        if self.joined {
+            self.send(Message::HandView(v));
+        }
+    }
+
+    /// #469: a phone's pose as it came – false when it is malformed or not newer than that phone's last (a late one)
+    fn fresh_pose(&mut self, from: &str, p: &HandPose) -> bool {
+        let finite = |v: &[f64], n: usize| v.len() == n && v.iter().all(|x| x.is_finite());
+        if !(p.t.is_finite() && finite(&p.p, 3) && finite(&p.q, 4)) || self.poses.get(from).is_some_and(|t| p.t <= *t) {
+            return false;
+        }
+        self.poses.insert(from.to_string(), p.t);
+        true
+    }
+
     /// #231: a conductor opens a vote
     pub fn vote_open(&mut self, p: VoteOpen) -> bool {
         self.send(Message::VoteOpen(p))
@@ -1130,6 +1195,12 @@ impl Client {
                     self.out.push(Out::Deck(In::Values { client: from, values: v.values, mood: v.mood }));
                 }
             }
+            Message::HandPose(p) => {
+                if self.fresh_pose(&from, &p) {
+                    self.out.push(Out::Hand(e));
+                }
+            }
+            Message::HandState(_) | Message::HandRecord(_) | Message::HandRecenter(_) | Message::HandView(_) => self.out.push(Out::Hand(e)),
             Message::DeckListen(l) => self.out.push(Out::Listen { client: from, addresses: l.addresses }),
             Message::DeckEvents(ev) => self.out.push(Out::Events { client: from, events: ev.events }),
             Message::DeckSynced(synced) if conductor => self.out.push(Out::Deck(In::Synced { client: from, synced })),
@@ -1195,6 +1266,13 @@ impl Client {
                 let all = DeckValues { values: self.sent.clone().into_iter().collect(), mood: self.mood.clone() };
                 self.send(Message::DeckValues(all));
             }
+        }
+        // #469: a handheld's state, the editor's view: the other end may have joined since
+        if let Some(s) = self.hand_state.clone() {
+            self.send(Message::HandState(s));
+        }
+        if let Some(v) = self.hand_view.clone() {
+            self.send(Message::HandView(v));
         }
         // the relay forgot this deck's quality and answer when it left; the decks it asked for far events forget it too
         self.quality_due = self.quality.is_some();
@@ -1308,6 +1386,18 @@ pub fn step(c: &mut Client, now: f64, s: &Step) -> Result<(), String> {
         "vote_hold" => {
             c.vote_hold(w.as_bool().unwrap_or(false));
         }
+        "hand_pose" => {
+            let n = |k: &str| -> Vec<f64> { w[k].as_array().map(|a| a.iter().filter_map(serde_json::Value::as_f64).collect()).unwrap_or_default() };
+            c.hand_pose(w["t"].as_f64().unwrap_or(0.0), &n("p"), &n("q"));
+        }
+        "hand_state" => c.hand_state(from_value(w).map_err(|e| e.to_string())?),
+        "hand_record" => {
+            c.hand_record(w.as_bool().unwrap_or(false));
+        }
+        "hand_recenter" => {
+            c.hand_recenter();
+        }
+        "hand_view" => c.hand_view(from_value(w).map_err(|e| e.to_string())?),
         "rejoin" => c.rejoin(),
         "stop" => c.stop(),
         "tick" => c.tick(now),
@@ -1600,6 +1690,47 @@ mod tests {
                         st(65.9, "tick", Value::Null),
                         st(66.0, "quic_stream", welcome("c8", json!({}))),
                         st(67.0, "stop", Value::Null),
+                    ],
+                ),
+            ),
+            (
+                // #469: the phone on QUIC – its state again after the welcome, poses as datagrams, Record on the stream,
+                // the editor's view heard
+                "handheld",
+                mk(
+                    json!({ "relay": "wss://relay.test:7070/live/H7K2Q9?quic=udp.test:443", "role": "handheld", "token": "t-hand" }),
+                    false,
+                    vec![
+                        st(0.01, "hand_state", json!({ "mode": "none", "tracking": true, "ua": "S22" })),
+                        st(0.02, "hand_pose", json!({ "t": 1.0, "p": [0.0, 1.5, 0.0], "q": [0.0, 0.0, 0.0, 1.0] })),
+                        st(0.05, "quic_open", Value::Null),
+                        st(0.06, "quic_stream", welcome("c2", json!({}))),
+                        st(0.1, "hand_state", json!({ "mode": "xr", "tracking": true, "ua": "S22" })),
+                        st(0.2, "hand_pose", json!({ "t": 200.0, "p": [0.1, 1.5, 0.0], "q": [0.0, 0.0, 0.0, 1.0] })),
+                        st(0.3, "hand_record", json!(true)),
+                        st(0.35, "hand_recenter", Value::Null),
+                        st(0.4, "quic_stream", json!({ "from": "c1", "kind": "hand.view", "p": { "shot": "sb-1", "on": true, "recording": true, "seconds": 0.0 } })),
+                        st(1.0, "stop", Value::Null),
+                    ],
+                ),
+            ),
+            (
+                // #469: the editor on the WebSocket – a phone's poses, a late one dropped, its controls; the view kept for a rejoin
+                "hand-editor",
+                mk(
+                    json!({ "relay": "ws://relay.test:7070/live/H7K2Q9", "role": "conductor", "token": "t-editor" }),
+                    false,
+                    vec![
+                        st(0.01, "hand_view", json!({ "shot": "sb-1", "on": true, "recording": false, "seconds": 0.0 })),
+                        st(0.05, "open", Value::Null),
+                        st(0.1, "message", welcome("c1", json!({}))),
+                        st(0.2, "message", json!({ "from": "c2", "kind": "hand.state", "p": { "mode": "xr", "tracking": true } })),
+                        st(0.3, "message", json!({ "from": "c2", "kind": "hand.pose", "p": { "t": 300.0, "p": [0.0, 1.5, 0.0], "q": [0.0, 0.0, 0.0, 1.0] } })),
+                        st(0.31, "message", json!({ "from": "c2", "kind": "hand.pose", "p": { "t": 280.0, "p": [9.0, 9.0, 9.0], "q": [0.0, 0.0, 0.0, 1.0] } })),
+                        st(0.32, "message", json!({ "from": "c2", "kind": "hand.pose", "p": { "t": 316.0, "p": [0.0, 1.6], "q": [0.0, 0.0, 0.0, 1.0] } })),
+                        st(0.4, "message", json!({ "from": "c2", "kind": "hand.record", "p": { "on": true } })),
+                        st(0.5, "hand_view", json!({ "shot": "sb-1", "on": true, "recording": true, "seconds": 0.0 })),
+                        st(1.0, "stop", Value::Null),
                     ],
                 ),
             ),
@@ -1930,6 +2061,40 @@ mod tests {
         let outs = c.take();
         assert!(outs.contains(&Out::CloseQuic {}));
         assert_eq!(c.status().state, State::Offline);
+    }
+
+    #[test]
+    fn a_handheld_sends_poses_as_datagrams_and_controls_on_the_stream() {
+        let t = turns("handheld");
+        let grams: Vec<Value> = all_outs(&t).into_iter().filter_map(|o| if let Out::Datagram(d) = o { serde_json::from_str(d).ok() } else { None }).collect();
+        assert_eq!(grams.len(), 1, "the pose before the welcome is dropped, the one after is a datagram: {grams:?}");
+        assert_eq!((grams[0]["kind"].as_str(), grams[0]["p"]["t"].as_f64(), grams[0]["seq"].as_u64()), (Some("hand.pose"), Some(200.0), Some(0)), "not numbered like values");
+        let kinds: Vec<String> = sent_on_stream(&t).iter().map(|e| e["kind"].as_str().unwrap_or("").to_string()).collect();
+        assert_eq!(kinds, ["hello", "hand.state", "hand.state", "hand.record", "hand.recenter"], "the state kept for the welcome, then the new one");
+        assert!(sent_on_stream(&t)[0]["p"]["token"] == "t-hand" && sent_on_stream(&t)[1]["p"]["mode"] == "none");
+        assert!(all_outs(&t).iter().any(|o| matches!(o, Out::Hand(e) if e.message.kind() == "hand.view")), "the editor's view heard");
+        assert!(!all_outs(&t).iter().any(|o| matches!(o, Out::Stream(s) if s.contains("deck.values"))), "no settle for poses");
+        let mut c = Client::new(serde_json::from_value(json!({ "relay": "wss://h.test:7070/live/H?quic=udp.test:443", "role": "handheld", "token": "t" })).unwrap()).unwrap();
+        assert_eq!(c.rung(), None);
+        c.start(0.0);
+        c.quic_opened(1.0);
+        c.quic_stream(2.0, (stamped(welcome("c2", json!({}))).to_string() + "\n").as_bytes());
+        assert_eq!((c.rung(), c.line().as_str()), (Some("QUIC"), "HANDHELD c2 @ H QUIC"));
+    }
+
+    #[test]
+    fn the_editor_hears_a_phones_newest_pose_only() {
+        let t = turns("hand-editor");
+        let poses: Vec<f64> = all_outs(&t).into_iter().filter_map(|o| if let Out::Hand(Envelope { message: Message::HandPose(p), .. }) = o { Some(p.t) } else { None }).collect();
+        assert_eq!(poses, [300.0], "the late one (280) and the malformed one (2 numbers) never come out");
+        let heard: Vec<&str> = all_outs(&t).into_iter().filter_map(|o| if let Out::Hand(e) = o { Some(e.message.kind()) } else { None }).collect();
+        assert_eq!(heard, ["hand.state", "hand.pose", "hand.record"]);
+        assert_eq!(kinds(&t), ["hello", "hand.view", "hand.view"], "the view kept for the welcome, then the new one");
+        let mut c = Client::new(serde_json::from_value(json!({ "relay": "ws://h:7070/live/H", "role": "conductor" })).unwrap()).unwrap();
+        c.start(0.0);
+        c.opened(1.0);
+        c.text(2.0, &stamped(welcome("c1", json!({}))).to_string());
+        assert_eq!(c.rung(), Some("WebSocket"));
     }
 
     /// shared/live-deck/test/fixtures/relay.json: the scripted links and every turn's outs – the browser's adapter

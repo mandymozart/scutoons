@@ -1,6 +1,6 @@
 //! #438: how an `Envelope` crosses QUIC – once, here, for the relay's door and every client (RULES A4). The reliable lane
 //! is one bidirectional stream of newline-delimited JSON (JSON escapes its newlines, so a line is a message); only
-//! `deck.values` may take a datagram, and only when it fits `DATAGRAM_MAX`.
+//! `deck.values` and #469 `hand.pose` may take a datagram, and only when it fits `DATAGRAM_MAX`.
 
 /// a reliable line longer than this ends the connection: the relay's outbox (`MAX_BYTES`) cannot pass a longer message
 pub const MAX_LINE: usize = 8 << 20;

@@ -6,9 +6,9 @@
   "$ref": "#/definitions/Envelope",
   "definitions": {
     "Role": {
-      "description": "LIVE.md B.2. `uplink` is the local relay connected to the hosted one (B.6 Uplink). `reader` (#90, SHOW.md §7) is a phone reading the chapter: all it sends is its `story` events, to the conductor. `seat` (#90, SHOW.md §4) is a child conductor's relay in its parent's session, its group is the seat's id.",
+      "description": "LIVE.md B.2. `uplink` is the local relay connected to the hosted one (B.6 Uplink). `reader` (#90, SHOW.md §7) is a phone reading the chapter: all it sends is its `story` events, to the conductor. `seat` (#90, SHOW.md §4) is a child conductor's relay in its parent's session, its group is the seat's id. `handheld` (#469, research/HANDHELD-CAMERA.md) is a phone as a handheld camera: it joins with the token the API hands it for one pairing code, all it sends is its `hand.*` messages, to the conductor (the storyboard editor), and it hears `hand.view`.",
       "type": "string",
-      "enum": ["conductor", "output", "bridge", "performer", "musician", "audience", "uplink", "reader", "seat"]
+      "enum": ["conductor", "output", "bridge", "performer", "musician", "audience", "uplink", "reader", "seat", "handheld"]
     },
     "To": {
       "description": "Who a message reaches. Every field narrows; all missing = everyone the sender may reach.",
@@ -87,6 +87,11 @@
         { "type": "object", "properties": { "kind": { "const": "flash.report" }, "p": { "$ref": "#/definitions/FlashReport" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "address" }, "p": { "$ref": "#/definitions/Address" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "address.answer" }, "p": { "$ref": "#/definitions/AddressAnswer" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "hand.pose" }, "p": { "$ref": "#/definitions/HandPose" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "hand.state" }, "p": { "$ref": "#/definitions/HandState" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "hand.record" }, "p": { "$ref": "#/definitions/HandRecord" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "hand.recenter" }, "p": { "$ref": "#/definitions/Empty" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "hand.view" }, "p": { "$ref": "#/definitions/HandView" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "error" }, "p": { "$ref": "#/definitions/Error" } }, "required": ["kind", "p"] }
       ]
     },
@@ -681,6 +686,52 @@
       "type": "object",
       "properties": { "msgs": { "type": "array", "items": { "$ref": "#/definitions/MidiBytes" } } },
       "required": ["msgs"],
+      "additionalProperties": false
+    },
+    "HandPose": {
+      "description": "#469: a handheld → relay → the conductor: the phone's own pose in its world (the editor maps it onto the shot camera). `t` = the phone's clock (ms), `p` = position (metres, 3 numbers), `q` = rotation (quaternion x y z w, 4 numbers). Latest wins: on QUIC a datagram; a pose not newer than the last one from that phone is dropped (by the relay and by the receiving client); never logged or replayed.",
+      "type": "object",
+      "properties": {
+        "t": { "type": "number" },
+        "p": { "type": "array", "items": { "type": "number" } },
+        "q": { "type": "array", "items": { "type": "number" } }
+      },
+      "required": ["t", "p", "q"],
+      "additionalProperties": false
+    },
+    "HandMode": {
+      "description": "#469: what the phone tracks – WebXR (position + rotation), the orientation sensor (rotation only), nothing yet.",
+      "type": "string",
+      "enum": ["xr", "orientation", "none"]
+    },
+    "HandState": {
+      "description": "#469: a handheld → the conductor: what it tracks and whether tracking holds; `ua` its browser. Reliable; sent again after every welcome.",
+      "type": "object",
+      "properties": {
+        "mode": { "$ref": "#/definitions/HandMode" },
+        "tracking": { "type": "boolean" },
+        "ua": { "type": "string", "description": "at most 300 characters (the client trims it)" }
+      },
+      "required": ["mode", "tracking"],
+      "additionalProperties": false
+    },
+    "HandRecord": {
+      "description": "#469: a handheld → the conductor: Record (`on`) or Stop. Reliable (`hand.recenter`: Recenter, no payload).",
+      "type": "object",
+      "properties": { "on": { "type": "boolean" } },
+      "required": ["on"],
+      "additionalProperties": false
+    },
+    "HandView": {
+      "description": "#469: the conductor (the storyboard editor) → its handhelds: the shot it films, whether the handheld camera is on for it, recording and for how long (s). Reliable; sent again after every welcome.",
+      "type": "object",
+      "properties": {
+        "shot": { "type": "string" },
+        "on": { "type": "boolean" },
+        "recording": { "type": "boolean" },
+        "seconds": { "type": "number" }
+      },
+      "required": ["on", "recording", "seconds"],
       "additionalProperties": false
     },
     "DeckListen": {

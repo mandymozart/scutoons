@@ -2894,6 +2894,531 @@
           ]
         }
       ]
+    },
+    {
+      "graph": null,
+      "join": {
+        "group": null,
+        "messages": false,
+        "nick": null,
+        "relay": "wss://relay.test:7070/live/H7K2Q9?quic=udp.test:443",
+        "resume": false,
+        "role": "handheld",
+        "token": "t-hand"
+      },
+      "name": "handheld",
+      "steps": [
+        {
+          "at": 0.01,
+          "do": "hand_state",
+          "with": {
+            "mode": "none",
+            "tracking": true,
+            "ua": "S22"
+          }
+        },
+        {
+          "at": 0.02,
+          "do": "hand_pose",
+          "with": {
+            "p": [
+              0.0,
+              1.5,
+              0.0
+            ],
+            "q": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ],
+            "t": 1.0
+          }
+        },
+        {
+          "at": 0.05,
+          "do": "quic_open"
+        },
+        {
+          "at": 0.06,
+          "do": "quic_stream",
+          "with": {
+            "kind": "welcome",
+            "p": {
+              "client": "c2",
+              "key": "key-c2",
+              "now": 0,
+              "snapshot": {}
+            }
+          }
+        },
+        {
+          "at": 0.1,
+          "do": "hand_state",
+          "with": {
+            "mode": "xr",
+            "tracking": true,
+            "ua": "S22"
+          }
+        },
+        {
+          "at": 0.2,
+          "do": "hand_pose",
+          "with": {
+            "p": [
+              0.1,
+              1.5,
+              0.0
+            ],
+            "q": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ],
+            "t": 200.0
+          }
+        },
+        {
+          "at": 0.3,
+          "do": "hand_record",
+          "with": true
+        },
+        {
+          "at": 0.35,
+          "do": "hand_recenter"
+        },
+        {
+          "at": 0.4,
+          "do": "quic_stream",
+          "with": {
+            "from": "c1",
+            "kind": "hand.view",
+            "p": {
+              "on": true,
+              "recording": true,
+              "seconds": 0.0,
+              "shot": "sb-1"
+            }
+          }
+        },
+        {
+          "at": 1.0,
+          "do": "stop"
+        }
+      ],
+      "stream": [],
+      "turns": [
+        {
+          "at": 0.0,
+          "do": "start",
+          "outs": [
+            {
+              "status": {
+                "state": "joining"
+              }
+            },
+            {
+              "dial_quic": {
+                "hash": null,
+                "url": "https://udp.test:443/live/H7K2Q9?role=handheld"
+              }
+            }
+          ]
+        },
+        {
+          "at": 0.01,
+          "do": "hand_state",
+          "outs": []
+        },
+        {
+          "at": 0.02,
+          "do": "hand_pose",
+          "outs": []
+        },
+        {
+          "at": 0.05,
+          "do": "quic_open",
+          "outs": [
+            {
+              "stream": "{\"from\":\"\",\"kind\":\"hello\",\"p\":{\"code\":\"H7K2Q9\",\"role\":\"handheld\",\"token\":\"t-hand\"},\"seq\":0,\"v\":1}\n"
+            }
+          ]
+        },
+        {
+          "at": 0.06,
+          "do": "quic_stream",
+          "outs": [
+            {
+              "status": {
+                "client": "c2",
+                "state": "connected"
+              }
+            },
+            {
+              "joined": {
+                "at": 60.0,
+                "client": "c2"
+              }
+            },
+            {
+              "stream": "{\"from\":\"\",\"kind\":\"hand.state\",\"p\":{\"mode\":\"none\",\"tracking\":true,\"ua\":\"S22\"},\"seq\":0,\"v\":1}\n"
+            }
+          ]
+        },
+        {
+          "at": 0.1,
+          "do": "hand_state",
+          "outs": [
+            {
+              "stream": "{\"from\":\"\",\"kind\":\"hand.state\",\"p\":{\"mode\":\"xr\",\"tracking\":true,\"ua\":\"S22\"},\"seq\":0,\"v\":1}\n"
+            }
+          ]
+        },
+        {
+          "at": 0.2,
+          "do": "hand_pose",
+          "outs": [
+            {
+              "datagram": "{\"from\":\"\",\"kind\":\"hand.pose\",\"p\":{\"p\":[0.1,1.5,0.0],\"q\":[0.0,0.0,0.0,1.0],\"t\":200.0},\"seq\":0,\"v\":1}"
+            }
+          ]
+        },
+        {
+          "at": 0.3,
+          "do": "hand_record",
+          "outs": [
+            {
+              "stream": "{\"from\":\"\",\"kind\":\"hand.record\",\"p\":{\"on\":true},\"seq\":0,\"v\":1}\n"
+            }
+          ]
+        },
+        {
+          "at": 0.35,
+          "do": "hand_recenter",
+          "outs": [
+            {
+              "stream": "{\"from\":\"\",\"kind\":\"hand.recenter\",\"p\":{},\"seq\":0,\"v\":1}\n"
+            }
+          ]
+        },
+        {
+          "at": 0.4,
+          "do": "quic_stream",
+          "outs": [
+            {
+              "hand": {
+                "from": "c1",
+                "kind": "hand.view",
+                "p": {
+                  "on": true,
+                  "recording": true,
+                  "seconds": 0.0,
+                  "shot": "sb-1"
+                },
+                "seq": 1,
+                "v": 1
+              }
+            }
+          ]
+        },
+        {
+          "at": 1.0,
+          "do": "stop",
+          "outs": [
+            {
+              "close_quic": {}
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "graph": null,
+      "join": {
+        "group": null,
+        "messages": false,
+        "nick": null,
+        "relay": "ws://relay.test:7070/live/H7K2Q9",
+        "resume": false,
+        "role": "conductor",
+        "token": "t-editor"
+      },
+      "name": "hand-editor",
+      "steps": [
+        {
+          "at": 0.01,
+          "do": "hand_view",
+          "with": {
+            "on": true,
+            "recording": false,
+            "seconds": 0.0,
+            "shot": "sb-1"
+          }
+        },
+        {
+          "at": 0.05,
+          "do": "open"
+        },
+        {
+          "at": 0.1,
+          "do": "message",
+          "with": {
+            "kind": "welcome",
+            "p": {
+              "client": "c1",
+              "key": "key-c1",
+              "now": 0,
+              "snapshot": {}
+            }
+          }
+        },
+        {
+          "at": 0.2,
+          "do": "message",
+          "with": {
+            "from": "c2",
+            "kind": "hand.state",
+            "p": {
+              "mode": "xr",
+              "tracking": true
+            }
+          }
+        },
+        {
+          "at": 0.3,
+          "do": "message",
+          "with": {
+            "from": "c2",
+            "kind": "hand.pose",
+            "p": {
+              "p": [
+                0.0,
+                1.5,
+                0.0
+              ],
+              "q": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ],
+              "t": 300.0
+            }
+          }
+        },
+        {
+          "at": 0.31,
+          "do": "message",
+          "with": {
+            "from": "c2",
+            "kind": "hand.pose",
+            "p": {
+              "p": [
+                9.0,
+                9.0,
+                9.0
+              ],
+              "q": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ],
+              "t": 280.0
+            }
+          }
+        },
+        {
+          "at": 0.32,
+          "do": "message",
+          "with": {
+            "from": "c2",
+            "kind": "hand.pose",
+            "p": {
+              "p": [
+                0.0,
+                1.6
+              ],
+              "q": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ],
+              "t": 316.0
+            }
+          }
+        },
+        {
+          "at": 0.4,
+          "do": "message",
+          "with": {
+            "from": "c2",
+            "kind": "hand.record",
+            "p": {
+              "on": true
+            }
+          }
+        },
+        {
+          "at": 0.5,
+          "do": "hand_view",
+          "with": {
+            "on": true,
+            "recording": true,
+            "seconds": 0.0,
+            "shot": "sb-1"
+          }
+        },
+        {
+          "at": 1.0,
+          "do": "stop"
+        }
+      ],
+      "stream": [],
+      "turns": [
+        {
+          "at": 0.0,
+          "do": "start",
+          "outs": [
+            {
+              "status": {
+                "state": "joining"
+              }
+            },
+            {
+              "dial": "ws://relay.test:7070/live/H7K2Q9?role=conductor"
+            }
+          ]
+        },
+        {
+          "at": 0.01,
+          "do": "hand_view",
+          "outs": []
+        },
+        {
+          "at": 0.05,
+          "do": "open",
+          "outs": [
+            {
+              "send": "{\"from\":\"\",\"kind\":\"hello\",\"p\":{\"code\":\"H7K2Q9\",\"role\":\"conductor\",\"token\":\"t-editor\"},\"seq\":0,\"v\":1}"
+            }
+          ]
+        },
+        {
+          "at": 0.1,
+          "do": "message",
+          "outs": [
+            {
+              "status": {
+                "client": "c1",
+                "state": "connected"
+              }
+            },
+            {
+              "joined": {
+                "at": 100.0,
+                "client": "c1"
+              }
+            },
+            {
+              "send": "{\"from\":\"\",\"kind\":\"hand.view\",\"p\":{\"on\":true,\"recording\":false,\"seconds\":0.0,\"shot\":\"sb-1\"},\"seq\":0,\"v\":1}"
+            }
+          ]
+        },
+        {
+          "at": 0.2,
+          "do": "message",
+          "outs": [
+            {
+              "hand": {
+                "from": "c2",
+                "kind": "hand.state",
+                "p": {
+                  "mode": "xr",
+                  "tracking": true
+                },
+                "seq": 1,
+                "v": 1
+              }
+            }
+          ]
+        },
+        {
+          "at": 0.3,
+          "do": "message",
+          "outs": [
+            {
+              "hand": {
+                "from": "c2",
+                "kind": "hand.pose",
+                "p": {
+                  "p": [
+                    0.0,
+                    1.5,
+                    0.0
+                  ],
+                  "q": [
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0
+                  ],
+                  "t": 300.0
+                },
+                "seq": 1,
+                "v": 1
+              }
+            }
+          ]
+        },
+        {
+          "at": 0.31,
+          "do": "message",
+          "outs": []
+        },
+        {
+          "at": 0.32,
+          "do": "message",
+          "outs": []
+        },
+        {
+          "at": 0.4,
+          "do": "message",
+          "outs": [
+            {
+              "hand": {
+                "from": "c2",
+                "kind": "hand.record",
+                "p": {
+                  "on": true
+                },
+                "seq": 1,
+                "v": 1
+              }
+            }
+          ]
+        },
+        {
+          "at": 0.5,
+          "do": "hand_view",
+          "outs": [
+            {
+              "send": "{\"from\":\"\",\"kind\":\"hand.view\",\"p\":{\"on\":true,\"recording\":true,\"seconds\":0.0,\"shot\":\"sb-1\"},\"seq\":0,\"v\":1}"
+            }
+          ]
+        },
+        {
+          "at": 1.0,
+          "do": "stop",
+          "outs": [
+            {
+              "close": {}
+            }
+          ]
+        }
+      ]
     }
   ]
 }
