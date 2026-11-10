@@ -22,4 +22,4 @@ expect = { fps = { near = 30.0, tol = 0.5 }, ticks = { near = 60.0, tol = 0.5 },
 [[step]]
 do = "stats"
 with = { frame_ms = 25.0, frames = 120, work_ms = 20.0, blocks = [[0.6, 100]], limiter_db = 7.5, lead = 3072, rate = 48000 }
-expect = { fps = { near = 40.0, tol = 0.5 }, load_p99 = 60, levels = { fps = "warn", cpu = "bad", audio = "warn", limit = "warn" }, bar = { has = { label = "LIM", value = "7.5DB", level = "warn" } } }
+expect = { fps = { near = 40.0, tol = 0.5 }, load_p99 = 60, levels = { fps = "warn", cpu = "bad", audio = "warn", limit = "warn" }, bar = { has = { label = "LIM", value = "7.5", level = "warn" } } }
