@@ -245,6 +245,9 @@ impl Outlet {
                 // a cell's piece (#91) loads its scene on the native deck (live/piece.rs); the browser has no scene switch
                 // yet and plays the composed cell only
                 Routed::Piece(_) => {}
+                // a flash (#91): the native deck answers it (live/flash.rs: the show kept, its pieces checked, `flash.report`);
+                // the browser deck keeps no show yet and does not answer – the conductor's list has it without a report
+                Routed::Flash(_) => {}
                 Routed::Refused { code, message } => self.status.problems_relay = Some(format!("RELAY {code}: {message}")),
             }
         }
