@@ -974,6 +974,49 @@ pub struct AddressFilter {
 	pub device: Option<String>,
 }
 
+/// #478 (owner 2026-11-10 [role]): what a person is to the server – `guest` not signed in (only the code), `member`, `creator`, `admin`, `live` (the in-house manager, an account role only used in live use)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum Account {
+	#[serde(rename = "guest")]
+	Guest,
+	#[serde(rename = "member")]
+	Member,
+	#[serde(rename = "creator")]
+	Creator,
+	#[serde(rename = "admin")]
+	Admin,
+	#[serde(rename = "live")]
+	Live,
+}
+
+impl Account {
+	pub const fn as_str(self) -> &'static str {
+		match self {
+			Account::Guest => "guest",
+			Account::Member => "member",
+			Account::Creator => "creator",
+			Account::Admin => "admin",
+			Account::Live => "live",
+		}
+	}
+}
+
+/// #478, SHOW.md §9: who may take a role. Any one fact admits; a role without a filter admits a guest, so anyone with the code. The relay tests it (`device` as the client says it in its `hello`, `group` as it joined); an account fact needs the server's proof (#478 slice 4) and admits nobody before it.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct Admits {
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub account: Option<Vec<Account>>,
+	/// an approved (paired) deck
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub approved: Option<bool>,
+	/// browser, native, phone … (the words of a flash report's `device`)
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub device: Option<Vec<String>>,
+	/// the group a client joined with (its QR's, a deck's outlet)
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub group: Option<Vec<String>>,
+}
+
 /// #90, SHOW.md §8: `kind:id > action`, down the tree. Whoever plays it picks up; finding nobody stays silent and is logged, it never goes up to a wider address.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Address {

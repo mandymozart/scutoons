@@ -593,6 +593,22 @@
       },
       "additionalProperties": false
     },
+    "Account": {
+      "description": "#478 (owner 2026-11-10 [role]): what a person is to the server – `guest` not signed in (only the code), `member`, `creator`, `admin`, `live` (the in-house manager, an account role only used in live use)",
+      "type": "string",
+      "enum": ["guest", "member", "creator", "admin", "live"]
+    },
+    "Admits": {
+      "description": "#478, SHOW.md §9: who may take a role. Any one fact admits; a role without a filter admits a guest, so anyone with the code. The relay tests it (`device` as the client says it in its `hello`, `group` as it joined); an account fact needs the server's proof (#478 slice 4) and admits nobody before it.",
+      "type": "object",
+      "properties": {
+        "account": { "type": "array", "items": { "$ref": "#/definitions/Account" } },
+        "approved": { "type": "boolean", "description": "an approved (paired) deck" },
+        "device": { "type": "array", "items": { "type": "string" }, "description": "browser, native, phone … (the words of a flash report's `device`)" },
+        "group": { "type": "array", "items": { "type": "string" }, "description": "the group a client joined with (its QR's, a deck's outlet)" }
+      },
+      "additionalProperties": false
+    },
     "Address": {
       "description": "#90, SHOW.md §8: `kind:id > action`, down the tree. Whoever plays it picks up; finding nobody stays silent and is logged, it never goes up to a wider address.",
       "type": "object",

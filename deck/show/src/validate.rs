@@ -205,6 +205,31 @@ fn addressed(at: &Spot, a: &Addressed, out: &mut Vec<Problem>) {
     }
 }
 
+/// #478: a role's filter – a stage outlet's only (a device outlet is a bridge's, no deck takes it); every fact once, each a
+/// place the one parser reads (`device:<word>`, `group:<word>`, RULES A14); a filter that names nothing lets nobody in.
+fn admits(outlet: &crate::document::Outlet, out: &mut Vec<Problem>) {
+    let Some(a) = &outlet.admits else { return };
+    let at = Spot::Show;
+    let id = &outlet.id;
+    if outlet.kind == OutletKind::Device {
+        out.push(refused(&at, format!("outlet '{id}': a device outlet is no role, it takes no `for`")));
+    }
+    let accounts = a.account.iter().flatten().map(|x| ("account", x.as_str().to_string()));
+    let facts: Vec<(&str, String)> = accounts.chain(a.device.iter().flatten().map(|d| ("device", d.clone()))).chain(a.group.iter().flatten().map(|g| ("group", g.clone()))).collect();
+    if facts.is_empty() && a.approved != Some(true) {
+        out.push(refused(&at, format!("outlet '{id}': `for` names nobody (leave it out: anyone with the code)")));
+    }
+    let mut seen = BTreeSet::new();
+    for (kind, value) in facts {
+        let fact = format!("{kind}:{value}");
+        match Place::parse(&fact) {
+            Err(why) => out.push(refused(&at, format!("outlet '{id}': {why}"))),
+            Ok(_) if !seen.insert(fact.clone()) => out.push(refused(&at, format!("outlet '{id}': '{fact}' twice"))),
+            Ok(_) => {}
+        }
+    }
+}
+
 /// One document on its own. Empty = valid.
 pub fn validate(show: &Show) -> Vec<Problem> {
     let mut out = vec![];
@@ -223,6 +248,9 @@ pub fn validate(show: &Show) -> Vec<Problem> {
         if id == PARENT || id.contains('/') {
             out.push(refused(&Spot::Show, format!("a column cannot be named '{id}'")));
         }
+    }
+    for outlet in &show.outlets {
+        admits(outlet, &mut out);
     }
 
     for seat in &show.seats {

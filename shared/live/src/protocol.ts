@@ -520,6 +520,20 @@ export interface AddressFilter {
 	device?: string;
 }
 
+/** #478 (owner 2026-11-10 [role]): what a person is to the server – `guest` not signed in (only the code), `member`, `creator`, `admin`, `live` (the in-house manager, an account role only used in live use) */
+export type Account = 'guest' | 'member' | 'creator' | 'admin' | 'live';
+
+/** #478, SHOW.md §9: who may take a role. Any one fact admits; a role without a filter admits a guest, so anyone with the code. The relay tests it (`device` as the client says it in its `hello`, `group` as it joined); an account fact needs the server's proof (#478 slice 4) and admits nobody before it. */
+export interface Admits {
+	account?: Account[];
+	/** an approved (paired) deck */
+	approved?: boolean;
+	/** browser, native, phone … (the words of a flash report's `device`) */
+	device?: string[];
+	/** the group a client joined with (its QR's, a deck's outlet) */
+	group?: string[];
+}
+
 /** #90, SHOW.md §8: `kind:id > action`, down the tree. Whoever plays it picks up; finding nobody stays silent and is logged, it never goes up to a wider address. */
 export interface Address {
 	/** the sender's, the answers carry it */

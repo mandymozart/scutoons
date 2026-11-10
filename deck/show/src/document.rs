@@ -107,12 +107,27 @@ impl Look {
     }
 }
 
+/// A column of the show. A stage outlet is a **role** (#478, owner 2026-11-10 [role]): the conductor defines it, decks take it
+/// (a deck may change its role at any time), its cells are what they play.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Outlet {
     pub id: String,
     #[serde(default)]
     pub kind: OutletKind,
+    /// #478: the role's name as a deck's Live page and the conductor show it (none: its id)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+    /// #478: who may take the role, any one fact admits (the wire's type, one copy); none = a guest, anyone with the code
+    #[serde(rename = "for", default, skip_serializing_if = "Option::is_none")]
+    pub admits: Option<protocol::Admits>,
+}
+
+impl Outlet {
+    /// its name for people: the label, else the id
+    pub fn name(&self) -> &str {
+        self.label.as_deref().filter(|l| !l.trim().is_empty()).unwrap_or(&self.id)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]

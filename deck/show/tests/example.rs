@@ -142,6 +142,33 @@ fn a_rows_addresses_are_read_by_the_one_parser() {
     assert!(at_dialog[3].contains("an empty filter"));
 }
 
+/// #478: a stage outlet is a role with its filter – who may take it; every fact is a place the one parser reads, a filter
+/// names somebody, a device outlet is no role. No filter: a guest, anyone with the code.
+#[test]
+fn a_roles_filter_is_checked() {
+    let (mut doc, _) = example();
+    doc["outlets"][0]["label"] = json!("Tenor");
+    doc["outlets"][0]["for"] = json!({ "account": ["guest"], "device": ["phone", "browser"], "group": ["mezzo-soprano"], "approved": true });
+    doc["outlets"][1]["for"] = json!({ "account": ["live"] });
+    let show = parse(&doc.to_string()).unwrap();
+    assert_eq!((show.outlets[0].name(), show.outlets[2].name()), ("Tenor", "lamps"));
+    assert!(show.outlets[2].admits.is_none(), "no filter: anyone with the code");
+    assert_eq!(parse(&serde_json::to_string(&show).unwrap()).unwrap(), show, "`for` survives a round trip");
+
+    doc["outlets"][0]["for"] = json!({ "device": ["phone", "phone", "big screen"], "group": ["a:b"] });
+    doc["outlets"][1]["for"] = json!({});
+    doc["outlets"][2]["for"] = json!({ "device": ["native"] });
+    let found: Vec<String> = problems(doc.clone()).iter().map(ToString::to_string).collect();
+    assert_eq!(found.len(), 5, "{found:?}");
+    assert!(found[0].contains("'device:phone' twice"), "{found:?}");
+    assert!(found[1].contains("' ' in"), "{found:?}");
+    assert!(found[2].contains("':' in"), "{found:?}");
+    assert!(found[3].contains("'right': `for` names nobody"), "{found:?}");
+    assert!(found[4].contains("'lamps': a device outlet is no role"), "{found:?}");
+    doc["outlets"][0]["for"] = json!({ "account": ["owner"] });
+    assert!(matches!(parse(&doc.to_string()), Err(ParseError::Shape(_))), "an account fact is one of the server's roles");
+}
+
 #[test]
 fn a_problem_says_where_it_is() {
     let (mut doc, _) = example();
