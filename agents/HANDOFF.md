@@ -55,6 +55,33 @@ orchestrator ≈ $445 list over 2026-10-29 … 11-01, `agents/costs.json`), so s
   `python C:\Developmentgents\costs
 eport.py`.
 
+## State (2026-11-10, end of the show night shift: #89 → #90 → #467 → #91)
+- **Concept closed for the workshop:** research/SHOW.md §10 (scope with sub conductors), §4b (lock only if the seat accepted; one show document per conductor, related by seats in the parent's document), §7 (each subtree launches its own rows). Owner's words in decisions/deck.md `## 2026-11`.
+- **Pushed up to d7ed14d3** (owner's "Yes, push", one push). **Not pushed since:** 19 commits on local main, up to the #91 merge and this file:
+  - a7bcd647: #89, the show document. New crate `deck/show`, fixtures top-toy / foyer-loop, protocol layer kind `piece`.
+  - 1bccef4b: #90, the conductor tree. Relay tree, roles reader / seat, subtree / flash / address in deck-show, `/api/shows`, `POST /api/live/sessions`, migration `2026-11-10-live-role`. PHPUnit on the merge: 547 OK.
+  - a42ccf1a: #467, a deck plays a piece. deck-space piece.rs (glide, crossfade, modes), live-core `lc_crossfade`, headless scenario 29.
+  - e07fc2c4: #91, Show / Perform. Editor workspaces on deck-show's `Subtree` (view.rs); native deck plays cells via `live/piece.rs`; 2D overlay; flash. main.rs 1792 → 1788 lines. Worker's deck:ci green, check:deck-deps / core-only ok on the merge.
+  - Rule: a push deploys and applies the migration `2026-11-10-live-role`.
+- **Open on #91:**
+  - Item 4: rows have no addresses yet, so the overlay shows only device sends.
+  - Item 5: the decks' side of a flash.
+  - Items 6–8: cue sheet, venue patches, fixtures, problems; rehearsal and musician sheets; run-through drills.
+  - Save against a live `/api/shows` was not tried.
+  - The native load fades through black; it is not a crossfade yet.
+  - The browser deck doesn't call `lc_crossfade` yet.
+- **Open on #90, the owner's:**
+  - Item 8 (audience, QR, lobby, bots).
+  - Linked mode would count votes twice: needs a decision.
+  - `LIVE_TOKEN_SECRET` on the API and on bunny.
+  - `pickup` not checked against the API.
+- **Hardware spikes for the owner:** iPhone audio and wake lock; MIDI on real ports, mac and win; a DMX test frame through the USB widget.
+- **Leftovers to delete:**
+  - D: `scutoons-agent-target-90`, `scutoons-target-467`, `scutoons-target-91` (≈ 19 GB).
+  - Locked worktree folders under `.claude/worktrees/agent-*`.
+  - Deck cache `shows/foyer-loop.json` and `live/piece.toml` (test files of the #91 worker).
+- **Not mine, uncommitted:** `agents/research/EXTERNAL-EDITOR.md` and `deck/module/src/{cv,layout}.rs` (archived research session).
+
 ## State (2026-11-09, the wiring leg, the orchestrator builds alone on Fable)
 - **The show concept (#462, not built):** research/SHOW.md collects rows, cells, the conductor tree, the workspaces Build / Show / Perform, triggers, addressing and filters; §12 is what the owner still has to decide.
 - Pushed 2026-11-09 up to 5a023a4b (W2 #430, #428, #429, #437 …); the deploy applied the migrations up to 2026-11-08. Owner's step after it: Compile on `module:analog`.

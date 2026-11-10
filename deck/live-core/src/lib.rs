@@ -9,7 +9,8 @@
 //!   (once); errors too (a negative length).
 //!
 //! Exports (all `lc_*`, no imports): `lc_init(rate, channels)`, `lc_inbox(len) -> ptr`, `lc_outbox() -> ptr`,
-//! `lc_load(len) -> ±len`, `lc_apply(len) -> count | -len`, `lc_context(len, energy, touch, strain) -> 0 | -len` (#409:
+//! `lc_load(len) -> ±len`, `lc_crossfade(len, ms) -> ±len` (#467: a show's other piece – the scene loaded while the one
+//! before keeps sounding under it for `ms`), `lc_apply(len) -> count | -len`, `lc_context(len, energy, touch, strain) -> 0 | -len` (#409:
 //! the deck's live context for the module nodes), `lc_render(frames) -> ptr`, `lc_analyse(dt, lead) -> ptr`,
 //! `lc_signals() -> len`, `lc_signals_at() -> ptr`; the tempo clock (#321, clock.rs): `lc_clock_frame(now_ms) -> ptr`
 //! (the state block, `clock::STATE` f64), `lc_clock_stamp`, `lc_clock_pong`, `lc_clock_tempo`, `lc_clock_midi`,
@@ -57,13 +58,32 @@ pub struct Host {
     rendered: usize,
     /// #409: the deck's live context last given (it outlives a scene, like the clock)
     context: Option<Context>,
+    /// #467: the scene before a crossfade, sounding under the new one until its frames are through
+    fading: Option<Fading>,
+    /// the crossfade's mix (the device channels, interleaved)
+    mix: Vec<f32>,
+}
+
+/// #467: the scene a crossfade leaves – it keeps rendering while it fades out, the new one fades in over the same frames.
+struct Fading {
+    core: Core,
+    frames: usize,
+    done: usize,
+}
+
+/// The crossfade's gains at `t` (0..1 of its length): (the new scene's, the old one's) – equal power, so the sum holds
+/// its loudness through the middle (a linear one dips 3 dB). Square roots, not sin / cos: IEEE rounds them exactly, so
+/// native ≡ wasm (headless/tests/wasm.rs) – a target's own sin may differ in the last bit.
+pub fn crossfade_gains(t: f32) -> (f32, f32) {
+    let t = t.clamp(0.0, 1.0);
+    (t.sqrt(), (1.0 - t).sqrt())
 }
 
 impl Host {
     pub fn new(rate: f32, channels: usize) -> Host {
         let lead = AdaptiveLead::of(DeviceClass::Desktop);
         let audio = AudioWindow::with_lead(lead.current(), rate);
-        Host { rate, channels, inbox: vec![0; INBOX], outbox: Vec::new(), core: None, clock: Clock::new(rate), lead, audio, words: vec![0.0; AudioWindow::WORDS], rendered: 0, context: None }
+        Host { rate, channels, inbox: vec![0; INBOX], outbox: Vec::new(), core: None, clock: Clock::new(rate), lead, audio, words: vec![0.0; AudioWindow::WORDS], rendered: 0, context: None, fading: None, mix: Vec::new() }
     }
 
     /// The inbox, at least `len` bytes.
@@ -104,9 +124,30 @@ impl Host {
                 core.context(c);
             }
             self.core = Some(core);
+            self.fading = None;
             table
         });
         self.answer(r)
+    }
+
+    /// #467: like `load`, but the scene before keeps sounding under the new one for `ms` (equal power,
+    /// `crossfade_gains`), counted in rendered frames – the same on every target. A scene that does not load leaves the
+    /// old one playing (the error in the outbox); no scene before, or 0 ms, is a plain load.
+    pub fn crossfade(&mut self, len: usize, ms: u32) -> i32 {
+        let old = self.core.take();
+        let n = self.load(len);
+        if n < 0 {
+            self.core = old;
+            return n;
+        }
+        let frames = (ms as f32 * self.rate / 1000.0).round() as usize;
+        self.fading = old.filter(|_| frames > 0).map(|core| Fading { core, frames, done: 0 });
+        n
+    }
+
+    /// #467: how far a crossfade is (0..1); None when none runs
+    pub fn crossfading(&self) -> Option<f32> {
+        self.fading.as_ref().map(|f| f.done as f32 / f.frames as f32)
     }
 
     /// The warm-up (#356, `Core::warm`): the scene in the inbox's first `len` bytes rendered by a throwaway twin for
@@ -157,7 +198,24 @@ impl Host {
         let core = self.core.as_mut()?;
         self.clock.rendered(frames);
         self.rendered = frames;
-        Some(core.render(frames))
+        let new = core.render(frames);
+        let Some(f) = self.fading.as_mut() else { return Some(new) };
+        // #467: the old scene under the new one, frame by frame on the crossfade's gains
+        self.mix.clear();
+        self.mix.extend_from_slice(new);
+        let ch = self.channels.max(1);
+        let old = f.core.render(frames);
+        for (i, (m, o)) in self.mix.chunks_exact_mut(ch).zip(old.chunks_exact(ch)).enumerate() {
+            let (gin, gout) = crossfade_gains((f.done + i) as f32 / f.frames as f32);
+            for (m, o) in m.iter_mut().zip(o) {
+                *m = *m * gin + *o * gout;
+            }
+        }
+        f.done += frames;
+        if f.done >= f.frames {
+            self.fading = None;
+        }
+        Some(&self.mix)
     }
 
     /// the analysis frame of what is heard now, the clock's position at the heard moment in it
@@ -222,6 +280,12 @@ pub extern "C" fn lc_outbox() -> *const u8 {
 #[no_mangle]
 pub extern "C" fn lc_load(len: usize) -> i32 {
     with(|h| h.load(len))
+}
+
+/// #467: the scene in the inbox (`len` bytes of TOML) loaded while the one before fades out under it for `ms`. ±len.
+#[no_mangle]
+pub extern "C" fn lc_crossfade(len: usize, ms: u32) -> i32 {
+    with(|h| h.crossfade(len, ms))
 }
 
 /// The warm-up (#356): the scene in the inbox (`len` bytes of TOML) played silently by a throwaway twin for `quanta`
@@ -439,6 +503,50 @@ mod tests {
         h.inbox(4)[..4].copy_from_slice(b"[[no");
         assert!(h.load(4) < 0);
         assert!(h.core().is_some());
+    }
+
+    /// #467: a crossfade keeps the old scene sounding under the new one for its frames, then only the new one plays; a
+    /// scene that does not load leaves the old one alone
+    #[test]
+    fn a_crossfade_hands_the_old_scene_over_to_the_new() {
+        let tone = |f: f32| String::from_utf8(OSC.to_vec()).unwrap().replace("gain = 0.0", "gain = 0.5").replace("440.0", &format!("{f:.1}"));
+        let put = |h: &mut Host, s: &str| {
+            h.inbox(s.len())[..s.len()].copy_from_slice(s.as_bytes());
+            s.len()
+        };
+        let mut h = Host::new(48_000.0, 2);
+        let n = put(&mut h, &tone(220.0));
+        assert!(h.load(n) > 0);
+        assert_eq!(h.crossfading(), None);
+        for _ in 0..20 {
+            h.render(128);
+        }
+        let n = put(&mut h, &tone(660.0));
+        assert!(h.crossfade(n, 100) > 0, "{}", std::str::from_utf8(h.outbox()).unwrap());
+        assert_eq!(h.crossfading(), Some(0.0));
+        // 100 ms = 4800 frames: halfway after 2432
+        for _ in 0..19 {
+            h.render(128);
+        }
+        let t = h.crossfading().unwrap();
+        assert!((t - 0.5).abs() < 0.03, "{t}");
+        assert!(h.render(128).unwrap().iter().any(|x| x.abs() > 0.2), "both sound in the middle");
+        for _ in 0..20 {
+            h.render(128);
+        }
+        assert_eq!(h.crossfading(), None, "over");
+        let (gin, gout) = crossfade_gains(0.5);
+        assert!((gin * gin + gout * gout - 1.0).abs() < 1e-6, "equal power");
+        assert_eq!(crossfade_gains(0.0), (0.0, 1.0));
+        // a broken scene: the old one plays on, no crossfade starts; a plain load ends a running one
+        let n = put(&mut h, "[[no");
+        assert!(h.crossfade(n, 100) < 0);
+        assert!(h.core().is_some() && h.crossfading().is_none());
+        let n = put(&mut h, &tone(330.0));
+        assert!(h.crossfade(n, 100) > 0);
+        let n = put(&mut h, &tone(440.0));
+        assert!(h.load(n) > 0);
+        assert_eq!(h.crossfading(), None, "a load cuts");
     }
 
     /// #356: the warm-up renders a twin – the loaded core plays on bit for bit as if nothing had happened, a broken

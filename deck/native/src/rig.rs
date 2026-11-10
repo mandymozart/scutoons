@@ -131,15 +131,18 @@ fn apply(step: Step, graph: &Graph, ctl: &mut Controls) {
         return;
     }
     for (path, value) in &turn.values {
-        let at = path.rsplit_once('.').and_then(|(node, port)| {
-            let i = graph.nodes.iter().position(|n| n.id == node)?;
-            Some((i, graph.nodes[i].kind.input(port)?))
-        });
-        if let Some((node, port)) = at {
-            ctl.set_base(node, port, *value);
-        }
+        set(graph, ctl, path, *value);
     }
     tracing::info!("rig: {}", turn.note);
+}
+
+/// one value (`node.port`) into the control domain as its input's base (a replay's, a show piece's glide – live/piece.rs)
+pub fn set(graph: &Graph, ctl: &mut Controls, path: &str, value: f32) -> bool {
+    let at = path.rsplit_once('.').and_then(|(node, port)| {
+        let i = graph.nodes.iter().position(|n| n.id == node)?;
+        Some((i, graph.nodes[i].kind.input(port)?))
+    });
+    at.is_some_and(|(node, port)| ctl.set_base(node, port, value))
 }
 
 /// a control output's value in the heard block (`node.output`; NaN: no such node or output)

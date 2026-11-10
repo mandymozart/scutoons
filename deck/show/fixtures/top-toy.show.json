@@ -1,0 +1,54 @@
+{
+  "id": "top-toy",
+  "version": 1,
+  "outlets": [
+    { "id": "left" },
+    { "id": "right" },
+    { "id": "lamps", "kind": "device" }
+  ],
+  "seats": [
+    {
+      "id": "foyer",
+      "show": { "id": "foyer-loop", "version": 2 },
+      "sits": "deck:foyer",
+      "word": "follow",
+      "lockable": true,
+      "uses": { "rows": ["idle", "storm"], "events": ["door"], "outlets": ["wall"] }
+    }
+  ],
+  "rows": [
+    {
+      "id": "opening",
+      "cells": {
+        "left": { "mode": "play", "piece": "scene:nave", "values": { "light": 0.2 } },
+        "right": { "mode": "mirror", "of": "left" },
+        "lamps": { "mode": "play", "send": [{ "kind": "dmx", "p": { "ch": 1, "values": [255, 128], "fade": 400 } }] },
+        "foyer": { "mode": "go", "row": "idle" }
+      }
+    },
+    {
+      "id": "dialog",
+      "fire": { "event": "ch3.dialog-start", "how": "auto" },
+      "cells": {
+        "left": { "mode": "values", "piece": "scene:nave", "values": { "dim": 0.5 } }
+      }
+    },
+    {
+      "id": "yellowmouse-enters",
+      "fire": { "event": "ch3.yellowmouse-enters", "how": "suggest", "hold_ms": 1500, "moment": "bar" },
+      "cells": {
+        "left": { "mode": "play", "piece": "character:yellowmouse", "values": { "mood": "shy" } },
+        "foyer": { "mode": "go", "row": "storm" }
+      }
+    },
+    {
+      "id": "finale",
+      "fire": { "event": "ch3.end", "how": "hand" },
+      "cells": {
+        "left": { "mode": "black" },
+        "right": { "mode": "black" },
+        "foyer": { "mode": "free" }
+      }
+    }
+  ]
+}

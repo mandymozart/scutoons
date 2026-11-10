@@ -110,6 +110,8 @@ pub struct Planned {
 pub struct Plan {
     pub layers: Vec<Planned>,
     pub problems: Vec<String>,
+    /// #91: the cell holds a show's piece – the deck plays it (its space is the outlet's backdrop, like a 3D set)
+    pub piece: bool,
 }
 
 impl Plan {
@@ -167,6 +169,10 @@ pub fn plan(cell: &Cell, locale: &str, carried: impl Fn(&str) -> bool) -> Plan {
         CellMode::Own => {}
     }
     for layer in cell.layers.iter().flatten() {
+        if matches!(layer.src, LayerSrc::Piece(_)) {
+            out.piece = true;
+            continue;
+        }
         let Some(node) = node_of(layer, locale, &mut out.problems) else { continue };
         if let Some(m) = node.module().filter(|m| !carried(m)) {
             out.problems.push(format!("{}: this build does not carry the module '{m}' (--features {m})", layer.id));
@@ -238,6 +244,9 @@ fn node_of(layer: &Layer, locale: &str, problems: &mut Vec<String>) -> Option<La
             }
         },
         LayerSrc::Camera(c) => LayerNode::VideoIn { input: c.input.clone() },
+        // a show's cell (#89): its piece is the deck's sound and space, not the plane's – the outlet hands the cell to the
+        // deck's piece side (route.rs `Routed::Piece` → deck-space piece.rs, #91); its reasons are that side's
+        LayerSrc::Piece(_) => return None,
     })
 }
 
@@ -260,6 +269,12 @@ mod tests {
         { "id": "choir", "src": { "kind": "set", "p": { "set": "cathedral", "spot": "choir", "mode": "video" } } },
         { "id": "wash", "src": { "kind": "colour", "p": { "colour": "#1a0b2e80" } } }
     ] }"##;
+
+    #[test]
+    fn a_shows_piece_is_not_the_planes() {
+        let p = plan(&cell(r#"{ "mode": "own", "layers": [{ "id": "piece", "src": { "kind": "piece", "p": { "piece": "scene:nave", "values": { "light": 0.2 } } } }] }"#), "de", |_| true);
+        assert!(p.layers.is_empty() && p.problems.is_empty() && p.piece, "the piece side plays it (route.rs): {p:?}");
+    }
 
     #[test]
     fn the_sermon_maps_to_space_text_chapter_video_and_a_solid() {

@@ -22,6 +22,8 @@ final class Roles
     public const ADMIN = 'admin';
     public const CREATOR = 'creator';
     public const DEVELOPER = 'developer';
+    /** #90 (LIVE.md B.5.1): shows and live sessions; creator and admin do not imply it */
+    public const LIVE = 'live';
 
     public function __construct(private readonly Database $db, private readonly Clock $clock)
     {

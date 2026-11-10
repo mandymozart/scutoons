@@ -13,6 +13,7 @@
 		{ "crate": "live-core", "args": [], "why": "the engine behind the browser's raw wasm exports (the adapter API the headless host drives)" },
 		{ "crate": "deck-headless", "args": [], "why": "the headless deck host (#363): the third adapter, platform-free by construction" },
 		{ "crate": "deck-outlet", "args": [], "why": "the Live outlet's logic (#378): a cell's plan, the composer, the crossfade, the dialog / text layout, the relay messages' routing" },
+		{ "crate": "deck-show", "args": [], "why": "the show core (#89): the show document, its validation, the bare conductor" },
 		{ "crate": "deck-ui", "args": [], "why": "the deck's UI model (#374): the HUD's lines, the stats bar's items, the F1 mode" }
 	],
 	"tools": [
@@ -141,6 +142,7 @@
 		"zmij": "via serde_json: float formatting",
 		"deck-headless": "core (the headless host)",
 		"deck-outlet": "core (the Live outlet's logic)",
-		"deck-ui": "core (the deck's UI model)"
+		"deck-ui": "core (the deck's UI model)",
+		"deck-show": "core (the show core, #89 – the headless host fires a show's rows at its deck, #467)"
 	}
 }

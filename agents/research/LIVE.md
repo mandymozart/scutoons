@@ -358,6 +358,13 @@ placement }` (the relay asks the API, like the reader does) · `react { kind }` 
 outlet, msg }` (bridge → conductor: MIDI / OSC in, mapped to actions there) · `devices { ports }` (the bridge's port
 list for the patch UI). MIDI clock in is used only for timed cues (a cue's `wait` may be given in beats), never shown to musicians.
 
+**The tree** (#90, SHOW.md §4; deck/relay README "The tree"): roles `reader` (a phone reading the chapter: only `story`, to
+the conductor) and `seat` (a child conductor's relay in its parent's session) · `seat { seat, word, says: go | free | none, row?, lock? }`
+(parent → the child's conductor) · `seat.state { show, row, ready, clients, word, locked, clock, online }` (up; the parent's
+presence and snapshot `seats`) · `flash { root, shows, lock?, hops }` / `flash.report { running, accepted, why? }` · `address
+{ id, address, action, where? { group, device } }` / `address.answer { id, reached, passed, answered }` · `cell` for
+`<seat>/<outlet>` goes to that seat · `kick { client }`, `rename { client, nick }` (conductor only).
+
 **Uplink** (linked mode): the local relay connects to the hosted one as `uplink`, forwards everything addressed to
 audience groups, and returns `vote.cast` / `react` / `presence`. Sequence numbers are the local relay's.
 

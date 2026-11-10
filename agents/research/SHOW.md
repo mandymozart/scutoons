@@ -1,4 +1,4 @@
-Status 2026-11-09: concept, under discussion (#462), nothing built. Rows, cells, the conductor tree, workspaces, triggers, addressing, filters. §2 is the owner's word; the rest is a proposal until the owner says otherwise. Would change LIVE.md B.2 and B.5.5 (§10).
+Status 2026-11-10: concept (#462); the show document, the conductor and the tree exist in `deck/show` and `deck/relay` (#89, #90: reader role, relay tree, sub conductors, flash, addressing, `show:` saving); the Show and Perform workspaces are built in the deck editor (#91, the matrix, rows, the inspector, the 2D overlay, flash; the cue sheet, venues, rehearsal are open). Rows, cells, the conductor tree, workspaces, triggers, addressing, filters. §2 is the owner's word; the rest is a proposal until the owner says otherwise. Would change LIVE.md B.2 and B.5.5 (§10).
 
 # SHOW — how a live show is organized
 
@@ -185,6 +185,8 @@ Largest new piece of work: the relay tree. Everything else in the table reuses w
 
 ## 11. What exists in the code (read 2026-11-09)
 
+- `deck/show` (#89): the show document, validation, the tree's lock, the bare conductor. A wire cell carries a piece as a layer (`LayerSrc` `piece`). #467: deck-space `piece.rs` compares it with what plays (same piece: the values glide; another: load and crossfade, live-core `lc_crossfade`; not on the deck: a reason, what plays stays); the headless host plays it (scenario 29). #91: the native deck's outlet hands every cell to it (`outlet/src/route.rs` `Routed::Piece`, `native/src/live/piece.rs`): a Load plays the piece's scene beside the outlet (`piece::beside`) through the deck's switch (a fade, not yet a crossfade), glides go into the controls. The browser deck does not call it yet.
+- #90: role `reader` (its `story` goes to the conductor only); the relay tree (deck/relay README "The tree"); `Subtree` in deck-show (the word, the lock from above, own clock as `Tempo.domain`, flash by `flash::take`, `address::receive` for a receiver); `show:<id>` with versions and the `live` role (server docs/API.md "Live"). #91: the deck editor runs one `Subtree` (its Show and Perform workspaces, `deck/editor/src/show/`, joined to its relay as conductor; what they draw is deck-show's `view.rs`); a sub conductor's document is shown there, not run. The decks' flash / address handling is still open.
 - `cell` is per outlet and full (`deck/protocol/schema.json`), compiled in `deck/outlet/src/plan.rs`. No layer kind for a scene or rig. The `outlet` node sits inside a scene (`scenes/outlet.toml`).
 - Video: a layer exists, the native outlet shows its still (#179). `video` in the catalog is `F_PLANNED`, not a graph kind.
 - Poll: `vote.*` messages exist. No poll layer, and no vote handling on the native outlet.
@@ -192,8 +194,7 @@ Largest new piece of work: the relay tree. Everything else in the table reuses w
 - A mood turn moves values without a reload; a loaded 3D set stays and only the spot moves. No message sets a named value on a deck from the conductor.
 - Far events (#442, `far.rs`): one exact address, subscribed by the asking deck, only while the other deck is in the session.
 - `address.rs` has places `deck:`, `scene:`, `character:`, `item:`. No `location:`, persona or look level, or wildcard.
-- The relay is flat; the uplink only mirrors. `Tempo.domain` is reserved, nothing sets or routes it.
-- The conductor page is the vote panel only (86 lines), opened on a deck with F12. No rows, no matrix, sends no cells.
+- The browser's conductor page is the vote panel only (86 lines), opened on a deck with F12; the matrix is the deck editor's Perform workspace (#91).
 - `story` messages exist on the wire. The reader bus of LIVE.md B.1 is not in `event-processor.ts`, and there is no reader role.
 - A scene cannot hold several rigs yet.
 - "Only if" exists in the chapter documents; the evaluator is TypeScript (`shared/content/src/expr/evaluate.ts`). The deck has no condition type. RULE A1: one evaluator, in the core, reaching the viewer through wasm.

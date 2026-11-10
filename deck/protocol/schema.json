@@ -6,9 +6,9 @@
   "$ref": "#/definitions/Envelope",
   "definitions": {
     "Role": {
-      "description": "LIVE.md B.2. `uplink` is the local relay connected to the hosted one (B.6 Uplink).",
+      "description": "LIVE.md B.2. `uplink` is the local relay connected to the hosted one (B.6 Uplink). `reader` (#90, SHOW.md §7) is a phone reading the chapter: all it sends is its `story` events, to the conductor. `seat` (#90, SHOW.md §4) is a child conductor's relay in its parent's session, its group is the seat's id.",
       "type": "string",
-      "enum": ["conductor", "output", "bridge", "performer", "musician", "audience", "uplink"]
+      "enum": ["conductor", "output", "bridge", "performer", "musician", "audience", "uplink", "reader", "seat"]
     },
     "To": {
       "description": "Who a message reaches. Every field narrows; all missing = everyone the sender may reach.",
@@ -79,6 +79,14 @@
         { "type": "object", "properties": { "kind": { "const": "deck.synced" }, "p": { "$ref": "#/definitions/DeckSynced" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "deck.quality" }, "p": { "$ref": "#/definitions/DeckQuality" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "tempo" }, "p": { "$ref": "#/definitions/Tempo" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "kick" }, "p": { "$ref": "#/definitions/Kick" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "rename" }, "p": { "$ref": "#/definitions/Rename" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "seat" }, "p": { "$ref": "#/definitions/SeatWord" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "seat.state" }, "p": { "$ref": "#/definitions/SeatState" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "flash" }, "p": { "$ref": "#/definitions/Flash" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "flash.report" }, "p": { "$ref": "#/definitions/FlashReport" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "address" }, "p": { "$ref": "#/definitions/Address" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "address.answer" }, "p": { "$ref": "#/definitions/AddressAnswer" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "error" }, "p": { "$ref": "#/definitions/Error" } }, "required": ["kind", "p"] }
       ]
     },
@@ -173,6 +181,9 @@
         "sync": { "$ref": "#/definitions/SceneSync", "description": "#195: the last `scene.sync`, if it is addressed to this client (a deck joining later syncs too; the conductor always sees it)" },
         "synced": { "type": "object", "additionalProperties": { "$ref": "#/definitions/DeckSynced" }, "description": "#195: each deck's last `deck.synced` for that sync, by client id (the conductor's snapshot)" },
         "tempo": { "$ref": "#/definitions/Tempo", "description": "#321: the show clock's last anchor (every client but a bridge)" },
+        "seat": { "$ref": "#/definitions/SeatWord", "description": "#90: the parent's last word to this subtree (a conductor), or to this seat (a child relay)" },
+        "seats": { "type": "object", "additionalProperties": { "$ref": "#/definitions/SeatState" }, "description": "#90: each seat's readout (the conductor's snapshot)" },
+        "flash": { "$ref": "#/definitions/Flash", "description": "#90: the last flash" },
         "seq": { "type": "integer", "description": "the session's seq when the snapshot was taken" }
       },
       "additionalProperties": false
@@ -238,7 +249,7 @@
         "beat": { "type": "number" },
         "running": { "type": "boolean" },
         "at": { "type": "integer", "description": "relay ms; the envelope's `at` when missing" },
-        "domain": { "type": "string", "description": "the clock domain (a sub-conductor's own time, later); missing = \"show\", the one show clock – reserved, nothing sets or routes it yet" }
+        "domain": { "type": "string", "description": "#90: the clock domain, a sub conductor's own time; missing = \"show\", the top conductor's clock. A domain stays inside its subtree: each subtree is a session of its own and a parent's anchor only reaches the child's conductor, which takes it or keeps its own" }
       },
       "required": ["bpm", "per_bar", "beat", "running"],
       "additionalProperties": false
@@ -369,7 +380,7 @@
       "additionalProperties": false
     },
     "LayerSrc": {
-      "description": "What a layer shows (B.5.2 ToonSrc / LiveSrc, resolved). From the toon (the public library): scroll, slice, panel, surtitles. Live: video / image / model3d (a preloaded medium by id), set (a set's spot in a mode, #193), text, colour, camera.",
+      "description": "What a layer shows (B.5.2 ToonSrc / LiveSrc, resolved). From the toon (the public library): scroll, slice, panel, surtitles. Live: video / image / model3d (a preloaded medium by id), set (a set's spot in a mode, #193), text, colour, camera. A show's cell: piece (#89).",
       "oneOf": [
         { "type": "object", "properties": { "kind": { "const": "scroll" }, "p": { "$ref": "#/definitions/ToonChapter" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "slice" }, "p": { "$ref": "#/definitions/ToonSlice" } }, "required": ["kind", "p"] },
@@ -381,8 +392,19 @@
         { "type": "object", "properties": { "kind": { "const": "set" }, "p": { "$ref": "#/definitions/SetSrc" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "text" }, "p": { "$ref": "#/definitions/TextSrc" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "colour" }, "p": { "$ref": "#/definitions/ColourSrc" } }, "required": ["kind", "p"] },
-        { "type": "object", "properties": { "kind": { "const": "camera" }, "p": { "$ref": "#/definitions/CameraSrc" } }, "required": ["kind", "p"] }
+        { "type": "object", "properties": { "kind": { "const": "camera" }, "p": { "$ref": "#/definitions/CameraSrc" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "piece" }, "p": { "$ref": "#/definitions/PieceSrc" } }, "required": ["kind", "p"] }
       ]
+    },
+    "PieceSrc": {
+      "description": "SHOW.md §5, a cell is a piece plus values: the piece (a place, `scene:nave`, `rig:storm`, `character:yellowmouse`) and all its values, resolved by the conductor along the path really taken (keep, values). The deck compares: same piece, the values glide; other piece, load and crossfade.",
+      "type": "object",
+      "properties": {
+        "piece": { "type": "string" },
+        "values": { "$ref": "#/definitions/Loose" }
+      },
+      "required": ["piece"],
+      "additionalProperties": false
     },
     "ToonChapter": {
       "description": "scroll: the chapter's slices running one after the other.",
@@ -460,6 +482,121 @@
       "required": ["input"],
       "additionalProperties": false
     },
+    "Kick": {
+      "description": "B.6: conductor → relay: the client is told (`error` code `kicked`) and its link ends; it joins again only with a new `hello`, which the conductor can answer the same way.",
+      "type": "object",
+      "properties": { "client": { "type": "string" } },
+      "required": ["client"],
+      "additionalProperties": false
+    },
+    "Rename": {
+      "description": "B.6: conductor → relay → that client. The relay cleans the nick (24 characters, the blocklist); empty = none.",
+      "type": "object",
+      "properties": { "client": { "type": "string" }, "nick": { "type": "string" } },
+      "required": ["client", "nick"],
+      "additionalProperties": false
+    },
+    "Word": {
+      "description": "#90, SHOW.md §4b: how a child takes its parent's rows, a child treats its parent like a reader. follow = the row fires, suggest = its operator decides, free = ignored. The local GO always works.",
+      "type": "string",
+      "enum": ["follow", "suggest", "free"]
+    },
+    "Says": {
+      "description": "#90: what a parent's row says to its seat: `go` to a row of the child's, or `free`, it is left to itself; `none` only carries the word and the lock.",
+      "type": "string",
+      "enum": ["go", "free", "none"]
+    },
+    "SeatWord": {
+      "description": "#90: conductor → its relay → the child relay in that seat (`to`: role seat, group the seat's id) → the child's conductor. The last one per seat is kept: a child conductor that joins later finds it in its snapshot.",
+      "type": "object",
+      "properties": {
+        "seat": { "type": "string" },
+        "word": { "$ref": "#/definitions/Word" },
+        "says": { "$ref": "#/definitions/Says" },
+        "row": { "type": "string", "description": "with `says: go`: the child's row" },
+        "lock": { "type": "boolean", "description": "a lock from above: the parent's word wins over the child's own (SHOW.md §4b); only ever sent for a seat that may be locked" }
+      },
+      "required": ["seat", "word", "says"],
+      "additionalProperties": false
+    },
+    "SeatState": {
+      "description": "#90: a child conductor's readout, up to its parent's relay, which keeps it per seat for the parent's presence.",
+      "type": "object",
+      "properties": {
+        "show": { "$ref": "#/definitions/Pinned" },
+        "row": { "type": "string", "description": "the row that fired last" },
+        "ready": { "type": "integer", "minimum": 0, "description": "clients ready in its subtree" },
+        "clients": { "type": "integer", "minimum": 0, "description": "clients connected in its subtree" },
+        "word": { "$ref": "#/definitions/Word", "description": "the word in force" },
+        "locked": { "type": "boolean" },
+        "clock": { "type": "string", "description": "the clock domain it runs on; missing = the parent's" },
+        "online": { "type": "boolean", "description": "set by the parent's relay: false = the seat's link went away" }
+      },
+      "additionalProperties": false
+    },
+    "Pinned": {
+      "description": "#90: a show at an exact version.",
+      "type": "object",
+      "properties": { "id": { "type": "string" }, "version": { "type": "integer", "minimum": 0 } },
+      "required": ["id", "version"],
+      "additionalProperties": false
+    },
+    "Flash": {
+      "description": "#90, SHOW.md §4b: one assignment, the tree resolved to exact versions. Goes down the tree seat by seat. A lock from above wins, otherwise the nearest wins, a deck may refuse; every deck reports what it runs.",
+      "type": "object",
+      "properties": {
+        "root": { "$ref": "#/definitions/Pinned" },
+        "shows": { "type": "array", "items": { "$ref": "#/definitions/Pinned" }, "description": "the root first, each show once" },
+        "lock": { "type": "boolean", "description": "a lock from above" },
+        "hops": { "type": "integer", "minimum": 0, "description": "how many conductors it came through; 0 = from this conductor's own operator" }
+      },
+      "required": ["root", "shows", "hops"],
+      "additionalProperties": false
+    },
+    "FlashReport": {
+      "description": "#90: what a deck or conductor runs after a flash, to its conductor and on up. `from` of the envelope is the path it came along.",
+      "type": "object",
+      "properties": {
+        "running": { "$ref": "#/definitions/Pinned" },
+        "accepted": { "type": "boolean" },
+        "why": { "type": "string", "description": "why it refused" }
+      },
+      "required": ["running", "accepted"],
+      "additionalProperties": false
+    },
+    "AddressFilter": {
+      "description": "#90, SHOW.md §9, for the workshop group and device. The receiver tests itself; a missing fact fails the filter.",
+      "type": "object",
+      "properties": {
+        "group": { "type": "string" },
+        "device": { "type": "string", "description": "browser, native, phone …" }
+      },
+      "additionalProperties": false
+    },
+    "Address": {
+      "description": "#90, SHOW.md §8: `kind:id > action`, down the tree. Whoever plays it picks up; finding nobody stays silent and is logged, it never goes up to a wider address.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "the sender's, the answers carry it" },
+        "address": { "type": "string" },
+        "action": { "type": "string" },
+        "where": { "$ref": "#/definitions/AddressFilter" }
+      },
+      "required": ["id", "address", "action"],
+      "additionalProperties": false
+    },
+    "AddressAnswer": {
+      "description": "#90: one receiver's count, up to the conductor that asked: it picked up (`reached`), passed the filter (`passed`), a handler took it (`answered`). A receiver the address does not name sends nothing.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "reached": { "type": "integer", "minimum": 0 },
+        "passed": { "type": "integer", "minimum": 0 },
+        "answered": { "type": "integer", "minimum": 0 }
+      },
+      "required": ["id", "reached", "passed", "answered"],
+      "additionalProperties": false
+    },
     "Presence": {
       "description": "relay → conductor: clients per group, who is ready; the decks that stream a being (#188 – a deck that left is gone from `decks`) and who sends values to whom (`routes`); each client's link (`links`, #223 – sent again when a client's rate changes); each deck's render quality (`quality`, #220 – sent again when a deck reports a change).",
       "type": "object",
@@ -469,7 +606,9 @@
         "decks": { "type": "array", "items": { "type": "string" }, "description": "client ids with a `deck.graph`, sorted" },
         "routes": { "type": "array", "items": { "$ref": "#/definitions/Route" }, "description": "every sender → receiver pair `deck.values` went along, sorted" },
         "links": { "type": "object", "additionalProperties": { "$ref": "#/definitions/LinkQuality" }, "description": "#223: each client's link as the relay measures it, by client id (audience phones left out)" },
-        "quality": { "type": "object", "additionalProperties": { "$ref": "#/definitions/DeckQuality" }, "description": "#220: each deck's last `deck.quality`, by client id (a client that left is gone)" }
+        "quality": { "type": "object", "additionalProperties": { "$ref": "#/definitions/DeckQuality" }, "description": "#220: each deck's last `deck.quality`, by client id (a client that left is gone)" },
+        "seats": { "type": "object", "additionalProperties": { "$ref": "#/definitions/SeatState" }, "description": "#90: each seat's readout, by seat id" },
+        "parent": { "type": "boolean", "description": "#90: this relay's link to its parent; missing = it has none" }
       },
       "required": ["groups", "ready"],
       "additionalProperties": false

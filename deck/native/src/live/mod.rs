@@ -25,6 +25,8 @@ pub mod config;
 #[cfg(feature = "live")]
 pub mod media;
 #[cfg(feature = "live")]
+pub mod piece;
+#[cfg(feature = "live")]
 pub mod quic;
 #[cfg(feature = "live")]
 pub mod socket;
@@ -88,6 +90,8 @@ mod running {
         pub frames: Option<Receiver<Frame>>,
         /// a 3D set's file and spot → the scene's space node (main.rs applies it)
         pub space: Receiver<SpaceTarget>,
+        /// #91: the outlet's cells → the deck's piece side (piece.rs, on the frame thread)
+        pub pieces: Receiver<protocol::Cell>,
         pub status: Arc<Mutex<Status>>,
         size: Arc<AtomicU64>,
         stop: Arc<AtomicBool>,
@@ -108,6 +112,7 @@ mod running {
             let (outbox, outbox_rx) = channel::<Message>();
             let (frames_tx, frames) = mpsc::sync_channel::<Frame>(2);
             let (space_tx, space) = channel::<SpaceTarget>();
+            let (pieces_tx, pieces) = channel::<protocol::Cell>();
 
             let preloader = Preloader { media: media.clone(), outlet: cfg.outlet.clone(), outbox, compose: to_compose.clone(), status: status.clone(), stop: stop.clone() };
             spawn("live-preload", move || preloader.run(preload_rx));
@@ -126,13 +131,14 @@ mod running {
                 nick,
                 compose: to_compose,
                 preload: to_preload,
+                pieces: pieces_tx,
                 outbox: outbox_rx,
                 status: status.clone(),
                 stop: stop.clone(),
                 rejoin: rejoin.clone(),
             };
             spawn("live-relay", move || client.run());
-            Live { outlet: cfg.outlet, frames: Some(frames), space, status, size, stop, rejoin }
+            Live { outlet: cfg.outlet, frames: Some(frames), space, pieces, status, size, stop, rejoin }
         }
 
         /// the plane's size follows the window's render size (the cell is composed again)

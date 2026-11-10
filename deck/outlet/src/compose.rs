@@ -123,7 +123,8 @@ impl<S: Shelf> Composer<S> {
             }
         }
         let (enter_ms, exit_ms) = plan.fades();
-        let frame = Frame { plane, backdrop: space.is_some(), enter_ms, exit_ms };
+        // a 3D set, or a show's piece the deck plays (#91): the space shows through
+        let frame = Frame { plane, backdrop: space.is_some() || plan.piece, enter_ms, exit_ms };
         Composed { frame, space, problems }
     }
 

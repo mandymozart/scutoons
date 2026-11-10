@@ -3,6 +3,18 @@
 Sessions, roles, groups, the B.6 envelope (agents/research/LIVE.md B.4, B.6). Run, wss, the hosted image:
 deck/README.md "Relay". The rules of a session: `src/session.rs`; the sockets: `src/lib.rs`.
 
+## The tree (#90, agents/research/SHOW.md §4)
+
+Each conductor has its own session, on its own relay. A child conductor's relay dials its parent's (`src/tree.rs`;
+`RELAY_PARENT_URL`, `_CODE`, `_SEAT`, `_TOKEN`, `RELAY_SESSION`) and sits there as role `seat`, its group the seat's id; in its
+own session it holds the link's other end (client `parent`). **Down** (`seat`, `cell` for `<seat>/<outlet>`, `story`,
+`address`, `tempo`, `flash`, `panic`): only to the child's conductor, which decides (deck-show `Subtree`: the word, the lock,
+its own clock). **Up**: `deck.graph` / `deck.values` / `deck.synced` / `media.ready` pass on their own, the rest only when
+the child's conductor sends it to the role `seat` (group `parent`): `seat.state`, its face's `story` events, `flash.report`,
+`address.answer`. `from` grows a path (`foyer/c3`). Times are mapped by the link's own ping offset. The parent gone: the
+link retries (0.1 → 5 s), the child's presence says `parent: false`, nothing on its stage changes. Tested on real relays:
+`tests/tree.rs`.
+
 ## Send path (#223 – "performance and stability is everything")
 
 - **TCP_NODELAY** on every accepted socket (ws and wss): no Nagle wait for the ACK of the previous frame.

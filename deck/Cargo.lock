@@ -1143,15 +1143,18 @@ dependencies = [
  "deck-engine",
  "deck-kit",
  "deck-native",
+ "deck-show",
  "deck-space",
  "image",
  "pollster",
+ "protocol",
  "resvg",
  "serde",
  "serde_json",
  "toml 0.8.23",
  "tracing",
  "tracing-subscriber",
+ "ureq",
  "wgpu",
  "winit",
 ]
@@ -1201,9 +1204,11 @@ name = "deck-headless"
 version = "0.1.0"
 dependencies = [
  "deck-core",
+ "deck-show",
  "deck-space",
  "deck-ui",
  "live-core",
+ "protocol",
  "serde",
  "serde_json",
  "toml 0.8.23",
@@ -1347,6 +1352,17 @@ version = "0.1.0"
 dependencies = [
  "deck-core",
  "toml 0.8.23",
+]
+
+[[package]]
+name = "deck-show"
+version = "0.1.0"
+dependencies = [
+ "deck-core",
+ "deck-space",
+ "protocol",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -3844,6 +3860,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "base64",
+ "deck-show",
  "futures-util",
  "hmac",
  "libc",
@@ -4151,6 +4168,7 @@ dependencies = [
  "deck-catalog",
  "deck-module",
  "deck-module-host",
+ "deck-show",
  "deck-space",
  "libc",
  "proc-macro2",
@@ -5176,6 +5194,8 @@ dependencies = [
  "once_cell",
  "rustls",
  "rustls-pki-types",
+ "serde",
+ "serde_json",
  "url",
  "webpki-roots 0.26.11",
 ]

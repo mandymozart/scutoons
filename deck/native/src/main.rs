@@ -346,19 +346,6 @@ fn outlet_settings(args: &Args) -> deck_native::live::config::Settings {
     deck_native::live::config::Settings { relay: args.relay.clone(), outlet: args.outlet.clone(), locale: args.locale.clone(), name: None, join: None }
 }
 
-/// a relay and an outlet are set (deck.toml or the CLI): the deck is a Live outlet
-fn outlet_configured(args: &Args) -> bool {
-    #[cfg(feature = "live")]
-    {
-        let file = deck_native::live::config::Settings::read(std::path::Path::new(deck_native::live::config::DECK_TOML));
-        file.merged(outlet_settings(args)).config().is_some()
-    }
-    #[cfg(not(feature = "live"))]
-    {
-        args.relay.is_some() && args.outlet.is_some()
-    }
-}
-
 /// #208: how the audio plays – the flags over deck.toml's audio keys (the machine's) over the scene's buffer
 fn audio_options(args: &Args, scene: &scene::Scene) -> backend::Options {
     let deck = backend::DeckAudio::read();
@@ -385,7 +372,7 @@ fn read_scene(args: &Args) -> Result<scene::Scene> {
         Some(p) if !p.exists() && p.to_str().and_then(switcher::builtin).is_some() => scene::Scene::parse(p.to_str().and_then(switcher::builtin).unwrap_or_default()),
         Some(p) if deck_native::rig::named(p).is_some() => deck_native::rig::scene(p),
         Some(p) => scene::Scene::load(p),
-        None if outlet_configured(args) => scene::Scene::parse(scene::OUTLET_SCENE),
+        None if deck_native::live::config::configured(outlet_settings(args)) => scene::Scene::parse(scene::OUTLET_SCENE),
         None => scene::Scene::parse(scene::IDLE_SCENE),
     }).map(|s| deck_native::live::config::with_join(s, &outlet_settings(args)))
 }
@@ -756,6 +743,9 @@ struct App {
     /// #211: the outputs' MIDI for the conductor this frame (reused)
     #[cfg(feature = "outputs")]
     conductor_midi: Vec<[u8; 3]>,
+    /// #91: the outlet's pieces (the core's piece.rs; kept over the scene loads a piece asks for)
+    #[cfg(feature = "live")]
+    pieces: deck_native::live::piece::Side,
 }
 
 impl App {
@@ -1185,6 +1175,10 @@ impl App {
             while let Ok(t) = l.space.try_recv() {
                 s.show(t.set.as_deref(), t.spot.as_deref());
             }
+        }
+        #[cfg(feature = "live")]
+        if let Some(to) = self.show.live.as_ref().and_then(|l| self.pieces.frame(l, &self.show.graph, &mut self.show.controls)) {
+            self.switch(&to);
         }
         #[cfg(feature = "space")]
         self.check_hand();
@@ -1757,6 +1751,8 @@ fn run() -> Result<i32> {
         modes: Vec::new(),
         #[cfg(feature = "outputs")]
         conductor_midi: Vec::new(),
+        #[cfg(feature = "live")]
+        pieces: deck_native::live::piece::Side::new(),
     };
     app.watch = app.watch_files();
     if app.args.switcher {

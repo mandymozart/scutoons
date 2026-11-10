@@ -131,7 +131,7 @@ final class EntityStoreTest extends TestCase
     /** Screenplays are creator material: out of the production seed unless named, imported locally like the rest */
     public function testScriptsStayOutOfTheProductionSeed(): void
     {
-        self::assertSame(['storyboard', 'season-script', 'chapter-script', 'kanon'], EntityKey::CREATOR_ONLY_KINDS);
+        self::assertSame(['storyboard', 'season-script', 'chapter-script', 'kanon', 'show'], EntityKey::CREATOR_ONLY_KINDS);
         self::assertFalse(ImportContentCommand::includesKind('season-script', [], true));
         self::assertTrue(ImportContentCommand::includesKind('season-script', ['season-script'], true));
         self::assertTrue(ImportContentCommand::includesKind('kanon', [], false));

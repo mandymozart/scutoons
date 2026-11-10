@@ -45,6 +45,8 @@ final class ContentSchemas
         'route' => 'map-route',
         'region' => 'map-region',
         'character' => 'registry-character',
+        // #90: checked by the Rust core when published (Domain/Live/Shows.php), never by a schema here
+        'show' => null,
     ];
 
     /** the language-neutral documents of these kinds (a key without locale, agents/NEUTRAL.md) → schema file */

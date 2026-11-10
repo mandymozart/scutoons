@@ -59,6 +59,13 @@ mod tests {
         Claims { session: "A7K2".into(), role: Role::Conductor, exp: 2_000, show: Some("show:catpope:1".into()) }
     }
 
+    /// the same vector as server/tests/Unit/Http/ShowsApiTest.php
+    #[test]
+    fn signs_like_the_api() {
+        let claims = Claims { session: "A7K2".into(), role: Role::Conductor, exp: 2000, show: Some("top".into()) };
+        assert_eq!(sign(b"shared-with-the-api", &claims), "eyJzZXNzaW9uIjoiQTdLMiIsInJvbGUiOiJjb25kdWN0b3IiLCJleHAiOjIwMDAsInNob3ciOiJ0b3AifQ.VKZMHFY4kDbr-uvH_Wiu-Pw07Cpc9UdvLkp6oc8B-6Y");
+    }
+
     #[test]
     fn round_trip() {
         let t = sign(SECRET, &claims());

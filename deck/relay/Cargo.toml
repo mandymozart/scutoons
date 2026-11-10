@@ -41,6 +41,8 @@ ureq = { version = "2", default-features = false, features = ["tls"] }
 wtransport = { version = "0.7", default-features = false, features = ["ring", "quinn"] }
 
 [dev-dependencies]
+# the acceptance of #90: real relays, real conductors (tests/tree.rs)
+deck-show = { path = "../show" }
 # a self-signed certificate for the wss tests (tests/tls.rs)
 rcgen = "0.13"
 # the QUIC door's client end in tests and the bench, and a two-week certificate a browser pins by hash

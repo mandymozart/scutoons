@@ -18,6 +18,15 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use deck_space::rig::validate;
+
+/// #90: a show to check: `{ kind: "shows", id, document, shows: [every show its tree names] }`.
+#[derive(serde::Deserialize)]
+struct ShowRequest {
+    kind: String,
+    document: serde_json::Value,
+    #[serde(default)]
+    shows: Vec<serde_json::Value>,
+}
 use serde_json::json;
 use tokio::net::TcpListener;
 use tokio::sync::Semaphore;
@@ -89,6 +98,12 @@ impl Service {
     fn validate(&self, req: &Request) -> Response {
         if !self.authorized(req) {
             return Response::error(401, "unauthorized");
+        }
+        // #90: a show and the whole tree under it (server/src/Domain/Live/Shows.php)
+        if let Ok(show) = serde_json::from_slice::<ShowRequest>(&req.body) {
+            if show.kind == "shows" {
+                return Response::json(200, &json!({ "problems": deck_show::validate::problems(&show.document, &show.shows) }));
+            }
         }
         let Ok(request) = serde_json::from_slice::<validate::Request>(&req.body) else {
             return Response::error(400, "bad_request");
@@ -278,6 +293,17 @@ mod tests {
         let r = service.handle(&post(Some("sesame"), r#"{"files":{"osc.rs":"//"}}"#)).await;
         assert_eq!(r.status, 422);
         assert!(r.body.contains("needs a lib.rs"), "{}", r.body);
+    }
+
+    #[tokio::test]
+    async fn validate_answers_a_shows_problems() {
+        let s = Service::new(config(2, 100), Fake::new());
+        let body = serde_json::json!({ "kind": "shows", "id": "t", "document": { "id": "t", "version": 1, "outlets": [], "rows": [], "seats": [
+            { "id": "a", "show": { "id": "x", "version": 1 }, "word": "follow" } ] }, "shows": [] }).to_string();
+        let r = s.handle(&validate(Some("sesame"), &body)).await;
+        let answer: serde_json::Value = serde_json::from_str(&r.body).unwrap();
+        assert_eq!(r.status, 200);
+        assert_eq!(answer["problems"].as_array().map(Vec::len), Some(1));
     }
 
     fn validate(token: Option<&str>, body: &str) -> Request {
