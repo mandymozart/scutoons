@@ -1925,11 +1925,11 @@ mod tests {
         let roles = vec![role("tenor", None), role("click", Some(phones)), role("baritone", Some(members))];
         r.send("cond", Message::Roles(Roles { roles }), 0);
         fn offered(r: &mut Room, id: &str) -> Vec<(String, i64)> {
-            let told = r.inbox(id).into_iter().filter_map(|e| match e.message {
+            let mut told = r.inbox(id).into_iter().filter_map(|e| match e.message {
                 Message::Roles(x) => Some(x.roles.into_iter().map(|o| (o.id, o.here.map_or(-1, |h| h as i64))).collect::<Vec<_>>()),
                 _ => None,
             });
-            told.last().unwrap_or_default()
+            told.next_back().unwrap_or_default()
         }
         let pairs = |v: &[(&str, i64)]| v.iter().map(|(a, b)| (a.to_string(), *b)).collect::<Vec<_>>();
         assert_eq!(offered(&mut r, "deck"), pairs(&[("tenor", 1)]), "a member's role and the phones' are not shown to a native deck");
