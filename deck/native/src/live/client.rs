@@ -26,8 +26,8 @@ pub struct Client {
     pub preload: Sender<MediaPreload>,
     /// #91: every cell → the deck's piece side (the frame thread: piece.rs)
     pub pieces: Sender<Cell>,
-    /// #91: a flash → the deck's flash side (flash.rs)
-    pub flash: Sender<protocol::Flash>,
+    /// #91: a flash → the deck's flash side (flash.rs); #471: and the client id the welcome gave
+    pub flash: Sender<super::flash::In>,
     /// what the deck says (media.ready, flash.report)
     pub outbox: Receiver<Message>,
     pub status: Arc<Mutex<Status>>,
@@ -75,7 +75,10 @@ impl Side for Client {
         };
         for r in route(e.message, &self.cfg.outlet) {
             match r {
-                Routed::Joined(client) => tracing::info!("live: output {client} of outlet '{}' (session {})", self.cfg.outlet, self.cfg.code),
+                Routed::Joined(client) => {
+                    tracing::info!("live: output {client} of outlet '{}' (session {})", self.cfg.outlet, self.cfg.code);
+                    let _ = self.flash.send(super::flash::In::Joined(client));
+                }
                 Routed::Compose(i) => {
                     let _ = self.compose.send(i);
                 }
@@ -86,7 +89,7 @@ impl Side for Client {
                     let _ = self.pieces.send(c);
                 }
                 Routed::Flash(f) => {
-                    let _ = self.flash.send(f);
+                    let _ = self.flash.send(super::flash::In::Flash(f));
                 }
                 Routed::Refused { code, message } => {
                     tracing::warn!("live: the relay says {code}: {message}");

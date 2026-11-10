@@ -47,6 +47,7 @@ pub fn view_switch(d: &mut DrawList, t: &Tokens, host: &mut Host, stage: Rect, s
     let on = match host.sheet.filter(|_| sheets) {
         Some(Sheet::Cues) => 2,
         Some(Sheet::Problems) => 3,
+        Some(Sheet::Flash) => usize::MAX,
         None => usize::from(host.two_d),
     };
     let r = controls::pills(d, t, x, y, h, names, on);

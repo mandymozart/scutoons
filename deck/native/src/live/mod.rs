@@ -98,6 +98,8 @@ mod running {
         size: Arc<AtomicU64>,
         stop: Arc<AtomicBool>,
         rejoin: Arc<AtomicBool>,
+        /// #471: to the flash side (the operator's switch)
+        flash: Sender<super::flash::In>,
     }
 
     impl Live {
@@ -115,10 +117,14 @@ mod running {
             let (frames_tx, frames) = mpsc::sync_channel::<Frame>(2);
             let (space_tx, space) = channel::<SpaceTarget>();
             let (pieces_tx, pieces) = channel::<protocol::Cell>();
-            let (flash_tx, flash_rx) = channel::<protocol::Flash>();
+            let (flash_tx, flash_rx) = channel::<super::flash::In>();
 
+            // #471: what the deck says about itself – a native deck, and deck.toml's "please don't flash"
+            let mut deck = deck_show::ready::Deck::new(&cfg.outlet);
+            deck.set_device("native");
+            deck.set_keep(super::config::dont_flash(&super::config::deck_toml()));
             let flasher = super::flash::Flasher {
-                deck: deck_show::ready::Deck::new(&cfg.outlet),
+                deck,
                 api: lib.api.clone(),
                 media: media.clone(),
                 outbox: outbox.clone(),
@@ -144,14 +150,20 @@ mod running {
                 compose: to_compose,
                 preload: to_preload,
                 pieces: pieces_tx,
-                flash: flash_tx,
+                flash: flash_tx.clone(),
                 outbox: outbox_rx,
                 status: status.clone(),
                 stop: stop.clone(),
                 rejoin: rejoin.clone(),
             };
             spawn("live-relay", move || client.run());
-            Live { outlet: cfg.outlet, frames: Some(frames), space, pieces, status, size, stop, rejoin }
+            Live { outlet: cfg.outlet, frames: Some(frames), space, pieces, status, size, stop, rejoin, flash: flash_tx }
+        }
+
+        /// #471: the operator's switch after a flash replaced the deck's own version: to its own (`true`) or back to the
+        /// flashed one; whether it may is deck-show's (`ready::Deck::switch`), the answer goes to the HUD and the conductor.
+        pub fn switch_flash(&self, own: bool) {
+            let _ = self.flash.send(super::flash::In::Switch(own));
         }
 
         /// the plane's size follows the window's render size (the cell is composed again)

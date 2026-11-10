@@ -16,6 +16,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, pointer: 
     match host.sheet {
         Some(Sheet::Cues) => cues(d, t, host, area, pointer),
         Some(Sheet::Problems) => problems(d, t, host, area, pointer),
+        Some(Sheet::Flash) => super::flash::draw(d, t, host, area, pointer),
         None => {}
     }
 }

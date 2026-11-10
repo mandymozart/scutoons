@@ -129,8 +129,10 @@ async fn join(port: u16, code: &str, role: Role, group: Option<&str>, token: Opt
         let frame = tokio::time::timeout(Duration::from_secs(3), ws.next()).await.expect("a welcome").unwrap().unwrap();
         let Ws::Text(text) = frame else { continue };
         let e: Envelope = serde_json::from_str(&text).unwrap();
-        if let Message::Welcome(w) = e.message {
-            return Peer { ws, id: w.client, sub, inbox: vec![] };
+        if let Message::Welcome(w) = &e.message {
+            // the welcome stays in the inbox: its snapshot is what a client finds when it joins
+            let id = w.client.clone();
+            return Peer { ws, id, sub, inbox: vec![e] };
         }
     }
 }
@@ -457,6 +459,54 @@ async fn a_nearer_hand_keeps_its_flash_and_a_lock_overrides_it() {
     t.top.all(out).await;
     let (top, foyer) = (&mut t.top, &mut t.foyer);
     wait(&mut [top, foyer], |p| p[1].sub().assignment().is_some_and(|a| a.hops == 1 && a.locked)).await;
+    t.parent_rt.shutdown_background();
+}
+
+fn last_flash(p: &Peer) -> Flash {
+    p.inbox.iter().rev().find_map(|e| match &e.message {
+        Message::Flash(f) => Some(f.clone()),
+        _ => None,
+    })
+    .expect("a flash")
+}
+
+/// #471: the operator unticked the top's deck; the foyer's deck takes it, and a deck that joins the foyer later finds it.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_chosen_flash_leaves_out_who_was_unticked_and_a_deck_that_joins_later_finds_it() {
+    use deck_show::ready::Deck;
+    let mut t = two(ClockChoice::Parent).await;
+    let pick = deck_show::choose::Pick { skip: vec![t.left.id.clone()], by: Some("ana".into()), ..Default::default() };
+    let out = t.top.sub_mut().flash_to(&flash_lock(), &pick, now());
+    t.top.all(out).await;
+    let (top, foyer, left, wall) = (&mut t.top, &mut t.foyer, &mut t.left, &mut t.wall);
+    let got = |p: &Peer| p.inbox.iter().any(|e| matches!(e.message, Message::Flash(_)));
+    wait(&mut [top, foyer, left, wall], |p| got(p[2]) && got(p[3])).await;
+    let mut left = Deck::new("left");
+    left.set_id(&t.left.id);
+    let refused = left.take(&last_flash(&t.left)).unwrap_err();
+    assert_eq!(refused.why.as_deref(), Some("left out by the conductor"));
+    t.left.send(Envelope::new("", Message::FlashReport(*refused))).await;
+    let (top, left_peer) = (&mut t.top, &mut t.left);
+    wait(&mut [top, left_peer], |p| p[0].inbox.iter().any(|e| matches!(e.message, Message::FlashReport(_)))).await;
+    // a conductor that joins later finds what each deck last said
+    let second = join(t.parent_port, "TOP", Role::Conductor, None, Some("t"), None).await;
+    let reports = second.inbox.iter().find_map(|e| match &e.message {
+        Message::Welcome(w) => w.snapshot.reports.clone(),
+        _ => None,
+    });
+    assert!(reports.is_some_and(|r| r.contains_key(&t.left.id)));
+    let mut wall = Deck::new("wall");
+    wall.set_id(&t.wall.id);
+    assert_eq!(wall.take(&last_flash(&t.wall)).unwrap().to_string(), "foyer-loop@3");
+    // not here when it went out: the flash waits in the session's snapshot
+    let late = join(t.child_port, "FOY", Role::Output, Some("wall"), None, None).await;
+    let kept = late.inbox.iter().find_map(|e| match &e.message {
+        Message::Welcome(w) => w.snapshot.flash.clone(),
+        _ => None,
+    });
+    let mut deck = Deck::new("wall");
+    deck.set_id(&late.id);
+    assert_eq!(deck.take(&kept.expect("the flash in a late deck's snapshot")).unwrap().to_string(), "foyer-loop@3");
     t.parent_rt.shutdown_background();
 }
 

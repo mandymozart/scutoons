@@ -273,6 +273,8 @@ pub struct Session {
     seats: HashMap<String, SeatState>,
     /// #90: the last flash (sent here or come down)
     flash: Option<Flash>,
+    /// #471: each deck's and sub conductor's last flash.report by its path, for a conductor that joins later
+    reports: HashMap<String, protocol::FlashReport>,
     /// #90: the parent's last word to this subtree
     parent_word: Option<SeatWord>,
     /// #90: this session's link to its parent (`None`: it has none)
@@ -355,6 +357,7 @@ impl Session {
         // a deck that left takes its being and its routes along (it sends its graph again when it comes back)
         self.decks.remove(id);
         self.synced.remove(id);
+        self.reports.remove(id);
         self.quality.remove(id);
         self.routes.retain(|(a, b)| a != id && b != id);
         // the leader left: the last anchor stays (a line goes on), another deck may lead
@@ -473,7 +476,9 @@ impl Session {
             tempo: if bridge { None } else { self.tempo.clone() },
             seat,
             seats: if all && !self.seats.is_empty() { Some(self.seats.clone()) } else { None },
-            flash: if all || role == Role::Seat { self.flash.clone() } else { None },
+            // #471: a deck too – one that was not here when the flash went out takes it when it joins (unless left out)
+            flash: if all || matches!(role, Role::Seat | Role::Output) { self.flash.clone() } else { None },
+            reports: if all && !self.reports.is_empty() { Some(self.reports.clone()) } else { None },
             seq: Some(self.seq as i64),
         }
     }
@@ -812,6 +817,9 @@ impl Session {
                 self.publish(id, e, now);
             }
             Message::FlashReport(_) | Message::AddressAnswer(_) => {
+                if let Message::FlashReport(r) = &e.message {
+                    self.reports.insert(id.to_owned(), r.clone());
+                }
                 if e.to.is_none() {
                     e.to = Some(To::role(Role::Conductor));
                 }
@@ -955,6 +963,9 @@ impl Session {
         let seat = self.clients.get(id).and_then(|c| c.group.clone()).unwrap_or_else(|| id.to_owned());
         let from = format!("{seat}/{}", e.from);
         e.to = Some(To::role(Role::Conductor));
+        if let Message::FlashReport(r) = &e.message {
+            self.reports.insert(from.clone(), r.clone());
+        }
         match &e.message {
             Message::SeatState(state) => {
                 let mut state = state.clone();
