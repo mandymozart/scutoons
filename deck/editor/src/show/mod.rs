@@ -17,6 +17,7 @@ pub mod author;
 mod flash;
 mod link;
 pub mod perform;
+mod roles;
 mod sheets;
 
 use deck_kit::controls::Rect;
@@ -80,6 +81,14 @@ pub enum Hit {
     Row(usize),
     /// #478: a role of the document shown (deck-show's `roles` order): the tree and its column mark it (Show)
     Role(usize),
+    /// #478: a new role, the selected role's name field, one of its filter's toggles, its remove (asks first)
+    RoleAdd,
+    RoleName,
+    RoleFact(usize),
+    RoleRemove,
+    /// #478: the prompt asked (a role's remove): confirmed, or back
+    AskYes,
+    AskNo,
     Save,
     Load,
     /// the tree resolved to exact versions: the list of the devices to flash opens (#471)
@@ -112,6 +121,10 @@ pub struct Host {
     pub row: usize,
     /// #478: the role selected (a stage outlet's id); none = the row is inspected
     pub role: Option<String>,
+    /// #478: a typed field open (a role's name) and its text
+    pub typing: Option<(roles::Typing, deck_kit::text::Field)>,
+    /// #478: the prompt asked before it is done (a role's remove)
+    pub asking: Option<roles::Ask>,
     /// the last thing done, or why not
     pub status: String,
     pub two_d: bool,
@@ -172,7 +185,7 @@ impl Host {
                 })
                 .ok()
         });
-        Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, link, api }
+        Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, typing: None, asking: None, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, link, api }
     }
 
     /// the document at the end of the path (the top's when a step is missing)
@@ -258,7 +271,11 @@ impl Host {
                 self.row = i;
                 self.role = None;
             }
-            Hit::Role(i) => self.role = deck_show::roles::roles(self.shown(), None).get(i).map(|r| r.id.clone()),
+            Hit::Role(i) => {
+                self.role = deck_show::roles::roles(self.shown(), None).get(i).map(|r| r.id.clone());
+                self.typing = None;
+            }
+            Hit::RoleAdd | Hit::RoleName | Hit::RoleFact(_) | Hit::RoleRemove | Hit::AskYes | Hit::AskNo => self.roles_press(hit),
             Hit::Save => self.save(),
             Hit::Load => self.load(),
             Hit::Flash => self.open_flash(),

@@ -394,6 +394,14 @@ impl Subtree {
         self.cannot = why;
     }
 
+    /// #478 slice 3: the operator's edit of the show this conductor runs (the editor's Show workspace, deck-show
+    /// `roles::edit`): it runs from now, and its session hears the roles at once (`roles`). What plays stays until a row
+    /// changes it.
+    pub fn edited(&mut self, show: Show) -> Vec<Envelope> {
+        self.conductor.replace(show);
+        vec![self.roles()]
+    }
+
     /// The show a flash asked for, fetched: this is what runs from now, and the parent is told.
     pub fn install(&mut self, show: Show, ms: u64) -> Vec<Envelope> {
         self.conductor.replace(show);

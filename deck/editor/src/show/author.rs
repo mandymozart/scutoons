@@ -8,7 +8,7 @@ use super::{Hit, Host, Sheet};
 use deck_kit::controls::{self, Rect};
 use deck_kit::draw::DrawList;
 use deck_kit::tokens::Tokens;
-use deck_show::view;
+use deck_show::{view, Show};
 
 pub struct Layout {
     pub left: Rect,
@@ -120,8 +120,10 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
         .iter()
         .map(|r| controls::TreeRow { depth: 0, label: r.name.clone(), detail: deck_show::roles::here_text(r.here), icon: "node", open: None, selected: host.role.as_ref() == Some(&r.id) })
         .collect();
+    let mut role_rows = role_rows;
+    role_rows.push(controls::TreeRow { depth: 0, label: deck_show::roles::ADD.into(), detail: String::new(), icon: "plus", open: None, selected: false });
     for (i, r) in controls::tree(d, t, 0.0, y, l.left.w - 1.0, &role_rows, pointer).into_iter().enumerate() {
-        host.hits.push((r, Hit::Role(i)));
+        host.hits.push((r, if i + 1 == role_rows.len() { Hit::RoleAdd } else { Hit::Role(i) }));
     }
     y += role_rows.len() as f32 * t.size.tree_row + pad;
     d.text(pad, y + 4.0, small, "ROWS", t.color.muted);
@@ -233,10 +235,36 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
         host.hits.push((whole, Hit::Row(i)));
     }
 
-    // right: the inspector of the row, the seats, save / load
+    // right: the inspector of the row (or #478 the selected role's), the seats, save / load
     let (rx, rw) = (l.right.x + pad, l.right.w - 2.0 * pad);
-    let mut y = l.right.y + pad;
-    for (i, (head, lines)) in view::inspector(&show, &sel).iter().enumerate() {
+    let y = l.right.y + pad;
+    let bh = 34.0;
+    let foot = l.right.y + l.right.h - bh - pad - small * 2.0;
+    let role = host.role.as_ref().and_then(|id| deck_show::roles::inspector(&show, host.path.is_empty().then_some(&host.sub), id));
+    match role {
+        Some(insp) => super::roles::inspector(d, t, host, &insp, Rect { x: rx, y, w: rw, h: foot - y }, pointer),
+        None => row_side(d, t, host, (&show, &sel, &seats), (rx, y, rw), foot),
+    }
+    let bw = (rw - 2.0 * pad) / 3.0;
+    let load = Rect { x: rx, y: foot, w: bw, h: bh };
+    let flash = Rect { x: rx + bw + pad, y: foot, w: bw, h: bh };
+    let save = Rect { x: rx + 2.0 * (bw + pad), y: foot, w: bw, h: bh };
+    button(d, t, load, "Load", t.color.control, t.color.text);
+    button(d, t, flash, "Flash", t.color.control, t.color.text);
+    button(d, t, save, "Save", t.color.accent, t.color.surface);
+    host.hits.push((save, Hit::Save));
+    host.hits.push((load, Hit::Load));
+    host.hits.push((flash, Hit::Flash));
+    let line = if host.status.is_empty() { format!("{}@{} · /api/shows", show.id, show.version) } else { host.status.clone() };
+    d.text(rx, foot + bh + 6.0, small, &fit(d, &line, small, rw), t.color.muted);
+    // #478: a prompt asked (a role's remove) over the stage: only its presses count
+    super::roles::ask(d, t, host, l.stage);
+}
+
+/// the right side for a row: its inspector, the seats, the flash reports, down to `foot`
+fn row_side(d: &mut DrawList, t: &Tokens, host: &Host, (show, sel, seats): (&Show, &str, &[view::SeatView]), (rx, mut y, rw): (f32, f32, f32), foot: f32) {
+    let (pad, font, small) = (t.size.pad, t.size.font, t.size.small);
+    for (i, (head, lines)) in view::inspector(show, sel).iter().enumerate() {
         y += controls::section(d, t, rx, y, rw, &head.to_uppercase(), i == 0);
         for (label, value) in lines {
             if !label.is_empty() {
@@ -254,7 +282,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
         d.text(rx, y + 4.0, small, "none: this show seats no sub conductor", t.color.muted);
         y += t.size.row;
     }
-    for s in &seats {
+    for s in seats {
         d.text(rx, y + 4.0, font, &s.id, t.color.text);
         d.text(rx + rw * 0.38, y + 4.0, small, &fit(d, &format!("{} · {}", s.show, s.detail), small, rw * 0.62), t.color.muted);
         y += font * 1.5;
@@ -262,8 +290,6 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
         y += t.size.row;
     }
     // #91 item 5: what each deck and sub conductor answered to the last flash (deck-show's words)
-    let bh = 34.0;
-    let foot = l.right.y + l.right.h - bh - pad - small * 2.0;
     y += controls::section(d, t, rx, y, rw, "FLASH REPORTS", false);
     let reports = view::reports(&host.sub);
     if reports.is_empty() {
@@ -285,16 +311,4 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
         }
         y += pad * 0.5;
     }
-    let bw = (rw - 2.0 * pad) / 3.0;
-    let load = Rect { x: rx, y: foot, w: bw, h: bh };
-    let flash = Rect { x: rx + bw + pad, y: foot, w: bw, h: bh };
-    let save = Rect { x: rx + 2.0 * (bw + pad), y: foot, w: bw, h: bh };
-    button(d, t, load, "Load", t.color.control, t.color.text);
-    button(d, t, flash, "Flash", t.color.control, t.color.text);
-    button(d, t, save, "Save", t.color.accent, t.color.surface);
-    host.hits.push((save, Hit::Save));
-    host.hits.push((load, Hit::Load));
-    host.hits.push((flash, Hit::Flash));
-    let line = if host.status.is_empty() { format!("{}@{} · /api/shows", show.id, show.version) } else { host.status.clone() };
-    d.text(rx, foot + bh + 6.0, small, &fit(d, &line, small, rw), t.color.muted);
 }
