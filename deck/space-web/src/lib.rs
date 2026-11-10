@@ -30,7 +30,8 @@
 //! - **The deck's state (#367, #368):** `DeckState` – deck-space's `deck::Deck` without a GPU: the mood's energy ladder (the
 //!   native being's walk) from the level, the clock and a hand, and what plays (its own scene or a rig, replayed on every
 //!   mood); the page applies its turns.
-//! - **Scenes (#463):** `SceneView` – a scene drawn by the renderer every deck uses (deck-space `stage`), the idle scene when none is given.
+//! - **Scenes (#463, #465):** `SceneView` – a scene drawn by the renderer every deck uses (deck-space `stage`), its control
+//!   domain deck-engine's, its set, portraits and chapters fetched by the page; the idle scene when none is given.
 #![cfg(target_arch = "wasm32")]
 
 mod scene;
@@ -95,7 +96,7 @@ impl Knobs for Page {
     }
 }
 
-fn err(e: impl std::fmt::Display) -> JsValue {
+pub(crate) fn err(e: impl std::fmt::Display) -> JsValue {
     JsValue::from_str(&e.to_string())
 }
 
@@ -152,7 +153,7 @@ fn mirror_of(graph: &Graph) -> Mirror {
 
 /// The native stage frames the being for a landscape screen (55° high); a phone held upright sees as much across as the
 /// stage sees from top to bottom – the field of view widens with the height (at most 75°), the camera stays.
-fn frame_for(space: &mut Space, w: u32, h: u32) {
+pub(crate) fn frame_for(space: &mut Space, w: u32, h: u32) {
     let aspect = w as f32 / h.max(1) as f32;
     let native = 55f32.to_radians();
     space.camera.fov_y = if aspect >= 1.0 { native } else { (2.0 * ((native * 0.5).tan() / aspect).atan()).min(75f32.to_radians()) };
@@ -234,8 +235,42 @@ pub fn rig_module_instrument(request: &str) -> Result<String, JsValue> {
     deck_space::rig::assign::module_instrument_json(request).map_err(|e| JsValue::from_str(&format!("{e:#}")))
 }
 
+/// a set's .glb and its images as the browser decoded them (`encoded_images`) into the space
+pub(crate) fn set_from_page(space: &mut Space, glb_bytes: &[u8], images: js_sys::Array) -> Result<(), JsValue> {
+    let mut decoded: HashMap<usize, image::RgbaImage> = HashMap::new();
+    let items: Vec<JsValue> = images.iter().collect();
+    for c in items.chunks_exact(4) {
+        let (Some(i), Some(w), Some(h)) = (c[0].as_f64(), c[1].as_f64(), c[2].as_f64()) else { continue };
+        let px = js_sys::Uint8Array::new(&c[3]).to_vec();
+        if let Some(img) = image::RgbaImage::from_raw(w as u32, h as u32, px) {
+            decoded.insert(i as usize, img);
+        }
+    }
+    let (max, hide) = space.set_options();
+    let hide = hide.to_vec();
+    let model = glb::parse_with(glb_bytes, max, &hide, &mut |i, _| decoded.remove(&i).ok_or_else(|| anyhow::anyhow!("not decoded by the browser")));
+    let ok = model.is_ok();
+    space.set_arrived(model);
+    if ok {
+        Ok(())
+    } else {
+        Err(err(&space.set_status))
+    }
+}
+
+/// the sprites the heads ask for: slot, character, mood, …
+pub(crate) fn portrait_asks(space: &mut Space) -> js_sys::Array {
+    let out = js_sys::Array::new();
+    for (slot, character, mood) in space.portraits.requests() {
+        out.push(&JsValue::from(slot as u32));
+        out.push(&JsValue::from_str(&character));
+        out.push(&JsValue::from_str(&mood));
+    }
+    out
+}
+
 /// a set that does not come does not hold the splash longer than this (s)
-const SPLASH_AT_MOST: f32 = 5.0;
+pub(crate) const SPLASH_AT_MOST: f32 = 5.0;
 
 /// A canvas' GPU, as `SpaceView` and `SceneView` draw on it.
 struct CanvasGpu {
@@ -606,38 +641,14 @@ impl SpaceView {
     /// The set has arrived: its .glb and its images decoded by the browser – `images` = [index, width, height, RGBA
     /// bytes, …] (an image the browser couldn't decode is left out: it draws untextured grey).
     pub fn give_set(&mut self, glb_bytes: &[u8], images: js_sys::Array) -> Result<(), JsValue> {
-        let mut decoded: HashMap<usize, image::RgbaImage> = HashMap::new();
-        let items: Vec<JsValue> = images.iter().collect();
-        for c in items.chunks_exact(4) {
-            let (Some(i), Some(w), Some(h)) = (c[0].as_f64(), c[1].as_f64(), c[2].as_f64()) else { continue };
-            let px = js_sys::Uint8Array::new(&c[3]).to_vec();
-            if let Some(img) = image::RgbaImage::from_raw(w as u32, h as u32, px) {
-                decoded.insert(i as usize, img);
-            }
-        }
-        let (max, hide) = self.space.set_options();
-        let hide = hide.to_vec();
-        let model = glb::parse_with(glb_bytes, max, &hide, &mut |i, _| decoded.remove(&i).ok_or_else(|| anyhow::anyhow!("not decoded by the browser")));
-        let ok = model.is_ok();
-        self.space.set_arrived(model);
         self.cover = false;
-        if ok {
-            Ok(())
-        } else {
-            Err(err(&self.space.set_status))
-        }
+        set_from_page(&mut self.space, glb_bytes, images)
     }
 
     /// The portraits the heads ask for: [slot, character, mood, …] – the page fetches and decodes each and answers
     /// with `give_portrait` (or `no_portrait`).
     pub fn portrait_requests(&mut self) -> js_sys::Array {
-        let out = js_sys::Array::new();
-        for (slot, character, mood) in self.space.portraits.requests() {
-            out.push(&JsValue::from(slot as u32));
-            out.push(&JsValue::from_str(&character));
-            out.push(&JsValue::from_str(&mood));
-        }
-        out
+        portrait_asks(&mut self.space)
     }
 
     /// a portrait sprite decoded by the browser (RGBA8)

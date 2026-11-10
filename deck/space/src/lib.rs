@@ -29,6 +29,8 @@ pub mod space;
 #[cfg(feature = "gpu")]
 pub mod build_label;
 #[cfg(feature = "gpu")]
+pub mod chapter;
+#[cfg(feature = "gpu")]
 pub mod hud;
 #[cfg(feature = "gpu")]
 pub mod pairing;

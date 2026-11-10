@@ -4465,6 +4465,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "deck-core",
+ "deck-engine",
  "deck-space",
  "image",
  "js-sys",

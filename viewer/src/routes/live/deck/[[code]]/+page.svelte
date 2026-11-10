@@ -189,7 +189,7 @@
 			let alive = true;
 			let scene: SceneStage | null = null;
 			if (stage)
-				SceneStage.start({ host: stage, base: WASM_BASE, prefer: preferOf(page.url.searchParams) }).then(
+				SceneStage.start({ host: stage, base: WASM_BASE, api: API_URL, cdn, scene: page.url.searchParams.get('scene') ?? '', prefer: preferOf(page.url.searchParams) }).then(
 					(s) => (alive ? (scene = s) : s.stop()),
 					(e) => console.warn('live deck: no idle scene', e)
 				);

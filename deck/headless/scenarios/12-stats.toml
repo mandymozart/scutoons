@@ -16,7 +16,7 @@ expect = { summary = { frames = 181, avg_fps = { near = 60.0, tol = 0.1 }, frame
 [[step]]
 do = "stats"
 with = { frame_ms = 16.667, frames = 180, work_ms = 2.0, drawn_every = 2, target_fps = 30 }
-expect = { fps = { near = 30.0, tol = 0.5 }, ticks = { near = 60.0, tol = 0.5 }, frame_ms = { near = 33.33, tol = 0.05 }, sound = false, levels = { fps = "ok", cpu = "ok" }, bar = { has = { label = "AUDIO", value = "OFF", level = "ok" } } }
+expect = { fps = { near = 30.0, tol = 0.5 }, ticks = { near = 60.0, tol = 0.5 }, frame_ms = { near = 33.33, tol = 0.05 }, sound = false, levels = { fps = "ok", cpu = "ok" }, bar = { has = { label = "CPU", value = "2.0", level = "ok" } } }
 
 # a p99 past half the block's budget warns; 20 ms of work per 60 Hz frame is past the frame's budget
 [[step]]

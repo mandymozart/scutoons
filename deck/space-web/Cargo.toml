@@ -18,6 +18,8 @@ crate-type = ["cdylib", "rlib"]
 deck-space = { path = "../space", default-features = false, features = ["gpu"] }
 # #364: the monitor beside the governor (deck-core is platform-free; its monitor is always built)
 deck-core = { workspace = true }
+# #465: a scene's control domain (its LFOs, its links), as the native deck runs it
+deck-engine = { path = "../engine", features = ["space"] }
 protocol = { workspace = true }
 anyhow.workspace = true
 serde.workspace = true

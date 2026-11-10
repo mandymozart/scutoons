@@ -7,6 +7,7 @@
 #[cfg(feature = "chapter")]
 mod load;
 #[cfg(feature = "chapter")]
-pub use load::{pick_caption, spawn};
+pub use load::spawn;
 
+pub use deck_space::chapter::pick_caption;
 pub use deck_space::stage::{ChapterFeed, Prepared};
