@@ -97,7 +97,8 @@ enum Entry {
 pub struct Page {
     pub open: bool,
     cursor: usize,
-    name: String,
+    /// the name being typed (none: the session's, as it is)
+    name: Option<String>,
     /// what the last key did (taken · locked · the name said)
     pub said: String,
 }
@@ -117,9 +118,13 @@ impl Page {
     pub fn open(&mut self, s: &Session) {
         let list = entries(s);
         self.cursor = list.iter().position(|e| matches!((e, &s.role), (Entry::Role(o), Some(r)) if &o.id == r) || (matches!(e, Entry::None) && s.role.is_none())).unwrap_or(0);
-        self.name = s.name.clone();
+        self.name = None;
         self.said.clear();
         self.open = true;
+    }
+
+    fn typed(&self, s: &Session) -> String {
+        self.name.clone().unwrap_or_else(|| s.name.clone())
     }
 
     /// whether the cursor is on the name (typed characters go there)
@@ -135,9 +140,9 @@ impl Page {
             Key::Up => self.cursor = self.cursor.saturating_sub(1),
             Key::Down => self.cursor = (self.cursor + 1).min(list.len() - 1),
             Key::Back if self.on_name(s) => {
-                self.name.pop();
+                self.name.get_or_insert_with(|| s.name.clone()).pop();
             }
-            Key::Char(c) if self.on_name(s) && !c.is_control() && self.name.chars().count() < NAME_MAX => self.name.push(c),
+            Key::Char(c) if self.on_name(s) && !c.is_control() && self.typed(s).chars().count() < NAME_MAX => self.name.get_or_insert_with(|| s.name.clone()).push(c),
             Key::Enter => return self.pick(&list[self.cursor], s),
             Key::Back | Key::Char(_) => {}
         }
@@ -156,7 +161,7 @@ impl Page {
     fn pick(&mut self, e: &Entry, s: &Session) -> Option<Do> {
         let take = match e {
             Entry::Name => {
-                let name: String = self.name.trim().chars().take(NAME_MAX).collect();
+                let name: String = self.typed(s).trim().chars().take(NAME_MAX).collect();
                 self.said = format!("you are {}", role_name(s.role.as_deref().map(|r| s.label(r)).as_deref(), &name));
                 return Some(Do::Name(name));
             }
@@ -184,7 +189,7 @@ impl Page {
     pub fn lines(&self, s: &Session) -> (Vec<String>, usize) {
         let list = entries(s);
         let cursor = self.cursor.min(list.len() - 1);
-        let link = if s.link.is_empty() { "NOT IN A SESSION".to_string() } else { s.link.clone() };
+        let link = if s.link.is_empty() { "NOT IN A SESSION".to_string() } else { s.link.to_uppercase() };
         let mut out = vec!["LIVE  F6 CLOSE  ENTER=TAKE".to_string(), link];
         let start = self.start(list.len());
         let mut at = HEAD;
@@ -198,7 +203,7 @@ impl Page {
                 Entry::None => (NO_ROLE.to_string(), "IDLE SCENE".to_string()),
                 Entry::Name => {
                     let typing = if i == cursor { "_" } else { "" };
-                    (format!("name: {}{typing}", self.name), String::new())
+                    (format!("name: {}{typing}", self.typed(s)), String::new())
                 }
             };
             let left = format!("{}{}{}", if i == cursor { '>' } else { ' ' }, if here { '*' } else { ' ' }, what);

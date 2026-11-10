@@ -8,6 +8,7 @@ use super::socket::{self, Side};
 use super::Status;
 use deck_outlet::route::{route, Input, Routed};
 use deck_space::relay::{Client as Relay, Options, Out};
+use deck_ui::live::{Do, Session};
 use protocol::{Cell, MediaPreload, Message, Role};
 use std::sync::atomic::AtomicBool;
 use std::sync::mpsc::{Receiver, Sender};
@@ -34,13 +35,19 @@ pub struct Client {
     pub stop: Arc<AtomicBool>,
     /// drop the connection now and join again with resume (tests; a network change)
     pub rejoin: Arc<AtomicBool>,
+    /// #478: what the Live page asks (a role, a name) and what it shows (the relay client's session)
+    pub page: Receiver<Do>,
+    pub session: Arc<Mutex<Session>>,
 }
 
 impl Client {
     /// the thread's body: the relay client until `stop`
     pub fn run(mut self) {
-        let mut o = Options::new(&format!("{}/live/{}{}", self.cfg.base, self.cfg.code, self.cfg.door), Role::Output, Some(&self.cfg.outlet));
+        // #478: an empty outlet is no role (deck.toml's `role = ""`)
+        let group = Some(self.cfg.outlet.as_str()).filter(|g| !g.is_empty());
+        let mut o = Options::new(&format!("{}/live/{}{}", self.cfg.base, self.cfg.code, self.cfg.door), Role::Output, group);
         o.nick = self.nick.take();
+        o.device = Some("native".into());
         o.resume = true;
         o.messages = true;
         let relay = match Relay::new(o) {
@@ -57,6 +64,19 @@ impl Client {
 
 impl Side for Client {
     fn feed(&mut self, c: &mut Relay, _now: f64) {
+        // #478: the Live page's choice – to the relay, the name kept in deck.toml (the role when the relay moved it)
+        while let Ok(d) = self.page.try_recv() {
+            match d {
+                Do::Take(role) => {
+                    c.take_role(role.as_deref());
+                }
+                Do::Name(name) => {
+                    c.set_name(&name);
+                    keep("nick", &name);
+                }
+            }
+        }
+        *self.session.lock().unwrap() = c.live();
         // media.ready waits for an open socket
         while c.open() {
             let Ok(m) = self.outbox.try_recv() else { break };
@@ -97,5 +117,13 @@ impl Side for Client {
                 }
             }
         }
+        *self.session.lock().unwrap() = c.live();
+    }
+}
+
+/// #478: the Live page's choice in deck.toml (config.rs `Choice`)
+fn keep(key: &str, value: &str) {
+    if let Err(e) = super::config::Choice::keep(&super::config::deck_toml(), key, value) {
+        tracing::warn!("live: {key} not kept in deck.toml: {e}");
     }
 }

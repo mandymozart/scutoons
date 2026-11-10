@@ -160,6 +160,15 @@ impl Shelf for WebShelf {
     }
 }
 
+/// #478: what the Live page chose on this device – the page keeps it as text (`SceneView::live_kept`), the core reads it
+#[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
+pub struct Kept {
+    #[serde(default)]
+    pub role: Option<String>,
+    #[serde(default)]
+    pub name: Option<String>,
+}
+
 /// The outlet in the page: the relay client, the composer and the two machines, on the page's clock.
 pub struct Outlet {
     pub name: String,
@@ -189,16 +198,20 @@ pub struct Outlet {
 
 impl Outlet {
     /// join `relay` (ws:// or wss://…/live/<code>) as output of `outlet`, its text in `locale`, show media's links from `api`;
-    /// the planes go to `frames`
-    pub fn new(relay: &str, outlet: &str, locale: &str, api: &str, size: (u32, u32), frames: SyncSender<Frame>) -> Result<Outlet, String> {
+    /// the planes go to `frames`. #478: `kept` – what the Live page chose on this device (`Kept`, the page keeps the text):
+    /// its role over the outlet, its name
+    pub fn new(relay: &str, outlet: &str, kept: &str, locale: &str, api: &str, size: (u32, u32), frames: SyncSender<Frame>) -> Result<Outlet, String> {
         let relay = if relay.trim().is_empty() { HOSTED_RELAY } else { relay.trim() };
         if outlet.is_empty() || !outlet.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') {
             return Err(format!("outlet '{outlet}': letters, digits, - and _ only"));
         }
-        let mut o = Options::new(relay, Role::Output, Some(outlet));
+        let kept: Kept = serde_json::from_str(kept).unwrap_or_default();
+        let outlet = kept.role.as_deref().unwrap_or(outlet);
+        let mut o = Options::new(relay, Role::Output, Some(outlet).filter(|g| !g.is_empty()));
         o.resume = true;
         o.messages = true;
-        o.nick = Some("browser".into());
+        o.nick = Some(kept.name.filter(|n| !n.trim().is_empty()).unwrap_or_else(|| "browser".into()));
+        o.device = Some("browser".into());
         let relay = Client::new(o)?;
         let status = Status { link: format!("JOINING {}", relay.url()), ..Default::default() };
         Ok(Outlet {
@@ -324,7 +337,8 @@ impl Outlet {
             self.status.problems = out.problems;
             self.pending = Some(out.frame);
         }
-        let lines = self.status.lines(&self.name);
+        let s = self.relay.live();
+        let lines = self.status.lines(&if s.joined { deck_ui::live::who(&s) } else { self.name.clone() });
         if lines != self.said {
             web_sys::console::log_1(&lines.join("\n").into());
             self.said = lines;

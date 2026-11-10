@@ -66,10 +66,13 @@ mod running {
         use super::config::{Settings, DECK_TOML};
         use super::media::{HttpFetch, Linked, LocalSets};
         let settings = Settings::read(std::path::Path::new(DECK_TOML)).merged(cli);
-        let cfg = settings
+        let mut cfg = settings
             .config()
             .ok_or("no outlet: set relay + outlet in /var/lib/deck/deck.toml (or --relay / --outlet)")?
             .map_err(|e| format!("{e:#}"))?;
+        // #478: the role the Live page took last (`""`: none) over the outlet, the name it said over the host's
+        let choice = super::config::Choice::read(&super::config::deck_toml());
+        cfg.outlet = choice.role.unwrap_or(cfg.outlet);
         let media = Media {
             // show media's signed links (#470): the library's API (DECK_API, else production – main.rs)
             api: lib.api.clone(),
@@ -80,7 +83,7 @@ mod running {
             local: Mutex::new(Default::default()),
         };
         tracing::info!("live: outlet '{}' of session {} via {}", cfg.outlet, cfg.code, cfg.base);
-        Ok(Live::start(cfg, lib, media, size, hostname()))
+        Ok(Live::start(cfg, lib, media, size, choice.nick.filter(|n| !n.trim().is_empty()).or_else(hostname)))
     }
 
     fn hostname() -> Option<String> {
@@ -102,6 +105,9 @@ mod running {
         rejoin: Arc<AtomicBool>,
         /// #471: to the flash side (the operator's switch)
         flash: Sender<super::flash::In>,
+        /// #478: the Live page's session (the relay client's, kept by its thread) and what it asks of it
+        session: Arc<Mutex<deck_ui::live::Session>>,
+        page: Sender<deck_ui::live::Do>,
     }
 
     impl Live {
@@ -120,6 +126,8 @@ mod running {
             let (space_tx, space) = channel::<SpaceTarget>();
             let (pieces_tx, pieces) = channel::<protocol::Cell>();
             let (flash_tx, flash_rx) = channel::<super::flash::In>();
+            let (page, page_rx) = channel::<deck_ui::live::Do>();
+            let session = Arc::new(Mutex::new(deck_ui::live::Session::default()));
 
             // #471: what the deck says about itself – a native deck, and deck.toml's "please don't flash"
             let mut deck = deck_show::ready::Deck::new(&cfg.outlet);
@@ -157,9 +165,21 @@ mod running {
                 status: status.clone(),
                 stop: stop.clone(),
                 rejoin: rejoin.clone(),
+                page: page_rx,
+                session: session.clone(),
             };
             spawn("live-relay", move || client.run());
-            Live { outlet: cfg.outlet, frames: Some(frames), space, pieces, status, size, stop, rejoin, flash: flash_tx }
+            Live { outlet: cfg.outlet, frames: Some(frames), space, pieces, status, size, stop, rejoin, flash: flash_tx, session, page }
+        }
+
+        /// #478: what the Live page shows
+        pub fn session(&self) -> deck_ui::live::Session {
+            self.session.lock().unwrap().clone()
+        }
+
+        /// #478: what the Live page asked: a role (at once, the relay checks it), a name
+        pub fn act(&self, d: deck_ui::live::Do) {
+            let _ = self.page.send(d);
         }
 
         /// #471: the operator's switch after a flash replaced the deck's own version: to its own (`true`) or back to the
@@ -178,8 +198,11 @@ mod running {
             self.rejoin.store(true, Ordering::Relaxed);
         }
 
+        /// #478: the first line says `role: name` once the deck is in its session
         pub fn hud_lines(&self) -> Vec<String> {
-            self.status.lock().unwrap().lines(&self.outlet)
+            let s = self.session();
+            let who = if s.joined { deck_ui::live::who(&s) } else { self.outlet.clone() };
+            self.status.lock().unwrap().lines(&who)
         }
     }
 

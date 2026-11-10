@@ -4,10 +4,11 @@ import { sniff, spaceModule, stageCanvas, type SpaceModule } from './space.ts';
 import { askPortraits, fetchChapter, fetchOutletAsks, fetchSet, fetchSlice, portraitsAt, type ChapterView, type OutletView, type SetView } from './stage-assets.ts';
 import { RelaySocket, type RelayCoreView } from './client.ts';
 import { deckKey, driveLink, type Paired } from './deck-key.ts';
+import { LivePage, readKept, type LiveView } from './live-page.ts';
 
 /** #463: the wasm-bindgen API of deck/space-web's `SceneView` */
-export interface SceneView extends SetView, ChapterView, OutletView {
-	join_outlet(relay: string, outlet: string, locale: string, api: string): boolean;
+export interface SceneView extends SetView, ChapterView, OutletView, LiveView {
+	join_outlet(relay: string, outlet: string, kept: string, locale: string, api: string): boolean;
 	deck_link(why: string, code: string, app: string): void;
 	set_request(): string;
 	reloaded(): number;
@@ -48,6 +49,8 @@ export class SceneStage {
 	private spaceModule: SpaceModule | null = null;
 	/** #470: the deck's pairing (an outlet's show media need its token) and the key it signs with */
 	private link: Paired | null = null;
+	/** #478: the Live page's stats line, keys and taps */
+	private live: LivePage | null = null;
 
 	private constructor(
 		private readonly o: SceneOptions,
@@ -76,7 +79,9 @@ export class SceneStage {
 		}
 		const s = new SceneStage(o, canvas, view);
 		s.spaceModule = mod;
-		if (o.outlet && view.join_outlet(o.outlet.relay, o.outlet.name, o.outlet.locale, o.api)) {
+		const kept = readKept();
+		if (o.outlet && view.join_outlet(o.outlet.relay, o.outlet.name, kept, o.outlet.locale, o.api)) {
+			s.live = new LivePage(view, canvas, o.host, kept);
 			(s.relay = new RelaySocket(view as unknown as RelayCoreView, {})).start();
 			const key = await deckKey();
 			if (key) s.link = { view: new mod.DeckLink(key.publicHex, o.build ?? ''), key: key.pair.privateKey, busy: false };
@@ -110,6 +115,7 @@ export class SceneStage {
 		if (!this.relay) return;
 		// what the outlet says (media.ready) goes out; what it asks for is fetched; a cell's set loads
 		this.relay.run();
+		this.live?.frame();
 		const link = this.link;
 		if (link) void driveLink(link, this.o.api);
 		this.view.deck_link(link ? link.view.why(ms) : 'this browser cannot pair (no WebCrypto Ed25519)', link?.view.code() ?? '', location.origin);
@@ -121,6 +127,7 @@ export class SceneStage {
 	stop() {
 		this.stopped = true;
 		this.relay?.close();
+		this.live?.stop();
 		this.link?.view.free();
 		cancelAnimationFrame(this.raf);
 		this.size.disconnect();
