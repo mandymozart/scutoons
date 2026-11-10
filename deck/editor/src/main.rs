@@ -1000,7 +1000,8 @@ impl App {
         let Some(menu) = self.menu.take() else { return };
         let (x, y) = (menu.ta.x, menu.ta.y);
         if let Some((track, node, address)) = menu.far {
-            let Some(entry) = self.book.book.as_ref().and_then(|b| b.entry(id)).map(|e| e.address.clone()) else { return };
+            // the entry's address (the book offers only entries a receiver exists for: rig/book.rs `find`)
+            let Some(entry) = self.book.book.as_ref().and_then(|b| b.entry(id)).and_then(|e| e.address.clone()) else { return };
             let next = deck_space::rig::address::Place::parse(&entry).map(|p| address.with_holder(p).to_string());
             let done = next.and_then(|a| self.stage.bundle.address_set(&track, &node, &a));
             return self.change(done, format!("{node}: {entry}"), x, y);

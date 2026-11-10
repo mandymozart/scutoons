@@ -7,7 +7,7 @@
 	import { clickSelect, moveMany } from '$lib/editor/multi-select.ts';
 	import { applyVnSettings, makeClip } from '$lib/editor/clip.ts';
 	import { clipWhat, pastedMessage, useClipHandler } from '$lib/editor/clipboard.svelte.ts';
-	import { isKnownMissing } from '$lib/editor/characters.ts';
+	import { imageExists, isKnownMissing } from '$lib/editor/characters.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { FORM_TYPES, castOptions, conditionWords, summary, template, triggerWord } from '$lib/editor/vn-forms.ts';
 	import { joinBefore, offStage } from '$lib/editor/vn-stage.ts';
@@ -273,18 +273,19 @@
 
 	/** the speaker's avatar (a tiny one in the line, owner 2026-10-03); none without a registry image */
 	const registryIndex = $derived(choices ? characterIndex(choices.registry) : null);
+	/** the avatar's path (from the CDN root); '' for none – a path the CDN did not serve is known missing then (#477 slice D: no broken image) */
 	function avatarOf(raw: any): string {
-		const id = raw?.character ?? raw?.name;
+		const id = raw?.character || raw?.name;
 		if (!registryIndex || !id) return '';
 		const ref = resolveCharacterId(id, raw.persona);
 		const character = registryIndex.get(ref.character);
 		const src = character ? characterImage(character, { persona: ref.persona, look: raw.look, mood: raw.mood }, 'avatar', { isMissing: isKnownMissing }) : '';
-		return src && !src.includes('missing') ? asset(src) : '';
+		return src && !src.includes('missing') ? src : '';
 	}
 	/** who the line is about: the speaker (showMessage) or everyone joining / leaving – avatar, else the name (owner 2026-10-03) */
 	function people(event: any): { id: string; src: string }[] {
 		const refs = event?.type === 'showMessage' || event?.type === 'askText' ? (event.params?.character ? [event.params] : []) : event?.type === 'joinScene' || event?.type === 'leaveScene' ? (event.params?.characters ?? []) : [];
-		return refs.map((r: any) => ({ id: String(r?.character ?? r?.name ?? ''), src: avatarOf(r) })).filter((p: { id: string }) => p.id);
+		return refs.map((r: any) => ({ id: String(r?.character || r?.name || ''), src: avatarOf(r) })).filter((p: { id: string }) => p.id);
 	}
 </script>
 
@@ -300,7 +301,8 @@
 					<span class="idx">{i + 1}</span>
 					<span class="type">{event?.type}</span>
 					{#each people(event) as who, wi (wi)}
-						{#if who.src}<img class="avatar" src={who.src} alt={who.id} title={who.id} />{:else}<span class="who">{who.id}</span>{/if}
+						<!-- an image that does not load is marked missing: the name shows instead of a broken image -->
+						{#if who.src}<img class="avatar" src={asset(who.src)} alt={who.id} title={who.id} onerror={() => imageExists(who.src)} />{:else}<span class="who">{who.id}</span>{/if}
 					{/each}
 					<span class="sum">{conditionWords(event?.if) ? `${m['creator.vn_if_short']({ test: conditionWords(event.if) })} · ` : ''}{summary(event, chain, dialogs)}</span>
 					{#if offStageAt.has(i)}<span class="off-stage" title={m['creator.event_off_stage']({ who: offStageAt.get(i) ?? '' })}><Icon name="alert-triangle" /></span>{/if}

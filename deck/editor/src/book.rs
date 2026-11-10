@@ -96,7 +96,7 @@ pub fn load(url: &str, token: Option<&str>, kept: &Path) -> Loaded {
 mod tests {
     use super::*;
 
-    const BOOK: &str = r#"{"address_book":1,"toon":"catpope","version":"v7","source":"en","entries":[{"address":"item:incense","kind":"item","name":"incense","labels":{"en":"Incense"},"origin":{"key":"item:incense","state":"published"}}]}"#;
+    const BOOK: &str = r#"{"address_book":2,"toon":"catpope","version":"v7","source":"en","entries":[{"ref":"item:incense","address":"item:incense","kind":"item","name":"incense","labels":{"en":"Incense"},"origin":{"key":"item:incense","state":"published"}}]}"#;
 
     fn dir(name: &str) -> PathBuf {
         let d = std::env::temp_dir().join(format!("deck-editor-book-{name}-{}", std::process::id()));

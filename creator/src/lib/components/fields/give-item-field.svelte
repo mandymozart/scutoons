@@ -7,6 +7,7 @@
 	import AddressField from '$lib/components/fields/address-field.svelte';
 	import { itemCatalog, loadCatalog } from '$lib/editor/catalog.svelte.ts';
 	import { TARGETS } from '$lib/editor/address-targets.ts';
+	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
@@ -30,10 +31,19 @@
 	const variants = $derived(take ? [] : (def?.variants ?? []));
 	const variantOptions = $derived(variants.map((v) => ({ value: v.id, label: localName(v.name) || v.id })));
 	const localName = (name: unknown) => (typeof name === 'string' ? name : ((name as Record<string, string> | null)?.de ?? (name as Record<string, string> | null)?.en ?? ''));
+	/** the item's picture in the field's row (the variant's when one is given) and on each option (#477 slice D) */
+	const variantId = $derived(doc.get(doc.primary, [...path, 'variant']) as string | undefined);
+	const shownIcon = $derived(variants.find((v) => v.id === variantId)?.icon || def?.icon);
+	const iconOf = (e: AddressEntry) => itemCatalog.catalog?.items.find((i) => i.id === e.name)?.icon || undefined;
 </script>
 
 <!-- another item: the old one's variant goes -->
-<AddressField {doc} {path} kinds={TARGETS.item.kinds} fields={TARGETS.item.fields} accept={offered} onpick={(t) => delete t.variant} label={m['creator.field_item']()} testid="{testid}-item" />
+<AddressField {doc} {path} spec={TARGETS.item} accept={offered} onpick={(t) => delete t.variant} icon={iconOf} label={m['creator.field_item']()} testid="{testid}-item">
+	{#snippet lead()}
+		<!-- a picture that does not load is hidden, not drawn broken (a new item, a new image element) -->
+		{#key shownIcon}{#if shownIcon}<img class="icon" src={asset(shownIcon)} alt="" onerror={(e) => ((e.currentTarget as HTMLImageElement).hidden = true)} />{/if}{/key}
+	{/snippet}
+</AddressField>
 <PropField {doc} path={[...path, 'qty']} label={m['creator.field_qty']()} type="number" step={1} min={1} max={GIVE_ITEM_MAX} placeholder="1" />
 {#if variants.length}
 	<PropField {doc} path={[...path, 'variant']} label={m['creator.item_variant']()} type="select" options={variantOptions} placeholder={m['creator.item_variant_none']()} />
@@ -41,3 +51,12 @@
 {#if take}
 	<RepeatsField id="{testid}-repeat" testid="{testid}-repeat" value={repeat} onchange={(next) => doc.set([...path, 'repeat'], next)} />
 {/if}
+
+<style>
+	.icon {
+		flex: none;
+		width: 1.5rem;
+		height: 1.5rem;
+		object-fit: contain;
+	}
+</style>
