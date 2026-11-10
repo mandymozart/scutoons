@@ -223,12 +223,16 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
     }
     let bh = 34.0;
     let foot = l.right.y + l.right.h - bh - pad - small * 2.0;
-    let save = Rect { x: rx, y: foot, w: (rw - pad) * 0.5, h: bh };
-    let load = Rect { x: rx + save.w + pad, y: foot, w: (rw - pad) * 0.5, h: bh };
+    let bw = (rw - 2.0 * pad) / 3.0;
+    let load = Rect { x: rx, y: foot, w: bw, h: bh };
+    let flash = Rect { x: rx + bw + pad, y: foot, w: bw, h: bh };
+    let save = Rect { x: rx + 2.0 * (bw + pad), y: foot, w: bw, h: bh };
     button(d, t, load, "Load", t.color.control, t.color.text);
+    button(d, t, flash, "Flash", t.color.control, t.color.text);
     button(d, t, save, "Save", t.color.accent, t.color.surface);
     host.hits.push((save, Hit::Save));
     host.hits.push((load, Hit::Load));
+    host.hits.push((flash, Hit::Flash));
     let line = if host.status.is_empty() { format!("{}@{} · /api/shows", show.id, show.version) } else { host.status.clone() };
     d.text(rx, foot + bh + 6.0, small, &fit(d, &line, small, rw), t.color.muted);
 }

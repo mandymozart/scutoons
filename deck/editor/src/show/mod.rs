@@ -57,6 +57,8 @@ pub enum Hit {
     Row(usize),
     Save,
     Load,
+    /// the tree resolved to exact versions, sent down to this deck's decks and sub conductors
+    Flash,
     /// the overlay: 2D (true) or the stage alone (3D)
     View(bool),
 }
@@ -197,6 +199,7 @@ impl Host {
             Hit::Row(i) => self.row = i,
             Hit::Save => self.save(),
             Hit::Load => self.load(),
+            Hit::Flash => self.flash(),
             Hit::View(two_d) => self.two_d = two_d,
         }
     }
@@ -218,6 +221,31 @@ impl Host {
         }
         self.path.push(seat.id);
         self.row = 0;
+    }
+
+    /// Flash (#91 item 5, SHOW.md §4b): the tree from the top, every show its seats pin fetched once (the API, else the
+    /// cache), resolved by the core to exact versions (`deck_show::resolve`, like a lock file) and sent down as one flash
+    /// (`Subtree::flash`); a broken reference is the core's problem, said here, and nothing goes out.
+    fn flash(&mut self) {
+        let mut todo: Vec<deck_show::Pinned> = self.sub.conductor().show().seats.iter().map(|s| s.show.clone()).collect();
+        while let Some(p) = todo.pop() {
+            if self.library.contains_key(&p.id) {
+                continue;
+            }
+            if let Some(s) = self.api.load(&p.id).ok().and_then(|(t, _)| deck_show::parse(&t).ok()) {
+                todo.extend(s.seats.iter().map(|x| x.show.clone()));
+                self.library.insert(p.id.clone(), s);
+            }
+        }
+        let lib: BTreeMap<deck_show::Pinned, Show> = self.library.values().map(|s| (deck_show::Pinned { id: s.id.clone(), version: s.version }, s.clone())).collect();
+        match deck_show::resolve(self.sub.conductor().show(), &lib) {
+            Ok(lock) => {
+                let out = self.sub.flash(&lock, false, now());
+                self.status = format!("flashed {}", lock.shows.iter().map(ToString::to_string).collect::<Vec<_>>().join(", "));
+                self.send(out);
+            }
+            Err(problems) => self.status = format!("not flashed: {}", problems.iter().map(ToString::to_string).collect::<Vec<_>>().join("; ")),
+        }
     }
 
     fn save(&mut self) {
@@ -253,6 +281,7 @@ pub struct Script {
     pub fire: Option<String>,
     pub launch: Option<(String, String)>,
     pub go: bool,
+    pub flash: bool,
     /// Show: enter this seat's sub conductor, inspect this row
     pub seat: Option<String>,
     pub row: Option<String>,
@@ -294,6 +323,7 @@ impl Host {
                 }
             }
             130 if s.go => self.press(Hit::Go),
+            50 if s.flash => self.press(Hit::Flash),
             _ => {}
         }
     }

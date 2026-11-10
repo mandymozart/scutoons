@@ -111,6 +111,7 @@ fn args() -> Result<Args> {
             "--fire" => a.script.fire = Some(val()?),
             "--launch" => a.script.launch = val()?.split_once(',').map(|(r, c)| (r.to_string(), c.to_string())),
             "--go" => a.script.go = true,
+            "--flash" => a.script.flash = true,
             "--seat" => a.script.seat = Some(val()?),
             "--row" => a.script.row = Some(val()?),
             "--gesture" => {
