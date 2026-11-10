@@ -43,6 +43,7 @@ use deck_show::conductor::{Conductor, Now, Out};
 use deck_space::piece::{Found, What};
 use deck_space::rig::address::Place;
 use deck_space::quality::{Governor, Level};
+use deck_space::resolver::{Found as Opinion, Resolver, Source, Strength};
 use deck_space::rig::Bundle as Rig;
 use deck_space::scene::Scene;
 use live_core::wire::Mode;
@@ -127,6 +128,8 @@ struct Run<'a> {
     governor: Option<Governor>,
     gov_t: f64,
     marks: BTreeMap<String, String>,
+    /// #474: the opinions a `resolve` step gave the resolver
+    opinions: Resolver<Value>,
 }
 
 /// Run one bundled scenario → its report (the same on every target)
@@ -151,7 +154,7 @@ pub fn run_paced(bundle: &Bundle, pace: Option<Box<dyn FnMut(f64)>>) -> Report {
     let rate = t.get("rate").and_then(|v| v.as_integer()).unwrap_or(48_000) as f32;
     let channels = t.get("channels").and_then(|v| v.as_integer()).unwrap_or(2) as usize;
     let expected = t.get("expected_fail").and_then(|v| v.as_str()).map(String::from);
-    let mut r = Run { bundle, deck: Deck::new(rate, channels), show: None, governor: None, gov_t: 0.0, marks: BTreeMap::new() };
+    let mut r = Run { bundle, deck: Deck::new(rate, channels), show: None, governor: None, gov_t: 0.0, marks: BTreeMap::new(), opinions: Resolver::new() };
     r.deck.pace = pace;
     let steps = t.get("step").and_then(|s| s.as_array()).cloned().unwrap_or_default();
     let mut fault = None;
@@ -527,6 +530,34 @@ impl Run<'_> {
                 let mut out = self.deliver(outs)?;
                 out["row"] = json!(row);
                 out
+            }
+            // #474: the one resolver – opinions given (`set`: strength, id, value; `call`: caller, value, start, length;
+            // `clear`: strength, id), then a key asked at `now`: the value, where it came from, what it falls back to
+            "resolve" => {
+                let rows = |k: &str| step.get(k).and_then(|v| v.as_array()).cloned().unwrap_or_default();
+                let word = |t: &toml::Value, k: &str| t.get(k).and_then(|v| v.as_str()).unwrap_or_default().to_string();
+                let time = |t: &toml::Value, k: &str| t.get(k).and_then(|v| v.as_float().or_else(|| v.as_integer().map(|i| i as f64))).unwrap_or(0.0);
+                let source = |t: &toml::Value| {
+                    let s = word(t, "strength");
+                    Strength::parse(&s).map(|st| Source::new(st, &word(t, "id"))).ok_or_else(|| Fault::Error(format!("no strength '{s}'")))
+                };
+                let key = text("key").ok_or_else(|| Fault::Error("a resolve step without `key`".into()))?;
+                for t in rows("set") {
+                    let value = t.get("value").map(to_json).unwrap_or(Value::Null);
+                    self.opinions.set(&key, source(&t)?, value);
+                }
+                for t in rows("call") {
+                    let value = t.get("value").map(to_json).unwrap_or(Value::Null);
+                    self.opinions.call(&key, &word(&t, "caller"), value, time(&t, "start"), time(&t, "length"));
+                }
+                for t in rows("clear") {
+                    self.opinions.clear(&key, &source(&t)?);
+                }
+                let one = |f: Opinion<'_, Value>| json!({ "value": f.value, "origin": f.origin.to_string() });
+                match self.opinions.resolve(&key, num("now", 0.0)) {
+                    Some(r) => json!({ "found": true, "value": r.value, "origin": r.origin.to_string(), "fallback": r.fallback.map(one) }),
+                    None => json!({ "found": false }),
+                }
             }
             c if caps::known(c) => {
                 let input = step.get("with").map(to_json).unwrap_or(Value::Null);
