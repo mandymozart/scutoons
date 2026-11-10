@@ -115,15 +115,15 @@ impl Typeahead {
 
     /// draw it, kept inside `limit` (the window, in logical pixels)
     pub fn draw(&mut self, ui: &mut DrawList, t: &Tokens, limit: (f32, f32)) {
-        let (font, row, pad) = (t.size.font * 0.85, t.size.row * 0.9, t.size.pad * 0.7);
+        let (font, row, pad) = (t.size.font, t.size.row, t.size.pad);
         let visible = self.shown.len().min(ROWS);
         let height = row * (visible.max(1) as f32 + 1.0) + 4.0;
         let x = self.x.min(limit.0 - WIDTH - 8.0).max(8.0);
-        let y = self.y.min(limit.1 - height - 8.0).max(t.size.bar + 4.0);
+        let y = self.y.min(limit.1 - height - 8.0).max(t.size.top + 4.0);
         self.frame = (x, y, row);
-        ui.rect(x - 1.0, y - 1.0, WIDTH + 2.0, height + 2.0, t.color.divider);
-        ui.rect(x, y, WIDTH, height, t.color.panel);
-        ui.rect(x, y, WIDTH, row, t.color.field);
+        ui.round_rect(x - 1.0, y - 1.0, WIDTH + 2.0, height + 2.0, t.size.radius + 1.0, t.color.line);
+        ui.round_rect(x, y, WIDTH, height, t.size.radius, t.color.surface);
+        ui.round_rect(x, y, WIDTH, row, t.size.radius, t.color.control);
         let text_y = (row - font * 1.25) * 0.5;
         let adv = ui.advance(font);
         if self.field.text.is_empty() {
@@ -142,7 +142,7 @@ impl Typeahead {
         for (slot, &i) in self.shown.iter().skip(first).take(ROWS).enumerate() {
             let top = y + row * (slot as f32 + 1.0) + 2.0;
             if first + slot == self.at {
-                ui.rect(x, top, WIDTH, row, t.color.tab_active);
+                ui.round_rect(x + 2.0, top, WIDTH - 4.0, row, t.size.radius, t.color.selected);
             }
             let item = &self.items[i];
             ui.text(x + pad, top + text_y, font, &item.label, t.color.text);

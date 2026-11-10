@@ -218,6 +218,9 @@ pub struct Point {
     hidden: bool,
 }
 
+/// how much a bounce of 1 swells the body
+const BOUNCE: f32 = 0.06;
+
 /// how far a node's ports sit from its point, against the being's size
 const PORT_REACH: f32 = 0.16;
 
@@ -930,7 +933,9 @@ impl Being {
         // breath: a calm 0.2 Hz, never the beat or the level (the core's light takes `pulse`)
         let b = 0.5 - 0.5 * (TAU * 0.2 * time).cos();
         self.pulse = self.core_point.map_or(0.0, |c| vals.input(self.points[c].node, "pulse", 0.0));
-        self.swell = 1.0 + look.breath * b * calm;
+        // the bounce is the rig's, when something is wired to it (#455), never a default; held still, none
+        let bounce = self.core_point.map_or(0.0, |c| vals.input(self.points[c].node, "bounce", 0.0));
+        self.swell = 1.0 + (look.breath * b + BOUNCE * bounce) * calm;
         let d = look.drift * calm;
         self.center = self.anchor + Vec3::new(d * (0.13 * time).sin(), 0.6 * d * (0.21 * time + 1.0).sin(), d * (0.17 * time + 2.0).sin());
         for p in &mut self.points {

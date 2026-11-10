@@ -50,6 +50,25 @@ pub enum Op {
         #[serde(default)]
         offset: f32,
     },
+    /// a control input's value (`node.port`), on the preset or the instrument that holds it
+    SetValue {
+        path: String,
+        value: f32,
+    },
+    /// a track's fields, those given (#456: the mixer and the assignment move into the editor)
+    SetTrack {
+        id: String,
+        #[serde(default)]
+        instrument: Option<String>,
+        #[serde(default)]
+        preset: Option<String>,
+        #[serde(default)]
+        gain: Option<f32>,
+        #[serde(default)]
+        pan: Option<f32>,
+        #[serde(default)]
+        mute: Option<bool>,
+    },
     Disconnect {
         to: String,
         #[serde(default)]
@@ -180,13 +199,38 @@ fn rig(r: &mut Rig, op: &Op, lib: &Library) -> Result<(), String> {
             }
             Ok(())
         }
+        Op::SetValue { .. } => Err(format!("{who}: a value is its preset's or its instrument's")),
+        Op::SetTrack { id, instrument, preset, gain, pan, mute } => {
+            if let Some(i) = instrument {
+                if !lib.instruments.contains_key(i) {
+                    return Err(format!("{who}: unknown instrument \"{i}\""));
+                }
+            }
+            let t = r.tracks.iter_mut().find(|t| &t.id == id).ok_or_else(|| format!("{who}: no track '{id}'"))?;
+            if let Some(i) = instrument {
+                t.instrument = i.clone();
+            }
+            if let Some(p) = preset {
+                t.preset = Some(p.clone());
+            }
+            if let Some(g) = gain {
+                t.gain = *g;
+            }
+            if let Some(p) = pan {
+                t.pan = *p;
+            }
+            if let Some(m) = mute {
+                t.mute = *m;
+            }
+            Ok(())
+        }
         Op::AddNode { .. } | Op::RemoveNode { .. } => Err(format!("{who}: a rig has tracks, not nodes – add a track, or edit the track's instrument")),
         Op::AddTrack { id, instrument, preset } => {
             word(id, "a track id")?;
             if r.tracks.iter().any(|t| &t.id == id) {
                 return Err(format!("{who}: track '{id}' is there already"));
             }
-            if id == super::policy::NODE || id == super::address::BEING {
+            if id == super::policy::NODE || id == super::address::BEING || id == super::address::SOUND || id == super::address::CLOCK {
                 return Err(format!("{who}: the track id '{id}' is reserved"));
             }
             if !lib.instruments.contains_key(instrument) {
@@ -275,6 +319,13 @@ fn instrument(i: &mut Instrument, op: &Op) -> Result<(), String> {
             }
             Ok(())
         }
+        Op::SetTrack { .. } => Err(format!("{who}: a track is the rig's")),
+        Op::SetValue { path, value } => {
+            let (node, port) = path.split_once('.').ok_or_else(|| format!("{who}: '{path}' is not node.port"))?;
+            let n = i.nodes.iter_mut().find(|n| n.id == node).ok_or_else(|| format!("{who}: no node '{node}'"))?;
+            n.params.insert(port.to_string(), toml::Value::Float(f64::from(*value)));
+            Ok(())
+        }
         Op::AddTrack { .. } | Op::RemoveTrack { .. } => Err(format!("{who}: an instrument has nodes, not tracks – edit the rig")),
     }
 }
@@ -282,6 +333,10 @@ fn instrument(i: &mut Instrument, op: &Op) -> Result<(), String> {
 fn preset(p: &mut Preset, op: &Op, lib: &Library) -> Result<(), String> {
     let who = format!("preset {}", p.id);
     match op {
+        Op::SetValue { path, value } => {
+            p.values.insert(canonical(path), *value);
+            Ok(())
+        }
         Op::Connect { from, to, scale, offset } => {
             for s in [from, to] {
                 if !matches!(Address::leaf(s), Ok(Leaf::Port { track: None, .. })) {
@@ -337,6 +392,30 @@ impl Bundle {
         doc.apply(op, &self.library())?;
         let Doc::Rigs(rig) = doc else { unreachable!("a rig stays a rig") };
         Ok(Bundle { rig, ..self.clone() })
+    }
+
+    /// A control input's value in a track (`path` = `node.port`), on the document it is stored in: the track's preset, else its
+    /// instrument. A mood's own value can still override it while that mood plays.
+    pub fn value_set(&self, track: &str, path: &str, value: f32) -> Result<Bundle, String> {
+        let op = Op::SetValue { path: path.to_string(), value };
+        let t = self.rig.tracks.iter().find(|t| t.id == track).ok_or_else(|| format!("rig {}: no track '{track}'", self.rig.subject))?;
+        match &t.preset {
+            Some(preset) => {
+                let at = self.presets.iter().position(|p| &p.id == preset).ok_or_else(|| format!("rig {}: unknown preset \"{preset}\"", self.rig.subject))?;
+                let mut doc = Doc::Presets(self.presets[at].clone());
+                doc.apply(&op, &self.library())?;
+                let Doc::Presets(changed) = doc else { unreachable!("a preset stays a preset") };
+                let mut next = self.clone();
+                next.presets[at] = changed;
+                Ok(next)
+            }
+            None => self.on_instrument(track, &op),
+        }
+    }
+
+    /// A track's fields set on the rig (the mixer, the inspector).
+    pub fn track_set(&self, op: &Op) -> Result<Bundle, String> {
+        self.on_rig(op)
     }
 
     /// A cable drawn between two `track:node.port` ends, on the document that holds it (#431): inside one track its
@@ -417,6 +496,25 @@ mod gesture_tests {
         let next = b.connected("drone:drone.out", "drone:fifth.cv").expect("inside the track");
         assert_eq!(next.rig, b.rig, "the rig is not its home");
         assert_ne!(next.instruments, b.instruments);
+    }
+
+    #[test]
+    fn a_value_lands_on_the_tracks_preset_and_plays() {
+        let b = catpope();
+        let next = b.value_set("drone", "drone.gain", 0.42).expect("set");
+        assert_ne!(next.presets, b.presets);
+        let played = next.play(None, None).expect("it plays");
+        let n = played.nodes.iter().find(|n| n.id == "drone_drone").expect("the node");
+        assert_eq!(n.params.get("gain").and_then(|v| v.as_float()).map(|f| f as f32), Some(0.42));
+    }
+
+    #[test]
+    fn a_tracks_fields_are_set_on_the_rig() {
+        let b = catpope();
+        let next = b.track_set(&Op::SetTrack { id: "voice".into(), instrument: None, preset: None, gain: Some(0.5), pan: None, mute: Some(true) }).expect("set");
+        let t = next.rig.tracks.iter().find(|t| t.id == "voice").expect("the track");
+        assert_eq!((t.gain, t.mute), (0.5, true));
+        assert!(b.track_set(&Op::SetTrack { id: "nope".into(), instrument: None, preset: None, gain: None, pan: None, mute: None }).is_err());
     }
 
     #[test]

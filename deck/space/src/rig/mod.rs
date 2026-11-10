@@ -332,6 +332,8 @@ impl Rig {
             Leaf::Port { track: None, .. } => Err(format!("'{end}' has no track – a route end is <track>:<node>.<port>")),
             Leaf::Being(_) if is_to => Ok(()),
             Leaf::Being(_) => Err(format!("'{end}': the being's look is a target only")),
+            Leaf::Source(..) if !is_to => Ok(()),
+            Leaf::Source(..) => Err(format!("'{end}': a source only, nothing can feed it")),
             Leaf::Policy(_) if self.policy.is_some() => Ok(()),
             Leaf::Policy(_) => Err(format!("'{end}': no track 'policy' and no policy in this rig")),
             Leaf::Member { .. } | Leaf::State(_) => Err(format!("'{end}' is not a port – a route joins ports (<track>:<node>.<port>)")),

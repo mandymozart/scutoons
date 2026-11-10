@@ -5,7 +5,6 @@ use crate::controls::Rect;
 use crate::draw::DrawList;
 use crate::tokens::Tokens;
 
-const WIDTH: f32 = 360.0;
 const LINES: usize = 5;
 
 /// `text` in lines of at most `cols` characters, broken at spaces
@@ -49,18 +48,20 @@ pub struct Landed {
 }
 
 /// the view in the lower left corner of the area ending at `bottom`
-pub fn view(d: &mut DrawList, t: &Tokens, x: f32, bottom: f32, open: bool, help: Option<&Help>) -> Landed {
-    let (font, row, pad) = (t.size.font * 0.82, t.size.row * 0.8, t.size.pad * 0.7);
+pub fn view(d: &mut DrawList, t: &Tokens, x: f32, bottom: f32, width: f32, open: bool, help: Option<&Help>) -> Landed {
+    let (font, row, pad) = (t.size.small, t.size.row - 4.0, t.size.pad);
     let line_h = font * 1.4;
     let adv = d.advance(font);
-    let cols = ((WIDTH - 2.0 * pad) / adv) as usize;
+    let cols = ((width - 2.0 * pad) / adv) as usize;
     let lines = help.map_or_else(Vec::new, |h| wrap(&h.text, cols));
     let body = if open { line_h * (1.0 + LINES as f32) + pad } else { 0.0 };
     let top = bottom - row - body;
-    let whole = Rect { x, y: top, w: WIDTH, h: row + body };
-    d.rect(x, top, WIDTH, whole.h, [t.color.panel[0], t.color.panel[1], t.color.panel[2], 0.9]);
+    let whole = Rect { x, y: top, w: width, h: row + body };
+    d.rect(x, top, width, whole.h, t.color.surface_head);
+    d.rect(x, top, width, 1.0, t.color.line);
     let text_y = (row - font * 1.25) * 0.5;
-    d.text(x + pad, top + text_y, font, if open { "v info" } else { "^ info" }, t.color.muted);
+    d.icon(x + pad, top + (row - 12.0) * 0.5, 12.0, if open { "down" } else { "up" }, t.color.muted);
+    d.text(x + pad + 16.0, top + text_y, font, "INFO", t.color.muted);
     if open {
         let mut y = top + row;
         match help {
@@ -77,7 +78,7 @@ pub fn view(d: &mut DrawList, t: &Tokens, x: f32, bottom: f32, open: bool, help:
             }
         }
     }
-    Landed { head: Rect { x, y: top, w: WIDTH, h: row }, whole }
+    Landed { head: Rect { x, y: top, w: width, h: row }, whole }
 }
 
 #[cfg(test)]
@@ -95,10 +96,10 @@ mod tests {
     fn closed_it_is_only_its_head() {
         let t = Tokens::default();
         let mut d = DrawList::new(0.6);
-        let l = view(&mut d, &t, 10.0, 500.0, false, None);
+        let l = view(&mut d, &t, 10.0, 500.0, 300.0, false, None);
         assert_eq!(l.head, l.whole);
         assert_eq!(l.whole.y + l.whole.h, 500.0);
-        let l = view(&mut d, &t, 10.0, 500.0, true, Some(&Help::new("a", "b")));
+        let l = view(&mut d, &t, 10.0, 500.0, 300.0, true, Some(&Help::new("a", "b")));
         assert!(l.whole.h > l.head.h);
         assert_eq!(l.whole.y + l.whole.h, 500.0, "it grows up from its corner");
     }

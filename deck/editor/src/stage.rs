@@ -11,7 +11,8 @@ use deck_native::space::portrait::Portraits;
 use deck_native::space::Space;
 use deck_native::tempo::{self, Tempo};
 use deck_space::deck::Deck;
-use deck_space::graph::{Graph, Kind};
+use deck_space::graph::{Graph, Kind, PortType};
+use deck_space::params;
 use deck_space::quality::Rung;
 use deck_space::rig::address::node_port;
 use deck_space::rig::Bundle;
@@ -63,13 +64,67 @@ pub struct Stage {
     core_node: usize,
     /// the graph's node ids: a being's point is its node
     pub node_ids: Vec<String>,
+    kinds: Vec<Kind>,
+    /// the mixer's strips, and what goes out
+    pub strips: Vec<Strip>,
+    /// the gains inside the tracks
+    pub inner: Vec<Inner>,
+    master: Option<(usize, usize)>,
+    pub master_peak: [f32; 2],
+    pub master_max: f32,
     volume: f32,
+}
+
+/// a track's strip on the mixer
+pub struct Strip {
+    pub track: String,
+    pub node: usize,
+    pub port: usize,
+    pub name: String,
+    pub owned: bool,
+    from: (usize, usize),
+    /// the held peak, left and right
+    pub peak: [f32; 2],
+    /// the highest peak since it was last cleared
+    pub max: f32,
+}
+
+/// a gain inside a track, as the mixer shows it
+pub struct Inner {
+    pub track: String,
+    pub label: String,
+    /// the node whose sound it sets
+    pub source: String,
+    pub node: usize,
+    pub port: usize,
+    pub name: String,
+    /// `node.port` in the track's documents
+    pub path: String,
+    /// a cable feeds it: no hand on it
+    pub linked: bool,
+    max_value: f32,
+    from: (usize, usize),
+    /// the source sits before this gain (a mixer's input): the level reads after it
+    before_gain: bool,
+    pub peak: [f32; 2],
+    pub max: f32,
+}
+
+/// a control input of a node, as the inspector shows it
+pub struct Param {
+    pub name: &'static str,
+    pub port: usize,
+    pub spec: params::Spec,
+    pub value: f32,
+    pub linked: Option<String>,
 }
 
 /// a rig ready to sound: everything that can refuse it, before the running engine is stopped
 struct Ready {
     bundle: Bundle,
     knobs: Vec<deck_space::rig::bundle::Knob>,
+    strips: Vec<deck_space::rig::bundle::Strip>,
+    sum: Option<String>,
     scene: Scene,
     graph: Graph,
     tempo: tempo::Config,
@@ -88,7 +143,7 @@ fn prepare(bundle: Bundle) -> Result<Ready> {
     let tempo = tempo::config_from_graph(&graph)?;
     let space_node = graph.first(Kind::Space).context("the rig's scene has a space node")?;
     let ports = wires::ports(&turn.played)?;
-    Ok(Ready { bundle, knobs: turn.played.knobs.clone(), scene, graph, tempo, space_node, ports })
+    Ok(Ready { bundle, knobs: turn.played.knobs.clone(), strips: turn.played.strips(), sum: turn.played.sum(), scene, graph, tempo, space_node, ports })
 }
 
 /// the deck's audio options from deck.toml (`DECK_TOML`): host, device, buffer
@@ -138,7 +193,7 @@ impl Stage {
     }
 
     fn start(ready: Ready, volume: f32) -> Stage {
-        let Ready { bundle, knobs: played_knobs, scene, graph, tempo: tempo_cfg, space_node: node, ports } = ready;
+        let Ready { bundle, knobs: played_knobs, strips: played_strips, sum, scene, graph, tempo: tempo_cfg, space_node: node, ports } = ready;
         let mut handles = None;
         let mut audio_name = "off".to_string();
         let audio = {
@@ -181,8 +236,48 @@ impl Stage {
             let label = k.label.get("en").cloned().unwrap_or_else(|| k.path.clone());
             knobs.push(Knob { label, path: k.path.clone(), node, port: port.to_string(), port_index, min: k.min, max: k.max, log: k.log });
         }
+        let slot = |s: &str, out: bool| -> Option<(usize, usize, String)> {
+            let (id, port) = node_port(s);
+            let n = graph.nodes.iter().position(|x| x.id == id)?;
+            let k = graph.nodes[n].kind;
+            let i = if out { k.output(port) } else { k.input(port) }?;
+            Some((n, i, port.to_string()))
+        };
+        let strips = played_strips
+            .iter()
+            .filter_map(|s| {
+                let ((node, port, name), (fnode, fport, _)) = (slot(&s.gain, false)?, slot(&s.from, true)?);
+                Some(Strip { track: s.track.clone(), node, port, name, owned: s.owned, from: (fnode, fport), peak: [0.0; 2], max: 0.0 })
+            })
+            .collect();
+        // the gains inside each track: a node's `gain` (its output's level), a mixer's `gainK` (what feeds its `inK`)
+        let mut inner = Vec::new();
+        for (n, node) in graph.nodes.iter().enumerate() {
+            let Some(port_of) = ports.iter().find(|p| p.node == node.id) else { continue };
+            let track = port_of.track.clone();
+            let local = node.id.strip_prefix(&format!("{track}_")).unwrap_or(&node.id).to_string();
+            for (port, input) in node.kind.inputs().iter().enumerate().filter(|(_, p)| p.ty == PortType::Control && p.name.starts_with("gain")) {
+                let linked = graph.links.iter().any(|l| l.to == (n, port));
+                let source = match input.name.strip_prefix("gain").filter(|k| !k.is_empty()) {
+                    Some(k) => node.kind.input(&format!("in{k}")).and_then(|i| graph.links.iter().find(|l| l.to == (n, i))).map(|l| l.from),
+                    None => (!node.kind.outputs().is_empty()).then_some((n, 0)),
+                };
+                let Some(from) = source else { continue };
+                // its internal address, what the documents call it
+                let label = format!("{local}.{}", input.name);
+                let source_name = graph.nodes[from.0].id.strip_prefix(&format!("{track}_")).unwrap_or(&graph.nodes[from.0].id).to_string();
+                let spec = params::spec(node.kind, input.name);
+                inner.push(Inner { track: track.clone(), label, source: source_name, node: n, port, name: input.name.to_string(), path: format!("{local}.{}", input.name), linked, max_value: spec.max, from, before_gain: input.name != "gain", peak: [0.0; 2], max: 0.0 });
+            }
+        }
+        // one strip per source: a source that feeds an internal mixer is that mixer's input; its own `gain` is a sound
+        // parameter (the inspector's), not a second fader on the same signal
+        let summed: Vec<(usize, usize)> = inner.iter().filter(|s: &&Inner| s.before_gain).map(|s| s.from).collect();
+        inner.retain(|s: &Inner| s.before_gain || !summed.contains(&s.from));
+        let master = sum.as_deref().and_then(|s| slot(s, true)).map(|(n, p, _)| (n, p));
         let node_ids = graph.nodes.iter().map(|n| n.id.clone()).collect();
-        Stage { controls, space, gpu: None, texture: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, volume, path: Vec::new(), core_node: node }
+        let kinds = graph.nodes.iter().map(|n| n.kind).collect();
+        Stage { controls, space, gpu: None, texture: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, kinds, strips, inner, master, master_peak: [0.0; 2], master_max: 0.0, volume, path: Vec::new(), core_node: node }
     }
 
     /// show this level of the tree in Wire; empty = the rig
@@ -197,6 +292,57 @@ impl Stage {
     pub fn show_all(&mut self) {
         self.space.being.show_level(None);
         self.visible = vec![true; self.ports.len()];
+    }
+
+    /// the node whose sound an inner gain sets
+    pub fn inner_source(&self, s: &Inner) -> usize {
+        s.from.0
+    }
+
+    /// an inner gain as the engine has it
+    pub fn inner_gain(&self, s: &Inner) -> f32 {
+        self.controls.input(s.node, &s.name, 1.0)
+    }
+
+    /// an inner gain set in the engine
+    pub fn inner_set(&mut self, i: usize, value: f32) {
+        if let Some(s) = self.inner.get(i) {
+            let (node, port, max) = (s.node, s.port, s.max_value);
+            self.set(node, port, value, 0.0, max);
+        }
+    }
+
+    /// a strip's gain as the engine has it
+    pub fn strip_gain(&self, s: &Strip) -> f32 {
+        self.controls.input(s.node, &s.name, 1.0)
+    }
+
+    /// the sound's rate, if there is sound
+    pub fn khz(&self) -> Option<f64> {
+        self.handles.as_ref().map(|_| self.rate / 1000.0)
+    }
+
+    /// the kind's name of a graph node
+    pub fn kind_name(&self, node: usize) -> &'static str {
+        self.kinds.get(node).map_or("", |k| k.name())
+    }
+
+    /// what can be set on a node: its control inputs, with their ranges and values; a linked one says from where
+    pub fn params(&self, node: usize) -> Vec<Param> {
+        let (Some(&kind), Some(id)) = (self.kinds.get(node), self.node_ids.get(node)) else { return Vec::new() };
+        let controls = kind.inputs().iter().enumerate().filter(|(_, p)| p.ty == PortType::Control);
+        controls
+            .map(|(port, p)| {
+                let spec = params::spec(kind, p.name);
+                let linked = self.ports.iter().find(|q| q.input && q.node == *id && q.name == p.name).and_then(|q| q.cables.last()).map(|c| c.from.clone());
+                Param { name: p.name, port, spec, value: self.controls.input(node, p.name, spec.default), linked }
+            })
+            .collect()
+    }
+
+    /// one input of a node
+    pub fn param(&self, node: usize, port: usize) -> Option<Param> {
+        self.params(node).into_iter().find(|p| p.port == port)
     }
 
     pub fn glitches(&self) -> u64 {
@@ -246,6 +392,30 @@ impl Stage {
         self.controls.update(dt, moment.lead(), &now);
         let time = self.started.elapsed().as_secs_f32();
         let meters = self.handles.as_ref().and_then(|h| h.meters.clone());
+        let fall = (-dt / deck_core::meters::FALL_SECONDS).exp();
+        // left and right; a mono output is the same on both
+        let level = |(n, p): (usize, usize)| -> [f32; 2] {
+            meters.as_ref().map_or([0.0; 2], |m| {
+                let left = m.channel_level(n, p, 0);
+                [left, if m.width(n, p) > 1 { m.channel_level(n, p, 1) } else { left }]
+            })
+        };
+        for s in &mut self.strips {
+            // after the fader, as a channel's meter reads
+            let g = self.controls.input(s.node, &s.name, 1.0);
+            let [l, r] = level(s.from);
+            s.peak = [(l * g).max(s.peak[0] * fall), (r * g).max(s.peak[1] * fall)];
+            s.max = s.max.max((l * g).max(r * g));
+        }
+        for s in &mut self.inner {
+            let after = if s.before_gain { self.controls.input(s.node, &s.name, 1.0) } else { 1.0 };
+            let [l, r] = level(s.from);
+            s.peak = [(l * after).max(s.peak[0] * fall), (r * after).max(s.peak[1] * fall)];
+            s.max = s.max.max((l * after).max(r * after));
+        }
+        let [l, r] = self.master.map_or([0.0; 2], level);
+        self.master_peak = [l.max(self.master_peak[0] * fall), r.max(self.master_peak[1] * fall)];
+        self.master_max = self.master_max.max(l.max(r));
         self.space.update(dt, time, &mut self.controls, &now, &|n, p| meters.as_ref().map_or(0.0, |m| m.level(n, p)));
         let space = &mut self.space;
         let gpu = self.gpu.get_or_insert_with(|| {
@@ -259,7 +429,4 @@ impl Stage {
         (view, fresh)
     }
 
-    pub fn glitch_text(&self) -> String {
-        format!("glitches {}", self.glitches())
-    }
 }

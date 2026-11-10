@@ -386,7 +386,13 @@
           "name": "pulse",
           "dir": "in",
           "type": "control",
-          "doc": "kicks the breath"
+          "doc": "kicks the core's light"
+        },
+        {
+          "name": "bounce",
+          "dir": "in",
+          "type": "control",
+          "doc": "moves the body: wire the beat or the level to it"
         },
         {
           "name": "bloom",
@@ -472,7 +478,16 @@
           "default": 0.0,
           "curve": "lin",
           "port": true,
-          "doc": "kicks the breath"
+          "doc": "kicks the core's light"
+        },
+        {
+          "name": "bounce",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 0.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "moves the body: wire the beat or the level to it"
         },
         {
           "name": "bloom",

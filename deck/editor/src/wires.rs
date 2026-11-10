@@ -4,10 +4,12 @@
 //! `rig::validate`, its sentence is shown as it comes. The ports a dragged cable may reach are the core's answer too: each
 //! is tried. The draft is a TOML file (the rig, the instruments that changed) until the editor can sign in and save.
 use anyhow::{Context, Result};
+use deck_space::rig::address::{BEING, SOURCES};
 use deck_space::rig::bundle::Played;
+use deck_space::rig::edit::Op;
 use deck_space::rig::validate::Request;
 use deck_space::rig::wiring::Home;
-use deck_space::rig::{Bundle, Instrument, Rig};
+use deck_space::rig::{Bundle, Instrument, Preset, Rig};
 use deck_space::space::being::Level;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -40,18 +42,30 @@ pub struct Port {
 pub fn ports(played: &Played) -> Result<Vec<Port>> {
     let w = played.wiring()?;
     let home = |k: usize| -> Home { played.homes.get(k).cloned().unwrap_or(Home::Bound) };
+    // a cable's other end: its address, else the compiled slot it is
+    let source = |n: usize, port: &str| w.nodes[n].address(port).unwrap_or_else(|| format!("{}.{port}", w.nodes[n].id));
     let mut out = Vec::new();
     for (i, n) in w.nodes.iter().enumerate() {
         for (input, list) in [(true, &n.inputs), (false, &n.outputs)] {
             for p in list {
                 let Some(address) = n.address(&p.name) else { continue };
                 let cables = if input {
-                    w.links.iter().enumerate().filter(|(_, l)| l.to == i && l.input == p.name).map(|(k, l)| Cable { from: w.nodes[l.from].address(&l.out).unwrap_or_default(), home: home(k) }).collect()
+                    w.links.iter().enumerate().filter(|(_, l)| l.to == i && l.input == p.name).map(|(k, l)| Cable { from: source(l.from, &l.out), home: home(k) }).collect()
                 } else {
                     Vec::new()
                 };
                 out.push(Port { node: n.id.clone(), name: p.name.clone(), input, ty: p.ty, address, track: n.track.clone(), cables });
             }
+        }
+    }
+    // what a rig reads from outside its tracks, and the being's inputs: no marks on the stage, the typeahead finds them
+    for (scope, name, _) in SOURCES {
+        out.push(Port { node: String::new(), name: name.to_string(), input: false, ty: "control", address: format!("{scope}:{name}"), track: String::new(), cables: Vec::new() });
+    }
+    if let Some((b, being)) = w.nodes.iter().enumerate().find(|(_, n)| n.id == "space") {
+        for p in being.inputs.iter().filter(|p| p.ty == "control") {
+            let cables = w.links.iter().enumerate().filter(|(_, l)| l.to == b && l.input == p.name).map(|(k, l)| Cable { from: source(l.from, &l.out), home: home(k) }).collect();
+            out.push(Port { node: being.id.clone(), name: p.name.clone(), input: true, ty: p.ty, address: format!("{BEING}:{}", p.name), track: String::new(), cables });
         }
     }
     Ok(out)
@@ -80,7 +94,7 @@ pub fn level(bundle: &Bundle, ports: &[Port], node_ids: &[String], core_node: us
         None => {
             shown[core_node] = Some(core_node);
             let mut first: Vec<(String, usize)> = Vec::new();
-            for p in ports {
+            for p in ports.iter().filter(|p| !p.track.is_empty()) {
                 let Some(n) = index(&p.node) else { continue };
                 let rep = match first.iter().find(|(t, _)| *t == p.track) {
                     Some((_, r)) => *r,
@@ -101,6 +115,11 @@ pub fn level(bundle: &Bundle, ports: &[Port], node_ids: &[String], core_node: us
         }
     }
     for (i, p) in ports.iter().enumerate() {
+        // the sources and the being's inputs: at every level, without a place on the stage
+        if p.track.is_empty() {
+            visible[i] = true;
+            continue;
+        }
         let here = match track {
             None => is_outlet(bundle, ports, p),
             Some(t) => p.track == t,
@@ -117,6 +136,26 @@ pub fn level(bundle: &Bundle, ports: &[Port], node_ids: &[String], core_node: us
 pub fn connect(bundle: &Bundle, a: &Port, b: &Port) -> Result<Bundle, String> {
     let (from, to) = if a.input && !b.input { (b, a) } else { (a, b) };
     checked(bundle.connected(&from.address, &to.address)?)
+}
+
+/// a track's gain set; the changed bundle
+pub fn set_gain(bundle: &Bundle, track: &str, gain: f32) -> Result<Bundle, String> {
+    checked(bundle.track_set(&Op::SetTrack { id: track.to_string(), instrument: None, preset: None, gain: Some(gain), pan: None, mute: None })?)
+}
+
+/// a track's pan set (−1 … 1); the changed bundle
+pub fn set_pan(bundle: &Bundle, track: &str, pan: f32) -> Result<Bundle, String> {
+    checked(bundle.track_set(&Op::SetTrack { id: track.to_string(), instrument: None, preset: None, gain: None, pan: Some(pan), mute: None })?)
+}
+
+/// a value inside a track (`node.port`); the changed bundle
+pub fn set_value(bundle: &Bundle, track: &str, path: &str, value: f32) -> Result<Bundle, String> {
+    checked(bundle.value_set(track, path, value)?)
+}
+
+/// a track muted or not; the changed bundle
+pub fn set_mute(bundle: &Bundle, track: &str, mute: bool) -> Result<Bundle, String> {
+    checked(bundle.track_set(&Op::SetTrack { id: track.to_string(), instrument: None, preset: None, gain: None, pan: None, mute: Some(mute) })?)
 }
 
 /// the last cable into input `port` taken off: the bundle without it, and the address it came from
@@ -174,6 +213,8 @@ struct Draft {
     rig: Rig,
     #[serde(default, rename = "instrument")]
     instruments: Vec<Instrument>,
+    #[serde(default, rename = "preset")]
+    presets: Vec<Preset>,
 }
 
 /// the draft over `base`, if the file is there and still valid
@@ -184,6 +225,11 @@ pub fn load_draft(path: &Path, base: &Bundle) -> Bundle {
         for i in d.instruments {
             if let Some(at) = b.instruments.iter().position(|x| x.id == i.id) {
                 b.instruments[at] = i;
+            }
+        }
+        for p in d.presets {
+            if let Some(at) = b.presets.iter().position(|x| x.id == p.id) {
+                b.presets[at] = p;
             }
         }
         checked(b)
@@ -205,7 +251,8 @@ pub fn save_draft(path: &Path, base: &Bundle, bundle: &Bundle) -> Result<()> {
         std::fs::create_dir_all(dir).with_context(|| format!("making {}", dir.display()))?;
     }
     let instruments = bundle.instruments.iter().filter(|i| !base.instruments.contains(i)).cloned().collect();
-    let text = toml::to_string(&Draft { rig: bundle.rig.clone(), instruments }).context("the draft as TOML")?;
+    let presets = bundle.presets.iter().filter(|p| !base.presets.contains(p)).cloned().collect();
+    let text = toml::to_string(&Draft { rig: bundle.rig.clone(), instruments, presets }).context("the draft as TOML")?;
     std::fs::write(path, text).with_context(|| format!("writing {}", path.display()))
 }
 
@@ -236,7 +283,8 @@ mod tests {
         let (_, p) = catpope();
         assert!(!port(&p, "voice:voice.out").input);
         assert_eq!(port(&p, "voice:voice.cv").cables[0].from, "voice:melody.cv");
-        assert!(p.iter().all(|x| x.address.contains(':')), "the scene's own nodes have no address");
+        assert!(p.iter().all(|x| x.address.contains(':')), "every port is addressed");
+        assert!(port(&p, "being:pulse").cables.iter().any(|c| c.from == "fft.level"), "the compiled cable names its slot");
     }
 
     #[test]
@@ -334,8 +382,26 @@ mod tests {
         let (b, p) = catpope();
         let ids = node_ids(&p);
         let (l, visible) = level(&b, &p, &ids, ids.len() - 1, Some("voice"));
-        assert!(p.iter().zip(&visible).all(|(q, v)| *v == (q.track == "voice")));
+        assert!(p.iter().zip(&visible).all(|(q, v)| *v == (q.track == "voice" || q.track.is_empty())));
         assert_eq!(l.shown.iter().flatten().count(), 2, "melody and voice: {:?}", l.shown);
+    }
+
+    #[test]
+    fn a_reload_shows_the_same_preset_values() {
+        let (b, _) = catpope();
+        let next = set_value(&b, "drone", "drone.gain", 0.33).expect("set");
+        let file = draft_file("values");
+        save_draft(&file, &b, &next).expect("written");
+        assert_eq!(load_draft(&file, &b).presets, next.presets);
+        std::fs::remove_file(&file).ok();
+    }
+
+    #[test]
+    fn the_sound_and_the_clock_are_offered_to_a_being_input() {
+        let (b, p) = catpope();
+        let r = reachable(&b, &p, port(&p, "being:bounce"));
+        let can: Vec<&str> = p.iter().zip(&r).filter(|(_, ok)| **ok).map(|(q, _)| q.address.as_str()).collect();
+        assert!(can.contains(&"sound:level") && can.contains(&"clock:beat"), "{can:?}");
     }
 
     #[test]

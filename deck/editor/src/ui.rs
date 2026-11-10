@@ -1,7 +1,6 @@
-//! The proof's 2D drawing (#444): rectangles and text as instanced quads in one pass (shaders/ui.wgsl), the glyphs from
-//! an atlas of IBM Plex Mono (deck-space's font, label.rs) that covers ASCII and the Latin letters a German text needs,
-//! the stage as one textured quad. Premultiplied alpha over the cleared frame. Everything is rebuilt per frame from
-//! preallocated vectors; no retained tree – the smallest thing that measures.
+//! The kit's adapter (#456): its draw list as instanced quads in one pass (shaders/ui.wgsl). Shapes are a distance per
+//! pixel; glyphs, icons and the logo's frames come from one atlas (IBM Plex Mono, deck-space's font; Feather; the creator's
+//! logo); the stage is one textured quad. Premultiplied alpha over the cleared frame, rebuilt per frame.
 use ab_glyph::{point, Font, PxScale, ScaleFont};
 use anyhow::Result;
 use deck_kit::draw::{DrawList, Prim};
@@ -11,15 +10,13 @@ use std::ops::{Deref, DerefMut};
 /// the characters the atlas holds: ASCII, then what German and the panel's symbols need
 pub const EXTRA: &str = "äöüÄÖÜß€–·…×→←↑↓°≤≥";
 
-const DISC: char = '\u{1}';
-const RING: char = '\u{2}';
-
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 struct Quad {
     rect: [f32; 4],
     uv: [f32; 4],
     color: [f32; 4],
+    shape: [f32; 4],
 }
 
 #[repr(C)]
@@ -37,6 +34,9 @@ pub struct Atlas {
     cells: HashMap<char, u32>,
     cols: u32,
     size: (u32, u32),
+    /// an icon's and a logo frame's uv
+    icons: HashMap<&'static str, [f32; 4]>,
+    frames: Vec<[f32; 4]>,
 }
 
 impl Atlas {
@@ -47,8 +47,15 @@ impl Atlas {
         let cw = sf.h_advance(font.glyph_id('0')).ceil() as u32 + 2;
         let ch = (sf.ascent() - sf.descent()).ceil() as u32 + 2;
         let cols = 16u32;
-        let rows = (chars.len() as u32 + 3).div_ceil(cols);
-        let (w, h) = (cw * cols, ch * rows);
+        let rows = (chars.len() as u32).div_ceil(cols);
+        const ICON: u32 = 36;
+        let logo = crate::logo::frames();
+        let w = (cw * cols).max(10 * crate::logo::SIDE);
+        let icon_cols = w / ICON;
+        let glyph_h = ch * rows;
+        let icons_h = (deck_kit::icons::ICONS.len() as u32).div_ceil(icon_cols) * ICON;
+        let logo_cols = w / crate::logo::SIDE;
+        let h = glyph_h + icons_h + (crate::logo::FRAMES as u32).div_ceil(logo_cols) * crate::logo::SIDE;
         let mut pixels = vec![255u8; (w * h * 4) as usize];
         pixels.chunks_exact_mut(4).for_each(|p| p[3] = 0);
         let mut cells = HashMap::new();
@@ -74,27 +81,34 @@ impl Atlas {
                 });
             }
         }
-        // the last cell is solid: rectangles sample it
-        let solid = chars.len() as u32;
-        let (x0, y0) = (solid % cols * cw, solid / cols * ch);
-        for y in y0..y0 + ch {
-            for x in x0..x0 + cw {
-                pixels[((y * w + x) * 4 + 3) as usize] = 255;
+        let (wf, hf) = (w as f32, h as f32);
+        let inset = |x: u32, y: u32, s: u32| [(x as f32 + 0.5) / wf, (y as f32 + 0.5) / hf, ((x + s) as f32 - 0.5) / wf, ((y + s) as f32 - 0.5) / hf];
+        // the icons: white with their coverage in alpha, Feather's stroke 2.5 and square caps
+        let mut icons = HashMap::new();
+        for (i, (name, body)) in deck_kit::icons::ICONS.iter().enumerate() {
+            let (x0, y0) = (i as u32 % icon_cols * ICON, glyph_h + i as u32 / icon_cols * ICON);
+            let svg = format!("<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#fff\" stroke-width=\"2.5\" stroke-linecap=\"square\" stroke-linejoin=\"miter\">{body}</svg>");
+            let scale = (ICON - 4) as f32 / 24.0;
+            let mut map = resvg::tiny_skia::Pixmap::new(ICON, ICON).expect("an icon's pixmap");
+            if let Ok(tree) = resvg::usvg::Tree::from_str(&svg, &resvg::usvg::Options::default()) {
+                resvg::render(&tree, resvg::tiny_skia::Transform::from_translate(2.0, 2.0).pre_scale(scale, scale), &mut map.as_mut());
             }
+            for (k, p) in map.pixels().iter().enumerate() {
+                let (px, py) = (x0 + k as u32 % ICON, y0 + k as u32 / ICON);
+                pixels[((py * w + px) * 4 + 3) as usize] = p.alpha();
+            }
+            icons.insert(*name, inset(x0, y0, ICON));
         }
-        // and two more cells: a disc and a ring, for the ports (a square in the middle of the cell)
-        for (n, hollow) in [(1u32, false), (2, true)] {
-            let i = solid + n;
-            let (x0, y0) = (i % cols * cw, i / cols * ch);
-            let (cx, cy, r) = (cw as f32 * 0.5, ch as f32 * 0.5, cw as f32 * 0.5 - 1.0);
-            for y in 0..ch {
-                for x in 0..cw {
-                    let d = ((x as f32 + 0.5 - cx).powi(2) + (y as f32 + 0.5 - cy).powi(2)).sqrt();
-                    let outer = (r - d + 0.5).clamp(0.0, 1.0);
-                    let inner = if hollow { (r - 3.0 - d + 0.5).clamp(0.0, 1.0) } else { 0.0 };
-                    pixels[(((y0 + y) * w + x0 + x) * 4 + 3) as usize] = ((outer - inner).max(0.0) * 255.0) as u8;
-                }
+        // the logo's frames, in their own colours
+        let side = crate::logo::SIDE;
+        let mut frames = Vec::with_capacity(logo.len());
+        for (i, f) in logo.iter().enumerate() {
+            let (x0, y0) = (i as u32 % logo_cols * side, glyph_h + icons_h + i as u32 / logo_cols * side);
+            for (k, p) in f.chunks_exact(4).enumerate() {
+                let (px, py) = (x0 + k as u32 % side, y0 + k as u32 / side);
+                pixels[((py * w + px) * 4) as usize..((py * w + px) * 4 + 4) as usize].copy_from_slice(p);
             }
+            frames.push(inset(x0, y0, side));
         }
         let texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("ui atlas"),
@@ -112,10 +126,7 @@ impl Atlas {
             wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(w * 4), rows_per_image: None },
             wgpu::Extent3d { width: w, height: h, depth_or_array_layers: 1 },
         );
-        cells.insert('\u{0}', solid);
-        cells.insert(DISC, solid + 1);
-        cells.insert(RING, solid + 2);
-        Atlas { texture, cell: (cw as f32, ch as f32), px, cells, cols, size: (w, h) }
+        Atlas { texture, cell: (cw as f32, ch as f32), px, cells, cols, size: (w, h), icons, frames }
     }
 
     fn uv(&self, c: char, inset: f32) -> [f32; 4] {
@@ -175,7 +186,7 @@ impl Ui {
                 buffers: &[wgpu::VertexBufferLayout {
                     array_stride: std::mem::size_of::<Quad>() as u64,
                     step_mode: wgpu::VertexStepMode::Instance,
-                    attributes: &wgpu::vertex_attr_array![0 => Float32x4, 1 => Float32x4, 2 => Float32x4],
+                    attributes: &wgpu::vertex_attr_array![0 => Float32x4, 1 => Float32x4, 2 => Float32x4, 3 => Float32x4],
                 }],
             },
             fragment: Some(wgpu::FragmentState {
@@ -209,29 +220,36 @@ impl Ui {
         self.stage_quad = None;
     }
 
-    fn round(atlas: &Atlas, c: char, x: f32, y: f32, r: f32, color: [f32; 4]) -> Quad {
-        // the middle square of the cell
-        let [u0, v0, u1, v1] = atlas.uv(c, 0.0);
-        let dv = (v1 - v0) * (1.0 - atlas.cell.0 / atlas.cell.1) * 0.5;
-        Quad { rect: [x - r, y - r, 2.0 * r, 2.0 * r], uv: [u0, v0 + dv, u1, v1 - dv], color }
-    }
-
     /// the kit's list as quads
     fn build(&mut self) {
         self.quads.clear();
+        const IMAGE: [f32; 4] = [0.0; 4];
         let (atlas, list, quads) = (&self.atlas, &self.list, &mut self.quads);
+        let shape = |x: f32, y: f32, w: f32, h: f32, r: f32, kind: f32, color: [f32; 4]| {
+            let (hw, hh) = (w * 0.5, h * 0.5);
+            Quad { rect: [x, y, w, h], uv: [-hw, -hh, hw, hh], color, shape: [kind, hw, hh, r.min(hw).min(hh)] }
+        };
         for p in list.prims() {
             match *p {
-                Prim::Rect { x, y, w, h, color } => quads.push(Quad { rect: [x, y, w, h], uv: atlas.uv('\u{0}', atlas.cell.0 * 0.4), color }),
-                Prim::Disc { x, y, r, color } => quads.push(Self::round(atlas, DISC, x, y, r, color)),
-                Prim::Ring { x, y, r, color } => quads.push(Self::round(atlas, RING, x, y, r, color)),
+                Prim::Rect { x, y, w, h, r, color } => quads.push(shape(x, y, w, h, r, 1.0, color)),
+                Prim::Outline { x, y, w, h, r, thick, color } => quads.push(shape(x, y, w, h, r, 1.0 + thick, color)),
+                Prim::Icon { x, y, size, name, color } => {
+                    if let Some(uv) = atlas.icons.get(name) {
+                        quads.push(Quad { rect: [x, y, size, size], uv: *uv, color, shape: IMAGE });
+                    }
+                }
+                Prim::Logo { x, y, size, frame } => {
+                    if let Some(uv) = atlas.frames.get(frame) {
+                        quads.push(Quad { rect: [x, y, size, size], uv: *uv, color: [1.0; 4], shape: IMAGE });
+                    }
+                }
                 Prim::Text { x, y, px, start, end, color } => {
                     let adv = atlas.advance(px);
                     let (cw, ch) = (atlas.cell.0 * px / atlas.px, atlas.cell.1 * px / atlas.px);
                     let mut cx = x;
                     for c in list.text_of(start, end).chars() {
                         if c != ' ' {
-                            quads.push(Quad { rect: [cx - px / atlas.px, y, cw, ch], uv: atlas.uv(c, 0.5), color });
+                            quads.push(Quad { rect: [cx - px / atlas.px, y, cw, ch], uv: atlas.uv(c, 0.5), color, shape: IMAGE });
                         }
                         cx += adv;
                     }
@@ -242,11 +260,7 @@ impl Ui {
 
     /// the stage into this rectangle
     pub fn stage(&mut self, x: f32, y: f32, w: f32, h: f32) {
-        self.stage_quad = Some(Quad { rect: [x, y, w, h], uv: [0.0, 0.0, 1.0, 1.0], color: [1.0; 4] });
-    }
-
-    pub fn quads(&self) -> usize {
-        self.quads.len() + usize::from(self.stage_quad.is_some())
+        self.stage_quad = Some(Quad { rect: [x, y, w, h], uv: [0.0, 0.0, 1.0, 1.0], color: [1.0; 4], shape: [0.0; 4] });
     }
 
     /// draw this frame's quads over `view` (cleared to `clear`); `logical` = the window's size in the pixels the quads

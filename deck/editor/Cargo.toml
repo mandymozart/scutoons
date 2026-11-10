@@ -28,6 +28,8 @@ winit = "0.30"
 pollster = "0.4"
 bytemuck = { version = "1", features = ["derive"] }
 ab_glyph = "0.2"
+# the logo and the icons
+resvg = { version = "0.45", default-features = false }
 image = { version = "0.25", default-features = false, features = ["png"] }
 # the OS clipboard for the text field's copy and paste
 arboard = { version = "3", default-features = false }
