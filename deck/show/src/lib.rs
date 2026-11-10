@@ -17,6 +17,7 @@ pub mod choose;
 pub mod conductor;
 pub mod document;
 pub mod flash;
+pub mod flashed;
 pub mod ready;
 pub mod subtree;
 pub mod validate;

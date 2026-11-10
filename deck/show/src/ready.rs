@@ -72,10 +72,11 @@ pub fn kept_as(p: &Pinned) -> String {
     format!("shows/{}@{}.json", p.id, p.version)
 }
 
-/// A show document as the API gives it (`GET /api/shows/<id>?v=<n>`: wrapped in `content`) or as it is kept (bare).
+/// A show document as the API gives it – `GET /api/shows/<id>?v=<n>`: the version a flash pins, in `show`;
+/// `GET /api/shows/<id>`: wrapped in `content` – or as it is kept (bare).
 pub fn read(text: &str) -> Result<Show, String> {
     let v: serde_json::Value = serde_json::from_str(text).map_err(|e| format!("not JSON: {e}"))?;
-    let doc = match v.get("content") {
+    let doc = match v.get("show").or_else(|| v.get("content")) {
         Some(c) if c.is_object() => c.clone(),
         _ => v,
     };
@@ -510,6 +511,8 @@ mod tests {
     fn the_api_wraps_a_document_and_the_cache_keeps_it_bare() {
         let wrapped = format!(r#"{{ "content": {TOP}, "version": {{ "version": 3 }} }}"#);
         assert_eq!(read(&wrapped).unwrap().id, "top");
+        // a pinned version, as a flash fetches it (server ShowsController::get with `v`)
+        assert_eq!(read(&format!(r#"{{ "status": "success", "show": {TOP} }}"#)).unwrap().version, 3);
         assert_eq!(read(TOP).unwrap().version, 3);
         assert!(read("{}").is_err());
         assert_eq!(kept_as(&Pinned { id: "top".into(), version: 3 }), "shows/top@3.json");
