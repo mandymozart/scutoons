@@ -208,6 +208,10 @@ impl Host {
                 out.extend(self.sub.on_wire(&e, ms));
             }
         }
+        // #471: the open flash list follows what the devices say (not under the prompt: what it says is what goes)
+        if let Some(f) = self.flashing.as_mut().filter(|f| !f.asking) {
+            f.choice.refresh(&self.sub);
+        }
         self.send(out);
     }
 

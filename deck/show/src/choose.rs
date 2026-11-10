@@ -200,6 +200,18 @@ impl Choice {
         Choice { lines, ticked, locked: false, filter: String::new(), error: None, target }
     }
 
+    /// While the list is open, what the devices say changes (one joins, one answers): the lines follow, a line's tick
+    /// stays as it was set, a new line starts as `open` would start it.
+    pub fn refresh(&mut self, sub: &Subtree) {
+        let lock = Lock { shows: self.target.clone() };
+        let fresh = Choice::open(sub, &lock);
+        let known: BTreeSet<String> = self.lines.iter().map(|l| l.path.clone()).collect();
+        let mut ticked: BTreeSet<String> = fresh.ticked.iter().filter(|p| !known.contains(*p)).cloned().collect();
+        ticked.extend(self.ticked.iter().filter(|p| fresh.lines.iter().any(|l| &l.path == *p)).cloned());
+        self.lines = fresh.lines;
+        self.ticked = ticked;
+    }
+
     pub fn is_ticked(&self, i: usize) -> bool {
         self.lines.get(i).is_some_and(|l| self.ticked.contains(&l.path))
     }
@@ -458,6 +470,18 @@ mod tests {
         let c = Choice::open(&s, &lock());
         assert_eq!(c.lines[0].keep.as_deref(), Some("rehearsing"));
         assert!(!c.is_ticked(0));
+    }
+
+    #[test]
+    fn the_open_list_follows_the_devices_and_keeps_the_hands_ticks() {
+        let mut s = sub();
+        let mut c = Choice::open(&s, &lock());
+        c.toggle(0); // c7 off by hand
+        s.on_wire(&Envelope::new("c9", Message::FlashReport(report(("top", 3), Some("left")))), 20);
+        c.refresh(&s);
+        assert_eq!(c.lines.len(), 5);
+        let c9 = c.lines.iter().position(|l| l.path == "c9").unwrap();
+        assert!(!c.is_ticked(0) && c.is_ticked(c9), "the hand's tick stays, a new deck starts chosen");
     }
 
     #[test]
