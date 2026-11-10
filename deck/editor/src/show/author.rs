@@ -38,7 +38,7 @@ fn fit(d: &DrawList, text: &str, px: f32, w: f32) -> String {
 
 /// the 2D / 3D switch at the top of a stage rect; with `sheets` (Show) also the cue sheet and the problems list
 pub fn view_switch(d: &mut DrawList, t: &Tokens, host: &mut Host, stage: Rect, sheets: bool) {
-    let names: &[&str] = if sheets { &["3D", "2D", "Cues", "Problems"] } else { &["3D", "2D"] };
+    let names: &[&str] = if sheets { &["3D", "2D", "Cues", "Problems", "Who"] } else { &["3D", "2D"] };
     let h = t.size.row - 4.0;
     let w: f32 = names.iter().map(|n| d.advance(t.size.small) * n.chars().count().max(2) as f32 + 2.0 * t.size.pad + 2.0).sum();
     let x = stage.x + stage.w - w - t.size.pad;
@@ -47,11 +47,12 @@ pub fn view_switch(d: &mut DrawList, t: &Tokens, host: &mut Host, stage: Rect, s
     let on = match host.sheet.filter(|_| sheets) {
         Some(Sheet::Cues) => 2,
         Some(Sheet::Problems) => 3,
+        Some(Sheet::Who) => 4,
         Some(Sheet::Flash) => usize::MAX,
         None => usize::from(host.two_d),
     };
     let r = controls::pills(d, t, x, y, h, names, on);
-    let hits = [Hit::View(false), Hit::View(true), Hit::Sheet(Sheet::Cues), Hit::Sheet(Sheet::Problems)];
+    let hits = [Hit::View(false), Hit::View(true), Hit::Sheet(Sheet::Cues), Hit::Sheet(Sheet::Problems), Hit::Sheet(Sheet::Who)];
     for (r, hit) in r.into_iter().zip(hits) {
         host.hits.push((r, hit));
     }

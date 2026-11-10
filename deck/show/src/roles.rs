@@ -3,7 +3,8 @@
 //! here. The tree lists the roles with how many are in each (the relay's count, the `roles` it sends the conductor), the
 //! matrix's column header says the role's name, its filter in words and the count. A role is added, renamed, removed and its
 //! filter set here ([`edit`]: the document changed, checked by `validate`, a refused edit says why); the inspector's words
-//! and the prompt before a remove too. The words are here once; the editor lays them out (RULES A1, A2).
+//! and the prompt before a remove too; who is here (`role: name`, the device, why it sits there) and what move to, rename
+//! and kick send. The words are here once; the editor lays them out (RULES A1, A2).
 use crate::choose::{Prompt, Tone};
 use crate::document::{Cell, Outlet, OutletKind, Show};
 use crate::subtree::Subtree;
@@ -283,6 +284,127 @@ pub fn inspector(show: &Show, sub: Option<&Subtree>, id: &str) -> Option<Inspect
     })
 }
 
+/// One client in "who is here" (owner 2026-11-10 [role]: the conductor sees `role: name`; draft 4: with the device, what it
+/// says of itself and why it sits there).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Here {
+    pub client: String,
+    /// the role it sits in (an outlet id); none = no role
+    pub role: Option<String>,
+    /// `tenor: Anna`, `no role: phone-7`
+    pub line: String,
+    /// what it says of itself: its device, its account fact (`browser · guest`)
+    pub stated: String,
+    /// why it sits there: `chose itself`, `moved here by this conductor`, `set by a conductor above · locked`
+    pub why: String,
+    /// held there by a lock
+    pub locked: bool,
+    /// the lock is from above, not this conductor's: no move is offered
+    pub locked_above: bool,
+}
+
+/// the move action's word
+pub const MOVE_TO: &str = "move to ▾";
+pub const RENAME: &str = "rename";
+pub const KICK: &str = "kick";
+/// where a deck locked from above offers no move
+pub const LOCKED: &str = "locked";
+
+/// Who is here, as the conductor that runs `sub` sees it from presence: every deck and every phone in a role, by role
+/// (the show's order, then no role) and name. The account fact is `guest` for every client until the server's signed
+/// proof is checked by the relay (#478 slice 4; proposal: said so rather than left out).
+pub fn here(sub: &Subtree) -> Vec<Here> {
+    let show = sub.conductor().show();
+    let mut out: Vec<(usize, Here)> = sub
+        .who()
+        .iter()
+        .map(|(id, p)| {
+            let role = p.group.clone().filter(|g| !g.is_empty());
+            let at = role.as_deref().and_then(|g| show.outlets.iter().position(|o| o.id == g));
+            let name = at.map_or_else(|| role.clone(), |i| Some(show.outlets[i].name().to_string()));
+            let line = deck_ui::live::role_name(name.as_deref(), p.nick.as_deref().unwrap_or(id));
+            let locked = p.locked == Some(true);
+            let mine = sub.moved(id).filter(|(g, _)| *g == role);
+            let (why, above) = match (locked, mine, &role) {
+                (true, Some((_, true)), _) => ("moved here by this conductor · locked", false),
+                // proposal: a lock this conductor did not set is from above (the uplink's assign; the cascade of [venue])
+                (true, _, _) => ("set by a conductor above · locked", true),
+                (false, Some(_), _) => ("moved here by this conductor", false),
+                (false, None, None) => ("no role · the idle scene", false),
+                (false, None, Some(_)) => ("chose itself", false),
+            };
+            let stated = format!("{} · {}", p.device.as_deref().unwrap_or("deck"), Account::Guest.as_str());
+            (at.unwrap_or(usize::MAX), Here { client: id.clone(), role, line, stated, why: why.into(), locked, locked_above: above })
+        })
+        .collect();
+    out.sort_by(|a, b| (a.0, &a.1.line).cmp(&(b.0, &b.1.line)));
+    out.into_iter().map(|(_, h)| h).collect()
+}
+
+/// the heading of "who is here"
+pub fn here_heading(n: usize) -> String {
+    format!("WHO IS HERE – {n} · MOVE TO IS THE RELAY'S ASSIGN; A LOCK FROM ABOVE HOLDS A DECK")
+}
+
+/// what "who is here" says while nobody is
+pub const NOBODY: &str = "Nobody is here yet: decks, and phones in a role, show up as they join.";
+
+/// One line of the move menu.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Pick {
+    /// into this role, none = no role
+    Role(Option<String>),
+    /// the lock for the move: on, the conductor holds it there
+    Lock,
+}
+
+/// The move menu for `client`: every role of the show (proposal: the conductor's move is not held to the role's filter –
+/// a lock from above wins, the relay does not check the conductor's assign), then no role, then the lock; ticked: where it
+/// sits, and whether the move locks.
+pub fn move_menu(sub: &Subtree, client: &str, lock: bool) -> Vec<(Pick, String, bool)> {
+    let now = sub.who().get(client).and_then(|p| p.group.clone()).filter(|g| !g.is_empty());
+    let show = sub.conductor().show();
+    let mut out: Vec<(Pick, String, bool)> = show.outlets.iter().filter(|o| o.kind == OutletKind::Stage).map(|o| (Pick::Role(Some(o.id.clone())), o.name().to_string(), now.as_deref() == Some(&o.id))).collect();
+    out.push((Pick::Role(None), deck_ui::live::NO_ROLE.into(), now.is_none()));
+    out.push((Pick::Lock, "lock it there".into(), lock));
+    out
+}
+
+fn line_of(sub: &Subtree, client: &str) -> String {
+    here(sub).into_iter().find(|h| h.client == client).map_or_else(|| client.to_string(), |h| h.line)
+}
+
+/// "move to": the relay's `assign` (with `lock`, a lock from above for that deck), and what it did in words.
+pub fn move_to(sub: &mut Subtree, client: &str, role: Option<&str>, lock: bool) -> (Vec<protocol::Envelope>, String) {
+    let was = line_of(sub, client);
+    let name = role.map_or(deck_ui::live::NO_ROLE.to_string(), |r| sub.conductor().show().outlet(r).map_or(r.to_string(), |o| o.name().to_string()));
+    let out = sub.assign(client, role, lock);
+    (out, format!("{was} → {name}{}", if lock { " · locked" } else { "" }))
+}
+
+/// "rename": the relay's `rename` (it cleans the name), and what it did in words.
+pub fn rename(sub: &mut Subtree, client: &str, nick: &str) -> (Vec<protocol::Envelope>, String) {
+    let was = line_of(sub, client);
+    let nick = nick.trim();
+    (sub.rename(client, nick), if nick.is_empty() { format!("{was}: name cleared") } else { format!("{was} is called {nick}") })
+}
+
+/// "kick", once the prompt is confirmed: the relay's `kick`, and what it did in words.
+pub fn kick(sub: &mut Subtree, client: &str) -> (Vec<protocol::Envelope>, String) {
+    let was = line_of(sub, client);
+    (sub.kick(client), format!("{was} kicked"))
+}
+
+/// The prompt before a kick.
+pub fn kick_prompt(sub: &Subtree, client: &str) -> Prompt {
+    let line = line_of(sub, client);
+    let lines = vec![
+        (format!("{client} is told it was removed and its link ends"), Tone::Warn),
+        ("It can join again with the code; then it is here again.".to_string(), Tone::Muted),
+    ];
+    Prompt { title: format!("Kick {line}?"), lines, warn: true, confirm: "Kick".into(), can: true }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -403,5 +525,75 @@ mod tests {
         assert_eq!(i.sections[1].1, [("2 click".to_string(), "scene:click".to_string())]);
         assert_eq!(i.sections[2].1[0], ("conductor".to_string(), "choir".to_string()));
         assert!(inspector(&show, None, "lamps").is_none());
+    }
+
+    /// a client in presence: id, role, name, device, locked
+    type Who<'a> = (&'a str, Option<&'a str>, Option<&'a str>, Option<&'a str>, bool);
+
+    fn presence(who: &[Who]) -> Envelope {
+        let who = who.iter().map(|(id, g, nick, device, locked)| {
+            let p = protocol::Present { group: g.map(Into::into), nick: nick.map(Into::into), device: device.map(Into::into), locked: locked.then_some(true) };
+            (id.to_string(), p)
+        });
+        let p = protocol::Presence { groups: Default::default(), ready: vec![], decks: None, routes: None, links: None, quality: None, seats: None, parent: None, who: Some(who.collect()) };
+        Envelope::new("relay", Message::Presence(p))
+    }
+
+    #[test]
+    fn who_is_here_says_role_name_device_and_why() {
+        let mut sub = Subtree::new(parse(CHOIR).unwrap(), ClockChoice::Parent);
+        let (out, said) = move_to(&mut sub, "c2", Some("baritone"), false);
+        assert!(matches!(&out[0].message, Message::Assign(a) if a.client == "c2" && a.group == "baritone" && a.lock.is_none()), "{out:?}");
+        assert_eq!(said, "c2 → baritone");
+        let (out, _) = move_to(&mut sub, "pc", Some("click"), true);
+        assert!(matches!(&out[0].message, Message::Assign(a) if a.lock == Some(true)));
+        sub.on_wire(
+            &presence(&[
+                ("c1", Some("tenor"), Some("Anna"), Some("browser"), false),
+                ("c2", Some("baritone"), Some("Jo"), Some("native"), false),
+                ("pc", Some("click"), None, Some("native"), true),
+                ("c9", Some("tenor"), Some("Ben"), Some("phone"), true),
+                ("phone-7", None, None, Some("phone"), false),
+            ]),
+            0,
+        );
+        let h = here(&sub);
+        let rows: Vec<(&str, &str, &str, bool)> = h.iter().map(|h| (h.line.as_str(), h.stated.as_str(), h.why.as_str(), h.locked_above)).collect();
+        assert_eq!(
+            rows,
+            [
+                ("tenor: Anna", "browser · guest", "chose itself", false),
+                ("tenor: Ben", "phone · guest", "set by a conductor above · locked", true),
+                ("baritone: Jo", "native · guest", "moved here by this conductor", false),
+                ("click monitor: pc", "native · guest", "moved here by this conductor · locked", false),
+                ("no role: phone-7", "phone · guest", "no role · the idle scene", false),
+            ]
+        );
+        assert_eq!(sub.here()[1], "tenor: Ben (locked)", "the conductor's lines are the same list");
+        // the deck went on by itself: no longer "moved here"
+        sub.on_wire(&presence(&[("c2", Some("tenor"), Some("Jo"), Some("native"), false)]), 1);
+        assert_eq!(here(&sub)[0].why, "chose itself");
+    }
+
+    #[test]
+    fn the_move_menu_rename_and_kick_say_what_they_send() {
+        let mut sub = Subtree::new(parse(CHOIR).unwrap(), ClockChoice::Parent);
+        sub.on_wire(&presence(&[("c1", Some("tenor"), Some("Anna"), Some("browser"), false)]), 0);
+        let menu = move_menu(&sub, "c1", false);
+        let words: Vec<(&str, bool)> = menu.iter().map(|(_, w, on)| (w.as_str(), *on)).collect();
+        assert_eq!(words, [("tenor", true), ("baritone", false), ("click monitor", false), ("front", false), ("no role", false), ("lock it there", false)]);
+        assert_eq!(menu[4].0, Pick::Role(None));
+        let (out, said) = move_to(&mut sub, "c1", None, false);
+        assert!(matches!(&out[0].message, Message::Assign(a) if a.group.is_empty()), "no role is an empty group");
+        assert_eq!(said, "tenor: Anna → no role");
+        let (out, said) = rename(&mut sub, "c1", " Annie ");
+        assert!(matches!(&out[0].message, Message::Rename(r) if r.client == "c1" && r.nick == "Annie"));
+        assert_eq!(said, "tenor: Anna is called Annie");
+        let p = kick_prompt(&sub, "c1");
+        assert_eq!(p.title, "Kick tenor: Anna?");
+        assert!(p.warn && p.confirm == "Kick");
+        let (out, said) = kick(&mut sub, "c1");
+        assert!(matches!(&out[0].message, Message::Kick(k) if k.client == "c1"));
+        assert_eq!(said, "tenor: Anna kicked");
     }
 }

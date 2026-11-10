@@ -51,6 +51,8 @@ pub enum Sheet {
     Problems,
     /// #471: the devices to flash, then the prompt (flash.rs)
     Flash,
+    /// #478: who is here, `role: name`, with move to, rename, kick (roles.rs)
+    Who,
 }
 
 impl Sheet {
@@ -59,6 +61,7 @@ impl Sheet {
             "cues" => Some(Sheet::Cues),
             "problems" => Some(Sheet::Problems),
             "flash" => Some(Sheet::Flash),
+            "who" => Some(Sheet::Who),
             _ => None,
         }
     }
@@ -86,9 +89,14 @@ pub enum Hit {
     RoleName,
     RoleFact(usize),
     RoleRemove,
-    /// #478: the prompt asked (a role's remove): confirmed, or back
+    /// #478: the prompt asked (a role's remove, a kick): confirmed, or back
     AskYes,
     AskNo,
+    /// #478, who is here: a line's move menu, rename, kick (asks first); a line of the open move menu
+    WhoMove(usize),
+    WhoRename(usize),
+    WhoKick(usize),
+    MenuPick(usize),
     Save,
     Load,
     /// the tree resolved to exact versions: the list of the devices to flash opens (#471)
@@ -123,8 +131,11 @@ pub struct Host {
     pub role: Option<String>,
     /// #478: a typed field open (a role's name) and its text
     pub typing: Option<(roles::Typing, deck_kit::text::Field)>,
-    /// #478: the prompt asked before it is done (a role's remove)
+    /// #478: the prompt asked before it is done (a role's remove, a kick)
     pub asking: Option<roles::Ask>,
+    /// #478: the move menu open for a client (by its id), and whether a move from it locks
+    pub menu: Option<String>,
+    pub lock: bool,
     /// the last thing done, or why not
     pub status: String,
     pub two_d: bool,
@@ -185,7 +196,7 @@ impl Host {
                 })
                 .ok()
         });
-        Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, typing: None, asking: None, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, link, api }
+        Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, typing: None, asking: None, menu: None, lock: false, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, link, api }
     }
 
     /// the document at the end of the path (the top's when a step is missing)
@@ -239,6 +250,10 @@ impl Host {
     /// The operator's press: to the core (always allowed, SHOW.md §7) or to what the editor shows.
     pub fn press(&mut self, hit: Hit) {
         let ms = now();
+        // #478: the move menu goes with any press but its own
+        if !matches!(hit, Hit::MenuPick(_)) {
+            self.menu = None;
+        }
         let rows: Vec<String> = self.sub.conductor().show().rows.iter().map(|r| r.id.clone()).collect();
         match hit {
             Hit::Fire(i) => {
@@ -276,6 +291,7 @@ impl Host {
                 self.typing = None;
             }
             Hit::RoleAdd | Hit::RoleName | Hit::RoleFact(_) | Hit::RoleRemove | Hit::AskYes | Hit::AskNo => self.roles_press(hit),
+            Hit::WhoMove(_) | Hit::WhoRename(_) | Hit::WhoKick(_) | Hit::MenuPick(_) => self.who_press(hit),
             Hit::Save => self.save(),
             Hit::Load => self.load(),
             Hit::Flash => self.open_flash(),
