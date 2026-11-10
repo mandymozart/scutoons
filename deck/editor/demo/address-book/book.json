@@ -1,10 +1,11 @@
 {
- "address_book": 1,
+ "address_book": 2,
  "toon": "catpope",
- "version": "demo-1",
+ "version": "demo-2",
  "source": "de",
  "entries": [
   {
+   "ref": "character:catpope",
    "address": "character:catpope",
    "kind": "character",
    "name": "catpope",
@@ -18,6 +19,7 @@
    }
   },
   {
+   "ref": "character:catpope.human",
    "address": "character:catpope.human",
    "kind": "persona",
    "name": "human",
@@ -32,6 +34,7 @@
    "parent": "character:catpope"
   },
   {
+   "ref": "character:catpope.human.default",
    "address": "character:catpope.human.default",
    "kind": "look",
    "name": "default",
@@ -43,6 +46,7 @@
    "parent": "character:catpope.human"
   },
   {
+   "ref": "character:mountaintiger",
    "address": "character:mountaintiger",
    "kind": "character",
    "name": "mountaintiger",
@@ -55,6 +59,7 @@
    }
   },
   {
+   "ref": "character:yellowmouse",
    "address": "character:yellowmouse",
    "kind": "character",
    "name": "yellowmouse",
@@ -68,7 +73,7 @@
    }
   },
   {
-   "address": "location:dom",
+   "ref": "location:dom",
    "kind": "location",
    "name": "dom",
    "labels": {
@@ -81,7 +86,7 @@
    }
   },
   {
-   "address": "location:cloister",
+   "ref": "location:cloister",
    "kind": "location",
    "name": "cloister",
    "labels": {
@@ -93,6 +98,7 @@
    }
   },
   {
+   "ref": "item:incense",
    "address": "item:incense",
    "kind": "item",
    "name": "incense",
@@ -105,6 +111,7 @@
    }
   },
   {
+   "ref": "item:catnip",
    "address": "item:catnip",
    "kind": "item",
    "name": "catnip",
@@ -117,7 +124,7 @@
    }
   },
   {
-   "address": "chapter:3",
+   "ref": "chapter:3",
    "kind": "chapter",
    "name": "3",
    "labels": {
