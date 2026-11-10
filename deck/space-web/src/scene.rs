@@ -22,7 +22,7 @@ use deck_space::space::Space;
 use deck_space::splash::Fade;
 use deck_space::stage::{ChapterFeed, Over, Prepared, Stage, Tick};
 use deck_space::tempo;
-use deck_space::veil::{Step, Transition};
+use deck_space::veil::Change;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -155,10 +155,8 @@ pub struct SceneView {
     deck: String,
     /// #473: the piece side, once the outlet is joined
     side: Option<Side>,
-    /// the scene (TOML) the piece side asks for; it waits while a change runs
-    wanted: Option<String>,
-    /// the change through black, the show being built behind it, the built one
-    trans: Option<Transition>,
+    /// the change through black to the scene (TOML) the piece side asks for, the show being built behind it, the built one
+    change: Change,
     building: bool,
     built: Rc<RefCell<Option<Result<Show, String>>>>,
 }
@@ -208,8 +206,7 @@ impl SceneView {
             card: None,
             deck,
             side: None,
-            wanted: None,
-            trans: None,
+            change: Change::default(),
             building: false,
             built: Rc::default(),
         })
@@ -520,8 +517,8 @@ impl SceneView {
             let said = side.cell(&cell, now, find);
             o.status.set_piece(&said.did, &said.problems);
             match said.switch {
-                Some(Switch::Scene(text)) => self.wanted = Some(text),
-                Some(Switch::Deck) => self.wanted = Some(self.deck.clone()),
+                Some(Switch::Scene(text)) => self.change.ask(&text),
+                Some(Switch::Deck) => self.change.ask(&self.deck),
                 None => {}
             }
         }
@@ -532,9 +529,9 @@ impl SceneView {
     }
 
     /// The change through black (veil.rs), one frame: Some = the veil's opacity.
-    fn change(&mut self, dt: f32) -> Option<f32> {
-        if self.trans.is_none() {
-            self.trans = self.wanted.take().map(|text| Transition::new(&text));
+    fn through_black(&mut self, dt: f32) -> Option<f32> {
+        if let Some(text) = self.change.due() {
+            self.change.start(&text);
         }
         let built = self.built.borrow_mut().take();
         if let Some(built) = built {
@@ -550,17 +547,11 @@ impl SceneView {
             }
         }
         let ready = !self.building && (self.show.stage.slides_ready() || self.age >= SPLASH_AT_MOST);
-        let t = self.trans.as_mut()?;
-        let (step, done) = t.step(dt, ready);
-        let veil = t.veil;
-        if step == Step::Load {
-            let text = t.to.clone();
+        let (load, veil) = self.change.step(dt, ready);
+        if let Some(text) = load {
             self.load(text);
         }
-        if done {
-            self.trans = None;
-        }
-        Some(veil)
+        veil
     }
 
     /// One frame: `dt` since the last (s), `time` the page's clock (s).
@@ -569,7 +560,7 @@ impl SceneView {
         let dt = dt.clamp(0.0, 0.1);
         self.pieces(time);
         self.age += dt;
-        let veil = self.change(dt);
+        let veil = self.through_black(dt);
         for p in &mut self.show.pumps {
             if let Some(ready) = p.held.take() {
                 if let Err(std::sync::mpsc::TrySendError::Full(back)) = p.tx.try_send(ready) {

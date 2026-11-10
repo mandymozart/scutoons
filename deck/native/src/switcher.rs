@@ -133,7 +133,7 @@ pub fn deck_toml() -> PathBuf {
 }
 
 // the change through black itself is the core's (#473: every deck fades the same way)
-pub use deck_space::veil::{Step, Transition, FADE_IN, FADE_OUT};
+pub use deck_space::veil::{Change, Step, Transition, FADE_IN, FADE_OUT};
 
 #[cfg(test)]
 mod tests {
