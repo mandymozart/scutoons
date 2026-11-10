@@ -1,4 +1,4 @@
-Status 2026-11-10: research, nothing built (#482). §1 and §2 are read from the code of both projects; §3 and §4 are proposals; §5 is decided by the owner (OSCT's code copied in, lazily loaded; the unit is an Experience of type book, show or poster; a scene belongs to its experience; three.js accepted; image tracking only); §6 is open; §7 the order, agreed.
+Status 2026-11-10: research, nothing built (#482); owned by the XR session (branch `wip/482-xr-experiences-7f10f7`), the owner's statements from here on in decisions/xr.md. §1 and §2 are read from the code of both projects; §3 and §4 are proposals; §5 is decided by the owner (OSCT's code copied in, lazily loaded; the unit is an Experience of type book, show or poster; a scene belongs to its experience; three.js accepted; image tracking only); §6 is open; §7 the order, agreed. Plaques and an image on a screen are tested by the owner and work (decisions/xr.md): no test of them is planned.
 
 # XR — taking over OSCT's XR methods into SCUTOONS
 
@@ -34,8 +34,8 @@ Sources: a read-only survey of both repositories on 2026-11-10; OSCT is `C:\Deve
 |---|---|---|
 | From a story | The XR jump leads to the XR mode's page for a scene; the mode needs building, the jump exists. | — |
 | Directly from outside | The same page by link or QR code; the QR type `xr` exists. | — |
-| Objects in a room | Works where the object carries or is a flat image (a plaque, a label, a poster, a sleeve): an image target. A sculpture as such cannot be tracked: no world or object tracking. | whether plaques are enough for an exhibition |
-| An image on a screen | An image target like a printed one. Never tried on a screen (brightness, moiré, refresh, the picture moving). | **a test with a deck showing a still is the first thing to do** |
+| Objects in a room | Works where the object carries or is a flat image (a plaque, a label, a poster, a sleeve): an image target. A sculpture as such cannot be tracked: no world or object tracking. | — (owner 2026-11-10: tested exhaustively, down to very small images; plaques it is) |
+| An image on a screen | An image target like a printed one. Owner 2026-11-10: tested, works really well. | how a Show's screen surface names what a deck shows on it (implementation, not a test) |
 
 ## 4 · Proposal: the unit and the mapping into the catalog
 
@@ -78,13 +78,13 @@ So book, space and show are not three orders: a space is a book whose surfaces a
 
 ## 6 · Open
 
-- The screen test (§3): a deck shows a still, a phone tracks it. Not done; it decides whether a Show's screen surface works at all.
+- How a Show's screen surface names the still a deck shows (the tracking itself is tested and works, owner 2026-11-10: "It's more about the implementation").
 - What "addressing a scene's parameters" needs: by decision [address] an address is real only where a receiver exists. The reader's XR mode would be that receiver; which parameters a scene exposes follows OSCT's behaviour rules (`set`, `emit`).
-- The list of XR jumps that exist in chapters today. Not made.
+- ~~The list of XR jumps that exist in chapters today.~~ Made 2026-11-10: none. Production's flow (`read_flow`, all toons) has no jump to XR and the local seed has none; the QR code type `xr` redirects to the code's own `redirect_to`. The URL shape is free.
 
 ## 7 · Order of work
 
 1. **The data, in SCUTOONS's own shape:** the catalog document kind `experience` (type book · show · poster; surfaces; targets; scenes; entries), its schema taken from OSCT's contract, types generated ([contract]); experiences, their surfaces' targets and scenes as references in the address book (#477); the XR jump's one field offers them; the reader's page `/xr/<experience>/<target>` as a shell that names what it would open.
-2. **The engine in the reader:** OSCT's engine copied in as a lazily loaded module on that page; one experience of type book authored as a document; an entry that gives an item; the screen test.
+2. **The engine in the reader:** OSCT's engine copied in as a lazily loaded module on that page; one experience of type book authored as a document; an entry that gives an item.
 3. **The editor in the creator:** OSCT's workspace (tree, stage, inspector) for an experience.
 4. **Later:** plugins, the Show's scalable surfaces in the editor, scene parameters as addresses.
