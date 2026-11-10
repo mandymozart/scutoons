@@ -38,6 +38,12 @@ pub fn needs(show: &Show, outlet: &str) -> Vec<Need> {
     out
 }
 
+/// What every outlet of `show` plays, for the flash that goes into its session (#475): a deck checks its pieces from
+/// this, without reading the document. A device outlet is listed with none.
+pub fn flash_needs(show: &Show) -> std::collections::HashMap<String, Vec<protocol::FlashNeed>> {
+    show.outlets.iter().map(|o| (o.id.clone(), needs(show, &o.id).into_iter().map(|n| protocol::FlashNeed { piece: n.piece, row: n.row }).collect())).collect()
+}
+
 /// What a deck lacks for a flash.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Lack {
@@ -123,11 +129,14 @@ pub struct Deck {
     kept: Option<Kept>,
     /// #471: the notice was seen
     seen: bool,
+    /// #475: what the last flash said this outlet plays in the show it assigned (none for the outlet: the show has no
+    /// such outlet); absent when the flash did not say
+    needed: Option<(Pinned, Option<Vec<Need>>)>,
 }
 
 impl Deck {
     pub fn new(outlet: &str) -> Deck {
-        Deck { outlet: outlet.to_string(), standing: None, running: None, last: None, id: None, keep: None, unsaved: false, mappings: 0, device: None, owner: true, taken: None, kept: None, seen: false }
+        Deck { outlet: outlet.to_string(), standing: None, running: None, last: None, id: None, keep: None, unsaved: false, mappings: 0, device: None, owner: true, taken: None, kept: None, seen: false, needed: None }
     }
 
     fn running(&self) -> Pinned {
@@ -252,6 +261,10 @@ impl Deck {
         self.seen = self.kept.is_none();
         self.unsaved = false;
         self.running = Some(show.clone());
+        self.needed = flash.needs.as_ref().map(|by_outlet| {
+            let mine = by_outlet.get(&self.outlet).map(|n| n.iter().map(|n| Need { piece: n.piece.clone(), row: n.row.clone() }).collect());
+            (show.clone(), mine)
+        });
         Ok(show)
     }
 
@@ -306,6 +319,30 @@ impl Deck {
     /// report. Ready = nothing lacks.
     pub fn check(&mut self, show: &Pinned, doc: Result<Show, String>, has: impl Fn(&str) -> Result<(), String>) -> FlashReport {
         let lacks = lacks(show, &self.outlet, doc, has);
+        self.answer(show, lacks)
+    }
+
+    /// #475: the pieces the flash said this outlet plays in `show` – what a deck fetches and checks without the document.
+    /// None: the flash did not say (then the document is read, [`Deck::check`]).
+    pub fn told(&self, show: &Pinned) -> Option<&[Need]> {
+        let (of, mine) = self.needed.as_ref()?;
+        (of == show).then(|| mine.as_deref().unwrap_or_default())
+    }
+
+    /// #475: the report from what the flash said this outlet plays – no document. None: the flash did not say.
+    pub fn check_told(&mut self, show: &Pinned, has: impl Fn(&str) -> Result<(), String>) -> Option<FlashReport> {
+        let (of, mine) = self.needed.clone()?;
+        if &of != show {
+            return None;
+        }
+        let lacks = match mine {
+            None => vec![Lack::Outlet { show: show.clone(), outlet: self.outlet.clone() }],
+            Some(needs) => needs.into_iter().filter_map(|n| has(&n.piece).err().map(|why| Lack::Piece { piece: n.piece, row: n.row, why })).collect(),
+        };
+        Some(self.answer(show, lacks))
+    }
+
+    fn answer(&mut self, show: &Pinned, lacks: Vec<Lack>) -> FlashReport {
         let mut report = flash::report(show, true, None);
         report.ready = Some(lacks.is_empty());
         report.lacks = (!lacks.is_empty()).then(|| lacks.iter().map(ToString::to_string).collect());
@@ -365,12 +402,12 @@ mod tests {
     }
 
     fn flash(here: Option<protocol::Pinned>, hops: u64) -> Flash {
-        Flash { root: pin("top", 3), shows: vec![pin("top", 3), pin("foyer-loop", 2)], lock: None, hops, here, id: None, by: None, skip: None, force: None }
+        Flash { root: pin("top", 3), shows: vec![pin("top", 3), pin("foyer-loop", 2)], lock: None, hops, here, id: None, by: None, skip: None, force: None, needs: None }
     }
 
     /// a flash of `top@v` with an id, by the top's operator
     fn flash_v(v: u64, id: &str) -> Flash {
-        Flash { root: pin("top", v), shows: vec![pin("top", v)], lock: None, hops: 1, here: None, id: Some(id.into()), by: Some("ana".into()), skip: None, force: None }
+        Flash { root: pin("top", v), shows: vec![pin("top", v)], lock: None, hops: 1, here: None, id: Some(id.into()), by: Some("ana".into()), skip: None, force: None, needs: None }
     }
 
     #[test]
@@ -505,6 +542,31 @@ mod tests {
         assert!(!r.accepted);
         assert_eq!(line(&r), "FLASH refused: assigned by a nearer hand – runs top@3");
         assert_eq!(deck.last(), Some(&*r));
+    }
+
+    /// #475: what a conductor sends with a flash – every outlet, the pieces its cells name
+    #[test]
+    fn a_flash_says_what_each_outlet_plays() {
+        let needs = flash_needs(&read(TOP).unwrap());
+        let pieces = |outlet: &str| needs[outlet].iter().map(|n| format!("{} ({})", n.piece, n.row)).collect::<Vec<_>>();
+        assert_eq!(pieces("left"), ["scene:nave (arrival)", "scene:ghost (exit)"]);
+        assert_eq!(pieces("right"), ["scene:nave (arrival)", "character:catpope (roar)"], "a mirror plays what its outlet plays");
+        assert!(pieces("lights").is_empty(), "a device outlet is listed with none");
+        // a deck takes it: its outlet's pieces without the document; an outlet the show lacks gets no cell
+        let mut f = flash(Some(pin("top", 3)), 1);
+        f.needs = Some(needs);
+        let mut deck = Deck::new("left");
+        let show = deck.take(&f).unwrap();
+        assert_eq!(deck.told(&show).map(<[Need]>::len), Some(2));
+        let r = deck.check_told(&show, |p| if p == "scene:ghost" { Err("scene:ghost is not on this deck".into()) } else { Ok(()) }).unwrap();
+        assert_eq!((r.ready, r.lacks.as_deref()), (Some(false), Some(&["row exit: scene:ghost is not on this deck".to_string()][..])));
+        let mut foyer = Deck::new("foyer");
+        let show = foyer.take(&f).unwrap();
+        assert_eq!(foyer.check_told(&show, |_| Ok(())).unwrap().lacks.as_deref(), Some(&["top@3 has no outlet 'foyer': no cell will come".to_string()][..]));
+        // a flash that does not say it: the document is read as before
+        let mut old = Deck::new("left");
+        let show = old.take(&flash(Some(pin("top", 3)), 1)).unwrap();
+        assert!(old.told(&show).is_none() && old.check_told(&show, |_| Ok(())).is_none());
     }
 
     #[test]

@@ -25,7 +25,7 @@ use std::time::Duration;
 pub enum In {
     /// the relay's welcome: this deck's client id (the flash's lists name it so); the deck says what it is
     Joined(String),
-    Flash(Flash),
+    Flash(Box<Flash>),
     /// #471: the operator switches to the deck's own version (`true`) or back to the flashed one
     Switch(bool),
 }
@@ -76,9 +76,14 @@ impl Flasher {
     }
 
     fn check(&mut self, show: &Pinned) -> FlashReport {
-        let doc = self.document(show);
         let cache = self.media.cache.clone();
-        self.deck.check(show, doc, |p| deck_space::piece::available(p, |place| super::piece::find(&cache, place)))
+        let has = |p: &str| deck_space::piece::available(p, |place| super::piece::find(&cache, place));
+        // #475: the flash said what this outlet plays – no document is read (a deck whose member has no `live` cannot)
+        if let Some(report) = self.deck.check_told(show, has) {
+            return report;
+        }
+        let doc = self.document(show);
+        self.deck.check(show, doc, has)
     }
 
     /// the report to the HUD and the conductor

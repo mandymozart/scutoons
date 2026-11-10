@@ -922,9 +922,19 @@ pub struct Flash {
 	/// #471: the paths the operator left out, relative to the session it is in now (a client id; `<show>/…` for a sub conductor's session, the show its seat sits). A deck not named here takes it, also one that joins later
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub skip: Option<Vec<String>>,
+	/// #475: what each outlet of `here` plays – the pieces its cells name, each once, by outlet. A deck checks them without reading the show document; an outlet that is not listed gets no cell. Absent: the conductor does not hold that version yet, a deck reads the show itself
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub needs: Option<std::collections::HashMap<String, Vec<FlashNeed>>>,
 	/// #471: the paths the prompt warned of and the operator accepted (asked not to be flashed, unsaved configuration): flashed anyway
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub force: Option<Vec<String>>,
+}
+
+/// #475: one piece an outlet's cells name, and the first row that names it.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct FlashNeed {
+	pub piece: String,
+	pub row: String,
 }
 
 /// #90: what a deck or conductor runs after a flash, to its conductor and on up. `from` of the envelope is the path it came along.

@@ -108,7 +108,7 @@ mod tests {
     use super::*;
 
     fn flash(hops: u64, lock: bool) -> Flash {
-        Flash { root: protocol::Pinned { id: "top".into(), version: 3 }, shows: vec![protocol::Pinned { id: "top".into(), version: 3 }], lock: lock.then_some(true), hops, here: None, id: None, by: None, skip: None, force: None }
+        Flash { root: protocol::Pinned { id: "top".into(), version: 3 }, shows: vec![protocol::Pinned { id: "top".into(), version: 3 }], lock: lock.then_some(true), hops, here: None, id: None, by: None, skip: None, force: None, needs: None }
     }
 
     fn standing(hops: u32, locked: bool) -> Assignment {

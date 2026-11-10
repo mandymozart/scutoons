@@ -1,9 +1,10 @@
 //! A deck's flash side, step by step (#475; #91 item 5, #471, agents/research/SHOW.md §4b): for a deck that cannot wait
 //! on a thread (the browser's frame loop). The decisions are [`ready::Deck`]'s – taken or refused, the show this outlet
 //! plays, what it lacks, the words. This is the order of the answers, sans IO:
-//! - **the show** at the version the flash pins: the platform is asked for it once (`ask`: `<api>/shows/<id>?v=<n>`,
-//!   with the deck's token) and hands the API's answer back (`document`); it is kept while the deck runs (a version
-//!   never changes);
+//! - **what the outlet plays**: the flash says it (`Flash.needs`, #475: the conductor sends a deck the part of the show
+//!   that matters to it) – then nothing is read. Only a flash that does not say it needs **the show** at the pinned
+//!   version: the platform is asked for it once (`ask`: `<api>/shows/<id>?v=<n>`, with the deck's token) and hands the
+//!   API's answer back (`document`); it is kept while the deck runs (a version never changes);
 //! - **each piece** its outlet's cells name: what the deck carries (`carried`: a built-in scene), a core rig, else what
 //!   it fetched (deck-space `fetched.rs`); the check waits until every answer is here;
 //! - **the answer**: the `flash.report`s to send (`reports`: also when the deck joins – what it is, what it runs).
@@ -68,6 +69,8 @@ impl Flashed {
         fetched.again();
         let key = ready::kept_as(&show);
         let doc = match self.shows.get(&key) {
+            // the flash said what the outlet plays: no document
+            _ if self.deck.told(&show).is_some() => None,
             Some(text) => Some(ready::read(text)),
             None if !no_token.is_empty() => Some(Err(no_token.to_owned())),
             None => {
@@ -105,19 +108,27 @@ impl Flashed {
     /// `carried`: what the deck has of a piece without asking (a built-in scene).
     pub fn turn(&mut self, fetched: &mut Fetched, carried: impl Fn(&Place) -> Option<Found>) {
         let Some(c) = self.checking.as_mut() else { return };
-        let Some(doc) = c.doc.as_ref() else { return };
+        let told = self.deck.told(&c.show).map(<[ready::Need]>::to_vec);
+        if told.is_none() && c.doc.is_none() {
+            return;
+        }
         if !c.asked {
             c.asked = true;
-            for need in doc.as_ref().map(|d| ready::needs(d, &self.outlet)).unwrap_or_default() {
+            let needs = told.unwrap_or_else(|| c.doc.as_ref().and_then(|d| d.as_ref().ok()).map(|d| ready::needs(d, &self.outlet)).unwrap_or_default());
+            for need in needs {
                 let _ = available(&need.piece, |p| carried(p).or_else(|| fetched.find(p)));
             }
         }
         if fetched.waiting() {
             return;
         }
-        let Some(Checking { show, doc: Some(doc), .. }) = self.checking.take() else { return };
+        let Some(Checking { show, doc, .. }) = self.checking.take() else { return };
         let fetched = &*fetched;
-        let report = self.deck.check(&show, doc, |piece| available(piece, |p| carried(p).or_else(|| fetched.have(p))));
+        let has = |piece: &str| available(piece, |p| carried(p).or_else(|| fetched.have(p)));
+        let report = match self.deck.check_told(&show, has) {
+            Some(report) => report,
+            None => self.deck.check(&show, doc.unwrap_or_else(|| Err("the show was not fetched".into())), has),
+        };
         self.out.push(report);
     }
 
@@ -156,7 +167,7 @@ mod tests {
 
     fn flash(id: &str) -> Flash {
         let top = protocol::Pinned { id: "top".into(), version: 3 };
-        Flash { root: top.clone(), shows: vec![top], lock: None, hops: 0, here: None, id: Some(id.into()), by: None, skip: None, force: None }
+        Flash { root: top.clone(), shows: vec![top], lock: None, hops: 0, here: None, id: Some(id.into()), by: None, skip: None, force: None, needs: None }
     }
 
     fn carried(p: &Place) -> Option<Found> {
@@ -190,6 +201,35 @@ mod tests {
         assert_eq!(f.ask(), None);
         f.turn(&mut fetched, carried);
         assert_eq!(fetched.asks().len(), 1);
+    }
+
+    /// #475: the conductor says what the outlet plays – a deck that may not read the show checks all the same
+    #[test]
+    fn a_flash_that_says_what_the_outlet_plays_needs_no_document() {
+        let (mut f, mut fetched) = (Flashed::new("left", "browser"), Fetched::default());
+        let mut told = flash("one");
+        told.needs = Some(ready::flash_needs(&ready::read(SHOW).unwrap()));
+        // not paired, no token: nothing is asked of the API
+        f.flash(&told, API, "the deck is not paired yet", &mut fetched);
+        assert_eq!(f.ask(), None);
+        f.turn(&mut fetched, carried);
+        assert_eq!(fetched.asks().len(), 1, "the piece it does not carry is asked for");
+        assert!(f.reports().is_empty());
+        fetched.give(&Place::new("character", "boy"), Ok(CONTENT));
+        f.turn(&mut fetched, carried);
+        let r = f.reports();
+        assert_eq!((r[0].ready, r[0].lacks.as_deref()), (Some(false), Some(&["row b: character:boy has no published rig".to_string()][..])));
+        // an outlet the show does not have: no cell will come
+        let mut g = Flashed::new("foyer", "browser");
+        g.flash(&told, API, "", &mut fetched);
+        g.turn(&mut fetched, carried);
+        assert_eq!(g.reports()[0].lacks.as_deref(), Some(&["top@3 has no outlet 'foyer': no cell will come".to_string()][..]));
+        // a show with nothing missing is ready
+        let mut h = Flashed::new("left", "browser");
+        told.needs = Some([("left".to_string(), vec![protocol::FlashNeed { piece: "scene:cathedral".into(), row: "a".into() }])].into());
+        h.flash(&told, API, "the deck is not paired yet", &mut fetched);
+        h.turn(&mut fetched, carried);
+        assert_eq!(h.reports()[0].ready, Some(true));
     }
 
     #[test]

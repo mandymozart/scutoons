@@ -483,8 +483,16 @@ export interface Flash {
 	by?: string;
 	/** #471: the paths the operator left out, relative to the session it is in now (a client id; `<show>/…` for a sub conductor's session, the show its seat sits). A deck not named here takes it, also one that joins later */
 	skip?: string[];
+	/** #475: what each outlet of `here` plays – the pieces its cells name, each once, by outlet. A deck checks them without reading the show document; an outlet that is not listed gets no cell. Absent: the conductor does not hold that version yet, a deck reads the show itself */
+	needs?: Record<string, FlashNeed[]>;
 	/** #471: the paths the prompt warned of and the operator accepted (asked not to be flashed, unsaved configuration): flashed anyway */
 	force?: string[];
+}
+
+/** #475: one piece an outlet's cells name, and the first row that names it. */
+export interface FlashNeed {
+	piece: string;
+	row: string;
 }
 
 /** #90: what a deck or conductor runs after a flash, to its conductor and on up. `from` of the envelope is the path it came along. */

@@ -347,6 +347,7 @@ impl Subtree {
             by: Some(pick.by.clone().unwrap_or_else(|| format!("the conductor of {}", self.conductor.show().id))),
             skip: list(&pick.skip),
             force: list(&pick.force),
+            needs: None,
         };
         self.take_flash(&flash, ms)
     }
@@ -391,6 +392,9 @@ impl Subtree {
             let mut next = flash::down(flash, me, |seat| show.seat(seat).map(|s| s.show.id.clone()));
             next.hops += 1;
             next.here = Some(flash::wire(&Pinned { id: running.id.clone(), version: wanted.unwrap_or(running.version) }));
+            // #475: what each outlet plays, so every deck checks its pieces without reading the show – when this conductor
+            // holds the pinned version; one it has yet to fetch is not said (its decks read the show themselves)
+            next.needs = wanted.is_none_or(|v| v == running.version).then(|| crate::ready::flash_needs(show));
             out.push(message(Message::Flash(next), None));
         } else {
             self.conductor.note(ms, Logged::FlashRefused { why: report.why.clone().unwrap_or_default() });

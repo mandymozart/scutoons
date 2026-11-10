@@ -552,6 +552,8 @@ mod tests {
         assert_eq!(f.skip.as_deref(), Some(&["c8".to_string(), "foyer-loop".into(), "foyer-loop/c3".into()][..]));
         assert_eq!(f.by.as_deref(), Some("ana"));
         assert_eq!(f.id.as_deref(), Some("top@3/100"));
+        // #475: the conductor holds the pinned version, so the flash says what each outlet plays
+        assert!(f.needs.as_ref().is_some_and(|n| !n.is_empty()), "{:?}", f.needs);
         // the child conductor of foyer-loop refuses what left it out, and sends nothing down
         let mut child = Subtree::new(crate::parse(r#"{ "id": "foyer-loop", "version": 2, "outlets": [], "rows": [] }"#).unwrap(), ClockChoice::Parent);
         let back = child.on_wire(&Envelope::new(protocol::PARENT, Message::Flash(f.clone())), 101);

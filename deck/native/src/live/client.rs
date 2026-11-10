@@ -89,7 +89,7 @@ impl Side for Client {
                     let _ = self.pieces.send(c);
                 }
                 Routed::Flash(f) => {
-                    let _ = self.flash.send(super::flash::In::Flash(f));
+                    let _ = self.flash.send(super::flash::In::Flash(Box::new(f)));
                 }
                 Routed::Refused { code, message } => {
                     tracing::warn!("live: the relay says {code}: {message}");
