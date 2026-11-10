@@ -67,7 +67,7 @@ impl Flasher {
         if !kept.exists() {
             let url = format!("{}/shows/{}?v={}", self.api, p.id, p.version);
             let bearer = self.media.token.bearer()?;
-            self.media.fetch.get(&url, bearer.as_deref(), &kept)?;
+            self.media.fetch.api_file(&url, bearer.as_deref(), &kept)?;
         }
         let text = std::fs::read_to_string(&kept).map_err(|e| format!("{}: {e}", kept.display()))?;
         ready::read(&text).inspect_err(|_| {
