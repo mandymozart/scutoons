@@ -6,6 +6,7 @@ namespace Scutoons\Domain\Library;
 use Scutoons\Domain\Assets\AssetPaths;
 use Scutoons\Domain\Assets\AssetRegistry;
 use Scutoons\Domain\Catalog\CatalogStore;
+use Scutoons\Generated\ContentTables;
 use Scutoons\Infrastructure\Config\Settings;
 use Throwable;
 
@@ -195,7 +196,8 @@ final class ChapterFiles
     }
 
     /**
-     * character id → persona ids a chapter's VN refs put on stage (legacy ids mapped; `regular` always)
+     * character id → persona ids a chapter's VN refs put on stage (`regular` always; a legacy id is its character and – unless
+     * the ref names another persona – the persona its art went to, as the reader resolves it: the one table, #477)
      * @param array<mixed> $node
      * @param array<string, array<string, true>> $refs
      * @return array<string, array<string, true>>
@@ -203,9 +205,11 @@ final class ChapterFiles
     private static function characterRefs(array $node, array &$refs = []): array
     {
         if (is_string($node['character'] ?? null) && $node['character'] !== '') {
-            $id = Library::LEGACY_CHARACTER_IDS[$node['character']] ?? $node['character'];
+            $legacy = ContentTables::LEGACY_CHARACTER_IDS[$node['character']] ?? null;
+            $id = $legacy['character'] ?? $node['character'];
             $refs[$id]['regular'] = true;
-            if (is_string($node['persona'] ?? null) && $node['persona'] !== '') $refs[$id][$node['persona']] = true;
+            $persona = is_string($node['persona'] ?? null) && $node['persona'] !== '' && $node['persona'] !== 'regular' ? $node['persona'] : $legacy['persona'] ?? null;
+            if ($persona !== null) $refs[$id][$persona] = true;
         }
         foreach ($node as $value) {
             if (is_array($value)) self::characterRefs($value, $refs);

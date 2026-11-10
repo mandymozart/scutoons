@@ -9,6 +9,7 @@ use Scutoons\Domain\Content\EntityKey;
 use Scutoons\Domain\Content\NeutralDoc;
 use Scutoons\Domain\Content\CollectionDocs;
 use Scutoons\Domain\Content\WorldMapDocs;
+use Scutoons\Generated\ContentTables;
 use Scutoons\Infrastructure\Cache\Cache;
 use Scutoons\Infrastructure\Config\Settings;
 use Scutoons\Infrastructure\Database\Database;
@@ -55,8 +56,6 @@ final class Library
     private const FORMAT = 7;
     private const CACHE_TTL = 604800;
     private const JSON_FLAGS = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION;
-    /** @scutoons/content LEGACY_CHARACTER_IDS: old character ids in VN character refs → the registry character */
-    public const LEGACY_CHARACTER_IDS = ['plf' => 'catpope', 'cat' => 'catpope', 'mountain-tiger' => 'catpope'];
 
     /** answers from the legacy per-locale chapters / seasons only (Snapshot::withoutNeutralDocs) */
     private bool $legacyOnly = false;
@@ -694,7 +693,7 @@ final class Library
      * @param list<string> $stored
      * @return array{0: string, 1: list<string>}
      */
-    private static function languages(?stdClass $entry, array $stored): array
+    public static function languages(?stdClass $entry, array $stored): array
     {
         $valid = fn(mixed $l) => is_string($l) && preg_match(self::LOCALE_PATTERN, $l) === 1;
         $entry ??= new stdClass();
@@ -815,7 +814,7 @@ final class Library
     {
         if (is_object($node)) {
             foreach (get_object_vars($node) as $key => $value) {
-                if ($key === 'character' && is_string($value)) $ids[self::LEGACY_CHARACTER_IDS[$value] ?? $value] = true;
+                if ($key === 'character' && is_string($value)) $ids[ContentTables::LEGACY_CHARACTER_IDS[$value]['character'] ?? $value] = true;
                 else self::referencedCharacters($value, $ids);
             }
         } elseif (is_array($node)) {
