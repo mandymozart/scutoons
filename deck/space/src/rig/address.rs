@@ -87,8 +87,10 @@ impl fmt::Display for Place {
 /// `*` in an address's id: every one of the kind (`character:*`, SHOW.md §8); never a source (many matches are fine only
 /// for a target)
 pub const EVERY: &str = "*";
-/// the kind whose ids go down to persona and look (`character:catpope.mountaintiger.ghost`, SHOW.md §8)
-pub const CHARACTER: &str = "character";
+/// the kind whose ids go down to persona and look (`character:catpope.mountaintiger.ghost`, SHOW.md §8); the word is the
+/// address book schema's `AddressKind` (server/schema/api/address-book.schema.json, generated: the one list of the catalog's
+/// kinds of place, #477)
+pub const CHARACTER: &str = protocol::address_book::AddressKind::Character.as_str();
 
 /// What a show's address names on the ladder (SHOW.md §8, the workshop's kind and id; #91): `character:*` every one of a
 /// kind, `character:yellowmouse` every persona and look of it, `character:catpope.mountaintiger.ghost` only that look.
@@ -241,6 +243,18 @@ impl Address {
     /// no place, no leading `/`: it stands in its own document
     pub fn is_relative(&self) -> bool {
         !self.absolute && self.places.is_empty()
+    }
+
+    /// The address with `place` as its holder – the last place, whose leaf it is (`/deck:pc/scene:demo/character:catpope/…`
+    /// → `/deck:pc/scene:demo/item:incense/…`); with no place, `place` is the only one. The deck and scene before it stay
+    /// (#477: a far world node's address, a pick from the address book).
+    pub fn with_holder(&self, place: Place) -> Address {
+        let mut places = self.places.clone();
+        match places.last_mut() {
+            Some(last) => *last = place,
+            None => places.push(place),
+        }
+        Address { places, ..self.clone() }
     }
 }
 
@@ -433,6 +447,16 @@ mod tests {
         assert_eq!(a.to_string(), "/deck:left/scene:nave/character:catpope/@energy");
         assert_eq!(Address::parse("item:incense/hiss:noise.gain").unwrap().leaf, port(Some("hiss"), "noise", "gain"));
         assert!(Address::leaf("character:catpope/analog:synth.volume").unwrap_err().contains("relative"));
+    }
+
+    /// #477: a pick from the address book is the holder; the deck and scene before it and the leaf stay
+    #[test]
+    fn a_new_holder_takes_the_last_place() {
+        let holder = |a: &str, p: &str| Address::parse(a).unwrap().with_holder(Place::parse(p).unwrap()).to_string();
+        assert_eq!(holder("/deck:pc/scene:demo/character:catpope/analog:seq.notes", "item:incense"), "/deck:pc/scene:demo/item:incense/analog:seq.notes");
+        assert_eq!(holder("character:catpope/@energy", "character:boy"), "character:boy/@energy");
+        assert_eq!(holder("analog:seq.notes", "item:incense"), "item:incense/analog:seq.notes");
+        assert_eq!(super::CHARACTER, "character", "the generated kind word");
     }
 
     #[test]
