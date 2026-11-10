@@ -87,31 +87,12 @@ Today a mood is an entry per character because each needs its image (`<character
 - **Durable things are state, not events.** "Destroyed" is a value on the location, so a deck that joins later, or a scene that spawns later, sees it. "Start the decay" is the event that moves the value. This is the same split as cues and state on the relay, and KANON's story variables are the same thing one level up.
 - New against what exists: `location:` as an address place, spawn points in the set, scope inheritance for words and state, placements as references with overrides (LOCATION-SCENES.md §"spots" has the shape for pickups).
 
-## 9. What open-world games do (first pass from knowledge, 2026-11-10; not checked against sources, a sourced review is the next step if wanted)
+## 9. What open-world games do → research/OPEN-WORLD.md
 
-| Pattern | Where | What it is | Ours |
-| --- | --- | --- | --- |
-| Base object and placed reference | Bethesda's Creation Engine (worldspace › cell › reference) | The catalog holds the object once; the world holds references with a transform and overrides; changes are saved as differences against the base | Catalog item vs placement in a scene; the member's layer as a diff |
-| Prefab, variant, nested prefab | Unity | One override chain: variant over base, instance over variant | The ladder look › persona › character › kind default |
-| Composition by layers, variant sets | USD (Pixar; film and game pipelines) | Layers of opinions with a fixed strength order; a variant set switches a subtree (intact / destroyed) | Mapping layers precoded < flashed < local; location states; moods as named points |
-| Level instances, streaming, data layers | Unreal (World Partition) | A level placed in the world at a transform; cells load by distance; a data layer switches a whole version of the world on and off at run time | A scene spawned at a point; reach and loading ahead; "show the blocks destroyed" |
-| Hierarchical tags and tag queries | Unreal Gameplay Tags | Dotted names (`Location.Blocks.EntranceA`) matched by prefix | The address ladder and the filters (SHOW.md §8, §9) |
-| Calls down a subtree, groups | Godot (`propagate_call`, groups) | A call on a node reaches its children; a group is addressed as one | A word to a location reaching its scenes; `group:` in filters |
-| Entity and components | ECS (Bevy, Unity DOTS), Unreal actor components | An entity is an id and a list of parts; each part owns its data | The thin entity document of §7a |
-| World state, phasing | MMO phasing, global variables in quest systems | The world's state is a set of variables; what a player sees is a function of them | KANON's variables; state on a scope (§8) |
-| Server-timed live events | Live-service games | The server holds the state and the clock, every client plays the same change at the same time, a late joiner gets the state | The conductor, flash and the show clock |
-| Relevancy, interest management | Networked engines | A client is sent only what is near or relevant to it | Reach (SHOW.md §6) |
-| Cooked data | All of them | Authoring data is resolved once into the form the runtime reads | The baked rig image, the entity image of §7a |
-
-**What to take from it:**
-1. **One override mechanism, used everywhere** (base → variant → instance → local), instead of one per feature. We have three that are the same idea: the ladder, the mapping layers, the member's diff. They should be one resolver in the core.
-2. **State lives on a scope and is inherited; events only move it.** That is what keeps late joiners and spawned scenes in sync without resending history.
-3. **Placement is a reference with overrides**, never a copy, so the catalog stays the single source.
-4. **Variants for whole-world switches**: a location's states are a variant set of its set, not separate locations.
-5. **Author general, run cooked**: one resolved image per entity and per location is what a deck reads.
+The first pass that stood here was written from memory and was wrong or imprecise in 12 places (OPEN-WORLD.md §5). The review checked against the engines' documentation, the patterns that hold, where our code stands and the refactor that follows are in **research/OPEN-WORLD.md**. In short: one resolver in the core for every chain that falls back or overrides; a word says whether it is state or an event and how long it lasts (a passing mood is a timed modifier over a base value, with an onset and a while); a spawn point is a slot that is claimed; a placement is a reference with overrides keyed by stable ids; many things follow one switch before a second set is made; authoring data is baked.
 
 ## 10. Still open
 
 1. Decided 2026-11-10: the entity document (§7a); a named mood can be called, to all at once (§7b); two scenes can share a point (*"two scenes can share a point of course"*).
-2. The sourced review of §9 is ordered (owner: *"yes do the research and visualize your findings to me and consequences for a refactor"*): research/OPEN-WORLD.md, with drafts.
+2. The sourced review of §9 is ordered (owner: *"yes do the research and visualize your findings to me and consequences for a refactor"*): done, research/OPEN-WORLD.md (its §6 has the open points), drafts sent in the chat.
 3. Still open: can one scene be spawned at several points at once?
