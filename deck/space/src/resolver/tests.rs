@@ -124,13 +124,14 @@ fn calls_of_two_callers_stack_by_newest() {
 }
 
 #[test]
-fn a_local_change_beats_a_timed_one_and_a_timed_one_beats_the_flash() {
+fn a_timed_change_beats_a_local_one_and_a_local_one_beats_the_flash() {
     let mut r = Resolver::new();
     r.set("k", src(Strength::Flashed, "show:a"), 1);
-    r.call("k", "conductor", 2, 0.0, 8.0);
+    r.set("k", src(Strength::Local, "local"), 2);
     assert_eq!(*r.resolve("k", 1.0).unwrap().value, 2);
-    r.set("k", src(Strength::Local, "local"), 3);
+    r.call("k", "conductor", 3, 0.0, 8.0);
     assert_eq!(*r.resolve("k", 1.0).unwrap().value, 3);
+    assert_eq!(*r.resolve("k", 8.0).unwrap().value, 2, "the call ended: the local change shows again");
 }
 
 #[test]

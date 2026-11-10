@@ -25,10 +25,11 @@ use std::fmt;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Strength {
+    /// a timed change: called for a length, over every stored value, a deck's own local change too (owner 2026-11-10: a
+    /// call is relay traffic that reaches every deck; a flash installs a new base and is what a deck can refuse)
+    Timed,
     /// changed on this deck only (a learned knob, a source switched off), undoable by itself
     Local,
-    /// a timed change: called for a length, over every stored value; below a deck's own local change
-    Timed,
     /// what a flash brought (a show, its rigs and presets)
     Flashed,
     /// a member's draft, played on their own decks
@@ -49,8 +50,8 @@ pub enum Strength {
 impl Strength {
     /// every strength, strongest first
     pub const ALL: [Strength; 9] = [
-        Strength::Local,
         Strength::Timed,
+        Strength::Local,
         Strength::Flashed,
         Strength::Draft,
         Strength::Look,
@@ -60,11 +61,11 @@ impl Strength {
         Strength::Shipped,
     ];
 
-    /// its word on the wire and in an origin (`local` … `default` … `shipped`)
+    /// its word on the wire and in an origin (`timed` … `default` … `shipped`)
     pub fn word(self) -> &'static str {
         match self {
-            Strength::Local => "local",
             Strength::Timed => "timed",
+            Strength::Local => "local",
             Strength::Flashed => "flashed",
             Strength::Draft => "draft",
             Strength::Look => "look",

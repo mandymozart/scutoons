@@ -1,5 +1,5 @@
 name = "a value says where it came from: the one resolver"
-about = "#474: deck-space's resolver answers a key with its value, its origin and what it falls back to; the order is written once (local › timed › flashed › draft › look › persona › character › default › shipped); a timed change holds for its own length from its own start, a second call by the same caller replaces the first, and when it ends the next source shows again. Native and wasm give the same answers"
+about = "#474: deck-space's resolver answers a key with its value, its origin and what it falls back to; the order is written once (timed › local › flashed › draft › look › persona › character › default › shipped); a timed change holds for its own length from its own start, a second call by the same caller replaces the first, and when it ends the next source shows again. Native and wasm give the same answers"
 
 # the ladder: the persona beats the character and the kind's default
 [[step]]
@@ -48,6 +48,18 @@ key = "character:catpope/being:glow"
 clear = [{ strength = "persona", id = "character:catpope.mountaintiger" }]
 now = 10
 expect = { value = "warm", origin = "character character:catpope", fallback = { value = "low", origin = "default character:*" } }
+
+# a call beats a deck's own local change; the local change beats the flash
+[[step]]
+do = "resolve"
+key = "deck:left/light"
+set = [
+  { strength = "flashed", id = "show:a", value = "dim" },
+  { strength = "local", id = "local", value = "bright" },
+]
+call = [{ caller = "scene:storm", value = "flicker", start = 0, length = 4 }]
+now = 1
+expect = { value = "flicker", origin = "timed scene:storm", fallback = { value = "bright", origin = "local local" } }
 
 # a key nobody has an opinion on: no value
 [[step]]
