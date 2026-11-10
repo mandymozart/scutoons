@@ -29,7 +29,9 @@ impl Default for Side {
     }
 }
 
-fn find(cache: &Path, place: &Place) -> Option<Found> {
+/// What the deck has of a piece beyond its core rigs: a built-in scene by its name, else `<cache>/pieces/<kind>.<id>.toml`
+/// (the cells here, a flash's check in flash.rs).
+pub fn find(cache: &Path, place: &Place) -> Option<Found> {
     if place.kind == "scene" {
         if let Some(text) = crate::switcher::builtin(&place.id) {
             return Some(Found::Scene(text.to_string()));
