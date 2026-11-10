@@ -1,4 +1,5 @@
 <script lang="ts">
+	// #463: with nothing in the address the deck idles – the core's idle scene and nothing else.
 	// /live/deck (#198, owner 2026-10-31: "On the S22 I want the same visual as the Rust stage, just in wasm … the
 	// character switcher could be superimposed … with regular Svelte or HTML UI"; "I'd rather ship it in the reader … in
 	// the PWA"): a phone joins the Cathedral of decks as a being. The being and the cathedral fill the screen – deck-space,
@@ -14,7 +15,7 @@
 	// deck-space's (Hands → DeckControls, wasm), this page only bridges the DOM, Web MIDI and the pointer to it.
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { Hands, loadControls, loadDeckState, type QualityLevel, type QualityOptions, type QualityPresets, type SpaceQuality, type Spec } from '@scutoons/live-deck';
+	import { Hands, SceneStage, loadControls, loadDeckState, type QualityLevel, type QualityOptions, type QualityPresets, type SpaceQuality, type Spec } from '@scutoons/live-deck';
 	// #298: the engine's bring-up (the deck, the 3D, the sound, the frame loop, the rig for a mood, the statistics) is
 	// @scutoons/engine-host's; this page keeps the relay, the controls and its UI
 	import { createEngineHost, type EngineHost } from '@scutoons/engine-host';
@@ -30,6 +31,9 @@
 	import { nowMs, type ClockState } from '@scutoons/live-deck';
 
 	const session = getSessionContext();
+	// #463, owner 2026-11-10: "the fireflies scene should play as default when nothing is induced … other need external
+	// triggers. for testing we can still set those parameters with url params for now"
+	const idle = !page.params.code && !['character', 'rig', 'code', 'relay', 'quic'].some((k) => page.url.searchParams.has(k));
 	const cdn = `${CDN_SERVER}/`;
 	let stage: HTMLDivElement | undefined = $state();
 	// the controls show the scene's values once the core gave the scene (#360)
@@ -167,7 +171,7 @@
 		};
 	});
 
-	const status = $derived([syncStatus, spaceStatus, hud].filter(Boolean).join(' · '));
+	const status = $derived([stats.backend, syncStatus, spaceStatus, hud].filter(Boolean).join(' · '));
 
 	function showFace() {
 		const deck = engine?.deck;
@@ -181,6 +185,21 @@
 	}
 
 	onMount(() => {
+		if (idle) {
+			let alive = true;
+			let scene: SceneStage | null = null;
+			const q = page.url.searchParams;
+			if (stage)
+				// #465: ?outlet=<id> plays the Live outlet (?live=<relay>, else the hosted show; ?locale=)
+				SceneStage.start({ host: stage, base: WASM_BASE, api: API_URL, cdn, scene: q.get('scene') ?? (q.has('outlet') ? 'outlet' : ''), prefer: preferOf(q), outlet: q.has('outlet') ? { relay: q.get('live') ?? '', name: q.get('outlet') ?? '', locale: q.get('locale') ?? 'de' } : undefined }).then(
+					(s) => (alive ? (scene = s) : s.stop()),
+					(e) => console.warn('live deck: no idle scene', e)
+				);
+			return () => {
+				alive = false;
+				scene?.stop();
+			};
+		}
 		try {
 			sticksOn = localStorage.getItem(STICKS_KEY) !== '0';
 		} catch {
@@ -331,56 +350,58 @@
 	<div class="stage" bind:this={stage}>
 		{#if !threeD && face}<img class="face" src={face} alt="" crossorigin="anonymous" />{/if}
 	</div>
-	{#if sticksOn}
-		<DeckSticks labels={ctl.labels} ondown={(s) => ctl.hands?.stickDown(s)} onmove={(s, x, y) => ctl.hands?.stickMove(s, x, y)} onup={(s) => ctl.hands?.stickUp(s)} />
-	{/if}
-	<!-- #460: the sound needs a tap; the same round Play as <EngineStage gate> (#298) -->
-	{#if !started}
-		<div class="play sc-tool">
-			<button type="button" class="sc-round" title={starting ? m['live_deck.starting']() : m['live_deck.start']()} aria-label={m['live_deck.start']()} disabled={starting} data-testid="deck-start" onclick={start}>
-				<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor" /></svg>
-			</button>
+	{#if !idle}
+		{#if sticksOn}
+			<DeckSticks labels={ctl.labels} ondown={(s) => ctl.hands?.stickDown(s)} onmove={(s, x, y) => ctl.hands?.stickMove(s, x, y)} onup={(s) => ctl.hands?.stickUp(s)} />
+		{/if}
+		<!-- #460: the sound needs a tap; the same round Play as <EngineStage gate> (#298) -->
+		{#if !started}
+			<div class="play sc-tool">
+				<button type="button" class="sc-round" title={starting ? m['live_deck.starting']() : m['live_deck.start']()} aria-label={m['live_deck.start']()} disabled={starting} data-testid="deck-start" onclick={start}>
+					<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor" /></svg>
+				</button>
+			</div>
+		{/if}
+		<div class="bottom">
+			<DeckPanel
+				{values}
+				{params}
+				{started}
+				{stats}
+				{status}
+				alert={audioAlert}
+				sticks={ctl.line}
+				selected={ctl.knob}
+				learn={ctl.learn}
+				learning={ctl.learning}
+				midi={ctl.midiStatus}
+				mapped={ctl.mapped}
+				turns={ctl.hands?.c ?? null}
+				onset={(p, v) => engine?.deck?.setParam(p, v)}
+				onpick={ctl.pick}
+				onlearn={ctl.toggleLearn}
+				{sticksOn}
+				onsticks={toggleSticks}
+				{quality}
+				onquality={setQuality}
+				oncopy={copyStats}
+				onsettings={() => {
+					keepPresets();
+					sheetOpen = true;
+				}}
+				ontouch={(on) => engine?.deck && (engine.deck.touch = on)}
+				{clock}
+				{clockModes}
+				{strobe}
+				onclock={(c) => engine?.deck?.clockMode(c)}
+				onclick={() => engine?.deck?.clockKey('click')}
+				onstrobe={() => (strobe = !strobe)}
+				onmidiout={() => engine?.deck?.clockOut(!clock?.midiOut)}
+			/>
 		</div>
-	{/if}
-	<div class="bottom">
-		<DeckPanel
-			{values}
-			{params}
-			{started}
-			{stats}
-			{status}
-			alert={audioAlert}
-			sticks={ctl.line}
-			selected={ctl.knob}
-			learn={ctl.learn}
-			learning={ctl.learning}
-			midi={ctl.midiStatus}
-			mapped={ctl.mapped}
-			turns={ctl.hands?.c ?? null}
-			onset={(p, v) => engine?.deck?.setParam(p, v)}
-			onpick={ctl.pick}
-			onlearn={ctl.toggleLearn}
-			{sticksOn}
-			onsticks={toggleSticks}
-			{quality}
-			onquality={setQuality}
-			oncopy={copyStats}
-			onsettings={() => {
-				keepPresets();
-				sheetOpen = true;
-			}}
-			ontouch={(on) => engine?.deck && (engine.deck.touch = on)}
-			{clock}
-			{clockModes}
-			{strobe}
-			onclock={(c) => engine?.deck?.clockMode(c)}
-			onclick={() => engine?.deck?.clockKey('click')}
-			onstrobe={() => (strobe = !strobe)}
-			onmidiout={() => engine?.deck?.clockOut(!clock?.midiOut)}
-		/>
-	</div>
-	{#if presets && quality && qualityOptions}
-		<DeckQualitySheet bind:open={sheetOpen} {presets} {quality} options={qualityOptions} screen={screenInfo} text={presetsText} onchange={setPresets} ontext={setPresetsText} />
+		{#if presets && quality && qualityOptions}
+			<DeckQualitySheet bind:open={sheetOpen} {presets} {quality} options={qualityOptions} screen={screenInfo} text={presetsText} onchange={setPresets} ontext={setPresetsText} />
+		{/if}
 	{/if}
 </div>
 

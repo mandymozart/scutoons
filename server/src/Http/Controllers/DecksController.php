@@ -5,6 +5,8 @@ namespace Scutoons\Http\Controllers;
 
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
+use Scutoons\Domain\ApiError;
+use Scutoons\Domain\Catalog\ProtectedFiles;
 use Scutoons\Domain\Decks\Decks;
 use Scutoons\Http\CurrentSession;
 use Scutoons\Http\Json;
@@ -25,11 +27,31 @@ use Scutoons\Http\Middleware\JsonBody;
  *   POST   /me/decks/approve      { code, days?, idle_days?, name? } → { status, item }
  *   POST   /me/decks/{id}/renew   → { status, item }
  *   DELETE /me/decks/{id}         → { status }
+ * A paired deck (its own token only):
+ *   GET    /decks/media?path=live/<toon>/<file> → { status, url, expires } – a show medium as a short signed link (#470)
+ *                         · 400 invalid_path · 401 · 403 deck_only
  */
 final class DecksController
 {
-    public function __construct(private readonly Decks $decks)
+    public function __construct(private readonly Decks $decks, private readonly ProtectedFiles $files)
     {
+    }
+
+    /**
+     * GET /decks/media?path=live/<toon>/<file> – a show medium for a paired deck (#470): only a deck token (a sign-in or an
+     * AI connection gets 403 deck_only – show media are for the stage, not downloads), approved and fresh (401 otherwise)
+     */
+    public function media(Request $request, Response $response): Response
+    {
+        $session = CurrentSession::of($request);
+        if (!$session->isDeckToken()) {
+            if ($session->token() === null) throw new ApiError(401, 'unauthorized', 'A paired deck asks with its own token.');
+            throw new ApiError(403, 'deck_only', 'Only a paired deck fetches show media, with its own token.');
+        }
+        $session->requireUser(); // the deck token: approved, not revoked, not expired (Decks::user)
+        $path = $request->getQueryParams()['path'] ?? null;
+        $signed = $this->files->showMedium(is_string($path) ? $path : '');
+        return Json::response($response, 200, ['status' => 'success'] + $signed, ['Cache-Control' => 'no-store']);
     }
 
     public function request(Request $request, Response $response): Response

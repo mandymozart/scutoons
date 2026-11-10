@@ -5,9 +5,11 @@
 //! and answers `Pending` with a new code – the build never becomes useless. Network trouble is an `Err`: the caller
 //! keeps playing what it has (built-in scenes, the cache) and steps again later.
 
+use crate::handshake::{Ask, Handshake, Step};
+pub use crate::handshake::{DeckInfo, State};
 use crate::identity::Identity;
-use anyhow::{anyhow, bail, Result};
-use serde_json::{json, Value};
+use anyhow::{anyhow, Result};
+use serde_json::Value;
 use std::time::{Duration, Instant};
 
 /// The server's token lives an hour (Decks::TOKEN_SECONDS); the deck renews it well before
@@ -25,48 +27,23 @@ pub trait Transport {
     fn post(&self, path: &str, body: &Value) -> Result<Reply>;
 }
 
-/// What the deck says about itself in its request (shown to the member before approving)
-#[derive(Debug, Clone, Default)]
-pub struct DeckInfo {
-    pub build: String,
-    pub class: String,
-    pub hostname: String,
-}
-
-impl DeckInfo {
-    /// The class from deck-check's machine.toml (`class = "A"`, deck/os/check) – empty when there is none
-    pub fn class_of_machine(toml: &str) -> String {
-        toml.lines()
-            .filter_map(|l| l.trim().strip_prefix("class"))
-            .filter_map(|rest| rest.trim_start().strip_prefix('='))
-            .map(|v| v.trim().trim_matches('"').to_string())
-            .next()
-            .unwrap_or_default()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum State {
-    /// waiting for a member: show the code (`format_code`) and the QR of `pairing_url`
-    Pending { code: String },
-    /// approved: the token for the API, and the name the member gave the deck
-    Ready { token: String, name: String },
-}
-
+/// The blocking driver of the handshake (`Handshake`, the decisions shared with the browser deck): HTTP over the
+/// transport, the signature from the deck's key file, the token's age on the deck's clock.
 pub struct Link<T: Transport> {
     transport: T,
     identity: Identity,
-    info: DeckInfo,
+    handshake: Handshake,
     token: Option<(String, String, Instant)>,
     renew_after: Duration,
 }
 
 impl<T: Transport> Link<T> {
     pub fn new(transport: T, identity: Identity, info: DeckInfo) -> Self {
+        let handshake = Handshake::new(identity.public_key_hex(), info);
         Self {
             transport,
             identity,
-            info,
+            handshake,
             token: None,
             renew_after: RENEW_AFTER,
         }
@@ -106,123 +83,30 @@ impl<T: Transport> Link<T> {
             }
         }
         self.token = None;
-        // twice at most: an approved deck may come back from a request as approved, and then needs its challenge
-        for _ in 0..2 {
-            match self.challenge()? {
-                Poll::Pending(code) => return Ok(State::Pending { code }),
-                Poll::Challenge(challenge) => match self.exchange(&challenge)? {
-                    Some((token, name)) => {
+        let mut ask = self.handshake.begin();
+        // a round is a handful of asks (challenge, sign, token, perhaps a request and a second challenge)
+        for _ in 0..8 {
+            let step = match ask {
+                Ask::Post { path, body } => {
+                    let reply = self.transport.post(path, &body)?;
+                    self.handshake.replied(reply.status, &reply.body).map_err(|e| anyhow!(e))?
+                }
+                Ask::Sign { message } => Step::Ask(
+                    self.handshake
+                        .signed(&self.identity.sign(message.as_bytes()))
+                        .map_err(|e| anyhow!(e))?,
+                ),
+            };
+            match step {
+                Step::Ask(next) => ask = next,
+                Step::Done(state) => {
+                    if let State::Ready { token, name } = &state {
                         self.token = Some((token.clone(), name.clone(), now));
-                        return Ok(State::Ready { token, name });
                     }
-                    None => {
-                        if let Some(code) = self.request()? {
-                            return Ok(State::Pending { code });
-                        }
-                    }
-                },
-                Poll::AskAgain => {
-                    if let Some(code) = self.request()? {
-                        return Ok(State::Pending { code });
-                    }
+                    return Ok(state);
                 }
             }
         }
-        bail!("the server keeps answering approved without a challenge")
-    }
-
-    /// POST /decks/request → the code (pending), or None (its approval holds)
-    fn request(&self) -> Result<Option<String>> {
-        let body = json!({
-            "public_key": self.identity.public_key_hex(),
-            "build": self.info.build,
-            "class": self.info.class,
-            "hostname": self.info.hostname,
-        });
-        let reply = self.transport.post("/decks/request", &body)?;
-        let deck = expect(&reply, &[200, 201], "request")?;
-        match deck["status"].as_str() {
-            Some("pending") => Ok(Some(text(&deck["code"], "code")?)),
-            Some("approved") => Ok(None),
-            other => bail!("unexpected request status {other:?}"),
-        }
-    }
-
-    fn challenge(&self) -> Result<Poll> {
-        let reply = self.transport.post(
-            "/decks/challenge",
-            &json!({ "public_key": self.identity.public_key_hex() }),
-        )?;
-        if reply.status == 401 {
-            return Ok(Poll::AskAgain);
-        }
-        let deck = expect(&reply, &[200, 202], "challenge")?;
-        match deck["status"].as_str() {
-            Some("pending") => Ok(Poll::Pending(text(&deck["code"], "code")?)),
-            Some("approved") => Ok(Poll::Challenge(text(&deck["challenge"], "challenge")?)),
-            other => bail!("unexpected challenge status {other:?}"),
-        }
-    }
-
-    /// The signed challenge → Some((token, name)); None when the approval ended meanwhile (401 revoked / expired)
-    fn exchange(&self, challenge: &str) -> Result<Option<(String, String)>> {
-        let body = json!({
-            "public_key": self.identity.public_key_hex(),
-            "challenge": challenge,
-            "signature": self.identity.sign_challenge(challenge),
-        });
-        let reply = self.transport.post("/decks/token", &body)?;
-        if reply.status == 401 {
-            let code = reply.body["error"].as_str().unwrap_or("");
-            if matches!(
-                code,
-                "revoked" | "expired" | "unknown_deck" | "not_approved" | "request_expired"
-            ) {
-                return Ok(None);
-            }
-            bail!("token refused: {code}");
-        }
-        if reply.status != 200 {
-            bail!("token: HTTP {}", reply.status);
-        }
-        let name = reply.body["deck"]["name"]
-            .as_str()
-            .unwrap_or("")
-            .to_string();
-        Ok(Some((text(&reply.body["token"], "token")?, name)))
-    }
-}
-
-enum Poll {
-    Pending(String),
-    Challenge(String),
-    AskAgain,
-}
-
-fn expect<'a>(reply: &'a Reply, ok: &[u16], what: &str) -> Result<&'a Value> {
-    if !ok.contains(&reply.status) {
-        let code = reply.body["error"].as_str().unwrap_or("");
-        bail!("{what}: HTTP {} {code}", reply.status);
-    }
-    Ok(&reply.body["deck"])
-}
-
-fn text(value: &Value, what: &str) -> Result<String> {
-    value
-        .as_str()
-        .map(str::to_string)
-        .ok_or_else(|| anyhow!("the answer has no {what}"))
-}
-
-
-#[cfg(test)]
-mod tests {
-    use super::DeckInfo;
-
-    #[test]
-    fn the_class_comes_from_machine_toml() {
-        let toml = "# written by deck-check\nhostname = \"x1\"\nclassic = \"no\"\nclass = \"A\"\n[features]\nclass = \"B\"\n";
-        assert_eq!(DeckInfo::class_of_machine(toml), "A");
-        assert_eq!(DeckInfo::class_of_machine("hostname = \"x1\"\n"), "");
+        Err(anyhow!("the handshake did not end"))
     }
 }

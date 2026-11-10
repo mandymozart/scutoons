@@ -30,7 +30,9 @@ name = "boot_flow"
 [features]
 default = ["net"]
 # the handshake itself: the identity, the Link, HTTP (the daemon and the CLI)
-net = ["dep:anyhow", "dep:serde_json", "dep:ed25519-dalek", "dep:getrandom", "dep:ureq"]
+net = ["handshake", "dep:anyhow", "dep:ed25519-dalek", "dep:getrandom", "dep:ureq"]
+# the protocol's decisions alone, sans-IO (the browser deck, #470: it signs with WebCrypto and fetches itself)
+handshake = ["dep:serde_json"]
 
 [dependencies]
 anyhow = { workspace = true, optional = true }

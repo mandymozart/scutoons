@@ -84,10 +84,27 @@ final class ProtectedFiles
         return CollagePresets::index(is_string($json) ? json_decode($json) : null);
     }
 
-    /** paths in the vault (the protected storage): scores' files, physical releases' audio */
+    /** paths in the vault (the protected storage): scores' files, physical releases' audio, show media (#470) */
     public static function inVault(string $path): bool
     {
-        return str_starts_with($path, 'scores/') || str_starts_with($path, 'albums/');
+        return str_starts_with($path, 'scores/') || str_starts_with($path, 'albums/') || str_starts_with($path, 'live/');
+    }
+
+    /** a show medium's path: `live/<toon>/<file>` (at most four folders below the toon), no `.` / `..` segments */
+    public const SHOW_PATH = '#^live/[a-z0-9_-]{1,64}(/[A-Za-z0-9_-][A-Za-z0-9_.-]{0,127}){1,5}$#';
+
+    /**
+     * GET /api/decks/media?path=live/<toon>/<file> → { url, expires } – a show medium (#470, agents/research/LIVE-LENSES.md
+     * §7) as a short-lived signed URL on the vault's pull zone. The caller checks that a paired deck asks (DecksController::media);
+     * this checks the path: only show media, never another vault file (a score's PDF, a release's audio). 400 invalid_path.
+     * @return array{url: string, expires: int}
+     */
+    public function showMedium(string $path): array
+    {
+        if (preg_match(self::SHOW_PATH, $path) !== 1 || str_contains($path, '..')) {
+            throw new ApiError(400, 'invalid_path', 'path: a show medium, live/<toon>/<file>.');
+        }
+        return $this->signed($path);
     }
 
     /**

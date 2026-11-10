@@ -749,18 +749,20 @@ fn judge(r: &Report, judged: bool) -> Levels {
     Levels { fps, cpu, audio, limit }
 }
 
-/// the collapsed bar's monitor items (the stage HUD's abbreviations, language-neutral like a meter's)
+/// the collapsed bar's monitor items (the stage HUD's abbreviations, language-neutral like a meter's): only what is read
+/// at a glance – FPS, the frame's work in ms, the sound's glitches in 10 minutes and its load (p99), the limiter only when
+/// it is judged; every other number is in the full lines. Nothing about a sound that does not run.
 fn bar(r: &Report) -> Vec<Item> {
     let l = &r.levels;
     let mut out = vec![
         Item::new("FPS", if r.fps > 0.0 { format!("{:.0}", r.fps) } else { "-".into() }, l.fps),
-        Item::new("CPU", format!("{:.1}/{:.1}MS", r.cpu_ms, r.cpu_peak_ms), l.cpu),
+        Item::new("CPU", format!("{:.1}", r.cpu_ms), l.cpu),
     ];
     if r.sound {
-        out.push(Item::new("AUDIO", format!("{}/10M {}/{}/{}% +{}MS", r.glitches, r.load_p50, r.load_p99, r.load_max, r.lead_ms), l.audio));
-        out.push(Item::new("LIM", format!("{:.1}DB", r.limit_db), l.limit));
-    } else {
-        out.push(Item::new("AUDIO", "OFF".into(), Level::Ok));
+        out.push(Item::new("AUD", format!("{} {}%", r.glitches, r.load_p99), l.audio));
+        if l.limit != Level::Ok {
+            out.push(Item::new("LIM", format!("{:.1}", r.limit_db), l.limit));
+        }
     }
     out
 }
@@ -905,7 +907,7 @@ mod tests {
         }
         let r = m.report(t);
         assert_eq!((r.levels.fps, r.levels.cpu, r.levels.audio), (Level::Bad, Level::Bad, Level::Ok));
-        assert_eq!(r.bar[2].text(), "AUDIO OFF");
+        assert_eq!(r.bar.len(), 2, "nothing about a sound that does not run");
         // a sound with a p99 past half the budget: a warning, no glitch
         let mut w = AudioWindow { lead: 2400, rate: 48_000.0, ..AudioWindow::default() };
         for _ in 0..100 {
@@ -916,8 +918,8 @@ mod tests {
         let r = m.report(t);
         assert_eq!((r.levels.audio, r.levels.limit), (Level::Warn, Level::Warn));
         assert_eq!(r.lead_ms, 50.0);
-        assert!(r.bar[2].text().starts_with("AUDIO 0/10M 6"), "{}", r.bar[2].text());
-        assert_eq!(r.bar[3].text(), "LIM 7.0DB");
+        assert!(r.bar[2].text().starts_with("AUD 0 6"), "{}", r.bar[2].text());
+        assert_eq!(r.bar[3].text(), "LIM 7.0");
         assert!(r.lines.iter().all(|l| l.chars().count() <= 39), "{:?}", r.lines);
     }
 
