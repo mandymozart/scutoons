@@ -317,6 +317,35 @@ pub fn seats(show: &Show) -> Vec<SeatView> {
         .collect()
 }
 
+/// One deck's or sub conductor's answer to the last flash (#91), for the Show workspace.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ReportView {
+    /// the path it came along (a client id, `foyer/<client>` from a sub conductor's session)
+    pub from: String,
+    /// `outlet left`, or `conductor`
+    pub what: String,
+    /// `FLASH top@3 ready`, `FLASH top@3: 2 missing`, `FLASH refused: …`
+    pub line: String,
+    /// what it lacks, one line each
+    pub lacks: Vec<String>,
+    /// nothing lacks and nothing was refused
+    pub ok: bool,
+}
+
+/// The answers to the last flash, in the order of their paths.
+pub fn reports(sub: &Subtree) -> Vec<ReportView> {
+    sub.reports()
+        .iter()
+        .map(|(from, r)| ReportView {
+            from: from.clone(),
+            what: r.outlet.as_ref().map_or("conductor".to_string(), |o| format!("outlet {o}")),
+            line: crate::ready::line(r),
+            lacks: r.lacks.clone().unwrap_or_default(),
+            ok: r.accepted && r.ready != Some(false),
+        })
+        .collect()
+}
+
 /// One section of the row inspector: a heading and its (label, value) lines.
 pub type Section = (String, Vec<(String, String)>);
 

@@ -314,6 +314,13 @@ fn load(place: &Place, mood: Option<&str>, find: impl FnOnce(&Place) -> Option<F
     }
 }
 
+/// Whether this deck can play `piece` (a flash's check, #91, deck-show `ready.rs`): it loads the way a cell would load it –
+/// a core rig, else what the adapter's `find` has – and builds. Err = why not, in the HUD's words. Nothing plays.
+pub fn available(piece: &str, find: impl FnOnce(&Place) -> Option<Found>) -> Result<(), String> {
+    let place = Place::parse(piece).map_err(|e| format!("{piece}: {e}"))?;
+    load(&place, None, find, &mut Vec::new()).map(|_| ())
+}
+
 /// the node kinds a deck's outlet scene keeps when a piece plays beside it (the picture's way out, the clock)
 const OUTLET_KINDS: [&str; 3] = ["outlet", "screen", "tempo"];
 
@@ -516,6 +523,15 @@ to = "out.in"
         assert!(matches!(&v.what, What::Glide { glides, .. } if glides.len() == 1 && glides[0].path == "light.freq"), "{v:?}");
         assert_eq!(v.problems, ["scene:nave: the value 'dim' is no number", "scene:nave: the value 'fog' names nothing it plays"]);
         assert!(d.log().any(|l| l == "character:yellowmouse is not on this deck"));
+    }
+
+    #[test]
+    fn a_flash_asks_whether_a_piece_plays_here() {
+        assert_eq!(available("scene:nave", nave), Ok(()));
+        assert_eq!(available("character:catpope", |_| None), Ok(()), "a core rig needs no adapter");
+        assert_eq!(available("character:yellowmouse", |_| None), Err("character:yellowmouse is not on this deck".into()));
+        assert!(available("scene:broken", |_| Some(Found::Scene("[[node]]\nid = 1".into()))).unwrap_err().starts_with("scene:broken: "));
+        assert!(available("nave", nave).is_err(), "not a place");
     }
 
     #[test]

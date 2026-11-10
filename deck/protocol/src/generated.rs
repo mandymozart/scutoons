@@ -889,6 +889,9 @@ pub struct Flash {
 	pub lock: Option<bool>,
 	/// how many conductors it came through; 0 = from this conductor's own operator
 	pub hops: u64,
+	/// #91: the show of the conductor whose session it is in now, at the version the flash pins; a deck takes its outlet's cells of that one
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub here: Option<Pinned>,
 }
 
 /// #90: what a deck or conductor runs after a flash, to its conductor and on up. `from` of the envelope is the path it came along.
@@ -899,6 +902,15 @@ pub struct FlashReport {
 	/// why it refused
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub why: Option<String>,
+	/// #91: a deck's outlet (none: a conductor)
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub outlet: Option<String>,
+	/// #91: a deck has everything its outlet's cells name (the show and each piece); never blocks GO
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub ready: Option<bool>,
+	/// #91: what it lacks, in words (deck-show's), one line each
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub lacks: Option<Vec<String>>,
 }
 
 /// #90, SHOW.md §9, for the workshop group and device. The receiver tests itself; a missing fact fails the filter.
