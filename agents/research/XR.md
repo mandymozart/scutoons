@@ -1,4 +1,4 @@
-Status 2026-11-10: research, nothing built, no direction chosen beyond the owner's decisions [xr] (#482). §1 and §2 are read from the code of both projects; §3 to §5 are proposals that wait for the owner.
+Status 2026-11-10: research, nothing built (#482). §1 and §2 are read from the code of both projects; §3 and §4 are proposals; §5 is decided by the owner (shared core, the unit is an Experience, scenes in the catalog, three.js accepted, image tracking only); §6 is open; §7 a proposed order.
 
 # XR — taking over OSCT's XR methods into SCUTOONS
 
@@ -39,7 +39,7 @@ Sources: a read-only survey of both repositories on 2026-11-10; OSCT is `C:\Deve
 
 ## 4 · Proposal: the unit and the mapping into the catalog
 
-**The unit is the Book, as in OSCT, and "format" is what a spread is.** A book is an ordered set of surfaces; a surface carries targets; a target carries a scene. OSCT already plans the surfaces beyond the page.
+**The unit is the Book, as in OSCT (named Experience by the owner, §5), and "format" is what a spread is.** A book is an ordered set of surfaces; a surface carries targets; a target carries a scene. OSCT already plans the surfaces beyond the page.
 
 | Surface (spread format) | The target on it | The owner's case |
 |---|---|---|
@@ -65,12 +65,24 @@ So book, space and show are not three orders: a space is a book whose surfaces a
 
 **Stories:** a chapter jumps to a book's target (`xr`), and a scene's behaviour can jump back into a chapter. One flow, as OSCT's own plan asks.
 
-## 5 · What the owner has to decide
+## 5 · Decided by the owner (2026-11-10, [xr])
 
-1. **The code: copy or share.** (a) Port OSCT's engine and editor into SCUTOONS: fast, and two copies of 9k + 20k lines drift apart, the twin problem between projects. (b) OSCT's planned core becomes a package both use: one copy, and the core has to be cut out of OSCT first (its phase B). (c) First step either way: only the reader's XR mode with a book authored as a document by hand or through the MCP, no editor.
-2. **The unit:** the Book with surface formats (§4), or separate kinds for book, space and show.
-3. **Scenes owned by their book** (as OSCT, simplest) **or free in the catalog** and placed in several books.
-4. **A second 3D engine in the browser:** the XR mode brings three.js beside the deck's wgpu. It loads only on the XR page, so readers pay nothing; but it is a second renderer to keep. The alternative, image tracking feeding the deck's renderer, is a research project of its own.
-5. **Exhibitions:** are plaques and pictures at the objects enough, or is real room tracking wanted (Android only, and a different technique)?
+1. **The code is shared.** OSCT's core becomes a common core both projects use ("an important step of development"). So nothing of OSCT's engine or editor is copied into SCUTOONS; the core has to be cut out of OSCT first (its phase B), and SCUTOONS is its second title.
+2. **The unit is an Experience.** A general word; book, space and show are its formats, and a poster or an event is simply a show. §4's "Book" reads as "Experience"; the surfaces stay (page, cover, back · wall, object, façade · screen).
+3. **A scene belongs to the catalog,** assigned to the toons in some form. So a scene is not owned by its experience as in OSCT: the one place where OSCT's structure is not taken over as it is.
+4. **A second 3D engine in the browser is accepted** (three.js beside the deck's), knowing it has to be maintained.
+5. **Exhibitions: plaques at the objects only,** in effect codes one dials in with. XR is image tracking only for now. No room tracking.
 
-First steps that need no decision: the screen test of §3, and the list of XR jumps that exist in chapters today.
+## 6 · Open
+
+- What the parts inside an experience are called and how they are cut. The owner: pages; "windows, scopes"; a right wall, a left wall, the background loading by itself. And whether "scene" is the word for the XR scene, beside the deck's scenes and a chapter's groups.
+- How a scene is assigned to toons: a field on the scene, or the experience carries the toon.
+- The screen test (§3): a deck shows a still, a phone tracks it with OSCT's engine as it is. Not done.
+- The list of XR jumps that exist in chapters today. Not made.
+
+## 7 · Order of work (proposal)
+
+1. **In OSCT:** the core cut out as a package (engine, contract, behaviour), with OSCT as its first title. This is OSCT's own phase B and its orchestrator's work.
+2. **In SCUTOONS, not waiting for 1:** the catalog document kind `experience` with its schema and generated types ([contract]), scenes as catalog documents, experiences and targets as references in the address book (#477), the XR jump's field offering them, and the reader's page `/xr/<experience>/<target>` as a shell that says what it would open.
+3. **Then:** the core loaded on that page, one experience authored as a document, the screen test, an entry that gives an item.
+4. **Last:** the editor, from the shared core.
