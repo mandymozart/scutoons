@@ -27,11 +27,14 @@ pub const LOG_CAP: usize = 256;
 /// two values closer than this do not glide
 const SAME: f32 = 1e-6;
 
-/// What the adapter has for a piece the deck carries no core rig of: a scene's TOML, or a rig bundle's TOML.
+/// What the adapter has for a piece the deck carries no core rig of: a scene's TOML, a rig bundle's TOML, a bundle as
+/// built (scene-content's, `fetched.rs`) – or, asked for and not there, why (the HUD's words).
 #[derive(Debug, Clone, PartialEq)]
 pub enum Found {
     Scene(String),
     Rig(String),
+    Bundle(Box<Bundle>),
+    Missing(String),
 }
 
 /// One value gliding from what plays to the cell's.
@@ -362,6 +365,8 @@ fn load(place: &Place, mood: Option<&str>, find: impl FnOnce(&Place) -> Option<F
         (None, "scene" | "character" | "item" | "rig") => match find(place) {
             Some(Found::Scene(text)) => return Played::scene(&text).map_err(|e| format!("{piece}: {e:#}")),
             Some(Found::Rig(text)) => toml::from_str::<Bundle>(&text).map_err(|e| format!("{piece}: {e}"))?,
+            Some(Found::Bundle(b)) => *b,
+            Some(Found::Missing(why)) => return Err(why),
             None => return Err(format!("{piece} is not on this deck")),
         },
         (None, kind) => return Err(format!("{piece}: a piece of the kind '{kind}' does not play on a deck")),
