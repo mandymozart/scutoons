@@ -19,6 +19,8 @@ export * from './accepted.ts';
 export * from './languages.ts';
 export * from './credits.ts';
 export * from './characters.ts';
+// generated tables (#477, server/schema/tables): LEGACY_CHARACTER_IDS comes through characters.ts
+export { LOCALE_ORDER, pickContentText } from './tables.ts';
 export * from './sensitive.ts';
 export * from './layers.ts';
 export * from './anchor.ts';

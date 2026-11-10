@@ -220,3 +220,5 @@ export {
 	type MigrationStatement,
 	type MigrationStatus
 } from './dev.ts';
+// the address book's shape (#477), generated from server/schema/api/address-book.schema.json
+export type { AddressBook, AddressEntry, AddressKind, LocaleText as AddressLabels, Origin as AddressOrigin, OriginState as AddressOriginState } from './address-book.ts';
