@@ -112,6 +112,9 @@ fn args() -> Result<Args> {
             "--launch" => a.script.launch = val()?.split_once(',').map(|(r, c)| (r.to_string(), c.to_string())),
             "--go" => a.script.go = true,
             "--flash" => a.script.flash = true,
+            "--flash-filter" => a.script.flash_filter = Some(val()?),
+            "--flash-ask" => a.script.flash_ask = true,
+            "--flash-confirm" => a.script.flash_confirm = true,
             "--seat" => a.script.seat = Some(val()?),
             "--row" => a.script.row = Some(val()?),
             "--sheet" => a.script.sheet = Some(show::Sheet::parse(&val()?).context("--sheet cues | problems")?),
@@ -1783,6 +1786,8 @@ impl ApplicationHandler for App {
             }
             WindowEvent::KeyboardInput { event, .. } if self.edit.is_some() => self.edit_key(&event),
             WindowEvent::KeyboardInput { event, .. } if self.menu.is_some() => self.menu_key(&event),
+            // #471: the flash list's typed filter has the keys while it is focused
+            WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed && self.workspace != show::Workspace::Build && self.show.type_key(&event.logical_key) => {}
             WindowEvent::KeyboardInput { event, .. } => {
                 if event.state == ElementState::Pressed && event.logical_key == Key::Named(NamedKey::Escape) && !self.panel.field.focused {
                     if self.wire && !self.stage.path.is_empty() {

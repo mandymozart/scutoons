@@ -14,6 +14,7 @@
 //! own operator; entering it here shows its document, it does not run it.
 mod api;
 pub mod author;
+mod flash;
 mod link;
 pub mod perform;
 mod sheets;
@@ -47,6 +48,8 @@ impl Workspace {
 pub enum Sheet {
     Cues,
     Problems,
+    /// #471: the devices to flash, then the prompt (flash.rs)
+    Flash,
 }
 
 impl Sheet {
@@ -54,6 +57,7 @@ impl Sheet {
         match s {
             "cues" => Some(Sheet::Cues),
             "problems" => Some(Sheet::Problems),
+            "flash" => Some(Sheet::Flash),
             _ => None,
         }
     }
@@ -76,8 +80,17 @@ pub enum Hit {
     Row(usize),
     Save,
     Load,
-    /// the tree resolved to exact versions, sent down to this deck's decks and sub conductors
+    /// the tree resolved to exact versions: the list of the devices to flash opens (#471)
     Flash,
+    /// #471, the flash list: a line's tick, a quick filter, the typed filter's field, the lock, on to the prompt, the
+    /// prompt confirmed, back / cancel
+    FlashTick(usize),
+    FlashQuick(usize),
+    FlashType,
+    FlashLock,
+    FlashAsk,
+    FlashConfirm,
+    FlashCancel,
     /// the overlay: 2D (true) or the stage alone (3D)
     View(bool),
     /// the cue sheet or the problems list in the stage's place
@@ -104,6 +117,8 @@ pub struct Host {
     pub seat: Option<usize>,
     /// this frame's places
     pub hits: Vec<(Rect, Hit)>,
+    /// #471: the flash list while it is open
+    pub flashing: Option<flash::Flashing>,
     link: Option<link::Link>,
     api: api::Api,
 }
@@ -153,7 +168,7 @@ impl Host {
                 })
                 .ok()
         });
-        Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), link, api }
+        Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, link, api }
     }
 
     /// the document at the end of the path (the top's when a step is missing)
@@ -233,12 +248,17 @@ impl Host {
             Hit::Row(i) => self.row = i,
             Hit::Save => self.save(),
             Hit::Load => self.load(),
-            Hit::Flash => self.flash(),
+            Hit::Flash => self.open_flash(),
+            Hit::FlashTick(_) | Hit::FlashQuick(_) | Hit::FlashType | Hit::FlashLock | Hit::FlashAsk | Hit::FlashConfirm | Hit::FlashCancel => self.flash_press(hit),
             Hit::View(two_d) => {
                 self.two_d = two_d;
                 self.sheet = None;
+                self.flashing = None;
             }
-            Hit::Sheet(s) => self.sheet = Some(s),
+            Hit::Sheet(s) => {
+                self.sheet = Some(s);
+                self.flashing = None;
+            }
             Hit::Problem(i) => self.select_problem(i),
         }
     }
@@ -277,9 +297,9 @@ impl Host {
     }
 
     /// Flash (#91 item 5, SHOW.md §4b): the tree from the top, every show its seats pin fetched once (the API, else the
-    /// cache), resolved by the core to exact versions (`deck_show::resolve`, like a lock file) and sent down as one flash
-    /// (`Subtree::flash`); a broken reference is the core's problem, said here, and nothing goes out.
-    fn flash(&mut self) {
+    /// cache), resolved by the core to exact versions (`deck_show::resolve`, like a lock file); then the list to choose
+    /// from and the prompt (#471, flash.rs). A broken reference is the core's problem, said here, and nothing goes out.
+    fn resolve(&mut self) -> Result<deck_show::Lock, String> {
         let mut todo: Vec<deck_show::Pinned> = self.sub.conductor().show().seats.iter().map(|s| s.show.clone()).collect();
         while let Some(p) = todo.pop() {
             if self.library.contains_key(&p.id) {
@@ -291,14 +311,7 @@ impl Host {
             }
         }
         let lib: BTreeMap<deck_show::Pinned, Show> = self.library.values().map(|s| (deck_show::Pinned { id: s.id.clone(), version: s.version }, s.clone())).collect();
-        match deck_show::resolve(self.sub.conductor().show(), &lib) {
-            Ok(lock) => {
-                let out = self.sub.flash(&lock, false, now());
-                self.status = format!("flashed {}", lock.shows.iter().map(ToString::to_string).collect::<Vec<_>>().join(", "));
-                self.send(out);
-            }
-            Err(problems) => self.status = format!("not flashed: {}", problems.iter().map(ToString::to_string).collect::<Vec<_>>().join("; ")),
-        }
+        deck_show::resolve(self.sub.conductor().show(), &lib).map_err(|problems| format!("not flashed: {}", problems.iter().map(ToString::to_string).collect::<Vec<_>>().join("; ")))
     }
 
     fn save(&mut self) {
@@ -341,6 +354,10 @@ pub struct Script {
     /// Show: the cue sheet or the problems list in the stage's place; a problem's line pressed
     pub sheet: Option<Sheet>,
     pub problem: Option<usize>,
+    /// #471: with `flash`, the typed filter applied to the list, the prompt opened, the prompt confirmed
+    pub flash_filter: Option<String>,
+    pub flash_ask: bool,
+    pub flash_confirm: bool,
 }
 
 impl Host {
@@ -390,6 +407,13 @@ impl Host {
                 }
             }
             50 if s.flash => self.press(Hit::Flash),
+            60 => {
+                if let Some(text) = &s.flash_filter {
+                    self.script_filter(text);
+                }
+            }
+            80 if s.flash_ask => self.press(Hit::FlashAsk),
+            90 if s.flash_confirm => self.press(Hit::FlashConfirm),
             _ => {}
         }
     }
