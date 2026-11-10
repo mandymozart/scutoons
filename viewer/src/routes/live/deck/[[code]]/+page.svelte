@@ -171,7 +171,7 @@
 		};
 	});
 
-	const status = $derived([syncStatus, spaceStatus, hud].filter(Boolean).join(' · '));
+	const status = $derived([stats.backend, syncStatus, spaceStatus, hud].filter(Boolean).join(' · '));
 
 	function showFace() {
 		const deck = engine?.deck;

@@ -247,22 +247,23 @@ pub fn hud_lines(s: &Status) -> Vec<String> {
     lines
 }
 
-/// #209: the collapsed bar's items – the monitor's (FPS, CPU, AUDIO, LIM; #364: deck-core's words and judgement), the
-/// quality (amber while the governor holds it below the level chosen), the relay (the space's session if it joined one,
-/// else the Live outlet's), the GPU backend, F1
+/// #209: the collapsed bar's items – the monitor's (FPS, CPU, AUD, LIM; #364: deck-core's words and judgement), the
+/// quality only while the governor holds it below the level chosen (amber), the relay (the space's session if it joined
+/// one, else the Live outlet's) if there is one, F1. The rest is on the full HUD.
 pub fn bar_items(s: &Status) -> Vec<Item> {
     let item = |text: String, warn: bool| Item { text, level: if warn { Level::Warn } else { Level::Ok } };
     let mut out: Vec<Item> = s.report.bar.iter().map(|i| Item { text: i.text(), level: i.level }).collect();
-    if let Some(q) = &s.quality {
+    if let Some(q) = s.quality.as_ref().filter(|q| q.level != q.ceiling) {
         let at = out.len().min(1);
-        out.insert(at, item(format!("Q {} {:.2}{}", q.level.to_uppercase(), q.scale, if q.auto { "" } else { " FIX" }), q.level != q.ceiling));
+        out.insert(at, item(format!("Q {} {:.2}{}", q.level.to_uppercase(), q.scale, if q.auto { "" } else { " FIX" }), true));
     }
     let mut relay = s.space.as_ref().filter(|sp| sp.joined).and_then(|sp| sp.session.first().cloned()).unwrap_or_default();
     if relay.is_empty() {
         relay = s.live.first().cloned().unwrap_or_default();
     }
-    out.push(item(format!("RELAY {}", if relay.is_empty() { "-".into() } else { relay.replace(['–', '—'], "-").to_uppercase() }), false));
-    out.push(item(format!("GPU {}", s.gpu.as_ref().map(|g| g.backend.to_uppercase()).unwrap_or_default()), false));
+    if !relay.is_empty() {
+        out.push(item(relay.replace(['–', '—'], "-").to_uppercase(), false));
+    }
     out.push(item("F1".into(), false));
     out
 }
@@ -325,6 +326,6 @@ mod tests {
     fn an_empty_report_still_gets_its_bar() {
         let s = Status { quality: Some(Quality { level: "high".into(), ceiling: "high".into(), auto: true, scale: 1.0, render: 1.0 }), ..Status::default() };
         let texts: Vec<String> = bar_items(&s).into_iter().map(|i| i.text).collect();
-        assert_eq!(texts, ["Q HIGH 1.00", "RELAY -", "GPU ", "F1"]);
+        assert_eq!(texts, ["F1"]);
     }
 }
