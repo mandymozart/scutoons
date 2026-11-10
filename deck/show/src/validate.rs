@@ -106,15 +106,59 @@ fn stage_cell(show: &Show, at: &Spot, cell: &Cell, out: &mut Vec<Problem>) {
         },
         Cell::Keep | Cell::Black => {}
         Cell::Go { .. } | Cell::Free => out.push(refused(at, "`go` and `free` are for a seat's column")),
+        Cell::Look { .. } => out.push(refused(at, "a look is for a device outlet's lamps")),
     }
 }
 
-/// a cell on a device outlet: `play` with messages, or `keep`
-fn device_cell(at: &Spot, cell: &Cell, out: &mut Vec<Problem>) {
+/// a cell on a device outlet: `play` with messages, a look that lights a fixture there, or `keep`
+fn device_cell(show: &Show, outlet: &str, at: &Spot, cell: &Cell, out: &mut Vec<Problem>) {
     match cell {
         Cell::Play { piece: None, send, .. } if !send.is_empty() => {}
         Cell::Keep => {}
-        _ => out.push(refused(at, "a device outlet takes `play` with `send`, or `keep`")),
+        Cell::Look { look, .. } => match show.look(look) {
+            None => out.push(Problem::Unknown { what: "look", id: look.clone(), at: at.clone() }),
+            Some(l) if l.dmx(show, outlet, None).is_empty() => out.push(refused(at, format!("the look '{look}' lights no fixture on '{outlet}'"))),
+            Some(_) => {}
+        },
+        _ => out.push(refused(at, "a device outlet takes `play` with `send`, a `look`, or `keep`")),
+    }
+}
+
+/// the fixtures (on a device outlet, inside the universe, each channel once) and the looks (known fixtures and channels)
+fn lights(show: &Show, out: &mut Vec<Problem>) {
+    let mut ids = BTreeSet::new();
+    unique("fixture", show.fixtures.iter().map(|f| &f.id), &mut ids, out);
+    let mut taken: BTreeMap<(&str, u16), &str> = BTreeMap::new();
+    for f in &show.fixtures {
+        let at = Spot::Show;
+        match show.outlet(&f.outlet) {
+            None => out.push(Problem::Unknown { what: "outlet", id: f.outlet.clone(), at: at.clone() }),
+            Some(o) if o.kind != OutletKind::Device => out.push(refused(&at, format!("fixture '{}': '{}' is no device outlet", f.id, f.outlet))),
+            Some(_) => {}
+        }
+        let last = f.address as usize + f.profile.channels().len() - 1;
+        if f.address == 0 || last > 512 {
+            out.push(refused(&at, format!("fixture '{}': channels {}–{last} are outside 1–512", f.id, f.address)));
+        }
+        for ch in f.address..=(last.min(512) as u16) {
+            if let Some(other) = taken.insert((f.outlet.as_str(), ch), &f.id) {
+                out.push(refused(&at, format!("fixture '{}': channel {ch} is already '{other}'s", f.id)));
+                break;
+            }
+        }
+    }
+    let mut looks = BTreeSet::new();
+    unique("look", show.looks.iter().map(|l| &l.id), &mut looks, out);
+    for l in &show.looks {
+        for (fixture, set) in &l.values {
+            let Some(f) = show.fixture(fixture) else {
+                out.push(Problem::Unknown { what: "fixture", id: fixture.clone(), at: Spot::Show });
+                continue;
+            };
+            for c in set.keys().filter(|c| !f.profile.channels().contains(&c.as_str())) {
+                out.push(refused(&Spot::Show, format!("look '{}': fixture '{fixture}' has no channel '{c}'", l.id)));
+            }
+        }
     }
 }
 
@@ -208,7 +252,7 @@ pub fn validate(show: &Show) -> Vec<Problem> {
             if let Some(outlet) = show.outlet(column) {
                 match outlet.kind {
                     OutletKind::Stage => stage_cell(show, &at, cell, &mut out),
-                    OutletKind::Device => device_cell(&at, cell, &mut out),
+                    OutletKind::Device => device_cell(show, column, &at, cell, &mut out),
                 }
                 if matches!(cell, Cell::Mirror { of } if of == column) {
                     out.push(refused(&at, "an outlet cannot mirror itself"));
@@ -225,6 +269,7 @@ pub fn validate(show: &Show) -> Vec<Problem> {
         }
     }
 
+    lights(show, &mut out);
     for id in show.face.rows.iter().filter(|r| show.row(r).is_none()) {
         out.push(Problem::Unknown { what: "row", id: id.clone(), at: Spot::Face });
     }

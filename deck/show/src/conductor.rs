@@ -470,6 +470,14 @@ impl Conductor {
                 self.send_device(column, send, at, out);
                 Playing::Sent
             }
+            Cell::Look { look, fade } => {
+                let msgs = self.show.look(look).map(|l| l.dmx(&self.show, column, *fade)).unwrap_or_default();
+                if msgs.is_empty() {
+                    return;
+                }
+                self.send_device(column, &msgs, at, out);
+                Playing::Sent
+            }
             Cell::Play { piece, values, .. } => Playing::Piece { piece: piece.clone().unwrap_or_default(), values: values.clone() },
             Cell::Values { piece, values } => match self.stage.get(column).map(|s| &s.playing) {
                 Some(Playing::Piece { piece: there, values: old }) if there == piece => {

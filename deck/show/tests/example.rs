@@ -150,3 +150,23 @@ fn a_problem_says_where_it_is() {
     assert_eq!(found[0].spot(), deck_show::validate::Spot::Cell { row: "opening".into(), column: "foyer".into() });
     assert_eq!(found[0].to_string(), "row 'opening', 'foyer': no row in the seat's `uses` 'nowhere'");
 }
+
+#[test]
+fn fixtures_and_looks_are_checked() {
+    let (mut doc, _) = example();
+    doc["fixtures"][1]["address"] = json!(3);
+    doc["fixtures"].as_array_mut().unwrap().push(json!({ "id": "far", "outlet": "left", "address": 510, "profile": "rgbw" }));
+    doc["looks"][0]["values"]["panel"]["w"] = json!(9);
+    doc["looks"][0]["values"]["ghost"] = json!({ "dim": 1 });
+    doc["rows"][0]["cells"]["left"] = json!({ "mode": "look", "look": "warm" });
+    doc["rows"][3]["cells"]["lamps"] = json!({ "mode": "look", "look": "cold" });
+    let found: Vec<String> = problems(doc).iter().map(ToString::to_string).collect();
+    let has = |s: &str| found.iter().any(|p| p.contains(s));
+    assert!(has("a look is for a device outlet's lamps"), "{found:?}");
+    assert!(has("no look 'cold'"), "{found:?}");
+    assert!(has("fixture 'panel': channel 3 is already 'strobe's"), "{found:?}");
+    assert!(has("fixture 'far': 'left' is no device outlet"), "{found:?}");
+    assert!(has("fixture 'far': channels 510–513 are outside 1–512"), "{found:?}");
+    assert!(has("fixture 'panel' has no channel 'w'"), "{found:?}");
+    assert!(has("no fixture 'ghost'"), "{found:?}");
+}

@@ -20,6 +20,11 @@ pub struct Show {
     /// what a parent may use of this show, when another show seats it
     #[serde(default)]
     pub face: Face,
+    /// #91: the lamps on the device outlets and the looks a row sets on them (LIVE.md B.5.2)
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub fixtures: Vec<Fixture>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub looks: Vec<Look>,
 }
 
 impl Show {
@@ -33,6 +38,72 @@ impl Show {
 
     pub fn seat(&self, id: &str) -> Option<&Seat> {
         self.seats.iter().find(|s| s.id == id)
+    }
+
+    pub fn fixture(&self, id: &str) -> Option<&Fixture> {
+        self.fixtures.iter().find(|f| f.id == id)
+    }
+
+    pub fn look(&self, id: &str) -> Option<&Look> {
+        self.looks.iter().find(|l| l.id == id)
+    }
+}
+
+/// A lamp on a DMX device outlet (LIVE.md B.5.2, #91): where its channels start in the outlet's universe and how they are
+/// laid out. Which interface or Art-Net universe the outlet is in a room is the venue's (open, SHOW.md §10).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Fixture {
+    pub id: String,
+    /// a device outlet of this show
+    pub outlet: String,
+    /// the first channel, 1-based
+    pub address: u16,
+    pub profile: Profile,
+}
+
+/// How a fixture's channels are laid out, from its address on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Profile {
+    Dimmer,
+    Rgb,
+    Rgbw,
+    RgbwStrobe,
+}
+
+impl Profile {
+    /// the channels' names in order
+    pub fn channels(self) -> &'static [&'static str] {
+        match self {
+            Profile::Dimmer => &["dim"],
+            Profile::Rgb => &["r", "g", "b"],
+            Profile::Rgbw => &["r", "g", "b", "w"],
+            Profile::RgbwStrobe => &["r", "g", "b", "w", "strobe"],
+        }
+    }
+}
+
+/// A light look: values (0–255) by fixture and channel; a channel it does not name is 0. A device cell sets it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Look {
+    pub id: String,
+    pub values: BTreeMap<String, BTreeMap<String, u8>>,
+}
+
+impl Look {
+    /// The DMX this look sends on `outlet`: one range per fixture of that outlet it names, in address order.
+    pub fn dmx(&self, show: &Show, outlet: &str, fade: Option<u32>) -> Vec<DeviceMsg> {
+        let mut lit: Vec<&Fixture> = show.fixtures.iter().filter(|f| f.outlet == outlet && self.values.contains_key(&f.id)).collect();
+        lit.sort_by_key(|f| f.address);
+        lit.iter()
+            .map(|f| {
+                let set = &self.values[&f.id];
+                let values = f.profile.channels().iter().map(|c| set.get(*c).copied().unwrap_or(0)).collect();
+                DeviceMsg::Dmx(protocol::DmxMessage { ch: f.address as u64, values, fade: fade.map(u64::from) })
+            })
+            .collect()
     }
 }
 
@@ -186,6 +257,12 @@ pub enum Cell {
     Go { row: String },
     /// a seat: "you are free"
     Free,
+    /// #91: a device outlet's light look (its fixtures' DMX), faded in over `fade` ms
+    Look {
+        look: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        fade: Option<u32>,
+    },
 }
 
 /// Why a text is no show.

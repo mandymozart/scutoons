@@ -96,6 +96,20 @@ fn device_text(m: &DeviceMsg) -> String {
     m.kind().to_string()
 }
 
+/// `look warm · strobe @1 · panel @10`: a look and the fixtures it lights on `outlet`, by their first channel
+pub fn look_text(show: &Show, outlet: &str, look: &str) -> String {
+    let lit = show.look(look).map(|l| {
+        let mut f: Vec<_> = show.fixtures.iter().filter(|f| f.outlet == outlet && l.values.contains_key(&f.id)).collect();
+        f.sort_by_key(|f| f.address);
+        f.iter().map(|f| format!("{} @{}", f.id, f.address)).collect::<Vec<_>>()
+    });
+    match lit {
+        Some(lit) if !lit.is_empty() => format!("look {look} · {}", lit.join(" · ")),
+        Some(_) => format!("look {look} · lights nothing here"),
+        None => format!("look {look} · unknown"),
+    }
+}
+
 /// `character:yellowmouse > dance:samba`, `person:* > haptic:pulse where group left · device browser` (SHOW.md §8, §9)
 pub fn address_text(a: &Addressed) -> String {
     let mut s = format!("{} > {}", a.address, a.action);
@@ -121,6 +135,8 @@ pub fn cell_text(cell: &Cell) -> String {
         Cell::Black => "black".into(),
         Cell::Go { row } => format!("go to {row}"),
         Cell::Free => "free".into(),
+        Cell::Look { look, fade: None } => format!("look {look}"),
+        Cell::Look { look, fade: Some(ms) } => format!("look {look} · fade {:.1} s", *ms as f32 / 1000.0),
     }
 }
 
@@ -512,6 +528,9 @@ pub fn inspector(show: &Show, row: &str) -> Vec<Section> {
                 sends.push((col.id.clone(), device_text(m)));
             }
         }
+        if let Cell::Look { look, .. } = cell {
+            sends.push((col.id.clone(), look_text(show, &col.id, look)));
+        }
     }
     for a in &r.addresses {
         sends.push(("address".to_string(), address_text(a)));
@@ -613,7 +632,9 @@ mod tests {
         assert_eq!(cues[0].does[0], ("left".to_string(), "plays scene:nave · light 0.2".to_string()));
         assert_eq!(cues[0].does[1], ("right".to_string(), "shows what left shows".to_string()));
         assert_eq!(cues[0].sends, ["lamps · dmx"]);
-        assert_eq!(cues[1].does, [("left".to_string(), "glides scene:nave: dim 0.5".to_string())], "a kept column is not listed");
+        assert_eq!(cues[1].does, [("left".to_string(), "glides scene:nave: dim 0.5".to_string()), ("lamps".to_string(), "look warm · fade 0.8 s".to_string())], "a kept column is not listed");
+        let sends = &inspector(&show, "dialog").into_iter().find(|(h, _)| h == "this row sends").unwrap().1;
+        assert_eq!(sends, &[("lamps".to_string(), "look warm · strobe @1 · panel @10".to_string())]);
         assert_eq!(cues[2].trigger, "ch3.yellowmouse-enters · suggest · hold 1.5 s · next bar");
         assert_eq!(cues[2].sends, ["character:yellowmouse > dance:samba where group left", "location:* > close_doors"]);
         assert_eq!(cues[3].trigger, "ch3.end · hand · now");

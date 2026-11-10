@@ -261,3 +261,17 @@ fn a_fired_row_sends_its_addresses() {
     let sent: Vec<String> = out.iter().filter_map(|o| if let Out::Address(a) = o { Some(format!("{} > {}", a.address, a.action)) } else { None }).collect();
     assert_eq!(sent, ["character:yellowmouse > dance:samba", "location:* > close_doors"]);
 }
+
+#[test]
+fn a_look_sets_its_fixtures_dmx_in_address_order() {
+    let mut c = opened();
+    let out = c.on_message(&Reader.event("ch3.dialog-start"), Now::at(1_000));
+    let device = out.iter().filter_map(Out::envelope).find_map(|e| match &e.message {
+        Message::Device(d) => Some(d),
+        _ => None,
+    });
+    let device = device.expect("the look's DMX");
+    assert_eq!(device.outlet, "lamps");
+    let ranges: Vec<(u64, Vec<u8>, Option<u64>)> = device.msgs.iter().filter_map(|m| if let DeviceMsg::Dmx(d) = m { Some((d.ch, d.values.clone(), d.fade)) } else { None }).collect();
+    assert_eq!(ranges, [(1, vec![0, 0, 0, 80, 0], Some(800)), (10, vec![255, 120, 0], Some(800))]);
+}
