@@ -1,4 +1,4 @@
-Status 2026-11-10: research done, proposal for a refactor, nothing built (#472). Ordered by the owner; drafts 1–3 were sent in the chat.
+Status 2026-11-10: research done; the refactor of §4 is agreed by the owner and started with step 1, the resolver (#472, §6). Ordered by the owner; drafts 1–3 were sent in the chat.
 
 # OPEN-WORLD – what real-time engines do, checked against their documentation, and what it means for our core
 
@@ -51,9 +51,10 @@ Each step is its own ticket once the owner agrees to the order.
 
 Bethesda's save stores changes per placed reference, not differences against the base object (search level). Unity's overrides are a tree (nesting and a chosen target), not one chain; the closer model for our ladder is USD's inherits and specializes. USD's order is across kinds of source, layer order only decides within "local". An Unreal Level Instance does not exist at run time by default. A Data Layer holds actors and has states set on the server; it does not swap values. Gameplay Tags match per dotted segment, not by string prefix. Godot's `propagate_call` runs children first by default. MMO phasing is per player. The live-events row has no source.
 
-## 6. Open
+## 6. Answered by the owner (2026-11-10, decision [resolver])
 
-1. The order of §4: is step 1 (the resolver) the next build ticket, before #283's remaining work and the handler lookup?
-2. What a second call of a running mood does: start over, extend, or be ignored. Proposed: start over.
-3. Can one scene be spawned at several points at once (still open from CATALOG-LINK §10)?
-4. Bethesda's quest aliases (a scene borrows existing entities for its length and adds behaviour to them) look like the right model for a scene's cast, but could not be read; to verify by hand if wanted.
+1. **The order of §4 is agreed; the refactor may start, the resolver first.** At the end a thorough report of how much code was saved, over server, deck and client (the baseline of the chains is on the resolver's ticket).
+2. **A second call while a first one runs is not a mood rule.** Owner: *"this seems like something that should be generalized since any event would trigger something like this in any other type of entity. so ... your questions sounds like a separate chain again."* So: a timed change is one more source in the resolver of step 1, on any value of any entity. One rule for all of them, in the resolver: per key and source there is one opinion, the newest replaces the one before, and its length runs from its own start. No rule per kind of value.
+3. **One scene at several points at once: dropped**, no use case (owner: *"i dont understand ....use case ?"*). A scene sits at one point. The same scene document placed twice is two scenes.
+
+Still open: Bethesda's quest aliases (a scene borrows existing entities for its length and adds behaviour to them) look like the right model for a scene's cast, but could not be read; to verify by hand if wanted.

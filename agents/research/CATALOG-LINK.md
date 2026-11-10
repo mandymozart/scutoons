@@ -95,4 +95,4 @@ The first pass that stood here was written from memory and was wrong or imprecis
 
 1. Decided 2026-11-10: the entity document (§7a); a named mood can be called, to all at once (§7b); two scenes can share a point (*"two scenes can share a point of course"*).
 2. The sourced review of §9 is ordered (owner: *"yes do the research and visualize your findings to me and consequences for a refactor"*): done, research/OPEN-WORLD.md (its §6 has the open points), drafts sent in the chat.
-3. Still open: can one scene be spawned at several points at once?
+3. Dropped 2026-11-10: one scene at several points at once has no use case; a scene sits at one point (OPEN-WORLD.md §6).
