@@ -24,6 +24,8 @@
 //! lists every problem it finds at its cable, node or track (problem.rs), not the first alone.
 pub mod address;
 pub mod assign;
+/// #477: a toon's address book (the server's), narrowed for the deck editor's typeahead
+pub mod book;
 pub mod edit;
 pub mod bundle;
 pub mod content;
@@ -341,7 +343,7 @@ impl Rig {
     }
 
     /// the world nodes of the rig's instruments whose source is far (#432): (track, node id, its address)
-    pub(crate) fn far_world_nodes(&self, lib: &Library) -> Vec<(String, String, Address)> {
+    pub fn far_world_nodes(&self, lib: &Library) -> Vec<(String, String, Address)> {
         let mut out = Vec::new();
         for t in &self.tracks {
             let Ok(i) = lib.instrument(&t.instrument) else { continue };

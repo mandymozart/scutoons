@@ -1,6 +1,8 @@
 //! A typeahead (#455; owner 2026-11-09: "The type head should be a UI component we can reuse"): a text field over a list,
 //! narrowed as you type, chosen by arrows and enter or the mouse. It knows nothing of what it lists: a caller gives items
-//! with an id and gets the id back, and can ask which ids the filter still shows (the stage highlights only those).
+//! with an id and gets the id back, and can ask which ids the filter still shows (the stage highlights only those). A caller
+//! whose list has its own rule of what a query finds (the address book's, deck-space `rig/book.rs`, #477) hands that rule in
+//! (`found_by`), and the typeahead only shows what it answers.
 use crate::text::Field;
 use crate::tokens::Tokens;
 use crate::draw::DrawList;
@@ -15,6 +17,9 @@ pub struct Item {
     pub detail: String,
 }
 
+/// a caller's rule: the ids a query finds, in its order
+type Find = Box<dyn Fn(&str) -> Vec<usize>>;
+
 pub struct Typeahead {
     items: Vec<Item>,
     field: Field,
@@ -28,6 +33,8 @@ pub struct Typeahead {
     /// this frame's rows: (top, item index)
     rows: Vec<(f32, usize)>,
     frame: (f32, f32, f32),
+    /// the caller's rule: the ids a query finds, in its order; none = every word in the label or the detail
+    find: Option<Find>,
 }
 
 /// every word of `query` somewhere in the item, whatever the case
@@ -38,15 +45,26 @@ fn matches(item: &Item, query: &str) -> bool {
 
 impl Typeahead {
     pub fn new(items: Vec<Item>, x: f32, y: f32) -> Typeahead {
-        let mut t = Typeahead { items, field: Field::with(""), shown: Vec::new(), at: 0, x, y, rows: Vec::new(), frame: (0.0, 0.0, 0.0) };
+        let mut t = Typeahead { items, field: Field::with(""), shown: Vec::new(), at: 0, x, y, rows: Vec::new(), frame: (0.0, 0.0, 0.0), find: None };
         t.field.focused = true;
+        t.narrow();
+        t
+    }
+
+    /// a list whose rule of what a query finds is the caller's: `find` gives the ids, in the order they are shown
+    pub fn found_by(items: Vec<Item>, x: f32, y: f32, find: impl Fn(&str) -> Vec<usize> + 'static) -> Typeahead {
+        let mut t = Typeahead::new(items, x, y);
+        t.find = Some(Box::new(find));
         t.narrow();
         t
     }
 
     fn narrow(&mut self) {
         let query = self.field.text.clone();
-        self.shown = (0..self.items.len()).filter(|&i| matches(&self.items[i], &query)).collect();
+        self.shown = match &self.find {
+            Some(find) => find(&query).into_iter().filter_map(|id| self.items.iter().position(|it| it.id == id)).collect(),
+            None => (0..self.items.len()).filter(|&i| matches(&self.items[i], &query)).collect(),
+        };
         self.at = self.at.min(self.shown.len().saturating_sub(1));
     }
 
@@ -185,6 +203,16 @@ mod tests {
         assert_eq!(t.chosen(), None);
         t.backspace();
         assert_eq!(t.chosen(), Some(7));
+    }
+
+    #[test]
+    fn a_callers_rule_decides_what_shows_and_in_which_order() {
+        let item = |id: usize, label: &str| Item { id, label: label.into(), detail: String::new() };
+        let mut t = Typeahead::found_by(vec![item(1, "Cat Pope"), item(2, "Der Dom")], 0.0, 0.0, |q| if q.is_empty() { vec![2, 1] } else { vec![1] });
+        assert_eq!(t.chosen(), Some(2), "the caller's order");
+        t.insert("dom");
+        assert_eq!(t.chosen(), Some(1), "the caller's answer, not the label's words");
+        assert!(!t.shows(2));
     }
 
     #[test]

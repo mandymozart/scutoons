@@ -32,7 +32,7 @@ pub enum Role {
 }
 
 impl Role {
-	pub fn as_str(self) -> &'static str {
+	pub const fn as_str(self) -> &'static str {
 		match self {
 			Role::Conductor => "conductor",
 			Role::Output => "output",
@@ -263,7 +263,7 @@ pub enum VoteRule {
 }
 
 impl VoteRule {
-	pub fn as_str(self) -> &'static str {
+	pub const fn as_str(self) -> &'static str {
 		match self {
 			VoteRule::Majority => "majority",
 			VoteRule::Groups => "groups",
@@ -344,7 +344,7 @@ pub enum VoteHow {
 }
 
 impl VoteHow {
-	pub fn as_str(self) -> &'static str {
+	pub const fn as_str(self) -> &'static str {
 		match self {
 			VoteHow::Rule => "rule",
 			VoteHow::Fallback => "fallback",
@@ -542,7 +542,7 @@ pub enum SpotMode {
 }
 
 impl SpotMode {
-	pub fn as_str(self) -> &'static str {
+	pub const fn as_str(self) -> &'static str {
 		match self {
 			SpotMode::Still => "still",
 			SpotMode::Video => "video",
@@ -592,7 +592,7 @@ pub enum CellMode {
 }
 
 impl CellMode {
-	pub fn as_str(self) -> &'static str {
+	pub const fn as_str(self) -> &'static str {
 		match self {
 			CellMode::Own => "own",
 			CellMode::Mirror => "mirror",
@@ -653,7 +653,7 @@ pub enum Fit {
 }
 
 impl Fit {
-	pub fn as_str(self) -> &'static str {
+	pub const fn as_str(self) -> &'static str {
 		match self {
 			Fit::Cover => "cover",
 			Fit::Contain => "contain",
@@ -821,7 +821,7 @@ pub enum Word {
 }
 
 impl Word {
-	pub fn as_str(self) -> &'static str {
+	pub const fn as_str(self) -> &'static str {
 		match self {
 			Word::Follow => "follow",
 			Word::Suggest => "suggest",
@@ -842,7 +842,7 @@ pub enum Says {
 }
 
 impl Says {
-	pub fn as_str(self) -> &'static str {
+	pub const fn as_str(self) -> &'static str {
 		match self {
 			Says::Go => "go",
 			Says::Free => "free",
@@ -1105,7 +1105,7 @@ pub enum HandMode {
 }
 
 impl HandMode {
-	pub fn as_str(self) -> &'static str {
+	pub const fn as_str(self) -> &'static str {
 		match self {
 			HandMode::Xr => "xr",
 			HandMode::Orientation => "orientation",
@@ -1198,7 +1198,7 @@ pub enum SyncState {
 }
 
 impl SyncState {
-	pub fn as_str(self) -> &'static str {
+	pub const fn as_str(self) -> &'static str {
 		match self {
 			SyncState::Syncing => "syncing",
 			SyncState::Ready => "ready",
@@ -1222,7 +1222,7 @@ pub enum QualityLevel {
 }
 
 impl QualityLevel {
-	pub fn as_str(self) -> &'static str {
+	pub const fn as_str(self) -> &'static str {
 		match self {
 			QualityLevel::Low => "low",
 			QualityLevel::Medium => "medium",
