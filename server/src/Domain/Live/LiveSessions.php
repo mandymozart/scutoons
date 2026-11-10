@@ -26,7 +26,7 @@ final class LiveSessions
         $code = '';
         for ($i = 0; $i < 6; $i++) $code .= self::ALPHABET[random_int(0, strlen(self::ALPHABET) - 1)];
         $secret = $this->settings->get('LIVE_TOKEN_SECRET');
-        $exp = $this->clock->now()->getTimestamp() + self::HOURS * 3600;
+        $exp = $this->clock->time() + self::HOURS * 3600;
         $token = fn(string $role): string => $secret === '' ? 'dev' : self::sign($secret, ['session' => $code, 'role' => $role, 'exp' => $exp] + ($show === null ? [] : ['show' => $show]));
         return ['code' => $code, 'token' => $token('conductor'), 'tokens' => ['bridge' => $token('bridge'), 'seat' => $token('seat'), 'uplink' => $token('uplink')], 'dev' => $secret === ''];
     }

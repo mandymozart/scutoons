@@ -31,7 +31,10 @@ final class ShowsApiTest extends TestCase
         $this->core = new FakeCore();
     }
 
-    /** @param array<string, string> $headers */
+    /**
+     * @param array<string, string> $headers
+     * @param array<string, string> $settings
+     */
     private function request(string $method, string $uri, array $headers = [], mixed $body = null, array $settings = []): ResponseInterface
     {
         $request = (new ServerRequestFactory())->createServerRequest($method, "http://localhost$uri", ['REMOTE_ADDR' => '127.0.0.1']);
@@ -64,7 +67,10 @@ final class ShowsApiTest extends TestCase
         return ['Authorization' => 'Bearer ' . $this->get(Sessions::class)->create((string) $user['id'])];
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * @param list<array<string, mixed>> $seats
+     * @return array<string, mixed>
+     */
     private static function show(string $id, array $seats = []): array
     {
         return ['id' => $id, 'outlets' => [['id' => 'left']], 'seats' => $seats, 'rows' => []];
@@ -125,7 +131,9 @@ final class ShowsApiTest extends TestCase
         $live = $this->session([Roles::LIVE], 'session@example.test');
         self::assertSame(403, $this->request('POST', '/api/live/sessions', $this->session([Roles::CREATOR], 'c2@example.test'), [])->getStatusCode());
 
-        $open = self::json($this->request('POST', '/api/live/sessions', $live, ['show' => 'top']));
+        $r = $this->request('POST', '/api/live/sessions', $live, ['show' => 'top']);
+        self::assertSame(200, $r->getStatusCode(), (string) $r->getBody());
+        $open = self::json($r);
         self::assertMatchesRegularExpression('/^[A-Z2-9]{6}$/', $open['code']);
         self::assertSame('dev', $open['token'], 'no secret: the relay in dev mode takes any token');
 

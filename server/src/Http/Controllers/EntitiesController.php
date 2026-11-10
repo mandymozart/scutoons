@@ -196,14 +196,14 @@ final class EntitiesController
     /** @param array{id: string} $args */
     public function itemPlacements(Request $request, Response $response, array $args): Response
     {
-        $this->creator($request, $args['key']);
+        $this->creator($request);
         return Json::response($response, 200, $this->placements->report($args['id']));
     }
 
     /** @param array{kind: string} $args */
     public function catalogDocs(Request $request, Response $response, array $args): Response
     {
-        $this->creator($request, $args['key']);
+        $this->creator($request);
         return Json::response($response, 200, $this->docs->list($args['kind']));
     }
 
