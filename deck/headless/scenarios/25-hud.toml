@@ -17,4 +17,4 @@ expect = { title = "SCUTOONSDECK STAGE  show clock – lead", lines = { has = "S
 [[step]]
 do = "hud"
 with = { scene = "show clock – lead", fps = 60.0, audio = true }
-expect = { lines = { has = "BPM 120.0  BAR 2 BEAT 1 CLK" }, bar = { has = "RELAY -" } }
+expect = { lines = { has = "BPM 120.0  BAR 2 BEAT 1 CLK" }, bar = { has = "F1" } }

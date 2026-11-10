@@ -14,22 +14,19 @@
 </script>
 
 <script lang="ts">
-	// The collapsed panel's statistics (#209, owner 2026-10-31: "very basic statistics (fps, CPU / frame, audio glitches
-	// / dropouts, the relay, the backend), using the entire width, like OSCT's collapsed bar"): one dense mono line. The
-	// monitor's items are deck-core's (#364: FPS of drawn frames, the frame's work, the sound's glitches in 10 minutes and
-	// its load per block – p50 / p99 / the longest – with the lead, the limiter), worded and judged there – amber / red as
-	// the core says; the 3D's quality level and render scale (#220; amber while the governor holds it below the level
-	// chosen) after the FPS, then the relay and the 3D backend. The abbreviations are the stage HUD's.
+	// The collapsed panel's statistics (#209; #464, owner 2026-11-10: "It can be much more compact"): one dense mono line
+	// of what is read at a glance. The monitor's items are deck-core's (#364), worded and judged there – amber / red as the
+	// core says; the 3D's quality only while the governor holds it below the level chosen (#220); then the relay's line.
+	// The other numbers are in the panel's copy of the sound report, the backend in its status line.
 	let { stats }: { stats: Stats } = $props();
 </script>
 
 <p class="stats" data-testid="deck-stats" title="{stats.relay} · {stats.backend}">
 	{#each stats.items as it, i (i)}
-		{#if i === 1 && stats.quality}<span class:warn={stats.down} data-testid="deck-stats-quality"><b>Q</b> {stats.quality}</span>{/if}
+		{#if i === 1 && stats.down}<span class="warn" data-testid="deck-stats-quality"><b>Q</b> {stats.quality}</span>{/if}
 		<span class={it.level} data-testid="deck-stats-{it.label.toLowerCase()}"><b>{it.label}</b> {it.value}</span>
 	{/each}
-	<span class="relay"><b>RELAY</b> {stats.relay || '–'}</span>
-	<span class="backend"><b>GPU</b> {stats.backend || '–'}</span>
+	<span class="relay">{stats.relay}</span>
 </p>
 
 <style>
@@ -38,7 +35,7 @@
 		min-width: 0;
 		margin: 0;
 		display: flex;
-		gap: var(--space-075);
+		gap: var(--space-05);
 		overflow: hidden;
 		white-space: nowrap;
 		font-family: var(--font-mono);
@@ -51,18 +48,12 @@
 	span {
 		flex: none;
 	}
-	/* the relay and the backend take what is left and end in an ellipsis – the backend gives way first */
-	.relay,
-	.backend {
+	/* the relay takes what is left and ends in an ellipsis */
+	.relay {
+		flex: 0 1 auto;
 		min-width: 0;
 		overflow: hidden;
 		text-overflow: ellipsis;
-	}
-	.relay {
-		flex: 0 1 auto;
-	}
-	.backend {
-		flex: 0 100 auto;
 	}
 	b {
 		font-weight: var(--font-weight-regular);

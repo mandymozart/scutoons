@@ -4,7 +4,7 @@
 //! is the boot splash (plymouth) and the BIOS menu's background (deck/os, rendered at build time).
 use anyhow::{Context, Result};
 
-pub const LOGO_SVG: &[u8] = include_bytes!("../assets/SCUTOONS-logo-white.svg");
+pub const LOGO_SVG: &[u8] = include_bytes!("../../native/assets/SCUTOONS-logo-white.svg");
 
 /// the logo rasterized `width` px wide: straight RGBA, the height by the logo's aspect
 pub fn logo(width: u32) -> Result<(u32, u32, Vec<u8>)> {

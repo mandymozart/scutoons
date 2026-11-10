@@ -4,8 +4,6 @@
 //! cached file is never fetched again). Decoding: symphonia (mp3, wav).
 use crate::audio::{MusicFeed, Track};
 use anyhow::{bail, Context, Result};
-use serde::Deserialize;
-use std::collections::HashMap;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -20,79 +18,7 @@ pub struct Library {
     pub cache: PathBuf,
 }
 
-/// The part of a chapter (shared/content/src/content.ts `Chapter`, audio.ts `AudioConfiguration`) the stage reads.
-#[derive(Debug, Deserialize)]
-pub struct Chapter {
-    #[serde(default)]
-    pub title: String,
-    #[serde(default)]
-    pub audio: Option<Audio>,
-    #[serde(default)]
-    pub groups: Vec<Group>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct Group {
-    #[serde(default)]
-    pub slices: Vec<Slice>,
-}
-
-/// One slice of the strip (content.ts `Slice`): the image (CDN path, per quality), its size, the dialog over it.
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Slice {
-    #[serde(default)]
-    pub image: Option<String>,
-    #[serde(default)]
-    pub image_variants: HashMap<String, String>,
-    #[serde(default)]
-    pub dialog: Vec<deck_outlet::text::Dialog>,
-}
-
-impl Slice {
-    pub fn image_path(&self, quality: &str) -> Option<&str> {
-        self.image_variants.get(quality).or(self.image.as_ref()).map(String::as_str)
-    }
-}
-
-#[derive(Debug, Deserialize)]
-pub struct Audio {
-    #[serde(default)]
-    pub music: Option<Music>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Music {
-    #[serde(default)]
-    pub default_track: Option<String>,
-    #[serde(default)]
-    pub tracks: Vec<MusicTrack>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct MusicTrack {
-    pub id: String,
-    pub path: String,
-    /// media quality → path (low / medium / high)
-    #[serde(default)]
-    pub variants: HashMap<String, String>,
-}
-
-impl Chapter {
-    /// the slices with an image, in reading order
-    pub fn slices(&self) -> impl Iterator<Item = &Slice> {
-        self.groups.iter().flat_map(|g| &g.slices).filter(|s| s.image.is_some() || !s.image_variants.is_empty())
-    }
-
-    /// the track `id` (else the chapter's default track, else the first) at `quality` (else its plain path)
-    pub fn music_path(&self, id: Option<&str>, quality: &str) -> Option<(&str, &str)> {
-        let m = self.audio.as_ref()?.music.as_ref()?;
-        let want = id.or(m.default_track.as_deref());
-        let t = want.and_then(|w| m.tracks.iter().find(|t| t.id == w)).or(m.tracks.first())?;
-        Some((t.id.as_str(), t.variants.get(quality).unwrap_or(&t.path).as_str()))
-    }
-}
+pub use deck_space::chapter::{Audio, Chapter, Group, Music, MusicTrack, Slice};
 
 impl Library {
     fn agent() -> ureq::Agent {

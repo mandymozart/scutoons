@@ -103,9 +103,10 @@ mod tests {
         std::fs::write(root.join("sets/cathedral/cathedral.low.glb"), "glb").unwrap();
         let lib = Library { api: "offline://api".into(), cdn: "offline://cdn".into(), cache: cache.clone() };
         let media = Media {
+            api: "http://api".into(),
             cache: cache.clone(),
             resolve: Box::new(LocalSets { sets: root.join("sets"), quality: "low".into(), synced: false }),
-            fetch: Box::new(FolderFetch { root: root.join("cdn"), secret: None, calls: Mutex::new(vec![]) }),
+            fetch: Box::new(FolderFetch { root: root.join("cdn"), secret: None, calls: Default::default() }),
             token: Box::new(NoToken),
             local: Mutex::new(HashMap::new()),
         };

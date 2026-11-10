@@ -8,10 +8,7 @@ L AUDIO OFF
 L BPM 120.0  BAR 1 BEAT 1
 L SRC INTERNAL 
 B Ok FPS 60
-B Ok CPU 3.0/3.0MS
-B Ok AUDIO OFF
-B Ok RELAY -
-B Ok GPU 
+B Ok CPU 3.0
 B Ok F1
 == full (alert row Some(1), beat row Some(11))
 L SCUTOONSDECK STAGE  show clock – lead
@@ -29,11 +26,9 @@ L BPM 120.0  BAR 2 BEAT 1 CLK
 L SRC MIDI LEADS  > MIDI
 B Ok FPS 60
 B Warn Q HIGH 0.85
-B Ok CPU 4.0/4.0MS
-B Bad AUDIO 1/10M 35/35/35% +11MS
-B Ok LIM 0.0DB
-B Ok RELAY DECK C1 @ CATH
-B Ok GPU VULKAN
+B Ok CPU 4.0
+B Bad AUD 1 35%
+B Ok DECK C1 @ CATH
 B Ok F1
 == broken (alert row None, beat row None)
 L SCENE ERROR - THE TEST PATTERN INSTEAD
@@ -51,11 +46,9 @@ L Q MEDIUM 0.70X OF HIGH FIXED F4 SET
 L FPS 25.0 FRAME 40.0/40.0 CPU 20.0/20.0
 B Bad FPS 25
 B Warn Q MEDIUM 0.70 FIX
-B Bad CPU 20.0/20.0MS
-B Warn AUDIO 0/10M 90/90/90% +11MS
-B Ok LIM 0.0DB
-B Ok RELAY LIVE CATH - NO RELAY YET
-B Ok GPU DX12
+B Bad CPU 20.0
+B Warn AUD 0 90%
+B Ok LIVE CATH - NO RELAY YET
 B Ok F1
 == outlet (alert row None, beat row Some(8))
 L SCUTOONSDECK STAGE  outlet
@@ -69,10 +62,8 @@ L AUDIO OFF
 L BPM 120.0  BAR 1 BEAT 2
 L SRC LINK 3 PEERS
 B Ok FPS 60
-B Ok CPU 2.0/2.0MS
-B Ok AUDIO OFF
-B Ok RELAY LIVE CATH - CELL 3 OF 9
-B Ok GPU 
+B Ok CPU 2.0
+B Ok LIVE CATH - CELL 3 OF 9
 B Ok F1
 == stage (alert row None, beat row Some(6))
 L SCUTOONSDECK STAGE  cathedral
@@ -89,10 +80,7 @@ L PUSH CATH OK
 L MOOD HAPPY < ENERGY 0.62
 L VOICE.INDEX 2.00
 B Ok FPS 60
-B Ok CPU 2.0/2.0MS
-B Ok AUDIO OFF
-B Ok RELAY -
-B Ok GPU 
+B Ok CPU 2.0
 B Ok F1
 == media (alert row None, beat row Some(6))
 L SCUTOONSDECK STAGE  madness
@@ -109,8 +97,5 @@ L FFT L 0.89 B 0.75 M 0.81 H 0.48
 L MUSIC 'calmness' 30 s (online, 3.2 s to load) – Leugnen
 L SLICE 1 / 12 ready
 B Ok FPS 60
-B Ok CPU 2.0/2.0MS
-B Ok AUDIO OFF
-B Ok RELAY -
-B Ok GPU 
+B Ok CPU 2.0
 B Ok F1

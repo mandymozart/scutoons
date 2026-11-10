@@ -239,6 +239,8 @@ return static function (App $app): void {
     $app->delete('/api/me/decks/{id:[0-9a-f-]{36}}', [DecksController::class, 'revoke']);
     // the venue certificate *.lan.scutoons.com for an approved deck's own token (#201, deck-tls; LanController)
     $app->get('/api/decks/lan-cert', [LanController::class, 'deckCert']);
+    // a show medium (live/<toon>/…, the vault) as a short signed link for an approved deck's own token (#470)
+    $app->get('/api/decks/media', [DecksController::class, 'media']);
     // rig modules, Rust compiled to wasm (#281, agents/research/RIG-EDITING.md §4–7): published factory modules by id; the
     // compile is the creators' (the build service beside the relay)
     $app->get('/api/kinds', [ModulesController::class, 'kinds']);

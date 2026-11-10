@@ -11,6 +11,7 @@
 //!   scroll's hold) – a state machine on a clock the adapter passes in (#391)
 //! - `preload`: the preloader's retry schedule and its HUD line (#391)
 //! - `status`: the HUD's lines for the outlet (#391)
+//! - `show`: which preload urls are show media in the vault and how a deck asks for their signed link (#470)
 //!
 //! The adapter (deck-native's live/) keeps the threads, the relay socket, the HTTP fetches, the disk cache and decoding.
 pub mod compose;
@@ -19,5 +20,6 @@ pub mod plan;
 pub mod preload;
 pub mod recompose;
 pub mod route;
+pub mod show;
 pub mod status;
 pub mod text;

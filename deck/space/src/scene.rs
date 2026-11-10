@@ -23,6 +23,29 @@ pub const OUTLET_SCENE: &str = include_str!("../../native/scenes/outlet.toml");
 /// The core alone (#185): an LFO, the test pattern, the screen – what a stage shows when a scene can't be played.
 pub const TEST_PATTERN_SCENE: &str = include_str!("../../native/scenes/test-pattern.toml");
 
+/// the built-in scenes in the list's order (the first is the stage's default)
+pub const BUILTIN: [&str; 12] = ["idle", "madness", "cathedral", "catpope-analog", "conductor", "outlet", "strobe", "pulse-thunderwash", "lamps-off", "test-pattern", "module-walk", "module-analog"];
+
+/// the source of a built-in scene by name (the deck's F5 list, the browser's `?scene=`)
+pub fn builtin(name: &str) -> Option<&'static str> {
+    Some(match name {
+        "idle" => IDLE_SCENE,
+        "madness" => MADNESS_SCENE,
+        "cathedral" => CATHEDRAL_SCENE,
+        "catpope-analog" => include_str!("../../native/scenes/catpope-analog.toml"),
+        "conductor" => CONDUCTOR_SCENE,
+        "outlet" => OUTLET_SCENE,
+        "strobe" => include_str!("../../native/scenes/strobe.toml"),
+        "pulse-thunderwash" => include_str!("../../native/scenes/pulse-thunderwash.toml"),
+        "lamps-off" => include_str!("../../native/scenes/lamps-off.toml"),
+        "test-pattern" => TEST_PATTERN_SCENE,
+        // #406: they play compiled rig modules, so they need the `modules` build and the modules' wasm in `DECK_MODULES`
+        "module-walk" => include_str!("../../native/scenes/module-walk.toml"),
+        "module-analog" => include_str!("../../native/scenes/module-analog.toml"),
+        _ => return None,
+    })
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Scene {

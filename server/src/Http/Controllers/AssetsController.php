@@ -123,7 +123,9 @@ final class AssetsController
      * (agents/research/SCORES.md §5; AssetStorages::protectedStorage), never the public one and not in the asset registry:
      * `scores/<item>/` or `albums/<album>/<first 12 of the sha-256>.<ext>` (a changed file gets a new name) → 201 { path }. The catalog
      * editor puts the path into the item's `score`; readers only ever get signed URLs (ProtectedFiles).
-     * 400 invalid_item / invalid_file / wrong_type, 413 file_too_large, 503 not_configured.
+     * ?show=<toon>&file=media – a show medium (#470: video, audio, a .glb, an image) → `live/<toon>/<hash>.<ext>`; only a
+     * paired deck gets it, as a signed link (GET /api/decks/media). The cue sheet's preload names the path.
+     * 400 invalid_item / invalid_show / invalid_file / wrong_type, 413 file_too_large, 503 not_configured.
      */
     public function uploadProtected(Request $request, Response $response): Response
     {
@@ -132,6 +134,12 @@ final class AssetsController
         $query = $request->getQueryParams();
         // a score's file (item=…&file=musicxml|pdf) or a physical release's audio (album=…&file=track|download)
         $album = is_string($query['album'] ?? null) ? $query['album'] : null;
+        $show = $album === null && is_string($query['show'] ?? null) ? $query['show'] : null;
+        if ($show !== null) {
+            if (!preg_match('/^[a-z0-9_-]{1,64}$/', $show)) throw new ApiError(400, 'invalid_show', 'show: the toon id.');
+            if (($query['file'] ?? null) !== 'media') throw new ApiError(400, 'invalid_file', 'file: media.');
+            return $this->uploadShowMedium($request, $response, $show);
+        }
         $owner = $album ?? (is_string($query['item'] ?? null) ? $query['item'] : '');
         if (!preg_match('/^[a-z0-9_]{1,100}$/', $owner)) throw new ApiError(400, $album !== null ? 'invalid_album' : 'invalid_item', $album !== null ? 'album: the album id.' : 'item: the catalog item id.');
         $kinds = $album !== null ? ['track', 'download'] : ['musicxml', 'pdf'];
@@ -154,6 +162,47 @@ final class AssetsController
             @unlink($file);
         }
         return Json::response($response, 201, ['path' => $path]);
+    }
+
+    /**
+     * A show medium into the vault (uploadProtected ?show=): the type from the bytes (never the name or the header), the
+     * name from their sha-256 → 201 { path, type }
+     */
+    private function uploadShowMedium(Request $request, Response $response, string $toon): Response
+    {
+        $storage = $this->storages->protectedStorage() ?? throw new ApiError(503, 'not_configured', 'The protected storage is not set up (BUNNY_PROTECTED_STORAGE_ZONE + _PASSWORD).');
+        $file = $this->bodyToFile($request);
+        try {
+            [$ext, $mime] = self::showMediumType((string) file_get_contents($file, false, null, 0, 64))
+                ?? throw new ApiError(400, 'wrong_type', 'A show medium: MP4, WebM, glTF binary (.glb), PNG, JPEG, WebP, WAV, Ogg, FLAC or MP3.');
+            $path = "live/$toon/" . substr((string) hash_file('sha256', $file), 0, 12) . ".$ext";
+            $storage->upload($path, $file, $mime);
+        } finally {
+            @unlink($file);
+        }
+        return Json::response($response, 201, ['path' => $path, 'type' => $mime]);
+    }
+
+    /**
+     * A show medium's type from its first bytes → [extension, media type], null = not one we play
+     * @return array{0: string, 1: string}|null
+     */
+    public static function showMediumType(string $head): ?array
+    {
+        $riff = str_starts_with($head, 'RIFF') ? substr($head, 8, 4) : '';
+        return match (true) {
+            substr($head, 4, 4) === 'ftyp' => ['mp4', 'video/mp4'],
+            str_starts_with($head, "\x1A\x45\xDF\xA3") => ['webm', 'video/webm'],
+            str_starts_with($head, 'glTF') => ['glb', 'model/gltf-binary'],
+            str_starts_with($head, "\x89PNG\r\n\x1A\n") => ['png', 'image/png'],
+            str_starts_with($head, "\xFF\xD8\xFF") => ['jpg', 'image/jpeg'],
+            $riff === 'WEBP' => ['webp', 'image/webp'],
+            $riff === 'WAVE' => ['wav', 'audio/wav'],
+            str_starts_with($head, 'OggS') => ['ogg', 'audio/ogg'],
+            str_starts_with($head, 'fLaC') => ['flac', 'audio/flac'],
+            str_starts_with($head, 'ID3') || (strlen($head) > 1 && ord($head[0]) === 0xFF && (ord($head[1]) & 0xE0) === 0xE0) => ['mp3', 'audio/mpeg'],
+            default => null,
+        };
     }
 
     /**

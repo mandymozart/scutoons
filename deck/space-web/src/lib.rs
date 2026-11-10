@@ -30,7 +30,13 @@
 //! - **The deck's state (#367, #368):** `DeckState` – deck-space's `deck::Deck` without a GPU: the mood's energy ladder (the
 //!   native being's walk) from the level, the clock and a hand, and what plays (its own scene or a rig, replayed on every
 //!   mood); the page applies its turns.
+//! - **Scenes (#463, #465):** `SceneView` – a scene drawn by the renderer every deck uses (deck-space `stage`), its control
+//!   domain deck-engine's, its set, portraits and chapters fetched by the page; the idle scene when none is given.
 #![cfg(target_arch = "wasm32")]
+
+mod link;
+mod outlet;
+mod scene;
 
 use deck_space::controls::{Controls, Midi, Selection};
 use deck_space::graph::{Graph, Kind};
@@ -38,10 +44,11 @@ use deck_space::quality::{Governor, Gpu, Level, Presets};
 use deck_space::scene::{Scene, CATHEDRAL_SCENE};
 use deck_space::space::being::Look;
 use deck_space::space::glb;
-use deck_space::space::gpu::SpaceGpu;
 use deck_space::space::portrait::Portraits;
 use deck_space::space::values::{self, Knobs, Mirror, Path as ValuePath, Values};
 use deck_space::space::{wire, Cursor, Space, Touch};
+use deck_space::splash::Fade;
+use deck_space::stage::{Over, Stage, Tick};
 use deck_space::tempo;
 use std::collections::HashMap;
 use wasm_bindgen::prelude::*;
@@ -91,7 +98,7 @@ impl Knobs for Page {
     }
 }
 
-fn err(e: impl std::fmt::Display) -> JsValue {
+pub(crate) fn err(e: impl std::fmt::Display) -> JsValue {
     JsValue::from_str(&e.to_string())
 }
 
@@ -148,7 +155,7 @@ fn mirror_of(graph: &Graph) -> Mirror {
 
 /// The native stage frames the being for a landscape screen (55° high); a phone held upright sees as much across as the
 /// stage sees from top to bottom – the field of view widens with the height (at most 75°), the camera stays.
-fn frame_for(space: &mut Space, w: u32, h: u32) {
+pub(crate) fn frame_for(space: &mut Space, w: u32, h: u32) {
     let aspect = w as f32 / h.max(1) as f32;
     let native = 55f32.to_radians();
     space.camera.fov_y = if aspect >= 1.0 { native } else { (2.0 * ((native * 0.5).tan() / aspect).atan()).min(75f32.to_radians()) };
@@ -230,6 +237,92 @@ pub fn rig_module_instrument(request: &str) -> Result<String, JsValue> {
     deck_space::rig::assign::module_instrument_json(request).map_err(|e| JsValue::from_str(&format!("{e:#}")))
 }
 
+/// a set's .glb and its images as the browser decoded them (`encoded_images`) into the space
+pub(crate) fn set_from_page(space: &mut Space, glb_bytes: &[u8], images: js_sys::Array) -> Result<(), JsValue> {
+    let mut decoded: HashMap<usize, image::RgbaImage> = HashMap::new();
+    let items: Vec<JsValue> = images.iter().collect();
+    for c in items.chunks_exact(4) {
+        let (Some(i), Some(w), Some(h)) = (c[0].as_f64(), c[1].as_f64(), c[2].as_f64()) else { continue };
+        let px = js_sys::Uint8Array::new(&c[3]).to_vec();
+        if let Some(img) = image::RgbaImage::from_raw(w as u32, h as u32, px) {
+            decoded.insert(i as usize, img);
+        }
+    }
+    let (max, hide) = space.set_options();
+    let hide = hide.to_vec();
+    let model = glb::parse_with(glb_bytes, max, &hide, &mut |i, _| decoded.remove(&i).ok_or_else(|| anyhow::anyhow!("not decoded by the browser")));
+    let ok = model.is_ok();
+    space.set_arrived(model);
+    if ok {
+        Ok(())
+    } else {
+        Err(err(&space.set_status))
+    }
+}
+
+/// the sprites the heads ask for: slot, character, mood, …
+pub(crate) fn portrait_asks(space: &mut Space) -> js_sys::Array {
+    let out = js_sys::Array::new();
+    for (slot, character, mood) in space.portraits.requests() {
+        out.push(&JsValue::from(slot as u32));
+        out.push(&JsValue::from_str(&character));
+        out.push(&JsValue::from_str(&mood));
+    }
+    out
+}
+
+/// a set that does not come does not hold the splash longer than this (s)
+pub(crate) const SPLASH_AT_MOST: f32 = 5.0;
+
+/// A canvas' GPU, as `SpaceView` and `SceneView` draw on it.
+struct CanvasGpu {
+    surface: wgpu::Surface<'static>,
+    device: wgpu::Device,
+    queue: wgpu::Queue,
+    format: wgpu::TextureFormat,
+    alpha: wgpu::CompositeAlphaMode,
+    backend: &'static str,
+    /// the adapter's name (a browser's WebGPU often gives none: privacy)
+    name: String,
+}
+
+/// `prefer`: "auto" (WebGPU if the browser has an adapter, else WebGL2) or "webgl2".
+async fn open_canvas(canvas: web_sys::HtmlCanvasElement, prefer: &str) -> Result<CanvasGpu, JsValue> {
+    let backends = if prefer == "webgl2" { wgpu::Backends::GL } else { wgpu::Backends::BROWSER_WEBGPU | wgpu::Backends::GL };
+    let instance = wgpu::util::new_instance_with_webgpu_detection(&wgpu::InstanceDescriptor { backends, ..Default::default() }).await;
+    let surface = instance.create_surface(wgpu::SurfaceTarget::Canvas(canvas)).map_err(err)?;
+    let adapter = instance
+        .request_adapter(&wgpu::RequestAdapterOptions {
+            power_preference: wgpu::PowerPreference::HighPerformance,
+            force_fallback_adapter: false,
+            compatible_surface: Some(&surface),
+        })
+        .await
+        .map_err(err)?;
+    let info = adapter.get_info();
+    let backend = match info.backend {
+        wgpu::Backend::BrowserWebGpu => "webgpu",
+        wgpu::Backend::Gl => "webgl2",
+        _ => "other",
+    };
+    let (device, queue) = adapter
+        .request_device(&wgpu::DeviceDescriptor {
+            label: Some("space-web"),
+            required_features: wgpu::Features::empty(),
+            required_limits: wgpu::Limits::downlevel_webgl2_defaults().using_resolution(adapter.limits()),
+            memory_hints: wgpu::MemoryHints::Performance,
+            trace: wgpu::Trace::Off,
+        })
+        .await
+        .map_err(err)?;
+    let caps = surface.get_capabilities(&adapter);
+    let first = *caps.formats.first().ok_or_else(|| err("the canvas offers no format"))?;
+    // the space's shaders write display values (the stage's offscreen target is Rgba8Unorm): a non-sRGB surface –
+    // BGRA8Unorm on Chrome's WebGPU, RGBA8Unorm on WebGL2; the post stack's textures take the same format (#277)
+    let format = caps.formats.iter().copied().find(|f| !f.is_srgb()).unwrap_or(first);
+    Ok(CanvasGpu { surface, device, queue, format, alpha: caps.alpha_modes[0], backend, name: info.name })
+}
+
 #[wasm_bindgen]
 pub struct SpaceView {
     space: Space,
@@ -242,7 +335,12 @@ pub struct SpaceView {
     device: wgpu::Device,
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
-    gpu: Option<SpaceGpu>,
+    /// the renderer every deck draws with (deck-space `stage`, #463)
+    stage: Stage,
+    /// the splash until the set is there, at most `SPLASH_AT_MOST` seconds
+    fade: Fade,
+    cover: bool,
+    age: f32,
     backend: String,
     adapter: String,
     /// #220: the canvas (its size = the render size), the display size the page gives, the governor
@@ -260,25 +358,9 @@ impl SpaceView {
     /// browser has an adapter, else WebGL2) or "webgl2". A canvas that once had a WebGPU context can't give WebGL2 –
     /// the page retries on a fresh canvas with "webgl2" if this fails.
     pub async fn create(canvas: web_sys::HtmlCanvasElement, deck_graph: String, values: String, prefer: String) -> Result<SpaceView, JsValue> {
-        let backends = if prefer == "webgl2" { wgpu::Backends::GL } else { wgpu::Backends::BROWSER_WEBGPU | wgpu::Backends::GL };
-        let instance = wgpu::util::new_instance_with_webgpu_detection(&wgpu::InstanceDescriptor { backends, ..Default::default() }).await;
         let display = (canvas.width().max(1), canvas.height().max(1));
         let element = canvas.clone();
-        let surface = instance.create_surface(wgpu::SurfaceTarget::Canvas(canvas)).map_err(err)?;
-        let adapter = instance
-            .request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::HighPerformance,
-                force_fallback_adapter: false,
-                compatible_surface: Some(&surface),
-            })
-            .await
-            .map_err(err)?;
-        let info = adapter.get_info();
-        let backend = match info.backend {
-            wgpu::Backend::BrowserWebGpu => "webgpu",
-            wgpu::Backend::Gl => "webgl2",
-            _ => "other",
-        };
+        let CanvasGpu { surface, device, queue, format, alpha, backend, name } = open_canvas(canvas, &prefer).await?;
         let gpu = if backend == "webgpu" { Gpu::WebGpu } else { Gpu::WebGl2 };
         let presets = Presets::default();
         let mut governor = Governor::with(&presets, gpu);
@@ -286,21 +368,6 @@ impl SpaceView {
         let (w, h) = governor.render_size();
         element.set_width(w);
         element.set_height(h);
-        let (device, queue) = adapter
-            .request_device(&wgpu::DeviceDescriptor {
-                label: Some("space-web"),
-                required_features: wgpu::Features::empty(),
-                required_limits: wgpu::Limits::downlevel_webgl2_defaults().using_resolution(adapter.limits()),
-                memory_hints: wgpu::MemoryHints::Performance,
-                trace: wgpu::Trace::Off,
-            })
-            .await
-            .map_err(err)?;
-        let caps = surface.get_capabilities(&adapter);
-        let first = *caps.formats.first().ok_or_else(|| err("the canvas offers no format"))?;
-        // the space's shaders write display values (the stage's offscreen target is Rgba8Unorm): a non-sRGB surface –
-        // BGRA8Unorm on Chrome's WebGPU, RGBA8Unorm on WebGL2; the post stack's textures take the same format (#277)
-        let format = caps.formats.iter().copied().find(|f| !f.is_srgb()).unwrap_or(first);
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format,
@@ -308,20 +375,28 @@ impl SpaceView {
             height: h,
             present_mode: wgpu::PresentMode::AutoVsync,
             desired_maximum_frame_latency: 2,
-            alpha_mode: caps.alpha_modes[0],
+            alpha_mode: alpha,
             view_formats: vec![],
         };
         surface.configure(&device, &config);
         let (graph, look) = being_of(&deck_graph, &values).map_err(err)?;
         let node = graph.first(Kind::Space).ok_or_else(|| err("the deck's graph has no space node"))?;
+        let mut stage = Stage::new(&device, &queue, format, (w, h), 1.0, 1.0, false).await.map_err(err)?;
+        stage.set_host_quality(*governor.rung());
+        stage.load(&device, format, &graph, Vec::new()).await.map_err(err)?;
         let mut space = Space::new(&graph, node, &look, std::path::Path::new(""), Portraits::manual());
         space.set_view(w as f32, h as f32);
         frame_for(&mut space, w, h);
         let page = Page { mirror: mirror_of(&graph), turned: Vec::new() };
         let meters = graph.nodes.iter().map(|n| vec![0.0; n.kind.outputs().len()]).collect();
         // a browser's WebGPU adapter often has no name (privacy): the backend alone then
-        let adapter = if info.name.is_empty() { backend.to_string() } else { format!("{} ({backend})", info.name) };
-        Ok(SpaceView { space, graph, page, meters, beat: tempo::Now::default(), surface, device, queue, config, gpu: None, backend: backend.into(), adapter, canvas: element, display, governor, presets, gpu_class: gpu })
+        let adapter = if name.is_empty() { backend.to_string() } else { format!("{name} ({backend})") };
+        Ok(SpaceView { space, graph, page, meters, beat: tempo::Now::default(), surface, device, queue, config, stage, fade: Fade { alpha: 1.0 }, cover: true, age: 0.0, backend: backend.into(), adapter, canvas: element, display, governor, presets, gpu_class: gpu })
+    }
+
+    /// no set is coming: the splash goes
+    pub fn uncover(&mut self) {
+        self.cover = false;
     }
 
     /// "webgpu" or "webgl2"
@@ -345,9 +420,7 @@ impl SpaceView {
     fn fit(&mut self) {
         self.governor.set_display(self.display.0, self.display.1);
         let (w, h) = self.governor.render_size();
-        if let Some(g) = self.gpu.as_mut() {
-            g.set_quality(*self.governor.rung());
-        }
+        self.stage.set_host_quality(*self.governor.rung());
         if (w, h) == (self.config.width, self.config.height) {
             return;
         }
@@ -358,9 +431,7 @@ impl SpaceView {
         self.surface.configure(&self.device, &self.config);
         self.space.set_view(w as f32, h as f32);
         frame_for(&mut self.space, w, h);
-        if let Some(g) = self.gpu.as_mut() {
-            g.resize(&self.device, (w, h));
-        }
+        self.stage.resize(&self.device, (w, h));
     }
 
     /// Another being (the character switcher): a new `deck.graph` and the page's values now; the set and the camera
@@ -368,6 +439,9 @@ impl SpaceView {
     pub fn set_being(&mut self, deck_graph: String, values: String) -> Result<(), JsValue> {
         let (graph, look) = being_of(&deck_graph, &values).map_err(err)?;
         self.space.replace_being(&graph, &look);
+        if let Some(node) = graph.first(Kind::Space) {
+            self.stage.set_space_node(&self.device, node);
+        }
         self.page = Page { mirror: mirror_of(&graph), turned: Vec::new() };
         self.meters = graph.nodes.iter().map(|n| vec![0.0; n.kind.outputs().len()]).collect();
         self.graph = graph;
@@ -439,14 +513,6 @@ impl SpaceView {
         let meters = &self.meters;
         let meter = |n: usize, p: usize| meters.get(n).and_then(|m| m.get(p)).copied().unwrap_or(0.0);
         self.space.update(dt.clamp(0.0, 0.1), time, &mut self.page, &self.beat, &meter);
-        let size = (self.config.width, self.config.height);
-        let rung = *self.governor.rung();
-        let gpu = self.gpu.get_or_insert_with(|| {
-            let mut g = SpaceGpu::new(&self.device, &self.queue, &self.space, self.config.format, size);
-            g.set_quality(rung);
-            g
-        });
-        gpu.sync(&self.device, &self.queue, &mut self.space);
         let frame = match self.surface.get_current_texture() {
             Ok(f) => f,
             Err(wgpu::SurfaceError::Outdated | wgpu::SurfaceError::Lost) => {
@@ -457,7 +523,10 @@ impl SpaceView {
         };
         let view = frame.texture.create_view(&Default::default());
         let mut enc = self.device.create_command_encoder(&Default::default());
-        gpu.draw(&self.queue, &mut enc, &view, size, &self.space, time);
+        self.age += dt;
+        self.fade.step(self.cover && self.age < SPLASH_AT_MOST, dt);
+        let tick = Tick { graph: &self.graph, input: &|_, _, d| d, tempo: &self.beat, time, dt };
+        self.stage.frame(&self.device, &self.queue, &mut enc, &view, &tick, &Over { hud: None, splash: (self.fade.alpha, false), label_centred: true }, Some(&mut self.space));
         self.queue.submit([enc.finish()]);
         frame.present();
         Ok(())
@@ -574,37 +643,14 @@ impl SpaceView {
     /// The set has arrived: its .glb and its images decoded by the browser – `images` = [index, width, height, RGBA
     /// bytes, …] (an image the browser couldn't decode is left out: it draws untextured grey).
     pub fn give_set(&mut self, glb_bytes: &[u8], images: js_sys::Array) -> Result<(), JsValue> {
-        let mut decoded: HashMap<usize, image::RgbaImage> = HashMap::new();
-        let items: Vec<JsValue> = images.iter().collect();
-        for c in items.chunks_exact(4) {
-            let (Some(i), Some(w), Some(h)) = (c[0].as_f64(), c[1].as_f64(), c[2].as_f64()) else { continue };
-            let px = js_sys::Uint8Array::new(&c[3]).to_vec();
-            if let Some(img) = image::RgbaImage::from_raw(w as u32, h as u32, px) {
-                decoded.insert(i as usize, img);
-            }
-        }
-        let (max, hide) = self.space.set_options();
-        let hide = hide.to_vec();
-        let model = glb::parse_with(glb_bytes, max, &hide, &mut |i, _| decoded.remove(&i).ok_or_else(|| anyhow::anyhow!("not decoded by the browser")));
-        let ok = model.is_ok();
-        self.space.set_arrived(model);
-        if ok {
-            Ok(())
-        } else {
-            Err(err(&self.space.set_status))
-        }
+        self.cover = false;
+        set_from_page(&mut self.space, glb_bytes, images)
     }
 
     /// The portraits the heads ask for: [slot, character, mood, …] – the page fetches and decodes each and answers
     /// with `give_portrait` (or `no_portrait`).
     pub fn portrait_requests(&mut self) -> js_sys::Array {
-        let out = js_sys::Array::new();
-        for (slot, character, mood) in self.space.portraits.requests() {
-            out.push(&JsValue::from(slot as u32));
-            out.push(&JsValue::from_str(&character));
-            out.push(&JsValue::from_str(&mood));
-        }
-        out
+        portrait_asks(&mut self.space)
     }
 
     /// a portrait sprite decoded by the browser (RGBA8)

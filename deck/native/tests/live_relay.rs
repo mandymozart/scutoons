@@ -1,5 +1,6 @@
 //! A deck's outlet against the real relay on 127.0.0.1 (#186), in the style of bridge/tests/timing.rs: the conductor
-//! sends `media.preload` + a cell; the deck fetches with its token from a local file server, answers `media.ready`
+//! sends `media.preload` + a cell; the deck gets its show media's signed links with its token from a local API and
+//! fetches them (without the token, #470) from a local vault, answers `media.ready`
 //! (what is missing, and why), composes the cell (its 3D set → the space target, its picture into the plane); a deck
 //! that starts again gets the outlet's snapshot (cell + preload) and shows the cell at once; a dropped connection
 //! resumes and gets what was sent meanwhile. Ports 7000–7099 only (the machine's agreed slot); everything started here
@@ -44,7 +45,9 @@ fn relay() -> (tokio::runtime::Runtime, u16) {
     (rt, port)
 }
 
-/// A file server for show media: `/live/...` from `root`, only with `Authorization: Bearer T` (else 401).
+/// The API and the vault in one local server (#470): `/api/decks/media?path=live/…` answers `Authorization: Bearer T`
+/// with a signed link `/vault/live/…?token=s` (else 401); `/vault/…` serves the file from `root` only for that link and
+/// **refuses any request that carries a token** (400) – the token must never reach a media host.
 struct Files {
     port: u16,
     stop: Arc<AtomicBool>,
@@ -94,14 +97,23 @@ fn serve(mut s: TcpStream, root: &Path, hits: &Mutex<Vec<String>>) {
         head.extend_from_slice(&b[..n]);
     }
     let head = String::from_utf8_lossy(&head).to_string();
-    let path = head.split_whitespace().nth(1).unwrap_or("/").to_string();
-    hits.lock().unwrap().push(path.clone());
-    let authorised = head.lines().any(|l| l.eq_ignore_ascii_case("authorization: bearer T"));
-    let file = root.join(path.trim_start_matches('/'));
-    let (status, body) = if !authorised {
-        ("401 Unauthorized", b"{\"error\":\"token\"}".to_vec())
-    } else if let Ok(bytes) = std::fs::read(&file) {
-        ("200 OK", bytes)
+    let target = head.split_whitespace().nth(1).unwrap_or("/").to_string();
+    hits.lock().unwrap().push(target.clone());
+    let bearer = head.lines().find_map(|l| l.to_ascii_lowercase().strip_prefix("authorization: bearer ").map(str::to_string));
+    let port = s.local_addr().unwrap().port();
+    let (status, body) = if let Some(path) = target.strip_prefix("/api/decks/media?path=") {
+        match bearer.as_deref() {
+            Some("t") => ("200 OK", format!("{{\"url\":\"http://127.0.0.1:{port}/vault/{path}?token=s\",\"expires\":1}}").into_bytes()),
+            _ => ("401 Unauthorized", b"{\"error\":\"unauthorized\"}".to_vec()),
+        }
+    } else if let Some(rest) = target.strip_prefix("/vault/") {
+        let (path, signed) = rest.split_once('?').map_or((rest, false), |(p, q)| (p, q == "token=s"));
+        match (bearer.is_some(), signed, std::fs::read(root.join(path))) {
+            (true, _, _) => ("400 Bad Request", b"{\"error\":\"a token reached the vault\"}".to_vec()),
+            (false, false, _) => ("403 Forbidden", b"{}".to_vec()),
+            (false, true, Ok(bytes)) => ("200 OK", bytes),
+            (false, true, Err(_)) => ("404 Not Found", b"{}".to_vec()),
+        }
     } else {
         ("404 Not Found", b"{}".to_vec())
     };
@@ -192,12 +204,13 @@ struct Deck {
 }
 
 impl Deck {
-    /// a deck's outlet `left` of session `code`: its cache and sets under `root`, the media server's token T
-    fn start(&self, code: &str) -> Live {
+    /// a deck's outlet `left` of session `code`: its cache and sets under `root`, the API at `api`, the deck token T
+    fn start(&self, code: &str, api: &str) -> Live {
         let cfg = Config::new(&format!("ws://127.0.0.1:{}/live/{code}", self.port), "left", "de").unwrap();
         let cache = self.root.join("cache");
         let lib = Library { api: "offline://api".into(), cdn: "offline://cdn".into(), cache: cache.clone() };
         let media = Media {
+            api: api.into(),
             cache,
             resolve: Box::new(LocalSets { sets: self.root.join("sets"), quality: "low".into(), synced: false }),
             fetch: Box::new(HttpFetch::default()),
@@ -238,7 +251,7 @@ fn preload_cells_ready_and_the_snapshot_on_a_restart() {
     let mut cond = Conductor::join(port, "T186");
     cond.wait("welcome", |m| matches!(m, Message::Welcome(_)).then_some(()));
 
-    let mut live = deck.start("T186");
+    let mut live = deck.start("T186", &files.url("/api"));
     cond.outlets(1);
 
     // doors: the conductor preloads the outlet – a show medium, a set's 3D variant, one that isn't there
@@ -251,9 +264,9 @@ fn preload_cells_ready_and_the_snapshot_on_a_restart() {
         bytes: None,
     };
     let items = vec![
-        item("pulpit", Some(files.url("/live/catpope/pulpit.png")), None),
+        item("pulpit", Some("live/catpope/pulpit.png".into()), None),
         item("nave", None, Some(("cathedral", SpotMode::Model3d))),
-        item("organ", Some(files.url("/live/catpope/organ.webm")), None),
+        item("organ", Some("live/catpope/organ.webm".into()), None),
     ];
     cond.send(Message::MediaPreload(MediaPreload { outlet: "left".into(), items: items.clone() }));
     let ready = cond.wait("media.ready", |m| if let Message::MediaReady(r) = m { Some(r.clone()) } else { None });
@@ -261,7 +274,10 @@ fn preload_cells_ready_and_the_snapshot_on_a_restart() {
     assert_eq!(ready.ready, ["pulpit", "nave"]);
     assert_eq!(ready.missing, ["organ"]);
     assert_eq!(ready.why.unwrap()["organ"], "HTTP 404");
-    assert!(files.hits.lock().unwrap().contains(&"/live/catpope/pulpit.png".to_string()), "fetched with the token");
+    // the token went to the API, the vault got the signed link (and would have refused a token)
+    let hits = files.hits.lock().unwrap().clone();
+    assert!(hits.contains(&"/api/decks/media?path=live/catpope/pulpit.png".to_string()), "{hits:?}");
+    assert!(hits.contains(&"/vault/live/catpope/pulpit.png?token=s".to_string()), "{hits:?}");
 
     // the sermon: the cell → the space target (the cathedral at the nave's centre) + the plane (the pulpit's picture)
     let frames = live.frames.take().unwrap();
@@ -292,7 +308,7 @@ fn preload_cells_ready_and_the_snapshot_on_a_restart() {
     drop(live);
     drop(frames);
     cond.outlets(0);
-    let mut again = deck.start("T186");
+    let mut again = deck.start("T186", &files.url("/api"));
     let frames = again.frames.take().unwrap();
     // (the cell may be composed a moment before the snapshot's preload has found the cached files: then once more)
     frame(&frames, "the snapshot's cell with the cached picture", sermon);

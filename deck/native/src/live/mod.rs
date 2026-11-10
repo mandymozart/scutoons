@@ -71,6 +71,8 @@ mod running {
             .ok_or("no outlet: set relay + outlet in /var/lib/deck/deck.toml (or --relay / --outlet)")?
             .map_err(|e| format!("{e:#}"))?;
         let media = Media {
+            // show media's signed links (#470): the library's API (DECK_API, else production – main.rs)
+            api: lib.api.clone(),
             cache: lib.cache.clone(),
             resolve: Box::new(LocalSets { sets, quality: "low".into(), synced }),
             fetch: Box::new(HttpFetch::default()),

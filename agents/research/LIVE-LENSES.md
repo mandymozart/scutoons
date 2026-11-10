@@ -1,4 +1,4 @@
-Status 2026-10-30: concept (#186, owner: option 1 – DECISIONS 2026-10-30). Built: the protocol (media.preload / media.ready / typed cells) and the deck's native outlet (deck/native/README.md "Live outlet"). Not built: the stage builder (§6 is a design draft), the set data model (#193), the signed media route (§7).
+Status 2026-10-30: concept (#186, owner: option 1 – DECISIONS 2026-10-30). Built: the protocol (media.preload / media.ready / typed cells) and the deck's native outlet (deck/native/README.md "Live outlet"). Not built: the stage builder (§6 is a design draft), the set data model (#193). 2026-11-10: the signed media route (§7) is built (#470).
 
 # LIVE-LENSES — storyboard, slice editor and Live as one
 
@@ -127,8 +127,10 @@ deck's badge and its ready light; its layers stack beside it.
   desktop) before building (RULES "Working with the owner").
 
 ## 7. Left (issues)
-- **Signed media route:** show media under `live/<toon>/` need the deck token on the CDN side – a server route that
-  answers a deck token with a short signed URL (bunny token auth) or proxies. Until then `url`s must be public or local.
+- **Signed media route** (built 2026-11-10, #470): show media live in the vault (`PUT /api/assets/protected?show=<toon>`);
+  a preload `url` `live/<toon>/<file>` is asked as `GET /api/decks/media?path=…` with the deck token (deck tokens only)
+  and fetched from the 10-minute signed link. The token goes only to the API, never to a media host (deck-outlet `show`).
+  The browser deck pairs like the native one (deck-link `Handshake` + `Session`; a non-extractable WebCrypto key).
 - **The set data model** (#193): sets, spots, variants per mode; the API resolver for decks.
 - **The stage builder UI** (§6) and the conductor resolving picks into wire cells (the conductor app, LIVE §1.2).
 - Deck side: video (S4), video-in, audio layers on the deck's audio graph, mirror, a show clock for cells' `at`.

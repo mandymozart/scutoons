@@ -1,31 +1,12 @@
 //! The scene switcher (#250, F5): a list of the built-in scenes and every `*.toml` in the scenes folder, the arrows move,
 //! Enter loads the scene in place (main.rs's `switch`), and the pick is written into deck.toml as `scene = "…"` so the
 //! next boot plays it. Kept as basic as the settings page (quality.rs) – this file has no window, no GPU.
-use crate::scene;
 use std::path::{Path, PathBuf};
 
 /// where the deck keeps its scenes (the image installs `deck/native/scenes` here)
 pub const SCENES_DIR: &str = "/usr/share/deck/scenes";
 
-/// the built-in scenes in the list's order (the first is the stage's default)
-pub const BUILTIN: [&str; 12] = ["idle", "madness", "cathedral", "catpope-analog", "conductor", "outlet", "strobe", "pulse-thunderwash", "lamps-off", "test-pattern", "module-walk", "module-analog"];
-
-/// the source of a built-in scene by name
-pub fn builtin(name: &str) -> Option<&'static str> {
-    Some(match name {
-        "idle" => scene::IDLE_SCENE,
-        "madness" => scene::MADNESS_SCENE,
-        "cathedral" => scene::CATHEDRAL_SCENE,
-        "catpope-analog" => include_str!("../scenes/catpope-analog.toml"),
-        "conductor" => scene::CONDUCTOR_SCENE,
-        "outlet" => scene::OUTLET_SCENE,
-        "strobe" => include_str!("../scenes/strobe.toml"),
-        "pulse-thunderwash" => include_str!("../scenes/pulse-thunderwash.toml"),
-        "lamps-off" => include_str!("../scenes/lamps-off.toml"),
-        "test-pattern" => scene::TEST_PATTERN_SCENE,
-        _ => return crate::demo_scenes::get(name), // #406: module-walk, module-analog
-    })
-}
+pub use crate::scene::{builtin, BUILTIN};
 
 /// one line of the list: what the HUD shows and what `--scene` / deck.toml's `scene` is
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -216,7 +197,7 @@ mod tests {
     fn every_built_in_scene_builds() {
         for name in BUILTIN {
             let src = builtin(name).unwrap_or_else(|| panic!("{name}: no source"));
-            let s = scene::Scene::parse(src).unwrap_or_else(|e| panic!("{name}: {e:#}"));
+            let s = crate::scene::Scene::parse(src).unwrap_or_else(|e| panic!("{name}: {e:#}"));
             // a scene needing a module this build lacks is refused with the feature's name – everything else must build
             match crate::modules::check(&s) {
                 Ok(()) if s.nodes.iter().any(|n| n.kind.starts_with("module:")) => {} // its wasm: tests/modules.rs

@@ -29,6 +29,11 @@ pub fn scale(sh: f32) -> f32 {
     (sh / 540.0).round().max(1.0)
 }
 
+/// the build label's integer scale: the HUD's, by the width on a portrait screen (a phone)
+pub fn label_scale(sw: f32, sh: f32) -> f32 {
+    if sh > sw { (sw / 375.0).round().max(1.0) } else { scale(sh) }
+}
+
 /// the bar's width in HUD pixels for a `sw` × `sh` screen: the whole width at the HUD's scale
 pub fn bar_width(sw: f32, sh: f32) -> u32 {
     ((sw / scale(sh)) as u32).clamp(8, BAR_MAX)

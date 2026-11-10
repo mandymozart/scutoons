@@ -2,7 +2,7 @@
 use super::{ChapterFeed, Prepared};
 use crate::graph::Node;
 use crate::library::Library;
-use deck_outlet::text::{self, Dialog};
+use deck_space::chapter::{finish_slice, Dialog, Source};
 use anyhow::{bail, Context, Result};
 use image::RgbaImage;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -10,39 +10,8 @@ use std::sync::mpsc::sync_channel;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-/// the longest side a slice texture gets (a taller slice is scaled down)
-const MAX_SIDE: u32 = 4096;
-/// the caption texture's width
-const CAPTION_W: u32 = 1536;
-
-/// the caption of a slice: its shortest painted lettering (a sound, a title), else its shortest line of dialog –
-/// short enough to be shouted (≤ 48 characters)
-pub fn pick_caption(dialog: &[Dialog]) -> Option<String> {
-    let mut best: Option<(u8, usize, String)> = None;
-    for d in dialog {
-        let t = d.text().split_whitespace().collect::<Vec<_>>().join(" ");
-        let n = t.chars().count();
-        if n == 0 || n > 48 {
-            continue;
-        }
-        let rank = match (d.font.as_deref(), d.variant.as_deref()) {
-            (Some("lettering"), _) => 0,
-            (_, Some("bubble")) => 1,
-            _ => 2,
-        };
-        if best.as_ref().is_none_or(|(r, len, _)| (rank, n) < (*r, *len)) {
-            best = Some((rank, n, t));
-        }
-    }
-    best.map(|(_, _, t)| t)
-}
-
 pub fn spawn(lib: Library, node: &Node, index: usize) -> ChapterFeed {
-    let toon = node.str("toon").unwrap_or("catpope").to_string();
-    let n = node.f32("chapter", 1.0) as u32;
-    let quality = node.str("quality").unwrap_or("medium").to_string();
-    let bake = node.bool("dialog", true);
-    let start = node.f32("start", 0.0).max(0.0) as usize;
+    let Source { toon, chapter: n, quality, bake, start } = Source::of(node);
     let (tx, rx) = sync_channel(1);
     let status = Arc::new(Mutex::new("waiting".to_string()));
     let ready = Arc::new(AtomicBool::new(false));
@@ -66,10 +35,7 @@ pub fn spawn(lib: Library, node: &Node, index: usize) -> ChapterFeed {
                     }
                 }
             };
-            let slices: Vec<(String, Vec<Dialog>)> = ch
-                .slices()
-                .filter_map(|s| Some((s.image_path(&quality)?.to_string(), s.dialog.clone())))
-                .collect();
+            let slices = ch.strip(&quality);
             if slices.is_empty() {
                 set(format!("'{}' has no slices", ch.title));
                 return;
@@ -107,39 +73,9 @@ pub fn spawn(lib: Library, node: &Node, index: usize) -> ChapterFeed {
 fn prepare(lib: &Library, toon: &str, path: &str, dialog: &[Dialog], bake: bool) -> Result<(RgbaImage, Option<RgbaImage>)> {
     let file = lib.file(toon, path)?;
     let bytes = std::fs::read(&file).with_context(|| format!("reading {}", file.display()))?;
-    let mut img = image::load_from_memory(&bytes).with_context(|| format!("decoding {path}"))?.to_rgba8();
+    let img = image::load_from_memory(&bytes).with_context(|| format!("decoding {path}"))?.to_rgba8();
     if img.width() == 0 || img.height() == 0 {
         bail!("{path}: an empty image");
     }
-    if bake {
-        text::bake_dialog(&mut img, dialog);
-    }
-    let side = img.width().max(img.height());
-    if side > MAX_SIDE {
-        let k = MAX_SIDE as f32 / side as f32;
-        let (w, h) = (((img.width() as f32 * k) as u32).max(1), ((img.height() as f32 * k) as u32).max(1));
-        img = image::imageops::resize(&img, w, h, image::imageops::FilterType::Triangle);
-    }
-    let caption = pick_caption(dialog).and_then(|t| text::caption(&t, CAPTION_W, 2));
-    Ok((img, caption))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn the_caption_prefers_short_lettering() {
-        let d: Vec<Dialog> = serde_json::from_str(
-            r#"[{"text":"Puh! Es war nur ein Traum.","variant":"bubble","font":"mono"},
-                {"text":"An jedem Morgen ging die Sonne auf, so war es geschrieben. Es verschob sich.","variant":"bubble"},
-                {"text":"ZZZZZ","variant":"bubble","font":"lettering"}]"#,
-        )
-        .unwrap();
-        assert_eq!(pick_caption(&d).as_deref(), Some("ZZZZZ"));
-        assert_eq!(pick_caption(&d[..2]).as_deref(), Some("Puh! Es war nur ein Traum."));
-        assert_eq!(pick_caption(&d[1..2]), None, "too long to shout");
-        let upper: Vec<Dialog> = serde_json::from_str(r#"[{"text":"Nacht\nInnen","uppercase":true}]"#).unwrap();
-        assert_eq!(pick_caption(&upper).as_deref(), Some("NACHT INNEN"));
-    }
+    Ok(finish_slice(img, dialog, bake))
 }
