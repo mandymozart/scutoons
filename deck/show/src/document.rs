@@ -211,6 +211,12 @@ impl fmt::Display for ParseError {
 
 impl std::error::Error for ParseError {}
 
+/// One document for editing (#91): the shape must be right, what it says may be wrong – the editor opens it and its
+/// problems list says what (`validate`). What runs or is flashed goes through [`parse`].
+pub fn open(json: &str) -> Result<Show, String> {
+    serde_json::from_str(json).map_err(|e| ParseError::Shape(e.to_string()).to_string())
+}
+
 /// One document, read and checked on its own. The tree: [`validate::resolve`].
 pub fn parse(json: &str) -> Result<Show, ParseError> {
     let show: Show = serde_json::from_str(json).map_err(|e| ParseError::Shape(e.to_string()))?;
@@ -219,5 +225,16 @@ pub fn parse(json: &str) -> Result<Show, ParseError> {
         Ok(show)
     } else {
         Err(ParseError::Invalid(problems))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn a_document_with_problems_opens_for_editing_and_does_not_parse() {
+        let doc = r#"{ "id": "x", "version": 1, "outlets": [{ "id": "left" }], "rows": [{ "id": "a", "cells": { "nowhere": { "mode": "black" } } }] }"#;
+        assert!(super::open(doc).is_ok());
+        assert!(matches!(super::parse(doc), Err(super::ParseError::Invalid(_))));
+        assert!(super::open("{}").unwrap_err().starts_with("not a show document"));
     }
 }

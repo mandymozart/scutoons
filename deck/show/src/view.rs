@@ -358,6 +358,133 @@ pub fn reports(sub: &Subtree) -> Vec<ReportView> {
         .collect()
 }
 
+/// One line of the cue sheet (#91 item 6): a row in order, how it fires, what each column does when it fires.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Cue {
+    pub number: usize,
+    pub row: String,
+    /// `ch3.dialog-start · auto · now`, `ch3.yellowmouse-enters · suggest · hold 1.5 s · next bar`, `by hand`
+    pub trigger: String,
+    /// (column, words) for each column the row changes; a kept column is not listed
+    pub does: Vec<(String, String)>,
+    /// what else it sends: device messages, addresses
+    pub sends: Vec<String>,
+}
+
+/// `ch3.end · hand` → the trigger in words, with the hold and the moment when they say something
+pub fn trigger(fire: &Fire) -> String {
+    let Some(e) = &fire.event else {
+        return match fire.moment {
+            Moment::Now => "by hand".into(),
+            m => format!("by hand · {}", moment_text(m)),
+        };
+    };
+    let mut s = format!("{e} · {}", how_text(fire.how));
+    if fire.hold_ms > 0 {
+        s = format!("{s} · hold {:.1} s", fire.hold_ms as f32 / 1000.0);
+    }
+    format!("{s} · {}", moment_text(fire.moment))
+}
+
+/// What a cell does when its row fires, in words (`plays scene:nave · light 0.2`, `glides scene:nave: dim 0.5`, `= left`)
+pub fn does(cell: &Cell) -> String {
+    match cell {
+        Cell::Play { piece: Some(_), .. } => format!("plays {}", cell_text(cell)),
+        Cell::Values { piece, values } => format!("glides {piece}: {}", values_text(values)),
+        Cell::Mirror { of } => format!("shows what {of} shows"),
+        other => cell_text(other),
+    }
+}
+
+/// The cue sheet: every row in order, its trigger, what each outlet and seat does.
+pub fn cue_sheet(show: &Show) -> Vec<Cue> {
+    let cols = columns(show);
+    show.rows
+        .iter()
+        .enumerate()
+        .map(|(i, r)| {
+            let mut sends = vec![];
+            let does = cols
+                .iter()
+                .filter_map(|c| {
+                    let cell = r.cells.get(&c.id).filter(|c| !matches!(c, Cell::Keep))?;
+                    if let Cell::Play { piece, send, .. } = cell {
+                        sends.extend(send.iter().map(|m| format!("{} · {}", c.id, device_text(m))));
+                        if piece.is_none() {
+                            // a device's cell is what it sends, said once
+                            return None;
+                        }
+                    }
+                    Some((c.id.clone(), does(cell)))
+                })
+                .collect();
+            sends.extend(r.addresses.iter().map(address_text));
+            Cue { number: i + 1, row: r.id.clone(), trigger: trigger(&r.fire), does, sends }
+        })
+        .collect()
+}
+
+/// What a problem points at in the document shown: a click selects it (#91 item 6).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Points {
+    /// the document as a whole
+    Show,
+    /// a row (by index)
+    Row(usize),
+    /// a row's cell: row index, column index (outlets, then seats, as the matrix)
+    Cell(usize, usize),
+    /// a seat (by index)
+    Seat(usize),
+}
+
+/// One line of the problems list.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ProblemView {
+    /// the core's words
+    pub text: String,
+    /// an error (the document is not valid) or a warning (a deck's report: it never blocks GO)
+    pub error: bool,
+    pub points: Points,
+}
+
+/// Everything wrong with the document shown, then what the decks lack after the last flash (when `sub` runs it). Errors
+/// come from `validate`, warnings from the flash reports; each points at its row, cell or seat.
+pub fn problems(show: &Show, sub: Option<&Subtree>) -> Vec<ProblemView> {
+    use crate::validate::Spot;
+    let cols = columns(show);
+    let row = |id: &str| show.rows.iter().position(|r| r.id == id);
+    let mut out: Vec<ProblemView> = crate::validate::validate(show)
+        .into_iter()
+        .map(|p| {
+            let points = match p.spot() {
+                Spot::Row(r) => row(&r).map_or(Points::Show, Points::Row),
+                Spot::Cell { row: r, column } => match (row(&r), cols.iter().position(|c| c.id == column)) {
+                    (Some(r), Some(c)) => Points::Cell(r, c),
+                    (Some(r), None) => Points::Row(r),
+                    _ => Points::Show,
+                },
+                Spot::Seat(s) => show.seats.iter().position(|x| x.id == s).map_or(Points::Show, Points::Seat),
+                Spot::Show | Spot::Face => Points::Show,
+            };
+            ProblemView { text: p.to_string(), error: true, points }
+        })
+        .collect();
+    for r in sub.map(reports).unwrap_or_default() {
+        if r.ok {
+            continue;
+        }
+        let head = format!("{} · {}", r.what, r.from);
+        if r.lacks.is_empty() {
+            out.push(ProblemView { text: format!("{head}: {}", r.line), error: false, points: Points::Show });
+        }
+        for l in &r.lacks {
+            let points = crate::ready::lack_row(l, show).and_then(row).map_or(Points::Show, Points::Row);
+            out.push(ProblemView { text: format!("{head}: {l}"), error: false, points });
+        }
+    }
+    out
+}
+
 /// One section of the row inspector: a heading and its (label, value) lines.
 pub type Section = (String, Vec<(String, String)>);
 
@@ -475,6 +602,45 @@ mod tests {
         let lines: Vec<String> = log(sub.log(), 5).into_iter().map(|(_, l)| l).collect();
         assert!(lines.contains(&"character:yellowmouse > dance:samba: reached 1 · passed 1 · answered 1".to_string()), "{lines:?}");
         assert!(lines.contains(&"location:* > close_doors: nobody".to_string()), "{lines:?}");
+    }
+
+    #[test]
+    fn the_cue_sheet_says_each_row_in_order_and_what_changes() {
+        let show = parse(include_str!("../fixtures/top-toy.show.json")).unwrap();
+        let cues = cue_sheet(&show);
+        assert_eq!(cues.len(), 4);
+        assert_eq!(cues[0].trigger, "by hand");
+        assert_eq!(cues[0].does[0], ("left".to_string(), "plays scene:nave · light 0.2".to_string()));
+        assert_eq!(cues[0].does[1], ("right".to_string(), "shows what left shows".to_string()));
+        assert_eq!(cues[0].sends, ["lamps · dmx"]);
+        assert_eq!(cues[1].does, [("left".to_string(), "glides scene:nave: dim 0.5".to_string())], "a kept column is not listed");
+        assert_eq!(cues[2].trigger, "ch3.yellowmouse-enters · suggest · hold 1.5 s · next bar");
+        assert_eq!(cues[2].sends, ["character:yellowmouse > dance:samba where group left", "location:* > close_doors"]);
+        assert_eq!(cues[3].trigger, "ch3.end · hand · now");
+    }
+
+    #[test]
+    fn the_problems_point_at_their_row_cell_or_seat_and_the_decks_reports_are_warnings() {
+        let mut doc: serde_json::Value = serde_json::from_str(include_str!("../fixtures/top-toy.show.json")).unwrap();
+        doc["rows"][1]["cells"]["foyer"] = serde_json::json!({ "mode": "go", "row": "nowhere" });
+        doc["rows"][2]["addresses"][0]["action"] = serde_json::json!("dance samba");
+        doc["seats"][0]["sits"] = serde_json::json!("phone:x");
+        let show: Show = serde_json::from_value(doc).unwrap();
+        let mut sub = Subtree::new(show.clone(), ClockChoice::Parent);
+        let lack = protocol::FlashReport {
+            running: protocol::Pinned { id: "top-toy".into(), version: 1 },
+            accepted: true,
+            why: None,
+            outlet: Some("left".into()),
+            ready: Some(false),
+            lacks: Some(vec!["row yellowmouse-enters: character:yellowmouse is not on this deck".into()]),
+        };
+        sub.on_wire(&protocol::Envelope::new("c7", protocol::Message::FlashReport(lack)), 10);
+        let p = problems(&show, Some(&sub));
+        let points: Vec<(&Points, bool)> = p.iter().map(|p| (&p.points, p.error)).collect();
+        assert_eq!(points, [(&Points::Seat(0), true), (&Points::Cell(1, 3), true), (&Points::Row(2), true), (&Points::Row(2), false)], "{p:?}");
+        assert_eq!(p[3].text, "outlet left · c7: row yellowmouse-enters: character:yellowmouse is not on this deck");
+        assert_eq!(reports(&sub)[0].line, "FLASH top-toy@1: 1 missing");
     }
 
     #[test]

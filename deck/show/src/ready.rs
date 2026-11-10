@@ -61,6 +61,12 @@ impl fmt::Display for Lack {
     }
 }
 
+/// The row a report's lack line points at (`row exit: …` → `exit`), so the editor's problems list can select it.
+pub fn lack_row<'a>(line: &'a str, show: &Show) -> Option<&'a str> {
+    let rest = line.strip_prefix("row ")?;
+    show.rows.iter().map(|r| r.id.as_str()).find(|id| rest.starts_with(&format!("{id}: "))).map(|id| &rest[..id.len()])
+}
+
 /// The file a deck keeps a flashed show in, under its cache: one per exact version (a version never changes).
 pub fn kept_as(p: &Pinned) -> String {
     format!("shows/{}@{}.json", p.id, p.version)

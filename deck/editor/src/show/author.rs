@@ -4,7 +4,7 @@
 //! and what the row sends, with a 2D / 3D switch; the rows band under it; on the right the row's inspector, the seats,
 //! save and load. The words are deck-show's view.rs; this file lays them out and names the places (`Hit`).
 use super::perform::button;
-use super::{Hit, Host};
+use super::{Hit, Host, Sheet};
 use deck_kit::controls::{self, Rect};
 use deck_kit::draw::DrawList;
 use deck_kit::tokens::Tokens;
@@ -36,16 +36,24 @@ fn fit(d: &DrawList, text: &str, px: f32, w: f32) -> String {
     controls::fit(text, (w / d.advance(px)).max(0.0) as usize)
 }
 
-/// the 2D / 3D switch at the foot of a stage rect
-pub fn view_switch(d: &mut DrawList, t: &Tokens, host: &mut Host, stage: Rect) {
+/// the 2D / 3D switch at the top of a stage rect; with `sheets` (Show) also the cue sheet and the problems list
+pub fn view_switch(d: &mut DrawList, t: &Tokens, host: &mut Host, stage: Rect, sheets: bool) {
+    let names: &[&str] = if sheets { &["3D", "2D", "Cues", "Problems"] } else { &["3D", "2D"] };
     let h = t.size.row - 4.0;
-    let w = d.advance(t.size.small) * 2.0 + 2.0 * t.size.pad;
-    let x = stage.x + stage.w - 2.0 * (w + 2.0) - t.size.pad;
+    let w: f32 = names.iter().map(|n| d.advance(t.size.small) * n.chars().count().max(2) as f32 + 2.0 * t.size.pad + 2.0).sum();
+    let x = stage.x + stage.w - w - t.size.pad;
     let y = stage.y + t.size.pad;
-    d.round_rect(x - 3.0, y - 3.0, 2.0 * (w + 2.0) + 4.0, h + 6.0, t.size.radius, t.color.surface_head);
-    let r = controls::pills(d, t, x, y, h, &["3D", "2D"], usize::from(host.two_d));
-    host.hits.push((r[0], Hit::View(false)));
-    host.hits.push((r[1], Hit::View(true)));
+    d.round_rect(x - 3.0, y - 3.0, w + 4.0, h + 6.0, t.size.radius, t.color.surface_head);
+    let on = match host.sheet.filter(|_| sheets) {
+        Some(Sheet::Cues) => 2,
+        Some(Sheet::Problems) => 3,
+        None => usize::from(host.two_d),
+    };
+    let r = controls::pills(d, t, x, y, h, names, on);
+    let hits = [Hit::View(false), Hit::View(true), Hit::Sheet(Sheet::Cues), Hit::Sheet(Sheet::Problems)];
+    for (r, hit) in r.into_iter().zip(hits) {
+        host.hits.push((r, hit));
+    }
 }
 
 /// one node of the overlay: a head (name, detail) and its lines (a dot before an input, after an output)
@@ -95,7 +103,8 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
     let mut tree = vec![controls::TreeRow { depth: 0, label: show.id.clone(), detail: if depth == 0 { "this deck".into() } else { format!("sub · {}", host.path.last().cloned().unwrap_or_default()) }, icon: "nodes", open: Some(true), selected: true }];
     let seats = view::seats(&show);
     for s in &seats {
-        tree.push(controls::TreeRow { depth: 1, label: s.id.clone(), detail: s.detail.clone(), icon: "folder", open: Some(false), selected: false });
+        let picked = host.seat == seats.iter().position(|x| x.id == s.id);
+        tree.push(controls::TreeRow { depth: 1, label: s.id.clone(), detail: s.detail.clone(), icon: "folder", open: Some(false), selected: picked });
     }
     for (i, r) in controls::tree(d, t, 0.0, y, l.left.w - 1.0, &tree, pointer).into_iter().enumerate() {
         host.hits.push((r, if i == 0 { Hit::Crumb(depth) } else { Hit::Enter(i - 1) }));
@@ -120,8 +129,11 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
             host.hits.push((r, Hit::Crumb(i)));
         }
     }
-    view_switch(d, t, host, l.stage);
-    if host.two_d {
+    view_switch(d, t, host, l.stage, true);
+    if host.sheet.is_some() {
+        let top = l.stage.y + t.size.row + pad;
+        super::sheets::draw(d, t, host, Rect { x: l.stage.x, y: top, w: l.stage.w, h: l.stage.h - (top - l.stage.y) }, pointer);
+    } else if host.two_d {
         d.rect(l.stage.x, l.stage.y + t.size.row + pad, l.stage.w, l.stage.h - t.size.row - pad, [t.color.stage[0], t.color.stage[1], t.color.stage[2], 0.6]);
         let top = l.stage.y + t.size.row + 2.0 * pad;
         let colw = ((l.stage.w - 4.0 * pad) / 3.6).max(120.0);
