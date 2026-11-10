@@ -141,6 +141,31 @@ pub enum Logged {
     ParentIgnored { row: Option<String> },
     /// an address and how many it reached; 0 = it stayed silent
     Addressed { address: String, action: String, reached: usize },
+    /// #90: an address down the tree, once the answers are in: 0 reached = "nobody"
+    Reached { address: String, action: String, reached: u64, passed: u64, answered: u64 },
+    /// #90: a lock from above came / went
+    Locked,
+    Unlocked,
+    /// #90: the operator tried to change the word under a lock from above
+    WordRefused,
+    /// #90: this seat cannot be locked
+    LockRefused { seat: String },
+    /// #90: a child sent what the seat does not use of its face
+    NotUsed { seat: String, what: String },
+    /// #90: this subtree has its own clock, the parent's anchor is ignored
+    ClockKept,
+    /// #90: a subtree on its parent's time does not lead the clock
+    ClockRefused,
+    /// #90: the parent's relay went away; what plays keeps playing
+    ParentLost,
+    ParentBack,
+    /// #90: a flash taken, and through how many conductors it came
+    Flashed { root: String, hops: u32 },
+    FlashRefused { why: String },
+    /// #90: the show a flash asked for runs now
+    Installed,
+    /// #90: a deck's or child's report on a flash
+    Reported { from: String, running: String, refused: Option<String> },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -215,6 +240,34 @@ impl Conductor {
 
     pub fn log(&self) -> impl Iterator<Item = &Entry> {
         self.log.iter()
+    }
+
+    /// One line in the log, from the tree around this conductor (subtree.rs).
+    pub fn note(&mut self, ms: u64, what: Logged) {
+        self.record(ms, what);
+    }
+
+    /// A new version of the show (a flash, subtree.rs). What is on stage stays until a row changes it.
+    pub fn replace(&mut self, show: Show) {
+        self.show = show;
+    }
+
+    /// A parent's cell for an outlet of this show's face: it plays as it came, a full cell.
+    pub fn take_cell(&mut self, outlet: &str, cell: protocol::Cell, at: Option<i64>, ms: u64) -> Vec<Out> {
+        let playing = match cell.layers.as_deref().and_then(|l| l.first()).map(|l| &l.src) {
+            Some(LayerSrc::Piece(p)) => Playing::Piece { piece: p.piece.clone(), values: p.values.clone().unwrap_or_default() },
+            _ if cell.mode == CellMode::Black => Playing::Black,
+            _ => {
+                self.record(ms, Logged::ParentIgnored { row: None });
+                return vec![];
+            }
+        };
+        let row = self.current.clone().unwrap_or_default();
+        self.stage.insert(outlet.to_string(), OnStage { playing, row, off_row: true });
+        let mut out = vec![];
+        self.send_cell(outlet, cell, at, &mut out);
+        self.update_mirrors(at, &mut out);
+        out
     }
 
     fn record(&mut self, ms: u64, what: Logged) {
@@ -305,6 +358,11 @@ impl Conductor {
 
     /// A parent's row, taken by the seat's word: a child treats its parent like a reader. The local GO always works.
     pub fn on_parent(&mut self, word: Word, says: &Says, now: Now) -> Vec<Out> {
+        self.on_parent_at(word, says, None, now)
+    }
+
+    /// The same, with the parent's moment: a following child's row falls on the parent's beat, not on one of its own.
+    pub fn on_parent_at(&mut self, word: Word, says: &Says, at: Option<i64>, now: Now) -> Vec<Out> {
         let row = match says {
             Says::Go(row) if self.show.row(row).is_some() => row.clone(),
             Says::Go(row) => {
@@ -317,7 +375,7 @@ impl Conductor {
             }
         };
         match word {
-            Word::Follow => self.fire_row(&row, Origin::Parent, now),
+            Word::Follow => self.fire_row_at(&row, Origin::Parent, at, now),
             Word::Suggest => {
                 self.record(now.ms, Logged::Suggested { row: row.clone() });
                 self.suggestion = Some(Suggestion { row, event: None });
@@ -360,8 +418,12 @@ impl Conductor {
     }
 
     fn fire_row(&mut self, id: &str, origin: Origin, now: Now) -> Vec<Out> {
+        self.fire_row_at(id, origin, None, now)
+    }
+
+    fn fire_row_at(&mut self, id: &str, origin: Origin, at: Option<i64>, now: Now) -> Vec<Out> {
         let Some(row) = self.show.row(id).cloned() else { return vec![] };
-        let at = moment_at(row.fire.moment, now);
+        let at = at.or_else(|| moment_at(row.fire.moment, now));
         self.record(now.ms, Logged::Fired { row: id.to_string(), origin });
         if self.suggestion.as_ref().is_some_and(|s| s.row == id) {
             self.suggestion = None;

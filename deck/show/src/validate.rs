@@ -1,6 +1,7 @@
 //! Validity is the core's (RULES A2). [`validate`] reads one document; [`resolve`] follows the seats from the top, the only
 //! way a tree exists (the child does not name its parent, SHOW.md §4b), and writes down the exact versions a flash carries.
 use crate::document::{Cell, Face, OutletKind, Pinned, Row, Seat, Show};
+use protocol::PARENT;
 use deck_space::rig::address::Place;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
@@ -123,6 +124,13 @@ pub fn validate(show: &Show) -> Vec<Problem> {
     let mut rows = BTreeSet::new();
     unique("row", show.rows.iter().map(|r| &r.id), &mut rows, &mut out);
 
+    // #90: `foyer/wall` is an outlet of the child in a seat, `parent` is the far end of the link
+    for id in show.outlets.iter().map(|o| &o.id).chain(show.seats.iter().map(|s| &s.id)) {
+        if id == PARENT || id.contains('/') {
+            out.push(refused("show", format!("a column cannot be named '{id}'")));
+        }
+    }
+
     for seat in &show.seats {
         let at = format!("seat '{}'", seat.id);
         if seat.show.id.is_empty() {
@@ -169,6 +177,30 @@ pub fn validate(show: &Show) -> Vec<Problem> {
     }
     for id in show.face.outlets.iter().filter(|o| show.outlet(o).is_none()) {
         out.push(Problem::Unknown { what: "outlet", id: id.clone(), at: "the face".into() });
+    }
+    out
+}
+
+/// One document and the tree under it, checked for the API (the build service, #90): the core's own words, one per problem.
+pub fn problems(document: &serde_json::Value, shows: &[serde_json::Value]) -> Vec<String> {
+    let Ok(root) = serde_json::from_value::<Show>(document.clone()) else {
+        return match crate::document::parse(&document.to_string()) {
+            Err(e) => vec![e.to_string()],
+            Ok(_) => vec![],
+        };
+    };
+    let mut library = BTreeMap::new();
+    let mut out: Vec<String> = vec![];
+    for s in shows {
+        match serde_json::from_value::<Show>(s.clone()) {
+            Ok(show) => {
+                library.insert(Pinned { id: show.id.clone(), version: show.version }, show);
+            }
+            Err(e) => out.push(format!("a child show: {e}")),
+        }
+    }
+    if let Err(problems) = resolve(&root, &library) {
+        out.extend(problems.iter().map(Problem::to_string));
     }
     out
 }

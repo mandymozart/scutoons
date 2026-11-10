@@ -7,7 +7,8 @@
 //! `RELAY_CERT_URL` + `RELAY_CERT_KEY`: the relay fetches its certificate from the API (cert.rs, #441, the hosted relay).
 //! Env: `LIVE_TOKEN_SECRET` (the HMAC secret shared with the API), `RELAY_LEAD_MS` (50 LAN, 150 hosted),
 //! `RELAY_BLOCKLIST` (nickname words, comma-separated). `GET /status` → `{ "sessions": n, "live": n }` (the deploy
-//! freeze check of B.4), over http and https.
+//! freeze check of B.4), over http and https. #90, a child conductor's relay: `RELAY_PARENT_URL` (`ws://host:7700`),
+//! `RELAY_PARENT_CODE`, `RELAY_PARENT_SEAT`, `RELAY_PARENT_TOKEN`, `RELAY_SESSION` (its own session's code).
 
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -47,6 +48,11 @@ async fn main() -> anyhow::Result<()> {
     }
     tracing::info!(lead_ms = config.lead_ms, "clock lead");
     let relay = Arc::new(relay::Relay::with_config(config));
+    // #90: this relay is a child conductor's: it sits in a seat of its parent's session (tree.rs)
+    if let Some(parent) = relay::tree::Parent::from_env(|k| std::env::var(k).ok()) {
+        tracing::info!(parent = parent.url, seat = parent.seat, "linked to the parent");
+        tokio::spawn(relay::tree::keep_linked(relay.clone(), parent));
+    }
     if let (Some(quic), Some(files)) = (&listen.quic, &listen.tls) {
         let at: SocketAddr = quic.parse()?;
         // a door that cannot open is no reason to stop: every client falls to the WebSocket

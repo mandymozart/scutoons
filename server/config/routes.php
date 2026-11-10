@@ -20,6 +20,7 @@ use Scutoons\Domain\Settings\RuntimeSettings;
 use Scutoons\Http\Controllers\AccessController;
 use Scutoons\Http\Controllers\ApiTokensController;
 use Scutoons\Http\Controllers\DecksController;
+use Scutoons\Http\Controllers\ShowsController;
 use Scutoons\Http\Controllers\ModulesController;
 use Scutoons\Http\Controllers\LanController;
 use Scutoons\Http\Controllers\ReviewsController;
@@ -220,6 +221,14 @@ return static function (App $app): void {
     $app->delete('/api/me/tokens/{id:[0-9a-f-]{36}}', [ApiTokensController::class, 'revoke']);
     // Cyberdecks (#180, agents/research/CYBERDECKS.md §9): the deck's handshake (no session) and the member's decks (a
     // real sign-in; every member, readers included)
+    // ── Live: show documents and session tokens, role `live` (#90, ShowsController) ──────────────────────
+    $app->get('/api/shows', [ShowsController::class, 'index']);
+    $app->get('/api/shows/{id}', [ShowsController::class, 'get']);
+    $app->get('/api/shows/{id}/versions', [ShowsController::class, 'versions']);
+    $app->put('/api/shows/{id}', [ShowsController::class, 'put']);
+    $app->post('/api/shows/{id}/publish', [ShowsController::class, 'publish']);
+    $app->post('/api/live/sessions', [ShowsController::class, 'open']);
+
     $app->post('/api/decks/request', [DecksController::class, 'request'])->add($deckRequestLimit);
     $app->post('/api/decks/challenge', [DecksController::class, 'challenge'])->add($deckPollLimit);
     $app->post('/api/decks/token', [DecksController::class, 'token'])->add($deckPollLimit);

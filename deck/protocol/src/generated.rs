@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 /// A payload whose shape is not fixed yet: any JSON object.
 pub type Loose = serde_json::Map<String, serde_json::Value>;
 
-/// LIVE.md B.2. `uplink` is the local relay connected to the hosted one (B.6 Uplink).
+/// LIVE.md B.2. `uplink` is the local relay connected to the hosted one (B.6 Uplink). `reader` (#90, SHOW.md §7) is a phone reading the chapter: all it sends is its `story` events, to the conductor. `seat` (#90, SHOW.md §4) is a child conductor's relay in its parent's session, its group is the seat's id.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Role {
 	#[serde(rename = "conductor")]
@@ -23,6 +23,10 @@ pub enum Role {
 	Audience,
 	#[serde(rename = "uplink")]
 	Uplink,
+	#[serde(rename = "reader")]
+	Reader,
+	#[serde(rename = "seat")]
+	Seat,
 }
 
 impl Role {
@@ -35,6 +39,8 @@ impl Role {
 			Role::Musician => "musician",
 			Role::Audience => "audience",
 			Role::Uplink => "uplink",
+			Role::Reader => "reader",
+			Role::Seat => "seat",
 		}
 	}
 }
@@ -151,6 +157,22 @@ pub enum Message {
 	DeckQuality(DeckQuality),
 	#[serde(rename = "tempo")]
 	Tempo(Tempo),
+	#[serde(rename = "kick")]
+	Kick(Kick),
+	#[serde(rename = "rename")]
+	Rename(Rename),
+	#[serde(rename = "seat")]
+	Seat(SeatWord),
+	#[serde(rename = "seat.state")]
+	SeatState(SeatState),
+	#[serde(rename = "flash")]
+	Flash(Flash),
+	#[serde(rename = "flash.report")]
+	FlashReport(FlashReport),
+	#[serde(rename = "address")]
+	Address(Address),
+	#[serde(rename = "address.answer")]
+	AddressAnswer(AddressAnswer),
 	#[serde(rename = "error")]
 	Error(Error),
 }
@@ -198,6 +220,14 @@ impl Message {
 			Message::DeckSynced(_) => "deck.synced",
 			Message::DeckQuality(_) => "deck.quality",
 			Message::Tempo(_) => "tempo",
+			Message::Kick(_) => "kick",
+			Message::Rename(_) => "rename",
+			Message::Seat(_) => "seat",
+			Message::SeatState(_) => "seat.state",
+			Message::Flash(_) => "flash",
+			Message::FlashReport(_) => "flash.report",
+			Message::Address(_) => "address",
+			Message::AddressAnswer(_) => "address.answer",
 			Message::Error(_) => "error",
 		}
 	}
@@ -350,6 +380,15 @@ pub struct Snapshot {
 	/// #321: the show clock's last anchor (every client but a bridge)
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub tempo: Option<Tempo>,
+	/// #90: the parent's last word to this subtree (a conductor), or to this seat (a child relay)
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub seat: Option<SeatWord>,
+	/// #90: each seat's readout (the conductor's snapshot)
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub seats: Option<std::collections::HashMap<String, SeatState>>,
+	/// #90: the last flash
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub flash: Option<Flash>,
 	/// the session's seq when the snapshot was taken
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub seq: Option<i64>,
@@ -421,7 +460,7 @@ pub struct Tempo {
 	/// relay ms; the envelope's `at` when missing
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub at: Option<i64>,
-	/// the clock domain (a sub-conductor's own time, later); missing = "show", the one show clock – reserved, nothing sets or routes it yet
+	/// #90: the clock domain, a sub conductor's own time; missing = "show", the top conductor's clock. A domain stays inside its subtree: each subtree is a session of its own and a parent's anchor only reaches the child's conductor, which takes it or keeps its own
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub domain: Option<String>,
 }
@@ -736,6 +775,162 @@ pub struct CameraSrc {
 	pub input: String,
 }
 
+/// B.6: conductor → relay: the client is told (`error` code `kicked`) and its link ends; it joins again only with a new `hello`, which the conductor can answer the same way.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Kick {
+	pub client: String,
+}
+
+/// B.6: conductor → relay → that client. The relay cleans the nick (24 characters, the blocklist); empty = none.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Rename {
+	pub client: String,
+	pub nick: String,
+}
+
+/// #90, SHOW.md §4b: how a child takes its parent's rows, a child treats its parent like a reader. follow = the row fires, suggest = its operator decides, free = ignored. The local GO always works.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum Word {
+	#[serde(rename = "follow")]
+	Follow,
+	#[serde(rename = "suggest")]
+	Suggest,
+	#[serde(rename = "free")]
+	Free,
+}
+
+impl Word {
+	pub fn as_str(self) -> &'static str {
+		match self {
+			Word::Follow => "follow",
+			Word::Suggest => "suggest",
+			Word::Free => "free",
+		}
+	}
+}
+
+/// #90: what a parent's row says to its seat: `go` to a row of the child's, or `free`, it is left to itself; `none` only carries the word and the lock.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum Says {
+	#[serde(rename = "go")]
+	Go,
+	#[serde(rename = "free")]
+	Free,
+	#[serde(rename = "none")]
+	None,
+}
+
+impl Says {
+	pub fn as_str(self) -> &'static str {
+		match self {
+			Says::Go => "go",
+			Says::Free => "free",
+			Says::None => "none",
+		}
+	}
+}
+
+/// #90: conductor → its relay → the child relay in that seat (`to`: role seat, group the seat's id) → the child's conductor. The last one per seat is kept: a child conductor that joins later finds it in its snapshot.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SeatWord {
+	pub seat: String,
+	pub word: Word,
+	pub says: Says,
+	/// with `says: go`: the child's row
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub row: Option<String>,
+	/// a lock from above: the parent's word wins over the child's own (SHOW.md §4b); only ever sent for a seat that may be locked
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub lock: Option<bool>,
+}
+
+/// #90: a child conductor's readout, up to its parent's relay, which keeps it per seat for the parent's presence.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct SeatState {
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub show: Option<Pinned>,
+	/// the row that fired last
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub row: Option<String>,
+	/// clients ready in its subtree
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub ready: Option<u64>,
+	/// clients connected in its subtree
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub clients: Option<u64>,
+	/// the word in force
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub word: Option<Word>,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub locked: Option<bool>,
+	/// the clock domain it runs on; missing = the parent's
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub clock: Option<String>,
+	/// set by the parent's relay: false = the seat's link went away
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub online: Option<bool>,
+}
+
+/// #90: a show at an exact version.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Pinned {
+	pub id: String,
+	pub version: u64,
+}
+
+/// #90, SHOW.md §4b: one assignment, the tree resolved to exact versions. Goes down the tree seat by seat. A lock from above wins, otherwise the nearest wins, a deck may refuse; every deck reports what it runs.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Flash {
+	pub root: Pinned,
+	/// the root first, each show once
+	pub shows: Vec<Pinned>,
+	/// a lock from above
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub lock: Option<bool>,
+	/// how many conductors it came through; 0 = from this conductor's own operator
+	pub hops: u64,
+}
+
+/// #90: what a deck or conductor runs after a flash, to its conductor and on up. `from` of the envelope is the path it came along.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct FlashReport {
+	pub running: Pinned,
+	pub accepted: bool,
+	/// why it refused
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub why: Option<String>,
+}
+
+/// #90, SHOW.md §9, for the workshop group and device. The receiver tests itself; a missing fact fails the filter.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct AddressFilter {
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub group: Option<String>,
+	/// browser, native, phone …
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub device: Option<String>,
+}
+
+/// #90, SHOW.md §8: `kind:id > action`, down the tree. Whoever plays it picks up; finding nobody stays silent and is logged, it never goes up to a wider address.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Address {
+	/// the sender's, the answers carry it
+	pub id: String,
+	pub address: String,
+	pub action: String,
+	#[serde(rename = "where", default, skip_serializing_if = "Option::is_none")]
+	pub r#where: Option<AddressFilter>,
+}
+
+/// #90: one receiver's count, up to the conductor that asked: it picked up (`reached`), passed the filter (`passed`), a handler took it (`answered`). A receiver the address does not name sends nothing.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AddressAnswer {
+	pub id: String,
+	pub reached: u64,
+	pub passed: u64,
+	pub answered: u64,
+}
+
 /// relay → conductor: clients per group, who is ready; the decks that stream a being (#188 – a deck that left is gone from `decks`) and who sends values to whom (`routes`); each client's link (`links`, #223 – sent again when a client's rate changes); each deck's render quality (`quality`, #220 – sent again when a deck reports a change).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Presence {
@@ -753,6 +948,12 @@ pub struct Presence {
 	/// #220: each deck's last `deck.quality`, by client id (a client that left is gone)
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub quality: Option<std::collections::HashMap<String, DeckQuality>>,
+	/// #90: each seat's readout, by seat id
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub seats: Option<std::collections::HashMap<String, SeatState>>,
+	/// #90: this relay's link to its parent; missing = it has none
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub parent: Option<bool>,
 }
 
 /// #223: one client's link: the smoothed WebSocket ping round trip, the rate the relay sends it state-like messages at (`deck.values`, `presence`, `vote.tally`, `state` – 30 = as fast as they come, down to 5 on a link that can't carry more), and how many of them it replaced before they went out (a stalled client gets the newest, not a backlog).

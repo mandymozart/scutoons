@@ -30,6 +30,7 @@ use Scutoons\Domain\ApiError;
  *                                        CollagePresets, agents/research/COLLAGE.md §12)
  *   place:<id>  route:<id>                                         one document per place / route of the world map (ID_KINDS)
  *   character:<id>                                                 one document per character of the registry (`characters` = its own fields)
+ *   show:<id>                                                      one live show per conductor (#90, research/SHOW.md §4b; through /api/shows, role `live`)
  *   (`map` = the SCUTOONS world map's own settings – size, layers –, its places and routes are documents of their own:
  *   agents/MAP.md, agents/MAP-DOCUMENTS.md, WorldMapDocs; `locations:*` / `routes:*` are the old per-toon map, read-only)
  *
@@ -74,19 +75,20 @@ final class EntityKey
         'route' => [false, false, false],
         'region' => [false, false, false],
         'character' => [false, false, false],
+        'show' => [false, false, false],
     ];
     /**
      * Kinds addressed by an id of their own (`place:<id>`, `route:<id>`; platform-wide, language-neutral – agents/MAP-DOCUMENTS.md):
      * the id is a slug, stable forever once published (events reference it). Meant for the catalog's items too (`item:<id>`).
      */
-    public const ID_KINDS = ['place', 'route', 'region', 'character'];
+    public const ID_KINDS = ['place', 'route', 'region', 'character', 'show'];
     public const ID_PATTERN = '#^[a-z0-9][a-z0-9_-]{0,63}$#';
     /**
      * Kinds that are working material of the creators, never content for readers: no library endpoint reads them (only
      * `/api/entities`, role creator) and the production seed (`import-content --sql`) leaves them out unless `--only`
      * names them (agents/DATA.md "Script"). The storyboards (#120) too: their working material, never a reader's.
      */
-    public const CREATOR_ONLY_KINDS = ['storyboard', 'season-script', 'chapter-script', 'kanon'];
+    public const CREATOR_ONLY_KINDS = ['storyboard', 'season-script', 'chapter-script', 'kanon', 'show'];
     /** a Kanon text's subject segment (no id holds a dot, so a key never reads two ways; @scutoons/content KANON_SUBJECT) */
     public const KANON_SUBJECT_PATTERN = '#^(?:toon\.[a-z0-9_-]{1,64}|place\.[a-z0-9][a-z0-9_-]{0,63}|character\.[a-z0-9][a-z0-9_-]{0,63}(?:\.[a-z0-9][a-z0-9-]{0,63}){0,2})$#';
     /** document kind → catalog kind (CatalogStore::KINDS) of the catalog documents `<kind>:<id>` */

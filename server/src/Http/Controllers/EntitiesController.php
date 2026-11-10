@@ -62,6 +62,7 @@ final class EntitiesController
         $query = $request->getQueryParams();
         if (is_string($query['kinds'] ?? null)) {
             $kinds = array_values(array_filter(array_map('trim', explode(',', $query['kinds']))));
+            if (in_array('show', $kinds, true)) throw new ApiError(403, 'forbidden', 'A show goes through /api/shows.', ['role' => Roles::LIVE]);
             return Json::response($response, 200, ['status' => 'success', 'entities' => $this->store->withContent($kinds, ($query['content'] ?? 'draft') !== 'published')]);
         }
         return Json::response($response, 200, $this->store->index(array_key_exists('toon', $query) ? $query['toon'] : null));
@@ -71,7 +72,7 @@ final class EntitiesController
     public function get(Request $request, Response $response, array $args): Response
     {
         $key = (string) EntityKey::parse($args['key']);
-        $this->creator($request);
+        $this->creator($request, $args['key']);
         $query = $request->getQueryParams();
         $row = $this->store->read($key, ($query['draft'] ?? '') === '1', isset($query['version']) ? (int) $query['version'] : 0);
         if (($query['wrap'] ?? '') === '1') return Json::response($response, 200, $this->store->wrapped($row));
@@ -88,7 +89,7 @@ final class EntitiesController
     public function put(Request $request, Response $response, array $args): Response
     {
         $key = EntityKey::parse($args['key']);
-        $user = $this->creator($request);
+        $user = $this->creator($request, $args['key']);
         $body = $this->body($request);
         if (property_exists($body, 'content') && $key->isCatalog()) {
             $this->docs->guardSave($key, $body->content);
@@ -122,6 +123,7 @@ final class EntitiesController
         foreach ($list as $save) {
             if (!$save instanceof stdClass || !property_exists($save, 'content')) throw new ApiError(400, 'invalid_saves', 'every save needs { key, content }.');
             $key = EntityKey::parse($save->key ?? null);
+            if ($key->kind === 'show') throw new ApiError(403, 'forbidden', 'A show goes through /api/shows.', ['role' => Roles::LIVE]);
             try {
                 if ($key->isCatalog()) {
                     $this->docs->guardSave($key, $save->content);
@@ -209,7 +211,7 @@ final class EntitiesController
     public function versions(Request $request, Response $response, array $args): Response
     {
         $key = (string) EntityKey::parse($args['key']);
-        $this->creator($request);
+        $this->creator($request, $args['key']);
         return Json::response($response, 200, $this->store->versions($key, (int) ($request->getQueryParams()['limit'] ?? 100)));
     }
 
@@ -217,7 +219,7 @@ final class EntitiesController
     public function action(Request $request, Response $response, array $args): Response
     {
         $key = (string) EntityKey::parse($args['key']);
-        $user = $this->creator($request);
+        $user = $this->creator($request, $args['key']);
         $body = JsonBody::raw($request) === '' ? new stdClass() : $this->body($request);
         $version = isset($body->version) ? (int) $body->version : null;
         $parsed = EntityKey::parse($key);
@@ -238,8 +240,10 @@ final class EntitiesController
     }
 
     /** @return array<string, mixed> */
-    private function creator(Request $request): array
+    private function creator(Request $request, ?string $key = null): array
     {
+        // #90: shows are the `live` role's (ShowsController); creator does not imply it
+        if ($key !== null && str_starts_with($key, 'show:')) throw new ApiError(403, 'forbidden', 'A show goes through /api/shows.', ['role' => Roles::LIVE]);
         $session = CurrentSession::of($request);
         $session->rejectCsrf();
         return $this->roles->requireContentEditor($session->user());

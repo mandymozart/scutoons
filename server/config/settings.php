@@ -241,6 +241,10 @@ return [
     'MODULE_BUILD_URL' => '',
     'MODULE_BUILD_TOKEN' => '',
 
+    // ── Live (LIVE.md B.6, #90): the HMAC secret shared with the relay (deck/relay, same name there). Empty = the relay's dev mode,
+    // POST /api/live/sessions answers the token `dev` (any non-empty token passes there).
+    'LIVE_TOKEN_SECRET' => '',
+
     // ── Media assets (agents/ASSETS.md): the asset registry + its storage drivers ─────────────────────────
     // Which storage the asset layer works on: auto (the local folder ASSET_LOCAL_ROOT when it exists – every dev
     // machine –, else bunny when configured) | local | bunny

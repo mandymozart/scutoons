@@ -18,6 +18,7 @@ pub mod outbox;
 pub mod session;
 pub mod tls;
 pub mod token;
+pub mod tree;
 pub mod vote;
 
 use std::collections::HashMap;
@@ -125,6 +126,11 @@ impl Relay {
         (open, live)
     }
 
+    /// Run `f` on the session `code`, made if it does not exist yet (tree.rs: a child's relay opens its session before anyone joined).
+    pub fn with_or_new_session<R>(&self, code: &str, f: impl FnOnce(&mut Session) -> R) -> R {
+        f(self.sessions.lock().unwrap().entry(code.to_owned()).or_default())
+    }
+
     /// Run `f` on the session `code` (if it exists).
     pub fn with_session<R>(&self, code: &str, f: impl FnOnce(&mut Session) -> R) -> Option<R> {
         self.sessions.lock().unwrap().get_mut(code).map(f)
@@ -132,7 +138,7 @@ impl Relay {
 
     /// The token check of B.6 for conductor / bridge / uplink; other roles need none.
     fn check_token(&self, code: &str, role: Role, token: Option<&str>) -> Result<(), String> {
-        if !matches!(role, Role::Conductor | Role::Bridge | Role::Uplink) {
+        if !matches!(role, Role::Conductor | Role::Bridge | Role::Uplink | Role::Seat) {
             return Ok(());
         }
         let token = token.unwrap_or("");
@@ -215,7 +221,13 @@ impl Relay {
     fn receive(self: &Arc<Relay>, code: &str, id: &str, envelope: Result<Envelope, serde_json::Error>) {
         let lead = self.config.lead_ms;
         let after = self.with_session(code, |s| match envelope {
-            Ok(envelope) => s.handle(id, envelope, now_ms(), lead),
+            Ok(mut envelope) => {
+                // B.6: the conductor's rename passes the same cleaning as a hello
+                if let Message::Rename(r) = &mut envelope.message {
+                    r.nick = session::clean_nick(Some(&r.nick), &self.config.blocklist).unwrap_or_default();
+                }
+                s.handle(id, envelope, now_ms(), lead)
+            }
             Err(e) => {
                 s.send_to(id, Message::Error(ProtocolError { code: "parse".into(), message: e.to_string() }));
                 After::Nothing
@@ -480,7 +492,7 @@ where
 /// measures the round trip. Browsers and tungstenite answer pings themselves, so a client that stays silent past
 /// IDLE_TIMEOUT is gone even when its TCP side never closed (a phone reloading behind `adb reverse` left a ghost deck at
 /// the conductor, 2026-10-31). A changed rate tells the conductor (presence).
-async fn write<S>(mut sink: S, outbox: Arc<Outbox>, relay: Arc<Relay>, code: String)
+pub(crate) async fn write<S>(mut sink: S, outbox: Arc<Outbox>, relay: Arc<Relay>, code: String)
 where
     S: futures_util::Sink<Ws> + Unpin,
 {

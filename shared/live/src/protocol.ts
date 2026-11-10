@@ -1,7 +1,7 @@
 // GENERATED from deck/protocol/schema.json by deck/protocol/generate.ts – edit the schema, run `npm run generate -w shared/live`.
 // agents/research/LIVE.md B.6. One envelope per message, JSON over one WebSocket per client. The generator (deck/protocol/generate.ts) reads only the subset used here: object / string / integer / number / boolean / array / $ref / enum / const / oneOf discriminated by `kind` / additionalProperties maps. Edit this file, run `npm run generate -w shared/live`, commit both outputs.
-/** LIVE.md B.2. `uplink` is the local relay connected to the hosted one (B.6 Uplink). */
-export type Role = 'conductor' | 'output' | 'bridge' | 'performer' | 'musician' | 'audience' | 'uplink';
+/** LIVE.md B.2. `uplink` is the local relay connected to the hosted one (B.6 Uplink). `reader` (#90, SHOW.md §7) is a phone reading the chapter: all it sends is its `story` events, to the conductor. `seat` (#90, SHOW.md §4) is a child conductor's relay in its parent's session, its group is the seat's id. */
+export type Role = 'conductor' | 'output' | 'bridge' | 'performer' | 'musician' | 'audience' | 'uplink' | 'reader' | 'seat';
 
 /** Who a message reaches. Every field narrows; all missing = everyone the sender may reach. */
 export interface To {
@@ -66,6 +66,14 @@ export type Message =
 	| { kind: 'deck.synced'; p: DeckSynced }
 	| { kind: 'deck.quality'; p: DeckQuality }
 	| { kind: 'tempo'; p: Tempo }
+	| { kind: 'kick'; p: Kick }
+	| { kind: 'rename'; p: Rename }
+	| { kind: 'seat'; p: SeatWord }
+	| { kind: 'seat.state'; p: SeatState }
+	| { kind: 'flash'; p: Flash }
+	| { kind: 'flash.report'; p: FlashReport }
+	| { kind: 'address'; p: Address }
+	| { kind: 'address.answer'; p: AddressAnswer }
 	| { kind: 'error'; p: Error };
 
 /** A payload whose shape B.6 names but this skeleton does not fix yet (say / line / fx / colour, cue actions). */
@@ -155,6 +163,12 @@ export interface Snapshot {
 	synced?: Record<string, DeckSynced>;
 	/** #321: the show clock's last anchor (every client but a bridge) */
 	tempo?: Tempo;
+	/** #90: the parent's last word to this subtree (a conductor), or to this seat (a child relay) */
+	seat?: SeatWord;
+	/** #90: each seat's readout (the conductor's snapshot) */
+	seats?: Record<string, SeatState>;
+	/** #90: the last flash */
+	flash?: Flash;
 	/** the session's seq when the snapshot was taken */
 	seq?: number;
 }
@@ -210,7 +224,7 @@ export interface Tempo {
 	running: boolean;
 	/** relay ms; the envelope's `at` when missing */
 	at?: number;
-	/** the clock domain (a sub-conductor's own time, later); missing = "show", the one show clock – reserved, nothing sets or routes it yet */
+	/** #90: the clock domain, a sub conductor's own time; missing = "show", the top conductor's clock. A domain stays inside its subtree: each subtree is a session of its own and a parent's anchor only reaches the child's conductor, which takes it or keeps its own */
 	domain?: string;
 }
 
@@ -393,6 +407,101 @@ export interface CameraSrc {
 	input: string;
 }
 
+/** B.6: conductor → relay: the client is told (`error` code `kicked`) and its link ends; it joins again only with a new `hello`, which the conductor can answer the same way. */
+export interface Kick {
+	client: string;
+}
+
+/** B.6: conductor → relay → that client. The relay cleans the nick (24 characters, the blocklist); empty = none. */
+export interface Rename {
+	client: string;
+	nick: string;
+}
+
+/** #90, SHOW.md §4b: how a child takes its parent's rows, a child treats its parent like a reader. follow = the row fires, suggest = its operator decides, free = ignored. The local GO always works. */
+export type Word = 'follow' | 'suggest' | 'free';
+
+/** #90: what a parent's row says to its seat: `go` to a row of the child's, or `free`, it is left to itself; `none` only carries the word and the lock. */
+export type Says = 'go' | 'free' | 'none';
+
+/** #90: conductor → its relay → the child relay in that seat (`to`: role seat, group the seat's id) → the child's conductor. The last one per seat is kept: a child conductor that joins later finds it in its snapshot. */
+export interface SeatWord {
+	seat: string;
+	word: Word;
+	says: Says;
+	/** with `says: go`: the child's row */
+	row?: string;
+	/** a lock from above: the parent's word wins over the child's own (SHOW.md §4b); only ever sent for a seat that may be locked */
+	lock?: boolean;
+}
+
+/** #90: a child conductor's readout, up to its parent's relay, which keeps it per seat for the parent's presence. */
+export interface SeatState {
+	show?: Pinned;
+	/** the row that fired last */
+	row?: string;
+	/** clients ready in its subtree */
+	ready?: number;
+	/** clients connected in its subtree */
+	clients?: number;
+	/** the word in force */
+	word?: Word;
+	locked?: boolean;
+	/** the clock domain it runs on; missing = the parent's */
+	clock?: string;
+	/** set by the parent's relay: false = the seat's link went away */
+	online?: boolean;
+}
+
+/** #90: a show at an exact version. */
+export interface Pinned {
+	id: string;
+	version: number;
+}
+
+/** #90, SHOW.md §4b: one assignment, the tree resolved to exact versions. Goes down the tree seat by seat. A lock from above wins, otherwise the nearest wins, a deck may refuse; every deck reports what it runs. */
+export interface Flash {
+	root: Pinned;
+	/** the root first, each show once */
+	shows: Pinned[];
+	/** a lock from above */
+	lock?: boolean;
+	/** how many conductors it came through; 0 = from this conductor's own operator */
+	hops: number;
+}
+
+/** #90: what a deck or conductor runs after a flash, to its conductor and on up. `from` of the envelope is the path it came along. */
+export interface FlashReport {
+	running: Pinned;
+	accepted: boolean;
+	/** why it refused */
+	why?: string;
+}
+
+/** #90, SHOW.md §9, for the workshop group and device. The receiver tests itself; a missing fact fails the filter. */
+export interface AddressFilter {
+	group?: string;
+	/** browser, native, phone … */
+	device?: string;
+}
+
+/** #90, SHOW.md §8: `kind:id > action`, down the tree. Whoever plays it picks up; finding nobody stays silent and is logged, it never goes up to a wider address. */
+export interface Address {
+	/** the sender's, the answers carry it */
+	id: string;
+	address: string;
+	action: string;
+	where?: AddressFilter;
+}
+
+/** #90: one receiver's count, up to the conductor that asked: it picked up (`reached`), passed the filter (`passed`), a handler took it (`answered`). A receiver the address does not name sends nothing. */
+export interface AddressAnswer {
+	id: string;
+	reached: number;
+	passed: number;
+	answered: number;
+}
+
 /** relay → conductor: clients per group, who is ready; the decks that stream a being (#188 – a deck that left is gone from `decks`) and who sends values to whom (`routes`); each client's link (`links`, #223 – sent again when a client's rate changes); each deck's render quality (`quality`, #220 – sent again when a deck reports a change). */
 export interface Presence {
 	groups: Record<string, number>;
@@ -405,6 +514,10 @@ export interface Presence {
 	links?: Record<string, LinkQuality>;
 	/** #220: each deck's last `deck.quality`, by client id (a client that left is gone) */
 	quality?: Record<string, DeckQuality>;
+	/** #90: each seat's readout, by seat id */
+	seats?: Record<string, SeatState>;
+	/** #90: this relay's link to its parent; missing = it has none */
+	parent?: boolean;
 }
 
 /** #223: one client's link: the smoothed WebSocket ping round trip, the rate the relay sends it state-like messages at (`deck.values`, `presence`, `vote.tally`, `state` – 30 = as fast as they come, down to 5 on a link that can't carry more), and how many of them it replaced before they went out (a stalled client gets the newest, not a backlog). */

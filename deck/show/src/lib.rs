@@ -6,10 +6,17 @@
 //! - [`validate`]: one document on its own, and the whole tree following the seats from the top (unknown references, a used
 //!   row the child's face lacks, cycles); the tree resolved to exact versions, like a lock file.
 //! - [`conductor`]: the bare conductor. Loads a show, takes events, fires rows, always sends a full cell.
+//! - [`subtree`]: one conductor in the tree (#90): its seats below, its parent above, its clock, the word and the lock.
+//! - [`flash`], [`address`]: the rule of a flash, what a receiver of an address answers.
+pub mod address;
 pub mod conductor;
 pub mod document;
+pub mod flash;
+pub mod subtree;
 pub mod validate;
 
 pub use conductor::{Clock, Conductor, Entry, Logged, Now, Origin, Out, Says, Suggestion};
 pub use document::{parse, Cell, Face, Fire, How, Moment, Outlet, OutletKind, ParseError, Pinned, Row, Seat, Show, Values, Word};
+pub use flash::Assignment;
+pub use subtree::{ClockChoice, Subtree};
 pub use validate::{resolve, validate, Library, Lock, Problem};
