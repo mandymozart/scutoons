@@ -7,6 +7,9 @@ pub mod lines;
 
 pub use generated::*;
 
+/// #90: the far end of a conductor's link to its parent: the `from` of what came down, the group of the link's end in the child's session (`To::role_group(Role::Seat, PARENT)` = up the tree).
+pub const PARENT: &str = "parent";
+
 impl Envelope {
     /// An unstamped envelope (client → relay): `seq` 0, no `at`, no `to`.
     pub fn new(from: impl Into<String>, message: Message) -> Self {

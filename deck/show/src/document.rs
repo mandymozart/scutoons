@@ -86,17 +86,8 @@ impl fmt::Display for Pinned {
     }
 }
 
-/// How a child takes its parent's rows: a child treats its parent like a reader (SHOW.md §4b).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Word {
-    /// the row fires, as on auto
-    Follow,
-    /// the child's operator decides
-    Suggest,
-    /// ignored
-    Free,
-}
+/// How a child takes its parent's rows: a child treats its parent like a reader (SHOW.md §4b). The wire's type, one copy.
+pub use protocol::Word;
 
 /// What a show shows of itself, and what a seat uses of it (like `rig/face.rs`).
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]

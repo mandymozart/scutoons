@@ -12,12 +12,18 @@
 //! `decks` – is logged and kept, so a deck that joins later finds it in its snapshot; a new one forgets the decks'
 //! answers to the old one. `deck.synced` (a deck's progress and result) goes to the conductor, is kept per deck for the
 //! conductor's snapshot (`synced`), and a deck whose state is ready counts as ready in presence.
+//!
+//! The tree (#90, SHOW.md §4): each conductor has its own session, on its own relay. A child's relay is a client of its
+//! parent's session (role `seat`, its group the seat's id) and holds one client in its own session, the `up` end. Down: the
+//! parent's messages reach the child's conductor(s) and nobody else, the conductor decides what comes of them (RULES A1). Up:
+//! values and readiness pass on their own, everything else only when the child's conductor sends it. `from` grows a path on
+//! the way up (`foyer/c3`).
 use std::collections::{BTreeSet, HashMap, VecDeque};
 
 use subtle::ConstantTimeEq;
 use protocol::{
     Assign, Cell, CellMode, Cue, DeckQuality, DeckState, DeckSynced, Envelope, Error as ProtocolError, Loose, MediaPreload, Message,
-    Presence, Resume, Role, Route, SceneSync, Snapshot, State, SyncState, Tempo, To, VoteTally,
+    Flash, Presence, Resume, Role, Route, SceneSync, SeatState, SeatWord, Snapshot, State, SyncState, Tempo, To, VoteTally,
 };
 use serde_json::Value;
 use std::sync::Arc;
@@ -50,6 +56,8 @@ pub struct Client {
     pub outbox: Arc<Outbox>,
     /// #438: its secret for a `resume` (in its `welcome` only); empty: it cannot be resumed
     pub key: String,
+    /// #90: this client is the link to this session's parent (tree.rs): it never sends through `handle`
+    pub up: bool,
     bucket: Bucket,
     /// #188: the deck's values stream
     values: Bucket,
@@ -59,7 +67,7 @@ impl Client {
     pub fn new(role: Role, group: Option<String>, nick: Option<String>, outbox: Arc<Outbox>, now: i64) -> Self {
         let bucket = Bucket { tokens: AUDIENCE_RATE, at: now, rate: AUDIENCE_RATE, burst: AUDIENCE_RATE };
         let values = Bucket { tokens: VALUES_BURST, at: now, rate: VALUES_RATE, burst: VALUES_BURST };
-        Client { role, group, nick, ready: false, outbox, key: String::new(), bucket, values }
+        Client { role, group, nick, ready: false, outbox, key: String::new(), up: false, bucket, values }
     }
 }
 
@@ -124,6 +132,30 @@ pub fn reaches(id: &str, role: Role, group: Option<&str>, from: &str, to: Option
     to.role.is_none_or(|r| r == role) && to.group.as_deref().is_none_or(|g| group == Some(g))
 }
 
+/// #90: does a link of the tree take this message? The `up` end carries what is sent to the role `seat` and what passes on
+/// its own; a child's relay in its parent's session only what goes down a tree.
+fn link_takes(c: &Client, role_seat: bool, message: &Message) -> bool {
+    match c.up {
+        true => role_seat || passes_up(message),
+        false => goes_down(message),
+    }
+}
+
+/// #90: values and readiness pass up the tree without the child's conductor (SHOW.md §4: up are values, readiness, events).
+fn passes_up(m: &Message) -> bool {
+    matches!(m, Message::DeckGraph(_) | Message::DeckValues(_) | Message::DeckSynced(_) | Message::MediaReady(_))
+}
+
+/// #90: what goes down a tree: rows, cells, events, the clock, the flash; `panic` because it is `panic`.
+fn goes_down(m: &Message) -> bool {
+    matches!(m, Message::Seat(_) | Message::Cell(_) | Message::Story(_) | Message::Address(_) | Message::Tempo(_) | Message::Flash(_) | Message::Panic(_))
+}
+
+/// #90: what a child's relay may send its parent.
+fn comes_up(m: &Message) -> bool {
+    passes_up(m) || matches!(m, Message::Story(_) | Message::SeatState(_) | Message::FlashReport(_) | Message::AddressAnswer(_) | Message::Ping(_))
+}
+
 /// Who a message reaches, as client ids.
 pub fn targets<'a>(clients: impl Iterator<Item = (&'a String, &'a Client)>, from: &str, to: Option<&To>) -> Vec<String> {
     clients.filter(|(id, c)| reaches(id, c.role, c.group.as_deref(), from, to)).map(|(id, _)| id.clone()).collect()
@@ -150,6 +182,10 @@ fn conductor_only(m: &Message) -> bool {
             | Message::Story(_)
             | Message::Device(_)
             | Message::SceneSync(_)
+            | Message::Seat(_)
+            | Message::SeatState(_)
+            | Message::Flash(_)
+            | Message::Address(_)
     )
 }
 
@@ -220,6 +256,16 @@ pub struct Session {
     /// #321: the show clock's last anchor (every snapshot but a bridge's) and who sent it – the leader
     tempo: Option<Tempo>,
     leader: Option<String>,
+    /// #90: the last word per seat of this session's children, by seat id
+    words: HashMap<String, SeatWord>,
+    /// #90: each seat's readout, by seat id
+    seats: HashMap<String, SeatState>,
+    /// #90: the last flash (sent here or come down)
+    flash: Option<Flash>,
+    /// #90: the parent's last word to this subtree
+    parent_word: Option<SeatWord>,
+    /// #90: this session's link to its parent (`None`: it has none)
+    parent_link: Option<bool>,
 }
 
 impl Session {
@@ -234,11 +280,16 @@ impl Session {
         envelope.seq = self.next_seq();
         envelope.from = from.to_owned();
         let (seq, to) = (envelope.seq, envelope.to.clone());
+        let to_seat = to.as_ref().is_some_and(|t| t.role == Some(Role::Seat));
+        let linked: Vec<bool> = self.clients.values().map(|c| c.role != Role::Seat || link_takes(c, to_seat, &envelope.message)).collect();
+        let passes = passes_up(&envelope.message);
         let frame = Frame::of(envelope);
         let t = Instant::now();
         let mut delivered = 0;
-        for (id, c) in &self.clients {
-            if reaches(id, c.role, c.group.as_deref(), from, to.as_ref()) && c.outbox.push(frame.clone(), t) {
+        for ((id, c), linked) in self.clients.iter().zip(linked) {
+            // the `up` end has no group: what passes up on its own goes past `to`
+            let reached = reaches(id, c.role, c.group.as_deref(), from, to.as_ref()) || (c.up && passes);
+            if reached && linked && c.outbox.push(frame.clone(), t) {
                 delivered += 1;
             }
         }
@@ -284,6 +335,10 @@ impl Session {
 
     pub fn leave(&mut self, id: &str, now: i64) {
         if let Some(c) = self.clients.remove(id) {
+            // #90: a child's relay went away: the seat stays, the parent sees it offline
+            if let Some(seat) = c.group.as_ref().filter(|_| c.role == Role::Seat && !c.up) {
+                self.seats.entry(seat.clone()).or_default().online = Some(false);
+            }
             self.departed.insert(id.to_owned(), Departed { role: c.role, group: c.group, key: c.key, at: now });
         }
         // a deck that left takes its being and its routes along (it sends its graph again when it comes back)
@@ -393,6 +448,8 @@ impl Session {
             (!picked.is_empty()).then_some(picked)
         }
         let bridge = role == Role::Bridge;
+        // #90: a child's relay finds its word and the clock, a conductor what came down to it and its seats
+        let seat = if role == Role::Seat { group.and_then(|g| self.words.get(g).cloned()) } else if all { self.parent_word.clone() } else { None };
         Snapshot {
             state,
             cells: if bridge { None } else { pick(&self.cells, all, group) },
@@ -403,6 +460,9 @@ impl Session {
             sync: self.sync_for(None, role, group),
             synced: if all && !self.synced.is_empty() { Some(self.synced.clone()) } else { None },
             tempo: if bridge { None } else { self.tempo.clone() },
+            seat,
+            seats: if all && !self.seats.is_empty() { Some(self.seats.clone()) } else { None },
+            flash: if all || role == Role::Seat { self.flash.clone() } else { None },
             seq: Some(self.seq as i64),
         }
     }
@@ -426,11 +486,11 @@ impl Session {
         let mut ready = vec![];
         let mut links = HashMap::new();
         for (id, c) in &self.clients {
-            if !matches!(c.role, Role::Conductor | Role::Bridge | Role::Uplink) {
+            if !matches!(c.role, Role::Conductor | Role::Bridge | Role::Uplink | Role::Seat) {
                 *groups.entry(c.group.clone().unwrap_or_else(|| "-".into())).or_default() += 1;
             }
             // #223: every link but the audience phones' (hundreds of them; they get cues, not streams)
-            if c.role != Role::Audience {
+            if c.role != Role::Audience && !c.up {
                 links.insert(id.clone(), c.outbox.quality());
             }
             if c.ready {
@@ -441,7 +501,8 @@ impl Session {
         let mut decks: Vec<String> = self.decks.keys().cloned().collect();
         decks.sort();
         let routes = self.routes.iter().map(|(from, to)| Route { from: from.clone(), to: to.clone() }).collect();
-        Presence { groups, ready, decks: Some(decks), routes: Some(routes), links: Some(links), quality: Some(self.quality.clone()) }
+        let seats = (!self.seats.is_empty()).then(|| self.seats.clone());
+        Presence { groups, ready, decks: Some(decks), routes: Some(routes), links: Some(links), quality: Some(self.quality.clone()), seats, parent: self.parent_link }
     }
 
     pub fn tell_presence(&mut self) {
@@ -462,9 +523,25 @@ impl Session {
     pub fn handle(&mut self, id: &str, mut e: Envelope, now: i64, lead: i64) -> After {
         let Some(sender) = self.clients.get_mut(id) else { return After::Nothing };
         let role = sender.role;
-        if role == Role::Audience && !sender.bucket.take(now) {
+        if matches!(role, Role::Audience | Role::Reader) && !sender.bucket.take(now) {
             self.error(id, "rate", "5 messages per second");
             return After::Nothing;
+        }
+        if role == Role::Seat {
+            self.from_child(id, e, now);
+            return After::Nothing;
+        }
+        // #90: a reader's whole say is its story events, and they are for the conductor (SHOW.md §7)
+        if role == Role::Reader {
+            if !matches!(e.message, Message::Story(_) | Message::Ping(_) | Message::Ready(_)) {
+                self.error(id, "authority", &format!("a reader does not send {}", e.message.kind()));
+                return After::Nothing;
+            }
+            if matches!(e.message, Message::Story(_)) {
+                e.to = Some(To::role(Role::Conductor));
+                self.publish(id, e, now);
+                return After::Nothing;
+            }
         }
         let uplink = role == Role::Uplink;
         if conductor_only(&e.message) && !(role == Role::Conductor || uplink) {
@@ -509,6 +586,7 @@ impl Session {
                 | Message::Panic(_)
                 | Message::Device(_)
                 | Message::Tempo(_)
+                | Message::Seat(_)
         );
         if timed && e.at.is_none() {
             e.at = Some(now + lead);
@@ -534,7 +612,11 @@ impl Session {
             Message::Cell(c) => {
                 self.cells.insert(c.outlet.clone(), c.cell.clone());
                 if e.to.is_none() {
-                    e.to = Some(To::group(c.outlet.clone()));
+                    // #90: `foyer/wall` is the outlet `wall` of the child in the seat `foyer`
+                    e.to = Some(match c.outlet.split_once('/') {
+                        Some((seat, _)) => To::role_group(Role::Seat, seat),
+                        None => To::group(c.outlet.clone()),
+                    });
                 }
                 self.publish(id, e, now);
             }
@@ -666,6 +748,23 @@ impl Session {
                 self.leader = Some(id.to_owned());
                 self.publish(id, e, now);
             }
+            Message::Seat(w) => {
+                self.words.insert(w.seat.clone(), w.clone());
+                if e.to.is_none() {
+                    e.to = Some(To::role_group(Role::Seat, w.seat.clone()));
+                }
+                self.publish(id, e, now);
+            }
+            Message::Flash(f) => {
+                self.flash = Some(f.clone());
+                self.publish(id, e, now);
+            }
+            Message::FlashReport(_) | Message::AddressAnswer(_) => {
+                if e.to.is_none() {
+                    e.to = Some(To::role(Role::Conductor));
+                }
+                self.publish(id, e, now);
+            }
             Message::SceneSync(sync) => {
                 let sync = sync.clone();
                 self.scene_sync(id, e, sync, now);
@@ -750,6 +849,14 @@ impl Session {
         let t = Instant::now();
         let mut new_route = false;
         for (cid, c) in &self.clients {
+            // #90: up the tree as well; a route is between this session's own clients
+            if c.up {
+                c.outbox.push(frame.clone(), t);
+                continue;
+            }
+            if c.role == Role::Seat {
+                continue;
+            }
             let addressed = to.is_some() && reaches(cid, c.role, c.group.as_deref(), id, to.as_ref());
             if (addressed || (c.role == Role::Conductor && cid != id)) && c.outbox.push(frame.clone(), t) {
                 new_route |= self.routes.insert((id.to_owned(), cid.clone()));
@@ -758,6 +865,62 @@ impl Session {
         if new_route {
             self.tell_presence();
         }
+    }
+
+    /// #90: a child's relay (role `seat`, its group the seat's id) said something: to this session's conductor(s), `from` a
+    /// path that starts with the seat. What is kept is kept per seat. Never touches this session's own decks or clock.
+    fn from_child(&mut self, id: &str, mut e: Envelope, now: i64) {
+        if !comes_up(&e.message) {
+            self.error(id, "authority", &format!("a seat does not send {}", e.message.kind()));
+            return;
+        }
+        if let Message::Ping(p) = &e.message {
+            let pong = protocol::Pong { t0: p.t0, t1: now };
+            self.send_to(id, Message::Pong(pong));
+            return;
+        }
+        let seat = self.clients.get(id).and_then(|c| c.group.clone()).unwrap_or_else(|| id.to_owned());
+        let from = format!("{seat}/{}", e.from);
+        e.to = Some(To::role(Role::Conductor));
+        match &e.message {
+            Message::SeatState(state) => {
+                let mut state = state.clone();
+                state.online = Some(true);
+                self.seats.insert(seat, state);
+                self.publish(&from, e, now);
+                self.tell_presence();
+            }
+            // not folded (a deck's being is this session's own), and never logged: a stream
+            Message::DeckValues(_) => {
+                self.deliver(&from, e);
+            }
+            _ => {
+                self.publish(&from, e, now);
+            }
+        }
+    }
+
+    /// #90: a message that came down the link from the parent's relay: to this session's conductor(s) and nobody else – what
+    /// comes of it is theirs to decide (the word, the lock, the own clock). What must survive a reboot is kept.
+    pub fn from_parent(&mut self, mut e: Envelope, now: i64) {
+        match &e.message {
+            Message::Seat(w) => self.parent_word = Some(w.clone()),
+            Message::Flash(f) => self.flash = Some(f.clone()),
+            _ => {}
+        }
+        e.to = Some(To::role(Role::Conductor));
+        self.publish(protocol::PARENT, e, now);
+    }
+
+    /// #90: the parent's last word to this subtree.
+    pub fn parent_word(&self) -> Option<&SeatWord> {
+        self.parent_word.as_ref()
+    }
+
+    /// #90: the parent link came up or went away. Nothing else happens: whoever plays keeps playing.
+    pub fn parent_online(&mut self, online: bool) {
+        self.parent_link = Some(online);
+        self.tell_presence();
     }
 
     /// #195: the conductor's push – logged and kept (the snapshot of a deck that joins later), the decks' answers to the
