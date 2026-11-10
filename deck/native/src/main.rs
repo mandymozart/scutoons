@@ -904,14 +904,10 @@ impl App {
         self.switcher.status.clear();
     }
 
-    /// #250: Enter on a scene – loaded in place like a `--dev` reload (the window and the Live link's process stay; a
-    /// scene that doesn't build keeps the old one and the list says why), then written into deck.toml for the next boot
+    /// #250: a scene that was asked for (Enter on the list, a show's piece: `change.ask`) and is due – loaded in place
+    /// like a `--dev` reload (the window and the Live link's process stay; a scene that doesn't build keeps the old one
+    /// and the list says why), then written into deck.toml for the next boot
     fn switch(&mut self, value: &str) {
-        self.change.ask(value);
-    }
-
-    /// a switch that is due (no change runs): the fade begins
-    fn begin_switch(&mut self, value: &str) {
         // checked first: a scene that doesn't build keeps the old one playing, nothing fades
         let old_scene = self.args.scene.replace(value.into());
         let checked = read_scene(&self.args).and_then(|s| modules::check(&s).and_then(|_| graph::Graph::build(&s)).map(|_| ()));
@@ -1117,7 +1113,7 @@ impl App {
         self.poll_watch();
         if self.stats.frames >= 30 {
             if let Some(name) = self.args.switch_to.take() {
-                self.switch(&name);
+                self.change.ask(&name);
                 if let Some(w) = &self.window {
                     w.request_redraw();
                 }
@@ -1180,7 +1176,7 @@ impl App {
         }
         #[cfg(feature = "live")]
         if let Some(to) = self.show.live.as_ref().and_then(|l| self.pieces.frame(l, &self.show.graph, &mut self.show.controls)) {
-            self.switch(&to);
+            self.change.ask(&to);
         }
         #[cfg(feature = "space")]
         self.check_hand();
@@ -1290,7 +1286,7 @@ impl App {
         let mut splash = (self.splash.alpha, cover);
         let ready = !self.loading();
         if let Some(to) = self.change.due() {
-            self.begin_switch(&to);
+            self.switch(&to);
         }
         let (load, black) = self.change.step(dt, ready);
         if let Some(black) = black {
@@ -1543,7 +1539,7 @@ impl ApplicationHandler<Event> for App {
                 };
                 self.hud_at = -1.0;
                 if let Some(entry) = key.and_then(|key| self.switcher.key(key)) {
-                    self.switch(&entry.value);
+                    self.change.ask(&entry.value);
                 }
                 return;
             }
