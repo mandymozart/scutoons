@@ -82,11 +82,42 @@ A rig, a module (#312 `needs`) and a show row name the sources they use. A deck 
 - Far sources play on arrival today (#442's known gap); relay-time alignment is its own piece.
 - Nothing here runs on the audio thread except audio in.
 
+## 6a. The handheld camera session (owner 2026-11-10)
+The storyboard editor's handheld camera (#126, research/HANDHELD-CAMERA.md, built and tested on the S22) is an input of this concept, and its code is shared, not rebuilt (#213 asked the same for the deck's camera).
+
+- **A pose is a source.** Scope `pose:`: `pose:camera` (position, rotation, lens as one), each part also as a value (`pose:yaw`, `pose:roll`, `pose:x` …), `pose:record` and `pose:recenter` as events. Mapped whole onto a camera or a being's head, or in parts onto any parameter.
+- **A session** hands one target to a device for a time: a QR code with a one-time code (the phone's only right, no sign-in), Recenter, steer, Record, and one button on the deck takes it back. The phone surface (§4 `touch:`, `motion:`) pairs the same way: one small phone page with a camera mode and a surface mode.
+- **Time:** a pose is latest-wins (a late one is dropped); a take is on the clock.
+
+| Part | Storyboard today | For the deck |
+|---|---|---|
+| Phone page `creator/src/routes/h/[code]`, `lib/handheld/phone-session.svelte.ts` (WebXR `immersive-ar`, else DeviceOrientation + drag) | built | the same page, as is (it runs on the phone, so it is no deck logic) |
+| Pairing `lib/editor/storyboard-pairing.ts`, `server/.../Storyboard/Pairings.php` (one-time code, offer / answer, `pose` unordered + `ctl` reliable) | built | the same calls |
+| Pose maths `lib/editor/storyboard-handheld.ts` (origin / recenter, mapPose, smoother, sampleAt, bake; 204 lines, tested) | TypeScript | the deck needs it in Rust (no deck logic in TS): one crate, built to wasm for the creator, the TS file's tests as its vectors. The phone page keeps only `orientationQuat` and `dragStep` |
+| Take: `TakeSample {t, position, quaternion, fov}` (`@scutoons/content/storyboard`) | built | the same format: a storyboard take plays on a deck as a camera move (#213), a deck's camera performance is recorded as a take and opens in the storyboard editor |
+| Road for poses | WebRTC data channel, phone ↔ PC browser | the browser deck: the same. The native deck has no WebRTC: over the relay first (no new dependency; the added delay is not measured), a native data channel as a build feature if the delay shows |
+| What the pose drives | the shot camera (`Stage3d.hold`) | the deck's camera in deck-space: new |
+
+Later: any source recorded and replayed as a take (a gamepad run, a fader ride).
+
+## 6b. Mapping layers (owner 2026-11-10)
+Peripheral mappings are written ahead, one device can overwrite them for itself, and a flash can force the defaults.
+
+1. **Precoded:** what a device type does out of the box (the standard gamepad drives the selected being, #212; a known controller's knobs have names and targets). In the profile, ships with the build. The floor.
+2. **Flashed:** the mappings a show, its rigs and presets carry (`Mapping {source, target, range}` exists). Wins over 1.
+3. **Local:** what was changed on one deck (a learned knob, another range, a source switched off). Stored on that deck only, wins over 2, each change marked and undoable by itself ("Reset this mapping", "Reset this device", "Send to the editor" to make it part of the show).
+
+- **Flash:** replaces layer 2, local changes stay; the flash report lists them per deck.
+- **Flash, force defaults:** replaces layer 2 and clears the local layer, on all decks or the chosen ones; asks once.
+- Proposed on top: a **lock** per show (no local changes until the next flash), and the cleared local layer kept as one backup on the deck.
+
 ## 7. Design drafts (in the chat, files in `468-input-concept/`)
 1. **The map:** hardware → adapter (in / beside / far) → profile → source → mapping → parameter, with every family on it.
 2. **Inputs in the editor:** the devices this deck sees, their sources with live values, learn and the profile; one mapping with range, curve and smoothing; the controller map as a list.
 3. **Builds:** the profiles as columns, the adapters as rows, and what a show needs against what a deck has.
 4. **The phone surface:** XY, knobs, pads, tilt, as a far source of a deck.
+5. **The handheld camera session:** the session, what the deck sees, what is shared with the storyboard editor, one take both ways.
+6. **Mapping layers:** precoded, flashed, local; flash and forced flash.
 
 ## 8. For the owner to decide
 1. **Three places** (in / beside / far) as the rule, with the phone staying a browser. Recommended: yes.
@@ -95,3 +126,6 @@ A rig, a module (#312 `needs`) and a show row name the sources they use. A deck 
 4. **Camera tracking:** a helper beside the deck (recommended), and whether face or body comes first.
 5. **Order.** Recommended: MIDI notes in (#439) → gamepad and keys as sources (#228) → the phone surface over the relay → OSC in with learn → audio in → DMX in, Art-Net → camera → IMU, lidar.
 6. **Privacy** as proposed in #312: on the device, off by default, shown before it is enabled.
+7. **The road for poses to a native deck.** Recommended: over the relay first, a native data channel only if the delay shows in a test with the S22.
+8. **The pose maths as one Rust crate** (wasm for the creator) instead of a second copy. Recommended: yes; it touches the storyboard editor, so not while that is being worked on.
+9. **Forced flash:** keep the cleared local layer as one backup on the deck, and a per-show lock. Recommended: both.
