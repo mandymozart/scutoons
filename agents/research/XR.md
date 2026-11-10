@@ -1,4 +1,4 @@
-Status 2026-11-10: research, nothing built (#482); owned by the XR session (branch `wip/482-xr-experiences-7f10f7`), the owner's statements from here on in decisions/xr.md. §1 and §2 are read from the code of both projects; §3 and §4 are proposals; §5 is decided by the owner (OSCT's code copied in, lazily loaded; the unit is an Experience of type book, show or poster; a scene belongs to its experience; three.js accepted; image tracking only); §6 is open; §7 the order, agreed. Plaques and an image on a screen are tested by the owner and work (decisions/xr.md): no test of them is planned.
+Status 2026-11-10: research and concepts, nothing built and nothing to be built yet (#482; the owner: "we're still collecting concepts"); owned by the XR session (branch `wip/482-xr-experiences-7f10f7`), the owner's statements from here on in decisions/xr.md. §1 and §2 are read from the code of both projects; §3 and §4 are proposals; §5 is decided by the owner (OSCT's code copied in, lazily loaded; the unit is an Experience of type book, show or poster; a scene belongs to its experience; three.js accepted; image tracking only); §6 is open; §7 the order, agreed. Plaques and an image on a screen are tested by the owner and work (decisions/xr.md): no test of them is planned.
 
 # XR — taking over OSCT's XR methods into SCUTOONS
 
@@ -76,13 +76,24 @@ So book, space and show are not three orders: a space is a book whose surfaces a
 7a. **Svelte is the primary frontend.** OSCT's editor is Svelte 5 (SvelteKit 3) already; its reader is plain TypeScript with custom elements; its engine is plain TypeScript. So the engine is copied as it is, the reader's XR interface around it (scan mode, entry sheets, unlocking) is written as Svelte components in the viewer, and the editor is carried into the creator.
 7. **Image tracking only for now.** Exhibitions: plaques at the objects, in effect codes one dials in with. No room tracking.
 
+8. **Surfaces are flexible** (owner 2026-11-10, decisions/xr.md): a surface is created in a certain size, named, and used later; various formats, certain wall sizes. Front, back and gatefold are surfaces like all the others.
+9. **A surface has a place on the editor's stage**, the demo scene, so the example reads well: a book's surfaces are bound side by side (spreads); an exhibition's walls stand together, three or four in one, as rooms; posters hang singly or lined up one after another on a poster wall.
+10. **What an entry does in SCUTOONS:** it rather unlocks 3D views, videos and items, or jumps to a scene: interactive stories with SCUTOONS's existing toolset. The entry without a target that is only read in a list (OSCT's glossary) stays in for now; whether SCUTOONS's reader needs it is to be thought about.
+
+Drafts shown to the owner on 2026-11-10 (the XR session's notes folder, `482-xr/`): 2 the experience document · 3 the hierarchy, stored flat and shown stacked in the editor (the owner: good) · 4 the stored shape, A or B.
+
 ## 6 · Open
+- **The stored shape of an experience** (draft 4, XR-SHARED-CORE.md §5 and §8): A, OSCT's configuration kept as it is inside the document with SCUTOONS's fields beside it (the research's advice; the tree is then surface › entry › target › scene, as OSCT's), or B, SCUTOONS's own four lists (draft 3; surface › target › scene, the entry beside). Not answered.
+- Surfaces and the stage (points 8 and 9): whether a named size is kept as a format to reuse across surfaces, and whether a room is a stored group of surfaces or only their arrangement on the stage. A draft of it (5) is not drawn. OSCT's stage today: one book lying on a desk, leafed spread by spread (`editor/src/lib/stage/mock-stage.ts`).
+- From draft 2, not answered: whether a record's disc label is a surface; whether the jump's field offers scenes beside experiences and targets.
 
 - How a Show's screen surface names the still a deck shows (the tracking itself is tested and works, owner 2026-11-10: "It's more about the implementation").
 - What "addressing a scene's parameters" needs: by decision [address] an address is real only where a receiver exists. The reader's XR mode would be that receiver; which parameters a scene exposes follows OSCT's behaviour rules (`set`, `emit`).
 - ~~The list of XR jumps that exist in chapters today.~~ Made 2026-11-10: none. Production's flow (`read_flow`, all toons) has no jump to XR and the local seed has none; the QR code type `xr` redirects to the code's own `redirect_to`. The URL shape is free.
 
 ## 7 · Order of work
+
+Not started: the owner builds nothing yet (2026-11-10). The order below stands for when the build is called. Ready for it on the branch `wip/482-xr-experiences-7f10f7`: its own packages and test database (`scutoons_xr482_test`); baselines green for the viewer, the creator, PHPStan, core-only and the server contracts.
 
 1. **The data, in SCUTOONS's own shape:** the catalog document kind `experience` (type book · show · poster; surfaces; targets; scenes; entries), its schema taken from OSCT's contract, types generated ([contract]); experiences, their surfaces' targets and scenes as references in the address book (#477); the XR jump's one field offers them; the reader's page `/xr/<experience>/<target>` as a shell that names what it would open.
 2. **The engine in the reader:** OSCT's engine copied in as a lazily loaded module on that page; one experience of type book authored as a document; an entry that gives an item.
