@@ -1,21 +1,23 @@
-// The handheld camera on the PC (#126; the studio's handheld.svelte.js – workflows/storyboard-studio README "Handheld
-// camera", research/HANDHELD-CAMERA.md, STUDIO-IN-CREATOR §2.6): the pairing with the phone (a one-time code as a QR,
-// the WebRTC offer / answer through the API, then the data channels peer to peer), the phone's pose mapped onto the shot
-// camera (Recenter = the phone's pose now is the shot camera's), smoothed live and shown in the 3D view (Stage3d.hold),
+// The handheld camera on the PC (#126, #469; the studio's handheld.svelte.js – workflows/storyboard-studio README
+// "Handheld camera", research/HANDHELD-CAMERA.md, STUDIO-IN-CREATOR §2.6): the pairing with the phone (a one-time code as
+// a QR; the API gives a relay session, the PC joins it as its conductor through the link the panel hands in – hand-link.ts,
+// the live road, QUIC first, the WebSocket last – and the phone that claims the code joins it too), the phone's pose mapped onto the shot camera
+// (Recenter = the phone's pose now is the shot camera's), smoothed live and shown in the 3D view (Stage3d.hold),
 // recording a take into the shot (inline, one undo step), a take's moment in the 3D view (the timeline), rendering a take
 // into the workspace folder + its record. The maths and the takes are the tested storyboard-handheld / -takes modules.
 import type { Shot, Take, TakeSample } from '@scutoons/content/storyboard';
 import { api } from '$lib/api.ts';
+import type { HandPort, OpenHand } from '$lib/handheld/hand-port.ts';
 import type { Stage3d } from '$lib/storyboard/stage.svelte.ts';
 import { makeOrigin, mapPose, sampleAt, smooth, smoother, type Origin } from './storyboard-handheld.ts';
-import { decodePhone, ICE_SERVERS, makeOffer, phoneUrl, send, sessionCalls, takeAnswer, waitAnswer, type Channels, type PhoneMode } from './storyboard-pairing.ts';
+import { phoneUrl, sessionCalls } from './storyboard-pairing.ts';
 import { activeTake, addTake, newTake, renderRecord, sha256 } from './storyboard-takes.ts';
 import { recordGeneration } from './storyboard-generations.ts';
 import { nextGenerationFile } from './storyboard-workspace.ts';
 import type { ShotEntry } from './storyboard-shots.ts';
 import type { StoryboardPage } from './storyboard-page.svelte.ts';
 
-export type LinkStatus = 'idle' | 'waiting' | 'connecting' | 'connected' | 'closed' | 'failed';
+export type LinkStatus = 'idle' | 'waiting' | 'connected' | 'closed' | 'failed';
 
 export class HandheldState {
 	/** the pairing: its code and the phone's link (the QR) */
@@ -23,8 +25,10 @@ export class HandheldState {
 	url = $state<string | null>(null);
 	status = $state<LinkStatus>('idle');
 	error = $state<string | null>(null);
+	/** the rung the PC's own link is on (the core's word: QUIC · WebSocket; '' while it joins) */
+	rung = $state('');
 	/** what the phone says */
-	phone = $state<{ ua: string; mode: PhoneMode; tracking: boolean } | null>(null);
+	phone = $state<{ ua: string; mode: string; tracking: boolean } | null>(null);
 	/** the phone's pose drives the 3D view */
 	live = $state(false);
 	/** live smoothing (new takes keep it) and scene metres per phone metre */
@@ -36,8 +40,7 @@ export class HandheldState {
 	rendering = $state<string | null>(null);
 
 	private stage: Stage3d | null = null;
-	private pc: RTCPeerConnection | null = null;
-	private ch: Channels | null = null;
+	private link: HandPort | null = null;
 	private stop: AbortController | null = null;
 	private origin: Origin | null = null;
 	private filter = smoother(0);
@@ -61,8 +64,9 @@ export class HandheldState {
 
 	// ── Pairing ────────────────────────────────────────────────────────────────────────────────────────────
 
-	/** a new code + QR; the PC's offer; then it waits for the phone (at most the code's 10 minutes) */
-	async pair(): Promise<void> {
+	/** a new code + QR and its relay session; the PC joins it through `open` and waits for the phone (it claims within 10
+	 *  minutes) */
+	async pair(open: OpenHand): Promise<void> {
 		this.unpair();
 		const stop = (this.stop = new AbortController());
 		this.status = 'waiting';
@@ -72,25 +76,22 @@ export class HandheldState {
 			if (stop.signal.aborted) return;
 			this.code = p.code;
 			this.url = phoneUrl(location.origin, p.code);
-			const pc = (this.pc = new RTCPeerConnection({ iceServers: ICE_SERVERS }));
-			pc.addEventListener('connectionstatechange', () => {
-				if (this.pc !== pc) return;
-				if (pc.connectionState === 'failed') this.status = 'failed';
-				else if (pc.connectionState === 'disconnected' || pc.connectionState === 'closed') this.dropped();
+			this.link = open('conductor', p.session, p.token, {
+				status: (state, rung, why) => {
+					this.rung = rung;
+					if (state === 'refused') [this.status, this.error] = ['failed', why];
+				},
+				phone: (ua, mode, tracking) => {
+					this.phone = { ua, mode, tracking };
+					this.status = 'connected';
+				},
+				// the core passes only 3 + 4 finite numbers
+				pose: (t, p, q) => this.onPose(t, [p[0], p[1], p[2]], [q[0], q[1], q[2], q[3]]),
+				record: (on) => void (on ? this.startRec() : this.stopRec()),
+				recenter: () => this.recenter(),
+				away: () => this.away()
 			});
-			const ch = await makeOffer(pc, this.calls, p.code);
-			const answer = await waitAnswer(this.calls, p.code, { signal: stop.signal });
-			if (!answer || stop.signal.aborted) return;
-			this.status = 'connecting';
-			this.ch = ch;
-			ch.ctl.onmessage = (e) => this.onMessage(e.data);
-			ch.pose.onmessage = (e) => this.onMessage(e.data);
-			ch.ctl.onopen = () => {
-				this.status = 'connected';
-				this.sendState();
-			};
-			ch.ctl.onclose = () => this.dropped();
-			await takeAnswer(pc, answer);
+			this.sendState();
 		} catch (e) {
 			if (stop.signal.aborted) return;
 			this.status = 'failed';
@@ -104,36 +105,27 @@ export class HandheldState {
 		this.stop = null;
 		if (this.code && this.status === 'waiting') void this.calls.remove(this.code).catch(() => undefined);
 		this.stopLive();
-		this.pc?.close();
-		this.pc = null;
-		this.ch = null;
+		this.link?.close();
+		this.link = null;
 		this.code = null;
 		this.url = null;
 		this.phone = null;
+		this.rung = '';
 		this.status = 'idle';
 	}
 
-	private dropped(): void {
+	/** the phone left the session (the core's word): a take goes on – the phone comes back as the same client after a
+	 *  fall to the WebSocket; Stop ends it */
+	private away(): void {
 		if (this.status === 'idle') return;
-		this.stopLive();
 		this.phone = null;
 		this.status = 'closed';
 	}
 
-	private onMessage(data: unknown): void {
-		const m = decodePhone(data);
-		if (!m) return;
-		if (m.type === 'hello') this.phone = { ua: m.ua, mode: this.phone?.mode ?? '', tracking: true };
-		else if (m.type === 'state') this.phone = { ua: this.phone?.ua ?? '', mode: m.mode, tracking: m.tracking };
-		else if (m.type === 'rec') void (m.on ? this.startRec() : this.stopRec());
-		else if (m.type === 'recenter') this.recenter();
-		else if (m.type === 'pose') this.onPose(m.t, m.p, m.q);
-	}
-
-	/** the phone's view of the PC: the current shot, the camera on, recording */
+	/** the phone's view of the PC: the current shot, the camera on, recording (the core sends it again after a rejoin and
+	 *  to a phone that joins later) */
 	sendState(): void {
-		const shot = this.sb.sel?.shot;
-		send(this.ch?.ctl, { type: 'state', shot: this.sb.current, on: !!shot?.takes?.on, recording: this.recording, seconds: this.recSeconds });
+		this.link?.view({ shot: this.sb.current ?? undefined, on: !!this.sb.sel?.shot?.takes?.on, recording: this.recording, seconds: this.recSeconds });
 	}
 
 	// ── The live pose ──────────────────────────────────────────────────────────────────────────────────────

@@ -3,17 +3,18 @@
 	// need to load so much grap. it is only accessed through a qr code when linked anyhow" – DECISIONS, STUDIO-IN-CREATOR
 	// §2.6): reached only through the Handheld panel's QR code, no sign-in (the one-time code is its right), without the
 	// creator's frame (it lives outside the (app) route group), no paraglide (phone-words.ts), no three. It connects, asks for
-	// the motion sensor (iOS: a tap), streams the phone's pose to the PC over the data channel and has three controls:
+	// the motion sensor (iOS: a tap), streams the phone's pose to the PC through the relay session (the live road: QUIC first, the WebSocket last; #469) and has three controls:
 	// Record / Stop, Recenter (the phone's pose now = the shot camera) – the PC shows the shot and records.
 	import { onDestroy, onMount } from 'svelte';
 	import { page } from '$app/state';
+	import { openHand } from '$lib/handheld/hand-link.ts';
 	import { PhoneSession } from '$lib/handheld/phone-session.svelte.ts';
 	import { phoneWords } from '$lib/handheld/phone-words.ts';
 
 	const { words: w, lang } = phoneWords();
 	// the page is keyed by its code (a new QR → a new page)
 	// svelte-ignore state_referenced_locally
-	const s = new PhoneSession(page.params.code ?? '');
+	const s = new PhoneSession(page.params.code ?? '', openHand);
 	let root = $state<HTMLElement>();
 
 	onMount(() => {
@@ -37,17 +38,17 @@
 		<p class="big">{s.shot ?? w.title}</p>
 		{#if mode}<p class="small">{mode}</p>{/if}
 		{#if s.mode === 'orientation'}<p class="small">{w.dragHint}</p>{/if}
-		{#if !s.mode && live}<p class="small">{w.startHint}</p>{/if}
+		{#if s.mode === 'none' && live}<p class="small">{w.startHint}</p>{/if}
 	</div>
 	<header class="bar">
 		<span>{w.title}</span>
-		{#if live}<span>{w.connected}</span>{/if}
+		{#if live}<span data-testid="phone-rung">{w.connected} · {s.rung}</span>{/if}
 		{#if s.recording}<span class="rec" data-testid="phone-rec">● {s.seconds.toFixed(1)} s</span>{/if}
 	</header>
 	{#if status}<p class="status" role="status" data-testid="phone-status">{status}</p>{/if}
 	{#if live}
 		<footer class="bar bottom">
-			{#if !s.mode}
+			{#if s.mode === 'none'}
 				{#if s.xr}<button type="button" onclick={() => root && s.startXR(root)} data-testid="phone-start-xr">{w.startAr}</button>{/if}
 				<button type="button" class:secondary={s.xr} onclick={() => s.startOrientation()} data-testid="phone-start">{s.xr ? w.rotationOnly : w.start}</button>
 			{:else}

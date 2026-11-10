@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 /// A payload whose shape is not fixed yet: any JSON object.
 pub type Loose = serde_json::Map<String, serde_json::Value>;
 
-/// LIVE.md B.2. `uplink` is the local relay connected to the hosted one (B.6 Uplink). `reader` (#90, SHOW.md §7) is a phone reading the chapter: all it sends is its `story` events, to the conductor. `seat` (#90, SHOW.md §4) is a child conductor's relay in its parent's session, its group is the seat's id.
+/// LIVE.md B.2. `uplink` is the local relay connected to the hosted one (B.6 Uplink). `reader` (#90, SHOW.md §7) is a phone reading the chapter: all it sends is its `story` events, to the conductor. `seat` (#90, SHOW.md §4) is a child conductor's relay in its parent's session, its group is the seat's id. `handheld` (#469, research/HANDHELD-CAMERA.md) is a phone as a handheld camera: it joins with the token the API hands it for one pairing code, all it sends is its `hand.*` messages, to the conductor (the storyboard editor), and it hears `hand.view`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Role {
 	#[serde(rename = "conductor")]
@@ -27,6 +27,8 @@ pub enum Role {
 	Reader,
 	#[serde(rename = "seat")]
 	Seat,
+	#[serde(rename = "handheld")]
+	Handheld,
 }
 
 impl Role {
@@ -41,6 +43,7 @@ impl Role {
 			Role::Uplink => "uplink",
 			Role::Reader => "reader",
 			Role::Seat => "seat",
+			Role::Handheld => "handheld",
 		}
 	}
 }
@@ -173,6 +176,16 @@ pub enum Message {
 	Address(Address),
 	#[serde(rename = "address.answer")]
 	AddressAnswer(AddressAnswer),
+	#[serde(rename = "hand.pose")]
+	HandPose(HandPose),
+	#[serde(rename = "hand.state")]
+	HandState(HandState),
+	#[serde(rename = "hand.record")]
+	HandRecord(HandRecord),
+	#[serde(rename = "hand.recenter")]
+	HandRecenter(Empty),
+	#[serde(rename = "hand.view")]
+	HandView(HandView),
 	#[serde(rename = "error")]
 	Error(Error),
 }
@@ -228,6 +241,11 @@ impl Message {
 			Message::FlashReport(_) => "flash.report",
 			Message::Address(_) => "address",
 			Message::AddressAnswer(_) => "address.answer",
+			Message::HandPose(_) => "hand.pose",
+			Message::HandState(_) => "hand.state",
+			Message::HandRecord(_) => "hand.record",
+			Message::HandRecenter(_) => "hand.recenter",
+			Message::HandView(_) => "hand.view",
 			Message::Error(_) => "error",
 		}
 	}
@@ -1032,6 +1050,61 @@ pub struct DeckValues {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DeckMidi {
 	pub msgs: Vec<MidiBytes>,
+}
+
+/// #469: a handheld → relay → the conductor: the phone's own pose in its world (the editor maps it onto the shot camera). `t` = the phone's clock (ms), `p` = position (metres, 3 numbers), `q` = rotation (quaternion x y z w, 4 numbers). Latest wins: on QUIC a datagram; a pose not newer than the last one from that phone is dropped (by the relay and by the receiving client); never logged or replayed.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct HandPose {
+	pub t: f64,
+	pub p: Vec<f64>,
+	pub q: Vec<f64>,
+}
+
+/// #469: what the phone tracks – WebXR (position + rotation), the orientation sensor (rotation only), nothing yet.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum HandMode {
+	#[serde(rename = "xr")]
+	Xr,
+	#[serde(rename = "orientation")]
+	Orientation,
+	#[serde(rename = "none")]
+	None,
+}
+
+impl HandMode {
+	pub fn as_str(self) -> &'static str {
+		match self {
+			HandMode::Xr => "xr",
+			HandMode::Orientation => "orientation",
+			HandMode::None => "none",
+		}
+	}
+}
+
+/// #469: a handheld → the conductor: what it tracks and whether tracking holds; `ua` its browser. Reliable; sent again after every welcome.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct HandState {
+	pub mode: HandMode,
+	pub tracking: bool,
+	/// at most 300 characters (the client trims it)
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub ua: Option<String>,
+}
+
+/// #469: a handheld → the conductor: Record (`on`) or Stop. Reliable (`hand.recenter`: Recenter, no payload).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct HandRecord {
+	pub on: bool,
+}
+
+/// #469: the conductor (the storyboard editor) → its handhelds: the shot it films, whether the handheld camera is on for it, recording and for how long (s). Reliable; sent again after every welcome.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct HandView {
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub shot: Option<String>,
+	pub on: bool,
+	pub recording: bool,
+	pub seconds: f64,
 }
 
 /// #442: a deck → relay → the group `decks`: the absolute addresses its far world nodes name (deck-space rig/address.rs: `/deck:<name>/scene:<id>/character:<id>/<track>:<node>.<port>`), sent on each welcome and again every 10 s while it has any (a subscription not refreshed for 30 s lapses). The deck whose name and rig the address names answers with `deck.events` to this client; the relay never parses an address. Ordered, not kept for replay.

@@ -110,10 +110,17 @@ impl Member {
         v.values.is_empty() && v.mood.is_none()
     }
 
-    /// A datagram: only `deck.values`, never an older one than this client already sent. Anything else is ignored, so
-    /// nothing that must arrive can be sent on a lane that may lose it.
+    /// A datagram: only `deck.values`, never an older one than this client already sent, and #469 a handheld's
+    /// `hand.pose` (the session drops one not newer than its last). Anything else is ignored, so nothing that must arrive
+    /// can be sent on a lane that may lose it.
     pub fn datagram(&self, bytes: &[u8]) {
         let Ok(e) = serde_json::from_slice::<Envelope>(bytes) else { return };
+        let relay = &self.doors.relay;
+        let lead = relay.config.lead_ms;
+        if matches!(e.message, Message::HandPose(_)) {
+            relay.with_session(&self.code, |s| s.handle(&self.id, e, now_ms(), lead));
+            return;
+        }
         let Message::DeckValues(v) = &e.message else { return };
         {
             let mut up = self.up.lock().unwrap();
@@ -131,8 +138,6 @@ impl Member {
                 }
             }
         }
-        let relay = &self.doors.relay;
-        let lead = relay.config.lead_ms;
         relay.with_session(&self.code, |s| s.handle(&self.id, e, now_ms(), lead));
     }
 

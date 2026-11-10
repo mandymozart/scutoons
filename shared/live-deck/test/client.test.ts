@@ -102,6 +102,8 @@ function replay(m: RelayModule, s: Script): { groups: Record<string, unknown>[][
 	let ids = 0;
 	// a vote screen's moves too (the viewer's live-vote-link.ts types them)
 	const core = new m.RelayClient(JSON.stringify(s.join)) as RelayCoreView & { vote_open(j: string): boolean; vote_cast(o: number): boolean; vote_close(o?: number): boolean; vote_hold(h: boolean): boolean };
+	// #469: a handheld session's moves (hand.ts types them)
+	const hand = core as unknown as { hand_pose(t: number, p: Float64Array, q: Float64Array): boolean; hand_state(j: string): void; hand_record(on: boolean): boolean; hand_recenter(): boolean; hand_view(j: string): void };
 	let group: Record<string, unknown>[] = [];
 	const groups = [group];
 	// every word of the core, as the socket took it
@@ -204,6 +206,24 @@ function replay(m: RelayModule, s: Script): { groups: Record<string, unknown>[][
 				break;
 			case 'vote_hold':
 				call(() => core.vote_hold(w));
+				break;
+			// #469: the handheld camera's moves (hand.ts)
+			case 'hand_pose': {
+				const p = w as { t: number; p: number[]; q: number[] };
+				call(() => hand.hand_pose(p.t, Float64Array.from(p.p), Float64Array.from(p.q)));
+				break;
+			}
+			case 'hand_state':
+				call(() => hand.hand_state(JSON.stringify(w)));
+				break;
+			case 'hand_record':
+				call(() => hand.hand_record(w));
+				break;
+			case 'hand_recenter':
+				call(() => hand.hand_recenter());
+				break;
+			case 'hand_view':
+				call(() => hand.hand_view(JSON.stringify(w)));
 				break;
 			case 'stop':
 				sock.close();

@@ -1,7 +1,7 @@
 // GENERATED from deck/protocol/schema.json by deck/protocol/generate.ts – edit the schema, run `npm run generate -w shared/live`.
 // agents/research/LIVE.md B.6. One envelope per message, JSON over one WebSocket per client. The generator (deck/protocol/generate.ts) reads only the subset used here: object / string / integer / number / boolean / array / $ref / enum / const / oneOf discriminated by `kind` / additionalProperties maps. Edit this file, run `npm run generate -w shared/live`, commit both outputs.
-/** LIVE.md B.2. `uplink` is the local relay connected to the hosted one (B.6 Uplink). `reader` (#90, SHOW.md §7) is a phone reading the chapter: all it sends is its `story` events, to the conductor. `seat` (#90, SHOW.md §4) is a child conductor's relay in its parent's session, its group is the seat's id. */
-export type Role = 'conductor' | 'output' | 'bridge' | 'performer' | 'musician' | 'audience' | 'uplink' | 'reader' | 'seat';
+/** LIVE.md B.2. `uplink` is the local relay connected to the hosted one (B.6 Uplink). `reader` (#90, SHOW.md §7) is a phone reading the chapter: all it sends is its `story` events, to the conductor. `seat` (#90, SHOW.md §4) is a child conductor's relay in its parent's session, its group is the seat's id. `handheld` (#469, research/HANDHELD-CAMERA.md) is a phone as a handheld camera: it joins with the token the API hands it for one pairing code, all it sends is its `hand.*` messages, to the conductor (the storyboard editor), and it hears `hand.view`. */
+export type Role = 'conductor' | 'output' | 'bridge' | 'performer' | 'musician' | 'audience' | 'uplink' | 'reader' | 'seat' | 'handheld';
 
 /** Who a message reaches. Every field narrows; all missing = everyone the sender may reach. */
 export interface To {
@@ -74,6 +74,11 @@ export type Message =
 	| { kind: 'flash.report'; p: FlashReport }
 	| { kind: 'address'; p: Address }
 	| { kind: 'address.answer'; p: AddressAnswer }
+	| { kind: 'hand.pose'; p: HandPose }
+	| { kind: 'hand.state'; p: HandState }
+	| { kind: 'hand.record'; p: HandRecord }
+	| { kind: 'hand.recenter'; p: Empty }
+	| { kind: 'hand.view'; p: HandView }
 	| { kind: 'error'; p: Error };
 
 /** A payload whose shape B.6 names but this skeleton does not fix yet (say / line / fx / colour, cue actions). */
@@ -576,6 +581,37 @@ export interface DeckValues {
 /** #211: a deck → relay → the conductor (and `to`, if set): MIDI its parameters send as outputs (a mapping's target `port = "conductor"` – CC / note / pitch bend, status byte first), for the conductor to route on like device input. Only decks send it; not kept for replay (a value stream, not state). */
 export interface DeckMidi {
 	msgs: MidiBytes[];
+}
+
+/** #469: a handheld → relay → the conductor: the phone's own pose in its world (the editor maps it onto the shot camera). `t` = the phone's clock (ms), `p` = position (metres, 3 numbers), `q` = rotation (quaternion x y z w, 4 numbers). Latest wins: on QUIC a datagram; a pose not newer than the last one from that phone is dropped (by the relay and by the receiving client); never logged or replayed. */
+export interface HandPose {
+	t: number;
+	p: number[];
+	q: number[];
+}
+
+/** #469: what the phone tracks – WebXR (position + rotation), the orientation sensor (rotation only), nothing yet. */
+export type HandMode = 'xr' | 'orientation' | 'none';
+
+/** #469: a handheld → the conductor: what it tracks and whether tracking holds; `ua` its browser. Reliable; sent again after every welcome. */
+export interface HandState {
+	mode: HandMode;
+	tracking: boolean;
+	/** at most 300 characters (the client trims it) */
+	ua?: string;
+}
+
+/** #469: a handheld → the conductor: Record (`on`) or Stop. Reliable (`hand.recenter`: Recenter, no payload). */
+export interface HandRecord {
+	on: boolean;
+}
+
+/** #469: the conductor (the storyboard editor) → its handhelds: the shot it films, whether the handheld camera is on for it, recording and for how long (s). Reliable; sent again after every welcome. */
+export interface HandView {
+	shot?: string;
+	on: boolean;
+	recording: boolean;
+	seconds: number;
 }
 
 /** #442: a deck → relay → the group `decks`: the absolute addresses its far world nodes name (deck-space rig/address.rs: `/deck:<name>/scene:<id>/character:<id>/<track>:<node>.<port>`), sent on each welcome and again every 10 s while it has any (a subscription not refreshed for 30 s lapses). The deck whose name and rig the address names answers with `deck.events` to this client; the relay never parses an address. Ordered, not kept for replay. */

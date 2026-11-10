@@ -42,6 +42,9 @@ pub const NICK_MAX: usize = 24;
 /// #188: a deck's `deck.values` at most 30 / s (a bucket of 15 – a frame's jitter is no reason to drop one).
 pub const VALUES_RATE: f64 = 30.0;
 const VALUES_BURST: f64 = 15.0;
+/// #469: a handheld's `hand.pose` at most 120 / s (a phone's sensor or WebXR frame: 60, some 90 or 120)
+pub const POSE_RATE: f64 = 120.0;
+const POSE_BURST: f64 = 30.0;
 /// the decks' group (deck-native's space/link.rs, @scutoons/live-deck's client.ts): where a `scene.sync` goes
 pub const DECKS: &str = "decks";
 
@@ -59,15 +62,20 @@ pub struct Client {
     /// #90: this client is the link to this session's parent (tree.rs): it never sends through `handle`
     pub up: bool,
     bucket: Bucket,
-    /// #188: the deck's values stream
+    /// #188: the deck's values stream (#469: a handheld's poses)
     values: Bucket,
+    /// #469: a handheld's newest pose (its `t`): one not newer is late and dropped
+    pose_t: Option<f64>,
 }
 
 impl Client {
     pub fn new(role: Role, group: Option<String>, nick: Option<String>, outbox: Arc<Outbox>, now: i64) -> Self {
         let bucket = Bucket { tokens: AUDIENCE_RATE, at: now, rate: AUDIENCE_RATE, burst: AUDIENCE_RATE };
-        let values = Bucket { tokens: VALUES_BURST, at: now, rate: VALUES_RATE, burst: VALUES_BURST };
-        Client { role, group, nick, ready: false, outbox, key: String::new(), up: false, bucket, values }
+        let values = match role {
+            Role::Handheld => Bucket { tokens: POSE_BURST, at: now, rate: POSE_RATE, burst: POSE_BURST },
+            _ => Bucket { tokens: VALUES_BURST, at: now, rate: VALUES_RATE, burst: VALUES_BURST },
+        };
+        Client { role, group, nick, ready: false, outbox, key: String::new(), up: false, bucket, values, pose_t: None }
     }
 }
 
@@ -185,6 +193,7 @@ fn conductor_only(m: &Message) -> bool {
             | Message::Seat(_)
             | Message::SeatState(_)
             | Message::Flash(_)
+            | Message::HandView(_)
             | Message::Address(_)
             | Message::Kick(_)
             | Message::Rename(_)
@@ -545,6 +554,26 @@ impl Session {
                 return After::Nothing;
             }
         }
+        // #469: a handheld's whole say is its pose, state and controls, and they are for the conductor (the editor)
+        let from_hand = matches!(e.message, Message::HandPose(_) | Message::HandState(_) | Message::HandRecord(_) | Message::HandRecenter(_));
+        if role == Role::Handheld {
+            if !(from_hand || matches!(e.message, Message::Ping(_) | Message::Ready(_))) {
+                self.error(id, "authority", &format!("a handheld does not send {}", e.message.kind()));
+                return After::Nothing;
+            }
+            if from_hand {
+                e.to = Some(To::role(Role::Conductor));
+                if matches!(e.message, Message::HandPose(_)) {
+                    self.hand_pose(id, e, now);
+                } else {
+                    self.publish(id, e, now);
+                }
+                return After::Nothing;
+            }
+        } else if from_hand {
+            self.error(id, "authority", &format!("only a handheld sends {}", e.message.kind()));
+            return After::Nothing;
+        }
         let uplink = role == Role::Uplink;
         if conductor_only(&e.message) && !(role == Role::Conductor || uplink) {
             self.error(id, "authority", &format!("only the conductor sends {}", e.message.kind()));
@@ -758,6 +787,13 @@ impl Session {
                 self.tell_presence();
             }
             Message::DeckValues(_) => self.deck_values(id, e, now),
+            Message::HandView(_) => {
+                // #469: the editor's word to its phones – kept in the log, so a phone that resumes has the latest
+                if e.to.is_none() {
+                    e.to = Some(To::role(Role::Handheld));
+                }
+                self.publish(id, e, now);
+            }
             Message::Tempo(t) => {
                 // #321: kept for the snapshot (a deck joining later follows at once), to everyone else
                 self.tempo = Some(t.clone());
@@ -881,6 +917,27 @@ impl Session {
         if new_route {
             self.tell_presence();
         }
+    }
+
+    /// #469: a handheld's pose – not 3 + 4 finite numbers: refused; not newer than its last one (a datagram overtaken)
+    /// or over the rate: dropped; to the conductor(s), latest wins (outbox.rs), never logged.
+    fn hand_pose(&mut self, id: &str, e: Envelope, now: i64) {
+        let Message::HandPose(p) = &e.message else { return };
+        let finite = |v: &[f64], n: usize| v.len() == n && v.iter().all(|x| x.is_finite());
+        if !(p.t.is_finite() && finite(&p.p, 3) && finite(&p.q, 4)) {
+            self.error(id, "pose", "a pose is t, p (3 numbers) and q (4 numbers)");
+            return;
+        }
+        let Some(c) = self.clients.get_mut(id) else { return };
+        if c.pose_t.is_some_and(|t| p.t <= t) {
+            return;
+        }
+        if !c.values.take(now) {
+            self.dropped += 1;
+            return;
+        }
+        c.pose_t = Some(p.t);
+        self.deliver(id, e);
     }
 
     /// #90: a child's relay (role `seat`, its group the seat's id) said something: to this session's conductor(s), `from` a
@@ -1109,6 +1166,36 @@ mod tests {
         r.add("a3", Role::Audience, Some("right"));
         r.add("bridge", Role::Bridge, None);
         r
+    }
+
+    /// #469: a handheld talks to the editor (the conductor) only; its newest pose wins, a late or malformed one never passes
+    #[test]
+    fn a_handheld_talks_to_the_conductor_and_hears_its_view() {
+        let mut r = room();
+        r.add("hand", Role::Handheld, None);
+        r.drain();
+        let pose = |t: f64, p: Vec<f64>| Message::HandPose(protocol::HandPose { t, p, q: vec![0.0, 0.0, 0.0, 1.0] });
+        r.send("hand", pose(10.0, vec![0.0, 1.5, 0.0]), 1);
+        r.send("hand", pose(5.0, vec![9.0, 9.0, 9.0]), 2); // late
+        r.send("hand", pose(20.0, vec![0.0, 1.5]), 3); // malformed
+        r.send("hand", Message::HandRecord(protocol::HandRecord { on: true }), 4);
+        let got = r.inbox("cond");
+        assert_eq!(got.iter().map(|e| e.message.kind()).collect::<Vec<_>>(), ["hand.pose", "hand.record"]);
+        assert!(matches!(&got[0].message, Message::HandPose(p) if p.t == 10.0) && got[0].from == "hand");
+        assert!(r.kinds("a1").is_empty() && r.kinds("outL").is_empty(), "nobody else hears the phone");
+        assert!(r.inbox("hand").iter().any(|e| matches!(&e.message, Message::Error(x) if x.code == "pose")));
+        assert!(r.s.log.iter().all(|l| !matches!(serde_json::from_str::<Envelope>(l.frame.text.as_str()).unwrap().message, Message::HandPose(_))), "poses are never logged");
+        r.send("hand", Message::Say(Default::default()), 5);
+        assert!(r.inbox("hand").iter().any(|e| matches!(&e.message, Message::Error(x) if x.code == "authority")), "a handheld says nothing else");
+        r.send("a1", pose(30.0, vec![0.0, 1.5, 0.0]), 6);
+        assert!(r.inbox("a1").iter().any(|e| matches!(&e.message, Message::Error(x) if x.code == "authority")), "only a handheld sends a pose");
+        let view = Message::HandView(protocol::HandView { shot: Some("sb-1".into()), on: true, recording: false, seconds: 0.0 });
+        r.send("hand", view.clone(), 7);
+        assert!(r.kinds("cond").is_empty(), "a handheld sends no view");
+        assert_eq!(r.kinds("hand"), ["error"]);
+        r.send("cond", view, 8);
+        assert_eq!(r.kinds("hand"), ["hand.view"]);
+        assert!(r.kinds("a1").is_empty());
     }
 
     #[test]

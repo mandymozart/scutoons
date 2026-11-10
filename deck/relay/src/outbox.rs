@@ -3,7 +3,8 @@
 //! - **ordered** messages (cues, `scene.sync`, `deck.graph`, `deck.synced`, snapshots, welcome, votes, errors …) stay
 //!   complete and in order;
 //! - **state-like** ones – each a snapshot of something current, so only the newest matters: `deck.values` (per sending
-//!   deck; they carry only what changed, so a newer one merges into the waiting one key by key), `presence`,
+//!   deck; they carry only what changed, so a newer one merges into the waiting one key by key), `hand.pose` (per
+//!   handheld, #469), `presence`,
 //!   `vote.tally`, `state` – replace the one of their kind still waiting. A client that stalled gets the newest when it
 //!   drains, not a backlog of stale values.
 //!
@@ -37,6 +38,8 @@ pub const MAX_WAIT: Duration = Duration::from_secs(5);
 pub enum Latest {
     /// a deck's `deck.values`, by its client id
     Values(Arc<str>),
+    /// #469: a handheld's `hand.pose`, by its client id
+    Pose(Arc<str>),
     Presence,
     Tally,
     State,
@@ -57,6 +60,7 @@ impl Frame {
         let text = serde_json::to_string(&e).expect("envelope serializes").into();
         let key = match &e.message {
             Message::DeckValues(_) => Some(Latest::Values(Arc::from(e.from.as_str()))),
+            Message::HandPose(_) => Some(Latest::Pose(Arc::from(e.from.as_str()))),
             Message::Presence(_) => Some(Latest::Presence),
             Message::VoteTally(_) => Some(Latest::Tally),
             Message::State(_) => Some(Latest::State),
@@ -267,7 +271,7 @@ impl Outbox {
                     let from = released.map_or(slot.since, |r| r.max(slot.since));
                     took.waited = took.waited.max(now.saturating_duration_since(from));
                     latest = true;
-                    let lane = if matches!(slot.key, Latest::Values(_)) { Lane::Unreliable } else { Lane::Reliable };
+                    let lane = if matches!(slot.key, Latest::Values(_) | Latest::Pose(_)) { Lane::Unreliable } else { Lane::Reliable };
                     out(lane, slot.text());
                 }
             }
@@ -352,7 +356,8 @@ impl Outbox {
 }
 
 /// #438: which lane a message takes on a transport that has two. Only `deck.values` may be lost – a newer one follows
-/// within 33 ms and the settle (doors/mod.rs) repairs the rest; everything else stays reliable and in order.
+/// within 33 ms and the settle (doors/mod.rs) repairs the rest – and #469 a handheld's `hand.pose` (the next one follows
+/// within a frame and says the whole pose); everything else stays reliable and in order.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Lane {
     Reliable,

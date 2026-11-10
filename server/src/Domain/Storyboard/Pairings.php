@@ -4,44 +4,51 @@ declare(strict_types=1);
 namespace Scutoons\Domain\Storyboard;
 
 use Scutoons\Domain\ApiError;
+use Scutoons\Domain\Live\LiveSessions;
 use Scutoons\Infrastructure\Clock\Clock;
 use Scutoons\Infrastructure\Database\Database;
 use Throwable;
 
 /**
- * The handheld camera's pairings (#126, agents/research/STUDIO-IN-CREATOR.md §2.6): the signaling of ONE WebRTC data
- * channel between the member's PC (the creator's Handheld panel) and their phone (the creator's barebone page /h/<code>,
- * no sign-in). The PC asks for a one-time code (signed-in content editor), puts its offer, the phone reads the offer
- * with the code and puts its answer, the PC reads the answer – and with that read the row is gone. A row lives
- * MINUTES at most; every new pairing sweeps the expired ones. The code (128 bits) is the phone's only right: this row's
- * offer and answer, each written once – nothing else of the API is readable with it.
+ * The handheld camera's pairings (#126, #469; agents/research/HANDHELD-CAMERA.md, STUDIO-IN-CREATOR.md §2.6): how the
+ * phone gets the right to join ONE relay session – the live road (QUIC first, the WebSocket last) between the member's
+ * PC (the creator's Handheld panel, the session's conductor) and their phone (the creator's barebone page /h/<code>, no
+ * sign-in). The PC asks for a one-time code (signed-in content editor) and gets with it a fresh relay session and its own
+ * conductor token; the phone claims the code once and gets the session and a `handheld` token for it (the relay checks
+ * both with the secret it shares with this API, deck/relay/src/token.rs). The code is good for one claim within MINUTES;
+ * the tokens last TOKEN_HOURS (a session's length: every rejoin, every fall to the WebSocket says hello again). The code
+ * (128 bits) is the phone's only right: it opens this one claim, nothing else of the API.
  */
 final class Pairings
 {
     public const MINUTES = 10;
+    /** a handheld session's tokens last this long */
+    public const TOKEN_HOURS = 12;
     /** open pairings a member may hold at once (a QR shown on a few PCs) */
     public const OPEN_MAX = 10;
     public const CODE = '#^[A-Za-z0-9_-]{22}$#';
+    /** the relay session: `H` + 11 characters of LiveSessions' alphabet (no one types it: it is in the tokens) */
+    public const SESSION = '#^H[A-Z2-9]{11}$#';
     private const SHOT = '#^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$#';
-    /** an SDP with its gathered candidates is a few KB; this is plenty */
-    private const SDP_MAX = 32768;
+    private const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
-    public function __construct(private readonly Database $db, private readonly Clock $clock)
+    public function __construct(private readonly Database $db, private readonly Clock $clock, private readonly LiveSessions $live)
     {
     }
 
-    /** Before migration 2026-10-21-storyboard-pairings the endpoints answer 503 */
+    /** Before migration 2026-11-10-storyboard-pairings-relay the endpoints answer 503 */
     private function requireAvailable(): void
     {
         try {
-            $this->db->value('SELECT COUNT(*) FROM storyboard_pairings WHERE 1 = 0');
+            $this->db->value('SELECT COUNT(session) FROM storyboard_pairings WHERE 1 = 0');
         } catch (Throwable) {
-            throw new ApiError(503, 'not_available', 'Handheld pairing is not set up yet (migration 2026-10-21-storyboard-pairings).');
+            throw new ApiError(503, 'not_available', 'Handheld pairing is not set up yet (migration 2026-11-10-storyboard-pairings-relay).');
         }
     }
 
     /**
-     * A new one-time code for the member's PC → { code, toon, chapter, shot, expires_at }
+     * A new one-time code for the member's PC and its relay session → { code, toon, chapter, shot, expires_at, session,
+     * token (the PC's: conductor), dev (the relay's dev mode) }
      * @param array<string, mixed> $user
      * @param array<mixed> $body { toon, chapter, shot? }
      * @return array<string, mixed>
@@ -53,46 +60,31 @@ final class Pairings
         $shot = $body['shot'] ?? null;
         if ($shot !== null && (!is_string($shot) || !preg_match(self::SHOT, $shot))) throw new ApiError(422, 'invalid_pairing', 'shot is the shot id.', ['field' => 'shot']);
         $this->sweep();
-        $open = (int) $this->db->value('SELECT COUNT(*) FROM storyboard_pairings WHERE created_by = ?', [(string) $user['id']]);
+        $open = (int) $this->db->value('SELECT COUNT(*) FROM storyboard_pairings WHERE created_by = ? AND claimed_at IS NULL', [(string) $user['id']]);
         if ($open >= self::OPEN_MAX) throw new ApiError(429, 'rate_limited', 'Too many open pairings – wait a few minutes.', ['retry_after' => self::MINUTES * 60]);
         $code = rtrim(strtr(base64_encode(random_bytes(16)), '+/', '-_'), '=');
+        $session = 'H';
+        for ($i = 0; $i < 11; $i++) $session .= self::ALPHABET[random_int(0, strlen(self::ALPHABET) - 1)];
         $expires = $this->clock->utc(self::MINUTES * 60);
-        $this->db->run('INSERT INTO storyboard_pairings (code, toon, chapter, shot, created_by, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [$code, $toon, $chapter, $shot, (string) $user['id'], $expires, $this->clock->utc()]);
-        return ['code' => $code, 'toon' => $toon, 'chapter' => $chapter, 'shot' => $shot, 'expires_at' => $expires];
-    }
-
-    /** The PC's offer, once (409 offer_exists) */
-    public function offer(string $code, mixed $body): void
-    {
-        $row = $this->open($code);
-        if ($row['offer'] !== null) throw new ApiError(409, 'offer_exists', 'This pairing has its offer already.');
-        $this->db->run('UPDATE storyboard_pairings SET offer = ? WHERE code = ? AND offer IS NULL', [self::sdp($body), $code]);
-    }
-
-    /** The phone's answer, once, after the offer (409 no_offer / answer_exists) */
-    public function answer(string $code, mixed $body): void
-    {
-        $row = $this->open($code);
-        if ($row['offer'] === null) throw new ApiError(409, 'no_offer', 'The PC has not put its offer yet.');
-        if ($row['answer'] !== null) throw new ApiError(409, 'answer_exists', 'This pairing is answered already.');
-        $this->db->run('UPDATE storyboard_pairings SET answer = ? WHERE code = ? AND answer IS NULL', [self::sdp($body), $code]);
+        $this->db->run('INSERT INTO storyboard_pairings (code, toon, chapter, shot, session, created_by, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [$code, $toon, $chapter, $shot, $session, (string) $user['id'], $expires, $this->clock->utc()]);
+        return ['code' => $code, 'toon' => $toon, 'chapter' => $chapter, 'shot' => $shot, 'expires_at' => $expires, 'session' => $session,
+            'token' => $this->live->token($session, 'conductor', self::TOKEN_HOURS * 3600), 'dev' => $this->live->dev()];
     }
 
     /**
-     * The pairing as the code shows it: { code, toon, chapter, shot, offer, answered, expires_at } – the phone. The member
-     * who asked for it (signed in) also gets the `answer`; reading it ends the pairing (the row is deleted).
-     * @param array<string, mixed>|null $user
+     * The phone's claim, once (no session – the code is the right): { shot, session, token (handheld) }. A second claim is
+     * 409 claimed; a wrong or expired code a plain 404.
      * @return array<string, mixed>
      */
-    public function read(string $code, ?array $user): array
+    public function claim(string $code): array
     {
         $row = $this->open($code);
-        $view = ['code' => $code, 'toon' => $row['toon'], 'chapter' => (int) $row['chapter'], 'shot' => $row['shot'], 'offer' => $row['offer'],
-            'answered' => $row['answer'] !== null, 'expires_at' => $row['expires_at']];
-        if ($user === null || (string) $user['id'] !== (string) $row['created_by']) return $view;
-        if ($row['answer'] !== null) $this->db->run('DELETE FROM storyboard_pairings WHERE code = ?', [$code]);
-        return $view + ['answer' => $row['answer']];
+        $claimed = $row['claimed_at'] === null
+            && $this->db->run('UPDATE storyboard_pairings SET claimed_at = ? WHERE code = ? AND claimed_at IS NULL', [$this->clock->utc(), $code])->rowCount() === 1;
+        // two phones at once: only the one whose update took the row
+        if (!$claimed) throw new ApiError(409, 'claimed', 'This code is used already – show a new QR code on the PC.');
+        return ['shot' => $row['shot'], 'session' => $row['session'], 'token' => $this->live->token((string) $row['session'], 'handheld', self::TOKEN_HOURS * 3600)];
     }
 
     /**
@@ -106,12 +98,12 @@ final class Pairings
         $this->db->run('DELETE FROM storyboard_pairings WHERE code = ? AND created_by = ?', [$code, (string) $user['id']]);
     }
 
-    /** @return array<string, mixed> the row while it is open – a wrong, used or expired code is a plain 404 */
+    /** @return array<string, mixed> the row while it is open – a wrong or expired code is a plain 404 */
     private function open(string $code): array
     {
         $this->requireAvailable();
         if (!preg_match(self::CODE, $code)) throw new ApiError(404, 'not_found', 'No such pairing.');
-        $row = $this->db->one('SELECT code, toon, chapter, shot, created_by, offer, answer, expires_at FROM storyboard_pairings WHERE code = ?', [$code]);
+        $row = $this->db->one('SELECT code, shot, session, claimed_at, expires_at FROM storyboard_pairings WHERE code = ?', [$code]);
         if ($row === null) throw new ApiError(404, 'not_found', 'No such pairing.');
         if ((string) $row['expires_at'] <= $this->clock->utc()) {
             $this->db->run('DELETE FROM storyboard_pairings WHERE code = ?', [$code]);
@@ -120,19 +112,9 @@ final class Pairings
         return $row;
     }
 
-    /** the expired rows go */
+    /** the expired rows go (a claimed code too: its tokens carry the session from then on) */
     private function sweep(): void
     {
         $this->db->run('DELETE FROM storyboard_pairings WHERE expires_at <= ?', [$this->clock->utc()]);
-    }
-
-    /** { sdp } – a session description (text, `v=0` …) */
-    private static function sdp(mixed $body): string
-    {
-        $sdp = is_array($body) ? ($body['sdp'] ?? null) : null;
-        if (!is_string($sdp) || !str_starts_with($sdp, 'v=0') || strlen($sdp) > self::SDP_MAX) {
-            throw new ApiError(422, 'invalid_pairing', 'sdp is a WebRTC session description (v=0 …, at most 32 KB).', ['field' => 'sdp']);
-        }
-        return $sdp;
     }
 }
