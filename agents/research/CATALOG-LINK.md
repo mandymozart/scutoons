@@ -63,7 +63,7 @@ Owner: *"1. evaluate long term consequences of inside the rig vs document. since
 | Growth | Every new part (body, handlers, light, later cloth or behaviour) changes the rig's schema and re-bakes sound for a change that has nothing to do with sound | A new part is a new row |
 | "Used in", missing defaults | Asked of rigs, answers only for entities that have one | Asked of entities, answers for all |
 
-**Recommendation: both, each where it is strong.** The entity's document is thin: which rig, body, handlers and look it plays, and its own overrides. The detail stays inside the part (the rig keeps its tracks, mood presets and routes; #283's tab edits those). The tight integration is made at publish, not in the schema: the baker (RIG-EDITING.md §9b) resolves the entity's document and its parts into **one entity image**, validates them against each other (a mood without a preset is an error there) and the deck reads only that. Authoring stays general, the hot path stays tight. This is how the engines do it: an actor or prefab is a thin list of components, each component keeps its own data, and a cooked form is what runs (§9).
+**Decided (owner 2026-11-10: *"the entity document is a good call from the proposal"*): both, each where it is strong.** The entity's document is thin: which rig, body, handlers and look it plays, and its own overrides. The detail stays inside the part (the rig keeps its tracks, mood presets and routes; #283's tab edits those). The tight integration is made at publish, not in the schema: the baker (RIG-EDITING.md §9b) resolves the entity's document and its parts into **one entity image**, validates them against each other (a mood without a preset is an error there) and the deck reads only that. Authoring stays general, the hot path stays tight. This is how the engines do it: an actor or prefab is a thin list of components, each component keeps its own data, and a cooked form is what runs (§9).
 
 ### 7b. Moods
 
@@ -74,10 +74,15 @@ Today a mood is an entry per character because each needs its image (`<character
 
 **Recommendation:** no ladder level. Mood is a value with named points; the entries that exist today become those points, their images stay attached as the 2D fallback. Nothing has to migrate now; the address grammar must only never grow a mood level.
 
+**Owner 2026-11-10:** *"for moods i think it is still relevant to call a specific mood ... so have all characters across all decks start laughing for example is a very important event"*. So a named mood is **a word that can be called**, by name, to one entity or to all of them: `character:* > mood:laughing` reaches every character on every deck in reach, like any other word of a show (a cell, a cue, the conductor's hand). This binds the model:
+- Every named point is callable by its name; a call is an event that moves the value (at once or over a time), and the value it leaves is state, so a deck that joins later has the characters laughing too.
+- A call to all is one message with a wildcard address, not one per character; each entity answers through its own parts (the rig's preset, the body's pose or image), and an entity that has no such point falls down the ladder to the kind's default.
+- Whether a call is a lasting mood or a passing one (laugh, then back to what it was) is said by the call (`for 4 bars`), not by a second mechanism.
+
 ## 8. Locations, scenes, scope (owner 2026-11-10)
 
 - **A location is one set**: its geometry, its fixtures, its own state (intact / destroyed, the hour, the weather).
-- **Spawn points** are named places in the set (`entrance-a`, `courtyard`). **A scene spawns at a point**: its cast, its items, its events, placed relative to the point. Further items can be placed into the scene to enrich it. A placement is a reference to the catalog item with its own overrides, never a copy.
+- **Spawn points** are named places in the set (`entrance-a`, `courtyard`). Two scenes can share a point (owner 2026-11-10). **A scene spawns at a point**: its cast, its items, its events, placed relative to the point. Further items can be placed into the scene to enrich it. A placement is a reference to the catalog item with its own overrides, never a copy.
 - **Scope is the tree** `location › scene › entity`. A word to a location (`location:blocks > destroyed`, `> decay`) is heard by the location and by everything in its scope; a scene at entrance A shows the destroyed blocks and may answer the word itself (its lights flicker, its cast reacts).
 - **Durable things are state, not events.** "Destroyed" is a value on the location, so a deck that joins later, or a scene that spawns later, sees it. "Start the decay" is the event that moves the value. This is the same split as cues and state on the relay, and KANON's story variables are the same thing one level up.
 - New against what exists: `location:` as an address place, spawn points in the set, scope inheritance for words and state, placements as references with overrides (LOCATION-SCENES.md §"spots" has the shape for pickups).
@@ -107,6 +112,6 @@ Today a mood is an entry per character because each needs its image (`<character
 
 ## 10. Still open
 
-1. §7a and §7b are recommendations until the owner says yes.
-2. Is the sourced review of §9 wanted as its own research task (engine documentation read and cited, one page per pattern), before the core resolver is built?
-3. Can a scene be spawned at several points at once, and can two scenes share a point?
+1. Decided 2026-11-10: the entity document (§7a); a named mood can be called, to all at once (§7b); two scenes can share a point (*"two scenes can share a point of course"*).
+2. The sourced review of §9 is ordered (owner: *"yes do the research and visualize your findings to me and consequences for a refactor"*): research/OPEN-WORLD.md, with drafts.
+3. Still open: can one scene be spawned at several points at once?
