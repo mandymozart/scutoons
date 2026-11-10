@@ -242,6 +242,9 @@ impl Outlet {
                 Routed::Joined(_) => {}
                 Routed::Compose(i) => self.inputs.push(i),
                 Routed::Preload(p) => self.preload.job(p, now),
+                // a cell's piece (#91) loads its scene on the native deck (live/piece.rs); the browser has no scene switch
+                // yet and plays the composed cell only
+                Routed::Piece(_) => {}
                 Routed::Refused { code, message } => self.status.problems_relay = Some(format!("RELAY {code}: {message}")),
             }
         }
