@@ -28,6 +28,9 @@ fn lay(width: f32, adv: f32, pad: f32, left: f32, title: usize, switch: f32, ver
 
 /// what the bar shows
 pub struct Bar<'a> {
+    /// #91: the workspaces (Build, Show, Perform) after the title, this one on
+    pub workspaces: &'a [&'a str],
+    pub workspace: usize,
     pub title: &'a str,
     pub status: &'a str,
     pub wire: bool,
@@ -38,15 +41,17 @@ pub struct Bar<'a> {
     pub gpu: Option<f32>,
 }
 
-pub fn draw(ui: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Rect {
-    let Bar { title, status, wire, logo_frame: frame, pointer, cpu, gpu } = *b;
+/// the bar; where its play button and its workspace pills landed
+pub fn draw(ui: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> (Rect, Vec<Rect>) {
+    let Bar { title, status, wire, logo_frame: frame, pointer, cpu, gpu, workspaces, workspace } = *b;
     let (h, pad, px) = (t.size.top, t.size.pad, t.size.font);
     ui.rect(0.0, 0.0, width, h, t.color.surface_head);
     ui.rect(0.0, h - 1.0, width, 1.0, t.color.line);
     ui.logo(pad, (h - LOGO) * 0.5, LOGO, frame);
     let left = pad + LOGO + pad;
     let adv = ui.advance(px);
-    let switch = t.size.row;
+    let pills_w: f32 = workspaces.iter().map(|w| ui.advance(t.size.small) * w.chars().count() as f32 + 2.0 * pad + 2.0).sum();
+    let switch = t.size.row + pills_w + pad;
     let l = lay(width, adv, pad, left, title.chars().count(), switch, deck_native::BUILD.chars().count());
     let y = (h - px * 1.25) * 0.5;
     ui.text(left, y, px, &controls::fit(title, l.title_cols), t.color.text);
@@ -62,13 +67,16 @@ pub fn draw(ui: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Rect {
         }
     }
     let sx = left + l.title_cols as f32 * adv + 2.0 * pad;
+    let pills = controls::pills(ui, t, sx, (h - t.size.row + 4.0) * 0.5, t.size.row - 4.0, workspaces, workspace);
+    let sx = sx + pills_w + pad;
     // one button, as in Unreal: green starts playing, red stops it
     let at = Rect { x: sx, y: (h - t.size.row) * 0.5, w: t.size.row, h: t.size.row };
-    if wire {
+    let button = if wire {
         controls::icon_button(ui, t, at, "play-fill", t.color.go, pointer)
     } else {
         controls::icon_button(ui, t, at, "stop-fill", t.color.stop, pointer)
-    }
+    };
+    (button, pills)
 }
 
 #[cfg(test)]

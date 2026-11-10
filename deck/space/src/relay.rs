@@ -926,6 +926,11 @@ impl Client {
         self.send(m)
     }
 
+    /// #91: an envelope as the app made it – a conductor's (deck-show): its moment (`at`) and its `to` kept
+    pub fn send_whole(&mut self, e: Envelope) -> bool {
+        self.send_envelope(e, false)
+    }
+
     /// #321: a ping now (the keepalive and the clock's pings alike), its `t0` the adapter's clock in µs
     pub fn ping(&mut self, now: f64) -> bool {
         let sent = self.send(Message::Ping(Ping { t0: (now * 1000.0).round() as i64 }));

@@ -112,6 +112,17 @@ pub fn cell_text(cell: &Cell) -> String {
     }
 }
 
+/// What an outlet plays, in words (the stage now).
+pub fn playing_text(p: &Playing) -> String {
+    match p {
+        Playing::Piece { piece, values } if values.is_empty() => piece.clone(),
+        Playing::Piece { piece, values } => format!("{piece} · {}", values_text(values)),
+        Playing::Mirror { of } => format!("= {of}"),
+        Playing::Black => "black".into(),
+        Playing::Sent => "sent to the device".into(),
+    }
+}
+
 pub fn how_text(how: How) -> &'static str {
     match how {
         How::Auto => "auto",
@@ -161,8 +172,8 @@ pub fn line(what: &Logged) -> String {
         Logged::Withdrawn { row } => format!("{row}: suggestion gone"),
         Logged::Ignored { row, event } => format!("{event}: {row} is by hand, ignored"),
         Logged::NoRow { event } => format!("{event}: no row listens"),
-        Logged::CellLaunched { row, column, off_row: true } => format!("hand: {column} › {row}, off the row"),
-        Logged::CellLaunched { row, column, off_row: false } => format!("hand: {column} › {row}"),
+        Logged::CellLaunched { row, column, off_row: true } => format!("hand: {column} > {row}, off the row"),
+        Logged::CellLaunched { row, column, off_row: false } => format!("hand: {column} > {row}"),
         Logged::ValuesSkipped { row, outlet, expected, found } => {
             format!("{row}: {outlet} plays {}, not {expected} – values skipped", found.as_deref().unwrap_or("nothing"))
         }

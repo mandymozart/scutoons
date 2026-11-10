@@ -332,6 +332,14 @@ pub fn beside(piece: &str, deck: &str, values: &[(String, f32)]) -> Result<Strin
     let dropped: Vec<String> = nodes(&out).iter().filter(|n| matches!(kind(n).as_str(), "outlet" | "screen")).map(id).collect();
     let has = |nodes: &[toml::Value], k: &str| nodes.iter().any(|n| kind(n) == k);
     let theirs = nodes(&deck);
+    // a rig's space comes bare (`Played::scene`): it plays in the deck's room – every param of the deck's space it does not set
+    if let (Some(own), Some(space)) = (theirs.iter().find(|n| kind(n) == "space").and_then(|n| n.as_table()), mine.iter_mut().find(|n| kind(n) == "space").and_then(|n| n.as_table_mut())) {
+        for (k, v) in own {
+            if k != "id" {
+                space.entry(k.clone()).or_insert_with(|| v.clone());
+            }
+        }
+    }
     for n in &theirs {
         let k = kind(n);
         let keep = OUTLET_KINDS.contains(&k.as_str()) && !(k == "tempo" && has(&mine, "tempo"));
@@ -523,6 +531,12 @@ to = "out.in"
         let links: Vec<(&str, &str)> = s.links.iter().map(|l| (l.from.as_str(), l.to.as_str())).collect();
         assert!(links.contains(&("space", "outlet.in")) && links.contains(&("outlet", "screen.in")) && links.contains(&("mix", "out.in")), "{links:?}");
         assert!(crate::graph::Graph::build(&s).is_ok(), "it builds");
+        // a rig's bare space plays in the deck's room
+        let rig = "[stage]\nname = \"r\"\n[[node]]\nid = \"space\"\nkind = \"space\"\nspot = \"own\"\n";
+        let s = Scene::parse(&beside(rig, deck, &[]).unwrap()).unwrap();
+        let space = s.nodes.iter().find(|n| n.kind == "space").unwrap();
+        assert_eq!((space.params.get("set").and_then(|v| v.as_str()), space.params.get("spot").and_then(|v| v.as_str())), (Some("cathedral"), Some("own")));
+        assert_eq!(s.nodes.iter().filter(|n| n.kind == "space").count(), 1);
         assert_eq!(beside(NAVE, NAVE, &[]), Err("the deck's scene has no outlet".into()));
     }
 
