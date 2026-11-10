@@ -6,9 +6,9 @@
 	"$ref": "#/definitions/AddressBook",
 	"definitions": {
 		"AddressKind": {
-			"description": "What an entry is – the one thing a typeahead filters by: an asker takes the kinds it can address (a VN character event: character, persona, look; unlockLocation: location; an item event: item; a jump: chapter). character / persona / look are the levels of address.rs's `Target` (`character:<id>[.<persona>[.<look>]]`); the others are a place `<kind>:<id>`.",
+			"description": "What an entry is – the one thing a typeahead filters by: an asker takes the kinds it can address (a VN character event: character, persona, look; unlockLocation: location; an item event: item; a jump: chapter, group; setVariable: variable). character / persona / look are the levels of address.rs's `Target` (`character:<id>[.<persona>[.<look>]]`); location, item and chapter are a place `<kind>:<id>`. Proposals the owner has not confirmed (#477): a chapter's group `chapter:<number>.<group>` (its `name` the label as an event stores it, the address word a safe form of it) and a story variable `variable:<scope>.<name>` (scope = the owning toon or `global`; its `name` the variable as written in this toon).",
 			"type": "string",
-			"enum": ["character", "persona", "look", "location", "item", "chapter"]
+			"enum": ["character", "persona", "look", "location", "item", "chapter", "group", "variable"]
 		},
 		"OriginState": {
 			"description": "`published`: the newest version of the origin document is the published one; `draft`: a newer draft exists (or nothing is published yet), and the entry is the draft's.",
@@ -33,9 +33,9 @@
 			"description": "One addressable thing.",
 			"type": "object",
 			"properties": {
-				"address": { "description": "the address, in address.rs's grammar: `character:catpope.human.default`, `location:dom`, `item:incense`, `chapter:3`", "type": "string" },
+				"address": { "description": "the address, in address.rs's grammar: `character:catpope.human.default`, `location:dom`, `item:incense`, `chapter:3`, `chapter:3.intro`, `variable:global.coins`", "type": "string" },
 				"kind": { "$ref": "#/definitions/AddressKind" },
-				"name": { "description": "its own id at its level (`default` for the look above, `3` for a chapter): what a document's field holds", "type": "string" },
+				"name": { "description": "its own id at its level (`default` for the look above, `3` for a chapter, a group's label, a variable as written in this toon: `coins`, `global.coins`, `toptoy.coins`): what a document's field holds", "type": "string" },
 				"parent": { "description": "the address one level up (a look's persona, a persona's character); absent at the top", "type": "string" },
 				"labels": { "$ref": "#/definitions/LocaleText" },
 				"origin": { "$ref": "#/definitions/Origin" },
@@ -51,7 +51,7 @@
 				"toon": { "type": "string" },
 				"version": { "description": "the catalog's version it was built from (the response's ETag)", "type": "string" },
 				"source": { "description": "the toon's source language: the second step of the locale order", "type": "string" },
-				"entries": { "description": "parents before their children; characters, locations, items, chapters", "type": "array", "items": { "$ref": "#/definitions/AddressEntry" } }
+				"entries": { "description": "parents before their children; characters, locations, items, chapters (each followed by its groups), variables", "type": "array", "items": { "$ref": "#/definitions/AddressEntry" } }
 			},
 			"required": ["address_book", "toon", "version", "source", "entries"]
 		}
