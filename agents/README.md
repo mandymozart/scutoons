@@ -35,7 +35,7 @@ Topic docs describe **how it is now** (read the section you touch, never the who
 24–38k tokens each).
 
 ## 3 · Look up by grep, never read whole
-- `agents/decisions/<topic>.md` (the owner's words, one line each, 656 decisions in 8 files; a `[key]` per line; index + recording rule:
+- `agents/decisions/<topic>.md` (the owner's words, one line each, 656 decisions in 9 files; a `[key]` per line; index + recording rule:
   `agents/DECISIONS.md`). Need to know: open only your area's file. Every key RULES cites is in `decisions/law.md`: `grep -n '\[core-only\]' agents/decisions/law.md`.
 - `agents/research/` (≈ 70 concept / research / parked-plan files; line 1 = status, so `head -1 agents/research/*.md` is the index).
 - `agents/archive/` (frozen history, incl. superseded decisions) — grep only, never edited.
