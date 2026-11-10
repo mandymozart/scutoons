@@ -405,6 +405,11 @@ pub struct Script {
     pub flash_filter: Option<String>,
     pub flash_ask: bool,
     pub flash_confirm: bool,
+    /// #478: the role the inspector shows (an outlet id); with `--sheet who`, a client (its name or id) moved to a role
+    /// (`NAME=ROLE`, an empty role = no role) by its move menu, and a client's move menu left open
+    pub role: Option<String>,
+    pub who_move: Option<(String, String)>,
+    pub who_menu: Option<String>,
 }
 
 impl Host {
@@ -451,6 +456,21 @@ impl Host {
             200 => {
                 if let Some(i) = s.problem {
                     self.press(Hit::Problem(i));
+                }
+            }
+            35 => {
+                if let Some(i) = s.role.as_ref().and_then(|id| deck_show::roles::roles(self.shown(), None).iter().position(|r| r.id == *id)) {
+                    self.press(Hit::Role(i));
+                }
+            }
+            150 => {
+                if let Some((who, role)) = &s.who_move {
+                    self.script_move(who, role);
+                }
+            }
+            170 => {
+                if let Some(i) = s.who_menu.as_ref().and_then(|who| self.script_line(who)) {
+                    self.press(Hit::WhoMove(i));
                 }
             }
             50 if s.flash => self.press(Hit::Flash),

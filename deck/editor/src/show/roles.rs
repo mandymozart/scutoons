@@ -228,6 +228,26 @@ impl Host {
     }
 }
 
+impl Host {
+    /// A check run: the line of "who is here" of the client named `who` (its name or its id).
+    pub(super) fn script_line(&self, who: &str) -> Option<usize> {
+        let named = |id: &str| id == who || self.sub.who().get(id).and_then(|p| p.nick.as_deref()) == Some(who);
+        deck_show::roles::here(&self.sub).iter().position(|h| named(&h.client))
+    }
+
+    /// A check run: the client named `who` moved to `role` ("" = no role) by its move menu, as the operator would.
+    pub(super) fn script_move(&mut self, who: &str, role: &str) {
+        let Some(i) = self.script_line(who) else { return };
+        self.press(Hit::WhoMove(i));
+        let Some(client) = self.menu.clone() else { return };
+        let lines = deck_show::roles::move_menu(&self.sub, &client, self.lock);
+        let want = (!role.is_empty()).then(|| role.to_string());
+        if let Some(j) = lines.iter().position(|(p, _, _)| *p == Pick::Role(want.clone())) {
+            self.press(Hit::MenuPick(j));
+        }
+    }
+}
+
 /// a word you press, in the accent (muted when it does nothing); its place
 fn link(d: &mut DrawList, t: &Tokens, (x, y, h): (f32, f32, f32), word: &str, on: bool) -> Rect {
     let px = t.size.small;

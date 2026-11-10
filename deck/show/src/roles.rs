@@ -50,7 +50,7 @@ pub const GUEST_AND_UP: &str = "guest and up";
 /// an approved (paired) deck, as the filter says it
 pub const APPROVED: &str = "approved deck";
 /// the tree's line that adds a role
-pub const ADD: &str = "+ role";
+pub const ADD: &str = "new role";
 
 /// The roles of `show`, in its order: every stage outlet. `sub`, when it runs this show in a session: how many are in each.
 pub fn roles(show: &Show, sub: Option<&Subtree>) -> Vec<RoleView> {
@@ -304,7 +304,7 @@ pub struct Here {
 }
 
 /// the move action's word
-pub const MOVE_TO: &str = "move to ▾";
+pub const MOVE_TO: &str = "move to …";
 pub const RENAME: &str = "rename";
 pub const KICK: &str = "kick";
 /// where a deck locked from above offers no move
