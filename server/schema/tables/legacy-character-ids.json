@@ -1,0 +1,8 @@
+{
+	"description": "Former characters that are personas now (owner 2026-09-30): an old VN / deck character id → the registry character and the persona its art went to (production data: catpope's `human` persona carries plf's art, `cat` cat's, `mountaintiger` mountain-tiger's). Generated into TS (shared/content/src/tables.ts) and PHP (server/src/Generated/ContentTables.php) by server/schema/generate.ts (#477).",
+	"ids": {
+		"plf": { "character": "catpope", "persona": "human" },
+		"cat": { "character": "catpope", "persona": "cat" },
+		"mountain-tiger": { "character": "catpope", "persona": "mountaintiger" }
+	}
+}

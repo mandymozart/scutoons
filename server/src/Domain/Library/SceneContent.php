@@ -7,6 +7,7 @@ use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Assets\AssetRegistry;
 use Scutoons\Domain\Catalog\CatalogStore;
 use Scutoons\Domain\Catalog\CatalogValidator;
+use Scutoons\Generated\ContentTables;
 use stdClass;
 
 /**
@@ -18,7 +19,7 @@ use stdClass;
  * - **Sets** (agents/DECISIONS.md 2026-10-30: place → set → assets) are the catalog's home scenes for now (home scenes
  *   become sets) – their `model: { src, variants? }` = the 3D variant, a `.glb` per quality (`src` = medium; a level
  *   without its own variant gets `src`), answered as `model: { low, medium, high }`; a set without one answers `model: {}`.
- * - **Characters**: a registry id (`catpope`), an old VN id (`plf` → Library::LEGACY_CHARACTER_IDS) or `<character>-<persona>`
+ * - **Characters**: a registry id (`catpope`), an old VN id (`plf` → its character and persona, ContentTables::LEGACY_CHARACTER_IDS) or `<character>-<persona>`
  *   (`catpope-biker`, the deck's stand-ins) – that persona's (else `regular`'s) default look, its `portrait` per mood.
  * - **Rigs** (#258, agents/research/INSTRUMENTS.md §6): each character's `rig` – the persona's own
  *   (`character.<id>.<persona>`), else the character's (`character.<id>`, persona variants inside), else null – and per
@@ -285,7 +286,9 @@ final class SceneContent
     private static function resolve(string $id, array $byId): ?array
     {
         $candidates = [[$id, 'regular']];
-        if (isset(Library::LEGACY_CHARACTER_IDS[$id])) $candidates[] = [Library::LEGACY_CHARACTER_IDS[$id], 'regular'];
+        $legacy = ContentTables::LEGACY_CHARACTER_IDS[$id] ?? null;
+        // the persona its art went to (#477: the one table, the same answer as the reader's), else its character's regular
+        if ($legacy !== null) array_push($candidates, [$legacy['character'], $legacy['persona']], [$legacy['character'], 'regular']);
         for ($i = strpos($id, '-'); $i !== false; $i = strpos($id, '-', $i + 1)) {
             $candidates[] = [substr($id, 0, $i), substr($id, $i + 1)];
         }

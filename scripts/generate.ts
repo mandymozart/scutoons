@@ -7,6 +7,9 @@
 //   shared/live/src/protocol.ts, deck/protocol/src/generated.rs   deck/protocol/generate.ts, from deck/protocol/schema.json
 //   shared/live-core/src/{wire,signals,clock-state}.ts            deck/live-core/src/bin/codecs-ts, from the layout tables
 //                                                                 in wire.rs, signals.rs, clock.rs and deck-core's tempo
+//   deck/protocol/src/{address_book,content_text}.rs, shared/api/src/address-book.ts, shared/content/src/tables.ts,
+//   server/src/Generated/{AddressBookTypes,ContentTables}.php         server/schema/generate.ts, from server/schema/api/*.schema.json
+//                                                                 and server/schema/tables/*.json (#477)
 // The kind catalog's files (shared/live/src/catalog.ts, kinds.json …) are deck-space's `deck-schema` (deck:ci checks them).
 import { spawnSync } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
@@ -20,7 +23,8 @@ type Step = { name: string; cmd: string; args: string[]; cwd: string; env?: Reco
 
 export const steps = (check: boolean): Step[] => [
 	{ name: 'protocol (schema.json → protocol.ts, generated.rs)', cmd: npm, args: ['run', 'generate', '-w', 'shared/live', ...(check ? ['--', '--check'] : [])], cwd: root },
-	{ name: 'wire codecs (wire.rs, signals.rs, clock.rs → wire.ts, signals.ts, clock-state.ts)', cmd: 'cargo', args: ['run', '-q', '-p', 'live-core', '--features', 'codegen', '--bin', 'codecs-ts', ...(check ? ['--', '--check'] : [])], cwd: `${root}/deck` }
+	{ name: 'wire codecs (wire.rs, signals.rs, clock.rs → wire.ts, signals.ts, clock-state.ts)', cmd: 'cargo', args: ['run', '-q', '-p', 'live-core', '--features', 'codegen', '--bin', 'codecs-ts', ...(check ? ['--', '--check'] : [])], cwd: `${root}/deck` },
+	{ name: 'server contracts (address book schema, content tables → Rust, TS, PHP)', cmd: 'node', args: ['--experimental-transform-types', '--no-warnings', 'server/schema/generate.ts', ...(check ? ['--check'] : [])], cwd: root }
 ];
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

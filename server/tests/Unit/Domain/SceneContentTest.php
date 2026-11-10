@@ -50,10 +50,11 @@ final class SceneContentTest extends TestCase
 
     public function testCharactersResolveIdsLegacyIdsAndPersonas(): void
     {
-        $a = SceneContent::compose([], fn() => null, ['catpope', 'plf', 'catpope-biker', 'catpope-mountaintiger', 'boy', 'catpope-nobody', 'ghost'], self::registry());
+        $a = SceneContent::compose([], fn() => null, ['catpope', 'plf', 'mountain-tiger', 'catpope-biker', 'catpope-mountaintiger', 'boy', 'catpope-nobody', 'ghost'], self::registry());
         $portraits = fn(string $id) => array_map(fn(array $f) => $f['path'], (array) $a['characters'][$id]['portraits']);
         self::assertSame(['happy' => 'p/default-happy.webp', 'neutral' => 'p/default-neutral.webp'], $portraits('catpope'), 'the regular persona\'s default look, portraits only, by mood');
-        self::assertSame(['character' => 'catpope', 'persona' => 'regular', 'look' => 'default'], array_slice($a['characters']['plf'], 0, 3), 'an old VN id');
+        self::assertSame(['character' => 'catpope', 'persona' => 'regular', 'look' => 'default'], array_slice($a['characters']['plf'], 0, 3), 'an old VN id: its persona (human) is not in this registry, so the character\'s regular');
+        self::assertSame(['character' => 'catpope', 'persona' => 'mountaintiger', 'look' => 'default'], array_slice($a['characters']['mountain-tiger'], 0, 3), 'an old VN id: the persona its art went to (#477, the one table)');
         self::assertSame(['dizzy' => 'p/helmet-dizzy.webp', 'neutral' => 'p/helmet-neutral.webp'], $portraits('catpope-biker'), '<character>-<persona>: its default look');
         self::assertSame([], $portraits('catpope-mountaintiger'), 'a persona without sprites');
         self::assertSame([], $portraits('boy'), 'no portrait files, empty paths skipped');

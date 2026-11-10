@@ -36,6 +36,7 @@ import type { Level, Problem } from './validate.ts';
 import { AVATAR_SLOTS, type AvatarSlot } from './items.ts';
 import { mediaLocaleMessage, mediaPathsWithLocale } from './media.ts';
 import type { AcceptedWarnings } from './accepted.ts';
+import { LEGACY_CHARACTER_IDS } from './tables.ts';
 
 // ── Vocabulary ────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -191,15 +192,8 @@ export const REGULAR_PERSONA = 'regular';
 /** The look of a persona without other looks (and the look whose convention path has no look segment). */
 export const DEFAULT_LOOK = 'default';
 
-/**
- * Former characters that are personas now (owner, 2026-09-30): old scene refs and old characters.json names resolve
- * through this map.
- */
-export const LEGACY_CHARACTER_IDS: Record<string, { character: string; persona: string }> = {
-	plf: { character: 'catpope', persona: 'human' },
-	cat: { character: 'catpope', persona: 'cat' },
-	'mountain-tiger': { character: 'catpope', persona: 'mountaintiger' }
-};
+/** Former characters that are personas now: generated from server/schema/tables/legacy-character-ids.json (#477). */
+export { LEGACY_CHARACTER_IDS };
 
 /** A character id (maybe a legacy one) + persona → the current character + persona. */
 export function resolveCharacterId(id: string, persona?: string): { character: string; persona: string } {

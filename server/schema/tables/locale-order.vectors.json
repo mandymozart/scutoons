@@ -1,0 +1,15 @@
+{
+	"description": "The one locale order's cases (locale-order.json): text, asked, source (null = none) → the text picked (null = none). Run by shared/content's tests and PHPUnit; `any` cases keep the map in sorted order, so a sorted map (Rust's BTreeMap) gives the same.",
+	"cases": [
+		{ "text": { "de": "Katze", "en": "Cat" }, "asked": "de", "source": "de", "expect": "Katze" },
+		{ "text": { "de": "Katze", "en": "Cat" }, "asked": "fr", "source": "de", "expect": "Katze" },
+		{ "text": { "de": "Katze", "en": "Cat" }, "asked": "fr", "source": null, "expect": "Cat" },
+		{ "text": { "de": "Katze", "en": "Cat" }, "asked": "fr", "source": "it", "expect": "Cat" },
+		{ "text": { "de": "Katze", "fr": "Chat" }, "asked": "it", "source": null, "expect": "Katze" },
+		{ "text": { "de": " ", "en": "Cat" }, "asked": "de", "source": "de", "expect": "Cat" },
+		{ "text": { "de": "", "fr": "Chat" }, "asked": "de", "source": null, "expect": "Chat" },
+		{ "text": { "de": "Katze", "en": "Cat" }, "asked": "en", "source": "de", "expect": "Cat" },
+		{ "text": { "en": "\t" }, "asked": "en", "source": null, "expect": null },
+		{ "text": {}, "asked": "de", "source": "de", "expect": null }
+	]
+}

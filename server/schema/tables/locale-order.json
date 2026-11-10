@@ -1,0 +1,4 @@
+{
+	"description": "The one locale order for content text (#474, #477): the asked locale › the document's source language › English › any. `asked`, `source` and `any` are steps, anything else a locale code. A text counts when it is a string with more than white space; `any` = the first such text in the map's own order. Generated into Rust, TS and PHP with the one pick function each by server/schema/generate.ts; locale-order.vectors.json is the cases every language runs.",
+	"order": ["asked", "source", "en", "any"]
+}
