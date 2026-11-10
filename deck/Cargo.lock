@@ -4160,6 +4160,7 @@ dependencies = [
  "deck-catalog",
  "deck-module",
  "deck-module-host",
+ "deck-show",
  "deck-space",
  "libc",
  "proc-macro2",

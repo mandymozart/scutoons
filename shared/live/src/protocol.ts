@@ -66,6 +66,8 @@ export type Message =
 	| { kind: 'deck.synced'; p: DeckSynced }
 	| { kind: 'deck.quality'; p: DeckQuality }
 	| { kind: 'tempo'; p: Tempo }
+	| { kind: 'kick'; p: Kick }
+	| { kind: 'rename'; p: Rename }
 	| { kind: 'seat'; p: SeatWord }
 	| { kind: 'seat.state'; p: SeatState }
 	| { kind: 'flash'; p: Flash }
@@ -403,6 +405,17 @@ export interface ColourSrc {
 /** camera: a video input on the output machine, by name (the deck's video-in – not built yet). */
 export interface CameraSrc {
 	input: string;
+}
+
+/** B.6: conductor → relay: the client is told (`error` code `kicked`) and its link ends; it joins again only with a new `hello`, which the conductor can answer the same way. */
+export interface Kick {
+	client: string;
+}
+
+/** B.6: conductor → relay → that client. The relay cleans the nick (24 characters, the blocklist); empty = none. */
+export interface Rename {
+	client: string;
+	nick: string;
 }
 
 /** #90, SHOW.md §4b: how a child takes its parent's rows, a child treats its parent like a reader. follow = the row fires, suggest = its operator decides, free = ignored. The local GO always works. */

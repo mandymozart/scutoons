@@ -79,6 +79,8 @@
         { "type": "object", "properties": { "kind": { "const": "deck.synced" }, "p": { "$ref": "#/definitions/DeckSynced" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "deck.quality" }, "p": { "$ref": "#/definitions/DeckQuality" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "tempo" }, "p": { "$ref": "#/definitions/Tempo" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "kick" }, "p": { "$ref": "#/definitions/Kick" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "rename" }, "p": { "$ref": "#/definitions/Rename" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "seat" }, "p": { "$ref": "#/definitions/SeatWord" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "seat.state" }, "p": { "$ref": "#/definitions/SeatState" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "flash" }, "p": { "$ref": "#/definitions/Flash" } }, "required": ["kind", "p"] },
@@ -478,6 +480,20 @@
       "type": "object",
       "properties": { "input": { "type": "string" } },
       "required": ["input"],
+      "additionalProperties": false
+    },
+    "Kick": {
+      "description": "B.6: conductor → relay: the client is told (`error` code `kicked`) and its link ends; it joins again only with a new `hello`, which the conductor can answer the same way.",
+      "type": "object",
+      "properties": { "client": { "type": "string" } },
+      "required": ["client"],
+      "additionalProperties": false
+    },
+    "Rename": {
+      "description": "B.6: conductor → relay → that client. The relay cleans the nick (24 characters, the blocklist); empty = none.",
+      "type": "object",
+      "properties": { "client": { "type": "string" }, "nick": { "type": "string" } },
+      "required": ["client", "nick"],
       "additionalProperties": false
     },
     "Word": {

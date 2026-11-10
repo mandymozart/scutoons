@@ -1,4 +1,4 @@
-Status 2026-11-10: concept (#462); the show document and a bare conductor exist in `deck/show` (#89), the relay tree, saving and the workspaces do not (#90, #91). Rows, cells, the conductor tree, workspaces, triggers, addressing, filters. §2 is the owner's word; the rest is a proposal until the owner says otherwise. Would change LIVE.md B.2 and B.5.5 (§10).
+Status 2026-11-10: concept (#462); the show document, the conductor and the tree exist in `deck/show` and `deck/relay` (#89, #90: reader role, relay tree, sub conductors, flash, addressing, `show:` saving); the workspaces do not (#91). Rows, cells, the conductor tree, workspaces, triggers, addressing, filters. §2 is the owner's word; the rest is a proposal until the owner says otherwise. Would change LIVE.md B.2 and B.5.5 (§10).
 
 # SHOW — how a live show is organized
 
@@ -185,7 +185,8 @@ Largest new piece of work: the relay tree. Everything else in the table reuses w
 
 ## 11. What exists in the code (read 2026-11-09)
 
-- `deck/show` (#89): the show document, validation, the tree's lock, the bare conductor. A wire cell carries a piece as a layer (`LayerSrc` `piece`); a deck does not play it yet (a HUD reason). A phone reader cannot reach a conductor over the wire yet: no `reader` role, `story` is conductor-only.
+- `deck/show` (#89): the show document, validation, the tree's lock, the bare conductor. A wire cell carries a piece as a layer (`LayerSrc` `piece`); a deck does not play it yet (a HUD reason).
+- #90: role `reader` (its `story` goes to the conductor only); the relay tree (deck/relay README "The tree"); `Subtree` in deck-show (the word, the lock from above, own clock as `Tempo.domain`, flash by `flash::take`, `address::receive` for a receiver); `show:<id>` with versions and the `live` role (server docs/API.md "Live"). Nothing runs a `Subtree` outside the tests yet: the conductor app and the decks' flash / address handling come with #91 and the deck work.
 - `cell` is per outlet and full (`deck/protocol/schema.json`), compiled in `deck/outlet/src/plan.rs`. No layer kind for a scene or rig. The `outlet` node sits inside a scene (`scenes/outlet.toml`).
 - Video: a layer exists, the native outlet shows its still (#179). `video` in the catalog is `F_PLANNED`, not a graph kind.
 - Poll: `vote.*` messages exist. No poll layer, and no vote handling on the native outlet.
@@ -193,7 +194,6 @@ Largest new piece of work: the relay tree. Everything else in the table reuses w
 - A mood turn moves values without a reload; a loaded 3D set stays and only the spot moves. No message sets a named value on a deck from the conductor.
 - Far events (#442, `far.rs`): one exact address, subscribed by the asking deck, only while the other deck is in the session.
 - `address.rs` has places `deck:`, `scene:`, `character:`, `item:`. No `location:`, persona or look level, or wildcard.
-- The relay is flat; the uplink only mirrors. `Tempo.domain` is reserved, nothing sets or routes it.
 - The conductor page is the vote panel only (86 lines), opened on a deck with F12. No rows, no matrix, sends no cells.
 - `story` messages exist on the wire. The reader bus of LIVE.md B.1 is not in `event-processor.ts`, and there is no reader role.
 - A scene cannot hold several rigs yet.

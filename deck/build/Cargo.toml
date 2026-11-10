@@ -24,6 +24,7 @@ deck-catalog = { path = "../catalog" }
 # `POST /validate` (#313): instruments, presets and rigs checked by the core's own code (deck-space rig::validate) –
 # the rig model only, without the space, the GPU or the loaders
 deck-space = { path = "../space", default-features = false }
+deck-show = { path = "../show" }
 anyhow = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

@@ -157,6 +157,10 @@ pub enum Message {
 	DeckQuality(DeckQuality),
 	#[serde(rename = "tempo")]
 	Tempo(Tempo),
+	#[serde(rename = "kick")]
+	Kick(Kick),
+	#[serde(rename = "rename")]
+	Rename(Rename),
 	#[serde(rename = "seat")]
 	Seat(SeatWord),
 	#[serde(rename = "seat.state")]
@@ -216,6 +220,8 @@ impl Message {
 			Message::DeckSynced(_) => "deck.synced",
 			Message::DeckQuality(_) => "deck.quality",
 			Message::Tempo(_) => "tempo",
+			Message::Kick(_) => "kick",
+			Message::Rename(_) => "rename",
 			Message::Seat(_) => "seat",
 			Message::SeatState(_) => "seat.state",
 			Message::Flash(_) => "flash",
@@ -767,6 +773,19 @@ pub struct ColourSrc {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CameraSrc {
 	pub input: String,
+}
+
+/// B.6: conductor → relay: the client is told (`error` code `kicked`) and its link ends; it joins again only with a new `hello`, which the conductor can answer the same way.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Kick {
+	pub client: String,
+}
+
+/// B.6: conductor → relay → that client. The relay cleans the nick (24 characters, the blocklist); empty = none.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Rename {
+	pub client: String,
+	pub nick: String,
 }
 
 /// #90, SHOW.md §4b: how a child takes its parent's rows, a child treats its parent like a reader. follow = the row fires, suggest = its operator decides, free = ignored. The local GO always works.

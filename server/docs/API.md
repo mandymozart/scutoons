@@ -774,6 +774,20 @@ Handshake, then approval, then data (agents/research/CYBERDECKS.md §9). Code: `
 | POST | `/me/decks/{id}/renew` | → `{ status, item }` |
 | DELETE | `/me/decks/{id}` | → `{ status }` – revoked |
 
+## Live: shows and sessions (2026-11-10, #90 – migration `2026-11-10-live-role`, role `live`)
+
+`ShowsController`. One show document per conductor, the seats saved in the parent's (agents/research/SHOW.md §4b), stored as
+`show:<id>` in entity_versions; `/api/entities` refuses `show:` keys (403, `role: live`) – creator and admin do not imply `live`.
+- `GET /api/shows` every show with its newest draft · `GET /api/shows/<id>[?draft=1]` published / newest, wrapped ·
+  `GET /api/shows/<id>?v=<n>` the document at the version a seat pins (404 `unknown_version`) · `GET /api/shows/<id>/versions`
+- `PUT /api/shows/<id> { content, base?, message? }` a new draft; `content.id` must be `<id>` (422); the server stamps
+  `content.version` (1, then +1 on every change; an unchanged document keeps its number)
+- `POST /api/shows/<id>/publish { version? }` asks the Rust core (deck-show, the build service's `POST /validate` with
+  `kind: shows` and every show the tree names by value, as for rigs): 422 `invalid_show { problems }`, 503 without the service
+- `POST /api/live/sessions { show? }` → `{ code, token, tokens: { bridge, seat, uplink }, dev }`: a 6-character code and the
+  relay's HMAC tokens (`LIVE_TOKEN_SECRET`, deck/relay/src/token.rs, one shared test vector); unset secret = `dev` (the relay's
+  dev mode takes any token). 24 h.
+
 ## The venue certificate (2026-10-31, #201 – agents/research/LIVE.md B.4)
 
 A phone on https://scutoons.com may not open `ws://192.168.…`, so a deck's relay answers as

@@ -38,6 +38,28 @@ final class CoreValidator
         if ($url === '' || $token === '') throw new ApiError(503, 'no_build_service', 'The build service that checks instruments, presets and rigs is not set up.');
         $request = ['kind' => $kind, 'id' => $id, 'document' => $document, 'instruments' => $instruments, 'presets' => $presets];
         if ($modules !== []) $request['modules'] = $modules;
+        return $this->ask($url, $token, $request, "$kind $id");
+    }
+
+    /**
+     * #90: the core's problems of a show and the whole tree under it (deck-show's `validate` and `resolve`)
+     * @param list<mixed> $shows every show the tree names, by value, decoded with objects
+     * @return list<string>
+     */
+    public function showProblems(string $id, mixed $document, array $shows): array
+    {
+        $url = rtrim($this->settings->get('MODULE_BUILD_URL'), '/');
+        $token = $this->settings->get('MODULE_BUILD_TOKEN');
+        if ($url === '' || $token === '') throw new ApiError(503, 'no_build_service', 'The build service that checks shows is not set up.');
+        return $this->ask($url, $token, ['kind' => 'shows', 'id' => $id, 'document' => $document, 'shows' => $shows], "show $id");
+    }
+
+    /**
+     * @param array<string, mixed> $request
+     * @return list<string>
+     */
+    private function ask(string $url, string $token, array $request, string $what): array
+    {
         $body = (string) json_encode($request, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION);
         try {
             $response = $this->http->send('POST', "$url/validate", ['Content-Type' => 'application/json', 'X-Build-Token' => $token], $body);
@@ -51,6 +73,6 @@ final class CoreValidator
             return $problems;
         }
         if ($response['status'] === 503) throw new ApiError(503, 'build_unavailable', 'The build service that checks instruments, presets and rigs is not available – nothing was saved.');
-        throw new ApiError(502, 'build_failed', 'The build service answered ' . $response['status'] . ' to a check of ' . $kind . ' ' . $id . '.');
+        throw new ApiError(502, 'build_failed', 'The build service answered ' . $response['status'] . ' to a check of ' . $what . '.');
     }
 }

@@ -221,7 +221,13 @@ impl Relay {
     fn receive(self: &Arc<Relay>, code: &str, id: &str, envelope: Result<Envelope, serde_json::Error>) {
         let lead = self.config.lead_ms;
         let after = self.with_session(code, |s| match envelope {
-            Ok(envelope) => s.handle(id, envelope, now_ms(), lead),
+            Ok(mut envelope) => {
+                // B.6: the conductor's rename passes the same cleaning as a hello
+                if let Message::Rename(r) = &mut envelope.message {
+                    r.nick = session::clean_nick(Some(&r.nick), &self.config.blocklist).unwrap_or_default();
+                }
+                s.handle(id, envelope, now_ms(), lead)
+            }
             Err(e) => {
                 s.send_to(id, Message::Error(ProtocolError { code: "parse".into(), message: e.to_string() }));
                 After::Nothing

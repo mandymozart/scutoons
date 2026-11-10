@@ -186,6 +186,8 @@ fn conductor_only(m: &Message) -> bool {
             | Message::SeatState(_)
             | Message::Flash(_)
             | Message::Address(_)
+            | Message::Kick(_)
+            | Message::Rename(_)
     )
 }
 
@@ -714,6 +716,20 @@ impl Session {
                 let a = a.clone();
                 self.assign(&a);
             }
+            Message::Kick(k) => {
+                let client = k.client.clone();
+                self.send_to(&client, Message::Error(ProtocolError { code: "kicked".into(), message: "the conductor removed you".into() }));
+                if let Some(c) = self.clients.get(&client).filter(|c| !c.up) {
+                    c.outbox.end();
+                }
+            }
+            Message::Rename(r) => {
+                if let Some(c) = self.clients.get_mut(&r.client) {
+                    c.nick = (!r.nick.is_empty()).then(|| r.nick.clone());
+                }
+                e.to = Some(To::client(r.client.clone()));
+                self.publish(id, e, now);
+            }
             Message::Ready(_) => {
                 if let Some(c) = self.clients.get_mut(id) {
                     c.ready = true;
@@ -1093,6 +1109,47 @@ mod tests {
         r.add("a3", Role::Audience, Some("right"));
         r.add("bridge", Role::Bridge, None);
         r
+    }
+
+    #[test]
+    fn the_conductor_kicks_and_renames_a_client() {
+        let mut r = room();
+        r.send("cond", Message::Rename(protocol::Rename { client: "a1".into(), nick: "mouse".into() }), 1);
+        assert_eq!(r.s.clients["a1"].nick.as_deref(), Some("mouse"));
+        assert!(r.kinds("a1").contains(&"rename"));
+        r.send("cond", Message::Kick(protocol::Kick { client: "a2".into() }), 1);
+        assert!(r.inbox("a2").iter().any(|e| matches!(&e.message, Message::Error(x) if x.code == "kicked")));
+        r.send("a1", Message::Kick(protocol::Kick { client: "a2".into() }), 1);
+        assert!(r.inbox("a1").iter().any(|e| matches!(&e.message, Message::Error(x) if x.code == "authority")), "a phone does not kick");
+    }
+
+    #[test]
+    fn a_reader_sends_its_story_to_the_conductor_and_is_limited_like_the_audience() {
+        let mut r = room();
+        r.add("phone", Role::Reader, None);
+        r.drain();
+        let story = || Message::Story(loose(r#"{ "type": "showMessage", "id": "ch3.start" }"#));
+        r.send("phone", story(), 1);
+        assert_eq!(r.kinds("cond"), ["story"]);
+        assert!(r.kinds("outL").is_empty(), "the outlets do not hear a reader");
+        for _ in 0..AUDIENCE_RATE as i32 {
+            r.send("phone", story(), 2);
+        }
+        assert!(r.inbox("phone").iter().any(|e| matches!(&e.message, Message::Error(x) if x.code == "rate")));
+    }
+
+    #[test]
+    fn a_seat_goes_offline_when_its_link_is_gone_and_only_what_comes_up_passes() {
+        let mut r = room();
+        r.add("foy", Role::Seat, Some("foyer"));
+        r.drain();
+        let state = SeatState { row: Some("idle".into()), ..Default::default() };
+        r.send("foy", Message::SeatState(state), 1);
+        assert_eq!(r.s.presence().seats.unwrap()["foyer"].online, Some(true));
+        r.send("foy", Message::Panic(Panic { black: Some(true), stop: None }), 2);
+        assert!(r.inbox("foy").iter().any(|e| matches!(&e.message, Message::Error(x) if x.code == "authority")), "a seat cannot give orders upward");
+        r.s.leave("foy", 3);
+        assert_eq!(r.s.presence().seats.unwrap()["foyer"].online, Some(false));
     }
 
     fn cell(json: &str) -> Cell {

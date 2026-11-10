@@ -181,6 +181,30 @@ pub fn validate(show: &Show) -> Vec<Problem> {
     out
 }
 
+/// One document and the tree under it, checked for the API (the build service, #90): the core's own words, one per problem.
+pub fn problems(document: &serde_json::Value, shows: &[serde_json::Value]) -> Vec<String> {
+    let Ok(root) = serde_json::from_value::<Show>(document.clone()) else {
+        return match crate::document::parse(&document.to_string()) {
+            Err(e) => vec![e.to_string()],
+            Ok(_) => vec![],
+        };
+    };
+    let mut library = BTreeMap::new();
+    let mut out: Vec<String> = vec![];
+    for s in shows {
+        match serde_json::from_value::<Show>(s.clone()) {
+            Ok(show) => {
+                library.insert(Pinned { id: show.id.clone(), version: show.version }, show);
+            }
+            Err(e) => out.push(format!("a child show: {e}")),
+        }
+    }
+    if let Err(problems) = resolve(&root, &library) {
+        out.extend(problems.iter().map(Problem::to_string));
+    }
+    out
+}
+
 /// Where the shows of a tree come from (the API later, #90; a map of hand-written documents now).
 pub trait Library {
     fn show(&self, pinned: &Pinned) -> Option<&Show>;
