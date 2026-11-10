@@ -5,7 +5,8 @@
 	import { confirmDialog } from '@scutoons/ui';
 	import { opWord, conditionAsExpression, conditionWords } from '$lib/editor/vn-forms.ts';
 	import PropField from '$lib/components/fields/prop-field.svelte';
-	import VariableField from '$lib/components/fields/variable-field.svelte';
+	import AddressField from '$lib/components/fields/address-field.svelte';
+	import { TARGETS } from '$lib/editor/address-targets.ts';
 	import ExprText from '$lib/components/fields/expr-text.svelte';
 	import { fieldKey } from '$lib/editor/expr-context.svelte.ts';
 	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
@@ -64,7 +65,7 @@
 				</select>
 			</div>
 			{#if !expression}
-				<VariableField {doc} path={[...path, 'if', 'variable']} />
+				<AddressField {doc} path={[...path, 'if']} spec={TARGETS.variable} free="variable" label={m['creator.field_variable']()} testid="condition-variable-{index}" />
 				<PropField {doc} path={[...path, 'if', 'op']} label={m['creator.vn_compare']()} type="select" options={VN_CONDITION_OPS.map((o) => ({ value: o, label: opWord(o) }))} required />
 				{#if event.if.op !== 'set' && event.if.op !== 'unset'}<PropField {doc} path={[...path, 'if', 'value']} label={m['creator.field_value']()} required />{/if}
 			{/if}
