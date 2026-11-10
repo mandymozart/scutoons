@@ -4488,6 +4488,7 @@ dependencies = [
  "deck-engine",
  "deck-link",
  "deck-outlet",
+ "deck-show",
  "deck-space",
  "image",
  "js-sys",

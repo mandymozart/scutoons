@@ -14,7 +14,7 @@ use deck_engine::control::Controls;
 use deck_space::chapter::{finish_slice, Chapter, Dialog, Source};
 use deck_space::graph::{Graph, Kind};
 use deck_space::quality::MAX_SIDE;
-use deck_space::piece::{Found, Side, Switch};
+use deck_space::piece::{Side, Switch};
 use deck_space::rig::address::Place;
 use deck_space::scene::{builtin, Scene, IDLE_SCENE};
 use deck_space::space::portrait::Portraits;
@@ -121,11 +121,6 @@ impl Show {
     }
 }
 
-/// find: a piece this deck carries – a built-in scene by its name (`scene:cathedral`)
-fn find(place: &Place) -> Option<Found> {
-    builtin(&place.id).filter(|_| place.kind == "scene").map(|text| Found::Scene(text.to_string()))
-}
-
 #[wasm_bindgen]
 pub struct SceneView {
     surface: wgpu::Surface<'static>,
@@ -155,6 +150,8 @@ pub struct SceneView {
     deck: String,
     /// #473: the piece side, once the outlet is joined
     side: Option<Side>,
+    /// #479: a cell whose piece is being fetched – compared again when the answer is here; a newer cell replaces it
+    held: Option<(protocol::Cell, Place)>,
     /// the change through black to the scene (TOML) the piece side asks for, the show being built behind it, the built one
     change: Change,
     building: bool,
@@ -206,6 +203,7 @@ impl SceneView {
             card: None,
             deck,
             side: None,
+            held: None,
             change: Change::default(),
             building: false,
             built: Rc::default(),
@@ -284,7 +282,8 @@ impl SceneView {
     }
 
     pub fn outlet_text(&mut self, key: &str, text: &str) {
-        if let Some(o) = self.outlet.as_mut() {
+        let Some(o) = self.outlet.as_mut() else { return };
+        if !o.answered(key, Ok((200, text))) {
             o.shelf().give_text(key, text);
             o.medium("", None);
         }
@@ -310,9 +309,14 @@ impl SceneView {
         }
     }
 
-    /// #470: the API's answer to an `s:` ask (its status and body) - the signed link is asked next as `m:`
+    /// #470: the API's answer to an `s:` ask (its status and body) - the signed link is asked next as `m:`; #475: a
+    /// flashed show's (`sf:`)
     pub fn outlet_signed(&mut self, key: &str, status: u16, body: &str) {
-        if let (Some(o), Some(id)) = (self.outlet.as_mut(), key.strip_prefix("s:")) {
+        let Some(o) = self.outlet.as_mut() else { return };
+        if o.answered(key, Ok((status, body))) {
+            return;
+        }
+        if let Some(id) = key.strip_prefix("s:") {
             o.signed(id, status, body);
         }
     }
@@ -334,7 +338,8 @@ impl SceneView {
     }
 
     pub fn outlet_failed(&mut self, key: &str, why: String) {
-        if let Some(o) = self.outlet.as_mut() {
+        let Some(o) = self.outlet.as_mut() else { return };
+        if !o.answered(key, Err(why.clone())) {
             o.shelf().failed(key, why.clone());
             // a medium (m:) or its signed link (s:, #470) – either way the medium is missing
             o.medium(key.strip_prefix("m:").or_else(|| key.strip_prefix("s:")).unwrap_or(""), Some(why));
@@ -513,8 +518,23 @@ impl SceneView {
     fn pieces(&mut self, time: f32) {
         let (Some(o), Some(side)) = (self.outlet.as_mut(), self.side.as_mut()) else { return };
         let now = time as f64 * 1000.0;
-        for cell in std::mem::take(&mut o.pieces) {
-            let said = side.cell(&cell, now, find);
+        let mut cells = std::mem::take(&mut o.pieces);
+        if cells.is_empty() && self.held.as_ref().is_some_and(|(_, place)| !o.fetched.waits(place)) {
+            cells.extend(self.held.take().map(|(cell, _)| cell));
+        }
+        for cell in cells {
+            let mut waits = None;
+            let said = side.cell(&cell, now, |p| {
+                let found = crate::outlet::find(&mut o.fetched, p);
+                waits = (found.is_none() && o.fetched.waits(p)).then(|| p.clone());
+                found
+            });
+            // the piece is asked for (deck-space fetched.rs): what plays stays, the cell waits for the answer
+            self.held = waits.map(|place| (cell, place));
+            if let Some((_, place)) = &self.held {
+                o.status.set_piece(&format!("fetching {place}"), &[]);
+                continue;
+            }
             o.status.set_piece(&said.did, &said.problems);
             match said.switch {
                 Some(Switch::Scene(text)) => self.change.ask(&text),

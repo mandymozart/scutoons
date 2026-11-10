@@ -127,7 +127,7 @@ export interface OutletView extends SignedView {
 	outlet_failed(key: string, why: string): void;
 }
 
-/** what the outlet asked for: a chapter (c:, API), a slice (p:, CDN), a medium (m:, URL), a signed link (s:, deck-key.ts) */
+/** what the outlet asked for: a chapter or a fetched piece (c:, cr:, API), a slice (p:, CDN), a medium (m:, URL), a signed link or a flashed show (s:, sf:, deck-key.ts) */
 export function fetchOutletAsks(host: { view: OutletView; stopped: boolean }, o: { api: string; cdn: string; link?: DeckLinkView }) {
 	const asked = host.view.outlet_asks();
 	for (let i = 0; i + 1 < asked.length; i += 2) void fetchOutletAsk(host, o, asked[i] as string, asked[i + 1] as string);

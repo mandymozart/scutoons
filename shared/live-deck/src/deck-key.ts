@@ -80,10 +80,10 @@ export interface SignedView {
 	outlet_signed(key: string, status: number, body: string): void;
 }
 
-/** #470: a show medium's signed link (the outlet's `s:` ask) – the deck token goes to the API's show-media route and nowhere else */
+/** #470: a show medium's signed link (the outlet's `s:` ask), #475: a flashed show at its version (`sf:`) – the deck token goes to these two API routes and nowhere else */
 export async function fetchShowLink(host: { view: SignedView; stopped: boolean }, o: { api: string; link?: DeckLinkView }, key: string, url: string) {
 	const token = o.link?.token(performance.now());
-	if (!url.startsWith(`${o.api}/decks/media?`)) throw new Error('not the API');
+	if (!url.startsWith(`${o.api}/decks/media?`) && !url.startsWith(`${o.api}/shows/`)) throw new Error('not the API');
 	if (!token) throw new Error('the deck has no token');
 	const r = await fetch(url, { credentials: 'omit', headers: { Authorization: `Bearer ${token}` } });
 	if (r.status === 401) o.link?.forget(performance.now());

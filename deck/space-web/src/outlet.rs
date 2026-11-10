@@ -7,6 +7,9 @@
 //! Show media (#470, deck-outlet's `show`): a preload url `live/<toon>/<file>` is asked as `s:<id>` - the API's signed
 //! link, which the page asks for with the deck's token (link.rs) - and then fetched as `m:<id>` from that link, without
 //! the token. A deck that is not paired answers the conductor why (the code to pair with).
+//! Pieces and a flash (#479, #475): a piece the deck does not carry is asked as `cr:<piece>` (deck-space `fetched.rs`:
+//! the API's scene-content); a flash is answered by deck-show's `flashed.rs` – the show at its version is asked as
+//! `sf:<kept name>` with the deck's token, its pieces through the same store, the `flash.report` goes to the conductor.
 //!
 //! Not yet in the browser: a preloaded .glb as the set (a set by name loads from the library), video (its still stands
 //! in, as on the native deck).
@@ -19,7 +22,11 @@ use deck_outlet::route::{route, Input, Routed};
 use deck_outlet::show::{show_path, signed_link, signed_link_request};
 use deck_outlet::status::Status;
 use deck_outlet::text::Dialog;
+use deck_show::flashed::Flashed;
 use deck_space::chapter::Chapter;
+use deck_space::fetched::Fetched;
+use deck_space::piece::Found;
+use deck_space::rig::address::Place;
 use deck_space::relay::{Client, Options, Out};
 use image::RgbaImage;
 use protocol::{Cell, MediaItem, MediaReady, Message, Role, SpotMode};
@@ -32,6 +39,16 @@ use std::time::Duration;
 const QUALITY: &str = "high";
 /// the hosted relay's show (deck-native live/config.rs)
 pub const HOSTED_RELAY: &str = "wss://live.scutoons.com/live/CATH";
+
+/// What this deck has of a piece without asking: a built-in scene by its name (`scene:cathedral`)
+fn carried(place: &Place) -> Option<Found> {
+    deck_space::scene::builtin(&place.id).filter(|_| place.kind == "scene").map(|text| Found::Scene(text.to_string()))
+}
+
+/// find, for a cell: what the deck carries, else what it fetched – asked for when a place serves it (`Outlet::asks`)
+pub fn find(fetched: &mut Fetched, place: &Place) -> Option<Found> {
+    carried(place).or_else(|| fetched.find(place))
+}
 
 /// What the shelf has of a thing it was asked for.
 enum Got<T> {
@@ -185,6 +202,10 @@ pub struct Outlet {
     api: String,
     /// why the deck has no token ("" = it has one - the page says, from DeckLink)
     pub unpaired: String,
+    /// #479: the pieces the deck does not carry, fetched (the piece side and a flash's check read it)
+    pub fetched: Fetched,
+    /// #475: the flash side
+    flash: Flashed,
 }
 
 impl Outlet {
@@ -220,6 +241,8 @@ impl Outlet {
             pieces: Vec::new(),
             api: api.trim_end_matches('/').to_owned(),
             unpaired: "the deck is not paired yet".into(),
+            fetched: Fetched::default(),
+            flash: Flashed::new(outlet, "browser"),
         })
     }
 
@@ -242,13 +265,11 @@ impl Outlet {
     fn hear(&mut self, m: Message, now: Duration) {
         for r in route(m, &self.name) {
             match r {
-                Routed::Joined(_) => {}
+                Routed::Joined(id) => self.flash.joined(&id),
                 Routed::Compose(i) => self.inputs.push(i),
                 Routed::Preload(p) => self.preload.job(p, now),
                 Routed::Piece(c) => self.pieces.push(c),
-                // a flash (#91): the native deck answers it (live/flash.rs: the show kept, its pieces checked, `flash.report`);
-                // the browser deck keeps no show yet and does not answer – the conductor's list has it without a report
-                Routed::Flash(_) => {}
+                Routed::Flash(f) => self.flash.flash(&f, &self.api, &self.unpaired, &mut self.fetched),
                 Routed::Refused { code, message } => self.status.problems_relay = Some(format!("RELAY {code}: {message}")),
             }
         }
@@ -263,7 +284,37 @@ impl Outlet {
 
     /// what the page should fetch: key, path or URL, …
     pub fn asks(&mut self) -> Vec<(String, String)> {
-        std::mem::take(&mut self.composer.shelf.asks)
+        let mut asks = std::mem::take(&mut self.composer.shelf.asks);
+        asks.extend(self.fetched.asks().into_iter().map(|(place, path)| (format!("cr:{place}"), path)));
+        asks.extend(self.flash.ask().map(|(kept, url)| (format!("sf:{kept}"), url)));
+        asks
+    }
+
+    /// The page's answer to an ask that is no medium – a fetched piece (`cr:`), a flashed show (`sf:`): the API's status
+    /// and body, or why the fetch failed. false = the key is neither.
+    pub fn answered(&mut self, key: &str, answer: Result<(u16, &str), String>) -> bool {
+        if let Some(piece) = key.strip_prefix("cr:") {
+            if let Ok(place) = Place::parse(piece) {
+                self.fetched.give(&place, answer.map(|(_, body)| body));
+            }
+            true
+        } else if let Some(kept) = key.strip_prefix("sf:") {
+            self.flash.document(kept, answer);
+            true
+        } else {
+            false
+        }
+    }
+
+    /// the flash side's turn: its reports go to the conductor and the HUD's FLASH lines
+    fn flash_turn(&mut self) {
+        self.flash.turn(&mut self.fetched, carried);
+        for report in self.flash.reports() {
+            self.status.flash = Some(deck_show::ready::line(&report));
+            self.status.flash_lacks = report.lacks.clone().unwrap_or_default();
+            self.status.flash_notice = self.flash.notice();
+            self.relay.send_message(Message::FlashReport(report));
+        }
     }
 
     /// the page fetched a medium of the preload (decoded when it is a picture)
@@ -299,6 +350,7 @@ impl Outlet {
     /// One frame at `now`: the preload's turn, the composer's turn (one plane at most), the plane to the stage.
     pub fn frame(&mut self, now: Duration, size: (u32, u32)) {
         self.preload_turn(now);
+        self.flash_turn();
         if let Some(f) = self.pending.take() {
             if let Err(TrySendError::Full(f)) = self.frames.try_send(f) {
                 self.pending = Some(f);
