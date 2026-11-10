@@ -34,6 +34,7 @@
 //!   domain deck-engine's, its set, portraits and chapters fetched by the page; the idle scene when none is given.
 #![cfg(target_arch = "wasm32")]
 
+mod outlet;
 mod scene;
 
 use deck_space::controls::{Controls, Midi, Selection};

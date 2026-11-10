@@ -20,6 +20,8 @@ deck-space = { path = "../space", default-features = false, features = ["gpu"] }
 deck-core = { workspace = true }
 # #465: a scene's control domain (its LFOs, its links), as the native deck runs it
 deck-engine = { path = "../engine", features = ["space"] }
+# #465: a Live outlet's logic (route, plan, compose, preload, recompose), as the native deck plays it
+deck-outlet = { path = "../outlet" }
 protocol = { workspace = true }
 anyhow.workspace = true
 serde.workspace = true

@@ -1,10 +1,13 @@
 // scene-stage.ts (#463, #465): a scene playing in an element – the renderer every deck draws with, compiled to wasm
 // (deck/space-web `SceneView`). Here only the canvas, its size, the animation frames and the fetches the core asks for.
-import { sniff, spaceModule, stageCanvas } from './space.ts';
-import { askPortraits, fetchChapter, fetchSet, fetchSlice, portraitsAt, type ChapterView, type SetView } from './stage-assets.ts';
+import { sniff, spaceModule, stageCanvas, type SpaceModule } from './space.ts';
+import { askPortraits, fetchChapter, fetchOutletAsks, fetchSet, fetchSlice, portraitsAt, type ChapterView, type OutletView, type SetView } from './stage-assets.ts';
+import { RelaySocket, type RelayCoreView } from './client.ts';
 
 /** #463: the wasm-bindgen API of deck/space-web's `SceneView` */
-export interface SceneView extends SetView, ChapterView {
+export interface SceneView extends SetView, ChapterView, OutletView {
+	join_outlet(relay: string, outlet: string, locale: string): boolean;
+	set_request(): string;
 	resize(w: number, h: number): void;
 	frame(dt: number, time: number): void;
 	room(): string;
@@ -24,6 +27,8 @@ export interface SceneOptions {
 	scene?: string;
 	prefer?: 'auto' | 'webgl2';
 	maxScale?: number;
+	/** #465: the Live outlet an `outlet` node shows (relay "" = the hosted show) */
+	outlet?: { relay: string; name: string; locale: string };
 }
 
 /** #463: a scene playing in `host` */
@@ -33,6 +38,9 @@ export class SceneStage {
 	private last = -1;
 	private readonly size: ResizeObserver;
 	private readonly portraitsByChar = new Map<string, Promise<Record<string, { path: string }>>>();
+	/** #465: the outlet's relay socket (the client is the view's) */
+	private relay: RelaySocket | null = null;
+	private spaceModule: SpaceModule | null = null;
 
 	private constructor(
 		private readonly o: SceneOptions,
@@ -60,6 +68,8 @@ export class SceneStage {
 			view = await mod.SceneView.create(canvas, o.scene ?? '', 'webgl2');
 		}
 		const s = new SceneStage(o, canvas, view);
+		s.spaceModule = mod;
+		if (o.outlet && view.join_outlet(o.outlet.relay, o.outlet.name, o.outlet.locale)) (s.relay = new RelaySocket(view as unknown as RelayCoreView, {})).start();
 		const room = view.room();
 		if (room) void fetchSet(s, mod.SpaceView.encoded_images, sniff, o, room).catch((e) => console.warn('scene: the set failed', e));
 		view.chapters().forEach((path, i) => void fetchChapter(s, o.api + path, i));
@@ -84,10 +94,17 @@ export class SceneStage {
 		askPortraits(this, this.o.cdn, (c) => portraitsAt(this.o.api, this.portraitsByChar, c));
 		const asked = this.view.slice_requests();
 		for (let i = 0; i + 1 < asked.length; i += 2) void fetchSlice(this, this.o.cdn + (asked[i + 1] as string), asked[i] as number);
+		if (!this.relay) return;
+		// what the outlet says (media.ready) goes out; what it asks for is fetched; a cell's set loads
+		this.relay.run();
+		fetchOutletAsks(this, this.o);
+		const set = this.view.set_request();
+		if (set && this.spaceModule) void fetchSet(this, this.spaceModule.SpaceView.encoded_images, sniff, this.o, set).catch((e) => console.warn('scene: the set failed', e));
 	};
 
 	stop() {
 		this.stopped = true;
+		this.relay?.close();
 		cancelAnimationFrame(this.raf);
 		this.size.disconnect();
 		this.canvas.remove();

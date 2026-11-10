@@ -1,8 +1,9 @@
 //! A scene in a browser canvas (#463, #465): the renderer every deck draws with (deck-space `stage`) on the page's GPU, the
 //! scene as the native deck plays it, the splash and the build label over it; the HUD is off. No scene given = the deck's
 //! idle scene, as on the native deck. The control domain is deck-engine's, the clock the scene's own tempo. The page
-//! only fetches and decodes what is asked for: the space's set and portraits, a chapter and its slices. Not yet: an
-//! `outlet` node (refused by name), and the sound (the picture plays).
+//! only fetches and decodes what is asked for: the space's set and portraits, a chapter and its slices, an outlet's media.
+//! An `outlet` node joins the relay once the page names the outlet (`join_outlet`, outlet.rs). Not yet: the sound.
+use crate::outlet::Outlet;
 use crate::{err, frame_for, open_canvas, portrait_asks, set_from_page, CanvasGpu, SPLASH_AT_MOST};
 use deck_engine::control::Controls;
 use deck_space::chapter::{finish_slice, Chapter, Dialog, Source};
@@ -17,6 +18,7 @@ use deck_space::tempo;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{sync_channel, SyncSender};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use wasm_bindgen::prelude::*;
 
 /// a chapter that loads nothing is asked again after this (s)
@@ -68,6 +70,10 @@ pub struct SceneView {
     age: f32,
     fade: Fade,
     backend: String,
+    /// #465: the Live outlet of an `outlet` node, once joined
+    outlet: Option<Outlet>,
+    /// a set the space should show next (the page fetches it)
+    set_wanted: Option<String>,
 }
 
 #[wasm_bindgen]
@@ -78,9 +84,6 @@ impl SceneView {
         let text = if scene.is_empty() { IDLE_SCENE } else { builtin(&scene).unwrap_or(&scene) };
         let scene = Scene::parse(text).map_err(err)?;
         let mut graph = Graph::build(&scene).map_err(err)?;
-        if let Some(n) = graph.nodes.iter().find(|n| n.kind == Kind::Outlet) {
-            return Err(err(format!("node '{}': the browser does not play an outlet yet", n.id)));
-        }
         let tempo = deck_engine::tempo_config(&graph).map_err(err)?;
         // the page has no relay session of a scene's own
         let space_node = graph.first(Kind::Space);
@@ -126,7 +129,116 @@ impl SceneView {
         let controls = Controls::new(&graph, None);
         let bpm = tempo.bpm;
         let per_bar = tempo.per_bar;
-        Ok(SceneView { surface, device, queue, config, canvas: element, graph, stage, controls, space, room, pumps, beats: 0.0, bpm, per_bar, beat: tempo::Now::default(), now: 0.0, age: 0.0, fade: Fade { alpha: 1.0 }, backend: backend.into() })
+        Ok(SceneView { surface, device, queue, config, canvas: element, graph, stage, controls, space, room, pumps, beats: 0.0, bpm, per_bar, beat: tempo::Now::default(), now: 0.0, age: 0.0, fade: Fade { alpha: 1.0 }, backend: backend.into(), outlet: None, set_wanted: None })
+    }
+
+    /// #465: join `relay` ("" = the hosted show) as output of `outlet`, its text in `locale` – when the scene has an
+    /// `outlet` node; false: it has none
+    pub fn join_outlet(&mut self, relay: &str, outlet: &str, locale: &str) -> Result<bool, JsValue> {
+        if self.graph.first(Kind::Outlet).is_none() {
+            return Ok(false);
+        }
+        let (tx, rx) = sync_channel(2);
+        let o = Outlet::new(relay, outlet, if locale.is_empty() { "de" } else { locale }, (self.config.width, self.config.height), tx).map_err(err)?;
+        self.stage.set_outlet(rx);
+        self.outlet = Some(o);
+        Ok(true)
+    }
+
+    // the outlet's relay client, driven by the page's socket (client.ts `RelaySocket` – the names are relay-web's)
+    pub fn start(&mut self, now: f64) {
+        self.relay(|c| c.start(now));
+    }
+
+    pub fn opened(&mut self, now: f64) {
+        self.relay(|c| c.opened(now));
+    }
+
+    pub fn closed(&mut self, now: f64, why: &str) {
+        self.relay(|c| c.closed(now, why));
+    }
+
+    pub fn text(&mut self, now: f64, data: &str) {
+        self.relay(|c| c.text(now, data));
+    }
+
+    pub fn tick(&mut self, now: f64) {
+        self.relay(|c| c.tick(now));
+    }
+
+    pub fn stop(&mut self) {
+        self.relay(|c| c.stop());
+    }
+
+    pub fn next_wake(&self) -> Option<f64> {
+        self.outlet.as_ref().and_then(|o| o.relay.next_wake())
+    }
+
+    /// what the socket should do (JSON, as relay-web's `take`); the messages stay here (the outlet routes them)
+    pub fn take(&mut self) -> String {
+        let now = Duration::from_secs_f32(self.now.max(0.0));
+        let out = self.outlet.as_mut().map(|o| o.take(now)).unwrap_or_default();
+        serde_json::to_string(&out).unwrap_or_else(|_| "[]".into())
+    }
+
+    pub fn line(&self) -> String {
+        self.outlet.as_ref().map(|o| o.relay.line()).unwrap_or_default()
+    }
+
+    fn relay(&mut self, f: impl FnOnce(&mut deck_space::relay::Client)) {
+        if let Some(o) = self.outlet.as_mut() {
+            f(&mut o.relay);
+        }
+    }
+
+    /// what the outlet asks the page to fetch: key, path, … (key c: a chapter under the API, p: a slice under the CDN,
+    /// m: a medium's URL)
+    pub fn outlet_asks(&mut self) -> js_sys::Array {
+        let out = js_sys::Array::new();
+        for (k, path) in self.outlet.as_mut().map(|o| o.asks()).unwrap_or_default() {
+            out.push(&JsValue::from_str(&k));
+            out.push(&JsValue::from_str(&path));
+        }
+        out
+    }
+
+    pub fn outlet_text(&mut self, key: &str, text: &str) {
+        if let Some(o) = self.outlet.as_mut() {
+            o.shelf().give_text(key, text);
+            o.medium("", None);
+        }
+    }
+
+    /// a picture the outlet asked for, decoded by the browser
+    pub fn outlet_image(&mut self, key: &str, width: u32, height: u32, rgba: Vec<u8>) {
+        let Some(o) = self.outlet.as_mut() else { return };
+        match image::RgbaImage::from_raw(width, height, rgba) {
+            Some(img) => {
+                o.shelf().give_image(key, img);
+                o.medium(key.strip_prefix("m:").unwrap_or(""), None);
+            }
+            None => self.outlet_failed(key, "a picture of the wrong size".into()),
+        }
+    }
+
+    /// a medium that is no picture (a video, a sound) is in the browser's cache
+    pub fn outlet_fetched(&mut self, key: &str) {
+        if let Some(o) = self.outlet.as_mut() {
+            o.shelf().failed(key, "not a picture - the browser plays no video yet".into());
+            o.medium(key.strip_prefix("m:").unwrap_or(""), None);
+        }
+    }
+
+    pub fn outlet_failed(&mut self, key: &str, why: String) {
+        if let Some(o) = self.outlet.as_mut() {
+            o.shelf().failed(key, why.clone());
+            o.medium(key.strip_prefix("m:").unwrap_or(""), Some(why));
+        }
+    }
+
+    /// the set a cell asks the space to show ("" = none new) – the page fetches it and hands it over (`give_set`)
+    pub fn set_request(&mut self) -> String {
+        self.set_wanted.take().unwrap_or_default()
     }
 
     /// "webgpu" or "webgl2"
@@ -249,6 +361,17 @@ impl SceneView {
             if let Some(ready) = p.held.take() {
                 if let Err(std::sync::mpsc::TrySendError::Full(back)) = p.tx.try_send(ready) {
                     p.held = Some(back);
+                }
+            }
+        }
+        if let Some(o) = self.outlet.as_mut() {
+            o.frame(Duration::from_secs_f32(time.max(0.0)), (self.config.width, self.config.height));
+            if let (Some(t), Some(s)) = (o.space.take(), self.space.as_mut()) {
+                s.show(None, t.spot.as_deref());
+                let set = t.set.map(|p| p.to_string_lossy().into_owned()).filter(|set| *set != self.room);
+                if let Some(set) = set {
+                    self.room = set.clone();
+                    self.set_wanted = Some(set);
                 }
             }
         }

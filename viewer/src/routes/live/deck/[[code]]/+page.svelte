@@ -188,8 +188,10 @@
 		if (idle) {
 			let alive = true;
 			let scene: SceneStage | null = null;
+			const q = page.url.searchParams;
 			if (stage)
-				SceneStage.start({ host: stage, base: WASM_BASE, api: API_URL, cdn, scene: page.url.searchParams.get('scene') ?? '', prefer: preferOf(page.url.searchParams) }).then(
+				// #465: ?outlet=<id> plays the Live outlet (?live=<relay>, else the hosted show; ?locale=)
+				SceneStage.start({ host: stage, base: WASM_BASE, api: API_URL, cdn, scene: q.get('scene') ?? (q.has('outlet') ? 'outlet' : ''), prefer: preferOf(q), outlet: q.has('outlet') ? { relay: q.get('live') ?? '', name: q.get('outlet') ?? '', locale: q.get('locale') ?? 'de' } : undefined }).then(
 					(s) => (alive ? (scene = s) : s.stop()),
 					(e) => console.warn('live deck: no idle scene', e)
 				);

@@ -116,3 +116,32 @@ export async function fetchSlice(host: { view: ChapterView; stopped: boolean }, 
 		if (!host.stopped) host.view.no_slice(i, (e as Error).message);
 	}
 }
+
+/** #465: an outlet's view – what its shelf asks for and the answers */
+export interface OutletView {
+	outlet_asks(): unknown[];
+	outlet_text(key: string, text: string): void;
+	outlet_image(key: string, width: number, height: number, rgba: Uint8Array): void;
+	outlet_fetched(key: string): void;
+	outlet_failed(key: string, why: string): void;
+}
+
+/** what the outlet asked for: a chapter (c:, under the API), a slice (p:, under the CDN), a medium (m:, its URL) */
+export function fetchOutletAsks(host: { view: OutletView; stopped: boolean }, o: { api: string; cdn: string }) {
+	const asked = host.view.outlet_asks();
+	for (let i = 0; i + 1 < asked.length; i += 2) void fetchOutletAsk(host, o, asked[i] as string, asked[i + 1] as string);
+}
+
+async function fetchOutletAsk(host: { view: OutletView; stopped: boolean }, o: { api: string; cdn: string }, key: string, path: string) {
+	try {
+		const r = await fetch(key[0] === 'c' ? o.api + path : key[0] === 'p' ? o.cdn + path : path);
+		if (!r.ok) throw new Error(`HTTP ${r.status}`);
+		if (key[0] === 'c') return void (host.stopped || host.view.outlet_text(key, await r.text()));
+		const blob = await r.blob();
+		if (key[0] === 'm' && !blob.type.startsWith('image/')) return void (host.stopped || host.view.outlet_fetched(key));
+		const img = await decodeImage(blob);
+		if (!host.stopped) host.view.outlet_image(key, img.width, img.height, img.rgba);
+	} catch (e) {
+		if (!host.stopped) host.view.outlet_failed(key, (e as Error).message);
+	}
+}
