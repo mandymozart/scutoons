@@ -1,0 +1,132 @@
+{
+ "address_book": 1,
+ "toon": "catpope",
+ "version": "demo-1",
+ "source": "de",
+ "entries": [
+  {
+   "address": "character:catpope",
+   "kind": "character",
+   "name": "catpope",
+   "labels": {
+    "de": "Katzenpapst",
+    "en": "Cat Pope"
+   },
+   "origin": {
+    "key": "character:catpope",
+    "state": "published"
+   }
+  },
+  {
+   "address": "character:catpope.human",
+   "kind": "persona",
+   "name": "human",
+   "labels": {
+    "en": "Human",
+    "de": "Mensch"
+   },
+   "origin": {
+    "key": "character:catpope",
+    "state": "published"
+   },
+   "parent": "character:catpope"
+  },
+  {
+   "address": "character:catpope.human.default",
+   "kind": "look",
+   "name": "default",
+   "labels": {},
+   "origin": {
+    "key": "character:catpope",
+    "state": "published"
+   },
+   "parent": "character:catpope.human"
+  },
+  {
+   "address": "character:mountaintiger",
+   "kind": "character",
+   "name": "mountaintiger",
+   "labels": {
+    "en": "Mountain Tiger"
+   },
+   "origin": {
+    "key": "character:mountaintiger",
+    "state": "draft"
+   }
+  },
+  {
+   "address": "character:yellowmouse",
+   "kind": "character",
+   "name": "yellowmouse",
+   "labels": {
+    "en": "Yellow Mouse",
+    "de": "Gelbe Maus"
+   },
+   "origin": {
+    "key": "character:yellowmouse",
+    "state": "published"
+   }
+  },
+  {
+   "address": "location:dom",
+   "kind": "location",
+   "name": "dom",
+   "labels": {
+    "de": "Der Dom",
+    "en": "The Cathedral"
+   },
+   "origin": {
+    "key": "place:dom",
+    "state": "published"
+   }
+  },
+  {
+   "address": "location:cloister",
+   "kind": "location",
+   "name": "cloister",
+   "labels": {
+    "en": "Cloister"
+   },
+   "origin": {
+    "key": "place:cloister",
+    "state": "draft"
+   }
+  },
+  {
+   "address": "item:incense",
+   "kind": "item",
+   "name": "incense",
+   "labels": {
+    "en": "Incense"
+   },
+   "origin": {
+    "key": "item:incense",
+    "state": "published"
+   }
+  },
+  {
+   "address": "item:catnip",
+   "kind": "item",
+   "name": "catnip",
+   "labels": {
+    "en": "Catnip"
+   },
+   "origin": {
+    "key": "item:catnip",
+    "state": "published"
+   }
+  },
+  {
+   "address": "chapter:3",
+   "kind": "chapter",
+   "name": "3",
+   "labels": {
+    "en": "Anger"
+   },
+   "origin": {
+    "key": "chapter:catpope:3",
+    "state": "published"
+   }
+  }
+ ]
+}
