@@ -109,12 +109,14 @@ impl Token for Linked {
     }
 }
 
-/// A GET into a file (never with the token), and the API's JSON. Err = the reason, short (the HUD's and `media.ready`'s
-/// `why`).
+/// A GET into a file (never with the token), and the API's JSON or a document of it into a file (the token goes there
+/// only). Err = the reason, short (the HUD's and `media.ready`'s `why`).
 pub trait Fetch: Send + Sync {
     fn get(&self, url: &str, to: &Path) -> Result<(), String>;
     /// a GET to the API with the deck token -> the status and the JSON body (also for 4xx); Err = no answer
     fn api(&self, url: &str, bearer: &str) -> Result<(u16, serde_json::Value), String>;
+    /// a GET to the API into a file, with the deck token when there is one (a show at its version, flash.rs #91)
+    fn api_file(&self, url: &str, bearer: Option<&str>, to: &Path) -> Result<(), String>;
 }
 
 pub struct HttpFetch {
@@ -140,20 +142,30 @@ impl Fetch for HttpFetch {
     }
 
     fn get(&self, url: &str, to: &Path) -> Result<(), String> {
-        let r = self.agent.get(url).call().map_err(|e| match e {
-            ureq::Error::Status(code, _) => format!("HTTP {code}"),
-            ureq::Error::Transport(t) => format!("offline ({})", t.kind()),
-        })?;
-        if let Some(dir) = to.parent() {
-            std::fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
-        }
-        let part = to.with_extension("part");
-        let mut file = std::fs::File::create(&part).map_err(|e| format!("{}: {e}", part.display()))?;
-        // show media are big (high-res video, stems) – streamed, capped at 4 GiB
-        std::io::copy(&mut r.into_reader().take(4 << 30), &mut file).map_err(|e| format!("download broke off ({e})"))?;
-        drop(file);
-        std::fs::rename(&part, to).map_err(|e| format!("{}: {e}", to.display()))
+        save(self.agent.get(url), to)
     }
+
+    fn api_file(&self, url: &str, bearer: Option<&str>, to: &Path) -> Result<(), String> {
+        let req = self.agent.get(url);
+        save(bearer.into_iter().fold(req, |r, t| r.set("Authorization", &format!("Bearer {t}"))), to)
+    }
+}
+
+/// the request's answer into `to`: streamed into a `.part` file, then renamed
+fn save(req: ureq::Request, to: &Path) -> Result<(), String> {
+    let r = req.call().map_err(|e| match e {
+        ureq::Error::Status(code, _) => format!("HTTP {code}"),
+        ureq::Error::Transport(t) => format!("offline ({})", t.kind()),
+    })?;
+    if let Some(dir) = to.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+    }
+    let part = to.with_extension("part");
+    let mut file = std::fs::File::create(&part).map_err(|e| format!("{}: {e}", part.display()))?;
+    // show media are big (high-res video, stems) – streamed, capped at 4 GiB
+    std::io::copy(&mut r.into_reader().take(4 << 30), &mut file).map_err(|e| format!("download broke off ({e})"))?;
+    drop(file);
+    std::fs::rename(&part, to).map_err(|e| format!("{}: {e}", to.display()))
 }
 
 /// FNV-1a over the URL: the cache file's prefix (no dependency for a hash that only names files)
@@ -277,6 +289,12 @@ pub(crate) mod tests {
                 return Ok((401, serde_json::json!({ "error": "unauthorized" })));
             }
             Ok((200, serde_json::json!({ "url": format!("http://mock/{path}"), "expires": 1 })))
+        }
+
+        fn api_file(&self, url: &str, bearer: Option<&str>, to: &Path) -> Result<(), String> {
+            self.calls.lock().unwrap().push(format!("{url}{}", if bearer.is_some() { " +token" } else { "" }));
+            let from = self.root.join(url.strip_prefix("http://api/").ok_or("offline (no route)")?);
+            std::fs::copy(from, to).map(|_| ()).map_err(|_| "HTTP 404".to_string())
         }
 
         fn get(&self, url: &str, to: &Path) -> Result<(), String> {
