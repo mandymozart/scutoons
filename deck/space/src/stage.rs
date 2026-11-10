@@ -643,10 +643,8 @@ impl Stage {
         if let Some(hud) = over.hud.filter(|h| h.mode == hud::Mode::Full) {
             write(queue, &self.hud_tex, hud::W, hud::H, &hud.pixels);
             // rem-like: an integer scale by the screen height (2 at 1080p), a 1rem margin at that scale
-            let s = hud::scale(sh);
-            let (hw, hh) = ((hud::W as f32 * s).min(sw), (hud::H as f32 * s).min(sh));
-            let m = (16.0 * s).min(sw - hw).max(0.0);
-            rp.set_viewport(m, m.min(sh - hh).max(0.0), hw, hh, 0.0, 1.0);
+            let [x, y, hw, hh] = hud::rect(sw, sh);
+            rp.set_viewport(x, y, hw, hh, 0.0, 1.0);
             draw(&mut rp, &self.hud_pass);
         }
         if splash.0 > 0.0 {

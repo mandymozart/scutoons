@@ -95,24 +95,7 @@ impl Switcher {
 /// Writes `scene = "value"` into the deck.toml text: the first `scene` line is replaced, further ones go (deck-session
 /// reads the first; deck-set does the same), else the line is added.
 pub fn with_scene(text: &str, value: &str) -> String {
-    let line = format!("scene = \"{value}\"");
-    let mut out = Vec::new();
-    let mut done = false;
-    for l in text.lines() {
-        let key = l.split('=').next().map(str::trim).filter(|_| l.contains('='));
-        if key == Some("scene") {
-            if !done {
-                out.push(line.clone());
-                done = true;
-            }
-        } else {
-            out.push(l.to_string());
-        }
-    }
-    if !done {
-        out.push(line);
-    }
-    out.join("\n") + "\n"
+    crate::live::config::with_key(text, "scene", value)
 }
 
 /// Remembers the pick in the deck's file, so the next boot plays it.

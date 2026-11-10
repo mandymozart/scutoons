@@ -92,7 +92,7 @@ pub async fn session(patch: &Patch, adapters: &mut [(String, Box<dyn Adapter>)],
     let token = std::env::var("BRIDGE_TOKEN").ok().or_else(|| patch.token.clone()).unwrap_or_default();
     let (ws, _) = tokio_tungstenite::connect_async(&patch.relay).await.context("relay")?;
     let (mut sink, mut source) = ws.split();
-    let hello = Hello { code, role: Role::Bridge, group: None, nick: None, token: Some(token), resume: None };
+    let hello = Hello { code, role: Role::Bridge, group: None, nick: None, token: Some(token), device: None, resume: None };
     sink.send(Ws::Text(serde_json::to_string(&Envelope::new("", Message::Hello(hello)))?.into())).await?;
 
     let welcome: Envelope = match source.next().await {

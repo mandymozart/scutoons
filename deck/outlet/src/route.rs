@@ -32,6 +32,10 @@ pub enum Routed {
     Flash(protocol::Flash),
     /// the relay refused something (its code and message – the HUD's line)
     Refused { code: String, message: String },
+    /// #478 (proposal: a role without a cell yet keeps what plays; only no role goes to the idle scene)
+    /// #478: this outlet moved – a role taken (the deck's own or the conductor's assign), or none: from now the cells of
+    /// that role are its own (the snapshot that follows brings its cell); no role plays the idle scene (a black cell)
+    Moved(Option<String>),
 }
 
 /// A message for `outlet` → where its parts go (nothing when it is not the outlet's).
@@ -49,6 +53,9 @@ pub fn route(message: Message, outlet: &str) -> Vec<Routed> {
         Message::Panic(p) if p.black == Some(true) => vec![Routed::Piece(black()), Routed::Compose(Input::Black)],
         Message::Error(e) => vec![Routed::Refused { code: e.code, message: e.message }],
         Message::Flash(f) => vec![Routed::Flash(f)],
+        // #478: only this client hears its assign
+        Message::Assign(a) if a.group.is_empty() => vec![Routed::Moved(None), Routed::Piece(black()), Routed::Compose(Input::Black)],
+        Message::Assign(a) => vec![Routed::Moved(Some(a.group))],
         _ => vec![],
     }
 }
@@ -109,6 +116,15 @@ mod tests {
             route(msg(r#"{ "kind": "error", "p": { "code": "rate", "message": "slow down" } }"#), "left"),
             [Routed::Refused { code: "rate".into(), message: "slow down".into() }]
         );
+    }
+
+    /// #478: a role taken at runtime: the outlet is that role's from now (its snapshot follows); no role fades to the idle scene
+    #[test]
+    fn an_assign_moves_the_outlet() {
+        let to = route(msg(r#"{ "kind": "assign", "p": { "client": "c3", "group": "tenor" } }"#), "left");
+        assert_eq!(to, [Routed::Moved(Some("tenor".into()))]);
+        let none = route(msg(r#"{ "kind": "assign", "p": { "client": "c3", "group": "", "lock": true } }"#), "left");
+        assert_eq!(none, [Routed::Moved(None), Routed::Piece(black()), Routed::Compose(Input::Black)]);
     }
 
     #[test]

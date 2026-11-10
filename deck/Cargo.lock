@@ -1361,6 +1361,7 @@ version = "0.1.0"
 dependencies = [
  "deck-core",
  "deck-space",
+ "deck-ui",
  "protocol",
  "serde",
  "serde_json",
@@ -4489,6 +4490,7 @@ dependencies = [
  "deck-link",
  "deck-outlet",
  "deck-space",
+ "deck-ui",
  "image",
  "js-sys",
  "protocol",

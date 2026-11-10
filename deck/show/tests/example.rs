@@ -142,6 +142,59 @@ fn a_rows_addresses_are_read_by_the_one_parser() {
     assert!(at_dialog[3].contains("an empty filter"));
 }
 
+/// #478: a stage outlet is a role with its filter – who may take it; every fact is a place the one parser reads, a filter
+/// names somebody, a device outlet is no role. No filter: a guest, anyone with the code.
+#[test]
+fn a_roles_filter_is_checked() {
+    let (mut doc, _) = example();
+    doc["outlets"][0]["label"] = json!("Tenor");
+    doc["outlets"][0]["for"] = json!({ "account": ["guest"], "device": ["phone", "browser"], "group": ["mezzo-soprano"], "approved": true });
+    doc["outlets"][1]["for"] = json!({ "account": ["live"] });
+    let show = parse(&doc.to_string()).unwrap();
+    assert_eq!((show.outlets[0].name(), show.outlets[2].name()), ("Tenor", "lamps"));
+    assert!(show.outlets[2].admits.is_none(), "no filter: anyone with the code");
+    assert_eq!(parse(&serde_json::to_string(&show).unwrap()).unwrap(), show, "`for` survives a round trip");
+
+    doc["outlets"][0]["for"] = json!({ "device": ["phone", "phone", "big screen"], "group": ["a:b"] });
+    doc["outlets"][1]["for"] = json!({});
+    doc["outlets"][2]["for"] = json!({ "device": ["native"] });
+    let found: Vec<String> = problems(doc.clone()).iter().map(ToString::to_string).collect();
+    assert_eq!(found.len(), 5, "{found:?}");
+    assert!(found[0].contains("'device:phone' twice"), "{found:?}");
+    assert!(found[1].contains("' ' in"), "{found:?}");
+    assert!(found[2].contains("':' in"), "{found:?}");
+    assert!(found[3].contains("'right': `for` names nobody"), "{found:?}");
+    assert!(found[4].contains("'lamps': a device outlet is no role"), "{found:?}");
+    doc["outlets"][0]["for"] = json!({ "account": ["owner"] });
+    assert!(matches!(parse(&doc.to_string()), Err(ParseError::Shape(_))), "an account fact is one of the server's roles");
+}
+
+/// #478: the conductor tells its session the roles it gives out (when it joins and with a new show) and says who is here as
+/// `role: name` from presence
+#[test]
+fn the_conductor_says_its_roles_and_who_is_here() {
+    use deck_show::{ClockChoice, Subtree};
+    use protocol::{Envelope, Message, Present, Presence, Welcome};
+    let (mut doc, _) = example();
+    doc["outlets"][0]["label"] = json!("tenor");
+    doc["outlets"][1]["for"] = json!({ "account": ["live"] });
+    let show = parse(&doc.to_string()).unwrap();
+    let mut sub = Subtree::new(show.clone(), ClockChoice::Parent);
+    let welcome = Message::Welcome(Welcome { client: "c1".into(), group: None, snapshot: Default::default(), now: 0, key: None });
+    let out = sub.on_wire(&Envelope::new("relay", welcome), 0);
+    let Some(Message::Roles(r)) = out.first().map(|e| &e.message) else { panic!("{out:?}") };
+    let ids: Vec<(&str, Option<&str>)> = r.roles.iter().map(|x| (x.id.as_str(), x.label.as_deref())).collect();
+    assert_eq!(ids, [("left", Some("tenor")), ("right", Some("right"))], "the stage outlets, not the lamps");
+    assert!(r.roles[1].r#for.is_some());
+    assert!(sub.install(show, 1).iter().any(|e| matches!(e.message, Message::Roles(_))), "a new show says them again");
+
+    let present = |group: Option<&str>, nick: Option<&str>, locked: bool| Present { group: group.map(Into::into), nick: nick.map(Into::into), device: None, locked: locked.then_some(true) };
+    let who = [("c3", present(Some("left"), Some("Anna"), false)), ("c4", present(Some("right"), None, true)), ("c5", present(None, Some("phone-7"), false))];
+    let presence = Presence { groups: Default::default(), ready: vec![], decks: None, routes: None, links: None, quality: None, seats: None, parent: None, who: Some(who.into_iter().map(|(k, v)| (k.to_string(), v)).collect()) };
+    sub.on_wire(&Envelope::new("relay", Message::Presence(presence)), 2);
+    assert_eq!(sub.here(), ["tenor: Anna", "right: c4 (locked)", "no role: phone-7"]);
+}
+
 #[test]
 fn a_problem_says_where_it_is() {
     let (mut doc, _) = example();

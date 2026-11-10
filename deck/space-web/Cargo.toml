@@ -22,6 +22,8 @@ deck-core = { workspace = true }
 deck-engine = { path = "../engine", features = ["space"] }
 # #465: a Live outlet's logic (route, plan, compose, preload, recompose), as the native deck plays it
 deck-outlet = { path = "../outlet" }
+# #478: the Live page's model (the roles this deck may take, no role, its name) – the native deck's F6 page
+deck-ui = { path = "../ui" }
 # #470: the browser deck pairs with deck-link's handshake and schedule (sans-IO – the page fetches and signs)
 deck-link = { path = "../link", default-features = false, features = ["handshake"] }
 protocol = { workspace = true }

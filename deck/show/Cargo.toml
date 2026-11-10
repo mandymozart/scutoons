@@ -18,3 +18,5 @@ serde_json.workspace = true
 deck-core = { workspace = true, features = ["tempo"] }
 # the one parser of places (rig/address.rs, RULES A14)
 deck-space = { path = "../space", default-features = false }
+# #478: `role: name`, said once for the deck's Live page and the conductor (deck-ui live.rs)
+deck-ui = { path = "../ui" }

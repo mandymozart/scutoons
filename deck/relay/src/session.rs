@@ -23,13 +23,14 @@ use std::collections::{BTreeSet, HashMap, VecDeque};
 use subtle::ConstantTimeEq;
 use protocol::{
     Assign, Cell, CellMode, Cue, DeckQuality, DeckState, DeckSynced, Envelope, Error as ProtocolError, Loose, MediaPreload, Message,
-    Flash, Presence, Resume, Role, Route, SceneSync, SeatState, SeatWord, Snapshot, State, SyncState, Tempo, To, VoteTally,
+    Flash, Presence, Resume, Role, Roles, Route, SceneSync, SeatState, SeatWord, ShowRole, Snapshot, State, SyncState, Tempo, To, VoteTally,
 };
 use serde_json::Value;
 use std::sync::Arc;
 use std::time::Instant;
 
 use crate::outbox::{Frame, Outbox};
+use crate::roles;
 use crate::vote::OpenVote;
 
 /// B.6: `resume` within the last 500 messages / 5 minutes replays; older gets the snapshot.
@@ -66,6 +67,14 @@ pub struct Client {
     values: Bucket,
     /// #469: a handheld's newest pose (its `t`): one not newer is late and dropped
     pose_t: Option<f64>,
+    /// #478: what it says it is (`hello.device`: native, browser, phone …) and the group it joined with – facts a role's
+    /// filter tests (roles.rs)
+    pub device: Option<String>,
+    pub came: Option<String>,
+    /// #478: the conductor put it in its role with a lock from above – it cannot leave by itself
+    pub locked: bool,
+    /// #478: the roles it was last told it may take (a change is told again)
+    offered: Option<Vec<ShowRole>>,
 }
 
 impl Client {
@@ -75,7 +84,8 @@ impl Client {
             Role::Handheld => Bucket { tokens: POSE_BURST, at: now, rate: POSE_RATE, burst: POSE_BURST },
             _ => Bucket { tokens: VALUES_BURST, at: now, rate: VALUES_RATE, burst: VALUES_BURST },
         };
-        Client { role, group, nick, ready: false, outbox, key: String::new(), up: false, bucket, values, pose_t: None }
+        let came = group.clone();
+        Client { role, group, nick, ready: false, outbox, key: String::new(), up: false, bucket, values, pose_t: None, device: None, came, locked: false, offered: None }
     }
 }
 
@@ -197,6 +207,7 @@ fn conductor_only(m: &Message) -> bool {
             | Message::Address(_)
             | Message::Kick(_)
             | Message::Rename(_)
+            | Message::Roles(_)
     )
 }
 
@@ -279,6 +290,8 @@ pub struct Session {
     parent_word: Option<SeatWord>,
     /// #90: this session's link to its parent (`None`: it has none)
     parent_link: Option<bool>,
+    /// #478: the conductor's roles (roles.rs)
+    roles: Vec<ShowRole>,
 }
 
 impl Session {
@@ -340,7 +353,34 @@ impl Session {
         self.send_to(id, Message::Error(ProtocolError { code: code.into(), message: message.into() }));
     }
 
-    pub fn join(&mut self, id: String, client: Client) {
+    /// #478: the conductor's roles
+    pub fn roles(&self) -> &[ShowRole] {
+        &self.roles
+    }
+
+    /// #478: every client the roles it may take, with how many are in each – only when that changed for it
+    pub fn tell_roles(&mut self) {
+        let mut tell = vec![];
+        for (id, c) in &self.clients {
+            if let Some(offer) = roles::offer(self, c).filter(|o| c.offered.as_ref() != Some(o) && !(c.offered.is_none() && o.is_empty())) {
+                tell.push((id.clone(), offer));
+            }
+        }
+        for (id, offer) in tell {
+            if let Some(c) = self.clients.get_mut(&id) {
+                c.offered = Some(offer.clone());
+            }
+            self.send_to(&id, Message::Roles(Roles { roles: offer }));
+        }
+    }
+
+    /// A client joins. #478: a group that is a role it may not take is not given (it joins in no role).
+    pub fn join(&mut self, id: String, mut client: Client) {
+        if let Some(g) = client.group.clone() {
+            if self.roles.iter().any(|r| r.id == g && !roles::admits(r.r#for.as_ref(), &client)) {
+                client.group = None;
+            }
+        }
         self.departed.remove(&id);
         self.clients.insert(id, client);
         self.empty_since = None;
@@ -369,6 +409,7 @@ impl Session {
             self.empty_since = Some(now);
         } else {
             self.tell_presence();
+            self.tell_roles();
         }
     }
 
@@ -518,7 +559,8 @@ impl Session {
         decks.sort();
         let routes = self.routes.iter().map(|(from, to)| Route { from: from.clone(), to: to.clone() }).collect();
         let seats = (!self.seats.is_empty()).then(|| self.seats.clone());
-        Presence { groups, ready, decks: Some(decks), routes: Some(routes), links: Some(links), quality: Some(self.quality.clone()), seats, parent: self.parent_link }
+        let who = Some(roles::who(self)).filter(|w| !w.is_empty());
+        Presence { groups, ready, decks: Some(decks), routes: Some(routes), links: Some(links), quality: Some(self.quality.clone()), seats, parent: self.parent_link, who }
     }
 
     pub fn tell_presence(&mut self) {
@@ -580,6 +622,23 @@ impl Session {
             return After::Nothing;
         }
         let uplink = role == Role::Uplink;
+        // #478: a deck takes a role itself, and says its own name
+        if !(role == Role::Conductor || uplink) {
+            if let Message::Assign(a) = &e.message {
+                let a = a.clone();
+                self.take_role(id, &a);
+                return After::Nothing;
+            }
+            if let Message::Rename(r) = &e.message {
+                if r.client != id {
+                    self.error(id, "authority", "a client renames only itself");
+                } else if let Some(c) = self.clients.get_mut(id) {
+                    c.nick = (!r.nick.is_empty()).then(|| r.nick.clone());
+                    self.tell_presence();
+                }
+                return After::Nothing;
+            }
+        }
         if conductor_only(&e.message) && !(role == Role::Conductor || uplink) {
             self.error(id, "authority", &format!("only the conductor sends {}", e.message.kind()));
             return After::Nothing;
@@ -763,6 +822,12 @@ impl Session {
                 }
                 e.to = Some(To::client(r.client.clone()));
                 self.publish(id, e, now);
+                self.tell_presence();
+            }
+            Message::Roles(r) => {
+                // #478: kept for the session (how many are in each is the relay's count), each client told what it may take
+                self.roles = r.roles.iter().map(|x| ShowRole { here: None, ..x.clone() }).collect();
+                self.tell_roles();
             }
             Message::Ready(_) => {
                 if let Some(c) = self.clients.get_mut(id) {
@@ -1081,14 +1146,26 @@ impl Session {
     }
 
     /// B.6 assign: move a client to another group – it gets the assign and its new snapshot; the conductor presence.
+    /// #478: "" = no group (no role); `lock` from the conductor holds it there (a lock from above), any other assign frees it.
     fn assign(&mut self, a: &Assign) {
         let Some(c) = self.clients.get_mut(&a.client) else { return };
-        c.group = Some(a.group.clone());
-        let role = c.role;
+        c.group = (!a.group.is_empty()).then(|| a.group.clone());
+        c.locked = a.lock == Some(true);
+        let (role, group) = (c.role, c.group.clone());
         self.send_to(&a.client, Message::Assign(a.clone()));
-        let snapshot = self.snapshot_for(role, Some(&a.group));
+        let snapshot = self.snapshot_for(role, group.as_deref());
         self.send_to(&a.client, Message::Snapshot(snapshot));
         self.tell_presence();
+        self.tell_roles();
+    }
+
+    /// #478: a deck's own `assign` – itself, into a role it may take or none, unless the conductor locked it
+    fn take_role(&mut self, id: &str, a: &Assign) {
+        let Some(c) = self.clients.get(id) else { return };
+        match roles::refusal(self, id, c, &a.client, &a.group, a.lock) {
+            Some(why) => self.error(id, "role", why),
+            None => self.assign(a),
+        }
     }
 
     /// Every 250 ms while a vote is open: the tally to the conductor (with the counts per group and how many devices
@@ -1597,7 +1674,7 @@ mod tests {
         let Message::Presence(p) = &p[0].message else { panic!() };
         assert_eq!(p.groups["left"], 3, "two phones + the left output");
         assert_eq!(p.ready, ["a1"]);
-        r.send("cond", Message::Assign(Assign { client: "a2".into(), group: "right".into() }), 0);
+        r.send("cond", Message::Assign(Assign { client: "a2".into(), group: "right".into(), lock: None }), 0);
         assert_eq!(r.kinds("a2"), ["assign", "snapshot"]);
         assert_eq!(r.s.presence().groups["right"], 3);
     }
@@ -1828,6 +1905,84 @@ mod tests {
         assert!(!r.s.presence().quality.unwrap().contains_key("a1"));
         r.s.leave("d1", 4);
         assert!(r.s.presence().quality.unwrap().is_empty());
+    }
+
+    /// #478: the conductor's roles – each client is offered only those it may take, with how many are in each; a deck takes one
+    /// or none itself and says its name; the conductor sees who sits where; a lock from above holds a deck there
+    #[test]
+    fn roles_are_offered_counted_taken_and_locked() {
+        use protocol::{Account, Admits, Roles, ShowRole};
+        let mut r = Room::new();
+        r.add("cond", Role::Conductor, None);
+        r.add("deck", Role::Output, Some("tenor"));
+        r.add("phone", Role::Audience, None);
+        r.s.clients.get_mut("phone").unwrap().device = Some("phone".into());
+        r.add("bridge", Role::Bridge, None);
+        r.drain();
+        let role = |id: &str, admits: Option<Admits>| ShowRole { id: id.into(), label: Some(id.to_uppercase()), r#for: admits, here: None };
+        let phones = Admits { device: Some(vec!["phone".into()]), ..Default::default() };
+        let members = Admits { account: Some(vec![Account::Member]), approved: Some(true), ..Default::default() };
+        let roles = vec![role("tenor", None), role("click", Some(phones)), role("baritone", Some(members))];
+        r.send("cond", Message::Roles(Roles { roles }), 0);
+        fn offered(r: &mut Room, id: &str) -> Vec<(String, i64)> {
+            let mut told = r.inbox(id).into_iter().filter_map(|e| match e.message {
+                Message::Roles(x) => Some(x.roles.into_iter().map(|o| (o.id, o.here.map_or(-1, |h| h as i64))).collect::<Vec<_>>()),
+                _ => None,
+            });
+            told.next_back().unwrap_or_default()
+        }
+        let pairs = |v: &[(&str, i64)]| v.iter().map(|(a, b)| (a.to_string(), *b)).collect::<Vec<_>>();
+        assert_eq!(offered(&mut r, "deck"), pairs(&[("tenor", 1)]), "a member's role and the phones' are not shown to a native deck");
+        assert_eq!(offered(&mut r, "phone"), pairs(&[("tenor", 1), ("click", 0)]));
+        assert_eq!(offered(&mut r, "cond").len(), 3, "the conductor sees every role");
+        assert!(r.kinds("bridge").is_empty(), "a machine takes no role");
+
+        // the phone takes click and says its name; the conductor sees `role: name`
+        let take = |client: &str, group: &str| Message::Assign(Assign { client: client.into(), group: group.into(), lock: None });
+        r.send("phone", take("phone", "click"), 1);
+        assert_eq!(r.kinds("phone"), ["assign", "snapshot", "roles"]);
+        assert_eq!(offered(&mut r, "cond").iter().find(|(id, _)| id == "click").unwrap().1, 1, "counted");
+        assert!(r.kinds("deck").is_empty(), "the deck's offer did not change: nothing is told");
+        r.send("phone", Message::Rename(protocol::Rename { client: "phone".into(), nick: "Mira".into() }), 2);
+        let who = r.s.presence().who.unwrap();
+        assert_eq!((who["phone"].group.as_deref(), who["phone"].nick.as_deref(), who["phone"].device.as_deref()), (Some("click"), Some("Mira"), Some("phone")));
+        assert!(!who.contains_key("bridge") && !who.contains_key("cond"));
+        r.drain();
+
+        // what it may not take, and no one else's name
+        r.send("phone", take("phone", "baritone"), 3);
+        r.send("deck", take("deck", "click"), 3);
+        r.send("deck", take("phone", "tenor"), 3);
+        r.send("phone", Message::Rename(protocol::Rename { client: "deck".into(), nick: "x".into() }), 3);
+        let codes = |r: &mut Room, id: &str| r.inbox(id).into_iter().filter_map(|e| match e.message { Message::Error(x) => Some(x.code), _ => None }).collect::<Vec<_>>();
+        assert_eq!(codes(&mut r, "phone"), ["role", "authority"]);
+        assert_eq!(codes(&mut r, "deck"), ["role", "role"]);
+        assert_eq!(r.s.clients["phone"].group.as_deref(), Some("click"));
+
+        // no role: the deck stays in the session in no group
+        r.send("deck", take("deck", ""), 4);
+        assert_eq!(r.kinds("deck"), ["assign", "snapshot", "roles"]);
+        assert_eq!(r.s.clients["deck"].group, None);
+        assert!(r.s.presence().who.unwrap()["deck"].group.is_none());
+
+        // the conductor puts it in tenor with a lock: it cannot leave; an assign without the lock frees it
+        r.send("cond", Message::Assign(Assign { client: "deck".into(), group: "tenor".into(), lock: Some(true) }), 5);
+        r.drain();
+        r.send("deck", take("deck", ""), 6);
+        assert_eq!(codes(&mut r, "deck"), ["role"]);
+        assert_eq!(r.s.presence().who.unwrap()["deck"].locked, Some(true));
+        r.send("cond", Message::Assign(Assign { client: "deck".into(), group: "tenor".into(), lock: None }), 7);
+        r.send("deck", take("deck", ""), 8);
+        assert_eq!(r.s.clients["deck"].group, None, "free again");
+
+        // a hello's group that is a role it may not take is not given; one it may is
+        r.add("late", Role::Output, Some("baritone"));
+        r.add("tenor2", Role::Output, Some("tenor"));
+        assert_eq!((r.s.clients["late"].group.as_deref(), r.s.clients["tenor2"].group.as_deref()), (None, Some("tenor")));
+        // only the conductor says the roles
+        r.send("deck", Message::Roles(Roles { roles: vec![] }), 9);
+        assert_eq!(codes(&mut r, "deck"), ["authority"]);
+        assert_eq!(r.s.roles().len(), 3);
     }
 
     #[test]

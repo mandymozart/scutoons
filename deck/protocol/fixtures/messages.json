@@ -44,5 +44,11 @@
 	{ "v": 1, "seq": 44, "at": 1761700002400, "from": "c1", "kind": "story", "p": { "type": "showMessage", "params": { "text": "Hello", "character": "catpope", "mood": "happy" }, "id": "m1" } },
 	{ "v": 1, "seq": 0, "from": "", "kind": "tempo", "p": { "bpm": 128.0, "per_bar": 4, "beat": 512.25, "running": true, "at": 1761700003000 } },
 	{ "v": 1, "seq": 45, "at": 1761700003050, "from": "c5", "kind": "tempo", "p": { "bpm": 96.5, "per_bar": 3, "beat": 12.0, "running": false, "at": 1761700003050 } },
-	{ "v": 1, "seq": 46, "from": "relay", "to": { "client": "c8" }, "kind": "welcome", "p": { "client": "c8", "group": "decks", "snapshot": { "tempo": { "bpm": 128.0, "per_bar": 4, "beat": 512.25, "running": true, "at": 1761700003000 }, "seq": 45 }, "now": 1761700003100 } }
+	{ "v": 1, "seq": 46, "from": "relay", "to": { "client": "c8" }, "kind": "welcome", "p": { "client": "c8", "group": "decks", "snapshot": { "tempo": { "bpm": 128.0, "per_bar": 4, "beat": 512.25, "running": true, "at": 1761700003000 }, "seq": 45 }, "now": 1761700003100 } },
+	{ "v": 1, "seq": 0, "from": "", "kind": "hello", "p": { "code": "CHOIR", "role": "output", "group": "tenor", "nick": "Anna", "device": "browser" } },
+	{ "v": 1, "seq": 0, "from": "", "kind": "roles", "p": { "roles": [{ "id": "tenor", "label": "tenor" }, { "id": "click", "label": "click monitor", "for": { "account": ["live"], "approved": true, "device": ["native"] } }] } },
+	{ "v": 1, "seq": 47, "from": "relay", "to": { "client": "c8" }, "kind": "roles", "p": { "roles": [{ "id": "tenor", "label": "tenor", "here": 2 }] } },
+	{ "v": 1, "seq": 0, "from": "", "kind": "assign", "p": { "client": "c8", "group": "" } },
+	{ "v": 1, "seq": 48, "from": "c1", "kind": "assign", "p": { "client": "c9", "group": "click", "lock": true } },
+	{ "v": 1, "seq": 49, "from": "relay", "to": { "role": "conductor" }, "kind": "presence", "p": { "groups": { "tenor": 2 }, "ready": [], "who": { "c8": { "group": "tenor", "nick": "Anna", "device": "browser" }, "c9": { "group": "click", "nick": "pc", "device": "native", "locked": true } } } }
 ]

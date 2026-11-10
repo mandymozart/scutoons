@@ -133,7 +133,7 @@ pub async fn keep_linked(relay: Arc<Relay>, parent: Parent) {
 async fn link(relay: &Arc<Relay>, parent: &Parent) -> anyhow::Result<()> {
     let (ws, _) = tokio_tungstenite::connect_async(parent.link_url()).await?;
     let (mut sink, mut source) = ws.split();
-    let hello = Hello { code: parent.code.clone(), role: Role::Seat, group: Some(parent.seat.clone()), nick: None, token: Some(parent.token.clone()), resume: None };
+    let hello = Hello { code: parent.code.clone(), role: Role::Seat, group: Some(parent.seat.clone()), nick: None, token: Some(parent.token.clone()), device: None, resume: None };
     sink.send(Ws::Text(serde_json::to_string(&Envelope::new("", Message::Hello(hello)))?.into())).await?;
 
     let mut offset = Offset::default();
