@@ -246,6 +246,9 @@ impl Outlet {
                 Routed::Compose(i) => self.inputs.push(i),
                 Routed::Preload(p) => self.preload.job(p, now),
                 Routed::Piece(c) => self.pieces.push(c),
+                // a flash (#91): the native deck answers it (live/flash.rs: the show kept, its pieces checked, `flash.report`);
+                // the browser deck keeps no show yet and does not answer – the conductor's list has it without a report
+                Routed::Flash(_) => {}
                 Routed::Refused { code, message } => self.status.problems_relay = Some(format!("RELAY {code}: {message}")),
             }
         }
