@@ -1,7 +1,8 @@
 // The content store by entity key (server `/api/entities`, docs/API.md "Entities") – the creator's write path. Every
 // call needs a session with the role `creator`. Keys: `@scutoons/content` entities.ts (agents/DATA.md §2); readers use
 // the library (./library.ts).
-import type { ApiClient } from './client.ts';
+import { ApiError, type ApiClient } from './client.ts';
+import type { AddressBook } from './address-book.ts';
 
 export interface ContentVersion {
 	id: number;
@@ -204,6 +205,20 @@ export function createContentApi(client: ApiClient) {
 
 		/** Every stored entity of a toon; `''` = the platform-wide ones (characters, people, events …). */
 		contentIndex: (toon: string) =>
-			client.get<{ status: string; entities: ContentIndexEntity[] }>(`/entities?toon=${encodeURIComponent(toon)}`)
+			client.get<{ status: string; entities: ContentIndexEntity[] }>(`/entities?toon=${encodeURIComponent(toon)}`),
+
+		/**
+		 * The toon's address book (#477, GET /api/toons/<toon>/address-book): `version` = the one already held – null when
+		 * it is still current (304), else the new document
+		 */
+		addressBook: async (toon: string, version?: string): Promise<AddressBook | null> => {
+			try {
+				const response = await client.fetchRaw(`/toons/${encodeURIComponent(toon)}/address-book`, version ? { headers: { 'If-None-Match': `"${version}"` } } : {});
+				return (await response.json()) as AddressBook;
+			} catch (error) {
+				if (error instanceof ApiError && error.status === 304) return null;
+				throw error;
+			}
+		}
 	};
 }

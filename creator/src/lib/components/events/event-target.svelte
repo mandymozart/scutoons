@@ -3,12 +3,16 @@
 	import { getAt, JumpToTargetType, type Path } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import PropField from '$lib/components/fields/prop-field.svelte';
+	import AddressField from '$lib/components/fields/address-field.svelte';
 	import { getJumpPlaces } from '$lib/editor/jump-places.svelte.ts';
+	import { addressBooks } from '$lib/editor/address-book.svelte.ts';
+	import { childNames, TARGETS } from '$lib/editor/address-targets.ts';
 
 	/**
 	 * A jump's target (a jumpTo event, a choice's jump action, a group's end): a chapter – of this toon or another one
-	 * (owner 2026-10-06, "at label": toon → chapter → group, loaded on demand) – + group, or a random group of a list
-	 * (never the current one); a season, a toon's page, a product, XR. Renders its fields into the parent's field grid.
+	 * (owner 2026-10-06, "at label") – + group, or a random group of a list (never the current one); a season, a toon's
+	 * page, a product, XR. Renders its fields into the parent's field grid. A chapter target's chapter and group are ONE
+	 * typeahead over the address book of the toon it leads into (#477); the other types keep their value field.
 	 * `groupLabels`: the open chapter's (live).
 	 */
 	let { doc, path, target, groupLabels }: { doc: ContentDoc; path: Path; target: any; groupLabels: string[] } = $props();
@@ -16,18 +20,18 @@
 	const places = getJumpPlaces();
 	const isChapter = $derived(target?.type === 'chapter');
 	/** the toon the chapter target leads into ('' = this toon) */
-	const otherToon = $derived(typeof target?.toon === 'string' && target.toon && target.toon !== places?.toon ? (target.toon as string) : '');
-	const toon = $derived(otherToon || places?.toon || '');
-	const number = $derived(/^\d+$/.test(String(target?.value ?? '')) ? Number(target.value) : null);
-	/** the chosen chapter's group labels: the open chapter's live, another chapter's / toon's loaded once */
+	const here = $derived(places?.toon ?? doc.toon);
+	const otherToon = $derived(typeof target?.toon === 'string' && target.toon && target.toon !== here ? (target.toon as string) : '');
+	const toon = $derived(otherToon || here);
+	const value = $derived(target?.value === undefined || target?.value === null ? '' : String(target.value));
+	/** the chosen chapter's group labels: the open chapter's live, another chapter's from its toon's address book */
 	const labels = $derived.by<string[]>(() => {
-		if (!isChapter || number === null) return [];
-		if (!places) return groupLabels;
-		if (!otherToon && number === places.chapter) return groupLabels;
-		return places.labels(toon, number) ?? [];
+		if (!isChapter || !value) return [];
+		if (!places || (!otherToon && value === String(places.chapter))) return groupLabels;
+		const book = addressBooks.of(toon).book;
+		return book ? childNames(book, 'chapter', value, 'group') : [];
 	});
-	const chapters = $derived(isChapter && places ? (places.chapters(toon) ?? []) : []);
-	const otherToons = $derived((places?.toons ?? []).filter((t) => t.id !== places?.toon));
+	const otherToons = $derived((places?.toons ?? []).filter((t) => t.id !== here));
 
 	function edit(change: (t: any) => void, key: string) {
 		doc.edit((file) => {
@@ -44,6 +48,11 @@
 			delete t.label;
 			delete t.anyOf;
 		}, 'toon');
+	}
+
+	/** a picked group replaces the random list; another chapter's random list goes */
+	function picked(t: any, _entry: unknown, before: Record<string, string | undefined>) {
+		if (t.label || String(t.value ?? '') !== before.value) delete t.anyOf;
 	}
 
 	function toggleAnyOf(labelName: string, on: boolean) {
@@ -69,13 +78,13 @@
 		</select>
 	</div>
 {/if}
-{#if isChapter && chapters.length}
-	<PropField {doc} path={[...path, 'value']} label={m['creator.target_chapter']()} type="select" options={chapters.map(String)} required testid="target-chapter" />
+{#if isChapter}
+	<AddressField {doc} {path} {toon} kinds={TARGETS.jump.kinds} fields={TARGETS.jump.fields} label={m['creator.target_place']()} onpick={picked} testid="target-place" />
 {:else}
 	<PropField {doc} path={[...path, 'value']} label={m['creator.target_value']()} required />
-{/if}
-{#if !target?.anyOf?.length}
-	<PropField {doc} path={[...path, 'label']} label={m['creator.target_group']()} type={labels.length ? 'select' : 'text'} options={labels} placeholder={m['creator.vn_group_first']()} testid="target-label" />
+	{#if !target?.anyOf?.length}
+		<PropField {doc} path={[...path, 'label']} label={m['creator.target_group']()} placeholder={m['creator.vn_group_first']()} testid="target-label" />
+	{/if}
 {/if}
 {#if labels.length}
 	<fieldset class="any-of">

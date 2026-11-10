@@ -22,6 +22,8 @@ export interface RequestOptions {
 	/** false = never send the session token */
 	auth?: boolean;
 	signal?: AbortSignal;
+	/** more request headers (e.g. `If-None-Match`) */
+	headers?: Record<string, string>;
 }
 
 export interface ApiClientOptions {
@@ -66,7 +68,7 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
 	const getToken = () => options.getToken?.() ?? null;
 
 	async function send(method: Method, path: string, body: unknown, opts: RequestOptions, accept: string) {
-		const headers: Record<string, string> = { Accept: accept };
+		const headers: Record<string, string> = { ...opts.headers, Accept: accept };
 		const deviceId = options.getDeviceId?.();
 		if (deviceId) headers['X-Device-Id'] = deviceId;
 		// a Blob / File is sent as it is (an upload, e.g. a claim's evidence file); everything else as JSON
