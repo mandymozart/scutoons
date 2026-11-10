@@ -243,7 +243,7 @@ return static function (App $app): void {
     // a show medium (live/<toon>/…, the vault) as a short signed link for an approved deck's own token (#470)
     $app->get('/api/decks/media', [DecksController::class, 'media']);
     // one toon's address book (#477, server/schema/api/address-book.schema.json): the team and paired decks, with an ETag
-    $app->get('/api/toons/{toon:[a-z0-9][a-z0-9-]{0,63}}/address-book', [AddressBookController::class, 'get']);
+    $app->get('/api/toons/{toon:[a-z0-9][a-z0-9-]{0,63}}/addresses', [AddressBookController::class, 'get']);
     // rig modules, Rust compiled to wasm (#281, agents/research/RIG-EDITING.md §4–7): published factory modules by id; the
     // compile is the creators' (the build service beside the relay)
     $app->get('/api/kinds', [ModulesController::class, 'kinds']);

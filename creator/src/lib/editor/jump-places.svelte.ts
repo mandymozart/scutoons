@@ -1,7 +1,8 @@
 // The places a jump can lead to (owner 2026-10-06, "at label"): the toons, a toon's chapters and a chapter's group labels,
-// loaded on demand for the jump target editor (toon → chapter → label) and for validation (`ValidateContext.targets`).
-// One instance per chapter editor (Svelte context); the open chapter's own labels are passed live. A toon / chapter that
-// doesn't load (no access, missing) stays unknown – validation says it can't check another toon's labels then.
+// loaded on demand for validation (`ValidateContext.targets`; the target editor picks from the address book, #477) and
+// the toon choice of the jump target editor. One instance per chapter editor (Svelte context); the open chapter's own
+// labels are passed live. A toon / chapter that doesn't load (no access, missing) stays unknown – validation says it
+// can't check another toon's labels then.
 import { getContext, setContext } from 'svelte';
 import { contentIndex, getDraft } from '$lib/api.ts';
 import type { JumpTargets } from '@scutoons/content';
@@ -34,22 +35,6 @@ export class JumpPlaces {
 		private live: () => string[]
 	) {}
 
-	/** a toon's chapter numbers (loads them; undefined until known) */
-	chapters(toon: string): number[] | undefined {
-		const known = this.#chapters[toon];
-		if (known === undefined) this.#loadChapters(toon);
-		return known ? Object.keys(known).map(Number).sort((a, b) => a - b) : undefined;
-	}
-
-	/** a chapter's group labels (the open chapter: live; others load once); undefined until known */
-	labels(toon: string, chapter: number): string[] | undefined {
-		if (toon === this.toon && chapter === this.chapter) return this.live();
-		const key = `${toon}/${chapter}`;
-		const known = this.#labels[key];
-		if (known === undefined) this.#loadLabels(toon, chapter);
-		return known ?? undefined;
-	}
-
 	/** what validation checks targets against (`checkTargetPlace`) */
 	targets(): JumpTargets {
 		return { toon: this.toon, toons: this.toons?.map((t) => t.id), chapters: (t) => this.#known(t), labels: (t, n) => this.#knownLabels(t, n) };
@@ -76,8 +61,9 @@ export class JumpPlaces {
 			const o = v as Record<string, any>;
 			if (!Array.isArray(v) && o.type === 'chapter' && 'value' in o && /^\d+$/.test(String(o.value))) {
 				const toon = typeof o.toon === 'string' && o.toon ? o.toon : this.toon;
-				this.chapters(toon);
-				if (o.label || (Array.isArray(o.anyOf) && o.anyOf.length)) this.labels(toon, Number(o.value));
+				const n = Number(o.value);
+				void this.#loadChapters(toon);
+				if ((o.label || (Array.isArray(o.anyOf) && o.anyOf.length)) && !(toon === this.toon && n === this.chapter)) void this.#loadLabels(toon, n);
 			}
 			for (const key in o) stack.push(o[key]);
 		}

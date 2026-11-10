@@ -22,7 +22,7 @@ test('every language gets every definition, under this file\'s header and withou
 		assert.match(php, new RegExp(`@phpstan-type ${name} `), `PHP ${name}`);
 	}
 	assert.match(php, /@phpstan-type AddressEntry array\{address: string, kind: AddressKind, name: string, parent\?: string, labels: LocaleText, origin: Origin, moods\?: list<string>\}/);
-	assert.match(php, /public const ADDRESS_KIND = \['character', 'persona', 'look', 'location', 'item', 'chapter'\];/);
+	assert.match(php, /public const ADDRESS_KIND = \['character', 'persona', 'look', 'location', 'item', 'chapter', 'group', 'variable'\];/);
 	assert.match(php, /public const FORMAT = 1;/);
 });
 

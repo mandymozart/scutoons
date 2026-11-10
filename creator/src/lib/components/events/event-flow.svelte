@@ -3,12 +3,14 @@
 	import type { Path } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import PropField from '$lib/components/fields/prop-field.svelte';
-	import VariableField from '$lib/components/fields/variable-field.svelte';
+	import AddressField from '$lib/components/fields/address-field.svelte';
 	import EventTarget from '$lib/components/events/event-target.svelte';
+	import { TARGETS } from '$lib/editor/address-targets.ts';
 
 	/**
 	 * The story-logic events (CUTOVER 10.27): jumpTo (a target, wait), label (a named point a divert continues at),
-	 * divert (to a point), setVariable (set or add).
+	 * divert (to a point), setVariable (set or add; the variable is ONE typeahead over the toon's address book, #477 –
+	 * a new one is typed as written: `x`, `global.x`, `toptoy.x`).
 	 */
 	let {
 		doc,
@@ -28,7 +30,7 @@
 	{:else if event.type === 'divert'}
 		<PropField {doc} path={[...path, 'params', 'to']} label={m['creator.vn_point']()} type="select" options={pointNames} required />
 	{:else if event.type === 'setVariable'}
-		<VariableField {doc} path={[...path, 'params', 'variable']} />
+		<AddressField {doc} path={[...path, 'params']} kinds={TARGETS.variable.kinds} fields={TARGETS.variable.fields} free="variable" label={m['creator.field_variable']()} testid="set-variable" />
 		<PropField {doc} path={[...path, 'params', 'op']} label={m['creator.vn_action']()} type="select" options={[{ value: 'add', label: m['creator.vn_action_add']() }]} placeholder={m['creator.vn_action_set']()} />
 		<PropField {doc} path={[...path, 'params', 'value']} label={m['creator.field_value']()} type={event.params?.op === 'add' ? 'number' : 'text'} required />
 	{/if}

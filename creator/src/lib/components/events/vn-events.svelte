@@ -120,7 +120,7 @@
 		const first = (selector: string) => root.querySelector<HTMLElement>(selector);
 		const target =
 			((type === 'showMessage' || type === 'askText') && first('textarea')) ||
-			((type === 'joinScene' || type === 'leaveScene') && first('[data-testid="character-ref-open"]')) ||
+			((type === 'joinScene' || type === 'leaveScene') && first('[data-testid="cast-character-input"]')) ||
 			[...root.querySelectorAll<HTMLElement>('input:not([type="checkbox"]), textarea, select, button[data-testid]')].find(
 				(el) => !el.closest('.type-field') && !el.closest('header')
 			);
@@ -339,13 +339,13 @@
 				{:else if event.type === 'fx'}
 					<EventFx {doc} path={p} {event} />
 				{:else if event.type === 'unlockLocation'}
-					<EventUnlockLocation {doc} path={p} {event} />
+					<EventUnlockLocation {doc} path={p} />
 				{:else if event.type === 'setAvatarLocation'}
-					<EventUnlockLocation {doc} path={p} {event} avatar />
+					<EventUnlockLocation {doc} path={p} avatar />
 				{:else if event.type === 'migrate'}
 					<EventMigrate {doc} path={p} {event} {charOptions} />
 				{:else if event.type === 'joinScene' || event.type === 'leaveScene'}
-					<EventCast {doc} path={p} {event} index={i} {choices} {charOptions} {cast} />
+					<EventCast {doc} path={p} {event} index={i} {choices} {cast} />
 				{/if}
 
 				{#if offStageAt.has(i)}

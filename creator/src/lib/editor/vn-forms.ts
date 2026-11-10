@@ -1,5 +1,5 @@
 // The VN event forms' pure parts (COMPONENTS.md step 8): the types with a form, a new event per type, the one-line
-// summary, choice actions, conditions in words, the trigger words, and the cast rows' look / mood options.
+// summary, choice actions, conditions in words, the trigger words, and the cast rows' mood options.
 import {
 	FX_IMPACTS,
 	REGULAR_PERSONA,
@@ -10,7 +10,6 @@ import {
 	defaultMoodVocabulary,
 	findLook,
 	findPersona,
-	lookLabel,
 	lookPortraitMoods,
 	moodLabel,
 	previewText,
@@ -190,7 +189,7 @@ const giveWords = (g: any) => m['creator.flow_gives']({ list: `${g?.item || '?'}
 /** what a takeItem / take takes, in a line: "takes cucumber ×5" (the Flow's words) */
 const takeWords = (g: any) => m['creator.flow_takes']({ list: `${g?.item || '?'}${(g?.qty ?? 1) > 1 ? ` ×${g.qty}` : ''}` });
 
-/** the character choices of a cast row: its persona's looks (the default first) and the moods (with an image first) */
+/** the character choices of a cast row: the moods of its look (with an image first; who and which look: the address book, #477) */
 export function castOptions(choices: CharacterChoices | undefined) {
 	const vocabulary = choices?.moods ?? defaultMoodVocabulary();
 	const index = characterIndex(choices?.registry);
@@ -200,12 +199,6 @@ export function castOptions(choices: CharacterChoices | undefined) {
 		return findPersona(index.get(r.character), r.persona || REGULAR_PERSONA);
 	};
 	return {
-		looksOf(row: any) {
-			const p = personaOf(row);
-			if (!p) return [];
-			const main = defaultLookId(p);
-			return [...p.looks].sort((a, b) => Number(b.id === main) - Number(a.id === main)).map((l) => ({ id: l.id, label: lookLabel(p, l.id, locale) }));
-		},
 		moodOptions(row: any) {
 			const p = personaOf(row);
 			const look = findLook(p, row?.look || defaultLookId(p));
