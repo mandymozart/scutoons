@@ -73,6 +73,7 @@ So book, space and show are not three orders: a space is a book whose surfaces a
 4. **A scene belongs to its Experience,** exactly as in OSCT a scene belongs to its book. "Scene" is the word.
 5. **A scene is tied to toons through the event system,** like a location with jump-to. XR scenes go into the address book, and a scene's targets (its parameters) can be addressed through the address system.
 6. **A second 3D engine in the browser is accepted** (three.js beside the deck's), knowing it has to be maintained.
+7a. **Svelte is the primary frontend.** OSCT's editor is Svelte 5 (SvelteKit 3) already; its reader is plain TypeScript with custom elements; its engine is plain TypeScript. So the engine is copied as it is, the reader's XR interface around it (scan mode, entry sheets, unlocking) is written as Svelte components in the viewer, and the editor is carried into the creator.
 7. **Image tracking only for now.** Exhibitions: plaques at the objects, in effect codes one dials in with. No room tracking.
 
 ## 6 · Open
