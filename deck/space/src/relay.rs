@@ -252,9 +252,16 @@ pub enum Out {
     Listen { client: String, addresses: Vec<String> },
     /// #442: events a deck sends for this deck's far world nodes
     Events { client: String, events: Vec<DeckEvent> },
-    /// #469: what a handheld session hears – the editor (a conductor) a phone's pose (a late or malformed one never comes
-    /// out), state, Record and Recenter; a phone the editor's view
-    Hand(Envelope),
+    /// #469: the editor (a conductor) hears a phone's pose (a late or malformed one never comes out), state, Record / Stop
+    /// and Recenter; a phone the editor's view
+    HandPose { client: String, pose: HandPose },
+    HandState { client: String, state: HandState },
+    HandRecord { client: String, on: bool },
+    HandRecenter { client: String },
+    HandView(HandView),
+    /// #469: a phone that spoke is no longer in the session (the relay's presence lacks it); it may come back as the same
+    /// client (a fall to the WebSocket): its state comes again then
+    HandAway { client: String },
     /// every envelope as it came (`Options::messages`)
     Message(Envelope),
 }
@@ -453,6 +460,8 @@ pub struct Client {
     hand_state: Option<HandState>,
     hand_view: Option<HandView>,
     poses: HashMap<String, f64>,
+    /// the phones heard and still in the session
+    hands: std::collections::BTreeSet<String>,
 }
 
 impl Client {
@@ -494,6 +503,7 @@ impl Client {
             hand_state: None,
             hand_view: None,
             poses: HashMap::new(),
+            hands: Default::default(),
         })
     }
 
@@ -1124,6 +1134,15 @@ impl Client {
         }
     }
 
+    /// #469: a phone spoke – one new to this client (it joined after the welcome, or came back) gets the editor's view
+    fn hand_heard(&mut self, from: &str) {
+        if self.hands.insert(from.to_string()) {
+            if let Some(v) = self.hand_view.clone() {
+                self.send_to(Message::HandView(v), To { role: None, group: None, client: Some(from.to_string()) });
+            }
+        }
+    }
+
     /// #469: a phone's pose as it came – false when it is malformed or not newer than that phone's last (a late one)
     fn fresh_pose(&mut self, from: &str, p: &HandPose) -> bool {
         let finite = |v: &[f64], n: usize| v.len() == n && v.iter().all(|x| x.is_finite());
@@ -1195,16 +1214,36 @@ impl Client {
                     self.out.push(Out::Deck(In::Values { client: from, values: v.values, mood: v.mood }));
                 }
             }
-            Message::HandPose(p) => {
-                if self.fresh_pose(&from, &p) {
-                    self.out.push(Out::Hand(e));
+            Message::HandPose(pose) => {
+                if self.fresh_pose(&from, &pose) {
+                    self.hand_heard(&from);
+                    self.out.push(Out::HandPose { client: from, pose });
                 }
             }
-            Message::HandState(_) | Message::HandRecord(_) | Message::HandRecenter(_) | Message::HandView(_) => self.out.push(Out::Hand(e)),
+            Message::HandState(state) => {
+                self.hand_heard(&from);
+                self.out.push(Out::HandState { client: from, state });
+            }
+            Message::HandRecord(r) => {
+                self.hand_heard(&from);
+                self.out.push(Out::HandRecord { client: from, on: r.on });
+            }
+            Message::HandRecenter(_) => {
+                self.hand_heard(&from);
+                self.out.push(Out::HandRecenter { client: from });
+            }
+            Message::HandView(v) => self.out.push(Out::HandView(v)),
             Message::DeckListen(l) => self.out.push(Out::Listen { client: from, addresses: l.addresses }),
             Message::DeckEvents(ev) => self.out.push(Out::Events { client: from, events: ev.events }),
             Message::DeckSynced(synced) if conductor => self.out.push(Out::Deck(In::Synced { client: from, synced })),
             Message::Presence(p) => {
+                // every client but the audience has a link in presence: a phone without one left
+                let links = p.links.as_ref();
+                let away: Vec<String> = self.hands.iter().filter(|c| !links.is_some_and(|l| l.contains_key(*c))).cloned().collect();
+                for client in away {
+                    self.hands.remove(&client);
+                    self.out.push(Out::HandAway { client });
+                }
                 let routes = p.routes.unwrap_or_default().into_iter().map(|r| (r.from, r.to)).collect();
                 self.out.push(Out::Deck(In::Presence { decks: p.decks.unwrap_or_default(), routes, links: p.links.unwrap_or_default(), quality: p.quality.unwrap_or_default() }));
             }
@@ -1729,6 +1768,7 @@ mod tests {
                         st(0.31, "message", json!({ "from": "c2", "kind": "hand.pose", "p": { "t": 280.0, "p": [9.0, 9.0, 9.0], "q": [0.0, 0.0, 0.0, 1.0] } })),
                         st(0.32, "message", json!({ "from": "c2", "kind": "hand.pose", "p": { "t": 316.0, "p": [0.0, 1.6], "q": [0.0, 0.0, 0.0, 1.0] } })),
                         st(0.4, "message", json!({ "from": "c2", "kind": "hand.record", "p": { "on": true } })),
+                        st(0.45, "message", json!({ "kind": "presence", "p": { "groups": {}, "ready": [], "links": {} } })),
                         st(0.5, "hand_view", json!({ "shot": "sb-1", "on": true, "recording": true, "seconds": 0.0 })),
                         st(1.0, "stop", Value::Null),
                     ],
@@ -2072,7 +2112,7 @@ mod tests {
         let kinds: Vec<String> = sent_on_stream(&t).iter().map(|e| e["kind"].as_str().unwrap_or("").to_string()).collect();
         assert_eq!(kinds, ["hello", "hand.state", "hand.state", "hand.record", "hand.recenter"], "the state kept for the welcome, then the new one");
         assert!(sent_on_stream(&t)[0]["p"]["token"] == "t-hand" && sent_on_stream(&t)[1]["p"]["mode"] == "none");
-        assert!(all_outs(&t).iter().any(|o| matches!(o, Out::Hand(e) if e.message.kind() == "hand.view")), "the editor's view heard");
+        assert!(all_outs(&t).iter().any(|o| matches!(o, Out::HandView(v) if v.recording && v.shot.as_deref() == Some("sb-1"))), "the editor's view heard");
         assert!(!all_outs(&t).iter().any(|o| matches!(o, Out::Stream(s) if s.contains("deck.values"))), "no settle for poses");
         let mut c = Client::new(serde_json::from_value(json!({ "relay": "wss://h.test:7070/live/H?quic=udp.test:443", "role": "handheld", "token": "t" })).unwrap()).unwrap();
         assert_eq!(c.rung(), None);
@@ -2085,11 +2125,21 @@ mod tests {
     #[test]
     fn the_editor_hears_a_phones_newest_pose_only() {
         let t = turns("hand-editor");
-        let poses: Vec<f64> = all_outs(&t).into_iter().filter_map(|o| if let Out::Hand(Envelope { message: Message::HandPose(p), .. }) = o { Some(p.t) } else { None }).collect();
+        let poses: Vec<f64> = all_outs(&t).into_iter().filter_map(|o| if let Out::HandPose { pose, .. } = o { Some(pose.t) } else { None }).collect();
         assert_eq!(poses, [300.0], "the late one (280) and the malformed one (2 numbers) never come out");
-        let heard: Vec<&str> = all_outs(&t).into_iter().filter_map(|o| if let Out::Hand(e) = o { Some(e.message.kind()) } else { None }).collect();
-        assert_eq!(heard, ["hand.state", "hand.pose", "hand.record"]);
-        assert_eq!(kinds(&t), ["hello", "hand.view", "hand.view"], "the view kept for the welcome, then the new one");
+        let heard: Vec<&str> = all_outs(&t)
+            .into_iter()
+            .filter_map(|o| match o {
+                Out::HandState { client, .. } if client == "c2" => Some("state"),
+                Out::HandPose { client, .. } if client == "c2" => Some("pose"),
+                Out::HandRecord { client, on: true } if client == "c2" => Some("record"),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(heard, ["state", "pose", "record"]);
+        assert!(all_outs(&t).contains(&&Out::HandAway { client: "c2".into() }), "the presence without the phone: it left");
+        assert_eq!(kinds(&t), ["hello", "hand.view", "hand.view", "hand.view"], "the view kept for the welcome, again to the phone that joined after it, then the new one");
+        assert_eq!(sent(&t)[2]["to"], json!({ "client": "c2" }));
         let mut c = Client::new(serde_json::from_value(json!({ "relay": "ws://h:7070/live/H", "role": "conductor" })).unwrap()).unwrap();
         c.start(0.0);
         c.opened(1.0);

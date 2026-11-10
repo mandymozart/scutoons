@@ -1,13 +1,15 @@
 <script lang="ts">
-	// The phone of the handheld camera (#126; the studio's PhonePairing – workflows/storyboard-studio README "Handheld
+	// The phone of the handheld camera (#126, #469; the studio's PhonePairing – workflows/storyboard-studio README "Handheld
 	// camera", STUDIO-IN-CREATOR §2.6): "Connect a phone" → a one-time code as a QR code to the creator's barebone phone
-	// page (/h/<code>, no sign-in, 10 minutes), the link's state (WebXR 6DoF or rotation only), Recenter (the phone's pose
+	// page (/h/<code>, no sign-in, 10 minutes), the link's state (WebXR 6DoF or rotation only) and the relay rung the PC
+	// is on (QUIC · WebSocket), Recenter (the phone's pose
 	// now = the shot camera), the live smoothing (0 = the raw handheld look), the scale (scene metres per phone metre)
 	// and Record / Stop – the phone has the same buttons. Compact-inspector rows (PropRow + ScrubNumber).
 	import qrcode from 'qrcode-generator';
 	import { PropRow, ScrubNumber } from '@scutoons/ui';
 	import { m } from '$lib/paraglide/messages.js';
 	import type { StoryboardPage } from '$lib/editor/storyboard-page.svelte.ts';
+	import { openHand } from '$lib/handheld/hand-link.ts';
 
 	let { sb }: { sb: StoryboardPage } = $props();
 	const hh = $derived(sb.hh);
@@ -20,16 +22,16 @@
 		return q.createSvgTag({ cellSize: 4, margin: 2, scalable: true });
 	});
 	const mode = $derived(hh.phone?.mode === 'xr' ? m['storyboard.hh_mode_xr']() : hh.phone?.mode === 'orientation' ? m['storyboard.hh_mode_orientation']() : m['storyboard.hh_mode_none']());
+	// the rung is the core's word (QUIC · WebSocket), shown as it says it
+	const rung = $derived(hh.rung || m['storyboard.hh_joining']());
 	const state = $derived.by(() => {
 		switch (hh.status) {
 			case 'waiting':
-				return m['storyboard.hh_waiting']();
-			case 'connecting':
-				return m['storyboard.hh_connecting']();
+				return `${m['storyboard.hh_waiting']()} · ${rung}`;
 			case 'connected':
-				return `${m['storyboard.hh_connected']()} · ${mode}${hh.phone?.tracking === false ? ` · ${m['storyboard.hh_tracking_lost']()}` : ''}`;
+				return `${m['storyboard.hh_connected']()} · ${mode}${hh.phone?.tracking === false ? ` · ${m['storyboard.hh_tracking_lost']()}` : ''} · ${rung}`;
 			case 'closed':
-				return m['storyboard.hh_closed']();
+				return `${m['storyboard.hh_closed']()} · ${rung}`;
 			case 'failed':
 				return m['storyboard.hh_failed']({ reason: hh.error ?? '' });
 		}
@@ -38,7 +40,7 @@
 </script>
 
 {#if hh.status === 'idle'}
-	<button type="button" class="secondary" onclick={() => hh.pair()} title={m['storyboard.hh_connect_hint']()} data-testid="hh-connect">{m['storyboard.hh_connect']()}</button>
+	<button type="button" class="secondary" onclick={() => hh.pair(openHand)} title={m['storyboard.hh_connect_hint']()} data-testid="hh-connect">{m['storyboard.hh_connect']()}</button>
 {:else}
 	{#if hh.status === 'waiting' && hh.url}
 		<div class="pair">

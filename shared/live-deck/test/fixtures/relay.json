@@ -3107,17 +3107,11 @@
           "do": "quic_stream",
           "outs": [
             {
-              "hand": {
-                "from": "c1",
-                "kind": "hand.view",
-                "p": {
-                  "on": true,
-                  "recording": true,
-                  "seconds": 0.0,
-                  "shot": "sb-1"
-                },
-                "seq": 1,
-                "v": 1
+              "hand_view": {
+                "on": true,
+                "recording": true,
+                "seconds": 0.0,
+                "shot": "sb-1"
               }
             }
           ]
@@ -3262,6 +3256,18 @@
           }
         },
         {
+          "at": 0.45,
+          "do": "message",
+          "with": {
+            "kind": "presence",
+            "p": {
+              "groups": {},
+              "links": {},
+              "ready": []
+            }
+          }
+        },
+        {
           "at": 0.5,
           "do": "hand_view",
           "with": {
@@ -3332,15 +3338,15 @@
           "do": "message",
           "outs": [
             {
-              "hand": {
-                "from": "c2",
-                "kind": "hand.state",
-                "p": {
+              "send": "{\"from\":\"\",\"kind\":\"hand.view\",\"p\":{\"on\":true,\"recording\":false,\"seconds\":0.0,\"shot\":\"sb-1\"},\"seq\":0,\"to\":{\"client\":\"c2\"},\"v\":1}"
+            },
+            {
+              "hand_state": {
+                "client": "c2",
+                "state": {
                   "mode": "xr",
                   "tracking": true
-                },
-                "seq": 1,
-                "v": 1
+                }
               }
             }
           ]
@@ -3350,10 +3356,9 @@
           "do": "message",
           "outs": [
             {
-              "hand": {
-                "from": "c2",
-                "kind": "hand.pose",
-                "p": {
+              "hand_pose": {
+                "client": "c2",
+                "pose": {
                   "p": [
                     0.0,
                     1.5,
@@ -3366,9 +3371,7 @@
                     1.0
                   ],
                   "t": 300.0
-                },
-                "seq": 1,
-                "v": 1
+                }
               }
             }
           ]
@@ -3388,14 +3391,30 @@
           "do": "message",
           "outs": [
             {
-              "hand": {
-                "from": "c2",
-                "kind": "hand.record",
-                "p": {
-                  "on": true
-                },
-                "seq": 1,
-                "v": 1
+              "hand_record": {
+                "client": "c2",
+                "on": true
+              }
+            }
+          ]
+        },
+        {
+          "at": 0.45,
+          "do": "message",
+          "outs": [
+            {
+              "hand_away": {
+                "client": "c2"
+              }
+            },
+            {
+              "deck": {
+                "presence": {
+                  "decks": [],
+                  "links": {},
+                  "quality": {},
+                  "routes": []
+                }
               }
             }
           ]

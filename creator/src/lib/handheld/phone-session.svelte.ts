@@ -1,14 +1,18 @@
-// The phone's side of the handheld camera (#126; the studio's Phone.svelte – research/HANDHELD-CAMERA.md §2, STUDIO-IN-
-// CREATOR §2.6): the one-time code from the QR → the PC's offer → our answer → the data channels; then the phone's pose
-// at the sensor's rate to the PC, peer to peer – the PC maps it onto the shot camera, smooths, shows and records (the
-// phone renders nothing: "only the camera, the pose sensor and the channel"). WebXR `immersive-ar` (ARCore: position +
-// rotation) where the phone has it; else DeviceOrientation (rotation; iOS asks on a tap) + a drag for the position.
-// Record / Stop and Recenter go to the PC as messages. No session, no paraglide, no three: the barebone page's logic.
+// The phone's side of the handheld camera (#126, #469; the studio's Phone.svelte – research/HANDHELD-CAMERA.md, STUDIO-
+// IN-CREATOR §2.6): the one-time code from the QR → the API's claim (the relay session and a handheld token for it) →
+// the relay session through the link the page hands in (hand-link.ts: the live road, the core picks QUIC first, the
+// WebSocket last; the pose a datagram on QUIC); then the phone's pose at the sensor's rate to the PC – the PC maps it onto the shot camera, smooths, shows and
+// records (the phone renders nothing: "only the camera, the pose sensor and the channel"). WebXR `immersive-ar` (ARCore:
+// position + rotation) where the phone has it; else DeviceOrientation (rotation; iOS asks on a tap) + a drag for the
+// position. Record / Stop and Recenter go to the PC as messages. No session, no paraglide, no three: the barebone page.
 import { API_URL } from '$lib/config.ts';
 import { dragStep, orientationQuat, type Quat, type Vec3 } from '$lib/editor/storyboard-handheld.ts';
-import { decodePc, ICE_SERVERS, makeAnswer, PairingError, publicCalls, send, CODE, type Channels, type PairingCalls, type PhoneMode } from '$lib/editor/storyboard-pairing.ts';
+import { PairingError, publicCalls, CODE, type PairingCalls } from '$lib/editor/storyboard-pairing.ts';
+import type { HandPort, OpenHand } from './hand-port.ts';
 
 export type PhoneStatus = 'nocode' | 'connecting' | 'connected' | 'expired' | 'failed' | 'closed';
+/** what the phone tracks: WebXR (position + rotation), the orientation sensor (rotation only), nothing yet */
+export type PhoneMode = 'xr' | 'orientation' | 'none';
 
 /** the WebXR parts used here (the DOM lib has no WebXR types) */
 interface XrPose {
@@ -39,14 +43,16 @@ export class PhoneSession {
 	on = $state(true);
 	recording = $state(false);
 	seconds = $state(0);
-	mode = $state<PhoneMode>('');
+	mode = $state<PhoneMode>('none');
 	tracking = $state(true);
 	/** WebXR immersive-ar is there */
 	xr = $state(false);
 	error = $state('');
+	/** the rung of the ladder the phone is on (the core's word: QUIC · WebSocket; '' while it joins) */
+	rung = $state('');
 
-	private pc: RTCPeerConnection | null = null;
-	private ch: Channels | null = null;
+	private link: HandPort | null = null;
+	private closed = false;
 	private drag: Vec3 = [0, 0, 0];
 	private orient: Quat | null = null;
 	private session: XrSession | null = null;
@@ -55,6 +61,7 @@ export class PhoneSession {
 
 	constructor(
 		readonly code: string,
+		private readonly open: OpenHand,
 		private readonly calls: PairingCalls = publicCalls(API_URL)
 	) {
 		if (!CODE.test(code)) this.status = 'nocode';
@@ -65,47 +72,38 @@ export class PhoneSession {
 		const xr = (navigator as unknown as { xr?: XrSystem }).xr;
 		void xr?.isSessionSupported('immersive-ar').then((ok) => (this.xr = ok), () => undefined);
 		try {
-			const pc = (this.pc = new RTCPeerConnection({ iceServers: ICE_SERVERS }));
-			pc.addEventListener('connectionstatechange', () => {
-				if (pc.connectionState === 'failed') this.status = 'failed';
-				if (pc.connectionState === 'closed' || pc.connectionState === 'disconnected') this.status = this.status === 'connected' ? 'closed' : this.status;
+			const claim = await this.calls.claim(this.code);
+			if (this.closed) return;
+			this.shot = claim.shot;
+			this.link = this.open('handheld', claim.session, claim.token, {
+				status: (state, rung, why) => {
+					this.rung = rung;
+					if (state === 'connected') this.status = 'connected';
+					else if (state === 'refused') [this.status, this.error] = ['expired', why];
+					else if (this.status === 'connected') this.status = 'connecting';
+				},
+				view: (shot, on, recording, seconds) => {
+					[this.shot, this.on, this.recording, this.seconds] = [shot, on, recording, seconds];
+				}
 			});
-			const { view, channels } = await makeAnswer(pc, this.calls, this.code);
-			this.shot = view.shot;
-			this.ch = await channels;
-			this.ch.ctl.addEventListener('message', (e) => this.onMessage(e.data));
-			const ready = () => {
-				this.status = 'connected';
-				send(this.ch?.ctl, { type: 'hello', ua: navigator.userAgent });
-				this.sendState();
-			};
-			if (this.ch.ctl.readyState === 'open') ready();
-			else this.ch.ctl.addEventListener('open', ready);
-			this.ch.ctl.addEventListener('close', () => (this.status = 'closed'));
+			this.sendState();
 		} catch (e) {
 			this.status = e instanceof PairingError && (e.status === 404 || e.status === 409) ? 'expired' : 'failed';
 			this.error = e instanceof Error ? e.message : String(e);
 		}
 	}
 
-	private onMessage(data: unknown): void {
-		const m = decodePc(data);
-		if (!m) return;
-		this.shot = m.shot;
-		this.on = m.on;
-		this.recording = m.recording;
-		this.seconds = m.seconds;
-	}
+	/** what the phone tracks (the core sends it again after every rejoin) */
 	private sendState(): void {
-		send(this.ch?.ctl, { type: 'state', mode: this.mode, tracking: this.tracking });
+		this.link?.state({ mode: this.mode, tracking: this.tracking, ua: navigator.userAgent });
 	}
-	/** a pose of the phone (its own world) at the sensor's rate */
+	/** a pose of the phone (its own world) at the sensor's rate, on its own clock */
 	private pose(p: Vec3, q: Quat): void {
-		send(this.ch?.pose, { type: 'pose', t: performance.now(), p, q });
+		this.link?.pose(performance.now(), p, q);
 	}
 
-	record = () => send(this.ch?.ctl, { type: 'rec', on: !this.recording });
-	recenter = () => send(this.ch?.ctl, { type: 'recenter' });
+	record = () => this.link?.record(!this.recording);
+	recenter = () => this.link?.recenter();
 
 	// ── Rotation only: DeviceOrientation + drag ─────────────────────────────────────────────────────────────
 
@@ -167,7 +165,7 @@ export class PhoneSession {
 		this.mode = 'xr';
 		session.addEventListener('end', () => {
 			this.session = null;
-			this.mode = '';
+			this.mode = 'none';
 			this.sendState();
 		});
 		const frame = (_t: number, f: XrFrame) => {
@@ -200,10 +198,11 @@ export class PhoneSession {
 	}
 
 	close(): void {
+		this.closed = true;
 		removeEventListener('deviceorientation', this.onOrient);
 		void this.session?.end().catch(() => undefined);
 		void this.wake?.release().catch(() => undefined);
-		this.pc?.close();
-		this.pc = null;
+		this.link?.close();
+		this.link = null;
 	}
 }

@@ -25,10 +25,22 @@ final class LiveSessions
     {
         $code = '';
         for ($i = 0; $i < 6; $i++) $code .= self::ALPHABET[random_int(0, strlen(self::ALPHABET) - 1)];
+        $token = fn(string $role): string => $this->token($code, $role, self::HOURS * 3600, $show);
+        return ['code' => $code, 'token' => $token('conductor'), 'tokens' => ['bridge' => $token('bridge'), 'seat' => $token('seat'), 'uplink' => $token('uplink')], 'dev' => $this->dev()];
+    }
+
+    /** The relay's token for `$role` in session `$code` for `$seconds` from now (#469: the handheld camera's two as well) */
+    public function token(string $code, string $role, int $seconds, ?string $show = null): string
+    {
         $secret = $this->settings->get('LIVE_TOKEN_SECRET');
-        $exp = $this->clock->time() + self::HOURS * 3600;
-        $token = fn(string $role): string => $secret === '' ? 'dev' : self::sign($secret, ['session' => $code, 'role' => $role, 'exp' => $exp] + ($show === null ? [] : ['show' => $show]));
-        return ['code' => $code, 'token' => $token('conductor'), 'tokens' => ['bridge' => $token('bridge'), 'seat' => $token('seat'), 'uplink' => $token('uplink')], 'dev' => $secret === ''];
+        if ($secret === '') return 'dev';
+        return self::sign($secret, ['session' => $code, 'role' => $role, 'exp' => $this->clock->time() + $seconds] + ($show === null ? [] : ['show' => $show]));
+    }
+
+    /** no secret: the relay's dev mode */
+    public function dev(): bool
+    {
+        return $this->settings->get('LIVE_TOKEN_SECRET') === '';
     }
 
     /** @param array<string, mixed> $claims in the order the relay writes them */
