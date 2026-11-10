@@ -206,6 +206,11 @@ impl Played {
         played.then_some(path)
     }
 
+    /// #467: what `path` (`node.param`, a knob's path) plays at before anything moved it: its knob's value, else its param
+    pub fn value(&self, path: &str) -> Option<f32> {
+        self.values().into_iter().find(|(p, _)| p == path).map(|(_, v)| v)
+    }
+
     /// every numeric param of the nodes as `node.param`, then the knobs' values (a knob over a param wins)
     fn values(&self) -> Vec<(String, f32)> {
         let mut out: Vec<(String, f32)> = Vec::new();

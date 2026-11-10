@@ -1201,9 +1201,11 @@ name = "deck-headless"
 version = "0.1.0"
 dependencies = [
  "deck-core",
+ "deck-show",
  "deck-space",
  "deck-ui",
  "live-core",
+ "protocol",
  "serde",
  "serde_json",
  "toml 0.8.23",
