@@ -473,7 +473,8 @@ impl Session {
             tempo: if bridge { None } else { self.tempo.clone() },
             seat,
             seats: if all && !self.seats.is_empty() { Some(self.seats.clone()) } else { None },
-            flash: if all || role == Role::Seat { self.flash.clone() } else { None },
+            // #471: a deck too – one that was not here when the flash went out takes it when it joins (unless left out)
+            flash: if all || matches!(role, Role::Seat | Role::Output) { self.flash.clone() } else { None },
             seq: Some(self.seq as i64),
         }
     }
