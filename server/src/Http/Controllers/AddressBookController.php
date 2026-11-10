@@ -12,7 +12,7 @@ use Scutoons\Http\CurrentSession;
 
 /**
  * One toon's address book (#477, Domain\Addresses\AddressBook; the shape: server/schema/api/address-book.schema.json):
- *   GET /api/toons/<toon>/address-book → the document itself (no envelope), `ETag: "<version>"`; `If-None-Match` with that
+ *   GET /api/toons/<toon>/addresses → the document itself (no envelope), `ETag: "<version>"`; `If-None-Match` with that
  *   tag → 304 · 401 not signed in · 403 forbidden (a sign-in without the creator, admin or live role) · 404 unknown_toon
  * Read by the team – a sign-in with the creator, admin or live role (an AI connection acts with its member's roles) – and by
  * an approved deck's own token (the #470 precedent: a paired deck reads what the stage needs).
