@@ -122,7 +122,7 @@ mod tests {
         let font = mono();
         assert!((per_px(&font) - 0.6).abs() < 0.01, "a mono face, 0.6 em wide: {}", per_px(&font));
         let (mut d, t) = (DrawList::new(per_px(&font)), panel::tokens());
-        let parts = [Part::Caption("Flash · Vorschlag", "von ana"), Part::Title("top · Version 3"), Part::Buttons(&["Annehmen", "Ablehnen"], None)];
+        let parts = [Part::Caption("Flash · Vorschlag", "von ana"), Part::Title("top · Version 3"), Part::Buttons(&["Annehmen", "Ablehnen"], None, None)];
         let screen = (320.0, 240.0);
         let h = panel::height(&d, &t, screen.0, &parts);
         let places = panel::draw(&mut d, &t, screen, &parts, false);

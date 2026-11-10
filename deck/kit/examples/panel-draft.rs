@@ -34,16 +34,16 @@ fn main() -> std::io::Result<()> {
     let suggestion = [Part::Caption("Flash · Vorschlag", "von ana"), Part::Title("top · Version 3"), Part::Line(kept, true)];
     let keys = [("Enter", "annehmen"), ("Esc", "ablehnen"), ("< >", "wechseln")];
     let mut native = suggestion.to_vec();
-    native.extend([Part::Buttons(&["Annehmen", "Ablehnen"], Some(0)), Part::Keys(&keys)]);
+    native.extend([Part::Buttons(&["Annehmen", "Ablehnen"], Some(0), Some(0.4)), Part::Keys(&keys)]);
     frame(&out, "1-vorschlag-nativ", NATIVE, false, &native, None)?;
     let mut phone = suggestion.to_vec();
-    phone.push(Part::Buttons(&["Annehmen", "Ablehnen"], None));
+    phone.push(Part::Buttons(&["Annehmen", "Ablehnen"], None, Some(0.4)));
     frame(&out, "2-vorschlag-telefon", PHONE, true, &phone, None)?;
     let forced = [
         Part::Caption("Flash · erzwungen", "von ana"),
         Part::Title("top · Version 3 läuft"),
         Part::Line("Deine Version (top · 2) ist behalten.", true),
-        Part::Buttons(&["OK", "Zurück zu meiner Version"], Some(0)),
+        Part::Buttons(&["OK", "Zurück zu meiner Version"], Some(0), None),
         Part::Keys(&[("Enter", "OK"), ("< >", "wechseln")]),
     ];
     frame(&out, "3-erzwungen", NATIVE, false, &forced, None)?;
@@ -53,7 +53,7 @@ fn main() -> std::io::Result<()> {
         Part::Switch("Bitte nicht flashen", true),
         Part::Field("Probe läuft", "warum"),
         Part::Line("Der Conductor sieht den Grund. Ein erzwungener Flash geht trotzdem durch.", true),
-        Part::Buttons(&["Speichern", "Abbrechen"], None),
+        Part::Buttons(&["Speichern", "Abbrechen"], None, None),
     ];
     frame(&out, "5-nicht-flashen", NATIVE, false, &keep, None)?;
     let choice = [
@@ -61,7 +61,7 @@ fn main() -> std::io::Result<()> {
         Part::Mark("Publikum", "jetzt", true),
         Part::Mark("Musiker:in", "", false),
         Part::Mark("Licht", "nur live", false),
-        Part::Buttons(&["Übernehmen"], None),
+        Part::Buttons(&["Übernehmen"], None, None),
     ];
     frame(&out, "6-auswahl", PHONE, true, &choice, None)
 }

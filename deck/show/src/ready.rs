@@ -11,6 +11,10 @@ use crate::flash::{self, Assignment};
 use protocol::{Flash, FlashReport};
 use std::fmt;
 
+/// How long a flash that is only suggested waits for the person at the deck (#481; owner 2026-11-10: "nach 10 Sekunden
+/// geht der Dialog automatisch weg … wird es automatisch angenommen"): then it is taken – flashing is an explicit act.
+pub const SUGGESTION_SECS: f32 = 10.0;
+
 /// One piece an outlet's cells name, and the first row that names it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Need {

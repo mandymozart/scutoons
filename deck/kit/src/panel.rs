@@ -52,8 +52,9 @@ pub enum Part<'a> {
     Title(&'a str),
     /// a sentence, wrapped; muted or not
     Line(&'a str, bool),
-    /// the actions side by side, the first one the primary; the one the keys are on
-    Buttons(&'a [&'a str], Option<usize>),
+    /// the actions side by side, the first one the primary; the one the keys are on; a countdown (0..1 of its time gone)
+    /// after which the primary happens by itself – the reader's line along the primary's bottom (its chapter end, `next-bar`)
+    Buttons(&'a [&'a str], Option<usize>, Option<f32>),
     /// what the keys do, for a deck without touch: (key, what)
     Keys(&'a [(&'a str, &'a str)]),
     /// a row to choose: its label, a note at its right, chosen or not
@@ -150,12 +151,16 @@ pub fn draw(d: &mut DrawList, t: &Tokens, screen: (f32, f32), parts: &[Part], gr
                     d.text(area.x, y + n as f32 * t.size.font * LINE, t.size.font, line, if muted { t.color.muted } else { t.color.text });
                 }
             }
-            Part::Buttons(labels, focus) => {
+            Part::Buttons(labels, focus, gone) => {
                 let n = labels.len().max(1) as f32;
                 let w = (area.w - GAP * (n - 1.0)) / n;
                 for (b, label) in labels.iter().enumerate() {
                     let at = Rect { x: area.x + b as f32 * (w + GAP), y: y + 6.0, w, h: t.size.row };
                     button(d, t, at, label, b == 0, focus == Some(b));
+                    if let Some(gone) = gone.filter(|_| b == 0) {
+                        // on the ink primary: a paper line that fills as the time goes
+                        d.rect(at.x, at.y + at.h - t.size.edge, at.w * gone.clamp(0.0, 1.0), t.size.edge, t.color.surface);
+                    }
                     places.push(at);
                 }
             }
@@ -268,7 +273,7 @@ mod tests {
             Part::Caption("Flash · Vorschlag", "von ana"),
             Part::Title("top · Version 3"),
             Part::Line("Du spielst deine eigene Version (top · 2). Sie bleibt behalten.", true),
-            Part::Buttons(&["Annehmen", "Ablehnen"], Some(0)),
+            Part::Buttons(&["Annehmen", "Ablehnen"], Some(0), Some(0.5)),
             Part::Keys(&[("Enter", "annehmen"), ("Esc", "ablehnen")]),
         ];
         let screen = (640.0, 400.0);
@@ -282,6 +287,10 @@ mod tests {
         let said = texts(&d);
         assert!(said.contains(&"FLASH · VORSCHLAG".to_string()) && said.contains(&"VON ANA".to_string()), "the caption is upper case: {said:?}");
         assert!(said.contains(&"Annehmen".to_string()) && said.contains(&"Enter".to_string()));
+        // the countdown: a paper line along the primary's bottom, half its width at half the time
+        let (a, edge) = (places[0], t.size.edge);
+        let line = Prim::Rect { x: a.x, y: a.y + a.h - edge, w: a.w * 0.5, h: edge, r: 0.0, color: t.color.surface };
+        assert!(d.prims().contains(&line), "the countdown's line");
     }
 
     #[test]
@@ -303,7 +312,7 @@ mod tests {
             Part::Mark("Licht", "nur live", false),
             Part::Switch("Bitte nicht flashen", true),
             Part::Field("", "warum"),
-            Part::Buttons(&["Übernehmen"], None),
+            Part::Buttons(&["Übernehmen"], None, None),
         ];
         let places = draw(&mut d, &t, (300.0, 560.0), &parts, true);
         assert_eq!(places.len(), 5, "two rows, the switch, the field, the button");
