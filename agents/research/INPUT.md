@@ -145,5 +145,5 @@ Peripheral mappings are written ahead, one device can overwrite them for itself,
 6. **Privacy** as proposed in #312: on the device, off by default, shown before it is enabled.
 7. **The road for poses: decided 2026-11-10,** the live road, QUIC first and WebSocket last (§6a). Open under it: whether the storyboard's WebRTC road is removed at once or after the S22 test (recommended: after the test).
 8. **The pose maths as one Rust crate** (wasm for the creator) instead of a second copy. Recommended: yes; it touches the storyboard editor, so not while that is being worked on.
-9. **Forced flash:** keep the cleared local layer as one backup on the deck, and a per-show lock. Recommended: both.
+9. **Forced flash: decided 2026-11-10.** Warned and accepted, it forces. The deck keeps the replaced local layer as its own copy; the deck's operator gets a notice and, if their rights allow, goes back to it or switches between the forced version and their own (SHOW.md §4, #471). Open under it: which right allows going back, and the per-show lock (recommended: a locked flash leaves the switch to the deck's owner only).
 10. **When a silent handheld gives the camera back.** Recommended: after 2 s without a pose the deck's own camera returns with a short blend, and the handheld takes over again when poses come back.
