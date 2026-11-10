@@ -468,6 +468,8 @@ export interface Flash {
 	lock?: boolean;
 	/** how many conductors it came through; 0 = from this conductor's own operator */
 	hops: number;
+	/** #91: the show of the conductor whose session it is in now, at the version the flash pins; a deck takes its outlet's cells of that one */
+	here?: Pinned;
 }
 
 /** #90: what a deck or conductor runs after a flash, to its conductor and on up. `from` of the envelope is the path it came along. */
@@ -476,6 +478,12 @@ export interface FlashReport {
 	accepted: boolean;
 	/** why it refused */
 	why?: string;
+	/** #91: a deck's outlet (none: a conductor) */
+	outlet?: string;
+	/** #91: a deck has everything its outlet's cells name (the show and each piece); never blocks GO */
+	ready?: boolean;
+	/** #91: what it lacks, in words (deck-show's), one line each */
+	lacks?: string[];
 }
 
 /** #90, SHOW.md §9, for the workshop group and device. The receiver tests itself; a missing fact fails the filter. */

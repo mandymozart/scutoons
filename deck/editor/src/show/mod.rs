@@ -7,7 +7,8 @@
 //! - **Perform** (perform.rs): the matrix of rows × outlets and seats, the big row ▶, a small ▶ per cell (a hand launch,
 //!   marked off its row), GO, the suggestion with GO / Drop, the log, the conductors rail; the stage on top.
 //! - **Show** (author.rs): the conductors tree with a breadcrumb into a sub conductor, the rows band, the inspector, the
-//!   seats; the 2D node overlay over the dimmed stage (#446) with a 2D / 3D switch; save and load through /api/shows (api.rs).
+//!   seats, each deck's answer to the last flash; the 2D node overlay over the dimmed stage (#446) with a 2D / 3D switch; the
+//!   cue sheet and the problems list in its place (sheets.rs); save and load through /api/shows (api.rs).
 //!
 //! The editor runs one conductor, this deck's (the tree's top it was given). A sub conductor runs on its own deck with its
 //! own operator; entering it here shows its document, it does not run it.
@@ -15,6 +16,7 @@ mod api;
 pub mod author;
 mod link;
 pub mod perform;
+mod sheets;
 
 use deck_kit::controls::Rect;
 use deck_show::{ClockChoice, Show, Subtree};
@@ -40,6 +42,23 @@ impl Workspace {
     }
 }
 
+/// What the Show workspace shows in the stage's place instead of the overlay (#91 item 6).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Sheet {
+    Cues,
+    Problems,
+}
+
+impl Sheet {
+    pub fn parse(s: &str) -> Option<Sheet> {
+        match s {
+            "cues" => Some(Sheet::Cues),
+            "problems" => Some(Sheet::Problems),
+            _ => None,
+        }
+    }
+}
+
 /// what a press in a show workspace means
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Hit {
@@ -61,6 +80,10 @@ pub enum Hit {
     Flash,
     /// the overlay: 2D (true) or the stage alone (3D)
     View(bool),
+    /// the cue sheet or the problems list in the stage's place
+    Sheet(Sheet),
+    /// a line of the problems list: select what it points at
+    Problem(usize),
 }
 
 /// The editor's conductor and the documents it shows.
@@ -75,6 +98,10 @@ pub struct Host {
     /// the last thing done, or why not
     pub status: String,
     pub two_d: bool,
+    /// the sheet shown in the stage's place (Show), none = the stage
+    pub sheet: Option<Sheet>,
+    /// the seat a problem selected (marked in the tree)
+    pub seat: Option<usize>,
     /// this frame's places
     pub hits: Vec<(Rect, Hit)>,
     link: Option<link::Link>,
@@ -105,8 +132,15 @@ impl Host {
             }),
             (None, None) => Ok(EMPTY.to_string()),
         };
-        let show = match text.and_then(|t| deck_show::parse(&t).map_err(|e| e.to_string())) {
-            Ok(s) => s,
+        // a document with problems opens: the problems list says what (#91)
+        let show = match text.and_then(|t| deck_show::document::open(&t)) {
+            Ok(s) => {
+                let n = deck_show::validate(&s).len();
+                if n > 0 {
+                    status = format!("{n} problems – see Problems");
+                }
+                s
+            }
             Err(e) => {
                 status = e;
                 deck_show::parse(EMPTY).expect("the empty show parses")
@@ -119,7 +153,7 @@ impl Host {
                 })
                 .ok()
         });
-        Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, status, two_d: true, hits: Vec::new(), link, api }
+        Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), link, api }
     }
 
     /// the document at the end of the path (the top's when a step is missing)
@@ -200,15 +234,34 @@ impl Host {
             Hit::Save => self.save(),
             Hit::Load => self.load(),
             Hit::Flash => self.flash(),
-            Hit::View(two_d) => self.two_d = two_d,
+            Hit::View(two_d) => {
+                self.two_d = two_d;
+                self.sheet = None;
+            }
+            Hit::Sheet(s) => self.sheet = Some(s),
+            Hit::Problem(i) => self.select_problem(i),
         }
+    }
+
+    /// a problem's line pressed: its row, cell or seat is selected (deck-show's `Points`)
+    fn select_problem(&mut self, i: usize) {
+        let show = self.shown().clone();
+        let list = deck_show::view::problems(&show, self.path.is_empty().then_some(&self.sub));
+        let Some(p) = list.get(i) else { return };
+        self.seat = None;
+        match p.points {
+            deck_show::view::Points::Row(r) | deck_show::view::Points::Cell(r, _) => self.row = r,
+            deck_show::view::Points::Seat(s) => self.seat = Some(s),
+            deck_show::view::Points::Show => {}
+        }
+        self.status = p.text.clone();
     }
 
     /// into the sub conductor of the shown document's seat `i`: its document from the library, the API or the cache
     fn enter(&mut self, i: usize) {
         let Some(seat) = self.shown().seats.get(i).cloned() else { return };
         if !self.library.contains_key(&seat.show.id) {
-            match self.api.load(&seat.show.id).and_then(|(t, why)| deck_show::parse(&t).map(|s| (s, why)).map_err(|e| e.to_string())) {
+            match self.api.load(&seat.show.id).and_then(|(t, why)| deck_show::document::open(&t).map(|s| (s, why))) {
                 Ok((s, why)) => {
                     self.status = why.map_or(format!("{} loaded", seat.show), |w| format!("{} from the cache: {w}", seat.show));
                     self.library.insert(seat.show.id.clone(), s);
@@ -258,7 +311,7 @@ impl Host {
 
     fn load(&mut self) {
         let id = self.shown().id.clone();
-        match self.api.load(&id).and_then(|(t, why)| deck_show::parse(&t).map(|s| (s, why)).map_err(|e| e.to_string())) {
+        match self.api.load(&id).and_then(|(t, why)| deck_show::document::open(&t).map(|s| (s, why))) {
             Ok((s, why)) => {
                 self.status = why.map_or(format!("loaded {}@{}", s.id, s.version), |w| format!("{}@{} from the cache: {w}", s.id, s.version));
                 if self.path.is_empty() {
@@ -285,6 +338,9 @@ pub struct Script {
     /// Show: enter this seat's sub conductor, inspect this row
     pub seat: Option<String>,
     pub row: Option<String>,
+    /// Show: the cue sheet or the problems list in the stage's place; a problem's line pressed
+    pub sheet: Option<Sheet>,
+    pub problem: Option<usize>,
 }
 
 impl Host {
@@ -323,6 +379,16 @@ impl Host {
                 }
             }
             130 if s.go => self.press(Hit::Go),
+            140 => {
+                if let Some(sheet) = s.sheet {
+                    self.press(Hit::Sheet(sheet));
+                }
+            }
+            200 => {
+                if let Some(i) = s.problem {
+                    self.press(Hit::Problem(i));
+                }
+            }
             50 if s.flash => self.press(Hit::Flash),
             _ => {}
         }

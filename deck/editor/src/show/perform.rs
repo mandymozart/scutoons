@@ -56,7 +56,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
     d.rect(l.side.x, l.side.y, 1.0, l.side.h, t.color.line);
 
     // the stage now: what plays on each outlet, over the dimmed stage (2D) or the stage alone (3D)
-    super::author::view_switch(d, t, host, l.stage);
+    super::author::view_switch(d, t, host, l.stage, false);
     d.text(l.stage.x + pad, l.stage.y + pad, small, "THE STAGE NOW", t.color.muted);
     if host.two_d {
         d.rect(l.stage.x, l.stage.y, l.stage.w, l.stage.h, faded(t.color.stage, 0.55));

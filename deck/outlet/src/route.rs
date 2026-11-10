@@ -27,6 +27,9 @@ pub enum Routed {
     /// #91: to the deck's piece side (deck-space piece.rs): every cell of this outlet – a piece plays, glides or fades,
     /// a cell without one (black, panic) fades what played
     Piece(Cell),
+    /// #91: to the deck's flash side (deck-show `ready.rs`): the tree resolved to exact versions – keep what the outlet
+    /// plays, check its pieces, report
+    Flash(protocol::Flash),
     /// the relay refused something (its code and message – the HUD's line)
     Refused { code: String, message: String },
 }
@@ -45,6 +48,7 @@ pub fn route(message: Message, outlet: &str) -> Vec<Routed> {
         Message::State(s) => vec![Routed::Compose(Input::Slice(s.slice.max(0) as usize))],
         Message::Panic(p) if p.black == Some(true) => vec![Routed::Piece(black()), Routed::Compose(Input::Black)],
         Message::Error(e) => vec![Routed::Refused { code: e.code, message: e.message }],
+        Message::Flash(f) => vec![Routed::Flash(f)],
         _ => vec![],
     }
 }
@@ -61,6 +65,9 @@ pub fn snapshot(s: Snapshot, outlet: &str) -> Vec<Routed> {
     if let Some(c) = s.cells.and_then(|mut c| c.remove(outlet)) {
         out.push(Routed::Piece(c.clone()));
         out.push(Routed::Compose(Input::Cell(c)));
+    }
+    if let Some(f) = s.flash {
+        out.push(Routed::Flash(f));
     }
     out
 }
@@ -88,6 +95,8 @@ mod tests {
         let pre = r#"{ "kind": "media.preload", "p": { "outlet": "left", "items": [] } }"#;
         assert!(matches!(&route(msg(pre), "left")[..], [Routed::Preload(_)]));
         assert!(route(msg(pre), "right").is_empty());
+        let flash = r#"{ "kind": "flash", "p": { "root": { "id": "top", "version": 3 }, "shows": [], "hops": 1 } }"#;
+        assert!(matches!(&route(msg(flash), "left")[..], [Routed::Flash(f)] if f.hops == 1), "every outlet takes a flash");
     }
 
     #[test]

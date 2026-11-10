@@ -55,9 +55,9 @@ pub fn take(standing: &mut Option<Assignment>, flash: &Flash, running: &Pinned, 
     match decide(standing.as_ref(), flash, cannot) {
         Ok(()) => {
             *standing = Some(Assignment::of(flash));
-            FlashReport { running: wire(running), accepted: true, why: None }
+            FlashReport { running: wire(running), accepted: true, why: None, outlet: None, ready: None, lacks: None }
         }
-        Err(why) => FlashReport { running: wire(running), accepted: false, why: Some(why) },
+        Err(why) => FlashReport { running: wire(running), accepted: false, why: Some(why), outlet: None, ready: None, lacks: None },
     }
 }
 
@@ -66,7 +66,7 @@ mod tests {
     use super::*;
 
     fn flash(hops: u64, lock: bool) -> Flash {
-        Flash { root: protocol::Pinned { id: "top".into(), version: 3 }, shows: vec![protocol::Pinned { id: "top".into(), version: 3 }], lock: lock.then_some(true), hops }
+        Flash { root: protocol::Pinned { id: "top".into(), version: 3 }, shows: vec![protocol::Pinned { id: "top".into(), version: 3 }], lock: lock.then_some(true), hops, here: None }
     }
 
     fn standing(hops: u32, locked: bool) -> Assignment {

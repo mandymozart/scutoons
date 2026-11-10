@@ -3,7 +3,7 @@
 //! words and every decision about a cell's state live here once (RULES A1, A6); the editor lays them out and hands the
 //! operator's presses back to the [`Subtree`].
 use crate::conductor::{Entry, Logged, OnStage, Origin, Playing, Suggestion};
-use crate::document::{Cell, Fire, How, Moment, OutletKind, Show, Values, Word};
+use crate::document::{Addressed, Cell, Fire, How, Moment, OutletKind, Show, Values, Word};
 use crate::subtree::Subtree;
 use protocol::DeviceMsg;
 
@@ -96,6 +96,32 @@ fn device_text(m: &DeviceMsg) -> String {
     m.kind().to_string()
 }
 
+/// `look warm · strobe @1 · panel @10`: a look and the fixtures it lights on `outlet`, by their first channel
+pub fn look_text(show: &Show, outlet: &str, look: &str) -> String {
+    let lit = show.look(look).map(|l| {
+        let mut f: Vec<_> = show.fixtures.iter().filter(|f| f.outlet == outlet && l.values.contains_key(&f.id)).collect();
+        f.sort_by_key(|f| f.address);
+        f.iter().map(|f| format!("{} @{}", f.id, f.address)).collect::<Vec<_>>()
+    });
+    match lit {
+        Some(lit) if !lit.is_empty() => format!("look {look} · {}", lit.join(" · ")),
+        Some(_) => format!("look {look} · lights nothing here"),
+        None => format!("look {look} · unknown"),
+    }
+}
+
+/// `character:yellowmouse > dance:samba`, `person:* > haptic:pulse where group left · device browser` (SHOW.md §8, §9)
+pub fn address_text(a: &Addressed) -> String {
+    let mut s = format!("{} > {}", a.address, a.action);
+    if let Some(f) = &a.filter {
+        let parts: Vec<String> = [("group", &f.group), ("device", &f.device)].iter().filter_map(|(k, v)| v.as_ref().map(|v| format!("{k} {v}"))).collect();
+        if !parts.is_empty() {
+            s = format!("{s} where {}", parts.join(" · "));
+        }
+    }
+    s
+}
+
 /// A cell's words (on its column; `device` = a device outlet).
 pub fn cell_text(cell: &Cell) -> String {
     match cell {
@@ -109,6 +135,8 @@ pub fn cell_text(cell: &Cell) -> String {
         Cell::Black => "black".into(),
         Cell::Go { row } => format!("go to {row}"),
         Cell::Free => "free".into(),
+        Cell::Look { look, fade: None } => format!("look {look}"),
+        Cell::Look { look, fade: Some(ms) } => format!("look {look} · fade {:.1} s", *ms as f32 / 1000.0),
     }
 }
 
@@ -317,6 +345,162 @@ pub fn seats(show: &Show) -> Vec<SeatView> {
         .collect()
 }
 
+/// One deck's or sub conductor's answer to the last flash (#91), for the Show workspace.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ReportView {
+    /// the path it came along (a client id, `foyer/<client>` from a sub conductor's session)
+    pub from: String,
+    /// `outlet left`, or `conductor`
+    pub what: String,
+    /// `FLASH top@3 ready`, `FLASH top@3: 2 missing`, `FLASH refused: …`
+    pub line: String,
+    /// what it lacks, one line each
+    pub lacks: Vec<String>,
+    /// nothing lacks and nothing was refused
+    pub ok: bool,
+}
+
+/// The answers to the last flash, in the order of their paths.
+pub fn reports(sub: &Subtree) -> Vec<ReportView> {
+    sub.reports()
+        .iter()
+        .map(|(from, r)| ReportView {
+            from: from.clone(),
+            what: r.outlet.as_ref().map_or("conductor".to_string(), |o| format!("outlet {o}")),
+            line: crate::ready::line(r),
+            lacks: r.lacks.clone().unwrap_or_default(),
+            ok: r.accepted && r.ready != Some(false),
+        })
+        .collect()
+}
+
+/// One line of the cue sheet (#91 item 6): a row in order, how it fires, what each column does when it fires.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Cue {
+    pub number: usize,
+    pub row: String,
+    /// `ch3.dialog-start · auto · now`, `ch3.yellowmouse-enters · suggest · hold 1.5 s · next bar`, `by hand`
+    pub trigger: String,
+    /// (column, words) for each column the row changes; a kept column is not listed
+    pub does: Vec<(String, String)>,
+    /// what else it sends: device messages, addresses
+    pub sends: Vec<String>,
+}
+
+/// `ch3.end · hand` → the trigger in words, with the hold and the moment when they say something
+pub fn trigger(fire: &Fire) -> String {
+    let Some(e) = &fire.event else {
+        return match fire.moment {
+            Moment::Now => "by hand".into(),
+            m => format!("by hand · {}", moment_text(m)),
+        };
+    };
+    let mut s = format!("{e} · {}", how_text(fire.how));
+    if fire.hold_ms > 0 {
+        s = format!("{s} · hold {:.1} s", fire.hold_ms as f32 / 1000.0);
+    }
+    format!("{s} · {}", moment_text(fire.moment))
+}
+
+/// What a cell does when its row fires, in words (`plays scene:nave · light 0.2`, `glides scene:nave: dim 0.5`, `= left`)
+pub fn does(cell: &Cell) -> String {
+    match cell {
+        Cell::Play { piece: Some(_), .. } => format!("plays {}", cell_text(cell)),
+        Cell::Values { piece, values } => format!("glides {piece}: {}", values_text(values)),
+        Cell::Mirror { of } => format!("shows what {of} shows"),
+        other => cell_text(other),
+    }
+}
+
+/// The cue sheet: every row in order, its trigger, what each outlet and seat does.
+pub fn cue_sheet(show: &Show) -> Vec<Cue> {
+    let cols = columns(show);
+    show.rows
+        .iter()
+        .enumerate()
+        .map(|(i, r)| {
+            let mut sends = vec![];
+            let does = cols
+                .iter()
+                .filter_map(|c| {
+                    let cell = r.cells.get(&c.id).filter(|c| !matches!(c, Cell::Keep))?;
+                    if let Cell::Play { piece, send, .. } = cell {
+                        sends.extend(send.iter().map(|m| format!("{} · {}", c.id, device_text(m))));
+                        if piece.is_none() {
+                            // a device's cell is what it sends, said once
+                            return None;
+                        }
+                    }
+                    Some((c.id.clone(), does(cell)))
+                })
+                .collect();
+            sends.extend(r.addresses.iter().map(address_text));
+            Cue { number: i + 1, row: r.id.clone(), trigger: trigger(&r.fire), does, sends }
+        })
+        .collect()
+}
+
+/// What a problem points at in the document shown: a click selects it (#91 item 6).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Points {
+    /// the document as a whole
+    Show,
+    /// a row (by index)
+    Row(usize),
+    /// a row's cell: row index, column index (outlets, then seats, as the matrix)
+    Cell(usize, usize),
+    /// a seat (by index)
+    Seat(usize),
+}
+
+/// One line of the problems list.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ProblemView {
+    /// the core's words
+    pub text: String,
+    /// an error (the document is not valid) or a warning (a deck's report: it never blocks GO)
+    pub error: bool,
+    pub points: Points,
+}
+
+/// Everything wrong with the document shown, then what the decks lack after the last flash (when `sub` runs it). Errors
+/// come from `validate`, warnings from the flash reports; each points at its row, cell or seat.
+pub fn problems(show: &Show, sub: Option<&Subtree>) -> Vec<ProblemView> {
+    use crate::validate::Spot;
+    let cols = columns(show);
+    let row = |id: &str| show.rows.iter().position(|r| r.id == id);
+    let mut out: Vec<ProblemView> = crate::validate::validate(show)
+        .into_iter()
+        .map(|p| {
+            let points = match p.spot() {
+                Spot::Row(r) => row(&r).map_or(Points::Show, Points::Row),
+                Spot::Cell { row: r, column } => match (row(&r), cols.iter().position(|c| c.id == column)) {
+                    (Some(r), Some(c)) => Points::Cell(r, c),
+                    (Some(r), None) => Points::Row(r),
+                    _ => Points::Show,
+                },
+                Spot::Seat(s) => show.seats.iter().position(|x| x.id == s).map_or(Points::Show, Points::Seat),
+                Spot::Show | Spot::Face => Points::Show,
+            };
+            ProblemView { text: p.to_string(), error: true, points }
+        })
+        .collect();
+    for r in sub.map(reports).unwrap_or_default() {
+        if r.ok {
+            continue;
+        }
+        let head = format!("{} · {}", r.what, r.from);
+        if r.lacks.is_empty() {
+            out.push(ProblemView { text: format!("{head}: {}", r.line), error: false, points: Points::Show });
+        }
+        for l in &r.lacks {
+            let points = crate::ready::lack_row(l, show).and_then(row).map_or(Points::Show, Points::Row);
+            out.push(ProblemView { text: format!("{head}: {l}"), error: false, points });
+        }
+    }
+    out
+}
+
 /// One section of the row inspector: a heading and its (label, value) lines.
 pub type Section = (String, Vec<(String, String)>);
 
@@ -344,6 +528,12 @@ pub fn inspector(show: &Show, row: &str) -> Vec<Section> {
                 sends.push((col.id.clone(), device_text(m)));
             }
         }
+        if let Cell::Look { look, .. } = cell {
+            sends.push((col.id.clone(), look_text(show, &col.id, look)));
+        }
+    }
+    for a in &r.addresses {
+        sends.push(("address".to_string(), address_text(a)));
     }
     let mut out = vec![(format!("row {} · {}", i + 1, r.id), fire), ("cells of this row".to_string(), cells)];
     out.push((
@@ -412,6 +602,66 @@ mod tests {
         let lines = log(sub.log(), 10);
         assert_eq!(lines[0], ("00:00:03".to_string(), "roar: suggestion gone".to_string()));
         assert_eq!(lines[1].1, "suggests roar");
+    }
+
+    #[test]
+    fn a_rows_addresses_show_in_the_inspector_and_go_down_when_it_fires() {
+        let doc = include_str!("../fixtures/top-toy.show.json");
+        let show = parse(doc).unwrap();
+        let s = inspector(&show, "yellowmouse-enters");
+        let sends = &s.iter().find(|(h, _)| h == "this row sends").unwrap().1;
+        assert_eq!(sends, &[("address".to_string(), "character:yellowmouse > dance:samba where group left".to_string()), ("address".to_string(), "location:* > close_doors".to_string())]);
+        let mut sub = Subtree::new(show, ClockChoice::Parent);
+        let out = sub.fire("yellowmouse-enters", 1000);
+        let asked: Vec<&protocol::Address> = out.iter().filter_map(|e| if let protocol::Message::Address(a) = &e.message { Some(a) } else { None }).collect();
+        assert_eq!(asked.len(), 2);
+        assert_eq!(asked[0].r#where.as_ref().and_then(|w| w.group.as_deref()), Some("left"));
+        sub.on_wire(&protocol::Envelope::new("c4", protocol::Message::AddressAnswer(protocol::AddressAnswer { id: asked[0].id.clone(), reached: 1, passed: 1, answered: 1 })), 1200);
+        sub.tick(1000 + crate::subtree::ANSWER_MS);
+        let lines: Vec<String> = log(sub.log(), 5).into_iter().map(|(_, l)| l).collect();
+        assert!(lines.contains(&"character:yellowmouse > dance:samba: reached 1 · passed 1 · answered 1".to_string()), "{lines:?}");
+        assert!(lines.contains(&"location:* > close_doors: nobody".to_string()), "{lines:?}");
+    }
+
+    #[test]
+    fn the_cue_sheet_says_each_row_in_order_and_what_changes() {
+        let show = parse(include_str!("../fixtures/top-toy.show.json")).unwrap();
+        let cues = cue_sheet(&show);
+        assert_eq!(cues.len(), 4);
+        assert_eq!(cues[0].trigger, "by hand");
+        assert_eq!(cues[0].does[0], ("left".to_string(), "plays scene:nave · light 0.2".to_string()));
+        assert_eq!(cues[0].does[1], ("right".to_string(), "shows what left shows".to_string()));
+        assert_eq!(cues[0].sends, ["lamps · dmx"]);
+        assert_eq!(cues[1].does, [("left".to_string(), "glides scene:nave: dim 0.5".to_string()), ("lamps".to_string(), "look warm · fade 0.8 s".to_string())], "a kept column is not listed");
+        let sends = &inspector(&show, "dialog").into_iter().find(|(h, _)| h == "this row sends").unwrap().1;
+        assert_eq!(sends, &[("lamps".to_string(), "look warm · strobe @1 · panel @10".to_string())]);
+        assert_eq!(cues[2].trigger, "ch3.yellowmouse-enters · suggest · hold 1.5 s · next bar");
+        assert_eq!(cues[2].sends, ["character:yellowmouse > dance:samba where group left", "location:* > close_doors"]);
+        assert_eq!(cues[3].trigger, "ch3.end · hand · now");
+    }
+
+    #[test]
+    fn the_problems_point_at_their_row_cell_or_seat_and_the_decks_reports_are_warnings() {
+        let mut doc: serde_json::Value = serde_json::from_str(include_str!("../fixtures/top-toy.show.json")).unwrap();
+        doc["rows"][1]["cells"]["foyer"] = serde_json::json!({ "mode": "go", "row": "nowhere" });
+        doc["rows"][2]["addresses"][0]["action"] = serde_json::json!("dance samba");
+        doc["seats"][0]["sits"] = serde_json::json!("phone:x");
+        let show: Show = serde_json::from_value(doc).unwrap();
+        let mut sub = Subtree::new(show.clone(), ClockChoice::Parent);
+        let lack = protocol::FlashReport {
+            running: protocol::Pinned { id: "top-toy".into(), version: 1 },
+            accepted: true,
+            why: None,
+            outlet: Some("left".into()),
+            ready: Some(false),
+            lacks: Some(vec!["row yellowmouse-enters: character:yellowmouse is not on this deck".into()]),
+        };
+        sub.on_wire(&protocol::Envelope::new("c7", protocol::Message::FlashReport(lack)), 10);
+        let p = problems(&show, Some(&sub));
+        let points: Vec<(&Points, bool)> = p.iter().map(|p| (&p.points, p.error)).collect();
+        assert_eq!(points, [(&Points::Seat(0), true), (&Points::Cell(1, 3), true), (&Points::Row(2), true), (&Points::Row(2), false)], "{p:?}");
+        assert_eq!(p[3].text, "outlet left · c7: row yellowmouse-enters: character:yellowmouse is not on this deck");
+        assert_eq!(reports(&sub)[0].line, "FLASH top-toy@1: 1 missing");
     }
 
     #[test]

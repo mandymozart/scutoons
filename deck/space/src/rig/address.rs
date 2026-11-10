@@ -84,6 +84,72 @@ impl fmt::Display for Place {
     }
 }
 
+/// `*` in an address's id: every one of the kind (`character:*`, SHOW.md §8); never a source (many matches are fine only
+/// for a target)
+pub const EVERY: &str = "*";
+/// the kind whose ids go down to persona and look (`character:catpope.mountaintiger.ghost`, SHOW.md §8)
+pub const CHARACTER: &str = "character";
+
+/// What a show's address names on the ladder (SHOW.md §8, the workshop's kind and id; #91): `character:*` every one of a
+/// kind, `character:yellowmouse` every persona and look of it, `character:catpope.mountaintiger.ghost` only that look.
+/// Persona and look exist for characters only; dots as rig subjects spell them. Who picks up goes down: [`Target::picks_up`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Target {
+    pub kind: String,
+    /// none = [`EVERY`]
+    pub id: Option<String>,
+    /// persona, then look
+    pub below: Vec<String>,
+}
+
+impl Target {
+    pub fn parse(s: &str) -> Result<Target, String> {
+        let Some((kind, rest)) = s.split_once(':') else { return Err(format!("'{s}' is not an address (<kind>:<id>)")) };
+        word(kind, "an address's kind")?;
+        if rest == EVERY {
+            return Ok(Target { kind: kind.to_string(), id: None, below: vec![] });
+        }
+        let mut parts = rest.split('.');
+        let id = word(parts.next().unwrap_or_default(), "an address's id")?.to_string();
+        let below = parts.map(|p| word(p, "a persona or look").map(str::to_string)).collect::<Result<Vec<_>, _>>()?;
+        if !below.is_empty() && kind != CHARACTER {
+            return Err(format!("'{s}': persona and look exist for characters only"));
+        }
+        if below.len() > 2 {
+            return Err(format!("'{s}': a character goes down to persona and look, no further"));
+        }
+        if id == EVERY {
+            return Err(format!("'{s}': '*' stands alone after the kind"));
+        }
+        Ok(Target { kind: kind.to_string(), id: Some(id), below })
+    }
+
+    /// Does this address reach what plays there (a piece's place, `character:yellowmouse.ghost`)? The same kind; every one,
+    /// or the same id and the address's persona / look above or at what plays.
+    pub fn picks_up(&self, playing: &str) -> bool {
+        let Ok(there) = Target::parse(playing) else { return false };
+        self.kind == there.kind && (self.id.is_none() || (self.id == there.id && there.below.starts_with(&self.below)))
+    }
+
+    /// What an address asks of who picks it up: a whole word, or `<scope>:<word>` (`close_doors`, `dance:samba`).
+    pub fn action(s: &str) -> Result<(), String> {
+        match s.split_once(':') {
+            Some((scope, name)) => word(scope, "an action's scope").and(word(name, "an action")).map(drop),
+            None => word(s, "an action").map(drop),
+        }
+    }
+}
+
+impl fmt::Display for Target {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}:{}", self.kind, self.id.as_deref().unwrap_or(EVERY))?;
+        for b in &self.below {
+            write!(f, ".{b}")?;
+        }
+        Ok(())
+    }
+}
+
 /// The last segment: what is named inside the document the address lands in.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Leaf {
@@ -300,6 +366,24 @@ pub fn resolve(a: &Address, context: &Context, reach: Reach) -> Result<Resolved,
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_shows_address_names_kind_id_persona_and_look() {
+        use super::Target;
+        let t = |s: &str| Target::parse(s);
+        assert_eq!(t("character:*").unwrap().id, None);
+        assert_eq!(t("character:catpope.mountaintiger.ghost").unwrap().below, ["mountaintiger", "ghost"]);
+        assert_eq!(t("character:catpope.mountaintiger.ghost").unwrap().to_string(), "character:catpope.mountaintiger.ghost");
+        assert!(t("location:nave.west").unwrap_err().contains("characters only"));
+        assert!(t("character:a.b.c.d").unwrap_err().contains("no further"));
+        assert!(t("character:*.ghost").is_err() && t("yellowmouse").is_err() && t("character:").is_err());
+        assert!(t("character:yellowmouse").unwrap().picks_up("character:yellowmouse.ghost"));
+        assert!(!t("character:yellowmouse").unwrap().picks_up("character:yellowmouseling"));
+        assert!(!t("character:yellowmouse.ghost").unwrap().picks_up("character:yellowmouse"), "a look reaches only that look");
+        assert!(t("location:*").unwrap().picks_up("location:nave") && !t("location:*").unwrap().picks_up("character:nave"));
+        assert!(Target::action("dance:samba").is_ok() && Target::action("close_doors").is_ok());
+        assert!(Target::action("dance samba").is_err() && Target::action("").is_err() && Target::action("a:b:c").is_err());
+    }
+
     use super::*;
 
     fn port(track: Option<&str>, node: &str, port: &str) -> Leaf {

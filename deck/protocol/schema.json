@@ -548,7 +548,8 @@
         "root": { "$ref": "#/definitions/Pinned" },
         "shows": { "type": "array", "items": { "$ref": "#/definitions/Pinned" }, "description": "the root first, each show once" },
         "lock": { "type": "boolean", "description": "a lock from above" },
-        "hops": { "type": "integer", "minimum": 0, "description": "how many conductors it came through; 0 = from this conductor's own operator" }
+        "hops": { "type": "integer", "minimum": 0, "description": "how many conductors it came through; 0 = from this conductor's own operator" },
+        "here": { "$ref": "#/definitions/Pinned", "description": "#91: the show of the conductor whose session it is in now, at the version the flash pins; a deck takes its outlet's cells of that one" }
       },
       "required": ["root", "shows", "hops"],
       "additionalProperties": false
@@ -559,7 +560,10 @@
       "properties": {
         "running": { "$ref": "#/definitions/Pinned" },
         "accepted": { "type": "boolean" },
-        "why": { "type": "string", "description": "why it refused" }
+        "why": { "type": "string", "description": "why it refused" },
+        "outlet": { "type": "string", "description": "#91: a deck's outlet (none: a conductor)" },
+        "ready": { "type": "boolean", "description": "#91: a deck has everything its outlet's cells name (the show and each piece); never blocks GO" },
+        "lacks": { "type": "array", "items": { "type": "string" }, "description": "#91: what it lacks, in words (deck-show's), one line each" }
       },
       "required": ["running", "accepted"],
       "additionalProperties": false

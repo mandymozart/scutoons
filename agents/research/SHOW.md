@@ -1,4 +1,4 @@
-Status 2026-11-10: concept (#462); the show document, the conductor and the tree exist in `deck/show` and `deck/relay` (#89, #90: reader role, relay tree, sub conductors, flash, addressing, `show:` saving); the Show and Perform workspaces are built in the deck editor (#91, the matrix, rows, the inspector, the 2D overlay, flash; the cue sheet, venues, rehearsal are open). Rows, cells, the conductor tree, workspaces, triggers, addressing, filters. §2 is the owner's word; the rest is a proposal until the owner says otherwise. Would change LIVE.md B.2 and B.5.5 (§10).
+Status 2026-11-10: concept (#462); the show document, the conductor and the tree exist in `deck/show` and `deck/relay` (#89, #90: reader role, relay tree, sub conductors, flash, addressing, `show:` saving); the Show and Perform workspaces are built in the deck editor (#91, the matrix, rows with addresses, the inspector, the 2D overlay, flash with each deck's report, the cue sheet, the problems list, fixtures and looks; venue patches, rehearsal, drills are open). Rows, cells, the conductor tree, workspaces, triggers, addressing, filters. §2 is the owner's word; the rest is a proposal until the owner says otherwise. Would change LIVE.md B.2 and B.5.5 (§10).
 
 # SHOW — how a live show is organized
 
@@ -73,6 +73,7 @@ Three separate things: the **show** (a document saved in an account, versioned, 
 | Media and rigs | Own rights | Lent for the show, gone after it (`Rights.lent`) |
 
 - **Flashing:** a flash is one assignment: the show at a pinned version, what it references, the deck configuration, the role. A conductor gets the same as a deck. Online it trickles down the tree as set on 2026-11-02 (a lock from above wins, otherwise the nearest wins, a deck may refuse, every deck reports what it runs). Offline the same package goes on a stick (2026-11-08 `[scenes]`: flash configs to decks).
+  - Built (#91, deck-show `ready.rs`): each conductor passes the flash down with `here`, its own show at the pinned version. A deck takes it by the same rule, keeps that show as `<cache>/shows/<id>@<v>.json` (fetched once from `/api/shows/<id>?v=<n>` with its token), checks every piece its outlet's cells name (deck-space `piece::available`, as a cell would load it) and answers `flash.report` with `outlet`, `ready` and `lacks` in words. A missing or broken piece is a reason on the HUD and in the report, never a block on GO.
 - **A child treats its parent like a reader:** the parent's row arrives as an event and the child's rule applies: follow = auto, suggest = its operator decides, free = ignored. One mechanism for triggers and delegation. The local GO always works.
 - Today: decks pair with a key pair and get exactly their owner's rights (`server/src/Domain/Decks/Decks.php`); rigs have `lent / owned / core`; the relay token names session, role, show. No show documents, seats or invitations, and a deck of one member cannot read another's media.
 - **A parent may lock another member's child only if the seat accepted it** (owner). Without that, the lock from above does not cross members. Proposal: the invitation says whether the seat can be locked, so accepting the seat is accepting the lock, and every seat shows it.
@@ -101,6 +102,7 @@ A cell is a piece and its values. A piece is a scene, rig or module; the current
 - A `values` cell on a path where another piece plays: the editor warns on that path; at the show it is skipped and logged.
 - A piece says which outlets can play it, with a fallback for phones.
 - A pure light controller is a plain scene today. Later a module or rig reaches lamp outputs by address (`dmx:`).
+- Lamps on a device outlet (#91, LIVE.md B.5.2's model, the smallest that runs): the show's `fixtures` (`id`, `outlet`, `address`, `profile` dimmer · rgb · rgbw · rgbw-strobe) and `looks` (`values` by fixture and channel, 0–255, a missing channel is 0); a device cell `{ "mode": "look", "look", "fade" }` sends one DMX range per lit fixture. Venue patches are open: LIVE.md B.5.4 keeps them in the show, the 2026-11-02 `[venue]` decision makes the venue its own document that shows reference.
 
 ## 6. Reach
 
@@ -139,6 +141,7 @@ A cell is a piece and its values. A piece is a scene, rig or module; the current
 | `character:catpope.mountaintiger.ghost/delay.time = 500ms` | Only that look | That module's parameter |
 | `item:*/being:glow = 0.8` | Every active item | That input on each |
 
+- In the document (#91): a row's `addresses: [{ address, action, where }]`, asked down its subtree when the row fires; read by `rig/address.rs` `Target` (kind, an id or `*`, persona and look for characters only; an action is a word or `scope:word`).
 - Spelling: dots for persona and look, as rig subjects do; `_` and `-` mean view and mood in asset names. The ladder's `/` and leaf forms are those of `rig/address.rs` (RULES A14).
 - A place in front narrows the reach: `/deck:foyer/location:*`.
 - Many matches are fine for a target, never for a source.
@@ -186,7 +189,7 @@ Largest new piece of work: the relay tree. Everything else in the table reuses w
 ## 11. What exists in the code (read 2026-11-09)
 
 - `deck/show` (#89): the show document, validation, the tree's lock, the bare conductor. A wire cell carries a piece as a layer (`LayerSrc` `piece`). #467: deck-space `piece.rs` compares it with what plays (same piece: the values glide; another: load and crossfade, live-core `lc_crossfade`; not on the deck: a reason, what plays stays); the headless host plays it (scenario 29). #91: the native deck's outlet hands every cell to it (`outlet/src/route.rs` `Routed::Piece`, `native/src/live/piece.rs`): a Load plays the piece's scene beside the outlet (`piece::beside`) through the deck's switch (a fade, not yet a crossfade), glides go into the controls. The browser deck does not call it yet.
-- #90: role `reader` (its `story` goes to the conductor only); the relay tree (deck/relay README "The tree"); `Subtree` in deck-show (the word, the lock from above, own clock as `Tempo.domain`, flash by `flash::take`, `address::receive` for a receiver); `show:<id>` with versions and the `live` role (server docs/API.md "Live"). #91: the deck editor runs one `Subtree` (its Show and Perform workspaces, `deck/editor/src/show/`, joined to its relay as conductor; what they draw is deck-show's `view.rs`); a sub conductor's document is shown there, not run. The decks' flash / address handling is still open.
+- #90: role `reader` (its `story` goes to the conductor only); the relay tree (deck/relay README "The tree"); `Subtree` in deck-show (the word, the lock from above, own clock as `Tempo.domain`, flash by `flash::take`, `address::receive` for a receiver); `show:<id>` with versions and the `live` role (server docs/API.md "Live"). #91: the deck editor runs one `Subtree` (its Show and Perform workspaces, `deck/editor/src/show/`, joined to its relay as conductor; what they draw is deck-show's `view.rs`); a sub conductor's document is shown there, not run. The native deck's flash side is built (live/flash.rs → deck-show `ready.rs`); how a deck answers an `address` (`address::receive` against what it plays) is not wired on the native deck yet. The Show workspace has the cue sheet and the problems list (deck-show `view::cue_sheet`, `view::problems`: `validate`'s errors with their `Spot`, the decks' lacks as warnings).
 - `cell` is per outlet and full (`deck/protocol/schema.json`), compiled in `deck/outlet/src/plan.rs`. No layer kind for a scene or rig. The `outlet` node sits inside a scene (`scenes/outlet.toml`).
 - Video: a layer exists, the native outlet shows its still (#179). `video` in the catalog is `F_PLANNED`, not a graph kind.
 - Poll: `vote.*` messages exist. No poll layer, and no vote handling on the native outlet.

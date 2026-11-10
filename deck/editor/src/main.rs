@@ -114,6 +114,8 @@ fn args() -> Result<Args> {
             "--flash" => a.script.flash = true,
             "--seat" => a.script.seat = Some(val()?),
             "--row" => a.script.row = Some(val()?),
+            "--sheet" => a.script.sheet = Some(show::Sheet::parse(&val()?).context("--sheet cues | problems")?),
+            "--problem" => a.script.problem = Some(val()?.parse().context("--problem N (0-based)")?),
             "--gesture" => {
                 let v = val()?;
                 let (from, to) = v.split_once(',').with_context(|| format!("--gesture takes FROM,TO, not {v}"))?;

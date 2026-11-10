@@ -26,7 +26,9 @@ pub struct Client {
     pub preload: Sender<MediaPreload>,
     /// #91: every cell → the deck's piece side (the frame thread: piece.rs)
     pub pieces: Sender<Cell>,
-    /// what the deck says (media.ready)
+    /// #91: a flash → the deck's flash side (flash.rs)
+    pub flash: Sender<protocol::Flash>,
+    /// what the deck says (media.ready, flash.report)
     pub outbox: Receiver<Message>,
     pub status: Arc<Mutex<Status>>,
     pub stop: Arc<AtomicBool>,
@@ -82,6 +84,9 @@ impl Side for Client {
                 }
                 Routed::Piece(c) => {
                     let _ = self.pieces.send(c);
+                }
+                Routed::Flash(f) => {
+                    let _ = self.flash.send(f);
                 }
                 Routed::Refused { code, message } => {
                     tracing::warn!("live: the relay says {code}: {message}");
