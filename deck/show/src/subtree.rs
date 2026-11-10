@@ -83,6 +83,8 @@ pub struct Subtree {
     ready: u64,
     clients: u64,
     reported: Option<SeatState>,
+    /// #478: who sits where under which name (presence's `who`), by client id
+    who: BTreeMap<String, protocol::Present>,
 }
 
 fn word_of(w: &SeatWord) -> Says {
@@ -114,7 +116,35 @@ impl Subtree {
             ready: 0,
             clients: 0,
             reported: None,
+            who: BTreeMap::new(),
         }
+    }
+
+    /// #478: the roles this conductor gives out, for its session (sent when it joins and with every new show)
+    fn roles(&self) -> Envelope {
+        message(Message::Roles(protocol::Roles { roles: self.conductor.show().roles() }), None)
+    }
+
+    /// #478: who is here as `role: name` (owner 2026-11-10: "Rolle, Doppelpunkt, eingetragener Name"), by role then name;
+    /// a deck without a name is its client id
+    pub fn here(&self) -> Vec<String> {
+        let show = self.conductor.show();
+        let mut lines: Vec<(usize, String)> = self
+            .who
+            .iter()
+            .map(|(id, p)| {
+                let at = p.group.as_deref().and_then(|g| show.outlets.iter().position(|o| o.id == g));
+                let role = match (at, p.group.as_deref()) {
+                    (Some(i), _) => Some(show.outlets[i].name().to_string()),
+                    (None, g) => g.map(str::to_string),
+                };
+                let name = p.nick.clone().unwrap_or_else(|| id.clone());
+                let lock = if p.locked == Some(true) { " (locked)" } else { "" };
+                (at.unwrap_or(usize::MAX), format!("{}{lock}", deck_ui::live::role_name(role.as_deref(), &name)))
+            })
+            .collect();
+        lines.sort();
+        lines.into_iter().map(|(_, l)| l).collect()
     }
 
     pub fn conductor(&self) -> &Conductor {
@@ -361,7 +391,7 @@ impl Subtree {
         self.wanted = None;
         self.conductor.note(ms, Logged::Installed);
         let report = flash::report(&self.pinned(), true, None);
-        let mut out = vec![up_envelope(Message::FlashReport(report))];
+        let mut out = vec![up_envelope(Message::FlashReport(report)), self.roles()];
         self.report(&mut out);
         out
     }
@@ -432,9 +462,10 @@ impl Subtree {
             Message::AddressAnswer(a) => self.on_answer(a),
             // #471: joining (or back), this conductor learns what its decks and sub conductors last said about their flash
             // side – the flash list starts complete. Nothing else of the welcome is taken here.
+            // #478: and tells its session the roles it gives out
             Message::Welcome(w) => {
                 self.devices.extend(w.snapshot.reports.iter().flatten().map(|(p, r)| (p.clone(), r.clone())));
-                vec![]
+                vec![self.roles()]
             }
             Message::FlashReport(r) => {
                 self.devices.insert(e.from.clone(), r.clone());
@@ -447,6 +478,7 @@ impl Subtree {
                 self.clients = p.groups.values().copied().sum::<i64>().max(0) as u64;
                 self.online = p.links.iter().flat_map(|l| l.keys().cloned()).collect();
                 self.online.extend(p.seats.iter().flatten().filter(|(_, s)| s.online != Some(false)).map(|(seat, _)| seat.clone()));
+                self.who = p.who.iter().flatten().map(|(id, w)| (id.clone(), w.clone())).collect();
                 let was = self.linked;
                 self.linked = p.parent.or(was);
                 if self.linked != was {

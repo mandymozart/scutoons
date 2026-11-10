@@ -47,6 +47,13 @@ impl Show {
     pub fn look(&self, id: &str) -> Option<&Look> {
         self.looks.iter().find(|l| l.id == id)
     }
+
+    /// #478: the roles this conductor gives out – every stage outlet, its name and who may take it – as its session hears
+    /// them (`roles`); the relay counts who is in each
+    pub fn roles(&self) -> Vec<protocol::ShowRole> {
+        let stage = self.outlets.iter().filter(|o| o.kind == OutletKind::Stage);
+        stage.map(|o| protocol::ShowRole { id: o.id.clone(), label: Some(o.name().to_string()), r#for: o.admits.clone(), here: None }).collect()
+    }
 }
 
 /// A lamp on a DMX device outlet (LIVE.md B.5.2, #91): where its channels start in the outlet's universe and how they are

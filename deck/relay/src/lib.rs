@@ -15,6 +15,7 @@ pub mod cert;
 pub mod doors;
 pub mod link;
 pub mod outbox;
+pub mod roles;
 pub mod session;
 pub mod tls;
 pub mod token;
@@ -176,7 +177,10 @@ impl Relay {
         let nick = session::clean_nick(hello.nick.as_deref(), &self.config.blocklist);
         let mut client = Client::new(hello.role, group.clone(), nick, outbox, now);
         client.key.clone_from(&key);
+        client.device.clone_from(&hello.device);
         s.join(id.clone(), client);
+        // #478: a role it may not take is not given
+        let group = s.clients.get(&id).and_then(|c| c.group.clone());
         let snapshot = match resumed {
             Some((_, true)) => Snapshot { seq: Some(s.seq as i64), ..Default::default() },
             _ => {
@@ -191,6 +195,7 @@ impl Relay {
             s.replay(&id, r.seq as u64);
         }
         s.tell_presence();
+        s.tell_roles();
         Ok(id)
     }
 

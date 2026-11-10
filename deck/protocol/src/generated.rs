@@ -164,6 +164,8 @@ pub enum Message {
 	Kick(Kick),
 	#[serde(rename = "rename")]
 	Rename(Rename),
+	#[serde(rename = "roles")]
+	Roles(Roles),
 	#[serde(rename = "seat")]
 	Seat(SeatWord),
 	#[serde(rename = "seat.state")]
@@ -235,6 +237,7 @@ impl Message {
 			Message::Tempo(_) => "tempo",
 			Message::Kick(_) => "kick",
 			Message::Rename(_) => "rename",
+			Message::Roles(_) => "roles",
 			Message::Seat(_) => "seat",
 			Message::SeatState(_) => "seat.state",
 			Message::Flash(_) => "flash",
@@ -428,6 +431,9 @@ pub struct Hello {
 	/// trimmed to 24 characters by the relay
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub nick: Option<String>,
+	/// #478: what the client is – native, browser, phone … (the words of a flash report's `device`); a role's filter may ask it
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub device: Option<String>,
 	/// HMAC session token (conductor, bridge, uplink)
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub token: Option<String>,
@@ -509,10 +515,13 @@ pub struct VoteCast {
 	pub option: i64,
 }
 
+/// B.6: conductor → relay → that client: it moves to `group` and gets its new snapshot. #478: a group is a role; "" = no role (the client stays in the session, on the idle scene). `lock` (the conductor only) holds it there, a lock from above (the cascade of 2026-11-02); any other assign frees it. A deck sends its own assign (`client` itself, no `lock`) to take a role it may take, or none, at any time – unless it is locked.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Assign {
 	pub client: String,
 	pub group: String,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub lock: Option<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
@@ -802,7 +811,7 @@ pub struct Kick {
 	pub client: String,
 }
 
-/// B.6: conductor → relay → that client. The relay cleans the nick (24 characters, the blocklist); empty = none.
+/// B.6: conductor → relay → that client. The relay cleans the nick (24 characters, the blocklist); empty = none. #478: a client renames itself too (`client` itself): its name, the conductor sees `role: name`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Rename {
 	pub client: String,
@@ -1017,6 +1026,38 @@ pub struct Admits {
 	pub group: Option<Vec<String>>,
 }
 
+/// #478: a role the conductor gives out – a stage outlet of its show, the group a client sits in. `for`: who may take it (none: anyone with the code); only the conductor sees it. `here`: how many are in it (the relay's count).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ShowRole {
+	pub id: String,
+	/// its name for people (none: the id)
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub label: Option<String>,
+	#[serde(rename = "for", default, skip_serializing_if = "Option::is_none")]
+	pub r#for: Option<Admits>,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub here: Option<u64>,
+}
+
+/// #478: conductor → relay: the roles of its show (the relay keeps them for the session); relay → client: the roles it may take, with how many are in each – when it joins and whenever that changes (the conductor gets every one).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Roles {
+	pub roles: Vec<ShowRole>,
+}
+
+/// #478: one client as presence tells the conductor: its role (group; none = no role), its name, its device, a lock from above.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct Present {
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub group: Option<String>,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub nick: Option<String>,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub device: Option<String>,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub locked: Option<bool>,
+}
+
 /// #90, SHOW.md §8: `kind:id > action`, down the tree. Whoever plays it picks up; finding nobody stays silent and is logged, it never goes up to a wider address.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Address {
@@ -1060,6 +1101,9 @@ pub struct Presence {
 	/// #90: this relay's link to its parent; missing = it has none
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub parent: Option<bool>,
+	/// #478: who sits where under which name, by client id – every deck, and a phone in a role
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub who: Option<std::collections::HashMap<String, Present>>,
 }
 
 /// #223: one client's link: the smoothed WebSocket ping round trip, the rate the relay sends it state-like messages at (`deck.values`, `presence`, `vote.tally`, `state` – 30 = as fast as they come, down to 5 on a link that can't carry more), and how many of them it replaced before they went out (a stalled client gets the newest, not a backlog).

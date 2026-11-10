@@ -8,6 +8,9 @@
 //! the audio's glitches and load, the quality, the relay, the backend – a number out of the green in amber / red) → nothing.
 pub use deck_core::monitor::{Level, Report};
 
+/// #478: the Live page (F6) – the roles this deck may take, no role, its name
+pub mod live;
+
 /// text lines the HUD has room for (above the frame-time graph; #208: two audio lines + the glitch warning)
 pub const LINES: usize = 13;
 /// characters a line has room for (8 px each, a 4 px margin)

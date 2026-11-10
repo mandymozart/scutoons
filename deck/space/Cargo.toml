@@ -18,7 +18,7 @@ default = ["being", "gpu", "native"]
 # picking and drag, the feelings, the conductor's mirrored beings, the deck stream's wire forms
 being = ["dep:glam", "dep:ab_glyph", "dep:image", "dep:bytemuck"]
 # the GPU side: the space's passes and the scene renderer every deck draws with (stage.rs, wgpu)
-gpu = ["being", "dep:wgpu", "dep:deck-outlet", "dep:deck-ui", "dep:deck-link", "dep:font8x8", "dep:qrcodegen", "dep:resvg"]
+gpu = ["being", "dep:wgpu", "dep:deck-outlet", "dep:deck-link", "dep:font8x8", "dep:qrcodegen", "dep:resvg"]
 # loaders on threads and from files: a set's .glb, the portraits from a folder, images decoded in Rust (WebP, PNG)
 native = ["being", "image/png", "image/webp"]
 # the generator (src/bin/deck-schema.rs): kinds.json, the JSON Schema and the TS types from the catalog and
@@ -48,8 +48,8 @@ wgpu = { version = "25", optional = true }
 # the outlet's planes and their crossfade, drawn by the scene renderer (stage.rs)
 deck-outlet = { path = "../outlet", optional = true }
 # what every deck draws over the scene (stage.rs): the HUD's and the build label's model, the pairing card's texts and
-# QR, the splash's logo
-deck-ui = { path = "../ui", optional = true }
+# QR, the splash's logo; #478: the Live page's session, which the relay client (relay.rs) fills – so not behind `gpu`
+deck-ui = { path = "../ui" }
 deck-link = { path = "../link", default-features = false, optional = true }
 font8x8 = { version = "0.3", default-features = false, features = ["unicode"], optional = true }
 qrcodegen = { version = "1.8", optional = true }

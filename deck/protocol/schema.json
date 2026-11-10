@@ -81,6 +81,7 @@
         { "type": "object", "properties": { "kind": { "const": "tempo" }, "p": { "$ref": "#/definitions/Tempo" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "kick" }, "p": { "$ref": "#/definitions/Kick" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "rename" }, "p": { "$ref": "#/definitions/Rename" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "roles" }, "p": { "$ref": "#/definitions/Roles" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "seat" }, "p": { "$ref": "#/definitions/SeatWord" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "seat.state" }, "p": { "$ref": "#/definitions/SeatState" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "flash" }, "p": { "$ref": "#/definitions/Flash" } }, "required": ["kind", "p"] },
@@ -203,6 +204,7 @@
         "role": { "$ref": "#/definitions/Role" },
         "group": { "type": "string" },
         "nick": { "type": "string", "description": "trimmed to 24 characters by the relay" },
+        "device": { "type": "string", "description": "#478: what the client is – native, browser, phone … (the words of a flash report's `device`); a role's filter may ask it" },
         "token": { "type": "string", "description": "HMAC session token (conductor, bridge, uplink)" },
         "resume": { "$ref": "#/definitions/Resume" }
       },
@@ -289,8 +291,9 @@
       "additionalProperties": false
     },
     "Assign": {
+      "description": "B.6: conductor → relay → that client: it moves to `group` and gets its new snapshot. #478: a group is a role; \"\" = no role (the client stays in the session, on the idle scene). `lock` (the conductor only) holds it there, a lock from above (the cascade of 2026-11-02); any other assign frees it. A deck sends its own assign (`client` itself, no `lock`) to take a role it may take, or none, at any time – unless it is locked.",
       "type": "object",
-      "properties": { "client": { "type": "string" }, "group": { "type": "string" } },
+      "properties": { "client": { "type": "string" }, "group": { "type": "string" }, "lock": { "type": "boolean" } },
       "required": ["client", "group"],
       "additionalProperties": false
     },
@@ -496,7 +499,7 @@
       "additionalProperties": false
     },
     "Rename": {
-      "description": "B.6: conductor → relay → that client. The relay cleans the nick (24 characters, the blocklist); empty = none.",
+      "description": "B.6: conductor → relay → that client. The relay cleans the nick (24 characters, the blocklist); empty = none. #478: a client renames itself too (`client` itself): its name, the conductor sees `role: name`.",
       "type": "object",
       "properties": { "client": { "type": "string" }, "nick": { "type": "string" } },
       "required": ["client", "nick"],
@@ -609,6 +612,36 @@
       },
       "additionalProperties": false
     },
+    "ShowRole": {
+      "description": "#478: a role the conductor gives out – a stage outlet of its show, the group a client sits in. `for`: who may take it (none: anyone with the code); only the conductor sees it. `here`: how many are in it (the relay's count).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "label": { "type": "string", "description": "its name for people (none: the id)" },
+        "for": { "$ref": "#/definitions/Admits" },
+        "here": { "type": "integer", "minimum": 0 }
+      },
+      "required": ["id"],
+      "additionalProperties": false
+    },
+    "Roles": {
+      "description": "#478: conductor → relay: the roles of its show (the relay keeps them for the session); relay → client: the roles it may take, with how many are in each – when it joins and whenever that changes (the conductor gets every one).",
+      "type": "object",
+      "properties": { "roles": { "type": "array", "items": { "$ref": "#/definitions/ShowRole" } } },
+      "required": ["roles"],
+      "additionalProperties": false
+    },
+    "Present": {
+      "description": "#478: one client as presence tells the conductor: its role (group; none = no role), its name, its device, a lock from above.",
+      "type": "object",
+      "properties": {
+        "group": { "type": "string" },
+        "nick": { "type": "string" },
+        "device": { "type": "string" },
+        "locked": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
     "Address": {
       "description": "#90, SHOW.md §8: `kind:id > action`, down the tree. Whoever plays it picks up; finding nobody stays silent and is logged, it never goes up to a wider address.",
       "type": "object",
@@ -644,7 +677,8 @@
         "links": { "type": "object", "additionalProperties": { "$ref": "#/definitions/LinkQuality" }, "description": "#223: each client's link as the relay measures it, by client id (audience phones left out)" },
         "quality": { "type": "object", "additionalProperties": { "$ref": "#/definitions/DeckQuality" }, "description": "#220: each deck's last `deck.quality`, by client id (a client that left is gone)" },
         "seats": { "type": "object", "additionalProperties": { "$ref": "#/definitions/SeatState" }, "description": "#90: each seat's readout, by seat id" },
-        "parent": { "type": "boolean", "description": "#90: this relay's link to its parent; missing = it has none" }
+        "parent": { "type": "boolean", "description": "#90: this relay's link to its parent; missing = it has none" },
+        "who": { "type": "object", "additionalProperties": { "$ref": "#/definitions/Present" }, "description": "#478: who sits where under which name, by client id – every deck, and a phone in a role" }
       },
       "required": ["groups", "ready"],
       "additionalProperties": false
