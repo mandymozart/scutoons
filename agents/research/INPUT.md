@@ -98,6 +98,13 @@ The storyboard editor's handheld camera (#126, research/HANDHELD-CAMERA.md, buil
 | Road for poses | WebRTC data channel, phone ↔ PC browser (same Wi-Fi, no TURN) | **the live road, for the deck and the storyboard alike (owner 2026-11-10):** QUIC first through the relay's WebTransport door, WebSocket last, with the built ladder (research/RELAY-TRANSPORTS.md). See "The road" below |
 | What the pose drives | the shot camera (`Stage3d.hold`) | the deck's camera in deck-space: new |
 
+**The use case (owner 2026-11-10).** *"Hand held camera takes over a decks current camera as long as it is active in the 3d scene and its Vectors can also be assigned to spatial Vectors so movement i space controls parameters mapped to anything through our rules"*
+
+- **Takeover while active.** A handheld that is active in a deck's 3D scene is that deck's camera: the deck's current camera (a preset, a move of #213, the editor's view) is put aside, not changed, and comes back the moment the handheld is no longer active (the session ends, the phone leaves, the deck takes it back, or no pose arrives for a set time). Recenter starts from the camera the deck had, so the picture does not jump at the handover.
+- **Its vectors are sources.** Besides the whole pose, the handheld gives vectors: `pose:position` (x, y, z), `pose:rotation`, `pose:forward` (where it points), `pose:velocity`. A vector source is assigned to a spatial vector of the scene with one mapping (a being's position, a light's direction, a sound's place in the room, an emitter's wind), and each part is a value like any other (`pose:x`, `pose:yaw`), so walking through the room drives any parameter through the same mapping rules: range, curve, smoothing, and the layers of §6b.
+- **Both at once.** The takeover and the mappings do not exclude each other: the phone can be the camera and drive a filter with its height in the same session; or drive only parameters, with the deck keeping its camera (the session's "camera" switch off).
+- **New for this:** a vector as a kind of source and of mapping target beside value and event (today a mapping is one value onto one parameter); "active" as a state the deck knows and shows; the put-aside camera.
+
 **The road (owner 2026-11-10: real time is key, QUIC and the fallback rules apply).** The handheld leaves its own WebRTC connection and rides the live road like every other client (#438, research/RELAY-TRANSPORTS.md):
 
 - **Poses are datagrams:** unreliable, unordered, latest wins, as values already travel on QUIC. Each carries its time, so a late one is dropped.
@@ -139,3 +146,4 @@ Peripheral mappings are written ahead, one device can overwrite them for itself,
 7. **The road for poses: decided 2026-11-10,** the live road, QUIC first and WebSocket last (§6a). Open under it: whether the storyboard's WebRTC road is removed at once or after the S22 test (recommended: after the test).
 8. **The pose maths as one Rust crate** (wasm for the creator) instead of a second copy. Recommended: yes; it touches the storyboard editor, so not while that is being worked on.
 9. **Forced flash:** keep the cleared local layer as one backup on the deck, and a per-show lock. Recommended: both.
+10. **When a silent handheld gives the camera back.** Recommended: after 2 s without a pose the deck's own camera returns with a short blend, and the handheld takes over again when poses come back.
