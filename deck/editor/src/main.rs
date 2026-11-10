@@ -11,6 +11,7 @@
 //!
 //! deck-editor [--rig catpope] [--frames N] [--screenshot FILE] [--tokens FILE] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO]
 mod bar;
+mod book;
 mod gpu_time;
 mod logo;
 mod mixer;
@@ -68,10 +69,15 @@ struct Args {
     relay: Option<String>,
     api: String,
     script: show::Script,
+    /// #477: the toon whose address book the typeahead offers (the editor knows no toon of its own), or a book file instead
+    /// of the API; a check run's address typeahead on the selected far world node: type this, pick the first row if asked
+    toon: Option<String>,
+    book: Option<PathBuf>,
+    far: Option<(String, bool)>,
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { rig: "catpope".into(), frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default() };
+    let mut a = Args { rig: "catpope".into(), frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -107,6 +113,15 @@ fn args() -> Result<Args> {
             },
             "--relay" => a.relay = Some(val()?),
             "--api" => a.api = val()?,
+            "--toon" => a.toon = Some(val()?),
+            "--book" => a.book = Some(PathBuf::from(val()?)),
+            "--far" => {
+                let v = val()?;
+                a.far = Some(match v.strip_suffix(",pick") {
+                    Some(q) => (q.to_string(), true),
+                    None => (v, false),
+                });
+            }
             "--event" => a.script.event = Some(val()?),
             "--fire" => a.script.fire = Some(val()?),
             "--launch" => a.script.launch = val()?.split_once(',').map(|(r, c)| (r.to_string(), c.to_string())),
@@ -131,7 +146,7 @@ fn args() -> Result<Args> {
                 a.size = Some((w.trim().parse()?, h.trim().parse()?));
             }
             "--help" | "-h" => {
-                println!("deck-editor [--rig catpope] [--frames N] [--screenshot FILE] [--tokens FILE] [--size W,H] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5] [--menu PORT,QUERY[,pick]]");
+                println!("deck-editor [--rig catpope] [--frames N] [--screenshot FILE] [--tokens FILE] [--size W,H] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5] [--menu PORT,QUERY[,pick]] [--toon TOON] [--book FILE] [--select NODE --far QUERY[,pick]]");
                 std::process::exit(0);
             }
             other => anyhow::bail!("unknown argument {other}"),
@@ -161,6 +176,8 @@ enum Hit {
     Field(f32),
     /// a parameter of a node in the inspector
     Param(usize, usize),
+    /// a far world node's address in the inspector (#477)
+    Address(usize),
     /// the mixer's head, a strip's fader, a strip's mute
     MixerHead,
     MixerTab(usize),
@@ -245,6 +262,8 @@ struct Menu {
     ta: typeahead::Typeahead,
     /// the armed port it connects from; none: every port, a pick arms it
     from: Option<usize>,
+    /// #477: the address book's entries for a far world node's address (track, node, its address): a pick is its holder
+    far: Option<(String, String, deck_space::rig::address::Address)>,
 }
 
 /// a sentence at the place of a gesture, for a few seconds
@@ -327,7 +346,12 @@ struct App {
     /// #91: Build, Show or Perform; the show's conductor and what the show workspaces show
     workspace: show::Workspace,
     show: show::Host,
+    /// #477: the toon's address book
+    book: book::Loader,
 }
+
+/// the language of the book's labels: the editor's own words are English (not translated yet)
+const LOCALE: &str = "en";
 
 fn main() {
     tracing_subscriber::fmt().with_env_filter(tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info,wgpu_core=warn,wgpu_hal=error,naga=warn".into())).init();
@@ -352,6 +376,7 @@ fn run() -> Result<i32> {
     let wire = args.wire;
     let app_workspace = args.workspace;
     let app_show = show::Host::new(args.show_file.clone(), args.show_id.clone(), args.relay.clone(), args.api.clone());
+    let app_book = book::Loader::new(&args.api, args.toon.as_deref(), args.book.as_deref(), show::api::token(), &deck_native::cache::default_dir());
     let mut app = App {
         panel: Panel { width, tab: Tab::Rig, field: text::Field::with("Grüße an die Bühne – type here"), drag: None, hits: Vec::new(), field_rect: Rect { x: 0.0, y: 0.0, w: 0.0, h: 0.0 }, advance: 8.0 },
         args,
@@ -395,6 +420,7 @@ fn run() -> Result<i32> {
         last_field: None,
         workspace: app_workspace,
         show: app_show,
+        book: app_book,
     };
     event_loop.run_app(&mut app).context("the event loop")?;
     let summary = app.summary();
@@ -474,6 +500,7 @@ impl App {
             Hit::Tab(_) => Help::new("Tab", "Switches what the panel shows."),
             Hit::InfoHead => Help::new("Info", "What is under the pointer. Click to fold or open it."),
             Hit::Param(n, p) => Help::new(self.stage.param(n, p)?.name, "Drag or use the wheel to set it in the engine."),
+            Hit::Address(_) => Help::new("Address", "Click: the toon's address book. A pick becomes the holder this far world node listens to."),
             Hit::MixerHead => Help::new("Mixer", "One strip per track. Click to fold or open it."),
             Hit::GainText(_) => Help::new("Level", "In dB. Double click to type a value, enter to set it, esc to leave it."),
             Hit::StripSelect(_) => Help::new("Strip", "Click to show what it belongs to in the inspector and on the stage."),
@@ -632,6 +659,7 @@ impl App {
                     self.panel.drag = Some(Drag::Param(n, p, x, q.spec.norm(q.value)));
                 }
             }
+            Hit::Address(n) => self.open_book(n, x, y),
             Hit::Field(_) => {
                 let col = ((x - self.panel.field_rect.x) / self.panel.advance).round().max(0.0) as usize;
                 let to = self.panel.field.byte_at_char(col);
@@ -947,14 +975,37 @@ impl App {
         }
         let items = self.stage.ports.iter().enumerate().filter(|(i, _)| if from.is_none() { self.stage.visible[*i] } else { self.reach.get(*i).copied().unwrap_or(false) });
         let items = items.map(|(id, p)| typeahead::Item { id, label: p.address.clone(), detail: format!("{} {}", if p.input { "in" } else { "out" }, p.ty) }).collect();
-        self.menu = Some(Menu { ta: typeahead::Typeahead::new(items, x, y), from });
+        self.menu = Some(Menu { ta: typeahead::Typeahead::new(items, x, y), from, far: None });
+    }
+
+    /// #477: the typeahead over the toon's address book for a far world node's address – the kinds a holder may be, found
+    /// by the book's own rule (deck-space rig/book.rs); a pick makes the entry the address's holder
+    fn open_book(&mut self, node: usize, x: f32, y: f32) {
+        self.book.poll();
+        let Some(far) = self.stage.far(node) else { return };
+        let Some(book) = self.book.book.clone() else {
+            let why = self.book.why.clone().unwrap_or_else(|| "the address book is still on its way".into());
+            return self.say(why, x, y, true);
+        };
+        let kinds = deck_space::world::FAR_HOLDERS;
+        let row = |i: usize| book.row(i, LOCALE).map(|r| typeahead::Item { id: i, label: r.chain, detail: format!("{}{}", r.kind.as_str(), if r.draft { " · draft" } else { "" }) });
+        let items = book.find("", &kinds, LOCALE).into_iter().filter_map(row).collect();
+        let found = book.clone();
+        let ta = typeahead::Typeahead::found_by(items, x, y, move |q| found.find(q, &kinds, LOCALE));
+        self.menu = Some(Menu { ta, from: None, far: Some(far) });
     }
 
     /// a row chosen: connected from the armed port, or the port found is armed
     fn pick(&mut self, id: usize) {
         let Some(menu) = self.menu.take() else { return };
-        let Some(a) = menu.from else { return self.arm(id) };
         let (x, y) = (menu.ta.x, menu.ta.y);
+        if let Some((track, node, address)) = menu.far {
+            let Some(entry) = self.book.book.as_ref().and_then(|b| b.entry(id)).map(|e| e.address.clone()) else { return };
+            let next = deck_space::rig::address::Place::parse(&entry).map(|p| address.with_holder(p).to_string());
+            let done = next.and_then(|a| self.stage.bundle.address_set(&track, &node, &a));
+            return self.change(done, format!("{node}: {entry}"), x, y);
+        }
+        let Some(a) = menu.from else { return self.arm(id) };
         let (Some(pa), Some(pb)) = (self.stage.ports.get(a), self.stage.ports.get(id)) else { return };
         let done = wires::connect(&self.stage.bundle, pa, pb);
         let text = format!("{} → {}", pa.address, pb.address);
@@ -1129,6 +1180,30 @@ impl App {
             }
             return;
         }
+        if let Some((query, pick)) = self.args.far.clone() {
+            match self.frames {
+                f if f == START => match self.sel {
+                    inspector::Sel::Node(n) if self.stage.far(n).is_some() => {
+                        let at = self.panel.hits.iter().find(|(_, h)| *h == Hit::Address(n)).map(|(r, _)| (r.x, r.y + r.h));
+                        let (x, y) = at.unwrap_or(self.cursor);
+                        self.open_book(n, x, y);
+                    }
+                    _ => tracing::error!("--far: --select a far world node first"),
+                },
+                f if f == START + 10 => {
+                    if let Some(m) = self.menu.as_mut() {
+                        m.ta.insert(&query);
+                    }
+                }
+                f if f == START + 20 && pick => {
+                    if let Some(id) = self.menu.as_ref().and_then(|m| m.ta.chosen()) {
+                        self.pick(id);
+                    }
+                }
+                _ => {}
+            }
+            return;
+        }
         if let Some((port, query, pick)) = self.args.menu.clone() {
             let i = self.stage.ports.iter().position(|p| p.address == port);
             let at = i.and_then(|i| self.marks.iter().find(|m| m.port == i)).map(|m| (m.x, m.y));
@@ -1243,6 +1318,7 @@ impl App {
     }
 
     fn redraw(&mut self, el: &ActiveEventLoop) {
+        self.book.poll();
         let help = self.help_now();
         let (Some(window), Some(gpu), Some(ui)) = (self.window.clone(), self.gpu.as_mut(), self.ui.as_mut()) else { return };
         self.stage.space.being.hold(self.wire, false);
@@ -1403,6 +1479,7 @@ impl App {
                     let hit = match field {
                         inspector::Field::Knob(i) => Hit::Knob(i),
                         inspector::Field::Param(n, p) => Hit::Param(n, p),
+                        inspector::Field::Address(n) => Hit::Address(n),
                     };
                     self.panel.hits.push((r, hit));
                 }
@@ -1509,7 +1586,8 @@ impl App {
                 let dragging = self.menu.is_some() || self.armed.is_some() || matches!(self.panel.drag, Some(Drag::Cable(_) | Drag::Grab(_)));
                 // what the typeahead still shows, else what the cable in the hand may reach
                 let open = match &self.menu {
-                    Some(m) => m.ta.shows(index),
+                    Some(m) if m.far.is_none() => m.ta.shows(index),
+                    Some(_) => false,
                     None => self.reach.get(index).copied().unwrap_or(false),
                 };
                 if self.armed == Some(index) {

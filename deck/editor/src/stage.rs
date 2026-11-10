@@ -322,6 +322,13 @@ impl Stage {
         self.handles.as_ref().map(|_| self.rate / 1000.0)
     }
 
+    /// a graph node that is a far world node (#432): its track, its id in the instrument, its address (#477: the inspector's
+    /// address row, set from the address book)
+    pub fn far(&self, node: usize) -> Option<(String, String, deck_space::rig::address::Address)> {
+        let id = self.node_ids.get(node)?;
+        self.bundle.rig.far_world_nodes(&self.bundle.library()).into_iter().find(|(track, n, _)| *id == format!("{track}_{n}"))
+    }
+
     /// the kind's name of a graph node
     pub fn kind_name(&self, node: usize) -> &'static str {
         self.kinds.get(node).map_or("", |k| k.name())

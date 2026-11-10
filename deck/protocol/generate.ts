@@ -179,7 +179,8 @@ export function emitRust(root: Root): string {
 		if (def.enum) {
 			const variants = def.enum.map((v) => `\t#[serde(rename = "${v}")]\n\t${pascal(v)},\n`).join('');
 			out.push(`#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]\npub enum ${name} {\n${variants}}\n`);
-			out.push(`\nimpl ${name} {\n\tpub fn as_str(self) -> &'static str {\n\t\tmatch self {\n`);
+			// const: a core constant can be the generated word itself (rig/address.rs `CHARACTER`, #477)
+			out.push(`\nimpl ${name} {\n\tpub const fn as_str(self) -> &'static str {\n\t\tmatch self {\n`);
 			out.push(def.enum.map((v) => `\t\t\t${name}::${pascal(v)} => "${v}",\n`).join(''));
 			out.push(`\t\t}\n\t}\n}\n`);
 		} else if (isTagged(def)) {

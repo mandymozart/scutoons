@@ -11,9 +11,14 @@ pub struct Api {
     cache: PathBuf,
 }
 
+/// the editor's token for the API: `SCUTOONS_TOKEN` (the shows', and the address book's, #477)
+pub fn token() -> Option<String> {
+    std::env::var("SCUTOONS_TOKEN").ok().filter(|t| !t.is_empty())
+}
+
 impl Api {
     pub fn new(base: String) -> Api {
-        Api { base, token: std::env::var("SCUTOONS_TOKEN").ok().filter(|t| !t.is_empty()), cache: deck_native::cache::default_dir().join("shows") }
+        Api { base, token: token(), cache: deck_native::cache::default_dir().join("shows") }
     }
 
     fn agent() -> ureq::Agent {

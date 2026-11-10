@@ -92,6 +92,11 @@ pub enum Op {
     RemoveTrack {
         id: String,
     },
+    /// a far world node's `address` (world.rs; #477: a holder picked from the toon's address book), on its instrument
+    SetAddress {
+        node: String,
+        address: String,
+    },
 }
 
 fn one() -> f32 {
@@ -225,6 +230,7 @@ fn rig(r: &mut Rig, op: &Op, lib: &Library) -> Result<(), String> {
             Ok(())
         }
         Op::AddNode { .. } | Op::RemoveNode { .. } => Err(format!("{who}: a rig has tracks, not nodes – add a track, or edit the track's instrument")),
+        Op::SetAddress { .. } => Err(format!("{who}: an address is its world node's – edit the track's instrument")),
         Op::AddTrack { id, instrument, preset } => {
             word(id, "a track id")?;
             if r.tracks.iter().any(|t| &t.id == id) {
@@ -327,6 +333,18 @@ fn instrument(i: &mut Instrument, op: &Op) -> Result<(), String> {
             Ok(())
         }
         Op::AddTrack { .. } | Op::RemoveTrack { .. } => Err(format!("{who}: an instrument has nodes, not tracks – edit the rig")),
+        Op::SetAddress { node, address } => {
+            let n = i.nodes.iter_mut().find(|n| &n.id == node).ok_or_else(|| format!("{who}: no node '{node}'"))?;
+            if n.kind != Kind::World.name() {
+                return Err(format!("{who}: node '{node}' is no world node – only a far world node has an address"));
+            }
+            // the world node's own reading is the check (a far source, an address that parses and names a place)
+            let mut params = n.params.clone();
+            params.insert("address".into(), toml::Value::String(address.clone()));
+            crate::world::World::read(node, &params).map_err(|e| format!("{who}: {e:#}"))?;
+            n.params = params;
+            Ok(())
+        }
     }
 }
 
@@ -392,6 +410,11 @@ impl Bundle {
         doc.apply(op, &self.library())?;
         let Doc::Rigs(rig) = doc else { unreachable!("a rig stays a rig") };
         Ok(Bundle { rig, ..self.clone() })
+    }
+
+    /// A far world node's address in a track (#477), on the track's instrument.
+    pub fn address_set(&self, track: &str, node: &str, address: &str) -> Result<Bundle, String> {
+        self.on_instrument(track, &Op::SetAddress { node: node.to_string(), address: address.to_string() })
     }
 
     /// A control input's value in a track (`path` = `node.port`), on the document it is stored in: the track's preset, else its
@@ -636,6 +659,26 @@ mod tests {
         assert_eq!(r.sticks.as_ref().unwrap()[0], ["", "a:lfo.rate"]);
         r.check(&lib).unwrap();
         assert!(d.apply(&Op::RemoveTrack { id: "b".into() }, &lib).unwrap_err().contains("no track 'b'"));
+    }
+
+    /// #477: a far world node's address set on its instrument; the world node's own reading refuses what it cannot take
+    #[test]
+    fn a_far_world_nodes_address_is_set_on_its_instrument() {
+        let (b, lib) = set();
+        let mut d = Doc::Instruments(b.instruments[1].clone());
+        let far = toml::toml! { source = "far" address = "/deck:pc/scene:demo/character:catpope/analog:seq.notes" listen = ["music.note"] };
+        d.apply(&Op::AddNode { id: "in".into(), kind: "world".into(), params: far.clone() }, &lib).unwrap();
+        let set = |address: &str| Op::SetAddress { node: "in".into(), address: address.into() };
+        d.apply(&set("/deck:pc/scene:demo/item:incense/analog:seq.notes"), &lib).unwrap();
+        let Doc::Instruments(i) = &d else { unreachable!() };
+        assert_eq!(i.nodes.iter().find(|n| n.id == "in").unwrap().params["address"].as_str(), Some("/deck:pc/scene:demo/item:incense/analog:seq.notes"));
+        for (op, says) in [(set("analog:seq.notes"), "names no place"), (set("character:catpope.human/x:y.z"), "'.'"), (Op::SetAddress { node: "osc".into(), address: "item:x/a:b.c".into() }, "no world node"), (Op::SetAddress { node: "nobody".into(), address: "item:x/a:b.c".into() }, "no node")] {
+            let e = d.apply(&op, &lib).unwrap_err();
+            assert!(e.contains(says), "{op:?}: {e}");
+        }
+        let Doc::Instruments(i) = &d else { unreachable!() };
+        assert_eq!(i.nodes.iter().find(|n| n.id == "in").unwrap().params["address"].as_str(), Some("/deck:pc/scene:demo/item:incense/analog:seq.notes"), "a refused op changes nothing");
+        assert!(Doc::Rigs(b.rig.clone()).apply(&set("item:x/a:b.c"), &lib).unwrap_err().contains("edit the track's instrument"));
     }
 
     #[test]

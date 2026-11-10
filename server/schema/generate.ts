@@ -1,10 +1,10 @@
 // server/schema/generate.ts (#477) – the server's contracts for every language, beside their sources (as deck/protocol/generate.ts
 // sits beside the relay protocol's schema). Run by `npm run generate` (scripts/generate.ts; `--check` only compares, exit 1 when stale).
 //
-//   server/schema/api/address-book.schema.json → deck/protocol/src/address_book.rs   (Rust serde types; not wired into a crate yet)
+//   server/schema/api/address-book.schema.json → deck/protocol/src/address_book.rs   (Rust serde types: protocol::address_book)
 //                                                shared/api/src/address-book.ts       (TS types, @scutoons/api)
 //                                                server/src/Generated/AddressBookTypes.php (PHPStan shapes + the enums' values)
-//   server/schema/tables/*.json                → deck/protocol/src/content_text.rs    (the locale order + its pick; not wired yet)
+//   server/schema/tables/*.json                → deck/protocol/src/content_text.rs    (the locale order + its pick: protocol::content_text)
 //                                                shared/content/src/tables.ts         (legacy character ids, the locale order + its pick)
 //                                                server/src/Generated/ContentTables.php (the same)
 //

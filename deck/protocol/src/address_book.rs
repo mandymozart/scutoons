@@ -28,7 +28,7 @@ pub enum AddressKind {
 }
 
 impl AddressKind {
-	pub fn as_str(self) -> &'static str {
+	pub const fn as_str(self) -> &'static str {
 		match self {
 			AddressKind::Character => "character",
 			AddressKind::Persona => "persona",
@@ -52,7 +52,7 @@ pub enum OriginState {
 }
 
 impl OriginState {
-	pub fn as_str(self) -> &'static str {
+	pub const fn as_str(self) -> &'static str {
 		match self {
 			OriginState::Published => "published",
 			OriginState::Draft => "draft",
