@@ -17,6 +17,15 @@ use anyhow::{anyhow, bail, Result};
 use deck_events::patch::{NoteNames, Patch};
 use deck_events::Names;
 
+/// What a far source's holder may be from the toon's address book (#477; owner 2026-11-10: an address is real only where a
+/// receiver of that type exists): the kinds a deck answers as a holder today – far.rs `offers` matches a `character` or an
+/// `item` place against the subject the deck plays. No receiver takes a location yet; a persona or a look is no place in an
+/// address (address.rs `Place`); chapters, groups and variables are the creator's references, not addresses.
+pub const FAR_HOLDERS: [protocol::address_book::AddressKind; 2] = {
+    use protocol::address_book::AddressKind::*;
+    [Character, Item]
+};
+
 /// the names a note comes as: the generators' `music.note`, the MIDI adapter's `midi.note` – a note is a note on any cable
 pub const NOTE_NAMES: [&str; 2] = ["music.note", "midi.note"];
 
