@@ -184,7 +184,7 @@ where
                     for message in from_snapshot(w.snapshot) {
                         // what the child already heard is not news: a reconnect must not fire the row over what the operator did since
                         if !matches!(&message, Message::Seat(w) if s.parent_word() == Some(w)) {
-                            s.from_parent(on_our_time(Envelope::new(PARENT, message), offset), now);
+                            s.parent_says(on_our_time(Envelope::new(PARENT, message), offset), now);
                         }
                     }
                 });
@@ -192,7 +192,7 @@ where
             Message::Presence(_) | Message::Error(_) | Message::Snapshot(_) => {}
             _ => {
                 let e = on_our_time(e, offset);
-                relay.with_or_new_session(&parent.session, |s| s.from_parent(e, now));
+                relay.with_or_new_session(&parent.session, |s| s.parent_says(e, now));
             }
         }
     }

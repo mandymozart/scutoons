@@ -530,7 +530,7 @@ impl Session {
             return After::Nothing;
         }
         if role == Role::Seat {
-            self.from_child(id, e, now);
+            self.child_says(id, e, now);
             return After::Nothing;
         }
         // #90: a reader's whole say is its story events, and they are for the conductor (SHOW.md §7)
@@ -885,7 +885,7 @@ impl Session {
 
     /// #90: a child's relay (role `seat`, its group the seat's id) said something: to this session's conductor(s), `from` a
     /// path that starts with the seat. What is kept is kept per seat. Never touches this session's own decks or clock.
-    fn from_child(&mut self, id: &str, mut e: Envelope, now: i64) {
+    fn child_says(&mut self, id: &str, mut e: Envelope, now: i64) {
         if !comes_up(&e.message) {
             self.error(id, "authority", &format!("a seat does not send {}", e.message.kind()));
             return;
@@ -918,7 +918,7 @@ impl Session {
 
     /// #90: a message that came down the link from the parent's relay: to this session's conductor(s) and nobody else – what
     /// comes of it is theirs to decide (the word, the lock, the own clock). What must survive a reboot is kept.
-    pub fn from_parent(&mut self, mut e: Envelope, now: i64) {
+    pub fn parent_says(&mut self, mut e: Envelope, now: i64) {
         match &e.message {
             Message::Seat(w) => self.parent_word = Some(w.clone()),
             Message::Flash(f) => self.flash = Some(f.clone()),
