@@ -142,6 +142,7 @@
 		"zmij": "via serde_json: float formatting",
 		"deck-headless": "core (the headless host)",
 		"deck-outlet": "core (the Live outlet's logic)",
-		"deck-ui": "core (the deck's UI model)"
+		"deck-ui": "core (the deck's UI model)",
+		"deck-show": "core (the show core, #89 – the headless host fires a show's rows at its deck, #467)"
 	}
 }

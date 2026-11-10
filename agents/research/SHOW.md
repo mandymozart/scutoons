@@ -185,7 +185,7 @@ Largest new piece of work: the relay tree. Everything else in the table reuses w
 
 ## 11. What exists in the code (read 2026-11-09)
 
-- `deck/show` (#89): the show document, validation, the tree's lock, the bare conductor. A wire cell carries a piece as a layer (`LayerSrc` `piece`); a deck does not play it yet (a HUD reason).
+- `deck/show` (#89): the show document, validation, the tree's lock, the bare conductor. A wire cell carries a piece as a layer (`LayerSrc` `piece`). #467: deck-space `piece.rs` compares it with what plays (same piece: the values glide; another: load and crossfade, live-core `lc_crossfade`; not on the deck: a reason, what plays stays); the headless host plays it (scenario 29). The native and browser decks do not call it yet (native: a HUD reason, `outlet/src/plan.rs`).
 - #90: role `reader` (its `story` goes to the conductor only); the relay tree (deck/relay README "The tree"); `Subtree` in deck-show (the word, the lock from above, own clock as `Tempo.domain`, flash by `flash::take`, `address::receive` for a receiver); `show:<id>` with versions and the `live` role (server docs/API.md "Live"). Nothing runs a `Subtree` outside the tests yet: the conductor app and the decks' flash / address handling come with #91 and the deck work.
 - `cell` is per outlet and full (`deck/protocol/schema.json`), compiled in `deck/outlet/src/plan.rs`. No layer kind for a scene or rig. The `outlet` node sits inside a scene (`scenes/outlet.toml`).
 - Video: a layer exists, the native outlet shows its still (#179). `video` in the catalog is `F_PLANNED`, not a graph kind.

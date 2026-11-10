@@ -80,6 +80,10 @@ pub struct Deck {
     pub state: deck_space::deck::Deck,
     /// a hand on the deck (0..1) for the state's steps
     pub touch: f32,
+    /// #467: what this deck plays for a show's cells (deck-space's piece.rs): the gliding values go in every clock frame
+    pub pieces: deck_space::piece::Pieces,
+    /// #467: a `run` keeps a line per clock frame (`trace = true`)
+    pub tracing: bool,
 }
 
 /// what one `run` saw
@@ -94,6 +98,9 @@ pub struct Seen {
     pub signals: usize,
     pub signal_bytes: Hash,
     pub flags_any: u32,
+    /// #467: per clock frame (when tracing): its ms since the run began, its peak, the crossfade (0..1, -1 = none), the
+    /// gliding values set
+    pub trace: Vec<Value>,
 }
 
 impl Deck {
@@ -114,7 +121,33 @@ impl Deck {
             pace: None,
             state: deck_space::deck::Deck::new(),
             touch: 0.0,
+            pieces: deck_space::piece::Pieces::new(),
+            tracing: false,
         }
+    }
+
+    /// #467 `lc_crossfade`: a show's other piece – its scene loaded while the one before fades out under it for `ms`; the
+    /// audio's timeline goes on (the sink keeps its count)
+    pub fn crossfade(&mut self, toml: &str, ms: u32) -> Result<Value, String> {
+        let bytes = toml.as_bytes();
+        self.host.inbox(bytes.len())[..bytes.len()].copy_from_slice(bytes);
+        let n = self.host.crossfade(bytes.len(), ms);
+        let text = String::from_utf8_lossy(&self.host.outbox()[..n.unsigned_abs() as usize]).into_owned();
+        if n < 0 {
+            return Err(text);
+        }
+        let table: Value = serde_json::from_str(&text).map_err(|e| format!("the load table: {e}"))?;
+        self.table = Some(table.clone());
+        if self.started.is_none() {
+            self.started = Some(self.now);
+            self.rendered = 0;
+        }
+        Ok(table)
+    }
+
+    /// #467: how far the crossfade is (0..1), None when none runs
+    pub fn crossfading(&self) -> Option<f32> {
+        self.host.crossfading()
     }
 
     /// #409: the deck state's live context into the core (`lc_context`: `mood\npersona` in the inbox, the senses)
@@ -244,6 +277,7 @@ impl Deck {
     /// `ms` of the show: clock frames every `FRAME_MS`, the sink fed a quantum at a time up to `lead` ahead of the ear
     pub fn run(&mut self, ms: f64) -> Seen {
         let mut seen = Seen::default();
+        let begin = self.now;
         let end = self.now + ms;
         let rate = f64::from(self.rate);
         while self.now < end - 1e-9 {
@@ -273,6 +307,14 @@ impl Deck {
                     self.host.clock.pong(at * 1e3, at + l.rtt_ms / 2.0 + l.offset_ms, at + l.rtt_ms);
                 }
             }
+            // #467: the show's gliding values, set as the page sets a knob
+            let glides = self.pieces.values_at(self.now);
+            for (path, v) in &glides {
+                // a value whose node the engine lacks was said when the cell came (piece.rs `resolve`)
+                let _ = self.send(path, *v, Mode::Force, 1.0);
+            }
+            let peak_before = seen.peak;
+            seen.peak = 0.0;
             // the sink: render until the ring holds `lead` frames past the ear, the ear stamped like getOutputTimestamp
             if let Some(start) = self.started {
                 let target = ((self.now - start) * rate / 1e3).round() as u64 + self.lead as u64;
@@ -286,6 +328,12 @@ impl Deck {
                 let heard = self.rendered.saturating_sub(self.lead as u64) as f64;
                 self.host.clock.stamp(heard / rate, start + heard * 1e3 / rate, 0.0);
             }
+            if self.tracing {
+                let values: Map<String, Value> = glides.iter().map(|(p, v)| (p.clone(), json!(round(f64::from(*v), 4)))).collect();
+                let x = self.host.crossfading().map_or(-1.0, |x| round(f64::from(x), 3));
+                seen.trace.push(json!([round(self.now - begin, 1), round(f64::from(seen.peak), 4), x, values]));
+            }
+            seen.peak = seen.peak.max(peak_before);
             let state = *self.host.clock.frame(self.now);
             let flags = state[6] as u32;
             seen.flags_any |= flags;

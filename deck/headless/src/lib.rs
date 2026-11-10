@@ -14,7 +14,7 @@
 //! |---|---|---|
 //! | `load` | `scene` (a deck/ path; `lower`: the browser's split, default on), `toml` (a small scene as it is), `rig` (`character.catpope`) + `mood`, or `silent = true` (no rig plays, #425) | nodes, page (ids the engine does not carry), channels |
 //! | `warm` | as `load`, `quanta` | – |
-//! | `run` | `ms`; `mark` (keep the audio hash) | audio (hash), peak, frames, the clock state (+ the transport's `epoch`), line, clock_out, anchors, pings, signals |
+//! | `run` | `ms`; `mark` (keep the audio hash); `trace` (#467: a line per clock frame) | audio (hash), peak, frames, the clock state (+ the transport's `epoch`), line, clock_out, anchors, pings, signals, piece, crossfade, gliding |
 //! | `send` | `path`, `value`, `mode` (force / blend / base), `amount` | applied |
 //! | `heard` | `path` | value (the analysis frame's) |
 //! | `choose` | `source`, `lead` | the clock state |
@@ -28,6 +28,9 @@
 //! | `carried_part` | `with` = { `scene`, `modules` } | kept (nodes), dropped (ids) – deck-core's filter (#360) |
 //! | `hud` | `with` = { `scene`, `fps`, `audio` } | title, lines, bar, levels – deck-ui's HUD from this deck's clock and monitor (#374) |
 //! | `context` | `pin` (a mood, "" = the ladder's), `touch` | deck (its mood, energy), engine (the live context the engine applied last: mood, persona, energy, touch, strain – #409) |
+//! | `show` | `show` (a deck/ show document), `outlet` (the one this deck plays), `pieces` (what the deck has: piece → `scene` / `bundle` a deck/ file, `toml` a scene as it is, `rig` a core rig's subject) | rows |
+//! | `pieces` | `pieces` (more of them) | – |
+//! | `fire` / `go` | `row` / – : the show's conductor fires, its cell for the outlet goes to the deck (deck-space's piece.rs, #467) | do (load, glide, black, same, kept), piece, ms, values, glides, problems, playing |
 //! | a capability (caps.rs) | `with` | its answer, or `Missing` |
 //!
 //! Built for wasm32 too (`hl_inbox`, `hl_run`, `hl_outbox`): the same bundle in, the same report out – tests/wasm.rs
@@ -35,7 +38,10 @@
 pub mod caps;
 pub mod deck;
 
-use deck::{round, Deck};
+use deck::{round, Deck, T0};
+use deck_show::conductor::{Conductor, Now, Out};
+use deck_space::piece::{Found, What};
+use deck_space::rig::address::Place;
 use deck_space::quality::{Governor, Level};
 use deck_space::rig::Bundle as Rig;
 use deck_space::scene::Scene;
@@ -74,11 +80,17 @@ pub struct Report {
     pub steps: Vec<Value>,
 }
 
-/// the paths of deck/ files a scenario's steps name (`scene = …`) – the CLI and the tests bundle them
+/// the paths of deck/ files a scenario's steps name (`scene = …`, `show = …`, a piece's `scene` / `bundle`) – the CLI and
+/// the tests bundle them
 pub fn files_of(scenario: &str) -> Vec<String> {
     let Ok(t) = scenario.parse::<toml::Table>() else { return Vec::new() };
     let steps = t.get("step").and_then(|s| s.as_array()).cloned().unwrap_or_default();
-    let mut out: Vec<String> = steps.iter().filter_map(|s| s.get("scene").and_then(|v| v.as_str()).map(String::from)).collect();
+    let named = |s: &toml::Value, k: &str| s.get(k).and_then(|v| v.as_str()).map(String::from);
+    let pieces = |s: &toml::Value| -> Vec<String> {
+        let ps = s.get("pieces").and_then(|p| p.as_table()).map(|t| t.values().cloned().collect::<Vec<_>>()).unwrap_or_default();
+        ps.iter().flat_map(|p| [named(p, "scene"), named(p, "bundle")]).flatten().collect()
+    };
+    let mut out: Vec<String> = steps.iter().flat_map(|s| [named(s, "scene"), named(s, "show")].into_iter().flatten().chain(pieces(s))).collect();
     out.sort();
     out.dedup();
     out
@@ -101,9 +113,17 @@ enum Fault {
     Expect(String),
 }
 
+/// #467: the show a scenario fires at this deck: its conductor, the outlet the deck plays, what the deck has for a piece
+struct OnShow {
+    conductor: Conductor,
+    outlet: String,
+    pieces: BTreeMap<String, toml::Value>,
+}
+
 struct Run<'a> {
     bundle: &'a Bundle,
     deck: Deck,
+    show: Option<OnShow>,
     governor: Option<Governor>,
     gov_t: f64,
     marks: BTreeMap<String, String>,
@@ -131,7 +151,7 @@ pub fn run_paced(bundle: &Bundle, pace: Option<Box<dyn FnMut(f64)>>) -> Report {
     let rate = t.get("rate").and_then(|v| v.as_integer()).unwrap_or(48_000) as f32;
     let channels = t.get("channels").and_then(|v| v.as_integer()).unwrap_or(2) as usize;
     let expected = t.get("expected_fail").and_then(|v| v.as_str()).map(String::from);
-    let mut r = Run { bundle, deck: Deck::new(rate, channels), governor: None, gov_t: 0.0, marks: BTreeMap::new() };
+    let mut r = Run { bundle, deck: Deck::new(rate, channels), show: None, governor: None, gov_t: 0.0, marks: BTreeMap::new() };
     r.deck.pace = pace;
     let steps = t.get("step").and_then(|s| s.as_array()).cloned().unwrap_or_default();
     let mut fault = None;
@@ -197,6 +217,71 @@ impl Run<'_> {
         self.bundle.files.get(path).map(String::as_str).ok_or_else(|| Fault::Error(format!("the bundle lacks {path}")))
     }
 
+    /// #467: what this deck has for a piece – the bytes the scenario names (the adapter's part: no choice made here)
+    fn find(&self, place: &Place) -> Option<Found> {
+        let entry = self.show.as_ref()?.pieces.get(&place.to_string())?;
+        let s = |k: &str| entry.get(k).and_then(|v| v.as_str());
+        if let Some(t) = s("toml") {
+            return Some(Found::Scene(t.to_string()));
+        }
+        if let Some(p) = s("scene") {
+            return self.bundle.files.get(p).map(|t| Found::Scene(t.clone()));
+        }
+        if let Some(p) = s("bundle") {
+            return self.bundle.files.get(p).map(|t| Found::Rig(t.clone()));
+        }
+        let subject = s("rig")?;
+        deck_space::rig::bundle::CORE.iter().find(|(c, _)| *c == subject).map(|(_, t)| Found::Rig(t.to_string()))
+    }
+
+    /// #467: the conductor's outs → the cell for this deck's outlet, played (the last one, if a row sent several), and the
+    /// answer: what the deck did, what plays, why not
+    fn deliver(&mut self, outs: Vec<Out>) -> Result<Value, Fault> {
+        let outlet = self.show.as_ref().map(|s| s.outlet.clone()).unwrap_or_default();
+        let cells: Vec<protocol::Cell> = outs
+            .iter()
+            .filter_map(Out::envelope)
+            .filter_map(|e| match &e.message {
+                protocol::Message::Cell(c) if c.outlet == outlet => Some(c.cell.clone()),
+                _ => None,
+            })
+            .collect();
+        let Some(cell) = cells.last() else {
+            return Ok(json!({ "do": "none", "playing": self.deck.pieces.piece().unwrap_or_default() }));
+        };
+        let now = self.deck.now;
+        let mut pieces = std::mem::take(&mut self.deck.pieces);
+        let answer = pieces.cell(cell, now, |p| self.find(p));
+        self.deck.pieces = pieces;
+        let mut out = serde_json::to_value(&answer.what).map_err(|e| Fault::Error(e.to_string()))?;
+        match &answer.what {
+            What::Load { scene, values, ms, .. } => {
+                let table = self.deck.crossfade(scene, *ms).map_err(Fault::Error)?;
+                for (path, v) in values {
+                    self.deck.send(path, *v, live_core::wire::Mode::Force, 1.0).map_err(Fault::Error)?;
+                }
+                out["nodes"] = json!(table["nodes"].as_array().map_or(0, Vec::len));
+                out["values"] = json!(values.iter().map(|(p, v)| (p.clone(), json!(round(f64::from(*v), 4)))).collect::<serde_json::Map<_, _>>());
+            }
+            What::Black { scene, ms } => {
+                self.deck.crossfade(scene, *ms).map_err(Fault::Error)?;
+            }
+            What::Glide { glides, .. } => out["glides"] = json!(glides.iter().map(|g| g.path.clone()).collect::<Vec<_>>()),
+            What::Same | What::Kept => {}
+        }
+        if let Some(o) = out.as_object_mut() {
+            o.remove("scene");
+            o.insert("problems".into(), json!(answer.problems));
+            o.insert("playing".into(), json!(self.deck.pieces.piece().unwrap_or_default()));
+        }
+        Ok(out)
+    }
+
+    /// the show's time: the deck's ms since its start
+    fn show_now(&self) -> Now {
+        Now::at((self.deck.now - T0).max(0.0) as u64)
+    }
+
     /// the scene a `load` / `warm` step names, as live-core gets it (lowered: the browser's split) → (TOML, page ids)
     fn scene(&self, step: &toml::Table) -> Result<(String, Vec<String>, Value), Fault> {
         let lower = step.get("lower").and_then(|v| v.as_bool()).unwrap_or(true);
@@ -254,8 +339,16 @@ impl Run<'_> {
                 json!({ "warmed": true })
             }
             "run" => {
+                d.tracing = flag("trace", false);
                 let seen = d.run(num("ms", 1000.0));
                 let mut out = d.state();
+                // #467: the piece on ("" = none), how far its crossfade and its glide are (-1 = none runs)
+                out.insert("piece".into(), json!(d.pieces.piece().unwrap_or_default()));
+                out.insert("crossfade".into(), json!(d.crossfading().map_or(-1.0, |x| round(f64::from(x), 3))));
+                out.insert("gliding".into(), json!(d.pieces.gliding(d.now).map_or(-1.0, |x| round(f64::from(x), 3))));
+                if d.tracing {
+                    out.insert("trace".into(), json!(seen.trace));
+                }
                 out.insert("line".into(), json!(d.line()));
                 out.insert("audio".into(), json!(seen.audio.hex()));
                 out.insert("peak".into(), json!(round(f64::from(seen.peak), 4)));
@@ -408,6 +501,32 @@ impl Run<'_> {
                     "deck": { "mood": d.state.mood(), "energy": r(d.state.ladder.energy()) },
                     "engine": { "mood": c.mood(), "persona": c.persona(), "energy": r(c.energy), "touch": r(c.touch), "strain": r(c.strain) },
                 })
+            }
+            // #467: a show fired at this deck – the conductor's cells for its outlet played by the deck's pieces
+            "show" => {
+                let path = text("show").ok_or_else(|| Fault::Error("a show step without `show`".into()))?;
+                let show = deck_show::document::parse(self.file(&path)?).map_err(|e| Fault::Error(format!("{path}: {e:?}")))?;
+                let rows: Vec<String> = show.rows.iter().map(|r| r.id.clone()).collect();
+                let pieces = step.get("pieces").and_then(|p| p.as_table()).map(|t| t.clone().into_iter().collect()).unwrap_or_default();
+                self.show = Some(OnShow { conductor: Conductor::new(show), outlet: text("outlet").unwrap_or_else(|| "left".into()), pieces });
+                json!({ "rows": rows })
+            }
+            "pieces" => {
+                let on = self.show.as_mut().ok_or_else(|| Fault::Error("pieces before show".into()))?;
+                on.pieces.extend(step.get("pieces").and_then(|p| p.as_table()).cloned().unwrap_or_default());
+                json!({})
+            }
+            "fire" | "go" => {
+                let now = self.show_now();
+                let on = self.show.as_mut().ok_or_else(|| Fault::Error(format!("{what} before show")))?;
+                let outs = match what {
+                    "fire" => on.conductor.fire(&text("row").unwrap_or_default(), now),
+                    _ => on.conductor.go(now),
+                };
+                let row = on.conductor.current().map(String::from);
+                let mut out = self.deliver(outs)?;
+                out["row"] = json!(row);
+                out
             }
             c if caps::known(c) => {
                 let input = step.get("with").map(to_json).unwrap_or(Value::Null);

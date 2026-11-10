@@ -26,6 +26,9 @@ deck-core = { workspace = true, features = ["tempo"] }
 deck-space = { path = "../space", default-features = false }
 # #374: the deck's UI model – the `hud` step's lines and bar
 deck-ui = { path = "../ui" }
+# #467: the show's conductor fires a show document's rows at this deck (the `show` / `fire` / `go` steps) – its cells
+deck-show = { path = "../show" }
+protocol = { workspace = true }
 serde.workspace = true
 serde_json.workspace = true
 toml.workspace = true

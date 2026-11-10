@@ -1,0 +1,146 @@
+name = "a deck plays a show's pieces: it shows, glides, crossfades"
+about = "#467 (SHOW.md §5): the conductor fires top-toy's rows, its full cells for `left` go to the deck; deck-space's piece.rs compares – the same piece glides to the new values, another piece loads and crossfades (live-core's lc_crossfade), a piece the deck lacks keeps what plays and says why, black fades to the silent scene"
+
+# the deck's pieces: `scene:nave` is a stand-in (a tone and a noise; a bare name turns that node's first knob, here its gain)
+[[step]]
+do = "show"
+show = "show/fixtures/top-toy.show.json"
+outlet = "left"
+expect = { rows = ["opening", "dialog", "yellowmouse-enters", "finale"] }
+
+[step.pieces."scene:nave"]
+toml = """
+[stage]
+name = "nave"
+transition_secs = 0.5
+
+[being]
+expose = ["light.gain", "dim.gain"]
+
+[[node]]
+id = "light"
+kind = "osc"
+freq = 220.0
+gain = 0.8
+
+[[node]]
+id = "dim"
+kind = "noise"
+gain = 0.3
+
+[[node]]
+id = "mix"
+kind = "mixer"
+
+[[node]]
+id = "out"
+kind = "audio_out"
+
+[[link]]
+from = "light"
+to = "mix.in1"
+
+[[link]]
+from = "dim"
+to = "mix.in2"
+
+[[link]]
+from = "mix"
+to = "out.in"
+"""
+
+# 1 · the opening: the piece shows – loaded, its value set, it sounds
+[[step]]
+do = "go"
+expect = { row = "opening", do = "load", piece = "scene:nave", ms = 500, values = { "light.gain" = 0.2 }, problems = [], playing = "scene:nave" }
+
+[[step]]
+do = "run"
+ms = 1000
+expect = { sound = true, piece = "scene:nave", crossfade = -1, gliding = -1 }
+
+[[step]]
+do = "heard"
+path = "light.gain"
+expect = { value = 0.2 }
+
+[[step]]
+do = "heard"
+path = "dim.gain"
+expect = { value = 0.3 }
+
+# 2 · the dialog (`values` on the same piece): the conductor's merged full cell – only dim moves, it glides over 500 ms
+[[step]]
+do = "go"
+expect = { row = "dialog", do = "glide", piece = "scene:nave", ms = 500, glides = ["dim.gain"], problems = [] }
+
+[[step]]
+do = "run"
+ms = 250
+expect = { gliding = { min = 0.4, max = 0.6 } }
+
+[[step]]
+do = "heard"
+path = "dim.gain"
+expect = { value = { min = 0.35, max = 0.45 } }
+
+[[step]]
+do = "run"
+ms = 500
+expect = { gliding = -1, sound = true }
+
+[[step]]
+do = "heard"
+path = "dim.gain"
+expect = { value = 0.5 }
+
+[[step]]
+do = "heard"
+path = "light.gain"
+expect = { value = 0.2 }
+
+# 3 · yellowmouse enters: no rig of hers on this deck – a reason, what plays stays, GO goes on
+[[step]]
+do = "go"
+expect = { row = "yellowmouse-enters", do = "kept", playing = "scene:nave", problems = ["character:yellowmouse is not on this deck"] }
+
+[[step]]
+do = "run"
+ms = 250
+expect = { sound = true, piece = "scene:nave", crossfade = -1 }
+
+# 4 · her rig arrives (a stand-in: the core rig of catpope) and the row is fired again: another piece – load and crossfade
+[[step]]
+do = "pieces"
+
+[step.pieces."character:yellowmouse"]
+rig = "character.catpope"
+
+[[step]]
+do = "fire"
+row = "yellowmouse-enters"
+expect = { do = "load", piece = "character:yellowmouse", ms = 400, problems = [], playing = "character:yellowmouse" }
+
+[[step]]
+do = "run"
+ms = 200
+expect = { sound = true, crossfade = { min = 0.2, max = 0.8 } }
+
+[[step]]
+do = "run"
+ms = 1500
+expect = { sound = true, crossfade = -1, piece = "character:yellowmouse" }
+
+# 5 · the finale: black – the silent scene crossfades in, the piece is gone
+[[step]]
+do = "go"
+expect = { row = "finale", do = "black", ms = 400, playing = "" }
+
+[[step]]
+do = "run"
+ms = 3000
+
+[[step]]
+do = "run"
+ms = 500
+expect = { sound = false, piece = "" }
