@@ -1,6 +1,6 @@
 //! The design tokens' file (#444): `tokens.toml` next to the binary (or `--tokens FILE`), watched by its modification time
 //! and applied in the next frame – a changed token shows in under a second without a restart. The tokens are the kit's.
-pub use deck_kit::tokens::Tokens;
+pub use deck_kit::base::tokens::Tokens;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 

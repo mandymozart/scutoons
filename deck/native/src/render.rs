@@ -128,10 +128,15 @@ impl Renderer {
         self.stage.bar_width()
     }
 
-    /// The deck's menu (#386, deck-ui `Menu::paint`): Some = its picture over the whole screen; None = gone. Called when
-    /// it changes, not every frame.
-    pub fn set_menu(&mut self, menu: Option<(u32, u32, &[u8])>) {
-        self.stage.set_menu(&self.gpu.device, &self.gpu.queue, menu);
+    /// The deck's menu (#386, deck-ui `Menu::paint`): Some = its page over the whole screen (a layer of deck-kit's egui
+    /// screen, #485); None = gone. Called when it changes, not every frame.
+    pub fn set_menu(&mut self, menu: Option<deck_ui::menu::draw::Layer>) {
+        self.stage.set_menu(menu);
+    }
+
+    /// #485: an input of the menu's for egui's input state while the deck's own UI shows
+    pub fn ui_input(&mut self, i: deck_ui::menu::Input) {
+        self.stage.ui_input(i);
     }
 
     /// the window's size in pixels (what the menu is painted for)
@@ -139,10 +144,10 @@ impl Renderer {
         (self.gpu.config.width as f32, self.gpu.config.height as f32)
     }
 
-    /// The deck's UI for the person at it (#481, deck-show `face.rs`): Some = its pixels, a strip along the screen's
-    /// bottom; None = gone. Called when it changes, not every frame.
-    pub fn set_panel(&mut self, panel: Option<(u32, u32, &[u8])>) {
-        self.stage.set_panel(&self.gpu.device, &self.gpu.queue, panel);
+    /// The deck's UI for the person at it (#481, deck-show `face.rs`): Some = its layer along the screen's bottom
+    /// (painted through egui, #485); None = gone. Called when it changes, not every frame.
+    pub fn set_panel(&mut self, panel: Option<deck_ui::menu::draw::Layer>) {
+        self.stage.set_panel(panel);
     }
 
     /// One frame; returns the CPU time spent after the surface handed out its texture (the vsync wait excluded), in ms.

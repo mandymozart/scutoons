@@ -5,9 +5,9 @@
 //! presses and the typed filter in (RULES A1, A2).
 use super::perform::button;
 use super::{now, Hit, Host, Sheet};
-use deck_kit::controls::{self, Rect};
-use deck_kit::draw::DrawList;
-use deck_kit::tokens::Tokens;
+use deck_kit::editor::controls::{self, Rect};
+use deck_kit::base::draw::DrawList;
+use deck_kit::base::tokens::Tokens;
 use deck_show::choose::{Choice, Prompt, Tone};
 use deck_show::Lock;
 use winit::keyboard::{Key, NamedKey};

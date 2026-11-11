@@ -1,6 +1,7 @@
 //! Design tokens (#456; owner 2026-11-09: "the ui can use the styles we have in the osct editor, but apply a design token
 //! system we can reuitlize"): the names are what a thing is, not where it is used; the values are the OSCT editor's dark
-//! ones. Every control reads them; a `tokens.toml` overrides them live.
+//! ones. Every control reads them; a `tokens.toml` overrides them live. #485: the shape is the base's; its defaults are
+//! the `editor` module's set, the `live` module brings its own (`live/tokens.rs`).
 use serde::Deserialize;
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]

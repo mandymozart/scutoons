@@ -1,18 +1,15 @@
 //! The deck's dialogs as a picture, and the presses back (#481; owner 2026-11-11: "Ja use the crate in core"): what
 //! `flashed.rs` says to the person at the deck (`dialog.rs`), laid out with the component library's panel (deck-kit
-//! `panel.rs`, the reader's style) and painted on the CPU by its `raster` – one drawing for the native deck and the
-//! browser deck. A platform hands in the screen's size and the deck's mono face, shows the pixels as one more overlay
-//! of its stage (deck-space `Stage::set_panel`: a strip along the bottom), and hands taps and keys back.
-//! No window and no GPU here.
+//! `panel.rs`, the reader's style) into a layer the kit paints through egui (#485) – one drawing for the native deck and
+//! the browser deck. A platform hands in the screen's size and the deck's mono face's advance, shows the layer over its
+//! stage (deck-space `Stage::set_panel`: along the bottom), and hands taps and keys back. No window and no GPU here.
 use crate::dialog::{Key, Row, Shown};
 use crate::flashed::Flashed;
 #[cfg(test)]
 use crate::ready;
-use deck_kit::controls::Rect;
-use deck_kit::draw::DrawList;
-use deck_kit::panel::{self, Part};
-use deck_kit::raster::{self, Font};
-pub use deck_kit::raster::Pixels;
+use deck_kit::base::draw::{DrawList, Rect};
+pub use deck_kit::base::screen::Layer;
+use deck_kit::live::panel::{self, Part};
 use deck_space::fetched::Fetched;
 
 #[derive(Debug, Clone, Default)]
@@ -30,9 +27,9 @@ pub struct Face {
 }
 
 impl Face {
-    /// What to show now on a `w × h` screen (device pixels), in the deck's mono `font`: None = as before; Some(None) =
-    /// nothing any more; Some(pixels) = this strip, as wide as the screen, along its bottom.
-    pub fn paint(&mut self, shown: Option<&Shown>, (w, h): (f32, f32), font: &impl Font) -> Option<Option<Pixels>> {
+    /// What to show now on a `w × h` screen (device pixels), in the deck's mono face (`per_px`: its advance per pixel of
+    /// font size): None = as before; Some(None) = nothing any more; Some(layer) = this, along the screen's bottom.
+    pub fn paint(&mut self, shown: Option<&Shown>, (w, h): (f32, f32), per_px: f32) -> Option<Option<Layer>> {
         let drawn = shown.map(|s| format!("{s:?} {w}x{h} {}", self.keys));
         if drawn == self.drawn {
             return None;
@@ -42,8 +39,8 @@ impl Face {
         let Some(shown) = shown else { return Some(None) };
         let scale = panel::scale(w, h);
         let screen = (w / scale, h / scale);
-        let tokens = panel::tokens();
-        let mut d = DrawList::new(raster::per_px(font));
+        let tokens = deck_kit::live::tokens::panel();
+        let mut d = DrawList::new(per_px);
         let top = match shown {
             Shown::Dialog(dialog) => {
                 let labels: Vec<&str> = dialog.buttons.iter().map(|(label, _)| label.as_str()).collect();
@@ -58,7 +55,7 @@ impl Face {
                 parts.extend(dialog.lines.iter().map(|line| Part::Line(line, true)));
                 parts.push(Part::Buttons(&labels, dialog.focus.checked_sub(rows).filter(|_| self.keys), dialog.gone));
                 self.places = panel::draw(&mut d, &tokens, screen, &parts, !self.keys);
-                // the glow above the edge is part of the strip
+                // the glow above the edge is part of what shows
                 screen.1 - panel::height(&d, &tokens, screen.0, &parts) - 16.0
             }
             Shown::Toast(text, tone) => {
@@ -69,7 +66,7 @@ impl Face {
         }
         .max(0.0);
         (self.scale, self.top) = (scale, top * scale);
-        Some(Some(raster::raster(&d, font, (0.0, top), (screen.0, screen.1 - top), scale)))
+        Some(Some(panel::layer(d, scale)))
     }
 
     /// Where what shows begins, in device pixels from the screen's top (a platform that cannot ask `tap` at once
@@ -126,11 +123,20 @@ impl Face {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ab_glyph::FontRef;
+    use deck_kit::base::draw::Prim;
     use protocol::Flash;
 
-    fn font() -> FontRef<'static> {
-        FontRef::try_from_slice(include_bytes!("../../outlet/assets/IBMPlexMono-Bold-latin.ttf")).expect("IBM Plex Mono")
+    /// the deck's mono face's advance (IBM Plex Mono: 0.6 em)
+    fn font() -> f32 {
+        0.6
+    }
+
+    /// what a layer covers, in device pixels: its leftmost, topmost, rightmost and lowest edge
+    fn extent(l: &Layer) -> [f32; 4] {
+        l.list.prims().iter().fold([f32::MAX, f32::MAX, 0.0, 0.0], |[x0, y0, x1, y1], p| match *p {
+            Prim::Rect { x, y, w, h, .. } | Prim::Outline { x, y, w, h, .. } => [x0.min(x * l.scale), y0.min(y * l.scale), x1.max((x + w) * l.scale), y1.max((y + h) * l.scale)],
+            _ => [x0, y0, x1, y1],
+        })
     }
 
     fn flash(id: &str, version: u64) -> Flash {
@@ -145,12 +151,13 @@ mod tests {
         let (mut face, mut f, mut fetched, font) = (Face::default(), Flashed::new("left", "browser"), Fetched::default(), font());
         f.joined("c1");
         f.set_may_reject(true);
-        assert_eq!(face.paint(f.shown().as_ref(), SCREEN, &font), None, "nothing shows and nothing showed");
+        assert_eq!(face.paint(f.shown().as_ref(), SCREEN, font), None, "nothing shows and nothing showed");
         f.flash(&flash("f1", 4), "", "no token", &mut fetched);
-        // 800 × 600 is two device pixels per logical one: the strip is as wide as the screen
-        let strip = face.paint(f.shown().as_ref(), SCREEN, &font).flatten().expect("the suggestion");
-        assert!(strip.w == 800 && strip.h > 200 && strip.h < 600, "{} × {}", strip.w, strip.h);
-        assert_eq!(face.paint(f.shown().as_ref(), SCREEN, &font), None, "nothing changed");
+        // 800 × 600 is two device pixels per logical one: the panel is as wide as the screen, along its bottom
+        let strip = face.paint(f.shown().as_ref(), SCREEN, font).flatten().expect("the suggestion");
+        let [x0, y0, x1, y1] = extent(&strip);
+        assert!(strip.scale == 2.0 && x0 == 0.0 && x1 == 800.0 && y1 == 600.0 && y0 > 0.0 && y0 < 400.0, "{:?}", extent(&strip));
+        assert_eq!(face.paint(f.shown().as_ref(), SCREEN, font), None, "nothing changed");
         // outside the buttons: not the dialog's; on the right half of the buttons' row: reject
         assert!(!face.tap(10.0, 10.0, &mut f, &mut fetched));
         let reject = face.places[1];
@@ -158,13 +165,14 @@ mod tests {
         assert!(f.reports().iter().any(|r| !r.accepted && r.why.as_deref() == Some("rejected at the deck")));
         // the toast: a small box at the bottom left, gone on a tap
         assert!(matches!(f.shown(), Some(Shown::Toast(..))));
-        let toast = face.paint(f.shown().as_ref(), SCREEN, &font).flatten().expect("the toast");
-        assert!(toast.h < 140 && toast.at(799, toast.h / 2)[3] == 0 && toast.at(40, toast.h / 2)[3] == 255, "transparent beside the box");
+        let toast = face.paint(f.shown().as_ref(), SCREEN, font).flatten().expect("the toast");
+        let [x0, y0, x1, y1] = extent(&toast);
+        assert!(y1 - y0 < 140.0 && x0 < 40.0 && x1 < 799.0, "a small box, nothing beside it: {:?}", extent(&toast));
         let at = face.places[0];
         assert!(face.tap((at.x + 5.0) * 2.0, (at.y + 5.0) * 2.0, &mut f, &mut fetched));
         // nothing shows any more, though the picture was not painted again yet: a tap there is not the deck's UI's
         assert!(f.shown().is_none() && !face.tap((at.x + 5.0) * 2.0, (at.y + 5.0) * 2.0, &mut f, &mut fetched));
-        assert_eq!(face.paint(f.shown().as_ref(), SCREEN, &font), Some(None));
+        assert_eq!(face.paint(f.shown().as_ref(), SCREEN, font), Some(None));
     }
 
     #[test]
@@ -181,7 +189,7 @@ mod tests {
         let Some(Shown::Dialog(d)) = f.shown() else { panic!("the dialog") };
         assert_eq!((d.rows.clone(), d.buttons.len(), d.focus), (vec![Row::Switch("Bitte nicht flashen".into(), false)], 2, 0));
         assert!(!face.key("x", &mut f, &mut fetched), "a character is not the dialog's: nothing is typed");
-        assert!(face.paint(f.shown().as_ref(), SCREEN, &font).flatten().is_some());
+        assert!(face.paint(f.shown().as_ref(), SCREEN, font).flatten().is_some());
         // Enter flips the switch, Tab goes to Save, Enter saves: the conductor hears it at once, the person reads a toast
         for key in ["Enter", "Tab", "Enter"] {
             assert!(face.key(key, &mut f, &mut fetched), "{key}");

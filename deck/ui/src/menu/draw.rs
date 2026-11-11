@@ -1,14 +1,13 @@
 //! The menu drawn (#386, draft 1): every page laid out top down with the kit's live components (deck-kit `live/hud.rs`,
-//! the HUD's arcade look) and painted by the kit – one picture for the native deck and the browser deck, a full screen
-//! the stage lays over the scene (deck-space `Stage::set_menu`). Sizes are logical pixels (a cell of the pixel face): the
+//! the HUD's arcade look) and painted by the kit through egui – one layer for the native deck and the browser deck, a
+//! full screen the stage lays over the scene (deck-space `Stage::set_menu`, #485). Sizes are logical pixels (a cell of the pixel face): the
 //! HUD's scale makes 16 px glyphs on a 1080p screen, 40 columns; on a phone (narrow, upright) the rows are a finger's –
 //! 20 high, 40 px at 16 px glyphs, a value under its label. What can be pressed is kept for the pointer (`places`).
 use super::{rows, words, Facts, Hit, Menu, Page, Pair};
-use deck_kit::controls::Rect;
-use deck_kit::draw::DrawList;
+use deck_kit::base::draw::{DrawList, Rect};
+pub use deck_kit::base::screen::Layer;
+use deck_kit::base::tokens::Tokens;
 use deck_kit::live::hud::{self as look, Item, GLYPH, ROW};
-pub use deck_kit::raster::Pixels;
-use deck_kit::tokens::Tokens;
 
 /// the main menu's text width on a wide screen: 40 columns
 const COLUMNS: f32 = 40.0 * GLYPH;
@@ -81,8 +80,9 @@ fn title(page: Page) -> &'static str {
 
 impl Menu {
     /// What to show now on a `w × h` screen (device pixels): None = as before; Some(None) = nothing (closed, or the
-    /// deck's own page shows); Some(pixels) = this picture over the whole screen, from its top left.
-    pub fn paint(&mut self, f: &Facts, (w, h): (f32, f32)) -> Option<Option<Pixels>> {
+    /// deck's own page shows); Some(layer) = this page over the whole screen, from its top left (the screen's menu
+    /// layer, painted through egui: deck-space `Stage::set_menu`).
+    pub fn paint(&mut self, f: &Facts, (w, h): (f32, f32)) -> Option<Option<Layer>> {
         let show = self.top().filter(|_| self.own(f).is_none());
         let now: Option<Drawn> = show.map(|_| (self.stack.clone(), self.cursor, f.clone(), (w, h)));
         let was: Option<Drawn> = self.drawn.take();
@@ -99,15 +99,15 @@ impl Menu {
         let mut d = look::list();
         self.places = self.draw(&mut d, top, f, (lw, lh, s), finger);
         self.scale = s;
-        // a wide screen's page is painted at one pixel a cell and grows on the GPU (nearest); a finger's small values
-        // need the screen's own pixels
+        // a wide screen's page lies on a grid of one pixel a cell, each grown to `s` (the HUD's look); a finger's small
+        // values need the screen's own pixels
         let k = if finger { s } else { 1.0 };
-        Some(Some(look::paint(&d, (lw, lh), k)))
+        Some(Some(look::layer(d, s, k)))
     }
 
     /// The page `top` into `d` over a screen of `lw × lh` logical pixels; what can be pressed.
     fn draw(&self, d: &mut DrawList, top: Page, f: &Facts, (lw, lh, s): (f32, f32, f32), finger: bool) -> Vec<(Rect, Hit)> {
-        let t = look::tokens();
+        let t = deck_kit::live::tokens::hud();
         if top == Page::Splash {
             splash(d, &t, f, (lw, lh));
             return vec![];
@@ -237,6 +237,7 @@ fn splash(d: &mut DrawList, t: &Tokens, f: &Facts, (lw, lh): (f32, f32)) {
 mod tests {
     use super::super::{Input, Qr};
     use super::*;
+    use deck_kit::base::draw::Prim;
 
     fn native() -> Facts {
         Facts { native: true, live_page: true, scenes_page: true, settings_page: true, density: 1.0, scene: "fireflies".into(), ..Facts::default() }
@@ -254,17 +255,17 @@ mod tests {
         let mut m = Menu::new(true);
         assert_eq!(m.paint(&f, (1920.0, 1080.0)), None, "closed and nothing shown");
         m.input(Input::Open, &f);
-        let px = m.paint(&f, (1920.0, 1080.0)).flatten().expect("the main menu");
-        assert_eq!((px.w, px.h), (960, 540), "a pixel a cell: the GPU makes it twice as large");
+        let layer = m.paint(&f, (1920.0, 1080.0)).flatten().expect("the main menu");
+        assert_eq!((layer.scale, layer.grid), (2.0, 1.0), "a pixel a cell, grown to twice its size");
         assert_eq!(m.paint(&f, (1920.0, 1080.0)), None, "nothing changed");
         // the rows' places: 10 high, the box 336 wide in the middle
         let rows: Vec<Rect> = m.places.iter().filter(|(_, h)| matches!(h, Hit::Row(_))).map(|(r, _)| *r).collect();
         assert_eq!(rows.len(), 9);
         assert!(rows.iter().all(|r| r.h == ROW && r.w == COLUMNS) && rows[1].y == rows[0].y + ROW);
         assert_eq!(rows[0].x, (960.0 - COLUMNS) / 2.0);
-        // the chosen row is red where it is painted: its middle, on the screen at twice the size
-        let red = px.at((rows[0].x + 200.0) as u32, (rows[0].y + 5.0) as u32);
-        assert_eq!(red, [232, 48, 42, 255]);
+        // the chosen row wears the red bar
+        let red = Prim::Rect { x: rows[0].x, y: rows[0].y, w: rows[0].w, h: ROW, r: 0.0, color: [232.0 / 255.0, 48.0 / 255.0, 42.0 / 255.0, 1.0] };
+        assert!(layer.list.prims().contains(&red));
         // hovering the fourth row chooses it, a press on the second opens LIVE (the deck's own page: nothing painted)
         m.input(Input::Point((rows[3].x + 4.0) * 2.0, (rows[3].y + 4.0) * 2.0), &f);
         assert_eq!(m.cursor(), 3);
@@ -278,8 +279,8 @@ mod tests {
         let f = Facts { live_page: true, density: 2.0, ..Facts::default() };
         let mut m = Menu::new(true);
         m.input(Input::Open, &f);
-        let px = m.paint(&f, (750.0, 1624.0)).flatten().expect("the menu");
-        assert_eq!((px.w, px.h), (752, 1624), "the screen's own pixels");
+        let layer = m.paint(&f, (750.0, 1624.0)).flatten().expect("the menu");
+        assert_eq!((layer.scale, layer.grid), (4.0, 4.0), "the screen's own pixels");
         let rows: Vec<Rect> = m.places.iter().filter(|(_, h)| matches!(h, Hit::Row(_))).map(|(r, _)| *r).collect();
         assert!(rows.len() == 8 && rows.iter().all(|r| r.h == 20.0), "40 px at 16 px glyphs, no QUIT: {rows:?}");
         let (back, _) = *m.places.iter().find(|(_, h)| *h == Hit::Back).expect("the back line");
@@ -294,10 +295,12 @@ mod tests {
         let mut m = Menu::new(true);
         m.input(Input::Open, &f);
         m.direct(Page::Pair);
-        let px = m.paint(&f, (1920.0, 1080.0)).flatten().expect("the pair page");
-        let (white, black) = (px.rgba.chunks_exact(4).filter(|p| *p == [255, 255, 255, 255]).count(), px.rgba.chunks_exact(4).filter(|p| *p == [0, 0, 0, 255]).count());
-        assert!(white > 2000 && black > 500, "the QR's square and its modules: {white} white, {black} black");
-        let mint = px.rgba.chunks_exact(4).filter(|p| *p == [94, 242, 200, 255]).count();
-        assert!(mint > 100, "the code in the accent: {mint}");
+        let layer = m.paint(&f, (1920.0, 1080.0)).flatten().expect("the pair page");
+        let rects = |c: [f32; 4]| layer.list.prims().iter().filter(|p| matches!(p, Prim::Rect { color, .. } if *color == c)).count();
+        let (white, black) = (rects([1.0; 4]), rects([0.0, 0.0, 0.0, 1.0]));
+        assert!(white == 1 && black >= 147, "the QR's square and its 147 modules: {white} white, {black} black");
+        let mint = deck_kit::live::tokens::hud().color.accent;
+        let code = layer.list.prims().iter().any(|p| matches!(*p, Prim::Text { start, end, color, .. } if color == mint && layer.list.text_of(start, end) == "Q5H-RT2"));
+        assert!(code, "the code in the accent");
     }
 }

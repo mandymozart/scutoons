@@ -18,7 +18,7 @@
 use super::media::Media;
 use super::Status;
 use deck_show::dialog::Shown;
-use deck_show::face::{Face, Pixels};
+use deck_show::face::{Face, Layer};
 use deck_show::flashed::Flashed;
 use deck_show::ready;
 use deck_space::fetched::Fetched;
@@ -46,8 +46,8 @@ pub enum In {
 /// #481: the deck's UI for the person at it, between this thread (it paints) and the frame thread (it shows).
 #[derive(Default)]
 pub struct Panel {
-    /// a new picture until the frame thread took it; none inside = nothing shows any more
-    pub next: Option<Option<Pixels>>,
+    /// a new layer until the frame thread took it (#485: painted through egui there); none inside = nothing shows any more
+    pub next: Option<Option<Layer>>,
     /// a dialog shows: the keys are its own
     pub dialog: bool,
     /// where what shows begins, in the screen's pixels from its top: a tap below it may be the panel's
@@ -113,7 +113,7 @@ impl Flasher {
     fn paint(&mut self) {
         let size = self.size.load(Ordering::Relaxed);
         let shown = self.flash.shown();
-        let next = self.face.paint(shown.as_ref(), ((size >> 32) as f32, size as u32 as f32), deck_outlet::text::mono());
+        let next = self.face.paint(shown.as_ref(), ((size >> 32) as f32, size as u32 as f32), deck_outlet::text::mono_per_px());
         let mut panel = self.panel.lock().unwrap();
         if next.is_some() {
             panel.next = next;

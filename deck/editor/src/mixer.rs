@@ -5,9 +5,9 @@
 //! peak until you click it; a track's has pan and mute. Folds to its head. The scale, the zones and the slots are the core's.
 use crate::stage::Stage;
 use deck_core::meters;
-use deck_kit::controls::{self, Rect};
-use deck_kit::draw::DrawList;
-use deck_kit::tokens::Tokens;
+use deck_kit::editor::controls::{self, Rect};
+use deck_kit::base::draw::DrawList;
+use deck_kit::base::tokens::Tokens;
 
 /// the band's height when open and folded
 pub const OPEN: f32 = 112.0;

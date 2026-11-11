@@ -27,6 +27,7 @@ impl SceneView {
 
     /// one input for the menu, the Live page following it; whether the menu took it
     fn menu_input(&mut self, i: Input) -> bool {
+        self.show.stage.ui_input(i);
         let facts = self.menu_facts();
         if self.menu.input(i, &facts) == Answer::No {
             return false;
@@ -40,13 +41,11 @@ impl SceneView {
         true
     }
 
-    /// the menu's picture to the stage, when it changed
+    /// the menu's page to the stage, when it changed (a layer of deck-kit's egui screen, #485)
     pub(super) fn menu_paint(&mut self) {
         let facts = self.menu_facts();
-        match self.menu.paint(&facts, (self.config.width as f32, self.config.height as f32)) {
-            None => {}
-            Some(None) => self.show.stage.set_menu(&self.device, &self.queue, None),
-            Some(Some(px)) => self.show.stage.set_menu(&self.device, &self.queue, Some((px.w, px.h, &px.rgba))),
+        if let Some(layer) = self.menu.paint(&facts, (self.config.width as f32, self.config.height as f32)) {
+            self.show.stage.set_menu(layer);
         }
     }
 

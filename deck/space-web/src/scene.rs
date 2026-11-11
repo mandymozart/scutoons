@@ -642,15 +642,14 @@ impl SceneView {
         }
     }
 
-    /// The deck's panel (#481): what the flash side says to the person at the deck, painted by the core (deck-show
-    /// `face.rs`: the component library's parts on the CPU) and handed to the stage – only when it changed.
+    /// The deck's panel (#481): what the flash side says to the person at the deck, drawn by the core (deck-show
+    /// `face.rs`: the component library's parts, a layer the kit paints through egui, #485) and handed to the stage –
+    /// only when it changed.
     fn panel(&mut self) {
         let shown = self.outlet.as_ref().and_then(|o| o.shown());
         let size = (self.config.width as f32, self.config.height as f32);
-        match self.face.paint(shown.as_ref(), size, deck_outlet::text::mono()) {
-            None => {}
-            Some(None) => self.show.stage.set_panel(&self.device, &self.queue, None),
-            Some(Some(px)) => self.show.stage.set_panel(&self.device, &self.queue, Some((px.w, px.h, &px.rgba))),
+        if let Some(layer) = self.face.paint(shown.as_ref(), size, deck_outlet::text::mono_per_px()) {
+            self.show.stage.set_panel(layer);
         }
     }
 

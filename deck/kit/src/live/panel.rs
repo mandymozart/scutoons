@@ -8,46 +8,21 @@
 //! A panel is a list of parts: `height` says how tall it is, `draw` paints it over the bottom of a screen and answers
 //! where each part that can be pressed landed. What a press means stays with the caller. The same parts make a prompt
 //! (a flash), a notice, a choice (a role, a slot, a vote).
-use crate::controls::Rect;
-use crate::draw::DrawList;
-use crate::tokens::{Colors, Sizes, Tokens};
-
-const fn rgb(v: u32) -> [f32; 4] {
-    [((v >> 16) & 255) as f32 / 255.0, ((v >> 8) & 255) as f32 / 255.0, (v & 255) as f32 / 255.0, 1.0]
-}
-
-/// The reader's dark panel as the kit's tokens: ink white, paper black, the muted greys, the cyan accent; a control is
-/// 36 high, the lines 2 wide, the corners square.
-pub fn tokens() -> Tokens {
-    let black = rgb(0x000000);
-    Tokens {
-        color: Colors {
-            stage: black,
-            surface: black,
-            surface_head: black,
-            line: rgb(0x555555),
-            text: rgb(0xffffff),
-            muted: rgb(0xa6a6a6),
-            control: black,
-            hover: rgb(0x222222),
-            pressed: rgb(0x222222),
-            selected: rgb(0x222222),
-            within: rgb(0x333333),
-            accent: rgb(0x00d1ff),
-            // the reader's --state-warning and --state-error
-            warn: rgb(0xff6600),
-            danger: rgb(0xff1900),
-            ..Colors::default()
-        },
-        size: Sizes { edge: 2.0, pad: 16.0, font: 14.0, small: 12.0, row: 36.0, radius: 0.0, ..Sizes::default() },
-    }
-}
+use crate::base::draw::{DrawList, Rect};
+use crate::base::screen::{Face, Layer};
+use crate::base::tokens::Tokens;
 
 /// How many device pixels one logical pixel of the deck's UI is on a `w × h` screen: whole steps by the shorter side, so
 /// a phone held upright (780 wide at two pixels per point) and a 1080p stage screen both read like the reader does – 2
 /// and 3; never under 1, at most 4.
 pub fn scale(w: f32, h: f32) -> f32 {
     (w.min(h) / 400.0).round().clamp(1.0, 4.0)
+}
+
+/// A panel (or a toast) as a layer of the screen (base `screen.rs`, through egui): its list in logical pixels, `scale`
+/// device pixels each, on the screen's own pixels, its text in the deck's mono face.
+pub fn layer(list: DrawList, scale: f32) -> Layer {
+    Layer { list, scale, grid: scale, face: Face::Mono }
 }
 
 /// the title's size, and a line's height per pixel of font size (the reader's 1.35)
@@ -305,7 +280,8 @@ pub fn toast(d: &mut DrawList, t: &Tokens, screen: (f32, f32), text: &str, tone:
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::draw::Prim;
+    use crate::base::draw::Prim;
+    use crate::live::tokens::panel as tokens;
 
     fn texts(d: &DrawList) -> Vec<String> {
         d.prims().iter().filter_map(|p| if let Prim::Text { start, end, .. } = *p { Some(d.text_of(start, end).to_string()) } else { None }).collect()

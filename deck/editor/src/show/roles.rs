@@ -11,10 +11,10 @@
 //! first). A deck locked from above shows the lock and offers no move.
 use super::flash::prompt;
 use super::{Hit, Host};
-use deck_kit::controls::{self, Rect};
-use deck_kit::draw::DrawList;
-use deck_kit::text::Field;
-use deck_kit::tokens::Tokens;
+use deck_kit::editor::controls::{self, Rect};
+use deck_kit::base::draw::DrawList;
+use deck_kit::base::text::Field;
+use deck_kit::base::tokens::Tokens;
 use deck_show::roles::{Edit, Inspector, Pick};
 use winit::keyboard::{Key, NamedKey};
 

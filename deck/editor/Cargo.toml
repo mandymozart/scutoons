@@ -14,7 +14,7 @@ path = "src/main.rs"
 [dependencies]
 # the deck's own pieces: the window and its GPU (#443), the audio stack, the rig player, the stage
 deck-native = { path = "../native" }
-deck-kit = { path = "../kit" }
+deck-kit = { path = "../kit", features = ["editor"] }
 deck-space = { path = "../space", default-features = false, features = ["being", "gpu", "native"] }
 deck-engine = { path = "../engine" }
 deck-core = { workspace = true, features = ["tempo"] }

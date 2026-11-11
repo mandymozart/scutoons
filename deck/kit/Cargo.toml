@@ -5,18 +5,22 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 publish.workspace = true
-description = "The editor's component library (#456): the controls, tokens and a draw list. No GPU, no window: an adapter draws the list. The editor, the deck's own UI and module interfaces share it."
+description = "The component library (#456, #485): one base on egui's primitives (painting, text, input) and two component modules, editor and live. No GPU, no window: an adapter draws egui's meshes. The editor, the deck's own UI and module interfaces share it."
 
 [features]
-default = ["raster"]
-# the draw list as pixels (#481): glyph outlines on the CPU, the face from the caller
-raster = ["dep:ab_glyph"]
-# #386: the deck's pixel face (the HUD's font8x8) as a raster face – the menus' arcade look; the adapters that paint the
-# deck's menus turn it on (deck-native, space-web), the core crates draw into the list without it
-pixel = ["raster", "dep:font8x8"]
+default = []
+# the native editor's components and look (controls, typeahead, info strip, icons): never in the decks' build
+editor = []
+# the audience-facing deck UI (#386 the menu's HUD look, #481 the panel) in the deck's pixel face
+live = ["pixel"]
+# #386: the deck's pixel face (the HUD's font8x8) as a bitmap atlas egui samples (base pixel.rs)
+pixel = ["dep:font8x8"]
 
 [dependencies]
-ab_glyph = { version = "0.2", optional = true }
+# #485: the base stands on egui's primitives – the context, epaint's meshes, text and fonts, the input. Without its
+# default fonts (the deck's own faces are handed in) and without its widgets' look. 0.37, on wgpu 30
+# (#485 slice 1); the egui-wgpu that draws it is deck-space's (its `gpu` feature).
+egui = { version = "0.37", default-features = false }
 font8x8 = { version = "0.3", default-features = false, features = ["unicode"], optional = true }
 serde.workspace = true
 toml.workspace = true

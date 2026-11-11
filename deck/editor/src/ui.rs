@@ -3,7 +3,7 @@
 //! logo); the stage is one textured quad. Premultiplied alpha over the cleared frame, rebuilt per frame.
 use ab_glyph::{point, Font, PxScale, ScaleFont};
 use anyhow::Result;
-use deck_kit::draw::{DrawList, Prim};
+use deck_kit::base::draw::{DrawList, Prim};
 use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
 
@@ -53,7 +53,7 @@ impl Atlas {
         let w = (cw * cols).max(10 * crate::logo::SIDE);
         let icon_cols = w / ICON;
         let glyph_h = ch * rows;
-        let icons_h = (deck_kit::icons::ICONS.len() as u32).div_ceil(icon_cols) * ICON;
+        let icons_h = (deck_kit::editor::icons::ICONS.len() as u32).div_ceil(icon_cols) * ICON;
         let logo_cols = w / crate::logo::SIDE;
         let h = glyph_h + icons_h + (crate::logo::FRAMES as u32).div_ceil(logo_cols) * crate::logo::SIDE;
         let mut pixels = vec![255u8; (w * h * 4) as usize];
@@ -85,7 +85,7 @@ impl Atlas {
         let inset = |x: u32, y: u32, s: u32| [(x as f32 + 0.5) / wf, (y as f32 + 0.5) / hf, ((x + s) as f32 - 0.5) / wf, ((y + s) as f32 - 0.5) / hf];
         // the icons: white with their coverage in alpha, Feather's stroke 2.5 and square caps
         let mut icons = HashMap::new();
-        for (i, (name, body)) in deck_kit::icons::ICONS.iter().enumerate() {
+        for (i, (name, body)) in deck_kit::editor::icons::ICONS.iter().enumerate() {
             let (x0, y0) = (i as u32 % icon_cols * ICON, glyph_h + i as u32 / icon_cols * ICON);
             let svg = format!("<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#fff\" stroke-width=\"2.5\" stroke-linecap=\"square\" stroke-linejoin=\"miter\">{body}</svg>");
             let scale = (ICON - 4) as f32 / 24.0;

@@ -2,9 +2,9 @@
 //! column does) and the problems list (the document's errors, then what the decks lack after the last flash; a click
 //! selects the row, cell or seat). The words and what a problem points at are deck-show's view.rs; this file lays them out.
 use super::{Hit, Host, Sheet};
-use deck_kit::controls::{self, Rect};
-use deck_kit::draw::DrawList;
-use deck_kit::tokens::Tokens;
+use deck_kit::editor::controls::{self, Rect};
+use deck_kit::base::draw::DrawList;
+use deck_kit::base::tokens::Tokens;
 use deck_show::view;
 
 fn fit(d: &DrawList, text: &str, px: f32, w: f32) -> String {
