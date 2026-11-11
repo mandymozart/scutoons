@@ -187,6 +187,10 @@ mod tests {
         assert_eq!(with_scene("relay = \"a\"\n", "idle"), "relay = \"a\"\nscene = \"idle\"\n");
         // a key that only starts with scene stays
         assert_eq!(with_scene("scenery = 1\n", "idle"), "scenery = 1\nscene = \"idle\"\n");
+        // a Windows path (the piece side's file) stays a TOML string the deck reads back
+        let path = r"C:\Users\deck\cache\live\piece.toml";
+        let text = with_scene("audio_host = \"asio\"\n", path);
+        assert_eq!(text.parse::<toml::Table>().expect("valid TOML")["scene"].as_str(), Some(path));
     }
 
     #[test]

@@ -79,9 +79,10 @@ fn short(p: &Pinned) -> String {
     format!("{} · {}", p.id, p.version)
 }
 
-/// who flashed; no name (or the core's stand-in for none) = the conductor
+/// who flashed; no name, or the core's stand-in for none ("the conductor", "the conductor of <show>": subtree.rs
+/// `flash_to`, ready.rs `Kept`) = the conductor, in the reader's language
 fn from(de: bool, by: Option<&str>) -> String {
-    match (by.filter(|b| !b.is_empty() && *b != "the conductor"), de) {
+    match (by.filter(|b| !b.is_empty() && !b.starts_with("the conductor")), de) {
         (Some(b), true) => format!("von {b}"),
         (Some(b), false) => format!("by {b}"),
         (None, true) => "vom Conductor".into(),
@@ -221,6 +222,8 @@ mod tests {
         assert_eq!(locked.lines[1], "Gesperrt: nur der Besitzer des Decks kann zurück.");
         assert_eq!(flashed("en", &pin(3), Some("ana")), Shown::Toast("Flashed by ana: top · Version 3".into(), Tone::Good));
         assert_eq!(flashed("de", &pin(3), None), Shown::Toast("Geflasht vom Conductor: top · Version 3".into(), Tone::Good));
+        // the deck editor names nobody: the core says "the conductor of <show>" (the end-to-end test of #481 read it out)
+        assert_eq!(suggestion("de", &pin(3), Some("the conductor of top"), None, 0.0, 0).caption.1, "vom Conductor");
     }
 
     #[test]

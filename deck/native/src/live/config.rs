@@ -90,8 +90,10 @@ impl Choice {
 
 /// Writes `key = "value"` into the deck.toml text: the first `key` line is replaced, further ones go (deck-session reads
 /// the first; deck-set does the same), else the line is added.
+/// The value is a TOML string: a backslash is escaped (a Windows path – the piece side's `C:\…\piece.toml` broke the whole
+/// file before, found in the end-to-end test of #481).
 pub fn with_key(text: &str, key: &str, value: &str) -> String {
-    let line = format!("{key} = \"{value}\"");
+    let line = format!("{key} = \"{}\"", value.replace('\\', "\\\\"));
     let mut out = Vec::new();
     let mut done = false;
     for l in text.lines() {
