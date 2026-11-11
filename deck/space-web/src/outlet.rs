@@ -230,7 +230,9 @@ pub struct Outlet {
 impl Outlet {
     /// join `relay` (ws:// or wss://…/live/<code>) as output of `outlet`, its text in `locale`, show media's links from `api`;
     /// the planes go to `frames`. #478: `kept` – what the Live page chose on this device (`Kept`, the page keeps the text):
-    /// its role over the outlet, its name; `reader` – the signed-in reader's name ("" = nobody): the name when none is kept
+    /// its name; `reader` – the signed-in reader's name ("" = nobody): the name when none is kept. The outlet the address
+    /// names wins over the role kept on the device (owner 2026-11-11: a QR code can lead into a specific outlet, an
+    /// offline entry point); the Live page still moves the deck to another role during the session.
     pub fn new(relay: &str, outlet: &str, kept: &str, reader: &str, locale: &str, api: &str, size: (u32, u32), frames: SyncSender<Frame>) -> Result<Outlet, String> {
         let relay = if relay.trim().is_empty() { HOSTED_RELAY } else { relay.trim() };
         if outlet.is_empty() || !outlet.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') {
@@ -238,7 +240,6 @@ impl Outlet {
         }
         let kept: Kept = serde_json::from_str(kept).unwrap_or_default();
         let named = kept.name.clone().filter(|n| !n.trim().is_empty());
-        let outlet = kept.role.as_deref().unwrap_or(outlet);
         let mut o = Options::new(relay, Role::Output, Some(outlet).filter(|g| !g.is_empty()));
         o.resume = true;
         o.messages = true;
