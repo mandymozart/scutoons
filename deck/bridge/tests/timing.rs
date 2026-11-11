@@ -69,7 +69,7 @@ async fn stage(mut adapters: Vec<(String, Box<dyn Adapter>)>) -> Conductor {
     });
 
     let (mut ws, _) = tokio_tungstenite::connect_async(format!("ws://127.0.0.1:{port}/live/BT")).await.unwrap();
-    let hello = Hello { code: "BT".into(), role: Role::Conductor, group: None, nick: None, token: Some("dev".into()), device: None, resume: None };
+    let hello = Hello { code: "BT".into(), role: Role::Conductor, group: None, nick: None, token: Some("dev".into()), device: None, proof: None, resume: None };
     ws.send(send(Message::Hello(hello))).await.unwrap();
     // wait until the bridge has joined (presence counts no bridge – wait for its `devices` instead)
     loop {

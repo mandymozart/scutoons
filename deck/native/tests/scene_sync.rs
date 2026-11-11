@@ -189,7 +189,7 @@ fn only_the_conductor_pushes() {
     let (_rt, port) = relay();
     let join = |nick: &str| {
         let (mut ws, _) = tungstenite::connect(format!("ws://127.0.0.1:{port}/live/AUTH?role=musician&group=decks")).unwrap();
-        let hello = Hello { code: "AUTH".into(), role: Role::Musician, group: Some("decks".into()), nick: Some(nick.into()), token: None, device: None, resume: None };
+        let hello = Hello { code: "AUTH".into(), role: Role::Musician, group: Some("decks".into()), nick: Some(nick.into()), token: None, device: None, proof: None, resume: None };
         ws.send(Ws::Text(serde_json::to_string(&Envelope::new("", Message::Hello(hello))).unwrap().into())).unwrap();
         ws
     };

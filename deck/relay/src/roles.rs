@@ -5,11 +5,10 @@
 //! it may take or "" for none) is a deck taking a role; its `rename` (itself) is its name. Presence tells the conductor who
 //! sits where under which name, so it can say `role: name`.
 //!
-//! What the relay tests itself (the facts it can know without the server): `account: guest` (anyone with the code), the
-//! `device` a client says in its `hello`, the `group` it joined with (proposal: its QR's, a deck's configured outlet – the
-//! group it sits in is its role, so that cannot be the fact). The account facts (member, creator, admin, live) need
-//! the server's signed proof (#478 slice 4): they are kept and admit nobody yet; nor does "an approved deck" – the relay
-//! cannot tell a paired deck yet.
+//! The facts: `account: guest` (anyone with the code), the `device` a client says in its `hello`, the `group` it joined with
+//! (proposal: its QR's, a deck's configured outlet – the group it sits in is its role, so that cannot be the fact); the
+//! account facts (member, creator, admin, live) and "an approved deck" only by the API's signed proof in its `hello.proof`
+//! (#478 slice 4, token.rs `proof`, kept as the client's `facts` when it joins). No proof, a bad or an expired one: a guest.
 use crate::session::{Client, Session};
 use protocol::{Account, Admits, Present, Role, ShowRole};
 use std::collections::HashMap;
@@ -19,11 +18,29 @@ pub fn takes_roles(role: Role) -> bool {
     matches!(role, Role::Output | Role::Performer | Role::Musician | Role::Audience)
 }
 
+/// Does the proven account fact `has` count as the fact `asked` a role names? Exact, as slice 3 built it: a role that says
+/// member admits a member. THE LADDER'S ONE PLACE – open owner question (#478): do admin and creator count as member? To
+/// make it a ladder, change only this function (deck-show's filter words read the facts exactly too).
+pub fn counts_as(has: Account, asked: Account) -> bool {
+    has == asked
+}
+
 /// May `c` take a role with this filter? None: a guest may, anyone with the code. Any one fact admits.
 pub fn admits(a: Option<&Admits>, c: &Client) -> bool {
     let Some(a) = a else { return true };
     let has = |list: &Option<Vec<String>>, fact: Option<&str>| fact.is_some_and(|f| list.iter().flatten().any(|x| x == f));
-    a.account.iter().flatten().any(|x| *x == Account::Guest) || has(&a.device, c.device.as_deref()) || has(&a.group, c.came.as_deref())
+    let account = |asked: &Account| *asked == Account::Guest || c.facts.account.iter().any(|f| counts_as(*f, *asked));
+    a.account.iter().flatten().any(account)
+        || (a.approved == Some(true) && c.facts.approved)
+        || has(&a.device, c.device.as_deref())
+        || has(&a.group, c.came.as_deref())
+}
+
+/// The strongest account fact `c` has proven, as presence says it (guest without one). Proposal (no owner word on an
+/// order): admin, creator, live, member.
+pub fn strongest(c: &Client) -> Account {
+    const ORDER: [Account; 4] = [Account::Admin, Account::Creator, Account::Live, Account::Member];
+    ORDER.into_iter().find(|a| c.facts.account.contains(a)).unwrap_or(Account::Guest)
 }
 
 /// how many clients sit in the role `id`
@@ -66,6 +83,6 @@ pub fn who(s: &Session) -> HashMap<String, Present> {
     s.clients
         .iter()
         .filter(|(_, c)| takes_roles(c.role) && (c.role != Role::Audience || c.group.as_deref().is_some_and(|g| role_ids.contains(&g))))
-        .map(|(id, c)| (id.clone(), Present { group: c.group.clone(), nick: c.nick.clone(), device: c.device.clone(), locked: c.locked.then_some(true) }))
+        .map(|(id, c)| (id.clone(), Present { group: c.group.clone(), nick: c.nick.clone(), device: c.device.clone(), account: Some(strongest(c)), locked: c.locked.then_some(true) }))
         .collect()
 }

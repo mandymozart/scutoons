@@ -153,6 +153,17 @@ impl Relay {
         }
     }
 
+    /// #478: what a client's proof states for session `code` (a role's filter asks it). None, a bad or an expired one: no
+    /// facts, a guest – never refused for it. Without a secret (dev mode) the facts are taken as stated (main.rs says so).
+    /// The relay learns facts, never who it is.
+    fn facts(&self, code: &str, proof: Option<&str>) -> token::Facts {
+        let Some(proof) = proof.filter(|p| !p.is_empty()) else { return token::Facts::default() };
+        token::proof(self.config.token_secret.as_deref(), proof, code, now_ms() / 1000).unwrap_or_else(|why| {
+            tracing::info!(code, "a proof not taken ({why}): a guest");
+            token::Facts::default()
+        })
+    }
+
     /// Join (or resume) and send the welcome: the snapshot, or – on a resume inside the replay buffer – an empty
     /// snapshot followed by the missed messages.
     fn join(&self, hello: &protocol::Hello, url_group: Option<String>, outbox: Arc<Outbox>) -> Result<String, &'static str> {
@@ -178,6 +189,7 @@ impl Relay {
         let mut client = Client::new(hello.role, group.clone(), nick, outbox, now);
         client.key.clone_from(&key);
         client.device.clone_from(&hello.device);
+        client.facts = self.facts(&hello.code, hello.proof.as_deref());
         s.join(id.clone(), client);
         // #478: a role it may not take is not given
         let group = s.clients.get(&id).and_then(|c| c.group.clone());
@@ -650,5 +662,65 @@ mod tests {
         assert!(prod.check_token("H", Role::Handheld, Some(&token::sign(&secret, &hand))).is_ok());
         assert!(prod.check_token("OTHER", Role::Handheld, Some(&token::sign(&secret, &hand))).is_err(), "another session");
         assert!(prod.check_token("H", Role::Conductor, Some(&token::sign(&secret, &hand))).is_err(), "not the editor's");
+    }
+
+    /// #478: a role that asks member, live or an approved deck is offered and taken with the API's proof, and not without;
+    /// a tampered, an expired or another session's proof makes a guest – never a refusal. Presence says the proven fact.
+    #[test]
+    fn proofs_open_the_roles_that_ask_for_them() {
+        use protocol::{Account, Admits, Assign, Hello, Roles, ShowRole};
+        let secret = b"relay-test-secret".to_vec();
+        let relay = Relay::with_config(Config { token_secret: Some(secret.clone()), ..Config::default() });
+        let now = now_ms() / 1000;
+        let proof = |account: Vec<Account>, approved: bool, session: &str, exp: i64| {
+            token::sign(&secret, &token::Proof { session: session.into(), facts: token::Facts { account, approved }, exp })
+        };
+        let join = |role: Role, group: Option<&str>, token: Option<String>, proof: Option<String>| {
+            let hello = Hello { code: "P".into(), role, group: group.map(Into::into), nick: None, device: None, token, proof, resume: None };
+            let text = serde_json::to_string(&Envelope::new("", Message::Hello(hello))).unwrap();
+            relay.admit(Some(&text), Join::default(), Outbox::new()).map(|(id, _)| id).unwrap()
+        };
+        let cond_token = token::sign(&secret, &token::Claims { session: "P".into(), role: Role::Conductor, exp: now + 60, show: None });
+        let cond = join(Role::Conductor, None, Some(cond_token), None);
+        let role = |id: &str, admits: Admits| ShowRole { id: id.into(), label: None, r#for: Some(admits), here: None };
+        let roles = vec![
+            role("soprano", Admits { account: Some(vec![Account::Member]), ..Default::default() }),
+            role("click", Admits { account: Some(vec![Account::Live]), ..Default::default() }),
+            role("stage", Admits { approved: Some(true), ..Default::default() }),
+        ];
+        relay.with_session("P", |s| s.handle(&cond, Envelope::new("", Message::Roles(Roles { roles })), now_ms(), 50));
+
+        let guest = join(Role::Output, None, None, None);
+        let member = join(Role::Output, None, None, Some(proof(vec![Account::Member], false, "P", now + 60)));
+        let live = join(Role::Audience, Some("click"), None, Some(proof(vec![Account::Live], false, "P", now + 60)));
+        let deck = join(Role::Output, Some("stage"), None, Some(proof(vec![], true, "P", now + 60)));
+        let signed = proof(vec![Account::Member], false, "P", now + 60);
+        let sig = signed.split_once('.').unwrap().1;
+        let forged = format!("{}.{sig}", base64::Engine::encode(&base64::engine::general_purpose::URL_SAFE_NO_PAD, format!(r#"{{"session":"P","facts":{{"account":["live"],"approved":true}},"exp":{}}}"#, now + 60)));
+        let tampered = join(Role::Output, None, None, Some(forged));
+        let expired = join(Role::Output, Some("soprano"), None, Some(proof(vec![Account::Member], false, "P", now - 1)));
+        let elsewhere = join(Role::Output, None, None, Some(proof(vec![Account::Member], true, "OTHER", now + 60)));
+
+        let offered = |id: &str| relay.with_session("P", |s| roles::offer(s, &s.clients[id]).unwrap().into_iter().map(|r| r.id).collect::<Vec<_>>()).unwrap();
+        assert_eq!(offered(&guest), Vec::<String>::new(), "no proof: a guest, none of these roles");
+        assert_eq!(offered(&member), ["soprano"]);
+        assert_eq!(offered(&live), ["click"]);
+        assert_eq!(offered(&deck), ["stage"]);
+        for (who, id) in [("tampered", &tampered), ("expired", &expired), ("another session's", &elsewhere)] {
+            assert_eq!(offered(id), Vec::<String>::new(), "a {who} proof: a guest");
+        }
+        let group = |id: &str| relay.with_session("P", |s| s.clients[id].group.clone()).unwrap();
+        assert_eq!((group(&deck), group(&expired)), (Some("stage".into()), None), "a hello's role: given with the proof, not with an expired one");
+
+        // taken with the proof, refused without
+        let take = |id: &str, g: &str| relay.with_session("P", |s| s.handle(id, Envelope::new("", Message::Assign(Assign { client: id.into(), group: g.into(), lock: None })), now_ms(), 50));
+        take(&member, "soprano");
+        take(&guest, "soprano");
+        assert_eq!((group(&member), group(&guest)), (Some("soprano".into()), None));
+
+        // presence: the strongest proven account fact, guest without one
+        let who = relay.with_session("P", |s| s.presence().who.unwrap()).unwrap();
+        let fact = |id: &str| who[id].account.map(Account::as_str);
+        assert_eq!((fact(&member), fact(&live), fact(&deck), fact(&guest), fact(&tampered)), (Some("member"), Some("live"), Some("guest"), Some("guest"), Some("guest")));
     }
 }

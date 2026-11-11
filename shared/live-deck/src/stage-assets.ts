@@ -1,6 +1,6 @@
 // stage-assets.ts (#465): what a stage asks the page to fetch and decode – a set's .glb and its images, a head's sprites.
 // The asking and the use are the core's (deck/space-web); here only the fetches and the browser's image decoder.
-import { fetchShowLink, type DeckLinkView, type SignedView } from './deck-key.ts';
+import { fetchProof, fetchShowLink, type DeckLinkView, type SignedView } from './deck-key.ts';
 export interface SetView {
 	give_set(glb: Uint8Array, images: unknown[]): void;
 	backend(): string;
@@ -127,7 +127,7 @@ export interface OutletView extends SignedView {
 	outlet_failed(key: string, why: string): void;
 }
 
-/** what the outlet asked for: a chapter (c:, API), a slice (p:, CDN), a medium (m:, URL), a signed link (s:, deck-key.ts) */
+/** what the outlet asked for: a chapter (c:, API), a slice (p:, CDN), a medium (m:, URL), a signed link or its proof (s: r:, deck-key.ts) */
 export function fetchOutletAsks(host: { view: OutletView; stopped: boolean }, o: { api: string; cdn: string; link?: DeckLinkView }) {
 	const asked = host.view.outlet_asks();
 	for (let i = 0; i + 1 < asked.length; i += 2) void fetchOutletAsk(host, o, asked[i] as string, asked[i + 1] as string);
@@ -135,7 +135,7 @@ export function fetchOutletAsks(host: { view: OutletView; stopped: boolean }, o:
 
 async function fetchOutletAsk(host: { view: OutletView; stopped: boolean }, o: { api: string; cdn: string; link?: DeckLinkView }, key: string, path: string) {
 	try {
-		if (key[0] === 's') return void (await fetchShowLink(host, o, key, path));
+		if (key[0] === 's' || key[0] === 'r') return void (await (key[0] === 's' ? fetchShowLink(host, o, key, path) : fetchProof(host, o, path)));
 		const r = await fetch(key[0] === 'c' ? o.api + path : key[0] === 'p' ? o.cdn + path : path, { credentials: 'omit' });
 		if (!r.ok) throw new Error(`HTTP ${r.status}`);
 		if (key[0] === 'c') return void (host.stopped || host.view.outlet_text(key, await r.text()));

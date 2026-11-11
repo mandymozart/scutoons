@@ -170,11 +170,14 @@ pub struct Options {
     /// #478: what this client says it is (`hello.device`: native, browser, phone …) – a role's filter may ask it
     #[serde(default)]
     pub device: Option<String>,
+    /// #478: the API's signed facts of this client for its session (`hello.proof`; deck-outlet's proof.rs asks for it)
+    #[serde(default)]
+    pub proof: Option<String>,
 }
 
 impl Options {
     pub fn new(relay: &str, role: Role, group: Option<&str>) -> Options {
-        Options { relay: relay.into(), role, group: group.map(String::from), nick: None, token: None, resume: false, messages: false, device: None }
+        Options { relay: relay.into(), role, group: group.map(String::from), nick: None, token: None, resume: false, messages: false, device: None, proof: None }
     }
 }
 
@@ -529,6 +532,16 @@ impl Client {
         self.joined && self.send(Message::Rename(Rename { client: self.client.clone(), nick: name.to_string() }))
     }
 
+    /// #478: the API's proof of this client's facts (`None`: none) – in every hello from now. The first one after a hello
+    /// without it joins again at once (with resume), so the relay learns the facts; a renewed one waits for the next hello.
+    pub fn set_proof(&mut self, proof: Option<String>) {
+        let first = self.o.proof.is_none() && proof.is_some();
+        self.o.proof = proof;
+        if first && self.phase == Phase::Open {
+            self.rejoin();
+        }
+    }
+
     /// #478: what the Live page shows of this client's session (deck-ui live.rs)
     pub fn live(&self) -> deck_ui::live::Session {
         let offers = self.roles.iter().map(|r| deck_ui::live::Offer { id: r.id.clone(), label: r.label.clone().unwrap_or_else(|| r.id.clone()), here: r.here.unwrap_or(0) as u32 });
@@ -764,6 +777,7 @@ impl Client {
             nick: self.o.nick.clone(),
             device: self.o.device.clone(),
             token: self.o.token.clone().or_else(|| conductor.then(|| "dev".into())),
+            proof: self.o.proof.clone(),
             resume: self.resume.clone().filter(|_| self.o.resume),
         };
         self.send(Message::Hello(hello));
@@ -1950,6 +1964,29 @@ mod tests {
         c.opened(0.0);
         c.text(0.0, &json!({ "v": 1, "seq": 1, "from": "relay", "kind": "welcome", "p": { "client": "c3", "snapshot": {}, "now": 0 } }).to_string());
         assert_eq!(c.line(), "OUTPUT c3 OF left @ CATH");
+    }
+
+    /// #478: a proof that comes after the hello joins again with it (resume); a renewed one waits for the next hello
+    #[test]
+    fn a_proof_after_the_hello_joins_again_with_it() {
+        let sent = |outs: Vec<Out>| -> Vec<Value> { outs.into_iter().filter_map(|o| if let Out::Send(t) = o { serde_json::from_str(&t).ok() } else { None }).collect() };
+        let mut o = Options::new("ws://relay/live/CATH", Role::Output, Some("tenor"));
+        o.resume = true;
+        let mut c = Client::new(o).unwrap();
+        c.start(0.0);
+        c.opened(0.0);
+        assert_eq!(sent(c.take())[0]["p"].get("proof"), None, "joined as a guest");
+        c.text(0.0, &json!({ "v": 1, "seq": 1, "from": "relay", "kind": "welcome", "p": { "client": "c3", "snapshot": {}, "now": 0, "key": "k" } }).to_string());
+        c.take();
+        c.set_proof(Some("p.s".into()));
+        assert!(c.take().iter().any(|o| matches!(o, Out::Close {})), "the socket goes: join again");
+        c.closed(1.0, "");
+        c.tick(60_000.0);
+        c.opened(60_000.0);
+        let hello = sent(c.take()).into_iter().find(|e| e["kind"] == "hello").unwrap();
+        assert_eq!((hello["p"]["proof"].as_str(), hello["p"]["resume"]["client"].as_str()), (Some("p.s"), Some("c3")));
+        c.set_proof(Some("p.t".into()));
+        assert!(!c.take().iter().any(|o| matches!(o, Out::Close {})), "a renewed proof waits for the next hello");
     }
 
     /// #442: a deck asks for its far addresses once joined, to the decks' group, and again every `far::LISTEN_MS`; its

@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Scutoons\Domain\Live;
 
+use Scutoons\Domain\Roles\Roles;
 use Scutoons\Infrastructure\Clock\Clock;
 use Scutoons\Infrastructure\Config\Settings;
 
@@ -14,6 +15,10 @@ use Scutoons\Infrastructure\Config\Settings;
 final class LiveSessions
 {
     public const HOURS = 24;
+    /** #478: a proof lasts an hour (a deck token's life); a client asks again at half of it */
+    public const PROOF_SECONDS = 3600;
+    /** #478: the account roles a proof may state, in this order (developer is no fact a role asks; guest needs no proof) */
+    public const FACTS = [Roles::MEMBER, Roles::CREATOR, Roles::ADMIN, Roles::LIVE];
     private const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
     public function __construct(private readonly Settings $settings, private readonly Clock $clock)
@@ -35,6 +40,21 @@ final class LiveSessions
         $secret = $this->settings->get('LIVE_TOKEN_SECRET');
         if ($secret === '') return 'dev';
         return self::sign($secret, ['session' => $code, 'role' => $role, 'exp' => $this->clock->time() + $seconds] + ($show === null ? [] : ['show' => $show]));
+    }
+
+    /**
+     * #478: a client's proof for session `$code` – the facts a role's filter may ask that only this API knows: the account
+     * roles among member, creator, admin, live, and whether it is an approved deck. Nothing about who it is (no id, no name,
+     * no mail). Signed like the tokens, `{ session, facts: { account, approved }, exp }` (deck/relay/src/token.rs `proof`;
+     * the shared vector: deck/protocol/fixtures/live-proof.json). No secret: signed with the empty key – the relay in dev
+     * mode takes the facts as stated, a relay with a secret refuses them (that client is a guest).
+     * @param list<string> $account
+     * @return array{proof: string, expires_in: int, dev: bool}
+     */
+    public function proof(string $code, array $account, bool $approved): array
+    {
+        $claims = ['session' => $code, 'facts' => ['account' => $account, 'approved' => $approved], 'exp' => $this->clock->time() + self::PROOF_SECONDS];
+        return ['proof' => self::sign($this->settings->get('LIVE_TOKEN_SECRET'), $claims), 'expires_in' => self::PROOF_SECONDS, 'dev' => $this->dev()];
     }
 
     /** no secret: the relay's dev mode */

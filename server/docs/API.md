@@ -788,6 +788,16 @@ Handshake, then approval, then data (agents/research/CYBERDECKS.md §9). Code: `
 - `POST /api/live/sessions { show? }` → `{ code, token, tokens: { bridge, seat, uplink }, dev }`: a 6-character code and the
   relay's HMAC tokens (`LIVE_TOKEN_SECRET`, deck/relay/src/token.rs, one shared test vector); unset secret = `dev` (the relay's
   dev mode takes any token). 24 h.
+- `GET /api/live/proof?session=<code>` (#478, `LiveProofController`; any signed-in member or an approved deck's own token,
+  normal CORS) → `{ status, proof, expires_in: 3600, dev }`, `Cache-Control: no-store`: a client's facts for that one session,
+  which the deck sends in its `hello.proof` and the relay checks (a role's filter: `account`, `approved`). The proof is signed
+  like the tokens (`base64url(payload JSON) "." base64url(HMAC-SHA256)`, `LIVE_TOKEN_SECRET`) over
+  `{ session, facts: { account: [member|creator|admin|live …], approved }, exp }` – a member's roles among those four (a
+  session cookie or Bearer), or `approved: true` and no account fact for a deck token. Nothing about who it is (no id, no
+  name, no mail). A client asks again at half of `expires_in`. No secret: signed with the empty key, `dev: true` (the relay's
+  dev mode takes the facts as stated; a relay with a secret refuses them – the client is a guest). `401` nobody signed in (a
+  guest needs no proof) · `403 not_for_ai` · `400 invalid_session` (letters, digits, `-`, `_`; 1–64). The shared test vector
+  with the relay: `deck/protocol/fixtures/live-proof.json`.
 
 ## The venue certificate (2026-10-31, #201 – agents/research/LIVE.md B.4)
 

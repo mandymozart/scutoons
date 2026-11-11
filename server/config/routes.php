@@ -22,6 +22,7 @@ use Scutoons\Http\Controllers\AddressBookController;
 use Scutoons\Http\Controllers\ApiTokensController;
 use Scutoons\Http\Controllers\DecksController;
 use Scutoons\Http\Controllers\ShowsController;
+use Scutoons\Http\Controllers\LiveProofController;
 use Scutoons\Http\Controllers\ModulesController;
 use Scutoons\Http\Controllers\LanController;
 use Scutoons\Http\Controllers\ReviewsController;
@@ -229,6 +230,8 @@ return static function (App $app): void {
     $app->put('/api/shows/{id}', [ShowsController::class, 'put']);
     $app->post('/api/shows/{id}/publish', [ShowsController::class, 'publish']);
     $app->post('/api/live/sessions', [ShowsController::class, 'open']);
+    // a client's signed facts for one live session – a member's account roles, an approved deck (#478, LiveProofController)
+    $app->get('/api/live/proof', [LiveProofController::class, 'proof']);
 
     $app->post('/api/decks/request', [DecksController::class, 'request'])->add($deckRequestLimit);
     $app->post('/api/decks/challenge', [DecksController::class, 'challenge'])->add($deckPollLimit);

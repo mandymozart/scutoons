@@ -31,6 +31,7 @@ use std::time::Instant;
 
 use crate::outbox::{Frame, Outbox};
 use crate::roles;
+use crate::token::Facts;
 use crate::vote::OpenVote;
 
 /// B.6: `resume` within the last 500 messages / 5 minutes replays; older gets the snapshot.
@@ -71,6 +72,8 @@ pub struct Client {
     /// filter tests (roles.rs)
     pub device: Option<String>,
     pub came: Option<String>,
+    /// #478: what its proof states (`hello.proof`, checked when it joined: token.rs `proof`) – none for a guest
+    pub facts: Facts,
     /// #478: the conductor put it in its role with a lock from above – it cannot leave by itself
     pub locked: bool,
     /// #478: the roles it was last told it may take (a change is told again)
@@ -85,7 +88,7 @@ impl Client {
             _ => Bucket { tokens: VALUES_BURST, at: now, rate: VALUES_RATE, burst: VALUES_BURST },
         };
         let came = group.clone();
-        Client { role, group, nick, ready: false, outbox, key: String::new(), up: false, bucket, values, pose_t: None, device: None, came, locked: false, offered: None }
+        Client { role, group, nick, ready: false, outbox, key: String::new(), up: false, bucket, values, pose_t: None, device: None, came, facts: Facts::default(), locked: false, offered: None }
     }
 }
 

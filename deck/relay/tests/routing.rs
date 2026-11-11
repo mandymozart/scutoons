@@ -88,6 +88,7 @@ async fn join_welcome(
         nick: None,
         token: token.map(str::to_owned),
         device: None,
+        proof: None,
         resume: resume.clone(),
     };
     send(&mut ws, Message::Hello(hello), None).await;
@@ -152,7 +153,7 @@ async fn ping_pong_and_refusals() {
 
     // a conductor without a token is refused
     let (mut ws, _) = connect_async(format!("ws://127.0.0.1:{port}/live/T2")).await.unwrap();
-    let hello = Hello { code: "T2".into(), role: Role::Conductor, group: None, nick: None, token: None, device: None, resume: None };
+    let hello = Hello { code: "T2".into(), role: Role::Conductor, group: None, nick: None, token: None, device: None, proof: None, resume: None };
     send(&mut ws, Message::Hello(hello), None).await;
     let e = recv(&mut ws).await;
     assert!(matches!(e.message, Message::Error(ref err) if err.code == "token"), "{e:?}");

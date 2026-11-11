@@ -144,6 +144,7 @@ mod running {
             spawn("live-flash", move || flasher.run(flash_rx));
             let preloader = Preloader { media: media.clone(), outbox, compose: to_compose.clone(), status: status.clone(), stop: stop.clone() };
             spawn("live-preload", move || preloader.run(preload_rx));
+            let proof_media = media.clone();
             let composer = Worker {
                 composer: compose::composer(lib, media, size_of(&size)),
                 locale: cfg.locale.clone(),
@@ -167,6 +168,9 @@ mod running {
                 rejoin: rejoin.clone(),
                 page: page_rx,
                 session: session.clone(),
+                media: proof_media,
+                renew: Default::default(),
+                proof: None,
             };
             spawn("live-relay", move || client.run());
             Live { outlet: cfg.outlet, frames: Some(frames), space, pieces, status, size, stop, rejoin, flash: flash_tx, session, page }

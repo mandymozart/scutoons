@@ -123,7 +123,7 @@ async fn linger(peers: &mut [&mut Peer]) {
 async fn join(port: u16, code: &str, role: Role, group: Option<&str>, token: Option<&str>, sub: Option<Subtree>) -> Peer {
     let url = format!("ws://127.0.0.1:{port}/live/{code}");
     let (mut ws, _) = connect_async(&url).await.unwrap();
-    let hello = Hello { code: code.into(), role, group: group.map(str::to_owned), nick: None, token: token.map(str::to_owned), device: None, resume: None };
+    let hello = Hello { code: code.into(), role, group: group.map(str::to_owned), nick: None, token: token.map(str::to_owned), device: None, proof: None, resume: None };
     ws.send(Ws::Text(serde_json::to_string(&Envelope::new("", Message::Hello(hello))).unwrap().into())).await.unwrap();
     loop {
         let frame = tokio::time::timeout(Duration::from_secs(3), ws.next()).await.expect("a welcome").unwrap().unwrap();
