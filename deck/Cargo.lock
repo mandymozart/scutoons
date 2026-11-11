@@ -1138,7 +1138,6 @@ dependencies = [
 name = "deck-editor"
 version = "0.1.0"
 dependencies = [
- "ab_glyph",
  "anyhow",
  "arboard",
  "bytemuck",
@@ -1146,8 +1145,10 @@ dependencies = [
  "deck-engine",
  "deck-kit",
  "deck-native",
+ "deck-outlet",
  "deck-show",
  "deck-space",
+ "egui-wgpu",
  "image",
  "pollster",
  "protocol",

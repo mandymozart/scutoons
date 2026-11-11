@@ -11,6 +11,7 @@ use crate::base::draw::{DrawList, Prim};
 use crate::base::input::Input;
 use egui::epaint::{ClippedPrimitive, ImageDelta, Color32, CornerRadius, Mesh, Shape, Stroke, StrokeKind, TextureId};
 use egui::{pos2, vec2, Context, Event, FontData, FontDefinitions, FontFamily, FontId, Key, LayerId, Modifiers, PointerButton, Pos2, RawInput, Rect, ViewportId};
+use std::collections::HashMap;
 use std::sync::Arc;
 
 /// a line's height per pixel of font size: a text sits in the middle of it (the reader's 1.35, as `panel.rs` lays out)
@@ -48,6 +49,15 @@ pub struct Painted {
     pub size: (u32, u32),
 }
 
+/// The pictures a layer's icons and logo frames come from (the editor's: its adapter rasters Feather's icons and the
+/// creator's logo into one straight RGBA image): where each one lies in it, in uv.
+pub struct Pictures {
+    pub size: [usize; 2],
+    pub rgba: Vec<u8>,
+    pub icons: HashMap<&'static str, Rect>,
+    pub frames: Vec<Rect>,
+}
+
 /// A screen of layers (bottom up) on one egui context.
 pub struct Screen {
     ctx: Context,
@@ -59,6 +69,8 @@ pub struct Screen {
     dirty: bool,
     #[cfg(feature = "pixel")]
     pixel: Option<egui::TextureHandle>,
+    /// the icons' and the logo's image, and its texture once sent
+    pictures: Option<(Arc<Pictures>, Option<egui::TextureHandle>)>,
 }
 
 impl Screen {
@@ -74,6 +86,7 @@ impl Screen {
             dirty: true,
             #[cfg(feature = "pixel")]
             pixel: None,
+            pictures: None,
         }
     }
 
@@ -83,6 +96,19 @@ impl Screen {
             *slot = layer;
             self.dirty = true;
         }
+    }
+
+    /// Layer `i` back from the screen (it shows nothing from the next frame on): a caller that draws every frame keeps
+    /// its list's memory.
+    pub fn take(&mut self, i: usize) -> Option<Layer> {
+        self.dirty = true;
+        self.layers.get_mut(i).and_then(Option::take)
+    }
+
+    /// The pictures the layers' icons and logo frames come from (sent to the GPU with the next frame).
+    pub fn set_pictures(&mut self, pictures: Pictures) {
+        self.pictures = Some((Arc::new(pictures), None));
+        self.dirty = true;
     }
 
     pub fn layer(&self, i: usize) -> Option<&Layer> {
@@ -127,6 +153,9 @@ impl Screen {
         {
             self.pixel = None;
         }
+        if let Some((_, sent)) = self.pictures.as_mut() {
+            *sent = None;
+        }
         self.dirty = true;
     }
 
@@ -155,13 +184,15 @@ impl Screen {
         let pixel = Some(self.pixel_atlas());
         #[cfg(not(feature = "pixel"))]
         let pixel: Option<TextureId> = None;
+        let pictures = self.pictures_texture();
+        let pictures = pictures.as_ref().map(|(id, p)| (*id, p.as_ref()));
         let layers = &self.layers;
         // a pass without egui's root Ui: only our shapes on the background layer
         let out = self.ctx.run_pass(raw, |ctx| {
             let painter = ctx.layer_painter(LayerId::background());
             let mut shapes = Vec::new();
             for layer in layers.iter().flatten() {
-                ctx.fonts_mut(|fonts| paint(fonts, layer, pixel, &mut shapes));
+                ctx.fonts_mut(|fonts| paint(fonts, layer, (pixel, pictures), &mut shapes));
             }
             painter.extend(shapes);
         });
@@ -185,6 +216,14 @@ impl Screen {
             })
             .id()
     }
+
+    /// the pictures as egui's texture (sent once a context), sampled linearly
+    fn pictures_texture(&mut self) -> Option<(TextureId, Arc<Pictures>)> {
+        let ctx = &self.ctx;
+        let (p, sent) = self.pictures.as_mut()?;
+        let handle = sent.get_or_insert_with(|| ctx.load_texture("deck-kit pictures", egui::ColorImage::from_rgba_unmultiplied(p.size, &p.rgba), egui::TextureOptions::LINEAR));
+        Some((handle.id(), p.clone()))
+    }
 }
 
 /// a context whose only fonts are the deck's mono face, at one pixel a point
@@ -205,8 +244,9 @@ fn color(c: [f32; 4]) -> Color32 {
 }
 
 /// One layer's draw list as epaint's shapes, in painter's order: the rectangles as quads of one mesh (whole pixels, no
-/// soft edge, as the CPU painter had them), the text as egui's galleys (mono) or the atlas's quads (pixel).
-fn paint(fonts: &mut egui::epaint::FontsView<'_>, layer: &Layer, pixel: Option<TextureId>, out: &mut Vec<Shape>) {
+/// soft edge, as the CPU painter had them), the text as egui's galleys (mono) or the atlas's quads (pixel), the icons and
+/// the logo's frames as quads on the pictures (when a screen has them).
+fn paint(fonts: &mut egui::epaint::FontsView<'_>, layer: &Layer, (pixel, pictures): (Option<TextureId>, Option<(TextureId, &Pictures)>), out: &mut Vec<Shape>) {
     let (s, g) = (layer.scale.max(f32::MIN_POSITIVE), layer.grid.max(f32::MIN_POSITIVE));
     // a logical place on the layer's grid, in device pixels
     let snap = |v: f32| (v * g).round() * (s / g);
@@ -228,7 +268,19 @@ fn paint(fonts: &mut egui::epaint::FontsView<'_>, layer: &Layer, pixel: Option<T
             out.push(Shape::mesh(std::mem::replace(mesh, Mesh::with_texture(texture))));
         }
     };
+    // the icons and logo frames in a row, on the pictures' texture
+    let pics_texture = pictures.map_or(TextureId::default(), |(id, _)| id);
+    let mut pics = Mesh::with_texture(pics_texture);
+    let picture = |pics: &mut Mesh, mesh: &mut Mesh, out: &mut Vec<Shape>, (x, y, size): (f32, f32, f32), uv: Option<&Rect>, c: Color32| {
+        if let Some(uv) = uv {
+            flush(mesh, out);
+            pics.add_rect_with_uv(Rect::from_min_size(pos2(x * s, y * s), vec2(size * s, size * s)), *uv, c);
+        }
+    };
     for p in layer.list.prims() {
+        if !matches!(p, Prim::Icon { .. } | Prim::Logo { .. }) && !pics.is_empty() {
+            out.push(Shape::mesh(std::mem::replace(&mut pics, Mesh::with_texture(pics_texture))));
+        }
         match *p {
             Prim::Rect { x, y, w, h, r, color: c } if r > 0.0 => {
                 flush(&mut mesh, out);
@@ -260,16 +312,28 @@ fn paint(fonts: &mut egui::epaint::FontsView<'_>, layer: &Layer, pixel: Option<T
                         flush(&mut mesh, out);
                         let font = FontId::monospace(px * s);
                         let top = y * s + (px * s * LINE - fonts.row_height(&font)) / 2.0;
-                        let galley = fonts.layout_no_wrap(text.to_owned(), font, color(c));
+                        // the mono face carries no arrows: the core's sentences have them
+                        let text = match fonts.has_glyphs(&font, text) {
+                            true => text.to_owned(),
+                            false => text.replace('→', ">").replace('←', "<"),
+                        };
+                        let galley = fonts.layout_no_wrap(text, font, color(c));
                         out.push(Shape::galley(pos2(snap(x), top), galley, color(c)));
                     }
                 }
             }
-            // the editor's (its own GPU adapter until slice 2)
-            Prim::Icon { .. } | Prim::Logo { .. } => {}
+            Prim::Icon { x, y, size, name, color: c } => {
+                picture(&mut pics, &mut mesh, out, (x, y, size), pictures.and_then(|(_, p)| p.icons.get(name)), color(c));
+            }
+            Prim::Logo { x, y, size, frame } => {
+                picture(&mut pics, &mut mesh, out, (x, y, size), pictures.and_then(|(_, p)| p.frames.get(frame)), Color32::WHITE);
+            }
         }
     }
     flush(&mut mesh, out);
+    if !pics.is_empty() {
+        out.push(Shape::mesh(pics));
+    }
 }
 
 /// `text` in the pixel face from (x, y) at size `px`: a quad per glyph from the atlas, its 8 cells whole pixels of the
@@ -374,6 +438,27 @@ mod tests {
         assert!(c.contains(&Color32::from_rgb(0, 209, 255)), "the accent on the top edge");
         assert!(c.contains(&Color32::BLACK), "the ground");
         assert!(c.iter().filter(|&&c| c == Color32::WHITE).count() > 40, "the primary button and the white type");
+    }
+
+    #[test]
+    fn icons_and_logo_frames_are_quads_on_the_pictures_in_painters_order() {
+        let mut screen = Screen::new(MONO, 1);
+        let uv = Rect::from_min_max(pos2(0.0, 0.0), pos2(0.5, 0.5));
+        let rgba = vec![255; 4 * 4 * 4];
+        screen.set_pictures(Pictures { size: [4, 4], rgba, icons: HashMap::from([("play", uv)]), frames: vec![uv] });
+        let mut d = DrawList::new(0.6);
+        d.rect(0.0, 0.0, 10.0, 10.0, [0.0, 0.0, 0.0, 1.0]);
+        d.icon(1.0, 2.0, 8.0, "play", [1.0, 0.0, 0.0, 1.0]);
+        d.icon(1.0, 2.0, 8.0, "no such icon", [1.0; 4]);
+        d.logo(10.0, 0.0, 4.0, 0);
+        d.rect(0.0, 20.0, 10.0, 10.0, [0.0, 0.0, 0.0, 1.0]);
+        screen.set(0, Some(Layer { list: d, scale: 2.0, grid: 2.0, face: Face::Mono }));
+        let p = screen.frame((320, 240)).expect("a frame");
+        let m = meshes(&p);
+        assert_eq!(m.iter().map(|m| m.vertices.len() / 4).collect::<Vec<_>>(), [1, 2, 1], "ground, the icon and the logo, ground");
+        assert!(p.set.iter().any(|(id, _)| *id == m[1].texture_id), "the pictures go to the GPU");
+        assert_eq!((m[1].vertices[0].pos, m[1].vertices[0].color), (pos2(2.0, 4.0), Color32::RED), "the icon in its colour");
+        assert_eq!(m[1].vertices[4].color, Color32::WHITE, "the logo in its own colours");
     }
 
     #[test]
