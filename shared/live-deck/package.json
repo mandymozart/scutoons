@@ -25,7 +25,7 @@
 	"scripts": {
 		"build:wasm": "node --experimental-transform-types --no-warnings scripts/build-wasm.ts",
 		"check": "tsc --noEmit -p tsconfig.json && npm run test",
-		"test": "node --experimental-transform-types --no-warnings --test test/client.test.ts test/hand.test.ts test/deck.test.ts test/sync.test.ts test/controls.test.ts test/gamepad.test.ts test/rig.test.ts test/scene.test.ts test/events.test.ts"
+		"test": "node --experimental-transform-types --no-warnings --test test/client.test.ts test/hand.test.ts test/deck.test.ts test/sync.test.ts test/controls.test.ts test/gamepad.test.ts test/rig.test.ts test/scene.test.ts test/events.test.ts test/deck-key.test.ts"
 	},
 	"dependencies": {
 		"@scutoons/live": "*",

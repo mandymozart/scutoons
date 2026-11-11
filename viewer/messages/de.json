@@ -901,6 +901,8 @@
 	},
 	"live_deck": {
 		"title": "Deck",
+		"stage_only": "Vollbild",
+		"stage_leave": "Vollbild verlassen (zurück)",
 		"start": "Sound starten",
 		"starting": "Startet …",
 		"controls": "Regler",

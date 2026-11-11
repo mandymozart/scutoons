@@ -81,10 +81,13 @@ export interface SignedView {
 	outlet_proof(status: number, body: string): void;
 }
 
-/** #478: the deck's proof (the outlet's `r:` ask) – the reader's sign-on cookie goes to the API's proof route and nowhere else */
-export async function fetchProof(host: { view: SignedView; stopped: boolean }, o: { api: string }, url: string) {
+/** #478: the deck's proof (the outlet's `r:` ask) – the reader's sign-in goes to the API's proof route and nowhere else: the
+ *  sign-on cookie, and the session token as Bearer when the reader has one stored (a browser that refuses the cookie,
+ *  shared/auth session.svelte.ts) */
+export async function fetchProof(host: { view: SignedView; stopped: boolean }, o: { api: string; bearer?: () => string | null }, url: string) {
 	if (!url.startsWith(`${o.api}/live/proof?`)) throw new Error('not the API');
-	const r = await fetch(url, { credentials: 'include', cache: 'no-store' });
+	const token = o.bearer?.();
+	const r = await fetch(url, { credentials: 'include', cache: 'no-store', headers: token ? { Authorization: `Bearer ${token}` } : {} });
 	if (!host.stopped) host.view.outlet_proof(r.status, await r.text());
 }
 
