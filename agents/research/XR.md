@@ -68,8 +68,8 @@ So book, space and show are not three orders: a space is a book whose surfaces a
 ## 5 · Decided by the owner (2026-11-10, [xr], as revised the same day)
 
 1. **OSCT's code is copied; the shared core is dropped for now.** The editor is integrated into the creator and the engine into the reader, as a module that is loaded lazily, without fail, so readers who never open XR carry none of it.
-2. **The unit is an Experience,** and it has a type. Three to begin with: **Book, Show, Poster.** A record (vinyl) is a special kind of Book.
-3. **Inside a type, its surfaces.** A Book has cover, back and spread. A Show has walls, screens and tabletops, freely scalable (the editor for scaling comes later). A Poster is one surface.
+2. **The unit is an Experience,** and it has a type. Four: **Book, Concert reading, Exhibition, Poster** (owner 2026-11-11, `[xr]`: "Experience type show becomes concert reading and exhibition"; at first Book, Show, Poster; "show" now means the live show only). A record (vinyl) is a special kind of Book. Where this file and the drafts 2 to 10 still say "Show" or "a show" as a type, read Exhibition (walls, plaques, rooms) or Concert reading (screens).
+3. **Inside a type, its surfaces.** A Book has cover, back and spread. The Show had walls, screens and tabletops, freely scalable (the editor for scaling comes later); which of them a Concert reading takes and which an Exhibition is open (§6). A Poster is one surface.
 4. **A scene belongs to its Experience,** exactly as in OSCT a scene belongs to its book. "Scene" is the word.
 5. **A scene is tied to toons through the event system,** like a location with jump-to. XR scenes go into the address book, and a scene's targets (its parameters) can be addressed through the address system.
 6. **A second 3D engine in the browser is accepted** (three.js beside the deck's), knowing it has to be maintained.
@@ -87,7 +87,8 @@ Drafts shown to the owner (the XR session's notes folder, `482-xr/`, each an `.h
 - Surfaces and the stage (points 8 and 9): whether a named size is kept as a format to reuse across surfaces, and whether a room is a stored group of surfaces or only their arrangement on the stage. Drawn as draft 5 (§8.1). OSCT's stage today: one book lying on a desk, leafed spread by spread (`editor/src/lib/stage/mock-stage.ts`).
 - From draft 2, not answered: whether a record's disc label is a surface; whether the jump's field offers scenes beside experiences and targets.
 
-- How a Show's screen surface names the still a deck shows (the tracking itself is tested and works, owner 2026-11-10: "It's more about the implementation").
+- **Which surfaces each of the two new types takes** (owner's rename, 2026-11-11). The session's proposal, not answered: an Exhibition takes walls, tabletops and screens in rooms (drafts 5 and 10); a Concert reading takes the screen a deck shows on and what lies on a table or is handed out (a sheet, a card); both use the same free surfaces, the type only sets what the stage and "New experience" offer first.
+- How a Concert reading's (or an Exhibition's) screen surface names the still a deck shows (the tracking itself is tested and works, owner 2026-11-10: "It's more about the implementation").
 - What "addressing a scene's parameters" needs: by decision [address] an address is real only where a receiver exists. The reader's XR mode would be that receiver; which parameters a scene exposes follows OSCT's behaviour rules (`set`, `emit`).
 - ~~The list of XR jumps that exist in chapters today.~~ Made 2026-11-10: none. Production's flow (`read_flow`, all toons) has no jump to XR and the local seed has none; the QR code type `xr` redirects to the code's own `redirect_to`. The URL shape is free.
 
@@ -95,7 +96,7 @@ Drafts shown to the owner (the XR session's notes folder, `482-xr/`, each an `.h
 
 Not started: the owner builds nothing yet (2026-11-10); concepts are collected further, a possible start of the build is 2026-11-25 (the owner, 2026-11-11). The order below stands for when the build is called. Ready for it on the branch `wip/482-xr-experiences-7f10f7`: its own packages and test database (`scutoons_xr482_test`); baselines green for the viewer, the creator, PHPStan, core-only and the server contracts.
 
-1. **The data, in SCUTOONS's own shape:** the catalog document kind `experience` (type book · show · poster; surfaces; targets; scenes; entries), its schema taken from OSCT's contract, types generated ([contract]); experiences, their surfaces' targets and scenes as references in the address book (#477); the XR jump's one field offers them; the reader's page `/xr/<experience>/<target>` as a shell that names what it would open.
+1. **The data, in SCUTOONS's own shape:** the catalog document kind `experience` (type book · concert reading · exhibition · poster; surfaces; targets; scenes; entries), its schema taken from OSCT's contract, types generated ([contract]); experiences, their surfaces' targets and scenes as references in the address book (#477); the XR jump's one field offers them; the reader's page `/xr/<experience>/<target>` as a shell that names what it would open.
 2. **The engine in the reader:** OSCT's engine copied in as a lazily loaded module on that page; one experience of type book authored as a document; an entry that gives an item.
 3. **The editor in the creator:** OSCT's workspace (tree, stage, inspector) for an experience.
 4. **Later:** plugins, the Show's scalable surfaces in the editor, scene parameters as addresses.
@@ -118,7 +119,7 @@ The owner: "Bitte konzeptionelle Schritte alle noch durchziehen." Four drafts, e
 - **Two layers.** Inside the scene: OSCT's rules without code as they are (when found, lost, tapped, unlocked or an event; if a variable; do play, pause, stop, show, hide, set, emit). Out of the scene, into SCUTOONS: the entry carries a list of SCUTOONS's own story events, run when the target is unlocked or tapped.
 - **The engine only reports** "unlocked" and "tapped"; the reader's page runs the events with the runner the chapters use, so an item reaches the carrier bag as it does from a story (XR-SHARED-CORE.md §3: the title gives its reward).
 - **The events:** give and take item, set variable, unlock location, jump to a chapter, group, season, toon or product (all exist); new: a jump to another target or scene, and "show the entry" (a sheet with a text, a video or a link, OSCT's entry).
-- A 3D view needs no event: the scene is the 3D view; an item or product can name the scene that shows it, and its page offers "see it in XR".
+- A 3D view needs no event: the scene is the 3D view; an item or product can name the scene that shows it (its page offers no "See it in XR" button, owner 2026-11-11, §8.6).
 - **A story goes in and comes back:** a chapter's XR jump → the reader's XR page → found, the scene plays → unlocked, the events run → tapped or the sheet closed, a jump back into the chapter, which can test the variable.
 - **Later, a word sent to a scene:** its parameters are what its rules already name: the events a rule hears and the variables a rule tests. They become addresses only when the reader's XR mode exists as their receiver ([address]).
 - Asked: (1) the two layers; (2) events on unlocked and on tapped, or on every find too; (3) an entry that is only events and is not listed for the reader; (4) 1 and 0 where a scene's true or false is a story variable.
