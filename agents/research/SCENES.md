@@ -1,4 +1,4 @@
-Status 2026-11-11: design for #267 / #427, nothing built; phase 1 of the leg "scenes and scene storage" (phase 2 #246, phase 3 #244). §1 is read from the code; §2–§6 are proposals until the owner answers §7. The format and the package stay in SCENE-PACKAGE.md (#288, #393); this note is the whole picture and points there.
+Status 2026-11-11: design for #267 / #427, nothing built; phase 1 of the leg "scenes and scene storage" (phase 2 #246, phase 3 #244). §1 is read from the code; §2–§6 are proposals until the owner answers §7; §8 reviews the words (scene, group, label, location, set, spot …) against the code, proposes names and a location model, with its own questions (§8.6). The format and the package stay in SCENE-PACKAGE.md (#288, #393); this note is the whole picture and points there.
 
 # SCENES — what a deck scene is, where it is stored, how it reaches a deck
 
@@ -36,7 +36,7 @@ The 19 files of `deck/native/scenes/`, sorted (#427):
 | Word | What it is | Relation to a scene |
 |---|---|---|
 | **set** (`home-scenes` catalog for now, #193) | a place's 3D staging, with spots | a scene names one set + a spot, never its files |
-| **location / place** (`place:<id>`) | one set with its own state (CATALOG-LINK §8, owner 2026-11-10) | a scene is spawned at a point of a location; words to the location reach the scene |
+| **location** (`location:<id>`; stored as `place:<id>`, §8.3) | one set with its own state (CATALOG-LINK §8, owner 2026-11-10) | a scene is spawned at a spot of a location; words to the location reach the scene (§8.4) |
 | **rig** (`rig:<subject>`, catalog) | the sound and behaviour of one holder | a scene holds rigs by reference (pinned version) or embedded (SCENE-PACKAGE §2) |
 | **module** (`module:<id>`, by hash) | compiled code | reached only through a rig or a node; never inlined |
 | **piece** (SHOW §5) | what a cell plays: a scene, a rig or a module | a scene is one kind of piece |
@@ -62,7 +62,7 @@ In the address book (#477) a published scene is an entry of kind `scene` with `r
 | `id`, `version` | the key's id; `version` stamped by the server on every change (as shows) | — |
 | `toons` | list, may be empty: the address books it is listed in | — |
 | `stage`, `node`, `link`, `outputs`, `being` | exactly deck-space's `Scene` (TOML is only a view of it) | — |
-| `set`, `spot` | on the `space` node, as today (`set = "cathedral"`) | `point` once locations have points |
+| `set`, `spot` | on the `space` node, as today (`set = "cathedral"`) | `location` beside or instead of `set` once locations carry their set; no third word such as `point` (§8.4) |
 | `holder`, `world` | — | SCENE-PACKAGE §2, after #462 settles who a holder is |
 
 - **Schema from one source ([contract]):** the Rust structs. deck-schema already writes the rig `Bundle`'s schema (`deck/catalog/schema.json`) and TS types; it adds `Scene` → `server/schema/content/scene.schema.json` (the server's save guard, `ContentSchemas`) + `shared/live` TS + PHP shapes via `server/schema/generate.ts`. `--check` in `deck:ci` and `npm run generate -- --check`. No hand-written twin.
@@ -143,4 +143,80 @@ Today vs proposed, per platform: the native deck gets the scene API and the `sce
 4. **The first real scene is `scene:nave`** (the cathedral set + Cat Pope's catalog rig), and `cathedral.toml` stays a sandbox? *Recommended:* yes.
 5. **A scene's toons:** a list (like an Experience's), empty allowed; a scene with none is reachable by id only? *Recommended:* yes.
 
-Drafts: `267-scenes/1-scene-paths.html` in the session's notes folder (today vs proposed: where a scene comes from, where it is stored, how it reaches a deck).
+Drafts: `267-scenes/1-scene-paths.html` in the session's notes folder (today vs proposed: where a scene comes from, where it is stored, how it reaches a deck) · `267-scenes/2-words.html` (§8: the word map, the collisions, the names).
+
+## 8. Words: scene, group, location, set, spot
+
+Owner 2026-11-11 (`[scenes]`, thought aloud): *"Scenes currently in the script are labels and groups. So, but these groups are hopefully not problems later on for our tree in the editor. Please review that part. So we might have to call them something else."* Everything in §8 is a proposal. §8.1 is read from the code and the docs.
+
+### 8.1 What each word means today
+
+| Word | Story / creator | Catalog / map | Deck / show | Editor trees | XR |
+|---|---|---|---|---|---|
+| **scene** | the old word for a chapter group: DATA.md ("its groups = scenes inline"), stale comments in `shared/content` flow.ts / reach.ts / validate.ts / map.ts ("a scene in place of its ref"; ref groups ended 2026-10-19), `chapterSceneCharacters`, `SceneRefInput` (characters.ts), "isn't in the scene here" (creator VN hints); a **screenplay** scene `12 INT. …` (script.ts); the storyboard's Scene · Shot · Slice (content.ts:433); legacy keys `scene:<toon>:<chapter>:<name>` (`entity_versions_legacy` only) | **home scenes** (`home_scenes`, creator "Home scenes") = sets to be (#193) | **the deck scene**: one AV graph (`deck/space/src/scene.rs` `Scene`, TOML), `scene:<id>` (address.rs, a cell's piece); a rig played as a scene (`Played::deck_scene`); SHOW §4: the row replaced a "scene" level (Ableton's word for a row) | none | an OSCT scene inside its Experience (XR.md §5.4); VR scenes later = deck scenes one walks in (2026-11-10) |
+| **group** | a part of a chapter (`Chapter.groups`, content.ts:500; creator "Groups", "Add group", the chapter tree); address book kind `group`, `chapter:<n>.<group>` (unconfirmed, #477); a Flow node kind `group` (flow.ts) | member groups (admin segments) | the relay group a client joined = its role / outlet (`Client.group`, protocol `group`, `AddressFilter.group`, SHOW §9 fact `group:`); an outlet's audio group (graph.rs "outlet group"; "the main group", A11); a rig = a module group (RIG-MODULE-GROUPS); a counted knob group in `expose` (params.rs); "switch groups" (OPEN-WORLD §4) | none | the open "unit that groups XR content" (2026-11-10) |
+| **label** | a named point of a VN script (`label` event, vn-script.ts) and a group's jump name (`Group.label`, needed after a script that jumps away); a Flow node kind `label` | — | — | `TreeRow.label` = the text shown | — |
+| (label, other) | mood / persona / look labels, credits "Label" = text a person reads | address book `labels` = text a person reads (A14: "what a person reads is a label") | knob hover names | — | — |
+| **location** | events `unlockLocation`, `setAvatarLocation` (MAP.md) | address book kind `location`, ref `location:<id>`; CATALOG-LINK §8: one set + its state | SHOW §8 `location:*`; not an address place in address.rs yet | — | — |
+| **place** | kanon's `place.<id>` (story variables) | the entity key `place:<id>` (entities.ts, MapRefs.php, AddressBook.php); creator "Map places", "Home (a place on the map)" | address.rs's grammar word: a level `<kind>:<id>` (`deck:`, `scene:` …, RULES A14 "places") | — | a surface's place on the stage (XR.md §5.9) |
+| **set** | `setVariable`, `setAvatarLocation` (a verb) | a location's 3D staging (2026-10-30 "n per place", 2026-11-10 "exactly one set": the later wins) | the space node's `set = "cathedral"`; **also** `being.react[].set` = a control input a mood nudges (`feel.rs` `Nudge.set`); `set:` reserved later (address.rs) | — | — |
+| **spot** | — | `RoomSpot` (LOCATION-SCENES §5: pickups, events in a room; not built) | an empty `spot_*` in a set's `.glb` (`glb.rs` `spots`); the space node's `spot` (where the being floats, the camera aims); `deck/show/src/validate.rs` `Spot` = where in a show document a problem is | — | — |
+| **spawn point / point** | — | CATALOG-LINK §8, OPEN-WORLD §2.7: a named place in the set where a scene spawns, a slot claimed and released; two scenes may share one (owner 2026-11-10) | 2026-11-02: "a spawn where characters / entities enter"; SCENES §3 had "later `point`"; nothing in code | — | — |
+| **room** | — | LOCATION-SCENES: "a 3D room for every place" | `Deck::room()` = the set the being floats in (deck.rs:142); `glb.rs` `RoomVertex`, `upload_room` | — | exhibition walls "as rooms" (XR §5.9) |
+| **node** | a Flow node (group, label, choices …) in the creator's Flow | glTF nodes (empties become spots) | a graph node `[[node]]` of a scene or rig | the tree's third level: rig › track › **node** (main.rs:1444) | world nodes (SCENE-PACKAGE §2) |
+| **outlet** | — | — | a show's stage outlet (a column, `?outlet=left`) = a role; the venue's logical outputs (audio groups, screens, light roles, MIDI, OSC; `deck_outlet`); the graph's `outlet` node; the system scene `outlet` | — | — |
+| **role** | — | account roles (`live`, creator, admin, guest) | the show's role (`deck/show/src/roles.rs`: a stage outlet + its filter); the relay protocol's `Role` (conductor, output, bridge, performer, musician …: what a client is) | the Show tree lists roles | — |
+| **piece** | collage `pieces` on a slice (`CollagePiece`) | — | what a cell plays: a scene, rig or module (SHOW §5, `piece.rs`) | — | — |
+| **cell** | — | a look's image cell (character/persona/look/mood/view, characters.ts) | the show matrix's cell (row × outlet) | — | — |
+| **show** | — | — | the live show (`show:<id>`, Show workspace) | show › seat › role › row | an **Experience type "Show"** (walls, screens, tabletops; XR §5.2) |
+| **Experience** | — | — | — | — | the XR unit (`experience:<id>`), types Book · Show · Poster |
+| **folder** | — | — | the folder bus (A11: a bus that sums children) | a track's icon in the tree | — |
+
+### 8.2 The collisions that matter, ranked
+
+| # | Collision | Who is hurt | What breaks | Proposal |
+|---|---|---|---|---|
+| 1 | **`scene` = deck scene and chapter group** (comments, DATA.md, names in shared/content) | agents above all: a "scene" in the story code reads as `scene:<id>` | a 1c typeahead or an MCP tool that lists groups as kind `scene`; a migration that matches `scene:` keys (the legacy ones look alike) | `scene:` and kind `scene` = the deck scene only. The story says **group**; the screenplay keeps "scene" for its headings, never as an entity or an address. A chore ticket fixes the comments, DATA.md and three names (`chapterSceneCharacters` → `chapterCast`, `SceneRefInput` / `normalizeSceneRef` → `CharacterRefInput` / `normalizeCharacterRef`: they are a VN character reference); no stored data changes |
+| 2 | **XR scene as its own entity later** (owner's hope) | the address grammar | `scene:` cannot mean two kinds (A14) | an XR scene stays inside its Experience; if it ever becomes an entity, it gets its own word (§8.6 Q2), never `scene:` |
+| 3 | **`set` twice in one scene document** (`space.set` the staging, `being.react[].set` a control input) | agents, the generated schema | once scenes are saved (1a), a rename needs a migration | rename `Nudge.set` → `input` now (only repo TOML has it) |
+| 4 | **`group` = chapter group and the relay / filter group** (= role / outlet) | the address book vs the show's filters | `group` as a kind (1c) and as a filter fact (SHOW §9) | the chapter keeps `group` (stored in every chapter); the show's fact becomes `role` (protocol, deck/show; a migration only if a saved show holds `where.group`) |
+| 5 | **location / place** (key `place:`, ref `location:`, creator "Map places", address.rs's grammar "place") | everyone | an agent writes `place:` into an address or `location:` into a key | **location** is the one word for people and references; `place:<id>` stays only as the storage key (a later migration, optional); the grammar's "place" stays (A14 uses it) |
+| 6 | **spot / spawn point / point / room** | the scene document, the editor | a third field for one idea | **spot** is the stored word; a spawn point is the spot a scene sits at; `room` in code reads as set |
+| 7 | **label** = a jump name (story) and text a person reads (A14, address book, trees) | agents | a label edited "for display" breaks a jump | no rename (every chapter and script stores it); the word rule in §8.5 |
+| 8 | **Experience type "Show" and the live show** | people and agents, once XR is built (possibly from 2026-11-25) | "a Show has walls" next to "show › row › cell" | rename the Experience type before it is built: **Exhibition** (the owner's own example; §8.6 Q3) |
+| 9 | **role** three times, **outlet** twice, **piece**, **cell**, **node** | low: each stays inside its domain | — | keep; the table in §8.1 is the reference |
+
+**The owner's question: do the script's groups clash with the editor's node tree?** Not today, and they need not later. The native editor's tree is rig › track › node (`deck/editor/src/main.rs`) and, in the Show workspace, show › seat › role › row (`show/author.rs`). Neither has a group. The clash would come if a scene's node tree got a "group" item to bundle nodes, as 3D tools do. So: **the node tree never says group.** A container is a track (inside a rig) or a holder (a nested rig or scene). A summing bus is already a folder bus (A11 avoided Ableton's "group track"), and a purely visual bundle, if one is ever needed, is a **folder**. "Nodes", as the owner said, is the concept already: everything in the tree below a track is a node. The story keeps **group** (a part of a chapter) and **label** (a named point). A chapter shown in a scene (`chapter` node, `deck/space/src/chapter.rs` reads `groups[].slices`) lists its groups under that node in the story's own word. The creator's chapter tree and Flow already show groups and labels; that is the story's tree, not the editor's.
+
+### 8.3 Names, smallest change first
+
+| Change | Where | Kind of change | Migration |
+|---|---|---|---|
+| `Nudge.set` → `input` | `deck/space/src/space/feel.rs`, the scene TOMLs | code + fixtures, before 1a | none if done now |
+| "scene" for a group → "group" | comments in shared/content, DATA.md; `chapterSceneCharacters`, `SceneRefInput`, `normalizeSceneRef` (shared/content, creator chapter-editor, viewer visual-novel) | words and three names | none |
+| `room` → `set` in deck-space words (`Deck::room`) | deck/space | code words | none |
+| the show's filter fact `group` → `role` | deck/protocol `AddressFilter`, deck/show address.rs, SHOW §9 | protocol (A9: no back-compat) | only if a saved show uses `where.group` |
+| Experience type "Show" → "Exhibition" | XR.md, decisions | words, before the build | none (nothing built) |
+| `place:<id>` → `location:<id>` as the entity key | entity_versions, MapRefs, AddressBook, the creator's map | later, optional | yes (E2: SQL migration of keys) |
+
+Address prefixes (A14): `scene:<id>` the deck scene · `location:<id>` a location (an address place once a deck receives it, CATALOG-LINK §8) · `set:` and `spot:` stay reserved in address.rs, not used: a spot is written below its location, `location:<id>/spot:<name>` only if a receiver ever needs it · `chapter:<n>.<group>` the group's reference (no address: nothing receives it) · `experience:<id>` the XR unit · no `group:`, `place:` or `point:` in addresses.
+
+### 8.4 Locations in scenes
+
+- A **location** (`location:<id>`) is a place of the story world on the map, with its state (intact or destroyed, the hour) and **exactly one set** (owner 2026-11-10).
+- A **set** is the location's 3D staging: geometry, lights and its **spots**, named points (`spot_<name>` empties in the `.glb`, or picked in the editor). Every spot can carry stills, video or 3D (2026-10-30). The catalog's home scenes become sets (#193).
+- A **scene** (`scene:<id>`) is placed at **one spot** of one set (v1: `set` + `spot` on the space node, as today; later `location` + `spot`, the set following from the location). That spot is its **spawn point**: the cast, items and events are placed relative to it, and two scenes may share it. Entrances for a scene's cast are further spots, named per holder when holders come (#462).
+- **Scope** is `location › scene › entity`: a word or state on the location (`location:blocks > destroyed`) reaches every scene placed in it.
+- **A deck plays a scene, never a location.** No story jump targets a location today (the jump types are chapter, season, toon, product, xr; locations have `unlockLocation` and `setAvatarLocation`, which move the reader's map and avatar). So "jump to a location" for a deck means: play the scene placed in that location (its default scene), crossfading as any switch (§4); a location without one is an address with no receiver, which stays silent and is logged (2026-11-10 `[address]`). The reader's own location events stay the reader's.
+
+### 8.5 A word rule (proposed for RULES A14 or A11, not written there)
+
+> Words: **scene** and `scene:` = the deck scene only; a part of a chapter is a **group**, a named point in a script a **label** (a jump name, not display text); a map place is a **location** (`location:`; `place:` is only its storage key); a location has one **set**, a named point in it is a **spot** (a scene's spawn point is its spot); the editor's tree has rigs, tracks, nodes and folders, never groups.
+
+### 8.6 Questions for the owner
+
+1. **The story keeps "group" and "label"; the editor's tree never says group (folder if ever needed).** *Recommended:* yes, as in §8.2 (no migration, the creator's words stay).
+2. **XR scenes, if they become their own entity:** a word of their own, never `scene:`? *Recommended:* they stay inside their Experience (as decided 2026-11-10) and are addressed through it; a separate key only when a use needs one.
+3. **Rename the Experience type "Show" to "Exhibition"** before XR is built? *Recommended:* yes; "show" stays the live show.
+4. **One word "spot"** for every named point in a set, the scene's spawn point being its spot (no `point`, no separate spawn type)? *Recommended:* yes.
+5. **A jump to a location on a deck** plays that location's default scene? *Recommended:* yes; a location names one default scene, and without one nothing plays (logged).
