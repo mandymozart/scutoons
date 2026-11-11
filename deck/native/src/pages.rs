@@ -70,7 +70,7 @@ pub struct LivePage {
 }
 
 /// the Live outlet's session, or none (not in a session)
-fn session(show: &crate::Show) -> live::Session {
+pub fn session(show: &crate::Show) -> live::Session {
     #[cfg(feature = "live")]
     if let Some(l) = &show.live {
         return l.session();

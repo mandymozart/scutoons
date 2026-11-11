@@ -1,6 +1,6 @@
 //! The renderer every deck draws with (CYBERDECKS.md §8 "Render", #463: out of deck-native, so the browser is the same
 //! deck): one fullscreen pass per video node in graph order, each into its own texture, the screen node's blit, and over
-//! it the HUD or its bar, the splash, the pairing card and the build label. It owns no window: the host (deck-native's
+//! it the HUD or its bar, the splash, the deck's menu (#386), the panel and the build label. It owns no window: the host (deck-native's
 //! window, space-web's canvas) brings the device and the frame's target. A shader that does not compile falls back to `pass`.
 //! S3: a pass reads up to three textures (its `in`, a chapter's current / previous slice, an overlay's `top`); the
 //! chapter nodes' slices arrive from their loaders (`ChapterFeed`) and are uploaded when the node cuts.
@@ -9,7 +9,6 @@
 //! depth buffer.
 use crate::graph::{Graph, Kind, Node};
 use crate::hud::{self, Hud};
-use crate::pairing;
 use crate::quality::{Rung, MAX_SIDE};
 use crate::space::gpu::SpaceGpu;
 use crate::space::Space;
@@ -181,10 +180,10 @@ pub struct Stage {
     bar_pass: Overlay,
     bar_tex: wgpu::Texture,
     bar_w: u32,
-    /// the pairing card (#180, pairing.rs): its texture, shown while `pairing` is set
-    pair_pass: Overlay,
-    pair_tex: wgpu::Texture,
-    pairing: bool,
+    /// #386: the deck's menu (deck-ui `menu`, painted by deck-kit): a picture laid over the whole screen while it is set
+    menu_pass: Overlay,
+    menu_tex: wgpu::Texture,
+    menu: bool,
     /// #481: the deck's own UI for the person at it (deck-kit `panel.rs`, painted on the CPU): a strip as wide as the
     /// screen along its bottom; its pixel size while it is shown
     panel_pass: Overlay,
@@ -235,7 +234,7 @@ impl Stage {
         let hud_tex = texture(device, hud::W, hud::H, OFFSCREEN, tex_usage);
         let bar_w = hud::bar_width(size.0 as f32, size.1 as f32);
         let bar_tex = bar_texture(device, bar_w);
-        let pair_tex = texture(device, pairing::W, pairing::H, OFFSCREEN, tex_usage);
+        let menu_tex = texture(device, 1, 1, OFFSCREEN, tex_usage);
         let panel_tex = texture(device, 1, 1, OFFSCREEN, tex_usage);
         let (lw, lh, px) = crate::splash::logo((size.0 / 2).clamp(64, 2048))?;
         let logo = upload(device, queue, lw, lh, &px);
@@ -254,7 +253,7 @@ impl Stage {
         let splash = overlay("splash", builtin("splash").context("the splash shader")?, logo.view.clone(), &linear).await?;
         let hud_pass = overlay("hud", pass, of(&hud_tex), &nearest).await?;
         let bar_pass = overlay("hud bar", pass, of(&bar_tex), &nearest).await?;
-        let pair_pass = overlay("pairing", pass, of(&pair_tex), &nearest).await?;
+        let menu_pass = overlay("menu", pass, of(&menu_tex), &nearest).await?;
         let panel_pass = overlay("panel", pass, of(&panel_tex), &linear).await?;
         let label_pass = overlay("build label", pass, of(&label_tex), &nearest).await?;
         Ok(Stage {
@@ -277,9 +276,9 @@ impl Stage {
             bar_pass,
             bar_tex,
             bar_w,
-            pair_pass,
-            pair_tex,
-            pairing: false,
+            menu_pass,
+            menu_tex,
+            menu: false,
             panel_pass,
             panel_tex,
             panel: None,
@@ -609,13 +608,21 @@ impl Stage {
         self.bar_w
     }
 
-    /// The pairing card (#180): Some = its pixels (pairing::W × pairing::H, from `pairing::Card::raster`), shown in the
-    /// lower right corner over everything; None = gone. Called when it changes, not every frame.
-    pub fn set_pairing(&mut self, queue: &wgpu::Queue, card: Option<&[u8]>) {
-        if let Some(px) = card {
-            write(queue, &self.pair_tex, pairing::W, pairing::H, px);
+    /// The deck's menu (#386): Some = its picture, `w × h` straight RGBA (deck-ui `Menu::paint`), laid over the whole
+    /// screen (a page painted at a pixel a cell grows here, nearest), over the splash and under the panel; None = gone.
+    /// Called when it changes, not every frame.
+    pub fn set_menu(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, menu: Option<(u32, u32, &[u8])>) {
+        let Some((w, h, px)) = menu.filter(|(w, h, px)| *w > 0 && *h > 0 && px.len() == (w * h * 4) as usize) else {
+            self.menu = false;
+            return;
+        };
+        if (self.menu_tex.width(), self.menu_tex.height()) != (w, h) {
+            self.menu_tex = texture(device, w, h, OFFSCREEN, wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST);
+            let view = self.menu_tex.create_view(&Default::default());
+            self.menu_pass.bind = bind_group(device, &self.layout, &self.menu_pass.ubuf, [&view, &self.dummy, &self.dummy], &self.nearest);
         }
-        self.pairing = card.is_some();
+        write(queue, &self.menu_tex, w, h, px);
+        self.menu = true;
     }
 
     /// The deck's panel (#481): Some = its pixels, `w × h` straight RGBA (deck-kit `raster`), drawn as wide as the screen
@@ -679,13 +686,12 @@ impl Stage {
             rp.set_viewport(0.0, 0.0, sw, sh, 0.0, 1.0);
             draw(&mut rp, &self.splash);
         }
-        if self.pairing {
-            // the HUD's scale (2 at 1080p), its 1rem margin, in the lower right corner
-            let s = (sh / 540.0).round().max(1.0);
-            let (cw, ch) = ((pairing::W as f32 * s).min(sw), (pairing::H as f32 * s).min(sh));
-            let m = 16.0 * s;
-            rp.set_viewport((sw - cw - m).max(0.0), (sh - ch - m).max(0.0), cw, ch, 0.0, 1.0);
-            draw(&mut rp, &self.pair_pass);
+        if self.menu {
+            // the picture is the screen's, from its top left (its last cell may reach past the edge)
+            let (mw, mh) = (self.menu_tex.width() as f32, self.menu_tex.height() as f32);
+            let k = (sw / mw).max(sh / mh).max(f32::MIN_POSITIVE);
+            rp.set_viewport(0.0, 0.0, mw * k, mh * k, 0.0, 1.0);
+            draw(&mut rp, &self.menu_pass);
         }
         if let Some((w, h)) = self.panel {
             // as wide as the screen, its own aspect, along the bottom

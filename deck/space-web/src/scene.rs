@@ -33,6 +33,9 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use wasm_bindgen::prelude::*;
 
+/// #386: the deck's menu (deck-ui `menu.rs`) – keys, the pointer, the facts, the picture
+mod menu;
+
 /// a chapter that loads nothing is asked again after this (s)
 const RETRY_S: f32 = 10.0;
 /// what the page fetches for a show (a chapter, a slice, a sprite) is numbered `show × TURN + index`: an answer for a
@@ -158,9 +161,11 @@ pub struct SceneView {
     outlet: Option<Outlet>,
     /// a set the space should show next (the page fetches it)
     set_wanted: Option<String>,
-    /// #470: the pairing card's code ("" = no card) and its pixels (a new stage gets them again)
+    /// #470 #386: the pairing's code ("" = none) and what the menu's "Pair this deck" says
     pairing_code: String,
-    card: Option<Vec<u8>>,
+    pair: deck_ui::menu::Pair,
+    /// #386: the deck's menu – on its splash until START, unless the deck is told its outlet
+    menu: deck_ui::menu::Menu,
     /// the deck's own scene (TOML): a piece plays beside its outlet, black comes back to it
     deck: String,
     /// #473: the piece side, once the outlet is joined
@@ -222,7 +227,8 @@ impl SceneView {
             outlet: None,
             set_wanted: None,
             pairing_code: String::new(),
-            card: None,
+            pair: deck_ui::menu::Pair::Off,
+            menu: deck_ui::menu::Menu::new(false),
             deck,
             side: None,
             held: None,
@@ -236,38 +242,6 @@ impl SceneView {
         })
     }
 
-    /// #478: the Live page opened or closed (the page's stats bar opens it); whether it is open now
-    pub fn live_toggle(&mut self) -> bool {
-        match (self.live.open, self.outlet.as_ref()) {
-            (false, Some(o)) => self.live.open(&o.relay.live()),
-            _ => self.live.open = false,
-        }
-        self.live.open
-    }
-
-    /// #478: a key on the open page (the DOM's `key`: ArrowUp, ArrowDown, Enter, Backspace, Escape, a character); whether
-    /// the page took it
-    pub fn live_key(&mut self, key: &str) -> bool {
-        use deck_ui::live::Key;
-        let k = match key {
-            _ if !self.live.open || self.dialog() => return false,
-            "ArrowUp" => Key::Up,
-            "ArrowDown" => Key::Down,
-            "Enter" => Key::Enter,
-            "Backspace" => Key::Back,
-            "Escape" => {
-                self.live.open = false;
-                return true;
-            }
-            k if k.chars().count() == 1 => Key::Char(k.chars().next().unwrap_or(' ')),
-            _ => return false,
-        };
-        let Some(o) = self.outlet.as_mut() else { return false };
-        let did = self.live.key(k, &o.relay.live());
-        live_do(o, did);
-        true
-    }
-
     /// #478: where the page goes – `density` canvas pixels per CSS pixel, `top` canvas pixels covered by the page's line
     /// across the top (the stats line): the page is centred below it at its readable size (deck-space `hud::page_rect`)
     pub fn live_place(&mut self, density: f32, top: f32) {
@@ -279,18 +253,6 @@ impl SceneView {
         deck_space::hud::page_rect(self.config.width as f32, self.config.height as f32, self.live_at.0, self.live_at.1)
     }
 
-    /// #478: a tap on the canvas at (x, y) device pixels: a line of the open page is taken as Enter on it
-    pub fn live_tap(&mut self, x: f32, y: f32) -> bool {
-        // where the deck's dialog or toast is (#481), a tap is its own
-        if self.face.top().is_some_and(|top| y >= top) {
-            return false;
-        }
-        let (at, s) = self.live_rect();
-        let (Some(o), Some(line)) = (self.outlet.as_mut(), deck_space::hud::line_in(at, s, x, y).filter(|_| self.live.open)) else { return false };
-        let did = self.live.tap(line, &o.relay.live());
-        live_do(o, did);
-        true
-    }
 
     /// #478: the HUD's line for the stats bar – `LIVE TENOR: ANNA`, or the relay's line before the deck is in its session
     pub fn live_line(&self) -> String {
@@ -320,6 +282,10 @@ impl SceneView {
         self.show.stage.set_outlet(rx);
         self.outlet = Some(o);
         self.side = Some(Side::new(&self.deck));
+        // #386: a deck told its outlet is in a session: its splash passes by itself once loaded, no START
+        if self.menu.on_splash() {
+            self.menu.close();
+        }
         Ok(true)
     }
 
@@ -429,20 +395,16 @@ impl SceneView {
         }
     }
 
-    /// #470: the deck's link (DeckLink) - why it has no token ("" = it has one) and the code to pair with ("" = none: the
-    /// pairing card hides); `app` = the viewer the member pairs on
-    pub fn deck_link(&mut self, why: &str, code: &str, app: &str) {
+    /// #470: the deck's link (DeckLink) - why it has no token ("" = it has one) and the code to pair with ("" = none);
+    /// `app` = the viewer the member pairs on; #484 `signed` = a member is signed in (the deck is its user). #386: the
+    /// menu's "Pair this deck" says it (the corner card is gone).
+    pub fn deck_link(&mut self, why: &str, code: &str, app: &str, signed: bool) {
         if let Some(o) = self.outlet.as_mut() {
             if o.unpaired != why {
                 o.unpaired = why.to_owned();
             }
         }
-        if self.pairing_code != code {
-            self.pairing_code = code.to_owned();
-            let shown = (!code.is_empty()).then(|| deck_link::pairing::Shown::Pending { code: code.to_owned() });
-            self.card = deck_space::pairing::Card::of(shown.as_ref(), app).map(|c| c.raster());
-            self.show.stage.set_pairing(&self.queue, self.card.as_deref());
-        }
+        self.set_pair(why, code, app, signed);
     }
 
     pub fn outlet_failed(&mut self, key: &str, why: String) {
@@ -605,7 +567,7 @@ impl SceneView {
     }
 
     /// switch, the change: the built show plays – the outlet's planes go to its stage and the cell on is composed for it,
-    /// the page fetches its set and chapters, the pairing card is drawn again
+    /// the page fetches its set and chapters, the menu is painted again
     fn play(&mut self, mut show: Show) {
         let size = (self.config.width, self.config.height);
         if show.size != size {
@@ -622,7 +584,7 @@ impl SceneView {
             self.show.stage.set_outlet(rx);
             o.rewire(tx);
         }
-        self.show.stage.set_pairing(&self.queue, self.card.as_deref());
+        self.menu.again();
     }
 
     /// The piece side's frame (#473): the outlet's cells to the core, what it asks to switch to, the gliding values into
@@ -776,6 +738,7 @@ impl SceneView {
             }
         }
         self.panel();
+        self.menu_paint();
         let show = &mut self.show;
         if show.graph.first(Kind::Tempo).is_some() {
             self.beats += dt as f64 * show.bpm / 60.0;
@@ -799,7 +762,8 @@ impl SceneView {
         let view = frame.texture.create_view(&Default::default());
         // the splash waits for a chapter's first slice, as on the native deck, but not for ever; a scene change is a black
         // veil without the logo (#250)
-        self.fade.step(veil.is_none() && !show.stage.slides_ready() && self.age < SPLASH_AT_MOST, dt);
+        // #386: a deck in no session keeps its splash until START (the menu's splash)
+        self.fade.step(veil.is_none() && (!show.stage.slides_ready() && self.age < SPLASH_AT_MOST || self.menu.on_splash()), dt);
         show.stage.veil_only = veil.is_some();
         let splash = (veil.unwrap_or(self.fade.alpha), false);
         // #478: the Live page on the HUD, the native deck's raster, its cursor's line lit

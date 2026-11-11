@@ -44,7 +44,7 @@
 		"shared/live-deck/src/rig.ts": "types: the core's answers about what plays (deck-space Played, deck::Turn, Step, Slider)",
 		"shared/live-deck/src/scene.ts": "types: the slider's Spec as the core answered it",
 		"shared/live-deck/src/wiring.ts": "types: the core's wiring of what a deck plays (deck-space rig/wiring.rs, #282) as JSON types",
-	"shared/live-deck/src/live-page.ts": "ui: the Live page's stats line, the keys and taps passed to the core's page, the choice kept as the core's text (#478)",
+	"shared/live-deck/src/live-page.ts": "ui: the status line that opens the core's menu (#386), the keys and the pointer passed to the core's menu and Live page, the choice kept as the core's text (#478)",
 	"shared/live-deck/src/scene-stage.ts": "adapter: the canvas, its size and the animation frames a scene plays in (#463); the scene is the core's",
 	"shared/live-deck/src/stage-assets.ts": "adapter: the fetches and the image decoder for what the core asks a stage to load (#465)",
 	"shared/live-deck/src/space.ts": "adapter: space-web in a canvas, the images, the pointer events forwarded whole (the gestures are deck-space's)",
