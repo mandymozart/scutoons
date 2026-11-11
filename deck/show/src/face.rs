@@ -2,10 +2,12 @@
 //! `flashed.rs` says to the person at the deck (`dialog.rs`), laid out with the component library's panel (deck-kit
 //! `panel.rs`, the reader's style) and painted on the CPU by its `raster` – one drawing for the native deck and the
 //! browser deck. A platform hands in the screen's size and the deck's mono face, shows the pixels as one more overlay
-//! of its stage (deck-space `Stage::set_panel`: a strip along the bottom), and hands taps, keys and typed text back.
+//! of its stage (deck-space `Stage::set_panel`: a strip along the bottom), and hands taps and keys back.
 //! No window and no GPU here.
 use crate::dialog::{Key, Row, Shown};
 use crate::flashed::Flashed;
+#[cfg(test)]
+use crate::ready;
 use deck_kit::controls::Rect;
 use deck_kit::draw::DrawList;
 use deck_kit::panel::{self, Part};
@@ -52,7 +54,6 @@ impl Face {
                 }
                 parts.extend(dialog.rows.iter().enumerate().map(|(i, row)| match row {
                     Row::Switch(label, on) => Part::Switch(label, *on, self.keys && dialog.focus == i),
-                    Row::Field { text, hint, cursor } => Part::Field(text, hint, *cursor),
                 }));
                 parts.extend(dialog.lines.iter().map(|line| Part::Line(line, true)));
                 parts.push(Part::Buttons(&labels, dialog.focus.checked_sub(rows).filter(|_| self.keys), dialog.gone));
@@ -92,10 +93,9 @@ impl Face {
         true
     }
 
-    /// A key, by the name the web gives it (`KeyboardEvent.key`: `ArrowLeft`, `Enter`, `Tab`, `Backspace`, a character
-    /// …; the native deck names its keys the same). While a dialog shows, the keys are its own; a character goes into
-    /// the field being edited; with no dialog, `f` opens "please don't flash" for who may set it. true = the key was the
-    /// deck's UI's.
+    /// A key, by the name the web gives it (`KeyboardEvent.key`: `ArrowLeft`, `Enter`, `Tab`, a character …; the native
+    /// deck names its keys the same). While a dialog shows, the arrows, Tab, Enter and Escape are its own; with no
+    /// dialog, `f` opens "please don't flash" for who may set it. true = the key was the deck's UI's.
     pub fn key(&mut self, name: &str, flashed: &mut Flashed, fetched: &mut Fetched) -> bool {
         let dialog = matches!(flashed.shown(), Some(Shown::Dialog(_)));
         let key = match name {
@@ -105,11 +105,6 @@ impl Face {
             "ArrowDown" | "Tab" => Key::Down,
             "Enter" => Key::Enter,
             "Escape" => Key::Escape,
-            "Backspace" => Key::Backspace,
-            "Delete" => Key::Delete,
-            "Home" => Key::Home,
-            "End" => Key::End,
-            _ if name.chars().count() == 1 && flashed.text(name) => return true,
             "f" | "F" if !dialog && flashed.open_keep() => {
                 self.keys = true;
                 return true;
@@ -119,8 +114,8 @@ impl Face {
         if !dialog {
             return false;
         }
-        // the first key only shows where the keys are – but in a field every key is the text's
-        if self.keys || flashed.editing().is_some() {
+        // the first key only shows where the keys are
+        if self.keys {
             flashed.key(key, fetched);
         }
         self.keys = true;
@@ -173,7 +168,7 @@ mod tests {
     }
 
     #[test]
-    fn please_dont_flash_is_opened_typed_and_saved_with_keys() {
+    fn please_dont_flash_is_opened_switched_and_saved_with_keys() {
         let (mut face, mut f, mut fetched, font) = (Face::default(), Flashed::new("left", "browser"), Fetched::default(), font());
         f.joined("c1");
         f.reports();
@@ -184,21 +179,16 @@ mod tests {
         assert!(!face.key("x", &mut f, &mut fetched), "any other key is the page's");
         assert!(face.key("f", &mut f, &mut fetched));
         let Some(Shown::Dialog(d)) = f.shown() else { panic!("the dialog") };
-        assert_eq!((d.rows.len(), d.focus, f.editing()), (2, 0, None));
-        // Enter flips the switch, Tab goes to the reason, characters are typed, the keys of the text work
-        for key in ["Enter", "Tab", "P", "r", "o", "x", "Backspace", "b", "e", "Home", "Delete", "p"] {
+        assert_eq!((d.rows.clone(), d.buttons.len(), d.focus), (vec![Row::Switch("Bitte nicht flashen".into(), false)], 2, 0));
+        assert!(!face.key("x", &mut f, &mut fetched), "a character is not the dialog's: nothing is typed");
+        assert!(face.paint(f.shown().as_ref(), SCREEN, &font).flatten().is_some());
+        // Enter flips the switch, Tab goes to Save, Enter saves: the conductor hears it at once, the person reads a toast
+        for key in ["Enter", "Tab", "Enter"] {
             assert!(face.key(key, &mut f, &mut fetched), "{key}");
         }
-        assert_eq!(f.editing(), Some("probe"));
-        assert!(face.paint(f.shown().as_ref(), SCREEN, &font).flatten().is_some());
-        // a platform's own input hands the whole text
-        assert!(f.set_field("Probe läuft", 11));
-        assert_eq!(f.shown().and_then(|s| if let Shown::Dialog(d) = s { d.rows.get(1).cloned() } else { None }), Some(Row::Field { text: "Probe läuft".into(), hint: "warum".into(), cursor: Some(11) }));
-        // Enter in the field saves: the conductor hears it at once, the person reads a toast
-        assert!(face.key("Enter", &mut f, &mut fetched));
-        assert_eq!(f.deck.keep(), Some("Probe läuft"));
-        assert_eq!(f.reports().last().and_then(|r| r.keep.clone()).as_deref(), Some("Probe läuft"));
-        assert!(matches!(f.shown(), Some(Shown::Toast(text, _)) if text == "Gespeichert: bitte nicht flashen (Probe läuft)"));
+        assert_eq!(f.deck.keep(), Some(ready::NO_REASON));
+        assert_eq!(f.reports().last().and_then(|r| r.keep.clone()).as_deref(), Some(ready::NO_REASON));
+        assert!(matches!(f.shown(), Some(Shown::Toast(text, _)) if text == "Gespeichert: bitte nicht flashen"));
         // a deck that asks not to be flashed is not asked about a suggestion: it refuses by itself
         f.flash(&flash("f2", 4), "", "no token", &mut fetched);
         assert!(f.reports().iter().any(|r| !r.accepted) && !matches!(f.shown(), Some(Shown::Dialog(_))));
@@ -206,6 +196,14 @@ mod tests {
         assert!(face.key("f", &mut f, &mut fetched));
         assert!(matches!(f.shown(), Some(Shown::Dialog(d)) if d.rows[0] == Row::Switch("Bitte nicht flashen".into(), true)));
         assert!(face.key("Escape", &mut f, &mut fetched));
+        assert_eq!(f.deck.keep(), Some(ready::NO_REASON));
+        // its refusal and its line name no reason
+        assert_eq!(f.deck.last().and_then(|r| r.why.clone()).as_deref(), Some("asks not to be flashed"));
+        // a deck that came with a reason (a native deck's deck.toml) keeps it through the switch
+        f.deck.set_keep(Some("Probe läuft".into()));
+        for key in ["f", "Tab", "Enter"] {
+            assert!(face.key(key, &mut f, &mut fetched), "{key}");
+        }
         assert_eq!(f.deck.keep(), Some("Probe läuft"));
     }
 }

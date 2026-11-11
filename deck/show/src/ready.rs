@@ -18,8 +18,17 @@ pub const SUGGESTION_SECS: f32 = 10.0;
 /// why a deck did not take a flash its person rejected (#481): the conductor's list reads it
 pub const REJECTED: &str = "rejected at the deck";
 
-/// what "please don't flash" says when no reason was given
+/// what "please don't flash" says when no reason was given (the deck's own switch gives none: owner 2026-11-11)
 pub const NO_REASON: &str = "no reason given";
+
+/// `what`, and the reason after `sep` when one was given: "asks not to be flashed: rehearsing", "asks not to be flashed"
+pub fn with_reason(what: &str, sep: (&str, &str), why: &str) -> String {
+    if why.is_empty() || why == NO_REASON {
+        what.to_string()
+    } else {
+        format!("{what}{}{why}{}", sep.0, sep.1)
+    }
+}
 
 /// One piece an outlet's cells name, and the first row that names it.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -272,7 +281,7 @@ impl Deck {
         let forced = flash::forced(flash, &me);
         if !forced {
             if let Some(why) = self.keep.clone() {
-                return Err(Box::new(self.refuse(format!("asks not to be flashed: {why}"))));
+                return Err(Box::new(self.refuse(with_reason("asks not to be flashed", (": ", ""), &why))));
             }
             if self.unsaved {
                 return Err(Box::new(self.refuse("has unsaved configuration".to_string())));
@@ -362,7 +371,7 @@ impl Deck {
 
     /// #471: the HUD's line for "please don't flash".
     pub fn keep_line(&self) -> Option<String> {
-        self.keep.as_ref().map(|why| format!("please don't flash: {why}"))
+        self.keep.as_ref().map(|why| with_reason("please don't flash", (": ", ""), why))
     }
 
     /// The show fetched (or why not), and whether the deck carries each piece (`has`: `Err` = why not, in words): the

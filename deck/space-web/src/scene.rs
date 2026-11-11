@@ -685,8 +685,8 @@ impl SceneView {
         self.face.tap(x, y, flash, fetched)
     }
 
-    /// #481: a key of the page, by its `KeyboardEvent.key`. true = it was the deck's UI's (a dialog's key, a character
-    /// for its field, `f` for "please don't flash").
+    /// #481: a key of the page, by its `KeyboardEvent.key`. true = it was the deck's UI's (a dialog's key, `f` for
+    /// "please don't flash").
     pub fn panel_key(&mut self, key: &str) -> bool {
         // the open Live page (#478) has the keys – a name is typed there – unless a dialog shows over it
         if self.live.open && !self.dialog() {
@@ -695,26 +695,6 @@ impl SceneView {
         let Some(o) = self.outlet.as_mut() else { return false };
         let (flash, fetched) = o.flash_parts();
         self.face.key(key, flash, fetched)
-    }
-
-    /// #481: the text of the field being edited, when one is: the page edits it in an input of its own (the browser's
-    /// keyboard, an IME, the phone's keys) and hands it back with `panel_field`.
-    pub fn panel_editing(&self) -> Option<String> {
-        self.outlet.as_ref().and_then(|o| o.editing().map(str::to_owned))
-    }
-
-    /// #481: the field being edited as the page's input holds it: its text and its cursor (`selectionStart`: UTF-16
-    /// units, as the web counts).
-    pub fn panel_field(&mut self, text: &str, cursor: u32) {
-        let mut units = 0;
-        let chars = text.chars().take_while(|c| {
-            units += c.len_utf16();
-            units <= cursor as usize
-        });
-        let chars = chars.count();
-        if let Some(o) = self.outlet.as_mut() {
-            o.flash_parts().0.set_field(text, chars);
-        }
     }
 
     /// #481: whether the person at the deck may reject a suggested flash (the page knows who is signed in)
