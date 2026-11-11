@@ -1,7 +1,8 @@
 //! The deck's own UI for the person at a deck (#481; owner 2026-11-10: it follows the reader's style and is built in
 //! Rust): the reader's dark panel – black, white type, square corners, 2 px lines, the accent on its top edge, the
 //! actions at its bottom (viewer `pull-panel.svelte`, `StickyActions`) – and its parts: a caption line, a title, lines,
-//! buttons, a key line, a row with a mark, a switch row, a field, and the one-line notice. Draft 1 of #481.
+//! buttons, a key line, a row with a mark, a switch row, a field (with its cursor while it is edited), and the toast.
+//! Draft 1 of #481.
 //!
 //! A panel is a list of parts: `height` says how tall it is, `draw` paints it over the bottom of a screen and answers
 //! where each part that can be pressed landed. What a press means stays with the caller. The same parts make a prompt
@@ -32,6 +33,9 @@ pub fn tokens() -> Tokens {
             selected: rgb(0x222222),
             within: rgb(0x333333),
             accent: rgb(0x00d1ff),
+            // the reader's --state-warning and --state-error
+            warn: rgb(0xff6600),
+            danger: rgb(0xff1900),
             ..Colors::default()
         },
         size: Sizes { edge: 2.0, pad: 16.0, font: 14.0, small: 12.0, row: 36.0, radius: 0.0, ..Sizes::default() },
@@ -66,10 +70,19 @@ pub enum Part<'a> {
     Keys(&'a [(&'a str, &'a str)]),
     /// a row to choose: its label, a note at its right, chosen or not
     Mark(&'a str, &'a str, bool),
-    /// a row with a switch
-    Switch(&'a str, bool),
-    /// one line of text to edit; empty shows the hint, muted
-    Field(&'a str, &'a str),
+    /// a row with a switch: its label, on or off, the keys are on it
+    Switch(&'a str, bool, bool),
+    /// one line of text to edit; empty shows the hint, muted. While it is edited: how many characters stand before the
+    /// cursor (a text longer than the field shows the part with the cursor)
+    Field(&'a str, &'a str, Option<usize>),
+}
+
+/// What a toast is about: its bar's colour (the reader's success, warning, error).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Tone {
+    Good,
+    Warn,
+    Bad,
 }
 
 /// `text` in lines of at most `cols` characters, broken at spaces
@@ -198,9 +211,12 @@ pub fn draw(d: &mut DrawList, t: &Tokens, screen: (f32, f32), parts: &[Part], gr
                 d.text(at.x + at.w - w - 2.0, y + (ph - t.size.small * LINE) * 0.5, t.size.small, note, t.color.muted);
                 places.push(at);
             }
-            Part::Switch(label, on) => {
+            Part::Switch(label, on, focus) => {
                 let at = Rect { x: area.x, y, w: area.w, h: ph };
                 row(d, t, at, label, false, i == 0 || !matches!(parts[i - 1], Part::Mark(..) | Part::Switch(..)));
+                if focus {
+                    d.outline(at.x - 4.0, at.y, at.w + 8.0, at.h, (0.0, 3.0), t.color.accent);
+                }
                 let s = Rect { x: at.x + at.w - 36.0, y: y + (ph - 18.0) * 0.5, w: 34.0, h: 18.0 };
                 if on {
                     d.rect(s.x, s.y, s.w, s.h, t.color.text);
@@ -211,11 +227,23 @@ pub fn draw(d: &mut DrawList, t: &Tokens, screen: (f32, f32), parts: &[Part], gr
                 }
                 places.push(at);
             }
-            Part::Field(text, hint) => {
+            Part::Field(text, hint, cursor) => {
                 let at = Rect { x: area.x, y, w: area.w, h: ph };
-                d.outline(at.x, at.y, at.w, at.h, (0.0, t.size.edge), t.color.line);
-                let (shown, color) = if text.is_empty() { (hint, t.color.muted) } else { (text, t.color.text) };
-                d.text(at.x + 10.0, y + (ph - t.size.font * LINE) * 0.5, t.size.font, shown, color);
+                d.outline(at.x, at.y, at.w, at.h, (0.0, t.size.edge), if cursor.is_some() { t.color.accent } else { t.color.line });
+                let px = t.size.font;
+                let ty = y + (ph - px * LINE) * 0.5;
+                // as many characters as fit; a longer text shows the part with the cursor
+                let room = (((at.w - 20.0) / d.advance(px)) as usize).max(1);
+                let from = cursor.map_or(0, |c| (c + 1).saturating_sub(room));
+                if text.is_empty() {
+                    d.text(at.x + 10.0, ty, px, hint, t.color.muted);
+                } else {
+                    let shown: String = text.chars().skip(from).take(room).collect();
+                    d.text(at.x + 10.0, ty, px, &shown, t.color.text);
+                }
+                if let Some(c) = cursor {
+                    d.rect(at.x + 10.0 + (c - from) as f32 * d.advance(px), ty + 1.0, t.size.edge, px * LINE - 2.0, t.color.accent);
+                }
                 places.push(at);
             }
         }
@@ -251,16 +279,29 @@ fn row(d: &mut DrawList, t: &Tokens, at: Rect, label: &str, on: bool, first: boo
     d.text(at.x + 26.0, at.y + (at.h - t.size.font * LINE) * 0.5, t.size.font, label, t.color.text);
 }
 
-/// The one-line notice at the bottom of a `screen`: no panel and no question – what happened (left), who (right). It goes
-/// by itself; the caller says when.
-pub fn notice(d: &mut DrawList, t: &Tokens, screen: (f32, f32), left: &str, right: &str) -> Rect {
-    let px = t.size.small;
-    let at = Rect { x: 12.0, y: screen.1 - 12.0 - (px * LINE + 16.0), w: screen.0 - 24.0, h: px * LINE + 16.0 };
+/// The reader's toast (shared/ui `toast-stack.svelte`; owner 2026-11-11: "Einen toast aus der zeile machen") at the
+/// bottom left of a `screen`: no panel and no question – what happened, wrapped, as wide as its text and never wider
+/// than 384 or the screen; the paper ground in an ink frame, its tone a bar on its left edge. It goes by itself or on a
+/// tap; the caller says when. Its place.
+pub fn toast(d: &mut DrawList, t: &Tokens, screen: (f32, f32), text: &str, tone: Tone) -> Rect {
+    // the reader's: a margin of 1rem, a padding of 0.75rem / 1rem, a bar of 0.5em
+    let (px, margin, pad) = (t.size.font, 16.0, (16.0, 12.0));
+    let bar = (px * 0.5).round();
+    let max = (screen.0 - 2.0 * margin).min(384.0);
+    let lines = wrap(text, cols(d, px, max - bar - 2.0 * pad.0));
+    let widest = lines.iter().map(|l| l.chars().count()).max().unwrap_or(0) as f32 * d.advance(px);
+    let (w, h) = ((bar + 2.0 * pad.0 + widest).min(max), lines.len() as f32 * px * LINE + 2.0 * pad.1);
+    let at = Rect { x: margin, y: screen.1 - margin - h, w, h };
     d.rect(at.x, at.y, at.w, at.h, t.color.surface);
-    d.outline(at.x, at.y, at.w, at.h, (0.0, t.size.edge), t.color.line);
-    d.text(at.x + 12.0, at.y + 8.0, px, left, t.color.text);
-    let w = d.advance(px) * right.chars().count() as f32;
-    d.text(at.x + at.w - 12.0 - w, at.y + 8.0, px, right, t.color.muted);
+    d.outline(at.x, at.y, at.w, at.h, (0.0, t.size.edge), t.color.text);
+    d.rect(at.x, at.y, bar, at.h, match tone {
+        Tone::Good => t.color.accent,
+        Tone::Warn => t.color.warn,
+        Tone::Bad => t.color.danger,
+    });
+    for (n, line) in lines.iter().enumerate() {
+        d.text(at.x + bar + pad.0, at.y + pad.1 + n as f32 * px * LINE, px, line, t.color.text);
+    }
     at
 }
 
@@ -316,14 +357,14 @@ mod tests {
     }
 
     #[test]
-    fn rows_a_switch_and_a_field_are_places_and_the_notice_is_one_line() {
+    fn rows_a_switch_and_a_field_are_places_and_a_toast_is_a_small_box() {
         let (mut d, t) = (DrawList::new(0.6), tokens());
         let parts = [
             Part::Caption("Rolle", "Show: top"),
             Part::Mark("Publikum", "jetzt", true),
             Part::Mark("Licht", "nur live", false),
-            Part::Switch("Bitte nicht flashen", true),
-            Part::Field("", "warum"),
+            Part::Switch("Bitte nicht flashen", true, false),
+            Part::Field("", "warum", None),
             Part::Buttons(&["Übernehmen"], None, None),
         ];
         let places = draw(&mut d, &t, (300.0, 560.0), &parts, true);
@@ -332,8 +373,28 @@ mod tests {
         assert_eq!(places[1].y, places[0].y + places[0].h);
         assert!(texts(&d).contains(&"warum".to_string()), "an empty field shows its hint");
         d.clear();
-        let at = notice(&mut d, &t, (300.0, 560.0), "Geflasht: top · Version 3", "von ana");
-        assert!((at.y + at.h - 548.0).abs() < 0.01 && at.x == 12.0);
-        assert_eq!(texts(&d), ["Geflasht: top · Version 3", "von ana"]);
+        // bottom left with the reader's margin, as wide as its text, wrapped on a phone
+        let at = toast(&mut d, &t, (300.0, 560.0), "Geflasht von ana: top · Version 3", Tone::Good);
+        assert!((at.y + at.h - 544.0).abs() < 0.01 && at.x == 16.0 && at.w < 268.01, "{at:?}");
+        assert_eq!(texts(&d), ["Geflasht von ana: top ·", "Version 3"]);
+        assert!(d.prims().contains(&Prim::Rect { x: 16.0, y: at.y, w: 7.0, h: at.h, r: 0.0, color: t.color.accent }), "the tone's bar");
+        d.clear();
+        let wide = toast(&mut d, &t, (1280.0, 720.0), "Geflasht von ana: top · Version 3", Tone::Bad);
+        assert!(wide.w < 384.01 && texts(&d).len() == 1, "{wide:?}");
+    }
+
+    #[test]
+    fn a_field_being_edited_shows_its_cursor_and_the_part_of_a_long_text_with_it() {
+        let (mut d, t) = (DrawList::new(0.6), tokens());
+        let places = draw(&mut d, &t, (300.0, 400.0), &[Part::Field("Probe", "warum", Some(2))], false);
+        let (f, adv) = (places[0], d.advance(t.size.font));
+        let cursor = |d: &DrawList| d.prims().iter().find_map(|p| if let Prim::Rect { x, w, color, .. } = *p { (w == t.size.edge && color == t.color.accent && x > f.x).then_some(x) } else { None });
+        assert!((cursor(&d).expect("a cursor") - (f.x + 10.0 + 2.0 * adv)).abs() < 0.01);
+        // 268 wide inside the padding: 29 characters fit
+        d.clear();
+        let long = "Probe läuft noch bis zum Einlass um acht";
+        draw(&mut d, &t, (300.0, 400.0), &[Part::Field(long, "warum", Some(40))], false);
+        assert_eq!(texts(&d), ["noch bis zum Einlass um acht"], "the end of the text, a place left for the cursor");
+        assert!((cursor(&d).expect("a cursor") - (f.x + 10.0 + 28.0 * adv)).abs() < 0.01);
     }
 }

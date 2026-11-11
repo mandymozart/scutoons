@@ -11,10 +11,7 @@
 use crate::outlet::Outlet;
 use crate::{err, frame_for, open_canvas, portrait_asks, set_from_page, CanvasGpu, SPLASH_AT_MOST};
 use deck_engine::control::Controls;
-use deck_kit::controls::Rect;
-use deck_kit::draw::DrawList;
-use deck_kit::panel::{self, Part};
-use deck_show::dialog::{Key, Shown};
+use deck_show::face::Face;
 use deck_space::chapter::{finish_slice, Chapter, Dialog, Source};
 use deck_space::graph::{Graph, Kind};
 use deck_space::quality::MAX_SIDE;
@@ -154,12 +151,8 @@ pub struct SceneView {
     deck: String,
     /// #473: the piece side, once the outlet is joined
     side: Option<Side>,
-    /// #481: the deck's panel for the person at it – what is drawn now (its words and the screen), where its buttons are
-    /// (logical pixels), the scale, and whether they use keys (the focus and the key line show then)
-    panel_drawn: Option<String>,
-    panel_places: Vec<Rect>,
-    panel_scale: f32,
-    panel_keys: bool,
+    /// #481: the deck's dialogs for the person at it, as a picture and its presses (deck-show `face.rs`)
+    face: Face,
     /// #479: a cell whose piece is being fetched – compared again when the answer is here; a newer cell replaces it
     held: Option<(protocol::Cell, Place)>,
     /// the change through black to the scene (TOML) the piece side asks for, the show being built behind it, the built one
@@ -214,10 +207,7 @@ impl SceneView {
             deck,
             side: None,
             held: None,
-            panel_drawn: None,
-            panel_places: Vec::new(),
-            panel_scale: 1.0,
-            panel_keys: false,
+            face: Face::default(),
             change: Change::default(),
             building: false,
             built: Rc::default(),
@@ -515,7 +505,7 @@ impl SceneView {
             show.resize(&self.device, size);
         }
         self.show = show;
-        self.panel_drawn = None;
+        self.face.again();
         self.turn += 1;
         self.reloaded = true;
         self.age = 0.0;
@@ -563,73 +553,52 @@ impl SceneView {
         }
     }
 
-    /// The deck's panel (#481): what the flash side says to the person at the deck, drawn with the component library's
-    /// parts (deck-kit `panel.rs`), painted on the CPU and handed to the stage – only when it changed.
+    /// The deck's panel (#481): what the flash side says to the person at the deck, painted by the core (deck-show
+    /// `face.rs`: the component library's parts on the CPU) and handed to the stage – only when it changed.
     fn panel(&mut self) {
         let shown = self.outlet.as_ref().and_then(|o| o.shown());
-        let (w, h) = (self.config.width as f32, self.config.height as f32);
-        let drawn = shown.as_ref().map(|s| format!("{s:?} {w}x{h} {}", self.panel_keys));
-        if drawn == self.panel_drawn {
-            return;
+        let size = (self.config.width as f32, self.config.height as f32);
+        match self.face.paint(shown.as_ref(), size, deck_outlet::text::mono()) {
+            None => {}
+            Some(None) => self.show.stage.set_panel(&self.device, &self.queue, None),
+            Some(Some(px)) => self.show.stage.set_panel(&self.device, &self.queue, Some((px.w, px.h, &px.rgba))),
         }
-        self.panel_drawn = drawn;
-        self.panel_places.clear();
-        let Some(shown) = shown else { return self.show.stage.set_panel(&self.device, &self.queue, None) };
-        let scale = panel::scale(w, h);
-        let screen = (w / scale, h / scale);
-        let (font, tokens) = (deck_outlet::text::mono(), panel::tokens());
-        let mut d = DrawList::new(deck_kit::raster::per_px(font));
-        let top = match &shown {
-            Shown::Dialog(dialog) => {
-                let labels: Vec<&str> = dialog.buttons.iter().map(|(label, _)| label.as_str()).collect();
-                let keys: Vec<(&str, &str)> = dialog.keys.iter().map(|(key, what)| (*key, what.as_str())).collect();
-                let mut parts = vec![Part::Caption(&dialog.caption.0, &dialog.caption.1), Part::Title(&dialog.title)];
-                parts.extend(dialog.lines.iter().map(|line| Part::Line(line, true)));
-                parts.push(Part::Buttons(&labels, self.panel_keys.then_some(dialog.focus), dialog.gone));
-                if self.panel_keys {
-                    parts.push(Part::Keys(&keys));
-                }
-                self.panel_places = panel::draw(&mut d, &tokens, screen, &parts, !self.panel_keys);
-                // the glow above the edge is part of the strip
-                screen.1 - panel::height(&d, &tokens, screen.0, &parts) - 16.0
-            }
-            Shown::Line(left, right) => panel::notice(&mut d, &tokens, screen, left, right).y - 2.0,
-        }
-        .max(0.0);
-        let px = deck_kit::raster::raster(&d, font, (0.0, top), (screen.0, screen.1 - top), scale);
-        self.panel_scale = scale;
-        self.show.stage.set_panel(&self.device, &self.queue, Some((px.w, px.h, &px.rgba)));
     }
 
-    /// #481: a tap or a click at (x, y) of the canvas, in its pixels: the dialog's button there is pressed. true = it was
-    /// on a button.
+    /// #481: a tap or a click at (x, y) of the canvas, in its pixels: what the deck's UI has there is pressed (a
+    /// button, a switch, a field, a toast). true = it was the deck's UI's.
     pub fn panel_tap(&mut self, x: f32, y: f32) -> bool {
-        let (lx, ly) = (x / self.panel_scale, y / self.panel_scale);
-        let Some(index) = self.panel_places.iter().position(|at| at.has(lx, ly)) else { return false };
-        self.panel_keys = false;
-        if let Some(o) = self.outlet.as_mut() {
-            o.press(index);
-        }
-        true
+        let Some(o) = self.outlet.as_mut() else { return false };
+        let (flash, fetched) = o.flash_parts();
+        self.face.tap(x, y, flash, fetched)
     }
 
-    /// #481: a key of the page (`ArrowLeft`, `ArrowRight`, `Enter`, `Escape`) while a dialog shows. true = it was the
-    /// dialog's.
+    /// #481: a key of the page, by its `KeyboardEvent.key`. true = it was the deck's UI's (a dialog's key, a character
+    /// for its field, `f` for "please don't flash").
     pub fn panel_key(&mut self, key: &str) -> bool {
-        let key = match key {
-            "ArrowLeft" => Key::Left,
-            "ArrowRight" => Key::Right,
-            "Enter" => Key::Enter,
-            "Escape" => Key::Escape,
-            _ => return false,
-        };
-        let Some(o) = self.outlet.as_mut().filter(|o| matches!(o.shown(), Some(Shown::Dialog(_)))) else { return false };
-        // the first key only shows where the keys are
-        if self.panel_keys {
-            o.key(key);
+        let Some(o) = self.outlet.as_mut() else { return false };
+        let (flash, fetched) = o.flash_parts();
+        self.face.key(key, flash, fetched)
+    }
+
+    /// #481: the text of the field being edited, when one is: the page edits it in an input of its own (the browser's
+    /// keyboard, an IME, the phone's keys) and hands it back with `panel_field`.
+    pub fn panel_editing(&self) -> Option<String> {
+        self.outlet.as_ref().and_then(|o| o.editing().map(str::to_owned))
+    }
+
+    /// #481: the field being edited as the page's input holds it: its text and its cursor (`selectionStart`: UTF-16
+    /// units, as the web counts).
+    pub fn panel_field(&mut self, text: &str, cursor: u32) {
+        let mut units = 0;
+        let chars = text.chars().take_while(|c| {
+            units += c.len_utf16();
+            units <= cursor as usize
+        });
+        let chars = chars.count();
+        if let Some(o) = self.outlet.as_mut() {
+            o.flash_parts().0.set_field(text, chars);
         }
-        self.panel_keys = true;
-        true
     }
 
     /// #481: whether the person at the deck may reject a suggested flash (the page knows who is signed in)

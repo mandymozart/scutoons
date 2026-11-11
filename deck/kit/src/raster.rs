@@ -3,7 +3,8 @@
 //! IBM Plex Mono Bold, deck-outlet's assets). No GPU here; the editor has its own adapter (deck-editor ui.rs). Icons and
 //! the logo are the editor's and are not painted.
 use crate::draw::{DrawList, Prim};
-use ab_glyph::{Font, PxScale, ScaleFont};
+pub use ab_glyph::Font;
+use ab_glyph::{PxScale, ScaleFont};
 
 /// a line's height per pixel of font size: a text sits in the middle of it (panel.rs)
 const LINE: f32 = 1.35;

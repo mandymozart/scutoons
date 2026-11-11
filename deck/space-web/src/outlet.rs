@@ -23,7 +23,7 @@ use deck_outlet::route::{route, Input, Routed};
 use deck_outlet::show::{show_path, signed_link, signed_link_request};
 use deck_outlet::status::Status;
 use deck_outlet::text::Dialog;
-use deck_show::dialog::{Key, Shown};
+use deck_show::dialog::Shown;
 use deck_show::flashed::Flashed;
 use deck_space::chapter::Chapter;
 use deck_space::fetched::Fetched;
@@ -312,7 +312,7 @@ impl Outlet {
         }
     }
 
-    /// #481: what the deck says to the person at it about a flash – a dialog, a line, or nothing (the scene view draws it)
+    /// #481: what the deck says to the person at it about a flash – a dialog, a toast, or nothing (the scene view shows it)
     pub fn shown(&self) -> Option<Shown> {
         self.flash.shown()
     }
@@ -322,14 +322,14 @@ impl Outlet {
         self.flash.set_may_reject(yes);
     }
 
-    /// #481: the dialog's button `index` was pressed
-    pub fn press(&mut self, index: usize) {
-        self.flash.press(index, &mut self.fetched);
+    /// #481: the flash side and the pieces it asks for, for the taps and keys of the deck's UI (deck-show `face.rs`)
+    pub fn flash_parts(&mut self) -> (&mut Flashed, &mut Fetched) {
+        (&mut self.flash, &mut self.fetched)
     }
 
-    /// #481: a key for the dialog
-    pub fn key(&mut self, key: Key) {
-        self.flash.key(key, &mut self.fetched);
+    /// #481: the text of the field being edited, when one is
+    pub fn editing(&self) -> Option<&str> {
+        self.flash.editing()
     }
 
     /// the flash side's turn: its reports go to the conductor and the HUD's FLASH lines

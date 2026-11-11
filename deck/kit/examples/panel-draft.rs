@@ -3,22 +3,22 @@
 //!   cargo run -p deck-kit --example panel-draft -- <out dir>
 use ab_glyph::FontRef;
 use deck_kit::draw::DrawList;
-use deck_kit::panel::{self, Part};
+use deck_kit::panel::{self, Part, Tone};
 use deck_kit::raster;
 
 const NATIVE: (f32, f32) = (640.0, 400.0);
 const PHONE: (f32, f32) = (300.0, 560.0);
 
-fn frame(out: &str, name: &str, screen: (f32, f32), grip: bool, parts: &[Part], notice: Option<(&str, &str)>) -> std::io::Result<()> {
+fn frame(out: &str, name: &str, screen: (f32, f32), grip: bool, parts: &[Part], toast: Option<(&str, Tone)>) -> std::io::Result<()> {
     let t = panel::tokens();
     // the deck's mono face (deck-outlet's assets)
     let font = FontRef::try_from_slice(include_bytes!("../../outlet/assets/IBMPlexMono-Bold-latin.ttf")).expect("IBM Plex Mono");
     let mut d = DrawList::new(raster::per_px(&font));
     // the scene behind: a dark ground
     d.rect(0.0, 0.0, screen.0, screen.1, [0.09, 0.07, 0.16, 1.0]);
-    match notice {
-        Some((left, right)) => {
-            panel::notice(&mut d, &t, screen, left, right);
+    match toast {
+        Some((text, tone)) => {
+            panel::toast(&mut d, &t, screen, text, tone);
         }
         None => {
             panel::draw(&mut d, &t, screen, parts, grip);
@@ -47,11 +47,12 @@ fn main() -> std::io::Result<()> {
         Part::Keys(&[("Enter", "OK"), ("< >", "wechseln")]),
     ];
     frame(&out, "3-erzwungen", NATIVE, false, &forced, None)?;
-    frame(&out, "4-gast-zeile", PHONE, false, &[], Some(("Geflasht: top · Version 3", "von ana")))?;
+    frame(&out, "4-gast-toast", PHONE, false, &[], Some(("Geflasht von ana: top · Version 3", Tone::Good)))?;
+    frame(&out, "4b-toast-fehler", NATIVE, false, &[], Some(("Zurück geht nicht: gesperrt, nur der Besitzer des Decks kann zurück.", Tone::Bad)))?;
     let keep = [
         Part::Caption("Flash · dieses Deck", "läuft: top · 2"),
-        Part::Switch("Bitte nicht flashen", true),
-        Part::Field("Probe läuft", "warum"),
+        Part::Switch("Bitte nicht flashen", true, false),
+        Part::Field("Probe läuft", "warum", Some(11)),
         Part::Line("Der Conductor sieht den Grund. Ein erzwungener Flash geht trotzdem durch.", true),
         Part::Buttons(&["Speichern", "Abbrechen"], None, None),
     ];

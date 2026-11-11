@@ -11,13 +11,16 @@
 //!
 //! - **the person at the deck** (#481, `dialog.rs`): a flash that is only suggested waits for them – accept, reject, or
 //!   no answer for `SUGGESTION_SECS`, which accepts – when they may reject (`set_may_reject`; a guest and a member may
-//!   not: they are flashed and read one line). After a flash that replaced the deck's own version they get the notice
-//!   with the way back; everyone else the one line. `shown` is what the platform draws, `press` / `key` what it hands back.
+//!   not: they are flashed and read a toast). After a flash that replaced the deck's own version they get the notice
+//!   with the way back; everyone else the toast. Who may reject may also say "please don't flash" and why at the deck
+//!   (`open_keep`: a switch and a field to type in – `text`, or a platform's own input through `set_field`). `shown` is
+//!   what `face.rs` draws, `press` / `key` what it hands back.
 //!
 //! The native deck does the same on its own thread, blocking (deck-native live/flash.rs).
-use crate::dialog::{self, Act, Key, Shown};
+use crate::dialog::{self, Act, Key, Row, Shown};
 use crate::ready::{self, Deck, SUGGESTION_SECS};
 use crate::{Pinned, Show};
+use deck_kit::text::Field;
 use deck_space::fetched::Fetched;
 use deck_space::piece::{available, Found};
 use deck_space::rig::address::Place;
@@ -27,8 +30,11 @@ use std::collections::HashMap;
 /// the shows kept: a deck plays from a handful (no growth without bound, RULES A10)
 const KEEP: usize = 16;
 
-/// how long the one line stays, seconds
-const LINE_SECS: f32 = 5.0;
+/// how long a toast stays, seconds
+const TOAST_SECS: f32 = 5.0;
+
+/// the reason of "please don't flash": at most so many characters (the conductor's list shows it in one line)
+pub const WHY_CHARS: usize = 80;
 
 /// A flash taken, until its report went out.
 #[derive(Debug, Clone)]
@@ -58,9 +64,11 @@ pub struct Flashed {
     pending: Option<(Flash, Option<f32>)>,
     /// the flash they rejected last (a rejoin hands it over again: the same answer)
     rejected: Option<String>,
-    /// the one line and until when it shows
-    line: Option<(Shown, f32)>,
-    /// the button the keys are on
+    /// the toast and until when it shows
+    toast: Option<(Shown, f32)>,
+    /// "please don't flash" while it is being set: on or off, and why
+    editing: Option<(bool, Field)>,
+    /// the row or button the keys are on
     focus: usize,
     /// the flash taken last was forced onto this deck
     forced: bool,
@@ -86,7 +94,8 @@ impl Flashed {
             locale: "en".into(),
             pending: None,
             rejected: None,
-            line: None,
+            toast: None,
+            editing: None,
             focus: 0,
             forced: false,
             now: 0.0,
@@ -121,7 +130,8 @@ impl Flashed {
             return self.out.push(report);
         }
         // #481: only suggested, and someone here may say no: it waits for them (`turn` counts, `press` / `key` answer)
-        if self.may_reject && self.deck.suggested(flash) {
+        // (a deck that asks not to be flashed is not asked: it refuses by itself)
+        if self.may_reject && self.deck.keep().is_none() && self.deck.suggested(flash) {
             self.focus = 0;
             self.pending = Some((flash.clone(), None));
             return;
@@ -136,11 +146,11 @@ impl Flashed {
             Err(refused) => return self.out.push(*refused),
             Ok(show) => show,
         };
-        // what the person reads: the notice when their own version was replaced and they may act on it, else one line;
+        // what the person reads: the notice when their own version was replaced and they may act on it, else a toast;
         // a flash that changed nothing (a rejoin hands the same one again) says nothing
         self.focus = 0;
         if before.as_ref() != Some(&show) {
-            self.line = (!self.notice_due()).then(|| (dialog::flashed(&self.locale, &show, flash.by.as_deref()), self.now + LINE_SECS));
+            self.toast = (!self.notice_due()).then(|| (dialog::flashed(&self.locale, &show, flash.by.as_deref()), self.now + TOAST_SECS));
         }
         self.check(show, fetched);
     }
@@ -190,38 +200,132 @@ impl Flashed {
         self.may_reject && self.deck.unseen()
     }
 
-    /// What the deck says to the person at it now (#481): the suggestion with its countdown, the notice, the line – or
-    /// nothing.
+    /// What the deck says to the person at it now (#481): the suggestion with its countdown, "please don't flash" while
+    /// it is set, the notice, the toast – or nothing.
     pub fn shown(&self) -> Option<Shown> {
         if let Some((flash, since)) = &self.pending {
             let gone = since.map_or(0.0, |s| (self.now - s) / SUGGESTION_SECS);
             return Some(Shown::Dialog(dialog::suggestion(&self.locale, &ready::show_of(flash), flash.by.as_deref(), self.deck.runs(), gone, self.focus)));
         }
+        if let Some((on, why)) = &self.editing {
+            return Some(Shown::Dialog(dialog::keep(&self.locale, self.deck.runs(), *on, why, self.focus)));
+        }
         if let Some(kept) = self.deck.kept().filter(|_| self.notice_due()) {
             return Some(Shown::Dialog(dialog::notice(&self.locale, kept, self.forced, self.deck.may_switch(), self.focus)));
         }
-        self.line.as_ref().filter(|(_, until)| self.now < *until).map(|(line, _)| line.clone())
+        self.toast.as_ref().filter(|(_, until)| self.now < *until).map(|(toast, _)| toast.clone())
     }
 
-    /// The button `index` of what is shown was pressed (a tap, a click).
+    /// "Please don't flash" opens to be set (a key, a menu of the platform): only for who may reject, and not over
+    /// another dialog. false = it did not open.
+    pub fn open_keep(&mut self) -> bool {
+        if !self.may_reject || matches!(self.shown(), Some(Shown::Dialog(_))) {
+            return false;
+        }
+        let why = self.deck.keep().filter(|w| *w != ready::NO_REASON).unwrap_or_default();
+        self.editing = Some((self.deck.keep().is_some(), Field::with(why)));
+        self.focus = 0;
+        true
+    }
+
+    /// the reason while the keys are on it (no other dialog over it)
+    fn field(&mut self) -> Option<&mut Field> {
+        let on_it = self.pending.is_none() && self.focus == 1;
+        self.editing.as_mut().filter(|_| on_it).map(|(_, why)| why)
+    }
+
+    /// The text of the field being edited, when one is: a platform with an input of its own (the browser: its keyboard,
+    /// an IME, the phone's keys) edits it there and hands the result back (`set_field`).
+    pub fn editing(&self) -> Option<&str> {
+        let on_it = self.pending.is_none() && self.focus == 1;
+        self.editing.as_ref().filter(|_| on_it).map(|(_, why)| why.text.as_str())
+    }
+
+    /// Typed text (a character, an IME's commit, a paste) into the field being edited. false = no field is.
+    pub fn text(&mut self, typed: &str) -> bool {
+        let Some(why) = self.field() else { return false };
+        let room = WHY_CHARS.saturating_sub(why.text.chars().count() - why.selected().chars().count());
+        let clean: String = typed.chars().filter(|c| !c.is_control()).take(room).collect();
+        why.insert(&clean);
+        true
+    }
+
+    /// The field being edited as a platform's own input holds it now: its text and how many characters stand before
+    /// the cursor. false = no field is.
+    pub fn set_field(&mut self, text: &str, cursor: usize) -> bool {
+        let Some(why) = self.field() else { return false };
+        why.text = text.chars().filter(|c| !c.is_control()).take(WHY_CHARS).collect();
+        why.anchor = None;
+        why.preedit = None;
+        why.cursor = why.byte_at_char(cursor);
+        true
+    }
+
+    /// Place `index` of what is shown was pressed (a tap, a click): a dialog's rows top down, then its buttons; a toast
+    /// goes.
     pub fn press(&mut self, index: usize, fetched: &mut Fetched) {
-        let Some(Shown::Dialog(d)) = self.shown() else { return };
-        if let Some((_, act)) = d.buttons.get(index) {
-            self.act(*act, fetched);
+        let d = match self.shown() {
+            Some(Shown::Dialog(d)) => d,
+            Some(Shown::Toast(..)) => return self.toast = None,
+            None => return,
+        };
+        match d.rows.get(index) {
+            Some(Row::Switch(..)) => {
+                self.focus = index;
+                if let Some((on, _)) = self.editing.as_mut() {
+                    *on = !*on;
+                }
+            }
+            Some(Row::Field { .. }) => self.focus = index,
+            None => {
+                if let Some((_, act)) = d.buttons.get(index - d.rows.len()) {
+                    self.act(*act, fetched);
+                }
+            }
         }
     }
 
-    /// A key of a deck without touch: left and right move between the buttons, Enter presses the one they are on, Escape
-    /// rejects a suggestion or closes a notice.
+    /// A key of a deck without touch: up and down (Tab) go through the rows and buttons, left and right move between
+    /// the buttons or flip a switch, Enter presses what the keys are on, Escape rejects a suggestion, leaves "please
+    /// don't flash" as it was or closes a notice. In a field the keys are the text's, and Enter saves.
     pub fn key(&mut self, key: Key, fetched: &mut Fetched) {
         let Some(Shown::Dialog(d)) = self.shown() else { return };
-        let n = d.buttons.len().max(1);
+        let (rows, buttons) = (d.rows.len(), d.buttons.len().max(1));
+        let n = rows + buttons;
         match key {
-            Key::Left => self.focus = (d.focus + n - 1) % n,
-            Key::Right => self.focus = (d.focus + 1) % n,
+            Key::Up => self.focus = (d.focus + n - 1) % n,
+            Key::Down => self.focus = (d.focus + 1) % n,
+            Key::Escape => {
+                let act = match (self.pending.is_some(), self.editing.is_some()) {
+                    (true, _) => Act::Reject,
+                    (false, true) => Act::Cancel,
+                    (false, false) => Act::Seen,
+                };
+                self.act(act, fetched);
+            }
+            _ if self.edit(key) => {}
+            Key::Enter if self.editing().is_some() => self.act(Act::Save, fetched),
             Key::Enter => self.press(d.focus, fetched),
-            Key::Escape => self.act(if self.pending.is_some() { Act::Reject } else { Act::Seen }, fetched),
+            Key::Left | Key::Right if d.focus < rows => self.press(d.focus, fetched),
+            Key::Left => self.focus = rows + (d.focus - rows + buttons - 1) % buttons,
+            Key::Right => self.focus = rows + (d.focus - rows + 1) % buttons,
+            _ => {}
         }
+    }
+
+    /// a key of the text, in the field being edited. false = it is not the text's
+    fn edit(&mut self, key: Key) -> bool {
+        let Some(why) = self.field() else { return false };
+        match key {
+            Key::Left => why.left(false, false),
+            Key::Right => why.right(false, false),
+            Key::Home => why.home(false),
+            Key::End => why.end(false),
+            Key::Backspace => why.backspace(),
+            Key::Delete => why.delete(),
+            _ => return false,
+        }
+        true
     }
 
     fn act(&mut self, act: Act, fetched: &mut Fetched) {
@@ -237,17 +341,27 @@ impl Flashed {
                     let report = self.deck.reject(&flash);
                     self.out.push(report);
                     self.rejected = flash.id.clone();
-                    self.line = Some((dialog::rejected(&self.locale, &ready::show_of(&flash)), self.now + LINE_SECS));
+                    self.toast = Some((dialog::rejected(&self.locale, &ready::show_of(&flash)), self.now + TOAST_SECS));
                 }
             }
             Act::Seen => self.deck.seen(),
             Act::Back => match self.deck.switch(true) {
                 Ok(own) => {
-                    self.line = Some((dialog::own_again(&self.locale, &own), self.now + LINE_SECS));
+                    self.toast = Some((dialog::own_again(&self.locale, &own), self.now + TOAST_SECS));
                     self.check(own, fetched);
                 }
-                Err(why) => self.line = Some((Shown::Line(why, String::new()), self.now + LINE_SECS)),
+                Err(why) => self.toast = Some((dialog::failed(why), self.now + TOAST_SECS)),
             },
+            // the conductor reads it with the deck's next word about itself: at once
+            Act::Save => {
+                if let Some((on, why)) = self.editing.take() {
+                    self.deck.set_keep(on.then(|| why.text.clone()));
+                    let report = self.deck.about();
+                    self.out.push(report);
+                    self.toast = Some((dialog::keep_saved(&self.locale, self.deck.keep()), self.now + TOAST_SECS));
+                }
+            }
+            Act::Cancel => self.editing = None,
         }
     }
 
@@ -309,6 +423,7 @@ fn refusal(status: u16, body: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::dialog::Tone;
     use deck_space::scene::builtin;
 
     /// a show with the outlet `left`: a built-in scene, then a character whose rig the deck does not carry
@@ -400,8 +515,8 @@ mod tests {
         f.flash(&told, API, "", &mut fetched);
         f.turn(1.0, &mut fetched, carried);
         assert_eq!(f.reports()[0].ready, Some(true));
-        assert_eq!(f.shown(), Some(Shown::Line("Geflasht: top · Version 3".into(), "von ana".into())));
-        f.turn(1.0 + LINE_SECS, &mut fetched, carried);
+        assert_eq!(f.shown(), Some(Shown::Toast("Geflasht von ana: top · Version 3".into(), Tone::Good)));
+        f.turn(1.0 + TOAST_SECS, &mut fetched, carried);
         assert_eq!(f.shown(), None);
 
         // someone who may reject: the next version is a suggestion with a countdown
@@ -419,7 +534,7 @@ mod tests {
         f.key(Key::Enter, &mut fetched);
         let r = f.reports();
         assert_eq!((r[0].accepted, r[0].why.as_deref(), r[0].running.version), (false, Some("rejected at the deck"), 3));
-        assert_eq!(f.shown(), Some(Shown::Line("Vorschlag abgelehnt: top · Version 4".into(), String::new())));
+        assert_eq!(f.shown(), Some(Shown::Toast("Vorschlag abgelehnt: top · Version 4".into(), Tone::Warn)));
         f.flash(&next, API, "", &mut fetched);
         assert!(!matches!(f.shown(), Some(Shown::Dialog(_))));
         assert!(f.reports().iter().all(|r| !r.accepted), "a rejoin hears the same no");
@@ -447,7 +562,7 @@ mod tests {
         first.force = Some(vec!["d1".into()]);
         f.flash(&first, API, "", &mut fetched);
         f.turn(0.0, &mut fetched, carried);
-        assert!(matches!(f.shown(), Some(Shown::Line(..))), "nothing of its own was replaced: one line");
+        assert!(matches!(f.shown(), Some(Shown::Toast(..))), "nothing of its own was replaced: a toast");
         // forced over what runs: no question, the notice with the way back
         let mut forced = first.clone();
         (forced.id, forced.root.version, forced.by) = (Some("two".into()), 4, Some("ana".into()));
@@ -464,7 +579,7 @@ mod tests {
         assert_eq!(f.ask(), None);
         f.turn(2.0, &mut fetched, carried);
         assert!(f.reports().iter().any(|r| r.running.version == 3 && r.ready == Some(true)));
-        assert_eq!(f.shown(), Some(Shown::Line("Deine Version läuft wieder: top · Version 3".into(), String::new())));
+        assert_eq!(f.shown(), Some(Shown::Toast("Deine Version läuft wieder: top · Version 3".into(), Tone::Good)));
         // Escape on a notice reads it
         f.flash(&{ let mut again = forced.clone(); again.id = Some("three".into()); again }, API, "", &mut fetched);
         assert!(matches!(f.shown(), Some(Shown::Dialog(_))));

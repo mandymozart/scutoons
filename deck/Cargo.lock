@@ -1360,7 +1360,9 @@ dependencies = [
 name = "deck-show"
 version = "0.1.0"
 dependencies = [
+ "ab_glyph",
  "deck-core",
+ "deck-kit",
  "deck-space",
  "protocol",
  "serde",
@@ -4487,7 +4489,6 @@ dependencies = [
  "anyhow",
  "deck-core",
  "deck-engine",
- "deck-kit",
  "deck-link",
  "deck-outlet",
  "deck-show",

@@ -17,6 +17,7 @@ pub mod choose;
 pub mod conductor;
 pub mod dialog;
 pub mod document;
+pub mod face;
 pub mod flash;
 pub mod flashed;
 pub mod ready;

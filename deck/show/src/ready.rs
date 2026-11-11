@@ -15,6 +15,9 @@ use std::fmt;
 /// geht der Dialog automatisch weg … wird es automatisch angenommen"): then it is taken – flashing is an explicit act.
 pub const SUGGESTION_SECS: f32 = 10.0;
 
+/// what "please don't flash" says when no reason was given
+pub const NO_REASON: &str = "no reason given";
+
 /// One piece an outlet's cells name, and the first row that names it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Need {
@@ -160,7 +163,7 @@ impl Deck {
 
     /// #471: "please don't flash" with a line of why (none = flash me). Said to the conductor with the next report.
     pub fn set_keep(&mut self, why: Option<String>) {
-        self.keep = why.map(|w| w.trim().to_string()).map(|w| if w.is_empty() { "no reason given".to_string() } else { w });
+        self.keep = why.map(|w| w.trim().to_string()).map(|w| if w.is_empty() { NO_REASON.to_string() } else { w });
     }
 
     pub fn keep(&self) -> Option<&str> {

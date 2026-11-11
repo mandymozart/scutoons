@@ -1,9 +1,11 @@
-//! What a deck says to the person at it about a flash (#481, draft 1): a dialog – a suggestion to accept or reject, or
-//! the notice after a flash replaced the deck's own version – or one line that goes by itself. Plain data and the words,
-//! German or English by the deck's locale; a platform draws it with the component library (deck-kit `panel.rs`) and
-//! hands what was pressed back (`Act`, `Key`). The rules are `flashed.rs`'s.
+//! What a deck says to the person at it about a flash (#481, draft 1): a dialog – a suggestion to accept or reject, the
+//! notice after a flash replaced the deck's own version, "please don't flash" with its reason – or a toast that goes by
+//! itself. Plain data and the words, German or English by the deck's locale; `face.rs` draws it with the component
+//! library (deck-kit `panel.rs`) and hands what was pressed back (`Act`, `Key`). The rules are `flashed.rs`'s.
 use crate::document::Pinned;
 use crate::ready::Kept;
+pub use deck_kit::panel::Tone;
+use deck_kit::text::Field;
 
 /// What a button does.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -16,6 +18,10 @@ pub enum Act {
     Seen,
     /// back to the deck's own version
     Back,
+    /// "please don't flash" as it was set
+    Save,
+    /// leave it as it was
+    Cancel,
 }
 
 /// A key of a deck without touch.
@@ -23,19 +29,37 @@ pub enum Act {
 pub enum Key {
     Left,
     Right,
+    /// to the row or button before, after (Tab is Down)
+    Up,
+    Down,
     Enter,
     Escape,
+    Backspace,
+    Delete,
+    Home,
+    End,
+}
+
+/// A row of a dialog, above its buttons.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Row {
+    /// its label, on or off
+    Switch(String, bool),
+    /// one line of text; `cursor`: the characters before the cursor while it is edited
+    Field { text: String, hint: String, cursor: Option<usize> },
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Dialog {
     /// what this is, and who it is from
     pub caption: (String, String),
+    /// none = no title
     pub title: String,
+    pub rows: Vec<Row>,
     pub lines: Vec<String>,
     /// side by side, the first one the primary
     pub buttons: Vec<(String, Act)>,
-    /// the button the keys are on
+    /// what the keys are on: the rows top down, then the buttons
     pub focus: usize,
     /// 0..1 of the time gone after which the primary happens by itself
     pub gone: Option<f32>,
@@ -46,8 +70,8 @@ pub struct Dialog {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Shown {
     Dialog(Dialog),
-    /// no question: what happened, and who did it
-    Line(String, String),
+    /// no question: what happened (owner 2026-11-11: a toast, like the reader's)
+    Toast(String, Tone),
 }
 
 fn german(locale: &str) -> bool {
@@ -96,6 +120,7 @@ pub fn suggestion(locale: &str, show: &Pinned, by: Option<&str>, runs: Option<&P
     Dialog {
         caption: (if de { "Flash · Vorschlag" } else { "Flash · suggestion" }.into(), from(de, by)),
         title: long(show),
+        rows: vec![],
         lines: vec![line],
         buttons: vec![(accept.into(), Act::Accept), (reject.into(), Act::Reject)],
         focus: focus.min(1),
@@ -123,6 +148,7 @@ pub fn notice(locale: &str, kept: &Kept, forced: bool, may_switch: bool, focus: 
     Dialog {
         caption: (caption.into(), from(de, Some(&kept.by))),
         title: if de { format!("{} läuft", long(&kept.flashed)) } else { format!("{} runs", long(&kept.flashed)) },
+        rows: vec![],
         lines,
         focus: focus.min(buttons.len() - 1),
         keys: keys(de, "OK", None, buttons.len() > 1),
@@ -131,20 +157,58 @@ pub fn notice(locale: &str, kept: &Kept, forced: bool, may_switch: bool, focus: 
     }
 }
 
-/// the one line after a flash was taken (draft 1, frame 4)
+/// "Please don't flash" and why, to set at the deck (draft 1, frame 5): a switch, the reason, save or cancel. `focus`:
+/// 0 the switch, 1 the reason (being edited), 2 and 3 the buttons.
+pub fn keep(locale: &str, runs: Option<&Pinned>, on: bool, why: &Field, focus: usize) -> Dialog {
+    let de = german(locale);
+    let focus = focus.min(3);
+    let (text, cursor) = why.shown();
+    let (save, cancel) = if de { ("Speichern", "Abbrechen") } else { ("Save", "Cancel") };
+    Dialog {
+        caption: (if de { "Flash · dieses Deck" } else { "Flash · this deck" }.into(), runs.map(|r| format!("{}: {}", if de { "läuft" } else { "runs" }, short(r))).unwrap_or_default()),
+        title: String::new(),
+        rows: vec![
+            Row::Switch(if de { "Bitte nicht flashen" } else { "Please don't flash" }.into(), on),
+            Row::Field { text, hint: if de { "warum" } else { "why" }.into(), cursor: (focus == 1).then_some(cursor) },
+        ],
+        lines: vec![if de { "Der Conductor sieht den Grund. Ein erzwungener Flash geht trotzdem durch." } else { "The conductor sees the reason. A forced flash still goes through." }.into()],
+        buttons: vec![(save.into(), Act::Save), (cancel.into(), Act::Cancel)],
+        focus,
+        gone: None,
+        keys: vec![("Enter", save.to_lowercase()), ("Esc", cancel.to_lowercase()), ("Tab", if de { "weiter" } else { "next" }.to_string())],
+    }
+}
+
+/// the toast after a flash was taken (draft 1, frame 4)
 pub fn flashed(locale: &str, show: &Pinned, by: Option<&str>) -> Shown {
     let de = german(locale);
-    Shown::Line(format!("{}: {}", if de { "Geflasht" } else { "Flashed" }, long(show)), from(de, by))
+    Shown::Toast(format!("{} {}: {}", if de { "Geflasht" } else { "Flashed" }, from(de, by), long(show)), Tone::Good)
 }
 
-/// the one line after a suggestion was rejected
+/// the toast after a suggestion was rejected
 pub fn rejected(locale: &str, show: &Pinned) -> Shown {
-    Shown::Line(format!("{}: {}", if german(locale) { "Vorschlag abgelehnt" } else { "Suggestion rejected" }, long(show)), String::new())
+    Shown::Toast(format!("{}: {}", if german(locale) { "Vorschlag abgelehnt" } else { "Suggestion rejected" }, long(show)), Tone::Warn)
 }
 
-/// the one line after the way back
+/// the toast after the way back
 pub fn own_again(locale: &str, own: &Pinned) -> Shown {
-    Shown::Line(format!("{}: {}", if german(locale) { "Deine Version läuft wieder" } else { "Your version runs again" }, long(own)), String::new())
+    Shown::Toast(format!("{}: {}", if german(locale) { "Deine Version läuft wieder" } else { "Your version runs again" }, long(own)), Tone::Good)
+}
+
+/// the toast after "please don't flash" was saved: what the conductor reads now
+pub fn keep_saved(locale: &str, keep: Option<&str>) -> Shown {
+    let text = match (keep, german(locale)) {
+        (Some(why), true) => format!("Gespeichert: bitte nicht flashen ({why})"),
+        (Some(why), false) => format!("Saved: please don't flash ({why})"),
+        (None, true) => "Gespeichert: dieses Deck darf geflasht werden".into(),
+        (None, false) => "Saved: this deck may be flashed".into(),
+    };
+    Shown::Toast(text, Tone::Good)
+}
+
+/// the toast when something did not work, in the core's words
+pub fn failed(why: String) -> Shown {
+    Shown::Toast(why, Tone::Bad)
 }
 
 #[cfg(test)]
@@ -176,6 +240,20 @@ mod tests {
         let locked = notice("de", &Kept { forced: false, by: "the conductor".into(), ..kept }, false, false, 3);
         assert_eq!((locked.caption, locked.buttons.len(), locked.focus), (("Flash".to_string(), "vom Conductor".to_string()), 1, 0));
         assert_eq!(locked.lines[1], "Gesperrt: nur der Besitzer des Decks kann zurück.");
-        assert_eq!(flashed("en", &pin(3), Some("ana")), Shown::Line("Flashed: top · Version 3".into(), "by ana".into()));
+        assert_eq!(flashed("en", &pin(3), Some("ana")), Shown::Toast("Flashed by ana: top · Version 3".into(), Tone::Good));
+        assert_eq!(flashed("de", &pin(3), None), Shown::Toast("Geflasht vom Conductor: top · Version 3".into(), Tone::Good));
+    }
+
+    #[test]
+    fn please_dont_flash_is_a_switch_a_reason_and_two_buttons() {
+        let why = Field::with("Probe läuft");
+        let d = keep("de", Some(&pin(2)), true, &why, 1);
+        assert_eq!(d.caption, ("Flash · dieses Deck".to_string(), "läuft: top · 2".to_string()));
+        assert_eq!(d.rows, [Row::Switch("Bitte nicht flashen".into(), true), Row::Field { text: "Probe läuft".into(), hint: "warum".into(), cursor: Some(11) }]);
+        assert_eq!((d.title.as_str(), d.buttons.len(), d.focus), ("", 2, 1));
+        // the reason shows its cursor only while the keys are on it
+        let off = keep("en", None, false, &why, 0);
+        assert_eq!(off.rows[1], Row::Field { text: "Probe läuft".into(), hint: "why".into(), cursor: None });
+        assert_eq!(keep_saved("de", Some("Probe läuft")), Shown::Toast("Gespeichert: bitte nicht flashen (Probe läuft)".into(), Tone::Good));
     }
 }
