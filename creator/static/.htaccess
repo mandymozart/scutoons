@@ -34,4 +34,9 @@ AddType application/manifest+json .webmanifest
 	<If "%{REQUEST_URI} =~ m#^/_app/immutable/#">
 		Header set Cache-Control "public, max-age=31536000, immutable"
 	</If>
+	# #486: the deck's wasm and its JS glue (/live/space_web.js, …_bg.wasm, live_core.wasm) have no hash in their names –
+	# always asked again, or a browser keeps an old wasm beside new app JS after a deploy
+	<If "%{REQUEST_URI} =~ m#^/live/[^/]+\.(wasm|js)$#">
+		Header set Cache-Control "no-cache"
+	</If>
 </IfModule>
