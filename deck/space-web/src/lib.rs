@@ -526,7 +526,7 @@ impl SpaceView {
         self.age += dt;
         self.fade.step(self.cover && self.age < SPLASH_AT_MOST, dt);
         let tick = Tick { graph: &self.graph, input: &|_, _, d| d, tempo: &self.beat, time, dt };
-        self.stage.frame(&self.device, &self.queue, &mut enc, &view, &tick, &Over { hud: None, splash: (self.fade.alpha, false), label_centred: true }, Some(&mut self.space));
+        self.stage.frame(&self.device, &self.queue, &mut enc, &view, &tick, &Over { hud: None, splash: (self.fade.alpha, false), label_centred: true, hud_at: None }, Some(&mut self.space));
         self.queue.submit([enc.finish()]);
         frame.present();
         Ok(())

@@ -79,6 +79,14 @@ pub enum Do {
 
 /// the name's longest (the relay trims a nick to 24 characters)
 pub const NAME_MAX: usize = 24;
+
+/// The name a deck says when it joins (owner 2026-11-10 [role]: "Preset der Name, der eingetragen ist im Reader"): the one
+/// kept on this device (the Live page's), else the signed-in reader's, else `fallback` (the deck's kind) – trimmed, at most
+/// [`NAME_MAX`] characters.
+pub fn preset_name(kept: Option<&str>, reader: Option<&str>, fallback: &str) -> String {
+    let name = [kept, reader].into_iter().flatten().map(str::trim).find(|n| !n.is_empty()).unwrap_or(fallback);
+    name.chars().take(NAME_MAX).collect()
+}
 const VISIBLE: usize = 8;
 const WIDTH: usize = crate::COLS;
 /// the lines before the entries: the title, the session
@@ -291,6 +299,16 @@ mod tests {
         p.key(Key::Up, &s);
         p.key(Key::Char('x'), &s);
         assert!(p.lines(&s).0.iter().all(|l| !l.contains("TENOX")), "a character off the name line types nothing");
+    }
+
+    #[test]
+    fn the_name_kept_on_the_device_wins_then_the_readers() {
+        assert_eq!(preset_name(Some("Anna"), Some("Anna Maria Reader"), "browser"), "Anna", "kept on this device");
+        assert_eq!(preset_name(None, Some(" Anna Maria "), "browser"), "Anna Maria", "the signed-in reader's");
+        assert_eq!(preset_name(Some("  "), Some("Anna Maria"), "browser"), "Anna Maria", "an empty kept name is none");
+        assert_eq!(preset_name(None, None, "browser"), "browser", "a guest: as before");
+        assert_eq!(preset_name(None, Some(""), "browser"), "browser");
+        assert_eq!(preset_name(None, Some("Ben the long-winded tenor"), "browser"), "Ben the long-winded teno", "24 characters");
     }
 
     #[test]

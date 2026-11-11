@@ -127,7 +127,11 @@ impl Show {
 fn live_do(o: &mut Outlet, did: Option<deck_ui::live::Do>) {
     let _ = match did {
         Some(deck_ui::live::Do::Take(role)) => o.relay.take_role(role.as_deref()),
-        Some(deck_ui::live::Do::Name(name)) => o.relay.set_name(&name),
+        Some(deck_ui::live::Do::Name(name)) => {
+            // kept on this device as the reader's own choice (`live_kept`)
+            o.named = Some(name.clone()).filter(|n| !n.is_empty());
+            o.relay.set_name(&name)
+        }
         None => false,
     };
 }
@@ -172,6 +176,8 @@ pub struct SceneView {
     /// #478: the Live page (the native deck's F6, deck-ui live.rs) and the HUD it is drawn on
     live: deck_ui::live::Page,
     hud: Hud,
+    /// #478: the page's place – the screen pixels per CSS pixel and the host's line across the top (`live_place`)
+    live_at: (f32, f32),
 }
 
 #[wasm_bindgen]
@@ -226,6 +232,7 @@ impl SceneView {
             built: Rc::default(),
             live: Default::default(),
             hud: Hud::default(),
+            live_at: (1.0, 0.0),
         })
     }
 
@@ -261,14 +268,25 @@ impl SceneView {
         true
     }
 
+    /// #478: where the page goes – `density` canvas pixels per CSS pixel, `top` canvas pixels covered by the page's line
+    /// across the top (the stats line): the page is centred below it at its readable size (deck-space `hud::page_rect`)
+    pub fn live_place(&mut self, density: f32, top: f32) {
+        self.live_at = (density, top);
+    }
+
+    /// the page's rectangle and scale on the canvas now
+    fn live_rect(&self) -> ([f32; 4], f32) {
+        deck_space::hud::page_rect(self.config.width as f32, self.config.height as f32, self.live_at.0, self.live_at.1)
+    }
+
     /// #478: a tap on the canvas at (x, y) device pixels: a line of the open page is taken as Enter on it
     pub fn live_tap(&mut self, x: f32, y: f32) -> bool {
         // where the deck's dialog or toast is (#481), a tap is its own
         if self.face.top().is_some_and(|top| y >= top) {
             return false;
         }
-        let (w, h) = (self.config.width as f32, self.config.height as f32);
-        let (Some(o), Some(line)) = (self.outlet.as_mut(), deck_space::hud::line_at(x, y, w, h).filter(|_| self.live.open)) else { return false };
+        let (at, s) = self.live_rect();
+        let (Some(o), Some(line)) = (self.outlet.as_mut(), deck_space::hud::line_in(at, s, x, y).filter(|_| self.live.open)) else { return false };
         let did = self.live.tap(line, &o.relay.live());
         live_do(o, did);
         true
@@ -285,19 +303,20 @@ impl SceneView {
     pub fn live_kept(&self) -> String {
         let Some(o) = self.outlet.as_ref() else { return String::new() };
         let s = o.relay.live();
-        let kept = crate::outlet::Kept { role: Some(s.role.unwrap_or_default()), name: Some(s.name).filter(|n| !n.is_empty()) };
+        let kept = crate::outlet::Kept { role: Some(s.role.unwrap_or_default()), name: o.named.clone() };
         serde_json::to_string(&kept).unwrap_or_default()
     }
 
     /// #465: join `relay` ("" = the hosted show) as output of `outlet`, its text in `locale`, show media's signed links from
     /// `api` (#470) - when the scene has an `outlet` node; false: it has none
-    /// #478: `kept` = what the Live page chose on this device last (`live_kept`; "" = nothing)
-    pub fn join_outlet(&mut self, relay: &str, outlet: &str, kept: &str, locale: &str, api: &str) -> Result<bool, JsValue> {
+    /// #478: `kept` = what the Live page chose on this device last (`live_kept`; "" = nothing); `reader` = the signed-in
+    /// reader's name ("" = nobody) – the deck's name when none is kept
+    pub fn join_outlet(&mut self, relay: &str, outlet: &str, kept: &str, reader: &str, locale: &str, api: &str) -> Result<bool, JsValue> {
         if self.show.graph.first(Kind::Outlet).is_none() {
             return Ok(false);
         }
         let (tx, rx) = sync_channel(2);
-        let o = Outlet::new(relay, outlet, kept, if locale.is_empty() { "de" } else { locale }, api, (self.config.width, self.config.height), tx).map_err(err)?;
+        let o = Outlet::new(relay, outlet, kept, reader, if locale.is_empty() { "de" } else { locale }, api, (self.config.width, self.config.height), tx).map_err(err)?;
         self.show.stage.set_outlet(rx);
         self.outlet = Some(o);
         self.side = Some(Side::new(&self.deck));
@@ -791,7 +810,8 @@ impl SceneView {
             self.hud.raster();
         }
         let hud = self.live.open.then_some(&self.hud);
-        show.stage.frame(&self.device, &self.queue, &mut enc, &view, &Tick { graph, input: &input, tempo: &self.beat, time, dt }, &Over { hud, splash, label_centred: true }, show.space.as_mut());
+        let hud_at = Some(deck_space::hud::page_rect(self.config.width as f32, self.config.height as f32, self.live_at.0, self.live_at.1).0);
+        show.stage.frame(&self.device, &self.queue, &mut enc, &view, &Tick { graph, input: &input, tempo: &self.beat, time, dt }, &Over { hud, splash, label_centred: true, hud_at }, show.space.as_mut());
         self.queue.submit([enc.finish()]);
         frame.present();
         Ok(())

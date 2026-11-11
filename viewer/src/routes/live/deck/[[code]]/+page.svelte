@@ -27,6 +27,7 @@
 	import DeckPanel from '$lib/components/live-deck/deck-panel.svelte';
 	import DeckQualitySheet from '$lib/components/live-deck/deck-quality-sheet.svelte';
 	import DeckSticks from '$lib/components/live-deck/deck-sticks.svelte';
+	import DeckStageOnly from '$lib/components/live-deck/deck-stage-only.svelte';
 	import type { Stats } from '$lib/components/live-deck/deck-stats.svelte';
 	import { DeckControlsState } from '$lib/live-deck-controls.svelte.ts';
 	import { nowMs, type ClockState } from '@scutoons/live-deck';
@@ -190,12 +191,21 @@
 			let alive = true;
 			let scene: SceneStage | null = null;
 			const q = page.url.searchParams;
-			if (stage)
-				// #465: ?outlet=<id> plays the Live outlet (?live=<relay>, else the hosted show; ?locale=)
-				SceneStage.start({ host: stage, base: WASM_BASE, api: API_URL, cdn, user: () => (session.isLoggedIn ? { bearer: getSessionToken() } : null), mayReject: () => session.roles.includes('live'), scene: q.get('scene') ?? (q.has('outlet') ? 'outlet' : ''), prefer: preferOf(q), outlet: q.has('outlet') ? { relay: q.get('live') ?? '', name: q.get('outlet') ?? '', locale: q.get('locale') ?? 'de' } : undefined }).then(
-					(s) => (alive ? (scene = s) : s.stop()),
-					(e) => console.warn('live deck: no idle scene', e)
-				);
+			// #465: ?outlet=<id> plays the Live outlet (?live=<relay>, else the hosted show; ?locale=). #478: it joins under the
+			// signed-in reader's name (the session's first answer, at most a moment) and asks its proof with the reader's
+			// sign-in – the cookie, or the stored token where the browser refuses cookies
+			const outlet = q.has('outlet');
+			void (async () => {
+				if (outlet) await settled();
+				if (!alive || !stage) return;
+				try {
+					const s = await SceneStage.start({ host: stage, base: WASM_BASE, api: API_URL, cdn, user: () => (session.isLoggedIn ? { bearer: getSessionToken() } : null), mayReject: () => session.roles.includes('live'), scene: q.get('scene') ?? (outlet ? 'outlet' : ''), prefer: preferOf(q), outlet: outlet ? { relay: q.get('live') ?? '', name: q.get('outlet') ?? '', locale: q.get('locale') ?? 'de', reader: nickOf(session.me, '') } : undefined });
+					if (alive) scene = s;
+					else s.stop();
+				} catch (e) {
+					console.warn('live deck: no idle scene', e);
+				}
+			})();
 			return () => {
 				alive = false;
 				scene?.stop();
@@ -346,11 +356,13 @@
 	<meta name="robots" content="noindex" />
 </svelte:head>
 
-<div class="deck" data-testid="live-deck">
+<!-- #478: stage only (deck-stage-only.svelte) – the deck covers the reader's menu and logo -->
+<div class="deck" class:stage-only={page.state.deckStageOnly} data-testid="live-deck">
 	{#if flash}<div class="strobe" data-testid="deck-strobe"></div>{/if}
 	<div class="stage" bind:this={stage}>
 		{#if !threeD && face}<img class="face" src={face} alt="" crossorigin="anonymous" />{/if}
 	</div>
+	<DeckStageOnly raised={!idle} />
 	{#if !idle}
 		{#if sticksOn}
 			<DeckSticks labels={ctl.labels} ondown={(s) => ctl.hands?.stickDown(s)} onmove={(s, x, y) => ctl.hands?.stickMove(s, x, y)} onup={(s) => ctl.hands?.stickUp(s)} />
@@ -413,6 +425,10 @@
 		background: var(--ink);
 		color: var(--paper);
 		overflow: hidden;
+	}
+	/* over the reader's menu (1003) and logo (1004, main-menu.svelte) */
+	.deck.stage-only {
+		z-index: 1005;
 	}
 	.stage {
 		position: absolute;

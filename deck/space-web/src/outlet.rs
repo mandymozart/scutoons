@@ -222,24 +222,30 @@ pub struct Outlet {
     flash: Flashed,
     /// #478: when it asks for its proof (`r:`)
     renew: Renew,
+    /// #478: the name chosen on this device's Live page (what `Kept` keeps) – not the preset, so a reader who signs in later
+    /// is named after them
+    pub named: Option<String>,
 }
 
 impl Outlet {
     /// join `relay` (ws:// or wss://…/live/<code>) as output of `outlet`, its text in `locale`, show media's links from `api`;
     /// the planes go to `frames`. #478: `kept` – what the Live page chose on this device (`Kept`, the page keeps the text):
-    /// its role over the outlet, its name
-    pub fn new(relay: &str, outlet: &str, kept: &str, locale: &str, api: &str, size: (u32, u32), frames: SyncSender<Frame>) -> Result<Outlet, String> {
+    /// its role over the outlet, its name; `reader` – the signed-in reader's name ("" = nobody): the name when none is kept
+    pub fn new(relay: &str, outlet: &str, kept: &str, reader: &str, locale: &str, api: &str, size: (u32, u32), frames: SyncSender<Frame>) -> Result<Outlet, String> {
         let relay = if relay.trim().is_empty() { HOSTED_RELAY } else { relay.trim() };
         if outlet.is_empty() || !outlet.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') {
             return Err(format!("outlet '{outlet}': letters, digits, - and _ only"));
         }
         let kept: Kept = serde_json::from_str(kept).unwrap_or_default();
+        let named = kept.name.clone().filter(|n| !n.trim().is_empty());
         let outlet = kept.role.as_deref().unwrap_or(outlet);
         let mut o = Options::new(relay, Role::Output, Some(outlet).filter(|g| !g.is_empty()));
         o.resume = true;
         o.messages = true;
-        o.nick = Some(kept.name.filter(|n| !n.trim().is_empty()).unwrap_or_else(|| "browser".into()));
+        o.nick = Some(deck_ui::live::preset_name(kept.name.as_deref(), Some(reader), "browser"));
         o.device = Some("browser".into());
+        // #478: the first hello waits for the proof (`take` asks for it at once, `proof` hands the answer on)
+        o.wait_proof = true;
         let relay = Client::new(o)?;
         let status = Status { link: format!("JOINING {}", relay.url()), ..Default::default() };
         Ok(Outlet {
@@ -268,6 +274,7 @@ impl Outlet {
                 flash
             },
             renew: Renew::default(),
+            named,
         })
     }
 
@@ -397,9 +404,7 @@ impl Outlet {
     /// #478: the API's answer to the `r:` ask (`status` 0: no answer) at `now` – the proof for the relay client's hellos
     pub fn proof(&mut self, status: u16, body: &str, now: Duration) {
         let body = serde_json::from_str(body).unwrap_or(serde_json::Value::Null);
-        if let Some(p) = self.renew.answered(now.as_secs_f64(), proof::read(status, &body)) {
-            self.relay.set_proof(p);
-        }
+        self.relay.proof_answered(self.renew.answered(now.as_secs_f64(), proof::read(status, &body)));
     }
 
     pub fn shelf(&mut self) -> &mut WebShelf {

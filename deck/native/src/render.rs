@@ -149,7 +149,7 @@ impl Renderer {
         let mut enc = self.gpu.device.create_command_encoder(&Default::default());
         let input = |n: usize, p: &str, d: f32| ctl.input(n, p, d);
         let view = frame.texture.create_view(&Default::default());
-        self.stage.frame(&self.gpu.device, &self.gpu.queue, &mut enc, &view, &Tick { graph, input: &input, tempo: &ctl.tempo, time, dt }, &Over { hud, splash, label_centred: false }, space);
+        self.stage.frame(&self.gpu.device, &self.gpu.queue, &mut enc, &view, &Tick { graph, input: &input, tempo: &ctl.tempo, time, dt }, &Over { hud, splash, label_centred: false, hud_at: None }, space);
         let shot = self.capture.take().filter(|_| self.gpu.can_capture).map(|path| {
             let (w, h) = (self.gpu.config.width, self.gpu.config.height);
             let row = (w * 4).div_ceil(wgpu::COPY_BYTES_PER_ROW_ALIGNMENT) * wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;

@@ -56,6 +56,7 @@
 		"viewer/src/lib/components/live-deck/deck-panel.svelte": "ui: the knob panel",
 		"viewer/src/lib/components/live-deck/deck-quality-sheet.svelte": "ui: the quality sheet – draws deck-space's option lists (options_json, #375)",
 		"viewer/src/lib/components/live-deck/deck-quality.svelte": "ui: the quality row",
+		"viewer/src/lib/components/live-deck/deck-stage-only.svelte": "ui: the deck page's full-screen button – stage only on a history entry of its own, the Fullscreen API where there is one (page chrome, #478)",
 		"viewer/src/lib/components/live-deck/deck-stats.svelte": "ui: the stats bar – draws deck-core's monitor items",
 		"viewer/src/lib/components/live-deck/deck-sticks.svelte": "ui: the corner sticks",
 		"viewer/src/lib/components/live-vote/audience-vote.svelte": "ui: the audience's vote",

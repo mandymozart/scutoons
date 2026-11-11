@@ -39,10 +39,30 @@ pub fn rect(sw: f32, sh: f32) -> [f32; 4] {
 
 /// #478: the full HUD's text line under the screen point (x, y) – a tap on a page's line (the Live page)
 pub fn line_at(x: f32, y: f32, sw: f32, sh: f32) -> Option<usize> {
-    let [rx, ry, rw, _] = rect(sw, sh);
-    let (hx, hy) = ((x - rx) / scale(sh), (y - ry) / scale(sh));
+    line_in(rect(sw, sh), scale(sh), x, y)
+}
+
+/// #478: the text line under the screen point (x, y) of the full HUD drawn at `at` (`[x, y, w, h]`) and scale `s`
+pub fn line_in(at: [f32; 4], s: f32, x: f32, y: f32) -> Option<usize> {
+    let [rx, ry, rw, _] = at;
+    let (hx, hy) = ((x - rx) / s, (y - ry) / s);
     let row = ((hy - 3.0) / 10.0).floor();
-    (hx >= 0.0 && hx < rw / scale(sh) && row >= 0.0 && (row as usize) < LINES).then_some(row as usize)
+    (hx >= 0.0 && hx < rw / s && row >= 0.0 && (row as usize) < LINES).then_some(row as usize)
+}
+
+/// #478: where a page on the full HUD (the Live page) sits when the host lays its own things over the screen's top edge
+/// and corners (the browser deck: its stats line across the top, the reader's logo and menu in the corners): centred in
+/// what is below `top` screen pixels. Its scale is the one the HUD has on a 1080p screen, per CSS pixel (`density` screen
+/// pixels each) – the browser page as large as the native deck's page at 1080p, its 8 px font at 16 CSS px – or the
+/// largest integer below it that fits with the HUD's 1rem margin (never below 1). `([x, y, w, h], scale)`.
+pub fn page_rect(sw: f32, sh: f32, density: f32, top: f32) -> ([f32; 4], f32) {
+    let want = (scale(1080.0) * density.max(0.5)).round();
+    let below = (sh - top).max(0.0);
+    let fits = (sw / (W as f32 + 32.0)).min(below / (H as f32 + 32.0)).floor();
+    let s = want.min(fits).max(1.0);
+    let (w, h) = ((W as f32 * s).min(sw), (H as f32 * s).min(sh));
+    let y = (top + (below - h) / 2.0).min(sh - h).max(0.0);
+    ([((sw - w) / 2.0).max(0.0), y, w, h], s)
 }
 
 /// the build label's integer scale: the HUD's, by the width on a portrait screen (a phone)
@@ -299,6 +319,32 @@ mod tests {
         assert_eq!(line_at(10.0, 40.0, 1920.0, 1080.0), None, "left of the HUD");
         assert_eq!(line_at(700.0, 40.0, 1920.0, 1080.0), None, "right of it");
         assert_eq!(line_at(40.0, 1000.0, 1920.0, 1080.0), None, "below its lines");
+    }
+
+    /// #478: the browser's Live page – centred below the host's top line, at 16 CSS px a glyph where it fits, the tap on it
+    #[test]
+    fn the_browser_page_sits_free_and_readable() {
+        let free = |[x, y, w, h]: [f32; 4], sw: f32, sh: f32, top: f32| x >= 0.0 && y >= top && x + w <= sw && y + h <= sh;
+        // the measured pane: 1024 x 768 CSS px at density 1, the stats line 24 px high – the HUD's own scale there was 1
+        assert_eq!(scale(768.0), 1.0, "why it was small: 8 px glyphs on 10 px lines");
+        let (at, s) = page_rect(1024.0, 768.0, 1.0, 24.0);
+        assert_eq!((at, s), ([192.0, 24.0 + (744.0 - 2.0 * H as f32) / 2.0, 640.0, 2.0 * H as f32], 2.0));
+        assert!(free(at, 1024.0, 768.0, 24.0) && at[0] > 3.0 * 16.0 && at[1] > 3.5 * 16.0, "clear of the stats line and the logo's corner");
+        // a phone, 375 x 812 CSS px at density 2: as large as the width allows
+        let (at, s) = page_rect(750.0, 1624.0, 2.0, 48.0);
+        assert_eq!((s, at[2]), (2.0, 640.0));
+        assert!(free(at, 750.0, 1624.0, 48.0));
+        // a 1080p screen in full screen at density 1, a retina laptop at 2: the wanted scale
+        assert_eq!((page_rect(1920.0, 1080.0, 1.0, 24.0).1, page_rect(2880.0, 1800.0, 2.0, 48.0).1), (2.0, 4.0));
+        // too small for anything: scale 1, inside the screen
+        let (at, s) = page_rect(200.0, 100.0, 1.0, 24.0);
+        assert!(s == 1.0 && at[0] >= 0.0 && at[1] >= 0.0 && at[2] <= 200.0 && at[3] <= 100.0);
+        // a tap: line 0 is 4 HUD pixels into the page, line 2 two lines further
+        let (at, s) = page_rect(1024.0, 768.0, 1.0, 24.0);
+        assert_eq!(line_in(at, s, at[0] + 8.0, at[1] + 8.0), Some(0));
+        assert_eq!(line_in(at, s, at[0] + 100.0, at[1] + 2.0 * 20.0 + 8.0), Some(2));
+        assert_eq!(line_in(at, s, at[0] - 1.0, at[1] + 8.0), None, "left of the page");
+        assert_eq!(line_at(40.0, 40.0, 1920.0, 1080.0), line_in(rect(1920.0, 1080.0), 2.0, 40.0, 40.0), "the native page's tap as before");
     }
 
     /// #209: the bar spans the screen at the HUD's scale, an item out of the green in red, the items cut at its edge

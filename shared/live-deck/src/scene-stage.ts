@@ -9,7 +9,7 @@ import { LivePage, readKept, type LiveView } from './live-page.ts';
 
 /** #463: the wasm-bindgen API of deck/space-web's `SceneView` */
 export interface SceneView extends SetView, ChapterView, OutletView, PanelView, LiveView {
-	join_outlet(relay: string, outlet: string, kept: string, locale: string, api: string): boolean;
+	join_outlet(relay: string, outlet: string, kept: string, reader: string, locale: string, api: string): boolean;
 	deck_link(why: string, code: string, app: string): void;
 	set_request(): string;
 	reloaded(): number;
@@ -32,8 +32,8 @@ export interface SceneOptions {
 	scene?: string;
 	prefer?: 'auto' | 'webgl2';
 	maxScale?: number;
-	/** #465: the Live outlet an `outlet` node shows (relay "" = the hosted show) */
-	outlet?: { relay: string; name: string; locale: string };
+	/** #465: the Live outlet an `outlet` node shows (relay "" = the hosted show). #478: `reader` – the signed-in reader's name (the deck's when none is kept) */
+	outlet?: { relay: string; name: string; locale: string; reader?: string };
 	/** #470: the build label the deck names when it asks to be paired */
 	build?: string;
 	/** #484: the viewer's signed-in user, if any (the cookie, or a bearer token) – such a deck is its user and is not paired */
@@ -88,7 +88,7 @@ export class SceneStage {
 		const s = new SceneStage(o, canvas, view);
 		s.spaceModule = mod;
 		const kept = readKept();
-		if (o.outlet && view.join_outlet(o.outlet.relay, o.outlet.name, kept, o.outlet.locale, o.api)) {
+		if (o.outlet && view.join_outlet(o.outlet.relay, o.outlet.name, kept, o.outlet.reader ?? '', o.outlet.locale, o.api)) {
 			s.live = new LivePage(view, canvas, o.host, kept);
 			(s.relay = new RelaySocket(view as unknown as RelayCoreView, {})).start();
 			s.unwatch = watchPanel(canvas, view);

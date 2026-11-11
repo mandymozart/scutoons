@@ -10,6 +10,7 @@ export interface LiveView {
 	live_tap(x: number, y: number): boolean;
 	live_line(): string;
 	live_kept(): string;
+	live_place(density: number, top: number): void;
 }
 
 /** where this device keeps the page's choice (private mode: nothing kept) */
@@ -35,7 +36,12 @@ export class LivePage {
 		this.line.type = 'button';
 		this.line.dataset.testid = 'deck-live';
 		this.line.style.cssText = 'position:absolute;top:0;left:0;right:0;border:0;text-align:left;font:0.625rem/1.5rem monospace;background:#000a;color:#fffd;cursor:pointer';
-		this.line.onclick = () => view.live_toggle();
+		// the core centres the page below this line at its readable size: the canvas pixels per CSS pixel and the line's height
+		this.line.onclick = () => {
+			const k = canvas.width / (canvas.clientWidth || 1);
+			view.live_place(k, this.line.offsetHeight * k);
+			view.live_toggle();
+		};
 		host.append(this.line);
 		addEventListener('keydown', this.key);
 		canvas.addEventListener('pointerdown', this.tap);

@@ -901,6 +901,8 @@
 	},
 	"live_deck": {
 		"title": "Deck",
+		"stage_only": "Full screen",
+		"stage_leave": "Leave full screen (back)",
 		"start": "Start the sound",
 		"starting": "Starting …",
 		"controls": "Controls",

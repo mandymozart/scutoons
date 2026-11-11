@@ -87,6 +87,8 @@ pub struct Over<'a> {
     pub splash: (f32, bool),
     /// the build label centred at the top (a page keeps its own buttons in the corners), else top right
     pub label_centred: bool,
+    /// #478: where the full HUD is drawn (`hud::page_rect`: the browser's Live page); None = top left (`hud::rect`)
+    pub hud_at: Option<[f32; 4]>,
 }
 
 struct Target {
@@ -669,7 +671,7 @@ impl Stage {
         if let Some(hud) = over.hud.filter(|h| h.mode == hud::Mode::Full) {
             write(queue, &self.hud_tex, hud::W, hud::H, &hud.pixels);
             // rem-like: an integer scale by the screen height (2 at 1080p), a 1rem margin at that scale
-            let [x, y, hw, hh] = hud::rect(sw, sh);
+            let [x, y, hw, hh] = over.hud_at.unwrap_or_else(|| hud::rect(sw, sh));
             rp.set_viewport(x, y, hw, hh, 0.0, 1.0);
             draw(&mut rp, &self.hud_pass);
         }

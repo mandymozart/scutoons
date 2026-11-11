@@ -61,6 +61,9 @@ pub const SETTLE_MS: f64 = 1000.0;
 /// a due settle waits this long (ms, a frame and a bit) to take the place of the next change: the relay allows a deck 30
 /// `deck.values` a second, a deck at full pace has none to spare
 pub const SETTLE_GRACE_MS: f64 = 40.0;
+/// #478: a client that asks for its proof (`Options::wait_proof`) dials at most this long after its start without the
+/// answer (ms): long enough for the API's answer on a usual link, short enough that a deck nobody signed in to is not kept
+pub const PROOF_WAIT_MS: f64 = 1500.0;
 
 /// `ws://host:port/live/<code>` (or `wss://`, a path before `/live/` – the LAN viewer's `…/relay/live/<code>`) → the
 /// base and the session code; a query is dropped (the client adds its own)
@@ -173,11 +176,15 @@ pub struct Options {
     /// #478: the API's signed facts of this client for its session (`hello.proof`; deck-outlet's proof.rs asks for it)
     #[serde(default)]
     pub proof: Option<String>,
+    /// #478: the app asks for a proof (`proof_answered` brings the answer): the first dial waits for it, at most
+    /// `PROOF_WAIT_MS` – a hello with the proof, not a guest's hello and a join again a moment later
+    #[serde(default)]
+    pub wait_proof: bool,
 }
 
 impl Options {
     pub fn new(relay: &str, role: Role, group: Option<&str>) -> Options {
-        Options { relay: relay.into(), role, group: group.map(String::from), nick: None, token: None, resume: false, messages: false, device: None, proof: None }
+        Options { relay: relay.into(), role, group: group.map(String::from), nick: None, token: None, resume: false, messages: false, device: None, proof: None, wait_proof: false }
     }
 }
 
@@ -471,6 +478,10 @@ pub struct Client {
     /// #478: the roles the relay says this client may take (with how many are in each), and whether the conductor locked it
     roles: Vec<ShowRole>,
     locked: bool,
+    /// #478: the first dial waits for the proof's answer (`wait_proof`): until this ms (None: it does not wait); the answer
+    /// came (`proof_answered`)
+    proof_hold: Option<f64>,
+    proof_heard: bool,
 }
 
 impl Client {
@@ -515,6 +526,8 @@ impl Client {
             hands: Default::default(),
             roles: Vec::new(),
             locked: false,
+            proof_hold: None,
+            proof_heard: false,
         })
     }
 
@@ -539,6 +552,19 @@ impl Client {
         self.o.proof = proof;
         if first && self.phase == Phase::Open {
             self.rejoin();
+        }
+    }
+
+    /// #478: the API answered the ask for the proof – `Some(p)`: the proof from now (`set_proof`), `None`: the answer said
+    /// nothing, the proof it has stays (deck-outlet proof.rs `Renew::answered`). A first dial that waits for it goes now.
+    pub fn proof_answered(&mut self, proof: Option<Option<String>>) {
+        self.proof_heard = true;
+        if let Some(p) = proof {
+            self.set_proof(p);
+        }
+        if self.proof_hold.take().is_some() {
+            // the next `tick` dials (the adapter's timer: `next_wake` is due)
+            self.phase = Phase::Waiting(f64::NEG_INFINITY);
         }
     }
 
@@ -658,12 +684,20 @@ impl Client {
 
     /// join (once)
     pub fn start(&mut self, now: f64) {
-        if self.phase == Phase::Idle {
-            self.dial(now);
+        if self.phase != Phase::Idle {
+            return;
         }
+        if self.o.wait_proof && !self.proof_heard {
+            // #478: the first hello waits for the proof's answer, not longer than PROOF_WAIT_MS
+            self.proof_hold = Some(now + PROOF_WAIT_MS);
+            self.phase = Phase::Waiting(now + PROOF_WAIT_MS);
+            return;
+        }
+        self.dial(now);
     }
 
     fn dial(&mut self, now: f64) {
+        self.proof_hold = None;
         self.phase = Phase::Dialing;
         self.joined = false;
         self.set_status(Status { state: State::Joining, client: None, why: None, wait: None });
@@ -1987,6 +2021,73 @@ mod tests {
         assert_eq!((hello["p"]["proof"].as_str(), hello["p"]["resume"]["client"].as_str()), (Some("p.s"), Some("c3")));
         c.set_proof(Some("p.t".into()));
         assert!(!c.take().iter().any(|o| matches!(o, Out::Close {})), "a renewed proof waits for the next hello");
+    }
+
+    /// #478: a client that asks for its proof dials when the answer is there – its first hello carries it and the role it
+    /// names – and not later than PROOF_WAIT_MS without one; an answer that says nothing lets it go too
+    #[test]
+    fn the_first_hello_waits_for_the_proof_not_longer_than_its_time() {
+        let sent = |outs: &[Out]| -> Vec<Value> { outs.iter().filter_map(|o| if let Out::Send(t) = o { serde_json::from_str(t).ok() } else { None }).collect() };
+        let dials = |outs: &[Out]| outs.iter().filter(|o| matches!(o, Out::Dial(_))).count();
+        let waiting = || {
+            let mut o = Options::new("ws://relay/live/CATH", Role::Output, Some("soprano"));
+            o.resume = true;
+            o.wait_proof = true;
+            let mut c = Client::new(o).unwrap();
+            c.start(1000.0);
+            assert_eq!((dials(&c.take()), c.next_wake()), (0, Some(1000.0 + PROOF_WAIT_MS)), "no dial yet: it waits for the answer");
+            c
+        };
+        let welcome = json!({ "v": 1, "seq": 1, "from": "relay", "kind": "welcome", "p": { "client": "c3", "snapshot": {}, "now": 0, "key": "k" } }).to_string();
+        // the answer in time: the dial at once, the one hello with the proof and the role
+        let mut c = waiting();
+        c.tick(1200.0);
+        assert_eq!(dials(&c.take()), 0);
+        c.proof_answered(Some(Some("p.s".into())));
+        assert!(c.next_wake().is_some_and(|at| at <= 1300.0), "due now");
+        c.tick(1300.0);
+        assert_eq!(dials(&c.take()), 1);
+        c.opened(1310.0);
+        let hellos = sent(&c.take());
+        assert_eq!((hellos.len(), hellos[0]["p"]["proof"].as_str(), hellos[0]["p"]["group"].as_str()), (1, Some("p.s"), Some("soprano")));
+        c.text(1320.0, &welcome);
+        assert!(!c.take().iter().any(|o| matches!(o, Out::Close {})), "joined with its facts: no join again");
+
+        // nobody signed in (401: a guest) or no answer worth keeping: it dials at once, as a guest
+        for answer in [Some(None), None] {
+            let mut c = waiting();
+            c.proof_answered(answer.clone());
+            c.tick(1050.0);
+            assert_eq!(dials(&c.take()), 1, "{answer:?}");
+            c.opened(1060.0);
+            assert_eq!(sent(&c.take())[0]["p"].get("proof"), None);
+        }
+
+        // no answer: the dial at PROOF_WAIT_MS, a guest's hello; the proof that comes later joins again with resume, the
+        // role it names and the proof in one hello (the relay gives the role with the proven facts: deck-relay
+        // `a_resume_with_a_proof_takes_the_role_a_guest_was_refused`)
+        let mut c = waiting();
+        c.tick(1000.0 + PROOF_WAIT_MS - 1.0);
+        assert_eq!(dials(&c.take()), 0);
+        c.tick(1000.0 + PROOF_WAIT_MS);
+        assert_eq!(dials(&c.take()), 1, "not longer than PROOF_WAIT_MS");
+        c.opened(2600.0);
+        assert_eq!(sent(&c.take())[0]["p"].get("proof"), None, "a guest");
+        c.text(2610.0, &welcome);
+        c.take();
+        c.proof_answered(Some(Some("p.s".into())));
+        assert!(c.take().iter().any(|o| matches!(o, Out::Close {})), "a late proof: join again");
+        c.closed(3000.0, "");
+        c.tick(3000.0 + REJOIN_MS);
+        c.opened(3300.0);
+        let hello = sent(&c.take()).into_iter().find(|e| e["kind"] == "hello").unwrap();
+        assert_eq!(hello["p"]["group"], "soprano");
+        assert_eq!((hello["p"]["proof"].as_str(), hello["p"]["resume"]["client"].as_str()), (Some("p.s"), Some("c3")));
+
+        // a client that asks for no proof dials at once, as ever
+        let mut c = Client::new(Options::new("ws://relay/live/CATH", Role::Output, None)).unwrap();
+        c.start(0.0);
+        assert_eq!(dials(&c.take()), 1);
     }
 
     /// #442: a deck asks for its far addresses once joined, to the decks' group, and again every `far::LISTEN_MS`; its
