@@ -1,4 +1,4 @@
-Status 2026-11-10: research and concepts, nothing built and nothing to be built yet (#482; the owner: "we're still collecting concepts"); owned by the XR session (branch `wip/482-xr-experiences-7f10f7`), the owner's statements from here on in decisions/xr.md. §1 and §2 are read from the code of both projects; §3 and §4 are proposals; §5 is decided by the owner (OSCT's code copied in, lazily loaded; the unit is an Experience of type book, show or poster; a scene belongs to its experience; three.js accepted; image tracking only); §6 is open; §7 the order, agreed; §8 the concepts drawn on 2026-11-11 (drafts 5 to 8), proposals until the owner answers them. Plaques and an image on a screen are tested by the owner and work (decisions/xr.md): no test of them is planned.
+Status 2026-11-10: research and concepts, nothing built and nothing to be built yet (#482; the owner: "we're still collecting concepts"); owned by the XR session (branch `wip/482-xr-experiences-7f10f7`), the owner's statements from here on in decisions/xr.md. §1 and §2 are read from the code of both projects; §3 and §4 are proposals; §5 is decided by the owner (OSCT's code copied in, lazily loaded; the unit is an Experience of type book, show or poster; a scene belongs to its experience; three.js accepted; image tracking only); §6 is open; §7 the order, agreed; §8 the concepts drawn on 2026-11-11 (drafts 5 to 10), proposals until the owner answers them. Plaques and an image on a screen are tested by the owner and work (decisions/xr.md): no test of them is planned.
 
 # XR — taking over OSCT's XR methods into SCUTOONS
 
@@ -80,7 +80,7 @@ So book, space and show are not three orders: a space is a book whose surfaces a
 9. **A surface has a place on the editor's stage**, the demo scene, so the example reads well: a book's surfaces are bound side by side (spreads); an exhibition's walls stand together, three or four in one, as rooms; posters hang singly or lined up one after another on a poster wall.
 10. **What an entry does in SCUTOONS:** it rather unlocks 3D views, videos and items, or jumps to a scene: interactive stories with SCUTOONS's existing toolset. The entry without a target that is only read in a list (OSCT's glossary) stays in for now; whether SCUTOONS's reader needs it is to be thought about.
 
-Drafts shown to the owner (the XR session's notes folder, `482-xr/`, each an `.html` and a `.png`): 2 the experience document · 3 the hierarchy, stored flat and shown stacked in the editor (the owner: good) · 4 the stored shape, A or B · 5 surfaces and the stage · 6 what a target does · 7 the reader's XR mode · 8 the XR editor in the creator (5 to 8: §8).
+Drafts shown to the owner (the XR session's notes folder, `482-xr/`, each an `.html` and a `.png`): 2 the experience document · 3 the hierarchy, stored flat and shown stacked in the editor (the owner: good) · 4 the stored shape, A or B · 5 surfaces and the stage · 6 what a target does · 7 the reader's XR mode · 8 the XR editor in the creator · 9 the creator's XR area and a book in the workspace · 10 the reader's other screens (5 to 10: §8).
 
 ## 6 · Open
 - **The stored shape of an experience** (draft 4, XR-SHARED-CORE.md §5 and §8): A, OSCT's configuration kept as it is inside the document with SCUTOONS's fields beside it (the research's advice; the tree is then surface › entry › target › scene, as OSCT's), or B, SCUTOONS's own four lists (draft 3; surface › target › scene, the entry beside). Not answered.
@@ -139,6 +139,13 @@ The owner: "Bitte konzeptionelle Schritte alle noch durchziehen." Four drafts, e
 - **Where it lives:** an area "XR" in the creator beside Toons, Characters, Map and Catalog: a list of experiences and this workspace for each.
 - Asked: (1) the workspace in OSCT's compact dark look under the creator's paper bar, or all in the creator's look; (2) "XR" as its own area, or inside a toon; (3) the tree is drawn entry first (shape A).
 
+### 8.6 The screens the move brings (drafts 9 and 10)
+
+The owner asked for drafts of the planned move's screens. Beside drafts 7 and 8:
+- **Draft 9, the creator.** The XR area's first page in the creator's own paper look: the experiences (name, type, counts, toons, draft or published) and "New experience" (name; type Book, Show, Poster; a book as book or record; toons). And the workspace with a record: the gatefold open on the desk, a node of its scene selected, the inspector with placement (1 = the target's width), animation and the rules without code, the log of the simulated reader.
+- **Draft 10, the reader.** The list (targets by surface, found or to look for, and what can be read); a show's wall, where the target is a plaque and the words name room, surface and target; the camera refused (one message, "Try again", what can be read without a camera, the way back); and the way in from an item: "See it in XR" on the item's page.
+- Asked: targets not found yet shown with their picture, or hidden until found; "See it in XR" on the item's page in the carrier bag and on a product's page in the shop.
+
 ### 8.5 What only the owner can decide, in one list
 
 1. The stored shape: A or B (§6, draft 4). The session recommends A.
@@ -146,5 +153,5 @@ The owner: "Bitte konzeptionelle Schritte alle noch durchziehen." Four drafts, e
 3. The two layers, and when an entry's events run (8.2).
 4. The first screen of the reader's XR page; where what is found is kept (8.3).
 5. The editor's look and its place in the creator (8.4).
-6. From draft 2: a record's disc label as a surface; scenes in the jump's field.
+6. From draft 2: a record's disc label as a surface; scenes in the jump's field. From draft 10: unfound targets shown or hidden; where "See it in XR" stands.
 7. Who posts the research's result on OSCT's issue #255 (XR-SHARED-CORE.md §8).
