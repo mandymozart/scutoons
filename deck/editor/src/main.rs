@@ -130,6 +130,7 @@ fn args() -> Result<Args> {
             "--flash-filter" => a.script.flash_filter = Some(val()?),
             "--flash-ask" => a.script.flash_ask = true,
             "--flash-confirm" => a.script.flash_confirm = true,
+            "--flash-force" => a.script.flash_force = true,
             "--seat" => a.script.seat = Some(val()?),
             "--row" => a.script.row = Some(val()?),
             "--sheet" => a.script.sheet = Some(show::Sheet::parse(&val()?).context("--sheet cues | problems | flash | who")?),

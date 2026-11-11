@@ -402,10 +402,12 @@ pub struct Script {
     /// Show: the cue sheet or the problems list in the stage's place; a problem's line pressed
     pub sheet: Option<Sheet>,
     pub problem: Option<usize>,
-    /// #471: with `flash`, the typed filter applied to the list, the prompt opened, the prompt confirmed
+    /// #471: with `flash`, the typed filter applied to the list, the prompt opened, the prompt confirmed; #481: the
+    /// flash switched to forced
     pub flash_filter: Option<String>,
     pub flash_ask: bool,
     pub flash_confirm: bool,
+    pub flash_force: bool,
     /// #478: the role the inspector shows (an outlet id); with `--sheet who`, a client (its name or id) moved to a role
     /// (`NAME=ROLE`, an empty role = no role) by its move menu, and a client's move menu left open
     pub role: Option<String>,
@@ -480,6 +482,7 @@ impl Host {
                     self.script_filter(text);
                 }
             }
+            65 if s.flash_force => self.press(Hit::FlashForce),
             80 if s.flash_ask => self.press(Hit::FlashAsk),
             90 if s.flash_confirm => self.press(Hit::FlashConfirm),
             _ => {}
