@@ -8,7 +8,7 @@
 //   npm run deck:ci -- --if-changed <from> <to>   only when deck/ or shared/live* changed in that range (the pre-push hook)
 //
 // Steps: the bridge guard (check:core-only, check:deck-deps – #363), the headless deck host's scenarios (#363), the protocol schema current (shared/live), the kind catalog's generated files current (deck-space's deck-schema
-// --check: kinds.json, the JSON Schema, shared/live/src/catalog.ts), live-core for wasm32 + simd128 (its gz size under the gate) + its TS tests, deck-engine for wasm32 + simd128 (its gz size under the gate), space-web for wasm32 (its gz size under the gate, #485), deck-outlet for wasm32 (#378), deck-ui for wasm32 (#374) +
+// --check: kinds.json, the JSON Schema, shared/live/src/catalog.ts), live-core for wasm32 + simd128 (its gz size under the gate) + its TS tests, deck-engine for wasm32 + simd128 (its gz size under the gate), space-web for wasm32 (its gz size reported, no gate – owner 2026-11-11), deck-outlet for wasm32 (#378), deck-ui for wasm32 (#374) +
 // shared/live-deck's tests, cargo build --release, cargo test (+ the stage's module tests), cargo clippy -D warnings (+ with the module feature). The Linux aarch64 cross build
 // and the other platforms stay on GitHub (by hand) – this runs the host's native target.
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -42,15 +42,13 @@ if (changed >= 0) {
 
 /** the gz size gate of the engine's wasm (owner 2026-11-04: live-core, which links the engine since #320, may weigh 1 MB gz "for now"; was 500 KB on 2026-11-02) */
 const ENGINE_GATE_KB = 1024;
-/** the gz size gate of the browser deck's 3D and own UI as cargo builds it (#485 slice 3, owner 2026-11-11 on egui's
- * text stack: "Slim down"): 2,542 KB gz then (space_web_bg.wasm after wasm-bindgen: 2,393 KB), plus a small margin –
- * the phone downloads it, so it cannot grow unnoticed again */
-const SPACE_WEB_GATE_KB = 2600;
+/** a wasm's size, raw and gz; with `kb` a gate that fails above it. The browser deck (space-web) has no gate: owner
+ * 2026-11-11, "Remove the browser check size limit. We will need to grow. Eventually" – its size is only reported */
 function gate(file, kb) {
 	const raw = readFileSync(file);
 	const gz = gzipSync(raw, { level: 9 }).length;
-	if (gz > kb * 1024) throw new Error(`${file} is ${(gz / 1024).toFixed(0)} KB gz, over the ${kb} KB gate`);
-	return `${(raw.length / 1024).toFixed(0)} KB raw, ${(gz / 1024).toFixed(0)} KB gz, gate ${kb} KB`;
+	if (kb && gz > kb * 1024) throw new Error(`${file} is ${(gz / 1024).toFixed(0)} KB gz, over the ${kb} KB gate`);
+	return `${(raw.length / 1024).toFixed(0)} KB raw, ${(gz / 1024).toFixed(0)} KB gz${kb ? `, gate ${kb} KB` : ''}`;
 }
 
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
