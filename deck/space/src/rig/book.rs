@@ -4,8 +4,12 @@
 //! holds and narrows it here; the platform only fetches and keeps the file. Whether an address is valid stays the parser's
 //! (address.rs) and the validation's.
 //!
+//! **Reference and address** (owner 2026-11-10 [address]): every entry has a reference (`ref`, which thing); only an entry a
+//! receiver exists for has an address (who hears a word). The deck sends words, so `find` offers only entries with an address,
+//! and a pick writes that address. A location, chapter, group or variable is a reference only and never offered here.
+//!
 //! **The match** is plain substring matching: every typed word, whatever the case, somewhere in the entry's label (the asked
-//! locale, the one generated locale order, `protocol::content_text`), its name or its address; the book's order (parents
+//! locale, the one generated locale order, `protocol::content_text`), its name or its reference; the book's order (parents
 //! before their children). It is the one rule of the book's typeahead and exists once per language that draws one: here for
 //! the deck, `matchEntries` in creator/src/lib/editor/address-targets.ts for the creator (#477: the server serves the data,
 //! each client filters it; no wasm route, [contract]). The tests below are the cases both must give.
@@ -22,14 +26,15 @@ pub struct Book {
     book: AddressBook,
     /// each entry's labels in the map's own (sorted) order: the locale order's last step, `any`, takes the first
     labels: Vec<BTreeMap<String, String>>,
-    /// address → entry
+    /// reference → entry
     index: HashMap<String, usize>,
 }
 
 /// One row of a typeahead.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Row {
-    pub address: String,
+    /// what a pick writes; none for an entry nothing can receive a word at (`find` never offers those)
+    pub address: Option<String>,
     /// the entry's label with the ones above it
     pub chain: String,
     pub kind: AddressKind,
@@ -45,7 +50,7 @@ impl Book {
 
     pub fn new(book: AddressBook) -> Book {
         let labels = book.entries.iter().map(|e| e.labels.iter().map(|(k, v)| (k.clone(), v.clone())).collect()).collect();
-        let index = book.entries.iter().enumerate().map(|(i, e)| (e.address.clone(), i)).collect();
+        let index = book.entries.iter().enumerate().map(|(i, e)| (e.r#ref.clone(), i)).collect();
         Book { book, labels, index }
     }
 
@@ -87,16 +92,17 @@ impl Book {
         chain.iter().rev().map(|&e| self.label(e, locale)).collect::<Vec<_>>().join(CHAIN)
     }
 
-    /// The entries an asker may reach (of `kinds`) that the typed `query` finds (the module's rule), in the book's order.
+    /// The entries an asker may reach – with an address (a receiver exists) and of `kinds` – that the typed `query` finds
+    /// (the module's rule), in the book's order.
     pub fn find(&self, query: &str, kinds: &[AddressKind], locale: &str) -> Vec<usize> {
         let words: Vec<String> = query.split_whitespace().map(str::to_lowercase).collect();
         (0..self.book.entries.len())
             .filter(|&i| {
                 let e = &self.book.entries[i];
-                if !kinds.contains(&e.kind) {
+                if e.address.is_none() || !kinds.contains(&e.kind) {
                     return false;
                 }
-                let hay = format!("{} {} {}", self.label(i, locale), e.name, e.address).to_lowercase();
+                let hay = format!("{} {} {}", self.label(i, locale), e.name, e.r#ref).to_lowercase();
                 words.iter().all(|w| hay.contains(w.as_str()))
             })
             .collect()
@@ -114,17 +120,18 @@ mod tests {
     use super::*;
     use AddressKind::*;
 
-    /// a book as the server writes it (server/tests: AddressBook), cut down
+    /// a book as the server writes it (server/tests: AddressBook), cut down: an address only where a receiver exists
     const BOOK: &str = r#"{
-        "address_book": 1, "toon": "catpope", "version": "v1", "source": "de",
+        "address_book": 2, "toon": "catpope", "version": "v1", "source": "de",
         "entries": [
-            { "address": "character:catpope", "kind": "character", "name": "catpope", "labels": { "de": "Katzenpapst", "en": "Cat Pope" }, "origin": { "key": "character:catpope", "state": "published" } },
-            { "address": "character:catpope.human", "kind": "persona", "name": "human", "parent": "character:catpope", "labels": { "de": "Mensch", "en": "Human" }, "origin": { "key": "character:catpope", "state": "published" } },
-            { "address": "character:catpope.human.default", "kind": "look", "name": "default", "parent": "character:catpope.human", "labels": {}, "origin": { "key": "character:catpope", "state": "published" }, "moods": ["happy"] },
-            { "address": "character:mountaintiger", "kind": "character", "name": "mountaintiger", "labels": { "fr": "Tigre", "de": " " }, "origin": { "key": "character:mountaintiger", "state": "draft" } },
-            { "address": "location:dom", "kind": "location", "name": "dom", "labels": { "de": "Der Dom" }, "origin": { "key": "place:dom", "state": "published" } },
-            { "address": "item:incense", "kind": "item", "name": "incense", "labels": { "en": "Incense" }, "origin": { "key": "item:incense", "state": "published" } },
-            { "address": "chapter:3", "kind": "chapter", "name": "3", "labels": { "en": "Anger" }, "origin": { "key": "chapter:catpope:3", "state": "draft" } }
+            { "ref": "character:catpope", "address": "character:catpope", "kind": "character", "name": "catpope", "labels": { "de": "Katzenpapst", "en": "Cat Pope" }, "origin": { "key": "character:catpope", "state": "published" } },
+            { "ref": "character:catpope.human", "address": "character:catpope.human", "kind": "persona", "name": "human", "parent": "character:catpope", "labels": { "de": "Mensch", "en": "Human" }, "origin": { "key": "character:catpope", "state": "published" } },
+            { "ref": "character:catpope.human.default", "address": "character:catpope.human.default", "kind": "look", "name": "default", "parent": "character:catpope.human", "labels": {}, "origin": { "key": "character:catpope", "state": "published" }, "moods": ["happy"] },
+            { "ref": "character:mountaintiger", "address": "character:mountaintiger", "kind": "character", "name": "mountaintiger", "labels": { "fr": "Tigre", "de": " " }, "origin": { "key": "character:mountaintiger", "state": "draft" } },
+            { "ref": "location:dom", "kind": "location", "name": "dom", "labels": { "de": "Der Dom" }, "origin": { "key": "place:dom", "state": "published" } },
+            { "ref": "item:incense", "address": "item:incense", "kind": "item", "name": "incense", "labels": { "en": "Incense" }, "origin": { "key": "item:incense", "state": "published" } },
+            { "ref": "chapter:3", "kind": "chapter", "name": "3", "labels": { "en": "Anger" }, "origin": { "key": "chapter:catpope:3", "state": "draft" } },
+            { "ref": "chapter:3.intro", "kind": "group", "name": "intro", "parent": "chapter:3", "labels": {}, "origin": { "key": "chapter:catpope:3", "state": "draft" } }
         ]
     }"#;
 
@@ -132,30 +139,41 @@ mod tests {
         Book::parse(BOOK).unwrap()
     }
 
+    /// what a pick of each found entry writes: its address
     fn found(b: &Book, query: &str, kinds: &[AddressKind], locale: &str) -> Vec<String> {
-        b.find(query, kinds, locale).into_iter().map(|i| b.entries()[i].address.clone()).collect()
+        b.find(query, kinds, locale).into_iter().filter_map(|i| b.entries()[i].address.clone()).collect()
     }
 
     const ALL: [AddressKind; 8] = [Character, Persona, Look, Location, Item, Chapter, Group, Variable];
 
     #[test]
-    fn every_word_in_the_label_the_name_or_the_address_whatever_the_case() {
+    fn every_word_in_the_label_the_name_or_the_reference_whatever_the_case() {
         let b = book();
-        assert_eq!(found(&b, "", &ALL, "en").len(), 7, "nothing typed: everything the asker may reach");
+        assert_eq!(found(&b, "", &ALL, "en").len(), 5, "nothing typed: everything the asker may reach that has an address");
         assert_eq!(found(&b, "CAT pope", &[Character], "en"), ["character:catpope"], "both words, any case");
-        assert_eq!(found(&b, "pope cat", &ALL, "en").len(), 3, "in any order; the persona and the look by their address");
+        assert_eq!(found(&b, "pope cat", &ALL, "en").len(), 3, "in any order; the persona and the look by their reference");
         assert_eq!(found(&b, "katzen", &ALL, "de"), ["character:catpope"], "the label of the asked locale");
         assert!(found(&b, "katzen", &ALL, "en").is_empty(), "not the label of another locale");
-        assert_eq!(found(&b, "human", &ALL, "de"), ["character:catpope.human", "character:catpope.human.default"], "the name, the address");
-        assert_eq!(found(&b, "dom location:", &ALL, "en"), ["location:dom"], "words from label and address together");
+        assert_eq!(found(&b, "human", &ALL, "de"), ["character:catpope.human", "character:catpope.human.default"], "the name, the reference");
+        assert_eq!(found(&b, "incense item:", &ALL, "en"), ["item:incense"], "words from label and reference together");
         assert_eq!(found(&b, "  incense   item ", &ALL, "en"), ["item:incense"], "any spaces between the words");
         assert!(found(&b, "incensex", &ALL, "en").is_empty());
+    }
+
+    /// owner 2026-11-10 [address]: sending a word somewhere needs a receiver of that type – a reference only is never offered
+    #[test]
+    fn a_reference_only_is_never_offered_whatever_the_asker_asks_for() {
+        let b = book();
+        assert!(found(&b, "dom", &[Location], "de").is_empty(), "a location has no receiver yet");
+        assert!(b.find("", &[Chapter, Group, Variable], "en").is_empty(), "chapters, groups, variables are references");
+        let dom = b.entries().iter().position(|e| e.r#ref == "location:dom").unwrap();
+        assert_eq!(b.row(dom, "de").unwrap().address, None);
     }
 
     #[test]
     fn only_the_kinds_the_asker_may_reach_in_the_books_order() {
         let b = book();
-        assert_eq!(found(&b, "", &[Character, Location, Item], "en"), ["character:catpope", "character:mountaintiger", "location:dom", "item:incense"]);
+        assert_eq!(found(&b, "", &[Character, Location, Item], "en"), ["character:catpope", "character:mountaintiger", "item:incense"]);
         assert_eq!(found(&b, "cat", &[Persona], "en"), ["character:catpope.human"]);
         assert!(found(&b, "", &[], "en").is_empty());
     }
@@ -163,15 +181,16 @@ mod tests {
     #[test]
     fn a_row_is_the_label_chain_the_kind_and_draft_or_published() {
         let b = book();
-        let at = |a: &str| b.entries().iter().position(|e| e.address == a).unwrap();
-        // the look has no label: its name; the chain in the asked locale
+        let at = |r: &str| b.entries().iter().position(|e| e.r#ref == r).unwrap();
+        // the look has no label: its name; the chain in the asked locale, up the references
         assert_eq!(b.row(at("character:catpope.human.default"), "de").unwrap().chain, "Katzenpapst › Mensch › default");
         assert_eq!(b.row(at("character:catpope.human.default"), "en").unwrap().chain, "Cat Pope › Human › default");
+        assert_eq!(b.chain(at("chapter:3.intro"), "en"), "Anger › intro");
         // the locale order: asked › source (de, blank here) › en › any
         assert_eq!(b.label(at("character:mountaintiger"), "en"), "Tigre");
         assert_eq!(b.label(at("location:dom"), "en"), "Der Dom", "the source language before en");
         let tiger = b.row(at("character:mountaintiger"), "en").unwrap();
-        assert_eq!((tiger.kind, tiger.draft), (Character, true));
+        assert_eq!((tiger.kind, tiger.draft, tiger.address.as_deref()), (Character, true, Some("character:mountaintiger")));
         assert!(!b.row(at("item:incense"), "en").unwrap().draft);
         assert_eq!((b.toon(), b.version()), ("catpope", "v1"));
     }
@@ -181,8 +200,10 @@ mod tests {
         let b = book();
         let kept = serde_json::to_string(&b.book).unwrap();
         let again = Book::parse(&kept).unwrap();
-        assert_eq!((again.version(), again.entries().len()), ("v1", 7));
+        assert_eq!((again.version(), again.entries().len()), ("v1", 8));
         assert!(Book::parse("{}").unwrap_err().starts_with("not an address book"));
-        assert!(Book::parse(r#"{"address_book":1,"toon":"x","version":"v","source":"en","entries":[{"address":"a:b","kind":"scene","name":"b","labels":{},"origin":{"key":"k","state":"published"}}]}"#).is_err(), "a kind the schema does not list");
+        assert!(Book::parse(r#"{"address_book":2,"toon":"x","version":"v","source":"en","entries":[{"ref":"a:b","kind":"scene","name":"b","labels":{},"origin":{"key":"k","state":"published"}}]}"#).is_err(), "a kind the schema does not list");
+        // a book kept in the first format (no reference) is not read: the editor fetches a new one
+        assert!(Book::parse(r#"{"address_book":1,"toon":"x","version":"v","source":"en","entries":[{"address":"item:a","kind":"item","name":"a","labels":{},"origin":{"key":"k","state":"published"}}]}"#).is_err());
     }
 }

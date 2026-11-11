@@ -1,0 +1,9 @@
+{
+  "about": "#478: one signed proof of a client's facts for a live session. The API signs it (server LiveSessions::proof, tested in server/tests/Unit/Http/LiveProofApiTest.php), the relay verifies it (deck/relay/src/token.rs `proof`, its tests read this file) – the two sides cannot drift. The secret is a test value and never a real one.",
+  "secret": "test-vector-not-a-real-secret",
+  "session": "A7K2",
+  "now": 1000,
+  "claims": { "session": "A7K2", "facts": { "account": ["member", "live"], "approved": true }, "exp": 2000 },
+  "proof": "eyJzZXNzaW9uIjoiQTdLMiIsImZhY3RzIjp7ImFjY291bnQiOlsibWVtYmVyIiwibGl2ZSJdLCJhcHByb3ZlZCI6dHJ1ZX0sImV4cCI6MjAwMH0.5-bdh_W0aTBmgtPj38RFWEmdMJBbhb7mTtuzwPnGXB8",
+  "facts": { "account": ["member", "live"], "approved": true }
+}

@@ -8,6 +8,8 @@
 //! link, which the page asks for with the deck's token (link.rs) or, in a signed-in viewer, with its user's sign-in
 //! (#484: that deck is its user and is not paired) - and then fetched as `m:<id>` from that link, without the token. A
 //! deck that is not paired and has no user answers the conductor why (the code to pair with).
+//! Its proof (#478, deck-outlet's `proof`): asked as `r:` – the page fetches it with its reader's sign-in – and put in the
+//! relay client's hellos; a reader not signed in gets none and the deck joins as a guest.
 //! Pieces and a flash (#479, #475): a piece the deck does not carry is asked as `cr:<piece>` (deck-space `fetched.rs`:
 //! the API's scene-content); a flash is answered by deck-show's `flashed.rs` – the show at its version is asked as
 //! `sf:<kept name>` with the deck's token, its pieces through the same store, the `flash.report` goes to the conductor.
@@ -18,6 +20,7 @@ use deck_outlet::compose::{Composer, Shelf};
 use deck_outlet::frame::{Frame, SpaceTarget};
 use deck_outlet::plan::MediaRef;
 use deck_outlet::preload::Preload;
+use deck_outlet::proof::{self, Renew};
 use deck_outlet::recompose::Recompose;
 use deck_outlet::route::{route, Input, Routed};
 use deck_outlet::show::{show_path, signed_link, signed_link_request};
@@ -179,6 +182,15 @@ impl Shelf for WebShelf {
     }
 }
 
+/// #478: what the Live page chose on this device – the page keeps it as text (`SceneView::live_kept`), the core reads it
+#[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
+pub struct Kept {
+    #[serde(default)]
+    pub role: Option<String>,
+    #[serde(default)]
+    pub name: Option<String>,
+}
+
 /// The outlet in the page: the relay client, the composer and the two machines, on the page's clock.
 pub struct Outlet {
     pub name: String,
@@ -208,20 +220,26 @@ pub struct Outlet {
     pub fetched: Fetched,
     /// #475: the flash side
     flash: Flashed,
+    /// #478: when it asks for its proof (`r:`)
+    renew: Renew,
 }
 
 impl Outlet {
     /// join `relay` (ws:// or wss://…/live/<code>) as output of `outlet`, its text in `locale`, show media's links from `api`;
-    /// the planes go to `frames`
-    pub fn new(relay: &str, outlet: &str, locale: &str, api: &str, size: (u32, u32), frames: SyncSender<Frame>) -> Result<Outlet, String> {
+    /// the planes go to `frames`. #478: `kept` – what the Live page chose on this device (`Kept`, the page keeps the text):
+    /// its role over the outlet, its name
+    pub fn new(relay: &str, outlet: &str, kept: &str, locale: &str, api: &str, size: (u32, u32), frames: SyncSender<Frame>) -> Result<Outlet, String> {
         let relay = if relay.trim().is_empty() { HOSTED_RELAY } else { relay.trim() };
         if outlet.is_empty() || !outlet.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') {
             return Err(format!("outlet '{outlet}': letters, digits, - and _ only"));
         }
-        let mut o = Options::new(relay, Role::Output, Some(outlet));
+        let kept: Kept = serde_json::from_str(kept).unwrap_or_default();
+        let outlet = kept.role.as_deref().unwrap_or(outlet);
+        let mut o = Options::new(relay, Role::Output, Some(outlet).filter(|g| !g.is_empty()));
         o.resume = true;
         o.messages = true;
-        o.nick = Some("browser".into());
+        o.nick = Some(kept.name.filter(|n| !n.trim().is_empty()).unwrap_or_else(|| "browser".into()));
+        o.device = Some("browser".into());
         let relay = Client::new(o)?;
         let status = Status { link: format!("JOINING {}", relay.url()), ..Default::default() };
         Ok(Outlet {
@@ -249,11 +267,16 @@ impl Outlet {
                 flash.set_locale(locale);
                 flash
             },
+            renew: Renew::default(),
         })
     }
 
     /// what the relay client asks of the page's socket; the messages are routed here (`now`: the page's clock, s)
     pub fn take(&mut self, now: Duration) -> Vec<Out> {
+        if self.renew.due(now.as_secs_f64()) {
+            let ask = ("r:".to_string(), proof::request(&self.api, self.relay.code()));
+            self.composer.shelf.asks.push(ask);
+        }
         let mut out = Vec::new();
         for o in self.relay.take() {
             match o {
@@ -277,6 +300,8 @@ impl Outlet {
                 Routed::Piece(c) => self.pieces.push(c),
                 Routed::Flash(f) => self.flash.flash(&f, &self.api, &self.unpaired, &mut self.fetched),
                 Routed::Refused { code, message } => self.status.problems_relay = Some(format!("RELAY {code}: {message}")),
+                // #478: a role taken – its cells from now (the black of no role is routed to the piece side too)
+                Routed::Moved(role) => self.name = role.unwrap_or_default(),
             }
         }
     }
@@ -369,6 +394,14 @@ impl Outlet {
         }
     }
 
+    /// #478: the API's answer to the `r:` ask (`status` 0: no answer) at `now` – the proof for the relay client's hellos
+    pub fn proof(&mut self, status: u16, body: &str, now: Duration) {
+        let body = serde_json::from_str(body).unwrap_or(serde_json::Value::Null);
+        if let Some(p) = self.renew.answered(now.as_secs_f64(), proof::read(status, &body)) {
+            self.relay.set_proof(p);
+        }
+    }
+
     pub fn shelf(&mut self) -> &mut WebShelf {
         &mut self.composer.shelf
     }
@@ -402,7 +435,8 @@ impl Outlet {
             self.status.problems = out.problems;
             self.pending = Some(out.frame);
         }
-        let lines = self.status.lines(&self.name);
+        let s = self.relay.live();
+        let lines = self.status.lines(&if s.joined { deck_ui::live::who(&s) } else { self.name.clone() });
         if lines != self.said {
             web_sys::console::log_1(&lines.join("\n").into());
             self.said = lines;

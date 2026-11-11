@@ -132,7 +132,10 @@ fn args() -> Result<Args> {
             "--flash-confirm" => a.script.flash_confirm = true,
             "--seat" => a.script.seat = Some(val()?),
             "--row" => a.script.row = Some(val()?),
-            "--sheet" => a.script.sheet = Some(show::Sheet::parse(&val()?).context("--sheet cues | problems")?),
+            "--sheet" => a.script.sheet = Some(show::Sheet::parse(&val()?).context("--sheet cues | problems | flash | who")?),
+            "--role" => a.script.role = Some(val()?),
+            "--who-move" => a.script.who_move = val()?.split_once('=').map(|(c, r)| (c.to_string(), r.to_string())),
+            "--who-menu" => a.script.who_menu = Some(val()?),
             "--problem" => a.script.problem = Some(val()?.parse().context("--problem N (0-based)")?),
             "--gesture" => {
                 let v = val()?;
@@ -1000,7 +1003,8 @@ impl App {
         let Some(menu) = self.menu.take() else { return };
         let (x, y) = (menu.ta.x, menu.ta.y);
         if let Some((track, node, address)) = menu.far {
-            let Some(entry) = self.book.book.as_ref().and_then(|b| b.entry(id)).map(|e| e.address.clone()) else { return };
+            // the entry's address (the book offers only entries a receiver exists for: rig/book.rs `find`)
+            let Some(entry) = self.book.book.as_ref().and_then(|b| b.entry(id)).and_then(|e| e.address.clone()) else { return };
             let next = deck_space::rig::address::Place::parse(&entry).map(|p| address.with_holder(p).to_string());
             let done = next.and_then(|a| self.stage.bundle.address_set(&track, &node, &a));
             return self.change(done, format!("{node}: {entry}"), x, y);

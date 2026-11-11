@@ -14,21 +14,28 @@ use stdClass;
 
 /**
  * One toon's address book (#477; the shape: server/schema/api/address-book.schema.json, its PHP types AddressBookTypes):
- * every addressable thing of the toon's catalog, read by the creator's VN events and the deck editor in one typeahead each.
+ * every thing of the toon's catalog a typeahead may pick, read by the creator's VN events and the deck editor in one
+ * typeahead each. Every entry has its **reference** (`ref`: which thing); only the kinds a receiver exists for also have an
+ * **address** (who hears a word, the same text: ADDRESSED; decisions/deck.md [address]).
  *
  * - **characters** in the toon's cast (every season) or with `own_toon` = the toon: the character, each persona, each look
  *   with the moods it has art for – `character:<id>`, `character:<id>.<persona>`, `character:<id>.<persona>.<look>`
- *   (address.rs `Target`, SHOW.md §8)
- * - **locations**: the world map's places whose `toons` hold the toon – `location:<place>` (SHOW.md §8)
- * - **items**: the catalog's items of the toon and the shared ones (no toon) – `item:<id>`
- * - **chapters**: the toon's chapters – `chapter:<number>`, each followed by its **groups** – `chapter:<number>.<group>`
- * - **variables**: every story variable of the one save game (the flow index's, every toon may set any) – `variable:<scope>.<name>`
+ *   (address.rs `Target`, SHOW.md §8); addresses
+ * - **locations**: the world map's places whose `toons` hold the toon – `location:<place>` (SHOW.md §8); references
+ * - **regions**: every region of the world map (one map for all toons) – `region:<id>`; references
+ * - **items**: the catalog's items of the toon and the shared ones (no toon) – `item:<id>`; addresses
+ * - **seasons**: the toon's seasons – `season:<number>`; references
+ * - **chapters**: the toon's chapters – `chapter:<number>`, each followed by its **groups** – `chapter:<number>.<group>`; references
+ * - **products**: the shop's products of the toon and the shared ones – `product:<id>`; references
+ * - **toons**: every toon, this one first – `toon:<id>`; references (a jump's other toon; XR targets have no catalog to list)
+ * - **variables**: every story variable of the one save game (the flow index's, every toon may set any) –
+ *   `variable:<scope>.<name>`; references
  * The group and variable forms are proposals the owner has not confirmed (#477, slice B): cheap to change, here and in the
- * schema's AddressKind only. A group's `name` is its label exactly as an event stores it; its address word is a safe form
+ * schema's AddressKind only. A group's `name` is its label exactly as an event stores it; its reference word is a safe form
  * of the label (letters, digits, `_` and `-`; anything else becomes `-`, a second label with the same form gets `-2` …). A
  * variable's `name` is the variable as written in this toon (`coins`, `global.coins`, `toptoy.coins`).
- * Not in it yet: deck scenes and sets (no toon in the catalog), the map's regions. Removed characters and places
- * (tombstones) are left out.
+ * Not in it yet: deck scenes and sets (no toon in the catalog), XR targets (no catalog). Removed characters, places,
+ * regions and toons (tombstones) are left out.
  *
  * Each document's newest version counts (drafts included: the creator and the editor author against them); `origin.state`
  * says whether that version is the published one. Built on request and cached under the version ids it was built from
@@ -42,6 +49,12 @@ use stdClass;
 final class AddressBook
 {
     private const CACHE_TTL = 604800;
+    /**
+     * The kinds whose entries have an address: a receiver of that type exists (owner 2026-11-10 [address]: "sending something
+     * somewhere requires a possible receiver of the same type") – a character and an item (deck-space far.rs `offers`), a
+     * persona and a look (the show's addressing, `picks_up`). Every other kind is a reference only.
+     */
+    private const ADDRESSED = ['character', 'persona', 'look', 'item'];
     private const JSON_FLAGS = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR;
 
     public function __construct(private readonly Database $db, private readonly CatalogStore $catalog, private readonly Cache $cache, private readonly FlowIndex $flow)
@@ -56,20 +69,23 @@ final class AddressBook
     {
         $rows = $this->db->all(
             "SELECT entity_key, MAX(id) AS latest, MAX(CASE WHEN status = 'published' THEN id END) AS published FROM entity_versions
-             WHERE locale IS NULL AND ((kind IN ('toon', 'cast', 'chapter') AND toon = ?) OR kind IN ('character', 'place'))
+             WHERE locale IS NULL AND ((kind IN ('cast', 'chapter', 'season') AND toon = ?) OR kind IN ('toon', 'character', 'place', 'region'))
              GROUP BY entity_key ORDER BY entity_key",
             [$toon]
         );
         $versions = [];
         foreach ($rows as $r) $versions[(string) $r['entity_key']] = [(int) $r['latest'], $r['published'] !== null ? (int) $r['published'] : null];
         if (!isset($versions["toon:$toon"])) return null;
-        $items = array_values(array_filter($this->catalog->rows('items'), fn(array $r) => in_array(self::itemToon($r['data']), [$toon, null], true)));
+        $mine = fn(array $r) => in_array(self::catalogToon($r['data']), [$toon, null], true);
+        $items = array_values(array_filter($this->catalog->rows('items'), $mine));
+        $products = array_values(array_filter($this->catalog->rows('products'), $mine));
         $variables = $this->variables();
-        $version = substr(sha1(AddressBookTypes::FORMAT . json_encode([$versions, array_map(fn(array $r) => [$r['id'], sha1($r['data'])], $items), $variables])), 0, 20);
+        $rows = fn(array $list) => array_map(fn(array $r) => [$r['id'], sha1($r['data'])], $list);
+        $version = substr(sha1(AddressBookTypes::FORMAT . json_encode([$versions, $rows($items), $rows($products), $variables])), 0, 20);
         $key = "address-book:$toon:$version";
         $cached = $this->cache->get($key);
         if ($cached !== null) return ['version' => $version, 'json' => $cached];
-        $book = $this->compose($toon, $version, $this->documents($versions), $items, $variables);
+        $book = $this->compose($toon, $version, $this->documents($versions), $items, $products, $variables);
         $json = json_encode(self::wire($book), self::JSON_FLAGS);
         $this->cache->set($key, $json, self::CACHE_TTL);
         return ['version' => $version, 'json' => $json];
@@ -113,10 +129,11 @@ final class AddressBook
     /**
      * @param array<string, array{doc: mixed, state: OriginState}> $docs
      * @param list<array{id: string, position: int, data: string, updated_at: ?string, updated_by: ?string}> $items
+     * @param list<array{id: string, position: int, data: string, updated_at: ?string, updated_by: ?string}> $products
      * @param array<string, array{set: list<string>, read: list<string>}> $variables
      * @return Book
      */
-    private function compose(string $toon, string $version, array $docs, array $items, array $variables): array
+    private function compose(string $toon, string $version, array $docs, array $items, array $products, array $variables): array
     {
         $toonDoc = $docs["toon:$toon"]['doc'];
         [$source] = Library::languages($toonDoc instanceof stdClass ? $toonDoc : null, []);
@@ -124,15 +141,15 @@ final class AddressBook
         foreach ($this->characters($toon, $docs) as $id) {
             ['doc' => $doc, 'state' => $state] = $docs["character:$id"];
             $origin = ['key' => "character:$id", 'state' => $state];
-            $entries[] = ['address' => "character:$id", 'kind' => 'character', 'name' => $id, 'labels' => self::text($doc->name ?? null), 'origin' => $origin];
+            $entries[] = ['ref' => "character:$id", 'kind' => 'character', 'name' => $id, 'labels' => self::text($doc->name ?? null), 'origin' => $origin];
             foreach (self::objects($doc->personas ?? null) as $persona) {
                 if (!is_string($persona->id ?? null) || $persona->id === '') continue;
                 $p = "character:$id.$persona->id";
-                $entries[] = ['address' => $p, 'kind' => 'persona', 'name' => $persona->id, 'parent' => "character:$id", 'labels' => self::text($persona->label ?? null), 'origin' => $origin];
+                $entries[] = ['ref' => $p, 'kind' => 'persona', 'name' => $persona->id, 'parent' => "character:$id", 'labels' => self::text($persona->label ?? null), 'origin' => $origin];
                 foreach (self::objects($persona->looks ?? null) as $look) {
                     if (!is_string($look->id ?? null) || $look->id === '') continue;
                     $moods = ($look->images ?? null) instanceof stdClass ? array_map('strval', array_keys(get_object_vars($look->images))) : [];
-                    $entries[] = ['address' => "$p.$look->id", 'kind' => 'look', 'name' => $look->id, 'parent' => $p, 'labels' => self::text($look->label ?? null), 'origin' => $origin, 'moods' => $moods];
+                    $entries[] = ['ref' => "$p.$look->id", 'kind' => 'look', 'name' => $look->id, 'parent' => $p, 'labels' => self::text($look->label ?? null), 'origin' => $origin, 'moods' => $moods];
                 }
             }
         }
@@ -140,43 +157,95 @@ final class AddressBook
             if (!str_starts_with($key, 'place:') || !$doc instanceof stdClass || ($doc->removed ?? false) === true) continue;
             if (!in_array($toon, is_array($doc->toons ?? null) ? $doc->toons : [], true)) continue;
             $id = substr($key, strlen('place:'));
-            $entries[] = ['address' => "location:$id", 'kind' => 'location', 'name' => $id, 'labels' => self::text($doc->name ?? null), 'origin' => ['key' => $key, 'state' => $state]];
+            $entries[] = ['ref' => "location:$id", 'kind' => 'location', 'name' => $id, 'labels' => self::text($doc->name ?? null), 'origin' => ['key' => $key, 'state' => $state]];
+        }
+        // the world map's regions (one map for every toon; where migrate registers someone)
+        foreach ($docs as $key => ['doc' => $doc, 'state' => $state]) {
+            if (!str_starts_with($key, 'region:') || !$doc instanceof stdClass || ($doc->removed ?? false) === true) continue;
+            $id = substr($key, strlen('region:'));
+            $entries[] = ['ref' => $key, 'kind' => 'region', 'name' => $id, 'labels' => self::text($doc->name ?? null), 'origin' => ['key' => $key, 'state' => $state]];
         }
         foreach ($items as $row) {
             $item = CatalogStore::reader($row['data'], false);
-            $entries[] = ['address' => "item:{$row['id']}", 'kind' => 'item', 'name' => $row['id'], 'labels' => self::text($item instanceof stdClass ? $item->name ?? null : null), 'origin' => ['key' => "item:{$row['id']}", 'state' => 'published']];
+            $entries[] = ['ref' => "item:{$row['id']}", 'kind' => 'item', 'name' => $row['id'], 'labels' => self::text($item instanceof stdClass ? $item->name ?? null : null), 'origin' => ['key' => "item:{$row['id']}", 'state' => 'published']];
         }
+        array_push($entries, ...self::seasons($docs, $toon));
         $chapters = [];
         foreach ($docs as $key => ['doc' => $doc, 'state' => $state]) {
             if (preg_match('#^chapter:' . preg_quote($toon, '#') . ':([0-9]+)$#', $key, $m) !== 1) continue;
             $origin = ['key' => $key, 'state' => $state];
             $chapter = "chapter:$m[1]";
-            $chapters[(int) $m[1]] = [['address' => $chapter, 'kind' => 'chapter', 'name' => $m[1], 'labels' => self::text($doc->title ?? null), 'origin' => $origin]];
+            $chapters[(int) $m[1]] = [['ref' => $chapter, 'kind' => 'chapter', 'name' => $m[1], 'labels' => self::text($doc->title ?? null), 'origin' => $origin]];
             $words = [];
             foreach (self::objects($doc instanceof stdClass ? $doc->groups ?? null : null) as $group) {
                 $label = $group->label ?? null;
                 if (!is_string($label) || $label === '' || isset($words[$label])) continue;
                 $word = self::word($label, $words);
                 $words[$label] = $word;
-                $chapters[(int) $m[1]][] = ['address' => "$chapter.$word", 'kind' => 'group', 'name' => $label, 'parent' => $chapter, 'labels' => [], 'origin' => $origin];
+                $chapters[(int) $m[1]][] = ['ref' => "$chapter.$word", 'kind' => 'group', 'name' => $label, 'parent' => $chapter, 'labels' => [], 'origin' => $origin];
             }
         }
         ksort($chapters);
         foreach ($chapters as $list) array_push($entries, ...$list);
+        // products (a jump's target `/shop/product/<id>`): the toon's and the shared ones, like items. A product's name is one
+        // text, no locale map: it stands under the toon's source language.
+        foreach ($products as $row) {
+            $product = CatalogStore::reader($row['data'], false);
+            $name = $product instanceof stdClass ? $product->name ?? null : null;
+            $labels = is_string($name) && $name !== '' ? [$source => $name] : self::text($name);
+            $entries[] = ['ref' => "product:{$row['id']}", 'kind' => 'product', 'name' => $row['id'], 'labels' => $labels, 'origin' => ['key' => "product:{$row['id']}", 'state' => 'published']];
+        }
+        array_push($entries, ...self::toons($docs, $toon));
         // variables (proposal, #477): the scope is the owning toon or `global`; names that can't be written in a script
         // (the reader's own `picked:…` keys) are no targets. The flow index keeps no draft state per variable: `published`.
         foreach ($variables as $key => $v) {
             $written = Variables::written($key, $toon);
             if (preg_match(Variables::WRITTEN, $written) !== 1) continue;
             $from = $v['set'][0] ?? $v['read'][0] ?? $toon;
-            $entries[] = ['address' => 'variable:' . Variables::scope($key) . '.' . Variables::name($key), 'kind' => 'variable', 'name' => $written, 'labels' => [], 'origin' => ['key' => "toon:$from", 'state' => 'published']];
+            $entries[] = ['ref' => 'variable:' . Variables::scope($key) . '.' . Variables::name($key), 'kind' => 'variable', 'name' => $written, 'labels' => [], 'origin' => ['key' => "toon:$from", 'state' => 'published']];
         }
+        // the address beside the reference, where a receiver of the kind exists
+        $entries = array_map(fn(array $e): array => in_array($e['kind'], self::ADDRESSED, true) ? ['ref' => $e['ref'], 'address' => $e['ref']] + $e : $e, $entries);
         return ['address_book' => AddressBookTypes::FORMAT, 'toon' => $toon, 'version' => $version, 'source' => $source, 'entries' => $entries];
     }
 
     /**
-     * A group label as an address word (proposal, #477): letters, digits, `_` and `-` stay, every other run becomes `-`
-     * (address.rs's word may not hold `/ : . @ #` or white space); a form another label of the chapter already has gets `-2`, `-3` …
+     * The toon's seasons by number (a jump's target `/<toon>/season/<n>`) – `season:<number>`, labelled by the title
+     * @param array<string, array{doc: mixed, state: OriginState}> $docs
+     * @return list<AddressEntry>
+     */
+    private static function seasons(array $docs, string $toon): array
+    {
+        $out = [];
+        foreach ($docs as $key => ['doc' => $doc, 'state' => $state]) {
+            if (preg_match('#^season:' . preg_quote($toon, '#') . ':([0-9]+)$#', $key, $m) !== 1 || !$doc instanceof stdClass) continue;
+            $out[(int) $m[1]] = ['ref' => "season:$m[1]", 'kind' => 'season', 'name' => $m[1], 'labels' => self::text($doc->title ?? null), 'origin' => ['key' => $key, 'state' => $state]];
+        }
+        ksort($out);
+        return array_values($out);
+    }
+
+    /**
+     * Every toon – `toon:<id>`, labelled by its title, this toon first: a jump's target `toon` (its page), and in the creator's
+     * jump field the way into another toon's own book (#477 slice D)
+     * @param array<string, array{doc: mixed, state: OriginState}> $docs
+     * @return list<AddressEntry>
+     */
+    private static function toons(array $docs, string $toon): array
+    {
+        $out = [];
+        foreach ($docs as $key => ['doc' => $doc, 'state' => $state]) {
+            if (!str_starts_with($key, 'toon:') || !$doc instanceof stdClass || ($doc->removed ?? false) === true) continue;
+            $id = substr($key, strlen('toon:'));
+            $out[$id === $toon ? '' : $key] = ['ref' => $key, 'kind' => 'toon', 'name' => $id, 'labels' => self::text($doc->title ?? null), 'origin' => ['key' => $key, 'state' => $state]];
+        }
+        ksort($out, SORT_STRING);
+        return array_values($out);
+    }
+
+    /**
+     * A group label as a reference word (proposal, #477): letters, digits, `_` and `-` stay, every other run becomes `-`
+     * (the grammar's word may not hold `/ : . @ #` or white space); a form another label of the chapter already has gets `-2`, `-3` …
      * @param array<string, string> $taken label → its word, this chapter's so far
      */
     private static function word(string $label, array $taken): string
@@ -231,7 +300,7 @@ final class AddressBook
         return $out;
     }
 
-    private static function itemToon(string $data): ?string
+    private static function catalogToon(string $data): ?string
     {
         $item = CatalogStore::reader($data);
         $toon = is_array($item) ? $item['toon'] ?? null : null;

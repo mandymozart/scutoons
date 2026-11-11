@@ -83,6 +83,13 @@ pub struct Subtree {
     ready: u64,
     clients: u64,
     reported: Option<SeatState>,
+    /// #478: who sits where under which name (presence's `who`), by client id
+    who: BTreeMap<String, protocol::Present>,
+    /// #478 slice 3: how many sit in each role, as the relay last counted them (its `roles` to the conductor); none = no
+    /// count yet
+    counts: Option<BTreeMap<String, u64>>,
+    /// #478 slice 3: where this conductor last moved a client (its role, none = no role) and whether it locked it
+    moved: BTreeMap<String, (Option<String>, bool)>,
 }
 
 fn word_of(w: &SeatWord) -> Says {
@@ -114,7 +121,54 @@ impl Subtree {
             ready: 0,
             clients: 0,
             reported: None,
+            who: BTreeMap::new(),
+            counts: None,
+            moved: BTreeMap::new(),
         }
+    }
+
+    /// #478: the roles this conductor gives out, for its session (sent when it joins and with every new show)
+    fn roles(&self) -> Envelope {
+        message(Message::Roles(protocol::Roles { roles: self.conductor.show().roles() }), None)
+    }
+
+    /// #478: who is here as `role: name` (owner 2026-11-10: "Rolle, Doppelpunkt, eingetragener Name"), by role then name;
+    /// a deck without a name is its client id. The list is deck-show's `roles::here`.
+    pub fn here(&self) -> Vec<String> {
+        crate::roles::here(self).into_iter().map(|h| if h.locked { format!("{} (locked)", h.line) } else { h.line }).collect()
+    }
+
+    /// #478: who sits where under which name, by client id (presence's `who`)
+    pub fn who(&self) -> &BTreeMap<String, protocol::Present> {
+        &self.who
+    }
+
+    /// #478 slice 3: where this conductor moved `client` and whether it locked it, while it still sits there
+    pub fn moved(&self, client: &str) -> Option<&(Option<String>, bool)> {
+        self.moved.get(client)
+    }
+
+    /// #478 slice 3: the operator puts a client at a role (none = no role), locked or not: the relay's `assign`
+    pub fn assign(&mut self, client: &str, role: Option<&str>, lock: bool) -> Vec<Envelope> {
+        self.moved.insert(client.to_string(), (role.map(str::to_string), lock));
+        let a = protocol::Assign { client: client.to_string(), group: role.unwrap_or_default().to_string(), lock: lock.then_some(true) };
+        vec![message(Message::Assign(a), None)]
+    }
+
+    /// #478 slice 3: the operator names a client (the relay cleans the name; empty = none)
+    pub fn rename(&mut self, client: &str, nick: &str) -> Vec<Envelope> {
+        vec![message(Message::Rename(protocol::Rename { client: client.to_string(), nick: nick.to_string() }), None)]
+    }
+
+    /// #478 slice 3: the operator removes a client from the session (it may join again)
+    pub fn kick(&mut self, client: &str) -> Vec<Envelope> {
+        self.moved.remove(client);
+        vec![message(Message::Kick(protocol::Kick { client: client.to_string() }), None)]
+    }
+
+    /// #478 slice 3: how many sit in role `id`, as the relay last counted (none: no count yet, or not a role it knows)
+    pub fn here_count(&self, id: &str) -> Option<u64> {
+        self.counts.as_ref()?.get(id).copied()
     }
 
     pub fn conductor(&self) -> &Conductor {
@@ -356,13 +410,21 @@ impl Subtree {
         self.cannot = why;
     }
 
+    /// #478 slice 3: the operator's edit of the show this conductor runs (the editor's Show workspace, deck-show
+    /// `roles::edit`): it runs from now, and its session hears the roles at once (`roles`). What plays stays until a row
+    /// changes it.
+    pub fn edited(&mut self, show: Show) -> Vec<Envelope> {
+        self.conductor.replace(show);
+        vec![self.roles()]
+    }
+
     /// The show a flash asked for, fetched: this is what runs from now, and the parent is told.
     pub fn install(&mut self, show: Show, ms: u64) -> Vec<Envelope> {
         self.conductor.replace(show);
         self.wanted = None;
         self.conductor.note(ms, Logged::Installed);
         let report = flash::report(&self.pinned(), true, None);
-        let mut out = vec![up_envelope(Message::FlashReport(report))];
+        let mut out = vec![up_envelope(Message::FlashReport(report)), self.roles()];
         self.report(&mut out);
         out
     }
@@ -436,9 +498,10 @@ impl Subtree {
             Message::AddressAnswer(a) => self.on_answer(a),
             // #471: joining (or back), this conductor learns what its decks and sub conductors last said about their flash
             // side – the flash list starts complete. Nothing else of the welcome is taken here.
+            // #478: and tells its session the roles it gives out
             Message::Welcome(w) => {
                 self.devices.extend(w.snapshot.reports.iter().flatten().map(|(p, r)| (p.clone(), r.clone())));
-                vec![]
+                vec![self.roles()]
             }
             Message::FlashReport(r) => {
                 self.devices.insert(e.from.clone(), r.clone());
@@ -446,11 +509,20 @@ impl Subtree {
                 self.conductor.note(ms, Logged::Reported { from: e.from.clone(), running: format!("{}@{}", r.running.id, r.running.version), refused: r.why.clone() });
                 vec![up_envelope(Message::FlashReport(r.clone()))]
             }
+            // #478 slice 3: the relay's count per role, for the editor's tree and matrix
+            Message::Roles(r) if !from_parent => {
+                self.counts = Some(r.roles.iter().map(|x| (x.id.clone(), x.here.unwrap_or(0))).collect());
+                vec![]
+            }
             Message::Presence(p) => {
                 self.ready = p.ready.len() as u64;
                 self.clients = p.groups.values().copied().sum::<i64>().max(0) as u64;
                 self.online = p.links.iter().flat_map(|l| l.keys().cloned()).collect();
                 self.online.extend(p.seats.iter().flatten().filter(|(_, s)| s.online != Some(false)).map(|(seat, _)| seat.clone()));
+                self.who = p.who.iter().flatten().map(|(id, w)| (id.clone(), w.clone())).collect();
+                // #478 slice 3: a client that left, or went on by itself, is no longer where this conductor moved it
+                let who = &self.who;
+                self.moved.retain(|id, (role, _)| who.get(id).is_some_and(|p| p.group.as_ref().filter(|g| !g.is_empty()) == role.as_ref()));
                 let was = self.linked;
                 self.linked = p.parent.or(was);
                 if self.linked != was {

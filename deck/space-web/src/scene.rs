@@ -14,6 +14,7 @@ use deck_engine::control::Controls;
 use deck_show::face::Face;
 use deck_space::chapter::{finish_slice, Chapter, Dialog, Source};
 use deck_space::graph::{Graph, Kind};
+use deck_space::hud::{Alert, Hud};
 use deck_space::quality::MAX_SIDE;
 use deck_space::piece::{Side, Switch};
 use deck_space::rig::address::Place;
@@ -122,6 +123,15 @@ impl Show {
     }
 }
 
+/// #478: what the Live page asked, to the relay
+fn live_do(o: &mut Outlet, did: Option<deck_ui::live::Do>) {
+    let _ = match did {
+        Some(deck_ui::live::Do::Take(role)) => o.relay.take_role(role.as_deref()),
+        Some(deck_ui::live::Do::Name(name)) => o.relay.set_name(&name),
+        None => false,
+    };
+}
+
 #[wasm_bindgen]
 pub struct SceneView {
     surface: wgpu::Surface<'static>,
@@ -159,6 +169,9 @@ pub struct SceneView {
     change: Change,
     building: bool,
     built: Rc<RefCell<Option<Result<Show, String>>>>,
+    /// #478: the Live page (the native deck's F6, deck-ui live.rs) and the HUD it is drawn on
+    live: deck_ui::live::Page,
+    hud: Hud,
 }
 
 #[wasm_bindgen]
@@ -211,17 +224,80 @@ impl SceneView {
             change: Change::default(),
             building: false,
             built: Rc::default(),
+            live: Default::default(),
+            hud: Hud::default(),
         })
+    }
+
+    /// #478: the Live page opened or closed (the page's stats bar opens it); whether it is open now
+    pub fn live_toggle(&mut self) -> bool {
+        match (self.live.open, self.outlet.as_ref()) {
+            (false, Some(o)) => self.live.open(&o.relay.live()),
+            _ => self.live.open = false,
+        }
+        self.live.open
+    }
+
+    /// #478: a key on the open page (the DOM's `key`: ArrowUp, ArrowDown, Enter, Backspace, Escape, a character); whether
+    /// the page took it
+    pub fn live_key(&mut self, key: &str) -> bool {
+        use deck_ui::live::Key;
+        let k = match key {
+            _ if !self.live.open || self.dialog() => return false,
+            "ArrowUp" => Key::Up,
+            "ArrowDown" => Key::Down,
+            "Enter" => Key::Enter,
+            "Backspace" => Key::Back,
+            "Escape" => {
+                self.live.open = false;
+                return true;
+            }
+            k if k.chars().count() == 1 => Key::Char(k.chars().next().unwrap_or(' ')),
+            _ => return false,
+        };
+        let Some(o) = self.outlet.as_mut() else { return false };
+        let did = self.live.key(k, &o.relay.live());
+        live_do(o, did);
+        true
+    }
+
+    /// #478: a tap on the canvas at (x, y) device pixels: a line of the open page is taken as Enter on it
+    pub fn live_tap(&mut self, x: f32, y: f32) -> bool {
+        // where the deck's dialog or toast is (#481), a tap is its own
+        if self.face.top().is_some_and(|top| y >= top) {
+            return false;
+        }
+        let (w, h) = (self.config.width as f32, self.config.height as f32);
+        let (Some(o), Some(line)) = (self.outlet.as_mut(), deck_space::hud::line_at(x, y, w, h).filter(|_| self.live.open)) else { return false };
+        let did = self.live.tap(line, &o.relay.live());
+        live_do(o, did);
+        true
+    }
+
+    /// #478: the HUD's line for the stats bar – `LIVE TENOR: ANNA`, or the relay's line before the deck is in its session
+    pub fn live_line(&self) -> String {
+        let Some(o) = self.outlet.as_ref() else { return String::new() };
+        let s = o.relay.live();
+        if s.joined { deck_ui::live::hud_line(&s) } else { s.link }
+    }
+
+    /// #478: what this device keeps of the page's choice (the text `join_outlet` takes back next time)
+    pub fn live_kept(&self) -> String {
+        let Some(o) = self.outlet.as_ref() else { return String::new() };
+        let s = o.relay.live();
+        let kept = crate::outlet::Kept { role: Some(s.role.unwrap_or_default()), name: Some(s.name).filter(|n| !n.is_empty()) };
+        serde_json::to_string(&kept).unwrap_or_default()
     }
 
     /// #465: join `relay` ("" = the hosted show) as output of `outlet`, its text in `locale`, show media's signed links from
     /// `api` (#470) - when the scene has an `outlet` node; false: it has none
-    pub fn join_outlet(&mut self, relay: &str, outlet: &str, locale: &str, api: &str) -> Result<bool, JsValue> {
+    /// #478: `kept` = what the Live page chose on this device last (`live_kept`; "" = nothing)
+    pub fn join_outlet(&mut self, relay: &str, outlet: &str, kept: &str, locale: &str, api: &str) -> Result<bool, JsValue> {
         if self.show.graph.first(Kind::Outlet).is_none() {
             return Ok(false);
         }
         let (tx, rx) = sync_channel(2);
-        let o = Outlet::new(relay, outlet, if locale.is_empty() { "de" } else { locale }, api, (self.config.width, self.config.height), tx).map_err(err)?;
+        let o = Outlet::new(relay, outlet, kept, if locale.is_empty() { "de" } else { locale }, api, (self.config.width, self.config.height), tx).map_err(err)?;
         self.show.stage.set_outlet(rx);
         self.outlet = Some(o);
         self.side = Some(Side::new(&self.deck));
@@ -275,7 +351,8 @@ impl SceneView {
     }
 
     /// what the outlet asks the page to fetch: key, path, … (key c: a chapter under the API, p: a slice under the CDN,
-    /// m: a medium's URL - never with the token, s: a show medium's signed link from the API - with the deck's token, #470)
+    /// m: a medium's URL - never with the token, s: a show medium's signed link from the API - with the deck's token, #470;
+    /// r: the deck's proof from the API - with the reader's sign-in, #478)
     pub fn outlet_asks(&mut self) -> js_sys::Array {
         let out = js_sys::Array::new();
         for (k, path) in self.outlet.as_mut().map(|o| o.asks()).unwrap_or_default() {
@@ -325,6 +402,14 @@ impl SceneView {
         }
     }
 
+    /// #478: the API's answer to the `r:` ask - the deck's proof of facts for its session (status 0: no answer)
+    pub fn outlet_proof(&mut self, status: u16, body: &str) {
+        let now = Duration::from_secs_f32(self.now.max(0.0));
+        if let Some(o) = self.outlet.as_mut() {
+            o.proof(status, body, now);
+        }
+    }
+
     /// #470: the deck's link (DeckLink) - why it has no token ("" = it has one) and the code to pair with ("" = none: the
     /// pairing card hides); `app` = the viewer the member pairs on
     pub fn deck_link(&mut self, why: &str, code: &str, app: &str) {
@@ -342,6 +427,9 @@ impl SceneView {
     }
 
     pub fn outlet_failed(&mut self, key: &str, why: String) {
+        if key.starts_with("r:") {
+            return self.outlet_proof(0, "");
+        }
         let Some(o) = self.outlet.as_mut() else { return };
         if !o.answered(key, Err(why.clone())) {
             o.shelf().failed(key, why.clone());
@@ -565,6 +653,11 @@ impl SceneView {
         }
     }
 
+    /// #481: a dialog of the flash side shows (its keys are its own, also over the open Live page)
+    fn dialog(&self) -> bool {
+        self.outlet.as_ref().is_some_and(|o| matches!(o.shown(), Some(deck_show::dialog::Shown::Dialog(_))))
+    }
+
     /// #481: a tap or a click at (x, y) of the canvas, in its pixels: what the deck's UI has there is pressed (a
     /// button, a switch, a field, a toast). true = it was the deck's UI's.
     pub fn panel_tap(&mut self, x: f32, y: f32) -> bool {
@@ -576,6 +669,10 @@ impl SceneView {
     /// #481: a key of the page, by its `KeyboardEvent.key`. true = it was the deck's UI's (a dialog's key, a character
     /// for its field, `f` for "please don't flash").
     pub fn panel_key(&mut self, key: &str) -> bool {
+        // the open Live page (#478) has the keys – a name is typed there – unless a dialog shows over it
+        if self.live.open && !self.dialog() {
+            return false;
+        }
         let Some(o) = self.outlet.as_mut() else { return false };
         let (flash, fetched) = o.flash_parts();
         self.face.key(key, flash, fetched)
@@ -686,7 +783,15 @@ impl SceneView {
         self.fade.step(veil.is_none() && !show.stage.slides_ready() && self.age < SPLASH_AT_MOST, dt);
         show.stage.veil_only = veil.is_some();
         let splash = (veil.unwrap_or(self.fade.alpha), false);
-        show.stage.frame(&self.device, &self.queue, &mut enc, &view, &Tick { graph, input: &input, tempo: &self.beat, time, dt }, &Over { hud: None, splash, label_centred: true }, show.space.as_mut());
+        // #478: the Live page on the HUD, the native deck's raster, its cursor's line lit
+        if let (true, Some(o)) = (self.live.open, self.outlet.as_ref()) {
+            let (lines, cursor) = self.live.lines(&o.relay.live());
+            self.hud.set_lines(lines);
+            self.hud.set_alert(Some(Alert { row: cursor, lit: true }));
+            self.hud.raster();
+        }
+        let hud = self.live.open.then_some(&self.hud);
+        show.stage.frame(&self.device, &self.queue, &mut enc, &view, &Tick { graph, input: &input, tempo: &self.beat, time, dt }, &Over { hud, splash, label_centred: true }, show.space.as_mut());
         self.queue.submit([enc.finish()]);
         frame.present();
         Ok(())

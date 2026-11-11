@@ -71,7 +71,7 @@ fn main() -> anyhow::Result<()> {
     if let MaybeTlsStream::Plain(s) = ws.get_ref() {
         s.set_read_timeout(Some(Duration::from_millis(100)))?;
     }
-    send(&mut ws, Message::Hello(Hello { code, role: Role::Conductor, group: None, nick: Some("live-cue".into()), token: Some(token), resume: None }))?;
+    send(&mut ws, Message::Hello(Hello { code, role: Role::Conductor, group: None, nick: Some("live-cue".into()), token: Some(token), device: None, proof: None, resume: None }))?;
     listen(&mut ws, Duration::from_millis(500), &script.outlet)?;
     if !script.preload.is_empty() {
         send(&mut ws, Message::MediaPreload(MediaPreload { outlet: script.outlet.clone(), items: script.preload.clone() }))?;

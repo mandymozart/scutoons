@@ -38,6 +38,7 @@ use winit::keyboard::{Key, ModifiersState, NamedKey};
 use winit::window::{Fullscreen, Window, WindowId};
 
 mod hud_status;
+mod pages;
 
 /// the exit code that asks deck-session for the browser (the conductor page) instead of the stage
 const EXIT_BROWSER: i32 = 10;
@@ -60,7 +61,7 @@ const HELP: &str = "deck [--scene FILE|cathedral|conductor|outlet|rig:NAME] [--a
            [--screenshot FILE] [--pointer X,Y|NODE.PORT] [--drag NODE.PORT[,DN]] [--no-hud] [--hud-bar] [--dev] [--modules]
            [--relay ws[s]://HOST[:PORT]/live/CODE] [--sync set:ID,character:ID]
            [--outlet ID] [--locale de] [--quality auto|low|medium|high|ultra[,fixed]] [--quality-file FILE] [--settings]
-           [--scenes DIR] [--switcher] [--switch NAME]
+           [--scenes DIR] [--switcher] [--switch NAME] [--live-page]
   --scene      a scene TOML (default: the built-in idle scene – fireflies on black, no sound, scenes/idle.toml, #252;
                `madness` = AV madness, scenes/madness.toml); `cathedral` = the built-in Cathedral of decks
                (scenes/cathedral.toml – a deck's being), `conductor` = its conductor in the middle (scenes/conductor.toml),
@@ -94,7 +95,7 @@ const HELP: &str = "deck [--scene FILE|cathedral|conductor|outlet|rig:NAME] [--a
                starts with the page open (a check run's screenshot)
   --scenes     the scene switcher's folder of *.toml (#250; default /usr/share/deck/scenes): F5 lists the built-in scenes
                and these, arrows + Enter load one in place and write it into deck.toml's `scene`; --switcher starts with
-               the list open, --switch NAME loads that scene after 30 frames (a check run)
+               the list open, --switch NAME loads that scene after 30 frames (a check run); --live-page starts with F6 open
   --show-volume  the volume overlay (#253: the volume keys' feedback) stays on, at 60 % (a check run's screenshot)
   exit codes   0 quit (Ctrl+Q) · 10 F12 without DECK_BROWSER · 75 the display was lost (the compositor went away) · 1 failed
   --frames     quit after N frames and print the measured numbers (a check run)
@@ -146,6 +147,8 @@ struct Args {
     scenes: PathBuf,
     switcher: bool,
     switch_to: Option<String>,
+    /// #478: the Live page open at the start (a check run)
+    live_page: bool,
     /// #253: a check run's volume overlay, shown all the time
     show_volume: bool,
 }
@@ -189,6 +192,7 @@ fn args() -> Result<Args> {
         settings: false,
         scenes: switcher::SCENES_DIR.into(),
         switcher: false,
+        live_page: false,
         switch_to: None,
         show_volume: false,
     };
@@ -253,6 +257,7 @@ fn args() -> Result<Args> {
             "--settings" => a.settings = true,
             "--scenes" => a.scenes = val()?.into(),
             "--switcher" => a.switcher = true,
+            "--live-page" => a.live_page = true,
             "--show-volume" => a.show_volume = true,
             "--switch" => a.switch_to = Some(val()?),
             "--quality" => {
@@ -726,8 +731,9 @@ struct App {
     qfile: settings::QualityFile,
     presets: Presets,
     page: settings::Page,
-    /// #250: the scene switcher (F5)
+    /// #250: the scene switcher (F5); #478: the Live page (F6)
     switcher: switcher::Switcher,
+    live: pages::LivePage,
     /// #250: the fade through black while a picked scene loads; one asked for meanwhile waits (deck-space's veil.rs)
     change: switcher::Change,
     /// #264: the lamps of a scene without outputs, fading to 0 – dropped (dark) when the time is up
@@ -1235,7 +1241,8 @@ impl App {
             self.vol_forced = false;
             self.hud_at = -1.0;
         }
-        let hud_on = self.args.hud || self.error.is_some() || self.page.open || self.switcher.open || vol.is_some();
+        let paged = self.page.open || self.switcher.open || self.live.page.open;
+        let hud_on = self.args.hud || self.error.is_some() || paged || vol.is_some();
         if hud_on && time - self.hud_at >= 0.25 || self.stats.frames == 0 || self.hud_at < 0.0 {
             self.hud_at = time;
             self.stats.feed.report = self.stats.feed.monitor.report(wall_ms);
@@ -1248,6 +1255,9 @@ impl App {
             } else if self.page.open {
                 let now = self.governor.as_ref().map_or(String::new(), |g| format!("{} {:.2} {:.0}MS", g.level().name().to_uppercase(), g.scale(), g.frame_ms()));
                 let (l, c) = self.page.lines(&self.presets, &now, &self.modes, &self.quality_note);
+                (l, Some(c))
+            } else if self.live.page.open {
+                let (l, c) = self.live.lines(&self.show);
                 (l, Some(c))
             } else {
                 (deck_ui::hud_lines(&status), None)
@@ -1271,7 +1281,7 @@ impl App {
             self.hud.set_lines(lines);
             self.hud.set_items(items);
         }
-        if self.error.is_some() || self.page.open || self.switcher.open {
+        if self.error.is_some() || paged {
             self.hud.mode = hud::Mode::Full;
         }
         match self.hud.mode {
@@ -1530,50 +1540,30 @@ impl ApplicationHandler<Event> for App {
         if self.show.live.as_ref().is_some_and(|l| l.window_event(&event)) {
             return;
         }
-        // #250: the open scene list takes the keys
+        // #250 F5, #220 F4: the open scene list or settings page takes the keys (the arrows, + / −, Space would turn the
+        // camera and the tempo); pages.rs names them
         if let WindowEvent::KeyboardInput { event: k, .. } = &event {
-            if self.switcher.open && k.state == ElementState::Pressed && !matches!(k.logical_key.as_ref(), Key::Named(NamedKey::F1 | NamedKey::F12 | NamedKey::F4 | NamedKey::F5 | NamedKey::AudioVolumeUp | NamedKey::AudioVolumeDown | NamedKey::AudioVolumeMute)) {
-                let key = match k.logical_key.as_ref() {
-                    Key::Named(NamedKey::ArrowUp) => Some(switcher::Key::Up),
-                    Key::Named(NamedKey::ArrowDown) => Some(switcher::Key::Down),
-                    Key::Named(NamedKey::Enter) => Some(switcher::Key::Enter),
-                    Key::Named(NamedKey::Escape) => {
-                        self.switcher.open = false;
-                        None
-                    }
-                    _ => None,
-                };
+            if (self.switcher.open || self.page.open) && k.state == ElementState::Pressed && !pages::passes(&k.logical_key) {
                 self.hud_at = -1.0;
-                if let Some(entry) = key.and_then(|key| self.switcher.key(key)) {
-                    self.change.ask(&entry.value);
+                match (self.switcher.open, pages::switcher_key(&k.logical_key), pages::settings_key(&k.logical_key)) {
+                    (true, pages::Press::Key(key), _) => {
+                        if let Some(entry) = self.switcher.key(key) {
+                            self.change.ask(&entry.value);
+                        }
+                    }
+                    (true, pages::Press::Close, _) => self.switcher.open = false,
+                    (false, _, pages::Press::Key(key)) => self.page_key(key),
+                    (false, _, pages::Press::Close) => self.page.open = false,
+                    _ => {}
                 }
                 return;
             }
         }
-        // #220: the open settings page takes the keys (the arrows, + / −, Space would turn the camera and the tempo)
-        if let WindowEvent::KeyboardInput { event: k, .. } = &event {
-            if self.page.open && k.state == ElementState::Pressed && !matches!(k.logical_key.as_ref(), Key::Named(NamedKey::F1 | NamedKey::F12 | NamedKey::F4 | NamedKey::AudioVolumeUp | NamedKey::AudioVolumeDown | NamedKey::AudioVolumeMute)) {
-                let key = match k.logical_key.as_ref() {
-                    Key::Named(NamedKey::ArrowUp) => Some(settings::Key::Up),
-                    Key::Named(NamedKey::ArrowDown) => Some(settings::Key::Down),
-                    Key::Named(NamedKey::ArrowLeft) => Some(settings::Key::Left),
-                    Key::Named(NamedKey::ArrowRight) => Some(settings::Key::Right),
-                    Key::Named(NamedKey::Enter | NamedKey::Space) => Some(settings::Key::Toggle),
-                    Key::Character("+" | "=") => Some(settings::Key::More),
-                    Key::Character("-") => Some(settings::Key::Less),
-                    Key::Character("p" | "P") => Some(settings::Key::Pixels),
-                    Key::Character("r" | "R") => Some(settings::Key::Reset),
-                    Key::Named(NamedKey::Escape) => {
-                        self.page.open = false;
-                        None
-                    }
-                    _ => None,
-                };
-                if let Some(key) = key {
-                    self.page_key(key);
-                }
-                return;
-            }
+        // #478: the open Live page takes the keys and a press on its lines
+        let size = self.window.as_ref().map_or((1.0, 1.0), |w| (w.inner_size().width as f32, w.inner_size().height as f32));
+        if self.live.page.open && self.live.event(&self.show, &event, size) {
+            self.hud_at = -1.0;
+            return;
         }
         #[cfg(feature = "space")]
         if !matches!(event, WindowEvent::Resized(_)) && self.space_event(&event) {
@@ -1635,6 +1625,7 @@ impl ApplicationHandler<Event> for App {
                         self.apply_quality();
                     }
                     Key::Named(NamedKey::F5) => {
+                        self.live.page.open = false;
                         if self.switcher.open {
                             self.switcher.open = false;
                         } else {
@@ -1642,9 +1633,13 @@ impl ApplicationHandler<Event> for App {
                         }
                         self.hud_at = -1.0;
                     }
-                    Key::Named(NamedKey::F4) => {
-                        self.switcher.open = false;
-                        self.page.open = !self.page.open;
+                    Key::Named(NamedKey::F4 | NamedKey::F6) => {
+                        let six = matches!(event.logical_key.as_ref(), Key::Named(NamedKey::F6));
+                        (self.switcher.open, self.page.open) = (false, !six && !self.page.open);
+                        match six {
+                            true => self.live.toggle(&self.show),
+                            false => self.live.page.open = false,
+                        }
                         self.hud_at = -1.0;
                     }
                     Key::Named(NamedKey::Space) => tempo.key(tempo::Key::StartStop),
@@ -1748,6 +1743,7 @@ fn run() -> Result<i32> {
         presets,
         page: { let mut p = settings::Page::default(); p.open = args_settings; p },
         switcher: switcher::Switcher::default(),
+        live: pages::LivePage::default(),
         change: switcher::Change::default(),
         #[cfg(feature = "outputs")]
         dying: None,
@@ -1762,6 +1758,7 @@ fn run() -> Result<i32> {
     if app.args.switcher {
         app.open_switcher();
     }
+    app.live.page.open = app.args.live_page;
     // #257: the display connection died under us (the compositor went away): leave at once, and drop nothing –
     // the window / surface / EGL objects talk to a dead socket and segfault
     if let Err(e) = event_loop.run_app(&mut app) {

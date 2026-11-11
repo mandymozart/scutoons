@@ -15,6 +15,10 @@ pub struct Column {
     pub seat: bool,
     /// under the id: `stage`, `device`, `sub · follow`
     pub detail: String,
+    /// #478: its name for people (a role's label, else the id)
+    pub name: String,
+    /// #478: a role's filter in words (`guest and up`, `live · approved deck`); none: no role (a device outlet, a seat)
+    pub filter: Option<String>,
 }
 
 /// One cell as the operator sees it.
@@ -249,8 +253,10 @@ fn columns(show: &Show) -> Vec<Column> {
             OutletKind::Stage => "stage".into(),
             OutletKind::Device => "device".into(),
         },
+        name: o.name().to_string(),
+        filter: (o.kind == OutletKind::Stage).then(|| crate::roles::filter_words(o.admits.as_ref())),
     });
-    let seats = show.seats.iter().map(|s| Column { id: s.id.clone(), seat: true, detail: format!("sub · {}", word_text(s.word)) });
+    let seats = show.seats.iter().map(|s| Column { id: s.id.clone(), seat: true, detail: format!("sub · {}", word_text(s.word)), name: s.id.clone(), filter: None });
     outlets.chain(seats).collect()
 }
 
@@ -570,6 +576,8 @@ mod tests {
         let mut sub = Subtree::new(parse(SERMON).unwrap(), ClockChoice::Parent);
         let m = matrix(&sub);
         assert_eq!(m.columns.iter().map(|c| (c.id.as_str(), c.detail.as_str())).collect::<Vec<_>>(), [("left", "stage"), ("right", "stage"), ("lights", "device"), ("foyer", "sub · suggest")]);
+        let filters: Vec<Option<&str>> = m.columns.iter().map(|c| c.filter.as_deref()).collect();
+        assert_eq!(filters, [Some("guest and up"), Some("guest and up"), None, None], "#478: a role's header says who may take it");
         assert_eq!(m.rows[1].fires, "roar · suggest");
         assert_eq!(m.rows[2].fires, "hand");
         assert_eq!(m.rows[1].cells[0].text, "values · light 0.8");

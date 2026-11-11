@@ -68,6 +68,7 @@ export type Message =
 	| { kind: 'tempo'; p: Tempo }
 	| { kind: 'kick'; p: Kick }
 	| { kind: 'rename'; p: Rename }
+	| { kind: 'roles'; p: Roles }
 	| { kind: 'seat'; p: SeatWord }
 	| { kind: 'seat.state'; p: SeatState }
 	| { kind: 'flash'; p: Flash }
@@ -189,8 +190,12 @@ export interface Hello {
 	group?: string;
 	/** trimmed to 24 characters by the relay */
 	nick?: string;
+	/** #478: what the client is – native, browser, phone … (the words of a flash report's `device`); a role's filter may ask it */
+	device?: string;
 	/** HMAC session token (conductor, bridge, uplink) */
 	token?: string;
+	/** #478: the API's signed facts of this client for this session (`GET /api/live/proof`: account roles, an approved deck) – a role's filter may ask them; none, a bad or an expired one: a guest */
+	proof?: string;
 	resume?: Resume;
 }
 
@@ -254,9 +259,11 @@ export interface VoteCast {
 	option: number;
 }
 
+/** B.6: conductor → relay → that client: it moves to `group` and gets its new snapshot. #478: a group is a role; "" = no role (the client stays in the session, on the idle scene). `lock` (the conductor only) holds it there, a lock from above (the cascade of 2026-11-02); any other assign frees it. A deck sends its own assign (`client` itself, no `lock`) to take a role it may take, or none, at any time – unless it is locked. */
 export interface Assign {
 	client: string;
 	group: string;
+	lock?: boolean;
 }
 
 export interface Panic {
@@ -419,7 +426,7 @@ export interface Kick {
 	client: string;
 }
 
-/** B.6: conductor → relay → that client. The relay cleans the nick (24 characters, the blocklist); empty = none. */
+/** B.6: conductor → relay → that client. The relay cleans the nick (24 characters, the blocklist); empty = none. #478: a client renames itself too (`client` itself): its name, the conductor sees `role: name`. */
 export interface Rename {
 	client: string;
 	nick: string;
@@ -528,6 +535,44 @@ export interface AddressFilter {
 	device?: string;
 }
 
+/** #478 (owner 2026-11-10 [role]): what a person is to the server – `guest` not signed in (only the code), `member`, `creator`, `admin`, `live` (the in-house manager, an account role only used in live use) */
+export type Account = 'guest' | 'member' | 'creator' | 'admin' | 'live';
+
+/** #478, SHOW.md §9: who may take a role. Any one fact admits; a role without a filter admits a guest, so anyone with the code. The relay tests it (`device` as the client says it in its `hello`, `group` as it joined); an account fact and `approved` admit only with the server's proof in the client's `hello.proof`. */
+export interface Admits {
+	account?: Account[];
+	/** an approved (paired) deck */
+	approved?: boolean;
+	/** browser, native, phone … (the words of a flash report's `device`) */
+	device?: string[];
+	/** the group a client joined with (its QR's, a deck's outlet) */
+	group?: string[];
+}
+
+/** #478: a role the conductor gives out – a stage outlet of its show, the group a client sits in. `for`: who may take it (none: anyone with the code); only the conductor sees it. `here`: how many are in it (the relay's count). */
+export interface ShowRole {
+	id: string;
+	/** its name for people (none: the id) */
+	label?: string;
+	for?: Admits;
+	here?: number;
+}
+
+/** #478: conductor → relay: the roles of its show (the relay keeps them for the session); relay → client: the roles it may take, with how many are in each – when it joins and whenever that changes (the conductor gets every one). */
+export interface Roles {
+	roles: ShowRole[];
+}
+
+/** #478: one client as presence tells the conductor: its role (group; none = no role), its name, its device, its proven account fact, a lock from above. */
+export interface Present {
+	group?: string;
+	nick?: string;
+	device?: string;
+	/** the strongest account fact its proof shows (none: guest) */
+	account?: Account;
+	locked?: boolean;
+}
+
 /** #90, SHOW.md §8: `kind:id > action`, down the tree. Whoever plays it picks up; finding nobody stays silent and is logged, it never goes up to a wider address. */
 export interface Address {
 	/** the sender's, the answers carry it */
@@ -561,6 +606,8 @@ export interface Presence {
 	seats?: Record<string, SeatState>;
 	/** #90: this relay's link to its parent; missing = it has none */
 	parent?: boolean;
+	/** #478: who sits where under which name, by client id – every deck, and a phone in a role */
+	who?: Record<string, Present>;
 }
 
 /** #223: one client's link: the smoothed WebSocket ping round trip, the rate the relay sends it state-like messages at (`deck.values`, `presence`, `vote.tally`, `state` – 30 = as fast as they come, down to 5 on a link that can't carry more), and how many of them it replaced before they went out (a stalled client gets the newest, not a backlog). */

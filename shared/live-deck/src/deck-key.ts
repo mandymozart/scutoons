@@ -34,7 +34,11 @@ async function keys(mode: IDBTransactionMode): Promise<IDBObjectStore> {
 	return (await done(open)).transaction(STORE, mode).objectStore(STORE);
 }
 
-const hex = (b: ArrayBuffer) => Array.from(new Uint8Array(b), (x) => x.toString(16).padStart(2, '0')).join('');
+function hex(b: ArrayBuffer): string {
+	let s = '';
+	for (const x of new Uint8Array(b)) s += x.toString(16).padStart(2, '0');
+	return s;
+}
 
 /** The deck's key pair (made once, non-extractable) and its public key as hex; null = this browser cannot pair */
 export async function deckKey(): Promise<{ pair: CryptoKeyPair; publicHex: string } | null> {
@@ -86,9 +90,17 @@ export async function ensureLink(s: { link: Paired | null; pairing: boolean; sto
 /** #484: the viewer's signed-in user: its bearer token, or none when the sign-in is the single sign-on cookie */
 export type SignedIn = { bearer: string | null };
 
-/** the outlet's side of a signed link (space-web SceneView) */
+/** the outlet's side of the API's answers (space-web SceneView): a signed link, the deck's proof (#478) */
 export interface SignedView {
 	outlet_signed(key: string, status: number, body: string): void;
+	outlet_proof(status: number, body: string): void;
+}
+
+/** #478: the deck's proof (the outlet's `r:` ask) – the reader's sign-on cookie goes to the API's proof route and nowhere else */
+export async function fetchProof(host: { view: SignedView; stopped: boolean }, o: { api: string }, url: string) {
+	if (!url.startsWith(`${o.api}/live/proof?`)) throw new Error('not the API');
+	const r = await fetch(url, { credentials: 'include', cache: 'no-store' });
+	if (!host.stopped) host.view.outlet_proof(r.status, await r.text());
 }
 
 /** #470: a show medium's signed link (the outlet's `s:` ask), #475: a flashed show at its version (`sf:`) – the deck token goes to these two API routes and nowhere else */

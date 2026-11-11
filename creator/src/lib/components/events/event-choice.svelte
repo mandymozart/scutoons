@@ -5,7 +5,8 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import { ACTION_KINDS, actionKind, actionPath, newAction } from '$lib/editor/vn-forms.ts';
 	import PropField from '$lib/components/fields/prop-field.svelte';
-	import VariableField from '$lib/components/fields/variable-field.svelte';
+	import AddressField from '$lib/components/fields/address-field.svelte';
+	import { TARGETS } from '$lib/editor/address-targets.ts';
 	import GiveItemField from '$lib/components/fields/give-item-field.svelte';
 	import LocaleText from '$lib/components/fields/locale-text.svelte';
 	import EventTarget from '$lib/components/events/event-target.svelte';
@@ -46,10 +47,10 @@
 			</select>
 			<div class="sc-fields action-fields" data-cols="3" data-density="dense" data-align="end">
 				{#if action?.set}
-					<VariableField {doc} path={[...ap, 'set', 'variable']} />
+					<AddressField {doc} path={[...ap, 'set']} spec={TARGETS.variable} free="variable" label={m['creator.field_variable']()} testid="choice-{index}-set-{ai}" />
 					<PropField {doc} path={[...ap, 'set', 'value']} label={m['creator.field_value']()} required />
 				{:else if action?.add}
-					<VariableField {doc} path={[...ap, 'add', 'variable']} />
+					<AddressField {doc} path={[...ap, 'add']} spec={TARGETS.variable} free="variable" label={m['creator.field_variable']()} testid="choice-{index}-add-{ai}" />
 					<PropField {doc} path={[...ap, 'add', 'value']} label={m['creator.field_value']()} type="number" step={1} required />
 				{:else if action?.give}
 					<GiveItemField {doc} path={[...ap, 'give']} testid="choice-{index}-give-{ai}" />

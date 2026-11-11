@@ -30,7 +30,7 @@
 	{:else if event.type === 'divert'}
 		<PropField {doc} path={[...path, 'params', 'to']} label={m['creator.vn_point']()} type="select" options={pointNames} required />
 	{:else if event.type === 'setVariable'}
-		<AddressField {doc} path={[...path, 'params']} kinds={TARGETS.variable.kinds} fields={TARGETS.variable.fields} free="variable" label={m['creator.field_variable']()} testid="set-variable" />
+		<AddressField {doc} path={[...path, 'params']} spec={TARGETS.variable} free="variable" label={m['creator.field_variable']()} testid="set-variable" />
 		<PropField {doc} path={[...path, 'params', 'op']} label={m['creator.vn_action']()} type="select" options={[{ value: 'add', label: m['creator.vn_action_add']() }]} placeholder={m['creator.vn_action_set']()} />
 		<PropField {doc} path={[...path, 'params', 'value']} label={m['creator.field_value']()} type={event.params?.op === 'add' ? 'number' : 'text'} required />
 	{/if}

@@ -17,6 +17,7 @@ pub mod author;
 mod flash;
 mod link;
 pub mod perform;
+mod roles;
 mod sheets;
 
 use deck_kit::controls::Rect;
@@ -50,6 +51,8 @@ pub enum Sheet {
     Problems,
     /// #471: the devices to flash, then the prompt (flash.rs)
     Flash,
+    /// #478: who is here, `role: name`, with move to, rename, kick (roles.rs)
+    Who,
 }
 
 impl Sheet {
@@ -58,6 +61,7 @@ impl Sheet {
             "cues" => Some(Sheet::Cues),
             "problems" => Some(Sheet::Problems),
             "flash" => Some(Sheet::Flash),
+            "who" => Some(Sheet::Who),
             _ => None,
         }
     }
@@ -78,6 +82,21 @@ pub enum Hit {
     Crumb(usize),
     /// a row of the document shown: the inspector shows it (Show)
     Row(usize),
+    /// #478: a role of the document shown (deck-show's `roles` order): the tree and its column mark it (Show)
+    Role(usize),
+    /// #478: a new role, the selected role's name field, one of its filter's toggles, its remove (asks first)
+    RoleAdd,
+    RoleName,
+    RoleFact(usize),
+    RoleRemove,
+    /// #478: the prompt asked (a role's remove, a kick): confirmed, or back
+    AskYes,
+    AskNo,
+    /// #478, who is here: a line's move menu, rename, kick (asks first); a line of the open move menu
+    WhoMove(usize),
+    WhoRename(usize),
+    WhoKick(usize),
+    MenuPick(usize),
     Save,
     Load,
     /// the tree resolved to exact versions: the list of the devices to flash opens (#471)
@@ -109,6 +128,15 @@ pub struct Host {
     pub path: Vec<String>,
     /// the row the Show workspace inspects
     pub row: usize,
+    /// #478: the role selected (a stage outlet's id); none = the row is inspected
+    pub role: Option<String>,
+    /// #478: a typed field open (a role's name) and its text
+    pub typing: Option<(roles::Typing, deck_kit::text::Field)>,
+    /// #478: the prompt asked before it is done (a role's remove, a kick)
+    pub asking: Option<roles::Ask>,
+    /// #478: the move menu open for a client (by its id), and whether a move from it locks
+    pub menu: Option<String>,
+    pub lock: bool,
     /// the last thing done, or why not
     pub status: String,
     pub two_d: bool,
@@ -169,7 +197,7 @@ impl Host {
                 })
                 .ok()
         });
-        Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, link, api }
+        Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, typing: None, asking: None, menu: None, lock: false, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, link, api }
     }
 
     /// the document at the end of the path (the top's when a step is missing)
@@ -223,6 +251,10 @@ impl Host {
     /// The operator's press: to the core (always allowed, SHOW.md §7) or to what the editor shows.
     pub fn press(&mut self, hit: Hit) {
         let ms = now();
+        // #478: the move menu goes with any press but its own
+        if !matches!(hit, Hit::MenuPick(_)) {
+            self.menu = None;
+        }
         let rows: Vec<String> = self.sub.conductor().show().rows.iter().map(|r| r.id.clone()).collect();
         match hit {
             Hit::Fire(i) => {
@@ -249,8 +281,18 @@ impl Host {
             Hit::Crumb(d) => {
                 self.path.truncate(d);
                 self.row = 0;
+                self.role = None;
             }
-            Hit::Row(i) => self.row = i,
+            Hit::Row(i) => {
+                self.row = i;
+                self.role = None;
+            }
+            Hit::Role(i) => {
+                self.role = deck_show::roles::roles(self.shown(), None).get(i).map(|r| r.id.clone());
+                self.typing = None;
+            }
+            Hit::RoleAdd | Hit::RoleName | Hit::RoleFact(_) | Hit::RoleRemove | Hit::AskYes | Hit::AskNo => self.roles_press(hit),
+            Hit::WhoMove(_) | Hit::WhoRename(_) | Hit::WhoKick(_) | Hit::MenuPick(_) => self.who_press(hit),
             Hit::Save => self.save(),
             Hit::Load => self.load(),
             Hit::Flash => self.open_flash(),
@@ -299,6 +341,7 @@ impl Host {
         }
         self.path.push(seat.id);
         self.row = 0;
+        self.role = None;
     }
 
     /// Flash (#91 item 5, SHOW.md §4b): the tree from the top, every show its seats pin fetched once (the API, else the
@@ -363,6 +406,11 @@ pub struct Script {
     pub flash_filter: Option<String>,
     pub flash_ask: bool,
     pub flash_confirm: bool,
+    /// #478: the role the inspector shows (an outlet id); with `--sheet who`, a client (its name or id) moved to a role
+    /// (`NAME=ROLE`, an empty role = no role) by its move menu, and a client's move menu left open
+    pub role: Option<String>,
+    pub who_move: Option<(String, String)>,
+    pub who_menu: Option<String>,
 }
 
 impl Host {
@@ -409,6 +457,21 @@ impl Host {
             200 => {
                 if let Some(i) = s.problem {
                     self.press(Hit::Problem(i));
+                }
+            }
+            35 => {
+                if let Some(i) = s.role.as_ref().and_then(|id| deck_show::roles::roles(self.shown(), None).iter().position(|r| r.id == *id)) {
+                    self.press(Hit::Role(i));
+                }
+            }
+            150 => {
+                if let Some((who, role)) = &s.who_move {
+                    self.script_move(who, role);
+                }
+            }
+            170 => {
+                if let Some(i) = s.who_menu.as_ref().and_then(|who| self.script_line(who)) {
+                    self.press(Hit::WhoMove(i));
                 }
             }
             50 if s.flash => self.press(Hit::Flash),

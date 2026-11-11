@@ -29,6 +29,22 @@ pub fn scale(sh: f32) -> f32 {
     (sh / 540.0).round().max(1.0)
 }
 
+/// where the full HUD sits on a `sw` × `sh` screen: `[x, y, w, h]` in screen pixels – top left, a 1rem margin at its scale
+pub fn rect(sw: f32, sh: f32) -> [f32; 4] {
+    let s = scale(sh);
+    let (hw, hh) = ((W as f32 * s).min(sw), (H as f32 * s).min(sh));
+    let m = (16.0 * s).min(sw - hw).max(0.0);
+    [m, m.min(sh - hh).max(0.0), hw, hh]
+}
+
+/// #478: the full HUD's text line under the screen point (x, y) – a tap on a page's line (the Live page)
+pub fn line_at(x: f32, y: f32, sw: f32, sh: f32) -> Option<usize> {
+    let [rx, ry, rw, _] = rect(sw, sh);
+    let (hx, hy) = ((x - rx) / scale(sh), (y - ry) / scale(sh));
+    let row = ((hy - 3.0) / 10.0).floor();
+    (hx >= 0.0 && hx < rw / scale(sh) && row >= 0.0 && (row as usize) < LINES).then_some(row as usize)
+}
+
 /// the build label's integer scale: the HUD's, by the width on a portrait screen (a phone)
 pub fn label_scale(sw: f32, sh: f32) -> f32 {
     if sh > sw { (sw / 375.0).round().max(1.0) } else { scale(sh) }
@@ -271,6 +287,18 @@ mod tests {
         h.set_beat(Some(Beat { row: 2, beat: 1, per_bar: 4, running: true }));
         h.raster();
         assert_eq!(amber(&h), 0);
+    }
+
+    /// #478: a tap finds the HUD's line: top left, 1rem in, 10 HUD pixels a line at the HUD's scale (2 at 1080p)
+    #[test]
+    fn a_tap_finds_the_line() {
+        assert_eq!(rect(1920.0, 1080.0), [32.0, 32.0, 640.0, H as f32 * 2.0]);
+        // line 0's text starts 4 HUD pixels down: y = 32 + 8; line 2 at 32 + 2 * (4 + 20)
+        assert_eq!(line_at(40.0, 40.0, 1920.0, 1080.0), Some(0));
+        assert_eq!(line_at(100.0, 32.0 + 2.0 * 24.0 + 4.0, 1920.0, 1080.0), Some(2));
+        assert_eq!(line_at(10.0, 40.0, 1920.0, 1080.0), None, "left of the HUD");
+        assert_eq!(line_at(700.0, 40.0, 1920.0, 1080.0), None, "right of it");
+        assert_eq!(line_at(40.0, 1000.0, 1920.0, 1080.0), None, "below its lines");
     }
 
     /// #209: the bar spans the screen at the HUD's scale, an item out of the green in red, the items cut at its edge

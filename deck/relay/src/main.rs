@@ -44,7 +44,7 @@ async fn main() -> anyhow::Result<()> {
 
     let config = relay::Config::from_env();
     if config.token_secret.is_none() {
-        tracing::warn!("LIVE_TOKEN_SECRET unset: dev mode, any non-empty session token passes");
+        tracing::warn!("LIVE_TOKEN_SECRET unset: dev mode, any non-empty session token passes and a proof's facts are taken as stated (#478)");
     }
     tracing::info!(lead_ms = config.lead_ms, "clock lead");
     let relay = Arc::new(relay::Relay::with_config(config));

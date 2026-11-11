@@ -31,8 +31,8 @@
 use crate::rig::Stream;
 use protocol::lines::{line, Lines, DATAGRAM_MAX};
 use protocol::{
-    DeckEvent, DeckEvents, DeckGraph, DeckListen, DeckMidi, DeckQuality, DeckSynced, DeckValues, Empty, Envelope, HandPose, HandRecord, HandState, HandView, Hello, LinkQuality,
-    Message, Ping, Resume, Role, SceneSync, Snapshot, SyncState, Tempo, To, VoteCast, VoteClose, VoteHold, VoteOpen,
+    Assign, DeckEvent, DeckEvents, DeckGraph, DeckListen, DeckMidi, DeckQuality, DeckSynced, DeckValues, Empty, Envelope, HandPose, HandRecord, HandState, HandView, Hello,
+    LinkQuality, Message, Ping, Rename, Resume, Role, SceneSync, ShowRole, Snapshot, SyncState, Tempo, To, VoteCast, VoteClose, VoteHold, VoteOpen,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
@@ -167,11 +167,17 @@ pub struct Options {
     /// hand the app every envelope as it came (`Out::Message`)
     #[serde(default)]
     pub messages: bool,
+    /// #478: what this client says it is (`hello.device`: native, browser, phone …) – a role's filter may ask it
+    #[serde(default)]
+    pub device: Option<String>,
+    /// #478: the API's signed facts of this client for its session (`hello.proof`; deck-outlet's proof.rs asks for it)
+    #[serde(default)]
+    pub proof: Option<String>,
 }
 
 impl Options {
     pub fn new(relay: &str, role: Role, group: Option<&str>) -> Options {
-        Options { relay: relay.into(), role, group: group.map(String::from), nick: None, token: None, resume: false, messages: false }
+        Options { relay: relay.into(), role, group: group.map(String::from), nick: None, token: None, resume: false, messages: false, device: None, proof: None }
     }
 }
 
@@ -462,6 +468,9 @@ pub struct Client {
     poses: HashMap<String, f64>,
     /// the phones heard and still in the session
     hands: std::collections::BTreeSet<String>,
+    /// #478: the roles the relay says this client may take (with how many are in each), and whether the conductor locked it
+    roles: Vec<ShowRole>,
+    locked: bool,
 }
 
 impl Client {
@@ -504,7 +513,47 @@ impl Client {
             hand_view: None,
             poses: HashMap::new(),
             hands: Default::default(),
+            roles: Vec::new(),
+            locked: false,
         })
+    }
+
+    /// #478: take a role (the conductor's, one the relay offered), or none – at once, at any time; the relay refuses it when
+    /// the conductor locked this client there. Its group is the role, so a rejoin keeps it.
+    pub fn take_role(&mut self, role: Option<&str>) -> bool {
+        let a = Assign { client: self.client.clone(), group: role.unwrap_or_default().to_string(), lock: None };
+        self.joined && self.send(Message::Assign(a))
+    }
+
+    /// #478: the name this client says (free text; the relay trims it) – in its next hello, and now when it is joined
+    pub fn set_name(&mut self, name: &str) -> bool {
+        let name = name.trim();
+        self.o.nick = (!name.is_empty()).then(|| name.to_string());
+        self.joined && self.send(Message::Rename(Rename { client: self.client.clone(), nick: name.to_string() }))
+    }
+
+    /// #478: the API's proof of this client's facts (`None`: none) – in every hello from now. The first one after a hello
+    /// without it joins again at once (with resume), so the relay learns the facts; a renewed one waits for the next hello.
+    pub fn set_proof(&mut self, proof: Option<String>) {
+        let first = self.o.proof.is_none() && proof.is_some();
+        self.o.proof = proof;
+        if first && self.phase == Phase::Open {
+            self.rejoin();
+        }
+    }
+
+    /// #478: what the Live page shows of this client's session (deck-ui live.rs)
+    pub fn live(&self) -> deck_ui::live::Session {
+        let offers = self.roles.iter().map(|r| deck_ui::live::Offer { id: r.id.clone(), label: r.label.clone().unwrap_or_else(|| r.id.clone()), here: r.here.unwrap_or(0) as u32 });
+        deck_ui::live::Session {
+            code: self.code.clone(),
+            link: self.line(),
+            joined: self.joined,
+            offers: offers.collect(),
+            role: self.o.group.clone(),
+            name: self.o.nick.clone().unwrap_or_default(),
+            locked: self.locked,
+        }
     }
 
     pub fn code(&self) -> &str {
@@ -726,7 +775,9 @@ impl Client {
             role: self.o.role,
             group: self.o.group.clone(),
             nick: self.o.nick.clone(),
+            device: self.o.device.clone(),
             token: self.o.token.clone().or_else(|| conductor.then(|| "dev".into())),
+            proof: self.o.proof.clone(),
             resume: self.resume.clone().filter(|_| self.o.resume),
         };
         self.send(Message::Hello(hello));
@@ -1233,6 +1284,13 @@ impl Client {
                 self.out.push(Out::HandRecenter { client: from });
             }
             Message::HandView(v) => self.out.push(Out::HandView(v)),
+            // #478: the roles it may take; a move (the conductor's or its own) is its group – a rejoin says it – and the lock
+            Message::Roles(r) => self.roles = r.roles,
+            Message::Assign(a) if a.client == self.client => {
+                self.o.group = (!a.group.is_empty()).then_some(a.group);
+                self.locked = a.lock == Some(true);
+            }
+            Message::Rename(r) if r.client == self.client => self.o.nick = (!r.nick.is_empty()).then_some(r.nick),
             Message::DeckListen(l) => self.out.push(Out::Listen { client: from, addresses: l.addresses }),
             Message::DeckEvents(ev) => self.out.push(Out::Events { client: from, events: ev.events }),
             Message::DeckSynced(synced) if conductor => self.out.push(Out::Deck(In::Synced { client: from, synced })),
@@ -1906,6 +1964,29 @@ mod tests {
         c.opened(0.0);
         c.text(0.0, &json!({ "v": 1, "seq": 1, "from": "relay", "kind": "welcome", "p": { "client": "c3", "snapshot": {}, "now": 0 } }).to_string());
         assert_eq!(c.line(), "OUTPUT c3 OF left @ CATH");
+    }
+
+    /// #478: a proof that comes after the hello joins again with it (resume); a renewed one waits for the next hello
+    #[test]
+    fn a_proof_after_the_hello_joins_again_with_it() {
+        let sent = |outs: Vec<Out>| -> Vec<Value> { outs.into_iter().filter_map(|o| if let Out::Send(t) = o { serde_json::from_str(&t).ok() } else { None }).collect() };
+        let mut o = Options::new("ws://relay/live/CATH", Role::Output, Some("tenor"));
+        o.resume = true;
+        let mut c = Client::new(o).unwrap();
+        c.start(0.0);
+        c.opened(0.0);
+        assert_eq!(sent(c.take())[0]["p"].get("proof"), None, "joined as a guest");
+        c.text(0.0, &json!({ "v": 1, "seq": 1, "from": "relay", "kind": "welcome", "p": { "client": "c3", "snapshot": {}, "now": 0, "key": "k" } }).to_string());
+        c.take();
+        c.set_proof(Some("p.s".into()));
+        assert!(c.take().iter().any(|o| matches!(o, Out::Close {})), "the socket goes: join again");
+        c.closed(1.0, "");
+        c.tick(60_000.0);
+        c.opened(60_000.0);
+        let hello = sent(c.take()).into_iter().find(|e| e["kind"] == "hello").unwrap();
+        assert_eq!((hello["p"]["proof"].as_str(), hello["p"]["resume"]["client"].as_str()), (Some("p.s"), Some("c3")));
+        c.set_proof(Some("p.t".into()));
+        assert!(!c.take().iter().any(|o| matches!(o, Out::Close {})), "a renewed proof waits for the next hello");
     }
 
     /// #442: a deck asks for its far addresses once joined, to the decks' group, and again every `far::LISTEN_MS`; its

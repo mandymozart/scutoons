@@ -5,10 +5,11 @@ import { askPortraits, fetchChapter, fetchOutletAsks, fetchSet, fetchSlice, port
 import { RelaySocket, type RelayCoreView } from './client.ts';
 import { driveLink, ensureLink, type Paired, type SignedIn } from './deck-key.ts';
 import { watchPanel, type PanelView } from './deck-panel.ts';
+import { LivePage, readKept, type LiveView } from './live-page.ts';
 
 /** #463: the wasm-bindgen API of deck/space-web's `SceneView` */
-export interface SceneView extends SetView, ChapterView, OutletView, PanelView {
-	join_outlet(relay: string, outlet: string, locale: string, api: string): boolean;
+export interface SceneView extends SetView, ChapterView, OutletView, PanelView, LiveView {
+	join_outlet(relay: string, outlet: string, kept: string, locale: string, api: string): boolean;
 	deck_link(why: string, code: string, app: string): void;
 	set_request(): string;
 	reloaded(): number;
@@ -35,8 +36,7 @@ export interface SceneOptions {
 	outlet?: { relay: string; name: string; locale: string };
 	/** #470: the build label the deck names when it asks to be paired */
 	build?: string;
-	/** #484: the viewer's signed-in user, if any (the single sign-on cookie, or a bearer token) – a signed-in browser deck
-	 * is its user and is not paired */
+	/** #484: the viewer's signed-in user, if any (the cookie, or a bearer token) – such a deck is its user and is not paired */
 	user?: () => SignedIn | null;
 	/** #481: the person at the deck may reject a suggested flash (asked every frame: the sign-in answers after the deck starts) */
 	mayReject?: () => boolean;
@@ -52,12 +52,13 @@ export class SceneStage {
 	/** #465: the outlet's relay socket (the client is the view's) */
 	private relay: RelaySocket | null = null;
 	private spaceModule: SpaceModule | null = null;
-	/** #470: the deck's pairing (an outlet's show media need its token) and the key it signs with – #484: made only
-	 * when nobody is signed in (deck-key.ts `ensureLink`) */
+	/** #470: the deck's pairing and the key it signs with – #484: made only when nobody is signed in (`ensureLink`) */
 	link: Paired | null = null;
 	pairing = false;
 	/** #481: the panel's taps and keys, until `stop` */
 	private unwatch: (() => void) | null = null;
+	/** #478: the Live page's stats line, keys and taps */
+	private live: LivePage | null = null;
 
 	private constructor(
 		private readonly o: SceneOptions,
@@ -86,7 +87,9 @@ export class SceneStage {
 		}
 		const s = new SceneStage(o, canvas, view);
 		s.spaceModule = mod;
-		if (o.outlet && view.join_outlet(o.outlet.relay, o.outlet.name, o.outlet.locale, o.api)) {
+		const kept = readKept();
+		if (o.outlet && view.join_outlet(o.outlet.relay, o.outlet.name, kept, o.outlet.locale, o.api)) {
+			s.live = new LivePage(view, canvas, o.host, kept);
 			(s.relay = new RelaySocket(view as unknown as RelayCoreView, {})).start();
 			s.unwatch = watchPanel(canvas, view);
 		}
@@ -119,6 +122,7 @@ export class SceneStage {
 		if (!this.relay) return;
 		// what the outlet says (media.ready) goes out; what it asks for is fetched; a cell's set loads
 		this.relay.run();
+		this.live?.frame();
 		// #484: signed in – the deck is its user; else its own key and the pairing (a sign-out mid-show lands here)
 		const user = this.o.user?.() ?? undefined;
 		this.view.set_may_reject(this.o.mayReject?.() ?? false);
@@ -135,6 +139,7 @@ export class SceneStage {
 		this.stopped = true;
 		this.relay?.close();
 		this.unwatch?.();
+		this.live?.stop();
 		this.link?.view.free();
 		cancelAnimationFrame(this.raf);
 		this.size.disconnect();

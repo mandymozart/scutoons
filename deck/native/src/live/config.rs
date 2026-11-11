@@ -60,6 +60,56 @@ pub fn dont_flash(path: &Path) -> Option<String> {
     toml::from_str::<Keys>(&text).ok()?.dont_flash
 }
 
+/// #478: the Live page's choice in deck.toml – `role = "tenor"` (`""`: no role) and `nick = "Anna"`, the name it says; read
+/// at the start (the role over `outlet`, the name over the host's), written when the page changes them
+#[derive(Debug, Default, Deserialize, PartialEq)]
+pub struct Choice {
+    #[serde(default)]
+    pub role: Option<String>,
+    #[serde(default)]
+    pub nick: Option<String>,
+}
+
+impl Choice {
+    pub fn read(path: &Path) -> Choice {
+        std::fs::read_to_string(path).ok().and_then(|t| toml::from_str(&t).ok()).unwrap_or_default()
+    }
+
+    /// keeps `key = "value"` in the deck's file (a double quote or a line break is refused)
+    pub fn keep(path: &Path, key: &str, value: &str) -> std::io::Result<()> {
+        if value.contains(['"', '\\', '\n', '\r']) {
+            return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("a quote or a line break in {key}")));
+        }
+        let text = std::fs::read_to_string(path).unwrap_or_default();
+        if let Some(dir) = path.parent() {
+            let _ = std::fs::create_dir_all(dir);
+        }
+        std::fs::write(path, with_key(&text, key, value))
+    }
+}
+
+/// Writes `key = "value"` into the deck.toml text: the first `key` line is replaced, further ones go (deck-session reads
+/// the first; deck-set does the same), else the line is added.
+pub fn with_key(text: &str, key: &str, value: &str) -> String {
+    let line = format!("{key} = \"{value}\"");
+    let mut out = Vec::new();
+    let mut done = false;
+    for l in text.lines() {
+        if l.contains('=') && l.split('=').next().map(str::trim) == Some(key) {
+            if !done {
+                out.push(line.clone());
+                done = true;
+            }
+        } else {
+            out.push(l.to_string());
+        }
+    }
+    if !done {
+        out.push(line);
+    }
+    out.join("\n") + "\n"
+}
+
 /// #442: `scene` with deck.toml's `join` on a space node that has none of its own (a rig's); a scene file's `join` stays.
 pub fn with_join(mut scene: deck_space::scene::Scene, cli: &Settings) -> deck_space::scene::Scene {
     let join = cli.join.clone().or_else(|| Settings::read(&deck_toml()).join);

@@ -1173,7 +1173,8 @@ try {
 			setVariable: (i) => `document.querySelectorAll('[data-testid="event-${i}"] .sc-fields input, [data-testid="event-${i}"] .sc-fields select').length >= 3`,
 			label: (i) => `!!document.querySelector('[data-testid="event-${i}"] .sc-fields input')`,
 			divert: (i) => `!!document.querySelector('[data-testid="event-${i}"] .sc-fields select')`,
-			jumpTo: (i) => `document.querySelectorAll('[data-testid="event-${i}"] .sc-fields select').length >= 1`
+			// the target is ONE field (#477 slice D)
+			jumpTo: (i) => `!!document.querySelector('[data-testid="event-${i}"] [data-testid="target-place-input"]')`
 		};
 		for (const [type, ready] of Object.entries(FORMS)) {
 			const i = typeIndex[type];

@@ -18,7 +18,7 @@
 </script>
 
 <div class="sc-fields" data-cols="2" data-density="dense" data-align="end">
-	<AddressField {doc} path={[...path, 'params']} kinds={TARGETS.location.kinds} fields={TARGETS.location.fields} free="location" label={m['creator.unlock_location_place']()} testid="location" />
+	<AddressField {doc} path={[...path, 'params']} spec={TARGETS.location} free="location" label={m['creator.unlock_location_place']()} testid="location" />
 	{#if !avatar}
 		<PropField {doc} path={[...path, 'params', 'silent']} label={m['creator.unlock_location_silent']()} type="bool" placeholder="false" />
 		<!-- how the map shows it (owner 2026-10-11): empty = by the trigger -->
