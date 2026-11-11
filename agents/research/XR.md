@@ -80,10 +80,10 @@ So book, space and show are not three orders: a space is a book whose surfaces a
 9. **A surface has a place on the editor's stage**, the demo scene, so the example reads well: a book's surfaces are bound side by side (spreads); an exhibition's walls stand together, three or four in one, as rooms; posters hang singly or lined up one after another on a poster wall.
 10. **What an entry does in SCUTOONS:** it rather unlocks 3D views, videos and items, or jumps to a scene: interactive stories with SCUTOONS's existing toolset. The entry without a target that is only read in a list (OSCT's glossary) stays in for now; whether SCUTOONS's reader needs it is to be thought about.
 
-Drafts shown to the owner (the XR session's notes folder, `482-xr/`, each an `.html` and a `.png`): 2 the experience document · 3 the hierarchy, stored flat and shown stacked in the editor (the owner: good) · 4 the stored shape, A or B · 5 surfaces and the stage · 6 what a target does · 7 the reader's XR mode · 8 the XR editor in the creator · 9 the creator's XR area and a book in the workspace · 10 the reader's other screens (5 to 10: §8).
+Drafts shown to the owner (the XR session's notes folder, `482-xr/`, each an `.html` and a `.png`): 2 the experience document · 3 the hierarchy, stored flat and shown stacked in the editor (the owner: good) · 4 the stored shape, A or B (the owner: A) · 5 surfaces and the stage · 6 what a target does · 7 the reader's XR mode · 8 the XR editor in the creator · 9 the creator's XR area and a book in the workspace · 10 the reader's other screens (5 to 10: §8).
 
 ## 6 · Open
-- **The stored shape of an experience** (draft 4, XR-SHARED-CORE.md §5 and §8): A, OSCT's configuration kept as it is inside the document with SCUTOONS's fields beside it (the research's advice; the tree is then surface › entry › target › scene, as OSCT's), or B, SCUTOONS's own four lists (draft 3; surface › target › scene, the entry beside). Not answered.
+- **The stored shape of an experience** (draft 4, XR-SHARED-CORE.md §5 and §8): A, OSCT's configuration kept as it is inside the document with SCUTOONS's fields beside it (the research's advice; the tree is then surface › entry › target › scene, as OSCT's), or B, SCUTOONS's own four lists (draft 3; surface › target › scene, the entry beside). **Answered by the owner, 2026-11-11 (`[xr]`): A.** B is out; draft 3's tree (target above the entry) gives way to OSCT's (entry above the target), as drafts 8 and 9 draw it.
 - Surfaces and the stage (points 8 and 9): whether a named size is kept as a format to reuse across surfaces, and whether a room is a stored group of surfaces or only their arrangement on the stage. Drawn as draft 5 (§8.1). OSCT's stage today: one book lying on a desk, leafed spread by spread (`editor/src/lib/stage/mock-stage.ts`).
 - From draft 2, not answered: whether a record's disc label is a surface; whether the jump's field offers scenes beside experiences and targets.
 
@@ -148,7 +148,7 @@ The owner asked for drafts of the planned move's screens. Beside drafts 7 and 8:
 
 ### 8.5 What only the owner can decide, in one list
 
-1. The stored shape: A or B (§6, draft 4). The session recommends A.
+1. ~~The stored shape: A or B (§6, draft 4).~~ Decided 2026-11-11: A.
 2. Room and poster wall as things of their own; where own sizes are saved (8.1).
 3. The two layers, and when an entry's events run (8.2).
 4. The first screen of the reader's XR page; where what is found is kept (8.3).
