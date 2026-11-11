@@ -15,6 +15,9 @@ use std::fmt;
 /// geht der Dialog automatisch weg … wird es automatisch angenommen"): then it is taken – flashing is an explicit act.
 pub const SUGGESTION_SECS: f32 = 10.0;
 
+/// why a deck did not take a flash its person rejected (#481): the conductor's list reads it
+pub const REJECTED: &str = "rejected at the deck";
+
 /// what "please don't flash" says when no reason was given
 pub const NO_REASON: &str = "no reason given";
 
@@ -214,7 +217,7 @@ impl Deck {
     /// flash is not offered again (a rejoin hands it over once more).
     pub fn reject(&mut self, flash: &Flash) -> FlashReport {
         self.taken = flash.id.clone();
-        self.refuse("rejected at the deck".to_string())
+        self.refuse(REJECTED.to_string())
     }
 
     /// #481: `flash` is forced onto this deck (the conductor's operator accepted the warning for it)

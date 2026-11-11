@@ -82,12 +82,13 @@ pub enum Hit {
     Load,
     /// the tree resolved to exact versions: the list of the devices to flash opens (#471)
     Flash,
-    /// #471, the flash list: a line's tick, a quick filter, the typed filter's field, the lock, on to the prompt, the
-    /// prompt confirmed, back / cancel
+    /// #471, the flash list: a line's tick, a quick filter, the typed filter's field, the lock, forced or a suggestion
+    /// (#481), on to the prompt, the prompt confirmed, back / cancel
     FlashTick(usize),
     FlashQuick(usize),
     FlashType,
     FlashLock,
+    FlashForce,
     FlashAsk,
     FlashConfirm,
     FlashCancel,
@@ -253,7 +254,7 @@ impl Host {
             Hit::Save => self.save(),
             Hit::Load => self.load(),
             Hit::Flash => self.open_flash(),
-            Hit::FlashTick(_) | Hit::FlashQuick(_) | Hit::FlashType | Hit::FlashLock | Hit::FlashAsk | Hit::FlashConfirm | Hit::FlashCancel => self.flash_press(hit),
+            Hit::FlashTick(_) | Hit::FlashQuick(_) | Hit::FlashType | Hit::FlashLock | Hit::FlashForce | Hit::FlashAsk | Hit::FlashConfirm | Hit::FlashCancel => self.flash_press(hit),
             Hit::View(two_d) => {
                 self.two_d = two_d;
                 self.sheet = None;

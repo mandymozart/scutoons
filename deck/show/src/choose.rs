@@ -3,6 +3,10 @@
 //! lock). Quick filters and the typed filter set the ticks, a hand changes them. Nothing goes out before the prompt is
 //! confirmed: it says how many get it, who loses unsaved configuration, who keeps local mappings, who is left out and why.
 //! Once warned and accepted, a forced flash forces. A deck that is not here gets the flash when it joins, unless left out.
+//! #481 (owner 2026-11-10: "wenn er forced. Wenn er nicht forced, wenn er nur als Suggestion schickt, dann kann man es
+//! ablehnen"; 2026-11-11: "Force."): a flash goes out as a suggestion – who may reject at a deck has a few seconds to
+//! say no – or forced, the list's switch: then every chosen deck takes it and nobody is asked. A deck that rejected
+//! the last one says so in its line.
 //!
 //! The list, the filters, the prompt's words and what the flash then names (`Pick`) are here; the deck editor lays them out
 //! and hands the presses in (RULES A1, A2).
@@ -42,6 +46,8 @@ pub struct Line {
     pub kept: Option<Pinned>,
     /// not on the version this flash pins
     pub old: bool,
+    /// #481: the person at it rejected the last flash suggested to it
+    pub rejected: bool,
 }
 
 impl Line {
@@ -82,6 +88,9 @@ impl Line {
         }
         if let Some(why) = &self.keep {
             parts.push(format!("asks not to be flashed: {why}"));
+        }
+        if self.rejected {
+            parts.push("rejected the last flash".into());
         }
         parts.join(" · ")
     }
@@ -129,6 +138,8 @@ pub struct Choice {
     pub lines: Vec<Line>,
     ticked: BTreeSet<String>,
     pub locked: bool,
+    /// #481: forced – every chosen deck takes it, nobody at a deck is asked; else a suggestion
+    pub forced: bool,
     /// the typed filter as last applied, and why it did not parse
     pub filter: String,
     pub error: Option<String>,
@@ -169,6 +180,7 @@ impl Choice {
                 mappings: r.mappings.unwrap_or(0),
                 own: r.own == Some(true),
                 kept: r.kept.as_ref().map(crate::flash::pinned),
+                rejected: !r.accepted && r.why.as_deref() == Some(crate::ready::REJECTED),
                 path,
                 kind,
                 seat,
@@ -192,12 +204,13 @@ impl Choice {
                     own: false,
                     kept: None,
                     old: true,
+                    rejected: false,
                 });
             }
         }
         lines.sort_by(|a, b| (a.seat.is_some(), &a.path).cmp(&(b.seat.is_some(), &b.path)));
         let ticked = lines.iter().filter(|l| l.keep.is_none()).map(|l| l.path.clone()).collect();
-        Choice { lines, ticked, locked: false, filter: String::new(), error: None, target }
+        Choice { lines, ticked, locked: false, forced: false, filter: String::new(), error: None, target }
     }
 
     /// While the list is open, what the devices say changes (one joins, one answers): the lines follow, a line's tick
@@ -322,11 +335,20 @@ impl Choice {
             if l.own {
                 lines.push((format!("{} runs its own version – goes to {root}", l.path), Tone::Plain));
             }
+            if l.rejected {
+                lines.push(if self.forced { (format!("{} rejected the last flash – flashed anyway", l.path), Tone::Warn) } else { (format!("{} rejected the last flash – asked again", l.path), Tone::Plain) });
+            }
             if !l.online {
                 lines.push((format!("{} is not here – gets it when it joins", l.path), Tone::Muted));
             }
         }
         lines.push(("A deck that joins later gets it too, unless it asks not to be flashed.".into(), Tone::Muted));
+        lines.push(if self.forced {
+            warn = true;
+            ("Forced: every chosen deck takes it, nobody at a deck is asked.".into(), Tone::Warn)
+        } else {
+            (format!("A suggestion: who may reject at a deck has {} s to say no.", crate::ready::SUGGESTION_SECS), Tone::Muted)
+        });
         lines.push(if self.locked {
             ("Locked: only a deck's owner can go back to its own version.".into(), Tone::Plain)
         } else {
@@ -337,12 +359,13 @@ impl Choice {
         Prompt { title: format!("Flash {root} to {n} of {total} {what}?"), lines, warn, confirm: if warn { "Force flash".into() } else { "Flash".into() }, can: true }
     }
 
-    /// What the confirmed prompt sends: the unticked are left out, the ticked that were warned of are forced.
+    /// What the confirmed prompt sends: the unticked are left out; forced are the ticked that were warned of, or every
+    /// ticked one when the flash is forced.
     pub fn pick(&self, by: Option<String>) -> Pick {
         let (on, off): (Vec<&Line>, Vec<&Line>) = self.lines.iter().partition(|l| self.ticked.contains(&l.path));
         Pick {
             skip: off.iter().map(|l| l.path.clone()).collect(),
-            force: on.iter().filter(|l| l.keep.is_some() || l.unsaved).map(|l| l.path.clone()).collect(),
+            force: on.iter().filter(|l| self.forced || l.keep.is_some() || l.unsaved).map(|l| l.path.clone()).collect(),
             locked: self.locked,
             by,
         }
@@ -360,7 +383,7 @@ struct Term {
 /// What the typed filter's empty field shows.
 pub const FILTER_HINT: &str = "where device:browser and group:workshop";
 
-const KEYS: &str ="device, kind, group, seat, outlet, show, or one of ready, changed, old, keep, here, own";
+const KEYS: &str ="device, kind, group, seat, outlet, show, or one of ready, changed, old, keep, here, own, rejected";
 
 fn terms(text: &str) -> Result<Vec<Term>, String> {
     let text = text.trim();
@@ -378,7 +401,7 @@ fn terms(text: &str) -> Result<Vec<Term>, String> {
             };
             let known = match &value {
                 Some(_) => ["device", "kind", "group", "seat", "outlet", "show"].contains(&key.as_str()),
-                None => ["ready", "changed", "old", "keep", "here", "own"].contains(&key.as_str()),
+                None => ["ready", "changed", "old", "keep", "here", "own", "rejected"].contains(&key.as_str()),
             };
             if !known || t.is_empty() {
                 return Err(format!("'{t}' is no condition: {KEYS}"));
@@ -403,6 +426,7 @@ impl Term {
             "keep" => l.keep.is_some(),
             "here" => l.online,
             "own" => l.own,
+            "rejected" => l.rejected,
             _ => false,
         };
         yes != self.not
@@ -528,6 +552,7 @@ mod tests {
                 "foyer/c3 loses its unsaved configuration – kept as its own copy",
                 "foyer/c3 keeps its 2 local mappings",
                 "A deck that joins later gets it too, unless it asks not to be flashed.",
+                "A suggestion: who may reject at a deck has 10 s to say no.",
                 "Each deck's operator can go back to their own version.",
             ]
         );
@@ -540,6 +565,29 @@ mod tests {
         assert_eq!((pick.skip.len(), pick.force.clone(), pick.locked), (0, vec!["c8".to_string(), "foyer/c3".to_string()], true));
         c.quick(&Quick::None);
         assert!(!c.prompt().can);
+    }
+
+    #[test]
+    fn a_forced_flash_names_every_chosen_deck_and_a_deck_that_rejected_says_so() {
+        let mut s = sub();
+        // c7's person rejected the last suggestion
+        let mut no = report(("top", 2), Some("left"));
+        (no.accepted, no.why) = (false, Some(crate::ready::REJECTED.to_string()));
+        s.on_wire(&Envelope::new("c7", Message::FlashReport(no)), 12);
+        let mut c = Choice::open(&s, &lock());
+        assert!(c.lines[0].rejected && c.is_ticked(0), "a rejection is no request not to be flashed: it stays chosen");
+        assert_eq!(c.lines[0].state(), "runs top@2 · rejected the last flash");
+        // as a suggestion: it is asked again, and only what the prompt warned of is forced
+        let p = c.prompt();
+        assert!(p.lines.contains(&("c7 rejected the last flash – asked again".to_string(), Tone::Plain)));
+        assert_eq!(c.pick(None).force, ["foyer/c3"]);
+        // forced: the prompt warns, and every chosen deck is named
+        c.forced = true;
+        let p = c.prompt();
+        assert!(p.warn && p.confirm == "Force flash");
+        assert!(p.lines.contains(&("c7 rejected the last flash – flashed anyway".to_string(), Tone::Warn)));
+        assert!(p.lines.contains(&("Forced: every chosen deck takes it, nobody at a deck is asked.".to_string(), Tone::Warn)));
+        assert_eq!(c.pick(None).force, ["c7", "foyer", "foyer/c3"]);
     }
 
     #[test]
