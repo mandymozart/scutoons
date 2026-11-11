@@ -21,6 +21,7 @@ use Scutoons\Http\Controllers\AccessController;
 use Scutoons\Http\Controllers\AddressBookController;
 use Scutoons\Http\Controllers\ApiTokensController;
 use Scutoons\Http\Controllers\DecksController;
+use Scutoons\Http\Controllers\ScenesController;
 use Scutoons\Http\Controllers\ShowsController;
 use Scutoons\Http\Controllers\LiveProofController;
 use Scutoons\Http\Controllers\ModulesController;
@@ -230,6 +231,13 @@ return static function (App $app): void {
     $app->put('/api/shows/{id}', [ShowsController::class, 'put']);
     $app->post('/api/shows/{id}/publish', [ShowsController::class, 'publish']);
     $app->post('/api/live/sessions', [ShowsController::class, 'open']);
+    // ── Deck scenes `scene:<id>` (#243, ScenesController): published ones public, drafts the content editors' ────────
+    $app->get('/api/scenes', [ScenesController::class, 'index']);
+    $app->get('/api/scenes/{id}', [ScenesController::class, 'get']);
+    $app->get('/api/scenes/{id}/versions', [ScenesController::class, 'versions']);
+    $app->put('/api/scenes/{id}', [ScenesController::class, 'put']);
+    $app->post('/api/scenes/{id}/publish', [ScenesController::class, 'publish']);
+    $app->post('/api/scenes/{id}/restore', [ScenesController::class, 'restore']);
     // a client's signed facts for one live session – a member's account roles, an approved deck (#478, LiveProofController)
     $app->get('/api/live/proof', [LiveProofController::class, 'proof']);
 

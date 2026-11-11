@@ -12,7 +12,8 @@ use Scutoons\Infrastructure\Config\Settings;
 /**
  * The type guard of the content store: every saved document is checked against the JSON Schema of its kind, generated
  * from @scutoons/content's TypeScript types (`npm run schema -w @scutoons/content` writes shared/content/schema/ and the
- * copy the server ships in server/schema/content/; `npm run check` fails when either is stale).
+ * copy the server ships in server/schema/content/; `npm run check` fails when either is stale) – except `scene`, written there
+ * from the Rust struct by deck-space's deck-schema (#243; deck:ci fails when it is stale).
  * Checked with opis/json-schema (draft-07). The schemas allow extra fields (the generator's `additionalProperties: true`), so they guard shapes and types, not
  * unknown keys – except a type tagged `@additionalProperties false` (RendererParams, FEATURES 10.100). `locations` / `routes` (the old per-toon map, read-only) have no schema and are not checked.
  */
@@ -47,6 +48,9 @@ final class ContentSchemas
         'character' => 'registry-character',
         // #90: checked by the Rust core when published (Domain/Live/Shows.php), never by a schema here
         'show' => null,
+        // #243: the shape here (the schema is generated from deck-space's SceneDocument by deck-schema); whether a deck can
+        // play it, the Rust core's when published (Domain/Live/Scenes.php)
+        'scene' => 'scene',
     ];
 
     /** the language-neutral documents of these kinds (a key without locale, agents/NEUTRAL.md) → schema file */

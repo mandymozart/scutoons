@@ -55,6 +55,19 @@ final class CoreValidator
     }
 
     /**
+     * #243: the core's problems of a scene document `scene:<id>` – what a deck would refuse to load (deck-space
+     * rig/validate.rs kind `scenes`: the document's form and id, the graph, the browser engine's split)
+     * @return list<string>
+     */
+    public function sceneProblems(string $id, mixed $document): array
+    {
+        $url = rtrim($this->settings->get('MODULE_BUILD_URL'), '/');
+        $token = $this->settings->get('MODULE_BUILD_TOKEN');
+        if ($url === '' || $token === '') throw new ApiError(503, 'no_build_service', 'The build service that checks scenes is not set up.');
+        return $this->ask($url, $token, ['kind' => 'scenes', 'id' => $id, 'document' => $document], "scene $id");
+    }
+
+    /**
      * @param array<string, mixed> $request
      * @return list<string>
      */

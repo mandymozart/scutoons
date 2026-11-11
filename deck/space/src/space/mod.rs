@@ -1122,17 +1122,17 @@ mod tests {
             let scene = Scene::parse(text).unwrap();
             let g = Graph::build(&scene).unwrap();
             for n in &scene.being.react {
-                let Some(values::Path::Input(node, port)) = values::resolve_loose(&g, &n.set) else { panic!("{}", n.set) };
+                let Some(values::Path::Input(node, port)) = values::resolve_loose(&g, &n.input) else { panic!("{}", n.input) };
                 let kind = g.nodes[node].kind;
                 if kind.domain() != crate::graph::Domain::Audio {
                     continue;
                 }
                 let name = kind.inputs()[port].name;
-                assert!(n.attack >= 0.15, "{}: {} {} attacks in {} s", scene.stage.name, n.mood, n.set, n.attack);
+                assert!(n.attack >= 0.15, "{}: {} {} attacks in {} s", scene.stage.name, n.mood, n.input, n.attack);
                 if name.starts_with("gain") || name == "volume" {
                     let rest = g.nodes[node].f32(name, params::default(kind, name));
                     let to = n.to.unwrap_or(rest + n.by.unwrap_or(0.0));
-                    assert!(to >= rest * 0.5 - 1e-6, "{}: {} ducks {} from {rest} to {to}", scene.stage.name, n.mood, n.set);
+                    assert!(to >= rest * 0.5 - 1e-6, "{}: {} ducks {} from {rest} to {to}", scene.stage.name, n.mood, n.input);
                 }
             }
         }
