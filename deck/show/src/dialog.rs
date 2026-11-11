@@ -106,9 +106,9 @@ pub fn suggestion(locale: &str, show: &Pinned, by: Option<&str>, runs: Option<&P
 
 /// A flash replaced the deck's own version: what runs, that the own one is kept, and the way back when there is one
 /// (draft 1, frame 3).
-pub fn notice(locale: &str, kept: &Kept, may_switch: bool, focus: usize) -> Dialog {
+pub fn notice(locale: &str, kept: &Kept, forced: bool, may_switch: bool, focus: usize) -> Dialog {
     let de = german(locale);
-    let caption = match (kept.forced, de) {
+    let caption = match (forced || kept.forced, de) {
         (true, true) => "Flash · erzwungen",
         (true, false) => "Flash · forced",
         (false, _) => "Flash",
@@ -170,10 +170,10 @@ mod tests {
     #[test]
     fn a_notice_offers_the_way_back_only_when_there_is_one() {
         let kept = Kept { own: pin(2), flashed: pin(3), by: "ana".into(), forced: true, locked: false, on_own: false };
-        let d = notice("de", &kept, true, 0);
+        let d = notice("de", &kept, false, true, 0);
         assert_eq!((d.caption.0.as_str(), d.title.as_str()), ("Flash · erzwungen", "top · Version 3 läuft"));
         assert_eq!(d.buttons, [("OK".to_string(), Act::Seen), ("Zurück zu meiner Version".to_string(), Act::Back)]);
-        let locked = notice("de", &Kept { forced: false, by: "the conductor".into(), ..kept }, false, 3);
+        let locked = notice("de", &Kept { forced: false, by: "the conductor".into(), ..kept }, false, false, 3);
         assert_eq!((locked.caption, locked.buttons.len(), locked.focus), (("Flash".to_string(), "vom Conductor".to_string()), 1, 0));
         assert_eq!(locked.lines[1], "Gesperrt: nur der Besitzer des Decks kann zurück.");
         assert_eq!(flashed("en", &pin(3), Some("ana")), Shown::Line("Flashed: top · Version 3".into(), "by ana".into()));

@@ -138,14 +138,15 @@ pub struct Deck {
     kept: Option<Kept>,
     /// #471: the notice was seen
     seen: bool,
-    /// #475: what the last flash said this outlet plays in the show it assigned (none for the outlet: the show has no
-    /// such outlet); absent when the flash did not say
-    needed: Option<(Pinned, Option<Vec<Need>>)>,
+    /// #475: what the flashes said this outlet plays in the shows they assigned (none for the outlet: the show has no
+    /// such outlet), the newest last and a few of them – the way back to the deck's own version checks from it too;
+    /// a show a flash did not say it for is not here
+    needed: Vec<(Pinned, Option<Vec<Need>>)>,
 }
 
 impl Deck {
     pub fn new(outlet: &str) -> Deck {
-        Deck { outlet: outlet.to_string(), standing: None, running: None, last: None, id: None, keep: None, unsaved: false, mappings: 0, device: None, owner: true, taken: None, kept: None, seen: false, needed: None }
+        Deck { outlet: outlet.to_string(), standing: None, running: None, last: None, id: None, keep: None, unsaved: false, mappings: 0, device: None, owner: true, taken: None, kept: None, seen: false, needed: Vec::new() }
     }
 
     fn running(&self) -> Pinned {
@@ -211,6 +212,11 @@ impl Deck {
     pub fn reject(&mut self, flash: &Flash) -> FlashReport {
         self.taken = flash.id.clone();
         self.refuse("rejected at the deck".to_string())
+    }
+
+    /// #481: `flash` is forced onto this deck (the conductor's operator accepted the warning for it)
+    pub fn forced(&self, flash: &Flash) -> bool {
+        flash::forced(flash, self.id.as_deref().unwrap_or_default())
     }
 
     /// what runs, when something does
@@ -295,10 +301,14 @@ impl Deck {
         self.seen = self.kept.is_none();
         self.unsaved = false;
         self.running = Some(show.clone());
-        self.needed = flash.needs.as_ref().map(|by_outlet| {
+        self.needed.retain(|(of, _)| of != &show);
+        if let Some(by_outlet) = &flash.needs {
             let mine = by_outlet.get(&self.outlet).map(|n| n.iter().map(|n| Need { piece: n.piece.clone(), row: n.row.clone() }).collect());
-            (show.clone(), mine)
-        });
+            self.needed.push((show.clone(), mine));
+            // the flashed one and the deck's own, with room to spare
+            let over = self.needed.len().saturating_sub(4);
+            self.needed.drain(..over);
+        }
         Ok(show)
     }
 
@@ -359,16 +369,13 @@ impl Deck {
     /// #475: the pieces the flash said this outlet plays in `show` – what a deck fetches and checks without the document.
     /// None: the flash did not say (then the document is read, [`Deck::check`]).
     pub fn told(&self, show: &Pinned) -> Option<&[Need]> {
-        let (of, mine) = self.needed.as_ref()?;
-        (of == show).then(|| mine.as_deref().unwrap_or_default())
+        let (_, mine) = self.needed.iter().find(|(of, _)| of == show)?;
+        Some(mine.as_deref().unwrap_or_default())
     }
 
     /// #475: the report from what the flash said this outlet plays – no document. None: the flash did not say.
     pub fn check_told(&mut self, show: &Pinned, has: impl Fn(&str) -> Result<(), String>) -> Option<FlashReport> {
-        let (of, mine) = self.needed.clone()?;
-        if &of != show {
-            return None;
-        }
+        let (_, mine) = self.needed.iter().find(|(of, _)| of == show)?.clone();
         let lacks = match mine {
             None => vec![Lack::Outlet { show: show.clone(), outlet: self.outlet.clone() }],
             Some(needs) => needs.into_iter().filter_map(|n| has(&n.piece).err().map(|why| Lack::Piece { piece: n.piece, row: n.row, why })).collect(),

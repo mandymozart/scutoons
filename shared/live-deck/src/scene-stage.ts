@@ -38,8 +38,8 @@ export interface SceneOptions {
 	/** #484: the viewer's signed-in user, if any (the single sign-on cookie, or a bearer token) – a signed-in browser deck
 	 * is its user and is not paired */
 	user?: () => SignedIn | null;
-	/** #481: the person at the deck may reject a suggested flash */
-	mayReject?: boolean;
+	/** #481: the person at the deck may reject a suggested flash (asked every frame: the sign-in answers after the deck starts) */
+	mayReject?: () => boolean;
 }
 
 /** #463: a scene playing in `host` */
@@ -88,7 +88,6 @@ export class SceneStage {
 		s.spaceModule = mod;
 		if (o.outlet && view.join_outlet(o.outlet.relay, o.outlet.name, o.outlet.locale, o.api)) {
 			(s.relay = new RelaySocket(view as unknown as RelayCoreView, {})).start();
-			view.set_may_reject(o.mayReject ?? false);
 			s.unwatch = watchPanel(canvas, view);
 		}
 		const room = view.room();
@@ -122,6 +121,7 @@ export class SceneStage {
 		this.relay.run();
 		// #484: signed in – the deck is its user; else its own key and the pairing (a sign-out mid-show lands here)
 		const user = this.o.user?.() ?? undefined;
+		this.view.set_may_reject(this.o.mayReject?.() ?? false);
 		if (!user && this.spaceModule) void ensureLink(this, this.spaceModule.DeckLink, this.o.build ?? '');
 		const link = user ? null : this.link;
 		if (link) void driveLink(link, this.o.api);

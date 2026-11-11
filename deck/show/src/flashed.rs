@@ -62,6 +62,8 @@ pub struct Flashed {
     line: Option<(Shown, f32)>,
     /// the button the keys are on
     focus: usize,
+    /// the flash taken last was forced onto this deck
+    forced: bool,
     now: f32,
     /// the API's base and why the deck cannot ask it, as the last flash came with them
     api: String,
@@ -86,6 +88,7 @@ impl Flashed {
             rejected: None,
             line: None,
             focus: 0,
+            forced: false,
             now: 0.0,
             api: String::new(),
             no_token: String::new(),
@@ -128,6 +131,7 @@ impl Flashed {
 
     fn take(&mut self, flash: &Flash, fetched: &mut Fetched) {
         let before = self.deck.runs().cloned();
+        self.forced = self.deck.forced(flash);
         let show = match self.deck.take(flash) {
             Err(refused) => return self.out.push(*refused),
             Ok(show) => show,
@@ -194,7 +198,7 @@ impl Flashed {
             return Some(Shown::Dialog(dialog::suggestion(&self.locale, &ready::show_of(flash), flash.by.as_deref(), self.deck.runs(), gone, self.focus)));
         }
         if let Some(kept) = self.deck.kept().filter(|_| self.notice_due()) {
-            return Some(Shown::Dialog(dialog::notice(&self.locale, kept, self.deck.may_switch(), self.focus)));
+            return Some(Shown::Dialog(dialog::notice(&self.locale, kept, self.forced, self.deck.may_switch(), self.focus)));
         }
         self.line.as_ref().filter(|(_, until)| self.now < *until).map(|(line, _)| line.clone())
     }
@@ -452,9 +456,14 @@ mod tests {
         assert_eq!(f.deck.runs().map(|r| r.version), Some(4));
         let Some(Shown::Dialog(d)) = f.shown() else { panic!("the notice") };
         assert_eq!((d.title.as_str(), d.buttons.len(), d.gone), ("top · Version 4 läuft", 2, None));
+        assert_eq!(d.caption.0, "Flash · erzwungen");
         f.reports();
         f.press(1, &mut fetched);
         assert_eq!(f.deck.runs().map(|r| r.version), Some(3));
+        // the way back checks from what the first flash said the outlet plays: no document is asked for
+        assert_eq!(f.ask(), None);
+        f.turn(2.0, &mut fetched, carried);
+        assert!(f.reports().iter().any(|r| r.running.version == 3 && r.ready == Some(true)));
         assert_eq!(f.shown(), Some(Shown::Line("Deine Version läuft wieder: top · Version 3".into(), String::new())));
         // Escape on a notice reads it
         f.flash(&{ let mut again = forced.clone(); again.id = Some("three".into()); again }, API, "", &mut fetched);
