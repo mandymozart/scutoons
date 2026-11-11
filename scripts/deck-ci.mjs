@@ -82,14 +82,14 @@ const steps = [
 					{ RUSTFLAGS: '-C target-feature=+simd128' },
 					() => gate(`${root}/deck/target/engine-wasm/wasm32-unknown-unknown/release/deck_engine_wasm.wasm`, ENGINE_GATE_KB)
 				],
-				// the browser deck's 3D and own UI (#198, #485), gated: the phone downloads it
+				// the browser deck's 3D and own UI (#198, #485): its size reported, no gate (owner 2026-11-11)
 				[
 					'🧊 space-web wasm32',
 					'cargo',
 					['build', '--profile', 'wasm-web', '--target', 'wasm32-unknown-unknown', '-p', 'space-web'],
 					`${root}/deck`,
 					{},
-					() => gate(`${process.env.CARGO_TARGET_DIR ?? `${root}/deck/target`}/wasm32-unknown-unknown/wasm-web/space_web.wasm`, SPACE_WEB_GATE_KB)
+					() => gate(`${process.env.CARGO_TARGET_DIR ?? `${root}/deck/target`}/wasm32-unknown-unknown/wasm-web/space_web.wasm`)
 				],
 				// #378: the Live outlet's logic (plan, composer, crossfade, text layout, routing) builds for the browser – a build check, not a feature
 				['🎭 deck-outlet wasm32', 'cargo', ['build', '--target', 'wasm32-unknown-unknown', '-p', 'deck-outlet'], `${root}/deck`],
