@@ -6,7 +6,11 @@ pub mod controls;
 pub mod draw;
 pub mod icons;
 pub mod info;
+pub mod input;
+pub mod live;
 pub mod panel;
+#[cfg(feature = "pixel")]
+pub mod pixel;
 #[cfg(feature = "raster")]
 pub mod raster;
 pub mod text;

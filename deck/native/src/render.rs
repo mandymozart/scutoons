@@ -128,9 +128,15 @@ impl Renderer {
         self.stage.bar_width()
     }
 
-    /// The pairing card (#180): Some = its pixels, shown over everything; None = gone. Called when it changes, not every frame.
-    pub fn set_pairing(&mut self, card: Option<&[u8]>) {
-        self.stage.set_pairing(&self.gpu.queue, card);
+    /// The deck's menu (#386, deck-ui `Menu::paint`): Some = its picture over the whole screen; None = gone. Called when
+    /// it changes, not every frame.
+    pub fn set_menu(&mut self, menu: Option<(u32, u32, &[u8])>) {
+        self.stage.set_menu(&self.gpu.device, &self.gpu.queue, menu);
+    }
+
+    /// the window's size in pixels (what the menu is painted for)
+    pub fn size(&self) -> (f32, f32) {
+        (self.gpu.config.width as f32, self.gpu.config.height as f32)
     }
 
     /// The deck's UI for the person at it (#481, deck-show `face.rs`): Some = its pixels, a strip along the screen's

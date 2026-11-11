@@ -1,13 +1,14 @@
-// live-page.ts (#478): the Live page in the browser deck, drawn by the core – deck-ui's page on the HUD (space-web
-// `SceneView::live_*`), as the native deck's F6. Here only the DOM: the outlet's one stats line that opens it (the core's
-// words), the keys and taps passed on whole (the core says whether it took them), the choice kept on this device as the
-// core's text.
+// live-page.ts (#478, #386): the deck's menu and its Live page in the browser deck, drawn and decided by the core –
+// deck-ui's menu and page (space-web `SceneView::menu_*`), as on the native deck. Here only the DOM: the outlet's one
+// status line (the core's words) that opens the menu, the keys and the pointer passed on whole (the core says whether
+// it took them), the page's place, the choice kept on this device as the core's text.
 
-/** #478: the Live page's part of space-web's `SceneView` */
+/** #478 #386: the menu's and the Live page's part of space-web's `SceneView` */
 export interface LiveView {
-	live_toggle(): boolean;
-	live_key(key: string): boolean;
-	live_tap(x: number, y: number): boolean;
+	menu_open(): void;
+	menu_key(key: string): boolean;
+	/** press: 0 the pointer moved, 1 a press, 2 the secondary press */
+	menu_pointer(x: number, y: number, press: number): boolean;
 	live_line(): string;
 	live_kept(): string;
 	live_place(density: number, top: number): void;
@@ -36,19 +37,18 @@ export class LivePage {
 		this.line.type = 'button';
 		this.line.dataset.testid = 'deck-live';
 		this.line.style.cssText = 'position:absolute;top:0;left:0;right:0;border:0;text-align:left;font:0.625rem/1.5rem monospace;background:#000a;color:#fffd;cursor:pointer';
-		// the core centres the page below this line at its readable size: the canvas pixels per CSS pixel and the line's height
-		this.line.onclick = () => {
-			const k = canvas.width / (canvas.clientWidth || 1);
-			view.live_place(k, this.line.offsetHeight * k);
-			view.live_toggle();
-		};
+		this.line.onclick = () => view.menu_open();
 		host.append(this.line);
 		addEventListener('keydown', this.key);
-		canvas.addEventListener('pointerdown', this.tap);
+		canvas.addEventListener('pointerdown', this.pointer);
+		canvas.addEventListener('pointermove', this.pointer);
+		canvas.addEventListener('contextmenu', this.pointer);
 	}
 
-	/** each frame: the line as the core says it, the choice kept when the core's text changed */
+	/** each frame: the page's place (the canvas pixels per CSS pixel, the line's height), the line as the core says it, the choice kept when the core's text changed */
 	frame() {
+		const k = this.canvas.width / (this.canvas.clientWidth || 1);
+		this.view.live_place(k, this.line.offsetHeight * k);
 		const text = this.view.live_line();
 		if (this.line.textContent !== text) this.line.textContent = text;
 		this.line.hidden = !text;
@@ -64,17 +64,21 @@ export class LivePage {
 
 	stop() {
 		removeEventListener('keydown', this.key);
-		this.canvas.removeEventListener('pointerdown', this.tap);
+		for (const what of ['pointerdown', 'pointermove', 'contextmenu'] as const) this.canvas.removeEventListener(what, this.pointer);
 		this.line.remove();
 	}
 
 	private key = (e: KeyboardEvent) => {
-		if (this.view.live_key(e.key)) e.preventDefault();
+		if (e.ctrlKey || e.metaKey || e.altKey) return;
+		if (this.view.menu_key(e.key)) e.preventDefault();
 	};
 
-	private tap = (e: PointerEvent) => {
+	private pointer = (e: PointerEvent | MouseEvent) => {
+		// the secondary press comes as the context menu; a pointerdown of another button is nobody's here
+		if (e.type === 'pointerdown' && e.button !== 0) return;
 		const r = this.canvas.getBoundingClientRect();
 		const k = this.canvas.width / Math.max(1, r.width);
-		if (this.view.live_tap((e.clientX - r.left) * k, (e.clientY - r.top) * k)) e.preventDefault();
+		const press = e.type === 'pointermove' ? 0 : e.type === 'contextmenu' ? 2 : 1;
+		if (this.view.menu_pointer((e.clientX - r.left) * k, (e.clientY - r.top) * k, press)) e.preventDefault();
 	};
 }

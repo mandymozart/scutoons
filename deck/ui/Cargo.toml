@@ -14,3 +14,9 @@ publish.workspace = true
 [dependencies]
 # the monitor's report (#364): its bar items, their judgement, its lines and the glitch warning's words
 deck-core = { workspace = true }
+# #386: the menu is built from the component library's live components and painted by it (the HUD's pixel face, font8x8)
+deck-kit = { path = "../kit", features = ["pixel"] }
+
+[dev-dependencies]
+# the menu's frames as PNG files (examples/menu-frames.rs)
+image = { version = "0.25", default-features = false, features = ["png"] }

@@ -1,6 +1,6 @@
 //! deck-native – the native AV app the deck boots into (CYBERDECKS.md §8, #179). One window (fullscreen; under cage on
 //! the deck), a node graph from a TOML scene: video passes on wgpu, an audio graph on PipeWire / cpal, control values
-//! per frame. Keys: F1 the HUD · F12 the conductor page · Ctrl+Q quit · Ctrl+Alt+Del power off (on a deck) · the tempo clock
+//! per frame. Keys: Esc the menu (#386, menu.rs) · F1 the HUD · F12 the conductor page · Ctrl+Q quit · Ctrl+Alt+Del power off · the tempo clock
 //! (#181): T tap · + / − BPM · Space start / stop · F3 the next source · K the click. The splash (the logo) covers the start until the
 //! chapter's first slice and the music are there, and the browser's start: with DECK_BROWSER set (deck-session does)
 //! F12 starts that command on top of the running stage – cage shows the newest window – and the stage pauses and mutes
@@ -38,6 +38,7 @@ use winit::keyboard::{Key, ModifiersState, NamedKey};
 use winit::window::{Fullscreen, Window, WindowId};
 
 mod hud_status;
+mod menu;
 mod pages;
 
 /// the exit code that asks deck-session for the browser (the conductor page) instead of the stage
@@ -86,7 +87,7 @@ const HELP: &str = "deck [--scene FILE|cathedral|conductor|outlet|rig:NAME] [--a
                (DECK_PORTRAITS; default <cache>/portraits, synced from the API)
   --token      the conductor's session token for a space node with join = conductor (default LIVE_TOKEN; a dev relay
                takes any)
-  pairing      (#180) while deck-link's run directory says the deck waits for a member, the code + QR in the corner;
+  pairing      (#180, #386) while deck-link's run directory says the deck waits for a member, the code + QR in the menu;
                its token goes to the API once approved (DECK_LINK_DIR, default /run/deck-link; DECK_APP; DECK_TOKEN)
   --quality    the render quality's level – the highest the governor steps up to (default auto: by the GPU – software
                low, integrated high, discrete ultra; DECK_QUALITY); ,fixed = no governor. Over the preset file
@@ -711,9 +712,8 @@ struct App {
     mods: ModifiersState,
     exit: i32,
     splash: splash::Fade,
-    /// the pairing card (#180): deck-link's state, read every 2 s (`pairing_at`, the frame time); `None` = no card
-    pairing: Option<deck_native::pairing::Card>,
-    pairing_at: f32,
+    /// #386: the deck's menu (the splash's START, the main menu, Pair this deck – the corner card that was)
+    menu: menu::Native,
     /// the browser on top: since when; `paused` once it has the focus (the stage stops drawing)
     browser: Option<Instant>,
     paused: bool,
@@ -1290,7 +1290,7 @@ impl App {
             hud::Mode::Bar => self.hud.raster_bar(self.renderer.as_ref().map_or(hud::W, |r| r.bar_width())),
             hud::Mode::Off => {}
         }
-        let cover = self.loading() || self.browser.is_some();
+        let cover = self.loading() || self.browser.is_some() || self.menu.menu.on_splash();
         self.splash.step(cover, dt);
         // #250: a scene change fades through a black veil (no logo): out, the load behind it, in
         let mut splash = (self.splash.alpha, cover);
@@ -1310,28 +1310,15 @@ impl App {
             return;
         }
         let veil = self.change.running();
+        // #386: the menu – the pairing state, the pad's sticks and buttons (#228), its picture (menu.rs)
+        self.menu_frame(el, time);
         let Some(r) = self.renderer.as_mut() else { return };
         r.set_veil(veil);
         #[cfg(feature = "live")]
         self.show.live.as_ref().inspect(|l| l.panel(|p| r.set_panel(p)));
-        // #180: while the deck waits for a member, the code + QR in the corner (deck-link's run directory, a small file)
-        if time - self.pairing_at >= 2.0 || time < self.pairing_at {
-            self.pairing_at = time;
-            let state = deck_link::pairing::read_state(&deck_link::pairing::run_dir());
-            let card = deck_native::pairing::Card::of(state.as_ref(), &deck_link::pairing::app_url());
-            if card != self.pairing {
-                r.set_pairing(card.as_ref().map(|c| c.raster()).as_deref());
-                self.pairing = card;
-            }
-        }
         let shown = (hud_on && self.hud.visible()).then_some(&self.hud);
         if self.args.frames.is_some_and(|n| self.stats.frames + 1 >= n) {
             r.capture = self.args.screenshot.clone();
-        }
-        // #228: the pad's sticks and buttons, read once per frame (no pad: nothing)
-        #[cfg(feature = "gamepad")]
-        if let (Some(pad), Some(space)) = (self.show.pad.as_mut(), self.show.space.as_mut()) {
-            pad.poll(space, &mut self.show.controls);
         }
         let before = (now.elapsed().as_secs_f32()) * 1000.0;
         match r.frame(&self.show.graph, &self.show.controls, time, dt, shown, splash, self.show.space.as_mut()) {
@@ -1540,6 +1527,10 @@ impl ApplicationHandler<Event> for App {
         if self.show.live.as_ref().is_some_and(|l| l.window_event(&event, self.switcher.open || self.page.open || self.live.page.open)) {
             return;
         }
+        // #386: the menu (Esc, F4 / F5 / F6, its pages' keys and the pointer on them – menu.rs)
+        if self.menu_event(el, &event) {
+            return;
+        }
         // #250 F5, #220 F4: the open scene list or settings page takes the keys (the arrows, + / −, Space would turn the
         // camera and the tempo); pages.rs names them
         if let WindowEvent::KeyboardInput { event: k, .. } = &event {
@@ -1611,7 +1602,6 @@ impl ApplicationHandler<Event> for App {
                         self.hud.mode = self.hud.mode.next();
                     }
                     Key::Named(NamedKey::F12) => self.open_browser(el),
-                    Key::Named(NamedKey::Escape) if self.args.windowed => el.exit(),
                     Key::Named(NamedKey::Delete) if self.mods.control_key() && self.mods.alt_key() => self.power_off(),
                     Key::Character("q") if self.mods.control_key() => el.exit(),
                     Key::Named(NamedKey::F3) => tempo.key(tempo::Key::NextSource),
@@ -1623,24 +1613,6 @@ impl ApplicationHandler<Event> for App {
                         self.presets.auto = self.governor.as_ref().is_some_and(|g| g.auto());
                         let _ = self.qfile.save(&self.presets);
                         self.apply_quality();
-                    }
-                    Key::Named(NamedKey::F5) => {
-                        self.live.page.open = false;
-                        if self.switcher.open {
-                            self.switcher.open = false;
-                        } else {
-                            self.open_switcher();
-                        }
-                        self.hud_at = -1.0;
-                    }
-                    Key::Named(NamedKey::F4 | NamedKey::F6) => {
-                        let six = matches!(event.logical_key.as_ref(), Key::Named(NamedKey::F6));
-                        (self.switcher.open, self.page.open) = (false, !six && !self.page.open);
-                        match six {
-                            true => self.live.toggle(&self.show),
-                            false => self.live.page.open = false,
-                        }
-                        self.hud_at = -1.0;
                     }
                     Key::Named(NamedKey::Space) => tempo.key(tempo::Key::StartStop),
                     Key::Character("t") => tempo.key(tempo::Key::Tap),
@@ -1710,6 +1682,7 @@ fn run() -> Result<i32> {
     let quality_note = problem.map_or_else(|| format!("FILE {}", qfile.path.file_name().map(|n| n.to_string_lossy().to_uppercase()).unwrap_or_default()), |e| e.to_uppercase());
     let mut app = App {
         hud: hud::Hud::with_mode(if args.hud_bar { hud::Mode::Bar } else { hud::Mode::Full }),
+        menu: menu::Native::new(&args),
         args,
         started,
         show,
@@ -1728,8 +1701,6 @@ fn run() -> Result<i32> {
         mods: ModifiersState::empty(),
         exit: 0,
         splash: splash::Fade { alpha: 1.0 },
-        pairing: None,
-        pairing_at: -10.0,
         browser: None,
         paused: false,
         proxy,

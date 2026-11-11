@@ -55,16 +55,25 @@ impl Pad {
         Pad { gilrs: None, sticks: Sticks::new(paths.as_slice()), paths, axes: [0.0; 4], buttons: [false; 4], changed: false }
     }
 
-    /// This frame's pad events into the pad's state, then the frame. Without a pad system, nothing.
-    pub fn poll(&mut self, space: &mut Space, ctl: &mut dyn Knobs) {
-        let Some(mut reader) = self.gilrs.take() else { return };
+    /// This frame's pad events into the pad's state, then the frame; what the deck's menu gets (#386: Start, the d-pad,
+    /// A, B) – while the menu is open (`menu`) its buttons are only the menu's. Without a pad system, nothing.
+    pub fn poll(&mut self, space: &mut Space, ctl: &mut dyn Knobs, menu: bool) -> Vec<deck_ui::menu::Input> {
+        let mut to_menu = Vec::new();
+        let Some(mut reader) = self.gilrs.take() else { return to_menu };
         while let Some(event) = reader.next_event() {
+            if let Some(i) = menu_input(&event.event) {
+                to_menu.push(i);
+                if menu {
+                    continue;
+                }
+            }
             if let Some(input) = from_gilrs(&event.event) {
                 self.input(input);
             }
         }
         self.gilrs = Some(reader);
         self.frame(space, ctl);
+        to_menu
     }
 
     pub fn input(&mut self, input: Input) {
@@ -131,6 +140,23 @@ pub fn from_gilrs(event: &gilrs::EventType) -> Option<Input> {
         gilrs::EventType::Disconnected => Some(Input::Gone),
         _ => None,
     }
+}
+
+/// #386: a pressed button as the deck's menu takes it – Start opens it, the d-pad chooses, A (south) takes, B (east)
+/// goes back
+pub fn menu_input(event: &gilrs::EventType) -> Option<deck_ui::menu::Input> {
+    use deck_ui::menu::Input;
+    let gilrs::EventType::ButtonPressed(button, _) = *event else { return None };
+    Some(match button {
+        gilrs::Button::Start => Input::Open,
+        gilrs::Button::DPadUp => Input::Up,
+        gilrs::Button::DPadDown => Input::Down,
+        gilrs::Button::DPadLeft => Input::Left,
+        gilrs::Button::DPadRight => Input::Right,
+        gilrs::Button::South => Input::Enter,
+        gilrs::Button::East => Input::Back,
+        _ => return None,
+    })
 }
 
 /// a stick axis (gilrs: y up) as the standard mapping's (y down)
@@ -241,7 +267,7 @@ mod tests {
     fn no_pad_no_input() {
         let (g, mut space, mut ctl) = cathedral();
         let mut pad = Pad::with_paths(&g, &space);
-        pad.poll(&mut space, &mut ctl);
+        assert!(pad.poll(&mut space, &mut ctl, false).is_empty(), "nothing for the menu");
         assert_eq!(space.selection_name(), "");
         assert!(pad.frame(&mut space, &mut ctl).is_empty());
     }
