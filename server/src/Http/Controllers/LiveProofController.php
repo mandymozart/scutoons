@@ -16,10 +16,9 @@ use Scutoons\Http\Json;
  * that only this API can state, signed for the relay (LiveSessions::proof):
  *   GET /api/live/proof?session=<code> → { status, proof, expires_in, dev }
  * A signed-in member (cookie or session Bearer): its account roles among member, creator, admin, live. An approved deck's
- * own token (`scd_…`): `approved`, and the account roles of the member it is paired to (#481, the agent's reading of the
- * owner 2026-11-10 [deck-access] "a paired deck is tied to an account; its rights are that account's" – to confirm; before:
- * no account fact, "a deck is no person"). An AI connection 403 not_for_ai, nobody 401, a code that is no session code
- * 400 invalid_session.
+ * own token (`scd_…`): `approved`, and the account roles of the member it is paired to (#481, owner 2026-11-11
+ * [deck-access]: a paired deck is tied to an account, its rights are that account's; before: no account fact). An AI
+ * connection 403 not_for_ai, nobody 401, a code that is no session code 400 invalid_session.
  */
 final class LiveProofController
 {
