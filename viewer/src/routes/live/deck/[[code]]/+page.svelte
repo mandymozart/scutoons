@@ -35,7 +35,8 @@
 	const session = getSessionContext();
 	// #463, owner 2026-11-10: "the fireflies scene should play as default when nothing is induced … other need external
 	// triggers. for testing we can still set those parameters with url params for now"
-	const idle = !page.params.code && !['character', 'rig', 'code', 'relay', 'quic'].some((k) => page.url.searchParams.has(k));
+	// #481: `/live/deck/<code>?outlet=left` plays that outlet in that session (it played the being and passed the outlet over)
+	const idle = (!page.params.code || page.url.searchParams.has('outlet')) && !['character', 'rig', 'code', 'relay', 'quic'].some((k) => page.url.searchParams.has(k));
 	const cdn = `${CDN_SERVER}/`;
 	let stage: HTMLDivElement | undefined = $state();
 	// the controls show the scene's values once the core gave the scene (#360)
@@ -199,7 +200,7 @@
 				if (outlet) await settled();
 				if (!alive || !stage) return;
 				try {
-					const s = await SceneStage.start({ host: stage, base: WASM_BASE, api: API_URL, cdn, user: () => (session.isLoggedIn ? { bearer: getSessionToken() } : null), scene: q.get('scene') ?? (outlet ? 'outlet' : ''), prefer: preferOf(q), outlet: outlet ? { relay: q.get('live') ?? '', name: q.get('outlet') ?? '', locale: q.get('locale') ?? 'de', reader: nickOf(session.me, '') } : undefined });
+					const s = await SceneStage.start({ host: stage, base: WASM_BASE, api: API_URL, cdn, user: () => (session.isLoggedIn ? { bearer: getSessionToken() } : null), scene: q.get('scene') ?? (outlet ? 'outlet' : ''), prefer: preferOf(q), outlet: outlet ? { relay: q.get('live') ?? (page.params.code ? relayOf(q, LIVE_URL, page.params.code, LIVE_QUIC) : ''), name: q.get('outlet') ?? '', locale: q.get('locale') ?? 'de', reader: nickOf(session.me, '') } : undefined });
 					if (alive) scene = s;
 					else s.stop();
 				} catch (e) {
