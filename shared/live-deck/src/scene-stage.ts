@@ -3,7 +3,7 @@
 import { sniff, spaceModule, stageCanvas, type SpaceModule } from './space.ts';
 import { askPortraits, fetchChapter, fetchOutletAsks, fetchSet, fetchSlice, portraitsAt, type ChapterView, type OutletView, type SetView } from './stage-assets.ts';
 import { RelaySocket, type RelayCoreView } from './client.ts';
-import { driveLink, ensureLink, type Paired } from './deck-key.ts';
+import { driveLink, ensureLink, type Paired, type SignedIn } from './deck-key.ts';
 import { watchPanel, type PanelView } from './deck-panel.ts';
 
 /** #463: the wasm-bindgen API of deck/space-web's `SceneView` */
@@ -35,8 +35,9 @@ export interface SceneOptions {
 	outlet?: { relay: string; name: string; locale: string };
 	/** #470: the build label the deck names when it asks to be paired */
 	build?: string;
-	/** #484: the viewer's sign-in, if any – a signed-in browser deck is its user and is not paired */
-	token?: () => string | null;
+	/** #484: the viewer's signed-in user, if any (the single sign-on cookie, or a bearer token) – a signed-in browser deck
+	 * is its user and is not paired */
+	user?: () => SignedIn | null;
 	/** #481: the person at the deck may reject a suggested flash */
 	mayReject?: boolean;
 }
@@ -120,7 +121,7 @@ export class SceneStage {
 		// what the outlet says (media.ready) goes out; what it asks for is fetched; a cell's set loads
 		this.relay.run();
 		// #484: signed in – the deck is its user; else its own key and the pairing (a sign-out mid-show lands here)
-		const user = this.o.token?.() ?? undefined;
+		const user = this.o.user?.() ?? undefined;
 		if (!user && this.spaceModule) void ensureLink(this, this.spaceModule.DeckLink, this.o.build ?? '');
 		const link = user ? null : this.link;
 		if (link) void driveLink(link, this.o.api);

@@ -83,18 +83,21 @@ export async function ensureLink(s: { link: Paired | null; pairing: boolean; sto
 	if (key && !s.stopped) s.link = { view: new Link(key.publicHex, build), key: key.pair.privateKey, busy: false };
 }
 
+/** #484: the viewer's signed-in user: its bearer token, or none when the sign-in is the single sign-on cookie */
+export type SignedIn = { bearer: string | null };
+
 /** the outlet's side of a signed link (space-web SceneView) */
 export interface SignedView {
 	outlet_signed(key: string, status: number, body: string): void;
 }
 
 /** #470: a show medium's signed link (the outlet's `s:` ask), #475: a flashed show at its version (`sf:`) – the deck token goes to these two API routes and nowhere else */
-export async function fetchShowLink(host: { view: SignedView; stopped: boolean }, o: { api: string; link?: DeckLinkView; user?: string }, key: string, url: string) {
-	// #484: the sign-in of the viewer's user, else the paired deck's token
-	const token = o.user ?? o.link?.token(performance.now());
+export async function fetchShowLink(host: { view: SignedView; stopped: boolean }, o: { api: string; link?: DeckLinkView; user?: SignedIn }, key: string, url: string) {
+	// #484: the sign-in of the viewer's user – the single sign-on cookie, or its bearer token – else the paired deck's token
+	const token = o.user ? o.user.bearer : o.link?.token(performance.now());
 	if (!url.startsWith(`${o.api}/decks/media?`) && !url.startsWith(`${o.api}/shows/`)) throw new Error('not the API');
-	if (!token) throw new Error('the deck has no token and nobody is signed in');
-	const r = await fetch(url, { credentials: 'omit', headers: { Authorization: `Bearer ${token}` } });
+	if (!o.user && !token) throw new Error('the deck has no token and nobody is signed in');
+	const r = await fetch(url, { credentials: o.user ? 'include' : 'omit', headers: token ? { Authorization: `Bearer ${token}` } : {} });
 	if (r.status === 401 && !o.user) o.link?.forget(performance.now());
 	if (!host.stopped) host.view.outlet_signed(key, r.status, await r.text());
 }
