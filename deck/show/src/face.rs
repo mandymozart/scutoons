@@ -9,7 +9,8 @@ use crate::flashed::Flashed;
 use deck_kit::controls::Rect;
 use deck_kit::draw::DrawList;
 use deck_kit::panel::{self, Part};
-use deck_kit::raster::{self, Font, Pixels};
+use deck_kit::raster::{self, Font};
+pub use deck_kit::raster::Pixels;
 use deck_space::fetched::Fetched;
 
 #[derive(Debug, Clone, Default)]
@@ -20,6 +21,8 @@ pub struct Face {
     places: Vec<Rect>,
     /// device pixels per logical one, as painted
     scale: f32,
+    /// where what shows begins, in device pixels from the screen's top
+    top: f32,
     /// the person uses keys: the dialog shows what they are on and what they do
     keys: bool,
 }
@@ -68,8 +71,14 @@ impl Face {
             }
         }
         .max(0.0);
-        self.scale = scale;
+        (self.scale, self.top) = (scale, top * scale);
         Some(Some(raster::raster(&d, font, (0.0, top), (screen.0, screen.1 - top), scale)))
+    }
+
+    /// Where what shows begins, in device pixels from the screen's top (a platform that cannot ask `tap` at once
+    /// knows by it whether a tap may be the deck's UI's); none = nothing shows.
+    pub fn top(&self) -> Option<f32> {
+        self.drawn.as_ref().map(|_| self.top)
     }
 
     /// The stage was made anew: what is shown is painted again with the next `paint`.

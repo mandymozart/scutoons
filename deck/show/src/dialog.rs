@@ -195,6 +195,11 @@ pub fn own_again(locale: &str, own: &Pinned) -> Shown {
     Shown::Toast(format!("{}: {}", if german(locale) { "Deine Version läuft wieder" } else { "Your version runs again" }, long(own)), Tone::Good)
 }
 
+/// the toast after the switch back to what was flashed
+pub fn flashed_again(locale: &str, show: &Pinned) -> Shown {
+    Shown::Toast(format!("{}: {}", if german(locale) { "Die geflashte Version läuft wieder" } else { "The flashed version runs again" }, long(show)), Tone::Good)
+}
+
 /// the toast after "please don't flash" was saved: what the conductor reads now
 pub fn keep_saved(locale: &str, keep: Option<&str>) -> Shown {
     let text = match (keep, german(locale)) {

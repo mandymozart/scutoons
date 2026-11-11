@@ -133,6 +133,12 @@ impl Renderer {
         self.stage.set_pairing(&self.gpu.queue, card);
     }
 
+    /// The deck's UI for the person at it (#481, deck-show `face.rs`): Some = its pixels, a strip along the screen's
+    /// bottom; None = gone. Called when it changes, not every frame.
+    pub fn set_panel(&mut self, panel: Option<(u32, u32, &[u8])>) {
+        self.stage.set_panel(&self.gpu.device, &self.gpu.queue, panel);
+    }
+
     /// One frame; returns the CPU time spent after the surface handed out its texture (the vsync wait excluded), in ms.
     /// `splash` = the splash's alpha (0 = none) and whether its loading line runs.
     /// `space` = the scene's space node's state (its set's 3D arrives through it once).

@@ -16,7 +16,7 @@
 //!   (`open_keep`: a switch and a field to type in – `text`, or a platform's own input through `set_field`). `shown` is
 //!   what `face.rs` draws, `press` / `key` what it hands back.
 //!
-//! The native deck does the same on its own thread, blocking (deck-native live/flash.rs).
+//! The native deck runs the same on its own thread, where a fetch may block (deck-native live/flash.rs).
 use crate::dialog::{self, Act, Key, Row, Shown};
 use crate::ready::{self, Deck, SUGGESTION_SECS};
 use crate::{Pinned, Show};
@@ -345,13 +345,7 @@ impl Flashed {
                 }
             }
             Act::Seen => self.deck.seen(),
-            Act::Back => match self.deck.switch(true) {
-                Ok(own) => {
-                    self.toast = Some((dialog::own_again(&self.locale, &own), self.now + TOAST_SECS));
-                    self.check(own, fetched);
-                }
-                Err(why) => self.toast = Some((dialog::failed(why), self.now + TOAST_SECS)),
-            },
+            Act::Back => self.switch(true, fetched),
             // the conductor reads it with the deck's next word about itself: at once
             Act::Save => {
                 if let Some((on, why)) = self.editing.take() {
@@ -362,6 +356,19 @@ impl Flashed {
                 }
             }
             Act::Cancel => self.editing = None,
+        }
+    }
+
+    /// #471: the switch after a flash replaced the deck's own version: to its own (`true`) or back to the flashed one.
+    /// Whether it may is the deck's (`ready::Deck::switch`); a toast says what runs again, or why not.
+    pub fn switch(&mut self, own: bool, fetched: &mut Fetched) {
+        match self.deck.switch(own) {
+            Ok(show) => {
+                let toast = if own { dialog::own_again(&self.locale, &show) } else { dialog::flashed_again(&self.locale, &show) };
+                self.toast = Some((toast, self.now + TOAST_SECS));
+                self.check(show, fetched);
+            }
+            Err(why) => self.toast = Some((dialog::failed(why), self.now + TOAST_SECS)),
         }
     }
 

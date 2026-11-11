@@ -100,8 +100,12 @@ mod running {
         size: Arc<AtomicU64>,
         stop: Arc<AtomicBool>,
         rejoin: Arc<AtomicBool>,
-        /// #471: to the flash side (the operator's switch)
+        /// #471: to the flash side (the operator's switch; #481: the keys and taps of the person at the deck)
         flash: Sender<super::flash::In>,
+        /// #481: the deck's UI for the person at it, painted by the flash thread
+        panel: Arc<Mutex<super::flash::Panel>>,
+        /// the pointer, in the window's pixels (a click is a tap there)
+        pointer: Mutex<(f32, f32)>,
     }
 
     impl Live {
@@ -122,15 +126,20 @@ mod running {
             let (flash_tx, flash_rx) = channel::<super::flash::In>();
 
             // #471: what the deck says about itself – a native deck, and deck.toml's "please don't flash"
-            let mut deck = deck_show::ready::Deck::new(&cfg.outlet);
-            deck.set_device("native");
-            deck.set_keep(super::config::dont_flash(&super::config::deck_toml()));
+            let mut flash = deck_show::flashed::Flashed::new(&cfg.outlet, "native");
+            flash.deck.set_keep(super::config::dont_flash(&super::config::deck_toml()));
+            flash.set_locale(&cfg.locale);
+            let panel = Arc::new(Mutex::new(super::flash::Panel::default()));
             let flasher = super::flash::Flasher {
-                deck,
+                flash,
+                fetched: deck_space::fetched::Fetched::carried_only(),
+                face: Default::default(),
                 api: lib.api.clone(),
                 media: media.clone(),
                 outbox: outbox.clone(),
                 status: status.clone(),
+                panel: panel.clone(),
+                size: size.clone(),
                 stop: stop.clone(),
             };
             spawn("live-flash", move || flasher.run(flash_rx));
@@ -159,13 +168,68 @@ mod running {
                 rejoin: rejoin.clone(),
             };
             spawn("live-relay", move || client.run());
-            Live { outlet: cfg.outlet, frames: Some(frames), space, pieces, status, size, stop, rejoin, flash: flash_tx }
+            Live { outlet: cfg.outlet, frames: Some(frames), space, pieces, status, size, stop, rejoin, flash: flash_tx, panel, pointer: Mutex::new((0.0, 0.0)) }
         }
 
         /// #471: the operator's switch after a flash replaced the deck's own version: to its own (`true`) or back to the
         /// flashed one; whether it may is deck-show's (`ready::Deck::switch`), the answer goes to the HUD and the conductor.
         pub fn switch_flash(&self, own: bool) {
             let _ = self.flash.send(super::flash::In::Switch(own));
+        }
+
+        /// #481: the deck's UI for the person at it changed: `show` gets its new picture (`w × h` straight RGBA, the
+        /// stage's panel overlay), none = nothing shows any more. Called every frame; it does nothing in between.
+        pub fn panel(&self, show: impl FnOnce(Option<(u32, u32, &[u8])>)) {
+            let next = self.panel.lock().unwrap().next.take();
+            if let Some(next) = next {
+                show(next.as_ref().map(|p| (p.w, p.h, p.rgba.as_slice())));
+            }
+        }
+
+        /// #481: a key, a click or a touch of the window, for the deck's UI (deck-show `face.rs`, on the flash thread).
+        /// true = it was the deck's UI's: while a dialog shows the keys are its own (but the function and volume keys),
+        /// and a tap where the panel is. `f` goes to it too ("please don't flash", for who may set it) and stays the
+        /// window's.
+        pub fn window_event(&self, event: &winit::event::WindowEvent) -> bool {
+            use winit::event::{ElementState, MouseButton, TouchPhase, WindowEvent};
+            use winit::keyboard::Key;
+            let (dialog, top) = {
+                let p = self.panel.lock().unwrap();
+                (p.dialog, p.top)
+            };
+            let tap = |x: f32, y: f32| {
+                let on = top.is_some_and(|top| y >= top);
+                if on {
+                    let _ = self.flash.send(super::flash::In::Tap(x, y));
+                }
+                on
+            };
+            match event {
+                WindowEvent::CursorMoved { position, .. } => {
+                    *self.pointer.lock().unwrap() = (position.x as f32, position.y as f32);
+                    false
+                }
+                WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Left, .. } => {
+                    let (x, y) = *self.pointer.lock().unwrap();
+                    tap(x, y)
+                }
+                WindowEvent::Touch(t) if t.phase == TouchPhase::Started => tap(t.location.x as f32, t.location.y as f32),
+                WindowEvent::KeyboardInput { event: k, .. } if k.state == ElementState::Pressed => {
+                    // winit names its keys as the web does (`KeyboardEvent.key`)
+                    let name = match k.logical_key.as_ref() {
+                        Key::Named(n) => format!("{n:?}"),
+                        Key::Character(c) => c.to_string(),
+                        _ => return false,
+                    };
+                    let passes = name.len() > 1 && (name.starts_with('F') && name[1..].chars().all(|c| c.is_ascii_digit()) || name.starts_with("Audio"));
+                    let mine = dialog && !passes;
+                    if mine || matches!(name.as_str(), "f" | "F") {
+                        let _ = self.flash.send(super::flash::In::Key(name));
+                    }
+                    mine
+                }
+                _ => false,
+            }
         }
 
         /// the plane's size follows the window's render size (the cell is composed again)

@@ -25,6 +25,8 @@ enum Got {
 pub struct Fetched {
     got: HashMap<Place, Got>,
     asks: Vec<Place>,
+    /// nothing is asked for: the deck plays what it carries
+    carried_only: bool,
 }
 
 /// Where `place` is asked for: the path after the API's base. None = no place serves its kind.
@@ -50,6 +52,12 @@ pub fn read(answer: &str, place: &Place) -> Result<Found, String> {
 }
 
 impl Fetched {
+    /// The store of a deck that fetches no pieces (the native deck: its cache is what it carries): nothing is asked
+    /// for, so a piece that is not there says so at once.
+    pub fn carried_only() -> Fetched {
+        Fetched { carried_only: true, ..Fetched::default() }
+    }
+
     /// What is here of `place`, for a cell. A piece that can be asked for and was not yet is noted (`asks`) and None
     /// until its answer (`waits`). One that failed says why once and is asked again the next time a cell names it.
     pub fn find(&mut self, place: &Place) -> Option<Found> {
@@ -61,7 +69,7 @@ impl Fetched {
                 _ => None,
             },
             None => {
-                if path(place).is_some() && self.got.len() < CAP {
+                if !self.carried_only && path(place).is_some() && self.got.len() < CAP {
                     self.got.insert(place.clone(), Got::Asked);
                     self.asks.push(place.clone());
                 }

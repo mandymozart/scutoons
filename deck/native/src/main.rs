@@ -1302,6 +1302,8 @@ impl App {
         let veil = self.change.running();
         let Some(r) = self.renderer.as_mut() else { return };
         r.set_veil(veil);
+        #[cfg(feature = "live")]
+        self.show.live.as_ref().inspect(|l| l.panel(|p| r.set_panel(p)));
         // #180: while the deck waits for a member, the code + QR in the corner (deck-link's run directory, a small file)
         if time - self.pairing_at >= 2.0 || time < self.pairing_at {
             self.pairing_at = time;
@@ -1524,6 +1526,10 @@ impl ApplicationHandler<Event> for App {
     }
 
     fn window_event(&mut self, el: &ActiveEventLoop, _: WindowId, event: WindowEvent) {
+        #[cfg(feature = "live")]
+        if self.show.live.as_ref().is_some_and(|l| l.window_event(&event)) {
+            return;
+        }
         // #250: the open scene list takes the keys
         if let WindowEvent::KeyboardInput { event: k, .. } = &event {
             if self.switcher.open && k.state == ElementState::Pressed && !matches!(k.logical_key.as_ref(), Key::Named(NamedKey::F1 | NamedKey::F12 | NamedKey::F4 | NamedKey::F5 | NamedKey::AudioVolumeUp | NamedKey::AudioVolumeDown | NamedKey::AudioVolumeMute)) {
