@@ -32,9 +32,8 @@ fn main() -> std::io::Result<()> {
     let out = std::env::args().nth(1).unwrap_or_else(|| ".".into());
     let kept = "Du spielst deine eigene Version (top · 2). Sie bleibt behalten.";
     let suggestion = [Part::Caption("Flash · Vorschlag", "von ana"), Part::Title("top · Version 3"), Part::Line(kept, true)];
-    let keys = [("Enter", "annehmen"), ("Esc", "ablehnen"), ("< >", "wechseln")];
     let mut native = suggestion.to_vec();
-    native.extend([Part::Buttons(&["Annehmen", "Ablehnen"], Some(0), Some(0.4)), Part::Keys(&keys)]);
+    native.push(Part::Buttons(&["Annehmen", "Ablehnen"], Some(0), Some(0.4)));
     frame(&out, "1-vorschlag-nativ", NATIVE, false, &native, None)?;
     let mut phone = suggestion.to_vec();
     phone.push(Part::Buttons(&["Annehmen", "Ablehnen"], None, Some(0.4)));
@@ -44,7 +43,6 @@ fn main() -> std::io::Result<()> {
         Part::Title("top · Version 3 läuft"),
         Part::Line("Deine Version (top · 2) ist behalten.", true),
         Part::Buttons(&["OK", "Zurück zu meiner Version"], Some(0), None),
-        Part::Keys(&[("Enter", "OK"), ("< >", "wechseln")]),
     ];
     frame(&out, "3-erzwungen", NATIVE, false, &forced, None)?;
     frame(&out, "4-gast-toast", PHONE, false, &[], Some(("Geflasht von ana: top · Version 3", Tone::Good)))?;

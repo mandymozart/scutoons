@@ -23,7 +23,7 @@ pub struct Face {
     scale: f32,
     /// where what shows begins, in device pixels from the screen's top
     top: f32,
-    /// the person uses keys: the dialog shows what they are on and what they do
+    /// the person uses keys: the dialog shows what they are on (no line says what the keys do: owner 2026-11-11)
     keys: bool,
 }
 
@@ -45,7 +45,6 @@ impl Face {
         let top = match shown {
             Shown::Dialog(dialog) => {
                 let labels: Vec<&str> = dialog.buttons.iter().map(|(label, _)| label.as_str()).collect();
-                let keys: Vec<(&str, &str)> = dialog.keys.iter().map(|(key, what)| (*key, what.as_str())).collect();
                 let rows = dialog.rows.len();
                 let mut parts = vec![Part::Caption(&dialog.caption.0, &dialog.caption.1)];
                 if !dialog.title.is_empty() {
@@ -57,9 +56,6 @@ impl Face {
                 }));
                 parts.extend(dialog.lines.iter().map(|line| Part::Line(line, true)));
                 parts.push(Part::Buttons(&labels, dialog.focus.checked_sub(rows).filter(|_| self.keys), dialog.gone));
-                if self.keys {
-                    parts.push(Part::Keys(&keys));
-                }
                 self.places = panel::draw(&mut d, &tokens, screen, &parts, !self.keys);
                 // the glow above the edge is part of the strip
                 screen.1 - panel::height(&d, &tokens, screen.0, &parts) - 16.0

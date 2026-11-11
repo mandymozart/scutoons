@@ -63,8 +63,6 @@ pub struct Dialog {
     pub focus: usize,
     /// 0..1 of the time gone after which the primary happens by itself
     pub gone: Option<f32>,
-    /// what the keys do: (key, what)
-    pub keys: Vec<(&'static str, String)>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -98,15 +96,6 @@ fn from(de: bool, by: Option<&str>) -> String {
     }
 }
 
-fn keys(de: bool, primary: &str, escape: Option<&str>, two: bool) -> Vec<(&'static str, String)> {
-    let mut out = vec![("Enter", primary.to_string())];
-    out.extend(escape.map(|e| ("Esc", e.to_string())));
-    if two {
-        out.push(("< >", if de { "wechseln" } else { "switch" }.to_string()));
-    }
-    out
-}
-
 /// A flash that is only suggested: accept or reject; `gone` of its time is over, then it is accepted (draft 1, frame 1).
 pub fn suggestion(locale: &str, show: &Pinned, by: Option<&str>, runs: Option<&Pinned>, gone: f32, focus: usize) -> Dialog {
     let de = german(locale);
@@ -125,7 +114,6 @@ pub fn suggestion(locale: &str, show: &Pinned, by: Option<&str>, runs: Option<&P
         buttons: vec![(accept.into(), Act::Accept), (reject.into(), Act::Reject)],
         focus: focus.min(1),
         gone: Some(gone.clamp(0.0, 1.0)),
-        keys: keys(de, &accept.to_lowercase(), Some(&reject.to_lowercase()), true),
     }
 }
 
@@ -151,7 +139,6 @@ pub fn notice(locale: &str, kept: &Kept, forced: bool, may_switch: bool, focus: 
         rows: vec![],
         lines,
         focus: focus.min(buttons.len() - 1),
-        keys: keys(de, "OK", None, buttons.len() > 1),
         buttons,
         gone: None,
     }
@@ -175,7 +162,6 @@ pub fn keep(locale: &str, runs: Option<&Pinned>, on: bool, why: &Field, focus: u
         buttons: vec![(save.into(), Act::Save), (cancel.into(), Act::Cancel)],
         focus,
         gone: None,
-        keys: vec![("Enter", save.to_lowercase()), ("Esc", cancel.to_lowercase()), ("Tab", if de { "weiter" } else { "next" }.to_string())],
     }
 }
 
@@ -230,7 +216,7 @@ mod tests {
         assert_eq!(d.caption, ("Flash · Vorschlag".to_string(), "von ana".to_string()));
         assert_eq!((d.title.as_str(), d.lines[0].as_str()), ("top · Version 3", "Du spielst deine eigene Version (top · 2). Sie bleibt behalten."));
         assert_eq!(d.buttons, [("Annehmen".to_string(), Act::Accept), ("Ablehnen".to_string(), Act::Reject)]);
-        assert_eq!((d.gone, d.keys[0].1.as_str(), d.keys.len()), (Some(0.4), "annehmen", 3));
+        assert_eq!(d.gone, Some(0.4));
         // English, nobody named, nothing running yet
         let e = suggestion("en", &pin(3), None, None, 2.0, 5);
         assert_eq!((e.caption.1.as_str(), e.lines[0].as_str(), e.focus, e.gone), ("by the conductor", "No show runs on this deck yet.", 1, Some(1.0)));

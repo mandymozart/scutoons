@@ -1,7 +1,8 @@
 //! The deck's own UI for the person at a deck (#481; owner 2026-11-10: it follows the reader's style and is built in
 //! Rust): the reader's dark panel – black, white type, square corners, 2 px lines, the accent on its top edge, the
 //! actions at its bottom (viewer `pull-panel.svelte`, `StickyActions`) – and its parts: a caption line, a title, lines,
-//! buttons, a key line, a row with a mark, a switch row, a field (with its cursor while it is edited), and the toast.
+//! buttons, a row with a mark, a switch row, a field (with its cursor while it is edited), and the toast. No line that
+//! says what the keys do (owner 2026-11-11: superfluous).
 //! Draft 1 of #481.
 //!
 //! A panel is a list of parts: `height` says how tall it is, `draw` paints it over the bottom of a screen and answers
@@ -67,8 +68,6 @@ pub enum Part<'a> {
     /// first one the primary; the one the keys are on; a countdown (0..1 of its time gone) after which the primary
     /// happens by itself – the reader's line along the primary's bottom (its chapter end, `next-bar`)
     Buttons(&'a [&'a str], Option<usize>, Option<f32>),
-    /// what the keys do, for a deck without touch: (key, what)
-    Keys(&'a [(&'a str, &'a str)]),
     /// a row to choose: its label, a note at its right, chosen or not
     Mark(&'a str, &'a str, bool),
     /// a row with a switch: its label, on or off, the keys are on it
@@ -122,7 +121,6 @@ fn part_height(d: &DrawList, t: &Tokens, width: f32, part: &Part) -> f32 {
         Part::Line(text, _) => wrap(text, cols(d, t.size.font, width)).len() as f32 * t.size.font * LINE,
         Part::Buttons(labels, ..) if stacked(d, t, width, labels) => labels.len() as f32 * (t.size.row + GAP) - GAP + 6.0,
         Part::Buttons(..) => t.size.row + 6.0,
-        Part::Keys(_) => t.size.small * LINE,
         Part::Mark(..) | Part::Switch(..) => t.size.row,
         Part::Field(..) => t.size.row,
     }
@@ -195,20 +193,6 @@ pub fn draw(d: &mut DrawList, t: &Tokens, screen: (f32, f32), parts: &[Part], gr
                         d.rect(at.x, at.y + at.h - t.size.edge, at.w * gone.clamp(0.0, 1.0), t.size.edge, t.color.surface);
                     }
                     places.push(at);
-                }
-            }
-            Part::Keys(keys) => {
-                let px = t.size.small;
-                let mut x = area.x;
-                for (k, (key, what)) in keys.iter().enumerate() {
-                    if k > 0 {
-                        x += d.text(x, y, px, " · ", t.color.muted);
-                    }
-                    let w = d.advance(px) * key.chars().count() as f32 + 8.0;
-                    d.outline(x, y - 1.0, w, px * LINE + 2.0, (0.0, 1.0), t.color.line);
-                    d.text(x + 4.0, y, px, key, t.color.text);
-                    x += w + 6.0;
-                    x += d.text(x, y, px, what, t.color.muted);
                 }
             }
             Part::Mark(label, note, on) => {
@@ -335,7 +319,6 @@ mod tests {
             Part::Title("top · Version 3"),
             Part::Line("Du spielst deine eigene Version (top · 2). Sie bleibt behalten.", true),
             Part::Buttons(&["Annehmen", "Ablehnen"], Some(0), Some(0.5)),
-            Part::Keys(&[("Enter", "annehmen"), ("Esc", "ablehnen")]),
         ];
         let screen = (640.0, 400.0);
         let h = height(&d, &t, screen.0, &parts);
@@ -347,7 +330,7 @@ mod tests {
         assert!(places[0].has(100.0, places[0].y + 5.0) && !places[0].has(100.0, screen.1 - h - 5.0));
         let said = texts(&d);
         assert!(said.contains(&"FLASH · VORSCHLAG".to_string()) && said.contains(&"VON ANA".to_string()), "the caption is upper case: {said:?}");
-        assert!(said.contains(&"Annehmen".to_string()) && said.contains(&"Enter".to_string()));
+        assert!(said.contains(&"Annehmen".to_string()) && said.contains(&"Ablehnen".to_string()));
         // the countdown: a paper line along the primary's bottom, half its width at half the time
         let (a, edge) = (places[0], t.size.edge);
         let line = Prim::Rect { x: a.x, y: a.y + a.h - edge, w: a.w * 0.5, h: edge, r: 0.0, color: t.color.surface };
