@@ -128,6 +128,23 @@ mod tests {
         assert_eq!(verify(SECRET, &forged, "A7K2", Role::Conductor, 1_000), Err("bad signature"));
     }
 
+    /// #478: the shared vector – deck/protocol/fixtures/live-proof.json, also read by server/tests/Unit/Http/LiveProofApiTest.php
+    #[test]
+    fn the_shared_vector() {
+        let v: serde_json::Value = serde_json::from_str(include_str!("../../protocol/fixtures/live-proof.json")).unwrap();
+        let s = |k: &str| v[k].as_str().unwrap();
+        let (secret, now) = (s("secret").as_bytes(), v["now"].as_i64().unwrap());
+        let facts: Facts = serde_json::from_value(v["facts"].clone()).unwrap();
+        assert_eq!(proof(Some(secret), s("proof"), s("session"), now), Ok(facts));
+        let claims: Proof = serde_json::from_value(v["claims"].clone()).unwrap();
+        assert_eq!(sign(secret, &claims), s("proof"), "signed alike on both sides");
+        // tampered: admin written in after signing; expired: at its `exp`
+        let (_, sig) = s("proof").split_once('.').unwrap();
+        let forged = format!("{}.{sig}", B64.encode(br#"{"session":"A7K2","facts":{"account":["admin"],"approved":true},"exp":2000}"#));
+        assert_eq!(proof(Some(secret), &forged, s("session"), now), Err("bad signature"));
+        assert_eq!(proof(Some(secret), s("proof"), s("session"), claims.exp), Err("proof expired"));
+    }
+
     #[test]
     fn a_proof_and_a_token_are_not_each_other() {
         let facts = Facts { account: vec![Account::Member], approved: false };
