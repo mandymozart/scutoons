@@ -359,11 +359,6 @@ impl Outlet {
         (&mut self.flash, &mut self.fetched)
     }
 
-    /// #481: the text of the field being edited, when one is
-    pub fn editing(&self) -> Option<&str> {
-        self.flash.editing()
-    }
-
     /// the flash side's turn: its reports go to the conductor and the HUD's FLASH lines
     fn flash_turn(&mut self, now: Duration) {
         self.flash.turn(now.as_secs_f32(), &mut self.fetched, carried);

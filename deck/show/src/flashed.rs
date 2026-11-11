@@ -12,15 +12,14 @@
 //! - **the person at the deck** (#481, `dialog.rs`): a flash that is only suggested waits for them – accept, reject, or
 //!   no answer for `SUGGESTION_SECS`, which accepts – when they may reject (`set_may_reject`; a guest and a member may
 //!   not: they are flashed and read a toast). After a flash that replaced the deck's own version they get the notice
-//!   with the way back; everyone else the toast. Who may reject may also say "please don't flash" and why at the deck
-//!   (`open_keep`: a switch and a field to type in – `text`, or a platform's own input through `set_field`). `shown` is
-//!   what `face.rs` draws, `press` / `key` what it hands back.
+//!   with the way back; everyone else the toast. Who may reject may also say "please don't flash" at the deck
+//!   (`open_keep`: a switch; owner 2026-11-11: no reason). `shown` is what `face.rs` draws, `press` / `key` what it
+//!   hands back.
 //!
 //! The native deck runs the same on its own thread, where a fetch may block (deck-native live/flash.rs).
 use crate::dialog::{self, Act, Key, Row, Shown};
 use crate::ready::{self, Deck, SUGGESTION_SECS};
 use crate::{Pinned, Show};
-use deck_kit::text::Field;
 use deck_space::fetched::Fetched;
 use deck_space::piece::{available, Found};
 use deck_space::rig::address::Place;
@@ -32,9 +31,6 @@ const KEEP: usize = 16;
 
 /// how long a toast stays, seconds
 const TOAST_SECS: f32 = 5.0;
-
-/// the reason of "please don't flash": at most so many characters (the conductor's list shows it in one line)
-pub const WHY_CHARS: usize = 80;
 
 /// A flash taken, until its report went out.
 #[derive(Debug, Clone)]
@@ -66,8 +62,8 @@ pub struct Flashed {
     rejected: Option<String>,
     /// the toast and until when it shows
     toast: Option<(Shown, f32)>,
-    /// "please don't flash" while it is being set: on or off, and why
-    editing: Option<(bool, Field)>,
+    /// "please don't flash" while it is being set: on or off
+    editing: Option<bool>,
     /// the row or button the keys are on
     focus: usize,
     /// the flash taken last was forced onto this deck
@@ -207,8 +203,8 @@ impl Flashed {
             let gone = since.map_or(0.0, |s| (self.now - s) / SUGGESTION_SECS);
             return Some(Shown::Dialog(dialog::suggestion(&self.locale, &ready::show_of(flash), flash.by.as_deref(), self.deck.runs(), gone, self.focus)));
         }
-        if let Some((on, why)) = &self.editing {
-            return Some(Shown::Dialog(dialog::keep(&self.locale, self.deck.runs(), *on, why, self.focus)));
+        if let Some(on) = self.editing {
+            return Some(Shown::Dialog(dialog::keep(&self.locale, self.deck.runs(), on, self.focus)));
         }
         if let Some(kept) = self.deck.kept().filter(|_| self.notice_due()) {
             return Some(Shown::Dialog(dialog::notice(&self.locale, kept, self.forced, self.deck.may_switch(), self.focus)));
@@ -222,42 +218,8 @@ impl Flashed {
         if !self.may_reject || matches!(self.shown(), Some(Shown::Dialog(_))) {
             return false;
         }
-        let why = self.deck.keep().filter(|w| *w != ready::NO_REASON).unwrap_or_default();
-        self.editing = Some((self.deck.keep().is_some(), Field::with(why)));
+        self.editing = Some(self.deck.keep().is_some());
         self.focus = 0;
-        true
-    }
-
-    /// the reason while the keys are on it (no other dialog over it)
-    fn field(&mut self) -> Option<&mut Field> {
-        let on_it = self.pending.is_none() && self.focus == 1;
-        self.editing.as_mut().filter(|_| on_it).map(|(_, why)| why)
-    }
-
-    /// The text of the field being edited, when one is: a platform with an input of its own (the browser: its keyboard,
-    /// an IME, the phone's keys) edits it there and hands the result back (`set_field`).
-    pub fn editing(&self) -> Option<&str> {
-        let on_it = self.pending.is_none() && self.focus == 1;
-        self.editing.as_ref().filter(|_| on_it).map(|(_, why)| why.text.as_str())
-    }
-
-    /// Typed text (a character, an IME's commit, a paste) into the field being edited. false = no field is.
-    pub fn text(&mut self, typed: &str) -> bool {
-        let Some(why) = self.field() else { return false };
-        let room = WHY_CHARS.saturating_sub(why.text.chars().count() - why.selected().chars().count());
-        let clean: String = typed.chars().filter(|c| !c.is_control()).take(room).collect();
-        why.insert(&clean);
-        true
-    }
-
-    /// The field being edited as a platform's own input holds it now: its text and how many characters stand before
-    /// the cursor. false = no field is.
-    pub fn set_field(&mut self, text: &str, cursor: usize) -> bool {
-        let Some(why) = self.field() else { return false };
-        why.text = text.chars().filter(|c| !c.is_control()).take(WHY_CHARS).collect();
-        why.anchor = None;
-        why.preedit = None;
-        why.cursor = why.byte_at_char(cursor);
         true
     }
 
@@ -272,11 +234,10 @@ impl Flashed {
         match d.rows.get(index) {
             Some(Row::Switch(..)) => {
                 self.focus = index;
-                if let Some((on, _)) = self.editing.as_mut() {
+                if let Some(on) = self.editing.as_mut() {
                     *on = !*on;
                 }
             }
-            Some(Row::Field { .. }) => self.focus = index,
             None => {
                 if let Some((_, act)) = d.buttons.get(index - d.rows.len()) {
                     self.act(*act, fetched);
@@ -287,7 +248,7 @@ impl Flashed {
 
     /// A key of a deck without touch: up and down (Tab) go through the rows and buttons, left and right move between
     /// the buttons or flip a switch, Enter presses what the keys are on, Escape rejects a suggestion, leaves "please
-    /// don't flash" as it was or closes a notice. In a field the keys are the text's, and Enter saves.
+    /// don't flash" as it was or closes a notice.
     pub fn key(&mut self, key: Key, fetched: &mut Fetched) {
         let Some(Shown::Dialog(d)) = self.shown() else { return };
         let (rows, buttons) = (d.rows.len(), d.buttons.len().max(1));
@@ -303,29 +264,11 @@ impl Flashed {
                 };
                 self.act(act, fetched);
             }
-            _ if self.edit(key) => {}
-            Key::Enter if self.editing().is_some() => self.act(Act::Save, fetched),
             Key::Enter => self.press(d.focus, fetched),
             Key::Left | Key::Right if d.focus < rows => self.press(d.focus, fetched),
             Key::Left => self.focus = rows + (d.focus - rows + buttons - 1) % buttons,
             Key::Right => self.focus = rows + (d.focus - rows + 1) % buttons,
-            _ => {}
         }
-    }
-
-    /// a key of the text, in the field being edited. false = it is not the text's
-    fn edit(&mut self, key: Key) -> bool {
-        let Some(why) = self.field() else { return false };
-        match key {
-            Key::Left => why.left(false, false),
-            Key::Right => why.right(false, false),
-            Key::Home => why.home(false),
-            Key::End => why.end(false),
-            Key::Backspace => why.backspace(),
-            Key::Delete => why.delete(),
-            _ => return false,
-        }
-        true
     }
 
     fn act(&mut self, act: Act, fetched: &mut Fetched) {
@@ -348,8 +291,10 @@ impl Flashed {
             Act::Back => self.switch(true, fetched),
             // the conductor reads it with the deck's next word about itself: at once
             Act::Save => {
-                if let Some((on, why)) = self.editing.take() {
-                    self.deck.set_keep(on.then(|| why.text.clone()));
+                if let Some(on) = self.editing.take() {
+                    // a reason the deck came with (a native deck's deck.toml) stays; the switch gives none
+                    let why = self.deck.keep().unwrap_or_default().to_string();
+                    self.deck.set_keep(on.then_some(why));
                     let report = self.deck.about();
                     self.out.push(report);
                     self.toast = Some((dialog::keep_saved(&self.locale, self.deck.keep()), self.now + TOAST_SECS));

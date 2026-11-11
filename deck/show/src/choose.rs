@@ -87,7 +87,7 @@ impl Line {
             parts.push(format!("{} local mappings", self.mappings));
         }
         if let Some(why) = &self.keep {
-            parts.push(format!("asks not to be flashed: {why}"));
+            parts.push(crate::ready::with_reason("asks not to be flashed", (": ", ""), why));
         }
         if self.rejected {
             parts.push("rejected the last flash".into());
@@ -314,7 +314,7 @@ impl Choice {
         for l in &self.lines {
             if !self.ticked.contains(&l.path) {
                 let why = match (&l.keep, l.kind == "conductor") {
-                    (Some(why), _) => format!(": asks not to be flashed ({why})"),
+                    (Some(why), _) => crate::ready::with_reason(": asks not to be flashed", (" (", ")"), why),
                     (None, true) => " with everything in its seat".to_string(),
                     (None, false) => String::new(),
                 };
@@ -323,7 +323,8 @@ impl Choice {
             }
             if let Some(why) = &l.keep {
                 warn = true;
-                lines.push((format!("{} asks not to be flashed ({why}) – flashed anyway, its own version is kept", l.path), Tone::Warn));
+                let asks = crate::ready::with_reason("asks not to be flashed", (" (", ")"), why);
+                lines.push((format!("{} {asks} – flashed anyway, its own version is kept", l.path), Tone::Warn));
             }
             if l.unsaved {
                 warn = true;
