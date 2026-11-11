@@ -241,7 +241,7 @@ pub fn remove_prompt(show: &Show, id: &str, here: Option<u64>) -> Prompt {
         lines.push(("it has no cells".into(), Tone::Muted));
     }
     if let Some(n) = here.filter(|n| *n > 0) {
-        lines.push((format!("{n} sit in it now: they are in no role until they take another"), Tone::Warn));
+        lines.push((format!("{n} sit in it now: they stay under its name until they take another role or are moved"), Tone::Warn));
     }
     lines.push(("The document changes here; Save keeps it.".into(), Tone::Muted));
     Prompt { title: format!("Remove the role {name}?"), warn: !cells.is_empty(), lines, confirm: "Remove".into(), can: true }
@@ -506,7 +506,7 @@ mod tests {
         let p = remove_prompt(&show, "tenor", Some(2));
         assert_eq!(p.title, "Remove the role tenor?");
         assert_eq!(p.lines[0], ("row 1 warm-up: scene:scale goes".to_string(), Tone::Warn));
-        assert_eq!(p.lines[1].0, "2 sit in it now: they are in no role until they take another");
+        assert_eq!(p.lines[1].0, "2 sit in it now: they stay under its name until they take another role or are moved");
         assert!(p.warn && p.can && p.confirm == "Remove");
         assert_eq!(remove_prompt(&show, "front", None).lines[0], ("it has no cells".to_string(), Tone::Muted));
         let gone = edit(&show, &Edit::Remove { id: "tenor".into() }).unwrap();
