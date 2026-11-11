@@ -289,13 +289,14 @@ struct CanvasGpu {
 /// `prefer`: "auto" (WebGPU if the browser has an adapter, else WebGL2) or "webgl2".
 async fn open_canvas(canvas: web_sys::HtmlCanvasElement, prefer: &str) -> Result<CanvasGpu, JsValue> {
     let backends = if prefer == "webgl2" { wgpu::Backends::GL } else { wgpu::Backends::BROWSER_WEBGPU | wgpu::Backends::GL };
-    let instance = wgpu::util::new_instance_with_webgpu_detection(&wgpu::InstanceDescriptor { backends, ..Default::default() }).await;
+    let instance = wgpu::util::new_instance_with_webgpu_detection(wgpu::InstanceDescriptor { backends, ..wgpu::InstanceDescriptor::new_without_display_handle() }).await;
     let surface = instance.create_surface(wgpu::SurfaceTarget::Canvas(canvas)).map_err(err)?;
     let adapter = instance
         .request_adapter(&wgpu::RequestAdapterOptions {
             power_preference: wgpu::PowerPreference::HighPerformance,
             force_fallback_adapter: false,
             compatible_surface: Some(&surface),
+            apply_limit_buckets: false,
         })
         .await
         .map_err(err)?;
@@ -312,6 +313,7 @@ async fn open_canvas(canvas: web_sys::HtmlCanvasElement, prefer: &str) -> Result
             required_limits: wgpu::Limits::downlevel_webgl2_defaults().using_resolution(adapter.limits()),
             memory_hints: wgpu::MemoryHints::Performance,
             trace: wgpu::Trace::Off,
+            experimental_features: wgpu::ExperimentalFeatures::disabled(),
         })
         .await
         .map_err(err)?;
@@ -377,6 +379,7 @@ impl SpaceView {
             desired_maximum_frame_latency: 2,
             alpha_mode: alpha,
             view_formats: vec![],
+            color_space: wgpu::SurfaceColorSpace::Auto,
         };
         surface.configure(&device, &config);
         let (graph, look) = being_of(&deck_graph, &values).map_err(err)?;
@@ -514,12 +517,12 @@ impl SpaceView {
         let meter = |n: usize, p: usize| meters.get(n).and_then(|m| m.get(p)).copied().unwrap_or(0.0);
         self.space.update(dt.clamp(0.0, 0.1), time, &mut self.page, &self.beat, &meter);
         let frame = match self.surface.get_current_texture() {
-            Ok(f) => f,
-            Err(wgpu::SurfaceError::Outdated | wgpu::SurfaceError::Lost) => {
+            wgpu::CurrentSurfaceTexture::Success(f) | wgpu::CurrentSurfaceTexture::Suboptimal(f) => f,
+            wgpu::CurrentSurfaceTexture::Outdated | wgpu::CurrentSurfaceTexture::Lost => {
                 self.surface.configure(&self.device, &self.config);
                 return Ok(());
             }
-            Err(e) => return Err(err(e)),
+            other => return Err(err(format!("the canvas's surface: {other:?}"))),
         };
         let view = frame.texture.create_view(&Default::default());
         let mut enc = self.device.create_command_encoder(&Default::default());
@@ -528,7 +531,7 @@ impl SpaceView {
         let tick = Tick { graph: &self.graph, input: &|_, _, d| d, tempo: &self.beat, time, dt };
         self.stage.frame(&self.device, &self.queue, &mut enc, &view, &tick, &Over { hud: None, splash: (self.fade.alpha, false), label_centred: true, hud_at: None }, Some(&mut self.space));
         self.queue.submit([enc.finish()]);
-        frame.present();
+        self.queue.present(frame);
         Ok(())
     }
 

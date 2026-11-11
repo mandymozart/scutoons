@@ -35,7 +35,7 @@ serde.workspace = true
 serde_json.workspace = true
 toml.workspace = true
 image = { version = "0.25", default-features = false }
-wgpu = { version = "25", default-features = false, features = ["webgpu", "webgl", "wgsl"] }
+wgpu = { version = "30", default-features = false, features = ["std", "webgpu", "webgl", "wgsl"] }
 # the CLI that writes the JS glue must be the same version (wasm-bindgen-cli 0.2.129)
 wasm-bindgen = "=0.2.129"
 wasm-bindgen-futures = "0.4"

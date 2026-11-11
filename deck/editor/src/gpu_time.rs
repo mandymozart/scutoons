@@ -59,9 +59,10 @@ impl GpuTime {
         let _ = device.poll(wgpu::PollType::Poll);
         if self.busy && self.mapped.swap(false, Ordering::AcqRel) {
             {
-                let data = self.read.slice(..).get_mapped_range();
-                let stamps: &[u64] = bytemuck::cast_slice(&data);
-                self.last_ms = stamps[1].wrapping_sub(stamps[0]) as f32 * self.period_ns / 1.0e6;
+                if let Ok(data) = self.read.slice(..).get_mapped_range() {
+                    let stamps: &[u64] = bytemuck::cast_slice(&data);
+                    self.last_ms = stamps[1].wrapping_sub(stamps[0]) as f32 * self.period_ns / 1.0e6;
+                }
             }
             self.read.unmap();
             self.busy = false;

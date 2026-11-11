@@ -43,13 +43,14 @@ impl Gpu {
     pub fn with_features(window: Arc<Window>, wanted: wgpu::Features) -> Result<Gpu> {
         let mut backends = backends_first();
         let (surface, adapter) = loop {
-            let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor { backends, ..wgpu::InstanceDescriptor::from_env_or_default() });
+            let instance = wgpu::Instance::new(wgpu::InstanceDescriptor { backends, ..wgpu::InstanceDescriptor::new_without_display_handle_from_env() });
             let surface = instance.create_surface(window.clone()).context("creating the window surface")?;
             let ask = |fallback| {
                 pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
                     power_preference: wgpu::PowerPreference::HighPerformance,
                     force_fallback_adapter: fallback,
                     compatible_surface: Some(&surface),
+                    apply_limit_buckets: false,
                 }))
             };
             match ask(false) {
@@ -75,6 +76,7 @@ impl Gpu {
             required_limits: wgpu::Limits::downlevel_webgl2_defaults().using_resolution(adapter.limits()),
             memory_hints: wgpu::MemoryHints::Performance,
             trace: wgpu::Trace::Off,
+            experimental_features: wgpu::ExperimentalFeatures::disabled(),
         }))?;
         let size = window.inner_size();
         let caps = surface.get_capabilities(&adapter);
@@ -91,6 +93,8 @@ impl Gpu {
             desired_maximum_frame_latency: 2,
             alpha_mode: caps.alpha_modes[0],
             view_formats: vec![],
+            // wgpu 30: the surface's colour space; Auto = what wgpu always chose (sRGB for our 8-bit formats)
+            color_space: wgpu::SurfaceColorSpace::Auto,
         };
         surface.configure(&device, &config);
         Ok(Gpu { surface, device, queue, config, adapter: info, can_capture })
@@ -124,15 +128,15 @@ impl Gpu {
     /// the frame to draw on; None when the surface was outdated or lost (configured again – draw next time) or this
     /// frame is skipped; an error when the GPU is out of memory
     pub fn acquire(&mut self) -> Result<Option<wgpu::SurfaceTexture>> {
+        // wgpu 30: the answer is an enum without an out-of-memory case (the device's errors report that)
         match self.surface.get_current_texture() {
-            Ok(f) => Ok(Some(f)),
-            Err(wgpu::SurfaceError::Outdated | wgpu::SurfaceError::Lost) => {
+            wgpu::CurrentSurfaceTexture::Success(f) | wgpu::CurrentSurfaceTexture::Suboptimal(f) => Ok(Some(f)),
+            wgpu::CurrentSurfaceTexture::Outdated | wgpu::CurrentSurfaceTexture::Lost => {
                 self.surface.configure(&self.device, &self.config);
                 Ok(None)
             }
-            Err(wgpu::SurfaceError::OutOfMemory) => bail!("the GPU is out of memory"),
-            Err(e) => {
-                tracing::debug!("render: skipping a frame ({e})");
+            other => {
+                tracing::debug!("render: skipping a frame ({other:?})");
                 Ok(None)
             }
         }

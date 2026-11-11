@@ -206,6 +206,7 @@ impl SceneView {
             desired_maximum_frame_latency: 2,
             alpha_mode: alpha,
             view_formats: vec![],
+            color_space: wgpu::SurfaceColorSpace::Auto,
         };
         surface.configure(&device, &config);
         let show = Show::build(&device, &queue, format, (w, h), &deck).await.map_err(err)?;
@@ -748,12 +749,12 @@ impl SceneView {
             s.update(dt, time, &mut show.controls, &self.beat, &|_, _| 0.0);
         }
         let frame = match self.surface.get_current_texture() {
-            Ok(f) => f,
-            Err(wgpu::SurfaceError::Outdated | wgpu::SurfaceError::Lost) => {
+            wgpu::CurrentSurfaceTexture::Success(f) | wgpu::CurrentSurfaceTexture::Suboptimal(f) => f,
+            wgpu::CurrentSurfaceTexture::Outdated | wgpu::CurrentSurfaceTexture::Lost => {
                 self.surface.configure(&self.device, &self.config);
                 return Ok(());
             }
-            Err(e) => return Err(err(e)),
+            other => return Err(err(format!("the canvas's surface: {other:?}"))),
         };
         let (graph, controls) = (&show.graph, &show.controls);
         let input = |n: usize, p: &str, d: f32| controls.input(n, p, d);
@@ -776,7 +777,7 @@ impl SceneView {
         let hud_at = Some(deck_space::hud::page_rect(self.config.width as f32, self.config.height as f32, self.live_at.0, self.live_at.1).0);
         show.stage.frame(&self.device, &self.queue, &mut enc, &view, &Tick { graph, input: &input, tempo: &self.beat, time, dt }, &Over { hud, splash, label_centred: true, hud_at }, show.space.as_mut());
         self.queue.submit([enc.finish()]);
-        frame.present();
+        self.queue.present(frame);
         Ok(())
     }
 }

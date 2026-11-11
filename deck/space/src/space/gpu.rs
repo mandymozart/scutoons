@@ -183,13 +183,13 @@ impl SpaceGpu {
         });
         let room_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("space room"),
-            bind_group_layouts: &[&frame_layout, &tex_layout],
-            push_constant_ranges: &[],
+            bind_group_layouts: &[Some(&frame_layout), Some(&tex_layout)],
+            immediate_size: 0,
         });
         let being_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("space being"),
-            bind_group_layouts: &[&frame_layout],
-            push_constant_ranges: &[],
+            bind_group_layouts: &[Some(&frame_layout)],
+            immediate_size: 0,
         });
         let room_attrs = wgpu::vertex_attr_array![0 => Float32x3, 1 => Unorm8x4, 2 => Float32x2];
         let unit_attrs = wgpu::vertex_attr_array![0 => Float32x3];
@@ -199,7 +199,7 @@ impl SpaceGpu {
             color: wgpu::BlendComponent { src_factor: wgpu::BlendFactor::One, dst_factor: wgpu::BlendFactor::One, operation: wgpu::BlendOperation::Add },
             alpha: wgpu::BlendComponent { src_factor: wgpu::BlendFactor::Zero, dst_factor: wgpu::BlendFactor::One, operation: wgpu::BlendOperation::Add },
         };
-        let pipe = |label: &str, layout: &wgpu::PipelineLayout, vs: &str, fs: &str, buffers: &[wgpu::VertexBufferLayout], blend: Option<wgpu::BlendState>, depth_write: bool, cull: Option<wgpu::Face>| {
+        let pipe = |label: &str, layout: &wgpu::PipelineLayout, vs: &str, fs: &str, buffers: &[Option<wgpu::VertexBufferLayout>], blend: Option<wgpu::BlendState>, depth_write: bool, cull: Option<wgpu::Face>| {
             device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
                 label: Some(label),
                 layout: Some(layout),
@@ -207,8 +207,8 @@ impl SpaceGpu {
                 primitive: wgpu::PrimitiveState { cull_mode: cull, ..Default::default() },
                 depth_stencil: Some(wgpu::DepthStencilState {
                     format: DEPTH,
-                    depth_write_enabled: depth_write,
-                    depth_compare: wgpu::CompareFunction::Less,
+                    depth_write_enabled: Some(depth_write),
+                    depth_compare: Some(wgpu::CompareFunction::Less),
                     stencil: Default::default(),
                     bias: Default::default(),
                 }),
@@ -219,16 +219,16 @@ impl SpaceGpu {
                     compilation_options: Default::default(),
                     targets: &[Some(wgpu::ColorTargetState { format: color, blend, write_mask: wgpu::ColorWrites::COLOR })],
                 }),
-                multiview: None,
+                multiview_mask: None,
                 cache: None,
             })
         };
-        let room_vbl = [wgpu::VertexBufferLayout { array_stride: std::mem::size_of::<RoomVertex>() as u64, step_mode: wgpu::VertexStepMode::Vertex, attributes: &room_attrs }];
+        let room_vbl = [Some(wgpu::VertexBufferLayout { array_stride: std::mem::size_of::<RoomVertex>() as u64, step_mode: wgpu::VertexStepMode::Vertex, attributes: &room_attrs })];
         let sphere_vbl = [
-            wgpu::VertexBufferLayout { array_stride: 12, step_mode: wgpu::VertexStepMode::Vertex, attributes: &unit_attrs },
-            wgpu::VertexBufferLayout { array_stride: std::mem::size_of::<Sphere>() as u64, step_mode: wgpu::VertexStepMode::Instance, attributes: &inst_attrs },
+            Some(wgpu::VertexBufferLayout { array_stride: 12, step_mode: wgpu::VertexStepMode::Vertex, attributes: &unit_attrs }),
+            Some(wgpu::VertexBufferLayout { array_stride: std::mem::size_of::<Sphere>() as u64, step_mode: wgpu::VertexStepMode::Instance, attributes: &inst_attrs }),
         ];
-        let tube_vbl = [wgpu::VertexBufferLayout { array_stride: std::mem::size_of::<TubeVertex>() as u64, step_mode: wgpu::VertexStepMode::Vertex, attributes: &tube_attrs }];
+        let tube_vbl = [Some(wgpu::VertexBufferLayout { array_stride: std::mem::size_of::<TubeVertex>() as u64, step_mode: wgpu::VertexStepMode::Vertex, attributes: &tube_attrs })];
         // scans have no reliable winding: no culling in the room; spheres cull their back (a ghost shows its near rim)
         let room_pipe = pipe("space room", &room_layout, "vs_room", "fs_room", &room_vbl, None, true, None);
         let solid_pipe = pipe("space solid", &being_layout, "vs_sphere", "fs_solid", &sphere_vbl, None, true, Some(wgpu::Face::Back));
@@ -238,8 +238,8 @@ impl SpaceGpu {
         let plate_attrs = wgpu::vertex_attr_array![0 => Float32x2];
         let layer_attrs = wgpu::vertex_attr_array![1 => Float32x4, 2 => Float32x4, 3 => Float32x4, 4 => Float32x4, 5 => Float32x4, 6 => Float32x4];
         let head_vbl = [
-            wgpu::VertexBufferLayout { array_stride: 8, step_mode: wgpu::VertexStepMode::Vertex, attributes: &plate_attrs },
-            wgpu::VertexBufferLayout { array_stride: std::mem::size_of::<HeadLayer>() as u64, step_mode: wgpu::VertexStepMode::Instance, attributes: &layer_attrs },
+            Some(wgpu::VertexBufferLayout { array_stride: 8, step_mode: wgpu::VertexStepMode::Vertex, attributes: &plate_attrs }),
+            Some(wgpu::VertexBufferLayout { array_stride: std::mem::size_of::<HeadLayer>() as u64, step_mode: wgpu::VertexStepMode::Instance, attributes: &layer_attrs }),
         ];
         let head_pipe = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("space head"),
@@ -248,8 +248,8 @@ impl SpaceGpu {
             primitive: Default::default(),
             depth_stencil: Some(wgpu::DepthStencilState {
                 format: DEPTH,
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::LessEqual,
+                depth_write_enabled: Some(true),
+                depth_compare: Some(wgpu::CompareFunction::LessEqual),
                 stencil: Default::default(),
                 bias: Default::default(),
             }),
@@ -260,7 +260,7 @@ impl SpaceGpu {
                 compilation_options: Default::default(),
                 targets: &[Some(wgpu::ColorTargetState { format: color, blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING), write_mask: wgpu::ColorWrites::COLOR })],
             }),
-            multiview: None,
+            multiview_mask: None,
             cache: None,
         });
 
@@ -274,13 +274,13 @@ impl SpaceGpu {
                 module: &module,
                 entry_point: Some("vs_label"),
                 compilation_options: Default::default(),
-                buffers: &[wgpu::VertexBufferLayout { array_stride: std::mem::size_of::<Glyph>() as u64, step_mode: wgpu::VertexStepMode::Instance, attributes: &glyph_attrs }],
+                buffers: &[Some(wgpu::VertexBufferLayout { array_stride: std::mem::size_of::<Glyph>() as u64, step_mode: wgpu::VertexStepMode::Instance, attributes: &glyph_attrs })],
             },
             primitive: Default::default(),
             depth_stencil: Some(wgpu::DepthStencilState {
                 format: DEPTH,
-                depth_write_enabled: false,
-                depth_compare: wgpu::CompareFunction::LessEqual,
+                depth_write_enabled: Some(false),
+                depth_compare: Some(wgpu::CompareFunction::LessEqual),
                 stencil: Default::default(),
                 bias: Default::default(),
             }),
@@ -291,7 +291,7 @@ impl SpaceGpu {
                 compilation_options: Default::default(),
                 targets: &[Some(wgpu::ColorTargetState { format: color, blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING), write_mask: wgpu::ColorWrites::COLOR })],
             }),
-            multiview: None,
+            multiview_mask: None,
             cache: None,
         });
 
@@ -317,7 +317,7 @@ impl SpaceGpu {
             label: Some("space head"),
             mag_filter: wgpu::FilterMode::Linear,
             min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::MipmapFilterMode::Linear,
             ..Default::default()
         });
         let atlas = Atlas::new(ATLAS_PX);
@@ -332,7 +332,7 @@ impl SpaceGpu {
             address_mode_v: wgpu::AddressMode::Repeat,
             mag_filter: wgpu::FilterMode::Linear,
             min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::MipmapFilterMode::Linear,
             ..Default::default()
         });
         queue.write_buffer(&unit_vb, 0, bytemuck::cast_slice(&unit_v));
@@ -582,9 +582,10 @@ impl SpaceGpu {
         let target = post.map_or(target, |(_, s)| s);
         let srgb = |c: f32| (c as f64).powf(1.0 / 2.2);
         let mut rp = enc.begin_render_pass(&wgpu::RenderPassDescriptor {
+            multiview_mask: None,
             label: Some("space"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: target,
+                view: target, depth_slice: None,
                 resolve_target: None,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Clear(wgpu::Color { r: srgb(FOG[0]), g: srgb(FOG[1]), b: srgb(FOG[2]), a: 1.0 }),

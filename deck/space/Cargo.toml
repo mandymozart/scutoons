@@ -44,7 +44,7 @@ ab_glyph = { version = "0.2", optional = true }
 bytemuck = { version = "1", features = ["derive"], optional = true }
 # resizing and mip levels; decoding only with `native` (the browser decodes the web's images)
 image = { version = "0.25", default-features = false, optional = true }
-wgpu = { version = "25", optional = true }
+wgpu = { version = "30", optional = true }
 # the outlet's planes and their crossfade, drawn by the scene renderer (stage.rs)
 deck-outlet = { path = "../outlet", optional = true }
 # what every deck draws over the scene (stage.rs): the HUD's and the build label's model, the pairing card's texts and
