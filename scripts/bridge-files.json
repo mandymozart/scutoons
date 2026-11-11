@@ -34,6 +34,7 @@
 		"shared/live-deck/src/client.ts": "adapter: the WebSocket and one timer under deck-space's relay client (relay-web, #366); a deck's link",
 		"shared/live-deck/src/controls.ts": "adapter: the controls (DeckControls) on the deck's values, the mappings in localStorage, the arc's drawing",
 		"shared/live-deck/src/deck-key.ts": "adapter: the browser deck's non-extractable WebCrypto Ed25519 key in IndexedDB and the fetches of its pairing – the handshake and its schedule are deck-link's (space-web DeckLink, #470)",
+		"shared/live-deck/src/deck-panel.ts": "adapter: a browser deck's taps and keys into the deck's own UI – the panel is the core's (deck-kit panel.rs, deck-show flashed.rs, #481)",
 		"shared/live-deck/src/deck.ts": "adapter: the browser deck – applies the core's state (the mood, the rig turns: #367, #368), hands the clock choices, keys and Web MIDI clock bytes to the core (#370)",
 		"shared/live-deck/src/hand.ts": "adapter: the handheld camera's moves (pose, state, record, recenter, view) into deck-space's relay client and what it hears out (relay-web, #469)",
 		"shared/live-deck/src/gamepad.ts": "adapter: the Gamepad API's poll into DeckControls.pad, its events to the sticks",

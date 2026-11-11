@@ -1219,6 +1219,7 @@ dependencies = [
 name = "deck-kit"
 version = "0.1.0"
 dependencies = [
+ "ab_glyph",
  "serde",
  "toml 0.8.23",
 ]
@@ -1359,7 +1360,9 @@ dependencies = [
 name = "deck-show"
 version = "0.1.0"
 dependencies = [
+ "ab_glyph",
  "deck-core",
+ "deck-kit",
  "deck-space",
  "deck-ui",
  "protocol",
@@ -4489,6 +4492,7 @@ dependencies = [
  "deck-engine",
  "deck-link",
  "deck-outlet",
+ "deck-show",
  "deck-space",
  "deck-ui",
  "image",

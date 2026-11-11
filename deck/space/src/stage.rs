@@ -183,6 +183,11 @@ pub struct Stage {
     pair_pass: Overlay,
     pair_tex: wgpu::Texture,
     pairing: bool,
+    /// #481: the deck's own UI for the person at it (deck-kit `panel.rs`, painted on the CPU): a strip as wide as the
+    /// screen along its bottom; its pixel size while it is shown
+    panel_pass: Overlay,
+    panel_tex: wgpu::Texture,
+    panel: Option<(u32, u32)>,
     /// #423: the build label (build_label.rs) – rastered once at start, drawn top right over everything, always
     label_pass: Overlay,
     label_size: (u32, u32),
@@ -229,6 +234,7 @@ impl Stage {
         let bar_w = hud::bar_width(size.0 as f32, size.1 as f32);
         let bar_tex = bar_texture(device, bar_w);
         let pair_tex = texture(device, pairing::W, pairing::H, OFFSCREEN, tex_usage);
+        let panel_tex = texture(device, 1, 1, OFFSCREEN, tex_usage);
         let (lw, lh, px) = crate::splash::logo((size.0 / 2).clamp(64, 2048))?;
         let logo = upload(device, queue, lw, lh, &px);
         tracing::info!("deck: build {}", crate::BUILD);
@@ -247,6 +253,7 @@ impl Stage {
         let hud_pass = overlay("hud", pass, of(&hud_tex), &nearest).await?;
         let bar_pass = overlay("hud bar", pass, of(&bar_tex), &nearest).await?;
         let pair_pass = overlay("pairing", pass, of(&pair_tex), &nearest).await?;
+        let panel_pass = overlay("panel", pass, of(&panel_tex), &linear).await?;
         let label_pass = overlay("build label", pass, of(&label_tex), &nearest).await?;
         Ok(Stage {
             layout,
@@ -271,6 +278,9 @@ impl Stage {
             pair_pass,
             pair_tex,
             pairing: false,
+            panel_pass,
+            panel_tex,
+            panel: None,
             label_pass,
             label_size: (lw, lh),
             splash,
@@ -606,6 +616,22 @@ impl Stage {
         self.pairing = card.is_some();
     }
 
+    /// The deck's panel (#481): Some = its pixels, `w × h` straight RGBA (deck-kit `raster`), drawn as wide as the screen
+    /// along its bottom, over the scene, the HUD and the pairing card; None = gone. Called when it changes.
+    pub fn set_panel(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, panel: Option<(u32, u32, &[u8])>) {
+        let Some((w, h, px)) = panel.filter(|(w, h, px)| *w > 0 && *h > 0 && px.len() == (w * h * 4) as usize) else {
+            self.panel = None;
+            return;
+        };
+        if (self.panel_tex.width(), self.panel_tex.height()) != (w, h) {
+            self.panel_tex = texture(device, w, h, OFFSCREEN, wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST);
+            let view = self.panel_tex.create_view(&Default::default());
+            self.panel_pass.bind = bind_group(device, &self.layout, &self.panel_pass.ubuf, [&view, &self.dummy, &self.dummy], &self.linear);
+        }
+        write(queue, &self.panel_tex, w, h, px);
+        self.panel = Some((w, h));
+    }
+
     /// one frame of the splash alone (the first, before the scene's passes exist)
     pub fn show_splash(&self, device: &wgpu::Device, queue: &wgpu::Queue, view: &wgpu::TextureView) {
         let u = Uniforms { time: 0.0, dt: 0.0, res: [self.size.0 as f32, self.size.1 as f32], p: [1.0, self.logo.aspect, 1.0, if self.veil_only { 1.0 } else { 0.0 }, 0.0, 0.0, 0.0, 0.0] };
@@ -658,6 +684,12 @@ impl Stage {
             let m = 16.0 * s;
             rp.set_viewport((sw - cw - m).max(0.0), (sh - ch - m).max(0.0), cw, ch, 0.0, 1.0);
             draw(&mut rp, &self.pair_pass);
+        }
+        if let Some((w, h)) = self.panel {
+            // as wide as the screen, its own aspect, along the bottom
+            let ph = (sw * h as f32 / w as f32).min(sh);
+            rp.set_viewport(0.0, sh - ph, sw, ph, 0.0, 1.0);
+            draw(&mut rp, &self.panel_pass);
         }
         // #423: the build label in the top right corner – over everything, in every scene and HUD mode (deck-ui places it)
         let [x, y, w, h] = deck_ui::label_rect(sw, sh, hud::label_scale(sw, sh), self.label_size.0, self.label_size.1);

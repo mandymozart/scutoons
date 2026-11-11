@@ -563,9 +563,17 @@
         "id": { "type": "string", "description": "#471: this flash's identity; a deck takes one flash once (a rejoin hands it the same one again)" },
         "by": { "type": "string", "description": "#471: who flashed, for the deck's notice" },
         "skip": { "type": "array", "items": { "type": "string" }, "description": "#471: the paths the operator left out, relative to the session it is in now (a client id; `<show>/…` for a sub conductor's session, the show its seat sits). A deck not named here takes it, also one that joins later" },
+        "needs": { "type": "object", "additionalProperties": { "type": "array", "items": { "$ref": "#/definitions/FlashNeed" } }, "description": "#475: what each outlet of `here` plays – the pieces its cells name, each once, by outlet. A deck checks them without reading the show document; an outlet that is not listed gets no cell. Absent: the conductor does not hold that version yet, a deck reads the show itself" },
         "force": { "type": "array", "items": { "type": "string" }, "description": "#471: the paths the prompt warned of and the operator accepted (asked not to be flashed, unsaved configuration): flashed anyway" }
       },
       "required": ["root", "shows", "hops"],
+      "additionalProperties": false
+    },
+    "FlashNeed": {
+      "description": "#475: one piece an outlet's cells name, and the first row that names it.",
+      "type": "object",
+      "properties": { "piece": { "type": "string" }, "row": { "type": "string" } },
+      "required": ["piece", "row"],
       "additionalProperties": false
     },
     "FlashReport": {

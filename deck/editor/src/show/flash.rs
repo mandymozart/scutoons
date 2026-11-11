@@ -48,6 +48,7 @@ impl Host {
             }
             Hit::FlashType => f.typing = true,
             Hit::FlashLock => f.choice.locked = !f.choice.locked,
+            Hit::FlashForce => f.choice.forced = !f.choice.forced,
             Hit::FlashAsk => f.asking = true,
             Hit::FlashCancel if f.asking => f.asking = false,
             Hit::FlashCancel => {
@@ -170,22 +171,24 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, pointer: (f3
         let tx = bx + bs + pad;
         let tw = a.x + a.w - tx - pad;
         d.text(tx, y + 3.0, font, &fit(d, &format!("{} · {}", l.head(), l.kind), font, tw), if l.online { t.color.text } else { t.color.muted });
-        let state_color = if l.keep.is_some() || l.unsaved { t.color.warn } else { t.color.muted };
+        let state_color = if l.keep.is_some() || l.unsaved || l.rejected { t.color.warn } else { t.color.muted };
         d.text(tx, y + 3.0 + font * 1.3, small, &fit(d, &l.state(), small, tw), state_color);
         d.rect(a.x, y + lh - 1.0, a.w, 1.0, t.color.line);
         hits.push((whole, Hit::FlashTick(i)));
         y += lh;
     }
-    // the foot: the lock, cancel, on to the prompt
-    let bw = ((a.w - 4.0 * pad) / 3.0).min(220.0);
+    // the foot: the lock, forced or a suggestion (#481), cancel, on to the prompt
+    let bw = ((a.w - 5.0 * pad) / 4.0).min(220.0);
     let lock = Rect { x: a.x + pad, y: foot + pad, w: bw, h: row };
+    let force = Rect { x: a.x + bw + 2.0 * pad, y: foot + pad, w: bw, h: row };
     let cancel = Rect { x: a.x + a.w - 2.0 * (bw + pad), y: foot + pad, w: bw, h: row };
     let ask = Rect { x: a.x + a.w - bw - pad, y: foot + pad, w: bw, h: row };
     let lock_word = if c.locked { "Locked" } else { "Not locked" };
     button(d, t, lock, lock_word, if c.locked { t.color.selected } else { t.color.control }, t.color.text);
+    button(d, t, force, if c.forced { "Forced" } else { "A suggestion" }, if c.forced { t.color.selected } else { t.color.control }, t.color.text);
     button(d, t, cancel, "Cancel", t.color.control, t.color.text);
     button(d, t, ask, &format!("Flash {} …", c.count()), t.color.accent, t.color.surface);
-    hits.extend([(lock, Hit::FlashLock), (cancel, Hit::FlashCancel), (ask, Hit::FlashAsk)]);
+    hits.extend([(lock, Hit::FlashLock), (force, Hit::FlashForce), (cancel, Hit::FlashCancel), (ask, Hit::FlashAsk)]);
     if f.asking {
         // the prompt over the list: its presses only
         hits.clear();

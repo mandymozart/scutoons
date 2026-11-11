@@ -7,6 +7,12 @@ license.workspace = true
 publish.workspace = true
 description = "The editor's component library (#456): the controls, tokens and a draw list. No GPU, no window: an adapter draws the list. The editor, the deck's own UI and module interfaces share it."
 
+[features]
+default = ["raster"]
+# the draw list as pixels (#481): glyph outlines on the CPU, the face from the caller
+raster = ["dep:ab_glyph"]
+
 [dependencies]
+ab_glyph = { version = "0.2", optional = true }
 serde.workspace = true
 toml.workspace = true

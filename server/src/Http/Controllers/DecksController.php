@@ -38,17 +38,17 @@ final class DecksController
     }
 
     /**
-     * GET /decks/media?path=live/<toon>/<file> – a show medium for a paired deck (#470): only a deck token (a sign-in or an
-     * AI connection gets 403 deck_only – show media are for the stage, not downloads), approved and fresh (401 otherwise)
+     * GET /decks/media?path=live/<toon>/<file> – a show medium for a deck with an account (#470, #484; owner 2026-11-10:
+     * protected show media only with an account): a paired deck's own token (approved and fresh), or the sign-in of a
+     * browser deck in a signed-in viewer – that deck is its user. Never an AI connection (403 deck_only: show media are
+     * for the stage, not downloads); nobody = 401.
      */
     public function media(Request $request, Response $response): Response
     {
         $session = CurrentSession::of($request);
-        if (!$session->isDeckToken()) {
-            if ($session->token() === null) throw new ApiError(401, 'unauthorized', 'A paired deck asks with its own token.');
-            throw new ApiError(403, 'deck_only', 'Only a paired deck fetches show media, with its own token.');
-        }
-        $session->requireUser(); // the deck token: approved, not revoked, not expired (Decks::user)
+        if ($session->token() === null) throw new ApiError(401, 'unauthorized', 'A deck asks with its own token or its user\'s sign-in.');
+        if ($session->isApiToken()) throw new ApiError(403, 'deck_only', 'Show media are for a deck: a paired one or a signed-in browser deck.');
+        $session->requireUser(); // a deck token: approved, not revoked, not expired (Decks::user); a sign-in: valid
         $path = $request->getQueryParams()['path'] ?? null;
         $signed = $this->files->showMedium(is_string($path) ? $path : '');
         return Json::response($response, 200, ['status' => 'success'] + $signed, ['Cache-Control' => 'no-store']);

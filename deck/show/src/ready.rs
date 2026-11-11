@@ -11,6 +11,16 @@ use crate::flash::{self, Assignment};
 use protocol::{Flash, FlashReport};
 use std::fmt;
 
+/// How long a flash that is only suggested waits for the person at the deck (#481; owner 2026-11-10: "nach 10 Sekunden
+/// geht der Dialog automatisch weg … wird es automatisch angenommen"): then it is taken – flashing is an explicit act.
+pub const SUGGESTION_SECS: f32 = 10.0;
+
+/// why a deck did not take a flash its person rejected (#481): the conductor's list reads it
+pub const REJECTED: &str = "rejected at the deck";
+
+/// what "please don't flash" says when no reason was given
+pub const NO_REASON: &str = "no reason given";
+
 /// One piece an outlet's cells name, and the first row that names it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Need {
@@ -36,6 +46,17 @@ pub fn needs(show: &Show, outlet: &str) -> Vec<Need> {
         }
     }
     out
+}
+
+/// What every outlet of `show` plays, for the flash that goes into its session (#475): a deck checks its pieces from
+/// this, without reading the document. A device outlet is listed with none.
+pub fn flash_needs(show: &Show) -> std::collections::HashMap<String, Vec<protocol::FlashNeed>> {
+    show.outlets.iter().map(|o| (o.id.clone(), needs(show, &o.id).into_iter().map(|n| protocol::FlashNeed { piece: n.piece, row: n.row }).collect())).collect()
+}
+
+/// The show a flash assigns in the session it is in now: its `here` (the conductor of this deck's session), else its root.
+pub fn show_of(flash: &Flash) -> Pinned {
+    flash::pinned(flash.here.as_ref().unwrap_or(&flash.root))
 }
 
 /// What a deck lacks for a flash.
@@ -72,10 +93,11 @@ pub fn kept_as(p: &Pinned) -> String {
     format!("shows/{}@{}.json", p.id, p.version)
 }
 
-/// A show document as the API gives it (`GET /api/shows/<id>?v=<n>`: wrapped in `content`) or as it is kept (bare).
+/// A show document as the API gives it – `GET /api/shows/<id>?v=<n>`: the version a flash pins, in `show`;
+/// `GET /api/shows/<id>`: wrapped in `content` – or as it is kept (bare).
 pub fn read(text: &str) -> Result<Show, String> {
     let v: serde_json::Value = serde_json::from_str(text).map_err(|e| format!("not JSON: {e}"))?;
-    let doc = match v.get("content") {
+    let doc = match v.get("show").or_else(|| v.get("content")) {
         Some(c) if c.is_object() => c.clone(),
         _ => v,
     };
@@ -122,11 +144,15 @@ pub struct Deck {
     kept: Option<Kept>,
     /// #471: the notice was seen
     seen: bool,
+    /// #475: what the flashes said this outlet plays in the shows they assigned (none for the outlet: the show has no
+    /// such outlet), the newest last and a few of them – the way back to the deck's own version checks from it too;
+    /// a show a flash did not say it for is not here
+    needed: Vec<(Pinned, Option<Vec<Need>>)>,
 }
 
 impl Deck {
     pub fn new(outlet: &str) -> Deck {
-        Deck { outlet: outlet.to_string(), standing: None, running: None, last: None, id: None, keep: None, unsaved: false, mappings: 0, device: None, owner: true, taken: None, kept: None, seen: false }
+        Deck { outlet: outlet.to_string(), standing: None, running: None, last: None, id: None, keep: None, unsaved: false, mappings: 0, device: None, owner: true, taken: None, kept: None, seen: false, needed: Vec::new() }
     }
 
     fn running(&self) -> Pinned {
@@ -140,7 +166,7 @@ impl Deck {
 
     /// #471: "please don't flash" with a line of why (none = flash me). Said to the conductor with the next report.
     pub fn set_keep(&mut self, why: Option<String>) {
-        self.keep = why.map(|w| w.trim().to_string()).map(|w| if w.is_empty() { "no reason given".to_string() } else { w });
+        self.keep = why.map(|w| w.trim().to_string()).map(|w| if w.is_empty() { NO_REASON.to_string() } else { w });
     }
 
     pub fn keep(&self) -> Option<&str> {
@@ -177,6 +203,36 @@ impl Deck {
         r.kept = self.kept.as_ref().map(|k| flash::wire(&k.own));
         r.own = self.kept.as_ref().map(|k| k.on_own);
         r
+    }
+
+    /// #481: whether `flash` is only suggested to this deck – one it has not taken, is not left out of, is not forced
+    /// onto (the conductor's operator accepted the warning for it) and that would change what runs.
+    pub fn suggested(&self, flash: &Flash) -> bool {
+        let me = self.id.as_deref().unwrap_or_default();
+        let taken = flash.id.is_some() && flash.id == self.taken;
+        !taken && !flash::left_out(flash, me) && !flash::forced(flash, me) && self.running.as_ref() != Some(&show_of(flash))
+    }
+
+    /// #481: the person at the deck rejected a suggested flash: what runs stays, the conductor hears it, and the same
+    /// flash is not offered again (a rejoin hands it over once more).
+    pub fn reject(&mut self, flash: &Flash) -> FlashReport {
+        self.taken = flash.id.clone();
+        self.refuse(REJECTED.to_string())
+    }
+
+    /// #481: `flash` is forced onto this deck (the conductor's operator accepted the warning for it)
+    pub fn forced(&self, flash: &Flash) -> bool {
+        flash::forced(flash, self.id.as_deref().unwrap_or_default())
+    }
+
+    /// what runs, when something does
+    pub fn runs(&self) -> Option<&Pinned> {
+        self.running.as_ref().filter(|r| !r.id.is_empty())
+    }
+
+    /// #481: the notice about what a flash replaced was not read yet
+    pub fn unseen(&self) -> bool {
+        self.kept.is_some() && !self.seen
     }
 
     fn refuse(&mut self, why: String) -> FlashReport {
@@ -251,6 +307,14 @@ impl Deck {
         self.seen = self.kept.is_none();
         self.unsaved = false;
         self.running = Some(show.clone());
+        self.needed.retain(|(of, _)| of != &show);
+        if let Some(by_outlet) = &flash.needs {
+            let mine = by_outlet.get(&self.outlet).map(|n| n.iter().map(|n| Need { piece: n.piece.clone(), row: n.row.clone() }).collect());
+            self.needed.push((show.clone(), mine));
+            // the flashed one and the deck's own, with room to spare
+            let over = self.needed.len().saturating_sub(4);
+            self.needed.drain(..over);
+        }
         Ok(show)
     }
 
@@ -305,6 +369,27 @@ impl Deck {
     /// report. Ready = nothing lacks.
     pub fn check(&mut self, show: &Pinned, doc: Result<Show, String>, has: impl Fn(&str) -> Result<(), String>) -> FlashReport {
         let lacks = lacks(show, &self.outlet, doc, has);
+        self.answer(show, lacks)
+    }
+
+    /// #475: the pieces the flash said this outlet plays in `show` – what a deck fetches and checks without the document.
+    /// None: the flash did not say (then the document is read, [`Deck::check`]).
+    pub fn told(&self, show: &Pinned) -> Option<&[Need]> {
+        let (_, mine) = self.needed.iter().find(|(of, _)| of == show)?;
+        Some(mine.as_deref().unwrap_or_default())
+    }
+
+    /// #475: the report from what the flash said this outlet plays – no document. None: the flash did not say.
+    pub fn check_told(&mut self, show: &Pinned, has: impl Fn(&str) -> Result<(), String>) -> Option<FlashReport> {
+        let (_, mine) = self.needed.iter().find(|(of, _)| of == show)?.clone();
+        let lacks = match mine {
+            None => vec![Lack::Outlet { show: show.clone(), outlet: self.outlet.clone() }],
+            Some(needs) => needs.into_iter().filter_map(|n| has(&n.piece).err().map(|why| Lack::Piece { piece: n.piece, row: n.row, why })).collect(),
+        };
+        Some(self.answer(show, lacks))
+    }
+
+    fn answer(&mut self, show: &Pinned, lacks: Vec<Lack>) -> FlashReport {
         let mut report = flash::report(show, true, None);
         report.ready = Some(lacks.is_empty());
         report.lacks = (!lacks.is_empty()).then(|| lacks.iter().map(ToString::to_string).collect());
@@ -364,12 +449,12 @@ mod tests {
     }
 
     fn flash(here: Option<protocol::Pinned>, hops: u64) -> Flash {
-        Flash { root: pin("top", 3), shows: vec![pin("top", 3), pin("foyer-loop", 2)], lock: None, hops, here, id: None, by: None, skip: None, force: None }
+        Flash { root: pin("top", 3), shows: vec![pin("top", 3), pin("foyer-loop", 2)], lock: None, hops, here, id: None, by: None, skip: None, force: None, needs: None }
     }
 
     /// a flash of `top@v` with an id, by the top's operator
     fn flash_v(v: u64, id: &str) -> Flash {
-        Flash { root: pin("top", v), shows: vec![pin("top", v)], lock: None, hops: 1, here: None, id: Some(id.into()), by: Some("ana".into()), skip: None, force: None }
+        Flash { root: pin("top", v), shows: vec![pin("top", v)], lock: None, hops: 1, here: None, id: Some(id.into()), by: Some("ana".into()), skip: None, force: None, needs: None }
     }
 
     #[test]
@@ -506,10 +591,37 @@ mod tests {
         assert_eq!(deck.last(), Some(&*r));
     }
 
+    /// #475: what a conductor sends with a flash – every outlet, the pieces its cells name
+    #[test]
+    fn a_flash_says_what_each_outlet_plays() {
+        let needs = flash_needs(&read(TOP).unwrap());
+        let pieces = |outlet: &str| needs[outlet].iter().map(|n| format!("{} ({})", n.piece, n.row)).collect::<Vec<_>>();
+        assert_eq!(pieces("left"), ["scene:nave (arrival)", "scene:ghost (exit)"]);
+        assert_eq!(pieces("right"), ["scene:nave (arrival)", "character:catpope (roar)"], "a mirror plays what its outlet plays");
+        assert!(pieces("lights").is_empty(), "a device outlet is listed with none");
+        // a deck takes it: its outlet's pieces without the document; an outlet the show lacks gets no cell
+        let mut f = flash(Some(pin("top", 3)), 1);
+        f.needs = Some(needs);
+        let mut deck = Deck::new("left");
+        let show = deck.take(&f).unwrap();
+        assert_eq!(deck.told(&show).map(<[Need]>::len), Some(2));
+        let r = deck.check_told(&show, |p| if p == "scene:ghost" { Err("scene:ghost is not on this deck".into()) } else { Ok(()) }).unwrap();
+        assert_eq!((r.ready, r.lacks.as_deref()), (Some(false), Some(&["row exit: scene:ghost is not on this deck".to_string()][..])));
+        let mut foyer = Deck::new("foyer");
+        let show = foyer.take(&f).unwrap();
+        assert_eq!(foyer.check_told(&show, |_| Ok(())).unwrap().lacks.as_deref(), Some(&["top@3 has no outlet 'foyer': no cell will come".to_string()][..]));
+        // a flash that does not say it: the document is read as before
+        let mut old = Deck::new("left");
+        let show = old.take(&flash(Some(pin("top", 3)), 1)).unwrap();
+        assert!(old.told(&show).is_none() && old.check_told(&show, |_| Ok(())).is_none());
+    }
+
     #[test]
     fn the_api_wraps_a_document_and_the_cache_keeps_it_bare() {
         let wrapped = format!(r#"{{ "content": {TOP}, "version": {{ "version": 3 }} }}"#);
         assert_eq!(read(&wrapped).unwrap().id, "top");
+        // a pinned version, as a flash fetches it (server ShowsController::get with `v`)
+        assert_eq!(read(&format!(r#"{{ "status": "success", "show": {TOP} }}"#)).unwrap().version, 3);
         assert_eq!(read(TOP).unwrap().version, 3);
         assert!(read("{}").is_err());
         assert_eq!(kept_as(&Pinned { id: "top".into(), version: 3 }), "shows/top@3.json");

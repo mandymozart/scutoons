@@ -11,11 +11,12 @@
 use crate::outlet::Outlet;
 use crate::{err, frame_for, open_canvas, portrait_asks, set_from_page, CanvasGpu, SPLASH_AT_MOST};
 use deck_engine::control::Controls;
+use deck_show::face::Face;
 use deck_space::chapter::{finish_slice, Chapter, Dialog, Source};
 use deck_space::graph::{Graph, Kind};
 use deck_space::hud::{Alert, Hud};
 use deck_space::quality::MAX_SIDE;
-use deck_space::piece::{Found, Side, Switch};
+use deck_space::piece::{Side, Switch};
 use deck_space::rig::address::Place;
 use deck_space::scene::{builtin, Scene, IDLE_SCENE};
 use deck_space::space::portrait::Portraits;
@@ -122,7 +123,6 @@ impl Show {
     }
 }
 
-/// find: a piece this deck carries – a built-in scene by its name (`scene:cathedral`)
 /// #478: what the Live page asked, to the relay
 fn live_do(o: &mut Outlet, did: Option<deck_ui::live::Do>) {
     let _ = match did {
@@ -130,10 +130,6 @@ fn live_do(o: &mut Outlet, did: Option<deck_ui::live::Do>) {
         Some(deck_ui::live::Do::Name(name)) => o.relay.set_name(&name),
         None => false,
     };
-}
-
-fn find(place: &Place) -> Option<Found> {
-    builtin(&place.id).filter(|_| place.kind == "scene").map(|text| Found::Scene(text.to_string()))
 }
 
 #[wasm_bindgen]
@@ -165,6 +161,10 @@ pub struct SceneView {
     deck: String,
     /// #473: the piece side, once the outlet is joined
     side: Option<Side>,
+    /// #481: the deck's dialogs for the person at it, as a picture and its presses (deck-show `face.rs`)
+    face: Face,
+    /// #479: a cell whose piece is being fetched – compared again when the answer is here; a newer cell replaces it
+    held: Option<(protocol::Cell, Place)>,
     /// the change through black to the scene (TOML) the piece side asks for, the show being built behind it, the built one
     change: Change,
     building: bool,
@@ -219,6 +219,8 @@ impl SceneView {
             card: None,
             deck,
             side: None,
+            held: None,
+            face: Face::default(),
             change: Change::default(),
             building: false,
             built: Rc::default(),
@@ -241,7 +243,7 @@ impl SceneView {
     pub fn live_key(&mut self, key: &str) -> bool {
         use deck_ui::live::Key;
         let k = match key {
-            _ if !self.live.open => return false,
+            _ if !self.live.open || self.dialog() => return false,
             "ArrowUp" => Key::Up,
             "ArrowDown" => Key::Down,
             "Enter" => Key::Enter,
@@ -261,6 +263,10 @@ impl SceneView {
 
     /// #478: a tap on the canvas at (x, y) device pixels: a line of the open page is taken as Enter on it
     pub fn live_tap(&mut self, x: f32, y: f32) -> bool {
+        // where the deck's dialog or toast is (#481), a tap is its own
+        if self.face.top().is_some_and(|top| y >= top) {
+            return false;
+        }
         let (w, h) = (self.config.width as f32, self.config.height as f32);
         let (Some(o), Some(line)) = (self.outlet.as_mut(), deck_space::hud::line_at(x, y, w, h).filter(|_| self.live.open)) else { return false };
         let did = self.live.tap(line, &o.relay.live());
@@ -357,7 +363,8 @@ impl SceneView {
     }
 
     pub fn outlet_text(&mut self, key: &str, text: &str) {
-        if let Some(o) = self.outlet.as_mut() {
+        let Some(o) = self.outlet.as_mut() else { return };
+        if !o.answered(key, Ok((200, text))) {
             o.shelf().give_text(key, text);
             o.medium("", None);
         }
@@ -383,9 +390,14 @@ impl SceneView {
         }
     }
 
-    /// #470: the API's answer to an `s:` ask (its status and body) - the signed link is asked next as `m:`
+    /// #470: the API's answer to an `s:` ask (its status and body) - the signed link is asked next as `m:`; #475: a
+    /// flashed show's (`sf:`)
     pub fn outlet_signed(&mut self, key: &str, status: u16, body: &str) {
-        if let (Some(o), Some(id)) = (self.outlet.as_mut(), key.strip_prefix("s:")) {
+        let Some(o) = self.outlet.as_mut() else { return };
+        if o.answered(key, Ok((status, body))) {
+            return;
+        }
+        if let Some(id) = key.strip_prefix("s:") {
             o.signed(id, status, body);
         }
     }
@@ -418,7 +430,8 @@ impl SceneView {
         if key.starts_with("r:") {
             return self.outlet_proof(0, "");
         }
-        if let Some(o) = self.outlet.as_mut() {
+        let Some(o) = self.outlet.as_mut() else { return };
+        if !o.answered(key, Err(why.clone())) {
             o.shelf().failed(key, why.clone());
             // a medium (m:) or its signed link (s:, #470) – either way the medium is missing
             o.medium(key.strip_prefix("m:").or_else(|| key.strip_prefix("s:")).unwrap_or(""), Some(why));
@@ -580,6 +593,7 @@ impl SceneView {
             show.resize(&self.device, size);
         }
         self.show = show;
+        self.face.again();
         self.turn += 1;
         self.reloaded = true;
         self.age = 0.0;
@@ -597,8 +611,23 @@ impl SceneView {
     fn pieces(&mut self, time: f32) {
         let (Some(o), Some(side)) = (self.outlet.as_mut(), self.side.as_mut()) else { return };
         let now = time as f64 * 1000.0;
-        for cell in std::mem::take(&mut o.pieces) {
-            let said = side.cell(&cell, now, find);
+        let mut cells = std::mem::take(&mut o.pieces);
+        if cells.is_empty() && self.held.as_ref().is_some_and(|(_, place)| !o.fetched.waits(place)) {
+            cells.extend(self.held.take().map(|(cell, _)| cell));
+        }
+        for cell in cells {
+            let mut waits = None;
+            let said = side.cell(&cell, now, |p| {
+                let found = crate::outlet::find(&mut o.fetched, p);
+                waits = (found.is_none() && o.fetched.waits(p)).then(|| p.clone());
+                found
+            });
+            // the piece is asked for (deck-space fetched.rs): what plays stays, the cell waits for the answer
+            self.held = waits.map(|place| (cell, place));
+            if let Some((_, place)) = &self.held {
+                o.status.set_piece(&format!("fetching {place}"), &[]);
+                continue;
+            }
             o.status.set_piece(&said.did, &said.problems);
             match said.switch {
                 Some(Switch::Scene(text)) => self.change.ask(&text),
@@ -609,6 +638,70 @@ impl SceneView {
         for (path, v) in side.values_at(now) {
             // a value whose node the scene lacks was said when the cell came (piece.rs `resolve`)
             self.show.controls.set_path(&self.show.graph, &path, v);
+        }
+    }
+
+    /// The deck's panel (#481): what the flash side says to the person at the deck, painted by the core (deck-show
+    /// `face.rs`: the component library's parts on the CPU) and handed to the stage – only when it changed.
+    fn panel(&mut self) {
+        let shown = self.outlet.as_ref().and_then(|o| o.shown());
+        let size = (self.config.width as f32, self.config.height as f32);
+        match self.face.paint(shown.as_ref(), size, deck_outlet::text::mono()) {
+            None => {}
+            Some(None) => self.show.stage.set_panel(&self.device, &self.queue, None),
+            Some(Some(px)) => self.show.stage.set_panel(&self.device, &self.queue, Some((px.w, px.h, &px.rgba))),
+        }
+    }
+
+    /// #481: a dialog of the flash side shows (its keys are its own, also over the open Live page)
+    fn dialog(&self) -> bool {
+        self.outlet.as_ref().is_some_and(|o| matches!(o.shown(), Some(deck_show::dialog::Shown::Dialog(_))))
+    }
+
+    /// #481: a tap or a click at (x, y) of the canvas, in its pixels: what the deck's UI has there is pressed (a
+    /// button, a switch, a field, a toast). true = it was the deck's UI's.
+    pub fn panel_tap(&mut self, x: f32, y: f32) -> bool {
+        let Some(o) = self.outlet.as_mut() else { return false };
+        let (flash, fetched) = o.flash_parts();
+        self.face.tap(x, y, flash, fetched)
+    }
+
+    /// #481: a key of the page, by its `KeyboardEvent.key`. true = it was the deck's UI's (a dialog's key, a character
+    /// for its field, `f` for "please don't flash").
+    pub fn panel_key(&mut self, key: &str) -> bool {
+        // the open Live page (#478) has the keys – a name is typed there – unless a dialog shows over it
+        if self.live.open && !self.dialog() {
+            return false;
+        }
+        let Some(o) = self.outlet.as_mut() else { return false };
+        let (flash, fetched) = o.flash_parts();
+        self.face.key(key, flash, fetched)
+    }
+
+    /// #481: the text of the field being edited, when one is: the page edits it in an input of its own (the browser's
+    /// keyboard, an IME, the phone's keys) and hands it back with `panel_field`.
+    pub fn panel_editing(&self) -> Option<String> {
+        self.outlet.as_ref().and_then(|o| o.editing().map(str::to_owned))
+    }
+
+    /// #481: the field being edited as the page's input holds it: its text and its cursor (`selectionStart`: UTF-16
+    /// units, as the web counts).
+    pub fn panel_field(&mut self, text: &str, cursor: u32) {
+        let mut units = 0;
+        let chars = text.chars().take_while(|c| {
+            units += c.len_utf16();
+            units <= cursor as usize
+        });
+        let chars = chars.count();
+        if let Some(o) = self.outlet.as_mut() {
+            o.flash_parts().0.set_field(text, chars);
+        }
+    }
+
+    /// #481: whether the person at the deck may reject a suggested flash (the page knows who is signed in)
+    pub fn set_may_reject(&mut self, yes: bool) {
+        if let Some(o) = self.outlet.as_mut() {
+            o.set_may_reject(yes);
         }
     }
 
@@ -663,6 +756,7 @@ impl SceneView {
                 }
             }
         }
+        self.panel();
         let show = &mut self.show;
         if show.graph.first(Kind::Tempo).is_some() {
             self.beats += dt as f64 * show.bpm / 60.0;

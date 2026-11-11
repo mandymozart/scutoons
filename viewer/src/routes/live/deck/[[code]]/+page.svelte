@@ -20,6 +20,7 @@
 	// @scutoons/engine-host's; this page keeps the relay, the controls and its UI
 	import { createEngineHost, type EngineHost } from '@scutoons/engine-host';
 	import { API_URL, CDN_SERVER, LIVE_QUIC, LIVE_URL } from '$lib/config.ts';
+	import { getSessionToken } from '@scutoons/api';
 	import { getSessionContext } from '$lib/contexts/session.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { WASM_BASE, characterOf, mayJoin, nickOf, preferOf, relayOf, rigOf } from '$lib/live-deck.ts';
@@ -191,7 +192,7 @@
 			const q = page.url.searchParams;
 			if (stage)
 				// #465: ?outlet=<id> plays the Live outlet (?live=<relay>, else the hosted show; ?locale=)
-				SceneStage.start({ host: stage, base: WASM_BASE, api: API_URL, cdn, scene: q.get('scene') ?? (q.has('outlet') ? 'outlet' : ''), prefer: preferOf(q), outlet: q.has('outlet') ? { relay: q.get('live') ?? '', name: q.get('outlet') ?? '', locale: q.get('locale') ?? 'de' } : undefined }).then(
+				SceneStage.start({ host: stage, base: WASM_BASE, api: API_URL, cdn, user: () => (session.isLoggedIn ? { bearer: getSessionToken() } : null), mayReject: () => session.roles.includes('live'), scene: q.get('scene') ?? (q.has('outlet') ? 'outlet' : ''), prefer: preferOf(q), outlet: q.has('outlet') ? { relay: q.get('live') ?? '', name: q.get('outlet') ?? '', locale: q.get('locale') ?? 'de' } : undefined }).then(
 					(s) => (alive ? (scene = s) : s.stop()),
 					(e) => console.warn('live deck: no idle scene', e)
 				);

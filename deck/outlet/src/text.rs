@@ -19,6 +19,11 @@ fn font(name: &str) -> &'static FontRef<'static> {
     if name == "lettering" { lettering } else { mono }
 }
 
+/// The deck's mono face (IBM Plex Mono Bold): what the deck's own UI is painted in (deck-kit `raster`, #481).
+pub fn mono() -> &'static FontRef<'static> {
+    font("mono")
+}
+
 /// One `Slice.dialog` entry (shared/content `Dialog`) – the fields the stage draws.
 #[derive(Debug, Clone, Deserialize, Default)]
 #[serde(default, rename_all = "camelCase")]

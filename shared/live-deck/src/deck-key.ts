@@ -34,7 +34,11 @@ async function keys(mode: IDBTransactionMode): Promise<IDBObjectStore> {
 	return (await done(open)).transaction(STORE, mode).objectStore(STORE);
 }
 
-const hex = (b: ArrayBuffer) => Array.from(new Uint8Array(b), (x) => x.toString(16).padStart(2, '0')).join('');
+function hex(b: ArrayBuffer): string {
+	let s = '';
+	for (const x of new Uint8Array(b)) s += x.toString(16).padStart(2, '0');
+	return s;
+}
 
 /** The deck's key pair (made once, non-extractable) and its public key as hex; null = this browser cannot pair */
 export async function deckKey(): Promise<{ pair: CryptoKeyPair; publicHex: string } | null> {
@@ -75,6 +79,17 @@ export async function driveLink(link: Paired, api: string): Promise<void> {
 	}
 }
 
+/** #484: the deck's own key and its link, made once and only when nobody is signed in */
+export async function ensureLink(s: { link: Paired | null; pairing: boolean; stopped: boolean }, Link: new (publicHex: string, build: string) => DeckLinkView, build: string) {
+	if (s.pairing) return;
+	s.pairing = true;
+	const key = await deckKey();
+	if (key && !s.stopped) s.link = { view: new Link(key.publicHex, build), key: key.pair.privateKey, busy: false };
+}
+
+/** #484: the viewer's signed-in user: its bearer token, or none when the sign-in is the single sign-on cookie */
+export type SignedIn = { bearer: string | null };
+
 /** the outlet's side of the API's answers (space-web SceneView): a signed link, the deck's proof (#478) */
 export interface SignedView {
 	outlet_signed(key: string, status: number, body: string): void;
@@ -88,12 +103,13 @@ export async function fetchProof(host: { view: SignedView; stopped: boolean }, o
 	if (!host.stopped) host.view.outlet_proof(r.status, await r.text());
 }
 
-/** #470: a show medium's signed link (the outlet's `s:` ask) – the deck token goes to the API's show-media route and nowhere else */
-export async function fetchShowLink(host: { view: SignedView; stopped: boolean }, o: { api: string; link?: DeckLinkView }, key: string, url: string) {
-	const token = o.link?.token(performance.now());
-	if (!url.startsWith(`${o.api}/decks/media?`)) throw new Error('not the API');
-	if (!token) throw new Error('the deck has no token');
-	const r = await fetch(url, { credentials: 'omit', headers: { Authorization: `Bearer ${token}` } });
-	if (r.status === 401) o.link?.forget(performance.now());
+/** #470: a show medium's signed link (the outlet's `s:` ask), #475: a flashed show at its version (`sf:`) – the deck token goes to these two API routes and nowhere else */
+export async function fetchShowLink(host: { view: SignedView; stopped: boolean }, o: { api: string; link?: DeckLinkView; user?: SignedIn }, key: string, url: string) {
+	// #484: the sign-in of the viewer's user – the single sign-on cookie, or its bearer token – else the paired deck's token
+	const token = o.user ? o.user.bearer : o.link?.token(performance.now());
+	if (!url.startsWith(`${o.api}/decks/media?`) && !url.startsWith(`${o.api}/shows/`)) throw new Error('not the API');
+	if (!o.user && !token) throw new Error('the deck has no token and nobody is signed in');
+	const r = await fetch(url, { credentials: o.user ? 'include' : 'omit', headers: token ? { Authorization: `Bearer ${token}` } : {} });
+	if (r.status === 401 && !o.user) o.link?.forget(performance.now());
 	if (!host.stopped) host.view.outlet_signed(key, r.status, await r.text());
 }

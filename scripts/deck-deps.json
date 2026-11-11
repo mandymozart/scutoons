@@ -143,6 +143,7 @@
 		"deck-headless": "core (the headless host)",
 		"deck-outlet": "core (the Live outlet's logic)",
 		"deck-ui": "core (the deck's UI model)",
-		"deck-show": "core (the show core, #89 – the headless host fires a show's rows at its deck, #467)"
+		"deck-show": "core (the show core, #89 – the headless host fires a show's rows at its deck, #467)",
+		"deck-kit": "core (the component library, #456 – deck-show draws the deck's dialogs with its panel and paints them with its CPU painter, #481; owner 2026-11-11)"
 	}
 }

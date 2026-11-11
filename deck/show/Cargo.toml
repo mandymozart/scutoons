@@ -18,5 +18,12 @@ serde_json.workspace = true
 deck-core = { workspace = true, features = ["tempo"] }
 # the one parser of places (rig/address.rs, RULES A14)
 deck-space = { path = "../space", default-features = false }
+# #481 (owner 2026-11-11: "Ja use the crate in core"): the deck's dialogs are drawn with the component library's panel
+# and painted by its CPU painter – one drawing for the native deck and the browser deck (face.rs)
+deck-kit = { path = "../kit" }
 # #478: `role: name`, said once for the deck's Live page and the conductor (deck-ui live.rs)
 deck-ui = { path = "../ui" }
+
+[dev-dependencies]
+# face.rs's tests paint with the deck's mono face
+ab_glyph = "0.2"
