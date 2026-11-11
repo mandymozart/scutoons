@@ -18,7 +18,7 @@ use Slim\Psr7\Factory\ServerRequestFactory;
 
 /**
  * A client's proof for a live session (#478, LiveProofController): a member's account roles among member, creator, admin,
- * live; an approved deck's own token `approved`; nothing about who it is. The shared vector with the relay:
+ * live; an approved deck's own token `approved` and its member's roles (#481); nothing about who it is. The shared vector with the relay:
  * deck/protocol/fixtures/live-proof.json.
  */
 final class LiveProofApiTest extends TestCase
@@ -43,12 +43,19 @@ final class LiveProofApiTest extends TestCase
         self::assertStringNotContainsString('anna', (string) $r->getBody());
     }
 
-    public function testAnApprovedDeckIsApprovedAndNoPerson(): void
+    public function testAnApprovedDeckIsApprovedAndCarriesItsMembersAccountFacts(): void
     {
-        [$member] = $this->session([Roles::ADMIN], 'owner@scutoons.test');
+        // #481: a paired deck is tied to an account – its proof says that account's roles (whether its person may reject a
+        // flash is one), and still nothing about who it is
+        [$member] = $this->session([Roles::LIVE, Roles::DEVELOPER], 'owner@scutoons.test');
         $r = $this->request('GET', '/api/live/proof?session=CATH', $this->deck($member));
         self::assertSame(200, $r->getStatusCode(), (string) $r->getBody());
-        self::assertSame(['account' => [], 'approved' => true], self::claims(self::json($r)['proof'], 'proof-test-secret')['facts']);
+        self::assertSame(['account' => ['member', 'live'], 'approved' => true], self::claims(self::json($r)['proof'], 'proof-test-secret')['facts']);
+        self::assertStringNotContainsString('owner', (string) $r->getBody());
+        // a deck of a member without `live`: approved, and a member
+        [$plain] = $this->session([], 'guest@scutoons.test');
+        $r = $this->request('GET', '/api/live/proof?session=CATH', $this->deck($plain));
+        self::assertSame(['account' => ['member'], 'approved' => true], self::claims(self::json($r)['proof'], 'proof-test-secret')['facts']);
     }
 
     public function testRefusals(): void
