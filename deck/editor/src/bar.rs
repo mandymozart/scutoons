@@ -1,9 +1,9 @@
 //! The window's top bar (#444, #423: every build shows its version top right, always; owner 2026-11-09: "the editor pane
 //! overlaps the version number ... so perhapse this should go to the top"): the whole width, above the stage and the
 //! panel, so no region can cover it. The version keeps its place, then the title; the status line gets what is left.
-use deck_kit::controls::{self, Rect};
-use deck_kit::draw::DrawList;
-use deck_kit::tokens::Tokens;
+use deck_kit::editor::controls::{self, Rect};
+use deck_kit::base::draw::DrawList;
+use deck_kit::base::tokens::Tokens;
 
 /// the logo's side
 const LOGO: f32 = 22.0;

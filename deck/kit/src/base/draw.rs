@@ -16,6 +16,23 @@ pub enum Prim {
     Logo { x: f32, y: f32, size: f32, frame: usize },
 }
 
+/// Where a control landed, in logical pixels (what can be pressed is kept by its caller as these).
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct Rect {
+    pub x: f32,
+    pub y: f32,
+    pub w: f32,
+    pub h: f32,
+}
+
+impl Rect {
+    pub fn has(&self, x: f32, y: f32) -> bool {
+        x >= self.x && y >= self.y && x < self.x + self.w && y < self.y + self.h
+    }
+}
+
+/// A frame's primitives and their text (a draw list moves between threads: deck-show paints a dialog on the flash side's).
+#[derive(Debug, Clone, PartialEq)]
 pub struct DrawList {
     prims: Vec<Prim>,
     text: String,

@@ -7,7 +7,7 @@
 //!
 //! The splash waits for START only when the deck is in no session; a deck told its outlet passes by itself once loaded
 //! (point 1). In the browser's full screen Esc is the browser's: M, the status line or Start open the menu (point 2).
-pub use deck_kit::input::Input;
+pub use deck_kit::base::input::Input;
 
 /// the pages drawn with the kit and painted (`Menu::paint`)
 pub mod draw;
@@ -178,7 +178,7 @@ pub enum Hit {
 pub struct Menu {
     stack: Vec<Page>,
     cursor: usize,
-    pub(crate) places: Vec<(deck_kit::controls::Rect, Hit)>,
+    pub(crate) places: Vec<(deck_kit::base::draw::Rect, Hit)>,
     /// device pixels per logical one, as drawn
     pub(crate) scale: f32,
     pub(crate) drawn: Option<draw::Drawn>,

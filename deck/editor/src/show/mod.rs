@@ -20,7 +20,7 @@ pub mod perform;
 mod roles;
 mod sheets;
 
-use deck_kit::controls::Rect;
+use deck_kit::editor::controls::Rect;
 use deck_show::{ClockChoice, Show, Subtree};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -131,7 +131,7 @@ pub struct Host {
     /// #478: the role selected (a stage outlet's id); none = the row is inspected
     pub role: Option<String>,
     /// #478: a typed field open (a role's name) and its text
-    pub typing: Option<(roles::Typing, deck_kit::text::Field)>,
+    pub typing: Option<(roles::Typing, deck_kit::base::text::Field)>,
     /// #478: the prompt asked before it is done (a role's remove, a kick)
     pub asking: Option<roles::Ask>,
     /// #478: the move menu open for a client (by its id), and whether a move from it locks
@@ -491,7 +491,7 @@ impl Host {
 }
 
 /// The places of a show workspace in a window of `w` × `h` (logical px) under the top bar: where the stage draws.
-pub fn stage_rect(ws: Workspace, w: f32, h: f32, t: &deck_kit::tokens::Tokens) -> Rect {
+pub fn stage_rect(ws: Workspace, w: f32, h: f32, t: &deck_kit::base::tokens::Tokens) -> Rect {
     match ws {
         Workspace::Perform => perform::layout(w, h, t).stage,
         _ => author::layout(w, h, t).stage,

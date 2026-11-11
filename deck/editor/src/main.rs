@@ -23,9 +23,10 @@ mod show;
 mod wires;
 
 use anyhow::{Context, Result};
-use deck_kit::controls::{self, Rect};
-use deck_kit::info::{self, Help};
-use deck_kit::{text, typeahead};
+use deck_kit::editor::controls::{self, Rect};
+use deck_kit::editor::info::{self, Help};
+use deck_kit::base::text;
+use deck_kit::editor::typeahead;
 use deck_native::gpu::Gpu;
 use deck_native::host;
 use std::path::PathBuf;

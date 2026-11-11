@@ -14,7 +14,7 @@ path = "src/main.rs"
 [dependencies]
 # the deck's own pieces: the window and its GPU (#443), the audio stack, the rig player, the stage
 deck-native = { path = "../native" }
-deck-kit = { path = "../kit" }
+deck-kit = { path = "../kit", features = ["editor"] }
 deck-space = { path = "../space", default-features = false, features = ["being", "gpu", "native"] }
 deck-engine = { path = "../engine" }
 deck-core = { workspace = true, features = ["tempo"] }
@@ -27,7 +27,10 @@ wgpu = "30"
 winit = "0.30"
 pollster = "0.4"
 bytemuck = { version = "1", features = ["derive"] }
-ab_glyph = "0.2"
+# #485: the editor's UI is deck-kit's egui screen (the deck's mono face, deck-outlet's) drawn by egui-wgpu – the same
+# base and renderer as the decks' menu and panel (deck-space stage/ui.rs); no default features, no eframe
+egui-wgpu = { version = "0.37", default-features = false }
+deck-outlet = { path = "../outlet" }
 # the logo and the icons
 resvg = { version = "0.45", default-features = false }
 image = { version = "0.25", default-features = false, features = ["png"] }

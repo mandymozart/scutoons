@@ -19,9 +19,20 @@ fn font(name: &str) -> &'static FontRef<'static> {
     if name == "lettering" { lettering } else { mono }
 }
 
-/// The deck's mono face (IBM Plex Mono Bold): what the deck's own UI is painted in (deck-kit `raster`, #481).
+/// The deck's mono face (IBM Plex Mono Bold).
 pub fn mono() -> &'static FontRef<'static> {
     font("mono")
+}
+
+/// #485: the mono face's file – the font the deck's own UI (#481) is set in by egui (deck-kit `screen.rs`)
+pub fn mono_ttf() -> &'static [u8] {
+    MONO
+}
+
+/// #485: the mono face's advance per pixel of font size (0.6): what the deck's UI lays out with (deck-show `face.rs`)
+pub fn mono_per_px() -> f32 {
+    let m = mono();
+    m.h_advance_unscaled(m.glyph_id('M')) / m.units_per_em().unwrap_or(1000.0)
 }
 
 /// One `Slice.dialog` entry (shared/content `Dialog`) – the fields the stage draws.

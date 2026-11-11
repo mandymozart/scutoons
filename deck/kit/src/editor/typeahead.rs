@@ -3,9 +3,9 @@
 //! with an id and gets the id back, and can ask which ids the filter still shows (the stage highlights only those). A caller
 //! whose list has its own rule of what a query finds (the address book's, deck-space `rig/book.rs`, #477) hands that rule in
 //! (`found_by`), and the typeahead only shows what it answers.
-use crate::text::Field;
-use crate::tokens::Tokens;
-use crate::draw::DrawList;
+use crate::base::text::Field;
+use crate::base::tokens::Tokens;
+use crate::base::draw::DrawList;
 
 const WIDTH: f32 = 380.0;
 const ROWS: usize = 10;

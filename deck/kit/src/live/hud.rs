@@ -4,13 +4,9 @@
 //! where one is a cell of the pixel face at its size (`GLYPH`): a row is 10 high as the HUD's lines are, 20 for a finger
 //! (a value under its label, `SMALL`). A control draws itself and answers where it landed; what a press means is the
 //! caller's (deck-ui `menu.rs`). No layout file of our own: a page is these calls, top down.
-use crate::controls::Rect;
-use crate::draw::DrawList;
-use crate::tokens::{Colors, Sizes, Tokens};
-
-const fn rgb(v: u32) -> [f32; 4] {
-    [((v >> 16) & 255) as f32 / 255.0, ((v >> 8) & 255) as f32 / 255.0, (v & 255) as f32 / 255.0, 1.0]
-}
+use crate::base::draw::{DrawList, Rect};
+use crate::base::screen::{Face, Layer};
+use crate::base::tokens::Tokens;
 
 /// the pixel face's size, and the small one (a value under its label on a finger's row)
 pub const GLYPH: f32 = 8.0;
@@ -18,31 +14,6 @@ pub const SMALL: f32 = 4.0;
 /// a row's height, and a finger's
 pub const ROW: f32 = 10.0;
 pub const FINGER: f32 = 20.0;
-
-/// The HUD's look as the kit's tokens: the black ground (a little see-through over the scene), the HUD's white, a muted
-/// grey for what is not there yet, the red selection bar (`selected`), the pairing code's mint (`accent`), the dimmed
-/// scene behind a page (`stage`). A `tokens.toml` overrides them like any of the kit's.
-pub fn tokens() -> Tokens {
-    let black = rgb(0x000000);
-    Tokens {
-        color: Colors {
-            stage: [0.0, 0.0, 0.0, 0.55],
-            surface: [0.0, 0.0, 0.0, 0.92],
-            surface_head: black,
-            line: rgb(0x3a3a3a),
-            text: rgb(0xebebeb),
-            muted: rgb(0x7a7a7a),
-            control: black,
-            hover: rgb(0x262626),
-            pressed: rgb(0x262626),
-            selected: rgb(0xe8302a),
-            within: rgb(0x262626),
-            accent: rgb(0x5ef2c8),
-            ..Colors::default()
-        },
-        size: Sizes { edge: 1.0, pad: 4.0, font: GLYPH, small: SMALL, row: ROW, tree_row: FINGER, radius: 0.0, ..Sizes::default() },
-    }
-}
 
 /// how many characters of the pixel face fit `w`
 pub fn cols(d: &DrawList, w: f32) -> usize {
@@ -138,11 +109,12 @@ pub fn item(d: &mut DrawList, t: &Tokens, (x, y, w): (f32, f32, f32), it: Item, 
     at
 }
 
-/// The page drawn into `list` as pixels: `size` logical pixels from the top left at `scale` device pixels each, in the
-/// deck's pixel face. The one way a page of this look becomes pixels: its owner never names the face or the painter.
-#[cfg(feature = "pixel")]
-pub fn paint(list: &DrawList, size: (f32, f32), scale: f32) -> crate::raster::Pixels {
-    crate::raster::raster_with(list, &crate::pixel::Pixel8, (0.0, 0.0), size, scale)
+/// A page of this look as a layer of the screen (base `screen.rs`, through egui): its list in logical pixels, `scale`
+/// device pixels each, its places on a grid of `grid` pixels per logical one (1: a cell of the pixel face grows to `scale`
+/// pixels as the HUD's does; `scale`: the screen's own pixels, for a finger's small values), in the deck's pixel face.
+/// The one way a page of this look reaches the screen: its owner never names the face or the painter.
+pub fn layer(list: DrawList, scale: f32, grid: f32) -> Layer {
+    Layer { list, scale, grid, face: Face::Pixel }
 }
 
 /// a draw list for this look: the pixel face's advance (one per pixel of size)
@@ -168,7 +140,8 @@ pub fn qr(d: &mut DrawList, (x, y): (f32, f32), module: f32, n: usize, dark: &dy
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::draw::Prim;
+    use crate::base::draw::Prim;
+    use crate::live::tokens::hud as tokens;
 
     fn texts(d: &DrawList) -> Vec<String> {
         d.prims().iter().filter_map(|p| if let Prim::Text { start, end, .. } = *p { Some(d.text_of(start, end).to_string()) } else { None }).collect()

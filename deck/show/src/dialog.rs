@@ -4,7 +4,7 @@
 //! library (deck-kit `panel.rs`) and hands what was pressed back (`Act`, `Key`). The rules are `flashed.rs`'s.
 use crate::document::Pinned;
 use crate::ready::Kept;
-pub use deck_kit::panel::Tone;
+pub use deck_kit::live::panel::Tone;
 
 /// What a button does.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

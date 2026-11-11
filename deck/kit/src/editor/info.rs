@@ -1,9 +1,9 @@
 //! The Info view (#456; owner 2026-11-09, from the OSCT editor): the name and description of what is under the pointer,
 //! collapsible to its head, so the screen carries no hint lines. Panels show values, states and errors; what a control does
 //! is its help here.
-use crate::controls::Rect;
-use crate::draw::DrawList;
-use crate::tokens::Tokens;
+use crate::base::draw::Rect;
+use crate::base::draw::DrawList;
+use crate::base::tokens::Tokens;
 
 const LINES: usize = 5;
 

@@ -2,8 +2,9 @@
 //! deck-kit's live components): an adapter. Here only winit's keys, mouse and touch and the pad's buttons as the kit's
 //! `Input`, the deck's objects read into the menu's `Facts`, and what the menu answers done: the deck's own pages follow
 //! it (F4 the settings page, F5 the switcher, F6 the Live page – drawn as before on the HUD), QUIT ends the window, the
-//! picture goes to the stage. Esc opens the menu when nothing is open; F4 / F5 / F6 still open their page directly. The
-//! corner card is gone: deck-link's pairing state (read every 2 s, a small file) is the menu's "Pair this deck".
+//! page goes to the stage (a layer of deck-kit's egui screen, #485). Esc opens the menu when nothing is open; F4 / F5 /
+//! F6 still open their page directly. The corner card is gone: deck-link's pairing state (read every 2 s, a small file)
+//! is the menu's "Pair this deck".
 use crate::App;
 use deck_ui::menu::{Answer, Facts, Input, Menu, Page, Pair};
 use winit::event::{ElementState, MouseButton, TouchPhase, WindowEvent};
@@ -51,6 +52,9 @@ impl App {
 
     /// One input for the menu; whether it took it.
     fn menu_input(&mut self, el: &ActiveEventLoop, i: Input) -> bool {
+        if let Some(r) = self.renderer.as_mut() {
+            r.ui_input(i);
+        }
         let facts = self.menu_facts();
         match self.menu.menu.input(i, &facts) {
             Answer::No => return false,
@@ -121,8 +125,8 @@ impl App {
         self.menu_input(el, input)
     }
 
-    /// Once a frame: deck-link's pairing state (every 2 s), the pad's buttons, the menu's picture to the stage (only
-    /// when it changed).
+    /// Once a frame: deck-link's pairing state (every 2 s), the pad's buttons, the menu's page to the stage (only when
+    /// it changed; a layer of deck-kit's egui screen, #485).
     pub(crate) fn menu_frame(&mut self, el: &ActiveEventLoop, time: f32) {
         if time - self.menu.pair_at >= 2.0 || time < self.menu.pair_at {
             self.menu.pair_at = time;
@@ -144,8 +148,8 @@ impl App {
         let _ = el;
         let facts = self.menu_facts();
         let Some(r) = self.renderer.as_mut() else { return };
-        if let Some(picture) = self.menu.menu.paint(&facts, r.size()) {
-            r.set_menu(picture.as_ref().map(|p| (p.w, p.h, p.rgba.as_slice())));
+        if let Some(layer) = self.menu.menu.paint(&facts, r.size()) {
+            r.set_menu(layer);
         }
     }
 }

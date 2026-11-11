@@ -1,21 +1,8 @@
 //! The controls (#456; the look: the OSCT editor's, on the kit's tokens). A control draws itself into the list and answers
 //! with where it landed; what a press means stays with the caller, the state with its one owner.
-use crate::draw::DrawList;
-use crate::tokens::Tokens;
-
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
-pub struct Rect {
-    pub x: f32,
-    pub y: f32,
-    pub w: f32,
-    pub h: f32,
-}
-
-impl Rect {
-    pub fn has(&self, x: f32, y: f32) -> bool {
-        x >= self.x && y >= self.y && x < self.x + self.w && y < self.y + self.h
-    }
-}
+use crate::base::draw::DrawList;
+pub use crate::base::draw::Rect;
+use crate::base::tokens::Tokens;
 
 /// `text` in at most `cols` characters, an ellipsis where it is cut
 pub fn fit(text: &str, cols: usize) -> String {
@@ -335,7 +322,7 @@ mod tests {
         let t = Tokens::default();
         let mut d = list();
         chip(&mut d, &t, (990.0, 0.0), 1000.0, "a long sentence", false);
-        let crate::draw::Prim::Rect { x, w, .. } = d.prims()[0] else { panic!("a strip") };
+        let crate::base::draw::Prim::Rect { x, w, .. } = d.prims()[0] else { panic!("a strip") };
         assert!(x + w <= 1000.0);
     }
 }

@@ -201,12 +201,12 @@ mod running {
             let _ = self.flash.send(super::flash::In::Switch(own));
         }
 
-        /// #481: the deck's UI for the person at it changed: `show` gets its new picture (`w × h` straight RGBA, the
-        /// stage's panel overlay), none = nothing shows any more. Called every frame; it does nothing in between.
-        pub fn panel(&self, show: impl FnOnce(Option<(u32, u32, &[u8])>)) {
+        /// #481: the deck's UI for the person at it changed: `show` gets its new layer (the stage's panel, painted
+        /// through egui, #485), none = nothing shows any more. Called every frame; it does nothing in between.
+        pub fn panel(&self, show: impl FnOnce(Option<deck_show::face::Layer>)) {
             let next = self.panel.lock().unwrap().next.take();
             if let Some(next) = next {
-                show(next.as_ref().map(|p| (p.w, p.h, p.rgba.as_slice())));
+                show(next);
             }
         }
 

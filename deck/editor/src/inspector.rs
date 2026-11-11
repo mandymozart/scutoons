@@ -3,9 +3,9 @@
 //! landed; the values and their ranges are the core's.
 use crate::stage::Stage;
 use crate::wires::Port;
-use deck_kit::controls::{self, Rect};
-use deck_kit::draw::DrawList;
-use deck_kit::tokens::Tokens;
+use deck_kit::editor::controls::{self, Rect};
+use deck_kit::base::draw::DrawList;
+use deck_kit::base::tokens::Tokens;
 
 /// what is selected
 #[derive(Debug, Clone, PartialEq)]

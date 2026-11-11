@@ -1,6 +1,7 @@
 //! The renderer every deck draws with (CYBERDECKS.md §8 "Render", #463: out of deck-native, so the browser is the same
 //! deck): one fullscreen pass per video node in graph order, each into its own texture, the screen node's blit, and over
-//! it the HUD or its bar, the splash, the deck's menu (#386), the panel and the build label. It owns no window: the host (deck-native's
+//! it the HUD or its bar, the splash, the deck's own UI (#386 the menu, #481 the panel: deck-kit's egui screen, `ui.rs`, #485)
+//! and the build label. It owns no window: the host (deck-native's
 //! window, space-web's canvas) brings the device and the frame's target. A shader that does not compile falls back to `pass`.
 //! S3: a pass reads up to three textures (its `in`, a chapter's current / previous slice, an overlay's `top`); the
 //! chapter nodes' slices arrive from their loaders (`ChapterFeed`) and are uploaded when the node cuts.
@@ -20,6 +21,8 @@ use std::collections::HashMap;
 use std::sync::atomic::AtomicBool;
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex};
+
+mod ui;
 
 const COMMON: &str = include_str!("shaders/stage/common.wgsl");
 const OFFSCREEN: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
@@ -180,15 +183,9 @@ pub struct Stage {
     bar_pass: Overlay,
     bar_tex: wgpu::Texture,
     bar_w: u32,
-    /// #386: the deck's menu (deck-ui `menu`, painted by deck-kit): a picture laid over the whole screen while it is set
-    menu_pass: Overlay,
-    menu_tex: wgpu::Texture,
-    menu: bool,
-    /// #481: the deck's own UI for the person at it (deck-kit `panel.rs`, painted on the CPU): a strip as wide as the
-    /// screen along its bottom; its pixel size while it is shown
-    panel_pass: Overlay,
-    panel_tex: wgpu::Texture,
-    panel: Option<(u32, u32)>,
+    /// #485: the deck's own UI – the menu (#386, deck-ui `menu`) and the panel (#481, deck-show `face`) as layers of
+    /// deck-kit's egui screen, drawn by egui-wgpu in the pass
+    ui: ui::Ui,
     /// #423: the build label (build_label.rs) – rastered once at start, drawn top right over everything, always
     label_pass: Overlay,
     label_size: (u32, u32),
@@ -234,8 +231,6 @@ impl Stage {
         let hud_tex = texture(device, hud::W, hud::H, OFFSCREEN, tex_usage);
         let bar_w = hud::bar_width(size.0 as f32, size.1 as f32);
         let bar_tex = bar_texture(device, bar_w);
-        let menu_tex = texture(device, 1, 1, OFFSCREEN, tex_usage);
-        let panel_tex = texture(device, 1, 1, OFFSCREEN, tex_usage);
         let (lw, lh, px) = crate::splash::logo((size.0 / 2).clamp(64, 2048))?;
         let logo = upload(device, queue, lw, lh, &px);
         tracing::info!("deck: build {}", crate::BUILD);
@@ -253,8 +248,6 @@ impl Stage {
         let splash = overlay("splash", builtin("splash").context("the splash shader")?, logo.view.clone(), &linear).await?;
         let hud_pass = overlay("hud", pass, of(&hud_tex), &nearest).await?;
         let bar_pass = overlay("hud bar", pass, of(&bar_tex), &nearest).await?;
-        let menu_pass = overlay("menu", pass, of(&menu_tex), &nearest).await?;
-        let panel_pass = overlay("panel", pass, of(&panel_tex), &linear).await?;
         let label_pass = overlay("build label", pass, of(&label_tex), &nearest).await?;
         Ok(Stage {
             layout,
@@ -276,12 +269,7 @@ impl Stage {
             bar_pass,
             bar_tex,
             bar_w,
-            menu_pass,
-            menu_tex,
-            menu: false,
-            panel_pass,
-            panel_tex,
-            panel: None,
+            ui: ui::Ui::new(device, format),
             label_pass,
             label_size: (lw, lh),
             splash,
@@ -608,37 +596,22 @@ impl Stage {
         self.bar_w
     }
 
-    /// The deck's menu (#386): Some = its picture, `w × h` straight RGBA (deck-ui `Menu::paint`), laid over the whole
-    /// screen (a page painted at a pixel a cell grows here, nearest), over the splash and under the panel; None = gone.
-    /// Called when it changes, not every frame.
-    pub fn set_menu(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, menu: Option<(u32, u32, &[u8])>) {
-        let Some((w, h, px)) = menu.filter(|(w, h, px)| *w > 0 && *h > 0 && px.len() == (w * h * 4) as usize) else {
-            self.menu = false;
-            return;
-        };
-        if (self.menu_tex.width(), self.menu_tex.height()) != (w, h) {
-            self.menu_tex = texture(device, w, h, OFFSCREEN, wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST);
-            let view = self.menu_tex.create_view(&Default::default());
-            self.menu_pass.bind = bind_group(device, &self.layout, &self.menu_pass.ubuf, [&view, &self.dummy, &self.dummy], &self.nearest);
-        }
-        write(queue, &self.menu_tex, w, h, px);
-        self.menu = true;
+    /// The deck's menu (#386): Some = its page (deck-ui `Menu::paint`, a layer of deck-kit's screen) over the whole
+    /// screen, over the splash and under the panel; None = gone. Called when it changes, not every frame.
+    pub fn set_menu(&mut self, menu: Option<deck_kit::base::screen::Layer>) {
+        self.ui.set_menu(menu);
     }
 
-    /// The deck's panel (#481): Some = its pixels, `w × h` straight RGBA (deck-kit `raster`), drawn as wide as the screen
-    /// along its bottom, over the scene, the HUD and the pairing card; None = gone. Called when it changes.
-    pub fn set_panel(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, panel: Option<(u32, u32, &[u8])>) {
-        let Some((w, h, px)) = panel.filter(|(w, h, px)| *w > 0 && *h > 0 && px.len() == (w * h * 4) as usize) else {
-            self.panel = None;
-            return;
-        };
-        if (self.panel_tex.width(), self.panel_tex.height()) != (w, h) {
-            self.panel_tex = texture(device, w, h, OFFSCREEN, wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST);
-            let view = self.panel_tex.create_view(&Default::default());
-            self.panel_pass.bind = bind_group(device, &self.layout, &self.panel_pass.ubuf, [&view, &self.dummy, &self.dummy], &self.linear);
-        }
-        write(queue, &self.panel_tex, w, h, px);
-        self.panel = Some((w, h));
+    /// The deck's panel (#481): Some = its layer (deck-show `Face::paint`) along the screen's bottom, over the scene, the
+    /// HUD and the menu; None = gone. Called when it changes.
+    pub fn set_panel(&mut self, panel: Option<deck_kit::base::screen::Layer>) {
+        self.ui.set_panel(panel);
+    }
+
+    /// #485: an input of the person at the deck (the kit's, in device pixels) for egui's input state while the deck's
+    /// own UI shows – what it means is the menu's and the panel's owners' (they set new layers).
+    pub fn ui_input(&mut self, i: deck_kit::base::input::Input) {
+        self.ui.input(i);
     }
 
     /// one frame of the splash alone (the first, before the scene's passes exist)
@@ -662,7 +635,10 @@ impl Stage {
             let u = Uniforms { time: t.time, dt: t.dt, res: [sw, sh], p };
             queue.write_buffer(&self.splash.ubuf, 0, bytemuck::bytes_of(&u));
         }
-        let mut rp = begin(enc, view);
+        // #485: egui's frame of the deck's own UI, when it changed – before the pass (its buffers are written)
+        self.ui.prepare(device, queue, enc, self.size);
+        // egui-wgpu draws into a pass that does not borrow the encoder's lifetime
+        let mut rp = begin(enc, view).forget_lifetime();
         if let Some(s) = &self.screen {
             rp.set_pipeline(s.pipeline.as_ref().expect("the screen's pipeline"));
             rp.set_bind_group(0, s.bind.as_ref(), &[]);
@@ -686,19 +662,8 @@ impl Stage {
             rp.set_viewport(0.0, 0.0, sw, sh, 0.0, 1.0);
             draw(&mut rp, &self.splash);
         }
-        if self.menu {
-            // the picture is the screen's, from its top left (its last cell may reach past the edge)
-            let (mw, mh) = (self.menu_tex.width() as f32, self.menu_tex.height() as f32);
-            let k = (sw / mw).max(sh / mh).max(f32::MIN_POSITIVE);
-            rp.set_viewport(0.0, 0.0, mw * k, mh * k, 0.0, 1.0);
-            draw(&mut rp, &self.menu_pass);
-        }
-        if let Some((w, h)) = self.panel {
-            // as wide as the screen, its own aspect, along the bottom
-            let ph = (sw * h as f32 / w as f32).min(sh);
-            rp.set_viewport(0.0, sh - ph, sw, ph, 0.0, 1.0);
-            draw(&mut rp, &self.panel_pass);
-        }
+        // #386 #481: the deck's menu and its panel (deck-kit's egui screen), over the splash, under the build label
+        self.ui.draw(&mut rp);
         // #423: the build label in the top right corner – over everything, in every scene and HUD mode (deck-ui places it)
         let [x, y, w, h] = deck_ui::label_rect(sw, sh, hud::label_scale(sw, sh), self.label_size.0, self.label_size.1);
         let x = if over.label_centred { (sw - w) / 2.0 } else { x };
