@@ -144,7 +144,7 @@ The owner: "Bitte konzeptionelle Schritte alle noch durchziehen." Four drafts, e
 The owner asked for drafts of the planned move's screens. Beside drafts 7 and 8:
 - **Draft 9, the creator.** The XR area's first page in the creator's own paper look: the experiences (name, type, counts, toons, draft or published) and "New experience" (name; type Book, Show, Poster; a book as book or record; toons). And the workspace with a record: the gatefold open on the desk, a node of its scene selected, the inspector with placement (1 = the target's width), animation and the rules without code, the log of the simulated reader.
 - **Draft 10, the reader.** The list (targets by surface, found or to look for, and what can be read); a show's wall, where the target is a plaque and the words name room, surface and target; the camera refused (one message, "Try again", what can be read without a camera, the way back); and the way in from an item: "See it in XR" on the item's page.
-- Asked: targets not found yet shown with their picture, or hidden until found; "See it in XR" on the item's page in the carrier bag and on a product's page in the shop.
+- **Answered by the owner, 2026-11-11** (`[xr]`): targets that are not found yet are **hidden until found** (draft 10's screen 5 shows them with their picture: that is out; the list shows found targets, and what it tells of the rest, a count or a place kept free, is open). **No "See it in XR" button** on an item's or a product's page (draft 10's screen 8 is out; read as neither page; the way in stays a story's jump, a QR code, the address).
 
 ### 8.5 What only the owner can decide, in one list
 
@@ -153,5 +153,5 @@ The owner asked for drafts of the planned move's screens. Beside drafts 7 and 8:
 3. The two layers, and when an entry's events run (8.2).
 4. The first screen of the reader's XR page; where what is found is kept (8.3).
 5. The editor's look and its place in the creator (8.4).
-6. From draft 2: a record's disc label as a surface; scenes in the jump's field. From draft 10: unfound targets shown or hidden; where "See it in XR" stands.
+6. From draft 2: a record's disc label as a surface; scenes in the jump's field. (Draft 10's two questions are answered, §8.6.)
 7. Who posts the research's result on OSCT's issue #255 (XR-SHARED-CORE.md §8).
