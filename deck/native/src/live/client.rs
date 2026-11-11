@@ -72,6 +72,10 @@ impl Client {
 
     fn answered(&mut self, c: &mut Relay, at: f64, a: Answer) {
         self.proof = None;
+        // #481: who is at the deck (whether they may reject a flash) is what the proof states
+        if let Some(roles) = proof::account(&a) {
+            let _ = self.flash.send(super::flash::In::Account(roles));
+        }
         c.proof_answered(self.renew.answered(at, a));
     }
 }

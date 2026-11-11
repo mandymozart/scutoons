@@ -35,6 +35,8 @@ pub enum In {
     Flash(Box<Flash>),
     /// #471: the operator switches to the deck's own version (`true`) or back to the flashed one
     Switch(bool),
+    /// #481: who is at the deck – the account roles its live proof states (the relay thread asks for it)
+    Account(Vec<String>),
     /// #481: a key of the person at the deck, by the name the web gives it (deck-show `Face::key`)
     Key(String),
     /// #481: a tap or a click at (x, y) of the screen, in its pixels
@@ -79,6 +81,7 @@ impl Flasher {
                 Ok(In::Joined(id)) => self.flash.joined(&id),
                 Ok(In::Flash(f)) => self.flash.flash(&f, &self.api, "", &mut self.fetched),
                 Ok(In::Switch(own)) => self.flash.switch(own, &mut self.fetched),
+                Ok(In::Account(roles)) => self.flash.set_account(&roles),
                 Ok(In::Key(name)) => {
                     self.face.key(&name, &mut self.flash, &mut self.fetched);
                 }

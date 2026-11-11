@@ -697,10 +697,10 @@ impl SceneView {
         self.face.key(key, flash, fetched)
     }
 
-    /// #481: whether the person at the deck may reject a suggested flash (the page knows who is signed in)
-    pub fn set_may_reject(&mut self, yes: bool) {
+    /// #481: the reader signed in or out: the deck asks for its proof again at once (who may reject a flash is in it)
+    pub fn proof_again(&mut self) {
         if let Some(o) = self.outlet.as_mut() {
-            o.set_may_reject(yes);
+            o.proof_again();
         }
     }
 

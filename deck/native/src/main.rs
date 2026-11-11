@@ -1537,7 +1537,7 @@ impl ApplicationHandler<Event> for App {
 
     fn window_event(&mut self, el: &ActiveEventLoop, _: WindowId, event: WindowEvent) {
         #[cfg(feature = "live")]
-        if self.show.live.as_ref().is_some_and(|l| l.window_event(&event)) {
+        if self.show.live.as_ref().is_some_and(|l| l.window_event(&event, self.switcher.open || self.page.open || self.live.page.open)) {
             return;
         }
         // #250 F5, #220 F4: the open scene list or settings page takes the keys (the arrows, + / −, Space would turn the

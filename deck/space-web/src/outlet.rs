@@ -349,11 +349,6 @@ impl Outlet {
         self.flash.shown()
     }
 
-    /// #481: whether the person at the deck may reject a suggested flash
-    pub fn set_may_reject(&mut self, yes: bool) {
-        self.flash.set_may_reject(yes);
-    }
-
     /// #481: the flash side and the pieces it asks for, for the taps and keys of the deck's UI (deck-show `face.rs`)
     pub fn flash_parts(&mut self) -> (&mut Flashed, &mut Fetched) {
         (&mut self.flash, &mut self.fetched)
@@ -399,7 +394,18 @@ impl Outlet {
     /// #478: the API's answer to the `r:` ask (`status` 0: no answer) at `now` – the proof for the relay client's hellos
     pub fn proof(&mut self, status: u16, body: &str, now: Duration) {
         let body = serde_json::from_str(body).unwrap_or(serde_json::Value::Null);
-        self.relay.proof_answered(self.renew.answered(now.as_secs_f64(), proof::read(status, &body)));
+        let answer = proof::read(status, &body);
+        // #481: who is at the deck (whether they may reject a flash) is what the proof states
+        if let Some(roles) = proof::account(&answer) {
+            self.flash.set_account(&roles);
+        }
+        self.relay.proof_answered(self.renew.answered(now.as_secs_f64(), answer));
+    }
+
+    /// #481: who is signed in changed (the page says so): the proof is asked again at once – a reader who signed out is a
+    /// guest from the answer on, one who signed in is who they are
+    pub fn proof_again(&mut self) {
+        self.renew.again();
     }
 
     pub fn shelf(&mut self) -> &mut WebShelf {

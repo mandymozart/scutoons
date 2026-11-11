@@ -38,8 +38,6 @@ export interface SceneOptions {
 	build?: string;
 	/** #484: the viewer's signed-in user, if any (the cookie, or a bearer token) – such a deck is its user and is not paired */
 	user?: () => SignedIn | null;
-	/** #481: the person at the deck may reject a suggested flash (asked every frame: the sign-in answers after the deck starts) */
-	mayReject?: () => boolean;
 }
 
 /** #463: a scene playing in `host` */
@@ -55,8 +53,9 @@ export class SceneStage {
 	/** #470: the deck's pairing and the key it signs with – #484: made only when nobody is signed in (`ensureLink`) */
 	link: Paired | null = null;
 	pairing = false;
-	/** #481: the panel's taps and keys, until `stop` */
+	/** #481: the panel's taps and keys, until `stop`; nobody is signed in (as of the last frame) */
 	private unwatch: (() => void) | null = null;
+	private guest = true;
 	/** #478: the Live page's stats line, keys and taps */
 	private live: LivePage | null = null;
 
@@ -123,9 +122,10 @@ export class SceneStage {
 		// what the outlet says (media.ready) goes out; what it asks for is fetched; a cell's set loads
 		this.relay.run();
 		this.live?.frame();
-		// #484: signed in – the deck is its user; else its own key and the pairing (a sign-out mid-show lands here)
+		// #484: signed in – the deck is its user; else its own key and the pairing. #481: a sign-in or sign-out asks its proof again
 		const user = this.o.user?.() ?? undefined;
-		this.view.set_may_reject(this.o.mayReject?.() ?? false);
+		if (!user !== this.guest) this.view.proof_again();
+		this.guest = !user;
 		if (!user && this.spaceModule) void ensureLink(this, this.spaceModule.DeckLink, this.o.build ?? '');
 		const link = user ? null : this.link;
 		if (link) void driveLink(link, this.o.api);
