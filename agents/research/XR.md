@@ -93,7 +93,7 @@ Drafts shown to the owner (the XR session's notes folder, `482-xr/`, each an `.h
 
 ## 7 · Order of work
 
-Not started: the owner builds nothing yet (2026-11-10). The order below stands for when the build is called. Ready for it on the branch `wip/482-xr-experiences-7f10f7`: its own packages and test database (`scutoons_xr482_test`); baselines green for the viewer, the creator, PHPStan, core-only and the server contracts.
+Not started: the owner builds nothing yet (2026-11-10); concepts are collected further, a possible start of the build is 2026-11-25 (the owner, 2026-11-11). The order below stands for when the build is called. Ready for it on the branch `wip/482-xr-experiences-7f10f7`: its own packages and test database (`scutoons_xr482_test`); baselines green for the viewer, the creator, PHPStan, core-only and the server contracts.
 
 1. **The data, in SCUTOONS's own shape:** the catalog document kind `experience` (type book · show · poster; surfaces; targets; scenes; entries), its schema taken from OSCT's contract, types generated ([contract]); experiences, their surfaces' targets and scenes as references in the address book (#477); the XR jump's one field offers them; the reader's page `/xr/<experience>/<target>` as a shell that names what it would open.
 2. **The engine in the reader:** OSCT's engine copied in as a lazily loaded module on that page; one experience of type book authored as a document; an entry that gives an item.
