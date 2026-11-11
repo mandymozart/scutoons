@@ -345,7 +345,8 @@ impl SceneView {
     }
 
     /// what the outlet asks the page to fetch: key, path, … (key c: a chapter under the API, p: a slice under the CDN,
-    /// m: a medium's URL - never with the token, s: a show medium's signed link from the API - with the deck's token, #470)
+    /// m: a medium's URL - never with the token, s: a show medium's signed link from the API - with the deck's token, #470;
+    /// r: the deck's proof from the API - with the reader's sign-in, #478)
     pub fn outlet_asks(&mut self) -> js_sys::Array {
         let out = js_sys::Array::new();
         for (k, path) in self.outlet.as_mut().map(|o| o.asks()).unwrap_or_default() {
@@ -389,6 +390,14 @@ impl SceneView {
         }
     }
 
+    /// #478: the API's answer to the `r:` ask - the deck's proof of facts for its session (status 0: no answer)
+    pub fn outlet_proof(&mut self, status: u16, body: &str) {
+        let now = Duration::from_secs_f32(self.now.max(0.0));
+        if let Some(o) = self.outlet.as_mut() {
+            o.proof(status, body, now);
+        }
+    }
+
     /// #470: the deck's link (DeckLink) - why it has no token ("" = it has one) and the code to pair with ("" = none: the
     /// pairing card hides); `app` = the viewer the member pairs on
     pub fn deck_link(&mut self, why: &str, code: &str, app: &str) {
@@ -406,6 +415,9 @@ impl SceneView {
     }
 
     pub fn outlet_failed(&mut self, key: &str, why: String) {
+        if key.starts_with("r:") {
+            return self.outlet_proof(0, "");
+        }
         if let Some(o) = self.outlet.as_mut() {
             o.shelf().failed(key, why.clone());
             // a medium (m:) or its signed link (s:, #470) – either way the medium is missing

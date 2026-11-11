@@ -75,9 +75,17 @@ export async function driveLink(link: Paired, api: string): Promise<void> {
 	}
 }
 
-/** the outlet's side of a signed link (space-web SceneView) */
+/** the outlet's side of the API's answers (space-web SceneView): a signed link, the deck's proof (#478) */
 export interface SignedView {
 	outlet_signed(key: string, status: number, body: string): void;
+	outlet_proof(status: number, body: string): void;
+}
+
+/** #478: the deck's proof (the outlet's `r:` ask) – the reader's sign-on cookie goes to the API's proof route and nowhere else */
+export async function fetchProof(host: { view: SignedView; stopped: boolean }, o: { api: string }, url: string) {
+	if (!url.startsWith(`${o.api}/live/proof?`)) throw new Error('not the API');
+	const r = await fetch(url, { credentials: 'include', cache: 'no-store' });
+	if (!host.stopped) host.view.outlet_proof(r.status, await r.text());
 }
 
 /** #470: a show medium's signed link (the outlet's `s:` ask) – the deck token goes to the API's show-media route and nowhere else */

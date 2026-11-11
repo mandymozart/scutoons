@@ -2,16 +2,18 @@
 //! outlet, the keepalive, `resume { client, seq }` on a lost connection: inside the relay's replay buffer it gets what it
 //! missed, else the snapshot) on the socket thread (socket.rs). Where a message goes – the cells, preloads and the show's
 //! slice of this outlet – is deck-outlet's route.rs; here they go to the worker threads (mod.rs), what they answer
-//! (`media.ready`) out.
+//! (`media.ready`) out. #478: the deck's proof of facts (an approved deck) is asked with its own token and goes in its hellos.
 use super::config::Config;
+use super::media::Media;
 use super::socket::{self, Side};
 use super::Status;
+use deck_outlet::proof::{self, Answer, Renew};
 use deck_outlet::route::{route, Input, Routed};
 use deck_space::relay::{Client as Relay, Options, Out};
 use deck_ui::live::{Do, Session};
 use protocol::{Cell, MediaPreload, Message, Role};
 use std::sync::atomic::AtomicBool;
-use std::sync::mpsc::{Receiver, Sender};
+use std::sync::mpsc::{Receiver, Sender, TryRecvError};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -38,6 +40,11 @@ pub struct Client {
     /// #478: what the Live page asks (a role, a name) and what it shows (the relay client's session)
     pub page: Receiver<Do>,
     pub session: Arc<Mutex<Session>>,
+    /// #478: the deck's proof of facts for its session, asked with its own token (`media.token`, the API `media.api`):
+    /// when it asks (deck-outlet's proof.rs) and the answer on its way from the fetch thread
+    pub media: Arc<Media>,
+    pub renew: Renew,
+    pub proof: Option<Receiver<Answer>>,
 }
 
 impl Client {
@@ -60,10 +67,42 @@ impl Client {
         let (stop, rejoin) = (self.stop.clone(), self.rejoin.clone());
         socket::run(relay, &mut self, &stop, Some(&rejoin), POLL);
     }
+
+    fn answered(&mut self, c: &mut Relay, at: f64, a: Answer) {
+        self.proof = None;
+        if let Some(p) = self.renew.answered(at, a) {
+            c.set_proof(p);
+        }
+    }
+}
+
+/// #478: ask the API for the deck's proof in session `code` with its own token, off the socket's thread (no token: none)
+fn ask_proof(media: Arc<Media>, code: &str) -> Receiver<Answer> {
+    let (tx, rx) = std::sync::mpsc::channel();
+    let url = proof::request(&media.api, code);
+    std::thread::spawn(move || {
+        let a = match media.token.bearer() {
+            Ok(Some(t)) => media.fetch.api(&url, &t).map_or(Answer::Failed, |(status, body)| proof::read(status, &body)),
+            Ok(None) => Answer::Guest,
+            Err(_) => Answer::Failed,
+        };
+        let _ = tx.send(a);
+    });
+    rx
 }
 
 impl Side for Client {
-    fn feed(&mut self, c: &mut Relay, _now: f64) {
+    fn feed(&mut self, c: &mut Relay, now: f64) {
+        // #478: the proof in the next hello (the first one joins again at once); none: a guest
+        let at = now / 1000.0;
+        match self.proof.as_ref().map(Receiver::try_recv) {
+            Some(Ok(a)) => self.answered(c, at, a),
+            Some(Err(TryRecvError::Disconnected)) => self.answered(c, at, Answer::Failed),
+            _ => {}
+        }
+        if self.renew.due(at) {
+            self.proof = Some(ask_proof(self.media.clone(), c.code()));
+        }
         // #478: the Live page's choice – to the relay, the name kept in deck.toml (the role when the relay moved it)
         while let Ok(d) = self.page.try_recv() {
             match d {

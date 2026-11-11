@@ -7,6 +7,8 @@
 //! Show media (#470, deck-outlet's `show`): a preload url `live/<toon>/<file>` is asked as `s:<id>` - the API's signed
 //! link, which the page asks for with the deck's token (link.rs) - and then fetched as `m:<id>` from that link, without
 //! the token. A deck that is not paired answers the conductor why (the code to pair with).
+//! Its proof (#478, deck-outlet's `proof`): asked as `r:` – the page fetches it with its reader's sign-in – and put in the
+//! relay client's hellos; a reader not signed in gets none and the deck joins as a guest.
 //!
 //! Not yet in the browser: a preloaded .glb as the set (a set by name loads from the library), video (its still stands
 //! in, as on the native deck).
@@ -14,6 +16,7 @@ use deck_outlet::compose::{Composer, Shelf};
 use deck_outlet::frame::{Frame, SpaceTarget};
 use deck_outlet::plan::MediaRef;
 use deck_outlet::preload::Preload;
+use deck_outlet::proof::{self, Renew};
 use deck_outlet::recompose::Recompose;
 use deck_outlet::route::{route, Input, Routed};
 use deck_outlet::show::{show_path, signed_link, signed_link_request};
@@ -194,6 +197,8 @@ pub struct Outlet {
     api: String,
     /// why the deck has no token ("" = it has one - the page says, from DeckLink)
     pub unpaired: String,
+    /// #478: when it asks for its proof (`r:`)
+    renew: Renew,
 }
 
 impl Outlet {
@@ -233,11 +238,16 @@ impl Outlet {
             pieces: Vec::new(),
             api: api.trim_end_matches('/').to_owned(),
             unpaired: "the deck is not paired yet".into(),
+            renew: Renew::default(),
         })
     }
 
     /// what the relay client asks of the page's socket; the messages are routed here (`now`: the page's clock, s)
     pub fn take(&mut self, now: Duration) -> Vec<Out> {
+        if self.renew.due(now.as_secs_f64()) {
+            let ask = ("r:".to_string(), proof::request(&self.api, self.relay.code()));
+            self.composer.shelf.asks.push(ask);
+        }
         let mut out = Vec::new();
         for o in self.relay.take() {
             match o {
@@ -304,6 +314,14 @@ impl Outlet {
                 self.composer.shelf.failed(&format!("m:{id}"), why.clone());
                 self.medium(id, Some(why));
             }
+        }
+    }
+
+    /// #478: the API's answer to the `r:` ask (`status` 0: no answer) at `now` – the proof for the relay client's hellos
+    pub fn proof(&mut self, status: u16, body: &str, now: Duration) {
+        let body = serde_json::from_str(body).unwrap_or(serde_json::Value::Null);
+        if let Some(p) = self.renew.answered(now.as_secs_f64(), proof::read(status, &body)) {
+            self.relay.set_proof(p);
         }
     }
 
