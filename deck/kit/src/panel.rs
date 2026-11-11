@@ -63,8 +63,9 @@ pub enum Part<'a> {
     Title(&'a str),
     /// a sentence, wrapped; muted or not
     Line(&'a str, bool),
-    /// the actions side by side, the first one the primary; the one the keys are on; a countdown (0..1 of its time gone)
-    /// after which the primary happens by itself – the reader's line along the primary's bottom (its chapter end, `next-bar`)
+    /// the actions side by side – one under the other where a label does not fit its share of the width (a phone) –, the
+    /// first one the primary; the one the keys are on; a countdown (0..1 of its time gone) after which the primary
+    /// happens by itself – the reader's line along the primary's bottom (its chapter end, `next-bar`)
     Buttons(&'a [&'a str], Option<usize>, Option<f32>),
     /// what the keys do, for a deck without touch: (key, what)
     Keys(&'a [(&'a str, &'a str)]),
@@ -107,11 +108,19 @@ fn cols(d: &DrawList, px: f32, width: f32) -> usize {
     ((width / d.advance(px)) as usize).max(8)
 }
 
+/// the buttons stand one under the other: a label is wider than its share of `width` side by side (less its padding)
+fn stacked(d: &DrawList, t: &Tokens, width: f32, labels: &[&str]) -> bool {
+    let n = labels.len().max(1) as f32;
+    let each = (width - GAP * (n - 1.0)) / n - 2.0 * t.size.pad;
+    labels.iter().any(|l| d.advance(t.size.font) * l.chars().count() as f32 > each)
+}
+
 fn part_height(d: &DrawList, t: &Tokens, width: f32, part: &Part) -> f32 {
     match part {
         Part::Caption(..) => t.size.small * LINE,
         Part::Title(_) => TITLE * LINE,
         Part::Line(text, _) => wrap(text, cols(d, t.size.font, width)).len() as f32 * t.size.font * LINE,
+        Part::Buttons(labels, ..) if stacked(d, t, width, labels) => labels.len() as f32 * (t.size.row + GAP) - GAP + 6.0,
         Part::Buttons(..) => t.size.row + 6.0,
         Part::Keys(_) => t.size.small * LINE,
         Part::Mark(..) | Part::Switch(..) => t.size.row,
@@ -173,9 +182,13 @@ pub fn draw(d: &mut DrawList, t: &Tokens, screen: (f32, f32), parts: &[Part], gr
             }
             Part::Buttons(labels, focus, gone) => {
                 let n = labels.len().max(1) as f32;
-                let w = (area.w - GAP * (n - 1.0)) / n;
+                let under = stacked(d, t, area.w, labels);
+                let w = if under { area.w } else { (area.w - GAP * (n - 1.0)) / n };
                 for (b, label) in labels.iter().enumerate() {
-                    let at = Rect { x: area.x + b as f32 * (w + GAP), y: y + 6.0, w, h: t.size.row };
+                    let at = match under {
+                        true => Rect { x: area.x, y: y + 6.0 + b as f32 * (t.size.row + GAP), w, h: t.size.row },
+                        false => Rect { x: area.x + b as f32 * (w + GAP), y: y + 6.0, w, h: t.size.row },
+                    };
                     button(d, t, at, label, b == 0, focus == Some(b));
                     if let Some(gone) = gone.filter(|_| b == 0) {
                         // on the ink primary: a paper line that fills as the time goes
@@ -339,6 +352,20 @@ mod tests {
         let (a, edge) = (places[0], t.size.edge);
         let line = Prim::Rect { x: a.x, y: a.y + a.h - edge, w: a.w * 0.5, h: edge, r: 0.0, color: t.color.surface };
         assert!(d.prims().contains(&line), "the countdown's line");
+    }
+
+    #[test]
+    fn buttons_whose_labels_do_not_fit_side_by_side_stand_one_under_the_other() {
+        let (mut d, t) = (DrawList::new(0.6), tokens());
+        let parts = [Part::Buttons(&["OK", "Zurück zu meiner Version"], None, None)];
+        // a deck's screen: side by side
+        let wide = draw(&mut d, &t, (640.0, 400.0), &parts, false);
+        assert!(wide[1].y == wide[0].y && wide[1].x > wide[0].x);
+        // a phone: 24 characters do not fit half of 368 – each button as wide as the panel, the panel taller
+        let phone = draw(&mut d, &t, (400.0, 300.0), &parts, false);
+        assert!(phone[1].x == phone[0].x && phone[1].y == phone[0].y + t.size.row + 8.0 && phone[0].w == 368.0, "{phone:?}");
+        assert_eq!(height(&d, &t, 400.0, &parts) - height(&d, &t, 640.0, &parts), t.size.row + 8.0);
+        assert!(phone[1].y + phone[1].h <= 300.0 - t.size.pad + 0.01);
     }
 
     #[test]

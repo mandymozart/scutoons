@@ -89,7 +89,8 @@ impl Face {
     /// A tap or a click at (x, y) of the screen, in device pixels: what is there is pressed. true = it was on something.
     pub fn tap(&mut self, x: f32, y: f32, flashed: &mut Flashed, fetched: &mut Fetched) -> bool {
         let (lx, ly) = (x / self.scale.max(1.0), y / self.scale.max(1.0));
-        let Some(index) = self.places.iter().position(|at| at.has(lx, ly)) else { return false };
+        // what was painted last may be gone already (a toast's time ran out before the next picture)
+        let Some(index) = self.places.iter().position(|at| at.has(lx, ly)).filter(|_| flashed.shown().is_some()) else { return false };
         self.keys = false;
         flashed.press(index, fetched);
         true
@@ -170,7 +171,9 @@ mod tests {
         assert!(toast.h < 140 && toast.at(799, toast.h / 2)[3] == 0 && toast.at(40, toast.h / 2)[3] == 255, "transparent beside the box");
         let at = face.places[0];
         assert!(face.tap((at.x + 5.0) * 2.0, (at.y + 5.0) * 2.0, &mut f, &mut fetched));
-        assert_eq!((f.shown(), face.paint(f.shown().as_ref(), SCREEN, &font)), (None, Some(None)));
+        // nothing shows any more, though the picture was not painted again yet: a tap there is not the deck's UI's
+        assert!(f.shown().is_none() && !face.tap((at.x + 5.0) * 2.0, (at.y + 5.0) * 2.0, &mut f, &mut fetched));
+        assert_eq!(face.paint(f.shown().as_ref(), SCREEN, &font), Some(None));
     }
 
     #[test]
