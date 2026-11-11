@@ -26,6 +26,58 @@ pub enum Answer {
     Failed,
 }
 
+/// The facts a proof states (its payload, `{ session, facts: { account, approved }, exp }`): the account roles of who
+/// is at the deck – a signed-in reader's, or the member's a paired deck belongs to – and whether it is an approved deck.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Facts {
+    pub account: Vec<String>,
+    pub approved: bool,
+}
+
+/// base64url without padding, as the API writes a proof's two parts
+fn base64url(text: &str) -> Option<Vec<u8>> {
+    let mut out = Vec::with_capacity(text.len() * 3 / 4);
+    let (mut bits, mut have) = (0u32, 0u32);
+    for c in text.bytes() {
+        let v = match c {
+            b'A'..=b'Z' => c - b'A',
+            b'a'..=b'z' => c - b'a' + 26,
+            b'0'..=b'9' => c - b'0' + 52,
+            b'-' => 62,
+            b'_' => 63,
+            b'=' => continue,
+            _ => return None,
+        };
+        (bits, have) = ((bits << 6) | v as u32, have + 6);
+        if have >= 8 {
+            have -= 8;
+            out.push((bits >> have) as u8);
+        }
+    }
+    Some(out)
+}
+
+/// What `proof` states (#481: the deck reads its own facts – whether its person may reject a flash is one). The deck
+/// cannot check the signature and need not: it has the proof from the API itself, over its own sign-in or token; the
+/// relay checks it. None = no proof's shape.
+pub fn facts(proof: &str) -> Option<Facts> {
+    let payload = base64url(proof.split('.').next()?)?;
+    let claims: Value = serde_json::from_slice(&payload).ok()?;
+    let facts = claims.get("facts")?;
+    let account = facts["account"].as_array().map(|a| a.iter().filter_map(|r| r.as_str().map(str::to_string)).collect()).unwrap_or_default();
+    Some(Facts { account, approved: facts["approved"].as_bool().unwrap_or(false) })
+}
+
+/// The account roles an answer states for who is at the deck: `Some(roles)` to take from now (none for a guest), `None`
+/// = the answer said nothing, what the deck knows stays.
+pub fn account(a: &Answer) -> Option<Vec<String>> {
+    match a {
+        Answer::Proof { proof, .. } => Some(facts(proof).map(|f| f.account).unwrap_or_default()),
+        Answer::Guest => Some(Vec::new()),
+        Answer::Failed => None,
+    }
+}
+
 /// The API's answer (`{ proof, expires_in }`, or `{ error }` with the status)
 pub fn read(status: u16, body: &Value) -> Answer {
     match status {
@@ -59,6 +111,11 @@ impl Renew {
             self.due = f64::INFINITY;
         }
         due
+    }
+
+    /// Ask again at once (who is signed in changed: a reader signed in or out)
+    pub fn again(&mut self) {
+        self.due = f64::NEG_INFINITY;
     }
 
     /// the answer came at `now`; what the relay client gets: `Some(proof)` to put in its hellos, `Some(None)` to drop the one
@@ -96,6 +153,29 @@ mod tests {
         assert_eq!(read(401, &json!({ "error": "unauthorized" })), Answer::Guest);
         assert_eq!(read(403, &json!({ "error": "not_for_ai" })), Answer::Guest);
         assert_eq!(read(503, &Value::Null), Answer::Failed);
+    }
+
+    #[test]
+    fn a_proof_states_its_facts_to_the_deck_too() {
+        // the vector the API signs and the relay verifies (deck/protocol/fixtures/live-proof.json)
+        let vector: Value = serde_json::from_str(include_str!("../../protocol/fixtures/live-proof.json")).unwrap();
+        let proof = vector["proof"].as_str().unwrap();
+        assert_eq!(facts(proof), Some(Facts { account: vec!["member".into(), "live".into()], approved: true }));
+        assert_eq!(account(&Answer::Proof { proof: proof.into(), again: 60.0 }), Some(vec!["member".to_string(), "live".to_string()]));
+        // a guest has no account; no answer changes nothing; what is no proof states nothing
+        assert_eq!((account(&Answer::Guest), account(&Answer::Failed)), (Some(vec![]), None));
+        assert_eq!((facts("not a proof"), facts(""), facts("e30.x")), (None, None, None));
+        assert_eq!(account(&Answer::Proof { proof: "e30.x".into(), again: 60.0 }), Some(vec![]));
+    }
+
+    #[test]
+    fn asks_again_at_once_when_told() {
+        let mut r = Renew::default();
+        assert!(r.due(0.0));
+        r.answered(1.0, Answer::Guest);
+        assert!(!r.due(2.0));
+        r.again();
+        assert!(r.due(2.0));
     }
 
     #[test]

@@ -199,7 +199,7 @@
 				if (outlet) await settled();
 				if (!alive || !stage) return;
 				try {
-					const s = await SceneStage.start({ host: stage, base: WASM_BASE, api: API_URL, cdn, user: () => (session.isLoggedIn ? { bearer: getSessionToken() } : null), mayReject: () => session.roles.includes('live'), scene: q.get('scene') ?? (outlet ? 'outlet' : ''), prefer: preferOf(q), outlet: outlet ? { relay: q.get('live') ?? '', name: q.get('outlet') ?? '', locale: q.get('locale') ?? 'de', reader: nickOf(session.me, '') } : undefined });
+					const s = await SceneStage.start({ host: stage, base: WASM_BASE, api: API_URL, cdn, user: () => (session.isLoggedIn ? { bearer: getSessionToken() } : null), scene: q.get('scene') ?? (outlet ? 'outlet' : ''), prefer: preferOf(q), outlet: outlet ? { relay: q.get('live') ?? '', name: q.get('outlet') ?? '', locale: q.get('locale') ?? 'de', reader: nickOf(session.me, '') } : undefined });
 					if (alive) scene = s;
 					else s.stop();
 				} catch (e) {

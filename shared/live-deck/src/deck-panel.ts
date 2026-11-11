@@ -6,7 +6,8 @@
 export interface PanelView {
 	panel_tap(x: number, y: number): boolean;
 	panel_key(key: string): boolean;
-	set_may_reject(yes: boolean): void;
+	/** the reader signed in or out: the deck asks for its live proof again (who may reject a flash is in it) */
+	proof_again(): void;
 }
 
 /** A tap on the canvas (in its pixels) and the page's keys go to the panel; what it took is not the page's any more. Returns how to stop. */

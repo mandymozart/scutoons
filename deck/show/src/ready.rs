@@ -15,6 +15,10 @@ use std::fmt;
 /// geht der Dialog automatisch weg … wird es automatisch angenommen"): then it is taken – flashing is an explicit act.
 pub const SUGGESTION_SECS: f32 = 10.0;
 
+/// The account role that may reject a suggested flash and ask not to be flashed (owner 2026-11-11: "Ja live kann
+/// rejecten."); a guest never, a member not either.
+pub const MAY_REJECT: &str = "live";
+
 /// why a deck did not take a flash its person rejected (#481): the conductor's list reads it
 pub const REJECTED: &str = "rejected at the deck";
 

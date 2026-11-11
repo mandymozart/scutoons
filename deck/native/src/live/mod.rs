@@ -213,8 +213,8 @@ mod running {
         /// #481: a key, a click or a touch of the window, for the deck's UI (deck-show `face.rs`, on the flash thread).
         /// true = it was the deck's UI's: while a dialog shows the keys are its own (but the function and volume keys),
         /// and a tap where the panel is. `f` goes to it too ("please don't flash", for who may set it) and stays the
-        /// window's.
-        pub fn window_event(&self, event: &winit::event::WindowEvent) -> bool {
+        /// window's – unless a page of the HUD is open (`page`: a name is typed on the Live page).
+        pub fn window_event(&self, event: &winit::event::WindowEvent, page: bool) -> bool {
             use winit::event::{ElementState, MouseButton, TouchPhase, WindowEvent};
             use winit::keyboard::Key;
             let (dialog, top) = {
@@ -247,7 +247,7 @@ mod running {
                     };
                     let passes = name.len() > 1 && (name.starts_with('F') && name[1..].chars().all(|c| c.is_ascii_digit()) || name.starts_with("Audio"));
                     let mine = dialog && !passes;
-                    if mine || matches!(name.as_str(), "f" | "F") {
+                    if mine || (!page && matches!(name.as_str(), "f" | "F")) {
                         let _ = self.flash.send(super::flash::In::Key(name));
                     }
                     mine

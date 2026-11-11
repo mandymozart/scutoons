@@ -44,7 +44,8 @@ final class LiveSessions
 
     /**
      * #478: a client's proof for session `$code` – the facts a role's filter may ask that only this API knows: the account
-     * roles among member, creator, admin, live, and whether it is an approved deck. Nothing about who it is (no id, no name,
+     * roles among member, creator, admin, live (a reader's, or the member's a paired deck belongs to, #481), and whether it
+     * is an approved deck. Nothing about who it is (no id, no name,
      * no mail). Signed like the tokens, `{ session, facts: { account, approved }, exp }` (deck/relay/src/token.rs `proof`;
      * the shared vector: deck/protocol/fixtures/live-proof.json). No secret: signed with the empty key – the relay in dev
      * mode takes the facts as stated, a relay with a secret refuses them (that client is a guest).

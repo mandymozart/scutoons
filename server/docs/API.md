@@ -793,7 +793,8 @@ Handshake, then approval, then data (agents/research/CYBERDECKS.md §9). Code: `
   which the deck sends in its `hello.proof` and the relay checks (a role's filter: `account`, `approved`). The proof is signed
   like the tokens (`base64url(payload JSON) "." base64url(HMAC-SHA256)`, `LIVE_TOKEN_SECRET`) over
   `{ session, facts: { account: [member|creator|admin|live …], approved }, exp }` – a member's roles among those four (a
-  session cookie or Bearer), or `approved: true` and no account fact for a deck token. Nothing about who it is (no id, no
+  session cookie or Bearer), or `approved: true` and the roles of the member the deck is paired to for a deck token (#481,
+  owner 2026-11-11: a paired deck's rights are its account's; before: no account fact). A deck reads its own facts from the payload too: with `live` its person may reject a flash. Nothing about who it is (no id, no
   name, no mail). A client asks again at half of `expires_in`. No secret: signed with the empty key, `dev: true` (the relay's
   dev mode takes the facts as stated; a relay with a secret refuses them – the client is a guest). `401` nobody signed in (a
   guest needs no proof) · `403 not_for_ai` · `400 invalid_session` (letters, digits, `-`, `_`; 1–64). The shared test vector

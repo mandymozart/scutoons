@@ -10,7 +10,8 @@
 //! - **the answer**: the `flash.report`s to send (`reports`: also when the deck joins – what it is, what it runs).
 //!
 //! - **the person at the deck** (#481, `dialog.rs`): a flash that is only suggested waits for them – accept, reject, or
-//!   no answer for `SUGGESTION_SECS`, which accepts – when they may reject (`set_may_reject`; a guest and a member may
+//!   no answer for `SUGGESTION_SECS`, which accepts – when they may reject (`set_account`: the role `live` in the
+//!   deck's live proof; a guest and a member may
 //!   not: they are flashed and read a toast). After a flash that replaced the deck's own version they get the notice
 //!   with the way back; everyone else the toast. Who may reject may also say "please don't flash" at the deck
 //!   (`open_keep`: a switch; owner 2026-11-11: no reason). `shown` is what `face.rs` draws, `press` / `key` what it
@@ -100,8 +101,16 @@ impl Flashed {
         }
     }
 
-    /// #481: whether the person at the deck may reject a suggested flash (the platform knows who they are)
-    pub fn set_may_reject(&mut self, yes: bool) {
+    /// #481: who is at the deck – the account roles its live proof states (deck-outlet `proof::account`; owner
+    /// 2026-11-11: "Dann die live nachweis ob abgelehnt werden darf"): with `ready::MAY_REJECT` among them they may
+    /// reject a suggested flash and ask not to be flashed. No proof, or a guest's: none.
+    pub fn set_account(&mut self, roles: &[String]) {
+        self.may_reject = roles.iter().any(|r| r == ready::MAY_REJECT);
+    }
+
+    /// the tests' short way to someone who may reject
+    #[cfg(test)]
+    pub(crate) fn set_may_reject(&mut self, yes: bool) {
         self.may_reject = yes;
     }
 
@@ -389,6 +398,28 @@ mod tests {
     fn flash(id: &str) -> Flash {
         let top = protocol::Pinned { id: "top".into(), version: 3 };
         Flash { root: top.clone(), shows: vec![top], lock: None, hops: 0, here: None, id: Some(id.into()), by: None, skip: None, force: None, needs: None }
+    }
+
+    #[test]
+    fn who_may_reject_is_the_role_live_in_the_decks_proof() {
+        let (mut f, mut fetched) = (Flashed::new("left", "browser"), Fetched::default());
+        f.joined("c1");
+        // a member's deck is flashed: no question, and no "please don't flash"
+        f.set_account(&["member".to_string()]);
+        f.flash(&flash("f1"), API, "", &mut fetched);
+        assert!(!matches!(f.shown(), Some(Shown::Dialog(_))) && !f.open_keep());
+        // with `live` the next flash is a suggestion
+        f.set_account(&["member".to_string(), "live".to_string()]);
+        let mut next = flash("f2");
+        (next.root.version, next.shows[0].version) = (4, 4);
+        f.flash(&next, API, "", &mut fetched);
+        assert!(matches!(f.shown(), Some(Shown::Dialog(d)) if d.buttons.len() == 2));
+        f.key(Key::Escape, &mut fetched);
+        assert!(f.open_keep());
+        f.key(Key::Escape, &mut fetched);
+        // a guest (no proof, or signed out): nothing of it
+        f.set_account(&[]);
+        assert!(!f.open_keep());
     }
 
     fn carried(p: &Place) -> Option<Found> {
