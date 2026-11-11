@@ -206,6 +206,7 @@
         "nick": { "type": "string", "description": "trimmed to 24 characters by the relay" },
         "device": { "type": "string", "description": "#478: what the client is – native, browser, phone … (the words of a flash report's `device`); a role's filter may ask it" },
         "token": { "type": "string", "description": "HMAC session token (conductor, bridge, uplink)" },
+        "proof": { "type": "string", "description": "#478: the API's signed facts of this client for this session (`GET /api/live/proof`: account roles, an approved deck) – a role's filter may ask them; none, a bad or an expired one: a guest" },
         "resume": { "$ref": "#/definitions/Resume" }
       },
       "required": ["code", "role"],
@@ -602,7 +603,7 @@
       "enum": ["guest", "member", "creator", "admin", "live"]
     },
     "Admits": {
-      "description": "#478, SHOW.md §9: who may take a role. Any one fact admits; a role without a filter admits a guest, so anyone with the code. The relay tests it (`device` as the client says it in its `hello`, `group` as it joined); an account fact needs the server's proof (#478 slice 4) and admits nobody before it.",
+      "description": "#478, SHOW.md §9: who may take a role. Any one fact admits; a role without a filter admits a guest, so anyone with the code. The relay tests it (`device` as the client says it in its `hello`, `group` as it joined); an account fact and `approved` admit only with the server's proof in the client's `hello.proof`.",
       "type": "object",
       "properties": {
         "account": { "type": "array", "items": { "$ref": "#/definitions/Account" } },
@@ -632,12 +633,13 @@
       "additionalProperties": false
     },
     "Present": {
-      "description": "#478: one client as presence tells the conductor: its role (group; none = no role), its name, its device, a lock from above.",
+      "description": "#478: one client as presence tells the conductor: its role (group; none = no role), its name, its device, its proven account fact, a lock from above.",
       "type": "object",
       "properties": {
         "group": { "type": "string" },
         "nick": { "type": "string" },
         "device": { "type": "string" },
+        "account": { "$ref": "#/definitions/Account", "description": "the strongest account fact its proof shows (none: guest)" },
         "locked": { "type": "boolean" }
       },
       "additionalProperties": false

@@ -194,6 +194,8 @@ export interface Hello {
 	device?: string;
 	/** HMAC session token (conductor, bridge, uplink) */
 	token?: string;
+	/** #478: the API's signed facts of this client for this session (`GET /api/live/proof`: account roles, an approved deck) – a role's filter may ask them; none, a bad or an expired one: a guest */
+	proof?: string;
 	resume?: Resume;
 }
 
@@ -528,7 +530,7 @@ export interface AddressFilter {
 /** #478 (owner 2026-11-10 [role]): what a person is to the server – `guest` not signed in (only the code), `member`, `creator`, `admin`, `live` (the in-house manager, an account role only used in live use) */
 export type Account = 'guest' | 'member' | 'creator' | 'admin' | 'live';
 
-/** #478, SHOW.md §9: who may take a role. Any one fact admits; a role without a filter admits a guest, so anyone with the code. The relay tests it (`device` as the client says it in its `hello`, `group` as it joined); an account fact needs the server's proof (#478 slice 4) and admits nobody before it. */
+/** #478, SHOW.md §9: who may take a role. Any one fact admits; a role without a filter admits a guest, so anyone with the code. The relay tests it (`device` as the client says it in its `hello`, `group` as it joined); an account fact and `approved` admit only with the server's proof in the client's `hello.proof`. */
 export interface Admits {
 	account?: Account[];
 	/** an approved (paired) deck */
@@ -553,11 +555,13 @@ export interface Roles {
 	roles: ShowRole[];
 }
 
-/** #478: one client as presence tells the conductor: its role (group; none = no role), its name, its device, a lock from above. */
+/** #478: one client as presence tells the conductor: its role (group; none = no role), its name, its device, its proven account fact, a lock from above. */
 export interface Present {
 	group?: string;
 	nick?: string;
 	device?: string;
+	/** the strongest account fact its proof shows (none: guest) */
+	account?: Account;
 	locked?: boolean;
 }
 

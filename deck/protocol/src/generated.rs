@@ -437,6 +437,9 @@ pub struct Hello {
 	/// HMAC session token (conductor, bridge, uplink)
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub token: Option<String>,
+	/// #478: the API's signed facts of this client for this session (`GET /api/live/proof`: account roles, an approved deck) – a role's filter may ask them; none, a bad or an expired one: a guest
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub proof: Option<String>,
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub resume: Option<Resume>,
 }
@@ -1010,7 +1013,7 @@ impl Account {
 	}
 }
 
-/// #478, SHOW.md §9: who may take a role. Any one fact admits; a role without a filter admits a guest, so anyone with the code. The relay tests it (`device` as the client says it in its `hello`, `group` as it joined); an account fact needs the server's proof (#478 slice 4) and admits nobody before it.
+/// #478, SHOW.md §9: who may take a role. Any one fact admits; a role without a filter admits a guest, so anyone with the code. The relay tests it (`device` as the client says it in its `hello`, `group` as it joined); an account fact and `approved` admit only with the server's proof in the client's `hello.proof`.
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct Admits {
 	#[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1045,7 +1048,7 @@ pub struct Roles {
 	pub roles: Vec<ShowRole>,
 }
 
-/// #478: one client as presence tells the conductor: its role (group; none = no role), its name, its device, a lock from above.
+/// #478: one client as presence tells the conductor: its role (group; none = no role), its name, its device, its proven account fact, a lock from above.
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct Present {
 	#[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1054,6 +1057,9 @@ pub struct Present {
 	pub nick: Option<String>,
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub device: Option<String>,
+	/// the strongest account fact its proof shows (none: guest)
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub account: Option<Account>,
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub locked: Option<bool>,
 }

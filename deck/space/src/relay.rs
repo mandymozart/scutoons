@@ -764,6 +764,7 @@ impl Client {
             nick: self.o.nick.clone(),
             device: self.o.device.clone(),
             token: self.o.token.clone().or_else(|| conductor.then(|| "dev".into())),
+            proof: None,
             resume: self.resume.clone().filter(|_| self.o.resume),
         };
         self.send(Message::Hello(hello));

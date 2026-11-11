@@ -311,8 +311,8 @@ pub const KICK: &str = "kick";
 pub const LOCKED: &str = "locked";
 
 /// Who is here, as the conductor that runs `sub` sees it from presence: every deck and every phone in a role, by role
-/// (the show's order, then no role) and name. The account fact is `guest` for every client until the server's signed
-/// proof is checked by the relay (#478 slice 4; proposal: said so rather than left out).
+/// (the show's order, then no role) and name. The account fact is the strongest one the relay found proven (presence's
+/// `account`, #478 slice 4); none is `guest` (proposal: said so rather than left out).
 pub fn here(sub: &Subtree) -> Vec<Here> {
     let show = sub.conductor().show();
     let mut out: Vec<(usize, Here)> = sub
@@ -333,7 +333,7 @@ pub fn here(sub: &Subtree) -> Vec<Here> {
                 (false, None, None) => ("no role · the idle scene", false),
                 (false, None, Some(_)) => ("chose itself", false),
             };
-            let stated = format!("{} · {}", p.device.as_deref().unwrap_or("deck"), Account::Guest.as_str());
+            let stated = format!("{} · {}", p.device.as_deref().unwrap_or("deck"), p.account.unwrap_or(Account::Guest).as_str());
             (at.unwrap_or(usize::MAX), Here { client: id.clone(), role, line, stated, why: why.into(), locked, locked_above: above })
         })
         .collect();
@@ -527,12 +527,12 @@ mod tests {
         assert!(inspector(&show, None, "lamps").is_none());
     }
 
-    /// a client in presence: id, role, name, device, locked
+    /// a client in presence: id, role, name, device, locked (c1 has proven it is a member, #478 slice 4)
     type Who<'a> = (&'a str, Option<&'a str>, Option<&'a str>, Option<&'a str>, bool);
 
     fn presence(who: &[Who]) -> Envelope {
         let who = who.iter().map(|(id, g, nick, device, locked)| {
-            let p = protocol::Present { group: g.map(Into::into), nick: nick.map(Into::into), device: device.map(Into::into), locked: locked.then_some(true) };
+            let p = protocol::Present { group: g.map(Into::into), nick: nick.map(Into::into), device: device.map(Into::into), account: (*id == "c1").then_some(Account::Member), locked: locked.then_some(true) };
             (id.to_string(), p)
         });
         let p = protocol::Presence { groups: Default::default(), ready: vec![], decks: None, routes: None, links: None, quality: None, seats: None, parent: None, who: Some(who.collect()) };
@@ -562,7 +562,7 @@ mod tests {
         assert_eq!(
             rows,
             [
-                ("tenor: Anna", "browser · guest", "chose itself", false),
+                ("tenor: Anna", "browser · member", "chose itself", false),
                 ("tenor: Ben", "phone · guest", "set by a conductor above · locked", true),
                 ("baritone: Jo", "native · guest", "moved here by this conductor", false),
                 ("click monitor: pc", "native · guest", "moved here by this conductor · locked", false),

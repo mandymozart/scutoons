@@ -153,6 +153,17 @@ impl Relay {
         }
     }
 
+    /// #478: what a client's proof states for session `code` (a role's filter asks it). None, a bad or an expired one: no
+    /// facts, a guest – never refused for it. Without a secret (dev mode) the facts are taken as stated (main.rs says so).
+    /// The relay learns facts, never who it is.
+    fn facts(&self, code: &str, proof: Option<&str>) -> token::Facts {
+        let Some(proof) = proof.filter(|p| !p.is_empty()) else { return token::Facts::default() };
+        token::proof(self.config.token_secret.as_deref(), proof, code, now_ms() / 1000).unwrap_or_else(|why| {
+            tracing::info!(code, "a proof not taken ({why}): a guest");
+            token::Facts::default()
+        })
+    }
+
     /// Join (or resume) and send the welcome: the snapshot, or – on a resume inside the replay buffer – an empty
     /// snapshot followed by the missed messages.
     fn join(&self, hello: &protocol::Hello, url_group: Option<String>, outbox: Arc<Outbox>) -> Result<String, &'static str> {
@@ -178,6 +189,7 @@ impl Relay {
         let mut client = Client::new(hello.role, group.clone(), nick, outbox, now);
         client.key.clone_from(&key);
         client.device.clone_from(&hello.device);
+        client.facts = self.facts(&hello.code, hello.proof.as_deref());
         s.join(id.clone(), client);
         // #478: a role it may not take is not given
         let group = s.clients.get(&id).and_then(|c| c.group.clone());

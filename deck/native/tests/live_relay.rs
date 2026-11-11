@@ -144,7 +144,7 @@ impl Conductor {
         if let MaybeTlsStream::Plain(s) = ws.get_ref() {
             s.set_read_timeout(Some(Duration::from_millis(100))).unwrap();
         }
-        let hello = Hello { code: code.into(), role: Role::Conductor, group: None, nick: None, token: Some("dev".into()), device: None, resume: None };
+        let hello = Hello { code: code.into(), role: Role::Conductor, group: None, nick: None, token: Some("dev".into()), device: None, proof: None, resume: None };
         ws.send(Ws::Text(serde_json::to_string(&Envelope::new("", Message::Hello(hello))).unwrap().into())).unwrap();
         Conductor(ws)
     }
