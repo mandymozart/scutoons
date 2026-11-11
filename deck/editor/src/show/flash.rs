@@ -8,7 +8,7 @@ use super::{now, Hit, Host, Sheet};
 use deck_kit::controls::{self, Rect};
 use deck_kit::draw::DrawList;
 use deck_kit::tokens::Tokens;
-use deck_show::choose::{Choice, Tone};
+use deck_show::choose::{Choice, Prompt, Tone};
 use deck_show::Lock;
 use winit::keyboard::{Key, NamedKey};
 
@@ -72,6 +72,10 @@ impl Host {
 
     /// A key while the typed filter has the keys: true = taken. Enter applies it (the core reads it), Escape leaves it.
     pub fn type_key(&mut self, key: &Key) -> bool {
+        // #478: a role's name being typed
+        if self.type_field(key) {
+            return true;
+        }
         let Some(f) = self.flashing.as_mut().filter(|f| f.typing) else { return false };
         match key {
             Key::Character(c) => f.typed.push_str(c),
@@ -185,14 +189,14 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, pointer: (f3
     if f.asking {
         // the prompt over the list: its presses only
         hits.clear();
-        prompt(d, t, c, a, &mut hits);
+        prompt(d, t, &c.prompt(), a, &mut hits, (Hit::FlashConfirm, Hit::FlashCancel));
     }
     host.hits.extend(hits);
 }
 
-fn prompt(d: &mut DrawList, t: &Tokens, c: &Choice, a: Rect, hits: &mut Vec<(Rect, Hit)>) {
+/// a prompt of deck-show's (the flash's, #478 a role's remove, a kick) over `a`: its confirm and its back press `yes`, `no`
+pub(super) fn prompt(d: &mut DrawList, t: &Tokens, p: &Prompt, a: Rect, hits: &mut Vec<(Rect, Hit)>, (yes, no): (Hit, Hit)) {
     let (pad, font, row) = (t.size.pad, t.size.font, t.size.row);
-    let p = c.prompt();
     d.rect(a.x, a.y, a.w, a.h, [t.color.stage[0], t.color.stage[1], t.color.stage[2], 0.7]);
     let w = (a.w - 4.0 * pad).min(640.0);
     let lh = font * 1.5;
@@ -221,7 +225,7 @@ fn prompt(d: &mut DrawList, t: &Tokens, c: &Choice, a: Rect, hits: &mut Vec<(Rec
     button(d, t, cancel, "Back", t.color.control, t.color.text);
     if p.can {
         button(d, t, confirm, &p.confirm, if p.warn { t.color.danger } else { t.color.accent }, t.color.surface);
-        hits.push((confirm, Hit::FlashConfirm));
+        hits.push((confirm, yes));
     }
-    hits.push((cancel, Hit::FlashCancel));
+    hits.push((cancel, no));
 }

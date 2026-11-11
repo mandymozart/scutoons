@@ -8,7 +8,7 @@ use super::{Hit, Host, Sheet};
 use deck_kit::controls::{self, Rect};
 use deck_kit::draw::DrawList;
 use deck_kit::tokens::Tokens;
-use deck_show::view;
+use deck_show::{view, Show};
 
 pub struct Layout {
     pub left: Rect,
@@ -38,7 +38,7 @@ fn fit(d: &DrawList, text: &str, px: f32, w: f32) -> String {
 
 /// the 2D / 3D switch at the top of a stage rect; with `sheets` (Show) also the cue sheet and the problems list
 pub fn view_switch(d: &mut DrawList, t: &Tokens, host: &mut Host, stage: Rect, sheets: bool) {
-    let names: &[&str] = if sheets { &["3D", "2D", "Cues", "Problems"] } else { &["3D", "2D"] };
+    let names: &[&str] = if sheets { &["3D", "2D", "Cues", "Problems", "Who"] } else { &["3D", "2D"] };
     let h = t.size.row - 4.0;
     let w: f32 = names.iter().map(|n| d.advance(t.size.small) * n.chars().count().max(2) as f32 + 2.0 * t.size.pad + 2.0).sum();
     let x = stage.x + stage.w - w - t.size.pad;
@@ -47,11 +47,12 @@ pub fn view_switch(d: &mut DrawList, t: &Tokens, host: &mut Host, stage: Rect, s
     let on = match host.sheet.filter(|_| sheets) {
         Some(Sheet::Cues) => 2,
         Some(Sheet::Problems) => 3,
+        Some(Sheet::Who) => 4,
         Some(Sheet::Flash) => usize::MAX,
         None => usize::from(host.two_d),
     };
     let r = controls::pills(d, t, x, y, h, names, on);
-    let hits = [Hit::View(false), Hit::View(true), Hit::Sheet(Sheet::Cues), Hit::Sheet(Sheet::Problems)];
+    let hits = [Hit::View(false), Hit::View(true), Hit::Sheet(Sheet::Cues), Hit::Sheet(Sheet::Problems), Hit::Sheet(Sheet::Who)];
     for (r, hit) in r.into_iter().zip(hits) {
         host.hits.push((r, hit));
     }
@@ -111,6 +112,21 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
         host.hits.push((r, if i == 0 { Hit::Crumb(depth) } else { Hit::Enter(i - 1) }));
     }
     y += tree.len() as f32 * t.size.tree_row + pad;
+    // #478: the roles this conductor gives out, with how many are in each (the running top only: a sub conductor's
+    // document shown here runs elsewhere)
+    let roles = deck_show::roles::roles(&show, host.path.is_empty().then_some(&host.sub));
+    d.text(pad, y + 4.0, small, "ROLES", t.color.muted);
+    y += t.size.tree_row;
+    let role_rows: Vec<controls::TreeRow> = roles
+        .iter()
+        .map(|r| controls::TreeRow { depth: 0, label: r.name.clone(), detail: deck_show::roles::here_text(r.here), icon: "node", open: None, selected: host.role.as_ref() == Some(&r.id) })
+        .collect();
+    let mut role_rows = role_rows;
+    role_rows.push(controls::TreeRow { depth: 0, label: deck_show::roles::ADD.into(), detail: String::new(), icon: "plus", open: None, selected: false });
+    for (i, r) in controls::tree(d, t, 0.0, y, l.left.w - 1.0, &role_rows, pointer).into_iter().enumerate() {
+        host.hits.push((r, if i + 1 == role_rows.len() { Hit::RoleAdd } else { Hit::Role(i) }));
+    }
+    y += role_rows.len() as f32 * t.size.tree_row + pad;
     d.text(pad, y + 4.0, small, "ROWS", t.color.muted);
     y += t.size.tree_row;
     let rows: Vec<controls::TreeRow> = plan
@@ -171,17 +187,31 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
         d.text(cx, l.stage.y + l.stage.h - small * 2.0, small, &fit(d, note, small, l.stage.w - 2.0 * pad), t.color.muted);
     }
 
-    // the rows band: fires on, then each column's cell
+    // the rows band: fires on, then each column's cell; #478: a role's header says its name, how many are here and who
+    // may take it (deck-show's words), and selects the role
     let (bx, mut by) = (l.band.x + pad, l.band.y + pad);
     let first_w = (l.band.w * 0.24).clamp(140.0, 300.0);
     let cols = plan.columns.len().max(1) as f32;
     let col_w = ((l.band.w - first_w - 2.0 * pad) / cols).max(40.0);
+    let head_h = small * 2.9;
     d.text(bx + first_w * 0.4, by, small, "fires on", t.color.muted);
     for (c, col) in plan.columns.iter().enumerate() {
-        d.text(bx + first_w + c as f32 * col_w + 4.0, by, small, &fit(d, &col.id, small, col_w - 8.0), t.color.muted);
+        let x = bx + first_w + c as f32 * col_w;
+        let role = roles.iter().position(|r| r.id == col.id);
+        let here = role.map(|i| deck_show::roles::here_text(roles[i].here)).unwrap_or_default();
+        if role.is_some() && host.role.as_ref() == Some(&col.id) {
+            d.round_rect(x - 2.0, by - 3.0, col_w - 2.0, head_h, t.size.radius, t.color.selected);
+        }
+        let hw = d.advance(small) * here.chars().count() as f32;
+        d.text(x + 4.0, by, small, &fit(d, &col.name, small, col_w - hw - 14.0), t.color.text);
+        d.text(x + col_w - hw - 10.0, by, small, &here, t.color.muted);
+        d.text(x + 4.0, by + small * 1.3, small, &fit(d, col.filter.as_ref().unwrap_or(&col.detail), small, col_w - 8.0), t.color.muted);
+        if let Some(i) = role {
+            host.hits.push((Rect { x, y: by - 3.0, w: col_w - 2.0, h: head_h }, Hit::Role(i)));
+        }
     }
-    by += small * 1.8;
-    let rh = ((l.band.h - small * 2.6 - pad) / plan.rows.len().max(1) as f32).clamp(18.0, t.size.row + 4.0);
+    by += head_h + 2.0;
+    let rh = ((l.band.h - head_h - 2.0 - 2.0 * pad) / plan.rows.len().max(1) as f32).clamp(18.0, t.size.row);
     for (i, r) in plan.rows.iter().enumerate() {
         let y = by + i as f32 * rh;
         if y + rh > l.band.y + l.band.h {
@@ -206,10 +236,36 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
         host.hits.push((whole, Hit::Row(i)));
     }
 
-    // right: the inspector of the row, the seats, save / load
+    // right: the inspector of the row (or #478 the selected role's), the seats, save / load
     let (rx, rw) = (l.right.x + pad, l.right.w - 2.0 * pad);
-    let mut y = l.right.y + pad;
-    for (i, (head, lines)) in view::inspector(&show, &sel).iter().enumerate() {
+    let y = l.right.y + pad;
+    let bh = 34.0;
+    let foot = l.right.y + l.right.h - bh - pad - small * 2.0;
+    let role = host.role.as_ref().and_then(|id| deck_show::roles::inspector(&show, host.path.is_empty().then_some(&host.sub), id));
+    match role {
+        Some(insp) => super::roles::inspector(d, t, host, &insp, Rect { x: rx, y, w: rw, h: foot - y }, pointer),
+        None => row_side(d, t, host, (&show, &sel, &seats), (rx, y, rw), foot),
+    }
+    let bw = (rw - 2.0 * pad) / 3.0;
+    let load = Rect { x: rx, y: foot, w: bw, h: bh };
+    let flash = Rect { x: rx + bw + pad, y: foot, w: bw, h: bh };
+    let save = Rect { x: rx + 2.0 * (bw + pad), y: foot, w: bw, h: bh };
+    button(d, t, load, "Load", t.color.control, t.color.text);
+    button(d, t, flash, "Flash", t.color.control, t.color.text);
+    button(d, t, save, "Save", t.color.accent, t.color.surface);
+    host.hits.push((save, Hit::Save));
+    host.hits.push((load, Hit::Load));
+    host.hits.push((flash, Hit::Flash));
+    let line = if host.status.is_empty() { format!("{}@{} · /api/shows", show.id, show.version) } else { host.status.clone() };
+    d.text(rx, foot + bh + 6.0, small, &fit(d, &line, small, rw), t.color.muted);
+    // #478: a prompt asked (a role's remove) over the stage: only its presses count
+    super::roles::ask(d, t, host, l.stage);
+}
+
+/// the right side for a row: its inspector, the seats, the flash reports, down to `foot`
+fn row_side(d: &mut DrawList, t: &Tokens, host: &Host, (show, sel, seats): (&Show, &str, &[view::SeatView]), (rx, mut y, rw): (f32, f32, f32), foot: f32) {
+    let (pad, font, small) = (t.size.pad, t.size.font, t.size.small);
+    for (i, (head, lines)) in view::inspector(show, sel).iter().enumerate() {
         y += controls::section(d, t, rx, y, rw, &head.to_uppercase(), i == 0);
         for (label, value) in lines {
             if !label.is_empty() {
@@ -227,7 +283,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
         d.text(rx, y + 4.0, small, "none: this show seats no sub conductor", t.color.muted);
         y += t.size.row;
     }
-    for s in &seats {
+    for s in seats {
         d.text(rx, y + 4.0, font, &s.id, t.color.text);
         d.text(rx + rw * 0.38, y + 4.0, small, &fit(d, &format!("{} · {}", s.show, s.detail), small, rw * 0.62), t.color.muted);
         y += font * 1.5;
@@ -235,8 +291,6 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
         y += t.size.row;
     }
     // #91 item 5: what each deck and sub conductor answered to the last flash (deck-show's words)
-    let bh = 34.0;
-    let foot = l.right.y + l.right.h - bh - pad - small * 2.0;
     y += controls::section(d, t, rx, y, rw, "FLASH REPORTS", false);
     let reports = view::reports(&host.sub);
     if reports.is_empty() {
@@ -258,16 +312,4 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
         }
         y += pad * 0.5;
     }
-    let bw = (rw - 2.0 * pad) / 3.0;
-    let load = Rect { x: rx, y: foot, w: bw, h: bh };
-    let flash = Rect { x: rx + bw + pad, y: foot, w: bw, h: bh };
-    let save = Rect { x: rx + 2.0 * (bw + pad), y: foot, w: bw, h: bh };
-    button(d, t, load, "Load", t.color.control, t.color.text);
-    button(d, t, flash, "Flash", t.color.control, t.color.text);
-    button(d, t, save, "Save", t.color.accent, t.color.surface);
-    host.hits.push((save, Hit::Save));
-    host.hits.push((load, Hit::Load));
-    host.hits.push((flash, Hit::Flash));
-    let line = if host.status.is_empty() { format!("{}@{} · /api/shows", show.id, show.version) } else { host.status.clone() };
-    d.text(rx, foot + bh + 6.0, small, &fit(d, &line, small, rw), t.color.muted);
 }

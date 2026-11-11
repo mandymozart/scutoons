@@ -132,7 +132,10 @@ fn args() -> Result<Args> {
             "--flash-confirm" => a.script.flash_confirm = true,
             "--seat" => a.script.seat = Some(val()?),
             "--row" => a.script.row = Some(val()?),
-            "--sheet" => a.script.sheet = Some(show::Sheet::parse(&val()?).context("--sheet cues | problems")?),
+            "--sheet" => a.script.sheet = Some(show::Sheet::parse(&val()?).context("--sheet cues | problems | flash | who")?),
+            "--role" => a.script.role = Some(val()?),
+            "--who-move" => a.script.who_move = val()?.split_once('=').map(|(c, r)| (c.to_string(), r.to_string())),
+            "--who-menu" => a.script.who_menu = Some(val()?),
             "--problem" => a.script.problem = Some(val()?.parse().context("--problem N (0-based)")?),
             "--gesture" => {
                 let v = val()?;

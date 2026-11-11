@@ -56,6 +56,52 @@ pub fn pills(d: &mut DrawList, t: &Tokens, x: f32, y: f32, h: f32, names: &[&str
     out
 }
 
+/// #478: chips that are each on or off (a filter's facts), side by side and on to the next line at `w`, a tree row high
+/// at most; their places and the height they took
+pub fn chips(d: &mut DrawList, t: &Tokens, (x, y, w): (f32, f32, f32), names: &[&str], on: &[bool]) -> (Vec<Rect>, f32) {
+    let (px, h, gap) = (t.size.small, t.size.tree_row - 4.0, 4.0);
+    let (mut cx, mut cy) = (x, y);
+    let mut out = Vec::with_capacity(names.len());
+    for (i, name) in names.iter().enumerate() {
+        let cw = d.advance(px) * name.chars().count() as f32 + t.size.pad;
+        if cx > x && cx + cw > x + w {
+            cx = x;
+            cy += h + gap;
+        }
+        let lit = on.get(i).copied().unwrap_or(false);
+        if lit {
+            d.round_rect(cx, cy, cw, h, t.size.radius, t.color.accent);
+        } else {
+            d.outline(cx, cy, cw, h, (t.size.radius, 1.0), t.color.line);
+        }
+        d.text(cx + t.size.pad * 0.5, cy + (h - px * 1.25) * 0.5, px, name, if lit { t.color.surface } else { t.color.muted });
+        out.push(Rect { x: cx, y: cy, w: cw, h });
+        cx += cw + gap;
+    }
+    let used = if names.is_empty() { 0.0 } else { cy + h - y };
+    (out, used)
+}
+
+/// #478: a small menu under `at`: a tree row per line, a tick before a ticked one; its lines' places
+pub fn menu(d: &mut DrawList, t: &Tokens, at: (f32, f32), w: f32, lines: &[&str], ticked: &[bool], pointer: (f32, f32)) -> Vec<Rect> {
+    let (h, px) = (t.size.tree_row, t.size.font);
+    d.round_rect(at.0, at.1, w, h * lines.len() as f32 + 4.0, t.size.radius, t.color.surface_head);
+    d.outline(at.0, at.1, w, h * lines.len() as f32 + 4.0, (t.size.radius, 1.0), t.color.line);
+    let mut out = Vec::with_capacity(lines.len());
+    for (i, line) in lines.iter().enumerate() {
+        let r = Rect { x: at.0 + 2.0, y: at.1 + 2.0 + i as f32 * h, w: w - 4.0, h };
+        if r.has(pointer.0, pointer.1) {
+            d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, t.color.hover);
+        }
+        if ticked.get(i).copied().unwrap_or(false) {
+            d.disc(r.x + 8.0, r.y + h * 0.5, 3.0, t.color.accent);
+        }
+        d.text(r.x + 16.0, r.y + (h - px * 1.25) * 0.5, px, &fit(line, ((w - 24.0) / d.advance(px)).max(0.0) as usize), t.color.text);
+        out.push(r);
+    }
+    out
+}
+
 /// a lone icon you press, its ground showing under the pointer; its place
 pub fn icon_button(d: &mut DrawList, t: &Tokens, at: Rect, name: &'static str, color: [f32; 4], pointer: (f32, f32)) -> Rect {
     if at.has(pointer.0, pointer.1) {
@@ -253,6 +299,27 @@ mod tests {
         let row = |depth| TreeRow { depth, label: "x".into(), detail: String::new(), icon: "nodes", open: None, selected: false };
         let cells = tree(&mut list(), &t, 0.0, 10.0, 200.0, &[row(0), row(1), row(9)], (0.0, 0.0));
         assert_eq!(cells[2].y, 10.0 + 2.0 * t.size.tree_row);
+    }
+
+    #[test]
+    fn chips_wrap_at_the_width_and_stay_a_tree_row_high() {
+        let t = Tokens::default();
+        let names = ["guest", "member", "creator", "admin", "live", "approved deck"];
+        let (cells, used) = chips(&mut list(), &t, (10.0, 0.0, 160.0), &names, &[true, false]);
+        assert_eq!(cells.len(), names.len());
+        assert!(cells.iter().all(|c| c.x >= 10.0 && c.x + c.w <= 170.0 && c.h <= t.size.tree_row), "{cells:?}");
+        assert!(cells.windows(2).all(|c| c[1].y > c[0].y || c[1].x >= c[0].x + c[0].w), "they do not overlap");
+        assert!(used > t.size.tree_row, "more than one line");
+        assert_eq!(chips(&mut list(), &t, (0.0, 0.0, 100.0), &[], &[]).1, 0.0);
+    }
+
+    #[test]
+    fn a_menu_line_is_a_tree_row() {
+        let t = Tokens::default();
+        let cells = menu(&mut list(), &t, (5.0, 100.0), 120.0, &["tenor", "no role", "lock"], &[true], (0.0, 0.0));
+        assert_eq!(cells.len(), 3);
+        assert_eq!(cells[2].y - cells[1].y, t.size.tree_row);
+        assert!(cells[0].has(20.0, 110.0));
     }
 
     #[test]
