@@ -1767,7 +1767,7 @@ impl App {
         // the CPU's part ends here: present waits for the display
         let cpu_ms = work_start.elapsed().as_secs_f32() * 1000.0;
         gpu.queue.submit([enc.finish()]);
-        frame.present();
+        gpu.queue.present(frame);
         let budget = self.frame_ms.last().copied().unwrap_or(16.7).max(1.0);
         let ease = |load: f32, now: f32| load + (now - load) * 0.08;
         self.cpu_load = ease(self.cpu_load, cpu_ms / budget);
@@ -1985,9 +1985,9 @@ fn save(device: &wgpu::Device, buf: &wgpu::Buffer, stride: u32, (w, h): (u32, u3
     slice.map_async(wgpu::MapMode::Read, move |r| {
         let _ = tx.send(r);
     });
-    device.poll(wgpu::PollType::Wait).context("waiting for the screenshot")?;
+    device.poll(wgpu::PollType::wait_indefinitely()).context("waiting for the screenshot")?;
     rx.recv().context("the map's answer")?.context("mapping the screenshot")?;
-    let data = slice.get_mapped_range();
+    let data = slice.get_mapped_range().context("reading the screenshot")?;
     let bgra = matches!(format, wgpu::TextureFormat::Bgra8Unorm | wgpu::TextureFormat::Bgra8UnormSrgb);
     let mut px = Vec::with_capacity((w * h * 4) as usize);
     for row in 0..h {

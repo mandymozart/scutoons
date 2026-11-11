@@ -827,9 +827,9 @@ fn shader_body(node: &Node) -> Result<String> {
 
 /// A fullscreen pass: common.wgsl + `body`. Async because the shader's verdict is (a native host blocks on it).
 async fn pipeline(device: &wgpu::Device, layout: &wgpu::BindGroupLayout, label: &str, body: &str, format: wgpu::TextureFormat, blend: bool) -> Result<wgpu::RenderPipeline> {
-    device.push_error_scope(wgpu::ErrorFilter::Validation);
+    let scope = device.push_error_scope(wgpu::ErrorFilter::Validation);
     let module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some(label), source: wgpu::ShaderSource::Wgsl(format!("{COMMON}\n{body}").into()) });
-    let pl = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: Some(label), bind_group_layouts: &[layout], push_constant_ranges: &[] });
+    let pl = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: Some(label), bind_group_layouts: &[Some(layout)], immediate_size: 0 });
     let p = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
         label: Some(label),
         layout: Some(&pl),
@@ -843,10 +843,10 @@ async fn pipeline(device: &wgpu::Device, layout: &wgpu::BindGroupLayout, label: 
             compilation_options: Default::default(),
             targets: &[Some(wgpu::ColorTargetState { format, blend: blend.then_some(wgpu::BlendState::ALPHA_BLENDING), write_mask: wgpu::ColorWrites::ALL })],
         }),
-        multiview: None,
+        multiview_mask: None,
         cache: None,
     });
-    if let Some(e) = device.pop_error_scope().await {
+    if let Some(e) = scope.pop().await {
         bail!("{e}");
     }
     Ok(p)
@@ -854,9 +854,11 @@ async fn pipeline(device: &wgpu::Device, layout: &wgpu::BindGroupLayout, label: 
 
 pub fn begin<'a>(enc: &'a mut wgpu::CommandEncoder, view: &'a wgpu::TextureView) -> wgpu::RenderPass<'a> {
     enc.begin_render_pass(&wgpu::RenderPassDescriptor {
+        multiview_mask: None,
         label: None,
         color_attachments: &[Some(wgpu::RenderPassColorAttachment {
             view,
+            depth_slice: None,
             resolve_target: None,
             ops: wgpu::Operations { load: wgpu::LoadOp::Clear(wgpu::Color::BLACK), store: wgpu::StoreOp::Store },
         })],

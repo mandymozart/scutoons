@@ -32,9 +32,9 @@ impl Renderer {
         let scale = if gpu.software() { render_scale.min(0.5) } else { render_scale };
         let mut stage = pollster::block_on(Stage::new(&gpu.device, &gpu.queue, format, gpu.size(), scale, render_scale, veil))?;
         // the splash first – one frame of it at once, the scene's shaders compile behind it
-        if let Ok(frame) = gpu.surface.get_current_texture() {
+        if let wgpu::CurrentSurfaceTexture::Success(frame) | wgpu::CurrentSurfaceTexture::Suboptimal(frame) = gpu.surface.get_current_texture() {
             stage.show_splash(&gpu.device, &gpu.queue, &frame.texture.create_view(&Default::default()));
-            frame.present();
+            gpu.queue.present(frame);
         }
         pollster::block_on(stage.load(&gpu.device, format, graph, feeds))?;
         Ok(Renderer { gpu, stage, capture: None })
@@ -88,9 +88,9 @@ impl Renderer {
                     continue;
                 }
             };
-            self.gpu.device.push_error_scope(wgpu::ErrorFilter::Validation);
+            let scope = self.gpu.device.push_error_scope(wgpu::ErrorFilter::Validation);
             let pipes = gpu.compile_post(&self.gpu.device, e, &src.0, &src.1);
-            match pollster::block_on(self.gpu.device.pop_error_scope()) {
+            match pollster::block_on(scope.pop()) {
                 Some(err) => {
                     tracing::error!("post '{}': the shader does not compile – the last one runs on\n{err}", e.name());
                     errors.push(format!("post '{}': {err}", e.name()));
@@ -179,7 +179,7 @@ impl Renderer {
                 tracing::error!("screenshot {}: {e:#}", path.display());
             }
         }
-        frame.present();
+        self.gpu.queue.present(frame);
         Ok(ms)
     }
 
@@ -187,8 +187,8 @@ impl Renderer {
     fn save(&self, path: &std::path::Path, buf: &wgpu::Buffer, row: u32, w: u32, h: u32) -> Result<()> {
         let slice = buf.slice(..);
         slice.map_async(wgpu::MapMode::Read, |_| {});
-        self.gpu.device.poll(wgpu::PollType::Wait)?;
-        let data = slice.get_mapped_range();
+        self.gpu.device.poll(wgpu::PollType::wait_indefinitely())?;
+        let data = slice.get_mapped_range()?;
         let bgra = matches!(self.gpu.config.format, wgpu::TextureFormat::Bgra8Unorm | wgpu::TextureFormat::Bgra8UnormSrgb);
         let mut px = Vec::with_capacity((w * h * 4) as usize);
         for y in 0..h {

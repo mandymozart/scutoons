@@ -90,7 +90,7 @@ impl PostGpu {
                 entry(3, tex),
             ],
         });
-        let pipe_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: Some("post"), bind_group_layouts: &[&layout], push_constant_ranges: &[] });
+        let pipe_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: Some("post"), bind_group_layouts: &[Some(&layout)], immediate_size: 0 });
         let ubuf = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("post"),
             size: std::mem::size_of::<Uniform>() as u64,
@@ -138,7 +138,7 @@ impl PostGpu {
                     compilation_options: Default::default(),
                     targets: &[Some(wgpu::ColorTargetState { format, blend, write_mask: wgpu::ColorWrites::ALL })],
                 }),
-                multiview: None,
+                multiview_mask: None,
                 cache: None,
             })
         };
@@ -231,8 +231,9 @@ impl PostGpu {
 fn draw(enc: &mut wgpu::CommandEncoder, pipe: &wgpu::RenderPipeline, bind: &wgpu::BindGroup, dst: &wgpu::TextureView, clear: bool) {
     let load = if clear { wgpu::LoadOp::Clear(wgpu::Color::BLACK) } else { wgpu::LoadOp::Load };
     let mut rp = enc.begin_render_pass(&wgpu::RenderPassDescriptor {
+        multiview_mask: None,
         label: Some("post"),
-        color_attachments: &[Some(wgpu::RenderPassColorAttachment { view: dst, resolve_target: None, ops: wgpu::Operations { load, store: wgpu::StoreOp::Store } })],
+        color_attachments: &[Some(wgpu::RenderPassColorAttachment { view: dst, depth_slice: None, resolve_target: None, ops: wgpu::Operations { load, store: wgpu::StoreOp::Store } })],
         depth_stencil_attachment: None,
         timestamp_writes: None,
         occlusion_query_set: None,
