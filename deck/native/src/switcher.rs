@@ -98,8 +98,16 @@ pub fn with_scene(text: &str, value: &str) -> String {
     crate::live::config::with_key(text, "scene", value)
 }
 
-/// Remembers the pick in the deck's file, so the next boot plays it.
+/// #473: the piece side's file under the cache (live/piece.rs): a show's piece plays from it for a while – it is no
+/// scene to boot into
+pub const PIECE_FILE: [&str; 2] = ["live", "piece.toml"];
+
+/// Remembers the pick in the deck's file, so the next boot plays it. A show's piece (`PIECE_FILE`) is not remembered:
+/// the deck boots into its own scene, the piece comes again with the show (found in #481's end-to-end test).
 pub fn remember(file: &Path, value: &str) -> std::io::Result<()> {
+    if Path::new(value).ends_with(PIECE_FILE.iter().collect::<PathBuf>()) {
+        return Ok(());
+    }
     if value.contains('"') {
         return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "a double quote in the scene"));
     }
@@ -180,6 +188,18 @@ mod tests {
     }
 
     #[test]
+    fn a_shows_piece_is_not_remembered_the_operators_pick_is() {
+        let file = std::env::temp_dir().join(format!("deck-remember-{}.toml", std::process::id()));
+        std::fs::write(&file, "audio_host = \"asio\"\n").unwrap();
+        let piece = std::env::temp_dir().join("cache").join(PIECE_FILE[0]).join(PIECE_FILE[1]);
+        remember(&file, &piece.to_string_lossy()).unwrap();
+        assert_eq!(std::fs::read_to_string(&file).unwrap(), "audio_host = \"asio\"\n", "the piece's file is no boot scene");
+        remember(&file, "madness").unwrap();
+        assert_eq!(std::fs::read_to_string(&file).unwrap(), "audio_host = \"asio\"\nscene = \"madness\"\n");
+        let _ = std::fs::remove_file(&file);
+    }
+
+    #[test]
     fn one_scene_line_is_replaced_never_doubled() {
         let t = "kiosk = \"stage\"\nscene = \"cathedral\"\nrelay = \"ws://x\"\nscene = \"old\"\n";
         assert_eq!(with_scene(t, "madness"), "kiosk = \"stage\"\nscene = \"madness\"\nrelay = \"ws://x\"\n");
@@ -187,7 +207,7 @@ mod tests {
         assert_eq!(with_scene("relay = \"a\"\n", "idle"), "relay = \"a\"\nscene = \"idle\"\n");
         // a key that only starts with scene stays
         assert_eq!(with_scene("scenery = 1\n", "idle"), "scenery = 1\nscene = \"idle\"\n");
-        // a Windows path (the piece side's file) stays a TOML string the deck reads back
+        // a Windows path stays a TOML string the deck reads back
         let path = r"C:\Users\deck\cache\live\piece.toml";
         let text = with_scene("audio_host = \"asio\"\n", path);
         assert_eq!(text.parse::<toml::Table>().expect("valid TOML")["scene"].as_str(), Some(path));

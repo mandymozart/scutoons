@@ -72,7 +72,8 @@ impl Side {
 
     /// the scene's text as a file for the switch
     fn write(&self, text: &str) -> Option<String> {
-        let file = self.cache.join("live").join("piece.toml");
+        let [dir, name] = crate::switcher::PIECE_FILE;
+        let file = self.cache.join(dir).join(name);
         std::fs::create_dir_all(file.parent()?).ok()?;
         std::fs::write(&file, text).map_err(|e| tracing::warn!("piece: {}: {e}", file.display())).ok()?;
         Some(file.to_string_lossy().into_owned())
