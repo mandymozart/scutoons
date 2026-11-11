@@ -77,7 +77,21 @@ fn config(hash: Option<&[u8]>) -> Result<ClientConfig, String> {
             builder.with_custom_tls(tls)
         }
     };
-    Ok(builder.max_idle_timeout(Some(IDLE)).map_err(|e| e.to_string())?.keep_alive_interval(Some(KEEP_ALIVE)).build())
+    let mut cfg = builder.build();
+    cfg.quic_config_mut().transport_config(std::sync::Arc::new(transport()?));
+    Ok(cfg)
+}
+
+/// The connection's QUIC transport: the idle timeout and the keep-alive as at the relay's door, and no path MTU
+/// discovery – its probes (up to 1452 bytes) were refused by Windows on the way to the hosted relay ("sendmsg error
+/// 10040", found in #481's live test), and the deck needs no more than QUIC's 1200: a datagram carries at most
+/// protocol's `DATAGRAM_MAX` (1100), a larger message goes on the stream.
+fn transport() -> Result<wtransport::quinn::TransportConfig, String> {
+    let mut t = wtransport::quinn::TransportConfig::default();
+    t.max_idle_timeout(Some(IDLE.try_into().map_err(|e| format!("{e}"))?));
+    t.keep_alive_interval(Some(KEEP_ALIVE));
+    t.mtu_discovery_config(None);
+    Ok(t)
 }
 
 /// The connection until it ends (Ok: the handle was dropped).

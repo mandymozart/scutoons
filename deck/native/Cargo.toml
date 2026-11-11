@@ -109,8 +109,9 @@ protocol = { workspace = true, optional = true }
 # the one ureq already links, named here so `live` has its crypto provider on its own
 tungstenite = { version = "0.30", optional = true, features = ["rustls-tls-webpki-roots"] }
 rustls = { version = "0.23", optional = true, default-features = false, features = ["ring", "std", "tls12"] }
-# QUIC to the relay (#438, live/quic.rs): the door browsers open as WebTransport; ring, as above; a live deck has no CA store of its own
-wtransport = { version = "0.7", optional = true, default-features = false, features = ["ring"] }
+# QUIC to the relay (#438, live/quic.rs): the door browsers open as WebTransport; ring, as above; a live deck has no CA store of its own;
+# quinn: its transport settings (no path MTU discovery, #481)
+wtransport = { version = "0.7", optional = true, default-features = false, features = ["ring", "quinn"] }
 webpki-roots = { version = "1", optional = true }
 # #211: the outputs' engine + runner and the bridge's adapters (USB-DMX, MIDI out)
 deck-outputs = { workspace = true, optional = true }
