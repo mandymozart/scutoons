@@ -4487,6 +4487,7 @@ dependencies = [
  "anyhow",
  "deck-core",
  "deck-engine",
+ "deck-kit",
  "deck-link",
  "deck-outlet",
  "deck-show",

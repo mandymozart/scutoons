@@ -9,8 +9,14 @@
 //!   it fetched (deck-space `fetched.rs`); the check waits until every answer is here;
 //! - **the answer**: the `flash.report`s to send (`reports`: also when the deck joins – what it is, what it runs).
 //!
+//! - **the person at the deck** (#481, `dialog.rs`): a flash that is only suggested waits for them – accept, reject, or
+//!   no answer for `SUGGESTION_SECS`, which accepts – when they may reject (`set_may_reject`; a guest and a member may
+//!   not: they are flashed and read one line). After a flash that replaced the deck's own version they get the notice
+//!   with the way back; everyone else the one line. `shown` is what the platform draws, `press` / `key` what it hands back.
+//!
 //! The native deck does the same on its own thread, blocking (deck-native live/flash.rs).
-use crate::ready::{self, Deck};
+use crate::dialog::{self, Act, Key, Shown};
+use crate::ready::{self, Deck, SUGGESTION_SECS};
 use crate::{Pinned, Show};
 use deck_space::fetched::Fetched;
 use deck_space::piece::{available, Found};
@@ -20,6 +26,9 @@ use std::collections::HashMap;
 
 /// the shows kept: a deck plays from a handful (no growth without bound, RULES A10)
 const KEEP: usize = 16;
+
+/// how long the one line stays, seconds
+const LINE_SECS: f32 = 5.0;
 
 /// A flash taken, until its report went out.
 #[derive(Debug, Clone)]
@@ -42,6 +51,21 @@ pub struct Flashed {
     ask: Option<(String, String)>,
     /// the reports to send
     out: Vec<FlashReport>,
+    /// #481: the person at the deck may reject a suggested flash, and the language they read
+    may_reject: bool,
+    locale: String,
+    /// a suggested flash waiting for them, and since when (the deck's clock, s)
+    pending: Option<(Flash, Option<f32>)>,
+    /// the flash they rejected last (a rejoin hands it over again: the same answer)
+    rejected: Option<String>,
+    /// the one line and until when it shows
+    line: Option<(Shown, f32)>,
+    /// the button the keys are on
+    focus: usize,
+    now: f32,
+    /// the API's base and why the deck cannot ask it, as the last flash came with them
+    api: String,
+    no_token: String,
 }
 
 impl Flashed {
@@ -49,7 +73,33 @@ impl Flashed {
     pub fn new(outlet: &str, device: &str) -> Flashed {
         let mut deck = Deck::new(outlet);
         deck.set_device(device);
-        Flashed { deck, outlet: outlet.to_owned(), shows: HashMap::new(), checking: None, ask: None, out: Vec::new() }
+        Flashed {
+            deck,
+            outlet: outlet.to_owned(),
+            shows: HashMap::new(),
+            checking: None,
+            ask: None,
+            out: Vec::new(),
+            may_reject: false,
+            locale: "en".into(),
+            pending: None,
+            rejected: None,
+            line: None,
+            focus: 0,
+            now: 0.0,
+            api: String::new(),
+            no_token: String::new(),
+        }
+    }
+
+    /// #481: whether the person at the deck may reject a suggested flash (the platform knows who they are)
+    pub fn set_may_reject(&mut self, yes: bool) {
+        self.may_reject = yes;
+    }
+
+    /// the language of what the deck says to them (`de…` = German, else English)
+    pub fn set_locale(&mut self, locale: &str) {
+        self.locale = locale.to_owned();
     }
 
     /// the relay's welcome: this deck's client id (a flash's lists name it so); the deck says what it is
@@ -61,10 +111,38 @@ impl Flashed {
 
     /// A flash arrives. `api`: the API's base; `no_token`: why the deck cannot ask it ("" = it can).
     pub fn flash(&mut self, flash: &Flash, api: &str, no_token: &str, fetched: &mut Fetched) {
+        (self.api, self.no_token) = (api.to_owned(), no_token.to_owned());
+        // a suggestion that was rejected here comes again (a rejoin): the same answer, quietly
+        if flash.id.is_some() && flash.id == self.rejected {
+            let report = self.deck.reject(flash);
+            return self.out.push(report);
+        }
+        // #481: only suggested, and someone here may say no: it waits for them (`turn` counts, `press` / `key` answer)
+        if self.may_reject && self.deck.suggested(flash) {
+            self.focus = 0;
+            self.pending = Some((flash.clone(), None));
+            return;
+        }
+        self.take(flash, fetched);
+    }
+
+    fn take(&mut self, flash: &Flash, fetched: &mut Fetched) {
+        let before = self.deck.runs().cloned();
         let show = match self.deck.take(flash) {
             Err(refused) => return self.out.push(*refused),
             Ok(show) => show,
         };
+        // what the person reads: the notice when their own version was replaced and they may act on it, else one line;
+        // a flash that changed nothing (a rejoin hands the same one again) says nothing
+        self.focus = 0;
+        if before.as_ref() != Some(&show) {
+            self.line = (!self.notice_due()).then(|| (dialog::flashed(&self.locale, &show, flash.by.as_deref()), self.now + LINE_SECS));
+        }
+        self.check(show, fetched);
+    }
+
+    /// the show to play is known: its document (unless the flash said what the outlet plays), then its pieces (`turn`)
+    fn check(&mut self, show: Pinned, fetched: &mut Fetched) {
         // a piece that failed before is asked for again
         fetched.again();
         let key = ready::kept_as(&show);
@@ -72,9 +150,9 @@ impl Flashed {
             // the flash said what the outlet plays: no document
             _ if self.deck.told(&show).is_some() => None,
             Some(text) => Some(ready::read(text)),
-            None if !no_token.is_empty() => Some(Err(no_token.to_owned())),
+            None if !self.no_token.is_empty() => Some(Err(self.no_token.clone())),
             None => {
-                self.ask = Some((key, format!("{}/shows/{}?v={}", api.trim_end_matches('/'), show.id, show.version)));
+                self.ask = Some((key, format!("{}/shows/{}?v={}", self.api.trim_end_matches('/'), show.id, show.version)));
                 None
             }
         };
@@ -104,9 +182,81 @@ impl Flashed {
         true
     }
 
-    /// One turn (a frame): a flash whose show is here asks for its pieces once; when every answer is here, the report.
+    fn notice_due(&self) -> bool {
+        self.may_reject && self.deck.unseen()
+    }
+
+    /// What the deck says to the person at it now (#481): the suggestion with its countdown, the notice, the line – or
+    /// nothing.
+    pub fn shown(&self) -> Option<Shown> {
+        if let Some((flash, since)) = &self.pending {
+            let gone = since.map_or(0.0, |s| (self.now - s) / SUGGESTION_SECS);
+            return Some(Shown::Dialog(dialog::suggestion(&self.locale, &ready::show_of(flash), flash.by.as_deref(), self.deck.runs(), gone, self.focus)));
+        }
+        if let Some(kept) = self.deck.kept().filter(|_| self.notice_due()) {
+            return Some(Shown::Dialog(dialog::notice(&self.locale, kept, self.deck.may_switch(), self.focus)));
+        }
+        self.line.as_ref().filter(|(_, until)| self.now < *until).map(|(line, _)| line.clone())
+    }
+
+    /// The button `index` of what is shown was pressed (a tap, a click).
+    pub fn press(&mut self, index: usize, fetched: &mut Fetched) {
+        let Some(Shown::Dialog(d)) = self.shown() else { return };
+        if let Some((_, act)) = d.buttons.get(index) {
+            self.act(*act, fetched);
+        }
+    }
+
+    /// A key of a deck without touch: left and right move between the buttons, Enter presses the one they are on, Escape
+    /// rejects a suggestion or closes a notice.
+    pub fn key(&mut self, key: Key, fetched: &mut Fetched) {
+        let Some(Shown::Dialog(d)) = self.shown() else { return };
+        let n = d.buttons.len().max(1);
+        match key {
+            Key::Left => self.focus = (d.focus + n - 1) % n,
+            Key::Right => self.focus = (d.focus + 1) % n,
+            Key::Enter => self.press(d.focus, fetched),
+            Key::Escape => self.act(if self.pending.is_some() { Act::Reject } else { Act::Seen }, fetched),
+        }
+    }
+
+    fn act(&mut self, act: Act, fetched: &mut Fetched) {
+        self.focus = 0;
+        match act {
+            Act::Accept => {
+                if let Some((flash, _)) = self.pending.take() {
+                    self.take(&flash, fetched);
+                }
+            }
+            Act::Reject => {
+                if let Some((flash, _)) = self.pending.take() {
+                    let report = self.deck.reject(&flash);
+                    self.out.push(report);
+                    self.rejected = flash.id.clone();
+                    self.line = Some((dialog::rejected(&self.locale, &ready::show_of(&flash)), self.now + LINE_SECS));
+                }
+            }
+            Act::Seen => self.deck.seen(),
+            Act::Back => match self.deck.switch(true) {
+                Ok(own) => {
+                    self.line = Some((dialog::own_again(&self.locale, &own), self.now + LINE_SECS));
+                    self.check(own, fetched);
+                }
+                Err(why) => self.line = Some((Shown::Line(why, String::new()), self.now + LINE_SECS)),
+            },
+        }
+    }
+
+    /// One turn (a frame) at `now` (the deck's clock, s): a suggestion nobody answered in time is accepted; a flash whose
+    /// show is here asks for its pieces once; when every answer is here, the report.
     /// `carried`: what the deck has of a piece without asking (a built-in scene).
-    pub fn turn(&mut self, fetched: &mut Fetched, carried: impl Fn(&Place) -> Option<Found>) {
+    pub fn turn(&mut self, now: f32, fetched: &mut Fetched, carried: impl Fn(&Place) -> Option<Found>) {
+        self.now = now;
+        if let Some((_, since)) = self.pending.as_mut() {
+            if now - *since.get_or_insert(now) >= SUGGESTION_SECS {
+                self.act(Act::Accept, fetched);
+            }
+        }
         let Some(c) = self.checking.as_mut() else { return };
         let told = self.deck.told(&c.show).map(<[ready::Need]>::to_vec);
         if told.is_none() && c.doc.is_none() {
@@ -181,25 +331,25 @@ mod tests {
         assert_eq!(f.reports().len(), 1, "what the deck is, when it joins");
         f.flash(&flash("one"), API, "", &mut fetched);
         assert_eq!(f.ask(), Some(("shows/top@3.json".to_string(), "https://api.test/api/shows/top?v=3".to_string())));
-        f.turn(&mut fetched, carried);
+        f.turn(0.0, &mut fetched, carried);
         assert!(f.reports().is_empty(), "the show is on its way");
         assert!(!f.document("shows/other@1.json", Ok((200, SHOW))), "not asked for");
         // the API's answer as it is (`show`); then the piece the deck does not carry is asked for
         assert!(f.document("shows/top@3.json", Ok((200, &format!(r#"{{ "status": "success", "show": {SHOW} }}"#)))));
-        f.turn(&mut fetched, carried);
+        f.turn(0.0, &mut fetched, carried);
         let boy = Place::new("character", "boy");
         assert_eq!(fetched.asks().len(), 1);
-        f.turn(&mut fetched, carried);
+        f.turn(0.0, &mut fetched, carried);
         assert!(f.reports().is_empty(), "the piece is on its way");
         fetched.give(&boy, Ok(CONTENT));
-        f.turn(&mut fetched, carried);
+        f.turn(0.0, &mut fetched, carried);
         let r = f.reports();
         assert_eq!((r.len(), r[0].ready, r[0].device.as_deref()), (1, Some(false), Some("browser")));
         assert_eq!(r[0].lacks.as_deref(), Some(&["row b: character:boy has no published rig".to_string()][..]));
         // the same show flashed again: kept, nothing is asked of the platform; the piece is asked for again
         f.flash(&flash("two"), API, "", &mut fetched);
         assert_eq!(f.ask(), None);
-        f.turn(&mut fetched, carried);
+        f.turn(0.0, &mut fetched, carried);
         assert_eq!(fetched.asks().len(), 1);
     }
 
@@ -212,24 +362,105 @@ mod tests {
         // not paired, no token: nothing is asked of the API
         f.flash(&told, API, "the deck is not paired yet", &mut fetched);
         assert_eq!(f.ask(), None);
-        f.turn(&mut fetched, carried);
+        f.turn(0.0, &mut fetched, carried);
         assert_eq!(fetched.asks().len(), 1, "the piece it does not carry is asked for");
         assert!(f.reports().is_empty());
         fetched.give(&Place::new("character", "boy"), Ok(CONTENT));
-        f.turn(&mut fetched, carried);
+        f.turn(0.0, &mut fetched, carried);
         let r = f.reports();
         assert_eq!((r[0].ready, r[0].lacks.as_deref()), (Some(false), Some(&["row b: character:boy has no published rig".to_string()][..])));
         // an outlet the show does not have: no cell will come
         let mut g = Flashed::new("foyer", "browser");
         g.flash(&told, API, "", &mut fetched);
-        g.turn(&mut fetched, carried);
+        g.turn(0.0, &mut fetched, carried);
         assert_eq!(g.reports()[0].lacks.as_deref(), Some(&["top@3 has no outlet 'foyer': no cell will come".to_string()][..]));
         // a show with nothing missing is ready
         let mut h = Flashed::new("left", "browser");
         told.needs = Some([("left".to_string(), vec![protocol::FlashNeed { piece: "scene:cathedral".into(), row: "a".into() }])].into());
         h.flash(&told, API, "the deck is not paired yet", &mut fetched);
-        h.turn(&mut fetched, carried);
+        h.turn(0.0, &mut fetched, carried);
         assert_eq!(h.reports()[0].ready, Some(true));
+    }
+
+    /// #481: the person at the deck – who may reject, the countdown, the notice, the line
+    #[test]
+    fn a_suggestion_waits_for_the_person_and_is_taken_when_nobody_answers() {
+        let (mut f, mut fetched) = (Flashed::new("left", "browser"), Fetched::default());
+        f.set_locale("de");
+        f.joined("d1");
+        f.reports();
+        let mut told = flash("one");
+        told.by = Some("ana".into());
+        told.needs = Some([("left".to_string(), vec![protocol::FlashNeed { piece: "scene:cathedral".into(), row: "a".into() }])].into());
+        // a guest or a member: flashed at once, one line that goes by itself
+        f.flash(&told, API, "", &mut fetched);
+        f.turn(1.0, &mut fetched, carried);
+        assert_eq!(f.reports()[0].ready, Some(true));
+        assert_eq!(f.shown(), Some(Shown::Line("Geflasht: top · Version 3".into(), "von ana".into())));
+        f.turn(1.0 + LINE_SECS, &mut fetched, carried);
+        assert_eq!(f.shown(), None);
+
+        // someone who may reject: the next version is a suggestion with a countdown
+        f.set_may_reject(true);
+        let mut next = told.clone();
+        (next.id, next.root.version) = (Some("two".into()), 4);
+        f.flash(&next, API, "", &mut fetched);
+        f.turn(10.0, &mut fetched, carried);
+        f.turn(14.0, &mut fetched, carried);
+        let Some(Shown::Dialog(d)) = f.shown() else { panic!("the suggestion") };
+        assert_eq!((d.title.as_str(), d.gone, d.buttons.len()), ("top · Version 4", Some(0.4), 2));
+        assert!(f.reports().is_empty() && f.deck.runs().map(|r| r.version) == Some(3), "nothing is taken while it waits");
+        // rejected: the conductor hears it, what runs stays, the same flash is not offered again
+        f.key(Key::Right, &mut fetched);
+        f.key(Key::Enter, &mut fetched);
+        let r = f.reports();
+        assert_eq!((r[0].accepted, r[0].why.as_deref(), r[0].running.version), (false, Some("rejected at the deck"), 3));
+        assert_eq!(f.shown(), Some(Shown::Line("Vorschlag abgelehnt: top · Version 4".into(), String::new())));
+        f.flash(&next, API, "", &mut fetched);
+        assert!(!matches!(f.shown(), Some(Shown::Dialog(_))));
+        assert!(f.reports().iter().all(|r| !r.accepted), "a rejoin hears the same no");
+
+        // nobody answers: after SUGGESTION_SECS it is taken
+        let mut third = next.clone();
+        (third.id, third.root.version) = (Some("three".into()), 5);
+        f.flash(&third, API, "", &mut fetched);
+        f.turn(30.0, &mut fetched, carried);
+        f.turn(30.0 + SUGGESTION_SECS - 0.1, &mut fetched, carried);
+        assert!(matches!(f.shown(), Some(Shown::Dialog(_))));
+        f.turn(30.0 + SUGGESTION_SECS, &mut fetched, carried);
+        assert_eq!(f.deck.runs().map(|r| r.version), Some(5));
+        assert!(f.reports().iter().any(|r| r.accepted && r.running.version == 5));
+    }
+
+    #[test]
+    fn a_forced_flash_is_taken_and_the_notice_offers_the_way_back() {
+        let (mut f, mut fetched) = (Flashed::new("left", "browser"), Fetched::default());
+        f.set_locale("de");
+        f.set_may_reject(true);
+        f.joined("d1");
+        let mut first = flash("one");
+        first.needs = Some([("left".to_string(), vec![])].into());
+        first.force = Some(vec!["d1".into()]);
+        f.flash(&first, API, "", &mut fetched);
+        f.turn(0.0, &mut fetched, carried);
+        assert!(matches!(f.shown(), Some(Shown::Line(..))), "nothing of its own was replaced: one line");
+        // forced over what runs: no question, the notice with the way back
+        let mut forced = first.clone();
+        (forced.id, forced.root.version, forced.by) = (Some("two".into()), 4, Some("ana".into()));
+        f.flash(&forced, API, "", &mut fetched);
+        f.turn(1.0, &mut fetched, carried);
+        assert_eq!(f.deck.runs().map(|r| r.version), Some(4));
+        let Some(Shown::Dialog(d)) = f.shown() else { panic!("the notice") };
+        assert_eq!((d.title.as_str(), d.buttons.len(), d.gone), ("top · Version 4 läuft", 2, None));
+        f.reports();
+        f.press(1, &mut fetched);
+        assert_eq!(f.deck.runs().map(|r| r.version), Some(3));
+        assert_eq!(f.shown(), Some(Shown::Line("Deine Version läuft wieder: top · Version 3".into(), String::new())));
+        // Escape on a notice reads it
+        f.flash(&{ let mut again = forced.clone(); again.id = Some("three".into()); again }, API, "", &mut fetched);
+        assert!(matches!(f.shown(), Some(Shown::Dialog(_))));
+        f.key(Key::Escape, &mut fetched);
+        assert!(!matches!(f.shown(), Some(Shown::Dialog(_))));
     }
 
     #[test]
@@ -237,13 +468,13 @@ mod tests {
         let (mut f, mut fetched) = (Flashed::new("left", "browser"), Fetched::default());
         f.flash(&flash("one"), API, "", &mut fetched);
         assert!(f.document("shows/top@3.json", Ok((403, r#"{ "status": "error", "message": "The role live is required." }"#))));
-        f.turn(&mut fetched, carried);
+        f.turn(0.0, &mut fetched, carried);
         assert_eq!(f.reports()[0].lacks.as_deref(), Some(&["top@3: the show is not here (HTTP 403: The role live is required.)".to_string()][..]));
         // a deck without a token says why and asks nothing
         let mut g = Flashed::new("left", "browser");
         g.flash(&flash("one"), API, "the deck is not paired yet", &mut fetched);
         assert_eq!(g.ask(), None);
-        g.turn(&mut fetched, carried);
+        g.turn(0.0, &mut fetched, carried);
         assert_eq!(g.reports()[0].lacks.as_deref(), Some(&["top@3: the show is not here (the deck is not paired yet)".to_string()][..]));
     }
 }

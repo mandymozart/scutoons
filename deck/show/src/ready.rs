@@ -48,6 +48,11 @@ pub fn flash_needs(show: &Show) -> std::collections::HashMap<String, Vec<protoco
     show.outlets.iter().map(|o| (o.id.clone(), needs(show, &o.id).into_iter().map(|n| protocol::FlashNeed { piece: n.piece, row: n.row }).collect())).collect()
 }
 
+/// The show a flash assigns in the session it is in now: its `here` (the conductor of this deck's session), else its root.
+pub fn show_of(flash: &Flash) -> Pinned {
+    flash::pinned(flash.here.as_ref().unwrap_or(&flash.root))
+}
+
 /// What a deck lacks for a flash.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Lack {
@@ -191,6 +196,31 @@ impl Deck {
         r.kept = self.kept.as_ref().map(|k| flash::wire(&k.own));
         r.own = self.kept.as_ref().map(|k| k.on_own);
         r
+    }
+
+    /// #481: whether `flash` is only suggested to this deck – one it has not taken, is not left out of, is not forced
+    /// onto (the conductor's operator accepted the warning for it) and that would change what runs.
+    pub fn suggested(&self, flash: &Flash) -> bool {
+        let me = self.id.as_deref().unwrap_or_default();
+        let taken = flash.id.is_some() && flash.id == self.taken;
+        !taken && !flash::left_out(flash, me) && !flash::forced(flash, me) && self.running.as_ref() != Some(&show_of(flash))
+    }
+
+    /// #481: the person at the deck rejected a suggested flash: what runs stays, the conductor hears it, and the same
+    /// flash is not offered again (a rejoin hands it over once more).
+    pub fn reject(&mut self, flash: &Flash) -> FlashReport {
+        self.taken = flash.id.clone();
+        self.refuse("rejected at the deck".to_string())
+    }
+
+    /// what runs, when something does
+    pub fn runs(&self) -> Option<&Pinned> {
+        self.running.as_ref().filter(|r| !r.id.is_empty())
+    }
+
+    /// #481: the notice about what a flash replaced was not read yet
+    pub fn unseen(&self) -> bool {
+        self.kept.is_some() && !self.seen
     }
 
     fn refuse(&mut self, why: String) -> FlashReport {

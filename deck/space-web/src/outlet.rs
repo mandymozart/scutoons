@@ -23,6 +23,7 @@ use deck_outlet::route::{route, Input, Routed};
 use deck_outlet::show::{show_path, signed_link, signed_link_request};
 use deck_outlet::status::Status;
 use deck_outlet::text::Dialog;
+use deck_show::dialog::{Key, Shown};
 use deck_show::flashed::Flashed;
 use deck_space::chapter::Chapter;
 use deck_space::fetched::Fetched;
@@ -243,7 +244,11 @@ impl Outlet {
             api: api.trim_end_matches('/').to_owned(),
             unpaired: "the deck is not paired yet".into(),
             fetched: Fetched::default(),
-            flash: Flashed::new(outlet, "browser"),
+            flash: {
+                let mut flash = Flashed::new(outlet, "browser");
+                flash.set_locale(locale);
+                flash
+            },
         })
     }
 
@@ -307,9 +312,29 @@ impl Outlet {
         }
     }
 
+    /// #481: what the deck says to the person at it about a flash – a dialog, a line, or nothing (the scene view draws it)
+    pub fn shown(&self) -> Option<Shown> {
+        self.flash.shown()
+    }
+
+    /// #481: whether the person at the deck may reject a suggested flash
+    pub fn set_may_reject(&mut self, yes: bool) {
+        self.flash.set_may_reject(yes);
+    }
+
+    /// #481: the dialog's button `index` was pressed
+    pub fn press(&mut self, index: usize) {
+        self.flash.press(index, &mut self.fetched);
+    }
+
+    /// #481: a key for the dialog
+    pub fn key(&mut self, key: Key) {
+        self.flash.key(key, &mut self.fetched);
+    }
+
     /// the flash side's turn: its reports go to the conductor and the HUD's FLASH lines
-    fn flash_turn(&mut self) {
-        self.flash.turn(&mut self.fetched, carried);
+    fn flash_turn(&mut self, now: Duration) {
+        self.flash.turn(now.as_secs_f32(), &mut self.fetched, carried);
         for report in self.flash.reports() {
             self.status.flash = Some(deck_show::ready::line(&report));
             self.status.flash_lacks = report.lacks.clone().unwrap_or_default();
@@ -351,7 +376,7 @@ impl Outlet {
     /// One frame at `now`: the preload's turn, the composer's turn (one plane at most), the plane to the stage.
     pub fn frame(&mut self, now: Duration, size: (u32, u32)) {
         self.preload_turn(now);
-        self.flash_turn();
+        self.flash_turn(now);
         if let Some(f) = self.pending.take() {
             if let Err(TrySendError::Full(f)) = self.frames.try_send(f) {
                 self.pending = Some(f);

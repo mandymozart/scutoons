@@ -4,9 +4,10 @@ import { sniff, spaceModule, stageCanvas, type SpaceModule } from './space.ts';
 import { askPortraits, fetchChapter, fetchOutletAsks, fetchSet, fetchSlice, portraitsAt, type ChapterView, type OutletView, type SetView } from './stage-assets.ts';
 import { RelaySocket, type RelayCoreView } from './client.ts';
 import { driveLink, ensureLink, type Paired } from './deck-key.ts';
+import { watchPanel, type PanelView } from './deck-panel.ts';
 
 /** #463: the wasm-bindgen API of deck/space-web's `SceneView` */
-export interface SceneView extends SetView, ChapterView, OutletView {
+export interface SceneView extends SetView, ChapterView, OutletView, PanelView {
 	join_outlet(relay: string, outlet: string, locale: string, api: string): boolean;
 	deck_link(why: string, code: string, app: string): void;
 	set_request(): string;
@@ -36,6 +37,8 @@ export interface SceneOptions {
 	build?: string;
 	/** #484: the viewer's sign-in, if any – a signed-in browser deck is its user and is not paired */
 	token?: () => string | null;
+	/** #481: the person at the deck may reject a suggested flash */
+	mayReject?: boolean;
 }
 
 /** #463: a scene playing in `host` */
@@ -52,6 +55,8 @@ export class SceneStage {
 	 * when nobody is signed in (deck-key.ts `ensureLink`) */
 	link: Paired | null = null;
 	pairing = false;
+	/** #481: the panel's taps and keys, until `stop` */
+	private unwatch: (() => void) | null = null;
 
 	private constructor(
 		private readonly o: SceneOptions,
@@ -82,6 +87,8 @@ export class SceneStage {
 		s.spaceModule = mod;
 		if (o.outlet && view.join_outlet(o.outlet.relay, o.outlet.name, o.outlet.locale, o.api)) {
 			(s.relay = new RelaySocket(view as unknown as RelayCoreView, {})).start();
+			view.set_may_reject(o.mayReject ?? false);
+			s.unwatch = watchPanel(canvas, view);
 		}
 		const room = view.room();
 		if (room) void fetchSet(s, mod.SpaceView.encoded_images, sniff, o, room).catch((e) => console.warn('scene: the set failed', e));
@@ -126,6 +133,7 @@ export class SceneStage {
 	stop() {
 		this.stopped = true;
 		this.relay?.close();
+		this.unwatch?.();
 		this.link?.view.free();
 		cancelAnimationFrame(this.raf);
 		this.size.disconnect();
