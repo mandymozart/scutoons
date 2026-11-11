@@ -63,6 +63,7 @@ final class EntitiesController
         if (is_string($query['kinds'] ?? null)) {
             $kinds = array_values(array_filter(array_map('trim', explode(',', $query['kinds']))));
             if (in_array('show', $kinds, true)) throw new ApiError(403, 'forbidden', 'A show goes through /api/shows.', ['role' => Roles::LIVE]);
+            if (in_array('scene', $kinds, true)) throw self::sceneRoute();
             return Json::response($response, 200, ['status' => 'success', 'entities' => $this->store->withContent($kinds, ($query['content'] ?? 'draft') !== 'published')]);
         }
         return Json::response($response, 200, $this->store->index(array_key_exists('toon', $query) ? $query['toon'] : null));
@@ -124,6 +125,7 @@ final class EntitiesController
             if (!$save instanceof stdClass || !property_exists($save, 'content')) throw new ApiError(400, 'invalid_saves', 'every save needs { key, content }.');
             $key = EntityKey::parse($save->key ?? null);
             if ($key->kind === 'show') throw new ApiError(403, 'forbidden', 'A show goes through /api/shows.', ['role' => Roles::LIVE]);
+            if ($key->kind === 'scene') throw self::sceneRoute();
             try {
                 if ($key->isCatalog()) {
                     $this->docs->guardSave($key, $save->content);
@@ -165,6 +167,7 @@ final class EntitiesController
         $catalog = false;
         foreach ($list as $v) {
             $key = EntityKey::parse($v instanceof stdClass ? ($v->key ?? null) : null);
+            if ($key->kind === 'scene') throw self::sceneRoute();
             $version = $v instanceof stdClass && isset($v->version) ? (int) $v->version : null;
             // every key is checked (the catalog's `physical` rule included) – the ones that need a review are named together
             try {
@@ -244,9 +247,19 @@ final class EntitiesController
     {
         // #90: shows are the `live` role's (ShowsController); creator does not imply it
         if ($key !== null && str_starts_with($key, 'show:')) throw new ApiError(403, 'forbidden', 'A show goes through /api/shows.', ['role' => Roles::LIVE]);
+        if ($key !== null && str_starts_with($key, 'scene:')) throw self::sceneRoute();
         $session = CurrentSession::of($request);
         $session->rejectCsrf();
         return $this->roles->requireContentEditor($session->user());
+    }
+
+    /**
+     * #243: a scene's version is stamped and its publish checked by the core – only /api/scenes does both
+     * (ScenesController); `scene:` = the deck scene, never a chapter group
+     */
+    private static function sceneRoute(): ApiError
+    {
+        return new ApiError(400, 'wrong_route', 'A scene goes through /api/scenes.');
     }
 
     /** The request body decoded with objects (so `{}` stays an object) */

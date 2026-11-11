@@ -1,4 +1,4 @@
-Status 2026-11-11: design for #267 / #427, nothing built; phase 1 of the leg "scenes and scene storage" (phase 2 #246, phase 3 #244). §1 is read from the code; §2–§6 are proposals until the owner answers §7; §8 reviews the words (scene, group, label, location, set, spot …) against the code, proposes names and a location model, with its own questions (§8.6). The format and the package stay in SCENE-PACKAGE.md (#288, #393); this note is the whole picture and points there.
+Status 2026-11-11: design for #267 / #427; 1a built (#243: `scene:<id>`, `/api/scenes`, the schema from the Rust `SceneDocument`, the core's check, `scene:nave`, `Nudge.set` → `input` – server/docs/API.md "Scenes"), the rest not; phase 1 of the leg "scenes and scene storage" (phase 2 #246, phase 3 #244). §1 is read from the code; §2–§6 are proposals until the owner answers §7; §8 reviews the words (scene, group, label, location, set, spot …) against the code, proposes names and a location model, with its own questions (§8.6). The format and the package stay in SCENE-PACKAGE.md (#288, #393); this note is the whole picture and points there.
 
 # SCENES — what a deck scene is, where it is stored, how it reaches a deck
 
@@ -192,7 +192,7 @@ Owner 2026-11-11 (`[scenes]`, thought aloud): *"Scenes currently in the script a
 
 | Change | Where | Kind of change | Migration |
 |---|---|---|---|
-| `Nudge.set` → `input` | `deck/space/src/space/feel.rs`, the scene TOMLs | code + fixtures, before 1a | none if done now |
+| `Nudge.set` → `input` | `deck/space/src/space/feel.rs`, the scene TOMLs | code + fixtures, before 1a – **done in #243** (no alias) | none |
 | "scene" for a group → "group" | comments in shared/content, DATA.md; `chapterSceneCharacters`, `SceneRefInput`, `normalizeSceneRef` (shared/content, creator chapter-editor, viewer visual-novel) | words and three names | none |
 | `room` → `set` in deck-space words (`Deck::room`) | deck/space | code words | none |
 | the show's filter fact `group` → `role` | deck/protocol `AddressFilter`, deck/show address.rs, SHOW §9 | protocol (A9: no back-compat) | only if a saved show uses `where.group` |

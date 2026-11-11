@@ -23,6 +23,7 @@ final class ApiTokenScope
         ['*', '#^/api/me/tokens(/.*)?$#'],
         ['*', '#^/api/me/decks(/.*)?$#'],
         ['POST', '#^/api/entities(/[^/]+)?/(publish|unpublish)$#'],
+        ['POST', '#^/api/scenes/[^/]+/publish$#'],
         ['PUT', '#^/api/assets/replace$#'],
         ['POST', '#^/api/reviews/(publish|return)$#'],
         ['POST', '#^/api/embassy/orgs/[^/]+/mail$#'],

@@ -5,7 +5,11 @@
 //! - a preset: its instrument known, `PresetBook::lineage` / `resolve` with this preset in the book, `Instrument::patch`;
 //! - a rig: `Rig::check` (a code rig's policy too, #408: its module, targets and who writes which input), then
 //!   `Bundle::play` (flatten, the knobs and sticks, the engine's lowering) without a variant, for every persona and for
-//!   every mood; `Rig::warnings` (a preset's value on an input the policy owns is dropped – said, not refused).
+//!   every mood; `Rig::warnings` (a preset's value on an input the policy owns is dropped – said, not refused);
+//! - a scene (#243, kind `scenes`, the `scene:<id>` document the API publishes): `SceneDocument` (format, id = the request's,
+//!   the scene's fields with unknown ones refused), `Graph::build` (kinds, ids, links, at most one sink of each kind, no
+//!   cycle) and the browser engine's split (`engine::lower`) – what every deck does before it plays a scene. The being's
+//!   look and the outputs table are checked as shapes only here (the API's JSON Schema; this build has no `being`).
 //!
 //! The lookups travel by value: the instruments it names, the presets it names with their ancestors, a code rig's policy
 //! module's descriptor (the API reads them from its catalog). Every problem a check lists is in the answer, each naming
@@ -24,7 +28,7 @@ use serde_json::Value;
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Request {
-    /// the catalog kind: `instruments` · `presets` · `rigs`
+    /// the catalog kind: `instruments` · `presets` · `rigs` · `scenes` (#243: a `scene:<id>` document, not catalog)
     pub kind: String,
     /// the catalog id: an instrument's or a preset's id, a rig's subject
     pub id: String,
@@ -75,12 +79,14 @@ impl Request {
             "instruments" => "instrument",
             "presets" => "preset",
             "rigs" => "rig",
-            other => return Err(format!("unknown kind '{other}' (instruments, presets, rigs)")),
+            "scenes" => "scene",
+            other => return Err(format!("unknown kind '{other}' (instruments, presets, rigs, scenes)")),
         };
         let who = format!("{label} {}", self.id);
         let checked = match label {
             "instrument" => self.instrument(&who),
             "preset" => self.preset(&who).map(|_| Vec::new()),
+            "scene" => self.scene(&who).map(|_| Vec::new()),
             _ => self.rig(&who),
         };
         Ok(match checked {
@@ -108,6 +114,17 @@ impl Request {
         let book = PresetBook::new(presets);
         let resolved = book.resolve(&p.id).map_err(said)?;
         instrument.patch(&resolved).map(|_| ()).map_err(said)
+    }
+
+    /// a scene document's problems (#243): what a deck refuses to load
+    fn scene(&self, who: &str) -> Result<(), Problems> {
+        let doc = crate::scene_document::SceneDocument::from_value(self.document.clone()).map_err(|e| vec![format!("{who}: {e:#}")])?;
+        if doc.id != self.id {
+            return Err(vec![format!("{who}: the document's id is \"{}\", the key's \"{}\"", doc.id, self.id)]);
+        }
+        crate::graph::Graph::build(&doc.scene).map_err(said)?;
+        super::engine::lower(&doc.scene).map_err(said)?;
+        Ok(())
     }
 
     /// a rig's problems, or its warnings
@@ -174,6 +191,23 @@ mod tests {
         assert_eq!(p, ["rig character.boy: unknown instrument \"kazoo\""]);
         assert!(ask(r#"{"kind":"items","id":"x","document":{}}"#).is_err());
         assert!(ask(r#"{"kind":"rigs","id":"x"}"#).is_err(), "a document is required");
+    }
+
+    /// #243: a scene document – the first real scene passes; what a deck could not load is refused with its reasons
+    #[test]
+    fn scenes() {
+        let nave = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../server/tests/fixtures/scenes/nave.json")).unwrap();
+        let ask = |id: &str, document: &str| Request { kind: "scenes".into(), id: id.into(), document: serde_json::from_str(document).unwrap(), instruments: vec![], presets: vec![], modules: vec![] }.problems().unwrap();
+        assert_eq!(ask("nave", &nave), Vec::<String>::new());
+        let p = ask("other", &nave);
+        assert_eq!(p, ["scene other: the document's id is \"nave\", the key's \"other\""]);
+        let p = ask("x", r#"{"format":1,"id":"x","node":[{"id":"a","kind":"blender"},{"id":"t","kind":"tempo"}],"link":[{"from":"t.beat","to":"nowhere.in"}]}"#);
+        assert_eq!(p.len(), 2, "{p:?}");
+        assert!(p[0].contains("unknown kind 'blender'") && p[1].contains("nowhere"), "{p:?}");
+        let p = ask("x", r#"{"format":2,"id":"x"}"#);
+        assert!(p[0].starts_with("scene x: format 2"), "{p:?}");
+        let p = ask("x", r#"{"format":1,"id":"x","nodes":[]}"#);
+        assert!(p[0].contains("unknown field `nodes`"), "{p:?}");
     }
 
     fn v<T: Serialize>(x: &T) -> Value {

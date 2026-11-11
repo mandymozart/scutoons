@@ -24,6 +24,7 @@ pub mod relay;
 pub mod resolver;
 pub mod rig;
 pub mod scene;
+pub mod scene_document;
 pub mod tempo;
 pub mod veil;
 

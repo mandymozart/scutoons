@@ -88,7 +88,8 @@ const MAX_SCREEN: f32 = 0.09;
 const TAU: f32 = std::f32::consts::TAU;
 
 /// The scene's `[being]` table – the body's shape (the colours are the space node's inputs).
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[derive(Debug, Clone, PartialEq, Deserialize, serde::Serialize)]
 #[serde(deny_unknown_fields, default)]
 pub struct Look {
     /// the body's radius (m)

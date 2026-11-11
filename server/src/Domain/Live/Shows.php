@@ -7,7 +7,6 @@ use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Content\EntityKey;
 use Scutoons\Domain\Content\EntityStore;
 use Scutoons\Domain\Rigs\CoreValidator;
-use Scutoons\Infrastructure\Database\Database;
 use stdClass;
 
 /**
@@ -19,40 +18,24 @@ use stdClass;
  */
 final class Shows
 {
-    public function __construct(private readonly EntityStore $store, private readonly Database $db, private readonly CoreValidator $core)
+    public function __construct(private readonly EntityStore $store, private readonly CoreValidator $core)
     {
     }
 
     /**
-     * A new draft: the document names itself, the version comes from here. An unchanged document keeps its number.
+     * A new draft: the document names itself, the version comes from here (EntityStore::saveStamped).
      * @param array<string, mixed> $user
      * @return array<string, mixed>
      */
     public function save(array $user, EntityKey $key, stdClass $body): array
     {
-        $content = $body->content ?? null;
-        if (!$content instanceof stdClass) throw new ApiError(400, 'missing_content', 'content must be a show document.');
-        if (($content->id ?? null) !== $key->id) throw new ApiError(422, 'invalid_content', "The document's id must be $key->id.", ['problems' => ['/id: the id of the key']]);
-        $latest = $this->db->one('SELECT json FROM entity_versions WHERE entity_key = ? ORDER BY id DESC LIMIT 1', [(string) $key]);
-        $version = 1;
-        if ($latest !== null) {
-            $before = json_decode((string) $latest['json']);
-            $number = is_object($before) ? (int) ($before->version ?? 0) : 0;
-            if (is_object($before)) unset($before->version);
-            $next = clone $content;
-            unset($next->version);
-            $version = self::same($before, $next) ? $number : $number + 1;
-        }
-        $content->version = $version;
-        return $this->store->save($user, $key, $body);
+        return $this->store->saveStamped($user, $key, $body, 'show');
     }
 
     /** The document at an exact version a seat pins */
     public function atVersion(string $id, int $version): ?stdClass
     {
-        $row = $this->db->one("SELECT json FROM entity_versions WHERE entity_key = ? AND JSON_VALUE(json, '$.version') = ? ORDER BY id DESC LIMIT 1", ["show:$id", (string) $version]);
-        $doc = $row === null ? null : json_decode((string) $row['json']);
-        return $doc instanceof stdClass ? $doc : null;
+        return $this->store->atStamp("show:$id", $version);
     }
 
     /**
@@ -94,10 +77,5 @@ final class Shows
             }
         }
         return $found;
-    }
-
-    private static function same(mixed $a, mixed $b): bool
-    {
-        return json_encode($a) === json_encode($b);
     }
 }

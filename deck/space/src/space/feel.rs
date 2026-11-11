@@ -10,7 +10,7 @@
 //!   at once, for at least `hold` s. The heaviest `weight` among the firing rules wins (once the shown one has had
 //!   MIN_SHOW); a rule shown for MAX_SHOW s, or one that stops, rests for `cooldown` s – so the moods keep turning. No
 //!   rule firing = the energy picks (being.rs).
-//! - `[[being.react]]` – emotion → sound: when the head turns to `mood`, `set` (an unlinked control input) is kicked
+//! - `[[being.react]]` – emotion → sound: when the head turns to `mood`, `input` (an unlinked control input) is kicked
 //!   `by` an amount or `to` a value over `attack` s and eases back over `release` s – a hand on the input meanwhile
 //!   becomes the new resting value. Several kicks on one input add up; the input's range bounds them.
 //!
@@ -20,7 +20,7 @@ use super::values::{self, Knobs, Path, Values};
 use crate::graph::{Graph, PortType};
 use crate::params::{self, Spec};
 use crate::tempo;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 /// a rule's mood shows at most this long in one go before the rule rests (s)
 pub const MAX_SHOW: f32 = 6.0;
@@ -32,17 +32,23 @@ const SLOW: f32 = 0.5;
 const TOUCH_FADE: f32 = 0.8;
 
 /// One `[[being.feel]]` rule as the scene writes it.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, default)]
 pub struct Rule {
     pub mood: String,
     /// the source: `node.port` (the node by id, else the first of that kind), `bpm`, `touch`, `energy`, `phrase`
     pub when: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub above: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub below: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub rising: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub falling: Option<f32>,
     /// seconds the source stays within `by`
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub steady: Option<f32>,
     pub by: f32,
     /// seconds the test must hold before the rule fires
@@ -62,13 +68,17 @@ impl Default for Rule {
 }
 
 /// One `[[being.react]]` nudge as the scene writes it.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, default)]
 pub struct Nudge {
     pub mood: String,
-    /// an unlinked control input, `node.port` (by id, else by kind)
-    pub set: String,
+    /// an unlinked control input, `node.port` (by id, else by kind). Was `set` until #243 (SCENES.md §8.2: in a scene `set`
+    /// is the staging only); the repo's scenes were migrated, no alias (RULES E2)
+    pub input: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub by: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub to: Option<f32>,
     pub attack: f32,
     pub release: f32,
@@ -76,7 +86,7 @@ pub struct Nudge {
 
 impl Default for Nudge {
     fn default() -> Self {
-        Nudge { mood: String::new(), set: String::new(), by: None, to: None, attack: 0.25, release: 2.0 }
+        Nudge { mood: String::new(), input: String::new(), by: None, to: None, attack: 0.25, release: 2.0 }
     }
 }
 
@@ -280,14 +290,14 @@ impl Feel {
         let mut targets: Vec<Target> = Vec::new();
         let mut kicks = Vec::new();
         for n in nudges {
-            let at = match values::resolve_loose(graph, &n.set) {
+            let at = match values::resolve_loose(graph, &n.input) {
                 Some(Path::Input(node, port)) if graph.link_into(node, port).is_none() => (node, port),
                 Some(Path::Input(..)) => {
-                    problems.push(format!("{}: {} is linked – a nudge needs an unlinked input", n.mood, n.set));
+                    problems.push(format!("{}: {} is linked – a nudge needs an unlinked input", n.mood, n.input));
                     continue;
                 }
                 _ => {
-                    problems.push(format!("{}: no control input '{}'", n.mood, n.set));
+                    problems.push(format!("{}: no control input '{}'", n.mood, n.input));
                     continue;
                 }
             };
@@ -524,7 +534,7 @@ mod tests {
         // what doesn't resolve is left out with its reason; the moods join the palette
         let mut moods = vec!["neutral".to_string()];
         let rules = [r, rule("mood = \"sad\"\nwhen = \"nobody.gain\"\nbelow = 1\n")];
-        let nudges: Vec<Nudge> = ["mood = \"furious\"\nset = \"space.hue\"\nto = 0.0\n", "mood = \"happy\"\nset = \"space.pulse\"\nby = 1\n", "mood = \"dizzy\"\nset = \"sway.rate\"\nby = 2\n"].iter().map(|t| toml::from_str(t).unwrap()).collect();
+        let nudges: Vec<Nudge> = ["mood = \"furious\"\ninput = \"space.hue\"\nto = 0.0\n", "mood = \"happy\"\ninput = \"space.pulse\"\nby = 1\n", "mood = \"dizzy\"\ninput = \"sway.rate\"\nby = 2\n"].iter().map(|t| toml::from_str(t).unwrap()).collect();
         let f = Feel::new(&g, &rules, &nudges, &mut moods, 1);
         assert_eq!(f.counts(), (1, 2));
         assert_eq!(f.problems.len(), 2, "{:?}", f.problems);
@@ -598,7 +608,7 @@ mod tests {
         let voice = g.nodes.iter().position(|n| n.id == "voice").unwrap();
         let space = g.nodes.iter().position(|n| n.id == "space").unwrap();
         let index = g.nodes[voice].kind.input("index").unwrap();
-        let nudges: Vec<Nudge> = ["mood = \"furious\"\nset = \"fm.index\"\nby = 3\nattack = 0.1\nrelease = 1\n", "mood = \"furious\"\nset = \"space.hue\"\nto = 0.0\nattack = 0.1\nrelease = 1\n", "mood = \"happy\"\nset = \"space.glow\"\nby = 9\nrelease = 1\n"]
+        let nudges: Vec<Nudge> = ["mood = \"furious\"\ninput = \"fm.index\"\nby = 3\nattack = 0.1\nrelease = 1\n", "mood = \"furious\"\ninput = \"space.hue\"\nto = 0.0\nattack = 0.1\nrelease = 1\n", "mood = \"happy\"\ninput = \"space.glow\"\nby = 9\nrelease = 1\n"]
             .iter()
             .map(|t| toml::from_str(t).unwrap())
             .collect();

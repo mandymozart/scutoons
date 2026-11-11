@@ -7,6 +7,9 @@
 //   server/schema/tables/*.json                → deck/protocol/src/content_text.rs    (the locale order + its pick: protocol::content_text)
 //                                                shared/content/src/tables.ts         (legacy character ids, the locale order + its pick)
 //                                                server/src/Generated/ContentTables.php (the same)
+//   server/schema/content/scene.schema.json    → shared/api/src/scene.ts              (TS types of the stored scene document, #243)
+//   (itself written from deck-space's Rust      server/src/Generated/SceneTypes.php  (PHPStan shapes + the format's number)
+//    SceneDocument by deck-schema, deck:ci)
 //
 // The Rust and TS types come from the relay protocol's emitters (same schema subset, same output style); only their file header
 // differs. The PHP shapes and the tables are written here. A construct outside the subset throws, so a new one is a change here first.
@@ -43,7 +46,10 @@ export const paths = {
 	php: join(repo, 'server', 'src', 'Generated', 'AddressBookTypes.php'),
 	tablesRs: join(repo, 'deck', 'protocol', 'src', 'content_text.rs'),
 	tablesTs: join(repo, 'shared', 'content', 'src', 'tables.ts'),
-	tablesPhp: join(repo, 'server', 'src', 'Generated', 'ContentTables.php')
+	tablesPhp: join(repo, 'server', 'src', 'Generated', 'ContentTables.php'),
+	sceneSchema: join(here, 'content', 'scene.schema.json'),
+	sceneTs: join(repo, 'shared', 'api', 'src', 'scene.ts'),
+	scenePhp: join(repo, 'server', 'src', 'Generated', 'SceneTypes.php')
 };
 
 const header = (source: string) => `GENERATED from ${source} by server/schema/generate.ts – edit the source, run \`npm run generate\`.`;
@@ -248,6 +254,135 @@ export function tablesRs(order: LocaleOrder): string {
 	].join('');
 }
 
+// ---------------------------------------------------------------------------------------------------------- the scene document
+
+/** The draft-07 subset schemars writes for deck-space's SceneDocument (#243); anything else throws, so a new construct is a change here first. */
+export type Draft07 = {
+	$ref?: string;
+	type?: string | string[];
+	const?: string | number | boolean;
+	enum?: (string | number)[];
+	oneOf?: Draft07[];
+	anyOf?: Draft07[];
+	allOf?: Draft07[];
+	items?: Draft07;
+	minItems?: number;
+	maxItems?: number;
+	properties?: Record<string, Draft07>;
+	required?: string[];
+	additionalProperties?: boolean | Draft07;
+	definitions?: Record<string, Draft07>;
+	title?: string;
+	description?: string;
+	[key: string]: unknown;
+};
+
+/** what only annotates a schema; every other key must be one the emitters read */
+const ANNOTATIONS = new Set(['description', 'title', 'default', 'format', 'minimum', 'maximum', '$schema', '$id', '$comment', 'definitions']);
+const SHAPES = new Set(['$ref', 'type', 'const', 'enum', 'oneOf', 'anyOf', 'allOf', 'items', 'minItems', 'maxItems', 'properties', 'required', 'additionalProperties']);
+
+type Field = { name: string; type: string; required: boolean; doc?: string };
+type Lang = {
+	lit: (v: string | number | boolean) => string;
+	scalar: Record<string, string>;
+	list: (item: string, tuple: number | null) => string;
+	object: (fields: Field[], open: boolean) => string;
+	map: (value: string) => string;
+	unknown: string;
+};
+
+function typeOf(s: Draft07 | boolean, lang: Lang, where: string): string {
+	if (s === false) throw new Error(`${where}: schema false`);
+	if (s === true) return lang.unknown;
+	const keys = Object.keys(s).filter((k) => !ANNOTATIONS.has(k));
+	for (const k of keys) if (!SHAPES.has(k)) throw new Error(`${where}: unsupported schema key ${k}`);
+	if (!keys.length) return lang.unknown;
+	if (s.$ref) return refName(s.$ref);
+	if (s.const !== undefined) return lang.lit(s.const);
+	if (s.enum) return s.enum.map(lang.lit).join(' | ');
+	for (const list of [s.oneOf, s.anyOf]) if (list) return list.map((x, i) => typeOf(x, lang, `${where}[${i}]`)).join(' | ');
+	if (s.allOf) {
+		if (s.allOf.length !== 1) throw new Error(`${where}: allOf of ${s.allOf.length}`);
+		return typeOf(s.allOf[0], lang, where);
+	}
+	const types = Array.isArray(s.type) ? s.type : s.type ? [s.type] : [];
+	if (!types.length) throw new Error(`${where}: no type`);
+	return types
+		.map((t) => {
+			if (lang.scalar[t]) return lang.scalar[t];
+			if (t === 'array') {
+				if (!s.items) throw new Error(`${where}: array without items`);
+				const tuple = s.minItems !== undefined && s.minItems === s.maxItems ? s.minItems : null;
+				return lang.list(typeOf(s.items, lang, `${where}[]`), tuple);
+			}
+			if (t === 'object') {
+				const open = s.additionalProperties === undefined || s.additionalProperties === true;
+				if (!s.properties) return lang.map(typeof s.additionalProperties === 'object' ? typeOf(s.additionalProperties, lang, `${where}{}`) : lang.unknown);
+				const fields = Object.entries(s.properties).map(([name, p]) => ({ name, type: typeOf(p, lang, `${where}.${name}`), required: s.required?.includes(name) ?? false, doc: p.description }));
+				return lang.object(fields, open);
+			}
+			throw new Error(`${where}: unsupported type ${t}`);
+		})
+		.join(' | ');
+}
+
+const oneLine = (text: string) => text.replace(/\*\//g, '* /').replace(/\s*\n\s*/g, ' ');
+const tsComment = (text: string | undefined, indent = '') => (text ? `${indent}/** ${oneLine(text)} */\n` : '');
+
+const TS: Lang = {
+	lit: (v) => (typeof v === 'string' ? `'${v}'` : String(v)),
+	scalar: { string: 'string', integer: 'number', number: 'number', boolean: 'boolean', null: 'null' },
+	list: (item, tuple) => (tuple !== null ? `[${Array(tuple).fill(item).join(', ')}]` : item.includes(' | ') ? `(${item})[]` : `${item}[]`),
+	object: (fields, open) =>
+		`{\n${fields.map((f) => `${tsComment(f.doc, '\t')}\t${f.name}${f.required ? '' : '?'}: ${f.type};\n`).join('')}${open ? '\t[key: string]: unknown;\n' : ''}}`,
+	map: (value) => `Record<string, ${value}>`,
+	unknown: 'unknown'
+};
+
+const PHP: Lang = {
+	lit: (v) => (typeof v === 'string' ? `'${v}'` : String(v)),
+	scalar: { string: 'string', integer: 'int', number: 'float', boolean: 'bool', null: 'null' },
+	list: (item, tuple) => (tuple !== null ? `array{${Array(tuple).fill(item).join(', ')}}` : `list<${item}>`),
+	// a shape with more keys than it names (a node: id, kind + its params) is a map in PHPStan's words
+	object: (fields, open) => (open ? 'array<string, mixed>' : `array{${fields.map((f) => `${f.name}${f.required ? '' : '?'}: ${f.type}`).join(', ')}}`),
+	map: (value) => `array<string, ${value === 'unknown' ? 'mixed' : value}>`,
+	unknown: 'mixed'
+};
+
+/** the definitions and the root (SceneDocument) in the schema's order, the format's number */
+function sceneParts(schema: Draft07): { title: string; format: number; defs: [string, Draft07][] } {
+	const format = schema.properties?.format?.const;
+	if (schema.title !== 'SceneDocument' || typeof format !== 'number') throw new Error('scene.schema.json: the root is SceneDocument with a numeric `format` const');
+	const { definitions = {}, ...root } = schema;
+	return { title: schema.title, format, defs: [...Object.entries(definitions), [schema.title, root as Draft07]] };
+}
+
+export function sceneTs(schema: Draft07): string {
+	const { format, defs } = sceneParts(schema);
+	const types = defs.map(([name, def]) => `${tsComment(def.description)}export type ${name} = ${typeOf(def, TS, name)};\n`);
+	return [
+		`// ${header(rel(paths.sceneSchema))}\n`,
+		"// The stored scene document `scene:<id>` (#243, research/SCENES.md §3): deck-space's SceneDocument (deck/space/src/scene_document.rs) →\n",
+		"// its JSON Schema (deck-schema) → these types. Whether a scene plays is the core's (the build service's /validate at publish).\n\n",
+		`/** the format the API stores and the decks read */\nexport const SCENE_FORMAT = ${format} as const;\n\n`,
+		types.join('\n')
+	].join('');
+}
+
+export function scenePhp(schema: Draft07): string {
+	const { format, defs, title } = sceneParts(schema);
+	const types = defs.map(([name, def]) => ` * @phpstan-type ${name} ${typeOf(def, PHP, name)}`);
+	return [
+		'<?php\n',
+		`// ${header(rel(paths.sceneSchema))}\n`,
+		'declare(strict_types=1);\n\nnamespace Scutoons\\Generated;\n\n',
+		`/**\n * The stored scene document \`scene:<id>\` (#243; deck-space's ${title}, its JSON Schema written by deck-schema)\n *\n${types.join('\n')}\n */\n`,
+		'final class SceneTypes\n{\n',
+		`    /** the document's format (\`format\`) */\n    public const FORMAT = ${format};\n`,
+		'}\n'
+	].join('');
+}
+
 // ---------------------------------------------------------------------------------------------------------- CLI
 
 const read = <T>(file: string): T => JSON.parse(readFileSync(file, 'utf8')) as T;
@@ -256,7 +391,10 @@ export function generate(): Record<string, string> {
 	const root = read<ContractRoot>(paths.schema);
 	const legacy = read<LegacyIds>(paths.legacyIds);
 	const order = read<LocaleOrder>(paths.localeOrder);
+	const scene = read<Draft07>(paths.sceneSchema);
 	return {
+		[paths.sceneTs]: sceneTs(scene),
+		[paths.scenePhp]: scenePhp(scene),
 		[paths.rs]: addressBookRs(root),
 		[paths.ts]: addressBookTs(root),
 		[paths.php]: addressBookPhp(root),

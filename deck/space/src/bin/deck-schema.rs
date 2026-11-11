@@ -3,11 +3,15 @@
 //!   server/src/Domain/Rigs/kinds.json     the explanatory catalog: every built-in kind, its ports and parameters with docs
 //!   deck/catalog/schema.json              JSON Schema (draft 2020-12) of `Catalog` and the rig `Bundle` (rig, instruments, presets)
 //!   shared/live/src/catalog.ts            the same as TypeScript types
+//!   server/schema/content/scene.schema.json  JSON Schema (draft-07, what the API's ContentSchemas reads) of the stored
+//!                                         scene document `scene:<id>` (#243, scene_document.rs); its TS and PHP types are
+//!                                         server/schema/generate.ts's (`npm run generate`)
 //!
 //! `cargo run -p deck-space --features schema --bin deck-schema` writes them; `-- --check` only compares (exit 1 when a
 //! file is stale – the deck:ci step). The protocol stays schema-first (deck/protocol/generate.ts); the kinds are Rust-first.
 use deck_catalog::catalog;
 use deck_space::rig::bundle::Bundle;
+use deck_space::scene_document::SceneDocument;
 use serde_json::{Map, Value};
 use std::fmt::Write as _;
 use std::path::PathBuf;
@@ -42,6 +46,7 @@ fn main() {
     });
     files.push(("deck/catalog/schema.json", format!("{}\n", serde_json::to_string_pretty(&schema).unwrap())));
     files.push(("shared/live/src/catalog.ts", typescript(&defs)));
+    files.push(("server/schema/content/scene.schema.json", format!("{}\n", serde_json::to_string_pretty(&scene_schema()).unwrap())));
 
     let mut stale = Vec::new();
     for (path, text) in &files {
@@ -72,6 +77,35 @@ fn definitions() -> Map<String, Value> {
     g.subschema_for::<deck_catalog::Catalog>();
     g.subschema_for::<Bundle>();
     g.take_definitions(true)
+}
+
+/// #243: the stored scene document's schema, draft-07 with the `$id` the API resolves it by (ContentSchemas: the save guard
+/// of kind `scene`; it checks the shape, the core checks the graph at publish)
+fn scene_schema() -> Value {
+    let mut g = schemars::generate::SchemaSettings::draft07().into_generator();
+    let mut schema = g.root_schema_for::<SceneDocument>().to_value();
+    let o = schema.as_object_mut().expect("an object schema");
+    o.insert("$id".into(), Value::String("https://scutoons.com/schema/scene.schema.json".into()));
+    o.insert("title".into(), Value::String("SceneDocument".into()));
+    o.insert("$comment".into(), Value::String(HEADER.replace("from deck/catalog (the kind catalog)", "from deck-space's SceneDocument (scene_document.rs)")));
+    f32_as_written(&mut schema);
+    schema
+}
+
+/// an f32 default widened to f64 (`0.035` → 0.03500000014901161) back to the number the Rust source writes
+fn f32_as_written(v: &mut Value) {
+    match v {
+        Value::Number(n) if n.is_f64() => {
+            let x = n.as_f64().unwrap();
+            let short: f64 = (x as f32).to_string().parse().unwrap();
+            if (short as f32) == (x as f32) && f64::from(x as f32) == x {
+                *v = serde_json::json!(short);
+            }
+        }
+        Value::Array(list) => list.iter_mut().for_each(f32_as_written),
+        Value::Object(map) => map.values_mut().for_each(f32_as_written),
+        _ => {}
+    }
 }
 
 // ---- TypeScript from the JSON Schema: the subset schemars writes for these types; anything else panics (like protocol/generate.ts)

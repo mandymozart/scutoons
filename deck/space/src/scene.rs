@@ -46,7 +46,10 @@ pub fn builtin(name: &str) -> Option<&'static str> {
     })
 }
 
-#[derive(Debug, Clone, Deserialize)]
+/// A stage scene: the graph, the stage's settings, the outputs and the being. TOML in the repo's files, JSON in the stored
+/// document (#243, scene_document.rs: the same struct, so TOML is only a view of it).
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Scene {
     #[serde(default)]
@@ -55,9 +58,10 @@ pub struct Scene {
     pub nodes: Vec<NodeDef>,
     #[serde(default, rename = "link")]
     pub links: Vec<LinkDef>,
-    /// #211: the parameters as outputs – MIDI out, the conductor, DMX fixtures and the clock-synced strobe; parsed and
+    /// the parameters as outputs (#211) – MIDI out, the conductor, DMX fixtures and the clock-synced strobe; parsed and
     /// checked by deck-outputs (its config.rs documents the table), played by the host (deck-native's outputs.rs)
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "schema", schemars(with = "Option<std::collections::BTreeMap<String, serde_json::Value>>"))]
     pub outputs: Option<toml::Table>,
     #[cfg(feature = "being")]
     #[serde(default)]
@@ -66,10 +70,12 @@ pub struct Scene {
     /// scene still parses; deck-native refuses its space node)
     #[cfg(not(feature = "being"))]
     #[serde(default)]
+    #[cfg_attr(feature = "schema", schemars(with = "std::collections::BTreeMap<String, serde_json::Value>"))]
     pub being: toml::Table,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, default)]
 pub struct StageSettings {
     pub name: String,
@@ -77,8 +83,9 @@ pub struct StageSettings {
     pub render_scale: f32,
     /// the audio device's buffer in frames (#208, deck-native's audio/backend.rs): a heavy scene may ask for more;
     /// `--audio-buffer` and deck.toml's `audio_buffer` (the machine's) win over it. None = the device's default
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub audio_buffer: Option<u32>,
-    /// #264: how the stage hands over TO this scene on a switch (F5): the DMX / MIDI outputs of the scene that was playing
+    /// how the stage hands over TO this scene on a switch (F5, #264): the DMX / MIDI outputs of the scene that was playing
     /// fade into this one's (`fade`, the default), snap (`cut`) or go dark first (`blackout`); a stop is always dark
     pub transition: SceneTransition,
     /// the hand-over's length in s (`fade`); the same time base as the picture's fade in (deck-native switcher.rs `FADE_IN`)
@@ -86,6 +93,7 @@ pub struct StageSettings {
 }
 
 /// What a switch does to the outputs (the lamps) between two scenes (#264).
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum SceneTransition {

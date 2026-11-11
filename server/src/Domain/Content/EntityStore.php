@@ -190,6 +190,41 @@ final class EntityStore
     }
 
     /**
+     * A new draft of a document that names itself and carries a number the server stamps (`show:<id>` #90, `scene:<id>`
+     * #243): `content.id` must be the key's id; `content.version` = the newest version's number, +1 when the document
+     * (without its number) changed – an unchanged one keeps it. That number is what a show's seat or a deck pins, kept with
+     * the document (atStamp); `entity_versions.id` is the save, a pin never uses it.
+     * @param array<string, mixed> $user
+     * @return array<string, mixed>
+     */
+    public function saveStamped(array $user, EntityKey $key, stdClass $body, string $what): array
+    {
+        $content = $body->content ?? null;
+        if (!$content instanceof stdClass) throw new ApiError(400, 'missing_content', "content must be a $what document.");
+        if (($content->id ?? null) !== $key->id) throw new ApiError(422, 'invalid_content', "The document's id must be $key->id.", ['problems' => ['/id: the id of the key']]);
+        $latest = $this->db->one('SELECT json FROM entity_versions WHERE entity_key = ? ORDER BY id DESC LIMIT 1', [(string) $key]);
+        $version = 1;
+        if ($latest !== null) {
+            $before = json_decode((string) $latest['json']);
+            $number = is_object($before) ? (int) ($before->version ?? 0) : 0;
+            if (is_object($before)) unset($before->version);
+            $next = clone $content;
+            unset($next->version);
+            $version = json_encode($before) === json_encode($next) ? $number : $number + 1;
+        }
+        $content->version = $version;
+        return $this->save($user, $key, $body);
+    }
+
+    /** The newest stored document of $key whose stamped `version` (saveStamped) is $version, drafts included */
+    public function atStamp(string $key, int $version): ?stdClass
+    {
+        $row = $this->db->one("SELECT json FROM entity_versions WHERE entity_key = ? AND JSON_VALUE(json, '$.version') = ? ORDER BY id DESC LIMIT 1", [$key, (string) $version]);
+        $doc = $row === null ? null : json_decode((string) $row['json']);
+        return $doc instanceof stdClass ? $doc : null;
+    }
+
+    /**
      * POST /entities/batch { saves: [{ key, content, base?, message? }], deletes?: [key], message? } → { status, saved:
      * [{ key, unchanged, version }], deleted: [key] } – several documents in ONE transaction (the world map's places / routes, agents/MAP-DOCUMENTS.md): all
      * are stored or none; a `base` that is not the newest → 409 conflict naming the key (`key`, `latest`). Each key at most

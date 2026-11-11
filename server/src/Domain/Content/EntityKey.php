@@ -31,6 +31,8 @@ use Scutoons\Domain\ApiError;
  *   place:<id>  route:<id>                                         one document per place / route of the world map (ID_KINDS)
  *   character:<id>                                                 one document per character of the registry (`characters` = its own fields)
  *   show:<id>                                                      one live show per conductor (#90, research/SHOW.md §4b; through /api/shows, role `live`)
+ *   scene:<id>                                                     one deck scene (#243, research/SCENES.md §3; through /api/scenes, the
+ *                                                                  content editors; `scene:` = the deck scene only, never a chapter group – SCENES §8.2)
  *   (`map` = the SCUTOONS world map's own settings – size, layers –, its places and routes are documents of their own:
  *   agents/MAP.md, agents/MAP-DOCUMENTS.md, WorldMapDocs; `locations:*` / `routes:*` are the old per-toon map, read-only)
  *
@@ -39,8 +41,9 @@ use Scutoons\Domain\ApiError;
  *                                        drafts like content, publishing writes the catalog table (CatalogDocs); the
  *                                        toon is the entry's `toon` field, not a key segment (an entry may move)
  *
- * A chapter is ONE document: the scene documents (`scene:<toon>:<chapter>:<name>`, groups shared by a `ref`) were
- * inlined into their chapters and archived to entity_versions_legacy 2026-10-19 (migration 2026-10-19-inline-scenes).
+ * A chapter is ONE document: the old group documents (`scene:<toon>:<chapter>:<name>`, groups shared by a `ref`) were
+ * inlined into their chapters and archived to entity_versions_legacy 2026-10-19 (migration 2026-10-19-inline-scenes) –
+ * so the kind `scene` was free for the deck scene (#243).
  *
  * Every toon-related text of every locale lives in these documents (per-locale documents or `{ de, en }` fields); UI
  * chrome stays in the apps' message files.
@@ -76,12 +79,13 @@ final class EntityKey
         'region' => [false, false, false],
         'character' => [false, false, false],
         'show' => [false, false, false],
+        'scene' => [false, false, false],
     ];
     /**
      * Kinds addressed by an id of their own (`place:<id>`, `route:<id>`; platform-wide, language-neutral – agents/MAP-DOCUMENTS.md):
      * the id is a slug, stable forever once published (events reference it). Meant for the catalog's items too (`item:<id>`).
      */
-    public const ID_KINDS = ['place', 'route', 'region', 'character', 'show'];
+    public const ID_KINDS = ['place', 'route', 'region', 'character', 'show', 'scene'];
     public const ID_PATTERN = '#^[a-z0-9][a-z0-9_-]{0,63}$#';
     /**
      * Kinds that are working material of the creators, never content for readers: no library endpoint reads them (only
