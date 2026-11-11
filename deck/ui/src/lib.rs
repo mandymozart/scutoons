@@ -11,6 +11,9 @@ pub use deck_core::monitor::{Level, Report};
 /// #478: the Live page (F6) – the roles this deck may take, no role, its name
 pub mod live;
 
+/// #386: the deck's own menu – the splash, the main menu, its pages and the way back (drawn with deck-kit's live components)
+pub mod menu;
+
 /// text lines the HUD has room for (above the frame-time graph; #208: two audio lines + the glitch warning)
 pub const LINES: usize = 13;
 /// characters a line has room for (8 px each, a 4 px margin)

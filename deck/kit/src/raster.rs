@@ -7,7 +7,27 @@ pub use ab_glyph::Font;
 use ab_glyph::{PxScale, ScaleFont};
 
 /// a line's height per pixel of font size: a text sits in the middle of it (panel.rs)
-const LINE: f32 = 1.35;
+pub const LINE: f32 = 1.35;
+
+/// #386: what paints a draw list's text – a face's outlines (`raster`), or the deck's pixel face (`pixel.rs`, the HUD's
+/// font8x8): its advance per pixel of font size, and `s` painted from its top left (device pixels) in a line `px × LINE`.
+pub trait Face {
+    fn per_px(&self) -> f32;
+    fn paint(&self, out: &mut Pixels, at: (f32, f32), px: f32, s: &str, color: [f32; 4]);
+}
+
+/// an outline face (ab_glyph) as a `Face`
+struct Outlines<'a, F>(&'a F);
+
+impl<F: Font> Face for Outlines<'_, F> {
+    fn per_px(&self) -> f32 {
+        per_px(self.0)
+    }
+
+    fn paint(&self, out: &mut Pixels, at: (f32, f32), px: f32, s: &str, color: [f32; 4]) {
+        text(out, self.0, at, px, s, color);
+    }
+}
 
 /// Straight RGBA, `w × h`.
 #[derive(Debug, Clone, PartialEq)]
@@ -18,6 +38,11 @@ pub struct Pixels {
 }
 
 impl Pixels {
+    /// `w × h`, nothing painted
+    pub fn new(w: u32, h: u32) -> Pixels {
+        Pixels { w, h, rgba: vec![0; (w * h * 4) as usize] }
+    }
+
     pub fn at(&self, x: u32, y: u32) -> [u8; 4] {
         let i = ((y * self.w + x) * 4) as usize;
         [self.rgba[i], self.rgba[i + 1], self.rgba[i + 2], self.rgba[i + 3]]
@@ -38,8 +63,13 @@ impl Pixels {
         p[3] = (out * 255.0).round() as u8;
     }
 
+    /// #386: `color` over the pixel (x, y) with coverage `cover` (a face paints with it)
+    pub fn put(&mut self, x: i32, y: i32, color: [f32; 4], cover: f32) {
+        self.blend(x, y, rgb(color), cover * color[3]);
+    }
+
     /// a rectangle on whole pixels
-    fn fill(&mut self, x: f32, y: f32, w: f32, h: f32, color: [f32; 4]) {
+    pub fn fill(&mut self, x: f32, y: f32, w: f32, h: f32, color: [f32; 4]) {
         let (x0, y0, x1, y1) = (x.round() as i32, y.round() as i32, (x + w).round() as i32, (y + h).round() as i32);
         for py in y0.max(0)..y1.min(self.h as i32) {
             for px in x0.max(0)..x1.min(self.w as i32) {
@@ -65,8 +95,13 @@ pub fn per_px(font: &impl Font) -> f32 {
 
 /// The part of `list` from `origin`, `size` logical pixels, at `scale` device pixels per logical one, in `font`.
 pub fn raster(list: &DrawList, font: &impl Font, origin: (f32, f32), size: (f32, f32), scale: f32) -> Pixels {
+    raster_with(list, &Outlines(font), origin, size, scale)
+}
+
+/// #386: `raster` with any `Face` (the deck's pixel face for the menus' arcade look)
+pub fn raster_with(list: &DrawList, face: &dyn Face, origin: (f32, f32), size: (f32, f32), scale: f32) -> Pixels {
     let (w, h) = ((size.0 * scale).ceil().max(1.0) as u32, (size.1 * scale).ceil().max(1.0) as u32);
-    let mut out = Pixels { w, h, rgba: vec![0; (w * h * 4) as usize] };
+    let mut out = Pixels::new(w, h);
     let at = |x: f32, y: f32| ((x - origin.0) * scale, (y - origin.1) * scale);
     for p in list.prims() {
         match *p {
@@ -83,7 +118,7 @@ pub fn raster(list: &DrawList, font: &impl Font, origin: (f32, f32), size: (f32,
             }
             Prim::Text { x, y, px, start, end, color } => {
                 let (x, y) = at(x, y);
-                text(&mut out, font, (x, y), px * scale, list.text_of(start, end), color);
+                face.paint(&mut out, (x, y), px * scale, list.text_of(start, end), color);
             }
             Prim::Icon { .. } | Prim::Logo { .. } => {}
         }

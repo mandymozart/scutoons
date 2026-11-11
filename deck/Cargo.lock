@@ -1220,6 +1220,7 @@ name = "deck-kit"
 version = "0.1.0"
 dependencies = [
  "ab_glyph",
+ "font8x8",
  "serde",
  "toml 0.8.23",
 ]
@@ -1402,6 +1403,8 @@ name = "deck-ui"
 version = "0.1.0"
 dependencies = [
  "deck-core",
+ "deck-kit",
+ "image",
 ]
 
 [[package]]

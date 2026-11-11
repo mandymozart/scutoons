@@ -10,7 +10,7 @@ import { LivePage, readKept, type LiveView } from './live-page.ts';
 /** #463: the wasm-bindgen API of deck/space-web's `SceneView` */
 export interface SceneView extends SetView, ChapterView, OutletView, PanelView, LiveView {
 	join_outlet(relay: string, outlet: string, kept: string, reader: string, locale: string, api: string): boolean;
-	deck_link(why: string, code: string, app: string): void;
+	deck_link(why: string, code: string, app: string, signed: boolean): void;
 	set_request(): string;
 	reloaded(): number;
 	resize(w: number, h: number): void;
@@ -56,7 +56,7 @@ export class SceneStage {
 	/** #481: the panel's taps and keys, until `stop`; nobody is signed in (as of the last frame) */
 	private unwatch: (() => void) | null = null;
 	private guest = true;
-	/** #478: the Live page's stats line, keys and taps */
+	/** #478 #386: the menu's status line, keys and pointer – on every deck (outside a session its splash waits for START) */
 	private live: LivePage | null = null;
 
 	private constructor(
@@ -87,8 +87,8 @@ export class SceneStage {
 		const s = new SceneStage(o, canvas, view);
 		s.spaceModule = mod;
 		const kept = readKept();
+		s.live = new LivePage(view, canvas, o.host, kept);
 		if (o.outlet && view.join_outlet(o.outlet.relay, o.outlet.name, kept, o.outlet.reader ?? '', o.outlet.locale, o.api)) {
-			s.live = new LivePage(view, canvas, o.host, kept);
 			(s.relay = new RelaySocket(view as unknown as RelayCoreView, {})).start();
 			s.unwatch = watchPanel(canvas, view);
 		}
@@ -118,10 +118,10 @@ export class SceneStage {
 		askPortraits(this, this.o.cdn, (c) => portraitsAt(this.o.api, this.portraitsByChar, c));
 		const asked = this.view.slice_requests();
 		for (let i = 0; i + 1 < asked.length; i += 2) void fetchSlice(this, this.o.cdn + (asked[i + 1] as string), asked[i] as number);
+		this.live?.frame();
 		if (!this.relay) return;
 		// what the outlet says (media.ready) goes out; what it asks for is fetched; a cell's set loads
 		this.relay.run();
-		this.live?.frame();
 		// #484: signed in – the deck is its user; else its own key and the pairing. #481: a sign-in or sign-out asks its proof again
 		const user = this.o.user?.() ?? undefined;
 		if (!user !== this.guest) this.view.proof_again();
@@ -129,7 +129,7 @@ export class SceneStage {
 		if (!user && this.spaceModule) void ensureLink(this, this.spaceModule.DeckLink, this.o.build ?? '');
 		const link = user ? null : this.link;
 		if (link) void driveLink(link, this.o.api);
-		this.view.deck_link(user ? '' : link ? link.view.why(ms) : 'this browser cannot pair (no WebCrypto Ed25519)', link?.view.code() ?? '', location.origin);
+		this.view.deck_link(user ? '' : link ? link.view.why(ms) : 'this browser cannot pair (no WebCrypto Ed25519)', link?.view.code() ?? '', location.origin, !!user);
 		fetchOutletAsks(this, { api: this.o.api, cdn: this.o.cdn, link: link?.view, user });
 		const set = this.view.set_request();
 		if (set && this.spaceModule) void fetchSet(this, this.spaceModule.SpaceView.encoded_images, sniff, this.o, set).catch((e) => console.warn('scene: the set failed', e));
