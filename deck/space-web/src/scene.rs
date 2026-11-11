@@ -306,6 +306,25 @@ impl SceneView {
         self.relay(|c| c.text(now, data));
     }
 
+    /// #438: the WebTransport session and its stream are up – the page's quic.ts drives the outlet's relay client as
+    /// relay-web's (a hosted relay offers QUIC; without these the outlet's first dial threw and it never joined: found in
+    /// #481's live test in production)
+    pub fn quic_opened(&mut self, now: f64) {
+        self.relay(|c| c.quic_opened(now));
+    }
+
+    pub fn quic_closed(&mut self, now: f64, why: &str) {
+        self.relay(|c| c.quic_closed(now, why));
+    }
+
+    pub fn quic_stream(&mut self, now: f64, bytes: &[u8]) {
+        self.relay(|c| c.quic_stream(now, bytes));
+    }
+
+    pub fn quic_datagram(&mut self, now: f64, bytes: &[u8]) {
+        self.relay(|c| c.quic_datagram(now, bytes));
+    }
+
     pub fn tick(&mut self, now: f64) {
         self.relay(|c| c.tick(now));
     }
