@@ -1,28 +1,37 @@
 //! The kit on egui (#485; RULES H8, owner 2026-11-11 [ui-kit]: "internal rust UI library based on egui"): a screen's
-//! layers of draw lists painted through egui – its `Context`, epaint's meshes and text, its fonts, the input fed from
-//! the kit's `Input` – into meshes in device pixels an adapter draws (deck-space's stage, through egui-wgpu, in its
-//! pass). egui's widgets and theme are not used: a layer is our components' draw list, painted shape by shape.
+//! layers of draw lists painted as epaint's shapes – meshes, text, rounded rectangles – and tessellated by epaint into
+//! meshes in device pixels an adapter draws (deck-space's stage, through egui-wgpu, in its pass). egui's widgets and theme
+//! are not used: a layer is our components' draw list, painted shape by shape.
 //!
 //! One point is one device pixel; a layer brings its own scale (the deck's menu and its panel are painted at different
-//! ones). The faces: the deck's mono face (an outline font egui lays out; the platform hands its bytes in) and the pixel
-//! face (`pixel.rs`, a bitmap atlas egui samples nearest – egui takes no bitmap fonts). A frame is run only when a
-//! layer, the screen's size or the input changed; in between the adapter draws what it has.
+//! ones). The faces: the deck's mono face (an outline font; the platform hands its bytes in) and the pixel face
+//! (`pixel.rs`, a bitmap atlas sampled nearest). The mono face is set by one of two text engines (slice 3, owner
+//! 2026-11-11 "Slim down"): the decks' own glyph atlas (`glyphs.rs`: ab_glyph, egui's line metrics – no egui `Context`,
+//! so egui's text stack of harfrust, skrifa and vello_cpu is not linked into the browser deck), or egui's context and
+//! text (`Screen::with_egui_text`, feature `egui-text`: the editor, whose input and layout grow on egui). A frame is run
+//! only when a layer, the screen's size or (egui's) input changed; in between the adapter draws what it has.
 use crate::base::draw::{DrawList, Prim};
+use crate::base::glyphs::Atlas;
 use crate::base::input::Input;
-use egui::epaint::{ClippedPrimitive, ImageDelta, Color32, CornerRadius, Mesh, Shape, Stroke, StrokeKind, TextureId};
-use egui::{pos2, vec2, Context, Event, FontData, FontDefinitions, FontFamily, FontId, Key, LayerId, Modifiers, PointerButton, Pos2, RawInput, Rect, ViewportId};
+use egui::epaint::{ClippedPrimitive, ClippedShape, Color32, ColorImage, CornerRadius, ImageDelta, Mesh, Shape, Stroke, StrokeKind, TessellationOptions, Tessellator, TextureId};
+use egui::{pos2, vec2, Pos2, Rect, TextureOptions};
 use std::collections::HashMap;
 use std::sync::Arc;
 
 /// a line's height per pixel of font size: a text sits in the middle of it (the reader's 1.35, as `panel.rs` lays out)
 pub const LINE: f32 = 1.35;
 /// the largest texture egui may ask for (WebGL2 guarantees 2048)
+#[cfg(feature = "egui-text")]
 const MAX_TEXTURE: usize = 2048;
+/// the screen's own textures: the pixel face's atlas and the pictures (0 is the mono face's: the atlas or egui's fonts)
+#[cfg(feature = "pixel")]
+const PIXEL: TextureId = TextureId::Managed(1);
+const PICTURES: TextureId = TextureId::Managed(2);
 
 /// What paints a layer's text.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Face {
-    /// the deck's mono face (IBM Plex Mono Bold), laid out by egui
+    /// the deck's mono face (IBM Plex Mono Bold)
     Mono,
     /// the deck's pixel face (font8x8), the HUD's arcade look
     #[cfg(feature = "pixel")]
@@ -40,8 +49,9 @@ pub struct Layer {
     pub face: Face,
 }
 
-/// What a run painted: egui's meshes in device pixels (a point is a pixel), clipped, in painter's order, and the textures
-/// they need: `set` new or patched (each texture's deltas in their order) before the meshes are drawn, `free` after.
+/// What a run painted: epaint's meshes in device pixels (a point is a pixel), clipped, in painter's order, and the
+/// textures they need: `set` new or patched (each texture's deltas in their order) before the meshes are drawn, `free`
+/// after.
 pub struct Painted {
     pub primitives: Vec<ClippedPrimitive>,
     pub set: Vec<(TextureId, ImageDelta)>,
@@ -58,34 +68,53 @@ pub struct Pictures {
     pub frames: Vec<Rect>,
 }
 
-/// A screen of layers (bottom up) on one egui context.
+/// What sets the mono face.
+enum Text {
+    /// the screen's own glyph atlas (the decks)
+    Atlas(Box<Atlas>),
+    /// egui's context: its fonts set the face, its input state takes the screen's input (the editor)
+    #[cfg(feature = "egui-text")]
+    Egui { ctx: egui::Context, events: Vec<egui::Event>, at: Pos2 },
+}
+
+/// A screen of layers (bottom up).
 pub struct Screen {
-    ctx: Context,
+    text: Text,
+    #[cfg(feature = "egui-text")]
     mono: &'static [u8],
     layers: Vec<Option<Layer>>,
-    events: Vec<Event>,
-    at: Pos2,
     size: (u32, u32),
     dirty: bool,
+    /// whether the pixel face's atlas is on the GPU
     #[cfg(feature = "pixel")]
-    pixel: Option<egui::TextureHandle>,
-    /// the icons' and the logo's image, and its texture once sent
-    pictures: Option<(Arc<Pictures>, Option<egui::TextureHandle>)>,
+    pixel: bool,
+    /// the icons' and the logo's image, and whether it is on the GPU
+    pictures: Option<(Arc<Pictures>, bool)>,
 }
 
 impl Screen {
-    /// `layers` empty layers; `mono` = the deck's mono face (a TrueType file)
+    /// `layers` empty layers; `mono` = the deck's mono face (a TrueType file), set by the screen's own glyph atlas
     pub fn new(mono: &'static [u8], layers: usize) -> Screen {
+        Screen::with(Text::Atlas(Box::new(Atlas::new(mono).expect("the deck's mono face is a TrueType font"))), mono, layers)
+    }
+
+    /// The same, the mono face set by egui's context and text (the editor)
+    #[cfg(feature = "egui-text")]
+    pub fn with_egui_text(mono: &'static [u8], layers: usize) -> Screen {
+        Screen::with(Text::Egui { ctx: context(mono), events: Vec::new(), at: Pos2::ZERO }, mono, layers)
+    }
+
+    #[cfg_attr(not(feature = "egui-text"), allow(unused_variables))]
+    fn with(text: Text, mono: &'static [u8], layers: usize) -> Screen {
         Screen {
-            ctx: context(mono),
+            text,
+            #[cfg(feature = "egui-text")]
             mono,
             layers: vec![None; layers],
-            events: Vec::new(),
-            at: Pos2::ZERO,
             size: (0, 0),
             dirty: true,
             #[cfg(feature = "pixel")]
-            pixel: None,
+            pixel: false,
             pictures: None,
         }
     }
@@ -107,7 +136,7 @@ impl Screen {
 
     /// The pictures the layers' icons and logo frames come from (sent to the GPU with the next frame).
     pub fn set_pictures(&mut self, pictures: Pictures) {
-        self.pictures = Some((Arc::new(pictures), None));
+        self.pictures = Some((Arc::new(pictures), false));
         self.dirty = true;
     }
 
@@ -115,53 +144,67 @@ impl Screen {
         self.layers.get(i).and_then(Option::as_ref)
     }
 
-    /// One input, in device pixels, for egui's input state (hover, presses, keys); what it means to the kit's
-    /// components stays with their owner (deck-ui `menu.rs`, deck-show `face.rs`), who sets a new layer.
+    /// One input, in device pixels, for egui's input state (hover, presses, keys) when egui sets the text; what it
+    /// means to the kit's components stays with their owner (deck-ui `menu.rs`, deck-show `face.rs`), who sets a new
+    /// layer – so with the decks' own atlas it changes nothing here.
+    #[cfg_attr(not(feature = "egui-text"), allow(unused_variables))]
     pub fn input(&mut self, i: Input) {
-        let modifiers = Modifiers::NONE;
-        let key = |key| Event::Key { key, physical_key: None, pressed: true, repeat: false, modifiers };
-        let press = |pos, button| [true, false].map(|pressed| Event::PointerButton { pos, button, pressed, modifiers });
-        match i {
-            Input::Up => self.events.push(key(Key::ArrowUp)),
-            Input::Down => self.events.push(key(Key::ArrowDown)),
-            Input::Left => self.events.push(key(Key::ArrowLeft)),
-            Input::Right => self.events.push(key(Key::ArrowRight)),
-            Input::Enter => self.events.push(key(Key::Enter)),
-            Input::Back => self.events.push(key(Key::Escape)),
-            // the menu's own key (Esc with nothing open, M, a pad's Start): no key of egui's
-            Input::Open => {}
-            Input::Point(x, y) => {
-                self.at = pos2(x, y);
-                self.events.push(Event::PointerMoved(self.at));
+        #[cfg(feature = "egui-text")]
+        if let Text::Egui { events, at, .. } = &mut self.text {
+            use egui::{Event, Key, Modifiers, PointerButton};
+            let modifiers = Modifiers::NONE;
+            let key = |key| Event::Key { key, physical_key: None, pressed: true, repeat: false, modifiers };
+            let press = |pos, button| [true, false].map(|pressed| Event::PointerButton { pos, button, pressed, modifiers });
+            match i {
+                Input::Up => events.push(key(Key::ArrowUp)),
+                Input::Down => events.push(key(Key::ArrowDown)),
+                Input::Left => events.push(key(Key::ArrowLeft)),
+                Input::Right => events.push(key(Key::ArrowRight)),
+                Input::Enter => events.push(key(Key::Enter)),
+                Input::Back => events.push(key(Key::Escape)),
+                // the menu's own key (Esc with nothing open, M, a pad's Start): no key of egui's
+                Input::Open => {}
+                Input::Point(x, y) => {
+                    *at = pos2(x, y);
+                    events.push(Event::PointerMoved(*at));
+                }
+                Input::Press(x, y) => {
+                    *at = pos2(x, y);
+                    events.push(Event::PointerMoved(*at));
+                    events.extend(press(*at, PointerButton::Primary));
+                }
+                Input::Secondary => events.extend(press(*at, PointerButton::Secondary)),
             }
-            Input::Press(x, y) => {
-                self.at = pos2(x, y);
-                self.events.push(Event::PointerMoved(self.at));
-                self.events.extend(press(self.at, PointerButton::Primary));
-            }
-            Input::Secondary => self.events.extend(press(self.at, PointerButton::Secondary)),
+            // a screen nobody repaints keeps only the latest input
+            let n = events.len();
+            events.drain(..n.saturating_sub(64));
         }
-        // a screen nobody repaints keeps only the latest input
-        let n = self.events.len();
-        self.events.drain(..n.saturating_sub(64));
     }
 
-    /// The stage was made anew (a new GPU side holds none of egui's textures): a new context, everything sent again.
+    /// The stage was made anew (a new GPU side holds none of the textures): everything sent again.
     pub fn again(&mut self) {
-        self.ctx = context(self.mono);
+        match &mut self.text {
+            Text::Atlas(atlas) => atlas.clear(),
+            #[cfg(feature = "egui-text")]
+            Text::Egui { ctx, .. } => *ctx = context(self.mono),
+        }
         #[cfg(feature = "pixel")]
         {
-            self.pixel = None;
+            self.pixel = false;
         }
         if let Some((_, sent)) = self.pictures.as_mut() {
-            *sent = None;
+            *sent = false;
         }
         self.dirty = true;
     }
 
-    /// egui's context (its input state, its fonts)
-    pub fn context(&self) -> &Context {
-        &self.ctx
+    /// egui's context (its input state, its fonts) when egui sets the text
+    #[cfg(feature = "egui-text")]
+    pub fn context(&self) -> Option<&egui::Context> {
+        match &self.text {
+            Text::Egui { ctx, .. } => Some(ctx),
+            Text::Atlas(_) => None,
+        }
     }
 
     /// A frame for a screen `size` device pixels large: None = nothing changed since the last one (draw what you have).
@@ -169,66 +212,86 @@ impl Screen {
         if size != self.size {
             (self.size, self.dirty) = (size, true);
         }
-        if !self.dirty && self.events.is_empty() {
+        #[cfg(feature = "egui-text")]
+        let input = matches!(&self.text, Text::Egui { events, .. } if !events.is_empty());
+        #[cfg(not(feature = "egui-text"))]
+        let input = false;
+        if !self.dirty && !input {
             return None;
         }
         self.dirty = false;
-        let mut raw = RawInput {
-            screen_rect: Some(Rect::from_min_size(Pos2::ZERO, vec2(size.0 as f32, size.1 as f32))),
-            max_texture_side: Some(MAX_TEXTURE),
-            events: std::mem::take(&mut self.events),
-            ..RawInput::default()
-        };
-        raw.viewports.entry(ViewportId::ROOT).or_default().native_pixels_per_point = Some(1.0);
+        let screen = Rect::from_min_size(Pos2::ZERO, vec2(size.0 as f32, size.1 as f32));
+        // the screen's own textures, when the GPU lacks them
+        let mut set = Vec::new();
         #[cfg(feature = "pixel")]
-        let pixel = Some(self.pixel_atlas());
+        let pixel = {
+            if !std::mem::replace(&mut self.pixel, true) {
+                let side = crate::base::pixel::SIDE;
+                let image = ColorImage::from_rgba_unmultiplied([side, side], &crate::base::pixel::atlas());
+                set.push((PIXEL, ImageDelta::full(image, TextureOptions::NEAREST)));
+            }
+            Some(PIXEL)
+        };
         #[cfg(not(feature = "pixel"))]
         let pixel: Option<TextureId> = None;
-        let pictures = self.pictures_texture();
-        let pictures = pictures.as_ref().map(|(id, p)| (*id, p.as_ref()));
-        let layers = &self.layers;
-        // a pass without egui's root Ui: only our shapes on the background layer
-        let out = self.ctx.run_pass(raw, |ctx| {
-            let painter = ctx.layer_painter(LayerId::background());
-            let mut shapes = Vec::new();
-            for layer in layers.iter().flatten() {
-                ctx.fonts_mut(|fonts| paint(fonts, layer, (pixel, pictures), &mut shapes));
+        if let Some((p, sent)) = self.pictures.as_mut() {
+            if !std::mem::replace(sent, true) {
+                set.push((PICTURES, ImageDelta::full(ColorImage::from_rgba_unmultiplied(p.size, &p.rgba), TextureOptions::LINEAR)));
             }
-            painter.extend(shapes);
-        });
-        let primitives = self.ctx.tessellate(out.shapes, out.pixels_per_point);
-        // egui 0.37's delta asserts it was handled when dropped: taken apart here, the adapter gets plain lists
-        let mut delta = out.textures_delta;
-        let set = delta.set.drain().flat_map(|(id, deltas)| deltas.into_iter().map(move |d| (id, d))).collect();
-        let free = std::mem::take(&mut delta.free).into_iter().collect();
+        }
+        let pictures = self.pictures.as_ref().map(|(p, _)| (PICTURES, p.as_ref()));
+        let layers = &self.layers;
+        let (primitives, free) = match &mut self.text {
+            Text::Atlas(atlas) => {
+                let mut shapes = Vec::new();
+                for _ in 0..2 {
+                    shapes.clear();
+                    for layer in layers.iter().flatten() {
+                        paint(&mut **atlas, layer, (pixel, pictures), &mut shapes);
+                    }
+                    // a full atlas: emptied, and the frame painted again
+                    if !atlas.full() {
+                        break;
+                    }
+                    atlas.clear();
+                }
+                // epaint's tessellator as egui's context runs it (its default options, a point a pixel)
+                let mut tessellator = Tessellator::new(1.0, TessellationOptions::default(), atlas.size(), Vec::new());
+                let primitives = tessellator.tessellate_shapes(shapes.into_iter().map(|s| ClippedShape::new(screen, s)).collect());
+                if let Some(delta) = atlas.delta() {
+                    set.insert(0, (TextureId::default(), delta));
+                }
+                (primitives, Vec::new())
+            }
+            #[cfg(feature = "egui-text")]
+            Text::Egui { ctx, events, .. } => {
+                let mut raw = egui::RawInput { screen_rect: Some(screen), max_texture_side: Some(MAX_TEXTURE), events: std::mem::take(events), ..egui::RawInput::default() };
+                raw.viewports.entry(egui::ViewportId::ROOT).or_default().native_pixels_per_point = Some(1.0);
+                // a pass without egui's root Ui: only our shapes on the background layer
+                let out = ctx.run_pass(raw, |ctx| {
+                    let painter = ctx.layer_painter(egui::LayerId::background());
+                    let mut shapes = Vec::new();
+                    for layer in layers.iter().flatten() {
+                        ctx.fonts_mut(|fonts| paint(fonts, layer, (pixel, pictures), &mut shapes));
+                    }
+                    painter.extend(shapes);
+                });
+                let primitives = ctx.tessellate(out.shapes, out.pixels_per_point);
+                // egui 0.37's delta asserts it was handled when dropped: taken apart here, the adapter gets plain lists
+                let mut delta = out.textures_delta;
+                set.extend(delta.set.drain().flat_map(|(id, deltas)| deltas.into_iter().map(move |d| (id, d))));
+                (primitives, std::mem::take(&mut delta.free).into_iter().collect())
+            }
+        };
         Some(Painted { primitives, set, free, size })
-    }
-
-    /// the pixel face's atlas as egui's texture (made once a context)
-    #[cfg(feature = "pixel")]
-    fn pixel_atlas(&mut self) -> TextureId {
-        let ctx = &self.ctx;
-        self.pixel
-            .get_or_insert_with(|| {
-                let side = crate::base::pixel::SIDE;
-                let image = egui::ColorImage::from_rgba_unmultiplied([side, side], &crate::base::pixel::atlas());
-                ctx.load_texture("deck-kit pixel face", image, egui::TextureOptions::NEAREST)
-            })
-            .id()
-    }
-
-    /// the pictures as egui's texture (sent once a context), sampled linearly
-    fn pictures_texture(&mut self) -> Option<(TextureId, Arc<Pictures>)> {
-        let ctx = &self.ctx;
-        let (p, sent) = self.pictures.as_mut()?;
-        let handle = sent.get_or_insert_with(|| ctx.load_texture("deck-kit pictures", egui::ColorImage::from_rgba_unmultiplied(p.size, &p.rgba), egui::TextureOptions::LINEAR));
-        Some((handle.id(), p.clone()))
     }
 }
 
 /// a context whose only fonts are the deck's mono face, at one pixel a point
-fn context(mono: &'static [u8]) -> Context {
-    let ctx = Context::default();
+#[cfg(feature = "egui-text")]
+fn context(mono: &'static [u8]) -> egui::Context {
+    use egui::{FontData, FontDefinitions, FontFamily};
+    let ctx = egui::Context::default();
     let mut fonts = FontDefinitions::empty();
     fonts.font_data.insert("mono".into(), Arc::new(FontData::from_static(mono)));
     for family in [FontFamily::Monospace, FontFamily::Proportional] {
@@ -238,15 +301,50 @@ fn context(mono: &'static [u8]) -> Context {
     ctx
 }
 
+/// What sets a line of the mono face: a line's height at a size, whether the face has a text's glyphs, and the line
+/// itself – into the layer's mesh (the atlas: the same texture as the flat shapes) or as a shape of its own (egui's).
+trait Mono {
+    fn row_height(&mut self, size: f32) -> f32;
+    fn has_glyphs(&mut self, size: f32, text: &str) -> bool;
+    fn line(&mut self, mesh: &mut Mesh, text: String, at: Pos2, size: f32, color: Color32) -> Option<Shape>;
+}
+
+impl Mono for Atlas {
+    fn row_height(&mut self, size: f32) -> f32 {
+        self.metrics(size).row_height
+    }
+    fn has_glyphs(&mut self, _: f32, text: &str) -> bool {
+        Atlas::has_glyphs(self, text)
+    }
+    fn line(&mut self, mesh: &mut Mesh, text: String, at: Pos2, size: f32, color: Color32) -> Option<Shape> {
+        self.text(mesh, &text, (at.x, at.y), size, color);
+        None
+    }
+}
+
+#[cfg(feature = "egui-text")]
+impl Mono for egui::epaint::FontsView<'_> {
+    fn row_height(&mut self, size: f32) -> f32 {
+        egui::epaint::FontsView::row_height(self, &egui::FontId::monospace(size))
+    }
+    fn has_glyphs(&mut self, size: f32, text: &str) -> bool {
+        egui::epaint::FontsView::has_glyphs(self, &egui::FontId::monospace(size), text)
+    }
+    fn line(&mut self, _: &mut Mesh, text: String, at: Pos2, size: f32, color: Color32) -> Option<Shape> {
+        let galley = self.layout_no_wrap(text, egui::FontId::monospace(size), color);
+        Some(Shape::galley(at, galley, color))
+    }
+}
+
 fn color(c: [f32; 4]) -> Color32 {
     let b = |v: f32| (v.clamp(0.0, 1.0) * 255.0).round() as u8;
     Color32::from_rgba_unmultiplied(b(c[0]), b(c[1]), b(c[2]), b(c[3]))
 }
 
 /// One layer's draw list as epaint's shapes, in painter's order: the rectangles as quads of one mesh (whole pixels, no
-/// soft edge, as the CPU painter had them), the text as egui's galleys (mono) or the atlas's quads (pixel), the icons and
-/// the logo's frames as quads on the pictures (when a screen has them).
-fn paint(fonts: &mut egui::epaint::FontsView<'_>, layer: &Layer, (pixel, pictures): (Option<TextureId>, Option<(TextureId, &Pictures)>), out: &mut Vec<Shape>) {
+/// soft edge, as the CPU painter had them), the text as the mono face's lines (`Mono`) or the pixel atlas's quads, the
+/// icons and the logo's frames as quads on the pictures (when a screen has them).
+fn paint(fonts: &mut dyn Mono, layer: &Layer, (pixel, pictures): (Option<TextureId>, Option<(TextureId, &Pictures)>), out: &mut Vec<Shape>) {
     let (s, g) = (layer.scale.max(f32::MIN_POSITIVE), layer.grid.max(f32::MIN_POSITIVE));
     // a logical place on the layer's grid, in device pixels
     let snap = |v: f32| (v * g).round() * (s / g);
@@ -309,16 +407,17 @@ fn paint(fonts: &mut egui::epaint::FontsView<'_>, layer: &Layer, (pixel, picture
                     #[cfg(feature = "pixel")]
                     Face::Pixel => glyphs(&mut mesh, text, (x, y, px), (s, g), color(c)),
                     Face::Mono => {
-                        flush(&mut mesh, out);
-                        let font = FontId::monospace(px * s);
-                        let top = y * s + (px * s * LINE - fonts.row_height(&font)) / 2.0;
+                        let size = px * s;
+                        let top = y * s + (size * LINE - fonts.row_height(size)) / 2.0;
                         // the mono face carries no arrows: the core's sentences have them
-                        let text = match fonts.has_glyphs(&font, text) {
+                        let text = match fonts.has_glyphs(size, text) {
                             true => text.to_owned(),
                             false => text.replace('→', ">").replace('←', "<"),
                         };
-                        let galley = fonts.layout_no_wrap(text, font, color(c));
-                        out.push(Shape::galley(pos2(snap(x), top), galley, color(c)));
+                        if let Some(shape) = fonts.line(&mut mesh, text, pos2(snap(x), top), size, color(c)) {
+                            flush(&mut mesh, out);
+                            out.push(shape);
+                        }
                     }
                 }
             }
@@ -386,21 +485,67 @@ mod tests {
         let red = meshes(&p).into_iter().flat_map(|m| m.vertices.iter()).filter(|v| v.color == Color32::RED).map(|v| v.pos).collect::<Vec<_>>();
         assert_eq!(red, [pos2(20.0, 40.0), pos2(80.0, 40.0), pos2(20.0, 50.0), pos2(80.0, 50.0)], "the rectangle at twice its size, whole pixels");
         assert!(screen.frame((800, 600)).is_some(), "a new size paints again");
+        screen.input(Input::Point(10.0, 20.0));
+        assert!(screen.frame((800, 600)).is_none(), "input alone changes nothing the atlas paints");
     }
 
     #[test]
-    fn the_mono_face_is_laid_out_by_egui_and_its_atlas_is_sent() {
+    fn the_mono_face_is_set_on_the_screens_own_atlas_in_the_layers_mesh() {
         let mut screen = Screen::new(MONO, 1);
         let mut d = DrawList::new(0.6);
+        d.rect(0.0, 0.0, 10.0, 10.0, [0.0, 0.0, 0.0, 1.0]);
         d.text(0.0, 0.0, 14.0, "Annehmen", [1.0; 4]);
         screen.set(0, Some(Layer { list: d, scale: 2.0, grid: 2.0, face: Face::Mono }));
         let p = screen.frame((320, 240)).expect("a frame");
-        assert!(p.set.iter().any(|(id, _)| *id == TextureId::default()), "egui's font atlas goes to the GPU");
-        let glyphs = meshes(&p).iter().map(|m| m.vertices.len()).sum::<usize>() / 4;
-        assert_eq!(glyphs, 8, "a quad a letter");
+        assert!(p.set.iter().any(|(id, d)| *id == TextureId::default() && d.pos.is_none()), "the atlas goes to the GPU");
+        let m = meshes(&p);
+        assert_eq!((m.len(), m[0].texture_id), (1, TextureId::default()), "the ground and the glyphs: one mesh on the atlas");
+        assert_eq!(m[0].vertices.len() / 4, 1 + 8, "the ground and a quad a letter");
+        screen.again();
+        let p = screen.frame((320, 240)).expect("everything again");
+        assert!(p.set.iter().any(|(id, d)| *id == TextureId::default() && d.pos.is_none()), "the atlas as a whole");
+    }
+
+    #[cfg(feature = "egui-text")]
+    #[test]
+    fn egui_sets_the_mono_face_where_the_atlas_does() {
+        let line = |mut screen: Screen| {
+            let mut d = DrawList::new(0.6);
+            d.text(3.0, 5.0, 14.0, "Annehmen", [1.0; 4]);
+            screen.set(0, Some(Layer { list: d, scale: 2.0, grid: 2.0, face: Face::Mono }));
+            let p = screen.frame((320, 240)).expect("a frame");
+            let quads: Vec<Rect> = meshes(&p).iter().flat_map(|m| m.vertices.chunks(4).map(|q| Rect::from_two_pos(q[0].pos, q[3].pos))).collect();
+            quads
+        };
+        let (ours, egui) = (line(Screen::new(MONO, 1)), line(Screen::with_egui_text(MONO, 1)));
+        assert_eq!(ours.len(), egui.len(), "a quad a letter");
+        for (a, b) in ours.iter().zip(&egui) {
+            // the same line: each glyph's box within a pixel and a half (egui hints its outlines, ab_glyph does not)
+            assert!((a.center() - b.center()).length() < 1.5 && (a.size() - b.size()).length() < 3.0, "{a:?} {b:?}");
+        }
         // the mono face is 0.6 em wide in egui too: what the panel lays out with
-        let w = screen.context().fonts_mut(|f| f.layout_no_wrap("MMMMMMMMMM".into(), FontId::monospace(28.0), Color32::WHITE).size().x);
+        let mut screen = Screen::with_egui_text(MONO, 1);
+        screen.frame((320, 240));
+        let ctx = screen.context().expect("egui's context");
+        let w = ctx.fonts_mut(|f| f.layout_no_wrap("MMMMMMMMMM".into(), egui::FontId::monospace(28.0), Color32::WHITE).size().x);
         assert!((w - 10.0 * 0.6 * 28.0).abs() < 2.0, "{w}");
+    }
+
+    #[cfg(feature = "egui-text")]
+    #[test]
+    fn input_reaches_egui_and_a_new_context_sends_everything_again() {
+        let mut screen = Screen::with_egui_text(MONO, 1);
+        screen.frame((640, 480));
+        screen.input(Input::Point(10.0, 20.0));
+        assert!(screen.frame((640, 480)).is_some(), "input runs a frame");
+        let ctx = |s: &Screen| s.context().expect("egui's context").clone();
+        assert_eq!(ctx(&screen).input(|i| i.pointer.hover_pos()), Some(pos2(10.0, 20.0)));
+        screen.input(Input::Press(30.0, 40.0));
+        screen.frame((640, 480));
+        assert_eq!(ctx(&screen).input(|i| i.pointer.interact_pos()), Some(pos2(30.0, 40.0)));
+        screen.again();
+        let p = screen.frame((640, 480)).expect("everything again");
+        assert!(p.set.iter().any(|(id, d)| *id == TextureId::default() && d.pos.is_none()), "egui's font atlas as a whole");
     }
 
     #[cfg(feature = "pixel")]
@@ -415,7 +560,7 @@ mod tests {
         let p = screen.frame((320, 240)).expect("a frame");
         let m = meshes(&p);
         assert_eq!(m.len(), 1, "the ground and the glyphs on the atlas: one mesh");
-        assert_ne!(m[0].texture_id, TextureId::default(), "the pixel face's atlas, not egui's fonts");
+        assert_eq!(m[0].texture_id, PIXEL, "the pixel face's atlas, not the mono face's");
         assert!(p.set.iter().any(|(id, _)| *id == m[0].texture_id), "the atlas goes to the GPU");
         let tops: Vec<f32> = m[0].vertices.chunks(4).map(|q| q[0].pos.y).collect();
         assert_eq!(tops, [0.0, 4.0, 4.0], "the ground, then A and B");
@@ -425,7 +570,7 @@ mod tests {
 
     #[cfg(feature = "live")]
     #[test]
-    fn a_panel_keeps_its_ground_edge_buttons_and_type_through_egui() {
+    fn a_panel_keeps_its_ground_edge_buttons_and_type() {
         use crate::live::panel::{self, Part};
         let t = crate::live::tokens::panel();
         let mut d = DrawList::new(0.6);
@@ -459,20 +604,5 @@ mod tests {
         assert!(p.set.iter().any(|(id, _)| *id == m[1].texture_id), "the pictures go to the GPU");
         assert_eq!((m[1].vertices[0].pos, m[1].vertices[0].color), (pos2(2.0, 4.0), Color32::RED), "the icon in its colour");
         assert_eq!(m[1].vertices[4].color, Color32::WHITE, "the logo in its own colours");
-    }
-
-    #[test]
-    fn input_reaches_egui_and_a_new_context_sends_everything_again() {
-        let mut screen = Screen::new(MONO, 1);
-        screen.frame((640, 480));
-        screen.input(Input::Point(10.0, 20.0));
-        assert!(screen.frame((640, 480)).is_some(), "input runs a frame");
-        assert_eq!(screen.context().input(|i| i.pointer.hover_pos()), Some(pos2(10.0, 20.0)));
-        screen.input(Input::Press(30.0, 40.0));
-        screen.frame((640, 480));
-        assert_eq!(screen.context().input(|i| i.pointer.interact_pos()), Some(pos2(30.0, 40.0)));
-        screen.again();
-        let p = screen.frame((640, 480)).expect("everything again");
-        assert!(p.set.iter().any(|(id, d)| *id == TextureId::default() && d.pos.is_none()), "egui's font atlas as a whole");
     }
 }

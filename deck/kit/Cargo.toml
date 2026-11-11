@@ -10,7 +10,11 @@ description = "The component library (#456, #485): one base on egui's primitives
 [features]
 default = []
 # the native editor's components and look (controls, typeahead, info strip, icons): never in the decks' build
-editor = []
+editor = ["egui-text"]
+# #485 slice 3: egui's context and text set the mono face (`Screen::with_egui_text`, the editor). Without it the decks
+# set the face on the kit's own glyph atlas (base glyphs.rs) and egui's text stack (harfrust, skrifa, vello_cpu: 3.2 MB
+# of code) is not linked into the browser deck.
+egui-text = []
 # the audience-facing deck UI (#386 the menu's HUD look, #481 the panel) in the deck's pixel face
 live = ["pixel"]
 # #386: the deck's pixel face (the HUD's font8x8) as a bitmap atlas egui samples (base pixel.rs)
@@ -21,6 +25,9 @@ pixel = ["dep:font8x8"]
 # default fonts (the deck's own faces are handed in) and without its widgets' look. 0.37, on wgpu 30
 # (#485 slice 1); the egui-wgpu that draws it is deck-space's (its `gpu` feature).
 egui = { version = "0.37", default-features = false }
+# #485 slice 3: the decks' own glyph atlas rasters the mono face (base glyphs.rs) – the deck's text crate already
+# (deck-outlet, deck-space's labels), so the browser deck carries no second rasteriser
+ab_glyph = "0.2"
 font8x8 = { version = "0.3", default-features = false, features = ["unicode"], optional = true }
 serde.workspace = true
 toml.workspace = true

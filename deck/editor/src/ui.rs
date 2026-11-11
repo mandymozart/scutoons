@@ -74,7 +74,8 @@ pub struct Ui {
 
 impl Ui {
     pub fn new(device: &wgpu::Device, _queue: &wgpu::Queue, format: wgpu::TextureFormat, _font_px: f32) -> Result<Ui> {
-        let mut screen = Screen::new(deck_outlet::text::mono_ttf(), 1);
+        // #485 slice 3: the editor keeps egui's text (the decks set the face on the kit's own atlas)
+        let mut screen = Screen::with_egui_text(deck_outlet::text::mono_ttf(), 1);
         screen.set_pictures(pictures());
         Ok(Ui {
             screen,
