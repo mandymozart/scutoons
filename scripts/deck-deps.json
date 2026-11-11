@@ -95,6 +95,7 @@
 		"deck-space": "core (without `gpu` / `native`)",
 		"digest": "via sha2",
 		"equivalent": "via indexmap",
+		"font8x8": "deck-kit `pixel`: the deck's pixel face – the HUD's 8 × 8 bitmaps, data only; deck-ui paints the deck's menu with it (#386)",
 		"generic-array": "via sha2",
 		"glam": "deck-space being: vector maths",
 		"hashbrown": "via indexmap",

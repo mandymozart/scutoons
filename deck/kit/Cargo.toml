@@ -11,8 +11,12 @@ description = "The editor's component library (#456): the controls, tokens and a
 default = ["raster"]
 # the draw list as pixels (#481): glyph outlines on the CPU, the face from the caller
 raster = ["dep:ab_glyph"]
+# #386: the deck's pixel face (the HUD's font8x8) as a raster face – the menus' arcade look; the adapters that paint the
+# deck's menus turn it on (deck-native, space-web), the core crates draw into the list without it
+pixel = ["raster", "dep:font8x8"]
 
 [dependencies]
 ab_glyph = { version = "0.2", optional = true }
+font8x8 = { version = "0.3", default-features = false, features = ["unicode"], optional = true }
 serde.workspace = true
 toml.workspace = true
