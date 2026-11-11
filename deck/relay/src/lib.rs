@@ -723,4 +723,33 @@ mod tests {
         let fact = |id: &str| who[id].account.map(Account::as_str);
         assert_eq!((fact(&member), fact(&live), fact(&deck), fact(&guest), fact(&tampered)), (Some("member"), Some("live"), Some("guest"), Some("guest"), Some("guest")));
     }
+
+    /// #478: a deck whose proof came after its first hello joins again with resume, the role it names and the proof in one
+    /// hello (deck-space relay.rs `set_proof`): the relay gives it the role with the proven facts it refused the guest
+    #[test]
+    fn a_resume_with_a_proof_takes_the_role_a_guest_was_refused() {
+        use protocol::{Account, Admits, Hello, Resume, Roles, ShowRole};
+        let secret = b"relay-test-secret".to_vec();
+        let relay = Relay::with_config(Config { token_secret: Some(secret.clone()), ..Config::default() });
+        let now = now_ms() / 1000;
+        let hello = |role: Role, group: Option<&str>, token: Option<String>, proof: Option<String>, resume: Option<Resume>| {
+            let hello = Hello { code: "R".into(), role, group: group.map(Into::into), nick: None, device: None, token, proof, resume };
+            serde_json::to_string(&Envelope::new("", Message::Hello(hello))).unwrap()
+        };
+        let cond_token = token::sign(&secret, &token::Claims { session: "R".into(), role: Role::Conductor, exp: now + 60, show: None });
+        let (cond, _) = relay.admit(Some(&hello(Role::Conductor, None, Some(cond_token), None, None)), Join::default(), Outbox::new()).unwrap();
+        let soprano = ShowRole { id: "soprano".into(), label: None, r#for: Some(Admits { account: Some(vec![Account::Member]), ..Default::default() }), here: None };
+        relay.with_session("R", |s| s.handle(&cond, Envelope::new("", Message::Roles(Roles { roles: vec![soprano] })), now_ms(), 50));
+
+        let first = Outbox::new();
+        let (id, _) = relay.admit(Some(&hello(Role::Output, Some("soprano"), None, None, None)), Join::default(), first.clone()).unwrap();
+        let (group, key) = relay.with_session("R", |s| (s.clients[&id].group.clone(), s.clients[&id].key.clone())).unwrap();
+        assert_eq!(group, None, "a guest: not given the members' role");
+        // the client drops the link and joins again at once – the relay may not have seen the old link go (`take_over`)
+        let proof = token::sign(&secret, &token::Proof { session: "R".into(), facts: token::Facts { account: vec![Account::Member], approved: false }, exp: now + 60 });
+        let resume = Resume { client: id.clone(), seq: 0, key: Some(key) };
+        let (again, _) = relay.admit(Some(&hello(Role::Output, Some("soprano"), None, Some(proof), Some(resume))), Join::default(), Outbox::new()).unwrap();
+        assert_eq!(again, id, "the same client");
+        assert_eq!(relay.with_session("R", |s| s.clients[&id].group.clone()).unwrap(), Some("soprano".into()), "the role, with the proven facts");
+    }
 }

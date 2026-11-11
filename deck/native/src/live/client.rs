@@ -57,6 +57,8 @@ impl Client {
         o.device = Some("native".into());
         o.resume = true;
         o.messages = true;
+        // #478: the first hello waits for the proof's answer (at most deck-space's PROOF_WAIT_MS)
+        o.wait_proof = true;
         let relay = match Relay::new(o) {
             Ok(r) => r,
             Err(e) => {
@@ -70,9 +72,7 @@ impl Client {
 
     fn answered(&mut self, c: &mut Relay, at: f64, a: Answer) {
         self.proof = None;
-        if let Some(p) = self.renew.answered(at, a) {
-            c.set_proof(p);
-        }
+        c.proof_answered(self.renew.answered(at, a));
     }
 }
 
@@ -93,7 +93,8 @@ fn ask_proof(media: Arc<Media>, code: &str) -> Receiver<Answer> {
 
 impl Side for Client {
     fn feed(&mut self, c: &mut Relay, now: f64) {
-        // #478: the proof in the next hello (the first one joins again at once); none: a guest
+        // #478: the proof in the next hello (the first hello waits for the answer; a late first proof joins again at once);
+        // none: a guest
         let at = now / 1000.0;
         match self.proof.as_ref().map(Receiver::try_recv) {
             Some(Ok(a)) => self.answered(c, at, a),
