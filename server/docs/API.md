@@ -825,6 +825,9 @@ scenes public, `toons` a list (may be empty).
   the document's form, its checks – location, holders, filters, a template's previews –, the graph resolved with the
   previews, the browser engine's split): 422 `invalid_scene { problems }`, 503 without the service; never with an AI
   connection's token (403 `not_for_ai`)
+- Clients (#490): `@scutoons/api` `createScenesApi`; the MCP's `list_scenes` / `read_scene` / `list_scene_versions` /
+  `save_scene_draft` (drafts only, agents/MCP.md §12); the creator's Scenes area `/scenes/<id>` (facts, versions, restore,
+  Publish with the problems listed)
 - **The first real scene `scene:nave`** (the cathedral set, one holder: Cat Pope with her rig): `server/tests/fixtures/scenes/nave.json`,
   written and checked by deck-space (`UPDATE_FIXTURES=1 cargo test -p deck-space scene_resolve`; it resolves to the scene it
   played as format 1: the core rig `character.catpope` flattened, staged as the cathedral sandbox). Production gets it once,

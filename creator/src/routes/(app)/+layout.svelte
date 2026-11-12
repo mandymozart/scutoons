@@ -207,6 +207,8 @@
 		}
 		// the world map (agents/MAP.md §4.1): Creator / Karte / <selection – added by the builder>
 		if (route === '/map') out.push({ href: '/map', label: m['creator.map']() });
+		// the deck scenes (#490): Creator / Szenen / <the open scene – added by the browser>
+		if (route === '/scenes/[[id]]') out.push({ href: '/scenes', label: m['creator.scenes']() });
 		// the catalog (agents/CATALOG-IN-CREATOR.md): Creator / Katalog / <kind> (a score's collage stage: Items, its entry and
 		// Collage come from the stage – research/COLLAGE.md §4.4)
 		if (route === '/catalog/[kind]' || route === '/catalog/items/[id]/collage') {
@@ -357,6 +359,7 @@
 			{ id: 'universe-moods', label: m['creator.characters_moods'](), hint: m['creator.characters'](), href: '/characters?tab=moods' },
 			{ id: 'universe-wanted', label: m['creator.characters_wanted'](), hint: m['creator.characters'](), href: '/characters?tab=wanted' },
 			{ id: 'universe-map', label: m['creator.map'](), href: '/map', keywords: 'map karte' },
+			{ id: 'universe-scenes', label: m['creator.scenes'](), href: '/scenes', keywords: 'scenes szenen deck' },
 			{ id: 'universe-flow', label: m['creator.flow_universe'](), href: '/flow', keywords: 'flow ablauf' },
 			// every catalog page (owner 2026-10-14: the search should know the new pages – home scenes, airlift carriers …)
 			...CATALOG_PAGE_KINDS.map((kind) => ({ id: `catalog-${kind}`, label: `${m['creator.catalog']()} · ${CATALOG_LABELS[kind]()}`, href: `/catalog/${kind}`, keywords: `catalog katalog ${kind.replace('-', ' ')}` })),
