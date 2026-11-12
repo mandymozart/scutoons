@@ -20,8 +20,8 @@ Old section names in code comments (until 2026-11-03): "Backlog" = C · "Git, se
   plays on the core's own playback. What a browser lacks (Web MIDI in Safari …) is ignored — that device gets a native build, no TS fallback. (2026-11-02 [devices-via-core] [own-video])
 - **A6** No second copy: scenes, rules, defaults, ranges, status texts and monitoring numbers live once, in the core or one data file. A TS twin
   of Rust logic is a defect, even "trimmed", "for now" or "kept in TS because". Every control and readout has ONE owner of its state and number: the core (#362).
-  The server too: a deck rule lives inside the deck, not in PHP; the server keeps only configuration stored in the database (a server → core
-  bridge is a new dependency the owner reviews first). (2026-11-03 [no-duplicate]: "no duplicate code base in the end."; 2026-11-12 [deck-rules-in-deck])
+  The server too: a deck rule lives inside the deck, not in PHP; the server keeps only configuration stored in the database, unless a major shared schema or library carries
+  the rule to both (a server → core bridge is a new dependency the owner reviews first). (2026-11-03 [no-duplicate]: "no duplicate code base in the end."; 2026-11-12 [deck-rules-in-deck])
 - **A7** Enforced, not trusted (2026-11-03 [core-only]: "enforce it even for dumb agents"; #363): `check:core-only` (every file that touches the engine; a new bridge
   file needs an `adapter:` / `ui:` line in scripts/bridge-files.json), `check:deck-deps` (no platform library in a core crate; main.rs only shrinks), the headless
   deck host (deck/headless: a move ticket is done when its `expected_fail` scenario is green). Baselines, budgets, allow rules and escapes only shrink – growth
