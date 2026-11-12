@@ -37,7 +37,7 @@ export interface EntityLabels {
 	chapterScript: (number: number) => string;
 	/** a Kanon text (`kanon:<subject>`, research/KANON.md): the subject segment, e.g. `character.catpope.human` */
 	kanon: (subject: string) => string;
-	/** a catalog entry's document (`item:camera` → kind `item`, id `camera`; agents/CATALOG-IN-CREATOR.md) */
+	/** a catalog entry's document (`item:camera` → kind `item`, id `camera`, `module:walk`, `rig:character.catpope`; agents/CATALOG-IN-CREATOR.md) */
 	catalog: (kind: string, id: string) => string;
 }
 
@@ -68,7 +68,8 @@ export const ENTITY_LABELS: EntityLabels = {
 	catalog: (kind, id) => `${kind[0].toUpperCase()}${kind.slice(1)} ${id}`
 };
 
-const CATALOG = ['item', 'recipe', 'album', 'product', 'edition'];
+/** the catalog documents `<kind>:<id>` (server EntityKey::CATALOG_KINDS) */
+const CATALOG = ['item', 'recipe', 'album', 'product', 'edition', 'home-scene', 'airlift-carrier', 'instrument', 'preset', 'rig', 'module'];
 
 const NAMED: Record<string, keyof EntityLabels> = {
 	'toon-settings': 'toon',

@@ -13,7 +13,8 @@ const CATALOG_WORD: Record<string, () => string> = {
 	recipe: () => m['creator.catalog_recipe'](),
 	album: () => m['creator.catalog_album'](),
 	product: () => m['creator.catalog_product'](),
-	edition: () => m['creator.catalog_edition']()
+	edition: () => m['creator.catalog_edition'](),
+	module: () => m['creator.sound_module']()
 };
 
 export function fileLabel(key: string): string {
@@ -39,7 +40,7 @@ export function fileLabel(key: string): string {
 		region: (id) => `${m['creator.publish_part_region']()}: ${id}`,
 		character: (id) => `${m['creator.publish_part_character']()}: ${id}`,
 		scene: (id) => `${m['creator.publish_part_scene']()}: ${id}`,
-		catalog: (kind, id) => `${CATALOG_WORD[kind]?.() ?? kind} ${id}`
+		catalog: (kind, id) => `${CATALOG_WORD[kind]?.() ?? `${kind[0].toUpperCase()}${kind.slice(1)}`} ${id}`
 	});
 }
 
