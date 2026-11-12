@@ -6,10 +6,12 @@
 //! - a rig: `Rig::check` (a code rig's policy too, #408: its module, targets and who writes which input), then
 //!   `Bundle::play` (flatten, the knobs and sticks, the engine's lowering) without a variant, for every persona and for
 //!   every mood; `Rig::warnings` (a preset's value on an input the policy owns is dropped – said, not refused);
-//! - a scene (#243, kind `scenes`, the `scene:<id>` document the API publishes): `SceneDocument` (format, id = the request's,
-//!   the scene's fields with unknown ones refused), `Graph::build` (kinds, ids, links, at most one sink of each kind, no
-//!   cycle) and the browser engine's split (`engine::lower`) – what every deck does before it plays a scene. The being's
-//!   look and the outputs table are checked as shapes only here (the API's JSON Schema; this build has no `being`).
+//! - a scene (#243, kind `scenes`, the `scene:<id>` document the API publishes): `SceneDocument` format 2 (#489: id = the
+//!   request's, unknown fields refused), its `check` (the location, holders' ids, fillers and filters – a template's
+//!   placeholders and previews well formed –, spawn zones, rigs and values), then resolved with its previews
+//!   (scene_resolve.rs; no rigs travel with the request, so the holders stand silent) into `Graph::build` (kinds, ids,
+//!   links, at most one sink of each kind, no cycle) and the browser engine's split (`engine::lower`) – what every deck
+//!   does before it plays a scene. The outputs table is checked as a shape only here (the API's JSON Schema).
 //!
 //! The lookups travel by value: the instruments it names, the presets it names with their ancestors, a code rig's policy
 //! module's descriptor (the API reads them from its catalog). Every problem a check lists is in the answer, each naming
@@ -122,8 +124,9 @@ impl Request {
         if doc.id != self.id {
             return Err(vec![format!("{who}: the document's id is \"{}\", the key's \"{}\"", doc.id, self.id)]);
         }
-        crate::graph::Graph::build(&doc.scene).map_err(said)?;
-        super::engine::lower(&doc.scene).map_err(said)?;
+        let resolved = crate::scene_resolve::resolve(&doc, &Default::default(), true, &crate::scene_resolve::no_rigs)
+            .map_err(|problems| problems.into_iter().map(|p| format!("{who}: {p}")).collect::<Vec<_>>())?;
+        super::engine::lower(&resolved.scene).map_err(said)?;
         Ok(())
     }
 
@@ -201,13 +204,26 @@ mod tests {
         assert_eq!(ask("nave", &nave), Vec::<String>::new());
         let p = ask("other", &nave);
         assert_eq!(p, ["scene other: the document's id is \"nave\", the key's \"other\""]);
-        let p = ask("x", r#"{"format":1,"id":"x","node":[{"id":"a","kind":"blender"},{"id":"t","kind":"tempo"}],"link":[{"from":"t.beat","to":"nowhere.in"}]}"#);
+        let p = ask("x", r#"{"format":2,"id":"x","node":[{"id":"a","kind":"blender"},{"id":"t","kind":"tempo"}],"link":[{"from":"t.beat","to":"nowhere.in"}]}"#);
         assert_eq!(p.len(), 2, "{p:?}");
         assert!(p[0].contains("unknown kind 'blender'") && p[1].contains("nowhere"), "{p:?}");
-        let p = ask("x", r#"{"format":2,"id":"x"}"#);
-        assert!(p[0].starts_with("scene x: format 2"), "{p:?}");
-        let p = ask("x", r#"{"format":1,"id":"x","nodes":[]}"#);
+        let p = ask("x", r#"{"format":1,"id":"x"}"#);
+        assert!(p[0].starts_with("scene x: format 1"), "format 1 is migrated, not read: {p:?}");
+        let p = ask("x", r#"{"format":2,"id":"x","nodes":[]}"#);
         assert!(p[0].contains("unknown field `nodes`"), "{p:?}");
+        // #489: a holder's problems and a preview its filter refuses
+        let p = ask("x", r#"{"format":2,"id":"x","holder":[{"id":"who","fill":{"kind":["character"]},"preview":"item:incense"}]}"#);
+        assert_eq!(p, ["scene x: holder who: its preview: 'item:incense' is an item, the placeholder takes character"]);
+    }
+
+    /// #489: the four templates (SCENES.md §9.5, server/tests/fixtures/scenes/templates) pass as published scenes
+    #[test]
+    fn the_templates_pass() {
+        for name in ["place", "solo", "stage", "avatar-home"] {
+            let text = std::fs::read_to_string(format!("{}/../../server/tests/fixtures/scenes/templates/{name}.json", env!("CARGO_MANIFEST_DIR"))).unwrap();
+            let r = Request { kind: "scenes".into(), id: name.into(), document: serde_json::from_str(&text).unwrap(), instruments: vec![], presets: vec![], modules: vec![] };
+            assert_eq!(r.problems().unwrap(), Vec::<String>::new(), "{name}");
+        }
     }
 
     fn v<T: Serialize>(x: &T) -> Value {

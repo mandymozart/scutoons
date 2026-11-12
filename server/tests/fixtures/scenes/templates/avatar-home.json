@@ -1,0 +1,46 @@
+{
+  "format": 2,
+  "id": "avatar-home",
+  "toons": [],
+  "location": {
+    "id": "home",
+    "fill": {
+      "kind": [
+        "location"
+      ]
+    },
+    "label": {
+      "de": "das Zuhause des Avatars",
+      "en": "the avatar's home"
+    }
+  },
+  "holder": [
+    {
+      "id": "who",
+      "spot": "spot_home",
+      "fill": {
+        "kind": [
+          "character"
+        ]
+      },
+      "label": {
+        "de": "der Avatar",
+        "en": "the avatar"
+      }
+    }
+  ],
+  "stage": {
+    "name": "Avatar home",
+    "render_scale": 1.0,
+    "transition": "fade",
+    "transition_secs": 0.4
+  },
+  "node": [
+    {
+      "id": "space",
+      "kind": "space",
+      "spot": "spot_home"
+    }
+  ],
+  "link": []
+}

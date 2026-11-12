@@ -10,9 +10,11 @@ use Scutoons\Domain\Rigs\CoreValidator;
 use stdClass;
 
 /**
- * Deck scenes (#243, research/SCENES.md §3): `scene:<id>` in entity_versions – one AV graph a deck plays as a whole, format 1
- * = today's deck-space `Scene` as JSON beside `format`, `id`, `version`, `toons` (deck/space/src/scene_document.rs, the one
- * source of its shape: server/schema/content/scene.schema.json and SceneTypes are generated from it). Like a show: the
+ * Deck scenes (#243, research/SCENES.md §3, §9.3): `scene:<id>` in entity_versions – what a deck plays as a whole, format 2
+ * (#489): `format`, `id`, `version`, `toons`, a location (a reference or a placeholder), holders (a filler or a placeholder's
+ * filter, spawn zones) and the scene's own graph (deck/space/src/scene_document.rs, the one source of its shape:
+ * server/schema/content/scene.schema.json and SceneTypes are generated from it; format 1 was moved by the migration
+ * 2026-11-12-scene-format-2 and the schema refuses it). Like a show: the
  * server stamps `version` on every change (EntityStore::saveStamped); a draft is saved after the shape check (the JSON
  * Schema, ContentSchemas); what makes it playable is the Rust core's (deck-space over the build service's `POST /validate`,
  * kind `scenes`, as for shows and rigs): publishing asks it, a scene a deck could not load is refused with the core's words.

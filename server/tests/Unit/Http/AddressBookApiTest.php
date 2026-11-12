@@ -134,7 +134,7 @@ final class AddressBookApiTest extends TestCase
         $this->catalog();
         [$creator] = $this->session([Roles::CREATOR], 'creator@scutoons.test');
         $space = ['id' => 'space', 'kind' => 'space', 'set' => 'cathedral', 'spot' => 'spot_altar'];
-        $scene = fn(string $id, array $toons, string $name, array $nodes = [], int $version = 1) => ['format' => 1, 'id' => $id, 'version' => $version, 'toons' => $toons, 'stage' => ['name' => $name], 'node' => $nodes, 'link' => []];
+        $scene = fn(string $id, array $toons, string $name, array $nodes = [], int $version = 1) => ['format' => 2, 'id' => $id, 'version' => $version, 'toons' => $toons, 'stage' => ['name' => $name], 'node' => $nodes, 'link' => []];
         $this->store('scene:nave', $scene('nave', ['catpope', 'toptoy'], 'Nave', [['id' => 'drone', 'kind' => 'osc'], $space], 2));
         $this->store('scene:nave', $scene('nave', ['catpope'], 'Nave (new)', [], 3), false);
         $this->store('scene:aisle', $scene('aisle', ['catpope'], 'Aisle with crows'), false);

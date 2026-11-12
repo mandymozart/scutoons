@@ -800,13 +800,20 @@ Handshake, then approval, then data (agents/research/CYBERDECKS.md §9). Code: `
   guest needs no proof) · `403 not_for_ai` · `400 invalid_session` (letters, digits, `-`, `_`; 1–64). The shared test vector
   with the relay: `deck/protocol/fixtures/live-proof.json`.
 
-## Scenes (2026-11-11, #243 – no migration: `entity_versions.kind` is free text and `scene` was free since 2026-10-19)
+## Scenes (2026-11-11, #243; format 2 2026-11-12, #489 – migration 2026-11-12-scene-format-2)
 
-`ScenesController`, `Domain\Live\Scenes`. A deck scene (agents/research/SCENES.md §3) is `scene:<id>` in entity_versions: format 1 =
-deck-space's `Scene` as JSON beside `format: 1`, `id`, `version`, `toons` (deck/space/src/scene_document.rs; its schema
-`server/schema/content/scene.schema.json` is written by deck-schema, the TS / PHP types by `npm run generate`). `/api/entities`
-refuses `scene:` keys (400 `wrong_route`). Proposals of SCENES.md §7 built on: published scenes public, v1 without holders,
-`toons` a list (may be empty).
+`ScenesController`, `Domain\Live\Scenes`. A deck scene (agents/research/SCENES.md §3, §9.3) is `scene:<id>` in entity_versions,
+**format 2** (deck/space/src/scene_document.rs; its schema `server/schema/content/scene.schema.json` is written by deck-schema,
+the TS / PHP types by `npm run generate`): `format: 2`, `id`, `version`, `toons`, a `location` (`location:<id>`, or a
+placeholder `{ id, fill, label?, preview? }`; then no `set` on the `space` node), `holder[]` (`id`, `spot?`, a filler `ref` **or**
+a placeholder's `fill` – `{ kind: [character | persona | look | item], ref?: [..], parent? }`, every fact must hold –, `take:
+one | many` with `arrange { kind: row | cluster, spacing }` and `max` for a spawn zone, `rig { ref: "rig:<subject>", version? }`,
+`values` by address, `label?`, `preview?`, `enter: start | join`), `stage`, `node`, `link`, `outputs`; the being's look is no
+field any more (a character holder brings its own). Format 1 is refused on save (422 `invalid_content`); the migration moved
+any stored format-1 version (`scene:nave`: one holder `catpope`, its `space` node alone). What a deck plays is the core's
+resolve step (deck-space `scene_resolve.rs`: a use's fillers checked against each `fill`, spawn zones arranged, the holders'
+rigs flattened in). `/api/entities` refuses `scene:` keys (400 `wrong_route`). Proposals of SCENES.md §7 built on: published
+scenes public, `toons` a list (may be empty).
 - `GET /api/scenes` the published scenes `[{ key, content }]` (public); a content editor (creator, admin): every scene with its
   newest draft (as `GET /api/entities?kinds=`) · `GET /api/scenes/<id>` the published one `{ scene }` (public, 404 none) ·
   `GET /api/scenes/<id>?v=<n>` the document at a stamped version (public only the published one; 404 `unknown_version`) ·
@@ -815,14 +822,21 @@ refuses `scene:` keys (400 `wrong_route`). Proposals of SCENES.md §7 built on: 
   checked against the schema (422 `invalid_content { problems }`); `content.id` must be `<id>`; the server stamps `content.version`
   as a show's · `POST /api/scenes/<id>/restore { id, message? }` an older version as the newest draft, stamped anew
 - `POST /api/scenes/<id>/publish { version? }` asks the Rust core (the build service's `POST /validate` with `kind: scenes`:
-  the document's form, the graph, the browser engine's split): 422 `invalid_scene { problems }`, 503 without the service;
-  never with an AI connection's token (403 `not_for_ai`)
-- **The first real scene `scene:nave`** (the cathedral set with Cat Pope's rig): `server/tests/fixtures/scenes/nave.json`, written
-  and checked by deck-space (`UPDATE_FIXTURES=1 cargo test -p deck-space nave`; the core rig `character.catpope`
-  flattened, staged as the cathedral sandbox). Production gets it once, by a content editor (RULES E3: no file seed): in the
-  creator, signed in, the browser console: `await fetch('<api>/api/scenes/nave', { method: 'PUT', credentials: 'include',
-  headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: <nave.json>, message: 'scene:nave (#243)' }) })`,
-  then `POST <api>/api/scenes/nave/publish` the same way (after the build service with #243's validate is deployed).
+  the document's form, its checks – location, holders, filters, a template's previews –, the graph resolved with the
+  previews, the browser engine's split): 422 `invalid_scene { problems }`, 503 without the service; never with an AI
+  connection's token (403 `not_for_ai`)
+- **The first real scene `scene:nave`** (the cathedral set, one holder: Cat Pope with her rig): `server/tests/fixtures/scenes/nave.json`,
+  written and checked by deck-space (`UPDATE_FIXTURES=1 cargo test -p deck-space scene_resolve`; it resolves to the scene it
+  played as format 1: the core rig `character.catpope` flattened, staged as the cathedral sandbox). Production gets it once,
+  by a content editor (RULES E3: no file seed): in the creator, signed in, the browser console: `await fetch('<api>/api/scenes/nave',
+  { method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content:
+  <nave.json>, message: 'scene:nave (#243)' }) })`, then `POST <api>/api/scenes/nave/publish` the same way. A `scene:nave`
+  created before #489 (format 1) is moved by the migration; nothing to redo.
+- **The four templates** (SCENES.md §9.5; placeholder scenes with no toon): `scene:place`, `scene:solo`, `scene:stage`,
+  `scene:avatar-home` = `server/tests/fixtures/scenes/templates/<id>.json` (checked by deck-space's `scene_resolve` and
+  `validate` tests). Not seeded (RULES E3): created once by hand like `scene:nave` – the same PUT with `/api/scenes/<id>` and
+  that file's content (`message: 'template scene:<id> (#489)'`), then its publish – after the deploy that carries #489 (the
+  API and the build service). Listing them in every toon's book and checking a use's fillers there is 2·2.
 
 ## The venue certificate (2026-10-31, #201 – agents/research/LIVE.md B.4)
 

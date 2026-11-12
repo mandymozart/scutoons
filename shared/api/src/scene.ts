@@ -3,7 +3,64 @@
 // its JSON Schema (deck-schema) → these types. Whether a scene plays is the core's (the build service's /validate at publish).
 
 /** the format the API stores and the decks read */
-export const SCENE_FORMAT = 1 as const;
+export const SCENE_FORMAT = 2 as const;
+
+/** A spawn zone's arrangement: its kind and the spacing between members. */
+export type Arrange = {
+	kind: ArrangeKind;
+	/** metres between neighbours (a set's spot is a point: the spacing says how wide the zone grows) */
+	spacing?: number;
+};
+
+/** The arrangements of a first version (scene_resolve.rs `arrange`): more (a stack, a crowd) when a use needs one. */
+export type ArrangeKind = 'row' | 'cluster';
+
+/** `start` or `join`. */
+export type Enter = 'start' | 'join';
+
+/** The filter of a placeholder (SCENES.md §9.2): the address book's typeahead question, stored. Within a fact any value admits; every fact given must hold (owner 2026-11-12, §9.7 Q5). */
+export type Fill = {
+	/** the address book's kinds that may fill it (required): a holder's of `character`, `persona`, `look`, `item`; a location's `location` */
+	kind: ('character' | 'persona' | 'look' | 'item' | 'location')[];
+	/** only entries below this reference (`character:catpope`: her personas and looks) */
+	parent?: string | null;
+	/** a hand-picked list of references (`character:catpope`, `item:incense`); none = any of the kinds */
+	ref?: string[];
+};
+
+/** One filler or several (a spawn zone's members). */
+export type Fillers = string | string[];
+
+/** One place on the stage (SCENE-PACKAGE §2, SCENES.md §9.3). */
+export type Holder = {
+	/** a spawn zone's arrangement of its members within the spot (required with `take: many`) */
+	arrange?: Arrange | null;
+	/** `start` (the default): on stage when the scene starts; `join`: waits for the story (`joinScene`, SCENES.md §9.4) */
+	enter?: Enter;
+	/** a placeholder's filter – or `ref` */
+	fill?: Fill | null;
+	/** its name in the document and in a use's `with` (`left`, `who`); not an address – a filled holder's address is its filler's place (`scene:stage/character:catpope/…`), an empty one has none */
+	id: string;
+	/** a placeholder's name for people */
+	label?: Record<string, string> | null;
+	/** a spawn zone's limit; none = any number */
+	max?: number | null;
+	/** fillers for the editor and the browser (a spawn zone may preview several) */
+	preview?: Fillers | null;
+	/** an authored filler (`character:catpope`, `item:incense`) – or `fill`, never both */
+	ref?: string | null;
+	/** the rig its filler plays; none = the filler's own (`character:catpope` → `rig:character.catpope`) */
+	rig?: RigPin | null;
+	/** the spot of the set where it stands and enters (`spot_left`); none = the scene's spot */
+	spot?: string | null;
+	/** `one` filler (the default) or `many`: a spawn zone (owner 2026-11-12 [scenes]) – a placeholder only */
+	take?: Take;
+	/** values and preset choices only (SCENE-PACKAGE §2), by address: `"voice:voice.index": 4.0`, `"voice:@preset": "cathedral_voice.bright"` */
+	values?: Record<string, HolderValue>;
+};
+
+/** A holder's value: a parameter's number, or a track's preset choice. */
+export type HolderValue = number | string;
 
 export type LinkDef = {
 	from: string;
@@ -14,31 +71,20 @@ export type LinkDef = {
 	to: string;
 };
 
-/** The scene's `[being]` table – the body's shape (the colours are the space node's inputs). */
-export type Look = {
-	/** how much its slow breath swells it (a fraction of its size) */
-	breath?: number;
-	/** bubble rate × this */
-	bubbles?: number;
-	/** the head's character (its portrait sprites `<character>_portrait-<mood>`); empty = a head without a face */
-	character?: string;
-	/** how far it floats around its spot (m) */
-	drift?: number;
-	/** the parameters shown as buttons: "node" (all its inputs) or "node.port"; empty = every control input – or a counted group `"seq.step1..16 <= seq.steps"` (#424, params.rs `Expose`): the first N of those knobs, N = the value of `seq.steps` now. The list's order is the knobs' order on a node (the first named hangs nearest its point). */
-	expose?: string[];
-	/** feedback → emotion: `[[being.feel]]` rules (feel.rs) */
-	feel?: Rule[];
-	/** hose thickness × this */
-	hose?: number;
-	/** the moods the energy walks through, calm → wild (default MOODS) */
-	moods?: string[];
-	/** emotion → sound: `[[being.react]]` nudges (feel.rs) */
-	react?: Nudge[];
-	/** the body's radius (m) */
-	size?: number;
-	/** each point's own small sway (a fraction of the size) */
-	wobble?: number;
+/** A location no scene names yet: what may fill it. */
+export type LocationPlaceholder = {
+	/** the filter: `kind` is `["location"]` */
+	fill: Fill;
+	/** its name in a use's `with` (`where`, `home`); not an address */
+	id: string;
+	/** its name for people */
+	label?: Record<string, string> | null;
+	/** a filler for the editor and the browser */
+	preview?: string | null;
 };
+
+/** The scene's location: a reference, or a placeholder. */
+export type LocationSlot = string | LocationPlaceholder;
 
 export type NodeDef = {
 	id: string;
@@ -46,36 +92,12 @@ export type NodeDef = {
 	[key: string]: unknown;
 };
 
-/** One `[[being.react]]` nudge as the scene writes it. */
-export type Nudge = {
-	attack?: number;
-	by?: number | null;
-	/** an unlinked control input, `node.port` (by id, else by kind). Was `set` until #243 (SCENES.md §8.2: in a scene `set` is the staging only); the repo's scenes were migrated, no alias (RULES E2) */
-	input?: string;
-	mood?: string;
-	release?: number;
-	to?: number | null;
-};
-
-/** One `[[being.feel]]` rule as the scene writes it. */
-export type Rule = {
-	above?: number | null;
-	below?: number | null;
-	by?: number;
-	/** 0..1: the odds that it fires when its test comes true */
-	chance?: number;
-	cooldown?: number;
-	falling?: number | null;
-	/** seconds the test must hold before the rule fires */
-	for?: number;
-	hold?: number;
-	mood?: string;
-	rising?: number | null;
-	/** seconds the source stays within `by` */
-	steady?: number | null;
-	weight?: number;
-	/** the source: `node.port` (the node by id, else the first of that kind), `bpm`, `touch`, `energy`, `phrase` */
-	when?: string;
+/** A rig by reference and the version it was wired against (SCENE-PACKAGE §2). */
+export type RigPin = {
+	/** `rig:<subject>` (`rig:character.catpope`) */
+	ref: string;
+	/** the version it was wired against: the rig's `version` as scene-content serves it (16 hex of its data's SHA-256 – the catalog keeps no version number); none = the current one */
+	version?: string | null;
 };
 
 /** What a switch does to the outputs (the lamps) between two scenes (#264). */
@@ -93,19 +115,26 @@ export type StageSettings = {
 	transition_secs?: number;
 };
 
-/** One `scene:<id>` document as the API stores it: the header, then the scene's own fields at the top level (`stage`, `node`, `link`, `outputs`, `being`). */
+/** How many fillers a holder takes. */
+export type Take = 'one' | 'many';
+
+/** One `scene:<id>` document as the API stores it. */
 export type SceneDocument = {
-	being?: Look;
-	/** the document's format: 1 (today's scene graph, no holders) */
-	format: 1;
+	/** the document's format: 2 (location, holders, spawn zones; #489) */
+	format: 2;
+	/** the places on its stage, in the order a story's `joinScene` tries them (SCENES.md §9.4) */
+	holder?: Holder[];
 	/** the key's id: `nave` for `scene:nave` – platform-wide, no toon in it (a scene can serve several toons and shows) */
 	id: string;
 	link?: LinkDef[];
+	/** where it plays: `location:<id>`, or a placeholder a use fills; none = the `space` node's own `set` (or no set) */
+	location?: LocationSlot | null;
+	/** the scene's own nodes (the space, mixers); the holders' rigs are flattened in by the resolve step */
 	node?: NodeDef[];
-	/** the parameters as outputs (#211) – MIDI out, the conductor, DMX fixtures and the clock-synced strobe; parsed and checked by deck-outputs (its config.rs documents the table), played by the host (deck-native's outputs.rs) */
+	/** the parameters as outputs (#211, scene.rs `Scene::outputs`) */
 	outputs?: Record<string, unknown> | null;
 	stage?: StageSettings;
-	/** the toons whose address books list it; empty = reachable by its id only (proposal, SCENES.md §7 question 5) */
+	/** the toons whose address books list it; empty = reachable by its id only (a template: listed in every book, 2·2) */
 	toons?: string[];
 	/** the number the server stamps on every change (as a show's); absent until the first save */
 	version?: number | null;
