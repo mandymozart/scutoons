@@ -260,7 +260,7 @@ pub fn needs_of(graph: &crate::graph::Graph, look: &crate::space::being::Look) -
     Needs { sets, characters: vec![(look.character.clone(), moods)] }
 }
 
-/// The portraits through the sync (a portrait::Source next to LocalDir): wait for the sprite, then read the folder.
+/// The portraits through the sync (a portrait::Source next to LocalDir): wait for a head's sprite (a card's, #495: #500), then read the folder.
 #[cfg(feature = "space")]
 pub struct Portraits {
     local: crate::space::portrait::LocalDir,
@@ -270,10 +270,7 @@ pub struct Portraits {
 #[cfg(feature = "space")]
 impl crate::space::portrait::Source for Portraits {
     fn load(&self, picture: &deck_space::cast::Picture) -> Result<image::RgbaImage, String> {
-        // the heads' portraits come through the sync; a card's other pictures (#495) are read from the folder as they are
-        if picture.view == deck_space::cast::PORTRAIT_VIEW {
-            self.sync.wait(Want::Portrait { character: picture.id.clone(), mood: picture.mood.clone() }, PORTRAIT_WAIT);
-        }
+        let _ = (picture.view == deck_space::cast::PORTRAIT_VIEW).then(|| self.sync.wait(Want::Portrait { character: picture.id.clone(), mood: picture.mood.clone() }, PORTRAIT_WAIT));
         self.local.load(picture)
     }
 }
