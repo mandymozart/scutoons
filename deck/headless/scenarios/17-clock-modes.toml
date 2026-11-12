@@ -93,7 +93,7 @@ expect = { mode = "show", out = false }
 # a scene's tempo node sets the choice (the lead scene: its own clock, leading)
 [[step]]
 do = "load"
-scene = "native/scenes/show-clock-lead.toml"
+scene = "native/scenes/sandbox/show-clock-lead.toml"
 
 [[step]]
 do = "run"

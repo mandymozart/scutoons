@@ -231,7 +231,7 @@ fn the_walk_plays_the_analog_synth_through_note_events() {
 #[test]
 fn the_module_walk_scene_plays_the_walk_module() {
     Library::global().load(&walk()).unwrap();
-    let scene = Scene::parse(deck_native::switcher::builtin("module-walk").expect("a built-in scene")).unwrap();
+    let scene = Scene::parse(deck_space::scene::sandbox("module-walk").expect("a sandbox")).unwrap();
     assert!(modules::check_with(&scene, |f| f == "core").unwrap_err().to_string().contains("'modules'"));
     let out = render(&scene, 4);
     assert!(out.iter().all(|x| x.is_finite()), "finite samples");
@@ -249,7 +249,7 @@ fn the_module_walk_scene_plays_the_walk_module() {
 fn the_module_analog_scene_plays_walk_into_analog() {
     Library::global().load(&walk()).unwrap();
     Library::global().load(&analog()).unwrap();
-    let scene = Scene::parse(deck_native::switcher::builtin("module-analog").expect("a built-in scene")).unwrap();
+    let scene = Scene::parse(deck_space::scene::sandbox("module-analog").expect("a sandbox")).unwrap();
     assert!(modules::check_with(&scene, |f| f == "core").unwrap_err().to_string().contains("'modules'"));
     let out = render(&scene, 4);
     assert!(out.iter().all(|x| x.is_finite()), "finite samples");
@@ -685,7 +685,7 @@ fn catpope_plays_the_analog_synth_as_an_additional_track_in_every_mood() {
 fn the_catpope_analog_scene_plays_and_its_sliders_are_buttons() {
     Library::global().load(&stepseq()).unwrap();
     Library::global().load(&analog()).unwrap();
-    let text = deck_native::switcher::builtin("catpope-analog").expect("a built-in scene");
+    let text = deck_space::scene::sandbox("catpope-analog").expect("a sandbox");
     let base = Scene::parse(text).unwrap();
     let with_step3 = |v: f64| {
         let mut s = base.clone();
@@ -744,7 +744,7 @@ fn the_being_shows_only_as_many_step_knobs_as_the_sequence_has_steps() {
     use deck_native::space::values::{Knobs, Local, Table};
     Library::global().load(&stepseq()).unwrap();
     Library::global().load(&analog()).unwrap();
-    let base = Scene::parse(deck_native::switcher::builtin("catpope-analog").expect("a built-in scene")).unwrap();
+    let base = Scene::parse(deck_space::scene::sandbox("catpope-analog").expect("a sandbox")).unwrap();
     let mut scene = base.clone();
     scene.nodes.iter_mut().find(|n| n.id == "seq").unwrap().params.insert("steps".into(), toml::Value::Float(6.0));
     let graph = Graph::build(&scene).unwrap();

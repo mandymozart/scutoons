@@ -1,7 +1,7 @@
 //! The native deck's piece side (#91, #473): the core decides (deck-space's piece.rs `Side` – the same piece glides,
 //! another loads beside the outlet, none goes back to the deck's scene; veil.rs fades). This file is only what the native
 //! deck brings, on the frame thread:
-//! - **find**: a built-in scene by its name (`scene:cathedral`), else `<cache>/pieces/<kind>.<id>.toml` (a scene, or a
+//! - **find**: a system scene by its name (`scene:outlet`; never a sandbox, #427), else `<cache>/pieces/<kind>.<id>.toml` (a scene, or a
 //!   rig bundle);
 //! - **switch**: the deck's switch takes a name or a file, so the scene's text is written to `<cache>/live/piece.toml`;
 //!   the deck's own scene is `outlet` (built in). The outlet joins again and its snapshot's cell answers "the same piece";

@@ -17,12 +17,12 @@ use std::fmt::Write;
 
 const SECONDS: usize = 4;
 
-/// the native deck's scene list: the built-ins (F5's first lines), then the folder's files
+/// the native deck's scene list in dev mode: the system scenes (F5's first lines), then the sandboxes (#427)
 fn deck_scenes() -> Vec<(String, String)> {
     let mut out: Vec<(String, String)> =
         deck_native::switcher::BUILTIN.iter().map(|n| (n.to_string(), deck_native::switcher::builtin(n).unwrap().to_string())).collect();
-    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("native").join("scenes");
-    for e in deck_native::switcher::entries(&dir).into_iter().skip(out.len()) {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("native").join("scenes").join("sandbox");
+    for e in deck_native::switcher::entries(Some(&dir)).into_iter().skip(out.len()) {
         out.push((e.label, std::fs::read_to_string(&e.value).unwrap()));
     }
     out

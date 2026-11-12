@@ -15,7 +15,8 @@ publish.workspace = true
 
 [dev-dependencies]
 deck-native = { path = "../native" }
-deck-space = { path = "../space", default-features = false }
+# #427: the sandbox scenes' texts (the cathedral …)
+deck-space = { path = "../space", default-features = false, features = ["sandbox"] }
 deck-core = { workspace = true, features = ["analysis"] }
 live-core = { path = "../live-core" }
 # #322: the headless host's rig player against the native deck's rig path (tests/rig.rs)

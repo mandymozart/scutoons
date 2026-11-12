@@ -3,15 +3,15 @@ about = "#360: one filter in the core (deck-core stage.rs carried_part over node
 
 [[step]]
 do = "load"
-scene = "native/scenes/cathedral.toml"
+scene = "native/scenes/sandbox/cathedral.toml"
 expect = { ids = { has = "seq" }, page = ["music"] }
 
 [[step]]
 do = "carried_part"
-with = { scene = "native/scenes/cathedral.toml", modules = ["core"] }
+with = { scene = "native/scenes/sandbox/cathedral.toml", modules = ["core"] }
 expect = { dropped = ["music", "space"], kept = 11 }
 
 [[step]]
 do = "carried_part"
-with = { scene = "native/scenes/cathedral.toml", modules = ["core", "events", "space", "midi"] }
+with = { scene = "native/scenes/sandbox/cathedral.toml", modules = ["core", "events", "space", "midi"] }
 expect = { dropped = ["music"], kept = 12 }

@@ -1,0 +1,40 @@
+# The staging (#427): where a rig played on its own stands (`--scene rig:<subject>`, the browser deck's being, a deck
+# without a rig) – the character's home place, and while it has none this neutral one: no set, no sound, the being's
+# look. Owner 2026-11-11: "Every rig is staged in. No rigs will end up according to scene definitions. Mostly it will be
+# a locations set with some rig. Or the home place of the charcter." A scene places its rigs itself (its space node
+# names the set); this is no scene to play and not in the deck's list. deck-space's `scene::staging(home)` puts the
+# character's home set on the space node (none yet: the registry's `home_scene` does not reach the decks).
+[stage]
+name = "staging"
+
+# the being's look where a rig does not set its own (its drift, breath, wobble)
+[being]
+size = 0.5
+drift = 0.06
+breath = 0.04
+wobble = 0.025
+
+# the space without a set: the being in the middle, the camera's default orbit; hue / glow colour the being, light the
+# room once there is one, the post stack and the core's light as every deck's being has them; `join` = how a rig takes
+# part in a session with a relay set
+[[node]]
+id = "space"
+kind = "space"
+quality = "low"
+hue = 0.52
+glow = 0.6
+light = 0.85
+join = "deck"
+post = ["bloom", "curves", "pixelate", "fxaa"]
+bloom = 0.6
+threshold = 0.55
+glow_range = 7.0
+glow_light = 1.0
+
+[[node]]
+id = "screen"
+kind = "screen"
+
+[[link]]
+from = "space"
+to = "screen.in"

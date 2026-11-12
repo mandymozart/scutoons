@@ -16,9 +16,10 @@ below). Open: S4–S6 (#179), #188's body parts and the browser scene.
 cd deck && cargo run --release -p deck-native -- --windowed
 ```
 
-`--scene FILE` (default: the built-in `scenes/idle.toml` – fireflies on black, no sound, no network (#252); `--scene madness` = "AV madness"; `--scene cathedral` / `conductor` = the
-built-in `scenes/cathedral.toml` / `conductor.toml`; `--scene rig:catpope[@mood]` = a core rig – `rig:item.incense_burner` an
-item's –, played by deck-space's `Deck` as on every deck (#322, src/rig.rs: flattened, in the cathedral's room, replayed when
+`--scene FILE` (default: the system scene `scenes/idle.toml` – fireflies on black, no sound, no network (#252); the system scenes
+`idle`, `silent`, `outlet`, `test-pattern` by name; a sandbox of `scenes/sandbox/` (`madness`, `cathedral`, `conductor` …) by name only
+in dev mode, #427; `--scene rig:catpope[@mood]` = a core rig – `rig:item.incense_burner` an
+item's –, played by deck-space's `Deck` as on every deck (#322, src/rig.rs: flattened, in the staging – its character's home set, none yet: no set, #427 –, replayed when
 the being's mood turns; no such rig = the silent scene: the being, no sound, #425)) · `--sets DIR` (a local folder of sets instead of the synced
 `<cache>/sets`, `DECK_SETS` – e.g. `../media/scutoons/rooms`, tools/rooms' output) · `--portraits DIR` (a local folder
 of the heads' sprites instead of the synced `<cache>/portraits`, `DECK_PORTRAITS` – e.g. `../media/characters`) ·
@@ -400,14 +401,15 @@ an `fm` voice → the device, 96 BPM; **module-analog** = `module:walk`'s note e
 picture. Built in like `madness`: `--scene module-walk` or F5; a build without the feature, or with the module missing, refuses them with the reason.
 Test: `cargo test -p deck-native --features modules --test modules` (`the_module_walk_scene_plays_the_walk_module`, `the_module_analog_scene_plays_walk_into_analog`).
 
-**The scene switcher (#250, `switcher.rs`):** **F5** lists the built-in scenes (`idle`, `madness`, `cathedral`, `catpope-analog`, `conductor`,
-`outlet`, `strobe`, `test-pattern`, `module-walk`, `module-analog`) and every `*.toml` of the scenes folder (`--scenes DIR`, default
-`/usr/share/deck/scenes`; a file named like a built-in is skipped); ↑ ↓ move, **Enter** loads the scene in place – the same
+**The scene switcher (#250, `switcher.rs`):** **F5** lists the system scenes (`idle`, `silent`, `outlet`, `test-pattern`) and, in dev
+mode only, under "SANDBOX (DEV)" every `*.toml` of the sandbox folder (#427: `--scenes DIR`, else the dev image's
+`/usr/share/deck/scenes/sandbox`, else with `--dev` the repo's `scenes/sandbox`; a file named like a system scene is skipped; a
+release image has none); ↑ ↓ move, **Enter** loads the scene in place – the same
 path as a `--dev` reload, no process restart: the old show stops (audio graph dropped), the new one is built, the window
 stays (about 0.6 s on a PC) – **Esc** / F5 closes; the playing one is starred. A scene that doesn't build (a module this build lacks,
-a broken file) keeps the old one playing and the list says why. A scene that loads is written into deck.toml as one
-`scene = "<name or path>"` line (`DECK_TOML` names another file; replaced like `deck-set` does, never a second line), so
-the next boot plays it. **Scene transitions (#264):** a switch is a transition, a stop is a stop. The incoming scene's `[stage]` says how the lamps (DMX / MIDI outputs) hand over: `transition = "fade"` (default) – the lamps hold the last look, then cross over to the new scene's values over `transition_secs` (default 0.4, the picture's fade-in); channels the new scene doesn't drive fade to 0 – a scene without outputs fades them out the same way (`idle` → `pulse-thunderwash` → `idle` never goes dark in between); `"cut"` – the new values at once, unused channels to 0; `"blackout"` – the old outputs end dark, the new start anew (a reset). Needs the same DMX widget / MIDI port in both scenes (the runner and the open port stay); a different device = blackout. The stop paths below stay dark. The change goes through black, no logo: the picture and the PipeWire stream fade out (0.25 s), the new show loads behind the black, then the picture fades in (0.4 s; `switcher.rs` `Transition`, the splash shader's veil mode). Check runs: `--switcher` starts with the list open, `--switch NAME` loads that scene after 30 frames.
+a broken file) keeps the old one playing and the list says why. Enter only loads; **S** makes the scene under the cursor the
+start scene (#427): one `scene = "<name or path>"` line in deck.toml (`DECK_TOML` names another file; replaced like `deck-set`
+does, never a second line), so the next boot plays it – unset, the deck starts with `idle`. **Scene transitions (#264):** a switch is a transition, a stop is a stop. The incoming scene's `[stage]` says how the lamps (DMX / MIDI outputs) hand over: `transition = "fade"` (default) – the lamps hold the last look, then cross over to the new scene's values over `transition_secs` (default 0.4, the picture's fade-in); channels the new scene doesn't drive fade to 0 – a scene without outputs fades them out the same way (`idle` → `pulse-thunderwash` → `idle` never goes dark in between); `"cut"` – the new values at once, unused channels to 0; `"blackout"` – the old outputs end dark, the new start anew (a reset). Needs the same DMX widget / MIDI port in both scenes (the runner and the open port stay); a different device = blackout. The stop paths below stay dark. The change goes through black, no logo: the picture and the PipeWire stream fade out (0.25 s), the new show loads behind the black, then the picture fades in (0.4 s; `switcher.rs` `Transition`, the splash shader's veil mode). Check runs: `--switcher` starts with the list open, `--switch NAME` loads that scene after 30 frames.
 
 **Quality** (#220, deck-space `quality.rs` – the browser deck runs the same; the stage's `src/quality.rs`): four
 **presets** – low · medium · high · ultra – each with its knobs: on / off (an off preset is skipped and can't be chosen),

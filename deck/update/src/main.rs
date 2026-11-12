@@ -9,7 +9,8 @@
 //!   deck-update trust <hex>            trust another update key (/var/lib/deck/update-keys)
 //! On the dev PC (`npm run deck:update` runs these):
 //!   deck-update keygen [--key P]       the signing key (default ~/.scutoons/deck-update.key; kept if it exists)
-//!   deck-update bundle --bin D --rootfs D --scenes D --out D [--version V] [--channel dev] [--reboot] [--notes T] [--key P]
+//!   deck-update bundle --bin D --rootfs D [--scenes D] --out D [--version V] [--channel dev] [--reboot] [--notes T] [--key P]
+//!                                        (--scenes: the sandbox folder, deck/native/scenes/sandbox – the dev channel only, #427)
 //!   deck-update serve D [--port 7790]  serve the bundle folder to the decks on the LAN
 
 use anyhow::{bail, Context, Result};
@@ -135,7 +136,8 @@ fn status(u: &Updater) -> Result<()> {
 
 fn make_bundle(args: &[String]) -> Result<()> {
     let need = |n: &str| value(args, n).map(PathBuf::from).with_context(|| format!("deck-update bundle needs {n}"));
-    let (bin, rootfs, scenes, out) = (need("--bin")?, need("--rootfs")?, need("--scenes")?, need("--out")?);
+    let (bin, rootfs, out) = (need("--bin")?, need("--rootfs")?, need("--out")?);
+    let scenes = value(args, "--scenes").map(PathBuf::from);
     let key_path = value(args, "--key").map(PathBuf::from).unwrap_or_else(default_key);
     let public = sign::keygen(&key_path)?;
     let key = sign::load_signing(&key_path)?;
@@ -143,7 +145,10 @@ fn make_bundle(args: &[String]) -> Result<()> {
     let version = value(args, "--version").unwrap_or_else(|| format!("build {build}"));
     let channel = value(args, "--channel").unwrap_or_else(|| "dev".into());
     let notes = value(args, "--notes").unwrap_or_default();
-    let files = bundle::collect(&bin, &rootfs, &scenes)?;
+    if scenes.is_some() && channel != "dev" {
+        bail!("--scenes: the sandboxes go to the dev channel only (#427), not to '{channel}'");
+    }
+    let files = bundle::collect(&bin, &rootfs, scenes.as_deref())?;
     let opts = PackOptions { version: &version, build, channel: &channel, reboot: flag(args, "--reboot"), notes: &notes };
     let m = bundle::pack(&files, &opts, &key, &out)?;
     // for the first time on a deck that has no deck-update yet (the banner of `serve` shows the commands)

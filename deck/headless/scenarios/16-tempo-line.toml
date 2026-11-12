@@ -3,7 +3,7 @@ about = "#370: the tempo line (BPM, bar, beat, stopped, the click) is deck-core'
 
 [[step]]
 do = "load"
-scene = "native/scenes/show-clock-lead.toml"
+scene = "native/scenes/sandbox/show-clock-lead.toml"
 
 [[step]]
 do = "run"

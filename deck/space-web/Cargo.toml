@@ -14,6 +14,11 @@ publish.workspace = true
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[features]
+# #427: a dev build of the browser deck – `?scene=` plays the sandboxes too (`npm run build:wasm -w shared/live-deck --
+# --sandbox`); the published build carries none
+sandbox = ["deck-space/sandbox"]
+
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 deck-space = { path = "../space", default-features = false, features = ["gpu"] }
 # #364: the monitor beside the governor (deck-core is platform-free; its monitor is always built)

@@ -1,9 +1,9 @@
 name = "the cathedral boots as the browser plays it"
-about = "deck/native/scenes/cathedral.toml – the scene the X1 boots with – through deck-space's split (lower) into live-core: the engine plays its carried part (deck-core's carried_part for the browser's modules, #360), the chapter music goes to the page; without a leader the show clock waits"
+about = "deck/native/scenes/sandbox/cathedral.toml – the X1's old boot scene, a sandbox since #427 – through deck-space's split (lower) into live-core: the engine plays its carried part (deck-core's carried_part for the browser's modules, #360), the chapter music goes to the page; without a leader the show clock waits"
 
 [[step]]
 do = "load"
-scene = "native/scenes/cathedral.toml"
+scene = "native/scenes/sandbox/cathedral.toml"
 expect = { nodes = 12, page = ["music"], channels = 2 }
 
 [[step]]

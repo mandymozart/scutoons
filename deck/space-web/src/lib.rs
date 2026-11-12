@@ -2,8 +2,8 @@
 //! wasm32. The page (shared/space-web's `SpaceView` wrapper, the viewer's /live/deck) drives it:
 //!
 //! - **The being** comes from the deck's `deck.graph` (what the page streams to the relay, wire.rs `from_wire`), in the
-//!   cathedral's space (its `at`, camera, light – scenes/cathedral.toml) with the cathedral's look; the page's values
-//!   seed its buttons.
+//!   staging's space (#427: its character's home set, none yet – the neutral staging, scenes/staging.toml) with the
+//!   staging's look; the page's values seed its buttons.
 //! - **One state:** every frame the page writes its values (`set` – the paths it streams, inputs and outputs) and its
 //!   mood; the being's buttons turn the same values (a drag, a double click's ease back) and the page reads them back
 //!   (`changes`) – into its sliders, its sound and its stream.
@@ -41,7 +41,7 @@ mod scene;
 use deck_space::controls::{Controls, Midi, Selection};
 use deck_space::graph::{Graph, Kind};
 use deck_space::quality::{Governor, Gpu, Level, Presets};
-use deck_space::scene::{Scene, CATHEDRAL_SCENE};
+use deck_space::scene::staging;
 use deck_space::space::being::Look;
 use deck_space::space::glb;
 use deck_space::space::portrait::Portraits;
@@ -106,15 +106,15 @@ fn json(v: &impl serde::Serialize) -> String {
     serde_json::to_string(v).unwrap_or_default()
 }
 
-/// The deck's being from its wire graph, in the cathedral: the space node takes the cathedral's (where the being
-/// floats, the camera, the set – not its `join`, the page streams), the look the cathedral's (its drift, breath …)
+/// The deck's being from its wire graph, in the staging (#427): the space node takes the staging's (the set – its
+/// character's home set, none yet –, the camera, the light – not its `join`, the page streams), the look the staging's (its drift, breath …)
 /// with the wire's character, moods, size and exposed parameters; the page's starting values become the nodes' params
 /// (what a double click eases back to) – a linked input's its link's offset, its base (#188). No feelings: the page's mood is the head's.
 fn being_of(deck_graph: &str, values_json: &str) -> anyhow::Result<(Graph, Look)> {
     let g: protocol::DeckGraph = serde_json::from_str(deck_graph)?;
     let (mut graph, wired) = wire::from_wire(&g)?;
-    let cathedral = Scene::parse(CATHEDRAL_SCENE)?;
-    if let (Some(s), Some(c)) = (graph.first(Kind::Space), cathedral.nodes.iter().find(|n| n.kind == "space")) {
+    let room = staging(None);
+    if let (Some(s), Some(c)) = (graph.first(Kind::Space), room.nodes.iter().find(|n| n.kind == "space")) {
         let mut params = c.params.clone();
         params.remove("join");
         graph.nodes[s].params = params;
@@ -132,7 +132,7 @@ fn being_of(deck_graph: &str, values_json: &str) -> anyhow::Result<(Graph, Look)
             graph.nodes[n].params.insert(name.into(), toml::Value::Float(v));
         }
     }
-    let look = Look { size: wired.size, character: wired.character, moods: wired.moods, expose: wired.expose, feel: Vec::new(), react: Vec::new(), ..cathedral.being };
+    let look = Look { size: wired.size, character: wired.character, moods: wired.moods, expose: wired.expose, feel: Vec::new(), react: Vec::new(), ..room.being };
     Ok((graph, look))
 }
 
@@ -168,14 +168,6 @@ pub(crate) fn frame_for(space: &mut Space, w: u32, h: u32) {
 #[wasm_bindgen]
 pub fn rig_play(bundle: &str, persona: &str, mood: &str) -> Result<String, JsValue> {
     deck_space::rig::Bundle::play_json(bundle, persona, mood).map_err(|e| JsValue::from_str(&format!("{e:#}")))
-}
-
-/// The Cathedral (#360: the X1's old boot scene, embedded in this build) played as `rig_play` answers – a TEST scene since
-/// #425: no deck plays it when its character has no rig (that is silent: `DeckState.now`); its `engine.scene` is what
-/// live-core loads.
-#[wasm_bindgen]
-pub fn deck_scene() -> Result<String, JsValue> {
-    deck_space::rig::Played::deck_scene_json().map_err(|e| JsValue::from_str(&format!("{e:#}")))
 }
 
 /// The core rig of `subject` (`character.<id>` / `item.<id>`) the deck carries without an account (#191): the bundle as

@@ -4,7 +4,7 @@
 # 400 Hz to 8.4 kHz – before, a fine rasp of steps on top of the hiss), the saw's vibrato (6 Hz, ±12 Hz – before, a
 # grainy wobble), the high tone's tremolo (a 3 Hz sine on its gain). The picture follows the heard block (the snapshot
 # ring): the pattern's hue rides the sweep, its zoom the vibrato, its pulse the tremolo. Run it:
-#   cargo run --release -p deck-native -- --scene scenes/lfo-glide.toml --windowed
+#   cargo run --release -p deck-native -- --scene scenes/sandbox/lfo-glide.toml --windowed
 [stage]
 name = "LFO glide - control at block rate (#319)"
 

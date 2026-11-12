@@ -24,6 +24,9 @@ native = ["being", "image/png", "image/webp"]
 # the generator (src/bin/deck-schema.rs): kinds.json, the JSON Schema and the TS types from the catalog and
 # the documents' types (#315). Never in a wasm build.
 schema = ["dep:schemars", "deck-catalog/schema"]
+# #427: the sandbox scenes' texts (scene.rs `sandbox`, the cathedral …) compiled in – the tests' dev-dependencies and a
+# dev build of the browser deck (space-web's `sandbox`); a deck's release build carries none
+sandbox = []
 
 [dependencies]
 deck-core = { workspace = true, features = ["tempo"] }

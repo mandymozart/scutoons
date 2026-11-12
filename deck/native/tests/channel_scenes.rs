@@ -7,7 +7,7 @@ use deck_space::scene::Scene;
 
 /// a tenth of a second of every device channel's peak
 fn peaks(file: &str, deck: DeckConfig) -> Vec<f32> {
-    let text = std::fs::read_to_string(format!("{}/scenes/{file}", env!("CARGO_MANIFEST_DIR"))).unwrap();
+    let text = std::fs::read_to_string(format!("{}/scenes/sandbox/{file}", env!("CARGO_MANIFEST_DIR"))).unwrap();
     let graph = Graph::build(&Scene::parse(&text).unwrap()).unwrap();
     let d = deck.channels;
     let (mut e, _) = Engine::build_seams(&graph, 48_000.0, 1.0, Build::detect(), Sequencing::InBlock, &Seams::with_deck(deck)).unwrap();

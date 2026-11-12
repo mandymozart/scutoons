@@ -36,7 +36,9 @@ mod tests {
     use super::*;
 
     fn scene(name: &str) -> String {
-        format!("{}/../native/scenes/{name}.toml", env!("CARGO_MANIFEST_DIR"))
+        // #427: a system scene's file, else a sandbox's
+        let system = format!("{}/../native/scenes/{name}.toml", env!("CARGO_MANIFEST_DIR"));
+        if std::path::Path::new(&system).is_file() { system } else { format!("{}/../native/scenes/sandbox/{name}.toml", env!("CARGO_MANIFEST_DIR")) }
     }
 
     #[test]

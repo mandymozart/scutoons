@@ -506,11 +506,11 @@ fn the_browser_engine_plays_the_flattened_scene_and_hands_the_rest_to_the_page()
     assert!(engine::carries("core") && engine::carries("events") && !engine::carries("chapter") && !engine::carries("modules"));
 }
 
-/// #360: the deck's own scene is the X1's cathedral, played through the core – the seq's arp (no page melody), the knobs
+/// #360: the cathedral (a sandbox since #427), played through the core – the seq's arp (no page melody), the knobs
 /// the being's buttons, live-core's part without the chapter's music and the screen's picture left to the page
 #[test]
-fn the_deck_scene_is_the_x1s_cathedral() {
-    let p = Played::deck_scene().unwrap();
+fn the_cathedral_plays_through_the_core() {
+    let p = Played::scene(crate::scene::CATHEDRAL_SCENE).unwrap();
     assert_eq!(p.scene, crate::scene::CATHEDRAL_SCENE);
     assert_eq!(p.character, "catpope");
     let engine = Scene::parse(&p.engine.scene).unwrap();
@@ -557,8 +557,8 @@ fn rig_fixture_for_the_browser_deck_is_current() {
         "catpope": play("character.catpope", ""),
         "catpope_laughing": play("character.catpope", "laughing"),
         "incense_burner": play("item.incense_burner", ""),
-        // #360: the deck's own scene (space-web's `deck_scene`) – what the page plays without a rig
-        "deck": serde_json::from_str::<serde_json::Value>(&Played::deck_scene_json().unwrap()).unwrap(),
+        // #360: the cathedral played (a sandbox since #427) – live-deck's tests' scene with knobs and a sound
+        "deck": serde_json::from_str::<serde_json::Value>(&serde_json::to_string(&Played::scene(crate::scene::CATHEDRAL_SCENE).unwrap()).unwrap()).unwrap(),
     });
     let text = serde_json::to_string_pretty(&fixture).unwrap() + "\n";
     let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../shared/live-deck/test/fixtures/rigs.json");

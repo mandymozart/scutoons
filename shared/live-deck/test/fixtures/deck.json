@@ -3011,7 +3011,7 @@
       "values": [],
       "why": "play"
     },
-    "room": "cathedral",
+    "room": "",
     "sliders": [
       {
         "label": "space.hue",

@@ -1,17 +1,18 @@
-# The show clock's test (#321, plan P8): a deck that follows the show clock over the relay (the HUD: SHOW ±x MS). Nothing else plays: the click on every beat (higher on the bar's
+# The show clock's test (#321, plan P8): the deck that leads – its own clock at 120 BPM, sent through the relay as the show clock. Nothing else plays: the click on every beat (higher on the bar's
 # first) and a white flash on the screen at the beat's start (a red frame on the bar's first) – put two decks side by
 # side and look and listen; a recording of the clicks gives the numbers (npm run clock:measure). Keys: K the click,
 # F3 the source.
-#   on a deck: deck-set relay ws://<relay>:7070/live/CLOCK; deck-set --restart scene /usr/share/deck/scenes/show-clock.toml
+#   deck --scene scenes/sandbox/show-clock-lead.toml --relay ws://<relay>:7070/live/CLOCK (+ / − and T change the tempo for everyone)
 [stage]
-name = "show clock – follow"
+name = "show clock – lead"
 
 [[node]]
 id = "tempo"
 kind = "tempo"
 bpm = 120
 beats = 4
-source = "relay"
+source = "internal"
+lead = true
 click = true
 
 [[node]]

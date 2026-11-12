@@ -85,7 +85,7 @@ pub struct Deck {
     /// the mood last handed out by `step` ("" before the first frame)
     shown: String,
     /// the deck's own scene – it plays whenever no rig does: the silent scene, the being and no sound (#425; the
-    /// cathedral only for the tests, `Deck::testing`)
+    /// cathedral, a sandbox, only for the tests, `Deck::testing`)
     own: Played,
     /// the set of the room the being floats in ("" = none: the empty rigging stage, #425) – the platform loads it
     room: String,
@@ -107,12 +107,14 @@ impl Default for Deck {
 
 impl Deck {
     /// The deck as every platform has it: no rig plays – the silent scene (#425: no rig, no sound; the picture stays) –
-    /// and the being floats in the deck's room (the set of the deck's old boot scene, the cathedral's).
+    /// and the being floats in the staging's room (#427: its character's home set; none yet, so no set – no longer the
+    /// cathedral's).
     pub fn new() -> Deck {
         let own = Played::silent().expect("the silent scene is embedded and checked by the tests");
-        let room = Played::deck_scene()
-            .ok()
-            .and_then(|p| p.nodes.into_iter().find(|n| n.kind == "space"))
+        let room = crate::scene::staging(None)
+            .nodes
+            .into_iter()
+            .find(|n| n.kind == "space")
             .and_then(|n| n.params.get("set").and_then(|v| v.as_str()).map(String::from))
             .unwrap_or_default();
         Deck::with(own, room)
@@ -126,10 +128,11 @@ impl Deck {
     }
 
     /// A deck whose own scene is the Cathedral (a TEST scene since #425): the tests' fixtures need a scene with knobs, a
-    /// sound and paths to stream; no platform plays it as a fallback.
+    /// sound and paths to stream; no platform plays it as a fallback (a sandbox since #427: the tests' build only).
+    #[cfg(test)]
     pub fn testing() -> Deck {
         let mut d = Deck::new();
-        d.own = Played::deck_scene().expect("the cathedral is embedded and checked by the tests");
+        d.own = Played::scene(crate::scene::CATHEDRAL_SCENE).expect("the cathedral is embedded and checked by the tests");
         d
     }
 
@@ -598,7 +601,7 @@ mod tests {
         assert!(!d.now().rig && sounding(d.played()).is_empty(), "a fresh deck, no character chosen: {:?}", sounding(d.played()));
         let ids: Vec<&str> = d.played().nodes.iter().map(|n| n.id.as_str()).collect();
         assert_eq!(ids, ["space", "screen"], "the picture stays: the being in its space");
-        assert_eq!(d.room(), "cathedral", "in the deck's room");
+        assert_eq!(d.room(), "", "in the staging: no home set yet, no cathedral (#427)");
         let t = d.play_core("nobody", "");
         assert!(!t.rig && !t.failed && t.note.contains("no core rig for character.nobody") && t.note.contains("silent"), "{}", t.note);
         assert!(sounding(&t.played).is_empty() && t.played.engine.page.is_empty(), "a chosen character without a rig is silent");
@@ -616,7 +619,7 @@ mod tests {
         assert_eq!(d.room(), "");
         d.play_core("catpope", "");
         assert_eq!(d.room(), "", "a rig on it does not bring a room along");
-        assert_eq!(Deck::new().room(), "cathedral");
+        assert_eq!(Deck::new().room(), "", "#427: the staging has no set until the character's home set reaches the deck");
     }
 
     /// #425: the cathedral is a TEST scene – a deck can be made to play it, none does by itself

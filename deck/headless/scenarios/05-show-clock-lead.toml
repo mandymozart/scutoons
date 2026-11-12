@@ -3,7 +3,7 @@ about = "#321 P8: a deck that leads (its own clock, the scene's lead = true – 
 
 [[step]]
 do = "load"
-scene = "native/scenes/show-clock-lead.toml"
+scene = "native/scenes/sandbox/show-clock-lead.toml"
 
 # the relay answers the pings – an anchor is stamped in the relay's time
 [[step]]

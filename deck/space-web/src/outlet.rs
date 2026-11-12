@@ -45,7 +45,7 @@ const QUALITY: &str = "high";
 /// the hosted relay's show (deck-native live/config.rs)
 pub const HOSTED_RELAY: &str = "wss://live.scutoons.com/live/CATH";
 
-/// What this deck has of a piece without asking: a built-in scene by its name (`scene:cathedral`)
+/// What this deck has of a piece without asking: a system scene by its name (`scene:outlet`; #427: a sandbox never plays in a show)
 fn carried(place: &Place) -> Option<Found> {
     deck_space::scene::builtin(&place.id).filter(|_| place.kind == "scene").map(|text| Found::Scene(text.to_string()))
 }

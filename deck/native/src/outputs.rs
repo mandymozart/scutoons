@@ -268,7 +268,7 @@ mod tests {
     /// adapter keeps looking for one)
     #[test]
     fn the_strobe_scene_starts() {
-        let scene = Scene::parse(include_str!("../scenes/strobe.toml")).unwrap();
+        let scene = Scene::parse(include_str!("../scenes/sandbox/strobe.toml")).unwrap();
         let g = Graph::build(&scene).unwrap();
         let o = Outputs::start(scene.outputs.as_ref().unwrap(), None, &g, Arc::default()).unwrap().expect("a strobe");
         assert_eq!(o.summary, "1 strobe · DMX auto · lead 20 ms");
@@ -278,7 +278,7 @@ mod tests {
     /// the Thunder Wash scene (#261): its hue colours the three channels, the beat's pulse is a gain on them
     #[test]
     fn the_pulse_thunderwash_scene_starts() {
-        let scene = Scene::parse(include_str!("../scenes/pulse-thunderwash.toml")).unwrap();
+        let scene = Scene::parse(include_str!("../scenes/sandbox/pulse-thunderwash.toml")).unwrap();
         let g = Graph::build(&scene).unwrap();
         let o = Outputs::start(scene.outputs.as_ref().unwrap(), None, &g, Arc::default()).unwrap().expect("targets");
         assert_eq!(o.summary, "3 targets · DMX auto · lead 20 ms");
@@ -288,7 +288,7 @@ mod tests {
     /// the lamps-off scene (#261) holds the four channels at 0
     #[test]
     fn the_lamps_off_scene_starts() {
-        let scene = Scene::parse(include_str!("../scenes/lamps-off.toml")).unwrap();
+        let scene = Scene::parse(include_str!("../scenes/sandbox/lamps-off.toml")).unwrap();
         let g = Graph::build(&scene).unwrap();
         let o = Outputs::start(scene.outputs.as_ref().unwrap(), None, &g, Arc::default()).unwrap().expect("targets");
         assert_eq!(o.summary, "4 targets · DMX auto · lead 20 ms");

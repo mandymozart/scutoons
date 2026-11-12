@@ -3,7 +3,7 @@ about = "#321: 24 ticks a beat at 100 BPM from a device; the core follows; the t
 
 [[step]]
 do = "load"
-scene = "native/scenes/show-clock.toml"
+scene = "native/scenes/sandbox/show-clock.toml"
 
 [[step]]
 do = "choose"

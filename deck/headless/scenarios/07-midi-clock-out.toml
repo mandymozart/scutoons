@@ -3,7 +3,7 @@ about = "#321: the deck's own 120 BPM clock goes out as MIDI clock (a start, the
 
 [[step]]
 do = "load"
-scene = "native/scenes/show-clock.toml"
+scene = "native/scenes/sandbox/show-clock.toml"
 
 [[step]]
 do = "choose"
