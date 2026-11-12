@@ -609,13 +609,21 @@ mod tests {
         assert_eq!(at.location.as_deref(), Some("location:dom"));
     }
 
+    /// a core rig plus the one wire a person draws to make its being breathe: its sum's level into the being's pulse
+    /// (#492, owner 2026-11-12: no default breath, only what is wired moves a being)
+    fn breathing(subject: &str, v: Option<&str>) -> Option<Bundle> {
+        let mut b = core_rigs(subject, v)?;
+        b.rig.routes.push(crate::rig::Route { from: "sound:level".into(), to: "being:pulse".into(), scale: 0.6, offset: 0.0 });
+        Some(b)
+    }
+
     /// two rigs on one stage: prefixed by their holders, summed into the one `out` – the character's rig moves its own
     /// look, an item has no look yet (its being links are said, not played); no rig moves another's being (#492)
     #[test]
     fn two_rigs_share_the_out_and_the_space() {
         let d = doc(r#"{"format":2,"id":"duo","holder":[{"id":"pope","ref":"character:catpope"},{"id":"burner","fill":{"kind":["item"]}}],
           "node":[{"id":"space","kind":"space","set":"cathedral"}]}"#);
-        let r = resolve(&d, &with(&[("burner", one("item:incense_burner"))]), false, &core_rigs).unwrap();
+        let r = resolve(&d, &with(&[("burner", one("item:incense_burner"))]), false, &breathing).unwrap();
         let ids: Vec<&str> = r.scene.nodes.iter().map(|n| n.id.as_str()).collect();
         assert!(ids.contains(&"pope_voice_voice") && ids.iter().any(|i| i.starts_with("burner_")), "{ids:?}");
         assert_eq!(ids.iter().filter(|i| **i == "out").count(), 1);
@@ -654,7 +662,7 @@ node = [{ id = "midi", kind = "world", source = "midi", listen = ["midi.note"] }
     fn each_holder_gets_a_look_moved_by_its_own_rig() {
         let stage = fixture("templates/stage", None);
         let mute: Bundle = toml::from_str(MUTE_RIG).unwrap();
-        let rigs = |s: &str, v: Option<&str>| if s == "character.mute" { Some(mute.clone()) } else { core_rigs(s, v) };
+        let rigs = |s: &str, v: Option<&str>| if s == "character.mute" { Some(mute.clone()) } else { breathing(s, v) };
         let r = resolve(&stage, &with(&[("left", one("character:catpope")), ("right", one("character:mute"))]), false, &rigs).unwrap();
         let looks: Vec<(&str, &str, &str, &str)> = r
             .scene
@@ -665,7 +673,7 @@ node = [{ id = "midi", kind = "world", source = "midi", listen = ["midi.note"] }
             .collect();
         assert_eq!(looks, [("left_look", "left", "spot_left", "catpope"), ("right_look", "right", "spot_right", "mute")]);
         let into = |node: &str| r.scene.links.iter().filter(|l| node_port(&l.to).0 == node).map(|l| l.from.clone()).collect::<Vec<_>>();
-        assert_eq!(into("left_look"), ["left_fft.level"], "Cat Pope breathes with her own sum");
+        assert_eq!(into("left_look"), ["left_fft.level"], "Cat Pope breathes with her own sum, as her rig wires it");
         assert!(into("right_look").is_empty(), "a rig with no mapping to the being moves nothing");
         assert!(into("space").is_empty());
         let g = crate::graph::Graph::build(&r.scene).unwrap();
@@ -679,7 +687,8 @@ node = [{ id = "midi", kind = "world", source = "midi", listen = ["midi.note"] }
     const STAGE_DUO_HEAD: &str = "\
 # A sandbox (#492): the template scene:stage resolved by the core with two fillers – Cat Pope at `left` with her core rig, Top
 # Toy at `right` with no rig at hand (silent). The space draws one being per `look` node at its holder's spot (no location
-# yet: the neutral staging, side by side); her rig's sum breathes only in her light, nothing moves his. Written by
+# yet: the neutral staging, side by side). Neither moves: her core rig wires nothing to her being and there is no default
+# breath (owner 2026-11-12) – wire `sound:level → being:pulse` in her rig and only her light breathes. Written by
 # deck-space's scene_resolve.rs test `the_stage_duo_sandbox_is_the_core_s_resolve` – never by hand:
 #   UPDATE_FIXTURES=1 cargo test -p deck-space stage_duo
 # From deck/:  cargo run -p deck-native --release -- --dev --scene stage-duo --windowed

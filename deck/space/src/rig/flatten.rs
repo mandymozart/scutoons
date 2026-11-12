@@ -1,9 +1,8 @@
 //! A rig as one playable scene (#191, research/INSTRUMENTS.md §7 step 1): every played track's patch with its node ids
 //! prefixed `<track>_<node>`, the tracks that sound (a silent track, #430, has no strip) summed by a chain of four-input mixers (a track's `gain` = its mixer gain) into
 //! the scene's `audio_out`, an `fft` on the sum (the being's energy and feelings read it), the rig's routes as links,
-//! and a bare `space` node the caller completes (its set, spot, camera) – the being, breathing with the sum's level
-//! (`fft.level` → `space.pulse`, as the phone deck's patch did) unless a route drives `being:pulse` itself or no track
-//! sounds (#492: no sum, no mapping – the being stays still).
+//! and a bare `space` node the caller completes (its set, spot, camera) – the being, moved only by the routes the rig
+//! wires to it (`being:<input>`; the sum's level is `sound:level`). No default breath (#492, owner 2026-11-12: a demo remain).
 //! A code rig (#408, policy.rs) adds its policy: the node `policy` (`module:<id>`, registered from the library's
 //! descriptor), its parameters and seed, the context it starts with (character, persona, mood – the live one is #409's),
 //! and the strips its `@gain` targets drive; routes reach it as `policy:<port>`.
@@ -76,7 +75,6 @@ impl Rig {
         self.mix(&played, &mut scene, &mut homes);
         self.policy_node(lib, &played, persona, mood, &mut scene)?;
         let playing = |t: &str| played.iter().any(|p| p.track == t) || (t == policy::NODE && self.policy.is_some());
-        let mut pulse = false;
         let mut clock = false;
         // a route end as the compiled slot it lands on, and the track it is off with (`check` refused every other form)
         let end = |s: &str| -> Option<(String, Option<String>)> {
@@ -94,7 +92,6 @@ impl Rig {
             if !ft.as_deref().is_none_or(playing) || !tt.as_deref().is_none_or(playing) {
                 continue;
             }
-            pulse |= to == "space.pulse";
             clock |= from.starts_with("tempo.");
             scene.links.push(link(from, to, r.scale, r.offset));
             homes.push(Home::Route { index });
@@ -103,13 +100,9 @@ impl Rig {
         if clock {
             scene.nodes.push(node("tempo", "tempo", &[]));
         }
+        // the being moves only by the routes its rig wires: no default breath with the sum's level (#492, owner 2026-11-12
+        // [rigs]: "Breath with my loudness is a demo remain. Only if i decided the wiring" – `sound:level → being:pulse`)
         scene.nodes.push(node("space", "space", &[]));
-        // the default breath of light needs a sum to breathe with: a rig of silent tracks maps nothing to its being, so it
-        // moves nothing (#492, owner 2026-11-12 [rigs]: "if a rig has no mapping to visual properties nothing moves")
-        if !pulse && played.iter().any(|p| p.patch.out.is_some()) {
-            scene.links.push(link("fft.level".into(), "space.pulse".into(), 0.6, 0.0));
-            homes.push(Home::Compiled);
-        }
         #[cfg(feature = "being")]
         {
             if let Some(c) = self.subject.strip_prefix("character.") {

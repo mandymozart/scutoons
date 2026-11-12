@@ -95,7 +95,7 @@ space-web `deck_scene`) and loaded by live-core (#360: the TS copy `FIXED_SCENE`
 1. **Rust (built):** `Rig::flatten(lib, persona, mood)` – the played tracks' patches in one scene: node ids
    `<track>_<node>`, four-input mixers chained (`mix1` → `mix2.in1` …, a track's `gain` = its mixer gain) → `out`
    (audio_out) + `fft`, the routes as links (a muted track's are off), always a bare `space` node (the caller sets its
-   set / spot) breathing on `fft.level → space.pulse` unless a route drives `being:pulse`, the being's `character` from the subject and `expose` from the instruments. No pan yet
+   set / spot), moved only by the routes the rig wires to `being:` (no default breath since #492; `sound:level → being:pulse` is that wire), the being's `character` from the subject and `expose` from the instruments. No pan yet
    (the mixer has none, #232); one stereo output (#233).
 2. **wasm (built):** deck-space `rig::Bundle` = `{ rig, instrument[], preset[] }` (scene-content's answer, or a core
    set's TOML); `play(persona, mood)` → `{ scene (TOML), nodes, links, character, knobs, tracks }` – a knob = an exposed

@@ -310,11 +310,14 @@ fn a_rig_flattens_into_one_scene() {
     assert!(has_link(&s, "mix1.out", "out.in") && has_link(&s, "mix1.out", "fft.in"));
     let glow = s.links.iter().find(|l| l.to == "space.glow").unwrap();
     assert_eq!((glow.from.as_str(), glow.scale), ("voice_sway.out", 0.5), "being:glow → the space node");
-    assert!(has_link(&s, "fft.level", "space.pulse"), "the being breathes with the sum");
+    assert!(!s.links.iter().any(|l| l.to == "space.pulse"), "no default breath: only what the rig wires moves its being (#492)");
     let mut own = rig.clone();
     own.routes[0].to = "being:pulse".into();
     let s2 = own.flatten(&lib, None, None).unwrap();
-    assert!(!has_link(&s2, "fft.level", "space.pulse") && has_link(&s2, "voice_sway.out", "space.pulse"), "a route's pulse wins");
+    assert!(has_link(&s2, "voice_sway.out", "space.pulse"), "a route's pulse");
+    own.routes[0].from = "sound:level".into();
+    let s3 = own.flatten(&lib, None, None).unwrap();
+    assert!(has_link(&s3, "fft.level", "space.pulse"), "breathing with the sum is a wire like any other");
     assert_eq!(param(&s, "voice_voice.ratio"), Some(1.5));
     #[cfg(feature = "being")]
     {
