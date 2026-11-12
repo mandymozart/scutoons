@@ -14,7 +14,8 @@ const config = {
 	kit: {
 		adapter: adapter({ fallback: 'index.html' }),
 		// the build's name = the service worker's cache name (agents/research/PWA-APPS.md): every build a new version
-		version: { name: `${pkg.version}-${gitSha().slice(0, 12)}-${process.env.SCUTOONS_BUILD_ID}` },
+		version: { name: `${pkg.version}-${gitSha().slice(0, 12)}-${process.env.SCUTOONS_BUILD_ID}`, pollInterval: 60_000 },
+		// pollInterval: an open tab learns of a new build within a minute (routes/+layout.svelte reloads on its next navigation)
 		// src/service-worker.ts is registered by lib/pwa.svelte.ts (@scutoons/pwa ToolPwa: the update bar, VITE_SW=off)
 		serviceWorker: { register: false }
 	}
