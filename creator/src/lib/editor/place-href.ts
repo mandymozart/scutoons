@@ -4,7 +4,7 @@ import { parseEntityKey } from '@scutoons/content';
 /**
  * The creator page that edits a stored file (the dashboard's lists, the review list): a chapter → its editor, a season,
  * a toon's entry / settings / cast / credits / script → their pages, a catalog entry → its catalog page, a map document → the map,
- * the character registry → Characters. `toon` is the file's toon when the key does not name it (a review's toon).
+ * the character registry → Characters, a deck scene → its page in Scenes. `toon` is the file's toon when the key does not name it (a review's toon).
  */
 export function placeHref(key: string, toon: string | null = null): string {
 	const doc = catalogDocKey(key);
@@ -37,6 +37,8 @@ export function placeHref(key: string, toon: string | null = null): string {
 		case 'character':
 		case 'moods':
 			return '/characters';
+		case 'scene':
+			return `/scenes/${encodeURIComponent(ref.id ?? '')}`;
 		case 'asset-requests':
 			return '/characters?tab=wanted';
 		default:

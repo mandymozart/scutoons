@@ -91,5 +91,11 @@ export function publishOutcome(error: unknown): PublishOutcome {
 	return { kind: 'error', message: error instanceof Error ? error.message : String(error) };
 }
 
+/**
+ * may the batch Publish (publish-tree.ts) offer this file? Not a deck scene (#493): it is published on its own page,
+ * where the core's check answers – `/api/entities/publish` refuses it and with it the whole batch
+ */
+export const inPublishBatch = (key: string) => !isSceneKey(key);
+
 /** the scene's page in the creator (the MCP's link: tools/mcp services.ts creatorHref) */
 export const sceneHref = (id: string) => `/scenes/${encodeURIComponent(id)}`;

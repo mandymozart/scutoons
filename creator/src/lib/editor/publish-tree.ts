@@ -18,12 +18,17 @@
  * Catalog entries (`item:<id>` …, agents/CATALOG-IN-CREATOR.md) are files of the world level (no toon in their key):
  * the server decides who publishes them (their toon is the entry's; a physical change needs the `physical` rule) –
  * a 403 review_required puts the line into the submit for review instead.
+ *
+ * Deck scenes (`scene:<id>`) are never in the checklist (#493): a scene is published on its own page, where the core's
+ * check answers with its problems (`POST /api/scenes/<id>/publish`); `/api/entities/publish` refuses one and with it the
+ * whole transaction. `pendingFiles` still names them (the dashboard's "Not live yet" leads to the scene's page).
  */
 import { checklistDialog, askDialog, type ChecklistGroup } from '@scutoons/ui';
 import { ApiError, catalogDocKey, type ContentIndexEntity } from '@scutoons/api';
 import { contentApi, contentIndex, publishMany, withContent } from '$lib/api.ts';
 import { parseEntityKey } from '@scutoons/content';
 import { fileLabel } from '$lib/labels.ts';
+import { inPublishBatch } from '$lib/editor/scenes.ts';
 import { reviews } from '$lib/editor/reviews.svelte.ts';
 import { m } from '$lib/paraglide/messages.js';
 import { getLocale } from '$lib/paraglide/runtime.js';
@@ -87,7 +92,7 @@ function detail(e: ContentIndexEntity): string {
 	return [`v${e.latest}`, when, e.latest_author ?? '', e.latest_message ? `„${e.latest_message}“` : ''].filter(Boolean).join(' · ');
 }
 
-/** the files with a draft at a level */
+/** the files with a draft at a level (the deck scenes too – `inPublishBatch` drops them for the checklist) */
 export async function pendingFiles(scope: PublishScope): Promise<ContentIndexEntity[]> {
 	const toons = scope.kind === 'all' ? ['', ...scope.toons.map((t) => t.id)] : [scope.toon];
 	// a toon's index holds only its own rows: `PLATFORM_ALONG` from the platform's – those keys alone (a platform key like
@@ -147,7 +152,7 @@ async function linesOf(files: ContentIndexEntity[]): Promise<Line[]> {
  * cancelled) and the keys that went live (whole or in part).
  */
 export async function publishTree(scope: PublishScope, title: string): Promise<{ message: string; published: string[] } | null> {
-	const files = await pendingFiles(scope);
+	const files = (await pendingFiles(scope)).filter((f) => inPublishBatch(f.key));
 	if (!files.length) return { message: m['creator.nothing_to_publish'](), published: [] };
 	const lines = await linesOf(files);
 	const toonName = (id: string | null) => (id ? (scope.kind === 'all' ? scope.toons.find((t) => t.id === id)?.name : undefined) ?? id : m['creator.publish_tree_world']());

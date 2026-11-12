@@ -38,6 +38,7 @@ export function fileLabel(key: string): string {
 		route: (id) => `${m['creator.publish_part_route']()}: ${id}`,
 		region: (id) => `${m['creator.publish_part_region']()}: ${id}`,
 		character: (id) => `${m['creator.publish_part_character']()}: ${id}`,
+		scene: (id) => `${m['creator.publish_part_scene']()}: ${id}`,
 		catalog: (kind, id) => `${CATALOG_WORD[kind]?.() ?? kind} ${id}`
 	});
 }

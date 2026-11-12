@@ -101,6 +101,7 @@
 		"publish_part_region": "Region",
 		"publish_part_route": "Route",
 		"publish_part_character": "Figur",
+		"publish_part_scene": "Szene",
 		"publish_part_added": "neu",
 		"publish_part_changed": "geändert",
 		"publish_part_removed": "entfernt",

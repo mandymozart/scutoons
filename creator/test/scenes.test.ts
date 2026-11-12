@@ -3,7 +3,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { ApiError, type SceneListEntry } from '@scutoons/api';
-import { NO_TOON, fillWords, filterRows, labelIn, publishOutcome, rowHint, sceneHref, sceneRows, sceneTitle, sceneToons } from '../src/lib/editor/scenes.ts';
+import { entityLabel } from '../../shared/ui/src/entity-label.ts';
+import { NO_TOON, fillWords, filterRows, inPublishBatch, labelIn, publishOutcome, rowHint, sceneHref, sceneRows, sceneTitle, sceneToons } from '../src/lib/editor/scenes.ts';
+import { placeHref } from '../src/lib/editor/place-href.ts';
 
 const nave = {
 	format: 2,
@@ -80,4 +82,14 @@ test('Publish: the core\'s problems, the check not reachable, other errors', () 
 	assert.deepEqual(publishOutcome(new ApiError(503, 'build_unavailable', 'down')), { kind: 'unreachable' });
 	assert.deepEqual(publishOutcome(new ApiError(403, 'review_required', 'A review first.')), { kind: 'error', message: 'A review first.' });
 	assert.deepEqual(publishOutcome(new Error('x')), { kind: 'error', message: 'x' });
+});
+
+test('a scene with a draft: not in the batch Publish, named and linked to its own page (#493)', () => {
+	assert.equal(inPublishBatch('scene:nave'), false);
+	assert.equal(inPublishBatch('scene:avatar-home'), false);
+	for (const key of ['chapter:catpope:2', 'place:cathedral', 'character:catpope', 'item:camera', 'colorations', 'toon:catpope']) assert.equal(inPublishBatch(key), true, key);
+	assert.equal(placeHref('scene:avatar-home'), '/scenes/avatar-home');
+	assert.equal(placeHref('scene:nave'), sceneHref('nave'));
+	assert.equal(entityLabel('scene:nave'), 'Scene nave');
+	assert.equal(entityLabel('scene:nave', { scene: (id) => `Szene: ${id}` }), 'Szene: nave');
 });
