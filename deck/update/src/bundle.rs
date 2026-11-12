@@ -50,7 +50,7 @@ pub fn collect(bin: &Path, rootfs: &Path, scenes: Option<&Path>) -> Result<Vec<S
         bail!("no deck binaries in {} (relay, deck, …)", bin.display());
     }
     walk(rootfs, rootfs, &mut files)?;
-    for scenes in scenes {
+    if let Some(scenes) = scenes {
         for entry in fs::read_dir(scenes).with_context(|| scenes.display().to_string())? {
             let entry = entry?;
             let name = entry.file_name().to_string_lossy().to_string();
