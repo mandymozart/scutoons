@@ -131,7 +131,8 @@ mod tests {
             { "ref": "location:dom", "kind": "location", "name": "dom", "labels": { "de": "Der Dom" }, "origin": { "key": "place:dom", "state": "published" } },
             { "ref": "item:incense", "address": "item:incense", "kind": "item", "name": "incense", "labels": { "en": "Incense" }, "origin": { "key": "item:incense", "state": "published" } },
             { "ref": "chapter:3", "kind": "chapter", "name": "3", "labels": { "en": "Anger" }, "origin": { "key": "chapter:catpope:3", "state": "draft" } },
-            { "ref": "chapter:3.intro", "kind": "group", "name": "intro", "parent": "chapter:3", "labels": {}, "origin": { "key": "chapter:catpope:3", "state": "draft" } }
+            { "ref": "chapter:3.intro", "kind": "group", "name": "intro", "parent": "chapter:3", "labels": {}, "origin": { "key": "chapter:catpope:3", "state": "draft" } },
+            { "ref": "scene:nave", "address": "scene:nave", "kind": "scene", "name": "nave", "labels": { "de": "Kirchenschiff" }, "origin": { "key": "scene:nave", "state": "published" }, "set": "cathedral", "spot": "spot_altar", "version": 2 }
         ]
     }"#;
 
@@ -144,12 +145,12 @@ mod tests {
         b.find(query, kinds, locale).into_iter().filter_map(|i| b.entries()[i].address.clone()).collect()
     }
 
-    const ALL: [AddressKind; 8] = [Character, Persona, Look, Location, Item, Chapter, Group, Variable];
+    const ALL: [AddressKind; 9] = [Character, Persona, Look, Location, Item, Chapter, Group, Variable, Scene];
 
     #[test]
     fn every_word_in_the_label_the_name_or_the_reference_whatever_the_case() {
         let b = book();
-        assert_eq!(found(&b, "", &ALL, "en").len(), 5, "nothing typed: everything the asker may reach that has an address");
+        assert_eq!(found(&b, "", &ALL, "en").len(), 6, "nothing typed: everything the asker may reach that has an address");
         assert_eq!(found(&b, "CAT pope", &[Character], "en"), ["character:catpope"], "both words, any case");
         assert_eq!(found(&b, "pope cat", &ALL, "en").len(), 3, "in any order; the persona and the look by their reference");
         assert_eq!(found(&b, "katzen", &ALL, "de"), ["character:catpope"], "the label of the asked locale");
@@ -168,6 +169,22 @@ mod tests {
         assert!(b.find("", &[Chapter, Group, Variable], "en").is_empty(), "chapters, groups, variables are references");
         let dom = b.entries().iter().position(|e| e.r#ref == "location:dom").unwrap();
         assert_eq!(b.row(dom, "de").unwrap().address, None);
+    }
+
+    /// #487: a published deck scene is an address (a deck plays it), found like any entry by its label, name or reference;
+    /// a far source's holder is never one
+    #[test]
+    fn a_scene_is_found_by_its_label_name_or_reference() {
+        let b = book();
+        assert_eq!(found(&b, "nav", &[Scene], "en"), ["scene:nave"]);
+        assert_eq!(found(&b, "kirchen", &ALL, "de"), ["scene:nave"], "the stage's name, its label");
+        assert_eq!(found(&b, "scene:", &ALL, "en"), ["scene:nave"]);
+        assert!(found(&b, "nave", &crate::world::FAR_HOLDERS, "en").is_empty(), "a scene holds no far source");
+        let at = b.entries().iter().position(|e| e.r#ref == "scene:nave").unwrap();
+        let row = b.row(at, "en").unwrap();
+        assert_eq!((row.kind, row.draft, row.chain.as_str(), row.address.as_deref()), (Scene, false, "Kirchenschiff", Some("scene:nave")));
+        let e = &b.entries()[at];
+        assert_eq!((e.set.as_deref(), e.spot.as_deref(), e.version), (Some("cathedral"), Some("spot_altar"), Some(2)));
     }
 
     #[test]
@@ -200,9 +217,9 @@ mod tests {
         let b = book();
         let kept = serde_json::to_string(&b.book).unwrap();
         let again = Book::parse(&kept).unwrap();
-        assert_eq!((again.version(), again.entries().len()), ("v1", 8));
+        assert_eq!((again.version(), again.entries().len()), ("v1", 9));
         assert!(Book::parse("{}").unwrap_err().starts_with("not an address book"));
-        assert!(Book::parse(r#"{"address_book":2,"toon":"x","version":"v","source":"en","entries":[{"ref":"a:b","kind":"scene","name":"b","labels":{},"origin":{"key":"k","state":"published"}}]}"#).is_err(), "a kind the schema does not list");
+        assert!(Book::parse(r#"{"address_book":2,"toon":"x","version":"v","source":"en","entries":[{"ref":"a:b","kind":"set","name":"b","labels":{},"origin":{"key":"k","state":"published"}}]}"#).is_err(), "a kind the schema does not list");
         // a book kept in the first format (no reference) is not read: the editor fetches a new one
         assert!(Book::parse(r#"{"address_book":1,"toon":"x","version":"v","source":"en","entries":[{"address":"item:a","kind":"item","name":"a","labels":{},"origin":{"key":"k","state":"published"}}]}"#).is_err());
     }

@@ -123,7 +123,7 @@ Today vs proposed, per platform: the native deck gets the scene API and the `sce
 |---|---|---|---|
 | 1a | `scene:<id>` on the server: ID kind, `ScenesController` (GET, PUT draft, publish, versions), the schema from deck-schema, `kind: "scenes"` in the build service's `/validate`, MCP read / `save_draft` | M | **= #243, rescoped**: a draft saves; a broken scene is refused with the core's words; `scene:nave` round-trips into the same `Scene` (test); PHPUnit, PHPStan, `generate --check` green |
 | 1b | Sandboxes apart: `sandbox/` folder, `BUILTIN` = 4, F5 groups + dev mode, "set as start" apart from load, the stable image without sandboxes, the rig's room no longer the cathedral's (§5) | S–M | **= #427's build**: a stable build lists 4 + real scenes; tests read from `sandbox/` |
-| 1c | `scene` in the address book (kind, ref, address; `toons`) | S | the typeahead finds `scene:nave`; the generated types are regenerated |
+| 1c | `scene` in the address book (kind, ref, address; `toons`) | S | the typeahead finds `scene:nave`; the generated types are regenerated – **built (#487)**: published scenes only, per toon of `toons`, after the toons; label = the stage's name, `set` / `spot` / `version`; no creator event takes a scene, deck-show `PIECE_KINDS` for a cell's piece field (none yet) |
 
 **Phase 2 – #246** (published scenes on the decks):
 

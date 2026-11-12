@@ -39,11 +39,11 @@ final class AddressBookApiTest extends TestCase
         $by = array_column($book['entries'], null, 'ref');
         // every key of the shape, nothing else (the generated PHP shape is what PHPStan checks; this is the wire)
         foreach ($book['entries'] as $e) {
-            self::assertSame([], array_diff(array_keys($e), ['ref', 'address', 'kind', 'name', 'parent', 'labels', 'origin', 'moods']), $e['ref']);
+            self::assertSame([], array_diff(array_keys($e), ['ref', 'address', 'kind', 'name', 'parent', 'labels', 'origin', 'moods', 'set', 'spot', 'version']), $e['ref']);
             self::assertContains($e['kind'], AddressBookTypes::ADDRESS_KIND);
             self::assertContains($e['origin']['state'], AddressBookTypes::ORIGIN_STATE);
             // an address only where a receiver of the kind exists, and then the reference's text (decisions/deck.md [address])
-            $addressed = in_array($e['kind'], ['character', 'persona', 'look', 'item'], true);
+            $addressed = in_array($e['kind'], ['character', 'persona', 'look', 'item', 'scene'], true);
             self::assertSame($addressed ? $e['ref'] : null, $e['address'] ?? null, $e['ref']);
         }
         // characters: the cast (season order), then own_toon; the removed one and the other toon's are not in it
@@ -123,6 +123,59 @@ final class AddressBookApiTest extends TestCase
         $moons = $this->request('/api/addresses/catpope', $creator, ['If-None-Match' => $before]);
         self::assertSame(200, $moons->getStatusCode());
         self::assertContains('variable:global.moons', array_column(self::json($moons)['entries'], 'ref'));
+    }
+
+    /**
+     * #487: the deck scenes a toon's book lists – published only (a draft never leaves the editor), only for the toons its
+     * `toons` names (none = in no book); `scene` is the deck scene only, never a chapter's group
+     */
+    public function testScenes(): void
+    {
+        $this->catalog();
+        [$creator] = $this->session([Roles::CREATOR], 'creator@scutoons.test');
+        $space = ['id' => 'space', 'kind' => 'space', 'set' => 'cathedral', 'spot' => 'spot_altar'];
+        $scene = fn(string $id, array $toons, string $name, array $nodes = [], int $version = 1) => ['format' => 1, 'id' => $id, 'version' => $version, 'toons' => $toons, 'stage' => ['name' => $name], 'node' => $nodes, 'link' => []];
+        $this->store('scene:nave', $scene('nave', ['catpope', 'toptoy'], 'Nave', [['id' => 'drone', 'kind' => 'osc'], $space], 2));
+        $this->store('scene:nave', $scene('nave', ['catpope'], 'Nave (new)', [], 3), false);
+        $this->store('scene:aisle', $scene('aisle', ['catpope'], 'Aisle with crows'), false);
+        $this->store('scene:loose', $scene('loose', [], 'By id only'));
+        $this->store('scene:shop', $scene('shop', ['toptoy'], 'untitled'));
+        $refs = fn(array $book) => array_column(array_values(array_filter($book['entries'], fn(array $e) => $e['kind'] === 'scene')), 'ref');
+        $first = $this->request('/api/addresses/catpope', $creator);
+        $book = self::json($first);
+        self::assertSame(['scene:nave'], $refs($book), 'the draft and the scene with no toons are in no book');
+        $by = array_column($book['entries'], null, 'ref');
+        self::assertSame(['ref' => 'scene:nave', 'address' => 'scene:nave', 'kind' => 'scene', 'name' => 'nave', 'labels' => ['en' => 'Nave'], 'origin' => ['key' => 'scene:nave', 'state' => 'published'], 'set' => 'cathedral', 'spot' => 'spot_altar', 'version' => 2],
+            $by['scene:nave'], 'the published version, not the newer draft: its name under the source language, its set, spot and version');
+        self::assertSame('variable', $book['entries'][count($book['entries']) - 1]['kind'], 'scenes before the variables');
+        self::assertNotContains('scene', array_column(array_filter($book['entries'], fn(array $e) => str_starts_with($e['ref'], 'chapter:')), 'kind'), 'a chapter\'s group is never a scene');
+        // the other toon: its own and the shared one; `untitled` is no name, a scene without a space node has no set
+        $other = self::json($this->request('/api/addresses/toptoy', $creator));
+        self::assertSame(['scene:nave', 'scene:shop'], $refs($other));
+        $shop = array_column($other['entries'], null, 'ref')['scene:shop'];
+        self::assertSame([[], 1], [$shop['labels'], $shop['version']]);
+        self::assertArrayNotHasKey('set', $shop);
+
+        // publishing a scene changes the version (the ETag), and the book lists it
+        $etag = $first->getHeaderLine('ETag');
+        self::assertSame(304, $this->request('/api/addresses/catpope', $creator, ['If-None-Match' => $etag])->getStatusCode());
+        $this->get(EntityStore::class)->publish('scene:aisle', null);
+        $published = $this->request('/api/addresses/catpope', $creator, ['If-None-Match' => $etag]);
+        self::assertSame(200, $published->getStatusCode());
+        self::assertNotSame($etag, $published->getHeaderLine('ETag'));
+        self::assertSame(['scene:aisle', 'scene:nave'], $refs(self::json($published)), 'by id');
+        // publishing the newer draft of nave: its new version, and it leaves toptoy's book
+        $this->get(EntityStore::class)->publish('scene:nave', null);
+        $by = array_column(self::json($this->request('/api/addresses/catpope', $creator))['entries'], null, 'ref');
+        self::assertSame([['en' => 'Nave (new)'], 3], [$by['scene:nave']['labels'], $by['scene:nave']['version']]);
+        self::assertArrayNotHasKey('set', $by['scene:nave']);
+        self::assertSame(['scene:shop'], $refs(self::json($this->request('/api/addresses/toptoy', $creator))));
+        // unpublished: out of the book again
+        $before = $this->request('/api/addresses/catpope', $creator)->getHeaderLine('ETag');
+        $this->get(EntityStore::class)->unpublish('scene:aisle');
+        $after = $this->request('/api/addresses/catpope', $creator, ['If-None-Match' => $before]);
+        self::assertSame(200, $after->getStatusCode());
+        self::assertSame(['scene:nave'], $refs(self::json($after)));
     }
 
     public function testWhoReadsIt(): void

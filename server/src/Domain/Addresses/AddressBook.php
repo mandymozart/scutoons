@@ -28,17 +28,23 @@ use stdClass;
  * - **chapters**: the toon's chapters – `chapter:<number>`, each followed by its **groups** – `chapter:<number>.<group>`; references
  * - **products**: the shop's products of the toon and the shared ones – `product:<id>`; references
  * - **toons**: every toon, this one first – `toon:<id>`; references (a jump's other toon; XR targets have no catalog to list)
+ * - **scenes** (#487, research/SCENES.md §3 / §8): the deck scenes whose published version names the toon in its `toons` –
+ *   `scene:<id>`, by id; addresses (a deck plays one: a show cell's piece). Only the published version counts – a draft never
+ *   leaves the editor – and it gives the label (its stage's name, under the source language), the set and spot of its
+ *   `space` node where it says them, and its stamped `version`. A scene with no toons is in no book (reachable by its id).
+ *   `scene` is the deck scene only: no chapter group, screenplay heading or sandbox is ever listed as one (sandboxes are
+ *   files, never in entity_versions)
  * - **variables**: every story variable of the one save game (the flow index's, every toon may set any) –
  *   `variable:<scope>.<name>`; references
  * The group and variable forms are proposals the owner has not confirmed (#477, slice B): cheap to change, here and in the
  * schema's AddressKind only. A group's `name` is its label exactly as an event stores it; its reference word is a safe form
  * of the label (letters, digits, `_` and `-`; anything else becomes `-`, a second label with the same form gets `-2` …). A
  * variable's `name` is the variable as written in this toon (`coins`, `global.coins`, `toptoy.coins`).
- * Not in it yet: deck scenes and sets (no toon in the catalog), XR targets (no catalog). Removed characters, places,
+ * Not in it yet: sets (no toon in the catalog), XR targets (no catalog). Removed characters, places,
  * regions and toons (tombstones) are left out.
  *
  * Each document's newest version counts (drafts included: the creator and the editor author against them); `origin.state`
- * says whether that version is the published one. Built on request and cached under the version ids it was built from
+ * says whether that version is the published one (scenes excepted: only their published version is listed). Built on request and cached under the version ids it was built from
  * (content-addressed, like FlowIndex: nothing to invalidate) – that hash is the document's `version` and the ETag.
  *
  * @phpstan-import-type AddressBook from AddressBookTypes as Book
@@ -52,9 +58,9 @@ final class AddressBook
     /**
      * The kinds whose entries have an address: a receiver of that type exists (owner 2026-11-10 [address]: "sending something
      * somewhere requires a possible receiver of the same type") – a character and an item (deck-space far.rs `offers`), a
-     * persona and a look (the show's addressing, `picks_up`). Every other kind is a reference only.
+     * persona and a look (the show's addressing, `picks_up`), a scene (a deck plays it, #487). Every other kind is a reference only.
      */
-    private const ADDRESSED = ['character', 'persona', 'look', 'item'];
+    private const ADDRESSED = ['character', 'persona', 'look', 'item', 'scene'];
     private const JSON_FLAGS = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR;
 
     public function __construct(private readonly Database $db, private readonly CatalogStore $catalog, private readonly Cache $cache, private readonly FlowIndex $flow)
@@ -80,12 +86,13 @@ final class AddressBook
         $items = array_values(array_filter($this->catalog->rows('items'), $mine));
         $products = array_values(array_filter($this->catalog->rows('products'), $mine));
         $variables = $this->variables();
+        $scenes = $this->scenes($toon);
         $rows = fn(array $list) => array_map(fn(array $r) => [$r['id'], sha1($r['data'])], $list);
-        $version = substr(sha1(AddressBookTypes::FORMAT . json_encode([$versions, $rows($items), $rows($products), $variables])), 0, 20);
+        $version = substr(sha1(AddressBookTypes::FORMAT . json_encode([$versions, $rows($items), $rows($products), $variables, array_map(fn(array $s) => $s['row'], $scenes)])), 0, 20);
         $key = "address-book:$toon:$version";
         $cached = $this->cache->get($key);
         if ($cached !== null) return ['version' => $version, 'json' => $cached];
-        $book = $this->compose($toon, $version, $this->documents($versions), $items, $products, $variables);
+        $book = $this->compose($toon, $version, $this->documents($versions), $items, $products, $variables, $scenes);
         $json = json_encode(self::wire($book), self::JSON_FLAGS);
         $this->cache->set($key, $json, self::CACHE_TTL);
         return ['version' => $version, 'json' => $json];
@@ -112,6 +119,21 @@ final class AddressBook
     }
 
     /**
+     * The published deck scenes whose `toons` name the toon, by id (a draft never leaves the editor; an empty `toons` is in no book)
+     * @return array<string, array{row: int, doc: stdClass}> scene id → the published version's row id and document
+     */
+    private function scenes(string $toon): array
+    {
+        $out = [];
+        foreach ($this->db->all("SELECT id, entity_key, json FROM entity_versions WHERE kind = 'scene' AND status = 'published' AND locale IS NULL ORDER BY entity_key") as $r) {
+            $doc = json_decode((string) $r['json']);
+            if (!$doc instanceof stdClass || !in_array($toon, is_array($doc->toons ?? null) ? $doc->toons : [], true)) continue;
+            $out[substr((string) $r['entity_key'], strlen('scene:'))] = ['row' => (int) $r['id'], 'doc' => $doc];
+        }
+        return $out;
+    }
+
+    /**
      * The story variables of the one save game (FlowIndex, built from every toon's newest documents and cached there):
      * storage key → the toons that set it, the toons that read it
      * @return array<string, array{set: list<string>, read: list<string>}>
@@ -131,9 +153,10 @@ final class AddressBook
      * @param list<array{id: string, position: int, data: string, updated_at: ?string, updated_by: ?string}> $items
      * @param list<array{id: string, position: int, data: string, updated_at: ?string, updated_by: ?string}> $products
      * @param array<string, array{set: list<string>, read: list<string>}> $variables
+     * @param array<string, array{row: int, doc: stdClass}> $scenes
      * @return Book
      */
-    private function compose(string $toon, string $version, array $docs, array $items, array $products, array $variables): array
+    private function compose(string $toon, string $version, array $docs, array $items, array $products, array $variables, array $scenes): array
     {
         $toonDoc = $docs["toon:$toon"]['doc'];
         [$source] = Library::languages($toonDoc instanceof stdClass ? $toonDoc : null, []);
@@ -196,6 +219,7 @@ final class AddressBook
             $entries[] = ['ref' => "product:{$row['id']}", 'kind' => 'product', 'name' => $row['id'], 'labels' => $labels, 'origin' => ['key' => "product:{$row['id']}", 'state' => 'published']];
         }
         array_push($entries, ...self::toons($docs, $toon));
+        foreach ($scenes as $id => ['doc' => $doc]) $entries[] = self::scene((string) $id, $doc, $source);
         // variables (proposal, #477): the scope is the owning toon or `global`; names that can't be written in a script
         // (the reader's own `picked:…` keys) are no targets. The flow index keeps no draft state per variable: `published`.
         foreach ($variables as $key => $v) {
@@ -241,6 +265,26 @@ final class AddressBook
         }
         ksort($out, SORT_STRING);
         return array_values($out);
+    }
+
+    /**
+     * A published scene's entry: labelled by its stage's name (one text, no locale map: under the source language; the
+     * schema's default `untitled` is no name), the set and spot its `space` node says, its stamped version
+     * @return AddressEntry
+     */
+    private static function scene(string $id, stdClass $doc, string $source): array
+    {
+        $name = ($doc->stage ?? null) instanceof stdClass ? $doc->stage->name ?? null : null;
+        $labels = is_string($name) && trim($name) !== '' && $name !== 'untitled' ? [$source => $name] : [];
+        $entry = ['ref' => "scene:$id", 'kind' => 'scene', 'name' => $id, 'labels' => $labels, 'origin' => ['key' => "scene:$id", 'state' => 'published']];
+        foreach (self::objects($doc->node ?? null) as $node) {
+            if (($node->kind ?? null) !== 'space') continue;
+            if (is_string($node->set ?? null) && $node->set !== '') $entry['set'] = $node->set;
+            if (is_string($node->spot ?? null) && $node->spot !== '') $entry['spot'] = $node->spot;
+            break;
+        }
+        if (is_int($doc->version ?? null)) $entry['version'] = $doc->version;
+        return $entry;
     }
 
     /**

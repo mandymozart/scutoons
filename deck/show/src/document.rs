@@ -254,6 +254,12 @@ pub enum Moment {
     Phrase,
 }
 
+/// What a cell's piece may be from the toon's address book (#487): a published deck scene – the entry's address,
+/// `scene:<id>`, is what the piece holds. Rigs and modules are pieces too but no entries of the book; sandboxes never are.
+/// The deck editor has no field for a cell's piece yet (assigning a scene is the next step, #267's draft 4): a field
+/// that picks one asks the book's `find` for these kinds.
+pub const PIECE_KINDS: [protocol::address_book::AddressKind; 1] = [protocol::address_book::AddressKind::Scene];
+
 /// One cell (SHOW.md §5). On a seat's column: `go`, `free` or `keep`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "mode", rename_all = "lowercase", deny_unknown_fields)]
@@ -335,5 +341,20 @@ mod tests {
         assert!(super::open(doc).is_ok());
         assert!(matches!(super::parse(doc), Err(super::ParseError::Invalid(_))));
         assert!(super::open("{}").unwrap_err().starts_with("not a show document"));
+    }
+
+    /// #487: a cell's piece from the book is a published scene – what the book's typeahead offers for it and a pick writes
+    #[test]
+    fn a_cells_piece_from_the_book_is_a_scene() {
+        let book = r#"{ "address_book": 2, "toon": "catpope", "version": "v1", "source": "en", "entries": [
+            { "ref": "character:catpope", "address": "character:catpope", "kind": "character", "name": "catpope", "labels": { "en": "Cat Pope" }, "origin": { "key": "character:catpope", "state": "published" } },
+            { "ref": "item:incense", "address": "item:incense", "kind": "item", "name": "incense", "labels": {}, "origin": { "key": "item:incense", "state": "published" } },
+            { "ref": "chapter:3.nave", "kind": "group", "name": "nave", "parent": "chapter:3", "labels": {}, "origin": { "key": "chapter:catpope:3", "state": "published" } },
+            { "ref": "scene:nave", "address": "scene:nave", "kind": "scene", "name": "nave", "labels": { "en": "Nave" }, "origin": { "key": "scene:nave", "state": "published" }, "version": 2 }
+        ] }"#;
+        let b = deck_space::rig::book::Book::parse(book).unwrap();
+        let offered: Vec<_> = b.find("nav", &super::PIECE_KINDS, "en").into_iter().filter_map(|i| b.entry(i)?.address.clone()).collect();
+        assert_eq!(offered, ["scene:nave"], "not the chapter's group of the same name");
+        assert!(b.find("", &super::PIECE_KINDS, "en").iter().all(|&i| b.entry(i).is_some_and(|e| e.r#ref.starts_with("scene:"))));
     }
 }

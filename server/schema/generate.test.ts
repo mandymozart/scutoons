@@ -22,8 +22,11 @@ test('every language gets every definition, under this file\'s header and withou
 		assert.match(php, new RegExp(`@phpstan-type ${name} `), `PHP ${name}`);
 	}
 	// every entry has its reference; an address only where a receiver exists (decisions/deck.md [address])
-	assert.match(php, /@phpstan-type AddressEntry array\{ref: string, address\?: string, kind: AddressKind, name: string, parent\?: string, labels: LocaleText, origin: Origin, moods\?: list<string>\}/);
-	assert.match(php, /public const ADDRESS_KIND = \['character', 'persona', 'look', 'location', 'item', 'chapter', 'group', 'variable', 'season', 'toon', 'product', 'region'\];/);
+	assert.match(php, /@phpstan-type AddressEntry array\{ref: string, address\?: string, kind: AddressKind, name: string, parent\?: string, labels: LocaleText, origin: Origin, moods\?: list<string>, set\?: string, spot\?: string, version\?: int\}/);
+	assert.match(php, /public const ADDRESS_KIND = \['character', 'persona', 'look', 'location', 'item', 'chapter', 'group', 'variable', 'season', 'toon', 'product', 'region', 'scene'\];/);
+	// #487: a scene's version is a number in every language
+	assert.match(ts, /version\?: number;/);
+	assert.match(rs, /pub version: Option<i64>,/);
 	assert.match(php, /public const FORMAT = 2;/);
 });
 
