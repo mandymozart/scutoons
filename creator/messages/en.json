@@ -1454,6 +1454,7 @@
 		"address_kind_toon": "toon page",
 		"address_kind_product": "product",
 		"address_kind_region": "region",
+		"address_kind_scene": "scene",
 		"address_scope_enter": "toon – its chapters",
 		"address_scope_leave": "back to this toon (Backspace)",
 		"map_min_zoom": "from zoom",

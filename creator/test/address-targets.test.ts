@@ -8,7 +8,7 @@ import { chainLabel, childNames, currentEntry, fillValues, indexOf, inScope, mat
 const origin = (key: string, state: 'published' | 'draft' = 'published') => ({ key, state });
 const e = (ref: string, kind: AddressEntry['kind'], name: string, labels: Record<string, string>, parent?: string, state: 'published' | 'draft' = 'published'): AddressEntry => ({
 	ref,
-	...(['character', 'persona', 'look', 'item'].includes(kind) ? { address: ref } : {}),
+	...(['character', 'persona', 'look', 'item', 'scene'].includes(kind) ? { address: ref } : {}),
 	kind,
 	name,
 	...(parent ? { parent } : {}),
@@ -37,6 +37,7 @@ const BOOK: AddressBook = {
 		e('product:hoodie', 'product', 'hoodie', { en: 'Dago Hoodie' }),
 		e('toon:catpope', 'toon', 'catpope', { de: 'Katzenpapst' }),
 		e('toon:toptoy', 'toon', 'toptoy', { de: 'Top Toy' }),
+		e('scene:nave', 'scene', 'nave', { en: 'Kirchenschiff' }),
 		e('variable:global.coins', 'variable', 'global.coins', {})
 	]
 };
@@ -170,4 +171,11 @@ test('migrate: a region of the world map, filled and shown like any other target
 	assert.deepEqual(pickValues(at(BOOK, 'region:hills'), BOOK, TARGETS.region), { region: 'hills' });
 	assert.equal(currentEntry(BOOK, TARGETS.region, { region: 'hills', who: 'catpope' })?.ref, 'region:hills');
 	assert.equal(currentEntry(BOOK, TARGETS.region, { region: 'gone' }), null, 'a region no longer on the map: shown as stored');
+});
+
+test('a deck scene (#487): no event form takes one today; the one filter finds it where a kind asks for it', () => {
+	for (const [name, spec] of Object.entries(TARGETS)) assert.ok(!(spec.kinds as readonly string[]).includes('scene'), `${name}: no event's target type is a scene`);
+	assert.deepEqual(refs(matchEntries(BOOK, ['scene'], 'nav', 'de')), ['scene:nave']);
+	assert.deepEqual(refs(matchEntries(BOOK, ['scene'], 'kirchen', 'de')), ['scene:nave'], 'the stage\'s name, its label');
+	assert.deepEqual(refs(matchEntries(BOOK, TARGETS.jump.kinds, 'nave', 'de')), [], 'a scene is no jump target');
 });

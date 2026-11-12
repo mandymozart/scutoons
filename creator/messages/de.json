@@ -1454,6 +1454,7 @@
 		"address_kind_toon": "Toon-Seite",
 		"address_kind_product": "Produkt",
 		"address_kind_region": "Region",
+		"address_kind_scene": "Szene",
 		"address_scope_enter": "Toon – seine Kapitel",
 		"address_scope_leave": "zurück zu diesem Toon (Rücktaste)",
 		"map_min_zoom": "ab Zoom",
