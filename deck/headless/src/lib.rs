@@ -81,7 +81,7 @@ pub struct Report {
     pub steps: Vec<Value>,
 }
 
-/// the paths of deck/ files a scenario's steps name (`scene = …`, `show = …`, a piece's `scene` / `bundle`) – the CLI and
+/// the paths of deck/ files a scenario's steps name (`scene = …`, `show = …`, `document = …`, a piece's `scene` / `bundle`) – the CLI and
 /// the tests bundle them
 pub fn files_of(scenario: &str) -> Vec<String> {
     let Ok(t) = scenario.parse::<toml::Table>() else { return Vec::new() };
@@ -91,7 +91,7 @@ pub fn files_of(scenario: &str) -> Vec<String> {
         let ps = s.get("pieces").and_then(|p| p.as_table()).map(|t| t.values().cloned().collect::<Vec<_>>()).unwrap_or_default();
         ps.iter().flat_map(|p| [named(p, "scene"), named(p, "bundle")]).flatten().collect()
     };
-    let mut out: Vec<String> = steps.iter().flat_map(|s| [named(s, "scene"), named(s, "show")].into_iter().flatten().chain(pieces(s))).collect();
+    let mut out: Vec<String> = steps.iter().flat_map(|s| [named(s, "scene"), named(s, "show"), named(s, "document")].into_iter().flatten().chain(pieces(s))).collect();
     out.sort();
     out.dedup();
     out
@@ -297,6 +297,37 @@ impl Run<'_> {
             let facts = json!({ "knobs": played.knobs.len(), "tracks": played.tracks.len(), "character": played.character });
             return Ok((played.engine.scene, page, facts));
         }
+        // #492: a scene document resolved by the core (scene_resolve.rs) with a use's fillers (`with`) and the rigs – the
+        // core's, or bundles written into the scenario (`rigs`: subject → bundle); the stage's cast comes back as facts
+        if let Some(path) = step.get("document").and_then(|v| v.as_str()) {
+            use deck_space::scene_document::{Fillers, SceneDocument};
+            let doc = SceneDocument::parse_json(self.file(path)?).map_err(|e| err(format!("{path}: {e:#}")))?;
+            let with: BTreeMap<String, Fillers> = match step.get("with") {
+                Some(v) => v.clone().try_into().map_err(|e| err(format!("with: {e}")))?,
+                None => BTreeMap::new(),
+            };
+            let own: BTreeMap<String, Rig> = match step.get("rigs") {
+                Some(v) => v.clone().try_into().map_err(|e| err(format!("rigs: {e}")))?,
+                None => BTreeMap::new(),
+            };
+            let rigs = |s: &str, v: Option<&str>| own.get(s).cloned().or_else(|| deck_space::scene_resolve::core_rigs(s, v));
+            let previews = step.get("previews").and_then(|v| v.as_bool()).unwrap_or(false);
+            let r = deck_space::scene_resolve::resolve(&doc, &with, previews, &rigs).map_err(|e| err(e.join("; ")))?;
+            let e = deck_space::rig::engine::lower(&r.scene).map_err(|e| err(format!("{e:#}")))?;
+            let word = |n: &deck_space::scene::NodeDef, k: &str| n.params.get(k).and_then(|v| v.as_str()).map(String::from);
+            let cast: Vec<Value> = r
+                .scene
+                .nodes
+                .iter()
+                .filter(|n| n.kind == "look")
+                .map(|n| {
+                    let character = n.params.get("being").and_then(|b| b.get("character")).and_then(|v| v.as_str()).unwrap_or_default();
+                    json!({ "holder": word(n, "holder"), "look": n.id, "character": character, "spot": word(n, "spot") })
+                })
+                .collect();
+            let facts = json!({ "cast": cast, "slots": r.cast.iter().map(|m| m.slots.clone()).collect::<Vec<_>>(), "notes": r.notes, "location": r.location });
+            return Ok((e.scene, e.page.iter().map(|n| n.id.clone()).collect(), facts));
+        }
         // #425: no rig plays – the deck's own scene, silent (what `Deck::new` and `play_core` of a character without a rig play)
         if step.get("silent").and_then(|v| v.as_bool()).unwrap_or(false) {
             let played = deck_space::rig::Played::silent().map_err(|e| err(format!("{e:#}")))?;
@@ -334,7 +365,11 @@ impl Run<'_> {
                 let (toml, page, facts) = self.scene(step)?;
                 let table = self.deck.load(&toml).map_err(Fault::Error)?;
                 let ids: Vec<Value> = table["nodes"].as_array().map(|ns| ns.iter().map(|n| n["id"].clone()).collect()).unwrap_or_default();
-                json!({ "nodes": ids.len(), "ids": ids, "page": page, "channels": table["channels"], "rig": facts })
+                // a scene document's facts are its stage's (#492), a rig's the rig's
+                let key = if step.contains_key("document") { "stage" } else { "rig" };
+                let mut out = json!({ "nodes": ids.len(), "ids": ids, "page": page, "channels": table["channels"] });
+                out[key] = facts;
+                out
             }
             "warm" => {
                 let (toml, _, _) = self.scene(step)?;

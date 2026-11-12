@@ -232,7 +232,7 @@ Owner 2026-11-12 (`[scenes]`): *"The combiner is programmatic. It is not intende
 
 | Thing | Today | Where |
 |---|---|---|
-| a scene's cast | one `being` (a look: the floating being); a rig's nodes flattened into the graph by hand (`scene:nave`: `voice_*`, `drone_*`) | `deck/space/src/scene.rs` `Scene.being`; `server/tests/fixtures/scenes/nave.json` |
+| a scene's cast | one `being` (a look: the floating being); a rig's nodes flattened into the graph by hand (`scene:nave`: `voice_*`, `drone_*`). Since #492: one `look` node per character holder, drawn at its spot (§9.3) | `deck/space/src/scene.rs` `Scene.being`, `look_node`; `space/mod.rs` `Cast`; `server/tests/fixtures/scenes/nave.json` |
 | holders | none; SCENE-PACKAGE §2 sketches `[[holder]]` (place, rig, version, values), its P1 is not built | — |
 | a holder's address | its filler's place: `/deck:pc/scene:demo/character:catpope/…`; a second copy (`#2`) is reserved and refused | `deck/space/src/rig/address.rs` |
 | the VN stage in the reader | 2D: `joinScene` / `leaveScene` (`characters: VNCharacterRef[]` = character, persona, look, mood, variant) put characters on the dialogue box (avatars left, portraits right); `showMessage` (character, persona, mood) puts the speaker in front | `shared/content/src/visual-novel.ts`; `viewer/src/lib/visual-novel/stage.ts`, `script-runner.ts` |
@@ -292,7 +292,7 @@ An empty placeholder plays nothing (its spot stays empty, silent); an empty loca
 
 - **Addresses:** a filled holder is its filler's place (`scene:stage/character:catpope/…`, as address.rs has it); an empty placeholder has no address – nothing can receive a word there (2026-11-10 `[address]`). The same filler twice in one scene stays refused (`#2`).
 - **Migration (cheap now):** only `scene:nave` exists. Its fixture becomes format 2 (no location yet: `space.set = "cathedral"`; one holder `catpope`, `ref` `character:catpope`, its rig pinned; the hand-flattened nodes leave). In production: if the row exists, an SQL migration rewrites it (E2); otherwise only the fixture and API.md's one-off change.
-- **The played `Scene`** (what the resolve step makes, and what the system and sandbox TOMLs are) keeps its `being` until the stage can draw several looks; drawing one look per character holder at its spot is its own ticket (§9.6, 2·1).
+- **The played `Scene`** (what the resolve step makes, and what the system and sandbox TOMLs are) keeps its `being` for a rig played alone and for one rigged member at the scene's own spot. **Built (#492, 2·1):** every other stage gives each character member a `look` node (`<holder>_look`, an internal kind: `holder`, `spot`, `at`, its `being` table) whose inputs (hue, glow, pulse, bounce) take only its own rig's `being:` links; the space draws one being per look node at its holder's spot (deck-space `Cast`, native and browser); a rig with no such link (or no rig) moves nothing, a rig's link into the room (light, post) is the scene's and is left out with a note, an item has no look yet; a code rig's policy node is re-prefixed (`@slots`, its `@gain` strips). A rig of silent tracks gets no default `fft.level → being:pulse`. Sandbox `stage-duo` is the core's resolve of `scene:stage` with Cat Pope and Top Toy; scenario 31 proves it.
 - The address book's scene entry gains `placeholders` (the kinds of its open slots), so a typeahead can show a template as one.
 
 ```json

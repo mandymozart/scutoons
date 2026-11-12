@@ -549,6 +549,12 @@ pub struct Being {
 
 impl Being {
     pub fn new(graph: &Graph, look: &Look) -> Being {
+        Being::part(graph, look, graph.first(Kind::Space), &|_| true)
+    }
+
+    /// A being of the nodes `keep` admits, its core the node `core` – one holder's on a stage of several (#492: its rig's
+    /// nodes and its `look` node, whose inputs colour, light and move it). Node and link indices stay the graph's.
+    pub fn part(graph: &Graph, look: &Look, core: Option<usize>, keep: &dyn Fn(usize) -> bool) -> Being {
         let s = look.size.max(0.05);
         let n = graph.nodes.len();
         // depth along the ordering links: data rises from the sources (low) to the sinks (high, toward the head)
@@ -559,10 +565,10 @@ impl Being {
             }
         }
         let max_depth = depth.iter().copied().max().unwrap_or(0).max(1) as f32;
-        let core_node = graph.first(Kind::Space);
+        let core_node = core;
         let mut points = Vec::with_capacity(n);
         let mut k = 0usize;
-        for &i in &graph.order {
+        for &i in graph.order.iter().filter(|&&i| keep(i)) {
             let node = &graph.nodes[i];
             let h = hash(&node.id);
             let (rest, radius) = if Some(i) == core_node {
@@ -592,6 +598,7 @@ impl Being {
             .links
             .iter()
             .enumerate()
+            .filter(|(_, l)| keep(l.from.0) && keep(l.to.0))
             .map(|(li, l)| {
                 let (flow, r) = match l.ty {
                     PortType::Control => (Flow::Control(l.from.0, l.from.1), 0.016),
@@ -762,7 +769,7 @@ impl Being {
                 fixed: None,
             },
             neck,
-            fft: graph.first(Kind::Fft),
+            fft: (0..n).find(|&i| keep(i) && graph.nodes[i].kind == Kind::Fft),
             moods,
             feel,
             reset: None,

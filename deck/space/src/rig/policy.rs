@@ -22,6 +22,22 @@ use std::collections::{BTreeMap, BTreeSet};
 pub const NODE: &str = "policy";
 /// The node's table naming each `@gain` target's strip input (`{ <track> = "mixN.gainK" }`), read by graph.rs
 pub const GAIN_TABLE: &str = "@gain";
+/// The node's prefix on a stage of several holders (`<holder>_`, #492): graph.rs binds its `<track>:<node>.<port>` targets
+/// to `<prefix><track>_<node>`; missing = the rig's own slots (a rig played alone)
+pub const SLOTS: &str = "@slots";
+
+/// A code rig's policy node when its rig is flattened among several on one stage (scene_resolve.rs, #492): its `@gain`
+/// strips and its targets under `prefix`, so it drives its own tracks and no other holder's
+pub fn reprefix(node: &mut crate::scene::NodeDef, prefix: &str) {
+    if let Some(toml::Value::Table(t)) = node.params.get_mut(GAIN_TABLE) {
+        for (_, v) in t.iter_mut() {
+            if let toml::Value::String(s) = v {
+                *s = format!("{prefix}{s}");
+            }
+        }
+    }
+    node.params.insert(SLOTS.into(), toml::Value::String(prefix.into()));
+}
 
 /// A rig's policy: the module that drives its tracks, the node's seed and its parameters' values.
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]

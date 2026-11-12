@@ -1,0 +1,52 @@
+name = "several beings on one stage: a look per character holder, each moved only by its own rig"
+about = "#492 (research/SCENES.md §9.6 2·1; owner 2026-11-12 [rigs]: \"if a rig has no mapping to visual properties nothing moves\"): the template scene:stage resolved by the core with two fillers – Cat Pope (her core rig: its sum breathes in her light) and a character whose rig only listens (a silent track, no mapping to its being). The stage has a `look` node per holder at its spot; Cat Pope's rig lands on her look alone, the other look has no link and stays at its defaults while she sounds. The space draws one being per look node (deck-space space/mod.rs `Cast`), native and browser alike"
+
+[[step]]
+do = "load"
+document = "../server/tests/fixtures/scenes/templates/stage.json"
+with = { where = "location:dom", left = "character:catpope", right = "character:mute" }
+[step.rigs."character.mute".rig]
+subject = "character.mute"
+track = [{ id = "ear", instrument = "ear" }]
+[[step.rigs."character.mute".instrument]]
+id = "ear"
+kind = "pad"
+name = { en = "Ear" }
+node = [{ id = "midi", kind = "world", source = "midi", listen = ["midi.note"] }]
+[step.expect]
+page = []
+ids = { has = "left_look" }
+stage = { cast = [{ holder = "left", look = "left_look", character = "catpope", spot = "spot_left" }, { holder = "right", look = "right_look", character = "mute", spot = "spot_right" }], slots = ["left_", "right_"], notes = [], location = "location:dom" }
+
+[[step]]
+do = "run"
+ms = 1500
+expect = { sound = true }
+
+# Cat Pope's look breathes with her own sum (her rig's fft.level → her look's pulse) …
+[[step]]
+do = "heard"
+path = "left_look.pulse"
+expect = { value = { min = 0.001 } }
+
+# … and only hers: the listener's look has no link – its pulse, glow and hue are its defaults while she sounds
+[[step]]
+do = "heard"
+path = "right_look.pulse"
+expect = { value = 0.0 }
+
+[[step]]
+do = "heard"
+path = "right_look.glow"
+expect = { value = 0.6 }
+
+[[step]]
+do = "heard"
+path = "right_look.hue"
+expect = { value = 0.52 }
+
+# the room is no one's being: no rig drives the space's own being inputs on a stage of several
+[[step]]
+do = "heard"
+path = "space.pulse"
+expect = { value = 0.0 }

@@ -2,7 +2,8 @@
 //! prefixed `<track>_<node>`, the tracks that sound (a silent track, #430, has no strip) summed by a chain of four-input mixers (a track's `gain` = its mixer gain) into
 //! the scene's `audio_out`, an `fft` on the sum (the being's energy and feelings read it), the rig's routes as links,
 //! and a bare `space` node the caller completes (its set, spot, camera) – the being, breathing with the sum's level
-//! (`fft.level` → `space.pulse`, as the phone deck's patch did) unless a route drives `being:pulse` itself.
+//! (`fft.level` → `space.pulse`, as the phone deck's patch did) unless a route drives `being:pulse` itself or no track
+//! sounds (#492: no sum, no mapping – the being stays still).
 //! A code rig (#408, policy.rs) adds its policy: the node `policy` (`module:<id>`, registered from the library's
 //! descriptor), its parameters and seed, the context it starts with (character, persona, mood – the live one is #409's),
 //! and the strips its `@gain` targets drive; routes reach it as `policy:<port>`.
@@ -103,7 +104,9 @@ impl Rig {
             scene.nodes.push(node("tempo", "tempo", &[]));
         }
         scene.nodes.push(node("space", "space", &[]));
-        if !pulse {
+        // the default breath of light needs a sum to breathe with: a rig of silent tracks maps nothing to its being, so it
+        // moves nothing (#492, owner 2026-11-12 [rigs]: "if a rig has no mapping to visual properties nothing moves")
+        if !pulse && played.iter().any(|p| p.patch.out.is_some()) {
             scene.links.push(link("fft.level".into(), "space.pulse".into(), 0.6, 0.0));
             homes.push(Home::Compiled);
         }
