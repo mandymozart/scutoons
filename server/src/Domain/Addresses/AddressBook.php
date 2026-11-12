@@ -31,7 +31,10 @@ use stdClass;
  * - **scenes** (#487, research/SCENES.md §3 / §8): the deck scenes whose published version names the toon in its `toons` –
  *   `scene:<id>`, by id; addresses (a deck plays one: a show cell's piece). Only the published version counts – a draft never
  *   leaves the editor – and it gives the label (its stage's name, under the source language), the set and spot of its
- *   `space` node where it says them, and its stamped `version`. A scene with no toons is in no book (reachable by its id).
+ *   `space` node where it says them, its stamped `version` and its `placeholders` (#504: id, fill, label, preview – what a
+ *   use `{ scene, with }` may fill). A template – no toon, at least one placeholder (`scene:place`, `scene:solo`,
+ *   `scene:stage`, `scene:avatar-home`, SCENES.md §9.5) – is in every toon's book; any other scene with no toons is in no
+ *   book (reachable by its id).
  *   `scene` is the deck scene only: no chapter group, screenplay heading or sandbox is ever listed as one (sandboxes are
  *   files, never in entity_versions)
  * - **variables**: every story variable of the one save game (the flow index's, every toon may set any) –
@@ -51,6 +54,7 @@ use stdClass;
  * @phpstan-import-type AddressEntry from AddressBookTypes
  * @phpstan-import-type LocaleText from AddressBookTypes
  * @phpstan-import-type OriginState from AddressBookTypes
+ * @phpstan-import-type ScenePlaceholder from AddressBookTypes
  */
 final class AddressBook
 {
@@ -119,7 +123,9 @@ final class AddressBook
     }
 
     /**
-     * The published deck scenes whose `toons` name the toon, by id (a draft never leaves the editor; an empty `toons` is in no book)
+     * The published deck scenes whose `toons` name the toon, and the templates – published scenes with no toon and at least
+     * one placeholder (#504, SCENES.md §9.5, owner 2026-11-12 [scenes]: "in every toon's book") –, by id (a draft never
+     * leaves the editor; a scene with no toon and no placeholder is in no book)
      * @return array<string, array{row: int, doc: stdClass}> scene id → the published version's row id and document
      */
     private function scenes(string $toon): array
@@ -127,7 +133,9 @@ final class AddressBook
         $out = [];
         foreach ($this->db->all("SELECT id, entity_key, json FROM entity_versions WHERE kind = 'scene' AND status = 'published' AND locale IS NULL ORDER BY entity_key") as $r) {
             $doc = json_decode((string) $r['json']);
-            if (!$doc instanceof stdClass || !in_array($toon, is_array($doc->toons ?? null) ? $doc->toons : [], true)) continue;
+            if (!$doc instanceof stdClass) continue;
+            $toons = is_array($doc->toons ?? null) ? $doc->toons : [];
+            if (!in_array($toon, $toons, true) && ($toons !== [] || self::placeholders($doc) === [])) continue;
             $out[substr((string) $r['entity_key'], strlen('scene:'))] = ['row' => (int) $r['id'], 'doc' => $doc];
         }
         return $out;
@@ -284,7 +292,34 @@ final class AddressBook
             break;
         }
         if (is_int($doc->version ?? null)) $entry['version'] = $doc->version;
+        $placeholders = self::placeholders($doc);
+        if ($placeholders !== []) $entry['placeholders'] = $placeholders;
         return $entry;
+    }
+
+    /**
+     * A scene's placeholders as its document writes them (#504; scene_document.rs, SCENES.md §9.3): the location's when it is
+     * one (an object, not a `location:<id>`), then each holder with a `fill` (no `ref`), in the document's order – what a use
+     * may fill (`with` by `id`). Copied, not judged: whether a filler passes `fill` is the core's (`Use::problems`).
+     * @return list<ScenePlaceholder>
+     */
+    private static function placeholders(stdClass $doc): array
+    {
+        $out = [];
+        $slots = array_merge(($doc->location ?? null) instanceof stdClass ? [$doc->location] : [], self::objects($doc->holder ?? null));
+        foreach ($slots as $slot) {
+            if (!is_string($slot->id ?? null) || !($slot->fill ?? null) instanceof stdClass || !is_array($slot->fill->kind ?? null)) continue;
+            $fill = ['kind' => array_values(array_filter($slot->fill->kind, fn(mixed $k) => is_string($k) && in_array($k, AddressBookTypes::ADDRESS_KIND, true)))];
+            if (is_array($slot->fill->ref ?? null)) $fill['ref'] = array_values(array_filter($slot->fill->ref, 'is_string'));
+            if (is_string($slot->fill->parent ?? null)) $fill['parent'] = $slot->fill->parent;
+            $placeholder = ['id' => $slot->id, 'fill' => $fill];
+            $label = self::text($slot->label ?? null);
+            if ($label !== []) $placeholder['label'] = $label;
+            $preview = is_string($slot->preview ?? null) ? [$slot->preview] : (is_array($slot->preview ?? null) ? array_values(array_filter($slot->preview, 'is_string')) : []);
+            if ($preview !== []) $placeholder['preview'] = $preview;
+            $out[] = $placeholder;
+        }
+        return $out;
     }
 
     /**

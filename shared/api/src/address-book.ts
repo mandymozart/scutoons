@@ -9,6 +9,26 @@ export type OriginState = 'published' | 'draft';
 /** Content text: locale → text (the one shape of authored text; pick a locale with the one locale order, server/schema/tables/locale-order.json). */
 export type LocaleText = Record<string, string>;
 
+/** What may fill a scene's placeholder (#504; the scene document's `fill`, research/SCENES.md §9.2): the address book's typeahead question – an entry passes when every fact given holds. Whether a use's filler passes is the core's (deck-space scene_resolve.rs `Use::problems`). */
+export interface PlaceholderFill {
+	/** the kinds that may fill it (a holder's: character, persona, look, item; a location's: location) */
+	kind: AddressKind[];
+	/** only these references (`character:catpope`); absent = any of the kinds */
+	ref?: string[];
+	/** only entries below this reference (`character:catpope`: her personas and looks) */
+	parent?: string;
+}
+
+/** One placeholder of a scene (#504): a slot a use fills by its `id` – the location (`where`, `home`) or a holder (`left`, `who`). */
+export interface ScenePlaceholder {
+	/** its key in a use's `with`; not an address */
+	id: string;
+	fill: PlaceholderFill;
+	label?: LocaleText;
+	/** the fillers the editor and the browser show while it is empty (a spawn zone may preview several) */
+	preview?: string[];
+}
+
 /** The catalog document an entry comes from. */
 export interface Origin {
 	/** the document's entity key (`character:catpope`, `place:dom`, `chapter:catpope:3`, `season:catpope:1`, `toon:catpope`, `scene:nave`) or catalog entry (`item:incense`, `product:dago_hoodie`) */
@@ -37,6 +57,8 @@ export interface AddressEntry {
 	spot?: string;
 	/** a scene only: the published version listed (the document's stamped `version`, what `scene:<id>@<version>` pins) */
 	version?: number;
+	/** a scene only (#504): its placeholders in the document's order – the location's first when it is one, then each holder with a `fill` – what a use `{ scene, with }` may fill; absent: a concrete scene. A template (no toon, at least one placeholder) is listed in every toon's book */
+	placeholders?: ScenePlaceholder[];
 }
 
 /** The document: one per toon, versioned by the catalog it was built from. */

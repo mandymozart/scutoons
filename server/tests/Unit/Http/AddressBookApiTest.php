@@ -178,6 +178,36 @@ final class AddressBookApiTest extends TestCase
         self::assertSame(['scene:nave'], $refs(self::json($after)));
     }
 
+    /**
+     * #504: a scene's entry carries its placeholders (the location's first, then each holder with a `fill`; id, fill, label,
+     * preview as a list) – what a use may fill; a template (no toon, a placeholder) is in every toon's book, a toonless
+     * concrete scene in none
+     */
+    public function testTemplatesAndPlaceholders(): void
+    {
+        $this->catalog();
+        [$creator] = $this->session([Roles::CREATOR], 'creator@scutoons.test');
+        foreach (['place', 'solo', 'stage', 'avatar-home'] as $name) {
+            $doc = (array) json_decode((string) file_get_contents(self::root() . "/tests/fixtures/scenes/templates/$name.json"), true);
+            $this->store("scene:$name", ['version' => 1] + $doc);
+        }
+        $this->store('scene:loose', ['format' => 2, 'id' => 'loose', 'version' => 1, 'toons' => [], 'location' => 'location:dom', 'node' => [], 'link' => []]);
+        $this->store('scene:own', ['format' => 2, 'id' => 'own', 'version' => 1, 'toons' => ['catpope'], 'location' => 'location:dom',
+            'holder' => [['id' => 'pope', 'ref' => 'character:catpope'], ['id' => 'crows', 'fill' => ['kind' => ['item'], 'ref' => ['item:crow'], 'parent' => 'item:flock'], 'take' => 'many', 'preview' => ['item:crow']]], 'node' => [], 'link' => []]);
+        $scenes = fn(array $book) => array_column(array_values(array_filter($book['entries'], fn(array $e) => $e['kind'] === 'scene')), null, 'ref');
+        foreach (['catpope', 'toptoy'] as $toon) {
+            $by = $scenes(self::json($this->request("/api/addresses/$toon", $creator)));
+            self::assertSame(['scene:avatar-home', 'scene:place', 'scene:solo', 'scene:stage'], array_values(array_diff(array_keys($by), ['scene:own'])), "$toon: the four templates, the toonless concrete scene in no book");
+            self::assertSame([
+                ['id' => 'where', 'fill' => ['kind' => ['location']], 'label' => ['de' => 'wo', 'en' => 'where']],
+                ['id' => 'who', 'fill' => ['kind' => ['character', 'item']], 'label' => ['de' => 'wer', 'en' => 'who']],
+            ], $by['scene:solo']['placeholders'], 'the location first, then the holders');
+            self::assertSame(['left', 'centre', 'right', 'back'], array_column(array_slice($by['scene:stage']['placeholders'], 1), 'id'));
+        }
+        $own = $scenes(self::json($this->request('/api/addresses/catpope', $creator)))['scene:own'];
+        self::assertSame([['id' => 'crows', 'fill' => ['kind' => ['item'], 'ref' => ['item:crow'], 'parent' => 'item:flock'], 'preview' => ['item:crow']]], $own['placeholders'], 'an authored filler is no placeholder; a named location none');
+    }
+
     public function testWhoReadsIt(): void
     {
         $this->catalog();

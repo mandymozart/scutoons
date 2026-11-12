@@ -10,8 +10,10 @@ namespace Scutoons\Generated;
  * @phpstan-type AddressKind 'character'|'persona'|'look'|'location'|'item'|'chapter'|'group'|'variable'|'season'|'toon'|'product'|'region'|'scene'
  * @phpstan-type OriginState 'published'|'draft'
  * @phpstan-type LocaleText array<string, string>
+ * @phpstan-type PlaceholderFill array{kind: list<AddressKind>, ref?: list<string>, parent?: string}
+ * @phpstan-type ScenePlaceholder array{id: string, fill: PlaceholderFill, label?: LocaleText, preview?: list<string>}
  * @phpstan-type Origin array{key: string, state: OriginState}
- * @phpstan-type AddressEntry array{ref: string, address?: string, kind: AddressKind, name: string, parent?: string, labels: LocaleText, origin: Origin, moods?: list<string>, set?: string, spot?: string, version?: int}
+ * @phpstan-type AddressEntry array{ref: string, address?: string, kind: AddressKind, name: string, parent?: string, labels: LocaleText, origin: Origin, moods?: list<string>, set?: string, spot?: string, version?: int, placeholders?: list<ScenePlaceholder>}
  * @phpstan-type AddressBook array{address_book: 2, toon: string, version: string, source: string, entries: list<AddressEntry>}
  */
 final class AddressBookTypes

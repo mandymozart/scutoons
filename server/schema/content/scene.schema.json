@@ -380,6 +380,28 @@
         }
       ]
     },
+    "SceneUse": {
+      "additionalProperties": false,
+      "description": "A use of a scene (SCENES.md §9.2, #504): a scene plus the fillers for its placeholders – what a group, a cell, a location or\na character stores instead of a new scene document when only the fillers change (owner 2026-11-12 [scenes], §9.7 Q3).\nWhether it plays is the core's: `Use::problems` (how the server would get this verdict is the owner's review, #506).",
+      "properties": {
+        "scene": {
+          "description": "the scene it plays: `scene:<id>`",
+          "type": "string"
+        },
+        "with": {
+          "additionalProperties": {
+            "$ref": "#/definitions/Fillers"
+          },
+          "default": {},
+          "description": "its fillers by placeholder id (the location placeholder's or a holder's `id`): a reference, or several for a spawn\nzone; a placeholder left out stays empty, or is filled by context (the receiver's) or the story (`joinScene`)",
+          "type": "object"
+        }
+      },
+      "required": [
+        "scene"
+      ],
+      "type": "object"
+    },
     "StageSettings": {
       "additionalProperties": false,
       "properties": {

@@ -12,7 +12,7 @@
 //!
 //! | do | arguments | answer |
 //! |---|---|---|
-//! | `load` | `scene` (a deck/ path; `lower`: the browser's split, default on), `toml` (a small scene as it is), `rig` (`character.catpope`) + `mood`, or `silent = true` (no rig plays, #425) | nodes, page (ids the engine does not carry), channels |
+//! | `load` | `scene` (a deck/ path; `lower`: the browser's split, default on), `toml` (a small scene as it is), `rig` (`character.catpope`) + `mood`, `silent = true` (no rig plays, #425), or `document` (a scene document, #492) with `with` (its fillers) or `use` (`{ scene, with }`, checked first by the core – in `book`, the toon's references, when given; #504), `rigs`, `previews` | nodes, page (ids the engine does not carry), channels; a document: its stage |
 //! | `warm` | as `load`, `quanta` | – |
 //! | `run` | `ms`; `mark` (keep the audio hash); `trace` (#467: a line per clock frame) | audio (hash), peak, frames, the clock state (+ the transport's `epoch`), line, clock_out, anchors, pings, signals, piece, crossfade, gliding |
 //! | `send` | `path`, `value`, `mode` (force / blend / base), `amount` | applied |
@@ -307,9 +307,20 @@ impl Run<'_> {
         if let Some(path) = step.get("document").and_then(|v| v.as_str()) {
             use deck_space::scene_document::{Fillers, SceneDocument};
             let doc = SceneDocument::parse_json(self.file(path)?).map_err(|e| err(format!("{path}: {e:#}")))?;
-            let with: BTreeMap<String, Fillers> = match step.get("with") {
-                Some(v) => v.clone().try_into().map_err(|e| err(format!("with: {e}")))?,
-                None => BTreeMap::new(),
+            // #504: a use `{ scene, with }` (as a group or cell stores it) is checked by the core (`Use::problems`) – in the toon's
+            // `book` when given, each filler against its `fill` – before it plays; else the bare `with`
+            let with: BTreeMap<String, Fillers> = match (step.get("use"), step.get("with")) {
+                (Some(u), _) => {
+                    let u: deck_space::scene_resolve::Use = u.clone().try_into().map_err(|e| err(format!("use: {e}")))?;
+                    let book: Option<Vec<String>> = step.get("book").map(|b| b.clone().try_into()).transpose().map_err(|e| err(format!("book: {e}")))?;
+                    let problems = u.problems(&doc, book.as_deref());
+                    if !problems.is_empty() {
+                        return Err(err(problems.join("; ")));
+                    }
+                    u.with
+                }
+                (None, Some(v)) => v.clone().try_into().map_err(|e| err(format!("with: {e}")))?,
+                (None, None) => BTreeMap::new(),
             };
             let own: BTreeMap<String, Rig> = match step.get("rigs") {
                 Some(v) => v.clone().try_into().map_err(|e| err(format!("rigs: {e}")))?,
