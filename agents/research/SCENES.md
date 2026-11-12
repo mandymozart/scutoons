@@ -1,4 +1,4 @@
-Status 2026-11-12: design for #267 / #427; 1a built (#243: `scene:<id>`, `/api/scenes`, the schema from the Rust `SceneDocument`, the core's check, `scene:nave`, `Nudge.set` → `input` – server/docs/API.md "Scenes"); 1b built (#427: §5 "Built"), the rest not; phase 1 of the leg "scenes and scene storage" (phase 2 #246, phase 3 #244). §1 is read from the code; §2–§6 are proposals until the owner answers §7; §8 reviews the words (scene, group, label, location, set, spot …) against the code, proposes names and a location model, with its own questions (§8.6). The format and the package stay in SCENE-PACKAGE.md (#288, #393); this note is the whole picture and points there.
+Status 2026-11-12: design for #267 / #427 / #488; 1a built (#243: `scene:<id>`, `/api/scenes`, the schema from the Rust `SceneDocument`, the core's check, `scene:nave`, `Nudge.set` → `input` – server/docs/API.md "Scenes"); 1b built (#427: §5 "Built"); 1c built (#487); phase 1 of the leg "scenes and scene storage" (phase 2 #246, phase 3 #244). §1 is read from the code; §2–§6 are proposals until the owner answers §7; §8 reviews the words (scene, group, label, location, set, spot …) against the code, proposes names and a location model, with its own questions (§8.6); §9 (proposal, 2026-11-12) adds placeholder scenes, holders as format 2, the VN stage in the reader with its render ladder and composing in place (#488), and **replaces §6's phase 2 / 3 order** (§9.6), with its own questions (§9.7). The format and the package stay in SCENE-PACKAGE.md (#288, #393); this note is the whole picture and points there.
 
 # SCENES — what a deck scene is, where it is stored, how it reaches a deck
 
@@ -63,7 +63,7 @@ In the address book (#477) a published scene is an entry of kind `scene` with `r
 | `toons` | list, may be empty: the address books it is listed in | — |
 | `stage`, `node`, `link`, `outputs`, `being` | exactly deck-space's `Scene` (TOML is only a view of it) | — |
 | `set`, `spot` | on the `space` node, as today (`set = "cathedral"`) | `location` beside or instead of `set` once locations carry their set; no third word such as `point` (§8.4) |
-| `holder`, `world` | — | SCENE-PACKAGE §2, after #462 settles who a holder is |
+| `holder`, `world` | — | holders and placeholders as format 2 now (§9.3, owner 2026-11-12); `world` still after #462 |
 
 - **Schema from one source ([contract]):** the Rust structs. deck-schema already writes the rig `Bundle`'s schema (`deck/catalog/schema.json`) and TS types; it adds `Scene` → `server/schema/content/scene.schema.json` (the server's save guard, `ContentSchemas`) + `shared/live` TS + PHP shapes via `server/schema/generate.ts`. `--check` in `deck:ci` and `npm run generate -- --check`. No hand-written twin.
 - **Validity is the core's (A2):** `POST /api/scenes/<id>/publish` asks the build service's `POST /validate` with `kind: "scenes"` (as shows and rigs): unknown node kinds, broken links, missing references, nesting deeper than 4 or a cycle → `422 invalid_scene { problems }`. The JSON Schema on save is only the shape.
@@ -124,6 +124,8 @@ Today vs proposed, per platform: the native deck gets the scene API and the `sce
 | 1a | `scene:<id>` on the server: ID kind, `ScenesController` (GET, PUT draft, publish, versions), the schema from deck-schema, `kind: "scenes"` in the build service's `/validate`, MCP read / `save_draft` | M | **= #243, rescoped**: a draft saves; a broken scene is refused with the core's words; `scene:nave` round-trips into the same `Scene` (test); PHPUnit, PHPStan, `generate --check` green |
 | 1b | Sandboxes apart: `sandbox/` folder, `BUILTIN` = 4, F5 groups + dev mode, "set as start" apart from load, the stable image without sandboxes, the rig's room no longer the cathedral's (§5) | S–M | **= #427's build**: a stable build lists 4 + real scenes; tests read from `sandbox/` |
 | 1c | `scene` in the address book (kind, ref, address; `toons`) | S | the typeahead finds `scene:nave`; the generated types are regenerated – **built (#487)**: published scenes only, per toon of `toons`, after the toons; label = the stage's name, `set` / `spot` / `version`; no creator event takes a scene, deck-show `PIECE_KINDS` for a cell's piece field (none yet) |
+
+Phase 2 and 3 below are the first plan; **§9.6 replaces their order** (holders and uses first, the reader's stage beside the decks).
 
 **Phase 2 – #246** (published scenes on the decks):
 
@@ -221,3 +223,159 @@ Address prefixes (A14): `scene:<id>` the deck scene · `location:<id>` a locatio
 3. **Rename the Experience type "Show" to "Exhibition"** before XR is built? *Recommended:* yes; "show" stays the live show.
 4. **One word "spot"** for every named point in a set, the scene's spawn point being its spot (no `point`, no separate spawn type)? *Recommended:* yes.
 5. **A jump to a location on a deck** plays that location's default scene? *Recommended:* yes; a location names one default scene, and without one nothing plays (logged).
+
+## 9. Placeholder scenes, holders and the VN stage
+
+Owner 2026-11-12 (`[scenes]`): *"The combiner is programmatic. It is not intended to be a separate editor."* · *"place holder scenes is an important point ... these are used for multiple other entities to be the layout."* · *"So they can be populated by any or a filtered variety of entities."* · question 4: *"4b where we differentiate is how it is rendered. Because it doesnt use the slice backgrounds."* Everything in §9 is a proposal; §9.1 is read from the code.
+
+### 9.1 Today (from the code)
+
+| Thing | Today | Where |
+|---|---|---|
+| a scene's cast | one `being` (a look: the floating being); a rig's nodes flattened into the graph by hand (`scene:nave`: `voice_*`, `drone_*`) | `deck/space/src/scene.rs` `Scene.being`; `server/tests/fixtures/scenes/nave.json` |
+| holders | none; SCENE-PACKAGE §2 sketches `[[holder]]` (place, rig, version, values), its P1 is not built | — |
+| a holder's address | its filler's place: `/deck:pc/scene:demo/character:catpope/…`; a second copy (`#2`) is reserved and refused | `deck/space/src/rig/address.rs` |
+| the VN stage in the reader | 2D: `joinScene` / `leaveScene` (`characters: VNCharacterRef[]` = character, persona, look, mood, variant) put characters on the dialogue box (avatars left, portraits right); `showMessage` (character, persona, mood) puts the speaker in front | `shared/content/src/visual-novel.ts`; `viewer/src/lib/visual-novel/stage.ts`, `script-runner.ts` |
+| where a group is | no field: a group has label, renderer (vertical / horizontal), slices, events, continues, end; its cast is read from its events (`chapterSceneCharacters`); `setAvatarLocation` moves the reader's avatar on the map, not a stage | `shared/content/src/content.ts` `Group` |
+| a location's set | none: a map place (`MapPlace`) has a diorama image for the map, no set, no scene | `shared/content/src/map.ts` |
+| a set's sources | the home scenes catalog: `image` (a still in one-point perspective, 1080p / 4K), `video` (a muted loop over the still), `model` (`.glb` per quality; only the cathedral has one) | `shared/content/src/homes.ts` `HomeScene` |
+| a character's home | `home` (a location), `home_scene` (a home scene) | `shared/content/src/characters.ts` |
+| filters | the address book: an asker takes the kinds it may pick (`AddressKind`); a show role's `for` = `Admits` (account, approved, device, group: facts about relay clients, any one fact admits) | `server/schema/api/address-book.schema.json`; `deck/protocol` `Admits` (#478) |
+| the browser deck | only on `/live/deck/<code>`; the chapter page has none | `viewer/src/routes/live/deck` |
+| the quality ladder | the governor's rungs (presets low · medium · high · ultra), the deck's level the ceiling, a step down under load | `deck/space/src/quality.rs` |
+
+### 9.2 Placeholder scenes
+
+| Word | Means |
+|---|---|
+| **holder** | a place on a scene's stage that carries one filler at a spot (SCENE-PACKAGE §2) |
+| **filler** | what fills a holder: a character (with persona and look), an item, a nested scene; for the scene's location, a location |
+| **placeholder** | a holder (or the scene's location) with no filler, only `fill`: the filter of what may fill it |
+| **concrete scene** | every holder filled, the location named: it plays as it is |
+| **placeholder scene** (template) | at least one placeholder: it plays through a use, or in the editor and the browser with its preview fillers |
+| **use** | a reference to a scene with its fillers, stored in the document that uses it: `{ "scene": "scene:stage", "with": { "where": "location:dom", "left": "character:catpope" } }` |
+
+**The filter (`fill`).** Chosen shape: the address book's typeahead question, stored – not a role's `Admits`. What fills a placeholder is a pick from the address book (#477); an asker there already filters by kinds, and the facts below are an entry's own fields. `Admits` filters relay clients (account, device, group) and admits on any one fact, so "a character, and one of these" cannot be said with it.
+
+| Fact | Values | Example |
+|---|---|---|
+| `kind` | `AddressKind` list; required | `["character"]`, `["item"]`, `["location"]`, `["character", "item"]`; "any" = every kind a holder carries |
+| `ref` | a hand-picked list of references | `["character:catpope", "character:toptoy"]` |
+| `parent` | entries below one reference | `"character:catpope"` (her personas and looks) |
+
+Within a fact any value admits; every fact given must hold. "A toon's cast" is `kind: character` in the book of the toon that uses the scene. "Only items of a kind" (furniture) needs a field the book does not have yet (an item's category): it comes into the book first, then as a fact of the same name.
+
+**Filling, three moments:**
+
+| When | Who fills | Example |
+|---|---|---|
+| authored | the use names fillers (`with`) | a group's location; a show cell's `who` = Cat Pope |
+| context | the receiver fills from what it knows | the avatar scene: the reader's current avatar and its home (save game, decisions/items.md `[cave]`); a location's default scene: the location; a character page: the character |
+| story | the VN stage while the reader reads (§9.4) | `joinScene` Cat Pope → the first empty placeholder that admits her |
+
+An empty placeholder plays nothing (its spot stays empty, silent); an empty location = the neutral staging (1b's `staging`). The editor's typeahead offers only fillers that pass `fill` (a hint); the server refuses a use whose filler does not (validity, A2). **The avatar scene** (draft 6) is the template `scene:avatar-home`: the location `home` and the holder `who`, both filled by context; "the avatar" is no special kind.
+
+### 9.3 Holders now: format 2
+
+| Field | Format 1 (1a) | Format 2 |
+|---|---|---|
+| `format` | 1 | 2; the core reads 2 only (A9) |
+| `location` | — | `"location:<id>"`, or a placeholder `{ "fill": { "kind": ["location"] }, "label": { … }, "preview": "location:dom" }`; the set follows from the location (one set, §8.4) |
+| `space` node `set` | the set | only for a scene with no location (a neutral staging, a set not yet a location's); both at once is refused |
+| `space` node `spot` | the spot | the scene's spot = its spawn point (unchanged) |
+| `holder[]` | — | `id` (its name in the document and in a use's `with`; not an address) · `spot` (where it stands and enters; missing: the scene's spot) · `ref` (a filler) **or** `fill` (a placeholder) · `rig` (`{ "ref": "rig:<subject>", "version": n }`; none = the filler's own rig, pinned when the use is saved) · `values` (values and preset choices only, SCENE-PACKAGE §2) · `label` (a placeholder's name for people) · `preview` (a filler for the editor and the browser) · `enter` (`start`, the default, or `join`: waits for the story) |
+| `being` | one look | leaves the document: every character holder brings its look |
+| `node`, `link` | the rig flattened in by hand | the scene's own nodes (space, mixers); the holders flatten in the core's resolve step, prefixed by the filler's place (SCENE-PACKAGE §2) |
+| `world` | — | still later (#462: cables between holders, far addresses) |
+
+- **Addresses:** a filled holder is its filler's place (`scene:stage/character:catpope/…`, as address.rs has it); an empty placeholder has no address – nothing can receive a word there (2026-11-10 `[address]`). The same filler twice in one scene stays refused (`#2`).
+- **Migration (cheap now):** only `scene:nave` exists. Its fixture becomes format 2 (no location yet: `space.set = "cathedral"`; one holder `catpope`, `ref` `character:catpope`, its rig pinned; the hand-flattened nodes leave). In production: if the row exists, an SQL migration rewrites it (E2); otherwise only the fixture and API.md's one-off change.
+- **The played `Scene`** (what the resolve step makes, and what the system and sandbox TOMLs are) keeps its `being` until the stage can draw several looks; drawing one look per character holder at its spot is its own ticket (§9.6, 2·1).
+- The address book's scene entry gains `placeholders` (the kinds of its open slots), so a typeahead can show a template as one.
+
+```json
+{ "format": 2, "id": "stage", "toons": [], "stage": { "name": "Stage" },
+  "location": { "fill": { "kind": ["location"] }, "label": { "en": "where" } },
+  "holder": [
+    { "id": "left",  "spot": "spot_left",  "fill": { "kind": ["character"] }, "enter": "join" },
+    { "id": "right", "spot": "spot_right", "fill": { "kind": ["character"] }, "enter": "join" } ],
+  "node": [ { "id": "space", "kind": "space", "spot": "spot_centre" } ] }
+```
+
+### 9.4 The VN stage in the reader
+
+**Who hears what:** the reader's script runner is the source of the words; the receiver is the reader's deck – the browser deck running in the chapter page, one core (2026-11-10 `[address]`: only the deck in the reader takes part; A1: the core decides). A paired deck (TV, X1) receives the same words through the relay in the reader's own session and draws the same stage at its own rung.
+
+| Event | Exists | On the stage |
+|---|---|---|
+| a group with a `scene` comes on screen | the field is new (a use, §9.5) | the stage switches with a crossfade (§4); a group without a scene keeps the last one, "No scene" stops it (decided 2026-11-12) |
+| `joinScene` | yes | per reference: the holder that already carries the character shows it; else the first empty placeholder, in the scene's order, whose `fill` admits it takes it – at its spot, with its look and rig; persona, look and mood as given |
+| `leaveScene` | yes | the holder empties (a placeholder) or hides (an authored filler) |
+| `showMessage` | yes | the speaker's holder takes the focus (the camera turns to its spot) and the mood; narration: none |
+| `setAvatarLocation`, `unlockLocation`, `migrate`, `giveItem`, `takeItem`, `jumpTo` | yes | not the stage: the map, the carrier bag, the reader's way (unchanged) |
+| new events | — | none for v1. Later, only if needed: an optional `holder` on `joinScene` (a precise place) and items on stage – still no new type |
+
+**Where it shows (owner: (b), not on the slice backgrounds):** the stage is the picture of the group that names it – full viewport, like a full-viewport slice video – with the script's message box over it; the group's slices do not lie behind it (§9.7 Q6). The 2D stage of today (stage.ts) stays for groups without a scene.
+
+**The render ladder** – what the reader draws, by the sources the catalog and the chapter editor have for this scene:
+
+| Rung | Needs | Where the source lives today | The cast is drawn as |
+|---|---|---|---|
+| **1 · 3D** | the location's set as `.glb` (per quality) | home scenes `model` (`HomeScene.model`, #193; only the cathedral) → scene-content | 3D bodies where a character has one (CHARACTERS3D), else its look as a standing card at the spot |
+| **2 · video** | the set's loop | home scenes `video` (1080p / 4K), its still as the poster | looks (`full` view per mood: `media/characters/<id>/<id>_full-<mood>`) standing on the floor at the spots' foot points |
+| **3 · 2D** | the set's still in one-point perspective with floor (`[cave]`) | home scenes `image` | as rung 2; items by `furniture.image` and `size` (homes.ts), as the cave places them |
+| **4 · sound only** | the scene's graph and the holders' rigs | the scene document, the catalog's rigs | today's 2D VN stage over the group's slices (stage.ts); the scene plays under them |
+
+- **Sources:** the catalog holds the set (one home scene entry per location: a new `set` field on the location, CATALOG-LINK §8), the looks, the bodies, the rigs. The chapter editor holds the use (the group's Scene field and its fillers) – the scene, not the art. A per-group stage video of its own is a possible later field, not proposed now.
+- **The device moves it down, too:** the rung = the richest one that the sources allow, that the device can draw, and that the reader's settings allow. No WebGPU / WebGL2 → no rung 1; the governor already at its lowest preset and still over budget → one rung down (1 → 2), as it steps presets today; reduced motion → 3 instead of 2 (the home view's rule today); the reader's media quality picks the files within a rung (I3), never the rung itself. A paired deck usually stands on rung 1.
+- **One renderer:** every rung but 4 is drawn by the core (the browser deck's stage: a `.glb` room, a video plane or a still plane, the looks as cards) – one owner of the cast picture (A1, A6); rung 4 is today's reader.
+
+### 9.5 Composing in place (#488)
+
+No combiner Sheet (draft 5 is off). Adding a scene where it is needed stores a **use** – a template and its fillers – in the document that needs it. A new `scene:<id>` only when the author changes more than fillers: "Save as a scene" makes a derivative naming its origin, edited in #244's stage.
+
+| Where | Field | Context fills | Template (default) | The author adds |
+|---|---|---|---|---|
+| a show's row editor (a cell) | the cell's piece | the show's toons (the book asked) | `scene:solo` | `who` per outlet, a location |
+| a location (creator, map) | Default scene | `where` = the location | `scene:place` | a cast, if any |
+| a reader group (chapter editor) | Scene (draft 4) | `where` = the previous group's location, typed over; the cast slots stay for the story | `scene:stage` | the location |
+| a character (creator) | Home scene: where its rig plays on its own | `who` = the character, `where` = its `home` | `scene:solo` | nothing |
+| the reader's home (the cave) | — | `who` = the reader's avatar, `home` = its home | `scene:avatar-home` | nothing |
+
+The templates (system placeholder scenes – published scene documents with no toon, listed in every toon's book; §9.7 Q2):
+
+| Template | Location | Holders |
+|---|---|---|
+| `scene:place` | placeholder | none: the set's own sound and light |
+| `scene:solo` | placeholder | `who` (character or item) at the scene's spot |
+| `scene:stage` | placeholder | `left`, `centre`, `right`, `back` (characters, `enter: join`); a spot the set lacks → the scene's spot |
+| `scene:avatar-home` | `home` (placeholder) | `who` (character) at `spot_home` |
+
+### 9.6 The order of work (replaces §6 phase 2 / 3)
+
+| # | What | Size | Done when |
+|---|---|---|---|
+| 2·0 | **Format 2:** `location`, `holder[]` with `ref` / `fill`, the filter, the schema from Rust and the generated types, the resolve step for referenced rigs (SCENE-PACKAGE P1 without embedded rigs), the core's checks (holder ids, filter kinds, missing spots warn), `scene:nave` migrated | M | nave as format 2 flattens to the `Scene` it played as format 1 (headless); `deck:ci`, `generate --check` |
+| 2·1 | **Several looks on the stage:** deck-space draws one look per character holder at its spot (today one being), cards on rungs 2 and 3 | M | `scene:stage` with two fillers shows both, native and browser |
+| 2·2 | **The use:** `{ scene, with }` in the contract; the server checks the fillers against `fill` in the toon's book; the book's scene entry gets `placeholders`, templates in every book; the four templates published | M | a use with a filler of the wrong kind is refused with words |
+| 2·3 | **Sources:** a location names its set (`set` → a home scene entry); scene-content carries a scene's set, looks and rigs per rung | S | `location:cathedral` → the cathedral's `.glb`, still, video |
+| 2a–2c | as §6: native, browser deck, preload – now resolving a use's fillers and the location's set | M + S + S | as §6 |
+| 2·4 | **The reader's stage:** the browser deck in the chapter page; a group's use plays full viewport with the message box over it; `joinScene` / `leaveScene` / `showMessage` to the core; the ladder (rungs 2–4 first) | L (M + M) | a test chapter: Cat Pope joins → she stands at `left`, her rig sounds; reduced motion drops video to the still |
+| 2·5 | **Rung 1 in the reader:** the 3D set on a phone, the governor's step down to rung 2 | M | the S22 holds rung 1 or steps to 2 without a stall |
+| 2·6 | **Creator fields:** group Scene, location Default scene, character Home scene, the cell's piece with fillers (deck editor); the Scenes browser (draft 3) with a Template filter | M | each composes a use from its context |
+| 2·7 | **A paired deck follows its reader** (the reader's session, the stage words) | M | the TV shows the same stage, rung 1 |
+| 2d | the package (SCENE-PACKAGE P3–P5) | L | as §6 |
+| 3 | #244: the editor's stage with holders in the tree (scene › holder › track › node), placeholders dashed, "Preview as" | L | as §6 |
+
+**What of the merged 1a–1c changes:** 1a – `FORMAT` 1 → 2 in `scene_document.rs`, the schema and generated types, the fixture, API.md's one-off (2·0). 1b – `scene::staging(home)` becomes `scene:solo` filled by context, once 2·2 is in; until then it stays. 1c – scene entries gain `placeholders`, templates are listed in every book (2·2). #462 keeps cables between holders, decks' roles and values between decks; "scenes holding rigs" is answered here.
+
+### 9.7 Questions for the owner
+
+1. **The ladder's order: 3D → video → 2D → sound only, and the device moves it down** (no GPU, the governor at its floor, reduced motion), never the reader's media quality? *Recommended:* yes.
+2. **Four templates** (`scene:place`, `scene:solo`, `scene:stage`, `scene:avatar-home`), published with no toon and listed in every toon's book? *Recommended:* yes; more only when a use needs one.
+3. **Adding a scene in place stores a use** (template + fillers) in the group, cell, location or character; a new scene document only when more than fillers change? *Recommended:* yes.
+4. **Casting:** `joinScene` fills the first empty placeholder that admits the character, in the scene's order – no new event (an optional `holder` later)? *Recommended:* yes.
+5. **The filter:** the address book's kinds plus `ref` / `parent`, every fact must hold (unlike a role's `for`, where any one admits)? *Recommended:* yes.
+6. **A group with a scene shows the stage instead of slices** (full viewport, the message box over it); comic and stage are separate groups, linked by a chain? *Recommended:* yes.
+
+Draft: `267-scenes/7-placeholders.html` in the session's notes folder (a placeholder scene, what fills it, the VN stage over a chapter's events, the ladder).
