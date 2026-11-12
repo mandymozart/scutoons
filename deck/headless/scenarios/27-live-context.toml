@@ -3,7 +3,7 @@ about = "#409 (T2 of #314): the page's deck state (deck-space's Deck) steps ever
 
 [[step]]
 do = "load"
-scene = "native/scenes/cathedral.toml"
+scene = "native/scenes/sandbox/cathedral.toml"
 
 [[step]]
 do = "context"

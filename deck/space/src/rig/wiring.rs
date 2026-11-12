@@ -591,7 +591,7 @@ mod tests {
 
     #[test]
     fn the_deck_s_own_scene_marks_what_the_browser_does_not_play() {
-        let own = Played::deck_scene().unwrap();
+        let own = Played::scene(crate::scene::CATHEDRAL_SCENE).unwrap();
         let w = own.wiring().unwrap();
         assert_eq!(w.nodes.len(), own.nodes.len());
         assert!(w.nodes.iter().all(|n| n.track.is_empty()));

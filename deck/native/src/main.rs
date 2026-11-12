@@ -12,7 +12,7 @@
 //! test pattern with the reason in the HUD. `--dev` reloads the scene file and its WGSL files when they change.
 //! A scene with an `outlet` node (#186, the `live` module) joins the relay as `output` of this deck's outlet
 //! (deck.toml's `relay` + `outlet`, or `--relay` / `--outlet`; no relay = the hosted wss://live.scutoons.com/live/CATH,
-//! #199) and shows its cells; with an outlet set and no `--scene` the stage plays the built-in `scenes/outlet.toml`.
+//! #199) and shows its cells; with an outlet set and no `--scene` the stage plays the system scene `scenes/outlet.toml`.
 //! A space node that joins (deck / conductor) without a relay joins the hosted one too.
 //! The render quality (#220, deck-space quality.rs, the stage's quality.rs): the preset file (`--quality-file`) – a
 //! level (`--quality` over it, else by the GPU) is the ceiling, the governor steps the render size, bloom, FXAA, the
@@ -55,7 +55,7 @@ enum Event {
     Stop,
 }
 
-const HELP: &str = "deck [--scene FILE|cathedral|conductor|outlet|rig:NAME] [--audio auto|pipewire|cpal|null] [--volume 0-1] [--cache DIR]
+const HELP: &str = "deck [--scene FILE|NAME|rig:NAME] [--audio auto|pipewire|cpal|null] [--volume 0-1] [--cache DIR]
            [--audio-host default|wasapi|asio] [--audio-device NAME] [--audio-buffer FRAMES] [--audio-thread on|off]
            [--audio-list]
            [--sets DIR] [--portraits DIR] [--token T] [--api URL] [--cdn URL] [--windowed] [--frames N]
@@ -63,10 +63,8 @@ const HELP: &str = "deck [--scene FILE|cathedral|conductor|outlet|rig:NAME] [--a
            [--relay ws[s]://HOST[:PORT]/live/CODE] [--sync set:ID,character:ID]
            [--outlet ID] [--locale de] [--quality auto|low|medium|high|ultra[,fixed]] [--quality-file FILE] [--settings]
            [--scenes DIR] [--switcher] [--switch NAME] [--live-page]
-  --scene      a scene TOML (default: the built-in idle scene – fireflies on black, no sound, scenes/idle.toml, #252;
-               `madness` = AV madness, scenes/madness.toml); `cathedral` = the built-in Cathedral of decks
-               (scenes/cathedral.toml – a deck's being), `conductor` = its conductor in the middle (scenes/conductor.toml),
-               `outlet` = the built-in Live outlet (scenes/outlet.toml – the default when an outlet is set);
+  --scene      a scene TOML or a system scene (#427): `idle` (the default – fireflies on black, no sound, #252), `silent`,
+               `outlet` (the default when an outlet is set), `test-pattern`; a sandbox's name (`cathedral` …) in dev mode;
                `rig:catpope[@mood]` = a character's (or `item.<id>`'s) core rig in the deck's room (#322, rig.rs)
   --sync       the conductor's push (#195): what the decks fetch into their cache – sent at the start and on S
                (default: the scene's set and the characters on stage)
@@ -94,8 +92,8 @@ const HELP: &str = "deck [--scene FILE|cathedral|conductor|outlet|rig:NAME] [--a
   --quality-file  the presets (deck/native/README.md, Quality; default /var/lib/deck/quality.toml on a deck,
                DECK_QUALITY_FILE): F4 edits them on the HUD's settings page, Shift+F4 the governor; --settings
                starts with the page open (a check run's screenshot)
-  --scenes     the scene switcher's folder of *.toml (#250; default /usr/share/deck/scenes): F5 lists the built-in scenes
-               and these, arrows + Enter load one in place and write it into deck.toml's `scene`; --switcher starts with
+  --scenes     the sandbox folder (#427; dev mode: the dev image's /usr/share/deck/scenes/sandbox, with --dev the repo's): F5
+               lists the system scenes and these, Enter loads one in place, S sets deck.toml's start `scene`; --switcher starts with
                the list open, --switch NAME loads that scene after 30 frames (a check run); --live-page starts with F6 open
   --show-volume  the volume overlay (#253: the volume keys' feedback) stays on, at 60 % (a check run's screenshot)
   exit codes   0 quit (Ctrl+Q) · 10 F12 without DECK_BROWSER · 75 the display was lost (the compositor went away) · 1 failed
@@ -144,8 +142,8 @@ struct Args {
     quality: quality::Choice,
     quality_file: Option<PathBuf>,
     settings: bool,
-    /// #250: the scene switcher's folder, open at the start, and a check run's switch after 30 frames
-    scenes: PathBuf,
+    /// #250: the sandbox folder in dev mode (#427, switcher::sandboxes), the list open at the start, a check run's switch
+    scenes: Option<PathBuf>,
     switcher: bool,
     switch_to: Option<String>,
     /// #478: the Live page open at the start (a check run)
@@ -191,7 +189,7 @@ fn args() -> Result<Args> {
         quality: std::env::var("DECK_QUALITY").ok().and_then(|q| quality::Choice::parse(&q)).unwrap_or_default(),
         quality_file: None,
         settings: false,
-        scenes: switcher::SCENES_DIR.into(),
+        scenes: None,
         switcher: false,
         live_page: false,
         switch_to: None,
@@ -256,7 +254,7 @@ fn args() -> Result<Args> {
             "--sync" => a.sync = Some(val()?),
             "--quality-file" => a.quality_file = Some(val()?.into()),
             "--settings" => a.settings = true,
-            "--scenes" => a.scenes = val()?.into(),
+            "--scenes" => a.scenes = Some(val()?.into()),
             "--switcher" => a.switcher = true,
             "--live-page" => a.live_page = true,
             "--show-volume" => a.show_volume = true,
@@ -279,7 +277,7 @@ fn args() -> Result<Args> {
             other => bail!("unknown argument '{other}'\n{HELP}"),
         }
     }
-    Ok(a)
+    Ok(Args { scenes: switcher::sandboxes(a.scenes.take(), a.dev), ..a })
 }
 
 /// what the app measures: the frame count the run's controls read, and deck-core's monitor (the HUD's numbers and the exit line's)
@@ -371,13 +369,12 @@ fn audio_options(args: &Args, scene: &scene::Scene) -> backend::Options {
     }
 }
 
-/// the scene the arguments name: a file, `cathedral` / `conductor` / `outlet` / `madness` / `idle` (built in), the outlet
-/// when one is set, or the idle scene (#252)
+/// the scene the arguments name: a rig, a file, a system scene or a sandbox in dev mode (switcher::read, #427), the
+/// outlet when one is set, or the idle scene (#252)
 fn read_scene(args: &Args) -> Result<scene::Scene> {
     (match &args.scene {
-        Some(p) if !p.exists() && p.to_str().and_then(switcher::builtin).is_some() => scene::Scene::parse(p.to_str().and_then(switcher::builtin).unwrap_or_default()),
         Some(p) if deck_native::rig::named(p).is_some() => deck_native::rig::scene(p),
-        Some(p) => scene::Scene::load(p),
+        Some(p) => switcher::read(p, args.scenes.as_deref()),
         None if deck_native::live::config::configured(outlet_settings(args)) => scene::Scene::parse(scene::OUTLET_SCENE),
         None => scene::Scene::parse(scene::IDLE_SCENE),
     }).map(|s| deck_native::live::config::with_join(s, &outlet_settings(args)))
@@ -902,17 +899,17 @@ impl App {
         self.args.scene.as_deref().and_then(|p| p.to_str())
     }
 
-    /// #250: F5 – the list on the scenes folder, the cursor on the playing scene (the settings page makes room)
+    /// #250: F5 – the system scenes and the sandboxes in dev mode, the cursor on the playing scene (the settings page makes room)
     fn open_switcher(&mut self) {
         self.page.open = false;
         let current = self.current_scene().map(str::to_owned);
-        self.switcher.open(&self.args.scenes, current.as_deref());
+        self.switcher.open(self.args.scenes.as_deref(), current.as_deref());
         self.switcher.status.clear();
     }
 
     /// #250: a scene that was asked for (Enter on the list, a show's piece: `change.ask`) and is due – loaded in place
     /// like a `--dev` reload (the window and the Live link's process stay; a scene that doesn't build keeps the old one
-    /// and the list says why), then written into deck.toml for the next boot
+    /// and the list says why); loading only – the start scene is F5's S (#427)
     fn switch(&mut self, value: &str) {
         // checked first: a scene that doesn't build keeps the old one playing, nothing fades
         let old_scene = self.args.scene.replace(value.into());
@@ -928,7 +925,7 @@ impl App {
         self.switcher.status = format!("FADING TO {}", value.rsplit(['/', '\\']).next().unwrap_or(value).to_uppercase());
     }
 
-    /// #250: the black is full – the old show stops, the new one is built, deck.toml remembers it
+    /// #250: the black is full – the old show stops, the new one is built (deck.toml stays: #427)
     fn load_switch(&mut self, value: &str) {
         let (old_scene, old_error) = (self.args.scene.clone(), self.error.take());
         let started = Instant::now();
@@ -940,10 +937,7 @@ impl App {
             self.switcher.status = format!("NOT LOADED: {e}");
             return;
         }
-        self.switcher.status = match switcher::remember(&switcher::deck_toml(), value) {
-            Ok(()) => format!("LOADED {} IN {:.1}S", value.rsplit(['/', '\\']).next().unwrap_or(value), started.elapsed().as_secs_f32()),
-            Err(e) => format!("LOADED, NOT SAVED: {e}"),
-        };
+        self.switcher.status = format!("LOADED {} IN {:.1}S", value.rsplit(['/', '\\']).next().unwrap_or(value), started.elapsed().as_secs_f32());
         tracing::info!("switcher: {value} ({})", self.switcher.status);
     }
 

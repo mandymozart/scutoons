@@ -67,7 +67,11 @@ install -Dm755 "$WORK/target/release/deck-check" "$PROFILE/airootfs/usr/bin/deck
 install -Dm755 "$WORK/target/release/deck" "$PROFILE/airootfs/usr/bin/deck"
 install -Dm755 "$WORK/target/release/deck-link" "$PROFILE/airootfs/usr/bin/deck-link"
 install -Dm755 "$WORK/target/release/deck-update" "$PROFILE/airootfs/usr/bin/deck-update"
-install -Dm644 -t "$PROFILE/airootfs/usr/share/deck/scenes" "$SRC"/native/scenes/*.toml
+# #427: the system scenes are in the binary; the sandboxes (checks, demos) only on a dev image – DECK_SANDBOXES=1 – where
+# F5 lists them (the deck's dev mode); a release image carries none
+if [ "${DECK_SANDBOXES:-}" = 1 ]; then
+  install -Dm644 -t "$PROFILE/airootfs/usr/share/deck/scenes/sandbox" "$SRC"/native/scenes/sandbox/*.toml
+fi
 chmod 755 "$PROFILE/airootfs/usr/bin/"deck-*
 wants="$PROFILE/airootfs/etc/systemd/system/multi-user.target.wants"; mkdir -p "$wants"
 for u in NetworkManager iwd avahi-daemon sshd deck-firstboot deck-kiosk deck-relay deck-bridge deck-link; do

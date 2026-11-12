@@ -7,41 +7,125 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
+// #427 (research/SCENES.md §5): a deck's scenes are of three sorts. **System** scenes are the deck's own states, built
+// into every binary (below). **Sandboxes** – checks and demos – are files in deck/native/scenes/sandbox/, for
+// development only: a deck plays them in dev mode, the browser deck in a dev build, the tests read them; never a show,
+// the database or the address book. **Real scenes** are `scene:<id>` from the API (#243; on the decks #246).
+
 /// The scene the stage plays when none is given (#252): fireflies on black, no sound, no network – the deck idles.
 pub const IDLE_SCENE: &str = include_str!("../../native/scenes/idle.toml");
-/// "AV madness" (`--scene madness`; the default until #252): catpope 1's music + a synth, the FFT drives the test pattern.
-pub const MADNESS_SCENE: &str = include_str!("../../native/scenes/madness.toml");
-/// The Cathedral of decks (#188): the set `cathedral` from Cat Pope chapter 2 and this deck's being in it.
-pub const CATHEDRAL_SCENE: &str = include_str!("../../native/scenes/cathedral.toml");
 /// The silent scene (#425): the being in its space, no audio graph – what the deck plays when no rig does.
 pub const SILENT_SCENE: &str = include_str!("../../native/scenes/silent.toml");
-/// Its conductor (#188 phase 4): the bigger being in the middle of the nave, PLF's portrait as its head, the decks' beings
-/// around it over the relay.
-pub const CONDUCTOR_SCENE: &str = include_str!("../../native/scenes/conductor.toml");
 /// A Live outlet (#186): the relay's cells for this deck's outlet over the space (the `live` and `space` modules).
 pub const OUTLET_SCENE: &str = include_str!("../../native/scenes/outlet.toml");
 /// The core alone (#185): an LFO, the test pattern, the screen – what a stage shows when a scene can't be played.
 pub const TEST_PATTERN_SCENE: &str = include_str!("../../native/scenes/test-pattern.toml");
+/// The staging (#427): where a rig played on its own stands – its character's home place, while it has none a neutral
+/// one (no set, no sound). Not a scene to play and not in `BUILTIN`; `staging` reads it.
+pub const STAGING_SCENE: &str = include_str!("../../native/scenes/staging.toml");
 
-/// the built-in scenes in the list's order (the first is the stage's default)
-pub const BUILTIN: [&str; 12] = ["idle", "madness", "cathedral", "catpope-analog", "conductor", "outlet", "strobe", "pulse-thunderwash", "lamps-off", "test-pattern", "module-walk", "module-analog"];
+/// the system scenes in the list's order (the first is the stage's default)
+pub const BUILTIN: [&str; 4] = ["idle", "silent", "outlet", "test-pattern"];
 
-/// the source of a built-in scene by name (the deck's F5 list, the browser's `?scene=`)
+/// the source of a system scene by name (the deck's F5 list and `--scene`, the browser's `?scene=`, a cell's `scene:<name>`)
 pub fn builtin(name: &str) -> Option<&'static str> {
     Some(match name {
         "idle" => IDLE_SCENE,
-        "madness" => MADNESS_SCENE,
-        "cathedral" => CATHEDRAL_SCENE,
-        "catpope-analog" => include_str!("../../native/scenes/catpope-analog.toml"),
-        "conductor" => CONDUCTOR_SCENE,
+        "silent" => SILENT_SCENE,
         "outlet" => OUTLET_SCENE,
-        "strobe" => include_str!("../../native/scenes/strobe.toml"),
-        "pulse-thunderwash" => include_str!("../../native/scenes/pulse-thunderwash.toml"),
-        "lamps-off" => include_str!("../../native/scenes/lamps-off.toml"),
         "test-pattern" => TEST_PATTERN_SCENE,
+        _ => return None,
+    })
+}
+
+/// The sandboxes by name (#427): the files of deck/native/scenes/sandbox/ – hardware and engine checks, then demos.
+pub const SANDBOX: [&str; 15] = [
+    "channel-walk",
+    "cue-34",
+    "surround-51",
+    "strobe",
+    "lamps-off",
+    "pulse-thunderwash",
+    "show-clock",
+    "show-clock-lead",
+    "lfo-glide",
+    "cathedral",
+    "conductor",
+    "madness",
+    "catpope-analog",
+    "module-walk",
+    "module-analog",
+];
+
+/// What a bare scene name is (#427).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Named {
+    /// a system scene's text
+    System(&'static str),
+    /// a sandbox: played only in dev mode (the native deck's sandbox folder, the browser deck's dev build)
+    Sandbox,
+    /// neither: a file, a scene document, a reference
+    Other,
+}
+
+/// what `name` names: a system scene, a sandbox or something else
+pub fn named(name: &str) -> Named {
+    match builtin(name) {
+        Some(text) => Named::System(text),
+        None if SANDBOX.contains(&name) => Named::Sandbox,
+        None => Named::Other,
+    }
+}
+
+/// the words when a sandbox is asked for outside dev mode
+pub fn sandbox_refused(name: &str) -> anyhow::Error {
+    anyhow::anyhow!("'{name}' is a sandbox scene (deck/native/scenes/sandbox): only in dev mode – a native deck with --dev or the dev image, a dev build of the browser deck")
+}
+
+/// The staging for a rig played on its own (#427, owner 2026-11-11: "Mostly it will be a locations set with some rig. Or
+/// the home place of the charcter"): `STAGING_SCENE` with the character's home set on its space node; `None` = it has
+/// no home set yet – the neutral staging, no set. Its space node's params are the room a bare rig's space node takes.
+pub fn staging(home: Option<&str>) -> Scene {
+    let mut s = Scene::parse(STAGING_SCENE).expect("the staging is embedded and checked by the tests");
+    if let (Some(set), Some(space)) = (home.filter(|h| !h.is_empty()), s.nodes.iter_mut().find(|n| n.kind == "space")) {
+        space.params.insert("set".into(), toml::Value::String(set.into()));
+    }
+    s
+}
+
+/// "AV madness" (sandbox; the default until #252): catpope 1's music + a synth, the FFT drives the test pattern.
+#[cfg(any(test, feature = "sandbox"))]
+pub const MADNESS_SCENE: &str = include_str!("../../native/scenes/sandbox/madness.toml");
+/// The Cathedral of decks (sandbox, #188; owner 2026-11-08: "ein test gewesen"): the set `cathedral` from Cat Pope
+/// chapter 2 and this deck's being in it – the tests' scene with knobs, a sound and paths to stream.
+#[cfg(any(test, feature = "sandbox"))]
+pub const CATHEDRAL_SCENE: &str = include_str!("../../native/scenes/sandbox/cathedral.toml");
+/// Its conductor (sandbox, #188 phase 4): the bigger being in the middle of the nave, PLF's portrait as its head, the
+/// decks' beings around it over the relay.
+#[cfg(any(test, feature = "sandbox"))]
+pub const CONDUCTOR_SCENE: &str = include_str!("../../native/scenes/sandbox/conductor.toml");
+
+/// A sandbox's text by name – compiled in only for the tests and the feature `sandbox` (a dev build of the browser
+/// deck); the native deck reads the files of its sandbox folder instead.
+#[cfg(any(test, feature = "sandbox"))]
+pub fn sandbox(name: &str) -> Option<&'static str> {
+    Some(match name {
+        "channel-walk" => include_str!("../../native/scenes/sandbox/channel-walk.toml"),
+        "cue-34" => include_str!("../../native/scenes/sandbox/cue-34.toml"),
+        "surround-51" => include_str!("../../native/scenes/sandbox/surround-51.toml"),
+        "strobe" => include_str!("../../native/scenes/sandbox/strobe.toml"),
+        "lamps-off" => include_str!("../../native/scenes/sandbox/lamps-off.toml"),
+        "pulse-thunderwash" => include_str!("../../native/scenes/sandbox/pulse-thunderwash.toml"),
+        "show-clock" => include_str!("../../native/scenes/sandbox/show-clock.toml"),
+        "show-clock-lead" => include_str!("../../native/scenes/sandbox/show-clock-lead.toml"),
+        "lfo-glide" => include_str!("../../native/scenes/sandbox/lfo-glide.toml"),
+        "cathedral" => CATHEDRAL_SCENE,
+        "conductor" => CONDUCTOR_SCENE,
+        "madness" => MADNESS_SCENE,
+        "catpope-analog" => include_str!("../../native/scenes/sandbox/catpope-analog.toml"),
         // #406: they play compiled rig modules, so they need the `modules` build and the modules' wasm in `DECK_MODULES`
-        "module-walk" => include_str!("../../native/scenes/module-walk.toml"),
-        "module-analog" => include_str!("../../native/scenes/module-analog.toml"),
+        "module-walk" => include_str!("../../native/scenes/sandbox/module-walk.toml"),
+        "module-analog" => include_str!("../../native/scenes/sandbox/module-analog.toml"),
         _ => return None,
     })
 }
@@ -244,10 +328,42 @@ transition = \"wipe\"
 
     #[test]
     fn the_bundled_scenes_parse() {
-        for text in [CATHEDRAL_SCENE, SILENT_SCENE, CONDUCTOR_SCENE, OUTLET_SCENE, TEST_PATTERN_SCENE] {
+        for text in [CATHEDRAL_SCENE, SILENT_SCENE, CONDUCTOR_SCENE, OUTLET_SCENE, TEST_PATTERN_SCENE, STAGING_SCENE] {
             let s = Scene::parse(text).unwrap();
             assert!(s.nodes.iter().any(|n| n.kind == "screen"));
         }
+    }
+
+    /// #427: four system scenes are built in; the sandboxes are the folder's files, each named once and each with its text
+    #[test]
+    fn the_built_ins_are_the_system_scenes_and_the_sandboxes_the_folder() {
+        assert_eq!(BUILTIN, ["idle", "silent", "outlet", "test-pattern"]);
+        assert!(BUILTIN.iter().all(|n| matches!(named(n), Named::System(_))));
+        let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../native/scenes/sandbox");
+        let mut files: Vec<String> = std::fs::read_dir(dir).unwrap().filter_map(|e| e.ok()?.path().file_stem().map(|s| s.to_string_lossy().into_owned())).collect();
+        files.sort();
+        let mut names: Vec<String> = SANDBOX.iter().map(|s| s.to_string()).collect();
+        names.sort();
+        assert_eq!(files, names, "SANDBOX lists the sandbox folder");
+        for n in SANDBOX {
+            assert_eq!(named(n), Named::Sandbox);
+            assert!(builtin(n).is_none(), "{n} is no built-in");
+            let text = sandbox(n).unwrap_or_else(|| panic!("{n}: no text"));
+            assert_eq!(text.replace('\r', ""), std::fs::read_to_string(format!("{dir}/{n}.toml")).unwrap().replace('\r', ""), "{n}");
+        }
+        assert_eq!(named("scene:nave"), Named::Other);
+        assert!(sandbox_refused("cathedral").to_string().contains("dev mode"));
+    }
+
+    /// #427: a rig on its own stands in its character's home set, else in the neutral staging – never the cathedral
+    #[test]
+    fn the_staging_is_the_home_set_or_none() {
+        let space = |s: &Scene| s.nodes.iter().find(|n| n.kind == "space").unwrap().params.clone();
+        let neutral = staging(None);
+        assert!(!space(&neutral).contains_key("set") && !STAGING_SCENE.contains("cathedral"));
+        assert_eq!(space(&neutral)["join"].as_str(), Some("deck"));
+        assert!(space(&staging(Some(""))).get("set").is_none());
+        assert_eq!(space(&staging(Some("cave")))["set"].as_str(), Some("cave"));
     }
 
     #[test]

@@ -18,7 +18,7 @@ use deck_space::hud::{Alert, Hud};
 use deck_space::quality::MAX_SIDE;
 use deck_space::piece::{Side, Switch};
 use deck_space::rig::address::Place;
-use deck_space::scene::{builtin, Scene, IDLE_SCENE};
+use deck_space::scene::{named, Named, Scene, IDLE_SCENE};
 use deck_space::space::portrait::Portraits;
 use deck_space::space::Space;
 use deck_space::splash::Fade;
@@ -187,10 +187,20 @@ pub struct SceneView {
 
 #[wasm_bindgen]
 impl SceneView {
-    /// `scene` on `canvas` (its size in device pixels is the canvas' width / height): a built-in's name, a scene document,
-    /// or "" = the idle scene. `prefer` as `SpaceView::create`.
+    /// `scene` on `canvas` (its size in device pixels is the canvas' width / height): a system scene's name, a sandbox's
+    /// in a dev build (#427: the feature `sandbox`, `npm run build:wasm -w shared/live-deck -- --sandbox`), a scene
+    /// document, or "" = the idle scene. `prefer` as `SpaceView::create`.
     pub async fn create(canvas: web_sys::HtmlCanvasElement, scene: String, prefer: String) -> Result<SceneView, JsValue> {
-        let deck = if scene.is_empty() { IDLE_SCENE } else { builtin(&scene).unwrap_or(&scene) }.to_owned();
+        let deck = match named(&scene) {
+            _ if scene.is_empty() => IDLE_SCENE,
+            Named::System(text) => text,
+            #[cfg(feature = "sandbox")]
+            Named::Sandbox => deck_space::scene::sandbox(&scene).unwrap_or_default(),
+            #[cfg(not(feature = "sandbox"))]
+            Named::Sandbox => return Err(err(deck_space::scene::sandbox_refused(&scene))),
+            Named::Other => scene.as_str(),
+        }
+        .to_owned();
         Graph::build(&Scene::parse(&deck).map_err(err)?).map_err(err)?;
         let element = canvas.clone();
         let (w, h) = (canvas.width().clamp(1, MAX_SIDE), canvas.height().clamp(1, MAX_SIDE));

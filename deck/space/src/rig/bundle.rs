@@ -8,7 +8,7 @@ use super::{Instrument, Library, Preset, Rig, Text};
 use crate::graph::{Graph, Kind, PortType};
 use crate::params::{self, Curve};
 use super::address::node_port as split_ref;
-use crate::scene::{LinkDef, NodeDef, Scene, CATHEDRAL_SCENE, SILENT_SCENE};
+use crate::scene::{LinkDef, NodeDef, Scene, SILENT_SCENE};
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -281,18 +281,6 @@ impl Played {
     /// browser, headless: `Deck::new`), never a copy.
     pub fn silent() -> Result<Played> {
         Played::scene(SILENT_SCENE)
-    }
-
-    /// The Cathedral of decks (#360), a TEST scene since #425 (owner 2026-11-08: "die scene cathedral is ein test
-    /// gewesen"): the X1's old boot scene, the one `--scene cathedral` and F5 play and the room a native rig is staged
-    /// in. No deck plays it as a fallback any more; `Deck::testing` plays it for the tests that need knobs and a sound.
-    pub fn deck_scene() -> Result<Played> {
-        Played::scene(CATHEDRAL_SCENE)
-    }
-
-    /// `deck_scene` as JSON – the wasm boundary's form
-    pub fn deck_scene_json() -> Result<String> {
-        Ok(serde_json::to_string(&Played::deck_scene()?)?)
     }
 }
 

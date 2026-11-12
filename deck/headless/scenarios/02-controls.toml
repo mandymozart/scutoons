@@ -3,7 +3,7 @@ about = "live-core's wire records (lc_apply) as the panel, the sticks and MIDI l
 
 [[step]]
 do = "load"
-scene = "native/scenes/cathedral.toml"
+scene = "native/scenes/sandbox/cathedral.toml"
 
 [[step]]
 do = "run"

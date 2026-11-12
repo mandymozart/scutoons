@@ -1,6 +1,6 @@
-//! (#360) The browser deck plays the X1's scene: the cathedral file the native deck boots with, through the core – the
-//! same graph (hash) as the native deck builds of it for the browser's modules, the same samples, the seq's arp. No copy
-//! of the scene in TypeScript: the page gets it from deck-space (`Played::deck_scene`, space-web's `deck_scene`).
+//! (#360) The browser deck plays the native deck's scene: the cathedral file (a sandbox since #427), through the core –
+//! the same graph (hash) as the native deck builds of it for the browser's modules, the same samples, the seq's arp. No
+//! copy of the scene in TypeScript: the page plays what deck-space plays (`Played::scene`).
 mod common;
 use common::*;
 use deck_core::stage::BROWSER_MODULES;
@@ -36,12 +36,12 @@ fn native_render(graph: &Graph, frames: usize) -> Vec<f32> {
 
 #[test]
 fn the_browser_plays_the_x1s_cathedral() {
-    // the native deck: the file it boots with (`--scene cathedral`), its part for the browser's modules
-    let file = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../native/scenes/cathedral.toml")).expect("the X1's scene");
+    // the native deck: the sandbox file (`--scene cathedral` in dev mode), its part for the browser's modules
+    let file = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../native/scenes/sandbox/cathedral.toml")).expect("the sandbox");
     let native = Scene::parse(&file).unwrap().carried_part(|f| BROWSER_MODULES.contains(&f)).0;
     let native_graph = Graph::build(&native).unwrap();
-    // the browser deck: what the page gets (deck-space, embedded in the wasm) and hands to live-core
-    let played = Played::deck_scene().unwrap();
+    // the browser deck: what deck-space plays of it and hands to live-core
+    let played = Played::scene(deck_space::scene::CATHEDRAL_SCENE).unwrap();
     assert_eq!(played.scene, file, "the page's scene is the X1's file, byte for byte");
     let browser_graph = Graph::build(&Scene::parse(&played.engine.scene).unwrap()).unwrap();
     assert_eq!(graph_hash(&browser_graph), graph_hash(&native_graph), "native and browser load the same scene to the same graph");

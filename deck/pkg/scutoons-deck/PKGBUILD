@@ -49,7 +49,7 @@ package() {
   install -Dm755 "$srcdir/target/release/deck" "$pkgdir/usr/bin/deck"
   install -Dm755 "$srcdir/target/release/deck-link" "$pkgdir/usr/bin/deck-link"
   install -Dm755 "$srcdir/target/release/deck-update" "$pkgdir/usr/bin/deck-update"
-  install -Dm644 -t "$pkgdir/usr/share/deck/scenes" "$_deck"/native/scenes/*.toml
+  # #427: the system scenes are in the binary; a package carries no sandbox scenes (the dev image and channel do)
   # the boot flow: everything under deck/os/rootfs lands as it is laid out there
   cp -r "$_deck/os/rootfs/." "$pkgdir/"
   # what the root holds – a remote update is newer when its build is higher (#237)

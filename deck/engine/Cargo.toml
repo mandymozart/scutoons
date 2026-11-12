@@ -37,5 +37,7 @@ rtrb = "0.3"
 libm = "0.2"
 
 [dev-dependencies]
+# #427: the sandbox scenes' texts (madness …) for the tests
+deck-space = { path = "../space", default-features = false, features = ["sandbox"] }
 serde_json.workspace = true
 rustfft = { version = "6", default-features = false }

@@ -389,7 +389,7 @@ mod tests {
 
     /// a show with the outlet `left`: a built-in scene, then a character whose rig the deck does not carry
     const SHOW: &str = r#"{ "id": "top", "version": 3, "outlets": [{ "id": "left" }],
-        "rows": [{ "id": "a", "cells": { "left": { "mode": "play", "piece": "scene:cathedral" } } },
+        "rows": [{ "id": "a", "cells": { "left": { "mode": "play", "piece": "scene:test-pattern" } } },
                  { "id": "b", "cells": { "left": { "mode": "play", "piece": "character:boy" } } }] }"#;
     /// scene-content as the server writes it: boy has no rig
     const CONTENT: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../server/tests/fixtures/rigs/scene-content.json"));
@@ -478,7 +478,7 @@ mod tests {
         assert_eq!(g.reports()[0].lacks.as_deref(), Some(&["top@3 has no outlet 'foyer': no cell will come".to_string()][..]));
         // a show with nothing missing is ready
         let mut h = Flashed::new("left", "browser");
-        told.needs = Some([("left".to_string(), vec![protocol::FlashNeed { piece: "scene:cathedral".into(), row: "a".into() }])].into());
+        told.needs = Some([("left".to_string(), vec![protocol::FlashNeed { piece: "scene:test-pattern".into(), row: "a".into() }])].into());
         h.flash(&told, API, "the deck is not paired yet", &mut fetched);
         h.turn(0.0, &mut fetched, carried);
         assert_eq!(h.reports()[0].ready, Some(true));
@@ -493,7 +493,7 @@ mod tests {
         f.reports();
         let mut told = flash("one");
         told.by = Some("ana".into());
-        told.needs = Some([("left".to_string(), vec![protocol::FlashNeed { piece: "scene:cathedral".into(), row: "a".into() }])].into());
+        told.needs = Some([("left".to_string(), vec![protocol::FlashNeed { piece: "scene:test-pattern".into(), row: "a".into() }])].into());
         // a guest or a member: flashed at once, one line that goes by itself
         f.flash(&told, API, "", &mut fetched);
         f.turn(1.0, &mut fetched, carried);

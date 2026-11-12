@@ -15,7 +15,7 @@ expect = { rig = true, failed = false, audio_out = 1, mood = "laughing", reload 
 [[step]]
 do = "rig_facts"
 with = { subject = "nobody", from = "neutral", to = "happy" }
-expect = { rig = false, failed = false, note = { contains = "no core rig for character.nobody" }, audio_out = 0, streamed = ["space.hue", "space.glow", "space.light", "space.pulse"], room = "cathedral" }
+expect = { rig = false, failed = false, note = { contains = "no core rig for character.nobody" }, audio_out = 0, streamed = ["space.hue", "space.glow", "space.light", "space.pulse"], room = "" }
 
 # and the engine renders nothing for it: the silent scene loads in live-core (no audio graph) and runs without a sound
 [[step]]

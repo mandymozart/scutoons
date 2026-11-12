@@ -142,6 +142,9 @@ name = "graph"
 harness = false
 
 [dev-dependencies]
+# #427: the sandbox scenes' texts (the cathedral, the conductor, madness …) for the tests, examples and benches – a
+# release build carries none
+deck-space = { path = "../space", default-features = false, features = ["sandbox"] }
 # tests/live_relay.rs: the deck's outlet against the real relay on 127.0.0.1 (#186)
 relay = { path = "../relay" }
 # tests/live_quic.rs: a certificate pinned by hash, as a venue's self-signed relay would be

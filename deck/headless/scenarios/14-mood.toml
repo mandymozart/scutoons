@@ -3,7 +3,7 @@ about = "#367: deck-space's mood ladder (mood.rs – the walk the native being's
 
 [[step]]
 do = "load"
-scene = "native/scenes/cathedral.toml"
+scene = "native/scenes/sandbox/cathedral.toml"
 
 [[step]]
 do = "run"

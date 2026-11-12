@@ -36,8 +36,9 @@ const BINARIES: &[(&str, &str)] = &[
 ];
 
 /// What goes into a bundle: the binaries found in `bin` (cargo's release dir), every allowed path of `rootfs`
-/// (deck/os/rootfs), the scenes (`*.toml` of deck/native/scenes). Sorted by path.
-pub fn collect(bin: &Path, rootfs: &Path, scenes: &Path) -> Result<Vec<SourceFile>> {
+/// (deck/os/rootfs), on the dev channel the sandbox scenes (#427: `*.toml` of deck/native/scenes/sandbox → the deck's
+/// /usr/share/deck/scenes/sandbox, its dev mode). Sorted by path.
+pub fn collect(bin: &Path, rootfs: &Path, scenes: Option<&Path>) -> Result<Vec<SourceFile>> {
     let mut files = Vec::new();
     for (name, path) in BINARIES {
         let source = bin.join(name);
@@ -49,11 +50,13 @@ pub fn collect(bin: &Path, rootfs: &Path, scenes: &Path) -> Result<Vec<SourceFil
         bail!("no deck binaries in {} (relay, deck, …)", bin.display());
     }
     walk(rootfs, rootfs, &mut files)?;
-    for entry in fs::read_dir(scenes).with_context(|| scenes.display().to_string())? {
-        let entry = entry?;
-        let name = entry.file_name().to_string_lossy().to_string();
-        if name.ends_with(".toml") && entry.path().is_file() {
-            files.push(SourceFile { path: format!("usr/share/deck/scenes/{name}"), source: entry.path(), mode: 0o644 });
+    for scenes in scenes {
+        for entry in fs::read_dir(scenes).with_context(|| scenes.display().to_string())? {
+            let entry = entry?;
+            let name = entry.file_name().to_string_lossy().to_string();
+            if name.ends_with(".toml") && entry.path().is_file() {
+                files.push(SourceFile { path: format!("usr/share/deck/scenes/sandbox/{name}"), source: entry.path(), mode: 0o644 });
+            }
         }
     }
     files.sort_by(|a, b| a.path.cmp(&b.path));
@@ -202,7 +205,7 @@ pub(crate) mod tests {
     fn collect_takes_only_the_deck_paths() {
         let dir = tempfile::tempdir().unwrap();
         let (bin, rootfs, scenes) = fixture(dir.path());
-        let paths: Vec<_> = collect(&bin, &rootfs, &scenes).unwrap().into_iter().map(|f| (f.path, f.mode)).collect();
+        let paths: Vec<_> = collect(&bin, &rootfs, Some(&scenes)).unwrap().into_iter().map(|f| (f.path, f.mode)).collect();
         assert_eq!(
             paths,
             vec![
@@ -210,9 +213,11 @@ pub(crate) mod tests {
                 ("usr/bin/deck-relay".to_string(), 0o755),
                 ("usr/bin/deck-session".to_string(), 0o755),
                 ("usr/lib/systemd/system/deck-kiosk.service".to_string(), 0o644),
-                ("usr/share/deck/scenes/fireflies.toml".to_string(), 0o644),
+                ("usr/share/deck/scenes/sandbox/fireflies.toml".to_string(), 0o644),
             ]
         );
+        // no sandboxes (a stable bundle): the binaries and the rootfs alone
+        assert_eq!(collect(&bin, &rootfs, None).unwrap().len(), paths.len() - 1);
     }
 
     #[test]

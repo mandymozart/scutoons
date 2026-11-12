@@ -91,7 +91,8 @@ mod tests {
     /// scene key: none of these has them)
     #[test]
     fn every_bundled_scene_round_trips_through_json() {
-        let scenes = BUILTIN.iter().map(|n| (*n, builtin(n).unwrap())).chain([("silent", crate::scene::SILENT_SCENE)]);
+        let sandboxes = crate::scene::SANDBOX.iter().map(|n| (*n, crate::scene::sandbox(n).unwrap()));
+        let scenes = BUILTIN.iter().map(|n| (*n, builtin(n).unwrap())).chain([("staging", crate::scene::STAGING_SCENE)]).chain(sandboxes);
         for (name, text) in scenes {
             let scene = Scene::parse(text).unwrap();
             let doc = SceneDocument::new(name, vec!["catpope".into()], scene);

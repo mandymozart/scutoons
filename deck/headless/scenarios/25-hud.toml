@@ -3,7 +3,7 @@ about = "#374: the HUD's lines and the bar's items are deck-ui's (a platform-fre
 
 [[step]]
 do = "load"
-scene = "native/scenes/show-clock-lead.toml"
+scene = "native/scenes/sandbox/show-clock-lead.toml"
 
 [[step]]
 do = "run"

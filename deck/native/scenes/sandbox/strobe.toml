@@ -3,7 +3,7 @@
 # stop / start (the strobe goes dark while stopped), K the click. An LFO sweeps the rate parameter slowly through the
 # divisions (1/1 … 1/16T, a full sweep every 40 s; the neutral 1/4 in the middle), a second one breathes the flash's
 # intensity between half and full. Run it:
-#   cargo run --release -p deck-native -- --scene scenes/strobe.toml --windowed
+#   cargo run --release -p deck-native -- --scene scenes/sandbox/strobe.toml --windowed
 # (from deck/native; the widget is found by itself – `dmx = "COM3"` names a port on Windows, "/dev/ttyUSB0" on Linux)
 # Fixture: `profile = "strobe"` is the built-in generic strobe (dimmer 1, rate 2, duration 3 from `address`); a strobe
 # with another channel layout gets its own profile file (deck/outputs/fixtures/strobe.toml is the template).

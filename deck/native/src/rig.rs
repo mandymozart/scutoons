@@ -171,12 +171,13 @@ fn log(turn: &Turn) {
     }
 }
 
-/// A rig's space node comes bare ("the caller sets its set", `Played::scene`): the deck plays it in its own scene's room –
-/// every param of the own space node (set, spot, camera, light, join, post) the rig's does not set itself – and puts its
+/// A rig's space node comes bare ("the caller sets its set", `Played::scene`): the deck plays it in the staging (#427:
+/// its character's home set, none yet – the neutral staging, never the cathedral) – every param of the staging's space
+/// node (set, camera, light, join, post) the rig's does not set itself – and puts its
 /// picture on the window: the flattened rig has no `screen` node (the browser deck draws the space itself), so without
 /// `space → screen` a native deck showed only the HUD on black (#418).
 fn staged(mut scene: Scene) -> Scene {
-    let own = Played::deck_scene().ok().and_then(|p| p.nodes.into_iter().find(|n| n.kind == "space"));
+    let own = crate::scene::staging(None).nodes.into_iter().find(|n| n.kind == "space");
     if let (Some(own), Some(space)) = (own, scene.nodes.iter_mut().find(|n| n.kind == "space")) {
         for (k, v) in own.params {
             space.params.entry(k).or_insert(v);
@@ -218,7 +219,8 @@ mod tests {
         let last = scene.links.last().unwrap();
         assert_eq!((scene.links.len(), last.from.as_str(), last.to.as_str()), (played.links.len() + 1, "space", "screen.in"));
         let space = scene.nodes.iter().find(|n| n.kind == "space").unwrap();
-        assert_eq!(space.params.get("set").and_then(|v| v.as_str()), Some("cathedral"), "the deck's own room");
+        assert_eq!(space.params.get("set"), None, "the staging: no home set yet, no cathedral (#427)");
+        assert_eq!(space.params.get("join").and_then(|v| v.as_str()), Some("deck"));
         crate::modules::check(&scene).unwrap();
         assert!(Player::of(Some(Path::new("rig:catpope")), &scene).is_some());
     }
@@ -232,7 +234,7 @@ mod tests {
         assert_eq!(scene.stage.name, "silent");
         assert!(scene.nodes.iter().all(|n| matches!(n.kind.as_str(), "space" | "screen")), "no audio node: {:?}", scene.nodes.iter().map(|n| &n.kind).collect::<Vec<_>>());
         let space = scene.nodes.iter().find(|n| n.kind == "space").unwrap();
-        assert_eq!(space.params.get("set").and_then(|v| v.as_str()), Some("cathedral"), "the picture stays: the deck's room");
+        assert_eq!(space.params.get("set"), None, "the picture stays: the staging, no cathedral (#427)");
         assert!(Player::of(Some(Path::new("rig:nobody")), &scene).is_none());
         assert!(Player::of(Some(Path::new("cathedral")), &cathedral).is_none());
     }

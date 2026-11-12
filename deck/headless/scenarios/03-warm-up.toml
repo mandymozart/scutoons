@@ -3,7 +3,7 @@ about = "#356: lc_warm plays a throwaway twin of the scene; the loaded core soun
 
 [[step]]
 do = "load"
-scene = "native/scenes/cathedral.toml"
+scene = "native/scenes/sandbox/cathedral.toml"
 
 [[step]]
 do = "run"
@@ -15,11 +15,11 @@ do = "reset"
 
 [[step]]
 do = "load"
-scene = "native/scenes/cathedral.toml"
+scene = "native/scenes/sandbox/cathedral.toml"
 
 [[step]]
 do = "warm"
-scene = "native/scenes/cathedral.toml"
+scene = "native/scenes/sandbox/cathedral.toml"
 quanta = 128
 
 [[step]]

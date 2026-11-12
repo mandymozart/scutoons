@@ -25,6 +25,8 @@ pub fn switcher_key(k: &Key) -> Press<switcher::Key> {
         Key::Named(NamedKey::ArrowUp) => Press::Key(switcher::Key::Up),
         Key::Named(NamedKey::ArrowDown) => Press::Key(switcher::Key::Down),
         Key::Named(NamedKey::Enter) => Press::Key(switcher::Key::Enter),
+        // #427: "set as start" – apart from Enter's load
+        Key::Character("s" | "S") => Press::Key(switcher::Key::Start),
         Key::Named(NamedKey::Escape) => Press::Close,
         _ => Press::None,
     }

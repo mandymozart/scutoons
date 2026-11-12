@@ -2,7 +2,7 @@
 # own pitch, the LFE a low hum), summed in a six-channel bus and played by one `out` with layout 5.1. On a device with six
 # or more channels (the RME: outs 1–6) each channel plays itself; on a stereo device the deck folds it by ITU-R BS.775
 # (L + C/√2 + Ls/√2, the LFE dropped). No picture. Run it:
-#   cargo run --release -p deck-native -- --scene scenes/surround-51.toml --windowed
+#   cargo run --release -p deck-native -- --scene scenes/sandbox/surround-51.toml --windowed
 [stage]
 name = "5.1 bed (#318)"
 

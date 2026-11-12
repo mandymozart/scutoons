@@ -21,7 +21,8 @@ What `container/build.sh` does: installs archiso + rust (+ pipewire, clang for t
 `relay`, `bridge`, `deck-check`, `deck` (crate `deck-native`, feature `pipewire`), `deck-link` → copies archiso's **releng** profile, removes its live-only bits (root autologin, reflector, the mirror chooser,
 networkd), overlays `profile/` (packages, pacman.conf, identity, airootfs) and `rootfs/` (the deck's units, scripts
 and config – the same tree the PKGBUILD installs), drops the binaries in as `deck-relay`, `deck-bridge`,
-`deck-check`, `deck`, `deck-link` (+ its scenes in `/usr/share/deck/scenes`), renders the logo (deck/native/assets, the
+`deck-check`, `deck`, `deck-link` (the system scenes are in `deck`; the sandbox scenes only on a dev image, `DECK_SANDBOXES=1` →
+`/usr/share/deck/scenes/sandbox`, #427), renders the logo (deck/native/assets, the
 official SVG in white) into plymouth's `logo.png` and the BIOS menu's `splash.png` (librsvg + imagemagick), renames the
 kernel in the boot entries to `linux-rt`, adds a serial console → `mkarchiso`.
 

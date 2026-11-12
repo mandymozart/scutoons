@@ -7,7 +7,7 @@
 # colour stays at its floor), K the click.
 # The lamp: DMX Mode 4CH_1 confirmed with ENTER, address 001; the widget (Eurolite USB-DMX512-PRO MK2 ...) is found by
 # itself, or name its port below. Run it:
-#   cargo run --release -p deck-native -- --scene scenes/pulse-thunderwash.toml --windowed
+#   cargo run --release -p deck-native -- --scene scenes/sandbox/pulse-thunderwash.toml --windowed
 [stage]
 name = "pulse – Thunder Wash 600 RGBW (#261)"
 

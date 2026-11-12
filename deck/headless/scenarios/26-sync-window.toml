@@ -3,7 +3,7 @@ about = "#387: a follower's error on the show's line – the window (span, which
 
 [[step]]
 do = "load"
-scene = "native/scenes/show-clock.toml"
+scene = "native/scenes/sandbox/show-clock.toml"
 
 [[step]]
 do = "leader"
