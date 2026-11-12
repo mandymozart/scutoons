@@ -10,7 +10,7 @@ import type { Deck } from './deck.ts';
 import type { DeckPushView } from './sync.ts';
 import type { DeckQuality, QualityLevel } from '@scutoons/live';
 import { nowMs, type MonitorView } from '@scutoons/live-core';
-import { askPortraits, fetchSet } from './stage-assets.ts';
+import { askPortraits, contentAt, fetchSet, type ContentEntry } from './stage-assets.ts';
 export { decodeImage } from './stage-assets.ts';
 export type { QualityLevel };
 export type { MonitorItem, MonitorReport, MonitorView } from '@scutoons/live-core';
@@ -279,7 +279,7 @@ export class SpaceStage {
 	private last = -1;
 	/** #220: the display size given to the view (the canvas' own size is the view's render size) */
 	private display: [number, number] = [0, 0];
-	private readonly portraitsByChar = new Map<string, Promise<Record<string, { path: string }>>>();
+	private readonly content = new Map<string, Promise<ContentEntry>>();
 	private readonly cleanup: (() => void)[] = [];
 
 	private constructor(
@@ -329,23 +329,9 @@ export class SpaceStage {
 		await fetchSet(this, this.mod.SpaceView.encoded_images, sniff, this.o, set);
 	}
 
-	private portraitsOf(character: string) {
-		let p = this.portraitsByChar.get(character);
-		if (!p) {
-			p =
-				character === this.o.deck.character && Object.keys(this.o.deck.portraits).length
-					? Promise.resolve(this.o.deck.portraits)
-					: fetch(`${this.o.api}/library/scene-content?characters=${encodeURIComponent(character)}`)
-							.then((r) => r.json())
-							.then((j: { characters?: Record<string, { portraits?: Record<string, { path: string }> }> }) => j.characters?.[character]?.portraits ?? {});
-			this.portraitsByChar.set(character, p);
-		}
-		return p;
-	}
-
-	/** the sprites the heads asked for, fetched and decoded (each once) */
+	/** the pictures the stage asked for (the heads', #495 the cards'), fetched and decoded (each once) */
 	private portraits() {
-		askPortraits(this, this.o.cdn, (c) => this.portraitsOf(c));
+		askPortraits(this, this.o.cdn, (kind, id) => contentAt(this.o.api, this.content, kind, id));
 	}
 
 	/** the being after a character switch (the deck's graph and values now) */

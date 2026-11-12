@@ -3,6 +3,9 @@
 //! the frame that uploads one only copies. A head asks for its character's moods once (`request`); a mood whose sprite
 //! is missing shows the nearest one that is there (toward the calm end), a character without any shows a faceless head.
 //!
+//! #495: the same loader carries the stage's cards' pictures – a character's `full` view per mood, an item's picture
+//! (cast.rs `Picture`): a slot is a picture, the heads ask for the portrait view.
+//!
 //! Where the sprites come from is a `Source`. Today `LocalDir`: `--portraits DIR` (`DECK_PORTRAITS`, default
 //! `<cache>/portraits`), either `DIR/<char>/<char>_portrait-<mood>.<ext>` (the layout of media/characters/) or flat in
 //! `DIR`. **#180:** the deck-token fetch from the CDN (cached on DECKDATA) becomes a second `Source` that downloads into
@@ -11,6 +14,7 @@
 //! Without threads (the browser, #198) the Portraits are `manual`: the host takes the requests (`requests`), fetches
 //! and decodes the sprites itself and hands them in (`deliver`).
 use super::glb::{half, Image};
+use crate::cast::{Picture, PORTRAIT_VIEW};
 #[cfg(feature = "native")]
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, Receiver, Sender};
@@ -20,23 +24,25 @@ pub const MAX: u32 = 512;
 #[cfg(feature = "native")]
 const EXTENSIONS: [&str; 2] = ["png", "webp"];
 
-/// where a character's portrait sprites come from
+/// where the pictures come from
 #[cfg(feature = "native")]
 pub trait Source: Send + 'static {
-    /// the sprite of `character` in `mood` – its file, decoded (RGBA8); Err = why there is none
-    fn load(&self, character: &str, mood: &str) -> Result<image::RgbaImage, String>;
+    /// `picture` – its file, decoded (RGBA8); Err = why there is none
+    fn load(&self, picture: &Picture) -> Result<image::RgbaImage, String>;
 }
 
-/// a local folder: `<dir>/<char>/<char>_portrait-<mood>.<png|webp>`, else `<dir>/<char>_portrait-<mood>.<…>`
+/// a local folder: a character's `<dir>/<char>/<char>_<view>-<mood>.<png|webp>`, else `<dir>/<char>_<view>-<mood>.<…>`;
+/// an item's `<dir>/items/<id>.<…>`, else `<dir>/<id>.<…>`
 #[cfg(feature = "native")]
 pub struct LocalDir(pub PathBuf);
 
 #[cfg(feature = "native")]
 impl LocalDir {
-    /// the first file that exists for this character and mood
-    pub fn find(&self, character: &str, mood: &str) -> Option<PathBuf> {
-        let name = format!("{character}_portrait-{mood}");
-        [self.0.join(character), self.0.clone()]
+    /// the first file that exists for this picture
+    pub fn find(&self, picture: &Picture) -> Option<PathBuf> {
+        let name = picture.stem();
+        let sub = if picture.kind == "items" { "items" } else { picture.id.as_str() };
+        [self.0.join(sub), self.0.clone()]
             .into_iter()
             .flat_map(|d| EXTENSIONS.map(|e| d.join(format!("{name}.{e}"))))
             .find(|p| p.is_file())
@@ -45,9 +51,9 @@ impl LocalDir {
 
 #[cfg(feature = "native")]
 impl Source for LocalDir {
-    fn load(&self, character: &str, mood: &str) -> Result<image::RgbaImage, String> {
-        let Some(path) = self.find(character, mood) else {
-            return Err(format!("no {character}_portrait-{mood} in {}", self.0.display()));
+    fn load(&self, picture: &Picture) -> Result<image::RgbaImage, String> {
+        let Some(path) = self.find(picture) else {
+            return Err(format!("no {} in {}", picture.stem(), self.0.display()));
         };
         image::open(&path).map(|i| i.to_rgba8()).map_err(|e| format!("{}: {e}", path.display()))
     }
@@ -63,17 +69,18 @@ pub enum State {
 
 #[derive(Debug, Clone)]
 pub struct Slot {
-    pub character: String,
-    pub mood: String,
+    pub picture: Picture,
     pub state: State,
+    /// its width over its height once it came (a card's width follows it)
+    pub aspect: f32,
 }
 
 /// The sprites every head asked for, by slot (the renderer keeps a texture per ready slot).
 pub struct Portraits {
     pub slots: Vec<Slot>,
     /// the loader thread's inbox; None = manual (the host asks: `requests`)
-    ask: Option<Sender<(usize, String, String)>>,
-    asked: Vec<(usize, String, String)>,
+    ask: Option<Sender<(usize, Picture)>>,
+    asked: Vec<(usize, Picture)>,
     got: Receiver<(usize, Result<Image, String>)>,
     tell: Sender<(usize, Result<Image, String>)>,
     /// decoded, not yet on the GPU
@@ -84,14 +91,14 @@ impl Portraits {
     /// the loader thread over `source` (it ends with the Portraits)
     #[cfg(feature = "native")]
     pub fn new(source: Box<dyn Source>) -> Portraits {
-        let (ask, asked) = mpsc::channel::<(usize, String, String)>();
+        let (ask, asked) = mpsc::channel::<(usize, Picture)>();
         let (tell, got) = mpsc::channel();
         let teller = tell.clone();
         std::thread::Builder::new()
             .name("portraits".into())
             .spawn(move || {
-                while let Ok((slot, character, mood)) = asked.recv() {
-                    let r = source.load(&character, &mood).map(prepare);
+                while let Ok((slot, picture)) = asked.recv() {
+                    let r = source.load(&picture).map(prepare);
                     if let Err(e) = &r {
                         tracing::debug!("portrait: {e}");
                     }
@@ -116,8 +123,8 @@ impl Portraits {
         Portraits { slots: Vec::new(), ask: None, asked: Vec::new(), got, tell, fresh: Vec::new() }
     }
 
-    /// the sprites asked for since the last call (slot, character, mood) – manual Portraits only
-    pub fn requests(&mut self) -> Vec<(usize, String, String)> {
+    /// the pictures asked for since the last call – manual Portraits only
+    pub fn requests(&mut self) -> Vec<(usize, Picture)> {
         std::mem::take(&mut self.asked)
     }
 
@@ -126,28 +133,33 @@ impl Portraits {
         let _ = self.tell.send((slot, sprite.map(prepare)));
     }
 
-    /// A slot per mood of `character` (the same character and mood share one).
+    /// A portrait slot per mood of `character` (the same character and mood share one).
     pub fn request(&mut self, character: &str, moods: &[String]) -> Vec<usize> {
+        self.request_view(character, PORTRAIT_VIEW, moods)
+    }
+
+    /// A slot per mood of `character`'s `view` (#495: a card's `full`).
+    pub fn request_view(&mut self, character: &str, view: &'static str, moods: &[String]) -> Vec<usize> {
         if character.is_empty() {
             return Vec::new();
         }
-        moods
-            .iter()
-            .map(|mood| match self.slots.iter().position(|s| s.character == character && s.mood == *mood) {
-                Some(i) => i,
-                None => {
-                    let i = self.slots.len();
-                    self.slots.push(Slot { character: character.into(), mood: mood.clone(), state: State::Loading });
-                    match &self.ask {
-                        Some(ask) => {
-                            let _ = ask.send((i, character.into(), mood.clone()));
-                        }
-                        None => self.asked.push((i, character.into(), mood.clone())),
-                    }
-                    i
-                }
-            })
-            .collect()
+        moods.iter().map(|mood| self.picture(Picture::character(character, view, mood))).collect()
+    }
+
+    /// The slot of `picture` (asked for once).
+    pub fn picture(&mut self, picture: Picture) -> usize {
+        if let Some(i) = self.slots.iter().position(|s| s.picture == picture) {
+            return i;
+        }
+        let i = self.slots.len();
+        match &self.ask {
+            Some(ask) => {
+                let _ = ask.send((i, picture.clone()));
+            }
+            None => self.asked.push((i, picture.clone())),
+        }
+        self.slots.push(Slot { picture, state: State::Loading, aspect: 1.0 });
+        i
     }
 
     /// what the loader has finished (each frame; nothing new = no work)
@@ -155,6 +167,8 @@ impl Portraits {
         while let Ok((slot, r)) = self.got.try_recv() {
             self.slots[slot].state = match r {
                 Ok(img) => {
+                    let (w, h) = img.size();
+                    self.slots[slot].aspect = w as f32 / h.max(1) as f32;
                     self.fresh.push((slot, img));
                     State::Ready
                 }
@@ -187,7 +201,7 @@ impl Portraits {
 
     /// the HUD's word on a character's sprites: how many are there, the first reason one is missing
     pub fn status(&self, character: &str) -> String {
-        let mine: Vec<&Slot> = self.slots.iter().filter(|s| s.character == character).collect();
+        let mine: Vec<&Slot> = self.slots.iter().filter(|s| s.picture.kind == "characters" && s.picture.view == PORTRAIT_VIEW && s.picture.id == character).collect();
         let ready = mine.iter().filter(|s| s.state == State::Ready).count();
         let why = mine.iter().find_map(|s| if let State::Missing(w) = &s.state { Some(w.as_str()) } else { None });
         match why {
@@ -257,10 +271,11 @@ mod tests {
     /// a source that has only some moods
     struct Some2;
     impl Source for Some2 {
-        fn load(&self, character: &str, mood: &str) -> Result<image::RgbaImage, String> {
-            match (character, mood) {
-                ("plf", "neutral" | "laughing") => Ok(image::RgbaImage::from_pixel(1024, 1024, image::Rgba([200, 100, 50, 255]))),
-                _ => Err(format!("no {character} {mood}")),
+        fn load(&self, p: &Picture) -> Result<image::RgbaImage, String> {
+            match (p.id.as_str(), p.view, p.mood.as_str()) {
+                ("plf", PORTRAIT_VIEW, "neutral" | "laughing") => Ok(image::RgbaImage::from_pixel(1024, 1024, image::Rgba([200, 100, 50, 255]))),
+                ("plf", crate::cast::CARD_VIEW, "neutral") => Ok(image::RgbaImage::from_pixel(400, 1000, image::Rgba([1, 2, 3, 255]))),
+                _ => Err(format!("no {}", p.stem())),
             }
         }
     }
@@ -295,6 +310,13 @@ mod tests {
         settle(&mut p);
         assert_eq!(p.pick(&none, 0), None, "a character without sprites: no face");
         assert!(p.status("nobody").starts_with("nobody NO FACE"));
+        // #495: a card's view is a slot of its own, its aspect kept; the heads' count stays the portraits'
+        let full = p.request_view("plf", crate::cast::CARD_VIEW, &moods[..2]);
+        assert!(full.iter().all(|s| !a.contains(s)), "another view, other slots");
+        settle(&mut p);
+        assert_eq!(p.pick(&full, 1), Some(full[0]), "a mood without its full view shows the nearest one");
+        assert!((p.slots[full[0]].aspect - 0.4).abs() < 1e-3, "{}", p.slots[full[0]].aspect);
+        assert_eq!(p.status("plf"), "plf 2/5 MOODS");
     }
 
     #[test]
@@ -314,11 +336,18 @@ mod tests {
         let px = image::RgbaImage::from_pixel(4, 4, image::Rgba([1, 2, 3, 255]));
         px.save(dir.join("catpope").join("catpope_portrait-happy.png")).unwrap();
         px.save(dir.join("plf_portrait-neutral.png")).unwrap();
+        std::fs::create_dir_all(dir.join("items")).unwrap();
+        px.save(dir.join("catpope").join("catpope_full-happy.png")).unwrap();
+        px.save(dir.join("items").join("incense_burner.png")).unwrap();
         let src = LocalDir(dir.clone());
-        assert_eq!(src.find("catpope", "happy"), Some(dir.join("catpope").join("catpope_portrait-happy.png")));
-        assert_eq!(src.find("plf", "neutral"), Some(dir.join("plf_portrait-neutral.png")));
-        assert!(src.load("catpope", "sad").unwrap_err().contains("catpope_portrait-sad"));
-        assert_eq!(src.load("plf", "neutral").unwrap().dimensions(), (4, 4));
+        let head = |c: &str, m: &str| Picture::character(c, PORTRAIT_VIEW, m);
+        assert_eq!(src.find(&head("catpope", "happy")), Some(dir.join("catpope").join("catpope_portrait-happy.png")));
+        assert_eq!(src.find(&head("plf", "neutral")), Some(dir.join("plf_portrait-neutral.png")));
+        assert!(src.load(&head("catpope", "sad")).unwrap_err().contains("catpope_portrait-sad"));
+        assert_eq!(src.load(&head("plf", "neutral")).unwrap().dimensions(), (4, 4));
+        // #495: a card's full view and an item's picture
+        assert_eq!(src.find(&Picture::character("catpope", crate::cast::CARD_VIEW, "happy")), Some(dir.join("catpope").join("catpope_full-happy.png")));
+        assert_eq!(src.find(&Picture::item("incense_burner")), Some(dir.join("items").join("incense_burner.png")));
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

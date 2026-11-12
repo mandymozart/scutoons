@@ -1,0 +1,208 @@
+# A sandbox (#495): a stage in the cathedral's 3D set with a character and an item – the document
+# deck/headless/documents/nave-cast.json resolved by the core. Cat Pope has 3D here, so she stands as her look (her core
+# rig wires nothing to her being: still); the incense burner is an item, which has no 3D, so it stands as its 2D card –
+# moved only by its own rig's wire `sound:level → being:pulse` (added here to its core rig, as a person draws it). Take
+# the set away (`set`) and Cat Pope is a card too (cast.rs). Written by deck-space's scene_resolve.rs test
+# `the_stage_cards_sandbox_is_the_core_s_resolve` – never by hand:
+#   UPDATE_FIXTURES=1 cargo test -p deck-space stage_cards
+# From deck/:  cargo run -p deck-native --release -- --dev --scene stage-cards --windowed
+
+[stage]
+name = "Stage cards"
+render_scale = 1.0
+transition = "fade"
+transition_secs = 0.4000000059604645
+
+[[node]]
+id = "pope_voice_voice"
+kind = "fm"
+freq = 147.0
+gain = 0.16
+index = 2.0
+ratio = 1.5
+
+[[node]]
+id = "pope_voice_melody"
+kind = "walk"
+base = 147.0
+bpm = 84.0
+glide = 0.5
+octaves = 2.0
+rate = 2.0
+seed = 84
+spread = 0.0
+
+[[node]]
+id = "pope_drone_drone"
+kind = "osc"
+freq = 55.0
+gain = 0.1
+
+[[node]]
+id = "pope_drone_fifth"
+kind = "osc"
+freq = 82.5
+gain = 0.03
+
+[[node]]
+id = "pope_drone_mix"
+kind = "mixer"
+
+[[node]]
+id = "pope_mix1"
+kind = "mixer"
+gain1 = 1.0
+gain2 = 1.0
+
+[[node]]
+id = "out"
+kind = "audio_out"
+
+[[node]]
+id = "pope_fft"
+kind = "fft"
+
+[[node]]
+id = "space"
+kind = "space"
+at = [2.4, 0.2, 5.2]
+distance = 3.8
+pitch = 18
+quality = "low"
+set = "cathedral"
+yaw = 310
+
+[[node]]
+id = "burner_air_hiss"
+kind = "noise"
+color = "pink"
+cutoff = 1800.0
+gain = 0.0
+
+[[node]]
+id = "burner_mix1"
+kind = "mixer"
+gain1 = 1.0
+
+[[node]]
+id = "burner_fft"
+kind = "fft"
+
+[[node]]
+id = "pope_look"
+kind = "look"
+at = [0.0, 0.0, 0.0]
+holder = "pope"
+who = "character:catpope"
+
+[node.being]
+breath = 0.03500000014901161
+bubbles = 1.0
+character = "catpope"
+drift = 0.05999999865889549
+expose = ["pope_voice_voice.ratio", "pope_voice_voice.index", "pope_voice_voice.gain", "pope_voice_melody.spread", "pope_voice_melody.rate", "pope_voice_melody.glide", "pope_drone_drone.freq", "pope_drone_drone.gain"]
+feel = []
+hose = 1.0
+moods = ["neutral", "thinking", "happy", "laughing", "surprised"]
+react = []
+size = 0.5
+wobble = 0.02500000037252903
+
+[[node]]
+id = "burner_look"
+kind = "look"
+at = [0.0, 0.0, 0.0]
+holder = "burner"
+who = "item:incense_burner"
+
+[node.being]
+breath = 0.03500000014901161
+bubbles = 1.0
+character = ""
+drift = 0.05999999865889549
+expose = ["burner_air_hiss.cutoff", "burner_air_hiss.gain"]
+feel = []
+hose = 1.0
+moods = ["neutral", "thinking", "happy", "laughing", "surprised"]
+react = []
+size = 0.5
+wobble = 0.02500000037252903
+
+[[link]]
+from = "pope_voice_melody.cv"
+to = "pope_voice_voice.cv"
+scale = 1.0
+offset = 0.0
+
+[[link]]
+from = "pope_drone_drone.out"
+to = "pope_drone_mix.in1"
+scale = 1.0
+offset = 0.0
+
+[[link]]
+from = "pope_drone_fifth.out"
+to = "pope_drone_mix.in2"
+scale = 1.0
+offset = 0.0
+
+[[link]]
+from = "pope_voice_voice.out"
+to = "pope_mix1.in1"
+scale = 1.0
+offset = 0.0
+
+[[link]]
+from = "pope_drone_mix.out"
+to = "pope_mix1.in2"
+scale = 1.0
+offset = 0.0
+
+[[link]]
+from = "pope_mix1.out"
+to = "out.in"
+scale = 1.0
+offset = 0.0
+
+[[link]]
+from = "pope_mix1.out"
+to = "pope_fft.in"
+scale = 1.0
+offset = 0.0
+
+[[link]]
+from = "burner_air_hiss.out"
+to = "burner_mix1.in1"
+scale = 1.0
+offset = 0.0
+
+[[link]]
+from = "burner_mix1.out"
+to = "out.in"
+scale = 1.0
+offset = 0.0
+
+[[link]]
+from = "burner_mix1.out"
+to = "burner_fft.in"
+scale = 1.0
+offset = 0.0
+
+[[link]]
+from = "burner_fft.level"
+to = "burner_look.pulse"
+scale = 0.6000000238418579
+offset = 0.0
+
+[being]
+size = 0.5
+drift = 0.05999999865889549
+breath = 0.03500000014901161
+wobble = 0.02500000037252903
+hose = 1.0
+bubbles = 1.0
+expose = []
+character = ""
+moods = ["neutral", "thinking", "happy", "laughing", "surprised"]
+feel = []
+react = []

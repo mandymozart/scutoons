@@ -82,6 +82,7 @@ kind = "look"
 at = [0.0, 0.0, 0.0]
 holder = "left"
 spot = "spot_left"
+who = "character:catpope"
 
 [node.being]
 breath = 0.03500000014901161
@@ -102,6 +103,7 @@ kind = "look"
 at = [0.0, 0.0, 0.0]
 holder = "right"
 spot = "spot_right"
+who = "character:toptoy"
 
 [node.being]
 breath = 0.03500000014901161

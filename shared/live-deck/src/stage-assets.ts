@@ -28,7 +28,6 @@ interface SetFiles {
 	onStatus?: (s: string) => void;
 }
 
-type Portraits = Record<string, { path: string }>;
 
 /** an image's bytes → RGBA8, decoded by the browser */
 export async function decodeImage(bytes: Uint8Array | Blob, type = 'image/webp'): Promise<{ width: number; height: number; rgba: Uint8Array }> {
@@ -69,35 +68,33 @@ export async function fetchSet(host: StageHost, encodedImages: (glb: Uint8Array)
 	o.onStatus?.(`3D ${host.view.backend()}`);
 }
 
-/** the sprites the heads asked for, fetched and decoded (each once) */
-export function askPortraits(host: StageHost, cdn: string, portraitsOf: (character: string) => Promise<Portraits>) {
-	const asked = host.view.portrait_requests();
-	for (let i = 0; i + 2 < asked.length; i += 3) void givePortrait(host, cdn, portraitsOf, asked[i] as number, asked[i + 1] as string, asked[i + 2] as string);
+/** a scene-content entry (`characters.<id>`, `items.<id>`): its fields – a file, or files by mood */
+export type ContentEntry = Record<string, unknown>;
+
+/** the pictures the stage asked for – slot, kind, id, field, mood (deck/space-web `portrait_asks`) – fetched and decoded (each once) */
+export function askPortraits(host: StageHost, cdn: string, entryOf: (kind: string, id: string) => Promise<ContentEntry>) {
+	const a = host.view.portrait_requests();
+	for (let i = 0; i + 4 < a.length; i += 5) void givePortrait(host, cdn, entryOf, a[i] as number, a[i + 1] as string, a[i + 2] as string, a[i + 3] as string, a[i + 4] as string);
 }
 
-async function givePortrait(host: StageHost, cdn: string, portraitsOf: (character: string) => Promise<Portraits>, slot: number, character: string, mood: string) {
+async function givePortrait(host: StageHost, cdn: string, entryOf: (kind: string, id: string) => Promise<ContentEntry>, slot: number, kind: string, id: string, field: string, mood: string) {
 	try {
-		const p = (await portraitsOf(character))[mood];
-		if (!p) throw new Error(`no ${character}_portrait-${mood}`);
-		const img = await decodeImage(await (await fetch(cdn + p.path)).blob());
+		const f = (await entryOf(kind, id))[field] as (Record<string, { path?: string }> & { path?: string }) | undefined;
+		const file = mood ? f?.[mood] : f;
+		if (!file?.path) throw new Error(`no ${kind}.${id}.${field}${mood ? `.${mood}` : ''}`);
+		const img = await decodeImage(await (await fetch(cdn + file.path)).blob());
 		if (!host.stopped) host.view.give_portrait(slot, img.width, img.height, img.rgba);
 	} catch (e) {
 		if (!host.stopped) host.view.no_portrait(slot, (e as Error).message);
 	}
 }
 
-/** a head's sprites by mood, from scene-content (each character once) */
-export function portraitsAt(api: string, known: Map<string, Promise<Portraits>>, character: string): Promise<Portraits> {
-	let p = known.get(character);
-	if (!p) {
-		p = fetch(`${api}/library/scene-content?characters=${encodeURIComponent(character)}`)
-			.then((r) => r.json())
-			.then((j: { characters?: Record<string, { portraits?: Portraits }> }) => j.characters?.[character]?.portraits ?? {});
-		known.set(character, p);
-	}
-	return p;
+/** a scene-content entry by kind and id, from the API (each once) */
+export function contentAt(api: string, known: Map<string, Promise<ContentEntry>>, kind: string, id: string): Promise<ContentEntry> {
+	const key = `${kind}:${id}`;
+	if (!known.has(key)) known.set(key, fetch(`${api}/library/scene-content?${kind}=${encodeURIComponent(id)}`).then(async (r) => ((await r.json()) as Record<string, Record<string, ContentEntry> | undefined>)[kind]?.[id] ?? {}));
+	return known.get(key)!;
 }
-
 /** chapter node `i`'s chapter from the API, into the view */
 export async function fetchChapter(host: { view: ChapterView; stopped: boolean }, url: string, i: number) {
 	try {

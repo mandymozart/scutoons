@@ -492,10 +492,10 @@ impl SceneView {
         }
     }
 
-    /// the sprites the heads ask for: slot, character, mood, …
+    /// the pictures the stage asks for (lib.rs `portrait_asks`: slot, kind, id, field, mood, …)
     pub fn portrait_requests(&mut self) -> js_sys::Array {
         let asks = self.show.space.as_mut().map(portrait_asks).unwrap_or_default();
-        for i in (0..asks.length()).step_by(3) {
+        for i in (0..asks.length()).step_by(crate::ASK) {
             asks.set(i, JsValue::from(self.numbered(asks.get(i).as_f64().unwrap_or(0.0) as usize)));
         }
         asks

@@ -38,6 +38,7 @@ use crate::graph::Graph;
 use crate::params;
 use crate::tempo;
 use anyhow::Result;
+use crate::cast::{self, Form, Who};
 use being::{Being, Hit, Look, Sphere, TubeVertex};
 use label::Label;
 use camera::Orbit;
@@ -123,7 +124,8 @@ pub enum Cursor {
 
 pub use crate::gesture::Touch;
 
-/// One holder's being on a stage of several (#492): the scene's `look` node drawn at its holder's spot.
+/// One holder's being on a stage of several (#492): the scene's `look` node drawn at its holder's spot – as its 3D being
+/// or, where there is no 3D for it, as its 2D card (#495, cast.rs).
 pub struct Cast {
     pub being: Being,
     /// the holder (a placeholder's id, or a zone's)
@@ -132,10 +134,35 @@ pub struct Cast {
     pub spot: Option<String>,
     /// where it stands from that spot (a spawn zone's arrangement), metres
     pub at: Vec3,
+    /// #495: who stands there, and as what (cast.rs `form`: the stage's 3D and who it is)
+    pub who: Who,
+    pub form: Form,
+    /// where its feet are: the spot on the set's floor (the being floats `lift` above it)
+    pub feet: Vec3,
+    /// its card's pictures: a character's full view per mood of its being, an item's one picture
+    pub pictures: Vec<usize>,
+}
+
+/// One card on the stage this frame (#495): an upright picture with its feet on its spot, turned to the eye around the
+/// vertical – `right` is half its width, `up` its height; its being's light on it
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Card {
+    pub feet: Vec3,
+    pub right: Vec3,
+    pub up: Vec3,
+    /// the picture's slot (Portraits); None = not here (yet): a blank standee in its being's colour
+    pub picture: Option<usize>,
+    pub glow: f32,
+    pub hue: f32,
+    pub pulse: f32,
 }
 
 /// between the cast's beings when the set has no spot for them (or there is no set): across the view, metres
 const CAST_SPACING: f32 = 1.4;
+/// #495: a card's width over its height while its picture is not here (a figure's standee)
+const CARD_ASPECT: f32 = 0.45;
+/// #495: how high a bounce of 1 lifts a card, a fraction of its height
+const CARD_HOP: f32 = 0.15;
 
 impl Cast {
     /// the cast of `graph`: a being per `look` node – the node's look (its `being` table), its body the nodes of its rig
@@ -161,7 +188,14 @@ impl Cast {
                     [x, y, z] => Vec3::new(*x, *y, *z),
                     _ => Vec3::ZERO,
                 };
-                Cast { being, holder: n.str("holder").unwrap_or_default().to_string(), spot: n.str("spot").map(String::from), at }
+                // #495: who it is (a look node of #492 without `who` is its character's)
+                let who = n.str("who").and_then(Who::parse).unwrap_or_else(|| Who::Character(look.character.clone()));
+                let pictures = match &who {
+                    Who::Character(c) => portraits.request_view(c, cast::CARD_VIEW, &being.moods),
+                    Who::Item(id) => vec![portraits.picture(cast::Picture::item(id))],
+                };
+                let (holder, spot) = (n.str("holder").unwrap_or_default().to_string(), n.str("spot").map(String::from));
+                Cast { being, holder, spot, at, who, form: Form::Card, feet: Vec3::ZERO, pictures }
             })
             .collect()
     }
@@ -183,6 +217,8 @@ pub struct Space {
     /// the set's 3D file shown (or loading) and its spots (kept after the renderer took it – a Live cell moves the
     /// camera to one, #186)
     set_path: Option<PathBuf>,
+    /// #495: the set's 3D could not be had – the stage is not 3D, its cast stands as cards
+    set_failed: bool,
     spots: Vec<(String, Vec3)>,
     max_texture: u32,
     /// the set's glTF nodes left out (the space node's `hide`: their meshes)
@@ -337,6 +373,7 @@ impl Space {
             set_rx,
             model: None,
             set_path: path,
+            set_failed: false,
             spots: Vec::new(),
             max_texture,
             hide,
@@ -379,14 +416,62 @@ impl Space {
     }
 
     /// #492: the cast's beings to their holders' spots in the set (lifted like the scene's being), a zone's members by
-    /// their arrangement; a spot the set lacks (or no set yet) puts them in a row across the scene's spot
+    /// their arrangement; a spot the set lacks (or no set yet) puts them in a row across the scene's spot. #495: each
+    /// member's form for this stage (cast.rs) – a change of form sizes the renderer's buffers anew.
     fn place_cast(&mut self) {
         let n = self.cast.len();
+        let stage_3d = self.stage_3d();
+        let mut changed = false;
         for (k, c) in self.cast.iter_mut().enumerate() {
-            let spot = c.spot.as_ref().and_then(|s| self.spots.iter().find(|(name, _)| name == s)).map(|(_, p)| *p + Vec3::Y * self.lift);
+            let spot = c.spot.as_ref().and_then(|s| self.spots.iter().find(|(name, _)| name == s)).map(|(_, p)| *p);
             let row = Vec3::X * (k as f32 - (n as f32 - 1.0) * 0.5) * CAST_SPACING;
-            c.being.anchor = spot.unwrap_or(self.being.anchor + row) + c.at;
+            c.feet = spot.unwrap_or(self.being.anchor - Vec3::Y * self.lift + row) + c.at;
+            c.being.anchor = c.feet + Vec3::Y * self.lift;
+            let form = cast::form(&c.who, stage_3d);
+            changed |= form != c.form;
+            c.form = form;
         }
+        if changed {
+            self.generation += 1;
+        }
+    }
+
+    /// #495: whether this stage is 3D – its set's 3D is shown or on its way (a set that failed to load is not)
+    pub fn stage_3d(&self) -> bool {
+        self.set_path.is_some() && !self.set_failed
+    }
+
+    /// #495: the cast members standing as cards this frame (into `out`, cleared first; its capacity the cast's – no
+    /// allocation): feet on the spot, the height its kind's (cast.rs), the width its picture's aspect, turned to `eye`
+    /// around the vertical; a character's picture in the mood its being reports (the nearest it has, else its portrait),
+    /// an item's its one picture. Only its own look's inputs move it: `bounce` hops it, `pulse`, `glow` and `hue` light
+    /// it – nothing by default (owner 2026-11-12 [rigs]: no default breath)
+    pub fn write_cards(&self, eye: Vec3, out: &mut Vec<Card>) {
+        out.clear();
+        for c in self.cast.iter().filter(|c| c.form == Form::Card) {
+            let h = &c.being.head;
+            let picture = self.portraits.pick_near(&c.pictures, h.near.get(h.mood), h.mood).or_else(|| self.portraits.pick_near(&h.sprites, h.near.get(h.mood), h.mood));
+            let aspect = picture.map_or(CARD_ASPECT, |s| self.portraits.slots[s].aspect);
+            let height = cast::card_height(&c.who);
+            let flat = Vec3::new(eye.x - c.feet.x, 0.0, eye.z - c.feet.z);
+            let right = Vec3::Y.cross(flat.try_normalize().unwrap_or(Vec3::Z));
+            let feet = c.feet + Vec3::Y * c.being.bounce * CARD_HOP * height;
+            out.push(Card { feet, right: right * height * aspect * 0.5, up: Vec3::Y * height, picture, glow: c.being.glow, hue: c.being.hue, pulse: c.being.pulse });
+        }
+    }
+
+    /// #495: the middle of a stage whose every member is a card (half way up the cards); None while any stands in 3D
+    fn cards_middle(&self) -> Option<Vec3> {
+        if self.cast.is_empty() || self.cast.iter().any(|c| c.form == Form::Look) {
+            return None;
+        }
+        let sum = self.cast.iter().fold(Vec3::ZERO, |a, c| a + c.feet + Vec3::Y * cast::card_height(&c.who) * 0.5);
+        Some(sum / self.cast.len() as f32)
+    }
+
+    /// #495: how many cards `write_cards` writes at most
+    pub fn cards(&self) -> usize {
+        self.cast.iter().filter(|c| c.form == Form::Card).count()
     }
 
     /// what a deck announces of its being on the wire (`deck.graph`); None unless the space node joins as a deck
@@ -476,6 +561,11 @@ impl Space {
     }
 
     fn focus_goal(&self, distance: f32) -> Vec3 {
+        // #495: a stage of cards only – the space's own being has no body to aim by: the cards' middle, so they stand whole
+        // in the picture
+        if let Some(middle) = self.cards_middle() {
+            return middle;
+        }
         let (body, head) = self.being.focus();
         let near = match self.being.selected {
             Some(Hit::Button(i)) => self.being.buttons[i].free,
@@ -538,11 +628,15 @@ impl Space {
                 self.set_status = format!("SET {}K TRIS", model.triangles() / 1000);
                 self.spots = model.spots.clone();
                 self.model = Some(model);
+                self.set_failed = false;
                 self.place_cast();
             }
             Err(e) => {
                 tracing::error!("set: {e:#}");
                 self.set_status = format!("SET ERROR {e}");
+                // #495: no 3D after all – the cast stands as cards
+                self.set_failed = true;
+                self.place_cast();
             }
         }
     }
@@ -758,10 +852,12 @@ impl Space {
         n
     }
 
-    /// every being: this deck's own first (on a stage of several holders, the cast's instead – #492), then the decks'
+    /// every being drawn in 3D: this deck's own first (on a stage of several holders, the cast's instead – #492; only the
+    /// members standing as their look, #495: a card is no body), then the decks'
     pub fn beings(&self) -> impl Iterator<Item = &Being> {
         let own = self.cast.is_empty().then_some(&self.being);
-        own.into_iter().chain(self.cast.iter().map(|c| &c.being)).chain(self.others.iter().map(|r| &r.being))
+        let looks = self.cast.iter().filter(|c| c.form == Form::Look).map(|c| &c.being);
+        own.into_iter().chain(looks).chain(self.others.iter().map(|r| &r.being))
     }
 
     /// This frame's labels (label.rs): the conductor's word over each deck's being (the buttons carry no numbers – owner
@@ -920,6 +1016,8 @@ impl Space {
             Some(p) if self.set_path.as_deref() != Some(p) => {
                 (self.set_rx, self.set_status) = load_set(p.to_path_buf(), self.max_texture, self.hide.clone(), self.gate.clone());
                 self.set_path = Some(p.to_path_buf());
+                self.set_failed = false;
+                self.place_cast();
             }
             _ => {
                 if let Some(pos) = self.spots.iter().find(|(n, _)| *n == self.spot).map(|(_, p)| *p) {
@@ -1643,14 +1741,16 @@ mod tests {
         assert!(spheres.len() <= space.capacity().0);
     }
 
-    /// #492: a stage of several holders – a being per `look` node, its body its own rig's nodes, standing apart; only its
-    /// own look's links move it (the left one's LFO lights the left one, the right one has none and stays as it is)
-    #[test]
-    fn a_stage_of_several_draws_a_being_per_look_each_on_its_own_inputs() {
-        let text = r#"
+    /// a stage of three holders (#492, #495): Cat Pope lit by her own LFO, a listener whose rig maps nothing, an incense
+    /// burner (an item) whose own LFO kicks its pulse; with a 3D set (`set`, its spots handed in as if it had loaded) or
+    /// none
+    fn stage(set: bool) -> (Graph, Space, Table) {
+        let text = format!(
+            r#"
 [[node]]
 id = "space"
 kind = "space"
+{}
 [[node]]
 id = "left_lfo"
 kind = "lfo"
@@ -1660,40 +1760,84 @@ depth = 2.0
 id = "left_look"
 kind = "look"
 holder = "left"
+who = "character:catpope"
 spot = "spot_left"
 at = [0.0, 0.0, 0.0]
-being = { character = "catpope", expose = ["left_lfo.rate"] }
+being = {{ character = "catpope", expose = ["left_lfo.rate"] }}
 [[node]]
 id = "right_look"
 kind = "look"
 holder = "right"
+who = "character:mute"
 spot = "spot_right"
-being = { character = "mute" }
+being = {{ character = "mute" }}
+[[node]]
+id = "burner_lfo"
+kind = "lfo"
+rate = 3.0
+depth = 1.0
+[[node]]
+id = "burner_look"
+kind = "look"
+holder = "burner"
+who = "item:incense_burner"
 [[link]]
 from = "left_lfo"
 to = "left_look.glow"
-"#;
-        let scene = Scene::parse(text).unwrap();
+[[link]]
+from = "burner_lfo"
+to = "burner_look.pulse"
+"#,
+            if set { "set = \"stage.glb\"" } else { "" }
+        );
+        let scene = Scene::parse(&text).unwrap();
         let g = Graph::build(&scene).unwrap();
         let node = g.first(crate::graph::Kind::Space).unwrap();
         let mut space = Space::new(&g, node, &scene.being, Path::new("/nowhere"), Portraits::manual());
-        let mut ctl = Table::new(&g);
+        if set {
+            // the set "loaded": its spots, no file read (the loader thread's answer is dropped)
+            space.set_rx = None;
+            let spots = vec![("spot_left".to_string(), Vec3::new(-2.0, 0.0, 0.0)), ("spot_right".to_string(), Vec3::new(2.0, 0.0, 0.0))];
+            space.set_arrived(Ok(glb::Model { vertices: Vec::new(), indices: Vec::new(), draws: Vec::new(), images: Vec::new(), spots, min: Vec3::ZERO, max: Vec3::ONE }));
+        }
+        let ctl = Table::new(&g);
+        (g, space, ctl)
+    }
+
+    fn run(space: &mut Space, ctl: &mut Table, frames: usize, each: &mut dyn FnMut(&Space)) {
+        for k in 0..frames {
+            ctl.step(1.0 / 30.0);
+            space.update(1.0 / 30.0, k as f32 / 30.0, ctl, &tempo::Now::default(), &|_, _| 0.0);
+            each(space);
+        }
+    }
+
+    fn spread(v: &[f32]) -> f32 {
+        v.iter().cloned().fold(f32::MIN, f32::max) - v.iter().cloned().fold(f32::MAX, f32::min)
+    }
+
+    /// #492: a stage of several holders in a 3D set – a being per character's `look` node, its body its own rig's nodes,
+    /// at its own spot; only its own look's links move it (the left one's LFO lights the left one, the right one has none
+    /// and stays as it is). #495: the item has no 3D – a card even here
+    #[test]
+    fn a_stage_of_several_draws_a_being_per_look_each_on_its_own_inputs() {
+        let (g, mut space, mut ctl) = stage(true);
         let ids = |b: &Being| b.points.iter().map(|p| g.nodes[p.node].id.as_str()).collect::<Vec<_>>();
-        assert_eq!(space.cast.len(), 2);
+        assert!(space.stage_3d());
+        assert_eq!(space.cast.len(), 3);
         assert_eq!(ids(&space.cast[0].being), ["left_lfo", "left_look"]);
         assert_eq!(ids(&space.cast[1].being), ["right_look"]);
         assert_eq!((space.cast[0].being.look.character.as_str(), space.cast[1].being.look.character.as_str()), ("catpope", "mute"));
-        assert_eq!(space.beings().count(), 2, "the cast's beings, not the space's own");
+        assert_eq!(space.cast.iter().map(|c| c.form).collect::<Vec<_>>(), [Form::Look, Form::Look, Form::Card]);
+        assert_eq!((space.beings().count(), space.cards()), (2, 1), "the characters' beings, not the space's own; the item a card");
         assert!(space.being.points.is_empty() && space.being.buttons.is_empty(), "the space's own being has no body to draw or turn");
-        assert!(space.cast[0].being.anchor.distance(space.cast[1].being.anchor) > 1.0, "no set: side by side, not on one spot");
+        assert_eq!(space.cast[0].feet, Vec3::new(-2.0, 0.0, 0.0), "on its spot in the set");
+        assert_eq!(space.cast[0].being.anchor, Vec3::new(-2.0, space.lift, 0.0), "the being floats over it");
         let mut glows = (Vec::new(), Vec::new());
-        for k in 0..30 {
-            ctl.step(1.0 / 30.0);
-            space.update(1.0 / 30.0, k as f32 / 30.0, &mut ctl, &tempo::Now::default(), &|_, _| 0.0);
-            glows.0.push(space.cast[0].being.glow);
-            glows.1.push(space.cast[1].being.glow);
-        }
-        let spread = |v: &[f32]| v.iter().cloned().fold(f32::MIN, f32::max) - v.iter().cloned().fold(f32::MAX, f32::min);
+        run(&mut space, &mut ctl, 30, &mut |s| {
+            glows.0.push(s.cast[0].being.glow);
+            glows.1.push(s.cast[1].being.glow);
+        });
         assert!(spread(&glows.0) > 0.5, "the left one glows with its own LFO: {:?}", glows.0);
         assert_eq!(spread(&glows.1), 0.0, "the right one has no mapping: still");
         assert_eq!(glows.1[0], params::default(crate::graph::Kind::Look, "glow"));
@@ -1701,5 +1845,60 @@ to = "left_look.glow"
         let (mut spheres, mut tubes) = (Vec::with_capacity(s), Vec::with_capacity(t));
         space.write(&mut spheres, &mut tubes);
         assert!(!spheres.is_empty() && spheres.len() <= s);
+        // the set gone after all: no 3D, every member a card
+        let generation = space.generation;
+        space.set_arrived(Err(anyhow::anyhow!("gone")));
+        assert!(!space.stage_3d() && space.generation > generation, "the renderer sizes its buffers anew");
+        assert_eq!((space.beings().count(), space.cards()), (0, 3));
+    }
+
+    /// #495 (owner 2026-11-12: "We fall back to 2d in all cases"): a stage with no set – every member a card, its feet on
+    /// its spot, upright, turned to the eye, as tall as its kind and as wide as its picture; the character's picture its
+    /// full view in its being's mood, the item's its picture; each card moved only by its own look's links
+    #[test]
+    fn a_stage_without_3d_stands_its_cast_as_cards() {
+        let (_g, mut space, mut ctl) = stage(false);
+        assert!(!space.stage_3d());
+        assert_eq!(space.cast.iter().map(|c| c.form).collect::<Vec<_>>(), [Form::Card, Form::Card, Form::Card]);
+        assert_eq!((space.beings().count(), space.cards()), (0, 3), "no bodies: cards");
+        // the pictures the stage asks for: a character's full view per mood, an item's one picture
+        let asked = space.portraits.requests();
+        let full = |id: &str| asked.iter().filter(|(_, p)| p.id == id && p.view == cast::CARD_VIEW).count();
+        assert_eq!(full("catpope"), space.cast[0].being.moods.len());
+        let item = asked.iter().find(|(_, p)| p.kind == "items").map(|(s, p)| (*s, p.stem()));
+        assert_eq!(item, Some((space.cast[2].pictures[0], "incense_burner".to_string())));
+        // her neutral full view arrives (1 : 2), the burner's picture (2 : 1)
+        let (pope, _) = asked.iter().find(|(_, p)| p.id == "catpope" && p.view == cast::CARD_VIEW && p.mood == space.cast[0].being.moods[0]).unwrap().clone();
+        space.portraits.deliver(pope, Ok(image::RgbaImage::new(50, 100)));
+        space.portraits.deliver(item.unwrap().0, Ok(image::RgbaImage::new(80, 40)));
+        let mut pulses = (Vec::new(), Vec::new());
+        let mut cards = Vec::with_capacity(space.cards());
+        run(&mut space, &mut ctl, 30, &mut |s| {
+            s.write_cards(s.camera.eye(), &mut cards);
+            pulses.0.push(cards[1].pulse);
+            pulses.1.push(cards[2].pulse);
+        });
+        assert!(spread(&pulses.1) > 0.3, "the burner's card moves with its own wire: {:?}", pulses.1);
+        assert_eq!(spread(&pulses.0), 0.0, "the listener's card has no mapping: still");
+        let eye = space.camera.eye();
+        space.write_cards(eye, &mut cards);
+        let (her, his, burner) = (cards[0], cards[1], cards[2]);
+        assert_eq!(her.picture, Some(pope), "her full view in her being's mood");
+        assert_eq!(his.picture, None, "no picture yet: a blank standee");
+        assert_eq!((her.up.y, burner.up.y), (1.7, 0.6), "a person's height, a thing's");
+        assert!((her.right.length() * 2.0 / her.up.y - 0.5).abs() < 1e-3, "as wide as her picture");
+        assert!((burner.right.length() * 2.0 / burner.up.y - 2.0).abs() < 1e-3, "as wide as its picture");
+        for c in &cards {
+            assert!(c.up.x == 0.0 && c.up.z == 0.0, "upright");
+            assert!(c.right.y == 0.0 && c.right.dot(Vec3::new(eye.x - c.feet.x, 0.0, eye.z - c.feet.z)).abs() < 1e-3, "turned to the eye");
+            assert!((c.feet.y - (space.being.anchor.y - space.lift)).abs() < 1e-4, "feet on the floor under the scene's spot");
+        }
+        assert!(her.feet.distance(his.feet) > 1.0, "side by side, not on one spot");
+        let middle = (her.feet + his.feet + burner.feet) / 3.0 + Vec3::Y * (1.7 + 1.7 + 0.6) / 6.0;
+        assert!(space.focus_goal(space.camera.distance).distance(middle) < 1e-4, "the camera aims at the cards' middle");
+        let (s, t) = space.capacity();
+        let (mut spheres, mut tubes) = (Vec::with_capacity(s), Vec::with_capacity(t));
+        space.write(&mut spheres, &mut tubes);
+        assert!(spheres.is_empty(), "no bodies drawn");
     }
 }

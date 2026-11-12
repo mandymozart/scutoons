@@ -39,7 +39,7 @@ pub fn builtin(name: &str) -> Option<&'static str> {
 }
 
 /// The sandboxes by name (#427): the files of deck/native/scenes/sandbox/ – hardware and engine checks, then demos.
-pub const SANDBOX: [&str; 16] = [
+pub const SANDBOX: [&str; 17] = [
     "channel-walk",
     "cue-34",
     "surround-51",
@@ -56,6 +56,7 @@ pub const SANDBOX: [&str; 16] = [
     "module-walk",
     "module-analog",
     "stage-duo",
+    "stage-cards",
 ];
 
 /// What a bare scene name is (#427).
@@ -129,6 +130,8 @@ pub fn sandbox(name: &str) -> Option<&'static str> {
         "module-analog" => include_str!("../../native/scenes/sandbox/module-analog.toml"),
         // #492: scene:stage resolved with two fillers – written by scene_resolve.rs's test, never by hand
         "stage-duo" => include_str!("../../native/scenes/sandbox/stage-duo.toml"),
+        // #495: a 3D stage with a character's look and an item's card – written by scene_resolve.rs's test, never by hand
+        "stage-cards" => include_str!("../../native/scenes/sandbox/stage-cards.toml"),
         _ => return None,
     })
 }
@@ -172,12 +175,15 @@ pub fn look_id(prefix: &str) -> String {
     format!("{prefix}look")
 }
 
-/// The `look` node of a character member on a stage of several holders (#492, scene_resolve.rs; graph.rs `Kind::Look`): its
-/// params are the holder, where it stands (`spot`, none = the scene's spot; `at`, metres from it) and its being's look
-/// (`being`, the character named for the head) – what the space draws there. Its inputs take its own rig's links to the being.
-pub fn look_node(prefix: &str, holder: &str, character: &str, spot: Option<&str>, at: [f32; 3], look: BeingLook) -> NodeDef {
+/// The `look` node of a member on a stage of several holders (#492, scene_resolve.rs; graph.rs `Kind::Look`): its params
+/// are the holder, who stands there (`who`: its place, `character:<id>` / `item:<id>` – cast.rs decides its form from it,
+/// #495), where it stands (`spot`, none = the scene's spot; `at`, metres from it) and its being's look (`being`, the
+/// character named for the head) – what the space draws there. Its inputs take its own rig's links to the being.
+pub fn look_node(prefix: &str, holder: &str, who: &crate::cast::Who, spot: Option<&str>, at: [f32; 3], look: BeingLook) -> NodeDef {
+    let character = who.character();
     let mut params = toml::Table::new();
     params.insert("holder".into(), holder.into());
+    params.insert("who".into(), who.place().into());
     if let Some(s) = spot {
         params.insert("spot".into(), s.into());
     }

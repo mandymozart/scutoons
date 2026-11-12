@@ -269,9 +269,12 @@ pub struct Portraits {
 
 #[cfg(feature = "space")]
 impl crate::space::portrait::Source for Portraits {
-    fn load(&self, character: &str, mood: &str) -> Result<image::RgbaImage, String> {
-        self.sync.wait(Want::Portrait { character: character.into(), mood: mood.into() }, PORTRAIT_WAIT);
-        self.local.load(character, mood)
+    fn load(&self, picture: &deck_space::cast::Picture) -> Result<image::RgbaImage, String> {
+        // the heads' portraits come through the sync; a card's other pictures (#495) are read from the folder as they are
+        if picture.view == deck_space::cast::PORTRAIT_VIEW {
+            self.sync.wait(Want::Portrait { character: picture.id.clone(), mood: picture.mood.clone() }, PORTRAIT_WAIT);
+        }
+        self.local.load(picture)
     }
 }
 

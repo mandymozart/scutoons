@@ -515,6 +515,8 @@ pub struct Being {
     pub glow: f32,
     /// the space node's `pulse` this frame (the level's kick – the core's light swells with it, #204)
     pub pulse: f32,
+    /// #495: what its rig moves its body by this frame (its look's ounce) – a card hops by it
+    pub bounce: f32,
     /// the hovered / dragged part (the renderer lights it)
     pub hover: Option<Hit>,
     /// #209: the selection the sticks drive (the last tapped): a button, or `Hit::Point` – the whole being (any of its
@@ -750,6 +752,7 @@ impl Being {
             hue: params::default(Kind::Space, "hue"),
             glow: params::default(Kind::Space, "glow"),
             pulse: 0.0,
+            bounce: 0.0,
             hover: None,
             selected: None,
             eye: None,
@@ -938,6 +941,7 @@ impl Being {
         self.pulse = self.core_point.map_or(0.0, |c| vals.input(self.points[c].node, "pulse", 0.0));
         // the bounce is the rig's, when something is wired to it (#455), never a default; held still, none
         let bounce = self.core_point.map_or(0.0, |c| vals.input(self.points[c].node, "bounce", 0.0));
+        self.bounce = bounce;
         self.swell = 1.0 + (look.breath * b + BOUNCE * bounce) * calm;
         let d = look.drift * calm;
         self.center = self.anchor + Vec3::new(d * (0.13 * time).sin(), 0.6 * d * (0.21 * time + 1.0).sin(), d * (0.17 * time + 2.0).sin());
