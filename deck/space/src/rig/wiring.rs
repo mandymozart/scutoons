@@ -124,7 +124,7 @@ pub enum Home {
     Preset { track: String, preset: String },
     /// the rig's `route` at this index
     Route { index: usize },
-    /// flatten made it: the mixer sum, the default `fft.level → space.pulse`
+    /// flatten made it: the mixer sum and the analyser on it
     Compiled,
     /// a module's path output bound by `Graph::build` (a code rig's policy): the module's Rust names it
     Bound,
@@ -505,8 +505,7 @@ mod tests {
         let bare = w.links.iter().find(|l| l.from == drone).expect("drone → mix");
         assert_eq!((bare.out.as_str(), bare.input.as_str(), bare.value.as_str()), ("out", "in1", "drone_drone.out"));
         let (fft, _) = node(&w, "fft");
-        let pulse = w.links.iter().find(|l| l.from == fft).expect("fft.level → space.pulse");
-        assert_eq!((pulse.ty, pulse.scale), ("control", 0.6));
+        assert!(!w.links.iter().any(|l| l.from == fft), "the sum's level moves nothing her rig did not wire (#492)");
         for l in &w.links {
             assert!(w.nodes[l.from].outputs.iter().any(|p| p.name == l.out && p.ty == l.ty), "{l:?}");
             assert!(w.nodes[l.to].inputs.iter().any(|p| p.name == l.input && p.ty == l.ty), "{l:?}");
@@ -520,7 +519,7 @@ mod tests {
         assert_eq!(d("voice_melody"), 0);
         assert!(d("voice_melody") < d("voice_voice") && d("voice_voice") < d("mix1"));
         assert!(d("drone_drone") < d("drone_mix") && d("drone_mix") < d("mix1"));
-        assert!(d("mix1") < d("out") && d("mix1") < d("fft") && d("fft") < d("space"));
+        assert!(d("mix1") < d("out") && d("mix1") < d("fft"));
     }
 
     /// #408: a code rig's policy is a node like any other – the scene's own (no track), in the control domain, its
@@ -542,7 +541,7 @@ mod tests {
     }
 
     /// #433 §4: the rig level – the tracks and the being as boxes with the ports cables touch, the compiled sum as stubs
-    /// (read-only), the default pulse into the being from the sum; the level chain is the rig alone
+    /// (read-only), no default pulse into the being (#492: only what the rig wires); the level chain is the rig alone
     #[test]
     fn the_rig_level_shows_tracks_the_being_and_the_sum_as_stubs() {
         let p = Bundle::core("character.catpope").unwrap().unwrap().play(None, None).unwrap();
@@ -551,10 +550,10 @@ mod tests {
         assert_eq!(v.nodes.iter().map(|n| (n.id.as_str(), n.kind.as_str())).collect::<Vec<_>>(), [("voice", "track"), ("drone", "track"), ("being", "space")]);
         assert!(v.links.is_empty(), "catpope's core rig has no route");
         let stubs: Vec<(&str, &str, bool, &str)> = v.stubs.iter().map(|s| (v.nodes[s.node].id.as_str(), s.port.as_str(), s.input, s.other.as_str())).collect();
-        assert_eq!(stubs, [("voice", "voice.out", false, "sum"), ("drone", "mix.out", false, "sum"), ("being", "pulse", true, "sum")], "{stubs:?}");
+        assert_eq!(stubs, [("voice", "voice.out", false, "sum"), ("drone", "mix.out", false, "sum")], "{stubs:?}");
         assert!(v.stubs.iter().all(|s| s.home == Home::Compiled && s.readonly == Some("compiled")));
         assert_eq!(v.nodes[0].outputs.iter().map(|p| (p.name.as_str(), p.ty)).collect::<Vec<_>>(), [("voice.out", "audio")]);
-        assert_eq!(v.nodes[2].inputs.iter().map(|p| p.name.as_str()).collect::<Vec<_>>(), ["pulse"]);
+        assert!(v.nodes[2].inputs.is_empty(), "nothing is wired into her being, so nothing moves it (#492)");
         assert!(p.wire_view("nobody").is_err() && p.wire_view("voice:nobody").is_err());
     }
 
@@ -586,7 +585,7 @@ mod tests {
         assert!(v.stubs.iter().all(|s| s.readonly == Some("module")));
         let own = p.wire_view("fft").unwrap();
         assert_eq!(own.levels, ["rig", "module:fft"]);
-        assert!(own.stubs.iter().any(|s| s.port == "level" && !s.input && s.other == "being:pulse"));
+        assert!(!own.stubs.iter().any(|s| s.port == "level"), "no default breath: the level goes nowhere unwired (#492)");
     }
 
     #[test]

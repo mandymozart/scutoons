@@ -1958,6 +1958,79 @@
       ]
     },
     {
+      "name": "look",
+      "version": "1",
+      "domain": "control",
+      "doc": "A holder's being on a stage of several (the scene's resolve step writes one per character holder): the space draws it at the holder's spot; only its own rig's links to the being's inputs move it.",
+      "feature": "space",
+      "module": "stage",
+      "scope": "internal",
+      "ports": [
+        {
+          "name": "hue",
+          "dir": "in",
+          "type": "control",
+          "doc": "being colour"
+        },
+        {
+          "name": "glow",
+          "dir": "in",
+          "type": "control",
+          "doc": "being glow"
+        },
+        {
+          "name": "pulse",
+          "dir": "in",
+          "type": "control",
+          "doc": "kicks the core's light"
+        },
+        {
+          "name": "bounce",
+          "dir": "in",
+          "type": "control",
+          "doc": "moves the body: wire the beat or the level to it"
+        }
+      ],
+      "params": [
+        {
+          "name": "hue",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 0.52,
+          "curve": "lin",
+          "port": true,
+          "doc": "being colour"
+        },
+        {
+          "name": "glow",
+          "min": 0.0,
+          "max": 2.0,
+          "default": 0.6,
+          "curve": "lin",
+          "port": true,
+          "doc": "being glow"
+        },
+        {
+          "name": "pulse",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 0.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "kicks the core's light"
+        },
+        {
+          "name": "bounce",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 0.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "moves the body: wire the beat or the level to it"
+        }
+      ]
+    },
+    {
       "name": "model3d",
       "version": "1",
       "domain": "video",

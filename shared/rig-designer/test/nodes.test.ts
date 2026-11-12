@@ -78,9 +78,10 @@ test("a cable's value as text: none, a peak, a pitch, a control value", () => {
 	assert.equal(cableText(147), '147');
 	assert.equal(cableText(12.34), '12.3');
 	assert.equal(cableText(-0.5), '-0.50');
-	const read = (p: string) => (p === 'fft.level' ? 0.25 : NaN);
+	// her melody's pitch cable (#492: no default fft.level → being cable any more)
+	const read = (p: string) => (p === 'voice_melody.cv' ? 0.25 : NaN);
 	const texts = cableTexts(CATPOPE.links, read);
 	assert.equal(texts.length, CATPOPE.links.length);
-	assert.equal(texts[CATPOPE.links.findIndex((k) => k.value === 'fft.level')], '0.25');
+	assert.equal(texts[CATPOPE.links.findIndex((k) => k.value === 'voice_melody.cv')], '0.25');
 	assert.ok(sameTexts(texts, [...texts]) && !sameTexts(texts, texts.slice(1)));
 });

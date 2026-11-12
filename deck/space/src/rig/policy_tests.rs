@@ -45,7 +45,7 @@ pub(crate) fn code_catpope() -> Bundle {
     with_policy(CATPOPE_RIG)
 }
 
-fn with_policy(json: &str) -> Bundle {
+pub(crate) fn with_policy(json: &str) -> Bundle {
     let mut b = declarative();
     b.rig.moods.clear();
     let d = descriptor(json);

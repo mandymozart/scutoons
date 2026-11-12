@@ -14,8 +14,12 @@
 //!   caller does not have leaves its member silent (said in `notes`). One rig keeps its slots as a rig played alone has
 //!   them (`voice_voice.ratio`), so `scene:nave` in format 2 plays the scene it was in format 1; several are prefixed by
 //!   their holder (`<holder>_…`, a zone's members `<holder>_<n>_…`). They share one `out` (the sums meet on its input),
-//!   one `space` and one `tempo`; the first rig's links to the space move the being and its look is the scene's being –
-//!   until the stage draws one look per character holder (2·1).
+//!   one `space` and one `tempo`; a code rig's policy node is re-prefixed with them (policy.rs `reprefix`).
+//! - **Looks (#492, 2·1):** on every stage but a single rigged member at the scene's own spot, each character member gets
+//!   a `look` node (scene.rs `look_node`) at its holder's spot – the space draws one being per look node. Only its own
+//!   rig's links to the being (`being:<input>` → `<prefix>look.<input>`) move it; a rig with no such mapping, or none at
+//!   all, moves nothing (owner 2026-11-12 [rigs]: "if a rig has no mapping to visual properties nothing moves"). A rig's
+//!   link into the room (the space's light, its post stack) is the scene's on such a stage and is left out, said in `notes`.
 //! - **The story's casting** (`Casting::join`, owner 2026-11-12 §9.7 Q4): `joinScene` takes the holder that carries the
 //!   character already, else the first placeholder or spawn zone with room, in the scene's order, whose `fill` admits it.
 use crate::problem::sentences;
@@ -252,18 +256,30 @@ pub fn resolve(doc: &SceneDocument, with: &BTreeMap<String, Fillers>, previews: 
     let mut scene = Scene::parse("").expect("the empty scene parses");
     scene.stage = doc.stage.clone();
     scene.outputs = doc.outputs.clone();
-    let alone = flat.len() == 1;
-    for (n, (i, rig)) in flat.into_iter().enumerate() {
+    // one member with its rig at the scene's own spot plays as its rig played alone: its slots as they are, its being the
+    // space's (so `scene:nave` plays the scene of format 1). Every other stage gives each character member a look of its
+    // own (#492): a `look` node at its holder's spot that only its own rig's links to the being move – no rig, or a rig
+    // with no mapping to the being, moves nothing (owner 2026-11-12 [rigs])
+    let alone = cast.len() == 1 && flat.len() == 1 && cast[0].spot.is_none() && cast[0].at == [0.0; 3];
+    let prefixes: Vec<String> = (0..cast.len())
+        .map(|i| {
+            let m = &cast[i];
+            let zone = doc.holders.iter().find(|h| h.id == m.holder).is_some_and(|h| h.take == crate::scene_document::Take::Many);
+            if alone {
+                String::new()
+            } else if zone {
+                let nth = cast[..=i].iter().filter(|x| x.holder == m.holder).count();
+                format!("{}_{nth}_", m.holder)
+            } else {
+                format!("{}_", m.holder)
+            }
+        })
+        .collect();
+    let character = |m: &Member| m.place.strip_prefix("character:").map(String::from);
+    let mut looks: BTreeMap<usize, crate::scene::BeingLook> = BTreeMap::new();
+    for (i, rig) in flat {
         let m = &cast[i];
-        let zone = doc.holders.iter().find(|h| h.id == m.holder).is_some_and(|h| h.take == crate::scene_document::Take::Many);
-        let prefix = if alone {
-            String::new()
-        } else if zone {
-            let nth = cast[..=i].iter().filter(|x| x.holder == m.holder).count();
-            format!("{}_{nth}_", m.holder)
-        } else {
-            format!("{}_", m.holder)
-        };
+        let prefix = prefixes[i].clone();
         let rename = |id: &str| if SHARED.contains(&id) { id.to_string() } else { format!("{prefix}{id}") };
         for node in rig.nodes {
             if SHARED.contains(&node.id.as_str()) {
@@ -271,31 +287,50 @@ pub fn resolve(doc: &SceneDocument, with: &BTreeMap<String, Fillers>, previews: 
                     scene.nodes.push(node);
                 }
             } else {
-                scene.nodes.push(NodeDef { id: rename(&node.id), ..node });
+                let mut node = NodeDef { id: rename(&node.id), ..node };
+                // a code rig's policy drives its own tracks only (#492, left open by #489)
+                if !alone && node.id == format!("{prefix}{}", crate::rig::policy::NODE) {
+                    crate::rig::policy::reprefix(&mut node, &prefix);
+                }
+                scene.nodes.push(node);
             }
         }
         for l in rig.links {
-            if n > 0 && node_port(&l.to).0 == "space" {
+            let (to, port) = node_port(&l.to);
+            if !alone && to == "space" {
+                // the rig's mappings to its being land on its own look; the room (light, post) is the scene's
+                match character(m) {
+                    Some(_) if crate::graph::Kind::Look.input(port).is_some() => {
+                        scene.links.push(LinkDef { from: renamed(&l.from, &rename), to: format!("{}.{port}", crate::scene::look_id(&prefix)), ..l });
+                    }
+                    Some(_) => notes.push(format!("holder {}: its rig's link into the room's '{port}' is left out – on a stage of several the room is the scene's", m.holder)),
+                    None => notes.push(format!("holder {}: '{}' has no look on the stage yet – its rig's link to being:{port} moves nothing", m.holder, m.filler)),
+                }
                 continue;
             }
             scene.links.push(LinkDef { from: renamed(&l.from, &rename), to: renamed(&l.to, &rename), ..l });
         }
-        if n == 0 {
-            #[cfg(feature = "being")]
-            {
-                let mut being = rig.being;
-                being.expose = being.expose.iter().map(|e| exposed(&prefix, e)).collect();
-                being.labels = being.labels.into_iter().map(|(k, v)| (exposed(&prefix, &k), v)).collect();
-                scene.being = being;
-            }
-            #[cfg(not(feature = "being"))]
-            {
-                scene.being = rig.being;
-            }
-        } else if n == 1 {
-            notes.push(format!("only holder {}'s rig moves the being until the stage draws one look per character (2·1)", cast[0].holder));
+        #[cfg(feature = "being")]
+        let being = {
+            let mut being = rig.being;
+            being.expose = being.expose.iter().map(|e| exposed(&prefix, e)).collect();
+            being.labels = being.labels.into_iter().map(|(k, v)| (exposed(&prefix, &k), v)).collect();
+            being
+        };
+        #[cfg(not(feature = "being"))]
+        let being = rig.being;
+        if alone {
+            scene.being = being;
+        } else {
+            looks.insert(i, being);
         }
         cast[i].slots = Some(prefix);
+    }
+    if !alone {
+        for (i, m) in cast.iter().enumerate() {
+            let Some(c) = character(m) else { continue };
+            scene.nodes.push(crate::scene::look_node(&prefixes[i], &m.holder, &c, m.spot.as_deref(), m.at, looks.remove(&i).unwrap_or_default()));
+        }
     }
 
     // the scene's own nodes: a shared one (its space) takes the document's params over the rig's bare one
@@ -461,9 +496,10 @@ mod tests {
         let m = &resolved.cast[0];
         assert_eq!((m.holder.as_str(), m.place.as_str(), m.slots.as_deref(), m.spot.as_ref()), ("catpope", "character:catpope", Some(""), None));
         assert!(resolved.notes.is_empty());
-        // without the rig at hand it still resolves: the space alone, Cat Pope silent and said
+        // without the rig at hand it still resolves: the space and her look (#492), Cat Pope silent and said
         let bare = resolve(&stored, &BTreeMap::new(), false, &no_rigs).unwrap();
-        assert_eq!(bare.scene.nodes.len(), 1);
+        let kinds: Vec<&str> = bare.scene.nodes.iter().map(|n| n.kind.as_str()).collect();
+        assert_eq!(kinds, ["look", "space"], "her look stands there, nothing moves it");
         assert!(bare.notes[0].contains("no rig character.catpope"), "{:?}", bare.notes);
     }
 
@@ -573,21 +609,134 @@ mod tests {
         assert_eq!(at.location.as_deref(), Some("location:dom"));
     }
 
-    /// two rigs on one stage: prefixed by their holders, summed into the one `out`, the first moves the being
+    /// a core rig plus the one wire a person draws to make its being breathe: its sum's level into the being's pulse
+    /// (#492, owner 2026-11-12: no default breath, only what is wired moves a being)
+    fn breathing(subject: &str, v: Option<&str>) -> Option<Bundle> {
+        let mut b = core_rigs(subject, v)?;
+        b.rig.routes.push(crate::rig::Route { from: "sound:level".into(), to: "being:pulse".into(), scale: 0.6, offset: 0.0 });
+        Some(b)
+    }
+
+    /// two rigs on one stage: prefixed by their holders, summed into the one `out` – the character's rig moves its own
+    /// look, an item has no look yet (its being links are said, not played); no rig moves another's being (#492)
     #[test]
     fn two_rigs_share_the_out_and_the_space() {
         let d = doc(r#"{"format":2,"id":"duo","holder":[{"id":"pope","ref":"character:catpope"},{"id":"burner","fill":{"kind":["item"]}}],
           "node":[{"id":"space","kind":"space","set":"cathedral"}]}"#);
-        let r = resolve(&d, &with(&[("burner", one("item:incense_burner"))]), false, &core_rigs).unwrap();
+        let r = resolve(&d, &with(&[("burner", one("item:incense_burner"))]), false, &breathing).unwrap();
         let ids: Vec<&str> = r.scene.nodes.iter().map(|n| n.id.as_str()).collect();
         assert!(ids.contains(&"pope_voice_voice") && ids.iter().any(|i| i.starts_with("burner_")), "{ids:?}");
         assert_eq!(ids.iter().filter(|i| **i == "out").count(), 1);
         assert_eq!(ids.iter().filter(|i| **i == "space").count(), 1);
-        assert_eq!(r.scene.links.iter().filter(|l| node_port(&l.to).0 == "space").count(), 1, "one rig moves the being");
+        assert!(r.scene.links.iter().all(|l| node_port(&l.to).0 != "space"), "no rig drives the room's being");
+        let into = |node: &str| r.scene.links.iter().filter(|l| node_port(&l.to).0 == node).map(|l| (l.from.clone(), l.to.clone())).collect::<Vec<_>>();
+        assert_eq!(into("pope_look"), [("pope_fft.level".to_string(), "pope_look.pulse".to_string())], "her rig's mapping, onto her look");
+        assert!(!ids.contains(&"burner_look"), "an item has no look on the stage yet");
+        assert!(r.notes.iter().any(|n| n.contains("holder burner") && n.contains("being:pulse moves nothing")), "{:?}", r.notes);
         assert_eq!(r.cast.iter().map(|m| m.slots.clone()).collect::<Vec<_>>(), [Some("pope_".to_string()), Some("burner_".to_string())]);
         assert_eq!(space(&r.scene)["set"].as_str(), Some("cathedral"));
-        assert!(r.notes[0].contains("only holder pope's rig moves the being"));
         #[cfg(feature = "being")]
-        assert!(r.scene.being.expose.iter().all(|e| e.starts_with("pope_")) && r.scene.being.character == "catpope");
+        {
+            let look: crate::space::being::Look = r.scene.nodes.iter().find(|n| n.id == "pope_look").unwrap().params["being"].clone().try_into().unwrap();
+            assert!(look.expose.iter().all(|e| e.starts_with("pope_")) && look.character == "catpope", "{look:?}");
+            assert_eq!(r.scene.being.character, "", "the space's own being is no one's");
+        }
+    }
+
+    /// a character whose rig only listens (a silent track) maps nothing to its being
+    pub(crate) const MUTE_RIG: &str = r#"
+[rig]
+subject = "character.mute"
+track = [{ id = "ear", instrument = "ear" }]
+
+[[instrument]]
+id = "ear"
+kind = "pad"
+name = { en = "Ear" }
+node = [{ id = "midi", kind = "world", source = "midi", listen = ["midi.note"] }]
+"#;
+
+    /// #492 (SCENES.md §9.6 2·1): `scene:stage` with two fillers – a look per character at its holder's spot, each moved
+    /// only by its own rig's mappings to the being; a rig with none moves nothing, no "first rig moves the being"
+    #[test]
+    fn each_holder_gets_a_look_moved_by_its_own_rig() {
+        let stage = fixture("templates/stage", None);
+        let mute: Bundle = toml::from_str(MUTE_RIG).unwrap();
+        let rigs = |s: &str, v: Option<&str>| if s == "character.mute" { Some(mute.clone()) } else { breathing(s, v) };
+        let r = resolve(&stage, &with(&[("left", one("character:catpope")), ("right", one("character:mute"))]), false, &rigs).unwrap();
+        let looks: Vec<(&str, &str, &str, &str)> = r
+            .scene
+            .nodes
+            .iter()
+            .filter(|n| n.kind == "look")
+            .map(|n| (n.id.as_str(), n.params["holder"].as_str().unwrap(), n.params["spot"].as_str().unwrap(), n.params["being"]["character"].as_str().unwrap()))
+            .collect();
+        assert_eq!(looks, [("left_look", "left", "spot_left", "catpope"), ("right_look", "right", "spot_right", "mute")]);
+        let into = |node: &str| r.scene.links.iter().filter(|l| node_port(&l.to).0 == node).map(|l| l.from.clone()).collect::<Vec<_>>();
+        assert_eq!(into("left_look"), ["left_fft.level"], "Cat Pope breathes with her own sum, as her rig wires it");
+        assert!(into("right_look").is_empty(), "a rig with no mapping to the being moves nothing");
+        assert!(into("space").is_empty());
+        let g = crate::graph::Graph::build(&r.scene).unwrap();
+        assert_eq!(g.nodes.iter().find(|n| n.id == "left_look").unwrap().kind, crate::graph::Kind::Look);
+        // one filler alone at a holder's spot stands there too: a look, not the space's being
+        let solo = resolve(&stage, &with(&[("left", one("character:catpope"))]), false, &core_rigs).unwrap();
+        assert!(solo.scene.nodes.iter().any(|n| n.id == "left_look"));
+        assert_eq!(solo.cast[0].slots.as_deref(), Some("left_"));
+    }
+
+    const STAGE_DUO_HEAD: &str = "\
+# A sandbox (#492): the template scene:stage resolved by the core with two fillers – Cat Pope at `left` with her core rig, Top
+# Toy at `right` with no rig at hand (silent). The space draws one being per `look` node at its holder's spot (no location
+# yet: the neutral staging, side by side). Neither moves: her core rig wires nothing to her being and there is no default
+# breath (owner 2026-11-12) – wire `sound:level → being:pulse` in her rig and only her light breathes. Written by
+# deck-space's scene_resolve.rs test `the_stage_duo_sandbox_is_the_core_s_resolve` – never by hand:
+#   UPDATE_FIXTURES=1 cargo test -p deck-space stage_duo
+# From deck/:  cargo run -p deck-native --release -- --dev --scene stage-duo --windowed
+";
+
+    /// #492: the sandbox `stage-duo` is the core's resolve of scene:stage with two fillers, so a deck (native, the browser's
+    /// dev build) shows the stage of several beings the scenario checks
+    #[test]
+    fn the_stage_duo_sandbox_is_the_core_s_resolve() {
+        let stage = fixture("templates/stage", None);
+        let r = resolve(&stage, &with(&[("left", one("character:catpope")), ("right", one("character:toptoy"))]), false, &core_rigs).unwrap();
+        let mut scene = r.scene;
+        scene.stage.name = "Stage duo".into();
+        let text = format!("{STAGE_DUO_HEAD}\n{}", toml::to_string(&scene).unwrap());
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../native/scenes/sandbox/stage-duo.toml");
+        if std::env::var_os("UPDATE_FIXTURES").is_some() {
+            std::fs::write(path, &text).unwrap();
+            return;
+        }
+        assert_eq!(std::fs::read_to_string(path).unwrap().replace('\r', ""), text, "stage-duo is stale: UPDATE_FIXTURES=1 cargo test -p deck-space stage_duo");
+        assert_eq!(Scene::parse(crate::scene::sandbox("stage-duo").unwrap()).unwrap(), scene, "what the decks read is what the core resolved");
+        assert_eq!(scene.nodes.iter().filter(|n| n.kind == "look").count(), 2);
+    }
+
+    /// #492 (left open by #489): a code rig's policy drives its own holder's tracks and strips, never another's
+    #[test]
+    fn a_code_rigs_policy_is_reprefixed_per_holder() {
+        let code = crate::rig::policy::tests::with_policy(
+            r#"{ "name": "regtest_stage_policy", "domain": "control", "abi": 2, "ports": [
+                { "name": "index", "dir": "out", "type": "control", "path": "voice:voice.index" },
+                { "name": "level", "dir": "out", "type": "control", "path": "drone:@gain", "mode": "mul" } ] }"#,
+        );
+        let rigs = |s: &str, _: Option<&str>| s.starts_with("character.").then(|| code.clone());
+        let stage = fixture("templates/stage", None);
+        let r = resolve(&stage, &with(&[("left", one("character:catpope")), ("right", one("character:toptoy"))]), false, &rigs).unwrap();
+        for h in ["left", "right"] {
+            let p = r.scene.nodes.iter().find(|n| n.id == format!("{h}_policy")).unwrap();
+            assert_eq!(p.params["@slots"].as_str(), Some(format!("{h}_").as_str()));
+            assert_eq!(p.params["@gain"]["drone"].as_str(), Some(format!("{h}_mix1.gain2").as_str()));
+        }
+        let g = crate::graph::Graph::build(&r.scene).unwrap();
+        let bound: Vec<(String, String)> = g
+            .links
+            .iter()
+            .filter(|l| g.nodes[l.from.0].id.ends_with("_policy"))
+            .map(|l| (g.nodes[l.from.0].id.clone(), format!("{}.{}", g.nodes[l.to.0].id, g.nodes[l.to.0].kind.inputs()[l.to.1].name)))
+            .collect();
+        let want = [("left", "left_voice_voice.index"), ("left", "left_mix1.gain2"), ("right", "right_voice_voice.index"), ("right", "right_mix1.gain2")];
+        assert_eq!(bound, want.map(|(h, to)| (format!("{h}_policy"), to.to_string())));
     }
 }

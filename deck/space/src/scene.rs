@@ -39,7 +39,7 @@ pub fn builtin(name: &str) -> Option<&'static str> {
 }
 
 /// The sandboxes by name (#427): the files of deck/native/scenes/sandbox/ – hardware and engine checks, then demos.
-pub const SANDBOX: [&str; 15] = [
+pub const SANDBOX: [&str; 16] = [
     "channel-walk",
     "cue-34",
     "surround-51",
@@ -55,6 +55,7 @@ pub const SANDBOX: [&str; 15] = [
     "catpope-analog",
     "module-walk",
     "module-analog",
+    "stage-duo",
 ];
 
 /// What a bare scene name is (#427).
@@ -126,6 +127,8 @@ pub fn sandbox(name: &str) -> Option<&'static str> {
         // #406: they play compiled rig modules, so they need the `modules` build and the modules' wasm in `DECK_MODULES`
         "module-walk" => include_str!("../../native/scenes/sandbox/module-walk.toml"),
         "module-analog" => include_str!("../../native/scenes/sandbox/module-analog.toml"),
+        // #492: scene:stage resolved with two fillers – written by scene_resolve.rs's test, never by hand
+        "stage-duo" => include_str!("../../native/scenes/sandbox/stage-duo.toml"),
         _ => return None,
     })
 }
@@ -156,6 +159,45 @@ pub struct Scene {
     #[serde(default)]
     #[cfg_attr(feature = "schema", schemars(with = "std::collections::BTreeMap<String, serde_json::Value>"))]
     pub being: toml::Table,
+}
+
+/// a being's look as this build keeps it: the space's `Look`, or its table without the space
+#[cfg(feature = "being")]
+pub type BeingLook = crate::space::being::Look;
+#[cfg(not(feature = "being"))]
+pub type BeingLook = toml::Table;
+
+/// The id of a character member's `look` node on a stage of several holders: `<its rig's slot prefix>look`
+pub fn look_id(prefix: &str) -> String {
+    format!("{prefix}look")
+}
+
+/// The `look` node of a character member on a stage of several holders (#492, scene_resolve.rs; graph.rs `Kind::Look`): its
+/// params are the holder, where it stands (`spot`, none = the scene's spot; `at`, metres from it) and its being's look
+/// (`being`, the character named for the head) – what the space draws there. Its inputs take its own rig's links to the being.
+pub fn look_node(prefix: &str, holder: &str, character: &str, spot: Option<&str>, at: [f32; 3], look: BeingLook) -> NodeDef {
+    let mut params = toml::Table::new();
+    params.insert("holder".into(), holder.into());
+    if let Some(s) = spot {
+        params.insert("spot".into(), s.into());
+    }
+    params.insert("at".into(), toml::Value::Array(at.iter().map(|x| toml::Value::Float(f64::from(*x))).collect()));
+    #[cfg(feature = "being")]
+    let being = {
+        let look = crate::space::being::Look { character: character.into(), ..look };
+        match toml::Value::try_from(&look) {
+            Ok(toml::Value::Table(t)) => t,
+            _ => toml::Table::new(),
+        }
+    };
+    #[cfg(not(feature = "being"))]
+    let being = {
+        let mut t = look;
+        t.insert("character".into(), character.into());
+        t
+    };
+    params.insert("being".into(), toml::Value::Table(being));
+    NodeDef { id: look_id(prefix), kind: "look".into(), params }
 }
 
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]

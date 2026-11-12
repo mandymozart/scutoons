@@ -123,10 +123,59 @@ pub enum Cursor {
 
 pub use crate::gesture::Touch;
 
+/// One holder's being on a stage of several (#492): the scene's `look` node drawn at its holder's spot.
+pub struct Cast {
+    pub being: Being,
+    /// the holder (a placeholder's id, or a zone's)
+    pub holder: String,
+    /// the set's spot it stands at; none = the scene's spot
+    pub spot: Option<String>,
+    /// where it stands from that spot (a spawn zone's arrangement), metres
+    pub at: Vec3,
+}
+
+/// between the cast's beings when the set has no spot for them (or there is no set): across the view, metres
+const CAST_SPACING: f32 = 1.4;
+
+impl Cast {
+    /// the cast of `graph`: a being per `look` node – the node's look (its `being` table), its body the nodes of its rig
+    /// (the ids under its prefix, `<prefix>look`), its core the look node; empty = the scene's one being is the space's
+    pub fn of(graph: &Graph, portraits: &mut Portraits) -> Vec<Cast> {
+        let looks: Vec<(usize, &str)> = graph
+            .nodes
+            .iter()
+            .enumerate()
+            .filter(|(_, n)| n.kind == crate::graph::Kind::Look)
+            .map(|(i, n)| (i, n.id.strip_suffix(crate::scene::look_id("").as_str()).unwrap_or_default()))
+            .collect();
+        // a node is the being's whose prefix is the longest that names it (holders `a` and `a_b`: `a_b_voice` is a_b's)
+        let owner = |k: usize| looks.iter().filter(|(_, p)| !p.is_empty() && graph.nodes[k].id.starts_with(p)).max_by_key(|(_, p)| p.len()).map(|(i, _)| *i);
+        looks
+            .iter()
+            .map(|&(i, _)| {
+                let n = &graph.nodes[i];
+                let look: Look = n.params.get("being").and_then(|v| v.clone().try_into().ok()).unwrap_or_default();
+                let mut being = Being::part(graph, &look, Some(i), &|k| owner(k) == Some(i));
+                being.head.sprites = portraits.request(&look.character, &being.moods);
+                let at = match n.f32s("at").as_slice() {
+                    [x, y, z] => Vec3::new(*x, *y, *z),
+                    _ => Vec3::ZERO,
+                };
+                Cast { being, holder: n.str("holder").unwrap_or_default().to_string(), spot: n.str("spot").map(String::from), at }
+            })
+            .collect()
+    }
+}
+
 pub struct Space {
     /// the space node
     pub node: usize,
+    /// the scene's being – the space's own (a rig played alone, a scene's `[being]`); on a stage of several holders a
+    /// bodiless one the camera aims by, the beings are the cast's
     pub being: Being,
+    /// #492: one being per character holder on a stage of several (the scene's `look` nodes), each at its holder's spot
+    /// and moved only by its own rig's links to its look; drawn and lit, not yet turned by hand
+    pub cast: Vec<Cast>,
     pub camera: Orbit,
     /// the set's 3D, from its loader until the renderer takes it
     set_rx: Option<mpsc::Receiver<Result<glb::Model>>>,
@@ -252,7 +301,8 @@ impl Space {
     /// `new`, with the sync's gate before every set file is read (sync.rs)
     pub fn with_gate(graph: &Graph, node: usize, look: &Look, sets: &Path, mut portraits: Portraits, gate: Option<Gate>) -> Space {
         let n = &graph.nodes[node];
-        let mut being = Being::new(graph, look);
+        let cast = Cast::of(graph, &mut portraits);
+        let mut being = if cast.is_empty() { Being::new(graph, look) } else { Being::part(graph, look, None, &|_| false) };
         being.head.sprites = portraits.request(&look.character, &being.moods);
         for p in &being.feel.problems {
             tracing::warn!("being: {p} – left out");
@@ -279,9 +329,10 @@ impl Space {
         }
         let mut camera = Orbit::new(aim(&being), n.f32("yaw", 20.0).to_radians(), n.f32("pitch", 8.0).to_radians(), n.f32("distance", 2.4));
         camera.auto = n.bool("auto_turn", false);
-        Space {
+        let mut space = Space {
             node,
             being,
+            cast,
             camera,
             set_rx,
             model: None,
@@ -322,6 +373,19 @@ impl Space {
             generation: 0,
             places: Vec::new(),
             sync: sync::Board::default(),
+        };
+        space.place_cast();
+        space
+    }
+
+    /// #492: the cast's beings to their holders' spots in the set (lifted like the scene's being), a zone's members by
+    /// their arrangement; a spot the set lacks (or no set yet) puts them in a row across the scene's spot
+    fn place_cast(&mut self) {
+        let n = self.cast.len();
+        for (k, c) in self.cast.iter_mut().enumerate() {
+            let spot = c.spot.as_ref().and_then(|s| self.spots.iter().find(|(name, _)| name == s)).map(|(_, p)| *p + Vec3::Y * self.lift);
+            let row = Vec3::X * (k as f32 - (n as f32 - 1.0) * 0.5) * CAST_SPACING;
+            c.being.anchor = spot.unwrap_or(self.being.anchor + row) + c.at;
         }
     }
 
@@ -383,6 +447,13 @@ impl Space {
         self.being.frame = Some(self.camera.frame(self.view.0 / self.view.1));
         self.being.update(dt, time, &Local { ctl, meter }, beat);
         self.being.push(ctl);
+        // #492: each holder's being on its own look's inputs
+        for c in &mut self.cast {
+            c.being.eye = self.being.eye;
+            c.being.frame = self.being.frame;
+            c.being.update(dt, time, &Local { ctl, meter }, beat);
+            c.being.push(ctl);
+        }
         let local = Local { ctl, meter };
         if self.drag == Drag::None {
             let reach = if self.fingers.driver().is_some() { TOUCH_REACH } else { 1.0 };
@@ -467,6 +538,7 @@ impl Space {
                 self.set_status = format!("SET {}K TRIS", model.triangles() / 1000);
                 self.spots = model.spots.clone();
                 self.model = Some(model);
+                self.place_cast();
             }
             Err(e) => {
                 tracing::error!("set: {e:#}");
@@ -478,10 +550,12 @@ impl Space {
     /// Another being for this deck (the browser's character switcher, #198): its graph and look, floating where the old
     /// one did; the set and the camera stay, the renderer sizes its buffers anew.
     pub fn replace_being(&mut self, graph: &Graph, look: &Look) {
-        let mut being = Being::new(graph, look);
+        self.cast = Cast::of(graph, &mut self.portraits);
+        let mut being = if self.cast.is_empty() { Being::new(graph, look) } else { Being::part(graph, look, None, &|_| false) };
         being.head.sprites = self.portraits.request(&look.character, &being.moods);
         being.anchor = self.being.anchor;
         self.being = being;
+        self.place_cast();
         self.graph = graph.clone();
         if let Some(n) = graph.first(crate::graph::Kind::Space) {
             self.node = n;
@@ -684,9 +758,10 @@ impl Space {
         n
     }
 
-    /// every being: this deck's own first, then the decks'
+    /// every being: this deck's own first (on a stage of several holders, the cast's instead – #492), then the decks'
     pub fn beings(&self) -> impl Iterator<Item = &Being> {
-        std::iter::once(&self.being).chain(self.others.iter().map(|r| &r.being))
+        let own = self.cast.is_empty().then_some(&self.being);
+        own.into_iter().chain(self.cast.iter().map(|c| &c.being)).chain(self.others.iter().map(|r| &r.being))
     }
 
     /// This frame's labels (label.rs): the conductor's word over each deck's being (the buttons carry no numbers – owner
@@ -850,6 +925,7 @@ impl Space {
                 if let Some(pos) = self.spots.iter().find(|(n, _)| *n == self.spot).map(|(_, p)| *p) {
                     self.being.anchor = pos + Vec3::Y * self.lift;
                     self.camera.look_at(aim(&self.being));
+                    self.place_cast();
                 } else if spot.is_some() && self.set_rx.is_none() {
                     tracing::warn!("set: no spot '{}' – the being stays", self.spot);
                 }
@@ -1565,5 +1641,65 @@ mod tests {
         space.write(&mut spheres, &mut tubes);
         assert!(spheres.iter().any(|s| s.extra[0] == being::kind::RING && s.color == [1.0, 1.0, 1.0, 0.9]), "the selection's white ring");
         assert!(spheres.len() <= space.capacity().0);
+    }
+
+    /// #492: a stage of several holders – a being per `look` node, its body its own rig's nodes, standing apart; only its
+    /// own look's links move it (the left one's LFO lights the left one, the right one has none and stays as it is)
+    #[test]
+    fn a_stage_of_several_draws_a_being_per_look_each_on_its_own_inputs() {
+        let text = r#"
+[[node]]
+id = "space"
+kind = "space"
+[[node]]
+id = "left_lfo"
+kind = "lfo"
+rate = 2.0
+depth = 2.0
+[[node]]
+id = "left_look"
+kind = "look"
+holder = "left"
+spot = "spot_left"
+at = [0.0, 0.0, 0.0]
+being = { character = "catpope", expose = ["left_lfo.rate"] }
+[[node]]
+id = "right_look"
+kind = "look"
+holder = "right"
+spot = "spot_right"
+being = { character = "mute" }
+[[link]]
+from = "left_lfo"
+to = "left_look.glow"
+"#;
+        let scene = Scene::parse(text).unwrap();
+        let g = Graph::build(&scene).unwrap();
+        let node = g.first(crate::graph::Kind::Space).unwrap();
+        let mut space = Space::new(&g, node, &scene.being, Path::new("/nowhere"), Portraits::manual());
+        let mut ctl = Table::new(&g);
+        let ids = |b: &Being| b.points.iter().map(|p| g.nodes[p.node].id.as_str()).collect::<Vec<_>>();
+        assert_eq!(space.cast.len(), 2);
+        assert_eq!(ids(&space.cast[0].being), ["left_lfo", "left_look"]);
+        assert_eq!(ids(&space.cast[1].being), ["right_look"]);
+        assert_eq!((space.cast[0].being.look.character.as_str(), space.cast[1].being.look.character.as_str()), ("catpope", "mute"));
+        assert_eq!(space.beings().count(), 2, "the cast's beings, not the space's own");
+        assert!(space.being.points.is_empty() && space.being.buttons.is_empty(), "the space's own being has no body to draw or turn");
+        assert!(space.cast[0].being.anchor.distance(space.cast[1].being.anchor) > 1.0, "no set: side by side, not on one spot");
+        let mut glows = (Vec::new(), Vec::new());
+        for k in 0..30 {
+            ctl.step(1.0 / 30.0);
+            space.update(1.0 / 30.0, k as f32 / 30.0, &mut ctl, &tempo::Now::default(), &|_, _| 0.0);
+            glows.0.push(space.cast[0].being.glow);
+            glows.1.push(space.cast[1].being.glow);
+        }
+        let spread = |v: &[f32]| v.iter().cloned().fold(f32::MIN, f32::max) - v.iter().cloned().fold(f32::MAX, f32::min);
+        assert!(spread(&glows.0) > 0.5, "the left one glows with its own LFO: {:?}", glows.0);
+        assert_eq!(spread(&glows.1), 0.0, "the right one has no mapping: still");
+        assert_eq!(glows.1[0], params::default(crate::graph::Kind::Look, "glow"));
+        let (s, t) = space.capacity();
+        let (mut spheres, mut tubes) = (Vec::with_capacity(s), Vec::with_capacity(t));
+        space.write(&mut spheres, &mut tubes);
+        assert!(!spheres.is_empty() && spheres.len() <= s);
     }
 }

@@ -108,6 +108,10 @@ pub enum Kind {
     Smooth,
     Mul,
     Add,
+    /// #492: one being on a stage of several holders (scene_resolve.rs writes it per character holder, internal like the
+    /// helpers): the space draws it at the holder's spot, its inputs (hue, glow, pulse, bounce) are what its own rig maps
+    /// to the being
+    Look,
     /// a compiled module from the library (#280, modreg.rs): its ports come from its descriptor, not from this table;
     /// its scene name is `module:<name>`. Not in `ALL` – those are the kinds graph.rs defines.
     Module(ModuleKind),
@@ -115,7 +119,7 @@ pub enum Kind {
 
 impl Kind {
     /// every kind with its name in a scene: the `graph` kinds (`ALL`), then the internal control helpers
-    const NAMES: [(&'static str, Kind); 29] = [
+    const NAMES: [(&'static str, Kind); 30] = [
         ("test_pattern", Kind::TestPattern),
         ("shader", Kind::Shader),
         ("screen", Kind::Screen),
@@ -145,6 +149,7 @@ impl Kind {
         ("smooth", Kind::Smooth),
         ("mul", Kind::Mul),
         ("add", Kind::Add),
+        ("look", Kind::Look),
     ];
     /// the `graph` kinds – what an author places (the catalog's `graph` scope, in its order)
     pub const ALL: [Kind; 26] = {
@@ -480,6 +485,8 @@ fn bind_targets(nodes: &[Node], by_id: &HashMap<String, usize>, links: &mut Vec<
     let mut holds = Vec::new();
     for (mi, m) in nodes.iter().enumerate() {
         let Kind::Module(kind) = m.kind else { continue };
+        // #492: a code rig among several on one stage – its slots carry its holder's prefix (`<holder>_`)
+        let slots = m.params.get(crate::rig::policy::SLOTS).and_then(|v| v.as_str()).unwrap_or_default();
         for &(out, path, mode) in kind.spec().targets {
             // the descriptor's target is an address (rig/address.rs): `<track>:<node>.<port>` → the flattened
             // `<track>_<node>`; `<track>:@gain` → the strip the node's `@gain` table names (a code rig's flatten writes
@@ -491,7 +498,9 @@ fn bind_targets(nodes: &[Node], by_id: &HashMap<String, usize>, links: &mut Vec<
                     let Some((node, port)) = strip.map(node_port) else { continue };
                     (node.to_owned(), port.to_owned())
                 }
-                Ok(Leaf::Port { track: Some(track), node, port }) => (format!("{track}_{node}"), port),
+                Ok(Leaf::Port { track: Some(track), node, port }) => (format!("{slots}{track}_{node}"), port),
+                // a node of the scene: the rig's own under its prefix, else one the holders share (out, tempo)
+                Ok(Leaf::Port { track: None, node, port }) if by_id.contains_key(&format!("{slots}{node}")) => (format!("{slots}{node}"), port),
                 Ok(Leaf::Port { track: None, node, port }) => (node, port),
                 _ => continue,
             };

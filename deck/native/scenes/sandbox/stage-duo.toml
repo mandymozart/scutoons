@@ -1,0 +1,172 @@
+# A sandbox (#492): the template scene:stage resolved by the core with two fillers – Cat Pope at `left` with her core rig, Top
+# Toy at `right` with no rig at hand (silent). The space draws one being per `look` node at its holder's spot (no location
+# yet: the neutral staging, side by side). Neither moves: her core rig wires nothing to her being and there is no default
+# breath (owner 2026-11-12) – wire `sound:level → being:pulse` in her rig and only her light breathes. Written by
+# deck-space's scene_resolve.rs test `the_stage_duo_sandbox_is_the_core_s_resolve` – never by hand:
+#   UPDATE_FIXTURES=1 cargo test -p deck-space stage_duo
+# From deck/:  cargo run -p deck-native --release -- --dev --scene stage-duo --windowed
+
+[stage]
+name = "Stage duo"
+render_scale = 1.0
+transition = "fade"
+transition_secs = 0.4000000059604645
+
+[[node]]
+id = "left_voice_voice"
+kind = "fm"
+freq = 147.0
+gain = 0.16
+index = 2.0
+ratio = 1.5
+
+[[node]]
+id = "left_voice_melody"
+kind = "walk"
+base = 147.0
+bpm = 84.0
+glide = 0.5
+octaves = 2.0
+rate = 2.0
+seed = 84
+spread = 0.0
+
+[[node]]
+id = "left_drone_drone"
+kind = "osc"
+freq = 55.0
+gain = 0.1
+
+[[node]]
+id = "left_drone_fifth"
+kind = "osc"
+freq = 82.5
+gain = 0.03
+
+[[node]]
+id = "left_drone_mix"
+kind = "mixer"
+
+[[node]]
+id = "left_mix1"
+kind = "mixer"
+gain1 = 1.0
+gain2 = 1.0
+
+[[node]]
+id = "out"
+kind = "audio_out"
+
+[[node]]
+id = "left_fft"
+kind = "fft"
+
+[[node]]
+id = "space"
+kind = "space"
+bloom = 0.6
+glow = 0.6
+glow_light = 1.0
+glow_range = 7.0
+hue = 0.52
+join = "deck"
+light = 0.85
+post = ["bloom", "curves", "pixelate", "fxaa"]
+quality = "low"
+spot = "spot_centre"
+threshold = 0.55
+
+[[node]]
+id = "left_look"
+kind = "look"
+at = [0.0, 0.0, 0.0]
+holder = "left"
+spot = "spot_left"
+
+[node.being]
+breath = 0.03500000014901161
+bubbles = 1.0
+character = "catpope"
+drift = 0.05999999865889549
+expose = ["left_voice_voice.ratio", "left_voice_voice.index", "left_voice_voice.gain", "left_voice_melody.spread", "left_voice_melody.rate", "left_voice_melody.glide", "left_drone_drone.freq", "left_drone_drone.gain"]
+feel = []
+hose = 1.0
+moods = ["neutral", "thinking", "happy", "laughing", "surprised"]
+react = []
+size = 0.5
+wobble = 0.02500000037252903
+
+[[node]]
+id = "right_look"
+kind = "look"
+at = [0.0, 0.0, 0.0]
+holder = "right"
+spot = "spot_right"
+
+[node.being]
+breath = 0.03500000014901161
+bubbles = 1.0
+character = "toptoy"
+drift = 0.05999999865889549
+expose = []
+feel = []
+hose = 1.0
+moods = ["neutral", "thinking", "happy", "laughing", "surprised"]
+react = []
+size = 0.5
+wobble = 0.02500000037252903
+
+[[link]]
+from = "left_voice_melody.cv"
+to = "left_voice_voice.cv"
+scale = 1.0
+offset = 0.0
+
+[[link]]
+from = "left_drone_drone.out"
+to = "left_drone_mix.in1"
+scale = 1.0
+offset = 0.0
+
+[[link]]
+from = "left_drone_fifth.out"
+to = "left_drone_mix.in2"
+scale = 1.0
+offset = 0.0
+
+[[link]]
+from = "left_voice_voice.out"
+to = "left_mix1.in1"
+scale = 1.0
+offset = 0.0
+
+[[link]]
+from = "left_drone_mix.out"
+to = "left_mix1.in2"
+scale = 1.0
+offset = 0.0
+
+[[link]]
+from = "left_mix1.out"
+to = "out.in"
+scale = 1.0
+offset = 0.0
+
+[[link]]
+from = "left_mix1.out"
+to = "left_fft.in"
+scale = 1.0
+offset = 0.0
+
+[being]
+size = 0.5
+drift = 0.05999999865889549
+breath = 0.03500000014901161
+wobble = 0.02500000037252903
+hose = 1.0
+bubbles = 1.0
+expose = []
+character = ""
+moods = ["neutral", "thinking", "happy", "laughing", "surprised"]
+feel = []
+react = []

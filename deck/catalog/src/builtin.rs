@@ -528,6 +528,24 @@ fn build() -> Vec<Descriptor> {
     kind(F_BATCH | F_INTERNAL, "smooth", Control, "core", "control", "Smooths its input over `time` (a control helper).", &[ci("in", "the value"), ci("time", "glide time"), co("out", "the smoothed value")], &[lin("in", -1000.0, 1000.0, 0.0, "", "the value"), log("time", 0.001, 10.0, 0.1, "s", "glide time")]),
     kind(F_BATCH | F_INTERNAL, "mul", Control, "core", "control", "Multiplies a and b (a control helper).", &[ci("a", "factor a"), ci("b", "factor b"), co("out", "a × b")], &[lin("a", -1000.0, 1000.0, 0.0, "", "factor a"), lin("b", -1000.0, 1000.0, 0.0, "", "factor b")]),
     kind(F_BATCH | F_INTERNAL, "add", Control, "core", "control", "Adds a and b (a control helper).", &[ci("a", "summand a"), ci("b", "summand b"), co("out", "a + b")], &[lin("a", -1000.0, 1000.0, 0.0, "", "summand a"), lin("b", -1000.0, 1000.0, 0.0, "", "summand b")]),
+    // #492: one being on a stage of several holders – what the scene's resolve step writes per character holder (no author
+    // places it); the space draws it at the holder's spot, its rig's `being:` routes land on its inputs (the space's own
+    // being inputs, the room's light and post stack stay the space node's)
+    kind(
+        F_INTERNAL,
+        "look",
+        Control,
+        "space",
+        "stage",
+        "A holder's being on a stage of several (the scene's resolve step writes one per character holder): the space draws it at the holder's spot; only its own rig's links to the being's inputs move it.",
+        &[ci("hue", "being colour"), ci("glow", "being glow"), ci("pulse", "kicks the core's light"), ci("bounce", "moves the body: wire the beat or the level to it")],
+        &[
+            lin("hue", 0.0, 1.0, 0.52, "", "being colour"),
+            lin("glow", 0.0, 2.0, 0.6, "", "being glow"),
+            lin("pulse", 0.0, 1.0, 0.0, "", "kicks the core's light"),
+            lin("bounce", 0.0, 1.0, 0.0, "", "moves the body: wire the beat or the level to it"),
+        ],
+    ),
     // planned modules (CYBERDECKS.md §8, the owner's list #182)
     kind(F_PLANNED, "model3d", Video, "", "3d", "Planned: a 3D model.", &[ci("rot", "rotation"), vo("out", "the picture")], &[lin("rot", 0.0, 1.0, 0.0, "", "rotation")]),
     kind(F_PLANNED, "text", Video, "", "text", "Planned: text over a picture.", &[vi("in", "the picture"), vo("out", "the picture with text")], &[]),

@@ -284,7 +284,7 @@ mod tests {
         assert!(!port(&p, "voice:voice.out").input);
         assert_eq!(port(&p, "voice:voice.cv").cables[0].from, "voice:melody.cv");
         assert!(p.iter().all(|x| x.address.contains(':')), "every port is addressed");
-        assert!(port(&p, "being:pulse").cables.iter().any(|c| c.from == "fft.level"), "the compiled cable names its slot");
+        assert!(port(&p, "being:pulse").cables.is_empty(), "no default breath: only a wire moves the being (#492)");
     }
 
     #[test]
