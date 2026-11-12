@@ -1,0 +1,47 @@
+name = "the cast in 2D: a member without 3D stands as its card, an item's card moved by its own wire"
+about = "#495 (owner 2026-11-12 [scenes]: \"We fall back to 2d in all cases\"): the core decides each cast member's form (deck-space cast.rs) – its 3D look where 3D exists for it (a character on a stage whose set is 3D), else its 2D card (its picture at its holder's spot). The document deck/headless/documents/nave-cast.json is a stage in the cathedral's 3D set with Cat Pope and an incense burner: she stands as her look, the burner – an item, no 3D – as its card, and only its own rig's wire (`sound:level → being:pulse`) moves it. The same pair on scene:stage with no set: both cards. The decks (native, browser) draw what these forms say (space/mod.rs `write_cards`, gpu.rs)"
+
+[[step]]
+do = "load"
+document = "headless/documents/nave-cast.json"
+[step.rigs."item.incense_burner".rig]
+subject = "item.incense_burner"
+track = [{ id = "glow", instrument = "glow" }]
+route = [{ from = "sound:level", to = "being:pulse", scale = 0.6 }]
+[[step.rigs."item.incense_burner".instrument]]
+id = "glow"
+kind = "pad"
+name = { en = "Glow" }
+out = "osc"
+node = [{ id = "osc", kind = "osc", freq = 220.0, gain = 0.1 }]
+[step.expect]
+page = []
+stage = { stage_3d = true, cast = [{ holder = "pope", look = "pope_look", character = "catpope", who = "character:catpope", form = "look" }, { holder = "burner", look = "burner_look", character = "", who = "item:incense_burner", form = "card", picture = "items.incense_burner.picture" }], notes = [] }
+
+[[step]]
+do = "run"
+ms = 1500
+expect = { sound = true }
+
+# the burner's card moves with its own sum, because its rig wires it (its fft.level → its look's pulse) …
+[[step]]
+do = "heard"
+path = "burner_look.pulse"
+expect = { value = { min = 0.001 } }
+
+# … and Cat Pope's look does not: she sounds, but her core rig wires nothing to her being
+[[step]]
+do = "heard"
+path = "pope_look.pulse"
+expect = { value = 0.0 }
+
+# no set on the stage (scene:stage, its location's set not here yet): every member a card – her full view, the burner's picture
+[[step]]
+do = "reset"
+
+[[step]]
+do = "load"
+document = "../server/tests/fixtures/scenes/templates/stage.json"
+with = { where = "location:dom", left = "character:catpope", right = "character:toptoy" }
+[step.expect]
+stage = { stage_3d = false, cast = [{ holder = "left", look = "left_look", character = "catpope", spot = "spot_left", who = "character:catpope", form = "card", picture = "characters.catpope.full" }, { holder = "right", look = "right_look", character = "toptoy", spot = "spot_right", who = "character:toptoy", form = "card", picture = "characters.toptoy.full" }] }

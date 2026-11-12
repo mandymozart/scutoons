@@ -315,6 +315,10 @@ impl Run<'_> {
             let r = deck_space::scene_resolve::resolve(&doc, &with, previews, &rigs).map_err(|e| err(e.join("; ")))?;
             let e = deck_space::rig::engine::lower(&r.scene).map_err(|e| err(format!("{e:#}")))?;
             let word = |n: &deck_space::scene::NodeDef, k: &str| n.params.get(k).and_then(|v| v.as_str()).map(String::from);
+            // #495: each member's form on this stage (the core's cast.rs, as the decks draw it) and, for a card, the
+            // picture it shows (scene-content's entry and field; a character's in its being's mood)
+            use deck_space::cast::{self, Form, Picture, Who};
+            let stage_3d = cast::stage_3d(&r.scene);
             let cast: Vec<Value> = r
                 .scene
                 .nodes
@@ -322,10 +326,20 @@ impl Run<'_> {
                 .filter(|n| n.kind == "look")
                 .map(|n| {
                     let character = n.params.get("being").and_then(|b| b.get("character")).and_then(|v| v.as_str()).unwrap_or_default();
-                    json!({ "holder": word(n, "holder"), "look": n.id, "character": character, "spot": word(n, "spot") })
+                    let who = word(n, "who").as_deref().and_then(Who::parse);
+                    let form = who.as_ref().map(|w| cast::form(w, stage_3d));
+                    let picture = match (&who, form) {
+                        (Some(Who::Character(c)), Some(Form::Card)) => Some(Picture::character(c, cast::CARD_VIEW, "")),
+                        (Some(Who::Item(i)), Some(Form::Card)) => Some(Picture::item(i)),
+                        _ => None,
+                    }
+                    .map(|p| format!("{}.{}.{}", p.kind, p.id, p.field()));
+                    let fact = json!({ "holder": word(n, "holder"), "look": n.id, "character": character, "spot": word(n, "spot"), "who": word(n, "who"), "form": form.map(Form::word), "picture": picture });
+                    // what a member does not have is left out (a scenario's TOML has no null to expect)
+                    Value::Object(fact.as_object().into_iter().flatten().filter(|(_, v)| !v.is_null()).map(|(k, v)| (k.clone(), v.clone())).collect())
                 })
                 .collect();
-            let facts = json!({ "cast": cast, "slots": r.cast.iter().map(|m| m.slots.clone()).collect::<Vec<_>>(), "notes": r.notes, "location": r.location });
+            let facts = json!({ "cast": cast, "stage_3d": stage_3d, "slots": r.cast.iter().map(|m| m.slots.clone()).collect::<Vec<_>>(), "notes": r.notes, "location": r.location });
             return Ok((e.scene, e.page.iter().map(|n| n.id.clone()).collect(), facts));
         }
         // #425: no rig plays – the deck's own scene, silent (what `Deck::new` and `play_core` of a character without a rig play)

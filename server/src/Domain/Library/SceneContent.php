@@ -20,7 +20,10 @@ use stdClass;
  *   become sets) – their `model: { src, variants? }` = the 3D variant, a `.glb` per quality (`src` = medium; a level
  *   without its own variant gets `src`), answered as `model: { low, medium, high }`; a set without one answers `model: {}`.
  * - **Characters**: a registry id (`catpope`), an old VN id (`plf` → its character and persona, ContentTables::LEGACY_CHARACTER_IDS) or `<character>-<persona>`
- *   (`catpope-biker`, the deck's stand-ins) – that persona's (else `regular`'s) default look, its `portrait` per mood.
+ *   (`catpope-biker`, the deck's stand-ins) – that persona's (else `regular`'s) default look, its `portrait` per mood and
+ *   (#495, a stage's card) its `full` view per mood.
+ * - **Items** (#495): `items.<id>.picture` – the catalog item's picture (its `icon`), what a stage shows as the item's card;
+ *   null when it has none. An item the catalog and the rigs both do not know is in `missing.items`.
  * - **Rigs** (#258, agents/research/INSTRUMENTS.md §6): each character's `rig` – the persona's own
  *   (`character.<id>.<persona>`), else the character's (`character.<id>`, persona variants inside), else null – and per
  *   `items=` id its rig (`item.<id>`, a scene object's sound, #210). A rig is `{ id, version, data, instruments, presets }`:
@@ -65,8 +68,47 @@ final class SceneContent
             }
         }
         $answer = self::compose($sets, fn(string $id) => $this->catalog->get('home-scenes', $id), $characters, is_array($registry) ? $registry : []);
+        $answer = self::withRigs($answer, $items, fn(string $kind, string $id) => $this->stored($kind, $id), $presets);
+        $answer = self::withItemPictures($answer, $items, fn(string $id) => $this->item($id));
         $sizes = $this->registry->available() ? $this->registry->sizesOf(self::paths($answer)) : [];
-        return self::withRigs(self::withSizes($answer, $sizes), $items, fn(string $kind, string $id) => $this->stored($kind, $id), $presets);
+        return self::withSizes($answer, $sizes);
+    }
+
+    /** a catalog item's entry, null when there is none (or no table yet) */
+    private function item(string $id): mixed
+    {
+        try {
+            return $this->catalog->get('items', $id);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * The answer with each asked item's picture (pure – SceneContentTest, #495): `items.<id>.picture` = its catalog
+     * entry's `icon` as a file, null without one; an item with a picture but no rig is answered too (`rig` null) and leaves
+     * `missing.items`.
+     *
+     * @param array<string, mixed> $answer withRigs()
+     * @param list<string> $items
+     * @param callable(string): mixed $item a catalog item's entry by id (null = none)
+     * @return array<string, mixed>
+     */
+    public static function withItemPictures(array $answer, array $items, callable $item): array
+    {
+        foreach (array_values(array_unique($items)) as $id) {
+            $entry = $item($id);
+            $entry = $entry instanceof stdClass ? (array) $entry : $entry;
+            $icon = is_array($entry) ? ($entry['icon'] ?? null) : null;
+            $picture = is_string($icon) && $icon !== '' ? ['path' => $icon, 'size' => null] : null;
+            if (isset($answer['items'][$id])) {
+                $answer['items'][$id]['picture'] = $picture;
+            } elseif ($picture !== null) {
+                $answer['items'][$id] = ['rig' => null, 'picture' => $picture];
+                $answer['missing']['items'] = array_values(array_diff($answer['missing']['items'] ?? [], [$id]));
+            }
+        }
+        return $answer;
     }
 
     /**
@@ -260,17 +302,22 @@ final class SceneContent
                 continue;
             }
             [$character, $persona, $look] = $found;
-            $portraits = [];
-            foreach (is_array($look['images'] ?? null) ? $look['images'] : [] as $mood => $views) {
-                $path = is_array($views) ? ($views['portrait'] ?? null) : null;
-                if (is_string($path) && $path !== '') $portraits[(string) $mood] = ['path' => $path, 'size' => null];
+            // per view: mood → file (the heads' portraits; #495 a stage's card shows the full view)
+            $views = ['portrait' => [], 'full' => []];
+            foreach (is_array($look['images'] ?? null) ? $look['images'] : [] as $mood => $files) {
+                foreach (array_keys($views) as $view) {
+                    $path = is_array($files) ? ($files[$view] ?? null) : null;
+                    if (is_string($path) && $path !== '') $views[$view][(string) $mood] = ['path' => $path, 'size' => null];
+                }
             }
-            ksort($portraits);
+            ksort($views['portrait']);
+            ksort($views['full']);
             $out['characters'][$id] = [
                 'character' => $character,
                 'persona' => $persona,
                 'look' => is_string($look['id'] ?? null) ? $look['id'] : null,
-                'portraits' => (object) $portraits,
+                'portraits' => (object) $views['portrait'],
+                'full' => (object) $views['full'],
             ];
         }
         return $out;
@@ -307,21 +354,22 @@ final class SceneContent
 
     /**
      * every file path of an answer
-     * @param array{sets: array<string, mixed>, characters: array<string, mixed>} $answer
+     * @param array<string, mixed> $answer
      * @return list<string>
      */
     public static function paths(array $answer): array
     {
         $paths = [];
         foreach ($answer['sets'] as $s) foreach ((array) $s['model'] as $f) $paths[] = $f['path'];
-        foreach ($answer['characters'] as $c) foreach ((array) $c['portraits'] as $f) $paths[] = $f['path'];
+        foreach ($answer['characters'] as $c) foreach ([...array_values((array) $c['portraits']), ...array_values((array) ($c['full'] ?? []))] as $f) $paths[] = $f['path'];
+        foreach ($answer['items'] ?? [] as $i) if (is_array($i['picture'] ?? null)) $paths[] = $i['picture']['path'];
         return array_values(array_unique($paths));
     }
 
     /**
-     * @param array{sets: array<string, mixed>, characters: array<string, mixed>, missing: array{sets: list<string>, characters: list<string>}} $answer
+     * @param array<string, mixed> $answer
      * @param array<string, int> $sizes path → bytes (unknown paths keep `size: null`)
-     * @return array{sets: array<string, mixed>, characters: array<string, mixed>, missing: array{sets: list<string>, characters: list<string>}}
+     * @return array<string, mixed>
      */
     public static function withSizes(array $answer, array $sizes): array
     {
@@ -331,7 +379,13 @@ final class SceneContent
             return (object) $out;
         };
         foreach ($answer['sets'] as $id => $s) $answer['sets'][$id]['model'] = $fill($s['model']);
-        foreach ($answer['characters'] as $id => $c) $answer['characters'][$id]['portraits'] = $fill($c['portraits']);
+        foreach ($answer['characters'] as $id => $c) {
+            $answer['characters'][$id]['portraits'] = $fill($c['portraits']);
+            if (isset($c['full'])) $answer['characters'][$id]['full'] = $fill($c['full']);
+        }
+        foreach ($answer['items'] ?? [] as $id => $i) {
+            if (is_array($i['picture'] ?? null)) $answer['items'][$id]['picture'] = ['path' => $i['picture']['path'], 'size' => $sizes[$i['picture']['path']] ?? null];
+        }
         return $answer;
     }
 }

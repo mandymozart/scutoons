@@ -252,16 +252,23 @@ pub(crate) fn set_from_page(space: &mut Space, glb_bytes: &[u8], images: js_sys:
     }
 }
 
-/// the sprites the heads ask for: slot, character, mood, …
+/// the pictures the stage asks for (the heads' portraits, #495 the cards' full views and item pictures), `ASK` values
+/// each: slot, then where scene-content holds it – the entry's kind (`characters`, `items`), its id, the field, the
+/// mood ("" = the field is the file) – so the page only looks up and fetches what the core named
 pub(crate) fn portrait_asks(space: &mut Space) -> js_sys::Array {
     let out = js_sys::Array::new();
-    for (slot, character, mood) in space.portraits.requests() {
+    for (slot, p) in space.portraits.requests() {
         out.push(&JsValue::from(slot as u32));
-        out.push(&JsValue::from_str(&character));
-        out.push(&JsValue::from_str(&mood));
+        out.push(&JsValue::from_str(p.kind));
+        out.push(&JsValue::from_str(&p.id));
+        out.push(&JsValue::from_str(p.field()));
+        out.push(&JsValue::from_str(&p.mood));
     }
     out
 }
+
+/// the values of one ask in `portrait_asks`
+pub(crate) const ASK: usize = 5;
 
 /// a set that does not come does not hold the splash longer than this (s)
 pub(crate) const SPLASH_AT_MOST: f32 = 5.0;
@@ -642,8 +649,8 @@ impl SpaceView {
         set_from_page(&mut self.space, glb_bytes, images)
     }
 
-    /// The portraits the heads ask for: [slot, character, mood, …] – the page fetches and decodes each and answers
-    /// with `give_portrait` (or `no_portrait`).
+    /// The pictures the stage asks for: [slot, kind, id, field, mood, …] (`portrait_asks`) – the page fetches and decodes
+    /// each and answers with `give_portrait` (or `no_portrait`).
     pub fn portrait_requests(&mut self) -> js_sys::Array {
         portrait_asks(&mut self.space)
     }

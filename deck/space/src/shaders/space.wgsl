@@ -379,6 +379,60 @@ fn fs_head(i: HeadOut) -> @location(0) vec4<f32> {
     return vec4<f32>(shown * a, a);
 }
 
+// ---- the cards (#495): a cast member with no 3D as its picture, standing upright on its spot, turned to the eye ----
+
+struct CardOut {
+    @builtin(position) clip: vec4<f32>,
+    @location(0) uv: vec2<f32>,
+    @location(1) world: vec3<f32>,
+    // glow, hue, pulse, has a picture
+    @location(2) look: vec4<f32>,
+};
+
+@vertex
+fn vs_card(
+    @location(0) grid: vec2<f32>,
+    @location(1) feet_glow: vec4<f32>,
+    @location(2) right_hue: vec4<f32>,
+    @location(3) up_pulse: vec4<f32>,
+    @location(4) more: vec4<f32>,
+) -> CardOut {
+    var o: CardOut;
+    // the plate's grid (-1 … 1) as a flat quad: across by `right` (half the width), from the feet up by `up`
+    let world = feet_glow.xyz + right_hue.xyz * grid.x + up_pulse.xyz * (grid.y * 0.5 + 0.5);
+    o.clip = frame.view_proj * vec4<f32>(world, 1.0);
+    o.world = world;
+    o.uv = vec2<f32>(grid.x * 0.5 + 0.5, 0.5 - grid.y * 0.5);
+    o.look = vec4<f32>(feet_glow.w, right_hue.w, up_pulse.w, more.x);
+    return o;
+}
+
+@fragment
+fn fs_card(i: CardOut) -> @location(0) vec4<f32> {
+    let tex = textureSample(room_tex, room_smp, i.uv);
+    let glow = i.look.x;
+    let tint = hsv(i.look.y, 0.5, 1.0);
+    var c: vec3<f32>;
+    var a: f32;
+    if i.look.w > 0.5 {
+        // the picture as it is, lit a little by its being's glow and kicked by its pulse
+        c = tex.rgb * (0.85 + 0.15 * glow) + tint * i.look.z * 0.35;
+        a = tex.a;
+    } else {
+        // no picture (yet): a soft standee in its being's colour, rounded at the top
+        let p = vec2<f32>(i.uv.x * 2.0 - 1.0, i.uv.y);
+        let head = 1.0 - smoothstep(0.7, 0.9, length(vec2<f32>(p.x, (p.y - 0.25) * 1.6)));
+        let body = (1.0 - smoothstep(0.75, 0.95, abs(p.x))) * step(0.3, p.y);
+        c = tint * (0.25 + 0.3 * glow + 0.4 * i.look.z);
+        a = max(head, body) * 0.55;
+    }
+    if a < 0.04 {
+        discard;
+    }
+    let shown = to_srgb(fogged(c, i.world));
+    return vec4<f32>(shown * a, a);
+}
+
 // ---- the buttons' labels: a quad per character, a fixed size on the screen, always on top ----
 
 struct LabelOut {

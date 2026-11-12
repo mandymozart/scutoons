@@ -1,5 +1,5 @@
 name = "several beings on one stage: a look per character holder, each moved only by what its own rig wires"
-about = "#492 (research/SCENES.md §9.6 2·1; owner 2026-11-12 [rigs]: \"if a rig has no mapping to visual properties nothing moves\", and \"Breath with my loudness is a demo remain. Only if i decided the wiring\"): the template scene:stage resolved by the core with two fillers – Cat Pope (her core rig sounds but wires nothing to her being) and a character whose rig wires its sum's level into its being (`sound:level → being:pulse`). The stage has a `look` node per holder at its spot; only the wired rig moves its look, and only its own. The space draws one being per look node (deck-space space/mod.rs `Cast`), native and browser alike"
+about = "#492 (research/SCENES.md §9.6 2·1; owner 2026-11-12 [rigs]: \"if a rig has no mapping to visual properties nothing moves\", and \"Breath with my loudness is a demo remain. Only if i decided the wiring\"): the template scene:stage resolved by the core with two fillers – Cat Pope (her core rig sounds but wires nothing to her being) and a character whose rig wires its sum's level into its being (`sound:level → being:pulse`). The stage has a `look` node per holder at its spot; only the wired rig moves its look, and only its own. The space draws one being per look node (deck-space space/mod.rs `Cast`), native and browser alike – #495: this stage has no set yet (the location's set is 2·3), so both stand as their 2D cards"
 
 [[step]]
 do = "load"
@@ -18,7 +18,7 @@ node = [{ id = "osc", kind = "osc", freq = 110.0, gain = 0.1 }]
 [step.expect]
 page = []
 ids = { has = "left_look" }
-stage = { cast = [{ holder = "left", look = "left_look", character = "catpope", spot = "spot_left" }, { holder = "right", look = "right_look", character = "hum", spot = "spot_right" }], slots = ["left_", "right_"], notes = [], location = "location:dom" }
+stage = { cast = [{ holder = "left", look = "left_look", character = "catpope", spot = "spot_left", who = "character:catpope", form = "card", picture = "characters.catpope.full" }, { holder = "right", look = "right_look", character = "hum", spot = "spot_right", who = "character:hum", form = "card", picture = "characters.hum.full" }], stage_3d = false, slots = ["left_", "right_"], notes = [], location = "location:dom" }
 
 [[step]]
 do = "run"

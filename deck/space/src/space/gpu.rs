@@ -45,6 +45,20 @@ struct HeadLayer {
     more: [f32; 4],
 }
 
+/// one card for the GPU (64 bytes, #495): its feet + glow, half its width across + hue, its height up + pulse, more =
+/// (has a picture, 0, 0, 0)
+#[repr(C)]
+#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+struct CardInst {
+    feet: [f32; 3],
+    glow: f32,
+    right: [f32; 3],
+    hue: f32,
+    up: [f32; 3],
+    pulse: f32,
+    more: [f32; 4],
+}
+
 const SHADER: &str = include_str!("../shaders/space.wgsl");
 const DEPTH: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 /// the void / the far nave: a deep blue-black, and how fast the fog closes in (per metre)
@@ -130,6 +144,11 @@ pub struct SpaceGpu {
     layers: Vec<HeadLayer>,
     layer_tex: Vec<Option<usize>>,
     order: Vec<(f32, usize)>,
+    /// #495: the cards – their pipeline, this frame's cards far to near and their instances, sized by `Space::cards`
+    card_pipe: wgpu::RenderPipeline,
+    card_buf: wgpu::Buffer,
+    cards: Vec<super::Card>,
+    card_inst: Vec<CardInst>,
     label_pipe: wgpu::RenderPipeline,
     label_buf: wgpu::Buffer,
     atlas_bind: wgpu::BindGroup,
@@ -263,6 +282,14 @@ impl SpaceGpu {
             multiview_mask: None,
             cache: None,
         });
+        // #495: the cards – the plate's grid as a flat quad, premultiplied alpha over, depth tested and written (a cut-out:
+        // what is clear is discarded)
+        let card_attrs = wgpu::vertex_attr_array![1 => Float32x4, 2 => Float32x4, 3 => Float32x4, 4 => Float32x4];
+        let card_vbl = [
+            Some(wgpu::VertexBufferLayout { array_stride: 8, step_mode: wgpu::VertexStepMode::Vertex, attributes: &plate_attrs }),
+            Some(wgpu::VertexBufferLayout { array_stride: std::mem::size_of::<CardInst>() as u64, step_mode: wgpu::VertexStepMode::Instance, attributes: &card_attrs }),
+        ];
+        let card_pipe = pipe("space card", &room_layout, "vs_card", "fs_card", &card_vbl, Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING), true, None);
 
         // the labels: a quad per character (six vertices from the vertex index) at its button's depth – a pillar in
         // front hides it, the being's own tubes and ghosts don't (they write no depth)
@@ -313,6 +340,8 @@ impl SpaceGpu {
         let tube_ib = buffer("space tube idx", tube_idx.len() * 4, wgpu::BufferUsages::INDEX);
         let heads = space.beings().count();
         let head_buf = buffer("space heads", heads * 3 * std::mem::size_of::<HeadLayer>(), wgpu::BufferUsages::VERTEX);
+        let cards = space.cards();
+        let card_buf = buffer("space cards", cards * std::mem::size_of::<CardInst>(), wgpu::BufferUsages::VERTEX);
         let head_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             label: Some("space head"),
             mag_filter: wgpu::FilterMode::Linear,
@@ -370,6 +399,10 @@ impl SpaceGpu {
             layers: Vec::with_capacity(heads * 3),
             layer_tex: Vec::with_capacity(heads * 3),
             order: Vec::with_capacity(heads),
+            card_pipe,
+            card_buf,
+            cards: Vec::with_capacity(cards),
+            card_inst: Vec::with_capacity(cards),
             label_pipe,
             label_buf,
             atlas_bind,
@@ -469,6 +502,29 @@ impl SpaceGpu {
             self.layers = Vec::with_capacity(heads * 3);
             self.layer_tex = Vec::with_capacity(heads * 3);
             self.order = Vec::with_capacity(heads);
+            let cards = space.cards();
+            self.card_buf = buffer("space cards", cards * std::mem::size_of::<CardInst>(), wgpu::BufferUsages::VERTEX);
+            self.cards = Vec::with_capacity(cards);
+            self.card_inst = Vec::with_capacity(cards);
+        }
+    }
+
+    /// #495: this frame's cards, far to near (they blend over each other), as GPU instances – no allocation
+    fn cards(&mut self, space: &Space, eye: Vec3) {
+        space.write_cards(eye, &mut self.cards);
+        self.cards.sort_unstable_by(|a, b| (b.feet - eye).length_squared().total_cmp(&(a.feet - eye).length_squared()));
+        self.card_inst.clear();
+        for c in &self.cards {
+            let shown = c.picture.filter(|&s| self.sprites.get(s).is_some_and(Option::is_some));
+            self.card_inst.push(CardInst {
+                feet: c.feet.into(),
+                glow: c.glow,
+                right: c.right.into(),
+                hue: c.hue,
+                up: c.up.into(),
+                pulse: c.pulse,
+                more: [if shown.is_some() { 1.0 } else { 0.0 }, 0.0, 0.0, 0.0],
+            });
         }
     }
 
@@ -562,6 +618,8 @@ impl SpaceGpu {
         let eye: Vec3 = cam.eye();
         self.heads(space, eye);
         queue.write_buffer(&self.head_buf, 0, bytemuck::cast_slice(&self.layers));
+        self.cards(space, eye);
+        queue.write_buffer(&self.card_buf, 0, bytemuck::cast_slice(&self.card_inst));
         self.label_glyphs(space, eye, size.1 as f32);
         queue.write_buffer(&self.label_buf, 0, bytemuck::cast_slice(&self.glyphs));
         let mut lights = [[0.0; 8]; MAX_LIGHTS];
@@ -621,6 +679,16 @@ impl SpaceGpu {
         rp.set_index_buffer(self.plate_ib.slice(..), wgpu::IndexFormat::Uint32);
         for (i, tex) in self.layer_tex.iter().enumerate() {
             let bind = tex.and_then(|s| self.sprites[s].as_ref()).unwrap_or(&self.blank);
+            rp.set_bind_group(1, bind, &[]);
+            rp.draw_indexed(0..self.plate_count, 0, i as u32..i as u32 + 1);
+        }
+        // #495: the cards, far to near, each with its picture (or the blank: a standee)
+        rp.set_pipeline(&self.card_pipe);
+        rp.set_vertex_buffer(0, self.plate_vb.slice(..));
+        rp.set_vertex_buffer(1, self.card_buf.slice(..));
+        rp.set_index_buffer(self.plate_ib.slice(..), wgpu::IndexFormat::Uint32);
+        for (i, c) in self.cards.iter().enumerate() {
+            let bind = c.picture.and_then(|s| self.sprites.get(s)).and_then(Option::as_ref).unwrap_or(&self.blank);
             rp.set_bind_group(1, bind, &[]);
             rp.draw_indexed(0..self.plate_count, 0, i as u32..i as u32 + 1);
         }

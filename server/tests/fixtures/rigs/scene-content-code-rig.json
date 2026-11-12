@@ -11,6 +11,7 @@
                     "size": null
                 }
             },
+            "full": {},
             "rig": {
                 "id": "character.catpope",
                 "version": "bc9707e5c4eacefd",
@@ -85,6 +86,7 @@
             "persona": "regular",
             "look": "default",
             "portraits": {},
+            "full": {},
             "rig": null
         }
     },

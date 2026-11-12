@@ -15,8 +15,9 @@
 //!   them (`voice_voice.ratio`), so `scene:nave` in format 2 plays the scene it was in format 1; several are prefixed by
 //!   their holder (`<holder>_…`, a zone's members `<holder>_<n>_…`). They share one `out` (the sums meet on its input),
 //!   one `space` and one `tempo`; a code rig's policy node is re-prefixed with them (policy.rs `reprefix`).
-//! - **Looks (#492, 2·1):** on every stage but a single rigged member at the scene's own spot, each character member gets
-//!   a `look` node (scene.rs `look_node`) at its holder's spot – the space draws one being per look node. Only its own
+//! - **Looks (#492, 2·1):** on every stage but a single rigged member at the scene's own spot, each member – a character or,
+//!   since #495, an item – gets a `look` node (scene.rs `look_node`) at its holder's spot; the space draws it as cast.rs says:
+//!   a 3D being or a 2D card. Only its own
 //!   rig's links to the being (`being:<input>` → `<prefix>look.<input>`) move it; a rig with no such mapping, or none at
 //!   all, moves nothing (owner 2026-11-12 [rigs]: "if a rig has no mapping to visual properties nothing moves"). A rig's
 //!   link into the room (the space's light, its post stack) is the scene's on such a stage and is left out, said in `notes`.
@@ -275,7 +276,8 @@ pub fn resolve(doc: &SceneDocument, with: &BTreeMap<String, Fillers>, previews: 
             }
         })
         .collect();
-    let character = |m: &Member| m.place.strip_prefix("character:").map(String::from);
+    // #495: every member a look – a character's or an item's – which cast.rs gives its form (3D look or 2D card)
+    let who = |m: &Member| crate::cast::Who::parse(&m.place);
     let mut looks: BTreeMap<usize, crate::scene::BeingLook> = BTreeMap::new();
     for (i, rig) in flat {
         let m = &cast[i];
@@ -298,13 +300,14 @@ pub fn resolve(doc: &SceneDocument, with: &BTreeMap<String, Fillers>, previews: 
         for l in rig.links {
             let (to, port) = node_port(&l.to);
             if !alone && to == "space" {
-                // the rig's mappings to its being land on its own look; the room (light, post) is the scene's
-                match character(m) {
+                // the rig's mappings to its being land on its own look (a character's or an item's, #495); the room
+                // (light, post) is the scene's
+                match who(m) {
                     Some(_) if crate::graph::Kind::Look.input(port).is_some() => {
                         scene.links.push(LinkDef { from: renamed(&l.from, &rename), to: format!("{}.{port}", crate::scene::look_id(&prefix)), ..l });
                     }
                     Some(_) => notes.push(format!("holder {}: its rig's link into the room's '{port}' is left out – on a stage of several the room is the scene's", m.holder)),
-                    None => notes.push(format!("holder {}: '{}' has no look on the stage yet – its rig's link to being:{port} moves nothing", m.holder, m.filler)),
+                    None => notes.push(format!("holder {}: '{}' has no look on the stage – its rig's link to being:{port} moves nothing", m.holder, m.filler)),
                 }
                 continue;
             }
@@ -328,8 +331,8 @@ pub fn resolve(doc: &SceneDocument, with: &BTreeMap<String, Fillers>, previews: 
     }
     if !alone {
         for (i, m) in cast.iter().enumerate() {
-            let Some(c) = character(m) else { continue };
-            scene.nodes.push(crate::scene::look_node(&prefixes[i], &m.holder, &c, m.spot.as_deref(), m.at, looks.remove(&i).unwrap_or_default()));
+            let Some(w) = who(m) else { continue };
+            scene.nodes.push(crate::scene::look_node(&prefixes[i], &m.holder, &w, m.spot.as_deref(), m.at, looks.remove(&i).unwrap_or_default()));
         }
     }
 
@@ -617,8 +620,8 @@ mod tests {
         Some(b)
     }
 
-    /// two rigs on one stage: prefixed by their holders, summed into the one `out` – the character's rig moves its own
-    /// look, an item has no look yet (its being links are said, not played); no rig moves another's being (#492)
+    /// two rigs on one stage: prefixed by their holders, summed into the one `out` – each rig moves its own look, an
+    /// item's too (#495: its card); no rig moves another's being (#492)
     #[test]
     fn two_rigs_share_the_out_and_the_space() {
         let d = doc(r#"{"format":2,"id":"duo","holder":[{"id":"pope","ref":"character:catpope"},{"id":"burner","fill":{"kind":["item"]}}],
@@ -631,8 +634,10 @@ mod tests {
         assert!(r.scene.links.iter().all(|l| node_port(&l.to).0 != "space"), "no rig drives the room's being");
         let into = |node: &str| r.scene.links.iter().filter(|l| node_port(&l.to).0 == node).map(|l| (l.from.clone(), l.to.clone())).collect::<Vec<_>>();
         assert_eq!(into("pope_look"), [("pope_fft.level".to_string(), "pope_look.pulse".to_string())], "her rig's mapping, onto her look");
-        assert!(!ids.contains(&"burner_look"), "an item has no look on the stage yet");
-        assert!(r.notes.iter().any(|n| n.contains("holder burner") && n.contains("being:pulse moves nothing")), "{:?}", r.notes);
+        assert_eq!(into("burner_look"), [("burner_fft.level".to_string(), "burner_look.pulse".to_string())], "the item's rig moves its own look (#495)");
+        let who = |id: &str| r.scene.nodes.iter().find(|n| n.id == id).and_then(|n| n.params["who"].as_str().map(String::from));
+        assert_eq!((who("pope_look").as_deref(), who("burner_look").as_deref()), (Some("character:catpope"), Some("item:incense_burner")));
+        assert!(r.notes.is_empty(), "{:?}", r.notes);
         assert_eq!(r.cast.iter().map(|m| m.slots.clone()).collect::<Vec<_>>(), [Some("pope_".to_string()), Some("burner_".to_string())]);
         assert_eq!(space(&r.scene)["set"].as_str(), Some("cathedral"));
         #[cfg(feature = "being")]
@@ -669,7 +674,7 @@ node = [{ id = "midi", kind = "world", source = "midi", listen = ["midi.note"] }
             .nodes
             .iter()
             .filter(|n| n.kind == "look")
-            .map(|n| (n.id.as_str(), n.params["holder"].as_str().unwrap(), n.params["spot"].as_str().unwrap(), n.params["being"]["character"].as_str().unwrap()))
+            .map(|n| (n.id.as_str(), n.params["holder"].as_str().unwrap(), n.params["spot"].as_str().unwrap(), n.params["being"]["character"].as_str().unwrap_or_default()))
             .collect();
         assert_eq!(looks, [("left_look", "left", "spot_left", "catpope"), ("right_look", "right", "spot_right", "mute")]);
         let into = |node: &str| r.scene.links.iter().filter(|l| node_port(&l.to).0 == node).map(|l| l.from.clone()).collect::<Vec<_>>();
@@ -711,6 +716,41 @@ node = [{ id = "midi", kind = "world", source = "midi", listen = ["midi.note"] }
         assert_eq!(std::fs::read_to_string(path).unwrap().replace('\r', ""), text, "stage-duo is stale: UPDATE_FIXTURES=1 cargo test -p deck-space stage_duo");
         assert_eq!(Scene::parse(crate::scene::sandbox("stage-duo").unwrap()).unwrap(), scene, "what the decks read is what the core resolved");
         assert_eq!(scene.nodes.iter().filter(|n| n.kind == "look").count(), 2);
+    }
+
+    const STAGE_CARDS_HEAD: &str = "\
+# A sandbox (#495): a stage in the cathedral's 3D set with a character and an item – the document
+# deck/headless/documents/nave-cast.json resolved by the core. Cat Pope has 3D here, so she stands as her look (her core
+# rig wires nothing to her being: still); the incense burner is an item, which has no 3D, so it stands as its 2D card –
+# moved only by its own rig's wire `sound:level → being:pulse` (added here to its core rig, as a person draws it). Take
+# the set away (`set`) and Cat Pope is a card too (cast.rs). Written by deck-space's scene_resolve.rs test
+# `the_stage_cards_sandbox_is_the_core_s_resolve` – never by hand:
+#   UPDATE_FIXTURES=1 cargo test -p deck-space stage_cards
+# From deck/:  cargo run -p deck-native --release -- --dev --scene stage-cards --windowed
+";
+
+    /// #495: the sandbox `stage-cards` is the core's resolve of a stage in a 3D set with a character (a look) and an item
+    /// (a card moved by its own wire), so a deck shows both forms the headless scenario 32 checks
+    #[test]
+    fn the_stage_cards_sandbox_is_the_core_s_resolve() {
+        let d = doc(include_str!("../../headless/documents/nave-cast.json"));
+        let rigs = |s: &str, v: Option<&str>| if s.starts_with("item.") { breathing(s, v) } else { core_rigs(s, v) };
+        let r = resolve(&d, &BTreeMap::new(), false, &rigs).unwrap();
+        let mut scene = r.scene;
+        scene.stage.name = "Stage cards".into();
+        let text = format!("{STAGE_CARDS_HEAD}\n{}", toml::to_string(&scene).unwrap());
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../native/scenes/sandbox/stage-cards.toml");
+        if std::env::var_os("UPDATE_FIXTURES").is_some() {
+            std::fs::write(path, &text).unwrap();
+            return;
+        }
+        assert_eq!(std::fs::read_to_string(path).unwrap().replace('\r', ""), text, "stage-cards is stale: UPDATE_FIXTURES=1 cargo test -p deck-space stage_cards");
+        assert_eq!(Scene::parse(crate::scene::sandbox("stage-cards").unwrap()).unwrap(), scene, "what the decks read is what the core resolved");
+        assert!(crate::cast::stage_3d(&scene), "the cathedral's set: a 3D stage");
+        let who = |id: &str| crate::cast::Who::parse(scene.nodes.iter().find(|n| n.id == id).unwrap().params["who"].as_str().unwrap()).unwrap();
+        assert_eq!(crate::cast::form(&who("pope_look"), true), crate::cast::Form::Look);
+        assert_eq!(crate::cast::form(&who("burner_look"), true), crate::cast::Form::Card);
+        assert!(scene.links.iter().any(|l| l.to == "burner_look.pulse"), "the burner's own wire moves its card");
     }
 
     /// #492 (left open by #489): a code rig's policy drives its own holder's tracks and strips, never another's

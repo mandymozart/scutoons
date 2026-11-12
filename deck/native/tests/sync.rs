@@ -153,7 +153,8 @@ fn the_space_node_s_loaders_go_through_the_sync() {
     (sync.gate())(&file);
     assert_eq!(std::fs::read(&file).unwrap(), glb("low"), "the gate returned once the file was there");
     let faces = sync.portraits().unwrap();
-    assert_eq!(faces.load("catpope", "happy").unwrap().dimensions(), (4, 4));
-    assert!(faces.load("catpope", "dizzy").unwrap_err().contains("catpope_portrait-dizzy"), "no sprite: the head falls back");
+    let head = |m: &str| deck_space::cast::Picture::character("catpope", deck_space::cast::PORTRAIT_VIEW, m);
+    assert_eq!(faces.load(&head("happy")).unwrap().dimensions(), (4, 4));
+    assert!(faces.load(&head("dizzy")).unwrap_err().contains("catpope_portrait-dizzy"), "no sprite: the head falls back");
     let _ = std::fs::remove_dir_all(&cache);
 }

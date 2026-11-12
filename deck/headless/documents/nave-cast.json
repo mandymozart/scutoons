@@ -1,0 +1,13 @@
+{
+  "format": 2,
+  "id": "nave-cast",
+  "toons": [],
+  "stage": { "name": "Nave cast" },
+  "holder": [
+    { "id": "pope", "ref": "character:catpope" },
+    { "id": "burner", "ref": "item:incense_burner" }
+  ],
+  "node": [
+    { "id": "space", "kind": "space", "at": [2.4, 0.2, 5.2], "distance": 3.8, "pitch": 18, "quality": "low", "set": "cathedral", "yaw": 310 }
+  ]
+}

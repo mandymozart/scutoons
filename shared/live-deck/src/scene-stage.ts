@@ -1,7 +1,7 @@
 // scene-stage.ts (#463, #465): a scene playing in an element – the renderer every deck draws with, compiled to wasm
 // (deck/space-web `SceneView`). Here only the canvas, its size, the animation frames and the fetches the core asks for.
 import { sniff, spaceModule, stageCanvas, type SpaceModule } from './space.ts';
-import { askPortraits, fetchChapter, fetchOutletAsks, fetchSet, fetchSlice, portraitsAt, type ChapterView, type OutletView, type SetView } from './stage-assets.ts';
+import { askPortraits, contentAt, fetchChapter, fetchOutletAsks, fetchSet, fetchSlice, type ChapterView, type ContentEntry, type OutletView, type SetView } from './stage-assets.ts';
 import { RelaySocket, type RelayCoreView } from './client.ts';
 import { driveLink, ensureLink, type Paired, type SignedIn } from './deck-key.ts';
 import { watchPanel, type PanelView } from './deck-panel.ts';
@@ -46,7 +46,7 @@ export class SceneStage {
 	private raf = 0;
 	private last = -1;
 	private readonly size: ResizeObserver;
-	private readonly portraitsByChar = new Map<string, Promise<Record<string, { path: string }>>>();
+	private readonly content = new Map<string, Promise<ContentEntry>>();
 	/** #465: the outlet's relay socket (the client is the view's) */
 	private relay: RelaySocket | null = null;
 	private spaceModule: SpaceModule | null = null;
@@ -115,7 +115,7 @@ export class SceneStage {
 		this.last = now;
 		const at = this.view.reloaded();
 		if (at >= 0) this.view.chapters().forEach((path, i) => void fetchChapter(this, this.o.api + path, at + i));
-		askPortraits(this, this.o.cdn, (c) => portraitsAt(this.o.api, this.portraitsByChar, c));
+		askPortraits(this, this.o.cdn, (kind, id) => contentAt(this.o.api, this.content, kind, id));
 		const asked = this.view.slice_requests();
 		for (let i = 0; i + 1 < asked.length; i += 2) void fetchSlice(this, this.o.cdn + (asked[i + 1] as string), asked[i] as number);
 		this.live?.frame();

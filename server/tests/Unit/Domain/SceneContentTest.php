@@ -61,4 +61,27 @@ final class SceneContentTest extends TestCase
         self::assertSame(['catpope-nobody', 'ghost'], $a['missing']['characters']);
         self::assertSame('{}', json_encode($a['characters']['boy']['portraits']), 'an empty map stays an object on the wire');
     }
+
+    /** #495: a stage's card shows a character's full view in its mood, an item's picture */
+    public function testCardsGetTheFullViewAndTheItemsPicture(): void
+    {
+        $registry = ['characters' => [['id' => 'catpope', 'personas' => [['id' => 'regular', 'looks' => [['id' => 'default', 'images' => [
+            'neutral' => ['portrait' => 'p/n.webp', 'full' => 'f/n.webp'],
+            'happy' => ['portrait' => 'p/h.webp'],
+        ]]]]]]]];
+        $a = SceneContent::compose([], fn() => null, ['catpope'], $registry);
+        self::assertSame(['neutral' => 'f/n.webp'], array_map(fn(array $f) => $f['path'], (array) $a['characters']['catpope']['full']));
+        $a['items'] = ['incense_burner' => ['rig' => ['id' => 'item.incense_burner']]];
+        $a['missing']['items'] = ['candle', 'ghost'];
+        $catalog = ['incense_burner' => ['id' => 'incense_burner', 'icon' => 'catpope/items/burner.png'], 'candle' => ['id' => 'candle', 'icon' => 'catpope/items/candle.png'], 'rock' => ['id' => 'rock']];
+        $a = SceneContent::withItemPictures($a, ['incense_burner', 'candle', 'ghost', 'rock'], fn(string $id) => $catalog[$id] ?? null);
+        self::assertSame(['path' => 'catpope/items/burner.png', 'size' => null], $a['items']['incense_burner']['picture'], 'beside its rig');
+        self::assertSame(['rig' => null, 'picture' => ['path' => 'catpope/items/candle.png', 'size' => null]], $a['items']['candle'], 'a picture without a rig');
+        self::assertSame(['ghost'], $a['missing']['items'], 'known to neither');
+        self::assertArrayNotHasKey('rock', $a['items'], 'no rig, no picture: as before');
+        self::assertSame(['p/h.webp', 'p/n.webp', 'f/n.webp', 'catpope/items/burner.png', 'catpope/items/candle.png'], SceneContent::paths($a));
+        $sized = SceneContent::withSizes($a, ['f/n.webp' => 7, 'catpope/items/candle.png' => 9]);
+        self::assertSame(7, ((array) $sized['characters']['catpope']['full'])['neutral']['size']);
+        self::assertSame(9, $sized['items']['candle']['picture']['size']);
+    }
 }
