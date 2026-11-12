@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	export type AreaId = 'dashboard' | 'toons' | 'characters' | 'map' | 'catalog' | 'flow';
+	export type AreaId = 'dashboard' | 'toons' | 'characters' | 'map' | 'scenes' | 'catalog' | 'flow';
 </script>
 
 <script lang="ts">
@@ -15,7 +15,7 @@
 
 	/**
 	 * The creator's menu by areas (CREATOR-NAV.md §2a, draft D; agents/DESIGN.md "Creator navigation"): Dashboard,
-	 * Toons with every toon flat under it (never deeper – a toon's pages are its tabs), Characters, Map, Catalog, Flow;
+	 * Toons with every toon flat under it (never deeper – a toon's pages are its tabs), Characters, Map, Scenes, Catalog, Flow;
 	 * the place you are in inverted (inside a toon: the toon). The same list everywhere:
 	 * - `menu` (desktop): the words, the account and the fold button at its foot;
 	 * - `rail` (desktop, folded by hand – Ctrl + \): the areas' icons, the account and the unfold button at its foot;
@@ -59,7 +59,9 @@
 					? 'characters'
 					: route === '/map'
 						? 'map'
-						: route.startsWith('/catalog/')
+						: route.startsWith('/scenes')
+							? 'scenes'
+							: route.startsWith('/catalog/')
 							? 'catalog'
 							: route === '/flow'
 								? 'flow'
@@ -70,6 +72,8 @@
 		{ id: 'toons', href: '/toons', icon: 'book-open', label: m['creator.toons']() },
 		{ id: 'characters', href: '/characters', icon: 'users', label: m['creator.characters']() },
 		{ id: 'map', href: '/map', icon: 'map', label: m['creator.map']() },
+		// the deck scenes (#490; owner 2026-11-12 [scenes]: its own area, between Map and Catalog)
+		{ id: 'scenes', href: '/scenes', icon: 'aperture', label: m['creator.scenes'](), title: m['creator.scenes_hint']() },
 		{ id: 'catalog', href: '/catalog/items', icon: 'package', label: m['creator.catalog'](), title: m['creator.catalog_hint']() },
 		{ id: 'flow', href: '/flow', icon: 'git-merge', label: m['creator.flow_universe'](), title: m['creator.flow_universe_hint']() }
 	]);

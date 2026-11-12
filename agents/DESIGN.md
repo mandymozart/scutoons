@@ -794,7 +794,7 @@ The creator is a hierarchy: **toon → season → chapter → group (scene) → 
   doesn't fit, the crumbs collapse from the left into ONE "…" (UI-CONCEPTS E.2); the last two never collapse. The
   season crumb is the chapter's real season (the season whose sequence lists it).
 - **The menu by areas on the left** (`area-menu.svelte`), always there: Dashboard, Toons with every toon flat under it
-  (never deeper), Characters (Moods, Wanted images are its tabs), Map, Catalog, Flow; the place you are in inverted
+  (never deeper), Characters (Moods, Wanted images are its tabs), Map, Scenes (#490), Catalog, Flow; the place you are in inverted
   (inside a toon: the toon); the account (→ Notifications) and the fold button at its foot. It folds **by hand** (the
   button, Ctrl + \, remembered) to an icon rail of the areas (unfold at its foot), and to the rail while a region is
   maximized. A page's own list (the chapter tree, a season's chapters, the map's lists – `usePageNav({ sidebar })`)

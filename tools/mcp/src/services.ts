@@ -78,6 +78,8 @@ export function creatorHref(links: AppLinks, key: string): string | null {
 	if (ref?.kind === 'kanon') return `${links.creator}/kanon/${ref.id}`;
 	// a rig or module: the editor's address (agents/research/EDITOR.md §4)
 	if (ref?.kind === 'rig' || ref?.kind === 'module') return `${links.creator}/edit/${key}`;
+	// a deck scene: its page in the creator's Scenes area (#490), where the member publishes it
+	if (ref?.kind === 'scene') return `${links.creator}/scenes/${ref.id}`;
 	if (!ref?.toon) return null;
 	const base = `${links.creator}/${ref.toon}`;
 	switch (ref.kind) {

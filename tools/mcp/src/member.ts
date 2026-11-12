@@ -10,6 +10,7 @@ import { registerEmbassyTools } from './embassy.ts';
 import { registerFigmaTools } from './figma.ts';
 import { kitState } from './kit.ts';
 import { instructions, registerPrompts } from './prompts.ts';
+import { registerSceneTools } from './scenes.ts';
 import { registerContentTools } from './server.ts';
 import { appLinks, type Member, type Services } from './services.ts';
 import { registerStoryTools } from './story.ts';
@@ -67,6 +68,8 @@ export function createMemberServer(config: Config, member: Member, services: Ser
 	if (services.content) {
 		registerContentTools(server, config, { write: services.content === 'write', links });
 		registerStoryTools(server, config);
+		// the deck scenes over their own route (#490) – drafts only, the member publishes on the scene page
+		registerSceneTools(server, config, { write: services.content === 'write', links });
 		// the chapter storyboards and their generations (#122) – an admin who isn't a creator reads
 		registerStoryboardTools(server, config, { write: services.content === 'write', links });
 		// the member's own Figma file through the SCUTOONS Figma bridge (tools/figma-bridge) – creators who write

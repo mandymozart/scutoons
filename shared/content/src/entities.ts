@@ -20,6 +20,8 @@
 //   place:<id>  route:<id>            one document per place / route of the world map (agents/MAP-DOCUMENTS.md):
 //                                     `map` keeps the map's own settings (size, layers); ids are stable forever
 //   character:<id>                    one document per character of the registry (`characters` keeps its own fields)
+//   scene:<id>                        one deck scene (#243, research/SCENES.md §9.3 format 2; platform-wide, its toons in
+//                                     its `toons`) – read and written only through `/api/scenes` (`/api/entities` refuses it)
 //   (`locations:*` / `routes:*` are the old per-toon map, read-only since the world map `map`, agents/MAP.md)
 //
 // An "entity" is a key without its locale (`chapter:catpope:2`); the stored document of one language adds `:<locale>`.
@@ -56,6 +58,7 @@ export type EntityKind =
 	| 'region'
 	| 'route'
 	| 'character'
+	| 'scene'
 	| CatalogEntityKind;
 
 /**
@@ -98,7 +101,8 @@ const SHAPES: Record<Exclude<EntityKind, CatalogEntityKind>, [boolean, boolean, 
 	place: [false, false, false],
 	region: [false, false, false],
 	route: [false, false, false],
-	character: [false, false, false]
+	character: [false, false, false],
+	scene: [false, false, false]
 };
 
 /**
@@ -107,7 +111,7 @@ const SHAPES: Record<Exclude<EntityKind, CatalogEntityKind>, [boolean, boolean, 
  * The id is a slug, stable forever once published (events reference it). The same shape is meant for the catalog's items
  * (`item:<id>`, agents/CATALOG-IN-CREATOR.md).
  */
-export const ID_KINDS: readonly EntityKind[] = ['place', 'route', 'region', 'character'];
+export const ID_KINDS: readonly EntityKind[] = ['place', 'route', 'region', 'character', 'scene'];
 /** an id segment: a slug (the map's place / route ids, `checkWorldMap`) */
 export const ENTITY_ID = /^[a-z0-9][a-z0-9_-]{0,63}$/;
 
