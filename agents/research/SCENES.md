@@ -275,6 +275,8 @@ Within a fact any value admits; every fact given must hold. "A toon's cast" is `
 
 An empty placeholder plays nothing (its spot stays empty, silent); an empty location = the neutral staging (1b's `staging`). The editor's typeahead offers only fillers that pass `fill` (a hint); the server refuses a use whose filler does not (validity, A2). **The avatar scene** (draft 6) is the template `scene:avatar-home`: the location `home` and the holder `who`, both filled by context; "the avatar" is no special kind.
 
+**Spawn zones (owner 2026-11-12, decisions [scenes]):** *"A placeholder can also be an arrangement programmatically stackable entities of their allowed for this spot type. Id call it spawn zone or spot at the moment."* So a placeholder is not only one slot for one filler: it can be a **zone** that takes several entities of what its `fill` allows and arranges them by code (a row, a cluster, a stack, a crowd) – a choir on the altar, the carrier bag's items on a table, the crows on a beam. Proposal: the holder gets `take: one | many` (one = today's slot) and, for many, an `arrange` rule (its kind and spacing, from the spot's size), so `joinScene` into a full one-slot holder moves on to the next, while a zone keeps taking until a limit (`max`, none = any). The word stays **spot** for the stored name and **spawn zone** for a spot that takes many – the owner's words "for the moment"; the spot's type (what it allows) is the zone's `fill`. Open: the arrangement kinds, and whether a zone's members can be moved by hand in the editor.
+
 ### 9.3 Holders now: format 2
 
 | Field | Format 1 (1a) | Format 2 |
