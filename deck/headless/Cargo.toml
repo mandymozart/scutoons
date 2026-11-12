@@ -22,8 +22,9 @@ crate-type = ["cdylib", "rlib"]
 # the browser deck's adapter API (Host: load, warm, apply, render, analyse, signals, the tempo clock) – what the worker calls
 live-core = { path = "../live-core" }
 deck-core = { workspace = true, features = ["tempo"] }
-# the scene model, the browser's split (`lower`), the core rigs, the quality governor – no GPU, no loaders
-deck-space = { path = "../space", default-features = false }
+# the scene model, the browser's split (`lower`), the core rigs, the quality governor – no GPU, no loaders; #496: the
+# space (`being`: the stage's cast, the camera, the pointer's pick) for the `pick` step
+deck-space = { path = "../space", default-features = false, features = ["being"] }
 # #374: the deck's UI model – the `hud` step's lines and bar
 deck-ui = { path = "../ui" }
 # #467: the show's conductor fires a show document's rows at this deck (the `show` / `fire` / `go` steps) – its cells

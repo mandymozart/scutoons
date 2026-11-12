@@ -24,6 +24,7 @@ pub mod glb;
 pub mod gpu;
 pub mod label;
 pub mod meshopt;
+pub mod pick;
 pub mod portrait;
 pub mod post;
 #[cfg(feature = "gpu")]
@@ -208,8 +209,10 @@ pub struct Space {
     /// bodiless one the camera aims by, the beings are the cast's
     pub being: Being,
     /// #492: one being per character holder on a stage of several (the scene's `look` nodes), each at its holder's spot
-    /// and moved only by its own rig's links to its look; drawn and lit, not yet turned by hand
+    /// and moved only by its own rig's links to its look; drawn and lit, turned by hand once picked (#496)
     pub cast: Vec<Cast>,
+    /// #496: the cast member picked by a click on the stage (pick.rs) – its knobs are the hand's; None = the space's own
+    picked: Option<usize>,
     pub camera: Orbit,
     /// the set's 3D, from its loader until the renderer takes it
     set_rx: Option<mpsc::Receiver<Result<glb::Model>>>,
@@ -369,6 +372,7 @@ impl Space {
             node,
             being,
             cast,
+            picked: None,
             camera,
             set_rx,
             model: None,
@@ -448,16 +452,19 @@ impl Space {
     /// it – nothing by default (owner 2026-11-12 [rigs]: no default breath)
     pub fn write_cards(&self, eye: Vec3, out: &mut Vec<Card>) {
         out.clear();
-        for c in self.cast.iter().filter(|c| c.form == Form::Card) {
-            let h = &c.being.head;
-            let picture = self.portraits.pick_near(&c.pictures, h.near.get(h.mood), h.mood).or_else(|| self.portraits.pick_near(&h.sprites, h.near.get(h.mood), h.mood));
-            let aspect = picture.map_or(CARD_ASPECT, |s| self.portraits.slots[s].aspect);
-            let height = cast::card_height(&c.who);
-            let flat = Vec3::new(eye.x - c.feet.x, 0.0, eye.z - c.feet.z);
-            let right = Vec3::Y.cross(flat.try_normalize().unwrap_or(Vec3::Z));
-            let feet = c.feet + Vec3::Y * c.being.bounce * CARD_HOP * height;
-            out.push(Card { feet, right: right * height * aspect * 0.5, up: Vec3::Y * height, picture, glow: c.being.glow, hue: c.being.hue, pulse: c.being.pulse });
-        }
+        out.extend(self.cast.iter().filter(|c| c.form == Form::Card).map(|c| self.card(c, eye)));
+    }
+
+    /// #495: a member's card as `eye` sees it this frame (what `write_cards` draws and #496's pick hits)
+    fn card(&self, c: &Cast, eye: Vec3) -> Card {
+        let h = &c.being.head;
+        let picture = self.portraits.pick_near(&c.pictures, h.near.get(h.mood), h.mood).or_else(|| self.portraits.pick_near(&h.sprites, h.near.get(h.mood), h.mood));
+        let aspect = picture.map_or(CARD_ASPECT, |s| self.portraits.slots[s].aspect);
+        let height = cast::card_height(&c.who);
+        let flat = Vec3::new(eye.x - c.feet.x, 0.0, eye.z - c.feet.z);
+        let right = Vec3::Y.cross(flat.try_normalize().unwrap_or(Vec3::Z));
+        let feet = c.feet + Vec3::Y * c.being.bounce * CARD_HOP * height;
+        Card { feet, right: right * height * aspect * 0.5, up: Vec3::Y * height, picture, glow: c.being.glow, hue: c.being.hue, pulse: c.being.pulse }
     }
 
     /// #495: the middle of a stage whose every member is a card (half way up the cards); None while any stands in 3D
@@ -540,11 +547,14 @@ impl Space {
             c.being.push(ctl);
         }
         let local = Local { ctl, meter };
+        // what the pointer is over: the hand's – the picked member's knobs (#496), else the space's own being's
         if self.drag == Drag::None {
             let reach = if self.fingers.driver().is_some() { TOUCH_REACH } else { 1.0 };
-            self.being.hover = self.pointer.and_then(|(x, y)| self.being.pick_reach(&self.camera.ray(x, y, self.view.0, self.view.1), reach));
+            let hover = self.pointer.and_then(|(x, y)| self.hand_hit(&self.camera.ray(x, y, self.view.0, self.view.1), reach));
+            self.hand_mut().hover = hover;
         }
-        self.being.dragging = matches!(self.drag, Drag::Knob { .. } | Drag::Hold);
+        let dragging = matches!(self.drag, Drag::Knob { .. } | Drag::Hold);
+        self.hand_mut().dragging = dragging;
         self.session(time, &local);
         self.congregation(dt, time, beat);
     }
@@ -645,6 +655,7 @@ impl Space {
     /// one did; the set and the camera stay, the renderer sizes its buffers anew.
     pub fn replace_being(&mut self, graph: &Graph, look: &Look) {
         self.cast = Cast::of(graph, &mut self.portraits);
+        self.picked = None;
         let mut being = if self.cast.is_empty() { Being::new(graph, look) } else { Being::part(graph, look, None, &|_| false) };
         being.head.sprites = self.portraits.request(&look.character, &being.moods);
         being.anchor = self.being.anchor;
@@ -866,10 +877,11 @@ impl Space {
         out.clear();
         // #424 (owner 2026-11-08: "whenever i hover knobs, please show their name" – for now, the one exception to the
         // no-labels rule of 2026-10-31): the hovered knob's name beside it – its parameter, never a number
-        if let Some(i) = self.being.named() {
-            let b = &self.being.buttons[i];
+        let hand = self.hand();
+        if let Some(i) = hand.named() {
+            let b = &hand.buttons[i];
             let mut text = label::Text::default();
-            let _ = std::fmt::Write::write_str(&mut text, self.being.name(i));
+            let _ = std::fmt::Write::write_str(&mut text, hand.name(i));
             let c = being::hsv(being::colour_of(b), 0.35, 1.0);
             out.push(Label { pos: b.pos.into(), offset: b.radius * 2.0, text, color: [c[0], c[1], c[2], 0.95], scale: 1.0, line: 0.0, top: true });
         }
@@ -903,10 +915,10 @@ impl Space {
 
     /// what the pointer should look like now
     pub fn cursor(&self) -> Cursor {
-        match (self.drag, self.being.hover) {
+        match (self.drag, self.hand().hover) {
             (Drag::Knob { .. }, _) => Cursor::Grabbing,
             (Drag::Hold, _) => Cursor::Locked,
-            (Drag::None, Some(Hit::Button(i))) if !self.being.buttons[i].turnable => Cursor::Locked,
+            (Drag::None, Some(Hit::Button(i))) if !self.hand().buttons[i].turnable => Cursor::Locked,
             (Drag::None, Some(Hit::Button(_))) => Cursor::Grab,
             _ => Cursor::Default,
         }
@@ -918,16 +930,17 @@ impl Space {
         (clip.w > 1e-4).then(|| ((clip.x / clip.w + 1.0) * 0.5 * self.view.0, (1.0 - clip.y / clip.w) * 0.5 * self.view.1))
     }
 
-    /// this deck's button `node.port` (or `node.shape`), by name – a check run's `--pointer` / `--drag`
+    /// the hand's button `node.port` (or `node.shape`), by name – a check run's `--pointer` / `--drag`; #496: the picked
+    /// member's knobs only (another member's knob is no button of the hand: None)
     pub fn button(&self, graph: &Graph, name: &str) -> Option<usize> {
         let (id, port) = name.split_once('.')?;
-        self.being.buttons.iter().position(|b| graph.nodes[b.node].id == id && b.name == port)
+        self.hand().buttons.iter().position(|b| graph.nodes[b.node].id == id && b.name == port)
     }
 
     /// button `i`'s tether on the screen: where its 0 sits and the way to its 1 (pixels); a tether that points at the
     /// eye (shorter than a tenth of the window) turns into a plain upward drag over 40 % of the window's height
     pub fn drag_axis(&self, i: usize) -> ((f32, f32), (f32, f32)) {
-        let (lo, hi) = self.being.span(i);
+        let (lo, hi) = self.hand().span(i);
         let up = (0.0, -0.4 * self.view.1);
         match (self.to_pixel(lo), self.to_pixel(hi)) {
             (Some(a), Some(b)) if ((b.0 - a.0).powi(2) + (b.1 - a.1).powi(2)).sqrt() > 0.1 * self.view.1 => (a, (b.0 - a.0, b.1 - a.1)),
@@ -944,7 +957,10 @@ impl Space {
             s += bs;
             v += bv;
         }
-        (s + self.routes.len() * being::BUBBLES, v + self.routes.len() * (being::SEGMENTS + 1) * being::SIDES)
+        // #496: the pick's mark, and a picked card's knobs (the most any card has)
+        let picked = self.cast.iter().filter(|c| c.form == Form::Card).map(|c| pick::knob_spheres(&c.being)).max().unwrap_or(0);
+        let mark = if self.cast.is_empty() { 0 } else { pick::MARK_BEADS };
+        (s + picked + mark + self.routes.len() * being::BUBBLES, v + self.routes.len() * (being::SEGMENTS + 1) * being::SIDES)
     }
 
     /// the tubes' count (the index buffer)
@@ -960,11 +976,20 @@ impl Space {
         for b in self.beings() {
             b.write_solid(spheres);
         }
+        // #496: the picked member's mark at its feet, a picked card's knobs (a look's are its body's)
+        let card = self.picked.map(|i| &self.cast[i]).filter(|c| c.form == Form::Card);
+        if let Some(c) = card {
+            c.being.write_knobs(spheres);
+        }
+        self.write_mark(spheres);
         let solid = spheres.len();
         let r = Route::radius(self.being.look.size);
         for b in self.beings() {
             b.write_ghosts(spheres);
             b.write_tubes(tubes);
+        }
+        if let Some(c) = card {
+            c.being.write_knob_rings(spheres);
         }
         for route in &self.routes {
             route.write_ghosts(self.being.hue, self.being.glow, r, spheres);
@@ -1048,7 +1073,7 @@ impl Space {
                 self.drag = Drag::Orbit(x, y);
             }
             Drag::Knob { button, norm, at, axis } => {
-                let b = &self.being.buttons[button];
+                let b = &self.hand().buttons[button];
                 // the pointer's way along the tether's screen line: out = up, in = down, the button under the hand
                 let along = ((x - at.0) * axis.0 + (y - at.1) * axis.1) / (axis.0 * axis.0 + axis.1 * axis.1).max(1.0);
                 let n = (norm + along).clamp(0.0, 1.0);
@@ -1066,7 +1091,7 @@ impl Space {
 
     pub fn pointer_left(&mut self) {
         self.pointer = None;
-        self.being.hover = None;
+        self.hand_mut().hover = None;
     }
 
     /// the primary button down: over an unlinked button = pull it (twice quickly: back to the scene's value), over a
@@ -1081,20 +1106,21 @@ impl Space {
     fn press_reach(&mut self, reach: f32) {
         let Some((x, y)) = self.pointer else { return };
         let ray = self.camera.ray(x, y, self.view.0, self.view.1);
-        let hit = self.being.pick_reach(&ray, reach);
-        self.being.hover = hit;
+        // #496: the hand's – the picked member's knobs, else the space's own being's
+        let hit = self.hand_hit(&ray, reach);
+        self.hand_mut().hover = hit;
         // #209: what a tap here selects – a button, the being (a point, the head), or nothing (the master section); a
         // hand on a button selects it at once (the last touched knob owns the sticks)
-        let head = self.being.core_point.filter(|_| ray.sphere(self.being.head.pos, self.being.head.radius).is_some()).map(Hit::Point);
+        let head = self.hand_head(&ray);
         let chosen = hit.or(head);
         self.pressed = Some(((x, y), chosen));
         if let Some(Hit::Button(i)) = chosen {
             self.select(Some(Hit::Button(i)));
         }
         self.drag = match hit {
-            Some(Hit::Button(i)) if !self.being.buttons[i].turnable => {
-                self.being.shake(i);
-                let b = &self.being.buttons[i];
+            Some(Hit::Button(i)) if !self.hand().buttons[i].turnable => {
+                self.hand_mut().shake(i);
+                let b = &self.hand().buttons[i];
                 let id = &self.graph_id(b.node);
                 self.notice = Some((format!("{id}.{} IS LINKED < {}", b.name, b.source), self.clock + 2.5));
                 Drag::Hold
@@ -1103,14 +1129,14 @@ impl Space {
                 let double = self.last_press.is_some_and(|(j, t)| j == i && self.clock - t < DOUBLE_CLICK);
                 if double {
                     self.last_press = None;
-                    self.being.reset(i);
+                    self.hand_mut().reset(i);
                     Drag::Hold
                 } else {
                     self.last_press = Some((i, self.clock));
-                    self.being.reset = None;
+                    self.hand_mut().reset = None;
                     // the hand starts where the value sits on the tether (not where it hit the sphere)
                     let (lo, axis) = self.drag_axis(i);
-                    let n = self.being.buttons[i].norm;
+                    let n = self.hand().buttons[i].norm;
                     let at = (x - (lo.0 + axis.0 * n) + lo.0, y - (lo.1 + axis.1 * n) + lo.1);
                     Drag::Knob { button: i, norm: 0.0, at, axis }
                 }
@@ -1125,12 +1151,16 @@ impl Space {
         }
     }
 
-    /// the hand lifts: a press that barely moved is a tap (#209) – it selects what it hit (nothing: deselect)
+    /// the hand lifts: a press that barely moved is a tap (#209) – it selects what it hit (nothing: deselect); #496: on a
+    /// stage with a cast, a tap on none of the hand's parts picks the member under it, or drops the pick (pick.rs)
     fn let_go(&mut self) {
         if let (Some(((x0, y0), chosen)), Some((x, y))) = (self.pressed.take(), self.pointer) {
             if (x - x0).hypot(y - y0) < TAP * self.view.1 {
-                self.select(chosen);
-                self.tapped = Some(self.being.selected);
+                match chosen {
+                    None if !self.cast.is_empty() => self.tap_stage(x, y),
+                    _ => self.select(chosen),
+                }
+                self.tapped = Some(self.hand().selected);
             }
         }
         self.drag = Drag::None;
@@ -1140,14 +1170,17 @@ impl Space {
     /// it; the page asks for taps with `take_tap`
     /// #224: a knob let go (the being or nothing selected now) frames the whole being – the camera glides out (or in)
     /// to `frame_distance`, the focus back to the being
+    /// #496: the hand's selection – the picked member's (its knobs, or the whole member), the camera stays on the stage
     pub fn select(&mut self, what: Option<Hit>) {
-        let was_knob = matches!(self.being.selected, Some(Hit::Button(_)));
-        self.being.selected = match what {
-            Some(Hit::Point(_)) => Some(Hit::Point(self.being.core_point.unwrap_or(0))),
-            Some(Hit::Button(i)) if i < self.being.buttons.len() => Some(Hit::Button(i)),
+        let hand = self.hand_mut();
+        let was_knob = matches!(hand.selected, Some(Hit::Button(_)));
+        hand.selected = match what {
+            Some(Hit::Point(_)) => Some(Hit::Point(hand.core_point.unwrap_or(0))),
+            Some(Hit::Button(i)) if i < hand.buttons.len() => Some(Hit::Button(i)),
             _ => None,
         };
-        if was_knob && !matches!(self.being.selected, Some(Hit::Button(_))) {
+        let knob = matches!(hand.selected, Some(Hit::Button(_)));
+        if was_knob && !knob && self.picked.is_none() {
             self.camera.want = self.frame_distance();
             self.camera.idle = 0.0;
         }
@@ -1170,10 +1203,10 @@ impl Space {
 
     /// #209: the selection's name (`select_named` backwards)
     pub fn selection_name(&self) -> String {
-        match self.being.selected {
+        match self.hand().selected {
             Some(Hit::Point(_)) => "being".into(),
             Some(Hit::Button(i)) => {
-                let b = &self.being.buttons[i];
+                let b = &self.hand().buttons[i];
                 format!("knob:{}.{}", self.graph_id(b.node), b.name)
             }
             None => String::new(),
@@ -1215,24 +1248,26 @@ impl Space {
                 return word.replace(['–', '—'], "-").to_uppercase().chars().take(40).collect();
             }
         }
-        let line = match self.being.hover {
+        let hand = self.hand();
+        let line = match hand.hover {
             Some(Hit::Button(i)) => {
-                let b = &self.being.buttons[i];
+                let b = &hand.buttons[i];
                 let id = &graph.nodes[b.node].id;
                 if b.shape {
                     let names = crate::params::LFO_SHAPES;
                     return format!("{id}.shape {} [{}]", names[(b.value as usize).min(names.len() - 1)], names.join(" ")).to_uppercase().chars().take(40).collect();
                 }
                 match graph.link_into(b.node, b.port) {
-                    Some(l) => format!("{id}.{} {} < {}{}", b.name, num(b.value), graph.nodes[l.from.0].id, if self.being.dragging { " *" } else { "" }),
-                    None => format!("{id}.{} {}{}", b.name, num(b.value), if self.being.dragging { " *" } else { "" }),
+                    Some(l) => format!("{id}.{} {} < {}{}", b.name, num(b.value), graph.nodes[l.from.0].id, if hand.dragging { " *" } else { "" }),
+                    None => format!("{id}.{} {}{}", b.name, num(b.value), if hand.dragging { " *" } else { "" }),
                 }
             }
             Some(Hit::Point(i)) => {
-                let n = &graph.nodes[self.being.points[i].node];
+                let n = &graph.nodes[hand.points[i].node];
                 format!("NODE {} ({:?})", n.id, n.kind)
             }
-            None => self.set_status.clone(),
+            // #496: the picked member, else the set's state
+            None => self.pick_line().unwrap_or_else(|| self.set_status.clone()),
         };
         line.to_uppercase().chars().take(40).collect()
     }

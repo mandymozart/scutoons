@@ -1437,6 +1437,17 @@ impl Being {
             let r = p.radius * 0.45 * (1.0 + 0.3 * p.flash + 0.35 * p.level);
             spheres.push(Sphere { pos: p.pos.into(), radius: r, color: [c[0], c[1], c[2], 1.0], extra: [kind::NUCLEUS, self.glow, lit.max(p.flash * 0.8).max(p.level * 0.9), 0.0] });
         }
+        self.write_knobs(spheres);
+        // the sockets: dark metal where the cables plug into the neck, lit up by the energy
+        let c = rgb(0.0, 0.3, 0.3 + 0.7 * self.head.walk.energy);
+        for i in 0..self.neck.len() {
+            let pos = self.head.socket(i, self.neck.len());
+            spheres.push(Sphere { pos: pos.into(), radius: self.look.size * 0.03, color: [c[0], c[1], c[2], 1.0], extra: [kind::NUCLEUS, self.glow, 0.0, 0.0] });
+        }
+    }
+
+    /// the buttons, solid (#496: alone for a picked cast member that stands as its card – its knobs, no body)
+    pub fn write_knobs(&self, spheres: &mut Vec<Sphere>) {
         for b in self.buttons.iter().filter(|b| !b.hidden) {
             let c = button_rgb(b);
             let locked = if b.turnable { 0.0 } else { 1.0 };
@@ -1444,12 +1455,29 @@ impl Being {
             let r = b.radius * (1.0 + 0.35 * b.hot + 0.15 * b.grip);
             spheres.push(Sphere { pos: b.pos.into(), radius: r, color: [c[0], c[1], c[2], locked], extra: [kind::BUTTON, self.glow, b.hot + b.grip, b.shown] });
         }
-        // the sockets: dark metal where the cables plug into the neck, lit up by the energy
-        let c = rgb(0.0, 0.3, 0.3 + 0.7 * self.head.walk.energy);
-        for i in 0..self.neck.len() {
-            let pos = self.head.socket(i, self.neck.len());
-            spheres.push(Sphere { pos: pos.into(), radius: self.look.size * 0.03, color: [c[0], c[1], c[2], 1.0], extra: [kind::NUCLEUS, self.glow, 0.0, 0.0] });
+    }
+
+    /// the buttons' translucent rings – the selection's, hover's or the lock's, and the value ring (#496: alone for a
+    /// picked card, as `write_knobs`)
+    pub fn write_knob_rings(&self, spheres: &mut Vec<Sphere>) {
+        for (i, b) in self.buttons.iter().enumerate().filter(|(_, b)| !b.hidden) {
+            self.button_rings(i, b, spheres);
         }
+    }
+
+    fn button_rings(&self, i: usize, b: &Button, spheres: &mut Vec<Sphere>) {
+        let c = hsv(colour_of(b), 0.6, 1.0);
+        let r = b.radius * (1.0 + 0.35 * b.hot + 0.15 * b.grip);
+        // the thin ring: hover's, the selection's (#209: the sticks drive it – always, white), or the dashed lock
+        // of one that can't be turned (always)
+        if self.selected == Some(Hit::Button(i)) {
+            spheres.push(Sphere { pos: b.pos.into(), radius: r * 1.55, color: [1.0, 1.0, 1.0, 0.9], extra: [kind::RING, self.glow, 1.0, 0.0] });
+        } else if !b.turnable || b.hot > 0.02 {
+            let a = if b.turnable { b.hot } else { 0.55 + 0.45 * b.hot };
+            spheres.push(Sphere { pos: b.pos.into(), radius: r * 1.4, color: [c[0], c[1], c[2], a], extra: [kind::RING, self.glow, b.hot, if b.turnable { 0.0 } else { 1.0 }] });
+        }
+        let (radius, color, extra) = self.ring(i);
+        spheres.push(Sphere { pos: b.pos.into(), radius, color, extra });
     }
 
     /// Button `i`'s value ring (always on – the value at rest, #188): (radius, colour with its alpha, extra) – the
@@ -1478,19 +1506,7 @@ impl Being {
         }
         let hose = self.look.hose;
         for (i, b) in self.buttons.iter().enumerate().filter(|(_, b)| !b.hidden) {
-            let c = hsv(colour_of(b), 0.6, 1.0);
-            let r = b.radius * (1.0 + 0.35 * b.hot + 0.15 * b.grip);
-            // the thin ring: hover's, the selection's (#209: the sticks drive it – always, white), or the dashed lock
-            // of one that can't be turned (always)
-            let chosen = self.selected == Some(Hit::Button(i));
-            if chosen {
-                spheres.push(Sphere { pos: b.pos.into(), radius: r * 1.55, color: [1.0, 1.0, 1.0, 0.9], extra: [kind::RING, self.glow, 1.0, 0.0] });
-            } else if !b.turnable || b.hot > 0.02 {
-                let a = if b.turnable { b.hot } else { 0.55 + 0.45 * b.hot };
-                spheres.push(Sphere { pos: b.pos.into(), radius: r * 1.4, color: [c[0], c[1], c[2], a], extra: [kind::RING, self.glow, b.hot, if b.turnable { 0.0 } else { 1.0 }] });
-            }
-            let (radius, color, extra) = self.ring(i);
-            spheres.push(Sphere { pos: b.pos.into(), radius, color, extra });
+            self.button_rings(i, b, spheres);
             // the tether's bubbles: well inside its tube (BUBBLE_FILL of its radius at most)
             let bc = hsv(colour_of(b), 0.3, 1.0);
             let tube_r = tether_radius(self.look.size, hose, b.shown);

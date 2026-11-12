@@ -1,0 +1,106 @@
+name = "click to pick: a click on a cast member picks it, its knobs move only it, the empty floor drops it"
+about = "#496 (owner 2026-11-12 [scenes]: \"the select might be best via clicking the character like in a strategy game\"): the core's hit test (deck-space space/pick.rs – a ray against a look's bounds or a card's rectangle) gives the member under a click; the pick and the hand live in the core, the decks only pass the click and draw the mark (a ring at the picked member's feet). The picked member's knobs are the only ones a hand reaches – a knob of another member is no knob of the hand – and what a knob turns is that member's own addressed value (sent to the engine here, heard back). A click on the empty floor drops the pick; Tab picks the next member, Escape drops it. The pick stays on this deck (owner 2026-11-12 [live]: only the values travel)"
+
+# stage-duo's pair on scene:stage, no set: both cards
+[[step]]
+do = "load"
+document = "../server/tests/fixtures/scenes/templates/stage.json"
+with = { where = "location:dom", left = "character:catpope", right = "character:toptoy" }
+[step.expect]
+stage = { stage_3d = false }
+
+[[step]]
+do = "run"
+ms = 200
+
+# nothing picked: the knobs reach no one
+[[step]]
+do = "pick"
+expect = { picked = "", knobs = [], mark = false }
+
+# a click on Cat Pope's card picks her – whole (the sticks drive her main pairs), marked; her rig's knobs are the hand's
+[[step]]
+do = "pick"
+click = "left"
+expect = { picked = "left", selection = "being", mark = true, knobs = { has = "left_voice_voice.gain" } }
+
+# her knob turns her own value …
+[[step]]
+do = "pick"
+drag = "left_voice_voice.gain"
+by = 0.3
+expect = { picked = "left", reach = true, turned = { "left_voice_voice.gain" = { min = 0.17 } } }
+
+[[step]]
+do = "run"
+ms = 100
+
+[[step]]
+do = "heard"
+path = "left_voice_voice.gain"
+expect = { value = { min = 0.17 } }
+
+# … a click on Top Toy picks him instead: his hand holds his look's knobs, hers is none of them – nothing turns
+[[step]]
+do = "pick"
+click = "right"
+drag = "left_voice_voice.gain"
+expect = { picked = "right", reach = false, knobs = { has = "right_look.glow" } }
+
+# the empty floor drops the pick: the master section
+[[step]]
+do = "pick"
+click = [40, 700]
+expect = { picked = "", selection = "", mark = false }
+
+# keys: Tab picks the next member, Shift + Tab the one before, Escape drops the pick (then Escape is not the pick's)
+[[step]]
+do = "pick"
+key = "Tab"
+expect = { key = true, picked = "left" }
+
+[[step]]
+do = "pick"
+key = "Tab"
+shift = true
+expect = { key = true, picked = "right" }
+
+[[step]]
+do = "pick"
+key = "Escape"
+expect = { key = true, picked = "" }
+
+[[step]]
+do = "pick"
+key = "Escape"
+expect = { key = false, picked = "" }
+
+# stage-cards: Cat Pope as her 3D look (the set's 3D on its way), the incense burner as its card – picked alike
+[[step]]
+do = "reset"
+
+[[step]]
+do = "load"
+document = "headless/documents/nave-cast.json"
+[step.expect]
+stage = { stage_3d = true }
+
+[[step]]
+do = "pick"
+click = "pope"
+expect = { picked = "pope", mark = true, knobs = { has = "pope_voice_voice.ratio" } }
+
+[[step]]
+do = "pick"
+click = "burner"
+expect = { picked = "burner", mark = true, knobs = { has = "burner_air_hiss.gain" } }
+
+[[step]]
+do = "pick"
+drag = "pope_voice_voice.ratio"
+expect = { reach = false }
+
+[[step]]
+do = "pick"
+click = [40, 700]
+expect = { picked = "" }

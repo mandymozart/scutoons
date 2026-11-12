@@ -53,7 +53,7 @@ export class SceneStage {
 	/** #470: the deck's pairing and the key it signs with – #484: made only when nobody is signed in (`ensureLink`) */
 	link: Paired | null = null;
 	pairing = false;
-	/** #481: the panel's taps and keys, until `stop`; nobody is signed in (as of the last frame) */
+	/** #481: the panel's (and #496 the stage's) taps and keys, until `stop`; nobody is signed in (as of the last frame) */
 	private unwatch: (() => void) | null = null;
 	private guest = true;
 	/** #478 #386: the menu's status line, keys and pointer – on every deck (outside a session its splash waits for START) */
@@ -90,8 +90,8 @@ export class SceneStage {
 		s.live = new LivePage(view, canvas, o.host, kept);
 		if (o.outlet && view.join_outlet(o.outlet.relay, o.outlet.name, kept, o.outlet.reader ?? '', o.outlet.locale, o.api)) {
 			(s.relay = new RelaySocket(view as unknown as RelayCoreView, {})).start();
-			s.unwatch = watchPanel(canvas, view);
 		}
+		s.unwatch = watchPanel(canvas, view);
 		const room = view.room();
 		if (room) void fetchSet(s, mod.SpaceView.encoded_images, sniff, o, room).catch((e) => console.warn('scene: the set failed', e));
 		view.chapters().forEach((path, i) => void fetchChapter(s, o.api + path, i));
