@@ -1,0 +1,41 @@
+name = "a use of a scene plays the scene it names, with its fillers; a wrong filler is refused with words"
+about = "#504 (SCENES.md §9.2, §9.6 2·2; owner 2026-11-12 [scenes]: a use instead of a new scene when only the fillers change, every fact of a filter must hold): a group, a cell, a location or a character stores a use `{ scene, with }` of a template. The core checks it – the one check, the deck's (scene_resolve.rs `Use::problems`; RULES A6 [deck-rules-in-deck]): the scene and every filler in the toon's book, each filler against its placeholder's `fill`. A good use of scene:stage resolves to the stage it plays – Cat Pope at `left`, Top Toy at `right`, both cards (no set yet); an item on a character's place, a filler outside the book and a use of another scene are refused with the core's words"
+
+# a good use: the template scene:stage with a location and two characters of the toon's book
+[[step]]
+do = "load"
+document = "../server/tests/fixtures/scenes/templates/stage.json"
+use = { scene = "scene:stage", with = { where = "location:dom", left = "character:catpope", right = "character:toptoy" } }
+book = ["scene:stage", "location:dom", "character:catpope", "character:toptoy", "item:incense"]
+[step.expect]
+stage = { stage_3d = false, cast = [{ holder = "left", look = "left_look", character = "catpope", spot = "spot_left", who = "character:catpope", form = "card", picture = "characters.catpope.full" }, { holder = "right", look = "right_look", character = "toptoy", spot = "spot_right", who = "character:toptoy", form = "card", picture = "characters.toptoy.full" }] }
+
+[[step]]
+do = "run"
+ms = 200
+
+# a filler of the wrong kind: an item where the placeholder takes a character
+[[step]]
+do = "reset"
+
+[[step]]
+do = "load"
+document = "../server/tests/fixtures/scenes/templates/stage.json"
+use = { scene = "scene:stage", with = { left = "item:incense" } }
+book = ["scene:stage", "item:incense"]
+expect = { error = { contains = "holder left: 'item:incense' is an item, the placeholder takes character" } }
+
+# a filler the toon's book does not have
+[[step]]
+do = "load"
+document = "../server/tests/fixtures/scenes/templates/stage.json"
+use = { scene = "scene:stage", with = { left = "character:nobody" } }
+book = ["scene:stage"]
+expect = { error = { contains = "left: 'character:nobody' is not in the toon's book" } }
+
+# a use of another scene is not this document's
+[[step]]
+do = "load"
+document = "../server/tests/fixtures/scenes/templates/stage.json"
+use = { scene = "scene:solo", with = {} }
+expect = { error = { contains = "the use names scene:solo, the document is scene:stage" } }

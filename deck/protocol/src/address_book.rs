@@ -78,6 +78,32 @@ impl OriginState {
 /// Content text: locale → text (the one shape of authored text; pick a locale with the one locale order, server/schema/tables/locale-order.json).
 pub type LocaleText = std::collections::HashMap<String, String>;
 
+/// What may fill a scene's placeholder (#504; the scene document's `fill`, research/SCENES.md §9.2): the address book's typeahead question – an entry passes when every fact given holds. Whether a use's filler passes is the core's (deck-space scene_resolve.rs `Use::problems`).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PlaceholderFill {
+	/// the kinds that may fill it (a holder's: character, persona, look, item; a location's: location)
+	pub kind: Vec<AddressKind>,
+	/// only these references (`character:catpope`); absent = any of the kinds
+	#[serde(rename = "ref", default, skip_serializing_if = "Option::is_none")]
+	pub r#ref: Option<Vec<String>>,
+	/// only entries below this reference (`character:catpope`: her personas and looks)
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub parent: Option<String>,
+}
+
+/// One placeholder of a scene (#504): a slot a use fills by its `id` – the location (`where`, `home`) or a holder (`left`, `who`).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ScenePlaceholder {
+	/// its key in a use's `with`; not an address
+	pub id: String,
+	pub fill: PlaceholderFill,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub label: Option<LocaleText>,
+	/// the fillers the editor and the browser show while it is empty (a spawn zone may preview several)
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub preview: Option<Vec<String>>,
+}
+
 /// The catalog document an entry comes from.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Origin {
@@ -115,6 +141,9 @@ pub struct AddressEntry {
 	/// a scene only: the published version listed (the document's stamped `version`, what `scene:<id>@<version>` pins)
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub version: Option<i64>,
+	/// a scene only (#504): its placeholders in the document's order – the location's first when it is one, then each holder with a `fill` – what a use `{ scene, with }` may fill; absent: a concrete scene. A template (a scene with no toon, the core's `is_template`) is listed in every toon's book
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub placeholders: Option<Vec<ScenePlaceholder>>,
 }
 
 /// The document: one per toon, versioned by the catalog it was built from.

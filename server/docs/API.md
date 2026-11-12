@@ -62,7 +62,7 @@ Locally `http://localhost:9000/api` (`VITE_API_URL`; the qr app on :9001). Publi
 | GET/POST/DELETE | `/me/decks`, `/me/decks/pending`, `/me/decks/approve`, `/me/decks/{id}` | session (every member) | the member's paired decks – see "Decks" |
 | GET | `/decks/lan-cert` | a deck token | the venue certificate for `deck-tls` – see "The venue certificate" |
 | GET | `/decks/media?path=live/<toon>/<file>` | a deck token or a sign-in | a show medium as a short signed link (#470, #484) – see "Decks" |
-| GET | `/addresses/<toon>` | creator, admin, live; a deck token | the toon's address book (#477): the document of `server/schema/api/address-book.schema.json` itself, `ETag` = its `version`, `If-None-Match` → 304; `404 unknown_toon` (Domain\Addresses\AddressBook) |
+| GET | `/addresses/<toon>` | creator, admin, live; a deck token | the toon's address book (#477): the document of `server/schema/api/address-book.schema.json` itself, `ETag` = its `version`, `If-None-Match` → 304; `404 unknown_toon` (Domain\Addresses\AddressBook); a scene entry carries its `placeholders` (#504), a template (a scene with no toon, the core's `is_template`) is in every book |
 | GET/POST | `/validate/` | – | PUBLIC URL (printed): legacy, backwards compatible – success for any existing, unexpired, unrevoked code (claimed or not); CORS `*` |
 | GET | `/keys/keys.php` | – | PUBLIC URL (printed): the public key of the certificate signatures |
 | * | `/admin/*` | admin | the admin API – see "Admin API" |
@@ -839,7 +839,18 @@ scenes public, `toons` a list (may be empty).
   `scene:avatar-home` = `server/tests/fixtures/scenes/templates/<id>.json` (checked by deck-space's `scene_resolve` and
   `validate` tests). Not seeded (RULES E3): created once by hand like `scene:nave` – the same PUT with `/api/scenes/<id>` and
   that file's content (`message: 'template scene:<id> (#489)'`), then its publish – after the deploy that carries #489 (the
-  API and the build service). Listing them in every toon's book and checking a use's fillers there is 2·2.
+  API and the build service). Since #504 every toon's address book lists them: a scene with no toon is a template (the
+  core's `SceneDocument::is_template`, #509), each scene entry with its `placeholders` (copied from the stored slots; the
+  core's projection `SceneDocument::placeholders` and the book are held equal by the shared vectors
+  `server/tests/fixtures/scenes/book-entries.json`).
+- **A use** (#504, SCENES.md §9.2): `{ scene, with }` – `SceneUse` in scene.schema.json's definitions (from deck-space's
+  `scene_resolve::Use`; TS `@scutoons/api` `SceneUse`, PHP `SceneTypes`), `with` keyed by a placeholder's `id`. Its validity
+  is decided once, on save, by the core (RULES A6 [contract]): `Domain\Live\SceneUses::check($toon, $use)` sends the use, its
+  scene's published document and the toon's book references to the build service's `POST /validate` (kind `uses`,
+  `CoreValidator::useProblems`; scene_resolve.rs `Use::problems`) → 422 `invalid_use { problems }` in the core's words, 503
+  without the service; the requests and answers are the shared vectors `server/tests/fixtures/scenes/uses.json`. No save
+  carries a use yet: the creator fields of 2·6 (a group's Scene in `chapter:` documents, a location's Default scene in
+  `place:`, a character's Home scene, a show cell's piece) call `check` before their store writes.
 
 ## The venue certificate (2026-10-31, #201 – agents/research/LIVE.md B.4)
 

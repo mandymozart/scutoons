@@ -31,13 +31,18 @@ use crate::scene_document::{Arrange, ArrangeKind, Enter, FillerRef, Fillers, Hol
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashSet};
 
-/// A reference to a scene with its fillers (SCENES.md §9.2): what a group, a cell, a location or a character stores (2·2).
+/// A use of a scene (SCENES.md §9.2, #504): a scene plus the fillers for its placeholders – what a group, a cell, a location or
+/// a character stores instead of a new scene document when only the fillers change (owner 2026-11-12 [scenes], §9.7 Q3).
+/// Whether it plays is the core's: `Use::problems` (how the server would get this verdict is the owner's review, #506).
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "schema", schemars(rename = "SceneUse"))]
 #[serde(deny_unknown_fields)]
 pub struct Use {
-    /// `scene:<id>`
+    /// the scene it plays: `scene:<id>`
     pub scene: String,
-    /// placeholder id → its filler (a spawn zone: several)
+    /// its fillers by placeholder id (the location placeholder's or a holder's `id`): a reference, or several for a spawn
+    /// zone; a placeholder left out stays empty, or is filled by context (the receiver's) or the story (`joinScene`)
     #[serde(default)]
     pub with: BTreeMap<String, Fillers>,
 }
@@ -371,6 +376,29 @@ impl Use {
         }
         resolve(doc, &self.with, previews, rigs)
     }
+
+    /// Why this use cannot be stored in a toon's document (none = it can): its scene is `doc`, and – with the toon's book
+    /// (the references of its address book, #477) – the scene and every filler are entries of that book; then each filler
+    /// passes its placeholder's `fill` and the scene resolves with them (`resolve`, no previews, no rigs: the rigs are a
+    /// deck's, a missing one leaves its member silent). Every reason is listed.
+    pub fn problems(&self, doc: &SceneDocument, book: Option<&[String]>) -> Vec<String> {
+        let mut out = Vec::new();
+        if let Some(book) = book {
+            let listed = |r: &str| book.iter().any(|b| b == r);
+            if !listed(&self.scene) {
+                out.push(format!("{} is not in the toon's book (a scene of the toon, or a template)", self.scene));
+            }
+            for (id, fillers) in &self.with {
+                for f in fillers.list().into_iter().filter(|f| !listed(f)) {
+                    out.push(format!("{id}: '{f}' is not in the toon's book"));
+                }
+            }
+        }
+        if let Err(e) = self.resolve(doc, false, &no_rigs) {
+            out.extend(e);
+        }
+        out
+    }
 }
 
 /// The story's fillers of one scene while a reader reads (SCENES.md §9.4): who joined which placeholder.
@@ -554,6 +582,23 @@ mod tests {
         assert!(resolve(&nave(), &with(&[("catpope", one("character:toptoy"))]), false, &no_rigs).unwrap_err()[0].contains("authored filler"));
         let u = Use { scene: "scene:other".into(), with: BTreeMap::new() };
         assert!(u.resolve(&stage, false, &no_rigs).unwrap_err()[0].contains("the use names scene:other"));
+    }
+
+    /// #504: a use is checked in the toon's book – the scene and every filler listed there – and against each `fill`;
+    /// every reason at once, none for a good one
+    #[test]
+    fn a_use_is_checked_in_the_toons_book() {
+        let stage = fixture("templates/stage", None);
+        let book: Vec<String> = ["scene:stage", "location:dom", "character:catpope", "character:toptoy", "item:incense"].map(String::from).to_vec();
+        let u: Use = serde_json::from_str(r#"{"scene":"scene:stage","with":{"where":"location:dom","left":"character:catpope","right":"character:toptoy"}}"#).unwrap();
+        assert_eq!(u.problems(&stage, Some(&book)), Vec::<String>::new());
+        assert_eq!(u.problems(&stage, None), Vec::<String>::new(), "no book: the fills alone");
+        let wrong: Use = serde_json::from_str(r#"{"scene":"scene:stage","with":{"left":"item:incense","right":"character:nobody"}}"#).unwrap();
+        let p = wrong.problems(&stage, Some(&book));
+        assert_eq!(p, ["right: 'character:nobody' is not in the toon's book", "holder left: 'item:incense' is an item, the placeholder takes character"], "{p:?}");
+        let elsewhere = Use { scene: "scene:stage".into(), with: BTreeMap::new() };
+        assert_eq!(elsewhere.problems(&stage, Some(&["location:dom".to_string()])), ["scene:stage is not in the toon's book (a scene of the toon, or a template)"]);
+        assert!(serde_json::from_str::<Use>(r#"{"scene":"scene:stage","fillers":{}}"#).is_err(), "unknown fields are refused");
     }
 
     const CHOIR: &str = r#"{"format":2,"id":"choir","location":"location:cathedral",

@@ -20,6 +20,7 @@ namespace Scutoons\Generated;
  * @phpstan-type NodeDef array<string, mixed>
  * @phpstan-type RigPin array{ref: string, version?: string | null}
  * @phpstan-type SceneTransition 'fade' | 'cut' | 'blackout'
+ * @phpstan-type SceneUse array{scene: string, with?: array<string, Fillers>}
  * @phpstan-type StageSettings array{audio_buffer?: int | null, name?: string, render_scale?: float, transition?: SceneTransition, transition_secs?: float}
  * @phpstan-type Take 'one' | 'many'
  * @phpstan-type SceneDocument array{format: 2, holder?: list<Holder>, id: string, link?: list<LinkDef>, location?: LocationSlot | null, node?: list<NodeDef>, outputs?: array<string, mixed> | null, stage?: StageSettings, toons?: list<string>, version?: int | null}

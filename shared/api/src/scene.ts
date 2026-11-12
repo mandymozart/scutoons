@@ -103,6 +103,14 @@ export type RigPin = {
 /** What a switch does to the outputs (the lamps) between two scenes (#264). */
 export type SceneTransition = 'fade' | 'cut' | 'blackout';
 
+/** A use of a scene (SCENES.md §9.2, #504): a scene plus the fillers for its placeholders – what a group, a cell, a location or a character stores instead of a new scene document when only the fillers change (owner 2026-11-12 [scenes], §9.7 Q3). Whether it plays is the core's: `Use::problems` (how the server would get this verdict is the owner's review, #506). */
+export type SceneUse = {
+	/** the scene it plays: `scene:<id>` */
+	scene: string;
+	/** its fillers by placeholder id (the location placeholder's or a holder's `id`): a reference, or several for a spawn zone; a placeholder left out stays empty, or is filled by context (the receiver's) or the story (`joinScene`) */
+	with?: Record<string, Fillers>;
+};
+
 export type StageSettings = {
 	/** the audio device's buffer in frames (#208, deck-native's audio/backend.rs): a heavy scene may ask for more; `--audio-buffer` and deck.toml's `audio_buffer` (the machine's) win over it. None = the device's default */
 	audio_buffer?: number | null;
@@ -134,7 +142,7 @@ export type SceneDocument = {
 	/** the parameters as outputs (#211, scene.rs `Scene::outputs`) */
 	outputs?: Record<string, unknown> | null;
 	stage?: StageSettings;
-	/** the toons whose address books list it; empty = reachable by its id only (a template: listed in every book, 2·2) */
+	/** the toons whose address books list it; empty = a template, listed in every toon's book (#504, `is_template`) */
 	toons?: string[];
 	/** the number the server stamps on every change (as a show's); absent until the first save */
 	version?: number | null;

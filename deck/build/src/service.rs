@@ -5,8 +5,9 @@
 //!   · `422 { errors: [{ file, line, column, level, message }] }` – the files break a rule, or rustc's errors
 //!   · `503 { error: "live_show" }` while the relay reports a live session · `503 { error: "busy" }` when the queue is full
 //!     or the wait too long · `401` without the token · `400` / `413` for a body that is not one
-//! `POST /validate` (header `X-Build-Token`, #313) `{ kind: instruments | presets | rigs | scenes, id, document, instruments?, presets?,
-//!   modules? }` (`modules`: a code rig's policy descriptor, #408; `scenes`: a `scene:<id>` document before its publish, #243)
+//! `POST /validate` (header `X-Build-Token`, #313) `{ kind: instruments | presets | rigs | scenes | uses, id, document, instruments?, presets?,
+//!   modules?, scenes?, book? }` (`modules`: a code rig's policy descriptor, #408; kind `scenes`: a `scene:<id>` document before its publish, #243;
+//!   kind `uses`: a use `{ scene, with }` with its scene in `scenes` and the toon's book in `book`, #504)
 //!   → `200 { problems: [..], warnings?: [..] }` (none = valid) – deck-space's own checks (rig/validate.rs), the words the creator shows;
 //!   the API asks before every catalog write of the three kinds. No queue and no live-show refusal: a check is
 //!   microseconds of the core, never rustc. `400` for a body that is not such a request, `401` without the token.

@@ -39,7 +39,7 @@ fn main() -> anyhow::Result<()> {
             let edited = Bundle { rig: rig.clone(), ..b.clone() }.play(None, None)?;
             show(&edited.wire_view("")?);
             println!("\n== the rig document as text (the view's ids, the form the core sets ship in)\n{}", doc.to_toml()?);
-            println!("problems after the edit: {:?}", deck_space::rig::validate::Request { kind: "rigs".into(), id: rig.subject.clone(), document: serde_json::to_value(rig)?, instruments: b.instruments.iter().map(serde_json::to_value).collect::<Result<_, _>>()?, presets: b.presets.iter().map(serde_json::to_value).collect::<Result<_, _>>()?, modules: vec![] }.answer().map(|a| a.problems));
+            println!("problems after the edit: {:?}", deck_space::rig::validate::Request { kind: "rigs".into(), id: rig.subject.clone(), document: serde_json::to_value(rig)?, instruments: b.instruments.iter().map(serde_json::to_value).collect::<Result<_, _>>()?, presets: b.presets.iter().map(serde_json::to_value).collect::<Result<_, _>>()?, modules: vec![], ..Default::default() }.answer().map(|a| a.problems));
         }
         Err(e) => println!("refused: {e}"),
     }

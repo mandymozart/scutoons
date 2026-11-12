@@ -208,6 +208,7 @@ fn a_far_world_node_is_accepted_silent_and_listed() {
         instruments: b.instruments.iter().map(|i| serde_json::to_value(i).unwrap()).collect(),
         presets: vec![],
         modules: [SEQ, SYNTH].iter().map(|j| serde_json::from_str(j).unwrap()).collect(),
+        ..Default::default()
     };
     let a = request.answer().unwrap();
     assert_eq!(a.problems, Vec::<String>::new());

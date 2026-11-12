@@ -80,9 +80,11 @@ fn definitions() -> Map<String, Value> {
 }
 
 /// #243: the stored scene document's schema, draft-07 with the `$id` the API resolves it by (ContentSchemas: the save guard
-/// of kind `scene`; it checks the shape, the core checks the graph at publish)
+/// of kind `scene`; it checks the shape, the core checks the graph at publish); #504: its definitions carry `SceneUse`, the
+/// use `{ scene, with }` a group, cell, location or character stores (scene_resolve.rs `Use`)
 fn scene_schema() -> Value {
     let mut g = schemars::generate::SchemaSettings::draft07().into_generator();
+    g.subschema_for::<deck_space::scene_resolve::Use>();
     let mut schema = g.root_schema_for::<SceneDocument>().to_value();
     let o = schema.as_object_mut().expect("an object schema");
     o.insert("$id".into(), Value::String("https://scutoons.com/schema/scene.schema.json".into()));

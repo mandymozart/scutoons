@@ -1,0 +1,266 @@
+{
+  "cases": [
+    {
+      "file": "templates/place.json",
+      "name": "scene:place",
+      "placeholders": [
+        {
+          "fill": {
+            "kind": [
+              "location"
+            ]
+          },
+          "id": "where",
+          "label": {
+            "de": "wo",
+            "en": "where"
+          }
+        }
+      ],
+      "template": true
+    },
+    {
+      "file": "templates/solo.json",
+      "name": "scene:solo",
+      "placeholders": [
+        {
+          "fill": {
+            "kind": [
+              "location"
+            ]
+          },
+          "id": "where",
+          "label": {
+            "de": "wo",
+            "en": "where"
+          }
+        },
+        {
+          "fill": {
+            "kind": [
+              "character",
+              "item"
+            ]
+          },
+          "id": "who",
+          "label": {
+            "de": "wer",
+            "en": "who"
+          }
+        }
+      ],
+      "template": true
+    },
+    {
+      "file": "templates/stage.json",
+      "name": "scene:stage",
+      "placeholders": [
+        {
+          "fill": {
+            "kind": [
+              "location"
+            ]
+          },
+          "id": "where",
+          "label": {
+            "de": "wo",
+            "en": "where"
+          }
+        },
+        {
+          "fill": {
+            "kind": [
+              "character"
+            ]
+          },
+          "id": "left",
+          "label": {
+            "de": "links",
+            "en": "left"
+          }
+        },
+        {
+          "fill": {
+            "kind": [
+              "character"
+            ]
+          },
+          "id": "centre",
+          "label": {
+            "de": "Mitte",
+            "en": "centre"
+          }
+        },
+        {
+          "fill": {
+            "kind": [
+              "character"
+            ]
+          },
+          "id": "right",
+          "label": {
+            "de": "rechts",
+            "en": "right"
+          }
+        },
+        {
+          "fill": {
+            "kind": [
+              "character"
+            ]
+          },
+          "id": "back",
+          "label": {
+            "de": "hinten",
+            "en": "back"
+          }
+        }
+      ],
+      "template": true
+    },
+    {
+      "file": "templates/avatar-home.json",
+      "name": "scene:avatar-home",
+      "placeholders": [
+        {
+          "fill": {
+            "kind": [
+              "location"
+            ]
+          },
+          "id": "home",
+          "label": {
+            "de": "das Zuhause des Avatars",
+            "en": "the avatar's home"
+          }
+        },
+        {
+          "fill": {
+            "kind": [
+              "character"
+            ]
+          },
+          "id": "who",
+          "label": {
+            "de": "der Avatar",
+            "en": "the avatar"
+          }
+        }
+      ],
+      "template": true
+    },
+    {
+      "name": "a toon's scene: an authored filler is no placeholder, a named location none, a spawn zone previews a list",
+      "placeholders": [
+        {
+          "fill": {
+            "kind": [
+              "item"
+            ],
+            "ref": [
+              "item:crow1",
+              "item:crow2"
+            ]
+          },
+          "id": "crows",
+          "preview": [
+            "item:crow1"
+          ]
+        },
+        {
+          "fill": {
+            "kind": [
+              "persona",
+              "look"
+            ],
+            "parent": "character:catpope"
+          },
+          "id": "guest",
+          "label": {
+            "en": "a guest"
+          },
+          "preview": [
+            "character:catpope.human"
+          ]
+        }
+      ],
+      "scene": {
+        "format": 2,
+        "holder": [
+          {
+            "id": "pope",
+            "ref": "character:catpope"
+          },
+          {
+            "arrange": {
+              "kind": "row",
+              "spacing": 0.5
+            },
+            "fill": {
+              "kind": [
+                "item"
+              ],
+              "ref": [
+                "item:crow1",
+                "item:crow2"
+              ]
+            },
+            "id": "crows",
+            "preview": [
+              "item:crow1"
+            ],
+            "take": "many"
+          },
+          {
+            "fill": {
+              "kind": [
+                "persona",
+                "look"
+              ],
+              "parent": "character:catpope"
+            },
+            "id": "guest",
+            "label": {
+              "en": "a guest"
+            },
+            "preview": "character:catpope.human"
+          }
+        ],
+        "id": "choir",
+        "link": [],
+        "location": "location:dom",
+        "node": [
+          {
+            "id": "space",
+            "kind": "space"
+          }
+        ],
+        "toons": [
+          "catpope"
+        ],
+        "version": 1
+      },
+      "template": false
+    },
+    {
+      "name": "no toon and no placeholder: still a template (the core's one definition)",
+      "placeholders": [],
+      "scene": {
+        "format": 2,
+        "id": "loose",
+        "link": [],
+        "location": "location:dom",
+        "node": [
+          {
+            "id": "space",
+            "kind": "space"
+          }
+        ],
+        "toons": [],
+        "version": 1
+      },
+      "template": true
+    }
+  ],
+  "description": "#504 / #509 shared test vectors ([contract]): a scene document → whether it is a template (every toon's book lists it) and its placeholders as the book lists them. The core writes `template` and `placeholders` (deck-space scene_document.rs `is_template`, `placeholders`; UPDATE_FIXTURES=1 cargo test -p deck-space book_entries) and checks them; AddressBookApiTest checks the book against the same lines. A case names a fixture `file` (under server/tests/fixtures/scenes) or carries its `scene`."
+}

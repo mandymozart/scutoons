@@ -324,6 +324,7 @@ fn code_rig(i: &Value) -> Value {
         instruments: b.instruments.iter().map(by_value).collect(),
         presets: b.presets.iter().map(by_value).collect(),
         modules: b.modules.iter().map(by_value).collect(),
+        ..Default::default()
     };
     let answer = match request.answer() {
         Ok(a) => a,
@@ -374,6 +375,7 @@ fn event_rig(i: &Value) -> Value {
         instruments: b.instruments.iter().map(by_value).collect(),
         presets: b.presets.iter().map(by_value).collect(),
         modules: b.modules.iter().map(by_value).collect(),
+        ..Default::default()
     };
     let answer = match request.answer() {
         Ok(a) => a,

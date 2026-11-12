@@ -199,6 +199,7 @@ fn checked(bundle: Bundle) -> Result<Bundle, String> {
         instruments: list(values(serde_json::to_value(&bundle.instruments))?),
         presets: list(values(serde_json::to_value(&bundle.presets))?),
         modules: list(values(serde_json::to_value(&bundle.modules))?),
+        ..Default::default()
     };
     let problems = request.problems()?;
     if !problems.is_empty() {

@@ -11,7 +11,11 @@
 //!   placeholders and previews well formed –, spawn zones, rigs and values), then resolved with its previews
 //!   (scene_resolve.rs; no rigs travel with the request, so the holders stand silent) into `Graph::build` (kinds, ids,
 //!   links, at most one sink of each kind, no cycle) and the browser engine's split (`engine::lower`) – what every deck
-//!   does before it plays a scene. The outputs table is checked as a shape only here (the API's JSON Schema).
+//!   does before it plays a scene. The outputs table is checked as a shape only here (the API's JSON Schema);
+//! - a use of a scene (#504, kind `uses`, `id` = the scene's id): `{ scene, with }` (scene_resolve.rs `Use`, unknown fields
+//!   refused) with its scene's published document in `scenes` and the toon's book in `book` – `Use::problems`: the scene
+//!   and every filler in the book, each filler against its placeholder's `fill`, the scene resolved with them. The
+//!   requests as the API builds them and the core's answers: server/tests/fixtures/scenes/uses.json (shared vectors).
 //!
 //! The lookups travel by value: the instruments it names, the presets it names with their ancestors, a code rig's policy
 //! module's descriptor (the API reads them from its catalog). Every problem a check lists is in the answer, each naming
@@ -27,10 +31,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 /// One document to check with what it names.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Request {
-    /// the catalog kind: `instruments` · `presets` · `rigs` · `scenes` (#243: a `scene:<id>` document, not catalog)
+    /// the catalog kind: `instruments` · `presets` · `rigs` · `scenes` (#243: a `scene:<id>` document, not catalog) ·
+    /// `uses` (#504: a use `{ scene, with }` of scene `id`)
     pub kind: String,
     /// the catalog id: an instrument's or a preset's id, a rig's subject
     pub id: String,
@@ -44,6 +49,12 @@ pub struct Request {
     /// a code rig's policy module: the descriptor of the `module:<id>` document it names, by value (#408)
     #[serde(default)]
     pub modules: Vec<Value>,
+    /// a use's scene (#504, kind `uses`): the published `scene:<id>` document it names, by value
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub scenes: Vec<Value>,
+    /// a use's toon book (#504, kind `uses`): the references of the toon's address book; none = not asked
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub book: Option<Vec<String>>,
 }
 
 /// The answer: the problems, none = valid; the warnings (RULES H7: they can be accepted).
@@ -82,13 +93,15 @@ impl Request {
             "presets" => "preset",
             "rigs" => "rig",
             "scenes" => "scene",
-            other => return Err(format!("unknown kind '{other}' (instruments, presets, rigs, scenes)")),
+            "uses" => "use of scene",
+            other => return Err(format!("unknown kind '{other}' (instruments, presets, rigs, scenes, uses)")),
         };
         let who = format!("{label} {}", self.id);
         let checked = match label {
             "instrument" => self.instrument(&who),
             "preset" => self.preset(&who).map(|_| Vec::new()),
             "scene" => self.scene(&who).map(|_| Vec::new()),
+            "use of scene" => self.scene_use(&who).map(|_| Vec::new()),
             _ => self.rig(&who),
         };
         Ok(match checked {
@@ -128,6 +141,22 @@ impl Request {
             .map_err(|problems| problems.into_iter().map(|p| format!("{who}: {p}")).collect::<Vec<_>>())?;
         super::engine::lower(&resolved.scene).map_err(said)?;
         Ok(())
+    }
+
+    /// a use's problems (#504): `id` is its scene's id, `scenes` holds that scene's published document, `book` the toon's
+    /// references – scene_resolve.rs `Use::problems` (in the book, each filler against its `fill`, the scene resolved)
+    fn scene_use(&self, who: &str) -> Result<(), Problems> {
+        let u: crate::scene_resolve::Use = parse(who, &self.document)?;
+        let Some(doc) = self.scenes.iter().find(|s| s.get("id").and_then(Value::as_str) == Some(self.id.as_str())) else {
+            return Err(vec![format!("{who}: no published scene:{} to play", self.id)]);
+        };
+        let doc = crate::scene_document::SceneDocument::from_value(doc.clone()).map_err(|e| vec![format!("{who}: {e:#}")])?;
+        let problems = u.problems(&doc, self.book.as_deref());
+        if problems.is_empty() {
+            Ok(())
+        } else {
+            Err(problems.into_iter().map(|p| format!("{who}: {p}")).collect())
+        }
     }
 
     /// a rig's problems, or its warnings
@@ -200,7 +229,7 @@ mod tests {
     #[test]
     fn scenes() {
         let nave = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../server/tests/fixtures/scenes/nave.json")).unwrap();
-        let ask = |id: &str, document: &str| Request { kind: "scenes".into(), id: id.into(), document: serde_json::from_str(document).unwrap(), instruments: vec![], presets: vec![], modules: vec![] }.problems().unwrap();
+        let ask = |id: &str, document: &str| Request { kind: "scenes".into(), id: id.into(), document: serde_json::from_str(document).unwrap(), instruments: vec![], presets: vec![], modules: vec![], ..Default::default() }.problems().unwrap();
         assert_eq!(ask("nave", &nave), Vec::<String>::new());
         let p = ask("other", &nave);
         assert_eq!(p, ["scene other: the document's id is \"nave\", the key's \"other\""]);
@@ -221,9 +250,34 @@ mod tests {
     fn the_templates_pass() {
         for name in ["place", "solo", "stage", "avatar-home"] {
             let text = std::fs::read_to_string(format!("{}/../../server/tests/fixtures/scenes/templates/{name}.json", env!("CARGO_MANIFEST_DIR"))).unwrap();
-            let r = Request { kind: "scenes".into(), id: name.into(), document: serde_json::from_str(&text).unwrap(), instruments: vec![], presets: vec![], modules: vec![] };
+            let r = Request { kind: "scenes".into(), id: name.into(), document: serde_json::from_str(&text).unwrap(), instruments: vec![], presets: vec![], modules: vec![], ..Default::default() };
             assert_eq!(r.problems().unwrap(), Vec::<String>::new(), "{name}");
         }
+    }
+
+    /// #504: the uses as the API sends them (server/tests/fixtures/scenes/uses.json) – the core's words for each; a good one
+    /// passes, the others name their reason. `UPDATE_FIXTURES=1` writes the problems.
+    #[test]
+    fn uses_vectors() {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../server/tests/fixtures/scenes/uses.json");
+        let stored = std::fs::read_to_string(path).unwrap().replace('\r', "");
+        let mut set: Value = serde_json::from_str(&stored).unwrap();
+        for case in set["cases"].as_array_mut().unwrap() {
+            let request: Request = serde_json::from_value(case["request"].clone()).unwrap();
+            case["problems"] = serde_json::to_value(request.problems().unwrap()).unwrap();
+        }
+        let cases = set["cases"].as_array().unwrap();
+        assert_eq!(cases[0]["problems"], serde_json::json!([]), "the good use passes");
+        assert!(cases[1]["problems"][0].as_str().unwrap().contains("'item:incense' is an item, the placeholder takes character"));
+        assert!(cases[1..].iter().all(|c| !c["problems"].as_array().unwrap().is_empty()), "every other case is refused");
+        let written = format!("{}\n", serde_json::to_string_pretty(&set).unwrap());
+        if std::env::var_os("UPDATE_FIXTURES").is_some() {
+            std::fs::write(path, &written).unwrap();
+        } else {
+            assert_eq!(stored, written, "uses.json is stale: UPDATE_FIXTURES=1 cargo test -p deck-space uses_vectors");
+        }
+        let wire: Value = serde_json::from_str(&problems_json(r#"{"kind":"uses","id":"stage","document":{"scene":"scene:stage","extra":1}}"#).unwrap()).unwrap();
+        assert!(wire["problems"][0].as_str().unwrap().contains("unknown field `extra`"), "{wire}");
     }
 
     fn v<T: Serialize>(x: &T) -> Value {
@@ -242,15 +296,16 @@ mod tests {
                 instruments: b.instruments.iter().map(v).collect(),
                 presets: b.presets.iter().map(v).collect(),
                 modules: vec![],
+                ..Default::default()
             };
             assert_eq!(request.problems().unwrap(), Vec::<String>::new(), "{subject}");
             for i in &b.instruments {
-                let r = Request { kind: "instruments".into(), id: i.id.clone(), document: v(i), instruments: vec![], presets: vec![], modules: vec![] };
+                let r = Request { kind: "instruments".into(), id: i.id.clone(), document: v(i), instruments: vec![], presets: vec![], modules: vec![], ..Default::default() };
                 assert_eq!(r.problems().unwrap(), Vec::<String>::new(), "{}", i.id);
             }
             for p in &b.presets {
                 let others = b.presets.iter().filter(|q| q.id != p.id).map(v).collect();
-                let r = Request { kind: "presets".into(), id: p.id.clone(), document: v(p), instruments: b.instruments.iter().map(v).collect(), presets: others, modules: vec![] };
+                let r = Request { kind: "presets".into(), id: p.id.clone(), document: v(p), instruments: b.instruments.iter().map(v).collect(), presets: others, modules: vec![], ..Default::default() };
                 assert_eq!(r.problems().unwrap(), Vec::<String>::new(), "{}", p.id);
             }
         }

@@ -20,6 +20,27 @@
 			"type": "object",
 			"additionalProperties": { "type": "string" }
 		},
+		"PlaceholderFill": {
+			"description": "What may fill a scene's placeholder (#504; the scene document's `fill`, research/SCENES.md §9.2): the address book's typeahead question – an entry passes when every fact given holds. Whether a use's filler passes is the core's (deck-space scene_resolve.rs `Use::problems`).",
+			"type": "object",
+			"properties": {
+				"kind": { "description": "the kinds that may fill it (a holder's: character, persona, look, item; a location's: location)", "type": "array", "items": { "$ref": "#/definitions/AddressKind" } },
+				"ref": { "description": "only these references (`character:catpope`); absent = any of the kinds", "type": "array", "items": { "type": "string" } },
+				"parent": { "description": "only entries below this reference (`character:catpope`: her personas and looks)", "type": "string" }
+			},
+			"required": ["kind"]
+		},
+		"ScenePlaceholder": {
+			"description": "One placeholder of a scene (#504): a slot a use fills by its `id` – the location (`where`, `home`) or a holder (`left`, `who`).",
+			"type": "object",
+			"properties": {
+				"id": { "description": "its key in a use's `with`; not an address", "type": "string" },
+				"fill": { "$ref": "#/definitions/PlaceholderFill" },
+				"label": { "$ref": "#/definitions/LocaleText" },
+				"preview": { "description": "the fillers the editor and the browser show while it is empty (a spawn zone may preview several)", "type": "array", "items": { "type": "string" } }
+			},
+			"required": ["id", "fill"]
+		},
 		"Origin": {
 			"description": "The catalog document an entry comes from.",
 			"type": "object",
@@ -43,7 +64,8 @@
 				"moods": { "description": "a look only: the moods it has art for, in the document's order", "type": "array", "items": { "type": "string" } },
 				"set": { "description": "a scene only: the set its `space` node stages it in (`cathedral`), where the document says one", "type": "string" },
 				"spot": { "description": "a scene only: the spot of that set it is placed at (`spot_altar`), where the document says one", "type": "string" },
-				"version": { "description": "a scene only: the published version listed (the document's stamped `version`, what `scene:<id>@<version>` pins)", "type": "integer" }
+				"version": { "description": "a scene only: the published version listed (the document's stamped `version`, what `scene:<id>@<version>` pins)", "type": "integer" },
+				"placeholders": { "description": "a scene only (#504): its placeholders in the document's order – the location's first when it is one, then each holder with a `fill` – what a use `{ scene, with }` may fill; absent: a concrete scene. A template (a scene with no toon, the core's `is_template`) is listed in every toon's book", "type": "array", "items": { "$ref": "#/definitions/ScenePlaceholder" } }
 			},
 			"required": ["ref", "kind", "name", "labels", "origin"]
 		},

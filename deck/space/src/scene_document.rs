@@ -51,7 +51,7 @@ pub struct SceneDocument {
     /// the number the server stamps on every change (as a show's); absent until the first save
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub version: Option<u32>,
-    /// the toons whose address books list it; empty = reachable by its id only (a template: listed in every book, 2·2)
+    /// the toons whose address books list it; empty = a template, listed in every toon's book (#504, `is_template`)
     #[serde(default)]
     pub toons: Vec<String>,
     /// where it plays: `location:<id>`, or a placeholder a use fills; none = the `space` node's own `set` (or no set)
@@ -444,6 +444,36 @@ impl SceneDocument {
         self.nodes.iter().find(|n| n.kind == "space")
     }
 
+    /// A template (SCENES.md §9.5, owner 2026-11-12 [scenes] §9.7 Q2): a scene with no toon – every toon's book lists it
+    /// (#504). The one definition (#509): the address book reads it from the stored `toons`, the shared vectors
+    /// (server/tests/fixtures/scenes/book-entries.json) hold both to it.
+    pub fn is_template(&self) -> bool {
+        self.toons.is_empty()
+    }
+
+    /// Its placeholders as the toon's book lists them (#504, #509; the address book's generated `ScenePlaceholder`): the
+    /// location's first when it is one, then each holder with a `fill`, in the document's order – what a use may fill by
+    /// `id`. A preview is a list (a spawn zone may preview several).
+    pub fn placeholders(&self) -> Vec<protocol::address_book::ScenePlaceholder> {
+        use protocol::address_book::{PlaceholderFill, ScenePlaceholder};
+        let one = |id: &str, fill: &Fill, label: &Option<Label>, preview: Vec<String>| ScenePlaceholder {
+            id: id.to_string(),
+            fill: PlaceholderFill {
+                kind: fill.kind.clone(),
+                r#ref: (!fill.refs.is_empty()).then(|| fill.refs.clone()),
+                parent: fill.parent.clone(),
+            },
+            label: label.as_ref().filter(|l| !l.is_empty()).map(|l| l.iter().map(|(k, v)| (k.clone(), v.clone())).collect()),
+            preview: (!preview.is_empty()).then_some(preview),
+        };
+        let location = self.location_placeholder().map(|p| one(&p.id, &p.fill, &p.label, p.preview.iter().cloned().collect()));
+        let holders = self.holders.iter().filter_map(|h| {
+            let preview = h.preview.as_ref().map(|p| p.list().into_iter().map(String::from).collect()).unwrap_or_default();
+            h.fill.as_ref().map(|f| one(&h.id, f, &h.label, preview))
+        });
+        location.into_iter().chain(holders).collect()
+    }
+
     /// the location placeholder's id, if the location is one
     pub fn location_placeholder(&self) -> Option<&LocationPlaceholder> {
         match &self.location {
@@ -567,6 +597,31 @@ impl SceneDocument {
 mod tests {
     use super::*;
     use crate::scene::{builtin, BUILTIN};
+
+    /// #504 / #509: the shared vectors the address book is checked against (AddressBookApiTest) – the core writes whether a
+    /// scene is a template and its placeholders as the book lists them; `UPDATE_FIXTURES=1` rewrites them
+    #[test]
+    fn book_entries() {
+        let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../../server/tests/fixtures/scenes");
+        let path = format!("{dir}/book-entries.json");
+        let stored = std::fs::read_to_string(&path).unwrap().replace('\r', "");
+        let mut set: Value = serde_json::from_str(&stored).unwrap();
+        for case in set["cases"].as_array_mut().unwrap() {
+            let doc = match case.get("file").and_then(Value::as_str) {
+                Some(f) => SceneDocument::parse_json(&std::fs::read_to_string(format!("{dir}/{f}")).unwrap()).unwrap(),
+                None => SceneDocument::from_value(case["scene"].clone()).unwrap(),
+            };
+            assert_eq!(doc.check(), Vec::<String>::new(), "{}", case["name"]);
+            case["template"] = Value::Bool(doc.is_template());
+            case["placeholders"] = serde_json::to_value(doc.placeholders()).unwrap();
+        }
+        let written = format!("{}\n", serde_json::to_string_pretty(&set).unwrap());
+        if std::env::var_os("UPDATE_FIXTURES").is_some() {
+            std::fs::write(&path, &written).unwrap();
+        } else {
+            assert_eq!(stored, written, "book-entries.json is stale: UPDATE_FIXTURES=1 cargo test -p deck-space book_entries");
+        }
+    }
 
     /// every scene the repo carries survives TOML → document JSON → document unchanged (its graph, stage and outputs: the
     /// being is no document field)
