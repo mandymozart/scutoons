@@ -313,8 +313,9 @@ fn leaf(s: &str) -> Result<Leaf, String> {
     }
 }
 
-/// one name of the grammar: not empty, none of the grammar's own characters, no whitespace, `#` reserved
-fn word<'a>(s: &'a str, what: &str) -> Result<&'a str, String> {
+/// one name of the grammar: not empty, none of the grammar's own characters, no whitespace, `#` reserved (also a scene
+/// document's holder ids, spots and fillers' levels, scene_document.rs)
+pub(crate) fn word<'a>(s: &'a str, what: &str) -> Result<&'a str, String> {
     if s.is_empty() {
         return Err(format!("{what} is missing"));
     }

@@ -1,0 +1,156 @@
+{
+  "format": 1,
+  "id": "nave",
+  "toons": [
+    "catpope"
+  ],
+  "stage": {
+    "name": "Nave",
+    "render_scale": 1.0,
+    "transition": "fade",
+    "transition_secs": 0.4
+  },
+  "node": [
+    {
+      "id": "voice_voice",
+      "kind": "fm",
+      "freq": 147.0,
+      "gain": 0.16,
+      "index": 2.0,
+      "ratio": 1.5
+    },
+    {
+      "id": "voice_melody",
+      "kind": "walk",
+      "base": 147.0,
+      "bpm": 84.0,
+      "glide": 0.5,
+      "octaves": 2.0,
+      "rate": 2.0,
+      "seed": 84,
+      "spread": 0.0
+    },
+    {
+      "id": "drone_drone",
+      "kind": "osc",
+      "freq": 55.0,
+      "gain": 0.1
+    },
+    {
+      "id": "drone_fifth",
+      "kind": "osc",
+      "freq": 82.5,
+      "gain": 0.03
+    },
+    {
+      "id": "drone_mix",
+      "kind": "mixer"
+    },
+    {
+      "id": "mix1",
+      "kind": "mixer",
+      "gain1": 1.0,
+      "gain2": 1.0
+    },
+    {
+      "id": "out",
+      "kind": "audio_out"
+    },
+    {
+      "id": "fft",
+      "kind": "fft"
+    },
+    {
+      "id": "space",
+      "kind": "space",
+      "at": [
+        2.4,
+        0.2,
+        5.2
+      ],
+      "distance": 2.4,
+      "pitch": 6,
+      "quality": "low",
+      "set": "cathedral",
+      "yaw": 279
+    }
+  ],
+  "link": [
+    {
+      "from": "voice_melody.cv",
+      "to": "voice_voice.cv",
+      "scale": 1.0,
+      "offset": 0.0
+    },
+    {
+      "from": "drone_drone.out",
+      "to": "drone_mix.in1",
+      "scale": 1.0,
+      "offset": 0.0
+    },
+    {
+      "from": "drone_fifth.out",
+      "to": "drone_mix.in2",
+      "scale": 1.0,
+      "offset": 0.0
+    },
+    {
+      "from": "voice_voice.out",
+      "to": "mix1.in1",
+      "scale": 1.0,
+      "offset": 0.0
+    },
+    {
+      "from": "drone_mix.out",
+      "to": "mix1.in2",
+      "scale": 1.0,
+      "offset": 0.0
+    },
+    {
+      "from": "mix1.out",
+      "to": "out.in",
+      "scale": 1.0,
+      "offset": 0.0
+    },
+    {
+      "from": "mix1.out",
+      "to": "fft.in",
+      "scale": 1.0,
+      "offset": 0.0
+    },
+    {
+      "from": "fft.level",
+      "to": "space.pulse",
+      "scale": 0.6,
+      "offset": 0.0
+    }
+  ],
+  "being": {
+    "size": 0.5,
+    "drift": 0.06,
+    "breath": 0.035,
+    "wobble": 0.025,
+    "hose": 1.0,
+    "bubbles": 1.0,
+    "expose": [
+      "voice_voice.ratio",
+      "voice_voice.index",
+      "voice_voice.gain",
+      "voice_melody.spread",
+      "voice_melody.rate",
+      "voice_melody.glide",
+      "drone_drone.freq",
+      "drone_drone.gain"
+    ],
+    "character": "catpope",
+    "moods": [
+      "neutral",
+      "thinking",
+      "happy",
+      "laughing",
+      "surprised"
+    ],
+    "feel": [],
+    "react": []
+  }
+}

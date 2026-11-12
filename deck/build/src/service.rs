@@ -311,7 +311,7 @@ mod tests {
     async fn validate_answers_a_scenes_problems() {
         let s = Service::new(config(2, 100), Fake::new());
         let nave: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../server/tests/fixtures/scenes/nave.json")).unwrap()).unwrap();
-        for (document, problems) in [(nave, 0), (serde_json::json!({ "format": 1, "id": "nave", "node": [{ "id": "a", "kind": "blender" }] }), 1)] {
+        for (document, problems) in [(nave, 0), (serde_json::json!({ "format": 2, "id": "nave", "node": [{ "id": "a", "kind": "blender" }] }), 1)] {
             let body = serde_json::json!({ "kind": "scenes", "id": "nave", "document": document }).to_string();
             let r = s.handle(&validate(Some("sesame"), &body)).await;
             let answer: serde_json::Value = serde_json::from_str(&r.body).unwrap();

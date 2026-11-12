@@ -71,7 +71,28 @@ final class ScenesApiTest extends TestCase
     /** @return array<string, mixed> the first real scene as stored (no version: the server stamps it) */
     private static function nave(): array
     {
-        return (array) json_decode((string) file_get_contents(self::root() . '/tests/fixtures/scenes/nave.json'), true);
+        return self::scene('nave');
+    }
+
+    /** @return array<string, mixed> a fixture of tests/fixtures/scenes (`templates/stage`, `nave.format-1`) */
+    private static function scene(string $name): array
+    {
+        return (array) json_decode((string) file_get_contents(self::root() . "/tests/fixtures/scenes/$name.json"), true);
+    }
+
+    /**
+     * #489: the four templates (research/SCENES.md §9.5) are format-2 documents the API saves – created in production once,
+     * by hand, like scene:nave (docs/API.md "Scenes"; RULES E3: no file seed)
+     */
+    public function testTheTemplatesSaveAsScenes(): void
+    {
+        $creator = $this->session([Roles::CREATOR], 'templates@example.test');
+        foreach (['place', 'solo', 'stage', 'avatar-home'] as $id) {
+            $r = $this->request('PUT', "/api/scenes/$id", $creator, ['content' => self::scene("templates/$id")]);
+            self::assertSame(200, $r->getStatusCode(), "$id: " . $r->getBody());
+            $draft = self::json($this->request('GET', "/api/scenes/$id?draft=1", $creator))['content'];
+            self::assertSame([$id, [], 1], [$draft['id'], $draft['toons'], $draft['version']]);
+        }
     }
 
     public function testCreatorsSaveDraftsWithVersionsAndOnlyThePublishedOneIsPublic(): void
@@ -131,11 +152,16 @@ final class ScenesApiTest extends TestCase
         $other['id'] = 'other';
         self::assertSame(422, $this->request('PUT', '/api/scenes/nave', $creator, ['content' => $other])->getStatusCode(), 'the document names itself');
         foreach ([
-            'format' => fn(array $d) => ['format' => 2] + $d,
+            // #489: format 1 was moved by the migration 2026-11-12-scene-format-2 and is refused from now on
+            'format 1' => fn(array $d) => self::scene('nave.format-1'),
             'an unknown field' => fn(array $d) => ['nodes' => []] + $d,
-            // SCENES.md §8.2: a nudge's control input is `input`; `set` in a scene is the staging alone
-            'a nudge that says set' => function (array $d): array {
-                $d['being']['react'] = [['mood' => 'happy', 'set' => 'space.hue', 'by' => 0.1]];
+            'the being (it left the document: a character holder brings its look)' => fn(array $d) => $d + ['being' => ['size' => 0.5]],
+            'a holder that takes some' => function (array $d): array {
+                $d['holder'][0]['take'] = 'some';
+                return $d;
+            },
+            'a filter of a kind no holder takes' => function (array $d): array {
+                $d['holder'][] = ['id' => 'who', 'fill' => ['kind' => ['chapter']]];
                 return $d;
             },
         ] as $what => $change) {

@@ -4,6 +4,227 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "additionalProperties": false,
   "definitions": {
+    "Arrange": {
+      "additionalProperties": false,
+      "description": "A spawn zone's arrangement: its kind and the spacing between members.",
+      "properties": {
+        "kind": {
+          "$ref": "#/definitions/ArrangeKind"
+        },
+        "spacing": {
+          "default": 0.8,
+          "description": "metres between neighbours (a set's spot is a point: the spacing says how wide the zone grows)",
+          "format": "float",
+          "type": "number"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "type": "object"
+    },
+    "ArrangeKind": {
+      "description": "The arrangements of a first version (scene_resolve.rs `arrange`): more (a stack, a crowd) when a use needs one.",
+      "oneOf": [
+        {
+          "const": "row",
+          "description": "side by side across the spot, centred on it (a choir on the altar, items on a table)",
+          "type": "string"
+        },
+        {
+          "const": "cluster",
+          "description": "around the spot, the first in its middle, the next on a widening ring (crows on a beam's end, a crowd's core)",
+          "type": "string"
+        }
+      ]
+    },
+    "Enter": {
+      "description": "`start` or `join`.",
+      "enum": [
+        "start",
+        "join"
+      ],
+      "type": "string"
+    },
+    "Fill": {
+      "additionalProperties": false,
+      "description": "The filter of a placeholder (SCENES.md §9.2): the address book's typeahead question, stored. Within a fact any value\nadmits; every fact given must hold (owner 2026-11-12, §9.7 Q5).",
+      "properties": {
+        "kind": {
+          "description": "the address book's kinds that may fill it (required): a holder's of `character`, `persona`, `look`, `item`; a\nlocation's `location`",
+          "items": {
+            "enum": [
+              "character",
+              "persona",
+              "look",
+              "item",
+              "location"
+            ],
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "parent": {
+          "description": "only entries below this reference (`character:catpope`: her personas and looks)",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "ref": {
+          "description": "a hand-picked list of references (`character:catpope`, `item:incense`); none = any of the kinds",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "type": "object"
+    },
+    "Fillers": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      ],
+      "description": "One filler or several (a spawn zone's members)."
+    },
+    "Holder": {
+      "additionalProperties": false,
+      "description": "One place on the stage (SCENE-PACKAGE §2, SCENES.md §9.3).",
+      "properties": {
+        "arrange": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Arrange"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "a spawn zone's arrangement of its members within the spot (required with `take: many`)"
+        },
+        "enter": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/Enter"
+            }
+          ],
+          "description": "`start` (the default): on stage when the scene starts; `join`: waits for the story (`joinScene`, SCENES.md §9.4)"
+        },
+        "fill": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Fill"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "a placeholder's filter – or `ref`"
+        },
+        "id": {
+          "description": "its name in the document and in a use's `with` (`left`, `who`); not an address – a filled holder's address is its\nfiller's place (`scene:stage/character:catpope/…`), an empty one has none",
+          "type": "string"
+        },
+        "label": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "a placeholder's name for people",
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "max": {
+          "description": "a spawn zone's limit; none = any number",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "preview": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Fillers"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "fillers for the editor and the browser (a spawn zone may preview several)"
+        },
+        "ref": {
+          "description": "an authored filler (`character:catpope`, `item:incense`) – or `fill`, never both",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "rig": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/RigPin"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "the rig its filler plays; none = the filler's own (`character:catpope` → `rig:character.catpope`)"
+        },
+        "spot": {
+          "description": "the spot of the set where it stands and enters (`spot_left`); none = the scene's spot",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "take": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/Take"
+            }
+          ],
+          "description": "`one` filler (the default) or `many`: a spawn zone (owner 2026-11-12 [scenes]) – a placeholder only"
+        },
+        "values": {
+          "additionalProperties": {
+            "$ref": "#/definitions/HolderValue"
+          },
+          "description": "values and preset choices only (SCENE-PACKAGE §2), by address: `\"voice:voice.index\": 4.0`,\n`\"voice:@preset\": \"cathedral_voice.bright\"`",
+          "type": "object"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "HolderValue": {
+      "anyOf": [
+        {
+          "format": "float",
+          "type": "number"
+        },
+        {
+          "type": "string"
+        }
+      ],
+      "description": "A holder's value: a parameter's number, or a track's preset choice."
+    },
     "LinkDef": {
       "additionalProperties": false,
       "properties": {
@@ -45,91 +266,62 @@
       ],
       "type": "object"
     },
-    "Look": {
+    "LocationPlaceholder": {
       "additionalProperties": false,
-      "description": "The scene's `[being]` table – the body's shape (the colours are the space node's inputs).",
+      "description": "A location no scene names yet: what may fill it.",
       "properties": {
-        "breath": {
-          "default": 0.035,
-          "description": "how much its slow breath swells it (a fraction of its size)",
-          "format": "float",
-          "type": "number"
+        "fill": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/Fill"
+            }
+          ],
+          "description": "the filter: `kind` is `[\"location\"]`"
         },
-        "bubbles": {
-          "default": 1.0,
-          "description": "bubble rate × this",
-          "format": "float",
-          "type": "number"
-        },
-        "character": {
-          "default": "",
-          "description": "the head's character (its portrait sprites `<character>_portrait-<mood>`); empty = a head without a face",
+        "id": {
+          "description": "its name in a use's `with` (`where`, `home`); not an address",
           "type": "string"
         },
-        "drift": {
-          "default": 0.06,
-          "description": "how far it floats around its spot (m)",
-          "format": "float",
-          "type": "number"
-        },
-        "expose": {
-          "default": [],
-          "description": "the parameters shown as buttons: \"node\" (all its inputs) or \"node.port\"; empty = every control input\n  – or a counted group `\"seq.step1..16 <= seq.steps\"` (#424, params.rs `Expose`): the first N of those knobs, N = the\n  value of `seq.steps` now. The list's order is the knobs' order on a node (the first named hangs nearest its point).",
-          "items": {
+        "label": {
+          "additionalProperties": {
             "type": "string"
           },
-          "type": "array"
+          "description": "its name for people",
+          "type": [
+            "object",
+            "null"
+          ]
         },
-        "feel": {
-          "default": [],
-          "description": "feedback → emotion: `[[being.feel]]` rules (feel.rs)",
-          "items": {
-            "$ref": "#/definitions/Rule"
-          },
-          "type": "array"
-        },
-        "hose": {
-          "default": 1.0,
-          "description": "hose thickness × this",
-          "format": "float",
-          "type": "number"
-        },
-        "moods": {
-          "default": [
-            "neutral",
-            "thinking",
-            "happy",
-            "laughing",
-            "surprised"
-          ],
-          "description": "the moods the energy walks through, calm → wild (default MOODS)",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "react": {
-          "default": [],
-          "description": "emotion → sound: `[[being.react]]` nudges (feel.rs)",
-          "items": {
-            "$ref": "#/definitions/Nudge"
-          },
-          "type": "array"
-        },
-        "size": {
-          "default": 0.5,
-          "description": "the body's radius (m)",
-          "format": "float",
-          "type": "number"
-        },
-        "wobble": {
-          "default": 0.025,
-          "description": "each point's own small sway (a fraction of the size)",
-          "format": "float",
-          "type": "number"
+        "preview": {
+          "description": "a filler for the editor and the browser",
+          "type": [
+            "string",
+            "null"
+          ]
         }
       },
+      "required": [
+        "id",
+        "fill"
+      ],
       "type": "object"
+    },
+    "LocationSlot": {
+      "anyOf": [
+        {
+          "description": "`location:<id>`",
+          "type": "string"
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/LocationPlaceholder"
+            }
+          ],
+          "description": "filled by a use (`with.<id>`): authored, or by context (a location's default scene: the location)"
+        }
+      ],
+      "description": "The scene's location: a reference, or a placeholder."
     },
     "NodeDef": {
       "additionalProperties": true,
@@ -147,128 +339,25 @@
       ],
       "type": "object"
     },
-    "Nudge": {
+    "RigPin": {
       "additionalProperties": false,
-      "description": "One `[[being.react]]` nudge as the scene writes it.",
+      "description": "A rig by reference and the version it was wired against (SCENE-PACKAGE §2).",
       "properties": {
-        "attack": {
-          "default": 0.25,
-          "format": "float",
-          "type": "number"
-        },
-        "by": {
-          "format": "float",
-          "type": [
-            "number",
-            "null"
-          ]
-        },
-        "input": {
-          "default": "",
-          "description": "an unlinked control input, `node.port` (by id, else by kind). Was `set` until #243 (SCENES.md §8.2: in a scene `set`\nis the staging only); the repo's scenes were migrated, no alias (RULES E2)",
+        "ref": {
+          "description": "`rig:<subject>` (`rig:character.catpope`)",
           "type": "string"
         },
-        "mood": {
-          "default": "",
-          "type": "string"
-        },
-        "release": {
-          "default": 2.0,
-          "format": "float",
-          "type": "number"
-        },
-        "to": {
-          "format": "float",
+        "version": {
+          "description": "the version it was wired against: the rig's `version` as scene-content serves it (16 hex of its data's SHA-256 –\nthe catalog keeps no version number); none = the current one",
           "type": [
-            "number",
+            "string",
             "null"
           ]
         }
       },
-      "type": "object"
-    },
-    "Rule": {
-      "additionalProperties": false,
-      "description": "One `[[being.feel]]` rule as the scene writes it.",
-      "properties": {
-        "above": {
-          "format": "float",
-          "type": [
-            "number",
-            "null"
-          ]
-        },
-        "below": {
-          "format": "float",
-          "type": [
-            "number",
-            "null"
-          ]
-        },
-        "by": {
-          "default": 0.03,
-          "format": "float",
-          "type": "number"
-        },
-        "chance": {
-          "default": 1.0,
-          "description": "0..1: the odds that it fires when its test comes true",
-          "format": "float",
-          "type": "number"
-        },
-        "cooldown": {
-          "default": 4.0,
-          "format": "float",
-          "type": "number"
-        },
-        "falling": {
-          "format": "float",
-          "type": [
-            "number",
-            "null"
-          ]
-        },
-        "for": {
-          "default": 0.0,
-          "description": "seconds the test must hold before the rule fires",
-          "format": "float",
-          "type": "number"
-        },
-        "hold": {
-          "default": 1.5,
-          "format": "float",
-          "type": "number"
-        },
-        "mood": {
-          "default": "",
-          "type": "string"
-        },
-        "rising": {
-          "format": "float",
-          "type": [
-            "number",
-            "null"
-          ]
-        },
-        "steady": {
-          "description": "seconds the source stays within `by`",
-          "format": "float",
-          "type": [
-            "number",
-            "null"
-          ]
-        },
-        "weight": {
-          "default": 1.0,
-          "format": "float",
-          "type": "number"
-        },
-        "when": {
-          "default": "",
-          "description": "the source: `node.port` (the node by id, else the first of that kind), `bpm`, `touch`, `energy`, `phrase`",
-          "type": "string"
-        }
-      },
+      "required": [
+        "ref"
+      ],
       "type": "object"
     },
     "SceneTransition": {
@@ -330,42 +419,38 @@
         }
       },
       "type": "object"
+    },
+    "Take": {
+      "description": "How many fillers a holder takes.",
+      "oneOf": [
+        {
+          "const": "one",
+          "description": "one slot, one filler",
+          "type": "string"
+        },
+        {
+          "const": "many",
+          "description": "a spawn zone: several fillers of what its `fill` allows, arranged by code",
+          "type": "string"
+        }
+      ]
     }
   },
-  "description": "One `scene:<id>` document as the API stores it: the header, then the scene's own fields at the top level\n(`stage`, `node`, `link`, `outputs`, `being`).",
+  "description": "One `scene:<id>` document as the API stores it.",
   "properties": {
-    "being": {
-      "allOf": [
-        {
-          "$ref": "#/definitions/Look"
-        }
-      ],
-      "default": {
-        "breath": 0.035,
-        "bubbles": 1.0,
-        "character": "",
-        "drift": 0.06,
-        "expose": [],
-        "feel": [],
-        "hose": 1.0,
-        "moods": [
-          "neutral",
-          "thinking",
-          "happy",
-          "laughing",
-          "surprised"
-        ],
-        "react": [],
-        "size": 0.5,
-        "wobble": 0.025
-      }
-    },
     "format": {
-      "const": 1,
-      "description": "the document's format: 1 (today's scene graph, no holders)",
+      "const": 2,
+      "description": "the document's format: 2 (location, holders, spawn zones; #489)",
       "format": "uint32",
       "minimum": 0,
       "type": "integer"
+    },
+    "holder": {
+      "description": "the places on its stage, in the order a story's `joinScene` tries them (SCENES.md §9.4)",
+      "items": {
+        "$ref": "#/definitions/Holder"
+      },
+      "type": "array"
     },
     "id": {
       "description": "the key's id: `nave` for `scene:nave` – platform-wide, no toon in it (a scene can serve several toons and shows)",
@@ -378,8 +463,20 @@
       },
       "type": "array"
     },
+    "location": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/LocationSlot"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "where it plays: `location:<id>`, or a placeholder a use fills; none = the `space` node's own `set` (or no set)"
+    },
     "node": {
       "default": [],
+      "description": "the scene's own nodes (the space, mixers); the holders' rigs are flattened in by the resolve step",
       "items": {
         "$ref": "#/definitions/NodeDef"
       },
@@ -387,7 +484,7 @@
     },
     "outputs": {
       "additionalProperties": true,
-      "description": "the parameters as outputs (#211) – MIDI out, the conductor, DMX fixtures and the clock-synced strobe; parsed and\nchecked by deck-outputs (its config.rs documents the table), played by the host (deck-native's outputs.rs)",
+      "description": "the parameters as outputs (#211, scene.rs `Scene::outputs`)",
       "type": [
         "object",
         "null"
@@ -408,7 +505,7 @@
     },
     "toons": {
       "default": [],
-      "description": "the toons whose address books list it; empty = reachable by its id only (proposal, SCENES.md §7 question 5)",
+      "description": "the toons whose address books list it; empty = reachable by its id only (a template: listed in every book, 2·2)",
       "items": {
         "type": "string"
       },

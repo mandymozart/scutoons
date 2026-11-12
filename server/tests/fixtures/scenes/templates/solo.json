@@ -1,0 +1,45 @@
+{
+  "format": 2,
+  "id": "solo",
+  "toons": [],
+  "location": {
+    "id": "where",
+    "fill": {
+      "kind": [
+        "location"
+      ]
+    },
+    "label": {
+      "de": "wo",
+      "en": "where"
+    }
+  },
+  "holder": [
+    {
+      "id": "who",
+      "fill": {
+        "kind": [
+          "character",
+          "item"
+        ]
+      },
+      "label": {
+        "de": "wer",
+        "en": "who"
+      }
+    }
+  ],
+  "stage": {
+    "name": "Solo",
+    "render_scale": 1.0,
+    "transition": "fade",
+    "transition_secs": 0.4
+  },
+  "node": [
+    {
+      "id": "space",
+      "kind": "space"
+    }
+  ],
+  "link": []
+}

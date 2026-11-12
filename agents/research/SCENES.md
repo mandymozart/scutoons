@@ -1,4 +1,4 @@
-Status 2026-11-12: design for #267 / #427 / #488; 1a built (#243: `scene:<id>`, `/api/scenes`, the schema from the Rust `SceneDocument`, the core's check, `scene:nave`, `Nudge.set` → `input` – server/docs/API.md "Scenes"); 1b built (#427: §5 "Built"); 1c built (#487); phase 1 of the leg "scenes and scene storage" (phase 2 #246, phase 3 #244). §1 is read from the code; §2–§6 are proposals until the owner answers §7; §8 reviews the words (scene, group, label, location, set, spot …) against the code, proposes names and a location model, with its own questions (§8.6); §9 (proposal, 2026-11-12) adds placeholder scenes, holders as format 2, the VN stage in the reader with its render ladder and composing in place (#488), and **replaces §6's phase 2 / 3 order** (§9.6), with its own questions (§9.7). The format and the package stay in SCENE-PACKAGE.md (#288, #393); this note is the whole picture and points there.
+Status 2026-11-12: design for #267 / #427 / #488; 1a built (#243: `scene:<id>`, `/api/scenes`, the schema from the Rust `SceneDocument`, the core's check, `scene:nave`, `Nudge.set` → `input` – server/docs/API.md "Scenes"); 1b built (#427: §5 "Built"); 1c built (#487); 2·0 built (#489: format 2 – location, holders, spawn zones –, the core's resolve step `scene_resolve.rs`, the migration, the four templates as fixtures; §9.3 says what was chosen); phase 1 of the leg "scenes and scene storage" (phase 2 #246, phase 3 #244). §1 is read from the code; §2–§6 are proposals until the owner answers §7; §8 reviews the words (scene, group, label, location, set, spot …) against the code, proposes names and a location model, with its own questions (§8.6); §9 (proposal, 2026-11-12) adds placeholder scenes, holders as format 2, the VN stage in the reader with its render ladder and composing in place (#488), and **replaces §6's phase 2 / 3 order** (§9.6), with its own questions (§9.7). The format and the package stay in SCENE-PACKAGE.md (#288, #393); this note is the whole picture and points there.
 
 # SCENES — what a deck scene is, where it is stored, how it reaches a deck
 
@@ -282,10 +282,10 @@ An empty placeholder plays nothing (its spot stays empty, silent); an empty loca
 | Field | Format 1 (1a) | Format 2 |
 |---|---|---|
 | `format` | 1 | 2; the core reads 2 only (A9) |
-| `location` | — | `"location:<id>"`, or a placeholder `{ "fill": { "kind": ["location"] }, "label": { … }, "preview": "location:dom" }`; the set follows from the location (one set, §8.4) |
+| `location` | — | `"location:<id>"`, or a placeholder `{ "id": "where", "fill": { "kind": ["location"] }, "label": { … }, "preview": "location:dom" }` (its `id` is its key in a use's `with`); the set follows from the location (one set, §8.4) |
 | `space` node `set` | the set | only for a scene with no location (a neutral staging, a set not yet a location's); both at once is refused |
 | `space` node `spot` | the spot | the scene's spot = its spawn point (unchanged) |
-| `holder[]` | — | `id` (its name in the document and in a use's `with`; not an address) · `spot` (where it stands and enters; missing: the scene's spot) · `ref` (a filler) **or** `fill` (a placeholder) · `rig` (`{ "ref": "rig:<subject>", "version": n }`; none = the filler's own rig, pinned when the use is saved) · `values` (values and preset choices only, SCENE-PACKAGE §2) · `label` (a placeholder's name for people) · `preview` (a filler for the editor and the browser) · `enter` (`start`, the default, or `join`: waits for the story) |
+| `holder[]` | — | `id` (its name in the document and in a use's `with`; not an address) · `spot` (where it stands and enters; missing: the scene's spot) · `ref` (a filler) **or** `fill` (a placeholder) · `take` (`one`, `many` = a spawn zone with `arrange` `{ kind: row | cluster, spacing }` and `max`) · `rig` (`{ "ref": "rig:<subject>", "version": "<hash>" }` – built: the version is scene-content's 16-hex hash, the catalog keeps no number; none = the current, or the filler's own rig, pinned when the use is saved) · `values` (values and preset choices only, SCENE-PACKAGE §2) · `label` (a placeholder's name for people) · `preview` (a filler for the editor and the browser) · `enter` (`start`, the default, or `join`: waits for the story) |
 | `being` | one look | leaves the document: every character holder brings its look |
 | `node`, `link` | the rig flattened in by hand | the scene's own nodes (space, mixers); the holders flatten in the core's resolve step, prefixed by the filler's place (SCENE-PACKAGE §2) |
 | `world` | — | still later (#462: cables between holders, far addresses) |
@@ -297,7 +297,7 @@ An empty placeholder plays nothing (its spot stays empty, silent); an empty loca
 
 ```json
 { "format": 2, "id": "stage", "toons": [], "stage": { "name": "Stage" },
-  "location": { "fill": { "kind": ["location"] }, "label": { "en": "where" } },
+  "location": { "id": "where", "fill": { "kind": ["location"] }, "label": { "en": "where" } },
   "holder": [
     { "id": "left",  "spot": "spot_left",  "fill": { "kind": ["character"] }, "enter": "join" },
     { "id": "right", "spot": "spot_right", "fill": { "kind": ["character"] }, "enter": "join" } ],

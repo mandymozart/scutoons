@@ -1,0 +1,89 @@
+{
+  "format": 2,
+  "id": "stage",
+  "toons": [],
+  "location": {
+    "id": "where",
+    "fill": {
+      "kind": [
+        "location"
+      ]
+    },
+    "label": {
+      "de": "wo",
+      "en": "where"
+    }
+  },
+  "holder": [
+    {
+      "id": "left",
+      "spot": "spot_left",
+      "fill": {
+        "kind": [
+          "character"
+        ]
+      },
+      "label": {
+        "de": "links",
+        "en": "left"
+      },
+      "enter": "join"
+    },
+    {
+      "id": "centre",
+      "spot": "spot_centre",
+      "fill": {
+        "kind": [
+          "character"
+        ]
+      },
+      "label": {
+        "de": "Mitte",
+        "en": "centre"
+      },
+      "enter": "join"
+    },
+    {
+      "id": "right",
+      "spot": "spot_right",
+      "fill": {
+        "kind": [
+          "character"
+        ]
+      },
+      "label": {
+        "de": "rechts",
+        "en": "right"
+      },
+      "enter": "join"
+    },
+    {
+      "id": "back",
+      "spot": "spot_back",
+      "fill": {
+        "kind": [
+          "character"
+        ]
+      },
+      "label": {
+        "de": "hinten",
+        "en": "back"
+      },
+      "enter": "join"
+    }
+  ],
+  "stage": {
+    "name": "Stage",
+    "render_scale": 1.0,
+    "transition": "fade",
+    "transition_secs": 0.4
+  },
+  "node": [
+    {
+      "id": "space",
+      "kind": "space",
+      "spot": "spot_centre"
+    }
+  ],
+  "link": []
+}

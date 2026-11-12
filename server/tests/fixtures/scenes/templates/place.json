@@ -1,0 +1,30 @@
+{
+  "format": 2,
+  "id": "place",
+  "toons": [],
+  "location": {
+    "id": "where",
+    "fill": {
+      "kind": [
+        "location"
+      ]
+    },
+    "label": {
+      "de": "wo",
+      "en": "where"
+    }
+  },
+  "stage": {
+    "name": "Place",
+    "render_scale": 1.0,
+    "transition": "fade",
+    "transition_secs": 0.4
+  },
+  "node": [
+    {
+      "id": "space",
+      "kind": "space"
+    }
+  ],
+  "link": []
+}

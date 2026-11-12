@@ -25,6 +25,7 @@ pub mod resolver;
 pub mod rig;
 pub mod scene;
 pub mod scene_document;
+pub mod scene_resolve;
 pub mod tempo;
 pub mod veil;
 
