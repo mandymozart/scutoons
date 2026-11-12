@@ -669,23 +669,30 @@ impl SceneView {
     }
 
     /// #481: a tap or a click at (x, y) of the canvas, in its pixels: what the deck's UI has there is pressed (a
-    /// button, a switch, a field, a toast). true = it was the deck's UI's.
+    /// button, a switch, a field, a toast); #496: else the stage's – the cast member under it is picked, or the pick
+    /// dropped (deck-space pick.rs). true = it was the deck's.
     pub fn panel_tap(&mut self, x: f32, y: f32) -> bool {
-        let Some(o) = self.outlet.as_mut() else { return false };
-        let (flash, fetched) = o.flash_parts();
-        self.face.tap(x, y, flash, fetched)
+        let face = &mut self.face;
+        let ui = self.outlet.as_mut().is_some_and(|o| {
+            let (flash, fetched) = o.flash_parts();
+            face.tap(x, y, flash, fetched)
+        });
+        ui || self.show.space.as_mut().is_some_and(|s| s.tap(x, y))
     }
 
-    /// #481: a key of the page, by its `KeyboardEvent.key`. true = it was the deck's UI's (a dialog's key, `f` for
-    /// "please don't flash").
-    pub fn panel_key(&mut self, key: &str) -> bool {
+    /// #481: a key of the page, by its `KeyboardEvent.key` (`shift` held). true = it was the deck's UI's (a dialog's
+    /// key, `f` for "please don't flash") – #496: or the stage's pick's (Tab, Escape).
+    pub fn panel_key(&mut self, key: &str, shift: bool) -> bool {
         // the open Live page (#478) has the keys – a name is typed there – unless a dialog shows over it
         if self.live.open && !self.dialog() {
             return false;
         }
-        let Some(o) = self.outlet.as_mut() else { return false };
-        let (flash, fetched) = o.flash_parts();
-        self.face.key(key, flash, fetched)
+        let face = &mut self.face;
+        let ui = self.outlet.as_mut().is_some_and(|o| {
+            let (flash, fetched) = o.flash_parts();
+            face.key(key, flash, fetched)
+        });
+        ui || self.show.space.as_mut().is_some_and(|s| s.key(key, shift))
     }
 
     /// #481: the reader signed in or out: the deck asks for its proof again at once (who may reject a flash is in it)

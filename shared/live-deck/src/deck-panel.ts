@@ -1,11 +1,12 @@
 // deck-panel.ts (#481): the taps and keys of the person at a browser deck, handed to the deck's own UI – the panel is
-// drawn and decided in the core (deck-kit `panel.rs`, deck-show `flashed.rs` + `face.rs`); here only the events and
+// drawn and decided in the core (deck-kit `panel.rs`, deck-show `flashed.rs` + `face.rs`), and what the panel leaves goes
+// to the stage (#496: the cast member under a tap is picked, Tab / Escape – deck-space pick.rs); here only the events and
 // their place on the canvas.
 
 /** the scene view's side of the panel (space-web `SceneView`) */
 export interface PanelView {
 	panel_tap(x: number, y: number): boolean;
-	panel_key(key: string): boolean;
+	panel_key(key: string, shift: boolean): boolean;
 	/** the reader signed in or out: the deck asks for its live proof again (who may reject a flash is in it) */
 	proof_again(): void;
 }
@@ -13,13 +14,15 @@ export interface PanelView {
 /** A tap on the canvas (in its pixels) and the page's keys go to the panel; what it took is not the page's any more. Returns how to stop. */
 export function watchPanel(canvas: HTMLCanvasElement, view: PanelView): () => void {
 	const tap = (e: PointerEvent) => {
+		// what the deck's menu took (live-page.ts, listening first) is not the panel's or the stage's
+		if (e.defaultPrevented) return;
 		const r = canvas.getBoundingClientRect();
 		if (view.panel_tap(((e.clientX - r.left) / r.width) * canvas.width, ((e.clientY - r.top) / r.height) * canvas.height)) e.preventDefault();
 	};
 	const key = (e: KeyboardEvent) => {
 		// a key typed into something of the page (a field of a sheet) is that one's, and a shortcut the browser's
 		const elsewhere = e.target instanceof HTMLElement && e.target.matches('input, textarea, select, [contenteditable]');
-		if (!elsewhere && !e.ctrlKey && !e.metaKey && !e.altKey && view.panel_key(e.key)) e.preventDefault();
+		if (!elsewhere && !e.defaultPrevented && !e.ctrlKey && !e.metaKey && !e.altKey && view.panel_key(e.key, e.shiftKey)) e.preventDefault();
 	};
 	canvas.addEventListener('pointerdown', tap);
 	addEventListener('keydown', key);

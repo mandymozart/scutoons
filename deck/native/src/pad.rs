@@ -27,8 +27,10 @@ pub enum Input {
 pub struct Pad {
     gilrs: Option<gilrs::Gilrs>,
     sticks: Sticks,
-    /// the being's knob paths, `node.port` – `paths[i]` is the being's button `i` (the engine's index order)
+    /// the hand's knob paths, `node.port` – `paths[i]` is the hand's button `i` (#496: the picked member's, else the being's)
     paths: Vec<String>,
+    /// #496: the cast member the paths are of (None = the space's own being)
+    hand: Option<usize>,
     axes: [f32; 4],
     buttons: [bool; 4],
     changed: bool,
@@ -50,9 +52,9 @@ impl Pad {
     }
 
     /// The pad's state without a reader: the being's knobs. Tests build it this way (no hardware).
-    fn with_paths(graph: &Graph, space: &Space) -> Pad {
-        let paths: Vec<String> = space.being.buttons.iter().map(|b| format!("{}.{}", graph.nodes[b.node].id, b.name)).collect();
-        Pad { gilrs: None, sticks: Sticks::new(paths.as_slice()), paths, axes: [0.0; 4], buttons: [false; 4], changed: false }
+    fn with_paths(_graph: &Graph, space: &Space) -> Pad {
+        let paths = space.hand_paths();
+        Pad { gilrs: None, sticks: Sticks::new(paths.as_slice()), paths, hand: space.picked(), axes: [0.0; 4], buttons: [false; 4], changed: false }
     }
 
     /// This frame's pad events into the pad's state, then the frame; what the deck's menu gets (#386: Start, the d-pad,
@@ -91,6 +93,11 @@ impl Pad {
         if !std::mem::take(&mut self.changed) {
             return PadEvents::default();
         }
+        // #496: another member picked – the sticks are over its knobs now
+        if space.picked() != self.hand {
+            (self.hand, self.paths) = (space.picked(), space.hand_paths());
+            self.sticks.set_deck(self.paths.as_slice(), None);
+        }
         self.sticks.select(Selection::parse(&space.selection_name()));
         let events = self.sticks.pad(&self.axes, &self.buttons);
         for e in events.iter() {
@@ -107,7 +114,7 @@ impl Pad {
     /// The thumb lands: the sticks take the values they start from.
     fn stick_down(&mut self, side: usize, space: &Space) {
         let [px, py] = self.sticks.stick_paths(side);
-        let norm = |p: &str| self.paths.iter().position(|q| q == p).and_then(|i| space.being.buttons.get(i)).map_or(0.0, |b| b.norm);
+        let norm = |p: &str| self.paths.iter().position(|q| q == p).and_then(|i| space.hand().buttons.get(i)).map_or(0.0, |b| b.norm);
         let start = [norm(px), norm(py)];
         self.sticks.stick_down(side, start[0], start[1]);
     }
@@ -117,7 +124,7 @@ impl Pad {
     fn drive(&self, side: usize, dx: f32, dy: f32, space: &Space, ctl: &mut dyn Knobs) {
         let values = self.sticks.stick_move(side, dx, dy);
         for (path, n) in self.sticks.stick_driving(side).into_iter().zip(values) {
-            let Some(b) = self.paths.iter().position(|q| q == path).and_then(|i| space.being.buttons.get(i)) else { continue };
+            let Some(b) = self.paths.iter().position(|q| q == path).and_then(|i| space.hand().buttons.get(i)) else { continue };
             if !b.turnable {
                 continue;
             }

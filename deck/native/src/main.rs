@@ -59,7 +59,7 @@ const HELP: &str = "deck [--scene FILE|NAME|rig:NAME] [--audio auto|pipewire|cpa
            [--audio-host default|wasapi|asio] [--audio-device NAME] [--audio-buffer FRAMES] [--audio-thread on|off]
            [--audio-list]
            [--sets DIR] [--portraits DIR] [--token T] [--api URL] [--cdn URL] [--windowed] [--frames N]
-           [--screenshot FILE] [--pointer X,Y|NODE.PORT] [--drag NODE.PORT[,DN]] [--no-hud] [--hud-bar] [--dev] [--modules]
+           [--screenshot FILE] [--pointer X,Y|NODE.PORT] [--drag NODE.PORT[,DN]] [--pick HOLDER] [--no-hud] [--hud-bar] [--dev] [--modules]
            [--relay ws[s]://HOST[:PORT]/live/CODE] [--sync set:ID,character:ID]
            [--outlet ID] [--locale de] [--quality auto|low|medium|high|ultra[,fixed]] [--quality-file FILE] [--settings]
            [--scenes DIR] [--switcher] [--switch NAME] [--live-page]
@@ -102,6 +102,7 @@ const HELP: &str = "deck [--scene FILE|NAME|rig:NAME] [--audio auto|pipewire|cpa
   --pointer    put the pointer at window pixel X,Y, or on the being's button NODE.PORT (a check run's hover)
   --drag       a check run's drag: after a second press the button NODE.PORT and pull it DN (0.3) of its range out
                along its tether over half a second, then hold it
+  --pick       a check run's click on the stage's cast member HOLDER after half a second (#496: picks it)
   --dev        reload the scene file and its shaders' WGSL files when they change
   --modules    print the modules (cargo features) this build carries and their kinds, then quit";
 
@@ -131,6 +132,8 @@ struct Args {
     pointer: Option<Aim>,
     /// a check run's drag on a button: its name, how far (0..1 of its range)
     drag: Option<(String, f32)>,
+    /// #496: a check run's click on a cast member (its holder)
+    pick: Option<String>,
     dev: bool,
     /// the Live outlet (#186): --relay, --outlet, --locale over deck.toml's keys
     relay: Option<String>,
@@ -181,6 +184,7 @@ fn args() -> Result<Args> {
         screenshot: None,
         pointer: None,
         drag: None,
+        pick: None,
         dev: false,
         relay: None,
         outlet: None,
@@ -244,6 +248,7 @@ fn args() -> Result<Args> {
                 let (name, dn) = v.split_once(',').unwrap_or((v.as_str(), "0.3"));
                 a.drag = Some((name.to_string(), dn.trim().parse().with_context(|| format!("--drag {v}: NODE.PORT[,DN]"))?));
             }
+            "--pick" => a.pick = Some(val()?),
             "--windowed" => a.windowed = true,
             "--no-hud" => a.hud = false,
             "--hud-bar" => a.hud_bar = true,
@@ -1380,18 +1385,23 @@ impl App {
         let Some(s) = self.show.space.as_mut() else { return };
         let f = self.stats.frames;
         let ctl = &mut self.show.controls;
+        if let Some((x, y)) = self.args.pick.as_deref().filter(|_| f == 30).and_then(|h| s.member_pixel(h)) {
+            s.pointer_moved(x, y, ctl);
+            s.press();
+            s.release();
+        }
         if let Some((name, dn)) = &self.args.drag {
             let Some(i) = s.button(&self.show.graph, name) else { return };
             match (f, self.drag_from) {
                 (..60, _) => {
-                    if let Some((x, y)) = s.to_pixel(s.being.buttons[i].pos) {
+                    if let Some((x, y)) = s.to_pixel(s.hand().buttons[i].pos) {
                         s.pointer_moved(x, y, ctl);
                     }
                 }
                 (60.., None) => {
                     s.press();
                     let (_, axis) = s.drag_axis(i);
-                    if let Some(at) = s.to_pixel(s.being.buttons[i].pos) {
+                    if let Some(at) = s.to_pixel(s.hand().buttons[i].pos) {
                         self.drag_from = Some((at, axis));
                     }
                 }
@@ -1402,7 +1412,7 @@ impl App {
                 _ => {}
             }
         } else if let Some(Aim::Button(name)) = &self.args.pointer {
-            if let Some((x, y)) = s.button(&self.show.graph, name).and_then(|i| s.to_pixel(s.being.buttons[i].pos)) {
+            if let Some((x, y)) = s.button(&self.show.graph, name).and_then(|i| s.to_pixel(s.hand().buttons[i].pos)) {
                 s.pointer_moved(x, y, ctl);
             }
         }
@@ -1448,6 +1458,8 @@ impl App {
                         }
                         Err(e) => tracing::warn!("{e}"),
                     },
+                    // #496: Tab picks the next cast member (Shift: the one before) – the core's
+                    Key::Named(NamedKey::Tab) => return s.key("Tab", self.mods.shift_key()),
                     Key::Named(NamedKey::ArrowLeft) => s.camera.turn(-0.12),
                     Key::Named(NamedKey::ArrowRight) => s.camera.turn(0.12),
                     Key::Named(NamedKey::ArrowUp) | Key::Named(NamedKey::PageUp) => s.camera.zoom(1.0),

@@ -87,6 +87,8 @@ impl App {
         let drawn = self.menu.menu.open() && self.menu.menu.own(&self.menu_facts()).is_none();
         let input = match event {
             WindowEvent::KeyboardInput { event: kev, .. } if kev.state == ElementState::Pressed => match kev.logical_key.as_ref() {
+                // #496: Esc drops a picked cast member first (the core says whether it had one), then opens the menu
+                Key::Named(NamedKey::Escape) if !self.menu.menu.open() && self.show.space.as_mut().is_some_and(|s| s.key("Escape", false)) => return true,
                 Key::Named(NamedKey::Escape) if !self.menu.menu.open() => Input::Open,
                 Key::Named(NamedKey::Escape) => Input::Back,
                 // Shift+F4 is the governor's (main.rs)

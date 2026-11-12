@@ -31,12 +31,14 @@
 //! | `show` | `show` (a deck/ show document), `outlet` (the one this deck plays), `pieces` (what the deck has: piece → `scene` / `bundle` a deck/ file, `toml` a scene as it is, `rig` a core rig's subject) | rows |
 //! | `pieces` | `pieces` (more of them) | – |
 //! | `fire` / `go` | `row` / – : the show's conductor fires, its cell for the outlet goes to the deck (deck-space's piece.rs, #467) | do (load, glide, black, same, kept), piece, ms, values, glides, problems, playing |
+//! | `pick` | on the last scene document loaded (#496, stage.rs): `click` (a holder, or `[x, y]` of a 1280 × 720 window), `key` (+ `shift`), `drag` (a knob of the hand, `by`) | picked, selection, knobs (the hand's), mark, key, reach, turned (sent to the engine) |
 //! | a capability (caps.rs) | `with` | its answer, or `Missing` |
 //!
 //! Built for wasm32 too (`hl_inbox`, `hl_run`, `hl_outbox`): the same bundle in, the same report out – tests/wasm.rs
 //! proves native ≡ wasm32 ≡ wasm32 + simd128, so the browser's bridge adds nothing a scenario can see.
 pub mod caps;
 pub mod deck;
+pub mod stage;
 
 use deck::{round, Deck, T0};
 use deck_show::conductor::{Conductor, Now, Out};
@@ -130,6 +132,9 @@ struct Run<'a> {
     marks: BTreeMap<String, String>,
     /// #474: the opinions a `resolve` step gave the resolver
     opinions: Resolver<Value>,
+    /// #496: the last scene document resolved (its stage), and its pick once a `pick` step asked
+    resolved: Option<Scene>,
+    stage: Option<stage::Stage>,
 }
 
 /// Run one bundled scenario → its report (the same on every target)
@@ -154,7 +159,7 @@ pub fn run_paced(bundle: &Bundle, pace: Option<Box<dyn FnMut(f64)>>) -> Report {
     let rate = t.get("rate").and_then(|v| v.as_integer()).unwrap_or(48_000) as f32;
     let channels = t.get("channels").and_then(|v| v.as_integer()).unwrap_or(2) as usize;
     let expected = t.get("expected_fail").and_then(|v| v.as_str()).map(String::from);
-    let mut r = Run { bundle, deck: Deck::new(rate, channels), show: None, governor: None, gov_t: 0.0, marks: BTreeMap::new(), opinions: Resolver::new() };
+    let mut r = Run { bundle, deck: Deck::new(rate, channels), show: None, governor: None, gov_t: 0.0, marks: BTreeMap::new(), opinions: Resolver::new(), resolved: None, stage: None };
     r.deck.pace = pace;
     let steps = t.get("step").and_then(|s| s.as_array()).cloned().unwrap_or_default();
     let mut fault = None;
@@ -286,7 +291,7 @@ impl Run<'_> {
     }
 
     /// the scene a `load` / `warm` step names, as live-core gets it (lowered: the browser's split) → (TOML, page ids)
-    fn scene(&self, step: &toml::Table) -> Result<(String, Vec<String>, Value), Fault> {
+    fn scene(&mut self, step: &toml::Table) -> Result<(String, Vec<String>, Value), Fault> {
         let lower = step.get("lower").and_then(|v| v.as_bool()).unwrap_or(true);
         let err = |e: String| Fault::Error(e);
         if let Some(subject) = step.get("rig").and_then(|v| v.as_str()) {
@@ -314,6 +319,7 @@ impl Run<'_> {
             let previews = step.get("previews").and_then(|v| v.as_bool()).unwrap_or(false);
             let r = deck_space::scene_resolve::resolve(&doc, &with, previews, &rigs).map_err(|e| err(e.join("; ")))?;
             let e = deck_space::rig::engine::lower(&r.scene).map_err(|e| err(format!("{e:#}")))?;
+            (self.resolved, self.stage) = (Some(r.scene.clone()), None);
             let word = |n: &deck_space::scene::NodeDef, k: &str| n.params.get(k).and_then(|v| v.as_str()).map(String::from);
             // #495: each member's form on this stage (the core's cast.rs, as the decks draw it) and, for a card, the
             // picture it shows (scene-content's entry and field; a character's in its being's mood)
@@ -373,7 +379,17 @@ impl Run<'_> {
                 let pace = d.pace.take();
                 self.deck = Deck::new(rate, channels);
                 self.deck.pace = pace;
+                (self.resolved, self.stage) = (None, None);
                 json!({})
+            }
+            // #496: the stage's pick (stage.rs) – on the last scene document loaded
+            "pick" => {
+                if self.stage.is_none() {
+                    let scene = self.resolved.as_ref().ok_or_else(|| Fault::Error("pick before a scene document's load".into()))?;
+                    self.stage = Some(stage::Stage::new(scene).map_err(Fault::Error)?);
+                }
+                let stage = self.stage.as_mut().expect("made above");
+                stage.step(step, &mut self.deck).map_err(Fault::Error)?
             }
             "load" => {
                 let (toml, page, facts) = self.scene(step)?;
