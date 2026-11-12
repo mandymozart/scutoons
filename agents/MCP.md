@@ -299,3 +299,11 @@ in `test/`) + `storyboard-refs.ts` (the files on the member's machine). Content 
   No delete tool: the cleanup stays in the admin.
 - `old_versions` (admin, read only, #154): the dry run of Data → Old versions (`GET /admin/content/old-versions`) –
   history versions before a day (default 30 days ago) per document, totals; no purge tool.
+
+## 12. Deck scenes (#490, 2026-11-12)
+- `list_scenes`, `read_scene` (newest draft with its version id / published / `stamp` = the document's stamped `version`),
+  `list_scene_versions`, `save_scene_draft` (src/scenes.ts) over `/api/scenes` – the generic content tools refuse `scene:`
+  keys with a pointer to these (`/api/entities` answers 400 wrong_route). A save is a draft signed "(AI: …)" by the API and
+  answers the creator's scene page (`/scenes/<id>`); no publish tool (the API refuses an AI token's publish anyway).
+  Format 2 for the agent: `scutoons://rules/scenes` (the types read from shared/api/src/scene.ts). The member publishes on
+  the creator's Scenes page, which shows the core's 422 problems or "the check is not reachable" (503).

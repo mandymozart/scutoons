@@ -224,3 +224,5 @@ export {
 export type { AddressBook, AddressEntry, AddressKind, LocaleText as AddressLabels, Origin as AddressOrigin, OriginState as AddressOriginState } from './address-book.ts';
 // the stored scene document `scene:<id>` (#243), generated from server/schema/content/scene.schema.json (itself from deck-space's Rust)
 export { SCENE_FORMAT, type SceneDocument } from './scene.ts';
+// the scenes' own route (`/api/scenes`, #490): list, drafts, versions, save, publish, restore
+export { createScenesApi, isSceneKey, sceneFacts, sceneMatches, sceneState, type HolderFacts, type SceneFacts, type SceneListEntry, type SceneState, type SceneWhere, type ScenesApi } from './scenes.ts';

@@ -120,8 +120,11 @@ export const RULES: RuleResource[] = [
 				'4. A 409 conflict = someone saved a newer version: read again, reapply, save with the new base.',
 				'5. Every save is a NEW draft version (append-only). Nothing is overwritten; `list_versions` +',
 				'   `restore_version` bring any older version back as a new draft.',
-				'6. Readers see only published versions. Publishing is off unless the server runs with',
-				'   SCUTOONS_MCP_PUBLISH=1, and then each `publish_entity` call needs `confirm: true` – ask the owner first.',
+				'6. Readers see only published versions. You never publish: give the member the `open` link of each save –',
+				'   they check the draft and press Publish in the creator.',
+				'',
+				'Deck scenes (`scene:<id>`) have their own tools – list_scenes, read_scene, list_scene_versions, save_scene_draft –',
+				'and their own rules: scutoons://rules/scenes.',
 				'',
 				'## Languages',
 				'',
@@ -142,7 +145,8 @@ export const RULES: RuleResource[] = [
 				'Only the screenplays (`season-script:` / `chapter-script:<toon>:<n>:<locale>`) and the Kanon texts (`kanon:<subject>:<locale>`) are stored per language: save each locale on its own key.',
 				'',
 				'Rules: scutoons://rules/entity-keys, scutoons://rules/vn-events, scutoons://rules/flow,',
-				'scutoons://rules/text-presets, scutoons://rules/slices, scutoons://rules/story (scripts and the Kanon).'
+				'scutoons://rules/text-presets, scutoons://rules/slices, scutoons://rules/story (scripts and the Kanon),',
+				'scutoons://rules/scenes (deck scenes).'
 			].join('\n')
 	},
 	{
@@ -156,8 +160,38 @@ export const RULES: RuleResource[] = [
 				'',
 				headerComment('shared/content/src/entities.ts'),
 				'',
-				'A chapter is ONE document with every group (scene) inline – there are no scene documents or `ref` groups any more',
-				'(inlined 2026-10-19).'
+				'A chapter is ONE document with every group inline – there are no group documents or `ref` groups any more',
+				'(inlined 2026-10-19). `scene:<id>` is a deck scene (scutoons://rules/scenes), never a chapter\'s group.'
+			].join('\n')
+	},
+	{
+		name: 'scenes',
+		uri: 'scutoons://rules/scenes',
+		title: 'Deck scenes (format 2)',
+		description: 'The scene document `scene:<id>`: location, holders with a fill filter, spawn zones (shared/api/src/scene.ts, research/SCENES.md §9)',
+		text: () =>
+			[
+				'# Deck scenes `scene:<id>`',
+				'',
+				'A deck scene is one platform-wide document `scene:<id>` (the id: lowercase letters, digits, - and _), stored with',
+				'versions like every document but through its own tools: list_scenes, read_scene, list_scene_versions,',
+				'save_scene_draft. You save drafts; the member publishes on the scene page in the creator (the `open` link) – that',
+				'Publish asks the core whether a deck plays it and shows its problems. `toons` lists the toons whose books list it;',
+				'empty = a template (`scene:place`, `scene:solo`, `scene:stage`, `scene:avatar-home`), reachable by id.',
+				'',
+				'Format 2 in short (research/SCENES.md §9.2–9.3; the full types below):',
+				'- `format: 2`, `id` = the key\'s id; `version` is stamped by the server (leave it out or keep it).',
+				'- `location`: `"location:<id>"`, or a placeholder `{ id, fill: { kind: ["location"] }, label?, preview? }`; then no',
+				'  `set` on the `space` node (a scene without a location keeps the `space` node\'s own `set`).',
+				'- `holder[]`: the places on its stage, in the order joinScene tries them. `id` (its name in a use\'s `with`), `spot`,',
+				'  a filler `ref` (`character:catpope`) OR a placeholder\'s `fill` `{ kind: [character | persona | look | item], ref?,',
+				'  parent? }` (every fact given must hold), `take: one | many` – many = a spawn zone with `arrange { kind: row |',
+				'  cluster, spacing }` and `max` –, `rig { ref: "rig:<subject>", version? }`, `values` by address, `label`, `preview`,',
+				'  `enter: start | join` (join = waits for the story).',
+				'- `stage` (name, render_scale, transition …), `node` (the scene\'s own nodes: the `space`, mixers), `link`, `outputs`.',
+				'  The holders\' rigs are flattened in by the core\'s resolve step – never copy a rig\'s nodes into the scene.',
+				'',
+				code('ts', ['export type SceneDocument', 'export type Holder', 'export type Fill', 'export type LocationPlaceholder'].map((d) => block('shared/api/src/scene.ts', d)).join('\n\n'))
 			].join('\n')
 	},
 	{

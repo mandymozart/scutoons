@@ -61,6 +61,10 @@ const fail = (message: string): Result => ({ ...text(message), isError: true });
 /** chapter / season: ONE language-neutral document per entity, texts as locale maps (agents/NEUTRAL.md) */
 const isNeutralKind = (kind: string | undefined) => !!kind && (NEUTRAL_DOC_KINDS as readonly string[]).includes(kind);
 
+/** a deck scene has its own route (`/api/entities` refuses `scene:` keys, 400 wrong_route): its own tools (scenes.ts, #490) */
+export const sceneElsewhere = (key: string): string | null =>
+	key.startsWith('scene:') ? `${key} is a deck scene – use read_scene / list_scene_versions / save_scene_draft (scutoons://rules/scenes)` : null;
+
 /** An API error as the agent should read it (409 = someone saved a newer version) */
 export function apiMessage(error: unknown): string {
 	if (!(error instanceof ApiError)) return error instanceof Error ? error.message : String(error);
@@ -193,6 +197,8 @@ export function registerContentTools(server: McpServer, config: Config, options:
 	async function keysOf(keyOrEntity: string, locale?: string): Promise<{ entity: string; keys: string[]; primary: string | null }> {
 		const ref = parseEntityKey(keyOrEntity);
 		if (!ref) throw new Error(`"${keyOrEntity}" is no entity key (scutoons://rules/entity-keys)`);
+		const scene = sceneElsewhere(keyOrEntity);
+		if (scene) throw new Error(scene);
 		const entity = entityOf(keyOrEntity);
 		if (!isLocalizedEntity(entity)) return { entity, keys: [entity], primary: null };
 		// a character's / a place's Kanon text has no toon: the universe's languages (every toon's, `de` first – the creator's)
@@ -593,6 +599,7 @@ export function registerContentTools(server: McpServer, config: Config, options:
 			annotations: read
 		},
 		guard(async ({ key, limit }) => {
+			if (sceneElsewhere(key)) return fail(sceneElsewhere(key)!);
 			const versions = (await content.listVersions(key)).versions.slice(0, limit ?? 20);
 			return text(versions.map((v) => ({ id: v.id, status: v.status, created_at: v.created_at, author: v.author_email ?? v.author, message: v.message, size: v.size })));
 		})
@@ -748,6 +755,7 @@ export function registerContentTools(server: McpServer, config: Config, options:
 		guard(async ({ key, base, ops, content: given, message, allow_errors }) => {
 			const ref = parseEntityKey(key);
 			if (!ref) return fail(`"${key}" is no entity key`);
+			if (sceneElsewhere(key)) return fail(sceneElsewhere(key)!);
 			if (isNeutralKind(ref.kind) && ref.locale)
 				return fail(`chapters and seasons are one language-neutral document – save ${entityOf(key)} (texts are locale maps { "de": …, "en": … }; scutoons://rules/workflow)`);
 			if (ref.kind === 'toon-settings')
@@ -797,6 +805,8 @@ export function registerContentTools(server: McpServer, config: Config, options:
 			annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false }
 		},
 		guard(async ({ key, version, message }) => {
+			// a scene's restore is the member's, on its page (the AI saves an older version's content as a draft instead)
+			if (sceneElsewhere(key)) return fail(`${sceneElsewhere(key)}; to bring an older version back, read it and save its content as a new draft`);
 			const r = await content.restoreVersion(key, version, message);
 			return text({ restored: version, version: r.version.id, status: r.version.status, open: creatorHref(options.links, key) });
 		})
