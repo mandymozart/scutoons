@@ -224,7 +224,7 @@ pub(crate) mod tests {
     fn pack_then_unpack_round_trips_and_tampering_is_caught() {
         let dir = tempfile::tempdir().unwrap();
         let (bin, rootfs, scenes) = fixture(dir.path());
-        let files = collect(&bin, &rootfs, &scenes).unwrap();
+        let files = collect(&bin, &rootfs, Some(&scenes)).unwrap();
         let key = SigningKey::from_bytes(&[7; 32]);
         let out = dir.path().join("out");
         let opts = PackOptions { version: "0.1.0.r1", build: 1000, channel: "dev", reboot: false, notes: "" };

@@ -321,7 +321,7 @@ mod tests {
         /// packs build `build` and serves it at `base`
         fn release(&self, fetch: &FakeFetch, base: &str, build: u64) -> Manifest {
             let out = self.src.join(format!("out-{build}"));
-            let files = collect(&self.src.join("bin"), &self.src.join("rootfs"), &self.src.join("scenes")).unwrap();
+            let files = collect(&self.src.join("bin"), &self.src.join("rootfs"), Some(&self.src.join("scenes"))).unwrap();
             let opts = PackOptions { version: &format!("v{build}"), build, channel: "dev", reboot: false, notes: "" };
             let m = pack(&files, &opts, &self.key, &out).unwrap();
             fetch.put(&format!("{base}/{MANIFEST}"), fs::read(out.join(MANIFEST)).unwrap());
@@ -475,13 +475,13 @@ mod tests {
         d.release(&fetch, PC, 200);
         let u = d.updater(&fetch, &sys, &lan);
         u.run(&Options::default(), 1000).unwrap();
-        let scene = d.paths.root.join("usr/share/deck/scenes/fireflies.toml");
+        let scene = d.paths.root.join("usr/share/deck/scenes/sandbox/fireflies.toml");
         assert!(scene.exists());
 
         drop_the_scene(&d, &fetch);
         let out = u.run(&Options::default(), 1100).unwrap();
         let Outcome::Updated { changed, restarted, .. } = &out else { panic!("{out:?}") };
-        assert_eq!(changed, &vec!["usr/share/deck/scenes/fireflies.toml"]);
+        assert_eq!(changed, &vec!["usr/share/deck/scenes/sandbox/fireflies.toml"]);
         assert_eq!(restarted, &vec!["deck-kiosk.service"], "a removed scene restarts the kiosk");
         assert!(!scene.exists());
         assert_eq!(Stamp::read(&d.paths).build, 300);
@@ -494,7 +494,7 @@ mod tests {
         let lan = || vec![PC.to_string()];
         d.release(&fetch, PC, 200);
         d.updater(&fetch, &FakeSystem::default(), &lan).run(&Options::default(), 1000).unwrap();
-        let scene = d.paths.root.join("usr/share/deck/scenes/fireflies.toml");
+        let scene = d.paths.root.join("usr/share/deck/scenes/sandbox/fireflies.toml");
 
         drop_the_scene(&d, &fetch);
         let down = FakeSystem { down: vec!["deck-kiosk.service".into()], ..FakeSystem::default() };
@@ -515,7 +515,7 @@ mod tests {
         u.run(&Options::default(), 1000).unwrap();
         drop_the_scene(&d, &fetch);
         u.run(&Options::default(), 1100).unwrap();
-        let scene = d.paths.root.join("usr/share/deck/scenes/fireflies.toml");
+        let scene = d.paths.root.join("usr/share/deck/scenes/sandbox/fireflies.toml");
         assert!(!scene.exists());
 
         // a live stick rebooted: the root is the older one again, with the scene in it
