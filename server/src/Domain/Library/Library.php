@@ -448,6 +448,24 @@ final class Library
         });
     }
 
+    /**
+     * The published place documents (`place:<id>`, the world map's locations) of these ids – scene-content's `locations=`
+     * (#512): id → document; a place with none published, or removed, is left out.
+     * @param list<string> $ids
+     * @return array<string, stdClass>
+     */
+    public function places(array $ids): array
+    {
+        if ($ids === []) return [];
+        $snapshot = Snapshot::kinds($this->db, ['place'], false);
+        $out = [];
+        foreach ($ids as $id) {
+            $doc = $snapshot->doc("place:$id");
+            if ($doc instanceof stdClass && ($doc->removed ?? false) !== true) $out[$id] = $doc;
+        }
+        return $out;
+    }
+
     /** GET /events → the stored events document (entity `events`) */
     public function events(bool $draft): Answer
     {

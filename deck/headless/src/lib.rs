@@ -93,7 +93,7 @@ pub fn files_of(scenario: &str) -> Vec<String> {
         let ps = s.get("pieces").and_then(|p| p.as_table()).map(|t| t.values().cloned().collect::<Vec<_>>()).unwrap_or_default();
         ps.iter().flat_map(|p| [named(p, "scene"), named(p, "bundle")]).flatten().collect()
     };
-    let mut out: Vec<String> = steps.iter().flat_map(|s| [named(s, "scene"), named(s, "show"), named(s, "document")].into_iter().flatten().chain(pieces(s))).collect();
+    let mut out: Vec<String> = steps.iter().flat_map(|s| [named(s, "scene"), named(s, "show"), named(s, "document"), named(s, "content")].into_iter().flatten().chain(pieces(s))).collect();
     out.sort();
     out.dedup();
     out
@@ -327,8 +327,14 @@ impl Run<'_> {
                 None => BTreeMap::new(),
             };
             let rigs = |s: &str, v: Option<&str>| own.get(s).cloned().or_else(|| deck_space::scene_resolve::core_rigs(s, v));
+            // #512: scene-content's answer (`content`, a file of the bundle) – a location's set, the set's media per rung
+            let content = match step.get("content").and_then(|v| v.as_str()) {
+                Some(path) => deck_space::push::Content::parse(self.file(path)?).map_err(|e| err(format!("{path}: {e}")))?,
+                None => Default::default(),
+            };
+            let sets = |l: &str| content.set_of(l);
             let previews = step.get("previews").and_then(|v| v.as_bool()).unwrap_or(false);
-            let r = deck_space::scene_resolve::resolve(&doc, &with, previews, &rigs).map_err(|e| err(e.join("; ")))?;
+            let r = deck_space::scene_resolve::resolve(&doc, &with, previews, &rigs, &sets).map_err(|e| err(e.join("; ")))?;
             let e = deck_space::rig::engine::lower(&r.scene).map_err(|e| err(format!("{e:#}")))?;
             (self.resolved, self.stage) = (Some(r.scene.clone()), None);
             let word = |n: &deck_space::scene::NodeDef, k: &str| n.params.get(k).and_then(|v| v.as_str()).map(String::from);
@@ -356,7 +362,16 @@ impl Run<'_> {
                     Value::Object(fact.as_object().into_iter().flatten().filter(|(_, v)| !v.is_null()).map(|(k, v)| (k.clone(), v.clone())).collect())
                 })
                 .collect();
-            let facts = json!({ "cast": cast, "stage_3d": stage_3d, "slots": r.cast.iter().map(|m| m.slots.clone()).collect::<Vec<_>>(), "notes": r.notes, "location": r.location });
+            // #512: the set on the space node and its file per rung at the node's quality, as a deck would fetch them
+            let space = r.scene.nodes.iter().find(|n| n.kind == "space");
+            let set = space.and_then(|n| word(n, "set"));
+            let quality = space.and_then(|n| word(n, "quality")).unwrap_or_else(|| deck_space::push::DEFAULT_QUALITY.to_string());
+            let media = set.as_deref().and_then(|s| content.media(s, &quality)).map(|m| {
+                let path = |f: Option<&deck_space::push::File>| f.map(|f| f.path.clone());
+                let all = [("model", path(m.model)), ("video", path(m.video)), ("still", path(m.still))];
+                Value::Object(all.into_iter().filter_map(|(k, p)| p.map(|p| (k.to_string(), json!(p)))).collect())
+            });
+            let facts = json!({ "cast": cast, "stage_3d": stage_3d, "slots": r.cast.iter().map(|m| m.slots.clone()).collect::<Vec<_>>(), "notes": r.notes, "location": r.location, "set": set, "media": media });
             return Ok((e.scene, e.page.iter().map(|n| n.id.clone()).collect(), facts));
         }
         // #425: no rig plays – the deck's own scene, silent (what `Deck::new` and `play_core` of a character without a rig play)

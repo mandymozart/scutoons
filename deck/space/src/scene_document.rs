@@ -8,7 +8,7 @@
 //! **Format 2** (#489, SCENES.md §9.3; owner 2026-11-12 [scenes]: placeholder scenes, spawn zones, every fact of a filter
 //! holds): beside the header (`format`, `id`, `version` stamped by the server, `toons`) a scene names
 //! - its `location`: a reference `location:<id>`, or a placeholder (`id`, `fill`, `label`, `preview`) a use fills; the set
-//!   follows from the location (one set, §8.4; the lookup is 2·3). A scene without one names its set on its `space` node
+//!   follows from the location (one set, §8.4; the lookup is scene_resolve.rs, #512). A scene without one names its set on its `space` node
 //!   (`set`, a neutral staging or a set not yet a location's); both at once is refused;
 //! - its `holder`s: places on its stage, each carrying an authored filler (`ref`) or a placeholder's filter (`fill`), one
 //!   filler (`take: one`) or a spawn zone's several (`take: many`, arranged by code – `arrange` – up to `max`), at a spot

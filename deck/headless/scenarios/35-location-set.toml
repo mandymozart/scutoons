@@ -1,0 +1,43 @@
+name = "a scene at a location plays the location's set: its .glb, its video loop and its still"
+about = "#512 (SCENES.md §9.3, §9.4, §9.6 2·3; owner 2026-11-10 [live]: a location is exactly one set; 2026-10-30 [map]: home scenes become sets): the place document names its set (`set`, a catalog home scene); scene-content `?locations=` answers it with the set's media per rung (server SceneContentTest writes the answer). The core's resolve step (scene_resolve.rs, the one lookup; RULES A6) takes the set from the location onto the space node, in the staging's room: `location:cathedral` → the cathedral's .glb (rung 1), video loop (rung 2) and still (rung 3) at the scene's quality. A location that names no set plays the neutral staging and says so; a `space.set` beside a location stays refused"
+
+# a location's default scene (the template scene:place) filled with the cathedral's place
+[[step]]
+do = "load"
+document = "../server/tests/fixtures/scenes/templates/place.json"
+content = "../server/tests/fixtures/scenes/scene-content-location.json"
+use = { scene = "scene:place", with = { where = "location:cathedral" } }
+book = ["scene:place", "location:cathedral"]
+[step.expect]
+stage = { location = "location:cathedral", set = "cathedral", stage_3d = true, notes = [], media = { model = "catpope/map/sets/cathedral.low.v2.glb", video = "catpope/map/sets/cathedral.loop.v1.mp4", still = "catpope/map/sets/cathedral.still.v1.webp" } }
+
+[[step]]
+do = "run"
+ms = 200
+
+# the same place at the high quality: the scene's own space params win, the set stays the location's
+[[step]]
+do = "reset"
+
+[[step]]
+do = "load"
+document = "headless/documents/vespers.json"
+content = "../server/tests/fixtures/scenes/scene-content-location.json"
+[step.expect]
+stage = { location = "location:cathedral", set = "cathedral", media = { model = "catpope/map/sets/cathedral.high.v2.glb", video = "catpope/map/sets/cathedral.loop.4k.v1.mp4", still = "catpope/map/sets/cathedral.still.4k.v1.webp" } }
+
+# a place that names no set: the neutral staging, said
+[[step]]
+do = "load"
+document = "../server/tests/fixtures/scenes/templates/place.json"
+content = "../server/tests/fixtures/scenes/scene-content-location.json"
+use = { scene = "scene:place", with = { where = "location:dom" } }
+[step.expect]
+stage = { location = "location:dom", stage_3d = false, notes = ["location:dom names no set here: the neutral staging plays"] }
+
+# a set named beside a location is refused
+[[step]]
+do = "load"
+document = "headless/documents/vespers-set.json"
+content = "../server/tests/fixtures/scenes/scene-content-location.json"
+expect = { error = { contains = "a scene with a location takes its set from it" } }

@@ -17,8 +17,13 @@ use stdClass;
  * what its cache lacks (deck/native sync.rs) and plays offline from the cache.
  *
  * - **Sets** (agents/DECISIONS.md 2026-10-30: place → set → assets) are the catalog's home scenes for now (home scenes
- *   become sets) – their `model: { src, variants? }` = the 3D variant, a `.glb` per quality (`src` = medium; a level
- *   without its own variant gets `src`), answered as `model: { low, medium, high }`; a set without one answers `model: {}`.
+ *   become sets) – their media per rung of the render ladder (research/SCENES.md §9.4, #512), each `{ src, variants? }`
+ *   answered per quality as `{ low, medium, high }` (a level without its own variant gets `src`; none = `{}`): `model` =
+ *   the 3D variant, a `.glb` (rung 1; `src` = medium), `video` = its loop (rung 2), `still` = its `image` (rung 3, the
+ *   video's poster; `src` = 1080p).
+ * - **Locations** (#512): a place's `set` (`place:<id>`, owner 2026-11-10 [live]: a location is exactly one set) as
+ *   `locations.<id>.set` (null: it names none), its set answered in `sets` beside the asked ones; a place with no published
+ *   document is in `missing.locations`. Which set a scene plays is the deck core's (scene_resolve.rs), not this answer's.
  * - **Characters**: a registry id (`catpope`), an old VN id (`plf` → its character and persona, ContentTables::LEGACY_CHARACTER_IDS) or `<character>-<persona>`
  *   (`catpope-biker`, the deck's stand-ins) – that persona's (else `regular`'s) default look, its `portrait` per mood and
  *   (#495, a stage's card) its `full` view per mood.
@@ -42,6 +47,8 @@ final class SceneContent
     public const ID = '#^[a-z0-9][a-z0-9_-]{0,63}$#';
     /** the rig kinds as scene-content names them → their catalog kinds */
     private const RIG_KINDS = ['instruments' => 'instruments', 'presets' => 'presets', 'rigs' => 'rigs', 'modules' => 'modules'];
+    /** a set's media as scene-content names them (the render ladder's rungs 1–3) → the home scene's fields */
+    private const SET_MEDIA = ['model' => 'model', 'video' => 'video', 'still' => 'image'];
 
     public function __construct(
         private readonly Library $library,
@@ -55,10 +62,12 @@ final class SceneContent
      * @param list<string> $characters
      * @param list<string> $items
      * @param list<string> $presets preset ids to add (with their ancestors)
-     * @return array<string, mixed> { sets, characters, items, instruments, presets, missing: { sets, characters, items, presets } }
+     * @param list<string> $locations place ids whose set to answer (#512)
+     * @return array<string, mixed> { sets, locations, characters, items, instruments, presets, missing: { sets, locations, characters, items, presets } }
      */
-    public function of(array $sets, array $characters, array $items = [], array $presets = []): array
+    public function of(array $sets, array $characters, array $items = [], array $presets = [], array $locations = []): array
     {
+        $places = $locations === [] ? [] : $this->library->places($locations);
         $registry = [];
         if ($characters !== []) {
             try {
@@ -67,11 +76,35 @@ final class SceneContent
                 $registry = []; // no registry stored: every character is missing
             }
         }
-        $answer = self::compose($sets, fn(string $id) => $this->catalog->get('home-scenes', $id), $characters, is_array($registry) ? $registry : []);
+        $answer = self::compose($sets, fn(string $id) => $this->catalog->get('home-scenes', $id), $characters, is_array($registry) ? $registry : [], $locations, fn(string $id) => $places[$id] ?? null);
         $answer = self::withRigs($answer, $items, fn(string $kind, string $id) => $this->stored($kind, $id), $presets);
         $answer = self::withItemPictures($answer, $items, fn(string $id) => $this->item($id));
         $sizes = $this->registry->available() ? $this->registry->sizesOf(self::paths($answer)) : [];
         return self::withSizes($answer, $sizes);
+    }
+
+    /**
+     * The asked locations' sets (#512): `locations.<id>.set` = the place's `set` (a home scene id), null when it names
+     * none; a place without a document is in `missing`. Stored configuration only: the scene's set is the deck core's.
+     *
+     * @param list<string> $locations
+     * @param callable(string): mixed $place a place's document by id (null = none)
+     * @return array{locations: array<string, array{set: ?string}>, missing: list<string>}
+     */
+    private static function locations(array $locations, callable $place): array
+    {
+        $out = ['locations' => [], 'missing' => []];
+        foreach (array_values(array_unique($locations)) as $id) {
+            $doc = $place($id);
+            $doc = $doc instanceof stdClass ? (array) $doc : $doc;
+            if (!is_array($doc)) {
+                $out['missing'][] = $id;
+                continue;
+            }
+            $set = $doc['set'] ?? null;
+            $out['locations'][$id] = ['set' => is_string($set) && $set !== '' ? $set : null];
+        }
+        return $out;
     }
 
     /** a catalog item's entry, null when there is none (or no table yet) */
@@ -128,7 +161,7 @@ final class SceneContent
      * The answer with the rigs (pure – SceneContentRigsTest): `characters.<id>.rig`, `items`, `instruments`, `presets`
      * (+ the asked `$presets` with their ancestors, #270), `missing.items`, `missing.presets`.
      *
-     * @param array{sets: array<string, mixed>, characters: array<string, mixed>, missing: array{sets: list<string>, characters: list<string>}} $answer
+     * @param array{sets: array<string, mixed>, locations?: array<string, array{set: ?string}>, characters: array<string, mixed>, missing: array{sets: list<string>, locations?: list<string>, characters: list<string>}} $answer
      * @param list<string> $items
      * @param callable(string, string): ?string $stored (kind instruments | presets | rigs, id) → the stored JSON
      * @param list<string> $presets
@@ -247,6 +280,7 @@ final class SceneContent
     {
         return (string) json_encode([
             'sets' => (object) $content['sets'],
+            'locations' => (object) ($content['locations'] ?? []),
             'characters' => (object) $content['characters'],
             'items' => (object) ($content['items'] ?? []),
             'instruments' => (object) ($content['instruments'] ?? []),
@@ -269,27 +303,23 @@ final class SceneContent
      * @param callable(string): mixed $set a set's catalog entry by id (null = none)
      * @param list<string> $characters
      * @param array<mixed> $registry the character registry ({ characters: [...] })
-     * @return array{sets: array<string, mixed>, characters: array<string, mixed>, missing: array{sets: list<string>, characters: list<string>}}
+     * @param list<string> $locations place ids whose set to answer (#512): each one's set joins `$sets`
+     * @param ?callable(string): mixed $place a place's document by id (null = none)
+     * @return array{sets: array<string, mixed>, locations: array<string, array{set: ?string}>, characters: array<string, mixed>, missing: array{sets: list<string>, locations: list<string>, characters: list<string>}}
      */
-    public static function compose(array $sets, callable $set, array $characters, array $registry): array
+    public static function compose(array $sets, callable $set, array $characters, array $registry, array $locations = [], ?callable $place = null): array
     {
-        $out = ['sets' => [], 'characters' => [], 'missing' => ['sets' => [], 'characters' => []]];
+        $at = self::locations($locations, $place ?? fn() => null);
+        $sets = [...$sets, ...array_values(array_filter(array_column($at['locations'], 'set'), 'is_string'))];
+        $out = ['sets' => [], 'locations' => $at['locations'], 'characters' => [], 'missing' => ['sets' => [], 'locations' => $at['missing'], 'characters' => []]];
         foreach (array_values(array_unique($sets)) as $id) {
             $entry = $set($id);
             if (!is_array($entry)) {
                 $out['missing']['sets'][] = $id;
                 continue;
             }
-            $model3d = [];
-            $model = $entry['model'] ?? null;
-            if (is_array($model) && is_string($model['src'] ?? null) && $model['src'] !== '') {
-                $variants = is_array($model['variants'] ?? null) ? $model['variants'] : [];
-                foreach (ChapterFiles::LEVELS as $level) {
-                    $file = $variants[$level] ?? null;
-                    $model3d[$level] = ['path' => is_string($file) && $file !== '' ? $file : $model['src'], 'size' => null];
-                }
-            }
-            $out['sets'][$id] = ['name' => $entry['name'] ?? null, 'model' => (object) $model3d];
+            // per rung (#512): the 3D room, its video loop, its still – each a file per quality level
+            $out['sets'][$id] = ['name' => $entry['name'] ?? null] + array_map(fn(string $field) => self::levels($entry[$field] ?? null), self::SET_MEDIA);
         }
         $byId = [];
         foreach (is_array($registry['characters'] ?? null) ? $registry['characters'] : [] as $c) {
@@ -321,6 +351,23 @@ final class SceneContent
             ];
         }
         return $out;
+    }
+
+    /**
+     * a home scene's media field `{ src, variants? }` → a file per quality level (a level without its own variant gets
+     * `src`); none, or an empty `src` → an empty map
+     */
+    private static function levels(mixed $media): object
+    {
+        $files = [];
+        if (is_array($media) && is_string($media['src'] ?? null) && $media['src'] !== '') {
+            $variants = is_array($media['variants'] ?? null) ? $media['variants'] : [];
+            foreach (ChapterFiles::LEVELS as $level) {
+                $file = $variants[$level] ?? null;
+                $files[$level] = ['path' => is_string($file) && $file !== '' ? $file : $media['src'], 'size' => null];
+            }
+        }
+        return (object) $files;
     }
 
     /**
@@ -360,7 +407,7 @@ final class SceneContent
     public static function paths(array $answer): array
     {
         $paths = [];
-        foreach ($answer['sets'] as $s) foreach ((array) $s['model'] as $f) $paths[] = $f['path'];
+        foreach ($answer['sets'] as $s) foreach (array_keys(self::SET_MEDIA) as $m) foreach ((array) ($s[$m] ?? []) as $f) $paths[] = $f['path'];
         foreach ($answer['characters'] as $c) foreach ([...array_values((array) $c['portraits']), ...array_values((array) ($c['full'] ?? []))] as $f) $paths[] = $f['path'];
         foreach ($answer['items'] ?? [] as $i) if (is_array($i['picture'] ?? null)) $paths[] = $i['picture']['path'];
         return array_values(array_unique($paths));
@@ -378,7 +425,9 @@ final class SceneContent
             foreach ((array) $files as $k => $f) $out[$k] = ['path' => $f['path'], 'size' => $sizes[$f['path']] ?? null];
             return (object) $out;
         };
-        foreach ($answer['sets'] as $id => $s) $answer['sets'][$id]['model'] = $fill($s['model']);
+        foreach ($answer['sets'] as $id => $s) {
+            foreach (array_keys(self::SET_MEDIA) as $m) if (isset($s[$m])) $answer['sets'][$id][$m] = $fill($s[$m]);
+        }
         foreach ($answer['characters'] as $id => $c) {
             $answer['characters'][$id]['portraits'] = $fill($c['portraits']);
             if (isset($c['full'])) $answer['characters'][$id]['full'] = $fill($c['full']);

@@ -18,7 +18,7 @@ node = [{ id = "osc", kind = "osc", freq = 110.0, gain = 0.1 }]
 [step.expect]
 page = []
 ids = { has = "left_look" }
-stage = { cast = [{ holder = "left", look = "left_look", character = "catpope", spot = "spot_left", who = "character:catpope", form = "card", picture = "characters.catpope.full" }, { holder = "right", look = "right_look", character = "hum", spot = "spot_right", who = "character:hum", form = "card", picture = "characters.hum.full" }], stage_3d = false, slots = ["left_", "right_"], notes = [], location = "location:dom" }
+stage = { cast = [{ holder = "left", look = "left_look", character = "catpope", spot = "spot_left", who = "character:catpope", form = "card", picture = "characters.catpope.full" }, { holder = "right", look = "right_look", character = "hum", spot = "spot_right", who = "character:hum", form = "card", picture = "characters.hum.full" }], stage_3d = false, slots = ["left_", "right_"], notes = ["location:dom names no set here: the neutral staging plays"], location = "location:dom" }
 
 [[step]]
 do = "run"

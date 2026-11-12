@@ -1,0 +1,10 @@
+{
+  "format": 2,
+  "id": "vespers",
+  "toons": [],
+  "stage": { "name": "Vespers" },
+  "location": "location:cathedral",
+  "node": [
+    { "id": "space", "kind": "space", "quality": "high" }
+  ]
+}

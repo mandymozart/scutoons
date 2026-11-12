@@ -38,23 +38,48 @@ pub enum Want {
     Portrait { character: String, mood: String },
 }
 
-/// The API's answer (SceneContent.php): each set's 3D per quality, each character's portraits per mood, the ids it
-/// doesn't know.
+/// The API's answer (SceneContent.php): each set's media per quality, each location's set (#512), each character's
+/// portraits per mood, the ids it doesn't know.
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
 pub struct Content {
     #[serde(default)]
     pub sets: BTreeMap<String, SetContent>,
+    /// a place id → the set it names (`?locations=`): stored configuration, what `scene_resolve::resolve` asks through `set_of`
+    #[serde(default)]
+    pub locations: BTreeMap<String, LocationContent>,
     #[serde(default)]
     pub characters: BTreeMap<String, CharacterContent>,
     #[serde(default)]
     pub missing: Missing,
 }
 
+/// A set's media per rung of the render ladder (research/SCENES.md §9.4), each quality → its file.
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
 pub struct SetContent {
-    /// quality → its 3D file
+    /// rung 1: quality → its 3D file (`.glb`)
     #[serde(default)]
     pub model: BTreeMap<String, File>,
+    /// rung 2: quality → its video loop
+    #[serde(default)]
+    pub video: BTreeMap<String, File>,
+    /// rung 3: quality → its still (the video's poster)
+    #[serde(default)]
+    pub still: BTreeMap<String, File>,
+}
+
+/// A location as the answer names it: its set (none = it names none, the neutral staging plays).
+#[derive(Debug, Clone, Default, PartialEq, Deserialize)]
+pub struct LocationContent {
+    #[serde(default)]
+    pub set: Option<String>,
+}
+
+/// A set's file per rung at one quality (`Content::media`); a rung the set lacks is none.
+#[derive(Debug, Clone, Default, PartialEq, Serialize)]
+pub struct SetMedia<'a> {
+    pub model: Option<&'a File>,
+    pub video: Option<&'a File>,
+    pub still: Option<&'a File>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
@@ -77,6 +102,9 @@ pub struct File {
 pub struct Missing {
     #[serde(default)]
     pub sets: Vec<String>,
+    /// places with no published document (#512)
+    #[serde(default)]
+    pub locations: Vec<String>,
     #[serde(default)]
     pub characters: Vec<String>,
 }
@@ -90,9 +118,22 @@ impl Content {
     /// a later answer over what the deck knew
     pub fn merge(&mut self, c: Content) {
         self.sets.extend(c.sets);
+        self.locations.extend(c.locations);
         self.characters.extend(c.characters);
         self.missing.sets.extend(c.missing.sets);
+        self.missing.locations.extend(c.missing.locations);
         self.missing.characters.extend(c.missing.characters);
+    }
+
+    /// the set a location names (`cathedral` for the place `cathedral`); none = it names none, or the answer lacks it –
+    /// `scene_resolve::resolve`'s `Sets` (the lookup is the core's; the server only stores and serves the field)
+    pub fn set_of(&self, location: &str) -> Option<String> {
+        self.locations.get(location).and_then(|l| l.set.clone())
+    }
+
+    /// a set's file per rung at `quality` (rung 1 the `.glb`, 2 the video loop, 3 the still); none = the answer lacks the set
+    pub fn media(&self, set: &str, quality: &str) -> Option<SetMedia<'_>> {
+        self.sets.get(set).map(|s| SetMedia { model: s.model.get(quality), video: s.video.get(quality), still: s.still.get(quality) })
     }
 
     /// What the API named for `want`: its file; None – not answered (the cache's copy counts), or a mood without a
@@ -627,6 +668,23 @@ mod tests {
             }
         }
         out
+    }
+
+    /// #512: the server's answer for `?locations=cathedral,dom,nowhere` (its SceneContentTest writes the file): the place
+    /// `cathedral` names the set `cathedral`, which answers every rung; `dom` names none; `nowhere` has no place
+    #[test]
+    fn a_location_names_its_set_and_the_set_every_rung() {
+        let c = Content::parse(include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../server/tests/fixtures/scenes/scene-content-location.json"))).unwrap();
+        assert_eq!(c.set_of("cathedral").as_deref(), Some("cathedral"));
+        assert_eq!((c.set_of("dom"), c.set_of("nowhere")), (None, None));
+        assert_eq!(c.missing.locations, ["nowhere"]);
+        let path = |f: Option<&File>| f.map(|f| f.path.clone());
+        let low = c.media("cathedral", "low").unwrap();
+        assert_eq!(path(low.model).as_deref(), Some("catpope/map/sets/cathedral.low.v2.glb"));
+        assert_eq!(path(low.video).as_deref(), Some("catpope/map/sets/cathedral.loop.v1.mp4"));
+        assert_eq!(path(low.still).as_deref(), Some("catpope/map/sets/cathedral.still.v1.webp"));
+        assert_eq!(path(c.media("cathedral", "high").unwrap().video).as_deref(), Some("catpope/map/sets/cathedral.loop.4k.v1.mp4"));
+        assert!(c.media("cave", "low").is_none());
     }
 
     #[test]

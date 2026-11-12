@@ -1,0 +1,71 @@
+{
+    "sets": {
+        "cathedral": {
+            "name": {
+                "de": "Kathedrale",
+                "en": "Cathedral"
+            },
+            "model": {
+                "low": {
+                    "path": "catpope/map/sets/cathedral.low.v2.glb",
+                    "size": null
+                },
+                "medium": {
+                    "path": "catpope/map/sets/cathedral.medium.v2.glb",
+                    "size": null
+                },
+                "high": {
+                    "path": "catpope/map/sets/cathedral.high.v2.glb",
+                    "size": null
+                }
+            },
+            "video": {
+                "low": {
+                    "path": "catpope/map/sets/cathedral.loop.v1.mp4",
+                    "size": null
+                },
+                "medium": {
+                    "path": "catpope/map/sets/cathedral.loop.v1.mp4",
+                    "size": null
+                },
+                "high": {
+                    "path": "catpope/map/sets/cathedral.loop.4k.v1.mp4",
+                    "size": null
+                }
+            },
+            "still": {
+                "low": {
+                    "path": "catpope/map/sets/cathedral.still.v1.webp",
+                    "size": null
+                },
+                "medium": {
+                    "path": "catpope/map/sets/cathedral.still.v1.webp",
+                    "size": null
+                },
+                "high": {
+                    "path": "catpope/map/sets/cathedral.still.4k.v1.webp",
+                    "size": null
+                }
+            }
+        }
+    },
+    "locations": {
+        "cathedral": {
+            "set": "cathedral"
+        },
+        "dom": {
+            "set": null
+        }
+    },
+    "characters": {},
+    "items": {},
+    "instruments": {},
+    "presets": {},
+    "missing": {
+        "sets": [],
+        "locations": [
+            "nowhere"
+        ],
+        "characters": []
+    }
+}
