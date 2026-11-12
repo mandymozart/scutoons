@@ -59,7 +59,10 @@ final class SceneUsesTest extends TestCase
             $sent = $this->core->requests[0];
             self::assertSame('POST ' . FakeCore::URL . '/validate', $sent['url']);
             self::assertEquals(['kind' => 'uses', 'id' => 'stage', 'document' => $case['request']['document'], 'scenes' => $scenes], array_diff_key($sent['request'], ['book' => 1]), $case['name']);
-            self::assertSame([], array_diff(['scene:stage', 'location:dom', 'character:catpope'], $sent['request']['book']), "{$case['name']}: the toon's book");
+            // the toon's book as it stands: scene:stage is in it while published (a template), out once unpublished above
+            $book = array_merge(['location:dom', 'character:catpope'], $scenes !== [] ? ['scene:stage'] : []);
+            self::assertSame([], array_diff($book, $sent['request']['book']), "{$case['name']}: the toon's book");
+            if ($scenes === []) self::assertNotContains('scene:stage', $sent['request']['book'], 'an unpublished scene is in no book');
         }
     }
 
