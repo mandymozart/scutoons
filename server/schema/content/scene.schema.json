@@ -527,7 +527,7 @@
     },
     "toons": {
       "default": [],
-      "description": "the toons whose address books list it; empty = reachable by its id only (a template: listed in every book, 2·2)",
+      "description": "the toons whose address books list it; empty = a template, listed in every toon's book (#504, `is_template`)",
       "items": {
         "type": "string"
       },

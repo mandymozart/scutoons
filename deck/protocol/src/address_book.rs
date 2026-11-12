@@ -141,7 +141,7 @@ pub struct AddressEntry {
 	/// a scene only: the published version listed (the document's stamped `version`, what `scene:<id>@<version>` pins)
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub version: Option<i64>,
-	/// a scene only (#504): its placeholders in the document's order – the location's first when it is one, then each holder with a `fill` – what a use `{ scene, with }` may fill; absent: a concrete scene. A template (no toon, at least one placeholder) is listed in every toon's book
+	/// a scene only (#504): its placeholders in the document's order – the location's first when it is one, then each holder with a `fill` – what a use `{ scene, with }` may fill; absent: a concrete scene. A template (a scene with no toon, the core's `is_template`) is listed in every toon's book
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub placeholders: Option<Vec<ScenePlaceholder>>,
 }

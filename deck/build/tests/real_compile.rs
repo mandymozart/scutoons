@@ -189,6 +189,7 @@ async fn the_walk_module_compiles_and_the_rest_is_refused() {
         instruments: catpope.instruments.iter().map(|i| serde_json::to_value(i).unwrap()).collect(),
         presets: catpope.presets.iter().map(|p| serde_json::to_value(p).unwrap()).collect(),
         modules: vec![policy.descriptor.clone()],
+        ..Default::default()
     };
     let answer = request.answer().unwrap();
     assert_eq!((answer.problems.as_slice(), answer.warnings.as_slice()), (&[][..] as &[String], &[][..] as &[String]), "the template leaves the rig valid");

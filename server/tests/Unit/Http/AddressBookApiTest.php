@@ -138,12 +138,12 @@ final class AddressBookApiTest extends TestCase
         $this->store('scene:nave', $scene('nave', ['catpope', 'toptoy'], 'Nave', [['id' => 'drone', 'kind' => 'osc'], $space], 2));
         $this->store('scene:nave', $scene('nave', ['catpope'], 'Nave (new)', [], 3), false);
         $this->store('scene:aisle', $scene('aisle', ['catpope'], 'Aisle with crows'), false);
-        $this->store('scene:loose', $scene('loose', [], 'By id only'));
+        $this->store('scene:loose', $scene('loose', [], 'No toon'));
         $this->store('scene:shop', $scene('shop', ['toptoy'], 'untitled'));
         $refs = fn(array $book) => array_column(array_values(array_filter($book['entries'], fn(array $e) => $e['kind'] === 'scene')), 'ref');
         $first = $this->request('/api/addresses/catpope', $creator);
         $book = self::json($first);
-        self::assertSame(['scene:nave'], $refs($book), 'the draft and the scene with no toons are in no book');
+        self::assertSame(['scene:loose', 'scene:nave'], $refs($book), 'the draft is in no book; a scene with no toons is a template, in every book (#509)');
         $by = array_column($book['entries'], null, 'ref');
         self::assertSame(['ref' => 'scene:nave', 'address' => 'scene:nave', 'kind' => 'scene', 'name' => 'nave', 'labels' => ['en' => 'Nave'], 'origin' => ['key' => 'scene:nave', 'state' => 'published'], 'set' => 'cathedral', 'spot' => 'spot_altar', 'version' => 2],
             $by['scene:nave'], 'the published version, not the newer draft: its name under the source language, its set, spot and version');
@@ -151,7 +151,7 @@ final class AddressBookApiTest extends TestCase
         self::assertNotContains('scene', array_column(array_filter($book['entries'], fn(array $e) => str_starts_with($e['ref'], 'chapter:')), 'kind'), 'a chapter\'s group is never a scene');
         // the other toon: its own and the shared one; `untitled` is no name, a scene without a space node has no set
         $other = self::json($this->request('/api/addresses/toptoy', $creator));
-        self::assertSame(['scene:nave', 'scene:shop'], $refs($other));
+        self::assertSame(['scene:loose', 'scene:nave', 'scene:shop'], $refs($other));
         $shop = array_column($other['entries'], null, 'ref')['scene:shop'];
         self::assertSame([[], 1], [$shop['labels'], $shop['version']]);
         self::assertArrayNotHasKey('set', $shop);
@@ -163,49 +163,46 @@ final class AddressBookApiTest extends TestCase
         $published = $this->request('/api/addresses/catpope', $creator, ['If-None-Match' => $etag]);
         self::assertSame(200, $published->getStatusCode());
         self::assertNotSame($etag, $published->getHeaderLine('ETag'));
-        self::assertSame(['scene:aisle', 'scene:nave'], $refs(self::json($published)), 'by id');
+        self::assertSame(['scene:aisle', 'scene:loose', 'scene:nave'], $refs(self::json($published)), 'by id');
         // publishing the newer draft of nave: its new version, and it leaves toptoy's book
         $this->get(EntityStore::class)->publish('scene:nave', null);
         $by = array_column(self::json($this->request('/api/addresses/catpope', $creator))['entries'], null, 'ref');
         self::assertSame([['en' => 'Nave (new)'], 3], [$by['scene:nave']['labels'], $by['scene:nave']['version']]);
         self::assertArrayNotHasKey('set', $by['scene:nave']);
-        self::assertSame(['scene:shop'], $refs(self::json($this->request('/api/addresses/toptoy', $creator))));
+        self::assertSame(['scene:loose', 'scene:shop'], $refs(self::json($this->request('/api/addresses/toptoy', $creator))));
         // unpublished: out of the book again
         $before = $this->request('/api/addresses/catpope', $creator)->getHeaderLine('ETag');
         $this->get(EntityStore::class)->unpublish('scene:aisle');
         $after = $this->request('/api/addresses/catpope', $creator, ['If-None-Match' => $before]);
         self::assertSame(200, $after->getStatusCode());
-        self::assertSame(['scene:nave'], $refs(self::json($after)));
+        self::assertSame(['scene:loose', 'scene:nave'], $refs(self::json($after)));
     }
 
     /**
-     * #504: a scene's entry carries its placeholders (the location's first, then each holder with a `fill`; id, fill, label,
-     * preview as a list) – what a use may fill; a template (no toon, a placeholder) is in every toon's book, a toonless
-     * concrete scene in none
+     * #504 / #509: the book agrees with the core on the shared vectors (server/tests/fixtures/scenes/book-entries.json, written
+     * by deck-space's `is_template` / `placeholders`): a template (no toon) is in every toon's book, a toon's scene only in
+     * its own; each entry's `placeholders` are the core's (absent when it has none)
      */
-    public function testTemplatesAndPlaceholders(): void
+    public function testTheBookAgreesWithTheCore(): void
     {
         $this->catalog();
         [$creator] = $this->session([Roles::CREATOR], 'creator@scutoons.test');
-        foreach (['place', 'solo', 'stage', 'avatar-home'] as $name) {
-            $doc = (array) json_decode((string) file_get_contents(self::root() . "/tests/fixtures/scenes/templates/$name.json"), true);
-            $this->store("scene:$name", ['version' => 1] + $doc);
+        $dir = self::root() . '/tests/fixtures/scenes';
+        $cases = (array) json_decode((string) file_get_contents("$dir/book-entries.json"), true)['cases'];
+        foreach ($cases as $case) {
+            $doc = isset($case['file']) ? (array) json_decode((string) file_get_contents("$dir/{$case['file']}"), true) : $case['scene'];
+            $this->store("scene:{$doc['id']}", ['version' => 1] + $doc);
         }
-        $this->store('scene:loose', ['format' => 2, 'id' => 'loose', 'version' => 1, 'toons' => [], 'location' => 'location:dom', 'node' => [], 'link' => []]);
-        $this->store('scene:own', ['format' => 2, 'id' => 'own', 'version' => 1, 'toons' => ['catpope'], 'location' => 'location:dom',
-            'holder' => [['id' => 'pope', 'ref' => 'character:catpope'], ['id' => 'crows', 'fill' => ['kind' => ['item'], 'ref' => ['item:crow'], 'parent' => 'item:flock'], 'take' => 'many', 'preview' => ['item:crow']]], 'node' => [], 'link' => []]);
-        $scenes = fn(array $book) => array_column(array_values(array_filter($book['entries'], fn(array $e) => $e['kind'] === 'scene')), null, 'ref');
         foreach (['catpope', 'toptoy'] as $toon) {
-            $by = $scenes(self::json($this->request("/api/addresses/$toon", $creator)));
-            self::assertSame(['scene:avatar-home', 'scene:place', 'scene:solo', 'scene:stage'], array_values(array_diff(array_keys($by), ['scene:own'])), "$toon: the four templates, the toonless concrete scene in no book");
-            self::assertSame([
-                ['id' => 'where', 'fill' => ['kind' => ['location']], 'label' => ['de' => 'wo', 'en' => 'where']],
-                ['id' => 'who', 'fill' => ['kind' => ['character', 'item']], 'label' => ['de' => 'wer', 'en' => 'who']],
-            ], $by['scene:solo']['placeholders'], 'the location first, then the holders');
-            self::assertSame(['left', 'centre', 'right', 'back'], array_column(array_slice($by['scene:stage']['placeholders'], 1), 'id'));
+            $by = array_column(array_values(array_filter(self::json($this->request("/api/addresses/$toon", $creator))['entries'], fn(array $e) => $e['kind'] === 'scene')), null, 'ref');
+            foreach ($cases as $case) {
+                $doc = isset($case['file']) ? (array) json_decode((string) file_get_contents("$dir/{$case['file']}"), true) : $case['scene'];
+                $ref = "scene:{$doc['id']}";
+                $listed = $case['template'] || in_array($toon, $doc['toons'], true);
+                self::assertSame($listed, isset($by[$ref]), "$toon: {$case['name']}");
+                if ($listed) self::assertEquals($case['placeholders'], $by[$ref]['placeholders'] ?? [], "$toon: {$case['name']}");
+            }
         }
-        $own = $scenes(self::json($this->request('/api/addresses/catpope', $creator)))['scene:own'];
-        self::assertSame([['id' => 'crows', 'fill' => ['kind' => ['item'], 'ref' => ['item:crow'], 'parent' => 'item:flock'], 'preview' => ['item:crow']]], $own['placeholders'], 'an authored filler is no placeholder; a named location none');
     }
 
     public function testWhoReadsIt(): void

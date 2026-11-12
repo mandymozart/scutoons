@@ -1,0 +1,601 @@
+{
+  "cases": [
+    {
+      "name": "a good use: the location and a character of the book",
+      "problems": [],
+      "request": {
+        "book": [
+          "scene:stage",
+          "location:dom",
+          "character:catpope",
+          "character:catpope.human",
+          "item:incense"
+        ],
+        "document": {
+          "scene": "scene:stage",
+          "with": {
+            "left": "character:catpope",
+            "where": "location:dom"
+          }
+        },
+        "id": "stage",
+        "kind": "uses",
+        "scenes": [
+          {
+            "format": 2,
+            "holder": [
+              {
+                "enter": "join",
+                "fill": {
+                  "kind": [
+                    "character"
+                  ]
+                },
+                "id": "left",
+                "label": {
+                  "de": "links",
+                  "en": "left"
+                },
+                "spot": "spot_left"
+              },
+              {
+                "enter": "join",
+                "fill": {
+                  "kind": [
+                    "character"
+                  ]
+                },
+                "id": "centre",
+                "label": {
+                  "de": "Mitte",
+                  "en": "centre"
+                },
+                "spot": "spot_centre"
+              },
+              {
+                "enter": "join",
+                "fill": {
+                  "kind": [
+                    "character"
+                  ]
+                },
+                "id": "right",
+                "label": {
+                  "de": "rechts",
+                  "en": "right"
+                },
+                "spot": "spot_right"
+              },
+              {
+                "enter": "join",
+                "fill": {
+                  "kind": [
+                    "character"
+                  ]
+                },
+                "id": "back",
+                "label": {
+                  "de": "hinten",
+                  "en": "back"
+                },
+                "spot": "spot_back"
+              }
+            ],
+            "id": "stage",
+            "link": [],
+            "location": {
+              "fill": {
+                "kind": [
+                  "location"
+                ]
+              },
+              "id": "where",
+              "label": {
+                "de": "wo",
+                "en": "where"
+              }
+            },
+            "node": [
+              {
+                "id": "space",
+                "kind": "space",
+                "spot": "spot_centre"
+              }
+            ],
+            "stage": {
+              "name": "Stage",
+              "render_scale": 1.0,
+              "transition": "fade",
+              "transition_secs": 0.4
+            },
+            "toons": [],
+            "version": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "a filler of the wrong kind: an item where a character goes",
+      "problems": [
+        "use of scene stage: holder left: 'item:incense' is an item, the placeholder takes character"
+      ],
+      "request": {
+        "book": [
+          "scene:stage",
+          "location:dom",
+          "character:catpope",
+          "character:catpope.human",
+          "item:incense"
+        ],
+        "document": {
+          "scene": "scene:stage",
+          "with": {
+            "left": "item:incense"
+          }
+        },
+        "id": "stage",
+        "kind": "uses",
+        "scenes": [
+          {
+            "format": 2,
+            "holder": [
+              {
+                "enter": "join",
+                "fill": {
+                  "kind": [
+                    "character"
+                  ]
+                },
+                "id": "left",
+                "label": {
+                  "de": "links",
+                  "en": "left"
+                },
+                "spot": "spot_left"
+              },
+              {
+                "enter": "join",
+                "fill": {
+                  "kind": [
+                    "character"
+                  ]
+                },
+                "id": "centre",
+                "label": {
+                  "de": "Mitte",
+                  "en": "centre"
+                },
+                "spot": "spot_centre"
+              },
+              {
+                "enter": "join",
+                "fill": {
+                  "kind": [
+                    "character"
+                  ]
+                },
+                "id": "right",
+                "label": {
+                  "de": "rechts",
+                  "en": "right"
+                },
+                "spot": "spot_right"
+              },
+              {
+                "enter": "join",
+                "fill": {
+                  "kind": [
+                    "character"
+                  ]
+                },
+                "id": "back",
+                "label": {
+                  "de": "hinten",
+                  "en": "back"
+                },
+                "spot": "spot_back"
+              }
+            ],
+            "id": "stage",
+            "link": [],
+            "location": {
+              "fill": {
+                "kind": [
+                  "location"
+                ]
+              },
+              "id": "where",
+              "label": {
+                "de": "wo",
+                "en": "where"
+              }
+            },
+            "node": [
+              {
+                "id": "space",
+                "kind": "space",
+                "spot": "spot_centre"
+              }
+            ],
+            "stage": {
+              "name": "Stage",
+              "render_scale": 1.0,
+              "transition": "fade",
+              "transition_secs": 0.4
+            },
+            "toons": [],
+            "version": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "a persona is no character",
+      "problems": [
+        "use of scene stage: holder left: 'character:catpope.human' is a persona, the placeholder takes character"
+      ],
+      "request": {
+        "book": [
+          "scene:stage",
+          "location:dom",
+          "character:catpope",
+          "character:catpope.human",
+          "item:incense"
+        ],
+        "document": {
+          "scene": "scene:stage",
+          "with": {
+            "left": "character:catpope.human"
+          }
+        },
+        "id": "stage",
+        "kind": "uses",
+        "scenes": [
+          {
+            "format": 2,
+            "holder": [
+              {
+                "enter": "join",
+                "fill": {
+                  "kind": [
+                    "character"
+                  ]
+                },
+                "id": "left",
+                "label": {
+                  "de": "links",
+                  "en": "left"
+                },
+                "spot": "spot_left"
+              },
+              {
+                "enter": "join",
+                "fill": {
+                  "kind": [
+                    "character"
+                  ]
+                },
+                "id": "centre",
+                "label": {
+                  "de": "Mitte",
+                  "en": "centre"
+                },
+                "spot": "spot_centre"
+              },
+              {
+                "enter": "join",
+                "fill": {
+                  "kind": [
+                    "character"
+                  ]
+                },
+                "id": "right",
+                "label": {
+                  "de": "rechts",
+                  "en": "right"
+                },
+                "spot": "spot_right"
+              },
+              {
+                "enter": "join",
+                "fill": {
+                  "kind": [
+                    "character"
+                  ]
+                },
+                "id": "back",
+                "label": {
+                  "de": "hinten",
+                  "en": "back"
+                },
+                "spot": "spot_back"
+              }
+            ],
+            "id": "stage",
+            "link": [],
+            "location": {
+              "fill": {
+                "kind": [
+                  "location"
+                ]
+              },
+              "id": "where",
+              "label": {
+                "de": "wo",
+                "en": "where"
+              }
+            },
+            "node": [
+              {
+                "id": "space",
+                "kind": "space",
+                "spot": "spot_centre"
+              }
+            ],
+            "stage": {
+              "name": "Stage",
+              "render_scale": 1.0,
+              "transition": "fade",
+              "transition_secs": 0.4
+            },
+            "toons": [],
+            "version": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "a filler the toon's book does not have",
+      "problems": [
+        "use of scene stage: left: 'character:toptoy' is not in the toon's book"
+      ],
+      "request": {
+        "book": [
+          "scene:stage",
+          "location:dom",
+          "character:catpope",
+          "character:catpope.human",
+          "item:incense"
+        ],
+        "document": {
+          "scene": "scene:stage",
+          "with": {
+            "left": "character:toptoy"
+          }
+        },
+        "id": "stage",
+        "kind": "uses",
+        "scenes": [
+          {
+            "format": 2,
+            "holder": [
+              {
+                "enter": "join",
+                "fill": {
+                  "kind": [
+                    "character"
+                  ]
+                },
+                "id": "left",
+                "label": {
+                  "de": "links",
+                  "en": "left"
+                },
+                "spot": "spot_left"
+              },
+              {
+                "enter": "join",
+                "fill": {
+                  "kind": [
+                    "character"
+                  ]
+                },
+                "id": "centre",
+                "label": {
+                  "de": "Mitte",
+                  "en": "centre"
+                },
+                "spot": "spot_centre"
+              },
+              {
+                "enter": "join",
+                "fill": {
+                  "kind": [
+                    "character"
+                  ]
+                },
+                "id": "right",
+                "label": {
+                  "de": "rechts",
+                  "en": "right"
+                },
+                "spot": "spot_right"
+              },
+              {
+                "enter": "join",
+                "fill": {
+                  "kind": [
+                    "character"
+                  ]
+                },
+                "id": "back",
+                "label": {
+                  "de": "hinten",
+                  "en": "back"
+                },
+                "spot": "spot_back"
+              }
+            ],
+            "id": "stage",
+            "link": [],
+            "location": {
+              "fill": {
+                "kind": [
+                  "location"
+                ]
+              },
+              "id": "where",
+              "label": {
+                "de": "wo",
+                "en": "where"
+              }
+            },
+            "node": [
+              {
+                "id": "space",
+                "kind": "space",
+                "spot": "spot_centre"
+              }
+            ],
+            "stage": {
+              "name": "Stage",
+              "render_scale": 1.0,
+              "transition": "fade",
+              "transition_secs": 0.4
+            },
+            "toons": [],
+            "version": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "a placeholder the scene does not have",
+      "problems": [
+        "use of scene stage: 'nowhere' is no placeholder of scene:stage"
+      ],
+      "request": {
+        "book": [
+          "scene:stage",
+          "location:dom",
+          "character:catpope",
+          "character:catpope.human",
+          "item:incense"
+        ],
+        "document": {
+          "scene": "scene:stage",
+          "with": {
+            "nowhere": "character:catpope"
+          }
+        },
+        "id": "stage",
+        "kind": "uses",
+        "scenes": [
+          {
+            "format": 2,
+            "holder": [
+              {
+                "enter": "join",
+                "fill": {
+                  "kind": [
+                    "character"
+                  ]
+                },
+                "id": "left",
+                "label": {
+                  "de": "links",
+                  "en": "left"
+                },
+                "spot": "spot_left"
+              },
+              {
+                "enter": "join",
+                "fill": {
+                  "kind": [
+                    "character"
+                  ]
+                },
+                "id": "centre",
+                "label": {
+                  "de": "Mitte",
+                  "en": "centre"
+                },
+                "spot": "spot_centre"
+              },
+              {
+                "enter": "join",
+                "fill": {
+                  "kind": [
+                    "character"
+                  ]
+                },
+                "id": "right",
+                "label": {
+                  "de": "rechts",
+                  "en": "right"
+                },
+                "spot": "spot_right"
+              },
+              {
+                "enter": "join",
+                "fill": {
+                  "kind": [
+                    "character"
+                  ]
+                },
+                "id": "back",
+                "label": {
+                  "de": "hinten",
+                  "en": "back"
+                },
+                "spot": "spot_back"
+              }
+            ],
+            "id": "stage",
+            "link": [],
+            "location": {
+              "fill": {
+                "kind": [
+                  "location"
+                ]
+              },
+              "id": "where",
+              "label": {
+                "de": "wo",
+                "en": "where"
+              }
+            },
+            "node": [
+              {
+                "id": "space",
+                "kind": "space",
+                "spot": "spot_centre"
+              }
+            ],
+            "stage": {
+              "name": "Stage",
+              "render_scale": 1.0,
+              "transition": "fade",
+              "transition_secs": 0.4
+            },
+            "toons": [],
+            "version": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "no published scene",
+      "problems": [
+        "use of scene stage: no published scene:stage to play"
+      ],
+      "request": {
+        "book": [
+          "scene:stage",
+          "location:dom",
+          "character:catpope",
+          "character:catpope.human",
+          "item:incense"
+        ],
+        "document": {
+          "scene": "scene:stage",
+          "with": {}
+        },
+        "id": "stage",
+        "kind": "uses",
+        "scenes": []
+      }
+    }
+  ],
+  "description": "#504 shared test vectors ([contract]): a use of a scene as the API sends it to the build service's POST /validate (kind `uses`: the use, its scene's published document, the toon's book) and the core's answer. deck-space rig/validate.rs `uses_vectors` checks the problems (UPDATE_FIXTURES=1 writes them); SceneUsesTest sends these requests and refuses with these words."
+}

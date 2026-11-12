@@ -68,6 +68,24 @@ final class CoreValidator
     }
 
     /**
+     * #504: the core's problems of a use `{ scene, with }` of scene `<id>` in a toon's book (deck-space rig/validate.rs kind
+     * `uses`, scene_resolve.rs `Use::problems`: the scene and every filler in the book, each filler against its placeholder's
+     * `fill`, the scene resolved with them); the requests and answers: server/tests/fixtures/scenes/uses.json
+     * @param mixed $use the use as sent, decoded with objects
+     * @param ?\stdClass $scene the scene's published document; null = none published (the core names it)
+     * @param list<string> $book the references of the toon's address book
+     * @return list<string>
+     */
+    public function useProblems(string $id, mixed $use, ?\stdClass $scene, array $book): array
+    {
+        $url = rtrim($this->settings->get('MODULE_BUILD_URL'), '/');
+        $token = $this->settings->get('MODULE_BUILD_TOKEN');
+        if ($url === '' || $token === '') throw new ApiError(503, 'no_build_service', 'The build service that checks scenes is not set up.');
+        $request = ['kind' => 'uses', 'id' => $id, 'document' => $use, 'scenes' => $scene !== null ? [$scene] : [], 'book' => $book];
+        return $this->ask($url, $token, $request, "a use of scene $id");
+    }
+
+    /**
      * @param array<string, mixed> $request
      * @return list<string>
      */

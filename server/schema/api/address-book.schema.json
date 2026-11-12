@@ -65,7 +65,7 @@
 				"set": { "description": "a scene only: the set its `space` node stages it in (`cathedral`), where the document says one", "type": "string" },
 				"spot": { "description": "a scene only: the spot of that set it is placed at (`spot_altar`), where the document says one", "type": "string" },
 				"version": { "description": "a scene only: the published version listed (the document's stamped `version`, what `scene:<id>@<version>` pins)", "type": "integer" },
-				"placeholders": { "description": "a scene only (#504): its placeholders in the document's order – the location's first when it is one, then each holder with a `fill` – what a use `{ scene, with }` may fill; absent: a concrete scene. A template (no toon, at least one placeholder) is listed in every toon's book", "type": "array", "items": { "$ref": "#/definitions/ScenePlaceholder" } }
+				"placeholders": { "description": "a scene only (#504): its placeholders in the document's order – the location's first when it is one, then each holder with a `fill` – what a use `{ scene, with }` may fill; absent: a concrete scene. A template (a scene with no toon, the core's `is_template`) is listed in every toon's book", "type": "array", "items": { "$ref": "#/definitions/ScenePlaceholder" } }
 			},
 			"required": ["ref", "kind", "name", "labels", "origin"]
 		},

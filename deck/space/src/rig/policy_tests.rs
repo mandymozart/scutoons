@@ -309,6 +309,7 @@ fn the_validator_checks_a_code_rig_with_its_module_descriptor() {
         instruments: b.instruments.iter().map(|i| serde_json::to_value(i).unwrap()).collect(),
         presets: b.presets.iter().map(|p| serde_json::to_value(p).unwrap()).collect(),
         modules,
+        ..Default::default()
     };
     let a = request(vec![serde_json::from_str(CATPOPE_RIG).unwrap()]).answer().unwrap();
     assert!(a.problems.is_empty(), "{:?}", a.problems);
@@ -320,7 +321,7 @@ fn the_validator_checks_a_code_rig_with_its_module_descriptor() {
     let answer: serde_json::Value = serde_json::from_str(&problems_json(&json).unwrap()).unwrap();
     assert_eq!(answer["warnings"].as_array().map(Vec::len), Some(1));
     let plain = declarative();
-    let r = Request { kind: "rigs".into(), id: plain.rig.subject.clone(), document: serde_json::to_value(&plain.rig).unwrap(), instruments: plain.instruments.iter().map(|i| serde_json::to_value(i).unwrap()).collect(), presets: plain.presets.iter().map(|p| serde_json::to_value(p).unwrap()).collect(), modules: vec![] };
+    let r = Request { kind: "rigs".into(), id: plain.rig.subject.clone(), document: serde_json::to_value(&plain.rig).unwrap(), instruments: plain.instruments.iter().map(|i| serde_json::to_value(i).unwrap()).collect(), presets: plain.presets.iter().map(|p| serde_json::to_value(p).unwrap()).collect(), modules: vec![], ..Default::default() };
     let answer: serde_json::Value = serde_json::from_str(&problems_json(&serde_json::to_string(&r).unwrap()).unwrap()).unwrap();
     assert_eq!(answer, serde_json::json!({ "problems": [] }));
 }

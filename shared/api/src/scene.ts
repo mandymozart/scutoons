@@ -142,7 +142,7 @@ export type SceneDocument = {
 	/** the parameters as outputs (#211, scene.rs `Scene::outputs`) */
 	outputs?: Record<string, unknown> | null;
 	stage?: StageSettings;
-	/** the toons whose address books list it; empty = reachable by its id only (a template: listed in every book, 2·2) */
+	/** the toons whose address books list it; empty = a template, listed in every toon's book (#504, `is_template`) */
 	toons?: string[];
 	/** the number the server stamps on every change (as a show's); absent until the first save */
 	version?: number | null;

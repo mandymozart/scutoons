@@ -32,9 +32,9 @@ use stdClass;
  *   `scene:<id>`, by id; addresses (a deck plays one: a show cell's piece). Only the published version counts – a draft never
  *   leaves the editor – and it gives the label (its stage's name, under the source language), the set and spot of its
  *   `space` node where it says them, its stamped `version` and its `placeholders` (#504: id, fill, label, preview – what a
- *   use `{ scene, with }` may fill). A template – no toon, at least one placeholder (`scene:place`, `scene:solo`,
- *   `scene:stage`, `scene:avatar-home`, SCENES.md §9.5) – is in every toon's book; any other scene with no toons is in no
- *   book (reachable by its id).
+ *   use `{ scene, with }` may fill). A template – a scene with no toon (the core's `is_template`, #509: `scene:place`, `scene:solo`,
+ *   `scene:stage`, `scene:avatar-home`, SCENES.md §9.5) – is in every toon's book; the core and
+ *   this book agree by the shared vectors book-entries.json.
  *   `scene` is the deck scene only: no chapter group, screenplay heading or sandbox is ever listed as one (sandboxes are
  *   files, never in entity_versions)
  * - **variables**: every story variable of the one save game (the flow index's, every toon may set any) –
@@ -103,6 +103,20 @@ final class AddressBook
     }
 
     /**
+     * The references of a toon's book (every entry's `ref`) – what the core checks a use of a scene against (#504,
+     * SceneUses); null when the toon has no `toon:<toon>` document
+     * @return list<string>|null
+     */
+    public function refs(string $toon): ?array
+    {
+        $doc = $this->document($toon);
+        if ($doc === null) return null;
+        /** @var array{entries: list<array{ref: string}>} $book */
+        $book = json_decode($doc['json'], true);
+        return array_column($book['entries'], 'ref');
+    }
+
+    /**
      * @param array<string, array{0: int, 1: ?int}> $versions entity key → [newest id, published id]
      * @return array<string, array{doc: mixed, state: OriginState}> entity key → its newest document and whether it is published
      */
@@ -123,9 +137,9 @@ final class AddressBook
     }
 
     /**
-     * The published deck scenes whose `toons` name the toon, and the templates – published scenes with no toon and at least
-     * one placeholder (#504, SCENES.md §9.5, owner 2026-11-12 [scenes]: "in every toon's book") –, by id (a draft never
-     * leaves the editor; a scene with no toon and no placeholder is in no book)
+     * The published deck scenes whose `toons` name the toon, and the templates – published scenes with no toon (#504,
+     * SCENES.md §9.5, owner 2026-11-12 [scenes]: "in every toon's book"; the core's one definition, scene_document.rs
+     * `is_template`, held to this by the shared vectors book-entries.json, #509) –, by id (a draft never leaves the editor)
      * @return array<string, array{row: int, doc: stdClass}> scene id → the published version's row id and document
      */
     private function scenes(string $toon): array
@@ -135,7 +149,7 @@ final class AddressBook
             $doc = json_decode((string) $r['json']);
             if (!$doc instanceof stdClass) continue;
             $toons = is_array($doc->toons ?? null) ? $doc->toons : [];
-            if (!in_array($toon, $toons, true) && ($toons !== [] || self::placeholders($doc) === [])) continue;
+            if ($toons !== [] && !in_array($toon, $toons, true)) continue;
             $out[substr((string) $r['entity_key'], strlen('scene:'))] = ['row' => (int) $r['id'], 'doc' => $doc];
         }
         return $out;
@@ -298,9 +312,11 @@ final class AddressBook
     }
 
     /**
-     * A scene's placeholders as its document writes them (#504; scene_document.rs, SCENES.md §9.3): the location's when it is
-     * one (an object, not a `location:<id>`), then each holder with a `fill` (no `ref`), in the document's order – what a use
-     * may fill (`with` by `id`). Copied, not judged: whether a filler passes `fill` is the core's (`Use::problems`).
+     * A scene's placeholders, copied from the stored document (#504, #509): the slots the generated scene schema types as
+     * a placeholder – the location as a `LocationPlaceholder` (an object), each `Holder` with a `fill` – in its order, their
+     * `id`, `fill`, `label` and `preview` (a list). Nothing is judged here: the save's schema guard (ContentSchemas, generated
+     * from the core's SceneDocument) refuses an unknown kind, the core's publish check the rest; the core's projection
+     * (scene_document.rs `placeholders`) and this copy are held equal by the shared vectors book-entries.json.
      * @return list<ScenePlaceholder>
      */
     private static function placeholders(stdClass $doc): array
@@ -308,15 +324,16 @@ final class AddressBook
         $out = [];
         $slots = array_merge(($doc->location ?? null) instanceof stdClass ? [$doc->location] : [], self::objects($doc->holder ?? null));
         foreach ($slots as $slot) {
-            if (!is_string($slot->id ?? null) || !($slot->fill ?? null) instanceof stdClass || !is_array($slot->fill->kind ?? null)) continue;
-            $fill = ['kind' => array_values(array_filter($slot->fill->kind, fn(mixed $k) => is_string($k) && in_array($k, AddressBookTypes::ADDRESS_KIND, true)))];
-            if (is_array($slot->fill->ref ?? null)) $fill['ref'] = array_values(array_filter($slot->fill->ref, 'is_string'));
-            if (is_string($slot->fill->parent ?? null)) $fill['parent'] = $slot->fill->parent;
-            $placeholder = ['id' => $slot->id, 'fill' => $fill];
-            $label = self::text($slot->label ?? null);
-            if ($label !== []) $placeholder['label'] = $label;
-            $preview = is_string($slot->preview ?? null) ? [$slot->preview] : (is_array($slot->preview ?? null) ? array_values(array_filter($slot->preview, 'is_string')) : []);
-            if ($preview !== []) $placeholder['preview'] = $preview;
+            if (!isset($slot->fill)) continue;
+            /** @var ScenePlaceholder $copy the stored slot (its shape guarded on save) */
+            $copy = json_decode((string) json_encode($slot), true);
+            $fill = ['kind' => $copy['fill']['kind']];
+            if (($copy['fill']['ref'] ?? []) !== []) $fill['ref'] = $copy['fill']['ref'];
+            if (isset($copy['fill']['parent'])) $fill['parent'] = $copy['fill']['parent'];
+            $placeholder = ['id' => $copy['id'], 'fill' => $fill];
+            if (($copy['label'] ?? []) !== []) $placeholder['label'] = $copy['label'];
+            $preview = (array) ($copy['preview'] ?? []);
+            if ($preview !== []) $placeholder['preview'] = array_values($preview);
             $out[] = $placeholder;
         }
         return $out;
