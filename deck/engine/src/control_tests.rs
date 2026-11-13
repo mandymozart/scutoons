@@ -553,3 +553,22 @@ fn the_snapshot_ring_by_frame() {
     assert_eq!(out[0], 40.0);
     assert_eq!(r.read(0, &mut out), Some(10 * 128), "the oldest kept block");
 }
+
+/// #516: a recast scene (a member joined) takes the running values of the scene before on the nodes both have – a turned
+/// base, a forced send, an LFO's shape; the new member's nodes keep their own, a node gone is nobody's
+#[test]
+fn a_recast_carries_the_running_values_of_the_nodes_both_have() {
+    const BEFORE: &str = "[[node]]\nid=\"l\"\nkind=\"lfo\"\nrate=0.0\ndepth=1.0\nphase=0.25\n[[node]]\nid=\"m\"\nkind=\"mul\"\nb=1.0\n[[node]]\nid=\"s\"\nkind=\"lfo\"\n[[node]]\nid=\"gone\"\nkind=\"mul\"\n[[link]]\nfrom=\"l\"\nto=\"m.a\"\nscale=2.0\noffset=0.5\n";
+    let mut old = Controls::new(&graph(BEFORE), None);
+    assert!(old.set_base(1, 0, 3.0) && old.set_base(1, 1, 2.0));
+    assert!(old.send(0, 1, 0.5, 1.0) && old.set_lfo_shape(2, 1));
+    // the scene after: a member's node joined before them, one left (the ids carry, not the rows)
+    let after = format!("[[node]]\nid=\"new_l\"\nkind=\"lfo\"\nrate=0.0\n{}", BEFORE.replace("[[node]]\nid=\"gone\"\nkind=\"mul\"\n", ""));
+    let mut c = Controls::new(&graph(&after), None);
+    c.carry(&old);
+    c.update(0.0, 0, &now());
+    let (m, s) = (2, 3);
+    assert_eq!(c.base(m, 0), Some(3.0), "the link's turned base");
+    assert_eq!((c.lfo_shape(s), c.lfo_shape(0)), (Some(1), Some(0)), "the shape; the joined node keeps its own");
+    assert!((c.outputs(m)[0] - 8.0).abs() < 1e-5, "(1 · 0.5 · 2 + 3) · 2: the send and both bases – got {}", c.outputs(m)[0]);
+}

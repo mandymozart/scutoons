@@ -10,7 +10,8 @@
 //!
 //! Exports (all `lc_*`, no imports): `lc_init(rate, channels)`, `lc_inbox(len) -> ptr`, `lc_outbox() -> ptr`,
 //! `lc_load(len) -> ±len`, `lc_crossfade(len, ms) -> ±len` (#467: a show's other piece – the scene loaded while the one
-//! before keeps sounding under it for `ms`), `lc_apply(len) -> count | -len`, `lc_context(len, energy, touch, strain) -> 0 | -len` (#409:
+//! before keeps sounding under it for `ms`), `lc_recast(len, ms) -> ±len` (#516: the same for a playing scene whose cast
+//! changed, its running values carried), `lc_apply(len) -> count | -len`, `lc_context(len, energy, touch, strain) -> 0 | -len` (#409:
 //! the deck's live context for the module nodes), `lc_render(frames) -> ptr`, `lc_analyse(dt, lead) -> ptr`,
 //! `lc_signals() -> len`, `lc_signals_at() -> ptr`; the tempo clock (#321, clock.rs): `lc_clock_frame(now_ms) -> ptr`
 //! (the state block, `clock::STATE` f64), `lc_clock_stamp`, `lc_clock_pong`, `lc_clock_tempo`, `lc_clock_midi`,
@@ -134,11 +135,24 @@ impl Host {
     /// `crossfade_gains`), counted in rendered frames – the same on every target. A scene that does not load leaves the
     /// old one playing (the error in the outbox); no scene before, or 0 ms, is a plain load.
     pub fn crossfade(&mut self, len: usize, ms: u32) -> i32 {
+        self.change(len, ms, false)
+    }
+
+    /// #516: a playing scene whose cast changed (deck-space scene_play.rs: a member joined or left) – `crossfade`, and the
+    /// running values of the scene before carried onto the nodes both have (`Core::carry`): the rest plays on as it was set
+    pub fn recast(&mut self, len: usize, ms: u32) -> i32 {
+        self.change(len, ms, true)
+    }
+
+    fn change(&mut self, len: usize, ms: u32, carry: bool) -> i32 {
         let old = self.core.take();
         let n = self.load(len);
         if n < 0 {
             self.core = old;
             return n;
+        }
+        if let (true, Some(new), Some(old)) = (carry, self.core.as_mut(), old.as_ref()) {
+            new.carry(old);
         }
         let frames = (ms as f32 * self.rate / 1000.0).round() as usize;
         self.fading = old.filter(|_| frames > 0).map(|core| Fading { core, frames, done: 0 });
@@ -286,6 +300,13 @@ pub extern "C" fn lc_load(len: usize) -> i32 {
 #[no_mangle]
 pub extern "C" fn lc_crossfade(len: usize, ms: u32) -> i32 {
     with(|h| h.crossfade(len, ms))
+}
+
+/// #516: the scene in the inbox (`len` bytes of TOML) – the playing scene with a member joined or left – loaded like
+/// `lc_crossfade`, the running values of the one before carried onto the nodes both have. ±len.
+#[no_mangle]
+pub extern "C" fn lc_recast(len: usize, ms: u32) -> i32 {
+    with(|h| h.recast(len, ms))
 }
 
 /// The warm-up (#356): the scene in the inbox (`len` bytes of TOML) played silently by a throwaway twin for `quanta`

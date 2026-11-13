@@ -1,0 +1,19 @@
+{
+  "id": "stage-cast",
+  "version": 1,
+  "outlets": [{ "id": "left" }],
+  "rows": [
+    {
+      "id": "catpope-enters",
+      "fire": { "event": "ch3.catpope-enters", "how": "auto" },
+      "cells": {},
+      "addresses": [{ "address": "scene:stage", "action": "join:character:catpope" }]
+    },
+    {
+      "id": "catpope-exits",
+      "fire": { "event": "ch3.catpope-exits", "how": "auto" },
+      "cells": {},
+      "addresses": [{ "address": "scene:stage", "action": "leave:character:catpope" }]
+    }
+  ]
+}

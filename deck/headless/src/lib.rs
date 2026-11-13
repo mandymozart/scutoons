@@ -31,6 +31,7 @@
 //! | `show` | `show` (a deck/ show document), `outlet` (the one this deck plays), `pieces` (what the deck has: piece → `scene` / `bundle` a deck/ file, `toml` a scene as it is, `rig` a core rig's subject) | rows |
 //! | `pieces` | `pieces` (more of them) | – |
 //! | `fire` / `go` | `row` / – : the show's conductor fires, its cell for the outlet goes to the deck (deck-space's piece.rs, #467) | do (load, glide, black, same, kept), piece, ms, values, glides, problems, playing |
+//! | `address` | `address`, `action` (#516: as the relay's `address` brings it; a show row's `addresses` reach the same path through `fire` / `go`: a line each under `addresses`, the last change's `stage`) – to the scene document playing (deck-space scene_play.rs: `join:<who>` / `leave:<who>`), a changed cast recast in the engine (live-core `recast`) | did (changed, nothing, not_mine), holder, ms, said (the log's last line), ids, stage |
 //! | `pick` | on the last scene document loaded (#496, stage.rs): `click` (a holder, or `[x, y]` of a 1280 × 720 window), `key` (+ `shift`), `drag` (a knob of the hand, `by`) | picked, selection, knobs (the hand's), mark, key, reach, turned (sent to the engine) |
 //! | a capability (caps.rs) | `with` | its answer, or `Missing` |
 //!
@@ -140,6 +141,11 @@ struct Run<'a> {
     /// #246: the published scenes this deck keeps (a native deck's `<cache>/scenes/`): scene id → the core's cache entry; a
     /// `reset` (a restart) keeps it
     kept: BTreeMap<String, String>,
+    /// #516: the scene document playing (deck-space scene_play.rs), the rigs and scene-content its load named – an address
+    /// action's cast word re-resolves it with them
+    playing: Option<deck_space::scene_play::Playing>,
+    own_rigs: BTreeMap<String, Rig>,
+    content: deck_space::push::Content,
 }
 
 /// Run one bundled scenario → its report (the same on every target)
@@ -164,7 +170,7 @@ pub fn run_paced(bundle: &Bundle, pace: Option<Box<dyn FnMut(f64)>>) -> Report {
     let rate = t.get("rate").and_then(|v| v.as_integer()).unwrap_or(48_000) as f32;
     let channels = t.get("channels").and_then(|v| v.as_integer()).unwrap_or(2) as usize;
     let expected = t.get("expected_fail").and_then(|v| v.as_str()).map(String::from);
-    let mut r = Run { bundle, deck: Deck::new(rate, channels), show: None, governor: None, gov_t: 0.0, marks: BTreeMap::new(), opinions: Resolver::new(), resolved: None, stage: None, kept: BTreeMap::new() };
+    let mut r = Run { bundle, deck: Deck::new(rate, channels), show: None, governor: None, gov_t: 0.0, marks: BTreeMap::new(), opinions: Resolver::new(), resolved: None, stage: None, kept: BTreeMap::new(), playing: None, own_rigs: BTreeMap::new(), content: Default::default() };
     r.deck.pace = pace;
     let steps = t.get("step").and_then(|s| s.as_array()).cloned().unwrap_or_default();
     let mut fault = None;
@@ -250,6 +256,25 @@ impl Run<'_> {
     /// #467: the conductor's outs → the cell for this deck's outlet, played (the last one, if a row sent several), and the
     /// answer: what the deck did, what plays, why not
     fn deliver(&mut self, outs: Vec<Out>) -> Result<Value, Fault> {
+        let mut out = self.deliver_cell(&outs)?;
+        // #516: then the row's address actions, to the playing scene document by the same path as the relay's `address`
+        // each as a line (`<address> > <action>: <did>[ at <holder>]`), the stage after the last change as `stage`
+        let mut addressed = Vec::new();
+        for a in outs.iter().filter_map(|o| if let Out::Address(a) = o { Some(a) } else { None }) {
+            let answer = self.address(&a.address, &a.action)?;
+            let at = answer["holder"].as_str().map(|h| format!(" at {h}")).unwrap_or_default();
+            addressed.push(format!("{} > {}: {}{at}", a.address, a.action, answer["did"].as_str().unwrap_or_default()));
+            if answer.get("stage").is_some() {
+                out["stage"] = answer["stage"].clone();
+            }
+        }
+        if !addressed.is_empty() {
+            out["addresses"] = json!(addressed);
+        }
+        Ok(out)
+    }
+
+    fn deliver_cell(&mut self, outs: &[Out]) -> Result<Value, Fault> {
         let outlet = self.show.as_ref().map(|s| s.outlet.clone()).unwrap_or_default();
         let cells: Vec<protocol::Cell> = outs
             .iter()
@@ -290,6 +315,31 @@ impl Run<'_> {
         Ok(out)
     }
 
+    /// #516: an address action (`address > action`, as a show row's `addresses` or the relay's `address` carry it) passed to
+    /// the playing scene document (deck-space scene_play.rs); a changed cast is recast in the engine (live-core `recast`).
+    /// The answer: did (changed, nothing, not_mine), the holder, the log's last line, the stage after a change
+    fn address(&mut self, address: &str, action: &str) -> Result<Value, Fault> {
+        use deck_space::scene_play::Recast;
+        let Some(playing) = self.playing.as_mut() else { return Ok(json!({ "did": "not_mine" })) };
+        let (own, content) = (&self.own_rigs, &self.content);
+        let rigs = |s: &str, v: Option<&str>| own.get(s).cloned().or_else(|| deck_space::scene_resolve::core_rigs(s, v));
+        let sets = |l: &str| content.set_of(l);
+        let recast = playing.word(address, action, &rigs, &sets);
+        let said = playing.log().last().unwrap_or_default().to_string();
+        Ok(match recast {
+            Recast::NotMine => json!({ "did": "not_mine" }),
+            Recast::Nothing => json!({ "did": "nothing", "said": said }),
+            Recast::Changed { holder, ms } => {
+                let r = playing.resolved().clone();
+                let e = deck_space::rig::engine::lower(&r.scene).map_err(|e| Fault::Error(format!("{e:#}")))?;
+                let table = self.deck.recast(&e.scene, ms).map_err(Fault::Error)?;
+                (self.resolved, self.stage) = (Some(r.scene.clone()), None);
+                let ids: Vec<Value> = table["nodes"].as_array().map(|ns| ns.iter().map(|n| n["id"].clone()).collect()).unwrap_or_default();
+                json!({ "did": "changed", "holder": holder, "ms": ms, "said": said, "ids": ids, "stage": stage_facts(&r, &self.content) })
+            }
+        })
+    }
+
     /// the show's time: the deck's ms since its start
     fn show_now(&self) -> Now {
         Now::at((self.deck.now - T0).max(0.0) as u64)
@@ -327,57 +377,31 @@ impl Run<'_> {
                 (None, Some(v)) => v.clone().try_into().map_err(|e| err(format!("with: {e}")))?,
                 (None, None) => BTreeMap::new(),
             };
-            let own: BTreeMap<String, Rig> = match step.get("rigs") {
+            self.own_rigs = match step.get("rigs") {
                 Some(v) => v.clone().try_into().map_err(|e| err(format!("rigs: {e}")))?,
                 None => BTreeMap::new(),
             };
-            let rigs = |s: &str, v: Option<&str>| own.get(s).cloned().or_else(|| deck_space::scene_resolve::core_rigs(s, v));
             // #512: scene-content's answer (`content`, a file of the bundle) – a location's set, the set's media per rung
-            let content = match step.get("content").and_then(|v| v.as_str()) {
+            self.content = match step.get("content").and_then(|v| v.as_str()) {
                 Some(path) => deck_space::push::Content::parse(self.file(path)?).map_err(|e| err(format!("{path}: {e}")))?,
                 None => Default::default(),
             };
+            let (own, content) = (&self.own_rigs, &self.content);
+            let rigs = |s: &str, v: Option<&str>| own.get(s).cloned().or_else(|| deck_space::scene_resolve::core_rigs(s, v));
             let sets = |l: &str| content.set_of(l);
+            // a deck plays without previews: the core's playing scene (#516), which takes cast words while it plays; the
+            // editor's previews are a resolve alone
             let previews = step.get("previews").and_then(|v| v.as_bool()).unwrap_or(false);
-            let r = deck_space::scene_resolve::resolve(&doc, &with, previews, &rigs, &sets).map_err(|e| err(e.join("; ")))?;
+            let (r, playing) = if previews {
+                (deck_space::scene_resolve::resolve(&doc, &with, true, &rigs, &sets).map_err(|e| err(e.join("; ")))?, None)
+            } else {
+                let p = deck_space::scene_play::Playing::start(doc, with, &rigs, &sets).map_err(|e| err(e.join("; ")))?;
+                (p.resolved().clone(), Some(p))
+            };
+            self.playing = playing;
             let e = deck_space::rig::engine::lower(&r.scene).map_err(|e| err(format!("{e:#}")))?;
             (self.resolved, self.stage) = (Some(r.scene.clone()), None);
-            let word = |n: &deck_space::scene::NodeDef, k: &str| n.params.get(k).and_then(|v| v.as_str()).map(String::from);
-            // #495: each member's form on this stage (the core's cast.rs, as the decks draw it) and, for a card, the
-            // picture it shows (scene-content's entry and field; a character's in its being's mood)
-            use deck_space::cast::{self, Form, Picture, Who};
-            let stage_3d = cast::stage_3d(&r.scene);
-            let cast: Vec<Value> = r
-                .scene
-                .nodes
-                .iter()
-                .filter(|n| n.kind == "look")
-                .map(|n| {
-                    let character = n.params.get("being").and_then(|b| b.get("character")).and_then(|v| v.as_str()).unwrap_or_default();
-                    let who = word(n, "who").as_deref().and_then(Who::parse);
-                    let form = who.as_ref().map(|w| cast::form(w, stage_3d));
-                    let picture = match (&who, form) {
-                        (Some(Who::Character(c)), Some(Form::Card)) => Some(Picture::character(c, cast::CARD_VIEW, "")),
-                        (Some(Who::Item(i)), Some(Form::Card)) => Some(Picture::item(i)),
-                        _ => None,
-                    }
-                    .map(|p| format!("{}.{}.{}", p.kind, p.id, p.field()));
-                    let fact = json!({ "holder": word(n, "holder"), "look": n.id, "character": character, "spot": word(n, "spot"), "who": word(n, "who"), "form": form.map(Form::word), "picture": picture });
-                    // what a member does not have is left out (a scenario's TOML has no null to expect)
-                    Value::Object(fact.as_object().into_iter().flatten().filter(|(_, v)| !v.is_null()).map(|(k, v)| (k.clone(), v.clone())).collect())
-                })
-                .collect();
-            // #512: the set on the space node and its file per rung at the node's quality, as a deck would fetch them
-            let space = r.scene.nodes.iter().find(|n| n.kind == "space");
-            let set = space.and_then(|n| word(n, "set"));
-            let quality = space.and_then(|n| word(n, "quality")).unwrap_or_else(|| deck_space::push::DEFAULT_QUALITY.to_string());
-            let media = set.as_deref().and_then(|s| content.media(s, &quality)).map(|m| {
-                let path = |f: Option<&deck_space::push::File>| f.map(|f| f.path.clone());
-                let all = [("model", path(m.model)), ("video", path(m.video)), ("still", path(m.still))];
-                Value::Object(all.into_iter().filter_map(|(k, p)| p.map(|p| (k.to_string(), json!(p)))).collect())
-            });
-            let facts = json!({ "cast": cast, "stage_3d": stage_3d, "slots": r.cast.iter().map(|m| m.slots.clone()).collect::<Vec<_>>(), "notes": r.notes, "location": r.location, "set": set, "media": media });
-            return Ok((e.scene, e.page.iter().map(|n| n.id.clone()).collect(), facts));
+            return Ok((e.scene, e.page.iter().map(|n| n.id.clone()).collect(), stage_facts(&r, &self.content)));
         }
         // #246: a published scene (`published = "scene:<id>[@v]"`) by the core's loader (deck-space published.rs): the API's
         // answers scripted in order (`answers`: `{ status, file }`, status 0 = unreachable), the run's cache (`kept`) as a deck's
@@ -448,8 +472,13 @@ impl Run<'_> {
                 let pace = d.pace.take();
                 self.deck = Deck::new(rate, channels);
                 self.deck.pace = pace;
-                (self.resolved, self.stage) = (None, None);
+                (self.resolved, self.stage, self.playing) = (None, None, None);
                 json!({})
+            }
+            // #516: an address action as the relay's `address` carries it to this deck (a show row's go through `fire`)
+            "address" => {
+                let address = text("address").ok_or_else(|| Fault::Error("an address step without `address`".into()))?;
+                self.address(&address, &text("action").unwrap_or_default())?
             }
             // #496: the stage's pick (stage.rs) – on the last scene document loaded
             "pick" => {
@@ -704,6 +733,44 @@ impl Run<'_> {
 
 fn quality(g: &Governor, changes: usize) -> Value {
     json!({ "level": g.level().name(), "ceiling": g.ceiling().name(), "scale": round(f64::from(g.scale()), 3), "auto": g.auto(), "changes": changes, "frame_ms": round(f64::from(g.frame_ms()), 2) })
+}
+
+/// #492: a resolved scene document's stage as facts – each member's look (#495: its form, the core's cast.rs, as the decks
+/// draw it, and a card's picture: scene-content's entry and field; a character's in its being's mood), the slots, the
+/// notes, the location and (#512) the set on the space node with its file per rung at the node's quality
+fn stage_facts(r: &deck_space::scene_resolve::Resolved, content: &deck_space::push::Content) -> Value {
+    use deck_space::cast::{self, Form, Picture, Who};
+    let word = |n: &deck_space::scene::NodeDef, k: &str| n.params.get(k).and_then(|v| v.as_str()).map(String::from);
+    let stage_3d = cast::stage_3d(&r.scene);
+    let cast: Vec<Value> = r
+        .scene
+        .nodes
+        .iter()
+        .filter(|n| n.kind == "look")
+        .map(|n| {
+            let character = n.params.get("being").and_then(|b| b.get("character")).and_then(|v| v.as_str()).unwrap_or_default();
+            let who = word(n, "who").as_deref().and_then(Who::parse);
+            let form = who.as_ref().map(|w| cast::form(w, stage_3d));
+            let picture = match (&who, form) {
+                (Some(Who::Character(c)), Some(Form::Card)) => Some(Picture::character(c, cast::CARD_VIEW, "")),
+                (Some(Who::Item(i)), Some(Form::Card)) => Some(Picture::item(i)),
+                _ => None,
+            }
+            .map(|p| format!("{}.{}.{}", p.kind, p.id, p.field()));
+            let fact = json!({ "holder": word(n, "holder"), "look": n.id, "character": character, "spot": word(n, "spot"), "who": word(n, "who"), "form": form.map(Form::word), "picture": picture });
+            // what a member does not have is left out (a scenario's TOML has no null to expect)
+            Value::Object(fact.as_object().into_iter().flatten().filter(|(_, v)| !v.is_null()).map(|(k, v)| (k.clone(), v.clone())).collect())
+        })
+        .collect();
+    let space = r.scene.nodes.iter().find(|n| n.kind == "space");
+    let set = space.and_then(|n| word(n, "set"));
+    let quality = space.and_then(|n| word(n, "quality")).unwrap_or_else(|| deck_space::push::DEFAULT_QUALITY.to_string());
+    let media = set.as_deref().and_then(|s| content.media(s, &quality)).map(|m| {
+        let path = |f: Option<&deck_space::push::File>| f.map(|f| f.path.clone());
+        let all = [("model", path(m.model)), ("video", path(m.video)), ("still", path(m.still))];
+        Value::Object(all.into_iter().filter_map(|(k, p)| p.map(|p| (k.to_string(), json!(p)))).collect())
+    });
+    json!({ "cast": cast, "stage_3d": stage_3d, "slots": r.cast.iter().map(|m| m.slots.clone()).collect::<Vec<_>>(), "notes": r.notes, "location": r.location, "set": set, "media": media })
 }
 
 fn to_json(v: &toml::Value) -> Value {

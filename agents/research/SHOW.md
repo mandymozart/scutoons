@@ -144,6 +144,7 @@ A cell is a piece and its values. A piece is a scene, rig or module; the current
 | `item:*/being:glow = 0.8` | Every active item | That input on each |
 
 - In the document (#91): a row's `addresses: [{ address, action, where }]`, asked down its subtree when the row fires; read by `rig/address.rs` `Target` (kind, an id or `*`, persona and look for characters only; an action is a word or `scope:word`).
+- A playing scene's two actions, `join:<who>` and `leave:<who>` (`scene:stage > join:character:catpope`; who is a reference, `rig/address.rs` `CastWord`): who appears at the first free spot whose placeholder admits it, or disappears. Built (#516): deck-space scene_play.rs, the engine's `lc_recast` carries the running values; headless scenario 38.
 - Spelling: dots for persona and look, as rig subjects do; `_` and `-` mean view and mood in asset names. The ladder's `/` and leaf forms are those of `rig/address.rs` (RULES A14).
 - A place in front narrows the reach: `/deck:foyer/location:*`.
 - Many matches are fine for a target, never for a source.
