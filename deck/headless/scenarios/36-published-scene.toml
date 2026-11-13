@@ -1,0 +1,69 @@
+name = "a published scene plays from the API, again from the deck's copy, and a new version replaces it"
+about = "#246 (SCENES.md §6 2a / 2b; owner 2026-11-02 [scenes-from-api]: scenes come from the API): one loader in the core (deck-space published.rs) – the document `GET /scenes/<id>`, then scene-content for its location's set and its fillers' rigs, resolved by scene_resolve.rs and kept by version. Both decks drive it (the native deck's `--scene scene:nave`, the browser deck's `?scene=scene:nave` through fetched.rs); here the API's answers are scripted. An unchanged version fetches nothing more; offline the kept copy plays; a new version is fetched and replaces it; an unknown scene says why"
+
+# scene:nave from the API: its document, then Cat Pope's rig – the rig played alone at the scene's spot, the cathedral set
+[[step]]
+do = "load"
+published = "scene:nave"
+answers = [{ status = 200, file = "headless/documents/nave-published.v1.json" }, { status = 200, file = "../server/tests/fixtures/rigs/scene-content.json" }]
+[step.expect]
+stage = { version = 1, cached = false, asked = ["/scenes/nave", "/library/scene-content?sets=&locations=&characters=catpope&items="], set = "cathedral", character = "catpope", notes = [] }
+
+[[step]]
+do = "run"
+ms = 300
+expect = { sound = true }
+
+# a restart: the same version – only the document is asked, the copy plays
+[[step]]
+do = "reset"
+
+[[step]]
+do = "load"
+published = "scene:nave"
+answers = [{ status = 200, file = "headless/documents/nave-published.v1.json" }]
+[step.expect]
+stage = { version = 1, cached = true, asked = ["/scenes/nave"], character = "catpope" }
+
+# the API can't be reached: the copy plays and says so
+[[step]]
+do = "load"
+published = "scene:nave"
+answers = [{ status = 0 }]
+[step.expect]
+stage = { version = 1, cached = true, notes = ["the API can't be reached: the cached version 1 plays"], set = "cathedral" }
+
+[[step]]
+do = "run"
+ms = 300
+expect = { sound = true }
+
+# a new version is fetched and replaces the copy; then offline it is the one that plays
+[[step]]
+do = "load"
+published = "scene:nave"
+answers = [{ status = 200, file = "headless/documents/nave-published.v2.json" }, { status = 200, file = "../server/tests/fixtures/rigs/scene-content.json" }]
+[step.expect]
+stage = { version = 2, cached = false }
+
+[[step]]
+do = "load"
+published = "scene:nave"
+answers = [{ status = 0 }]
+[step.expect]
+stage = { version = 2, cached = true }
+
+# a scene at location:cathedral: the set is the location's (scene-content ?locations=, #512)
+[[step]]
+do = "load"
+published = "scene:vigil"
+answers = [{ status = 200, file = "headless/documents/vigil-published.json" }, { status = 200, file = "../server/tests/fixtures/scenes/scene-content-location.json" }]
+[step.expect]
+stage = { version = 1, asked = ["/scenes/vigil", "/library/scene-content?sets=&locations=cathedral&characters=catpope&items="], set = "cathedral" }
+
+# unknown: the core's reason (a deck plays the test pattern with it)
+[[step]]
+do = "load"
+published = "scene:crypt"
+answers = [{ status = 404 }]
+expect = { error = { contains = "scene:crypt is not published" } }

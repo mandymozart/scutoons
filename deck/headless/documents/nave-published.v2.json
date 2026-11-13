@@ -1,0 +1,43 @@
+{
+  "status": "success",
+  "scene": {
+    "format": 2,
+    "id": "nave",
+    "version": 2,
+    "toons": [
+      "catpope"
+    ],
+    "holder": [
+      {
+        "id": "catpope",
+        "ref": "character:catpope",
+        "rig": {
+          "ref": "rig:character.catpope"
+        }
+      }
+    ],
+    "stage": {
+      "name": "Nave",
+      "render_scale": 1.0,
+      "transition": "fade",
+      "transition_secs": 0.4
+    },
+    "node": [
+      {
+        "id": "space",
+        "kind": "space",
+        "at": [
+          2.4,
+          0.2,
+          5.2
+        ],
+        "distance": 2.4,
+        "pitch": 6,
+        "quality": "low",
+        "set": "cathedral",
+        "yaw": 279
+      }
+    ],
+    "link": []
+  }
+}

@@ -55,7 +55,7 @@ enum Event {
     Stop,
 }
 
-const HELP: &str = "deck [--scene FILE|NAME|rig:NAME] [--audio auto|pipewire|cpal|null] [--volume 0-1] [--cache DIR]
+const HELP: &str = "deck [--scene FILE|NAME|rig:NAME|scene:ID[@V]] [--audio auto|pipewire|cpal|null] [--volume 0-1] [--cache DIR]
            [--audio-host default|wasapi|asio] [--audio-device NAME] [--audio-buffer FRAMES] [--audio-thread on|off]
            [--audio-list]
            [--sets DIR] [--portraits DIR] [--token T] [--api URL] [--cdn URL] [--windowed] [--frames N]
@@ -65,7 +65,9 @@ const HELP: &str = "deck [--scene FILE|NAME|rig:NAME] [--audio auto|pipewire|cpa
            [--scenes DIR] [--switcher] [--switch NAME] [--live-page]
   --scene      a scene TOML or a system scene (#427): `idle` (the default – fireflies on black, no sound, #252), `silent`,
                `outlet` (the default when an outlet is set), `test-pattern`; a sandbox's name (`cathedral` …) in dev mode;
-               `rig:catpope[@mood]` = a character's (or `item.<id>`'s) core rig in the deck's room (#322, rig.rs)
+               `rig:catpope[@mood]` = a character's (or `item.<id>`'s) core rig in the deck's room (#322, rig.rs);
+               `scene:nave[@3]` = a published scene from the API (#246, published.rs), kept in <cache>/scenes/ by version
+               and played from there offline; one that does not play shows the test pattern and why
   --sync       the conductor's push (#195): what the decks fetch into their cache – sent at the start and on S
                (default: the scene's set and the characters on stage)
   --relay      the Live relay with the session code (default: deck.toml's `relay`, else the hosted
@@ -374,11 +376,12 @@ fn audio_options(args: &Args, scene: &scene::Scene) -> backend::Options {
     }
 }
 
-/// the scene the arguments name: a rig, a file, a system scene or a sandbox in dev mode (switcher::read, #427), the
-/// outlet when one is set, or the idle scene (#252)
+/// the scene the arguments name: a rig, a published scene (#246), a file, a system scene or a sandbox in dev mode
+/// (switcher::read, #427), the outlet when one is set, or the idle scene (#252)
 fn read_scene(args: &Args) -> Result<scene::Scene> {
     (match &args.scene {
         Some(p) if deck_native::rig::named(p).is_some() => deck_native::rig::scene(p),
+        Some(p) if deck_native::published::named(p).is_some() => deck_native::published::scene(p, &args.api, &args.cache.clone().unwrap_or_else(cache::default_dir)),
         Some(p) => switcher::read(p, args.scenes.as_deref()),
         None if deck_native::live::config::configured(outlet_settings(args)) => scene::Scene::parse(scene::OUTLET_SCENE),
         None => scene::Scene::parse(scene::IDLE_SCENE),

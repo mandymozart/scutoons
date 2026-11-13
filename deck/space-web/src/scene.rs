@@ -8,17 +8,24 @@
 //! this brings the three things a platform has – **find** (a built-in scene by its name), **switch** (the scene's text
 //! is built into a new `Show` behind the black veil, the canvas and its GPU stay), **set** (a gliding value into the
 //! control domain). What the page fetched for the show before carries its number (`TURN`) and is dropped.
+//!
+//! A published scene (#246, plan 2b): `scene:<id>[@v]` is loaded by the core's loader through deck-space's fetched.rs
+//! (published.rs: the document, scene-content, the resolve step) – the page fetches what it asks (`scene_asks`,
+//! `scene_answer`); the idle scene plays until it is here, then it is the deck's own scene. One that does not play
+//! gives the test pattern, and the core's reason goes to the console. The browser keeps no copy (the HTTP cache).
 use crate::outlet::Outlet;
 use crate::{err, frame_for, open_canvas, portrait_asks, set_from_page, CanvasGpu, SPLASH_AT_MOST};
 use deck_engine::control::Controls;
 use deck_show::face::Face;
 use deck_space::chapter::{finish_slice, Chapter, Dialog, Source};
+use deck_space::fetched::Fetched;
 use deck_space::graph::{Graph, Kind};
 use deck_space::hud::{Alert, Hud};
 use deck_space::quality::MAX_SIDE;
-use deck_space::piece::{Side, Switch};
+use deck_space::piece::{Found, Side, Switch};
+use deck_space::published::SceneRef;
 use deck_space::rig::address::Place;
-use deck_space::scene::{named, Named, Scene, IDLE_SCENE};
+use deck_space::scene::{named, Named, Scene, IDLE_SCENE, TEST_PATTERN_SCENE};
 use deck_space::space::portrait::Portraits;
 use deck_space::space::Space;
 use deck_space::splash::Fade;
@@ -183,16 +190,21 @@ pub struct SceneView {
     hud: Hud,
     /// #478: the page's place – the screen pixels per CSS pixel and the host's line across the top (`live_place`)
     live_at: (f32, f32),
+    /// #246: the published scene asked for, until it is here; the core's loader asks through `scenes`
+    published: Option<SceneRef>,
+    scenes: Fetched,
 }
 
 #[wasm_bindgen]
 impl SceneView {
     /// `scene` on `canvas` (its size in device pixels is the canvas' width / height): a system scene's name, a sandbox's
     /// in a dev build (#427: the feature `sandbox`, `npm run build:wasm -w shared/live-deck -- --sandbox`), a scene
-    /// document, or "" = the idle scene. `prefer` as `SpaceView::create`.
+    /// document, a published scene `scene:<id>[@v]` (#246: idle until it is here), or "" = the idle scene. `prefer` as
+    /// `SpaceView::create`.
     pub async fn create(canvas: web_sys::HtmlCanvasElement, scene: String, prefer: String) -> Result<SceneView, JsValue> {
+        let published = SceneRef::parse(&scene).transpose().map_err(err)?;
         let deck = match named(&scene) {
-            _ if scene.is_empty() => IDLE_SCENE,
+            _ if scene.is_empty() || published.is_some() => IDLE_SCENE,
             Named::System(text) => text,
             #[cfg(feature = "sandbox")]
             Named::Sandbox => deck_space::scene::sandbox(&scene).unwrap_or_default(),
@@ -250,7 +262,47 @@ impl SceneView {
             live: Default::default(),
             hud: Hud::default(),
             live_at: (1.0, 0.0),
+            published,
+            scenes: Fetched::default(),
         })
+    }
+
+    /// #246: what the page fetches for the published scene: key (`scene:<id>`) and path after the API's base, in pairs
+    pub fn scene_asks(&mut self) -> js_sys::Array {
+        let out = js_sys::Array::new();
+        for (place, path) in self.scenes.asks() {
+            out.push(&JsValue::from_str(&place.to_string()));
+            out.push(&JsValue::from_str(&path));
+        }
+        out
+    }
+
+    /// #246: the answer to a `scene_asks` pair: its HTTP status (0 = the server can't be reached) and body
+    pub fn scene_answer(&mut self, key: &str, status: u16, body: &str) {
+        if let Ok(place) = Place::parse(key) {
+            self.scenes.answered(&place, status, body);
+        }
+    }
+
+    /// #246: the published scene, once the core's loader has it, becomes the deck's own scene (through black); one that
+    /// does not play gives the test pattern and its reason
+    fn published(&mut self) {
+        let Some(r) = self.published.as_ref() else { return };
+        let text = match self.scenes.scene(r) {
+            None => return,
+            Some(Found::Scene(text)) => text,
+            Some(found) => {
+                let why = match found {
+                    Found::Missing(why) => why,
+                    _ => format!("{r} is no scene"),
+                };
+                web_sys::console::warn_1(&JsValue::from_str(&format!("the scene can't be played – the test pattern instead: {why}")));
+                TEST_PATTERN_SCENE.to_string()
+            }
+        };
+        self.published = None;
+        self.deck = text.clone();
+        self.change.ask(&text);
     }
 
     /// #478: where the page goes – `density` canvas pixels per CSS pixel, `top` canvas pixels covered by the page's line
@@ -732,6 +784,7 @@ impl SceneView {
     pub fn frame(&mut self, dt: f32, time: f32) -> Result<(), JsValue> {
         self.now = time;
         let dt = dt.clamp(0.0, 0.1);
+        self.published();
         self.pieces(time);
         self.age += dt;
         let veil = self.through_black(dt);

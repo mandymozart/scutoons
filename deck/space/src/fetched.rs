@@ -4,8 +4,11 @@
 //! ask, the platform fetches `asks` (the API's path) and hands the bytes or the reason back (`give`). The piece side
 //! (`piece.rs`) and a flash's check (deck-show `ready.rs`) read the same store.
 //!
-//! No place serves a scene that is not built in, nor a bare rig (`rig:<id>`), yet: those stay "not on this deck".
+//! A published scene (`scene:<id>[@v]`, #246) is loaded through the same store by the core's loader (published.rs): its
+//! document, then scene-content for what it needs, each an ask (`scene`, `answered`); the browser deck's `?scene=` starts
+//! one. A show's cell naming a scene that is not built in, and a bare rig (`rig:<id>`), stay "not on this deck" (2c).
 use crate::piece::Found;
+use crate::published::{Load, SceneRef, Step};
 use crate::rig::address::Place;
 use crate::rig::content::{safe_id, SceneRigs};
 use std::collections::HashMap;
@@ -16,6 +19,8 @@ pub const CAP: usize = 64;
 #[derive(Debug, Clone)]
 enum Got {
     Asked,
+    /// a published scene on its way (its loader asks again until it plays or fails)
+    Loading(Box<Load>),
     Have(Found),
     Failed(String),
 }
@@ -24,7 +29,8 @@ enum Got {
 #[derive(Debug, Clone, Default)]
 pub struct Fetched {
     got: HashMap<Place, Got>,
-    asks: Vec<Place>,
+    /// what the platform fetches next: the piece and its path
+    asks: Vec<(Place, String)>,
     /// nothing is asked for: the deck plays what it carries
     carried_only: bool,
 }
@@ -63,15 +69,15 @@ impl Fetched {
     pub fn find(&mut self, place: &Place) -> Option<Found> {
         match self.got.get(place) {
             Some(Got::Have(f)) => Some(f.clone()),
-            Some(Got::Asked) => None,
+            Some(Got::Asked | Got::Loading(_)) => None,
             Some(Got::Failed(_)) => match self.got.remove(place) {
                 Some(Got::Failed(why)) => Some(Found::Missing(why)),
                 _ => None,
             },
             None => {
-                if !self.carried_only && path(place).is_some() && self.got.len() < CAP {
+                if let Some(at) = path(place).filter(|_| !self.carried_only && self.got.len() < CAP) {
                     self.got.insert(place.clone(), Got::Asked);
-                    self.asks.push(place.clone());
+                    self.asks.push((place.clone(), at));
                 }
                 None
             }
@@ -83,18 +89,18 @@ impl Fetched {
         match self.got.get(place)? {
             Got::Have(f) => Some(f.clone()),
             Got::Failed(why) => Some(Found::Missing(why.clone())),
-            Got::Asked => None,
+            Got::Asked | Got::Loading(_) => None,
         }
     }
 
     /// `place` was asked for and its answer is not here yet
     pub fn waits(&self, place: &Place) -> bool {
-        matches!(self.got.get(place), Some(Got::Asked))
+        matches!(self.got.get(place), Some(Got::Asked | Got::Loading(_)))
     }
 
     /// some answer is not here yet
     pub fn waiting(&self) -> bool {
-        self.got.values().any(|g| matches!(g, Got::Asked))
+        self.got.values().any(|g| matches!(g, Got::Asked | Got::Loading(_)))
     }
 
     /// What failed is asked for again the next time (a flash: its check starts fresh).
@@ -104,12 +110,51 @@ impl Fetched {
 
     /// what the platform fetches now: the piece and its path (`path`)
     pub fn asks(&mut self) -> Vec<(Place, String)> {
-        std::mem::take(&mut self.asks).into_iter().filter_map(|p| path(&p).map(|at| (p, at))).collect()
+        std::mem::take(&mut self.asks)
+    }
+
+    /// #246: what is here of the published scene `r` (its TOML as `Found::Scene`, or why it does not play); None = asked
+    /// for (`asks`) or on its way. Loaded once per scene; one that failed says why once and is asked again next time.
+    /// This store keeps no copy: a deck with a cache of its own drives `published::Load` with it (the native deck).
+    pub fn scene(&mut self, r: &SceneRef) -> Option<Found> {
+        let place = Place::new("scene", &r.id);
+        if self.got.contains_key(&place) {
+            return self.find(&place);
+        }
+        if self.got.len() >= CAP {
+            return Some(Found::Missing(format!("{r}: too many pieces asked for")));
+        }
+        let (load, step) = Load::start(r.clone(), None);
+        self.step(place.clone(), Box::new(load), step);
+        self.find(&place)
+    }
+
+    /// #246: the platform's answer to a scene's ask: the HTTP status (0 = the server can't be reached) and the body
+    pub fn answered(&mut self, place: &Place, status: u16, body: &str) {
+        let Some(Got::Loading(mut load)) = self.got.remove(place) else { return };
+        let step = load.answer(status, body);
+        self.step(place.clone(), load, step);
+    }
+
+    /// the loader's step: asked again, played (its TOML) or failed
+    fn step(&mut self, place: Place, load: Box<Load>, step: Step) {
+        let got = match step {
+            Step::Ask(at) => {
+                self.asks.push((place.clone(), at));
+                Got::Loading(load)
+            }
+            Step::Play(l) => match l.text() {
+                Ok(text) => Got::Have(Found::Scene(text)),
+                Err(why) => Got::Failed(why),
+            },
+            Step::Fail(why) => Got::Failed(why),
+        };
+        self.got.insert(place, got);
     }
 
     /// the platform's answer for a piece it was asked to fetch: the bytes, or why not (offline, HTTP 404)
     pub fn give(&mut self, place: &Place, answer: Result<&str, String>) {
-        if !self.waits(place) {
+        if !matches!(self.got.get(place), Some(Got::Asked)) {
             return;
         }
         let got = match answer.map_err(|why| format!("{place}: {why}")).and_then(|text| read(text, place)) {
@@ -159,6 +204,33 @@ mod tests {
         assert_eq!(f.have(&boy), Some(Found::Missing("character:boy: HTTP 503".into())));
         f.again();
         assert_eq!(f.have(&boy), None);
+    }
+
+    /// #246: the browser deck's `?scene=scene:nave` – the document, then scene-content, then its TOML
+    #[test]
+    fn a_published_scene_is_loaded_through_the_store() {
+        let nave = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../server/tests/fixtures/scenes/nave.json"));
+        let mut doc: serde_json::Value = serde_json::from_str(nave).unwrap();
+        doc["version"] = 2.into();
+        let answer = serde_json::json!({ "status": "success", "scene": doc }).to_string();
+        let mut f = Fetched::default();
+        let r = crate::published::SceneRef::parse("scene:nave").unwrap().unwrap();
+        let place = Place::new("scene", "nave");
+        assert!(f.scene(&r).is_none() && f.waits(&place));
+        assert_eq!(f.asks(), vec![(place.clone(), "/scenes/nave".to_string())]);
+        assert!(f.scene(&r).is_none() && f.asks().is_empty(), "asked once");
+        f.answered(&place, 200, &answer);
+        let asks = f.asks();
+        assert!(asks[0].1.starts_with("/library/scene-content?") && f.waits(&place));
+        f.answered(&place, 200, ANSWER);
+        let Some(Found::Scene(text)) = f.scene(&r) else { panic!("nave's TOML") };
+        assert_eq!(crate::scene::Scene::parse(&text).unwrap().being_character(), "catpope");
+        // unknown: said once, asked again next time
+        let crypt = crate::published::SceneRef::parse("scene:crypt").unwrap().unwrap();
+        assert!(f.scene(&crypt).is_none());
+        f.answered(&Place::new("scene", "crypt"), 404, "");
+        assert_eq!(f.scene(&crypt), Some(Found::Missing("scene:crypt is not published".into())));
+        assert!(f.scene(&crypt).is_none());
     }
 
     #[test]
