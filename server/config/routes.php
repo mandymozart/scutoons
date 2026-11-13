@@ -319,6 +319,7 @@ return static function (App $app): void {
     $app->get('/api/catalog/docs/{kind:items|recipes|albums|products|editions|home-scenes|airlift-carriers|instruments|presets|rigs|modules}', [EntitiesController::class, 'catalogDocs']);
     // the creator's SCUTOONS-wide flow: every toon's ways out of its chapters + dead things (docs/API.md "Flow index", role creator)
     $app->get('/api/creator/flow-index', [FlowController::class, 'index']);
+    $app->get('/api/creator/story-events', [FlowController::class, 'storyEvents']);
     // Review before publish (docs/API.md "Reviews", role creator; the review rules per toon decide the rest)
     $app->get('/api/reviews', [ReviewsController::class, 'overview']);
     $app->post('/api/reviews', [ReviewsController::class, 'submit']);

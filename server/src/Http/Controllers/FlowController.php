@@ -14,6 +14,8 @@ use Scutoons\Http\Json;
  * The creator's SCUTOONS-wide flow (owner 2026-10-06, agents/DESIGN.md "Flow panel"; role creator):
  *   GET /api/creator/flow-index   { toons: [{ id, title, status, seasons }], edges: [{ source, target, kind, label? }], dead }
  * from the newest versions (drafts included) – Domain\Content\FlowIndex.
+ *   GET /api/creator/story-events { status, toons: [{ id, chapters: [{ number, events: [{ id|null, type, characters, excerpt|null, group|null, groupIndex }] }] }] }
+ * the story events every toon's chapters fire (#521) – FlowIndex::storyEvents, the same rights.
  */
 final class FlowController
 {
@@ -25,5 +27,11 @@ final class FlowController
     {
         $this->roles->requireContentEditor(CurrentSession::of($request)->user());
         return Json::response($response, 200, $this->index->build(), ['Cache-Control' => 'no-store']);
+    }
+
+    public function storyEvents(Request $request, Response $response): Response
+    {
+        $this->roles->requireContentEditor(CurrentSession::of($request)->user());
+        return Json::response($response, 200, $this->index->storyEvents(), ['Cache-Control' => 'no-store']);
     }
 }

@@ -1071,6 +1071,28 @@ export interface ChapterPictures {
 	first?: string;
 }
 
+/**
+ * one story event a chapter fires, as `GET /api/creator/story-events` lists it (#521; server Domain\Content\FlowIndex::storyEvents).
+ * `id` is null when the creator gave the event none: it is listed, a listener can only name it by type and character.
+ */
+export interface StoryEventEntry {
+	id: string | null;
+	/** a VNEvent type (server Generated\StoryEventTypes = deck protocol::story_events) */
+	type: string;
+	/** the characters it names: showMessage's `character`, joinScene / leaveScene's `characters` */
+	characters: string[];
+	/** the first text of the event, at most 80 characters; null without text */
+	excerpt: string | null;
+	/** the group's label, null when unlabelled */
+	group: string | null;
+	groupIndex: number;
+}
+/** the story events every toon's chapters fire (`GET /api/creator/story-events`, #521): per toon and chapter, in document order */
+export interface StoryEventsIndex {
+	status: 'success';
+	toons: { id: string; chapters: { number: number; events: StoryEventEntry[] }[] }[];
+}
+
 /** a chapter's pictures from its groups (scenes in place of their refs) and thumbnail – what the server's flow index lists */
 export function chapterPictures(groups: readonly any[], thumbnail?: unknown): ChapterPictures {
 	const labels: Record<string, string> = {};
