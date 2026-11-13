@@ -907,11 +907,13 @@ impl App {
         self.args.scene.as_deref().and_then(|p| p.to_str())
     }
 
-    /// #250: F5 – the system scenes and the sandboxes in dev mode, the cursor on the playing scene (the settings page makes room)
+    /// #250: F5 – the system scenes, the sandboxes in dev mode and the published scenes this deck keeps (#513), the cursor
+    /// on the playing scene (the settings page makes room)
     fn open_switcher(&mut self) {
         self.page.open = false;
         let current = self.current_scene().map(str::to_owned);
-        self.switcher.open(self.args.scenes.as_deref(), current.as_deref());
+        let cache = self.args.cache.clone().unwrap_or_else(cache::default_dir);
+        self.switcher.open(self.args.scenes.as_deref(), &cache, current.as_deref());
         self.switcher.status.clear();
     }
 

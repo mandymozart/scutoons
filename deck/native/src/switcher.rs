@@ -1,7 +1,9 @@
 //! The scene switcher (#250, F5): the system scenes and, in dev mode, the sandboxes (#427: the files of the sandbox
-//! folder, apart under their own heading); the arrows move, Enter loads the scene in place (main.rs's `switch`) and
+//! folder, apart under their own heading), then the published scenes this deck keeps (#513: `<cache>/scenes/`, by their
+//! stage's name, under their own heading); the arrows move, Enter loads the scene in place (main.rs's `switch`) and
 //! nothing else, S makes the one under the cursor the start scene (deck.toml's `scene = "…"`, the next boot plays it;
 //! unset, the deck starts with `idle`). Kept as basic as the settings page (quality.rs) – this file has no window, no GPU.
+use deck_space::published::SceneRef;
 use std::path::{Path, PathBuf};
 
 /// where the dev image keeps the sandboxes (#427: only the dev image and the dev update channel install them)
@@ -38,12 +40,15 @@ pub struct Entry {
     pub value: String,
     /// a sandbox (#427), listed apart after the system scenes
     pub sandbox: bool,
+    /// #513: a published scene this deck keeps, listed apart after the sandboxes: `value` is the kept version
+    /// (`scene:<id>@<v>`: Enter plays the copy without asking), S makes `scene:<id>` the start (the newest at each boot)
+    pub published: bool,
 }
 
 /// the system scenes, then in dev mode the `*.toml` files of the sandbox folder by name (a file named like a system scene
-/// is skipped: the system scene wins)
-pub fn entries(sandboxes: Option<&Path>) -> Vec<Entry> {
-    let mut out: Vec<Entry> = BUILTIN.iter().map(|n| Entry { label: n.to_string(), value: n.to_string(), sandbox: false }).collect();
+/// is skipped: the system scene wins), then the published scenes the cache keeps (`<cache>/scenes/`) by their stage's name
+pub fn entries(sandboxes: Option<&Path>, cache: &Path) -> Vec<Entry> {
+    let mut out: Vec<Entry> = BUILTIN.iter().map(|n| Entry { label: n.to_string(), value: n.to_string(), sandbox: false, published: false }).collect();
     let mut files: Vec<PathBuf> = sandboxes
         .and_then(|dir| std::fs::read_dir(dir).ok())
         .map(|rd| rd.filter_map(|e| e.ok()).map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "toml")).collect())
@@ -52,10 +57,36 @@ pub fn entries(sandboxes: Option<&Path>) -> Vec<Entry> {
     for p in files {
         let stem = p.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
         if !stem.is_empty() && !BUILTIN.contains(&stem.as_str()) {
-            out.push(Entry { label: stem, value: p.to_string_lossy().into_owned(), sandbox: true });
+            out.push(Entry { label: stem, value: p.to_string_lossy().into_owned(), sandbox: true, published: false });
         }
     }
+    out.extend(crate::published::cached(cache).into_iter().map(|(r, name)| Entry { label: name, value: r.to_string(), sandbox: false, published: true }));
     out
+}
+
+impl Entry {
+    /// the heading it is listed under (none: the system scenes, first)
+    fn heading(&self) -> Option<&'static str> {
+        match (self.sandbox, self.published) {
+            (true, _) => Some(" -- SANDBOX (DEV) --"),
+            (_, true) => Some(" -- PUBLISHED --"),
+            _ => None,
+        }
+    }
+
+    /// it is the scene `now` (`--scene`'s value) names – a published one at any version
+    fn plays(&self, now: &str) -> bool {
+        let id = |v: &str| SceneRef::parse(v).and_then(Result::ok).map(|r| r.id);
+        self.value == now || self.published && id(now).is_some() && id(now) == id(&self.value)
+    }
+
+    /// what S remembers: a published scene without its version (each boot plays the newest), else the value
+    fn start(&self) -> String {
+        match SceneRef::parse(&self.value).and_then(Result::ok).filter(|_| self.published) {
+            Some(r) => SceneRef { version: None, ..r }.to_string(),
+            None => self.value.clone(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -81,12 +112,12 @@ pub struct Switcher {
 }
 
 impl Switcher {
-    /// Opens the list (the sandboxes only in dev mode: `sandboxes`) with the cursor on the playing one (`current` =
-    /// `--scene`'s value).
-    pub fn open(&mut self, sandboxes: Option<&Path>, current: Option<&str>) {
-        self.list = entries(sandboxes);
+    /// Opens the list (the sandboxes only in dev mode: `sandboxes`; the published scenes `cache` keeps) with the cursor
+    /// on the playing one (`current` = `--scene`'s value).
+    pub fn open(&mut self, sandboxes: Option<&Path>, cache: &Path, current: Option<&str>) {
+        self.list = entries(sandboxes, cache);
         let now = current.unwrap_or(BUILTIN[0]);
-        self.cursor = self.list.iter().position(|e| e.value == now).unwrap_or(0);
+        self.cursor = self.list.iter().position(|e| e.plays(now)).unwrap_or(0);
         self.open = true;
     }
 
@@ -104,7 +135,7 @@ impl Switcher {
     /// #427: "set as start", apart from loading – the cursor's scene into `file`'s `scene` (the next boot plays it)
     pub fn set_start(&mut self, file: &Path) {
         let Some(e) = self.list.get(self.cursor) else { return };
-        self.status = match remember(file, &e.value) {
+        self.status = match remember(file, &e.start()) {
             Ok(()) => format!("START SCENE: {}", e.label),
             Err(err) => format!("START NOT SAVED: {err}"),
         };
@@ -115,26 +146,29 @@ impl Switcher {
     pub fn lines(&self, current: Option<&str>) -> (Vec<String>, usize) {
         let now = current.unwrap_or(BUILTIN[0]);
         let mut out = vec!["SCENES  ENTER=LOAD  S=START  F5=CLOSE".to_string()];
-        // the rows: an entry's index, or the sandboxes' heading (None) before the first of them
-        let rows: Vec<Option<usize>> = (0..self.list.len())
+        // the rows: an entry's index, or a heading (Err) before the first sandbox and the first published scene
+        let rows: Vec<Result<usize, &str>> = (0..self.list.len())
             .flat_map(|i| {
-                let heading = self.list[i].sandbox && (i == 0 || !self.list[i - 1].sandbox);
-                heading.then_some(None).into_iter().chain([Some(i)])
+                let heading = self.list[i].heading().filter(|h| i == 0 || self.list[i - 1].heading() != Some(h));
+                heading.map(Err).into_iter().chain([Ok(i)])
             })
             .collect();
-        let at = rows.iter().position(|r| *r == Some(self.cursor)).unwrap_or(0);
+        let at = rows.iter().position(|r| *r == Ok(self.cursor)).unwrap_or(0);
         let start = (at + 1).saturating_sub(VISIBLE);
         let mut cursor = 1;
         for row in rows.iter().skip(start).take(VISIBLE) {
-            let Some(i) = *row else {
-                out.push(" -- SANDBOX (DEV) --".to_string());
-                continue;
+            let i = match *row {
+                Ok(i) => i,
+                Err(heading) => {
+                    out.push(heading.to_string());
+                    continue;
+                }
             };
             let e = &self.list[i];
             if i == self.cursor {
                 cursor = out.len();
             }
-            let mark = if e.value == now { '*' } else { ' ' };
+            let mark = if e.plays(now) { '*' } else { ' ' };
             let line = format!("{}{mark}{}", if i == self.cursor { '>' } else { ' ' }, e.label);
             out.push(line.to_uppercase().chars().take(WIDTH).collect());
         }
@@ -204,8 +238,31 @@ mod tests {
     #[test]
     fn the_default_is_the_playing_one_without_a_scene() {
         let mut s = Switcher::default();
-        s.open(None, None);
+        s.open(None, Path::new("/nowhere"), None);
         assert_eq!(s.key(Key::Enter).unwrap().value, "idle");
+    }
+
+    /// #513: the published scenes the cache keeps, after the system scenes under their own heading, by their stage's
+    /// name; Enter loads the kept version, S remembers the scene without it
+    #[test]
+    fn f5_lists_the_cached_published_scenes_by_their_stage_name() {
+        let cache = std::env::temp_dir().join(format!("deck-f5-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&cache);
+        let nave = include_str!("../../../server/tests/fixtures/scenes/nave.json").replacen("\"format\": 2,", "\"format\": 2, \"version\": 3,", 1);
+        let api = |path: &str| if path.starts_with("/scenes/") { (200, format!("{{\"status\":\"success\",\"scene\":{nave}}}")) } else { (200, include_str!("../../../server/tests/fixtures/rigs/scene-content.json").to_string()) };
+        crate::published::load(SceneRef::parse("scene:nave").unwrap().unwrap(), &cache.join("scenes"), api).unwrap();
+        let mut s = Switcher::default();
+        s.open(None, &cache, Some("scene:nave"));
+        let (lines, cursor) = s.lines(Some("scene:nave"));
+        assert_eq!(&lines[1..BUILTIN.len() + 1], BUILTIN.map(|n| format!("  {}", n.to_uppercase())), "the system scenes first, as before");
+        assert_eq!(lines[BUILTIN.len() + 1..BUILTIN.len() + 3], [" -- PUBLISHED --".to_string(), ">*NAVE".to_string()]);
+        assert_eq!(cursor, BUILTIN.len() + 2, "the cursor on the playing one");
+        let e = s.key(Key::Enter).unwrap();
+        assert_eq!((e.label.as_str(), e.value.as_str()), ("Nave", "scene:nave@3"));
+        assert_eq!(e.start(), "scene:nave");
+        // offline, Enter's value plays the copy: nothing is asked
+        assert_eq!(crate::published::load(SceneRef::parse(&e.value).unwrap().unwrap(), &cache.join("scenes"), |_| panic!("asked")).unwrap().version, 3);
+        let _ = std::fs::remove_dir_all(&cache);
     }
 
     #[test]

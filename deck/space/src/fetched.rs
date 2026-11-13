@@ -5,8 +5,10 @@
 //! (`piece.rs`) and a flash's check (deck-show `ready.rs`) read the same store.
 //!
 //! A published scene (`scene:<id>[@v]`, #246) is loaded through the same store by the core's loader (published.rs): its
-//! document, then scene-content for what it needs, each an ask (`scene`, `answered`); the browser deck's `?scene=` starts
-//! one. A show's cell naming a scene that is not built in, and a bare rig (`rig:<id>`), stay "not on this deck" (2c).
+//! document, then scene-content for what it needs, each an ask (`scene`, `answered` – `reply` takes either kind of
+//! answer); the browser deck's `?scene=` starts one, and a flash's check one for each piece `scene:<id>` the deck does
+//! not carry (#513, deck-show flashed.rs). A deck with a cache of its own (the native deck) drives the same loader with
+//! its copy and hands the outcome back (`loaded`). A bare rig (`rig:<id>`) stays "not on this deck".
 use crate::piece::Found;
 use crate::published::{Load, SceneRef, Step};
 use crate::rig::address::Place;
@@ -103,9 +105,10 @@ impl Fetched {
         self.got.values().any(|g| matches!(g, Got::Asked | Got::Loading(_)))
     }
 
-    /// What failed is asked for again the next time (a flash: its check starts fresh).
+    /// What failed is asked for again the next time (a flash: its check starts fresh), and a published scene is loaded
+    /// again (#513: a new version reaches a deck at its next flash – SCENES.md §4; an unchanged one costs its document).
     pub fn again(&mut self) {
-        self.got.retain(|_, g| !matches!(g, Got::Failed(_)));
+        self.got.retain(|p, g| !matches!(g, Got::Failed(_)) && !(p.kind == "scene" && matches!(g, Got::Have(_))));
     }
 
     /// what the platform fetches now: the piece and its path (`path`)
@@ -134,6 +137,29 @@ impl Fetched {
         let Some(Got::Loading(mut load)) = self.got.remove(place) else { return };
         let step = load.answer(status, body);
         self.step(place.clone(), load, step);
+    }
+
+    /// The platform's answer to any ask of `asks`: the API's status and body, or why the fetch failed – a scene's loader
+    /// takes it (`answered`, a failure as status 0), a piece its bytes (`give`).
+    pub fn reply(&mut self, place: &Place, answer: Result<(u16, &str), String>) {
+        match (self.got.get(place), answer) {
+            (Some(Got::Loading(_)), Ok((status, body))) => self.answered(place, status, body),
+            (Some(Got::Loading(_)), Err(_)) => self.answered(place, 0, ""),
+            (_, answer) => self.give(place, answer.map(|(_, body)| body)),
+        }
+    }
+
+    /// #513: a published scene the platform loaded itself – the core's loader with its own copy (the native deck's
+    /// `<cache>/scenes/`): its TOML (`Loaded::text`), or why it does not play. Only a scene this store asked for.
+    pub fn loaded(&mut self, place: &Place, got: Result<String, String>) {
+        if !matches!(self.got.get(place), Some(Got::Loading(_))) {
+            return;
+        }
+        let got = match got {
+            Ok(text) => Got::Have(Found::Scene(text)),
+            Err(why) => Got::Failed(why),
+        };
+        self.got.insert(place.clone(), got);
     }
 
     /// the loader's step: asked again, played (its TOML) or failed

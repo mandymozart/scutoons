@@ -9,8 +9,8 @@ import type { DeckSynced, SceneSync } from '@scutoons/live';
 export interface DeckPushView {
 	/** a push (JSON) at the deck's 3D quality ('' = the core's): the URL to ask */
 	start(sync: string, quality: string): string;
-	/** the API's reply: its HTTP status (0: the network is gone) and body */
-	asked(status: number, body: string): void;
+	/** the API's reply: its HTTP status (0: the network is gone) and body; the next URL to ask (#513), none: the files */
+	asked(status: number, body: string): string | undefined | null;
 	/** the next file to fetch, `[number, url]` (JSON); undefined: none left */
 	next_fetch(): string | undefined;
 	/** file `n` came: its HTTP status (0: the network is gone), its length and first bytes */
@@ -73,10 +73,11 @@ export class BrowserSync {
 			}
 			return r;
 		};
-		const url = core.start(JSON.stringify(s), this.o.quality ?? '');
-		const [status, body] = await reply(get, url, async (r) => r.text());
-		if (stale()) return null;
-		core.asked(status, body ?? '');
+		for (let url = core.start(JSON.stringify(s), this.o.quality ?? '') as string | undefined | null; url; ) {
+			const [status, body] = await reply(get, url, async (r) => r.text());
+			if (stale()) return null;
+			url = core.asked(status, body ?? '');
+		}
 		let last = say();
 		for (let next = core.next_fetch(); next !== undefined; next = core.next_fetch()) {
 			const [n, file] = JSON.parse(next) as [number, string];

@@ -720,6 +720,8 @@ export interface SceneSync {
 	sets?: string[];
 	/** character ids – every portrait the API lists */
 	characters?: string[];
+	/** #513: published scenes, `scene:<id>` or `scene:<id>@<v>` – each deck fetches the document and what it needs through the core's loader (deck-space published.rs) into its cache, and the scene's sets and characters as if the push named them; nothing plays. Its item is the reference as written */
+	scenes?: string[];
 	/** #191: lent beings – reserved, no deck reads it yet */
 	beings?: string[];
 	/** only these client ids (missing = every deck) */
@@ -743,7 +745,7 @@ export interface DeckQuality {
 	ceiling?: QualityLevel;
 }
 
-/** #195: a deck → relay → the conductor, while it works on a `scene.sync` (progress) and when it is done – like `media.ready`. Items are `set:<id>` and `character:<id>`; one in neither list is still syncing. The relay keeps each deck's last one for the conductor's snapshot (`synced`) and marks a deck ready in presence once its state is ready. */
+/** #195: a deck → relay → the conductor, while it works on a `scene.sync` (progress) and when it is done – like `media.ready`. Items are `scene:<id>[@<v>]` (#513), `set:<id>` and `character:<id>`; one in neither list is still syncing. The relay keeps each deck's last one for the conductor's snapshot (`synced`) and marks a deck ready in presence once its state is ready. */
 export interface DeckSynced {
 	scene: string;
 	state: SyncState;

@@ -26,6 +26,8 @@ interface Script {
 	push: SceneSync;
 	quality: string;
 	api: { status?: number | null; body?: unknown };
+	/** #513: the API's reply by path (a published scene's document, its scene-content); a path not here: `api` */
+	answers: Record<string, { status?: number | null; text?: string | null }>;
 	files: Record<string, Reply>;
 	calls: Call[];
 }
@@ -38,10 +40,12 @@ function stub(s: Script) {
 	const asked: string[] = [];
 	const f = (async (url: string) => {
 		asked.push(url);
-		const r: Reply = url.startsWith(`${API}/`) ? { status: s.api.status } : (s.files[url.slice(CDN.length)] ?? { status: 404 });
+		const path = url.startsWith(`${API}/`) ? url.slice(API.length) : null;
+		const api = path === null ? null : (s.answers[path] ?? { status: s.api.status, text: JSON.stringify(s.api.body) });
+		const r: Reply = api ? { status: api.status } : (s.files[url.slice(CDN.length)] ?? { status: 404 });
 		if (r.status === 0) throw new TypeError('fetch failed');
 		if (r.status) return new Response('nope', { status: r.status });
-		if (url.startsWith(`${API}/`)) return new Response(JSON.stringify(s.api.body));
+		if (api) return new Response(api.text ?? '');
 		const bytes = new Uint8Array(r.bytes ?? 0);
 		bytes.set(new TextEncoder().encode(r.head ?? '').subarray(0, bytes.length));
 		return new Response(bytes);
@@ -61,7 +65,7 @@ function core(s: Script): DeckPushView & { left: () => number } {
 	};
 	return {
 		start: (sync, quality) => next('start', [JSON.parse(sync), quality]) as string,
-		asked: (status, body) => void next('asked', [status, body]),
+		asked: (status, body) => next('asked', [status, body]) as string | null,
 		next_fetch: () => {
 			const a = next('next_fetch', []);
 			return a === null ? undefined : JSON.stringify(a);
@@ -132,6 +136,19 @@ test('missing: unknown to the API, a short file; the deck’s quality; offline: 
 	assert.equal(off.asked.length, 1, 'no file asked without the API');
 	assert.equal((await run('cdn-gone')).final.state, 'offline');
 	assert.equal((await run('api-error')).final.state, 'missing');
+});
+
+test('#513: a published scene – its document and scene-content first, then the push with its set and cast', async () => {
+	const { final, asked } = await run('scene');
+	assert.deepEqual(asked.slice(0, 3), [
+		`${API}/scenes/nave`,
+		`${API}/library/scene-content?sets=&locations=&characters=catpope&items=`,
+		`${API}/library/scene-content?sets=cathedral&characters=catpope`
+	]);
+	assert.deepEqual(final.ready, ['scene:nave', 'set:cathedral', 'character:catpope']);
+	const unknown = await run('scene-unknown');
+	assert.deepEqual(unknown.final.missing, ['scene:crypt']);
+	assert.equal(unknown.final.why!['scene:crypt'], 'scene:crypt is not published');
 });
 
 test('a push before the core waits for it', async () => {

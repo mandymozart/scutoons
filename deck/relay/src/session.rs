@@ -1784,6 +1784,7 @@ mod tests {
             scene: "cathedral".into(),
             sets: Some(vec!["cathedral".into()]),
             characters: Some(vec!["catpope".into()]),
+            scenes: None,
             beings: None,
             decks: decks.map(|d| d.into_iter().map(str::to_owned).collect()),
         }

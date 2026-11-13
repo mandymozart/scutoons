@@ -15,17 +15,17 @@ fn folder(name: &str, files: &[&str]) -> PathBuf {
 /// #427: a release deck lists the four system scenes; dev mode adds the sandbox folder's files, apart
 #[test]
 fn release_lists_the_system_scenes_dev_mode_adds_the_sandboxes() {
-    let release = entries(None);
+    let release = entries(None, Path::new("/nowhere"));
     assert_eq!(release.iter().map(|e| e.label.as_str()).collect::<Vec<_>>(), ["idle", "silent", "outlet", "test-pattern"]);
     assert!(release.iter().all(|e| !e.sandbox));
     let dir = folder("list", &["zeta.toml", "alpha.toml", "idle.toml", "notes.txt"]);
-    let l = entries(Some(&dir));
+    let l = entries(Some(&dir), Path::new("/nowhere"));
     let labels: Vec<&str> = l.iter().map(|e| e.label.as_str()).collect();
     assert_eq!(&labels[..BUILTIN.len()], BUILTIN);
     assert_eq!(&labels[BUILTIN.len()..], ["alpha", "zeta"], "a file named like a system scene is skipped");
     assert!(l[BUILTIN.len()].value.ends_with("alpha.toml") && l[BUILTIN.len()..].iter().all(|e| e.sandbox));
     // no folder: the system scenes alone
-    assert_eq!(entries(Some(&dir.join("none"))).len(), BUILTIN.len());
+    assert_eq!(entries(Some(&dir.join("none")), Path::new("/nowhere")).len(), BUILTIN.len());
     let _ = std::fs::remove_dir_all(&dir);
     // the repo's sandbox folder is a developer's with --dev; --scenes wins
     let repo = sandboxes(None, true).unwrap();
@@ -53,7 +53,7 @@ fn the_cursor_moves_and_enter_picks() {
     let dir = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/scenes/sandbox"));
     let cathedral = dir.join("cathedral.toml").to_string_lossy().into_owned();
     let mut s = Switcher::default();
-    s.open(Some(&dir), Some(&cathedral));
+    s.open(Some(&dir), Path::new("/nowhere"), Some(&cathedral));
     assert_eq!(s.key(Key::Enter).unwrap().label, "cathedral");
     (0..20).for_each(|_| drop(s.key(Key::Up)));
     assert_eq!(s.key(Key::Enter).unwrap().value, "idle");
@@ -69,7 +69,7 @@ fn the_cursor_moves_and_enter_picks() {
     let (top, _) = s.lines(None);
     assert_eq!(top[1..6], [">*IDLE", "  SILENT", "  OUTLET", "  TEST-PATTERN", " -- SANDBOX (DEV) --"]);
     // a release deck: no heading
-    s.open(None, None);
+    s.open(None, Path::new("/nowhere"), None);
     assert!(!s.lines(None).0.iter().any(|l| l.contains("SANDBOX")));
 }
 
@@ -80,7 +80,7 @@ fn set_as_start_is_apart_from_loading() {
     let file = dir.join("deck.toml");
     std::fs::write(&file, "audio_host = \"asio\"\n").unwrap();
     let mut s = Switcher::default();
-    s.open(None, None);
+    s.open(None, Path::new("/nowhere"), None);
     s.key(Key::Down);
     assert_eq!(s.key(Key::Enter).unwrap().value, "silent");
     assert_eq!(std::fs::read_to_string(&file).unwrap(), "audio_host = \"asio\"\n", "loading writes nothing");

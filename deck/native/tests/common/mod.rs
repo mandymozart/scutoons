@@ -1,5 +1,5 @@
 //! The stub of scutoons.com the sync tests share (#195): one server on 127.0.0.1 (7000–7099) answers
-//! `/api/library/scene-content` and serves the CDN files, counting every request.
+//! `/api/library/scene-content`, `/api/scenes/<id>` (#513) and serves the CDN files, counting every request.
 #![allow(dead_code)]
 use deck_native::sync::{Config, DeckSync, Needs};
 use std::collections::HashMap;
@@ -20,13 +20,15 @@ pub fn listen() -> TcpListener {
     (start..7100).chain(7000..start).find_map(|p| TcpListener::bind(("127.0.0.1", p)).ok()).expect("a free port in 7000–7099")
 }
 
-/// The stub: `/api/library/scene-content?…` answers `api` (the JSON the test sets), `/cdn/<path>` answers `files`.
+/// The stub: `/api/library/scene-content?…` answers `api` (the JSON the test sets), `/api/scenes/<id>` the API's answer
+/// in `scenes` (#513; none: 404), `/cdn/<path>` answers `files`.
 pub struct Stub {
     pub port: u16,
     pub stop: Arc<AtomicBool>,
     pub hits: Arc<Mutex<Vec<String>>>,
     pub api: Arc<Mutex<String>>,
     pub files: Arc<Mutex<HashMap<String, Vec<u8>>>>,
+    pub scenes: Arc<Mutex<HashMap<String, String>>>,
 }
 
 impl Stub {
@@ -34,12 +36,12 @@ impl Stub {
         let l = listen();
         let port = l.local_addr().unwrap().port();
         l.set_nonblocking(true).unwrap();
-        let stub = Stub { port, stop: Default::default(), hits: Default::default(), api: Default::default(), files: Default::default() };
-        let (stop, hits, api, files) = (stub.stop.clone(), stub.hits.clone(), stub.api.clone(), stub.files.clone());
+        let stub = Stub { port, stop: Default::default(), hits: Default::default(), api: Default::default(), files: Default::default(), scenes: Default::default() };
+        let (stop, hits, api, files, scenes) = (stub.stop.clone(), stub.hits.clone(), stub.api.clone(), stub.files.clone(), stub.scenes.clone());
         std::thread::spawn(move || {
             while !stop.load(Ordering::Relaxed) {
                 match l.accept() {
-                    Ok((s, _)) => serve(s, &hits, &api, &files),
+                    Ok((s, _)) => serve(s, &hits, &api, &files, &scenes),
                     Err(_) => std::thread::sleep(Duration::from_millis(5)),
                 }
             }
@@ -70,7 +72,7 @@ impl Drop for Stub {
     }
 }
 
-pub fn serve(mut s: TcpStream, hits: &Mutex<Vec<String>>, api: &Mutex<String>, files: &Mutex<HashMap<String, Vec<u8>>>) {
+pub fn serve(mut s: TcpStream, hits: &Mutex<Vec<String>>, api: &Mutex<String>, files: &Mutex<HashMap<String, Vec<u8>>>, scenes: &Mutex<HashMap<String, String>>) {
     s.set_nonblocking(false).unwrap();
     s.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
     let mut head = Vec::new();
@@ -86,8 +88,11 @@ pub fn serve(mut s: TcpStream, hits: &Mutex<Vec<String>>, api: &Mutex<String>, f
     let path = head.split_whitespace().nth(1).unwrap_or("/").to_string();
     let bearer = head.lines().any(|l| l.eq_ignore_ascii_case("authorization: bearer t"));
     hits.lock().unwrap().push(format!("{path}{}", if bearer { " +token" } else { "" }));
+    let scene = path.strip_prefix("/api/scenes/").map(|p| p.split('?').next().unwrap_or_default().to_string());
     let (status, body) = if path.starts_with("/api/library/scene-content") {
         ("200 OK", api.lock().unwrap().clone().into_bytes())
+    } else if let Some(answer) = scene.and_then(|id| scenes.lock().unwrap().get(&id).cloned()) {
+        ("200 OK", answer.into_bytes())
     } else if let Some(file) = path.strip_prefix("/cdn/").and_then(|f| files.lock().unwrap().get(f).cloned()) {
         ("200 OK", file)
     } else {

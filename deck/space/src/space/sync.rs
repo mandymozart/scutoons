@@ -124,6 +124,7 @@ mod tests {
             scene: "cathedral".into(),
             sets: Some(vec!["cathedral".into()]),
             characters: None,
+            scenes: None,
             beings: None,
             decks: decks.map(|d| d.iter().map(|s| s.to_string()).collect()),
         }

@@ -343,13 +343,16 @@ state-like message wins (`deck.values` per deck, merged; `presence`, `vote.tally
 and in order, a client too far behind is dropped (it resyncs from its snapshot), a link that stays behind gets values at
 15 / 10 / 5 per s – deck/relay/README.md.
 
-**Scene sync** (#195): `scene.sync { scene, sets?, characters?, beings? (#191, reserved), decks? }` (conductor only →
+**Scene sync** (#195): `scene.sync { scene, sets?, characters?, scenes? (#513), beings? (#191, reserved), decks? }` (conductor only →
 the group `decks`, or one copy per listed client id; logged, the last one kept: a deck that joins later finds it in its
 welcome snapshot `sync`) · a deck fetches it into its cache and answers `deck.synced { scene, state: syncing | ready |
 missing | offline, done?, total?, bytes?, ready, missing, why? }` (items `set:<id>` / `character:<id>`; progress, then
 the final state) → the conductor; kept per deck for the conductor's snapshot `synced`, a ready deck is ready in
 presence, a new push forgets the old answers. The deck side: deck/native/README.md "Sync"; the browser deck:
-`@scutoons/live-deck` sync.ts.
+`@scutoons/live-deck` sync.ts. Built (#513): `scenes` names published scenes (`scene:<id>[@v]`, `--sync scene:nave`) – each deck
+loads them first through the core's loader (deck-space published.rs; the native deck into `<cache>/scenes/`, F5 lists them
+by stage name), adds their sets and characters to the push, answers item `scene:<id>` (missing with the loader's reason);
+nothing plays.
 
 **Clients → relay**: `vote.cast { vote, option }` (one per client, changeable until close) · `ready` · `pickup { item,
 placement }` (the relay asks the API, like the reader does) · `react { kind }` (applause, a sound pad – rate-limited).

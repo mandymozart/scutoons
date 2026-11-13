@@ -6,7 +6,9 @@
 //!   version: the platform is asked for it once (`ask`: `<api>/shows/<id>?v=<n>`, with the deck's token) and hands the
 //!   API's answer back (`document`); it is kept while the deck runs (a version never changes);
 //! - **each piece** its outlet's cells name: what the deck carries (`carried`: a built-in scene), a core rig, else what
-//!   it fetched (deck-space `fetched.rs`); the check waits until every answer is here;
+//!   it fetched (deck-space `fetched.rs`) – a published scene `scene:<id>` through the core's loader (#513: its document
+//!   and what it needs, so it is in the deck's cache before a cell names it; one it can't get is in `lacks`); the check
+//!   waits until every answer is here;
 //! - **the answer**: the `flash.report`s to send (`reports`: also when the deck joins – what it is, what it runs).
 //!
 //! - **the person at the deck** (#481, `dialog.rs`): a flash that is only suggested waits for them – accept, reject, or
@@ -23,6 +25,7 @@ use crate::ready::{self, Deck, SUGGESTION_SECS};
 use crate::{Pinned, Show};
 use deck_space::fetched::Fetched;
 use deck_space::piece::{available, Found};
+use deck_space::published::SceneRef;
 use deck_space::rig::address::Place;
 use protocol::{Flash, FlashReport};
 use std::collections::HashMap;
@@ -345,7 +348,15 @@ impl Flashed {
             c.asked = true;
             let needs = told.unwrap_or_else(|| c.doc.as_ref().and_then(|d| d.as_ref().ok()).map(|d| ready::needs(d, &self.outlet)).unwrap_or_default());
             for need in needs {
-                let _ = available(&need.piece, |p| carried(p).or_else(|| fetched.find(p)));
+                // #513: a published scene the deck does not carry is fetched by the core's loader (deck-space published.rs)
+                match Place::parse(&need.piece) {
+                    Ok(p) if p.kind == "scene" && carried(&p).is_none() => {
+                        let _ = fetched.scene(&SceneRef { id: p.id, version: None });
+                    }
+                    _ => {
+                        let _ = available(&need.piece, |p| carried(p).or_else(|| fetched.find(p)));
+                    }
+                }
             }
         }
         if fetched.waiting() {
@@ -453,6 +464,39 @@ mod tests {
         assert_eq!(f.ask(), None);
         f.turn(0.0, &mut fetched, carried);
         assert_eq!(fetched.asks().len(), 1);
+    }
+
+    /// #513: a flash naming published scenes fetches them through the core's loader (the document, then scene-content);
+    /// one that is not published is what the deck lacks
+    #[test]
+    fn a_flash_fetches_the_published_scenes_it_names() {
+        const SCENES: &str = r#"{ "id": "top", "version": 3, "outlets": [{ "id": "left" }],
+            "rows": [{ "id": "a", "cells": { "left": { "mode": "play", "piece": "scene:nave" } } },
+                     { "id": "b", "cells": { "left": { "mode": "play", "piece": "scene:crypt" } } },
+                     { "id": "c", "cells": { "left": { "mode": "play", "piece": "scene:outlet" } } }] }"#;
+        let nave = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../server/tests/fixtures/scenes/nave.json")).replacen("\"format\": 2,", "\"format\": 2, \"version\": 2,", 1);
+        let (mut f, mut fetched) = (Flashed::new("left", "browser"), Fetched::default());
+        let mut told = flash("one");
+        told.needs = Some(ready::flash_needs(&ready::read(SCENES).unwrap()));
+        f.flash(&told, API, "", &mut fetched);
+        f.turn(0.0, &mut fetched, carried);
+        let (nave_at, crypt_at) = (Place::new("scene", "nave"), Place::new("scene", "crypt"));
+        assert_eq!(fetched.asks(), [(nave_at.clone(), "/scenes/nave".to_string()), (crypt_at.clone(), "/scenes/crypt".to_string())], "the built-in one is carried");
+        fetched.reply(&nave_at, Ok((200, &format!(r#"{{ "status": "success", "scene": {nave} }}"#))));
+        fetched.reply(&crypt_at, Ok((404, "")));
+        f.turn(0.0, &mut fetched, carried);
+        assert!(f.reports().is_empty(), "nave's scene-content is on its way");
+        let asks = fetched.asks();
+        assert!(asks.len() == 1 && asks[0].1.starts_with("/library/scene-content?"), "{asks:?}");
+        fetched.reply(&nave_at, Ok((200, CONTENT)));
+        f.turn(0.0, &mut fetched, carried);
+        let r = f.reports();
+        assert_eq!((r[0].ready, r[0].lacks.as_deref()), (Some(false), Some(&["row b: scene:crypt is not published".to_string()][..])));
+        assert!(matches!(fetched.have(&nave_at), Some(Found::Scene(_))), "nave is here for its cell");
+        // the next flash loads it again (a new version reaches the deck then)
+        f.flash(&Flash { id: Some("two".into()), ..told }, API, "", &mut fetched);
+        f.turn(0.0, &mut fetched, carried);
+        assert!(fetched.asks().iter().any(|(p, path)| *p == nave_at && path == "/scenes/nave"));
     }
 
     /// #475: the conductor says what the outlet plays – a deck that may not read the show checks all the same

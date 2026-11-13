@@ -2,7 +2,12 @@
 //! deck's sync worker (deck-native sync.rs: its threads, cache and HTTP), the browser deck's fetch loop (space-web
 //! `DeckPush` under live-deck sync.ts) and the headless host. The core decides; an adapter only moves bytes.
 //!
-//! - **Items** (`items_of`): `set:<id>` for each set the push names, then `character:<id>`.
+//! - **Items** (`items_of`): each published scene the push names (`scene:<id>[@<v>]`, #513) as written, then `set:<id>`
+//!   for each set, then `character:<id>`.
+//! - **Published scenes first** (#513): each is loaded by the core's loader (published.rs; the native deck drives it
+//!   with its cache, `Run` without one) – its item is ready when it loaded, missing with the loader's reason when not –
+//!   and its sets and characters join the push's (`with_scenes`, `scene_needs`), so its media come as any set's and
+//!   character's. Nothing plays: a push only fills the cache.
 //! - **The request** (`content_url`): one `GET <api>/library/scene-content?sets=…&characters=…` (server
 //!   SceneContent.php); its answer (`Content`, merged with what the deck already knew) is the plan's input.
 //! - **The plan** (`Push::plan`): a set's 3D at the deck's quality (`low` when it names none), a character's every
@@ -17,9 +22,11 @@
 //! `Run` is the flow of a deck that asks once and fetches file by file (the browser, the headless host); `script` runs a
 //! scripted push through it – the answers every adapter's test compares against.
 use crate::graph::{Graph, Kind};
+use crate::published::{Load, SceneRef, Step};
+use crate::scene::Scene;
 use protocol::{DeckSynced, SceneSync, SyncState};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 use std::path::Path;
 
 /// the 3D quality a set is fetched at when the deck names none
@@ -256,16 +263,68 @@ pub struct Push {
     bytes: u64,
 }
 
-/// the items a push names, in its order: `set:<id>`, then `character:<id>`
+/// the items a push names, in its order: each published scene as written, `set:<id>`, then `character:<id>`
 pub fn items_of(s: &SceneSync) -> Vec<String> {
+    let scenes = s.scenes.iter().flatten().cloned();
     let sets = s.sets.iter().flatten().map(|id| format!("set:{id}"));
-    sets.chain(s.characters.iter().flatten().map(|id| format!("character:{id}"))).collect()
+    scenes.chain(sets).chain(s.characters.iter().flatten().map(|id| format!("character:{id}"))).collect()
+}
+
+/// #513: what became of a published scene a push names (its item, the reference as written): the scene the core's
+/// loader resolved, or why it is not here – in the loader's words
+pub type Scened = (String, Result<Scene, String>);
+
+/// #513: what a published scene needs on a deck besides its document: each space node's set (by id; a file path is no
+/// set) and every character on its stage – the being's, then each look's (several holders, #492)
+pub fn scene_needs(scene: &Scene) -> (Vec<String>, Vec<String>) {
+    let str_of = |v: Option<&toml::Value>| v.and_then(|v| v.as_str()).filter(|s| !s.is_empty()).map(str::to_string);
+    let sets = scene.nodes.iter().filter(|n| n.kind == "space").filter_map(|n| str_of(n.params.get("set"))).filter(|s| Path::new(s).extension().is_none());
+    let looks = scene.nodes.iter().filter(|n| n.kind == "look").filter_map(|n| str_of(n.params.get("being").and_then(|b| b.get("character"))));
+    let characters = Some(scene.being_character()).filter(|c| !c.is_empty()).into_iter().chain(looks);
+    (once(sets), once(characters))
+}
+
+/// each id once, in its first place
+fn once(ids: impl IntoIterator<Item = String>) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for id in ids {
+        if !out.contains(&id) {
+            out.push(id);
+        }
+    }
+    out
+}
+
+/// #513: a push's item as a published scene, or why it names none
+fn scene_ref(item: &str) -> Result<SceneRef, String> {
+    SceneRef::parse(item).unwrap_or_else(|| Err(format!("'{item}' names no published scene (scene:<id>[@<n>])")))
+}
+
+/// #513: the push's published scenes, each loaded by `load` (a deck with a worker of its own: the core's loader driven with
+/// its copy – the native deck's published.rs), and the push with their sets and characters (`with_scenes`)
+pub fn preload(sync: &SceneSync, mut load: impl FnMut(SceneRef) -> Result<Scene, String>) -> (SceneSync, Vec<Scened>) {
+    let scenes: Vec<Scened> = sync.scenes.iter().flatten().map(|item| (item.clone(), scene_ref(item).and_then(&mut load))).collect();
+    (with_scenes(sync, &scenes), scenes)
+}
+
+/// #513: the push with its published scenes' sets and characters added (each once, the push's own first) – what the deck
+/// asks scene-content for and plans
+pub fn with_scenes(sync: &SceneSync, scenes: &[Scened]) -> SceneSync {
+    let needs: Vec<(Vec<String>, Vec<String>)> = scenes.iter().filter_map(|(_, got)| got.as_ref().ok()).map(scene_needs).collect();
+    if needs.is_empty() {
+        return sync.clone();
+    }
+    let sets = once(sync.sets.iter().flatten().cloned().chain(needs.iter().flat_map(|(s, _)| s.iter().cloned())));
+    let characters = once(sync.characters.iter().flatten().cloned().chain(needs.iter().flat_map(|(_, c)| c.iter().cloned())));
+    SceneSync { sets: Some(sets), characters: Some(characters), ..sync.clone() }
 }
 
 impl Push {
     /// The push's files at the deck's `quality`, from what the deck knows of the API's answers (`content`), how its last
     /// request went (`api`) and its `cache`. A file the API didn't name settles now: the cache's copy, or missing.
-    pub fn plan(sync: &SceneSync, quality: &str, content: &Content, api: &Api, cache: &dyn Cache) -> Push {
+    /// `scenes` (#513): its published scenes as the loader left them – each an item without files of its own (its media
+    /// are in `sync` already: `with_scenes`).
+    pub fn plan(sync: &SceneSync, scenes: &[Scened], quality: &str, content: &Content, api: &Api, cache: &dyn Cache) -> Push {
         let quality = if quality.is_empty() { DEFAULT_QUALITY } else { quality };
         let unreached = match api {
             Api::Answered => "not in the API's answer".to_string(),
@@ -282,7 +341,8 @@ impl Push {
         };
         let item = |name: String, slots: Vec<Slot>| Item { name, why: None, slots };
         let why = |name: String, why: String| Item { name, why: Some(why), slots: Vec::new() };
-        let mut items = Vec::new();
+        // a published scene: here (loaded) or not, with the loader's reason; its media are the set and character items
+        let mut items: Vec<Item> = scenes.iter().map(|(name, got)| Item { name: name.clone(), why: got.as_ref().err().cloned(), slots: Vec::new() }).collect();
         for id in sync.sets.iter().flatten() {
             let name = format!("set:{id}");
             let want = Want::Set { id: id.clone(), quality: quality.to_string() };
@@ -481,46 +541,99 @@ pub fn scene_id(file: Option<&Path>, name: &str) -> String {
     slug.split('-').filter(|w| !w.is_empty()).collect::<Vec<_>>().join("-")
 }
 
-/// A push written out (`--sync set:<id>,character:<id>,being:<id>`).
+/// A push written out (`--sync set:<id>,character:<id>,being:<id>,scene:<id>[@<v>]`).
 pub fn parse_push(scene: &str, spec: &str) -> Result<SceneSync, String> {
-    let (mut sets, mut characters, mut beings) = (Vec::new(), Vec::new(), Vec::new());
+    let (mut sets, mut characters, mut beings, mut scenes) = (Vec::new(), Vec::new(), Vec::new(), Vec::new());
     for part in spec.split(',').map(str::trim).filter(|p| !p.is_empty()) {
         match part.split_once(':') {
             Some(("set", id)) if !id.is_empty() => sets.push(id.to_string()),
             Some(("character", id)) if !id.is_empty() => characters.push(id.to_string()),
             Some(("being", id)) if !id.is_empty() => beings.push(id.to_string()),
-            _ => return Err(format!("--sync {part}: set:<id>, character:<id> or being:<id>")),
+            Some(("scene", _)) => scenes.push(SceneRef::parse(part).and_then(Result::ok).ok_or_else(|| format!("--sync {part}: scene:<id>[@<n>]"))?.to_string()),
+            _ => return Err(format!("--sync {part}: set:<id>, character:<id>, scene:<id> or being:<id>")),
         }
     }
-    Ok(SceneSync { scene: scene.into(), sets: Some(sets), characters: Some(characters), beings: (!beings.is_empty()).then_some(beings), decks: None })
+    let scenes = (!scenes.is_empty()).then_some(scenes);
+    Ok(SceneSync { scene: scene.into(), sets: Some(sets), characters: Some(characters), scenes, beings: (!beings.is_empty()).then_some(beings), decks: None })
 }
 
-/// A push answered with one request, then file by file – the flow of a deck without a worker of its own (the browser,
-/// the headless host): `new` gives the request's URL, `asked` its reply, then `next_fetch` / `received` per file.
+/// A push answered request by request, then file by file – the flow of a deck without a worker of its own (the browser,
+/// the headless host): `new` gives the first URL to ask, `asked` takes its reply and gives the next (each published
+/// scene's loader asks first, #513; then the one scene-content request) until none is left, then `next_fetch` /
+/// `received` per file. It keeps no copy of a scene (the browser's HTTP cache does).
 #[derive(Debug, Clone)]
 pub struct Run {
     sync: SceneSync,
+    api: String,
     cdn: String,
     quality: String,
+    /// #513: the published scenes still to load, the one loading (its item, its loader), and what became of each
+    todo: VecDeque<String>,
+    loading: Option<(String, Load)>,
+    scenes: Vec<Scened>,
+    /// the push with its scenes' sets and characters, once they are loaded
+    merged: Option<SceneSync>,
     push: Option<Push>,
 }
 
 impl Run {
-    /// a push to answer; the URL to ask
+    /// a push to answer; the URL to ask first
     pub fn new(api: &str, cdn: &str, quality: &str, sync: SceneSync) -> (Run, String) {
-        let sets: Vec<&str> = sync.sets.iter().flatten().map(String::as_str).collect();
-        let characters: Vec<&str> = sync.characters.iter().flatten().map(String::as_str).collect();
-        let url = content_url(api, &sets, &characters);
-        (Run { cdn: cdn.into(), quality: quality.into(), push: None, sync }, url)
+        let todo = sync.scenes.iter().flatten().cloned().collect();
+        let mut run = Run { api: api.into(), cdn: cdn.into(), quality: quality.into(), todo, loading: None, scenes: Vec::new(), merged: None, push: None, sync };
+        let url = run.next(None);
+        (run, url)
     }
 
-    /// the API's reply: its HTTP status (0: the network is gone) and body
-    pub fn asked(&mut self, status: u16, body: &str) {
+    /// The reply to the last URL: its HTTP status (0: the network is gone) and body. The next URL to ask; None: the
+    /// push is planned, the files follow (`next_fetch`).
+    pub fn asked(&mut self, status: u16, body: &str) -> Option<String> {
+        if let Some((_, load)) = &mut self.loading {
+            let step = load.answer(status, body);
+            return Some(self.next(Some(step)));
+        }
+        let merged = self.merged.as_ref()?;
+        if self.push.is_some() {
+            return None;
+        }
         let (content, api) = match Api::reply(status, body) {
             Ok(c) => (c, Api::Answered),
             Err(api) => (Content::default(), api),
         };
-        self.push = Some(Push::plan(&self.sync, &self.quality, &content, &api, &NoCache));
+        self.push = Some(Push::plan(merged, &self.scenes, &self.quality, &content, &api, &NoCache));
+        None
+    }
+
+    /// the loader's step for the scene loading (none: start the next) – the URL it asks, or, every scene done, the one
+    /// scene-content request for the push with their sets and characters
+    fn next(&mut self, mut step: Option<Step>) -> String {
+        let api = self.api.trim_end_matches('/').to_string();
+        loop {
+            let done = match step.take() {
+                Some(Step::Ask(path)) => return format!("{api}{path}"),
+                Some(Step::Play(l)) => Some(Ok(l.scene)),
+                Some(Step::Fail(why)) => Some(Err(why)),
+                None => None,
+            };
+            if let (Some(got), Some((item, _))) = (done, self.loading.take()) {
+                self.scenes.push((item, got));
+            }
+            let Some(item) = self.todo.pop_front() else { break };
+            match scene_ref(&item) {
+                Ok(r) => {
+                    let (load, first) = Load::start(r, None);
+                    self.loading = Some((item, load));
+                    step = Some(first);
+                }
+                Err(why) => self.scenes.push((item, Err(why))),
+            }
+        }
+        let merged = with_scenes(&self.sync, &self.scenes);
+        let sets: Vec<&str> = merged.sets.iter().flatten().map(String::as_str).collect();
+        let characters: Vec<&str> = merged.characters.iter().flatten().map(String::as_str).collect();
+        let url = content_url(&api, &sets, &characters);
+        self.merged = Some(merged);
+        url
     }
 
     /// the next file to fetch: its number and URL
@@ -554,6 +667,10 @@ pub struct Script {
     #[serde(default)]
     pub quality: String,
     pub api: Reply,
+    /// #513: the API's reply by its path after the base (a published scene's document, its scene-content); a path not
+    /// here: `api`
+    #[serde(default)]
+    pub answers: BTreeMap<String, Reply>,
     /// CDN path → its reply (a path not here: 404)
     #[serde(default)]
     pub files: BTreeMap<String, Reply>,
@@ -581,18 +698,27 @@ pub struct Call {
     pub answer: serde_json::Value,
 }
 
-/// A scripted push through a `Run` in the order every adapter calls it: `new` (the URL), `asked`, the answer and line;
-/// then per file `next_fetch`, `received`, the answer and line; the last `next_fetch` answers null.
+/// A scripted push through a `Run` in the order every adapter calls it: `new` (the first URL), `asked` with each URL's
+/// reply until it names none, the answer and line; then per file `next_fetch`, `received`, the answer and line; the last
+/// `next_fetch` answers null.
 pub fn script(s: &Script, api: &str, cdn: &str) -> Vec<Call> {
     use serde_json::{json, Value};
     let answer = |r: &Run| serde_json::to_value(r.answer()).unwrap_or(Value::Null);
     let mut calls = Vec::new();
     let (mut run, url) = Run::new(api, cdn, &s.quality, s.push.clone());
     calls.push(Call { name: "start", args: json!([s.push, s.quality]), answer: json!(url) });
-    let status = s.api.status.unwrap_or(200);
-    let body = s.api.body.as_ref().map_or_else(String::new, Value::to_string);
-    run.asked(status, &body);
-    calls.push(Call { name: "asked", args: json!([status, body]), answer: Value::Null });
+    let mut next = Some(url);
+    // a published scene's loader asks a few times; the push's request once (a loop that keeps asking is cut)
+    for _ in 0..64 {
+        let Some(url) = next.take() else { break };
+        let path = url.strip_prefix(api.trim_end_matches('/')).unwrap_or(&url);
+        let reply = s.answers.get(path).unwrap_or(&s.api);
+        let status = reply.status.unwrap_or(200);
+        // as every adapter hands it in: no body unless 2xx
+        let body = if status / 100 == 2 { reply.body.as_ref().map_or_else(String::new, Value::to_string) } else { String::new() };
+        next = run.asked(status, &body);
+        calls.push(Call { name: "asked", args: json!([status, body]), answer: json!(next) });
+    }
     let say = |calls: &mut Vec<Call>, run: &Run| {
         calls.push(Call { name: "answer", args: json!([]), answer: answer(run) });
         calls.push(Call { name: "line", args: json!([]), answer: json!(run.line()) });
@@ -622,7 +748,7 @@ mod tests {
     const CDN: &str = "https://cdn.test/";
 
     fn push(characters: &[&str]) -> SceneSync {
-        SceneSync { scene: "cathedral".into(), sets: Some(vec!["cathedral".into()]), characters: Some(characters.iter().map(|c| c.to_string()).collect()), beings: None, decks: None }
+        SceneSync { scene: "cathedral".into(), sets: Some(vec!["cathedral".into()]), characters: Some(characters.iter().map(|c| c.to_string()).collect()), scenes: None, beings: None, decks: None }
     }
 
     /// scene-content for the cathedral and catpope; ghost is unknown
@@ -644,11 +770,30 @@ mod tests {
         })
     }
 
+    /// #513: a push naming only published scenes
+    fn scenes(refs: &[&str]) -> SceneSync {
+        SceneSync { scene: "nave".into(), sets: None, characters: None, scenes: Some(refs.iter().map(|r| r.to_string()).collect()), beings: None, decks: None }
+    }
+
+    /// #513: the API's answers for `scene:nave` at version 4 – its document, then its scene-content (Cat Pope's rig)
+    fn nave_answers() -> serde_json::Value {
+        let mut doc: serde_json::Value = serde_json::from_str(include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../server/tests/fixtures/scenes/nave.json"))).unwrap();
+        doc["version"] = 4.into();
+        let rigs: serde_json::Value = serde_json::from_str(include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../server/tests/fixtures/rigs/scene-content.json"))).unwrap();
+        json!({
+            "/scenes/nave": { "body": { "status": "success", "scene": doc } },
+            "/library/scene-content?sets=&locations=&characters=catpope&items=": { "body": rigs },
+            "/scenes/crypt": { "status": 404 }
+        })
+    }
+
     /// The scripted pushes the browser deck's test replays (shared/live-deck/test/fixtures/sync.json): every file
-    /// whole; unknown to the API and a short file; the deck's own quality; no network; the API failing.
+    /// whole; unknown to the API and a short file; the deck's own quality; no network; the API failing; #513: a published
+    /// scene with its set and cast, and one that is not published.
     pub fn scripts() -> Vec<(&'static str, Script)> {
         let s = |push: SceneSync, quality: &str, api: serde_json::Value, files: serde_json::Value| {
-            serde_json::from_value::<Script>(json!({ "push": push, "quality": quality, "api": api, "files": files })).unwrap()
+            let answers = if push.scenes.is_some() { nave_answers() } else { json!({}) };
+            serde_json::from_value::<Script>(json!({ "push": push, "quality": quality, "api": api, "files": files, "answers": answers })).unwrap()
         };
         vec![
             ("ready", s(push(&["catpope"]), "", json!({ "body": content() }), files(4))),
@@ -657,6 +802,8 @@ mod tests {
             ("offline", s(push(&["catpope"]), "", json!({ "status": 0 }), files(4))),
             ("api-error", s(push(&["catpope"]), "", json!({ "status": 503 }), files(4))),
             ("cdn-gone", s(push(&["catpope"]), "", json!({ "body": content() }), json!({ "catpope/map/sets/cathedral.low.v1.glb": { "status": 0 } }))),
+            ("scene", s(scenes(&["scene:nave"]), "", json!({ "body": content() }), files(4))),
+            ("scene-unknown", s(scenes(&["scene:crypt", "scene:nave"]), "", json!({ "body": content() }), files(4))),
         ]
     }
 
@@ -690,7 +837,50 @@ mod tests {
     #[test]
     fn items_sets_then_characters() {
         assert_eq!(items_of(&push(&["catpope", "ghost"])), ["set:cathedral", "character:catpope", "character:ghost"]);
-        assert!(items_of(&SceneSync { scene: "x".into(), sets: None, characters: None, beings: None, decks: None }).is_empty());
+        assert!(items_of(&SceneSync { scene: "x".into(), sets: None, characters: None, scenes: None, beings: None, decks: None }).is_empty());
+        assert_eq!(items_of(&SceneSync { scenes: Some(vec!["scene:nave@3".into()]), ..push(&[]) }), ["scene:nave@3", "set:cathedral"]);
+    }
+
+    /// #513: `scene:nave` – its document and scene-content first (the core's loader), then the push's one request with its
+    /// set and its cast; the scene is an item of its own, its media the set's and character's
+    #[test]
+    fn a_published_scene_is_loaded_first_and_its_set_and_cast_join_the_push() {
+        let calls = script(&scripts()[6].1, API, CDN);
+        assert_eq!(calls[0].answer, "https://api.test/api/scenes/nave");
+        let asked: Vec<&serde_json::Value> = calls.iter().filter(|c| c.name == "asked").map(|c| &c.answer).collect();
+        assert_eq!(asked, [&json!("https://api.test/api/library/scene-content?sets=&locations=&characters=catpope&items="), &json!("https://api.test/api/library/scene-content?sets=cathedral&characters=catpope"), &serde_json::Value::Null]);
+        let (last, line) = answers(&calls).pop().unwrap();
+        assert_eq!((last.state, last.ready, line), (SyncState::Ready, vec!["scene:nave".to_string(), "set:cathedral".into(), "character:catpope".into()], "PUSH READY NAVE".to_string()));
+        assert_eq!(last.total, Some(3), "the scene has no files of its own");
+        // one that is not published: missing with the loader's words; the other still comes
+        let (last, _) = answers(&script(&scripts()[7].1, API, CDN)).pop().unwrap();
+        assert_eq!((last.state, last.missing.clone()), (SyncState::Missing, vec!["scene:crypt".to_string()]));
+        assert_eq!(last.why.unwrap()["scene:crypt"], "scene:crypt is not published");
+        assert_eq!(last.ready, ["scene:nave", "set:cathedral", "character:catpope"]);
+    }
+
+    #[test]
+    fn a_worker_preloads_with_its_own_loader() {
+        let scene = Scene::parse("[being]\ncharacter = \"catpope\"\n[[node]]\nid = \"space\"\nkind = \"space\"\nset = \"cathedral\"\n").unwrap();
+        let mut asked = Vec::new();
+        let sync = SceneSync { scenes: Some(vec!["scene:nave@2".into(), "scene:crypt".into(), "set:x".into()]), ..push(&[]) };
+        let (merged, scenes) = preload(&sync, |r| {
+            asked.push(r.to_string());
+            if r.id == "nave" { Ok(scene.clone()) } else { Err(format!("{r} is not published")) }
+        });
+        assert_eq!(asked, ["scene:nave@2", "scene:crypt"]);
+        assert_eq!(merged.characters.unwrap(), ["catpope"]);
+        assert_eq!(scenes.iter().map(|(i, g)| (i.as_str(), g.as_ref().err().map(String::as_str))).collect::<Vec<_>>(), [("scene:nave@2", None), ("scene:crypt", Some("scene:crypt is not published")), ("set:x", Some("'set:x' names no published scene (scene:<id>[@<n>])"))]);
+    }
+
+    #[test]
+    fn a_scene_s_needs_are_its_sets_and_everyone_on_its_stage() {
+        let scene = Scene::parse("[being]\ncharacter = \"catpope\"\n[[node]]\nid = \"space\"\nkind = \"space\"\nset = \"cathedral\"\n[[node]]\nid = \"a.look\"\nkind = \"look\"\nbeing = { character = \"yellowmouse\" }\n[[node]]\nid = \"b.look\"\nkind = \"look\"\nbeing = { character = \"catpope\" }\n[[node]]\nid = \"s2\"\nkind = \"space\"\nset = \"x.glb\"\n").unwrap();
+        assert_eq!(scene_needs(&scene), (vec!["cathedral".to_string()], vec!["catpope".to_string(), "yellowmouse".to_string()]));
+        let sync = with_scenes(&push(&["yellowmouse", "ghost"]), &[("scene:a".into(), Ok(scene)), ("scene:b".into(), Err("no".into()))]);
+        assert_eq!((sync.sets.unwrap(), sync.characters.unwrap()), (vec!["cathedral".to_string()], vec!["yellowmouse".to_string(), "ghost".into(), "catpope".into()]));
+        // a scene that failed adds nothing
+        assert_eq!(with_scenes(&push(&[]), &[("scene:b".into(), Err("no".into()))]), push(&[]));
     }
 
     #[test]
@@ -749,7 +939,7 @@ mod tests {
                 if c == "catpope" { vec!["neutral".into()] } else { Vec::new() }
             }
         }
-        let p = Push::plan(&push(&["catpope", "ghost"]), "", &Content::default(), &Api::Offline, &Has);
+        let p = Push::plan(&push(&["catpope", "ghost"]), &[], "", &Content::default(), &Api::Offline, &Has);
         let r = p.answer();
         assert_eq!((r.state, r.ready.clone(), r.missing.clone()), (SyncState::Offline, vec!["set:cathedral".to_string(), "character:catpope".to_string()], vec!["character:ghost".to_string()]));
         assert_eq!((r.done, r.total), (Some(2), Some(2)));
@@ -758,7 +948,7 @@ mod tests {
     #[test]
     fn a_file_settles_once_by_its_want() {
         let content = Content::parse(&content().to_string()).unwrap();
-        let mut p = Push::plan(&push(&[]), "", &content, &Api::Answered, &NoCache);
+        let mut p = Push::plan(&push(&[]), &[], "", &content, &Api::Answered, &NoCache);
         let w = Want::Set { id: "cathedral".into(), quality: "low".into() };
         assert_eq!(p.wants().collect::<Vec<_>>(), [&w]);
         assert!(p.settle(&w, Got::Fetched(4)));
@@ -796,6 +986,9 @@ mod tests {
         assert!(p.beings.is_none() && p.decks.is_none());
         assert_eq!(parse_push("x", "being:ghost").unwrap().beings.unwrap(), ["ghost"]);
         assert!(parse_push("x", "room:cathedral").unwrap_err().contains("set:<id>"));
+        assert_eq!(parse_push("x", "scene:nave, scene:crypt@2").unwrap().scenes.unwrap(), ["scene:nave", "scene:crypt@2"]);
+        assert!(parse_push("x", "scene:nave@x").unwrap_err().contains("scene:<id>[@<n>]"));
+        assert!(parse_push("x", "set:cathedral").unwrap().scenes.is_none());
         assert!(parse_push("x", "set:").is_err());
     }
 
@@ -807,7 +1000,11 @@ mod tests {
             .into_iter()
             .map(|(name, s)| {
                 let files: BTreeMap<&String, serde_json::Value> = s.files.iter().map(|(p, r)| (p, json!({ "status": r.status, "bytes": r.bytes, "head": r.head }))).collect();
-                json!({ "name": name, "push": s.push, "quality": s.quality, "api": { "status": s.api.status, "body": s.api.body }, "files": files, "calls": script(&s, API, CDN) })
+                // #513: the API's replies by path (a published scene's document, its scene-content) as the text the core
+                // was handed (JSON.stringify would write 4.0 as 4)
+                let answers: BTreeMap<&String, serde_json::Value> =
+                    s.answers.iter().map(|(p, r)| (p, json!({ "status": r.status, "text": r.body.as_ref().map(serde_json::Value::to_string) }))).collect();
+                json!({ "name": name, "push": s.push, "quality": s.quality, "api": { "status": s.api.status, "body": s.api.body }, "answers": answers, "files": files, "calls": script(&s, API, CDN) })
             })
             .collect();
         let text = serde_json::to_string_pretty(&json!({ "api": API, "cdn": CDN, "scripts": fixture })).unwrap() + "\n";

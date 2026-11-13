@@ -400,8 +400,8 @@ impl Worker {
         }
     }
 
-    /// #195: a push – asked for afresh (a changed file is noticed), planned by the core, each file checked again
-    fn take_push(&mut self, sync: SceneSync) {
+    /// #195: a push – asked for afresh (a changed file is noticed), planned by the core, each file checked again; #513: its published scenes loaded first (`push::preload`)
+    fn take_push(&mut self, (sync, scenes): (SceneSync, Vec<push::Scened>)) {
         let sets: Vec<&str> = sync.sets.iter().flatten().map(String::as_str).collect();
         let chars: Vec<&str> = sync.characters.iter().flatten().map(String::as_str).collect();
         tracing::info!("sync: the conductor pushes '{}' – sets {sets:?}, characters {chars:?}", sync.scene);
@@ -416,7 +416,7 @@ impl Worker {
             self.publish(|b| *b = Board { busy: true, ..Board::default() });
         }
         self.ask(&sets, &chars);
-        let push = Push::plan(&sync, &self.cfg.quality, &self.content, &self.api, &self.cfg);
+        let push = Push::plan(&sync, &scenes, &self.cfg.quality, &self.content, &self.api, &self.cfg);
         for w in push.wants() {
             self.settled.remove(w);
             if !self.queue.contains(w) {
@@ -450,7 +450,7 @@ impl Worker {
                     }
                 }
             }
-            Msg::Push(sync) => self.take_push(sync),
+            Msg::Push(sync) => self.take_push(push::preload(&sync, crate::published::loader(&self.agent, &self.cfg.api, &self.cfg.cache, self.cfg.token.get()))),
             Msg::Want(w, reply) => {
                 if self.settled.contains(&w) {
                     let _ = reply.send(());
