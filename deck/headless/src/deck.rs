@@ -129,9 +129,18 @@ impl Deck {
     /// #467 `lc_crossfade`: a show's other piece – its scene loaded while the one before fades out under it for `ms`; the
     /// audio's timeline goes on (the sink keeps its count)
     pub fn crossfade(&mut self, toml: &str, ms: u32) -> Result<Value, String> {
+        self.change(toml, ms, false)
+    }
+
+    /// #516 `lc_recast`: the playing scene with a member joined or left – a crossfade, the running values carried
+    pub fn recast(&mut self, toml: &str, ms: u32) -> Result<Value, String> {
+        self.change(toml, ms, true)
+    }
+
+    fn change(&mut self, toml: &str, ms: u32, recast: bool) -> Result<Value, String> {
         let bytes = toml.as_bytes();
         self.host.inbox(bytes.len())[..bytes.len()].copy_from_slice(bytes);
-        let n = self.host.crossfade(bytes.len(), ms);
+        let n = if recast { self.host.recast(bytes.len(), ms) } else { self.host.crossfade(bytes.len(), ms) };
         let text = String::from_utf8_lossy(&self.host.outbox()[..n.unsigned_abs() as usize]).into_owned();
         if n < 0 {
             return Err(text);

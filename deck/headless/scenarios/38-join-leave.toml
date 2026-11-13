@@ -1,0 +1,129 @@
+name = "a playing scene takes join and leave: a character appears at the first free spot, and disappears"
+about = "#516 (research/SCENE-EVENTS.md §3.1 E1; owner 2026-11-13 [scenes]: \"a join without an action is just appear … keep it very simple\"): the template scene:stage plays empty; the address action `scene:stage > join:character:catpope` (SHOW.md §8 – the relay's `address`, or a show row's `addresses`) reaches the core's playing scene (deck-space scene_play.rs), which joins her at the first free spot whose placeholder admits her (scene_resolve.rs `Casting::join`) and resolves the scene again: she stands at `left` with her look and her core rig, and sounds. A second join keeps what stands there – the running value turned on her rig carries across (live-core `recast`). `leave` frees `left`. No free spot that admits her: nothing, said in the log. A show row's address action reaches the same path"
+
+# the stage plays empty: no member, no sound
+[[step]]
+do = "load"
+document = "../server/tests/fixtures/scenes/templates/stage.json"
+expect = { stage = { cast = [], stage_3d = false } }
+
+[[step]]
+do = "run"
+ms = 300
+expect = { sound = false }
+
+# join: Cat Pope appears at the first free spot whose placeholder admits her – left – her look drawn, her rig in the scene
+[[step]]
+do = "address"
+address = "scene:stage"
+action = "join:character:catpope"
+expect = { did = "changed", holder = "left", said = "character:catpope joined scene:stage at left", ids = { has = "left_voice_voice" }, stage = { cast = [{ holder = "left", look = "left_look", character = "catpope", spot = "spot_left", who = "character:catpope", form = "card", picture = "characters.catpope.full" }], slots = ["left_"] } }
+
+# … and her rig sounds
+[[step]]
+do = "run"
+ms = 1500
+expect = { sound = true }
+
+[[step]]
+do = "heard"
+path = "left_look.glow"
+expect = { value = 0.6 }
+
+# a value turned on her rig while the scene plays …
+[[step]]
+do = "send"
+path = "left_voice_voice.ratio"
+value = 2.25
+mode = "base"
+
+# … stays turned when the next one joins (the next free spot: centre; Top Toy has no rig on this deck – silent, said)
+[[step]]
+do = "address"
+address = "scene:stage"
+action = "join:character:toptoy"
+expect = { did = "changed", holder = "centre", said = { contains = "character.toptoy" }, stage = { cast = [{ holder = "left", look = "left_look", character = "catpope", spot = "spot_left", who = "character:catpope", form = "card", picture = "characters.catpope.full" }, { holder = "centre", look = "centre_look", character = "toptoy", spot = "spot_centre", who = "character:toptoy", form = "card", picture = "characters.toptoy.full" }] } }
+
+[[step]]
+do = "run"
+ms = 500
+expect = { sound = true }
+
+[[step]]
+do = "heard"
+path = "left_voice_voice.ratio"
+expect = { value = 2.25 }
+
+# already on stage – any persona of her: nothing
+[[step]]
+do = "address"
+address = "scene:stage"
+action = "join:character:catpope.pope"
+expect = { did = "nothing", said = "join character:catpope.pope: stands on scene:stage already" }
+
+# leave: she disappears, left is empty again
+[[step]]
+do = "address"
+address = "scene:stage"
+action = "leave:character:catpope"
+expect = { did = "changed", holder = "left", stage = { cast = [{ holder = "centre", look = "centre_look", character = "toptoy", spot = "spot_centre", who = "character:toptoy", form = "card", picture = "characters.toptoy.full" }] } }
+
+[[step]]
+do = "run"
+ms = 200
+
+[[step]]
+do = "run"
+ms = 500
+expect = { sound = false }
+
+# a word for another scene, or another action, is not this scene's
+[[step]]
+do = "address"
+address = "scene:nave"
+action = "join:character:catpope"
+expect = { did = "not_mine" }
+
+# no free spot that admits her: every placeholder is taken – nothing, said in the log
+[[step]]
+do = "reset"
+
+[[step]]
+do = "load"
+document = "../server/tests/fixtures/scenes/templates/stage.json"
+with = { left = "character:a", centre = "character:b", right = "character:c", back = "character:d" }
+
+[[step]]
+do = "address"
+address = "scene:stage"
+action = "join:character:catpope"
+expect = { did = "nothing", said = "join character:catpope: no placeholder of scene:stage with room admits 'character:catpope'" }
+
+# a show row's address action reaches the same path: the row fires, its `addresses` go to this deck's playing scene
+[[step]]
+do = "reset"
+
+[[step]]
+do = "load"
+document = "../server/tests/fixtures/scenes/templates/stage.json"
+
+[[step]]
+do = "show"
+show = "show/fixtures/stage-cast.show.json"
+outlet = "left"
+expect = { rows = ["catpope-enters", "catpope-exits"] }
+
+[[step]]
+do = "fire"
+row = "catpope-enters"
+expect = { addresses = ["scene:stage > join:character:catpope: changed at left"], stage = { cast = [{ holder = "left", look = "left_look", character = "catpope", spot = "spot_left", who = "character:catpope", form = "card", picture = "characters.catpope.full" }] } }
+
+[[step]]
+do = "run"
+ms = 1000
+expect = { sound = true }
+
+[[step]]
+do = "fire"
+row = "catpope-exits"
+expect = { addresses = ["scene:stage > leave:character:catpope: changed at left"], stage = { cast = [] } }

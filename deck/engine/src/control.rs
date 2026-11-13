@@ -870,6 +870,37 @@ impl Controls {
         true
     }
 
+    /// #516: the running values of `from` – the face of the scene before a recast (a member joined or left) – onto this
+    /// one's nodes of the same id and kind: each input's base (a knob, a cell's value) and send, an LFO's shape. So the
+    /// scene plays on as it was set; a node only one of them has keeps its own. Only what differs is commanded.
+    pub fn carry(&mut self, from: &Controls) {
+        for j in 0..self.table.ids.len() {
+            let Some(i) = from.table.ids.iter().position(|id| *id == self.table.ids[j]) else { continue };
+            if from.table.kinds[i] != self.table.kinds[j] {
+                continue;
+            }
+            for (p, old) in from.table.inputs[i].clone().into_iter().enumerate() {
+                let Some(new) = self.table.inputs[j].get(p).copied() else { break };
+                let base = match (old.src, new.src) {
+                    (Src::Link(_, _, b), Src::Link(_, _, now)) | (Src::Param(b), Src::Param(now)) => (b != now).then_some(b),
+                    (Src::Param(b), Src::Default) => Some(b),
+                    _ => None,
+                };
+                if let Some(b) = base {
+                    self.set_base(j, p, b);
+                }
+                if (old.value, old.amount) != (new.value, new.amount) {
+                    self.send(j, p, old.value, old.amount);
+                }
+            }
+            if let (Some(s), Some(now)) = (from.table.shapes[i], self.table.shapes[j]) {
+                if s != now {
+                    self.set_lfo_shape(j, s);
+                }
+            }
+        }
+    }
+
     /// The live context for the engine's module nodes (#409: the deck's mood, persona and the being's senses – the
     /// platform's frame sends `Deck::context` or its being's): applied at the next block's start; an unchanged one is
     /// not sent again.

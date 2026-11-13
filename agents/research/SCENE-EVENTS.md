@@ -56,6 +56,7 @@ and chapter – the flow index extended – so the deck's scene editor can offer
 | # | What | Size | Done when |
 |---|---|---|---|
 | E1 | **Join and leave while a scene plays:** the words `join` / `leave` on a playing scene, through an address action; appear / disappear at the first free admitting spot; the look and rig added and removed without restarting the scene | M | headless: `scene:stage` plays empty, `join catpope` → she stands at `left` and her rig sounds; `leave` → `left` is empty; a show row sends the same words (#516) |
+| | Built (#516): `join:<who>` / `leave:<who>` (rig/address.rs `CastWord`) on deck-space scene_play.rs `Playing`, re-resolved by the one resolve and loaded by live-core `recast` (a 30 ms crossfade, the running values carried; deck-engine has no in-place graph change, so the members' sound restarts under it); headless scenario 38; no native or browser host takes `address` yet | | |
 | E2 | **A scene listens:** listeners in the scene document (event, optional id and character → join / leave), the show's matching, the deck receiving its session's story events | M | a reader's `joinScene` Cat Pope in a session → the deck's scene shows her; without a listener nothing happens |
 | E3 | **The story events listed:** a server index of every story event, for the scene editor | S–M | the API lists a toon's events with id, type, character, excerpt |
 | later | the text layer drawn by the deck · mood and focus · entrance animations · a scene's events back to the story · the scene editor's Events panel (#244) | – | – |

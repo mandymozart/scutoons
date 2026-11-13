@@ -133,13 +133,62 @@ impl Target {
         self.kind == there.kind && (self.id.is_none() || (self.id == there.id && there.below.starts_with(&self.below)))
     }
 
-    /// What an address asks of who picks it up: a whole word, or `<scope>:<word>` (`close_doors`, `dance:samba`).
+    /// What an address asks of who picks it up: a whole word, or `<scope>:<word>` (`close_doors`, `dance:samba`) – or a
+    /// playing scene's cast word, `join:<who>` / `leave:<who>` (`CastWord`).
     pub fn action(s: &str) -> Result<(), String> {
+        if let Some(c) = CastWord::parse(s) {
+            return c.map(drop);
+        }
         match s.split_once(':') {
             Some((scope, name)) => word(scope, "an action's scope").and(word(name, "an action")).map(drop),
             None => word(s, "an action").map(drop),
         }
     }
+}
+
+/// the reserved action a playing scene takes to let someone appear on its stage (#516, SCENE-EVENTS.md §3.1): `join:<who>`
+pub const JOIN: &str = "join";
+/// the reserved action a playing scene takes to let someone disappear from its stage: `leave:<who>`
+pub const LEAVE: &str = "leave";
+
+/// A playing scene's cast word (#516; owner 2026-11-13 [scenes]: "a join without an action is just appear"): sent to the
+/// scene (`scene:stage > join:character:catpope`), it names who as a filler's reference – `<kind>:<id>`, a character down
+/// to persona and look – so its argument is an address, not a word. What it does is the core's (scene_play.rs).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CastWord {
+    /// appears at the first free spot whose placeholder admits it
+    Join(String),
+    /// disappears; its spot is free again
+    Leave(String),
+}
+
+impl CastWord {
+    /// None: not a cast word (another action); else the word or why its `<who>` is no one
+    pub fn parse(action: &str) -> Option<Result<CastWord, String>> {
+        let (verb, who) = action.split_once(':')?;
+        let make = match verb {
+            JOIN => CastWord::Join,
+            LEAVE => CastWord::Leave,
+            _ => return None,
+        };
+        Some(match Target::parse(who) {
+            Ok(t) if t.id.is_some() => Ok(make(who.to_string())),
+            Ok(_) => Err(format!("'{action}': {verb} names one, not every {}", t_kind(who))),
+            Err(e) => Err(format!("'{action}': {verb} names who as <kind>:<id> – {e}")),
+        })
+    }
+
+    /// who it names (`character:catpope`)
+    pub fn who(&self) -> &str {
+        match self {
+            CastWord::Join(w) | CastWord::Leave(w) => w,
+        }
+    }
+}
+
+/// the kind of `<kind>:…`
+fn t_kind(s: &str) -> &str {
+    s.split_once(':').map_or(s, |(k, _)| k)
 }
 
 impl fmt::Display for Target {
@@ -397,6 +446,20 @@ mod tests {
         assert!(t("location:*").unwrap().picks_up("location:nave") && !t("location:*").unwrap().picks_up("character:nave"));
         assert!(Target::action("dance:samba").is_ok() && Target::action("close_doors").is_ok());
         assert!(Target::action("dance samba").is_err() && Target::action("").is_err() && Target::action("a:b:c").is_err());
+    }
+
+    /// #516: a scene's cast words name who by address; everything else stays a word or `scope:word`
+    #[test]
+    fn a_scenes_cast_words_name_who() {
+        use super::{CastWord, Target};
+        assert_eq!(CastWord::parse("join:character:catpope"), Some(Ok(CastWord::Join("character:catpope".into()))));
+        assert_eq!(CastWord::parse("leave:item:incense"), Some(Ok(CastWord::Leave("item:incense".into()))));
+        assert_eq!(CastWord::parse("join:character:catpope.pope").unwrap().unwrap().who(), "character:catpope.pope");
+        assert!(CastWord::parse("join:catpope").unwrap().unwrap_err().contains("<kind>:<id>"));
+        assert!(CastWord::parse("join:character:*").unwrap().unwrap_err().contains("names one"));
+        assert_eq!(CastWord::parse("dance:samba"), None);
+        assert_eq!(CastWord::parse("join"), None, "a bare word is another action");
+        assert!(Target::action("join:character:catpope").is_ok() && Target::action("join:nobody").is_err());
     }
 
     use super::*;

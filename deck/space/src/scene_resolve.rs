@@ -25,7 +25,8 @@
 //!   all, moves nothing (owner 2026-11-12 [rigs]: "if a rig has no mapping to visual properties nothing moves"). A rig's
 //!   link into the room (the space's light, its post stack) is the scene's on such a stage and is left out, said in `notes`.
 //! - **The story's casting** (`Casting::join`, owner 2026-11-12 §9.7 Q4): `joinScene` takes the holder that carries the
-//!   character already, else the first placeholder or spawn zone with room, in the scene's order, whose `fill` admits it.
+//!   character already, else the first placeholder or spawn zone with room, in the scene's order, whose `fill` admits it;
+//!   `Casting::leave` frees it again. A scene that plays takes both as words (scene_play.rs, #516).
 use crate::problem::sentences;
 use crate::rig::address::{node_port, Address, Leaf};
 use crate::rig::bundle::Bundle;
@@ -457,6 +458,19 @@ impl<'a> Casting<'a> {
         Err(format!("no placeholder of scene:{} with room admits '{filler}'", self.doc.id))
     }
 
+    /// `leave` (#516): the placeholder that carries the filler's place (any persona or look of it) gives it up – its id;
+    /// none when no placeholder carries it (an authored filler is written into the scene and stays)
+    pub fn leave(&mut self, filler: &str) -> Option<String> {
+        let place = FillerRef::parse(filler).ok()?.place;
+        for (id, list) in self.with.iter_mut() {
+            if let Some(i) = list.iter().position(|r| FillerRef::parse(r).is_ok_and(|f| f.place == place)) {
+                list.remove(i);
+                return Some(id.clone());
+            }
+        }
+        None
+    }
+
     /// the fillers as a use's `with`
     pub fn with(&self) -> BTreeMap<String, Fillers> {
         let zone = |id: &str| self.doc.holders.iter().any(|h| h.id == id && h.take == crate::scene_document::Take::Many);
@@ -652,6 +666,13 @@ mod tests {
         assert_eq!(w["crows"], crows(3));
         assert_eq!(w["table"], one("item:crow4"));
         assert_eq!(resolve(&choir, &w, false, &no_rigs, &no_sets).unwrap().cast.len(), 5);
+        // #516: leave frees the room – the next one takes it again
+        assert_eq!(casting.leave("item:crow2"), Some("crows".into()));
+        assert_eq!(casting.leave("item:crow2"), None, "gone already");
+        assert_eq!(casting.leave("character:catpope.pope"), Some("pope".into()), "any persona of her place");
+        assert_eq!(casting.join("item:crow5"), Ok("crows".into()));
+        assert_eq!(casting.with()["crows"], Fillers::Many(vec!["item:crow1".into(), "item:crow3".into(), "item:crow5".into()]));
+        assert!(!casting.with().contains_key("pope"), "an emptied placeholder is no filler");
     }
 
     #[test]

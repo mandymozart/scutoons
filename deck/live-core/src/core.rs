@@ -148,6 +148,12 @@ impl Core {
         self.controls.set_context(c);
     }
 
+    /// #516: the running values of the scene before (`old`, whose cast changed) onto this one's nodes of the same id and
+    /// kind – deck-engine's `Controls::carry`, applied at the next quantum
+    pub fn carry(&mut self, old: &Core) {
+        self.controls.carry(&old.controls);
+    }
+
     /// the live context the engine applied last (the default before any)
     pub fn applied_context(&self) -> &Context {
         self.engine.control().context()
