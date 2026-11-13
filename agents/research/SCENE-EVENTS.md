@@ -101,7 +101,7 @@ A listening scene on a deck needs no setting: it asks for the story by itself (#
 - **Q3 Does the reader show that it is linked?** Recommended: yes, the small mark – the person sends what they read to a stage.
 - **Q4 One linked reader or many?** Today every linked reader's events reach the decks that listen. Recommended: leave it, and show the list so the conductor sees who is in.
   **Thought aloud (owner 2026-11-13): one linked reader at a time – several "would be competetiv"; "maybe a small warning when taking over".**
-  Read: the newest linked reader drives, the one before stops sending; a small warning at the take-over. Open: who sees it (the one taken over, the newcomer before they take over, the conductor), and whether the relay or the conductor holds "who drives" (a core / relay rule, not the viewer's).
+  Read: the newest linked reader drives, the one before stops sending; a small warning at the take-over. **The newcomer sees it (owner 2026-11-13).** Open: whether the relay or the conductor holds "who drives" (a core / relay rule, not the viewer's).
 
 ### 6.5 Build steps once answered (not filed)
 the core's link function and the linked readers in the conductor's state (S) · the editor's Session panel with the row and a QR (M) · the conductor page's row (S) · the reader's mark (S) · the reader key, if Q1 = (b) (M, relay + API).
