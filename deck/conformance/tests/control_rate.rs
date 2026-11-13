@@ -22,7 +22,7 @@ fn deck_scenes() -> Vec<(String, String)> {
     let mut out: Vec<(String, String)> =
         deck_native::switcher::BUILTIN.iter().map(|n| (n.to_string(), deck_native::switcher::builtin(n).unwrap().to_string())).collect();
     let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("native").join("scenes").join("sandbox");
-    for e in deck_native::switcher::entries(Some(&dir)).into_iter().skip(out.len()) {
+    for e in deck_native::switcher::entries(Some(&dir), std::path::Path::new("/nowhere")).into_iter().skip(out.len()) {
         out.push((e.label, std::fs::read_to_string(&e.value).unwrap()));
     }
     out

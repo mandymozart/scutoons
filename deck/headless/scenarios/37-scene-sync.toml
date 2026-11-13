@@ -1,0 +1,42 @@
+name = "the conductor's push names a published scene: fetched by the core's loader, its set and cast with it"
+about = "#513 (SCENES.md §6 2c): a `scene.sync` may name published scenes (`scene:<id>[@v]`). The push machine (deck-space push.rs) loads each through the one loader (published.rs) first – its document, then its scene-content – and adds its sets and characters to the push; the scene is an item of its own, ready when it loaded, missing with the loader's reason when not. Nothing plays. The native deck drives it with its cache (`<cache>/scenes/`), the browser's DeckPush and this host without one"
+
+# a deck that never had scene:nave: its document, its scene-content, then the push's one request with the cathedral and Cat Pope
+[[step]]
+do = "sync"
+[step.with]
+push = { scene = "nave", scenes = ["scene:nave"] }
+answers = { "/scenes/nave" = { body = { status = "success", scene = { format = 2, id = "nave", version = 1, toons = ["catpope"], holder = [{ id = "catpope", ref = "character:catpope" }], stage = { name = "Nave" }, node = [{ id = "space", kind = "space", set = "cathedral", quality = "low" }] } } }, "/library/scene-content?sets=&locations=&characters=catpope&items=" = { body = {} } }
+api = { body = { sets = { cathedral = { model = { low = { path = "catpope/map/sets/cathedral.low.v1.glb", size = 4 } } } }, characters = { catpope = { portraits = { neutral = { path = "characters/catpope/n.webp", size = 12 } } } } } }
+files = { "catpope/map/sets/cathedral.low.v1.glb" = { bytes = 4, head = "glTF" }, "characters/catpope/n.webp" = { bytes = 12, head = "RIFF....WEBP" } }
+[step.expect]
+url = "https://api.test/api/scenes/nave"
+fetched = ["https://cdn.test/catpope/map/sets/cathedral.low.v1.glb", "https://cdn.test/characters/catpope/n.webp"]
+lines = ["PUSH 0/2 NAVE", "PUSH 1/2 NAVE", "PUSH READY NAVE"]
+state = "ready"
+total = 2
+ready = ["scene:nave", "set:cathedral", "character:catpope"]
+
+# a scene that is not published: in the answer's missing, with the loader's words
+[[step]]
+do = "sync"
+[step.with]
+push = { scene = "crypt", scenes = ["scene:crypt"] }
+answers = { "/scenes/crypt" = { status = 404 } }
+api = { body = {} }
+[step.expect]
+state = "missing"
+push_line = "PUSH MISSING 1 CRYPT"
+missing = ["scene:crypt"]
+why = { "scene:crypt" = "scene:crypt is not published" }
+
+# the network is gone and this host keeps no copy: the scene is missing, the push offline
+[[step]]
+do = "sync"
+[step.with]
+push = { scene = "nave", scenes = ["scene:nave"] }
+api = { status = 0 }
+[step.expect]
+state = "offline"
+missing = ["scene:nave"]
+why = { "scene:nave" = "scene:nave: the API can't be reached and this deck has no copy" }

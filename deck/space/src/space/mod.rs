@@ -753,7 +753,7 @@ impl Space {
                 characters.push(c.clone());
             }
         }
-        protocol::SceneSync { scene: scene.into(), sets: Some(sets), characters: Some(characters), beings: None, decks: None }
+        protocol::SceneSync { scene: scene.into(), sets: Some(sets), characters: Some(characters), scenes: None, beings: None, decks: None }
     }
 
     /// #195, #371: the conductor's push – the one written out (`--sync`), else this scene's own; its `scene` = the scene

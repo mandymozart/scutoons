@@ -334,7 +334,8 @@ impl Outlet {
     pub fn answered(&mut self, key: &str, answer: Result<(u16, &str), String>) -> bool {
         if let Some(piece) = key.strip_prefix("cr:") {
             if let Ok(place) = Place::parse(piece) {
-                self.fetched.give(&place, answer.map(|(_, body)| body));
+                // a piece's bytes, or a published scene's answer for its loader (#513)
+                self.fetched.reply(&place, answer);
             }
             true
         } else if let Some(kept) = key.strip_prefix("sf:") {

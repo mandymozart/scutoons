@@ -2,7 +2,9 @@
 //! scutoons.com (tests/common), the conductor's stage and decks with their own caches. A push reaches every deck, each
 //! fetches through its sync (the same scene-content request and cache) and answers `deck.synced`; the conductor sees
 //! every deck ready; a deck joining later finds the push in its welcome and syncs too; a push again skips the cache;
-//! missing items come back as missing, a deck without the API as offline; a deck's own push is refused.
+//! missing items come back as missing, a deck without the API as offline; a deck's own push is refused. #513: a push
+//! naming a published scene makes a deck that never had it fetch it into `<cache>/scenes/`, with its set and cast; offline
+//! afterwards it plays from there; one it can't get is missing.
 #![cfg(all(feature = "live", feature = "space", feature = "sync"))]
 mod common;
 
@@ -94,6 +96,7 @@ fn push(characters: &[&str]) -> SceneSync {
         scene: "cathedral".into(),
         sets: Some(vec!["cathedral".into()]),
         characters: Some(characters.iter().map(|c| c.to_string()).collect()),
+        scenes: None,
         beings: None,
         decks: None,
     }
@@ -180,6 +183,40 @@ fn missing_items_come_back_missing_and_no_api_is_offline() {
     assert!(!cond.space.decks_ready());
     let lines = cond.space.session_lines();
     assert!(lines.iter().any(|l| l == "SYNC 0/2 READY 2 NOT CATHEDRAL"), "{lines:?}");
+}
+
+/// #513: `scene.sync` naming `scene:nave` – a deck that never had it fetches it through the core's loader into its cache,
+/// with the cathedral and Cat Pope's portraits; offline afterwards the copy plays; `scene:crypt` is missing with why
+#[test]
+fn a_push_naming_a_published_scene_fetches_it_and_it_plays_offline_from_the_cache() {
+    let stub = stub_with_files();
+    let nave = include_str!("../../../server/tests/fixtures/scenes/nave.json").replacen("\"format\": 2,", "\"format\": 2, \"version\": 2,", 1);
+    stub.scenes.lock().unwrap().insert("nave".into(), format!("{{\"status\":\"success\",\"scene\":{nave}}}"));
+    let cache = dir("published");
+    let sync = DeckSync::start(stub.config(&cache));
+    assert!(!cache.join("scenes").join("nave.json").exists(), "a deck that never had it");
+    sync.push(SceneSync { scene: "nave".into(), sets: None, characters: None, scenes: Some(vec!["scene:nave".into(), "scene:crypt".into()]), beings: None, decks: None });
+    let until = Instant::now() + PATIENCE;
+    let answer = loop {
+        match sync.synced(0) {
+            Some((_, a)) if a.state != protocol::SyncState::Syncing => break a,
+            _ if Instant::now() > until => panic!("no answer"),
+            _ => std::thread::sleep(Duration::from_millis(5)),
+        }
+    };
+    assert_eq!(answer.ready, ["scene:nave", "set:cathedral", "character:catpope"]);
+    assert_eq!((answer.missing.clone(), answer.why.unwrap()["scene:crypt"].as_str()), (vec!["scene:crypt".to_string()], "scene:crypt is not published"));
+    assert!(cache.join("scenes").join("nave.json").is_file(), "kept under <cache>/scenes/");
+    assert_eq!(std::fs::read(cache.join("sets/cathedral/cathedral.low.glb")).unwrap(), glb("low"));
+    assert!(cache.join("portraits/catpope/catpope_portrait-neutral.png").is_file());
+    assert!(stub.hits("/api/scenes/nave").iter().all(|h| h.ends_with("+token")), "with the deck token");
+    // offline afterwards: `--scene scene:nave` plays the copy
+    let scene = deck_native::published::scene(Path::new("scene:nave"), "http://127.0.0.1:9/api", &cache).unwrap();
+    assert_eq!(scene.being_character(), "catpope");
+    // and F5 lists it by its stage's name
+    let listed = deck_native::published::cached(&cache);
+    assert_eq!((listed[0].0.to_string(), listed[0].1.as_str()), ("scene:nave@2".to_string(), "Nave"));
+    let _ = std::fs::remove_dir_all(&cache);
 }
 
 /// a deck (not the conductor) that sends `scene.sync` itself is refused, and no deck gets it

@@ -1008,11 +1008,10 @@ impl DeckPush {
         Ok(url)
     }
 
-    /// the API's reply: its HTTP status (0: the network is gone) and body
-    pub fn asked(&mut self, status: u16, body: &str) {
-        if let Some(r) = &mut self.run {
-            r.asked(status, body);
-        }
+    /// the API's reply: its HTTP status (0: the network is gone) and body; the next URL to ask (#513: a published
+    /// scene's loader asks first), undefined: none – the files follow
+    pub fn asked(&mut self, status: u16, body: &str) -> Option<String> {
+        self.run.as_mut()?.asked(status, body)
     }
 
     /// the next file to fetch, `[number, url]` (JSON); undefined: none left

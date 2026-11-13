@@ -26,6 +26,9 @@
 //!   core's (#371: deck-space push.rs, the browser deck answers with the same machine): the worker plans the push with
 //!   what the API answered and its cache (`Cache` on `Config`), queues the push's files, settles each in the core, and
 //!   keeps the answer (`synced`), new after every settled file; the link sends it to the conductor.
+//! - **Published scenes in a push (#513):** each `scene:<id>[@v]` is loaded first by the core's loader with the deck's
+//!   copy (published.rs → `<cache>/scenes/<id>.json`, the same file `--scene` plays from, offline too); its sets and
+//!   characters join the push (deck-space `push::with_scenes`). Nothing plays: the push only fills the cache.
 //!
 //! The HUD shows `DeckSync::line` (progress, offline, the last error) and `push_line` (the push's state).
 pub use deck_space::push::{Content, File, Want, MAX_FILE};
@@ -400,11 +403,33 @@ impl Worker {
         }
     }
 
-    /// #195: a push – asked for afresh (a changed file is noticed), planned by the core, each file checked again
+    /// #513: the push's published scenes, each through the core's loader with the deck's copy (published.rs: the
+    /// document and its scene-content into `<cache>/scenes/`) – what became of each
+    fn load_scenes(&self, sync: &SceneSync) -> Vec<push::Scened> {
+        let dir = self.cfg.cache.join("scenes");
+        let mut out = Vec::new();
+        for item in sync.scenes.iter().flatten() {
+            let got = match crate::published::named(Path::new(item)) {
+                Some(Ok(r)) => crate::published::load(r, &dir, |path| crate::published::get_with(&self.agent, &self.cfg.api, path, self.cfg.token.get())).map(|l| l.scene).map_err(|e| format!("{e:#}")),
+                Some(Err(why)) => Err(why),
+                None => Err(format!("'{item}' names no published scene (scene:<id>[@<n>])")),
+            };
+            if let Err(why) = &got {
+                tracing::warn!("sync: {why}");
+            }
+            out.push((item.clone(), got));
+        }
+        out
+    }
+
+    /// #195: a push – asked for afresh (a changed file is noticed), planned by the core, each file checked again; #513:
+    /// its published scenes first, their sets and characters joining its own
     fn take_push(&mut self, sync: SceneSync) {
+        let scenes = self.load_scenes(&sync);
+        let sync = push::with_scenes(&sync, &scenes);
         let sets: Vec<&str> = sync.sets.iter().flatten().map(String::as_str).collect();
         let chars: Vec<&str> = sync.characters.iter().flatten().map(String::as_str).collect();
-        tracing::info!("sync: the conductor pushes '{}' – sets {sets:?}, characters {chars:?}", sync.scene);
+        tracing::info!("sync: the conductor pushes '{}' – scenes {:?}, sets {sets:?}, characters {chars:?}", sync.scene, sync.scenes.iter().flatten().collect::<Vec<_>>());
         for id in &sets {
             self.known.remove(&(true, id.to_string()));
         }
@@ -416,7 +441,7 @@ impl Worker {
             self.publish(|b| *b = Board { busy: true, ..Board::default() });
         }
         self.ask(&sets, &chars);
-        let push = Push::plan(&sync, &self.cfg.quality, &self.content, &self.api, &self.cfg);
+        let push = Push::plan(&sync, &scenes, &self.cfg.quality, &self.content, &self.api, &self.cfg);
         for w in push.wants() {
             self.settled.remove(w);
             if !self.queue.contains(w) {

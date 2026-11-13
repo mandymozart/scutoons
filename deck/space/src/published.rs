@@ -17,6 +17,9 @@
 //!   (`Loaded::store`). The server can't be reached (or answers 5xx): the cached version plays, said in the notes.
 //! - **What does not play** (unknown, not published, broken, offline with no copy): `Step::Fail` with the reason in the
 //!   core's words – the host plays the test pattern and shows it.
+//! - **Preloaded** (#513): the conductor's `scene.sync` (push.rs) and a flash's check (fetched.rs, deck-show flashed.rs)
+//!   drive the same loader, so a scene is in the deck's cache before it plays; `listed` names a cached copy for a deck's
+//!   list (F5) by its stage's name.
 use crate::rig::bundle::Bundle;
 use crate::rig::content::{safe_id, SceneRigs};
 use crate::scene::Scene;
@@ -86,6 +89,16 @@ struct Kept {
     document: Value,
     #[serde(default)]
     content: Value,
+}
+
+/// #513: what a host's cache file holds, for a deck's list of its scenes (the native deck's F5): the scene at the kept
+/// version (`scene:<id>@<v>` – it plays without asking) and its stage's name (the id when it names none). None: no copy
+/// of a scene.
+pub fn listed(cached: &str) -> Option<(SceneRef, String)> {
+    let k = serde_json::from_str::<Kept>(cached).ok().filter(|k| safe_id(&k.scene))?;
+    let name = k.document.get("stage").and_then(|s| s.get("name")).and_then(Value::as_str).map(str::trim).filter(|n| !n.is_empty());
+    let name = name.unwrap_or(&k.scene).to_string();
+    Some((SceneRef { id: k.scene, version: Some(k.version) }, name))
 }
 
 /// What the loader wants next.
@@ -422,6 +435,24 @@ mod tests {
         let l = play(load.answer(200, RIGS));
         assert_eq!((l.version, l.cached), (5, false));
         assert!(l.store.unwrap().contains("\"version\":5"));
+    }
+
+    /// #513: a cache file names its scene at the kept version and the stage's name, for F5
+    #[test]
+    fn a_kept_copy_is_listed_by_its_stage_name() {
+        let r = SceneRef::parse("scene:nave").unwrap().unwrap();
+        let (mut load, _) = Load::start(r, None);
+        load.answer(200, &published(NAVE, 4));
+        let kept = play(load.answer(200, RIGS)).store.unwrap();
+        let (r, name) = listed(&kept).unwrap();
+        assert_eq!((r.to_string(), name.as_str()), ("scene:nave@4".to_string(), "Nave"));
+        // the kept version plays without asking
+        assert!(matches!(Load::start(r, Some(&kept)).1, Step::Play(_)));
+        let (mut load, _) = Load::start(SceneRef::parse("scene:vigil").unwrap().unwrap(), None);
+        let doc = at_cathedral().replace("\"name\":\"Vigil\"", "\"name\":\" \"");
+        load.answer(200, &published(&doc, 1));
+        assert_eq!(listed(&play(load.answer(200, LOCATION)).store.unwrap()).unwrap().1, "vigil", "no name: the id");
+        assert!(listed("not json").is_none() && listed("{}").is_none());
     }
 
     #[test]

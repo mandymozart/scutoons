@@ -6,6 +6,8 @@
 //!   `GET <api>/shows/<id>?v=<n>` with the deck token into that file – kept for the next flash, for a stick and for the
 //!   way back to the deck's own version;
 //! - **each piece** its outlet's cells name: deck-space `piece::available` through what the deck carries (piece.rs `find`);
+//!   a published scene `scene:<id>` (#513) by the core's loader with the deck's copy (published.rs `fetch`, into
+//!   `<cache>/scenes/`), handed back to the check (`Fetched::loaded`) – one it can't get is in the report's `lacks`;
 //! - **the answer**: `flash.report` to the conductor (also when the deck joins: its mark, what it runs), the HUD's FLASH
 //!   line, its reasons and the notice (deck-outlet's Status).
 //!
@@ -56,7 +58,7 @@ pub struct Panel {
 
 pub struct Flasher {
     pub flash: Flashed,
-    /// a native deck plays what it carries (`Fetched::carried_only`)
+    /// a native deck plays what it carries (`Fetched::carried_only`); its published scenes it loads itself (#513)
     pub fetched: Fetched,
     pub face: Face,
     /// `https://api.scutoons.com/api`
@@ -103,6 +105,16 @@ impl Flasher {
         }
         let cache = self.media.cache.clone();
         self.flash.turn(now, &mut self.fetched, |place| super::piece::find(&cache, place));
+        // #513: the published scenes the check asked for – the core's loader with this deck's copy, then the check again
+        let asked = self.fetched.asks();
+        for (place, _) in asked.iter().filter(|(p, _)| p.kind == "scene") {
+            let r = deck_space::published::SceneRef { id: place.id.clone(), version: None };
+            let got = crate::published::fetch(r, &self.api, &cache).map_err(|e| format!("{e:#}")).and_then(|l| l.text());
+            self.fetched.loaded(place, got);
+        }
+        if !asked.is_empty() {
+            self.flash.turn(now, &mut self.fetched, |place| super::piece::find(&cache, place));
+        }
         for report in self.flash.reports() {
             self.say(report);
         }

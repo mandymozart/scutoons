@@ -1279,6 +1279,9 @@ pub struct SceneSync {
 	/// character ids – every portrait the API lists
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub characters: Option<Vec<String>>,
+	/// #513: published scenes, `scene:<id>` or `scene:<id>@<v>` – each deck fetches the document and what it needs through the core's loader (deck-space published.rs) into its cache, and the scene's sets and characters as if the push named them; nothing plays. Its item is the reference as written
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub scenes: Option<Vec<String>>,
 	/// #191: lent beings – reserved, no deck reads it yet
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub beings: Option<Vec<String>>,
@@ -1348,7 +1351,7 @@ pub struct DeckQuality {
 	pub ceiling: Option<QualityLevel>,
 }
 
-/// #195: a deck → relay → the conductor, while it works on a `scene.sync` (progress) and when it is done – like `media.ready`. Items are `set:<id>` and `character:<id>`; one in neither list is still syncing. The relay keeps each deck's last one for the conductor's snapshot (`synced`) and marks a deck ready in presence once its state is ready.
+/// #195: a deck → relay → the conductor, while it works on a `scene.sync` (progress) and when it is done – like `media.ready`. Items are `scene:<id>[@<v>]` (#513), `set:<id>` and `character:<id>`; one in neither list is still syncing. The relay keeps each deck's last one for the conductor's snapshot (`synced`) and marks a deck ready in presence once its state is ready.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DeckSynced {
 	pub scene: String,

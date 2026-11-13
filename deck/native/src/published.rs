@@ -51,17 +51,39 @@ pub fn load(r: SceneRef, dir: &Path, mut get: impl FnMut(&str) -> (u16, String))
 /// The scene `arg` names (`named`), fetched from `api` into `<cache>/scenes/` – or from there when the API can't be reached.
 pub fn scene(arg: &Path, api: &str, cache: &Path) -> Result<Scene> {
     let r = named(arg).ok_or_else(|| anyhow!("'{}' names no published scene", arg.display()))?.map_err(|e| anyhow!(e))?;
-    Ok(load(r, &cache.join("scenes"), |path| get(api, path))?.scene)
+    Ok(fetch(r, api, cache)?.scene)
+}
+
+/// The published scene `r` from `api` into `<cache>/scenes/` – or from there when the API can't be reached (a flash's
+/// check, #513: live/flash.rs).
+pub fn fetch(r: SceneRef, api: &str, cache: &Path) -> Result<Loaded> {
+    load(r, &cache.join("scenes"), |path| get(api, path))
+}
+
+/// #513: the published scenes this deck keeps (`<cache>/scenes/`), for F5: each as `scene:<id>@<v>` (the kept version
+/// plays without asking) and its stage's name – the core reads the file (deck-space `published::listed`) – by name
+pub fn cached(cache: &Path) -> Vec<(SceneRef, String)> {
+    let files = std::fs::read_dir(cache.join("scenes")).into_iter().flatten().flatten().map(|e| e.path());
+    let mut out: Vec<(SceneRef, String)> = files.filter(|p| p.extension().is_some_and(|x| x == "json")).filter_map(|p| deck_space::published::listed(&std::fs::read_to_string(p).ok()?)).collect();
+    out.sort_by(|a, b| (a.1.to_lowercase(), &a.0.id).cmp(&(b.1.to_lowercase(), &b.0.id)));
+    out
 }
 
 /// GET `<api><path>` → (status, body); 0 = the network is gone
 #[cfg(feature = "sync")]
 fn get(api: &str, path: &str) -> (u16, String) {
     use std::time::Duration;
-    let url = format!("{}{path}", api.trim_end_matches('/'));
     let agent = ureq::AgentBuilder::new().timeout_connect(Duration::from_secs(5)).timeout_read(Duration::from_secs(20)).build();
+    get_with(&agent, api, path, deck_link::TokenSource::from_env().get())
+}
+
+/// GET `<api><path>` through `agent`, with the deck `token` when there is one (#180) → (status, body); 0 = the network
+/// is gone (the sync worker's pushes, #513, ask with its own)
+#[cfg(feature = "sync")]
+pub fn get_with(agent: &ureq::Agent, api: &str, path: &str, token: Option<String>) -> (u16, String) {
+    let url = format!("{}{path}", api.trim_end_matches('/'));
     let mut req = agent.get(&url);
-    if let Some(t) = deck_link::TokenSource::from_env().get() {
+    if let Some(t) = token {
         req = req.set("Authorization", &format!("Bearer {t}"));
     }
     match req.call() {

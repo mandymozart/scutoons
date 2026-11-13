@@ -475,6 +475,12 @@ Owner 2026-10-30: "Baked into the image is not what I want … The API should de
   `PUSH READY CATHEDRAL` · `PUSH MISSING 1 …` · `PUSH OFFLINE …`. The conductor's HUD: `SYNC 2/3 READY CATHEDRAL`,
   and over each deck's being `SYNC 3/7` · `READY` · `MISSING 1` · `OFFLINE` · `SYNC WAITING`; `Space::decks_ready()` is
   the cue's wait (every deck the push is for is ready).
+- **Built (#513):** a push may name published scenes (`scenes`, `--sync scene:nave`): the worker loads each first through
+  the core's loader with the deck's copy (src/published.rs → `<cache>/scenes/<id>.json`, the file `--scene` plays from,
+  offline too), adds its sets and characters to the push and answers its item `scene:<id>` (missing with the loader's
+  reason); nothing plays. A flash's check loads the `scene:<id>` pieces it names the same way (live/flash.rs; `lacks`
+  names one it can't get), and **F5** lists the kept scenes under "PUBLISHED" by their stage's name (Enter plays the kept
+  version, `scene:<id>@<v>`, without asking; S remembers `scene:<id>`).
 - Tests: `tests/sync.rs` against a stub API + CDN on 127.0.0.1 (needs → one request, into the cache, cached skipped, a
   changed path fetched again, a broken file refused, offline from the cache, a later character, the space loaders);
   `tests/scene_sync.rs` with the real relay too (a push → every deck fetches → ready at the conductor, a late deck syncs
