@@ -36,14 +36,13 @@ pub trait Syncs: Send {
 }
 
 /// what the frame hands the link: values, a push, the render quality, MIDI for the conductor (#211: only while joined –
-/// stale MIDI is dropped, not sent later), the engine's far side (#442)
+/// stale MIDI is dropped, not sent later), the engine's far side (#442), whether the playing scene listens to story (#517)
 enum Give {
     Values(DeckValues),
     Push(SceneSync),
     Quality(DeckQuality),
     Midi(DeckMidi),
     Far(FarTable),
-    /// #517: the playing scene listens to story events, or no longer
     Story(bool),
 }
 
@@ -93,13 +92,8 @@ impl Wire for Link {
     fn far(&self, table: FarTable) { let _ = self.tx.send(Give::Far(table)); }
     fn story(&self, on: bool) { let _ = self.tx.send(Give::Story(on)); }
 
-    fn recv(&self) -> Option<In> {
-        self.rx.try_recv().ok()
-    }
-
-    fn status(&self) -> String {
-        self.status.lock().map(|s| s.clone()).unwrap_or_default()
-    }
+    fn recv(&self) -> Option<In> { self.rx.try_recv().ok() }
+    fn status(&self) -> String { self.status.lock().map(|s| s.clone()).unwrap_or_default() }
 }
 
 /// the deck's side of the client
