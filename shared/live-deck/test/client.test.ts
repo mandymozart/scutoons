@@ -14,6 +14,7 @@ import { DeckLink, RelaySocket, type RelayCoreView, type RelayModule, type WebSo
 import type { QuicEvents, QuicPipe } from '../src/quic.ts';
 import { MOODS, OWN, OWN_PARAMS, OWN_STREAMED, ownGraph } from './own.ts';
 import { NO_CORE, relayCore } from './relay-core.ts';
+import { fetchSceneAsks, joinScene } from '../src/published.ts';
 import type { Envelope, Tempo } from '@scutoons/live';
 
 interface Step {
@@ -45,6 +46,21 @@ test('deck.graph – its own scene as the core played it (#360): deck-native kin
 	// deck-native's link.rs test builds this fixture as the conductor would: keep it equal
 	const fixture = JSON.parse(readFileSync(new URL('../../../deck/lab/fixtures/deck-graph.json', import.meta.url), 'utf8'));
 	assert.deepEqual(fixture, { kind: 'deck.graph', p: ownGraph() });
+});
+
+test("#520: a published scene in a session listens on a socket of its own (its link is the view's) – none without a relay; each frame runs it", () => {
+	const calls: string[] = [];
+	const link = { start: () => void calls.push('start'), take: () => (calls.push('take'), '[]'), next_wake: () => undefined, stop: () => void calls.push('stop'), line: () => '' };
+	const view = { scene_asks: () => [], scene_answer: () => {}, join_scene: (relay: string) => (relay ? link : undefined) };
+	assert.equal(joinScene(view, ''), null, 'no relay named: the scene plays alone');
+	assert.equal(joinScene(view), null);
+	const socket = joinScene(view, 'ws://relay.test/live/LISTEN', 'deck');
+	assert.ok(socket);
+	assert.deepEqual(calls, ['start', 'take'], 'started, and what the core says is done');
+	fetchSceneAsks({ view, stopped: false, scene: socket }, 'http://api.test');
+	assert.deepEqual(calls.slice(2), ['take'], "the frame runs the link's socket");
+	socket.close();
+	assert.ok(calls.includes('stop'));
 });
 
 test('the streamed paths: every exposed input + the hoses', () => {
