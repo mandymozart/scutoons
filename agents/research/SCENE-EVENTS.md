@@ -1,104 +1,67 @@
-Status 2026-11-13: concept draft for the owner – nothing decided, nothing built. Answers decisions/deck.md [scenes] 2026-11-13 (five lines, "thought aloud").
+Status 2026-11-13: concept reviewed and simplified (owner: "We keep it very simple … I want the fundamentals"); plan in §4, step E1 started (#516). Decisions: decisions/deck.md [scenes] 2026-11-13.
 
-# SCENE-EVENTS — a deck's scene listens to the story
+# SCENE-EVENTS — a deck's scene reacts to the story
 
-## 1. The idea (owner 2026-11-13, in short)
+## 1. The idea (owner 2026-11-13)
 
 - The reader stays as it is. No stage view in the reader.
-- A scene lives in the deck: the deck's scene editor places and designs it, with its spots (left, centre, right …,
-  spawn areas), and the characters walk in there. The text on screen is optional and drawn by the deck.
-- Inside a scene, events drive it. The scene **listens** to the events the stories fire and piggybacks them:
-  *"listen to this event when this character is entering, then I'm doing this"*. The deck's scene editor chooses which
-  events a scene acts on.
-- A scene's own scripting are **internal events**. They are again visual-novel events, so they can go back to the story:
-  one event system, back and forth.
-- An entrance (walking in) is a join with an action, perhaps an animation.
+- A scene lives in the deck: its spots (left, centre, right …, spawn areas) are defined per scene, and characters join it.
+  The text on screen is optional and drawn by the deck (later).
+- A scene **listens** to the events the stories fire – *"listen to this event when this character is entering, then I'm
+  doing this"* – chosen in the deck's scene editor. One event system; a scene's own events can go back to the story (later).
+- **A join without an action is just appear.** Leave is disappear. Fundamentals first, complexity later.
 
-**The split this gives:** the dependency points from the deck to the story. A chapter knows nothing of decks; a scene
-subscribes to what the stories fire. *"Maybe that's even the better split."*
+The dependency points from the deck to the story: a chapter knows nothing of decks.
 
-```
- reader (as is)                         deck (one core)
- ┌────────────────────┐   story events   ┌──────────────────────────────────────────┐
- │ chapter runner     │ ───────────────► │ scene                                    │
- │ joinScene, show-   │   (only in a     │  listener: story.joinScene, catpope      │
- │ Message, fx, …     │    session with  │    → join holder `left`, action walk-in  │
- │                    │    decks)        │  listener: story.showMessage             │
- │                    │ ◄─────────────── │    → text layer, mood, focus             │
- └────────────────────┘  internal events │  internal event → back to the story (?)  │
-                          sent back (?)   └──────────────────────────────────────────┘
-```
-
-## 2. What exists already
+## 2. Review: what exists, and the one real gap
 
 | Piece | Where | State |
 |---|---|---|
-| Story events with stable ids | `VNEvent` in shared/content/src/visual-novel.ts (`id` per event, assigned by the creator) | built |
-| A story event as a deck event | deck/events/src/adapters/story.rs: `story.<type>` (`story.joinScene`, `story.showMessage` …), a trigger with `id`, `source`, props and data; control flow (choices, jumps, variables) stays the runner's | built (#236) |
-| Story events between decks | relay message kind `story` (deck/protocol/schema.json): a story trigger for the other decks | built (#236) |
-| A scene that listens | the world node (deck/space/src/world.rs): a source from outside as a node of the scene's graph with a `listen` name filter, cabled like a module. Sources today: `midi`, `generator`, `far` (another deck / scene / character). "VN state" is named there as a later source | built (#430, #442); the story source is not |
-| Spots and casting | scene format 2: holders at spots, spawn zones, placeholders with `fill`; `Casting::join` puts a character in the first free spot that admits it | built (#504, plan 2·0–2·2) |
-| Cast drawn per spot | one look per holder; 3D on a 3D set, else a 2D card (#492, #495); pick by click (#496) | built |
-| Published scenes on decks | the core's loader, cache, preload (#246, #513, #514) | built |
-| The reader's event bus | LIVE.md B.1: every fired event published as `{ seq, t, kind, id, payload }`, forwarded only in a performance; a vote is applied back as the reader's choice event | proposed; no bus in the viewer yet |
-| A list of what stories fire | server FlowIndex.php scans every chapter for its ways out (jumps); it does not list events yet | partly |
-| The scene editor in the deck | #244 (plan step 3, the deck stage as the editor's stage) | not built |
+| Story events with stable ids | `VNEvent` (shared/content/src/visual-novel.ts), `id` per event | built |
+| A reader's events reach the session | relay role `Reader` sends only `story` messages; the relay hands them to the conductor (deck/relay/src/session.rs, #90, SHOW.md §7) | built |
+| Something listens to them | the conductor's show: a **row fires on an event** (auto / suggest / hand) and sends `addresses: [{ address, action, where }]` down to the decks (SHOW.md §7–§8, deck/show subtree.rs `on_story`); "nothing travels unless asked" (owner 2026-11-02 [events]) | built |
+| A story event as a deck event | deck/events adapters/story.rs: `story.<type>` with id, source, props, data | built (#236) |
+| A scene's graph hears outside events | world node `listen` filter, sources midi / generator / far (deck/space/src/world.rs) | built |
+| Spots, placeholders, spawn zones, casting | scene format 2; `scene_resolve::Casting::join` – the first free spot that admits | built (#504) – **only when the scene is resolved, never while it plays** |
+| The cast drawn per spot | one look per holder, 3D or a 2D card | built (#492, #495) |
 
-So the event system the owner names is already one: the story adapter turns story events into the same events the
-deck's graph carries. What is missing is the story as a **source a scene listens to**, the **actions** a listener
-triggers, the **way back**, and the **editor** that lists the events.
+**Findings.**
+1. The listener the owner describes exists one level up: a show row is already "when this event, do this". A scene's
+   listener must use the same matching (an event by type or id, a character), not a second one (RULES A6).
+2. **The gap is the action:** a playing scene's cast cannot change. `Casting` only runs before `resolve`; nothing joins
+   a character into a scene that plays, or takes one out. Without that, neither a show row nor a scene listener can make
+   a character appear.
+3. A reader's events go to the conductor only. A scene on a deck hears them when the conductor's show passes them on, or
+   when the deck asks the session for them (the far subscription's way, #442). Which one is step E2's choice.
+4. Text layer, mood / focus, entrance animations, the way back: none is needed for the fundamentals.
 
-## 3. Proposal
+## 3. The fundamentals
 
-**3.1 Story events reach the deck.** While a reader is in a session with decks (a paired deck, or a performance with the
-conductor), its runner publishes what it fires (B.1's bus) as `story` messages; decks turn them into `story.<type>`
-events with their `id` and `source` (`story:<toon>/<chapter>`). Normal reading: no session, nothing is sent. Every deck
-in the session hears them; nothing happens unless a scene listens.
+**3.1 Join and leave while a scene plays (E1).** The core takes two words on a playing scene: `join <character>` – the
+character appears at the first free spot whose placeholder admits it (today's `Casting` rule; a spawn zone up to its
+`max`), its look and rig as a resolve gives them; `leave <character>` – it disappears, the spot is free again. No
+animation. Already on stage: nothing. No free spot that admits: nothing, said in the log. The words arrive as an address
+action (`scene:stage > join` with the character), so a show row can send them today.
 
-**3.2 A scene listens.** A world node with `source = "story"` and a filter: the type (`story.joinScene`), and optionally
-the event id, the toon / chapter, the character. Its outputs are cabled to actions, as any world node's.
+**3.2 A scene's listeners (E2).** The scene document gets listeners: an event (a story event type, optionally an event id
+and a character) and what it does (`join`, `leave`). The core matches with the show's matching; the deck receives the
+story events of its session (the conductor passes them on, or the deck asks – decided in E2). A story's `joinScene` with
+Cat Pope → the scene's listener → she appears.
 
-**3.3 Actions in the scene** (a small fixed set first):
-- **join** a holder or spawn zone (the given one, or the first free one that admits – today's casting), with an
-  **entrance action**: appear (now), walk in (from off-stage to the spot), fade …, each an animation;
-- **leave** (an exit action the same way); **mood**; **focus** (the camera turns to a spot);
-- **text**: the deck draws the message text as an optional layer of the scene (speaker, text; off by default);
-- **set** a rig's value or preset (what `deck.values` does today);
-- **fire** an internal event.
+**3.3 The list of story events (E3).** The server lists every story event (id, type, character, a text excerpt) per toon
+and chapter – the flow index extended – so the deck's scene editor can offer them. The editor's panel comes with #244.
 
-**3.4 Internal events and the way back.** A scene's own events are named events in the same system (`scene.<name>`).
-A scene can send one back to the story as a story event – applied by the reader's runner as if the reader had fired
-it (B.1's vote precedent), so the story's logic stays the toon's own. Which ones may go back is open (§5 Q3).
+## 4. Plan (replaces SCENES.md §9.6 rows 2·4, 2·5 and 2·7)
 
-**3.5 The scene editor in the deck** (part of #244): place and design a scene (set, spots, spawn areas, cast); an
-**Events** panel lists the events the stories fire – per toon and chapter, each with its type, character and a text
-excerpt, from a server index (FlowIndex extended to events) – and "when … then …" adds a listener with its action.
+| # | What | Size | Done when |
+|---|---|---|---|
+| E1 | **Join and leave while a scene plays:** the words `join` / `leave` on a playing scene, through an address action; appear / disappear at the first free admitting spot; the look and rig added and removed without restarting the scene | M | headless: `scene:stage` plays empty, `join catpope` → she stands at `left` and her rig sounds; `leave` → `left` is empty; a show row sends the same words (#516) |
+| E2 | **A scene listens:** listeners in the scene document (event, optional id and character → join / leave), the show's matching, the deck receiving its session's story events | M | a reader's `joinScene` Cat Pope in a session → the deck's scene shows her; without a listener nothing happens |
+| E3 | **The story events listed:** a server index of every story event, for the scene editor | S–M | the API lists a toon's events with id, type, character, excerpt |
+| later | the text layer drawn by the deck · mood and focus · entrance animations · a scene's events back to the story · the scene editor's Events panel (#244) | – | – |
 
-**3.6 What it replaces.** SCENES.md §9.4 and plan steps 2·4 / 2·5 (withdrawn), #516 (on hold), and my reading that a
-chapter author addresses decks from the event. From the stopped #515 branch, two core parts may be reused later: a still
-or video backdrop in the deck's renderer, and the loader taking a template with fillers.
+## 5. Answered (owner 2026-11-13)
 
-## 4. Steps (rough, not filed)
-
-1. The story as a world source (`source = "story"`, filters), fed by the relay's `story` messages – headless scenario:
-   `story.joinScene catpope` → she takes `left`.
-2. Actions: join / leave with appear and walk-in, mood, focus; the text layer.
-3. The reader's bus, forwarding in a session (LIVE.md B.1).
-4. The events index on the server (every story event with id, type, character, excerpt) and its list in the deck editor.
-5. Internal events and the way back.
-6. The scene editor's Events panel (with #244).
-
-## 5. Questions for the owner
-
-1. **The split:** a scene listens to story events (the deck's author picks them in the scene editor); a chapter never
-   addresses a deck. *Recommended:* yes – the dependency points from the deck to the story.
-2. **When events leave the reader:** only while the reader is in a session with decks (a paired deck, a performance);
-   normal reading sends nothing. *Recommended:* yes.
-3. **The way back:** which events may a scene fire back into the story – effects (`fx`), items (`giveItem`, `takeItem`),
-   places (`unlockLocation`), variables (`setVariable`)? Control flow (jumps, choices) stays the runner's. *Recommended:*
-   start with `fx` only; the rest after a use case.
-4. **Entrances:** a small fixed set (appear, walk in from left / right, fade) for every character, or animations per
-   character from its rig or model? *Recommended:* the fixed set first; per-character animations once a model has them.
-5. **The text layer:** the deck draws `showMessage` text when a scene turns it on (off by default). *Recommended:* yes.
-6. **Which events a scene lists:** every story of every toon, or only the toons the scene names (`toons`)?
-   *Recommended:* the scene's toons, with a switch to show all.
+- A scene listens; a chapter never addresses a deck (Q1).
+- Join = appear, leave = disappear; no entrance actions now (Q4).
+- Everything else waits until the fundamentals stand.
