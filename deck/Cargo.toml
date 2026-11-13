@@ -36,6 +36,12 @@ rosc = "0.10"
 # no libudev: Linux lists the USB ids from sysfs (no system library, cross builds stay plain)
 serialport = { version = "4.10", default-features = false }
 
+# Dev and test builds keep only line tables (#525): a panic's backtrace still names file and line, the ~100 test
+# executables link faster and target/debug shrinks. split-debuginfo is no option on Windows: MSVC knows only "packed"
+# (the PDB it already writes). A debugger session that needs variables: CARGO_PROFILE_DEV_DEBUG=full.
+[profile.dev]
+debug = "line-tables-only"
+
 # Dogma (CYBERDECKS.md §2): LTO, one codegen unit, abort on panic; the bridge is built for size (per-package below).
 [profile.release]
 lto = "fat"
