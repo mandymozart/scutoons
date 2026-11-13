@@ -62,6 +62,7 @@ export type Message =
 	| { kind: 'deck.midi'; p: DeckMidi }
 	| { kind: 'deck.listen'; p: DeckListen }
 	| { kind: 'deck.events'; p: DeckEvents }
+	| { kind: 'deck.story'; p: Empty }
 	| { kind: 'scene.sync'; p: SceneSync }
 	| { kind: 'deck.synced'; p: DeckSynced }
 	| { kind: 'deck.quality'; p: DeckQuality }

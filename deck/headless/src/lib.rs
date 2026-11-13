@@ -32,6 +32,7 @@
 //! | `pieces` | `pieces` (more of them) | – |
 //! | `fire` / `go` | `row` / – : the show's conductor fires, its cell for the outlet goes to the deck (deck-space's piece.rs, #467) | do (load, glide, black, same, kept), piece, ms, values, glides, problems, playing |
 //! | `address` | `address`, `action` (#516: as the relay's `address` brings it; a show row's `addresses` reach the same path through `fire` / `go`: a line each under `addresses`, the last change's `stage`) – to the scene document playing (deck-space scene_play.rs: `join:<who>` / `leave:<who>`), a changed cast recast in the engine (live-core `recast`) | did (changed, nothing, not_mine), holder, ms, said (the log's last line), ids, stage |
+//! | `story` | `event` (#517: a reader's story event as the relay brings it – `type`, `params`, `id`) – to the playing scene document's listeners (deck-space scene_play.rs `Playing::story`; a `load` of a `document` may add `listener`s), a changed cast recast once | did (a line per cast word: changed at <holder>, nothing), said, ids, stage |
 //! | `pick` | on the last scene document loaded (#496, stage.rs): `click` (a holder, or `[x, y]` of a 1280 × 720 window), `key` (+ `shift`), `drag` (a knob of the hand, `by`) | picked, selection, knobs (the hand's), mark, key, reach, turned (sent to the engine) |
 //! | a capability (caps.rs) | `with` | its answer, or `Missing` |
 //!
@@ -340,6 +341,33 @@ impl Run<'_> {
         })
     }
 
+    /// #517: a story event (the VNEvent's JSON, as the relay brings a reader's `story`) passed to the playing scene document
+    /// (deck-space scene_play.rs `Playing::story`: its listeners); a changed cast is recast in the engine once. The answer:
+    /// did (one line per cast word a listener made: changed at <holder>, nothing), the log's last line, the stage after a change
+    fn story(&mut self, event: &Value) -> Result<Value, Fault> {
+        use deck_space::scene_play::Recast;
+        let Some(playing) = self.playing.as_mut() else { return Ok(json!({ "did": [] })) };
+        let (own, content) = (&self.own_rigs, &self.content);
+        let rigs = |s: &str, v: Option<&str>| own.get(s).cloned().or_else(|| deck_space::scene_resolve::core_rigs(s, v));
+        let sets = |l: &str| content.set_of(l);
+        let did = playing.story(event, &rigs, &sets);
+        let said = playing.log().last().unwrap_or_default().to_string();
+        let words: Vec<String> = did.iter().map(|r| match r {
+            Recast::Changed { holder, .. } => format!("changed at {holder}"),
+            Recast::Nothing => "nothing".into(),
+            Recast::NotMine => "not_mine".into(),
+        }).collect();
+        let Some(ms) = did.iter().rev().find_map(|r| if let Recast::Changed { ms, .. } = r { Some(*ms) } else { None }) else {
+            return Ok(json!({ "did": words, "said": said }));
+        };
+        let r = playing.resolved().clone();
+        let e = deck_space::rig::engine::lower(&r.scene).map_err(|e| Fault::Error(format!("{e:#}")))?;
+        let table = self.deck.recast(&e.scene, ms).map_err(Fault::Error)?;
+        (self.resolved, self.stage) = (Some(r.scene.clone()), None);
+        let ids: Vec<Value> = table["nodes"].as_array().map(|ns| ns.iter().map(|n| n["id"].clone()).collect()).unwrap_or_default();
+        Ok(json!({ "did": words, "said": said, "ids": ids, "stage": stage_facts(&r, &self.content) }))
+    }
+
     /// the show's time: the deck's ms since its start
     fn show_now(&self) -> Now {
         Now::at((self.deck.now - T0).max(0.0) as u64)
@@ -361,7 +389,15 @@ impl Run<'_> {
         // core's, or bundles written into the scenario (`rigs`: subject → bundle); the stage's cast comes back as facts
         if let Some(path) = step.get("document").and_then(|v| v.as_str()) {
             use deck_space::scene_document::{Fillers, SceneDocument};
-            let doc = SceneDocument::parse_json(self.file(path)?).map_err(|e| err(format!("{path}: {e:#}")))?;
+            let mut doc = SceneDocument::parse_json(self.file(path)?).map_err(|e| err(format!("{path}: {e:#}")))?;
+            // #517: listeners written into the scenario (`listener`, as a document writes them), checked by the core
+            if let Some(l) = step.get("listener") {
+                doc.listeners = l.clone().try_into().map_err(|e| err(format!("listener: {e}")))?;
+                let problems = doc.check();
+                if !problems.is_empty() {
+                    return Err(err(problems.join("; ")));
+                }
+            }
             // #504: a use `{ scene, with }` (as a group or cell stores it) is checked by the core (`Use::problems`) – in the toon's
             // `book` when given, each filler against its `fill` – before it plays; else the bare `with`
             let with: BTreeMap<String, Fillers> = match (step.get("use"), step.get("with")) {
@@ -479,6 +515,11 @@ impl Run<'_> {
             "address" => {
                 let address = text("address").ok_or_else(|| Fault::Error("an address step without `address`".into()))?;
                 self.address(&address, &text("action").unwrap_or_default())?
+            }
+            // #517: a reader's story event (the VNEvent: `type`, `params`, `id`) for the playing scene's listeners
+            "story" => {
+                let event = step.get("event").ok_or_else(|| Fault::Error("a story step without `event`".into()))?;
+                self.story(&serde_json::to_value(event).map_err(|e| Fault::Error(format!("event: {e}")))?)?
             }
             // #496: the stage's pick (stage.rs) – on the last scene document loaded
             "pick" => {

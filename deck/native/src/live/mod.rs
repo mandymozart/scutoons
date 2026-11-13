@@ -19,6 +19,8 @@
 //!
 //! The renderer's side (deck-outlet's frame.rs: `Frame`, `Crossfade`) is built with or without the `live` module.
 #[cfg(feature = "live")]
+pub mod cast;
+#[cfg(feature = "live")]
 pub mod client;
 #[cfg(feature = "live")]
 pub mod compose;

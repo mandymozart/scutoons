@@ -20,10 +20,13 @@
 //! - **Preloaded** (#513): the conductor's `scene.sync` (push.rs) and a flash's check (fetched.rs, deck-show flashed.rs)
 //!   drive the same loader, so a scene is in the deck's cache before it plays; `listed` names a cached copy for a deck's
 //!   list (F5) by its stage's name.
+//! - **Cast while it plays** (#517): `Cast` is the cached scene as the core's playing scene (scene_play.rs) – the cast
+//!   words of an `address` and the story events its listeners hear change who stands on it; the host loads what it resolves to.
 use crate::rig::bundle::Bundle;
 use crate::rig::content::{safe_id, SceneRigs};
 use crate::scene::Scene;
 use crate::scene_document::{FillerRef, SceneDocument};
+use crate::scene_play::{Playing, Recast};
 use crate::scene_resolve::{core_rigs, no_rigs, no_sets, resolve, Resolved};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -130,6 +133,57 @@ impl Loaded {
     /// the scene as TOML (what a deck that builds from text plays: the browser)
     pub fn text(&self) -> Result<String, String> {
         toml::to_string(&self.scene).map_err(|e| format!("the resolved scene: {e}"))
+    }
+}
+
+/// #517: a published scene playing on a deck that takes cast words and story events while it plays: the core's `Playing`
+/// (scene_play.rs) of the host's cache file – the document and scene-content's answer as they came – with that answer's
+/// rigs (else the deck's core rigs) and its location's set, as `Load` resolves them. When a word or an event changed the
+/// cast, the host loads `playing().resolved()` in place of the scene before.
+#[derive(Debug, Clone)]
+pub struct Cast {
+    playing: Playing,
+    rigs: SceneRigs,
+    sets: crate::push::Content,
+}
+
+impl Cast {
+    /// the scene a host's cache file keeps (`SceneRef::cache_name`), playing as written: no use fills its placeholders
+    pub fn from_cache(cached: &str) -> Result<Cast, String> {
+        let k: Kept = serde_json::from_str(cached).map_err(|e| format!("the cached copy: {e}"))?;
+        let doc = SceneDocument::from_value(k.document).map_err(|e| format!("scene:{}: the cached copy: {e:#}", k.scene))?;
+        let rigs: SceneRigs = serde_json::from_value(k.content.clone()).unwrap_or_default();
+        let sets: crate::push::Content = serde_json::from_value(k.content).unwrap_or_default();
+        let rig = |subject: &str, version: Option<&str>| rig_of(&rigs, subject).or_else(|| core_rigs(subject, version));
+        let set = |location: &str| sets.set_of(location);
+        let playing = Playing::start(doc, BTreeMap::new(), &rig, &set).map_err(|problems| format!("scene:{}: {}", k.scene, problems.join("; ")))?;
+        Ok(Cast { playing, rigs, sets })
+    }
+
+    /// what plays now, its log, whether it listens
+    pub fn playing(&self) -> &Playing {
+        &self.playing
+    }
+
+    /// what plays now as TOML (what a deck that loads a scene from text plays)
+    pub fn text(&self) -> Result<String, String> {
+        toml::to_string(&self.playing.resolved().scene).map_err(|e| format!("the resolved scene: {e}"))
+    }
+
+    /// an address action (the relay's `address`) on it
+    pub fn word(&mut self, address: &str, action: &str) -> Recast {
+        let (rigs, sets) = (&self.rigs, &self.sets);
+        let rig = |subject: &str, version: Option<&str>| rig_of(rigs, subject).or_else(|| core_rigs(subject, version));
+        let set = |location: &str| sets.set_of(location);
+        self.playing.word(address, action, &rig, &set)
+    }
+
+    /// a story event (the VNEvent's JSON) against its listeners
+    pub fn story(&mut self, event: &Value) -> Vec<Recast> {
+        let (rigs, sets) = (&self.rigs, &self.sets);
+        let rig = |subject: &str, version: Option<&str>| rig_of(rigs, subject).or_else(|| core_rigs(subject, version));
+        let set = |location: &str| sets.set_of(location);
+        self.playing.story(event, &rig, &set)
     }
 }
 

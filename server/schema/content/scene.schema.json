@@ -4,6 +4,21 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "additionalProperties": false,
   "definitions": {
+    "Act": {
+      "oneOf": [
+        {
+          "const": "join",
+          "description": "appears at the first free spot that admits it",
+          "type": "string"
+        },
+        {
+          "const": "leave",
+          "description": "disappears, its spot is free again",
+          "type": "string"
+        }
+      ],
+      "title": "517: what a listener makes a character do – the cast words of a playing scene (E1: rig/address.rs `CastWord`)"
+    },
     "Arrange": {
       "additionalProperties": false,
       "description": "A spawn zone's arrangement: its kind and the spacing between members.",
@@ -266,6 +281,44 @@
       ],
       "type": "object"
     },
+    "Listener": {
+      "additionalProperties": false,
+      "description": "event of type `on` (the chapter's `VNEvent` types, protocol::story_events), with this `id` when given, naming a character\nthis `character` admits when given (itself, or a persona / look below it), makes each such character `do` its word.",
+      "properties": {
+        "character": {
+          "description": "only the characters this reference admits (`character:catpope`: her and every persona of hers)",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "do": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/Act"
+            }
+          ],
+          "description": "what each admitted character of the event does on this stage"
+        },
+        "id": {
+          "description": "only the story event with this id (the creator's stable event id)",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "on": {
+          "description": "the story event's type (`joinScene`, `leaveScene`, `showMessage` …)",
+          "type": "string"
+        }
+      },
+      "required": [
+        "on",
+        "do"
+      ],
+      "title": "517: a scene's listener – \"listen to this event when this character …, then do this\" (owner 2026-11-13 [scenes]). A story",
+      "type": "object"
+    },
     "LocationPlaceholder": {
       "additionalProperties": false,
       "description": "A location no scene names yet: what may fill it.",
@@ -483,6 +536,14 @@
       "items": {
         "$ref": "#/definitions/LinkDef"
       },
+      "type": "array"
+    },
+    "listener": {
+      "description": "optionally its id and a character → join | leave (scene_play.rs `Playing::story`)",
+      "items": {
+        "$ref": "#/definitions/Listener"
+      },
+      "title": "517: what it does when a story event comes while it plays (research/SCENE-EVENTS.md §3.2): a story event's type,",
       "type": "array"
     },
     "location": {

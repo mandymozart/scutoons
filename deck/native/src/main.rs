@@ -1185,7 +1185,7 @@ impl App {
             }
         }
         #[cfg(feature = "live")]
-        if let Some(to) = self.show.live.as_ref().and_then(|l| self.pieces.frame(l, &self.show.graph, &mut self.show.controls)) {
+        if let Some(to) = self.pieces.frame(self.show.live.as_ref(), self.show.space.as_mut(), self.args.scene.as_deref(), &self.show.graph, &mut self.show.controls) {
             self.change.ask(&to);
         }
         #[cfg(feature = "space")]

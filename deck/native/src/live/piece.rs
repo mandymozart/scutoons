@@ -22,6 +22,8 @@ pub struct Side {
     /// `<cache>`: its `pieces/` are read, its `live/piece.toml` written
     cache: PathBuf,
     started: Instant,
+    /// #517: the deck's playing scene (cast.rs) – kept, like the pieces, over the scene loads it asks for
+    cast: super::cast::Side,
 }
 
 impl Default for Side {
@@ -66,11 +68,19 @@ fn file(cache: &Path, place: &Place) -> Option<Found> {
 
 impl Side {
     pub fn new() -> Side {
-        Side { side: deck_space::piece::Side::new(deck_space::scene::OUTLET_SCENE), cache: crate::cache::default_dir(), started: Instant::now() }
+        Side { side: deck_space::piece::Side::new(deck_space::scene::OUTLET_SCENE), cache: crate::cache::default_dir(), started: Instant::now(), cast: Default::default() }
     }
 
-    /// One frame: the cells the outlet routed, then the glides. Some(scene) = the deck switches to it (a file, or `outlet`).
-    pub fn frame(&mut self, live: &Live, graph: &Graph, ctl: &mut Controls) -> Option<String> {
+    /// One frame: the playing scene's cast words and story (#517, cast.rs: `scene` is the deck's `--scene`, `space` the
+    /// scene's space with its link), then – with the outlet – its cells and glides. Some(scene) = the deck switches to it (a
+    /// file, or `outlet`); a piece's switch comes first.
+    pub fn frame(&mut self, live: Option<&Live>, space: Option<&mut deck_space::space::Space>, scene: Option<&Path>, graph: &Graph, ctl: &mut Controls) -> Option<String> {
+        let cast = self.cast.frame(&self.cache, scene.and_then(Path::to_str), space);
+        live.and_then(|l| self.pieces(l, graph, ctl)).or(cast)
+    }
+
+    /// the cells the outlet routed, then the glides
+    fn pieces(&mut self, live: &Live, graph: &Graph, ctl: &mut Controls) -> Option<String> {
         let now = self.started.elapsed().as_secs_f64() * 1000.0;
         let mut switch = None;
         while let Ok(cell) = live.pieces.try_recv() {

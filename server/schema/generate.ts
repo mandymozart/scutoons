@@ -10,6 +10,8 @@
 //   server/schema/content/scene.schema.json    → shared/api/src/scene.ts              (TS types of the stored scene document, #243)
 //   (itself written from deck-space's Rust      server/src/Generated/SceneTypes.php  (PHPStan shapes + the format's number)
 //    SceneDocument by deck-schema, deck:ci)
+//   server/schema/content/chapter.schema.json  → deck/protocol/src/story_events.rs    (#517: the story event types a VNEvent takes:
+//                                                protocol::story_events – what a scene's listener may name)
 //
 // The Rust and TS types come from the relay protocol's emitters (same schema subset, same output style); only their file header
 // differs. The PHP shapes and the tables are written here. A construct outside the subset throws, so a new one is a change here first.
@@ -49,7 +51,9 @@ export const paths = {
 	tablesPhp: join(repo, 'server', 'src', 'Generated', 'ContentTables.php'),
 	sceneSchema: join(here, 'content', 'scene.schema.json'),
 	sceneTs: join(repo, 'shared', 'api', 'src', 'scene.ts'),
-	scenePhp: join(repo, 'server', 'src', 'Generated', 'SceneTypes.php')
+	scenePhp: join(repo, 'server', 'src', 'Generated', 'SceneTypes.php'),
+	chapterSchema: join(here, 'content', 'chapter.schema.json'),
+	storyRs: join(repo, 'deck', 'protocol', 'src', 'story_events.rs')
 };
 
 const header = (source: string) => `GENERATED from ${source} by server/schema/generate.ts – edit the source, run \`npm run generate\`.`;
@@ -383,6 +387,27 @@ export function scenePhp(schema: Draft07): string {
 	].join('');
 }
 
+// ---------------------------------------------------------------------------------------------------------- the story events
+
+/** #517: the type of every VNEvent the chapter schema takes (its `anyOf`, each with a `type` const), in the schema's order */
+export function storyTypes(chapter: Draft07): string[] {
+	const event = chapter.definitions?.VNEvent;
+	const types = (event?.anyOf ?? []).map((e) => e.properties?.type?.const);
+	if (!types.length || types.some((t) => typeof t !== 'string')) throw new Error('chapter.schema.json: VNEvent is an anyOf of objects with a string `type` const');
+	return types as string[];
+}
+
+export function storyEventsRs(chapter: Draft07): string {
+	const types = storyTypes(chapter);
+	return [
+		`// ${header(rel(paths.chapterSchema))}\n`,
+		'//! The story events (#517): the type of every event a chapter\'s visual novel takes (`VNEvent`), what a scene\'s listener\n',
+		'//! may name (deck-space scene_document.rs `Listener`).\n\n',
+		rsDoc('every VNEvent type, in the chapter schema\'s order'),
+		`pub const STORY_EVENT_TYPES: [&str; ${types.length}] = [${types.map((t) => `"${t}"`).join(', ')}];\n`
+	].join('');
+}
+
 // ---------------------------------------------------------------------------------------------------------- CLI
 
 const read = <T>(file: string): T => JSON.parse(readFileSync(file, 'utf8')) as T;
@@ -392,7 +417,9 @@ export function generate(): Record<string, string> {
 	const legacy = read<LegacyIds>(paths.legacyIds);
 	const order = read<LocaleOrder>(paths.localeOrder);
 	const scene = read<Draft07>(paths.sceneSchema);
+	const chapter = read<Draft07>(paths.chapterSchema);
 	return {
+		[paths.storyRs]: storyEventsRs(chapter),
 		[paths.sceneTs]: sceneTs(scene),
 		[paths.scenePhp]: scenePhp(scene),
 		[paths.rs]: addressBookRs(root),

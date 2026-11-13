@@ -43,6 +43,8 @@ enum Give {
     Quality(DeckQuality),
     Midi(DeckMidi),
     Far(FarTable),
+    /// #517: the playing scene listens to story events, or no longer
+    Story(bool),
 }
 
 /// the running client: its events, its outbox, its HUD line; stops when dropped
@@ -89,6 +91,7 @@ impl Wire for Link {
     fn quality(&self, quality: DeckQuality) { let _ = self.tx.send(Give::Quality(quality)); }
     fn midi(&self, midi: DeckMidi) { let _ = self.tx.send(Give::Midi(midi)); }
     fn far(&self, table: FarTable) { let _ = self.tx.send(Give::Far(table)); }
+    fn story(&self, on: bool) { let _ = self.tx.send(Give::Story(on)); }
 
     fn recv(&self) -> Option<In> {
         self.rx.try_recv().ok()
@@ -120,6 +123,7 @@ impl Side for Deck {
                 Give::Quality(q) => c.quality(q),
                 Give::Midi(m) => c.midi(m),
                 Give::Far(t) => self.far.attach(t, c, now),
+                Give::Story(on) => c.set_story(now, on),
             }
         }
         self.far.poll(c, now);

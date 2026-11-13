@@ -335,7 +335,9 @@ changed, ≤ 30 / s – the relay drops more; folded, never replayed; to the con
 replayed – deck/outputs) · `deck.listen { addresses }` (#442: the absolute addresses a deck's far world nodes name, to the
 group `decks` on each welcome and every 10 s; the deck the address names answers) · `deck.events { events: [{ address, name,
 props, dur_s? }] }` (#442: what left the asked-for event outputs, to that one subscriber; ordered, never merged or replayed;
-the relay parses no address) · presence adds
+the relay parses no address) · `deck.story {}` (#517: a deck whose playing scene listens to story events asks for the readers'
+`story`, to the group `decks` on each welcome and every 10 s; only a client of `decks` asks; the relay keeps the ask, it lapses
+after 30 s or with the deck) · presence adds
 `decks`, `routes` (who sent values to whom) and `links` (#223: each client's round trip, value rate, values replaced –
 not the audience's) and `quality` (#220: each deck's last `deck.quality { level, scale, auto, frame, ceiling? }` – its
 render quality, sent at once on a change, else ≤ every 2 s; kept, not forwarded). The deck side: deck/native/README.md "space", "Quality". **Send path** (#223): per client the latest
@@ -362,7 +364,7 @@ outlet, msg }` (bridge → conductor: MIDI / OSC in, mapped to actions there) ·
 list for the patch UI). MIDI clock in is used only for timed cues (a cue's `wait` may be given in beats), never shown to musicians.
 
 **The tree** (#90, SHOW.md §4; deck/relay README "The tree"): roles `reader` (a phone reading the chapter: only `story`, to
-the conductor) and `seat` (a child conductor's relay in its parent's session) · `seat { seat, word, says: go | free | none, row?, lock? }`
+the conductor – and, built (#517), one copy to each deck whose `deck.story` ask stands, in order, not kept; no other client) and `seat` (a child conductor's relay in its parent's session) · `seat { seat, word, says: go | free | none, row?, lock? }`
 (parent → the child's conductor) · `seat.state { show, row, ready, clients, word, locked, clock, online }` (up; the parent's
 presence and snapshot `seats`) · `flash { root, shows, lock?, hops }` / `flash.report { running, accepted, why? }` · `address
 { id, address, action, where? { group, device } }` / `address.answer { id, reached, passed, answered }` · `cell` for
