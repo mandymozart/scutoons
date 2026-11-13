@@ -4,3 +4,10 @@
 # binary for CPUs that have it (deck/native/README.md "x86-64-v3"). The default build stays baseline x86-64 and picks
 # its audio batches' AVX2 loops at start. Add flags as usual: `cargo stage-v3 --locked --features deck-native/pipewire`.
 stage-v3 = ["build", "--release", "-p", "deck-native", "--target-dir", "target-v3", "--config", "build.rustflags=['-Ctarget-cpu=x86-64-v3']"]
+
+# Windows links with LLD instead of MSVC's link.exe (#525; CI-SPEED.md "Measured (#525)"). `rust-lld.exe` is LLD in its
+# lld-link mode and ships inside every rustup toolchain (rustc finds it in its own sysroot), so a machine without
+# C:\Program Files\LLVM still links; it uses the MSVC libraries (LIB) exactly as link.exe did. Cargo has no linker per
+# profile, so release builds for this target link with it too (their profile is unchanged).
+[target.x86_64-pc-windows-msvc]
+linker = "rust-lld.exe"
