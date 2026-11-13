@@ -295,6 +295,18 @@ fn once(ids: impl IntoIterator<Item = String>) -> Vec<String> {
     out
 }
 
+/// #513: a push's item as a published scene, or why it names none
+fn scene_ref(item: &str) -> Result<SceneRef, String> {
+    SceneRef::parse(item).unwrap_or_else(|| Err(format!("'{item}' names no published scene (scene:<id>[@<n>])")))
+}
+
+/// #513: the push's published scenes, each loaded by `load` (a deck with a worker of its own: the core's loader driven with
+/// its copy – the native deck's published.rs), and the push with their sets and characters (`with_scenes`)
+pub fn preload(sync: &SceneSync, mut load: impl FnMut(SceneRef) -> Result<Scene, String>) -> (SceneSync, Vec<Scened>) {
+    let scenes: Vec<Scened> = sync.scenes.iter().flatten().map(|item| (item.clone(), scene_ref(item).and_then(&mut load))).collect();
+    (with_scenes(sync, &scenes), scenes)
+}
+
 /// #513: the push with its published scenes' sets and characters added (each once, the push's own first) – what the deck
 /// asks scene-content for and plans
 pub fn with_scenes(sync: &SceneSync, scenes: &[Scened]) -> SceneSync {
@@ -607,14 +619,13 @@ impl Run {
                 self.scenes.push((item, got));
             }
             let Some(item) = self.todo.pop_front() else { break };
-            match SceneRef::parse(&item) {
-                Some(Ok(r)) => {
+            match scene_ref(&item) {
+                Ok(r) => {
                     let (load, first) = Load::start(r, None);
                     self.loading = Some((item, load));
                     step = Some(first);
                 }
-                Some(Err(why)) => self.scenes.push((item, Err(why))),
-                None => self.scenes.push((item.clone(), Err(format!("'{item}' names no published scene (scene:<id>[@<n>])")))),
+                Err(why) => self.scenes.push((item, Err(why))),
             }
         }
         let merged = with_scenes(&self.sync, &self.scenes);
@@ -846,6 +857,20 @@ mod tests {
         assert_eq!((last.state, last.missing.clone()), (SyncState::Missing, vec!["scene:crypt".to_string()]));
         assert_eq!(last.why.unwrap()["scene:crypt"], "scene:crypt is not published");
         assert_eq!(last.ready, ["scene:nave", "set:cathedral", "character:catpope"]);
+    }
+
+    #[test]
+    fn a_worker_preloads_with_its_own_loader() {
+        let scene = Scene::parse("[being]\ncharacter = \"catpope\"\n[[node]]\nid = \"space\"\nkind = \"space\"\nset = \"cathedral\"\n").unwrap();
+        let mut asked = Vec::new();
+        let sync = SceneSync { scenes: Some(vec!["scene:nave@2".into(), "scene:crypt".into(), "set:x".into()]), ..push(&[]) };
+        let (merged, scenes) = preload(&sync, |r| {
+            asked.push(r.to_string());
+            if r.id == "nave" { Ok(scene.clone()) } else { Err(format!("{r} is not published")) }
+        });
+        assert_eq!(asked, ["scene:nave@2", "scene:crypt"]);
+        assert_eq!(merged.characters.unwrap(), ["catpope"]);
+        assert_eq!(scenes.iter().map(|(i, g)| (i.as_str(), g.as_ref().err().map(String::as_str))).collect::<Vec<_>>(), [("scene:nave@2", None), ("scene:crypt", Some("scene:crypt is not published")), ("set:x", Some("'set:x' names no published scene (scene:<id>[@<n>])"))]);
     }
 
     #[test]

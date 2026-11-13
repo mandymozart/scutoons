@@ -78,7 +78,7 @@ fn get(api: &str, path: &str) -> (u16, String) {
 }
 
 /// GET `<api><path>` through `agent`, with the deck `token` when there is one (#180) → (status, body); 0 = the network
-/// is gone (the sync worker's pushes, #513, ask with its own)
+/// is gone (`loader`: the sync worker's agent and token)
 #[cfg(feature = "sync")]
 pub fn get_with(agent: &ureq::Agent, api: &str, path: &str, token: Option<String>) -> (u16, String) {
     let url = format!("{}{path}", api.trim_end_matches('/'));
@@ -93,6 +93,19 @@ pub fn get_with(agent: &ureq::Agent, api: &str, path: &str, token: Option<String
             tracing::warn!("scene: {url}: {t} – from the cache");
             (0, String::new())
         }
+    }
+}
+
+/// #513: the core's loader for the published scenes a conductor's push names (deck-space `push::preload`, the sync worker):
+/// through `agent` with the deck `token`, into `<cache>/scenes/` – the copy `--scene` and F5 play
+#[cfg(feature = "sync")]
+pub fn loader<'a>(agent: &'a ureq::Agent, api: &'a str, cache: &'a Path, token: Option<String>) -> impl FnMut(SceneRef) -> Result<Scene, String> + 'a {
+    move |r| {
+        let got = load(r, &cache.join("scenes"), |path| get_with(agent, api, path, token.clone())).map(|l| l.scene).map_err(|e| format!("{e:#}"));
+        if let Err(why) = &got {
+            tracing::warn!("sync: {why}");
+        }
+        got
     }
 }
 
