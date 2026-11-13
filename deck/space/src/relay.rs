@@ -32,7 +32,7 @@ use crate::rig::Stream;
 use protocol::lines::{line, Lines, DATAGRAM_MAX};
 use protocol::{
     Assign, DeckEvent, DeckEvents, DeckGraph, DeckListen, DeckMidi, DeckQuality, DeckSynced, DeckValues, Empty, Envelope, HandPose, HandRecord, HandState, HandView, Hello,
-    LinkQuality, Message, Ping, Rename, Resume, Role, SceneSync, ShowRole, Snapshot, SyncState, Tempo, To, VoteCast, VoteClose, VoteHold, VoteOpen,
+    LinkQuality, Loose, Message, Ping, Rename, Resume, Role, SceneSync, ShowRole, Snapshot, SyncState, Tempo, To, VoteCast, VoteClose, VoteHold, VoteOpen,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
@@ -203,6 +203,10 @@ pub enum In {
     Pushed(SceneSync),
     /// #195: a deck's answer to it
     Synced { client: String, synced: DeckSynced },
+    /// #517: an address action (`address`, SHOW.md §8) for this deck's playing scene – the core's scene_play.rs reads it
+    Address { address: String, action: String },
+    /// #517: a reader's story event (the VNEvent's JSON), there because this deck asked (`set_story`)
+    Story(Loose),
 }
 
 /// where the link stands
@@ -469,6 +473,9 @@ pub struct Client {
     // #442: the far addresses this deck asks for, and when it last asked
     listen: Vec<String>,
     listen_sent: f64,
+    /// #517: this deck's playing scene listens to story events: it asks for them (`deck.story`)
+    story: bool,
+    story_sent: f64,
     // #469: a phone's state and the editor's view, sent again after every welcome; each phone's newest pose heard (its `t`)
     hand_state: Option<HandState>,
     hand_view: Option<HandView>,
@@ -520,6 +527,8 @@ impl Client {
             door,
             listen: Vec::new(),
             listen_sent: f64::NEG_INFINITY,
+            story: false,
+            story_sent: f64::NEG_INFINITY,
             hand_state: None,
             hand_view: None,
             poses: HashMap::new(),
@@ -935,6 +944,7 @@ impl Client {
                 self.flush(now);
                 self.settle(now);
                 self.flush_listen(now);
+                self.flush_story(now);
             }
             _ => {}
         }
@@ -1149,6 +1159,23 @@ impl Client {
         }
     }
 
+    /// #517: whether this deck's playing scene listens to story events (scene_play.rs `Playing::listens`) – asked for once
+    /// joined, at each welcome and every `LISTEN_MS` while it does; an ask not renewed lapses at the relay
+    pub fn set_story(&mut self, now: f64, on: bool) {
+        if self.story != on {
+            self.story = on;
+            self.story_sent = f64::NEG_INFINITY;
+            self.flush_story(now);
+        }
+    }
+
+    fn flush_story(&mut self, now: f64) {
+        if self.joined && self.story && now - self.story_sent >= protocol::LISTEN_MS {
+            self.story_sent = now;
+            self.send_to(Message::DeckStory(Empty {}), To { role: None, group: Some(DECKS.to_string()), client: None });
+        }
+    }
+
     /// #442: events for one subscriber's far world nodes (only while joined – stale events are dropped)
     pub fn events(&mut self, client: &str, events: Vec<DeckEvent>) -> bool {
         self.joined && !events.is_empty() && self.send_to(Message::DeckEvents(DeckEvents { events }), To { role: None, group: None, client: Some(client.to_string()) })
@@ -1327,6 +1354,9 @@ impl Client {
             Message::Rename(r) if r.client == self.client => self.o.nick = (!r.nick.is_empty()).then_some(r.nick),
             Message::DeckListen(l) => self.out.push(Out::Listen { client: from, addresses: l.addresses }),
             Message::DeckEvents(ev) => self.out.push(Out::Events { client: from, events: ev.events }),
+            // #517: what the deck's playing scene takes – the core reads it (scene_play.rs), the link only passes it
+            Message::Address(a) => self.out.push(Out::Deck(In::Address { address: a.address, action: a.action })),
+            Message::Story(s) => self.out.push(Out::Deck(In::Story(s))),
             Message::DeckSynced(synced) if conductor => self.out.push(Out::Deck(In::Synced { client: from, synced })),
             Message::Presence(p) => {
                 // every client but the audience has a link in presence: a phone without one left
@@ -1410,8 +1440,10 @@ impl Client {
         self.answer_due = self.answer.is_some();
         self.answered = f64::NEG_INFINITY;
         self.listen_sent = f64::NEG_INFINITY;
+        self.story_sent = f64::NEG_INFINITY;
         self.flush(now);
         self.flush_listen(now);
+        self.flush_story(now);
         if let Some(t) = snap.tempo {
             self.out.push(Out::Tempo { tempo: t, arrived: now });
         }

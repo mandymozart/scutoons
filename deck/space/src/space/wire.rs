@@ -23,6 +23,8 @@ pub trait Wire: Send {
     /// #442: the engine's far world nodes and event outputs (far.rs): the link asks for the addresses, answers other
     /// decks' asks and moves the events; a wire without the relay drops the table
     fn far(&self, _table: crate::far::FarTable) {}
+    /// #517: the deck's playing scene listens to story events (`deck.story`) or no longer; a wire without the relay drops it
+    fn story(&self, _on: bool) {}
     /// the next event, if any (never blocks)
     fn recv(&self) -> Option<In>;
     /// the link's state in a word (the HUD)

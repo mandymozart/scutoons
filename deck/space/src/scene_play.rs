@@ -13,10 +13,19 @@
 //! - **The rest keeps playing:** the other members keep their holders, slots and spots, the space its room and set (the
 //!   same resolve of the same document); the adapter carries the running values across (live-core `recast`).
 //! - An address that does not pick up this scene, or an action that is no cast word, is not this scene's: `NotMine`.
+//! - **A story event** (#517, SCENE-EVENTS.md §3.2 E2a; owner 2026-11-13 [scenes]: "a scene listens"): the VNEvent as the
+//!   story adapter reads it (deck-events adapters/story.rs: `story.<type>`, its id, its params as data) against the scene's
+//!   listeners (scene_document.rs `Listener`): each listener of its type – and its id, when the listener names one – makes
+//!   each character the event names (`characters`, else `character`) that it admits say its cast word, through `word`: the
+//!   same words an address brings. No listener of it: nothing, and nothing said. The one place this matching lives; the
+//!   show's conductor matches its rows by event id (deck-show conductor.rs `on_event`) on its own.
 use crate::piece::LOG_CAP;
 use crate::rig::address::{CastWord, Target};
-use crate::scene_document::{FillerRef, Fillers, SceneDocument};
+use crate::scene_document::{FillerRef, Fillers, Listener, SceneDocument};
 use crate::scene_resolve::{resolve, Casting, Resolved, Rigs, Sets};
+use deck_events::adapters::story::from_story;
+use deck_events::Names;
+use serde_json::Value;
 use std::collections::{BTreeMap, VecDeque};
 
 /// the crossfade (ms) a changed cast loads under: a declick, not an entrance – the rest of the scene sounds on through it
@@ -123,6 +132,60 @@ impl Playing {
             }
         }
     }
+
+    /// #517: whether the scene listens to story events – a deck asks its session for them only then
+    pub fn listens(&self) -> bool {
+        !self.doc.listeners.is_empty()
+    }
+
+    /// #517: a story event (the VNEvent's JSON: `{ type, params, id? }`) against the scene's listeners, with the caller's
+    /// rigs and sets: what each cast word it made did, in order. Empty: no listener heard it.
+    pub fn story(&mut self, event: &Value, rigs: Rigs, sets: Sets) -> Vec<Recast> {
+        let mut names = Names::new();
+        let e = match from_story(&mut names, event, None) {
+            Ok(Some(e)) => e,
+            Ok(None) => return Vec::new(),
+            Err(err) => {
+                self.note(format!("a story event: {err}"));
+                return Vec::new();
+            }
+        };
+        let kind = names.name(e.name).strip_prefix("story.").unwrap_or_default().to_string();
+        let heard: Vec<Listener> = self.doc.listeners.iter().filter(|l| l.on == kind && l.id.as_ref().is_none_or(|id| e.id.as_ref() == Some(id))).cloned().collect();
+        if heard.is_empty() {
+            return Vec::new();
+        }
+        let named = characters(e.data.as_deref());
+        if named.is_empty() {
+            self.note(format!("{kind}: the event names no character"));
+            return Vec::new();
+        }
+        let place = self.place();
+        let mut did = Vec::new();
+        for l in &heard {
+            for who in named.iter().filter(|w| l.admits(w)) {
+                did.push(self.word(&place, &format!("{}:{who}", l.act.word()), rigs, sets));
+            }
+        }
+        did
+    }
+}
+
+/// the characters a story event's data names, as references: `characters` (joinScene / leaveScene: `{ character, persona? }`,
+/// the old form's `name`), else `character` (a message's speaker: an id, or the same object)
+fn characters(data: Option<&Value>) -> Vec<String> {
+    let one = |c: &Value| -> Option<String> {
+        let id = c.as_str().or_else(|| c.get("character").or_else(|| c.get("name")).and_then(Value::as_str)).filter(|id| !id.is_empty())?;
+        Some(match c.get("persona").and_then(Value::as_str).filter(|p| !p.is_empty()) {
+            Some(p) => format!("character:{id}.{p}"),
+            None => format!("character:{id}"),
+        })
+    };
+    match data.map(|d| (d.get("characters"), d.get("character"))) {
+        Some((Some(Value::Array(cs)), _)) => cs.iter().filter_map(one).collect(),
+        Some((_, Some(c))) => one(c).into_iter().collect(),
+        _ => Vec::new(),
+    }
 }
 
 #[cfg(test)]
@@ -161,6 +224,60 @@ mod tests {
         assert_eq!(p.resolved().cast.iter().map(|m| m.holder.as_str()).collect::<Vec<_>>(), ["centre"]);
         assert!(!ids(&p).iter().any(|id| id.starts_with("left_")), "her look and rig are gone");
         assert_eq!(p.word("scene:stage", "leave:character:catpope", &core_rigs, &no_sets), Recast::Nothing, "gone already");
+    }
+
+    /// the stage with listeners (`listener`, as a document writes them)
+    fn listening(listeners: &str) -> SceneDocument {
+        let mut v: Value = serde_json::from_str(include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../server/tests/fixtures/scenes/templates/stage.json"))).unwrap();
+        v["listener"] = serde_json::from_str(listeners).unwrap();
+        SceneDocument::from_value(v).unwrap()
+    }
+
+    fn story(kind: &str, characters: &[&str], id: Option<&str>) -> Value {
+        let cs: Vec<Value> = characters.iter().map(|c| serde_json::json!({ "character": c })).collect();
+        serde_json::json!({ "type": kind, "params": { "characters": cs }, "id": id })
+    }
+
+    /// #517: a joinScene the scene listens to joins each character it names at the first free spot; leaveScene leaves
+    #[test]
+    fn a_listened_story_event_joins_and_leaves() {
+        let doc = listening(r#"[{"on":"joinScene","do":"join"},{"on":"leaveScene","do":"leave"}]"#);
+        let mut p = Playing::start(doc, BTreeMap::new(), &core_rigs, &no_sets).unwrap();
+        assert!(p.listens());
+        let did = p.story(&story("joinScene", &["catpope", "toptoy"], Some("e1")), &core_rigs, &no_sets);
+        assert_eq!(did, [Recast::Changed { holder: "left".into(), ms: RECAST_MS }, Recast::Changed { holder: "centre".into(), ms: RECAST_MS }]);
+        assert_eq!(p.resolved().cast.iter().map(|m| (m.holder.as_str(), m.place.as_str())).collect::<Vec<_>>(), [("left", "character:catpope"), ("centre", "character:toptoy")]);
+        assert!(p.log().any(|l| l == "character:catpope joined scene:stage at left"), "the same words an address brings");
+        let did = p.story(&story("leaveScene", &["catpope"], None), &core_rigs, &no_sets);
+        assert_eq!(did, [Recast::Changed { holder: "left".into(), ms: RECAST_MS }]);
+        assert_eq!(p.resolved().cast.iter().map(|m| m.holder.as_str()).collect::<Vec<_>>(), ["centre"]);
+        // a message's speaker is the character of a single-character event
+        let doc = listening(r#"[{"on":"showMessage","do":"join"}]"#);
+        let mut p = Playing::start(doc, BTreeMap::new(), &core_rigs, &no_sets).unwrap();
+        let said = serde_json::json!({ "type": "showMessage", "params": { "text": "Hallo", "character": "catpope", "mood": "happy" } });
+        assert_eq!(p.story(&said, &core_rigs, &no_sets), [Recast::Changed { holder: "left".into(), ms: RECAST_MS }]);
+    }
+
+    /// #517: only what a listener names – its type, its id, the characters it admits; no listener, or an event the story
+    /// keeps: nothing, and nothing said
+    #[test]
+    fn a_story_event_no_listener_takes_does_nothing() {
+        let mut p = Playing::start(stage(), BTreeMap::new(), &core_rigs, &no_sets).unwrap();
+        assert!(!p.listens());
+        assert_eq!(p.story(&story("joinScene", &["catpope"], None), &core_rigs, &no_sets), []);
+        assert!(p.resolved().cast.is_empty() && p.log().next().is_none());
+        let doc = listening(r#"[{"on":"joinScene","id":"e9","character":"character:catpope","do":"join"}]"#);
+        let mut p = Playing::start(doc, BTreeMap::new(), &core_rigs, &no_sets).unwrap();
+        assert_eq!(p.story(&story("joinScene", &["catpope"], Some("e1")), &core_rigs, &no_sets), [], "another event id");
+        assert_eq!(p.story(&story("leaveScene", &["catpope"], Some("e9")), &core_rigs, &no_sets), [], "another type");
+        assert_eq!(p.story(&story("joinScene", &["toptoy"], Some("e9")), &core_rigs, &no_sets), [], "a character it does not admit");
+        assert_eq!(p.story(&serde_json::json!({ "type": "jumpTo", "params": { "label": "x" } }), &core_rigs, &no_sets), [], "the story's runner keeps it");
+        assert_eq!(p.story(&story("joinScene", &[], Some("e9")), &core_rigs, &no_sets), []);
+        assert_eq!(p.log().last(), Some("joinScene: the event names no character"));
+        assert_eq!(p.story(&story("joinScene", &["toptoy", "catpope"], Some("e9")), &core_rigs, &no_sets), [Recast::Changed { holder: "left".into(), ms: RECAST_MS }]);
+        assert_eq!(p.resolved().cast.len(), 1, "Top Toy is not admitted");
+        assert_eq!(p.story(&serde_json::json!({ "params": {} }), &core_rigs, &no_sets), []);
+        assert!(p.log().last().unwrap().starts_with("a story event: "), "a broken event is said");
     }
 
     /// no free spot that admits who: nothing, said; another scene's word, or another action, is not this one's

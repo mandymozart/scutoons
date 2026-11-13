@@ -23,10 +23,9 @@ use deck_events::{Event, Names, Time};
 use protocol::DeckEvent;
 use std::collections::HashMap;
 
-/// a deck with far world nodes asks again this often (ms)
-pub const LISTEN_MS: f64 = 10_000.0;
-/// a subscription not asked for again within this lapses (ms)
-pub const LAPSE_MS: f64 = 30_000.0;
+/// a deck with far world nodes asks again every `LISTEN_MS`; a subscription not asked for again within `LAPSE_MS` lapses
+/// (the protocol's one pair, #517: the relay's story asks lapse alike)
+pub use protocol::{LAPSE_MS, LISTEN_MS};
 
 /// one far world node's cable: where its events go in
 pub struct FarInlet {

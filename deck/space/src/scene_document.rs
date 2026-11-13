@@ -60,6 +60,10 @@ pub struct SceneDocument {
     /// the places on its stage, in the order a story's `joinScene` tries them (SCENES.md §9.4)
     #[serde(default, rename = "holder", skip_serializing_if = "Vec::is_empty")]
     pub holders: Vec<Holder>,
+    /// #517: what it does when a story event comes while it plays (research/SCENE-EVENTS.md §3.2): a story event's type,
+    /// optionally its id and a character → join | leave (scene_play.rs `Playing::story`)
+    #[serde(default, rename = "listener", skip_serializing_if = "Vec::is_empty")]
+    pub listeners: Vec<Listener>,
     #[serde(default)]
     pub stage: StageSettings,
     /// the scene's own nodes (the space, mixers); the holders' rigs are flattened in by the resolve step
@@ -71,6 +75,75 @@ pub struct SceneDocument {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "schema", schemars(with = "Option<std::collections::BTreeMap<String, serde_json::Value>>"))]
     pub outputs: Option<toml::Table>,
+}
+
+/// #517: a scene's listener – "listen to this event when this character …, then do this" (owner 2026-11-13 [scenes]). A story
+/// event of type `on` (the chapter's `VNEvent` types, protocol::story_events), with this `id` when given, naming a character
+/// this `character` admits when given (itself, or a persona / look below it), makes each such character `do` its word.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Listener {
+    /// the story event's type (`joinScene`, `leaveScene`, `showMessage` …)
+    pub on: String,
+    /// only the story event with this id (the creator's stable event id)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    /// only the characters this reference admits (`character:catpope`: her and every persona of hers)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub character: Option<String>,
+    /// what each admitted character of the event does on this stage
+    #[serde(rename = "do")]
+    pub act: Act,
+}
+
+/// #517: what a listener makes a character do – the cast words of a playing scene (E1: rig/address.rs `CastWord`)
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Act {
+    /// appears at the first free spot that admits it
+    Join,
+    /// disappears, its spot is free again
+    Leave,
+}
+
+impl Act {
+    /// the cast word's verb (`join:<who>`)
+    pub fn word(self) -> &'static str {
+        match self {
+            Act::Join => "join",
+            Act::Leave => "leave",
+        }
+    }
+}
+
+impl Listener {
+    /// whether `who` (`character:catpope.pope`) is one this listener acts on: any without a `character`, else that
+    /// character or one below it
+    pub fn admits(&self, who: &str) -> bool {
+        self.character.as_deref().is_none_or(|c| who == c || who.strip_prefix(c).is_some_and(|rest| rest.starts_with('.')))
+    }
+
+    /// its problems in the core's words (`who`: `listener 2`)
+    fn problems(&self, who: &str, out: &mut Vec<String>) {
+        use deck_events::adapters::story::STAYS_IN_THE_STORY;
+        use protocol::story_events::STORY_EVENT_TYPES;
+        if !STORY_EVENT_TYPES.contains(&self.on.as_str()) {
+            out.push(format!("{who}: '{}' is no story event ({})", self.on, STORY_EVENT_TYPES.join(", ")));
+        } else if STAYS_IN_THE_STORY.contains(&self.on.as_str()) {
+            out.push(format!("{who}: '{}' stays in the story's runner – a deck never hears it", self.on));
+        }
+        if self.id.as_deref().is_some_and(|id| id.trim().is_empty()) {
+            out.push(format!("{who}: `id` is empty"));
+        }
+        match self.character.as_deref().map(FillerRef::parse) {
+            None => {}
+            Some(Ok(f)) if matches!(f.kind, AddressKind::Character | AddressKind::Persona | AddressKind::Look) => {}
+            Some(Ok(f)) => out.push(format!("{who}: `character` names {}, not a character", a(f.kind))),
+            Some(Err(e)) => out.push(format!("{who}: `character`: {e}")),
+        }
+    }
 }
 
 /// The scene's location: a reference, or a placeholder.
@@ -407,6 +480,7 @@ impl SceneDocument {
             toons,
             location: None,
             holders: Vec::new(),
+            listeners: Vec::new(),
             stage: scene.stage.clone(),
             nodes: scene.nodes.clone(),
             links: scene.links.clone(),
@@ -589,6 +663,9 @@ impl SceneDocument {
                 }
             }
         }
+        for (i, l) in self.listeners.iter().enumerate() {
+            l.problems(&format!("listener {}", i + 1), &mut out);
+        }
         out
     }
 }
@@ -730,6 +807,28 @@ mod tests {
         assert!(SceneDocument::parse_json(both).unwrap().check()[0].contains("`set` is refused"));
         let bare = r#"{"format":2,"id":"x","location":"location:dom"}"#;
         assert!(SceneDocument::parse_json(bare).unwrap().check()[0].contains("needs a `space` node"));
+    }
+
+    /// #517: a listener names a story event a deck hears, a character reference and join / leave; anything else in the core's words
+    #[test]
+    fn listeners_are_checked() {
+        let doc = |l: &str| SceneDocument::parse_json(&format!(r#"{{"format":2,"id":"x","listener":{l}}}"#));
+        let ok = doc(r#"[{"on":"joinScene","do":"join"},{"on":"leaveScene","id":"e7","character":"character:catpope.pope","do":"leave"}]"#).unwrap();
+        assert_eq!(ok.check(), Vec::<String>::new());
+        assert_eq!(ok.listeners[1].act, Act::Leave);
+        assert!(ok.to_json().unwrap().contains("\"listener\""), "written back under its name");
+        let said = |l: &str| doc(l).unwrap().check();
+        assert_eq!(said(r#"[{"on":"dance","do":"join"}]"#)[0], format!("listener 1: 'dance' is no story event ({})", protocol::story_events::STORY_EVENT_TYPES.join(", ")));
+        assert_eq!(said(r#"[{"on":"jumpTo","do":"join"}]"#), ["listener 1: 'jumpTo' stays in the story's runner – a deck never hears it"]);
+        assert_eq!(said(r#"[{"on":"joinScene","character":"item:incense","do":"join"}]"#), ["listener 1: `character` names an item, not a character"]);
+        assert!(said(r#"[{"on":"joinScene","character":"catpope","do":"join"}]"#)[0].starts_with("listener 1: `character`: 'catpope' is not a reference"));
+        assert_eq!(said(r#"[{"on":"joinScene","id":" ","do":"join"}]"#), ["listener 1: `id` is empty"]);
+        assert!(doc(r#"[{"on":"joinScene","do":"dance"}]"#).is_err(), "join or leave only");
+        // what a listener admits: any character without one, else it and what is below it
+        let l = |c: Option<&str>| Listener { on: "joinScene".into(), id: None, character: c.map(String::from), act: Act::Join };
+        assert!(l(None).admits("character:toptoy"));
+        assert!(l(Some("character:catpope")).admits("character:catpope.pope") && l(Some("character:catpope")).admits("character:catpope"));
+        assert!(!l(Some("character:catpope")).admits("character:catpopet") && !l(Some("character:catpope.pope")).admits("character:catpope"));
     }
 
     /// #243 / SCENES.md §8.2: a nudge names its control input as `input` in the TOML too (no alias)

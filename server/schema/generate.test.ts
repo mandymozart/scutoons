@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { addressBookPhp, addressBookRs, addressBookTs, paths, scenePhp, sceneTs, tablesPhp, tablesRs, tablesTs, type ContractRoot, type Draft07 } from './generate.ts';
+import { addressBookPhp, addressBookRs, addressBookTs, paths, scenePhp, sceneTs, storyEventsRs, storyTypes, tablesPhp, tablesRs, tablesTs, type ContractRoot, type Draft07 } from './generate.ts';
 
 const root = JSON.parse(readFileSync(paths.schema, 'utf8')) as ContractRoot;
 const legacy = JSON.parse(readFileSync(paths.legacyIds, 'utf8'));
@@ -62,6 +62,14 @@ test('the scene document (#243, format 2 #489): every definition in TS and PHP, 
 	assert.doesNotMatch(ts + php, /\bbeing\??: /, 'the being left the document');
 	assert.match(ts, /map\?: \[number, number\]\[\];/, 'a channel pair is a tuple');
 	assert.doesNotMatch(ts + php, /\bset\??: /, 'no field named set beside the space node param');
+});
+
+test('the story events (#517): every VNEvent type of the chapter schema, in Rust', () => {
+	const chapter = JSON.parse(readFileSync(paths.chapterSchema, 'utf8')) as Draft07;
+	const types = storyTypes(chapter);
+	assert.ok(types.includes('joinScene') && types.includes('leaveScene') && types.includes('showMessage'));
+	assert.match(storyEventsRs(chapter), new RegExp(`pub const STORY_EVENT_TYPES: \\[&str; ${types.length}\\] = \\["showMessage", `));
+	assert.throws(() => storyTypes({ definitions: { VNEvent: { anyOf: [{ type: 'object' }] } } }), /string `type` const/);
 });
 
 test('a scene schema outside the subset is refused, not guessed', () => {

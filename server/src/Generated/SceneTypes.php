@@ -7,6 +7,7 @@ namespace Scutoons\Generated;
 /**
  * The stored scene document `scene:<id>` (#243; deck-space's SceneDocument, its JSON Schema written by deck-schema)
  *
+ * @phpstan-type Act 'join' | 'leave'
  * @phpstan-type Arrange array{kind: ArrangeKind, spacing?: float}
  * @phpstan-type ArrangeKind 'row' | 'cluster'
  * @phpstan-type Enter 'start' | 'join'
@@ -15,6 +16,7 @@ namespace Scutoons\Generated;
  * @phpstan-type Holder array{arrange?: Arrange | null, enter?: Enter, fill?: Fill | null, id: string, label?: array<string, string> | null, max?: int | null, preview?: Fillers | null, ref?: string | null, rig?: RigPin | null, spot?: string | null, take?: Take, values?: array<string, HolderValue>}
  * @phpstan-type HolderValue float | string
  * @phpstan-type LinkDef array{from: string, map?: list<array{int, int}>, offset?: float, scale?: float, to: string}
+ * @phpstan-type Listener array{character?: string | null, do: Act, id?: string | null, on: string}
  * @phpstan-type LocationPlaceholder array{fill: Fill, id: string, label?: array<string, string> | null, preview?: string | null}
  * @phpstan-type LocationSlot string | LocationPlaceholder
  * @phpstan-type NodeDef array<string, mixed>
@@ -23,7 +25,7 @@ namespace Scutoons\Generated;
  * @phpstan-type SceneUse array{scene: string, with?: array<string, Fillers>}
  * @phpstan-type StageSettings array{audio_buffer?: int | null, name?: string, render_scale?: float, transition?: SceneTransition, transition_secs?: float}
  * @phpstan-type Take 'one' | 'many'
- * @phpstan-type SceneDocument array{format: 2, holder?: list<Holder>, id: string, link?: list<LinkDef>, location?: LocationSlot | null, node?: list<NodeDef>, outputs?: array<string, mixed> | null, stage?: StageSettings, toons?: list<string>, version?: int | null}
+ * @phpstan-type SceneDocument array{format: 2, holder?: list<Holder>, id: string, link?: list<LinkDef>, listener?: list<Listener>, location?: LocationSlot | null, node?: list<NodeDef>, outputs?: array<string, mixed> | null, stage?: StageSettings, toons?: list<string>, version?: int | null}
  */
 final class SceneTypes
 {

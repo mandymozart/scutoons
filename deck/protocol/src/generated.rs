@@ -152,6 +152,8 @@ pub enum Message {
 	DeckListen(DeckListen),
 	#[serde(rename = "deck.events")]
 	DeckEvents(DeckEvents),
+	#[serde(rename = "deck.story")]
+	DeckStory(Empty),
 	#[serde(rename = "scene.sync")]
 	SceneSync(SceneSync),
 	#[serde(rename = "deck.synced")]
@@ -231,6 +233,7 @@ impl Message {
 			Message::DeckMidi(_) => "deck.midi",
 			Message::DeckListen(_) => "deck.listen",
 			Message::DeckEvents(_) => "deck.events",
+			Message::DeckStory(_) => "deck.story",
 			Message::SceneSync(_) => "scene.sync",
 			Message::DeckSynced(_) => "deck.synced",
 			Message::DeckQuality(_) => "deck.quality",

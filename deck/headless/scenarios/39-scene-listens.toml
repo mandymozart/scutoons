@@ -1,0 +1,78 @@
+name = "a playing scene listens to story events: joinScene makes Cat Pope appear, leaveScene makes her go, no listener does nothing"
+about = "#517 (research/SCENE-EVENTS.md §3.2 E2a; owner 2026-11-13 [scenes]: \"a scene listens … join = appear\"): the template scene:stage plays empty with two listeners – `joinScene` → join, `leaveScene` → leave. A reader's `joinScene` naming Cat Pope (the VNEvent as the relay brings it) reaches the core's playing scene (deck-space scene_play.rs `Playing::story`), whose listener makes her say `join` – E1's word, the same path an address takes: she stands at `left` with her look and rig, and sounds. `leaveScene` frees `left`. A listener with an event id or a character hears only that one. The same stage without listeners hears nothing"
+
+# the stage plays empty and listens: joinScene → join, leaveScene → leave
+[[step]]
+do = "load"
+document = "../server/tests/fixtures/scenes/templates/stage.json"
+listener = [{ on = "joinScene", do = "join" }, { on = "leaveScene", do = "leave" }]
+expect = { stage = { cast = [] } }
+
+[[step]]
+do = "run"
+ms = 300
+expect = { sound = false }
+
+# a reader's joinScene with Cat Pope: she appears at the first free spot that admits her
+[[step]]
+do = "story"
+event = { type = "joinScene", id = "ch3-e12", params = { characters = [{ character = "catpope" }] } }
+expect = { did = ["changed at left"], said = "character:catpope joined scene:stage at left", ids = { has = "left_voice_voice" }, stage = { cast = [{ holder = "left", look = "left_look", character = "catpope", spot = "spot_left", who = "character:catpope", form = "card", picture = "characters.catpope.full" }] } }
+
+[[step]]
+do = "run"
+ms = 1500
+expect = { sound = true }
+
+# an event no listener names (a message): nothing
+[[step]]
+do = "story"
+event = { type = "showMessage", params = { text = "Hallo", character = "catpope" } }
+expect = { did = [] }
+
+# leaveScene: she disappears
+[[step]]
+do = "story"
+event = { type = "leaveScene", params = { characters = [{ character = "catpope" }] } }
+expect = { did = ["changed at left"], stage = { cast = [] } }
+
+[[step]]
+do = "run"
+ms = 200
+
+[[step]]
+do = "run"
+ms = 500
+expect = { sound = false }
+
+# a listener with an event id and a character hears only that event, only her
+[[step]]
+do = "reset"
+
+[[step]]
+do = "load"
+document = "../server/tests/fixtures/scenes/templates/stage.json"
+listener = [{ on = "joinScene", id = "ch3-e12", character = "character:catpope", do = "join" }]
+
+[[step]]
+do = "story"
+event = { type = "joinScene", id = "ch3-e40", params = { characters = [{ character = "catpope" }] } }
+expect = { did = [] }
+
+[[step]]
+do = "story"
+event = { type = "joinScene", id = "ch3-e12", params = { characters = [{ character = "toptoy" }, { character = "catpope" }] } }
+expect = { did = ["changed at left"], stage = { cast = [{ holder = "left", look = "left_look", character = "catpope", spot = "spot_left", who = "character:catpope", form = "card", picture = "characters.catpope.full" }] } }
+
+# without a listener: the same joinScene does nothing
+[[step]]
+do = "reset"
+
+[[step]]
+do = "load"
+document = "../server/tests/fixtures/scenes/templates/stage.json"
+
+[[step]]
+do = "story"
+event = { type = "joinScene", params = { characters = [{ character = "catpope" }] } }
+expect = { did = [] }

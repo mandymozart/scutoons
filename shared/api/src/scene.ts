@@ -5,6 +5,8 @@
 /** the format the API stores and the decks read */
 export const SCENE_FORMAT = 2 as const;
 
+export type Act = 'join' | 'leave';
+
 /** A spawn zone's arrangement: its kind and the spacing between members. */
 export type Arrange = {
 	kind: ArrangeKind;
@@ -71,6 +73,18 @@ export type LinkDef = {
 	to: string;
 };
 
+/** event of type `on` (the chapter's `VNEvent` types, protocol::story_events), with this `id` when given, naming a character this `character` admits when given (itself, or a persona / look below it), makes each such character `do` its word. */
+export type Listener = {
+	/** only the characters this reference admits (`character:catpope`: her and every persona of hers) */
+	character?: string | null;
+	/** what each admitted character of the event does on this stage */
+	do: Act;
+	/** only the story event with this id (the creator's stable event id) */
+	id?: string | null;
+	/** the story event's type (`joinScene`, `leaveScene`, `showMessage` …) */
+	on: string;
+};
+
 /** A location no scene names yet: what may fill it. */
 export type LocationPlaceholder = {
 	/** the filter: `kind` is `["location"]` */
@@ -135,6 +149,8 @@ export type SceneDocument = {
 	/** the key's id: `nave` for `scene:nave` – platform-wide, no toon in it (a scene can serve several toons and shows) */
 	id: string;
 	link?: LinkDef[];
+	/** optionally its id and a character → join | leave (scene_play.rs `Playing::story`) */
+	listener?: Listener[];
 	/** where it plays: `location:<id>`, or a placeholder a use fills; none = the `space` node's own `set` (or no set) */
 	location?: LocationSlot | null;
 	/** the scene's own nodes (the space, mixers); the holders' rigs are flattened in by the resolve step */

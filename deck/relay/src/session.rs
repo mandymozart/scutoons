@@ -295,6 +295,8 @@ pub struct Session {
     parent_link: Option<bool>,
     /// #478: the conductor's roles (roles.rs)
     roles: Vec<ShowRole>,
+    /// #517: the decks that asked for the readers' story (`deck.story`) and when they last did, by client id
+    story_asks: HashMap<String, i64>,
 }
 
 impl Session {
@@ -399,6 +401,7 @@ impl Session {
         }
         // a deck that left takes its being and its routes along (it sends its graph again when it comes back)
         self.decks.remove(id);
+        self.story_asks.remove(id);
         self.synced.remove(id);
         self.reports.remove(id);
         self.quality.remove(id);
@@ -592,13 +595,21 @@ impl Session {
             self.child_says(id, e, now);
             return After::Nothing;
         }
-        // #90: a reader's whole say is its story events, and they are for the conductor (SHOW.md §7)
+        // #90: a reader's whole say is its story events, and they are for the conductor (SHOW.md §7); #517: and for each
+        // deck whose ask stands (`deck.story`), one copy each, in order, not kept – nobody else
         if role == Role::Reader {
             if !matches!(e.message, Message::Story(_) | Message::Ping(_) | Message::Ready(_)) {
                 self.error(id, "authority", &format!("a reader does not send {}", e.message.kind()));
                 return After::Nothing;
             }
             if matches!(e.message, Message::Story(_)) {
+                let lapse = protocol::LAPSE_MS as i64;
+                self.story_asks.retain(|_, at| now - *at < lapse);
+                let mut asked: Vec<String> = self.story_asks.keys().cloned().collect();
+                asked.sort();
+                for deck in asked {
+                    self.deliver(id, e.clone().to(To::client(deck)));
+                }
                 e.to = Some(To::role(Role::Conductor));
                 self.publish(id, e, now);
                 return After::Nothing;
@@ -935,6 +946,15 @@ impl Session {
                     e.to = Some(To::group(DECKS));
                 }
                 self.deliver(id, e);
+            }
+            Message::DeckStory(_) => {
+                // #517: a deck's playing scene listens to the readers' story: the ask stands until it lapses (`LAPSE_MS`)
+                // or the deck leaves; it goes nowhere
+                if self.clients.get(id).is_some_and(|c| c.group.as_deref() == Some(DECKS)) {
+                    self.story_asks.insert(id.to_owned(), now);
+                } else {
+                    self.error(id, "authority", "only a deck (the group decks) asks for the story");
+                }
             }
             Message::React(_) | Message::Pickup(_) | Message::Devices(_) | Message::DeviceIn(_) => {
                 // to the conductor (B.6: pickups are checked against the API there, like the reader does – TODO with
@@ -1314,6 +1334,45 @@ mod tests {
             r.send("phone", story(), 2);
         }
         assert!(r.inbox("phone").iter().any(|e| matches!(&e.message, Message::Error(x) if x.code == "rate")));
+    }
+
+    /// #517: a reader's joinScene reaches the deck that asked (`deck.story`) besides the conductor – not a deck that did not
+    /// ask, not the outlets; an ask lapses after `LAPSE_MS` and goes with its deck; only a deck asks
+    #[test]
+    fn a_reader_s_story_reaches_the_decks_that_asked() {
+        let mut r = room();
+        r.add("phone", Role::Reader, None);
+        r.add("asks", Role::Musician, Some(DECKS));
+        r.add("quiet", Role::Musician, Some(DECKS));
+        r.drain();
+        r.send("asks", Message::DeckStory(protocol::Empty {}), 0);
+        assert!(r.kinds("quiet").is_empty() && r.kinds("cond").is_empty(), "an ask goes nowhere");
+        let join = || Message::Story(loose(r#"{ "type": "joinScene", "params": { "characters": [{ "character": "catpope" }] }, "id": "e1" }"#));
+        r.send("phone", join(), 1000);
+        let got = r.inbox("asks");
+        assert_eq!(got.len(), 1);
+        assert!(matches!(&got[0].message, Message::Story(p) if p["type"] == "joinScene" && p["params"]["characters"][0]["character"] == "catpope"));
+        assert_eq!(got[0].from, "phone");
+        assert_eq!(r.kinds("cond"), ["story"], "the conductor still hears it");
+        assert!(r.kinds("quiet").is_empty(), "a deck that did not ask gets nothing");
+        assert!(r.kinds("outL").is_empty() && r.kinds("a1").is_empty());
+        // the ask lapses unless asked again
+        let lapse = protocol::LAPSE_MS as i64;
+        r.send("phone", join(), lapse - 1);
+        assert_eq!(r.kinds("asks"), ["story"]);
+        r.send("phone", join(), lapse + 1);
+        assert!(r.kinds("asks").is_empty(), "lapsed");
+        r.send("asks", Message::DeckStory(protocol::Empty {}), lapse + 2);
+        r.send("phone", join(), lapse + 1000);
+        assert_eq!(r.kinds("asks"), ["story"], "asked again");
+        // only a deck asks; a deck that left takes its ask along
+        r.send("a1", Message::DeckStory(protocol::Empty {}), lapse + 2000);
+        assert!(r.inbox("a1").iter().any(|e| matches!(&e.message, Message::Error(x) if x.code == "authority")));
+        r.s.leave("asks", lapse + 3000);
+        r.drain();
+        r.add("asks", Role::Musician, Some(DECKS));
+        r.send("phone", join(), lapse + 4000);
+        assert!(r.kinds("asks").is_empty(), "a new link asks anew");
     }
 
     #[test]

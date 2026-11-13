@@ -94,6 +94,8 @@ pub const MAX_LIGHTS: usize = 8;
 
 /// two presses on one button within this long (s) = a double click: back to the scene's value
 const DOUBLE_CLICK: f32 = 0.4;
+/// #517: the address actions and story events kept for the playing scene until its host takes them
+const CAST_CAP: usize = 64;
 /// how much easier a finger hits a button than the mouse
 const TOUCH_REACH: f32 = 2.0;
 /// #209: a press that moved less than this (× the view's height) before it let go is a tap – it selects
@@ -274,6 +276,11 @@ pub struct Space {
     /// presence's routes as client ids, and this stage's own id
     route_ids: Vec<(String, String)>,
     me: Option<String>,
+    /// #517: what came for the deck's playing scene (`In::Address`, `In::Story`), oldest first, until its host takes it
+    /// (`take_cast`); at most `CAST_CAP` – a host that takes nothing loses the oldest
+    cast_in: std::collections::VecDeque<In>,
+    /// #517: what the link was last told about the story (`ask_story`)
+    story: bool,
     ring: f32,
     /// bumped when beings or routes come or go (the renderer sizes its buffers anew)
     pub generation: u64,
@@ -410,6 +417,8 @@ impl Space {
             routes: Vec::new(),
             route_ids: Vec::new(),
             me: None,
+            cast_in: std::collections::VecDeque::new(),
+            story: false,
             ring: n.f32("ring", RING),
             generation: 0,
             places: Vec::new(),
@@ -491,6 +500,21 @@ impl Space {
         if let Some(l) = &self.link {
             l.far(table);
         }
+    }
+
+    /// #517: whether the deck's playing scene listens to story events (scene_play.rs `Playing::listens`): the link asks the
+    /// session for them while it does (nothing without a link, or on the conductor)
+    pub fn ask_story(&mut self, on: bool) {
+        if let Some(l) = self.link.as_ref().filter(|_| self.join == Join::Deck && self.story != on) {
+            l.story(on);
+            self.story = on;
+        }
+    }
+
+    /// #517: the address actions and story events that came for the deck's playing scene, oldest first – its host hands
+    /// them to the core (scene_play.rs)
+    pub fn take_cast(&mut self) -> Vec<In> {
+        self.cast_in.drain(..).collect()
     }
 
     /// The session's link (deck-native's link.rs: the relay at `ws://host:port/live/<code>`, joined as the space node's
@@ -707,6 +731,14 @@ impl Space {
                 }
                 In::Pushed(s) => self.sync.pushed(s),
                 In::Synced { client, synced } => self.sync.answer(client, synced),
+                // a story this deck did not ask for (the conductor hears every reader's) is not its scene's
+                In::Story(_) if !self.story => {}
+                cast @ (In::Address { .. } | In::Story(_)) => {
+                    if self.cast_in.len() == CAST_CAP {
+                        self.cast_in.pop_front();
+                    }
+                    self.cast_in.push_back(cast);
+                }
                 In::Presence { decks, routes, links, quality } => {
                     self.sync.synced.retain(|c, _| decks.contains(c));
                     for r in &mut self.others {
