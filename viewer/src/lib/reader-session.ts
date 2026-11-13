@@ -2,8 +2,8 @@
 // with `?live=<code>` (and `?relay=` / `?quic=` as live-deck.ts `relayOf` reads them, a local relay) joins it as role
 // `reader` through deck-space's relay client (relay.rs, relay-web's wasm) under live-deck's socket, once for the page's
 // life; each story event the reader fires (reader-story.ts) goes to the core as it is, and the core sends it as `story`
-// (held for the welcome, in order – relay.rs `Client::story`). The relay hands it to the conductor and the decks that
-// asked (#517). Without `?live=` this file is never loaded: no link, nothing sent.
+// (in order, only while it drives the session's story – #527, relay.rs `Client::story` / `drive`). The relay hands it to
+// the conductor and the decks that asked (#517). Without `?live=` this file is never loaded: no link, nothing sent.
 import { RelaySocket, loadRelay, type Platform, type RelayCoreView, type RelayModule, type RelayStatus } from '@scutoons/live-deck';
 import type { VNEvent } from '@scutoons/content';
 import { WASM_BASE, relayOf } from './live-deck.ts';
@@ -18,9 +18,10 @@ export interface ReaderLinkOptions extends Platform {
 	onStatus?: (s: RelayStatus) => void;
 }
 
-/** relay-web's `RelayClient` with a reader's one move */
+/** relay-web's `RelayClient` with a reader's moves */
 interface ReaderCore extends RelayCoreView {
 	story(json: string): boolean;
+	drive(): boolean;
 }
 
 export class ReaderLink {
@@ -46,6 +47,9 @@ export class ReaderLink {
 		if (this.stopped) return;
 		const core = new m.RelayClient(JSON.stringify({ relay: this.o.relay, role: 'reader' })) as ReaderCore;
 		this.s = new RelaySocket(core, { onStatus: (_, s) => this.o.onStatus?.(s) }, this.o) as RelaySocket & { core: ReaderCore };
+		// #527: the core's claim to drive the session's story (relay.rs `Client::drive`), at the moment the page links – the
+		// reader's question before it is step 2 (#522); what fires before the relay's answer the core drops
+		core.drive();
 		this.s.start();
 		for (const json of this.early ?? []) core.story(json);
 		this.early = null;

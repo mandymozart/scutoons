@@ -3465,18 +3465,7 @@
         },
         {
           "at": 0.02,
-          "do": "story",
-          "with": {
-            "id": "e2",
-            "params": {
-              "characters": [
-                {
-                  "character": "catpope"
-                }
-              ]
-            },
-            "type": "joinScene"
-          }
+          "do": "drive"
         },
         {
           "at": 0.05,
@@ -3496,7 +3485,32 @@
           }
         },
         {
+          "at": 0.15,
+          "do": "story",
+          "with": {
+            "id": "e2",
+            "params": {
+              "characters": [
+                {
+                  "character": "catpope"
+                }
+              ]
+            },
+            "type": "joinScene"
+          }
+        },
+        {
           "at": 0.2,
+          "do": "message",
+          "with": {
+            "kind": "reader.drive",
+            "p": {
+              "driver": "c4"
+            }
+          }
+        },
+        {
+          "at": 0.3,
           "do": "story",
           "with": {
             "id": "e3",
@@ -3547,6 +3561,56 @@
           }
         },
         {
+          "at": 1.5,
+          "do": "message",
+          "with": {
+            "kind": "reader.drive",
+            "p": {
+              "driver": "c5"
+            }
+          }
+        },
+        {
+          "at": 1.6,
+          "do": "story",
+          "with": {
+            "id": "e5",
+            "params": {
+              "characters": [
+                {
+                  "character": "catpope"
+                }
+              ]
+            },
+            "type": "joinScene"
+          }
+        },
+        {
+          "at": 1.7,
+          "do": "message",
+          "with": {
+            "kind": "reader.drive",
+            "p": {
+              "driver": "c9"
+            }
+          }
+        },
+        {
+          "at": 1.8,
+          "do": "story",
+          "with": {
+            "id": "e6",
+            "params": {
+              "characters": [
+                {
+                  "character": "catpope"
+                }
+              ]
+            },
+            "type": "leaveScene"
+          }
+        },
+        {
           "at": 2.0,
           "do": "stop"
         }
@@ -3574,8 +3638,15 @@
         },
         {
           "at": 0.02,
-          "do": "story",
-          "outs": []
+          "do": "drive",
+          "outs": [
+            {
+              "driving": {
+                "claim": "asked",
+                "other": false
+              }
+            }
+          ]
         },
         {
           "at": 0.05,
@@ -3603,15 +3674,29 @@
               }
             },
             {
-              "send": "{\"from\":\"\",\"kind\":\"story\",\"p\":{\"id\":\"e1\",\"params\":{\"name\":\"start\"},\"type\":\"label\"},\"seq\":0,\"v\":1}"
-            },
-            {
-              "send": "{\"from\":\"\",\"kind\":\"story\",\"p\":{\"id\":\"e2\",\"params\":{\"characters\":[{\"character\":\"catpope\"}]},\"type\":\"joinScene\"},\"seq\":0,\"v\":1}"
+              "send": "{\"from\":\"\",\"kind\":\"reader.drive\",\"p\":{},\"seq\":0,\"v\":1}"
             }
           ]
         },
         {
+          "at": 0.15,
+          "do": "story",
+          "outs": []
+        },
+        {
           "at": 0.2,
+          "do": "message",
+          "outs": [
+            {
+              "driving": {
+                "claim": "drives",
+                "other": false
+              }
+            }
+          ]
+        },
+        {
+          "at": 0.3,
           "do": "story",
           "outs": [
             {
@@ -3676,9 +3761,53 @@
               }
             },
             {
-              "send": "{\"from\":\"\",\"kind\":\"story\",\"p\":{\"id\":\"e4\",\"params\":{\"characters\":[{\"character\":\"catpope\"}]},\"type\":\"leaveScene\"},\"seq\":0,\"v\":1}"
+              "send": "{\"from\":\"\",\"kind\":\"reader.drive\",\"p\":{},\"seq\":0,\"v\":1}"
+            },
+            {
+              "driving": {
+                "claim": "asked",
+                "other": false
+              }
             }
           ]
+        },
+        {
+          "at": 1.5,
+          "do": "message",
+          "outs": [
+            {
+              "driving": {
+                "claim": "drives",
+                "other": false
+              }
+            }
+          ]
+        },
+        {
+          "at": 1.6,
+          "do": "story",
+          "outs": [
+            {
+              "send": "{\"from\":\"\",\"kind\":\"story\",\"p\":{\"id\":\"e5\",\"params\":{\"characters\":[{\"character\":\"catpope\"}]},\"type\":\"joinScene\"},\"seq\":0,\"v\":1}"
+            }
+          ]
+        },
+        {
+          "at": 1.7,
+          "do": "message",
+          "outs": [
+            {
+              "driving": {
+                "claim": "taken_over",
+                "other": true
+              }
+            }
+          ]
+        },
+        {
+          "at": 1.8,
+          "do": "story",
+          "outs": []
         },
         {
           "at": 2.0,

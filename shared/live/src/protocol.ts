@@ -1,6 +1,6 @@
 // GENERATED from deck/protocol/schema.json by deck/protocol/generate.ts – edit the schema, run `npm run generate -w shared/live`.
 // agents/research/LIVE.md B.6. One envelope per message, JSON over one WebSocket per client. The generator (deck/protocol/generate.ts) reads only the subset used here: object / string / integer / number / boolean / array / $ref / enum / const / oneOf discriminated by `kind` / additionalProperties maps. Edit this file, run `npm run generate -w shared/live`, commit both outputs.
-/** LIVE.md B.2. `uplink` is the local relay connected to the hosted one (B.6 Uplink). `reader` (#90, SHOW.md §7) is a phone reading the chapter: all it sends is its `story` events, to the conductor. `seat` (#90, SHOW.md §4) is a child conductor's relay in its parent's session, its group is the seat's id. `handheld` (#469, research/HANDHELD-CAMERA.md) is a phone as a handheld camera: it joins with the token the API hands it for one pairing code, all it sends is its `hand.*` messages, to the conductor (the storyboard editor), and it hears `hand.view`. */
+/** LIVE.md B.2. `uplink` is the local relay connected to the hosted one (B.6 Uplink). `reader` (#90, SHOW.md §7) is a phone reading the chapter: all it sends is its `story` events, to the conductor (#527: only while it drives, `reader.drive`). `seat` (#90, SHOW.md §4) is a child conductor's relay in its parent's session, its group is the seat's id. `handheld` (#469, research/HANDHELD-CAMERA.md) is a phone as a handheld camera: it joins with the token the API hands it for one pairing code, all it sends is its `hand.*` messages, to the conductor (the storyboard editor), and it hears `hand.view`. */
 export type Role = 'conductor' | 'output' | 'bridge' | 'performer' | 'musician' | 'audience' | 'uplink' | 'reader' | 'seat' | 'handheld';
 
 /** Who a message reaches. Every field narrows; all missing = everyone the sender may reach. */
@@ -63,6 +63,7 @@ export type Message =
 	| { kind: 'deck.listen'; p: DeckListen }
 	| { kind: 'deck.events'; p: DeckEvents }
 	| { kind: 'deck.story'; p: Empty }
+	| { kind: 'reader.drive'; p: ReaderDrive }
 	| { kind: 'scene.sync'; p: SceneSync }
 	| { kind: 'deck.synced'; p: DeckSynced }
 	| { kind: 'deck.quality'; p: DeckQuality }
@@ -178,6 +179,8 @@ export interface Snapshot {
 	flash?: Flash;
 	/** #471: each deck's and sub conductor's last flash.report, by its path (the conductor's snapshot): the flash list of a conductor that joins later */
 	reports?: Record<string, FlashReport>;
+	/** #527: the reader who drives the session's story (`reader.drive`) – a reader's snapshot (also on a resume) and the conductor's; missing: nobody */
+	driver?: string;
 	/** the session's seq when the snapshot was taken */
 	seq?: number;
 }
@@ -609,6 +612,10 @@ export interface Presence {
 	parent?: boolean;
 	/** #478: who sits where under which name, by client id – every deck, and a phone in a role */
 	who?: Record<string, Present>;
+	/** #527: every linked reader in the session (its name, its device), by client id */
+	readers?: Record<string, Present>;
+	/** #527: the reader who drives the session's story (`reader.drive`); missing: nobody */
+	driver?: string;
 }
 
 /** #223: one client's link: the smoothed WebSocket ping round trip, the rate the relay sends it state-like messages at (`deck.values`, `presence`, `vote.tally`, `state` – 30 = as fast as they come, down to 5 on a link that can't carry more), and how many of them it replaced before they went out (a stalled client gets the newest, not a backlog). */
@@ -690,6 +697,12 @@ export interface HandView {
 	on: boolean;
 	recording: boolean;
 	seconds: number;
+}
+
+/** #527 (agents/research/SCENE-EVENTS.md §6.4): one linked reader drives a session's story at a time, the newest claim wins – the relay's rule (relay session.rs), no reader key. A reader → relay, `{}`: it drives from now on (deck-space relay.rs `Client::drive`, sent only after the person said yes). Relay → every reader of the session, kept for a resume: who drives now, on each claim and when the driver leaves (`driver` missing: nobody) – the reader before it hears it was taken over, a newcomer that it would take over. The welcome's snapshot carries the same `driver`, presence the conductor's (`readers`, `driver`). A reader joins without driving: only the driver's `story` goes on. */
+export interface ReaderDrive {
+	/** the driving reader's client id (relay → reader only) */
+	driver?: string;
 }
 
 /** #442: a deck → relay → the group `decks`: the absolute addresses its far world nodes name (deck-space rig/address.rs: `/deck:<name>/scene:<id>/character:<id>/<track>:<node>.<port>`), sent on each welcome and again every 10 s while it has any (a subscription not refreshed for 30 s lapses). The deck whose name and rig the address names answers with `deck.events` to this client; the relay never parses an address. Ordered, not kept for replay. */

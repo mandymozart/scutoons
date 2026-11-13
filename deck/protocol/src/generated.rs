@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 /// A payload whose shape is not fixed yet: any JSON object.
 pub type Loose = serde_json::Map<String, serde_json::Value>;
 
-/// LIVE.md B.2. `uplink` is the local relay connected to the hosted one (B.6 Uplink). `reader` (#90, SHOW.md §7) is a phone reading the chapter: all it sends is its `story` events, to the conductor. `seat` (#90, SHOW.md §4) is a child conductor's relay in its parent's session, its group is the seat's id. `handheld` (#469, research/HANDHELD-CAMERA.md) is a phone as a handheld camera: it joins with the token the API hands it for one pairing code, all it sends is its `hand.*` messages, to the conductor (the storyboard editor), and it hears `hand.view`.
+/// LIVE.md B.2. `uplink` is the local relay connected to the hosted one (B.6 Uplink). `reader` (#90, SHOW.md §7) is a phone reading the chapter: all it sends is its `story` events, to the conductor (#527: only while it drives, `reader.drive`). `seat` (#90, SHOW.md §4) is a child conductor's relay in its parent's session, its group is the seat's id. `handheld` (#469, research/HANDHELD-CAMERA.md) is a phone as a handheld camera: it joins with the token the API hands it for one pairing code, all it sends is its `hand.*` messages, to the conductor (the storyboard editor), and it hears `hand.view`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Role {
 	#[serde(rename = "conductor")]
@@ -154,6 +154,8 @@ pub enum Message {
 	DeckEvents(DeckEvents),
 	#[serde(rename = "deck.story")]
 	DeckStory(Empty),
+	#[serde(rename = "reader.drive")]
+	ReaderDrive(ReaderDrive),
 	#[serde(rename = "scene.sync")]
 	SceneSync(SceneSync),
 	#[serde(rename = "deck.synced")]
@@ -234,6 +236,7 @@ impl Message {
 			Message::DeckListen(_) => "deck.listen",
 			Message::DeckEvents(_) => "deck.events",
 			Message::DeckStory(_) => "deck.story",
+			Message::ReaderDrive(_) => "reader.drive",
 			Message::SceneSync(_) => "scene.sync",
 			Message::DeckSynced(_) => "deck.synced",
 			Message::DeckQuality(_) => "deck.quality",
@@ -416,6 +419,9 @@ pub struct Snapshot {
 	/// #471: each deck's and sub conductor's last flash.report, by its path (the conductor's snapshot): the flash list of a conductor that joins later
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub reports: Option<std::collections::HashMap<String, FlashReport>>,
+	/// #527: the reader who drives the session's story (`reader.drive`) – a reader's snapshot (also on a resume) and the conductor's; missing: nobody
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub driver: Option<String>,
 	/// the session's seq when the snapshot was taken
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub seq: Option<i64>,
@@ -1123,6 +1129,12 @@ pub struct Presence {
 	/// #478: who sits where under which name, by client id – every deck, and a phone in a role
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub who: Option<std::collections::HashMap<String, Present>>,
+	/// #527: every linked reader in the session (its name, its device), by client id
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub readers: Option<std::collections::HashMap<String, Present>>,
+	/// #527: the reader who drives the session's story (`reader.drive`); missing: nobody
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub driver: Option<String>,
 }
 
 /// #223: one client's link: the smoothed WebSocket ping round trip, the rate the relay sends it state-like messages at (`deck.values`, `presence`, `vote.tally`, `state` – 30 = as fast as they come, down to 5 on a link that can't carry more), and how many of them it replaced before they went out (a stalled client gets the newest, not a backlog).
@@ -1244,6 +1256,14 @@ pub struct HandView {
 	pub on: bool,
 	pub recording: bool,
 	pub seconds: f64,
+}
+
+/// #527 (agents/research/SCENE-EVENTS.md §6.4): one linked reader drives a session's story at a time, the newest claim wins – the relay's rule (relay session.rs), no reader key. A reader → relay, `{}`: it drives from now on (deck-space relay.rs `Client::drive`, sent only after the person said yes). Relay → every reader of the session, kept for a resume: who drives now, on each claim and when the driver leaves (`driver` missing: nobody) – the reader before it hears it was taken over, a newcomer that it would take over. The welcome's snapshot carries the same `driver`, presence the conductor's (`readers`, `driver`). A reader joins without driving: only the driver's `story` goes on.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct ReaderDrive {
+	/// the driving reader's client id (relay → reader only)
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub driver: Option<String>,
 }
 
 /// #442: a deck → relay → the group `decks`: the absolute addresses its far world nodes name (deck-space rig/address.rs: `/deck:<name>/scene:<id>/character:<id>/<track>:<node>.<port>`), sent on each welcome and again every 10 s while it has any (a subscription not refreshed for 30 s lapses). The deck whose name and rig the address names answers with `deck.events` to this client; the relay never parses an address. Ordered, not kept for replay.

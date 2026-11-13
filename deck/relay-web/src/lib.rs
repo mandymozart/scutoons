@@ -191,13 +191,37 @@ impl RelayClient {
         Ok(())
     }
 
-    /// #518: a story event the reader fired (the VNEvent, JSON) as a `story` message; false: held for the welcome
+    /// #518: a story event the reader fired (the VNEvent, JSON) as a `story` message; false: dropped (#527: it does not
+    /// drive the session's story now)
     pub fn story(&mut self, json: &str) -> Result<bool, JsValue> {
         Ok(self.c.story(parse(json)?))
+    }
+
+    /// #527: this reader drives the session's story from the relay's answer on (the person said yes); false: no reader
+    pub fn drive(&mut self) -> bool {
+        self.c.drive()
+    }
+
+    /// #527: a reader's place in the story (JSON: `{ claim: none | asked | drives | taken_over, other }`)
+    pub fn driving(&self) -> String {
+        serde_json::to_string(&self.c.driving()).unwrap_or_default()
+    }
+
+    /// #527: a conductor's view of the linked readers (JSON: `{ linked: { id: name | null }, driver, last: { type,
+    /// characters, from } }`)
+    pub fn readers(&self) -> String {
+        serde_json::to_string(self.c.readers()).unwrap_or_default()
     }
 
     /// the vote open now as a screen hears it (an envelope, JSON); '' when none is open
     pub fn current_vote(&self) -> String {
         self.c.current_vote().and_then(|e| serde_json::to_string(&e).ok()).unwrap_or_default()
     }
+}
+
+/// #527: the address a linked reader opens – `<base>/<toon>/chapter/<n>?label=<label>&live=<code>` (deck-space linked.rs
+/// `reader_link`; `label` '' = the chapter's start), the same text the deck editor offers
+#[wasm_bindgen]
+pub fn reader_link(base: &str, toon: &str, chapter: u32, label: &str, code: &str) -> String {
+    deck_space::linked::reader_link(base, toon, chapter, Some(label), code)
 }

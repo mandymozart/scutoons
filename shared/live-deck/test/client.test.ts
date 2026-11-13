@@ -245,6 +245,10 @@ function replay(m: RelayModule, s: Script): { groups: Record<string, unknown>[][
 			case 'story':
 				call(() => (core as unknown as { story(j: string): boolean }).story(JSON.stringify(w)));
 				break;
+			// #527: the reader drives the session's story (the viewer's reader-session.ts)
+			case 'drive':
+				call(() => (core as unknown as { drive(): boolean }).drive());
+				break;
 			case 'stop':
 				sock.close();
 				break;

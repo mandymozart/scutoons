@@ -190,7 +190,7 @@ fn the_conductor_says_its_roles_and_who_is_here() {
 
     let present = |group: Option<&str>, nick: Option<&str>, locked: bool| Present { group: group.map(Into::into), nick: nick.map(Into::into), device: None, account: None, locked: locked.then_some(true) };
     let who = [("c3", present(Some("left"), Some("Anna"), false)), ("c4", present(Some("right"), None, true)), ("c5", present(None, Some("phone-7"), false))];
-    let presence = Presence { groups: Default::default(), ready: vec![], decks: None, routes: None, links: None, quality: None, seats: None, parent: None, who: Some(who.into_iter().map(|(k, v)| (k.to_string(), v)).collect()) };
+    let presence = Presence { groups: Default::default(), ready: vec![], decks: None, routes: None, links: None, quality: None, seats: None, parent: None, who: Some(who.into_iter().map(|(k, v)| (k.to_string(), v)).collect()), readers: None, driver: None };
     sub.on_wire(&Envelope::new("relay", Message::Presence(presence)), 2);
     assert_eq!(sub.here(), ["tenor: Anna", "right: c4 (locked)", "no role: phone-7"]);
 }

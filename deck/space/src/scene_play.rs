@@ -173,7 +173,7 @@ impl Playing {
 
 /// the characters a story event's data names, as references: `characters` (joinScene / leaveScene: `{ character, persona? }`,
 /// the old form's `name`), else `character` (a message's speaker: an id, or the same object)
-fn characters(data: Option<&Value>) -> Vec<String> {
+pub(crate) fn characters(data: Option<&Value>) -> Vec<String> {
     let one = |c: &Value| -> Option<String> {
         let id = c.as_str().or_else(|| c.get("character").or_else(|| c.get("name")).and_then(Value::as_str)).filter(|id| !id.is_empty())?;
         Some(match c.get("persona").and_then(Value::as_str).filter(|p| !p.is_empty()) {

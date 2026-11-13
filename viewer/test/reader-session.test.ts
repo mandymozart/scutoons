@@ -90,7 +90,7 @@ test('normal reading: no ?live= names no session, and nobody listens – nothing
 	assert.equal(FakeSocket.all.length, 0, 'no link opened');
 });
 
-test('a reader in a session joins as reader and sends what it fires as story – what came before the welcome at the welcome, in order', { skip: NO_CORE }, async () => {
+test('a reader in a session joins as reader, claims the story at the welcome and sends what it fires only while it drives (#527)', { skip: NO_CORE }, async () => {
 	FakeSocket.all = [];
 	const link = joinSession('ws://relay:7070/live/CATH', { core: await core(), socket: FakeSocket });
 	tellSession(JOIN);
@@ -98,19 +98,29 @@ test('a reader in a session joins as reader and sends what it fires as story –
 	assert.equal(ws.url, 'ws://relay:7070/live/CATH?role=reader');
 	ws.open();
 	assert.deepEqual(ws.sent[0], { v: 1, seq: 0, from: '', kind: 'hello', p: { code: 'CATH', role: 'reader' } });
-	assert.deepEqual(told(ws), [], 'nothing before the welcome');
 	ws.push('welcome', { client: 'c4', snapshot: {}, now: 0 });
 	assert.ok(link.joined);
+	assert.deepEqual(
+		ws.sent.map((e) => e.kind),
+		['hello', 'reader.drive'],
+		'the claim at the welcome'
+	);
 	tellSession(SAY);
-	assert.deepEqual(told(ws), [JOIN, SAY]);
+	assert.deepEqual(told(ws), [], "nothing before the relay's answer");
+	ws.push('reader.drive', { driver: 'c4' });
+	tellSession(SAY);
+	assert.deepEqual(told(ws), [SAY], 'what fired before the answer is dropped, not sent later');
+	ws.push('reader.drive', { driver: 'c9' });
+	tellSession(JOIN);
+	assert.deepEqual(told(ws), [SAY], 'taken over: nothing more');
 	assert.equal(joinSession('ws://relay:7070/live/OTHER'), link, 'one session for the page');
 	leaveSession();
 	tellSession(JOIN);
-	assert.equal(told(ws).length, 2, 'left: nothing more');
+	assert.equal(told(ws).length, 1, 'left: nothing more');
 	listenSession(null);
 });
 
-test('what fires while relay-web still loads reaches the core when it is there, in order', { skip: NO_CORE }, async () => {
+test('what fires while relay-web still loads reaches the core, which drops it: the reader does not drive yet', { skip: NO_CORE }, async () => {
 	FakeSocket.all = [];
 	const loading = core();
 	const link = new ReaderLink({ relay: 'ws://relay:7070/live/CATH', core: loading, socket: FakeSocket });
@@ -121,7 +131,8 @@ test('what fires while relay-web still loads reaches the core when it is there, 
 	const ws = FakeSocket.all[0];
 	ws.open();
 	ws.push('welcome', { client: 'c4', snapshot: {}, now: 0 });
-	assert.deepEqual(told(ws), [JOIN, SAY]);
+	ws.push('reader.drive', { driver: 'c4' });
+	assert.deepEqual(told(ws), []);
 	link.dispose();
 });
 
@@ -150,7 +161,7 @@ const until = async (what: () => boolean) => {
 	}
 };
 
-test("in process: a reader's joinScene reaches the conductor and the deck that asked, as fired", { skip: NO_RELAY }, async () => {
+test("in process: the driving reader's joinScene reaches the conductor and the deck that asked, as fired", { skip: NO_RELAY }, async () => {
 	const port = Number(process.env.LAB_RELAY_PORT ?? 7072) + 4;
 	const env = { ...process.env };
 	delete env.LIVE_TOKEN_SECRET;
@@ -170,6 +181,8 @@ test("in process: a reader's joinScene reaches the conductor and the deck that a
 		const deck = await raw(url, { role: 'musician', group: 'decks' });
 		deck.ws.send(JSON.stringify({ v: 1, seq: 0, from: '', kind: 'deck.story', p: {}, to: { group: 'decks' } }));
 		const link = joinSession(url, { core: core(), socket: WebSocket as never });
+		// #527: it claims at the welcome; what it fires counts once the relay made it the driver (the conductor's presence says so)
+		await until(() => conductor!.msgs.some((m) => m.kind === 'presence' && (m.p as { driver?: string }).driver !== undefined));
 		tellSession(JOIN);
 		await until(() => deck.msgs.some((m) => m.kind === 'story') && conductor!.msgs.some((m) => m.kind === 'story'));
 		for (const c of [conductor, deck]) assert.deepEqual(c.msgs.find((m) => m.kind === 'story')?.p, JOIN);
