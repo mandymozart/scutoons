@@ -1,7 +1,7 @@
 // scene-stage.ts (#463, #465): a scene playing in an element – the renderer every deck draws with, compiled to wasm
 // (deck/space-web `SceneView`). Here only the canvas, its size, the animation frames and the fetches the core asks for.
 import { sniff, spaceModule, stageCanvas, type SpaceModule } from './space.ts';
-import { askPortraits, contentAt, fetchChapter, fetchOutletAsks, fetchSceneAsks, fetchSet, fetchSlice, type ChapterView, type ContentEntry, type OutletView, type PublishedView, type SetView } from './stage-assets.ts';
+import { askPortraits, contentAt, fetchChapter, fetchOutletAsks, fetchSceneAsks, fetchSet, fetchSlice, joinScene, type ChapterView, type ContentEntry, type OutletView, type PublishedView, type SetView } from './stage-assets.ts';
 import { RelaySocket, type RelayCoreView } from './client.ts';
 import { driveLink, ensureLink, type Paired, type SignedIn } from './deck-key.ts';
 import { watchPanel, type PanelView } from './deck-panel.ts';
@@ -34,6 +34,8 @@ export interface SceneOptions {
 	maxScale?: number;
 	/** #465: the Live outlet an `outlet` node shows (relay "" = the hosted show). #478: `reader` – the signed-in reader's name (the deck's when none is kept) */
 	outlet?: { relay: string; name: string; locale: string; reader?: string };
+	/** #520: the session a published scene listens in – its relay ("" = none: it plays alone) and the deck's name */
+	live?: { relay: string; nick?: string };
 	/** #470: the build label the deck names when it asks to be paired */
 	build?: string;
 	/** #484: the viewer's signed-in user, if any (the cookie, or a bearer token) – such a deck is its user and is not paired */
@@ -47,8 +49,9 @@ export class SceneStage {
 	private last = -1;
 	private readonly size: ResizeObserver;
 	private readonly content = new Map<string, Promise<ContentEntry>>();
-	/** #465: the outlet's relay socket (the client is the view's) */
+	/** #465: the outlet's relay socket (the client is the view's); #520: the published scene's own in its session (its link is the view's) */
 	private relay: RelaySocket | null = null;
+	scene: RelaySocket | null = null;
 	private spaceModule: SpaceModule | null = null;
 	/** #470: the deck's pairing and the key it signs with – #484: made only when nobody is signed in (`ensureLink`) */
 	link: Paired | null = null;
@@ -91,17 +94,13 @@ export class SceneStage {
 		if (o.outlet && view.join_outlet(o.outlet.relay, o.outlet.name, kept, o.outlet.reader ?? '', o.outlet.locale, o.api)) {
 			(s.relay = new RelaySocket(view as unknown as RelayCoreView, {})).start();
 		}
+		s.scene = joinScene(view, o.live?.relay, o.live?.nick);
 		s.unwatch = watchPanel(canvas, view);
 		const room = view.room();
 		if (room) void fetchSet(s, mod.SpaceView.encoded_images, sniff, o, room).catch((e) => console.warn('scene: the set failed', e));
 		view.chapters().forEach((path, i) => void fetchChapter(s, o.api + path, i));
 		return s;
 	}
-	/** "webgpu" or "webgl2" */
-	get backend(): string {
-		return this.view.backend();
-	}
-
 	private fit() {
 		const k = Math.min(devicePixelRatio || 1, this.o.maxScale ?? 2);
 		this.view.resize(this.canvas.clientWidth * k, this.canvas.clientHeight * k);
@@ -138,6 +137,7 @@ export class SceneStage {
 	stop() {
 		this.stopped = true;
 		this.relay?.close();
+		this.scene?.close();
 		this.unwatch?.();
 		this.live?.stop();
 		this.link?.view.free();

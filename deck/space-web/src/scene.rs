@@ -13,6 +13,13 @@
 //! (published.rs: the document, scene-content, the resolve step) – the page fetches what it asks (`scene_asks`,
 //! `scene_answer`); the idle scene plays until it is here, then it is the deck's own scene. One that does not play
 //! gives the test pattern, and the core's reason goes to the console. The browser keeps no copy (the HTTP cache).
+//!
+//! It listens (#520, research/SCENE-EVENTS.md §4 E2c): a published scene in a session (`join_scene`, the page names the
+//! relay) has a link of its own – deck-space published.rs `CastLink`, a deck of the session, its socket the page's
+//! (`SceneLink`). The core decides: the cast words of an `address` and the story events the scene's listeners hear, the
+//! story asked for only while it listens. This only moves what came and **switches**: the scene the cast changed to is
+//! the deck's own scene from then on and is changed to through black, as a piece is (the browser deck plays no sound, so
+//! there is no in-place recast to make – live-core is not in this path).
 use crate::outlet::Outlet;
 use crate::{err, frame_for, open_canvas, portrait_asks, set_from_page, CanvasGpu, SPLASH_AT_MOST};
 use deck_engine::control::Controls;
@@ -23,7 +30,7 @@ use deck_space::graph::{Graph, Kind};
 use deck_space::hud::{Alert, Hud};
 use deck_space::quality::MAX_SIDE;
 use deck_space::piece::{Found, Side, Switch};
-use deck_space::published::SceneRef;
+use deck_space::published::{CastLink, SceneRef};
 use deck_space::rig::address::Place;
 use deck_space::scene::{named, Named, Scene, IDLE_SCENE, TEST_PATTERN_SCENE};
 use deck_space::space::portrait::Portraits;
@@ -193,6 +200,9 @@ pub struct SceneView {
     /// #246: the published scene asked for, until it is here; the core's loader asks through `scenes`
     published: Option<SceneRef>,
     scenes: Fetched,
+    /// #520: the published scene's link to the session (`join_scene`); its kept copy, once here (the cast plays from it)
+    cast: Option<Rc<RefCell<CastLink>>>,
+    kept: Option<String>,
 }
 
 #[wasm_bindgen]
@@ -264,7 +274,55 @@ impl SceneView {
             live_at: (1.0, 0.0),
             published,
             scenes: Fetched::default(),
+            cast: None,
+            kept: None,
         })
+    }
+
+    /// #520: join `relay` (ws:// or wss://…/live/<code>) as a deck of its session for the published scene this view plays,
+    /// named `nick` ("" = the core's name) – its socket is the page's (client.ts `RelaySocket` over the returned link).
+    /// None: no relay named, or no published scene.
+    pub fn join_scene(&mut self, relay: &str, nick: &str) -> Result<Option<SceneLink>, JsValue> {
+        if self.published.is_none() && self.kept.is_none() {
+            return Ok(None);
+        }
+        let nick = deck_ui::live::preset_name(None, Some(nick), "browser");
+        let Some(link) = CastLink::join(relay, &nick, "browser").transpose().map_err(err)? else { return Ok(None) };
+        let link = Rc::new(RefCell::new(link));
+        self.cast = Some(link.clone());
+        self.cast_play();
+        Ok(Some(SceneLink { link }))
+    }
+
+    /// #520: the published scene's kept copy to its link – the cast it plays from
+    fn cast_play(&self) {
+        let Some(link) = self.cast.as_ref() else { return };
+        if let Err(e) = link.borrow_mut().play(self.kept.as_deref()) {
+            web_sys::console::warn_1(&JsValue::from_str(&format!("scene: no cast words or story while it plays: {e}")));
+        }
+    }
+
+    /// #520: what came for the scene through its link went to the core; the scene its cast changed to is the deck's own
+    /// scene now – switched to through black while it plays (the piece side plays no piece), else when black comes back
+    fn cast_turn(&mut self) {
+        let Some(link) = self.cast.as_ref() else { return };
+        let (said, changed) = {
+            let mut l = link.borrow_mut();
+            (l.said(), l.changed())
+        };
+        for line in said {
+            web_sys::console::log_1(&JsValue::from_str(&line));
+        }
+        match changed {
+            Some(Ok(text)) => {
+                self.deck = text;
+                if self.side.as_ref().and_then(|s| s.pieces().piece()).is_none() {
+                    self.change.ask(&self.deck);
+                }
+            }
+            Some(Err(e)) => web_sys::console::warn_1(&JsValue::from_str(&format!("scene: the changed cast is not played: {e}"))),
+            None => {}
+        }
     }
 
     /// #246: what the page fetches for the published scene: key (`scene:<id>`) and path after the API's base, in pairs
@@ -300,9 +358,11 @@ impl SceneView {
                 TEST_PATTERN_SCENE.to_string()
             }
         };
+        self.kept = self.scenes.kept(r).map(String::from);
         self.published = None;
         self.deck = text.clone();
         self.change.ask(&text);
+        self.cast_play();
     }
 
     /// #478: where the page goes – `density` canvas pixels per CSS pixel, `top` canvas pixels covered by the page's line
@@ -786,6 +846,7 @@ impl SceneView {
         let dt = dt.clamp(0.0, 0.1);
         self.published();
         self.pieces(time);
+        self.cast_turn();
         self.age += dt;
         let veil = self.through_black(dt);
         for p in &mut self.show.pumps {
@@ -848,5 +909,68 @@ impl SceneView {
         self.queue.submit([enc.finish()]);
         self.queue.present(frame);
         Ok(())
+    }
+}
+
+/// #520: a published scene's link to its session (deck-space published.rs `CastLink`), driven by the page's socket
+/// (client.ts `RelaySocket` – the names are relay-web's); what comes for the scene the view takes (`SceneView::frame`).
+#[wasm_bindgen]
+pub struct SceneLink {
+    link: Rc<RefCell<CastLink>>,
+}
+
+#[wasm_bindgen]
+impl SceneLink {
+    pub fn start(&self, now: f64) {
+        self.link.borrow_mut().relay_at(now).start(now);
+    }
+
+    pub fn opened(&self, now: f64) {
+        self.link.borrow_mut().relay_at(now).opened(now);
+    }
+
+    pub fn closed(&self, now: f64, why: &str) {
+        self.link.borrow_mut().relay_at(now).closed(now, why);
+    }
+
+    pub fn text(&self, now: f64, data: &str) {
+        self.link.borrow_mut().relay_at(now).text(now, data);
+    }
+
+    pub fn quic_opened(&self, now: f64) {
+        self.link.borrow_mut().relay_at(now).quic_opened(now);
+    }
+
+    pub fn quic_closed(&self, now: f64, why: &str) {
+        self.link.borrow_mut().relay_at(now).quic_closed(now, why);
+    }
+
+    pub fn quic_stream(&self, now: f64, bytes: &[u8]) {
+        self.link.borrow_mut().relay_at(now).quic_stream(now, bytes);
+    }
+
+    pub fn quic_datagram(&self, now: f64, bytes: &[u8]) {
+        self.link.borrow_mut().relay_at(now).quic_datagram(now, bytes);
+    }
+
+    pub fn tick(&self, now: f64) {
+        self.link.borrow_mut().relay_at(now).tick(now);
+    }
+
+    pub fn stop(&self) {
+        self.link.borrow_mut().relay().stop();
+    }
+
+    pub fn next_wake(&self) -> Option<f64> {
+        self.link.borrow().client().next_wake()
+    }
+
+    /// what the socket should do (JSON, as relay-web's `take`); what came for the scene stays here
+    pub fn take(&self) -> String {
+        serde_json::to_string(&self.link.borrow_mut().take()).unwrap_or_else(|_| "[]".into())
+    }
+
+    pub fn line(&self) -> String {
+        self.link.borrow().client().line()
     }
 }

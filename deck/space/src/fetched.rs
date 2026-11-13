@@ -8,7 +8,9 @@
 //! document, then scene-content for what it needs, each an ask (`scene`, `answered` – `reply` takes either kind of
 //! answer); the browser deck's `?scene=` starts one, and a flash's check one for each piece `scene:<id>` the deck does
 //! not carry (#513, deck-show flashed.rs). A deck with a cache of its own (the native deck) drives the same loader with
-//! its copy and hands the outcome back (`loaded`). A bare rig (`rig:<id>`) stays "not on this deck".
+//! its copy and hands the outcome back (`loaded`). A bare rig (`rig:<id>`) stays "not on this deck". #520: what the
+//! loader would have a host keep of a scene it fetched (`Loaded::store`) stays here (`kept`) – the browser deck, which
+//! keeps no cache file, plays its cast from it (published.rs `CastLink`).
 use crate::piece::Found;
 use crate::published::{Load, SceneRef, Step};
 use crate::rig::address::Place;
@@ -35,6 +37,8 @@ pub struct Fetched {
     asks: Vec<(Place, String)>,
     /// nothing is asked for: the deck plays what it carries
     carried_only: bool,
+    /// #520: each published scene here, as the loader would have a host keep it (`Loaded::store`)
+    kept: HashMap<Place, String>,
 }
 
 /// Where `place` is asked for: the path after the API's base. None = no place serves its kind.
@@ -109,6 +113,8 @@ impl Fetched {
     /// again (#513: a new version reaches a deck at its next flash – SCENES.md §4; an unchanged one costs its document).
     pub fn again(&mut self) {
         self.got.retain(|p, g| !matches!(g, Got::Failed(_)) && !(p.kind == "scene" && matches!(g, Got::Have(_))));
+        let got = &self.got;
+        self.kept.retain(|p, _| got.contains_key(p));
     }
 
     /// what the platform fetches now: the piece and its path (`path`)
@@ -130,6 +136,12 @@ impl Fetched {
         let (load, step) = Load::start(r.clone(), None);
         self.step(place.clone(), Box::new(load), step);
         self.find(&place)
+    }
+
+    /// #520: the published scene `r` as the loader would have a host keep it (`Loaded::store`: the document and
+    /// scene-content's answer as they came) – None: not here, or it played without its sources (not kept)
+    pub fn kept(&self, r: &SceneRef) -> Option<&str> {
+        self.kept.get(&Place::new("scene", &r.id)).map(String::as_str)
     }
 
     /// #246: the platform's answer to a scene's ask: the HTTP status (0 = the server can't be reached) and the body
@@ -164,13 +176,21 @@ impl Fetched {
 
     /// the loader's step: asked again, played (its TOML) or failed
     fn step(&mut self, place: Place, load: Box<Load>, step: Step) {
+        if !matches!(step, Step::Ask(_)) {
+            self.kept.remove(&place);
+        }
         let got = match step {
             Step::Ask(at) => {
                 self.asks.push((place.clone(), at));
                 Got::Loading(load)
             }
             Step::Play(l) => match l.text() {
-                Ok(text) => Got::Have(Found::Scene(text)),
+                Ok(text) => {
+                    if let Some(kept) = l.store {
+                        self.kept.insert(place.clone(), kept);
+                    }
+                    Got::Have(Found::Scene(text))
+                }
                 Err(why) => Got::Failed(why),
             },
             Step::Fail(why) => Got::Failed(why),
@@ -251,6 +271,11 @@ mod tests {
         f.answered(&place, 200, ANSWER);
         let Some(Found::Scene(text)) = f.scene(&r) else { panic!("nave's TOML") };
         assert_eq!(crate::scene::Scene::parse(&text).unwrap().being_character(), "catpope");
+        // #520: what a host would keep of it, for its cast (the browser keeps no file)
+        let kept = f.kept(&r).expect("kept");
+        assert!(crate::published::Cast::from_cache(kept).is_ok());
+        f.again();
+        assert!(f.kept(&r).is_none(), "loaded again: the copy goes with it");
         // unknown: said once, asked again next time
         let crypt = crate::published::SceneRef::parse("scene:crypt").unwrap().unwrap();
         assert!(f.scene(&crypt).is_none());

@@ -22,6 +22,10 @@
 //!   list (F5) by its stage's name.
 //! - **Cast while it plays** (#517): `Cast` is the cached scene as the core's playing scene (scene_play.rs) – the cast
 //!   words of an `address` and the story events its listeners hear change who stands on it; the host loads what it resolves to.
+//! - **A link of its own** (#520): `CastLink` – a deck without a space link (the browser deck) joins the session for its
+//!   published scene as a deck of the session, asks for the readers' story while the scene listens and hands what comes
+//!   to the `Cast`; the host drives the socket and loads the scene the cast changed to.
+use crate::relay::{Client, In, Options, Out, DECKS};
 use crate::rig::bundle::Bundle;
 use crate::rig::content::{safe_id, SceneRigs};
 use crate::scene::Scene;
@@ -184,6 +188,120 @@ impl Cast {
         let rig = |subject: &str, version: Option<&str>| rig_of(rigs, subject).or_else(|| core_rigs(subject, version));
         let set = |location: &str| sets.set_of(location);
         self.playing.story(event, &rig, &set)
+    }
+
+    /// #520: what came for it through a link (`In::Address`: a cast word, `In::Story`: a story event), as a host hands it
+    /// on; anything else is not the scene's
+    pub fn came(&mut self, came: In) -> Vec<Recast> {
+        match came {
+            In::Address { address, action } => vec![self.word(&address, &action)],
+            In::Story(event) => self.story(&event.into()),
+            _ => Vec::new(),
+        }
+    }
+}
+
+/// #520: a published scene playing on a deck that has no space link (the browser deck): the deck joins the session for it
+/// as a deck of the session (a musician of the decks, as the native deck's link joins) and plays the scene's `Cast`. Sans
+/// IO: the host's socket drives the relay client (`relay`, `relay_at`, `take`), the host says which scene plays (`play`:
+/// the loader's kept copy, `Fetched::kept`) and loads the scene the cast changed to (`changed`). While the scene listens
+/// the client asks the session for the readers' story (`deck.story`); what comes for it goes to the cast as it came.
+pub struct CastLink {
+    relay: Client,
+    cast: Option<Cast>,
+    /// the host's clock at its last call (ms): the story's ask is renewed on it
+    now: f64,
+    /// the cast changed since the host last loaded it
+    changed: bool,
+    /// what the cast's words did, for the host's log, until it reads them
+    said: Vec<String>,
+}
+
+impl CastLink {
+    /// Join `relay` (ws:// or wss://…/live/<code>) as a deck of its session, named `nick` on `device`. None: no relay is
+    /// named – the scene plays alone; Err: a relay that is no relay.
+    pub fn join(relay: &str, nick: &str, device: &str) -> Option<Result<CastLink, String>> {
+        let relay = relay.trim();
+        if relay.is_empty() {
+            return None;
+        }
+        let mut o = Options::new(relay, protocol::Role::Musician, Some(DECKS));
+        o.nick = Some(nick.to_string()).filter(|n| !n.trim().is_empty());
+        o.device = Some(device.to_string()).filter(|d| !d.is_empty());
+        Some(Client::new(o).map(|relay| CastLink { relay, cast: None, now: 0.0, changed: false, said: Vec::new() }))
+    }
+
+    /// the relay client, for a call of the host's socket at its clock `now` (ms)
+    pub fn relay_at(&mut self, now: f64) -> &mut Client {
+        self.now = now;
+        &mut self.relay
+    }
+
+    /// the relay client, for a call without the clock
+    pub fn relay(&mut self) -> &mut Client {
+        &mut self.relay
+    }
+
+    pub fn client(&self) -> &Client {
+        &self.relay
+    }
+
+    /// The deck plays the published scene of this kept copy (the loader's, `Fetched::kept`); None: another scene, or no
+    /// copy – no cast. Err: why the scene takes no cast words or story (it plays on as it is).
+    pub fn play(&mut self, kept: Option<&str>) -> Result<(), String> {
+        self.changed = false;
+        let (cast, said) = match kept.map(Cast::from_cache).transpose() {
+            Ok(cast) => (cast, Ok(())),
+            Err(e) => (None, Err(e)),
+        };
+        self.cast = cast;
+        self.relay.set_story(self.now, self.listens());
+        said
+    }
+
+    /// the playing scene's cast, if it has one
+    pub fn cast(&self) -> Option<&Cast> {
+        self.cast.as_ref()
+    }
+
+    /// whether the playing scene listens to story events (the client asks for them while it does)
+    pub fn listens(&self) -> bool {
+        self.cast.as_ref().is_some_and(|c| c.playing().listens())
+    }
+
+    /// What the client asks of the host's socket and tells it (relay.rs `Out`); what came for the scene went to its cast
+    /// first, and the session's other news is not the scene's.
+    pub fn take(&mut self) -> Vec<Out> {
+        let mut out = Vec::new();
+        for o in self.relay.take() {
+            match o {
+                Out::Deck(came @ (In::Address { .. } | In::Story(_))) => self.came(came),
+                Out::Deck(_) => {}
+                o => out.push(o),
+            }
+        }
+        out
+    }
+
+    fn came(&mut self, came: In) {
+        let Some(cast) = self.cast.as_mut() else { return };
+        for r in cast.came(came).into_iter().filter(|r| *r != Recast::NotMine) {
+            self.said.push(format!("scene: {r:?} – {}", cast.playing().log().last().unwrap_or_default()));
+            self.changed |= matches!(r, Recast::Changed { .. });
+        }
+    }
+
+    /// the scene the cast changed to (TOML), once – the host loads it in place of the one before; Err: why it can't
+    pub fn changed(&mut self) -> Option<Result<String, String>> {
+        if !std::mem::take(&mut self.changed) {
+            return None;
+        }
+        self.cast.as_ref().map(Cast::text)
+    }
+
+    /// what the cast's words did since the host last asked, for its log
+    pub fn said(&mut self) -> Vec<String> {
+        std::mem::take(&mut self.said)
     }
 }
 
@@ -528,6 +646,99 @@ mod tests {
         let (mut load, step) = Load::start(SceneRef { version: Some(3), ..r }, Some(&kept));
         assert_eq!(ask(&step), "/scenes/nave?v=3");
         assert!(matches!(load.answer(0, ""), Step::Fail(_)));
+    }
+
+    /// the template `scene:stage` as the loader keeps it (no sources: it names none) – with these listeners, or none
+    fn stage_kept(listener: Option<Value>) -> String {
+        let mut doc: Value = serde_json::from_str(include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../server/tests/fixtures/scenes/templates/stage.json"))).unwrap();
+        if let Some(l) = listener {
+            doc["listener"] = l;
+        }
+        let (mut load, _) = Load::start(SceneRef::parse("scene:stage").unwrap().unwrap(), None);
+        play(load.answer(200, &published(&doc.to_string(), 3))).store.expect("the stage is kept")
+    }
+
+    /// a relay's envelope as the socket brings it
+    fn envelope(seq: u64, from: &str, kind: &str, p: Value) -> String {
+        serde_json::json!({ "v": 1, "seq": seq, "from": from, "kind": kind, "p": p }).to_string()
+    }
+
+    /// a deck's link, joined as `client` (its socket opened, the relay's welcome) – the kinds it sent
+    fn joined(link: &mut CastLink, client: &str) -> Vec<String> {
+        link.relay_at(0.0).start(0.0);
+        link.relay_at(1.0).opened(1.0);
+        link.relay_at(2.0).text(2.0, &envelope(1, "relay", "welcome", serde_json::json!({ "client": client, "snapshot": {}, "now": 0, "key": "k" })));
+        sent(link)
+    }
+
+    /// the kinds of what the link sent since
+    fn sent(link: &mut CastLink) -> Vec<String> {
+        link.take()
+            .into_iter()
+            .filter_map(|o| match o {
+                Out::Send(text) => serde_json::from_str::<Value>(&text).ok()?.get("kind")?.as_str().map(String::from),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn standing(link: &CastLink) -> Vec<(String, String)> {
+        link.cast().unwrap().playing().resolved().cast.iter().map(|m| (m.holder.clone(), m.place.clone())).collect()
+    }
+
+    /// #520 (plan E2c): the browser deck's link – a deck of the session for its published scene. A listening `scene:stage`
+    /// asks for the story; a reader's `joinScene` with Cat Pope puts her at `left` and the changed scene is the host's to
+    /// load; a scene without a listener asks nothing and a story changes nothing; the cast word `join:character:catpope`
+    /// does the same as the event.
+    #[test]
+    fn a_link_of_its_own_takes_the_story_and_cast_words_into_the_playing_scene() {
+        let join = serde_json::json!({ "type": "joinScene", "id": "ch3-e12", "params": { "characters": [{ "character": "catpope" }] } });
+        let mut listens = CastLink::join("ws://127.0.0.1:7070/live/LISTEN", "listens", "browser").unwrap().unwrap();
+        listens.play(Some(&stage_kept(Some(serde_json::json!([{ "on": "joinScene", "do": "join" }]))))).unwrap();
+        assert!(listens.listens() && standing(&listens).is_empty(), "the stage plays empty");
+        assert!(joined(&mut listens, "c1").contains(&"deck.story".to_string()), "it asks for the story once joined");
+        listens.relay_at(3.0).text(3.0, &envelope(2, "r1", "story", join.clone()));
+        let sent = sent(&mut listens);
+        assert!(sent.is_empty(), "nothing goes out: {sent:?}");
+        let scene = listens.changed().expect("the cast changed").unwrap();
+        assert_eq!(standing(&listens), [("left".to_string(), "character:catpope".to_string())], "Cat Pope stands at left");
+        assert!(scene.contains("left_look"), "the scene to load has her look at left");
+        assert_eq!(listens.changed(), None, "once");
+        assert!(listens.said()[0].starts_with("scene: Changed"));
+        // the same event again: she stands there – nothing to load
+        listens.relay_at(4.0).text(4.0, &envelope(3, "r1", "story", join.clone()));
+        listens.take();
+        assert_eq!(listens.changed(), None);
+
+        // no listener: no ask, a story changes nothing
+        let mut quiet = CastLink::join("ws://127.0.0.1:7070/live/LISTEN", "quiet", "browser").unwrap().unwrap();
+        quiet.play(Some(&stage_kept(None))).unwrap();
+        assert!(!quiet.listens());
+        assert!(!joined(&mut quiet, "c2").contains(&"deck.story".to_string()), "a scene that does not listen asks nothing");
+        quiet.relay_at(3.0).text(3.0, &envelope(2, "r1", "story", join));
+        quiet.take();
+        assert_eq!(quiet.changed(), None);
+        assert!(standing(&quiet).is_empty(), "without a listener: nothing");
+
+        // the cast word, as the conductor's `address` brings it: the same, and another scene's word is not its
+        quiet.relay_at(5.0).text(5.0, &envelope(3, "cond", "address", serde_json::json!({ "id": "a1", "address": "scene:nave", "action": "join:character:catpope" })));
+        quiet.take();
+        assert_eq!(quiet.changed(), None, "another scene's word");
+        quiet.relay_at(6.0).text(6.0, &envelope(4, "cond", "address", serde_json::json!({ "id": "a2", "address": "scene:stage", "action": "join:character:catpope" })));
+        quiet.take();
+        assert!(quiet.changed().is_some_and(|s| s.is_ok_and(|s| s.contains("left_look"))));
+        assert_eq!(standing(&quiet), [("left".to_string(), "character:catpope".to_string())]);
+        // another scene plays: no cast, the ask ends
+        listens.play(None).unwrap();
+        assert!(!listens.listens() && listens.cast().is_none());
+    }
+
+    #[test]
+    fn a_link_joins_only_a_named_relay() {
+        assert!(CastLink::join(" ", "x", "browser").is_none(), "no relay: the scene plays alone");
+        assert!(matches!(CastLink::join("http://nowhere", "x", "browser"), Some(Err(_))));
+        let mut link = CastLink::join("ws://127.0.0.1:7070/live/X", "", "browser").unwrap().unwrap();
+        assert!(link.play(Some("not a kept copy")).is_err() && link.cast().is_none());
     }
 
     #[test]
