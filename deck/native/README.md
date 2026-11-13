@@ -20,7 +20,11 @@ cd deck && cargo run --release -p deck-native -- --windowed
 `idle`, `silent`, `outlet`, `test-pattern` by name; a sandbox of `scenes/sandbox/` (`madness`, `cathedral`, `conductor` …) by name only
 in dev mode, #427; `--scene rig:catpope[@mood]` = a core rig – `rig:item.incense_burner` an
 item's –, played by deck-space's `Deck` as on every deck (#322, src/rig.rs: flattened, in the staging – its character's home set, none yet: no set, #427 –, replayed when
-the being's mood turns; no such rig = the silent scene: the being, no sound, #425)) · `--sets DIR` (a local folder of sets instead of the synced
+the being's mood turns; no such rig = the silent scene: the being, no sound, #425); `--scene scene:nave[@3]` (or deck.toml
+`scene = "scene:nave"`) = a published scene from the API (#246, src/published.rs over deck-space published.rs: the document,
+scene-content for its location's set and its fillers' rigs, the core's resolve step), kept in `<cache>/scenes/<id>.json` by
+version – an unchanged version fetches only the document, a new one replaces the copy, offline the copy plays; an unknown or
+broken one plays the test pattern with the core's reason) · `--sets DIR` (a local folder of sets instead of the synced
 `<cache>/sets`, `DECK_SETS` – e.g. `../media/scutoons/rooms`, tools/rooms' output) · `--portraits DIR` (a local folder
 of the heads' sprites instead of the synced `<cache>/portraits`, `DECK_PORTRAITS` – e.g. `../media/characters`) ·
 `DECK_TOKEN` (a fixed deck token for the API and show media – a dev deck; a deck reads deck-link's, #180) · `--token T`

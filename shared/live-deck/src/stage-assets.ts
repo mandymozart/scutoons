@@ -1,6 +1,7 @@
 // stage-assets.ts (#465): what a stage asks the page to fetch and decode – a set's .glb and its images, a head's sprites.
 // The asking and the use are the core's (deck/space-web); here only the fetches and the browser's image decoder.
 import { fetchProof, fetchShowLink, type DeckLinkView, type SignedIn, type SignedView } from './deck-key.ts';
+export { fetchSceneAsks, type PublishedView } from './published.ts';
 export interface SetView {
 	give_set(glb: Uint8Array, images: unknown[]): void;
 	backend(): string;

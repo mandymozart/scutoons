@@ -12,6 +12,7 @@ pub mod live;
 pub mod modules;
 #[cfg(feature = "modules")]
 pub mod module_host;
+pub mod published;
 pub mod render;
 pub mod quality;
 pub mod rig;

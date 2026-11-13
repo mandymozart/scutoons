@@ -93,7 +93,9 @@ pub fn files_of(scenario: &str) -> Vec<String> {
         let ps = s.get("pieces").and_then(|p| p.as_table()).map(|t| t.values().cloned().collect::<Vec<_>>()).unwrap_or_default();
         ps.iter().flat_map(|p| [named(p, "scene"), named(p, "bundle")]).flatten().collect()
     };
-    let mut out: Vec<String> = steps.iter().flat_map(|s| [named(s, "scene"), named(s, "show"), named(s, "document"), named(s, "content")].into_iter().flatten().chain(pieces(s))).collect();
+    // #246: a published scene's scripted answers (`answers = [{ status, file }]`)
+    let answers = |s: &toml::Value| -> Vec<String> { s.get("answers").and_then(|a| a.as_array()).into_iter().flatten().filter_map(|a| named(a, "file")).collect() };
+    let mut out: Vec<String> = steps.iter().flat_map(|s| [named(s, "scene"), named(s, "show"), named(s, "document"), named(s, "content")].into_iter().flatten().chain(pieces(s)).chain(answers(s))).collect();
     out.sort();
     out.dedup();
     out
@@ -135,6 +137,9 @@ struct Run<'a> {
     /// #496: the last scene document resolved (its stage), and its pick once a `pick` step asked
     resolved: Option<Scene>,
     stage: Option<stage::Stage>,
+    /// #246: the published scenes this deck keeps (a native deck's `<cache>/scenes/`): scene id → the core's cache entry; a
+    /// `reset` (a restart) keeps it
+    kept: BTreeMap<String, String>,
 }
 
 /// Run one bundled scenario → its report (the same on every target)
@@ -159,7 +164,7 @@ pub fn run_paced(bundle: &Bundle, pace: Option<Box<dyn FnMut(f64)>>) -> Report {
     let rate = t.get("rate").and_then(|v| v.as_integer()).unwrap_or(48_000) as f32;
     let channels = t.get("channels").and_then(|v| v.as_integer()).unwrap_or(2) as usize;
     let expected = t.get("expected_fail").and_then(|v| v.as_str()).map(String::from);
-    let mut r = Run { bundle, deck: Deck::new(rate, channels), show: None, governor: None, gov_t: 0.0, marks: BTreeMap::new(), opinions: Resolver::new(), resolved: None, stage: None };
+    let mut r = Run { bundle, deck: Deck::new(rate, channels), show: None, governor: None, gov_t: 0.0, marks: BTreeMap::new(), opinions: Resolver::new(), resolved: None, stage: None, kept: BTreeMap::new() };
     r.deck.pace = pace;
     let steps = t.get("step").and_then(|s| s.as_array()).cloned().unwrap_or_default();
     let mut fault = None;
@@ -374,6 +379,44 @@ impl Run<'_> {
             let facts = json!({ "cast": cast, "stage_3d": stage_3d, "slots": r.cast.iter().map(|m| m.slots.clone()).collect::<Vec<_>>(), "notes": r.notes, "location": r.location, "set": set, "media": media });
             return Ok((e.scene, e.page.iter().map(|n| n.id.clone()).collect(), facts));
         }
+        // #246: a published scene (`published = "scene:<id>[@v]"`) by the core's loader (deck-space published.rs): the API's
+        // answers scripted in order (`answers`: `{ status, file }`, status 0 = unreachable), the run's cache (`kept`) as a deck's
+        if let Some(reference) = step.get("published").and_then(|v| v.as_str()) {
+            use deck_space::published::{Load, SceneRef, Step};
+            let r = SceneRef::parse(reference).ok_or_else(|| err(format!("'{reference}' is no scene:<id>")))?.map_err(err)?;
+            let mut answers = Vec::new();
+            for a in step.get("answers").and_then(|v| v.as_array()).into_iter().flatten() {
+                let status = a.get("status").and_then(|v| v.as_integer()).unwrap_or(200) as u16;
+                let body = match a.get("file").and_then(|v| v.as_str()) {
+                    Some(path) => self.file(path)?.to_string(),
+                    None => String::new(),
+                };
+                answers.push((status, body));
+            }
+            let mut answers = answers.into_iter();
+            let (mut load, mut next) = Load::start(r.clone(), self.kept.get(&r.id).map(String::as_str));
+            let mut asked = Vec::new();
+            let l = loop {
+                match next {
+                    Step::Ask(path) if asked.len() < 8 => {
+                        asked.push(path);
+                        let (status, body) = answers.next().unwrap_or((0, String::new()));
+                        next = load.answer(status, &body);
+                    }
+                    Step::Ask(_) => return Err(err(format!("{r}: the loader keeps asking"))),
+                    Step::Play(l) => break *l,
+                    Step::Fail(why) => return Err(err(why)),
+                }
+            };
+            if let Some(text) = &l.store {
+                self.kept.insert(r.id.clone(), text.clone());
+            }
+            let e = deck_space::rig::engine::lower(&l.scene).map_err(|e| err(format!("{e:#}")))?;
+            (self.resolved, self.stage) = (Some(l.scene.clone()), None);
+            let set = l.scene.nodes.iter().find(|n| n.kind == "space").and_then(|n| n.params.get("set")).and_then(|v| v.as_str());
+            let facts = json!({ "version": l.version, "cached": l.cached, "asked": asked, "notes": l.notes, "set": set, "character": l.scene.being_character() });
+            return Ok((e.scene, e.page.iter().map(|n| n.id.clone()).collect(), facts));
+        }
         // #425: no rig plays – the deck's own scene, silent (what `Deck::new` and `play_core` of a character without a rig play)
         if step.get("silent").and_then(|v| v.as_bool()).unwrap_or(false) {
             let played = deck_space::rig::Played::silent().map_err(|e| err(format!("{e:#}")))?;
@@ -422,7 +465,7 @@ impl Run<'_> {
                 let table = self.deck.load(&toml).map_err(Fault::Error)?;
                 let ids: Vec<Value> = table["nodes"].as_array().map(|ns| ns.iter().map(|n| n["id"].clone()).collect()).unwrap_or_default();
                 // a scene document's facts are its stage's (#492), a rig's the rig's
-                let key = if step.contains_key("document") { "stage" } else { "rig" };
+                let key = if step.contains_key("document") || step.contains_key("published") { "stage" } else { "rig" };
                 let mut out = json!({ "nodes": ids.len(), "ids": ids, "page": page, "channels": table["channels"] });
                 out[key] = facts;
                 out

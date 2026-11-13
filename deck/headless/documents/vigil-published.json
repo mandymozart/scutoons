@@ -1,0 +1,27 @@
+{
+  "status": "success",
+  "scene": {
+    "format": 2,
+    "id": "vigil",
+    "version": 1,
+    "toons": [
+      "catpope"
+    ],
+    "location": "location:cathedral",
+    "holder": [
+      {
+        "id": "pope",
+        "ref": "character:catpope"
+      }
+    ],
+    "stage": {
+      "name": "Vigil"
+    },
+    "node": [
+      {
+        "id": "space",
+        "kind": "space"
+      }
+    ]
+  }
+}

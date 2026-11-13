@@ -1,14 +1,14 @@
 // scene-stage.ts (#463, #465): a scene playing in an element – the renderer every deck draws with, compiled to wasm
 // (deck/space-web `SceneView`). Here only the canvas, its size, the animation frames and the fetches the core asks for.
 import { sniff, spaceModule, stageCanvas, type SpaceModule } from './space.ts';
-import { askPortraits, contentAt, fetchChapter, fetchOutletAsks, fetchSet, fetchSlice, type ChapterView, type ContentEntry, type OutletView, type SetView } from './stage-assets.ts';
+import { askPortraits, contentAt, fetchChapter, fetchOutletAsks, fetchSceneAsks, fetchSet, fetchSlice, type ChapterView, type ContentEntry, type OutletView, type PublishedView, type SetView } from './stage-assets.ts';
 import { RelaySocket, type RelayCoreView } from './client.ts';
 import { driveLink, ensureLink, type Paired, type SignedIn } from './deck-key.ts';
 import { watchPanel, type PanelView } from './deck-panel.ts';
 import { LivePage, readKept, type LiveView } from './live-page.ts';
 
 /** #463: the wasm-bindgen API of deck/space-web's `SceneView` */
-export interface SceneView extends SetView, ChapterView, OutletView, PanelView, LiveView {
+export interface SceneView extends SetView, ChapterView, OutletView, PanelView, LiveView, PublishedView {
 	join_outlet(relay: string, outlet: string, kept: string, reader: string, locale: string, api: string): boolean;
 	deck_link(why: string, code: string, app: string, signed: boolean): void;
 	set_request(): string;
@@ -28,7 +28,7 @@ export interface SceneOptions {
 	/** the library API and the CDN (ends with /) */
 	api: string;
 	cdn: string;
-	/** a built-in scene's name or a scene document; none = the core's default, the idle scene */
+	/** a built-in scene's name, a scene document or a published scene `scene:<id>[@v]` (#246); none = the core's default, the idle scene */
 	scene?: string;
 	prefer?: 'auto' | 'webgl2';
 	maxScale?: number;
@@ -97,7 +97,6 @@ export class SceneStage {
 		view.chapters().forEach((path, i) => void fetchChapter(s, o.api + path, i));
 		return s;
 	}
-
 	/** "webgpu" or "webgl2" */
 	get backend(): string {
 		return this.view.backend();
@@ -116,6 +115,7 @@ export class SceneStage {
 		const at = this.view.reloaded();
 		if (at >= 0) this.view.chapters().forEach((path, i) => void fetchChapter(this, this.o.api + path, at + i));
 		askPortraits(this, this.o.cdn, (kind, id) => contentAt(this.o.api, this.content, kind, id));
+		fetchSceneAsks(this, this.o.api);
 		const asked = this.view.slice_requests();
 		for (let i = 0; i + 1 < asked.length; i += 2) void fetchSlice(this, this.o.cdn + (asked[i + 1] as string), asked[i] as number);
 		this.live?.frame();
