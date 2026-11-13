@@ -19,8 +19,8 @@
 //
 // Steps: the bridge guard (check:core-only, check:deck-deps – #363), the protocol schema current (shared/live), the kind catalog's generated files current (deck-space's deck-schema
 // --check: kinds.json, the JSON Schema, shared/live/src/catalog.ts), live-core for wasm32 + simd128 (its gz size under the gate) + its TS tests, deck-engine for wasm32 + simd128 (its gz size under the gate), space-web for wasm32 (its gz size reported, no gate – owner 2026-11-11), deck-outlet + deck-ui for wasm32 (#378, #374), deck-show for wasm32 +
-// shared/live-deck's tests, the release profile (checked; built in the full tier), cargo test with the stage's and the engine's module features (the headless deck host's
-// scenarios run in it: headless/tests/scenarios.rs), cargo clippy -D warnings with the same features. The Linux aarch64 cross build
+// shared/live-deck's tests, the release profile (checked; built in the full tier), cargo test (the headless deck host's scenarios run in it:
+// headless/tests/scenarios.rs) + the stage's and the engine's module tests, one cargo clippy -D warnings over the module feature union. The Linux aarch64 cross build
 // and the other platforms stay on GitHub (by hand) – this runs the host's native target.
 import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
@@ -73,7 +73,7 @@ const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const deck = `${root}/deck`;
 /** an npm step's inputs beyond WATCH (its stamp key) */
 const NODE = ['package.json', 'package-lock.json'];
-/** the stage's and the engine's module features, not in their defaults: one feature union for tests and clippy (#305, #342, #524) */
+/** the stage's and the engine's module features, not in their defaults: one feature union for clippy (#305, #342, #524) */
 const MODULES = ['--features', 'deck-native/modules,deck-engine/events,deck-engine/modules'];
 /** { name, cmd, argv, cwd, env?, after?, paths? (beyond WATCH), stamp? (false: always runs) } */
 const step = (name, cmd, argv, cwd, more = {}) => ({ name, cmd, argv, cwd, ...more });
@@ -121,10 +121,16 @@ const steps = [
 					? step('🦀 release build', 'cargo', ['build', '--release'], deck)
 					: step('🦀 release check', 'cargo', ['check', '--release', '--workspace'], deck)
 			]),
-	// the workspace's tests with the module features (#524: the stage's module tests and the engine's module node join through
-	// the feature union); the headless deck host's scenarios run here (headless/tests/scenarios.rs, the same files and the same
-	// pass / xfail / FAIL as `cargo run -p deck-headless --bin deck-scenarios`), native ≡ wasm32 ≡ simd128 in its tests/wasm.rs
-	step('🦀 tests', 'cargo', ['test', '--workspace', ...MODULES], deck),
+	// the headless deck host's scenarios run here (headless/tests/scenarios.rs, the same files and the same pass / xfail / FAIL
+	// as `cargo run -p deck-headless --bin deck-scenarios`), native ≡ wasm32 ≡ simd128 in its tests/wasm.rs
+	step('🦀 tests', 'cargo', ['test', '--workspace'], deck),
+	// the stage's `modules` feature is not in its default, so the workspace run never builds it (#305). Not in the feature union
+	// of the tests (#524): with deck-native/modules the conformance tests keep the module nodes (deck_native::modules::carried_part)
+	// and their graph fails ("unknown kind 'module:stepseq'", control_rate) – that is a change of the tests, not of deck:ci
+	step('🧩 module tests', 'cargo', ['test', '-p', 'deck-native', '--features', 'modules', '--test', 'modules'], deck),
+	// #342: the engine's module node (channels, control outputs, control-domain modules, the event host) behind stand-ins
+	step('🧩 engine module tests', 'cargo', ['test', '-p', 'deck-engine', '--features', 'events,modules', '--lib', 'module'], deck),
+	// one clippy over the feature union (#524; was three runs: workspace, deck-native modules, deck-engine events + modules)
 	step('🦀 clippy', 'cargo', ['clippy', '--workspace', '--all-targets', ...MODULES, '--', '-D', 'warnings'], deck)
 ];
 
