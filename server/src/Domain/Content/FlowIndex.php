@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Scutoons\Domain\Content;
 
 use Scutoons\Domain\Content\Expr\Analyser;
+use Scutoons\Generated\StoryEventTypes;
 use Scutoons\Infrastructure\Cache\Cache;
 use Scutoons\Infrastructure\Database\Database;
 
@@ -25,6 +26,7 @@ final class FlowIndex
 {
     private const CACHE_TTL = 3600;
     private const VERSION = 'v6';
+    private const STORY_VERSION = 'v1';
     private const KINDS = ['chapter', 'season', 'toon', 'map', 'place', 'route'];
     private const TARGET_TYPES = ['chapter', 'season', 'toon', 'product', 'xr'];
 
@@ -35,9 +37,7 @@ final class FlowIndex
     /** @return array<string, mixed> */
     public function build(): array
     {
-        $placeholders = implode(',', array_fill(0, count(self::KINDS), '?'));
-        $latest = $this->db->all("SELECT MAX(id) AS id FROM entity_versions WHERE kind IN ($placeholders) GROUP BY entity_key ORDER BY id", self::KINDS);
-        $ids = array_map(fn(array $r) => (int) $r['id'], $latest);
+        $ids = $this->latestIds();
         $key = 'flow-index:' . self::VERSION . ':' . sha1(implode(',', $ids));
         $cached = $this->cache->get($key);
         if ($cached !== null) {
@@ -47,6 +47,116 @@ final class FlowIndex
         $answer = $this->compose($this->documents($ids));
         $this->cache->set($key, (string) json_encode($answer, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), self::CACHE_TTL);
         return $answer;
+    }
+
+    /**
+     * The story events every toon's chapters fire (#521, research/SCENE-EVENTS.md §3.3; the same rights as the flow index):
+     * per toon and chapter, the VN events of the newest chapter document (drafts included) in document order. An event:
+     * `id` (the creator's hidden id; null when it has none – it is listed, a listener can only name it by type and
+     * character), `type` (Generated\StoryEventTypes), `characters` (showMessage's `character`, joinScene / leaveScene's
+     * `characters`), `excerpt` (its first text, at most 80 characters; null without text), `group` (the group's label or
+     * null) and `groupIndex`. Events in scene documents are not walked here.
+     * @return array<string, mixed>
+     */
+    public function storyEvents(): array
+    {
+        $ids = $this->latestIds();
+        $key = 'story-events:' . self::STORY_VERSION . ':' . sha1(implode(',', $ids));
+        $cached = $this->cache->get($key);
+        if ($cached !== null) {
+            $decoded = json_decode($cached, true);
+            if (is_array($decoded)) return $decoded;
+        }
+        $answer = $this->composeStoryEvents($this->documents($ids));
+        $this->cache->set($key, (string) json_encode($answer, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), self::CACHE_TTL);
+        return $answer;
+    }
+
+    /**
+     * the newest version id of every entity of the flow's kinds
+     * @return list<int>
+     */
+    private function latestIds(): array
+    {
+        $placeholders = implode(',', array_fill(0, count(self::KINDS), '?'));
+        $latest = $this->db->all("SELECT MAX(id) AS id FROM entity_versions WHERE kind IN ($placeholders) GROUP BY entity_key ORDER BY id", self::KINDS);
+        return array_map(fn(array $r) => (int) $r['id'], $latest);
+    }
+
+    /**
+     * @param array<string, array<mixed>> $docs
+     * @return array<string, mixed>
+     */
+    private function composeStoryEvents(array $docs): array
+    {
+        /** @var array<string, list<array{number: int, events: list<array<string, mixed>>}>> $chapters */
+        $chapters = [];
+        foreach ($docs as $entity => $doc) {
+            $parts = explode(':', (string) $entity);
+            if ($parts[0] !== 'chapter' || count($parts) < 3) continue;
+            $groups = is_array($doc['groups'] ?? null) ? array_values($doc['groups']) : [];
+            $events = [];
+            self::collectEvents($groups, $events);
+            $chapters[$parts[1]][] = ['number' => (int) $parts[2], 'events' => $events];
+        }
+        ksort($chapters);
+        $toons = [];
+        foreach ($chapters as $toon => $list) {
+            usort($list, fn(array $a, array $b) => $a['number'] <=> $b['number']);
+            $toons[] = ['id' => (string) $toon, 'chapters' => $list];
+        }
+        return ['status' => 'success', 'toons' => $toons];
+    }
+
+    /**
+     * the VN events in a chapter's groups, in document order: every array with a story event `type` (groups, slices,
+     * placed items, choices' events – anywhere in the document), each with its group's label and index
+     * @param array<mixed> $node
+     * @param list<array<string, mixed>> $out
+     */
+    private static function collectEvents(array $node, array &$out, ?int $group = null, ?string $label = null): void
+    {
+        foreach ($node as $k => $child) {
+            if (!is_array($child)) continue;
+            if ($group === null && array_is_list($node) && is_int($k)) {
+                // a top-level group: its label and index
+                $groupLabel = is_string($child['label'] ?? null) && $child['label'] !== '' ? $child['label'] : null;
+                self::collectEvents($child, $out, $k, $groupLabel);
+                continue;
+            }
+            if (!array_is_list($child) && is_string($child['type'] ?? null) && in_array($child['type'], StoryEventTypes::TYPES, true)) {
+                $out[] = self::event($child, (int) $group, $label);
+            }
+            self::collectEvents($child, $out, $group, $label);
+        }
+    }
+
+    /**
+     * one event as the story events list shows it
+     * @param array<mixed> $event
+     * @return array<string, mixed>
+     */
+    private static function event(array $event, int $groupIndex, ?string $label): array
+    {
+        $params = is_array($event['params'] ?? null) ? $event['params'] : [];
+        $characters = [];
+        if (is_string($params['character'] ?? null) && $params['character'] !== '') $characters[] = $params['character'];
+        foreach (is_array($params['characters'] ?? null) ? $params['characters'] : [] as $ref) {
+            if (!is_array($ref)) continue;
+            // a ref: `character`, or the old form's `name` (the character id)
+            $id = is_string($ref['character'] ?? null) && $ref['character'] !== '' ? $ref['character'] : (is_string($ref['name'] ?? null) ? $ref['name'] : '');
+            if ($id !== '' && !in_array($id, $characters, true)) $characters[] = $id;
+        }
+        $text = trim(self::text($params['text'] ?? $params['label'] ?? null));
+        if ($text !== '' && mb_strlen($text) > 80) $text = mb_substr($text, 0, 80) . '…';
+        return [
+            'id' => is_string($event['id'] ?? null) && $event['id'] !== '' ? $event['id'] : null,
+            'type' => (string) $event['type'],
+            'characters' => $characters,
+            'excerpt' => $text !== '' ? $text : null,
+            'group' => $label,
+            'groupIndex' => $groupIndex,
+        ];
     }
 
     /**

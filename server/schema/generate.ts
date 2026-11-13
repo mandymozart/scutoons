@@ -12,6 +12,7 @@
 //    SceneDocument by deck-schema, deck:ci)
 //   server/schema/content/chapter.schema.json  → deck/protocol/src/story_events.rs    (#517: the story event types a VNEvent takes:
 //                                                protocol::story_events – what a scene's listener may name)
+//                                                server/src/Generated/StoryEventTypes.php (the same list, #521: the server's story events)
 //
 // The Rust and TS types come from the relay protocol's emitters (same schema subset, same output style); only their file header
 // differs. The PHP shapes and the tables are written here. A construct outside the subset throws, so a new one is a change here first.
@@ -53,7 +54,8 @@ export const paths = {
 	sceneTs: join(repo, 'shared', 'api', 'src', 'scene.ts'),
 	scenePhp: join(repo, 'server', 'src', 'Generated', 'SceneTypes.php'),
 	chapterSchema: join(here, 'content', 'chapter.schema.json'),
-	storyRs: join(repo, 'deck', 'protocol', 'src', 'story_events.rs')
+	storyRs: join(repo, 'deck', 'protocol', 'src', 'story_events.rs'),
+	storyPhp: join(repo, 'server', 'src', 'Generated', 'StoryEventTypes.php')
 };
 
 const header = (source: string) => `GENERATED from ${source} by server/schema/generate.ts – edit the source, run \`npm run generate\`.`;
@@ -408,6 +410,20 @@ export function storyEventsRs(chapter: Draft07): string {
 	].join('');
 }
 
+/** #521: the same list for the server (the flow index's story events, Domain\Content\StoryEvents) */
+export function storyEventTypesPhp(chapter: Draft07): string {
+	const types = storyTypes(chapter);
+	return [
+		'<?php\n',
+		`// ${header(rel(paths.chapterSchema))}\n`,
+		'declare(strict_types=1);\n\nnamespace Scutoons\\Generated;\n\n',
+		'/** the story events (#517 / #521): every VNEvent type the chapter schema takes, in its order */\n',
+		'final class StoryEventTypes\n{\n',
+		`    /** @var list<string> */\n    public const TYPES = ${phpList(types)};\n`,
+		'}\n'
+	].join('');
+}
+
 // ---------------------------------------------------------------------------------------------------------- CLI
 
 const read = <T>(file: string): T => JSON.parse(readFileSync(file, 'utf8')) as T;
@@ -420,6 +436,7 @@ export function generate(): Record<string, string> {
 	const chapter = read<Draft07>(paths.chapterSchema);
 	return {
 		[paths.storyRs]: storyEventsRs(chapter),
+		[paths.storyPhp]: storyEventTypesPhp(chapter),
 		[paths.sceneTs]: sceneTs(scene),
 		[paths.scenePhp]: scenePhp(scene),
 		[paths.rs]: addressBookRs(root),
