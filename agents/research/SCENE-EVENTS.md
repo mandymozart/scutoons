@@ -100,6 +100,8 @@ A listening scene on a deck needs no setting: it asks for the story by itself (#
 - **Q2 Which page does the link open?** (a) the conductor picks toon and chapter in the row; (b) the show's home toon, first chapter; (c) the link carries no page – the conductor adds `?live=` to whatever they read. Recommended: (a), preset with (b).
 - **Q3 Does the reader show that it is linked?** Recommended: yes, the small mark – the person sends what they read to a stage.
 - **Q4 One linked reader or many?** Today every linked reader's events reach the decks that listen. Recommended: leave it, and show the list so the conductor sees who is in.
+  **Thought aloud (owner 2026-11-13): one linked reader at a time – several "would be competetiv"; "maybe a small warning when taking over".**
+  Read: the newest linked reader drives, the one before stops sending; a small warning at the take-over. Open: who sees it (the one taken over, the newcomer before they take over, the conductor), and whether the relay or the conductor holds "who drives" (a core / relay rule, not the viewer's).
 
 ### 6.5 Build steps once answered (not filed)
 the core's link function and the linked readers in the conductor's state (S) · the editor's Session panel with the row and a QR (M) · the conductor page's row (S) · the reader's mark (S) · the reader key, if Q1 = (b) (M, relay + API).
@@ -109,4 +111,4 @@ Many decks installed in a room; someone scans a QR, starts reading, and the cond
 What it needs beyond 6.3, as far as it is read today:
 - the QR is public: printed, or drawn by a deck / an outlet in the room – so the link's page is fixed once for the installation (Q2 becomes: the installation's page);
 - no operator: the show's rows on auto and the scenes' listeners do everything (#517; SHOW.md §7 auto rows);
-- several visitors read at once: every reader's events reach the same decks (Q4) – whether that mixing is the fun of it, or each reader gets "their" deck, is open.
+- several visitors: one linked reader at a time (Q4, owner 2026-11-13) – the next one who scans takes over, with a small warning.
