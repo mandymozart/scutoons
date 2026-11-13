@@ -311,6 +311,8 @@ An empty placeholder plays nothing (its spot stays empty, silent); an empty loca
 
 ### 9.4 The VN stage in the reader
 
+> **Withdrawn 2026-11-13 (decisions/deck.md [scenes]):** the reader stays as is. The visual-novel events drive the characters of a *deck's* scene (the reader as a driver: its scroll and its events); they can also be used inside a scene. This section, §9.6 rows 2·4 and 2·5, and #515 / #516 rest on a misreading and are on hold until the owner settles the concept.
+
 **Who hears what:** the reader's script runner is the source of the words; the receiver is the reader's deck – the browser deck running in the chapter page, one core (2026-11-10 `[address]`: only the deck in the reader takes part; A1: the core decides). A paired deck (TV, X1) receives the same words through the relay in the reader's own session and draws the same stage at its own rung.
 
 | Event | Exists | On the stage |
