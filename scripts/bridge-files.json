@@ -69,8 +69,10 @@
 		"viewer/src/lib/live-vote-link.ts": "adapter: the vote screens' VoteSource on deck-space's relay client (#366)",
 		"viewer/src/lib/live-vote-sim.ts": "ui: a simulated audience for the vote lab",
 		"viewer/src/lib/live-vote-words.ts": "ui: the vote's words",
+	"viewer/src/lib/reader-session.ts": "adapter: a reader joined to a session (#518) – its fired story events into deck-space's relay client as role reader",
 		"viewer/src/lib/live-vote.ts": "ui: vote helpers",
 		"viewer/src/routes/(account)/account/lab/vote/+page.svelte": "ui: the vote lab",
+	"viewer/src/routes/(toons)/[toonId]/+layout.svelte": "ui: the reader's layout – loads reader-session.ts only for a page with ?live= (#518)",
 		"viewer/src/routes/live/conductor/[[code]]/+page.svelte": "ui: the conductor page",
 		"viewer/src/routes/live/deck/[[code]]/+page.svelte": "ui: the deck page – buttons over the core's state, Web MIDI opened when the core's clock needs it (#385 deactivates it, #386 rebuilds the deck's UI)",
 		"viewer/src/routes/live/vote/[[code]]/+page.svelte": "ui: the audience page"

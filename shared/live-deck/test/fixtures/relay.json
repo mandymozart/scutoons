@@ -3438,6 +3438,258 @@
           ]
         }
       ]
+    },
+    {
+      "graph": null,
+      "join": {
+        "group": null,
+        "messages": false,
+        "nick": null,
+        "relay": "ws://relay.test:7070/live/CATH",
+        "resume": false,
+        "role": "reader",
+        "token": null
+      },
+      "name": "reader",
+      "steps": [
+        {
+          "at": 0.01,
+          "do": "story",
+          "with": {
+            "id": "e1",
+            "params": {
+              "name": "start"
+            },
+            "type": "label"
+          }
+        },
+        {
+          "at": 0.02,
+          "do": "story",
+          "with": {
+            "id": "e2",
+            "params": {
+              "characters": [
+                {
+                  "character": "catpope"
+                }
+              ]
+            },
+            "type": "joinScene"
+          }
+        },
+        {
+          "at": 0.05,
+          "do": "open"
+        },
+        {
+          "at": 0.1,
+          "do": "message",
+          "with": {
+            "kind": "welcome",
+            "p": {
+              "client": "c4",
+              "key": "key-c4",
+              "now": 0,
+              "snapshot": {}
+            }
+          }
+        },
+        {
+          "at": 0.2,
+          "do": "story",
+          "with": {
+            "id": "e3",
+            "params": {
+              "character": "catpope",
+              "text": {
+                "de": "Hallo"
+              }
+            },
+            "type": "showMessage"
+          }
+        },
+        {
+          "at": 1.0,
+          "do": "close",
+          "with": "the relay went"
+        },
+        {
+          "at": 1.1,
+          "do": "story",
+          "with": {
+            "id": "e4",
+            "params": {
+              "characters": [
+                {
+                  "character": "catpope"
+                }
+              ]
+            },
+            "type": "leaveScene"
+          }
+        },
+        {
+          "at": 1.3,
+          "do": "open"
+        },
+        {
+          "at": 1.4,
+          "do": "message",
+          "with": {
+            "kind": "welcome",
+            "p": {
+              "client": "c5",
+              "key": "key-c5",
+              "now": 0,
+              "snapshot": {}
+            }
+          }
+        },
+        {
+          "at": 2.0,
+          "do": "stop"
+        }
+      ],
+      "stream": [],
+      "turns": [
+        {
+          "at": 0.0,
+          "do": "start",
+          "outs": [
+            {
+              "status": {
+                "state": "joining"
+              }
+            },
+            {
+              "dial": "ws://relay.test:7070/live/CATH?role=reader"
+            }
+          ]
+        },
+        {
+          "at": 0.01,
+          "do": "story",
+          "outs": []
+        },
+        {
+          "at": 0.02,
+          "do": "story",
+          "outs": []
+        },
+        {
+          "at": 0.05,
+          "do": "open",
+          "outs": [
+            {
+              "send": "{\"from\":\"\",\"kind\":\"hello\",\"p\":{\"code\":\"CATH\",\"role\":\"reader\"},\"seq\":0,\"v\":1}"
+            }
+          ]
+        },
+        {
+          "at": 0.1,
+          "do": "message",
+          "outs": [
+            {
+              "status": {
+                "client": "c4",
+                "state": "connected"
+              }
+            },
+            {
+              "joined": {
+                "at": 100.0,
+                "client": "c4"
+              }
+            },
+            {
+              "send": "{\"from\":\"\",\"kind\":\"story\",\"p\":{\"id\":\"e1\",\"params\":{\"name\":\"start\"},\"type\":\"label\"},\"seq\":0,\"v\":1}"
+            },
+            {
+              "send": "{\"from\":\"\",\"kind\":\"story\",\"p\":{\"id\":\"e2\",\"params\":{\"characters\":[{\"character\":\"catpope\"}]},\"type\":\"joinScene\"},\"seq\":0,\"v\":1}"
+            }
+          ]
+        },
+        {
+          "at": 0.2,
+          "do": "story",
+          "outs": [
+            {
+              "send": "{\"from\":\"\",\"kind\":\"story\",\"p\":{\"id\":\"e3\",\"params\":{\"character\":\"catpope\",\"text\":{\"de\":\"Hallo\"}},\"type\":\"showMessage\"},\"seq\":0,\"v\":1}"
+            }
+          ]
+        },
+        {
+          "at": 1.0,
+          "do": "close",
+          "outs": [
+            {
+              "status": {
+                "state": "offline",
+                "why": "the relay went"
+              }
+            }
+          ]
+        },
+        {
+          "at": 1.1,
+          "do": "story",
+          "outs": []
+        },
+        {
+          "at": 1.25,
+          "do": "wake",
+          "outs": [
+            {
+              "status": {
+                "state": "joining"
+              }
+            },
+            {
+              "dial": "ws://relay.test:7070/live/CATH?role=reader"
+            }
+          ]
+        },
+        {
+          "at": 1.3,
+          "do": "open",
+          "outs": [
+            {
+              "send": "{\"from\":\"\",\"kind\":\"hello\",\"p\":{\"code\":\"CATH\",\"role\":\"reader\"},\"seq\":0,\"v\":1}"
+            }
+          ]
+        },
+        {
+          "at": 1.4,
+          "do": "message",
+          "outs": [
+            {
+              "status": {
+                "client": "c5",
+                "state": "connected"
+              }
+            },
+            {
+              "joined": {
+                "at": 1400.0,
+                "client": "c5"
+              }
+            },
+            {
+              "send": "{\"from\":\"\",\"kind\":\"story\",\"p\":{\"id\":\"e4\",\"params\":{\"characters\":[{\"character\":\"catpope\"}]},\"type\":\"leaveScene\"},\"seq\":0,\"v\":1}"
+            }
+          ]
+        },
+        {
+          "at": 2.0,
+          "do": "stop",
+          "outs": [
+            {
+              "close": {}
+            }
+          ]
+        }
+      ]
     }
   ]
 }

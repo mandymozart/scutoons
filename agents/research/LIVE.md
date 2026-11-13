@@ -27,6 +27,8 @@ Add one internal **bus**: every slice enter / leave, fired VN event (by its even
 nobody listens. Performance: the conductor forwards it to the relay (B.6). The FX cues (agents/research/FX.md) are bus messages.
 The bus is also the conductor's **input**: a vote result is applied as the choice event the reader would have fired, so
 the story logic (variables, jumps, the save game) stays the toon's own – the show never re-implements it.
+Built (#518, the fired VN events only): the runner's `fired` (viewer script-runner.ts) → reader-story.ts; a reader page with
+`?live=<code>` joins the session as `reader` (reader-session.ts) and sends each as `story`, the VNEvent as it is; else nobody listens.
 
 ## B.2 Roles (one viewer build, the role from the URL / join code)
 
@@ -364,7 +366,8 @@ outlet, msg }` (bridge → conductor: MIDI / OSC in, mapped to actions there) ·
 list for the patch UI). MIDI clock in is used only for timed cues (a cue's `wait` may be given in beats), never shown to musicians.
 
 **The tree** (#90, SHOW.md §4; deck/relay README "The tree"): roles `reader` (a phone reading the chapter: only `story`, to
-the conductor – and, built (#517), one copy to each deck whose `deck.story` ask stands, in order, not kept; no other client) and `seat` (a child conductor's relay in its parent's session) · `seat { seat, word, says: go | free | none, row?, lock? }`
+the conductor – and, built (#517), one copy to each deck whose `deck.story` ask stands, in order, not kept; no other client; built
+(#518): the viewer's reader page with `?live=<code>`, deck-space relay.rs `Client::story`) and `seat` (a child conductor's relay in its parent's session) · `seat { seat, word, says: go | free | none, row?, lock? }`
 (parent → the child's conductor) · `seat.state { show, row, ready, clients, word, locked, clock, online }` (up; the parent's
 presence and snapshot `seats`) · `flash { root, shows, lock?, hops }` / `flash.report { running, accepted, why? }` · `address
 { id, address, action, where? { group, device } }` / `address.answer { id, reached, passed, answered }` · `cell` for
