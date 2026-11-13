@@ -144,6 +144,14 @@ export interface MapPlace {
 	 * with it; without them the cells are computed from `size` (`placeCells`)
 	 */
 	cells?: HexCell[];
+	/**
+	 * the set the place is staged in: a catalog home scene's id (`cathedral`; #512 – owner 2026-11-10 [live] "a location is
+	 * exactly one set", 2026-10-30 [map] home scenes become sets). A scene at `location:<id>` takes its set from here in the
+	 * deck core's resolve step (scene_resolve.rs); decks read it, with the set's media per rung, from scene-content
+	 * `?locations=`. None = a scene there plays in the neutral staging.
+	 * @pattern ^[a-z0-9][a-z0-9_-]{0,63}$
+	 */
+	set?: string;
 }
 
 /** A place's route gates (`MapPlace.gates`): offsets from its point, world units */

@@ -130,7 +130,7 @@ final class LibraryController
             return $list;
         };
         $presets = $ids('presets', CatalogValidator::PRESET_ID);
-        $content = $this->scenes->of($ids('sets'), $ids('characters'), $ids('items', CatalogValidator::ID_PATTERN), $presets);
+        $content = $this->scenes->of($ids('sets'), $ids('characters'), $ids('items', CatalogValidator::ID_PATTERN), $presets, $ids('locations'));
         $body = SceneContent::json($content);
         return $this->send($request, $response, new Answer($body, '"s' . substr(sha1($body), 0, 24) . '"', false, null));
     }

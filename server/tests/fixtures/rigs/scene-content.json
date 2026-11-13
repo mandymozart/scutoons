@@ -1,5 +1,6 @@
 {
     "sets": {},
+    "locations": {},
     "characters": {
         "catpope": {
             "character": "catpope",
@@ -586,6 +587,7 @@
     },
     "missing": {
         "sets": [],
+        "locations": [],
         "characters": [],
         "items": [
             "ghost"

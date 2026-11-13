@@ -41,11 +41,47 @@ final class SceneContentTest extends TestCase
         ], (array) $a['sets']['cathedral']['model'], 'src = medium; a level without a variant gets src');
         self::assertSame(['en' => 'Cathedral'], $a['sets']['cathedral']['name']);
         self::assertSame([], (array) $a['sets']['cave']['model'], 'a set without a model');
-        self::assertSame(['sets' => ['nowhere'], 'characters' => []], $a['missing']);
+        self::assertSame([[], []], [(array) $a['sets']['cave']['still'], (array) $a['sets']['cave']['video']], 'an empty still, no video');
+        self::assertSame(['sets' => ['nowhere'], 'locations' => [], 'characters' => []], $a['missing']);
         self::assertSame(['r/c.low.v1.glb', 'r/c.medium.v1.glb'], SceneContent::paths($a));
         $sized = SceneContent::withSizes($a, ['r/c.low.v1.glb' => 2045700]);
         self::assertSame(['path' => 'r/c.low.v1.glb', 'size' => 2045700], ((array) $sized['sets']['cathedral']['model'])['low']);
         self::assertNull(((array) $sized['sets']['cathedral']['model'])['high']['size'], 'unknown to the registry');
+    }
+
+    /**
+     * #512: a location names its set (one set per location, owner 2026-11-10 [live]); its set answers every rung of the render
+     * ladder (SCENES.md §9.4) – the `.glb` per quality, the video loop, the still. The contract with the decks: this answer is
+     * fixtures/scenes/scene-content-location.json, which deck-space's push.rs test and the headless scenario 35 read –
+     * `UPDATE_FIXTURES=1 npm run dev:db -- test --filter SceneContentTest` writes it, a plain run fails when it is stale.
+     */
+    public function testALocationNamesItsSetAndTheSetAnswersEveryRung(): void
+    {
+        $dir = 'catpope/map/sets';
+        $sets = ['cathedral' => ['id' => 'cathedral', 'name' => ['de' => 'Kathedrale', 'en' => 'Cathedral'],
+            'image' => ['src' => "$dir/cathedral.still.v1.webp", 'variants' => ['high' => "$dir/cathedral.still.4k.v1.webp"]],
+            'video' => ['src' => "$dir/cathedral.loop.v1.mp4", 'variants' => ['high' => "$dir/cathedral.loop.4k.v1.mp4"]],
+            'model' => ['src' => "$dir/cathedral.medium.v2.glb", 'variants' => ['low' => "$dir/cathedral.low.v2.glb", 'high' => "$dir/cathedral.high.v2.glb"]],
+        ]];
+        $places = [
+            'cathedral' => (object) ['name' => (object) ['de' => 'Kathedrale'], 'toons' => ['catpope'], 'x' => 1, 'y' => 2, 'set' => 'cathedral'],
+            'dom' => (object) ['name' => (object) ['de' => 'Dom'], 'toons' => ['catpope'], 'x' => 3, 'y' => 4],
+        ];
+        $a = SceneContent::compose([], fn(string $id) => $sets[$id] ?? null, [], [], ['cathedral', 'dom', 'nowhere', 'cathedral'], fn(string $id) => $places[$id] ?? null);
+        self::assertSame(['cathedral' => ['set' => 'cathedral'], 'dom' => ['set' => null]], $a['locations'], 'a place without a set answers null');
+        self::assertSame(['sets' => [], 'locations' => ['nowhere'], 'characters' => []], $a['missing']);
+        self::assertSame(['cathedral'], array_keys($a['sets']), "the location's set comes with it");
+        $path = fn(string $m, string $level) => ((array) $a['sets']['cathedral'][$m])[$level]['path'];
+        self::assertSame(["$dir/cathedral.low.v2.glb", "$dir/cathedral.loop.v1.mp4", "$dir/cathedral.still.v1.webp"], [$path('model', 'low'), $path('video', 'low'), $path('still', 'low')], 'rungs 1, 2, 3 at low');
+        self::assertSame(["$dir/cathedral.high.v2.glb", "$dir/cathedral.loop.4k.v1.mp4", "$dir/cathedral.still.4k.v1.webp"], [$path('model', 'high'), $path('video', 'high'), $path('still', 'high')], 'and at high');
+        self::assertCount(7, SceneContent::paths($a), 'every file once: 3 glb, 2 videos, 2 stills');
+        $sized = SceneContent::withSizes($a, ["$dir/cathedral.loop.v1.mp4" => 5]);
+        self::assertSame(5, ((array) $sized['sets']['cathedral']['video'])['medium']['size']);
+
+        $pretty = json_encode(json_decode(SceneContent::json($a)), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION) . "\n";
+        $file = dirname(__DIR__, 3) . '/tests/fixtures/scenes/scene-content-location.json';
+        if (getenv('UPDATE_FIXTURES')) file_put_contents($file, $pretty);
+        self::assertSame(str_replace("\r", '', (string) @file_get_contents($file)), $pretty, 'stale: UPDATE_FIXTURES=1 npm run dev:db -- test --filter SceneContentTest (the decks read it)');
     }
 
     public function testCharactersResolveIdsLegacyIdsAndPersonas(): void

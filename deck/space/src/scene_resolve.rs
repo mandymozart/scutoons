@@ -7,8 +7,11 @@
 //!   (the editor, the browser). Each filler passes its placeholder's `fill` or the use is refused with the reason; a
 //!   holder takes one, a spawn zone up to its `max`; the same filler twice on one stage is refused (`#2` is reserved).
 //! - **Empty:** an empty placeholder plays nothing and has no address (no member in `cast`); an empty location is the
-//!   neutral staging (scene.rs `STAGING_SCENE`'s room on the space node, no set). A filled location is handed on
-//!   (`Resolved::location`): its set is the location's (2·3).
+//!   neutral staging (scene.rs `STAGING_SCENE`'s room on the space node, no set).
+//! - **The set (#512, 2·3):** a filled location is handed on (`Resolved::location`) and its set is the location's – the
+//!   caller's `Sets` (a place id → the set it names, scene-content's `locations`) puts it on the space node in the
+//!   staging's room (`scene::staging`); a location that names none plays the neutral staging, said in `notes`. A
+//!   `space.set` beside a location stays refused (scene_document.rs `check`).
 //! - **Spawn zones:** the members are arranged by the zone's rule around its spot (`arrange`: row, cluster).
 //! - **Rigs:** every member with a rig flattens it (rig/flatten.rs) with the holder's preset choices and values; a rig the
 //!   caller does not have leaves its member silent (said in `notes`). One rig keeps its slots as a rig played alone has
@@ -26,7 +29,7 @@
 use crate::problem::sentences;
 use crate::rig::address::{node_port, Address, Leaf};
 use crate::rig::bundle::Bundle;
-use crate::scene::{LinkDef, NodeDef, Scene, STAGING_SCENE};
+use crate::scene::{LinkDef, NodeDef, Scene};
 use crate::scene_document::{Arrange, ArrangeKind, Enter, FillerRef, Fillers, HolderValue, LocationSlot, SceneDocument};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashSet};
@@ -85,6 +88,15 @@ pub fn no_rigs(_: &str, _: Option<&str>) -> Option<Bundle> {
     None
 }
 
+/// where a location's set comes from (#512): a place id (`cathedral`) → the set it names – stored configuration a deck
+/// reads from scene-content (`push::Content::set_of`); none = it names none, or the caller does not have it
+pub type Sets<'a> = &'a dyn Fn(&str) -> Option<String>;
+
+/// no location's set at hand (the build service's check; a use's validity does not depend on its set)
+pub fn no_sets(_: &str) -> Option<String> {
+    None
+}
+
 /// the core rigs a deck carries (rig/bundle.rs `CORE`), any version
 pub fn core_rigs(subject: &str, _: Option<&str>) -> Option<Bundle> {
     Bundle::core(subject).and_then(Result::ok)
@@ -136,9 +148,9 @@ fn exposed(prefix: &str, e: &str) -> String {
     }
 }
 
-/// The concrete scene of `doc` with `with`'s fillers (and the previews for the rest when `previews`), the rigs from `rigs`.
-/// Every reason it cannot be played is in the error.
-pub fn resolve(doc: &SceneDocument, with: &BTreeMap<String, Fillers>, previews: bool, rigs: Rigs) -> Result<Resolved, Vec<String>> {
+/// The concrete scene of `doc` with `with`'s fillers (and the previews for the rest when `previews`), the rigs from `rigs`,
+/// a location's set from `sets`. Every reason it cannot be played is in the error.
+pub fn resolve(doc: &SceneDocument, with: &BTreeMap<String, Fillers>, previews: bool, rigs: Rigs, sets: Sets) -> Result<Resolved, Vec<String>> {
     let mut problems = doc.check();
     if !problems.is_empty() {
         return Err(problems);
@@ -350,10 +362,20 @@ pub fn resolve(doc: &SceneDocument, with: &BTreeMap<String, Fillers>, previews: 
         }
     }
     scene.links.extend(doc.links.iter().cloned());
-    // a location's set comes from the location (2·3); until a location is filled, and while its set is not here, the
-    // space node stands in the neutral staging's room – the document's own params win
+    // a location's set comes from the location (#512: one set per location, owner 2026-11-10 [live]) – the staging's room
+    // with that set on the space node, as a rig played at a home (`scene::staging`); an empty location, or one that names
+    // no set, stands in the neutral staging (the latter said in `notes`). The document's own params win (its `set` beside a
+    // location is refused by `check`).
     if doc.location.is_some() {
-        let staging = Scene::parse(STAGING_SCENE).expect("the staging is embedded and checked by the tests");
+        let set = location.as_deref().and_then(|r| {
+            let id = r.strip_prefix("location:").unwrap_or(r);
+            let set = sets(id).filter(|s| !s.is_empty());
+            if set.is_none() {
+                notes.push(format!("{r} names no set here: the neutral staging plays"));
+            }
+            set
+        });
+        let staging = crate::scene::staging(set.as_deref());
         let room = staging.nodes.into_iter().find(|n| n.kind == "space").expect("the staging has a space node");
         if let Some(space) = scene.nodes.iter_mut().find(|n| n.kind == "space") {
             for (k, v) in room.params {
@@ -370,11 +392,11 @@ pub fn resolve(doc: &SceneDocument, with: &BTreeMap<String, Fillers>, previews: 
 
 impl Use {
     /// `resolve` for this use: its scene must be the document's
-    pub fn resolve(&self, doc: &SceneDocument, previews: bool, rigs: Rigs) -> Result<Resolved, Vec<String>> {
+    pub fn resolve(&self, doc: &SceneDocument, previews: bool, rigs: Rigs, sets: Sets) -> Result<Resolved, Vec<String>> {
         if self.scene != format!("scene:{}", doc.id) {
             return Err(vec![format!("the use names {}, the document is scene:{}", self.scene, doc.id)]);
         }
-        resolve(doc, &self.with, previews, rigs)
+        resolve(doc, &self.with, previews, rigs, sets)
     }
 
     /// Why this use cannot be stored in a toon's document (none = it can): its scene is `doc`, and – with the toon's book
@@ -394,7 +416,7 @@ impl Use {
                 }
             }
         }
-        if let Err(e) = self.resolve(doc, false, &no_rigs) {
+        if let Err(e) = self.resolve(doc, false, &no_rigs, &no_sets) {
             out.extend(e);
         }
         out
@@ -512,7 +534,7 @@ mod tests {
     #[test]
     fn nave_in_format_2_plays_the_scene_of_format_1() {
         let stored = fixture("nave", Some(&nave()));
-        let resolved = resolve(&stored, &BTreeMap::new(), false, &core_rigs).unwrap();
+        let resolved = resolve(&stored, &BTreeMap::new(), false, &core_rigs, &no_sets).unwrap();
         let bundle = Bundle::core("character.catpope").unwrap().unwrap();
         let mut format_1 = bundle.rig.flatten(&bundle.library(), None, None).unwrap();
         format_1.stage.name = "Nave".into();
@@ -528,7 +550,7 @@ mod tests {
         assert_eq!((m.holder.as_str(), m.place.as_str(), m.slots.as_deref(), m.spot.as_ref()), ("catpope", "character:catpope", Some(""), None));
         assert!(resolved.notes.is_empty());
         // without the rig at hand it still resolves: the space and her look (#492), Cat Pope silent and said
-        let bare = resolve(&stored, &BTreeMap::new(), false, &no_rigs).unwrap();
+        let bare = resolve(&stored, &BTreeMap::new(), false, &no_rigs, &no_sets).unwrap();
         let kinds: Vec<&str> = bare.scene.nodes.iter().map(|n| n.kind.as_str()).collect();
         assert_eq!(kinds, ["look", "space"], "her look stands there, nothing moves it");
         assert!(bare.notes[0].contains("no rig character.catpope"), "{:?}", bare.notes);
@@ -539,11 +561,11 @@ mod tests {
     fn a_holders_values_and_presets_reach_its_rig() {
         let mut d = nave();
         d.holders[0].values = [("voice:voice.index".to_string(), HolderValue::Number(4.5)), ("voice:@preset".into(), HolderValue::Preset("cathedral_voice.bright".into()))].into();
-        let r = resolve(&d, &BTreeMap::new(), false, &core_rigs).unwrap();
+        let r = resolve(&d, &BTreeMap::new(), false, &core_rigs, &no_sets).unwrap();
         let voice = r.scene.nodes.iter().find(|n| n.id == "voice_voice").unwrap();
         assert_eq!(voice.params["index"].as_float(), Some(4.5));
         d.holders[0].values = [("voice:nothing.index".to_string(), HolderValue::Number(1.0))].into();
-        assert!(resolve(&d, &BTreeMap::new(), false, &core_rigs).unwrap_err()[0].contains("names no node"));
+        assert!(resolve(&d, &BTreeMap::new(), false, &core_rigs, &no_sets).unwrap_err()[0].contains("names no node"));
     }
 
     /// the four templates (SCENES.md §9.5) are well formed: they resolve empty, with their previews and with fillers
@@ -554,12 +576,12 @@ mod tests {
             assert_eq!(t.id, name);
             assert!(t.toons.is_empty(), "{name}: a template names no toon");
             assert!(t.location_placeholder().is_some(), "{name}: its location is a placeholder");
-            let empty = resolve(&t, &BTreeMap::new(), false, &no_rigs).unwrap();
+            let empty = resolve(&t, &BTreeMap::new(), false, &no_rigs, &no_sets).unwrap();
             assert!(empty.cast.is_empty() && empty.location.is_none(), "{name}");
-            resolve(&t, &BTreeMap::new(), true, &no_rigs).unwrap();
+            resolve(&t, &BTreeMap::new(), true, &no_rigs, &no_sets).unwrap();
         }
         let stage = fixture("templates/stage", None);
-        let r = resolve(&stage, &with(&[("where", one("location:dom")), ("left", one("character:catpope")), ("right", one("character:toptoy"))]), false, &core_rigs).unwrap();
+        let r = resolve(&stage, &with(&[("where", one("location:dom")), ("left", one("character:catpope")), ("right", one("character:toptoy"))]), false, &core_rigs, &no_sets).unwrap();
         assert_eq!(r.location.as_deref(), Some("location:dom"));
         let at: Vec<(&str, Option<&str>)> = r.cast.iter().map(|m| (m.holder.as_str(), m.spot.as_deref())).collect();
         assert_eq!(at, [("left", Some("spot_left")), ("right", Some("spot_right"))], "the empty ones have no member");
@@ -573,15 +595,15 @@ mod tests {
     #[test]
     fn a_filler_is_checked_against_its_fill() {
         let stage = fixture("templates/stage", None);
-        let refused = |w: &[(&str, Fillers)]| resolve(&stage, &with(w), false, &no_rigs).unwrap_err().join(" | ");
+        let refused = |w: &[(&str, Fillers)]| resolve(&stage, &with(w), false, &no_rigs, &no_sets).unwrap_err().join(" | ");
         assert!(refused(&[("left", one("item:incense"))]).contains("holder left: 'item:incense' is an item, the placeholder takes character"));
         assert!(refused(&[("where", one("character:catpope"))]).contains("location where: 'character:catpope' is a character"));
         assert!(refused(&[("nowhere", one("character:catpope"))]).contains("'nowhere' is no placeholder of scene:stage"));
         assert!(refused(&[("left", one("character:catpope")), ("right", one("character:catpope"))]).contains("holder right: 'character:catpope' stands on this stage already"));
         assert!(refused(&[("left", Fillers::Many(vec!["character:a".into(), "character:b".into()]))]).contains("one filler, 2 given"));
-        assert!(resolve(&nave(), &with(&[("catpope", one("character:toptoy"))]), false, &no_rigs).unwrap_err()[0].contains("authored filler"));
+        assert!(resolve(&nave(), &with(&[("catpope", one("character:toptoy"))]), false, &no_rigs, &no_sets).unwrap_err()[0].contains("authored filler"));
         let u = Use { scene: "scene:other".into(), with: BTreeMap::new() };
-        assert!(u.resolve(&stage, false, &no_rigs).unwrap_err()[0].contains("the use names scene:other"));
+        assert!(u.resolve(&stage, false, &no_rigs, &no_sets).unwrap_err()[0].contains("the use names scene:other"));
     }
 
     /// #504: a use is checked in the toon's book – the scene and every filler listed there – and against each `fill`;
@@ -612,12 +634,12 @@ mod tests {
     fn a_spawn_zone_takes_several_up_to_its_max() {
         let choir = doc(CHOIR);
         let crows = |n: usize| Fillers::Many((1..=n).map(|i| format!("item:crow{i}")).collect());
-        let r = resolve(&choir, &with(&[("crows", crows(3))]), false, &no_rigs).unwrap();
+        let r = resolve(&choir, &with(&[("crows", crows(3))]), false, &no_rigs, &no_sets).unwrap();
         let at: Vec<[f32; 3]> = r.cast.iter().map(|m| m.at).collect();
         assert_eq!(at, [[-0.5, 0.0, 0.0], [0.0, 0.0, 0.0], [0.5, 0.0, 0.0]]);
         assert!(r.cast.iter().all(|m| m.spot.as_deref() == Some("spot_beam")));
         assert_eq!(r.location.as_deref(), Some("location:cathedral"));
-        assert!(resolve(&choir, &with(&[("crows", crows(4))]), false, &no_rigs).unwrap_err()[0].contains("at most 3, 4 given"));
+        assert!(resolve(&choir, &with(&[("crows", crows(4))]), false, &no_rigs, &no_sets).unwrap_err()[0].contains("at most 3, 4 given"));
         // the story's casting: the zone takes until it is full, the next item goes to the next placeholder that admits it
         let mut casting = Casting::new(&choir, &BTreeMap::new());
         let joined: Vec<String> = (1..=5).map(|i| casting.join(&format!("item:crow{i}")).unwrap_or_else(|e| e)).collect();
@@ -629,7 +651,7 @@ mod tests {
         let w = casting.with();
         assert_eq!(w["crows"], crows(3));
         assert_eq!(w["table"], one("item:crow4"));
-        assert_eq!(resolve(&choir, &w, false, &no_rigs).unwrap().cast.len(), 5);
+        assert_eq!(resolve(&choir, &w, false, &no_rigs, &no_sets).unwrap().cast.len(), 5);
     }
 
     #[test]
@@ -649,12 +671,37 @@ mod tests {
     #[test]
     fn an_empty_location_is_the_neutral_staging() {
         let place = fixture("templates/place", None);
-        let empty = resolve(&place, &BTreeMap::new(), false, &no_rigs).unwrap();
+        let empty = resolve(&place, &BTreeMap::new(), false, &no_rigs, &no_sets).unwrap();
         assert_eq!(empty.location, None);
         assert_eq!(space(&empty.scene)["join"].as_str(), Some("deck"), "the staging's room");
         assert!(space(&empty.scene).get("set").is_none());
-        let at = resolve(&place, &with(&[("where", one("location:dom"))]), false, &no_rigs).unwrap();
+        assert!(empty.notes.is_empty(), "an empty location is said nowhere");
+        let at = resolve(&place, &with(&[("where", one("location:dom"))]), false, &no_rigs, &no_sets).unwrap();
         assert_eq!(at.location.as_deref(), Some("location:dom"));
+        assert!(space(&at.scene).get("set").is_none(), "a location whose set is not at hand: the neutral staging");
+        assert_eq!(at.notes, ["location:dom names no set here: the neutral staging plays"]);
+    }
+
+    /// #512: a filled location brings its set – the caller's lookup (scene-content's `locations`, as the server's
+    /// SceneContentTest writes it) – onto the space node, in the staging's room; a location that names none stays neutral
+    #[test]
+    fn a_location_brings_its_set() {
+        let content = crate::push::Content::parse(include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../server/tests/fixtures/scenes/scene-content-location.json"))).unwrap();
+        let sets = |l: &str| content.set_of(l);
+        let place = fixture("templates/place", None);
+        let at = resolve(&place, &with(&[("where", one("location:cathedral"))]), false, &no_rigs, &sets).unwrap();
+        assert_eq!(space(&at.scene)["set"].as_str(), Some("cathedral"));
+        assert_eq!(space(&at.scene)["join"].as_str(), Some("deck"), "in the staging's room");
+        assert!(at.notes.is_empty());
+        let dom = resolve(&place, &with(&[("where", one("location:dom"))]), false, &no_rigs, &sets).unwrap();
+        assert!(space(&dom.scene).get("set").is_none());
+        assert_eq!(dom.notes.len(), 1);
+        // a scene that names its location itself takes the same set; a `space.set` beside it stays refused
+        let named = doc(r#"{"format":2,"id":"vespers","location":"location:cathedral","node":[{"id":"space","kind":"space","quality":"high"}]}"#);
+        let r = resolve(&named, &BTreeMap::new(), false, &no_rigs, &sets).unwrap();
+        assert_eq!((space(&r.scene)["set"].as_str(), space(&r.scene)["quality"].as_str()), (Some("cathedral"), Some("high")), "the document's own params win");
+        let both = doc(r#"{"format":2,"id":"vespers","location":"location:cathedral","node":[{"id":"space","kind":"space","set":"cave"}]}"#);
+        assert!(resolve(&both, &BTreeMap::new(), false, &no_rigs, &sets).unwrap_err()[0].contains("`set` is refused"));
     }
 
     /// a core rig plus the one wire a person draws to make its being breathe: its sum's level into the being's pulse
@@ -671,7 +718,7 @@ mod tests {
     fn two_rigs_share_the_out_and_the_space() {
         let d = doc(r#"{"format":2,"id":"duo","holder":[{"id":"pope","ref":"character:catpope"},{"id":"burner","fill":{"kind":["item"]}}],
           "node":[{"id":"space","kind":"space","set":"cathedral"}]}"#);
-        let r = resolve(&d, &with(&[("burner", one("item:incense_burner"))]), false, &breathing).unwrap();
+        let r = resolve(&d, &with(&[("burner", one("item:incense_burner"))]), false, &breathing, &no_sets).unwrap();
         let ids: Vec<&str> = r.scene.nodes.iter().map(|n| n.id.as_str()).collect();
         assert!(ids.contains(&"pope_voice_voice") && ids.iter().any(|i| i.starts_with("burner_")), "{ids:?}");
         assert_eq!(ids.iter().filter(|i| **i == "out").count(), 1);
@@ -713,7 +760,7 @@ node = [{ id = "midi", kind = "world", source = "midi", listen = ["midi.note"] }
         let stage = fixture("templates/stage", None);
         let mute: Bundle = toml::from_str(MUTE_RIG).unwrap();
         let rigs = |s: &str, v: Option<&str>| if s == "character.mute" { Some(mute.clone()) } else { breathing(s, v) };
-        let r = resolve(&stage, &with(&[("left", one("character:catpope")), ("right", one("character:mute"))]), false, &rigs).unwrap();
+        let r = resolve(&stage, &with(&[("left", one("character:catpope")), ("right", one("character:mute"))]), false, &rigs, &no_sets).unwrap();
         let looks: Vec<(&str, &str, &str, &str)> = r
             .scene
             .nodes
@@ -729,7 +776,7 @@ node = [{ id = "midi", kind = "world", source = "midi", listen = ["midi.note"] }
         let g = crate::graph::Graph::build(&r.scene).unwrap();
         assert_eq!(g.nodes.iter().find(|n| n.id == "left_look").unwrap().kind, crate::graph::Kind::Look);
         // one filler alone at a holder's spot stands there too: a look, not the space's being
-        let solo = resolve(&stage, &with(&[("left", one("character:catpope"))]), false, &core_rigs).unwrap();
+        let solo = resolve(&stage, &with(&[("left", one("character:catpope"))]), false, &core_rigs, &no_sets).unwrap();
         assert!(solo.scene.nodes.iter().any(|n| n.id == "left_look"));
         assert_eq!(solo.cast[0].slots.as_deref(), Some("left_"));
     }
@@ -749,7 +796,7 @@ node = [{ id = "midi", kind = "world", source = "midi", listen = ["midi.note"] }
     #[test]
     fn the_stage_duo_sandbox_is_the_core_s_resolve() {
         let stage = fixture("templates/stage", None);
-        let r = resolve(&stage, &with(&[("left", one("character:catpope")), ("right", one("character:toptoy"))]), false, &core_rigs).unwrap();
+        let r = resolve(&stage, &with(&[("left", one("character:catpope")), ("right", one("character:toptoy"))]), false, &core_rigs, &no_sets).unwrap();
         let mut scene = r.scene;
         scene.stage.name = "Stage duo".into();
         let text = format!("{STAGE_DUO_HEAD}\n{}", toml::to_string(&scene).unwrap());
@@ -780,7 +827,7 @@ node = [{ id = "midi", kind = "world", source = "midi", listen = ["midi.note"] }
     fn the_stage_cards_sandbox_is_the_core_s_resolve() {
         let d = doc(include_str!("../../headless/documents/nave-cast.json"));
         let rigs = |s: &str, v: Option<&str>| if s.starts_with("item.") { breathing(s, v) } else { core_rigs(s, v) };
-        let r = resolve(&d, &BTreeMap::new(), false, &rigs).unwrap();
+        let r = resolve(&d, &BTreeMap::new(), false, &rigs, &no_sets).unwrap();
         let mut scene = r.scene;
         scene.stage.name = "Stage cards".into();
         let text = format!("{STAGE_CARDS_HEAD}\n{}", toml::to_string(&scene).unwrap());
@@ -808,7 +855,7 @@ node = [{ id = "midi", kind = "world", source = "midi", listen = ["midi.note"] }
         );
         let rigs = |s: &str, _: Option<&str>| s.starts_with("character.").then(|| code.clone());
         let stage = fixture("templates/stage", None);
-        let r = resolve(&stage, &with(&[("left", one("character:catpope")), ("right", one("character:toptoy"))]), false, &rigs).unwrap();
+        let r = resolve(&stage, &with(&[("left", one("character:catpope")), ("right", one("character:toptoy"))]), false, &rigs, &no_sets).unwrap();
         for h in ["left", "right"] {
             let p = r.scene.nodes.iter().find(|n| n.id == format!("{h}_policy")).unwrap();
             assert_eq!(p.params["@slots"].as_str(), Some(format!("{h}_").as_str()));

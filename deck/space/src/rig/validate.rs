@@ -137,7 +137,7 @@ impl Request {
         if doc.id != self.id {
             return Err(vec![format!("{who}: the document's id is \"{}\", the key's \"{}\"", doc.id, self.id)]);
         }
-        let resolved = crate::scene_resolve::resolve(&doc, &Default::default(), true, &crate::scene_resolve::no_rigs)
+        let resolved = crate::scene_resolve::resolve(&doc, &Default::default(), true, &crate::scene_resolve::no_rigs, &crate::scene_resolve::no_sets)
             .map_err(|problems| problems.into_iter().map(|p| format!("{who}: {p}")).collect::<Vec<_>>())?;
         super::engine::lower(&resolved.scene).map_err(said)?;
         Ok(())

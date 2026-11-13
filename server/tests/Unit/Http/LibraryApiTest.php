@@ -211,11 +211,24 @@ final class LibraryApiTest extends TestCase
         self::assertSame(['character.catpope', ['cathedral_voice', 'drone']], [$body['characters']['plf']['rig']['id'], $body['characters']['plf']['rig']['instruments']]);
         self::assertSame(['incense'], $body['items']['incense_burner']['rig']['instruments']);
         self::assertSame(['cathedral_voice', 'drone', 'incense'], array_keys($body['instruments']));
-        self::assertSame(['sets' => ['nowhere'], 'characters' => ['ghost'], 'items' => ['Ghost'], 'presets' => []], $body['missing']);
+        self::assertSame(['sets' => ['nowhere'], 'locations' => [], 'characters' => ['ghost'], 'items' => ['Ghost'], 'presets' => []], $body['missing']);
         $again = $this->request('/api/library/scene-content?sets=cathedral,nowhere&characters=plf,ghost&items=incense_burner,Ghost', ['If-None-Match' => $r->getHeaderLine('ETag')]);
         self::assertSame(304, $again->getStatusCode());
 
-        self::assertSame('{"sets":{},"characters":{},"items":{},"instruments":{},"presets":{},"missing":{"sets":[],"characters":[],"items":[],"presets":[]}}', (string) $this->request('/api/library/scene-content')->getBody(), 'maps stay objects');
+        // #512: a location names its set – the answer carries it and the set with its media; a removed place is missing
+        $store = $this->get(EntityStore::class);
+        $place = ['name' => ['de' => 'Kathedrale'], 'toons' => ['catpope'], 'x' => 0, 'y' => 0];
+        foreach (['place:cathedral' => $place + ['set' => 'cathedral'], 'place:dom' => $place, 'place:gone' => $place + ['set' => 'cave', 'removed' => true]] as $key => $doc) {
+            $id = $store->insert(EntityKey::parse($key), (string) json_encode($doc), null, 'draft', null);
+            $store->setPublished(['id' => $id, 'entity_key' => $key]);
+        }
+        $at = self::json($this->request('/api/library/scene-content?locations=cathedral,dom,gone,nowhere'));
+        self::assertSame(['cathedral' => ['set' => 'cathedral'], 'dom' => ['set' => null]], $at['locations']);
+        self::assertSame(['gone', 'nowhere'], $at['missing']['locations']);
+        self::assertSame(['cathedral'], array_keys($at['sets']), "the location's set, without being asked by name");
+        self::assertSame('catpope/map/sets/cathedral.low.v2.glb', $at['sets']['cathedral']['model']['low']['path']);
+
+        self::assertSame('{"sets":{},"locations":{},"characters":{},"items":{},"instruments":{},"presets":{},"missing":{"sets":[],"locations":[],"characters":[],"items":[],"presets":[]}}', (string) $this->request('/api/library/scene-content')->getBody(), 'maps stay objects');
         self::assertSame(400, $this->request('/api/library/scene-content?items=../x')->getStatusCode());
         self::assertSame([400, 'invalid_ids'], [($bad = $this->request('/api/library/scene-content?sets=../x'))->getStatusCode(), self::json($bad)['error']]);
         self::assertSame(400, $this->request('/api/library/scene-content?characters=' . implode(',', array_map(fn($i) => "c$i", range(1, 33))))->getStatusCode());
