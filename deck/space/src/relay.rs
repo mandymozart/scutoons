@@ -64,6 +64,9 @@ pub const SETTLE_GRACE_MS: f64 = 40.0;
 /// #478: a client that asks for its proof (`Options::wait_proof`) dials at most this long after its start without the
 /// answer (ms): long enough for the API's answer on a usual link, short enough that a deck nobody signed in to is not kept
 pub const PROOF_WAIT_MS: f64 = 1500.0;
+/// #518: a reader's story events fired while it is not joined (the page's first script runs before the link is up, a
+/// drop) wait for the welcome, at most this many – the newest kept: a script fires a handful before it waits for a click
+pub const STORY_HELD: usize = 32;
 
 /// `ws://host:port/live/<code>` (or `wss://`, a path before `/live/` – the LAN viewer's `…/relay/live/<code>`) → the
 /// base and the session code; a query is dropped (the client adds its own)
@@ -476,6 +479,8 @@ pub struct Client {
     /// #517: this deck's playing scene listens to story events: it asks for them (`deck.story`)
     story: bool,
     story_sent: f64,
+    /// #518: a reader's story events waiting for the welcome, oldest first
+    told: std::collections::VecDeque<Loose>,
     // #469: a phone's state and the editor's view, sent again after every welcome; each phone's newest pose heard (its `t`)
     hand_state: Option<HandState>,
     hand_view: Option<HandView>,
@@ -529,6 +534,7 @@ impl Client {
             listen_sent: f64::NEG_INFINITY,
             story: false,
             story_sent: f64::NEG_INFINITY,
+            told: Default::default(),
             hand_state: None,
             hand_view: None,
             poses: HashMap::new(),
@@ -658,6 +664,7 @@ impl Client {
                     Role::Output => format!("OUTPUT {c} OF {} @ {code}{via}", self.o.group.as_deref().unwrap_or("")),
                     Role::Audience => format!("AUDIENCE {c} @ {code}{via}"),
                     Role::Handheld => format!("HANDHELD {c} @ {code}{via}"),
+                    Role::Reader => format!("READER {c} @ {code}{via}"),
                     _ => format!("DECK {c} @ {code}{via}"),
                 }
             }
@@ -1176,6 +1183,27 @@ impl Client {
         }
     }
 
+    /// #518: a story event the reader fired (the VNEvent as it is: `type`, `params`, `id`) as a `story` message – at once
+    /// while joined, else held for the welcome (`STORY_HELD`), always in the order fired. Which events matter is the
+    /// receiver's (deck-events adapters/story.rs `STAYS_IN_THE_STORY`), not the reader's. False: held.
+    pub fn story(&mut self, event: Loose) -> bool {
+        self.told.push_back(event);
+        if self.told.len() > STORY_HELD {
+            self.told.pop_front();
+        }
+        self.flush_told()
+    }
+
+    fn flush_told(&mut self) -> bool {
+        if !self.joined {
+            return false;
+        }
+        while let Some(event) = self.told.pop_front() {
+            self.send(Message::Story(event));
+        }
+        true
+    }
+
     /// #442: events for one subscriber's far world nodes (only while joined – stale events are dropped)
     pub fn events(&mut self, client: &str, events: Vec<DeckEvent>) -> bool {
         self.joined && !events.is_empty() && self.send_to(Message::DeckEvents(DeckEvents { events }), To { role: None, group: None, client: Some(client.to_string()) })
@@ -1444,6 +1472,7 @@ impl Client {
         self.flush(now);
         self.flush_listen(now);
         self.flush_story(now);
+        self.flush_told();
         if let Some(t) = snap.tempo {
             self.out.push(Out::Tempo { tempo: t, arrived: now });
         }
@@ -1561,6 +1590,9 @@ pub fn step(c: &mut Client, now: f64, s: &Step) -> Result<(), String> {
             c.hand_recenter();
         }
         "hand_view" => c.hand_view(from_value(w).map_err(|e| e.to_string())?),
+        "story" => {
+            c.story(from_value(w).map_err(|e| e.to_string())?);
+        }
         "rejoin" => c.rejoin(),
         "stop" => c.stop(),
         "tick" => c.tick(now),
@@ -1898,6 +1930,27 @@ mod tests {
                     ],
                 ),
             ),
+            (
+                // #518: a phone reading the chapter in a session – what it fired before the welcome goes at the welcome, in
+                // order; then each at once; through a drop held again for the next welcome
+                "reader",
+                mk(
+                    json!({ "relay": RELAY, "role": "reader" }),
+                    false,
+                    vec![
+                        st(0.01, "story", json!({ "type": "label", "params": { "name": "start" }, "id": "e1" })),
+                        st(0.02, "story", json!({ "type": "joinScene", "params": { "characters": [{ "character": "catpope" }] }, "id": "e2" })),
+                        st(0.05, "open", Value::Null),
+                        st(0.1, "message", welcome("c4", json!({}))),
+                        st(0.2, "story", json!({ "type": "showMessage", "params": { "character": "catpope", "text": { "de": "Hallo" } }, "id": "e3" })),
+                        st(1.0, "close", json!("the relay went")),
+                        st(1.1, "story", json!({ "type": "leaveScene", "params": { "characters": [{ "character": "catpope" }] }, "id": "e4" })),
+                        st(1.3, "open", Value::Null),
+                        st(1.4, "message", welcome("c5", json!({}))),
+                        st(2.0, "stop", Value::Null),
+                    ],
+                ),
+            ),
         ]
     }
 
@@ -1917,6 +1970,29 @@ mod tests {
         let mut o = Options::new("ws://h:1/live/A B", Role::Audience, Some("bal kon"));
         o.relay = "ws://h:1/live/A%20B".into();
         assert_eq!(Client::new(o).unwrap().url(), "ws://h:1/live/A%20B?role=audience&group=bal%20kon");
+    }
+
+    /// #518: a reader's story events go out as `story` messages, the VNEvent as it is, in the order fired – those fired
+    /// before a welcome at the welcome, none lost to a drop
+    #[test]
+    fn a_reader_s_story_goes_out_in_order_and_waits_for_the_welcome() {
+        let t = turns("reader");
+        assert_eq!(t[0].outs[1], Out::Dial("ws://relay.test:7070/live/CATH?role=reader".into()));
+        let s = sent(&t);
+        assert_eq!(s[0]["kind"], "hello");
+        assert_eq!(s[0]["p"]["role"], "reader");
+        let told: Vec<&Value> = s.iter().filter(|e| e["kind"] == "story").map(|e| &e["p"]).collect();
+        assert_eq!(told.iter().map(|p| p["id"].as_str().unwrap()).collect::<Vec<_>>(), ["e1", "e2", "e3", "e4"]);
+        assert_eq!(*told[1], json!({ "type": "joinScene", "params": { "characters": [{ "character": "catpope" }] }, "id": "e2" }), "as fired");
+        let at = |what: &str, at: f64| t.iter().find(|x| x.what == what && x.at == at).unwrap();
+        assert!(at("story", 0.01).outs.is_empty(), "nothing goes before the welcome");
+        assert!(at("story", 1.1).outs.is_empty(), "nor while it is away");
+        let mut c = Client::new(Options::new(RELAY, Role::Reader, None)).unwrap();
+        for i in 0..STORY_HELD + 3 {
+            assert!(!c.story(serde_json::from_value(json!({ "type": "label", "id": format!("e{i}") })).unwrap()));
+        }
+        assert_eq!(c.told.len(), STORY_HELD);
+        assert_eq!(c.told[0]["id"], "e3", "the newest kept");
     }
 
     #[test]

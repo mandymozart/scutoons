@@ -77,6 +77,8 @@ export interface RunnerEnv {
 	setAvatarLocation?(location: string): Promise<void>;
 	/** plain text, trimmed, cut (askText answers) */
 	cleanText(text: string, limit: number): string;
+	/** #518: an event passed its condition and runs – a reader in a session tells it (reader-story.ts); every type alike */
+	fired?(event: VNEvent): void;
 }
 
 export interface CoreDeps {
@@ -140,6 +142,7 @@ export async function runEvents(events: readonly VNEvent[], start: number, deps:
 			const event = events[i];
 			i++;
 			if (!event || !testCondition(event.if, get, env.conditions)) continue;
+			env.fired?.(event);
 
 			switch (event.type) {
 				case 'label':

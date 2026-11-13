@@ -191,6 +191,11 @@ impl RelayClient {
         Ok(())
     }
 
+    /// #518: a story event the reader fired (the VNEvent, JSON) as a `story` message; false: held for the welcome
+    pub fn story(&mut self, json: &str) -> Result<bool, JsValue> {
+        Ok(self.c.story(parse(json)?))
+    }
+
     /// the vote open now as a screen hears it (an envelope, JSON); '' when none is open
     pub fn current_vote(&self) -> String {
         self.c.current_vote().and_then(|e| serde_json::to_string(&e).ok()).unwrap_or_default()

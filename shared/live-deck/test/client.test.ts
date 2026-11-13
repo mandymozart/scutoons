@@ -225,6 +225,10 @@ function replay(m: RelayModule, s: Script): { groups: Record<string, unknown>[][
 			case 'hand_view':
 				call(() => hand.hand_view(JSON.stringify(w)));
 				break;
+			// #518: a reader's story event (the viewer's reader-session.ts)
+			case 'story':
+				call(() => (core as unknown as { story(j: string): boolean }).story(JSON.stringify(w)));
+				break;
 			case 'stop':
 				sock.close();
 				break;
