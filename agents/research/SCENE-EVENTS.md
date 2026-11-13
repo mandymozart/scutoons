@@ -70,3 +70,35 @@ and chapter – the flow index extended – so the deck's scene editor can offer
 - A scene listens; a chapter never addresses a deck (Q1).
 - Join = appear, leave = disappear; no entrance actions now (Q4).
 - Everything else waits until the fundamentals stand.
+
+## 6. Draft: the link to a linked reader (#522 – a design, nothing built; owner 2026-11-13)
+
+### 6.1 What exists
+- A reader page with `?live=<code>` joins that session as `reader` and sends the story events it fires (#518). Without it: nothing.
+- A session is opened by an account with the role `live`: `POST /api/live/sessions` → a code and the conductor's token.
+- The conductor is the deck editor (`deck-editor --show … --relay …/live/<code>`) or the viewer's `/live/conductor/<code>` page. Neither shows a link or a QR for anybody today; the relay's presence already knows each client's role.
+- The creator draws a QR for the handheld camera's phone (phone-pairing.svelte, `qrcode-generator`); the deck's Rust code draws none.
+- The relay takes a reader without a token: whoever has the session code can join as reader.
+
+### 6.2 The link
+`<reader page>?live=<code>` – an ordinary reader address (toon, chapter, the place in it) with the session's code. One function in the core
+makes it from the viewer's base address, the page and the code, so the editor and the conductor page offer the same text (RULES A6).
+
+### 6.3 Where it is offered (proposal)
+| Where | What it shows |
+|---|---|
+| **Deck editor** (the conductor), a "Session" panel | the session's code and state · a row **Linked reader**: the page it opens (6.4 Q2), **Copy link**, a **QR** for a phone, **Open here** (the system's browser on this machine – the conductor reads and drives itself) · below it the linked readers now (from presence: how many, their names) and the last story event heard (type, character) |
+| **Conductor page** (`/live/conductor/<code>`) | the same row and the same list, drawn over the core's state |
+| **The reader**, when linked | a small mark "linked to <code>" with a way out (6.4 Q3); nothing else changes |
+
+A listening scene on a deck needs no setting: it asks for the story by itself (#517).
+
+### 6.4 Questions for the owner
+- **Q1 Who may be a linked reader?** Today the code alone is enough, and the audience's QR carries the same code – a visitor could add `?live=` and
+  move the scene. (a) leave it for now; (b) a reader key in the link that the conductor hands out, checked by the relay (the handheld camera's way, #469). Recommended: (b) before a show with an audience, (a) is enough for the first tests.
+- **Q2 Which page does the link open?** (a) the conductor picks toon and chapter in the row; (b) the show's home toon, first chapter; (c) the link carries no page – the conductor adds `?live=` to whatever they read. Recommended: (a), preset with (b).
+- **Q3 Does the reader show that it is linked?** Recommended: yes, the small mark – the person sends what they read to a stage.
+- **Q4 One linked reader or many?** Today every linked reader's events reach the decks that listen. Recommended: leave it, and show the list so the conductor sees who is in.
+
+### 6.5 Build steps once answered (not filed)
+the core's link function and the linked readers in the conductor's state (S) · the editor's Session panel with the row and a QR (M) · the conductor page's row (S) · the reader's mark (S) · the reader key, if Q1 = (b) (M, relay + API).
