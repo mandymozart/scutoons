@@ -84,6 +84,58 @@ final class StoryEventsApiTest extends TestCase
         ], $events);
         self::assertSame([['id' => 'set1', 'type' => 'setVariable', 'characters' => [], 'excerpt' => null, 'group' => 'city', 'groupIndex' => 0]],
             $index['toons'][1]['chapters'][0]['events']);
-        self::assertSame([['number' => 2, 'events' => []]], array_slice($index['toons'][1]['chapters'], 1));
+        self::assertSame([['number' => 2, 'events' => [], 'choices' => []]], array_slice($index['toons'][1]['chapters'], 1));
+        self::assertSame([], $catpope[0]['choices'], 'a chapter without a showChoices has no choices');
+    }
+
+    /** #550: a chapter's questions – each showChoices with its addChoices, whole labels by locale, from the published version */
+    public function testTheChoicesOfAPublishedChapter(): void
+    {
+        $choice = fn(?string $id, array $label, array $extra = []) => ['type' => 'addChoice', 'params' => ['label' => $label]] + ($id !== null ? ['id' => $id] : []) + $extra;
+        $published = $this->get(EntityStore::class)->insertPublished(EntityKey::parse('chapter:catpope:3'), (string) json_encode(['number' => 3, 'groups' => [
+            ['label' => 'nave', 'slices' => [['events' => [
+                // a slice's question; its "Only if" option is listed too
+                $choice('stay', ['de' => 'Bleiben', 'en' => 'Stay']),
+                $choice('go', ['de' => 'Gehen', 'en' => 'Go', 'fr' => ' '], ['if' => ['variable' => 'brave', 'op' => '==', 'value' => true]]),
+                ['id' => 'ch3.door', 'type' => 'showChoices'],
+            ]]], 'events' => [
+                // a choice added, then the script leaves (an unconditional jumpTo): it belongs to no question
+                $choice(null, ['de' => 'Verloren']),
+                ['type' => 'jumpTo', 'if' => ['variable' => 'x', 'op' => '==', 'value' => 1], 'params' => ['target' => ['type' => 'chapter', 'value' => '4']]],
+                ['type' => 'jumpTo', 'params' => ['target' => ['type' => 'chapter', 'value' => '4']]],
+                // a question without an id: listed with `event` null
+                $choice(null, ['en' => 'Yes']),
+                $choice(null, ['en' => 'No']),
+                ['type' => 'showChoices'],
+            ]],
+            ['slices' => [['items' => [['events' => [$choice('pet', ['de' => 'Streicheln']), ['id' => 'ch3.cat', 'type' => 'showChoices']]]]]]],
+        ]], JSON_UNESCAPED_UNICODE), null);
+        // a newer draft changes the labels and adds a question: events come from it, choices stay the published version's
+        $this->get(EntityStore::class)->insert(EntityKey::parse('chapter:catpope:3'), (string) json_encode(['number' => 3, 'groups' => [
+            ['label' => 'nave', 'events' => [$choice('stay', ['de' => 'Doch bleiben']), ['id' => 'ch3.draft', 'type' => 'showChoices']]],
+        ]]), null, 'draft', null);
+        // a chapter never published: no choices
+        $this->get(EntityStore::class)->insert(EntityKey::parse('chapter:catpope:4'), (string) json_encode(['number' => 4, 'groups' => [
+            ['events' => [$choice('a', ['en' => 'A']), ['id' => 'ch4.q', 'type' => 'showChoices']]],
+        ]]), null, 'draft', null);
+
+        $response = $this->request('/api/creator/story-events', $this->token('creator'));
+        self::assertSame(200, $response->getStatusCode());
+        $chapters = ((array) json_decode((string) $response->getBody(), true))['toons'][0]['chapters'];
+        self::assertSame([3, 4], array_column($chapters, 'number'));
+        self::assertSame(['stay', 'ch3.draft'], array_column($chapters[0]['events'], 'id'), 'the events are the newest version\'s');
+        // per group: its script's questions, then its slices' (FlowCheck's order)
+        self::assertSame([
+            ['event' => null, 'group' => 'nave', 'options' => [
+                ['id' => null, 'label' => ['en' => 'Yes']],
+                ['id' => null, 'label' => ['en' => 'No']],
+            ], 'version' => $published],
+            ['event' => 'ch3.door', 'group' => 'nave', 'options' => [
+                ['id' => 'stay', 'label' => ['de' => 'Bleiben', 'en' => 'Stay']],
+                ['id' => 'go', 'label' => ['de' => 'Gehen', 'en' => 'Go']],
+            ], 'version' => $published],
+            ['event' => 'ch3.cat', 'group' => null, 'options' => [['id' => 'pet', 'label' => ['de' => 'Streicheln']]], 'version' => $published],
+        ], $chapters[0]['choices']);
+        self::assertSame([], $chapters[1]['choices'], 'never published');
     }
 }

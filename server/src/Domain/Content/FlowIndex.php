@@ -26,7 +26,7 @@ final class FlowIndex
 {
     private const CACHE_TTL = 3600;
     private const VERSION = 'v6';
-    private const STORY_VERSION = 'v1';
+    private const STORY_VERSION = 'v2';
     private const KINDS = ['chapter', 'season', 'toon', 'map', 'place', 'route'];
     private const TARGET_TYPES = ['chapter', 'season', 'toon', 'product', 'xr'];
 
@@ -56,18 +56,26 @@ final class FlowIndex
      * character), `type` (Generated\StoryEventTypes), `characters` (showMessage's `character`, joinScene / leaveScene's
      * `characters`), `excerpt` (its first text, at most 80 characters; null without text), `group` (the group's label or
      * null) and `groupIndex`. Events in scene documents are not walked here.
+     * Per chapter also its `choices` (#550, research/SHOW.md §15 point 4 – the questions a show's vote can take): every
+     * `showChoices` of the chapter's PUBLISHED version with the `addChoice`s before it in the same event list (since the
+     * list's start, the last question or an unconditional divert / jumpTo – FlowCheck's grouping), as `{ event, group,
+     * options: [{ id, label }], version }`: `event` the showChoices' id (null: none – listed, a show cannot name it),
+     * `group` the group's label or null, each option's id or null and its whole label by locale, `version` the chapter
+     * version (entity_versions id) the choice was read from. Every option is listed, also one with an "Only if". A chapter
+     * never published lists none.
      * @return array<string, mixed>
      */
     public function storyEvents(): array
     {
         $ids = $this->latestIds();
-        $key = 'story-events:' . self::STORY_VERSION . ':' . sha1(implode(',', $ids));
+        $published = $this->publishedChapterIds();
+        $key = 'story-events:' . self::STORY_VERSION . ':' . sha1(implode(',', $ids) . '|' . implode(',', $published));
         $cached = $this->cache->get($key);
         if ($cached !== null) {
             $decoded = json_decode($cached, true);
             if (is_array($decoded)) return $decoded;
         }
-        $answer = $this->composeStoryEvents($this->documents($ids));
+        $answer = $this->composeStoryEvents($this->documents($ids), $published, $this->documents(array_values($published)));
         $this->cache->set($key, (string) json_encode($answer, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), self::CACHE_TTL);
         return $answer;
     }
@@ -84,12 +92,26 @@ final class FlowIndex
     }
 
     /**
-     * @param array<string, array<mixed>> $docs
+     * the published version id of every language-neutral chapter (`chapter:<toon>:<n>`), by entity key
+     * @return array<string, int>
+     */
+    private function publishedChapterIds(): array
+    {
+        $rows = $this->db->all("SELECT entity_key, MAX(id) AS id FROM entity_versions WHERE kind = 'chapter' AND locale IS NULL AND status = 'published' GROUP BY entity_key ORDER BY entity_key");
+        $out = [];
+        foreach ($rows as $row) $out[(string) $row['entity_key']] = (int) $row['id'];
+        return $out;
+    }
+
+    /**
+     * @param array<string, array<mixed>> $docs the newest documents
+     * @param array<string, int> $published chapter entity → its published version id
+     * @param array<string, array<mixed>> $publishedDocs chapter entity → its published document
      * @return array<string, mixed>
      */
-    private function composeStoryEvents(array $docs): array
+    private function composeStoryEvents(array $docs, array $published, array $publishedDocs): array
     {
-        /** @var array<string, list<array{number: int, events: list<array<string, mixed>>}>> $chapters */
+        /** @var array<string, list<array{number: int, events: list<array<string, mixed>>, choices: list<array<string, mixed>>}>> $chapters */
         $chapters = [];
         foreach ($docs as $entity => $doc) {
             $parts = explode(':', (string) $entity);
@@ -97,7 +119,11 @@ final class FlowIndex
             $groups = is_array($doc['groups'] ?? null) ? array_values($doc['groups']) : [];
             $events = [];
             self::collectEvents($groups, $events);
-            $chapters[$parts[1]][] = ['number' => (int) $parts[2], 'events' => $events];
+            $choices = [];
+            if (isset($published[$entity], $publishedDocs[$entity])) {
+                $choices = self::choices($publishedDocs[$entity], $published[$entity]);
+            }
+            $chapters[$parts[1]][] = ['number' => (int) $parts[2], 'events' => $events, 'choices' => $choices];
         }
         ksort($chapters);
         $toons = [];
@@ -157,6 +183,71 @@ final class FlowIndex
             'group' => $label,
             'groupIndex' => $groupIndex,
         ];
+    }
+
+    /**
+     * a chapter's questions (#550): per group, its event lists (the group's script, each slice's events, each placed item's
+     * taps – FlowCheck's lists, in its order), each showChoices with the addChoices before it
+     * @param array<mixed> $doc the chapter's published document
+     * @return list<array<string, mixed>>
+     */
+    private static function choices(array $doc, int $version): array
+    {
+        $out = [];
+        foreach (is_array($doc['groups'] ?? null) ? array_values($doc['groups']) : [] as $group) {
+            if (!is_array($group)) continue;
+            $label = is_string($group['label'] ?? null) && $group['label'] !== '' ? $group['label'] : null;
+            $lists = [is_array($group['events'] ?? null) ? $group['events'] : []];
+            foreach (is_array($group['slices'] ?? null) ? $group['slices'] : [] as $slice) {
+                if (!is_array($slice)) continue;
+                $lists[] = is_array($slice['events'] ?? null) ? $slice['events'] : [];
+                foreach (is_array($slice['items'] ?? null) ? $slice['items'] : [] as $item) {
+                    if (is_array($item) && is_array($item['events'] ?? null)) $lists[] = $item['events'];
+                }
+            }
+            foreach ($lists as $events) {
+                $options = [];
+                foreach ($events as $event) {
+                    if (!is_array($event)) continue;
+                    $type = $event['type'] ?? null;
+                    $id = is_string($event['id'] ?? null) && $event['id'] !== '' ? $event['id'] : null;
+                    if (($type === 'divert' || $type === 'jumpTo') && !self::conditional($event)) {
+                        $options = [];
+                    } elseif ($type === 'addChoice') {
+                        $params = is_array($event['params'] ?? null) ? $event['params'] : [];
+                        $options[] = ['id' => $id, 'label' => self::locales($params['label'] ?? null)];
+                    } elseif ($type === 'showChoices') {
+                        $out[] = ['event' => $id, 'group' => $label, 'options' => $options, 'version' => $version];
+                        $options = [];
+                    }
+                }
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * an event that runs only if its test holds (FlowCheck::conditional, reach.ts `isConditional`)
+     * @param array<mixed> $event
+     */
+    private static function conditional(array $event): bool
+    {
+        $if = $event['if'] ?? null;
+        if (!is_array($if)) return false;
+        return (is_string($if['variable'] ?? null) && $if['variable'] !== '') || (is_string($if['expr'] ?? null) && trim($if['expr']) !== '');
+    }
+
+    /**
+     * a text leaf whole, by locale (a neutral document's locale map; its blank texts left out)
+     * @return array<string, string>
+     */
+    private static function locales(mixed $value): array
+    {
+        $out = [];
+        foreach (is_array($value) ? $value : [] as $locale => $text) {
+            if (is_string($locale) && is_string($text) && trim($text) !== '') $out[$locale] = $text;
+        }
+        return $out;
     }
 
     /**
