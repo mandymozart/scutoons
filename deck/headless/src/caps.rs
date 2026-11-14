@@ -55,7 +55,7 @@ pub const CAPS: &[(&str, &str, &str, &str)] = &[("test_missing", "#0", "a stand-
 
 /// the steps the core answers now (their move tickets landed): name, ticket – `hud` (#374, deck-ui) is a step of the
 /// runner's (lib.rs: it reads the deck's clock)
-pub const MOVED: &[(&str, &str)] = &[("stats", "#364"), ("lead", "#365"), ("mood", "#367"), ("rig_facts", "#368"), ("device_text", "#373"), ("meters", "#373"), ("gesture", "#376"), ("knob", "#369"), ("sync", "#371"), ("relay_join", "#366"), ("quality_options", "#375"), ("code_rig", "#408"), ("code_rig_deck", "#410"), ("event_rig", "#430")];
+pub const MOVED: &[(&str, &str)] = &[("stats", "#364"), ("lead", "#365"), ("mood", "#367"), ("rig_facts", "#368"), ("device_text", "#373"), ("meters", "#373"), ("gesture", "#376"), ("knob", "#369"), ("sync", "#371"), ("relay_join", "#366"), ("quality_options", "#375"), ("code_rig", "#408"), ("code_rig_deck", "#410"), ("event_rig", "#430"), ("ballot", "#556")];
 
 /// Call the capability `name` with the step's input: its answer, or what is missing.
 pub fn call(name: &str, input: &Value) -> Result<Value, Missing> {
@@ -74,6 +74,7 @@ pub fn call(name: &str, input: &Value) -> Result<Value, Missing> {
         "code_rig" => return Ok(code_rig(input)),
         "code_rig_deck" => return Ok(code_rig_deck(input)),
         "event_rig" => return Ok(event_rig(input)),
+        "ballot" => return Ok(ballot(input)),
         _ => {}
     }
     match CAPS.iter().find(|c| c.0 == name) {
@@ -298,6 +299,93 @@ fn relay_join(i: &Value) -> Value {
     let dials = outs().filter(|(_, o)| matches!(o, relay::Out::Dial(_))).count();
     let states: Vec<Value> = outs().filter_map(|(_, o)| if let relay::Out::Status(s) = o { serde_json::to_value(s.state).ok() } else { None }).collect();
     json!({ "pings": sent.iter().filter(|k| *k == "ping").count(), "sent": sent, "backoff_s": waits, "joined_at_s": joined, "dials": dials, "states": states })
+}
+
+/// #556: a deck's ballot through a scripted link (the relay client's script: `join`, `steps` – `open`, `message`, … as
+/// `relay_join` takes them) with the deck's own steps between: `draw` (the ballot is painted for a `size` screen in
+/// `locale`, as a deck's frame does: what the layer says, none when nothing shows), `input` (`up`, `down`, `enter` – a
+/// key or a pad's button as the menu's adapter names it) and `press` (an option by its place in the list, where it was
+/// painted). What the ballot answers is done as a deck does it: a cast goes to the relay client. The answer: `drew` (a
+/// list of texts per `draw`), `mine` (this deck's option's label per `draw`, "" = none), `took` (per input: was it the
+/// ballot's), `sent` (the kinds the client sent), `casts` (the options it cast).
+fn ballot(i: &Value) -> Value {
+    use deck_ui::ballot::Page;
+    use deck_ui::live::Do;
+    use deck_ui::menu::Input;
+    let join: relay::Options = match serde_json::from_value(i["join"].clone()) {
+        Ok(o) => o,
+        Err(e) => return json!({ "error": e.to_string() }),
+    };
+    let steps: Vec<relay::Step> = match serde_json::from_value(i["steps"].clone()) {
+        Ok(s) => s,
+        Err(e) => return json!({ "error": e.to_string() }),
+    };
+    let locale = i["locale"].as_str().unwrap_or("en");
+    let size = (i["size"][0].as_f64().unwrap_or(1280.0) as f32, i["size"][1].as_f64().unwrap_or(720.0) as f32);
+    let mut c = match relay::Client::new(join) {
+        Ok(c) => c,
+        Err(e) => return json!({ "error": e }),
+    };
+    let mut page = Page::default();
+    let (mut drew, mut mine, mut took, mut outs) = (Vec::new(), Vec::new(), Vec::new(), Vec::new());
+    // the picture a deck's frame has on its stage: kept between draws (the page says only what changed)
+    let mut shown: Vec<String> = Vec::new();
+    c.start(0.0);
+    outs.extend(c.take());
+    for st in &steps {
+        let now = st.at * 1000.0;
+        while let Some(at) = c.next_wake().filter(|&at| at <= now) {
+            c.tick(at);
+            outs.extend(c.take());
+        }
+        let view = c.ballot().view(now, locale);
+        let input = |name: &str| match name {
+            "up" => Some(Input::Up),
+            "down" => Some(Input::Down),
+            "enter" => Some(Input::Enter),
+            _ => None,
+        };
+        let pressed = match st.what.as_str() {
+            "draw" => {
+                if let Some(layer) = page.paint(view.as_ref(), size, 0.6) {
+                    shown = layer.map(|l| l.list.texts().into_iter().map(String::from).collect()).unwrap_or_default();
+                }
+                drew.push(shown.clone());
+                mine.push(view.as_ref().and_then(|v| v.choices.iter().find(|c| c.mine)).map(|c| c.label.clone()).unwrap_or_default());
+                None
+            }
+            "input" => match input(st.with.as_str().unwrap_or_default()) {
+                Some(i) => Some(i),
+                None => return json!({ "error": format!("input {}: up, down or enter", st.with) }),
+            },
+            "press" => {
+                let (x, y) = st.with.as_u64().and_then(|o| page.at(o as usize)).unwrap_or((-1.0, -1.0));
+                Some(Input::Press(x, y))
+            }
+            _ => {
+                if let Err(e) = relay::step(&mut c, now, st) {
+                    return json!({ "error": e });
+                }
+                None
+            }
+        };
+        if let Some(i) = pressed {
+            let (was, did) = page.input(i, view.as_ref());
+            took.push(was);
+            if let Some(Do::Cast(option)) = did {
+                c.vote_cast(option as i64);
+            }
+        }
+        outs.extend(c.take());
+    }
+    let sent: Vec<Value> = outs.iter().filter_map(|o| if let relay::Out::Send(s) = o { serde_json::from_str::<Value>(s).ok() } else { None }).collect();
+    json!({
+        "drew": drew,
+        "mine": mine,
+        "took": took,
+        "sent": sent.iter().filter_map(|e| e["kind"].as_str()).collect::<Vec<_>>(),
+        "casts": sent.iter().filter(|e| e["kind"] == "vote.cast").map(|e| e["p"]["option"].clone()).collect::<Vec<_>>(),
+    })
 }
 
 /// #375: deck-space's option lists as the browser's sheet gets them (`options_json`, the one place they exist – native's F4
