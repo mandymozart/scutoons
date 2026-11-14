@@ -480,6 +480,8 @@ pub struct Client {
     push_due: bool,
     // a vote screen: the vote open now
     vote: Option<VoteOpen>,
+    // #556: the vote this client may cast in, as its ballot shows it (deck-ui ballot.rs), on this client's clock
+    ballot: deck_ui::ballot::State,
     /// #438: the relay has a QUIC door
     door: Option<Quic>,
     // #442: the far addresses this deck asks for, and when it last asked
@@ -540,6 +542,7 @@ impl Client {
             push: None,
             push_due: false,
             vote: None,
+            ballot: Default::default(),
             door,
             listen: Vec::new(),
             listen_sent: f64::NEG_INFINITY,
@@ -1328,10 +1331,21 @@ impl Client {
         self.send(Message::VoteOpen(p))
     }
 
-    /// a vote for `option` of the vote open now (none open: nothing)
+    /// a vote for `option` of the vote open now (none open: nothing); the ballot marks it once it went out
     pub fn vote_cast(&mut self, option: i64) -> bool {
         let Some(vote) = self.vote.as_ref().map(|v| v.vote.clone()) else { return false };
-        self.send(Message::VoteCast(VoteCast { vote, option }))
+        let sent = self.send(Message::VoteCast(VoteCast { vote, option }));
+        if let Some(o) = usize::try_from(option).ok().filter(|_| sent) {
+            self.ballot.cast(o);
+        }
+        sent
+    }
+
+    /// #556: the vote this client may cast in as its ballot shows it (deck-ui ballot.rs) – fed by `vote.open` (the
+    /// welcome's snapshot's too), `vote.tally`, `vote.result` and this client's casts; its times are this client's
+    /// clock (the `now` of its calls, ms), so `view` is asked with that clock
+    pub fn ballot(&self) -> &deck_ui::ballot::State {
+        &self.ballot
     }
 
     /// the conductor closes the open vote (`over`: the option it picks instead)
@@ -1442,14 +1456,20 @@ impl Client {
                 self.out.push(Out::Deck(In::Presence { decks: p.decks.unwrap_or_default(), routes, links: p.links.unwrap_or_default(), quality: p.quality.unwrap_or_default() }));
             }
             Message::VoteOpen(v) => {
+                self.ballot.open(&v, now);
                 self.vote = Some(v);
                 self.out.push(Out::Vote(e));
             }
-            Message::VoteResult(_) => {
+            Message::VoteResult(r) => {
+                self.ballot.result(&r, now);
                 self.vote = None;
                 self.out.push(Out::Vote(e));
             }
-            Message::VoteTally(_) | Message::Say(_) => self.out.push(Out::Vote(e)),
+            Message::VoteTally(t) => {
+                self.ballot.tally(&t, now);
+                self.out.push(Out::Vote(e));
+            }
+            Message::Say(_) => self.out.push(Out::Vote(e)),
             Message::Error(err) => {
                 self.out.push(Out::Vote(e));
                 if err.code == "token" {
@@ -1527,6 +1547,7 @@ impl Client {
             self.out.push(Out::Tempo { tempo: t, arrived: now });
         }
         if let Some(v) = snap.vote {
+            self.ballot.open(&v, now);
             self.vote = Some(v.clone());
             self.out.push(Out::Vote(relay_says(Message::VoteOpen(v))));
         }
@@ -2154,6 +2175,46 @@ mod tests {
                 ("vote.cast".to_string(), json!({ "vote": "v1", "option": 1 })),
             ]
         );
+    }
+
+    /// #556: the ballot of a deck that hears the vote follows the relay client – the open vote, this deck's cast once
+    /// it went out, the result; a deck that hears only the result (it did not pass the filter, #547) shows nothing
+    #[test]
+    fn a_decks_ballot_follows_what_the_relay_client_hears_and_casts() {
+        let join = json!({ "relay": RELAY, "role": "output", "group": "left", "device": "native" });
+        let mut c = Client::new(serde_json::from_value(join.clone()).unwrap()).unwrap();
+        c.start(0.0);
+        let at = |c: &mut Client, s: f64, what: &str, with: Value| step(c, s * 1000.0, &st(s, what, with)).unwrap();
+        at(&mut c, 0.0, "open", Value::Null);
+        at(&mut c, 0.1, "message", welcome("c3", json!({})));
+        assert_eq!(c.ballot().view(100.0, "en"), None);
+        at(&mut c, 1.0, "message", json!({ "kind": "vote.open", "p": { "vote": "v1", "options": ["Yes", "No"], "rule": "majority", "seconds": 20, "where": { "device": "native" } } }));
+        let v = c.ballot().view(3000.0, "en").expect("the ballot");
+        assert_eq!((v.caption.1.as_str(), v.choices.iter().map(|c| c.mine).collect::<Vec<_>>()), ("18 s left", vec![false, false]));
+        at(&mut c, 3.0, "vote_cast", json!(1));
+        assert!(c.ballot().view(3000.0, "en").unwrap().choices[1].mine);
+        at(&mut c, 4.0, "message", json!({ "kind": "vote.result", "p": { "vote": "v1", "option": 1, "counts": [0, 1], "how": "rule" } }));
+        assert_eq!(c.ballot().view(4000.0, "en").and_then(|v| v.result).map(|r| r.winner).as_deref(), Some("No"));
+        assert_eq!(c.ballot().view(4000.0 + deck_ui::ballot::RESULT_MS, "en"), None, "the result has shown");
+        let cast: Vec<Value> = c.take().into_iter().filter_map(|o| if let Out::Send(s) = o { serde_json::from_str::<Value>(&s).ok() } else { None }).filter(|e| e["kind"] == "vote.cast").collect();
+        assert_eq!(cast.iter().map(|e| e["p"].clone()).collect::<Vec<_>>(), [json!({ "vote": "v1", "option": 1 })]);
+        // the deck the filter leaves out: only the result reaches it
+        let mut other = Client::new(serde_json::from_value(join).unwrap()).unwrap();
+        other.start(0.0);
+        at(&mut other, 0.0, "open", Value::Null);
+        at(&mut other, 0.1, "message", welcome("c4", json!({})));
+        at(&mut other, 4.0, "message", json!({ "kind": "vote.result", "p": { "vote": "v1", "option": 1, "counts": [0, 1], "how": "rule" } }));
+        assert_eq!(other.ballot().view(4000.0, "en"), None);
+        at(&mut other, 4.1, "vote_cast", json!(0));
+        assert!(!other.take().iter().any(|o| matches!(o, Out::Send(s) if s.contains("vote.cast"))), "nothing to cast into");
+        // offline, a cast does not go out and is not marked
+        let mut off = Client::new(serde_json::from_value(json!({ "relay": RELAY, "role": "output", "group": "left" })).unwrap()).unwrap();
+        off.start(0.0);
+        at(&mut off, 0.0, "open", Value::Null);
+        at(&mut off, 0.1, "message", welcome("c5", json!({ "vote": { "vote": "v1", "options": ["Yes", "No"], "rule": "majority", "seconds": 20 } })));
+        at(&mut off, 0.2, "close", json!("gone"));
+        at(&mut off, 0.3, "vote_cast", json!(0));
+        assert!(off.ballot().view(300.0, "en").is_some_and(|v| v.choices.iter().all(|c| !c.mine)));
     }
 
     #[test]

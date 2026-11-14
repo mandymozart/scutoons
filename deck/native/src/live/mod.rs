@@ -114,6 +114,9 @@ mod running {
         /// #478: the Live page's session (the relay client's, kept by its thread) and what it asks of it
         session: Arc<Mutex<deck_ui::live::Session>>,
         page: Sender<deck_ui::live::Do>,
+        /// #556: the relay client's ballot (kept by its thread) and the locale its words are in
+        ballot: Arc<Mutex<deck_ui::ballot::State>>,
+        locale: String,
     }
 
     impl Live {
@@ -134,6 +137,7 @@ mod running {
             let (flash_tx, flash_rx) = channel::<super::flash::In>();
             let (page, page_rx) = channel::<deck_ui::live::Do>();
             let session = Arc::new(Mutex::new(deck_ui::live::Session::default()));
+            let ballot = Arc::new(Mutex::new(deck_ui::ballot::State::default()));
 
             // #471: what the deck says about itself – a native deck, and deck.toml's "please don't flash"
             let mut flash = deck_show::flashed::Flashed::new(&cfg.outlet, "native");
@@ -179,12 +183,19 @@ mod running {
                 rejoin: rejoin.clone(),
                 page: page_rx,
                 session: session.clone(),
+                ballot: ballot.clone(),
                 media: proof_media,
                 renew: Default::default(),
                 proof: None,
             };
             spawn("live-relay", move || client.run());
-            Live { outlet: cfg.outlet, frames: Some(frames), space, pieces, status, size, stop, rejoin, flash: flash_tx, panel, pointer: Mutex::new((0.0, 0.0)), session, page }
+            Live { locale: cfg.locale, outlet: cfg.outlet, frames: Some(frames), space, pieces, status, size, stop, rejoin, flash: flash_tx, panel, pointer: Mutex::new((0.0, 0.0)), session, page, ballot }
+        }
+
+        /// #556: the ballot of the vote this deck may cast in, as it reads now in the deck's locale (deck-ui ballot.rs;
+        /// the relay client's clock); none = no vote, or its result has shown
+        pub fn ballot(&self) -> Option<deck_ui::ballot::View> {
+            self.ballot.lock().unwrap().view(super::socket::now_ms(), &self.locale)
         }
 
         /// #478: what the Live page shows
@@ -192,7 +203,7 @@ mod running {
             self.session.lock().unwrap().clone()
         }
 
-        /// #478: what the Live page asked: a role (at once, the relay checks it), a name
+        /// #478: what the Live page asked: a role (at once, the relay checks it), a name; #556: the ballot's cast
         pub fn act(&self, d: deck_ui::live::Do) {
             let _ = self.page.send(d);
         }

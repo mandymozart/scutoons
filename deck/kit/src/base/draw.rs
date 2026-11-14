@@ -59,6 +59,11 @@ impl DrawList {
         &self.text[start..end]
     }
 
+    /// every text of the list, in painter's order: what a layer says (tests, the headless host)
+    pub fn texts(&self) -> Vec<&str> {
+        self.prims.iter().filter_map(|p| if let Prim::Text { start, end, .. } = *p { Some(self.text_of(start, end)) } else { None }).collect()
+    }
+
     /// a character's advance at font size `px`
     pub fn advance(&self, px: f32) -> f32 {
         self.per_px * px

@@ -5,6 +5,9 @@
 //! page goes to the stage (a layer of deck-kit's egui screen, #485). Esc opens the menu when nothing is open; F4 / F5 /
 //! F6 still open their page directly. The corner card is gone: deck-link's pairing state (read every 2 s, a small file)
 //! is the menu's "Pair this deck".
+//! #556: the ballot of a vote this deck may cast in (deck-ui `ballot.rs`, the layer under the menu) gets the inputs the
+//! menu leaves – the arrows, Enter, a click, a touch, the pad's d-pad and A – while no page of the deck is open; its
+//! cast goes to the Live outlet's relay client.
 use crate::App;
 use deck_ui::menu::{Answer, Facts, Input, Menu, Page, Pair};
 use winit::event::{ElementState, MouseButton, TouchPhase, WindowEvent};
@@ -13,6 +16,12 @@ use winit::keyboard::{Key, NamedKey};
 
 pub struct Native {
     pub menu: Menu,
+    /// #556: the ballot's picture and keys
+    pub ballot: deck_ui::ballot::Page,
+    /// #556, a check run (`DECK_BALLOT_KEYS=down,enter`, as `--pick` is a check run's click): the keys the ballot gets
+    /// once it shows, one every 0.4 s, through the menu's input as a keyboard's; and when the next is due
+    keys: std::collections::VecDeque<Input>,
+    key_at: Option<f32>,
     /// where the pointer is (winit says it on a move, a press has no place)
     at: (f32, f32),
     pair: Pair,
@@ -24,7 +33,14 @@ impl Native {
     /// run (`--frames`) never waits for a key.
     pub fn new(args: &crate::Args) -> Native {
         let session = deck_native::live::config::configured(crate::outlet_settings(args)) || args.frames.is_some();
-        Native { menu: Menu::new(session), at: (0.0, 0.0), pair: Pair::Off, pair_at: -10.0 }
+        let keys = std::env::var("DECK_BALLOT_KEYS").unwrap_or_default();
+        let keys = keys.split(',').filter_map(|k| match k.trim() {
+            "up" => Some(Input::Up),
+            "down" => Some(Input::Down),
+            "enter" => Some(Input::Enter),
+            _ => None,
+        });
+        Native { menu: Menu::new(session), ballot: Default::default(), keys: keys.collect(), key_at: None, at: (0.0, 0.0), pair: Pair::Off, pair_at: -10.0 }
     }
 }
 
@@ -57,12 +73,24 @@ impl App {
         }
         let facts = self.menu_facts();
         match self.menu.menu.input(i, &facts) {
-            Answer::No => return false,
+            Answer::No => return self.ballot_input(i),
             Answer::Quit => el.exit(),
             Answer::Yes | Answer::Started => {}
         }
         self.menu_sync(&facts);
         true
+    }
+
+    /// #556: an input the menu left, for the ballot – unless a page of the deck is open (its keys are its own); whether
+    /// the ballot took it. What it asks (a cast) goes to the Live outlet.
+    fn ballot_input(&mut self, i: Input) -> bool {
+        if self.page.open || self.switcher.open || self.live.page.open {
+            return false;
+        }
+        let view = crate::pages::ballot(&self.show);
+        let (took, did) = self.menu.ballot.input(i, view.as_ref());
+        crate::pages::act(&self.show, did);
+        took
     }
 
     /// The deck's own pages follow the menu: the one it has on top shows, the others close.
@@ -137,7 +165,8 @@ impl App {
         }
         #[cfg(feature = "gamepad")]
         {
-            let open = self.menu.menu.open();
+            // while the ballot shows, the d-pad and A are its own as they are the open menu's
+            let open = self.menu.menu.open() || self.menu.ballot.top().is_some();
             let pressed = match (self.show.pad.as_mut(), self.show.space.as_mut()) {
                 (Some(pad), Some(space)) => pad.poll(space, &mut self.show.controls, open),
                 _ => Vec::new(),
@@ -152,6 +181,18 @@ impl App {
         let Some(r) = self.renderer.as_mut() else { return };
         if let Some(layer) = self.menu.menu.paint(&facts, r.size()) {
             r.set_menu(layer);
+        }
+        // #556: the ballot, when it changed (a second of its countdown, a cast, the tally, the result, gone)
+        let view = crate::pages::ballot(&self.show);
+        if let Some(layer) = self.menu.ballot.paint(view.as_ref(), r.size(), deck_outlet::text::mono_per_px()) {
+            r.set_vote(layer);
+        }
+        // a check run's keys, once the ballot shows
+        if view.is_some() && !self.menu.keys.is_empty() && time >= *self.menu.key_at.get_or_insert(time + 0.4) {
+            self.menu.key_at = Some(time + 0.4);
+            if let Some(i) = self.menu.keys.pop_front() {
+                self.menu_input(el, i);
+            }
         }
     }
 }

@@ -134,6 +134,12 @@ impl Renderer {
         self.stage.set_menu(menu);
     }
 
+    /// The ballot (#556, deck-ui `ballot::Page::paint`): Some = its layer along the screen's bottom, under the menu and
+    /// the panel; None = gone. Called when it changes.
+    pub fn set_vote(&mut self, vote: Option<deck_ui::menu::draw::Layer>) {
+        self.stage.set_vote(vote);
+    }
+
     /// #485: an input of the menu's for egui's input state while the deck's own UI shows
     pub fn ui_input(&mut self, i: deck_ui::menu::Input) {
         self.stage.ui_input(i);

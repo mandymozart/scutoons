@@ -602,6 +602,12 @@ impl Stage {
         self.ui.set_menu(menu);
     }
 
+    /// The ballot (#556): Some = its layer (deck-ui `ballot::Page::paint`) along the screen's bottom, over the scene that
+    /// plays on, under the menu and the panel; None = gone. Called when it changes.
+    pub fn set_vote(&mut self, vote: Option<deck_kit::base::screen::Layer>) {
+        self.ui.set_vote(vote);
+    }
+
     /// The deck's panel (#481): Some = its layer (deck-show `Face::paint`) along the screen's bottom, over the scene, the
     /// HUD and the menu; None = gone. Called when it changes.
     pub fn set_panel(&mut self, panel: Option<deck_kit::base::screen::Layer>) {

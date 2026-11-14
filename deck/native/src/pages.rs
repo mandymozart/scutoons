@@ -81,6 +81,26 @@ pub fn session(show: &crate::Show) -> live::Session {
     live::Session::default()
 }
 
+/// #556: the ballot of the vote this deck may cast in (the Live outlet's relay client's), or none
+pub fn ballot(show: &crate::Show) -> Option<deck_ui::ballot::View> {
+    #[cfg(feature = "live")]
+    if let Some(l) = &show.live {
+        return l.ballot();
+    }
+    let _ = show;
+    None
+}
+
+/// what a page of the deck asked of its session (the Live page's role and name, the ballot's cast): to the Live outlet
+pub fn act(show: &crate::Show, did: Option<live::Do>) {
+    #[cfg(feature = "live")]
+    if let (Some(l), Some(d)) = (&show.live, did) {
+        l.act(d);
+    }
+    #[cfg(not(feature = "live"))]
+    let _ = (show, did);
+}
+
 impl LivePage {
     /// F6: open (on the role it is in) or close
     pub fn toggle(&mut self, show: &crate::Show) {
@@ -116,12 +136,7 @@ impl LivePage {
             }
             _ => return false,
         };
-        #[cfg(feature = "live")]
-        if let (Some(l), Some(d)) = (&show.live, did) {
-            l.act(d);
-        }
-        #[cfg(not(feature = "live"))]
-        let _ = did;
+        act(show, did);
         true
     }
 }

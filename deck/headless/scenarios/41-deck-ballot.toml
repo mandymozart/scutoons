@@ -1,0 +1,99 @@
+name = "a deck that may vote draws the ballot and casts; one the filter leaves out never hears the vote"
+about = "#556 (SHOW.md §15 point 1; owner 2026-11-14 [live]: \"Deck draws the questions\", decks vote): the relay sends `vote.open` only to the clients that pass the vote's filter (#547: relay session.rs `is_voter`, tested there), so a deck that hears it has a ballot – deck-ui ballot.rs, fed by deck-space's relay client (`Client::ballot`), painted as the layer VOTE of the deck's screen from deck-kit live's panel parts, in the deck's locale – and casts into it with the keys or a press (`Do::Cast` → `Client::vote_cast`); the tally shows once it voted and the vote shows it; the result shows, then the ballot goes. `vote.result` goes to everyone: a deck that never heard the vote draws nothing and casts nothing. The scene is not touched by any of it (the ballot is a layer over the stage's pass)"
+
+# the deck the filter lets through (`device: native`): it hears the vote, draws it, votes with the keys, changes its vote
+# with a press, sees the shares, then the result – and nothing after it has shown
+[[step]]
+do = "ballot"
+[step.with]
+join = { relay = "ws://relay.test:7070/live/CATH", role = "output", group = "left", device = "native" }
+locale = "en"
+size = [800, 600]
+steps = [
+  { at = 0.0, do = "open" },
+  { at = 0.05, do = "message", with = { kind = "welcome", p = { client = "c1", snapshot = {}, now = 0 } } },
+  { at = 0.5, do = "draw" },
+  { at = 1.0, do = "message", with = { kind = "vote.open", p = { vote = "v1", options = ["Yes", "No"], rule = "majority", seconds = 20, show = true, where = { device = "native" }, question = { en = "Shall the cat sing?", de = "Soll die Katze singen?" } } } },
+  { at = 2.0, do = "draw" },
+  { at = 3.0, do = "input", with = "down" },
+  { at = 3.1, do = "input", with = "down" },
+  { at = 3.2, do = "input", with = "enter" },
+  { at = 3.5, do = "message", with = { kind = "vote.tally", p = { vote = "v1", counts = [2, 1], voters = 3, left = 17500 } } },
+  { at = 4.0, do = "draw" },
+  { at = 5.0, do = "press", with = 0 },
+  { at = 5.5, do = "message", with = { kind = "vote.tally", p = { vote = "v1", counts = [3, 0], voters = 3, left = 15500 } } },
+  { at = 6.0, do = "draw" },
+  { at = 7.0, do = "message", with = { kind = "vote.result", p = { vote = "v1", option = 0, counts = [3, 0], how = "rule" } } },
+  { at = 7.5, do = "draw" },
+  { at = 8.0, do = "input", with = "enter" },
+  { at = 16.0, do = "draw" },
+]
+[step.expect]
+drew = [
+  [],
+  ["VOTE", "19 S LEFT", "Shall the cat sing?", "Yes", "", "No", "", "Make your choice."],
+  ["VOTE", "17 S LEFT", "Shall the cat sing?", "Yes", "67%", "No", "33%", "You can change it until the end."],
+  ["VOTE", "15 S LEFT", "Shall the cat sing?", "Yes", "100%", "No", "0%", "You can change it until the end."],
+  ["RESULT", "", "Yes", "Most votes.", "Your vote: Yes"],
+  [],
+]
+mine = ["", "", "No", "Yes", "", ""]
+took = [true, true, true, true, false]
+sent = ["hello", "vote.cast", "vote.cast"]
+casts = [1, 0]
+
+# the same deck in German, its countdown held by the conductor (the tally says so once it voted)
+[[step]]
+do = "ballot"
+[step.with]
+join = { relay = "ws://relay.test:7070/live/CATH", role = "output", group = "left", device = "browser" }
+locale = "de"
+size = [390, 844]
+steps = [
+  { at = 0.0, do = "open" },
+  { at = 0.05, do = "message", with = { kind = "welcome", p = { client = "c2", now = 0, snapshot = { vote = { vote = "v1", options = ["Yes", "No"], rule = "majority", seconds = 20, show = true, labels = { de = ["Ja", "Nein"] }, question = { en = "Shall the cat sing?", de = "Soll die Katze singen?" } } } } } },
+  { at = 1.0, do = "press", with = 0 },
+  { at = 1.5, do = "draw" },
+  { at = 2.0, do = "press", with = 1 },
+  { at = 2.5, do = "message", with = { kind = "vote.tally", p = { vote = "v1", counts = [0, 1], voters = 1, left = 9000, paused = true } } },
+  { at = 30.0, do = "draw" },
+  { at = 31.0, do = "message", with = { kind = "vote.result", p = { vote = "v1", option = 0, counts = [0, 0], how = "override" } } },
+  { at = 31.5, do = "draw" },
+]
+[step.expect]
+drew = [
+  ["ABSTIMMUNG", "NOCH 19 S", "Soll die Katze singen?", "Ja", "", "Nein", "", "Triff deine Wahl."],
+  ["ABSTIMMUNG", "ANGEHALTEN", "Soll die Katze singen?", "Ja", "0%", "Nein", "100%", "Du kannst bis zum Schluss wechseln."],
+  ["ERGEBNIS", "", "Ja", "Die Regie hat entschieden.", "Deine Stimme: Nein"],
+]
+mine = ["", "Nein", ""]
+# the first press came before the ballot was painted: nothing was there to press
+took = [false, true]
+# (the ping is the relay client's keepalive at 20 s)
+sent = ["hello", "vote.cast", "ping"]
+casts = [1]
+
+# the deck the filter leaves out: the relay never sends it the vote (#547) – only the result, which goes to everyone. It
+# draws nothing, its keys are not the ballot's, it casts nothing
+[[step]]
+do = "ballot"
+[step.with]
+join = { relay = "ws://relay.test:7070/live/CATH", role = "output", group = "left", device = "browser" }
+locale = "en"
+size = [800, 600]
+steps = [
+  { at = 0.0, do = "open" },
+  { at = 0.05, do = "message", with = { kind = "welcome", p = { client = "c3", snapshot = {}, now = 0 } } },
+  { at = 2.0, do = "draw" },
+  { at = 3.0, do = "input", with = "enter" },
+  { at = 3.1, do = "press", with = 0 },
+  { at = 7.0, do = "message", with = { kind = "vote.result", p = { vote = "v1", option = 0, counts = [3, 0], how = "rule" } } },
+  { at = 7.5, do = "draw" },
+  { at = 8.0, do = "input", with = "enter" },
+]
+[step.expect]
+drew = [[], []]
+mine = ["", ""]
+took = [false, false, false]
+sent = ["hello"]
+casts = []
