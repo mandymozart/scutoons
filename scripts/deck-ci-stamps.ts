@@ -24,7 +24,13 @@ export const WATCH: readonly string[] = [
 	'scripts/git-hooks/pre-push',
 	'scripts/check-deck-deps.*',
 	'scripts/deck-deps.*',
-	'scripts/native-logic.*'
+	'scripts/native-logic.*',
+	// what deck's tests and builds read outside deck/ (include_str!, fixtures): a change there is a change of their result
+	'server/tests/fixtures',
+	'server/schema/tables/locale-order.vectors.json',
+	'server/src/Domain/Modules/ModuleSource.php',
+	'shared/content/test/fixtures',
+	'creator/static/SCUTOONS-logo-animated.svg'
 ];
 
 /** a repo-relative path (forward slashes) under one of `paths` */
