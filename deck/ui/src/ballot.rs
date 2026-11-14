@@ -18,6 +18,9 @@ use protocol::{Message, VoteOpen, VoteResult, VoteTally};
 /// how long the result shows before the ballot goes (ms)
 pub const RESULT_MS: f64 = 8000.0;
 
+/// how solid the ballot's ground is over the scene (the panel's own is 1)
+const GROUND: f32 = 0.72;
+
 /// What a deck has of the vote it may cast in. Times are ms on the clock it is fed with (the relay client's).
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct State {
@@ -221,7 +224,9 @@ impl Page {
         let Some(view) = view else { return Some(None) };
         let scale = panel::scale(w, h);
         let screen = (w / scale, h / scale);
-        let tokens = deck_kit::live::tokens::panel();
+        // the panel's look, its ground a little see-through: the scene plays on behind the ballot
+        let mut tokens = deck_kit::live::tokens::panel();
+        tokens.color.surface[3] = GROUND;
         let mut d = DrawList::new(per_px);
         let notes: Vec<String> = view.choices.iter().map(|c| c.percent.map(|p| format!("{p}%")).unwrap_or_default()).collect();
         let mut parts = vec![Part::Caption(&view.caption.0, &view.caption.1)];

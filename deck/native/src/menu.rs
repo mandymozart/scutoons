@@ -18,6 +18,10 @@ pub struct Native {
     pub menu: Menu,
     /// #556: the ballot's picture and keys
     pub ballot: deck_ui::ballot::Page,
+    /// #556, a check run (`DECK_BALLOT_KEYS=down,enter`, as `--pick` is a check run's click): the keys the ballot gets
+    /// once it shows, one every 0.4 s, through the menu's input as a keyboard's; and when the next is due
+    keys: std::collections::VecDeque<Input>,
+    key_at: Option<f32>,
     /// where the pointer is (winit says it on a move, a press has no place)
     at: (f32, f32),
     pair: Pair,
@@ -29,7 +33,14 @@ impl Native {
     /// run (`--frames`) never waits for a key.
     pub fn new(args: &crate::Args) -> Native {
         let session = deck_native::live::config::configured(crate::outlet_settings(args)) || args.frames.is_some();
-        Native { menu: Menu::new(session), ballot: Default::default(), at: (0.0, 0.0), pair: Pair::Off, pair_at: -10.0 }
+        let keys = std::env::var("DECK_BALLOT_KEYS").unwrap_or_default();
+        let keys = keys.split(',').filter_map(|k| match k.trim() {
+            "up" => Some(Input::Up),
+            "down" => Some(Input::Down),
+            "enter" => Some(Input::Enter),
+            _ => None,
+        });
+        Native { menu: Menu::new(session), ballot: Default::default(), keys: keys.collect(), key_at: None, at: (0.0, 0.0), pair: Pair::Off, pair_at: -10.0 }
     }
 }
 
@@ -175,6 +186,13 @@ impl App {
         let view = crate::pages::ballot(&self.show);
         if let Some(layer) = self.menu.ballot.paint(view.as_ref(), r.size(), deck_outlet::text::mono_per_px()) {
             r.set_vote(layer);
+        }
+        // a check run's keys, once the ballot shows
+        if view.is_some() && !self.menu.keys.is_empty() && time >= *self.menu.key_at.get_or_insert(time + 0.4) {
+            self.menu.key_at = Some(time + 0.4);
+            if let Some(i) = self.menu.keys.pop_front() {
+                self.menu_input(el, i);
+            }
         }
     }
 }
