@@ -7,7 +7,6 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import type { Envelope } from '@scutoons/live';
 import type { VNEvent } from '@scutoons/content';
 import { loadRelay } from '@scutoons/live-deck';
@@ -15,12 +14,13 @@ import { runEvents, type RunnerEnv } from '../src/lib/visual-novel/script-runner
 import { listenSession, tellSession } from '../src/lib/reader-story.ts';
 import { ReaderLink, joinSession, leaveSession, sessionOf } from '../src/lib/reader-session.ts';
 import type { SocketLike } from '../src/lib/live-vote-link.ts';
+import { deckTarget } from '../../shared/live-core/scripts/wasm.ts';
 
 const wasmDir = new URL('../../shared/live-deck/wasm/', import.meta.url);
 const NO_CORE = existsSync(new URL('relay_web_bg.wasm', wasmDir)) ? false : 'relay-web is not built (npm run build:wasm -w shared/live-deck -- --relay)';
 const core = () => loadRelay(wasmDir.href, readFileSync(new URL('relay_web_bg.wasm', wasmDir)));
-const relayExe = fileURLToPath(new URL('../../deck/target/debug/relay.exe', import.meta.url));
-const NO_RELAY = existsSync(relayExe) ? NO_CORE : 'deck/target/debug/relay.exe not built (cargo build -p relay)';
+const relayExe = `${deckTarget()}/debug/relay.exe`;
+const NO_RELAY = existsSync(relayExe) ? NO_CORE : `${relayExe} not built (cargo build -p relay)`;
 
 const JOIN = { type: 'joinScene', id: 'ch3-e12', params: { characters: [{ character: 'catpope' }] } } as unknown as VNEvent;
 const SAY = { type: 'showMessage', id: 'ch3-e13', params: { character: 'catpope', text: { de: 'Hallo' } } } as unknown as VNEvent;
