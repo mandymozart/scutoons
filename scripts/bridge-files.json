@@ -47,6 +47,7 @@
 		"shared/live-deck/src/live-page.ts": "ui: the status line that opens the core's menu (#386), the keys and the pointer passed to the core's menu and Live page, the choice kept as the core's text (#478)",
 		"shared/live-deck/src/published.ts": "adapter: the fetches for a published scene the core's loader asks for (#246) and the socket under its link to the session (#520); loading, resolving, the cache rule and what the cast words and story events do are the core's",
 		"shared/live-deck/src/scene-stage.ts": "adapter: the canvas, its size and the animation frames a scene plays in (#463); the scene is the core's",
+		"shared/live-deck/src/vote-stage.ts": "adapter: the canvas, its size and the animation frames of the phone's voting screen, the socket, the proof's fetch, the pointer and keys passed on, the core's word for the wake lock (#549); joining, the ballot and the cast are the core's (deck-space audience.rs)",
 		"shared/live-deck/src/stage-assets.ts": "adapter: the fetches and the image decoder for what the core asks a stage to load (#465)",
 		"shared/live-deck/src/space.ts": "adapter: space-web in a canvas, the images, the pointer events forwarded whole (the gestures are deck-space's)",
 		"shared/live-deck/src/sync.ts": "adapter: the conductor's push – fetches what space-web DeckPush (deck-space push.rs) names, hands the replies back (#371)",
@@ -70,6 +71,7 @@
 		"viewer/src/lib/live-vote.ts": "ui: vote helpers",
 		"viewer/src/routes/(account)/account/lab/vote/+page.svelte": "ui: the vote lab (the audience phone)",
 		"viewer/src/routes/live/deck/[[code]]/+page.svelte": "ui: the deck page – buttons over the core's state, Web MIDI opened when the core's clock needs it (#385 deactivates it, #386 rebuilds the deck's UI)",
+		"viewer/src/routes/live/ballot/[[code]]/+page.svelte": "ui: the element the deck's voting screen is drawn in (#549) – the address' relay, group and language handed to the core, the wake lock held while the core says a vote can come",
 		"viewer/src/routes/live/vote/[[code]]/+page.svelte": "ui: the audience page"
 	}
 }

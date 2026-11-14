@@ -99,7 +99,7 @@ export interface SignedView {
 /** #478: the deck's proof (the outlet's `r:` ask) – the reader's sign-in goes to the API's proof route and nowhere else: the
  *  sign-on cookie, and the session token as Bearer when the signed-in user has one stored (a browser that refuses the
  *  cookie, shared/auth session.svelte.ts; #484's `SignedIn`) */
-export async function fetchProof(host: { view: SignedView; stopped: boolean }, o: { api: string; user?: SignedIn }, url: string) {
+export async function fetchProof(host: { view: Pick<SignedView, 'outlet_proof'>; stopped: boolean }, o: { api: string; user?: SignedIn }, url: string) {
 	if (!url.startsWith(`${o.api}/live/proof?`)) throw new Error('not the API');
 	const token = o.user?.bearer;
 	const r = await fetch(url, { credentials: 'include', cache: 'no-store', headers: token ? { Authorization: `Bearer ${token}` } : {} });
