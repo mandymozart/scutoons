@@ -10,12 +10,14 @@
 //! - **Show** (author.rs): the conductors tree with a breadcrumb into a sub conductor, the rows band, the inspector, the
 //!   seats, each deck's answer to the last flash; the 2D node overlay over the dimmed stage (#446) with a 2D / 3D switch; the
 //!   cue sheet and the problems list in its place (sheets.rs); save and load through /api/shows (api.rs). #537 (rows.rs):
-//!   a row added, renamed, removed; a cell's mode and its piece, picked from the published scenes of the toon's book.
+//!   a row added, renamed, removed; a cell's mode and its piece, picked from the published scenes of the toon's book;
+//!   #539 (events.rs): the event a row fires on, picked from the toon's story events.
 //!
 //! The editor runs one conductor, this deck's (the tree's top it was given). A sub conductor runs on its own deck with its
 //! own operator; entering it here shows its document, it does not run it.
 pub mod api;
 pub mod author;
+mod events;
 mod flash;
 mod link;
 pub mod perform;
@@ -67,6 +69,8 @@ pub enum Sheet {
     Vote,
     /// #537: the piece picker of the selected cell – the published scenes of the toon's book (rows.rs)
     Piece,
+    /// #539: the event picker of the inspected row – the toon's story events (events.rs)
+    Event,
 }
 
 impl Sheet {
@@ -84,6 +88,7 @@ impl Sheet {
             "session" => Some(Sheet::Session),
             "vote" => Some(Sheet::Vote),
             "piece" => Some(Sheet::Piece),
+            "event" => Some(Sheet::Event),
             _ => None,
         }
     }
@@ -130,6 +135,10 @@ pub enum Hit {
     CellPiece,
     PiecePick(usize),
     PieceType,
+    /// #539: the row inspector's "fires on" (opens the event picker); a line of the picker; the picker's typed field
+    FiresOn,
+    EventPick(usize),
+    EventType,
     Save,
     Load,
     /// the tree resolved to exact versions: the list of the devices to flash opens (#471)
@@ -179,6 +188,11 @@ pub struct Host {
     pub book_why: Option<String>,
     /// #537: the piece picker's typed query (while it is not being typed)
     pub piece_query: String,
+    /// #539: the toon whose story events a row's event is picked from (`--toon`; else the book's), the events once asked
+    /// (`GET /api/creator/story-events`, read by deck-show story.rs) or why there are none, the picker's typed query
+    pub toon: Option<String>,
+    pub story: Option<Result<Vec<deck_show::story::StoryEvent>, String>>,
+    pub event_query: String,
     /// #478: a typed field open (a role's name) and its text
     pub typing: Option<(roles::Typing, deck_kit::base::text::Field)>,
     /// #478: the prompt asked before it is done (a role's remove, a kick)
@@ -250,7 +264,7 @@ impl Host {
                 })
                 .ok()
         });
-        Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cell: None, book: None, book_why: None, piece_query: String::new(), typing: None, asking: None, menu: None, lock: false, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, session: session::Session::default(), voting: vote::Voting::default(), link, api }
+        Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cell: None, book: None, book_why: None, piece_query: String::new(), toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, session: session::Session::default(), voting: vote::Voting::default(), link, api }
     }
 
     /// the document at the end of the path (the top's when a step is missing)
@@ -347,6 +361,7 @@ impl Host {
             Hit::RoleAdd | Hit::RoleName | Hit::RoleFact(_) | Hit::RoleRemove | Hit::AskYes | Hit::AskNo => self.roles_press(hit),
             Hit::WhoMove(_) | Hit::WhoRename(_) | Hit::WhoKick(_) | Hit::MenuPick(_) => self.who_press(hit),
             Hit::RowAdd | Hit::RowName | Hit::RowRemove | Hit::Cell(..) | Hit::CellMode(_) | Hit::CellPiece | Hit::PiecePick(_) | Hit::PieceType => self.rows_press(hit),
+            Hit::FiresOn | Hit::EventPick(_) | Hit::EventType => self.events_press(hit),
             Hit::Save => self.save(),
             Hit::Load => self.load(),
             Hit::Flash => self.open_flash(),
@@ -361,6 +376,9 @@ impl Host {
                 self.flashing = None;
                 if s == Sheet::Session {
                     self.session_open();
+                }
+                if s == Sheet::Event {
+                    self.events_open();
                 }
             }
             Hit::Problem(i) => self.select_problem(i),

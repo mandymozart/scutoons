@@ -132,6 +132,8 @@ pub enum Logged {
     Ignored { row: String, event: String },
     /// no row listens to this event
     NoRow { event: String },
+    /// #539: a story event without an id (its type, empty: none): dropped, no row can name it
+    NoId { kind: String },
     /// a single cell, by hand
     CellLaunched { row: String, column: String, off_row: bool },
     /// a `values` cell met another piece, or nothing
@@ -283,10 +285,14 @@ impl Conductor {
     }
 
     /// A message from the relay. `story` is a reader's event: its `id` is the contract with the show, `left` = the reader
-    /// scrolled back past it. Everything else is not the conductor's.
+    /// scrolled back past it. One without an id is dropped and logged (#539). Everything else is not the conductor's.
     pub fn on_message(&mut self, message: &Message, now: Now) -> Vec<Out> {
         let Message::Story(story) = message else { return vec![] };
-        let Some(id) = story.get("id").and_then(|v| v.as_str()) else { return vec![] };
+        let Some(id) = story.get("id").and_then(|v| v.as_str()).filter(|id| !id.is_empty()) else {
+            let kind = story.get("type").and_then(|v| v.as_str()).unwrap_or_default().to_string();
+            self.record(now.ms, Logged::NoId { kind });
+            return vec![];
+        };
         if story.get("left").and_then(|v| v.as_bool()) == Some(true) {
             self.on_left(id, now);
             vec![]

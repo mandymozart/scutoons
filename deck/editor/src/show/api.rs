@@ -63,6 +63,17 @@ impl Api {
         }
     }
 
+    /// #539: every toon's story events (`GET /api/creator/story-events`; the server asks a content editor's token): the
+    /// answer's text, or its HTTP status (none: no answer) and what the transport said. deck-show story.rs reads both.
+    pub fn story_events(&self) -> Result<String, (Option<u16>, String)> {
+        let url = deck_show::story::url(&self.base);
+        match self.auth(Self::agent().get(&url)).call() {
+            Ok(r) => r.into_string().map_err(|e| (None, format!("{url}: {e}"))),
+            Err(ureq::Error::Status(code, _)) => Err((Some(code), String::new())),
+            Err(e) => Err((None, format!("{url}: {e}"))),
+        }
+    }
+
     /// Save `doc` as a new draft; the version the server gave it. Kept in the cache either way.
     pub fn save(&self, id: &str, doc: &serde_json::Value) -> Result<u64, String> {
         self.keep(id, &serde_json::to_string_pretty(doc).unwrap_or_default());

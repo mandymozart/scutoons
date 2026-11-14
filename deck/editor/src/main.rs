@@ -75,10 +75,12 @@ struct Args {
     toon: Option<String>,
     book: Option<PathBuf>,
     far: Option<(String, bool)>,
+    /// #539: a check run's story events (the API's answer in a file) in place of `GET /api/creator/story-events`
+    story: Option<PathBuf>,
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { rig: "catpope".into(), frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None };
+    let mut a = Args { rig: "catpope".into(), frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -116,6 +118,7 @@ fn args() -> Result<Args> {
             "--api" => a.api = val()?,
             "--toon" => a.toon = Some(val()?),
             "--book" => a.book = Some(PathBuf::from(val()?)),
+            "--story-events" => a.story = Some(PathBuf::from(val()?)),
             "--far" => {
                 let v = val()?;
                 a.far = Some(match v.strip_suffix(",pick") {
@@ -134,7 +137,7 @@ fn args() -> Result<Args> {
             "--flash-force" => a.script.flash_force = true,
             "--seat" => a.script.seat = Some(val()?),
             "--row" => a.script.row = Some(val()?),
-            "--sheet" => a.script.sheet = Some(show::Sheet::parse(&val()?).context("--sheet cues | problems | flash | who | session | vote")?),
+            "--sheet" => a.script.sheet = Some(show::Sheet::parse(&val()?).context("--sheet cues | problems | flash | who | session | vote | piece | event")?),
             "--role" => a.script.role = Some(val()?),
             "--who-move" => a.script.who_move = val()?.split_once('=').map(|(c, r)| (c.to_string(), r.to_string())),
             "--who-menu" => a.script.who_menu = Some(val()?),
@@ -397,7 +400,11 @@ fn run() -> Result<i32> {
     let width = tokens.tokens.size.inspector;
     let wire = args.wire;
     let app_workspace = args.workspace;
-    let app_show = show::Host::new(args.show_file.clone(), args.show_id.clone(), args.relay.clone(), args.api.clone());
+    let mut app_show = show::Host::new(args.show_file.clone(), args.show_id.clone(), args.relay.clone(), args.api.clone());
+    app_show.toon.clone_from(&args.toon);
+    if let Some(f) = &args.story {
+        app_show.story_from_file(f);
+    }
     let app_book = book::Loader::new(&args.api, args.toon.as_deref(), args.book.as_deref(), show::api::token(), &deck_native::cache::default_dir());
     let mut app = App {
         panel: Panel { width, tab: Tab::Rig, field: text::Field::with("Grüße an die Bühne – type here"), drag: None, hits: Vec::new(), field_rect: Rect { x: 0.0, y: 0.0, w: 0.0, h: 0.0 }, advance: 8.0 },

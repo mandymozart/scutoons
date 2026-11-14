@@ -2,8 +2,8 @@
 //! 4): a row is added, renamed and removed here, a cell's mode set and its piece picked – a published scene from the
 //! toon's address book (`GET /api/addresses/<toon>`, the editor's book; its scene entries are the published scenes, each
 //! with the version listed) or, where the editor has no book, typed as `scene:<id>` and read by the one parser. Every edit
-//! changes the document and is checked by `validate` ([`edit`]: a refused edit says why, in its words); how a row fires
-//! stays the inspector's as it is (the event picker is #539). The words, the modes a column offers, the prompt before a
+//! changes the document and is checked by `validate` ([`edit`]: a refused edit says why, in its words); #539: the event a
+//! row fires on, picked from the toon's story events (story.rs), is an edit here too – how and hold stay as they are. The words, the modes a column offers, the prompt before a
 //! remove and the picker's lines are here once; the editor lays them out (RULES A1, A2), like roles.rs (#478).
 use crate::choose::{Prompt, Tone};
 use crate::document::{Cell, OutletKind, Row, Show, Values, PIECE_KINDS};
@@ -90,6 +90,8 @@ pub enum Edit {
     Mode { row: String, column: String, mode: Mode },
     /// the cell plays this piece (a `values` cell expects it instead); values meant for another piece go
     Piece { row: String, column: String, piece: String },
+    /// #539: the story event that fires the row (none or empty: by hand only); how, hold and moment stay
+    Event { row: String, event: Option<String> },
 }
 
 /// An edit made: the changed document, what it did in words, the row to select after it.
@@ -257,6 +259,16 @@ pub fn edit(show: &Show, e: &Edit) -> Result<Edited, String> {
             let text = cell_text(&cell);
             put(&mut next.rows[i], column, cell);
             (format!("row {} {row}, {column}: {text}{}", i + 1, if dropped { " – the values for the other piece went" } else { "" }), Some(row.clone()))
+        }
+        Edit::Event { row, event } => {
+            let i = row_at(&next, row)?;
+            let event = event.as_deref().map(str::trim).filter(|e| !e.is_empty()).map(str::to_string);
+            let said = match &event {
+                Some(e) => format!("row {} {row} fires on {e}", i + 1),
+                None => format!("row {} {row}: {}", i + 1, crate::story::BY_HAND),
+            };
+            next.rows[i].fire.event = event;
+            (said, Some(row.clone()))
         }
     };
     let added: Vec<String> = crate::validate::validate(&next).into_iter().filter(|p| !before.contains(p)).map(|p| p.to_string()).collect();

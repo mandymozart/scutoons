@@ -25,6 +25,8 @@ pub mod ready;
 pub mod roles;
 /// #537: a show's rows (add, rename, remove) and a cell's mode and piece – the edits, the prompt, the picker's lines
 pub mod rows;
+/// #539: the toon's story events a row fires on – the API's answer read, the event picker's lines
+pub mod story;
 pub mod subtree;
 pub mod validate;
 pub mod view;

@@ -49,7 +49,7 @@ pub fn view_switch(d: &mut DrawList, t: &Tokens, host: &mut Host, stage: Rect, s
     let y = stage.y + t.size.pad;
     d.round_rect(x - 3.0, y - 3.0, w + 4.0, h + 6.0, t.size.radius, t.color.surface_head);
     let on = match host.sheet {
-        Some(s) => sheets.iter().position(|(_, x)| *x == s).map_or(if matches!(s, Sheet::Flash | Sheet::Piece) { usize::MAX } else { usize::from(host.two_d) }, |i| i + 2),
+        Some(s) => sheets.iter().position(|(_, x)| *x == s).map_or(if matches!(s, Sheet::Flash | Sheet::Piece | Sheet::Event) { usize::MAX } else { usize::from(host.two_d) }, |i| i + 2),
         None => usize::from(host.two_d),
     };
     let r = controls::pills(d, t, x, y, h, &names, on);
@@ -197,7 +197,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
     let cols = plan.columns.len().max(1) as f32;
     let col_w = ((l.band.w - first_w - 2.0 * pad) / cols).max(40.0);
     let head_h = small * 2.9;
-    d.text(bx + first_w * 0.4, by, small, "fires on", t.color.muted);
+    d.text(bx + first_w * 0.4, by, small, view::FIRES_ON, t.color.muted);
     for (c, col) in plan.columns.iter().enumerate() {
         let x = bx + first_w + c as f32 * col_w;
         let role = roles.iter().position(|r| r.id == col.id);
@@ -285,11 +285,16 @@ fn row_side(d: &mut DrawList, t: &Tokens, host: &mut Host, (show, sel, seats): (
             if !label.is_empty() {
                 d.text(rx, y + 4.0, font, &fit(d, label, font, rw * 0.36), t.color.muted);
             }
+            // #539: "fires on" opens the event picker
+            let fires = i == 0 && label == view::FIRES_ON;
             let vx = if label.is_empty() { rx } else { rx + rw * 0.38 };
             let r = Rect { x: vx, y, w: rx + rw - vx, h: t.size.row - 4.0 };
-            d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, if cells && r.has(pointer.0, pointer.1) { t.color.hover } else { t.color.control });
-            if cells && host.cell.as_ref() == Some(label) {
+            d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, if (cells || fires) && r.has(pointer.0, pointer.1) { t.color.hover } else { t.color.control });
+            if (cells && host.cell.as_ref() == Some(label)) || (fires && host.sheet == Some(Sheet::Event)) {
                 d.outline(r.x, r.y, r.w, r.h, (t.size.radius, 1.0), t.color.accent);
+            }
+            if fires {
+                host.hits.push((r, Hit::FiresOn));
             }
             d.text(vx + 6.0, y + 4.0, font, &fit(d, value, font, rx + rw - vx - 12.0), t.color.text);
             if let Some(c) = columns.iter().position(|c| cells && c.id == *label) {
