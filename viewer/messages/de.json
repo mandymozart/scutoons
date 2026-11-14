@@ -899,6 +899,17 @@
 		"failure_server": "Der Server hat eine Datei nicht geliefert. Versuch es gleich nochmal.",
 		"failure_storage": "Dein Browser lässt SCUTOONS hier nichts speichern – zum Beispiel in einem privaten Fenster oder wenn Website-Daten blockiert sind."
 	},
+	"linked_reader": {
+		"question": "Diese Lesung mit der Bühne verbinden? Was du liest, bewegt dann die Szene auf der Bühne.",
+		"take_over": "Gerade ist jemand anderes verbunden – wenn du dich verbindest, übernimmst du den Platz.",
+		"yes": "Verbinden",
+		"no": "Nur lesen",
+		"asked": "Verbinde …",
+		"drives": "Mit der Bühne verbunden",
+		"taken_over": "Jemand anderes hat die Bühne übernommen",
+		"take_back": "Zurückholen",
+		"leave": "Trennen"
+	},
 	"live_deck": {
 		"title": "Deck",
 		"stage_only": "Vollbild",
