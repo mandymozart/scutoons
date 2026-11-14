@@ -41,15 +41,20 @@ export function worktreeId(gitDir: string, commonDir: string): string | null {
 /** a TOML basic string (paths with forward slashes) */
 const str = (s: string) => JSON.stringify(slash(s));
 
-/** the worktree's `.cargo/config.toml` */
-export function configToml({ target, wrapper, sccacheDir }: { target: string; wrapper: string | null; sccacheDir: string }): string {
+/** the worktree's `.cargo/config.toml`. `basedirs`: every worktree's target dir – sccache strips them from the paths it
+ * hashes, so a registry crate whose build script writes into OUT_DIR (`<target>/debug/build/…`) hits across worktrees too
+ * (measured: 289 → 354 of 386 hits); the server reads them when it starts (the first build after its idle timeout) */
+export function configToml({ target, wrapper, sccacheDir, basedirs = [] }: { target: string; wrapper: string | null; sccacheDir: string; basedirs?: readonly string[] }): string {
 	const lines = [
 		`${HEADER}: this worktree's deck builds go to the one shared location`,
 		'# (agents/research/CI-SPEED.md "Design (#526)"). Untracked; rewritten by npm install and deck:ci. Sizes / clear: npm run deck:target',
 		'[build]',
 		`target-dir = ${str(target)}`
 	];
-	if (wrapper) lines.push(`rustc-wrapper = ${str(wrapper)}`, '', '[env]', `SCCACHE_DIR = ${str(sccacheDir)}`, `SCCACHE_CACHE_SIZE = "${SCCACHE_SIZE}"`, `SCCACHE_IDLE_TIMEOUT = "${SCCACHE_IDLE_SECONDS}"`);
+	if (wrapper) {
+		lines.push(`rustc-wrapper = ${str(wrapper)}`, '', '[env]', `SCCACHE_DIR = ${str(sccacheDir)}`, `SCCACHE_CACHE_SIZE = "${SCCACHE_SIZE}"`, `SCCACHE_IDLE_TIMEOUT = "${SCCACHE_IDLE_SECONDS}"`);
+		if (basedirs.length) lines.push(`SCCACHE_BASEDIRS = ${str(basedirs.map(slash).join(process.platform === 'win32' ? ';' : ':'))}`);
+	}
 	return `${lines.join('\n')}\n`;
 }
 
@@ -117,7 +122,10 @@ export function layout(cwd: string): Layout {
 export function ensure(l: Layout, env = process.env): string {
 	if (!l.id) return 'main checkout or plain clone: builds stay in deck/target';
 	const file = join(l.top, '.cargo', 'config.toml');
-	const want = configToml({ target: join(l.root, l.id), wrapper: findSccache(env), sccacheDir: join(l.root, SCCACHE) });
+	const worktreesDir = join(l.commonDir, 'worktrees');
+	const ids = new Set([l.id, ...(existsSync(worktreesDir) ? readdirSync(worktreesDir) : [])]);
+	const basedirs = [...ids].sort().map((id) => join(l.root, id));
+	const want = configToml({ target: join(l.root, l.id), wrapper: findSccache(env), sccacheDir: join(l.root, SCCACHE), basedirs });
 	const have = existsSync(file) ? readFileSync(file, 'utf8') : null;
 	if (have !== null && !have.startsWith(HEADER)) return `${slash(file)} was not written by deck-target.ts – left alone, builds go where it says`;
 	if (have !== want) {

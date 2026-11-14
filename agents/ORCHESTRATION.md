@@ -46,6 +46,9 @@ follow a pointer, that is a finding, not a reason to paste. Grep the area's deci
   may be newer than a worker's: `npm run deck:ci` here before every merge.
 - deck:ci's green stamps (#524): a step green on the same clean tree – in any worktree – is skipped and named, so the rerun before a merge and the
   pre-push hook take seconds after the worker's green run; a dirty watched path runs everything, `--fresh` forces.
+- Deck builds (#526): a worktree builds into `<git common dir>/deck-target/<id>` (sccache shares the registry crates) – set up by its `npm install` and by deck:ci,
+  nothing for a worker to do; a worker never sets one `CARGO_TARGET_DIR` for several worktrees and never deletes another's build. Sizes and clearing:
+  `npm run deck:target` (`-- --clear` the stale ones; the main checkout's `deck/target` only with `--main`).
 - The full tier `npm run deck:ci -- --full` (the fat-LTO release build instead of the release check) runs at the end of every shift and before a deck release.
 - Web apps: `npm run check` and the area's `check:*` script; no dev server unless the task needs a look.
 - Server: `npm run dev:db test` (MariaDB, ~15 min, 487 tests on 2026-10-29) – it uses Docker, so it needs a **slot**.

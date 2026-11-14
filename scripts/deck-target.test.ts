@@ -17,6 +17,9 @@ test('the config sets the target dir; sccache and its env only when installed', 
 	assert.match(withIt, /^# Written by scripts\/deck-target\.ts \(#526\)/);
 	assert.match(withIt, /\[build\]\ntarget-dir = "C:\/repo\/\.git\/deck-target\/agent-a1"\nrustc-wrapper = "C:\/u\/\.cargo\/bin\/sccache\.exe"\n/);
 	assert.match(withIt, /\[env\]\nSCCACHE_DIR = "C:\/repo\/\.git\/deck-target\/sccache"\nSCCACHE_CACHE_SIZE = "\d+G"\nSCCACHE_IDLE_TIMEOUT = "\d+"\n$/);
+	const sep = process.platform === 'win32' ? ';' : ':';
+	const based = configToml({ target: '/r/t/a1', wrapper: '/bin/sccache', sccacheDir: '/r/t/sccache', basedirs: ['/r/t/a1', '/r/t/b2'] });
+	assert.match(based, new RegExp(`SCCACHE_BASEDIRS = "/r/t/a1${sep}/r/t/b2"\\n$`));
 	const without = configToml({ target: '/r/.git/deck-target/w', wrapper: null, sccacheDir: '/r/.git/deck-target/sccache' });
 	assert.doesNotMatch(without, /rustc-wrapper|\[env\]|SCCACHE/);
 	assert.match(without, /target-dir = "\/r\/\.git\/deck-target\/w"\n$/);
