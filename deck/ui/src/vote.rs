@@ -216,6 +216,25 @@ impl Default for Form {
 /// at most this many options
 pub const MAX_OPTIONS: usize = 6;
 
+/// What is wrong with a vote's form – `options` options, the rule, n (first to n), the seconds, the fallback (an option's
+/// place) – in words; none = it opens. The one place (#546): the typed form and every question of a show (deck-show
+/// validate) are checked here.
+pub fn problem(options: usize, rule: Rule, n: i64, seconds: i64, fallback: usize) -> Option<&'static str> {
+    if options < 2 {
+        Some("A vote needs at least two options (separated by commas).")
+    } else if options > MAX_OPTIONS {
+        Some("At most six options.")
+    } else if seconds < 1 {
+        Some("Seconds: at least 1.")
+    } else if rule == Rule::First && n < 1 {
+        Some("First to n: n is at least 1.")
+    } else if fallback >= options {
+        Some("The fallback is one of the options.")
+    } else {
+        None
+    }
+}
+
 impl Form {
     /// the options typed, trimmed, the empty ones left out
     pub fn option_list(&self) -> Vec<String> {
@@ -224,20 +243,7 @@ impl Form {
 
     /// What is wrong with the form, in words; none = it opens.
     pub fn problem(&self) -> Option<&'static str> {
-        let n = self.option_list().len();
-        if n < 2 {
-            Some("A vote needs at least two options (separated by commas).")
-        } else if n > MAX_OPTIONS {
-            Some("At most six options.")
-        } else if self.seconds < 1 {
-            Some("Seconds: at least 1.")
-        } else if self.rule == Rule::First && self.n < 1 {
-            Some("First to n: n is at least 1.")
-        } else if self.fallback >= n {
-            Some("The fallback is one of the options.")
-        } else {
-            None
-        }
+        problem(self.option_list().len(), self.rule, self.n, self.seconds, self.fallback)
     }
 
     /// `Yes, No · majority · 30 s · fallback Yes · all audience`

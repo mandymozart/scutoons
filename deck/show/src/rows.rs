@@ -33,6 +33,8 @@ pub enum Mode {
     Keep,
     Go,
     Free,
+    /// #546: a question of the show to this column's audience
+    Ask,
 }
 
 impl Mode {
@@ -45,6 +47,7 @@ impl Mode {
             Mode::Keep => "keep",
             Mode::Go => "go",
             Mode::Free => "free",
+            Mode::Ask => "ask",
         }
     }
 
@@ -57,6 +60,7 @@ impl Mode {
             Cell::Keep => Mode::Keep,
             Cell::Go { .. } => Mode::Go,
             Cell::Free => Mode::Free,
+            Cell::Ask { .. } => Mode::Ask,
             Cell::Look { .. } => return None,
         })
     }
@@ -120,12 +124,14 @@ fn playing_before(show: &Show, at: usize, column: &str) -> Option<String> {
     None
 }
 
-/// The modes column `column` offers: a stage outlet `play`, `values`, `mirror`, `black`, `keep`; a seat `go`, `free`,
-/// `keep`; a device outlet `keep` (its sends and looks are not authored here). The cell's mode now is on.
+/// The modes column `column` offers: a stage outlet `play`, `values`, `mirror`, `black`, `keep` (and `ask` when the show
+/// has a question, #546); a seat `go`, `free`, `keep`; a device outlet `keep` (its sends and looks are not authored here).
+/// The cell's mode now is on.
 pub fn modes(show: &Show, row: &str, column: &str) -> Vec<ModeView> {
     let cell = show.row(row).and_then(|r| r.cells.get(column));
     let now = cell.and_then(Mode::of).unwrap_or(Mode::Keep);
     let offered: &[Mode] = match show.outlet(column).map(|o| o.kind) {
+        Some(OutletKind::Stage) if !show.questions.is_empty() => &[Mode::Play, Mode::Values, Mode::Mirror, Mode::Black, Mode::Ask, Mode::Keep],
         Some(OutletKind::Stage) => &[Mode::Play, Mode::Values, Mode::Mirror, Mode::Black, Mode::Keep],
         Some(OutletKind::Device) => &[Mode::Keep],
         None if show.seat(column).is_some() => &[Mode::Go, Mode::Free, Mode::Keep],
@@ -165,7 +171,17 @@ fn cell_for(show: &Show, at: usize, column: &str, mode: Mode, was: Option<&Cell>
             Some(r) => Cell::Go { row: r.clone() },
             None => return Err(format!("{column}: the seat uses none of its child's rows")),
         },
+        // the question the row asks already (one per row), else the show's first
+        Mode::Ask => match asked(&show.rows[at]).or_else(|| show.questions.first().map(|q| q.id.as_str())) {
+            Some(q) => Cell::Ask { question: q.to_string() },
+            None => return Err(format!("{column}: the show has no question yet")),
+        },
     })
+}
+
+/// the question row `r` asks, if it asks one
+fn asked(r: &Row) -> Option<&str> {
+    r.cells.values().find_map(|c| if let Cell::Ask { question } = c { Some(question.as_str()) } else { None })
 }
 
 /// a cell into a row: `keep` is no cell (you write only what changes)
@@ -190,7 +206,7 @@ pub fn edit(show: &Show, e: &Edit) -> Result<Edited, String> {
                 Some(a) => row_at(show, a)? + 1,
                 None => next.rows.len(),
             };
-            next.rows.insert(at, Row { id: id.clone(), fire: Default::default(), cells: Default::default(), addresses: vec![] });
+            next.rows.insert(at, Row { id: id.clone(), fire: Default::default(), cells: Default::default(), addresses: vec![], r#where: Default::default() });
             (format!("row {} {id} added: by hand, every column keeps", at + 1), Some(id))
         }
         Edit::Rename { id, to } => {
@@ -214,6 +230,17 @@ pub fn edit(show: &Show, e: &Edit) -> Result<Edited, String> {
             let i = row_at(&next, row)?;
             let cell = cell_for(&next, i, column, *mode, next.rows[i].cells.get(column))?;
             let text = cell_text(&cell);
+            // #546: a column joining the row's question takes the filter its other columns carry
+            if let Cell::Ask { question } = &cell {
+                let r = &mut next.rows[i];
+                let sibling = r.cells.iter().find(|(k, c)| *k != column && matches!(c, Cell::Ask { question: q } if q == question)).map(|(k, _)| k.clone());
+                if let Some(k) = sibling {
+                    match r.r#where.get(&k).cloned() {
+                        Some(f) => r.r#where.insert(column.clone(), f),
+                        None => r.r#where.remove(column),
+                    };
+                }
+            }
             put(&mut next.rows[i], column, cell);
             (format!("row {} {row}, {column}: {text}", i + 1), Some(row.clone()))
         }
@@ -425,6 +452,21 @@ mod tests {
         // a device outlet offers keep only; a seat go / free / keep
         assert_eq!(modes(&fresh, "row", "lamps").iter().map(|m| m.word).collect::<Vec<_>>(), ["keep"]);
         assert_eq!(modes(&show, "dialog", "foyer").iter().map(|m| m.word).collect::<Vec<_>>(), ["go", "free", "keep"]);
+    }
+
+    /// #546: `ask` is offered where the show has a question; a column joins the row's question with its filter
+    #[test]
+    fn a_column_joins_the_rows_question_with_its_filter() {
+        let show = parse(include_str!("../fixtures/vote-cell.show.json")).unwrap();
+        let words: Vec<&str> = modes(&show, "crossroads", "left").iter().filter(|m| m.on || m.mode == Mode::Ask).map(|m| m.word).collect();
+        assert_eq!(words, ["ask"]);
+        let joined = ed(&show, mode("crossroads", "middle", Mode::Ask));
+        assert_eq!(joined.said, "row 2 crossroads, middle: ask q1");
+        let row = joined.show.row("crossroads").unwrap();
+        assert_eq!(row.r#where.get("middle"), row.r#where.get("left"), "the filter its other columns carry");
+        assert!(crate::validate(&joined.show).is_empty());
+        let top = parse(include_str!("../fixtures/top-toy.show.json")).unwrap();
+        assert!(modes(&top, "finale", "left").iter().all(|m| m.mode != Mode::Ask), "no question: not offered");
     }
 
     #[test]

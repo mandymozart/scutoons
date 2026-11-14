@@ -17,3 +17,9 @@ deck-core = { workspace = true }
 # #386: the menu is built from the component library's live components, a layer of the kit's egui screen (#485: the
 # HUD's pixel face, font8x8, as egui's texture); never the editor's components
 deck-kit = { path = "../kit", features = ["live"] }
+# #546: the filter's model speaks the wire's facts (`Filter`, `Admits`, `Account`): serde types, no I/O
+protocol = { workspace = true }
+
+[dev-dependencies]
+# #546: the filter tests write filters as the documents do
+serde_json = { workspace = true }

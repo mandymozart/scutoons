@@ -1414,6 +1414,8 @@ version = "0.1.0"
 dependencies = [
  "deck-core",
  "deck-kit",
+ "protocol",
+ "serde_json",
 ]
 
 [[package]]

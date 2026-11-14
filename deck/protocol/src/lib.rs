@@ -12,6 +12,8 @@ pub mod content_text;
 pub mod story_events;
 /// #533: the vote's tie rule, for the relay's tally and the conductor's panel
 pub mod vote;
+/// #546: the one filter's rule (an address's `where`, a show cell's column), for the receiver, the relay and the core
+pub mod filter;
 
 pub use generated::*;
 

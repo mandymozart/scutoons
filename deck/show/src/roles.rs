@@ -24,31 +24,12 @@ pub struct RoleView {
     pub here: Option<u64>,
 }
 
-/// Who may take a role, in words. No filter, or one that lets a guest in, is `guest and up`: anyone with the code. Any other
-/// fact is said as it is, joined by ` · ` (any one admits). Proposal (no owner word yet, the open question of the slice 1/2
-/// report): the account facts are read exactly as the relay reads them, not as a ladder, so `member` says `member`.
-pub fn filter_words(a: Option<&Admits>) -> String {
-    let Some(a) = a else { return GUEST_AND_UP.into() };
-    let accounts = a.account.iter().flatten();
-    if accounts.clone().any(|x| *x == Account::Guest) {
-        return GUEST_AND_UP.into();
-    }
-    let mut words: Vec<String> = accounts.map(|x| x.as_str().to_string()).collect();
-    if a.approved == Some(true) {
-        words.push(APPROVED.into());
-    }
-    words.extend(a.device.iter().flatten().map(|d| format!("device {d}")));
-    words.extend(a.group.iter().flatten().map(|g| format!("group {g}")));
-    if words.is_empty() {
-        return "nobody".into();
-    }
-    words.join(" · ")
-}
+/// Who may take a role, in words (#546: deck-ui's filter model, one set of words for a role's, a row address's and a
+/// cell's filter).
+pub use deck_ui::filter::admits_words as filter_words;
+/// the facts a role's filter may name, the chip, the words (moved to deck-ui `filter`, #546)
+pub use deck_ui::filter::{Fact, Toggle, ACCOUNTS, APPROVED, DEVICES, GUEST_AND_UP};
 
-/// the filter that lets anyone with the code in
-pub const GUEST_AND_UP: &str = "guest and up";
-/// an approved (paired) deck, as the filter says it
-pub const APPROVED: &str = "approved deck";
 /// the tree's line that adds a role
 pub const ADD: &str = "new role";
 
@@ -64,73 +45,6 @@ pub fn roles(show: &Show, sub: Option<&Subtree>) -> Vec<RoleView> {
 /// how many are here, as a column header and the tree say it: the count, or nothing outside a session
 pub fn here_text(here: Option<u64>) -> String {
     here.map_or_else(String::new, |n| n.to_string())
-}
-
-/// One fact a role's filter may ask (owner 2026-11-10 [role]: guest, member, creator, admin, live, an approved deck, a
-/// device, a group); any one admits.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Fact {
-    Account(Account),
-    Approved,
-    Device(String),
-    Group(String),
-}
-
-impl Fact {
-    /// as a toggle says it
-    pub fn word(&self) -> String {
-        match self {
-            Fact::Account(a) => a.as_str().to_string(),
-            Fact::Approved => APPROVED.to_string(),
-            Fact::Device(d) => format!("device {d}"),
-            Fact::Group(g) => format!("group {g}"),
-        }
-    }
-
-    fn is_in(&self, a: &Admits) -> bool {
-        match self {
-            Fact::Account(x) => a.account.iter().flatten().any(|y| y == x),
-            Fact::Approved => a.approved == Some(true),
-            Fact::Device(d) => a.device.iter().flatten().any(|y| y == d),
-            Fact::Group(g) => a.group.iter().flatten().any(|y| y == g),
-        }
-    }
-
-    /// on becomes off, off on; an emptied list goes
-    fn flip(&self, a: &mut Admits) {
-        fn flip_in<T: PartialEq + Clone>(slot: &mut Option<Vec<T>>, value: &T) {
-            let list = slot.get_or_insert_with(Vec::new);
-            if list.contains(value) {
-                list.retain(|y| y != value);
-            } else {
-                list.push(value.clone());
-            }
-            if list.is_empty() {
-                *slot = None;
-            }
-        }
-        match self {
-            Fact::Account(x) => flip_in(&mut a.account, x),
-            Fact::Approved => a.approved = (a.approved != Some(true)).then_some(true),
-            Fact::Device(d) => flip_in(&mut a.device, d),
-            Fact::Group(g) => flip_in(&mut a.group, g),
-        }
-    }
-}
-
-/// the account facts in the order the inspector offers them
-pub const ACCOUNTS: [Account; 5] = [Account::Guest, Account::Member, Account::Creator, Account::Admin, Account::Live];
-
-/// The device kinds a filter offers (proposal, no owner word on the list: the words a deck's `hello.device` and its flash
-/// report use; a kind a filter already names is offered too).
-pub const DEVICES: [&str; 3] = ["native", "browser", "phone"];
-
-/// One toggle of a role's filter in the inspector.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Toggle {
-    pub fact: Fact,
-    pub word: String,
-    pub on: bool,
 }
 
 /// a role without a filter as the toggles show it: a guest may take it, so anyone with the code
@@ -153,7 +67,7 @@ pub fn toggles(show: &Show, id: &str) -> Vec<Toggle> {
     let named: Vec<String> = a.group.iter().flatten().filter(|g| !groups.contains(g)).cloned().collect();
     groups.extend(named);
     facts.extend(groups.into_iter().map(Fact::Group));
-    facts.into_iter().map(|f| Toggle { word: f.word(), on: f.is_in(&a), fact: f }).collect()
+    facts.into_iter().map(|f| Toggle { word: f.word(), on: f.in_admits(&a), fact: f }).collect()
 }
 
 /// A change to the conductor's roles, made in the Show workspace.
@@ -207,13 +121,14 @@ pub fn edit(show: &Show, e: &Edit) -> Result<Edited, String> {
             let mut cells = 0;
             for r in &mut next.rows {
                 cells += usize::from(r.cells.remove(id).is_some_and(|c| !matches!(c, Cell::Keep)));
+                r.r#where.remove(id);
             }
             (format!("role {name} removed with its {cells} cells"), None)
         }
         Edit::Fact { id, fact } => {
             let i = role_at(&next, id)?;
             let mut a = as_set(next.outlets[i].admits.as_ref());
-            fact.flip(&mut a);
+            fact.flip_admits(&mut a);
             // only the guest left: no filter, anyone with the code
             next.outlets[i].admits = (a != as_set(None)).then_some(a);
             (format!("{}: {}", next.outlets[i].name(), filter_words(next.outlets[i].admits.as_ref())), Some(id.clone()))
@@ -426,17 +341,6 @@ mod tests {
         { "id": "click", "cells": { "click": { "mode": "play", "piece": "scene:click" } } }
       ]
     }"#;
-
-    #[test]
-    fn a_filter_in_words() {
-        assert_eq!(filter_words(None), "guest and up");
-        let a = |json: &str| serde_json::from_str::<Admits>(json).unwrap();
-        assert_eq!(filter_words(Some(&a(r#"{ "account": ["guest", "member"] }"#))), "guest and up", "a guest lets everyone in");
-        assert_eq!(filter_words(Some(&a(r#"{ "account": ["member"] }"#))), "member");
-        assert_eq!(filter_words(Some(&a(r#"{ "account": ["live"], "approved": true }"#))), "live · approved deck");
-        assert_eq!(filter_words(Some(&a(r#"{ "device": ["phone"], "group": ["foyer"] }"#))), "device phone · group foyer");
-        assert_eq!(filter_words(Some(&a("{}"))), "nobody");
-    }
 
     #[test]
     fn the_roles_are_the_stage_outlets_with_the_relays_count() {

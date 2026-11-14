@@ -11,7 +11,7 @@ use crate::conductor::{Conductor, Entry, Logged, Now, Out, Says};
 use crate::document::{Pinned, Show, Word};
 use crate::flash::{self, Assignment};
 use crate::validate::Lock;
-use protocol::{Address, AddressAnswer, AddressFilter, CellChange, Envelope, Flash, Message, Panic, Role, SeatState, SeatWord, Tempo, To, PARENT};
+use protocol::{Address, AddressAnswer, CellChange, Envelope, Flash, Message, Panic, Role, SeatState, SeatWord, Tempo, To, PARENT};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// How long a conductor waits for answers to an address before it writes the log line.
@@ -423,7 +423,7 @@ impl Subtree {
     }
 
     /// `kind:id > action`, filtered, down this subtree. The log line comes when the answers are in (or after [`ANSWER_MS`]).
-    pub fn address(&mut self, address: &str, action: &str, filter: Option<AddressFilter>, ms: u64) -> Vec<Envelope> {
+    pub fn address(&mut self, address: &str, action: &str, filter: Option<protocol::Filter>, ms: u64) -> Vec<Envelope> {
         self.next_address += 1;
         let id = format!("{}/{}", self.conductor.show().id, self.next_address);
         self.asked.insert(id.clone(), Asked { address: address.to_string(), action: action.to_string(), since: ms, reached: 0, passed: 0, answered: 0 });

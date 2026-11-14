@@ -2,7 +2,7 @@
 //! down, the receiver tests itself and says what it did. An address that finds nobody stays silent, and that is logged: it
 //! never goes up to a wider one (owner 2026-11-09).
 use deck_space::rig::address::Target;
-use protocol::{Address, AddressAnswer, AddressFilter};
+use protocol::{Address, AddressAnswer, Filter};
 
 /// One receiver: what it plays and the facts about itself.
 #[derive(Clone, Copy)]
@@ -21,10 +21,10 @@ pub fn picks_up(address: &str, playing: &str) -> bool {
     Target::parse(address).is_ok_and(|t| t.picks_up(playing))
 }
 
-/// A missing fact fails the filter (SHOW.md §9).
-pub fn passes(filter: Option<&AddressFilter>, group: Option<&str>, device: Option<&str>) -> bool {
-    let Some(filter) = filter else { return true };
-    filter.group.as_deref().is_none_or(|g| group == Some(g)) && filter.device.as_deref().is_none_or(|d| device == Some(d))
+/// A missing fact fails the filter (SHOW.md §9): the one rule, protocol `filter::passes` (#546). A receiver knows its group
+/// and device; an account fact or an approved deck it cannot prove fails.
+pub fn passes(filter: Option<&Filter>, group: Option<&str>, device: Option<&str>) -> bool {
+    protocol::filter::passes(filter, &protocol::filter::Facts { group, device, ..Default::default() })
 }
 
 /// What one receiver answers; `None` = the address does not name it, it says nothing.
@@ -41,7 +41,7 @@ pub fn receive(a: &Address, r: Receiver) -> Option<AddressAnswer> {
 mod tests {
     use super::*;
 
-    fn address(a: &str, filter: Option<AddressFilter>) -> Address {
+    fn address(a: &str, filter: Option<Filter>) -> Address {
         Address { id: "a1".into(), address: a.into(), action: "dance:samba".into(), r#where: filter }
     }
 
@@ -67,7 +67,7 @@ mod tests {
     #[test]
     fn filters_test_the_receiver_and_a_missing_fact_fails() {
         let plays = ["character:yellowmouse".to_string()];
-        let f = || Some(AddressFilter { group: Some("left".into()), device: Some("browser".into()) });
+        let f = || Some(Filter { group: Some("left".into()), device: Some("browser".into()), ..Filter::default() });
         let a = receive(&address("character:yellowmouse", f()), receiver(Some("left"), Some("browser"), &plays)).unwrap();
         assert_eq!((a.reached, a.passed, a.answered), (1, 1, 1));
         let a = receive(&address("character:yellowmouse", f()), receiver(Some("left"), None, &plays)).unwrap();

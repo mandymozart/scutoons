@@ -464,7 +464,8 @@ impl Conductor {
         }
         let device = self.show.outlet(column).is_some_and(|o| o.kind == OutletKind::Device);
         let playing = match cell {
-            Cell::Keep => {
+            // #546: an `ask` cell keeps the piece; the vote it opens is the row's (#548)
+            Cell::Keep | Cell::Ask { .. } => {
                 if let Some(on) = self.stage.get_mut(column) {
                     on.row = row.to_string();
                 }
