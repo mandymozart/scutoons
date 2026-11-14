@@ -7,7 +7,8 @@
 	import { loadRelay } from '@scutoons/live-deck';
 	import { page } from '$app/state';
 	import { m } from '$lib/paraglide/messages.js';
-	import { WASM_BASE, codeOf } from '$lib/live-deck.ts';
+	import { LIVE_QUIC, LIVE_URL } from '$lib/config.ts';
+	import { WASM_BASE, codeOf, relayOf } from '$lib/live-deck.ts';
 	import { readerLink, type LinkModule, type ReaderPlace } from '$lib/conductor-reader.ts';
 	import type { ReadersView } from '$lib/conductor-readers.svelte.ts';
 	import ReaderPlacePicker from './reader-place-picker.svelte';
@@ -20,7 +21,9 @@
 	let problem = $state('');
 	let copied = $state('');
 	const code = $derived(codeOf(page.url.searchParams, page.params.code));
-	const link = $derived(core ? readerLink(core, page.url.origin, code, place) : '');
+	// #530: the relay the conductor joined (as its page joins it) – the core names it in the link when it is not the hosted one
+	const relay = $derived(relayOf(page.url.searchParams, LIVE_URL, page.params.code, LIVE_QUIC));
+	const link = $derived(core ? readerLink(core, page.url.origin, code, relay, place) : '');
 
 	onMount(() => {
 		loadRelay(WASM_BASE).then(

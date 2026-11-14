@@ -42,8 +42,8 @@ use std::time::Duration;
 
 /// what the slices are fetched at (as the native outlet)
 const QUALITY: &str = "high";
-/// the hosted relay's show (deck-native live/config.rs)
-pub const HOSTED_RELAY: &str = "wss://live.scutoons.com/live/CATH";
+// the hosted relay's show, once in the core (deck-space relay.rs, #530)
+pub use deck_space::relay::HOSTED_RELAY;
 
 /// What this deck has of a piece without asking: a system scene by its name (`scene:outlet`; #427: a sandbox never plays in a show)
 fn carried(place: &Place) -> Option<Found> {

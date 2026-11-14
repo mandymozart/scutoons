@@ -65,6 +65,9 @@ pub const SETTLE_GRACE_MS: f64 = 40.0;
 /// #478: a client that asks for its proof (`Options::wait_proof`) dials at most this long after its start without the
 /// answer (ms): long enough for the API's answer on a usual link, short enough that a deck nobody signed in to is not kept
 pub const PROOF_WAIT_MS: f64 = 1500.0;
+/// the relay a deck joins when nothing names another (#199; deck-native live/config.rs, space-web outlet.rs) – the hosted
+/// one, the Cathedral's session for now; a linked reader's link names no relay on it (linked.rs `reader_link`, #530)
+pub const HOSTED_RELAY: &str = "wss://live.scutoons.com/live/CATH";
 
 /// `ws://host:port/live/<code>` (or `wss://`, a path before `/live/` – the LAN viewer's `…/relay/live/<code>`) → the
 /// base and the session code; a query is dropped (the client adds its own)

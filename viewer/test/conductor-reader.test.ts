@@ -13,7 +13,11 @@ import { jumpLabels } from '@scutoons/content';
 import { loadRelay, type RelayModule } from '@scutoons/live-deck';
 import { readerLink, type LinkModule, type LinkedReaders } from '../src/lib/conductor-reader.ts';
 import { RelayVote } from '../src/lib/live-vote-link.ts';
+import { joinSession, leaveSession, sessionOf } from '../src/lib/reader-session.ts';
 import { deckTarget } from '../../shared/live-core/scripts/wasm.ts';
+
+/** the session the conductor joined on the hosted relay (relayOf with LIVE_URL's default) */
+const HOSTED = 'wss://live.scutoons.com/live/A7K2';
 
 const wasmDir = new URL('../../shared/live-deck/wasm/', import.meta.url);
 const NO_CORE = existsSync(new URL('relay_web_bg.wasm', wasmDir)) ? false : 'relay-web is not built (npm run build:wasm -w shared/live-deck -- --relay)';
@@ -26,12 +30,21 @@ test("the link to hand out is the core's for the picked chapter and label; the l
 	const groups = [{ label: 'start' }, {}, { label: 'dialog-start' }, { label: 'start' }];
 	const labels = jumpLabels(groups);
 	assert.deepEqual(labels, ['start', 'dialog-start']);
-	const link = readerLink(c, 'https://scutoons.com', 'A7K2', { toon: 'catpope', chapter: 3, label: labels[1] });
-	assert.equal(link, c.reader_link('https://scutoons.com', 'catpope', 3, 'dialog-start', 'A7K2'));
-	assert.equal(link, 'https://scutoons.com/catpope/chapter/3?label=dialog-start&live=A7K2');
-	assert.equal(readerLink(c, 'https://scutoons.com', 'A7K2', { toon: 'catpope', chapter: 3, label: '' }), 'https://scutoons.com/catpope/chapter/3?live=A7K2', "no label: the chapter's start");
-	assert.equal(readerLink(c, 'https://scutoons.com', 'A7K2', { toon: 'catpope', chapter: null, label: '' }), '', 'no chapter: no link');
-	assert.equal(readerLink(c, 'https://scutoons.com', 'A7K2', { toon: '', chapter: 3, label: '' }), '', 'no toon: no link');
+	const link = readerLink(c, 'https://scutoons.com', 'A7K2', HOSTED, { toon: 'catpope', chapter: 3, label: labels[1] });
+	assert.equal(link, c.reader_link('https://scutoons.com', 'catpope', 3, 'dialog-start', 'A7K2', HOSTED));
+	assert.equal(link, 'https://scutoons.com/catpope/chapter/3?label=dialog-start&live=A7K2', 'the hosted relay: the link names none');
+	assert.equal(readerLink(c, 'https://scutoons.com', 'A7K2', HOSTED, { toon: 'catpope', chapter: 3, label: '' }), 'https://scutoons.com/catpope/chapter/3?live=A7K2', "no label: the chapter's start");
+	assert.equal(readerLink(c, 'https://scutoons.com', 'A7K2', HOSTED, { toon: 'catpope', chapter: null, label: '' }), '', 'no chapter: no link');
+	assert.equal(readerLink(c, 'https://scutoons.com', 'A7K2', HOSTED, { toon: '', chapter: 3, label: '' }), '', 'no toon: no link');
+});
+
+test('#530: on another relay the link names it, and the reader page reads it back as that session', { skip: NO_CORE }, async () => {
+	const c = await core();
+	const link = readerLink(c, 'https://scutoons.com', 'A7K2', 'ws://192.168.1.116:7070/live/A7K2', { toon: 'catpope', chapter: 3, label: '' });
+	assert.equal(link, 'https://scutoons.com/catpope/chapter/3?live=A7K2&relay=ws%3A%2F%2F192.168.1.116%3A7070');
+	assert.equal(sessionOf(new URL(link).searchParams, 'wss://live.scutoons.com'), 'ws://192.168.1.116:7070/live/A7K2', "the reader's session: that relay");
+	const hosted = readerLink(c, 'https://scutoons.com', 'A7K2', HOSTED, { toon: 'catpope', chapter: 3, label: '' });
+	assert.equal(sessionOf(new URL(hosted).searchParams, 'wss://live.scutoons.com'), HOSTED, "the hosted relay: the reader's default");
 });
 
 /** a raw client on the relay: its messages */
@@ -91,6 +104,43 @@ test('in process: the conductor page names the driving reader and the last story
 		assert.deepEqual(seen!.last, { type: 'joinScene', characters: ['character:catpope'], from: me });
 		reader.ws.close();
 	} finally {
+		conductor?.dispose();
+		relay.kill();
+	}
+});
+
+test('real relay (#530): a reader opened with the link of a conductor on a local relay joins the session there', { skip: NO_RELAY }, async () => {
+	const port = Number(process.env.LAB_RELAY_PORT ?? 7072) + 7;
+	const env = { ...process.env };
+	delete env.LIVE_TOKEN_SECRET;
+	const relay = spawn(relayExe, [`127.0.0.1:${port}`], { env, stdio: 'ignore' });
+	let conductor: RelayVote | null = null;
+	try {
+		const url = `ws://127.0.0.1:${port}/live/LOCAL`;
+		const end = Date.now() + PATIENCE;
+		for (let up = false; !up; ) {
+			try {
+				(await raw(url, { role: 'musician' })).ws.close();
+				up = true;
+			} catch (e) {
+				if (Date.now() > end) throw e;
+				await new Promise((r) => setTimeout(r, 100));
+			}
+		}
+		const c = await core();
+		let seen: LinkedReaders | null = null;
+		conductor = new RelayVote({ relay: url, role: 'conductor', token: 'dev', core: c, socket: WebSocket as never, onReaders: (r) => (seen = r) });
+		const link = readerLink(c, 'http://localhost:4100', 'LOCAL', url, { toon: 'catpope', chapter: 3, label: '' });
+		assert.match(link, /&relay=ws%3A%2F%2F127\.0\.0\.1%3A\d+$/, 'the link names the local relay');
+		// the reader page: the session its address names, the viewer's default being the hosted relay
+		const session = sessionOf(new URL(link).searchParams, 'wss://live.scutoons.com');
+		assert.equal(session, url);
+		joinSession(session!, { core: c, socket: WebSocket as never });
+		await until(() => Object.keys(seen?.linked ?? {}).length === 1);
+		leaveSession();
+		await until(() => Object.keys(seen?.linked ?? {}).length === 0);
+	} finally {
+		leaveSession();
 		conductor?.dispose();
 		relay.kill();
 	}

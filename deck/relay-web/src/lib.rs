@@ -219,9 +219,10 @@ impl RelayClient {
     }
 }
 
-/// #527: the address a linked reader opens – `<base>/<toon>/chapter/<n>?label=<label>&live=<code>` (deck-space linked.rs
-/// `reader_link`; `label` '' = the chapter's start), the same text the deck editor offers
+/// #527: the address a linked reader opens – `<base>/<toon>/chapter/<n>?label=<label>&live=<code>&relay=<relay>`
+/// (deck-space linked.rs `reader_link`; `label` '' = the chapter's start; `relay` the session's relay URL, named in the
+/// link only when it is not the hosted one, #530), the same text the deck editor offers
 #[wasm_bindgen]
-pub fn reader_link(base: &str, toon: &str, chapter: u32, label: &str, code: &str) -> String {
-    deck_space::linked::reader_link(base, toon, chapter, Some(label), code)
+pub fn reader_link(base: &str, toon: &str, chapter: u32, label: &str, code: &str, relay: &str) -> String {
+    deck_space::linked::reader_link(base, toon, chapter, Some(label), code, Some(relay))
 }
