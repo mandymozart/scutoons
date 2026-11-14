@@ -113,8 +113,8 @@ export interface Layout {
 
 export function layout(cwd: string): Layout {
 	const top = git(cwd, ['rev-parse', '--show-toplevel']);
-	const commonDir = resolve(top, git(cwd, ['rev-parse', '--git-common-dir']));
-	const id = worktreeId(resolve(top, git(cwd, ['rev-parse', '--git-dir'])), commonDir);
+	const commonDir = resolve(cwd, git(cwd, ['rev-parse', '--git-common-dir']));
+	const id = worktreeId(resolve(cwd, git(cwd, ['rev-parse', '--git-dir'])), commonDir);
 	return { top, commonDir, root: join(commonDir, ROOT), id };
 }
 
