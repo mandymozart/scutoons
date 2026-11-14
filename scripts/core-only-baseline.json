@@ -90,34 +90,6 @@
 			"why": "UI: shows the relay's vote messages (protocol kinds, not catalog kinds); the vote client moves in #366"
 		},
 		{
-			"file": "viewer/src/lib/components/live-vote/conductor-vote.svelte",
-			"rule": "kind-branch",
-			"match": "if (e.kind === 'vote.open') [open, tally, result, overriding, held] = [e.p, null, null, fa",
-			"count": 1,
-			"why": "UI: shows the relay's vote messages (protocol kinds, not catalog kinds); the vote client moves in #366"
-		},
-		{
-			"file": "viewer/src/lib/components/live-vote/conductor-vote.svelte",
-			"rule": "kind-branch",
-			"match": "else if (e.kind === 'vote.tally') [tally, held] = [e.p, e.p.paused === true];",
-			"count": 1,
-			"why": "UI: shows the relay's vote messages (protocol kinds, not catalog kinds); the vote client moves in #366"
-		},
-		{
-			"file": "viewer/src/lib/components/live-vote/conductor-vote.svelte",
-			"rule": "kind-branch",
-			"match": "else if (e.kind === 'vote.result') [result, overriding, held] = [e.p, false, false];",
-			"count": 1,
-			"why": "UI: shows the relay's vote messages (protocol kinds, not catalog kinds); the vote client moves in #366"
-		},
-		{
-			"file": "viewer/src/lib/live-vote-demo.ts",
-			"rule": "twin-const",
-			"match": "export const changesMind = (random: number): boolean => random < 0.12;",
-			"count": 1,
-			"why": "a demo's scripted odds – no deck behaviour"
-		},
-		{
 			"file": "viewer/src/lib/live-vote-sim.ts",
 			"rule": "random-shape",
 			"match": "a = (a + 0x6d2b79f5) >>> 0;",
@@ -130,27 +102,6 @@
 			"match": "const p = had ? 0.004 : 0.03 + 0.12 * (1 - elapsed);",
 			"count": 1,
 			"why": "a simulated audience for the vote lab (mulberry32 seed, its odds) – no deck behaviour"
-		},
-		{
-			"file": "viewer/src/routes/live/conductor/[[code]]/+page.svelte",
-			"rule": "kind-branch",
-			"match": "if (e.kind === 'vote.open') isOpen = true;",
-			"count": 1,
-			"why": "UI: shows the relay's vote messages (protocol kinds, not catalog kinds); the vote client moves in #366"
-		},
-		{
-			"file": "viewer/src/routes/live/conductor/[[code]]/+page.svelte",
-			"rule": "kind-branch",
-			"match": "else if (e.kind === 'vote.result') isOpen = false;",
-			"count": 1,
-			"why": "UI: shows the relay's vote messages (protocol kinds, not catalog kinds); the vote client moves in #366"
-		},
-		{
-			"file": "viewer/src/routes/live/conductor/[[code]]/+page.svelte",
-			"rule": "kind-branch",
-			"match": "else if (e.kind === 'error' && e.p.code === 'vote') problem = e.p.message;",
-			"count": 1,
-			"why": "UI: shows the relay's vote messages (protocol kinds, not catalog kinds); the vote client moves in #366"
 		}
 	],
 	"budgets": {
@@ -180,7 +131,7 @@
 		},
 		"creator/src/lib/components/sound/sound-workspace.svelte": {
 			"lines": 170,
-			"functions": 13,
+			"functions": 12,
 			"math": 0,
 			"escapes": 0
 		},
@@ -312,7 +263,7 @@
 		},
 		"shared/live-deck/src/deck.ts": {
 			"lines": 360,
-			"functions": 43,
+			"functions": 42,
 			"math": 0,
 			"escapes": 0
 		},
@@ -347,9 +298,9 @@
 			"escapes": 0
 		},
 		"shared/live-deck/src/space.ts": {
-			"lines": 517,
-			"functions": 43,
-			"math": 15,
+			"lines": 484,
+			"functions": 41,
+			"math": 11,
 			"escapes": 1
 		},
 		"shared/live-deck/src/sync.ts": {
@@ -361,12 +312,6 @@
 		"shared/live/src/index.ts": {
 			"lines": 4,
 			"functions": 0,
-			"math": 0,
-			"escapes": 0
-		},
-		"viewer/src/lib/components/live-deck/character-chip.svelte": {
-			"lines": 103,
-			"functions": 3,
 			"math": 0,
 			"escapes": 0
 		},
@@ -383,7 +328,7 @@
 			"escapes": 0
 		},
 		"viewer/src/lib/components/live-deck/deck-panel.svelte": {
-			"lines": 282,
+			"lines": 279,
 			"functions": 2,
 			"math": 0,
 			"escapes": 0
@@ -401,7 +346,7 @@
 			"escapes": 0
 		},
 		"viewer/src/lib/components/live-deck/deck-stats.svelte": {
-			"lines": 78,
+			"lines": 69,
 			"functions": 0,
 			"math": 0,
 			"escapes": 0
@@ -418,18 +363,6 @@
 			"math": 2,
 			"escapes": 0
 		},
-		"viewer/src/lib/components/live-vote/conductor-vote.svelte": {
-			"lines": 327,
-			"functions": 9,
-			"math": 3,
-			"escapes": 0
-		},
-		"viewer/src/lib/components/live-vote/open-vote-form.svelte": {
-			"lines": 172,
-			"functions": 2,
-			"math": 0,
-			"escapes": 0
-		},
 		"viewer/src/lib/live-deck-controls.svelte.ts": {
 			"lines": 130,
 			"functions": 21,
@@ -442,15 +375,9 @@
 			"math": 0,
 			"escapes": 0
 		},
-		"viewer/src/lib/live-vote-demo.ts": {
-			"lines": 95,
-			"functions": 7,
-			"math": 2,
-			"escapes": 0
-		},
 		"viewer/src/lib/live-vote-link.ts": {
-			"lines": 100,
-			"functions": 20,
+			"lines": 77,
+			"functions": 12,
 			"math": 0,
 			"escapes": 0
 		},
@@ -467,20 +394,14 @@
 			"escapes": 0
 		},
 		"viewer/src/lib/live-vote.ts": {
-			"lines": 103,
-			"functions": 13,
-			"math": 3,
+			"lines": 53,
+			"functions": 7,
+			"math": 1,
 			"escapes": 0
 		},
 		"viewer/src/routes/(account)/account/lab/vote/+page.svelte": {
-			"lines": 252,
-			"functions": 7,
-			"math": 0,
-			"escapes": 0
-		},
-		"viewer/src/routes/live/conductor/[[code]]/+page.svelte": {
-			"lines": 86,
-			"functions": 5,
+			"lines": 222,
+			"functions": 6,
 			"math": 0,
 			"escapes": 0
 		},

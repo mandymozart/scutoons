@@ -19,7 +19,7 @@
 	const locale = $derived(query.get('lang') ?? deviceLocale(typeof navigator === 'undefined' ? undefined : navigator.languages));
 
 	onMount(() => {
-		const link = new RelayVote({ relay: relayOf(page.url.searchParams, LIVE_URL, page.params.code, LIVE_QUIC), role: 'audience', group, core: loadRelay(WASM_BASE), onStatus: (s) => (status = s) });
+		const link = new RelayVote({ relay: relayOf(page.url.searchParams, LIVE_URL, page.params.code, LIVE_QUIC), group, core: loadRelay(WASM_BASE), onStatus: (s) => (status = s) });
 		source = link;
 		return () => link.dispose();
 	});

@@ -200,7 +200,7 @@ Largest new piece of work: the relay tree. Everything else in the table reuses w
 - A mood turn moves values without a reload; a loaded 3D set stays and only the spot moves. No message sets a named value on a deck from the conductor.
 - Far events (#442, `far.rs`): one exact address, subscribed by the asking deck, only while the other deck is in the session.
 - `address.rs` has places `deck:`, `scene:`, `character:`, `item:`. No `location:`, persona or look level, or wildcard.
-- The browser's conductor page is the vote panel only (86 lines), opened on a deck with F12; the matrix is the deck editor's Perform workspace (#91).
+- The browser's conductor page (the vote panel, #231) is gone (#533): the vote's conductor side is Perform's Vote sheet (§14); the matrix is the deck editor's Perform workspace (#91).
 - `story` messages exist on the wire. The viewer sends its fired VN events as `reader` in a session (`?live=<code>`, #518); the rest of LIVE.md B.1's bus (slices, pickups, variables) is not built.
 - A scene cannot hold several rigs yet.
 - "Only if" exists in the chapter documents; the evaluator is TypeScript (`shared/content/src/expr/evaluate.ts`). The deck has no condition type. RULE A1: one evaluator, in the core, reaching the viewer through wasm.
@@ -215,3 +215,14 @@ Largest new piece of work: the relay tree. Everything else in the table reuses w
 ## 13. Drafts
 
 Concept images (sent to the owner in the chat, not in the repository): `n0-tree`, `n1-reach`, `n2-cells`, `n3-launch`, `n4-editor`, `n5-conductor`, `n6-build`, `n7-show`, `n8-perform`, `n9-flow`; current: `m1-show`, `m2-perform`, `m3-tree`. `n1`–`n5` still draw groups and one flat conductor; §4 is the correction.
+
+## 14. Design (#533): the vote's conductor side in Perform
+
+The web conductor page goes (owner 2026-11-14 [live]); the show runner opens, watches and closes a vote in Perform.
+- **What the core holds already.** The rule is the relay's (relay/vote.rs: the tally, hold, the deadline, close, override, the result and its `how`); the wire is protocol's `vote.open / hold / close / tally / result` (the relay sends the open vote and every tally to the conductor too). deck-space's relay client keeps the open vote's id and makes the moves for the web screens (relay-web). What was not in the core: the conductor's view – the vote open, the last tally, held, the result – and its words (conductor-vote.svelte, with the relay's `winner` copied into live-vote-sim.ts) and the form's checks (live-vote.ts `buildOpen`).
+- **Client state: deck-show's conductor**, sans-IO like the rest of the show runner's mind. `deck_show::vote::Board` in `Subtree`: fed by `on_wire` (`vote.open`, `vote.tally`, `vote.result`, an `error` with code `vote`) and the welcome's snapshot; `Subtree::vote_open / vote_hold / vote_close(override)` answer the envelopes for the vote open now; the log notes the opening and the result. No second link: the editor already hands every envelope to `on_wire` and sends what the core answers.
+- **The rule stays once.** The group's pick the panel shows is the relay's `winner`, moved to `protocol::vote` (relay and deck-show read the one function); deck-show computes nothing of the tally but shares and seconds.
+- **The panel's model: deck-ui `vote.rs`.** `Panel` (Open / Held / Closed, the question, the rule and its help, the fallback, who votes, the seconds left and the countdown's share, per option the count, % and the bar – first to n: the way to n –, per group the split and its pick, `3 of 5 devices`, the result and how) filled by `deck_show::vote::panel(&Board)`; `Form` (question, options, rule, n, seconds, fallback, the voting groups) with `problem()` – `buildOpen`'s checks, moved –, and `deck_show::vote::open(&Form, id)` → the `VoteOpen`.
+- **Perform draws it**: a **Vote** sheet beside Session in the stage's place – the form while no vote is open (typed through the editor's `Typing`, the groups as chips of the show's roles), else the panel with Hold / Run on, Override … (an option), Close now; nothing of the rule in the drawing code.
+- **A row's choice event**: the show document holds no choice events (their options are the chapter's), so a vote is typed; opening one from a row is a ticket.
+- **Then removed (step 4):** the web conductor page, its vote panel and form, the vote lab's conductor half, `live-vote-demo --conductor`; the audience page keeps `cast` through relay-web.

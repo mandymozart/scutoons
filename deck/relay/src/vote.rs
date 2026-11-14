@@ -2,6 +2,7 @@
 //! fallback; the relay applies it by itself, the conductor can override. Pure: the session feeds the casts in.
 use std::collections::HashMap;
 
+use protocol::vote::{count, winner};
 use protocol::{VoteHow, VoteOpen, VoteResult, VoteRule};
 
 /// An open vote: what the conductor opened, when it closes, one cast per client (changeable until the close).
@@ -109,25 +110,6 @@ impl OpenVote {
         let f = self.open.fallback.unwrap_or(0).max(0) as usize;
         if f < self.open.options.len() { f } else { 0 }
     }
-}
-
-fn count(n: usize, options: impl Iterator<Item = usize>) -> Vec<i64> {
-    let mut counts = vec![0; n];
-    for o in options {
-        if let Some(c) = counts.get_mut(o) {
-            *c += 1;
-        }
-    }
-    counts
-}
-
-/// The option with the most votes; a tie goes to the fallback if it is among the tied, else to the first tied option.
-fn winner(counts: &[i64], fallback: usize) -> usize {
-    let max = counts.iter().copied().max().unwrap_or(0);
-    if counts.get(fallback) == Some(&max) {
-        return fallback;
-    }
-    counts.iter().position(|&c| c == max).unwrap_or(fallback)
 }
 
 #[cfg(test)]

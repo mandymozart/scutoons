@@ -36,24 +36,24 @@ fn fit(d: &DrawList, text: &str, px: f32, w: f32) -> String {
     controls::fit(text, (w / d.advance(px)).max(0.0) as usize)
 }
 
-/// the 2D / 3D switch at the top of a stage rect; with `sheets` (Show) also the cue sheet and the problems list
-pub fn view_switch(d: &mut DrawList, t: &Tokens, host: &mut Host, stage: Rect, sheets: bool) {
-    let names: &[&str] = if sheets { &["3D", "2D", "Cues", "Problems", "Who", "Session"] } else { &["3D", "2D"] };
+/// the sheets the Show workspace offers over its stage (the flash list opens from Flash, not from a pill; the show runner's
+/// sheets are Perform's)
+pub const SHEETS: [(&str, Sheet); 3] = [("Cues", Sheet::Cues), ("Problems", Sheet::Problems), ("Who", Sheet::Who)];
+
+/// the 2D / 3D switch at the top of a stage rect, then a pill per sheet the workspace offers (`sheets`)
+pub fn view_switch(d: &mut DrawList, t: &Tokens, host: &mut Host, stage: Rect, sheets: &[(&str, Sheet)]) {
+    let names: Vec<&str> = ["3D", "2D"].into_iter().chain(sheets.iter().map(|(n, _)| *n)).collect();
     let h = t.size.row - 4.0;
     let w: f32 = names.iter().map(|n| d.advance(t.size.small) * n.chars().count().max(2) as f32 + 2.0 * t.size.pad + 2.0).sum();
     let x = stage.x + stage.w - w - t.size.pad;
     let y = stage.y + t.size.pad;
     d.round_rect(x - 3.0, y - 3.0, w + 4.0, h + 6.0, t.size.radius, t.color.surface_head);
-    let on = match host.sheet.filter(|_| sheets) {
-        Some(Sheet::Cues) => 2,
-        Some(Sheet::Problems) => 3,
-        Some(Sheet::Who) => 4,
-        Some(Sheet::Session) => 5,
-        Some(Sheet::Flash) => usize::MAX,
+    let on = match host.sheet {
+        Some(s) => sheets.iter().position(|(_, x)| *x == s).map_or(if s == Sheet::Flash { usize::MAX } else { usize::from(host.two_d) }, |i| i + 2),
         None => usize::from(host.two_d),
     };
-    let r = controls::pills(d, t, x, y, h, names, on);
-    let hits = [Hit::View(false), Hit::View(true), Hit::Sheet(Sheet::Cues), Hit::Sheet(Sheet::Problems), Hit::Sheet(Sheet::Who), Hit::Sheet(Sheet::Session)];
+    let r = controls::pills(d, t, x, y, h, &names, on);
+    let hits = [Hit::View(false), Hit::View(true)].into_iter().chain(sheets.iter().map(|(_, s)| Hit::Sheet(*s)));
     for (r, hit) in r.into_iter().zip(hits) {
         host.hits.push((r, hit));
     }
@@ -147,8 +147,8 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
             host.hits.push((r, Hit::Crumb(i)));
         }
     }
-    view_switch(d, t, host, l.stage, true);
-    if host.sheet.is_some() {
+    view_switch(d, t, host, l.stage, &SHEETS);
+    if host.sheet.is_some_and(|s| !s.in_perform()) {
         let top = l.stage.y + t.size.row + pad;
         super::sheets::draw(d, t, host, Rect { x: l.stage.x, y: top, w: l.stage.w, h: l.stage.h - (top - l.stage.y) }, pointer);
     } else if host.two_d {

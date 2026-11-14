@@ -230,6 +230,16 @@ pub fn line(what: &Logged) -> String {
         Logged::Installed => "the flashed show runs".into(),
         Logged::Reported { from, running, refused: None } => format!("{from} runs {running}"),
         Logged::Reported { from, running, refused: Some(why) } => format!("{from} runs {running}, refused: {why}"),
+        Logged::VoteOpened { vote, question } if question.is_empty() => format!("vote {vote} opened"),
+        Logged::VoteOpened { vote, question } => format!("vote {vote} opened: {question}"),
+        Logged::VoteDecided { vote, option, how } => {
+            let how = match how.as_str() {
+                "override" => "by override",
+                "fallback" => "by the fallback",
+                _ => "by the rule",
+            };
+            format!("vote {vote}: {option} ({how})")
+        }
     }
 }
 

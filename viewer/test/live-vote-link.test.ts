@@ -1,4 +1,4 @@
-// #231, #366: the vote screens' link to the relay (src/lib/live-vote-link.ts) – deck-space's relay client (relay-web's
+// #231, #366: the audience vote screen's link to the relay (src/lib/live-vote-link.ts) – deck-space's relay client (relay-web's
 // wasm) under live-deck's socket – against a fake socket. Skips, saying so, when relay-web isn't built
 // (`npm run build:wasm -w shared/live-deck -- --relay`).
 import { test } from 'node:test';
@@ -40,27 +40,24 @@ class FakeSocket implements SocketLike {
 
 const OPEN = { vote: 'v1', options: ['Yes', 'No'], rule: 'majority', seconds: 20 };
 
-async function join(role: 'audience' | 'conductor', extra: Record<string, unknown> = {}) {
+async function join(extra: Record<string, unknown> = {}) {
 	FakeSocket.all = [];
 	const status: LinkStatus[] = [];
-	const link = new RelayVote({ relay: 'ws://relay:7070/live/CATH', role, socket: FakeSocket, core: await core(), onStatus: (s) => status.push(s), ...extra });
+	const link = new RelayVote({ relay: 'ws://relay:7070/live/CATH', socket: FakeSocket, core: await core(), onStatus: (s) => status.push(s), ...extra });
 	const ws = FakeSocket.all[0];
 	ws.open();
 	return { link, ws, status };
 }
 
-test('joins with its role and group in the URL and says hello first, the conductor with its token', { skip: NO_CORE }, async () => {
-	const a = await join('audience', { group: 'balkon', nick: 'Mia' });
+test('joins as an audience phone of its group in the URL and says hello first', { skip: NO_CORE }, async () => {
+	const a = await join({ group: 'balkon', nick: 'Mia' });
 	assert.equal(a.ws.url, 'ws://relay:7070/live/CATH?role=audience&group=balkon');
 	assert.deepEqual(a.ws.sent[0], { v: 1, seq: 0, from: '', kind: 'hello', p: { code: 'CATH', role: 'audience', group: 'balkon', nick: 'Mia' } });
-	const c = await join('conductor', { token: 'tok' });
-	assert.equal((c.ws.sent[0].p as { token: string }).token, 'tok');
 	a.link.dispose();
-	c.link.dispose();
 });
 
 test('the welcome snapshot hands an open vote and the group instruction to the screen; a late screen gets the vote at once', { skip: NO_CORE }, async () => {
-	const { link, ws, status } = await join('audience', { group: 'balkon' });
+	const { link, ws, status } = await join({ group: 'balkon' });
 	const seen: string[] = [];
 	link.on('audience', (e) => seen.push(e.kind));
 	ws.push('welcome', { client: 'c7', snapshot: { vote: OPEN, say: { balkon: { text: 'Stand up' } }, actions: [] }, now: 0 });
@@ -76,30 +73,22 @@ test('the welcome snapshot hands an open vote and the group instruction to the s
 	link.dispose();
 });
 
-test('cast, hold and close address the open vote; open sends vote.open', { skip: NO_CORE }, async () => {
-	const { link, ws } = await join('conductor', { token: 't' });
+test('a cast addresses the open vote, nothing without one', { skip: NO_CORE }, async () => {
+	const { link, ws } = await join({ group: 'balkon' });
 	ws.push('welcome', { client: 'c1', snapshot: { actions: [] }, now: 0 });
-	link.close();
+	link.cast('ignored', 0);
 	assert.equal(ws.sent.length, 1, 'nothing is open: nothing is sent');
-	link.open(OPEN as never);
 	ws.push('vote.open', OPEN);
-	link.hold(true);
-	link.close(1);
 	link.cast('ignored', 1);
 	assert.deepEqual(
 		ws.sent.slice(1).map((e) => [e.kind, e.p]),
-		[
-			['vote.open', OPEN],
-			['vote.hold', { vote: 'v1', hold: true }],
-			['vote.close', { vote: 'v1', override: 1 }],
-			['vote.cast', { vote: 'v1', option: 1 }]
-		]
+		[['vote.cast', { vote: 'v1', option: 1 }]]
 	);
 	link.dispose();
 });
 
 test('a refused token shows; a closed socket joins again', { skip: NO_CORE }, async () => {
-	const { link, ws, status } = await join('conductor', { token: 'bad' });
+	const { link, ws, status } = await join({ group: 'balkon' });
 	ws.push('error', { code: 'token', message: 'bad signature' });
 	assert.deepEqual(status.at(-1), { state: 'refused', why: 'bad signature' });
 	ws.onclose?.({});

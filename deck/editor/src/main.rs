@@ -134,7 +134,7 @@ fn args() -> Result<Args> {
             "--flash-force" => a.script.flash_force = true,
             "--seat" => a.script.seat = Some(val()?),
             "--row" => a.script.row = Some(val()?),
-            "--sheet" => a.script.sheet = Some(show::Sheet::parse(&val()?).context("--sheet cues | problems | flash | who | session")?),
+            "--sheet" => a.script.sheet = Some(show::Sheet::parse(&val()?).context("--sheet cues | problems | flash | who | session | vote")?),
             "--role" => a.script.role = Some(val()?),
             "--who-move" => a.script.who_move = val()?.split_once('=').map(|(c, r)| (c.to_string(), r.to_string())),
             "--who-menu" => a.script.who_menu = Some(val()?),
@@ -146,6 +146,8 @@ fn args() -> Result<Args> {
                 let chapter = p.next().map(|c| c.trim().parse()).transpose().context("--reader-place TOON,CHAPTER[,LABEL]")?;
                 a.script.reader_place = Some(deck_ui::session::Place { toon, chapter, label: p.next().unwrap_or_default().trim().to_string() });
             }
+            "--vote" => a.script.vote = Some(show::vote_form(&val()?)),
+            "--vote-tally" => a.script.vote_tally = Some(val()?),
             "--problem" => a.script.problem = Some(val()?.parse().context("--problem N (0-based)")?),
             "--gesture" => {
                 let v = val()?;
@@ -1399,7 +1401,7 @@ impl App {
         let (stage_x, stage_w, stage_h) = match self.workspace {
             show::Workspace::Build => (stage_x, stage_w, stage_h),
             ws => {
-                let r = show::stage_rect(ws, wf, hf, t);
+                let r = show::stage_rect(ws, &self.show, wf, hf, t);
                 (r.x, r.w, r.h)
             }
         };

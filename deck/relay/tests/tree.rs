@@ -570,3 +570,51 @@ async fn a_cell_goes_down_to_an_outlet_the_seat_uses_while_the_child_follows() {
     wait(&mut [top, foyer, wall], |p| p[2].cell("wall").as_deref() == Some("black")).await;
     t.parent_rt.shutdown_background();
 }
+
+// ---------------------------------------------------------------- #533: the show runner's vote, from the conductor
+
+fn cast(vote: &str, option: i64) -> Envelope {
+    Envelope::new("", Message::VoteCast(protocol::VoteCast { vote: vote.into(), option }))
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_show_runner_opens_watches_holds_and_overrides_a_vote_over_the_real_relay() {
+    use deck_show::vote::{panel, Form, Rule, State};
+    let (port, _relay) = child_relay().await;
+    let mut top = join(port, "VOTE", Role::Conductor, None, Some("t"), show(TOP, ClockChoice::Parent)).await;
+    let mut a = join(port, "VOTE", Role::Audience, Some("left"), None, None).await;
+    let mut b = join(port, "VOTE", Role::Audience, Some("left"), None, None).await;
+    let mut c = join(port, "VOTE", Role::Audience, Some("right"), None, None).await;
+    // open: the conductor's form → vote.open; the relay says it back to the conductor and to the phones
+    let form = Form { question: "Which way?".into(), options: "left, right, stay".into(), rule: Rule::Groups, seconds: 30, fallback: 2, ..Form::default() };
+    let out = top.sub_mut().vote_open(&form, now()).unwrap();
+    top.all(out).await;
+    wait(&mut [&mut top, &mut a, &mut b, &mut c], |p| p[0].sub().vote().is_open() && p[3].inbox.iter().any(|e| matches!(e.message, Message::VoteOpen(_)))).await;
+    // the phones vote; the tally per group reaches the conductor's board
+    a.send(cast("v1", 0)).await;
+    b.send(cast("v1", 1)).await;
+    let name = |g: &str| g.to_string();
+    wait(&mut [&mut top, &mut a, &mut b, &mut c], |p| p[0].sub().vote().tally.as_ref().is_some_and(|t| t.voters == 2)).await;
+    let p = panel(top.sub().vote(), &name).unwrap();
+    assert_eq!((p.bars.iter().map(|b| b.count).collect::<Vec<_>>(), p.expected, p.groups.len()), (vec![1, 1, 0], Some(3), 1));
+    assert_eq!(p.groups[0].pick, 0, "left split 1 : 1, the fallback not tied – the first tied, by the relay's winner");
+    // hold: the countdown stands, and a held vote does not close when everyone has voted
+    let out = top.sub_mut().vote_hold(true);
+    top.all(out).await;
+    wait(&mut [&mut top, &mut a, &mut b, &mut c], |p| p[0].sub().vote().tally.as_ref().is_some_and(|t| t.paused == Some(true))).await;
+    c.send(cast("v1", 1)).await;
+    wait(&mut [&mut top, &mut a, &mut b, &mut c], |p| p[0].sub().vote().tally.as_ref().is_some_and(|t| t.voters == 3 && t.paused == Some(true))).await;
+    assert_eq!(panel(top.sub().vote(), &name).unwrap().state, State::Held);
+    assert!(top.sub().vote().is_open());
+    // Override: the show runner's option wins; every phone hears the result
+    let out = top.sub_mut().vote_close(Some(0));
+    top.all(out).await;
+    wait(&mut [&mut top, &mut a, &mut b, &mut c], |p| p[0].sub().vote().result.is_some() && p[3].inbox.iter().any(|e| matches!(e.message, Message::VoteResult(_)))).await;
+    let p = panel(top.sub().vote(), &name).unwrap();
+    assert_eq!(p.result_line().as_deref(), Some("Result: left – by override – the conductor chose"));
+    assert!(top.logged(|l| matches!(l, Logged::VoteDecided { option, how, .. } if option == "left" && how == "override")));
+    // a second vote opens with the next id once the first is closed
+    let out = top.sub_mut().vote_open(&Form::default(), now()).unwrap();
+    top.all(out).await;
+    wait(&mut [&mut top], |p| p[0].sub().vote().open.as_ref().is_some_and(|o| o.vote == "v2") && p[0].sub().vote().is_open()).await;
+}
