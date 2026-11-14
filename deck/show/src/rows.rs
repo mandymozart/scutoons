@@ -182,7 +182,7 @@ fn cell_for(show: &Show, at: usize, column: &str, mode: Mode, was: Option<&Cell>
 }
 
 /// the question row `r` asks, if it asks one
-fn asked(r: &Row) -> Option<&str> {
+pub(crate) fn asked(r: &Row) -> Option<&str> {
     r.cells.values().find_map(|c| if let Cell::Ask { question } = c { Some(question.as_str()) } else { None })
 }
 
