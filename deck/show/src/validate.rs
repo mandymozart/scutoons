@@ -1,7 +1,7 @@
 //! Validity is the core's (RULES A2). [`validate`] reads one document; [`resolve`] follows the seats from the top, the only
 //! way a tree exists (the child does not name its parent, SHOW.md §4b), and writes down the exact versions a flash carries.
-use crate::document::{Addressed, Cell, Face, OutletKind, Pinned, Row, Seat, Show};
-use protocol::PARENT;
+use crate::document::{Addressed, Cell, Face, OutletKind, Pinned, Question, Row, Seat, Show};
+use protocol::{Filter, PARENT};
 use deck_space::rig::address::{Place, Target};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
@@ -107,6 +107,8 @@ fn stage_cell(show: &Show, at: &Spot, cell: &Cell, out: &mut Vec<Problem>) {
         Cell::Keep | Cell::Black => {}
         Cell::Go { .. } | Cell::Free => out.push(refused(at, "`go` and `free` are for a seat's column")),
         Cell::Look { .. } => out.push(refused(at, "a look is for a device outlet's lamps")),
+        Cell::Ask { question } if show.question(question).is_none() => out.push(Problem::Unknown { what: "question", id: question.clone(), at: at.clone() }),
+        Cell::Ask { .. } => {}
     }
 }
 
@@ -199,9 +201,75 @@ fn addressed(at: &Spot, a: &Addressed, out: &mut Vec<Problem>) {
         out.push(refused(at, format!("{}: {why}", a.address)));
     }
     if let Some(f) = &a.filter {
-        if f.group.as_deref() == Some("") || f.device.as_deref() == Some("") {
-            out.push(refused(at, format!("{}: an empty filter", a.address)));
+        filter(at, &a.address, f, out);
+    }
+}
+
+/// #546: a filter (an address's `where`, a column's in a row): no empty group or device, an account list that names someone,
+/// each account once
+fn filter(at: &Spot, of: &str, f: &Filter, out: &mut Vec<Problem>) {
+    if f.group.as_deref() == Some("") || f.device.as_deref() == Some("") {
+        out.push(refused(at, format!("{of}: an empty filter")));
+    }
+    if let Some(list) = &f.account {
+        if list.is_empty() {
+            out.push(refused(at, format!("{of}: the filter's account list names nobody (leave it out: every account)")));
         }
+        let mut seen = BTreeSet::new();
+        for a in list.iter().filter(|a| !seen.insert(a.as_str())) {
+            out.push(refused(at, format!("{of}: 'account:{}' twice", a.as_str())));
+        }
+    }
+}
+
+/// #546: a question of the show – an id, typed or the story's (one of them), its options' labels, the form's checks (deck-ui
+/// `vote::problem`, the one place)
+fn question(q: &Question, out: &mut Vec<Problem>) {
+    let at = Spot::Show;
+    let id = &q.id;
+    match (&q.typed, &q.story) {
+        (Some(_), Some(_)) => out.push(refused(&at, format!("question '{id}': typed or the story's, not both"))),
+        (None, None) => out.push(refused(&at, format!("question '{id}': neither typed nor the story's"))),
+        (None, Some(s)) if s.toon.is_empty() || s.event.is_empty() => out.push(refused(&at, format!("question '{id}': the story's choice names no toon or event"))),
+        _ => {}
+    }
+    let options = q.options();
+    for (i, o) in options.iter().enumerate() {
+        if protocol::content_text::pick_text(o, "en", None).is_none() {
+            out.push(refused(&at, format!("question '{id}': option {} has no label", i + 1)));
+        }
+    }
+    let rule = crate::vote::rule(q.rule);
+    if let Some(why) = deck_ui::vote::problem(options.len(), rule, q.n.unwrap_or(0), q.seconds, q.fallback) {
+        out.push(refused(&at, format!("question '{id}': {why}")));
+    }
+}
+
+/// #546: a row's questions – one per row (the relay runs one vote at a time), the same filter on every column that asks it
+/// (the relay tests one per vote); a column's filter on a stage outlet of the show
+fn asks(show: &Show, row: &Row, out: &mut Vec<Problem>) {
+    let at = Spot::Row(row.id.clone());
+    let asked: BTreeSet<&str> = row.cells.values().filter_map(|c| if let Cell::Ask { question } = c { Some(question.as_str()) } else { None }).collect();
+    if asked.len() > 1 {
+        let names: Vec<String> = asked.iter().map(|q| format!("'{q}'")).collect();
+        out.push(refused(&at, format!("one question per row, it asks {}", names.join(" and "))));
+    }
+    for q in asked {
+        let columns: Vec<&str> = row.cells.iter().filter(|(_, c)| matches!(c, Cell::Ask { question } if question == q)).map(|(k, _)| k.as_str()).collect();
+        let first = row.r#where.get(columns[0]);
+        if columns.iter().any(|c| row.r#where.get(*c) != first) {
+            out.push(refused(&at, format!("the columns of question '{q}' ({}) carry different filters", columns.join(", "))));
+        }
+    }
+    for (column, f) in &row.r#where {
+        let at = Spot::Cell { row: row.id.clone(), column: column.clone() };
+        match show.outlet(column) {
+            Some(o) if o.kind == OutletKind::Stage => {}
+            Some(_) => out.push(refused(&at, "a filter is for a stage outlet's column, a device outlet has no audience")),
+            None if show.seat(column).is_some() => out.push(refused(&at, "a filter is for a stage outlet's column, not a seat's")),
+            None => out.push(Problem::Unknown { what: "outlet", id: column.clone(), at: at.clone() }),
+        }
+        filter(&at, &format!("the filter of '{column}'"), f, out);
     }
 }
 
@@ -295,6 +363,17 @@ pub fn validate(show: &Show) -> Vec<Problem> {
         mirror_circles(row, &mut out);
         for a in &row.addresses {
             addressed(&Spot::Row(row.id.clone()), a, &mut out);
+        }
+        asks(show, row, &mut out);
+    }
+
+    // #546: each question once, checked, and asked somewhere
+    let mut questions = BTreeSet::new();
+    unique("question", show.questions.iter().map(|q| &q.id), &mut questions, &mut out);
+    for q in &show.questions {
+        question(q, &mut out);
+        if !show.rows.iter().any(|r| r.cells.values().any(|c| matches!(c, Cell::Ask { question } if *question == q.id))) {
+            out.push(refused(&Spot::Show, format!("question '{}' is asked in no row", q.id)));
         }
     }
 

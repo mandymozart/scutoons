@@ -549,7 +549,7 @@ async fn an_address_goes_down_the_tree_and_the_log_counts_what_it_found() {
 #[tokio::test(flavor = "multi_thread")]
 async fn an_address_that_finds_nobody_stays_silent_and_is_logged() {
     let mut t = two(ClockChoice::Parent).await;
-    let filter = protocol::AddressFilter { group: Some("nowhere".into()), device: None };
+    let filter = protocol::Filter { group: Some("nowhere".into()), ..Default::default() };
     let out = t.top.sub_mut().address("location:*", "close_doors", Some(filter), now());
     t.top.all(out).await;
     let (top, foyer) = (&mut t.top, &mut t.foyer);

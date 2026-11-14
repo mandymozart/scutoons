@@ -18,18 +18,12 @@ pub fn takes_roles(role: Role) -> bool {
     matches!(role, Role::Output | Role::Performer | Role::Musician | Role::Audience)
 }
 
-/// Does the proven account fact `has` count as the fact `asked` a role names? Exact, as slice 3 built it: a role that says
-/// member admits a member. THE LADDER'S ONE PLACE – open owner question (#478): do admin and creator count as member? To
-/// make it a ladder, change only this function (deck-show's filter words read the facts exactly too).
-pub fn counts_as(has: Account, asked: Account) -> bool {
-    has == asked
-}
-
-/// May `c` take a role with this filter? None: a guest may, anyone with the code. Any one fact admits.
+/// May `c` take a role with this filter? None: a guest may, anyone with the code. Any one fact admits. The account ladder
+/// is the one filter's (#546, protocol `filter::counts_as`).
 pub fn admits(a: Option<&Admits>, c: &Client) -> bool {
     let Some(a) = a else { return true };
     let has = |list: &Option<Vec<String>>, fact: Option<&str>| fact.is_some_and(|f| list.iter().flatten().any(|x| x == f));
-    let account = |asked: &Account| *asked == Account::Guest || c.facts.account.iter().any(|f| counts_as(*f, *asked));
+    let account = |asked: &Account| protocol::filter::has_account(*asked, &c.facts.account);
     a.account.iter().flatten().any(account)
         || (a.approved == Some(true) && c.facts.approved)
         || has(&a.device, c.device.as_deref())

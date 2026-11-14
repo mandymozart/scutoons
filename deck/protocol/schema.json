@@ -599,12 +599,14 @@
       "required": ["running", "accepted"],
       "additionalProperties": false
     },
-    "AddressFilter": {
-      "description": "#90, SHOW.md §9, for the workshop group and device. The receiver tests itself; a missing fact fails the filter.",
+    "Filter": {
+      "description": "#90, #546 (SHOW.md §9, §15 2): who a row's address reaches and who a show cell's column gets (a vote's: the relay tests it). Every fact it names must hold; `account` admits any one of its values (`guest`: anyone with the code); a missing fact fails. No filter: everyone. The one rule: protocol `filter::passes`.",
       "type": "object",
       "properties": {
-        "group": { "type": "string" },
-        "device": { "type": "string", "description": "browser, native, phone …" }
+        "group": { "type": "string", "description": "the group a client joined with (its QR's, a deck's outlet)" },
+        "device": { "type": "string", "description": "browser, native, phone … (the words of a flash report's `device`)" },
+        "account": { "type": "array", "items": { "$ref": "#/definitions/Account" }, "description": "its account facts, only from the server's proof (`hello.proof`)" },
+        "approved": { "type": "boolean", "description": "an approved (paired) deck, only from the server's proof" }
       },
       "additionalProperties": false
     },
@@ -662,7 +664,7 @@
         "id": { "type": "string", "description": "the sender's, the answers carry it" },
         "address": { "type": "string" },
         "action": { "type": "string" },
-        "where": { "$ref": "#/definitions/AddressFilter" }
+        "where": { "$ref": "#/definitions/Filter" }
       },
       "required": ["id", "address", "action"],
       "additionalProperties": false
