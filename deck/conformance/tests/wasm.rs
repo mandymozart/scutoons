@@ -1,11 +1,12 @@
 //! (b) The browser deck (live-core, natively and as `live_core.wasm` in wasmtime) against the native deck (P6, #320), and
 //! (the engine move, #317) deck-engine itself: every kind's scene native ≡ wasm32 ≡ wasm32 + simd128, bit for bit, for the
 //! block patterns 128 / 37 / 1024 – the determinism bar of plan 3.4. The wasm files are built here (cargo, into
-//! `deck/target/conformance-wasm*`), once per source change.
+//! `<target>/conformance-wasm*`), once per source change, and compiled once per run of this binary (#536).
 mod common;
 use common::*;
 use std::path::PathBuf;
 use std::process::Command;
+use std::sync::OnceLock;
 use std::time::Instant;
 use wasmtime::{Engine, Instance, Module, Store};
 
@@ -31,9 +32,48 @@ fn build_wasm(pkg: &str, file: &str, simd: bool) -> PathBuf {
     let t = Instant::now();
     let out = cmd.output().expect("cargo runs");
     assert!(out.status.success(), "wasm build of {pkg} failed:\n{}", String::from_utf8_lossy(&out.stderr));
-    // where the test's time goes (#536): cargo's build of the wasm, Cranelift's compile (Wasm::load), the renders
+    // where the test's time goes (#536): cargo's build of the wasm, Cranelift's compile (module), the renders
     println!("{pkg}{}: built in {:.1?}", if simd { " simd128" } else { "" }, t.elapsed());
     dir.join("wasm32-unknown-unknown").join("release").join(file)
+}
+
+/// One engine for the test binary (#536; wasmtime's default config – Cranelift at its opt level `speed`).
+fn engine() -> &'static Engine {
+    static ENGINE: OnceLock<Engine> = OnceLock::new();
+    ENGINE.get_or_init(Engine::default)
+}
+
+/// the two wasm crates of the suite
+#[derive(Clone, Copy)]
+enum Pkg {
+    LiveCore,
+    EngineWasm,
+}
+
+/// `pkg` for wasm32 (`simd`: +simd128), built and compiled once per test binary (#536; was once per test and variant):
+/// the tests share the module, each takes instances of its own.
+fn module(pkg: Pkg, simd: bool) -> &'static Module {
+    static MODULES: [[OnceLock<Module>; 2]; 2] = [const { [const { OnceLock::new() }; 2] }; 2];
+    MODULES[pkg as usize][usize::from(simd)].get_or_init(|| {
+        let path = match pkg {
+            Pkg::LiveCore => build_wasm("live-core", "live_core.wasm", simd),
+            Pkg::EngineWasm => build_wasm("deck-engine-wasm", "deck_engine_wasm.wasm", simd),
+        };
+        let t = Instant::now();
+        let module = Module::from_file(engine(), &path).expect("module compiles (simd128 is on in wasmtime)");
+        println!("{}: compiled in {:.1?}", path.display(), t.elapsed());
+        module
+    })
+}
+
+/// an instance of `pkg` as wasm32 and one as wasm32 + simd128 – the two built (each in its own target dir) and compiled
+/// side by side on two threads (#536)
+fn both(pkg: Pkg) -> (Wasm, Wasm) {
+    let (plain, simd) = std::thread::scope(|s| {
+        let simd = s.spawn(|| module(pkg, true));
+        (module(pkg, false), simd.join().expect("the simd128 module"))
+    });
+    (Wasm::load(plain), Wasm::load(simd))
 }
 
 struct Wasm {
@@ -42,13 +82,9 @@ struct Wasm {
 }
 
 impl Wasm {
-    fn load(path: &PathBuf) -> Wasm {
-        let engine = Engine::default();
-        let t = Instant::now();
-        let module = Module::from_file(&engine, path).expect("module compiles (simd128 is on in wasmtime)");
-        println!("{}: compiled in {:.1?}", path.display(), t.elapsed());
-        let mut store = Store::new(&engine, ());
-        let inst = Instance::new(&mut store, &module, &[]).expect("no imports needed");
+    fn load(module: &Module) -> Wasm {
+        let mut store = Store::new(engine(), ());
+        let inst = Instance::new(&mut store, module, &[]).expect("no imports needed");
         Wasm { store, inst }
     }
     fn f<P: wasmtime::WasmParams, R: wasmtime::WasmResults>(&mut self, name: &str) -> wasmtime::TypedFunc<P, R> {
@@ -204,17 +240,16 @@ fn clock_script(lc: &mut dyn Lc) -> (Vec<f64>, Vec<f32>) {
 /// plays, bit for bit.
 #[test]
 fn the_same_anchor_gives_the_same_beats_in_every_target() {
-    let plain = build_wasm("live-core", "live_core.wasm", false);
-    let simd = build_wasm("live-core", "live_core.wasm", true);
+    let (plain, simd) = both(Pkg::LiveCore);
     let (native_states, native_audio) = clock_script(&mut NativeLc);
     let last = &native_states[native_states.len() - live_core::clock::STATE..];
     assert!((last[2] - 132.0).abs() < 0.5 && last[3] == 3.0, "the anchor's tempo and bar: {last:?}");
     assert!(native_audio.iter().any(|x| x.abs() > 0.1), "the click sounds");
-    for path in [plain, simd] {
-        let (states, audio) = clock_script(&mut Wasm::load(&path));
+    for (target, mut w) in [("wasm32", plain), ("wasm32 + simd128", simd)] {
+        let (states, audio) = clock_script(&mut w);
         let s = states.iter().zip(&native_states).position(|(a, b)| a.to_bits() != b.to_bits());
-        assert_eq!(s, None, "{}: the clock's state differs at {s:?}", path.display());
-        assert_eq!(diff(&native_audio, &audio).first, None, "{}: the click differs", path.display());
+        assert_eq!(s, None, "{target}: the clock's state differs at {s:?}");
+        assert_eq!(diff(&native_audio, &audio).first, None, "{target}: the click differs");
     }
 }
 
@@ -248,9 +283,7 @@ fn core_wasm_render(w: &mut Wasm, engine_toml: &str, channels: usize, block: usi
 /// f32 bits, for the block patterns 128 / 37 / 1024. The table goes to `deck/target/conformance/browser.md`.
 #[test]
 fn the_browser_deck_is_the_native_deck() {
-    let plain = build_wasm("live-core", "live_core.wasm", false);
-    let simd = build_wasm("live-core", "live_core.wasm", true);
-    let (mut wp, mut ws) = (Wasm::load(&plain), Wasm::load(&simd));
+    let (mut wp, mut ws) = both(Pkg::LiveCore);
     let mut scenes: Vec<(String, String, deck_engine::DeckConfig)> =
         CASES.iter().chain(CONTROL_CASES).map(|c| (c.name.to_string(), c.toml.to_string(), deck_engine::DeckConfig::stereo())).collect();
     scenes.push(("stereo scene".into(), STEREO_TOML.into(), deck_engine::DeckConfig::stereo()));
@@ -291,9 +324,7 @@ fn the_browser_deck_is_the_native_deck() {
 /// `Deck` hands the page: every core rig, four moods, the block patterns 128 / 37 / 1024, the same f32 bits.
 #[test]
 fn a_rig_is_the_same_on_the_native_deck_and_in_wasm() {
-    let plain = build_wasm("live-core", "live_core.wasm", false);
-    let simd = build_wasm("live-core", "live_core.wasm", true);
-    let (mut wp, mut ws) = (Wasm::load(&plain), Wasm::load(&simd));
+    let (mut wp, mut ws) = both(Pkg::LiveCore);
     let mut wrong = Vec::new();
     for subject in RIGS {
         for mood in RIG_MOODS {
@@ -329,9 +360,7 @@ fn engine_wasm_render(w: &mut Wasm, toml: &str, block: usize, frames: usize, bat
 /// patcher build (scalar blocks) against the batches in wasm. The report goes to `deck/target/conformance/wasm-engine.md`.
 #[test]
 fn engine_native_vs_wasm() {
-    let plain = build_wasm("deck-engine-wasm", "deck_engine_wasm.wasm", false);
-    let simd = build_wasm("deck-engine-wasm", "deck_engine_wasm.wasm", true);
-    let (mut wp, mut ws) = (Wasm::load(&plain), Wasm::load(&simd));
+    let (mut wp, mut ws) = both(Pkg::EngineWasm);
     let mut md = String::from("| scene | block | native ≡ wasm32 | native ≡ wasm32 + simd128 | patcher ≡ batch in wasm32 + simd128 | first differing sample |\n|---|---|---|---|---|---|\n");
     let mut scenes: Vec<(&str, &str)> = CASES.iter().chain(CONTROL_CASES).map(|c| (c.name, c.toml)).collect();
     scenes.push(("stereo scene", STEREO_TOML));

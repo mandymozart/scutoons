@@ -76,14 +76,20 @@ fn every_scenario_reports_the_same_native_and_in_wasm32_with_and_without_simd128
     let bundles = common::bundles();
     let native: Vec<String> = bundles.iter().map(|b| serde_json::to_string(&deck_headless::run(b)).unwrap()).collect();
     let engine = Engine::default();
-    for simd in [false, true] {
-        let target = if simd { "wasm32 + simd128" } else { "wasm32" };
+    // the two modules built (each in its own target dir) and compiled side by side on two threads (#536)
+    let prepare = |simd: bool| -> (Module, Duration, Duration) {
         let t = Instant::now();
         let path = build(simd);
         let built = t.elapsed();
         let t = Instant::now();
-        let module = Module::from_file(&engine, path).expect("the module compiles");
-        let compiled = t.elapsed();
+        (Module::from_file(&engine, path).expect("the module compiles"), built, t.elapsed())
+    };
+    let modules = std::thread::scope(|s| {
+        let simd = s.spawn(|| prepare(true));
+        [(false, prepare(false)), (true, simd.join().expect("the simd128 module"))]
+    });
+    for (simd, (module, built, compiled)) in modules {
+        let target = if simd { "wasm32 + simd128" } else { "wasm32" };
         let t = Instant::now();
         let mut wrong = Vec::new();
         let mut same = 0;
