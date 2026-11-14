@@ -242,6 +242,8 @@ the 5.4 MB `deck_headless.wasm` 98.6 + 98.9 s, and the nested cargo builds 186 +
   Cranelift's own build profile cannot change what it emits (no fast-math; the output depends on `Config`, not on rustc's opt level of Cranelift).
 - **Cold build cost of the raised opt-level:** the two test binaries in an empty target dir without sccache, opt 0 / opt 3: 135 / 218 s and (order
   swapped, quieter) 145 / 176 s – ~+30–80 s once; the registry crates then come from sccache in every worktree (Built (#526)). Gain: ~200 s of compile per run.
+- **deck:ci** (default tier, e57552e0, first run of this tree in the worktree, the wasm test dirs warm from the steps above, the machine shared):
+  green in **1405 s, tests step 474 s** – the last runs: tests 1200–2123 s, totals 1771 / 2146 / 2451 / 2512 / 2539 / 2822 s.
 - **Cut, not built:** step 4 (the tests take deck:ci's simd128 wasm) – after 3a the tests build only after a wasm-relevant change, and then the
   simd128 build runs beside the plain one (which deck:ci never builds), so taking deck:ci's file saves CPU, not wall time; it also needs a guard
   that the file is this run's (a step skipped by its stamp leaves another tree's file). Step 5 for the renders – they take ~1 s. wasmtime's
