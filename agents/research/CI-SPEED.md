@@ -1,4 +1,4 @@
-Status 2026-11-14: research (#523); proposals 1, 2 (in part) and 3 built (#524, "Built (#524)" under §4's first three rows); 7 in part (rust-lld, line tables: #525, "Measured (#525)" at the end); 10 built (#526, "Design (#526)" + "Built (#526)" at the end); 4–6, 8–9 open.
+Status 2026-11-14: research (#523); proposals 1, 2 (in part) and 3 built (#524, "Built (#524)" under §4's first three rows); 7 in part (rust-lld, line tables: #525, "Measured (#525)" at the end); 10 built (#526, "Design (#526)" + "Built (#526)" at the end); 7's wasmtime half built (#536: the two wasm tests 331 / 76 s → 13 / 9 s, "Measured (#536)"), 4 cut there; 5–6, 8–9 open.
 
 # Where deck:ci's time goes, and how to cut it
 
@@ -37,8 +37,9 @@ linked and then run **one binary at a time** (cargo's rule), plus a doc-test pas
       The simd ones are the same crate, same RUSTFLAGS, same profile as steps 5 and 7 (112-145 s each there) – built a second time into another directory.
       Plus the module wasm builds: `native/tests/modules.rs:23-42` (6 crates), `module-host/tests/common/mod.rs:15-35`, `modules/analog/tests/wasm.rs:15-35`, `modules/walk/tests/wasm.rs:10-25`,
       `modules/stepseq/tests/stepseq.rs:145-160`, all `--release` (fat LTO) into `target/wasm-modules`, with different `-p` sets. Estimate 6-12 min whenever a deck source changed (usual).
-   b. *Wasm renders in an unoptimised wasmtime*: `Engine::default()` (conformance/tests/wasm.rs:37, headless/tests/wasm.rs:70; Cranelift opt-level none) inside a test profile where wasmtime/cranelift
-      themselves are opt-level 0 (only 8 of our own crates are raised, Cargo.toml:52-80). `engine_native_vs_wasm` (:319-362) renders 2 s of audio (common/mod.rs:9) for ~29 scenes x 3 block sizes x 4 renders
+   b. *Wasm renders in an unoptimised wasmtime*: `Engine::default()` (conformance/tests/wasm.rs:37, headless/tests/wasm.rs:70) inside a test profile where wasmtime/cranelift
+      themselves are opt-level 0 (only 8 of our own crates are raised, Cargo.toml:52-80). (Corrected by #536: `Engine::default()` already compiles at Cranelift's opt level `speed`;
+      the cost was Cranelift itself running unoptimised – ~100 s per module – and the wasm rebuilt on every run, "Measured (#536)".) `engine_native_vs_wasm` (:319-362) renders 2 s of audio (common/mod.rs:9) for ~29 scenes x 3 block sizes x 4 renders
       (1 native + 3 wasm) + 6 routing cases x 3 x 4. headless/tests/wasm.rs compiles a module twice and re-runs 42 scenarios x 3 targets.
    c. *Link time*: no `[profile.dev] debug` setting, so full debuginfo + PDB on MSVC for ~100 test executables (the 114 GB `deck/target/debug` of the shared checkout is the symptom).
    d. *The 596 s binary is not identified.* By reading, nothing in deck-native's default tests has that much work (real waits are deadlines: PATIENCE 30-60 s, cathedral_relay 3 x <=60 s, far_events 20 s;
@@ -210,3 +211,38 @@ shared/live-core/scripts/wasm.ts, `CARGO_TARGET_TMPDIR` in the Rust tests; sccac
   deck:ci's two failed tries were #526's own (the space-web exception above; build-wasm.ts over its check:core-only budget) – nothing from #524 / #525.
 - Disk after the proofs: the root 26.1 GB (this worktree 24.0 GB with all wasm dirs, sccache 2.1 GB of its 20 G cap); the second worktree's 13.7 GB deleted by `-- --clear`
   (21 s, sizes included). Still outside the root, reported, untouched: two worktrees' old `deck/target` (77 GB) and the main checkout's (156.5 GB).
+
+## Measured (#536)
+The two slow tests alone: `cargo test -p deck-headless --test wasm` and `-p deck-conformance --test wasm`, one after the other, 2026-11-14, this machine,
+seconds = libtest's "finished in" (the test binary was built before). Each step ran twice with a `git status` between; the second run is the measure.
+Both tests now print where their time goes (`built in` – cargo's nested wasm build, `compiled in` – Cranelift, `ran in` – the renders).
+**Machine:** shared all day – a `cargo build --release` and a `cargo test --workspace` of other sessions ran during the baseline, 11–16 foreign
+rustc / cargo during the last step; the seconds are ±20 %, the splits say where the time went.
+
+**Where the time went (baseline, headless split):** native 1.5 s, the two wasm runs 2.5 + 1.3 s – the renders are not the cost. Cranelift's compile of
+the 5.4 MB `deck_headless.wasm` 98.6 + 98.9 s, and the nested cargo builds 186 + 227 s – **on every run**, not "once per change" (two causes, below).
+`Engine::default()` already compiles at Cranelift's opt level `speed` (wasmtime 38 `Config::new`), so `cranelift_opt_level(Speed)` is a no-op – not added.
+
+| step | headless wasm | conformance wasm | what |
+|---|---|---|---|
+| baseline, warm | 331 | 75.6 | (cold, empty wasm dirs: 787 / 303) |
+| 2 · wasmtime + Cranelift `opt-level = 3` (19 crates, deck/Cargo.toml) | 132 | 15.5 | compile per module 98 s → 7–8 s (live-core 2.4, deck-engine-wasm 2.0); headless still rebuilt 52 + 61 s |
+| 3a · fixed label `DECK_BUILD_VERSION=wasm-test` for the nested builds | 149 | 17.6 | conformance's builds fresh (0.8 s); headless still rebuilt 65 + 60 s |
+| 3a · headless into its own dirs (`headless-wasm*`) | 20.6 | 12.4 | headless built 0.3 + 0.4 s, compiled 8 + 9 s |
+| 3 + 5 · modules compiled once per binary, wasm32 and simd128 built + compiled on two threads | **13.3** | **8.9** | headless 9.3 ‖ 9.2 s compile; conformance 4 compiles instead of 8 |
+| the same after `touch core/src/lib.rs` (a deck:ci after a deck change) | 78 | 27.5 | headless built 64 ‖ 65 s, conformance 16–20 s (sccache served the unchanged objects) |
+
+- **Why the wasm was rebuilt on every run:** (1) deck-space's build.rs watches the worktree's git `index` for its build label and runs `git status`,
+  which rewrites the index – every run rebuilt deck-space and everything above it, the fat-LTO links too; the nested builds now set a fixed label
+  (only drawn, no report holds it). The same rule rebuilds deck-space in the workspace's own builds after any `git status`: #544 (`decide`).
+  (2) headless (`-p deck-headless`) and conformance (`-p live-core`) shared `conformance-wasm*`: live-core's unit is the same file for both with other
+  dependency info, so each binary re-linked the other's wasm ("info of dependency `deck-space` changed"). Headless has its own dirs now (cost: deps compiled once more per dir, cold).
+- **Bit-exact:** every step's runs passed unchanged – headless 41 of 42 scenarios identical in wasm32 and simd128 (01-cathedral-boot's audio-only
+  difference, #381, as before), conformance's four tests `exact` on every scene, block size and render; no scene, block, render or second removed.
+  Cranelift's own build profile cannot change what it emits (no fast-math; the output depends on `Config`, not on rustc's opt level of Cranelift).
+- **Cold build cost of the raised opt-level:** the two test binaries in an empty target dir without sccache, opt 0 / opt 3: 135 / 218 s and (order
+  swapped, quieter) 145 / 176 s – ~+30–80 s once; the registry crates then come from sccache in every worktree (Built (#526)). Gain: ~200 s of compile per run.
+- **Cut, not built:** step 4 (the tests take deck:ci's simd128 wasm) – after 3a the tests build only after a wasm-relevant change, and then the
+  simd128 build runs beside the plain one (which deck:ci never builds), so taking deck:ci's file saves CPU, not wall time; it also needs a guard
+  that the file is this run's (a step skipped by its stamp leaves another tree's file). Step 5 for the renders – they take ~1 s. wasmtime's
+  `parallel-compilation` (rayon, a new dependency) – both tests are under 60 s without it.
