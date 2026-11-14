@@ -1,4 +1,4 @@
-Status 2026-11-14: research (#523); proposals 1, 2 (in part) and 3 built (#524, "Built (#524)" under §4's first three rows); 7 in part (rust-lld, line tables: #525, "Measured (#525)" at the end); 10 designed (#526, "Design (#526)" at the end); 4–6, 8–9 open.
+Status 2026-11-14: research (#523); proposals 1, 2 (in part) and 3 built (#524, "Built (#524)" under §4's first three rows); 7 in part (rust-lld, line tables: #525, "Measured (#525)" at the end); 10 built (#526, "Design (#526)" + "Built (#526)" at the end); 4–6, 8–9 open.
 
 # Where deck:ci's time goes, and how to cut it
 
@@ -188,3 +188,25 @@ conformance tests' nested wasm builds run in the other worktree. The lock is not
   `--legacy` the worktrees' old `deck/target`; `--main` the main checkout's `deck/target` – only that flag ever touches it.
 - **Stamps (#524):** the location is not in the key: a step's result does not depend on where its artifacts go (the gates read files the same step just built); sccache
   returns a compile's output for the same inputs, so it is not in the key either.
+
+**Built (#526)** – scripts/deck-target.ts (+ its test in `check:deck-ci`), `npm run deck:target`, the root `postinstall`, deck-ci.mjs, `deckTarget()` in
+shared/live-core/scripts/wasm.ts, `CARGO_TARGET_TMPDIR` in the Rust tests; sccache 0.19.0 installed here (`cargo install sccache --locked --no-default-features`, local disk only).
+- As designed, plus **`SCCACHE_BASEDIRS` = every worktree's target dir** (in each config; sccache's server reads it when it starts): without it a second worktree hit
+  289 of 386 Rust compiles (the registry crates whose build scripts write into OUT_DIR missed), with it 354; 32 miss in every worktree (not traced).
+- **Exception: space-web's wasm build runs without sccache** (`RUSTC_WRAPPER=` in deck-ci.mjs and live-deck's build-wasm.ts): web-sys's rustc call (wgpu's features)
+  is ~90 KB, cargo hands it over as an @argfile, sccache expands it past Windows' 32 K command line (os error 206). GOTCHAS has the hand-run case.
+- Proofs, 2026-11-14, the machine shared with other workers' builds (`cargo test --workspace --no-run` unless named):
+
+| run | wall | sccache Rust hits / misses |
+|---|---|---|
+| this worktree, empty target + empty cache | 382 s | 0 / 386 |
+| a second fresh worktree (`git worktree add`), no base dirs yet | 318 s | 289 / 97 |
+| both targets `cargo clean`ed, base dirs set: this worktree / the second | 274 / 282 s | 354 / 32 each |
+| core/src/lib.rs touched: both worktrees at once / one alone | 62 s + 62 s / 30 s | – |
+| `npm run deck:ci` default tier (first green run of #524 + #525 + #526 together) | 2146 s | tests 1200 s |
+
+  Read: a fresh worktree saves ~100 s of a ~380 s cold test build (~27 %); the rest is what must not be shared – the workspace crates (135 incremental compiles), bins,
+  proc-macros, build scripts and the ~100 links. Two builds at once: no wait between them (separate target dirs; only cargo's package-cache lock, seconds), the CPU is shared.
+  deck:ci's two failed tries were #526's own (the space-web exception above; build-wasm.ts over its check:core-only budget) – nothing from #524 / #525.
+- Disk after the proofs: the root 26.1 GB (this worktree 24.0 GB with all wasm dirs, sccache 2.1 GB of its 20 G cap); the second worktree's 13.7 GB deleted by `-- --clear`
+  (21 s, sizes included). Still outside the root, reported, untouched: two worktrees' old `deck/target` (77 GB) and the main checkout's (156.5 GB).
