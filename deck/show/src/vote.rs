@@ -79,6 +79,15 @@ fn question(o: &VoteOpen) -> String {
     o.question.as_ref().and_then(|q| q.get("en").or_else(|| q.values().next())).cloned().unwrap_or_default()
 }
 
+/// the form's rule on the wire (the other way: [`rule`])
+pub(crate) fn wire_rule(r: Rule) -> VoteRule {
+    match r {
+        Rule::Majority => VoteRule::Majority,
+        Rule::Groups => VoteRule::Groups,
+        Rule::First => VoteRule::First,
+    }
+}
+
 pub(crate) fn rule(r: VoteRule) -> Rule {
     match r {
         VoteRule::Majority => Rule::Majority,
@@ -165,11 +174,7 @@ pub fn open(f: &Form, vote: &str) -> Result<VoteOpen, String> {
     Ok(VoteOpen {
         vote: vote.to_string(),
         options: f.option_list(),
-        rule: match f.rule {
-            Rule::Majority => VoteRule::Majority,
-            Rule::Groups => VoteRule::Groups,
-            Rule::First => VoteRule::First,
-        },
+        rule: wire_rule(f.rule),
         n: (f.rule == Rule::First).then_some(f.n),
         seconds: f.seconds,
         fallback: Some(f.fallback as i64),

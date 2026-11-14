@@ -1087,10 +1087,27 @@ export interface StoryEventEntry {
 	group: string | null;
 	groupIndex: number;
 }
-/** the story events every toon's chapters fire (`GET /api/creator/story-events`, #521): per toon and chapter, in document order */
+/**
+ * one question of a chapter's published version, as `GET /api/creator/story-events` lists it (#550; server
+ * Domain\Content\FlowIndex::storyEvents): a `showChoices` with the `addChoice`s before it. `event` is the showChoices' id –
+ * null when the creator gave it none: listed, a show's vote cannot name it. Every option is listed, also one with an "Only if".
+ */
+export interface StoryChoiceEntry {
+	event: string | null;
+	/** the group's label, null when unlabelled */
+	group: string | null;
+	/** each option's id (null: none) and its whole label by locale */
+	options: { id: string | null; label: Record<string, string> }[];
+	/** the chapter version (entity_versions id) the choice was read from */
+	version: number;
+}
+/**
+ * the story events every toon's chapters fire (`GET /api/creator/story-events`, #521): per toon and chapter, in document
+ * order; per chapter also the questions of its published version (`choices`, #550; none while never published)
+ */
 export interface StoryEventsIndex {
 	status: 'success';
-	toons: { id: string; chapters: { number: number; events: StoryEventEntry[] }[] }[];
+	toons: { id: string; chapters: { number: number; events: StoryEventEntry[]; choices: StoryChoiceEntry[] }[] }[];
 }
 
 /**

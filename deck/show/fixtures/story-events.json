@@ -12,9 +12,20 @@
             { "id": "ch3.yellowmouse-enters", "type": "joinScene", "characters": ["yellowmouse"], "excerpt": null, "group": "crypt", "groupIndex": 1 },
             { "id": "ch3.vigil", "type": "showMessage", "characters": ["catpope", "yellowmouse"], "excerpt": "Die Kerzen brennen.", "group": "crypt", "groupIndex": 1 },
             { "id": "ch3.end", "type": "jumpTo", "characters": [], "excerpt": null, "group": null, "groupIndex": 2 }
+          ],
+          "choices": [
+            { "event": "ch3.door", "group": "nave", "version": 812, "options": [
+              { "id": "stay", "label": { "de": "Bleiben", "en": "Stay" } },
+              { "id": null, "label": { "de": "Gehen", "en": "Go" } }
+            ] },
+            { "event": null, "group": "crypt", "version": 812, "options": [
+              { "id": null, "label": { "de": "Ja" } },
+              { "id": null, "label": { "de": "Nein" } }
+            ] },
+            { "event": "ch3.empty", "group": null, "version": 812, "options": [] }
           ]
         },
-        { "number": 4, "events": [] }
+        { "number": 4, "events": [], "choices": [] }
       ]
     },
     {

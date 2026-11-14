@@ -602,6 +602,11 @@ scripts, slice triggers, item taps); `dead` = @scutoons/content `deadThings`' ru
 but never set, script points and group labels nothing jumps to). Cached under the version ids it was built from (the
 library's cache, nothing to invalidate).
 
+`GET /api/creator/story-events` (roles creator, admin or `live` – #555; `401` / `403 forbidden`; `FlowIndex::storyEvents`) – per toon and
+chapter the story events of the NEWEST chapter version (#521: `{ id|null, type, characters, excerpt|null, group|null, groupIndex }`)
+and the questions of its PUBLISHED version (#550: `choices: [{ event|null, group|null, options: [{ id|null, label: { <locale>: text } }],
+version }]` – a showChoices with the addChoices before it; none while never published). Read by the deck editor's show rows.
+
 ## Storyboard (2026-10-20, #120 / #121 – migrations `2026-10-20-storyboard-generations`, `2026-10-20-storyboard-import`, `2026-10-21-storyboard-provider-jobs`)
 
 The storyboard's data on the server (agents/research/STUDIO-IN-CREATOR.md §2.2). Content editors (creator, admin:
