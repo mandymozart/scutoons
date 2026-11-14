@@ -6,7 +6,7 @@
   "$ref": "#/definitions/Envelope",
   "definitions": {
     "Role": {
-      "description": "LIVE.md B.2. `uplink` is the local relay connected to the hosted one (B.6 Uplink). `reader` (#90, SHOW.md §7) is a phone reading the chapter: all it sends is its `story` events, to the conductor. `seat` (#90, SHOW.md §4) is a child conductor's relay in its parent's session, its group is the seat's id. `handheld` (#469, research/HANDHELD-CAMERA.md) is a phone as a handheld camera: it joins with the token the API hands it for one pairing code, all it sends is its `hand.*` messages, to the conductor (the storyboard editor), and it hears `hand.view`.",
+      "description": "LIVE.md B.2. `uplink` is the local relay connected to the hosted one (B.6 Uplink). `reader` (#90, SHOW.md §7) is a phone reading the chapter: all it sends is its `story` events, to the conductor (#527: only while it drives, `reader.drive`). `seat` (#90, SHOW.md §4) is a child conductor's relay in its parent's session, its group is the seat's id. `handheld` (#469, research/HANDHELD-CAMERA.md) is a phone as a handheld camera: it joins with the token the API hands it for one pairing code, all it sends is its `hand.*` messages, to the conductor (the storyboard editor), and it hears `hand.view`.",
       "type": "string",
       "enum": ["conductor", "output", "bridge", "performer", "musician", "audience", "uplink", "reader", "seat", "handheld"]
     },
@@ -62,7 +62,7 @@
         { "type": "object", "properties": { "kind": { "const": "line" }, "p": { "$ref": "#/definitions/Loose" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "fx" }, "p": { "$ref": "#/definitions/Loose" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "colour" }, "p": { "$ref": "#/definitions/Loose" } }, "required": ["kind", "p"] },
-        { "type": "object", "properties": { "kind": { "const": "story" }, "p": { "$ref": "#/definitions/Loose" } }, "required": ["kind", "p"], "description": "#236: a story event (`{ type, params, id? }`, the VNEvent) for the other decks – a trigger the receiving deck adapts itself (deck-events adapters/story.rs); the story keeps its own runner. #90 #517: a reader's story goes to the conductor and to each deck whose `deck.story` ask stands, never to another." },
+        { "type": "object", "properties": { "kind": { "const": "story" }, "p": { "$ref": "#/definitions/Loose" } }, "required": ["kind", "p"], "description": "#236: a story event (`{ type, params, id? }`, the VNEvent) for the other decks – a trigger the receiving deck adapts itself (deck-events adapters/story.rs); the story keeps its own runner. #90 #517: a reader's story goes to the conductor and to each deck whose `deck.story` ask stands, never to another. #527: only the driving reader's (`reader.drive`) – another reader's story reaches nobody." },
         { "type": "object", "properties": { "kind": { "const": "presence" }, "p": { "$ref": "#/definitions/Presence" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "ready" }, "p": { "$ref": "#/definitions/Empty" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "pickup" }, "p": { "$ref": "#/definitions/Pickup" } }, "required": ["kind", "p"] },
@@ -76,6 +76,7 @@
         { "type": "object", "properties": { "kind": { "const": "deck.listen" }, "p": { "$ref": "#/definitions/DeckListen" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "deck.events" }, "p": { "$ref": "#/definitions/DeckEvents" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "deck.story" }, "p": { "$ref": "#/definitions/Empty" } }, "required": ["kind", "p"], "description": "#517: a deck → relay: its playing scene listens to story events (deck-space scene_play.rs) – it asks its session for the readers' `story` messages, on each welcome and again every 10 s (`LISTEN_MS`) while it listens; an ask not refreshed for 30 s (`LAPSE_MS`) lapses. Only a client of the group `decks` asks; the relay keeps the ask and sends nothing on, and a deck that never asked gets no story." },
+        { "type": "object", "properties": { "kind": { "const": "reader.drive" }, "p": { "$ref": "#/definitions/ReaderDrive" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "scene.sync" }, "p": { "$ref": "#/definitions/SceneSync" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "deck.synced" }, "p": { "$ref": "#/definitions/DeckSynced" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "deck.quality" }, "p": { "$ref": "#/definitions/DeckQuality" } }, "required": ["kind", "p"] },
@@ -192,6 +193,7 @@
         "seats": { "type": "object", "additionalProperties": { "$ref": "#/definitions/SeatState" }, "description": "#90: each seat's readout (the conductor's snapshot)" },
         "flash": { "$ref": "#/definitions/Flash", "description": "#90: the last flash" },
         "reports": { "type": "object", "additionalProperties": { "$ref": "#/definitions/FlashReport" }, "description": "#471: each deck's and sub conductor's last flash.report, by its path (the conductor's snapshot): the flash list of a conductor that joins later" },
+        "driver": { "type": "string", "description": "#527: the reader who drives the session's story (`reader.drive`) – a reader's snapshot (also on a resume) and the conductor's; missing: nobody" },
         "seq": { "type": "integer", "description": "the session's seq when the snapshot was taken" }
       },
       "additionalProperties": false
@@ -689,7 +691,9 @@
         "quality": { "type": "object", "additionalProperties": { "$ref": "#/definitions/DeckQuality" }, "description": "#220: each deck's last `deck.quality`, by client id (a client that left is gone)" },
         "seats": { "type": "object", "additionalProperties": { "$ref": "#/definitions/SeatState" }, "description": "#90: each seat's readout, by seat id" },
         "parent": { "type": "boolean", "description": "#90: this relay's link to its parent; missing = it has none" },
-        "who": { "type": "object", "additionalProperties": { "$ref": "#/definitions/Present" }, "description": "#478: who sits where under which name, by client id – every deck, and a phone in a role" }
+        "who": { "type": "object", "additionalProperties": { "$ref": "#/definitions/Present" }, "description": "#478: who sits where under which name, by client id – every deck, and a phone in a role" },
+        "readers": { "type": "object", "additionalProperties": { "$ref": "#/definitions/Present" }, "description": "#527: every linked reader in the session (its name, its device), by client id" },
+        "driver": { "type": "string", "description": "#527: the reader who drives the session's story (`reader.drive`); missing: nobody" }
       },
       "required": ["groups", "ready"],
       "additionalProperties": false
@@ -804,6 +808,12 @@
         "seconds": { "type": "number" }
       },
       "required": ["on", "recording", "seconds"],
+      "additionalProperties": false
+    },
+    "ReaderDrive": {
+      "description": "#527 (agents/research/SCENE-EVENTS.md §6.4): one linked reader drives a session's story at a time, the newest claim wins – the relay's rule (relay session.rs), no reader key. A reader → relay, `{}`: it drives from now on (deck-space relay.rs `Client::drive`, sent only after the person said yes). Relay → every reader of the session, kept for a resume: who drives now, on each claim and when the driver leaves (`driver` missing: nobody) – the reader before it hears it was taken over, a newcomer that it would take over. The welcome's snapshot carries the same `driver`, presence the conductor's (`readers`, `driver`). A reader joins without driving: only the driver's `story` goes on.",
+      "type": "object",
+      "properties": { "driver": { "type": "string", "description": "the driving reader's client id (relay → reader only)" } },
       "additionalProperties": false
     },
     "DeckListen": {

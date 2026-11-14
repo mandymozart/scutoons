@@ -297,6 +297,8 @@ pub struct Session {
     roles: Vec<ShowRole>,
     /// #517: the decks that asked for the readers' story (`deck.story`) and when they last did, by client id
     story_asks: HashMap<String, i64>,
+    /// #527: the reader who drives the session's story – the newest `reader.drive`; only its `story` goes on
+    driver: Option<String>,
 }
 
 impl Session {
@@ -402,6 +404,10 @@ impl Session {
         // a deck that left takes its being and its routes along (it sends its graph again when it comes back)
         self.decks.remove(id);
         self.story_asks.remove(id);
+        // #527: a driver that left frees the place (a resume claims again, relay.rs `Client::drive`)
+        if self.driver.as_deref() == Some(id) {
+            self.drive(None, now);
+        }
         self.synced.remove(id);
         self.reports.remove(id);
         self.quality.remove(id);
@@ -526,8 +532,21 @@ impl Session {
             // #471: a deck too – one that was not here when the flash went out takes it when it joins (unless left out)
             flash: if all || matches!(role, Role::Seat | Role::Output) { self.flash.clone() } else { None },
             reports: if all && !self.reports.is_empty() { Some(self.reports.clone()) } else { None },
+            driver: self.driver_for(role),
             seq: Some(self.seq as i64),
         }
+    }
+
+    /// #527: the driving reader as a snapshot shows it – to a reader (also on a resume: lib.rs `join`) and the conductor
+    pub fn driver_for(&self, role: Role) -> Option<String> {
+        matches!(role, Role::Reader | Role::Conductor | Role::Uplink).then(|| self.driver.clone()).flatten()
+    }
+
+    /// #527: `who` drives the session's story from now on (None: nobody) – every reader hears it, kept for a resume (the
+    /// reader before hears it was taken over, a newcomer that a claim would take over); the conductor sees it in presence
+    fn drive(&mut self, who: Option<String>, now: i64) {
+        self.driver.clone_from(&who);
+        self.relay_publish(Message::ReaderDrive(protocol::ReaderDrive { driver: who }), Some(To::role(Role::Reader)), now);
     }
 
     /// #195: the last `scene.sync`, if it reaches this client – the conductor (and the uplink) always, a deck of the
@@ -566,7 +585,15 @@ impl Session {
         let routes = self.routes.iter().map(|(from, to)| Route { from: from.clone(), to: to.clone() }).collect();
         let seats = (!self.seats.is_empty()).then(|| self.seats.clone());
         let who = Some(roles::who(self)).filter(|w| !w.is_empty());
-        Presence { groups, ready, decks: Some(decks), routes: Some(routes), links: Some(links), quality: Some(self.quality.clone()), seats, parent: self.parent_link, who }
+        // #527: the linked readers by name, and which one drives
+        let readers: HashMap<String, protocol::Present> = self
+            .clients
+            .iter()
+            .filter(|(_, c)| c.role == Role::Reader)
+            .map(|(id, c)| (id.clone(), protocol::Present { group: None, nick: c.nick.clone(), device: c.device.clone(), account: None, locked: None }))
+            .collect();
+        let readers = (!readers.is_empty()).then_some(readers);
+        Presence { groups, ready, decks: Some(decks), routes: Some(routes), links: Some(links), quality: Some(self.quality.clone()), seats, parent: self.parent_link, who, readers, driver: self.driver.clone() }
     }
 
     pub fn tell_presence(&mut self) {
@@ -596,13 +623,22 @@ impl Session {
             return After::Nothing;
         }
         // #90: a reader's whole say is its story events, and they are for the conductor (SHOW.md §7); #517: and for each
-        // deck whose ask stands (`deck.story`), one copy each, in order, not kept – nobody else
+        // deck whose ask stands (`deck.story`), one copy each, in order, not kept – nobody else. #527: one reader drives
+        // at a time – the newest claim (`reader.drive`) wins; another reader's story reaches nobody
         if role == Role::Reader {
-            if !matches!(e.message, Message::Story(_) | Message::Ping(_) | Message::Ready(_)) {
+            if !matches!(e.message, Message::Story(_) | Message::Ping(_) | Message::Ready(_) | Message::ReaderDrive(_)) {
                 self.error(id, "authority", &format!("a reader does not send {}", e.message.kind()));
                 return After::Nothing;
             }
+            if matches!(e.message, Message::ReaderDrive(_)) {
+                self.drive(Some(id.to_owned()), now);
+                self.tell_presence();
+                return After::Nothing;
+            }
             if matches!(e.message, Message::Story(_)) {
+                if self.driver.as_deref() != Some(id) {
+                    return After::Nothing;
+                }
                 let lapse = protocol::LAPSE_MS as i64;
                 self.story_asks.retain(|_, at| now - *at < lapse);
                 let mut asked: Vec<String> = self.story_asks.keys().cloned().collect();
@@ -633,6 +669,11 @@ impl Session {
             }
         } else if from_hand {
             self.error(id, "authority", &format!("only a handheld sends {}", e.message.kind()));
+            return After::Nothing;
+        }
+        // #527: who drives is the relay's word to the readers; only a reader claims
+        if matches!(e.message, Message::ReaderDrive(_)) {
+            self.error(id, "authority", "only a reader drives the story");
             return After::Nothing;
         }
         let uplink = role == Role::Uplink;
@@ -1325,6 +1366,7 @@ mod tests {
     fn a_reader_sends_its_story_to_the_conductor_and_is_limited_like_the_audience() {
         let mut r = room();
         r.add("phone", Role::Reader, None);
+        r.send("phone", drive(), 0);
         r.drain();
         let story = || Message::Story(loose(r#"{ "type": "showMessage", "id": "ch3.start" }"#));
         r.send("phone", story(), 1);
@@ -1344,6 +1386,7 @@ mod tests {
         r.add("phone", Role::Reader, None);
         r.add("asks", Role::Musician, Some(DECKS));
         r.add("quiet", Role::Musician, Some(DECKS));
+        r.send("phone", drive(), 0);
         r.drain();
         r.send("asks", Message::DeckStory(protocol::Empty {}), 0);
         assert!(r.kinds("quiet").is_empty() && r.kinds("cond").is_empty(), "an ask goes nowhere");
@@ -1373,6 +1416,76 @@ mod tests {
         r.add("asks", Role::Musician, Some(DECKS));
         r.send("phone", join(), lapse + 4000);
         assert!(r.kinds("asks").is_empty(), "a new link asks anew");
+    }
+
+    fn drive() -> Message {
+        Message::ReaderDrive(protocol::ReaderDrive::default())
+    }
+
+    /// the drivers the reader `id` heard (`reader.drive`), in order – None: nobody drives
+    fn drivers(r: &mut Room, id: &str) -> Vec<Option<String>> {
+        r.inbox(id).into_iter().filter_map(|e| if let Message::ReaderDrive(d) = e.message { Some(d.driver) } else { None }).collect()
+    }
+
+    /// #527: one reader drives at a time. A reader joins without driving – its story reaches nobody; the newest claim
+    /// drives, the reader before hears it was taken over and its later story reaches nobody; the driver leaves → nobody
+    /// drives, in presence and to the readers
+    #[test]
+    fn the_newest_reader_drives_and_the_one_before_reaches_nobody() {
+        let mut r = room();
+        r.add("first", Role::Reader, None);
+        r.add("second", Role::Reader, None);
+        r.add("asks", Role::Musician, Some(DECKS));
+        r.s.clients.get_mut("second").unwrap().nick = Some("Mira".into());
+        r.send("asks", Message::DeckStory(protocol::Empty {}), 0);
+        r.drain();
+        let join = || Message::Story(loose(r#"{ "type": "joinScene", "params": { "characters": [{ "character": "catpope" }] }, "id": "e1" }"#));
+        // unclaimed: nobody hears it, and it is no error
+        r.send("first", join(), 10);
+        assert!(r.kinds("cond").is_empty() && r.kinds("asks").is_empty(), "an unclaimed reader's story reaches nobody");
+        assert!(r.kinds("first").is_empty());
+        assert_eq!(r.s.presence().driver, None);
+        assert_eq!(r.s.snapshot_for(Role::Reader, None).driver, None);
+        // the first claims: every reader hears who drives, its story goes on
+        r.send("first", drive(), 1000);
+        assert_eq!(drivers(&mut r, "first"), [Some("first".to_string())]);
+        assert_eq!(drivers(&mut r, "second"), [Some("first".to_string())], "a newcomer knows a claim would take over");
+        assert_eq!(r.s.snapshot_for(Role::Reader, None).driver.as_deref(), Some("first"), "so does a reader that joins later");
+        assert_eq!(r.kinds("cond"), ["presence"], "the conductor sees it in presence");
+        r.send("first", join(), 1100);
+        assert_eq!(r.kinds("cond"), ["story"]);
+        assert_eq!(r.kinds("asks"), ["story"]);
+        // the second claims: the first hears it was taken over; its later story reaches nobody, the second's goes on
+        r.send("second", drive(), 2000);
+        assert_eq!(drivers(&mut r, "first"), [Some("second".to_string())], "taken over");
+        assert_eq!(drivers(&mut r, "second"), [Some("second".to_string())]);
+        let p = r.s.presence();
+        assert_eq!(p.driver.as_deref(), Some("second"));
+        let readers = p.readers.unwrap();
+        assert_eq!((readers.len(), readers["second"].nick.as_deref()), (2, Some("Mira")), "the linked readers by name");
+        r.drain();
+        r.send("first", join(), 2100);
+        assert!(r.kinds("cond").is_empty() && r.kinds("asks").is_empty(), "the one before reaches nobody");
+        r.send("second", join(), 2200);
+        assert_eq!((r.kinds("cond"), r.kinds("asks")), (vec!["story"], vec!["story"]));
+        assert!(r.kinds("outL").is_empty() && r.kinds("a1").is_empty(), "nobody else hears who drives");
+        // the one before does not take the place back by its story; the driver leaves → nobody drives
+        r.s.leave("second", 3000);
+        assert_eq!(drivers(&mut r, "first"), [None]);
+        assert_eq!(r.s.presence().driver, None, "presence shows no driver");
+        assert!(r.inbox("cond").iter().any(|e| matches!(&e.message, Message::Presence(p) if p.driver.is_none() && p.readers.as_ref().is_some_and(|x| x.len() == 1))));
+        r.send("first", join(), 3100);
+        assert!(r.kinds("cond").is_empty(), "nobody drives: nobody hears");
+        // a non-driver leaving changes nothing; only a reader claims
+        r.send("first", drive(), 4000);
+        r.add("third", Role::Reader, None);
+        r.drain();
+        r.s.leave("third", 4100);
+        assert!(drivers(&mut r, "first").is_empty());
+        assert_eq!(r.s.presence().driver.as_deref(), Some("first"));
+        r.send("a1", drive(), 4200);
+        assert!(r.inbox("a1").iter().any(|e| matches!(&e.message, Message::Error(x) if x.code == "authority")));
+        assert_eq!(r.s.presence().driver.as_deref(), Some("first"));
     }
 
     #[test]

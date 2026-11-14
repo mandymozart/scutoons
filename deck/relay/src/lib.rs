@@ -194,7 +194,8 @@ impl Relay {
         // #478: a role it may not take is not given
         let group = s.clients.get(&id).and_then(|c| c.group.clone());
         let snapshot = match resumed {
-            Some((_, true)) => Snapshot { seq: Some(s.seq as i64), ..Default::default() },
+            // #527: a reader learns who drives now even then (it claims again only when nobody does, relay.rs `Client::drive`)
+            Some((_, true)) => Snapshot { seq: Some(s.seq as i64), driver: s.driver_for(hello.role), ..Default::default() },
             _ => {
                 let mut snap = s.snapshot_for(hello.role, group.as_deref());
                 // #195: a scene.sync for listed decks reaches a client by its id (a resume past the replay buffer)

@@ -64,6 +64,8 @@ impl Reader {
         }
         let hello = Hello { code: code.into(), role: Role::Reader, group: None, nick: None, token: None, device: None, proof: None, resume: None };
         ws.send(Ws::Text(serde_json::to_string(&Envelope::new("", Message::Hello(hello))).unwrap().into())).unwrap();
+        // #527: it drives the session's story (only the driving reader's story goes on)
+        ws.send(Ws::Text(serde_json::to_string(&Envelope::new("", Message::ReaderDrive(Default::default()))).unwrap().into())).unwrap();
         Reader(ws)
     }
 

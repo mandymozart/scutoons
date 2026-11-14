@@ -28,6 +28,7 @@
 //!
 //! `script` runs scripted socket events through a `Client` – the outs every adapter's test compares against
 //! (shared/live-deck/test/fixtures/relay.json, the headless scenario `relay_join`).
+use crate::linked::{Driving, Readers, Steer};
 use crate::rig::Stream;
 use protocol::lines::{line, Lines, DATAGRAM_MAX};
 use protocol::{
@@ -64,9 +65,6 @@ pub const SETTLE_GRACE_MS: f64 = 40.0;
 /// #478: a client that asks for its proof (`Options::wait_proof`) dials at most this long after its start without the
 /// answer (ms): long enough for the API's answer on a usual link, short enough that a deck nobody signed in to is not kept
 pub const PROOF_WAIT_MS: f64 = 1500.0;
-/// #518: a reader's story events fired while it is not joined (the page's first script runs before the link is up, a
-/// drop) wait for the welcome, at most this many – the newest kept: a script fires a handful before it waits for a click
-pub const STORY_HELD: usize = 32;
 
 /// `ws://host:port/live/<code>` (or `wss://`, a path before `/live/` – the LAN viewer's `…/relay/live/<code>`) → the
 /// base and the session code; a query is dropped (the client adds its own)
@@ -145,7 +143,7 @@ fn decode(s: &str) -> String {
 }
 
 /// a URL component: everything but the unreserved characters as %XX
-fn encode(s: &str) -> String {
+pub(crate) fn encode(s: &str) -> String {
     s.bytes().map(|c| if c.is_ascii_alphanumeric() || b"-_.~".contains(&c) { (c as char).to_string() } else { format!("%{c:02X}") }).collect()
 }
 
@@ -282,6 +280,9 @@ pub enum Out {
     /// #469: a phone that spoke is no longer in the session (the relay's presence lacks it); it may come back as the same
     /// client (a fall to the WebSocket): its state comes again then
     HandAway { client: String },
+    /// #527: a reader's place in the session's story changed (linked.rs `Driving`: asked, drives, taken over; whether
+    /// another reader drives)
+    Driving(Driving),
     /// every envelope as it came (`Options::messages`)
     Message(Envelope),
 }
@@ -479,8 +480,10 @@ pub struct Client {
     /// #517: this deck's playing scene listens to story events: it asks for them (`deck.story`)
     story: bool,
     story_sent: f64,
-    /// #518: a reader's story events waiting for the welcome, oldest first
-    told: std::collections::VecDeque<Loose>,
+    /// #527: a reader's claim to drive the session's story and the relay's word on who does
+    steer: Steer,
+    /// #527: a conductor's view of the linked readers
+    readers: Readers,
     // #469: a phone's state and the editor's view, sent again after every welcome; each phone's newest pose heard (its `t`)
     hand_state: Option<HandState>,
     hand_view: Option<HandView>,
@@ -534,7 +537,8 @@ impl Client {
             listen_sent: f64::NEG_INFINITY,
             story: false,
             story_sent: f64::NEG_INFINITY,
-            told: Default::default(),
+            steer: Steer::default(),
+            readers: Readers::default(),
             hand_state: None,
             hand_view: None,
             poses: HashMap::new(),
@@ -1183,25 +1187,43 @@ impl Client {
         }
     }
 
-    /// #518: a story event the reader fired (the VNEvent as it is: `type`, `params`, `id`) as a `story` message – at once
-    /// while joined, else held for the welcome (`STORY_HELD`), always in the order fired. Which events matter is the
-    /// receiver's (deck-events adapters/story.rs `STAYS_IN_THE_STORY`), not the reader's. False: held.
+    /// #518: a story event the reader fired (the VNEvent as it is: `type`, `params`, `id`) as a `story` message, in the
+    /// order fired. Which events matter is the receiver's (deck-events adapters/story.rs `STAYS_IN_THE_STORY`), not the
+    /// reader's. #527: only while it drives the session's story (`drive`, granted by the relay) – before the answer, while
+    /// away or after a take-over it is dropped, never held and sent later. False: dropped.
     pub fn story(&mut self, event: Loose) -> bool {
-        self.told.push_back(event);
-        if self.told.len() > STORY_HELD {
-            self.told.pop_front();
-        }
-        self.flush_told()
+        self.joined && self.steer.drives() && self.send(Message::Story(event))
     }
 
-    fn flush_told(&mut self) -> bool {
-        if !self.joined {
+    /// #527: the person said yes – this reader drives the session's story from the relay's answer on (`reader.drive`; the
+    /// newest claim wins, the reader before stops). Sent now when joined, else at the welcome; again after a drop unless
+    /// another reader took the place meanwhile. False: this client is no reader.
+    pub fn drive(&mut self) -> bool {
+        if self.o.role != Role::Reader {
             return false;
         }
-        while let Some(event) = self.told.pop_front() {
-            self.send(Message::Story(event));
+        self.steer.claim();
+        if self.joined {
+            self.send(Message::ReaderDrive(protocol::ReaderDrive::default()));
         }
+        self.tell_driving();
         true
+    }
+
+    /// #527: a reader's place in the session's story (asked, drives, taken over) and whether another reader drives
+    pub fn driving(&self) -> Driving {
+        self.steer.now(&self.client)
+    }
+
+    /// #527: a conductor's view of the linked readers: who is in by name, which one drives, the last story heard
+    pub fn readers(&self) -> &Readers {
+        &self.readers
+    }
+
+    fn tell_driving(&mut self) {
+        if let Some(d) = self.steer.change(&self.client) {
+            self.out.push(Out::Driving(d));
+        }
     }
 
     /// #442: events for one subscriber's far world nodes (only while joined – stale events are dropped)
@@ -1384,7 +1406,18 @@ impl Client {
             Message::DeckEvents(ev) => self.out.push(Out::Events { client: from, events: ev.events }),
             // #517: what the deck's playing scene takes – the core reads it (scene_play.rs), the link only passes it
             Message::Address(a) => self.out.push(Out::Deck(In::Address { address: a.address, action: a.action })),
-            Message::Story(s) => self.out.push(Out::Deck(In::Story(s))),
+            Message::Story(s) => {
+                // #527: the conductor keeps the last story heard (the relay passes only the driving reader's)
+                if conductor {
+                    self.readers.heard(&from, &s);
+                }
+                self.out.push(Out::Deck(In::Story(s)));
+            }
+            // #527: who drives the session's story now – a reader's grant or its take-over
+            Message::ReaderDrive(d) if self.o.role == Role::Reader => {
+                self.steer.heard(&self.client, d.driver);
+                self.tell_driving();
+            }
             Message::DeckSynced(synced) if conductor => self.out.push(Out::Deck(In::Synced { client: from, synced })),
             Message::Presence(p) => {
                 // every client but the audience has a link in presence: a phone without one left
@@ -1393,6 +1426,9 @@ impl Client {
                 for client in away {
                     self.hands.remove(&client);
                     self.out.push(Out::HandAway { client });
+                }
+                if conductor {
+                    self.readers.presence(&p);
                 }
                 let routes = p.routes.unwrap_or_default().into_iter().map(|r| (r.from, r.to)).collect();
                 self.out.push(Out::Deck(In::Presence { decks: p.decks.unwrap_or_default(), routes, links: p.links.unwrap_or_default(), quality: p.quality.unwrap_or_default() }));
@@ -1472,7 +1508,13 @@ impl Client {
         self.flush(now);
         self.flush_listen(now);
         self.flush_story(now);
-        self.flush_told();
+        // #527: a reader's claim goes out now (again after a drop, unless another reader took the place meanwhile)
+        if self.o.role == Role::Reader {
+            if self.steer.welcome(&self.client, snap.driver.clone()) {
+                self.send(Message::ReaderDrive(protocol::ReaderDrive::default()));
+            }
+            self.tell_driving();
+        }
         if let Some(t) = snap.tempo {
             self.out.push(Out::Tempo { tempo: t, arrived: now });
         }
@@ -1592,6 +1634,9 @@ pub fn step(c: &mut Client, now: f64, s: &Step) -> Result<(), String> {
         "hand_view" => c.hand_view(from_value(w).map_err(|e| e.to_string())?),
         "story" => {
             c.story(from_value(w).map_err(|e| e.to_string())?);
+        }
+        "drive" => {
+            c.drive();
         }
         "rejoin" => c.rejoin(),
         "stop" => c.stop(),
@@ -1931,22 +1976,29 @@ mod tests {
                 ),
             ),
             (
-                // #518: a phone reading the chapter in a session – what it fired before the welcome goes at the welcome, in
-                // order; then each at once; through a drop held again for the next welcome
+                // #518: a phone reading the chapter in a session sends what it fires, in order. #527: only while it drives:
+                // nothing before the claim, nothing between the claim and the relay's answer, nothing while away – dropped,
+                // not held; back from a drop it claims again; another reader's claim takes the place over
                 "reader",
                 mk(
                     json!({ "relay": RELAY, "role": "reader" }),
                     false,
                     vec![
                         st(0.01, "story", json!({ "type": "label", "params": { "name": "start" }, "id": "e1" })),
-                        st(0.02, "story", json!({ "type": "joinScene", "params": { "characters": [{ "character": "catpope" }] }, "id": "e2" })),
+                        st(0.02, "drive", Value::Null),
                         st(0.05, "open", Value::Null),
                         st(0.1, "message", welcome("c4", json!({}))),
-                        st(0.2, "story", json!({ "type": "showMessage", "params": { "character": "catpope", "text": { "de": "Hallo" } }, "id": "e3" })),
+                        st(0.15, "story", json!({ "type": "joinScene", "params": { "characters": [{ "character": "catpope" }] }, "id": "e2" })),
+                        st(0.2, "message", json!({ "kind": "reader.drive", "p": { "driver": "c4" } })),
+                        st(0.3, "story", json!({ "type": "showMessage", "params": { "character": "catpope", "text": { "de": "Hallo" } }, "id": "e3" })),
                         st(1.0, "close", json!("the relay went")),
                         st(1.1, "story", json!({ "type": "leaveScene", "params": { "characters": [{ "character": "catpope" }] }, "id": "e4" })),
                         st(1.3, "open", Value::Null),
                         st(1.4, "message", welcome("c5", json!({}))),
+                        st(1.5, "message", json!({ "kind": "reader.drive", "p": { "driver": "c5" } })),
+                        st(1.6, "story", json!({ "type": "joinScene", "params": { "characters": [{ "character": "catpope" }] }, "id": "e5" })),
+                        st(1.7, "message", json!({ "kind": "reader.drive", "p": { "driver": "c9" } })),
+                        st(1.8, "story", json!({ "type": "leaveScene", "params": { "characters": [{ "character": "catpope" }] }, "id": "e6" })),
                         st(2.0, "stop", Value::Null),
                     ],
                 ),
@@ -1972,27 +2024,53 @@ mod tests {
         assert_eq!(Client::new(o).unwrap().url(), "ws://h:1/live/A%20B?role=audience&group=bal%20kon");
     }
 
-    /// #518: a reader's story events go out as `story` messages, the VNEvent as it is, in the order fired – those fired
-    /// before a welcome at the welcome, none lost to a drop
+    /// #518: a reader's story events go out as `story` messages, the VNEvent as it is, in the order fired. #527: only
+    /// while it drives – the claim goes at the welcome, what fired before the relay's answer, while away or after a
+    /// take-over is dropped, never sent later; back from a drop it claims again
     #[test]
-    fn a_reader_s_story_goes_out_in_order_and_waits_for_the_welcome() {
+    fn a_reader_s_story_goes_out_only_while_it_drives() {
         let t = turns("reader");
         assert_eq!(t[0].outs[1], Out::Dial("ws://relay.test:7070/live/CATH?role=reader".into()));
         let s = sent(&t);
         assert_eq!(s[0]["kind"], "hello");
         assert_eq!(s[0]["p"]["role"], "reader");
+        assert_eq!(kinds(&t), ["hello", "reader.drive", "story", "hello", "reader.drive", "story"], "a claim at each welcome");
         let told: Vec<&Value> = s.iter().filter(|e| e["kind"] == "story").map(|e| &e["p"]).collect();
-        assert_eq!(told.iter().map(|p| p["id"].as_str().unwrap()).collect::<Vec<_>>(), ["e1", "e2", "e3", "e4"]);
-        assert_eq!(*told[1], json!({ "type": "joinScene", "params": { "characters": [{ "character": "catpope" }] }, "id": "e2" }), "as fired");
+        assert_eq!(told.iter().map(|p| p["id"].as_str().unwrap()).collect::<Vec<_>>(), ["e3", "e5"], "e1 before the claim, e2 before the answer, e4 away, e6 taken over: dropped");
+        assert_eq!(*told[0], json!({ "type": "showMessage", "params": { "character": "catpope", "text": { "de": "Hallo" } }, "id": "e3" }), "as fired");
         let at = |what: &str, at: f64| t.iter().find(|x| x.what == what && x.at == at).unwrap();
-        assert!(at("story", 0.01).outs.is_empty(), "nothing goes before the welcome");
-        assert!(at("story", 1.1).outs.is_empty(), "nor while it is away");
+        let driving = |turn: &Turn| turn.outs.iter().find_map(|o| if let Out::Driving(d) = o { Some(d.claim) } else { None });
+        use crate::linked::Claim;
+        assert_eq!(driving(at("drive", 0.02)), Some(Claim::Asked));
+        assert_eq!(driving(at("message", 0.2)), Some(Claim::Drives));
+        assert_eq!(driving(at("message", 1.4)), Some(Claim::Asked), "back from the drop: asks again");
+        assert_eq!(driving(at("message", 1.7)), Some(Claim::TakenOver));
+        assert!(at("story", 1.8).outs.is_empty(), "taken over: nothing more");
+        // a reader that never claims sends nothing, joined or not; only a reader claims
         let mut c = Client::new(Options::new(RELAY, Role::Reader, None)).unwrap();
-        for i in 0..STORY_HELD + 3 {
-            assert!(!c.story(serde_json::from_value(json!({ "type": "label", "id": format!("e{i}") })).unwrap()));
-        }
-        assert_eq!(c.told.len(), STORY_HELD);
-        assert_eq!(c.told[0]["id"], "e3", "the newest kept");
+        c.start(0.0);
+        c.opened(1.0);
+        c.text(2.0, &stamped(welcome("c4", json!({ "driver": "c2" }))).to_string());
+        assert_eq!(c.driving(), Driving { claim: Claim::None, other: true }, "the welcome says another drives: a claim would take over");
+        assert!(!c.story(serde_json::from_value(json!({ "type": "label", "id": "e1" })).unwrap()));
+        assert!(!c.take().iter().any(|o| matches!(o, Out::Send(t) if t.contains("\"story\"") || t.contains("reader.drive"))));
+        let mut deck = Client::new(Options::new(RELAY, Role::Musician, Some(DECKS))).unwrap();
+        assert!(!deck.drive());
+    }
+
+    /// #527: a conductor keeps the linked readers from presence and the last story event it heard
+    #[test]
+    fn a_conductor_sees_the_linked_readers() {
+        let mut c = Client::new(Options::new(RELAY, Role::Conductor, None)).unwrap();
+        c.start(0.0);
+        c.opened(1.0);
+        c.text(2.0, &stamped(welcome("c1", json!({}))).to_string());
+        c.text(3.0, &stamped(json!({ "kind": "presence", "p": { "groups": {}, "ready": [], "readers": { "c4": { "nick": "Mira" } }, "driver": "c4" } })).to_string());
+        c.text(4.0, &stamped(json!({ "from": "c4", "kind": "story", "p": { "type": "joinScene", "params": { "characters": [{ "character": "catpope" }] } } })).to_string());
+        let r = c.readers();
+        assert_eq!((r.linked.get("c4").cloned().flatten().as_deref(), r.driver.as_deref()), (Some("Mira"), Some("c4")));
+        let last = r.last.as_ref().unwrap();
+        assert_eq!((last.kind.as_str(), last.characters.as_slice(), last.from.as_str()), ("joinScene", &["character:catpope".to_string()][..], "c4"));
     }
 
     #[test]

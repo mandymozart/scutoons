@@ -535,7 +535,7 @@ mod tests {
             let p = protocol::Present { group: g.map(Into::into), nick: nick.map(Into::into), device: device.map(Into::into), account: (*id == "c1").then_some(Account::Member), locked: locked.then_some(true) };
             (id.to_string(), p)
         });
-        let p = protocol::Presence { groups: Default::default(), ready: vec![], decks: None, routes: None, links: None, quality: None, seats: None, parent: None, who: Some(who.collect()) };
+        let p = protocol::Presence { groups: Default::default(), ready: vec![], decks: None, routes: None, links: None, quality: None, seats: None, parent: None, who: Some(who.collect()), readers: None, driver: None };
         Envelope::new("relay", Message::Presence(p))
     }
 

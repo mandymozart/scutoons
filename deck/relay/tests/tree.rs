@@ -161,6 +161,11 @@ fn story(id: &str) -> Envelope {
     Envelope::new("", Message::Story(json!({ "type": "showMessage", "id": id }).as_object().unwrap().clone()))
 }
 
+/// #527: a reader drives the session's story (only the driving reader's story goes on)
+fn drive() -> Envelope {
+    Envelope::new("", Message::ReaderDrive(Default::default()))
+}
+
 fn link(port: u16) -> Parent {
     Parent { url: format!("ws://127.0.0.1:{port}"), code: "TOP".into(), seat: "foyer".into(), token: "t".into(), session: "FOY".into() }
 }
@@ -214,6 +219,7 @@ macro_rules! go {
 async fn a_phone_reader_fires_the_parents_row_and_the_child_follows_it_over_two_relays() {
     let mut t = two(ClockChoice::Parent).await;
     let mut phone = join(t.parent_port, "TOP", Role::Reader, None, None, None).await;
+    phone.send(drive()).await;
     phone.send(story("start")).await;
 
     let (top, left, foyer, wall) = (&mut t.top, &mut t.left, &mut t.foyer, &mut t.wall);
@@ -230,6 +236,7 @@ async fn a_reader_is_not_allowed_more_than_its_story_and_nobody_else_hears_it() 
     let mut t = two(ClockChoice::Parent).await;
     let mut phone = join(t.parent_port, "TOP", Role::Reader, None, None, None).await;
     phone.send(Envelope::new("", Message::Panic(protocol::Panic { black: Some(true), stop: None }))).await;
+    phone.send(drive()).await;
     phone.send(story("nobody.listens")).await;
     let (top, left, ph) = (&mut t.top, &mut t.left, &mut phone);
     wait(&mut [top, left, ph], |p| p[2].inbox.iter().any(|e| matches!(&e.message, Message::Error(x) if x.code == "authority"))).await;
@@ -258,6 +265,7 @@ async fn values_readiness_and_events_come_up_with_a_path() {
 
     // the child's reader: its own conductor's row (on hand: ignored) and, the event being on the face, the parent's row
     let mut phone = join(t.child_port, "FOY", Role::Reader, None, None, None).await;
+    phone.send(drive()).await;
     phone.send(story("door")).await;
     let (top, left, foyer, ph) = (&mut t.top, &mut t.left, &mut t.foyer, &mut phone);
     wait(&mut [top, left, foyer, ph], |p| p[1].cell("left").is_some()).await;
