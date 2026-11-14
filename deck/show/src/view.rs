@@ -3,7 +3,7 @@
 //! words and every decision about a cell's state live here once (RULES A1, A6); the editor lays them out and hands the
 //! operator's presses back to the [`Subtree`].
 use crate::conductor::{Entry, Logged, OnStage, Origin, Playing, Suggestion};
-use crate::document::{Addressed, Cell, Fire, How, Moment, OutletKind, Show, Values, Word};
+use crate::document::{Addressed, Cell, Fire, How, Moment, OutletKind, Row, Show, Values, Word};
 use crate::subtree::Subtree;
 use protocol::DeviceMsg;
 
@@ -34,6 +34,49 @@ pub struct CellView {
     pub hand: bool,
     /// why it would not play as written (`wrong piece`: a `values` cell meets another piece)
     pub problem: Option<String>,
+    /// #546: a cell of a question (`ask`): its question, where it stands among the row's columns that ask it
+    pub ask: Option<AskView>,
+}
+
+/// #546 (SHOW.md §15 5): an `ask` cell as the matrix draws it – adjacent cells of one question as one wide cell, one apart
+/// with the same mark (`q1 · 2 of 3`).
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct AskView {
+    /// the question's id
+    pub question: String,
+    /// what a person reads for it: the typed question, `story: <event>`, else its id
+    pub label: String,
+    /// this column's place among the row's columns that ask it (1-based, in the matrix's order) and how many ask it
+    pub nth: usize,
+    pub of: usize,
+    /// it starts a run of adjacent columns that ask it: the wide cell is drawn from here over `run` columns
+    pub first: bool,
+    pub run: usize,
+    /// who in the column gets it, in words (`everyone`, `device phone · member`: deck-ui's filter words)
+    pub filter: String,
+}
+
+impl AskView {
+    /// `q1 · 2 of 3`
+    pub fn mark(&self) -> String {
+        format!("{} · {} of {}", self.question, self.nth, self.of)
+    }
+}
+
+/// the `ask` cells of `row` along `cols`, one entry per column (none: no question there)
+fn ask_views(show: &Show, row: &Row, cols: &[Column]) -> Vec<Option<AskView>> {
+    let asks: Vec<Option<&str>> = cols.iter().map(|c| if let Some(Cell::Ask { question }) = row.cells.get(&c.id) { Some(question.as_str()) } else { None }).collect();
+    (0..cols.len())
+        .map(|i| {
+            let q = asks[i]?;
+            let nth = asks[..=i].iter().filter(|a| **a == Some(q)).count();
+            let of = asks.iter().filter(|a| **a == Some(q)).count();
+            let first = i == 0 || asks[i - 1] != Some(q);
+            let run = if first { asks[i..].iter().take_while(|a| **a == Some(q)).count() } else { 0 };
+            let label = show.question(q).map_or_else(|| q.to_string(), |x| x.label("en"));
+            Some(AskView { question: q.to_string(), label, nth, of, first, run, filter: deck_ui::filter::filter_words(row.r#where.get(&cols[i].id)) })
+        })
+        .collect()
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -116,14 +159,12 @@ pub fn look_text(show: &Show, outlet: &str, look: &str) -> String {
 
 /// `character:yellowmouse > dance:samba`, `person:* > haptic:pulse where group left · device browser` (SHOW.md §8, §9)
 pub fn address_text(a: &Addressed) -> String {
-    let mut s = format!("{} > {}", a.address, a.action);
-    if let Some(f) = &a.filter {
-        let parts: Vec<String> = [("group", &f.group), ("device", &f.device)].iter().filter_map(|(k, v)| v.as_ref().map(|v| format!("{k} {v}"))).collect();
-        if !parts.is_empty() {
-            s = format!("{s} where {}", parts.join(" · "));
-        }
+    let s = format!("{} > {}", a.address, a.action);
+    // #546: the filter's words are deck-ui's, one set for a role's, an address's and a cell's filter
+    match a.filter.as_ref().map(deck_ui::filter::filter_facts) {
+        Some(facts) if !facts.is_empty() => format!("{s} where {}", deck_ui::filter::words(&facts)),
+        _ => s,
     }
-    s
 }
 
 /// A cell's words (on its column; `device` = a device outlet).
@@ -142,6 +183,7 @@ pub fn cell_text(cell: &Cell) -> String {
         Cell::Free => "free".into(),
         Cell::Look { look, fade: None } => format!("look {look}"),
         Cell::Look { look, fade: Some(ms) } => format!("look {look} · fade {:.1} s", *ms as f32 / 1000.0),
+        Cell::Ask { question } => format!("ask {question}"),
     }
 }
 
@@ -292,7 +334,7 @@ fn cell_view(row: &str, cell: Option<&Cell>, stage: Option<&OnStage>) -> CellVie
         (Cell::Values { .. }, None | Some(Playing::Black)) => Some("nothing plays".to_string()),
         _ => None,
     };
-    CellView { text: cell_text(cell), keep: false, on: mine.is_some(), hand: mine.is_some_and(|s| s.off_row), problem }
+    CellView { text: cell_text(cell), keep: false, on: mine.is_some(), hand: mine.is_some_and(|s| s.off_row), problem, ask: None }
 }
 
 fn suggested(show: &Show, s: &Suggestion) -> Suggested {
@@ -331,7 +373,7 @@ pub fn matrix(sub: &Subtree) -> Matrix {
             fires: fires(&r.fire),
             current: c.current() == Some(r.id.as_str()),
             suggested: c.suggestion().is_some_and(|s| s.row == r.id),
-            cells: columns.iter().map(|col| cell_view(&r.id, r.cells.get(&col.id), c.on_stage(&col.id))).collect(),
+            cells: columns.iter().zip(ask_views(show, r, &columns)).map(|(col, ask)| CellView { ask, ..cell_view(&r.id, r.cells.get(&col.id), c.on_stage(&col.id)) }).collect(),
         })
         .collect();
     Matrix { columns, rows, suggestion: c.suggestion().map(|s| suggested(show, s)), go: go_text(show, c.current(), c.suggestion()) }
@@ -350,10 +392,7 @@ pub fn plan(show: &Show) -> Matrix {
             fires: fires(&r.fire),
             current: false,
             suggested: false,
-            cells: columns.iter().map(|col| cell_view(&r.id, r.cells.get(&col.id), None)).map(|mut v| {
-                v.problem = None;
-                v
-            }).collect(),
+            cells: columns.iter().zip(ask_views(show, r, &columns)).map(|(col, ask)| CellView { ask, problem: None, ..cell_view(&r.id, r.cells.get(&col.id), None) }).collect(),
         })
         .collect();
     Matrix { columns, rows, suggestion: None, go: go_text(show, None, None) }
@@ -435,6 +474,7 @@ pub fn does(cell: &Cell) -> String {
         Cell::Play { piece: Some(_), .. } => format!("plays {}", cell_text(cell)),
         Cell::Values { piece, values } => format!("glides {piece}: {}", values_text(values)),
         Cell::Mirror { of } => format!("shows what {of} shows"),
+        Cell::Ask { question } => format!("asks {question}, the piece plays on"),
         other => cell_text(other),
     }
 }
@@ -562,7 +602,17 @@ pub fn inspector(show: &Show, row: &str) -> Vec<Section> {
     for a in &r.addresses {
         sends.push(("address".to_string(), address_text(a)));
     }
+    // #546: the question the row asks, on which columns, to whom
+    let cols = columns(show);
+    let asks: Vec<(String, String)> = cols
+        .iter()
+        .zip(ask_views(show, r, &cols))
+        .filter_map(|(c, a)| a.map(|a| (c.id.clone(), format!("{}: {} · {}", a.question, a.label, a.filter))))
+        .collect();
     let mut out = vec![(format!("row {} · {}", i + 1, r.id), fire), ("cells of this row".to_string(), cells)];
+    if !asks.is_empty() {
+        out.push(("this row asks".to_string(), asks));
+    }
     out.push((
         "this row sends".to_string(),
         if sends.is_empty() { vec![("".to_string(), "only its cells – nobody else is addressed".to_string())] } else { sends },

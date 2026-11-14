@@ -79,7 +79,7 @@ fn question(o: &VoteOpen) -> String {
     o.question.as_ref().and_then(|q| q.get("en").or_else(|| q.values().next())).cloned().unwrap_or_default()
 }
 
-fn rule(r: VoteRule) -> Rule {
+pub(crate) fn rule(r: VoteRule) -> Rule {
     match r {
         VoteRule::Majority => Rule::Majority,
         VoteRule::Groups => Rule::Groups,

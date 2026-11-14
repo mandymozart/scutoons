@@ -20,6 +20,9 @@ pub mod session;
 /// #533: the vote's conductor side in the editor's Perform workspace – the form, the panel
 pub mod vote;
 
+/// #546: one condition, one look – a filter's facts, which are on, its words (a role's, a row address's, a cell's)
+pub mod filter;
+
 /// text lines the HUD has room for (above the frame-time graph; #208: two audio lines + the glitch warning)
 pub const LINES: usize = 13;
 /// characters a line has room for (8 px each, a 4 px margin)

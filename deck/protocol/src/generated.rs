@@ -995,14 +995,21 @@ pub struct FlashReport {
 	pub own: Option<bool>,
 }
 
-/// #90, SHOW.md §9, for the workshop group and device. The receiver tests itself; a missing fact fails the filter.
+/// #90, #546 (SHOW.md §9, §15 2): who a row's address reaches and who a show cell's column gets (a vote's: the relay tests it). Every fact it names must hold; `account` admits any one of its values (`guest`: anyone with the code); a missing fact fails. No filter: everyone. The one rule: protocol `filter::passes`.
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
-pub struct AddressFilter {
+pub struct Filter {
+	/// the group a client joined with (its QR's, a deck's outlet)
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub group: Option<String>,
-	/// browser, native, phone …
+	/// browser, native, phone … (the words of a flash report's `device`)
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub device: Option<String>,
+	/// its account facts, only from the server's proof (`hello.proof`)
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub account: Option<Vec<Account>>,
+	/// an approved (paired) deck, only from the server's proof
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub approved: Option<bool>,
 }
 
 /// #478 (owner 2026-11-10 [role]): what a person is to the server – `guest` not signed in (only the code), `member`, `creator`, `admin`, `live` (the in-house manager, an account role only used in live use)
@@ -1091,7 +1098,7 @@ pub struct Address {
 	pub address: String,
 	pub action: String,
 	#[serde(rename = "where", default, skip_serializing_if = "Option::is_none")]
-	pub r#where: Option<AddressFilter>,
+	pub r#where: Option<Filter>,
 }
 
 /// #90: one receiver's count, up to the conductor that asked: it picked up (`reached`), passed the filter (`passed`), a handler took it (`answered`). A receiver the address does not name sends nothing.

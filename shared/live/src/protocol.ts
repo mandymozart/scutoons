@@ -532,11 +532,16 @@ export interface FlashReport {
 	own?: boolean;
 }
 
-/** #90, SHOW.md §9, for the workshop group and device. The receiver tests itself; a missing fact fails the filter. */
-export interface AddressFilter {
+/** #90, #546 (SHOW.md §9, §15 2): who a row's address reaches and who a show cell's column gets (a vote's: the relay tests it). Every fact it names must hold; `account` admits any one of its values (`guest`: anyone with the code); a missing fact fails. No filter: everyone. The one rule: protocol `filter::passes`. */
+export interface Filter {
+	/** the group a client joined with (its QR's, a deck's outlet) */
 	group?: string;
-	/** browser, native, phone … */
+	/** browser, native, phone … (the words of a flash report's `device`) */
 	device?: string;
+	/** its account facts, only from the server's proof (`hello.proof`) */
+	account?: Account[];
+	/** an approved (paired) deck, only from the server's proof */
+	approved?: boolean;
 }
 
 /** #478 (owner 2026-11-10 [role]): what a person is to the server – `guest` not signed in (only the code), `member`, `creator`, `admin`, `live` (the in-house manager, an account role only used in live use) */
@@ -583,7 +588,7 @@ export interface Address {
 	id: string;
 	address: string;
 	action: string;
-	where?: AddressFilter;
+	where?: Filter;
 }
 
 /** #90: one receiver's count, up to the conductor that asked: it picked up (`reached`), passed the filter (`passed`), a handler took it (`answered`). A receiver the address does not name sends nothing. */

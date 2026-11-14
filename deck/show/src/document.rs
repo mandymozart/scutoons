@@ -25,9 +25,16 @@ pub struct Show {
     pub fixtures: Vec<Fixture>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub looks: Vec<Look>,
+    /// #546: the show's questions, each stored once; an `ask` cell names one, the row's columns that carry it are who votes
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub questions: Vec<Question>,
 }
 
 impl Show {
+    pub fn question(&self, id: &str) -> Option<&Question> {
+        self.questions.iter().find(|q| q.id == id)
+    }
+
     pub fn row(&self, id: &str) -> Option<&Row> {
         self.rows.iter().find(|r| r.id == id)
     }
@@ -207,6 +214,10 @@ pub struct Row {
     /// finding nobody stays silent and is logged
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub addresses: Vec<Addressed>,
+    /// #546 (SHOW.md §15 2): by outlet id, the same keys as `cells` – who that column's cell reaches (a vote: who votes,
+    /// the relay tests it); none = everyone in the column. Every fact holds (protocol `filter::passes`)
+    #[serde(rename = "where", default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub r#where: BTreeMap<String, protocol::Filter>,
 }
 
 /// One address a row sends to: `character:yellowmouse > dance:samba`, filtered (for the workshop by group and device).
@@ -217,7 +228,7 @@ pub struct Addressed {
     pub address: String,
     pub action: String,
     #[serde(rename = "where", default, skip_serializing_if = "Option::is_none")]
-    pub filter: Option<protocol::AddressFilter>,
+    pub filter: Option<protocol::Filter>,
 }
 
 /// A row's firing (SHOW.md §7). GO and the hand always work, whatever stands here.
@@ -290,6 +301,82 @@ pub enum Cell {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         fade: Option<u32>,
     },
+    /// #546 (SHOW.md §15 1): a question of the show to this column's audience – the piece keeps playing, the deck draws the
+    /// question over it. Every column of a row that names it votes together; who in a column: the row's `where`
+    Ask { question: String },
+}
+
+/// A text by locale (`{ "en": "Which way?" }`), picked in the one locale order (protocol `content_text`).
+pub type Loc = BTreeMap<String, String>;
+
+/// One question of a show (#546, SHOW.md §15 1): typed here, or one of the story's choices (#550 fills it); how the vote
+/// runs is #533's form without its groups – the columns that ask it are the groups. The rule is the relay's.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Question {
+    pub id: String,
+    /// typed in the show
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub typed: Option<Typed>,
+    /// a choice of the story, its labels as published at that version
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub story: Option<StoryChoice>,
+    pub rule: protocol::VoteRule,
+    /// rule first: the votes an option needs
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub n: Option<i64>,
+    pub seconds: i64,
+    /// the option when nobody voted (its place)
+    #[serde(default)]
+    pub fallback: usize,
+    /// a voter sees the tally once they have voted (the form's default: yes)
+    #[serde(default = "yes")]
+    pub show: bool,
+}
+
+fn yes() -> bool {
+    true
+}
+
+/// A question typed in the show: its words and its options, by locale.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Typed {
+    #[serde(default, skip_serializing_if = "Loc::is_empty")]
+    pub question: Loc,
+    pub options: Vec<Loc>,
+}
+
+/// A choice of the story as a question: the chapter's choice event at a version, its options' labels as they were then.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct StoryChoice {
+    pub toon: String,
+    pub chapter: u32,
+    pub version: u32,
+    pub event: String,
+    pub options: Vec<Loc>,
+}
+
+impl Question {
+    /// its options' labels by locale (typed, else the story's)
+    pub fn options(&self) -> &[Loc] {
+        match (&self.typed, &self.story) {
+            (Some(t), _) => &t.options,
+            (None, Some(s)) => &s.options,
+            (None, None) => &[],
+        }
+    }
+
+    /// what a person reads for it: the typed question in `locale`'s order, else the story's event, else its id
+    pub fn label(&self, locale: &str) -> String {
+        let typed = self.typed.as_ref().and_then(|t| protocol::content_text::pick_text(&t.question, locale, None));
+        match (typed, &self.story) {
+            (Some(q), _) => q.to_string(),
+            (None, Some(s)) => format!("story: {}", s.event),
+            (None, None) => self.id.clone(),
+        }
+    }
 }
 
 /// Why a text is no show.
