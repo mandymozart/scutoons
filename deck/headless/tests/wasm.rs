@@ -5,6 +5,7 @@
 mod common;
 use std::path::PathBuf;
 use std::process::Command;
+use std::time::Instant;
 use wasmtime::{Engine, Instance, Module, Store};
 
 fn build(simd: bool) -> PathBuf {
@@ -12,6 +13,9 @@ fn build(simd: bool) -> PathBuf {
     let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).parent().unwrap().join(if simd { "conformance-wasm-simd" } else { "conformance-wasm" });
     let mut cmd = Command::new("cargo");
     cmd.current_dir(common::deck_dir()).args(["build", "--release", "--target", "wasm32-unknown-unknown", "-p", "deck-headless", "--lib", "--target-dir"]).arg(&dir);
+    // a fixed build label (#536), the same as conformance/tests/wasm.rs (they share the target dirs): without it deck-space's
+    // build.rs watches the worktree's git index, which every `git status` rewrites – each run rebuilt the fat-LTO wasm
+    cmd.env("DECK_BUILD_VERSION", "wasm-test");
     if simd {
         cmd.env("RUSTFLAGS", "-C target-feature=+simd128");
     } else {
@@ -71,7 +75,13 @@ fn every_scenario_reports_the_same_native_and_in_wasm32_with_and_without_simd128
     let engine = Engine::default();
     for simd in [false, true] {
         let target = if simd { "wasm32 + simd128" } else { "wasm32" };
-        let module = Module::from_file(&engine, build(simd)).expect("the module compiles");
+        let t = Instant::now();
+        let path = build(simd);
+        let built = t.elapsed();
+        let t = Instant::now();
+        let module = Module::from_file(&engine, path).expect("the module compiles");
+        let compiled = t.elapsed();
+        let t = Instant::now();
         let mut wrong = Vec::new();
         let mut same = 0;
         for (b, want) in bundles.iter().zip(&native) {
@@ -88,5 +98,7 @@ fn every_scenario_reports_the_same_native_and_in_wasm32_with_and_without_simd128
         }
         assert!(wrong.is_empty(), "{}", wrong.join("\n"));
         println!("{target}: {same} of {} scenarios report exactly what native does", bundles.len());
+        // where the test's time goes (#536): cargo's build of the wasm, Cranelift's compile, the runs
+        println!("{target}: built in {built:.1?}, compiled in {compiled:.1?}, ran in {:.1?}", t.elapsed());
     }
 }

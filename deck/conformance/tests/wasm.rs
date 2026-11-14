@@ -6,6 +6,7 @@ mod common;
 use common::*;
 use std::path::PathBuf;
 use std::process::Command;
+use std::time::Instant;
 use wasmtime::{Engine, Instance, Module, Store};
 
 fn deck_dir() -> PathBuf {
@@ -18,13 +19,20 @@ fn build_wasm(pkg: &str, file: &str, simd: bool) -> PathBuf {
     let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).parent().unwrap().join(if simd { "conformance-wasm-simd" } else { "conformance-wasm" });
     let mut cmd = Command::new("cargo");
     cmd.current_dir(deck_dir()).args(["build", "--release", "--target", "wasm32-unknown-unknown", "-p", pkg, "--target-dir"]).arg(&dir);
+    // a fixed build label (#536): without it deck-space's build.rs reads git and watches the worktree's index, which every
+    // `git status` (its own included) rewrites – each run rebuilt deck-space and everything above it, the fat-LTO wasm too.
+    // The label is only drawn (deck_space::BUILD); nothing a render or report holds. headless/tests/wasm.rs sets the same.
+    cmd.env("DECK_BUILD_VERSION", "wasm-test");
     if simd {
         cmd.env("RUSTFLAGS", "-C target-feature=+simd128");
     } else {
         cmd.env_remove("RUSTFLAGS");
     }
+    let t = Instant::now();
     let out = cmd.output().expect("cargo runs");
     assert!(out.status.success(), "wasm build of {pkg} failed:\n{}", String::from_utf8_lossy(&out.stderr));
+    // where the test's time goes (#536): cargo's build of the wasm, Cranelift's compile (Wasm::load), the renders
+    println!("{pkg}{}: built in {:.1?}", if simd { " simd128" } else { "" }, t.elapsed());
     dir.join("wasm32-unknown-unknown").join("release").join(file)
 }
 
@@ -36,7 +44,9 @@ struct Wasm {
 impl Wasm {
     fn load(path: &PathBuf) -> Wasm {
         let engine = Engine::default();
+        let t = Instant::now();
         let module = Module::from_file(&engine, path).expect("module compiles (simd128 is on in wasmtime)");
+        println!("{}: compiled in {:.1?}", path.display(), t.elapsed());
         let mut store = Store::new(&engine, ());
         let inst = Instance::new(&mut store, &module, &[]).expect("no imports needed");
         Wasm { store, inst }
