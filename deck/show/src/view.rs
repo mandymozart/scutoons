@@ -133,6 +133,7 @@ pub fn cell_text(cell: &Cell) -> String {
         Cell::Play { piece: Some(p), values, .. } => format!("{p} · {}", values_text(values)),
         Cell::Play { piece: None, send, .. } if !send.is_empty() => format!("send {}", send.iter().map(device_text).collect::<Vec<_>>().join(" · ")),
         Cell::Play { piece: None, .. } => "nothing".into(),
+        Cell::Values { piece, values } if values.is_empty() => format!("values · {piece}"),
         Cell::Values { values, .. } => format!("values · {}", values_text(values)),
         Cell::Keep => "↑".into(),
         Cell::Mirror { of } => format!("= {of}"),

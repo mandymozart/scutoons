@@ -1,0 +1,8 @@
+{
+  "id": "new-show",
+  "version": 1,
+  "outlets": [{ "id": "left" }],
+  "rows": [
+    { "id": "opening", "cells": { "left": { "mode": "play", "piece": "scene:nave" } } }
+  ]
+}

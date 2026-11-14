@@ -1,0 +1,438 @@
+//! A show's rows and a cell's piece in the Show workspace (#537; SHOW.md §5; SCENES.md 2·6; #267 draft 4): "new row" in
+//! the tree adds one after the selected row, the row inspector's name field renames it and its remove asks first; a cell
+//! pressed in the rows band or the inspector opens the cell inspector – its mode as chips, its piece as a field – and the
+//! piece picker in the stage's place lists the published scenes of the toon's address book (the editor's book, main.rs:
+//! `GET /api/addresses/<toon>`), filtered as typed; without a book the typed `scene:<id>` is the piece and the core reads it.
+//! Every edit goes through deck-show's `rows::edit` (checked there, refused in its words); the words, the modes a column
+//! offers and the picker's lines are deck-show's; this file lays them out and hands the presses in (RULES A1, A2), as
+//! roles.rs does for the roles (#478).
+use super::roles::{Ask, Typing};
+use super::{Hit, Host, Sheet};
+use deck_kit::base::draw::DrawList;
+use deck_kit::base::text::Field;
+use deck_kit::base::tokens::Tokens;
+use deck_kit::editor::controls::{self, Rect};
+use deck_show::rows::{self, Edit, PieceView};
+use deck_show::{view, Show};
+
+/// the language of the book's labels (the editor's own words are English, main.rs)
+const LOCALE: &str = "en";
+
+impl Host {
+    /// An edit of the shown document's rows or cells: deck-show makes and checks it; the row it names is selected.
+    pub(super) fn edit_rows(&mut self, e: &Edit) -> bool {
+        match rows::edit(self.shown(), e) {
+            Ok(done) => {
+                self.status = done.said;
+                if let Some(id) = &done.row {
+                    self.row = done.show.rows.iter().position(|r| r.id == *id).unwrap_or(0);
+                }
+                self.role = None;
+                self.changed(done.show);
+                true
+            }
+            Err(why) => {
+                self.status = why;
+                false
+            }
+        }
+    }
+
+    /// the row inspected and the column whose cell is selected (ids)
+    fn selected(&self) -> (Option<String>, Option<String>) {
+        let show = self.shown();
+        let row = show.rows.get(self.row).map(|r| r.id.clone());
+        let col = self.cell.clone().filter(|c| show.outlet(c).is_some() || show.seat(c).is_some());
+        (row, col)
+    }
+
+    pub(super) fn rows_press(&mut self, hit: Hit) {
+        let (row, col) = self.selected();
+        match hit {
+            Hit::RowAdd => {
+                self.edit_rows(&Edit::Add { after: row });
+            }
+            Hit::RowName => {
+                if let Some(id) = row {
+                    self.typing = Some((Typing::RowName(id.clone()), Field::with(&id)));
+                }
+            }
+            Hit::RowRemove => self.asking = row.map(Ask::RemoveRow),
+            Hit::Cell(r, c) => {
+                self.row = r;
+                self.role = None;
+                self.cell = view::plan(self.shown()).columns.get(c).map(|c| c.id.clone());
+            }
+            Hit::CellMode(i) => {
+                let (Some(row), Some(column)) = (row, col) else { return };
+                let Some(m) = rows::modes(self.shown(), &row, &column).into_iter().nth(i) else { return };
+                if m.picks {
+                    self.open_picker();
+                } else {
+                    self.edit_rows(&Edit::Mode { row, column, mode: m.mode });
+                }
+            }
+            Hit::CellPiece => self.open_picker(),
+            Hit::PiecePick(i) => {
+                if let Some(p) = self.piece_list().get(i) {
+                    let piece = p.address.clone();
+                    self.pick_piece(&piece);
+                }
+            }
+            Hit::PieceType => self.typing = Some((Typing::Piece, Field::with(&self.piece_query))),
+            _ => {}
+        }
+    }
+
+    /// the piece picker over the stage, its field open for typing
+    fn open_picker(&mut self) {
+        if self.selected().1.is_none() {
+            return;
+        }
+        self.sheet = Some(Sheet::Piece);
+        self.flashing = None;
+        self.piece_query.clear();
+        self.typing = Some((Typing::Piece, Field::with("")));
+    }
+
+    /// the selected cell plays `piece`; done, the picker closes
+    fn pick_piece(&mut self, piece: &str) {
+        let (Some(row), Some(column)) = self.selected() else { return };
+        if self.edit_rows(&Edit::Piece { row, column, piece: piece.to_string() }) {
+            self.sheet = None;
+            self.typing = None;
+        }
+    }
+
+    /// what the picker's field holds: the text being typed, else the query kept
+    pub(super) fn piece_query_now(&self) -> String {
+        match &self.typing {
+            Some((Typing::Piece, f)) => f.text.clone(),
+            _ => self.piece_query.clone(),
+        }
+    }
+
+    /// the published scenes the picker lists for the query (none without a book)
+    pub(super) fn piece_list(&self) -> Vec<PieceView> {
+        self.book.as_ref().map(|b| rows::pieces(b, &self.piece_query_now(), LOCALE)).unwrap_or_default()
+    }
+
+    /// Enter in the picker's field: with a book, the first scene listed; without one, the typed text is the piece (the core
+    /// reads it, a refusal says why)
+    pub(super) fn piece_typed(&mut self, text: &str) {
+        self.piece_query = text.trim().to_string();
+        if self.book.is_none() {
+            if !self.piece_query.is_empty() {
+                let typed = self.piece_query.clone();
+                self.pick_piece(&typed);
+            }
+            return;
+        }
+        match self.piece_list().first().map(|p| p.address.clone()) {
+            Some(p) => self.pick_piece(&p),
+            None => self.status = rows::NONE_FOUND.into(),
+        }
+    }
+
+    /// A check run: the row authored as the operator would – added and named when missing, its cell on `column` selected,
+    /// `piece` picked from the list (or typed); no piece: `play` pressed, which opens the picker.
+    pub(super) fn script_author(&mut self, row: &str, column: &str, piece: Option<&str>) {
+        if self.shown().row(row).is_none() {
+            self.press(Hit::RowAdd);
+            self.press(Hit::RowName);
+            if let Some((_, f)) = self.typing.as_mut() {
+                *f = Field::with(row);
+            }
+            self.type_field(&winit::keyboard::Key::Named(winit::keyboard::NamedKey::Enter));
+        }
+        let plan = view::plan(self.shown());
+        let (Some(r), Some(c)) = (plan.rows.iter().position(|x| x.id == row), plan.columns.iter().position(|x| x.id == column)) else { return };
+        self.press(Hit::Cell(r, c));
+        match piece {
+            Some(p) => {
+                self.press(Hit::CellPiece);
+                match self.piece_list().iter().position(|x| x.address == p) {
+                    Some(i) => self.press(Hit::PiecePick(i)),
+                    None => {
+                        self.typing = None;
+                        self.piece_typed(p);
+                    }
+                }
+            }
+            None => {
+                if let Some(i) = rows::modes(self.shown(), row, column).iter().position(|m| m.mode == rows::Mode::Play) {
+                    self.press(Hit::CellMode(i));
+                }
+            }
+        }
+    }
+}
+
+fn fit(d: &DrawList, text: &str, px: f32, w: f32) -> String {
+    controls::fit(text, (w / d.advance(px)).max(0.0) as usize)
+}
+
+/// a field you press to type into or to open something: its label on the left, the value (or what is typed) on the right
+fn field(d: &mut DrawList, t: &Tokens, (x, y, w): (f32, f32, f32), label: &str, value: &str, typing: Option<&str>) -> Rect {
+    let (font, row) = (t.size.font, t.size.tree_row);
+    d.text(x, y + (row - font * 1.25) * 0.5, font, label, t.color.muted);
+    let r = Rect { x: x + w * 0.38, y: y + 2.0, w: w * 0.62, h: row - 4.0 };
+    d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, t.color.control);
+    if typing.is_some() {
+        d.outline(r.x, r.y, r.w, r.h, (t.size.radius, 1.0), t.color.accent);
+    }
+    let text = typing.map_or_else(|| value.to_string(), |s| format!("{s}|"));
+    d.text(r.x + 6.0, r.y + (r.h - font * 1.25) * 0.5, font, &fit(d, &text, font, r.w - 12.0), t.color.text);
+    r
+}
+
+/// The row inspector's head: the row's name as a field, its remove beside it. The height used.
+pub fn row_head(d: &mut DrawList, t: &Tokens, host: &mut Host, (x, y, w): (f32, f32, f32), sel: &str, pointer: (f32, f32)) -> f32 {
+    if sel.is_empty() {
+        return 0.0;
+    }
+    let (small, row, pad) = (t.size.small, t.size.tree_row, t.size.pad);
+    let rw = (d.advance(small) * rows::REMOVE.chars().count() as f32 + 2.0 * pad).min(w * 0.4);
+    let typing = host.typing.as_ref().filter(|(what, _)| matches!(what, Typing::RowName(_))).map(|(_, f)| f.text.clone());
+    let r = field(d, t, (x, y, w - rw - pad), rows::NAME, sel, typing.as_deref());
+    host.hits.push((r, Hit::RowName));
+    // its remove, as a role's (roles.rs): quiet until the pointer is on it
+    let remove = Rect { x: x + w - rw, y: y + 2.0, w: rw, h: row - 4.0 };
+    d.round_rect(remove.x, remove.y, remove.w, remove.h, t.size.radius, if remove.has(pointer.0, pointer.1) { t.color.danger } else { t.color.control });
+    d.text(remove.x + pad, remove.y + (remove.h - small * 1.25) * 0.5, small, &fit(d, rows::REMOVE, small, remove.w - 2.0 * pad), t.color.text);
+    host.hits.push((remove, Hit::RowRemove));
+    row + pad * 0.5
+}
+
+/// The cell inspector of the selected cell (its title, the mode chips, a stage outlet's piece field). The height used.
+pub fn cell_side(d: &mut DrawList, t: &Tokens, host: &mut Host, (x, y, w): (f32, f32, f32), show: &Show, sel: &str) -> f32 {
+    let Some(col) = host.cell.clone() else { return 0.0 };
+    let Some(insp) = rows::cell_inspector(show, sel, &col) else { return 0.0 };
+    let (pad, row) = (t.size.pad, t.size.tree_row);
+    let top = y;
+    let mut y = y + controls::section(d, t, x, y, w, &insp.title.to_uppercase(), false);
+    let names: Vec<&str> = insp.modes.iter().map(|m| m.word).collect();
+    let on: Vec<bool> = insp.modes.iter().map(|m| m.on).collect();
+    let (chips, used) = controls::chips(d, t, (x, y, w), &names, &on);
+    for (i, r) in chips.into_iter().enumerate() {
+        host.hits.push((r, Hit::CellMode(i)));
+    }
+    y += used + pad * 0.5;
+    if let Some(piece) = &insp.piece {
+        let r = field(d, t, (x, y, w), rows::PIECE, piece, None);
+        host.hits.push((r, Hit::CellPiece));
+        y += row;
+    }
+    y + pad * 0.5 - top
+}
+
+/// The piece picker in the stage's place: its heading, the typed query, the published scenes of the book that match (a
+/// press picks one), or – without a book – why not and what to type.
+pub fn picker(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, pointer: (f32, f32)) {
+    let (pad, font, small, row) = (t.size.pad, t.size.font, t.size.small, t.size.tree_row);
+    let show = host.shown().clone();
+    let (Some(sel), Some(col)) = host.selected() else {
+        d.text(a.x + pad, a.y + pad, font, "Select a cell first.", t.color.muted);
+        return;
+    };
+    let mut y = a.y + pad;
+    d.text(a.x + pad, y, small, &fit(d, &rows::picker_title(&show, &sel, &col), small, a.w - 2.0 * pad), t.color.muted);
+    y += small * 1.8;
+    let typing = host.typing.as_ref().filter(|(what, _)| *what == Typing::Piece).map(|(_, f)| f.text.clone());
+    let query = host.piece_query_now();
+    let label = if host.book.is_some() { "find" } else { rows::PIECE };
+    let r = field(d, t, (a.x + pad, y, (a.w - 2.0 * pad).min(520.0)), label, &query, typing.as_deref());
+    host.hits.push((r, Hit::PieceType));
+    y += row + pad * 0.5;
+    d.rect(a.x, y - 4.0, a.w, 1.0, t.color.line);
+    if host.book.is_none() {
+        let why = host.book_why.clone().unwrap_or_else(|| "the address book is still on its way".into());
+        d.text(a.x + pad, y + 4.0, font, &fit(d, &why, font, a.w - 2.0 * pad), t.color.warn);
+        d.text(a.x + pad, y + 4.0 + font * 1.7, font, &fit(d, rows::TYPE_IT, font, a.w - 2.0 * pad), t.color.muted);
+        return;
+    }
+    let list = host.piece_list();
+    if list.is_empty() {
+        d.text(a.x + pad, y + 4.0, font, rows::NONE_FOUND, t.color.muted);
+    }
+    let now = show.row(&sel).and_then(|r| r.cells.get(&col)).map(view::cell_text).unwrap_or_default();
+    for (i, p) in list.iter().enumerate() {
+        if y + row > a.y + a.h {
+            d.text(a.x + pad, y + 2.0, small, &format!("{} more …", list.len() - i), t.color.muted);
+            break;
+        }
+        let whole = Rect { x: a.x, y, w: a.w, h: row };
+        if now == p.address {
+            d.rect(whole.x, whole.y, whole.w, whole.h, t.color.selected);
+        } else if whole.has(pointer.0, pointer.1) {
+            d.rect(whole.x, whole.y, whole.w, whole.h, t.color.hover);
+        }
+        let ty = y + (row - font * 1.25) * 0.5;
+        d.text(a.x + pad, ty, font, &fit(d, &p.label, font, a.w * 0.4 - pad), t.color.text);
+        d.text(a.x + a.w * 0.4, ty + 1.0, small, &fit(d, &p.detail, small, a.w * 0.6 - pad), t.color.muted);
+        d.rect(a.x, y + row - 1.0, a.w, 1.0, t.color.line);
+        host.hits.push((whole, Hit::PiecePick(i)));
+        y += row;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::{api, author, perform, Hit, Host, Sheet};
+    use deck_kit::base::draw::DrawList;
+    use deck_kit::base::tokens::Tokens;
+    use std::io::{BufRead, BufReader, Read, Write};
+    use std::net::TcpListener;
+    use std::sync::Arc;
+    use winit::keyboard::{Key, NamedKey};
+
+    /// a toon's book with two published scenes and a character (deck-show rows.rs has the full case)
+    const BOOK: &str = r#"{ "address_book": 2, "toon": "catpope", "version": "v1", "source": "en", "entries": [
+        { "ref": "character:catpope", "address": "character:catpope", "kind": "character", "name": "catpope", "labels": { "en": "Cat Pope" }, "origin": { "key": "character:catpope", "state": "published" } },
+        { "ref": "scene:nave", "address": "scene:nave", "kind": "scene", "name": "nave", "labels": { "en": "Nave" }, "origin": { "key": "scene:nave", "state": "published" }, "version": 2 },
+        { "ref": "scene:vigil", "address": "scene:vigil", "kind": "scene", "name": "vigil", "labels": { "en": "Vigil" }, "origin": { "key": "scene:vigil", "state": "published" }, "version": 1 }
+    ] }"#;
+
+    /// `/api/shows` as the server answers it, in memory: PUT keeps the content and stamps the next version, GET gives it
+    fn fake_api() -> String {
+        let l = TcpListener::bind("127.0.0.1:0").unwrap();
+        let base = format!("http://{}/api", l.local_addr().unwrap());
+        std::thread::spawn(move || {
+            let (mut kept, mut version) = (None::<serde_json::Value>, 1);
+            for mut s in l.incoming().flatten() {
+                let mut r = BufReader::new(s.try_clone().unwrap());
+                let mut line = String::new();
+                r.read_line(&mut line).unwrap();
+                let mut length = 0;
+                loop {
+                    let mut h = String::new();
+                    r.read_line(&mut h).unwrap();
+                    if h.trim().is_empty() {
+                        break;
+                    }
+                    if let Some(v) = h.to_ascii_lowercase().strip_prefix("content-length:") {
+                        length = v.trim().parse().unwrap();
+                    }
+                }
+                let mut body = vec![0; length];
+                r.read_exact(&mut body).unwrap();
+                let (code, answer) = match (line.split(' ').next(), kept.clone()) {
+                    (Some("PUT"), _) => {
+                        let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+                        kept = v.get("content").cloned();
+                        version += 1;
+                        (200, serde_json::json!({ "version": { "version": version } }))
+                    }
+                    (Some("GET"), Some(doc)) => (200, serde_json::json!({ "content": doc })),
+                    _ => (404, serde_json::json!({ "error": "not_found" })),
+                };
+                let text = answer.to_string();
+                let _ = write!(s, "HTTP/1.1 {code} X\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{text}", text.len());
+            }
+        });
+        base
+    }
+
+    const W: f32 = 1600.0;
+    const H: f32 = 900.0;
+
+    /// one frame of the Show workspace (or Perform), then a press on the first place that is `want`
+    fn press(host: &mut Host, perform: bool, want: impl Fn(&Hit) -> bool) {
+        let (mut d, t) = (DrawList::new(0.6), Tokens::default());
+        host.hits.clear();
+        if perform {
+            perform::draw(&mut d, &t, host, W, H, (0.0, 0.0));
+        } else {
+            author::draw(&mut d, &t, host, W, H, (0.0, 0.0));
+        }
+        let (r, hit) = host.hits.iter().rev().find(|(_, h)| want(h)).copied().unwrap_or_else(|| panic!("no such place: {:?}", host.hits.iter().map(|(_, h)| h).collect::<Vec<_>>()));
+        assert_eq!(host.hit(r.x + r.w * 0.5, r.y + r.h * 0.5), Some(hit), "the place answers its press");
+        host.press(hit);
+    }
+
+    fn typed(host: &mut Host, text: &str) {
+        for c in text.chars() {
+            host.type_key(&Key::Character(c.to_string().into()));
+        }
+        host.type_key(&Key::Named(NamedKey::Enter));
+    }
+
+    /// #537's done-when, the editor's half: from nothing to a row with a play cell naming a published scene picked from the
+    /// book, by the places the operator presses; saved and loaded through /api/shows; fired from Perform
+    #[test]
+    fn a_show_is_made_from_nothing_saved_loaded_and_fired_from_perform() {
+        let cache = std::env::temp_dir().join(format!("deck-editor-rows-{}", std::process::id()));
+        let base = fake_api();
+        let mut host = Host::new(None, None, None, base.clone());
+        host.api = api::Api::with_cache(base, cache.join("shows"));
+        host.book = Some(Arc::new(deck_space::rig::book::Book::parse(BOOK).unwrap()));
+        assert!(host.shown().rows.is_empty(), "from nothing: one role, no row");
+
+        press(&mut host, false, |h| *h == Hit::RowAdd);
+        assert_eq!(host.status, "row 1 row added: by hand, every column keeps");
+        press(&mut host, false, |h| *h == Hit::RowName);
+        for _ in 0..3 {
+            host.type_key(&Key::Named(NamedKey::Backspace));
+        }
+        typed(&mut host, "opening");
+        assert_eq!(host.shown().rows[0].id, "opening");
+        // the cell on `left` in the rows band, then `play`: it names no piece yet, so the picker opens
+        press(&mut host, false, |h| *h == Hit::Cell(0, 0));
+        assert_eq!(host.cell.as_deref(), Some("left"));
+        press(&mut host, false, |h| *h == Hit::CellMode(0));
+        assert_eq!(host.sheet, Some(Sheet::Piece));
+        assert_eq!(host.piece_list().iter().map(|p| p.address.as_str()).collect::<Vec<_>>(), ["scene:nave", "scene:vigil"]);
+        // typed to find, then the line pressed
+        typed(&mut host, "nav");
+        assert_eq!(host.status, "row 1 opening, left: scene:nave", "Enter picks the first scene found");
+        assert_eq!(host.sheet, None, "the picker closes on a pick");
+        let made = host.shown().clone();
+        let fixture = deck_show::parse(include_str!("../../../show/fixtures/first-row.show.json")).unwrap();
+        assert_eq!(made, fixture, "the document the headless scenario fires");
+        // the picker again: a line pressed picks it
+        press(&mut host, false, |h| *h == Hit::CellPiece);
+        press(&mut host, false, |h| *h == Hit::PiecePick(1));
+        assert_eq!(host.status, "row 1 opening, left: scene:vigil");
+        press(&mut host, false, |h| *h == Hit::CellPiece);
+        press(&mut host, false, |h| *h == Hit::PiecePick(0));
+
+        press(&mut host, false, |h| *h == Hit::Save);
+        assert_eq!(host.status, "saved new-show as version 2");
+        host.sub = deck_show::Subtree::new(deck_show::parse(r#"{ "id": "new-show", "version": 1, "outlets": [{ "id": "left" }], "rows": [] }"#).unwrap(), deck_show::ClockChoice::Parent);
+        press(&mut host, false, |h| *h == Hit::Load);
+        assert_eq!(host.status, "loaded new-show@1");
+        assert_eq!(host.shown(), &fixture, "loaded as saved");
+
+        // Perform: the row's ▶ – the conductor plays the scene on left and logs the fire
+        press(&mut host, true, |h| *h == Hit::Fire(0));
+        let m = deck_show::view::matrix(&host.sub);
+        assert!(m.rows[0].current && m.rows[0].cells[0].on && m.rows[0].cells[0].text == "scene:nave", "{m:?}");
+        assert_eq!(deck_show::view::log(host.sub.log(), 1)[0].1, "fired opening (hand)");
+        let _ = std::fs::remove_dir_all(&cache);
+    }
+
+    #[test]
+    fn a_row_is_removed_after_its_prompt_and_without_a_book_the_piece_is_typed() {
+        let mut host = Host::new(None, None, None, "http://127.0.0.1:9/api".into());
+        host.book_why = Some("no address book – the editor reads one with --toon <toon> (or --book FILE)".into());
+        press(&mut host, false, |h| *h == Hit::RowAdd);
+        press(&mut host, false, |h| *h == Hit::RowAdd);
+        assert_eq!(host.shown().rows.iter().map(|r| r.id.as_str()).collect::<Vec<_>>(), ["row", "row-2"]);
+        press(&mut host, false, |h| *h == Hit::Cell(1, 0));
+        press(&mut host, false, |h| *h == Hit::CellPiece);
+        assert!(host.piece_list().is_empty());
+        typed(&mut host, "nave");
+        assert!(host.status.starts_with("not changed: row 'row-2', 'left'"), "the core reads the typed piece: {}", host.status);
+        assert_eq!(host.sheet, Some(Sheet::Piece), "refused: the picker stays");
+        press(&mut host, false, |h| *h == Hit::PieceType);
+        for _ in 0.."nave".len() {
+            host.type_key(&Key::Named(NamedKey::Backspace));
+        }
+        typed(&mut host, "scene:crypt");
+        assert_eq!(host.status, "row 2 row-2, left: scene:crypt");
+        press(&mut host, false, |h| *h == Hit::RowRemove);
+        press(&mut host, false, |h| *h == Hit::AskYes);
+        assert_eq!(host.status, "row row-2 removed with its 1 cells");
+        assert_eq!((host.shown().rows.len(), host.row), (1, 0));
+    }
+}

@@ -1,0 +1,471 @@
+//! A show's rows and a cell's piece in the deck editor's Show workspace (#537; SHOW.md §5, §7; SCENES.md 2·6; #267 draft
+//! 4): a row is added, renamed and removed here, a cell's mode set and its piece picked – a published scene from the
+//! toon's address book (`GET /api/addresses/<toon>`, the editor's book; its scene entries are the published scenes, each
+//! with the version listed) or, where the editor has no book, typed as `scene:<id>` and read by the one parser. Every edit
+//! changes the document and is checked by `validate` ([`edit`]: a refused edit says why, in its words); how a row fires
+//! stays the inspector's as it is (the event picker is #539). The words, the modes a column offers, the prompt before a
+//! remove and the picker's lines are here once; the editor lays them out (RULES A1, A2), like roles.rs (#478).
+use crate::choose::{Prompt, Tone};
+use crate::document::{Cell, OutletKind, Row, Show, Values, PIECE_KINDS};
+use crate::view::cell_text;
+use deck_space::rig::book::Book;
+
+/// the tree's line that adds a row
+pub const ADD: &str = "new row";
+/// the row inspector's name field and its remove
+pub const NAME: &str = "name";
+pub const REMOVE: &str = "Remove row …";
+/// the cell inspector's piece field and what it says while the cell names none
+pub const PIECE: &str = "piece";
+pub const NO_PIECE: &str = "none – pick a published scene";
+/// what the picker says where the editor has no address book (and why not comes from the book's loader)
+pub const TYPE_IT: &str = "Type scene:<id> and Enter – the core reads it; a book (--toon) lists the published scenes.";
+/// what the picker says when the book lists no published scene that matches
+pub const NONE_FOUND: &str = "No published scene matches.";
+
+/// A cell's mode as the inspector offers it (SHOW.md §5). Device outlets' sends and looks are not authored here.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Mode {
+    Play,
+    Values,
+    Mirror,
+    Black,
+    Keep,
+    Go,
+    Free,
+}
+
+impl Mode {
+    pub fn word(self) -> &'static str {
+        match self {
+            Mode::Play => "play",
+            Mode::Values => "values",
+            Mode::Mirror => "mirror",
+            Mode::Black => "black",
+            Mode::Keep => "keep",
+            Mode::Go => "go",
+            Mode::Free => "free",
+        }
+    }
+
+    fn of(cell: &Cell) -> Option<Mode> {
+        Some(match cell {
+            Cell::Play { .. } => Mode::Play,
+            Cell::Values { .. } => Mode::Values,
+            Cell::Mirror { .. } => Mode::Mirror,
+            Cell::Black => Mode::Black,
+            Cell::Keep => Mode::Keep,
+            Cell::Go { .. } => Mode::Go,
+            Cell::Free => Mode::Free,
+            Cell::Look { .. } => return None,
+        })
+    }
+}
+
+/// One mode chip of the cell inspector.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ModeView {
+    pub mode: Mode,
+    pub word: &'static str,
+    /// the cell's mode now
+    pub on: bool,
+    /// choosing it opens the piece picker first: `play` on a cell that names no piece yet
+    pub picks: bool,
+}
+
+/// A change to a show's rows or a cell, made in the Show workspace.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Edit {
+    /// a new row after `after` (none: after the last), by hand, every column keeps
+    Add { after: Option<String> },
+    /// its name (the row's id: the face's list follows)
+    Rename { id: String, to: String },
+    /// the row and its cells go
+    Remove { id: String },
+    /// the cell's mode; what it held carries over where the new mode holds it (the piece, the values)
+    Mode { row: String, column: String, mode: Mode },
+    /// the cell plays this piece (a `values` cell expects it instead); values meant for another piece go
+    Piece { row: String, column: String, piece: String },
+}
+
+/// An edit made: the changed document, what it did in words, the row to select after it.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Edited {
+    pub show: Show,
+    pub said: String,
+    pub row: Option<String>,
+}
+
+fn row_at(show: &Show, id: &str) -> Result<usize, String> {
+    show.rows.iter().position(|r| r.id == id).ok_or_else(|| format!("no row '{id}'"))
+}
+
+/// the piece a cell names, if it names one
+fn piece_of(cell: Option<&Cell>) -> Option<&str> {
+    match cell? {
+        Cell::Play { piece: Some(p), .. } | Cell::Values { piece: p, .. } => Some(p),
+        _ => None,
+    }
+}
+
+/// The piece that plays on `column` when row `at` fires after the rows above it in order: the nearest row above whose
+/// cell there names one; a black, a mirror or nothing above: none.
+fn playing_before(show: &Show, at: usize, column: &str) -> Option<String> {
+    for r in show.rows[..at].iter().rev() {
+        match r.cells.get(column) {
+            None | Some(Cell::Keep) => continue,
+            other => return piece_of(other).map(str::to_string),
+        }
+    }
+    None
+}
+
+/// The modes column `column` offers: a stage outlet `play`, `values`, `mirror`, `black`, `keep`; a seat `go`, `free`,
+/// `keep`; a device outlet `keep` (its sends and looks are not authored here). The cell's mode now is on.
+pub fn modes(show: &Show, row: &str, column: &str) -> Vec<ModeView> {
+    let cell = show.row(row).and_then(|r| r.cells.get(column));
+    let now = cell.and_then(Mode::of).unwrap_or(Mode::Keep);
+    let offered: &[Mode] = match show.outlet(column).map(|o| o.kind) {
+        Some(OutletKind::Stage) => &[Mode::Play, Mode::Values, Mode::Mirror, Mode::Black, Mode::Keep],
+        Some(OutletKind::Device) => &[Mode::Keep],
+        None if show.seat(column).is_some() => &[Mode::Go, Mode::Free, Mode::Keep],
+        None => &[],
+    };
+    let has_piece = piece_of(cell).is_some();
+    offered.iter().map(|&m| ModeView { mode: m, word: m.word(), on: m == now, picks: m == Mode::Play && !has_piece }).collect()
+}
+
+/// the cell `mode` makes of `was` on `column` in row `at`
+fn cell_for(show: &Show, at: usize, column: &str, mode: Mode, was: Option<&Cell>) -> Result<Cell, String> {
+    let values = match was {
+        Some(Cell::Play { values, .. } | Cell::Values { values, .. }) => values.clone(),
+        _ => Values::new(),
+    };
+    Ok(match mode {
+        Mode::Keep => Cell::Keep,
+        Mode::Black => Cell::Black,
+        Mode::Free => Cell::Free,
+        Mode::Play => match piece_of(was) {
+            Some(p) => Cell::Play { piece: Some(p.to_string()), values, send: vec![] },
+            None => return Err(format!("{column}: pick a piece – `play` names one")),
+        },
+        Mode::Values => match piece_of(was).map(str::to_string).or_else(|| playing_before(show, at, column)) {
+            Some(piece) => Cell::Values { piece, values },
+            None => return Err(format!("{column}: no piece plays there before this row – `values` changes a piece that plays")),
+        },
+        Mode::Mirror => {
+            let row = &show.rows[at];
+            let other = show.outlets.iter().filter(|o| o.kind == OutletKind::Stage && o.id != column);
+            match other.map(|o| &o.id).find(|o| !matches!(row.cells.get(*o), Some(Cell::Mirror { .. }))) {
+                Some(of) => Cell::Mirror { of: of.clone() },
+                None => return Err(format!("{column}: no other stage outlet to mirror")),
+            }
+        }
+        Mode::Go => match show.seat(column).and_then(|s| s.uses.rows.first()) {
+            Some(r) => Cell::Go { row: r.clone() },
+            None => return Err(format!("{column}: the seat uses none of its child's rows")),
+        },
+    })
+}
+
+/// a cell into a row: `keep` is no cell (you write only what changes)
+fn put(row: &mut Row, column: &str, cell: Cell) {
+    if cell == Cell::Keep {
+        row.cells.remove(column);
+    } else {
+        row.cells.insert(column.to_string(), cell);
+    }
+}
+
+/// Make `e` on `show`. The document is checked after it (`validate`): an edit that adds a problem is refused, with the
+/// problem's words; problems the document had before stay its own (the problems list says them).
+pub fn edit(show: &Show, e: &Edit) -> Result<Edited, String> {
+    let before = crate::validate::validate(show);
+    let mut next = show.clone();
+    let (said, row) = match e {
+        Edit::Add { after } => {
+            let free = |id: &String| show.row(id).is_none();
+            let id = (1..).map(|n| if n == 1 { "row".to_string() } else { format!("row-{n}") }).find(free).unwrap_or_default();
+            let at = match after {
+                Some(a) => row_at(show, a)? + 1,
+                None => next.rows.len(),
+            };
+            next.rows.insert(at, Row { id: id.clone(), fire: Default::default(), cells: Default::default(), addresses: vec![] });
+            (format!("row {} {id} added: by hand, every column keeps", at + 1), Some(id))
+        }
+        Edit::Rename { id, to } => {
+            let i = row_at(&next, id)?;
+            let to = to.trim().to_string();
+            for r in next.face.rows.iter_mut().filter(|r| *r == id) {
+                r.clone_from(&to);
+            }
+            next.rows[i].id.clone_from(&to);
+            (format!("row {} {id} is called {to}", i + 1), Some(to))
+        }
+        Edit::Remove { id } => {
+            let i = row_at(&next, id)?;
+            let gone = next.rows.remove(i);
+            next.face.rows.retain(|r| r != id);
+            let cells = gone.cells.values().filter(|c| !matches!(c, Cell::Keep)).count();
+            let select = i.checked_sub(1).or((!next.rows.is_empty()).then_some(0)).map(|j| next.rows[j].id.clone());
+            (format!("row {id} removed with its {cells} cells"), select)
+        }
+        Edit::Mode { row, column, mode } => {
+            let i = row_at(&next, row)?;
+            let cell = cell_for(&next, i, column, *mode, next.rows[i].cells.get(column))?;
+            let text = cell_text(&cell);
+            put(&mut next.rows[i], column, cell);
+            (format!("row {} {row}, {column}: {text}", i + 1), Some(row.clone()))
+        }
+        Edit::Piece { row, column, piece } => {
+            let i = row_at(&next, row)?;
+            let piece = piece.trim().to_string();
+            let (cell, dropped) = match next.rows[i].cells.get(column) {
+                Some(Cell::Values { piece: p, values }) if *p == piece => (Cell::Values { piece: piece.clone(), values: values.clone() }, false),
+                Some(Cell::Values { values, .. }) => (Cell::Values { piece: piece.clone(), values: Values::new() }, !values.is_empty()),
+                Some(Cell::Play { piece: Some(p), values, .. }) if *p == piece => (Cell::Play { piece: Some(piece.clone()), values: values.clone(), send: vec![] }, false),
+                Some(Cell::Play { values, .. }) => (Cell::Play { piece: Some(piece.clone()), values: Values::new(), send: vec![] }, !values.is_empty()),
+                _ => (Cell::Play { piece: Some(piece.clone()), values: Values::new(), send: vec![] }, false),
+            };
+            let text = cell_text(&cell);
+            put(&mut next.rows[i], column, cell);
+            (format!("row {} {row}, {column}: {text}{}", i + 1, if dropped { " – the values for the other piece went" } else { "" }), Some(row.clone()))
+        }
+    };
+    let added: Vec<String> = crate::validate::validate(&next).into_iter().filter(|p| !before.contains(p)).map(|p| p.to_string()).collect();
+    match added.first() {
+        Some(p) => Err(format!("not changed: {p}")),
+        None => Ok(Edited { show: next, said, row }),
+    }
+}
+
+/// The prompt before a row is removed: what goes with it (its cells, the event it listens to, the face's entry).
+pub fn remove_prompt(show: &Show, id: &str) -> Prompt {
+    let Some((i, r)) = show.rows.iter().enumerate().find(|(_, r)| r.id == id) else {
+        return Prompt { title: format!("No row '{id}'"), warn: false, lines: vec![], confirm: "Remove".into(), can: false };
+    };
+    let mut lines: Vec<(String, Tone)> = r.cells.iter().filter(|(_, c)| !matches!(c, Cell::Keep)).map(|(col, c)| (format!("{col}: {} goes", cell_text(c)), Tone::Warn)).collect();
+    let cells = !lines.is_empty();
+    if !cells {
+        lines.push(("every column keeps: no cell goes".into(), Tone::Muted));
+    }
+    if let Some(e) = &r.fire.event {
+        lines.push((format!("the event '{e}' fires no row then"), Tone::Muted));
+    }
+    if show.face.rows.contains(&r.id) {
+        lines.push(("the face shows it: a parent that seats this show loses it".into(), Tone::Warn));
+    }
+    lines.push(("The document changes here; Save keeps it.".into(), Tone::Muted));
+    Prompt { title: format!("Remove the row {} {id}?", i + 1), warn: cells, lines, confirm: "Remove".into(), can: true }
+}
+
+/// The cell inspector: the selected cell of the row inspected, its modes as chips, its piece.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CellInspector {
+    /// `cell · row 1 start · left`
+    pub title: String,
+    pub modes: Vec<ModeView>,
+    /// a stage outlet's piece field: the piece, or [`NO_PIECE`]; none: the column holds no piece (a seat, a device)
+    pub piece: Option<String>,
+}
+
+/// The inspector of `column`'s cell in `row`.
+pub fn cell_inspector(show: &Show, row: &str, column: &str) -> Option<CellInspector> {
+    let (i, r) = show.rows.iter().enumerate().find(|(_, r)| r.id == row)?;
+    let stage = show.outlet(column).filter(|o| o.kind == OutletKind::Stage);
+    if stage.is_none() && show.outlet(column).is_none() && show.seat(column).is_none() {
+        return None;
+    }
+    let piece = stage.map(|_| piece_of(r.cells.get(column)).map_or_else(|| NO_PIECE.to_string(), str::to_string));
+    Some(CellInspector { title: format!("cell · row {} {row} · {column}", i + 1), modes: modes(show, row, column), piece })
+}
+
+/// One published scene the piece picker lists.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PieceView {
+    /// what the piece holds: `scene:nave`
+    pub address: String,
+    /// the label chain for people: `Nave`
+    pub label: String,
+    /// `scene:nave · v2`, `· newer draft`, `· template`
+    pub detail: String,
+}
+
+/// The published scenes of the toon's book that match `query` (the book's own find, the kinds a piece may be: [`PIECE_KINDS`]),
+/// in the book's order: each with the version the book lists. A scene the book lists without a version is not published.
+pub fn pieces(book: &Book, query: &str, locale: &str) -> Vec<PieceView> {
+    book.find(query, &PIECE_KINDS, locale)
+        .into_iter()
+        .filter_map(|i| {
+            let e = book.entry(i)?;
+            let (address, version) = (e.address.clone()?, e.version?);
+            let row = book.row(i, locale)?;
+            let mut detail = format!("{address} · v{version}");
+            if row.draft {
+                detail.push_str(" · newer draft");
+            }
+            if !e.placeholders.as_ref().is_none_or(Vec::is_empty) {
+                detail.push_str(" · template");
+            }
+            Some(PieceView { address, label: row.chain, detail })
+        })
+        .collect()
+}
+
+/// the picker's heading for `column`'s cell in `row`
+pub fn picker_title(show: &Show, row: &str, column: &str) -> String {
+    let n = show.rows.iter().position(|r| r.id == row).map_or(0, |i| i + 1);
+    format!("PIECE FOR ROW {n} {} · {} – A PUBLISHED SCENE OF THE TOON'S ADDRESS BOOK", row.to_uppercase(), column.to_uppercase())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::document::{open, parse};
+    use crate::subtree::{ClockChoice, Subtree};
+    use protocol::{LayerSrc, Message};
+
+    /// the editor's new show (deck-editor show/mod.rs `EMPTY`): one role, no row yet
+    const NOTHING: &str = r#"{ "id": "new-show", "version": 1, "outlets": [{ "id": "left" }], "rows": [] }"#;
+    /// two roles and a lamp, no row yet
+    const NEW: &str = r#"{ "id": "new-show", "version": 1, "outlets": [{ "id": "left" }, { "id": "right" }, { "id": "lamps", "kind": "device" }], "rows": [] }"#;
+
+    fn ed(show: &Show, e: Edit) -> Edited {
+        edit(show, &e).unwrap_or_else(|why| panic!("{e:?}: {why}"))
+    }
+
+    fn mode(row: &str, column: &str, mode: Mode) -> Edit {
+        Edit::Mode { row: row.into(), column: column.into(), mode }
+    }
+
+    /// #537's done-when, the core's half: from nothing to a row with a play cell naming a published scene, through the
+    /// document; saved as JSON it is the document the headless scenario fires (show/fixtures/first-row.show.json)
+    #[test]
+    fn a_show_gets_a_row_and_a_play_cell_naming_a_scene_from_nothing() {
+        let show = parse(NOTHING).unwrap();
+        let added = ed(&show, Edit::Add { after: None });
+        assert_eq!((added.said.as_str(), added.row.as_deref()), ("row 1 row added: by hand, every column keeps", Some("row")));
+        let named = ed(&added.show, Edit::Rename { id: "row".into(), to: " opening ".into() });
+        assert_eq!(named.said, "row 1 row is called opening");
+        let m = modes(&named.show, "opening", "left");
+        let words: Vec<(&str, bool, bool)> = m.iter().map(|m| (m.word, m.on, m.picks)).collect();
+        assert_eq!(words, [("play", false, true), ("values", false, false), ("mirror", false, false), ("black", false, false), ("keep", true, false)], "play picks a piece first");
+        assert_eq!(edit(&named.show, &mode("opening", "left", Mode::Play)).unwrap_err(), "left: pick a piece – `play` names one");
+        let played = ed(&named.show, Edit::Piece { row: "opening".into(), column: "left".into(), piece: "scene:nave".into() });
+        assert_eq!(played.said, "row 1 opening, left: scene:nave");
+        assert!(crate::validate(&played.show).is_empty());
+        let saved = serde_json::to_string_pretty(&played.show).unwrap();
+        let fixture: Show = parse(include_str!("../fixtures/first-row.show.json")).unwrap();
+        assert_eq!(parse(&saved).unwrap(), fixture, "the saved document is the scenario's");
+        // fired: the conductor sends left the full cell with the scene as its piece
+        let mut sub = Subtree::new(fixture, ClockChoice::Parent);
+        let out = sub.fire("opening", 1000);
+        let piece = out.iter().find_map(|e| match &e.message {
+            Message::Cell(c) => c.cell.layers.as_ref()?.first().and_then(|l| if let LayerSrc::Piece(p) = &l.src { Some((c.outlet.clone(), p.piece.clone())) } else { None }),
+            _ => None,
+        });
+        assert_eq!(piece, Some(("left".to_string(), "scene:nave".to_string())), "{out:?}");
+    }
+
+    #[test]
+    fn rows_are_added_after_the_selected_renamed_and_refused_in_validates_words() {
+        let show = parse(include_str!("../fixtures/top-toy.show.json")).unwrap();
+        let added = ed(&show, Edit::Add { after: Some("opening".into()) });
+        assert_eq!(added.show.rows[1].id, "row");
+        assert_eq!(added.said, "row 2 row added: by hand, every column keeps");
+        assert_eq!(ed(&added.show, Edit::Add { after: None }).row.as_deref(), Some("row-2"));
+        assert_eq!(edit(&added.show, &Edit::Rename { id: "row".into(), to: "dialog".into() }).unwrap_err(), "not changed: two rows named 'dialog'");
+        assert_eq!(edit(&added.show, &Edit::Rename { id: "row".into(), to: " ".into() }).unwrap_err(), "not changed: show: an empty row id");
+        assert_eq!(edit(&show, &Edit::Rename { id: "nowhere".into(), to: "x".into() }).unwrap_err(), "no row 'nowhere'");
+        // the face's list follows the name
+        let mut faced = show.clone();
+        faced.face.rows = vec!["finale".into()];
+        let renamed = ed(&faced, Edit::Rename { id: "finale".into(), to: "curtain".into() });
+        assert_eq!(renamed.show.face.rows, ["curtain"]);
+    }
+
+    #[test]
+    fn a_remove_asks_first_and_says_what_goes() {
+        let mut show = parse(include_str!("../fixtures/top-toy.show.json")).unwrap();
+        show.face.rows = vec!["dialog".into()];
+        let p = remove_prompt(&show, "dialog");
+        assert_eq!(p.title, "Remove the row 2 dialog?");
+        assert_eq!(p.lines[0], ("lamps: look warm · fade 0.8 s goes".to_string(), Tone::Warn));
+        assert!(p.lines.iter().any(|(l, _)| l.starts_with("the event 'ch3.dialog-start' fires no row then")), "{:?}", p.lines);
+        assert!(p.lines.iter().any(|(l, t)| l.starts_with("the face shows it") && *t == Tone::Warn));
+        assert!(p.warn && p.can);
+        let gone = ed(&show, Edit::Remove { id: "dialog".into() });
+        assert_eq!(gone.said, "row dialog removed with its 2 cells");
+        assert_eq!((gone.row.as_deref(), gone.show.face.rows.len()), (Some("opening"), 0), "the row before is selected; the face's entry went");
+        let first = ed(&show, Edit::Remove { id: "opening".into() });
+        assert_eq!(first.row.as_deref(), Some("dialog"), "the first row gone: the new first");
+        let empty = parse(NEW).unwrap();
+        let one = ed(&empty, Edit::Add { after: None });
+        assert_eq!(ed(&one.show, Edit::Remove { id: "row".into() }).row, None);
+    }
+
+    #[test]
+    fn a_cells_mode_carries_its_piece_and_values_where_it_can() {
+        let show = parse(include_str!("../fixtures/top-toy.show.json")).unwrap();
+        // dialog's left is `values` on scene:nave: play keeps the piece and its values
+        let play = ed(&show, mode("dialog", "left", Mode::Play));
+        assert_eq!(play.said, "row 2 dialog, left: scene:nave · dim 0.5");
+        assert!(modes(&play.show, "dialog", "left").iter().all(|m| !m.picks), "it names a piece: play picks none");
+        // values on a cell that names no piece: the piece that plays there before it (yellowmouse-enters' rig)
+        let values = ed(&show, mode("finale", "left", Mode::Values));
+        assert!(matches!(values.show.row("finale").unwrap().cells.get("left"), Some(Cell::Values { piece, .. }) if piece == "character:yellowmouse"));
+        let fresh = ed(&parse(NEW).unwrap(), Edit::Add { after: None }).show;
+        assert_eq!(edit(&fresh, &mode("row", "left", Mode::Values)).unwrap_err(), "left: no piece plays there before this row – `values` changes a piece that plays");
+        // mirror: the other stage outlet; keep: no cell
+        let mirrored = ed(&fresh, mode("row", "right", Mode::Mirror));
+        assert_eq!(mirrored.show.rows[0].cells.get("right"), Some(&Cell::Mirror { of: "left".into() }));
+        assert_eq!(edit(&mirrored.show, &mode("row", "left", Mode::Mirror)).unwrap_err(), "left: no other stage outlet to mirror");
+        let kept = ed(&mirrored.show, mode("row", "right", Mode::Keep));
+        assert!(kept.show.rows[0].cells.is_empty() && kept.said == "row 1 row, right: ↑");
+        // a device outlet offers keep only; a seat go / free / keep
+        assert_eq!(modes(&fresh, "row", "lamps").iter().map(|m| m.word).collect::<Vec<_>>(), ["keep"]);
+        assert_eq!(modes(&show, "dialog", "foyer").iter().map(|m| m.word).collect::<Vec<_>>(), ["go", "free", "keep"]);
+    }
+
+    #[test]
+    fn a_piece_is_picked_or_typed_and_the_core_reads_it() {
+        let show = parse(include_str!("../fixtures/top-toy.show.json")).unwrap();
+        // a values cell expects the new piece; its values were the other piece's
+        let swapped = ed(&show, Edit::Piece { row: "dialog".into(), column: "left".into(), piece: "scene:vigil".into() });
+        assert_eq!(swapped.said, "row 2 dialog, left: values · scene:vigil – the values for the other piece went");
+        assert!(matches!(swapped.show.row("dialog").unwrap().cells.get("left"), Some(Cell::Values { piece, values }) if piece == "scene:vigil" && values.is_empty()));
+        // a typed piece the one parser does not read is refused in its words
+        let typed = edit(&show, &Edit::Piece { row: "finale".into(), column: "left".into(), piece: "nave".into() }).unwrap_err();
+        assert!(typed.starts_with("not changed: row 'finale', 'left': "), "{typed}");
+        // a device outlet takes no piece
+        assert!(edit(&show, &Edit::Piece { row: "finale".into(), column: "lamps".into(), piece: "scene:nave".into() }).is_err());
+    }
+
+    #[test]
+    fn the_cell_inspector_and_the_picker_say_the_published_scenes() {
+        let show = open(include_str!("../fixtures/top-toy.show.json")).unwrap();
+        let i = cell_inspector(&show, "dialog", "left").unwrap();
+        assert_eq!(i.title, "cell · row 2 dialog · left");
+        assert_eq!(i.piece.as_deref(), Some("scene:nave"));
+        assert_eq!(cell_inspector(&show, "finale", "left").unwrap().piece.as_deref(), Some(NO_PIECE));
+        assert_eq!(cell_inspector(&show, "finale", "lamps").unwrap().piece, None, "a device holds no piece");
+        assert!(cell_inspector(&show, "finale", "nowhere").is_none());
+        assert_eq!(picker_title(&show, "finale", "left"), "PIECE FOR ROW 4 FINALE · LEFT – A PUBLISHED SCENE OF THE TOON'S ADDRESS BOOK");
+        let book = Book::parse(BOOK).unwrap();
+        let all = pieces(&book, "", "en");
+        assert_eq!(all.iter().map(|p| p.address.as_str()).collect::<Vec<_>>(), ["scene:nave", "scene:stage"], "scenes only, not the chapter's group or the unpublished crypt");
+        assert_eq!(all[0], PieceView { address: "scene:nave".into(), label: "Nave".into(), detail: "scene:nave · v2 · newer draft".into() });
+        assert_eq!(all[1].detail, "scene:stage · v1 · template");
+        assert_eq!(pieces(&book, "nav", "en").len(), 1);
+    }
+
+    /// a toon's book as the API gives it: two published scenes (one a template), one not yet published, other kinds
+    pub(crate) const BOOK: &str = r#"{ "address_book": 2, "toon": "catpope", "version": "v1", "source": "en", "entries": [
+        { "ref": "character:catpope", "address": "character:catpope", "kind": "character", "name": "catpope", "labels": { "en": "Cat Pope" }, "origin": { "key": "character:catpope", "state": "published" } },
+        { "ref": "chapter:3.nave", "kind": "group", "name": "nave", "parent": "chapter:3", "labels": {}, "origin": { "key": "chapter:catpope:3", "state": "published" } },
+        { "ref": "scene:nave", "address": "scene:nave", "kind": "scene", "name": "nave", "labels": { "en": "Nave" }, "origin": { "key": "scene:nave", "state": "draft" }, "version": 2 },
+        { "ref": "scene:stage", "address": "scene:stage", "kind": "scene", "name": "stage", "labels": { "en": "Stage" }, "origin": { "key": "scene:stage", "state": "published" }, "version": 1,
+          "placeholders": [{ "id": "who", "fill": { "kind": ["character"] }, "label": { "en": "Who" } }] },
+        { "ref": "scene:crypt", "address": "scene:crypt", "kind": "scene", "name": "crypt", "labels": { "en": "Crypt" }, "origin": { "key": "scene:crypt", "state": "draft" } }
+    ] }"#;
+}

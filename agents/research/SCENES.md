@@ -373,7 +373,7 @@ The templates (system placeholder scenes – published scene documents with no t
 | 2·3 | **Sources:** a location names its set (`set` → a home scene entry); scene-content carries a scene's set, looks and rigs per rung. **Built (#512):** §9.3's last line | M | `location:cathedral` → the cathedral's `.glb`, still, video |
 | 2a–2c | as §6: native, browser deck, preload – now resolving a use's fillers and the location's set (2a + 2b built, #246; 2c built, #513: §6) | M + S + S | as §6 |
 | ~~2·4, 2·5, 2·7~~ | **Withdrawn 2026-11-13** (the reader stays as is). Replaced by **E1–E3 in agents/research/SCENE-EVENTS.md §4**: E1 join / leave while a scene plays (#516), E2 a scene listens to its session's story events, E3 the story events listed | M + M + S–M | SCENE-EVENTS.md §4 |
-| 2·6 | **Creator fields:** location Default scene, character Home scene, the cell's piece with fillers (deck editor); the Scenes browser (draft 3) with a Template filter (a reader group's Scene field: withdrawn 2026-11-13) | M | each composes a use from its context |
+| 2·6 | **Creator fields:** location Default scene, character Home scene, the cell's piece with fillers (deck editor; the piece without fillers built, #537); the Scenes browser (draft 3) with a Template filter (a reader group's Scene field: withdrawn 2026-11-13) | M | each composes a use from its context |
 | 2d | the package (SCENE-PACKAGE P3–P5) | L | as §6 |
 | 3 | #244: the editor's stage with holders in the tree (scene › holder › track › node), placeholders dashed, "Preview as" | L | as §6 |
 

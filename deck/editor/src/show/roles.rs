@@ -32,6 +32,9 @@ pub enum Typing {
     VoteOptions,
     VoteN,
     VoteSeconds,
+    /// #537: a row's name (its id); the piece picker's query (or, without a book, the piece typed)
+    RowName(String),
+    Piece,
 }
 
 /// What a prompt asks before it is done.
@@ -39,6 +42,8 @@ pub enum Typing {
 pub enum Ask {
     /// remove this role and its cells
     Remove(String),
+    /// #537: remove this row and its cells
+    RemoveRow(String),
     /// kick this client
     Kick(String),
 }
@@ -51,14 +56,20 @@ impl Host {
             Ok(done) => {
                 self.status = done.said;
                 self.role = done.role;
-                if self.path.is_empty() {
-                    let out = self.sub.edited(done.show);
-                    self.send(out);
-                } else {
-                    self.library.insert(done.show.id.clone(), done.show);
-                }
+                self.changed(done.show);
             }
             Err(why) => self.status = why,
+        }
+    }
+
+    /// The shown document after an edit: the conductor this editor runs takes it (its session hears the roles at once); a
+    /// sub conductor's document shown here changes only here.
+    pub(super) fn changed(&mut self, show: deck_show::Show) {
+        if self.path.is_empty() {
+            let out = self.sub.edited(show);
+            self.send(out);
+        } else {
+            self.library.insert(show.id.clone(), show);
         }
     }
 
@@ -80,6 +91,9 @@ impl Host {
             Hit::RoleRemove => self.asking = id.map(Ask::Remove),
             Hit::AskYes => match self.asking.take() {
                 Some(Ask::Remove(id)) => self.edit_role(&Edit::Remove { id }),
+                Some(Ask::RemoveRow(id)) => {
+                    self.edit_rows(&deck_show::rows::Edit::Remove { id });
+                }
                 Some(Ask::Kick(client)) => {
                     let (out, said) = deck_show::roles::kick(&mut self.sub, &client);
                     self.status = said;
@@ -110,6 +124,10 @@ impl Host {
                         self.send(out);
                     }
                     Typing::ReaderLabel => self.session.place.label = text.trim().to_string(),
+                    Typing::RowName(id) => {
+                        self.edit_rows(&deck_show::rows::Edit::Rename { id, to: text });
+                    }
+                    Typing::Piece => self.piece_typed(&text),
                     vote => self.vote_typed(&vote, &text),
                 }
             }
@@ -126,6 +144,7 @@ impl Host {
                 let here = self.path.is_empty().then(|| self.sub.here_count(id)).flatten();
                 Some(deck_show::roles::remove_prompt(self.shown(), id, here))
             }
+            Ask::RemoveRow(id) => Some(deck_show::rows::remove_prompt(self.shown(), id)),
             Ask::Kick(client) => Some(deck_show::roles::kick_prompt(&self.sub, client)),
         }
     }
