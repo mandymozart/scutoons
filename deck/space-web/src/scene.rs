@@ -19,7 +19,9 @@
 //! (`SceneLink`). The core decides: the cast words of an `address` and the story events the scene's listeners hear, the
 //! story asked for only while it listens. This only moves what came and **switches**: the scene the cast changed to is
 //! the deck's own scene from then on and is changed to through black, as a piece is (the browser deck plays no sound, so
-//! there is no in-place recast to make – live-core is not in this path).
+//! there is no in-place recast to make – live-core is not in this path). #538: a deck with an outlet joins the same way,
+//! and a published scene a show's cell launched listens like a `?scene=`: the link's cast is the scene that plays (the
+//! core's piece.rs `Side::playing`), its changed cast switched to beside the outlet (`Side::recast`).
 use crate::outlet::Outlet;
 use crate::{err, frame_for, open_canvas, portrait_asks, set_from_page, CanvasGpu, SPLASH_AT_MOST};
 use deck_engine::control::Controls;
@@ -281,9 +283,9 @@ impl SceneView {
 
     /// #520: join `relay` (ws:// or wss://…/live/<code>) as a deck of its session for the published scene this view plays,
     /// named `nick` ("" = the core's name) – its socket is the page's (client.ts `RelaySocket` over the returned link).
-    /// None: no relay named, or no published scene.
+    /// None: no relay named, or neither a published scene nor an outlet whose cells may launch one (#538).
     pub fn join_scene(&mut self, relay: &str, nick: &str) -> Result<Option<SceneLink>, JsValue> {
-        if self.published.is_none() && self.kept.is_none() {
+        if self.published.is_none() && self.kept.is_none() && self.side.is_none() {
             return Ok(None);
         }
         let nick = deck_ui::live::preset_name(None, Some(nick), "browser");
@@ -294,16 +296,22 @@ impl SceneView {
         Ok(Some(SceneLink { link }))
     }
 
-    /// #520: the published scene's kept copy to its link – the cast it plays from
+    /// #520: the published scene's kept copy to its link – the cast it plays from. #538: on a deck with an outlet the scene
+    /// that plays is the core's answer (piece.rs `Side::playing`: a cell's `scene:<id>`), its copy the one the outlet's
+    /// store loaded (a deck with an outlet plays no `?scene=` of its own: the idle scene has no outlet).
     fn cast_play(&self) {
         let Some(link) = self.cast.as_ref() else { return };
-        if let Err(e) = link.borrow_mut().play(self.kept.as_deref()) {
+        let kept = match (self.side.as_ref(), self.outlet.as_ref()) {
+            (Some(side), Some(o)) => side.playing(None).and_then(|p| SceneRef::parse(p)?.ok()).and_then(|r| o.fetched.kept(&r)),
+            _ => self.kept.as_deref(),
+        };
+        if let Err(e) = link.borrow_mut().play(kept) {
             web_sys::console::warn_1(&JsValue::from_str(&format!("scene: no cast words or story while it plays: {e}")));
         }
     }
 
-    /// #520: what came for the scene through its link went to the core; the scene its cast changed to is the deck's own
-    /// scene now – switched to through black while it plays (the piece side plays no piece), else when black comes back
+    /// #520: what came for the scene through its link went to the core; the scene its cast changed to is switched to
+    /// through black – the deck's own scene from then on, or (#538) a cell's scene beside the outlet
     fn cast_turn(&mut self) {
         let Some(link) = self.cast.as_ref() else { return };
         let (said, changed) = {
@@ -314,12 +322,17 @@ impl SceneView {
             web_sys::console::log_1(&JsValue::from_str(&line));
         }
         match changed {
-            Some(Ok(text)) => {
-                self.deck = text;
-                if self.side.as_ref().and_then(|s| s.pieces().piece()).is_none() {
+            Some(Ok(text)) => match self.side.as_ref() {
+                // #538: a cell's scene – switched to beside the outlet, as its Load (the core's `Side::recast`)
+                Some(side) => match side.recast(text) {
+                    Ok(scene) => self.change.ask(&scene),
+                    Err(e) => web_sys::console::warn_1(&JsValue::from_str(&format!("scene: the changed cast is not played: {e}"))),
+                },
+                None => {
+                    self.deck = text;
                     self.change.ask(&self.deck);
                 }
-            }
+            },
             Some(Err(e)) => web_sys::console::warn_1(&JsValue::from_str(&format!("scene: the changed cast is not played: {e}"))),
             None => {}
         }
@@ -738,6 +751,7 @@ impl SceneView {
         if cells.is_empty() && self.held.as_ref().is_some_and(|(_, place)| !o.fetched.waits(place)) {
             cells.extend(self.held.take().map(|(cell, _)| cell));
         }
+        let mut switched = false;
         for cell in cells {
             let mut waits = None;
             let said = side.cell(&cell, now, |p| {
@@ -752,6 +766,7 @@ impl SceneView {
                 continue;
             }
             o.status.set_piece(&said.did, &said.problems);
+            switched |= said.switch.is_some();
             match said.switch {
                 Some(Switch::Scene(text)) => self.change.ask(&text),
                 Some(Switch::Deck) => self.change.ask(&self.deck),
@@ -761,6 +776,10 @@ impl SceneView {
         for (path, v) in side.values_at(now) {
             // a value whose node the scene lacks was said when the cell came (piece.rs `resolve`)
             self.show.controls.set_path(&self.show.graph, &path, v);
+        }
+        // #538: another scene plays – the link's cast follows it (a cell's published scene listens as a `?scene=` does)
+        if switched {
+            self.cast_play();
         }
     }
 

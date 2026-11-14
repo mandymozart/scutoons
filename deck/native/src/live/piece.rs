@@ -5,13 +5,16 @@
 //!   rig bundle);
 //! - **switch**: the deck's switch takes a name or a file, so the scene's text is written to `<cache>/live/piece.toml`;
 //!   the deck's own scene is `outlet` (built in). The outlet joins again and its snapshot's cell answers "the same piece";
-//! - **set**: a gliding value into the control domain (deck-engine's `Controls::set_path`).
+//! - **set**: a gliding value into the control domain (deck-engine's `Controls::set_path`);
+//! - **cast** (#517, #538): the scene that plays – the core's answer (`Side::playing`: a cell's `scene:<id>` while it
+//!   plays, else the deck's `--scene`) – takes cast words and the session's story through cast.rs, the same way however it
+//!   was started.
 //!
 //! The HUD's line is deck-outlet's `Status::set_piece`.
 use super::Live;
 use crate::control::Controls;
 use crate::graph::Graph;
-use deck_space::piece::{Found, Switch};
+use deck_space::piece::{Found, Said, Switch};
 use deck_space::published::SceneRef;
 use deck_space::rig::address::Place;
 use std::path::{Path, PathBuf};
@@ -68,15 +71,56 @@ fn file(cache: &Path, place: &Place) -> Option<Found> {
 
 impl Side {
     pub fn new() -> Side {
-        Side { side: deck_space::piece::Side::new(deck_space::scene::OUTLET_SCENE), cache: crate::cache::default_dir(), started: Instant::now(), cast: Default::default() }
+        Side::at(crate::cache::default_dir())
+    }
+
+    /// the piece side of a deck whose cache is `cache`
+    pub fn at(cache: PathBuf) -> Side {
+        Side { side: deck_space::piece::Side::new(deck_space::scene::OUTLET_SCENE), cache, started: Instant::now(), cast: Default::default() }
     }
 
     /// One frame: the playing scene's cast words and story (#517, cast.rs: `scene` is the deck's `--scene`, `space` the
     /// scene's space with its link), then – with the outlet – its cells and glides. Some(scene) = the deck switches to it (a
     /// file, or `outlet`); a piece's switch comes first.
     pub fn frame(&mut self, live: Option<&Live>, space: Option<&mut deck_space::space::Space>, scene: Option<&Path>, graph: &Graph, ctl: &mut Controls) -> Option<String> {
-        let cast = self.cast.frame(&self.cache, scene.and_then(Path::to_str), space);
+        let cast = space.and_then(|s| {
+            s.ask_story(self.listens(scene));
+            let came = s.take_cast();
+            self.hear(scene, came)
+        });
         live.and_then(|l| self.pieces(l, graph, ctl)).or(cast)
+    }
+
+    /// #538: the scene that plays is the core's answer (piece.rs `Side::playing`: a cell's piece while one plays, else the
+    /// deck's `--scene`) – whether it listens to the session's story
+    pub fn listens(&mut self, scene: Option<&Path>) -> bool {
+        self.cast.scene(&self.cache, self.side.playing(scene.and_then(Path::to_str)));
+        self.cast.listens()
+    }
+
+    /// #538: what came for the scene that plays (a space link's `In::Address`, `In::Story`), to its cast. Some(file) = the
+    /// cast changed: the deck switches to that scene, beside its outlet while a cell's piece plays (`Side::recast`).
+    pub fn hear(&mut self, scene: Option<&Path>, came: Vec<deck_space::relay::In>) -> Option<String> {
+        self.cast.scene(&self.cache, self.side.playing(scene.and_then(Path::to_str)));
+        let side = &self.side;
+        self.cast.take(&self.cache, came, |text| side.recast(text))
+    }
+
+    /// the scene that plays' cast, if it is a published scene
+    pub fn cast(&self) -> Option<&deck_space::published::Cast> {
+        self.cast.cast()
+    }
+
+    /// A cell the outlet routed: the core's answer, and the scene the deck switches to for it (a file, or `outlet`).
+    pub fn cell(&mut self, cell: &protocol::Cell) -> (Said, Option<String>) {
+        let now = self.started.elapsed().as_secs_f64() * 1000.0;
+        let said = self.side.cell(cell, now, |p| find(&self.cache, p));
+        let to = match &said.switch {
+            Some(Switch::Scene(text)) => self.write(text),
+            Some(Switch::Deck) => Some("outlet".to_string()),
+            None => None,
+        };
+        (said, to)
     }
 
     /// the cells the outlet routed, then the glides
@@ -84,17 +128,13 @@ impl Side {
         let now = self.started.elapsed().as_secs_f64() * 1000.0;
         let mut switch = None;
         while let Ok(cell) = live.pieces.try_recv() {
-            let said = self.side.cell(&cell, now, |p| find(&self.cache, p));
+            let (said, to) = self.cell(&cell);
             tracing::info!("piece: {}", said.did);
             for p in &said.problems {
                 tracing::warn!("piece: {p}");
             }
             live.status.lock().unwrap().set_piece(&said.did, &said.problems);
-            switch = match said.switch {
-                Some(Switch::Scene(text)) => self.write(&text).or(switch),
-                Some(Switch::Deck) => Some("outlet".to_string()),
-                None => switch,
-            };
+            switch = to.or(switch);
         }
         for (path, v) in self.side.values_at(now) {
             // a value whose node the scene lacks was said when the cell came (piece.rs `resolve`)

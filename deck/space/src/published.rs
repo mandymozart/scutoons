@@ -650,12 +650,17 @@ mod tests {
 
     /// the template `scene:stage` as the loader keeps it (no sources: it names none) – with these listeners, or none
     fn stage_kept(listener: Option<Value>) -> String {
+        let (mut load, _) = Load::start(SceneRef::parse("scene:stage").unwrap().unwrap(), None);
+        play(load.answer(200, &stage_published(listener))).store.expect("the stage is kept")
+    }
+
+    /// the API's answer for the template `scene:stage` (version 3) – with these listeners, or none
+    fn stage_published(listener: Option<Value>) -> String {
         let mut doc: Value = serde_json::from_str(include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../server/tests/fixtures/scenes/templates/stage.json"))).unwrap();
         if let Some(l) = listener {
             doc["listener"] = l;
         }
-        let (mut load, _) = Load::start(SceneRef::parse("scene:stage").unwrap().unwrap(), None);
-        play(load.answer(200, &published(&doc.to_string(), 3))).store.expect("the stage is kept")
+        published(&doc.to_string(), 3)
     }
 
     /// a relay's envelope as the socket brings it
@@ -731,6 +736,54 @@ mod tests {
         // another scene plays: no cast, the ask ends
         listens.play(None).unwrap();
         assert!(!listens.listens() && listens.cast().is_none());
+    }
+
+    /// #538: a show's cell launches the published `scene:stage` on a browser deck with an outlet (space-web scene.rs; the
+    /// outlet's store loaded it, as a flash's check does, #513). The deck's link plays the cast of the scene that plays
+    /// (piece.rs `Side::playing`) from that store's kept copy: a reader's `joinScene` puts Cat Pope at `left`, and the scene
+    /// to load keeps the deck's outlet beside it (`Side::recast`). A cell's scene without a listener asks nothing and shows
+    /// nothing; black: no cast.
+    #[test]
+    fn a_scene_a_cell_launched_listens_on_the_browser_deck_s_link() {
+        use crate::fetched::Fetched;
+        use crate::piece::{Side, Switch};
+        use crate::rig::address::Place;
+        let join = serde_json::json!({ "type": "joinScene", "id": "ch3-e12", "params": { "characters": [{ "character": "catpope" }] } });
+        let cell = |mode: &str, piece: &str| -> protocol::Cell {
+            serde_json::from_value(serde_json::json!({ "mode": mode, "layers": [{ "id": "piece", "src": { "kind": "piece", "p": { "piece": piece } } }] })).unwrap()
+        };
+        for listener in [Some(serde_json::json!([{ "on": "joinScene", "do": "join" }])), None] {
+            let listens = listener.is_some();
+            let (r, place) = (SceneRef::parse("scene:stage").unwrap().unwrap(), Place::new("scene", "stage"));
+            let mut fetched = Fetched::default();
+            assert!(fetched.scene(&r).is_none(), "asked for");
+            fetched.answered(&place, 200, &stage_published(listener));
+            let mut side = Side::new(crate::scene::OUTLET_SCENE);
+            let said = side.cell(&cell("own", "scene:stage"), 0.0, |p| fetched.find(p));
+            assert!(matches!(said.switch, Some(Switch::Scene(_))), "the cell plays the scene: {said:?}");
+            let mut link = CastLink::join("ws://127.0.0.1:7070/live/CELL", "cell", "browser").unwrap().unwrap();
+            let playing = side.playing(None).and_then(|p| SceneRef::parse(p)?.ok()).expect("a published scene plays");
+            link.play(fetched.kept(&playing)).unwrap();
+            assert_eq!(link.listens(), listens);
+            assert_eq!(joined(&mut link, "c1").contains(&"deck.story".to_string()), listens, "it asks for the story only while it listens");
+            assert!(standing(&link).is_empty(), "the stage plays empty");
+            link.relay_at(3.0).text(3.0, &envelope(2, "r1", "story", join.clone()));
+            link.take();
+            if !listens {
+                assert_eq!(link.changed(), None);
+                assert!(standing(&link).is_empty(), "without a listener: nothing");
+                continue;
+            }
+            let text = link.changed().expect("the cast changed").unwrap();
+            assert_eq!(standing(&link), [("left".to_string(), "character:catpope".to_string())], "Cat Pope stands at left");
+            let scene = side.recast(text).unwrap();
+            assert!(scene.contains("left_look") && Scene::parse(&scene).is_ok_and(|s| s.nodes.iter().any(|n| n.kind == "outlet")), "her look at left, beside the outlet: {scene}");
+            // black: no piece plays – the deck's own scene has no cast
+            assert_eq!(side.cell(&cell("black", "scene:stage"), 10.0, |_| None).switch, Some(Switch::Deck));
+            assert_eq!(side.playing(None), None);
+            link.play(None).unwrap();
+            assert!(!link.listens());
+        }
     }
 
     #[test]
