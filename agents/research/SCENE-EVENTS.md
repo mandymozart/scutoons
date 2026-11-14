@@ -78,7 +78,7 @@ and chapter – the flow index extended – so the deck's scene editor can offer
 ### 6.1 What exists
 - A reader page with `?live=<code>` joins that session as `reader` and sends the story events it fires (#518). Without it: nothing.
 - A session is opened by an account with the role `live`: `POST /api/live/sessions` → a code and the conductor's token.
-- The conductor is the deck editor (`deck-editor --show … --relay …/live/<code>`) or the viewer's `/live/conductor/<code>` page. Neither shows a link or a QR for anybody today; the relay's presence already knows each client's role.
+- The conductor is the deck editor (`deck-editor --show … --relay …/live/<code>`) or (until #533 removed it) the viewer's `/live/conductor/<code>` page. Neither shows a link or a QR for anybody today; the relay's presence already knows each client's role.
 - The creator draws a QR for the handheld camera's phone (phone-pairing.svelte, `qrcode-generator`); the deck's Rust code draws none.
 - The relay takes a reader without a token: whoever has the session code can join as reader.
 
@@ -90,7 +90,7 @@ makes it from the viewer's base address, the page and the code, so the editor an
 | Where | What it shows |
 |---|---|
 | **Deck editor** (the conductor), a "Session" panel | the session's code and state · a row **Linked reader**: the page it opens (6.4 Q2), **Copy link**, a **QR** for a phone, **Open here** (the system's browser on this machine – the conductor reads and drives itself) · below it the linked readers now (from presence: how many, their names) and the last story event heard (type, character) |
-| **Conductor page** (`/live/conductor/<code>`) | the same row and the same list, drawn over the core's state |
+| **Conductor page** (`/live/conductor/<code>`, removed in #533) | the same row and the same list, drawn over the core's state |
 | **The reader**, when linked | a small mark "linked to <code>" with a way out (6.4 Q3); nothing else changes |
 
 A listening scene on a deck needs no setting: it asks for the story by itself (#517).

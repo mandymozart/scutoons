@@ -1,13 +1,12 @@
 <script lang="ts">
-	// Dev-only drafts of the Live vote screens (#231, research/LIVE.md B.2 / B.6 / B.9): the conductor's vote panel and
-	// an audience phone, both on one fake relay (src/lib/live-vote-sim.ts – the protocol's vote.open / vote.tally every
-	// 250 ms / vote.result, the Rust relay's rules). The phone's taps count in the conductor's tally. Nothing is sent.
-	// Query: ?view=both|conductor|audience · rule=majority|groups|first · group=balkon|parkett|rang · lang=de|en · voting=balkon (only one group votes) · crowd=0 (nobody else votes → the fallback) · seconds=N.
+	// Dev-only draft of the Live vote's audience phone (#231, research/LIVE.md B.2 / B.6 / B.9) on a fake relay
+	// (src/lib/live-vote-sim.ts – the protocol's vote.open / vote.tally every 250 ms / vote.result, the Rust relay's rules).
+	// The conductor's side is the deck editor's Perform workspace (#533). Nothing is sent.
+	// Query: ?rule=majority|groups|first · group=balkon|parkett|rang · lang=de|en · voting=balkon (only one group votes) · crowd=0 (nobody else votes → the fallback) · seconds=N.
 	import { onMount } from 'svelte';
 	import type { VoteOpen, VoteRule } from '@scutoons/live';
 	import { FakeVoteRelay, type CrowdGroup } from '$lib/live-vote-sim.ts';
 	import { deviceLocale } from '$lib/live-vote.ts';
-	import ConductorVote from '$lib/components/live-vote/conductor-vote.svelte';
 	import AudienceVote, { type Group } from '$lib/components/live-vote/audience-vote.svelte';
 
 	const isDev = import.meta.env.DEV;
@@ -25,15 +24,12 @@
 		de: { balkon: 'Steht auf und haltet eure Handys hoch.', parkett: 'Flüstert der Katze eure Wahl zu.', rang: 'Klatscht zweimal, dann wählt.' },
 		en: { balkon: 'Stand up and hold your phones high.', parkett: 'Whisper your choice to the cat.', rang: 'Clap twice, then vote.' }
 	};
-	const GROUP_NAMES = Object.fromEntries(GROUPS.map((g) => [g.id, g.name]));
 	const CROWD: CrowdGroup[] = [
 		{ group: 'balkon', size: 18, lean: [3, 1] },
 		{ group: 'parkett', size: 26, lean: [1, 2] },
 		{ group: 'rang', size: 14, lean: [2, 1] }
 	];
 
-	type View = 'both' | 'conductor' | 'audience';
-	let view = $state<View>((query.get('view') as View) || 'both');
 	let rule = $state<VoteRule>((query.get('rule') as VoteRule) || 'groups');
 	let groupId = $state(query.get('group') ?? 'balkon');
 	let onlyBalkon = $state(query.get('voting') === 'balkon');
@@ -46,7 +42,7 @@
 	let run = 0;
 	function start() {
 		relay?.dispose();
-		const expected = (crowd ? CROWD.filter((c) => !onlyBalkon || c.group === 'balkon').reduce((n, c) => n + c.size, 0) : 0) + (view !== 'conductor' && (!onlyBalkon || groupId === 'balkon') ? 1 : 0);
+		const expected = (crowd ? CROWD.filter((c) => !onlyBalkon || c.group === 'balkon').reduce((n, c) => n + c.size, 0) : 0) + (!onlyBalkon || groupId === 'balkon' ? 1 : 0);
 		const r = new FakeVoteRelay(undefined, crowd ? CROWD : [], 7, expected);
 		relay = r;
 		run++;
@@ -70,20 +66,14 @@
 		return () => relay?.dispose();
 	});
 
-	const VIEWS: [View, string][] = [['both', 'Both'], ['conductor', 'Conductor'], ['audience', 'Audience']];
 	const RULES: [VoteRule, string][] = [['majority', 'Majority'], ['groups', 'Per group'], ['first', 'First to 20']];
 </script>
 
 {#if isDev}
-	<div class="lab" data-view={view}>
+	<div class="lab">
 		<h1>Live vote (draft)</h1>
 		<details class="controls" open={query.get('controls') === '1'}>
 			<summary>Draft controls – not part of the design · fake relay, #231</summary>
-			<div class="seg" role="group" aria-label="View">
-				{#each VIEWS as [v, label] (v)}
-					<button type="button" aria-pressed={view === v} onclick={() => (view = v)}>{label}</button>
-				{/each}
-			</div>
 			<div class="seg" role="group" aria-label="Rule">
 				{#each RULES as [r, label] (r)}
 					<button type="button" aria-pressed={rule === r} onclick={() => ((rule = r), start())}>{label}</button>
@@ -101,20 +91,12 @@
 
 		{#if relay}
 			<div class="screens">
-				{#if view !== 'audience'}
-					<div class="screen conductor-screen">
-						<span class="tag">Conductor</span>
-						{#key relay}<ConductorVote source={relay} groupNames={GROUP_NAMES} />{/key}
+				<div class="screen phone-screen">
+					<span class="tag">Audience phone</span>
+					<div class="device">
+						{#key relay}{#key group.id}<AudienceVote source={relay} {group} locale={LOCALE} instruction={(INSTRUCTION[LOCALE] ?? INSTRUCTION.en)[group.id]} />{/key}{/key}
 					</div>
-				{/if}
-				{#if view !== 'conductor'}
-					<div class="screen phone-screen">
-						<span class="tag">Audience phone</span>
-						<div class="device">
-							{#key relay}{#key group.id}<AudienceVote source={relay} {group} locale={LOCALE} instruction={(INSTRUCTION[LOCALE] ?? INSTRUCTION.en)[group.id]} />{/key}{/key}
-						</div>
-					</div>
-				{/if}
+				</div>
 			</div>
 		{/if}
 	</div>
@@ -203,13 +185,7 @@
 		flex-direction: column;
 		gap: var(--space-05);
 	}
-	.conductor-screen {
-		flex: 2 1 28rem;
-	}
 	.phone-screen {
-		flex: 1 1 18rem;
-	}
-	[data-view='audience'] .phone-screen {
 		flex-basis: 100%;
 	}
 	.tag {
@@ -218,19 +194,13 @@
 		letter-spacing: var(--tracking-label);
 		color: var(--text-muted);
 	}
-	/* the phone as a device frame next to the conductor; alone it is the page */
+	/* the phone as the page, in a device frame */
 	.device {
 		display: flex;
 		flex-direction: column;
-		height: 44rem;
-		max-width: 24rem;
+		min-height: 36rem;
 		overflow: auto;
 		border: var(--border-width-regular) solid var(--ink);
-	}
-	[data-view='audience'] .device {
-		max-width: none;
-		height: auto;
-		min-height: 36rem;
 	}
 	@media (max-width: 479px) {
 		.lab {

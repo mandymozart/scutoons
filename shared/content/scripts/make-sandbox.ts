@@ -163,7 +163,7 @@ const LINES = {
 		{ de: 'Schöne Begegnung. Weiter!', en: 'Nice meeting. Onward!' }
 	] as Text[],
 	goodbyeHost: { de: 'Was für ein Spaziergang! Danke euch allen – tschüss!', en: 'What a walk! Thanks, everyone – bye!' } as Text,
-	/** the sandbox's vote (#231): the choice event the Live vote screens' demo plays (scripts/dev/live-vote-demo.ts) */
+	/** the sandbox's vote (#231): a choice event a Live vote can be opened with */
 	blotter: { de: 'Tauscht die Katze das Löschblatt?', en: 'Does the cat trade the blotter?' } as Text,
 	blotterYes: { de: 'Ja', en: 'Yes' } as Text,
 	blotterNo: { de: 'Nein', en: 'No' } as Text,

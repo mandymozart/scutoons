@@ -379,15 +379,14 @@ audience groups, and returns `vote.cast` / `react` / `presence`. Sequence number
 ## B.7 The device bridge: the **Scutoons Live** app
 Superseded 2026-10-29 (owner: Rust first, #171): the bridge is the Rust binary `deck/bridge` (research/CYBERDECKS.md
 §4 adapters, §5 split) for Linux decks, macOS and Windows – no Electron; its small status window is a native / `wry`
-window, the conductor stays the deployed web page as below. The Electron paragraphs below are the original plan.
+window. The conductor is the deck editor's Perform workspace (#533: the web conductor page went; its vote and linked reader are Perform's Vote and Session sheets). The Electron paragraphs below are the original plan.
 Owner 2026-10-07: **one local bridge for all devices, shipped as an installable app for macOS and Windows**, so any
 computer can become the conductor.
 - **Electron** (`live/app`): runs the same Node relay as the hosted one (B.4 local / linked) + the drivers: MIDI via
   RtMidi (`@julusian/midi`, prebuilt binaries), Art-Net / sACN over UDP, USB-DMX (Enttec Open DMX / DMX USB Pro) via
   `serialport`, OSC over UDP. Native modules built per platform in CI.
 - Its window (small): status (relay, uplink, devices), the ports it sees, the venue patch picker, the LAN address +
-  QR for outputs / performers, **"Open conductor"** (opens the conductor in the system's browser or its own window at
-  `https://scutoons.com/live/<code>/conduct` – the conductor UI stays a web page, so it is always the deployed version).
+  QR for outputs / performers (the original plan's "Open conductor" web page is gone, #533).
 - Builds: GitHub Actions matrix (macOS arm64 + x64, Windows x64) → GitHub release; auto-update via `electron-updater`.
   **Unsigned for now** (owner 2026-10-07): macOS "right-click → Open", Windows SmartScreen "Run anyway" – documented in
   the app's README. Signing (Apple Developer + a Windows cert) only when other people install it.

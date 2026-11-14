@@ -200,7 +200,7 @@ Largest new piece of work: the relay tree. Everything else in the table reuses w
 - A mood turn moves values without a reload; a loaded 3D set stays and only the spot moves. No message sets a named value on a deck from the conductor.
 - Far events (#442, `far.rs`): one exact address, subscribed by the asking deck, only while the other deck is in the session.
 - `address.rs` has places `deck:`, `scene:`, `character:`, `item:`. No `location:`, persona or look level, or wildcard.
-- The browser's conductor page is the vote panel only (86 lines), opened on a deck with F12; the matrix is the deck editor's Perform workspace (#91).
+- The browser's conductor page (the vote panel, #231) is gone (#533): the vote's conductor side is Perform's Vote sheet (§14); the matrix is the deck editor's Perform workspace (#91).
 - `story` messages exist on the wire. The viewer sends its fired VN events as `reader` in a session (`?live=<code>`, #518); the rest of LIVE.md B.1's bus (slices, pickups, variables) is not built.
 - A scene cannot hold several rigs yet.
 - "Only if" exists in the chapter documents; the evaluator is TypeScript (`shared/content/src/expr/evaluate.ts`). The deck has no condition type. RULE A1: one evaluator, in the core, reaching the viewer through wasm.

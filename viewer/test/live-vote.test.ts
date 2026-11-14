@@ -1,21 +1,8 @@
-// #231: the vote screens' pure bits (src/lib/live-vote.ts, live-vote-words.ts).
+// #231: the audience vote screen's pure bits (src/lib/live-vote.ts, live-vote-words.ts).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildOpen, deviceLocale, groupLook, howKey, percent, pickLabels, pickText, type VoteForm } from '../src/lib/live-vote.ts';
+import { deviceLocale, groupLook, howKey, percent, pickLabels, pickText } from '../src/lib/live-vote.ts';
 import { WORDS, wordsFor } from '../src/lib/live-vote-words.ts';
-
-const form = (more: Partial<VoteForm> = {}): VoteForm => ({
-	id: 'v1',
-	question: { en: 'Trade?', de: '' },
-	options: { en: 'Yes\nNo', de: '' },
-	rule: 'majority',
-	n: 20,
-	seconds: 30,
-	fallback: 0,
-	groups: '',
-	show: true,
-	...more
-});
 
 test('the device language: two letters, English when nothing is said', () => {
 	assert.equal(deviceLocale(['de-AT', 'en']), 'de');
@@ -52,32 +39,6 @@ test('the phone speaks de and en, anything else English; every how has words', (
 	assert.equal(wordsFor('de'), WORDS.de);
 	assert.equal(wordsFor('fr'), WORDS.en);
 	for (const w of Object.values(WORDS)) assert.deepEqual(Object.keys(w.how).sort(), ['fallback', 'first', 'groups', 'majority', 'override']);
-});
-
-test('buildOpen: the form → vote.open', () => {
-	const r = buildOpen(form({ options: { en: ' Yes \n\nNo ', de: 'Ja\nNein' }, groups: 'left, right', rule: 'first', n: 3 }));
-	assert.ok('open' in r);
-	assert.deepEqual(r.open, {
-		vote: 'v1',
-		options: ['Yes', 'No'],
-		rule: 'first',
-		n: 3,
-		seconds: 30,
-		fallback: 0,
-		groups: ['left', 'right'],
-		show: true,
-		question: { en: 'Trade?' },
-		labels: { en: ['Yes', 'No'], de: ['Ja', 'Nein'] }
-	});
-});
-
-test('buildOpen: says what is wrong', () => {
-	const why = (f: Partial<VoteForm>) => (buildOpen(form(f)) as { error: string }).error;
-	assert.match(why({ options: { en: 'Yes', de: '' } }), /two options/);
-	assert.match(why({ options: { en: 'a\nb', de: 'x' } }), /same number/);
-	assert.match(why({ seconds: 0 }), /Seconds/);
-	assert.match(why({ fallback: 2 }), /fallback/);
-	assert.match(why({ rule: 'first', n: 0 }), /n is/);
 });
 
 test('a group keeps its look', () => {

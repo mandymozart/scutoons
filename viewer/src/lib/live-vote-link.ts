@@ -1,41 +1,31 @@
-// The vote screens' link to the relay (#231, #366): deck-space's relay client (relay.rs, relay-web's wasm) under
-// @scutoons/live-deck's socket – it joins as the screen's role (audience / conductor, the conductor with its session
-// token), hands the screen what it hears (the welcome's open vote and group instruction, the votes, a refusal), keeps
-// which vote is open (a late listener gets it at once) and addresses cast / hold / close to it. This file only wires the
-// screen's `VoteSource` to it. #529: a conductor's link also hands on the core's linked readers (`onReaders`).
+// The audience vote screen's link to the relay (#231, #366): deck-space's relay client (relay.rs, relay-web's wasm) under
+// @scutoons/live-deck's socket – it joins as an audience phone of its group, hands the screen what it hears (the
+// welcome's open vote and group instruction, the votes, a refusal), keeps which vote is open (a late listener gets it at
+// once) and addresses a cast to it. This file only wires the screen's `VoteSource` to it. The conductor's side of the
+// vote is the deck editor's Perform workspace (#533).
 import { RelaySocket, type Platform, type RelayCoreView, type RelayModule, type RelayStatus } from '@scutoons/live-deck';
-import type { Envelope, Role, VoteOpen } from '@scutoons/live';
+import type { Envelope } from '@scutoons/live';
 import type { VoteSource } from './live-vote.ts';
-import type { LinkedReaders } from './conductor-reader.ts';
 
 export type { WebSocketLike as SocketLike } from '@scutoons/live-deck';
 
 export interface VoteLinkOptions extends Platform {
 	/** `ws://host:port/live/<code>` */
 	relay: string;
-	role: Extract<Role, 'conductor' | 'audience'>;
 	group?: string;
 	nick?: string;
-	/** the conductor's session token (B.6) */
-	token?: string;
 	/** relay-web (`loadRelay(WASM_BASE)`); the link joins once it is there */
 	core: RelayModule | Promise<RelayModule>;
 	/** joining · connected · offline · refused (the core's status) */
 	onStatus?: (s: LinkStatus) => void;
-	/** #529: the core's linked readers (relay-web `readers()`), read again after each other word of the session (presence, story) */
-	onReaders?: (r: LinkedReaders) => void;
 }
 
 export type LinkStatus = RelayStatus;
 
-/** relay-web's `RelayClient` with a vote screen's moves */
+/** relay-web's `RelayClient` with a phone's moves */
 interface VoteCore extends RelayCoreView {
-	vote_open(json: string): boolean;
 	vote_cast(option: number): boolean;
-	vote_close(over?: number): boolean;
-	vote_hold(hold: boolean): boolean;
 	current_vote(): string;
-	readers(): string;
 }
 
 export class RelayVote implements VoteSource {
@@ -52,9 +42,8 @@ export class RelayVote implements VoteSource {
 	private begin(m: RelayModule): void {
 		if (this.stopped) return;
 		const o = this.o;
-		const core = new m.RelayClient(JSON.stringify({ relay: o.relay, role: o.role, group: o.group, nick: o.nick, token: o.token })) as VoteCore;
-		const readers = () => o.onReaders?.(JSON.parse(core.readers()) as LinkedReaders);
-		this.s = new RelaySocket(core, { onStatus: (_, s) => (o.onStatus?.(s), readers()), onVote: (e) => this.emit(e), onOther: readers }, o) as RelaySocket & { core: VoteCore };
+		const core = new m.RelayClient(JSON.stringify({ relay: o.relay, role: 'audience', group: o.group, nick: o.nick })) as VoteCore;
+		this.s = new RelaySocket(core, { onStatus: (_, s) => o.onStatus?.(s), onVote: (e) => this.emit(e) }, o) as RelaySocket & { core: VoteCore };
 		this.s.start();
 	}
 
@@ -62,34 +51,17 @@ export class RelayVote implements VoteSource {
 		return this.s?.core.client() ?? '';
 	}
 
-	on(_role: 'conductor' | 'audience', fn: (e: Envelope) => void): () => void {
+	on(_role: 'audience', fn: (e: Envelope) => void): () => void {
 		this.listeners.add(fn);
 		const open = this.s?.core.current_vote();
 		if (open) fn(JSON.parse(open) as Envelope);
 		return () => this.listeners.delete(fn);
 	}
 
-	/** call into the core, then do what it says */
-	private with(fn: (c: VoteCore) => unknown): void {
-		if (!this.s) return;
-		fn(this.s.core);
-		this.s.run();
-	}
-
 	cast(_client: string, option: number): void {
-		this.with((c) => c.vote_cast(option));
-	}
-
-	open(p: VoteOpen): void {
-		this.with((c) => c.vote_open(JSON.stringify(p)));
-	}
-
-	close(override?: number): void {
-		this.with((c) => c.vote_close(override));
-	}
-
-	hold(hold: boolean): void {
-		this.with((c) => c.vote_hold(hold));
+		if (!this.s) return;
+		this.s.core.vote_cast(option);
+		this.s.run();
 	}
 
 	dispose(): void {
