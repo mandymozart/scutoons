@@ -87,6 +87,12 @@ pub fn parse_relay(url: &str) -> Result<(String, String), String> {
     Ok((format!("{scheme}{base}"), decode(code)))
 }
 
+/// a relay URL's query parameter, decoded (`?quic=`, `&quichash=`); None when the URL does not name it
+pub fn relay_param(url: &str, name: &str) -> Option<String> {
+    let query = url.trim().split('#').next().unwrap_or("").split_once('?').map_or("", |(_, q)| q);
+    query.split('&').find_map(|kv| kv.strip_prefix(name)?.strip_prefix('=').map(decode))
+}
+
 /// The relay's QUIC door (#438), from its URL – the base (`https://host:port`) and the hash to pin. A `wss://` relay under
 /// a name has one on its own host and port, a relay opens it with its certificate. `?quic=host:port` names another,
 /// an empty `?quic=` asks for the relay's own, `?quic=off` for none, `&quichash=<sha-256 of the certificate, hex>` pins a
@@ -97,8 +103,7 @@ pub fn parse_quic(url: &str) -> Option<(String, Option<Vec<u8>>)> {
         Some(rest) => (true, rest),
         None => (false, url.strip_prefix("ws://")?),
     };
-    let query = rest.split('#').next().unwrap_or("").split_once('?').map_or("", |(_, q)| q);
-    let param = |name: &str| query.split('&').find_map(|kv| kv.strip_prefix(name)?.strip_prefix('=').map(decode));
+    let param = |name: &str| relay_param(url, name);
     let own = rest.split(['/', '?', '#']).next().unwrap_or("");
     let door = match param("quic") {
         Some(off) if off == "off" => return None,

@@ -3,7 +3,7 @@
 //! every client of the core (RULES A6): the link a conductor offers (`reader_link` – the deck editor and the conductor
 //! page give the same text), a reader's place in the story (`Steer`, driven by relay.rs `Client::drive`) and the
 //! conductor's view of the linked readers (`Readers`, relay.rs `Client::readers`).
-use crate::relay::{encode, parse_relay, HOSTED_RELAY};
+use crate::relay::{encode, parse_relay, relay_param, HOSTED_RELAY};
 use protocol::{Loose, Presence};
 use serde::Serialize;
 use std::collections::BTreeMap;
@@ -16,11 +16,17 @@ use std::collections::BTreeMap;
 pub fn reader_link(base: &str, toon: &str, chapter: u32, label: Option<&str>, code: &str, relay: Option<&str>) -> String {
     let label = label.map(str::trim).filter(|l| !l.is_empty()).map(|l| format!("label={}&", encode(l))).unwrap_or_default();
     let hosted = parse_relay(HOSTED_RELAY).map(|(b, _)| b).unwrap_or_default();
+    // #535: with another relay goes its QUIC door as the conductor's URL names it (`?quic=`, `&quichash=`; relay.rs
+    // `parse_quic`) – the reader page reads both (viewer live-deck.ts `relayOf`); `quic=off` and no `quic`: none
+    let door = |url: &str| match relay_param(url, "quic") {
+        Some(off) if off == "off" => String::new(),
+        Some(door) => format!("&quic={}{}", encode(&door), relay_param(url, "quichash").filter(|h| !h.is_empty()).map(|h| format!("&quichash={}", encode(&h))).unwrap_or_default()),
+        None => String::new(),
+    };
     let relay = relay
-        .and_then(|r| parse_relay(r).ok())
-        .map(|(b, _)| b)
-        .filter(|b| !b.eq_ignore_ascii_case(&hosted))
-        .map(|b| format!("&relay={}", encode(&b)))
+        .and_then(|r| parse_relay(r).ok().map(|(b, _)| (b, r)))
+        .filter(|(b, _)| !b.eq_ignore_ascii_case(&hosted))
+        .map(|(b, r)| format!("&relay={}{}", encode(&b), door(r)))
         .unwrap_or_default();
     format!("{}/{}/chapter/{chapter}?{label}live={}{relay}", base.trim().trim_end_matches('/'), encode(toon.trim()), encode(code.trim()))
 }
@@ -178,7 +184,16 @@ mod tests {
         assert_eq!(link(Some("  ")), today, "an empty relay: none");
         assert_eq!(link(Some("http://192.168.1.116:7070/live/A7K2")), today, "no ws:// relay: none");
         // another relay: its base (the reader adds `/live/<code>`), escaped, without the query (the QUIC door)
-        assert_eq!(link(Some("ws://192.168.1.116:7070/live/A7K2?quic=192.168.1.116:7071")), format!("{today}&relay=ws%3A%2F%2F192.168.1.116%3A7070"));
+        // #535: the relay's QUIC door goes with it, as the conductor's URL names it – the door, its pinned hash, an empty one
+        // (the relay's own); `off` and none: none; the hosted relay's link stays as it is
+        assert_eq!(link(Some("ws://192.168.1.116:7070/live/A7K2?quic=192.168.1.116:7071")), format!("{today}&relay=ws%3A%2F%2F192.168.1.116%3A7070&quic=192.168.1.116%3A7071"));
+        assert_eq!(
+            link(Some("ws://192.168.1.116:7070/live/A7K2?quic=192.168.1.116:7071&quichash=0a1B")),
+            format!("{today}&relay=ws%3A%2F%2F192.168.1.116%3A7070&quic=192.168.1.116%3A7071&quichash=0a1B")
+        );
+        assert_eq!(link(Some("ws://192.168.1.116:7070/live/A7K2?quic=")), format!("{today}&relay=ws%3A%2F%2F192.168.1.116%3A7070&quic="));
+        assert_eq!(link(Some("ws://192.168.1.116:7070/live/A7K2?quic=off&quichash=0a1b")), format!("{today}&relay=ws%3A%2F%2F192.168.1.116%3A7070"));
+        assert_eq!(link(Some("wss://live.scutoons.com/live/A7K2?quic=live.scutoons.com:443")), today);
         assert_eq!(link(Some("wss://scutoons.test/relay/live/A7K2")), format!("{today}&relay=wss%3A%2F%2Fscutoons.test%2Frelay"), "a path before /live/ stays");
         assert_eq!(
             reader_link("https://scutoons.com", "catpope", 3, None, "A7K2", Some("ws://127.0.0.1:7070/live/A7K2")),
