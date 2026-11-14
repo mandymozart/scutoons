@@ -910,6 +910,23 @@
 		"take_back": "Zurückholen",
 		"leave": "Trennen"
 	},
+	"conductor_reader": {
+		"title": "Verlinkte Leser:in",
+		"toon": "Toon",
+		"chapter": "Kapitel",
+		"label": "Label",
+		"pick": "Wählen …",
+		"start": "Anfang des Kapitels",
+		"copy": "Link kopieren",
+		"copied": "Kopiert",
+		"open": "Hier öffnen",
+		"qr": "QR-Code des Links {url}",
+		"failed": "Konnte nicht laden: {why}",
+		"readers": "Verlinkte Leser:innen",
+		"none": "Noch niemand verlinkt – gib den Link oben weiter.",
+		"drives": "steuert",
+		"last": "Zuletzt gehört: {type} von {from}"
+	},
 	"live_deck": {
 		"title": "Deck",
 		"stage_only": "Vollbild",

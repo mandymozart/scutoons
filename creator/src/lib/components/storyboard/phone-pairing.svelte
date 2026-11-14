@@ -5,8 +5,7 @@
 	// is on (QUIC · WebSocket), Recenter (the phone's pose
 	// now = the shot camera), the live smoothing (0 = the raw handheld look), the scale (scene metres per phone metre)
 	// and Record / Stop – the phone has the same buttons. Compact-inspector rows (PropRow + ScrubNumber).
-	import qrcode from 'qrcode-generator';
-	import { PropRow, ScrubNumber } from '@scutoons/ui';
+	import { PropRow, QrCode, ScrubNumber } from '@scutoons/ui';
 	import { m } from '$lib/paraglide/messages.js';
 	import type { StoryboardPage } from '$lib/editor/storyboard-page.svelte.ts';
 	import { openHand } from '$lib/handheld/hand-link.ts';
@@ -14,13 +13,6 @@
 	let { sb }: { sb: StoryboardPage } = $props();
 	const hh = $derived(sb.hh);
 
-	const qr = $derived.by(() => {
-		if (!hh.url) return '';
-		const q = qrcode(0, 'M');
-		q.addData(hh.url);
-		q.make();
-		return q.createSvgTag({ cellSize: 4, margin: 2, scalable: true });
-	});
 	const mode = $derived(hh.phone?.mode === 'xr' ? m['storyboard.hh_mode_xr']() : hh.phone?.mode === 'orientation' ? m['storyboard.hh_mode_orientation']() : m['storyboard.hh_mode_none']());
 	// the rung is the core's word (QUIC · WebSocket), shown as it says it
 	const rung = $derived(hh.rung || m['storyboard.hh_joining']());
@@ -44,7 +36,7 @@
 {:else}
 	{#if hh.status === 'waiting' && hh.url}
 		<div class="pair">
-			<div class="qr" role="img" aria-label={m['storyboard.hh_qr']({ url: hh.url })} data-testid="hh-qr">{@html qr}</div>
+			<QrCode text={hh.url} label={m['storyboard.hh_qr']({ url: hh.url })} testid="hh-qr" />
 			<p class="sc-caption">{m['storyboard.hh_scan']()} <a href={hh.url} target="_blank" rel="noreferrer" data-testid="hh-link">{m['storyboard.hh_link']()}</a></p>
 		</div>
 	{/if}
@@ -71,17 +63,6 @@
 		display: flex;
 		align-items: flex-start;
 		gap: var(--space-1);
-	}
-	.qr {
-		flex: none;
-		width: 9rem;
-		background: var(--paper);
-		line-height: 0;
-	}
-	.qr :global(svg) {
-		display: block;
-		width: 100%;
-		height: auto;
 	}
 	.pair p {
 		flex: 1;

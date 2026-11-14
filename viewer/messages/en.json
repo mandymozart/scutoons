@@ -910,6 +910,23 @@
 		"take_back": "Take it back",
 		"leave": "Leave"
 	},
+	"conductor_reader": {
+		"title": "Linked reader",
+		"toon": "Toon",
+		"chapter": "Chapter",
+		"label": "Label",
+		"pick": "Pick …",
+		"start": "The chapter’s start",
+		"copy": "Copy link",
+		"copied": "Copied",
+		"open": "Open here",
+		"qr": "QR code of the link {url}",
+		"failed": "Couldn’t load: {why}",
+		"readers": "Linked readers",
+		"none": "No reader linked yet – hand out the link above.",
+		"drives": "drives",
+		"last": "Last heard: {type} from {from}"
+	},
 	"live_deck": {
 		"title": "Deck",
 		"stage_only": "Full screen",
