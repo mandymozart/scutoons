@@ -116,6 +116,21 @@ fn an_unknown_event_is_logged() {
     assert_eq!(logged(&c), vec![Logged::NoRow { event: "nobody.listens".into() }]);
 }
 
+/// #539: a story event the chapter editor gave no id is dropped – and the log says so, in the core's words
+#[test]
+fn a_story_event_without_an_id_is_dropped_and_logged() {
+    let mut c = opened();
+    let no_id = Message::Story(json!({ "type": "showMessage", "params": { "text": "…" } }).as_object().unwrap().clone());
+    assert!(c.on_message(&no_id, Now::at(1_000)).is_empty());
+    let empty = Message::Story(json!({ "id": "" }).as_object().unwrap().clone());
+    assert!(c.on_message(&empty, Now::at(1_100)).is_empty());
+    assert_eq!(c.current(), Some("opening"), "nothing fired");
+    let last: Vec<Logged> = logged(&c).into_iter().rev().take(2).collect();
+    assert_eq!(last, [Logged::NoId { kind: String::new() }, Logged::NoId { kind: "showMessage".into() }]);
+    let lines = deck_show::view::log(c.log(), 2);
+    assert_eq!(lines.iter().map(|(_, l)| l.as_str()).collect::<Vec<_>>(), ["a story event without an id: dropped – no row can listen to it", "a showMessage without an id: dropped – no row can listen to it"]);
+}
+
 #[test]
 fn a_full_cell_goes_out_as_the_protocols_message() {
     let mut c = conductor();

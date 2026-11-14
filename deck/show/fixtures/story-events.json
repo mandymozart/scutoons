@@ -1,0 +1,27 @@
+{
+  "status": "success",
+  "toons": [
+    {
+      "id": "catpope",
+      "chapters": [
+        {
+          "number": 3,
+          "events": [
+            { "id": "ch3.dialog-start", "type": "showMessage", "characters": ["catpope"], "excerpt": "Miau, Freunde!", "group": "nave", "groupIndex": 0 },
+            { "id": null, "type": "showMessage", "characters": ["catpope"], "excerpt": "Und jetzt alle zusammen.", "group": "nave", "groupIndex": 0 },
+            { "id": "ch3.yellowmouse-enters", "type": "joinScene", "characters": ["yellowmouse"], "excerpt": null, "group": "crypt", "groupIndex": 1 },
+            { "id": "ch3.vigil", "type": "showMessage", "characters": ["catpope", "yellowmouse"], "excerpt": "Die Kerzen brennen.", "group": "crypt", "groupIndex": 1 },
+            { "id": "ch3.end", "type": "jumpTo", "characters": [], "excerpt": null, "group": null, "groupIndex": 2 }
+          ]
+        },
+        { "number": 4, "events": [] }
+      ]
+    },
+    {
+      "id": "toptoy",
+      "chapters": [
+        { "number": 1, "events": [{ "id": "set1", "type": "setVariable", "characters": [], "excerpt": null, "group": "city", "groupIndex": 0 }] }
+      ]
+    }
+  ]
+}

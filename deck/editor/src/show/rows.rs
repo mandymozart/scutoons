@@ -5,7 +5,8 @@
 //! `GET /api/addresses/<toon>`), filtered as typed; without a book the typed `scene:<id>` is the piece and the core reads it.
 //! Every edit goes through deck-show's `rows::edit` (checked there, refused in its words); the words, the modes a column
 //! offers and the picker's lines are deck-show's; this file lays them out and hands the presses in (RULES A1, A2), as
-//! roles.rs does for the roles (#478).
+//! roles.rs does for the roles (#478). `draw_picker` is the one picker in the stage's place: the piece's here, the event's
+//! (#539, events.rs).
 use super::roles::{Ask, Typing};
 use super::{Hit, Host, Sheet};
 use deck_kit::base::draw::DrawList;
@@ -226,54 +227,89 @@ pub fn cell_side(d: &mut DrawList, t: &Tokens, host: &mut Host, (x, y, w): (f32,
     y + pad * 0.5 - top
 }
 
-/// The piece picker in the stage's place: its heading, the typed query, the published scenes of the book that match (a
-/// press picks one), or – without a book – why not and what to type.
-pub fn picker(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, pointer: (f32, f32)) {
+/// One line of a picker in the stage's place: its label, its detail, whether it is what is set now, whether a press picks it.
+pub(super) struct Line<'a> {
+    pub label: &'a str,
+    pub detail: &'a str,
+    pub now: bool,
+    pub can: bool,
+}
+
+/// What a picker in the stage's place shows (#537 the piece, #539 the event – one look): its heading, its typed field
+/// (the label, the query, the text while typed, its place), then the lines (a press on line `i` is `pick(i)`; none match:
+/// `none`) or, where there is no list, why not and what to type.
+pub(super) struct Picker<'a> {
+    pub title: &'a str,
+    pub field: (&'a str, &'a str, Option<&'a str>, Hit),
+    pub list: Result<Vec<Line<'a>>, (&'a str, &'a str)>,
+    pub none: &'a str,
+    pub pick: fn(usize) -> Hit,
+}
+
+pub(super) fn draw_picker(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, p: Picker, pointer: (f32, f32)) {
     let (pad, font, small, row) = (t.size.pad, t.size.font, t.size.small, t.size.tree_row);
-    let show = host.shown().clone();
-    let (Some(sel), Some(col)) = host.selected() else {
-        d.text(a.x + pad, a.y + pad, font, "Select a cell first.", t.color.muted);
-        return;
-    };
     let mut y = a.y + pad;
-    d.text(a.x + pad, y, small, &fit(d, &rows::picker_title(&show, &sel, &col), small, a.w - 2.0 * pad), t.color.muted);
+    d.text(a.x + pad, y, small, &fit(d, p.title, small, a.w - 2.0 * pad), t.color.muted);
     y += small * 1.8;
-    let typing = host.typing.as_ref().filter(|(what, _)| *what == Typing::Piece).map(|(_, f)| f.text.clone());
-    let query = host.piece_query_now();
-    let label = if host.book.is_some() { "find" } else { rows::PIECE };
-    let r = field(d, t, (a.x + pad, y, (a.w - 2.0 * pad).min(520.0)), label, &query, typing.as_deref());
-    host.hits.push((r, Hit::PieceType));
+    let (label, query, typing, hit) = p.field;
+    let r = field(d, t, (a.x + pad, y, (a.w - 2.0 * pad).min(520.0)), label, query, typing);
+    host.hits.push((r, hit));
     y += row + pad * 0.5;
     d.rect(a.x, y - 4.0, a.w, 1.0, t.color.line);
-    if host.book.is_none() {
-        let why = host.book_why.clone().unwrap_or_else(|| "the address book is still on its way".into());
-        d.text(a.x + pad, y + 4.0, font, &fit(d, &why, font, a.w - 2.0 * pad), t.color.warn);
-        d.text(a.x + pad, y + 4.0 + font * 1.7, font, &fit(d, rows::TYPE_IT, font, a.w - 2.0 * pad), t.color.muted);
-        return;
-    }
-    let list = host.piece_list();
+    let list = match p.list {
+        Ok(list) => list,
+        Err((why, type_it)) => {
+            d.text(a.x + pad, y + 4.0, font, &fit(d, why, font, a.w - 2.0 * pad), t.color.warn);
+            d.text(a.x + pad, y + 4.0 + font * 1.7, font, &fit(d, type_it, font, a.w - 2.0 * pad), t.color.muted);
+            return;
+        }
+    };
     if list.is_empty() {
-        d.text(a.x + pad, y + 4.0, font, rows::NONE_FOUND, t.color.muted);
+        d.text(a.x + pad, y + 4.0, font, p.none, t.color.muted);
     }
-    let now = show.row(&sel).and_then(|r| r.cells.get(&col)).map(view::cell_text).unwrap_or_default();
-    for (i, p) in list.iter().enumerate() {
+    for (i, l) in list.iter().enumerate() {
         if y + row > a.y + a.h {
             d.text(a.x + pad, y + 2.0, small, &format!("{} more …", list.len() - i), t.color.muted);
             break;
         }
         let whole = Rect { x: a.x, y, w: a.w, h: row };
-        if now == p.address {
+        if l.now {
             d.rect(whole.x, whole.y, whole.w, whole.h, t.color.selected);
-        } else if whole.has(pointer.0, pointer.1) {
+        } else if l.can && whole.has(pointer.0, pointer.1) {
             d.rect(whole.x, whole.y, whole.w, whole.h, t.color.hover);
         }
         let ty = y + (row - font * 1.25) * 0.5;
-        d.text(a.x + pad, ty, font, &fit(d, &p.label, font, a.w * 0.4 - pad), t.color.text);
-        d.text(a.x + a.w * 0.4, ty + 1.0, small, &fit(d, &p.detail, small, a.w * 0.6 - pad), t.color.muted);
+        d.text(a.x + pad, ty, font, &fit(d, l.label, font, a.w * 0.4 - pad), if l.can { t.color.text } else { t.color.muted });
+        d.text(a.x + a.w * 0.4, ty + 1.0, small, &fit(d, l.detail, small, a.w * 0.6 - pad), t.color.muted);
         d.rect(a.x, y + row - 1.0, a.w, 1.0, t.color.line);
-        host.hits.push((whole, Hit::PiecePick(i)));
+        if l.can {
+            host.hits.push((whole, (p.pick)(i)));
+        }
         y += row;
     }
+}
+
+/// The piece picker in the stage's place: its heading, the typed query, the published scenes of the book that match (a
+/// press picks one), or – without a book – why not and what to type.
+pub fn picker(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, pointer: (f32, f32)) {
+    let show = host.shown().clone();
+    let (Some(sel), Some(col)) = host.selected() else {
+        d.text(a.x + t.size.pad, a.y + t.size.pad, t.size.font, "Select a cell first.", t.color.muted);
+        return;
+    };
+    let title = rows::picker_title(&show, &sel, &col);
+    let typing = host.typing.as_ref().filter(|(what, _)| *what == Typing::Piece).map(|(_, f)| f.text.clone());
+    let query = host.piece_query_now();
+    let label = if host.book.is_some() { "find" } else { rows::PIECE };
+    let why = host.book_why.clone().unwrap_or_else(|| "the address book is still on its way".into());
+    let pieces = host.piece_list();
+    let now = show.row(&sel).and_then(|r| r.cells.get(&col)).map(view::cell_text).unwrap_or_default();
+    let list = match host.book {
+        Some(_) => Ok(pieces.iter().map(|p| Line { label: &p.label, detail: &p.detail, now: now == p.address, can: true }).collect()),
+        None => Err((why.as_str(), rows::TYPE_IT)),
+    };
+    let p = Picker { title: &title, field: (label, &query, typing.as_deref(), Hit::PieceType), list, none: rows::NONE_FOUND, pick: Hit::PiecePick };
+    draw_picker(d, t, host, a, p, pointer);
 }
 
 #[cfg(test)]
