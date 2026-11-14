@@ -174,6 +174,7 @@ pub fn open(f: &Form, vote: &str) -> Result<VoteOpen, String> {
         seconds: f.seconds,
         fallback: Some(f.fallback as i64),
         groups: (!f.groups.is_empty()).then(|| f.groups.clone()),
+        r#where: None,
         show: Some(f.show),
         question: (!question.is_empty()).then(|| [("en".to_string(), question.to_string())].into_iter().collect()),
         labels: None,

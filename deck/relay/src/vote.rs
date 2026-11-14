@@ -125,6 +125,7 @@ mod tests {
             seconds: 20,
             fallback: Some(2),
             groups: None,
+            r#where: None,
             show: None,
             question: None,
             labels: None,

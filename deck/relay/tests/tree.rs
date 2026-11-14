@@ -121,9 +121,13 @@ async fn linger(peers: &mut [&mut Peer]) {
 }
 
 async fn join(port: u16, code: &str, role: Role, group: Option<&str>, token: Option<&str>, sub: Option<Subtree>) -> Peer {
-    let url = format!("ws://127.0.0.1:{port}/live/{code}");
-    let (mut ws, _) = connect_async(&url).await.unwrap();
     let hello = Hello { code: code.into(), role, group: group.map(str::to_owned), nick: None, token: token.map(str::to_owned), device: None, proof: None, resume: None };
+    join_with(port, hello, sub).await
+}
+
+async fn join_with(port: u16, hello: Hello, sub: Option<Subtree>) -> Peer {
+    let url = format!("ws://127.0.0.1:{port}/live/{}", hello.code);
+    let (mut ws, _) = connect_async(&url).await.unwrap();
     ws.send(Ws::Text(serde_json::to_string(&Envelope::new("", Message::Hello(hello))).unwrap().into())).await.unwrap();
     loop {
         let frame = tokio::time::timeout(Duration::from_secs(3), ws.next()).await.expect("a welcome").unwrap().unwrap();
@@ -617,4 +621,90 @@ async fn the_show_runner_opens_watches_holds_and_overrides_a_vote_over_the_real_
     let out = top.sub_mut().vote_open(&Form::default(), now()).unwrap();
     top.all(out).await;
     wait(&mut [&mut top], |p| p[0].sub().vote().open.as_ref().is_some_and(|o| o.vote == "v2") && p[0].sub().vote().is_open()).await;
+}
+
+// ---------------------------------------------------------------- #547: a vote's filter, tested by the relay
+
+fn heard(p: &Peer, vote: &str) -> bool {
+    p.inbox.iter().any(|e| matches!(&e.message, Message::VoteOpen(v) if v.vote == vote))
+}
+
+fn refused(p: &Peer) -> usize {
+    p.inbox.iter().filter(|e| matches!(&e.message, Message::Error(x) if x.code == "vote")).count()
+}
+
+fn decided(p: &Peer, vote: &str) -> bool {
+    p.inbox.iter().any(|e| matches!(&e.message, Message::VoteResult(r) if r.vote == vote))
+}
+
+fn expected(p: &Peer, vote: &str, n: i64) -> bool {
+    p.inbox.iter().any(|e| matches!(&e.message, Message::VoteTally(t) if t.vote == vote && t.expected == Some(n)))
+}
+
+fn open_where(vote: &str, filter: serde_json::Value) -> Envelope {
+    let open = json!({ "vote": vote, "options": ["stay", "go"], "rule": "majority", "seconds": 30, "groups": ["left"], "where": filter });
+    Envelope::new("", Message::VoteOpen(serde_json::from_value(open).unwrap()))
+}
+
+/// A relay with the API's secret: the account facts count only from a signed proof. A member filter: the proven member's
+/// phone hears the vote, casts and is counted; a guest's and a forged proof's phone never hear it and are refused. A
+/// `device: native` filter: the native deck hears it, casts and is counted; the member's phone does not pass now.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_vote_with_a_filter_reaches_counts_and_takes_only_who_passes_over_the_real_relay() {
+    use protocol::Account;
+    use relay::token::{sign, Claims, Facts, Proof};
+    let secret = b"shared-with-the-api".to_vec();
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let config = relay::Config { token_secret: Some(secret.clone()), ..relay::Config::default() };
+    tokio::spawn(relay::serve(listener, Arc::new(Relay::with_config(config))));
+    let exp = now_ms() / 1000 + 600;
+    let proof = |key: &[u8]| Some(sign(key, &Proof { session: "WHERE".into(), facts: Facts { account: vec![Account::Member], approved: false }, exp }));
+    let hello = |role: Role, group: Option<&str>, device: Option<&str>, proof: Option<String>| Hello {
+        code: "WHERE".into(),
+        role,
+        group: group.map(Into::into),
+        nick: None,
+        token: (role == Role::Conductor).then(|| sign(&secret, &Claims { session: "WHERE".into(), role, exp, show: None })),
+        device: device.map(Into::into),
+        proof,
+        resume: None,
+    };
+    let mut cond = join_with(port, hello(Role::Conductor, None, None, None), None).await;
+    let mut member = join_with(port, hello(Role::Audience, Some("left"), Some("phone"), proof(&secret)), None).await;
+    let mut guest = join_with(port, hello(Role::Audience, Some("left"), Some("phone"), None), None).await;
+    let mut forged = join_with(port, hello(Role::Audience, Some("left"), Some("phone"), proof(b"not-the-api")), None).await;
+    let mut deck = join_with(port, hello(Role::Output, Some("left"), Some("native"), None), None).await;
+
+    // a member filter: only the proven member hears it; M = 1
+    cond.send(open_where("v1", json!({ "account": ["member"] }))).await;
+    wait(&mut [&mut cond, &mut member, &mut guest, &mut forged, &mut deck], |p| heard(p[1], "v1") && expected(p[0], "v1", 1)).await;
+    guest.send(cast("v1", 0)).await;
+    forged.send(cast("v1", 0)).await;
+    deck.send(cast("v1", 0)).await;
+    wait(&mut [&mut cond, &mut member, &mut guest, &mut forged, &mut deck], |p| p[2..].iter().all(|p| refused(p) == 1)).await;
+    assert!(!heard(&guest, "v1") && !heard(&forged, "v1") && !heard(&deck, "v1"), "who does not pass never hears the vote");
+    assert!(heard(&cond, "v1"), "the conductor hears it");
+    // the member casts: every voter has cast, the vote closes, everyone hears the result
+    member.send(cast("v1", 1)).await;
+    wait(&mut [&mut cond, &mut member, &mut guest, &mut forged, &mut deck], |p| p.iter().all(|p| decided(p, "v1"))).await;
+    let counts = cond.inbox.iter().find_map(|e| match &e.message {
+        Message::VoteResult(r) if r.vote == "v1" => Some(r.counts.clone()),
+        _ => None,
+    });
+    assert_eq!(counts, Some(vec![0, 1]), "only the member's cast was counted");
+
+    // a native-deck filter: the deck votes; the member's phone does not pass this one
+    cond.send(open_where("v2", json!({ "device": "native" }))).await;
+    wait(&mut [&mut cond, &mut member, &mut guest, &mut forged, &mut deck], |p| heard(p[4], "v2") && expected(p[0], "v2", 1)).await;
+    member.send(cast("v2", 1)).await;
+    wait(&mut [&mut cond, &mut member, &mut guest, &mut forged, &mut deck], |p| refused(p[1]) == 1).await;
+    deck.send(cast("v2", 0)).await;
+    wait(&mut [&mut cond, &mut member, &mut guest, &mut forged, &mut deck], |p| p.iter().all(|p| decided(p, "v2"))).await;
+    assert!(!heard(&member, "v2") && !heard(&guest, "v2"), "the phones never heard the deck's vote");
+    let counts = cond.inbox.iter().find_map(|e| match &e.message {
+        Message::VoteResult(r) if r.vote == "v2" => Some(r.counts.clone()),
+        _ => None,
+    });
+    assert_eq!(counts, Some(vec![1, 0]), "the deck's cast was counted");
 }

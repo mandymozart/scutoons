@@ -297,6 +297,9 @@ pub struct VoteOpen {
 	/// which groups vote (default: all audience)
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub groups: Option<Vec<String>>,
+	/// #547: the cell's filter – the voters are every client in a role (decks too) in `groups` that passes it (the relay tests it with the facts it holds: account and approved only from the proof); only they hear the vote, are counted and may cast. None: the audience (in `groups`: also performers and musicians)
+	#[serde(rename = "where", default, skip_serializing_if = "Option::is_none")]
+	pub r#where: Option<Filter>,
 	/// a voter sees the tally once they have voted (never before)
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub show: Option<bool>,

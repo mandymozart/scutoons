@@ -123,6 +123,8 @@ struct Logged {
     from: String,
     to: Option<To>,
     frame: Arc<Frame>,
+    /// #547: for the open vote's voters only (a vote with a filter) – tested when it is sent and when it is replayed
+    voters: bool,
 }
 
 /// A client that left – its id can be taken again by a `resume` (its vote stays counted).
@@ -309,7 +311,12 @@ impl Session {
 
     /// Stamp `seq` + `from`, deliver by `to`, not kept (a stream: a deck's MIDI outputs, #211). Returns the frame and
     /// how many clients got it.
-    fn deliver(&mut self, from: &str, mut envelope: Envelope) -> (u64, Option<To>, Arc<Frame>, usize) {
+    fn deliver(&mut self, from: &str, envelope: Envelope) -> (u64, Option<To>, Arc<Frame>, usize) {
+        self.deliver_to(from, envelope, false)
+    }
+
+    /// `deliver`; with `voters` only to the open vote's voters (#547), whatever `to` says.
+    fn deliver_to(&mut self, from: &str, mut envelope: Envelope, voters: bool) -> (u64, Option<To>, Arc<Frame>, usize) {
         envelope.seq = self.next_seq();
         envelope.from = from.to_owned();
         let (seq, to) = (envelope.seq, envelope.to.clone());
@@ -321,7 +328,7 @@ impl Session {
         let mut delivered = 0;
         for ((id, c), linked) in self.clients.iter().zip(linked) {
             // the `up` end has no group: what passes up on its own goes past `to`
-            let reached = reaches(id, c.role, c.group.as_deref(), from, to.as_ref()) || (c.up && passes);
+            let reached = if voters { self.is_voter(c) } else { reaches(id, c.role, c.group.as_deref(), from, to.as_ref()) || (c.up && passes) };
             if reached && linked && c.outbox.push(frame.clone(), t) {
                 delivered += 1;
             }
@@ -331,8 +338,13 @@ impl Session {
 
     /// Stamp `seq` + `from`, keep it for replay, deliver by `to`. Returns how many clients got it.
     pub fn publish(&mut self, from: &str, envelope: Envelope, now: i64) -> usize {
-        let (seq, to, frame, delivered) = self.deliver(from, envelope);
-        self.log.push_back(Logged { seq, t: now, from: from.to_owned(), to, frame });
+        self.publish_to(from, envelope, now, false)
+    }
+
+    /// `publish`; with `voters` only to the open vote's voters (#547), and so when it is replayed.
+    fn publish_to(&mut self, from: &str, envelope: Envelope, now: i64, voters: bool) -> usize {
+        let (seq, to, frame, delivered) = self.deliver_to(from, envelope, voters);
+        self.log.push_back(Logged { seq, t: now, from: from.to_owned(), to, frame, voters });
         while self.log.len() > REPLAY_MESSAGES || self.log.front().is_some_and(|l| l.t < now - REPLAY_MS) {
             let dropped = self.log.pop_front().expect("non-empty");
             self.trimmed = dropped.seq;
@@ -345,6 +357,16 @@ impl Session {
         let mut e = Envelope::new("relay", message);
         e.to = to;
         self.publish("relay", e, now)
+    }
+
+    /// #547: a relay-authored message to the open vote's voters and nobody else (kept for replay, tested again then).
+    fn publish_voters(&mut self, message: Message, now: i64) -> usize {
+        self.publish_to("relay", Envelope::new("relay", message), now, true)
+    }
+
+    /// Does the logged message `l` reach client `id` (B.6 resume)? Its `to`, and a voters-only one only a voter (#547).
+    fn replays(&self, l: &Logged, id: &str, c: &Client) -> bool {
+        reaches(id, c.role, c.group.as_deref(), &l.from, l.to.as_ref()) && (!l.voters || self.is_voter(c))
     }
 
     /// A relay-authored message to exactly one client, not kept (welcome, pong, error, snapshot, presence, tally).
@@ -459,7 +481,7 @@ impl Session {
         let Some(c) = self.clients.get(id) else { return vec![] };
         self.log
             .iter()
-            .filter(|l| l.seq > after && reaches(id, c.role, c.group.as_deref(), &l.from, l.to.as_ref()))
+            .filter(|l| l.seq > after && self.replays(l, id, c))
             .map(|l| l.frame.text.clone())
             .collect()
     }
@@ -468,22 +490,27 @@ impl Session {
     pub fn replay(&mut self, id: &str, after: u64) {
         let Some(c) = self.clients.get(id) else { return };
         let t = Instant::now();
-        for l in self.log.iter().filter(|l| l.seq > after && reaches(id, c.role, c.group.as_deref(), &l.from, l.to.as_ref())) {
+        for l in self.log.iter().filter(|l| l.seq > after && self.replays(l, id, c)) {
             c.outbox.push(l.frame.clone(), t);
         }
     }
 
-    fn is_voter(&self, role: Role, group: Option<&str>) -> bool {
+    /// May `c` vote in the open vote? #547: a vote with a filter (`where`) – every client that takes a role (decks too) sitting
+    /// in a listed group (none listed: any) that passes it with the facts the relay holds (roles.rs `facts`). Without one:
+    /// no groups – the audience; groups – audience, performers and musicians in them, never an output.
+    fn is_voter(&self, c: &Client) -> bool {
         let Some(v) = &self.vote else { return false };
-        match &v.open.groups {
-            None => role == Role::Audience,
-            Some(_) => matches!(role, Role::Audience | Role::Performer | Role::Musician) && v.admits(group),
+        let group = c.group.as_deref();
+        match (&v.open.r#where, &v.open.groups) {
+            (Some(f), _) => roles::takes_roles(c.role) && v.admits(group) && protocol::filter::passes(Some(f), &roles::facts(c)),
+            (None, None) => c.role == Role::Audience,
+            (None, Some(_)) => matches!(c.role, Role::Audience | Role::Performer | Role::Musician) && v.admits(group),
         }
     }
 
     /// The connected clients that may vote in the open vote.
     fn voter_ids(&self) -> Vec<String> {
-        self.clients.iter().filter(|(_, c)| self.is_voter(c.role, c.group.as_deref())).map(|(id, _)| id.clone()).collect()
+        self.clients.iter().filter(|(_, c)| self.is_voter(c)).map(|(id, _)| id.clone()).collect()
     }
 
     /// Has every connected voter cast (and is the countdown running – a held vote waits)? Then the vote closes
@@ -496,7 +523,7 @@ impl Session {
 
     /// What a client shows now (B.6 snapshot): the conductor (and the uplink) everything; an output / phone its own
     /// outlet's cell and its group's last instruction; the audience the position without the story variables (no
-    /// spoilers); the open vote to its voters.
+    /// spoilers); the open vote to the conductor (a voter's: `snapshot_of`).
     pub fn snapshot_for(&self, role: Role, group: Option<&str>) -> Snapshot {
         let all = matches!(role, Role::Conductor | Role::Uplink);
         let state = self.state.clone().map(|mut s| {
@@ -521,7 +548,7 @@ impl Session {
             state,
             cells: if bridge { None } else { pick(&self.cells, all, group) },
             media: if bridge { None } else { pick(&self.media, all, group) },
-            vote: if all || self.is_voter(role, group) { self.vote.as_ref().map(|v| v.open.clone()) } else { None },
+            vote: if all { self.vote.as_ref().map(|v| v.open.clone()) } else { None },
             say: if bridge { None } else { pick(&self.say, all, group) },
             decks: if all && !self.decks.is_empty() { Some(self.decks.clone()) } else { None },
             sync: self.sync_for(None, role, group),
@@ -535,6 +562,17 @@ impl Session {
             driver: self.driver_for(role),
             seq: Some(self.seq as i64),
         }
+    }
+
+    /// Client `id`'s snapshot: what its role and group show (`snapshot_for`), and the open vote when it is a voter (#547: by
+    /// its facts, so a client that does not pass a vote's filter never hears it).
+    pub fn snapshot_of(&self, id: &str) -> Snapshot {
+        let Some(c) = self.clients.get(id) else { return Snapshot::default() };
+        let mut snap = self.snapshot_for(c.role, c.group.as_deref());
+        if snap.vote.is_none() && self.is_voter(c) {
+            snap.vote = self.vote.as_ref().map(|v| v.open.clone());
+        }
+        snap
     }
 
     /// #527: the driving reader as a snapshot shows it – to a reader (also on a resume: lib.rs `join`) and the conductor
@@ -818,6 +856,10 @@ impl Session {
                 // the conductor(s) see the vote open too (a second screen, a reload: the panel follows the relay)
                 self.relay_publish(Message::VoteOpen(v.clone()), Some(To::role(Role::Conductor)), now);
                 match groups {
+                    // #547: a vote with a filter goes to its voters only – nobody hears it to ask "does this concern me"
+                    _ if v.r#where.is_some() => {
+                        self.publish_voters(Message::VoteOpen(v), now);
+                    }
                     Some(gs) => {
                         for g in gs {
                             self.relay_publish(Message::VoteOpen(v.clone()), Some(To::group(g)), now);
@@ -830,8 +872,7 @@ impl Session {
                 return After::VoteOpened;
             }
             Message::VoteCast(c) => {
-                let group = self.clients.get(id).and_then(|c| c.group.clone());
-                let voter = self.is_voter(role, group.as_deref());
+                let (voter, group) = self.clients.get(id).map_or((false, None), |c| (self.is_voter(c), c.group.clone()));
                 let Some(vote) = self.vote.as_mut().filter(|v| v.open.vote == c.vote) else {
                     self.error(id, "vote", "no such vote open");
                     return After::Nothing;
@@ -1215,9 +1256,8 @@ impl Session {
         let Some(c) = self.clients.get_mut(&a.client) else { return };
         c.group = (!a.group.is_empty()).then(|| a.group.clone());
         c.locked = a.lock == Some(true);
-        let (role, group) = (c.role, c.group.clone());
         self.send_to(&a.client, Message::Assign(a.clone()));
-        let snapshot = self.snapshot_for(role, group.as_deref());
+        let snapshot = self.snapshot_of(&a.client);
         self.send_to(&a.client, Message::Snapshot(snapshot));
         self.tell_presence();
         self.tell_roles();
@@ -1519,6 +1559,7 @@ mod tests {
             seconds: 10,
             fallback: None,
             groups: groups.map(|g| g.into_iter().map(str::to_owned).collect()),
+            r#where: None,
             show: None,
             question: None,
             labels: None,
@@ -1803,6 +1844,106 @@ mod tests {
         let res = r.inbox("a1");
         let Message::VoteResult(v) = &res[0].message else { panic!() };
         assert_eq!((v.option, v.how), (1, VoteHow::Override));
+    }
+
+    /// #547: a vote with a filter, as the cell gives it
+    fn vote_where(groups: Option<Vec<&str>>, filter: &str) -> VoteOpen {
+        VoteOpen { r#where: Some(serde_json::from_str(filter).unwrap()), show: Some(true), ..vote(VoteRule::Majority, groups) }
+    }
+
+    fn cast_v1(r: &mut Room, id: &str, option: i64) {
+        r.send(id, Message::VoteCast(VoteCast { vote: "v1".into(), option }), 10);
+    }
+
+    impl Room {
+        /// a client with the device it says and the account facts its proof states (lib.rs `join` takes them so)
+        fn add_as(&mut self, id: &str, role: Role, group: &str, device: &str, account: &[protocol::Account]) {
+            let outbox = Outbox::new();
+            let mut c = Client::new(role, Some(group.into()), None, outbox.clone(), 0);
+            c.device = Some(device.into());
+            c.facts.account = account.to_vec();
+            self.s.join(id.into(), c);
+            self.rx.insert(id.into(), outbox);
+        }
+
+        fn expected(&mut self, now: i64) -> Option<i64> {
+            assert!(self.s.tick(now));
+            self.inbox("cond").iter().find_map(|e| match &e.message {
+                Message::VoteTally(t) => Some(t.expected),
+                _ => None,
+            })?
+        }
+    }
+
+    /// #547: a member filter – only a proven member hears the vote, is counted and may cast; a guest (the room's phones,
+    /// the outputs) never hears it, not on a replay nor in a snapshot, and its cast is refused; the conductor hears it all
+    #[test]
+    fn a_vote_with_a_filter_reaches_counts_and_takes_only_who_passes() {
+        let mut r = room();
+        r.add_as("m1", Role::Audience, "left", "phone", &[protocol::Account::Member]);
+        r.add_as("m2", Role::Audience, "right", "phone", &[protocol::Account::Member]);
+        r.drain();
+        let open = vote_where(Some(vec!["left"]), r#"{ "account": ["member"] }"#);
+        assert_eq!(r.send("cond", Message::VoteOpen(open), 0), After::VoteOpened);
+        assert_eq!(r.kinds("m1"), ["vote.open"]);
+        assert_eq!(r.kinds("cond"), ["vote.open"], "the conductor hears it");
+        for id in ["a1", "a2", "a3", "outL", "outR", "m2", "bridge"] {
+            assert!(r.inbox(id).is_empty(), "{id} does not pass (or sits in another group): it never hears the vote");
+        }
+        assert!(r.s.snapshot_of("m1").vote.is_some() && r.s.snapshot_of("cond").vote.is_some());
+        assert!(r.s.snapshot_of("a1").vote.is_none() && r.s.snapshot_of("outL").vote.is_none(), "nor in a late snapshot");
+        let replayed = |r: &Room, id: &str| r.s.missed(id, 0).iter().any(|t| t.contains("vote.open"));
+        assert!(replayed(&r, "m1") && !replayed(&r, "a1"), "nor on a replay");
+        assert_eq!(r.expected(250), Some(1), "M counts only who passed");
+        cast_v1(&mut r, "a1", 0);
+        cast_v1(&mut r, "m2", 0);
+        assert_eq!((r.kinds("a1"), r.kinds("m2")), (vec!["error"], vec!["error"]), "a guest's cast and another group's are refused");
+        assert!(r.s.vote.as_ref().unwrap().casts.is_empty());
+        cast_v1(&mut r, "m1", 1);
+        assert!(r.s.vote.is_none(), "every voter (one) has cast: closed");
+        let res = r.inbox("a1");
+        let Message::VoteResult(v) = &res[0].message else { panic!("{res:?}") };
+        assert_eq!((v.option, v.counts.clone()), (1, vec![0, 1]), "the result goes to everyone, as before");
+    }
+
+    /// #547: decks vote when the filter lets them (today's "never an output" is the rule without a filter): every client
+    /// that takes a role in the listed groups and passes – a native deck in it, not a browser deck nor a phone
+    #[test]
+    fn a_deck_that_passes_the_filter_votes_and_one_that_does_not_is_refused() {
+        let mut r = room();
+        r.add_as("nat", Role::Output, "left", "native", &[]);
+        r.add_as("perf", Role::Performer, "right", "native", &[]);
+        r.add_as("web", Role::Output, "left", "browser", &[]);
+        r.add_as("tel", Role::Audience, "left", "phone", &[]);
+        r.drain();
+        r.send("cond", Message::VoteOpen(vote_where(Some(vec!["left", "right"]), r#"{ "device": "native" }"#)), 0);
+        assert_eq!((r.kinds("nat"), r.kinds("perf")), (vec!["vote.open"], vec!["vote.open"]));
+        assert!(r.inbox("web").is_empty() && r.inbox("tel").is_empty() && r.inbox("outL").is_empty());
+        assert_eq!(r.expected(250), Some(2));
+        cast_v1(&mut r, "web", 0);
+        cast_v1(&mut r, "outL", 0);
+        assert_eq!((r.kinds("web"), r.kinds("outL")), (vec!["error"], vec!["error"]));
+        cast_v1(&mut r, "nat", 1);
+        assert!(r.s.tick(500), "perf is still to vote");
+        let t = r.inbox("nat");
+        assert!(matches!(&t[..], [e] if matches!(&e.message, Message::VoteTally(t) if t.voters == 1)), "a voter that cast sees the tally: {t:?}");
+        assert!(r.inbox("web").is_empty(), "no tally for one that does not pass");
+        cast_v1(&mut r, "perf", 0);
+        assert!(r.s.vote.is_none(), "both decks cast: closed");
+    }
+
+    /// #547: a client moved into a listed group mid-vote finds the vote in its new snapshot when it passes
+    #[test]
+    fn a_client_assigned_into_the_vote_finds_it_in_its_snapshot() {
+        let mut r = room();
+        r.add_as("m1", Role::Audience, "right", "phone", &[protocol::Account::Member]);
+        r.send("cond", Message::VoteOpen(vote_where(Some(vec!["left"]), r#"{ "account": ["member"] }"#)), 0);
+        r.drain();
+        r.send("cond", Message::Assign(Assign { client: "m1".into(), group: "left".into(), lock: None }), 5);
+        let got = r.inbox("m1");
+        assert!(got.iter().any(|e| matches!(&e.message, Message::Snapshot(s) if s.vote.is_some())), "{got:?}");
+        r.send("cond", Message::Assign(Assign { client: "a3".into(), group: "left".into(), lock: None }), 6);
+        assert!(r.inbox("a3").iter().all(|e| !matches!(&e.message, Message::Snapshot(s) if s.vote.is_some())), "a guest still does not pass");
     }
 
     #[test]
