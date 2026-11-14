@@ -4,12 +4,21 @@
 // life; each story event the reader fires (reader-story.ts) goes to the core as it is, and the core sends it as `story`
 // (in order, only while it drives the session's story – #527, relay.rs `Client::story` / `drive`). The relay hands it to
 // the conductor and the decks that asked (#517). Without `?live=` this file is never loaded: no link, nothing sent.
-import { RelaySocket, loadRelay, type Platform, type RelayCoreView, type RelayModule, type RelayStatus } from '@scutoons/live-deck';
+// #528: it joins without claiming; the person is asked first (linked-reader.svelte) and only a yes calls `drive` – the
+// core's place in the story (`Driving`) comes out as `{ driving }` through `onOther`.
+import { RelaySocket, loadRelay, type Platform, type RelayCoreView, type RelayHooks, type RelayModule, type RelayStatus } from '@scutoons/live-deck';
 import type { VNEvent } from '@scutoons/content';
 import { WASM_BASE, relayOf } from './live-deck.ts';
 import { listenSession } from './reader-story.ts';
 
-export interface ReaderLinkOptions extends Platform {
+/** #528: a reader's place in the session's story as the core says it – its JSON (deck-space linked.rs `Driving`) */
+export interface Driving {
+	claim: 'none' | 'asked' | 'drives' | 'taken_over';
+	/** another reader drives now – a claim would take it over (the newcomer's warning) */
+	other: boolean;
+}
+
+export interface ReaderLinkOptions extends Platform, Pick<RelayHooks, 'onOther'> {
 	/** `ws://host:port/live/<code>` */
 	relay: string;
 	/** relay-web (`loadRelay(WASM_BASE)`); the link joins once it is there */
@@ -46,18 +55,21 @@ export class ReaderLink {
 	private begin(m: RelayModule): void {
 		if (this.stopped) return;
 		const core = new m.RelayClient(JSON.stringify({ relay: this.o.relay, role: 'reader' })) as ReaderCore;
-		this.s = new RelaySocket(core, { onStatus: (_, s) => this.o.onStatus?.(s) }, this.o) as RelaySocket & { core: ReaderCore };
-		// #527: the core's claim to drive the session's story (relay.rs `Client::drive`), at the moment the page links – the
-		// reader's question before it is step 2 (#522); what fires before the relay's answer the core drops
-		core.drive();
+		// #528: no claim here – the reader is asked first; the core's `{ driving }` (at the welcome, at each change) goes to `onOther`
+		this.s = new RelaySocket(core, { onStatus: (_, s) => this.o.onStatus?.(s), onOther: this.o.onOther }, this.o) as RelaySocket & { core: ReaderCore };
 		this.s.start();
 		for (const json of this.early ?? []) core.story(json);
 		this.early = null;
 		this.s.run();
 	}
 
-	get joined(): boolean {
-		return this.s?.core.joined() ?? false;
+	/** #528: the person said yes (or takes the place back): the core claims the session's story (relay.rs `Client::drive`);
+	 *  false: no core yet */
+	drive(): boolean {
+		if (!this.s) return false;
+		const asked = this.s.core.drive();
+		this.s.run();
+		return asked;
 	}
 
 	/** a story event the reader fired */

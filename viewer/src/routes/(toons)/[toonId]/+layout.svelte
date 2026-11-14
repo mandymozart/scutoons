@@ -1,19 +1,17 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, type Component } from 'svelte';
 	import { page } from '$app/state';
-	import { LIVE_QUIC, LIVE_URL } from '$lib/config.ts';
 	import ToonShell from '$lib/components/toon/toon-shell.svelte';
 
 	let { children, data, params } = $props();
 
-	// #518: a reader in a session (`?live=<code>`, reader-session.ts) tells it the story events it fires; normal reading
-	// loads none of it and sends nothing
+	// #518 / #528: a reader in a session (`?live=<code>`): linked-reader.svelte joins it, asks first and shows the linked
+	// sign (reader-session.ts tells it the story events it fires once the person said yes); normal reading loads none of it
+	// and sends nothing
+	let Linked = $state<Component | null>(null);
 	onMount(() => {
 		if (!page.url.searchParams.has('live')) return;
-		void import('$lib/reader-session.ts').then(({ sessionOf, joinSession }) => {
-			const relay = sessionOf(page.url.searchParams, LIVE_URL, LIVE_QUIC);
-			if (relay) joinSession(relay);
-		});
+		void import('$lib/components/toon/linked-reader.svelte').then((c) => (Linked = c.default));
 	});
 </script>
 
@@ -21,3 +19,4 @@
 {#key params.toonId}
 	<ToonShell {data} {params}>{@render children()}</ToonShell>
 {/key}
+{#if Linked}<Linked />{/if}

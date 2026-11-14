@@ -899,6 +899,17 @@
 		"failure_server": "The server didn’t deliver a file. Try again in a moment.",
 		"failure_storage": "Your browser doesn’t let SCUTOONS store anything here – for example in a private window or when site data is blocked."
 	},
+	"linked_reader": {
+		"question": "Link this reading to the stage? What you read then moves the scene on the stage.",
+		"take_over": "Another reader is linked right now – if you link, you take their place.",
+		"yes": "Link",
+		"no": "Just read",
+		"asked": "Linking …",
+		"drives": "Linked to the stage",
+		"taken_over": "Another reader took over the stage",
+		"take_back": "Take it back",
+		"leave": "Leave"
+	},
 	"live_deck": {
 		"title": "Deck",
 		"stage_only": "Full screen",
