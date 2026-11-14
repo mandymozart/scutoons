@@ -25,6 +25,8 @@ pub enum Typing {
     Label(String),
     /// a client's name (its id)
     Nick(String),
+    /// #531: the label a linked reader starts at (the Session sheet)
+    ReaderLabel,
 }
 
 /// What a prompt asks before it is done.
@@ -102,6 +104,7 @@ impl Host {
                         self.status = said;
                         self.send(out);
                     }
+                    Typing::ReaderLabel => self.session.place.label = text.trim().to_string(),
                 }
             }
             Key::Named(NamedKey::Escape) => self.typing = None,

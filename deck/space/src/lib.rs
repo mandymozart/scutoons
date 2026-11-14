@@ -44,6 +44,9 @@ pub mod chapter;
 pub mod hud;
 #[cfg(feature = "gpu")]
 pub mod pairing;
+/// #531: the deck editor's Session panel as deck-ui's plain data (the readers, the core's link, its QR)
+#[cfg(feature = "gpu")]
+pub mod session_panel;
 #[cfg(feature = "gpu")]
 pub mod splash;
 #[cfg(feature = "gpu")]

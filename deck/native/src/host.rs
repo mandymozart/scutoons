@@ -12,6 +12,11 @@ pub const WINDOWED: (f64, f64) = (1280.0, 720.0);
 /// a window titled `title`: fullscreen borderless on the current monitor, or `WINDOWED` when `windowed`
 pub fn window(el: &ActiveEventLoop, title: &str, windowed: bool) -> Result<Arc<Window>, winit::error::OsError> {
     let mut attrs = Window::default_attributes().with_title(title);
+    // #531: `DECK_OFFSCREEN` – a check run's window opens off every screen (`--frames N --screenshot FILE`); a hidden one
+    // gets no frames on Windows (no paint for an invisible window)
+    if std::env::var_os("DECK_OFFSCREEN").is_some() {
+        attrs = attrs.with_position(winit::dpi::PhysicalPosition::new(-20000, -20000));
+    }
     if windowed {
         attrs = attrs.with_inner_size(winit::dpi::LogicalSize::new(WINDOWED.0, WINDOWED.1));
     } else {
