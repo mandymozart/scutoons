@@ -68,6 +68,10 @@ final class StoryEventsApiTest extends TestCase
         $response = $this->request('/api/creator/story-events', $this->token('creator'));
         self::assertSame(200, $response->getStatusCode());
         $index = (array) json_decode((string) $response->getBody(), true);
+        // #555: an account with the role live alone reads the same list (the deck editor's show rows)
+        $live = $this->request('/api/creator/story-events', $this->token('live'));
+        self::assertSame(200, $live->getStatusCode());
+        self::assertSame($index, json_decode((string) $live->getBody(), true));
 
         self::assertSame('success', $index['status']);
         self::assertSame(['catpope', 'toptoy'], array_column($index['toons'], 'id'));

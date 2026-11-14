@@ -1,8 +1,8 @@
 //! The toon's story events a row fires on (#539; SHOW.md §7): `GET /api/creator/story-events` (#521; server
 //! FlowIndex::storyEvents, TS `StoryEventsIndex` in shared/content/src/flow.ts) read for one toon, and the event picker's
 //! lines. A row fires on an event by its id (`fire.event`); an event the chapter editor gave no id is listed but cannot be
-//! picked – the conductor drops it (conductor.rs, logged). The endpoint needs a content editor's token (creator or admin;
-//! the role `live` alone gets 403): the words say so and the id is typed instead. The editor does the HTTP; the address,
+//! picked – the conductor drops it (conductor.rs, logged). The endpoint needs a token with the role creator, admin or
+//! `live` (#555); without one the words say so and the id is typed instead. The editor does the HTTP; the address,
 //! the reading of the answer, the words and the lines are here (RULES A1, A2), as rows.rs is for the piece picker.
 //! The same answer lists per chapter its questions (#550, SHOW.md §15 point 4): a `showChoices` of the chapter's published
 //! version with its `addChoice` options, whole labels by locale, and that version – read here once with the events
@@ -34,7 +34,7 @@ pub struct StoryEvent {
     pub chapter: u64,
 }
 
-/// `GET <api>/creator/story-events` – every toon's story events (the editor's token; role creator)
+/// `GET <api>/creator/story-events` – every toon's story events (the editor's token; role creator, admin or live)
 pub fn url(api: &str) -> String {
     format!("{}/creator/story-events", api.trim().trim_end_matches('/'))
 }
@@ -109,7 +109,7 @@ pub fn parse(json: &str, toon: &str) -> Result<Vec<StoryEvent>, String> {
 pub fn refused(status: Option<u16>, detail: &str) -> String {
     match status {
         Some(401) => "the story events: not signed in – the editor's token is SCUTOONS_TOKEN".into(),
-        Some(403) => "the story events need a creator's token (GET /api/creator/story-events) – the role live alone may not read them".into(),
+        Some(403) => "the story events need a token with the role creator, admin or live (GET /api/creator/story-events)".into(),
         Some(code) => format!("the story events: HTTP {code}"),
         None => format!("the story events: {detail}"),
     }
