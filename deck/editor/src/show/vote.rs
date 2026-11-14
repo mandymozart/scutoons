@@ -143,7 +143,7 @@ fn chips(d: &mut DrawList, t: &Tokens, (x, y, w): (f32, f32, f32), label: &str, 
 }
 
 /// a labelled typed field: its place
-fn field(d: &mut DrawList, t: &Tokens, host: &Host, (x, y, w): (f32, f32, f32), label: &str, what: Typing, value: &str, empty: &str) -> Rect {
+fn field(d: &mut DrawList, t: &Tokens, host: &Host, (x, y, w): (f32, f32, f32), what: Typing, (label, value, empty): (&str, &str, &str)) -> Rect {
     let (font, small, row, lw) = (t.size.font, t.size.small, t.size.tree_row, d.advance(t.size.small) * 9.0);
     d.text(x, y + (row - small * 1.25) * 0.5, small, label, t.color.muted);
     let r = Rect { x: x + lw, y: y + 2.0, w: (w - lw).min(420.0), h: row - 4.0 };
@@ -189,9 +189,9 @@ fn draw_form(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect) {
     y += small * 1.8;
     let f = host.voting.form.clone();
     let mut hits: Vec<(Rect, VoteHit)> = Vec::new();
-    hits.push((field(d, t, host, (x, y, w), "Question", Typing::VoteQuestion, &f.question, "none – the options alone"), VoteHit::Question));
+    hits.push((field(d, t, host, (x, y, w), Typing::VoteQuestion, ("Question", &f.question, "none – the options alone")), VoteHit::Question));
     y += row;
-    hits.push((field(d, t, host, (x, y, w), "Options", Typing::VoteOptions, &f.options, "Yes, No – separated by commas"), VoteHit::Options));
+    hits.push((field(d, t, host, (x, y, w), Typing::VoteOptions, ("Options", &f.options, "Yes, No – separated by commas")), VoteHit::Options));
     y += row;
     let rules: Vec<String> = RULES.iter().map(|r| r.name().to_string()).collect();
     let lit: Vec<bool> = RULES.iter().map(|r| *r == f.rule).collect();
@@ -201,10 +201,10 @@ fn draw_form(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect) {
     d.text(x + d.advance(small) * 9.0, y, small, &fit(d, f.rule.help(), small, w), t.color.muted);
     y += small * 1.8;
     if f.rule == deck_ui::vote::Rule::First {
-        hits.push((field(d, t, host, (x, y, w.min(260.0)), "n", Typing::VoteN, &f.n.to_string(), ""), VoteHit::N));
+        hits.push((field(d, t, host, (x, y, w.min(260.0)), Typing::VoteN, ("n", &f.n.to_string(), "")), VoteHit::N));
         y += row;
     }
-    hits.push((field(d, t, host, (x, y, w.min(260.0)), "Seconds", Typing::VoteSeconds, &f.seconds.to_string(), ""), VoteHit::Seconds));
+    hits.push((field(d, t, host, (x, y, w.min(260.0)), Typing::VoteSeconds, ("Seconds", &f.seconds.to_string(), "")), VoteHit::Seconds));
     y += row;
     let options = f.option_list();
     let lit: Vec<bool> = (0..options.len()).map(|i| i == f.fallback).collect();
