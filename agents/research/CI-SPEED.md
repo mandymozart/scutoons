@@ -1,4 +1,4 @@
-Status 2026-11-13: research, nothing built (#523).
+Status 2026-11-14: research (#523); proposals 1, 2 (in part) and 3 built (#524, "Built (#524)" under §4's first three rows); 4–10 open.
 
 # Where deck:ci's time goes, and how to cut it
 
@@ -67,6 +67,48 @@ linked and then run **one binary at a time** (cargo's rule), plus a doc-test pas
 | 1 | **Green stamps keyed by content.** After a green step, store `git rev-parse HEAD:deck`, `HEAD:shared/live*`, `HEAD:scripts` (tree hashes) + step name; a later run (orchestrator, pre-push) with equal hashes skips that step. | 45-58 min per redundant run, 1-2 per merge | high | none for equal trees; a non-FF merge has other hashes and runs again | S |
 | 2 | **Delete the duplicates:** step 17 (the test covers it), merge the 3 clippy runs and the 2 module test steps via `--features deck-native/modules,deck-engine/events,deck-engine/modules`, fold outlet + ui into one wasm `cargo build -p ... -p ...`. | 3-4 min | high | module tests join the workspace run (more in one binary set, feature union may show new clippy lints) | S |
 | 3 | **Release build out of the merge path:** `cargo check --release --workspace` per merge (~1-2 min), the real fat-LTO build nightly and before a deck release / owner push. | 8-9 min | high | LTO / linker / size-only failures show up a day later (the pre-push hook already accepts this) | S |
+
+**Built (#524)** – scripts/deck-ci.mjs + scripts/deck-ci-stamps.ts (its unit test: `npm run check:deck-ci`):
+- **1, as proposed, finer:** the key is the blob hashes of every file under WATCH at HEAD (deck/, shared/live*, the deck-ci script, the stamps,
+  the pre-push hook, the deck-deps files; an npm step adds package.json / package-lock.json, the clock step tools/clock-measure) + step + tier +
+  `rustc -V` / node / RUSTFLAGS; stamps in `<git common dir>/deck-ci-stamps/` (every worktree), pruned after 30 days. A dirty or untracked WATCH path:
+  every step runs, nothing is stamped; `--fresh` / `DECK_CI_FRESH=1` ignores them; `--plan` prints run / skip without running. Never stamped: core only
+  (it scans viewer / creator / admin / tools and compares with main's baseline). The pre-push hook runs the default tier, so it reuses the stamps.
+- **2, in part:** the headless scenarios step is gone (headless/tests/scenarios.rs runs the same files through the same `run` / `summary` in the
+  tests step); one clippy over `--features deck-native/modules,deck-engine/events,deck-engine/modules` (green as it was, no new lint; the
+  `cfg(not(feature = "modules"))` lines – native/src/rig.rs, engine/src/walk.rs – are now compiled by the release check and the tests, no longer linted);
+  deck-outlet + deck-ui in one wasm32 build. **Not joined: the module tests** – with deck-native/modules in `cargo test --workspace`,
+  conformance's control_rate fails (`unknown kind 'module:stepseq'`: `deck_native::modules::carried_part` keeps what the stage built); joining
+  them needs a test change, so both module test steps stay.
+- **3:** the default tier runs `cargo check --release --workspace`; `deck:ci -- --full` builds release with fat LTO (end of every shift, before a
+  deck release; RULES A13, ORCHESTRATION "Checks"). `--no-release` is accepted as the default tier (hooks installed before #524).
+
+| step (s) | before A / B | after: run 1, cold worktree | after: run 2 | re-run, same tree |
+|---|---|---|---|---|
+| core only · deck-deps · protocol schema | 12 / 10 | 10 | 11 | 3 (core only) |
+| kind catalog current | 76 / 66 | 99 | 13 | skipped |
+| live-core wasm32 + simd128 · its tests | 115 / 148 | 146 | 128 | skipped |
+| deck-engine wasm32 + simd128 | 144 / 137 | 156 | 127 | skipped |
+| space-web wasm32 | 73 / 144 | 175 | 91 | skipped |
+| outlet · show · ui wasm32 (3 builds → outlet + ui, show) | 87 / 94 | 58 + 92 | 0 + 5 | skipped |
+| relay binary · relay-web | 54 / 108 | 52 + 134 | 4 + 60 | skipped |
+| live-deck tests · clock tool | 11 / 11 | 27 | 12 | skipped |
+| release build → release check | 574 / 616 | 131 | 15 | skipped |
+| headless scenarios | 76 / 83 | – (gone) | – | – |
+| tests | 1958 / 1952 | failed (the union, above) | 2123 | skipped |
+| module tests · engine module tests | 181 / 180 | – | 137 + 80 | skipped |
+| clippy ×3 → ×1 | 108 / 103 | – | 10 (warm: a cold union clippy before took 67) | skipped |
+| **total** | **3473 / 3653** | – | **2822** (steps 1–15 warm from run 1) | **3** (18 of 19 skipped) |
+
+Read: the cuts remove ~10–11 min of steps from a first run (release −440 s, headless −80, clippy ~−40, one wasm build), but this first run in a
+fresh worktree spent 2123 s in the tests (cold test binaries; A / B ran in worked-in trees) – a cold first run lands ~ at the old total
+(1080 s for steps 1–15 + 2407 s for tests, modules, clippy). The win is the re-run: the orchestrator's run and the pre-push hook on a tree a
+worker proved green take 3 s instead of ~58 min. Full tier (`--full`, run 3 on the same tree, everything warm; the tier is in the key, so it reuses no default stamp): green in 2516 s –
+release build 663, tests 1375, module tests 36 + 9, clippy 9, the rest as run 2. On a warm tree the default tier is therefore ~1870 s (31 min:
+2516 − 663 + 15) against 3473 / 3653 before.
+
+| # | proposal | saving | sure | risk | size |
+|---|---|---|---|---|---|
 | 4 | **Conformance tests reuse the wasm deck:ci already built** (env `DECK_WASM_DIR` or a stamp file; own build only when unset, e.g. run alone); the plain variants on a `[profile.ci-wasm]` = release with `lto = "off"`, 16 CGUs; module wasm: one `-p` set for all five test crates so `wasm-modules` builds once. | 6-12 min | medium (the nested builds are certain, their cost is derived from steps 5 / 7) | simd: none (same artifact); plain: LLVM does not change float results without fast-math, bit-exactness is the test | M |
 | 5 | **Fast tier by changed paths, full tier nightly / before the owner's push.** Fast = guards + `cargo test` of the changed crates plus their reverse-dependency closure (from `cargo metadata`) + workspace clippy; wasm / conformance / headless only if a hub crate (core, catalog, protocol, space, engine, live-core, outlet, ui, kit, events) or Cargo.toml/lock/profile changed. | 35-50 min on ~20-35 % of merges (29 / 150 leaf-only, 54 / 150 outside the space-core hub) = 8-15 min average | medium | a cross-crate effect the graph misses (build.rs, include_str! of files outside the crate, scripts) - make those paths "hub"; nightly full tier catches the rest a day later | M |
 | 6 | **Build lanes in parallel:** run the independent builds (steps 5, 7, 8, 12-13 and, if kept, 16) concurrently, 3 lanes, each already has its own target dir; the tests step stays alone. | 5-9 min with the machine idle, 2-4 under a second session (B1) | medium | none for correctness; RAM (LTO) - the memory guard of ORCHESTRATION applies | M |
