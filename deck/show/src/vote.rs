@@ -202,7 +202,7 @@ pub fn panel(b: &Board, name: &dyn Fn(&str) -> String) -> Option<Panel> {
 }
 
 /// the locale `vote.open`'s plain `options` are in (`labels` carries the others)
-const DEFAULT_LOCALE: &str = "en";
+pub(crate) const DEFAULT_LOCALE: &str = "en";
 
 /// #548: the typed form as a question of the show named `id` (empty: a vote opened from Perform's form, not the show's), or
 /// what is wrong with it (deck-ui `Form::problem`, the one check). Its groups are the columns it is opened for, not the

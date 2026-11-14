@@ -58,6 +58,14 @@ fn the_matrix_marks_the_cells_of_a_question_and_the_inspector_says_to_whom() {
     let wide = view::plan(&parse(&d.to_string()).unwrap());
     let runs: Vec<(bool, usize)> = wide.rows[1].cells[..3].iter().map(|c| c.ask.as_ref().map(|a| (a.first, a.run)).unwrap()).collect();
     assert_eq!(runs, [(true, 3), (false, 0), (false, 0)]);
+    // #551: what each cell drawn says – one wide cell the question; cells apart their mark; a run among others its places
+    let words = |m: &view::Matrix| -> Vec<Option<String>> { m.rows[1].cells[..3].iter().map(|c| c.ask.as_ref().and_then(AskView::words)).collect() };
+    assert_eq!(words(&wide), [Some("q1 · Which way?".to_string()), None, None]);
+    assert_eq!(words(&m), [Some("q1 · 1 of 2 · Which way?".to_string()), None, Some("q1 · 2 of 2 · Which way?".to_string())]);
+    d["outlets"] = json!([{ "id": "left" }, { "id": "middle" }, { "id": "far" }, { "id": "right" }, { "id": "lamps", "kind": "device" }]);
+    let run = view::plan(&parse(&d.to_string()).unwrap());
+    let said: Vec<Option<String>> = run.rows[1].cells[..4].iter().map(|c| c.ask.as_ref().and_then(AskView::words)).collect();
+    assert_eq!(said, [Some("q1 · 1–2 of 3 · Which way?".to_string()), None, None, Some("q1 · 3 of 3 · Which way?".to_string())]);
 }
 
 #[test]

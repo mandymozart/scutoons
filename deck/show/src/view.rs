@@ -61,6 +61,21 @@ impl AskView {
     pub fn mark(&self) -> String {
         format!("{} · {} of {}", self.question, self.nth, self.of)
     }
+
+    /// What the cell drawn from here says (#551; none: a column inside a wide cell, drawn by the one that starts it): one
+    /// wide cell that holds every column of the question `q1 · Which way?`; a cell apart its mark first, `q1 · 2 of 3 ·
+    /// Which way?`; a run among others apart its places, `q1 · 1–2 of 3 · Which way?`.
+    pub fn words(&self) -> Option<String> {
+        if !self.first {
+            return None;
+        }
+        let label = Some(&self.label).filter(|l| **l != self.question).map(|l| format!(" · {l}")).unwrap_or_default();
+        Some(match (self.run == self.of, self.run) {
+            (true, _) => format!("{}{label}", self.question),
+            (false, 0 | 1) => format!("{}{label}", self.mark()),
+            (false, run) => format!("{} · {}–{} of {}{label}", self.question, self.nth, self.nth + run - 1, self.of),
+        })
+    }
 }
 
 /// the `ask` cells of `row` along `cols`, one entry per column (none: no question there)
@@ -367,6 +382,8 @@ pub fn matrix(sub: &Subtree) -> Matrix {
     let c = sub.conductor();
     let show = c.show();
     let columns = columns(show);
+    // #551: the question whose vote is open now – its cells are what is on (a row asks it once: validate)
+    let open = sub.vote().open_now().and_then(|v| sub.vote().asks(v));
     let rows = show
         .rows
         .iter()
@@ -377,7 +394,15 @@ pub fn matrix(sub: &Subtree) -> Matrix {
             fires: fires(&r.fire),
             current: c.current() == Some(r.id.as_str()),
             suggested: c.suggestion().is_some_and(|s| s.row == r.id),
-            cells: columns.iter().zip(ask_views(show, r, &columns)).map(|(col, ask)| CellView { ask, ..cell_view(&r.id, r.cells.get(&col.id), c.on_stage(&col.id)) }).collect(),
+            cells: columns
+                .iter()
+                .zip(ask_views(show, r, &columns))
+                .map(|(col, ask)| {
+                    let view = cell_view(&r.id, r.cells.get(&col.id), c.on_stage(&col.id));
+                    let asked = ask.as_ref().is_some_and(|a| open == Some(a.question.as_str()));
+                    CellView { on: view.on || asked, ask, ..view }
+                })
+                .collect(),
         })
         .collect();
     Matrix { columns, rows, suggestion: c.suggestion().map(|s| suggested(show, s)), go: go_text(show, c.current(), c.suggestion()) }

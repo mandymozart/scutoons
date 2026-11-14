@@ -69,8 +69,14 @@ fn a_hand_launch_of_one_ask_cell_opens_the_whole_question() {
     let o = opens(&out);
     assert_eq!((o.len(), o[0].groups.as_deref()), (1, Some(&["left".to_string(), "right".to_string()][..])));
     assert!(o[0].r#where.is_some());
+    // #551: while its vote is open the question's cells are what is on in the matrix – every column that asks it
+    let on = |sub: &Subtree| -> Vec<bool> { view::matrix(sub).rows[1].cells.iter().map(|c| c.on).collect() };
+    assert_eq!(on(&sub), [true, false, true, false]);
     // another cell of the row by hand opens nothing
     assert!(opens(&sub.launch_cell("crossroads", "middle", 1_100)).is_empty());
+    relay_says(&mut sub, &out, 1_200);
+    sub.on_wire(&result("v1", 1), 2_000);
+    assert_eq!(on(&sub), [false, false, false, false], "decided: the question is over");
 }
 
 #[test]
