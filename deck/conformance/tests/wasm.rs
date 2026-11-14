@@ -14,7 +14,8 @@ fn deck_dir() -> PathBuf {
 
 /// Build `pkg` for wasm32 (`simd`: +simd128) and return the .wasm path.
 fn build_wasm(pkg: &str, file: &str, simd: bool) -> PathBuf {
-    let dir = deck_dir().join("target").join(if simd { "conformance-wasm-simd" } else { "conformance-wasm" });
+    // the deck's target dir, wherever cargo put it (#526: a worktree's is in <git common dir>/deck-target/<id>)
+    let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).parent().unwrap().join(if simd { "conformance-wasm-simd" } else { "conformance-wasm" });
     let mut cmd = Command::new("cargo");
     cmd.current_dir(deck_dir()).args(["build", "--release", "--target", "wasm32-unknown-unknown", "-p", pkg, "--target-dir"]).arg(&dir);
     if simd {

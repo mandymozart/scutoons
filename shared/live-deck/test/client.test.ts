@@ -2,14 +2,14 @@
 // wasm) under client.ts's socket. The core's scripted links (test/fixtures/relay.json, written and kept current by
 // `UPDATE_FIXTURES=1 cargo test -p deck-space relay_fixture`) run through `RelaySocket` on a fake socket, clock and timer:
 // every turn must ask and say what the core said natively, and the socket must do it. Then, in process against a real
-// relay (deck/target/debug/relay.exe on LAB_RELAY_PORT, default 7072): a conductor sees the deck's `deck.graph` first,
+// relay (debug/relay.exe in the deck's target, deckTarget() #526, on LAB_RELAY_PORT, default 7072): a conductor sees the deck's `deck.graph` first,
 // then its `deck.values`, both again after a reconnect; the show clock's pong and anchors. The ones that need the wasm or
 // the relay skip, saying so, when it isn't built.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { deckTarget } from '@scutoons/live-core/wasm-path';
 import { DeckLink, RelaySocket, type RelayCoreView, type RelayModule, type WebSocketLike } from '../src/client.ts';
 import type { QuicEvents, QuicPipe } from '../src/quic.ts';
 import { MOODS, OWN, OWN_PARAMS, OWN_STREAMED, ownGraph } from './own.ts';
@@ -306,8 +306,8 @@ const until = async (what: () => boolean, ms = PATIENCE) => {
 	}
 };
 
-const relayExe = fileURLToPath(new URL('../../../deck/target/debug/relay.exe', import.meta.url));
-const NO_RELAY = existsSync(relayExe) ? '' : 'deck/target/debug/relay.exe not built (cargo build -p relay)';
+const relayExe = `${deckTarget()}/debug/relay.exe`;
+const NO_RELAY = existsSync(relayExe) ? '' : `${relayExe} not built (cargo build -p relay)`;
 
 test('in process: a relay, a conductor, the deck – graph first, values rate-limited, again after a reconnect', { skip: NO_RELAY || NO_CORE || false }, async () => {
 	const port = Number(process.env.LAB_RELAY_PORT ?? 7072);

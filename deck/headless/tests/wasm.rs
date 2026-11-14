@@ -8,7 +8,8 @@ use std::process::Command;
 use wasmtime::{Engine, Instance, Module, Store};
 
 fn build(simd: bool) -> PathBuf {
-    let dir = common::deck_dir().join("target").join(if simd { "conformance-wasm-simd" } else { "conformance-wasm" });
+    // the deck's target dir, wherever cargo put it (#526: a worktree's is in <git common dir>/deck-target/<id>)
+    let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).parent().unwrap().join(if simd { "conformance-wasm-simd" } else { "conformance-wasm" });
     let mut cmd = Command::new("cargo");
     cmd.current_dir(common::deck_dir()).args(["build", "--release", "--target", "wasm32-unknown-unknown", "-p", "deck-headless", "--lib", "--target-dir"]).arg(&dir);
     if simd {

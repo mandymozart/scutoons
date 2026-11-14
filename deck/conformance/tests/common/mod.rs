@@ -390,9 +390,9 @@ pub fn rms(x: &[f32]) -> f32 {
     (x.iter().map(|v| f64::from(*v) * f64::from(*v)).sum::<f64>() / x.len().max(1) as f64).sqrt() as f32
 }
 
-/// `deck/target/conformance/<name>`: where the probes leave their tables
+/// `<the deck's target dir>/conformance/<name>`: where the probes leave their tables (wherever cargo put the target dir, #526)
 pub fn report_path(name: &str) -> std::path::PathBuf {
-    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("target").join("conformance");
+    let dir = std::path::Path::new(env!("CARGO_TARGET_TMPDIR")).parent().unwrap().join("conformance");
     std::fs::create_dir_all(&dir).unwrap();
     dir.join(name)
 }

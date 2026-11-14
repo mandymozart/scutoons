@@ -146,7 +146,8 @@ mod wasm {
     fn wasm() -> Vec<u8> {
         static BUILD: OnceLock<()> = OnceLock::new();
         let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).parent().unwrap().parent().unwrap().to_owned();
-        let dir = root.join("target").join("wasm-modules");
+        // the deck's target dir, wherever cargo put it (#526: a worktree's is in <git common dir>/deck-target/<id>)
+        let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).parent().unwrap().join("wasm-modules");
         BUILD.get_or_init(|| {
             let cargo = std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
             let out = std::process::Command::new(cargo)

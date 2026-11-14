@@ -4,16 +4,16 @@
 // wasm-bindgen-cli --version 0.2.129`); live-core (the sound, #320) as shared/live-core builds it (no bindgen). `-- --relay`:
 // relay-web alone (deck:ci, before live-deck's tests). `-- --sandbox`: a dev build – space-web's `?scene=` plays the
 // sandbox scenes too (#427, deck/native/scenes/sandbox; the published build carries none). The files go to shared/live-deck/wasm/ (deck/lab's build copies them),
-// viewer/static/live/ and creator/static/live/ (#298), all git-ignored. CARGO_TARGET_DIR is honoured (default deck/target).
+// viewer/static/live/ and creator/static/live/ (#298), all git-ignored. The deck's target folder: deckTarget() (#526).
 import { execFileSync } from 'node:child_process';
 import { copyFileSync, mkdirSync, readFileSync, statSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
-import { buildCommand, wasmPath } from '@scutoons/live-core/wasm-path';
+import { buildCommand, deckTarget, wasmPath } from '@scutoons/live-core/wasm-path';
 
 const here = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 const deck = here('../../../deck/');
-const web = `${process.env.CARGO_TARGET_DIR ?? `${deck}target`}/wasm32-unknown-unknown/wasm-web`;
+const web = `${deckTarget()}/wasm32-unknown-unknown/wasm-web`;
 const run = (cmd: string, args: string[], env = process.env) => execFileSync(cmd, args, { stdio: 'inherit', cwd: deck, env });
 const out = here('../wasm/');
 mkdirSync(out, { recursive: true });

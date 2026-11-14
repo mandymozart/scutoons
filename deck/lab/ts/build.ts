@@ -3,10 +3,11 @@
 //   www/pkg and www/pkg-simd copied next to it;
 // - the #184 / #197 pages (formats.html, demo.html, deck.html – over @scutoons/live-deck since #198): bundled with rolldown (vite 8's bundler, from the repo's node_modules) –
 //   they import shared/live-core; the worker and the worklet are their own entries, live_core.wasm is copied from
-//   deck/target (`npm run build:wasm -w shared/live-core`).
+//   the deck's target (wasmPath(), #526; `npm run build:wasm -w shared/live-core`).
 import { readFileSync, writeFileSync, mkdirSync, cpSync, existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
+import { wasmPath } from '../../../shared/live-core/scripts/wasm.ts';
 
 const lab = fileURLToPath(new URL('..', import.meta.url));
 const require = createRequire(import.meta.url);
@@ -41,7 +42,7 @@ const bundle = await rolldown({
 	platform: 'browser'
 });
 await bundle.write({ dir: dist, format: 'esm', entryFileNames: '[name].js', chunkFileNames: 'chunks/[name].js' });
-const wasm = `${lab}/../target/wasm32-unknown-unknown/release/live_core.wasm`;
+const wasm = wasmPath();
 if (existsSync(wasm)) cpSync(wasm, `${dist}/live_core.wasm`);
 else console.warn('live_core.wasm is not built – npm run build:wasm -w shared/live-core');
 // deck.html's `?space=1` (#198): the being in 3D – deck/space-web's wasm (`npm run build:wasm -w shared/live-deck`)
