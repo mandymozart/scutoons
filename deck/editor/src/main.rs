@@ -149,6 +149,12 @@ fn args() -> Result<Args> {
             "--vote" => a.script.vote = Some(show::vote_form(&val()?)),
             "--vote-tally" => a.script.vote_tally = Some(val()?),
             "--problem" => a.script.problem = Some(val()?.parse().context("--problem N (0-based)")?),
+            "--author" => {
+                let v = val()?;
+                let mut p = v.splitn(3, ',').map(|s| s.trim().to_string());
+                let (row, column) = (p.next().unwrap_or_default(), p.next().context("--author ROW,COLUMN[,PIECE]")?);
+                a.script.author = Some((row, column, p.next().filter(|s| !s.is_empty())));
+            }
             "--gesture" => {
                 let v = val()?;
                 let (from, to) = v.split_once(',').with_context(|| format!("--gesture takes FROM,TO, not {v}"))?;
@@ -1336,6 +1342,9 @@ impl App {
 
     fn redraw(&mut self, el: &ActiveEventLoop) {
         self.book.poll();
+        // #537: the Show workspace picks a cell's piece from the book's scenes
+        self.show.book.clone_from(&self.book.book);
+        self.show.book_why.clone_from(&self.book.why);
         let help = self.help_now();
         let (Some(window), Some(gpu), Some(ui)) = (self.window.clone(), self.gpu.as_mut(), self.ui.as_mut()) else { return };
         self.stage.space.being.hold(self.wire, false);

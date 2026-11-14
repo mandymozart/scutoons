@@ -9,7 +9,8 @@
 //!   place the show runner's sheets (#533): Session (session.rs), Vote (vote.rs).
 //! - **Show** (author.rs): the conductors tree with a breadcrumb into a sub conductor, the rows band, the inspector, the
 //!   seats, each deck's answer to the last flash; the 2D node overlay over the dimmed stage (#446) with a 2D / 3D switch; the
-//!   cue sheet and the problems list in its place (sheets.rs); save and load through /api/shows (api.rs).
+//!   cue sheet and the problems list in its place (sheets.rs); save and load through /api/shows (api.rs). #537 (rows.rs):
+//!   a row added, renamed, removed; a cell's mode and its piece, picked from the published scenes of the toon's book.
 //!
 //! The editor runs one conductor, this deck's (the tree's top it was given). A sub conductor runs on its own deck with its
 //! own operator; entering it here shows its document, it does not run it.
@@ -19,6 +20,7 @@ mod flash;
 mod link;
 pub mod perform;
 mod roles;
+mod rows;
 mod session;
 mod sheets;
 mod vote;
@@ -63,6 +65,8 @@ pub enum Sheet {
     Session,
     /// #533: the vote's conductor side – open a vote, its tally per group, Hold / Close now / Override, the result (vote.rs)
     Vote,
+    /// #537: the piece picker of the selected cell – the published scenes of the toon's book (rows.rs)
+    Piece,
 }
 
 impl Sheet {
@@ -79,6 +83,7 @@ impl Sheet {
             "who" => Some(Sheet::Who),
             "session" => Some(Sheet::Session),
             "vote" => Some(Sheet::Vote),
+            "piece" => Some(Sheet::Piece),
             _ => None,
         }
     }
@@ -114,6 +119,17 @@ pub enum Hit {
     WhoRename(usize),
     WhoKick(usize),
     MenuPick(usize),
+    /// #537: a new row after the selected one, the selected row's name field, its remove (asks first)
+    RowAdd,
+    RowName,
+    RowRemove,
+    /// #537: a cell of the document shown (row, column as the matrix counts): the cell inspector shows it; one of its mode
+    /// chips; its piece field (opens the picker); a line of the picker; the picker's typed field
+    Cell(usize, usize),
+    CellMode(usize),
+    CellPiece,
+    PiecePick(usize),
+    PieceType,
     Save,
     Load,
     /// the tree resolved to exact versions: the list of the devices to flash opens (#471)
@@ -155,6 +171,14 @@ pub struct Host {
     pub row: usize,
     /// #478: the role selected (a stage outlet's id); none = the row is inspected
     pub role: Option<String>,
+    /// #537: the column whose cell of the inspected row the cell inspector shows
+    pub cell: Option<String>,
+    /// #537: the toon's address book (the editor's, main.rs) – its scenes are what a cell's piece is picked from – and why
+    /// there is none
+    pub book: Option<std::sync::Arc<deck_space::rig::book::Book>>,
+    pub book_why: Option<String>,
+    /// #537: the piece picker's typed query (while it is not being typed)
+    pub piece_query: String,
     /// #478: a typed field open (a role's name) and its text
     pub typing: Option<(roles::Typing, deck_kit::base::text::Field)>,
     /// #478: the prompt asked before it is done (a role's remove, a kick)
@@ -186,8 +210,8 @@ pub fn now() -> u64 {
     std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_millis() as u64)
 }
 
-/// the demo document when none is named: one outlet, one row by hand (the editor opens on something it can show)
-const EMPTY: &str = r#"{ "id": "new-show", "version": 1, "outlets": [{ "id": "left" }], "rows": [{ "id": "start", "cells": { "left": { "mode": "black" } } }] }"#;
+/// the new show when none is named: one role, no row yet (#537: rows are added in the Show workspace)
+const EMPTY: &str = r#"{ "id": "new-show", "version": 1, "outlets": [{ "id": "left" }], "rows": [] }"#;
 
 impl Host {
     /// The show `file` holds (a document's JSON), else show `id` from the API / cache, else an empty one; joined to `relay`
@@ -226,7 +250,7 @@ impl Host {
                 })
                 .ok()
         });
-        Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, typing: None, asking: None, menu: None, lock: false, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, session: session::Session::default(), voting: vote::Voting::default(), link, api }
+        Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cell: None, book: None, book_why: None, piece_query: String::new(), typing: None, asking: None, menu: None, lock: false, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, session: session::Session::default(), voting: vote::Voting::default(), link, api }
     }
 
     /// the document at the end of the path (the top's when a step is missing)
@@ -322,6 +346,7 @@ impl Host {
             }
             Hit::RoleAdd | Hit::RoleName | Hit::RoleFact(_) | Hit::RoleRemove | Hit::AskYes | Hit::AskNo => self.roles_press(hit),
             Hit::WhoMove(_) | Hit::WhoRename(_) | Hit::WhoKick(_) | Hit::MenuPick(_) => self.who_press(hit),
+            Hit::RowAdd | Hit::RowName | Hit::RowRemove | Hit::Cell(..) | Hit::CellMode(_) | Hit::CellPiece | Hit::PiecePick(_) | Hit::PieceType => self.rows_press(hit),
             Hit::Save => self.save(),
             Hit::Load => self.load(),
             Hit::Flash => self.open_flash(),
@@ -457,6 +482,9 @@ pub struct Script {
     /// would send (`left=10/0/0,right=0/1/0` per group, or `10/2/0`) – fed to the conductor as if its relay said them
     pub vote: Option<deck_ui::vote::Form>,
     pub vote_tally: Option<String>,
+    /// #537: a row authored as the operator would (`ROW,COLUMN[,PIECE]`): added and named when the document lacks it, its
+    /// cell on the column selected, the piece picked from the book's list (or typed); no piece: `play` opens the picker
+    pub author: Option<(String, String, Option<String>)>,
 }
 
 impl Host {
@@ -465,6 +493,11 @@ impl Host {
         let rows: Vec<String> = self.sub.conductor().show().rows.iter().map(|r| r.id.clone()).collect();
         let row = |id: &Option<String>| id.as_ref().and_then(|r| rows.iter().position(|x| x == r));
         match frame {
+            25 => {
+                if let Some((row, column, piece)) = &s.author {
+                    self.script_author(row, column, piece.as_deref());
+                }
+            }
             20 => {
                 if let Some(i) = s.seat.as_ref().and_then(|id| self.shown().seats.iter().position(|x| x.id == *id)) {
                     self.press(Hit::Enter(i));

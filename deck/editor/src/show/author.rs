@@ -49,7 +49,7 @@ pub fn view_switch(d: &mut DrawList, t: &Tokens, host: &mut Host, stage: Rect, s
     let y = stage.y + t.size.pad;
     d.round_rect(x - 3.0, y - 3.0, w + 4.0, h + 6.0, t.size.radius, t.color.surface_head);
     let on = match host.sheet {
-        Some(s) => sheets.iter().position(|(_, x)| *x == s).map_or(if s == Sheet::Flash { usize::MAX } else { usize::from(host.two_d) }, |i| i + 2),
+        Some(s) => sheets.iter().position(|(_, x)| *x == s).map_or(if matches!(s, Sheet::Flash | Sheet::Piece) { usize::MAX } else { usize::from(host.two_d) }, |i| i + 2),
         None => usize::from(host.two_d),
     };
     let r = controls::pills(d, t, x, y, h, &names, on);
@@ -130,13 +130,15 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
     y += role_rows.len() as f32 * t.size.tree_row + pad;
     d.text(pad, y + 4.0, small, "ROWS", t.color.muted);
     y += t.size.tree_row;
-    let rows: Vec<controls::TreeRow> = plan
+    let mut rows: Vec<controls::TreeRow> = plan
         .rows
         .iter()
         .map(|r| controls::TreeRow { depth: 0, label: format!("{} {}", r.number, r.id), detail: r.fires.clone(), icon: "list", open: None, selected: r.id == sel })
         .collect();
+    // #537: a new row after the selected one
+    rows.push(controls::TreeRow { depth: 0, label: deck_show::rows::ADD.into(), detail: String::new(), icon: "plus", open: None, selected: false });
     for (i, r) in controls::tree(d, t, 0.0, y, l.left.w - 1.0, &rows, pointer).into_iter().enumerate() {
-        host.hits.push((r, Hit::Row(i)));
+        host.hits.push((r, if i + 1 == rows.len() { Hit::RowAdd } else { Hit::Row(i) }));
     }
 
     // middle: the breadcrumb, then the overlay over the dimmed stage
@@ -227,14 +229,19 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
         let ty = y + (rh - font * 1.25) * 0.5;
         d.text(bx, ty, font, &fit(d, &format!("{} {}", r.number, r.id), font, first_w * 0.4 - 4.0), t.color.text);
         d.text(bx + first_w * 0.4, ty, font, &fit(d, &r.fires, font, first_w * 0.6 - 4.0), t.color.muted);
+        host.hits.push((whole, Hit::Row(i)));
         for (c, cell) in r.cells.iter().enumerate() {
             let x = bx + first_w + c as f32 * col_w;
             if !cell.keep {
                 d.round_rect(x, y + 2.0, col_w - 6.0, rh - 4.0, t.size.radius, t.color.control);
             }
+            // #537: the selected cell, and a press selects a cell
+            if r.id == sel && host.cell.as_ref() == plan.columns.get(c).map(|col| &col.id) {
+                d.outline(x, y + 2.0, col_w - 6.0, rh - 4.0, (t.size.radius, 1.0), t.color.accent);
+            }
             d.text(x + 6.0, ty, font, &fit(d, &cell.text, font, col_w - 14.0), if cell.keep { t.color.muted } else { t.color.text });
+            host.hits.push((Rect { x, y, w: col_w - 6.0, h: rh }, Hit::Cell(i, c)));
         }
-        host.hits.push((whole, Hit::Row(i)));
     }
 
     // right: the inspector of the row (or #478 the selected role's), the seats, save / load
@@ -245,7 +252,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
     let role = host.role.as_ref().and_then(|id| deck_show::roles::inspector(&show, host.path.is_empty().then_some(&host.sub), id));
     match role {
         Some(insp) => super::roles::inspector(d, t, host, &insp, Rect { x: rx, y, w: rw, h: foot - y }, pointer),
-        None => row_side(d, t, host, (&show, &sel, &seats), (rx, y, rw), foot),
+        None => row_side(d, t, host, (&show, &sel, &seats), (rx, y, rw), foot, pointer),
     }
     let bw = (rw - 2.0 * pad) / 3.0;
     let load = Rect { x: rx, y: foot, w: bw, h: bh };
@@ -263,19 +270,35 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
     super::roles::ask(d, t, host, l.stage);
 }
 
-/// the right side for a row: its inspector, the seats, the flash reports, down to `foot`
-fn row_side(d: &mut DrawList, t: &Tokens, host: &Host, (show, sel, seats): (&Show, &str, &[view::SeatView]), (rx, mut y, rw): (f32, f32, f32), foot: f32) {
+/// the right side for a row: #537 its name and remove, its inspector (a cell's line selects it, the cell inspector under
+/// the cells), the seats, the flash reports, down to `foot`
+fn row_side(d: &mut DrawList, t: &Tokens, host: &mut Host, (show, sel, seats): (&Show, &str, &[view::SeatView]), (rx, mut y, rw): (f32, f32, f32), foot: f32, pointer: (f32, f32)) {
     let (pad, font, small) = (t.size.pad, t.size.font, t.size.small);
+    let columns = view::plan(show).columns;
     for (i, (head, lines)) in view::inspector(show, sel).iter().enumerate() {
         y += controls::section(d, t, rx, y, rw, &head.to_uppercase(), i == 0);
+        if i == 0 {
+            y += super::rows::row_head(d, t, host, (rx, y, rw), sel, pointer);
+        }
+        let cells = head == "cells of this row";
         for (label, value) in lines {
             if !label.is_empty() {
                 d.text(rx, y + 4.0, font, &fit(d, label, font, rw * 0.36), t.color.muted);
             }
             let vx = if label.is_empty() { rx } else { rx + rw * 0.38 };
-            d.round_rect(vx, y, rx + rw - vx, t.size.row - 4.0, t.size.radius, t.color.control);
+            let r = Rect { x: vx, y, w: rx + rw - vx, h: t.size.row - 4.0 };
+            d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, if cells && r.has(pointer.0, pointer.1) { t.color.hover } else { t.color.control });
+            if cells && host.cell.as_ref() == Some(label) {
+                d.outline(r.x, r.y, r.w, r.h, (t.size.radius, 1.0), t.color.accent);
+            }
             d.text(vx + 6.0, y + 4.0, font, &fit(d, value, font, rx + rw - vx - 12.0), t.color.text);
+            if let Some(c) = columns.iter().position(|c| cells && c.id == *label) {
+                host.hits.push((r, Hit::Cell(host.row, c)));
+            }
             y += t.size.row;
+        }
+        if cells {
+            y += super::rows::cell_side(d, t, host, (rx, y, rw), show, sel);
         }
         y += pad * 0.5;
     }

@@ -21,6 +21,12 @@ impl Api {
         Api { base, token: token(), cache: deck_native::cache::default_dir().join("shows") }
     }
 
+    /// #537's UI-model test: a test API and its own cache
+    #[cfg(test)]
+    pub fn with_cache(base: String, cache: PathBuf) -> Api {
+        Api { base, token: None, cache }
+    }
+
     fn agent() -> ureq::Agent {
         ureq::AgentBuilder::new().timeout(Duration::from_secs(4)).build()
     }

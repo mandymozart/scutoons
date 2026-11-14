@@ -1,0 +1,39 @@
+name = "a show made in the deck editor from nothing fires its row: the deck plays the published scene its cell names"
+about = "#537 (SHOW.md §5, SCENES.md 2·6): the document the Show workspace makes from nothing – a row added and named, its play cell on `left` naming `scene:nave` picked from the toon's book – exactly as the editor saves it (deck-show rows.rs and the editor's UI-model test hold it equal to show/fixtures/first-row.show.json); the conductor fires the row and sends `left` the full cell, the deck loads the piece. Here `scene:nave` is the deck's stand-in (a tone), as in scenario 29"
+
+[[step]]
+do = "show"
+show = "show/fixtures/first-row.show.json"
+outlet = "left"
+expect = { rows = ["opening"] }
+
+[step.pieces."scene:nave"]
+toml = """
+[stage]
+name = "nave"
+transition_secs = 0.5
+
+[[node]]
+id = "light"
+kind = "osc"
+freq = 220.0
+gain = 0.8
+
+[[node]]
+id = "out"
+kind = "audio_out"
+
+[[link]]
+from = "light"
+to = "out.in"
+"""
+
+# GO: the row fires, the conductor's full cell for `left` names the scene, the deck loads it and it sounds
+[[step]]
+do = "go"
+expect = { row = "opening", do = "load", piece = "scene:nave", problems = [], playing = "scene:nave" }
+
+[[step]]
+do = "run"
+ms = 1000
+expect = { sound = true, piece = "scene:nave", crossfade = -1 }
