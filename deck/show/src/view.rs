@@ -188,6 +188,14 @@ pub fn fires(fire: &Fire) -> String {
     }
 }
 
+/// the inspector's line that says what fires a row (#539: pressed, it opens the event picker)
+pub const FIRES_ON: &str = "fires on";
+
+/// `event: roar`, or `by hand only` for a row no event fires
+pub fn fires_on(fire: &Fire) -> String {
+    fire.event.as_ref().map_or(crate::story::BY_HAND.to_string(), |e| format!("event: {e}"))
+}
+
 fn origin_text(o: Origin) -> &'static str {
     match o {
         Origin::Auto => "auto",
@@ -205,6 +213,8 @@ pub fn line(what: &Logged) -> String {
         Logged::Withdrawn { row } => format!("{row}: suggestion gone"),
         Logged::Ignored { row, event } => format!("{event}: {row} is by hand, ignored"),
         Logged::NoRow { event } => format!("{event}: no row listens"),
+        Logged::NoId { kind } if kind.is_empty() => "a story event without an id: dropped – no row can listen to it".into(),
+        Logged::NoId { kind } => format!("a {kind} without an id: dropped – no row can listen to it"),
         Logged::CellLaunched { row, column, off_row: true } => format!("hand: {column} > {row}, off the row"),
         Logged::CellLaunched { row, column, off_row: false } => format!("hand: {column} > {row}"),
         Logged::ValuesSkipped { row, outlet, expected, found } => {
@@ -525,7 +535,7 @@ pub type Section = (String, Vec<(String, String)>);
 pub fn inspector(show: &Show, row: &str) -> Vec<Section> {
     let Some((i, r)) = show.rows.iter().enumerate().find(|(_, r)| r.id == row) else { return vec![] };
     let fire = vec![
-        ("fires on".to_string(), r.fire.event.as_ref().map_or("by hand only".to_string(), |e| format!("event: {e}"))),
+        (FIRES_ON.to_string(), fires_on(&r.fire)),
         ("how".to_string(), how_text(r.fire.how).to_string()),
         ("hold".to_string(), format!("{:.1} s", r.fire.hold_ms as f32 / 1000.0)),
         ("moment".to_string(), moment_text(r.fire.moment).to_string()),

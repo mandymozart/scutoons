@@ -35,6 +35,8 @@ pub enum Typing {
     /// #537: a row's name (its id); the piece picker's query (or, without a book, the piece typed)
     RowName(String),
     Piece,
+    /// #539: the event picker's query (or, without the toon's list, the event's id typed)
+    Event,
 }
 
 /// What a prompt asks before it is done.
@@ -128,6 +130,7 @@ impl Host {
                         self.edit_rows(&deck_show::rows::Edit::Rename { id, to: text });
                     }
                     Typing::Piece => self.piece_typed(&text),
+                    Typing::Event => self.event_typed(&text),
                     vote => self.vote_typed(&vote, &text),
                 }
             }
