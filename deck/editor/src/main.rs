@@ -1399,7 +1399,7 @@ impl App {
         let (stage_x, stage_w, stage_h) = match self.workspace {
             show::Workspace::Build => (stage_x, stage_w, stage_h),
             ws => {
-                let r = show::stage_rect(ws, wf, hf, t);
+                let r = show::stage_rect(ws, &self.show, wf, hf, t);
                 (r.x, r.w, r.h)
             }
         };

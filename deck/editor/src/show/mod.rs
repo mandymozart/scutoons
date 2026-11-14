@@ -5,7 +5,8 @@
 //! here decides what plays.
 //!
 //! - **Perform** (perform.rs): the matrix of rows × outlets and seats, the big row ▶, a small ▶ per cell (a hand launch,
-//!   marked off its row), GO, the suggestion with GO / Drop, the log, the conductors rail; the stage on top.
+//!   marked off its row), GO, the suggestion with GO / Drop, the log, the conductors rail; the stage on top, or in its
+//!   place the show runner's sheets (#533): Session (session.rs).
 //! - **Show** (author.rs): the conductors tree with a breadcrumb into a sub conductor, the rows band, the inspector, the
 //!   seats, each deck's answer to the last flash; the 2D node overlay over the dimmed stage (#446) with a 2D / 3D switch; the
 //!   cue sheet and the problems list in its place (sheets.rs); save and load through /api/shows (api.rs).
@@ -55,11 +56,17 @@ pub enum Sheet {
     Flash,
     /// #478: who is here, `role: name`, with move to, rename, kick (roles.rs)
     Who,
-    /// #531: the session offered to a linked reader – the link, its QR, the linked readers (session.rs)
+    /// #531: the session offered to a linked reader – the link, its QR, the linked readers (session.rs); #533: Perform's,
+    /// where the show runner works
     Session,
 }
 
 impl Sheet {
+    /// #533: a sheet of the show runner's – Perform draws it over its stage, Show does not offer it
+    pub fn in_perform(self) -> bool {
+        matches!(self, Sheet::Session)
+    }
+
     pub fn parse(s: &str) -> Option<Sheet> {
         match s {
             "cues" => Some(Sheet::Cues),
@@ -524,9 +531,9 @@ impl Host {
 }
 
 /// The places of a show workspace in a window of `w` × `h` (logical px) under the top bar: where the stage draws.
-pub fn stage_rect(ws: Workspace, w: f32, h: f32, t: &deck_kit::base::tokens::Tokens) -> Rect {
+pub fn stage_rect(ws: Workspace, host: &Host, w: f32, h: f32, t: &deck_kit::base::tokens::Tokens) -> Rect {
     match ws {
-        Workspace::Perform => perform::layout(w, h, t).stage,
+        Workspace::Perform => perform::layout(w, h, t, perform::open_sheet(host).is_some()).stage,
         _ => author::layout(w, h, t).stage,
     }
 }

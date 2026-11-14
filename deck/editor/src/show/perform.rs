@@ -2,11 +2,23 @@
 //! and seats – the big row ▶ (rows are the main way to launch), a small ▶ per cell (a hand launch, marked off its row) –,
 //! the log at the bottom; the conductors rail on the left; the suggestion with GO / Drop and GO itself on the right. All
 //! words and states are deck-show's view.rs; this file lays them out and names the places (`Hit`).
-use super::{Hit, Host};
+//!
+//! #533 (owner 2026-11-14 [live]: the show runner works from Perform): the show runner's sheets open in the stage's place,
+//! which grows for them – **Session** (session.rs: the linked reader's link, its QR, the linked readers), and the rail
+//! names the linked readers under the relay's line, from the same panel.
+use super::{Hit, Host, Sheet};
 use deck_kit::editor::controls::{self, Rect};
 use deck_kit::base::draw::DrawList;
 use deck_kit::base::tokens::Tokens;
 use deck_show::view;
+
+/// the show runner's sheets over the stage
+pub const SHEETS: [(&str, Sheet); 1] = [("Session", Sheet::Session)];
+
+/// the show runner's sheet open now (none: the stage)
+pub fn open_sheet(host: &Host) -> Option<Sheet> {
+    host.sheet.filter(|s| s.in_perform())
+}
 
 pub struct Layout {
     pub rail: Rect,
@@ -16,14 +28,15 @@ pub struct Layout {
     pub side: Rect,
 }
 
-pub fn layout(w: f32, h: f32, t: &Tokens) -> Layout {
+/// `sheet`: a sheet is open in the stage's place – the stage grows to half the body for it
+pub fn layout(w: f32, h: f32, t: &Tokens, sheet: bool) -> Layout {
     let top = t.size.top;
     let rail_w = t.size.tree.min(w * 0.2);
     let side_w = (w * 0.24).clamp(240.0, 460.0);
     let cx = rail_w;
     let cw = (w - rail_w - side_w).max(1.0);
     let body = (h - top).max(1.0);
-    let stage_h = (body * 0.27).max(80.0);
+    let stage_h = (body * if sheet { 0.5 } else { 0.27 }).max(80.0);
     let log_h = (body * 0.2).clamp(90.0, 240.0);
     Layout {
         rail: Rect { x: 0.0, y: top, w: rail_w, h: body },
@@ -44,7 +57,8 @@ fn fit(d: &DrawList, text: &str, px: f32, w: f32) -> String {
 }
 
 pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, pointer: (f32, f32)) {
-    let l = layout(w, h, t);
+    let sheet = open_sheet(host);
+    let l = layout(w, h, t, sheet.is_some());
     let m = view::matrix(&host.sub);
     let (pad, font, small) = (t.size.pad, t.size.font, t.size.small);
     let big = font * 1.35;
@@ -56,9 +70,21 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
     d.rect(l.side.x, l.side.y, 1.0, l.side.h, t.color.line);
 
     // the stage now: what plays on each outlet, over the dimmed stage (2D) or the stage alone (3D)
-    super::author::view_switch(d, t, host, l.stage, false);
-    d.text(l.stage.x + pad, l.stage.y + pad, small, "THE STAGE NOW", t.color.muted);
-    if host.two_d {
+    if sheet.is_some() {
+        d.rect(l.stage.x, l.stage.y, l.stage.w, l.stage.h, t.color.surface_head);
+    }
+    super::author::view_switch(d, t, host, l.stage, &SHEETS);
+    if let Some(s) = sheet {
+        let top = l.stage.y + t.size.row + pad;
+        let a = Rect { x: l.stage.x, y: top, w: l.stage.w, h: l.stage.h - (top - l.stage.y) };
+        d.text(l.stage.x + pad, l.stage.y + pad, small, "SHOW RUNNER", t.color.muted);
+        if s == Sheet::Session {
+            super::session::draw(d, t, host, a, pointer);
+        }
+    } else {
+        d.text(l.stage.x + pad, l.stage.y + pad, small, "THE STAGE NOW", t.color.muted);
+    }
+    if host.two_d && sheet.is_none() {
         d.rect(l.stage.x, l.stage.y, l.stage.w, l.stage.h, faded(t.color.stage, 0.55));
         let c = host.sub.conductor();
         let outlets: Vec<&deck_show::Outlet> = c.show().outlets.iter().collect();
@@ -162,6 +188,11 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
     y += n as f32 * t.size.tree_row + pad;
     rail(d, &mut y, "FROM FAR");
     d.text(pad, y, small, &fit(d, &format!("relay · {}", host.link_line()), small, l.rail.w - 2.0 * pad), t.color.text);
+    y += t.size.tree_row;
+    // #533: the linked readers at a glance (the Session sheet has the link and the list)
+    let readers = host.session_panel().readers_line();
+    d.text(pad, y, small, &fit(d, &readers, small, l.rail.w - 2.0 * pad), t.color.text);
+    host.hits.push((Rect { x: 0.0, y: y - 4.0, w: l.rail.w - 1.0, h: t.size.tree_row }, Hit::Sheet(Sheet::Session)));
     y += t.size.tree_row + pad;
     rail(d, &mut y, "OUTLETS");
     for o in &c.show().outlets {
