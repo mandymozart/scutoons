@@ -1,12 +1,14 @@
 //! The native deck's playing scene (#517, research/SCENE-EVENTS.md §4 E2a): the core decides – deck-space published.rs
 //! `Cast`, scene_play.rs `Playing`: the cast words of an `address`, the story events the scene's listeners hear. This file
 //! only moves what the native deck brings, on the frame thread:
-//! - **load**: the published scene the deck plays (`--scene scene:<id>[@v]`, deck.toml, F5) from its cache file
-//!   (`<cache>/scenes/<id>.json`, published.rs) as the core's `Cast`; any other scene has none;
+//! - **load**: the published scene the deck plays from its cache file (`<cache>/scenes/<id>.json`, published.rs) as the
+//!   core's `Cast` – the one the core's piece side names (#538, piece.rs `Side::playing`: a show cell's `scene:<id>` while
+//!   it plays, else the deck's `--scene scene:<id>[@v]`, deck.toml, F5); any other scene has none;
 //! - **ask**: while the scene listens, the space's link asks the session for the readers' story (`deck.story`);
 //! - **pass**: what came for it (deck-space relay.rs `In::Address`, `In::Story`) to the core, as it came;
 //! - **switch**: a changed cast is a scene: its text written to `<cache>/live/cast.toml`, which the deck switches to like
-//!   a piece (main.rs `change.ask`: a fade through black – the native deck has no in-place recast yet); the `Cast` stays
+//!   a piece (main.rs `change.ask`: a fade through black – the native deck has no in-place recast yet), beside the outlet
+//!   while a cell's piece plays (the core's `Side::recast`); the `Cast` stays
 //!   the one that plays, so the next word changes the cast as it stands.
 use deck_space::published::{Cast, SceneRef};
 use deck_space::relay::In;
@@ -26,8 +28,8 @@ pub struct Side {
 }
 
 impl Side {
-    /// The deck plays `scene` (its `--scene`): its cast from `<cache>/scenes/` when it is a published scene the cache
-    /// keeps; the scene it switched to for a changed cast keeps the cast.
+    /// The deck plays `scene` (the core's piece side's `Side::playing`): its cast from `<cache>/scenes/` when it is a
+    /// published scene the cache keeps; the scene it switched to for a changed cast keeps the cast.
     pub fn scene(&mut self, cache: &Path, scene: Option<&str>) {
         if scene.map(str::to_string) == self.seen {
             return;
@@ -49,8 +51,9 @@ impl Side {
         self.playing.as_ref().is_some_and(|(_, c)| c.playing().listens())
     }
 
-    /// What came for the playing scene, to the core. Some(file) = the cast changed: the deck switches to that scene.
-    pub fn take(&mut self, cache: &Path, came: Vec<In>) -> Option<String> {
+    /// What came for the playing scene, to the core. Some(file) = the cast changed: the deck switches to that scene, its
+    /// text as `place` gives it (#538: the core's piece side, `Side::recast` – beside the outlet while a cell's piece plays).
+    pub fn take(&mut self, cache: &Path, came: Vec<In>, place: impl FnOnce(String) -> Result<String, String>) -> Option<String> {
         let (plays_as, cast) = self.playing.as_mut()?;
         let mut changed = false;
         for c in came {
@@ -68,7 +71,7 @@ impl Side {
             return None;
         }
         let file = cache.join(CAST_FILE[0]).join(CAST_FILE[1]);
-        let written = cast.text().and_then(|text| {
+        let written = cast.text().and_then(place).and_then(|text| {
             std::fs::create_dir_all(file.parent().unwrap_or(cache)).and_then(|_| std::fs::write(&file, text)).map_err(|e| format!("{}: {e}", file.display()))
         });
         if let Err(e) = written {
@@ -77,15 +80,6 @@ impl Side {
         }
         *plays_as = file.to_string_lossy().into_owned();
         Some(plays_as.clone())
-    }
-
-    /// One frame: the scene the deck plays, its ask, what came for it through the space's link. Some(file) = switch to it.
-    pub fn frame(&mut self, cache: &Path, scene: Option<&str>, space: Option<&mut deck_space::space::Space>) -> Option<String> {
-        self.scene(cache, scene);
-        let space = space?;
-        space.ask_story(self.listens());
-        let came = space.take_cast();
-        self.take(cache, came)
     }
 }
 

@@ -349,6 +349,22 @@ impl Side {
     pub fn values_at(&mut self, now: f64) -> Vec<(String, f32)> {
         self.pieces.values_at(now)
     }
+
+    /// #538: the scene the deck plays, as the argument its cast is made for (published.rs `Cast`, the native deck's
+    /// live/cast.rs, the browser deck's `CastLink`): the piece a cell loaded while one plays (`scene:<id>`), else the deck's
+    /// own scene (`own`: its `--scene`). Both ways of starting a scene make their cast from this one answer.
+    pub fn playing<'a>(&'a self, own: Option<&'a str>) -> Option<&'a str> {
+        self.pieces.piece().or(own)
+    }
+
+    /// #538: the scene a changed cast (`Cast::text`) is switched to: while a cell's piece plays, beside the deck's outlet
+    /// with the values the cells set (as its Load is, `beside`); else the cast's own scene.
+    pub fn recast(&self, text: String) -> Result<String, String> {
+        match self.pieces.on.as_ref() {
+            Some(on) => beside(&text, &self.deck, &on.set),
+            None => Ok(text),
+        }
+    }
 }
 
 /// a piece → how it plays: a scene from the adapter; a character or an item from the deck's core rigs, else the adapter;
