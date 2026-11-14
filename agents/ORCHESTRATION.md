@@ -44,6 +44,9 @@ follow a pointer, that is a finding, not a reason to paste. Grep the area's deci
 ## Checks (one at a time)
 - `deck/` (Rust workspace): `cargo test` and `cargo clippy` in the crate touched; the `pipewire` feature builds only on Linux. This machine's clippy
   may be newer than a worker's: `npm run deck:ci` here before every merge.
+- deck:ci's green stamps (#524): a step green on the same clean tree – in any worktree – is skipped and named, so the rerun before a merge and the
+  pre-push hook take seconds after the worker's green run; a dirty watched path runs everything, `--fresh` forces.
+- The full tier `npm run deck:ci -- --full` (the fat-LTO release build instead of the release check) runs at the end of every shift and before a deck release.
 - Web apps: `npm run check` and the area's `check:*` script; no dev server unless the task needs a look.
 - Server: `npm run dev:db test` (MariaDB, ~15 min, 487 tests on 2026-10-29) – it uses Docker, so it needs a **slot**.
 - Never chain the merge commit behind a piped check (`npm run deck:ci | tail && git commit`): the pipe's exit code is `tail`'s, so a failed CI
