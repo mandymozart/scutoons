@@ -1,9 +1,10 @@
 //! One condition, one look (#546, research/SHOW.md §15 2b; owner 2026-11-14: row and cell conditions "very similar and
 //! perhaps share a UI"): the facts a filter may name, which of them are on, and the words – for a role's `for` (any one
 //! fact admits, `Admits`), a row address's `where` and a show cell's column filter (every fact holds, `Filter`). Moved here
-//! from deck-show roles.rs (`filter_words`, its `Fact` and toggles) so the role filter, the cell filter (#551 draws it) and
-//! later the row addresses (#553) have one model and one set of words; drawn with deck-kit's chips. Plain data and
-//! words; the rule that tests a filter is protocol `filter::passes`, the role admission the relay's.
+//! from deck-show roles.rs (`filter_words`, its `Fact` and toggles) so the role filter, the row addresses and the cell
+//! filter have one model and one set of words. #553: the one control's model is [`Condition`] (its [`Mode`]: any one fact
+//! for a role, every fact for an address or a cell), drawn by the editor's `show::condition::draw` on deck-kit's chips.
+//! Plain data and words; the rule that tests a filter is protocol `filter::passes`, the role admission the relay's.
 use protocol::{Account, Admits, Filter};
 
 /// the filter that lets anyone with the code in
@@ -159,20 +160,86 @@ pub fn filter_words(f: Option<&Filter>) -> String {
     words(&facts)
 }
 
-/// The chips of a show cell's column filter: the account facts, an approved deck, each device kind (and one it names). No
-/// group: the column is already the group (SHOW.md §15 2b).
-pub fn cell_toggles(f: Option<&Filter>) -> Vec<Toggle> {
-    let f = f.cloned().unwrap_or_default();
-    let mut facts: Vec<Fact> = ACCOUNTS.iter().map(|x| Fact::Account(*x)).collect();
-    facts.push(Fact::Approved);
-    facts.extend(DEVICES.iter().map(|d| Fact::Device(d.to_string())));
-    facts.extend(f.device.iter().filter(|d| !DEVICES.contains(&d.as_str())).cloned().map(Fact::Device));
-    facts.into_iter().map(|fact| Toggle { word: fact.word(), on: fact.in_filter(&f), fact }).collect()
-}
-
 /// a filter that asks nothing (it goes from the document)
 pub fn is_empty(f: &Filter) -> bool {
     f == &Filter::default()
+}
+
+/// A role without a filter as its chips show it: a guest may take it, so anyone with the code.
+pub fn open_admits() -> Admits {
+    Admits { account: Some(vec![Account::Guest]), ..Admits::default() }
+}
+
+/// How a condition's facts combine – the one control's mode, not a second control (#553).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Mode {
+    /// any one fact admits: a role's `for` (`Admits`, tested by the relay)
+    Any,
+    /// every fact holds: a row address's and a show cell's `where` (`Filter`, protocol `filter::passes`)
+    All,
+}
+
+/// The one condition control (#553, SHOW.md §15 2b): what the editor draws for a role's admission, a row address's filter
+/// and a show cell's column filter – the mode, the filter in words, its chips in the order drawn. Built by
+/// [`Condition::admits`] or [`Condition::filter`]; a chip pressed is [`Condition::fact`], flipped in the document by
+/// `Fact::flip_admits` / `Fact::flip_filter` (deck-show's edits).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Condition {
+    pub mode: Mode,
+    /// `guest and up`, `everyone`, `device phone · member`
+    pub words: String,
+    pub toggles: Vec<Toggle>,
+}
+
+/// The facts offered, in the order drawn: the account facts, an approved deck, each device kind (and any other `named`),
+/// then – when there are groups (`None`: the column is already the group) – each group offered and any other `named`.
+fn offered(devices: &[String], groups: Option<(&[String], &[String])>) -> Vec<Fact> {
+    let mut facts: Vec<Fact> = ACCOUNTS.iter().map(|x| Fact::Account(*x)).collect();
+    facts.push(Fact::Approved);
+    facts.extend(DEVICES.iter().map(|d| Fact::Device(d.to_string())));
+    facts.extend(devices.iter().filter(|d| !DEVICES.contains(&d.as_str())).cloned().map(Fact::Device));
+    if let Some((offer, named)) = groups {
+        facts.extend(offer.iter().cloned().map(Fact::Group));
+        facts.extend(named.iter().filter(|g| !offer.contains(g)).cloned().map(Fact::Group));
+    }
+    facts
+}
+
+impl Condition {
+    /// A role's admission (any one fact): none is open to anyone with the code ([`open_admits`]); `groups` the groups the
+    /// show offers (its stage outlets).
+    pub fn admits(a: Option<&Admits>, groups: &[String]) -> Condition {
+        let set = a.cloned().unwrap_or_else(open_admits);
+        let devices: Vec<String> = set.device.iter().flatten().cloned().collect();
+        let named: Vec<String> = set.group.iter().flatten().cloned().collect();
+        let toggles = offered(&devices, Some((groups, &named))).into_iter().map(|fact| Toggle { word: fact.word(), on: fact.in_admits(&set), fact }).collect();
+        Condition { mode: Mode::Any, words: admits_words(a), toggles }
+    }
+
+    /// A row address's or a show cell's filter (every fact holds). `groups`: the groups the show offers for an address; none
+    /// for a cell – its column is already the group (SHOW.md §15 2b), so no group chip.
+    pub fn filter(f: Option<&Filter>, groups: Option<&[String]>) -> Condition {
+        let set = f.cloned().unwrap_or_default();
+        let devices: Vec<String> = set.device.iter().cloned().collect();
+        let named: Vec<String> = set.group.iter().cloned().collect();
+        let toggles = offered(&devices, groups.map(|g| (g, named.as_slice()))).into_iter().map(|fact| Toggle { word: fact.word(), on: fact.in_filter(&set), fact }).collect();
+        Condition { mode: Mode::All, words: filter_words(f), toggles }
+    }
+
+    /// the fact of chip `i`
+    pub fn fact(&self, i: usize) -> Option<Fact> {
+        self.toggles.get(i).map(|t| t.fact.clone())
+    }
+
+    /// the chip of `word` (`device phone`, `member`, `group left`), as a check run names it
+    pub fn chip(&self, word: &str) -> Option<usize> {
+        self.toggles.iter().position(|t| t.word == word)
+    }
+
+    /// the words drawn on the chips, and which are on
+    pub fn chips(&self) -> (Vec<&str>, Vec<bool>) {
+        (self.toggles.iter().map(|t| t.word.as_str()).collect(), self.toggles.iter().map(|t| t.on).collect())
+    }
 }
 
 #[cfg(test)]
@@ -205,11 +272,33 @@ mod tests {
         assert_eq!(filter_words(Some(&f(r#"{ "device": "phone", "account": ["live", "member"], "approved": true }"#))), "device phone · live · member · approved deck");
         assert_eq!(filter_words(Some(&f(r#"{ "account": ["guest"] }"#))), "everyone", "a guest asks nothing");
         assert_eq!(filter_words(Some(&f(r#"{ "account": [] }"#))), "nobody");
-        let chips = cell_toggles(Some(&f(r#"{ "device": "phone", "account": ["member"] }"#)));
-        let on: Vec<&str> = chips.iter().filter(|t| t.on).map(|t| t.word.as_str()).collect();
+        let cell = Condition::filter(Some(&f(r#"{ "device": "phone", "account": ["member"] }"#)), None);
+        assert_eq!((cell.mode, cell.words.as_str()), (Mode::All, "device phone · member"));
+        let on: Vec<&str> = cell.toggles.iter().filter(|t| t.on).map(|t| t.word.as_str()).collect();
         assert_eq!(on, ["member", "device phone"]);
-        assert!(chips.iter().all(|t| !matches!(t.fact, Fact::Group(_))), "the column is the group");
-        assert_eq!(chips.len(), ACCOUNTS.len() + 1 + DEVICES.len());
+        assert!(cell.toggles.iter().all(|t| !matches!(t.fact, Fact::Group(_))), "the column is the group");
+        assert_eq!(cell.toggles.len(), ACCOUNTS.len() + 1 + DEVICES.len());
+    }
+
+    /// #553: one control, the mode says how the facts combine; the same chips for a role, an address and a cell
+    #[test]
+    fn one_condition_for_a_role_an_address_and_a_cell() {
+        let groups = ["left".to_string(), "right".to_string()];
+        let role = Condition::admits(None, &groups);
+        assert_eq!((role.mode, role.words.as_str()), (Mode::Any, "guest and up"));
+        assert!(role.toggles[role.chip("guest").unwrap()].on, "no filter: a guest may take it");
+        let named = Condition::admits(Some(&a(r#"{ "device": ["pad"], "group": ["foyer"] }"#)), &groups);
+        let words: Vec<&str> = named.toggles.iter().map(|t| t.word.as_str()).collect();
+        assert_eq!(words[5..], ["approved deck", "device native", "device browser", "device phone", "device pad", "group left", "group right", "group foyer"], "a fact it names is offered too");
+        let address = Condition::filter(Some(&f(r#"{ "group": "left" }"#)), Some(&groups));
+        assert_eq!((address.mode, address.words.as_str()), (Mode::All, "group left"));
+        assert!(address.toggles[address.chip("group left").unwrap()].on && !address.toggles[address.chip("group right").unwrap()].on);
+        let cell = Condition::filter(None, None);
+        assert_eq!(cell.words, "everyone");
+        assert_eq!(cell.chip("group left"), None);
+        assert_eq!(cell.fact(cell.chip("device phone").unwrap()), Some(Fact::Device("phone".into())));
+        let (names, on) = address.chips();
+        assert_eq!((names.len(), on.iter().filter(|x| **x).count()), (address.toggles.len(), 1));
     }
 
     #[test]

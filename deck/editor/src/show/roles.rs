@@ -85,9 +85,9 @@ impl Host {
                 }
             }
             Hit::RoleFact(i) => {
-                let fact = id.as_ref().and_then(|id| deck_show::roles::toggles(self.shown(), id).into_iter().nth(i));
-                if let (Some(id), Some(t)) = (id, fact) {
-                    self.edit_role(&Edit::Fact { id, fact: t.fact });
+                let fact = id.as_ref().and_then(|id| deck_show::roles::condition(self.shown(), id)).and_then(|c| c.fact(i));
+                if let (Some(id), Some(fact)) = (id, fact) {
+                    self.edit_role(&Edit::Fact { id, fact });
                 }
             }
             Hit::RoleRemove => self.asking = id.map(Ask::Remove),
@@ -158,7 +158,7 @@ fn fit(d: &DrawList, text: &str, px: f32, w: f32) -> String {
 }
 
 /// a label and a quiet value on one tree row
-fn line(d: &mut DrawList, t: &Tokens, (x, y, w): (f32, f32, f32), label: &str, value: &str) {
+pub(super) fn line(d: &mut DrawList, t: &Tokens, (x, y, w): (f32, f32, f32), label: &str, value: &str) {
     let font = t.size.font;
     let ty = y + (t.size.tree_row - font * 1.25) * 0.5;
     if !label.is_empty() {
@@ -186,16 +186,12 @@ pub fn inspector(d: &mut DrawList, t: &Tokens, host: &mut Host, insp: &Inspector
     d.text(field.x + 6.0, field.y + (field.h - font * 1.25) * 0.5, font, &fit(d, &text, font, field.w - 12.0), t.color.text);
     host.hits.push((field, Hit::RoleName));
     y += row;
-    // who may enter: the filter in words, then its facts as toggles
-    line(d, t, (x, y, w), &insp.enter.0, &insp.enter.1);
-    y += row;
-    let names: Vec<&str> = insp.toggles.iter().map(|t| t.word.as_str()).collect();
-    let on: Vec<bool> = insp.toggles.iter().map(|t| t.on).collect();
-    let (cells, used) = controls::chips(d, t, (x, y, w), &names, &on);
+    // who may enter: the one condition control (#553), any one fact
+    let (cells, used) = super::condition::draw(d, t, (x, y, w), &insp.enter, &insp.condition);
     for (i, r) in cells.into_iter().enumerate() {
         host.hits.push((r, Hit::RoleFact(i)));
     }
-    y += used + pad;
+    y += used + pad * 0.5;
     for (head, lines) in &insp.sections {
         y += controls::section(d, t, x, y, w, &head.to_uppercase(), false);
         for (label, value) in lines {

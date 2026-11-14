@@ -158,6 +158,7 @@ fn args() -> Result<Args> {
                 let (row, column) = (p.next().unwrap_or_default(), p.next().context("--author ROW,COLUMN[,PIECE]")?);
                 a.script.author = Some((row, column, p.next().filter(|s| !s.is_empty())));
             }
+            "--cell" => a.script.cell = val()?.split_once(',').map(|(r, c)| (r.trim().to_string(), c.trim().to_string())),
             "--gesture" => {
                 let v = val()?;
                 let (from, to) = v.split_once(',').with_context(|| format!("--gesture takes FROM,TO, not {v}"))?;

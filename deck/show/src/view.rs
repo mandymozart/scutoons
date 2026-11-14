@@ -232,6 +232,8 @@ pub fn fires(fire: &Fire) -> String {
 
 /// the inspector's line that says what fires a row (#539: pressed, it opens the event picker)
 pub const FIRES_ON: &str = "fires on";
+/// the label of a row address's line under "this row sends", in the row's order (#553: pressed, its filter's chips show)
+pub const ADDRESS: &str = "address";
 
 /// `event: roar`, or `by hand only` for a row no event fires
 pub fn fires_on(fire: &Fire) -> String {
@@ -600,7 +602,7 @@ pub fn inspector(show: &Show, row: &str) -> Vec<Section> {
         }
     }
     for a in &r.addresses {
-        sends.push(("address".to_string(), address_text(a)));
+        sends.push((ADDRESS.to_string(), address_text(a)));
     }
     // #546: the question the row asks, on which columns, to whom
     let cols = columns(show);

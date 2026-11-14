@@ -17,6 +17,7 @@
 //! own operator; entering it here shows its document, it does not run it.
 pub mod api;
 pub mod author;
+mod condition;
 mod events;
 mod flash;
 mod link;
@@ -135,6 +136,11 @@ pub enum Hit {
     CellPiece,
     PiecePick(usize),
     PieceType,
+    /// #553: one chip of the selected cell's filter (the one condition control); an address of the inspected row (selects
+    /// it: its filter's chips show under it); one chip of the selected address's filter
+    CellFact(usize),
+    AddressPick(usize),
+    AddressFact(usize),
     /// #539: the row inspector's "fires on" (opens the event picker); a line of the picker; the picker's typed field
     FiresOn,
     EventPick(usize),
@@ -182,6 +188,8 @@ pub struct Host {
     pub role: Option<String>,
     /// #537: the column whose cell of the inspected row the cell inspector shows
     pub cell: Option<String>,
+    /// #553: the address of the inspected row (its index) whose filter's chips show
+    pub address: Option<usize>,
     /// #537: the toon's address book (the editor's, main.rs) – its scenes are what a cell's piece is picked from – and why
     /// there is none
     pub book: Option<std::sync::Arc<deck_space::rig::book::Book>>,
@@ -264,7 +272,7 @@ impl Host {
                 })
                 .ok()
         });
-        Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cell: None, book: None, book_why: None, piece_query: String::new(), toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, session: session::Session::default(), voting: vote::Voting::default(), link, api }
+        Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cell: None, address: None, book: None, book_why: None, piece_query: String::new(), toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, session: session::Session::default(), voting: vote::Voting::default(), link, api }
     }
 
     /// the document at the end of the path (the top's when a step is missing)
@@ -353,6 +361,7 @@ impl Host {
             Hit::Row(i) => {
                 self.row = i;
                 self.role = None;
+                self.address = None;
             }
             Hit::Role(i) => {
                 self.role = deck_show::roles::roles(self.shown(), None).get(i).map(|r| r.id.clone());
@@ -360,7 +369,9 @@ impl Host {
             }
             Hit::RoleAdd | Hit::RoleName | Hit::RoleFact(_) | Hit::RoleRemove | Hit::AskYes | Hit::AskNo => self.roles_press(hit),
             Hit::WhoMove(_) | Hit::WhoRename(_) | Hit::WhoKick(_) | Hit::MenuPick(_) => self.who_press(hit),
-            Hit::RowAdd | Hit::RowName | Hit::RowRemove | Hit::Cell(..) | Hit::CellMode(_) | Hit::CellPiece | Hit::PiecePick(_) | Hit::PieceType => self.rows_press(hit),
+            Hit::RowAdd | Hit::RowName | Hit::RowRemove | Hit::Cell(..) | Hit::CellMode(_) | Hit::CellPiece | Hit::PiecePick(_) | Hit::PieceType | Hit::CellFact(_) | Hit::AddressPick(_) | Hit::AddressFact(_) => {
+                self.rows_press(hit);
+            }
             Hit::FiresOn | Hit::EventPick(_) | Hit::EventType => self.events_press(hit),
             Hit::Save => self.save(),
             Hit::Load => self.load(),
@@ -503,6 +514,8 @@ pub struct Script {
     /// #537: a row authored as the operator would (`ROW,COLUMN[,PIECE]`): added and named when the document lacks it, its
     /// cell on the column selected, the piece picked from the book's list (or typed); no piece: `play` opens the picker
     pub author: Option<(String, String, Option<String>)>,
+    /// #553: a cell selected (`ROW,COLUMN`): the cell inspector shows it, its filter's chips too
+    pub cell: Option<(String, String)>,
 }
 
 impl Host {
@@ -554,6 +567,13 @@ impl Host {
             200 => {
                 if let Some(i) = s.problem {
                     self.press(Hit::Problem(i));
+                }
+            }
+            32 => {
+                let plan = deck_show::view::plan(self.shown());
+                let at = s.cell.as_ref().and_then(|(r, c)| Some((plan.rows.iter().position(|x| x.id == *r)?, plan.columns.iter().position(|x| x.id == *c)?)));
+                if let Some((r, c)) = at {
+                    self.press(Hit::Cell(r, c));
                 }
             }
             35 => {
