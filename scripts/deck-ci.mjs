@@ -112,7 +112,9 @@ const steps = [
 					after: () => gate(`${target}/engine-wasm/wasm32-unknown-unknown/release/deck_engine_wasm.wasm`, ENGINE_GATE_KB)
 				}),
 				// the browser deck's 3D and own UI (#198, #485): its size reported, no gate (owner 2026-11-11)
+				// without sccache (#526): web-sys's ~90 KB rustc call, expanded by sccache from cargo's @argfile, is over Windows' 32 K limit
 				step('🧊 space-web wasm32', 'cargo', ['build', '--profile', 'wasm-web', '--target', 'wasm32-unknown-unknown', '-p', 'space-web'], deck, {
+					env: { RUSTC_WRAPPER: '' },
 					after: () => gate(`${target}/wasm32-unknown-unknown/wasm-web/space_web.wasm`)
 				}),
 				// build checks for the browser, one build: the Live outlet's logic (plan, composer, crossfade, text layout, routing; #378)

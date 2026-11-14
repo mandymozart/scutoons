@@ -21,7 +21,10 @@ const crates = process.argv.includes('--relay') ? ['relay_web'] : ['relay_web', 
 const files: string[] = [];
 for (const c of crates) {
 	const dev = c === 'space_web' && process.argv.includes('--sandbox') ? ['--features', 'sandbox'] : [];
-	run('cargo', ['build', '--profile', 'wasm-web', '--target', 'wasm32-unknown-unknown', '-p', c.replace('_', '-'), ...dev]);
+	// space-web without sccache (#526): web-sys's rustc call (wgpu's hundreds of features) is ~90 KB, cargo passes it as an
+	// @argfile, and sccache expands it into a command line over Windows' 32 K limit (os error 206); RUSTC_WRAPPER="" turns it off
+	const env = c === 'space_web' ? { ...process.env, RUSTC_WRAPPER: '' } : process.env;
+	run('cargo', ['build', '--profile', 'wasm-web', '--target', 'wasm32-unknown-unknown', '-p', c.replace('_', '-'), ...dev], env);
 	run('wasm-bindgen', ['--target', 'web', '--no-typescript', '--out-dir', out, `${web}/${c}.wasm`]);
 	files.push(`${c}.js`, `${c}_bg.wasm`);
 }
