@@ -83,6 +83,50 @@ opt-level = 2
 [profile.dev.package.deck-space]
 opt-level = 2
 
+# wasmtime and its compiler in dev and test builds (#536): the conformance and headless wasm tests compile live-core,
+# deck-engine-wasm and deck-headless (1–5 MB of wasm each) with Cranelift on every run – unoptimised, one module took
+# ~100 s. Only the compiler gets faster: the machine code Cranelift emits depends on its settings (`Config`, opt level
+# `speed` by default), not on how Cranelift itself was compiled, so the tests' native ≡ wasm bits do not move. Cargo takes
+# no globs: every crate of wasmtime's own tree that does real work at run time is listed (`cargo tree -p wasmtime`).
+[profile.dev.package.wasmtime]
+opt-level = 3
+[profile.dev.package.wasmtime-environ]
+opt-level = 3
+[profile.dev.package.wasmtime-internal-cranelift]
+opt-level = 3
+[profile.dev.package.wasmtime-internal-jit-icache-coherence]
+opt-level = 3
+[profile.dev.package.wasmtime-internal-math]
+opt-level = 3
+[profile.dev.package.wasmtime-internal-slab]
+opt-level = 3
+[profile.dev.package.wasmtime-internal-unwinder]
+opt-level = 3
+[profile.dev.package.cranelift-codegen]
+opt-level = 3
+[profile.dev.package.cranelift-frontend]
+opt-level = 3
+[profile.dev.package.cranelift-entity]
+opt-level = 3
+[profile.dev.package.cranelift-bforest]
+opt-level = 3
+[profile.dev.package.cranelift-bitset]
+opt-level = 3
+[profile.dev.package.cranelift-control]
+opt-level = 3
+[profile.dev.package.cranelift-native]
+opt-level = 3
+[profile.dev.package.cranelift-assembler-x64]
+opt-level = 3
+[profile.dev.package.regalloc2]
+opt-level = 3
+[profile.dev.package.wasmparser]
+opt-level = 3
+[profile.dev.package.gimli]
+opt-level = 3
+[profile.dev.package.object]
+opt-level = 3
+
 # the browser's 3D (#198, deck/space-web): built for size – wgpu, naga (WGSL → GLSL for WebGL2) and the space in one
 # wasm the phone downloads (`npm run build:wasm -w shared/live-deck`)
 [profile.wasm-web]
