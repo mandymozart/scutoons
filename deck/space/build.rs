@@ -36,9 +36,12 @@ fn main() {
     let version = match env {
         Some(v) => v,
         None => {
-            // a rebuild when HEAD moves (the branch's ref, packed refs), when something is staged, and when a source folder of
-            // deck/ changes (the `.dirty` mark) – not deck/target (every build writes it) and not deck/os (no code)
-            let mut watch: Vec<PathBuf> = ["HEAD", "index", "packed-refs"].iter().filter_map(|w| git_path(&deck, w)).collect();
+            // a rebuild when HEAD moves (the branch's ref, packed refs) and when a source folder of deck/ changes (the
+            // `.dirty` mark) – not deck/target (every build writes it) and not deck/os (no code). Not git's index (#544, owner
+            // 2026-11-14: "Do the watch head. Dirty is just interim releases anyhow"): every `git status` rewrites it – this
+            // script's own, deck:ci's stamps, an editor's – and each rewrite recompiled deck-space and relinked all above it.
+            // A change that is only staged shows `.dirty` from the next build that runs for another reason.
+            let mut watch: Vec<PathBuf> = ["HEAD", "packed-refs"].iter().filter_map(|w| git_path(&deck, w)).collect();
             if let Some(r) = git(&deck, &["symbolic-ref", "-q", "HEAD"]).and_then(|r| git_path(&deck, &r)) {
                 watch.push(r);
             }
