@@ -154,7 +154,10 @@ mod tests {
     }
 
     fn host(base: String) -> Host {
-        let dir = std::env::temp_dir().join(format!("deck-editor-events-{}", std::process::id()));
+        // one folder per test: the tests of this file run on threads of one process and wrote the same file (a flaky run)
+        static NEXT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+        let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let dir = std::env::temp_dir().join(format!("deck-editor-events-{}-{n}", std::process::id()));
         let file = dir.join("top-toy.show.json");
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(&file, TOP_TOY).unwrap();
