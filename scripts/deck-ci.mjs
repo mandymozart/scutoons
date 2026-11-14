@@ -34,6 +34,8 @@ if (!process.execArgv.some((a) => /^--experimental-(transform|strip)-types$/.tes
 	process.exit(r.status ?? 1);
 }
 const { WATCH, Stamps, contentKey, decide, gitState, stampsDir, toolchain, watched } = await import('./deck-ci-stamps.ts');
+const { ensure, layout } = await import('./deck-target.ts');
+const { deckTarget, wasmPath } = await import('../shared/live-core/scripts/wasm.ts');
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
@@ -69,6 +71,15 @@ function gate(file, kb) {
 	return `${(raw.length / 1024).toFixed(0)} KB raw, ${(gz / 1024).toFixed(0)} KB gz${kb ? `, gate ${kb} KB` : ''}`;
 }
 
+// the deck's builds (#526): a worktree's in <git common dir>/deck-target/<id> (its .cargo/config.toml, written here too in
+// case npm install ran before #526), the main checkout's in deck/target. Every path below is cargo's own answer
+let where;
+try {
+	where = ensure(layout(root));
+} catch (e) {
+	where = `not set up (${e.message.split('\n')[0]})`;
+}
+const target = deckTarget();
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const deck = `${root}/deck`;
 /** an npm step's inputs beyond WATCH (its stamp key) */
@@ -92,24 +103,26 @@ const steps = [
 				// the browser deck's engine (#320): wasm32 + simd128 in its own target dir (shared/live-core/scripts/wasm.ts), gated
 				step('🕸 live-core wasm32 + simd128', npm, ['run', 'build:wasm', '-w', 'shared/live-core'], root, {
 					paths: NODE,
-					after: () => gate(`${process.env.CARGO_TARGET_DIR ?? `${root}/deck/target`}/live-core-simd/wasm32-unknown-unknown/release/live_core.wasm`, ENGINE_GATE_KB)
+					after: () => gate(wasmPath(), ENGINE_GATE_KB)
 				}),
 				step('🕸 live-core tests', npm, ['run', 'check', '-w', 'shared/live-core'], root, { paths: NODE }),
 				// the universal engine (#317) as a wasm32 module with simd128, in its own target dir (RUSTFLAGS would rebuild the main one)
-				step('🕸 deck-engine wasm32 + simd128', 'cargo', ['build', '--release', '--target', 'wasm32-unknown-unknown', '-p', 'deck-engine-wasm', '--target-dir', 'target/engine-wasm'], deck, {
+				step('🕸 deck-engine wasm32 + simd128', 'cargo', ['build', '--release', '--target', 'wasm32-unknown-unknown', '-p', 'deck-engine-wasm', '--target-dir', `${target}/engine-wasm`], deck, {
 					env: { RUSTFLAGS: '-C target-feature=+simd128' },
-					after: () => gate(`${root}/deck/target/engine-wasm/wasm32-unknown-unknown/release/deck_engine_wasm.wasm`, ENGINE_GATE_KB)
+					after: () => gate(`${target}/engine-wasm/wasm32-unknown-unknown/release/deck_engine_wasm.wasm`, ENGINE_GATE_KB)
 				}),
 				// the browser deck's 3D and own UI (#198, #485): its size reported, no gate (owner 2026-11-11)
+				// without sccache (#526): web-sys's ~90 KB rustc call, expanded by sccache from cargo's @argfile, is over Windows' 32 K limit
 				step('🧊 space-web wasm32', 'cargo', ['build', '--profile', 'wasm-web', '--target', 'wasm32-unknown-unknown', '-p', 'space-web'], deck, {
-					after: () => gate(`${process.env.CARGO_TARGET_DIR ?? `${root}/deck/target`}/wasm32-unknown-unknown/wasm-web/space_web.wasm`)
+					env: { RUSTC_WRAPPER: '' },
+					after: () => gate(`${target}/wasm32-unknown-unknown/wasm-web/space_web.wasm`)
 				}),
 				// build checks for the browser, one build: the Live outlet's logic (plan, composer, crossfade, text layout, routing; #378)
 				// and the deck's UI model (the HUD's lines, the bar's items, the F1 mode; #374)
 				step('🎭 deck-outlet + deck-ui wasm32', 'cargo', ['build', '--target', 'wasm32-unknown-unknown', '-p', 'deck-outlet', '-p', 'deck-ui'], deck),
 				// #89: the show core builds for the browser – a build check
 				step('🎼 deck-show wasm32', 'cargo', ['build', '--target', 'wasm32-unknown-unknown', '-p', 'deck-show'], deck),
-				// live-deck's in-process relay tests spawn deck/target/debug/relay.exe: a stale binary fails them after a relay change (the P8 merge)
+				// live-deck's in-process relay tests spawn debug/relay.exe of the deck's target: a stale binary fails them after a relay change (the P8 merge)
 				step('🧊 relay binary', 'cargo', ['build', '-p', 'relay'], deck),
 				// #366: the relay client's wasm (relay-web) – live-deck's tests run the core's scripted links through client.ts
 				step('🛰 relay-web wasm32', npm, ['run', 'build:wasm', '-w', 'shared/live-deck', '--', '--relay'], root, { paths: NODE }),
@@ -148,6 +161,7 @@ const dirtyWatched = state.dirty.find((f) => watched(f, WATCH));
 console.log(
 	`deck:ci ${tier} tier at ${head.slice(0, 8)}${fresh ? ' – fresh: stamps ignored' : ''}${dirtyWatched ? ` – uncommitted change (${dirtyWatched}): every step runs, nothing is stamped` : ''}`
 );
+console.log(`deck:ci builds in ${target.replaceAll('\\', '/')} – ${where}`);
 
 if (planOnly) {
 	for (const [i, s] of steps.entries()) {

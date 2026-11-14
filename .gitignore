@@ -23,3 +23,5 @@ __pycache__/
 deck/os/out/
 # the LAN dev certificate (scripts/dev/lan.mjs)
 .dev-certs/
+# a worktree's cargo config: its deck builds in <git common dir>/deck-target (scripts/deck-target.ts, #526)
+/.cargo/

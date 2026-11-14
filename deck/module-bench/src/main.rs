@@ -23,6 +23,18 @@ fn here() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
 }
 
+/// the deck's target dir, wherever cargo put it (#526: a worktree's is in `<git common dir>/deck-target/<id>`):
+/// CARGO_TARGET_DIR, else the folder above this binary's profile folder (`<target>/release/module-bench.exe`)
+fn deck_target() -> PathBuf {
+    if let Some(dir) = std::env::var_os("CARGO_TARGET_DIR") {
+        return here().parent().unwrap().join(dir);
+    }
+    std::env::current_exe()
+        .ok()
+        .and_then(|exe| exe.parent()?.parent().map(Path::to_path_buf))
+        .unwrap_or_else(|| here().parent().unwrap().join("target"))
+}
+
 fn dist() -> PathBuf {
     here().join("www").join("dist")
 }
@@ -82,8 +94,7 @@ const CRATES: [(&str, &str); 4] = [
 ];
 
 fn prepare(args: &[String]) -> Result<()> {
-    let deck = here().parent().unwrap().to_owned();
-    let target = deck.join("target");
+    let target = deck_target();
     let out = dist();
     std::fs::create_dir_all(&out)?;
     let modules = [
@@ -455,7 +466,7 @@ fn chain() -> Result<(Vec<u8>, Vec<u8>)> {
 
 #[cfg(not(feature = "embed"))]
 fn chain() -> Result<(Vec<u8>, Vec<u8>)> {
-    let target = here().parent().unwrap().join("target/bench-wasm");
+    let target = deck_target().join("bench-wasm");
     cargo(
         &[
             "build",

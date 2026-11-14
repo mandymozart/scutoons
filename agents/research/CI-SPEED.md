@@ -1,4 +1,4 @@
-Status 2026-11-14: research (#523); proposals 1, 2 (in part) and 3 built (#524, "Built (#524)" under §4's first three rows); 7 in part (rust-lld, line tables: #525, "Measured (#525)" at the end); 4–6, 8–10 open.
+Status 2026-11-14: research (#523); proposals 1, 2 (in part) and 3 built (#524, "Built (#524)" under §4's first three rows); 7 in part (rust-lld, line tables: #525, "Measured (#525)" at the end); 10 built (#526, "Design (#526)" + "Built (#526)" at the end); 4–6, 8–9 open.
 
 # Where deck:ci's time goes, and how to cut it
 
@@ -152,3 +152,61 @@ samples (≥ 12 in 5); after, ≥ 5 in 8 of 14 (≥ 12 in 5), its link.exe in 8 
 saving is a lower bound, but ±10 % noise is plausible: trust the direction and the size (exact, no load effect), not the 33 s. The unit-time sums count
 time spent waiting for a CPU too. An idle-machine repeat would sharpen the seconds; the size is final.
 Backtraces: a deliberately failing scratch test (not committed) with `RUST_BACKTRACE=1` still prints `at .\tests\<file>.rs:<line>` per frame.
+
+## Design (#526)
+Goal (issue): a fresh worktree's first build does not rebuild the registry crates; all worktrees' build output in one place, one command to see and clear it; two sessions at once keep working.
+**A plain shared `CARGO_TARGET_DIR` is out – measured wrong, not only slow.** Cargo keys a workspace crate by its path *relative to the workspace root* (`-C metadata`,
+the fingerprint, dep-info paths relative to the package root): two worktrees are the same unit to it and freshness is mtime only. Scratch test (two copies of a
+one-crate workspace, one target dir): B's edit made before A's build was never compiled – B's `cargo test` ran A's code and `env!("CARGO_MANIFEST_DIR")` named A.
+In the deck that means a worker's tests (and a green stamp) on another worker's code, `debug/relay.exe` and `debug/deck.exe` overwritten across worktrees, and the
+conformance tests' nested wasm builds run in the other worktree. The lock is not the problem: cargo holds the build-dir lock only while compiling, not while tests run
+(measured: a second build in the same dir did not wait for a running 15 s test), so two workers would wait for each other's compile phases only – irrelevant once wrong.
+**Built instead: one root, a target dir per worktree inside it, sccache for the registry crates.**
+- **Where:** `<git common dir>/deck-target/` (here `C:\Development\scutoons\.git\deck-target\`), next to deck:ci's stamps: every worktree derives it with
+  `git rev-parse --git-common-dir`, no per-machine setting in the repo, no tool scans `.git/`, the working trees stay clean. Inside: `<worktree id>/` (the id is
+  the basename of `git rev-parse --git-dir`, `.git/worktrees/<id>` – gone when the worktree is removed, which is how a stale build is recognised) and `sccache/`.
+- **How a worktree finds it:** an untracked, git-ignored `<worktree>/.cargo/config.toml` (cargo reads it above `deck/.cargo/config.toml`, which stays as is):
+  `build.target-dir = <root>/<id>`, `build.rustc-wrapper = <sccache.exe>` when sccache is installed, `[env] SCCACHE_DIR = <root>/sccache` (+ size cap, idle timeout).
+  Written by `scripts/deck-target.ts` from the root `postinstall` (every worker runs `npm install`) and again at the start of every deck:ci; never in the main checkout
+  (`--git-dir` = `--git-common-dir`) nor in a plain clone (GitHub). So a worker's hand-run `cargo test` lands there too; `CARGO_TARGET_DIR` still overrides (cargo's rule).
+- **Why sccache, not shared artifacts:** sccache keys a compile by its inputs' content and absolute paths – the registry sources (`~/.cargo/registry`) are the same
+  path for every worktree, so their rlibs hit across worktrees; workspace crates are incremental (sccache never caches those) and have per-worktree paths, so they can
+  never be served across worktrees – exactly the line the scratch test says must hold. Not cached by sccache: proc-macro / bin crates and build scripts (linked per
+  worktree), the links of the ~100 test executables. Per-worktree disk stays (~11 GB debug after #525 + the wasm dirs) – the gain is one place and a clear command, plus
+  the cold registry compile. Two sessions at once: separate target dirs (no build-dir lock between them), one sccache server shared by both (it serves concurrent clients).
+- **Sub target dirs:** `live-core-simd`, `engine-wasm`, `conformance-wasm[-simd]`, `wasm-modules`, `conformance/` reports all live inside the worktree's target dir
+  (the root's `<id>/`). `target-v3` (the `stage-v3` alias, a relative `--target-dir`) stays beside deck/: owner-only release builds in the main checkout.
+- **What follows the location:** Rust integration tests take the target dir from `env!("CARGO_TARGET_TMPDIR")` (= `<target>/tmp`, set by cargo for every integration
+  test, whatever chose the dir) instead of `deck/target` (conformance wasm + reports, headless wasm, the module tests' `wasm-modules`); module-bench from its own exe.
+  Node: one resolver, `deckTarget()` in shared/live-core/scripts/wasm.ts (`CARGO_TARGET_DIR`, else `cargo metadata`'s `target_directory`, 0.2 s), used by deck-ci.mjs
+  (gates, `--target-dir …/engine-wasm`), live-core's and live-deck's wasm scripts, live-core's tests, and the relay tests of live-deck and the viewer (`debug/relay.exe`).
+  Owner-only hardware scripts (native/run-*.ps1, os/*.sh) run in the main checkout, whose target stays `deck/target`: unchanged.
+- **The main checkout:** keeps `deck/target` (114 GB, the owner's own builds) – not moved, not cleaned. Recommended: leave it where it is (no cold rebuild, the
+  run-*.ps1 scripts keep working) and clear it once when it suits him (`--clear --main`): built again after #525 it is ~1/3 of the size.
+- **One command:** `npm run deck:target` lists the root (per worktree: size, alive / stale / this one), sccache, the old `deck/target` of each worktree and the main
+  checkout's (reported only). `-- --clear` deletes the stale worktree dirs; `--all` the whole root (every worktree's build + sccache; only when no session builds);
+  `--legacy` the worktrees' old `deck/target`; `--main` the main checkout's `deck/target` – only that flag ever touches it.
+- **Stamps (#524):** the location is not in the key: a step's result does not depend on where its artifacts go (the gates read files the same step just built); sccache
+  returns a compile's output for the same inputs, so it is not in the key either.
+
+**Built (#526)** – scripts/deck-target.ts (+ its test in `check:deck-ci`), `npm run deck:target`, the root `postinstall`, deck-ci.mjs, `deckTarget()` in
+shared/live-core/scripts/wasm.ts, `CARGO_TARGET_TMPDIR` in the Rust tests; sccache 0.19.0 installed here (`cargo install sccache --locked --no-default-features`, local disk only).
+- As designed, plus **`SCCACHE_BASEDIRS` = every worktree's target dir** (in each config; sccache's server reads it when it starts): without it a second worktree hit
+  289 of 386 Rust compiles (the registry crates whose build scripts write into OUT_DIR missed), with it 354; 32 miss in every worktree (not traced).
+- **Exception: space-web's wasm build runs without sccache** (`RUSTC_WRAPPER=` in deck-ci.mjs and live-deck's build-wasm.ts): web-sys's rustc call (wgpu's features)
+  is ~90 KB, cargo hands it over as an @argfile, sccache expands it past Windows' 32 K command line (os error 206). GOTCHAS has the hand-run case.
+- Proofs, 2026-11-14, the machine shared with other workers' builds (`cargo test --workspace --no-run` unless named):
+
+| run | wall | sccache Rust hits / misses |
+|---|---|---|
+| this worktree, empty target + empty cache | 382 s | 0 / 386 |
+| a second fresh worktree (`git worktree add`), no base dirs yet | 318 s | 289 / 97 |
+| both targets `cargo clean`ed, base dirs set: this worktree / the second | 274 / 282 s | 354 / 32 each |
+| core/src/lib.rs touched: both worktrees at once / one alone | 62 s + 62 s / 30 s | – |
+| `npm run deck:ci` default tier (first green run of #524 + #525 + #526 together) | 2146 s | tests 1200 s |
+
+  Read: a fresh worktree saves ~100 s of a ~380 s cold test build (~27 %); the rest is what must not be shared – the workspace crates (135 incremental compiles), bins,
+  proc-macros, build scripts and the ~100 links. Two builds at once: no wait between them (separate target dirs; only cargo's package-cache lock, seconds), the CPU is shared.
+  deck:ci's two failed tries were #526's own (the space-web exception above; build-wasm.ts over its check:core-only budget) – nothing from #524 / #525.
+- Disk after the proofs: the root 26.1 GB (this worktree 24.0 GB with all wasm dirs, sccache 2.1 GB of its 20 G cap); the second worktree's 13.7 GB deleted by `-- --clear`
+  (21 s, sizes included). Still outside the root, reported, untouched: two worktrees' old `deck/target` (77 GB) and the main checkout's (156.5 GB).
