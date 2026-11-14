@@ -20,6 +20,9 @@ pub mod session;
 /// #533: the vote's conductor side in the editor's Perform workspace – the form, the panel
 pub mod vote;
 
+/// #556: the ballot – the vote a deck may cast in, drawn by the deck over its scene: its words, its picture, its keys
+pub mod ballot;
+
 /// #546: one condition, one look – a filter's facts, which are on, its words (a role's, a row address's, a cell's)
 pub mod filter;
 

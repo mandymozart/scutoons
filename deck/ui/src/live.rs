@@ -70,11 +70,13 @@ pub enum Key {
     Char(char),
 }
 
-/// What the adapter does for the page: take a role (none: no role), say a new name.
+/// What the adapter does for the page: take a role (none: no role), say a new name; #556, for the ballot (ballot.rs):
+/// cast the open vote's option (deck-space relay.rs `Client::vote_cast`).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Do {
     Take(Option<String>),
     Name(String),
+    Cast(usize),
 }
 
 /// the name's longest (the relay trims a nick to 24 characters)

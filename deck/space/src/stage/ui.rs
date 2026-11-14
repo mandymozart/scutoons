@@ -1,13 +1,13 @@
 //! The deck's own UI on the stage (#485, RULES H8): the kit's screen on egui (deck-kit `base::screen`) with the deck's
-//! menu (#386) and its panel (#481) as layers, drawn by egui-wgpu inside the stage's pass – over the splash, under the
+//! ballot (#556), its menu (#386) and its panel (#481) as layers, drawn by egui-wgpu inside the stage's pass – over the splash, under the
 //! build label – on the native deck and in the browser (WebGPU and WebGL2 alike: egui-wgpu's shader is WGSL, naga
 //! turns it into GLSL as it does the stage's). It replaces the two CPU pictures (menu, panel) the stage uploaded before.
-//! The layers change when their owners say (deck-ui `Menu::paint`, deck-show `Face::paint`); egui runs then, and on a
+//! The layers change when their owners say (deck-ui `ballot::Page::paint`, `Menu::paint`, deck-show `Face::paint`); egui runs then, and on a
 //! new size or input – between those the meshes it made are drawn again.
 use deck_kit::base::input::Input;
 use deck_kit::base::screen::{Layer, Screen};
 use deck_kit::egui::epaint::{ClippedPrimitive, TextureId};
-use deck_kit::live::{LAYERS, MENU, PANEL};
+use deck_kit::live::{LAYERS, MENU, PANEL, VOTE};
 use egui_wgpu::{Renderer, RendererOptions, ScreenDescriptor};
 
 pub(super) struct Ui {
@@ -37,6 +37,10 @@ impl Ui {
         self.screen.set(MENU, menu);
     }
 
+    pub(super) fn set_vote(&mut self, vote: Option<Layer>) {
+        self.screen.set(VOTE, vote);
+    }
+
     pub(super) fn set_panel(&mut self, panel: Option<Layer>) {
         self.screen.set(PANEL, panel);
     }
@@ -50,7 +54,7 @@ impl Ui {
 
     /// whether a layer shows
     pub(super) fn shows(&self) -> bool {
-        self.screen.layer(MENU).is_some() || self.screen.layer(PANEL).is_some()
+        [VOTE, MENU, PANEL].iter().any(|l| self.screen.layer(*l).is_some())
     }
 
     /// Before the pass: a new frame of egui's when something changed – its textures to the GPU, its meshes into the

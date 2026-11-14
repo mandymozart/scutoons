@@ -44,6 +44,44 @@ pub enum How {
     Override,
 }
 
+impl From<protocol::VoteRule> for Rule {
+    fn from(r: protocol::VoteRule) -> Rule {
+        match r {
+            protocol::VoteRule::Majority => Rule::Majority,
+            protocol::VoteRule::Groups => Rule::Groups,
+            protocol::VoteRule::First => Rule::First,
+        }
+    }
+}
+
+impl From<protocol::VoteHow> for How {
+    fn from(h: protocol::VoteHow) -> How {
+        match h {
+            protocol::VoteHow::Rule => How::Rule,
+            protocol::VoteHow::Fallback => How::Fallback,
+            protocol::VoteHow::Override => How::Override,
+        }
+    }
+}
+
+/// How a vote was decided, as a voter reads it on the ballot (#556, ballot.rs) – in German for a `de…` locale, else in
+/// English. The conductor's panel says the same in its own line (`Panel::result_line`).
+pub fn decided(rule: Rule, how: How, locale: &str) -> &'static str {
+    let de = locale.starts_with("de");
+    match (how, rule, de) {
+        (How::Fallback, _, false) => "Nobody voted – it stays as it was.",
+        (How::Fallback, _, true) => "Niemand hat abgestimmt – es bleibt dabei.",
+        (How::Override, _, false) => "The conductor decided.",
+        (How::Override, _, true) => "Die Regie hat entschieden.",
+        (How::Rule, Rule::Majority, false) => "Most votes.",
+        (How::Rule, Rule::Majority, true) => "Die meisten Stimmen.",
+        (How::Rule, Rule::Groups, false) => "Most groups.",
+        (How::Rule, Rule::Groups, true) => "Die meisten Gruppen.",
+        (How::Rule, Rule::First, false) => "First to enough votes.",
+        (How::Rule, Rule::First, true) => "Zuerst genug Stimmen.",
+    }
+}
+
 /// Open, held (the countdown stands, votes still count) or closed (the result is in).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum State {
@@ -297,6 +335,14 @@ mod tests {
         assert_eq!(p.result_line().as_deref(), Some("Result: Yes – by override – the conductor chose"));
         p.result = Some(("No".into(), How::Fallback));
         assert_eq!(p.result_line().as_deref(), Some("Result: No – by the fallback – nobody voted"));
+    }
+
+    #[test]
+    fn a_voter_reads_how_it_was_decided_in_the_decks_language() {
+        assert_eq!(decided(Rule::Groups, How::Rule, "en"), "Most groups.");
+        assert_eq!(decided(Rule::First, How::Rule, "de-AT"), "Zuerst genug Stimmen.");
+        assert_eq!(decided(protocol::VoteRule::Majority.into(), protocol::VoteHow::Fallback.into(), "de"), "Niemand hat abgestimmt – es bleibt dabei.");
+        assert_eq!(decided(Rule::Majority, How::Override, "fr"), "The conductor decided.");
     }
 
     #[test]

@@ -220,6 +220,8 @@ pub struct Outlet {
     pub fetched: Fetched,
     /// #475: the flash side
     flash: Flashed,
+    /// the deck's locale: the ballot's words (#556)
+    locale: String,
     /// #478: when it asks for its proof (`r:`)
     renew: Renew,
     /// #478: the name chosen on this device's Live page (what `Kept` keeps) – not the preset, so a reader who signs in later
@@ -274,6 +276,7 @@ impl Outlet {
                 flash.set_locale(locale);
                 flash
             },
+            locale: locale.to_owned(),
             renew: Renew::default(),
             named,
         })
@@ -289,6 +292,8 @@ impl Outlet {
         for o in self.relay.take() {
             match o {
                 Out::Message(e) => self.hear(e.message, now),
+                // #556: a vote is the relay client's ballot (`ballot`), drawn by the deck: the page gets nothing of it
+                Out::Vote(_) => {}
                 Out::Status(s) => {
                     self.status.link = self.relay.line();
                     out.push(Out::Status(s));
@@ -402,6 +407,13 @@ impl Outlet {
             self.flash.set_account(&roles);
         }
         self.relay.proof_answered(self.renew.answered(now.as_secs_f64(), answer));
+    }
+
+    /// #556: the ballot of the vote this deck may cast in, as it reads now in the deck's locale (deck-ui ballot.rs); none =
+    /// no vote, or its result has shown. The relay client's clock is the page's socket's: ms since the epoch (client.ts
+    /// `now`), read here as `Date.now()`.
+    pub fn ballot(&self) -> Option<deck_ui::ballot::View> {
+        self.relay.ballot().view(js_sys::Date::now(), &self.locale)
     }
 
     /// #481: who is signed in changed (the page says so): the proof is asked again at once – a reader who signed out is a

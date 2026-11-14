@@ -4,6 +4,8 @@
 //! objects become the menu's `Facts`, and the Live page (#478, the native deck's F6) follows the menu. In the browser's
 //! full screen Esc is the browser's: M, the status line or Start open the menu (owner 2026-11-11, point 2). The browser
 //! deck has no switcher and no settings page yet: their rows say LATER and open empty.
+//! #556: what the menu leaves – the arrows, Enter, a press – goes to the ballot of a vote this deck may cast in (deck-ui
+//! `ballot.rs`, scene.rs `ballot_input`).
 use super::{live_do, SceneView, SPLASH_AT_MOST};
 use deck_ui::menu::{Answer, Facts, Input, Page, Pair};
 use wasm_bindgen::prelude::*;
@@ -30,7 +32,7 @@ impl SceneView {
         self.show.stage.ui_input(i);
         let facts = self.menu_facts();
         if self.menu.input(i, &facts) == Answer::No {
-            return false;
+            return self.ballot_input(i);
         }
         let live = self.menu.own(&facts) == Some(Page::Live);
         match (live, self.outlet.as_ref()) {

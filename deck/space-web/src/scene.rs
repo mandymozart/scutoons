@@ -142,10 +142,11 @@ impl Show {
     }
 }
 
-/// #478: what the Live page asked, to the relay
+/// #478: what the Live page asked, to the relay; #556: the ballot's cast, into the vote open now
 fn live_do(o: &mut Outlet, did: Option<deck_ui::live::Do>) {
     let _ = match did {
         Some(deck_ui::live::Do::Take(role)) => o.relay.take_role(role.as_deref()),
+        Some(deck_ui::live::Do::Cast(option)) => o.relay.vote_cast(option as i64),
         Some(deck_ui::live::Do::Name(name)) => {
             // kept on this device as the reader's own choice (`live_kept`)
             o.named = Some(name.clone()).filter(|n| !n.is_empty());
@@ -188,6 +189,8 @@ pub struct SceneView {
     side: Option<Side>,
     /// #481: the deck's dialogs for the person at it, as a picture and its presses (deck-show `face.rs`)
     face: Face,
+    /// #556: the ballot of a vote this deck may cast in, as a picture and its keys and presses (deck-ui `ballot.rs`)
+    ballot: deck_ui::ballot::Page,
     /// #479: a cell whose piece is being fetched – compared again when the answer is here; a newer cell replaces it
     held: Option<(protocol::Cell, Place)>,
     /// the change through black to the scene (TOML) the piece side asks for, the show being built behind it, the built one
@@ -268,6 +271,7 @@ impl SceneView {
             side: None,
             held: None,
             face: Face::default(),
+            ballot: Default::default(),
             change: Change::default(),
             building: false,
             built: Rc::default(),
@@ -730,6 +734,7 @@ impl SceneView {
         }
         self.show = show;
         self.face.again();
+        self.ballot.again();
         self.turn += 1;
         self.reloaded = true;
         self.age = 0.0;
@@ -792,6 +797,28 @@ impl SceneView {
         if let Some(layer) = self.face.paint(shown.as_ref(), size, deck_outlet::text::mono_per_px()) {
             self.show.stage.set_panel(layer);
         }
+    }
+
+    /// The ballot (#556): the vote this deck may cast in, drawn by the core (deck-ui `ballot.rs`: the panel's parts, a
+    /// layer under the menu and the panel) over the scene that plays on – handed to the stage only when it changed.
+    fn ballot_paint(&mut self) {
+        let view = self.outlet.as_ref().and_then(|o| o.ballot());
+        let size = (self.config.width as f32, self.config.height as f32);
+        if let Some(layer) = self.ballot.paint(view.as_ref(), size, deck_outlet::text::mono_per_px()) {
+            self.show.stage.set_vote(layer);
+        }
+    }
+
+    /// #556: an input the menu left (a key, the pointer's press – deck-kit's `Input`), for the ballot – unless the Live
+    /// page is open (its keys are its own); whether the ballot took it. Its cast goes to the relay client.
+    pub(super) fn ballot_input(&mut self, i: deck_ui::menu::Input) -> bool {
+        if self.live.open {
+            return false;
+        }
+        let Some(o) = self.outlet.as_mut() else { return false };
+        let (took, did) = self.ballot.input(i, o.ballot().as_ref());
+        live_do(o, did);
+        took
     }
 
     /// #481: a dialog of the flash side shows (its keys are its own, also over the open Live page)
@@ -887,6 +914,7 @@ impl SceneView {
             }
         }
         self.panel();
+        self.ballot_paint();
         self.menu_paint();
         let show = &mut self.show;
         if show.graph.first(Kind::Tempo).is_some() {

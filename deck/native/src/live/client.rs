@@ -3,6 +3,8 @@
 //! missed, else the snapshot) on the socket thread (socket.rs). Where a message goes – the cells, preloads and the show's
 //! slice of this outlet – is deck-outlet's route.rs; here they go to the worker threads (mod.rs), what they answer
 //! (`media.ready`) out. #478: the deck's proof of facts (an approved deck) is asked with its own token and goes in its hellos.
+//! #556: the vote this deck may cast in is the relay client's ballot (deck-ui ballot.rs) – kept here for the frame thread,
+//! which draws it; its cast comes back as the page's `Do::Cast`.
 use super::config::Config;
 use super::media::Media;
 use super::socket::{self, Side};
@@ -40,6 +42,8 @@ pub struct Client {
     /// #478: what the Live page asks (a role, a name) and what it shows (the relay client's session)
     pub page: Receiver<Do>,
     pub session: Arc<Mutex<Session>>,
+    /// #556: the relay client's ballot, for the frame thread (it draws it and asks for a cast through `page`)
+    pub ballot: Arc<Mutex<deck_ui::ballot::State>>,
     /// #478: the deck's proof of facts for its session, asked with its own token (`media.token`, the API `media.api`):
     /// when it asks (deck-outlet's proof.rs) and the answer on its way from the fetch thread
     pub media: Arc<Media>,
@@ -118,9 +122,13 @@ impl Side for Client {
                     c.set_name(&name);
                     keep("nick", &name);
                 }
+                // #556: the ballot's cast – into the vote open now (the relay counts it; none open: nothing)
+                Do::Cast(option) => {
+                    c.vote_cast(option as i64);
+                }
             }
         }
-        *self.session.lock().unwrap() = c.live();
+        self.tell(c);
         // media.ready waits for an open socket
         while c.open() {
             let Ok(m) = self.outbox.try_recv() else { break };
@@ -168,7 +176,18 @@ impl Side for Client {
                 }
             }
         }
+        self.tell(c);
+    }
+}
+
+impl Client {
+    /// what the frame thread shows of the relay client: the Live page's session, the ballot (#556)
+    fn tell(&self, c: &Relay) {
         *self.session.lock().unwrap() = c.live();
+        let mut ballot = self.ballot.lock().unwrap();
+        if *ballot != *c.ballot() {
+            ballot.clone_from(c.ballot());
+        }
     }
 }
 

@@ -45,6 +45,9 @@ pub enum Part<'a> {
     Buttons(&'a [&'a str], Option<usize>, Option<f32>),
     /// a row to choose: its label, a note at its right, chosen or not
     Mark(&'a str, &'a str, bool),
+    /// a row to cast a vote on (#556): its label, a note at its right (its share, once the tally shows), chosen or not,
+    /// the keys are on it, its share of the votes (0..1) – a line along its bottom in the accent
+    Choice(&'a str, &'a str, bool, bool, Option<f32>),
     /// a row with a switch: its label, on or off, the keys are on it
     Switch(&'a str, bool, bool),
     /// one line of text to edit; empty shows the hint, muted. While it is edited: how many characters stand before the
@@ -96,15 +99,19 @@ fn part_height(d: &DrawList, t: &Tokens, width: f32, part: &Part) -> f32 {
         Part::Line(text, _) => wrap(text, cols(d, t.size.font, width)).len() as f32 * t.size.font * LINE,
         Part::Buttons(labels, ..) if stacked(d, t, width, labels) => labels.len() as f32 * (t.size.row + GAP) - GAP + 6.0,
         Part::Buttons(..) => t.size.row + 6.0,
-        Part::Mark(..) | Part::Switch(..) => t.size.row,
+        Part::Mark(..) | Part::Switch(..) | Part::Choice(..) => t.size.row,
         Part::Field(..) => t.size.row,
     }
 }
 
+/// a row: a mark, a switch, a choice
+fn is_row(p: &Part) -> bool {
+    matches!(p, Part::Mark(..) | Part::Switch(..) | Part::Choice(..))
+}
+
 /// two rows share their line: no gap between them
 fn gap(before: &Part, after: &Part) -> f32 {
-    let row = |p: &Part| matches!(p, Part::Mark(..) | Part::Switch(..));
-    if row(before) && row(after) {
+    if is_row(before) && is_row(after) {
         0.0
     } else {
         GAP
@@ -172,20 +179,25 @@ pub fn draw(d: &mut DrawList, t: &Tokens, screen: (f32, f32), parts: &[Part], gr
             }
             Part::Mark(label, note, on) => {
                 let at = Rect { x: area.x, y, w: area.w, h: ph };
-                row(d, t, at, label, on, i == 0 || !matches!(parts[i - 1], Part::Mark(..) | Part::Switch(..)));
-                let m = Rect { x: at.x + 2.0, y: y + (ph - 14.0) * 0.5, w: 14.0, h: 14.0 };
-                if on {
-                    d.rect(m.x, m.y, m.w, m.h, t.color.text);
-                } else {
-                    d.outline(m.x, m.y, m.w, m.h, (0.0, t.size.edge), t.color.line);
+                row(d, t, at, label, on, i == 0 || !is_row(&parts[i - 1]));
+                mark(d, t, at, note, on);
+                places.push(at);
+            }
+            Part::Choice(label, note, on, focus, share) => {
+                let at = Rect { x: area.x, y, w: area.w, h: ph };
+                row(d, t, at, label, on, i == 0 || !is_row(&parts[i - 1]));
+                mark(d, t, at, note, on);
+                if let Some(share) = share {
+                    d.rect(at.x, at.y + at.h - 1.0 - t.size.edge, at.w * share.clamp(0.0, 1.0), t.size.edge, t.color.accent);
                 }
-                let w = d.advance(t.size.small) * note.chars().count() as f32;
-                d.text(at.x + at.w - w - 2.0, y + (ph - t.size.small * LINE) * 0.5, t.size.small, note, t.color.muted);
+                if focus {
+                    d.outline(at.x - 4.0, at.y, at.w + 8.0, at.h, (0.0, 3.0), t.color.accent);
+                }
                 places.push(at);
             }
             Part::Switch(label, on, focus) => {
                 let at = Rect { x: area.x, y, w: area.w, h: ph };
-                row(d, t, at, label, false, i == 0 || !matches!(parts[i - 1], Part::Mark(..) | Part::Switch(..)));
+                row(d, t, at, label, false, i == 0 || !is_row(&parts[i - 1]));
                 if focus {
                     d.outline(at.x - 4.0, at.y, at.w + 8.0, at.h, (0.0, 3.0), t.color.accent);
                 }
@@ -237,6 +249,18 @@ fn button(d: &mut DrawList, t: &Tokens, at: Rect, label: &str, primary: bool, fo
     let px = t.size.font;
     let w = d.advance(px) * label.chars().count() as f32;
     d.text(at.x + (at.w - w) * 0.5, at.y + (at.h - px * LINE) * 0.5, px, label, if primary { t.color.surface } else { t.color.text });
+}
+
+/// a row's mark at its left (filled when chosen) and its note at its right
+fn mark(d: &mut DrawList, t: &Tokens, at: Rect, note: &str, on: bool) {
+    let m = Rect { x: at.x + 2.0, y: at.y + (at.h - 14.0) * 0.5, w: 14.0, h: 14.0 };
+    if on {
+        d.rect(m.x, m.y, m.w, m.h, t.color.text);
+    } else {
+        d.outline(m.x, m.y, m.w, m.h, (0.0, t.size.edge), t.color.line);
+    }
+    let w = d.advance(t.size.small) * note.chars().count() as f32;
+    d.text(at.x + at.w - w - 2.0, at.y + (at.h - t.size.small * LINE) * 0.5, t.size.small, note, t.color.muted);
 }
 
 /// a row's ground (the chosen one lifted), its hairlines, its label after the mark's place
@@ -367,6 +391,20 @@ mod tests {
         d.clear();
         let wide = toast(&mut d, &t, (1280.0, 720.0), "Geflasht von ana: top · Version 3", Tone::Bad);
         assert!(wide.w < 384.01 && texts(&d).len() == 1, "{wide:?}");
+    }
+
+    #[test]
+    fn a_choice_is_a_row_with_its_share_along_its_bottom_and_the_keys_on_it() {
+        let (mut d, t) = (DrawList::new(0.6), tokens());
+        let parts = [Part::Caption("Vote", "12 s left"), Part::Choice("Yes", "67%", true, false, Some(0.67)), Part::Choice("No", "33%", false, true, Some(0.33)), Part::Line("You can change it until the end.", true)];
+        let places = draw(&mut d, &t, (400.0, 300.0), &parts, false);
+        assert_eq!(places.len(), 2, "the two choices");
+        assert_eq!(places[1].y, places[0].y + places[0].h, "rows share their line");
+        let (a, b) = (places[0], places[1]);
+        assert!(d.prims().contains(&Prim::Rect { x: a.x, y: a.y + a.h - 1.0 - t.size.edge, w: a.w * 0.67, h: t.size.edge, r: 0.0, color: t.color.accent }), "the share's line");
+        assert!(d.prims().contains(&Prim::Rect { x: a.x + 2.0, y: a.y + (a.h - 14.0) * 0.5, w: 14.0, h: 14.0, r: 0.0, color: t.color.text }), "the chosen one's mark is filled");
+        assert!(d.prims().iter().any(|p| matches!(*p, Prim::Outline { x, y, color, .. } if x == b.x - 4.0 && y == b.y && color == t.color.accent)), "the keys are on the second");
+        assert!(texts(&d).contains(&"67%".to_string()) && texts(&d).contains(&"No".to_string()));
     }
 
     #[test]
