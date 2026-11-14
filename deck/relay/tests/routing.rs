@@ -192,6 +192,7 @@ async fn a_vote_closes_by_itself() {
         seconds: 1,
         fallback: None,
         groups: None,
+        r#where: None,
         show: None,
         question: None,
         labels: None,

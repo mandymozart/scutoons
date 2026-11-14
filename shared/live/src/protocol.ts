@@ -102,6 +102,8 @@ export interface VoteOpen {
 	fallback?: number;
 	/** which groups vote (default: all audience) */
 	groups?: string[];
+	/** #547: the cell's filter – the voters are every client in a role (decks too) in `groups` that passes it (the relay tests it with the facts it holds: account and approved only from the proof); only they hear the vote, are counted and may cast. None: the audience (in `groups`: also performers and musicians) */
+	where?: Filter;
 	/** a voter sees the tally once they have voted (never before) */
 	show?: boolean;
 	/** the choice event's question by locale (a phone shows its device's language, else the first); texts are locale maps */

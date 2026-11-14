@@ -197,7 +197,7 @@ impl Relay {
             // #527: a reader learns who drives now even then (it claims again only when nobody does, relay.rs `Client::drive`)
             Some((_, true)) => Snapshot { seq: Some(s.seq as i64), driver: s.driver_for(hello.role), ..Default::default() },
             _ => {
-                let mut snap = s.snapshot_for(hello.role, group.as_deref());
+                let mut snap = s.snapshot_of(&id);
                 // #195: a scene.sync for listed decks reaches a client by its id (a resume past the replay buffer)
                 snap.sync = snap.sync.or_else(|| s.sync_for(Some(&id), hello.role, group.as_deref()));
                 snap

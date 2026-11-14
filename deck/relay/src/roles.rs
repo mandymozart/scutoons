@@ -30,6 +30,12 @@ pub fn admits(a: Option<&Admits>, c: &Client) -> bool {
         || has(&a.group, c.came.as_deref())
 }
 
+/// What the relay knows of `c` for the one filter (#547, protocol `filter::passes`): the group it came with, the device it
+/// says, the account facts and "approved" only from its proof – never its own claim.
+pub fn facts(c: &Client) -> protocol::filter::Facts<'_> {
+    protocol::filter::Facts { group: c.came.as_deref(), device: c.device.as_deref(), account: &c.facts.account, approved: c.facts.approved }
+}
+
 /// The strongest account fact `c` has proven, as presence says it (guest without one). Proposal (no owner word on an
 /// order): admin, creator, live, member.
 pub fn strongest(c: &Client) -> Account {
