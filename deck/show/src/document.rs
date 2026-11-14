@@ -256,8 +256,7 @@ pub enum Moment {
 
 /// What a cell's piece may be from the toon's address book (#487): a published deck scene – the entry's address,
 /// `scene:<id>`, is what the piece holds. Rigs and modules are pieces too but no entries of the book; sandboxes never are.
-/// The deck editor has no field for a cell's piece yet (assigning a scene is the next step, #267's draft 4): a field
-/// that picks one asks the book's `find` for these kinds.
+/// The deck editor's piece picker (#537, rows.rs `pieces`) asks the book's `find` for these kinds.
 pub const PIECE_KINDS: [protocol::address_book::AddressKind; 1] = [protocol::address_book::AddressKind::Scene];
 
 /// One cell (SHOW.md §5). On a seat's column: `go`, `free` or `keep`.

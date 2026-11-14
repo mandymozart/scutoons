@@ -23,6 +23,8 @@ pub mod flash;
 pub mod flashed;
 pub mod ready;
 pub mod roles;
+/// #537: a show's rows (add, rename, remove) and a cell's mode and piece – the edits, the prompt, the picker's lines
+pub mod rows;
 pub mod subtree;
 pub mod validate;
 pub mod view;
