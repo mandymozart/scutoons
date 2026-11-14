@@ -1,0 +1,79 @@
+name = "a show's row asks a question: the scene plays on, the vote opens for its columns, the result fires the row set to it"
+about = "#548 (SHOW.md §15 3): show/fixtures/vote-cell.show.json – row crossroads asks q1 on `left` and `right` (members' and live phones); firing it keeps the deck's piece (an `ask` cell is keep, the ballot lies over the running scene, #556) and the conductor sends one `vote.open`: the question's options and labels, `groups` = the asking columns, `where` = their filter. The relay's result (here handed in: option 0, Left) is the show's event `vote:q1/1`; row went-left fires on it on auto and `left` goes black. `scene:nave` is the deck's stand-in (a tone), as in scenario 29"
+
+[[step]]
+do = "show"
+show = "show/fixtures/vote-cell.show.json"
+outlet = "left"
+expect = { rows = ["opening", "crossroads", "went-left"] }
+
+[step.pieces."scene:nave"]
+toml = """
+[stage]
+name = "nave"
+transition_secs = 0.5
+
+[[node]]
+id = "light"
+kind = "osc"
+freq = 220.0
+gain = 0.8
+
+[[node]]
+id = "out"
+kind = "audio_out"
+
+[[link]]
+from = "light"
+to = "out.in"
+"""
+
+[[step]]
+do = "go"
+expect = { row = "opening", do = "load", piece = "scene:nave", problems = [], playing = "scene:nave" }
+
+[[step]]
+do = "run"
+ms = 1000
+expect = { sound = true, piece = "scene:nave" }
+
+# the question: no cell for `left` (the piece keeps playing), one vote.open for left + right with their filter
+[[step]]
+do = "fire"
+row = "crossroads"
+
+[step.expect]
+row = "crossroads"
+do = "none"
+playing = "scene:nave"
+
+[step.expect.vote]
+vote = "v1"
+options = ["Left", "Right", "Stay"]
+labels = { de = ["Left", "Rechts", "Stay"] }
+question = { en = "Which way?", de = "Welcher Weg?" }
+rule = "majority"
+seconds = 30
+fallback = 2
+groups = ["left", "right"]
+where = { device = "phone", account = ["member", "live"] }
+
+[[step]]
+do = "run"
+ms = 500
+expect = { sound = true, piece = "scene:nave", crossfade = -1 }
+
+# the relay decides Left: the event vote:q1/1 fires went-left on auto, `left` goes black
+[[step]]
+do = "vote"
+option = 0
+expect = { event = "vote:q1/1", row = "went-left", do = "black", said = "fired went-left (auto)" }
+
+[[step]]
+do = "run"
+ms = 3000
+
+[[step]]
+do = "run"
+ms = 500
+expect = { sound = false, piece = "" }

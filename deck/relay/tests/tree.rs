@@ -591,7 +591,7 @@ async fn the_show_runner_opens_watches_holds_and_overrides_a_vote_over_the_real_
     let mut c = join(port, "VOTE", Role::Audience, Some("right"), None, None).await;
     // open: the conductor's form → vote.open; the relay says it back to the conductor and to the phones
     let form = Form { question: "Which way?".into(), options: "left, right, stay".into(), rule: Rule::Groups, seconds: 30, fallback: 2, ..Form::default() };
-    let out = top.sub_mut().vote_open(&form, now()).unwrap();
+    let out = top.sub_mut().vote_open(&deck_show::vote::question(&form, "").unwrap(), &form.groups, None, now()).unwrap();
     top.all(out).await;
     wait(&mut [&mut top, &mut a, &mut b, &mut c], |p| p[0].sub().vote().is_open() && p[3].inbox.iter().any(|e| matches!(e.message, Message::VoteOpen(_)))).await;
     // the phones vote; the tally per group reaches the conductor's board
@@ -618,9 +618,47 @@ async fn the_show_runner_opens_watches_holds_and_overrides_a_vote_over_the_real_
     assert_eq!(p.result_line().as_deref(), Some("Result: left – by override – the conductor chose"));
     assert!(top.logged(|l| matches!(l, Logged::VoteDecided { option, how, .. } if option == "left" && how == "override")));
     // a second vote opens with the next id once the first is closed
-    let out = top.sub_mut().vote_open(&Form::default(), now()).unwrap();
+    let out = top.sub_mut().vote_open(&deck_show::vote::question(&Form::default(), "").unwrap(), &[], None, now()).unwrap();
     top.all(out).await;
     wait(&mut [&mut top], |p| p[0].sub().vote().open.as_ref().is_some_and(|o| o.vote == "v2") && p[0].sub().vote().is_open()).await;
+}
+
+/// #548: two rows, each asking a question of its outlets
+const ASKS: &str = r#"{
+  "id": "asks", "version": 1,
+  "outlets": [{ "id": "left" }, { "id": "right" }],
+  "questions": [
+    { "id": "q1", "typed": { "question": { "en": "Which way?" }, "options": [{ "en": "Left" }, { "en": "Right" }] }, "rule": "majority", "seconds": 60 },
+    { "id": "q2", "typed": { "options": [{ "en": "Up" }, { "en": "Down" }] }, "rule": "majority", "seconds": 60 }
+  ],
+  "rows": [
+    { "id": "crossroads", "cells": { "left": { "mode": "ask", "question": "q1" }, "right": { "mode": "ask", "question": "q1" } } },
+    { "id": "stairs", "cells": { "right": { "mode": "ask", "question": "q2" } } },
+    { "id": "went-down", "fire": { "event": "vote:q2/2", "how": "auto" }, "cells": { "left": { "mode": "black" } } }
+  ]
+}"#;
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_fired_rows_question_opens_over_the_real_relay_closes_the_open_one_first_and_its_result_fires_a_row() {
+    let (port, _relay) = child_relay().await;
+    let mut top = join(port, "ASKS", Role::Conductor, None, Some("t"), show(ASKS, ClockChoice::Parent)).await;
+    let mut a = join(port, "ASKS", Role::Audience, Some("left"), None, None).await;
+    let mut c = join(port, "ASKS", Role::Audience, Some("right"), None, None).await;
+    // the row fires: one vote.open for left and right, both phones hear it
+    let out = top.sub_mut().fire("crossroads", now());
+    top.all(out).await;
+    wait(&mut [&mut top, &mut a, &mut c], |p| p[0].sub().vote().is_open() && p[1].inbox.iter().chain(&p[2].inbox).filter(|e| matches!(e.message, Message::VoteOpen(_))).count() == 2).await;
+    // another row's question while q1 is open: closed by its rule, then q2 opens – for right only
+    let out = top.sub_mut().fire("stairs", now());
+    top.all(out).await;
+    wait(&mut [&mut top, &mut a, &mut c], |p| p[0].sub().vote().open.as_ref().is_some_and(|o| o.vote == "v2") && p[0].sub().vote().is_open() && heard(p[2], "v2")).await;
+    assert!(top.logged(|l| matches!(l, Logged::VoteDecided { vote, event: Some(e), .. } if vote == "v1" && e.starts_with("vote:q1/"))), "q1's result is its event");
+    linger(&mut [&mut top, &mut a, &mut c]).await;
+    assert!(!heard(&a, "v2"), "left does not ask q2");
+    // right votes Down (its only voter: the vote closes): the result is vote:q2/2, went-down fires on auto
+    c.send(cast("v2", 1)).await;
+    wait(&mut [&mut top, &mut a, &mut c], |p| p[0].sub().conductor().current() == Some("went-down")).await;
+    assert!(top.logged(|l| matches!(l, Logged::VoteDecided { vote, option, event: Some(e), .. } if vote == "v2" && option == "Down" && e == "vote:q2/2")));
 }
 
 // ---------------------------------------------------------------- #547: a vote's filter, tested by the relay

@@ -2,12 +2,18 @@
 //! session runs – the vote open, the relay's last tally, the result, the relay's refusal ([`Board`], kept in `Subtree`, fed
 //! by `on_wire`) – and the panel in words for the editor's Perform workspace ([`panel`], deck-ui `vote::Panel`). The rule
 //! is the relay's (relay/vote.rs tallies, holds, closes, decides); a group's pick shown here is the relay's own `winner`
-//! (protocol `vote.rs`). A typed form becomes `vote.open` here ([`open`]); the moves are `Subtree::vote_open`, `vote_hold`,
-//! `vote_close`.
+//! (protocol `vote.rs`). A question of the show becomes `vote.open` here ([`open`]; #548: a fired row's `ask` columns, the
+//! typed form through [`question`]); its result becomes the show's event [`event`]. The moves are `Subtree::vote_open`,
+//! `vote_hold`, `vote_close`.
+use crate::document::{Loc, Question, Typed};
 use deck_ui::vote::{percent, Bar, Group, How};
 /// the panel's model and the form are deck-ui's (named here for a caller without deck-ui)
 pub use deck_ui::vote::{Form, Panel, Rule, State};
-use protocol::{Message, VoteHow, VoteOpen, VoteResult, VoteRule, VoteTally};
+use protocol::{Filter, Message, VoteHow, VoteOpen, VoteResult, VoteRule, VoteTally};
+use std::collections::{BTreeSet, HashMap};
+
+/// #548: how many votes opened from here are remembered until their result (one runs at a time; the rest is a bound)
+const ASKED_CAP: usize = 16;
 
 /// What the conductor knows of its session's vote.
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -20,6 +26,9 @@ pub struct Board {
     pub problem: Option<String>,
     /// votes opened from here, for the next id
     opened: u32,
+    /// #548: the votes opened from here and not decided yet, oldest first: the vote's id and the show's question it asks
+    /// (empty: a typed form's) – its result becomes that question's event
+    asked: Vec<(String, String)>,
 }
 
 impl Board {
@@ -31,14 +40,30 @@ impl Board {
     /// The id the next vote opened here gets: `v1`, `v2` …, past any the session already had.
     pub fn next_id(&self) -> String {
         let mut n = self.opened + 1;
-        while self.open.as_ref().is_some_and(|o| o.vote == format!("v{n}")) {
+        while self.open.as_ref().is_some_and(|o| o.vote == format!("v{n}")) || self.asked.iter().any(|(v, _)| *v == format!("v{n}")) {
             n += 1;
         }
         format!("v{n}")
     }
 
-    pub(crate) fn opening(&mut self) {
+    /// #548: vote `vote` was sent from here, asking the show's question `question` (empty: none)
+    pub(crate) fn opening(&mut self, vote: &str, question: &str) {
         self.opened += 1;
+        self.asked.push((vote.to_string(), question.to_string()));
+        if self.asked.len() > ASKED_CAP {
+            self.asked.remove(0);
+        }
+    }
+
+    /// #548: the vote open now as this conductor knows it – the last one sent from here that is not decided (the relay may
+    /// not have said so yet), else the relay's while it is open. A refused open stays here until a newer vote opens.
+    pub fn open_now(&self) -> Option<&str> {
+        self.asked.last().map(|(v, _)| v.as_str()).or_else(|| self.open.as_ref().filter(|_| self.is_open()).map(|o| o.vote.as_str()))
+    }
+
+    /// #548: the show's question vote `vote` asks, while it waits for its result (none: not opened from here, or a typed form)
+    pub fn asks(&self, vote: &str) -> Option<&str> {
+        self.asked.iter().find(|(v, _)| v == vote).map(|(_, q)| q.as_str()).filter(|q| !q.is_empty())
     }
 
     /// What the relay said of the vote; true when it is news for the log (opened, decided).
@@ -47,7 +72,12 @@ impl Board {
             Message::VoteOpen(v) => {
                 let fresh = self.open.as_ref().is_none_or(|o| o.vote != v.vote) || self.result.is_some();
                 if fresh {
-                    *self = Board { open: Some(v.clone()), opened: self.opened, ..Board::default() };
+                    // the relay runs one vote at a time: the votes sent before this one are decided or never opened
+                    let mut asked = std::mem::take(&mut self.asked);
+                    if let Some(i) = asked.iter().position(|(id, _)| *id == v.vote) {
+                        asked.drain(..i);
+                    }
+                    *self = Board { open: Some(v.clone()), opened: self.opened, asked, ..Board::default() };
                 }
                 fresh
             }
@@ -67,6 +97,12 @@ impl Board {
         }
     }
 
+    /// #548: vote `vote` is decided: no longer waited for; the show's question it asked (none: not opened from here, a form)
+    pub(crate) fn decided(&mut self, vote: &str) -> Option<String> {
+        let i = self.asked.iter().position(|(v, _)| v == vote)?;
+        Some(self.asked.remove(i).1).filter(|q| !q.is_empty())
+    }
+
     /// The result's option label (none while open).
     pub fn result_label(&self) -> Option<String> {
         let (o, r) = (self.open.as_ref()?, self.result.as_ref()?);
@@ -75,7 +111,7 @@ impl Board {
 }
 
 /// The question in English, else the first given.
-fn question(o: &VoteOpen) -> String {
+fn question_text(o: &VoteOpen) -> String {
     o.question.as_ref().and_then(|q| q.get("en").or_else(|| q.values().next())).cloned().unwrap_or_default()
 }
 
@@ -148,7 +184,7 @@ pub fn panel(b: &Board, name: &dyn Fn(&str) -> String) -> Option<Panel> {
     Some(Panel {
         vote: o.vote.clone(),
         state,
-        question: question(o),
+        question: question_text(o),
         rule: rule(o.rule),
         n: o.n.unwrap_or(1),
         fallback: o.options.get(fallback).cloned().unwrap_or_default(),
@@ -165,25 +201,69 @@ pub fn panel(b: &Board, name: &dyn Fn(&str) -> String) -> Option<Panel> {
     })
 }
 
-/// The form as `vote.open` with the id `vote`, or what is wrong with it (deck-ui `Form::problem`).
-pub fn open(f: &Form, vote: &str) -> Result<VoteOpen, String> {
+/// the locale `vote.open`'s plain `options` are in (`labels` carries the others)
+const DEFAULT_LOCALE: &str = "en";
+
+/// #548: the typed form as a question of the show named `id` (empty: a vote opened from Perform's form, not the show's), or
+/// what is wrong with it (deck-ui `Form::problem`, the one check). Its groups are the columns it is opened for, not the
+/// question's. #551 writes it into the show; until then Perform's form opens it straight (`Subtree::vote_open`).
+pub fn question(f: &Form, id: &str) -> Result<Question, String> {
     if let Some(p) = f.problem() {
         return Err(p.to_string());
     }
-    let question = f.question.trim();
+    let en = |s: &str| -> Loc { [(DEFAULT_LOCALE.to_string(), s.to_string())].into_iter().filter(|(_, t)| !t.is_empty()).collect() };
+    let rule = wire_rule(f.rule);
+    Ok(Question {
+        id: id.to_string(),
+        typed: Some(Typed { question: en(f.question.trim()), options: f.option_list().iter().map(|o| en(o)).collect() }),
+        story: None,
+        rule,
+        n: (rule == VoteRule::First).then_some(f.n),
+        seconds: f.seconds,
+        fallback: f.fallback,
+        show: f.show,
+    })
+}
+
+/// #548 (SHOW.md §15 3): the vote question `q` opens – `vote.open` with the id `vote`: its options in English (else the
+/// first locale given) and `labels` for every other locale that reads differently, its question by locale, how it runs;
+/// `groups` = the columns that ask it (none: all audience), `where` = their filter (the relay tests it, #547). What is
+/// wrong with it: the form's check (deck-ui `vote::problem`, the one place).
+pub fn open(q: &Question, vote: &str, columns: &[String], filter: Option<&Filter>) -> Result<VoteOpen, String> {
+    let given = q.options();
+    if let Some(why) = deck_ui::vote::problem(given.len(), rule(q.rule), q.n.unwrap_or(0), q.seconds, q.fallback) {
+        return Err(why.to_string());
+    }
+    let pick = |locale: &str| -> Vec<String> { given.iter().map(|o| protocol::content_text::pick_text(o, locale, None).unwrap_or_default().to_string()).collect() };
+    let options = pick(DEFAULT_LOCALE);
+    let locales: BTreeSet<&String> = given.iter().flat_map(|o| o.keys()).collect();
+    let labels: HashMap<String, Vec<String>> = locales.into_iter().map(|l| (l.clone(), pick(l))).filter(|(_, list)| *list != options).collect();
+    let words: HashMap<String, String> = q.typed.iter().flat_map(|t| &t.question).filter(|(_, s)| !s.trim().is_empty()).map(|(l, s)| (l.clone(), s.clone())).collect();
     Ok(VoteOpen {
         vote: vote.to_string(),
-        options: f.option_list(),
-        rule: wire_rule(f.rule),
-        n: (f.rule == Rule::First).then_some(f.n),
-        seconds: f.seconds,
-        fallback: Some(f.fallback as i64),
-        groups: (!f.groups.is_empty()).then(|| f.groups.clone()),
-        r#where: None,
-        show: Some(f.show),
-        question: (!question.is_empty()).then(|| [("en".to_string(), question.to_string())].into_iter().collect()),
-        labels: None,
+        options,
+        rule: q.rule,
+        n: if q.rule == VoteRule::First { q.n } else { None },
+        seconds: q.seconds,
+        fallback: Some(q.fallback as i64),
+        groups: (!columns.is_empty()).then(|| columns.to_vec()),
+        r#where: filter.cloned(),
+        show: Some(q.show),
+        question: (!words.is_empty()).then_some(words),
+        labels: (!labels.is_empty()).then_some(labels),
     })
+}
+
+/// #548 (SHOW.md §15 3): the event a vote's result is to the show – `vote:<question>/<option>`, the option's place counted
+/// from 1 as people count (`vote:q1/2` = the second option). A row fires on it auto / suggest / hand (`fire.event`). The
+/// one place that writes it: the conductor reads results with it, the editor's picker (#551) offers it.
+pub fn event(question: &str, option: usize) -> String {
+    format!("vote:{question}/{}", option + 1)
+}
+
+/// #548: the event `r` is for the show's question `question` (none: an option out of the wire's range)
+pub fn result_event(question: &str, r: &VoteResult) -> Option<String> {
+    usize::try_from(r.option).ok().map(|o| event(question, o))
 }
 
 #[cfg(test)]
@@ -207,14 +287,15 @@ mod tests {
     fn the_show_runner_opens_watches_holds_and_overrides_a_vote_through_its_conductor() {
         let mut sub = Subtree::new(parse(SHOW).unwrap(), ClockChoice::Parent);
         assert!(sub.vote_close(None).is_empty() && sub.vote_hold(true).is_empty(), "nothing to close or hold");
-        // the form → vote.open, out to the relay
+        // the form → a question → vote.open, out to the relay
         let form = Form { question: "Which way?".into(), options: "left, right, stay".into(), rule: Rule::Groups, fallback: 2, ..Form::default() };
-        let out = sub.vote_open(&form, 1_000).unwrap();
+        let out = sub.vote_open(&question(&form, "").unwrap(), &form.groups, None, 1_000).unwrap();
         assert_eq!(out.len(), 1);
         let sent = serde_json::to_value(&out[0]).unwrap();
         assert_eq!((sent["kind"].as_str(), sent["p"]["vote"].as_str(), sent["p"]["rule"].as_str(), sent["p"]["fallback"].as_i64()), (Some("vote.open"), Some("v1"), Some("groups"), Some(2)));
         assert_eq!(sent["p"]["question"], json!({ "en": "Which way?" }));
-        assert_eq!(sub.vote_open(&Form { options: "only".into(), ..Form::default() }, 1_000).unwrap_err(), "A vote needs at least two options (separated by commas).");
+        assert_eq!((&sent["p"]["options"], sent["p"].get("labels"), sent["p"].get("groups")), (&json!(["left", "right", "stay"]), None, None), "one locale: no labels; no columns: all audience");
+        assert_eq!(question(&Form { options: "only".into(), ..Form::default() }, "").unwrap_err(), "A vote needs at least two options (separated by commas).");
         // the relay says it is open, then tallies; the panel follows
         sub.on_wire(&wire(json!({ "kind": "vote.open", "p": sent["p"] })), 1_100);
         assert!(sub.vote().is_open());

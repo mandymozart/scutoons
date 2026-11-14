@@ -63,6 +63,9 @@ pub enum Out {
     Seat { seat: String, word: Word, says: Says, at: Option<i64> },
     /// #91: a fired row's address, down this subtree (the subtree asks it and logs the answers)
     Address(crate::document::Addressed),
+    /// #548: a fired row's question, to open as the session's vote (the subtree closes one still open first, then opens it:
+    /// `Subtree::vote_open`)
+    Ask(Ask),
 }
 
 impl Out {
@@ -70,8 +73,34 @@ impl Out {
     pub fn envelope(&self) -> Option<&Envelope> {
         match self {
             Out::Send(e) => Some(e),
-            Out::Seat { .. } | Out::Address(_) => None,
+            Out::Seat { .. } | Out::Address(_) | Out::Ask(_) => None,
         }
+    }
+}
+
+/// #548 (SHOW.md §15 3): the question a row asks – the show's question, the columns whose `ask` cells name it (the show's
+/// outlet order: the vote's `groups`) and their filter (one per question, validate's rule: the vote's `where`)
+#[derive(Debug, Clone, PartialEq)]
+pub struct Ask {
+    pub row: String,
+    pub question: String,
+    pub columns: Vec<String>,
+    pub filter: Option<protocol::Filter>,
+}
+
+impl Ask {
+    /// what row `row` asks, if it asks a question
+    pub fn of(show: &Show, row: &crate::document::Row) -> Option<Ask> {
+        let question = crate::rows::asked(row)?.to_string();
+        let columns: Vec<String> = show.outlets.iter().filter(|o| matches!(row.cells.get(&o.id), Some(Cell::Ask { question: q }) if *q == question)).map(|o| o.id.clone()).collect();
+        let filter = columns.first().and_then(|c| row.r#where.get(c)).cloned();
+        Some(Ask { row: row.id.clone(), question, columns, filter })
+    }
+
+    /// The vote it opens with the id `vote` (vote.rs `open`), or why not (no such question, the form's check).
+    pub fn vote(&self, show: &Show, vote: &str) -> Result<protocol::VoteOpen, String> {
+        let q = show.question(&self.question).ok_or_else(|| format!("no question '{}'", self.question))?;
+        crate::vote::open(q, vote, &self.columns, self.filter.as_ref())
     }
 }
 
@@ -172,7 +201,10 @@ pub enum Logged {
     /// #533: the session's vote opened (its question, empty: none), and its result – the option and how (`rule`,
     /// `fallback`, `override`)
     VoteOpened { vote: String, question: String },
-    VoteDecided { vote: String, option: String, how: String },
+    /// #548: and the show's event the result is (`vote:<question>/<option>`, none: a vote not asked by a row)
+    VoteDecided { vote: String, option: String, how: String, event: Option<String> },
+    /// #548: a row's question did not open (no such question, the form's check), and why
+    VoteNotOpened { row: String, question: String, why: String },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -412,10 +444,13 @@ impl Conductor {
         let cell = r.cells.get(column).cloned().unwrap_or(Cell::Keep);
         let at = moment_at(r.fire.moment, now);
         let off_row = self.current.as_deref() != Some(row);
+        // #548: one `ask` cell by hand opens its whole question – every column of the row that asks it votes
+        let ask = matches!(cell, Cell::Ask { .. }).then(|| Ask::of(&self.show, r)).flatten();
         self.record(now.ms, Logged::CellLaunched { row: row.to_string(), column: column.to_string(), off_row });
         let mut out = vec![];
         self.apply(Launch { row, off_row, at, ms: now.ms }, column, &cell, &mut out);
         self.update_mirrors(at, &mut out);
+        out.extend(ask.map(Out::Ask));
         out
     }
 
@@ -453,6 +488,8 @@ impl Conductor {
             self.apply(Launch { row: id, off_row: false, at, ms: now.ms }, column, cell, &mut out);
         }
         self.update_mirrors(at, &mut out);
+        // #548: the row's question opens as one vote for its `ask` columns (no vote outside the show)
+        out.extend(Ask::of(&self.show, &row).map(Out::Ask));
         out.extend(row.addresses.iter().cloned().map(Out::Address));
         out
     }
@@ -470,7 +507,7 @@ impl Conductor {
         }
         let device = self.show.outlet(column).is_some_and(|o| o.kind == OutletKind::Device);
         let playing = match cell {
-            // #546: an `ask` cell keeps the piece; the vote it opens is the row's (#548)
+            // #546: an `ask` cell keeps the piece; the vote it opens is the row's (#548: `Out::Ask`)
             Cell::Keep | Cell::Ask { .. } => {
                 if let Some(on) = self.stage.get_mut(column) {
                     on.row = row.to_string();

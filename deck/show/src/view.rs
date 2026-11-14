@@ -287,14 +287,16 @@ pub fn line(what: &Logged) -> String {
         Logged::Reported { from, running, refused: Some(why) } => format!("{from} runs {running}, refused: {why}"),
         Logged::VoteOpened { vote, question } if question.is_empty() => format!("vote {vote} opened"),
         Logged::VoteOpened { vote, question } => format!("vote {vote} opened: {question}"),
-        Logged::VoteDecided { vote, option, how } => {
+        Logged::VoteDecided { vote, option, how, event } => {
             let how = match how.as_str() {
                 "override" => "by override",
                 "fallback" => "by the fallback",
                 _ => "by the rule",
             };
-            format!("vote {vote}: {option} ({how})")
+            let event = event.as_ref().map(|e| format!(" → {e}")).unwrap_or_default();
+            format!("vote {vote}: {option} ({how}){event}")
         }
+        Logged::VoteNotOpened { row, question, why } => format!("row {row}: question {question} not opened – {why}"),
     }
 }
 

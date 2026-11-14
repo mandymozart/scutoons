@@ -19,6 +19,7 @@
       "fire": { "event": "ch3.crossroads", "how": "suggest" },
       "cells": { "left": { "mode": "ask", "question": "q1" }, "middle": { "mode": "values", "piece": "scene:choir", "values": { "light": 0.4 } }, "right": { "mode": "ask", "question": "q1" } },
       "where": { "left": { "device": "phone", "account": ["member", "live"] }, "right": { "device": "phone", "account": ["member", "live"] } }
-    }
+    },
+    { "id": "went-left", "fire": { "event": "vote:q1/1", "how": "auto" }, "cells": { "left": { "mode": "black" } } }
   ]
 }
