@@ -26,6 +26,8 @@ pub mod roles;
 pub mod subtree;
 pub mod validate;
 pub mod view;
+/// #533: the vote's conductor side – what the relay said of the session's vote, the panel in words, a form as `vote.open`
+pub mod vote;
 
 pub use conductor::{Clock, Conductor, Entry, Logged, Now, Origin, Out, Says, Suggestion};
 pub use document::{parse, Cell, Face, Fire, How, Moment, Outlet, OutletKind, ParseError, Pinned, Row, Seat, Show, Values, Word};

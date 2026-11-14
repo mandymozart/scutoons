@@ -27,6 +27,11 @@ pub enum Typing {
     Nick(String),
     /// #531: the label a linked reader starts at (the Session sheet)
     ReaderLabel,
+    /// #533: the Vote sheet's form – the question, the options, n, the seconds
+    VoteQuestion,
+    VoteOptions,
+    VoteN,
+    VoteSeconds,
 }
 
 /// What a prompt asks before it is done.
@@ -105,6 +110,7 @@ impl Host {
                         self.send(out);
                     }
                     Typing::ReaderLabel => self.session.place.label = text.trim().to_string(),
+                    vote => self.vote_typed(&vote, &text),
                 }
             }
             Key::Named(NamedKey::Escape) => self.typing = None,

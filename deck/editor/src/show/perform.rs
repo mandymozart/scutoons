@@ -4,8 +4,9 @@
 //! words and states are deck-show's view.rs; this file lays them out and names the places (`Hit`).
 //!
 //! #533 (owner 2026-11-14 [live]: the show runner works from Perform): the show runner's sheets open in the stage's place,
-//! which grows for them – **Session** (session.rs: the linked reader's link, its QR, the linked readers), and the rail
-//! names the linked readers under the relay's line, from the same panel.
+//! which grows for them – **Session** (session.rs: the linked reader's link, its QR, the linked readers) and **Vote**
+//! (vote.rs: open a vote, its tally per group, Hold / Close now / Override, the result); the rail names the linked readers
+//! and the vote under the relay's line, from the same panels.
 use super::{Hit, Host, Sheet};
 use deck_kit::editor::controls::{self, Rect};
 use deck_kit::base::draw::DrawList;
@@ -13,7 +14,7 @@ use deck_kit::base::tokens::Tokens;
 use deck_show::view;
 
 /// the show runner's sheets over the stage
-pub const SHEETS: [(&str, Sheet); 1] = [("Session", Sheet::Session)];
+pub const SHEETS: [(&str, Sheet); 2] = [("Session", Sheet::Session), ("Vote", Sheet::Vote)];
 
 /// the show runner's sheet open now (none: the stage)
 pub fn open_sheet(host: &Host) -> Option<Sheet> {
@@ -78,8 +79,9 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
         let top = l.stage.y + t.size.row + pad;
         let a = Rect { x: l.stage.x, y: top, w: l.stage.w, h: l.stage.h - (top - l.stage.y) };
         d.text(l.stage.x + pad, l.stage.y + pad, small, "SHOW RUNNER", t.color.muted);
-        if s == Sheet::Session {
-            super::session::draw(d, t, host, a, pointer);
+        match s {
+            Sheet::Vote => super::vote::draw(d, t, host, a, pointer),
+            _ => super::session::draw(d, t, host, a, pointer),
         }
     } else {
         d.text(l.stage.x + pad, l.stage.y + pad, small, "THE STAGE NOW", t.color.muted);
@@ -193,6 +195,11 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
     let readers = host.session_panel().readers_line();
     d.text(pad, y, small, &fit(d, &readers, small, l.rail.w - 2.0 * pad), t.color.text);
     host.hits.push((Rect { x: 0.0, y: y - 4.0, w: l.rail.w - 1.0, h: t.size.tree_row }, Hit::Sheet(Sheet::Session)));
+    y += t.size.tree_row;
+    // #533: the vote at a glance (the Vote sheet opens, holds and closes it)
+    let vote = super::vote::rail_line(host);
+    d.text(pad, y, small, &fit(d, &vote, small, l.rail.w - 2.0 * pad), if host.sub.vote().is_open() { t.color.go } else { t.color.muted });
+    host.hits.push((Rect { x: 0.0, y: y - 4.0, w: l.rail.w - 1.0, h: t.size.tree_row }, Hit::Sheet(Sheet::Vote)));
     y += t.size.tree_row + pad;
     rail(d, &mut y, "OUTLETS");
     for o in &c.show().outlets {

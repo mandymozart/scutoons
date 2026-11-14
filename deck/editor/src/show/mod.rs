@@ -6,7 +6,7 @@
 //!
 //! - **Perform** (perform.rs): the matrix of rows × outlets and seats, the big row ▶, a small ▶ per cell (a hand launch,
 //!   marked off its row), GO, the suggestion with GO / Drop, the log, the conductors rail; the stage on top, or in its
-//!   place the show runner's sheets (#533): Session (session.rs).
+//!   place the show runner's sheets (#533): Session (session.rs), Vote (vote.rs).
 //! - **Show** (author.rs): the conductors tree with a breadcrumb into a sub conductor, the rows band, the inspector, the
 //!   seats, each deck's answer to the last flash; the 2D node overlay over the dimmed stage (#446) with a 2D / 3D switch; the
 //!   cue sheet and the problems list in its place (sheets.rs); save and load through /api/shows (api.rs).
@@ -21,6 +21,8 @@ pub mod perform;
 mod roles;
 mod session;
 mod sheets;
+mod vote;
+pub use vote::form_arg as vote_form;
 
 use deck_kit::editor::controls::Rect;
 use deck_show::{ClockChoice, Show, Subtree};
@@ -59,12 +61,14 @@ pub enum Sheet {
     /// #531: the session offered to a linked reader – the link, its QR, the linked readers (session.rs); #533: Perform's,
     /// where the show runner works
     Session,
+    /// #533: the vote's conductor side – open a vote, its tally per group, Hold / Close now / Override, the result (vote.rs)
+    Vote,
 }
 
 impl Sheet {
     /// #533: a sheet of the show runner's – Perform draws it over its stage, Show does not offer it
     pub fn in_perform(self) -> bool {
-        matches!(self, Sheet::Session)
+        matches!(self, Sheet::Session | Sheet::Vote)
     }
 
     pub fn parse(s: &str) -> Option<Sheet> {
@@ -74,6 +78,7 @@ impl Sheet {
             "flash" => Some(Sheet::Flash),
             "who" => Some(Sheet::Who),
             "session" => Some(Sheet::Session),
+            "vote" => Some(Sheet::Vote),
             _ => None,
         }
     }
@@ -135,6 +140,8 @@ pub enum Hit {
     SessionLabel,
     SessionCopy,
     SessionOpen,
+    /// #533, the Vote sheet: a field, chip or button of the form or the panel (vote.rs)
+    Vote(vote::VoteHit),
 }
 
 /// The editor's conductor and the documents it shows.
@@ -168,6 +175,8 @@ pub struct Host {
     pub flashing: Option<flash::Flashing>,
     /// #531: the Session sheet's place and lists
     pub session: session::Session,
+    /// #533: the Vote sheet's form and what it shows
+    pub voting: vote::Voting,
     link: Option<link::Link>,
     api: api::Api,
 }
@@ -217,7 +226,7 @@ impl Host {
                 })
                 .ok()
         });
-        Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, typing: None, asking: None, menu: None, lock: false, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, session: session::Session::default(), link, api }
+        Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, typing: None, asking: None, menu: None, lock: false, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, session: session::Session::default(), voting: vote::Voting::default(), link, api }
     }
 
     /// the document at the end of the path (the top's when a step is missing)
@@ -331,6 +340,7 @@ impl Host {
             }
             Hit::Problem(i) => self.select_problem(i),
             Hit::SessionToon(_) | Hit::SessionChapter(_) | Hit::SessionLabel | Hit::SessionCopy | Hit::SessionOpen => self.session_press(hit),
+            Hit::Vote(v) => self.vote_press(v),
         }
     }
 
@@ -443,6 +453,10 @@ pub struct Script {
     /// the character the first reader joined with (the editor's rig)
     pub character: String,
     pub reader_place: Option<Place>,
+    /// #533: with `--sheet vote`, a vote opened from this form (`QUESTION;OPTION, OPTION…[;RULE]`), and a tally the relay
+    /// would send (`left=10/0/0,right=0/1/0` per group, or `10/2/0`) – fed to the conductor as if its relay said them
+    pub vote: Option<deck_ui::vote::Form>,
+    pub vote_tally: Option<String>,
 }
 
 impl Host {
@@ -514,6 +528,11 @@ impl Host {
                     self.session_toon(&p.toon);
                     self.session.place.chapter = p.chapter;
                     self.session.place.label = p.label.clone();
+                }
+            }
+            155 => {
+                if let Some(f) = &s.vote {
+                    self.script_vote(f, s.vote_tally.as_deref());
                 }
             }
             50 if s.flash => self.press(Hit::Flash),

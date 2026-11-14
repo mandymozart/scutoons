@@ -90,6 +90,8 @@ pub struct Subtree {
     counts: Option<BTreeMap<String, u64>>,
     /// #478 slice 3: where this conductor last moved a client (its role, none = no role) and whether it locked it
     moved: BTreeMap<String, (Option<String>, bool)>,
+    /// #533: the session's vote as the relay said it (vote.rs)
+    vote: crate::vote::Board,
 }
 
 fn word_of(w: &SeatWord) -> Says {
@@ -124,7 +126,54 @@ impl Subtree {
             who: BTreeMap::new(),
             counts: None,
             moved: BTreeMap::new(),
+            vote: crate::vote::Board::default(),
         }
+    }
+
+    /// #533: the session's vote as this conductor knows it (the panel: `vote::panel`)
+    pub fn vote(&self) -> &crate::vote::Board {
+        &self.vote
+    }
+
+    /// #533: the show runner opens a vote from `form` (the next id); refused in words when the form is not whole or a vote
+    /// is open. The relay opens it and says so (`on_wire`).
+    pub fn vote_open(&mut self, form: &deck_ui::vote::Form, _ms: u64) -> Result<Vec<Envelope>, String> {
+        if self.vote.is_open() {
+            return Err("a vote is open – close it first".into());
+        }
+        let open = crate::vote::open(form, &self.vote.next_id())?;
+        self.vote.opening();
+        Ok(vec![message(Message::VoteOpen(open), None)])
+    }
+
+    /// #533: hold the open vote's countdown (votes still count) / run it on; nothing without an open vote
+    pub fn vote_hold(&mut self, hold: bool) -> Vec<Envelope> {
+        match self.vote.open.as_ref().filter(|_| self.vote.is_open()) {
+            Some(o) => vec![message(Message::VoteHold(protocol::VoteHold { vote: o.vote.clone(), hold }), None)],
+            None => vec![],
+        }
+    }
+
+    /// #533: close the open vote now – by its rule, or with `over` (an option's place) instead; nothing without one
+    pub fn vote_close(&mut self, over: Option<i64>) -> Vec<Envelope> {
+        match self.vote.open.as_ref().filter(|_| self.vote.is_open()) {
+            Some(o) => vec![message(Message::VoteClose(protocol::VoteClose { vote: o.vote.clone(), r#override: over }), None)],
+            None => vec![],
+        }
+    }
+
+    /// #533: what the relay said of the vote, into the board; the opening and the result are logged
+    fn on_vote(&mut self, m: &Message, ms: u64) -> Vec<Envelope> {
+        if self.vote.heard(m) {
+            let b = &self.vote;
+            let vote = b.open.as_ref().map(|o| o.vote.clone()).unwrap_or_default();
+            let what = match (&b.result, b.result_label()) {
+                (Some(r), Some(option)) => Logged::VoteDecided { vote, option, how: r.how.as_str().to_string() },
+                _ => Logged::VoteOpened { vote, question: crate::vote::panel(b, &|g| g.to_string()).map(|p| p.question).unwrap_or_default() },
+            };
+            self.conductor.note(ms, what);
+        }
+        vec![]
     }
 
     /// #478: the roles this conductor gives out, for its session (sent when it joins and with every new show)
@@ -501,8 +550,14 @@ impl Subtree {
             // #478: and tells its session the roles it gives out
             Message::Welcome(w) => {
                 self.devices.extend(w.snapshot.reports.iter().flatten().map(|(p, r)| (p.clone(), r.clone())));
+                // #533: a vote open when this conductor joins (or comes back)
+                if let Some(v) = &w.snapshot.vote {
+                    self.on_vote(&Message::VoteOpen(v.clone()), ms);
+                }
                 vec![self.roles()]
             }
+            // #533: the session's vote – its own relay's, not the parent's
+            Message::VoteOpen(_) | Message::VoteTally(_) | Message::VoteResult(_) | Message::Error(_) if !from_parent => self.on_vote(&e.message, ms),
             Message::FlashReport(r) => {
                 self.devices.insert(e.from.clone(), r.clone());
                 self.reports.insert(e.from.clone(), r.clone());

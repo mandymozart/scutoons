@@ -167,6 +167,10 @@ pub enum Logged {
     Installed,
     /// #90: a deck's or child's report on a flash
     Reported { from: String, running: String, refused: Option<String> },
+    /// #533: the session's vote opened (its question, empty: none), and its result – the option and how (`rule`,
+    /// `fallback`, `override`)
+    VoteOpened { vote: String, question: String },
+    VoteDecided { vote: String, option: String, how: String },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

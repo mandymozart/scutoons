@@ -17,6 +17,9 @@ pub mod menu;
 /// #531: the deck editor's Session panel – the session, the linked reader's link and QR, the linked readers
 pub mod session;
 
+/// #533: the vote's conductor side in the editor's Perform workspace – the form, the panel
+pub mod vote;
+
 /// text lines the HUD has room for (above the frame-time graph; #208: two audio lines + the glitch warning)
 pub const LINES: usize = 13;
 /// characters a line has room for (8 px each, a 4 px margin)
