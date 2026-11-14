@@ -1,20 +1,23 @@
 //! The headless deck host as wasm (#363): deck-headless built for wasm32 and wasm32 + simd128 (the cdylib's `hl_*`
 //! exports), every scenario run in wasmtime – the report (audio hashes, beats, lines, quality levels, the messages that
 //! left) is byte for byte the native one. What the browser runs is that core; its bridge adds nothing a scenario can see.
-//! The wasm files are built into the conformance suite's target dirs (`deck/target/conformance-wasm*`), once per change.
+//! The wasm files are built into target dirs of their own (`<target>/headless-wasm*`), once per change.
 mod common;
 use std::path::PathBuf;
 use std::process::Command;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use wasmtime::{Engine, Instance, Module, Store};
 
 fn build(simd: bool) -> PathBuf {
-    // the deck's target dir, wherever cargo put it (#526: a worktree's is in <git common dir>/deck-target/<id>)
-    let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).parent().unwrap().join(if simd { "conformance-wasm-simd" } else { "conformance-wasm" });
+    // the deck's target dir, wherever cargo put it (#526: a worktree's is in <git common dir>/deck-target/<id>). Not the
+    // conformance suite's dirs (#536): there `-p live-core` and this `-p deck-headless` built live-core over each other
+    // ("info of dependency `deck-space` changed") and each test binary's run re-linked the other's fat-LTO wasm
+    let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).parent().unwrap().join(if simd { "headless-wasm-simd" } else { "headless-wasm" });
     let mut cmd = Command::new("cargo");
     cmd.current_dir(common::deck_dir()).args(["build", "--release", "--target", "wasm32-unknown-unknown", "-p", "deck-headless", "--lib", "--target-dir"]).arg(&dir);
-    // a fixed build label (#536), the same as conformance/tests/wasm.rs (they share the target dirs): without it deck-space's
-    // build.rs watches the worktree's git index, which every `git status` rewrites – each run rebuilt the fat-LTO wasm
+    // a fixed build label (#536), as in conformance/tests/wasm.rs: without it deck-space's build.rs watches the worktree's
+    // git index, which every `git status` (its own included) rewrites – each run rebuilt the fat-LTO wasm. The label is
+    // only drawn (deck_space::BUILD), no report holds it
     cmd.env("DECK_BUILD_VERSION", "wasm-test");
     if simd {
         cmd.env("RUSTFLAGS", "-C target-feature=+simd128");
