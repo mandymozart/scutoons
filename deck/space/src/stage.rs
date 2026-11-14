@@ -22,7 +22,10 @@ use std::sync::atomic::AtomicBool;
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex};
 
+mod light;
 mod ui;
+
+pub use light::Light;
 
 const COMMON: &str = include_str!("shaders/stage/common.wgsl");
 const OFFSCREEN: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;

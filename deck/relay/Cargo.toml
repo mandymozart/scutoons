@@ -43,6 +43,9 @@ wtransport = { version = "0.7", default-features = false, features = ["ring", "q
 [dev-dependencies]
 # the acceptance of #90: real relays, real conductors (tests/tree.rs)
 deck-show = { path = "../show" }
+# #549: the deck's audience start (a phone's voting screen: its relay client, its proof, its ballot) against the relay's
+# presence and its vote (src/lib.rs tests); the holder sits beside the stage, behind deck-space's `gpu`
+deck-space = { path = "../space", default-features = false, features = ["gpu"] }
 # a self-signed certificate for the wss tests (tests/tls.rs)
 rcgen = "0.13"
 # the QUIC door's client end in tests and the bench, and a two-week certificate a browser pins by hash

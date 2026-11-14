@@ -753,4 +753,95 @@ mod tests {
         assert_eq!(again, id, "the same client");
         assert_eq!(relay.with_session("R", |s| s.clients[&id].group.clone()).unwrap(), Some("soprano".into()), "the role, with the proven facts");
     }
+
+    /// #549 (SHOW.md §15 point 3b): the phone's voting screen is the deck's audience start (deck-space audience.rs – its
+    /// own relay client, the socket here this test). A signed-in phone – the API answered its `r:` ask with a proof – is a
+    /// `member` with `device: phone` in the relay's presence, a signed-out one a guest; a vote for `device: phone` members
+    /// of the group reaches the member's ballot alone, its tap is counted, the tally comes back to it.
+    #[test]
+    fn a_signed_in_phone_is_a_member_with_its_device_in_presence_and_a_signed_out_one_a_guest() {
+        use deck_space::audience::Audience;
+        use deck_space::relay::Out;
+        use protocol::{Account, Hello, Roles, ShowRole};
+        let secret = b"relay-test-secret".to_vec();
+        let relay = Relay::with_config(Config { token_secret: Some(secret.clone()), ..Config::default() });
+        let now = now_ms() / 1000;
+        let cond_token = token::sign(&secret, &token::Claims { session: "V".into(), role: Role::Conductor, exp: now + 60, show: None });
+        let hello = Hello { code: "V".into(), role: Role::Conductor, group: None, nick: None, device: None, token: Some(cond_token), proof: None, resume: None };
+        let (cond, _) = relay.admit(Some(&serde_json::to_string(&Envelope::new("", Message::Hello(hello))).unwrap()), Join::default(), Outbox::new()).unwrap();
+        let left = ShowRole { id: "left".into(), label: None, r#for: None, here: None };
+        relay.with_session("V", |s| s.handle(&cond, Envelope::new("", Message::Roles(Roles { roles: vec![left] })), now_ms(), 50));
+
+        // what the client asks to send: its texts
+        let sends = |a: &mut Audience| a.take(1.0).into_iter().filter_map(|o| if let Out::Send(text) = o { Some(text) } else { None }).collect::<Vec<_>>();
+        // a phone that scanned `…/live/vote/V?group=left`: it asks for its proof, the API answers, it dials and says hello
+        let phone = |reader: &str, status: u16, body: String| {
+            let mut a = Audience::new("ws://relay.test:7070/live/V", "left", reader, "en", "https://api.test/api").unwrap();
+            a.relay.start(0.0);
+            assert!(a.take(0.0).iter().all(|o| !matches!(o, Out::Dial(_))), "the first dial waits for the proof");
+            assert_eq!(a.asks(), [("r:".to_string(), "https://api.test/api/live/proof?session=V".to_string())]);
+            a.proof(status, &body, 0.5);
+            a.relay.tick(600.0);
+            assert!(a.take(0.6).iter().any(|o| matches!(o, Out::Dial(_))), "answered: it dials");
+            a.relay.opened(700.0);
+            let hello = sends(&mut a).pop().expect("its hello");
+            let outbox = Outbox::new();
+            let (id, _) = relay.admit(Some(&hello), Join::default(), outbox.clone()).unwrap();
+            (a, id, outbox)
+        };
+        // what the relay sent it, heard at `at` (its socket's ms)
+        let hears = |a: &mut Audience, outbox: &Arc<Outbox>, at: f64| outbox.drain().iter().for_each(|text| a.relay.text(at, text.as_str()));
+        let proof = token::sign(&secret, &token::Proof { session: "V".into(), facts: token::Facts { account: vec![Account::Member], approved: false }, exp: now + 3600 });
+        let (mut member, member_id, member_box) = phone("Anna", 200, serde_json::json!({ "proof": &proof, "expires_in": 3600 }).to_string());
+        let (mut guest, guest_id, guest_box) = phone("", 401, r#"{"error":"unauthorized"}"#.to_string());
+        let (mut second, second_id, second_box) = phone("Ben", 200, serde_json::json!({ "proof": proof, "expires_in": 3600 }).to_string());
+        hears(&mut member, &member_box, 800.0);
+        hears(&mut guest, &guest_box, 800.0);
+        hears(&mut second, &second_box, 800.0);
+        assert!(member.awake() && guest.awake(), "both are in the session");
+
+        let who = relay.with_session("V", |s| s.presence().who.unwrap()).unwrap();
+        let fact = |id: &str| (who[id].group.as_deref(), who[id].device.as_deref(), who[id].account.map(Account::as_str), who[id].nick.as_deref());
+        assert_eq!(fact(&member_id), (Some("left"), Some("phone"), Some("member"), Some("Anna")));
+        assert_eq!(fact(&guest_id), (Some("left"), Some("phone"), Some("guest"), Some("phone")));
+
+        // a vote for the members' phones of the group: the member's ballot draws it, the guest never hears it
+        let lines = |a: &mut Audience, at: f64| {
+            a.again();
+            a.paint(at, (390.0, 844.0), 0.6).flatten().map(|l| l.list.texts().into_iter().map(String::from).collect::<Vec<_>>()).unwrap_or_default()
+        };
+        let open = serde_json::json!({ "vote": "v1", "options": ["Yes", "No"], "rule": "majority", "seconds": 20, "show": true, "groups": ["left"], "where": { "device": "phone", "account": ["member"] }, "question": { "en": "Shall the cat sing?" } });
+        relay.with_session("V", |s| s.handle(&cond, Envelope::new("", Message::VoteOpen(serde_json::from_value(open).unwrap())), now_ms(), 50));
+        hears(&mut member, &member_box, 1000.0);
+        hears(&mut guest, &guest_box, 1000.0);
+        assert_eq!(lines(&mut member, 1000.0), ["VOTE", "20 S LEFT", "Shall the cat sing?", "Yes", "", "No", "", "Make your choice."]);
+        assert_eq!(lines(&mut guest, 1000.0), ["LEFT", "V", "Waiting for the next vote."]);
+        // the member taps "Yes": the relay counts it and the tally comes back to the ballot
+        let (x, y) = member.at(0).expect("the first option");
+        assert!(member.input(deck_space::audience::Input::Press(x, y), 2000.0));
+        for text in sends(&mut member) {
+            relay.with_session("V", |s| s.handle(&member_id, serde_json::from_str(&text).unwrap(), now_ms(), 50));
+        }
+        // the vote's timer (`spawn_vote_timer`, every 250 ms): the tally to who has voted
+        assert_eq!(relay.with_session("V", |s| s.tick(now_ms())), Some(true), "one of two has voted: the vote stays open");
+        hears(&mut member, &member_box, 2100.0);
+        let drew = lines(&mut member, 2100.0);
+        assert_eq!((drew[3].as_str(), drew[4].as_str(), drew[6].as_str()), ("Yes", "100%", "0%"), "{drew:?}");
+        assert!(!guest.input(deck_space::audience::Input::Enter, 2000.0) && sends(&mut guest).is_empty(), "nothing to cast");
+        // the other member votes with the keys: every voter has cast, the result comes to both ballots – and to the guest,
+        // who never heard the vote and shows nothing of it
+        hears(&mut second, &second_box, 2100.0);
+        lines(&mut second, 2100.0);
+        for _ in 0..2 {
+            assert!(second.input(deck_space::audience::Input::Enter, 3000.0));
+        }
+        for text in sends(&mut second) {
+            relay.with_session("V", |s| s.handle(&second_id, serde_json::from_str(&text).unwrap(), now_ms(), 50));
+        }
+        assert_eq!(relay.with_session("V", |s| s.tick(now_ms())), Some(false), "every voter has cast: closed");
+        hears(&mut member, &member_box, 3100.0);
+        hears(&mut guest, &guest_box, 3100.0);
+        assert_eq!(lines(&mut member, 3100.0), ["RESULT", "", "Yes", "Most votes.", "Your vote: Yes"]);
+        assert_eq!(lines(&mut guest, 3100.0), ["LEFT", "V", "Waiting for the next vote."]);
+    }
 }

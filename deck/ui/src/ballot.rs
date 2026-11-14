@@ -148,14 +148,25 @@ struct Words {
     change: &'static str,
     result: &'static str,
     yours: &'static str,
+    waiting: &'static str,
 }
 
 fn words(locale: &str) -> Words {
     if lang(locale) == "de" {
-        Words { vote: "Abstimmung", left: |s| format!("noch {s} s"), held: "angehalten", pick: "Triff deine Wahl.", change: "Du kannst bis zum Schluss wechseln.", result: "Ergebnis", yours: "Deine Stimme" }
+        Words { vote: "Abstimmung", left: |s| format!("noch {s} s"), held: "angehalten", pick: "Triff deine Wahl.", change: "Du kannst bis zum Schluss wechseln.", result: "Ergebnis", yours: "Deine Stimme", waiting: "Warte auf die nächste Abstimmung." }
     } else {
-        Words { vote: "Vote", left: |s| format!("{s} s left"), held: "on hold", pick: "Make your choice.", change: "You can change it until the end.", result: "Result", yours: "Your vote" }
+        Words { vote: "Vote", left: |s| format!("{s} s left"), held: "on hold", pick: "Make your choice.", change: "You can change it until the end.", result: "Result", yours: "Your vote", waiting: "Waiting for the next vote." }
     }
+}
+
+/// Between votes (#549, SHOW.md §15 point 3b: the phone's voting screen – a deck that is only there to vote, without a
+/// scene): what shows while no ballot does. The role it sits in (the group its QR named) and the session's code, and that
+/// it waits for a vote – until it is in its session, the relay client's line instead. No choices: nothing to press.
+pub fn waiting(s: &crate::live::Session, locale: &str) -> View {
+    let w = words(locale);
+    let who = s.role.as_deref().map_or_else(|| w.vote.to_string(), |r| s.label(r));
+    let hint = if s.joined { w.waiting.to_string() } else { s.link.clone() };
+    View { vote: String::new(), caption: (who, s.code.clone()), question: String::new(), choices: Vec::new(), hint, result: None }
 }
 
 /// One option on the ballot: its label, whether it is this deck's, its share in whole percent and as 0..1 (none: the
@@ -467,6 +478,26 @@ mod tests {
         q.input(Input::Up, view.as_ref());
         assert_eq!(q.input(Input::Up, view.as_ref()), (true, None));
         assert_eq!(q.input(Input::Enter, view.as_ref()), (true, Some(Do::Cast(1))));
+    }
+
+    #[test]
+    fn between_votes_it_says_where_it_is_and_that_it_waits() {
+        use crate::live::Session;
+        let mut s = Session { code: "CATH".into(), link: "JOINING CATH".into(), role: Some("left".into()), ..Session::default() };
+        let v = waiting(&s, "en");
+        assert_eq!((v.caption.0.as_str(), v.caption.1.as_str(), v.hint.as_str(), v.choices.len(), v.result.is_none()), ("left", "CATH", "JOINING CATH", 0, true), "not in its session yet: the link's line");
+        s.joined = true;
+        assert_eq!((waiting(&s, "en").hint, waiting(&s, "de-AT").hint), ("Waiting for the next vote.".to_string(), "Warte auf die nächste Abstimmung.".to_string()));
+        // no group named: the word for what this is
+        s.role = None;
+        assert_eq!((waiting(&s, "en").caption.0, waiting(&s, "de").caption.0), ("Vote".to_string(), "Abstimmung".to_string()));
+        // painted with the ballot's page: its lines, nothing to press or to choose with the keys
+        let mut p = Page::default();
+        let view = Some(waiting(&s, "en"));
+        let layer = p.paint(view.as_ref(), SCREEN, FONT).flatten().expect("the waiting screen");
+        assert!(["VOTE", "CATH", "Waiting for the next vote."].iter().all(|t| texts(&layer).contains(&t.to_string())), "{:?}", texts(&layer));
+        assert_eq!(p.paint(view.as_ref(), SCREEN, FONT), None, "nothing changed");
+        assert_eq!((p.input(Input::Enter, view.as_ref()), p.at(0)), ((false, None), None));
     }
 
     #[test]
