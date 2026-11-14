@@ -77,7 +77,7 @@ impl Host {
                 }
             }
             VoteHit::Show => f.show = !f.show,
-            VoteHit::Open => match self.sub.vote_open(&self.voting.form, super::now()) {
+            VoteHit::Open => match self.open_form(&self.voting.form.clone(), super::now()) {
                 Ok(out) => {
                     self.voting.new = false;
                     self.voting.overriding = false;
@@ -104,6 +104,13 @@ impl Host {
             }
             VoteHit::New => self.voting.new = true,
         }
+    }
+
+    /// #548: the typed form opened as a question of no row (deck-show `vote::question`), its groups the chips picked; the
+    /// form and Open go with #551
+    fn open_form(&mut self, form: &Form, ms: u64) -> Result<Vec<protocol::Envelope>, String> {
+        let q = deck_show::vote::question(form, "")?;
+        self.sub.vote_open(&q, &form.groups, None, ms)
     }
 
     /// a typed field of the form applied (Enter)
@@ -370,7 +377,7 @@ impl Host {
         self.voting.form = form.clone();
         self.press(Hit::Sheet(super::Sheet::Vote));
         let ms = super::now();
-        let out = match self.sub.vote_open(form, ms) {
+        let out = match self.open_form(form, ms) {
             Ok(out) => out,
             Err(why) => return self.status = why,
         };

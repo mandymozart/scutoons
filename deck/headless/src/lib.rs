@@ -30,7 +30,8 @@
 //! | `context` | `pin` (a mood, "" = the ladder's), `touch` | deck (its mood, energy), engine (the live context the engine applied last: mood, persona, energy, touch, strain – #409) |
 //! | `show` | `show` (a deck/ show document), `outlet` (the one this deck plays), `pieces` (what the deck has: piece → `scene` / `bundle` a deck/ file, `toml` a scene as it is, `rig` a core rig's subject) | rows |
 //! | `pieces` | `pieces` (more of them) | – |
-//! | `fire` / `go` | `row` / – : the show's conductor fires, its cell for the outlet goes to the deck (deck-space's piece.rs, #467) | do (load, glide, black, same, kept), piece, ms, values, glides, problems, playing |
+//! | `fire` / `go` | `row` / – : the show's conductor fires, its cell for the outlet goes to the deck (deck-space's piece.rs, #467) | do (load, glide, black, same, kept), piece, ms, values, glides, problems, playing; `vote` (#548: the `vote.open` a row's question sends) |
+//! | `vote` | `option` (#548: the relay's result of the last question, the option's place from 0) – the show's event `vote:<question>/<n>`, the row set to it fires | event, row, said (the log's last line), and as `fire` |
 //! | `address` | `address`, `action` (#516: as the relay's `address` brings it; a show row's `addresses` reach the same path through `fire` / `go`: a line each under `addresses`, the last change's `stage`) – to the scene document playing (deck-space scene_play.rs: `join:<who>` / `leave:<who>`), a changed cast recast in the engine (live-core `recast`) | did (changed, nothing, not_mine), holder, ms, said (the log's last line), ids, stage |
 //! | `story` | `event` (#517: a reader's story event as the relay brings it – `type`, `params`, `id`) – to the playing scene document's listeners (deck-space scene_play.rs `Playing::story`; a `load` of a `document` may add `listener`s), a changed cast recast once | did (a line per cast word: changed at <holder>, nothing), said, ids, stage |
 //! | `pick` | on the last scene document loaded (#496, stage.rs): `click` (a holder, or `[x, y]` of a 1280 × 720 window), `key` (+ `shift`), `drag` (a knob of the hand, `by`) | picked, selection, knobs (the hand's), mark, key, reach, turned (sent to the engine) |
@@ -125,6 +126,9 @@ struct OnShow {
     conductor: Conductor,
     outlet: String,
     pieces: BTreeMap<String, toml::Value>,
+    /// #548: the votes a fired row opened (for the next id: `v1`, `v2` …) and the show's question the last one asks
+    votes: u32,
+    asked: Option<String>,
 }
 
 struct Run<'a> {
@@ -271,6 +275,14 @@ impl Run<'_> {
         }
         if !addressed.is_empty() {
             out["addresses"] = json!(addressed);
+        }
+        // #548: a row's question – the `vote.open` the conductor's subtree sends the relay for it (deck-show `Ask::vote`)
+        if let Some(a) = outs.iter().find_map(|o| if let Out::Ask(a) = o { Some(a) } else { None }) {
+            let on = self.show.as_mut().ok_or_else(|| Fault::Error("a question without a show".into()))?;
+            on.votes += 1;
+            let open = a.vote(on.conductor.show(), &format!("v{}", on.votes)).map_err(Fault::Error)?;
+            on.asked = Some(a.question.clone());
+            out["vote"] = serde_json::to_value(&open).map_err(|e| Fault::Error(e.to_string()))?;
         }
         Ok(out)
     }
@@ -715,7 +727,7 @@ impl Run<'_> {
                 let show = deck_show::document::parse(self.file(&path)?).map_err(|e| Fault::Error(format!("{path}: {e:?}")))?;
                 let rows: Vec<String> = show.rows.iter().map(|r| r.id.clone()).collect();
                 let pieces = step.get("pieces").and_then(|p| p.as_table()).map(|t| t.clone().into_iter().collect()).unwrap_or_default();
-                self.show = Some(OnShow { conductor: Conductor::new(show), outlet: text("outlet").unwrap_or_else(|| "left".into()), pieces });
+                self.show = Some(OnShow { conductor: Conductor::new(show), outlet: text("outlet").unwrap_or_else(|| "left".into()), pieces, votes: 0, asked: None });
                 json!({ "rows": rows })
             }
             "pieces" => {
@@ -733,6 +745,24 @@ impl Run<'_> {
                 let row = on.conductor.current().map(String::from);
                 let mut out = self.deliver(outs)?;
                 out["row"] = json!(row);
+                out
+            }
+            // #548: the relay's result of the vote the last row's question opened (`option`: its place from 0, as on the
+            // wire) → the show's event (deck-show `vote::result_event`) → the row set to it fires, its cell to this deck
+            "vote" => {
+                let now = self.show_now();
+                let on = self.show.as_mut().ok_or_else(|| Fault::Error("vote before show".into()))?;
+                let question = on.asked.take().ok_or_else(|| Fault::Error("vote before a row asked a question".into()))?;
+                let option = step.get("option").and_then(|v| v.as_integer()).unwrap_or(0);
+                let result = protocol::VoteResult { vote: format!("v{}", on.votes), option, counts: vec![], how: protocol::VoteHow::Rule, groups: None };
+                let event = deck_show::vote::result_event(&question, &result).ok_or_else(|| Fault::Error(format!("no option {option}")))?;
+                let outs = on.conductor.on_event(&event, now);
+                let row = on.conductor.current().map(String::from);
+                let said = on.conductor.log().last().map(|e| deck_show::view::line(&e.what)).unwrap_or_default();
+                let mut out = self.deliver(outs)?;
+                out["event"] = json!(event);
+                out["row"] = json!(row);
+                out["said"] = json!(said);
                 out
             }
             // #474: the one resolver – opinions given (`set`: strength, id, value; `call`: caller, value, start, length;
