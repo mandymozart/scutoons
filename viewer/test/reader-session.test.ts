@@ -259,3 +259,10 @@ test('real relay (#528): asked first – nothing before the yes; the yes drives 
 		relay.kill();
 	}
 });
+
+test("#535: a link with the relay's QUIC door (the core's reader_link text, deck-space linked.rs) – the reader's session names the door and its hash", () => {
+	const link = 'https://scutoons.com/catpope/chapter/3?live=A7K2&relay=ws%3A%2F%2F192.168.1.116%3A7070&quic=192.168.1.116%3A7071&quichash=0a1B';
+	assert.equal(sessionOf(new URL(link).searchParams, 'wss://live.scutoons.com'), 'ws://192.168.1.116:7070/live/A7K2?quic=192.168.1.116%3A7071&quichash=0a1B');
+	const own = 'https://scutoons.com/catpope/chapter/3?live=A7K2&relay=ws%3A%2F%2F192.168.1.116%3A7070&quic=';
+	assert.equal(sessionOf(new URL(own).searchParams, 'wss://live.scutoons.com'), 'ws://192.168.1.116:7070/live/A7K2?quic=', "an empty door: the relay's own");
+});
