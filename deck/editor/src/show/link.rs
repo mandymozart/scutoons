@@ -1,8 +1,10 @@
 //! The conductor's link to its relay (#91): deck-space's relay client (relay.rs: the join, resume, keepalive, which
 //! socket) on deck-native's socket thread (live/socket.rs), joined as `conductor`. It only moves envelopes: what the show
 //! core (deck-show's `Subtree`) sends goes out whole (its moment and its `to`), every envelope that comes is handed to the
-//! frame thread, which gives it to the core.
+//! frame thread, which gives it to the core. #531: the relay client's view of the linked readers (deck-space linked.rs
+//! `Readers`) is copied out when it changes, for the Session sheet.
 use deck_native::live::socket::{self, Side};
+use deck_space::linked::Readers;
 use deck_space::relay::{Client, Options, Out};
 use protocol::{Envelope, Role};
 use std::sync::atomic::AtomicBool;
@@ -18,6 +20,9 @@ pub struct Link {
     outbox: Sender<Envelope>,
     /// the relay client's line (`connected as c3`, `offline: …`)
     pub line: Arc<Mutex<String>>,
+    /// #531: the session's code, and the linked readers as the relay client last heard them
+    pub code: String,
+    pub readers: Arc<Mutex<Readers>>,
     stop: Arc<AtomicBool>,
 }
 
@@ -25,6 +30,7 @@ struct Conductor {
     outbox: Receiver<Envelope>,
     inbox: Sender<Envelope>,
     line: Arc<Mutex<String>>,
+    readers: Arc<Mutex<Readers>>,
 }
 
 impl Side for Conductor {
@@ -43,6 +49,10 @@ impl Side for Conductor {
             }
             _ => {}
         }
+        let mut readers = self.readers.lock().unwrap();
+        if *readers != *c.readers() {
+            readers.clone_from(c.readers());
+        }
     }
 }
 
@@ -55,14 +65,16 @@ impl Link {
         o.resume = true;
         o.messages = true;
         let client = Client::new(o)?;
+        let code = client.code().to_string();
         let (outbox, out_rx) = mpsc::channel();
         let (in_tx, inbox) = mpsc::channel();
         let line = Arc::new(Mutex::new(format!("joining {relay}")));
         let stop = Arc::new(AtomicBool::new(false));
-        let mut side = Conductor { outbox: out_rx, inbox: in_tx, line: line.clone() };
+        let readers = Arc::new(Mutex::new(Readers::default()));
+        let mut side = Conductor { outbox: out_rx, inbox: in_tx, line: line.clone(), readers: readers.clone() };
         let flag = stop.clone();
         std::thread::Builder::new().name("show-link".into()).spawn(move || socket::run(client, &mut side, &flag, None, POLL)).map_err(|e| e.to_string())?;
-        Ok(Link { inbox, outbox, line, stop })
+        Ok(Link { inbox, outbox, line, code, readers, stop })
     }
 
     pub fn send(&self, out: Vec<Envelope>) {

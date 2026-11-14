@@ -18,10 +18,12 @@ mod flash;
 mod link;
 pub mod perform;
 mod roles;
+mod session;
 mod sheets;
 
 use deck_kit::editor::controls::Rect;
 use deck_show::{ClockChoice, Show, Subtree};
+use deck_ui::session::Place;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
@@ -53,6 +55,8 @@ pub enum Sheet {
     Flash,
     /// #478: who is here, `role: name`, with move to, rename, kick (roles.rs)
     Who,
+    /// #531: the session offered to a linked reader – the link, its QR, the linked readers (session.rs)
+    Session,
 }
 
 impl Sheet {
@@ -62,6 +66,7 @@ impl Sheet {
             "problems" => Some(Sheet::Problems),
             "flash" => Some(Sheet::Flash),
             "who" => Some(Sheet::Who),
+            "session" => Some(Sheet::Session),
             _ => None,
         }
     }
@@ -117,6 +122,12 @@ pub enum Hit {
     Sheet(Sheet),
     /// a line of the problems list: select what it points at
     Problem(usize),
+    /// #531, the Session sheet: a toon, a chapter of it, the label field, Copy link, Open here
+    SessionToon(usize),
+    SessionChapter(usize),
+    SessionLabel,
+    SessionCopy,
+    SessionOpen,
 }
 
 /// The editor's conductor and the documents it shows.
@@ -148,6 +159,8 @@ pub struct Host {
     pub hits: Vec<(Rect, Hit)>,
     /// #471: the flash list while it is open
     pub flashing: Option<flash::Flashing>,
+    /// #531: the Session sheet's place and lists
+    pub session: session::Session,
     link: Option<link::Link>,
     api: api::Api,
 }
@@ -197,7 +210,7 @@ impl Host {
                 })
                 .ok()
         });
-        Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, typing: None, asking: None, menu: None, lock: false, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, link, api }
+        Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, typing: None, asking: None, menu: None, lock: false, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, session: session::Session::default(), link, api }
     }
 
     /// the document at the end of the path (the top's when a step is missing)
@@ -305,8 +318,12 @@ impl Host {
             Hit::Sheet(s) => {
                 self.sheet = Some(s);
                 self.flashing = None;
+                if s == Sheet::Session {
+                    self.session_open();
+                }
             }
             Hit::Problem(i) => self.select_problem(i),
+            Hit::SessionToon(_) | Hit::SessionChapter(_) | Hit::SessionLabel | Hit::SessionCopy | Hit::SessionOpen => self.session_press(hit),
         }
     }
 
@@ -413,6 +430,12 @@ pub struct Script {
     pub role: Option<String>,
     pub who_move: Option<(String, String)>,
     pub who_menu: Option<String>,
+    /// #531: with `--sheet session`, the readers a check run names (the first drives; the rig's character joined) and
+    /// the place picked (`TOON,CHAPTER[,LABEL]`)
+    pub linked: Vec<String>,
+    /// the character the first reader joined with (the editor's rig)
+    pub character: String,
+    pub reader_place: Option<Place>,
 }
 
 impl Host {
@@ -474,6 +497,16 @@ impl Host {
             170 => {
                 if let Some(i) = s.who_menu.as_ref().and_then(|who| self.script_line(who)) {
                     self.press(Hit::WhoMove(i));
+                }
+            }
+            145 => {
+                if !s.linked.is_empty() {
+                    self.session_demo(&s.linked, &s.character);
+                }
+                if let Some(p) = &s.reader_place {
+                    self.session_toon(&p.toon);
+                    self.session.place.chapter = p.chapter;
+                    self.session.place.label = p.label.clone();
                 }
             }
             50 if s.flash => self.press(Hit::Flash),

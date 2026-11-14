@@ -134,10 +134,18 @@ fn args() -> Result<Args> {
             "--flash-force" => a.script.flash_force = true,
             "--seat" => a.script.seat = Some(val()?),
             "--row" => a.script.row = Some(val()?),
-            "--sheet" => a.script.sheet = Some(show::Sheet::parse(&val()?).context("--sheet cues | problems | flash | who")?),
+            "--sheet" => a.script.sheet = Some(show::Sheet::parse(&val()?).context("--sheet cues | problems | flash | who | session")?),
             "--role" => a.script.role = Some(val()?),
             "--who-move" => a.script.who_move = val()?.split_once('=').map(|(c, r)| (c.to_string(), r.to_string())),
             "--who-menu" => a.script.who_menu = Some(val()?),
+            "--linked" => a.script.linked = val()?.split(',').map(str::trim).filter(|n| !n.is_empty()).map(String::from).collect(),
+            "--reader-place" => {
+                let v = val()?;
+                let mut p = v.splitn(3, ',');
+                let toon = p.next().unwrap_or_default().trim().to_string();
+                let chapter = p.next().map(|c| c.trim().parse()).transpose().context("--reader-place TOON,CHAPTER[,LABEL]")?;
+                a.script.reader_place = Some(deck_ui::session::Place { toon, chapter, label: p.next().unwrap_or_default().trim().to_string() });
+            }
             "--problem" => a.script.problem = Some(val()?.parse().context("--problem N (0-based)")?),
             "--gesture" => {
                 let v = val()?;
@@ -157,6 +165,7 @@ fn args() -> Result<Args> {
             other => anyhow::bail!("unknown argument {other}"),
         }
     }
+    a.script.character.clone_from(&a.rig);
     Ok(a)
 }
 

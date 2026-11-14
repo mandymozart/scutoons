@@ -39,5 +39,8 @@ arboard = { version = "3", default-features = false }
 serde_json.workspace = true
 # #91: the Show and Perform workspaces draw deck-show's conductor; the relay's envelopes; show documents over /api/shows
 deck-show = { path = "../show" }
+# #531: the Session sheet – deck-ui's panel model, the viewer's address (deck-link `app_url`: DECK_APP, else scutoons.com)
+deck-ui = { path = "../ui" }
+deck-link = { path = "../link", default-features = false }
 protocol = { workspace = true }
 ureq = { version = "2", features = ["json"] }
