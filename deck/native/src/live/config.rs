@@ -11,10 +11,10 @@ use std::time::Duration;
 use tungstenite::stream::MaybeTlsStream;
 use tungstenite::WebSocket;
 
-/// The hosted relay and the session a deck joins when nothing names one (#199, LIVE.md B.4: bunny Magic Containers
-/// `scutoons-live`): a scene that joins (space `join` = deck / conductor) or an outlet without `relay` in deck.toml or
-/// `--relay`. The code is the Cathedral's for now.
-pub const HOSTED_RELAY: &str = "wss://live.scutoons.com/live/CATH";
+// The hosted relay and the session a deck joins when nothing names one (#199, LIVE.md B.4: bunny Magic Containers
+// `scutoons-live`): a scene that joins (space `join` = deck / conductor) or an outlet without `relay` in deck.toml or
+// `--relay`. The code is the Cathedral's for now. Once, in the core (deck-space relay.rs, #530).
+pub use deck_space::relay::HOSTED_RELAY;
 
 /// The deck's settings file (deck/os/rootfs/usr/share/deck/deck.default.toml, copied at first boot).
 pub const DECK_TOML: &str = "/var/lib/deck/deck.toml";

@@ -3,17 +3,26 @@
 //! every client of the core (RULES A6): the link a conductor offers (`reader_link` – the deck editor and the conductor
 //! page give the same text), a reader's place in the story (`Steer`, driven by relay.rs `Client::drive`) and the
 //! conductor's view of the linked readers (`Readers`, relay.rs `Client::readers`).
-use crate::relay::encode;
+use crate::relay::{encode, parse_relay, HOSTED_RELAY};
 use protocol::{Loose, Presence};
 use serde::Serialize;
 use std::collections::BTreeMap;
 
 /// The address a linked reader opens: the viewer's `base` (its origin, a locale prefix if any), the toon, the chapter's
-/// number, the label to start at (none or empty: the chapter's start) and the session's code –
-/// `<base>/<toon>/chapter/<n>?label=<label>&live=<code>`, every part escaped.
-pub fn reader_link(base: &str, toon: &str, chapter: u32, label: Option<&str>, code: &str) -> String {
+/// number, the label to start at (none or empty: the chapter's start), the session's code and its relay (#530: the URL the
+/// conductor joined, `ws://host:port/live/<code>`) – `<base>/<toon>/chapter/<n>?label=<label>&live=<code>&relay=<relay>`,
+/// every part escaped. The relay goes in as its base (the reader adds `/live/<code>`, viewer live-deck.ts `relayOf`) and
+/// only when it is not the hosted one (`HOSTED_RELAY`, the reader's default); none, empty or no relay URL: none.
+pub fn reader_link(base: &str, toon: &str, chapter: u32, label: Option<&str>, code: &str, relay: Option<&str>) -> String {
     let label = label.map(str::trim).filter(|l| !l.is_empty()).map(|l| format!("label={}&", encode(l))).unwrap_or_default();
-    format!("{}/{}/chapter/{chapter}?{label}live={}", base.trim().trim_end_matches('/'), encode(toon.trim()), encode(code.trim()))
+    let hosted = parse_relay(HOSTED_RELAY).map(|(b, _)| b).unwrap_or_default();
+    let relay = relay
+        .and_then(|r| parse_relay(r).ok())
+        .map(|(b, _)| b)
+        .filter(|b| !b.eq_ignore_ascii_case(&hosted))
+        .map(|b| format!("&relay={}", encode(&b)))
+        .unwrap_or_default();
+    format!("{}/{}/chapter/{chapter}?{label}live={}{relay}", base.trim().trim_end_matches('/'), encode(toon.trim()), encode(code.trim()))
 }
 
 /// Where a reader stands in its session's story.
@@ -147,13 +156,33 @@ mod tests {
 
     #[test]
     fn the_link_a_conductor_offers() {
-        assert_eq!(reader_link("https://scutoons.com", "catpope", 3, None, "A7K2"), "https://scutoons.com/catpope/chapter/3?live=A7K2");
-        assert_eq!(reader_link("https://scutoons.com/de/", "catpope", 3, Some("dialog-start"), "A7K2"), "https://scutoons.com/de/catpope/chapter/3?label=dialog-start&live=A7K2");
-        assert_eq!(reader_link("https://scutoons.com", "catpope", 1, Some("  "), "A7K2"), "https://scutoons.com/catpope/chapter/1?live=A7K2", "an empty label: the chapter's start");
+        assert_eq!(reader_link("https://scutoons.com", "catpope", 3, None, "A7K2", None), "https://scutoons.com/catpope/chapter/3?live=A7K2");
+        assert_eq!(reader_link("https://scutoons.com/de/", "catpope", 3, Some("dialog-start"), "A7K2", None), "https://scutoons.com/de/catpope/chapter/3?label=dialog-start&live=A7K2");
+        assert_eq!(reader_link("https://scutoons.com", "catpope", 1, Some("  "), "A7K2", None), "https://scutoons.com/catpope/chapter/1?live=A7K2", "an empty label: the chapter's start");
         // escaped: a label with spaces, `&` and umlauts, a code and a toon that would break the address
         assert_eq!(
-            reader_link("http://192.168.1.116:4100", "cat pope", 2, Some("Grüße & co/2"), "A B&c=1"),
+            reader_link("http://192.168.1.116:4100", "cat pope", 2, Some("Grüße & co/2"), "A B&c=1", None),
             "http://192.168.1.116:4100/cat%20pope/chapter/2?label=Gr%C3%BC%C3%9Fe%20%26%20co%2F2&live=A%20B%26c%3D1"
+        );
+    }
+
+    #[test]
+    fn the_link_names_the_relay_only_when_it_is_not_the_hosted_one() {
+        let link = |relay| reader_link("https://scutoons.com", "catpope", 3, Some("dialog-start"), "A7K2", relay);
+        let today = "https://scutoons.com/catpope/chapter/3?label=dialog-start&live=A7K2";
+        // the hosted relay (the reader's default) – any session, the host in any case, with a query: the link as before
+        assert_eq!(link(Some("wss://live.scutoons.com/live/A7K2")), today);
+        assert_eq!(link(Some("wss://Live.Scutoons.com/live/A7K2/?quic=")), today);
+        assert_eq!(link(Some(HOSTED_RELAY)), today);
+        assert_eq!(link(None), today);
+        assert_eq!(link(Some("  ")), today, "an empty relay: none");
+        assert_eq!(link(Some("http://192.168.1.116:7070/live/A7K2")), today, "no ws:// relay: none");
+        // another relay: its base (the reader adds `/live/<code>`), escaped, without the query (the QUIC door)
+        assert_eq!(link(Some("ws://192.168.1.116:7070/live/A7K2?quic=192.168.1.116:7071")), format!("{today}&relay=ws%3A%2F%2F192.168.1.116%3A7070"));
+        assert_eq!(link(Some("wss://scutoons.test/relay/live/A7K2")), format!("{today}&relay=wss%3A%2F%2Fscutoons.test%2Frelay"), "a path before /live/ stays");
+        assert_eq!(
+            reader_link("https://scutoons.com", "catpope", 3, None, "A7K2", Some("ws://127.0.0.1:7070/live/A7K2")),
+            "https://scutoons.com/catpope/chapter/3?live=A7K2&relay=ws%3A%2F%2F127.0.0.1%3A7070"
         );
     }
 
