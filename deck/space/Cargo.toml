@@ -65,6 +65,8 @@ schemars = { version = "1", optional = true }
 
 # the acceptance test of the events adapters (tests/story_to_rig.rs): a chapter event routed to a core rig
 [dev-dependencies]
+# #531: the Session panel's test reads its QR back as a camera would (a decoder, tests only)
+rqrr = { version = "0.10", default-features = false }
 deck-events = { path = "../events" }
 # #485: examples/ui-frames.rs waits for the GPU without a window
 pollster = "0.4"

@@ -122,20 +122,8 @@ pub fn list() -> DrawList {
     DrawList::new(1.0)
 }
 
-/// A QR code: `n × n` modules (`dark(x, y)`), `module` logical pixels each, black on a white square with the quiet zone
-/// (4 modules) inside it, from its top left. Its side.
-pub fn qr(d: &mut DrawList, (x, y): (f32, f32), module: f32, n: usize, dark: &dyn Fn(usize, usize) -> bool) -> f32 {
-    let side = (n + 8) as f32 * module;
-    d.rect(x, y, side, side, [1.0; 4]);
-    for my in 0..n {
-        for mx in 0..n {
-            if dark(mx, my) {
-                d.rect(x + (mx + 4) as f32 * module, y + (my + 4) as f32 * module, module, module, [0.0, 0.0, 0.0, 1.0]);
-            }
-        }
-    }
-    side
-}
+/// the QR painter is the base's (#531: the editor's Session panel draws one too)
+pub use crate::base::draw::qr;
 
 #[cfg(test)]
 mod tests {
@@ -174,14 +162,5 @@ mod tests {
         d.clear();
         line(&mut d, &t, (0.0, 0.0, 160.0), "scutoons deck", "esc close", false);
         assert_eq!(texts(&d), ["SCUTOONS D", "ESC CLOSE"], "20 columns: nine, a space, ten");
-    }
-
-    #[test]
-    fn a_qr_is_a_white_square_with_its_quiet_zone() {
-        let mut d = DrawList::new(1.0);
-        let side = qr(&mut d, (10.0, 10.0), 2.0, 3, &|x, y| x == y);
-        assert_eq!(side, 22.0);
-        assert_eq!(d.prims().len(), 4, "the square and three dark modules");
-        assert_eq!(d.prims()[1], Prim::Rect { x: 18.0, y: 18.0, w: 2.0, h: 2.0, r: 0.0, color: [0.0, 0.0, 0.0, 1.0] });
     }
 }

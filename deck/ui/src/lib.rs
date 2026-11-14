@@ -14,6 +14,9 @@ pub mod live;
 /// #386: the deck's own menu – the splash, the main menu, its pages and the way back (drawn with deck-kit's live components)
 pub mod menu;
 
+/// #531: the deck editor's Session panel – the session, the linked reader's link and QR, the linked readers
+pub mod session;
+
 /// text lines the HUD has room for (above the frame-time graph; #208: two audio lines + the glitch warning)
 pub const LINES: usize = 13;
 /// characters a line has room for (8 px each, a 4 px margin)

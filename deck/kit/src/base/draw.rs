@@ -126,6 +126,21 @@ impl DrawList {
     }
 }
 
+/// A QR code (style-free – both component modules draw it: the deck's pairing, the editor's Session panel, #531): `n × n` modules (`dark(x, y)`), `module` logical pixels each, black on a white square with the quiet zone
+/// (4 modules) inside it, from its top left. Its side.
+pub fn qr(d: &mut DrawList, (x, y): (f32, f32), module: f32, n: usize, dark: &dyn Fn(usize, usize) -> bool) -> f32 {
+    let side = (n + 8) as f32 * module;
+    d.rect(x, y, side, side, [1.0; 4]);
+    for my in 0..n {
+        for mx in 0..n {
+            if dark(mx, my) {
+                d.rect(x + (mx + 4) as f32 * module, y + (my + 4) as f32 * module, module, module, [0.0, 0.0, 0.0, 1.0]);
+            }
+        }
+    }
+    side
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -155,5 +170,14 @@ mod tests {
         let mut d = DrawList::new(0.5);
         d.disc(10.0, 10.0, 4.0, [1.0; 4]);
         assert_eq!(d.prims()[0], Prim::Rect { x: 6.0, y: 6.0, w: 8.0, h: 8.0, r: 4.0, color: [1.0; 4] });
+    }
+
+    #[test]
+    fn a_qr_is_a_white_square_with_its_quiet_zone() {
+        let mut d = DrawList::new(1.0);
+        let side = qr(&mut d, (10.0, 10.0), 2.0, 3, &|x, y| x == y);
+        assert_eq!(side, 22.0);
+        assert_eq!(d.prims().len(), 4, "the square and three dark modules");
+        assert_eq!(d.prims()[1], Prim::Rect { x: 18.0, y: 18.0, w: 2.0, h: 2.0, r: 0.0, color: [0.0, 0.0, 0.0, 1.0] });
     }
 }
