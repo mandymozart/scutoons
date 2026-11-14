@@ -62,6 +62,7 @@
 		"viewer/src/lib/components/live-deck/deck-sticks.svelte": "ui: the corner sticks",
 		"viewer/src/lib/components/live-vote/audience-vote.svelte": "ui: the audience's vote",
 		"viewer/src/lib/components/live-vote/conductor-vote.svelte": "ui: the conductor's vote",
+		"viewer/src/lib/components/live-conductor/linked-reader-panel.svelte": "ui: the conductor's linked reader – the picked place into relay-web's reader_link, the link as text, QR and a new tab; the core's linked readers drawn (#529)",
 		"viewer/src/lib/components/live-vote/open-vote-form.svelte": "ui: the open-vote form",
 		"viewer/src/lib/live-deck-controls.svelte.ts": "ui: the deck page's control state",
 		"viewer/src/lib/live-deck.ts": "adapter: the page's options from its address and the session",

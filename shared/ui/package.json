@@ -3,7 +3,7 @@
 	"version": "0.1.0",
 	"private": true,
 	"type": "module",
-	"description": "SCUTOONS Svelte UI kit: Button, IconButton, Field, Panel, Section, Sheet, Tabs, Toggle, Badge, Menu, Toasts, ActionBar, InfoPanel, DataTable, Pager, Sortable (sortable + SortGrip), SplitView, CommandPalette, PaletteTrigger, Skeleton, Chart, ToonAvatar, Timeline",
+	"description": "SCUTOONS Svelte UI kit: Button, IconButton, Field, Panel, Section, Sheet, Tabs, Toggle, Badge, Menu, Toasts, ActionBar, InfoPanel, DataTable, Pager, Sortable (sortable + SortGrip), SplitView, CommandPalette, PaletteTrigger, Skeleton, Chart, ToonAvatar, Timeline, QrCode",
 	"sideEffects": [
 		"**/*.css",
 		"**/*.svelte"
@@ -30,7 +30,8 @@
 	},
 	"dependencies": {
 		"@scutoons/tokens": "*",
-		"feather-icons": "^4.29.2"
+		"feather-icons": "^4.29.2",
+		"qrcode-generator": "1.4.4"
 	},
 	"peerDependencies": {
 		"svelte": "^5.32.0"

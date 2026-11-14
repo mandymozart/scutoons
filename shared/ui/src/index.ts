@@ -55,6 +55,7 @@ export { default as PhoneBar, type PhoneBarItem } from './phone-bar.svelte';
 export { default as InfoPanel } from './info-panel.svelte';
 export { default as AppShell } from './app-shell.svelte';
 export { default as ToonAvatar } from './toon-avatar.svelte';
+export { default as QrCode } from './qr-code.svelte';
 export { installTooltips } from './tooltips.ts';
 export { gridArrows, gridStep } from './grid-keys.ts';
 export { resizable, type Resizable, type ResizableOptions } from './resizable.svelte.ts';

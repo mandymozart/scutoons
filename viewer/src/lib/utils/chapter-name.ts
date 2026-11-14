@@ -1,6 +1,7 @@
-import { chapterLabel, type LoadedSequenceItem, type Season } from '@scutoons/content';
+import { chapterLabel, type LoadedSequenceItem, type Season, type ToonBundle } from '@scutoons/content';
 import { page } from '$app/state';
 import { m } from '$lib/paraglide/messages.js';
+import { isListed } from '$lib/draft-preview.svelte.ts';
 
 /** A season of the toon as the toon layout loads it (BACKLOG 10.41) */
 export interface ToonSeason {
@@ -10,6 +11,17 @@ export interface ToonSeason {
 	sequence: Season['sequence'];
 	/** the listed chapters (the toon page's list) */
 	chapters: LoadedSequenceItem[];
+}
+
+/**
+ * every season of a toon's library bundle (BACKLOG 10.41), by number: its stored sequence (positions: /season/S/chapter/K,
+ * the labels "Staffel 2 · Kapitel 1") and its listed chapters (the toon page's list) – the toon layout's, the conductor's
+ * linked-reader picker (#529)
+ */
+export function toonSeasons(bundle: Pick<ToonBundle, 'seasons'>): ToonSeason[] {
+	return bundle.seasons
+		.map((o) => ({ number: o.number, season: o.season, sequence: o.season?.sequence ?? [], chapters: o.chapters.filter((item) => isListed(item)) }))
+		.sort((a, b) => a.number - b.number);
 }
 
 /** the seasons a reader sees (any listed chapter) – two or more: the labels name the season */

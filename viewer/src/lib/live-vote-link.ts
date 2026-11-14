@@ -2,10 +2,11 @@
 // @scutoons/live-deck's socket – it joins as the screen's role (audience / conductor, the conductor with its session
 // token), hands the screen what it hears (the welcome's open vote and group instruction, the votes, a refusal), keeps
 // which vote is open (a late listener gets it at once) and addresses cast / hold / close to it. This file only wires the
-// screen's `VoteSource` to it.
+// screen's `VoteSource` to it. #529: a conductor's link also hands on the core's linked readers (`onReaders`).
 import { RelaySocket, type Platform, type RelayCoreView, type RelayModule, type RelayStatus } from '@scutoons/live-deck';
 import type { Envelope, Role, VoteOpen } from '@scutoons/live';
 import type { VoteSource } from './live-vote.ts';
+import type { LinkedReaders } from './conductor-reader.ts';
 
 export type { WebSocketLike as SocketLike } from '@scutoons/live-deck';
 
@@ -21,6 +22,8 @@ export interface VoteLinkOptions extends Platform {
 	core: RelayModule | Promise<RelayModule>;
 	/** joining · connected · offline · refused (the core's status) */
 	onStatus?: (s: LinkStatus) => void;
+	/** #529: the core's linked readers (relay-web `readers()`), read again after each other word of the session (presence, story) */
+	onReaders?: (r: LinkedReaders) => void;
 }
 
 export type LinkStatus = RelayStatus;
@@ -32,6 +35,7 @@ interface VoteCore extends RelayCoreView {
 	vote_close(over?: number): boolean;
 	vote_hold(hold: boolean): boolean;
 	current_vote(): string;
+	readers(): string;
 }
 
 export class RelayVote implements VoteSource {
@@ -49,7 +53,8 @@ export class RelayVote implements VoteSource {
 		if (this.stopped) return;
 		const o = this.o;
 		const core = new m.RelayClient(JSON.stringify({ relay: o.relay, role: o.role, group: o.group, nick: o.nick, token: o.token })) as VoteCore;
-		this.s = new RelaySocket(core, { onStatus: (_, s) => o.onStatus?.(s), onVote: (e) => this.emit(e) }, o) as RelaySocket & { core: VoteCore };
+		const readers = () => o.onReaders?.(JSON.parse(core.readers()) as LinkedReaders);
+		this.s = new RelaySocket(core, { onStatus: (_, s) => (o.onStatus?.(s), readers()), onVote: (e) => this.emit(e), onOther: readers }, o) as RelaySocket & { core: VoteCore };
 		this.s.start();
 	}
 
