@@ -53,10 +53,7 @@ pub enum Sensor {
 }
 
 /// how many sensors a module can declare (each name at most once)
-pub const MAX_SENSORS: usize = 5;
-// a literal, not `Sensor::ALL.len()`: rust-analyzer cannot evaluate that array length and reports false errors on every
-// `sensors[i]` match; this line keeps the two equal
-const _: () = assert!(MAX_SENSORS == Sensor::ALL.len());
+pub const MAX_SENSORS: usize = Sensor::ALL.len();
 
 impl Sensor {
     pub const ALL: [Sensor; 5] = [Sensor::Motion, Sensor::Position, Sensor::PositionPrecise, Sensor::CameraFace, Sensor::CameraMotion];
@@ -332,8 +329,7 @@ impl Layout {
         let mut i = 0;
         while i < s.sensor_count() {
             sensors[i] = at;
-            let sensor: Option<Sensor> = s.sensors[i];
-            let ch = match sensor {
+            let ch = match s.sensors[i] {
                 Some(x) => x.channels(),
                 None => 0,
             };
@@ -386,8 +382,7 @@ impl Layout {
         }
         let mut i = 0;
         while i < MAX_SENSORS {
-            let sensor: Option<Sensor> = s.sensors[i];
-            let id = match sensor {
+            let id = match s.sensors[i] {
                 Some(x) => x as u32 + 1,
                 None => 0,
             };
