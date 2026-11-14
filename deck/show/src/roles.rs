@@ -28,7 +28,8 @@ pub struct RoleView {
 /// cell's filter).
 pub use deck_ui::filter::admits_words as filter_words;
 /// the facts a role's filter may name, the chip, the words (moved to deck-ui `filter`, #546)
-pub use deck_ui::filter::{Fact, Toggle, ACCOUNTS, APPROVED, DEVICES, GUEST_AND_UP};
+pub use deck_ui::filter::{Condition, Fact, Toggle, ACCOUNTS, APPROVED, DEVICES, GUEST_AND_UP};
+use deck_ui::filter::open_admits;
 
 /// the tree's line that adds a role
 pub const ADD: &str = "new role";
@@ -49,25 +50,20 @@ pub fn here_text(here: Option<u64>) -> String {
 
 /// a role without a filter as the toggles show it: a guest may take it, so anyone with the code
 fn as_set(a: Option<&Admits>) -> Admits {
-    a.cloned().unwrap_or_else(|| Admits { account: Some(vec![Account::Guest]), ..Admits::default() })
+    a.cloned().unwrap_or_else(open_admits)
 }
 
-/// The toggles of role `id`'s filter: the account facts, an approved deck, each device kind, each group (proposal: the
-/// groups offered are the show's stage outlets – a deck joins with its configured outlet as its group – and any group the
-/// filter already names).
-pub fn toggles(show: &Show, id: &str) -> Vec<Toggle> {
-    let Some(o) = show.outlet(id) else { return vec![] };
-    let a = as_set(o.admits.as_ref());
-    let mut facts: Vec<Fact> = ACCOUNTS.iter().map(|x| Fact::Account(*x)).collect();
-    facts.push(Fact::Approved);
-    let mut devices: Vec<String> = DEVICES.iter().map(|d| d.to_string()).collect();
-    devices.extend(a.device.iter().flatten().filter(|d| !DEVICES.contains(&d.as_str())).cloned());
-    facts.extend(devices.into_iter().map(Fact::Device));
-    let mut groups: Vec<String> = show.outlets.iter().filter(|o| o.kind == OutletKind::Stage).map(|o| o.id.clone()).collect();
-    let named: Vec<String> = a.group.iter().flatten().filter(|g| !groups.contains(g)).cloned().collect();
-    groups.extend(named);
-    facts.extend(groups.into_iter().map(Fact::Group));
-    facts.into_iter().map(|f| Toggle { word: f.word(), on: f.in_admits(&a), fact: f }).collect()
+/// The groups a filter offers (proposal: the show's stage outlets – a deck joins with its configured outlet as its group;
+/// a group a filter already names is offered too, deck-ui `Condition`).
+pub fn groups(show: &Show) -> Vec<String> {
+    show.outlets.iter().filter(|o| o.kind == OutletKind::Stage).map(|o| o.id.clone()).collect()
+}
+
+/// Role `id`'s admission as the one condition control shows it (#553: deck-ui `Condition`, any one fact): the account
+/// facts, an approved deck, each device kind, each group.
+pub fn condition(show: &Show, id: &str) -> Option<Condition> {
+    let o = show.outlet(id).filter(|o| o.kind == OutletKind::Stage)?;
+    Some(Condition::admits(o.admits.as_ref(), &groups(show)))
 }
 
 /// A change to the conductor's roles, made in the Show workspace.
@@ -168,9 +164,9 @@ pub struct Inspector {
     pub title: String,
     /// the name's label and value
     pub name: (String, String),
-    /// `who may enter` and the filter in words
-    pub enter: (String, String),
-    pub toggles: Vec<Toggle>,
+    /// `who may enter`, then the one condition control (#553: the filter in words and its chips, any one fact)
+    pub enter: String,
+    pub condition: Condition,
     /// here now, its scenes, defined by
     pub sections: Vec<Section>,
     /// the remove button's word
@@ -188,8 +184,8 @@ pub fn inspector(show: &Show, sub: Option<&Subtree>, id: &str) -> Option<Inspect
     Some(Inspector {
         title: format!("role · {}", o.id),
         name: ("name".into(), o.name().to_string()),
-        enter: ("who may enter".into(), filter_words(o.admits.as_ref())),
-        toggles: toggles(show, id),
+        enter: "who may enter".into(),
+        condition: Condition::admits(o.admits.as_ref(), &groups(show)),
         sections: vec![
             ("here".into(), vec![("here now".into(), here)]),
             ("its scenes".into(), scenes),
@@ -376,7 +372,7 @@ mod tests {
         assert_eq!(named.said, "role tenor is called tenor 1");
         assert_eq!(edit(&named.show, &Edit::Label { id: "tenor".into(), label: "".into() }).unwrap().show.outlets[0].label, None);
         // guest and up: the toggles show guest on; member on keeps the guest – still anyone
-        let t = toggles(&show, "tenor");
+        let t = condition(&show, "tenor").unwrap().toggles;
         assert!(t[0].on && t[0].word == "guest" && !t[1].on);
         let words: Vec<&str> = t.iter().map(|t| t.word.as_str()).collect();
         assert_eq!(words[5..9], ["approved deck", "device native", "device browser", "device phone"]);
@@ -424,7 +420,8 @@ mod tests {
         let i = inspector(&show, None, "click").unwrap();
         assert_eq!(i.title, "role · click");
         assert_eq!(i.name, ("name".to_string(), "click monitor".to_string()));
-        assert_eq!(i.enter.1, "live · approved deck");
+        assert_eq!(i.condition.words, "live · approved deck");
+        assert_eq!(i.condition.mode, deck_ui::filter::Mode::Any);
         assert_eq!(i.sections[0].1[0].1, "no session");
         assert_eq!(i.sections[1].1, [("2 click".to_string(), "scene:click".to_string())]);
         assert_eq!(i.sections[2].1[0], ("conductor".to_string(), "choir".to_string()));

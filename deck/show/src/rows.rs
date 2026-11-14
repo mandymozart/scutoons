@@ -3,12 +3,14 @@
 //! toon's address book (`GET /api/addresses/<toon>`, the editor's book; its scene entries are the published scenes, each
 //! with the version listed) or, where the editor has no book, typed as `scene:<id>` and read by the one parser. Every edit
 //! changes the document and is checked by `validate` ([`edit`]: a refused edit says why, in its words); #539: the event a
-//! row fires on, picked from the toon's story events (story.rs), is an edit here too – how and hold stay as they are. The words, the modes a column offers, the prompt before a
+//! row fires on, picked from the toon's story events (story.rs), is an edit here too – how and hold stay as they are. #553: a
+//! row address's filter and a cell's column filter are edits here too, shown as deck-ui's one `Condition`. The words, the modes a column offers, the prompt before a
 //! remove and the picker's lines are here once; the editor lays them out (RULES A1, A2), like roles.rs (#478).
 use crate::choose::{Prompt, Tone};
 use crate::document::{Cell, OutletKind, Row, Show, Values, PIECE_KINDS};
-use crate::view::cell_text;
+use crate::view::{address_text, cell_text};
 use deck_space::rig::book::Book;
+use deck_ui::filter::{Condition, Fact};
 
 /// the tree's line that adds a row
 pub const ADD: &str = "new row";
@@ -92,6 +94,12 @@ pub enum Edit {
     Piece { row: String, column: String, piece: String },
     /// #539: the story event that fires the row (none or empty: by hand only); how, hold and moment stay
     Event { row: String, event: Option<String> },
+    /// #553: one fact of the filter of the row's address `address` (its index in the row) on or off; a filter that asks
+    /// nothing goes
+    AddressFact { row: String, address: usize, fact: Fact },
+    /// #553: one fact of `column`'s filter in the row on or off; an `ask` column's filter is its question's – every column
+    /// of the row that asks it takes the same (validate's rule); a filter that asks nothing goes
+    CellFact { row: String, column: String, fact: Fact },
 }
 
 /// An edit made: the changed document, what it did in words, the row to select after it.
@@ -186,6 +194,32 @@ fn asked(r: &Row) -> Option<&str> {
     r.cells.values().find_map(|c| if let Cell::Ask { question } = c { Some(question.as_str()) } else { None })
 }
 
+/// the columns whose filter changes with `column`'s: an `ask` column's and every other column of the row that asks the same
+/// question (one filter per vote, validate's rule), in the row's order; else `column` alone
+fn filtered_with(r: &Row, column: &str) -> Vec<String> {
+    match r.cells.get(column) {
+        Some(Cell::Ask { question }) => r.cells.iter().filter(|(_, c)| matches!(c, Cell::Ask { question: q } if q == question)).map(|(k, _)| k.clone()).collect(),
+        _ => vec![column.to_string()],
+    }
+}
+
+/// #553: the filter of row `row`'s address `address` as the one condition control shows it (deck-ui `Condition`, every
+/// fact holds; the groups offered are the show's roles, deck-show `roles::groups`)
+pub fn address_condition(show: &Show, row: &str, address: usize) -> Option<Condition> {
+    let a = show.row(row)?.addresses.get(address)?;
+    Some(Condition::filter(a.filter.as_ref(), Some(&crate::roles::groups(show))))
+}
+
+/// #553: `column`'s filter in row `row` as the cell inspector shows it (every fact holds, no group chip: the column is the
+/// group). Offered where a filter does something today – an `ask` cell (the relay tests it, #547) – and where the column
+/// already carries one, so it can be cleared; validate allows it on a stage outlet only.
+pub fn cell_condition(show: &Show, row: &str, column: &str) -> Option<Condition> {
+    let r = show.row(row)?;
+    show.outlet(column).filter(|o| o.kind == OutletKind::Stage)?;
+    let f = r.r#where.get(column);
+    (matches!(r.cells.get(column), Some(Cell::Ask { .. })) || f.is_some()).then(|| Condition::filter(f, None))
+}
+
 /// a cell into a row: `keep` is no cell (you write only what changes)
 fn put(row: &mut Row, column: &str, cell: Cell) {
     if cell == Cell::Keep {
@@ -270,6 +304,29 @@ pub fn edit(show: &Show, e: &Edit) -> Result<Edited, String> {
             next.rows[i].fire.event = event;
             (said, Some(row.clone()))
         }
+        Edit::AddressFact { row, address, fact } => {
+            let i = row_at(&next, row)?;
+            let a = next.rows[i].addresses.get_mut(*address).ok_or_else(|| format!("row {row} has no address {}", address + 1))?;
+            let mut f = a.filter.take().unwrap_or_default();
+            fact.flip_filter(&mut f);
+            a.filter = (!deck_ui::filter::is_empty(&f)).then_some(f);
+            (format!("row {} {row}, address {}: {}", i + 1, address + 1, address_text(a)), Some(row.clone()))
+        }
+        Edit::CellFact { row, column, fact } => {
+            let i = row_at(&next, row)?;
+            let r = &mut next.rows[i];
+            let mut f = r.r#where.get(column).cloned().unwrap_or_default();
+            fact.flip_filter(&mut f);
+            let columns = filtered_with(r, column);
+            for c in &columns {
+                if deck_ui::filter::is_empty(&f) {
+                    r.r#where.remove(c);
+                } else {
+                    r.r#where.insert(c.clone(), f.clone());
+                }
+            }
+            (format!("row {} {row}, {}: {}", i + 1, columns.join(" · "), deck_ui::filter::filter_words(r.r#where.get(column))), Some(row.clone()))
+        }
     };
     let added: Vec<String> = crate::validate::validate(&next).into_iter().filter(|p| !before.contains(p)).map(|p| p.to_string()).collect();
     match added.first() {
@@ -306,7 +363,14 @@ pub struct CellInspector {
     pub modes: Vec<ModeView>,
     /// a stage outlet's piece field: the piece, or [`NO_PIECE`]; none: the column holds no piece (a seat, a device)
     pub piece: Option<String>,
+    /// #553: who in the column gets the cell – [`FILTER`] and the one condition control ([`cell_condition`]); none: not
+    /// offered here
+    pub filter: Option<Condition>,
 }
+
+/// the cell inspector's label over its filter, and the row inspector's over an address's
+pub const FILTER: &str = "who gets it";
+pub const ADDRESS_FILTER: &str = "who picks it up";
 
 /// The inspector of `column`'s cell in `row`.
 pub fn cell_inspector(show: &Show, row: &str, column: &str) -> Option<CellInspector> {
@@ -316,7 +380,7 @@ pub fn cell_inspector(show: &Show, row: &str, column: &str) -> Option<CellInspec
         return None;
     }
     let piece = stage.map(|_| piece_of(r.cells.get(column)).map_or_else(|| NO_PIECE.to_string(), str::to_string));
-    Some(CellInspector { title: format!("cell · row {} {row} · {column}", i + 1), modes: modes(show, row, column), piece })
+    Some(CellInspector { title: format!("cell · row {} {row} · {column}", i + 1), modes: modes(show, row, column), piece, filter: cell_condition(show, row, column) })
 }
 
 /// One published scene the piece picker lists.
@@ -479,6 +543,65 @@ mod tests {
         assert!(crate::validate(&joined.show).is_empty());
         let top = parse(include_str!("../fixtures/top-toy.show.json")).unwrap();
         assert!(modes(&top, "finale", "left").iter().all(|m| m.mode != Mode::Ask), "no question: not offered");
+    }
+
+    fn address_fact(row: &str, address: usize, fact: Fact) -> Edit {
+        Edit::AddressFact { row: row.into(), address, fact }
+    }
+
+    fn cell_fact(row: &str, column: &str, fact: Fact) -> Edit {
+        Edit::CellFact { row: row.into(), column: column.into(), fact }
+    }
+
+    /// #553: a row address's filter is set and cleared through the document, in deck-ui's words, checked by validate
+    #[test]
+    fn an_addresss_filter_is_set_and_cleared() {
+        let show = parse(include_str!("../fixtures/top-toy.show.json")).unwrap();
+        let c = address_condition(&show, "yellowmouse-enters", 0).unwrap();
+        assert_eq!((c.mode, c.words.as_str()), (deck_ui::filter::Mode::All, "group left"));
+        assert!(c.toggles[c.chip("group left").unwrap()].on && c.chip("group right").is_some(), "the show's roles are the groups offered");
+        assert_eq!(address_condition(&show, "yellowmouse-enters", 1).unwrap().words, "everyone");
+        let phone = ed(&show, address_fact("yellowmouse-enters", 1, Fact::Device("phone".into())));
+        assert_eq!(phone.said, "row 3 yellowmouse-enters, address 2: location:* > close_doors where device phone");
+        let member = ed(&phone.show, address_fact("yellowmouse-enters", 1, Fact::Account(protocol::Account::Member)));
+        assert_eq!(member.said, "row 3 yellowmouse-enters, address 2: location:* > close_doors where device phone · member");
+        assert!(crate::validate(&member.show).is_empty());
+        // another group replaces the one it names; every fact off: no filter
+        let right = ed(&show, address_fact("yellowmouse-enters", 0, Fact::Group("right".into())));
+        assert_eq!(right.show.row("yellowmouse-enters").unwrap().addresses[0].filter.as_ref().and_then(|f| f.group.as_deref()), Some("right"));
+        let cleared = ed(&show, address_fact("yellowmouse-enters", 0, Fact::Group("left".into())));
+        assert_eq!(cleared.show.row("yellowmouse-enters").unwrap().addresses[0].filter, None);
+        assert_eq!(cleared.said, "row 3 yellowmouse-enters, address 1: character:yellowmouse > dance:samba");
+        assert_eq!(edit(&show, &address_fact("yellowmouse-enters", 5, Fact::Approved)).unwrap_err(), "row yellowmouse-enters has no address 6");
+        assert!(address_condition(&show, "dialog", 0).is_none(), "a row without addresses");
+    }
+
+    /// #553: a cell's filter in the cell inspector – no group chip, an `ask` row's columns take one filter together
+    #[test]
+    fn a_cells_filter_is_set_on_every_column_of_its_question() {
+        let show = parse(include_str!("../fixtures/vote-cell.show.json")).unwrap();
+        let i = cell_inspector(&show, "crossroads", "left").unwrap();
+        let c = i.filter.unwrap();
+        assert_eq!(c.words, "device phone · member · live");
+        assert_eq!(c.chip("group left"), None, "the column is the group");
+        assert!(cell_inspector(&show, "crossroads", "middle").unwrap().filter.is_none(), "a values cell without a filter: not offered");
+        assert!(cell_inspector(&show, "opening", "left").unwrap().filter.is_none());
+        // device browser on left: right, which asks the same question, takes it too
+        let browser = ed(&show, cell_fact("crossroads", "left", Fact::Device("browser".into())));
+        assert_eq!(browser.said, "row 2 crossroads, left · right: device browser · member · live");
+        let row = browser.show.row("crossroads").unwrap();
+        assert_eq!(row.r#where.get("left"), row.r#where.get("right"));
+        assert!(crate::validate(&browser.show).is_empty());
+        // every fact off: the filter goes from both
+        let mut cleared = browser.show;
+        for f in [Fact::Device("browser".into()), Fact::Account(protocol::Account::Member), Fact::Account(protocol::Account::Live)] {
+            cleared = ed(&cleared, cell_fact("crossroads", "right", f)).show;
+        }
+        assert!(cleared.row("crossroads").unwrap().r#where.is_empty(), "{:?}", cleared.row("crossroads"));
+        assert_eq!(cell_inspector(&cleared, "crossroads", "left").unwrap().filter.unwrap().words, "everyone", "an ask cell offers it still");
+        // a device outlet has no audience: refused in validate's words
+        let refused = edit(&show, &cell_fact("crossroads", "lamps", Fact::Approved)).unwrap_err();
+        assert!(refused.starts_with("not changed: ") && refused.contains("device outlet has no audience"), "{refused}");
     }
 
     #[test]

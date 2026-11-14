@@ -281,16 +281,24 @@ fn row_side(d: &mut DrawList, t: &Tokens, host: &mut Host, (show, sel, seats): (
             y += super::rows::row_head(d, t, host, (rx, y, rw), sel, pointer);
         }
         let cells = head == "cells of this row";
+        let sends = head == "this row sends";
+        let mut address = 0;
         for (label, value) in lines {
             if !label.is_empty() {
                 d.text(rx, y + 4.0, font, &fit(d, label, font, rw * 0.36), t.color.muted);
             }
-            // #539: "fires on" opens the event picker
+            // #539: "fires on" opens the event picker; #553: an address selects it, its filter's chips under it
             let fires = i == 0 && label == view::FIRES_ON;
+            let addr = (sends && label == view::ADDRESS).then(|| {
+                address += 1;
+                address - 1
+            });
             let vx = if label.is_empty() { rx } else { rx + rw * 0.38 };
             let r = Rect { x: vx, y, w: rx + rw - vx, h: t.size.row - 4.0 };
-            d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, if (cells || fires) && r.has(pointer.0, pointer.1) { t.color.hover } else { t.color.control });
-            if (cells && host.cell.as_ref() == Some(label)) || (fires && host.sheet == Some(Sheet::Event)) {
+            let presses = cells || fires || addr.is_some();
+            d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, if presses && r.has(pointer.0, pointer.1) { t.color.hover } else { t.color.control });
+            let open = addr.is_some() && addr == host.address;
+            if (cells && host.cell.as_ref() == Some(label)) || (fires && host.sheet == Some(Sheet::Event)) || open {
                 d.outline(r.x, r.y, r.w, r.h, (t.size.radius, 1.0), t.color.accent);
             }
             if fires {
@@ -301,6 +309,16 @@ fn row_side(d: &mut DrawList, t: &Tokens, host: &mut Host, (show, sel, seats): (
                 host.hits.push((r, Hit::Cell(host.row, c)));
             }
             y += t.size.row;
+            if let Some(k) = addr {
+                host.hits.push((r, Hit::AddressPick(k)));
+                if let Some(c) = open.then(|| deck_show::rows::address_condition(show, sel, k)).flatten() {
+                    let (chips, used) = super::condition::draw(d, t, (rx, y, rw), deck_show::rows::ADDRESS_FILTER, &c);
+                    for (j, r) in chips.into_iter().enumerate() {
+                        host.hits.push((r, Hit::AddressFact(j)));
+                    }
+                    y += used;
+                }
+            }
         }
         if cells {
             y += super::rows::cell_side(d, t, host, (rx, y, rw), show, sel);

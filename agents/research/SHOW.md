@@ -1,4 +1,4 @@
-Status 2026-11-14: concept (#462); §15 the vote as a cell, designed (#545); its core step built (#546: `Show.questions`, `Cell::Ask`, `Row.where`, `protocol::Filter` + `filter::passes`, validate, view words, deck-ui `filter`), relay / firing / drawing open; the show document, the conductor and the tree exist in `deck/show` and `deck/relay` (#89, #90: reader role, relay tree, sub conductors, flash, addressing, `show:` saving); the Show and Perform workspaces are built in the deck editor (#91, the matrix, rows with addresses, the inspector, the 2D overlay, flash with each deck's report, the cue sheet, the problems list, fixtures and looks; venue patches, rehearsal, drills are open). Rows, cells, the conductor tree, workspaces, triggers, addressing, filters. §2 is the owner's word; the rest is a proposal until the owner says otherwise. Would change LIVE.md B.2 and B.5.5 (§10).
+Status 2026-11-14: concept (#462); §15 the vote as a cell, designed (#545); its core step built (#546: `Show.questions`, `Cell::Ask`, `Row.where`, `protocol::Filter` + `filter::passes`, validate, view words, deck-ui `filter`; #553: one condition control for roles, row addresses and cells), relay / firing / drawing open; the show document, the conductor and the tree exist in `deck/show` and `deck/relay` (#89, #90: reader role, relay tree, sub conductors, flash, addressing, `show:` saving); the Show and Perform workspaces are built in the deck editor (#91, the matrix, rows with addresses, the inspector, the 2D overlay, flash with each deck's report, the cue sheet, the problems list, fixtures and looks; venue patches, rehearsal, drills are open). Rows, cells, the conductor tree, workspaces, triggers, addressing, filters. §2 is the owner's word; the rest is a proposal until the owner says otherwise. Would change LIVE.md B.2 and B.5.5 (§10).
 
 # SHOW — how a live show is organized
 
@@ -259,8 +259,8 @@ The owner's concept (2026-11-14 [live], `agents/decisions/deck.md`, #543's comme
 | Expressions (EXPRESSIONS.md) | a string | TS expr/evaluate.ts:249; PHP parses and analyses only (Content/Expr/*) | Svelte expr-text.svelte, expr-builder.svelte |
 | Scene `listener[]` (#517) | `{on, id?, character?, do}` | Rust scene_document.rs:124, scene_play.rs:154 | none |
 | Row firing | `fire.event` + auto / suggest / hand (document.rs:226) | Rust conductor.rs:299 | read-only; picker is #539 |
-| Row address `where` | `AddressFilter`, all facts | Rust address.rs:25 (receiver) | read-only words (view.rs:118) |
-| Role admission | `Admits`, any one fact | relay roles.rs:29 | egui chips (editor show/roles.rs) |
+| Row address `where` | `AddressFilter`, all facts | Rust address.rs:25 (receiver) | the one condition control (#553: deck-ui `filter::Condition`, editor show/condition.rs; editable in the row inspector) |
+| Role admission | `Admits`, any one fact | relay roles.rs:29 | the one condition control, mode `Any` (#553) |
 | Vote eligibility | `VoteOpen.groups` | relay vote.rs:60 | the Vote sheet's group chips |
 | Flash list filter | `where key:value and …`, all terms (choose.rs:288) | Rust choose.rs:376 | typed field + quick buttons (editor show/flash.rs) |
 | Scene placeholder `Fill` | `{kind, refs, parent?}`, all | Rust scene_document.rs:416 | none |

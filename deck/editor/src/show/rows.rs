@@ -6,7 +6,8 @@
 //! Every edit goes through deck-show's `rows::edit` (checked there, refused in its words); the words, the modes a column
 //! offers and the picker's lines are deck-show's; this file lays them out and hands the presses in (RULES A1, A2), as
 //! roles.rs does for the roles (#478). `draw_picker` is the one picker in the stage's place: the piece's here, the event's
-//! (#539, events.rs).
+//! (#539, events.rs). #553: the cell inspector's filter and a row address's are the one condition control (condition.rs),
+//! their chips deck-show's `rows::CellFact` / `AddressFact` edits.
 use super::roles::{Ask, Typing};
 use super::{Hit, Host, Sheet};
 use deck_kit::base::draw::DrawList;
@@ -60,9 +61,26 @@ impl Host {
             }
             Hit::RowRemove => self.asking = row.map(Ask::RemoveRow),
             Hit::Cell(r, c) => {
+                if r != self.row {
+                    self.address = None;
+                }
                 self.row = r;
                 self.role = None;
                 self.cell = view::plan(self.shown()).columns.get(c).map(|c| c.id.clone());
+            }
+            // #553: the one condition control's chips – a cell's filter, an address's
+            Hit::CellFact(i) => {
+                let (Some(row), Some(column)) = (row, col) else { return };
+                if let Some(fact) = rows::cell_condition(self.shown(), &row, &column).and_then(|c| c.fact(i)) {
+                    self.edit_rows(&Edit::CellFact { row, column, fact });
+                }
+            }
+            Hit::AddressPick(k) => self.address = (self.address != Some(k)).then_some(k),
+            Hit::AddressFact(i) => {
+                let (Some(row), Some(address)) = (row, self.address) else { return };
+                if let Some(fact) = rows::address_condition(self.shown(), &row, address).and_then(|c| c.fact(i)) {
+                    self.edit_rows(&Edit::AddressFact { row, address, fact });
+                }
             }
             Hit::CellMode(i) => {
                 let (Some(row), Some(column)) = (row, col) else { return };
@@ -223,6 +241,14 @@ pub fn cell_side(d: &mut DrawList, t: &Tokens, host: &mut Host, (x, y, w): (f32,
         let r = field(d, t, (x, y, w), rows::PIECE, piece, None);
         host.hits.push((r, Hit::CellPiece));
         y += row;
+    }
+    // #553: who in the column gets it – the one condition control, every fact, no group chip
+    if let Some(c) = &insp.filter {
+        let (chips, used) = super::condition::draw(d, t, (x, y, w), rows::FILTER, c);
+        for (i, r) in chips.into_iter().enumerate() {
+            host.hits.push((r, Hit::CellFact(i)));
+        }
+        y += used;
     }
     y + pad * 0.5 - top
 }
@@ -445,6 +471,68 @@ mod tests {
         assert!(m.rows[0].current && m.rows[0].cells[0].on && m.rows[0].cells[0].text == "scene:nave", "{m:?}");
         assert_eq!(deck_show::view::log(host.sub.log(), 1)[0].1, "fired opening (hand)");
         let _ = std::fs::remove_dir_all(&cache);
+    }
+
+    fn host_with(doc: &str) -> Host {
+        let mut host = Host::new(None, None, None, "http://127.0.0.1:9/api".into());
+        host.sub = deck_show::Subtree::new(deck_show::parse(doc).unwrap(), deck_show::ClockChoice::Parent);
+        host
+    }
+
+    /// #553: the one condition control, by the chips the operator presses – a role's admission (any one fact)
+    #[test]
+    fn the_condition_control_sets_who_may_take_a_role() {
+        let mut host = Host::new(None, None, None, "http://127.0.0.1:9/api".into());
+        press(&mut host, false, |h| *h == Hit::Role(0));
+        let c = deck_show::roles::condition(host.shown(), "left").unwrap();
+        assert_eq!((c.mode, c.words.as_str()), (deck_ui::filter::Mode::Any, "guest and up"));
+        let chip = |host: &Host, word: &str| deck_show::roles::condition(host.shown(), "left").unwrap().chip(word).unwrap();
+        let member = chip(&host, "member");
+        press(&mut host, false, |h| *h == Hit::RoleFact(member));
+        assert_eq!(host.status, "left: guest and up", "a guest still lets anyone in");
+        let guest = chip(&host, "guest");
+        press(&mut host, false, |h| *h == Hit::RoleFact(guest));
+        assert_eq!(host.status, "left: member");
+        assert_eq!(host.shown().outlets[0].admits.as_ref().and_then(|a| a.account.clone()), Some(vec![protocol::Account::Member]), "a member admits");
+    }
+
+    /// #553: a row address's filter set and cleared by its chips, under the address pressed in the row inspector
+    #[test]
+    fn the_condition_control_sets_and_clears_an_addresss_filter() {
+        let mut host = host_with(include_str!("../../../show/fixtures/top-toy.show.json"));
+        host.row = 2;
+        press(&mut host, false, |h| *h == Hit::AddressPick(1));
+        assert_eq!(host.address, Some(1));
+        let chip = |host: &Host, word: &str| deck_show::rows::address_condition(host.shown(), "yellowmouse-enters", 1).unwrap().chip(word).unwrap();
+        let phone = chip(&host, "device phone");
+        press(&mut host, false, |h| *h == Hit::AddressFact(phone));
+        assert_eq!(host.status, "row 3 yellowmouse-enters, address 2: location:* > close_doors where device phone");
+        let left = chip(&host, "group left");
+        press(&mut host, false, |h| *h == Hit::AddressFact(left));
+        assert_eq!(host.status, "row 3 yellowmouse-enters, address 2: location:* > close_doors where group left · device phone");
+        for word in ["device phone", "group left"] {
+            let i = chip(&host, word);
+            press(&mut host, false, |h| *h == Hit::AddressFact(i));
+        }
+        assert_eq!(host.shown().rows[2].addresses[1].filter, None, "every chip off: no filter");
+        press(&mut host, false, |h| *h == Hit::AddressPick(1));
+        assert_eq!(host.address, None, "pressed again: closed");
+    }
+
+    /// #553: a cell's filter in the cell inspector – an `ask` row's two columns take it at once
+    #[test]
+    fn the_condition_control_sets_a_cells_filter_on_both_columns_of_its_question() {
+        let mut host = host_with(include_str!("../../../show/fixtures/vote-cell.show.json"));
+        let left = deck_show::view::plan(host.shown()).columns.iter().position(|c| c.id == "left").unwrap();
+        press(&mut host, false, |h| *h == Hit::Cell(1, left));
+        let c = deck_show::rows::cell_condition(host.shown(), "crossroads", "left").unwrap();
+        assert_eq!(c.chip("group left"), None, "the column is the group");
+        let browser = c.chip("device browser").unwrap();
+        press(&mut host, false, |h| *h == Hit::CellFact(browser));
+        assert_eq!(host.status, "row 2 crossroads, left · right: device browser · member · live");
+        let row = host.shown().row("crossroads").unwrap();
+        assert_eq!(row.r#where.get("right").and_then(|f| f.device.as_deref()), Some("browser"));
+        assert_eq!(row.r#where.get("left"), row.r#where.get("right"), "one filter per question");
     }
 
     #[test]
