@@ -33,7 +33,7 @@ mod voices;
 #[cfg(feature = "events")]
 mod walk;
 
-pub use config::{DeckConfig, Fold, OutletMap, PassThrough, StageEnvironment};
+pub use config::{check_outlets, DeckConfig, Fold, MapProblem, OutletMap, PassThrough, StageEnvironment, Tone};
 pub use tempo::tempo_config;
 
 use anyhow::Result;
@@ -935,12 +935,29 @@ impl Feed {
             id: node.id.clone(),
             buf,
             width,
-            group: node.str("group").unwrap_or("main").to_string(),
+            group: group_of(node).to_string(),
             list: node.f32s("channels").iter().map(|&c| c.max(0.0) as usize).collect(),
             first: node.f32("first", 0.0).max(0.0) as usize,
             layout: node.str("layout").map(str::to_string),
         }
     }
+}
+
+/// the outlet group an `out` node or the `audio_out` sink plays in (`main` when it names none)
+fn group_of(node: &deck_space::graph::Node) -> &str {
+    node.str("group").unwrap_or("main")
+}
+
+/// The outlet groups a graph's sinks play in, `main` first and always, each once – what a machine's channel map binds.
+pub fn outlet_groups(graph: &Graph) -> Vec<String> {
+    let mut out = vec!["main".to_string()];
+    for node in graph.nodes.iter().filter(|n| matches!(n.kind, Kind::AudioOut | Kind::Out)) {
+        let g = group_of(node);
+        if !out.iter().any(|o| o == g) {
+            out.push(g.to_string());
+        }
+    }
+    out
 }
 
 /// what the outlets come to on a device

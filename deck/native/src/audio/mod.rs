@@ -11,6 +11,7 @@
 //! `Engine` and `Handles` here are deck-engine's with the glitch monitor beside them: the device callback owns the
 //! monitor, the frame thread reads its counters (`Handles::glitches`). Everything else dereferences to the core's.
 pub mod backend;
+pub mod deck_toml;
 #[cfg(feature = "events")]
 pub mod dispatch;
 pub mod glitch;
@@ -45,8 +46,8 @@ pub fn detect_sequencing() -> Sequencing {
 
 /// What the build asks of the native platform: the device (its channel count and deck.toml's `[[audio_outlet]]` map are the deck
 /// configuration, plan 2.6b, #428: nothing mapped = main on the first channels) and the module library, when the build has modules.
-fn seams(device_channels: usize) -> deck_engine::Seams {
-    let deck = backend::DeckAudio::read().audio_outlet.iter().fold(deck_engine::DeckConfig::device(device_channels), |d, o| d.with_outlet(&o.group, &o.channels));
+fn seams(device_channels: usize, outlets: &[deck_engine::OutletMap]) -> deck_engine::Seams {
+    let deck = outlets.iter().fold(deck_engine::DeckConfig::device(device_channels), |d, o| d.with_outlet(&o.group, &o.channels));
     #[allow(unused_mut)] // the module runtime is a field of a feature
     let mut seams = deck_engine::Seams::with_deck(deck);
     #[cfg(feature = "modules")]
@@ -133,15 +134,27 @@ impl Engine {
     }
 
     fn build_device(graph: &Graph, rate: f32, volume: f32, build: Build, seq: Sequencing, channels: usize) -> Result<(Engine, Handles)> {
+        Engine::build_mapped(graph, rate, volume, build, seq, channels, &backend::DeckAudio::read().audio_outlet)
+    }
+
+    /// `build_device` with this channel map instead of deck.toml's: a test tone on a map not saved yet
+    fn build_mapped(graph: &Graph, rate: f32, volume: f32, build: Build, seq: Sequencing, channels: usize, outlets: &[deck_engine::OutletMap]) -> Result<(Engine, Handles)> {
         let (monitor, glitches, glitch_log) = glitch::Monitor::new(rate);
         #[allow(unused_mut)] // the restart lanes are a field of a feature
-        let (core, mut handles) = deck_engine::Engine::build_seams(graph, rate, volume, build, seq, &seams(channels))?;
+        let (core, mut handles) = deck_engine::Engine::build_seams(graph, rate, volume, build, seq, &seams(channels, outlets))?;
         // #342: a show's module restarts are rebuilt on a loader thread (it ends with the engine)
         #[cfg(feature = "modules")]
         if let Err(e) = modules::spawn_loader(std::mem::take(&mut handles.restarts)) {
             tracing::warn!("modules: no loader thread ({e}) – a trapped module stays silent");
         }
         Ok((Engine { core, monitor: Some(monitor) }, Handles { core: handles, glitches, glitch_log: Some(glitch_log) }))
+    }
+
+    /// A test tone on `o`'s device with this channel map: plays until the returned backend is dropped.
+    pub fn tone(o: &backend::Options, outlets: &[deck_engine::OutletMap], tone: &deck_engine::Tone) -> Result<backend::Running> {
+        let graph = Graph::build(&deck_space::scene::Scene::parse(&tone.scene())?)?;
+        let mut factory = |rate: f32, channels: usize| Ok(Engine::build_mapped(&graph, rate, 1.0, detect_build(), Sequencing::InBlock, channels, outlets)?.0);
+        backend::start(o, &mut factory)
     }
 
     /// The glitch monitor for the thread that runs the device callback (#208) – once; a second call gets a fresh one
