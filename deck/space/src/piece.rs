@@ -411,6 +411,11 @@ pub fn knobs(piece: &str, find: impl FnOnce(&Place) -> Option<Found>) -> Result<
     load(&place, None, find, &mut Vec::new()).map(|p| p.knobs)
 }
 
+/// How `place` plays, loaded the way a cell would load it, no mood (holders.rs reads its reach from it).
+pub(crate) fn load_played(place: &Place, find: impl FnOnce(&Place) -> Option<Found>) -> Result<Played, String> {
+    load(place, None, find, &mut Vec::new())
+}
+
 /// The slot a cell's value `key` sets (the one parser; a bare name is its node's first knob among `knobs`); none: a bare
 /// name no knob's node has. Err: the key is no address.
 pub fn slot(knobs: &[crate::rig::bundle::Knob], key: &str) -> Result<Option<String>, String> {
