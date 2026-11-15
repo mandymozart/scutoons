@@ -44,6 +44,8 @@ use winit::window::{Window, WindowId};
 
 struct Args {
     rig: String,
+    /// fullscreen on the current monitor (a deck's kiosk), else a 1280×720 window
+    fullscreen: bool,
     /// the panel's tab at the start: inspector | text | audio
     tab: Tab,
     frames: Option<u64>,
@@ -88,7 +90,7 @@ struct Args {
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { rig: "catpope".into(), frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None };
+    let mut a = Args { rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -99,6 +101,7 @@ fn args() -> Result<Args> {
             "--tokens" => a.tokens = Some(PathBuf::from(val()?)),
             "--volume" => a.volume = val()?.parse()?,
             "--wire" => a.wire = true,
+            "--fullscreen" => a.fullscreen = true,
             "--view" => a.view = Some(val()?.parse()?),
             "--select" => a.select = Some(val()?),
             "--pull" => {
@@ -190,7 +193,7 @@ fn args() -> Result<Args> {
                 a.size = Some((w.trim().parse()?, h.trim().parse()?));
             }
             "--help" | "-h" => {
-                println!("deck-editor [--rig catpope] [--frames N] [--screenshot FILE] [--tokens FILE] [--size W,H] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5] [--menu PORT,QUERY[,pick]] [--toon TOON] [--book FILE] [--select NODE --far QUERY[,pick]]");
+                println!("deck-editor [--rig catpope] [--fullscreen] [--frames N] [--screenshot FILE] [--tokens FILE] [--size W,H] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5] [--menu PORT,QUERY[,pick]] [--toon TOON] [--book FILE] [--select NODE --far QUERY[,pick]]");
                 std::process::exit(0);
             }
             other => anyhow::bail!("unknown argument {other}"),
@@ -2099,7 +2102,7 @@ impl ApplicationHandler for App {
         if self.window.is_some() {
             return;
         }
-        let window = match host::window(el, "SCUTOONS editor – proof", true) {
+        let window = match host::window(el, "SCUTOONS editor", !self.args.fullscreen) {
             Ok(w) => w,
             Err(e) => {
                 tracing::error!("no window: {e}");
