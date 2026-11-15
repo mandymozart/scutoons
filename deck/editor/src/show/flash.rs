@@ -73,6 +73,10 @@ impl Host {
 
     /// A key while the typed filter has the keys: true = taken. Enter applies it (the core reads it), Escape leaves it.
     pub fn type_key(&mut self, key: &Key) -> bool {
+        // #551: the right click's typeahead has the keys while it is open
+        if self.context_key(key) {
+            return true;
+        }
         // #478: a role's name being typed
         if self.type_field(key) {
             return true;

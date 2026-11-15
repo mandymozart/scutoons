@@ -71,9 +71,7 @@ fn cues(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, pointer: (f32, f
 
 fn problems(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, pointer: (f32, f32)) {
     let (pad, font, small) = (t.size.pad, t.size.font, t.size.small);
-    let show = host.shown().clone();
-    // the flash reports belong to the conductor this editor runs: the top
-    let list = view::problems(&show, host.path.is_empty().then_some(&host.sub));
+    let list = host.problems();
     let mut y = a.y + pad;
     let (errors, warnings) = (list.iter().filter(|p| p.error).count(), list.iter().filter(|p| !p.error).count());
     d.text(a.x + pad, y, small, &format!("{errors} ERRORS · {warnings} WARNINGS – A WARNING NEVER BLOCKS GO"), t.color.muted);

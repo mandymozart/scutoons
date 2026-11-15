@@ -44,7 +44,7 @@ impl Host {
     fn selected(&self) -> (Option<String>, Option<String>) {
         let show = self.shown();
         let row = show.rows.get(self.row).map(|r| r.id.clone());
-        let col = self.cell.clone().filter(|c| show.outlet(c).is_some() || show.seat(c).is_some());
+        let col = self.cell().cloned().filter(|c| show.outlet(c).is_some() || show.seat(c).is_some());
         (row, col)
     }
 
@@ -60,14 +60,9 @@ impl Host {
                 }
             }
             Hit::RowRemove => self.asking = row.map(Ask::RemoveRow),
-            Hit::Cell(r, c) => {
-                if r != self.row {
-                    self.address = None;
-                }
-                self.row = r;
-                self.role = None;
-                self.cell = view::plan(self.shown()).columns.get(c).map(|c| c.id.clone());
-            }
+            // #551: a press selects the cell alone, with shift its column joins the row's selection (ask.rs)
+            Hit::Cell(r, c) => self.select_cell(r, c, false),
+            Hit::CellAlso(r, c) => self.select_cell(r, c, true),
             // #553: the one condition control's chips – a cell's filter, an address's
             Hit::CellFact(i) => {
                 let (Some(row), Some(column)) = (row, col) else { return };
@@ -192,7 +187,7 @@ fn fit(d: &DrawList, text: &str, px: f32, w: f32) -> String {
 }
 
 /// a field you press to type into or to open something: its label on the left, the value (or what is typed) on the right
-fn field(d: &mut DrawList, t: &Tokens, (x, y, w): (f32, f32, f32), label: &str, value: &str, typing: Option<&str>) -> Rect {
+pub(super) fn field(d: &mut DrawList, t: &Tokens, (x, y, w): (f32, f32, f32), label: &str, value: &str, typing: Option<&str>) -> Rect {
     let (font, row) = (t.size.font, t.size.tree_row);
     d.text(x, y + (row - font * 1.25) * 0.5, font, label, t.color.muted);
     let r = Rect { x: x + w * 0.38, y: y + 2.0, w: w * 0.62, h: row - 4.0 };
@@ -223,9 +218,10 @@ pub fn row_head(d: &mut DrawList, t: &Tokens, host: &mut Host, (x, y, w): (f32, 
     row + pad * 0.5
 }
 
-/// The cell inspector of the selected cell (its title, the mode chips, a stage outlet's piece field). The height used.
+/// The cell inspector of the selected cell (its title, the mode chips, a stage outlet's piece field – or, #551, the question
+/// a cell asks –, who gets it). The height used.
 pub fn cell_side(d: &mut DrawList, t: &Tokens, host: &mut Host, (x, y, w): (f32, f32, f32), show: &Show, sel: &str) -> f32 {
-    let Some(col) = host.cell.clone() else { return 0.0 };
+    let Some(col) = host.cell().cloned() else { return 0.0 };
     let Some(insp) = rows::cell_inspector(show, sel, &col) else { return 0.0 };
     let (pad, row) = (t.size.pad, t.size.tree_row);
     let top = y;
@@ -241,6 +237,10 @@ pub fn cell_side(d: &mut DrawList, t: &Tokens, host: &mut Host, (x, y, w): (f32,
         let r = field(d, t, (x, y, w), rows::PIECE, piece, None);
         host.hits.push((r, Hit::CellPiece));
         y += row;
+    }
+    // #551: the question the cell asks – the form, or the story's snapshot (ask.rs)
+    if let Some(q) = host.asked_question() {
+        y += super::ask::question_side(d, t, host, (x, y, w), &q);
     }
     // #553: who in the column gets it – the one condition control, every fact, no group chip
     if let Some(c) = &insp.filter {
@@ -339,7 +339,7 @@ pub fn picker(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, pointer: (
 }
 
 #[cfg(test)]
-mod tests {
+pub(super) mod tests {
     use super::super::{api, author, perform, Hit, Host, Sheet};
     use deck_kit::base::draw::DrawList;
     use deck_kit::base::tokens::Tokens;
@@ -356,7 +356,7 @@ mod tests {
     ] }"#;
 
     /// `/api/shows` as the server answers it, in memory: PUT keeps the content and stamps the next version, GET gives it
-    fn fake_api() -> String {
+    pub(in crate::show) fn fake_api() -> String {
         let l = TcpListener::bind("127.0.0.1:0").unwrap();
         let base = format!("http://{}/api", l.local_addr().unwrap());
         std::thread::spawn(move || {
@@ -395,11 +395,11 @@ mod tests {
         base
     }
 
-    const W: f32 = 1600.0;
-    const H: f32 = 900.0;
+    pub(in crate::show) const W: f32 = 1600.0;
+    pub(in crate::show) const H: f32 = 900.0;
 
     /// one frame of the Show workspace (or Perform), then a press on the first place that is `want`
-    fn press(host: &mut Host, perform: bool, want: impl Fn(&Hit) -> bool) {
+    pub(in crate::show) fn press(host: &mut Host, perform: bool, want: impl Fn(&Hit) -> bool) {
         let (mut d, t) = (DrawList::new(0.6), Tokens::default());
         host.hits.clear();
         if perform {
@@ -412,7 +412,7 @@ mod tests {
         host.press(hit);
     }
 
-    fn typed(host: &mut Host, text: &str) {
+    pub(in crate::show) fn typed(host: &mut Host, text: &str) {
         for c in text.chars() {
             host.type_key(&Key::Character(c.to_string().into()));
         }
@@ -440,7 +440,7 @@ mod tests {
         assert_eq!(host.shown().rows[0].id, "opening");
         // the cell on `left` in the rows band, then `play`: it names no piece yet, so the picker opens
         press(&mut host, false, |h| *h == Hit::Cell(0, 0));
-        assert_eq!(host.cell.as_deref(), Some("left"));
+        assert_eq!(host.cell().map(String::as_str), Some("left"));
         press(&mut host, false, |h| *h == Hit::CellMode(0));
         assert_eq!(host.sheet, Some(Sheet::Piece));
         assert_eq!(host.piece_list().iter().map(|p| p.address.as_str()).collect::<Vec<_>>(), ["scene:nave", "scene:vigil"]);
@@ -473,7 +473,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&cache);
     }
 
-    fn host_with(doc: &str) -> Host {
+    pub(in crate::show) fn host_with(doc: &str) -> Host {
         let mut host = Host::new(None, None, None, "http://127.0.0.1:9/api".into());
         host.sub = deck_show::Subtree::new(deck_show::parse(doc).unwrap(), deck_show::ClockChoice::Parent);
         host

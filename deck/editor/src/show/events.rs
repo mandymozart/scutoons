@@ -18,21 +18,31 @@ use std::path::Path;
 
 impl Host {
     /// the toon whose story events are listed: `--toon`, else the book's
-    fn story_toon(&self) -> Option<String> {
+    pub(super) fn story_toon(&self) -> Option<String> {
         self.toon.clone().or_else(|| self.book.as_ref().map(|b| b.toon().to_string())).filter(|t| !t.is_empty())
     }
 
-    /// the event picker opened: the toon's story events, asked once; its field open for typing
-    pub(super) fn events_open(&mut self) {
+    /// the same, for the problems list (mod.rs)
+    pub(super) fn toon_now(&self) -> Option<String> {
+        self.story_toon()
+    }
+
+    /// the toon's story events and questions (#550: one answer), asked once – or why there are none
+    pub(super) fn story_load(&mut self) {
         if self.story.is_none() {
             self.story = Some(match self.story_toon() {
                 None => Err(story::no_toon()),
                 Some(toon) => match self.api.story_events() {
-                    Ok(text) => story::parse(&text, &toon),
+                    Ok(text) => story::read(&text, &toon),
                     Err((status, detail)) => Err(story::refused(status, &detail)),
                 },
             });
         }
+    }
+
+    /// the event picker opened: the toon's story events, asked once; its field open for typing
+    pub(super) fn events_open(&mut self) {
+        self.story_load();
         self.sheet = Some(Sheet::Event);
         self.flashing = None;
         self.event_query.clear();
@@ -42,7 +52,7 @@ impl Host {
     /// a check run's list from a file (`--story-events FILE`, the API's answer) in place of the API's
     pub fn story_from_file(&mut self, file: &Path) {
         let toon = self.story_toon().unwrap_or_default();
-        self.story = Some(std::fs::read_to_string(file).map_err(|e| format!("{}: {e}", file.display())).and_then(|t| story::parse(&t, &toon)));
+        self.story = Some(std::fs::read_to_string(file).map_err(|e| format!("{}: {e}", file.display())).and_then(|t| story::read(&t, &toon)));
     }
 
     pub(super) fn events_press(&mut self, hit: Hit) {
@@ -79,7 +89,7 @@ impl Host {
     pub(super) fn event_list(&self) -> Vec<EventView> {
         let Some(row) = self.shown().rows.get(self.row) else { return vec![] };
         match &self.story {
-            Some(Ok(events)) => story::lines(self.shown(), &row.id, events, &self.event_query_now()),
+            Some(Ok(s)) => story::lines(self.shown(), &row.id, &s.events, &self.event_query_now()),
             _ => vec![],
         }
     }

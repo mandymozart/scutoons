@@ -11,11 +11,14 @@
 //!   seats, each deck's answer to the last flash; the 2D node overlay over the dimmed stage (#446) with a 2D / 3D switch; the
 //!   cue sheet and the problems list in its place (sheets.rs); save and load through /api/shows (api.rs). #537 (rows.rs):
 //!   a row added, renamed, removed; a cell's mode and its piece, picked from the published scenes of the toon's book;
-//!   #539 (events.rs): the event a row fires on, picked from the toon's story events.
+//!   #539 (events.rs): the event a row fires on, picked from the toon's story events. #551 (ask.rs): several cells of a
+//!   row selected (shift), the right click's typeahead on them – a new question, the story's, add to, leave –, the
+//!   question in the cell inspector, the wide cell in the rows band and in Perform's matrix.
 //!
 //! The editor runs one conductor, this deck's (the tree's top it was given). A sub conductor runs on its own deck with its
 //! own operator; entering it here shows its document, it does not run it.
 pub mod api;
+mod ask;
 pub mod author;
 mod condition;
 mod events;
@@ -132,6 +135,10 @@ pub enum Hit {
     /// #537: a cell of the document shown (row, column as the matrix counts): the cell inspector shows it; one of its mode
     /// chips; its piece field (opens the picker); a line of the picker; the picker's typed field
     Cell(usize, usize),
+    /// #551: a cell pressed with shift: its column joins the selection of the inspected row (or leaves it); a field, chip
+    /// or toggle of the selected cell's question (ask.rs)
+    CellAlso(usize, usize),
+    Ask(ask::AskHit),
     CellMode(usize),
     CellPiece,
     PiecePick(usize),
@@ -175,6 +182,16 @@ pub enum Hit {
     Vote(vote::VoteHit),
 }
 
+impl Hit {
+    /// #551: the same press with shift held: a cell joins the selection
+    pub fn with_shift(self) -> Hit {
+        match self {
+            Hit::Cell(r, c) => Hit::CellAlso(r, c),
+            other => other,
+        }
+    }
+}
+
 /// The editor's conductor and the documents it shows.
 pub struct Host {
     pub sub: Subtree,
@@ -186,8 +203,15 @@ pub struct Host {
     pub row: usize,
     /// #478: the role selected (a stage outlet's id); none = the row is inspected
     pub role: Option<String>,
-    /// #537: the column whose cell of the inspected row the cell inspector shows
-    pub cell: Option<String>,
+    /// #537, #551: the columns whose cells of the inspected row are selected (a set within one row; shift adds one); the
+    /// cell inspector shows the last (`cell()`)
+    pub cells: Vec<String>,
+    /// #551: the right click's typeahead on the selected cells while it is open (ask.rs)
+    pub context: Option<ask::Context>,
+    /// #551: the inspector's place above its buttons, how far it is scrolled and how far it can be
+    pub side: Rect,
+    pub side_scroll: f32,
+    pub side_over: f32,
     /// #553: the address of the inspected row (its index) whose filter's chips show
     pub address: Option<usize>,
     /// #537: the toon's address book (the editor's, main.rs) – its scenes are what a cell's piece is picked from – and why
@@ -197,9 +221,10 @@ pub struct Host {
     /// #537: the piece picker's typed query (while it is not being typed)
     pub piece_query: String,
     /// #539: the toon whose story events a row's event is picked from (`--toon`; else the book's), the events once asked
-    /// (`GET /api/creator/story-events`, read by deck-show story.rs) or why there are none, the picker's typed query
+    /// (`GET /api/creator/story-events`, read by deck-show story.rs) or why there are none, the picker's typed query;
+    /// #551: the same answer's questions are what the right click offers as the story's
     pub toon: Option<String>,
-    pub story: Option<Result<Vec<deck_show::story::StoryEvent>, String>>,
+    pub story: Option<Result<deck_show::story::Story, String>>,
     pub event_query: String,
     /// #478: a typed field open (a role's name) and its text
     pub typing: Option<(roles::Typing, deck_kit::base::text::Field)>,
@@ -272,7 +297,7 @@ impl Host {
                 })
                 .ok()
         });
-        Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cell: None, address: None, book: None, book_why: None, piece_query: String::new(), toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, session: session::Session::default(), voting: vote::Voting::default(), link, api }
+        Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), context: None, side: Rect { x: 0.0, y: 0.0, w: 0.0, h: 0.0 }, side_scroll: 0.0, side_over: 0.0, address: None, book: None, book_why: None, piece_query: String::new(), toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, session: session::Session::default(), voting: vote::Voting::default(), link, api }
     }
 
     /// the document at the end of the path (the top's when a step is missing)
@@ -330,6 +355,7 @@ impl Host {
         if !matches!(hit, Hit::MenuPick(_)) {
             self.menu = None;
         }
+        self.context = None;
         let rows: Vec<String> = self.sub.conductor().show().rows.iter().map(|r| r.id.clone()).collect();
         match hit {
             Hit::Fire(i) => {
@@ -369,7 +395,8 @@ impl Host {
             }
             Hit::RoleAdd | Hit::RoleName | Hit::RoleFact(_) | Hit::RoleRemove | Hit::AskYes | Hit::AskNo => self.roles_press(hit),
             Hit::WhoMove(_) | Hit::WhoRename(_) | Hit::WhoKick(_) | Hit::MenuPick(_) => self.who_press(hit),
-            Hit::RowAdd | Hit::RowName | Hit::RowRemove | Hit::Cell(..) | Hit::CellMode(_) | Hit::CellPiece | Hit::PiecePick(_) | Hit::PieceType | Hit::CellFact(_) | Hit::AddressPick(_) | Hit::AddressFact(_) => {
+            Hit::Ask(h) => self.ask_press(h),
+            Hit::RowAdd | Hit::RowName | Hit::RowRemove | Hit::Cell(..) | Hit::CellAlso(..) | Hit::CellMode(_) | Hit::CellPiece | Hit::PiecePick(_) | Hit::PieceType | Hit::CellFact(_) | Hit::AddressPick(_) | Hit::AddressFact(_) => {
                 self.rows_press(hit);
             }
             Hit::FiresOn | Hit::EventPick(_) | Hit::EventType => self.events_press(hit),
@@ -400,8 +427,7 @@ impl Host {
 
     /// a problem's line pressed: its row, cell or seat is selected (deck-show's `Points`)
     fn select_problem(&mut self, i: usize) {
-        let show = self.shown().clone();
-        let list = deck_show::view::problems(&show, self.path.is_empty().then_some(&self.sub));
+        let list = self.problems();
         let Some(p) = list.get(i) else { return };
         self.seat = None;
         match p.points {
@@ -410,6 +436,18 @@ impl Host {
             deck_show::view::Points::Show => {}
         }
         self.status = p.text.clone();
+    }
+
+    /// The problems list of the document shown: deck-show's (the document's errors, the decks' flash reports), then – once
+    /// the toon's story questions are here – a story question whose published choice changed (#550 `story::changed`).
+    pub(super) fn problems(&self) -> Vec<deck_show::view::ProblemView> {
+        let show = self.shown();
+        // the flash reports belong to the conductor this editor runs: the top
+        let mut list = deck_show::view::problems(show, self.path.is_empty().then_some(&self.sub));
+        if let (Some(toon), Some(Ok(story))) = (self.toon_now(), &self.story) {
+            list.extend(deck_show::story::changed(show, &toon, &story.choices));
+        }
+        list
     }
 
     /// into the sub conductor of the shown document's seat `i`: its document from the library, the API or the cache
@@ -514,8 +552,11 @@ pub struct Script {
     /// #537: a row authored as the operator would (`ROW,COLUMN[,PIECE]`): added and named when the document lacks it, its
     /// cell on the column selected, the piece picked from the book's list (or typed); no piece: `play` opens the picker
     pub author: Option<(String, String, Option<String>)>,
-    /// #553: a cell selected (`ROW,COLUMN`): the cell inspector shows it, its filter's chips too
+    /// #553: a cell selected (`ROW,COLUMN`): the cell inspector shows it, its filter's chips too; #551: more columns of
+    /// the row selected with it (`ROW,COLUMN+COLUMN`)
     pub cell: Option<(String, String)>,
+    /// #551: the right click on the selected cells – the typeahead opened, this typed, the first line found picked if asked
+    pub question: Option<(String, bool)>,
 }
 
 impl Host {
@@ -571,9 +612,15 @@ impl Host {
             }
             32 => {
                 let plan = deck_show::view::plan(self.shown());
-                let at = s.cell.as_ref().and_then(|(r, c)| Some((plan.rows.iter().position(|x| x.id == *r)?, plan.columns.iter().position(|x| x.id == *c)?)));
-                if let Some((r, c)) = at {
-                    self.press(Hit::Cell(r, c));
+                let Some((r, columns)) = s.cell.as_ref().and_then(|(r, c)| Some((plan.rows.iter().position(|x| x.id == *r)?, c))) else { return };
+                for (n, c) in columns.split('+').filter_map(|c| plan.columns.iter().position(|x| x.id == c.trim())).enumerate() {
+                    self.press(if n == 0 { Hit::Cell(r, c) } else { Hit::CellAlso(r, c) });
+                }
+            }
+            // #551: a frame later, when the rows band has drawn the selection's places
+            34 => {
+                if let Some((query, pick)) = &s.question {
+                    self.script_question(query, *pick);
                 }
             }
             35 => {

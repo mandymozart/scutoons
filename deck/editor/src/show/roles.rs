@@ -37,6 +37,8 @@ pub enum Typing {
     Piece,
     /// #539: the event picker's query (or, without the toon's list, the event's id typed)
     Event,
+    /// #551: a typed field of a question's form in the cell inspector (the question's id, the field)
+    Ask(String, super::ask::AskField),
 }
 
 /// What a prompt asks before it is done.
@@ -131,6 +133,7 @@ impl Host {
                     }
                     Typing::Piece => self.piece_typed(&text),
                     Typing::Event => self.event_typed(&text),
+                    Typing::Ask(question, field) => self.ask_typed(question, field, &text),
                     vote => self.vote_typed(&vote, &text),
                 }
             }

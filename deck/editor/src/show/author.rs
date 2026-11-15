@@ -232,14 +232,26 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
         host.hits.push((whole, Hit::Row(i)));
         for (c, cell) in r.cells.iter().enumerate() {
             let x = bx + first_w + c as f32 * col_w;
-            if !cell.keep {
-                d.round_rect(x, y + 2.0, col_w - 6.0, rh - 4.0, t.size.radius, t.color.control);
+            // #551: adjacent cells of one question are one wide cell, drawn from the column that starts it, in deck-show's
+            // words (`AskView::words`: a cell apart says its mark, `q1 · 2 of 3`); a column inside it draws nothing
+            let (span, text) = match &cell.ask {
+                Some(a) => (a.run.max(1) as f32, a.words()),
+                None => (1.0, Some(cell.text.clone())),
+            };
+            if let Some(text) = &text {
+                let w = span * col_w - 6.0;
+                if !cell.keep {
+                    d.round_rect(x, y + 2.0, w, rh - 4.0, t.size.radius, t.color.control);
+                }
+                if cell.ask.is_some() {
+                    d.rect(x, y + 2.0 + t.size.radius, 2.0, rh - 4.0 - 2.0 * t.size.radius, t.color.accent);
+                }
+                d.text(x + 6.0, ty, font, &fit(d, text, font, w - 8.0), if cell.keep { t.color.muted } else { t.color.text });
             }
-            // #537: the selected cell, and a press selects a cell
-            if r.id == sel && host.cell.as_ref() == plan.columns.get(c).map(|col| &col.id) {
-                d.outline(x, y + 2.0, col_w - 6.0, rh - 4.0, (t.size.radius, 1.0), t.color.accent);
+            // #537, #551: the selected cells (each column of the selection its own outline), and a press selects a cell
+            if r.id == sel && plan.columns.get(c).is_some_and(|col| host.cells.contains(&col.id)) {
+                d.outline(x, y + 2.0, col_w - 6.0, rh - 4.0, (t.size.radius, 1.5), t.color.accent);
             }
-            d.text(x + 6.0, ty, font, &fit(d, &cell.text, font, col_w - 14.0), if cell.keep { t.color.muted } else { t.color.text });
             host.hits.push((Rect { x, y, w: col_w - 6.0, h: rh }, Hit::Cell(i, c)));
         }
     }
@@ -250,9 +262,37 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
     let bh = 34.0;
     let foot = l.right.y + l.right.h - bh - pad - small * 2.0;
     let role = host.role.as_ref().and_then(|id| deck_show::roles::inspector(&show, host.path.is_empty().then_some(&host.sub), id));
+    // #551 (found in #553): the inspector scrolls above its buttons, which keep their own strip – what it draws past the
+    // strip is covered and its places end there
+    let strip = foot - pad * 0.5;
+    host.side = Rect { x: l.right.x, y: l.right.y, w: l.right.w, h: strip - l.right.y };
+    let first = host.hits.len();
     match role {
-        Some(insp) => super::roles::inspector(d, t, host, &insp, Rect { x: rx, y, w: rw, h: foot - y }, pointer),
-        None => row_side(d, t, host, (&show, &sel, &seats), (rx, y, rw), foot, pointer),
+        Some(insp) => {
+            host.side_over = 0.0;
+            super::roles::inspector(d, t, host, &insp, Rect { x: rx, y, w: rw, h: foot - y }, pointer);
+        }
+        None => {
+            let end = row_side(d, t, host, (&show, &sel, &seats), (rx, y - host.side_scroll, rw), pointer);
+            host.side_over = (end + host.side_scroll + pad - strip).max(0.0);
+        }
+    }
+    host.side_scroll = host.side_scroll.min(host.side_over);
+    let inside: Vec<(Rect, Hit)> = host
+        .hits
+        .drain(first..)
+        .filter_map(|(r, h)| {
+            let (top, bottom) = (r.y.max(l.right.y), (r.y + r.h).min(strip));
+            (bottom > top).then_some((Rect { x: r.x, y: top, w: r.w, h: bottom - top }, h))
+        })
+        .collect();
+    host.hits.extend(inside);
+    d.rect(l.right.x + 1.0, strip, l.right.w - 1.0, l.right.y + l.right.h - strip, t.color.surface);
+    if host.side_over > 0.0 {
+        // more below or above: the strip's edge, and where the view stands
+        d.rect(l.right.x, strip, l.right.w, 1.0, t.color.line);
+        let (track, whole) = (strip - l.right.y, strip - l.right.y + host.side_over);
+        d.rect(l.right.x + l.right.w - 3.0, l.right.y + track * host.side_scroll / whole, 3.0, track * track / whole, t.color.muted);
     }
     let bw = (rw - 2.0 * pad) / 3.0;
     let load = Rect { x: rx, y: foot, w: bw, h: bh };
@@ -268,11 +308,13 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
     d.text(rx, foot + bh + 6.0, small, &fit(d, &line, small, rw), t.color.muted);
     // #478: a prompt asked (a role's remove) over the stage: only its presses count
     super::roles::ask(d, t, host, l.stage);
+    // #551: the right click's typeahead on the selected cells, over everything
+    super::ask::draw_context(d, t, host, (w, h));
 }
 
 /// the right side for a row: #537 its name and remove, its inspector (a cell's line selects it, the cell inspector under
-/// the cells), the seats, the flash reports, down to `foot`
-fn row_side(d: &mut DrawList, t: &Tokens, host: &mut Host, (show, sel, seats): (&Show, &str, &[view::SeatView]), (rx, mut y, rw): (f32, f32, f32), foot: f32, pointer: (f32, f32)) {
+/// the cells), the seats, the flash reports; where it ends (#551: it scrolls above the buttons' strip)
+fn row_side(d: &mut DrawList, t: &Tokens, host: &mut Host, (show, sel, seats): (&Show, &str, &[view::SeatView]), (rx, mut y, rw): (f32, f32, f32), pointer: (f32, f32)) -> f32 {
     let (pad, font, small) = (t.size.pad, t.size.font, t.size.small);
     let columns = view::plan(show).columns;
     for (i, (head, lines)) in view::inspector(show, sel).iter().enumerate() {
@@ -298,7 +340,7 @@ fn row_side(d: &mut DrawList, t: &Tokens, host: &mut Host, (show, sel, seats): (
             let presses = cells || fires || addr.is_some();
             d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, if presses && r.has(pointer.0, pointer.1) { t.color.hover } else { t.color.control });
             let open = addr.is_some() && addr == host.address;
-            if (cells && host.cell.as_ref() == Some(label)) || (fires && host.sheet == Some(Sheet::Event)) || open {
+            if (cells && host.cells.contains(label)) || (fires && host.sheet == Some(Sheet::Event)) || open {
                 d.outline(r.x, r.y, r.w, r.h, (t.size.radius, 1.0), t.color.accent);
             }
             if fires {
@@ -342,21 +384,17 @@ fn row_side(d: &mut DrawList, t: &Tokens, host: &mut Host, (show, sel, seats): (
     let reports = view::reports(&host.sub);
     if reports.is_empty() {
         d.text(rx, y + 4.0, small, "no answer yet: Flash sends the tree down", t.color.muted);
+        y += t.size.row;
     }
     for r in &reports {
-        if y + font * 1.5 > foot {
-            break;
-        }
         d.disc(rx + 4.0, y + 4.0 + font * 0.62, 3.5, if r.ok { t.color.go } else { t.color.warn });
         d.text(rx + 14.0, y + 4.0, font, &fit(d, &format!("{} · {}", r.what, r.from), font, rw - 14.0), t.color.text);
         y += font * 1.5;
         for l in std::iter::once(&r.line).chain(&r.lacks) {
-            if y + small * 1.6 > foot {
-                break;
-            }
             d.text(rx + 14.0, y + 2.0, small, &fit(d, l, small, rw - 14.0), t.color.muted);
             y += small * 1.6;
         }
         y += pad * 0.5;
     }
+    y
 }
