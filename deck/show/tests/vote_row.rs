@@ -35,7 +35,7 @@ fn relay_says(sub: &mut Subtree, out: &[Envelope], ms: u64) -> Vec<Envelope> {
 }
 
 fn result(vote: &str, option: i64) -> Envelope {
-    Envelope::new("relay", Message::VoteResult(VoteResult { vote: vote.into(), option, counts: vec![4, 1, 0], how: VoteHow::Rule, groups: None }))
+    Envelope::new("relay", Message::VoteResult(VoteResult { vote: vote.into(), option, counts: vec![4, 1, 0], how: VoteHow::Rule, groups: None, story: None }))
 }
 
 fn lines(sub: &Subtree) -> Vec<String> {

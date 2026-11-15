@@ -1,8 +1,9 @@
 //! The linked reader (#527, agents/research/SCENE-EVENTS.md §6): a reader page linked to a live session drives the decks'
 //! story, one reader at a time – the newest claim wins, the relay's rule (relay session.rs, `reader.drive`). Here, once for
 //! every client of the core (RULES A6): the link a conductor offers (`reader_link` – the deck editor and the conductor
-//! page give the same text), a reader's place in the story (`Steer`, driven by relay.rs `Client::drive`) and the
-//! conductor's view of the linked readers (`Readers`, relay.rs `Client::readers`).
+//! page give the same text), a reader's place in the story (`Steer`, driven by relay.rs `Client::drive`), where its story
+//! stands for a vote's result (`Place`, #552) and the conductor's view of the linked readers (`Readers`, relay.rs
+//! `Client::readers`).
 use crate::relay::{encode, parse_relay, relay_param, HOSTED_RELAY};
 use protocol::{Loose, Presence};
 use serde::Serialize;
@@ -118,6 +119,76 @@ impl Steer {
             self.told = Some(now);
             now
         })
+    }
+}
+
+/// #552 (SHOW.md §15 3, LIVE.md B.1): where a reader's story stands for a vote's result, read from the events it fires (every
+/// one, sent or not): the `addChoice` ids since the last `showChoices` are the options it offers (one hidden by its "Only
+/// if" never fires), a `showChoices` is where it stands until the next event fires or its runner says the choices closed.
+#[derive(Debug, Clone, Default)]
+pub struct Place {
+    /// the options fired since the last `showChoices` (an option without an id: '')
+    offered: Vec<String>,
+    /// the `showChoices` it stands at ('' without an id) and the options it offers there
+    at: Option<(String, Vec<String>)>,
+}
+
+/// Why a vote's result is not this reader's choice.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Ignored {
+    /// it does not stand at that choice
+    Elsewhere,
+    /// it stands there, but the voted option is not one it offers (hidden by its "Only if", or without an id)
+    NotOffered,
+}
+
+/// A story question's result as the reader's page hears it (relay.rs `Out::Choice`): pick the option at `pick` among the
+/// ones it offers – as a tap would –, or it is ignored and why.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Choice {
+    /// the `showChoices`' id and the voted option's `addChoice` id ('' = none)
+    pub event: String,
+    pub option: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pick: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ignored: Option<Ignored>,
+}
+
+impl Place {
+    /// an event the reader fired (the VNEvent: `type`, `id`)
+    pub fn fired(&mut self, event: &Loose) {
+        let id = event.get("id").and_then(|v| v.as_str()).unwrap_or_default().to_string();
+        self.at = None;
+        match event.get("type").and_then(|t| t.as_str()) {
+            Some("addChoice") => self.offered.push(id),
+            Some("showChoices") => self.at = Some((id, std::mem::take(&mut self.offered))),
+            _ => {}
+        }
+    }
+
+    /// its runner says the choices closed (picked, or none was shown): it stands at none
+    pub fn closed(&mut self) {
+        self.at = None;
+    }
+
+    /// The result of the vote that asked `story`: option `option` (its place in the vote). A pick is taken: the reader
+    /// stands at no choice after it.
+    pub fn result(&mut self, story: &protocol::VoteStory, option: i64) -> Choice {
+        let voted = usize::try_from(option).ok().and_then(|o| story.options.get(o)).cloned().unwrap_or_default();
+        let mut choice = Choice { event: story.event.clone(), option: voted.clone(), pick: None, ignored: None };
+        match &self.at {
+            Some((event, offered)) if !event.is_empty() && *event == story.event => match offered.iter().position(|o| !voted.is_empty() && *o == voted) {
+                Some(i) => {
+                    choice.pick = Some(i);
+                    self.at = None;
+                }
+                None => choice.ignored = Some(Ignored::NotOffered),
+            },
+            _ => choice.ignored = Some(Ignored::Elsewhere),
+        }
+        choice
     }
 }
 
@@ -251,6 +322,54 @@ mod tests {
         s.claim();
         assert_eq!(s.change("c4").map(|d| d.claim), Some(Claim::Asked));
         assert_eq!(s.change("c4"), None);
+    }
+
+    fn fire(p: &mut Place, kind: &str, id: Option<&str>) {
+        let mut e = json!({ "type": kind, "params": {} });
+        if let Some(id) = id {
+            e["id"] = json!(id);
+        }
+        p.fired(e.as_object().unwrap());
+    }
+
+    #[test]
+    fn a_vote_s_result_is_the_reader_s_choice_only_where_it_stands() {
+        let door = protocol::VoteStory { event: "ch3-door".into(), options: vec!["ch3-stay".into(), "ch3-go".into(), "".into()] };
+        let pick = |c: &Choice| (c.pick, c.ignored);
+        let mut p = Place::default();
+        assert_eq!(pick(&p.result(&door, 0)), (None, Some(Ignored::Elsewhere)), "at no choice yet");
+        // the options it offers: those that fired (one hidden by its "Only if" never does)
+        fire(&mut p, "showMessage", Some("ch3-e1"));
+        fire(&mut p, "addChoice", Some("ch3-stay"));
+        fire(&mut p, "addChoice", Some("ch3-go"));
+        fire(&mut p, "showChoices", Some("ch3-door"));
+        let c = p.result(&door, 1);
+        assert_eq!(c, Choice { event: "ch3-door".into(), option: "ch3-go".into(), pick: Some(1), ignored: None });
+        assert_eq!(serde_json::to_value(&c).unwrap(), json!({ "event": "ch3-door", "option": "ch3-go", "pick": 1 }));
+        assert_eq!(pick(&p.result(&door, 1)), (None, Some(Ignored::Elsewhere)), "a pick is taken: it stands at none after it");
+        // hidden by its "Only if": stay never fired – go is the first it offers
+        fire(&mut p, "addChoice", Some("ch3-go"));
+        fire(&mut p, "showChoices", Some("ch3-door"));
+        assert_eq!(pick(&p.result(&door, 0)), (None, Some(Ignored::NotOffered)), "the voted option is hidden here");
+        assert_eq!(serde_json::to_value(p.result(&door, 2)).unwrap(), json!({ "event": "ch3-door", "option": "", "ignored": "not_offered" }), "an option without an id");
+        assert_eq!(pick(&p.result(&door, 9)), (None, Some(Ignored::NotOffered)), "out of range");
+        assert_eq!(pick(&p.result(&door, 1)), (Some(0), None), "its place among what it offers");
+        // another choice; an event after the choice; the runner's word that the choices closed
+        for (moved, why) in [(Some("label"), "an event after the choice"), (None, "the choices closed")] {
+            fire(&mut p, "addChoice", Some("ch3-go"));
+            fire(&mut p, "showChoices", Some("ch3-door"));
+            match moved {
+                Some(kind) => fire(&mut p, kind, Some("go")),
+                None => p.closed(),
+            }
+            assert_eq!(pick(&p.result(&door, 1)), (None, Some(Ignored::Elsewhere)), "{why}");
+        }
+        fire(&mut p, "addChoice", Some("ch3-go"));
+        fire(&mut p, "showChoices", Some("ch4-gate"));
+        assert_eq!(pick(&p.result(&door, 1)), (None, Some(Ignored::Elsewhere)), "another choice");
+        fire(&mut p, "addChoice", Some("ch3-go"));
+        fire(&mut p, "showChoices", None);
+        assert_eq!(pick(&p.result(&protocol::VoteStory { event: "".into(), options: vec!["ch3-go".into()] }, 0)).1, Some(Ignored::Elsewhere), "a choice without an id is nobody's");
     }
 
     #[test]

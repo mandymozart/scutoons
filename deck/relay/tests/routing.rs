@@ -196,6 +196,7 @@ async fn a_vote_closes_by_itself() {
         show: None,
         question: None,
         labels: None,
+        story: None,
     };
     send(&mut cond, Message::VoteOpen(open), None).await;
     assert!(matches!(recv(&mut a1).await.message, Message::VoteOpen(_)));

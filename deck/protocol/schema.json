@@ -122,7 +122,8 @@
         "where": { "$ref": "#/definitions/Filter", "description": "#547: the cell's filter – the voters are every client in a role (decks too) in `groups` that passes it (the relay tests it with the facts it holds: account and approved only from the proof); only they hear the vote, are counted and may cast. None: the audience (in `groups`: also performers and musicians)" },
         "show": { "type": "boolean", "description": "a voter sees the tally once they have voted (never before)" },
         "question": { "type": "object", "additionalProperties": { "type": "string" }, "description": "the choice event's question by locale (a phone shows its device's language, else the first); texts are locale maps" },
-        "labels": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "string" } }, "description": "`options` by locale, same order; `options` is the default" }
+        "labels": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "string" } }, "description": "`options` by locale, same order; `options` is the default" },
+        "story": { "$ref": "#/definitions/VoteStory", "description": "#552: a story question's choice – the relay copies it onto `vote.result` for the linked reader; none: a typed question" }
       },
       "required": ["vote", "options", "rule", "seconds"],
       "additionalProperties": false
@@ -165,9 +166,20 @@
         "option": { "type": "integer" },
         "counts": { "type": "array", "items": { "type": "integer" } },
         "how": { "$ref": "#/definitions/VoteHow" },
-        "groups": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "integer" } }, "description": "the counts per group" }
+        "groups": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "integer" } }, "description": "the counts per group" },
+        "story": { "$ref": "#/definitions/VoteStory", "description": "#552: the open vote's `story`, as it was opened – the linked reader picks `options[option]` if it stands at `event` (deck-space linked.rs `Place`)" }
       },
       "required": ["vote", "option", "counts", "how"],
+      "additionalProperties": false
+    },
+    "VoteStory": {
+      "description": "#552 (SHOW.md §15 3): the story's choice a vote asks – the `showChoices` event's id and each option's `addChoice` id in the vote's option order ('' = that option has none: no reader can be at it).",
+      "type": "object",
+      "properties": {
+        "event": { "type": "string" },
+        "options": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["event", "options"],
       "additionalProperties": false
     },
     "CellChange": {

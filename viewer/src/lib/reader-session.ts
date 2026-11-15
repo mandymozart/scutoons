@@ -6,16 +6,28 @@
 // the conductor and the decks that asked (#517). Without `?live=` this file is never loaded: no link, nothing sent.
 // #528: it joins without claiming; the person is asked first (linked-reader.svelte) and only a yes calls `drive` – the
 // core's place in the story (`Driving`) comes out as `{ driving }` through `onOther`.
+// #552 (SHOW.md §15 3): a story question's vote result – the core matches it to where the reader stands (deck-space
+// linked.rs `Place`, fed by every event told here and `closed`) and says `{ choice }`: a `pick` is handed to the choice
+// buttons (reader-story.ts `pickChoice`), as a tap; an `ignored` goes on to `onOther` for the linked sign to say.
 import { RelaySocket, loadRelay, type Platform, type RelayCoreView, type RelayHooks, type RelayModule, type RelayStatus } from '@scutoons/live-deck';
 import type { VNEvent } from '@scutoons/content';
 import { WASM_BASE, relayOf } from './live-deck.ts';
-import { listenSession } from './reader-story.ts';
+import { listenSession, pickChoice, type SessionEar } from './reader-story.ts';
 
 /** #528: a reader's place in the session's story as the core says it – its JSON (deck-space linked.rs `Driving`) */
 export interface Driving {
 	claim: 'none' | 'asked' | 'drives' | 'taken_over';
 	/** another reader drives now – a claim would take it over (the newcomer's warning) */
 	other: boolean;
+}
+
+/** #552: a story question's result as the core says it (deck-space linked.rs `Choice`): the `showChoices`' id, the voted
+ *  option's `addChoice` id; `pick` = its place among the options this reader shows, or why it is `ignored` */
+export interface VoteChoice {
+	event: string;
+	option: string;
+	pick?: number;
+	ignored?: 'elsewhere' | 'not_offered';
 }
 
 export interface ReaderLinkOptions extends Platform, Pick<RelayHooks, 'onOther'> {
@@ -25,25 +37,29 @@ export interface ReaderLinkOptions extends Platform, Pick<RelayHooks, 'onOther'>
 	core: RelayModule | Promise<RelayModule>;
 	/** joining · connected · offline · refused (the core's status) */
 	onStatus?: (s: RelayStatus) => void;
+	/** #552: pick the open choice at this place (default: the page's choice buttons, reader-story.ts `pickChoice`) */
+	pick?: (index: number) => boolean;
 }
 
 /** relay-web's `RelayClient` with a reader's moves */
 interface ReaderCore extends RelayCoreView {
 	story(json: string): boolean;
 	drive(): boolean;
+	choices_closed(): void;
 }
 
-export class ReaderLink {
+/** the session's ear (reader-story.ts): what the reader fires and when its choices close go to the core */
+export class ReaderLink implements SessionEar {
 	private s: (RelaySocket & { core: ReaderCore }) | null = null;
-	/** what fired while relay-web was still loading, handed to the core when it is there */
-	private early: string[] | null = [];
+	/** what fired while relay-web was still loading (null: #552 its choices closed), handed to the core when it is there */
+	private early: (string | null)[] | null = [];
 	private stopped = false;
 
 	constructor(private readonly o: ReaderLinkOptions) {
 		const core = o.core;
 		if (core instanceof Promise)
 			void core.then(
-				(m) => this.begin(m),
+				this.begin.bind(this),
 				(e) => {
 					this.early = null;
 					o.onStatus?.({ state: 'refused', why: String(e) });
@@ -56,11 +72,18 @@ export class ReaderLink {
 		if (this.stopped) return;
 		const core = new m.RelayClient(JSON.stringify({ relay: this.o.relay, role: 'reader' })) as ReaderCore;
 		// #528: no claim here – the reader is asked first; the core's `{ driving }` (at the welcome, at each change) goes to `onOther`
-		this.s = new RelaySocket(core, { onStatus: (_, s) => this.o.onStatus?.(s), onOther: this.o.onOther }, this.o) as RelaySocket & { core: ReaderCore };
+		this.s = new RelaySocket(core, { onStatus: (_, s) => this.o.onStatus?.(s), onOther: this.heard.bind(this) }, this.o) as RelaySocket & { core: ReaderCore };
 		this.s.start();
-		for (const json of this.early ?? []) core.story(json);
+		for (const json of this.early ?? []) void (json === null ? core.choices_closed() : core.story(json));
 		this.early = null;
 		this.s.run();
+	}
+
+	/** #552: the core's `{ choice }` – its `pick` performed (the core decided it); every word on to `onOther` */
+	private heard(o: Record<string, never>): void {
+		const choice = 'choice' in o ? (o.choice as VoteChoice) : null;
+		if (choice?.pick !== undefined) (this.o.pick ?? pickChoice)(choice.pick);
+		this.o.onOther?.(o);
 	}
 
 	/** #528: the person said yes (or takes the place back): the core claims the session's story (relay.rs `Client::drive`);
@@ -73,11 +96,17 @@ export class ReaderLink {
 	}
 
 	/** a story event the reader fired */
-	tell(event: VNEvent): void {
+	fired(event: VNEvent): void {
 		const json = JSON.stringify(event);
 		if (!this.s) return void this.early?.push(json);
 		this.s.core.story(json);
 		this.s.run();
+	}
+
+	/** #552: a `showChoices` is over (picked, or nothing to ask) – the core's place moves on */
+	closed(): void {
+		if (!this.s) return void this.early?.push(null);
+		this.s.core.choices_closed();
 	}
 
 	dispose(): void {
@@ -99,7 +128,7 @@ let joined: ReaderLink | null = null;
 export function joinSession(relay: string, o: Partial<ReaderLinkOptions> = {}): ReaderLink {
 	if (joined) return joined;
 	const link = (joined = new ReaderLink({ ...o, core: o.core ?? loadRelay(WASM_BASE), relay }));
-	listenSession((event) => link.tell(event));
+	listenSession(link);
 	return link;
 }
 

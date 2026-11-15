@@ -356,6 +356,10 @@ pub struct StoryChoice {
     pub version: u32,
     pub event: String,
     pub options: Vec<Loc>,
+    /// #552: each option's `addChoice` id, same order ('' = it has none) – how the linked reader finds the voted option
+    /// (`VoteOpen.story`); empty in a snapshot picked before #552 (story.rs `changed_text` says: pick it again)
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ids: Vec<String>,
 }
 
 impl Question {

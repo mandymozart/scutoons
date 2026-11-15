@@ -108,7 +108,8 @@ impl OpenVote {
             (option, if read.is_some_and(|c| tied(&c)) { VoteHow::Tie } else { VoteHow::Rule })
         };
         let groups = self.group_counts();
-        VoteResult { vote: self.open.vote.clone(), option: option as i64, counts, how, groups: (!groups.is_empty()).then_some(groups) }
+        // #552: a story question's choice goes with the result unread – the linked reader matches it (deck-space linked.rs)
+        VoteResult { vote: self.open.vote.clone(), option: option as i64, counts, how, groups: (!groups.is_empty()).then_some(groups), story: self.open.story.clone() }
     }
 
     fn fallback(&self) -> usize {
@@ -134,6 +135,7 @@ mod tests {
             show: None,
             question: None,
             labels: None,
+            story: None,
         };
         OpenVote::new(v, 1_000)
     }
@@ -254,6 +256,17 @@ mod tests {
         let r = v.decide(Some(1));
         assert_eq!((r.option, r.how), (1, VoteHow::Override));
         assert_eq!(v.decide(Some(9)).how, VoteHow::Rule);
+    }
+
+    #[test]
+    fn a_story_question_s_choice_goes_with_its_result_as_opened() {
+        let mut v = open(VoteRule::Majority, None);
+        assert_eq!(v.decide(None).story, None, "a typed question: none");
+        let story = protocol::VoteStory { event: "ch3-door".into(), options: vec!["ch3-left".into(), "".into(), "ch3-stay".into()] };
+        v.open.story = Some(story.clone());
+        cast(&mut v, "a", 1, "g");
+        assert_eq!(v.decide(None).story, Some(story.clone()));
+        assert_eq!(v.decide(Some(0)).story, Some(story), "an override too");
     }
 
     #[test]

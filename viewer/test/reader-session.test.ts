@@ -1,7 +1,8 @@
 // #518 (plan E2b): a reader in a session sends the story events it fires – the runner's `fired` (script-runner.ts), the
 // ear (reader-story.ts) and the link (reader-session.ts: deck-space's relay client, relay-web's wasm, as role `reader`);
 // normal reading opens nothing and sends nothing. #528: it joins without claiming – only the person's yes (`drive`) does;
-// the core's place (`{ driving }`) is what the question and the linked sign show. The wasm tests skip, saying so, when relay-web isn't built
+// the core's place (`{ driving }`) is what the question and the linked sign show. #552: a story question's vote result
+// is the driving reader's choice where it stands (the core's `{ choice }`; the pick as a tap). The wasm tests skip, saying so, when relay-web isn't built
 // (`npm run build:wasm -w shared/live-deck -- --relay`); the relay test when deck/target/debug/relay.exe isn't (`cargo
 // build -p relay`).
 import { test } from 'node:test';
@@ -12,8 +13,9 @@ import type { Envelope } from '@scutoons/live';
 import type { VNEvent } from '@scutoons/content';
 import { loadRelay } from '@scutoons/live-deck';
 import { runEvents, type RunnerEnv } from '../src/lib/visual-novel/script-runner.ts';
-import { listenSession, tellSession } from '../src/lib/reader-story.ts';
-import { ReaderLink, joinSession, leaveSession, sessionOf, type Driving } from '../src/lib/reader-session.ts';
+import { createBox, createBoxData } from '../src/lib/visual-novel/box-state.ts';
+import { listenPick, listenSession, tellChoicesClosed, tellSession } from '../src/lib/reader-story.ts';
+import { ReaderLink, joinSession, leaveSession, sessionOf, type Driving, type VoteChoice } from '../src/lib/reader-session.ts';
 import type { SocketLike } from '../src/lib/live-vote-link.ts';
 import { deckTarget } from '../../shared/live-core/scripts/wasm.ts';
 
@@ -157,8 +159,8 @@ test('what fires while relay-web still loads reaches the core, which drops it: t
 	FakeSocket.all = [];
 	const loading = core();
 	const link = new ReaderLink({ relay: 'ws://relay:7070/live/CATH', core: loading, socket: FakeSocket });
-	link.tell(JOIN);
-	link.tell(SAY);
+	link.fired(JOIN);
+	link.fired(SAY);
 	await loading;
 	await new Promise((r) => setImmediate(r));
 	const ws = FakeSocket.all[0];
@@ -194,24 +196,29 @@ const until = async (what: () => boolean) => {
 	}
 };
 
-test('real relay (#528): asked first – nothing before the yes; the yes drives and the story reaches the conductor and the deck that asked; a newcomer sees another drives before it answers, its yes takes over; no leaves', { skip: NO_RELAY }, async () => {
-	const port = Number(process.env.LAB_RELAY_PORT ?? 7072) + 4;
+/** a relay of its own on `port` (the dev token admits a conductor) and its conductor, joined to `url` */
+async function relayWithConductor(port: number, code: string) {
 	const env = { ...process.env };
 	delete env.LIVE_TOKEN_SECRET;
 	const relay = spawn(relayExe, [`127.0.0.1:${port}`], { env, stdio: 'ignore' });
-	try {
-		const url = `ws://127.0.0.1:${port}/live/READ`;
-		let conductor: Awaited<ReturnType<typeof raw>> | null = null;
-		const end = Date.now() + PATIENCE;
-		while (!conductor) {
-			try {
-				conductor = await raw(url, { role: 'conductor', group: 'decks', token: 'dev' });
-			} catch (e) {
-				if (Date.now() > end) throw e;
-				await new Promise((r) => setTimeout(r, 100));
+	const url = `ws://127.0.0.1:${port}/live/${code}`;
+	const end = Date.now() + PATIENCE;
+	for (;;) {
+		try {
+			return { relay, url, c: await raw(url, { role: 'conductor', group: 'decks', token: 'dev' }) };
+		} catch (e) {
+			if (Date.now() > end) {
+				relay.kill();
+				throw e;
 			}
+			await new Promise((r) => setTimeout(r, 100));
 		}
-		const c = conductor;
+	}
+}
+
+test('real relay (#528): asked first – nothing before the yes; the yes drives and the story reaches the conductor and the deck that asked; a newcomer sees another drives before it answers, its yes takes over; no leaves', { skip: NO_RELAY }, async () => {
+	const { relay, url, c } = await relayWithConductor(Number(process.env.LAB_RELAY_PORT ?? 7072) + 4, 'READ');
+	try {
 		const deck = await raw(url, { role: 'musician', group: 'decks' });
 		deck.ws.send(JSON.stringify({ v: 1, seq: 0, from: '', kind: 'deck.story', p: {}, to: { group: 'decks' } }));
 		const presence = () => (c.msgs.filter((m) => m.kind === 'presence').at(-1)?.p ?? {}) as { readers?: Record<string, unknown>; driver?: string };
@@ -256,6 +263,105 @@ test('real relay (#528): asked first – nothing before the yes; the yes drives 
 		c.ws.close();
 		deck.ws.close();
 	} finally {
+		relay.kill();
+	}
+});
+
+/** #552: a reader page with the pure box (box-state.ts): the runner with the reader's ears (`fired`, `choicesClosed`), and the
+ *  choice buttons' pick as choices.svelte does it for a divert (the divert, then the choices go) – `picked` lists each */
+function reading() {
+	const data = createBoxData<unknown, any>();
+	const box = createBox(data);
+	const vn = { ...box, findInScene: (id: string) => ({ name: id }), joinScene: () => {}, leaveScene: () => {}, showTextBox: () => true, setTextBoxResolver: () => {} };
+	const env: RunnerEnv = { readerKnown: () => Promise.resolve(), setReaderName: () => Promise.resolve(), readerNameMax: 32, setVariable: () => {}, cleanText: (t) => t, fired: tellSession, choicesClosed: tellChoicesClosed };
+	const game = { getVariable: () => undefined, setVariable: () => {}, state: { toonId: 't' } };
+	const picked: number[] = [];
+	const tap = (i: number) => {
+		const choice = data.choicesVisible ? data.pendingChoices[i] : undefined;
+		if (!choice) return false;
+		picked.push(i);
+		if (choice.onSelect?.divert) box.setPendingDivert(choice.onSelect.divert.to);
+		box.clearChoices();
+		return true;
+	};
+	const release = listenPick(tap);
+	return { data, picked, tap, release, run: (events: VNEvent[]) => runEvents(events, 0, { vn, game, env, navigate: () => {} } as never) };
+}
+
+/** the door of ch 3: stay, an option its "Only if" hides from this reader, go – each diverts; then what each leads to */
+const DOOR = [
+	{ type: 'label', id: 'ch3-e1', params: { name: 'nave' } },
+	{ type: 'addChoice', id: 'ch3-stay', params: { label: 'Stay', onSelect: { divert: { to: 'stay' } } } },
+	{ type: 'addChoice', id: 'ch3-key', if: { variable: 'key', op: '==', value: 1 }, params: { label: 'Unlock', onSelect: { divert: { to: 'stay' } } } },
+	{ type: 'addChoice', id: 'ch3-go', params: { label: 'Go', onSelect: { divert: { to: 'go' } } } },
+	{ type: 'showChoices', id: 'ch3-door', params: {} },
+	{ type: 'label', id: 'ch3-e10', params: { name: 'stay' } },
+	{ type: 'joinScene', id: 'ch3-e11', params: { characters: [{ character: 'ghost' }] } },
+	{ type: 'divert', id: 'ch3-e12', params: { to: 'end' } },
+	{ type: 'label', id: 'ch3-e20', params: { name: 'go' } },
+	{ type: 'joinScene', id: 'ch3-e21', params: { characters: [{ character: 'catpope' }] } },
+	{ type: 'label', id: 'ch3-e99', params: { name: 'end' } }
+] as unknown as VNEvent[];
+/** the vote's story as the conductor opens it (deck-show `vote::open`: the showChoices' id, every option's id) */
+const ASKS_DOOR = { event: 'ch3-door', options: ['ch3-stay', 'ch3-key', 'ch3-go'] };
+
+test('real relay (#552): a story question\'s result is the driving reader\'s choice – at the choice it picks the voted option and its events go out; the option hidden here, or a reader elsewhere: ignored, said, nothing picked', { skip: NO_RELAY }, async () => {
+	const { relay, url, c } = await relayWithConductor(Number(process.env.LAB_RELAY_PORT ?? 7072) + 5, 'VOTE');
+	const page = reading();
+	try {
+		const ids = () => c.msgs.filter((m) => m.kind === 'story').map((m) => (m.p as { id?: string }).id);
+		const said: Driving[] = [];
+		const choices: VoteChoice[] = [];
+		const link = joinSession(url, { core: core(), socket: WebSocket as never, onOther: (o: Record<string, never>) => void ('driving' in o ? said.push(o.driving) : 'choice' in o && choices.push(o.choice)) });
+		await until(() => said.length > 0);
+		link.drive();
+		await until(() => said.at(-1)?.claim === 'drives');
+		/** the relay takes 5 messages a second from a reader (session.rs `handle`): each burst of the story waits for it */
+		const breathe = () => new Promise((r) => setTimeout(r, 1100));
+		let n = 0;
+		const vote = async (option: number) => {
+			await breathe();
+			const v = `v${++n}`;
+			for (const [kind, p] of [
+				['vote.open', { vote: v, options: ['Stay', 'Unlock', 'Go'], rule: 'majority', seconds: 30, story: ASKS_DOOR }],
+				['vote.close', { vote: v, override: option }]
+			] as const)
+				c.ws.send(JSON.stringify({ v: 1, seq: 0, from: '', kind, p }));
+			return until(() => choices.length === n);
+		};
+
+		// at the choice: the audience's Go is picked as a tap – its divert, the events after it go out as story
+		await breathe();
+		const first = page.run(DOOR);
+		await until(() => page.data.choicesVisible);
+		await vote(2);
+		assert.deepEqual(choices[0], { event: 'ch3-door', option: 'ch3-go', pick: 1 }, 'go is the second option this reader shows (the key is hidden)');
+		assert.deepEqual(page.picked, [1]);
+		assert.equal(await first, 'done');
+		await until(() => ids().includes('ch3-e99'));
+		assert.deepEqual(ids(), ['ch3-e1', 'ch3-stay', 'ch3-go', 'ch3-door', 'ch3-e20', 'ch3-e21', 'ch3-e99'], 'what fired, in order: go, not stay');
+
+		// the option hidden here (its "Only if"): ignored, the choice stays open; the reader taps itself
+		await breathe();
+		const second = page.run(DOOR);
+		await until(() => page.data.choicesVisible);
+		await vote(1);
+		assert.deepEqual(choices[1], { event: 'ch3-door', option: 'ch3-key', ignored: 'not_offered' });
+		assert.ok(page.data.choicesVisible, 'still open');
+		await breathe();
+		assert.ok(page.tap(0), 'the reader stays');
+		assert.equal(await second, 'done');
+
+		// a reader elsewhere – past the choice, standing at none: ignored, nothing picked
+		await vote(2);
+		assert.deepEqual(choices[2], { event: 'ch3-door', option: 'ch3-go', ignored: 'elsewhere' });
+		assert.deepEqual(page.picked, [1, 0], 'only its own tap since');
+		await until(() => ids().filter((id) => id === 'ch3-e11').length === 1);
+		assert.ok(!ids().slice(7).includes('ch3-e21'), 'its own way: stay');
+	} finally {
+		page.release();
+		leaveSession();
+		c.ws.close();
 		relay.kill();
 	}
 });
