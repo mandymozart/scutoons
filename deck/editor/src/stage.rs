@@ -154,10 +154,8 @@ fn options() -> backend::Options {
 }
 
 impl Stage {
-    /// `rig` = a core rig's character (`catpope`) or subject, with the `draft` file's rig over it if there is one; it plays at `volume`
-    pub fn new(rig: &str, volume: f32, draft: Option<&std::path::Path>) -> Result<Stage> {
-        let subject = if rig.contains('.') { rig.to_string() } else { format!("character.{rig}") };
-        let base = Bundle::core(&subject).with_context(|| format!("no core rig {subject}"))??;
+    /// the rig `base` (rigs.rs `base`), with the `draft` file's rig over it if there is one; it plays at `volume`
+    pub fn new(base: Bundle, volume: f32, draft: Option<&std::path::Path>) -> Result<Stage> {
         let bundle = draft.map_or_else(|| base.clone(), |path| wires::load_draft(path, &base));
         let mut stage = Stage::start(prepare(bundle)?, volume);
         stage.base = base;
