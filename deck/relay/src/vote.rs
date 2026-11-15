@@ -2,7 +2,7 @@
 //! fallback; the relay applies it by itself, the conductor can override. Pure: the session feeds the casts in.
 use std::collections::HashMap;
 
-use protocol::vote::{count, winner};
+use protocol::vote::{count, tied, winner};
 use protocol::{VoteHow, VoteOpen, VoteResult, VoteRule};
 
 /// An open vote: what the conductor opened, when it closes, one cast per client (changeable until the close).
@@ -77,7 +77,8 @@ impl OpenVote {
         self.counts().iter().position(|&c| c >= n)
     }
 
-    /// The result: the conductor's override, else the rule, else (nobody voted) the fallback.
+    /// The result: the conductor's override, else the rule (`tie` when its most votes were shared and `winner` broke
+    /// it, #558), else (nobody voted) the fallback.
     pub fn decide(&self, override_option: Option<usize>) -> VoteResult {
         let counts = self.counts();
         let fallback = self.fallback();
@@ -86,9 +87,13 @@ impl OpenVote {
         } else if self.casts.is_empty() {
             (fallback, VoteHow::Fallback)
         } else {
-            let option = match self.open.rule {
-                VoteRule::Majority => winner(&counts, fallback),
-                VoteRule::First => self.reached().unwrap_or_else(|| winner(&counts, fallback)),
+            // the counts the rule's last `winner` reads – none when first to n was reached
+            let (option, read) = match self.open.rule {
+                VoteRule::Majority => (winner(&counts, fallback), Some(counts.clone())),
+                VoteRule::First => match self.reached() {
+                    Some(o) => (o, None),
+                    None => (winner(&counts, fallback), Some(counts.clone())),
+                },
                 VoteRule::Groups => {
                     // each group's majority is one vote; clients without a group vote as one group of their own
                     let mut by_group: HashMap<Option<&str>, Vec<usize>> = HashMap::new();
@@ -96,11 +101,11 @@ impl OpenVote {
                         by_group.entry(g.as_deref()).or_default().push(*o);
                     }
                     let n = self.open.options.len();
-                    let group_votes = by_group.values().map(|os| winner(&count(n, os.iter().copied()), fallback));
-                    winner(&count(n, group_votes), fallback)
+                    let group_votes = count(n, by_group.values().map(|os| winner(&count(n, os.iter().copied()), fallback)));
+                    (winner(&group_votes, fallback), Some(group_votes))
                 }
             };
-            (option, VoteHow::Rule)
+            (option, if read.is_some_and(|c| tied(&c)) { VoteHow::Tie } else { VoteHow::Rule })
         };
         let groups = self.group_counts();
         VoteResult { vote: self.open.vote.clone(), option: option as i64, counts, how, groups: (!groups.is_empty()).then_some(groups) }
@@ -191,6 +196,31 @@ mod tests {
         assert_eq!(v.decide(None).counts, [1, 0, 2]);
         cast(&mut v, "d", 0, "g");
         assert_eq!(v.decide(None).option, 2);
+    }
+
+    #[test]
+    fn a_tie_says_so_and_a_clear_majority_stays_rule() {
+        // #558: 1 : 1, the fallback (2) not tied → the first tied, named a tie
+        let mut v = open(VoteRule::Majority, None);
+        cast(&mut v, "a", 0, "g");
+        cast(&mut v, "b", 1, "g");
+        let r = v.decide(None);
+        assert_eq!((r.option, r.how, r.counts), (0, VoteHow::Tie, vec![1, 1, 0]));
+        // the fallback among the tied → the fallback, still a tie
+        cast(&mut v, "c", 2, "g");
+        assert_eq!((v.decide(None).option, v.decide(None).how), (2, VoteHow::Tie), "1 : 1 : 1");
+        // a clear majority
+        cast(&mut v, "d", 2, "g");
+        assert_eq!((v.decide(None).option, v.decide(None).how), (2, VoteHow::Rule));
+        // per group: two groups split 1 : 1 → a tie of the groups; first to n reached is never a tie
+        let mut g = open(VoteRule::Groups, None);
+        cast(&mut g, "a", 0, "left");
+        cast(&mut g, "b", 1, "right");
+        assert_eq!((g.decide(None).option, g.decide(None).how), (0, VoteHow::Tie));
+        let mut f = open(VoteRule::First, Some(1));
+        cast(&mut f, "a", 1, "g");
+        cast(&mut f, "b", 0, "g");
+        assert_eq!((f.decide(None).option, f.decide(None).how), (0, VoteHow::Rule), "the first to reach n");
     }
 
     #[test]

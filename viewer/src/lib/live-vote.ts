@@ -26,9 +26,11 @@ export function pickLabels(open: Pick<VoteOpen, 'options' | 'labels'>, locale: s
 	return l && l.length === open.options.length ? l : open.options;
 }
 
-/** `vote.result` → what to say about how it was decided */
+/** `vote.result` → what to say about how it was decided; a `how` this page has no words for (`tie`, #558: its words
+ *  come with #557) is worded as the rule */
 export type HowKey = 'majority' | 'groups' | 'first' | 'fallback' | 'override';
-export const howKey = (open: Pick<VoteOpen, 'rule'>, result: Pick<VoteResult, 'how'>): HowKey => (result.how === 'rule' ? open.rule : result.how);
+export const howKey = (open: Pick<VoteOpen, 'rule'>, result: Pick<VoteResult, 'how'>): HowKey =>
+	result.how === 'fallback' || result.how === 'override' ? result.how : open.rule;
 
 /** the share of `c` in the counts, in whole percent */
 export const percent = (c: number, counts: number[]): number => {
