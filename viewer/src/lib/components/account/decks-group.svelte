@@ -107,6 +107,7 @@
 				{found.hostname || formatCode(found.code)}
 				<small>
 					{[
+						found.kind === 'editor' && m['account.decks_editor'](),
 						found.build && m['account.decks_build']({ build: found.build }),
 						found.class && m['account.decks_class']({ class: found.class })
 					]

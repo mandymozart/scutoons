@@ -1,11 +1,16 @@
 // Pairing a cyberdeck on the account page (#180, agents/research/CYBERDECKS.md §9; server docs/API.md "Decks"): the
 // code on the deck's splash (6 characters, no 0 / O / 1 / I / L), typed in any case with or without the dash, or
 // prefilled from the splash's QR code (`/account/decks?deck=<code>`), and the approval's lifetime (like the AI
-// connections: six months by default, or shorter; optionally ending when the deck is unused for a while).
+// connections: six months by default, or shorter; optionally ending when the deck is unused for a while). The native
+// editor pairs the same way as the kind `editor` (reads and saves drafts; only a creator approves one).
+
+/** what asked: a deck (reads only) or the native editor */
+export type DeckKind = 'deck' | 'editor';
 
 /** a paired deck (GET /me/decks) */
 export interface Deck {
 	id: string;
+	kind: DeckKind;
 	name: string;
 	hostname: string;
 	build: string;
@@ -19,6 +24,7 @@ export interface Deck {
 /** what waits behind a code (GET /me/decks/pending) */
 export interface PendingDeck {
 	code: string;
+	kind: DeckKind;
 	hostname: string;
 	build: string;
 	class: string;
