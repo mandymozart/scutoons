@@ -8,6 +8,7 @@
 //! remove and the picker's lines are here once; the editor lays them out (RULES A1, A2), like roles.rs (#478).
 use crate::choose::{Prompt, Tone};
 use crate::document::{Cell, OutletKind, Row, Show, Values, PIECE_KINDS};
+use crate::values::{Knob, KnobView};
 use crate::view::{address_text, cell_text};
 use deck_space::rig::book::Book;
 use deck_ui::filter::{Condition, Fact};
@@ -80,7 +81,7 @@ pub struct ModeView {
 }
 
 /// A change to a show's rows or a cell, made in the Show workspace.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Edit {
     /// a new row after `after` (none: after the last), by hand, every column keeps
     Add { after: Option<String> },
@@ -109,6 +110,10 @@ pub enum Edit {
     Leave { row: String, columns: Vec<String> },
     /// #551: one field of a question's form in the cell inspector (question.rs `Set`)
     Question { question: String, set: crate::question::Set },
+    /// knob `path` of the cell's piece set to `to` (none: the piece's own again), checked against the piece's knobs
+    Value { row: String, column: String, path: String, to: Option<f32> },
+    /// "take current" – these knob positions (values.rs `current`) written into the cell
+    Take { row: String, column: String, positions: Vec<(String, f32)> },
 }
 
 /// An edit made: the changed document, what it did in words, the row to select after it.
@@ -238,9 +243,22 @@ fn put(row: &mut Row, column: &str, cell: Cell) {
     }
 }
 
+/// the values of `column`'s cell in row `at`, where the cell names a piece
+fn values_mut<'a>(row: &'a mut Row, column: &str) -> Result<&'a mut Values, String> {
+    match row.cells.get_mut(column) {
+        Some(Cell::Play { piece: Some(_), values, .. } | Cell::Values { values, .. }) => Ok(values),
+        _ => Err(format!("{column}: the cell names no piece – a value belongs to a piece")),
+    }
+}
+
 /// Make `e` on `show`. The document is checked after it (`validate`): an edit that adds a problem is refused, with the
 /// problem's words; problems the document had before stay its own (the problems list says them).
 pub fn edit(show: &Show, e: &Edit) -> Result<Edited, String> {
+    edit_with(show, e, None)
+}
+
+/// [`edit`] with the knobs of the cell's piece (deck-space `piece::knobs`), which a value edit is checked against.
+pub fn edit_with(show: &Show, e: &Edit, knobs: Option<&[Knob]>) -> Result<Edited, String> {
     let before = crate::validate::validate(show);
     let mut next = show.clone();
     let (said, row) = match e {
@@ -375,6 +393,17 @@ pub fn edit(show: &Show, e: &Edit) -> Result<Edited, String> {
             let row = next.rows.iter().find(|r| r.cells.values().any(|c| matches!(c, Cell::Ask { question: x } if x == question))).map(|r| r.id.clone());
             (said, row)
         }
+        Edit::Value { row, column, .. } | Edit::Take { row, column, .. } => {
+            let i = row_at(&next, row)?;
+            let knobs = knobs.ok_or_else(|| format!("{column}: the piece's knobs are not known here – {}", crate::values::LOADING))?;
+            let values = values_mut(&mut next.rows[i], column)?;
+            let did = match e {
+                Edit::Value { path, to, .. } => crate::values::set(values, knobs, path, *to),
+                Edit::Take { positions, .. } => crate::values::take(values, knobs, positions).map(|n| format!("took {n} knobs – {}", cell_text(&next.rows[i].cells[column]))),
+                _ => unreachable!(),
+            };
+            (format!("row {} {row}, {column}: {}", i + 1, did.map_err(|why| format!("not changed: {why}"))?), Some(row.clone()))
+        }
     };
     let added: Vec<String> = crate::validate::validate(&next).into_iter().filter(|p| !before.contains(p)).map(|p| p.to_string()).collect();
     match added.first() {
@@ -415,6 +444,19 @@ pub struct CellInspector {
     /// #553: who in the column gets the cell – [`FILTER`] and the one condition control ([`cell_condition`]); none: not
     /// offered here
     pub filter: Option<Condition>,
+    /// the piece whose knobs the cell's values turn (a `play` or `values` cell's): the editor's loader gets them
+    pub knobs_of: Option<String>,
+    /// a `values` cell that meets another piece on the rows' path – its sentence (values.rs `warnings`)
+    pub warning: Option<String>,
+}
+
+/// the knobs of `column`'s cell in `row` as scrub numbers – the cell's values over the piece's own (`knobs`: the
+/// piece's, as [`CellInspector::knobs_of`] names it)
+pub fn cell_knobs(show: &Show, row: &str, column: &str, knobs: &[Knob], locale: &str) -> Vec<KnobView> {
+    match show.row(row).and_then(|r| r.cells.get(column)) {
+        Some(Cell::Play { piece: Some(_), values, .. } | Cell::Values { values, .. }) => crate::values::knob_views(values, knobs, locale),
+        _ => vec![],
+    }
 }
 
 /// the cell inspector's label over its filter, and the row inspector's over an address's
@@ -431,7 +473,9 @@ pub fn cell_inspector(show: &Show, row: &str, column: &str) -> Option<CellInspec
     // #551 (found in #553): a cell that asks holds no piece – the outlet's piece plays on under the question
     let asks = matches!(r.cells.get(column), Some(Cell::Ask { .. }));
     let piece = stage.filter(|_| !asks).map(|_| piece_of(r.cells.get(column)).map_or_else(|| NO_PIECE.to_string(), str::to_string));
-    Some(CellInspector { title: format!("cell · row {} {row} · {column}", i + 1), modes: modes(show, row, column), piece, filter: cell_condition(show, row, column) })
+    let knobs_of = piece.as_ref().and_then(|_| piece_of(r.cells.get(column))).map(str::to_string);
+    let warning = crate::values::warnings(show).into_iter().find(|w| w.row == row && w.column == column).map(|w| w.text);
+    Some(CellInspector { title: format!("cell · row {} {row} · {column}", i + 1), modes: modes(show, row, column), piece, filter: cell_condition(show, row, column), knobs_of, warning })
 }
 
 /// One published scene the piece picker lists.

@@ -404,6 +404,22 @@ pub fn available(piece: &str, find: impl FnOnce(&Place) -> Option<Found>) -> Res
     load(&place, None, find, &mut Vec::new()).map(|_| ())
 }
 
+/// The knobs `piece` turns, loaded the way a cell would load it (a core rig, else what `find` has), no mood: what a
+/// cell's values may set (deck-show values.rs). Err = why not.
+pub fn knobs(piece: &str, find: impl FnOnce(&Place) -> Option<Found>) -> Result<Vec<crate::rig::bundle::Knob>, String> {
+    let place = Place::parse(piece).map_err(|e| format!("{piece}: {e}"))?;
+    load(&place, None, find, &mut Vec::new()).map(|p| p.knobs)
+}
+
+/// The slot a cell's value `key` sets (the one parser; a bare name is its node's first knob among `knobs`); none: a bare
+/// name no knob's node has. Err: the key is no address.
+pub fn slot(knobs: &[crate::rig::bundle::Knob], key: &str) -> Result<Option<String>, String> {
+    match Address::leaf(key)? {
+        Leaf::Port { track: None, node, .. } if !key.contains('.') => Ok(knobs.iter().find(|k| node_port(&k.path).0 == node).map(|k| k.path.clone())),
+        leaf => Ok(leaf.slot()),
+    }
+}
+
 /// the node kinds a deck's outlet scene keeps when a piece plays beside it (the picture's way out, the clock)
 const OUTLET_KINDS: [&str; 3] = ["outlet", "screen", "tempo"];
 
@@ -472,9 +488,8 @@ pub fn beside(piece: &str, deck: &str, values: &[(String, f32)]) -> Result<Strin
 fn resolve(played: &Played, piece: &str, numbers: &[(String, f32)], problems: &mut Vec<String>) -> Vec<(String, f32)> {
     let mut out = Vec::new();
     for (key, v) in numbers {
-        let slot = match Address::leaf(key) {
-            Ok(Leaf::Port { track: None, node, .. }) if !key.contains('.') => played.knobs.iter().find(|k| node_port(&k.path).0 == node).map(|k| k.path.clone()),
-            Ok(leaf) => leaf.slot(),
+        let slot = match slot(&played.knobs, key) {
+            Ok(s) => s,
             Err(e) => {
                 problems.push(format!("{piece}: the value '{key}': {e}"));
                 continue;
