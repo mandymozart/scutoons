@@ -43,6 +43,8 @@ mod pages;
 
 /// the exit code that asks deck-session for the browser (the conductor page) instead of the stage
 const EXIT_BROWSER: i32 = 10;
+/// #560: the exit code that asks deck-session for the editor (F9, only where the session swaps: `DECK_SWAP`)
+const EXIT_EDITOR: i32 = 11;
 /// the splash waits this long at most for the chapter and the music (offline without a cache: the scene anyway)
 const SPLASH_MAX_S: f32 = 30.0;
 
@@ -1613,6 +1615,11 @@ impl ApplicationHandler<Event> for App {
                         self.hud.mode = self.hud.mode.next();
                     }
                     Key::Named(NamedKey::F12) => self.open_browser(el),
+                    // #560: F9 – the editor instead of the stage (deck-session swaps; elsewhere F9 does nothing)
+                    Key::Named(NamedKey::F9) if std::env::var_os("DECK_SWAP").is_some() => {
+                        self.exit = EXIT_EDITOR;
+                        el.exit();
+                    }
                     Key::Named(NamedKey::Delete) if self.mods.control_key() && self.mods.alt_key() => self.power_off(),
                     Key::Character("q") if self.mods.control_key() => el.exit(),
                     Key::Named(NamedKey::F3) => tempo.key(tempo::Key::NextSource),

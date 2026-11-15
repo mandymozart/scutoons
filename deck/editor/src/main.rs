@@ -1919,6 +1919,13 @@ impl ApplicationHandler for App {
             WindowEvent::KeyboardInput { event, .. } if self.menu.is_some() => self.menu_key(&event),
             // #471: the flash list's typed filter has the keys while it is focused
             WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed && self.workspace != show::Workspace::Build && self.show.type_key(&event.logical_key) => {}
+            // #560: F9 – back to the stage (deck-session swaps; elsewhere F9 does nothing): exit code 11
+            WindowEvent::KeyboardInput { event, .. }
+                if event.state == ElementState::Pressed && event.logical_key == Key::Named(NamedKey::F9) && std::env::var_os("DECK_SWAP").is_some() =>
+            {
+                self.exit = 11;
+                el.exit();
+            }
             WindowEvent::KeyboardInput { event, .. } => {
                 if event.state == ElementState::Pressed && event.logical_key == Key::Named(NamedKey::Escape) && !self.panel.field.focused {
                     if self.wire && !self.stage.path.is_empty() {
