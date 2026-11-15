@@ -60,7 +60,7 @@ mode=$(setting kiosk)
 export DECK_SWAP=1
 editor() {
   local relay show; relay=$(setting relay); show=$(setting show)
-  deck-editor --workspace perform ${relay:+--relay "$relay"} ${show:+--show "$show"}
+  deck-editor --workspace perform --tokens /usr/share/deck/editor/tokens.toml ${relay:+--relay "$relay"} ${show:+--show "$show"}
 }
 if [ "${mode:-stage}" = editor ] && command -v deck-editor >/dev/null; then
   trap 'exit 0' TERM HUP INT

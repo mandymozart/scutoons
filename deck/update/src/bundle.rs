@@ -37,8 +37,9 @@ const BINARIES: &[(&str, &str)] = &[
     ("deck-editor", "usr/bin/deck-editor"),
 ];
 
-/// #560: data beside a binary – the editor reads its design tokens next to itself
-const BESIDE: &[(&str, &str)] = &[("tokens.toml", "usr/bin/tokens.toml")];
+/// #560: data that comes with a binary – the editor's design tokens (deck-session passes `--tokens` to it; an update
+/// writes only usr/bin/deck* and usr/share/deck/, manifest.rs `allowed`)
+const BESIDE: &[(&str, &str)] = &[("tokens.toml", "usr/share/deck/editor/tokens.toml")];
 
 /// What goes into a bundle: the binaries found in `bin` (cargo's release dir), every allowed path of `rootfs`
 /// (deck/os/rootfs), on the dev channel the sandbox scenes (#427: `*.toml` of deck/native/scenes/sandbox → the deck's
