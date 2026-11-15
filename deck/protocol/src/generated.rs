@@ -345,6 +345,7 @@ pub struct VoteTally {
 	pub expected: Option<i64>,
 }
 
+/// `tie` (#558): the rule's most votes were shared – protocol vote.rs `winner` broke it (the fallback when it is tied, else the first tied option). A client that does not know a value words it as `rule`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum VoteHow {
 	#[serde(rename = "rule")]
@@ -353,6 +354,8 @@ pub enum VoteHow {
 	Fallback,
 	#[serde(rename = "override")]
 	Override,
+	#[serde(rename = "tie")]
+	Tie,
 }
 
 impl VoteHow {
@@ -361,6 +364,7 @@ impl VoteHow {
 			VoteHow::Rule => "rule",
 			VoteHow::Fallback => "fallback",
 			VoteHow::Override => "override",
+			VoteHow::Tie => "tie",
 		}
 	}
 }

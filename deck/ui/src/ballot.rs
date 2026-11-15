@@ -7,7 +7,7 @@
 //! panel parts, the layer `VOTE` of the deck's screen) and what a key or a press on it means: [`Do::Cast`].
 //! The rule stays the relay's: nothing here counts a vote or decides one.
 use crate::live::Do;
-use crate::vote::{decided, percent, How, Rule};
+use crate::vote::{decided, fallback, percent, How, Rule};
 use deck_kit::base::draw::{DrawList, Rect};
 use deck_kit::base::input::Input;
 use deck_kit::base::screen::Layer;
@@ -78,7 +78,7 @@ impl State {
             self.on = None;
             return;
         };
-        on.result = Some((option, r.how.into(), now));
+        on.result = Some((option, How::of(r.how, option, fallback(&on.open)), now));
     }
 
     /// This deck cast `option` (it may change it until the vote closes); false: no vote is open, or it has no such option.
@@ -417,6 +417,24 @@ mod tests {
             s.open(&open("v1", true), 0.0);
             s.result(&result("v1", 2, how), 10.0);
             assert_eq!(s.view(10.0, "en").unwrap().result, Some(Outcome { winner: "Later".into(), how: words.into(), yours: None }));
+        }
+    }
+
+    #[test]
+    fn a_tie_says_so_and_where_it_went() {
+        // #558: Yes 1 : No 1 – the fallback (Later) is not tied, the first tied (Yes) wins; a tied fallback stays
+        let mut later = open("v1", true);
+        later.fallback = Some(2);
+        let cases = [
+            (0, "Yes", "A tie – the option listed first wins.", "Ja", "Gleichstand – die zuerst genannte Wahl gewinnt."),
+            (2, "Later", "A tie – it stays as it was.", "Später", "Gleichstand – es bleibt, wie es war."),
+        ];
+        for (option, en, en_how, de, de_how) in cases {
+            let mut s = State::default();
+            s.open(&later, 0.0);
+            s.result(&result("v1", option, "tie"), 10.0);
+            assert_eq!(s.view(10.0, "en").unwrap().result, Some(Outcome { winner: en.into(), how: en_how.into(), yours: None }));
+            assert_eq!(s.view(10.0, "de").unwrap().result, Some(Outcome { winner: de.into(), how: de_how.into(), yours: None }));
         }
     }
 

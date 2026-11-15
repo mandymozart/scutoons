@@ -9,7 +9,7 @@ use crate::document::{Loc, Question, Typed};
 use deck_ui::vote::{percent, Bar, Group, How};
 /// the panel's model and the form are deck-ui's (named here for a caller without deck-ui)
 pub use deck_ui::vote::{Form, Panel, Rule, State};
-use protocol::{Filter, Message, VoteHow, VoteOpen, VoteResult, VoteRule, VoteTally};
+use protocol::{Filter, Message, VoteOpen, VoteResult, VoteRule, VoteTally};
 use std::collections::{BTreeSet, HashMap};
 
 /// #548: how many votes opened from here are remembered until their result (one runs at a time; the rest is a bound)
@@ -132,14 +132,6 @@ pub(crate) fn rule(r: VoteRule) -> Rule {
     }
 }
 
-fn how(h: VoteHow) -> How {
-    match h {
-        VoteHow::Rule => How::Rule,
-        VoteHow::Fallback => How::Fallback,
-        VoteHow::Override => How::Override,
-    }
-}
-
 /// The panel for what `b` knows; none without a vote. `name` gives a group its name (the show's role, else its id).
 pub fn panel(b: &Board, name: &dyn Fn(&str) -> String) -> Option<Panel> {
     let o = b.open.as_ref()?;
@@ -147,8 +139,7 @@ pub fn panel(b: &Board, name: &dyn Fn(&str) -> String) -> Option<Panel> {
     let n = o.options.len();
     let counts: Vec<i64> = r.map(|r| r.counts.clone()).or_else(|| t.map(|t| t.counts.clone())).unwrap_or_else(|| vec![0; n]);
     let voters: i64 = counts.iter().sum();
-    let fallback = o.fallback.unwrap_or(0).max(0) as usize;
-    let fallback = if fallback < n { fallback } else { 0 };
+    let fallback = deck_ui::vote::fallback(o);
     let total_ms = (o.seconds.max(1) * 1000) as f32;
     let left = if r.is_some() { 0 } else { t.map_or(o.seconds * 1000, |t| t.left) };
     let state = match (r, t.and_then(|t| t.paused)) {
@@ -197,7 +188,7 @@ pub fn panel(b: &Board, name: &dyn Fn(&str) -> String) -> Option<Panel> {
         group_votes,
         voters,
         expected: t.and_then(|t| t.expected),
-        result: r.map(|r| (b.result_label().unwrap_or_default(), how(r.how))),
+        result: r.map(|r| (b.result_label().unwrap_or_default(), How::of(r.how, r.option.max(0) as usize, fallback))),
     })
 }
 

@@ -139,7 +139,8 @@ export interface VoteTally {
 	expected?: number;
 }
 
-export type VoteHow = 'rule' | 'fallback' | 'override';
+/** `tie` (#558): the rule's most votes were shared – protocol vote.rs `winner` broke it (the fallback when it is tied, else the first tied option). A client that does not know a value words it as `rule`. */
+export type VoteHow = 'rule' | 'fallback' | 'override' | 'tie';
 
 /** relay → everyone: the option the conductor applies as the choice event (B.1). */
 export interface VoteResult {
