@@ -68,7 +68,7 @@ impl Loader {
 }
 
 /// the core loads the piece as a cell would; a published scene comes through the core's loader, the API asked with the
-/// editor's token
+/// editor's sign-in (sign_in.rs)
 fn load(piece: &str, base: &str, cache: &std::path::Path) -> Result<Vec<Knob>, String> {
     deck_space::piece::knobs(piece, |place| {
         if place.kind != "scene" {
@@ -79,7 +79,7 @@ fn load(piece: &str, base: &str, cache: &std::path::Path) -> Result<Vec<Knob>, S
             Err(why) => return Some(deck_space::piece::Found::Missing(why)),
         };
         let agent = ureq::AgentBuilder::new().timeout(std::time::Duration::from_secs(8)).build();
-        let got = deck_native::published::load(r, &cache.join("scenes"), |path| deck_native::published::get_with(&agent, base, path, super::api::token()));
+        let got = deck_native::published::load(r, &cache.join("scenes"), |path| deck_native::published::get_with(&agent, base, path, crate::sign_in::current().token()));
         Some(match got.map_err(|e| format!("{e:#}")).and_then(|l| l.text()) {
             Ok(text) => deck_space::piece::Found::Scene(text),
             Err(why) => deck_space::piece::Found::Missing(why),
