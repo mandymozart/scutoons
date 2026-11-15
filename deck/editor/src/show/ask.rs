@@ -458,6 +458,8 @@ mod tests {
         assert!(!host.hits.iter().any(|(_, h)| *h == Hit::CellPiece), "an ask cell has no piece field");
         let made = host.shown().clone();
         assert!(deck_show::validate::validate(&made).is_empty(), "{:?}", deck_show::validate::validate(&made));
+        let fixture = deck_show::parse(include_str!("../../../show/fixtures/asked-by-right-click.show.json")).unwrap();
+        assert_eq!(made, fixture, "the document headless scenario 43 launches: {}", serde_json::to_string(&made).unwrap());
 
         press(&mut host, false, |h| *h == Hit::Save);
         assert_eq!(host.status, "saved vote-cell as version 2");

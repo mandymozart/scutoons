@@ -1,0 +1,33 @@
+name = "a question made by right click on two cells apart: Perform's ▶ on one of them opens the vote for both, for phones"
+about = "#551 (SHOW.md §15 5, 6): show/fixtures/asked-by-right-click.show.json – exactly the document the editor's Show workspace makes from vote-cell by its places (the UI-model test holds it equal): `left` and `right` of row opening selected (shift), the right click's \"New question …\", its words and options typed in the cell inspector; `middle` between them plays on. A hand launch of the one cell `right` (Perform's ▶ on the wide cell) opens the whole question: one `vote.open` for left and right, with the filter a new question starts with (`device: phone`). Its result is the show's event `vote:q2/<n>`. Nothing else opens a vote: Perform's Vote sheet has no form"
+
+[[step]]
+do = "show"
+show = "show/fixtures/asked-by-right-click.show.json"
+outlet = "left"
+expect = { rows = ["opening", "crossroads", "went-left"] }
+
+# the ▶ on `right`: no cell for `left` (an ask cell keeps the piece), the vote for both columns of q2
+[[step]]
+do = "launch"
+row = "opening"
+column = "right"
+
+[step.expect]
+do = "none"
+
+[step.expect.vote]
+vote = "v1"
+options = ["Red", "Blue"]
+question = { en = "Which door?" }
+rule = "majority"
+seconds = 30
+fallback = 0
+groups = ["left", "right"]
+where = { device = "phone" }
+
+# the relay decides Blue: the show's event names the question and the option's place from 1
+[[step]]
+do = "vote"
+option = 1
+expect = { event = "vote:q2/2" }
