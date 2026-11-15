@@ -14,6 +14,8 @@ pub struct Layout {
     pub left: Rect,
     pub stage: Rect,
     pub band: Rect,
+    /// the scene list beside the rows band (scenes.rs)
+    pub scenes: Rect,
     pub right: Rect,
 }
 
@@ -24,10 +26,12 @@ pub fn layout(w: f32, h: f32, t: &Tokens) -> Layout {
     let cw = (w - left_w - right_w).max(1.0);
     let body = (h - top).max(1.0);
     let band_h = (body * 0.27).clamp(120.0, 300.0);
+    let scenes_w = (cw * 0.24).clamp(160.0, 320.0).min(cw * 0.5);
     Layout {
         left: Rect { x: 0.0, y: top, w: left_w, h: body },
         stage: Rect { x: left_w, y: top, w: cw, h: (body - band_h).max(1.0) },
-        band: Rect { x: left_w, y: h - band_h, w: cw, h: band_h },
+        band: Rect { x: left_w, y: h - band_h, w: cw - scenes_w, h: band_h },
+        scenes: Rect { x: left_w + cw - scenes_w, y: h - band_h, w: scenes_w, h: band_h },
         right: Rect { x: w - right_w, y: top, w: right_w, h: body },
     }
 }
@@ -252,9 +256,15 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
             if r.id == sel && plan.columns.get(c).is_some_and(|col| host.cells.contains(&col.id)) {
                 d.outline(x, y + 2.0, col_w - 6.0, rh - 4.0, (t.size.radius, 1.5), t.color.accent);
             }
+            // a scene being dragged: the cell under the pointer is where it lands
+            if host.dragging.is_some() && (Rect { x, y, w: col_w - 6.0, h: rh }).has(pointer.0, pointer.1) {
+                d.outline(x, y + 2.0, col_w - 6.0, rh - 4.0, (t.size.radius, 2.0), t.color.go);
+            }
             host.hits.push((Rect { x, y, w: col_w - 6.0, h: rh }, Hit::Cell(i, c)));
         }
     }
+
+    super::scenes::list(d, t, host, l.scenes, pointer);
 
     // right: the inspector of the row (or #478 the selected role's), the seats, save / load
     let (rx, rw) = (l.right.x + pad, l.right.w - 2.0 * pad);
@@ -310,6 +320,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
     super::roles::ask(d, t, host, l.stage);
     // #551: the right click's typeahead on the selected cells, over everything
     super::ask::draw_context(d, t, host, (w, h));
+    super::scenes::over(d, t, host, (w, h));
 }
 
 /// the right side for a row: #537 its name and remove, its inspector (a cell's line selects it, the cell inspector under
