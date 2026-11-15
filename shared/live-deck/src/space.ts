@@ -183,6 +183,8 @@ export interface SpaceModule {
 	};
 	DeckControls: new () => DeckControlsView;
 	SceneView: { create(canvas: HTMLCanvasElement, scene: string, prefer: string): Promise<import('./scene-stage.ts').SceneView> };
+	/** #549: the phone's voting screen (vote-stage.ts) */
+	VoteView: { create(canvas: HTMLCanvasElement, relay: string, group: string, reader: string, locale: string, api: string, prefer: string): Promise<import('./vote-stage.ts').VoteView> };
 	DeckLink: new (publicKeyHex: string, build: string) => import('./deck-key.ts').DeckLinkView;
 	DeckMonitor: new () => MonitorView;
 	DeckState: (new () => DeckStateView) & { rigging(): DeckStateView };

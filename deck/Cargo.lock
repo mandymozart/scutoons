@@ -4114,6 +4114,7 @@ dependencies = [
  "anyhow",
  "base64",
  "deck-show",
+ "deck-space",
  "futures-util",
  "hmac",
  "libc",

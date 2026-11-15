@@ -17,6 +17,10 @@
 		"./hand": {
 			"types": "./src/hand.ts",
 			"default": "./src/hand.ts"
+		},
+		"./vote-stage": {
+			"types": "./src/vote-stage.ts",
+			"default": "./src/vote-stage.ts"
 		}
 	},
 	"files": [

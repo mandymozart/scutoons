@@ -32,11 +32,15 @@
 //!   mood); the page applies its turns.
 //! - **Scenes (#463, #465):** `SceneView` – a scene drawn by the renderer every deck uses (deck-space `stage`), its control
 //!   domain deck-engine's, its set, portraits and chapters fetched by the page; the idle scene when none is given.
+//! - **The phone's voting screen (#549):** `VoteView` – the audience start (deck-space `audience`: its own relay client as
+//!   an audience phone, `device: phone`, its proof) on the light start (deck-space `stage::Light`: the ballot on deck-kit's
+//!   2D, no scene, no sound); the page brings the socket, the proof's fetch and the wake lock.
 #![cfg(target_arch = "wasm32")]
 
 mod link;
 mod outlet;
 mod scene;
+mod vote;
 
 use deck_space::controls::{Controls, Midi, Selection};
 use deck_space::graph::{Graph, Kind};
