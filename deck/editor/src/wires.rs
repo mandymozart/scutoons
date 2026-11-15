@@ -2,7 +2,8 @@
 //! the one stage). Nothing is decided here (RULES A1): the ports, their addresses and every cable's home are the core's
 //! wiring, a gesture is `Bundle::connected` / `cut` on the document that holds the cable, whether it may stand is
 //! `rig::validate`, its sentence is shown as it comes. The ports a dragged cable may reach are the core's answer too: each
-//! is tried. The draft is a TOML file (the rig, the instruments that changed) until the editor can sign in and save.
+//! is tried. The draft is a TOML file (the rig, the instruments that changed, the server version it was made on): the
+//! offline copy beside the server's drafts (rigs.rs).
 use anyhow::{Context, Result};
 use deck_space::rig::address::{BEING, SOURCES};
 use deck_space::rig::bundle::Played;
@@ -208,9 +209,11 @@ fn checked(bundle: Bundle) -> Result<Bundle, String> {
     Ok(bundle)
 }
 
-/// the draft: the rig, and the instruments that differ from the rig's own
+/// the draft: the server version it was made on, the rig, and the instruments that differ from the rig's own
 #[derive(Serialize, Deserialize)]
 struct Draft {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    version: Option<u64>,
     rig: Rig,
     #[serde(default, rename = "instrument")]
     instruments: Vec<Instrument>,
@@ -247,13 +250,19 @@ pub fn load_draft(path: &Path, base: &Bundle) -> Bundle {
     }
 }
 
-pub fn save_draft(path: &Path, base: &Bundle, bundle: &Bundle) -> Result<()> {
+/// the server version the draft file was made on; None: no file, or not readable (Some(None): made on no server version)
+pub fn draft_version(path: &Path) -> Option<Option<u64>> {
+    let text = std::fs::read_to_string(path).ok()?;
+    toml::from_str::<Draft>(&text).ok().map(|d| d.version)
+}
+
+pub fn save_draft(path: &Path, base: &Bundle, bundle: &Bundle, version: Option<u64>) -> Result<()> {
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir).with_context(|| format!("making {}", dir.display()))?;
     }
     let instruments = bundle.instruments.iter().filter(|i| !base.instruments.contains(i)).cloned().collect();
     let presets = bundle.presets.iter().filter(|p| !base.presets.contains(p)).cloned().collect();
-    let text = toml::to_string(&Draft { rig: bundle.rig.clone(), instruments, presets }).context("the draft as TOML")?;
+    let text = toml::to_string(&Draft { version, rig: bundle.rig.clone(), instruments, presets }).context("the draft as TOML")?;
     std::fs::write(path, text).with_context(|| format!("writing {}", path.display()))
 }
 
@@ -349,9 +358,10 @@ mod tests {
         let a = connect(&b, port(&p, "voice:voice.out"), port(&p, "drone:mix.in3")).expect("a route");
         let next = cut(&a, port(&p, "voice:voice.cv")).expect("an instrument's link");
         let file = draft_file("draft");
-        save_draft(&file, &b, &next).expect("written");
+        save_draft(&file, &b, &next, Some(41)).expect("written");
         let read = load_draft(&file, &b);
         assert_eq!((&read.rig, &read.instruments), (&next.rig, &next.instruments));
+        assert_eq!(draft_version(&file), Some(Some(41)), "the server version it was made on");
         std::fs::remove_file(&file).ok();
     }
 
@@ -392,7 +402,8 @@ mod tests {
         let (b, _) = catpope();
         let next = set_value(&b, "drone", "drone.gain", 0.33).expect("set");
         let file = draft_file("values");
-        save_draft(&file, &b, &next).expect("written");
+        save_draft(&file, &b, &next, None).expect("written");
+        assert_eq!(draft_version(&file), Some(None));
         assert_eq!(load_draft(&file, &b).presets, next.presets);
         std::fs::remove_file(&file).ok();
     }

@@ -86,8 +86,17 @@ impl Api {
     }
 }
 
-#[cfg_attr(not(test), expect(dead_code, reason = "the rig save is the first caller"))]
 impl Api {
+    /// the catalog's documents of `kind` (`GET /api/catalog/docs/rigs` …): the answer's text, else what went wrong in words
+    pub fn catalog(&self, kind: &str) -> Result<String, String> {
+        let url = format!("{}/catalog/docs/{kind}", self.base);
+        match self.auth(Self::agent().get(&url)).call() {
+            Ok(r) => r.into_string().map_err(|e| format!("{url}: {e}")),
+            Err(ureq::Error::Status(code, r)) => Err(self.refused_words(kind, code, &r.into_json().unwrap_or_default())),
+            Err(e) => Err(format!("{url}: {e}")),
+        }
+    }
+
     /// The newest draft of entity `key` (`rig:character.catpope` …) and its version – the `base` of the next save;
     /// None = never saved.
     pub fn draft(&self, key: &str) -> Result<Option<Draft>, String> {
@@ -128,7 +137,6 @@ impl Api {
 }
 
 /// a document's newest draft: its JSON and the version a save names as `base`
-#[cfg_attr(not(test), expect(dead_code, reason = "the rig save is the first caller"))]
 #[derive(Debug, Clone, PartialEq)]
 pub struct Draft {
     pub content: serde_json::Value,
@@ -136,7 +144,6 @@ pub struct Draft {
 }
 
 /// what an API refusal means for a draft of `key`, in words
-#[cfg_attr(not(test), expect(dead_code, reason = "the rig save is the first caller"))]
 pub fn refused_words(key: &str, code: u16, body: &serde_json::Value) -> String {
     let said = body["message"].as_str().unwrap_or("");
     match code {

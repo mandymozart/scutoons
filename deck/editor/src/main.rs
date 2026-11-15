@@ -20,6 +20,7 @@ mod routing;
 mod stage;
 mod tokens;
 mod ui;
+mod rigs;
 mod show;
 mod sign_in;
 mod toon;
@@ -246,6 +247,9 @@ enum Hit {
     Axis(Option<usize>),
     /// #91: a workspace pill in the top bar
     Workspace(show::Workspace),
+    /// Build's rig row: the rig picker, Save
+    RigPick,
+    Save,
     /// the Audio tab's settings, map and tones
     Routing(routing::Field),
 }
@@ -306,6 +310,8 @@ struct Menu {
     from: Option<usize>,
     /// #477: the address book's entries for a far world node's address (track, node, its address): a pick is its holder
     far: Option<(String, String, deck_space::rig::address::Address)>,
+    /// the rig picker: a pick opens that rig (rigs.rs)
+    rigs: bool,
 }
 
 /// a sentence at the place of a gesture, for a few seconds
@@ -393,6 +399,7 @@ struct App {
     book_key: (Option<String>, bool),
     rig_toon: toon::RigToon,
     auth: sign_in::Auth,
+    rigs: rigs::Rigs,
     routing: routing::Page,
 }
 
@@ -418,17 +425,20 @@ fn main() {
 fn run() -> Result<i32> {
     let args = args()?;
     let subject = if args.rig.contains('.') { args.rig.clone() } else { format!("character.{}", args.rig) };
-    let draft = args.draft.clone().unwrap_or_else(|| deck_native::cache::default_dir().join("drafts").join(format!("{subject}.rig.toml")));
-    let stage = stage::Stage::new(&args.rig, args.volume, Some(&draft))?;
+    let cache = deck_native::cache::default_dir();
+    let draft = args.draft.clone().unwrap_or_else(|| rigs::draft_path(&cache, &subject));
+    let (base, at) = rigs::base(&cache, &subject)?;
+    let version = wires::draft_version(&draft).unwrap_or(at);
+    let stage = stage::Stage::new(base, args.volume, Some(&draft))?;
     let info_file = deck_native::cache::default_dir().join("editor-info-closed");
     let tokens = tokens::Watched::new(args.tokens.clone().unwrap_or_else(tokens::default_path));
     let event_loop = EventLoop::new().context("no event loop (no display?)")?;
     let width = tokens.tokens.size.inspector;
     let wire = args.wire;
     let app_workspace = args.workspace;
-    let cache = deck_native::cache::default_dir();
     // a check run (--frames) never asks for a sign-in: SCUTOONS_TOKEN or the kept token only
     let auth = sign_in::Auth::start(&args.api, &cache, args.frames.is_none());
+    let rigs = if args.frames.is_none() { rigs::Rigs::new(&args.api, &cache, &subject, version, auth.token().is_some()) } else { rigs::Rigs::offline(&cache, &subject, version, "a check run asks no server") };
     let rig_toon = if args.toon.is_none() && args.book.is_none() { toon::RigToon::new(&args.api, &subject, &cache) } else { toon::RigToon::none() };
     let mut app_show = show::Host::new(args.show_file.clone(), args.show_id.clone(), args.relay.clone(), args.api.clone());
     app_show.toon.clone_from(&args.toon);
@@ -484,6 +494,7 @@ fn run() -> Result<i32> {
         book_key,
         rig_toon,
         auth,
+        rigs,
         routing: routing::Page::new(deck_native::audio::backend::DeckAudio::read()),
     };
     event_loop.run_app(&mut app).context("the event loop")?;
@@ -580,6 +591,8 @@ impl App {
             }
             Hit::Balance(i) => Help::new(format!("Pan {}", self.stage.strips.get(i)?.track), "Left and right on a stereo pair. Drag it; it applies when you let go."),
             Hit::Peak(_) => Help::new("Highest peak", "The loudest moment in dB, red once it went over 0. Click to clear it."),
+            Hit::RigPick => Help::new("Rig", "Click: the toon's rigs on the server; a pick opens it on the stage. A local copy that differs from the server's is offered."),
+            Hit::Save => Help::new("Save", "A new draft version on the server, on the version opened (ctrl+s). Publishing is in the creator."),
             Hit::Mute(i) => Help::new(format!("Mute {}", self.stage.strips.get(i)?.track), "Takes the track out of the sound."),
             Hit::Field(_) | Hit::InfoBody | Hit::Nothing => return None,
         })
@@ -852,6 +865,8 @@ impl App {
                     self.sel_from_stage();
                 }
             }
+            Hit::RigPick => self.open_rigs(x, y),
+            Hit::Save => self.rigs.save(&self.stage.base, &self.stage.bundle),
             Hit::Nothing => self.focus(false),
         }
     }
@@ -965,7 +980,7 @@ impl App {
             Ok(next) => {
                 self.undo.push(self.stage.bundle.clone());
                 self.stage.bundle = next;
-                if let Err(e) = wires::save_draft(&self.draft, &self.stage.base, &self.stage.bundle) {
+                if let Err(e) = wires::save_draft(&self.draft, &self.stage.base, &self.stage.bundle, self.rigs.version) {
                     self.say(format!("{e:#}"), x, y, true);
                 }
             }
@@ -1055,7 +1070,7 @@ impl App {
         }
         let items = self.stage.ports.iter().enumerate().filter(|(i, _)| if from.is_none() { self.stage.visible[*i] } else { self.reach.get(*i).copied().unwrap_or(false) });
         let items = items.map(|(id, p)| typeahead::Item { id, label: p.address.clone(), detail: format!("{} {}", if p.input { "in" } else { "out" }, p.ty) }).collect();
-        self.menu = Some(Menu { ta: typeahead::Typeahead::new(items, x, y), from, far: None });
+        self.menu = Some(Menu { ta: typeahead::Typeahead::new(items, x, y), from, far: None, rigs: false });
     }
 
     /// #477: the typeahead over the toon's address book for a far world node's address – the kinds a holder may be, found
@@ -1067,7 +1082,7 @@ impl App {
         let Some(book) = self.book.book.clone() else {
             // no book: the typeahead opens anyway and says why inside it
             let ta = typeahead::Typeahead::new(Vec::new(), x, y).with_note(why.unwrap_or_default());
-            self.menu = Some(Menu { ta, from: None, far: Some(far) });
+            self.menu = Some(Menu { ta, from: None, far: Some(far), rigs: false });
             return;
         };
         let kinds = deck_space::world::FAR_HOLDERS;
@@ -1078,7 +1093,7 @@ impl App {
         if let Some(w) = why {
             ta = ta.with_note(w);
         }
-        self.menu = Some(Menu { ta, from: None, far: Some(far) });
+        self.menu = Some(Menu { ta, from: None, far: Some(far), rigs: false });
     }
 
     /// why the book is not fresh, in words (book.rs `Why`)
@@ -1102,10 +1117,66 @@ impl App {
         }
     }
 
+    /// Build's rig on the server (rigs.rs): what its threads answered goes onto the stage and into the notice
+    fn follow_rigs(&mut self) {
+        let (x, y) = self.cursor;
+        for e in self.rigs.poll(self.auth.token().is_some()) {
+            match e {
+                rigs::Event::Opened(subject, opened) => {
+                    let (base, plays) = *opened;
+                    self.stage.path.clear();
+                    if let Err(err) = self.stage.replay(plays) {
+                        self.say(format!("{err:#}"), x, y, true);
+                        continue;
+                    }
+                    self.stage.base = base;
+                    (self.undo, self.sel, self.armed, self.draft) = (Vec::new(), inspector::Sel::Rig, None, self.rigs.draft());
+                    if self.args.toon.is_none() && self.args.book.is_none() {
+                        self.rig_toon = toon::RigToon::new(&self.args.api, &subject, &deck_native::cache::default_dir());
+                    }
+                }
+                rigs::Event::Saved(link) => {
+                    self.stage.base = self.stage.bundle.clone();
+                    let _ = wires::save_draft(&self.draft, &self.stage.base, &self.stage.bundle, self.rigs.version);
+                    if let Some(cb) = self.clipboard.as_mut() {
+                        let _ = cb.set_text(link);
+                    }
+                }
+                rigs::Event::Say(text, bad) => self.say(text, x, y, bad),
+            }
+        }
+    }
+
+    /// the rig picker: the toon's rigs on the server, the local copy when it differs; why there are none inside it
+    fn open_rigs(&mut self, x: f32, y: f32) {
+        let registry = std::fs::read_to_string(toon::kept(&deck_native::cache::default_dir())).unwrap_or_default();
+        let (items, note) = self.rigs.items(self.book_key.0.as_deref(), &registry, &self.auth.line(&deck_link::pairing::app_url()));
+        let mut ta = typeahead::Typeahead::new(items, x, y);
+        if let Some(n) = note {
+            ta = ta.with_note(n);
+        }
+        self.menu = Some(Menu { ta, from: None, far: None, rigs: true });
+    }
+
     /// a row chosen: connected from the armed port, or the port found is armed
     fn pick(&mut self, id: usize) {
         let Some(menu) = self.menu.take() else { return };
         let (x, y) = (menu.ta.x, menu.ta.y);
+        if menu.rigs {
+            match self.rigs.choices.get(id).cloned() {
+                Some(rigs::Choice::Server(subject)) => {
+                    if let Err(e) = self.rigs.open(&subject) {
+                        self.say(e, x, y, true);
+                    }
+                }
+                Some(rigs::Choice::Local) => {
+                    let local = self.rigs.take_local(&self.stage.base).ok_or_else(|| "no local copy".to_string());
+                    self.change(local, "the local copy, saved on the server's version".into(), x, y);
+                }
+                None => {}
+            }
+            return;
+        }
         if let Some((track, node, address)) = menu.far {
             // the entry's address (the book offers only entries a receiver exists for: rig/book.rs `find`)
             let Some(entry) = self.book.book.as_ref().and_then(|b| b.entry(id)).and_then(|e| e.address.clone()) else { return };
@@ -1241,7 +1312,7 @@ impl App {
             self.say(format!("{e:#}"), x, y, true);
             return false;
         }
-        if let Err(e) = wires::save_draft(&self.draft, &self.stage.base, &self.stage.bundle) {
+        if let Err(e) = wires::save_draft(&self.draft, &self.stage.base, &self.stage.bundle, self.rigs.version) {
             self.say(format!("{e:#}"), x, y, true);
         }
         true
@@ -1427,6 +1498,7 @@ impl App {
 
     fn redraw(&mut self, el: &ActiveEventLoop) {
         self.follow_toon();
+        self.follow_rigs();
         self.book.poll();
         // #537: the Show workspace picks a cell's piece from the book's scenes
         self.show.book.clone_from(&self.book.book);
@@ -1573,6 +1645,18 @@ impl App {
             self.panel.hits.push((r, Hit::Row(i)));
         }
         let mut y = top + pad;
+        // the rig open, its version and what the last save came to; the picker and Save (rigs.rs)
+        let save = ui.advance(t.size.small) * 4.0 + 2.0 * pad;
+        let pick = Rect { x: x0 + pad, y, w: px - 3.0 * pad - save, h: row - 4.0 };
+        ui.rect(pick.x, pick.y, pick.w, pick.h, t.color.control);
+        let small = font * 0.85;
+        let line = controls::fit(&self.rigs.line(), ((pick.w - 12.0) / ui.advance(small)) as usize);
+        ui.text(pick.x + 6.0, pick.y + (pick.h - small * 1.25) * 0.5, small, &line, t.color.text);
+        self.panel.hits.push((pick, Hit::RigPick));
+        for r in controls::pills(ui, t, pick.x + pick.w + pad, y, row - 4.0, &["Save"], 0) {
+            self.panel.hits.push((r, Hit::Save));
+        }
+        y += row + pad / 2.0;
         // the tabs
         let names = TABS.map(|(_, name)| name);
         let active = TABS.iter().position(|(tab, _)| *tab == self.panel.tab).unwrap_or(0);
@@ -2013,6 +2097,8 @@ impl ApplicationHandler for App {
                     }
                 } else if self.panel.field.focused {
                     self.key(&event);
+                } else if event.state == ElementState::Pressed && event.logical_key == Key::Character("s".into()) && self.mods.control_key() && self.workspace == show::Workspace::Build {
+                    self.rigs.save(&self.stage.base, &self.stage.bundle);
                 } else if event.state == ElementState::Pressed && event.logical_key == Key::Character("z".into()) && self.mods.control_key() {
                     self.take_back();
                 } else if event.state == ElementState::Pressed && event.logical_key == Key::Character("w".into()) {

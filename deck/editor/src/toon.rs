@@ -58,7 +58,8 @@ impl RigToon {
     }
 }
 
-fn kept(cache: &Path) -> PathBuf {
+/// the registry as last asked (rigs.rs reads it to list the toon's rigs)
+pub fn kept(cache: &Path) -> PathBuf {
     cache.join("library").join("characters.json")
 }
 
