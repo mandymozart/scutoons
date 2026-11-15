@@ -23,7 +23,8 @@ pacman -Si "$KERNEL" >/dev/null 2>&1 || { echo "no package '$KERNEL' in the repo
 
 echo "== the deck binaries (relay, bridge, deck-check, deck with PipeWire, the gamepad and the rig modules (#406), deck-link, deck-update, the editor (#560)) – release, Linux x86_64"
 if [ "${DECK_SKIP_CARGO:-0}" != 1 ]; then
-  (cd "$SRC" && CARGO_TARGET_DIR=$WORK/target CARGO_HOME=$WORK/cargo-home cargo build --release --locked     -p relay -p bridge -p deck-check -p deck-native -p deck-link -p deck-update -p deck-editor --features deck-native/pipewire,deck-native/gamepad,deck-native/modules 2>&1 | tail -3)
+  (cd "$SRC" && CARGO_TARGET_DIR=$WORK/target CARGO_HOME=$WORK/cargo-home cargo build --release --locked     -p relay -p bridge -p deck-check -p deck-native -p deck-link -p deck-update -p deck-editor --features deck-native/pipewire,deck-native/gamepad,deck-native/modules >"$OUT/cargo.log" 2>&1) || { echo "cargo failed – the last lines (all: deck/os/out/cargo.log):"; tail -40 "$OUT/cargo.log"; exit 1; }
+  tail -3 "$OUT/cargo.log"
 fi
 for b in relay bridge deck-check deck deck-link deck-update deck-editor; do [ -x "$WORK/target/release/$b" ] || { echo "missing $WORK/target/release/$b"; exit 1; }; done
 if [ "${DECK_BINARIES_ONLY:-0}" = 1 ]; then
