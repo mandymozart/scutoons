@@ -124,6 +124,8 @@ impl Host {
 
     /// the pointer over the open typeahead highlights its line
     pub fn pointer(&mut self, x: f32, y: f32) {
+        self.cursor = (x, y);
+        self.knob_moved(x);
         if let Some(c) = self.context.as_mut() {
             c.ta.hover(x, y);
         }
@@ -219,6 +221,10 @@ impl Host {
 
     /// The wheel over the inspector scrolls it (its buttons keep their own strip). True = taken.
     pub fn wheel(&mut self, x: f32, y: f32, steps: f32) -> bool {
+        if let Some(Hit::Knob(super::values::KnobHit::Turn(i))) = self.hit(x, y) {
+            self.knob_wheel(i, steps);
+            return true;
+        }
         if !self.side.has(x, y) {
             return false;
         }

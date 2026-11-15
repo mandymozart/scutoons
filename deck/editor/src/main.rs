@@ -1887,7 +1887,10 @@ impl ApplicationHandler for App {
             }
             WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Left, .. } => self.press(),
             WindowEvent::MouseInput { state: ElementState::Pressed, button: button @ (MouseButton::Middle | MouseButton::Right), .. } => self.press_view(button),
-            WindowEvent::MouseInput { state: ElementState::Released, .. } => self.release(),
+            WindowEvent::MouseInput { state: ElementState::Released, .. } => {
+                self.show.release();
+                self.release()
+            }
             WindowEvent::MouseWheel { delta, .. } => {
                 let steps = match delta {
                     MouseScrollDelta::LineDelta(_, y) => y,

@@ -23,7 +23,12 @@ const LOCALE: &str = "en";
 impl Host {
     /// An edit of the shown document's rows or cells: deck-show makes and checks it; the row it names is selected.
     pub(super) fn edit_rows(&mut self, e: &Edit) -> bool {
-        match rows::edit(self.shown(), e) {
+        self.edit_rows_with(e, None)
+    }
+
+    /// the same, with the knobs of the cell's piece a value edit is checked against
+    pub(super) fn edit_rows_with(&mut self, e: &Edit, knobs: Option<&[deck_show::values::Knob]>) -> bool {
+        match rows::edit_with(self.shown(), e, knobs) {
             Ok(done) => {
                 self.status = done.said;
                 if let Some(id) = &done.row {
@@ -41,7 +46,7 @@ impl Host {
     }
 
     /// the row inspected and the column whose cell is selected (ids)
-    fn selected(&self) -> (Option<String>, Option<String>) {
+    pub(super) fn selected(&self) -> (Option<String>, Option<String>) {
         let show = self.shown();
         let row = show.rows.get(self.row).map(|r| r.id.clone());
         let col = self.cell().cloned().filter(|c| show.outlet(c).is_some() || show.seat(c).is_some());
@@ -237,6 +242,9 @@ pub fn cell_side(d: &mut DrawList, t: &Tokens, host: &mut Host, (x, y, w): (f32,
         let r = field(d, t, (x, y, w), rows::PIECE, piece, None);
         host.hits.push((r, Hit::CellPiece));
         y += row;
+    }
+    if let Some(p) = &insp.knobs_of {
+        y += super::values::side(d, t, host, (x, y, w), show, (sel, &col), (p, insp.warning.as_deref()));
     }
     // #551: the question the cell asks – the form, or the story's snapshot (ask.rs)
     if let Some(q) = host.asked_question() {
