@@ -139,15 +139,38 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
                 d.text(cr.x + 6.0, cr.y + 4.0, font, &cell.text, t.color.muted);
                 continue;
             }
-            let over = cr.has(pointer.0, pointer.1);
-            d.round_rect(cr.x, cr.y, cr.w, cr.h, t.size.radius, if over { t.color.hover } else { t.color.control });
+            // #551: adjacent cells of one question are one wide cell, drawn from the column that starts it in deck-show's
+            // words (`AskView::words`; a cell apart says its mark, `q1 · 2 of 3`); its ▶ – a press anywhere on it – opens
+            // the vote of the whole question (the conductor's hand launch, #548); a column inside it draws nothing
+            let (wide, text) = match &cell.ask {
+                Some(a) => match a.words() {
+                    Some(words) => (Rect { w: a.run.max(1) as f32 * col_w - 6.0, ..cr }, words),
+                    None => {
+                        host.hits.push((cr, Hit::Launch(r, c)));
+                        continue;
+                    }
+                },
+                None => (cr, cell.text.clone()),
+            };
+            let over = wide.has(pointer.0, pointer.1);
+            d.round_rect(wide.x, wide.y, wide.w, wide.h, t.size.radius, if over { t.color.hover } else { t.color.control });
             if cell.on {
                 // what plays now; a hand launch off its row is marked in the warning colour
-                d.outline(cr.x, cr.y, cr.w, cr.h, (t.size.radius, 2.0), if cell.hand { t.color.warn } else { t.color.go });
+                d.outline(wide.x, wide.y, wide.w, wide.h, (t.size.radius, 2.0), if cell.hand { t.color.warn } else { t.color.go });
             }
-            d.icon(cr.x + 5.0, cr.y + 5.0, 12.0, "play-fill", t.color.muted);
-            d.text(cr.x + 22.0, cr.y + 4.0, font, &fit(d, &cell.text, font, cr.w - 28.0), t.color.text);
-            let mut note = cr.y + 4.0 + font * 1.45;
+            if cell.ask.is_some() {
+                d.rect(wide.x, wide.y + t.size.radius, 2.0, wide.h - 2.0 * t.size.radius, t.color.accent);
+            }
+            d.icon(wide.x + 5.0, wide.y + 5.0, 12.0, "play-fill", t.color.muted);
+            d.text(wide.x + 22.0, wide.y + 4.0, font, &fit(d, &text, font, wide.w - 28.0), t.color.text);
+            let mut note = wide.y + 4.0 + font * 1.45;
+            // who in the columns gets the question (deck-ui's filter words)
+            if let Some(a) = &cell.ask {
+                if note + small < wide.y + wide.h {
+                    d.text(wide.x + 6.0, note, small, &fit(d, &a.filter, small, wide.w - 12.0), t.color.muted);
+                    note += small * 1.3;
+                }
+            }
             if cell.hand {
                 d.text(cr.x + 6.0, note, small, "hand", t.color.warn);
                 note += small * 1.3;

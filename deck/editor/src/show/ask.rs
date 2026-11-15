@@ -513,6 +513,43 @@ mod tests {
         assert!(host.context.is_none());
     }
 
+    /// one frame of Perform: its texts
+    fn perform_frame(host: &mut Host) -> Vec<String> {
+        let (mut d, t) = (DrawList::new(0.6), Tokens::default());
+        host.hits.clear();
+        super::super::perform::draw(&mut d, &t, host, W, H, (0.0, 0.0));
+        d.texts().into_iter().map(str::to_string).collect()
+    }
+
+    /// step 4: cells of one question apart are each marked (`q1 · 2 of 2`); adjacent ones are one wide cell, in the rows
+    /// band and in Perform's matrix; every column of it launches, and its ▶ opens the vote of the whole question
+    #[test]
+    fn the_question_is_one_wide_cell_in_show_and_perform_and_its_play_opens_the_vote() {
+        let mut host = host_with(VOTE);
+        let (left, middle, right) = (column(&host, "left"), column(&host, "middle"), column(&host, "right"));
+        let marks = |texts: &[String], prefix: &str| texts.iter().filter(|t| t.starts_with(prefix)).count();
+        let (show, perform) = (frame(&mut host), perform_frame(&mut host));
+        for texts in [&show, &perform] {
+            assert_eq!((marks(texts, "q1 · 1 of 2"), marks(texts, "q1 · 2 of 2")), (1, 1), "two cells apart: {texts:?}");
+        }
+        // the column between joins: one wide cell over three columns, said once
+        press(&mut host, false, |h| *h == Hit::Cell(1, middle));
+        right_click(&mut host, 1, middle);
+        typed(&mut host, "add");
+        assert_eq!(host.status, "row 2 crossroads: middle asks q1 – device phone · member · live");
+        let (show, perform) = (frame(&mut host), perform_frame(&mut host));
+        for texts in [&show, &perform] {
+            assert_eq!((marks(texts, "q1 · Which way?"), marks(texts, "q1 · ")), (1, 1), "one wide cell: {texts:?}");
+        }
+        let launches: Vec<usize> = host.hits.iter().filter_map(|(_, h)| if let Hit::Launch(1, c) = h { Some(*c) } else { None }).collect();
+        assert!([left, middle, right].iter().all(|c| launches.contains(c)), "{launches:?}");
+        let (l, sent, _relay) = link::Link::loopback();
+        host.link = Some(l);
+        press(&mut host, true, |h| *h == Hit::Launch(1, right));
+        let groups = sent.try_iter().find_map(|e| if let protocol::Message::VoteOpen(v) = e.message { v.groups } else { None });
+        assert_eq!(groups, Some(vec!["left".to_string(), "middle".to_string(), "right".to_string()]), "the whole question votes");
+    }
+
     /// #553's finding: the cell inspector with the question's form is taller than its panel – it scrolls above Load /
     /// Flash / Save, which keep their own strip; nothing it draws under the strip answers a press
     #[test]
