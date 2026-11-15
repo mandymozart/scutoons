@@ -7,7 +7,7 @@ import { executeVariableAction, giveStoryItem, takeStoryItem } from './variable-
 import { setStoryAvatarLocation, unlockStoryPlace } from '$lib/components/toon/map/map-reveal.ts';
 import { migrateStory } from '$lib/components/toon/map/region-welcome.ts';
 import { runEvents, type RunnerEnv, type RunResult } from './script-runner.ts';
-import { tellSession } from '$lib/reader-story.ts';
+import { tellChoicesClosed, tellSession } from '$lib/reader-story.ts';
 
 /**
  * The one VN script runner (CUTOVER 10.27, owner 2026-10-03: logic stays out of the views): the group's script
@@ -57,7 +57,9 @@ export function readerEnv(game: GameContext): RunnerEnv {
 		migrate: (who, region, options) => migrateStory(who ?? READER_RESIDENT, region, options),
 		cleanText,
 		// #518: a reader in a session tells it each event it fires; normal reading: nobody listens
-		fired: tellSession
+		fired: tellSession,
+		// #552: and when a choice is over (a vote's result no longer finds it there)
+		choicesClosed: tellChoicesClosed
 	};
 }
 

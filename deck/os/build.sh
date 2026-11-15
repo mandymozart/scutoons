@@ -10,7 +10,10 @@ here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 deck=$(cd "$here/.." && pwd)
 out=${DECK_OUT:-$here/out}
 mkdir -p "$out"; out=$(cd "$out" && pwd)   # docker wants an absolute path (a relative DECK_OUT is a volume name to it)
-if command -v cygpath >/dev/null 2>&1; then deck_m=$(cygpath -m "$deck"); out_m=$(cygpath -m "$out"); else deck_m=$deck; out_m=$out; fi
+# #560: the editor embeds the animated logo from creator/static (editor/src/logo.rs: ../../../creator/static/...) - the
+# folder is mounted where that path lands beside /src
+logo=$(cd "$deck/../creator/static" && pwd)
+if command -v cygpath >/dev/null 2>&1; then deck_m=$(cygpath -m "$deck"); out_m=$(cygpath -m "$out"); logo_m=$(cygpath -m "$logo"); else deck_m=$deck; out_m=$out; logo_m=$logo; fi
 
 # #423: the build's version label (the container has no .git): os/version.sh unless the caller (update.sh) set it
 DECK_BUILD_VERSION=${DECK_BUILD_VERSION:-$(bash "$here/version.sh")}
@@ -20,6 +23,7 @@ echo "building the deck ISO in Docker (kernel ${DECK_KERNEL:-linux-rt}) – the 
 MSYS_NO_PATHCONV=1 docker run --rm --privileged \
   -e DECK_KERNEL -e DECK_SKIP_CARGO -e DECK_SANDBOXES -e DECK_TRACE -e DECK_BINARIES_ONLY -e DECK_BUILD_VERSION -e CARGO_BUILD_JOBS \
   -v "$deck_m:/src:ro" \
+  -v "$logo_m:/creator/static:ro" \
   -v scutoons-deck-work:/work \
   -v scutoons-deck-pkg:/var/cache/pacman/pkg \
   -v "$out_m:/out" \

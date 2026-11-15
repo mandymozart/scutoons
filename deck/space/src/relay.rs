@@ -3,7 +3,7 @@
 //! under live-deck client.ts: a `WebSocket` and a timer) and the headless host. The core decides; an adapter moves bytes.
 //!
 //! - **In:** the socket opened, closed (or a dial failed), a message's text; `tick` at `next_wake`; what the app hands
-//!   over (a deck's values, its being, render quality, sync answer, a leader's tempo, a vote's moves). Time is the
+//!   over (a deck's values, its being, render quality, sync answer, a leader's tempo, a vote cast). Time is the
 //!   adapter's clock in ms (the browser: ms since the epoch; the deck: `now_ns` in ms) – pings carry it in µs.
 //! - **Out** (`take`): dial a URL, send a text, close the socket; the status (`Status`, its HUD line `line`); what
 //!   the app hears – joined, a pong stamped on arrival, the show clock's anchor, the conductor's push, the session's
@@ -28,12 +28,12 @@
 //!
 //! `script` runs scripted socket events through a `Client` – the outs every adapter's test compares against
 //! (shared/live-deck/test/fixtures/relay.json, the headless scenario `relay_join`).
-use crate::linked::{Driving, Readers, Steer};
+use crate::linked::{Choice, Driving, Place, Readers, Steer};
 use crate::rig::Stream;
 use protocol::lines::{line, Lines, DATAGRAM_MAX};
 use protocol::{
     Assign, DeckEvent, DeckEvents, DeckGraph, DeckListen, DeckMidi, DeckQuality, DeckSynced, DeckValues, Empty, Envelope, HandPose, HandRecord, HandState, HandView, Hello,
-    LinkQuality, Loose, Message, Ping, Rename, Resume, Role, SceneSync, ShowRole, Snapshot, SyncState, Tempo, To, VoteCast, VoteClose, VoteHold, VoteOpen,
+    LinkQuality, Loose, Message, Ping, Rename, Resume, Role, SceneSync, ShowRole, Snapshot, SyncState, Tempo, To, VoteCast, VoteOpen,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
@@ -291,6 +291,8 @@ pub enum Out {
     /// #527: a reader's place in the session's story changed (linked.rs `Driving`: asked, drives, taken over; whether
     /// another reader drives)
     Driving(Driving),
+    /// #552: a story question's result for the driving reader (linked.rs `Choice`): pick that option, or ignored and why
+    Choice(Choice),
     /// every envelope as it came (`Options::messages`)
     Message(Envelope),
 }
@@ -492,6 +494,8 @@ pub struct Client {
     story_sent: f64,
     /// #527: a reader's claim to drive the session's story and the relay's word on who does
     steer: Steer,
+    /// #552: where a reader's story stands for a vote's result
+    place: Place,
     /// #527: a conductor's view of the linked readers
     readers: Readers,
     // #469: a phone's state and the editor's view, sent again after every welcome; each phone's newest pose heard (its `t`)
@@ -549,6 +553,7 @@ impl Client {
             story: false,
             story_sent: f64::NEG_INFINITY,
             steer: Steer::default(),
+            place: Place::default(),
             readers: Readers::default(),
             hand_state: None,
             hand_view: None,
@@ -1202,8 +1207,15 @@ impl Client {
     /// order fired. Which events matter is the receiver's (deck-events adapters/story.rs `STAYS_IN_THE_STORY`), not the
     /// reader's. #527: only while it drives the session's story (`drive`, granted by the relay) – before the answer, while
     /// away or after a take-over it is dropped, never held and sent later. False: dropped.
+    /// #552: every event also moves where the reader's story stands for a vote's result (linked.rs `Place`), sent or not.
     pub fn story(&mut self, event: Loose) -> bool {
+        self.place.fired(&event);
         self.joined && self.steer.drives() && self.send(Message::Story(event))
+    }
+
+    /// #552: the reader's runner says its choices closed (picked, or none was shown): it stands at no choice now
+    pub fn choices_closed(&mut self) {
+        self.place.closed();
     }
 
     /// #527: the person said yes – this reader drives the session's story from the relay's answer on (`reader.drive`; the
@@ -1326,12 +1338,7 @@ impl Client {
         true
     }
 
-    /// #231: a conductor opens a vote
-    pub fn vote_open(&mut self, p: VoteOpen) -> bool {
-        self.send(Message::VoteOpen(p))
-    }
-
-    /// a vote for `option` of the vote open now (none open: nothing); the ballot marks it once it went out
+    /// the ballot marks a cast only once it went out
     pub fn vote_cast(&mut self, option: i64) -> bool {
         let Some(vote) = self.vote.as_ref().map(|v| v.vote.clone()) else { return false };
         let sent = self.send(Message::VoteCast(VoteCast { vote, option }));
@@ -1341,25 +1348,11 @@ impl Client {
         sent
     }
 
-    /// #556: the vote this client may cast in as its ballot shows it (deck-ui ballot.rs) – fed by `vote.open` (the
-    /// welcome's snapshot's too), `vote.tally`, `vote.result` and this client's casts; its times are this client's
-    /// clock (the `now` of its calls, ms), so `view` is asked with that clock
+    /// its times are this client's clock (the `now` of its calls), so ask `view` with that clock
     pub fn ballot(&self) -> &deck_ui::ballot::State {
         &self.ballot
     }
 
-    /// the conductor closes the open vote (`over`: the option it picks instead)
-    pub fn vote_close(&mut self, over: Option<i64>) -> bool {
-        let Some(vote) = self.vote.as_ref().map(|v| v.vote.clone()) else { return false };
-        self.send(Message::VoteClose(VoteClose { vote, r#override: over }))
-    }
-
-    pub fn vote_hold(&mut self, hold: bool) -> bool {
-        let Some(vote) = self.vote.as_ref().map(|v| v.vote.clone()) else { return false };
-        self.send(Message::VoteHold(VoteHold { vote, hold }))
-    }
-
-    /// the vote open now as a screen hears it (a screen that comes late gets it at once)
     pub fn current_vote(&self) -> Option<Envelope> {
         self.vote.clone().map(|v| relay_says(Message::VoteOpen(v)))
     }
@@ -1463,6 +1456,11 @@ impl Client {
             Message::VoteResult(r) => {
                 self.ballot.result(&r, now);
                 self.vote = None;
+                // #552 (LIVE.md B.1): a story question's result is the driving reader's choice where it stands
+                if let Some(story) = r.story.as_ref().filter(|_| self.o.role == Role::Reader && self.steer.drives()) {
+                    let choice = self.place.result(story, r.option);
+                    self.out.push(Out::Choice(choice));
+                }
                 self.out.push(Out::Vote(e));
             }
             Message::VoteTally(t) => {
@@ -1637,17 +1635,8 @@ pub fn step(c: &mut Client, now: f64, s: &Step) -> Result<(), String> {
         "ping" => {
             c.ping(now);
         }
-        "vote_open" => {
-            c.vote_open(from_value(w).map_err(|e| e.to_string())?);
-        }
         "vote_cast" => {
             c.vote_cast(w.as_i64().unwrap_or(0));
-        }
-        "vote_close" => {
-            c.vote_close(w.as_i64());
-        }
-        "vote_hold" => {
-            c.vote_hold(w.as_bool().unwrap_or(false));
         }
         "hand_pose" => {
             let n = |k: &str| -> Vec<f64> { w[k].as_array().map(|a| a.iter().filter_map(serde_json::Value::as_f64).collect()).unwrap_or_default() };
@@ -1746,9 +1735,7 @@ mod tests {
         vec![("voice.index".into(), Stream::Input([0.0, 8.0])), ("voice.out".into(), Stream::Audio)]
     }
 
-    /// The scripted links every adapter's test replays (shared/live-deck/test/fixtures/relay.json, native's below):
-    /// a deck's join, keyframe, quality and stream through a drop; backoff and keepalive; the push and the answer; the
-    /// show clock; a vote screen; a conductor's push; the outlet's resume; a refused token.
+    /// every adapter's test replays these (shared/live-deck/test/fixtures/relay.json)
     pub fn scripts() -> Vec<(&'static str, Script)> {
         let mk = |join: Value, deck: bool, steps: Vec<Step>| Script {
             join: serde_json::from_value(join).unwrap(),
@@ -1847,23 +1834,6 @@ mod tests {
                         st(0.5, "message", json!({ "kind": "vote.result", "p": { "vote": "v1", "option": 0, "counts": [1, 0], "how": "rule" } })),
                         st(0.6, "vote_cast", json!(0)),
                         st(0.7, "message", json!({ "kind": "say", "p": { "text": "Sit down" } })),
-                    ],
-                ),
-            ),
-            (
-                "conductor-vote",
-                mk(
-                    json!({ "relay": RELAY, "role": "conductor", "token": "tok" }),
-                    false,
-                    vec![
-                        st(0.0, "open", Value::Null),
-                        st(0.1, "message", welcome("c1", json!({}))),
-                        st(0.2, "vote_close", Value::Null),
-                        st(0.3, "vote_open", json!({ "vote": "v1", "options": ["Yes", "No"], "rule": "majority", "seconds": 20 })),
-                        st(0.4, "message", json!({ "kind": "vote.open", "p": { "vote": "v1", "options": ["Yes", "No"], "rule": "majority", "seconds": 20 } })),
-                        st(0.5, "vote_hold", json!(true)),
-                        st(0.6, "vote_close", json!(1)),
-                        st(0.7, "vote_cast", json!(1)),
                     ],
                 ),
             ),
@@ -2163,18 +2133,6 @@ mod tests {
         assert_eq!(heard, ["vote.open", "say", "vote.tally", "vote.result", "say"]);
         assert_eq!(kinds(&t), ["hello", "vote.cast"], "a cast only into an open vote");
         assert_eq!(sent(&t)[1]["p"], json!({ "vote": "v1", "option": 1 }));
-        let c = turns("conductor-vote");
-        assert_eq!(sent(&c)[0]["p"]["token"], "tok");
-        let moves: Vec<(String, Value)> = sent(&c).into_iter().skip(1).map(|e| (e["kind"].as_str().unwrap().to_string(), e["p"].clone())).collect();
-        assert_eq!(
-            moves,
-            [
-                ("vote.open".to_string(), json!({ "vote": "v1", "options": ["Yes", "No"], "rule": "majority", "seconds": 20 })),
-                ("vote.hold".to_string(), json!({ "vote": "v1", "hold": true })),
-                ("vote.close".to_string(), json!({ "vote": "v1", "override": 1 })),
-                ("vote.cast".to_string(), json!({ "vote": "v1", "option": 1 })),
-            ]
-        );
     }
 
     /// #556: the ballot of a deck that hears the vote follows the relay client – the open vote, this deck's cast once
@@ -2223,7 +2181,7 @@ mod tests {
         let outs: Vec<&Out> = t.iter().flat_map(|x| &x.outs).collect();
         assert!(outs.contains(&&Out::Status(Status { state: State::Refused, client: None, why: Some("bad signature".into()), wait: None })));
         assert!(outs.contains(&&Out::Close {}));
-        assert_eq!(lines_of(&scripts()[6].1)[1], "RELAY token: bad signature");
+        assert_eq!(lines_of(&scripts()[5].1)[1], "RELAY token: bad signature");
         assert_eq!(t.iter().filter(|x| x.outs.iter().any(|o| matches!(o, Out::Dial(_)))).map(|x| x.at).collect::<Vec<_>>(), [0.0, 1.11]);
     }
 
@@ -2248,7 +2206,7 @@ mod tests {
         assert_eq!(hellos[0]["p"], json!({ "code": "CATH", "role": "output", "group": "left" }));
         assert_eq!(hellos[1]["p"]["resume"], json!({ "client": "c3", "seq": 9, "key": "key-c3" }));
         assert_eq!(t.iter().flat_map(|x| &x.outs).filter(|o| matches!(o, Out::Message(_))).count(), 2, "every envelope for the composer");
-        let mut c = Client::new(scripts()[8].1.join.clone()).unwrap();
+        let mut c = Client::new(scripts()[7].1.join.clone()).unwrap();
         c.start(0.0);
         c.opened(0.0);
         c.text(0.0, &json!({ "v": 1, "seq": 1, "from": "relay", "kind": "welcome", "p": { "client": "c3", "snapshot": {}, "now": 0 } }).to_string());

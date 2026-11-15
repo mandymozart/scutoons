@@ -17,7 +17,7 @@
 //!
 //! The being's look left the document: every character holder brings its own (the played `Scene` keeps a `being` until the
 //! stage draws several looks, 2·1). Words (§8): spot, location, spawn zone – no `point`, no `place:`.
-use crate::rig::address::{word, Address, Leaf, Place};
+use crate::rig::address::{at_or_below, word, Address, Leaf, Place};
 use crate::scene::{LinkDef, NodeDef, Scene, StageSettings};
 use anyhow::{bail, Context, Result};
 use protocol::address_book::AddressKind;
@@ -119,10 +119,8 @@ impl Act {
 }
 
 impl Listener {
-    /// whether `who` (`character:catpope.pope`) is one this listener acts on: any without a `character`, else that
-    /// character or one below it
     pub fn admits(&self, who: &str) -> bool {
-        self.character.as_deref().is_none_or(|c| who == c || who.strip_prefix(c).is_some_and(|rest| rest.starts_with('.')))
+        self.character.as_deref().is_none_or(|c| at_or_below(c, who))
     }
 
     /// its problems in the core's words (`who`: `listener 2`)
@@ -412,7 +410,6 @@ impl FillerRef {
 }
 
 impl Fill {
-    /// Whether `filler` may fill this placeholder: every fact given holds (`kind`, `ref`, `parent`); the reason when not.
     pub fn admits(&self, filler: &str) -> Result<(), String> {
         let f = FillerRef::parse(filler)?;
         if !self.kind.contains(&f.kind) {
@@ -423,7 +420,7 @@ impl Fill {
             return Err(format!("'{filler}' is not one of {}", self.refs.join(", ")));
         }
         if let Some(parent) = &self.parent {
-            if !filler.strip_prefix(parent.as_str()).is_some_and(|rest| rest.starts_with('.')) {
+            if filler == parent.as_str() || !at_or_below(parent, filler) {
                 return Err(format!("'{filler}' is not below '{parent}'"));
             }
         }

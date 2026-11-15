@@ -9,7 +9,7 @@ use crate::document::{Loc, Question, Typed};
 use deck_ui::vote::{percent, Bar, Group, How};
 /// the panel's model and the form are deck-ui's (named here for a caller without deck-ui)
 pub use deck_ui::vote::{Form, Panel, Rule, State};
-use protocol::{Filter, Message, VoteHow, VoteOpen, VoteResult, VoteRule, VoteTally};
+use protocol::{Filter, Message, VoteOpen, VoteResult, VoteRule, VoteTally};
 use std::collections::{BTreeSet, HashMap};
 
 /// #548: how many votes opened from here are remembered until their result (one runs at a time; the rest is a bound)
@@ -132,14 +132,6 @@ pub(crate) fn rule(r: VoteRule) -> Rule {
     }
 }
 
-fn how(h: VoteHow) -> How {
-    match h {
-        VoteHow::Rule => How::Rule,
-        VoteHow::Fallback => How::Fallback,
-        VoteHow::Override => How::Override,
-    }
-}
-
 /// The panel for what `b` knows; none without a vote. `name` gives a group its name (the show's role, else its id).
 pub fn panel(b: &Board, name: &dyn Fn(&str) -> String) -> Option<Panel> {
     let o = b.open.as_ref()?;
@@ -147,8 +139,7 @@ pub fn panel(b: &Board, name: &dyn Fn(&str) -> String) -> Option<Panel> {
     let n = o.options.len();
     let counts: Vec<i64> = r.map(|r| r.counts.clone()).or_else(|| t.map(|t| t.counts.clone())).unwrap_or_else(|| vec![0; n]);
     let voters: i64 = counts.iter().sum();
-    let fallback = o.fallback.unwrap_or(0).max(0) as usize;
-    let fallback = if fallback < n { fallback } else { 0 };
+    let fallback = deck_ui::vote::fallback(o);
     let total_ms = (o.seconds.max(1) * 1000) as f32;
     let left = if r.is_some() { 0 } else { t.map_or(o.seconds * 1000, |t| t.left) };
     let state = match (r, t.and_then(|t| t.paused)) {
@@ -197,7 +188,7 @@ pub fn panel(b: &Board, name: &dyn Fn(&str) -> String) -> Option<Panel> {
         group_votes,
         voters,
         expected: t.and_then(|t| t.expected),
-        result: r.map(|r| (b.result_label().unwrap_or_default(), how(r.how))),
+        result: r.map(|r| (b.result_label().unwrap_or_default(), How::of(r.how, r.option.max(0) as usize, fallback))),
     })
 }
 
@@ -251,6 +242,8 @@ pub fn open(q: &Question, vote: &str, columns: &[String], filter: Option<&Filter
         show: Some(q.show),
         question: (!words.is_empty()).then_some(words),
         labels: (!labels.is_empty()).then_some(labels),
+        // #552: a story question's choice – the relay hands it on with the result, the linked reader picks by it
+        story: q.story.as_ref().map(|s| protocol::VoteStory { event: s.event.clone(), options: s.ids.clone() }),
     })
 }
 
@@ -344,5 +337,15 @@ mod tests {
         sub.on_wire(&wire(welcome), 10);
         assert_eq!(panel(sub.vote(), &named).map(|p| p.vote), Some("v3".into()));
         assert_eq!(panel(&Board::default(), &named), None);
+    }
+
+    #[test]
+    fn a_story_question_opens_with_its_choice_for_the_linked_reader() {
+        let story = json!({ "id": "q1", "rule": "majority", "seconds": 20, "story": { "toon": "catpope", "chapter": 3, "version": 812, "event": "ch3.door",
+            "options": [{ "en": "Stay", "de": "Bleiben" }, { "en": "Go" }], "ids": ["stay", ""] } });
+        let q: Question = serde_json::from_value(story).unwrap();
+        let o = open(&q, "v1", &[], None).unwrap();
+        assert_eq!(o.story, Some(protocol::VoteStory { event: "ch3.door".into(), options: vec!["stay".into(), "".into()] }));
+        assert_eq!(o.options, ["Stay", "Go"]);
     }
 }

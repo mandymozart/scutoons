@@ -203,6 +203,7 @@
 		"decks_too_many": "Zu viele falsche Codes – versuch es in einer Stunde wieder.",
 		"decks_build": "Build {build}",
 		"decks_class": "Klasse {class}",
+		"decks_editor": "Editor – speichert Entwürfe",
 		"decks_match": "Zeigt sein Bildschirm {code}? Dann gib es frei.",
 		"decks_name": "Name (optional)",
 		"decks_lifetime": "Zugang für",
@@ -908,7 +909,9 @@
 		"drives": "Mit der Bühne verbunden",
 		"taken_over": "Jemand anderes hat die Bühne übernommen",
 		"take_back": "Zurückholen",
-		"leave": "Trennen"
+		"leave": "Trennen",
+		"vote_elsewhere": "Das Publikum hat über eine Wahl abgestimmt, an der deine Lesung nicht steht – sie geht weiter wie bisher.",
+		"vote_not_offered": "Das Publikum hat eine Möglichkeit gewählt, die diese Wahl dir hier nicht bietet – wähle selbst."
 	},
 	"live_deck": {
 		"title": "Deck",

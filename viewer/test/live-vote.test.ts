@@ -27,6 +27,9 @@ test('labels by locale; a wrong length falls back to options', () => {
 test('how it was decided: the rule by its name, else fallback / override', () => {
 	assert.equal(howKey({ rule: 'groups' }, { how: 'rule' }), 'groups');
 	assert.equal(howKey({ rule: 'groups' }, { how: 'override' }), 'override');
+	// #558: a tie (its words come with #557) and a value this page does not know are worded as the rule
+	assert.equal(howKey({ rule: 'majority' }, { how: 'tie' }), 'majority');
+	assert.equal(howKey({ rule: 'majority' }, { how: 'later' as never }), 'majority');
 });
 
 test('percent of the counts, whole numbers, 0 with no votes', () => {

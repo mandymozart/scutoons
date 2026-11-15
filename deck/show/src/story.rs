@@ -244,7 +244,13 @@ pub fn snapshot(choice: &StoryChoice, toon: &str) -> Result<Snapshot, String> {
     }
     let chapter = u32::try_from(choice.chapter).map_err(|_| format!("chapter {} is out of range", choice.chapter))?;
     let version = u32::try_from(choice.version).map_err(|_| format!("version {} is out of range", choice.version))?;
-    Ok(Snapshot { toon: toon.trim().to_string(), chapter, version, event: choice.event.clone().unwrap_or_default(), options: choice.options.iter().map(|o| o.label.clone()).collect() })
+    let options = choice.options.iter().map(|o| o.label.clone()).collect();
+    Ok(Snapshot { toon: toon.trim().to_string(), chapter, version, event: choice.event.clone().unwrap_or_default(), options, ids: ids(choice) })
+}
+
+/// #552: the options' `addChoice` ids as a snapshot keeps them ('' = none)
+fn ids(c: &StoryChoice) -> Vec<String> {
+    c.options.iter().map(|o| o.id.clone().unwrap_or_default()).collect()
 }
 
 /// A pick (#550; the editor's "one of the story's" on selected cells, #551): row `row` asks the toon's story question.
@@ -306,7 +312,8 @@ pub fn changed_text(q: &Question, toon: &str, choices: &[StoryChoice]) -> Option
     let s = q.story.as_ref().filter(|s| s.toon == toon)?;
     match choices.iter().find(|c| c.chapter == u64::from(s.chapter) && c.event.as_deref() == Some(s.event.as_str())) {
         None => Some(format!("question '{}': ch {} of {toon} has no published question {} any more", q.id, s.chapter, s.event)),
-        Some(c) if c.options.iter().map(|o| &o.label).ne(s.options.iter()) => Some(format!("question '{}': {} changed since it was picked (version {} → {}) – pick it again", q.id, s.event, s.version, c.version)),
+        // #552: the options' ids too – the linked reader finds the voted option by its id (a snapshot from before has none)
+        Some(c) if c.options.iter().map(|o| &o.label).ne(s.options.iter()) || ids(c) != s.ids => Some(format!("question '{}': {} changed since it was picked (version {} → {}) – pick it again", q.id, s.event, s.version, c.version)),
         Some(_) => None,
     }
 }
@@ -425,7 +432,8 @@ mod tests {
         let labels = |pairs: &[(&str, &str)]| pairs.iter().map(|(l, t)| (l.to_string(), t.to_string())).collect::<BTreeMap<_, _>>();
         assert_eq!(
             q2.story,
-            Some(Snapshot { toon: "catpope".into(), chapter: 3, version: 812, event: "ch3.door".into(), options: vec![labels(&[("de", "Bleiben"), ("en", "Stay")]), labels(&[("de", "Gehen"), ("en", "Go")])] })
+            Some(Snapshot { toon: "catpope".into(), chapter: 3, version: 812, event: "ch3.door".into(), options: vec![labels(&[("de", "Bleiben"), ("en", "Stay")]), labels(&[("de", "Gehen"), ("en", "Go")])], ids: vec!["stay".into(), "".into()] }),
+            "#552: the options' ids with their labels ('' = none)"
         );
         assert_eq!((q2.typed.is_none(), q2.rule, q2.n, q2.seconds, q2.fallback, q2.show), (true, protocol::VoteRule::Majority, None, 30, 0, true));
         assert_eq!(q2.label("en"), "story: ch3.door");
@@ -454,6 +462,13 @@ mod tests {
         let mut newer = story.choices.clone();
         newer[0].version = 815;
         assert!(changed(&q1, "catpope", &newer).is_empty(), "the same choice at a newer version");
+        // #552: an option's id changed (or a snapshot from before #552 has none): pick it again
+        let mut renamed = newer.clone();
+        renamed[0].options[1].id = Some("go".into());
+        assert_eq!(changed(&q1, "catpope", &renamed)[0].text, "question 'q1': ch3.door changed since it was picked (version 812 → 815) – pick it again");
+        let mut old = q1.clone();
+        old.questions.iter_mut().find(|q| q.id == "q1").and_then(|q| q.story.as_mut()).unwrap().ids.clear();
+        assert_eq!(changed(&old, "catpope", &newer).len(), 1, "a snapshot without ids");
         // a label changed: a warning at the row that asks it
         newer[0].options[1].label.insert("en".into(), "Leave".into());
         let w = changed(&q1, "catpope", &newer);

@@ -25,6 +25,7 @@
 	const when = (utc: string) => formatDate(new Date(`${utc.replace(' ', 'T')}Z`));
 	const details = (d: Deck) =>
 		[
+			d.kind === 'editor' && m['account.decks_editor'](),
 			d.build && m['account.decks_build']({ build: d.build }),
 			d.last_seen_at && m['account.decks_last_seen']({ date: when(d.last_seen_at) }),
 			d.idle_days && m['account.decks_idle_days']({ days: d.idle_days })

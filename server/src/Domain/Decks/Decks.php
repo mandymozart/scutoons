@@ -9,6 +9,7 @@ use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Mail\Mailer;
 use Scutoons\Domain\Mail\MailTemplates;
 use Scutoons\Domain\RateLimit\RateLimiter;
+use Scutoons\Domain\Roles\Roles;
 use Scutoons\Infrastructure\Clock\Clock;
 use Scutoons\Infrastructure\Config\Settings;
 use Scutoons\Infrastructure\Database\Database;
@@ -29,10 +30,16 @@ use Throwable;
  * (one row per public key), the build never becomes useless.
  *
  * The signed message: SIGNED_PREFIX . challenge (hex) . ':' . public key (hex) – domain-separated, bound to the deck.
+ *
+ * The native editor signs in the same way, as the kind `editor` (research/NATIVE-EDITOR-GUI.md §5 "Sign-in"): its token
+ * (`sce_…`) acts as its member with draft rights (Http\EditorTokenScope), and only a creator or an admin approves one.
  */
 final class Decks
 {
     public const TOKEN_PREFIX = 'scd_';
+    public const EDITOR_TOKEN_PREFIX = 'sce_';
+    public const KIND_DECK = 'deck';
+    public const KIND_EDITOR = 'editor';
     public const SIGNED_PREFIX = 'scutoons-deck-token:v1:';
     /** a pending request ends after this (the code on the splash) */
     public const PENDING_MINUTES = 10;
@@ -60,12 +67,29 @@ final class Decks
         private readonly Mailer $mailer,
         private readonly Settings $settings,
         private readonly RateLimiter $limiter,
+        private readonly Roles $roles,
     ) {
     }
 
     public static function isDeckToken(?string $token): bool
     {
         return $token !== null && str_starts_with($token, self::TOKEN_PREFIX);
+    }
+
+    public static function isEditorToken(?string $token): bool
+    {
+        return $token !== null && str_starts_with($token, self::EDITOR_TOKEN_PREFIX);
+    }
+
+    /** @param array<string, mixed> $row */
+    private static function kindOf(array $row): string
+    {
+        return ($row['kind'] ?? self::KIND_DECK) === self::KIND_EDITOR ? self::KIND_EDITOR : self::KIND_DECK;
+    }
+
+    private static function prefixOf(string $kind): string
+    {
+        return $kind === self::KIND_EDITOR ? self::EDITOR_TOKEN_PREFIX : self::TOKEN_PREFIX;
     }
 
     /** Before migration 2026-10-29-decks the endpoints answer 503 */
@@ -83,7 +107,7 @@ final class Decks
     /**
      * A deck asks for access → { status: pending, id, code, expires_at } (the same code again while its request is open),
      * or { status: approved, id } when its approval still holds (then it goes on with `challenge`)
-     * @param array<mixed> $body { public_key, build?, class?, hostname? }
+     * @param array<mixed> $body { public_key, build?, class?, hostname?, kind? (deck | editor, default deck) }
      * @return array<string, mixed>
      */
     public function request(array $body): array
@@ -93,8 +117,14 @@ final class Decks
         $build = self::text($body['build'] ?? '', 64, 'build');
         $class = self::text($body['class'] ?? '', 16, 'class');
         $hostname = self::text($body['hostname'] ?? '', 64, 'hostname');
+        $kind = $body['kind'] ?? self::KIND_DECK;
+        if (!in_array($kind, [self::KIND_DECK, self::KIND_EDITOR], true)) {
+            throw new ApiError(400, 'invalid_kind', 'kind is deck or editor.', ['field' => 'kind']);
+        }
         $this->sweep();
         $row = $this->byKey($key);
+        // a key that asks as another kind starts over: an approval never changes what it allows
+        if ($row !== null && self::kindOf($row) !== $kind) $row = ['status' => 'revoked'] + $row;
         if ($row !== null && $this->valid($row)) return ['status' => 'approved', 'id' => (string) $row['id']];
         if ($row !== null && $row['status'] === 'pending' && $row['expires_at'] > $this->clock->utc()) {
             $this->db->run('UPDATE decks SET build = ?, class = ?, hostname = ? WHERE id = ?', [$build, $class, $hostname, $row['id']]);
@@ -104,15 +134,15 @@ final class Decks
         $expires = $this->clock->utc(self::PENDING_MINUTES * 60);
         if ($row === null) {
             $id = Ids::uuid7();
-            $this->db->run('INSERT INTO decks (id, public_key, status, code, build, class, hostname, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                [$id, $key, 'pending', $code, $build, $class, $hostname, $expires, $this->clock->utc()]);
+            $this->db->run('INSERT INTO decks (id, public_key, kind, status, code, build, class, hostname, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [$id, $key, $kind, 'pending', $code, $build, $class, $hostname, $expires, $this->clock->utc()]);
         } else {
             // revoked or expired: the same deck asks again – back to pending, nothing of the old approval stays
             $id = (string) $row['id'];
-            $this->db->run('UPDATE decks SET status = ?, code = ?, build = ?, class = ?, hostname = ?, name = NULL, user_id = NULL, mapping = ?, mapping_ref = NULL,'
+            $this->db->run('UPDATE decks SET kind = ?, status = ?, code = ?, build = ?, class = ?, hostname = ?, name = NULL, user_id = NULL, mapping = ?, mapping_ref = NULL,'
                 . ' lifetime_days = NULL, idle_days = NULL, expires_at = ?, reminded_at = NULL, challenge = NULL, challenge_expires_at = NULL, token_hash = NULL,'
                 . ' token_expires_at = NULL, created_at = ?, approved_at = NULL, revoked_at = NULL WHERE id = ?',
-                ['pending', $code, $build, $class, $hostname, 'member', $expires, $this->clock->utc(), $id]);
+                [$kind, 'pending', $code, $build, $class, $hostname, 'member', $expires, $this->clock->utc(), $id]);
         }
         $this->cache = [];
         return ['status' => 'pending', 'id' => $id, 'code' => $code, 'expires_at' => $expires];
@@ -157,7 +187,7 @@ final class Decks
             || !self::verify((string) hex2bin($signature), self::SIGNED_PREFIX . $challenge . ':' . $key, (string) hex2bin($key))) {
             throw new ApiError(401, 'bad_signature', 'The signature does not match this deck.');
         }
-        $token = self::TOKEN_PREFIX . Ids::token();
+        $token = self::prefixOf(self::kindOf($row)) . Ids::token();
         $expires = $this->clock->utc(self::TOKEN_SECONDS);
         $this->db->run('UPDATE decks SET token_hash = ?, token_expires_at = ?, last_seen_at = ? WHERE id = ?',
             [hash('sha256', $token), $expires, $this->clock->utc(), $row['id']]);
@@ -182,6 +212,7 @@ final class Decks
         if ($row === null) return $this->cache[$token] = null;
         $user = $this->users->byId((string) $row['user_id']);
         if ($user === null) return $this->cache[$token] = null;
+        if (self::kindOf($row) === self::KIND_EDITOR && !$this->roles->canEditContent($user)) return $this->cache[$token] = null;
         if ($row['last_seen_at'] === null || $row['last_seen_at'] < $this->clock->utc(-60)) {
             $this->db->run('UPDATE decks SET last_seen_at = ? WHERE id = ?', [$this->clock->utc(), $row['id']]);
         }
@@ -201,13 +232,15 @@ final class Decks
             return $this->rows[$token] = null; // before the migration: no deck token works
         }
         if ($row === null || !$this->valid($row) || $row['token_expires_at'] < $this->clock->utc()) return $this->rows[$token] = null;
+        // the token's prefix is the scope the request gets (Http\Middleware\Session): it must be its row's kind
+        if (!str_starts_with($token, self::prefixOf(self::kindOf($row)))) return $this->rows[$token] = null;
         return $this->rows[$token] = $row;
     }
 
     // ── the member's side (a real sign-in; DeckTokenScope / ApiTokenScope refuse tokens) ───────────────────────
 
     /**
-     * What waits behind a code (the pairing page shows it before the member approves): { code, hostname, build, class,
+     * What waits behind a code (the pairing page shows it before the member approves): { code, kind, hostname, build, class,
      * expires_at } · 404 unknown_code (counted against CODE_TRIES)
      * @param array<string, mixed> $user
      * @return array<string, mixed>
@@ -216,7 +249,7 @@ final class Decks
     {
         $this->requireAvailable();
         $row = $this->pendingByCode($user, $code);
-        return ['code' => (string) $row['code'], 'hostname' => (string) $row['hostname'], 'build' => (string) $row['build'],
+        return ['code' => (string) $row['code'], 'kind' => self::kindOf($row), 'hostname' => (string) $row['hostname'], 'build' => (string) $row['build'],
             'class' => (string) $row['class'], 'expires_at' => (string) $row['expires_at']];
     }
 
@@ -234,7 +267,10 @@ final class Decks
         $idle = isset($body['idle_days']) ? self::days($body['idle_days'], 'idle_days') : null;
         $name = self::text($body['name'] ?? '', 100, 'name');
         $row = $this->pendingByCode($user, $body['code'] ?? null);
-        $count = (int) $this->db->value('SELECT COUNT(*) FROM decks WHERE user_id = ? AND status = ?', [(string) $user['id'], 'approved']);
+        if (self::kindOf($row) === self::KIND_EDITOR && !$this->roles->canEditContent($user)) {
+            throw new ApiError(403, 'forbidden', 'An editor saves drafts – approving one needs the creator role.', ['role' => Roles::CREATOR]);
+        }
+        $count =(int) $this->db->value('SELECT COUNT(*) FROM decks WHERE user_id = ? AND status = ?', [(string) $user['id'], 'approved']);
         if ($count >= self::MAX) throw new ApiError(409, 'too_many', 'At most ' . self::MAX . ' decks – revoke one you no longer use.');
         $now = $this->clock->utc();
         $this->db->run('UPDATE decks SET status = ?, code = NULL, user_id = ?, name = ?, mapping = ?, lifetime_days = ?, idle_days = ?, expires_at = ?,'
@@ -411,7 +447,7 @@ final class Decks
     private static function displayName(array $row): string
     {
         $name = (string) ($row['name'] ?? '');
-        return $name !== '' ? $name : ((string) $row['hostname'] !== '' ? (string) $row['hostname'] : 'Deck');
+        return $name !== '' ? $name : ((string) $row['hostname'] !== '' ? (string) $row['hostname'] : (self::kindOf($row) === self::KIND_EDITOR ? 'Editor' : 'Deck'));
     }
 
     /**
@@ -422,6 +458,7 @@ final class Decks
     {
         return [
             'id' => (string) $r['id'],
+            'kind' => self::kindOf($r),
             'name' => self::displayName($r),
             'hostname' => (string) $r['hostname'],
             'build' => (string) $r['build'],

@@ -108,7 +108,7 @@ Old section names in code comments (until 2026-11-03): "Backlog" = C · "Git, se
 - **J1** New code is TypeScript with unit tests for its logic (apps, shared, scripts); a CLI only a thin entry; no new plain-JS / .mjs layers. On the deck side TS is UI + adapters only (A1). (2026-10-20 [ts-tests]: "typescript and unit tests will help us save a lot of time")
 - **J2** Shared: apps → shared, never the reverse; `tokens ← ui ← reader`; `content` without Svelte; moving code into shared is a move, not a copy (PLATFORM "dogmas").
 - **J3** One component = one job, ≤ 300 lines (> 400 needs a reason in its header); logic in `lib/editor/*.ts`; no local copies of tools.css vocabulary; imports `$lib/…`; suffixes `-editor -panel -inspector -field -picker -slot -canvas`. [rules-only]
-- **J4** Comments may cite docs / issues / old item numbers; a doc keeps its name wherever it lives under agents/.
+- **J4** Comments much less: one line on why, when the code cannot say it; no history, no owner quotes, no ticket numbers – a ticket only as a placeholder `TODO(#N)` for work still open (history lives in commits and issues). Existing comments are trimmed when a file is touched, not in a sweep. (2026-11-15 [comments])
 
 ## K · Docs (2026-10-12 [docs]: "nicht zu sehr ausrasten lassen")
 - **K1** Caps (owner 2026-10-12 [docs]): RULES 150 · HANDOVER 60, aim ≤ 40 (replace, never append) · GOTCHAS 80; new 2026-11-03 (#380, to confirm): AUDIT 80 · ORCHESTRATION 100 · topic docs "how it IS now", trim over ~500 lines · research/ line 1 = status · archive/ frozen. Map: README.md.

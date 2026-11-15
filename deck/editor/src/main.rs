@@ -16,10 +16,13 @@ mod gpu_time;
 mod logo;
 mod mixer;
 mod inspector;
+mod routing;
 mod stage;
 mod tokens;
 mod ui;
 mod show;
+mod sign_in;
+mod toon;
 mod wires;
 
 use anyhow::{Context, Result};
@@ -40,6 +43,8 @@ use winit::window::{Window, WindowId};
 
 struct Args {
     rig: String,
+    /// the panel's tab at the start: inspector | text | audio
+    tab: Tab,
     frames: Option<u64>,
     screenshot: Option<PathBuf>,
     tokens: Option<PathBuf>,
@@ -80,7 +85,7 @@ struct Args {
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { rig: "catpope".into(), frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None };
+    let mut a = Args { rig: "catpope".into(), frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -109,6 +114,10 @@ fn args() -> Result<Args> {
                 a.wire = true;
             }
             "--draft" => a.draft = Some(PathBuf::from(val()?)),
+            "--tab" => {
+                let v = val()?;
+                a.tab = TABS.iter().find(|(_, n)| n.eq_ignore_ascii_case(&v)).map(|(t, _)| *t).context("--tab inspector | text | audio")?;
+            }
             "--workspace" => a.workspace = show::Workspace::parse(&val()?).context("--workspace build | show | perform")?,
             "--show" => match val()? {
                 v if v.ends_with(".json") => a.show_file = Some(PathBuf::from(v)),
@@ -189,9 +198,10 @@ fn args() -> Result<Args> {
 enum Tab {
     Rig,
     Text,
+    Audio,
 }
 
-const TABS: [(Tab, &str); 2] = [(Tab::Rig, "Inspector"), (Tab::Text, "Text")];
+const TABS: [(Tab, &str); 3] = [(Tab::Rig, "Inspector"), (Tab::Text, "Text"), (Tab::Audio, "Audio")];
 /// a scrub-number's travel for the knob's whole range (pixels)
 const SCRUB_PX: f32 = 240.0;
 
@@ -236,6 +246,8 @@ enum Hit {
     Axis(Option<usize>),
     /// #91: a workspace pill in the top bar
     Workspace(show::Workspace),
+    /// the Audio tab's settings, map and tones
+    Routing(routing::Field),
 }
 
 /// what is being dragged
@@ -376,8 +388,17 @@ struct App {
     /// #91: Build, Show or Perform; the show's conductor and what the show workspaces show
     workspace: show::Workspace,
     show: show::Host,
-    /// #477: the toon's address book
+    /// #477: the toon's address book, of the toon open now (toon.rs) – the toon and whether signed in when it was asked
     book: book::Loader,
+    book_key: (Option<String>, bool),
+    rig_toon: toon::RigToon,
+    auth: sign_in::Auth,
+    routing: routing::Page,
+}
+
+/// the top bar's status, the sign-in first while the editor is not signed in (`line`: sign_in.rs, "" when signed in)
+fn signed(line: &str, status: String) -> String {
+    if line.is_empty() { status } else { format!("{line} · {status}") }
 }
 
 /// the language of the book's labels: the editor's own words are English (not translated yet)
@@ -405,14 +426,19 @@ fn run() -> Result<i32> {
     let width = tokens.tokens.size.inspector;
     let wire = args.wire;
     let app_workspace = args.workspace;
+    let cache = deck_native::cache::default_dir();
+    // a check run (--frames) never asks for a sign-in: SCUTOONS_TOKEN or the kept token only
+    let auth = sign_in::Auth::start(&args.api, &cache, args.frames.is_none());
+    let rig_toon = if args.toon.is_none() && args.book.is_none() { toon::RigToon::new(&args.api, &subject, &cache) } else { toon::RigToon::none() };
     let mut app_show = show::Host::new(args.show_file.clone(), args.show_id.clone(), args.relay.clone(), args.api.clone());
     app_show.toon.clone_from(&args.toon);
     if let Some(f) = &args.story {
         app_show.story_from_file(f);
     }
-    let app_book = book::Loader::new(&args.api, args.toon.as_deref(), args.book.as_deref(), show::api::token(), &deck_native::cache::default_dir());
+    let app_book = book::Loader::new(&args.api, args.toon.as_deref(), args.book.as_deref(), auth.token(), &cache);
+    let book_key = (args.toon.clone(), auth.token().is_some());
     let mut app = App {
-        panel: Panel { width, tab: Tab::Rig, field: text::Field::with("Grüße an die Bühne – type here"), drag: None, hits: Vec::new(), field_rect: Rect { x: 0.0, y: 0.0, w: 0.0, h: 0.0 }, advance: 8.0 },
+        panel: Panel { width, tab: args.tab, field: text::Field::with("Grüße an die Bühne – type here"), drag: None, hits: Vec::new(), field_rect: Rect { x: 0.0, y: 0.0, w: 0.0, h: 0.0 }, advance: 8.0 },
         args,
         window: None,
         gpu: None,
@@ -455,6 +481,10 @@ fn run() -> Result<i32> {
         workspace: app_workspace,
         show: app_show,
         book: app_book,
+        book_key,
+        rig_toon,
+        auth,
+        routing: routing::Page::new(deck_native::audio::backend::DeckAudio::read()),
     };
     event_loop.run_app(&mut app).context("the event loop")?;
     let summary = app.summary();
@@ -532,6 +562,10 @@ impl App {
             Hit::Knob(i) => Help::new(self.stage.knobs.get(i)?.label.clone(), "Drag or use the wheel to turn it in the engine."),
             Hit::Divider => Help::new("Panel edge", "Drag to resize the panel."),
             Hit::Tab(_) => Help::new("Tab", "Switches what the panel shows."),
+            Hit::Routing(f) => {
+                let (title, text) = self.routing.help(f);
+                Help::new(title, text)
+            }
             Hit::InfoHead => Help::new("Info", "What is under the pointer. Click to fold or open it."),
             Hit::Param(n, p) => Help::new(self.stage.param(n, p)?.name, "Drag or use the wheel to set it in the engine."),
             Hit::Address(_) => Help::new("Address", "Click: the toon's address book. A pick becomes the holder this far world node listens to."),
@@ -673,6 +707,7 @@ impl App {
         }
         match self.hit(x, y) {
             Hit::Workspace(w) => self.workspace = w,
+            Hit::Routing(f) => routing::act(&mut self.routing, &mut self.stage, f),
             Hit::Divider => self.panel.drag = Some(Drag::Divider),
             Hit::Tab(t) => {
                 self.panel.tab = t;
@@ -1028,16 +1063,43 @@ impl App {
     fn open_book(&mut self, node: usize, x: f32, y: f32) {
         self.book.poll();
         let Some(far) = self.stage.far(node) else { return };
+        let why = self.book_why();
         let Some(book) = self.book.book.clone() else {
-            let why = self.book.why.clone().unwrap_or_else(|| "the address book is still on its way".into());
-            return self.say(why, x, y, true);
+            // no book: the typeahead opens anyway and says why inside it
+            let ta = typeahead::Typeahead::new(Vec::new(), x, y).with_note(why.unwrap_or_default());
+            self.menu = Some(Menu { ta, from: None, far: Some(far) });
+            return;
         };
         let kinds = deck_space::world::FAR_HOLDERS;
         let row = |i: usize| book.row(i, LOCALE).map(|r| typeahead::Item { id: i, label: r.chain, detail: format!("{}{}", r.kind.as_str(), if r.draft { " · draft" } else { "" }) });
         let items = book.find("", &kinds, LOCALE).into_iter().filter_map(row).collect();
         let found = book.clone();
-        let ta = typeahead::Typeahead::found_by(items, x, y, move |q| found.find(q, &kinds, LOCALE));
+        let mut ta = typeahead::Typeahead::found_by(items, x, y, move |q| found.find(q, &kinds, LOCALE));
+        if let Some(w) = why {
+            ta = ta.with_note(w);
+        }
         self.menu = Some(Menu { ta, from: None, far: Some(far) });
+    }
+
+    /// why the book is not fresh, in words (book.rs `Why`)
+    fn book_why(&self) -> Option<String> {
+        self.book.why.as_ref().map(|w| w.text(self.auth.code().as_deref(), std::time::SystemTime::now()))
+    }
+
+    /// the book follows the toon open now (toon.rs) and the sign-in: a new loader when either changed
+    fn follow_toon(&mut self) {
+        if self.args.book.is_some() {
+            return;
+        }
+        self.rig_toon.poll();
+        let build = self.workspace == show::Workspace::Build;
+        let toon = toon::wanted(self.args.toon.as_deref(), build, self.rig_toon.toon.as_deref(), self.show.place_toon());
+        let token = self.auth.token();
+        let key = (toon, token.is_some());
+        if key != self.book_key {
+            self.book = book::Loader::new(&self.args.api, key.0.as_deref(), None, token, &deck_native::cache::default_dir());
+            self.book_key = key;
+        }
     }
 
     /// a row chosen: connected from the armed port, or the port found is armed
@@ -1364,11 +1426,13 @@ impl App {
     }
 
     fn redraw(&mut self, el: &ActiveEventLoop) {
+        self.follow_toon();
         self.book.poll();
         // #537: the Show workspace picks a cell's piece from the book's scenes
         self.show.book.clone_from(&self.book.book);
-        self.show.book_why.clone_from(&self.book.why);
+        self.show.book_why = self.book_why();
         let help = self.help_now();
+        let sign_in = self.auth.line(&deck_link::pairing::app_url());
         let (Some(window), Some(gpu), Some(ui)) = (self.window.clone(), self.gpu.as_mut(), self.ui.as_mut()) else { return };
         self.stage.space.being.hold(self.wire, false);
         // Wire shows a level of the tree, Play every node
@@ -1464,7 +1528,7 @@ impl App {
             let names = show::WORKSPACES.map(|(_, n)| n);
             let logo_frame = ((self.started.elapsed().as_secs_f32() / logo::SECONDS).fract() * logo::FRAMES as f32) as usize;
             let title = self.show.sub.conductor().show().id.clone();
-            let bar = bar::Bar { title: &title, status: &self.show.link_line(), wire: self.wire, logo_frame, pointer: self.cursor, cpu: self.cpu_load, gpu: None, workspaces: &names, workspace: self.workspace.index() };
+            let bar = bar::Bar { title: &title, status: &signed(&sign_in, self.show.link_line()), wire: self.wire, logo_frame, pointer: self.cursor, cpu: self.cpu_load, gpu: None, workspaces: &names, workspace: self.workspace.index() };
             let (_, pills) = bar::draw(ui, t, wf, &bar);
             for (r, (w, _)) in pills.into_iter().zip(show::WORKSPACES) {
                 self.panel.hits.push((r, Hit::Workspace(w)));
@@ -1533,6 +1597,12 @@ impl App {
                     self.panel.hits.push((r, hit));
                 }
             }
+            Tab::Audio => {
+                let area = Rect { x: x0 + pad, y, w: px - 2.0 * pad, h: hf - y - pad };
+                for (r, f) in routing::draw(ui, t, area, &mut self.routing, &self.stage, self.cursor) {
+                    self.panel.hits.push((r, Hit::Routing(f)));
+                }
+            }
             Tab::Text => {
                 ui.text(x0 + pad, y, font * 0.85, "umlauts, dead keys, IME · shift+arrows · ctrl+a/c/x/v", t.color.muted);
                 y += row * 0.8;
@@ -1580,6 +1650,7 @@ impl App {
             if glitches > 0 { format!(" · {glitches} glitches") } else { String::new() },
         );
         let status = if self.undo.is_empty() { status } else { format!("{} change{} · {status}", self.undo.len(), if self.undo.len() == 1 { "" } else { "s" }) };
+        let status = signed(&sign_in, status);
         let logo_frame = ((self.started.elapsed().as_secs_f32() / logo::SECONDS).fract() * logo::FRAMES as f32) as usize;
         let title = self.stage.bundle.rig.subject.as_str();
         let names = show::WORKSPACES.map(|(_, n)| n);
@@ -1922,6 +1993,13 @@ impl ApplicationHandler for App {
             WindowEvent::KeyboardInput { event, .. } if self.menu.is_some() => self.menu_key(&event),
             // #471: the flash list's typed filter has the keys while it is focused
             WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed && self.workspace != show::Workspace::Build && self.show.type_key(&event.logical_key) => {}
+            // #560: F9 – back to the stage (deck-session swaps; elsewhere F9 does nothing): exit code 11
+            WindowEvent::KeyboardInput { event, .. }
+                if event.state == ElementState::Pressed && event.logical_key == Key::Named(NamedKey::F9) && std::env::var_os("DECK_SWAP").is_some() =>
+            {
+                self.exit = 11;
+                el.exit();
+            }
             WindowEvent::KeyboardInput { event, .. } => {
                 if event.state == ElementState::Pressed && event.logical_key == Key::Named(NamedKey::Escape) && !self.panel.field.focused {
                     if self.wire && !self.stage.path.is_empty() {

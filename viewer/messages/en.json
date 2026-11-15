@@ -203,6 +203,7 @@
 		"decks_too_many": "Too many wrong codes – try again in an hour.",
 		"decks_build": "build {build}",
 		"decks_class": "class {class}",
+		"decks_editor": "editor – saves drafts",
 		"decks_match": "Does its screen show {code}? Then approve it.",
 		"decks_name": "Name (optional)",
 		"decks_lifetime": "Access for",
@@ -908,7 +909,9 @@
 		"drives": "Linked to the stage",
 		"taken_over": "Another reader took over the stage",
 		"take_back": "Take it back",
-		"leave": "Leave"
+		"leave": "Leave",
+		"vote_elsewhere": "The audience voted on a choice your reading isn’t at – it goes on as it is.",
+		"vote_not_offered": "The audience chose an option this choice doesn’t offer you here – choose yourself."
 	},
 	"live_deck": {
 		"title": "Deck",

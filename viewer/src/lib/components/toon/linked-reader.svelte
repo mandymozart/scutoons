@@ -4,24 +4,42 @@
 	// and asks once whether this reading drives the stage; then the small linked sign. Every state is the core's (deck-space
 	// linked.rs `Driving`, relay.rs `Out::Driving`): the page shows it and calls `drive()` (yes, take back) or leaves (no,
 	// leave). Leaving the toon's pages leaves the session – no link the person can't see.
+	// #552: a story question's vote result the core ignored for this reading (not at that choice, or the option not offered
+	// here) is said on the sign for a while; a picked one needs no words – the choice is taken as a tap would.
 	import { onDestroy, onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { LIVE_QUIC, LIVE_URL } from '$lib/config.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import { joinSession, leaveSession, sessionOf, type Driving, type ReaderLink } from '$lib/reader-session.ts';
+	import { joinSession, leaveSession, sessionOf, type Driving, type ReaderLink, type VoteChoice } from '$lib/reader-session.ts';
+
+	/** how long an ignored result is said (ms) */
+	const SAY_MS = 8000;
 
 	let link: ReaderLink | null = null;
 	let driving = $state<Driving | null>(null);
+	let ignored = $state<VoteChoice['ignored'] | null>(null);
+	let quiet: ReturnType<typeof setTimeout> | undefined;
+
+	function heard(o: Record<string, never>) {
+		if ('driving' in o) driving = o.driving;
+		const why = 'choice' in o ? (o.choice as VoteChoice).ignored : undefined;
+		if (!why) return;
+		ignored = why;
+		clearTimeout(quiet);
+		quiet = setTimeout(() => (ignored = null), SAY_MS);
+	}
 
 	onMount(() => {
 		const relay = sessionOf(page.url.searchParams, LIVE_URL, LIVE_QUIC);
-		if (relay) link = joinSession(relay, { onOther: (o) => void ('driving' in o && (driving = o.driving)) });
+		if (relay) link = joinSession(relay, { onOther: heard });
 	});
 
 	function leave() {
 		leaveSession();
 		link = null;
 		driving = null;
+		ignored = null;
+		clearTimeout(quiet);
 	}
 	onDestroy(leave);
 </script>
@@ -40,6 +58,9 @@
 		<span class="dot" class:off={driving.claim !== 'drives'} aria-hidden="true"></span>
 		<span class="words">
 			{driving.claim === 'drives' ? m['linked_reader.drives']() : driving.claim === 'taken_over' ? m['linked_reader.taken_over']() : m['linked_reader.asked']()}
+			{#if ignored}
+				<span class="vote" data-testid="linked-reader-vote" data-ignored={ignored}>{ignored === 'not_offered' ? m['linked_reader.vote_not_offered']() : m['linked_reader.vote_elsewhere']()}</span>
+			{/if}
 		</span>
 		{#if driving.claim === 'taken_over'}
 			<button onclick={() => link?.drive()} data-testid="linked-reader-take-back">{m['linked_reader.take_back']()}</button>
@@ -89,6 +110,10 @@
 	}
 	.sign .words {
 		flex: 1 1 auto;
+	}
+	.vote {
+		display: block;
+		margin-top: 0.25rem;
 	}
 	.dot {
 		width: 0.5rem;

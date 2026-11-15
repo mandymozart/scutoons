@@ -79,6 +79,8 @@ export interface RunnerEnv {
 	cleanText(text: string, limit: number): string;
 	/** #518: an event passed its condition and runs – a reader in a session tells it (reader-story.ts); every type alike */
 	fired?(event: VNEvent): void;
+	/** #552: a `showChoices` is over (picked, or nothing to ask) – a reader in a session tells it, so a vote's result no longer finds it there */
+	choicesClosed?(): void;
 }
 
 export interface CoreDeps {
@@ -253,10 +255,12 @@ export async function runEvents(events: readonly VNEvent[], start: number, deps:
 					// every choice hidden by its condition: nothing to ask – the run goes on (no question without a choice)
 					if (!vn.showChoices()) {
 						console.warn('VN: showChoices without a visible choice – going on');
+						env.choicesClosed?.();
 						break;
 					}
 					jumpsWithoutWait = 0;
 					await vn.whenChoicesClosed();
+					env.choicesClosed?.();
 					if (vn.isNavigationTriggered()) return 'navigated';
 					const to = vn.takePendingDivert();
 					if (to) divertTo(to);

@@ -21,6 +21,12 @@ pub fn winner(counts: &[i64], fallback: usize) -> usize {
     counts.iter().position(|&c| c == max).unwrap_or(fallback)
 }
 
+/// #558: is the most votes shared by more than one option? Then [`winner`] broke a tie (`VoteHow::Tie` on the wire).
+pub fn tied(counts: &[i64]) -> bool {
+    let max = counts.iter().copied().max().unwrap_or(0);
+    max > 0 && counts.iter().filter(|&&c| c == max).count() > 1
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -32,5 +38,14 @@ mod tests {
         assert_eq!(winner(&[2, 2, 0], 1), 1, "the fallback is tied");
         assert_eq!(winner(&[2, 2, 0], 2), 0, "the fallback is not tied: the first tied");
         assert_eq!(winner(&[], 0), 0);
+    }
+
+    #[test]
+    fn a_tie_is_the_most_votes_shared() {
+        assert!(tied(&[1, 1]));
+        assert!(tied(&[2, 0, 2]));
+        assert!(!tied(&[2, 1, 1]), "a tie below the top is no tie");
+        assert!(!tied(&[0, 0]), "nobody voted is the fallback, no tie");
+        assert!(!tied(&[]));
     }
 }

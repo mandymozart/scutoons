@@ -86,6 +86,8 @@ anyhow.workspace = true
 serde.workspace = true
 serde_json = { workspace = true, optional = true }
 toml.workspace = true
+# deck.toml's audio keys written back with the file's other keys and comments kept (the version toml already pulls)
+toml_edit = "0.22"
 tracing.workspace = true
 tracing-subscriber.workspace = true
 wgpu = "30"

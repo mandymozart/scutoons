@@ -309,6 +309,9 @@ pub struct VoteOpen {
 	/// `options` by locale, same order; `options` is the default
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub labels: Option<std::collections::HashMap<String, Vec<String>>>,
+	/// #552: a story question's choice – the relay copies it onto `vote.result` for the linked reader; none: a typed question
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub story: Option<VoteStory>,
 }
 
 /// conductor → relay: close now; `override` = the conductor's option instead of the rule's.
@@ -345,6 +348,7 @@ pub struct VoteTally {
 	pub expected: Option<i64>,
 }
 
+/// `tie` (#558): the rule's most votes were shared – protocol vote.rs `winner` broke it (the fallback when it is tied, else the first tied option). A client that does not know a value words it as `rule`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum VoteHow {
 	#[serde(rename = "rule")]
@@ -353,6 +357,8 @@ pub enum VoteHow {
 	Fallback,
 	#[serde(rename = "override")]
 	Override,
+	#[serde(rename = "tie")]
+	Tie,
 }
 
 impl VoteHow {
@@ -361,6 +367,7 @@ impl VoteHow {
 			VoteHow::Rule => "rule",
 			VoteHow::Fallback => "fallback",
 			VoteHow::Override => "override",
+			VoteHow::Tie => "tie",
 		}
 	}
 }
@@ -375,6 +382,16 @@ pub struct VoteResult {
 	/// the counts per group
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub groups: Option<std::collections::HashMap<String, Vec<i64>>>,
+	/// #552: the open vote's `story`, as it was opened – the linked reader picks `options[option]` if it stands at `event` (deck-space linked.rs `Place`)
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub story: Option<VoteStory>,
+}
+
+/// #552 (SHOW.md §15 3): the story's choice a vote asks – the `showChoices` event's id and each option's `addChoice` id in the vote's option order ('' = that option has none: no reader can be at it).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct VoteStory {
+	pub event: String,
+	pub options: Vec<String>,
 }
 
 /// conductor → relay → the outlet's clients on a row change: the outlet's new cell (B.5.2 `Cell`, resolved by the conductor – a deck renders it natively, #186).

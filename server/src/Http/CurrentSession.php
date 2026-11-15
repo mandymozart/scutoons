@@ -21,7 +21,8 @@ use Scutoons\Domain\Decks\Decks;
  *
  * A personal access token (`Bearer sct_…`, ApiTokens – "AI connections", agents/MCP.md) is a Bearer like a session: the
  * member's account while it has a member role; what it may not do, ApiTokenScope refuses. A deck token (`Bearer scd_…`,
- * Decks, #180) is its member's account too – read-only (DeckTokenScope).
+ * Decks, #180) is its member's account too – read-only (DeckTokenScope); the native editor's (`Bearer sce_…`) reads and
+ * saves drafts (EditorTokenScope).
  */
 final class CurrentSession
 {
@@ -78,6 +79,12 @@ final class CurrentSession
         return $this->via() === self::VIA_BEARER && Decks::isDeckToken($this->token);
     }
 
+    /** The request came with the native editor's short token (the decks' handshake, kind editor) */
+    public function isEditorToken(): bool
+    {
+        return $this->via() === self::VIA_BEARER && Decks::isEditorToken($this->token);
+    }
+
     /** @return array{id: string, name: string}|null the AI connection's id and name */
     public function apiToken(): ?array
     {
@@ -97,7 +104,7 @@ final class CurrentSession
             $this->user = match (true) {
                 $token === null => null,
                 $this->isApiToken() => $this->apiTokens?->user($token),
-                $this->isDeckToken() => $this->decks?->user($token),
+                $this->isDeckToken(), $this->isEditorToken() => $this->decks?->user($token),
                 default => $this->sessions->user($token),
             };
             $this->resolved = true;

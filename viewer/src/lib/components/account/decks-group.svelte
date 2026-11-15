@@ -22,6 +22,8 @@
 	 * opens `/account/decks?deck=<code>` (the code prefilled, looked up at once); the member checks the code, picks the
 	 * lifetime (six months by default, like the AI connections; optionally ending early when unused) and approves. Below:
 	 * the paired decks (deck-list.svelte). The pairing link signed out comes back here after the sign-in (account-view).
+	 * The native editor asks the same way and shows its code in its top bar; it is labelled "editor" here, and only a
+	 * creator or an admin can approve it (it saves drafts, never publishes).
 	 */
 	let items = $state<Deck[]>([]);
 	let code = $state(codeFromUrl(page.url));
@@ -107,6 +109,7 @@
 				{found.hostname || formatCode(found.code)}
 				<small>
 					{[
+						found.kind === 'editor' && m['account.decks_editor'](),
 						found.build && m['account.decks_build']({ build: found.build }),
 						found.class && m['account.decks_class']({ class: found.class })
 					]

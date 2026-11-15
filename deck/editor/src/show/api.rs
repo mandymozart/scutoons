@@ -1,30 +1,26 @@
 //! Show documents through the API (#90 `/api/shows`, role `live`): load the newest draft, save a new draft (the server
 //! stamps the version). Each document read or saved is also kept in the cache (`<cache>/shows/<id>.json`), so the editor
-//! opens a show offline; the API stays the source (RULES E3). The token: `SCUTOONS_TOKEN` (a member with the role `live`).
+//! opens a show offline; the API stays the source (RULES E3). The token: the editor's sign-in (sign_in.rs; `SCUTOONS_TOKEN`
+//! overrides it). Drafts of any entity (`draft`, `save_draft`): read with their version, saved on it as `base`.
 use std::path::PathBuf;
 use std::time::Duration;
 
 pub struct Api {
     /// `http://127.0.0.1:9000/api`, `https://api.scutoons.com/api`
     pub base: String,
-    token: Option<String>,
+    auth: crate::sign_in::Auth,
     cache: PathBuf,
-}
-
-/// the editor's token for the API: `SCUTOONS_TOKEN` (the shows', and the address book's, #477)
-pub fn token() -> Option<String> {
-    std::env::var("SCUTOONS_TOKEN").ok().filter(|t| !t.is_empty())
 }
 
 impl Api {
     pub fn new(base: String) -> Api {
-        Api { base, token: token(), cache: deck_native::cache::default_dir().join("shows") }
+        Api { base, auth: crate::sign_in::current(), cache: deck_native::cache::default_dir().join("shows") }
     }
 
     /// #537's UI-model test: a test API and its own cache
     #[cfg(test)]
     pub fn with_cache(base: String, cache: PathBuf) -> Api {
-        Api { base, token: None, cache }
+        Api { base, auth: crate::sign_in::Auth::fixed(None), cache }
     }
 
     fn agent() -> ureq::Agent {
@@ -32,7 +28,7 @@ impl Api {
     }
 
     fn auth(&self, r: ureq::Request) -> ureq::Request {
-        match &self.token {
+        match self.auth.token() {
             Some(t) => r.set("Authorization", &format!("Bearer {t}")),
             None => r,
         }
@@ -69,7 +65,12 @@ impl Api {
         let url = deck_show::story::url(&self.base);
         match self.auth(Self::agent().get(&url)).call() {
             Ok(r) => r.into_string().map_err(|e| (None, format!("{url}: {e}"))),
-            Err(ureq::Error::Status(code, _)) => Err((Some(code), String::new())),
+            Err(ureq::Error::Status(code, _)) => {
+                if code == 401 {
+                    self.auth.refused();
+                }
+                Err((Some(code), String::new()))
+            }
             Err(e) => Err((None, format!("{url}: {e}"))),
         }
     }
@@ -82,5 +83,93 @@ impl Api {
         let r = self.auth(Self::agent().put(&url)).send_json(body).map_err(|e| format!("{url}: {e} – kept in the cache"))?;
         let v: serde_json::Value = r.into_json().map_err(|e| e.to_string())?;
         Ok(v.pointer("/version/version").or_else(|| v.get("version")).and_then(|x| x.as_u64()).unwrap_or_default())
+    }
+}
+
+#[cfg_attr(not(test), expect(dead_code, reason = "the rig save is the first caller"))]
+impl Api {
+    /// The newest draft of entity `key` (`rig:character.catpope` …) and its version – the `base` of the next save;
+    /// None = never saved.
+    pub fn draft(&self, key: &str) -> Result<Option<Draft>, String> {
+        let url = format!("{}/entities/{key}?draft=1", self.base);
+        match self.auth(Self::agent().get(&url)).call() {
+            Ok(r) => {
+                let version = r.header("X-Content-Version").and_then(|v| v.parse().ok());
+                let content = r.into_json().map_err(|e| format!("{url}: {e}"))?;
+                Ok(Some(Draft { content, version }))
+            }
+            Err(ureq::Error::Status(404, _)) => Ok(None),
+            Err(ureq::Error::Status(code, r)) => Err(self.refused_words(key, code, &r.into_json().unwrap_or_default())),
+            Err(e) => Err(format!("{url}: {e}")),
+        }
+    }
+
+    /// Save `content` as a new draft of `key` on `base` (the version it was read at; None = the first) → the new version.
+    /// Someone else's newer save is a 409, said in words: nothing is overwritten.
+    pub fn save_draft(&self, key: &str, content: &serde_json::Value, base: Option<u64>, message: &str) -> Result<u64, String> {
+        let url = format!("{}/entities/{key}", self.base);
+        let body = serde_json::json!({ "content": content, "base": base, "message": message });
+        match self.auth(Self::agent().put(&url)).send_json(body) {
+            Ok(r) => {
+                let v: serde_json::Value = r.into_json().map_err(|e| format!("{url}: {e}"))?;
+                v.pointer("/version/id").and_then(|x| x.as_u64()).ok_or_else(|| format!("{url}: the answer has no version"))
+            }
+            Err(ureq::Error::Status(code, r)) => Err(self.refused_words(key, code, &r.into_json().unwrap_or_default())),
+            Err(e) => Err(format!("{url}: {e} – not saved")),
+        }
+    }
+
+    fn refused_words(&self, key: &str, code: u16, body: &serde_json::Value) -> String {
+        if code == 401 {
+            self.auth.refused();
+        }
+        refused_words(key, code, body)
+    }
+}
+
+/// a document's newest draft: its JSON and the version a save names as `base`
+#[cfg_attr(not(test), expect(dead_code, reason = "the rig save is the first caller"))]
+#[derive(Debug, Clone, PartialEq)]
+pub struct Draft {
+    pub content: serde_json::Value,
+    pub version: Option<u64>,
+}
+
+/// what an API refusal means for a draft of `key`, in words
+#[cfg_attr(not(test), expect(dead_code, reason = "the rig save is the first caller"))]
+pub fn refused_words(key: &str, code: u16, body: &serde_json::Value) -> String {
+    let said = body["message"].as_str().unwrap_or("");
+    match code {
+        409 => {
+            let latest = &body["latest"];
+            let who = latest["author_email"].as_str().filter(|w| !w.is_empty()).map(|w| format!(" by {w}")).unwrap_or_default();
+            let when = latest["created_at"].as_str().map(|w| format!(" at {w}")).unwrap_or_default();
+            format!("{key}: someone saved a newer version{who}{when} – nothing was overwritten; load the newest and save again")
+        }
+        401 => format!("{key}: signed out – approve the editor on the account page, then save again"),
+        403 => format!("{key}: this account may not do that{}", if said.is_empty() { String::new() } else { format!(" – {said}") }),
+        _ => format!("{key}: HTTP {code}{}", if said.is_empty() { String::new() } else { format!(" – {said}") }),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_refused_draft_is_said_in_words() {
+        let conflict = serde_json::json!({ "error": "conflict", "latest": { "author_email": "ana@scutoons.test", "created_at": "2026-11-15T10:00:00Z" } });
+        assert_eq!(refused_words("rig:character.catpope", 409, &conflict), "rig:character.catpope: someone saved a newer version by ana@scutoons.test at 2026-11-15T10:00:00Z – nothing was overwritten; load the newest and save again");
+        assert!(refused_words("k", 409, &serde_json::json!({})).starts_with("k: someone saved a newer version – "));
+        assert!(refused_words("k", 401, &serde_json::json!({})).contains("signed out"));
+        assert_eq!(refused_words("k", 403, &serde_json::json!({ "message": "This needs the creator role." })), "k: this account may not do that – This needs the creator role.");
+    }
+
+    /// no API (nothing listens on port 9): a draft can be neither read nor saved, and says where it tried
+    #[test]
+    fn offline_drafts_say_so() {
+        let api = Api::with_cache("http://127.0.0.1:9/api".into(), std::env::temp_dir().join("deck-editor-api-test"));
+        assert!(api.draft("moods").unwrap_err().starts_with("http://127.0.0.1:9/api/entities/moods?draft=1"));
+        assert!(api.save_draft("moods", &serde_json::json!({}), Some(3), "deck editor").unwrap_err().ends_with("not saved"));
     }
 }

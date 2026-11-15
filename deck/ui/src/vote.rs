@@ -42,6 +42,9 @@ pub enum How {
     Rule,
     Fallback,
     Override,
+    /// #558: the rule's most votes were shared; protocol `vote::winner` broke the tie – to the fallback when it was among
+    /// the tied (`to_fallback`), else to the first tied option
+    Tie { to_fallback: bool },
 }
 
 impl From<protocol::VoteRule> for Rule {
@@ -54,14 +57,23 @@ impl From<protocol::VoteRule> for Rule {
     }
 }
 
-impl From<protocol::VoteHow> for How {
-    fn from(h: protocol::VoteHow) -> How {
+impl How {
+    /// The relay's `how` for a result that picked `option` of a vote whose fallback is `fallback` ([`fallback`]): a tie
+    /// says where it went.
+    pub fn of(h: protocol::VoteHow, option: usize, fallback: usize) -> How {
         match h {
             protocol::VoteHow::Rule => How::Rule,
             protocol::VoteHow::Fallback => How::Fallback,
             protocol::VoteHow::Override => How::Override,
+            protocol::VoteHow::Tie => How::Tie { to_fallback: option == fallback },
         }
     }
+}
+
+/// A vote's fallback option as the relay takes it: the one given when it is one of the options, else the first.
+pub fn fallback(open: &protocol::VoteOpen) -> usize {
+    let f = open.fallback.unwrap_or(0).max(0) as usize;
+    if f < open.options.len() { f } else { 0 }
 }
 
 /// How a vote was decided, as a voter reads it on the ballot (#556, ballot.rs) – in German for a `de…` locale, else in
@@ -73,6 +85,10 @@ pub fn decided(rule: Rule, how: How, locale: &str) -> &'static str {
         (How::Fallback, _, true) => "Niemand hat abgestimmt – es bleibt dabei.",
         (How::Override, _, false) => "The conductor decided.",
         (How::Override, _, true) => "Die Regie hat entschieden.",
+        (How::Tie { to_fallback: true }, _, false) => "A tie – it stays as it was.",
+        (How::Tie { to_fallback: true }, _, true) => "Gleichstand – es bleibt, wie es war.",
+        (How::Tie { to_fallback: false }, _, false) => "A tie – the option listed first wins.",
+        (How::Tie { to_fallback: false }, _, true) => "Gleichstand – die zuerst genannte Wahl gewinnt.",
         (How::Rule, Rule::Majority, false) => "Most votes.",
         (How::Rule, Rule::Majority, true) => "Die meisten Stimmen.",
         (How::Rule, Rule::Groups, false) => "Most groups.",
@@ -206,6 +222,8 @@ impl Panel {
             How::Rule => format!("by the rule ({})", self.rule.name()),
             How::Fallback => "by the fallback – nobody voted".into(),
             How::Override => "by override – the conductor chose".into(),
+            How::Tie { to_fallback: true } => "by a tie – to the fallback".into(),
+            How::Tie { to_fallback: false } => "by a tie – to the option listed first".into(),
         };
         Some(format!("Result: {label} – {how}"))
     }
@@ -363,13 +381,29 @@ mod tests {
         assert_eq!(p.result_line().as_deref(), Some("Result: Yes – by override – the conductor chose"));
         p.result = Some(("No".into(), How::Fallback));
         assert_eq!(p.result_line().as_deref(), Some("Result: No – by the fallback – nobody voted"));
+        p.result = Some(("No".into(), How::Tie { to_fallback: true }));
+        assert_eq!(p.result_line().as_deref(), Some("Result: No – by a tie – to the fallback"));
+        p.result = Some(("Yes".into(), How::Tie { to_fallback: false }));
+        assert_eq!(p.result_line().as_deref(), Some("Result: Yes – by a tie – to the option listed first"));
+    }
+
+    #[test]
+    fn a_tie_says_where_it_went_in_both_languages() {
+        // #558: 1 : 1 with the fallback (2) not tied → the first tied; tied → the fallback
+        let first = How::of(protocol::VoteHow::Tie, 0, 2);
+        let stays = How::of(protocol::VoteHow::Tie, 2, 2);
+        assert_eq!((first, stays), (How::Tie { to_fallback: false }, How::Tie { to_fallback: true }));
+        assert_eq!(decided(Rule::Majority, first, "en"), "A tie – the option listed first wins.");
+        assert_eq!(decided(Rule::Majority, first, "de"), "Gleichstand – die zuerst genannte Wahl gewinnt.");
+        assert_eq!(decided(Rule::Groups, stays, "en"), "A tie – it stays as it was.");
+        assert_eq!(decided(Rule::First, stays, "de-AT"), "Gleichstand – es bleibt, wie es war.");
     }
 
     #[test]
     fn a_voter_reads_how_it_was_decided_in_the_decks_language() {
         assert_eq!(decided(Rule::Groups, How::Rule, "en"), "Most groups.");
         assert_eq!(decided(Rule::First, How::Rule, "de-AT"), "Zuerst genug Stimmen.");
-        assert_eq!(decided(protocol::VoteRule::Majority.into(), protocol::VoteHow::Fallback.into(), "de"), "Niemand hat abgestimmt – es bleibt dabei.");
+        assert_eq!(decided(protocol::VoteRule::Majority.into(), How::of(protocol::VoteHow::Fallback, 2, 2), "de"), "Niemand hat abgestimmt – es bleibt dabei.");
         assert_eq!(decided(Rule::Majority, How::Override, "fr"), "The conductor decided.");
     }
 

@@ -110,6 +110,8 @@ export interface VoteOpen {
 	question?: Record<string, string>;
 	/** `options` by locale, same order; `options` is the default */
 	labels?: Record<string, string[]>;
+	/** #552: a story question's choice – the relay copies it onto `vote.result` for the linked reader; none: a typed question */
+	story?: VoteStory;
 }
 
 /** conductor → relay: close now; `override` = the conductor's option instead of the rule's. */
@@ -139,7 +141,8 @@ export interface VoteTally {
 	expected?: number;
 }
 
-export type VoteHow = 'rule' | 'fallback' | 'override';
+/** `tie` (#558): the rule's most votes were shared – protocol vote.rs `winner` broke it (the fallback when it is tied, else the first tied option). A client that does not know a value words it as `rule`. */
+export type VoteHow = 'rule' | 'fallback' | 'override' | 'tie';
 
 /** relay → everyone: the option the conductor applies as the choice event (B.1). */
 export interface VoteResult {
@@ -149,6 +152,14 @@ export interface VoteResult {
 	how: VoteHow;
 	/** the counts per group */
 	groups?: Record<string, number[]>;
+	/** #552: the open vote's `story`, as it was opened – the linked reader picks `options[option]` if it stands at `event` (deck-space linked.rs `Place`) */
+	story?: VoteStory;
+}
+
+/** #552 (SHOW.md §15 3): the story's choice a vote asks – the `showChoices` event's id and each option's `addChoice` id in the vote's option order ('' = that option has none: no reader can be at it). */
+export interface VoteStory {
+	event: string;
+	options: string[];
 }
 
 /** conductor → relay → the outlet's clients on a row change: the outlet's new cell (B.5.2 `Cell`, resolved by the conductor – a deck renders it natively, #186). */

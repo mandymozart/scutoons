@@ -156,6 +156,11 @@ A live tool may not crackle unnoticed, and should not crackle at all:
   machine's deck.toml binds them, counted from 1, after its plain keys: `[[audio_outlet]]` / `group = "cue"` / `channels = [3, 4]`.
   `main` without an entry plays on 1.., any other group without one is silent. The log prints each outlet's device channels
   ("audio: outlet 'cue' (cue): device channels [3, 4]"). Who assigns this at a venue: #330.
+  **The editor's Audio tab** (deck/editor `routing.rs`, #565) sets all of this on the machine it runs on – host, device, buffer,
+  the open rig's groups (and `main`) on the device's channels, a test tone per channel and per group on the settings shown,
+  saved or not – and Apply writes them into deck.toml (`audio/deck_toml.rs`: the other keys and comments stay) and restarts the
+  stage's audio. The map's rules are the core's (`deck_engine::check_outlets`). For ASIO the editor is built with
+  `cargo build --release -p deck-editor --features asio`.
 - **Host and device**: `--audio-host default|wasapi|asio` (deck.toml `audio_host`), `--audio-device NAME` (a part of
   the name, any case; deck.toml `audio_device`), `--audio-list` prints the hosts, devices, formats and buffer ranges.
   On PipeWire the name picks the **sink** (`target.object`, #285): the first `Audio/Sink` node whose name or description

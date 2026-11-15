@@ -2,7 +2,8 @@
 //! narrowed as you type, chosen by arrows and enter or the mouse. It knows nothing of what it lists: a caller gives items
 //! with an id and gets the id back, and can ask which ids the filter still shows (the stage highlights only those). A caller
 //! whose list has its own rule of what a query finds (the address book's, deck-space `rig/book.rs`, #477) hands that rule in
-//! (`found_by`), and the typeahead only shows what it answers.
+//! (`found_by`), and the typeahead only shows what it answers. A note (`with_note`) is one muted line under the field:
+//! why the list is empty or not fresh, said where the list would be.
 use crate::base::text::Field;
 use crate::base::tokens::Tokens;
 use crate::base::draw::DrawList;
@@ -35,6 +36,8 @@ pub struct Typeahead {
     frame: (f32, f32, f32),
     /// the caller's rule: the ids a query finds, in its order; none = every word in the label or the detail
     find: Option<Find>,
+    /// one muted line under the field (why the list is empty or not fresh)
+    note: Option<String>,
 }
 
 /// every word of `query` somewhere in the item, whatever the case
@@ -45,7 +48,7 @@ fn matches(item: &Item, query: &str) -> bool {
 
 impl Typeahead {
     pub fn new(items: Vec<Item>, x: f32, y: f32) -> Typeahead {
-        let mut t = Typeahead { items, field: Field::with(""), shown: Vec::new(), at: 0, x, y, rows: Vec::new(), frame: (0.0, 0.0, 0.0), find: None };
+        let mut t = Typeahead { items, field: Field::with(""), shown: Vec::new(), at: 0, x, y, rows: Vec::new(), frame: (0.0, 0.0, 0.0), find: None, note: None };
         t.field.focused = true;
         t.narrow();
         t
@@ -57,6 +60,16 @@ impl Typeahead {
         t.find = Some(Box::new(find));
         t.narrow();
         t
+    }
+
+    /// a muted line under the field; an empty text is none
+    pub fn with_note(mut self, note: String) -> Typeahead {
+        self.note = Some(note).filter(|n| !n.trim().is_empty());
+        self
+    }
+
+    pub fn note(&self) -> Option<&str> {
+        self.note.as_deref()
     }
 
     fn narrow(&mut self) {
@@ -135,7 +148,8 @@ impl Typeahead {
     pub fn draw(&mut self, ui: &mut DrawList, t: &Tokens, limit: (f32, f32)) {
         let (font, row, pad) = (t.size.font, t.size.row, t.size.pad);
         let visible = self.shown.len().min(ROWS);
-        let height = row * (visible.max(1) as f32 + 1.0) + 4.0;
+        let lead = usize::from(self.note.is_some());
+        let height = row * ((visible.max(1 - lead) + lead) as f32 + 1.0) + 4.0;
         let x = self.x.min(limit.0 - WIDTH - 8.0).max(8.0);
         let y = self.y.min(limit.1 - height - 8.0).max(t.size.top + 4.0);
         self.frame = (x, y, row);
@@ -154,11 +168,14 @@ impl Typeahead {
         ui.rect(x + pad + column as f32 * adv, y + 4.0, 1.5, row - 8.0, t.color.text);
         self.rows.clear();
         let first = self.at.saturating_sub(ROWS - 1);
-        if self.shown.is_empty() {
+        if let Some(note) = &self.note {
+            let room = ((WIDTH - 2.0 * pad) / adv).max(0.0) as usize;
+            ui.text(x + pad, y + row + text_y, font, &super::controls::fit(note, room), t.color.muted);
+        } else if self.shown.is_empty() {
             ui.text(x + pad, y + row + text_y, font, "nothing fits", t.color.muted);
         }
         for (slot, &i) in self.shown.iter().skip(first).take(ROWS).enumerate() {
-            let top = y + row * (slot as f32 + 1.0) + 2.0;
+            let top = y + row * ((slot + lead) as f32 + 1.0) + 2.0;
             if first + slot == self.at {
                 ui.round_rect(x + 2.0, top, WIDTH - 4.0, row, t.size.radius, t.color.selected);
             }
@@ -226,6 +243,19 @@ mod tests {
         t.draw(&mut d, &Tokens::default(), (1600.0, 900.0));
         let detail = d.texts().into_iter().find(|s| s.starts_with('x')).unwrap().to_string();
         assert!(detail.ends_with('…') && detail.chars().count() < 60, "{detail}");
+    }
+
+    #[test]
+    fn a_note_says_why_inside_it_and_the_rows_move_under_it() {
+        let mut t = Typeahead::new(Vec::new(), 0.0, 0.0).with_note("signed out – approve code K7Q-42M".into());
+        let mut d = DrawList::new(0.6);
+        t.draw(&mut d, &Tokens::default(), (1600.0, 900.0));
+        assert!(d.texts().iter().any(|s| s.starts_with("signed out")) && !d.texts().contains(&"nothing fits"));
+        assert_eq!(Typeahead::new(Vec::new(), 0.0, 0.0).with_note(" ".into()).note(), None);
+        let mut listed = list().with_note("offline – the kept copy from 3 h ago".into());
+        listed.draw(&mut DrawList::new(0.6), &Tokens::default(), (1600.0, 900.0));
+        let row = Tokens::default().size.row;
+        assert!(listed.rows[0].0 >= 2.0 * row, "the first row under the note");
     }
 
     #[test]

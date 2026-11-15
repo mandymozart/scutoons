@@ -61,6 +61,11 @@ impl Host {
         session_panel::panel(&Facts { base: &base, code, relay, state: &state, place: &s.place, toons: &s.toons, chapters: &s.chapters, readers: &readers })
     }
 
+    /// the toon the Session sheet picked (the editor's book follows it in Show and Perform)
+    pub fn place_toon(&self) -> Option<&str> {
+        Some(self.session.place.toon.as_str()).filter(|t| !t.is_empty())
+    }
+
     /// the sheet opened: the toons, once
     pub(super) fn session_open(&mut self) {
         if !self.session.asked {

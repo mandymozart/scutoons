@@ -21,15 +21,18 @@ pacman -Syu --noconfirm --needed archiso rust base-devel alsa-lib git pipewire c
 echo "   archiso $(pacman -Q archiso | cut -d' ' -f2), rust $(rustc --version | cut -d' ' -f2), kernel package: $KERNEL"
 pacman -Si "$KERNEL" >/dev/null 2>&1 || { echo "no package '$KERNEL' in the repos – set DECK_KERNEL=linux"; exit 1; }
 
-echo "== the deck binaries (relay, bridge, deck-check, deck with PipeWire, the gamepad and the rig modules (#406), deck-link, deck-update) – release, Linux x86_64"
+echo "== the deck binaries (relay, bridge, deck-check, deck with PipeWire, the gamepad and the rig modules (#406), deck-link, deck-update, the editor (#560)) – release, Linux x86_64"
 if [ "${DECK_SKIP_CARGO:-0}" != 1 ]; then
-  (cd "$SRC" && CARGO_TARGET_DIR=$WORK/target CARGO_HOME=$WORK/cargo-home cargo build --release --locked     -p relay -p bridge -p deck-check -p deck-native -p deck-link -p deck-update --features deck-native/pipewire,deck-native/gamepad,deck-native/modules 2>&1 | tail -3)
+  (cd "$SRC" && CARGO_TARGET_DIR=$WORK/target CARGO_HOME=$WORK/cargo-home cargo build --release --locked     -p relay -p bridge -p deck-check -p deck-native -p deck-link -p deck-update -p deck-editor --features deck-native/pipewire,deck-native/gamepad,deck-native/modules >"$OUT/cargo.log" 2>&1) || { echo "cargo failed – the last lines (all: deck/os/out/cargo.log):"; tail -40 "$OUT/cargo.log"; exit 1; }
+  tail -3 "$OUT/cargo.log"
 fi
-for b in relay bridge deck-check deck deck-link deck-update; do [ -x "$WORK/target/release/$b" ] || { echo "missing $WORK/target/release/$b"; exit 1; }; done
+for b in relay bridge deck-check deck deck-link deck-update deck-editor; do [ -x "$WORK/target/release/$b" ] || { echo "missing $WORK/target/release/$b"; exit 1; }; done
 if [ "${DECK_BINARIES_ONLY:-0}" = 1 ]; then
   # a remote update's binaries (#237): deck/os/update.sh bundles them with deck/os/rootfs on the host
   rm -rf "$OUT/bin"; mkdir -p "$OUT/bin"
-  for b in relay bridge deck-check deck deck-link deck-update; do install -m755 "$WORK/target/release/$b" "$OUT/bin/$b"; done
+  for b in relay bridge deck-check deck deck-link deck-update deck-editor; do install -m755 "$WORK/target/release/$b" "$OUT/bin/$b"; done
+  # #560: the editor reads its design tokens beside its binary
+  install -m644 "$SRC/editor/tokens.toml" "$OUT/bin/tokens.toml"
   echo "== done: $OUT/bin"; exit 0
 fi
 

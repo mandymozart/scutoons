@@ -143,22 +143,8 @@ impl RelayClient {
         self.c.ping(now)
     }
 
-    /// a conductor opens a vote (`vote.open`, JSON)
-    pub fn vote_open(&mut self, json: &str) -> Result<bool, JsValue> {
-        let p: protocol::VoteOpen = parse(json)?;
-        Ok(self.c.vote_open(p))
-    }
-
     pub fn vote_cast(&mut self, option: i32) -> bool {
         self.c.vote_cast(i64::from(option))
-    }
-
-    pub fn vote_close(&mut self, over: Option<i32>) -> bool {
-        self.c.vote_close(over.map(i64::from))
-    }
-
-    pub fn vote_hold(&mut self, hold: bool) -> bool {
-        self.c.vote_hold(hold)
     }
 
     /// #469: the rung the joined link is on (`QUIC`, `WebSocket`); '' while not joined
@@ -195,6 +181,12 @@ impl RelayClient {
     /// drive the session's story now)
     pub fn story(&mut self, json: &str) -> Result<bool, JsValue> {
         Ok(self.c.story(parse(json)?))
+    }
+
+    /// #552: the reader's choices closed (picked, or none was shown) – a vote's result finds it at no choice now; a result
+    /// it stands at comes out as `{ choice: { event, option, pick?, ignored? } }` (deck-space linked.rs `Choice`)
+    pub fn choices_closed(&mut self) {
+        self.c.choices_closed();
     }
 
     /// #527: this reader drives the session's story from the relay's answer on (the person said yes); false: no reader
