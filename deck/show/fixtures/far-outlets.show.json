@@ -10,7 +10,7 @@
     {
       "id": "keys-alone",
       "cells": {
-        "left": { "mode": "play", "piece": "character:keys", "values": { "osc.gain": 0.3 } },
+        "left": { "mode": "play", "piece": "character:keys", "values": { "tone:osc.gain": 0.3 } },
         "middle": { "mode": "play", "piece": "item:incense_burner" }
       }
     },
@@ -18,7 +18,7 @@
       "id": "together",
       "fire": { "event": "far.together", "how": "hand" },
       "cells": {
-        "left": { "mode": "values", "piece": "character:keys", "values": { "osc.freq": 440 } },
+        "left": { "mode": "values", "piece": "character:keys", "values": { "tone:osc.freq": 440 } },
         "right": { "mode": "play", "piece": "character:bells" }
       }
     },

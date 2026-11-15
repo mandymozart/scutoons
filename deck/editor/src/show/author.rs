@@ -173,6 +173,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
         let insp = view::inspector(&show, &sel);
         let mut cy = top + small * 1.8;
         let row_cells = show.rows.get(host.row).map(|r| r.cells.clone()).unwrap_or_default();
+        let mut boxes: Vec<(String, f32, f32)> = Vec::new();
         for o in &show.outlets {
             let cell = row_cells.get(&o.id).cloned().unwrap_or(deck_show::Cell::Keep);
             let mut lines = vec![];
@@ -184,7 +185,19 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
                 other => view::cell_text(other),
             };
             let head = if matches!(cell, deck_show::Cell::Keep) { format!("{} ↑", o.id) } else { o.id.clone() };
-            cy += node(d, t, (cx, cy, colw * 1.6), (&head, &detail), &lines, false) + pad;
+            let h = node(d, t, (cx, cy, colw * 1.6), (&head, &detail), &lines, false);
+            boxes.push((o.id.clone(), cy, h));
+            cy += h + pad;
+        }
+        // #568: a far node whose holder plays on another outlet of this row: a tube between the two cells (deck-show far.rs)
+        for l in host.row_links(&sel) {
+            let deck_show::far::Holder::Outlet(to) = &l.holder else { continue };
+            let at = |id: &str| boxes.iter().find(|(o, ..)| o == id).map(|(_, y, h)| (cx + colw * 1.6, y + h * 0.5));
+            if let (Some(a), Some(b)) = (at(&l.from), at(to)) {
+                d.cable(a, b, t.color.accent);
+                d.disc(a.0, a.1, 4.0, t.color.accent);
+                d.disc(b.0, b.1, 4.0, t.color.accent);
+            }
         }
         let sends: Vec<(String, bool)> = insp.iter().find(|(h, _)| h == "this row sends").map(|(_, ls)| ls.iter().map(|(a, b)| (if a.is_empty() { b.clone() } else { format!("{a} · {b}") }, false)).collect()).unwrap_or_default();
         // a line without a target is the view's "nothing else": no send to count
@@ -261,6 +274,17 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
                 d.outline(x, y + 2.0, col_w - 6.0, rh - 4.0, (t.size.radius, 2.0), t.color.go);
             }
             host.hits.push((Rect { x, y, w: col_w - 6.0, h: rh }, Hit::Cell(i, c)));
+        }
+        // #568: the cells of this row whose far nodes listen to each other, joined along the row's foot
+        for l in host.row_links(&r.id) {
+            let deck_show::far::Holder::Outlet(to) = &l.holder else { continue };
+            let mid = |id: &str| plan.columns.iter().position(|c| c.id == id).map(|c| bx + first_w + c as f32 * col_w + (col_w - 6.0) * 0.5);
+            if let (Some(a), Some(b)) = (mid(&l.from), mid(to)) {
+                let fy = y + rh - 4.0;
+                d.line((a, fy), (b, fy), 1.0, t.color.accent);
+                d.disc(a, fy, 3.0, t.color.accent);
+                d.disc(b, fy, 3.0, t.color.accent);
+            }
         }
     }
 

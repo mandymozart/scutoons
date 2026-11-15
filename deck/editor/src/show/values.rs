@@ -9,7 +9,8 @@ use deck_kit::base::draw::DrawList;
 use deck_kit::base::tokens::Tokens;
 use deck_kit::editor::controls::{self, Rect};
 use deck_show::rows::{self, Edit};
-use deck_show::values::{self, Knob};
+use deck_show::values;
+use deck_space::holders::Read;
 use deck_show::Show;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -22,34 +23,38 @@ pub enum KnobHit {
     Turn(usize),
     Clear(usize),
     Take,
+    /// #568: open the cell's piece in Build (build.rs)
+    Build,
 }
 
-type Answer = Result<Arc<Vec<Knob>>, String>;
+type Answer = Result<Arc<Read>, String>;
 
-/// The knobs of the pieces the inspector shows, asked once each.
+/// The knobs and the reach of the pieces the inspector and the rows' wires show, asked once each.
 pub struct Loader {
     got: HashMap<String, Option<Answer>>,
     tx: Sender<(String, Answer)>,
     rx: Receiver<(String, Answer)>,
     base: String,
-    cache: PathBuf,
+    pub cache: PathBuf,
+    /// a check run's rigs (`--rigs DIR`: `<id>.toml` bundles) for the pieces the deck carries no core rig of
+    pub rigs: Option<PathBuf>,
 }
 
 impl Loader {
     pub fn new(base: String) -> Loader {
         let (tx, rx) = channel();
-        Loader { got: HashMap::new(), tx, rx, base, cache: deck_native::cache::default_dir() }
+        Loader { got: HashMap::new(), tx, rx, base, cache: deck_native::cache::default_dir(), rigs: None }
     }
 
-    /// `piece`'s knobs, or why not; none while they are on their way (the first ask starts it)
+    /// `piece`'s knobs and reach, or why not; none while they are on their way (the first ask starts it)
     pub fn get(&mut self, piece: &str) -> Option<Answer> {
         if let Some(a) = self.got.get(piece) {
             return a.clone();
         }
         self.got.insert(piece.to_string(), None);
-        let (tx, piece, base, cache) = (self.tx.clone(), piece.to_string(), self.base.clone(), self.cache.clone());
+        let (tx, piece, base, cache, rigs) = (self.tx.clone(), piece.to_string(), self.base.clone(), self.cache.clone(), self.rigs.clone());
         std::thread::spawn(move || {
-            let answer = load(&piece, &base, &cache).map(Arc::new);
+            let answer = load(&piece, &base, &cache, rigs.as_deref()).map(Arc::new);
             let _ = tx.send((piece, answer));
         });
         None
@@ -62,17 +67,31 @@ impl Loader {
     }
 
     #[cfg(test)]
-    pub fn put(&mut self, piece: &str, knobs: Vec<Knob>) {
-        self.got.insert(piece.to_string(), Some(Ok(Arc::new(knobs))));
+    pub fn put(&mut self, piece: &str, knobs: Vec<values::Knob>) {
+        self.got.insert(piece.to_string(), Some(Ok(Arc::new(Read { knobs, ..Read::default() }))));
+    }
+
+    /// the answer at once, loaded on this thread (a check run's and a test's: `--rigs`, core rigs, a scene in the cache)
+    pub fn now(&mut self, piece: &str) -> Option<Answer> {
+        if !matches!(self.got.get(piece), Some(Some(_))) {
+            let a = load(piece, &self.base, &self.cache, self.rigs.as_deref()).map(Arc::new);
+            self.got.insert(piece.to_string(), Some(a));
+        }
+        self.get(piece)
     }
 }
 
+/// a rig from a check run's folder (`--rigs DIR`)
+pub fn rig_file(rigs: Option<&std::path::Path>, place: &deck_space::rig::address::Place) -> Option<deck_space::piece::Found> {
+    std::fs::read_to_string(rigs?.join(format!("{}.toml", place.id))).ok().map(deck_space::piece::Found::Rig)
+}
+
 /// the core loads the piece as a cell would; a published scene comes through the core's loader, the API asked with the
-/// editor's sign-in (sign_in.rs)
-fn load(piece: &str, base: &str, cache: &std::path::Path) -> Result<Vec<Knob>, String> {
-    deck_space::piece::knobs(piece, |place| {
+/// editor's sign-in (sign_in.rs); a rig from `rigs` (a check run's)
+fn load(piece: &str, base: &str, cache: &std::path::Path, rigs: Option<&std::path::Path>) -> Result<Read, String> {
+    deck_space::holders::read(piece, |place| {
         if place.kind != "scene" {
-            return None;
+            return rig_file(rigs, place);
         }
         let r = match deck_space::published::SceneRef::parse(piece)? {
             Ok(r) => r,
@@ -98,7 +117,7 @@ pub struct KnobDrag {
 
 impl Host {
     /// the selected cell's row, column and piece with the piece's knobs; none (and why, in the status) while not known
-    fn cell_knobs(&mut self) -> Option<(String, String, String, Arc<Vec<Knob>>)> {
+    fn cell_knobs(&mut self) -> Option<(String, String, String, Arc<Read>)> {
         let (Some(row), Some(column)) = self.selected() else { return None };
         let piece = rows::cell_inspector(self.shown(), &row, &column)?.knobs_of?;
         match self.knobs.get(&piece) {
@@ -115,8 +134,12 @@ impl Host {
     }
 
     pub(super) fn knob_press(&mut self, h: KnobHit) {
-        let Some((row, column, piece, knobs)) = self.cell_knobs() else { return };
-        let views = rows::cell_knobs(self.shown(), &row, &column, &knobs, "en");
+        if h == KnobHit::Build {
+            return self.ask_build();
+        }
+        let Some((row, column, piece, read)) = self.cell_knobs() else { return };
+        let knobs = &read.knobs;
+        let views = rows::cell_knobs(self.shown(), &row, &column, knobs, "en");
         match h {
             KnobHit::Turn(i) => {
                 if let Some(k) = views.get(i) {
@@ -125,23 +148,24 @@ impl Host {
             }
             KnobHit::Clear(i) => {
                 if let Some(k) = views.get(i) {
-                    self.edit_rows_with(&Edit::Value { row, column, path: k.path.clone(), to: None }, Some(&knobs));
+                    self.edit_rows_with(&Edit::Value { row, column, path: k.path.clone(), to: None }, Some(knobs));
                 }
             }
-            KnobHit::Take => match values::current(&self.sub, &column, &piece, &knobs) {
+            KnobHit::Take => match values::current(&self.sub, &column, &piece, knobs) {
                 Ok(positions) => {
-                    self.edit_rows_with(&Edit::Take { row, column, positions }, Some(&knobs));
+                    self.edit_rows_with(&Edit::Take { row, column, positions }, Some(knobs));
                 }
                 Err(why) => self.status = why,
             },
+            KnobHit::Build => {}
         }
     }
 
     /// the pointer moved: a knob being dragged turns (shown at once, written when let go)
     pub(super) fn knob_moved(&mut self, x: f32) {
         let Some(d) = self.knob_drag else { return };
-        let Some((row, column, _, knobs)) = self.cell_knobs() else { return };
-        if let Some(k) = rows::cell_knobs(self.shown(), &row, &column, &knobs, "en").get(d.i) {
+        let Some((row, column, _, read)) = self.cell_knobs() else { return };
+        if let Some(k) = rows::cell_knobs(self.shown(), &row, &column, &read.knobs, "en").get(d.i) {
             self.knob_drag = Some(KnobDrag { v: crate::scrub(d.v0, x - d.x0, k.min, k.max, k.log), ..d });
         }
     }
@@ -152,18 +176,18 @@ impl Host {
         if d.v == d.v0 {
             return;
         }
-        let Some((row, column, _, knobs)) = self.cell_knobs() else { return };
-        if let Some(k) = rows::cell_knobs(self.shown(), &row, &column, &knobs, "en").get(d.i) {
-            self.edit_rows_with(&Edit::Value { row, column, path: k.path.clone(), to: Some(d.v) }, Some(&knobs));
+        let Some((row, column, _, read)) = self.cell_knobs() else { return };
+        if let Some(k) = rows::cell_knobs(self.shown(), &row, &column, &read.knobs, "en").get(d.i) {
+            self.edit_rows_with(&Edit::Value { row, column, path: k.path.clone(), to: Some(d.v) }, Some(&read.knobs));
         }
     }
 
     /// the wheel over a knob turns it a step, written at once
     pub(super) fn knob_wheel(&mut self, i: usize, steps: f32) {
-        let Some((row, column, _, knobs)) = self.cell_knobs() else { return };
-        if let Some(k) = rows::cell_knobs(self.shown(), &row, &column, &knobs, "en").get(i) {
+        let Some((row, column, _, read)) = self.cell_knobs() else { return };
+        if let Some(k) = rows::cell_knobs(self.shown(), &row, &column, &read.knobs, "en").get(i) {
             let v = crate::scrub(k.value, steps * 12.0, k.min, k.max, k.log);
-            self.edit_rows_with(&Edit::Value { row, column, path: k.path.clone(), to: Some(v) }, Some(&knobs));
+            self.edit_rows_with(&Edit::Value { row, column, path: k.path.clone(), to: Some(v) }, Some(&read.knobs));
         }
     }
 }
@@ -201,9 +225,9 @@ pub fn side(d: &mut DrawList, t: &Tokens, host: &mut Host, (x, y, w): (f32, f32,
                 y += small * 1.5;
             }
         }
-        Some(Ok(knobs)) => {
+        Some(Ok(read)) => {
             let clear_w = h;
-            for (i, k) in rows::cell_knobs(show, row, column, &knobs, "en").iter().enumerate() {
+            for (i, k) in rows::cell_knobs(show, row, column, &read.knobs, "en").iter().enumerate() {
                 let dragged = host.knob_drag.filter(|g| g.i == i);
                 let v = dragged.map_or(k.value, |g| g.v);
                 let r = Rect { x, y, w: w - clear_w - 4.0, h };
@@ -220,6 +244,11 @@ pub fn side(d: &mut DrawList, t: &Tokens, host: &mut Host, (x, y, w): (f32, f32,
             let b = Rect { x, y: y + 2.0, w: bw, h: h - 4.0 };
             super::perform::button(d, t, b, values::TAKE, t.color.control, t.color.text);
             host.hits.push((b, Hit::Knob(KnobHit::Take)));
+            y += h;
+            let ow = d.advance(small) * super::build::OPEN.chars().count() as f32 + 2.0 * pad;
+            let o = Rect { x, y: y + 2.0, w: ow, h: h - 4.0 };
+            super::perform::button(d, t, o, super::build::OPEN, t.color.control, t.color.text);
+            host.hits.push((o, Hit::Knob(KnobHit::Build)));
             y += h;
         }
     }

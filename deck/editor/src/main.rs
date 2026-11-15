@@ -83,10 +83,12 @@ struct Args {
     far: Option<(String, bool)>,
     /// #539: a check run's story events (the API's answer in a file) in place of `GET /api/creator/story-events`
     story: Option<PathBuf>,
+    /// #568: a check run's rigs (`<id>.toml` bundles) for the cells' pieces the deck carries no core rig of
+    rigs: Option<PathBuf>,
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { rig: "catpope".into(), frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None };
+    let mut a = Args { rig: "catpope".into(), frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -129,6 +131,9 @@ fn args() -> Result<Args> {
             "--toon" => a.toon = Some(val()?),
             "--book" => a.book = Some(PathBuf::from(val()?)),
             "--story-events" => a.story = Some(PathBuf::from(val()?)),
+            "--rigs" => a.rigs = Some(PathBuf::from(val()?)),
+            "--open-build" => a.script.open_build = true,
+            "--to-cell" => a.script.to_cell = true,
             "--far" => {
                 let v = val()?;
                 a.far = Some(match v.strip_suffix(",pick") {
@@ -252,6 +257,9 @@ enum Hit {
     Save,
     /// the Audio tab's settings, map and tones
     Routing(routing::Field),
+    /// #568: Build linked to a show cell – its knobs into the cell, back to Show
+    ToCell,
+    BackToShow,
 }
 
 /// what is being dragged
@@ -442,6 +450,7 @@ fn run() -> Result<i32> {
     let rig_toon = if args.toon.is_none() && args.book.is_none() { toon::RigToon::new(&args.api, &subject, &cache) } else { toon::RigToon::none() };
     let mut app_show = show::Host::new(args.show_file.clone(), args.show_id.clone(), args.relay.clone(), args.api.clone());
     app_show.toon.clone_from(&args.toon);
+    app_show.knobs.rigs.clone_from(&args.rigs);
     if let Some(f) = &args.story {
         app_show.story_from_file(f);
     }
@@ -594,6 +603,8 @@ impl App {
             Hit::RigPick => Help::new("Rig", "Click: the toon's rigs on the server; a pick opens it on the stage. A local copy that differs from the server's is offered."),
             Hit::Save => Help::new("Save", "A new draft version on the server, on the version opened (ctrl+s). Publishing is in the creator."),
             Hit::Mute(i) => Help::new(format!("Mute {}", self.stage.strips.get(i)?.track), "Takes the track out of the sound."),
+            Hit::ToCell => Help::new(show::build::TO_CELL, "Writes the knobs as Build has them now into the show cell this rig was opened from; the show checks their ranges."),
+            Hit::BackToShow => Help::new(show::build::BACK, "The Show workspace, the linked cell selected."),
             Hit::Field(_) | Hit::InfoBody | Hit::Nothing => return None,
         })
     }
@@ -868,6 +879,8 @@ impl App {
             }
             Hit::RigPick => self.open_rigs(x, y),
             Hit::Save => self.rigs.save(&self.stage.base, &self.stage.bundle),
+            Hit::ToCell => self.to_cell(),
+            Hit::BackToShow => self.workspace = show::Workspace::Show,
             Hit::Nothing => self.focus(false),
         }
     }
@@ -1148,6 +1161,49 @@ impl App {
         }
     }
 
+    /// #568: what Show asked Build to play (show/build.rs): a rig at hand takes the stage, the server's is opened
+    fn follow_cell(&mut self) {
+        let Some(asked) = self.show.to_build.take() else { return };
+        let (x, y) = self.cursor;
+        self.workspace = show::Workspace::Build;
+        match asked {
+            show::build::ToBuild::Play(o, set) => {
+                let subject = o.bundle.rig.subject.clone();
+                self.stage.path.clear();
+                if let Err(err) = self.stage.replay(o.bundle.clone()) {
+                    return self.say(format!("{err:#}"), x, y, true);
+                }
+                self.stage.base = o.bundle;
+                for (path, v) in set {
+                    if let Some(k) = self.stage.knobs.iter().find(|k| k.path == path) {
+                        let (node, port, min, max) = (k.node, k.port_index, k.min, k.max);
+                        self.stage.set(node, port, v, min, max);
+                    }
+                }
+                (self.rigs.subject, self.rigs.version) = (subject.clone(), None);
+                (self.undo, self.sel, self.armed) = (Vec::new(), inspector::Sel::Rig, None);
+                self.draft = rigs::draft_path(&deck_native::cache::default_dir(), &subject);
+                self.leveled = !self.wire;
+                let line = self.show.status.clone();
+                self.say(line, x, y, false);
+            }
+            show::build::ToBuild::Server(subject) => {
+                if let Err(e) = self.rigs.open(&subject) {
+                    self.say(format!("{subject}: {e}"), x, y, true);
+                }
+            }
+        }
+    }
+
+    /// #568: "values → cell" – the knobs as the stage has them, into the linked cell (show/build.rs)
+    fn to_cell(&mut self) {
+        let positions: Vec<(String, f32)> = self.stage.knobs.iter().map(|k| (k.path.clone(), self.stage.value(k))).collect();
+        let done = self.show.values_to_cell(&positions);
+        let (x, y) = self.cursor;
+        let line = self.show.status.clone();
+        self.say(line, x, y, !done);
+    }
+
     /// the rig picker: the toon's rigs on the server, the local copy when it differs; why there are none inside it
     fn open_rigs(&mut self, x: f32, y: f32) {
         let registry = std::fs::read_to_string(toon::kept(&deck_native::cache::default_dir())).unwrap_or_default();
@@ -1337,6 +1393,9 @@ impl App {
     /// a check run's drag at fixed frames: the pointer's own path, through hit test, press, move and release
     fn script(&mut self) {
         self.show.script(self.frames, &self.args.script);
+        if self.frames == 70 && self.args.script.to_cell {
+            self.to_cell();
+        }
         const START: u64 = 60;
         if self.args.pull {
             let top = self.tokens.tokens.size.top;
@@ -1504,6 +1563,7 @@ impl App {
     fn redraw(&mut self, el: &ActiveEventLoop) {
         self.follow_toon();
         self.follow_rigs();
+        self.follow_cell();
         self.book.poll();
         // #537: the Show workspace picks a cell's piece from the book's scenes
         self.show.book.clone_from(&self.book.book);
@@ -1662,6 +1722,16 @@ impl App {
             self.panel.hits.push((r, Hit::Save));
         }
         y += row + pad / 2.0;
+        if let Some(line) = self.show.build_line() {
+            let pills = [show::build::TO_CELL, show::build::BACK];
+            let pw: f32 = pills.iter().map(|p| ui.advance(small) * p.chars().count() as f32 + 2.0 * pad + pad).sum();
+            let fitted = controls::fit(&line, ((px - 3.0 * pad - pw) / ui.advance(small)).max(4.0) as usize);
+            ui.text(x0 + pad, y + (row - 4.0 - small * 1.25) * 0.5, small, &fitted, t.color.accent);
+            for (r, h) in controls::pills(ui, t, x0 + px - pad - pw + pad, y, row - 4.0, &pills, usize::MAX).into_iter().zip([Hit::ToCell, Hit::BackToShow]) {
+                self.panel.hits.push((r, h));
+            }
+            y += row + pad / 2.0;
+        }
         // the tabs
         let names = TABS.map(|(_, name)| name);
         let active = TABS.iter().position(|(tab, _)| *tab == self.panel.tab).unwrap_or(0);
@@ -1741,9 +1811,12 @@ impl App {
         let status = if self.undo.is_empty() { status } else { format!("{} change{} · {status}", self.undo.len(), if self.undo.len() == 1 { "" } else { "s" }) };
         let status = signed(&sign_in, status);
         let logo_frame = ((self.started.elapsed().as_secs_f32() / logo::SECONDS).fract() * logo::FRAMES as f32) as usize;
-        let title = self.stage.bundle.rig.subject.as_str();
+        let title = match self.show.build_line() {
+            Some(l) => format!("{} · {l}", self.stage.bundle.rig.subject),
+            None => self.stage.bundle.rig.subject.clone(),
+        };
         let names = show::WORKSPACES.map(|(_, n)| n);
-        let bar = bar::Bar { title, status: &status, wire: self.wire, logo_frame, pointer: self.cursor, cpu: self.cpu_load, gpu: self.gpu_time.as_ref().map(|_| self.gpu_load), workspaces: &names, workspace: 0 };
+        let bar = bar::Bar { title: &title, status: &status, wire: self.wire, logo_frame, pointer: self.cursor, cpu: self.cpu_load, gpu: self.gpu_time.as_ref().map(|_| self.gpu_load), workspaces: &names, workspace: 0 };
         let (button, pills) = bar::draw(ui, t, wf, &bar);
         self.panel.hits.push((button, Hit::Mode(!self.wire)));
         for (r, (w, _)) in pills.into_iter().zip(show::WORKSPACES) {
@@ -1843,6 +1916,31 @@ impl App {
                 if let Some(q) = nearest(&self.marks, self.cursor.0, self.cursor.1).and_then(|b| self.stage.ports.get(b)) {
                     controls::chip(ui, t, (self.cursor.0 + 14.0, self.cursor.1 + 14.0), stage_x + stage_w, &format!("{} · {}", q.address, q.ty), false);
                 }
+            }
+        }
+        // #568: every far world node with a tube off the stage's right edge, towards its holder: the outlet of the linked
+        // cell's row it plays on (deck-show far.rs), else its address
+        {
+            let linked = self.show.build_wires();
+            let being = &self.stage.space.being;
+            let mut k = 0.0;
+            for (n, id) in self.stage.node_ids.iter().enumerate() {
+                let Some((_, node, address)) = self.stage.far(n) else { continue };
+                let track = id.strip_suffix(&format!("_{node}")).unwrap_or(id);
+                let on = being.point_world(n).or_else(|| self.stage.ports.iter().filter(|p| p.track == track).find_map(|p| self.stage.node_ids.iter().position(|x| *x == p.node).and_then(|m| being.point_world(m))));
+                let Some((sx, sy)) = on.and_then(|w| self.stage.space.to_pixel(w)) else { continue };
+                let from = (sx / scale + stage_x, sy / scale + top);
+                let to = (stage_x + stage_w - 12.0, top + stage_h * 0.35 + k * row * 1.6);
+                k += 1.0;
+                let (words, held) = match linked.iter().find(|l| l.node == *id) {
+                    Some(l) => (l.words(), matches!(l.holder, deck_show::far::Holder::Outlet(_) | deck_show::far::Holder::Here)),
+                    None => (format!("{id} ← off stage · {address}"), false),
+                };
+                let c = if held { t.color.accent } else { t.color.muted };
+                ui.cable(from, to, c);
+                ui.disc(to.0, to.1, 5.0, c);
+                let w = ui.advance(font * 0.85) * words.chars().count() as f32 + 12.0;
+                controls::chip(ui, t, ((to.0 - w).max(stage_x + pad), to.1 + 8.0), stage_x + stage_w, &words, false);
             }
         }
         // what is selected shows on the stage
