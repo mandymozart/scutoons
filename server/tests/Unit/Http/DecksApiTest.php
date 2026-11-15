@@ -256,4 +256,61 @@ final class DecksApiTest extends TestCase
         self::assertSame(403, $this->request('POST', '/api/me/decks/approve', $ai, ['code' => 'ABCDEF'])->getStatusCode());
         self::assertSame(403, $this->request('GET', '/api/me/decks', $ai)->getStatusCode());
     }
+
+    /** the native editor: the same handshake as the kind editor – approved by a creator, then reads and draft saves only */
+    public function testAnEditorIsApprovedByACreatorAndSavesDraftsOnly(): void
+    {
+        $reader = $this->session([], 'reader@scutoons.test');
+        $creator = $this->session(['creator'], 'creator@scutoons.test');
+        [$public, $secret] = self::keys();
+        $r = $this->request('POST', '/api/decks/request', [], ['public_key' => $public, 'kind' => 'editor', 'hostname' => 'studio-pc']);
+        self::assertSame(201, $r->getStatusCode(), (string) $r->getBody());
+        $code = (string) self::json($r)['deck']['code'];
+        self::assertSame(400, $this->request('POST', '/api/decks/request', [], ['public_key' => $public, 'kind' => 'admin'])->getStatusCode());
+
+        // the account page shows it as an editor; a reader cannot approve one, a creator can
+        self::assertSame('editor', self::json($this->request('GET', "/api/me/decks/pending?code=$code", $creator))['deck']['kind']);
+        $r = $this->request('POST', '/api/me/decks/approve', $reader, ['code' => $code]);
+        self::assertSame([403, 'forbidden'], [$r->getStatusCode(), self::json($r)['error'] ?? null], (string) $r->getBody());
+        $item = self::json($this->request('POST', '/api/me/decks/approve', $creator, ['code' => $code]))['item'];
+        self::assertSame(['editor', 'studio-pc'], [$item['kind'], $item['name']]);
+        self::assertSame(['editor'], array_column(self::json($this->request('GET', '/api/me/decks', $creator))['items'], 'kind'));
+
+        $t = $this->renew($public, $secret);
+        self::assertSame(200, $t->getStatusCode(), (string) $t->getBody());
+        $token = (string) self::json($t)['token'];
+        self::assertStringStartsWith(Decks::EDITOR_TOKEN_PREFIX, $token);
+        $editor = ['Authorization' => 'Bearer ' . $token];
+        self::assertSame('creator@scutoons.test', self::json($this->request('GET', '/api/me', $editor))['user']['email']);
+
+        // a draft with base: saved; a stale base: 409 conflict; publishing and everything else: refused
+        $saved = $this->request('PUT', '/api/entities/moods', $editor, ['content' => ['moods' => [['id' => 'happy', 'label' => ['en' => 'Happy']]]], 'base' => null]);
+        self::assertSame(200, $saved->getStatusCode(), (string) $saved->getBody());
+        $base = (int) self::json($saved)['version']['id'];
+        self::assertSame((string) $base, $this->request('GET', '/api/entities/moods?draft=1', $editor)->getHeaderLine('X-Content-Version'));
+        $again = $this->request('PUT', '/api/entities/moods', $editor, ['content' => ['moods' => [['id' => 'sad', 'label' => ['en' => 'Sad']]]], 'base' => $base]);
+        self::assertSame(200, $again->getStatusCode(), (string) $again->getBody());
+        $stale = $this->request('PUT', '/api/entities/moods', $editor, ['content' => ['moods' => []], 'base' => $base]);
+        self::assertSame([409, 'conflict'], [$stale->getStatusCode(), self::json($stale)['error'] ?? null]);
+        foreach ([['POST', '/api/entities/moods/publish'], ['POST', '/api/entities/publish'], ['POST', '/api/entities/batch'], ['POST', '/api/shows/x/publish'],
+            ['PUT', '/api/assets/replace'], ['PUT', '/api/me'], ['GET', '/api/me/decks'], ['GET', '/api/me/tokens'], ['POST', '/api/auth/logout']] as [$method, $path]) {
+            $r = $this->request($method, $path, $editor, []);
+            self::assertSame([403, 'not_for_editor'], [$r->getStatusCode(), self::json($r)['error'] ?? null], "$method $path");
+        }
+
+        // the scope follows the row's kind: a deck token never becomes an editor one; asking as a deck starts over
+        $this->db->run('UPDATE decks SET token_hash = ? WHERE public_key = ?', [hash('sha256', 'scd_' . substr($token, 4)), $public]);
+        self::assertSame(401, $this->request('GET', '/api/me', ['Authorization' => 'Bearer scd_' . substr($token, 4)])->getStatusCode());
+        self::assertSame('pending', $this->ask($public)['status']);
+        self::assertSame('deck', $this->db->value('SELECT kind FROM decks WHERE public_key = ?', [$public]));
+
+        // an editor whose member lost the creator role stops at once
+        [$p2, $s2] = self::keys();
+        $c2 = (string) self::json($this->request('POST', '/api/decks/request', [], ['public_key' => $p2, 'kind' => 'editor']))['deck']['code'];
+        self::assertSame(200, $this->request('POST', '/api/me/decks/approve', $creator, ['code' => $c2])->getStatusCode());
+        $e2 = ['Authorization' => 'Bearer ' . self::json($this->renew($p2, $s2))['token']];
+        self::assertSame(200, $this->request('GET', '/api/me', $e2)->getStatusCode());
+        $this->get(Roles::class)->revoke((string) $this->db->value('SELECT id FROM users WHERE email = ?', ['creator@scutoons.test']), 'creator');
+        self::assertSame(401, $this->request('GET', '/api/me', $e2)->getStatusCode());
+    }
 }

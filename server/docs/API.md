@@ -763,6 +763,10 @@ Handshake, then approval, then data (agents/research/CYBERDECKS.md §9). Code: `
   per deck). `Authorization: Bearer scd_…` = the member's account, **read-only** (`DeckTokenScope`, `403 not_for_deck`):
   GET / HEAD only, never `/me/decks*`, `/me/tokens*`, `/auth/*` (the write scope `rigs` and column `decks.scopes` are gone, #302).
   The handshake routes ignore the session.
+- **The native editor** asks the same way with `kind: "editor"` in `/decks/request` (default `deck`; a key that asks as the
+  other kind starts over). Pending and listed items carry `kind`; only a creator or an admin approves an editor (`403
+  forbidden`). Its token is `sce_…` (`EditorTokenScope`, `403 not_for_editor`): reads like a deck, plus the draft saves
+  `PUT /entities/<key>` and `PUT /shows/<id>`; no publish, no other write. It stops when the member loses the creator role.
 - **Revoke / expiry:** the token stops at once (401); the next challenge answers `401 revoked | expired`, an unknown key
   `401 unknown_deck`, an expired request `401 request_expired` → the deck asks again (the same row goes back to pending,
   nothing of the old approval stays).
