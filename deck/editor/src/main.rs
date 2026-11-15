@@ -879,7 +879,7 @@ impl App {
             }
             Hit::RigPick => self.open_rigs(x, y),
             Hit::Save => self.rigs.save(&self.stage.base, &self.stage.bundle),
-            Hit::ToCell => self.to_cell(),
+            Hit::ToCell => self.knobs_to_cell(),
             Hit::BackToShow => self.workspace = show::Workspace::Show,
             Hit::Nothing => self.focus(false),
         }
@@ -1196,7 +1196,7 @@ impl App {
     }
 
     /// #568: "values → cell" – the knobs as the stage has them, into the linked cell (show/build.rs)
-    fn to_cell(&mut self) {
+    fn knobs_to_cell(&mut self) {
         let positions: Vec<(String, f32)> = self.stage.knobs.iter().map(|k| (k.path.clone(), self.stage.value(k))).collect();
         let done = self.show.values_to_cell(&positions);
         let (x, y) = self.cursor;
@@ -1394,7 +1394,7 @@ impl App {
     fn script(&mut self) {
         self.show.script(self.frames, &self.args.script);
         if self.frames == 70 && self.args.script.to_cell {
-            self.to_cell();
+            self.knobs_to_cell();
         }
         const START: u64 = 60;
         if self.args.pull {
