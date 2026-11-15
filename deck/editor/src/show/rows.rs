@@ -18,7 +18,7 @@ use deck_show::rows::{self, Edit, PieceView};
 use deck_show::{view, Show};
 
 /// the language of the book's labels (the editor's own words are English, main.rs)
-const LOCALE: &str = "en";
+pub(super) const LOCALE: &str = "en";
 
 impl Host {
     /// An edit of the shown document's rows or cells: deck-show makes and checks it; the row it names is selected.
@@ -327,7 +327,7 @@ pub fn picker(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, pointer: (
     let typing = host.typing.as_ref().filter(|(what, _)| *what == Typing::Piece).map(|(_, f)| f.text.clone());
     let query = host.piece_query_now();
     let label = if host.book.is_some() { "find" } else { rows::PIECE };
-    let why = host.book_why.clone().unwrap_or_else(|| "the address book is still on its way".into());
+    let why = host.book_why.clone().unwrap_or_else(|| super::scenes::NO_BOOK.into());
     let pieces = host.piece_list();
     let now = show.row(&sel).and_then(|r| r.cells.get(&col)).map(view::cell_text).unwrap_or_default();
     let list = match host.book {
@@ -349,7 +349,7 @@ pub(super) mod tests {
     use winit::keyboard::{Key, NamedKey};
 
     /// a toon's book with two published scenes and a character (deck-show rows.rs has the full case)
-    const BOOK: &str = r#"{ "address_book": 2, "toon": "catpope", "version": "v1", "source": "en", "entries": [
+    pub(in crate::show) const BOOK: &str = r#"{ "address_book": 2, "toon": "catpope", "version": "v1", "source": "en", "entries": [
         { "ref": "character:catpope", "address": "character:catpope", "kind": "character", "name": "catpope", "labels": { "en": "Cat Pope" }, "origin": { "key": "character:catpope", "state": "published" } },
         { "ref": "scene:nave", "address": "scene:nave", "kind": "scene", "name": "nave", "labels": { "en": "Nave" }, "origin": { "key": "scene:nave", "state": "published" }, "version": 2 },
         { "ref": "scene:vigil", "address": "scene:vigil", "kind": "scene", "name": "vigil", "labels": { "en": "Vigil" }, "origin": { "key": "scene:vigil", "state": "published" }, "version": 1 }

@@ -636,6 +636,7 @@ impl App {
             m.ta.hover(x, y);
         }
         self.show.pointer(x, y);
+        self.show.drag_to(x, y);
         match self.panel.drag {
             Some(Drag::Divider) => {
                 let w = self.gpu.as_ref().map_or(1280.0, |g| g.size().0 as f32);
@@ -1221,6 +1222,10 @@ impl App {
 
     /// the button let go: a cable dropped on a port is a gesture on the rig
     fn release(&mut self) {
+        // Show: a scene dragged from the list lands on the cell under the pointer
+        if self.show.drop_at(self.cursor.0, self.cursor.1) {
+            return;
+        }
         let a = match self.panel.drag.take() {
             Some(Drag::Cable(a)) => a,
             Some(Drag::Grab(a)) => return self.drop_grabbed(a),

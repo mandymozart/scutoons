@@ -13,7 +13,8 @@
 //!   a row added, renamed, removed; a cell's mode and its piece, picked from the published scenes of the toon's book;
 //!   #539 (events.rs): the event a row fires on, picked from the toon's story events. #551 (ask.rs): several cells of a
 //!   row selected (shift), the right click's typeahead on them – a new question, the story's, add to, leave –, the
-//!   question in the cell inspector, the wide cell in the rows band and in Perform's matrix.
+//!   question in the cell inspector, the wide cell in the rows band and in Perform's matrix. The scene list beside the
+//!   rows band (scenes.rs): a scene dragged onto a cell is its piece, as a pick is.
 //!
 //! The editor runs one conductor, this deck's (the tree's top it was given). A sub conductor runs on its own deck with its
 //! own operator; entering it here shows its document, it does not run it.
@@ -27,6 +28,7 @@ mod link;
 pub mod perform;
 mod roles;
 mod rows;
+mod scenes;
 mod session;
 mod sheets;
 mod vote;
@@ -142,6 +144,9 @@ pub enum Hit {
     CellPiece,
     PiecePick(usize),
     PieceType,
+    /// a scene of the list beside the rows band (a press starts its drag); the list's filter field
+    Scene(usize),
+    SceneFind,
     /// #553: one chip of the selected cell's filter (the one condition control); an address of the inspected row (selects
     /// it: its filter's chips show under it); one chip of the selected address's filter
     CellFact(usize),
@@ -219,6 +224,10 @@ pub struct Host {
     pub book_why: Option<String>,
     /// #537: the piece picker's typed query (while it is not being typed)
     pub piece_query: String,
+    /// the scene list beside the rows band: its filter, the scene being dragged, the core's refusal where one was dropped
+    pub scene_query: String,
+    pub dragging: Option<scenes::Dragging>,
+    pub refused: Option<(f32, f32, String)>,
     /// #539: the toon whose story events a row's event is picked from (`--toon`; else the book's), the events once asked
     /// (`GET /api/creator/story-events`, read by deck-show story.rs) or why there are none, the picker's typed query;
     /// #551: the same answer's questions are what the right click offers as the story's
@@ -296,7 +305,7 @@ impl Host {
                 })
                 .ok()
         });
-        Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), context: None, side: Rect { x: 0.0, y: 0.0, w: 0.0, h: 0.0 }, side_scroll: 0.0, side_over: 0.0, address: None, book: None, book_why: None, piece_query: String::new(), toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, session: session::Session::default(), voting: vote::Voting::default(), link, api }
+        Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), context: None, side: Rect { x: 0.0, y: 0.0, w: 0.0, h: 0.0 }, side_scroll: 0.0, side_over: 0.0, address: None, book: None, book_why: None, piece_query: String::new(), scene_query: String::new(), dragging: None, refused: None, toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, session: session::Session::default(), voting: vote::Voting::default(), link, api }
     }
 
     /// the document at the end of the path (the top's when a step is missing)
@@ -355,6 +364,7 @@ impl Host {
             self.menu = None;
         }
         self.context = None;
+        self.refused = None;
         let rows: Vec<String> = self.sub.conductor().show().rows.iter().map(|r| r.id.clone()).collect();
         match hit {
             Hit::Fire(i) => {
@@ -399,6 +409,7 @@ impl Host {
                 self.rows_press(hit);
             }
             Hit::FiresOn | Hit::EventPick(_) | Hit::EventType => self.events_press(hit),
+            Hit::Scene(_) | Hit::SceneFind => self.scenes_press(hit),
             Hit::Save => self.save(),
             Hit::Load => self.load(),
             Hit::Flash => self.open_flash(),

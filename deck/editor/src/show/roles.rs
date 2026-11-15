@@ -34,6 +34,8 @@ pub enum Typing {
     Event,
     /// #551: a typed field of a question's form in the cell inspector (the question's id, the field)
     Ask(String, super::ask::AskField),
+    /// the scene list's filter beside the rows band (scenes.rs)
+    Scenes,
 }
 
 /// What a prompt asks before it is done.
@@ -129,6 +131,7 @@ impl Host {
                     Typing::Piece => self.piece_typed(&text),
                     Typing::Event => self.event_typed(&text),
                     Typing::Ask(question, field) => self.ask_typed(question, field, &text),
+                    Typing::Scenes => self.scene_query = text.trim().to_string(),
                 }
             }
             Key::Named(NamedKey::Escape) => self.typing = None,
