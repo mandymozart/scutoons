@@ -1,6 +1,6 @@
 //! The Show workspace (#91, the owner's draft m1-show): the conductors tree on the left (this deck's conductor, its seats –
 //! a seat enters its sub conductor, the breadcrumb leads back) and the rows of the document shown; in the middle the 2D
-//! node overlay over the dimmed stage (#446): what comes from far (the reader's events, the clock), the cells of the row
+//! node overlay over the stage (#446): what comes from far (the reader's events, the clock), the cells of the row
 //! and what the row sends, with a 2D / 3D switch; the rows band under it; on the right the row's inspector, the seats,
 //! save and load. The words are deck-show's view.rs; this file lays them out and names the places (`Hit`).
 use super::perform::button;
@@ -68,7 +68,7 @@ fn node(d: &mut DrawList, t: &Tokens, (x, y, w): (f32, f32, f32), head: (&str, &
     let (font, small, pad) = (t.size.font, t.size.small, t.size.pad);
     let lh = font * 1.5;
     let h = lh + lines.len() as f32 * lh + pad;
-    d.round_rect(x, y, w, h, t.size.radius, [t.color.surface[0], t.color.surface[1], t.color.surface[2], 0.92]);
+    d.round_rect(x, y, w, h, t.size.radius, [t.color.surface[0], t.color.surface[1], t.color.surface[2], 0.6]);
     d.outline(x, y, w, h, (t.size.radius, 1.0), if far { t.color.muted } else { t.color.line });
     d.text(x + pad, y + 4.0, font, head.0, t.color.text);
     let dw = d.advance(small) * head.1.chars().count() as f32;
@@ -145,7 +145,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
         host.hits.push((r, if i + 1 == rows.len() { Hit::RowAdd } else { Hit::Row(i) }));
     }
 
-    // middle: the breadcrumb, then the overlay over the dimmed stage
+    // middle: the breadcrumb, then the overlay over the stage
     let crumbs: Vec<String> = host.crumbs().into_iter().chain(std::iter::once(format!("{} {}", host.row + 1, sel))).collect();
     let n = crumbs.len();
     for (i, r) in controls::breadcrumb(d, t, l.stage.x + pad, l.stage.y + pad, &crumbs).into_iter().enumerate() {
@@ -158,7 +158,6 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
         let top = l.stage.y + t.size.row + pad;
         super::sheets::draw(d, t, host, Rect { x: l.stage.x, y: top, w: l.stage.w, h: l.stage.h - (top - l.stage.y) }, pointer);
     } else if host.two_d {
-        d.rect(l.stage.x, l.stage.y + t.size.row + pad, l.stage.w, l.stage.h - t.size.row - pad, [t.color.stage[0], t.color.stage[1], t.color.stage[2], 0.6]);
         let top = l.stage.y + t.size.row + 2.0 * pad;
         let colw = ((l.stage.w - 4.0 * pad) / 3.6).max(120.0);
         let (fx, cx) = (l.stage.x + pad, l.stage.x + 2.0 * pad + colw);
