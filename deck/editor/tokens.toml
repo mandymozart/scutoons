@@ -1,10 +1,10 @@
 # Design tokens of the editor (#456): the kit's defaults are the OSCT editor's dark values. Set a name here to override it,
 # colours as 0–1 RGBA, sizes in pixels at scale 1; the editor watches this file and applies a change in the next frame.
 [size]
-top = 40
-tree = 240
-inspector = 320
-font = 15
-small = 13
-row = 32
-tree_row = 28
+top = 46
+tree = 280
+inspector = 380
+font = 18
+small = 15
+row = 38
+tree_row = 32
