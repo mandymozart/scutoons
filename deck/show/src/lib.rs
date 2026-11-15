@@ -19,6 +19,7 @@ pub mod conductor;
 pub mod dialog;
 pub mod document;
 pub mod face;
+pub mod far;
 pub mod flash;
 pub mod flashed;
 /// #551: a vote as cells of the launcher – what the right click on selected cells offers, the question in the cell inspector

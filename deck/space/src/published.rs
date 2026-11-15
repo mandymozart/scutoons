@@ -174,6 +174,22 @@ impl Cast {
         toml::to_string(&self.playing.resolved().scene).map_err(|e| format!("the resolved scene: {e}"))
     }
 
+    /// #568: the rigs its cast plays, in the scene's order – what Build opens of a scene: each member with a rig, its
+    /// bundle as the resolve took it (scene-content's answer, else the deck's core rig) and its slots' prefix in the scene
+    pub fn opened(&self) -> Vec<crate::holders::Opened> {
+        self.playing
+            .resolved()
+            .cast
+            .iter()
+            .filter_map(|m| {
+                let prefix = m.slots.clone()?;
+                let subject = FillerRef::parse(&m.filler).ok()?.rig_subject()?;
+                let bundle = rig_of(&self.rigs, &subject).or_else(|| core_rigs(&subject, None))?;
+                Some(crate::holders::Opened { place: m.place.clone(), bundle, prefix })
+            })
+            .collect()
+    }
+
     /// an address action (the relay's `address`) on it
     pub fn word(&mut self, address: &str, action: &str) -> Recast {
         let (rigs, sets) = (&self.rigs, &self.sets);
@@ -528,6 +544,14 @@ mod tests {
             "holder": [{ "id": "pope", "ref": "character:catpope" }],
             "stage": { "name": "Vigil" }, "node": [{ "id": "space", "kind": "space" }] })
         .to_string()
+    }
+
+    /// #568: Build opens a scene's cast – each member's rig and the prefix of its slots in the scene
+    #[test]
+    fn a_cached_scene_opens_its_casts_rigs() {
+        let kept = serde_json::json!({ "scene": "vigil", "version": 1, "document": serde_json::from_str::<Value>(&at_cathedral()).unwrap(), "content": serde_json::from_str::<Value>(RIGS).unwrap() }).to_string();
+        let opened = Cast::from_cache(&kept).unwrap().opened();
+        assert_eq!(opened.iter().map(|o| (o.place.as_str(), o.bundle.rig.subject.as_str(), o.prefix.as_str())).collect::<Vec<_>>(), [("character:catpope", "character.catpope", "")]);
     }
 
     fn play(step: Step) -> Loaded {
