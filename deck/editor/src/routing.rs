@@ -245,7 +245,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, page: &mut Page, stage: &S
     }
 
     // the map: a line of channel numbers (each a tone), then one line of cells per group; wrapped at the panel's width
-    y += controls::section(d, t, area.x, y + 4.0, area.w, "OUTLET GROUPS → CHANNELS", false) + 4.0;
+    y += controls::section(d, t, area.x, y + 4.0, area.w, "GROUPS ON CHANNELS", false) + 4.0;
     let channels = page.channels();
     let label_w = d.advance(font) * 8.0;
     let cell = (row - 4.0).max(d.advance(small) * 3.0);
@@ -278,7 +278,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, page: &mut Page, stage: &S
         }
         y += 4.0;
     }
-    d.text(area.x, text_y(y, small), small, "dim = no entry: main plays on 1/2, any other group is silent", t.color.muted);
+    d.text(area.x, text_y(y, small), small, &fit(d, "grey: no entry – main on 1/2, others silent", small, area.w), t.color.muted);
     y += row;
 
     for p in page.problems() {

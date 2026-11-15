@@ -163,3 +163,18 @@ impl Engine {
         self.monitor.take().unwrap_or_else(|| glitch::Monitor::new(self.core.rate()).0)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_test_tone_plays_on_a_map_not_saved_yet() {
+        let null = backend::Options { choice: backend::Choice::Null, ..backend::Options::default() };
+        let map = [deck_engine::OutletMap { group: "cue".into(), channels: vec![2] }];
+        for tone in [deck_engine::Tone::Channel(2), deck_engine::Tone::Group("cue".into())] {
+            let run = Engine::tone(&null, &map, &tone).unwrap();
+            assert_eq!(run.name, "null");
+        }
+    }
+}
