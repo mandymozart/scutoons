@@ -11,6 +11,10 @@ description = "The native editor's proof (#444): one window, the stage beside a 
 name = "deck-editor"
 path = "src/main.rs"
 
+[features]
+# the stage on ASIO (the RME's driver on Windows; the SDK as deck/native/README.md "Audio" says)
+asio = ["deck-native/asio"]
+
 [dependencies]
 # the deck's own pieces: the window and its GPU (#443), the audio stack, the rig player, the stage
 deck-native = { path = "../native" }

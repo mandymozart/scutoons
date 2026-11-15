@@ -73,6 +73,8 @@ pub struct Stage {
     pub master_peak: [f32; 2],
     pub master_max: f32,
     volume: f32,
+    /// the outlet groups the rig plays in, `main` first
+    pub groups: Vec<String>,
 }
 
 /// a track's strip on the mixer
@@ -130,6 +132,7 @@ struct Ready {
     tempo: tempo::Config,
     space_node: usize,
     ports: Vec<Port>,
+    groups: Vec<String>,
 }
 
 fn prepare(bundle: Bundle) -> Result<Ready> {
@@ -143,14 +146,8 @@ fn prepare(bundle: Bundle) -> Result<Ready> {
     let tempo = tempo::config_from_graph(&graph)?;
     let space_node = graph.first(Kind::Space).context("the rig's scene has a space node")?;
     let ports = wires::ports(&turn.played)?;
-    Ok(Ready { bundle, knobs: turn.played.knobs.clone(), strips: turn.played.strips(), sum: turn.played.sum(), scene, graph, tempo, space_node, ports })
-}
-
-/// the deck's audio options from deck.toml (`DECK_TOML`): host, device, buffer
-fn options() -> backend::Options {
-    let deck = backend::DeckAudio::read();
-    let host = deck.audio_host.as_deref().and_then(backend::Host::parse).unwrap_or_default();
-    backend::Options { choice: backend::Choice::Auto, host, device: deck.audio_device, buffer: deck.audio_buffer, thread: deck.audio_thread.unwrap_or(true) }
+    let groups = deck_engine::outlet_groups(&graph);
+    Ok(Ready { bundle, knobs: turn.played.knobs.clone(), strips: turn.played.strips(), sum: turn.played.sum(), scene, graph, tempo, space_node, ports, groups })
 }
 
 impl Stage {
@@ -192,8 +189,24 @@ impl Stage {
         Ok(())
     }
 
+    /// the rig again on the machine's audio settings as deck.toml has them now (a test tone stops)
+    pub fn restart_audio(&mut self) -> Result<()> {
+        self.replay(self.bundle.clone())
+    }
+
+    /// the rig's sound stops and a test tone plays on these settings until `restart_audio`
+    pub fn tone(&mut self, o: &backend::Options, outlets: &[deck_engine::OutletMap], tone: &deck_engine::Tone) -> Result<()> {
+        self._events = None;
+        self._audio = None;
+        self.handles = None;
+        let run = audio::Engine::tone(o, outlets, tone)?;
+        self.audio = format!("tone {} {} Hz", run.name, run.rate);
+        self._audio = Some(run);
+        Ok(())
+    }
+
     fn start(ready: Ready, volume: f32) -> Stage {
-        let Ready { bundle, knobs: played_knobs, strips: played_strips, sum, scene, graph, tempo: tempo_cfg, space_node: node, ports } = ready;
+        let Ready { bundle, knobs: played_knobs, strips: played_strips, sum, scene, graph, tempo: tempo_cfg, space_node: node, ports, groups } = ready;
         let mut handles = None;
         let mut audio_name = "off".to_string();
         let audio = {
@@ -203,7 +216,7 @@ impl Stage {
                 handles = Some(h);
                 Ok(engine)
             };
-            match backend::start(&options(), &mut factory) {
+            match backend::start(&backend::Options::from_deck(&backend::DeckAudio::read()), &mut factory) {
                 Ok(r) => {
                     audio_name = format!("{} {} Hz", r.name, r.rate);
                     Some(r)
@@ -277,7 +290,7 @@ impl Stage {
         let master = sum.as_deref().and_then(|s| slot(s, true)).map(|(n, p, _)| (n, p));
         let node_ids = graph.nodes.iter().map(|n| n.id.clone()).collect();
         let kinds = graph.nodes.iter().map(|n| n.kind).collect();
-        Stage { controls, space, gpu: None, texture: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, kinds, strips, inner, master, master_peak: [0.0; 2], master_max: 0.0, volume, path: Vec::new(), core_node: node }
+        Stage { controls, space, gpu: None, texture: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, kinds, strips, inner, master, master_peak: [0.0; 2], master_max: 0.0, volume, path: Vec::new(), core_node: node, groups }
     }
 
     /// show this level of the tree in Wire; empty = the rig

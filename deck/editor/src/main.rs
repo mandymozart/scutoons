@@ -16,6 +16,7 @@ mod gpu_time;
 mod logo;
 mod mixer;
 mod inspector;
+mod routing;
 mod stage;
 mod tokens;
 mod ui;
@@ -42,6 +43,8 @@ use winit::window::{Window, WindowId};
 
 struct Args {
     rig: String,
+    /// the panel's tab at the start: inspector | text | audio
+    tab: Tab,
     frames: Option<u64>,
     screenshot: Option<PathBuf>,
     tokens: Option<PathBuf>,
@@ -82,7 +85,7 @@ struct Args {
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { rig: "catpope".into(), frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None };
+    let mut a = Args { rig: "catpope".into(), frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -111,6 +114,10 @@ fn args() -> Result<Args> {
                 a.wire = true;
             }
             "--draft" => a.draft = Some(PathBuf::from(val()?)),
+            "--tab" => {
+                let v = val()?;
+                a.tab = TABS.iter().find(|(_, n)| n.eq_ignore_ascii_case(&v)).map(|(t, _)| *t).context("--tab inspector | text | audio")?;
+            }
             "--workspace" => a.workspace = show::Workspace::parse(&val()?).context("--workspace build | show | perform")?,
             "--show" => match val()? {
                 v if v.ends_with(".json") => a.show_file = Some(PathBuf::from(v)),
@@ -191,9 +198,10 @@ fn args() -> Result<Args> {
 enum Tab {
     Rig,
     Text,
+    Audio,
 }
 
-const TABS: [(Tab, &str); 2] = [(Tab::Rig, "Inspector"), (Tab::Text, "Text")];
+const TABS: [(Tab, &str); 3] = [(Tab::Rig, "Inspector"), (Tab::Text, "Text"), (Tab::Audio, "Audio")];
 /// a scrub-number's travel for the knob's whole range (pixels)
 const SCRUB_PX: f32 = 240.0;
 
@@ -238,6 +246,8 @@ enum Hit {
     Axis(Option<usize>),
     /// #91: a workspace pill in the top bar
     Workspace(show::Workspace),
+    /// the Audio tab's settings, map and tones
+    Routing(routing::Field),
 }
 
 /// what is being dragged
@@ -383,6 +393,7 @@ struct App {
     book_key: (Option<String>, bool),
     rig_toon: toon::RigToon,
     auth: sign_in::Auth,
+    routing: routing::Page,
 }
 
 /// the top bar's status, the sign-in first while the editor is not signed in (`line`: sign_in.rs, "" when signed in)
@@ -427,7 +438,7 @@ fn run() -> Result<i32> {
     let app_book = book::Loader::new(&args.api, args.toon.as_deref(), args.book.as_deref(), auth.token(), &cache);
     let book_key = (args.toon.clone(), auth.token().is_some());
     let mut app = App {
-        panel: Panel { width, tab: Tab::Rig, field: text::Field::with("Grüße an die Bühne – type here"), drag: None, hits: Vec::new(), field_rect: Rect { x: 0.0, y: 0.0, w: 0.0, h: 0.0 }, advance: 8.0 },
+        panel: Panel { width, tab: args.tab, field: text::Field::with("Grüße an die Bühne – type here"), drag: None, hits: Vec::new(), field_rect: Rect { x: 0.0, y: 0.0, w: 0.0, h: 0.0 }, advance: 8.0 },
         args,
         window: None,
         gpu: None,
@@ -473,6 +484,7 @@ fn run() -> Result<i32> {
         book_key,
         rig_toon,
         auth,
+        routing: routing::Page::new(deck_native::audio::backend::DeckAudio::read()),
     };
     event_loop.run_app(&mut app).context("the event loop")?;
     let summary = app.summary();
@@ -550,6 +562,10 @@ impl App {
             Hit::Knob(i) => Help::new(self.stage.knobs.get(i)?.label.clone(), "Drag or use the wheel to turn it in the engine."),
             Hit::Divider => Help::new("Panel edge", "Drag to resize the panel."),
             Hit::Tab(_) => Help::new("Tab", "Switches what the panel shows."),
+            Hit::Routing(f) => {
+                let (title, text) = self.routing.help(f);
+                Help::new(title, text)
+            }
             Hit::InfoHead => Help::new("Info", "What is under the pointer. Click to fold or open it."),
             Hit::Param(n, p) => Help::new(self.stage.param(n, p)?.name, "Drag or use the wheel to set it in the engine."),
             Hit::Address(_) => Help::new("Address", "Click: the toon's address book. A pick becomes the holder this far world node listens to."),
@@ -691,6 +707,7 @@ impl App {
         }
         match self.hit(x, y) {
             Hit::Workspace(w) => self.workspace = w,
+            Hit::Routing(f) => routing::act(&mut self.routing, &mut self.stage, f),
             Hit::Divider => self.panel.drag = Some(Drag::Divider),
             Hit::Tab(t) => {
                 self.panel.tab = t;
@@ -1578,6 +1595,12 @@ impl App {
                         inspector::Field::Address(n) => Hit::Address(n),
                     };
                     self.panel.hits.push((r, hit));
+                }
+            }
+            Tab::Audio => {
+                let area = Rect { x: x0 + pad, y, w: px - 2.0 * pad, h: hf - y - pad };
+                for (r, f) in routing::draw(ui, t, area, &mut self.routing, &self.stage, self.cursor) {
+                    self.panel.hits.push((r, Hit::Routing(f)));
                 }
             }
             Tab::Text => {
