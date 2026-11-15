@@ -251,6 +251,8 @@ pub fn open(q: &Question, vote: &str, columns: &[String], filter: Option<&Filter
         show: Some(q.show),
         question: (!words.is_empty()).then_some(words),
         labels: (!labels.is_empty()).then_some(labels),
+        // #552: a story question's choice – the relay hands it on with the result, the linked reader picks by it
+        story: q.story.as_ref().map(|s| protocol::VoteStory { event: s.event.clone(), options: s.ids.clone() }),
     })
 }
 
@@ -344,5 +346,15 @@ mod tests {
         sub.on_wire(&wire(welcome), 10);
         assert_eq!(panel(sub.vote(), &named).map(|p| p.vote), Some("v3".into()));
         assert_eq!(panel(&Board::default(), &named), None);
+    }
+
+    #[test]
+    fn a_story_question_opens_with_its_choice_for_the_linked_reader() {
+        let story = json!({ "id": "q1", "rule": "majority", "seconds": 20, "story": { "toon": "catpope", "chapter": 3, "version": 812, "event": "ch3.door",
+            "options": [{ "en": "Stay", "de": "Bleiben" }, { "en": "Go" }], "ids": ["stay", ""] } });
+        let q: Question = serde_json::from_value(story).unwrap();
+        let o = open(&q, "v1", &[], None).unwrap();
+        assert_eq!(o.story, Some(protocol::VoteStory { event: "ch3.door".into(), options: vec!["stay".into(), "".into()] }));
+        assert_eq!(o.options, ["Stay", "Go"]);
     }
 }

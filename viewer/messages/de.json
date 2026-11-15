@@ -908,7 +908,9 @@
 		"drives": "Mit der Bühne verbunden",
 		"taken_over": "Jemand anderes hat die Bühne übernommen",
 		"take_back": "Zurückholen",
-		"leave": "Trennen"
+		"leave": "Trennen",
+		"vote_elsewhere": "Das Publikum hat über eine Wahl abgestimmt, an der deine Lesung nicht steht – sie geht weiter wie bisher.",
+		"vote_not_offered": "Das Publikum hat eine Möglichkeit gewählt, die diese Wahl dir hier nicht bietet – wähle selbst."
 	},
 	"live_deck": {
 		"title": "Deck",

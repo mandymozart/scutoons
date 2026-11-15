@@ -1563,6 +1563,7 @@ mod tests {
             show: None,
             question: None,
             labels: None,
+            story: None,
         }
     }
 

@@ -908,7 +908,9 @@
 		"drives": "Linked to the stage",
 		"taken_over": "Another reader took over the stage",
 		"take_back": "Take it back",
-		"leave": "Leave"
+		"leave": "Leave",
+		"vote_elsewhere": "The audience voted on a choice your reading isn’t at – it goes on as it is.",
+		"vote_not_offered": "The audience chose an option this choice doesn’t offer you here – choose yourself."
 	},
 	"live_deck": {
 		"title": "Deck",

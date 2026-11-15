@@ -756,7 +756,7 @@ impl Run<'_> {
                 let on = self.show.as_mut().ok_or_else(|| Fault::Error("vote before show".into()))?;
                 let question = on.asked.take().ok_or_else(|| Fault::Error("vote before a row asked a question".into()))?;
                 let option = step.get("option").and_then(|v| v.as_integer()).unwrap_or(0);
-                let result = protocol::VoteResult { vote: format!("v{}", on.votes), option, counts: vec![], how: protocol::VoteHow::Rule, groups: None };
+                let result = protocol::VoteResult { vote: format!("v{}", on.votes), option, counts: vec![], how: protocol::VoteHow::Rule, groups: None, story: None };
                 let event = deck_show::vote::result_event(&question, &result).ok_or_else(|| Fault::Error(format!("no option {option}")))?;
                 let outs = on.conductor.on_event(&event, now);
                 let row = on.conductor.current().map(String::from);

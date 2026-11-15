@@ -28,7 +28,7 @@
 //!
 //! `script` runs scripted socket events through a `Client` – the outs every adapter's test compares against
 //! (shared/live-deck/test/fixtures/relay.json, the headless scenario `relay_join`).
-use crate::linked::{Driving, Readers, Steer};
+use crate::linked::{Choice, Driving, Place, Readers, Steer};
 use crate::rig::Stream;
 use protocol::lines::{line, Lines, DATAGRAM_MAX};
 use protocol::{
@@ -291,6 +291,8 @@ pub enum Out {
     /// #527: a reader's place in the session's story changed (linked.rs `Driving`: asked, drives, taken over; whether
     /// another reader drives)
     Driving(Driving),
+    /// #552: a story question's result for the driving reader (linked.rs `Choice`): pick that option, or ignored and why
+    Choice(Choice),
     /// every envelope as it came (`Options::messages`)
     Message(Envelope),
 }
@@ -492,6 +494,8 @@ pub struct Client {
     story_sent: f64,
     /// #527: a reader's claim to drive the session's story and the relay's word on who does
     steer: Steer,
+    /// #552: where a reader's story stands for a vote's result
+    place: Place,
     /// #527: a conductor's view of the linked readers
     readers: Readers,
     // #469: a phone's state and the editor's view, sent again after every welcome; each phone's newest pose heard (its `t`)
@@ -549,6 +553,7 @@ impl Client {
             story: false,
             story_sent: f64::NEG_INFINITY,
             steer: Steer::default(),
+            place: Place::default(),
             readers: Readers::default(),
             hand_state: None,
             hand_view: None,
@@ -1202,8 +1207,15 @@ impl Client {
     /// order fired. Which events matter is the receiver's (deck-events adapters/story.rs `STAYS_IN_THE_STORY`), not the
     /// reader's. #527: only while it drives the session's story (`drive`, granted by the relay) – before the answer, while
     /// away or after a take-over it is dropped, never held and sent later. False: dropped.
+    /// #552: every event also moves where the reader's story stands for a vote's result (linked.rs `Place`), sent or not.
     pub fn story(&mut self, event: Loose) -> bool {
+        self.place.fired(&event);
         self.joined && self.steer.drives() && self.send(Message::Story(event))
+    }
+
+    /// #552: the reader's runner says its choices closed (picked, or none was shown): it stands at no choice now
+    pub fn choices_closed(&mut self) {
+        self.place.closed();
     }
 
     /// #527: the person said yes – this reader drives the session's story from the relay's answer on (`reader.drive`; the
@@ -1463,6 +1475,11 @@ impl Client {
             Message::VoteResult(r) => {
                 self.ballot.result(&r, now);
                 self.vote = None;
+                // #552 (LIVE.md B.1): a story question's result is the driving reader's choice where it stands
+                if let Some(story) = r.story.as_ref().filter(|_| self.o.role == Role::Reader && self.steer.drives()) {
+                    let choice = self.place.result(story, r.option);
+                    self.out.push(Out::Choice(choice));
+                }
                 self.out.push(Out::Vote(e));
             }
             Message::VoteTally(t) => {

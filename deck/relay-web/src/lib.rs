@@ -197,6 +197,12 @@ impl RelayClient {
         Ok(self.c.story(parse(json)?))
     }
 
+    /// #552: the reader's choices closed (picked, or none was shown) – a vote's result finds it at no choice now; a result
+    /// it stands at comes out as `{ choice: { event, option, pick?, ignored? } }` (deck-space linked.rs `Choice`)
+    pub fn choices_closed(&mut self) {
+        self.c.choices_closed();
+    }
+
     /// #527: this reader drives the session's story from the relay's answer on (the person said yes); false: no reader
     pub fn drive(&mut self) -> bool {
         self.c.drive()
