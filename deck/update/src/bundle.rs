@@ -33,7 +33,12 @@ const BINARIES: &[(&str, &str)] = &[
     ("deck", "usr/bin/deck"),
     ("deck-link", "usr/bin/deck-link"),
     ("deck-update", "usr/bin/deck-update"),
+    // #560: the editor (Show / Perform), played when the kiosk is "editor"
+    ("deck-editor", "usr/bin/deck-editor"),
 ];
+
+/// #560: data beside a binary – the editor reads its design tokens next to itself
+const BESIDE: &[(&str, &str)] = &[("tokens.toml", "usr/bin/tokens.toml")];
 
 /// What goes into a bundle: the binaries found in `bin` (cargo's release dir), every allowed path of `rootfs`
 /// (deck/os/rootfs), on the dev channel the sandbox scenes (#427: `*.toml` of deck/native/scenes/sandbox → the deck's
@@ -44,6 +49,12 @@ pub fn collect(bin: &Path, rootfs: &Path, scenes: Option<&Path>) -> Result<Vec<S
         let source = bin.join(name);
         if source.is_file() {
             files.push(SourceFile { path: path.to_string(), source, mode: 0o755 });
+        }
+    }
+    for (name, path) in BESIDE {
+        let source = bin.join(name);
+        if source.is_file() {
+            files.push(SourceFile { path: path.to_string(), source, mode: 0o644 });
         }
     }
     if files.is_empty() {

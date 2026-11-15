@@ -53,6 +53,16 @@ case "${1:-}" in
 esac
 
 mode=$(setting kiosk)
+# #560: "editor" – the editor (Show / Perform) as the kiosk app, so this deck can be the conductor: Perform, joining the
+# deck's `relay`, with the `show` setting (a file or show:<id>; empty = a new show). Quitting it starts it again.
+if [ "${mode:-stage}" = editor ] && command -v deck-editor >/dev/null; then
+  relay=$(setting relay); show=$(setting show)
+  trap 'exit 0' TERM HUP INT
+  while :; do
+    deck-editor --workspace perform ${relay:+--relay "$relay"} ${show:+--show "$show"}
+    [ $? = 0 ] || sleep 1
+  done
+fi
 if [ "${mode:-stage}" = browser ] || ! command -v deck >/dev/null; then
   browser
   exit $?
