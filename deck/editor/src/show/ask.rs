@@ -550,6 +550,30 @@ mod tests {
         assert_eq!(groups, Some(vec!["left".to_string(), "middle".to_string(), "right".to_string()]), "the whole question votes");
     }
 
+    /// step 5: nothing opens a vote outside a row – the Vote sheet has no form and no Open; a fired row's question opens
+    /// it and the sheet keeps the live panel with Hold, Override and Close now
+    #[test]
+    fn the_vote_sheet_opens_nothing_a_rows_question_does_and_the_panel_stays() {
+        let mut host = host_with(VOTE);
+        let (l, sent, relay) = link::Link::loopback();
+        host.link = Some(l);
+        press(&mut host, true, |h| *h == Hit::Sheet(super::super::Sheet::Vote));
+        let texts = perform_frame(&mut host);
+        assert!(texts.iter().any(|t| t == deck_ui::vote::NONE) && texts.iter().any(|t| t.starts_with("A vote opens from a row's question")), "{texts:?}");
+        assert!(!host.hits.iter().any(|(_, h)| matches!(h, Hit::Vote(_))), "no form, no Open: {:?}", host.hits.iter().map(|(_, h)| h).collect::<Vec<_>>());
+        assert!(sent.try_iter().all(|e| !matches!(e.message, protocol::Message::VoteOpen(_))));
+        // the row crossroads fires: its question's vote opens, the panel shows it
+        press(&mut host, true, |h| *h == Hit::Fire(1));
+        let open = sent.try_iter().find(|e| matches!(e.message, protocol::Message::VoteOpen(_))).expect("the row's question opened its vote");
+        relay.send(protocol::Envelope { from: "relay".into(), ..open }).unwrap();
+        host.frame();
+        let texts = perform_frame(&mut host);
+        assert!(texts.iter().any(|t| t == "Which way?"), "{texts:?}");
+        for want in [super::super::vote::VoteHit::Hold, super::super::vote::VoteHit::Override, super::super::vote::VoteHit::Close] {
+            assert!(host.hits.iter().any(|(_, h)| *h == Hit::Vote(want)), "{want:?}");
+        }
+    }
+
     /// #553's finding: the cell inspector with the question's form is taller than its panel – it scrolls above Load /
     /// Flash / Save, which keep their own strip; nothing it draws under the strip answers a press
     #[test]

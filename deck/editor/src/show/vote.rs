@@ -1,43 +1,30 @@
-//! The Vote sheet in Perform (#533, research/SHOW.md §14; the vote #231): the show runner opens a vote, watches its tally
-//! per group, holds it, closes it now or overrides it, and reads the result. What it says is deck-ui `vote` (the panel, the
-//! form's words and checks), filled by deck-show `vote::panel` from what the relay said (the conductor's `Board`); the moves
-//! are the conductor's (`Subtree::vote_open / vote_hold / vote_close`), sent through the relay link. The rule is the relay's;
-//! this file lays out, takes the typed fields and the presses (RULES A1, A2).
-use super::roles::Typing;
+//! The Vote sheet in Perform (#533, research/SHOW.md §14; the vote #231): the show runner watches the tally of the vote
+//! open per group, holds it, closes it now or overrides it, and reads the result. What it says is deck-ui `vote` (the
+//! panel), filled by deck-show `vote::panel` from what the relay said (the conductor's `Board`); the moves are the
+//! conductor's (`Subtree::vote_hold / vote_close`), sent through the relay link. The rule is the relay's; this file lays
+//! out and takes the presses (RULES A1, A2). #551 (SHOW.md §15 6; owner 2026-11-14 [live]: "Spontaneous votes dont
+//! exist"): a vote opens only from a row's question – its row fired, or the ▶ of its wide cell in the matrix –, so the
+//! sheet has no form and no Open; a question that is not the story's is typed in Show's cell inspector.
 use super::{Hit, Host};
 use deck_kit::base::draw::DrawList;
-use deck_kit::base::text::Field;
 use deck_kit::base::tokens::Tokens;
 use deck_kit::editor::controls::{self, Rect};
-use deck_ui::vote::{Form, Panel, State, HOLD_HELP, NONE, RULES};
+use deck_ui::vote::{Panel, State, FROM_A_ROW, HOLD_HELP, NONE};
 
-/// What the sheet keeps: the form being typed, whether it shows over a closed vote, Override's option row open.
+/// What the sheet keeps: Override's option row open.
 #[derive(Debug, Default)]
 pub struct Voting {
-    pub form: Form,
-    /// the form instead of the last vote's result (New vote)
-    pub new: bool,
     pub overriding: bool,
 }
 
 /// A press on the Vote sheet.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum VoteHit {
-    Question,
-    Options,
-    Rule(usize),
-    N,
-    Seconds,
-    Fallback(usize),
-    Group(usize),
-    Show,
-    Open,
     Hold,
     Override,
     With(usize),
     Cancel,
     Close,
-    New,
 }
 
 impl Host {
@@ -51,41 +38,8 @@ impl Host {
         deck_show::vote::panel(self.sub.vote(), &|g| self.group_name(g))
     }
 
-    /// the form shows: no vote yet, or New vote over a closed one
-    fn vote_form_shows(&self) -> bool {
-        self.voting.new || self.sub.vote().open.is_none()
-    }
-
     pub(super) fn vote_press(&mut self, hit: VoteHit) {
-        let f = &mut self.voting.form;
         match hit {
-            VoteHit::Question => self.typing = Some((Typing::VoteQuestion, Field::with(&f.question))),
-            VoteHit::Options => self.typing = Some((Typing::VoteOptions, Field::with(&f.options))),
-            VoteHit::N => self.typing = Some((Typing::VoteN, Field::with(&f.n.to_string()))),
-            VoteHit::Seconds => self.typing = Some((Typing::VoteSeconds, Field::with(&f.seconds.to_string()))),
-            VoteHit::Rule(i) => f.rule = RULES.get(i).copied().unwrap_or_default(),
-            VoteHit::Fallback(i) => f.fallback = i,
-            VoteHit::Group(i) => {
-                if let Some(id) = deck_show::roles::roles(self.sub.conductor().show(), None).get(i).map(|r| r.id.clone()) {
-                    let f = &mut self.voting.form;
-                    match f.groups.iter().position(|g| *g == id) {
-                        Some(at) => {
-                            f.groups.remove(at);
-                        }
-                        None => f.groups.push(id),
-                    }
-                }
-            }
-            VoteHit::Show => f.show = !f.show,
-            VoteHit::Open => match self.open_form(&self.voting.form.clone(), super::now()) {
-                Ok(out) => {
-                    self.voting.new = false;
-                    self.voting.overriding = false;
-                    self.status = format!("vote opened: {}", self.voting.form.summary());
-                    self.send(out);
-                }
-                Err(why) => self.status = why,
-            },
             VoteHit::Hold => {
                 let held = self.vote_panel().is_some_and(|p| p.state == State::Held);
                 let out = self.sub.vote_hold(!held);
@@ -102,70 +56,12 @@ impl Host {
                 let out = self.sub.vote_close(None);
                 self.send(out);
             }
-            VoteHit::New => self.voting.new = true,
-        }
-    }
-
-    /// #548: the typed form opened as a question of no row (deck-show `vote::question`), its groups the chips picked; the
-    /// form and Open go with #551
-    fn open_form(&mut self, form: &Form, ms: u64) -> Result<Vec<protocol::Envelope>, String> {
-        let q = deck_show::vote::question(form, "")?;
-        self.sub.vote_open(&q, &form.groups, None, ms)
-    }
-
-    /// a typed field of the form applied (Enter)
-    pub(super) fn vote_typed(&mut self, what: &Typing, text: &str) {
-        let f = &mut self.voting.form;
-        let number = |s: &str| s.trim().parse::<i64>().ok();
-        match what {
-            Typing::VoteQuestion => f.question = text.trim().to_string(),
-            Typing::VoteOptions => {
-                f.options = text.trim().to_string();
-                f.fallback = f.fallback.min(f.option_list().len().saturating_sub(1));
-            }
-            Typing::VoteN => match number(text) {
-                Some(n) => f.n = n,
-                None => self.status = "n: a whole number".into(),
-            },
-            Typing::VoteSeconds => match number(text) {
-                Some(s) => f.seconds = s,
-                None => self.status = "Seconds: a whole number".into(),
-            },
-            _ => {}
         }
     }
 }
 
 fn fit(d: &DrawList, text: &str, px: f32, w: f32) -> String {
     controls::fit(text, (w / d.advance(px)).max(0.0) as usize)
-}
-
-/// a labelled row of chips (`on` lit); their places and the height it took
-fn chips(d: &mut DrawList, t: &Tokens, (x, y, w): (f32, f32, f32), label: &str, names: &[String], on: &[bool]) -> (Vec<Rect>, f32) {
-    let (small, row, lw) = (t.size.small, t.size.tree_row, d.advance(t.size.small) * 9.0);
-    d.text(x, y + (row - small * 1.25) * 0.5, small, label, t.color.muted);
-    let words: Vec<&str> = names.iter().map(String::as_str).collect();
-    let (r, used) = controls::chips(d, t, (x + lw, y + 2.0, w - lw), &words, on);
-    (r, used.max(row - 2.0) + 4.0)
-}
-
-/// a labelled typed field: its place
-fn field(d: &mut DrawList, t: &Tokens, host: &Host, (x, y, w): (f32, f32, f32), what: Typing, (label, value, empty): (&str, &str, &str)) -> Rect {
-    let (font, small, row, lw) = (t.size.font, t.size.small, t.size.tree_row, d.advance(t.size.small) * 9.0);
-    d.text(x, y + (row - small * 1.25) * 0.5, small, label, t.color.muted);
-    let r = Rect { x: x + lw, y: y + 2.0, w: (w - lw).min(420.0), h: row - 4.0 };
-    let typing = host.typing.as_ref().filter(|(k, _)| *k == what).map(|(_, f)| format!("{}|", f.text));
-    d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, t.color.control);
-    if typing.is_some() {
-        d.outline(r.x, r.y, r.w, r.h, (t.size.radius, 1.0), t.color.accent);
-    }
-    let (text, ink) = match (&typing, value.is_empty()) {
-        (Some(s), _) => (s.clone(), t.color.text),
-        (None, true) => (empty.to_string(), t.color.muted),
-        (None, false) => (value.to_string(), t.color.text),
-    };
-    d.text(r.x + 6.0, r.y + (r.h - font * 1.25) * 0.5, font, &fit(d, &text, font, r.w - 12.0), ink);
-    r
 }
 
 /// a button sized to its word at `x`; its place
@@ -176,69 +72,19 @@ fn button(d: &mut DrawList, t: &Tokens, (x, y): (f32, f32), word: &str, primary:
     r
 }
 
-/// "Vote" in Perform's stage place: the form, or the panel of the vote open (or last closed).
+/// "Vote" in Perform's stage place: the panel of the vote open (or last closed); without one, where a vote comes from.
 pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, _pointer: (f32, f32)) {
-    let (pad, small) = (t.size.pad, t.size.small);
-    match (host.vote_form_shows(), host.vote_panel()) {
-        (false, Some(p)) => draw_panel(d, t, host, a, &p),
-        _ => draw_form(d, t, host, a),
+    let (pad, font, small) = (t.size.pad, t.size.font, t.size.small);
+    match host.vote_panel() {
+        Some(p) => draw_panel(d, t, host, a, &p),
+        None => {
+            d.text(a.x + pad, a.y + pad, font, NONE, t.color.text);
+            d.text(a.x + pad, a.y + pad + font * 1.6, small, &fit(d, FROM_A_ROW, small, a.w - 2.0 * pad), t.color.muted);
+        }
     }
     if let Some(why) = host.sub.vote().problem.clone() {
         d.text(a.x + pad, a.y + a.h - small * 2.0, small, &fit(d, &format!("the relay: {why}"), small, a.w - 2.0 * pad), t.color.warn);
     }
-}
-
-fn draw_form(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect) {
-    let (pad, font, small, row) = (t.size.pad, t.size.font, t.size.small, t.size.tree_row);
-    let (x, w) = (a.x + pad, a.w - 2.0 * pad);
-    let mut y = a.y + pad;
-    d.text(x, y, small, "OPEN A VOTE", t.color.muted);
-    y += small * 1.8;
-    let f = host.voting.form.clone();
-    let mut hits: Vec<(Rect, VoteHit)> = Vec::new();
-    hits.push((field(d, t, host, (x, y, w), Typing::VoteQuestion, ("Question", &f.question, "none – the options alone")), VoteHit::Question));
-    y += row;
-    hits.push((field(d, t, host, (x, y, w), Typing::VoteOptions, ("Options", &f.options, "Yes, No – separated by commas")), VoteHit::Options));
-    y += row;
-    let rules: Vec<String> = RULES.iter().map(|r| r.name().to_string()).collect();
-    let lit: Vec<bool> = RULES.iter().map(|r| *r == f.rule).collect();
-    let (rects, used) = chips(d, t, (x, y, w), "Rule", &rules, &lit);
-    hits.extend(rects.into_iter().enumerate().map(|(i, r)| (r, VoteHit::Rule(i))));
-    y += used;
-    d.text(x + d.advance(small) * 9.0, y, small, &fit(d, f.rule.help(), small, w), t.color.muted);
-    y += small * 1.8;
-    if f.rule == deck_ui::vote::Rule::First {
-        hits.push((field(d, t, host, (x, y, w.min(260.0)), Typing::VoteN, ("n", &f.n.to_string(), "")), VoteHit::N));
-        y += row;
-    }
-    hits.push((field(d, t, host, (x, y, w.min(260.0)), Typing::VoteSeconds, ("Seconds", &f.seconds.to_string(), "")), VoteHit::Seconds));
-    y += row;
-    let options = f.option_list();
-    let lit: Vec<bool> = (0..options.len()).map(|i| i == f.fallback).collect();
-    let (rects, used) = chips(d, t, (x, y, w), "Fallback", &options, &lit);
-    hits.extend(rects.into_iter().enumerate().map(|(i, r)| (r, VoteHit::Fallback(i))));
-    y += used;
-    let roles = deck_show::roles::roles(host.sub.conductor().show(), None);
-    let names: Vec<String> = roles.iter().map(|r| r.name.clone()).collect();
-    let lit: Vec<bool> = roles.iter().map(|r| f.groups.contains(&r.id)).collect();
-    let (rects, used) = chips(d, t, (x, y, w), "Voting", &names, &lit);
-    hits.extend(rects.into_iter().enumerate().map(|(i, r)| (r, VoteHit::Group(i))));
-    y += used;
-    let all = if f.groups.is_empty() { "none picked: all audience" } else { "only the groups picked" };
-    d.text(x + d.advance(small) * 9.0, y, small, all, t.color.muted);
-    y += small * 1.8;
-    let show = Rect { x: x + d.advance(small) * 9.0, y, w: d.advance(small) * 30.0, h: row - 4.0 };
-    controls::toggle(d, t, show, if f.show { "voters see the counts: yes" } else { "voters see the counts: no" }, false);
-    d.text(x, y + (row - 4.0 - small * 1.25) * 0.5, small, "Counts", t.color.muted);
-    hits.push((show, VoteHit::Show));
-    y += row + pad * 0.5;
-    match f.problem() {
-        Some(p) => d.text(x, y, font, &fit(d, p, font, w), t.color.warn),
-        None => d.text(x, y, font, &fit(d, &f.summary(), font, w), t.color.text),
-    };
-    y += font * 1.8;
-    hits.push((button(d, t, (x, y), "Open vote", f.problem().is_none()), VoteHit::Open));
-    host.hits.extend(hits.into_iter().map(|(r, h)| (r, Hit::Vote(h))));
 }
 
 fn draw_panel(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, p: &Panel) {
@@ -313,7 +159,7 @@ fn draw_panel(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, p: &Panel)
             y += small * 1.9;
         }
     }
-    // the moves while it is open; New vote after
+    // the moves while it is open
     y = y.max(a.y + a.h - row * 2.6);
     let mut hits: Vec<(Rect, VoteHit)> = Vec::new();
     if p.can_act() {
@@ -335,8 +181,6 @@ fn draw_panel(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, p: &Panel)
             }
         }
         d.text(x, y + row + 4.0, small, &fit(d, HOLD_HELP, small, w), t.color.muted);
-    } else {
-        hits.push((button(d, t, (x, y), "New vote", true), VoteHit::New));
     }
     host.hits.extend(hits.into_iter().map(|(r, h)| (r, Hit::Vote(h))));
 }
@@ -352,35 +196,17 @@ pub fn rail_line(host: &Host) -> String {
     }
 }
 
-/// A check run's vote (`--vote QUESTION;OPTION, OPTION…[;RULE]`, RULE `majority`, `groups` or `first:N`): the form.
-pub fn form_arg(v: &str) -> Form {
-    let mut p = v.splitn(3, ';');
-    let mut f = Form { question: p.next().unwrap_or_default().trim().to_string(), ..Form::default() };
-    if let Some(o) = p.next().filter(|o| !o.trim().is_empty()) {
-        f.options = o.trim().to_string();
-    }
-    match p.next().map(str::trim) {
-        Some("groups") => f.rule = deck_ui::vote::Rule::Groups,
-        Some(r) if r.starts_with("first") => {
-            f.rule = deck_ui::vote::Rule::First;
-            f.n = r.split_once(':').and_then(|(_, n)| n.trim().parse().ok()).unwrap_or(f.n);
-        }
-        _ => {}
-    }
-    f
-}
-
 impl Host {
-    /// A check run's vote: the Vote sheet, the vote opened from `form`; without a relay, the relay's answers as it would
-    /// say them – the vote open, then `tally` (`left=10/0/0,right=0/1/0` per group, or `10/2/0`) – handed to the conductor.
-    pub(super) fn script_vote(&mut self, form: &Form, tally: Option<&str>) {
-        self.voting.form = form.clone();
+    /// A check run's vote (`--launch ROW,COLUMN --vote-tally …`): the Vote sheet, the vote the cell's question opens (its ▶,
+    /// the conductor's hand launch); without a relay, the relay's answers as it would say them – the vote open, then `tally`
+    /// (`left=10/0/0,right=0/1/0` per group, or `10/2/0`) – handed to the conductor.
+    pub(super) fn script_vote(&mut self, row: &str, column: &str, tally: &str) {
         self.press(Hit::Sheet(super::Sheet::Vote));
         let ms = super::now();
-        let out = match self.open_form(form, ms) {
-            Ok(out) => out,
-            Err(why) => return self.status = why,
-        };
+        let out = self.sub.launch_cell(row, column, ms);
+        if !out.iter().any(|e| matches!(e.message, protocol::Message::VoteOpen(_))) {
+            return self.status = format!("--vote-tally: row {row}, {column} asks no question");
+        }
         if self.link.is_some() {
             return self.send(out);
         }
@@ -388,7 +214,7 @@ impl Host {
             e.from = "relay".into();
             self.sub.on_wire(&e, ms);
         }
-        let (Some(t), Some(open)) = (tally, self.sub.vote().open.clone()) else { return };
+        let (t, Some(open)) = (tally, self.sub.vote().open.clone()) else { return };
         let n = open.options.len();
         let mut counts = vec![0i64; n];
         let mut groups = serde_json::Map::new();

@@ -230,6 +230,9 @@ pub const HOLD_HELP: &str = "Hold stops the countdown; votes still count. A held
 /// what the panel says without a vote
 pub const NONE: &str = "No vote open.";
 
+/// where a vote comes from (#551: nothing opens one outside the show)
+pub const FROM_A_ROW: &str = "A vote opens from a row's question: its row fires, or its ▶ in the matrix. A question is made in Show – select cells of a row, right click.";
+
 /// What the show runner types to open a vote: the question, the options (separated by `,` – one line in the editor), the
 /// rule, n (first to n), the seconds, the fallback (an option's place), the groups that vote (none: the whole audience),
 /// whether a voter sees the counts after voting.

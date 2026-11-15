@@ -27,11 +27,6 @@ pub enum Typing {
     Nick(String),
     /// #531: the label a linked reader starts at (the Session sheet)
     ReaderLabel,
-    /// #533: the Vote sheet's form – the question, the options, n, the seconds
-    VoteQuestion,
-    VoteOptions,
-    VoteN,
-    VoteSeconds,
     /// #537: a row's name (its id); the piece picker's query (or, without a book, the piece typed)
     RowName(String),
     Piece,
@@ -134,7 +129,6 @@ impl Host {
                     Typing::Piece => self.piece_typed(&text),
                     Typing::Event => self.event_typed(&text),
                     Typing::Ask(question, field) => self.ask_typed(question, field, &text),
-                    vote => self.vote_typed(&vote, &text),
                 }
             }
             Key::Named(NamedKey::Escape) => self.typing = None,

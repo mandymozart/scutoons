@@ -149,7 +149,6 @@ fn args() -> Result<Args> {
                 let chapter = p.next().map(|c| c.trim().parse()).transpose().context("--reader-place TOON,CHAPTER[,LABEL]")?;
                 a.script.reader_place = Some(deck_ui::session::Place { toon, chapter, label: p.next().unwrap_or_default().trim().to_string() });
             }
-            "--vote" => a.script.vote = Some(show::vote_form(&val()?)),
             "--vote-tally" => a.script.vote_tally = Some(val()?),
             "--problem" => a.script.problem = Some(val()?.parse().context("--problem N (0-based)")?),
             "--author" => {

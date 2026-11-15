@@ -30,7 +30,6 @@ mod rows;
 mod session;
 mod sheets;
 mod vote;
-pub use vote::form_arg as vote_form;
 
 use deck_kit::editor::controls::Rect;
 use deck_show::{ClockChoice, Show, Subtree};
@@ -246,7 +245,7 @@ pub struct Host {
     pub flashing: Option<flash::Flashing>,
     /// #531: the Session sheet's place and lists
     pub session: session::Session,
-    /// #533: the Vote sheet's form and what it shows
+    /// #533: what the Vote sheet keeps
     pub voting: vote::Voting,
     link: Option<link::Link>,
     api: api::Api,
@@ -545,9 +544,8 @@ pub struct Script {
     /// the character the first reader joined with (the editor's rig)
     pub character: String,
     pub reader_place: Option<Place>,
-    /// #533: with `--sheet vote`, a vote opened from this form (`QUESTION;OPTION, OPTION…[;RULE]`), and a tally the relay
-    /// would send (`left=10/0/0,right=0/1/0` per group, or `10/2/0`) – fed to the conductor as if its relay said them
-    pub vote: Option<deck_ui::vote::Form>,
+    /// #533, #551: with `launch`, the cell's ▶ opens its question's vote on the Vote sheet, and this tally the relay would
+    /// send (`left=10/0/0,right=0/1/0` per group, or `10/2/0`) is fed to the conductor as if its relay said them
     pub vote_tally: Option<String>,
     /// #537: a row authored as the operator would (`ROW,COLUMN[,PIECE]`): added and named when the document lacks it, its
     /// cell on the column selected, the piece picked from the book's list (or typed); no piece: `play` opens the picker
@@ -588,7 +586,10 @@ impl Host {
             70 => {
                 let cols = deck_show::view::matrix(&self.sub).columns;
                 if let Some((r, c)) = s.launch.as_ref().and_then(|(r, c)| Some((rows.iter().position(|x| x == r)?, cols.iter().position(|x| x.id == *c)?))) {
-                    self.press(Hit::Launch(r, c));
+                    match (&s.vote_tally, &s.launch) {
+                        (Some(tally), Some((row, column))) => self.script_vote(row, column, tally),
+                        _ => self.press(Hit::Launch(r, c)),
+                    }
                 }
             }
             100 => {
@@ -646,11 +647,6 @@ impl Host {
                     self.session_toon(&p.toon);
                     self.session.place.chapter = p.chapter;
                     self.session.place.label = p.label.clone();
-                }
-            }
-            155 => {
-                if let Some(f) = &s.vote {
-                    self.script_vote(f, s.vote_tally.as_deref());
                 }
             }
             50 if s.flash => self.press(Hit::Flash),
