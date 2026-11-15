@@ -116,9 +116,7 @@ function replay(m: RelayModule, s: Script): { groups: Record<string, unknown>[][
 	let now = 0;
 	const timers: { at: number; fn: () => void; id: number }[] = [];
 	let ids = 0;
-	// a vote screen's moves too (the viewer's live-vote-link.ts types them)
-	const core = new m.RelayClient(JSON.stringify(s.join)) as RelayCoreView & { vote_open(j: string): boolean; vote_cast(o: number): boolean; vote_close(o?: number): boolean; vote_hold(h: boolean): boolean };
-	// #469: a handheld session's moves (hand.ts types them)
+	const core = new m.RelayClient(JSON.stringify(s.join)) as RelayCoreView & { vote_cast(o: number): boolean };
 	const hand = core as unknown as { hand_pose(t: number, p: Float64Array, q: Float64Array): boolean; hand_state(j: string): void; hand_record(on: boolean): boolean; hand_recenter(): boolean; hand_view(j: string): void };
 	let group: Record<string, unknown>[] = [];
 	const groups = [group];
@@ -211,19 +209,9 @@ function replay(m: RelayModule, s: Script): { groups: Record<string, unknown>[][
 			case 'ping':
 				call(() => core.ping(now));
 				break;
-			case 'vote_open':
-				call(() => core.vote_open(JSON.stringify(w)));
-				break;
 			case 'vote_cast':
 				call(() => core.vote_cast(w));
 				break;
-			case 'vote_close':
-				call(() => core.vote_close(w ?? undefined));
-				break;
-			case 'vote_hold':
-				call(() => core.vote_hold(w));
-				break;
-			// #469: the handheld camera's moves (hand.ts)
 			case 'hand_pose': {
 				const p = w as { t: number; p: number[]; q: number[] };
 				call(() => hand.hand_pose(p.t, Float64Array.from(p.p), Float64Array.from(p.q)));

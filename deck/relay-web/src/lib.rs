@@ -143,22 +143,8 @@ impl RelayClient {
         self.c.ping(now)
     }
 
-    /// a conductor opens a vote (`vote.open`, JSON)
-    pub fn vote_open(&mut self, json: &str) -> Result<bool, JsValue> {
-        let p: protocol::VoteOpen = parse(json)?;
-        Ok(self.c.vote_open(p))
-    }
-
     pub fn vote_cast(&mut self, option: i32) -> bool {
         self.c.vote_cast(i64::from(option))
-    }
-
-    pub fn vote_close(&mut self, over: Option<i32>) -> bool {
-        self.c.vote_close(over.map(i64::from))
-    }
-
-    pub fn vote_hold(&mut self, hold: bool) -> bool {
-        self.c.vote_hold(hold)
     }
 
     /// #469: the rung the joined link is on (`QUIC`, `WebSocket`); '' while not joined
