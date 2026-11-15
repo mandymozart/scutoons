@@ -230,6 +230,9 @@ pub const HOLD_HELP: &str = "Hold stops the countdown; votes still count. A held
 /// what the panel says without a vote
 pub const NONE: &str = "No vote open.";
 
+/// where a vote comes from (#551: nothing opens one outside the show)
+pub const FROM_A_ROW: &str = "A vote opens from a row's question: its row fires, or its ▶ in the matrix. A question is made in Show – select cells of a row, right click.";
+
 /// What the show runner types to open a vote: the question, the options (separated by `,` – one line in the editor), the
 /// rule, n (first to n), the seconds, the fallback (an option's place), the groups that vote (none: the whole audience),
 /// whether a voter sees the counts after voting.
@@ -253,6 +256,26 @@ impl Default for Form {
 
 /// at most this many options
 pub const MAX_OPTIONS: usize = 6;
+
+/// the form's labels and what its fields say while empty (the editor draws them: the question in a cell's inspector, #551)
+pub const QUESTION: &str = "Question";
+pub const NO_QUESTION: &str = "none – the options alone";
+pub const OPTIONS: &str = "Options";
+pub const OPTIONS_HINT: &str = "Yes, No – separated by commas";
+pub const RULE: &str = "Rule";
+pub const N: &str = "n";
+pub const SECONDS: &str = "Seconds";
+pub const FALLBACK: &str = "Fallback";
+pub const COUNTS: &str = "Counts";
+
+/// the toggle's words: does a voter see the counts once they have voted
+pub fn counts_word(show: bool) -> &'static str {
+    if show {
+        "voters see the counts: yes"
+    } else {
+        "voters see the counts: no"
+    }
+}
 
 /// What is wrong with a vote's form – `options` options, the rule, n (first to n), the seconds, the fallback (an option's
 /// place) – in words; none = it opens. The one place (#546): the typed form and every question of a show (deck-show
@@ -284,13 +307,18 @@ impl Form {
         problem(self.option_list().len(), self.rule, self.n, self.seconds, self.fallback)
     }
 
-    /// `Yes, No · majority · 30 s · fallback Yes · all audience`
-    pub fn summary(&self) -> String {
+    /// how the vote runs: `Yes, No · majority · 30 s · fallback Yes`
+    pub fn run_line(&self) -> String {
         let options = self.option_list();
         let fallback = options.get(self.fallback).cloned().unwrap_or_else(|| "–".into());
         let rule = if self.rule == Rule::First { format!("first to {}", self.n) } else { self.rule.name().to_string() };
+        format!("{} · {rule} · {} s · fallback {fallback}", options.join(", "), self.seconds)
+    }
+
+    /// `Yes, No · majority · 30 s · fallback Yes · all audience`
+    pub fn summary(&self) -> String {
         let voting = if self.groups.is_empty() { "all audience".to_string() } else { self.groups.join(", ") };
-        format!("{} · {rule} · {} s · fallback {fallback} · {voting}", options.join(", "), self.seconds)
+        format!("{} · {voting}", self.run_line())
     }
 }
 

@@ -21,6 +21,8 @@ pub mod document;
 pub mod face;
 pub mod flash;
 pub mod flashed;
+/// #551: a vote as cells of the launcher – what the right click on selected cells offers, the question in the cell inspector
+pub mod question;
 pub mod ready;
 pub mod roles;
 /// #537: a show's rows (add, rename, remove) and a cell's mode and piece – the edits, the prompt, the picker's lines

@@ -269,7 +269,7 @@ pub fn pick(show: &Show, row: &str, columns: &[String], choice: &StoryChoice, to
         }
         None if columns.is_empty() => return Err(format!("row {} {row}: pick the cells that ask it", i + 1)),
         None => {
-            let id = (1..).map(|n| format!("q{n}")).find(|id| show.question(id).is_none()).unwrap_or_default();
+            let id = crate::question::free_id(show);
             let f = crate::vote::Form::default();
             let rule = crate::vote::wire_rule(f.rule);
             let n = (rule == protocol::VoteRule::First).then_some(f.n);
@@ -277,9 +277,8 @@ pub fn pick(show: &Show, row: &str, columns: &[String], choice: &StoryChoice, to
             id
         }
     };
-    for c in columns {
-        next.rows[i].cells.insert(c.clone(), Cell::Ask { question: id.clone() });
-    }
+    // #551: the cells take the vote's one filter – the one the row's question carries already, a new question's phones
+    crate::question::join(&mut next.rows[i], columns, &id, Some(crate::question::new_filter()));
     let said = format!("row {} {row}: {id} asks {} ch {} {} (version {})", i + 1, story.toon, story.chapter, story.event, story.version);
     let added: Vec<String> = crate::validate::validate(&next).into_iter().filter(|p| !before.contains(p)).map(|p| p.to_string()).collect();
     match added.first() {
@@ -294,19 +293,22 @@ pub fn pick(show: &Show, row: &str, columns: &[String], choice: &StoryChoice, to
 pub fn changed(show: &Show, toon: &str, choices: &[StoryChoice]) -> Vec<ProblemView> {
     let mut out = vec![];
     for q in &show.questions {
-        let Some(s) = q.story.as_ref().filter(|s| s.toon == toon) else { continue };
-        let now = choices.iter().find(|c| c.chapter == u64::from(s.chapter) && c.event.as_deref() == Some(s.event.as_str()));
-        let text = match now {
-            None => format!("question '{}': ch {} of {toon} has no published question {} any more", q.id, s.chapter, s.event),
-            Some(c) if c.options.iter().map(|o| &o.label).ne(s.options.iter()) => {
-                format!("question '{}': {} changed since it was picked (version {} → {}) – pick it again", q.id, s.event, s.version, c.version)
-            }
-            Some(_) => continue,
-        };
+        let Some(text) = changed_text(q, toon, choices) else { continue };
         let points = show.rows.iter().position(|r| r.cells.values().any(|c| matches!(c, Cell::Ask { question } if *question == q.id))).map_or(Points::Show, Points::Row);
         out.push(ProblemView { text, error: false, points });
     }
     out
+}
+
+/// One question held against `toon`'s list: the warning's words (none: not the toon's story question, or unchanged). The
+/// problems list ([`changed`]) and the question in the cell inspector (#551, question.rs) say the same.
+pub fn changed_text(q: &Question, toon: &str, choices: &[StoryChoice]) -> Option<String> {
+    let s = q.story.as_ref().filter(|s| s.toon == toon)?;
+    match choices.iter().find(|c| c.chapter == u64::from(s.chapter) && c.event.as_deref() == Some(s.event.as_str())) {
+        None => Some(format!("question '{}': ch {} of {toon} has no published question {} any more", q.id, s.chapter, s.event)),
+        Some(c) if c.options.iter().map(|o| &o.label).ne(s.options.iter()) => Some(format!("question '{}': {} changed since it was picked (version {} → {}) – pick it again", q.id, s.event, s.version, c.version)),
+        Some(_) => None,
+    }
 }
 
 /// the show's question that asks this story question already (its id)

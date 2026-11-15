@@ -1,0 +1,37 @@
+{
+  "id": "vote-cell",
+  "version": 1,
+  "outlets": [{ "id": "left" }, { "id": "middle" }, { "id": "right" }, { "id": "lamps", "kind": "device" }],
+  "questions": [
+    {
+      "id": "q1",
+      "typed": { "question": { "en": "Which way?", "de": "Welcher Weg?" }, "options": [{ "en": "Left" }, { "en": "Right", "de": "Rechts" }, { "en": "Stay" }] },
+      "rule": "majority",
+      "seconds": 30,
+      "fallback": 2,
+      "show": true
+    },
+    {
+      "id": "q2",
+      "typed": { "question": { "en": "Which door?" }, "options": [{ "en": "Red" }, { "en": "Blue" }] },
+      "rule": "majority",
+      "seconds": 30,
+      "fallback": 0,
+      "show": true
+    }
+  ],
+  "rows": [
+    {
+      "id": "opening",
+      "cells": { "left": { "mode": "ask", "question": "q2" }, "middle": { "mode": "play", "piece": "scene:choir" }, "right": { "mode": "ask", "question": "q2" } },
+      "where": { "left": { "device": "phone" }, "right": { "device": "phone" } }
+    },
+    {
+      "id": "crossroads",
+      "fire": { "event": "ch3.crossroads", "how": "suggest" },
+      "cells": { "left": { "mode": "ask", "question": "q1" }, "middle": { "mode": "values", "piece": "scene:choir", "values": { "light": 0.4 } }, "right": { "mode": "ask", "question": "q1" } },
+      "where": { "left": { "device": "phone", "account": ["member", "live"] }, "right": { "device": "phone", "account": ["member", "live"] } }
+    },
+    { "id": "went-left", "fire": { "event": "vote:q1/1", "how": "auto" }, "cells": { "left": { "mode": "black" } } }
+  ]
+}

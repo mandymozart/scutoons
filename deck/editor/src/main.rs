@@ -149,7 +149,6 @@ fn args() -> Result<Args> {
                 let chapter = p.next().map(|c| c.trim().parse()).transpose().context("--reader-place TOON,CHAPTER[,LABEL]")?;
                 a.script.reader_place = Some(deck_ui::session::Place { toon, chapter, label: p.next().unwrap_or_default().trim().to_string() });
             }
-            "--vote" => a.script.vote = Some(show::vote_form(&val()?)),
             "--vote-tally" => a.script.vote_tally = Some(val()?),
             "--problem" => a.script.problem = Some(val()?.parse().context("--problem N (0-based)")?),
             "--author" => {
@@ -159,6 +158,11 @@ fn args() -> Result<Args> {
                 a.script.author = Some((row, column, p.next().filter(|s| !s.is_empty())));
             }
             "--cell" => a.script.cell = val()?.split_once(',').map(|(r, c)| (r.trim().to_string(), c.trim().to_string())),
+            "--question" => {
+                let v = val()?;
+                let (query, pick) = v.strip_suffix(",pick").map_or((v.as_str(), false), |q| (q, true));
+                a.script.question = Some((query.trim().to_string(), pick));
+            }
             "--gesture" => {
                 let v = val()?;
                 let (from, to) = v.split_once(',').with_context(|| format!("--gesture takes FROM,TO, not {v}"))?;
@@ -584,6 +588,7 @@ impl App {
         if let Some(m) = self.menu.as_mut() {
             m.ta.hover(x, y);
         }
+        self.show.pointer(x, y);
         match self.panel.drag {
             Some(Drag::Divider) => {
                 let w = self.gpu.as_ref().map_or(1280.0, |g| g.size().0 as f32);
@@ -657,8 +662,13 @@ impl App {
             return;
         }
         if self.workspace != show::Workspace::Build {
+            // #551: the right click's typeahead on the selected cells takes the press while it is open
+            if self.show.context_press(x, y) {
+                return;
+            }
             if let Some(h) = self.show.hit(x, y) {
-                return self.show.press(h);
+                // #551: shift and a press add a cell to the row's selection
+                return self.show.press(if self.mods.shift_key() { h.with_shift() } else { h });
             }
         }
         match self.hit(x, y) {
@@ -830,6 +840,11 @@ impl App {
     fn press_view(&mut self, button: MouseButton) {
         let (x, y) = self.cursor;
         if self.menu.take().is_some() {
+            return;
+        }
+        // #551: Show's right click on a cell of the rows band is the same typeahead, on the selected cells of a row
+        // (show/ask.rs); elsewhere the stage pans as in Build
+        if self.workspace == show::Workspace::Show && button == MouseButton::Right && self.show.context(x, y) {
             return;
         }
         if let (MouseButton::Right, Some(Drag::Cable(a) | Drag::Grab(a))) = (button, self.panel.drag) {
@@ -1878,6 +1893,10 @@ impl ApplicationHandler for App {
                     MouseScrollDelta::LineDelta(_, y) => y,
                     MouseScrollDelta::PixelDelta(p) => p.y as f32 / 40.0,
                 };
+                // #551: Show's inspector scrolls above its buttons
+                if self.workspace == show::Workspace::Show && self.show.wheel(self.cursor.0, self.cursor.1, steps) {
+                    return;
+                }
                 match self.hit(self.cursor.0, self.cursor.1) {
                     Hit::Knob(i) => {
                         let k = &self.stage.knobs[i];

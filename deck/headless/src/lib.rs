@@ -31,6 +31,7 @@
 //! | `show` | `show` (a deck/ show document), `outlet` (the one this deck plays), `pieces` (what the deck has: piece → `scene` / `bundle` a deck/ file, `toml` a scene as it is, `rig` a core rig's subject) | rows |
 //! | `pieces` | `pieces` (more of them) | – |
 //! | `fire` / `go` | `row` / – : the show's conductor fires, its cell for the outlet goes to the deck (deck-space's piece.rs, #467) | do (load, glide, black, same, kept), piece, ms, values, glides, problems, playing; `vote` (#548: the `vote.open` a row's question sends) |
+//! | `launch` | `row`, `column` (#551: Perform's ▶ on one cell, the conductor's hand launch; an `ask` cell opens its whole question) | as `fire` |
 //! | `vote` | `option` (#548: the relay's result of the last question, the option's place from 0) – the show's event `vote:<question>/<n>`, the row set to it fires | event, row, said (the log's last line), and as `fire` |
 //! | `address` | `address`, `action` (#516: as the relay's `address` brings it; a show row's `addresses` reach the same path through `fire` / `go`: a line each under `addresses`, the last change's `stage`) – to the scene document playing (deck-space scene_play.rs: `join:<who>` / `leave:<who>`), a changed cast recast in the engine (live-core `recast`) | did (changed, nothing, not_mine), holder, ms, said (the log's last line), ids, stage |
 //! | `story` | `event` (#517: a reader's story event as the relay brings it – `type`, `params`, `id`) – to the playing scene document's listeners (deck-space scene_play.rs `Playing::story`; a `load` of a `document` may add `listener`s), a changed cast recast once | did (a line per cast word: changed at <holder>, nothing), said, ids, stage |
@@ -735,11 +736,12 @@ impl Run<'_> {
                 on.pieces.extend(step.get("pieces").and_then(|p| p.as_table()).cloned().unwrap_or_default());
                 json!({})
             }
-            "fire" | "go" => {
+            "fire" | "go" | "launch" => {
                 let now = self.show_now();
                 let on = self.show.as_mut().ok_or_else(|| Fault::Error(format!("{what} before show")))?;
                 let outs = match what {
                     "fire" => on.conductor.fire(&text("row").unwrap_or_default(), now),
+                    "launch" => on.conductor.launch_cell(&text("row").unwrap_or_default(), &text("column").unwrap_or_default(), now),
                     _ => on.conductor.go(now),
                 };
                 let row = on.conductor.current().map(String::from);

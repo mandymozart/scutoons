@@ -202,11 +202,11 @@ pub fn panel(b: &Board, name: &dyn Fn(&str) -> String) -> Option<Panel> {
 }
 
 /// the locale `vote.open`'s plain `options` are in (`labels` carries the others)
-const DEFAULT_LOCALE: &str = "en";
+pub(crate) const DEFAULT_LOCALE: &str = "en";
 
-/// #548: the typed form as a question of the show named `id` (empty: a vote opened from Perform's form, not the show's), or
-/// what is wrong with it (deck-ui `Form::problem`, the one check). Its groups are the columns it is opened for, not the
-/// question's. #551 writes it into the show; until then Perform's form opens it straight (`Subtree::vote_open`).
+/// #548: the typed form as a question of the show named `id`, or what is wrong with it (deck-ui `Form::problem`, the one
+/// check). Its groups are the columns it is opened for, not the question's. #551: "New question …" writes it into the show
+/// (question.rs); Perform has no form any more – a vote opens only from a row's question.
 pub fn question(f: &Form, id: &str) -> Result<Question, String> {
     if let Some(p) = f.problem() {
         return Err(p.to_string());

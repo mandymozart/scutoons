@@ -27,16 +27,13 @@ pub enum Typing {
     Nick(String),
     /// #531: the label a linked reader starts at (the Session sheet)
     ReaderLabel,
-    /// #533: the Vote sheet's form – the question, the options, n, the seconds
-    VoteQuestion,
-    VoteOptions,
-    VoteN,
-    VoteSeconds,
     /// #537: a row's name (its id); the piece picker's query (or, without a book, the piece typed)
     RowName(String),
     Piece,
     /// #539: the event picker's query (or, without the toon's list, the event's id typed)
     Event,
+    /// #551: a typed field of a question's form in the cell inspector (the question's id, the field)
+    Ask(String, super::ask::AskField),
 }
 
 /// What a prompt asks before it is done.
@@ -131,7 +128,7 @@ impl Host {
                     }
                     Typing::Piece => self.piece_typed(&text),
                     Typing::Event => self.event_typed(&text),
-                    vote => self.vote_typed(&vote, &text),
+                    Typing::Ask(question, field) => self.ask_typed(question, field, &text),
                 }
             }
             Key::Named(NamedKey::Escape) => self.typing = None,

@@ -79,6 +79,16 @@ impl Link {
         Ok(Link { inbox, outbox, line, code, relay: relay.to_string(), readers, stop })
     }
 
+    /// #551: a link without a socket, for the UI-model tests – what the core sends comes out of the first, what the second
+    /// takes arrives as if the relay said it
+    #[cfg(test)]
+    pub fn loopback() -> (Link, Receiver<Envelope>, Sender<Envelope>) {
+        let (outbox, sent) = mpsc::channel();
+        let (relay, inbox) = mpsc::channel();
+        let link = Link { inbox, outbox, line: Arc::new(Mutex::new("loopback".into())), code: "test".into(), relay: "loopback".into(), readers: Arc::default(), stop: Arc::default() };
+        (link, sent, relay)
+    }
+
     pub fn send(&self, out: Vec<Envelope>) {
         for e in out {
             let _ = self.outbox.send(e);

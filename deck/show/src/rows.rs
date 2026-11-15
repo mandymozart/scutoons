@@ -100,6 +100,15 @@ pub enum Edit {
     /// #553: one fact of `column`'s filter in the row on or off; an `ask` column's filter is its question's – every column
     /// of the row that asks it takes the same (validate's rule); a filter that asks nothing goes
     CellFact { row: String, column: String, fact: Fact },
+    /// #551 (SHOW.md §15 5): the selected cells of a row ask a new typed question (the vote form's defaults), for phones
+    NewQuestion { row: String, columns: Vec<String> },
+    /// #551: the selected cells join a question the row asks ("add to question": also a column that is not adjacent), with
+    /// the filter its other columns carry
+    AddTo { row: String, columns: Vec<String>, question: String },
+    /// #551: the selected cells that ask keep again; a question no cell asks any more goes
+    Leave { row: String, columns: Vec<String> },
+    /// #551: one field of a question's form in the cell inspector (question.rs `Set`)
+    Question { question: String, set: crate::question::Set },
 }
 
 /// An edit made: the changed document, what it did in words, the row to select after it.
@@ -260,25 +269,27 @@ pub fn edit(show: &Show, e: &Edit) -> Result<Edited, String> {
             next.face.rows.retain(|r| r != id);
             let cells = gone.cells.values().filter(|c| !matches!(c, Cell::Keep)).count();
             let select = i.checked_sub(1).or((!next.rows.is_empty()).then_some(0)).map(|j| next.rows[j].id.clone());
-            (format!("row {id} removed with its {cells} cells"), select)
+            let unasked = crate::question::drop_unasked(show, &mut next);
+            (format!("row {id} removed with its {cells} cells{}", crate::question::gone_words(&unasked)), select)
         }
         Edit::Mode { row, column, mode } => {
             let i = row_at(&next, row)?;
+            let was_ask = matches!(next.rows[i].cells.get(column), Some(Cell::Ask { .. }));
             let cell = cell_for(&next, i, column, *mode, next.rows[i].cells.get(column))?;
             let text = cell_text(&cell);
-            // #546: a column joining the row's question takes the filter its other columns carry
-            if let Cell::Ask { question } = &cell {
-                let r = &mut next.rows[i];
-                let sibling = r.cells.iter().find(|(k, c)| *k != column && matches!(c, Cell::Ask { question: q } if q == question)).map(|(k, _)| k.clone());
-                if let Some(k) = sibling {
-                    match r.r#where.get(&k).cloned() {
-                        Some(f) => r.r#where.insert(column.clone(), f),
-                        None => r.r#where.remove(column),
-                    };
+            match &cell {
+                // #546: a column joining the row's question takes the filter its other columns carry
+                Cell::Ask { question } => crate::question::join(&mut next.rows[i], std::slice::from_ref(column), question, None),
+                _ => {
+                    // #551: a cell that asked takes its filter along; its question goes with its last cell
+                    if was_ask {
+                        crate::question::left(&mut next.rows[i], column);
+                    }
+                    put(&mut next.rows[i], column, cell);
                 }
             }
-            put(&mut next.rows[i], column, cell);
-            (format!("row {} {row}, {column}: {text}", i + 1), Some(row.clone()))
+            let unasked = crate::question::drop_unasked(show, &mut next);
+            (format!("row {} {row}, {column}: {text}{}", i + 1, crate::question::gone_words(&unasked)), Some(row.clone()))
         }
         Edit::Piece { row, column, piece } => {
             let i = row_at(&next, row)?;
@@ -327,6 +338,43 @@ pub fn edit(show: &Show, e: &Edit) -> Result<Edited, String> {
             }
             (format!("row {} {row}, {}: {}", i + 1, columns.join(" · "), deck_ui::filter::filter_words(r.r#where.get(column))), Some(row.clone()))
         }
+        Edit::NewQuestion { row, columns } | Edit::AddTo { row, columns, .. } | Edit::Leave { row, columns } if columns.is_empty() => {
+            return Err(format!("row {} {row}: pick the cells that ask it", row_at(show, row)? + 1));
+        }
+        Edit::NewQuestion { row, columns } => {
+            let i = row_at(&next, row)?;
+            let id = crate::question::new(&mut next, i, columns)?;
+            let to = deck_ui::filter::filter_words(next.rows[i].r#where.get(&columns[0]));
+            (format!("row {} {row}: {} {} the new question {id} – {to}", i + 1, columns.join(" · "), if columns.len() == 1 { "asks" } else { "ask" }), Some(row.clone()))
+        }
+        Edit::AddTo { row, columns, question } => {
+            let i = row_at(&next, row)?;
+            if next.question(question).is_none() {
+                return Err(format!("no question '{question}'"));
+            }
+            crate::question::join(&mut next.rows[i], columns, question, None);
+            let unasked = crate::question::drop_unasked(show, &mut next);
+            let to = deck_ui::filter::filter_words(next.rows[i].r#where.get(&columns[0]));
+            let said = format!("row {} {row}: {} {} {question} – {to}{}", i + 1, columns.join(" · "), if columns.len() == 1 { "asks" } else { "ask" }, crate::question::gone_words(&unasked));
+            (said, Some(row.clone()))
+        }
+        Edit::Leave { row, columns } => {
+            let i = row_at(&next, row)?;
+            let went = crate::question::leave(&mut next, i, columns);
+            if went.is_empty() {
+                return Err(format!("row {} {row}: none of the cells picked asks a question", i + 1));
+            }
+            let unasked = crate::question::drop_unasked(show, &mut next);
+            (format!("row {} {row}: {} {} again{}", i + 1, went.join(" · "), if went.len() == 1 { "keeps" } else { "keep" }, crate::question::gone_words(&unasked)), Some(row.clone()))
+        }
+        Edit::Question { question, set } => {
+            let q = next.questions.iter_mut().find(|q| q.id == *question).ok_or_else(|| format!("no question '{question}'"))?;
+            crate::question::set(q, set)?;
+            let label = Some(q.label(crate::vote::DEFAULT_LOCALE)).filter(|l| l != question).map(|l| format!("{l} · ")).unwrap_or_default();
+            let said = format!("question {question}: {label}{}", crate::question::form(q, crate::vote::DEFAULT_LOCALE).run_line());
+            let row = next.rows.iter().find(|r| r.cells.values().any(|c| matches!(c, Cell::Ask { question: x } if x == question))).map(|r| r.id.clone());
+            (said, row)
+        }
     };
     let added: Vec<String> = crate::validate::validate(&next).into_iter().filter(|p| !before.contains(p)).map(|p| p.to_string()).collect();
     match added.first() {
@@ -361,7 +409,8 @@ pub struct CellInspector {
     /// `cell · row 1 start · left`
     pub title: String,
     pub modes: Vec<ModeView>,
-    /// a stage outlet's piece field: the piece, or [`NO_PIECE`]; none: the column holds no piece (a seat, a device)
+    /// a stage outlet's piece field: the piece, or [`NO_PIECE`]; none: the column holds no piece (a seat, a device) or
+    /// its cell asks a question (the question's form shows instead: question.rs `inspect`)
     pub piece: Option<String>,
     /// #553: who in the column gets the cell – [`FILTER`] and the one condition control ([`cell_condition`]); none: not
     /// offered here
@@ -379,7 +428,9 @@ pub fn cell_inspector(show: &Show, row: &str, column: &str) -> Option<CellInspec
     if stage.is_none() && show.outlet(column).is_none() && show.seat(column).is_none() {
         return None;
     }
-    let piece = stage.map(|_| piece_of(r.cells.get(column)).map_or_else(|| NO_PIECE.to_string(), str::to_string));
+    // #551 (found in #553): a cell that asks holds no piece – the outlet's piece plays on under the question
+    let asks = matches!(r.cells.get(column), Some(Cell::Ask { .. }));
+    let piece = stage.filter(|_| !asks).map(|_| piece_of(r.cells.get(column)).map_or_else(|| NO_PIECE.to_string(), str::to_string));
     Some(CellInspector { title: format!("cell · row {} {row} · {column}", i + 1), modes: modes(show, row, column), piece, filter: cell_condition(show, row, column) })
 }
 
@@ -585,6 +636,7 @@ mod tests {
         assert_eq!(c.words, "device phone · member · live");
         assert_eq!(c.chip("group left"), None, "the column is the group");
         assert!(cell_inspector(&show, "crossroads", "middle").unwrap().filter.is_none(), "a values cell without a filter: not offered");
+        assert_eq!((i.piece, cell_inspector(&show, "crossroads", "middle").unwrap().piece.as_deref()), (None, Some("scene:choir")), "#551: an ask cell shows no piece field");
         assert!(cell_inspector(&show, "opening", "left").unwrap().filter.is_none());
         // device browser on left: right, which asks the same question, takes it too
         let browser = ed(&show, cell_fact("crossroads", "left", Fact::Device("browser".into())));
