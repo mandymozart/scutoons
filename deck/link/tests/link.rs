@@ -127,6 +127,7 @@ fn info() -> DeckInfo {
         build: "2026.10.29-a1".into(),
         class: "A".into(),
         hostname: "x1-stage".into(),
+        ..DeckInfo::default()
     }
 }
 

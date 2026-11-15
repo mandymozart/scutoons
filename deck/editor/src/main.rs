@@ -20,6 +20,8 @@ mod stage;
 mod tokens;
 mod ui;
 mod show;
+mod sign_in;
+mod toon;
 mod wires;
 
 use anyhow::{Context, Result};
@@ -376,8 +378,16 @@ struct App {
     /// #91: Build, Show or Perform; the show's conductor and what the show workspaces show
     workspace: show::Workspace,
     show: show::Host,
-    /// #477: the toon's address book
+    /// #477: the toon's address book, of the toon open now (toon.rs) – the toon and whether signed in when it was asked
     book: book::Loader,
+    book_key: (Option<String>, bool),
+    rig_toon: toon::RigToon,
+    auth: sign_in::Auth,
+}
+
+/// the top bar's status, the sign-in first while the editor is not signed in (`line`: sign_in.rs, "" when signed in)
+fn signed(line: &str, status: String) -> String {
+    if line.is_empty() { status } else { format!("{line} · {status}") }
 }
 
 /// the language of the book's labels: the editor's own words are English (not translated yet)
@@ -405,12 +415,17 @@ fn run() -> Result<i32> {
     let width = tokens.tokens.size.inspector;
     let wire = args.wire;
     let app_workspace = args.workspace;
+    let cache = deck_native::cache::default_dir();
+    // a check run (--frames) never asks for a sign-in: SCUTOONS_TOKEN or the kept token only
+    let auth = sign_in::Auth::start(&args.api, &cache, args.frames.is_none());
+    let rig_toon = if args.toon.is_none() && args.book.is_none() { toon::RigToon::new(&args.api, &subject, &cache) } else { toon::RigToon::none() };
     let mut app_show = show::Host::new(args.show_file.clone(), args.show_id.clone(), args.relay.clone(), args.api.clone());
     app_show.toon.clone_from(&args.toon);
     if let Some(f) = &args.story {
         app_show.story_from_file(f);
     }
-    let app_book = book::Loader::new(&args.api, args.toon.as_deref(), args.book.as_deref(), show::api::token(), &deck_native::cache::default_dir());
+    let app_book = book::Loader::new(&args.api, args.toon.as_deref(), args.book.as_deref(), auth.token(), &cache);
+    let book_key = (args.toon.clone(), auth.token().is_some());
     let mut app = App {
         panel: Panel { width, tab: Tab::Rig, field: text::Field::with("Grüße an die Bühne – type here"), drag: None, hits: Vec::new(), field_rect: Rect { x: 0.0, y: 0.0, w: 0.0, h: 0.0 }, advance: 8.0 },
         args,
@@ -455,6 +470,9 @@ fn run() -> Result<i32> {
         workspace: app_workspace,
         show: app_show,
         book: app_book,
+        book_key,
+        rig_toon,
+        auth,
     };
     event_loop.run_app(&mut app).context("the event loop")?;
     let summary = app.summary();
@@ -1028,16 +1046,43 @@ impl App {
     fn open_book(&mut self, node: usize, x: f32, y: f32) {
         self.book.poll();
         let Some(far) = self.stage.far(node) else { return };
+        let why = self.book_why();
         let Some(book) = self.book.book.clone() else {
-            let why = self.book.why.clone().unwrap_or_else(|| "the address book is still on its way".into());
-            return self.say(why, x, y, true);
+            // no book: the typeahead opens anyway and says why inside it
+            let ta = typeahead::Typeahead::new(Vec::new(), x, y).with_note(why.unwrap_or_default());
+            self.menu = Some(Menu { ta, from: None, far: Some(far) });
+            return;
         };
         let kinds = deck_space::world::FAR_HOLDERS;
         let row = |i: usize| book.row(i, LOCALE).map(|r| typeahead::Item { id: i, label: r.chain, detail: format!("{}{}", r.kind.as_str(), if r.draft { " · draft" } else { "" }) });
         let items = book.find("", &kinds, LOCALE).into_iter().filter_map(row).collect();
         let found = book.clone();
-        let ta = typeahead::Typeahead::found_by(items, x, y, move |q| found.find(q, &kinds, LOCALE));
+        let mut ta = typeahead::Typeahead::found_by(items, x, y, move |q| found.find(q, &kinds, LOCALE));
+        if let Some(w) = why {
+            ta = ta.with_note(w);
+        }
         self.menu = Some(Menu { ta, from: None, far: Some(far) });
+    }
+
+    /// why the book is not fresh, in words (book.rs `Why`)
+    fn book_why(&self) -> Option<String> {
+        self.book.why.as_ref().map(|w| w.text(self.auth.code().as_deref(), std::time::SystemTime::now()))
+    }
+
+    /// the book follows the toon open now (toon.rs) and the sign-in: a new loader when either changed
+    fn follow_toon(&mut self) {
+        if self.args.book.is_some() {
+            return;
+        }
+        self.rig_toon.poll();
+        let build = self.workspace == show::Workspace::Build;
+        let toon = toon::wanted(self.args.toon.as_deref(), build, self.rig_toon.toon.as_deref(), self.show.place_toon());
+        let token = self.auth.token();
+        let key = (toon, token.is_some());
+        if key != self.book_key {
+            self.book = book::Loader::new(&self.args.api, key.0.as_deref(), None, token, &deck_native::cache::default_dir());
+            self.book_key = key;
+        }
     }
 
     /// a row chosen: connected from the armed port, or the port found is armed
@@ -1364,11 +1409,13 @@ impl App {
     }
 
     fn redraw(&mut self, el: &ActiveEventLoop) {
+        self.follow_toon();
         self.book.poll();
         // #537: the Show workspace picks a cell's piece from the book's scenes
         self.show.book.clone_from(&self.book.book);
-        self.show.book_why.clone_from(&self.book.why);
+        self.show.book_why = self.book_why();
         let help = self.help_now();
+        let sign_in = self.auth.line(&deck_link::pairing::app_url());
         let (Some(window), Some(gpu), Some(ui)) = (self.window.clone(), self.gpu.as_mut(), self.ui.as_mut()) else { return };
         self.stage.space.being.hold(self.wire, false);
         // Wire shows a level of the tree, Play every node
@@ -1464,7 +1511,7 @@ impl App {
             let names = show::WORKSPACES.map(|(_, n)| n);
             let logo_frame = ((self.started.elapsed().as_secs_f32() / logo::SECONDS).fract() * logo::FRAMES as f32) as usize;
             let title = self.show.sub.conductor().show().id.clone();
-            let bar = bar::Bar { title: &title, status: &self.show.link_line(), wire: self.wire, logo_frame, pointer: self.cursor, cpu: self.cpu_load, gpu: None, workspaces: &names, workspace: self.workspace.index() };
+            let bar = bar::Bar { title: &title, status: &signed(&sign_in, self.show.link_line()), wire: self.wire, logo_frame, pointer: self.cursor, cpu: self.cpu_load, gpu: None, workspaces: &names, workspace: self.workspace.index() };
             let (_, pills) = bar::draw(ui, t, wf, &bar);
             for (r, (w, _)) in pills.into_iter().zip(show::WORKSPACES) {
                 self.panel.hits.push((r, Hit::Workspace(w)));
@@ -1580,6 +1627,7 @@ impl App {
             if glitches > 0 { format!(" · {glitches} glitches") } else { String::new() },
         );
         let status = if self.undo.is_empty() { status } else { format!("{} change{} · {status}", self.undo.len(), if self.undo.len() == 1 { "" } else { "s" }) };
+        let status = signed(&sign_in, status);
         let logo_frame = ((self.started.elapsed().as_secs_f32() / logo::SECONDS).fract() * logo::FRAMES as f32) as usize;
         let title = self.stage.bundle.rig.subject.as_str();
         let names = show::WORKSPACES.map(|(_, n)| n);

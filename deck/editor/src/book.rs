@@ -1,42 +1,90 @@
-//! The toon's address book on the editor (#477): `GET /api/addresses/<toon>` with the editor's token (the shows' one,
-//! show/api.rs), kept in the deck's cache as the document itself (`<cache>/addresses/<toon>.json`, its `version` inside),
-//! asked again with `If-None-Match` (304: the kept one stays), and read from the kept file when the API does not answer.
-//! Glue only, on a thread so the window never waits: what the book holds and what a query finds is deck-space `rig/book.rs`.
+//! The toon's address book on the editor (#477): `GET /api/addresses/<toon>` with the editor's token (sign_in.rs), kept
+//! in the deck's cache as the document itself (`<cache>/addresses/<toon>.json`, its `version` inside), asked again with
+//! `If-None-Match` (304: the kept one stays), and read from the kept file when the API does not answer. The toon is the
+//! one of what is open (toon.rs); main.rs makes a new loader when it or the sign-in changes. Glue only, on a thread so
+//! the window never waits: what the book holds and what a query finds is deck-space `rig/book.rs`. When there is no fresh
+//! book, `Why` says why – inside the address typeahead.
 use deck_space::rig::book::Book;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{channel, Receiver};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
+
+/// why the typeahead has no fresh book
+#[derive(Debug, Clone, PartialEq)]
+pub enum Why {
+    /// no token: the editor waits for its approval on the account page
+    SignedOut,
+    /// nothing open names a toon
+    NoToon,
+    /// the API did not answer; when the kept copy was written (None: there is none)
+    Offline { kept: Option<SystemTime> },
+    /// asked, no answer yet
+    Loading,
+    /// the API refused, a file did not read
+    Failed(String),
+}
+
+impl Why {
+    /// in words, inside the typeahead: `code` = the sign-in code that waits, `now` = the clock the kept copy's age is read on
+    pub fn text(&self, code: Option<&str>, now: SystemTime) -> String {
+        match self {
+            Why::SignedOut => match code {
+                Some(c) => format!("signed out – approve code {} on the account page (Decks)", deck_link::format_code(c)),
+                None => "signed out – waiting for a sign-in code".into(),
+            },
+            Why::NoToon => "no toon – open a rig of a toon's character, or pick a toon in the Session sheet".into(),
+            Why::Offline { kept: Some(at) } => format!("offline – the kept copy from {} ago", age(now.duration_since(*at).unwrap_or_default())),
+            Why::Offline { kept: None } => "offline – no kept copy of this toon's book yet".into(),
+            Why::Loading => "the address book is on its way".into(),
+            Why::Failed(e) => e.clone(),
+        }
+    }
+}
+
+fn age(d: Duration) -> String {
+    match d.as_secs() {
+        s if s < 120 => format!("{s} s"),
+        s if s < 2 * 3600 => format!("{} min", s / 60),
+        s if s < 2 * 86400 => format!("{} h", s / 3600),
+        s => format!("{} days", s / 86400),
+    }
+}
 
 /// what a load gave: the book (fetched or kept), and why the API did not give a fresh one
 pub struct Loaded {
     pub book: Option<Arc<Book>>,
-    pub why: Option<String>,
+    pub why: Option<Why>,
 }
 
 /// The editor's book: none asked for, on its way, or there.
 pub struct Loader {
     rx: Option<Receiver<Loaded>>,
     pub book: Option<Arc<Book>>,
-    pub why: Option<String>,
+    pub why: Option<Why>,
 }
 
 impl Loader {
-    /// `file`: a book from a file (a check run's, no API); else `toon`'s from `api`, on a thread
+    /// `file`: a book from a file (a check run's, no API); else `toon`'s from `api` with `token`, on a thread; signed out,
+    /// only the kept copy
     pub fn new(api: &str, toon: Option<&str>, file: Option<&Path>, token: Option<String>, cache: &Path) -> Loader {
         let mut l = Loader { rx: None, book: None, why: None };
         if let Some(file) = file {
             let Loaded { book, why } = read(file);
             (l.book, l.why) = (book, why);
         } else if let Some(toon) = toon {
-            let (tx, rx) = channel();
             let (url, kept) = (format!("{api}/addresses/{toon}"), kept(cache, toon));
+            if token.is_none() {
+                (l.book, l.why) = (read(&kept).book, Some(Why::SignedOut));
+                return l;
+            }
+            let (tx, rx) = channel();
             std::thread::spawn(move || {
                 let _ = tx.send(load(&url, token.as_deref(), &kept));
             });
-            l.rx = Some(rx);
+            (l.rx, l.why) = (Some(rx), Some(Why::Loading));
         } else {
-            l.why = Some("no address book – the editor reads one with --toon <toon> (or --book FILE)".into());
+            l.why = Some(Why::NoToon);
         }
         l
     }
@@ -45,7 +93,7 @@ impl Loader {
     pub fn poll(&mut self) {
         if let Some(Ok(Loaded { book, why })) = self.rx.as_ref().map(Receiver::try_recv) {
             if let Some(b) = &book {
-                tracing::info!("address book {}: {} entries, version {}{}", b.toon(), b.entries().len(), b.version(), why.as_deref().map(|w| format!(" (kept: {w})")).unwrap_or_default());
+                tracing::info!("address book {}: {} entries, version {}{}", b.toon(), b.entries().len(), b.version(), if why.is_some() { " (kept)" } else { "" });
             }
             (self.book, self.why, self.rx) = (book, why, None);
         }
@@ -61,7 +109,7 @@ pub fn kept(cache: &Path, toon: &str) -> PathBuf {
 pub fn read(file: &Path) -> Loaded {
     match std::fs::read_to_string(file).map_err(|e| e.to_string()).and_then(|t| Book::parse(&t)) {
         Ok(b) => Loaded { book: Some(Arc::new(b)), why: None },
-        Err(e) => Loaded { book: None, why: Some(format!("{}: {e}", file.display())) },
+        Err(e) => Loaded { book: None, why: Some(Why::Failed(format!("{}: {e}", file.display()))) },
     }
 }
 
@@ -77,9 +125,13 @@ pub fn load(url: &str, token: Option<&str>, kept: &Path) -> Loaded {
     }
     let fresh = match req.call() {
         Ok(r) if r.status() == 304 => return Loaded { book: held, why: None },
-        Ok(r) => r.into_string().map_err(|e| e.to_string()).and_then(|text| Book::parse(&text).map(|b| (b, text))),
-        Err(ureq::Error::Status(code, _)) => Err(format!("HTTP {code}")),
-        Err(ureq::Error::Transport(t)) => Err(format!("offline ({})", t.kind())),
+        Ok(r) => r.into_string().map_err(|e| Why::Failed(format!("{url}: {e}"))).and_then(|text| Book::parse(&text).map(|b| (b, text)).map_err(|e| Why::Failed(format!("{url}: {e}")))),
+        Err(ureq::Error::Status(401, _)) => Err(Why::SignedOut),
+        Err(ureq::Error::Status(code, _)) => Err(Why::Failed(format!("{url}: HTTP {code}"))),
+        Err(ureq::Error::Transport(t)) => {
+            tracing::info!("address book: {url} offline ({})", t.kind());
+            Err(Why::Offline { kept: held.as_ref().and_then(|_| std::fs::metadata(kept).and_then(|m| m.modified()).ok()) })
+        }
     };
     match fresh {
         Ok((b, text)) => {
@@ -88,7 +140,7 @@ pub fn load(url: &str, token: Option<&str>, kept: &Path) -> Loaded {
             }
             Loaded { book: Some(Arc::new(b)), why: None }
         }
-        Err(why) => Loaded { why: Some(format!("{url}: {why}{}", if held.is_some() { " – the kept book" } else { "" })), book: held },
+        Err(why) => Loaded { why: Some(why), book: held },
     }
 }
 
@@ -104,19 +156,36 @@ mod tests {
         d
     }
 
-    /// no API (nothing listens on port 9): the kept book, and why it is not fresh
+    /// no API (nothing listens on port 9): the kept book, and how old it is
     #[test]
     fn offline_it_works_from_the_kept_file() {
         let cache = dir("kept");
         let file = kept(&cache, "catpope");
         std::fs::create_dir_all(file.parent().unwrap()).unwrap();
         std::fs::write(&file, BOOK).unwrap();
-        let l = load("http://127.0.0.1:9/api/addresses/catpope", None, &file);
+        let l = load("http://127.0.0.1:9/api/addresses/catpope", Some("sce_t"), &file);
         assert_eq!(l.book.as_ref().map(|b| b.version()), Some("v7"));
-        assert!(l.why.as_deref().is_some_and(|w| w.contains("the kept book")), "{:?}", l.why);
-        let none = load("http://127.0.0.1:9/api/addresses/catpope", None, &kept(&cache, "nobody"));
-        assert!(none.book.is_none() && none.why.is_some());
+        assert!(matches!(l.why, Some(Why::Offline { kept: Some(_) })), "{:?}", l.why);
+        let none = load("http://127.0.0.1:9/api/addresses/catpope", Some("sce_t"), &kept(&cache, "nobody"));
+        assert!(none.book.is_none() && none.why == Some(Why::Offline { kept: None }));
         let _ = std::fs::remove_dir_all(&cache);
+    }
+
+    /// the three reasons the typeahead gives inside itself: signed out (with the code), no toon, offline (the kept copy's age)
+    #[test]
+    fn the_typeahead_says_why_it_has_no_fresh_book() {
+        let d = dir("why");
+        let signed_out = Loader::new("http://unused", Some("catpope"), None, None, &d);
+        assert_eq!((signed_out.why.as_ref(), signed_out.rx.is_none()), (Some(&Why::SignedOut), true), "signed out: the API is not asked");
+        let now = SystemTime::now();
+        assert_eq!(Why::SignedOut.text(Some("K7Q42M"), now), "signed out – approve code K7Q-42M on the account page (Decks)");
+        assert_eq!(Why::SignedOut.text(None, now), "signed out – waiting for a sign-in code");
+        assert_eq!(Loader::new("http://unused", None, None, Some("sce_t".into()), &d).why, Some(Why::NoToon));
+        assert!(Why::NoToon.text(None, now).starts_with("no toon – "));
+        let kept_at = now - Duration::from_secs(3 * 3600 + 5);
+        assert_eq!(Why::Offline { kept: Some(kept_at) }.text(None, now), "offline – the kept copy from 3 h ago");
+        assert_eq!(Why::Offline { kept: Some(now - Duration::from_secs(600)) }.text(None, now), "offline – the kept copy from 10 min ago");
+        assert_eq!(Why::Offline { kept: None }.text(None, now), "offline – no kept copy of this toon's book yet");
     }
 
     #[test]
@@ -127,8 +196,8 @@ mod tests {
         std::fs::write(d.join("bad.json"), "{}").unwrap();
         let l = Loader::new("http://unused", None, Some(&d.join("good.json")), None, &d);
         assert_eq!(l.book.map(|b| b.entries().len()), Some(1));
-        assert!(Loader::new("http://unused", None, Some(&d.join("bad.json")), None, &d).why.unwrap().contains("not an address book"));
-        assert!(Loader::new("http://unused", None, None, None, &d).why.unwrap().contains("--toon"));
+        let bad = Loader::new("http://unused", None, Some(&d.join("bad.json")), None, &d).why.unwrap();
+        assert!(bad.text(None, SystemTime::now()).contains("not an address book"), "{bad:?}");
         let _ = std::fs::remove_dir_all(&d);
     }
 }

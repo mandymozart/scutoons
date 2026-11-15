@@ -36,6 +36,7 @@ fn main() -> Result<()> {
         hostname: hostname(),
         build: read_trimmed(RELEASE),
         class: DeckInfo::class_of_machine(&read_trimmed(MACHINE_TOML)),
+        ..DeckInfo::default()
     };
     while let Some(flag) = args.next() {
         let value = args.next().unwrap_or_default();

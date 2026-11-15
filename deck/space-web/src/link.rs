@@ -27,7 +27,7 @@ impl DeckLink {
         if public_key_hex.len() != 64 || !public_key_hex.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)) {
             return Err(JsValue::from_str("a deck key is 32 bytes as lower-case hex"));
         }
-        let info = DeckInfo { build: build.chars().take(64).collect(), class: "web".into(), hostname: "browser".into() };
+        let info = DeckInfo { build: build.chars().take(64).collect(), class: "web".into(), hostname: "browser".into(), ..DeckInfo::default() };
         Ok(DeckLink { session: Session::new(public_key_hex.to_owned(), info) })
     }
 
