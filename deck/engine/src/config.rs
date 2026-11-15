@@ -101,6 +101,65 @@ impl DeckConfig {
     }
 }
 
+/// What is wrong with a machine's channel map (deck.toml's `[[audio_outlet]]`) on a device: the map is refused while there is one.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MapProblem {
+    Unnamed,
+    Twice(String),
+    Outside { group: String, channel: usize, device: usize },
+    Repeated { group: String, channel: usize },
+}
+
+impl std::fmt::Display for MapProblem {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            MapProblem::Unnamed => write!(f, "an outlet group without a name"),
+            MapProblem::Twice(g) => write!(f, "the group '{g}' is mapped twice"),
+            MapProblem::Outside { group, channel, device } => write!(f, "'{group}': channel {channel} is not on the device (it has 1–{device})"),
+            MapProblem::Repeated { group, channel } => write!(f, "'{group}': channel {channel} is listed twice"),
+        }
+    }
+}
+
+/// The problems of `outlets` on a device of `device` channels: every group once and named, its channels counted from 1 within
+/// the device, none twice in a group. Two groups may share a channel (they sum there).
+pub fn check_outlets(outlets: &[OutletMap], device: usize) -> Vec<MapProblem> {
+    let mut out = Vec::new();
+    for (i, o) in outlets.iter().enumerate() {
+        if o.group.trim().is_empty() {
+            out.push(MapProblem::Unnamed);
+        } else if outlets[..i].iter().any(|p| p.group == o.group) {
+            out.push(MapProblem::Twice(o.group.clone()));
+        }
+        for (k, &c) in o.channels.iter().enumerate() {
+            if c < 1 || c > device {
+                out.push(MapProblem::Outside { group: o.group.clone(), channel: c, device });
+            } else if o.channels[..k].contains(&c) {
+                out.push(MapProblem::Repeated { group: o.group.clone(), channel: c });
+            }
+        }
+    }
+    out
+}
+
+/// A test tone on a machine's device: one device channel (counted from 1), or where an outlet group plays.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Tone {
+    Channel(usize),
+    Group(String),
+}
+
+impl Tone {
+    /// the tone's scene: a quiet 440 Hz sine (−20 dBFS) into an `out` pinned to the channel, or into the group's outlet
+    pub fn scene(&self) -> String {
+        let out = match self {
+            Tone::Channel(c) => format!("channels = [{c}]"),
+            Tone::Group(g) => format!("group = {}", toml::Value::String(g.clone())),
+        };
+        format!("[stage]\nname = \"test tone\"\n\n[[node]]\nid = \"tone\"\nkind = \"osc\"\nfreq = 440\ngain = 0.1\n\n[[node]]\nid = \"out\"\nkind = \"out\"\n{out}\n\n[[link]]\nfrom = \"tone\"\nto = \"out.in\"\n")
+    }
+}
+
 /// What the room does to the sum of the outlets on the device channels, before the engine's limiter (plan 2.6b): speaker
 /// EQ, delays, shaping. It stays loaded while scenes come and go. The engine has the hook and a pass-through; the
 /// environment's documents and graph are #330's.
@@ -133,6 +192,33 @@ mod tests {
         assert_eq!((rack.channels_of("main", 2), rack.channels_of("cue", 2)), (on(&[0, 1]), on(&[2, 3])));
         assert_eq!(DeckConfig::device(3).with_outlet("cue", &[3, 4]).channels_of("cue", 2), [Some(2), None], "channel 4 does not exist");
         assert_eq!(DeckConfig::device(3).with_outlet("cue", &[4, 3]).channels_of("cue", 2), [None, Some(2)], "the second keeps its place");
+    }
+
+    #[test]
+    fn a_channel_map_is_checked_against_the_device() {
+        let map = |g: &str, c: &[usize]| OutletMap { group: g.into(), channels: c.to_vec() };
+        assert!(check_outlets(&[map("main", &[1, 2]), map("cue", &[3, 4])], 4).is_empty());
+        assert!(check_outlets(&[map("main", &[1, 2]), map("cue", &[1, 2])], 2).is_empty(), "two groups may share channels");
+        assert_eq!(check_outlets(&[map("cue", &[3, 4])], 2), [
+            MapProblem::Outside { group: "cue".into(), channel: 3, device: 2 },
+            MapProblem::Outside { group: "cue".into(), channel: 4, device: 2 },
+        ]);
+        assert_eq!(check_outlets(&[map("cue", &[3]), map("cue", &[4])], 8), [MapProblem::Twice("cue".into())]);
+        assert_eq!(check_outlets(&[map("main", &[1, 1])], 8), [MapProblem::Repeated { group: "main".into(), channel: 1 }]);
+        assert_eq!(check_outlets(&[map(" ", &[1]), map("x", &[0])], 8)[0], MapProblem::Unnamed);
+        assert_eq!(check_outlets(&[map("x", &[0])], 8)[0].to_string(), "'x': channel 0 is not on the device (it has 1–8)");
+    }
+
+    #[test]
+    fn a_test_tone_is_a_scene_with_one_outlet() {
+        let ch = Tone::Channel(3).scene();
+        assert!(ch.contains("channels = [3]") && ch.contains("kind = \"osc\""));
+        let g = Tone::Group("a \"b\"".into()).scene();
+        let parsed: toml::Value = toml::from_str(&g).unwrap();
+        assert_eq!(parsed["node"][1]["group"].as_str(), Some("a \"b\""));
+        let graph = |s: &str| deck_space::graph::Graph::build(&deck_space::scene::Scene::parse(s).unwrap()).unwrap();
+        assert_eq!(crate::outlet_groups(&graph(&Tone::Group("cue".into()).scene())), ["main", "cue"], "main always, then the scene's groups");
+        assert_eq!(crate::outlet_groups(&graph(&Tone::Channel(2).scene())), ["main"]);
     }
 
     #[test]

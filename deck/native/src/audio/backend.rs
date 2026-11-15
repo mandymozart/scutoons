@@ -175,44 +175,7 @@ impl Default for Options {
     }
 }
 
-/// deck.toml's audio keys (#208) – the machine's settings; the stage's flags win over them, they win over the scene's.
-/// `audio_buffer = 256`, `audio_host = "asio"`, `audio_device = "Fireface"`; empty = unset.
-#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Deserialize)]
-pub struct DeckAudio {
-    #[serde(default)]
-    pub audio_buffer: Option<u32>,
-    #[serde(default)]
-    pub audio_host: Option<String>,
-    #[serde(default)]
-    pub audio_device: Option<String>,
-    #[serde(default)]
-    pub audio_thread: Option<bool>,
-    /// this machine's channel map (#428): `[[audio_outlet]]`, `group = "cue"`, `channels = [3, 4]`, counted from 1 – the scene names
-    /// the group, this says where it plays. `main` without an entry plays on channels 1.., any other group without one is silent
-    #[serde(default)]
-    pub audio_outlet: Vec<deck_engine::OutletMap>,
-}
-
-impl DeckAudio {
-    /// deck.toml's text (its other keys are the session's; a broken file = nothing set, said in the log)
-    pub fn parse(text: &str) -> DeckAudio {
-        let mut d: DeckAudio = toml::from_str(text).unwrap_or_else(|e| {
-            tracing::warn!("deck.toml (audio): {e}");
-            DeckAudio::default()
-        });
-        d.audio_host = d.audio_host.filter(|s| !s.trim().is_empty());
-        d.audio_device = d.audio_device.filter(|s| !s.trim().is_empty());
-        d.audio_buffer = d.audio_buffer.filter(|&n| n > 0);
-        // audio_thread stays as written (true / false; unset = the default)
-        d
-    }
-
-    /// the deck's file (`DECK_TOML` names another – a dev machine's), nothing set when there is none
-    pub fn read() -> DeckAudio {
-        let path = std::env::var_os("DECK_TOML").map(std::path::PathBuf::from).unwrap_or_else(|| "/var/lib/deck/deck.toml".into());
-        std::fs::read_to_string(path).map(|t| DeckAudio::parse(&t)).unwrap_or_default()
-    }
-}
+pub use super::deck_toml::DeckAudio;
 
 pub fn start(o: &Options, factory: &mut Factory) -> Result<Running> {
     let order: &[Choice] = match o.choice {
@@ -301,6 +264,11 @@ fn cpal_host(h: Host) -> Result<cpal::Host> {
     }
 }
 
+/// a device named `name` is the one deck.toml's `audio_device` = `want` picks: the name holds it, any case
+pub fn device_matches(name: &str, want: &str) -> bool {
+    name.to_lowercase().contains(&want.to_lowercase())
+}
+
 /// the output device: the first whose name contains `name` (any case), else the host's default
 fn cpal_device(host: &cpal::Host, name: Option<&str>) -> Result<cpal::Device> {
     use cpal::traits::{DeviceTrait, HostTrait};
@@ -310,7 +278,7 @@ fn cpal_device(host: &cpal::Host, name: Option<&str>) -> Result<cpal::Device> {
     let mut names = Vec::new();
     for d in host.output_devices()? {
         let n = d.name().unwrap_or_default();
-        if n.to_lowercase().contains(&want) {
+        if device_matches(&n, &want) {
             return Ok(d);
         }
         names.push(n);
@@ -318,28 +286,90 @@ fn cpal_device(host: &cpal::Host, name: Option<&str>) -> Result<cpal::Device> {
     bail!("no output device '{want}' on {} (there are: {})", host.id().name(), names.join(", "))
 }
 
+impl Options {
+    /// the machine's settings (deck.toml) as the options a stage opens its audio with; an unknown host is the default
+    pub fn from_deck(deck: &DeckAudio) -> Options {
+        let host = deck.audio_host.as_deref().and_then(Host::parse).unwrap_or_default();
+        Options { choice: Choice::Auto, host, device: deck.audio_device.clone(), buffer: deck.audio_buffer, thread: deck.audio_thread.unwrap_or(true) }
+    }
+}
+
+/// An output device as its host reports it: the default config (rate, channels, format) or why there is none, its buffer range.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Output {
+    pub name: String,
+    pub channels: usize,
+    pub rate: u32,
+    pub format: String,
+    pub buffer: Option<(u32, u32)>,
+    pub default: bool,
+    pub error: Option<String>,
+}
+
+/// A cpal host this build has and its output devices; `key` is deck.toml's `audio_host` for it (None: the stage can't pick it).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Outputs {
+    pub name: String,
+    pub key: Option<&'static str>,
+    pub devices: Vec<Output>,
+}
+
+/// every cpal host this build has, the platform's default host first, with its output devices, for the routing page
+pub fn outputs() -> Vec<Outputs> {
+    use cpal::traits::{DeviceTrait, HostTrait};
+    let default_host = cpal::default_host().id();
+    let mut ids = cpal::available_hosts();
+    ids.sort_by_key(|id| *id != default_host);
+    let mut out = Vec::new();
+    for id in ids {
+        let Ok(host) = cpal::host_from_id(id) else { continue };
+        let key = match id.name() {
+            _ if id == default_host => Some("default"),
+            "WASAPI" => Some("wasapi"),
+            "ASIO" => Some("asio"),
+            _ => None,
+        };
+        let default = host.default_output_device().and_then(|d| d.name().ok());
+        let devices = host
+            .output_devices()
+            .into_iter()
+            .flatten()
+            .map(|d| {
+                let name = d.name().unwrap_or_default();
+                let mut o = Output { default: default.as_deref() == Some(name.as_str()), name, channels: 0, rate: 0, format: String::new(), buffer: None, error: None };
+                match d.default_output_config() {
+                    Ok(c) => {
+                        o.channels = c.channels() as usize;
+                        o.rate = c.sample_rate().0;
+                        o.format = format!("{:?}", c.sample_format());
+                        if let cpal::SupportedBufferSize::Range { min, max } = c.buffer_size() {
+                            o.buffer = Some((*min, *max));
+                        }
+                    }
+                    Err(e) => o.error = Some(e.to_string()),
+                }
+                o
+            })
+            .collect();
+        out.push(Outputs { name: id.name().to_string(), key, devices });
+    }
+    out
+}
+
 /// `--audio-list`: every host this build has, its output devices with their default config and buffer range
 pub fn list() -> String {
-    use cpal::traits::{DeviceTrait, HostTrait};
     let mut out = String::new();
-    for id in cpal::available_hosts() {
-        out += &format!("{}\n", id.name());
-        let Ok(host) = cpal::host_from_id(id) else { continue };
-        let default = host.default_output_device().and_then(|d| d.name().ok());
-        for d in host.output_devices().into_iter().flatten() {
-            let name = d.name().unwrap_or_default();
-            let cfg = match d.default_output_config() {
-                Ok(c) => {
-                    let buf = match c.buffer_size() {
-                        cpal::SupportedBufferSize::Range { min, max } => format!("buffer {min}–{max}"),
-                        cpal::SupportedBufferSize::Unknown => "buffer ?".into(),
-                    };
-                    format!("{} Hz, {} ch, {:?}, {buf}", c.sample_rate().0, c.channels(), c.sample_format())
+    for h in outputs() {
+        out += &format!("{}\n", h.name);
+        for d in h.devices {
+            let cfg = match (&d.error, d.buffer) {
+                (Some(e), _) => format!("({e})"),
+                (None, b) => {
+                    let buf = b.map_or("buffer ?".into(), |(min, max)| format!("buffer {min}–{max}"));
+                    format!("{} Hz, {} ch, {}, {buf}", d.rate, d.channels, d.format)
                 }
-                Err(e) => format!("({e})"),
             };
-            let mark = if default.as_deref() == Some(name.as_str()) { "*" } else { " " };
-            out += &format!(" {mark} {name}: {cfg}\n");
+            out += &format!(" {} {}: {cfg}\n", if d.default { "*" } else { " " }, d.name);
         }
     }
     out
@@ -898,26 +928,6 @@ mod tests {
         assert_eq!(pick_buffer(4096, Some((64, 2048))).0, 2048);
         assert_eq!(pick_buffer(128, None), (128, None), "an unknown range: asked as is");
         assert_eq!(pick_buffer(128, Some((0, u32::MAX))), (128, None), "WASAPI shared reports everything");
-    }
-
-    #[test]
-    fn deck_toml_names_the_machines_audio() {
-        let d = DeckAudio::parse("kiosk = \"stage\"\nrelay = \"\"\naudio_buffer = 256\naudio_host = \"asio\"\naudio_device = \"Fireface\"\n");
-        assert_eq!(d, DeckAudio { audio_buffer: Some(256), audio_host: Some("asio".into()), audio_device: Some("Fireface".into()), audio_thread: None, audio_outlet: vec![] });
-        let map = DeckAudio::parse("outlet = \"stage\"
-audio_host = \"asio\"
-[[audio_outlet]]
-group = \"cue\"
-channels = [3, 4]
-");
-        assert_eq!(map.audio_outlet, [deck_engine::OutletMap { group: "cue".into(), channels: vec![3, 4] }]);
-        assert_eq!(DeckAudio::parse("audio_thread = false\n").audio_thread, Some(false));
-        // the file a deck starts with: the device's default buffer, the render thread on
-        let shipped = DeckAudio::parse(include_str!("../../../os/rootfs/usr/share/deck/deck.default.toml"));
-        assert_eq!((shipped.audio_buffer, shipped.audio_thread), (None, Some(true)));
-        let empty = DeckAudio::parse("audio_host = \"\"\naudio_device = \" \"\naudio_buffer = 0\n");
-        assert_eq!(empty, DeckAudio::default(), "empty = unset");
-        assert_eq!(DeckAudio::parse("this is = not toml ["), DeckAudio::default());
     }
 
     #[test]
