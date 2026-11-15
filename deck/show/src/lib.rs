@@ -31,6 +31,8 @@ pub mod rows;
 pub mod story;
 pub mod subtree;
 pub mod validate;
+/// a cell's values against its piece's knobs: the inspector's scrub numbers, a value set, take current, the path warning
+pub mod values;
 pub mod view;
 /// #533: the vote's conductor side – what the relay said of the session's vote, the panel in words; #548: a row's question
 /// as `vote.open`, its result as the show's event
