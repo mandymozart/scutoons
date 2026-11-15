@@ -92,6 +92,11 @@ pub const EVERY: &str = "*";
 /// kinds of place, #477)
 pub const CHARACTER: &str = protocol::address_book::AddressKind::Character.as_str();
 
+/// `address` is `reference` or a dot down from it; a shared prefix (`a.b` vs `a.bc`) is not below.
+pub fn at_or_below(reference: &str, address: &str) -> bool {
+    address.strip_prefix(reference).is_some_and(|rest| rest.is_empty() || rest.starts_with('.'))
+}
+
 /// What a show's address names on the ladder (SHOW.md §8, the workshop's kind and id; #91): `character:*` every one of a
 /// kind, `character:yellowmouse` every persona and look of it, `character:catpope.mountaintiger.ghost` only that look.
 /// Persona and look exist for characters only; dots as rig subjects spell them. Who picks up goes down: [`Target::picks_up`].
@@ -126,11 +131,9 @@ impl Target {
         Ok(Target { kind: kind.to_string(), id: Some(id), below })
     }
 
-    /// Does this address reach what plays there (a piece's place, `character:yellowmouse.ghost`)? The same kind; every one,
-    /// or the same id and the address's persona / look above or at what plays.
     pub fn picks_up(&self, playing: &str) -> bool {
         let Ok(there) = Target::parse(playing) else { return false };
-        self.kind == there.kind && (self.id.is_none() || (self.id == there.id && there.below.starts_with(&self.below)))
+        self.kind == there.kind && (self.id.is_none() || at_or_below(&self.to_string(), playing))
     }
 
     /// What an address asks of who picks it up: a whole word, or `<scope>:<word>` (`close_doors`, `dance:samba`) – or a
@@ -430,6 +433,19 @@ pub fn resolve(a: &Address, context: &Context, reach: Reach) -> Result<Resolved,
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn at_or_below_is_the_reference_or_a_dot_down_from_it() {
+        use super::at_or_below;
+        assert!(at_or_below("character:catpope", "character:catpope"), "exact match");
+        assert!(at_or_below("character:catpope", "character:catpope.pope"), "a child below");
+        assert!(at_or_below("character:catpope", "character:catpope.pope.ghost"), "the root reaches down to a look");
+        assert!(at_or_below("character:catpope.pope", "character:catpope.pope.ghost"));
+        assert!(!at_or_below("a/b", "a/bc") && !at_or_below("character:catpope", "character:catpopes"), "a shared prefix is a sibling");
+        assert!(!at_or_below("character:catpopes", "character:catpope.pope"));
+        assert!(!at_or_below("character:catpope.pope", "character:catpope"), "the root is not below its persona");
+        assert!(!at_or_below("character:catpope", "item:catpope"));
+    }
+
     #[test]
     fn a_shows_address_names_kind_id_persona_and_look() {
         use super::Target;
