@@ -581,6 +581,14 @@ pub fn problems(show: &Show, sub: Option<&Subtree>) -> Vec<ProblemView> {
             ProblemView { text: p.to_string(), error: true, points }
         })
         .collect();
+    // a values cell that meets another piece on the rows' path: a warning, it is skipped at the show
+    for w in crate::values::warnings(show) {
+        let points = match (row(&w.row), cols.iter().position(|c| c.id == w.column)) {
+            (Some(r), Some(c)) => Points::Cell(r, c),
+            _ => Points::Show,
+        };
+        out.push(ProblemView { text: w.text, error: false, points });
+    }
     for r in sub.map(reports).unwrap_or_default() {
         if r.ok {
             continue;

@@ -31,6 +31,7 @@ mod rows;
 mod scenes;
 mod session;
 mod sheets;
+mod values;
 mod vote;
 
 use deck_kit::editor::controls::Rect;
@@ -184,6 +185,8 @@ pub enum Hit {
     SessionOpen,
     /// #533, the Vote sheet: a field, chip or button of the form or the panel (vote.rs)
     Vote(vote::VoteHit),
+    /// the selected cell's values: a knob, its ×, take current (values.rs)
+    Knob(values::KnobHit),
 }
 
 impl Hit {
@@ -256,6 +259,10 @@ pub struct Host {
     pub session: session::Session,
     /// #533: what the Vote sheet keeps
     pub voting: vote::Voting,
+    /// the knobs of the cells' pieces, the knob being dragged, where the pointer is (values.rs)
+    pub knobs: values::Loader,
+    pub knob_drag: Option<values::KnobDrag>,
+    pub cursor: (f32, f32),
     link: Option<link::Link>,
     api: api::Api,
 }
@@ -305,7 +312,7 @@ impl Host {
                 })
                 .ok()
         });
-        Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), context: None, side: Rect { x: 0.0, y: 0.0, w: 0.0, h: 0.0 }, side_scroll: 0.0, side_over: 0.0, address: None, book: None, book_why: None, piece_query: String::new(), scene_query: String::new(), dragging: None, refused: None, toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, session: session::Session::default(), voting: vote::Voting::default(), link, api }
+        Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), context: None, side: Rect { x: 0.0, y: 0.0, w: 0.0, h: 0.0 }, side_scroll: 0.0, side_over: 0.0, address: None, book: None, book_why: None, piece_query: String::new(), scene_query: String::new(), dragging: None, refused: None, toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, session: session::Session::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), link, api }
     }
 
     /// the document at the end of the path (the top's when a step is missing)
@@ -339,6 +346,7 @@ impl Host {
     /// Each frame: the relay's envelopes and the clock to the core, what it answers out.
     pub fn frame(&mut self) {
         let ms = now();
+        self.knobs.poll();
         let mut out = self.sub.tick(ms);
         if let Some(l) = &self.link {
             while let Ok(e) = l.inbox.try_recv() {
@@ -432,6 +440,7 @@ impl Host {
             Hit::Problem(i) => self.select_problem(i),
             Hit::SessionToon(_) | Hit::SessionChapter(_) | Hit::SessionLabel | Hit::SessionCopy | Hit::SessionOpen => self.session_press(hit),
             Hit::Vote(v) => self.vote_press(v),
+            Hit::Knob(k) => self.knob_press(k),
         }
     }
 
