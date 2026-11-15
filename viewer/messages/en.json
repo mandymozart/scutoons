@@ -203,6 +203,7 @@
 		"decks_too_many": "Too many wrong codes – try again in an hour.",
 		"decks_build": "build {build}",
 		"decks_class": "class {class}",
+		"decks_editor": "editor – saves drafts",
 		"decks_match": "Does its screen show {code}? Then approve it.",
 		"decks_name": "Name (optional)",
 		"decks_lifetime": "Access for",

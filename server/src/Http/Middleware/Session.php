@@ -14,6 +14,7 @@ use Scutoons\Http\AllowedOrigins;
 use Scutoons\Http\ApiTokenScope;
 use Scutoons\Http\CurrentSession;
 use Scutoons\Http\DeckTokenScope;
+use Scutoons\Http\EditorTokenScope;
 use Scutoons\Http\SessionCookie;
 use Scutoons\Infrastructure\Config\Settings;
 
@@ -27,7 +28,8 @@ use Scutoons\Infrastructure\Config\Settings;
  *
  * A personal access token (`Bearer sct_…`, an AI connection) is refused on what only the member does in the app
  * (ApiTokenScope: publish, send, apply, manage tokens, admin changes) – 403 not_for_ai. A deck token (`Bearer scd_…`)
- * only reads (DeckTokenScope) – 403 not_for_deck.
+ * only reads (DeckTokenScope) – 403 not_for_deck; the native editor's (`Bearer sce_…`) reads and saves drafts
+ * (EditorTokenScope) – 403 not_for_editor.
  */
 final class Session implements MiddlewareInterface
 {
@@ -58,6 +60,7 @@ final class Session implements MiddlewareInterface
         $session = new CurrentSession($this->sessions, $token, $via, $csrfBlocked, $this->apiTokens, $this->decks);
         if ($session->isApiToken()) ApiTokenScope::guard($request->getMethod(), $request->getUri()->getPath());
         if ($session->isDeckToken()) DeckTokenScope::guard($request->getMethod(), $request->getUri()->getPath());
+        if ($session->isEditorToken()) EditorTokenScope::guard($request->getMethod(), $request->getUri()->getPath());
         return $handler->handle($request->withAttribute(CurrentSession::ATTRIBUTE, $session));
     }
 }

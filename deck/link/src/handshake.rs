@@ -12,6 +12,8 @@ pub struct DeckInfo {
     pub build: String,
     pub class: String,
     pub hostname: String,
+    /// what asks: empty = a deck (reads only), `editor` = the native editor (reads and saves drafts; server Decks::KIND_EDITOR)
+    pub kind: String,
 }
 
 impl DeckInfo {
@@ -169,15 +171,16 @@ impl Handshake {
 
     fn request(&mut self) -> Ask {
         self.phase = Phase::Request;
-        Ask::Post {
-            path: "/decks/request",
-            body: json!({
-                "public_key": self.public_key_hex,
-                "build": self.info.build,
-                "class": self.info.class,
-                "hostname": self.info.hostname,
-            }),
+        let mut body = json!({
+            "public_key": self.public_key_hex,
+            "build": self.info.build,
+            "class": self.info.class,
+            "hostname": self.info.hostname,
+        });
+        if !self.info.kind.is_empty() {
+            body["kind"] = json!(self.info.kind);
         }
+        Ask::Post { path: "/decks/request", body }
     }
 }
 
@@ -222,13 +225,22 @@ mod tests {
 
     #[test]
     fn an_unknown_deck_requests_and_shows_its_code() {
-        let mut h = Handshake::new(PK.into(), DeckInfo { build: "s7".into(), class: "web".into(), hostname: "browser".into() });
+        let mut h = Handshake::new(PK.into(), DeckInfo { build: "s7".into(), class: "web".into(), hostname: "browser".into(), ..DeckInfo::default() });
         assert_eq!(post(&h.begin()), "/decks/challenge");
         let req = step_ask(h.replied(401, &json!({ "error": "unknown_deck" })));
         let Ask::Post { path, body } = &req else { panic!() };
         assert_eq!((*path, body["class"].as_str(), body["public_key"].as_str()), ("/decks/request", Some("web"), Some(PK)));
+        assert!(body.get("kind").is_none(), "a deck says no kind");
         let done = h.replied(201, &json!({ "deck": { "status": "pending", "code": "K7Q42M" } })).unwrap();
         assert_eq!(done, Step::Done(State::Pending { code: "K7Q42M".into() }));
+    }
+
+    #[test]
+    fn the_editor_asks_as_its_kind() {
+        let mut h = Handshake::new(PK.into(), DeckInfo { kind: "editor".into(), ..DeckInfo::default() });
+        h.begin();
+        let Ask::Post { body, .. } = step_ask(h.replied(401, &json!({ "error": "unknown_deck" }))) else { panic!() };
+        assert_eq!(body["kind"].as_str(), Some("editor"));
     }
 
     #[test]

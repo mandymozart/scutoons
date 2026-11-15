@@ -203,6 +203,7 @@
 		"decks_too_many": "Zu viele falsche Codes – versuch es in einer Stunde wieder.",
 		"decks_build": "Build {build}",
 		"decks_class": "Klasse {class}",
+		"decks_editor": "Editor – speichert Entwürfe",
 		"decks_match": "Zeigt sein Bildschirm {code}? Dann gib es frei.",
 		"decks_name": "Name (optional)",
 		"decks_lifetime": "Zugang für",

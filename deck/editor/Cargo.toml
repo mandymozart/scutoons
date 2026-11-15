@@ -41,6 +41,7 @@ serde_json.workspace = true
 deck-show = { path = "../show" }
 # #531: the Session sheet – deck-ui's panel model, the viewer's address (deck-link `app_url`: DECK_APP, else scutoons.com)
 deck-ui = { path = "../ui" }
-deck-link = { path = "../link", default-features = false }
+# the editor's sign-in: the decks' handshake as the kind editor (sign_in.rs)
+deck-link = { path = "../link", default-features = false, features = ["net"] }
 protocol = { workspace = true }
 ureq = { version = "2", features = ["json"] }
