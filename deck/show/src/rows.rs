@@ -311,6 +311,9 @@ pub fn edit_with(show: &Show, e: &Edit, knobs: Option<&[Knob]>) -> Result<Edited
         }
         Edit::Piece { row, column, piece } => {
             let i = row_at(&next, row)?;
+            if let Some(Cell::Ask { question }) = next.rows[i].cells.get(column) {
+                return Err(format!("not changed: row '{row}', '{column}' asks {question} – it takes a piece once it leaves the question"));
+            }
             let piece = piece.trim().to_string();
             let (cell, dropped) = match next.rows[i].cells.get(column) {
                 Some(Cell::Values { piece: p, values }) if *p == piece => (Cell::Values { piece: piece.clone(), values: values.clone() }, false),
@@ -712,6 +715,10 @@ mod tests {
         assert!(typed.starts_with("not changed: row 'finale', 'left': "), "{typed}");
         // a device outlet takes no piece
         assert!(edit(&show, &Edit::Piece { row: "finale".into(), column: "lamps".into(), piece: "scene:nave".into() }).is_err());
+        // nor does a cell that asks a question
+        let vote = parse(include_str!("../fixtures/vote-cell.show.json")).unwrap();
+        let asks = edit(&vote, &Edit::Piece { row: "crossroads".into(), column: "left".into(), piece: "scene:nave".into() }).unwrap_err();
+        assert_eq!(asks, "not changed: row 'crossroads', 'left' asks q1 – it takes a piece once it leaves the question");
     }
 
     #[test]
