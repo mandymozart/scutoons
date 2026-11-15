@@ -163,9 +163,12 @@ impl Typeahead {
                 ui.round_rect(x + 2.0, top, WIDTH - 4.0, row, t.size.radius, t.color.selected);
             }
             let item = &self.items[i];
-            ui.text(x + pad, top + text_y, font, &item.label, t.color.text);
-            let w = adv * item.detail.chars().count() as f32;
-            ui.text(x + WIDTH - pad - w, top + text_y, font, &item.detail, t.color.muted);
+            let label = ui.text(x + pad, top + text_y, font, &item.label, t.color.text);
+            // the detail right-aligned in the room the label leaves, cut to it (#551: a long reason never runs over the label)
+            let room = ((WIDTH - 3.0 * pad - label) / adv).max(0.0) as usize;
+            let detail = super::controls::fit(&item.detail, room);
+            let w = adv * detail.chars().count() as f32;
+            ui.text(x + WIDTH - pad - w, top + text_y, font, &detail, t.color.muted);
             self.rows.push((top, i));
         }
     }
@@ -213,6 +216,16 @@ mod tests {
         t.insert("dom");
         assert_eq!(t.chosen(), Some(1), "the caller's answer, not the label's words");
         assert!(!t.shows(2));
+    }
+
+    /// #551: a line's long detail (a story question's reason) is cut to the room its label leaves
+    #[test]
+    fn a_long_detail_is_cut_to_the_room_the_label_leaves() {
+        let mut t = Typeahead::new(vec![Item { id: 1, label: "no id".into(), detail: "x".repeat(200) }], 0.0, 0.0);
+        let mut d = DrawList::new(0.6);
+        t.draw(&mut d, &Tokens::default(), (1600.0, 900.0));
+        let detail = d.texts().into_iter().find(|s| s.starts_with('x')).unwrap().to_string();
+        assert!(detail.ends_with('…') && detail.chars().count() < 60, "{detail}");
     }
 
     #[test]
