@@ -12,6 +12,7 @@ pub mod far;
 pub mod fetched;
 pub mod gamepad;
 pub mod gesture;
+pub mod holders;
 pub mod linked;
 pub mod graph;
 pub mod world;

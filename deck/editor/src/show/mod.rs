@@ -21,6 +21,7 @@
 pub mod api;
 mod ask;
 pub mod author;
+pub mod build;
 mod condition;
 mod events;
 mod flash;
@@ -263,6 +264,9 @@ pub struct Host {
     pub knobs: values::Loader,
     pub knob_drag: Option<values::KnobDrag>,
     pub cursor: (f32, f32),
+    /// #568: Build linked to a cell, and what Build is asked to play next (build.rs)
+    pub build: Option<build::BuildLink>,
+    pub to_build: Option<build::ToBuild>,
     link: Option<link::Link>,
     api: api::Api,
 }
@@ -312,7 +316,7 @@ impl Host {
                 })
                 .ok()
         });
-        Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), context: None, side: Rect { x: 0.0, y: 0.0, w: 0.0, h: 0.0 }, side_scroll: 0.0, side_over: 0.0, address: None, book: None, book_why: None, piece_query: String::new(), scene_query: String::new(), dragging: None, refused: None, toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, session: session::Session::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), link, api }
+        Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), context: None, side: Rect { x: 0.0, y: 0.0, w: 0.0, h: 0.0 }, side_scroll: 0.0, side_over: 0.0, address: None, book: None, book_why: None, piece_query: String::new(), scene_query: String::new(), dragging: None, refused: None, toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, session: session::Session::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), build: None, to_build: None, link, api }
     }
 
     /// the document at the end of the path (the top's when a step is missing)
@@ -575,6 +579,9 @@ pub struct Script {
     pub cell: Option<(String, String)>,
     /// #551: the right click on the selected cells – the typeahead opened, this typed, the first line found picked if asked
     pub question: Option<(String, bool)>,
+    /// #568: with `cell`, "open in Build" pressed; then "values → cell" in Build
+    pub open_build: bool,
+    pub to_cell: bool,
 }
 
 impl Host {
@@ -637,6 +644,13 @@ impl Host {
                 for (n, c) in columns.split('+').filter_map(|c| plan.columns.iter().position(|x| x.id == c.trim())).enumerate() {
                     self.press(if n == 0 { Hit::Cell(r, c) } else { Hit::CellAlso(r, c) });
                 }
+            }
+            38 if s.open_build => {
+                let (row, column) = self.selected();
+                if let Some(p) = row.zip(column).and_then(|(r, c)| deck_show::rows::cell_inspector(self.shown(), &r, &c)).and_then(|i| i.knobs_of) {
+                    self.knobs.now(&p);
+                }
+                self.press(Hit::Knob(values::KnobHit::Build));
             }
             // #551: a frame later, when the rows band has drawn the selection's places
             34 => {

@@ -106,6 +106,22 @@ pub fn take(values: &mut Values, knobs: &[Knob], positions: &[(String, f32)]) ->
     Ok(positions.len())
 }
 
+/// Build's knob positions (#568: the rig open there, its own slots) as the cell's piece names them: `prefix` before each
+/// (a scene's member: `<holder>_`, "" when the piece's slots are the rig's), only what turns a knob of the piece – the
+/// rest is counted, not taken. For [`take`] (through the rows' `Edit::Take`, which checks the ranges).
+pub fn from_build(positions: &[(String, f32)], prefix: &str, knobs: &[Knob]) -> (Vec<(String, f32)>, usize) {
+    let (mut out, mut left) = (Vec::new(), 0);
+    for (path, v) in positions {
+        let slot = format!("{prefix}{path}");
+        if knobs.iter().any(|k| k.path == slot) {
+            out.push((slot, *v));
+        } else {
+            left += 1;
+        }
+    }
+    (out, left)
+}
+
 /// A `values` cell that meets another piece (or none) on the rows' path: the row above that last changed its column plays
 /// something else, so at the show it is skipped and logged (the conductor's `ValuesSkipped`).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -207,6 +223,22 @@ pub(crate) mod tests {
         assert!(current(&sub, "left", "scene:vigil", &knobs).unwrap_err().contains("plays scene:nave, not scene:vigil"));
         let took = edit_with(&show, &Edit::Take { row: "dialog".into(), column: "left".into(), positions: now }, Some(&knobs)).unwrap();
         assert_eq!(took.said, "row 2 dialog, left: took 2 knobs – values · dim 0.6 · light.gain 0.2");
+    }
+
+    /// #568: Build's knobs into the cell – the piece's slots taken (a member's prefix before them), the rest counted, the
+    /// ranges the rows' edit's
+    #[test]
+    fn builds_knobs_go_into_the_cell_as_the_piece_names_them() {
+        let show = parse(crate::far::tests::SHOW).unwrap();
+        let knobs = deck_space::holders::read("character:keys", crate::far::tests::find).unwrap().knobs;
+        let build = [("tone_osc.gain".to_string(), 0.5), ("tone_osc.freq".to_string(), 220.0), ("far_in.x".to_string(), 1.0)];
+        let (taken, left) = from_build(&build, "", &knobs);
+        assert_eq!((taken.len(), left), (2, 1), "{knobs:?}");
+        let done = edit_with(&show, &Edit::Take { row: "together".into(), column: "left".into(), positions: taken }, Some(&knobs)).unwrap();
+        assert!(done.said.starts_with("row 2 together, left: took 2 knobs"), "{}", done.said);
+        assert_eq!(from_build(&build, "keys_", &knobs).0, vec![], "a member's prefix the piece does not carry");
+        let too_high = [("tone_osc.freq".to_string(), 5000.0)];
+        assert!(edit_with(&show, &Edit::Take { row: "together".into(), column: "left".into(), positions: from_build(&too_high, "", &knobs).0 }, Some(&knobs)).unwrap_err().contains("goes from"));
     }
 
     /// SHOW.md §5: a `values` cell that meets another piece on the path is warned about, in the conductor's words

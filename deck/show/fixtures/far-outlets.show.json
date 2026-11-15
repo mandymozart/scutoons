@@ -1,0 +1,34 @@
+{
+  "id": "far-outlets",
+  "version": 1,
+  "outlets": [
+    { "id": "left" },
+    { "id": "middle" },
+    { "id": "right" }
+  ],
+  "rows": [
+    {
+      "id": "keys-alone",
+      "cells": {
+        "left": { "mode": "play", "piece": "character:keys", "values": { "tone:osc.gain": 0.3 } },
+        "middle": { "mode": "play", "piece": "item:incense_burner" }
+      }
+    },
+    {
+      "id": "together",
+      "fire": { "event": "far.together", "how": "hand" },
+      "cells": {
+        "left": { "mode": "values", "piece": "character:keys", "values": { "tone:osc.freq": 440 } },
+        "right": { "mode": "play", "piece": "character:bells" }
+      }
+    },
+    {
+      "id": "bells-alone",
+      "fire": { "event": "far.end", "how": "hand" },
+      "cells": {
+        "left": { "mode": "black" },
+        "middle": { "mode": "black" }
+      }
+    }
+  ]
+}
