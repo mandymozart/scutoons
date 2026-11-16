@@ -29,7 +29,7 @@
 //!   keeps the answer (`synced`), new after every settled file; the link sends it to the conductor.
 //!
 //! The HUD shows `DeckSync::line` (progress, offline, the last error) and `push_line` (the push's state).
-pub use deck_space::push::{Content, File, Want, MAX_FILE};
+pub use deck_space::push::{Content, File, Needs, Want, MAX_FILE};
 use deck_space::push::{self, Api, Got, Push};
 use protocol::{DeckSynced, SceneSync};
 use serde::{Deserialize, Serialize};
@@ -61,27 +61,6 @@ pub struct Config {
     pub token: deck_link::TokenSource,
     /// #195: the quality a pushed set's 3D is fetched at (the scene's space node's, else `low`)
     pub quality: String,
-}
-
-/// what a scene needs: its sets (id, quality), its characters with their moods, its media by CDN path (a background)
-#[derive(Debug, Clone, Default, PartialEq)]
-pub struct Needs {
-    pub sets: Vec<(String, String)>,
-    pub characters: Vec<(String, Vec<String>)>,
-    pub media: Vec<String>,
-}
-
-impl Needs {
-    pub fn wants(&self) -> Vec<Want> {
-        let sets = self.sets.iter().map(|(id, quality)| Want::Set { id: id.clone(), quality: quality.clone() });
-        let faces = self.characters.iter().flat_map(|(c, moods)| moods.iter().map(|m| Want::Portrait { character: c.clone(), mood: m.clone() }));
-        let media = self.media.iter().map(|path| Want::Media { path: path.clone() });
-        sets.chain(faces).chain(media).collect()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.sets.is_empty() && self.characters.is_empty() && self.media.is_empty()
-    }
 }
 
 /// What the HUD shows.

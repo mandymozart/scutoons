@@ -47,6 +47,27 @@ pub enum Want {
     Media { path: String },
 }
 
+/// what a scene needs: its sets (id, quality), its characters with their moods, its media by CDN path (a background)
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Needs {
+    pub sets: Vec<(String, String)>,
+    pub characters: Vec<(String, Vec<String>)>,
+    pub media: Vec<String>,
+}
+
+impl Needs {
+    pub fn wants(&self) -> Vec<Want> {
+        let sets = self.sets.iter().map(|(id, quality)| Want::Set { id: id.clone(), quality: quality.clone() });
+        let faces = self.characters.iter().flat_map(|(c, moods)| moods.iter().map(|m| Want::Portrait { character: c.clone(), mood: m.clone() }));
+        let media = self.media.iter().map(|path| Want::Media { path: path.clone() });
+        sets.chain(faces).chain(media).collect()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.sets.is_empty() && self.characters.is_empty() && self.media.is_empty()
+    }
+}
+
 /// The API's answer (SceneContent.php): each set's media per quality, each location's set (#512), each character's
 /// portraits per mood, the ids it doesn't know.
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
