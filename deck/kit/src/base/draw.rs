@@ -14,6 +14,8 @@ pub enum Prim {
     Icon { x: f32, y: f32, size: f32, name: &'static str, color: [f32; 4] },
     /// a frame of the animated logo, in a square of `size`
     Logo { x: f32, y: f32, size: f32, frame: usize },
+    /// a straight stroke from `a` to `b`, `thick` wide
+    Segment { a: (f32, f32), b: (f32, f32), thick: f32, color: [f32; 4] },
 }
 
 /// Where a control landed, in logical pixels (what can be pressed is kept by its caller as these).
@@ -105,6 +107,11 @@ impl DrawList {
     /// a circle's outline around (x, y)
     pub fn ring(&mut self, x: f32, y: f32, r: f32, color: [f32; 4]) {
         self.outline(x - r, y - r, 2.0 * r, 2.0 * r, (r, 2.0), color);
+    }
+
+    /// a straight stroke, however long (a grid's line)
+    pub fn segment(&mut self, a: (f32, f32), b: (f32, f32), thick: f32, color: [f32; 4]) {
+        self.prims.push(Prim::Segment { a, b, thick, color });
     }
 
     /// a thin straight line of beads
