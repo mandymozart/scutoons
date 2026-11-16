@@ -281,7 +281,7 @@ fn clip(r: Rect, a: (f32, f32), b: (f32, f32)) -> Option<((f32, f32), (f32, f32)
             }
         }
     }
-    (t0 <= t1).then(|| ((a.0 + t0 * dx, a.1 + t0 * dy), (a.0 + t1 * dx, a.1 + t1 * dy)))
+    (t0 <= t1).then_some(((a.0 + t0 * dx, a.1 + t0 * dy), (a.0 + t1 * dx, a.1 + t1 * dy)))
 }
 
 /// the editor's cache file of the views' grid settings

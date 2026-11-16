@@ -157,7 +157,7 @@ pub fn snap_angle(degrees: f32, step: f32) -> f32 {
 
 /// a scale factor at whole steps of `step`, its sign kept, never below one step
 pub fn snap_scale(value: f32, step: f32) -> f32 {
-    if !(step > 0.0) || !value.is_finite() {
+    if step.is_nan() || step <= 0.0 || !value.is_finite() {
         return value;
     }
     value.signum() * tidy(step).max(snap_step(value.abs(), step, 0.0))
@@ -297,7 +297,7 @@ pub const MAX_LINES: usize = 81;
 /// The grid's lines around `centre` (reaching `half` metres each way along its plane), on its plane through the origin;
 /// empty while the grid is off.
 pub fn grid_lines(s: &Settings, centre: [f32; 3], half: f32) -> Vec<GridLine> {
-    if !s.grid || !(s.step > 0.0) || !(half > 0.0) {
+    if !s.grid || s.step.is_nan() || s.step <= 0.0 || half.is_nan() || half <= 0.0 {
         return Vec::new();
     }
     let [u, v] = s.plane_axes();
@@ -337,8 +337,7 @@ mod tests {
 
     #[test]
     fn on_off_and_the_modifier() {
-        let mut s = Settings::default();
-        s.snap = true;
+        let mut s = Settings { snap: true, ..Settings::default() };
         assert!(s.active(false));
         assert!(!s.active(true));
         s.snap = false;
