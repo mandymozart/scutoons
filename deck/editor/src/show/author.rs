@@ -262,7 +262,7 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
         let save = Rect { x: a.x + 2.0 * (bw + pad), y: a.y, w: bw, h: bh };
         button(d, t, load, "Load", t.color.control, t.color.text);
         button(d, t, flash, "Flash", t.color.control, t.color.text);
-        button(d, t, save, "Save", t.color.accent, t.color.surface);
+        controls::primary(d, t, save, "Save", false);
         host.hits.push((save, Hit::Save));
         host.hits.push((load, Hit::Load));
         host.hits.push((flash, Hit::Flash));
@@ -285,7 +285,7 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
         host.show_panels.close(d, t, o, &mut host.hits);
     }
     // #478: a prompt asked (a role's remove) over everything: only its presses count
-    let room = crate::panels::Panels::room((w, h), crate::bar::bottom(t), 16.0);
+    let room = crate::panels::Panels::room((w, h), crate::bar::bottom(t), t.size.gap);
     super::roles::ask(d, t, host, room);
     // #551: the right click's typeahead on the selected cells, over everything
     super::ask::draw_context(d, t, host, (w, h));

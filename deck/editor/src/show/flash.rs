@@ -191,7 +191,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, pointer: (f3
     button(d, t, lock, lock_word, if c.locked { t.color.selected } else { t.color.control }, t.color.text);
     button(d, t, force, if c.forced { "Forced" } else { "A suggestion" }, if c.forced { t.color.selected } else { t.color.control }, t.color.text);
     button(d, t, cancel, "Cancel", t.color.control, t.color.text);
-    button(d, t, ask, &format!("Flash {} …", c.count()), t.color.accent, t.color.surface);
+    controls::primary(d, t, ask, &format!("Flash {} …", c.count()), false);
     hits.extend([(lock, Hit::FlashLock), (force, Hit::FlashForce), (cancel, Hit::FlashCancel), (ask, Hit::FlashAsk)]);
     if f.asking {
         // the prompt over the list: its presses only
@@ -231,7 +231,11 @@ pub(super) fn prompt(d: &mut DrawList, t: &Tokens, p: &Prompt, a: Rect, hits: &m
     let confirm = Rect { x: x + w - bw - pad, y: by, w: bw, h: row };
     button(d, t, cancel, "Back", t.color.control, t.color.text);
     if p.can {
-        button(d, t, confirm, &p.confirm, if p.warn { t.color.danger } else { t.color.accent }, t.color.surface);
+        if p.warn {
+            button(d, t, confirm, &p.confirm, t.color.danger, t.color.bright);
+        } else {
+            controls::primary(d, t, confirm, &p.confirm, false);
+        }
         hits.push((confirm, yes));
     }
     hits.push((cancel, no));

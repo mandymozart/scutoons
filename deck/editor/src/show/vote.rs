@@ -67,7 +67,7 @@ fn fit(d: &DrawList, text: &str, px: f32, w: f32) -> String {
 /// a button sized to its word at `x`; its place
 fn button(d: &mut DrawList, t: &Tokens, (x, y): (f32, f32), word: &str, primary: bool) -> Rect {
     let r = Rect { x, y, w: d.advance(t.size.font * 1.3) * word.chars().count() as f32 + 2.0 * t.size.pad, h: t.size.tree_row };
-    let (ground, ink) = if primary { (t.color.go, t.color.surface) } else { (t.color.control, t.color.text) };
+    let (ground, ink) = if primary { (t.color.pressed, t.color.pressed_text) } else { (t.color.control, t.color.text) };
     super::perform::button(d, t, r, word, ground, ink);
     r
 }

@@ -9,12 +9,24 @@ use deck_kit::editor::controls::{self, Rect};
 use deck_kit::base::draw::DrawList;
 use deck_kit::base::tokens::Tokens;
 
-/// the content's height, and its tabs' row
-pub const OPEN: f32 = 336.0;
-const FOLDED: f32 = 30.0;
 /// the mixer's gain range (catalog `mixer`)
 pub const GAIN_MAX: f32 = 1.5;
-const STRIP: f32 = 66.0;
+
+/// the mixer's sizes, in rem
+struct Sizes {
+    /// the content's height
+    open: f32,
+    /// the tabs' row
+    tabs: f32,
+    strip: f32,
+    /// a pixel of the drawing at 100 %
+    u: f32,
+}
+
+fn sizes(t: &Tokens) -> Sizes {
+    let s = &t.size;
+    Sizes { open: s.rem(24.0), tabs: s.rem(2.15), strip: s.rem(4.7), u: s.base / deck_kit::base::tokens::BASE }
+}
 
 /// a strip: a track's on the rig's sum, or a gain inside a track
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -152,70 +164,72 @@ fn rows(stage: &Stage, v: &View) -> Vec<Row> {
 }
 
 /// what the mixer's content asks for: a strip per row and the output, the level's tabs over them
-pub fn size(stage: &Stage, v: &View) -> (f32, f32) {
-    (rows(stage, v).len() as f32 * STRIP + 64.0, OPEN)
+pub fn size(t: &Tokens, stage: &Stage, v: &View) -> (f32, f32) {
+    let m = sizes(t);
+    (rows(stage, v).len() as f32 * m.strip + 64.0 * m.u, m.open)
 }
 
 /// the mixer in `area` (its panel's content); where its parts landed
 pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, stage: &Stage, v: &View) -> Vec<(Rect, Part)> {
     let mut out = Vec::new();
+    let Sizes { tabs, strip, u, .. } = sizes(t);
     let names: Vec<&str> = v.tabs.iter().map(String::as_str).collect();
-    for (depth, r) in controls::pills(d, t, area.x, area.y + 2.0, FOLDED - 4.0, &names, v.tab).into_iter().enumerate() {
+    for (depth, r) in controls::pills(d, t, area.x, area.y + 2.0 * u, tabs - 4.0 * u, &names, v.tab).into_iter().enumerate() {
         out.push((r, Part::Tab(depth)));
     }
     let small = t.size.small;
-    let y0 = area.y + FOLDED;
+    let y0 = area.y + tabs;
     for (n, row) in rows(stage, v).into_iter().enumerate() {
-        let x = area.x + 3.0 + n as f32 * STRIP;
-        let name = controls::fit(&row.name, ((STRIP - 8.0) / d.advance(small)) as usize);
-        let column = Rect { x: x - 3.0, y: y0 - 1.0, w: STRIP - 5.0, h: area.y + area.h - y0 + 1.0 };
+        let x = area.x + 3.0 * u + n as f32 * strip;
+        let name = controls::fit(&row.name, ((strip - 8.0 * u) / d.advance(small)) as usize);
+        let column = Rect { x: x - 3.0 * u, y: y0 - 1.0 * u, w: strip - 5.0 * u, h: area.y + area.h - y0 + 1.0 * u };
         if v.selected == Some(row.target) {
-            d.round_rect(column.x, column.y, column.w, column.h - 4.0, t.size.radius, t.color.selected);
+            d.round_rect(column.x, column.y, column.w, column.h - 4.0 * u, t.size.radius, t.color.selected);
         }
         d.text(x, y0, small, &name, t.color.text);
-        d.rect(x, area.y + area.h - 3.0, STRIP - 10.0, 3.0, t.color.strips[n % t.color.strips.len()]);
-        let pan_y = y0 + small + 4.0;
+        d.rect(x, area.y + area.h - 3.0 * u, strip - 10.0 * u, 3.0 * u, t.color.strips[n % t.color.strips.len()]);
+        let pan_y = y0 + small + 4.0 * u;
         if let (Some((pan, _)), Target::Track(i)) = (row.track, row.target) {
-            let p = Rect { x, y: pan_y, w: STRIP - 10.0, h: 7.0 };
-            d.round_rect(p.x, p.y, p.w, p.h, 3.0, t.color.control);
-            d.round_rect(p.x + p.w * 0.5 + pan * (p.w * 0.5 - 2.0) - 1.5, p.y, 3.0, p.h, 1.5, t.color.text);
+            let p = Rect { x, y: pan_y, w: strip - 10.0 * u, h: 7.0 * u };
+            d.round_rect(p.x, p.y, p.w, p.h, 3.0 * u, t.color.control);
+            d.round_rect(p.x + p.w * 0.5 + pan * (p.w * 0.5 - 2.0 * u) - 1.5, p.y, 3.0 * u, p.h, 1.5, t.color.text);
             out.push((p, Part::Pan(i)));
         }
         // meter and fader on one scale, the 0 dB mark across both
-        let y = pan_y + 11.0;
-        let inner = area.y + area.h - y - 7.0;
-        meter(d, t, Rect { x, y, w: 7.0, h: inner }, row.peak);
-        scale(d, t, x + 8.0, y, inner);
-        let f = Rect { x: x + 9.0, y, w: 11.0, h: inner };
+        let y = pan_y + 11.0 * u;
+        let inner = area.y + area.h - y - 7.0 * u;
+        meter(d, t, Rect { x, y, w: 7.0 * u, h: inner }, row.peak);
+        scale(d, t, x + 8.0 * u, y, inner);
+        let f = Rect { x: x + 9.0 * u, y, w: 11.0 * u, h: inner };
         controls::fader(d, t, f, gain_position(row.value), v.hot == Some(row.target));
-        zero(d, t, x, y, 12.0, inner);
+        zero(d, t, x, y, 12.0 * u, inner);
         if !row.fixed {
             out.push((f, Part::Fader(row.target, f)));
         }
-        let col = x + 23.0;
-        let w = STRIP - 33.0;
+        let col = x + 23.0 * u;
+        let w = strip - 33.0 * u;
         let r = peak_readout(d, t, col, y, w, row.max);
         out.push((r, Part::Peak(Some(row.target))));
-        let gain_text = Rect { x: col, y: y + small + 5.0, w, h: small + 5.0 };
-        d.text(col, y + small + 7.0, small, &db_text(row.value), t.color.muted);
+        let gain_text = Rect { x: col, y: y + small + 5.0 * u, w, h: small + 5.0 * u };
+        d.text(col, y + small + 7.0 * u, small, &db_text(row.value), t.color.muted);
         if !row.fixed {
             out.push((gain_text, Part::GainText(row.target)));
         }
         if let (Some((_, muted)), Target::Track(i)) = (row.track, row.target) {
-            let m = controls::toggle(d, t, Rect { x: col, y: y + inner - 16.0, w, h: 16.0 }, "M", muted);
+            let m = controls::toggle(d, t, Rect { x: col, y: y + inner - 16.0 * u, w, h: 16.0 * u }, "M", muted);
             out.push((m, Part::Mute(i)));
         }
         // last: the controls above take their own clicks
         out.push((column, Part::Select(row.target)));
     }
     // what goes out
-    let x = area.x + area.w - 54.0;
-    d.text(x, y0, small, "OUT", t.color.muted);
-    let y = y0 + small + 15.0;
-    let inner = area.y + area.h - y - 5.0;
-    meter(d, t, Rect { x, y, w: 9.0, h: inner }, stage.master_peak);
-    zero(d, t, x, y, 11.0, inner);
-    let r = peak_readout(d, t, x + 12.0, y, 34.0, stage.master_max);
+    let x = area.x + area.w - 54.0 * u;
+    controls::label(d, t, x, y0, "out", t.color.muted);
+    let y = y0 + small + 15.0 * u;
+    let inner = area.y + area.h - y - 5.0 * u;
+    meter(d, t, Rect { x, y, w: 9.0 * u, h: inner }, stage.master_peak);
+    zero(d, t, x, y, 11.0 * u, inner);
+    let r = peak_readout(d, t, x + 12.0 * u, y, 34.0 * u, stage.master_max);
     out.push((r, Part::Peak(None)));
     out
 }
