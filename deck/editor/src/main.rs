@@ -206,6 +206,7 @@ fn args() -> Result<Args> {
             "--event" => a.script.event = Some(val()?),
             "--fire" => a.script.fire = Some(val()?),
             "--launch" => a.script.launch = val()?.split_once(',').map(|(r, c)| (r.to_string(), c.to_string())),
+            "--stop" => a.script.stop = Some(val()?),
             "--go" => a.script.go = true,
             "--flash" => a.script.flash = true,
             "--flash-filter" => a.script.flash_filter = Some(val()?),
@@ -2660,7 +2661,16 @@ impl ApplicationHandler for App {
                     MouseScrollDelta::LineDelta(_, y) => y,
                     MouseScrollDelta::PixelDelta(p) => p.y as f32 / 40.0,
                 };
-                // a cell's knob in Show, then a panel taller than its place scrolls
+                // the rows band scrolls both ways (shift or a sideways wheel: across), a cell's knob in Show, then a panel
+                // taller than its place scrolls
+                let across = match delta {
+                    MouseScrollDelta::LineDelta(x, _) => x,
+                    MouseScrollDelta::PixelDelta(p) => p.x as f32 / 40.0,
+                };
+                let band = if self.mods.shift_key() { (steps, 0.0) } else { (across, steps) };
+                if self.workspace != show::Workspace::Build && self.show.band_wheel(self.cursor.0, self.cursor.1, band) {
+                    return;
+                }
                 if self.workspace != show::Workspace::Build && self.show.wheel(self.cursor.0, self.cursor.1, steps) {
                     return;
                 }

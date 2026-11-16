@@ -23,6 +23,7 @@
 pub mod api;
 mod ask;
 pub mod author;
+mod band;
 pub mod build;
 pub(crate) mod condition;
 pub mod demos;
@@ -118,8 +119,10 @@ impl Sheet {
 pub enum Hit {
     /// a row's big ▶ (Perform)
     Fire(usize),
-    /// a cell's small ▶: row, column (Perform)
+    /// a cell's small ▶: row, column
     Launch(usize, usize),
+    /// a column's stop (the matrix's order)
+    Stop(usize),
     Go,
     Drop,
     /// a seat of the document shown: enter its sub conductor (Show)
@@ -237,6 +240,10 @@ pub struct Host {
     /// the Show and the Perform workspace's floating panels; the toolbar's place for the view switch; what the info says
     pub show_panels: crate::panels::Panels,
     pub perform_panels: crate::panels::Panels,
+    /// where Show's rows band and Perform's are scrolled, and the band drawn last (Perform's: true) for the wheel
+    pub show_scroll: deck_kit::editor::table::Scroll,
+    pub perform_scroll: deck_kit::editor::table::Scroll,
+    band: Option<(bool, deck_kit::editor::table::Laid)>,
     pub view_slot: Rect,
     pub help: Option<deck_kit::editor::info::Help>,
     /// #553: the address of the inspected row (its index) whose filter's chips show
@@ -341,7 +348,11 @@ impl Host {
                 })
                 .ok()
         });
-        Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), context: None, show_panels: crate::panels::Panels::new(&crate::panels::SHOW), perform_panels: crate::panels::Panels::new(&crate::panels::PERFORM), view_slot: Rect::default(), help: None, address: None, book: None, book_why: None, piece_query: String::new(), scene_query: String::new(), dragging: None, refused: None, toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, session: session::Session::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), build: None, to_build: None, compose: new_scene::Composer::default(), to_stage: None, demos: Vec::new(), demo_book: None, link, api }
+        let (mut show_panels, mut perform_panels) = (crate::panels::Panels::new(&crate::panels::SHOW), crate::panels::Panels::new(&crate::panels::PERFORM));
+        show_panels.floats.scrolls_itself("rows");
+        perform_panels.floats.scrolls_itself("matrix");
+        let scroll = deck_kit::editor::table::Scroll::default();
+        Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), context: None, show_panels, perform_panels, show_scroll: scroll, perform_scroll: scroll, band: None, view_slot: Rect::default(), help: None, address: None, book: None, book_why: None, piece_query: String::new(), scene_query: String::new(), dragging: None, refused: None, toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, session: session::Session::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), build: None, to_build: None, compose: new_scene::Composer::default(), to_stage: None, demos: Vec::new(), demo_book: None, link, api }
     }
 
     /// the document at the end of the path (the top's when a step is missing)
@@ -390,6 +401,22 @@ impl Host {
         self.send(out);
     }
 
+    /// The wheel over the rows band drawn last (`steps` across, down): whether it scrolled.
+    pub fn band_wheel(&mut self, x: f32, y: f32, steps: (f32, f32)) -> bool {
+        let Some((perform, laid)) = self.band else { return false };
+        if !laid.area.has(x, y) {
+            return false;
+        }
+        let Some(s) = laid.wheel(steps) else { return false };
+        if perform { self.perform_scroll = s } else { self.show_scroll = s }
+        self.band = Some((perform, deck_kit::editor::table::Laid { scroll: s, ..laid }));
+        true
+    }
+
+    pub(super) fn drew_band(&mut self, perform: bool, laid: deck_kit::editor::table::Laid) {
+        self.band = Some((perform, laid));
+    }
+
     pub fn hit(&self, x: f32, y: f32) -> Option<Hit> {
         self.hits.iter().rev().find(|(r, _)| r.has(x, y)).map(|(_, h)| *h)
     }
@@ -415,6 +442,13 @@ impl Host {
                 let m = deck_show::view::matrix(&self.sub);
                 if let (Some(row), Some(col)) = (rows.get(r), m.columns.get(c)) {
                     let out = self.sub.launch_cell(row, &col.id.clone(), ms);
+                    self.send(out);
+                }
+            }
+            Hit::Stop(c) => {
+                let m = deck_show::view::matrix(&self.sub);
+                if let Some(col) = m.columns.get(c) {
+                    let out = self.sub.stop_column(&col.id.clone(), ms);
                     self.send(out);
                 }
             }
@@ -574,6 +608,8 @@ pub struct Script {
     pub event: Option<String>,
     pub fire: Option<String>,
     pub launch: Option<(String, String)>,
+    /// a column stopped from its head, after the launch
+    pub stop: Option<String>,
     pub go: bool,
     pub flash: bool,
     /// Show: enter this seat's sub conductor, inspect this row
@@ -669,6 +705,12 @@ impl Host {
                         (Some(tally), Some((row, column))) => self.script_vote(row, column, tally),
                         _ => self.press(Hit::Launch(r, c)),
                     }
+                }
+            }
+            75 => {
+                let cols = deck_show::view::matrix(&self.sub).columns;
+                if let Some(c) = s.stop.as_ref().and_then(|id| cols.iter().position(|x| x.id == *id)) {
+                    self.press(Hit::Stop(c));
                 }
             }
             100 => {

@@ -6,4 +6,5 @@ pub mod controls;
 pub mod floats;
 pub mod icons;
 pub mod info;
+pub mod table;
 pub mod typeahead;

@@ -87,9 +87,12 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
 }
 
 fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), pointer: (f32, f32)) {
-    let (pad, font, small) = (t.size.pad, t.size.font, t.size.small);
+    let (pad, small) = (t.size.pad, t.size.small);
     let show = host.shown().clone();
     let plan = view::plan(&show);
+    // the rows band: what this conductor plays when it runs the document shown, else the document alone
+    let runs = host.path.is_empty();
+    let band = if runs { view::matrix_at(&host.sub, super::now()) } else { plan.clone() };
     host.row = host.row.min(show.rows.len().saturating_sub(1));
     let sel = show.rows.get(host.row).map(|r| r.id.clone()).unwrap_or_default();
     let seats = view::seats(&show);
@@ -99,10 +102,8 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
     view_switch(d, t, host, w, &SHEETS);
     let sheet = host.sheet.filter(|s| !s.in_perform());
 
-    // the panels shown and what each asks for: the rows band as wide as its columns, as tall as its rows
-    let first_w = 200.0;
-    let col_w = 180.0;
-    let band = (first_w + plan.columns.len().max(1) as f32 * col_w + pad, small * 2.9 + 2.0 + plan.rows.len().max(1) as f32 * t.size.row + pad);
+    // the panels shown and what each asks for: the rows band as its whole table, scrolled once it cannot grow
+    let band_size = super::band::table(t, &band).size();
     let mut shown: Vec<(&'static str, f32, Option<f32>)> = vec![("outline", t.size.tree * 1.3, None), ("inspector", 340.0, None)];
     if sheet.is_some() {
         shown.push(("sheet", 640.0, Some(440.0)));
@@ -111,7 +112,7 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
     }
     // the scene list: why there is none, or the filter and a line per scene
     let scenes_h = 2.0 * pad + small * 1.8 + if host.book.is_none() { small * 1.25 } else { pad * 0.5 + t.size.tree_row * (1.0 + host.scene_list().len().max(1) as f32) };
-    shown.extend([("scenes", 260.0, Some(scenes_h)), ("rows", band.0, Some(band.1)), ("info", 260.0, Some(small * 1.4 * 6.0))]);
+    shown.extend([("scenes", 260.0, Some(scenes_h)), ("rows", band_size.0, Some(band_size.1)), ("info", 260.0, Some(small * 1.4 * 6.0))]);
     host.show_panels.layout(d, t, ((w, h), crate::bar::bottom(t)), &[], &shown);
 
     // the outline: the conductors (the top, then the seats of the document shown), the roles, the rows
@@ -166,84 +167,10 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
         host.show_panels.close(d, t, o, &mut host.hits);
     }
 
-    // the rows band: fires on, then each column's cell; #478: a role's header says its name, how many are here and who
-    // may take it (deck-show's words), and selects the role
     if let Some(o) = host.show_panels.open(d, t, "rows", pointer, host.hits.len()) {
-        let a = o.area;
-        let (bx, mut by) = (a.x, a.y + 4.0);
-        let cols = plan.columns.len().max(1) as f32;
-        let col_w = ((a.w - first_w) / cols).max(40.0);
-        let head_h = small * 2.9;
-        d.text(bx + first_w * 0.4, by, small, view::FIRES_ON, t.color.muted);
-        for (c, col) in plan.columns.iter().enumerate() {
-            let x = bx + first_w + c as f32 * col_w;
-            let role = roles.iter().position(|r| r.id == col.id);
-            let here = role.map(|i| deck_show::roles::here_text(roles[i].here)).unwrap_or_default();
-            if role.is_some() && host.role.as_ref() == Some(&col.id) {
-                d.round_rect(x - 2.0, by - 3.0, col_w - 2.0, head_h, t.size.radius, t.color.selected);
-            }
-            let hw = d.advance(small) * here.chars().count() as f32;
-            d.text(x + 4.0, by, small, &fit(d, &col.name, small, col_w - hw - 14.0), t.color.text);
-            d.text(x + col_w - hw - 10.0, by, small, &here, t.color.muted);
-            d.text(x + 4.0, by + small * 1.3, small, &fit(d, col.filter.as_ref().unwrap_or(&col.detail), small, col_w - 8.0), t.color.muted);
-            if let Some(i) = role {
-                host.hits.push((Rect { x, y: by - 3.0, w: col_w - 2.0, h: head_h }, Hit::Role(i)));
-            }
-        }
-        by += head_h + 2.0;
-        let rh = t.size.row;
-        for (i, r) in plan.rows.iter().enumerate() {
-            let y = by + i as f32 * rh;
-            let whole = Rect { x: a.x, y, w: a.w, h: rh };
-            if r.id == sel {
-                d.round_rect(whole.x - 4.0, whole.y, whole.w + 8.0, whole.h, t.size.radius, t.color.selected);
-            } else if whole.has(pointer.0, pointer.1) {
-                d.round_rect(whole.x - 4.0, whole.y, whole.w + 8.0, whole.h, t.size.radius, t.color.hover);
-            }
-            let ty = y + (rh - font * 1.25) * 0.5;
-            d.text(bx, ty, font, &fit(d, &format!("{} {}", r.number, r.id), font, first_w * 0.4 - 4.0), t.color.text);
-            d.text(bx + first_w * 0.4, ty, font, &fit(d, &r.fires, font, first_w * 0.6 - 4.0), t.color.muted);
-            host.hits.push((whole, Hit::Row(i)));
-            for (c, cell) in r.cells.iter().enumerate() {
-                let x = bx + first_w + c as f32 * col_w;
-                // #551: adjacent cells of one question are one wide cell, drawn from the column that starts it, in deck-show's
-                // words (`AskView::words`: a cell apart says its mark, `q1 · 2 of 3`); a column inside it draws nothing
-                let (span, text) = match &cell.ask {
-                    Some(a) => (a.run.max(1) as f32, a.words()),
-                    None => (1.0, Some(cell.text.clone())),
-                };
-                if let Some(text) = &text {
-                    let w = span * col_w - 6.0;
-                    if !cell.keep {
-                        d.round_rect(x, y + 2.0, w, rh - 4.0, t.size.radius, t.color.control);
-                    }
-                    if cell.ask.is_some() {
-                        d.rect(x, y + 2.0 + t.size.radius, 2.0, rh - 4.0 - 2.0 * t.size.radius, t.color.accent);
-                    }
-                    d.text(x + 6.0, ty, font, &fit(d, text, font, w - 8.0), if cell.keep { t.color.muted } else { t.color.text });
-                }
-                // #537, #551: the selected cells (each column of the selection its own outline), and a press selects a cell
-                if r.id == sel && plan.columns.get(c).is_some_and(|col| host.cells.contains(&col.id)) {
-                    d.outline(x, y + 2.0, col_w - 6.0, rh - 4.0, (t.size.radius, 1.5), t.color.accent);
-                }
-                // a scene being dragged: the cell under the pointer is where it lands
-                if host.dragging.is_some() && (Rect { x, y, w: col_w - 6.0, h: rh }).has(pointer.0, pointer.1) {
-                    d.outline(x, y + 2.0, col_w - 6.0, rh - 4.0, (t.size.radius, 2.0), t.color.go);
-                }
-                host.hits.push((Rect { x, y, w: col_w - 6.0, h: rh }, Hit::Cell(i, c)));
-            }
-            // #568: the cells of this row whose far nodes listen to each other, joined along the row's foot
-            for l in host.row_links(&r.id) {
-                let deck_show::far::Holder::Outlet(to) = &l.holder else { continue };
-                let mid = |id: &str| plan.columns.iter().position(|c| c.id == id).map(|c| bx + first_w + c as f32 * col_w + (col_w - 6.0) * 0.5);
-                if let (Some(a), Some(b)) = (mid(&l.from), mid(to)) {
-                    let fy = y + rh - 4.0;
-                    d.line((a, fy), (b, fy), 1.0, t.color.accent);
-                    d.disc(a, fy, 3.0, t.color.accent);
-                    d.disc(b, fy, 3.0, t.color.accent);
-                }
-            }
-        }
+        let laid = super::band::draw(d, t, host, o.area, (&band, super::band::Mode { perform: false, runs }), host.show_scroll, pointer);
+        host.show_scroll = laid.scroll;
+        host.drew_band(false, laid);
         host.show_panels.close(d, t, o, &mut host.hits);
     }
 
