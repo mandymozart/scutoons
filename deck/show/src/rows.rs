@@ -46,7 +46,7 @@ impl Mode {
             Mode::Play => "play",
             Mode::Values => "values",
             Mode::Mirror => "mirror",
-            Mode::Black => "black",
+            Mode::Black => "stop",
             Mode::Keep => "keep",
             Mode::Go => "go",
             Mode::Free => "free",
@@ -272,7 +272,7 @@ pub fn edit_with(show: &Show, e: &Edit, knobs: Option<&[Knob]>) -> Result<Edited
                 None => next.rows.len(),
             };
             next.rows.insert(at, Row { id: id.clone(), fire: Default::default(), cells: Default::default(), addresses: vec![], r#where: Default::default() });
-            (format!("row {} {id} added: by hand, every column keeps", at + 1), Some(id))
+            (format!("row {} {id} added: manual, every column keeps", at + 1), Some(id))
         }
         Edit::Rename { id, to } => {
             let i = row_at(&next, id)?;
@@ -566,12 +566,12 @@ mod tests {
     fn a_show_gets_a_row_and_a_play_cell_naming_a_scene_from_nothing() {
         let show = parse(NOTHING).unwrap();
         let added = ed(&show, Edit::Add { after: None });
-        assert_eq!((added.said.as_str(), added.row.as_deref()), ("row 1 row added: by hand, every column keeps", Some("row")));
+        assert_eq!((added.said.as_str(), added.row.as_deref()), ("row 1 row added: manual, every column keeps", Some("row")));
         let named = ed(&added.show, Edit::Rename { id: "row".into(), to: " opening ".into() });
         assert_eq!(named.said, "row 1 row is called opening");
         let m = modes(&named.show, "opening", "left");
         let words: Vec<(&str, bool, bool)> = m.iter().map(|m| (m.word, m.on, m.picks)).collect();
-        assert_eq!(words, [("play", false, true), ("values", false, false), ("mirror", false, false), ("black", false, false), ("keep", true, false)], "play picks a piece first");
+        assert_eq!(words, [("play", false, true), ("values", false, false), ("mirror", false, false), ("stop", false, false), ("keep", true, false)], "play picks a piece first");
         assert_eq!(edit(&named.show, &mode("opening", "left", Mode::Play)).unwrap_err(), "left: pick a piece – `play` names one");
         let played = ed(&named.show, Edit::Piece { row: "opening".into(), column: "left".into(), piece: "scene:nave".into() });
         assert_eq!(played.said, "row 1 opening, left: scene:nave");
@@ -594,7 +594,7 @@ mod tests {
         let show = parse(include_str!("../fixtures/top-toy.show.json")).unwrap();
         let added = ed(&show, Edit::Add { after: Some("opening".into()) });
         assert_eq!(added.show.rows[1].id, "row");
-        assert_eq!(added.said, "row 2 row added: by hand, every column keeps");
+        assert_eq!(added.said, "row 2 row added: manual, every column keeps");
         assert_eq!(ed(&added.show, Edit::Add { after: None }).row.as_deref(), Some("row-2"));
         assert_eq!(edit(&added.show, &Edit::Rename { id: "row".into(), to: "dialog".into() }).unwrap_err(), "not changed: two rows named 'dialog'");
         assert_eq!(edit(&added.show, &Edit::Rename { id: "row".into(), to: " ".into() }).unwrap_err(), "not changed: show: an empty row id");

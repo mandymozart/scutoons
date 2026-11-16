@@ -218,7 +218,7 @@ fn args() -> Result<Args> {
             "--flash-force" => a.script.flash_force = true,
             "--seat" => a.script.seat = Some(val()?),
             "--row" => a.script.row = Some(val()?),
-            "--sheet" => a.script.sheet = Some(show::Sheet::parse(&val()?).context("--sheet cues | problems | flash | who | session | vote | piece | event | scene | demos")?),
+            "--sheet" => a.script.sheet = Some(show::Sheet::parse(&val()?).context("--sheet cues | problems | flash | who | session | vote | event | scene | demos")?),
             "--role" => a.script.role = Some(val()?),
             "--who-move" => a.script.who_move = val()?.split_once('=').map(|(c, r)| (c.to_string(), r.to_string())),
             "--who-menu" => a.script.who_menu = Some(val()?),
@@ -1026,7 +1026,7 @@ impl App {
             }
             if let Some(h) = self.show.hit(x, y) {
                 // #551: shift and a press add a cell to the row's selection
-                return self.show.press(if self.mods.shift_key() { h.with_shift() } else { h });
+                return self.show.press(if self.mods.shift_key() || self.mods.control_key() { h.with_shift() } else { h });
             }
             if self.panels().floats.covers(x, y) {
                 return;
@@ -2766,7 +2766,7 @@ impl ApplicationHandler for App {
             WindowEvent::KeyboardInput { event, .. } if self.edit.is_some() => self.edit_key(&event),
             WindowEvent::KeyboardInput { event, .. } if self.menu.is_some() => self.menu_key(&event),
             // #471: the flash list's typed filter has the keys while it is focused
-            WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed && matches!(self.workspace, show::Workspace::Show | show::Workspace::Perform) && self.show.type_key(&event.logical_key) => {}
+            WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed && matches!(self.workspace, show::Workspace::Show | show::Workspace::Perform) && self.show.key(&event.logical_key, self.mods.control_key() || self.mods.super_key(), self.workspace == show::Workspace::Show) => {}
             // #560: F9 – back to the stage (deck-session swaps; elsewhere F9 does nothing): exit code 11
             WindowEvent::KeyboardInput { event, .. }
                 if event.state == ElementState::Pressed && event.logical_key == Key::Named(NamedKey::F9) && std::env::var_os("DECK_SWAP").is_some() =>

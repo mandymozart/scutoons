@@ -1,21 +1,18 @@
-//! A show's rows and a cell's piece in the Show workspace (#537; SHOW.md §5; SCENES.md 2·6; #267 draft 4): "new row" in
-//! the tree adds one after the selected row, the row inspector's name field renames it and its remove asks first; a cell
-//! pressed in the rows band or the inspector opens the cell inspector – its mode as chips, its piece as a field – and the
-//! piece picker in the stage's place lists the published scenes of the toon's address book (the editor's book, main.rs:
-//! `GET /api/addresses/<toon>`), filtered as typed; without a book the typed `scene:<id>` is the piece and the core reads it.
-//! Every edit goes through deck-show's `rows::edit` (checked there, refused in its words); the words, the modes a column
-//! offers and the picker's lines are deck-show's; this file lays them out and hands the presses in (RULES A1, A2), as
-//! roles.rs does for the roles (#478). `draw_picker` is the one picker in the stage's place: the piece's here, the event's
-//! (#539, events.rs). #553: the cell inspector's filter and a row address's are the one condition control (condition.rs),
-//! their chips deck-show's `rows::CellFact` / `AddressFact` edits.
+//! A show's rows, columns and a cell's content in the Show workspace, edited in place in the rows band: a row, a column or
+//! a group renamed in its head (ctrl+r, or a press on the selected row's name), columns grouped (ctrl+g or their head's
+//! right click), a cell's content picked in the cell (its typeahead: Enter, a press on the selected cell, the cell
+//! inspector's piece field) or dropped from the scene list, delete empties a cell (a stop slot). The cell inspector keeps
+//! the mode chips, the knobs, the question and the filter. Every edit goes through deck-show's `rows::edit` and
+//! `roles::edit` (checked there, refused in their words); this file hands the presses and keys in (RULES A1, A2).
 use super::roles::{Ask, Typing};
-use super::{Hit, Host, Sheet};
+use super::{Hit, Host};
 use deck_kit::base::draw::DrawList;
 use deck_kit::base::text::Field;
 use deck_kit::base::tokens::Tokens;
 use deck_kit::editor::controls::{self, Rect};
-use deck_show::rows::{self, Edit, PieceView};
+use deck_show::rows::{self, Edit};
 use deck_show::{view, Show};
+use winit::keyboard::{Key, NamedKey};
 
 /// the language of the book's labels (the editor's own words are English, main.rs)
 pub(super) const LOCALE: &str = "en";
@@ -35,6 +32,21 @@ impl Host {
                     self.row = done.show.rows.iter().position(|r| r.id == *id).unwrap_or(0);
                 }
                 self.role = None;
+                self.changed(done.show);
+                true
+            }
+            Err(why) => {
+                self.status = why;
+                false
+            }
+        }
+    }
+
+    /// a column, group or name edit: deck-show's `roles::edit`
+    fn edit_columns(&mut self, e: &deck_show::roles::Edit) -> bool {
+        match deck_show::roles::edit(self.shown(), e) {
+            Ok(done) => {
+                self.status = done.said;
                 self.changed(done.show);
                 true
             }
@@ -65,10 +77,25 @@ impl Host {
                 }
             }
             Hit::RowRemove => self.asking = row.map(Ask::RemoveRow),
-            // #551: a press selects the cell alone, with shift its column joins the row's selection (ask.rs)
-            Hit::Cell(r, c) => self.select_cell(r, c, false),
+            // a press on the one selected cell picks its content in place; with shift its column joins the selection
+            Hit::Cell(r, c) => {
+                let again = r == self.row && self.role.is_none() && self.cells.len() == 1 && view::plan(self.shown()).columns.get(c).is_some_and(|x| self.cells[0] == x.id);
+                self.select_cell(r, c, false);
+                if again && self.asked_question().is_none() {
+                    self.open_pieces();
+                }
+            }
             Hit::CellAlso(r, c) => self.select_cell(r, c, true),
-            // #553: the one condition control's chips – a cell's filter, an address's
+            Hit::Column(c) | Hit::ColumnAlso(c) => self.select_column(c, matches!(hit, Hit::ColumnAlso(_))),
+            Hit::Group(g) => {
+                let m = view::plan(self.shown());
+                if let Some(group) = m.groups.get(g) {
+                    self.columns = m.columns[group.first..group.first + group.span].iter().map(|c| c.id.clone()).collect();
+                    self.group = Some(group.name.clone());
+                    self.cells.clear();
+                    self.role = None;
+                }
+            }
             Hit::CellFact(i) => {
                 let (Some(row), Some(column)) = (row, col) else { return };
                 if let Some(fact) = rows::cell_condition(self.shown(), &row, &column).and_then(|c| c.fact(i)) {
@@ -86,75 +113,106 @@ impl Host {
                 let (Some(row), Some(column)) = (row, col) else { return };
                 let Some(m) = rows::modes(self.shown(), &row, &column).into_iter().nth(i) else { return };
                 if m.picks {
-                    self.open_picker();
+                    self.open_pieces();
                 } else {
                     self.edit_rows(&Edit::Mode { row, column, mode: m.mode });
                 }
             }
-            Hit::CellPiece => self.open_picker(),
-            Hit::PiecePick(i) => {
-                if let Some(p) = self.piece_list().get(i) {
-                    let piece = p.address.clone();
-                    self.pick_piece(&piece);
-                }
-            }
-            Hit::PieceType => self.typing = Some((Typing::Piece, Field::with(&self.piece_query))),
+            Hit::CellPiece => self.open_pieces(),
             _ => {}
         }
     }
 
-    /// the piece picker over the stage, its field open for typing
-    fn open_picker(&mut self) {
-        if self.selected().1.is_none() {
-            return;
-        }
-        self.sheet = Some(Sheet::Piece);
-        self.flashing = None;
-        self.piece_query.clear();
-        self.typing = Some((Typing::Piece, Field::with("")));
-    }
-
-    /// the selected cell plays `piece`; done, the picker closes
-    fn pick_piece(&mut self, piece: &str) {
-        let (Some(row), Some(column)) = self.selected() else { return };
-        if self.edit_rows(&Edit::Piece { row, column, piece: piece.to_string() }) {
-            self.sheet = None;
-            self.typing = None;
-        }
-    }
-
-    /// what the picker's field holds: the text being typed, else the query kept
-    pub(super) fn piece_query_now(&self) -> String {
-        match &self.typing {
-            Some((Typing::Piece, f)) => f.text.clone(),
-            _ => self.piece_query.clone(),
-        }
-    }
-
-    /// the published scenes the picker lists for the query (none without a book)
-    pub(super) fn piece_list(&self) -> Vec<PieceView> {
-        self.book.as_ref().map(|b| rows::pieces(b, &self.piece_query_now(), LOCALE)).unwrap_or_default()
-    }
-
-    /// Enter in the picker's field: with a book, the first scene listed; without one, the typed text is the piece (the core
-    /// reads it, a refusal says why)
-    pub(super) fn piece_typed(&mut self, text: &str) {
-        self.piece_query = text.trim().to_string();
-        if self.book.is_none() {
-            if !self.piece_query.is_empty() {
-                let typed = self.piece_query.clone();
-                self.pick_piece(&typed);
+    /// A column head pressed: it alone is selected (a role's inspector shows a role); with shift or ctrl it joins the
+    /// selection or leaves it.
+    fn select_column(&mut self, c: usize, also: bool) {
+        let Some(id) = view::plan(self.shown()).columns.get(c).map(|x| x.id.clone()) else { return };
+        self.group = None;
+        self.cells.clear();
+        match (also, self.columns.iter().position(|x| *x == id)) {
+            (true, Some(at)) => {
+                self.columns.remove(at);
             }
-            return;
+            (true, None) => self.columns.push(id.clone()),
+            (false, _) => self.columns = vec![id.clone()],
         }
-        match self.piece_list().first().map(|p| p.address.clone()) {
-            Some(p) => self.pick_piece(&p),
-            None => self.status = rows::NONE_FOUND.into(),
+        let role = self.shown().outlet(&id).is_some_and(|o| o.kind == deck_show::OutletKind::Stage);
+        self.role = (role && self.columns.last() == Some(&id)).then_some(id);
+        self.typing = None;
+    }
+
+    /// the selected cell plays `piece`: whether the core took it
+    pub(super) fn pick_piece(&mut self, piece: &str) -> bool {
+        let (Some(row), Some(column)) = self.selected() else { return false };
+        self.edit_rows(&Edit::Piece { row, column, piece: piece.to_string() })
+    }
+
+    /// ctrl+r: what is selected is renamed in place – the group, else the column, else the row
+    pub(super) fn rename_selected(&mut self) {
+        if let Some(g) = self.group.clone() {
+            self.typing = Some((Typing::GroupName(g.clone()), Field::with(&g)));
+        } else if let Some(c) = self.columns.last().cloned().filter(|c| self.shown().outlet(c).is_some()) {
+            let name = self.shown().outlet(&c).map(|o| o.name().to_string()).unwrap_or_default();
+            self.typing = Some((Typing::ColumnName(c), Field::with(&name)));
+        } else {
+            self.rows_press(Hit::RowName);
         }
     }
 
-    /// A check run: the row authored as the operator would – added and named when missing, its cell on `column` selected,
-    /// `piece` picked from the list (or typed); no piece: `play` pressed, which opens the picker.
+    /// ctrl+g: the selected columns one group, named next in place (the core refuses columns that stand apart)
+    pub(super) fn group_selected(&mut self) {
+        let ids = self.selected_columns();
+        if self.edit_columns(&deck_show::roles::Edit::Group { ids: ids.clone(), name: String::new() }) {
+            self.group = ids.first().and_then(|c| self.shown().outlet(c)).and_then(|o| o.group.clone());
+            self.rename_selected();
+        }
+    }
+
+    pub(super) fn ungroup_selected(&mut self) {
+        let ids = self.selected_columns();
+        if self.edit_columns(&deck_show::roles::Edit::Ungroup { ids }) {
+            self.group = None;
+        }
+    }
+
+    /// the selected columns in the matrix's order
+    fn selected_columns(&self) -> Vec<String> {
+        view::plan(self.shown()).columns.into_iter().map(|c| c.id).filter(|c| self.columns.contains(c)).collect()
+    }
+
+    /// a name typed in place and entered: a column's, a group's
+    pub(super) fn name_typed(&mut self, what: &Typing, text: &str) {
+        match what {
+            Typing::ColumnName(id) => {
+                self.edit_columns(&deck_show::roles::Edit::Label { id: id.clone(), label: text.to_string() });
+            }
+            Typing::GroupName(from) if self.edit_columns(&deck_show::roles::Edit::GroupName { from: from.clone(), to: text.to_string() }) => {
+                self.group = Some(text.trim().to_string());
+            }
+            _ => {}
+        }
+    }
+
+    /// The Show workspace's keys while nothing is typed: ctrl+r renames in place, ctrl+g groups the selected columns,
+    /// Enter picks the selected cell's content in place, Delete empties the selected cells (stop slots). True = taken.
+    pub(super) fn show_key(&mut self, key: &Key, ctrl: bool) -> bool {
+        match key {
+            Key::Character(c) if ctrl && c.eq_ignore_ascii_case("r") => self.rename_selected(),
+            Key::Character(c) if ctrl && c.eq_ignore_ascii_case("g") => self.group_selected(),
+            Key::Named(NamedKey::Enter) if self.selected().1.is_some() => self.open_pieces(),
+            Key::Named(NamedKey::Delete) if self.selected().1.is_some() => {
+                let (Some(row), columns) = self.selection() else { return false };
+                for column in columns {
+                    self.edit_rows(&Edit::Mode { row: row.clone(), column, mode: rows::Mode::Black });
+                }
+            }
+            _ => return false,
+        }
+        true
+    }
+
+    /// A check run: the row authored as the operator would – added and named in place when missing, its cell on `column`
+    /// selected, `piece` typed into the cell's typeahead and entered; no piece: `play` pressed, which opens it.
     pub(super) fn script_author(&mut self, row: &str, column: &str, piece: Option<&str>) {
         if self.shown().row(row).is_none() {
             self.press(Hit::RowAdd);
@@ -162,21 +220,18 @@ impl Host {
             if let Some((_, f)) = self.typing.as_mut() {
                 *f = Field::with(row);
             }
-            self.type_field(&winit::keyboard::Key::Named(winit::keyboard::NamedKey::Enter));
+            self.type_field(&Key::Named(NamedKey::Enter));
         }
         let plan = view::plan(self.shown());
         let (Some(r), Some(c)) = (plan.rows.iter().position(|x| x.id == row), plan.columns.iter().position(|x| x.id == column)) else { return };
         self.press(Hit::Cell(r, c));
         match piece {
             Some(p) => {
-                self.press(Hit::CellPiece);
-                match self.piece_list().iter().position(|x| x.address == p) {
-                    Some(i) => self.press(Hit::PiecePick(i)),
-                    None => {
-                        self.typing = None;
-                        self.piece_typed(p);
-                    }
+                self.open_pieces();
+                for ch in p.chars() {
+                    self.context_key(&Key::Character(ch.to_string().into()));
                 }
+                self.context_key(&Key::Named(NamedKey::Enter));
             }
             None => {
                 if let Some(i) = rows::modes(self.shown(), row, column).iter().position(|m| m.mode == rows::Mode::Play) {
@@ -205,17 +260,20 @@ pub(super) fn field(d: &mut DrawList, t: &Tokens, (x, y, w): (f32, f32, f32), la
     r
 }
 
-/// The row inspector's head: the row's name as a field, its remove beside it. The height used.
+/// A name typed in place over `r` (a row's, a column's or a group's head): the field and its caret.
+pub(super) fn in_place(d: &mut DrawList, t: &Tokens, r: Rect, text: &str, px: f32) {
+    d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, t.color.control);
+    d.outline(r.x, r.y, r.w, r.h, (t.size.radius, 1.0), t.color.accent);
+    d.text(r.x + 4.0, r.y + (r.h - px * 1.25) * 0.5, px, &fit(d, &format!("{text}|"), px, r.w - 8.0), t.color.text);
+}
+
+/// The row inspector's head: the row's remove (its name is edited in place in the rows band). The height used.
 pub fn row_head(d: &mut DrawList, t: &Tokens, host: &mut Host, (x, y, w): (f32, f32, f32), sel: &str, pointer: (f32, f32)) -> f32 {
     if sel.is_empty() {
         return 0.0;
     }
     let (small, row, pad) = (t.size.small, t.size.tree_row, t.size.pad);
-    let rw = (d.advance(small) * rows::REMOVE.chars().count() as f32 + 2.0 * pad).min(w * 0.4);
-    let typing = host.typing.as_ref().filter(|(what, _)| matches!(what, Typing::RowName(_))).map(|(_, f)| f.text.clone());
-    let r = field(d, t, (x, y, w - rw - pad), rows::NAME, sel, typing.as_deref());
-    host.hits.push((r, Hit::RowName));
-    // its remove, as a role's (roles.rs): quiet until the pointer is on it
+    let rw = (d.advance(small) * rows::REMOVE.chars().count() as f32 + 2.0 * pad).min(w * 0.5);
     let remove = Rect { x: x + w - rw, y: y + 2.0, w: rw, h: row - 4.0 };
     d.round_rect(remove.x, remove.y, remove.w, remove.h, t.size.radius, if remove.has(pointer.0, pointer.1) { t.color.danger } else { t.color.control });
     d.text(remove.x + pad, remove.y + (remove.h - small * 1.25) * 0.5, small, &fit(d, rows::REMOVE, small, remove.w - 2.0 * pad), t.color.text);
@@ -323,32 +381,10 @@ pub(super) fn draw_picker(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect
     }
 }
 
-/// The piece picker in the stage's place: its heading, the typed query, the published scenes of the book that match (a
-/// press picks one), or – without a book – why not and what to type.
-pub fn picker(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, pointer: (f32, f32)) {
-    let show = host.shown().clone();
-    let (Some(sel), Some(col)) = host.selected() else {
-        d.text(a.x + t.size.pad, a.y + t.size.pad, t.size.font, "Select a cell first.", t.color.muted);
-        return;
-    };
-    let title = rows::picker_title(&show, &sel, &col);
-    let typing = host.typing.as_ref().filter(|(what, _)| *what == Typing::Piece).map(|(_, f)| f.text.clone());
-    let query = host.piece_query_now();
-    let label = if host.book.is_some() { "find" } else { rows::PIECE };
-    let why = host.book_why.clone().unwrap_or_else(|| super::scenes::NO_BOOK.into());
-    let pieces = host.piece_list();
-    let now = show.row(&sel).and_then(|r| r.cells.get(&col)).map(view::cell_text).unwrap_or_default();
-    let list = match host.book {
-        Some(_) => Ok(pieces.iter().map(|p| Line { label: &p.label, detail: &p.detail, now: now == p.address, can: true }).collect()),
-        None => Err((why.as_str(), rows::TYPE_IT)),
-    };
-    let p = Picker { title: &title, field: (label, &query, typing.as_deref(), Hit::PieceType), list, none: rows::NONE_FOUND, pick: Hit::PiecePick };
-    draw_picker(d, t, host, a, p, pointer);
-}
 
 #[cfg(test)]
 pub(super) mod tests {
-    use super::super::{api, author, perform, Hit, Host, Sheet};
+    use super::super::{api, author, perform, Hit, Host};
     use deck_kit::base::draw::DrawList;
     use deck_kit::base::tokens::Tokens;
     use std::io::{BufRead, BufReader, Read, Write};
@@ -439,32 +475,37 @@ pub(super) mod tests {
         assert!(host.shown().rows.is_empty(), "from nothing: one role, no row");
 
         press(&mut host, false, |h| *h == Hit::RowAdd);
-        assert_eq!(host.status, "row 1 row added: by hand, every column keeps");
+        assert_eq!(host.status, "row 1 row added: manual, every column keeps");
+        // the selected row's name in its head, pressed again: renamed in place
         press(&mut host, false, |h| *h == Hit::RowName);
+        assert!(frame_texts(&mut host).iter().any(|t| t == "row|"), "the field in the head");
         for _ in 0..3 {
             host.type_key(&Key::Named(NamedKey::Backspace));
         }
         typed(&mut host, "opening");
         assert_eq!(host.shown().rows[0].id, "opening");
-        // the cell on `left` in the rows band, then `play`: it names no piece yet, so the picker opens
+        // the cell on `left` in the rows band, then `play`: it names no piece yet, so its typeahead opens in the cell
         press(&mut host, false, |h| *h == Hit::Cell(0, 0));
         assert_eq!(host.cell().map(String::as_str), Some("left"));
         press(&mut host, false, |h| *h == Hit::CellMode(0));
-        assert_eq!(host.sheet, Some(Sheet::Piece));
-        assert_eq!(host.piece_list().iter().map(|p| p.address.as_str()).collect::<Vec<_>>(), ["scene:nave", "scene:vigil"]);
-        // typed to find, then the line pressed
+        assert_eq!(host.context_lines(), ["Nave", "Vigil"]);
+        assert_eq!(host.sheet, None, "nothing in the stage's place");
+        // typed to find, Enter picks the first found
         typed(&mut host, "nav");
         assert_eq!(host.status, "row 1 opening, left: scene:nave", "Enter picks the first scene found");
-        assert_eq!(host.sheet, None, "the picker closes on a pick");
+        assert!(host.context.is_none(), "the typeahead closes on a pick");
         let made = host.shown().clone();
         let fixture = deck_show::parse(include_str!("../../../show/fixtures/first-row.show.json")).unwrap();
         assert_eq!(made, fixture, "the document the headless scenario fires");
-        // the picker again: a line pressed picks it
-        press(&mut host, false, |h| *h == Hit::CellPiece);
-        press(&mut host, false, |h| *h == Hit::PiecePick(1));
+        // a press on the selected cell opens it again; a line chosen by the arrows; the inspector's piece field the same
+        press(&mut host, false, |h| *h == Hit::Cell(0, 0));
+        assert_eq!(host.context_lines(), ["Nave", "Vigil"]);
+        host.type_key(&Key::Named(NamedKey::ArrowDown));
+        host.type_key(&Key::Named(NamedKey::Enter));
         assert_eq!(host.status, "row 1 opening, left: scene:vigil");
         press(&mut host, false, |h| *h == Hit::CellPiece);
-        press(&mut host, false, |h| *h == Hit::PiecePick(0));
+        host.type_key(&Key::Named(NamedKey::Enter));
+        assert_eq!(host.status, "row 1 opening, left: scene:nave");
 
         press(&mut host, false, |h| *h == Hit::Save);
         assert_eq!(host.status, "saved new-show as version 2");
@@ -479,6 +520,13 @@ pub(super) mod tests {
         assert!(m.rows[0].current && m.rows[0].cells[0].on && m.rows[0].cells[0].text == "scene:nave", "{m:?}");
         assert_eq!(deck_show::view::log(host.sub.log(), 1)[0].1, "fired opening (hand)");
         let _ = std::fs::remove_dir_all(&cache);
+    }
+
+    fn frame_texts(host: &mut Host) -> Vec<String> {
+        let (mut d, t) = (DrawList::new(0.6), Tokens::default());
+        host.hits.clear();
+        author::draw(&mut d, &t, host, W, H, (0.0, 0.0));
+        d.texts().into_iter().map(str::to_string).collect()
     }
 
     pub(in crate::show) fn host_with(doc: &str) -> Host {
@@ -579,11 +627,10 @@ pub(super) mod tests {
         assert_eq!(host.shown().rows.iter().map(|r| r.id.as_str()).collect::<Vec<_>>(), ["row", "row-2"]);
         press(&mut host, false, |h| *h == Hit::Cell(1, 0));
         press(&mut host, false, |h| *h == Hit::CellPiece);
-        assert!(host.piece_list().is_empty());
+        assert!(host.context_lines().is_empty(), "no book: nothing listed, the typed text is the piece");
         typed(&mut host, "nave");
         assert!(host.status.starts_with("not changed: row 'row-2', 'left'"), "the core reads the typed piece: {}", host.status);
-        assert_eq!(host.sheet, Some(Sheet::Piece), "refused: the picker stays");
-        press(&mut host, false, |h| *h == Hit::PieceType);
+        assert!(host.context.is_some(), "refused: the typeahead stays");
         for _ in 0.."nave".len() {
             host.type_key(&Key::Named(NamedKey::Backspace));
         }

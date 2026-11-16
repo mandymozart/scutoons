@@ -68,6 +68,11 @@ impl Typeahead {
         self
     }
 
+    /// what is typed
+    pub fn query(&self) -> &str {
+        &self.field.text
+    }
+
     pub fn note(&self) -> Option<&str> {
         self.note.as_deref()
     }

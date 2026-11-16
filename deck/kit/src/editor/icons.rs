@@ -56,6 +56,8 @@ pub const ICONS: &[(&str, &str)] = &[
     ("play-fill", r##"<polygon fill="#fff" points="6 3 20 12 6 21 6 3"></polygon>"##),
     ("left-fill", r##"<polygon fill="#fff" points="19 4 7 12 19 20"></polygon>"##),
     ("stop-fill", r##"<rect fill="#fff" x="5" y="5" width="14" height="14" rx="1"></rect>"##),
+    ("bolt-fill", r##"<polygon fill="#fff" points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>"##),
+    ("bolt", r#"<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>"#),
 ];
 
 /// is there an icon of this name
