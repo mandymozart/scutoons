@@ -58,6 +58,18 @@ fn event_cables(w: &Wiring) -> Vec<String> {
 }
 
 #[test]
+fn an_audition_plays_the_module_alone_on_the_subjects_being() {
+    register();
+    let synth = &descriptors()[1];
+    let b = super::assign::audition("character.catpope", synth).unwrap();
+    assert_eq!((b.rig.subject.as_str(), b.rig.tracks.len(), b.modules.len()), ("character.catpope", 1, 1));
+    let played = b.play(None, None).unwrap();
+    let w = played.wiring().unwrap();
+    assert!(w.nodes.iter().any(|n| n.id == "module_module"), "{:?}", w.nodes.iter().map(|n| &n.id).collect::<Vec<_>>());
+    assert!(played.knobs.iter().any(|k| k.path == "module_module.volume" || k.path.ends_with("module.volume")), "the volume is a knob");
+}
+
+#[test]
 fn two_pairs_are_two_cables_and_the_ports_are_events() {
     let b = bundle(TWO_PAIRS, "");
     let w = b.play(None, None).unwrap().wiring().unwrap();
