@@ -80,6 +80,20 @@ pub fn check_with(scene: &Scene, carried: impl Fn(&str) -> bool) -> Result<()> {
 /// The scene this build plays of `scene` (deck-core's `carried_part` over this build's modules) – for the tests and
 /// benches that play the bundled scenes on any build (the stage itself refuses such a scene, `check`).
 pub fn carried_part(scene: &Scene) -> Scene {
+    #[cfg(feature = "modules")]
+    {
+        // a module node plays only once its wasm is loaded: without it this build does not carry the node
+        crate::module_host::autoload();
+        let unloaded = |kind: &str| kind.starts_with(deck_space::modreg::PREFIX) && deck_space::modreg::lookup(kind).is_none();
+        if scene.nodes.iter().any(|n| unloaded(&n.kind)) {
+            let mut loaded = scene.clone();
+            let gone: Vec<String> = scene.nodes.iter().filter(|n| unloaded(&n.kind)).map(|n| n.id.clone()).collect();
+            let node_of = |r: &str| r.split_once('.').map_or(r, |(n, _)| n).to_string();
+            loaded.nodes.retain(|n| !gone.contains(&n.id));
+            loaded.links.retain(|l| !gone.contains(&node_of(&l.from)) && !gone.contains(&node_of(&l.to)));
+            return loaded.carried_part(has).0;
+        }
+    }
     scene.carried_part(has).0
 }
 
