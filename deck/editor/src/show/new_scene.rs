@@ -21,7 +21,7 @@ use std::sync::Arc;
 
 /// the scene list's button, the sheet's buttons
 pub const NEW: &str = "new scene";
-const BUTTONS: [(&str, ComposeHit); 4] = [("Load", ComposeHit::Load), ("Play", ComposeHit::Play), ("Save draft", ComposeHit::Save), ("Close", ComposeHit::Close)];
+const BUTTONS: [(&str, ComposeHit); 5] = [("Load", ComposeHit::Load), ("Play", ComposeHit::Play), ("Build", ComposeHit::Build), ("Save draft", ComposeHit::Save), ("Close", ComposeHit::Close)];
 const NO_RIGS: &str = "the toon's rigs come from the server: sign in, or wait for Build's list";
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -36,6 +36,8 @@ pub enum ComposeHit {
     Drop(usize),
     Load,
     Play,
+    /// the scene as the sheet has it, edited in Build
+    Build,
     Save,
     Close,
 }
@@ -138,6 +140,7 @@ impl Host {
             }
             ComposeHit::Load => self.compose_load(),
             ComposeHit::Play => self.compose_play(),
+            ComposeHit::Build => self.compose_build(),
             ComposeHit::Save => self.compose_save(),
             ComposeHit::Close => {
                 self.sheet = None;
@@ -233,6 +236,21 @@ impl Host {
             }
             Err(p) => self.status = format!("not played: {}", p.join("; ")),
         }
+    }
+
+    /// the sheet's scene to Build, on the version it was read or saved at
+    fn compose_build(&mut self) {
+        let doc = self.compose_document();
+        let problems = doc.check_new();
+        if !problems.is_empty() {
+            self.status = format!("not opened: {}", problems.join("; "));
+            return;
+        }
+        self.status = format!("scene:{}: open in Build", doc.id);
+        self.to_build = Some(super::build::ToBuild::Scene(Box::new(super::build::SceneOpen { doc, base: self.compose.base, kept: None, note: None })));
+        self.build = None;
+        self.sheet = None;
+        self.typing = None;
     }
 
     fn compose_save(&mut self) {

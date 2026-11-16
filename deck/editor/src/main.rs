@@ -22,6 +22,7 @@ mod stage;
 mod tokens;
 mod ui;
 mod rigs;
+mod scene;
 mod show;
 mod sign_in;
 mod toon;
@@ -90,10 +91,12 @@ struct Args {
     rigs: Option<PathBuf>,
     /// a check run's Add typeahead: type this, pick the first row if asked
     add: Option<(String, bool)>,
+    /// a check run's scene member (scene.rs `script_scene`): selected, a knob turned, opened as its rig if asked
+    member: Option<(String, bool)>,
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, add: None };
+    let mut a = Args { rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, add: None, member: None };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -142,9 +145,13 @@ fn args() -> Result<Args> {
                 let v = val()?;
                 a.add = Some(v.strip_suffix(",pick").map_or((v.clone(), false), |q| (q.to_string(), true)));
             }
+            "--member" => {
+                let v = val()?;
+                a.member = Some(v.strip_suffix(",inside").map_or((v.clone(), false), |h| (h.to_string(), true)));
+            }
             "--open-build" => a.script.open_build = true,
             "--to-cell" => a.script.to_cell = true,
-            "--new-scene" => a.script.new_scene = Some(show::NewScene::parse(&val()?).context("--new-scene ID,NAME,FILLER+FILLER[,play]")?),
+            "--new-scene" => a.script.new_scene = Some(show::NewScene::parse(&val()?).context("--new-scene ID,NAME,FILLER+FILLER[,play|build]")?),
             "--far" => {
                 let v = val()?;
                 a.far = Some(match v.strip_suffix(",pick") {
@@ -274,6 +281,10 @@ enum Hit {
     /// #568: Build linked to a show cell – its knobs into the cell, back to Show
     ToCell,
     BackToShow,
+    /// the scene's inspector (scene.rs): a member's knob, its ×, "Open as rig"
+    SceneKnob(usize),
+    SceneClear(usize),
+    SceneInto,
 }
 
 /// what is being dragged
@@ -301,6 +312,8 @@ enum Drag {
     Pan(f32, f32),
     /// the view gizmo: the axis pressed, whether it has moved, the last position
     Gizmo(Option<usize>, bool, f32, f32),
+    /// a knob of the scene's member: which, the pointer's start, the start's value
+    SceneKnob(usize, f32, f32),
 }
 
 /// a port on the screen this frame (logical pixels)
@@ -427,6 +440,10 @@ struct App {
     auth: sign_in::Auth,
     rigs: rigs::Rigs,
     routing: routing::Page,
+    /// Build edits this scene (scene.rs); none = a rig
+    scene: Option<scene::SceneView>,
+    /// the scene tree's last press, for a double one
+    last_row: Option<(deck_space::scene_edit::Part, Instant)>,
 }
 
 /// the top bar's status, the sign-in first while the editor is not signed in (`line`: sign_in.rs, "" when signed in)
@@ -523,6 +540,8 @@ fn run() -> Result<i32> {
         auth,
         rigs,
         routing: routing::Page::new(deck_native::audio::backend::DeckAudio::read()),
+        scene: None,
+        last_row: None,
     };
     event_loop.run_app(&mut app).context("the event loop")?;
     let summary = app.summary();
@@ -625,6 +644,9 @@ impl App {
             Hit::Mute(i) => Help::new(format!("Mute {}", self.stage.strips.get(i)?.track), "Takes the track out of the sound."),
             Hit::ToCell => Help::new(show::build::TO_CELL, "Writes the knobs as Build has them now into the show cell this rig was opened from; the show checks their ranges."),
             Hit::BackToShow => Help::new(show::build::BACK, "The Show workspace, the linked cell selected."),
+            Hit::SceneKnob(_) => Help::new("Value in the scene", "Drag to set this member's knob in the scene; the stage plays it when you let go. Save makes the scene's draft."),
+            Hit::SceneClear(_) => Help::new("Its rig's value", "Takes the scene's value off: the member plays its rig's own."),
+            Hit::SceneInto => Help::new("Open as rig", "One level down: the member's rig alone on the stage, the scene's values on its knobs. Esc or the scene's line takes them back into the scene."),
             Hit::Field(_) | Hit::InfoBody | Hit::Nothing => return None,
         })
     }
@@ -674,6 +696,7 @@ impl App {
                 self.panel.width = (w - x).clamp(160.0, w * 0.6);
             }
             Some(Drag::Knob(i, _, _)) => self.knob_at(i, x),
+            Some(Drag::SceneKnob(i, x0, v0)) => self.scene_knob_to(i, x0, v0, x),
             Some(Drag::Param(node, port, x0, f0)) => {
                 if let Some(p) = self.stage.param(node, port) {
                     let v = p.spec.value((f0 + (x - x0) / SCRUB_PX).clamp(0.0, 1.0));
@@ -858,7 +881,12 @@ impl App {
                     self.change(done, format!("{track}: {}", if muted { "on" } else { "muted" }), x, y);
                 }
             }
+            Hit::Row(i) if self.scene.as_ref().is_some_and(|v| i < v.rows.len()) => {
+                let part = self.scene.as_ref().map(|v| v.rows[i]).expect("checked");
+                self.scene_row(part);
+            }
             Hit::Row(i) => {
+                let i = i - self.scene.as_ref().map_or(0, |v| v.rows.len());
                 if let Some((path, sel)) = self.rows.get(i).cloned() {
                     self.sel = sel;
                     if self.wire {
@@ -898,11 +926,24 @@ impl App {
                 }
             }
             Hit::RigPick => self.open_rigs(x, y),
+            Hit::Save if self.scene.is_some() => self.scene_save(),
             Hit::Save => self.rigs.save(&self.stage.base, &self.stage.bundle),
+            Hit::Add if self.scene.as_ref().is_some_and(|v| v.inside.is_none()) => self.say("a scene's cast is picked in Show's scene sheet".into(), x, y, false),
             Hit::Add => self.open_add(x, y),
             Hit::Remove => self.remove_selected(),
             Hit::ToCell => self.knobs_to_cell(),
             Hit::BackToShow => self.workspace = show::Workspace::Show,
+            Hit::SceneKnob(i) => {
+                if let Some(v) = self.scene_knob(i) {
+                    self.panel.drag = Some(Drag::SceneKnob(i, x, v));
+                }
+            }
+            Hit::SceneClear(i) => self.scene_clear(i),
+            Hit::SceneInto => {
+                if let Some(m) = self.scene.as_ref().and_then(|v| v.member()) {
+                    self.scene_into(m);
+                }
+            }
             Hit::Nothing => self.focus(false),
         }
     }
@@ -1163,6 +1204,7 @@ impl App {
             match e {
                 rigs::Event::Opened(subject, opened) => {
                     let (base, plays) = *opened;
+                    self.scene = None;
                     self.stage.path.clear();
                     if let Err(err) = self.stage.replay(plays) {
                         self.say(format!("{err:#}"), x, y, true);
@@ -1191,7 +1233,12 @@ impl App {
         let Some(asked) = self.show.to_build.take() else { return };
         let (x, y) = self.cursor;
         self.workspace = show::Workspace::Build;
+        if let show::build::ToBuild::Scene(o) = asked {
+            return self.open_scene(*o);
+        }
+        self.scene = None;
         match asked {
+            show::build::ToBuild::Scene(_) => {}
             show::build::ToBuild::Play(o, set) => {
                 let subject = o.bundle.rig.subject.clone();
                 self.stage.path.clear();
@@ -1227,16 +1274,22 @@ impl App {
         }
         let (x, y) = self.cursor;
         if let Some(scene) = self.show.to_stage.take() {
+            if let Some(v) = self.scene.as_mut() {
+                v.shown = false;
+            }
             let id = self.show.compose.id.clone();
             if let Err(err) = self.stage.play_scene(&id, scene) {
                 self.say(format!("scene:{id}: {err:#}"), x, y, true);
             }
         }
-        if self.workspace == show::Workspace::Build && self.stage.scene.is_some() {
+        if self.workspace == show::Workspace::Build && self.stage.scene.is_some() && self.scene.is_none() {
             if let Err(err) = self.stage.replay(self.stage.bundle.clone()) {
                 self.say(format!("{err:#}"), x, y, true);
             }
             self.stage.scene = None;
+        }
+        if self.workspace == show::Workspace::Build && self.scene.as_ref().is_some_and(|v| v.inside.is_none() && !v.shown) {
+            self.replay_scene();
         }
     }
 
@@ -1349,6 +1402,7 @@ impl App {
             }
             // the fader let go: the gain goes into the rig, no replay: the engine has it already
             Some(Drag::Fader(target, _)) => return self.store_fader(target),
+            Some(Drag::SceneKnob(..)) => return self.scene_settled(),
             // a knob or a parameter let go: its value goes into the draft
             Some(Drag::Knob(i, ..)) => {
                 if let Some(k) = self.stage.knobs.get(i) {
@@ -1447,6 +1501,7 @@ impl App {
         if self.frames == 70 && self.args.script.to_cell {
             self.knobs_to_cell();
         }
+        self.script_scene();
         const START: u64 = 60;
         if self.args.pull {
             let top = self.tokens.tokens.size.top;
@@ -1740,13 +1795,20 @@ impl App {
         window.set_cursor(if on_edge { winit::window::CursorIcon::ColResize } else { winit::window::CursorIcon::Default });
         self.panel.hits.push((edge, Hit::Divider));
         let (pad, font, row) = (t.size.pad, t.size.font, t.size.row);
-        // the tree on the left: the rig, its tracks, the nodes of the one entered
-        let mut rows = vec![controls::TreeRow { depth: 0, label: "rig".into(), detail: String::new(), icon: "nodes", open: Some(true), selected: self.sel == inspector::Sel::Rig }];
+        // the tree on the left: a scene's lines (scene.rs), then the rig, its tracks, the nodes of the one entered
+        let mut rows = self.scene.as_mut().map(|v| v.tree_rows()).unwrap_or_default();
+        let at_scene = self.scene.as_ref().is_some_and(|v| v.inside.is_none());
+        let down = if self.scene.is_some() { 2 } else { 0 };
+        rows.push(controls::TreeRow { depth: down, label: "rig".into(), detail: String::new(), icon: "nodes", open: Some(true), selected: self.sel == inspector::Sel::Rig });
         self.rows.clear();
         self.rows.push((Vec::new(), inspector::Sel::Rig));
-        for track in &self.stage.bundle.rig.tracks {
+        if at_scene {
+            rows.pop();
+            self.rows.clear();
+        }
+        for track in self.stage.bundle.rig.tracks.iter().filter(|_| !at_scene) {
             let inside = self.stage.path.first() == Some(&track.id);
-            rows.push(controls::TreeRow { depth: 1, label: track.id.clone(), detail: track.instrument.clone(), icon: "folder", open: Some(inside), selected: self.sel == inspector::Sel::Track(track.id.clone()) });
+            rows.push(controls::TreeRow { depth: down + 1, label: track.id.clone(), detail: track.instrument.clone(), icon: "folder", open: Some(inside), selected: self.sel == inspector::Sel::Track(track.id.clone()) });
             self.rows.push((vec![track.id.clone()], inspector::Sel::Track(track.id.clone())));
             if inside {
                 let mut seen: Vec<&str> = Vec::new();
@@ -1755,7 +1817,7 @@ impl App {
                     if !seen.contains(&name) {
                         seen.push(name);
                         let node = self.stage.node_ids.iter().position(|id| *id == p.node).unwrap_or(0);
-                        rows.push(controls::TreeRow { depth: 2, label: name.to_string(), detail: String::new(), icon: "sliders", open: None, selected: self.sel == inspector::Sel::Node(node) });
+                        rows.push(controls::TreeRow { depth: down + 2, label: name.to_string(), detail: String::new(), icon: "sliders", open: None, selected: self.sel == inspector::Sel::Node(node) });
                         self.rows.push((vec![track.id.clone()], inspector::Sel::Node(node)));
                     }
                 }
@@ -1770,13 +1832,21 @@ impl App {
         let pick = Rect { x: x0 + pad, y, w: px - 3.0 * pad - save, h: row - 4.0 };
         ui.rect(pick.x, pick.y, pick.w, pick.h, t.color.control);
         let small = font * 0.85;
-        let line = controls::fit(&self.rigs.line(), ((pick.w - 12.0) / ui.advance(small)) as usize);
+        let line = self.scene.as_ref().map_or_else(|| self.rigs.line(), |v| v.line());
+        let line = controls::fit(&line, ((pick.w - 12.0) / ui.advance(small)) as usize);
         ui.text(pick.x + 6.0, pick.y + (pick.h - small * 1.25) * 0.5, small, &line, t.color.text);
         self.panel.hits.push((pick, Hit::RigPick));
         for (r, h) in controls::pills(ui, t, pick.x + pick.w + pad, y, row - 4.0, &["Add", "Save"], 1).into_iter().zip([Hit::Add, Hit::Save]) {
             self.panel.hits.push((r, h));
         }
         y += row + pad / 2.0;
+        if self.show.build.is_none() && self.scene.is_some() {
+            let w = ui.advance(small) * show::build::BACK.chars().count() as f32 + 3.0 * pad;
+            for (r, h) in controls::pills(ui, t, x0 + px - pad - w + pad, y, row - 4.0, &[show::build::BACK], usize::MAX).into_iter().zip([Hit::BackToShow]) {
+                self.panel.hits.push((r, h));
+            }
+            y += row + pad / 2.0;
+        }
         if let Some(line) = self.show.build_line() {
             let pills = [show::build::TO_CELL, show::build::BACK];
             let pw: f32 = pills.iter().map(|p| ui.advance(small) * p.chars().count() as f32 + 2.0 * pad + pad).sum();
@@ -1802,14 +1872,29 @@ impl App {
                     Some(Drag::Param(n, p, ..)) => Some(inspector::Field::Param(n, p)),
                     _ => None,
                 };
-                for (r, field) in inspector::draw(ui, t, area, &self.stage, &self.sel, hot) {
-                    let hit = match field {
-                        inspector::Field::Knob(i) => Hit::Knob(i),
-                        inspector::Field::Param(n, p) => Hit::Param(n, p),
-                        inspector::Field::Address(n) => Hit::Address(n),
-                        inspector::Field::Remove => Hit::Remove,
+                if let Some(view) = self.scene.as_ref().filter(|v| v.inside.is_none()) {
+                    let hot = match self.panel.drag {
+                        Some(Drag::SceneKnob(i, ..)) => Some(scene::Field::Knob(i)),
+                        _ => None,
                     };
-                    self.panel.hits.push((r, hit));
+                    for (r, field) in scene::inspect(ui, t, area, view, hot) {
+                        let hit = match field {
+                            scene::Field::Knob(i) => Hit::SceneKnob(i),
+                            scene::Field::Clear(i) => Hit::SceneClear(i),
+                            scene::Field::Into => Hit::SceneInto,
+                        };
+                        self.panel.hits.push((r, hit));
+                    }
+                } else {
+                    for (r, field) in inspector::draw(ui, t, area, &self.stage, &self.sel, hot) {
+                        let hit = match field {
+                            inspector::Field::Knob(i) => Hit::Knob(i),
+                            inspector::Field::Param(n, p) => Hit::Param(n, p),
+                            inspector::Field::Address(n) => Hit::Address(n),
+                            inspector::Field::Remove => Hit::Remove,
+                        };
+                        self.panel.hits.push((r, hit));
+                    }
                 }
             }
             Tab::Audio => {
@@ -1867,9 +1952,10 @@ impl App {
         let status = if self.undo.is_empty() { status } else { format!("{} change{} · {status}", self.undo.len(), if self.undo.len() == 1 { "" } else { "s" }) };
         let status = signed(&sign_in, status);
         let logo_frame = ((self.started.elapsed().as_secs_f32() / logo::SECONDS).fract() * logo::FRAMES as f32) as usize;
+        let open = self.scene.as_ref().map_or_else(|| self.stage.bundle.rig.subject.clone(), |v| v.title());
         let title = match self.show.build_line() {
-            Some(l) => format!("{} · {l}", self.stage.bundle.rig.subject),
-            None => self.stage.bundle.rig.subject.clone(),
+            Some(l) => format!("{open} · {l}"),
+            None => open,
         };
         let names = show::WORKSPACES.map(|(_, n)| n);
         let bar = bar::Bar { title: &title, status: &status, wire: self.wire, logo_frame, pointer: self.cursor, cpu: self.cpu_load, gpu: self.gpu_time.as_ref().map(|_| self.gpu_load), workspaces: &names, workspace: 0 };
@@ -1951,7 +2037,7 @@ impl App {
                 }
             }
             // where we are in the tree, at any depth
-            let mut crumbs = vec!["rig".to_string()];
+            let mut crumbs = vec![self.scene.as_ref().map_or_else(|| "rig".to_string(), |v| v.crumb())];
             crumbs.extend(self.stage.path.iter().cloned());
             for (depth, r) in controls::breadcrumb(ui, t, stage_x + pad, top + pad, &crumbs).into_iter().enumerate() {
                 self.panel.hits.push((r, Hit::Crumb(depth)));
@@ -2247,6 +2333,8 @@ impl ApplicationHandler for App {
                 if event.state == ElementState::Pressed && event.logical_key == Key::Named(NamedKey::Escape) && !self.panel.field.focused {
                     if self.wire && !self.stage.path.is_empty() {
                         self.up_to(self.stage.path.len() - 1);
+                    } else if self.scene.as_ref().is_some_and(|v| v.inside.is_some()) {
+                        self.scene_up();
                     } else {
                         el.exit();
                     }
@@ -2260,7 +2348,11 @@ impl ApplicationHandler for App {
                 } else if self.panel.field.focused {
                     self.key(&event);
                 } else if event.state == ElementState::Pressed && event.logical_key == Key::Character("s".into()) && self.mods.control_key() && self.workspace == show::Workspace::Build {
-                    self.rigs.save(&self.stage.base, &self.stage.bundle);
+                    if self.scene.is_some() {
+                        self.scene_save();
+                    } else {
+                        self.rigs.save(&self.stage.base, &self.stage.bundle);
+                    }
                 } else if event.state == ElementState::Pressed && event.logical_key == Key::Character("z".into()) && self.mods.control_key() {
                     self.take_back();
                 } else if event.state == ElementState::Pressed && event.logical_key == Key::Named(NamedKey::Delete) && self.workspace == show::Workspace::Build {
