@@ -507,8 +507,8 @@ pub(super) mod tests {
         host.type_key(&Key::Named(NamedKey::Enter));
         assert_eq!(host.status, "row 1 opening, left: scene:nave");
 
-        press(&mut host, false, |h| *h == Hit::Save);
-        assert_eq!(host.status, "saved new-show as version 2");
+        host.save_waiting();
+        assert_eq!(host.save_pill(), "saved · v2");
         host.sub = deck_show::Subtree::new(deck_show::parse(r#"{ "id": "new-show", "version": 1, "outlets": [{ "id": "left" }], "rows": [] }"#).unwrap(), deck_show::ClockChoice::Parent);
         press(&mut host, false, |h| *h == Hit::Load);
         assert_eq!(host.status, "loaded new-show@1");

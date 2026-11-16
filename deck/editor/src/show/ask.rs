@@ -568,8 +568,8 @@ mod tests {
         assert_eq!(made, fixture, "the document headless scenario 43 launches: {}", serde_json::to_string(&made).unwrap());
 
         host.show_panels.floats.wheel(side.x + 4.0, side.y + 4.0, 100.0);
-        press(&mut host, false, |h| *h == Hit::Save);
-        assert_eq!(host.status, "saved vote-cell as version 2");
+        host.save_waiting();
+        assert_eq!(host.save_pill(), "saved · v2");
         host.sub = deck_show::Subtree::new(deck_show::parse(r#"{ "id": "vote-cell", "version": 1, "outlets": [{ "id": "left" }], "rows": [] }"#).unwrap(), deck_show::ClockChoice::Parent);
         press(&mut host, false, |h| *h == Hit::Load);
         assert_eq!(host.shown(), &made, "loaded as saved");

@@ -1,5 +1,5 @@
 //! The Module workspace, floating panels over the stage: the catalog's modules, the open module – its working copy, Open
-//! in editor · Build · Save draft, what happened last, its Parameters –, the last build's Problems, the info.
+//! in editor · Build, what happened last, its Parameters –, the last build's Problems, the info.
 use super::{fraction, problems, shown, Hit, Module};
 use crate::stage::Stage;
 use deck_kit::base::draw::DrawList;
@@ -87,8 +87,8 @@ fn open_module(d: &mut DrawList, t: &Tokens, m: &mut Module, stage: &Stage, a: R
         d.text(x0, y, small, &fit(d, &format!("factory, read-only: saves as module:{}", open.save_as), small, pw), t.color.muted);
         y += row * 0.8;
     }
-    let names = ["Open in editor", "Build", "Save draft"];
-    for (r, hit) in controls::pills(d, t, x0, y, row - 4.0, &names, usize::MAX).into_iter().zip([Hit::Code, Hit::Build, Hit::Save]) {
+    let names = ["Open in editor", "Build"];
+    for (r, hit) in controls::pills(d, t, x0, y, row - 4.0, &names, usize::MAX).into_iter().zip([Hit::Code, Hit::Build]) {
         m.hits.push((r, hit));
     }
     y += row + pad * 0.5;

@@ -1,13 +1,17 @@
 //! The Module workspace (research/NATIVE-EDITOR-GUI.md §5–§6 step 6): a `module:<id>` of the catalog opened into a local
 //! working copy (copy.rs), its code in the external editor (code.rs), built here by deck/build's own compiler (`local`),
 //! the problems listed (problems.rs), the module heard alone on the stage, its Parameters from the descriptor as the kit's
-//! scrub numbers, saved as a draft. A factory module is read-only on the server: its save is a derived module of your own
+//! scrub numbers. Its working copy saves itself as a draft (autosave.rs) when its sources changed. A factory module is read-only on the server: its save is a derived module of your own
 //! (`origin`). The compile service stays the only producer of a published module; publishing is the browser's.
 pub mod code;
 pub mod copy;
 pub mod draw;
 pub mod problems;
 
+use crate::autosave::{fingerprint, Autosave};
+
+/// how often the working copy is read for a change
+const LOOK: Duration = Duration::from_secs(1);
 use crate::show::api::Api;
 use crate::stage::Stage;
 use deck_catalog::{Curve, Descriptor, ParamDesc};
@@ -31,7 +35,6 @@ pub enum Hit {
     Open(usize),
     Code,
     Build,
-    Save,
     Param(usize),
     Problem(usize),
 }
@@ -176,7 +179,12 @@ pub struct Module {
     drag: Option<(usize, f32, f32)>,
     listing: Option<Receiver<Result<Vec<Entry>, String>>>,
     building: Option<Receiver<(Outcome, Duration)>>,
-    saving: Option<Receiver<Saved>>,
+    /// it saves itself when the working copy's sources changed; a save carries back the key and the document written
+    pub auto: Autosave<(String, Value)>,
+    /// a check run saves nothing by itself
+    pub autosaves: bool,
+    /// when the working copy was last read for a change
+    looked: Option<Instant>,
     /// a new module's first draft on its way: its id once it is on the server
     creating: Option<Receiver<Result<String, String>>>,
     /// the rig the stage played before the first audition: back on leaving
@@ -195,9 +203,6 @@ pub struct Script {
     pub save: bool,
     pub save_as: Option<String>,
 }
-
-/// a save's answer: the key, the document written, its new version
-type Saved = Result<(String, Value, u64), String>;
 
 /// the deck workspace whose SDK a local build bakes: `DECK_SOURCE`, else this checkout's
 fn deck_source() -> PathBuf {
@@ -223,7 +228,9 @@ impl Module {
             drag: None,
             listing: None,
             building: None,
-            saving: None,
+            auto: Autosave::default(),
+            looked: None,
+            autosaves: true,
             creating: None,
             restore: None,
             asked: false,
@@ -233,7 +240,7 @@ impl Module {
     }
 
     pub fn busy(&self) -> bool {
-        self.listing.is_some() || self.building.is_some() || self.saving.is_some() || self.creating.is_some() || (!self.bad && (self.script.build || (self.script.save && self.heard)))
+        self.listing.is_some() || self.building.is_some() || self.auto.busy() || self.creating.is_some() || (!self.bad && (self.script.build || (self.script.save && self.heard)))
     }
 
     fn say(&mut self, text: impl Into<String>, bad: bool) {
@@ -271,7 +278,7 @@ impl Module {
             let api = Api::new(api);
             let made = api.draft(&key).and_then(|there| match there {
                 Some(_) => Ok(()),
-                None => api.save_draft(&key, &content, None, "deck editor").map(|_| ()),
+                None => api.save_draft(&key, &content, None, "deck editor").map(|_| ()).map_err(|e| e.to_string()),
             });
             let _ = tx.send(made.map(|()| key.trim_start_matches("module:").to_string()));
         });
@@ -299,7 +306,6 @@ impl Module {
             Hit::Open(i) => self.open_entry(i),
             Hit::Code => self.code(None),
             Hit::Build => self.build(),
-            Hit::Save => self.save(),
             Hit::Problem(i) => self.code(Some(i)),
             Hit::Param(i) => {
                 if let Some(p) = self.descriptor.as_ref().and_then(|d| d.params.get(i)) {
@@ -360,6 +366,7 @@ impl Module {
 
     fn open_entry(&mut self, i: usize) {
         let Some(e) = self.list.get(i).cloned() else { return };
+        self.autosave(true, Instant::now());
         let key = format!("module:{}", e.id);
         let dir = copy::folder(&self.root, &key);
         let local = match self.local() {
@@ -375,6 +382,10 @@ impl Module {
         self.descriptor = e.content.get("descriptor").and_then(|d| serde_json::from_value(d.clone()).ok());
         self.problems.clear();
         self.open = Some(Open { id: e.id.clone(), factory: e.factory, content: e.content, version: e.latest, dir: dir.clone(), save_as });
+        // a kept working copy's own changes go up as soon as it is looked at
+        self.auto.open(e.latest);
+        self.auto.look(fingerprint(&files), Instant::now());
+        self.looked = None;
         match how {
             Ok(copy::Checkout::Fresh) => self.say(format!("{key} in {}", dir.display()), false),
             Ok(copy::Checkout::Kept) => self.say(format!("{key}: the working copy's own changes are kept ({})", dir.display()), false),
@@ -425,9 +436,32 @@ impl Module {
         self.say("building …", false);
     }
 
-    pub fn save(&mut self) {
+    /// each frame: the working copy read once a second; a finished burst of changes (or leaving) saves it
+    pub fn autosave(&mut self, leave: bool, now: Instant) {
+        let Some(open) = self.open.as_ref().filter(|_| self.autosaves) else { return };
+        if self.looked.is_none_or(|t| now.duration_since(t) >= LOOK) {
+            self.looked = Some(now);
+            if let Ok(files) = copy::sources(&open.dir) {
+                self.auto.look(fingerprint(&files), now);
+            }
+        }
+        if self.auto.due(now) || (leave && self.auto.leave()) {
+            self.save(now);
+        }
+    }
+
+    /// ctrl+s
+    pub fn save_now(&mut self, now: Instant) {
+        self.looked = None;
+        self.autosave(false, now);
+        if self.auto.now() {
+            self.save(now);
+        }
+    }
+
+    pub fn save(&mut self, now: Instant) {
         let Some(open) = self.open.clone() else { return self.say("open a module first", true) };
-        if self.saving.is_some() {
+        if self.auto.busy() {
             return;
         }
         let files = match copy::sources(&open.dir) {
@@ -435,16 +469,15 @@ impl Module {
             Err(e) => return self.say(format!("the working copy does not read: {e}"), true),
         };
         let (key, content) = draft(&open, &files);
-        let (tx, rx) = channel();
+        self.auto.look(fingerprint(&files), now);
         let api = self.api.clone();
-        std::thread::spawn(move || {
+        self.auto.send(now, move |_| {
             let api = Api::new(api);
-            let base = if open.factory { api.draft(&key).map(|d| d.and_then(|d| d.version)) } else { Ok(open.version) };
+            // a factory module's derived one goes on its own newest version
+            let base = if open.factory { api.draft(&key).map(|d| d.and_then(|d| d.version)).map_err(crate::show::api::Refusal::Offline) } else { Ok(open.version) };
             let saved = base.and_then(|b| api.save_draft(&key, &content, b, "deck editor"));
-            let _ = tx.send(saved.map(|v| (key, content, v)));
+            ((key, content), saved)
         });
-        self.saving = Some(rx);
-        self.say("saving the draft …", false);
     }
 
     /// what the threads answered; a good build is heard at once
@@ -487,19 +520,16 @@ impl Module {
                 self.built(outcome, took, stage);
             }
         }
-        if let Some(rx) = &self.saving {
-            if let Ok(r) = rx.try_recv() {
-                self.saving = None;
-                self.saved(r);
-            }
+        if let Some((sent, answer)) = self.auto.poll() {
+            self.saved(sent, answer);
         }
         if self.script.build && self.open.is_some() && self.building.is_none() {
             self.script.build = false;
             self.build();
         }
-        if self.script.save && self.heard && self.saving.is_none() {
+        if self.script.save && self.heard && !self.auto.busy() {
             self.script.save = false;
-            self.save();
+            self.save(Instant::now());
         }
     }
 
@@ -537,10 +567,10 @@ impl Module {
         Ok(())
     }
 
-    fn saved(&mut self, r: Saved) {
+    fn saved(&mut self, (key, content): (String, Value), r: Result<u64, crate::show::api::Refusal>) {
         let Some(open) = self.open.as_mut() else { return };
         match r {
-            Ok((key, content, version)) => {
+            Ok(version) => {
                 if open.factory {
                     // the derived module is the one open now: its own folder, saved on its own versions
                     let id = open.save_as.clone();
@@ -555,12 +585,11 @@ impl Module {
                 open.content = content;
                 open.version = Some(version);
                 let _ = copy::saved(&open.dir, &key, version);
-                let link = crate::rigs::creator_link(&self.api, &key);
-                self.say(format!("saved {key} as a draft (version {version}) – publish it in the browser: {link}"), false);
-                self.link = Some(link);
+                self.link = Some(crate::rigs::creator_link(&self.api, &key));
                 self.relist();
             }
-            Err(e) => self.say(e, true),
+            Err(crate::show::api::Refusal::Offline(_)) => {}
+            Err(e) => self.say(e.to_string(), true),
         }
     }
 }

@@ -34,6 +34,7 @@ pub mod new_scene;
 pub mod perform;
 mod roles;
 mod rows;
+mod saving;
 mod scenes;
 mod session;
 mod sheets;
@@ -177,7 +178,6 @@ pub enum Hit {
     EventType,
     /// the show's stage background: a click types it
     Background,
-    Save,
     Load,
     /// the tree resolved to exact versions: the list of the devices to flash opens (#471)
     Flash,
@@ -286,6 +286,8 @@ pub struct Host {
     pub hits: Vec<(Rect, Hit)>,
     /// #471: the flash list while it is open
     pub flashing: Option<flash::Flashing>,
+    /// each show document edited saves itself (saving.rs), by its id
+    pub saves: BTreeMap<String, crate::autosave::Autosave<String>>,
     /// #531: the Session sheet's place and lists
     pub session: session::Session,
     /// #533: what the Vote sheet keeps
@@ -356,7 +358,7 @@ impl Host {
         show_panels.floats.scrolls_itself("rows");
         perform_panels.floats.scrolls_itself("matrix");
         let scroll = deck_kit::editor::table::Scroll::default();
-        Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), columns: Vec::new(), group: None, context: None, show_panels, perform_panels, show_scroll: scroll, perform_scroll: scroll, band: None, view_slot: Rect::default(), help: None, address: None, book: None, book_why: None, scene_query: String::new(), dragging: None, refused: None, toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, session: session::Session::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), build: None, to_build: None, compose: new_scene::Composer::default(), to_stage: None, demos: Vec::new(), demo_book: None, link, api }
+        Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), columns: Vec::new(), group: None, context: None, show_panels, perform_panels, show_scroll: scroll, perform_scroll: scroll, band: None, view_slot: Rect::default(), help: None, address: None, book: None, book_why: None, scene_query: String::new(), dragging: None, refused: None, toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, saves: BTreeMap::new(), session: session::Session::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), build: None, to_build: None, compose: new_scene::Composer::default(), to_stage: None, demos: Vec::new(), demo_book: None, link, api }
     }
 
     /// the document at the end of the path (the top's when a step is missing)
@@ -500,7 +502,6 @@ impl Host {
                 let now = self.shown().background.as_ref().map_or("", |b| b.text()).to_string();
                 self.typing = Some((roles::Typing::Background, deck_kit::base::text::Field::with(&now)));
             }
-            Hit::Save => self.save(),
             Hit::Load => self.load(),
             Hit::Flash => self.open_flash(),
             Hit::FlashTick(_) | Hit::FlashQuick(_) | Hit::FlashType | Hit::FlashLock | Hit::FlashForce | Hit::FlashAsk | Hit::FlashConfirm | Hit::FlashCancel => self.flash_press(hit),
@@ -603,18 +604,11 @@ impl Host {
         deck_show::resolve(self.sub.conductor().show(), &lib).map_err(|problems| format!("not flashed: {}", problems.iter().map(ToString::to_string).collect::<Vec<_>>().join("; ")))
     }
 
-    fn save(&mut self) {
-        let show = self.shown().clone();
-        self.status = match serde_json::to_value(&show).map_err(|e| e.to_string()).and_then(|v| self.api.save(&show.id, &v)) {
-            Ok(v) => format!("saved {} as version {v}", show.id),
-            Err(e) => format!("not saved: {e}"),
-        };
-    }
-
     fn load(&mut self) {
         let id = self.shown().id.clone();
         match self.api.load(&id).and_then(|(t, why)| deck_show::document::open(&t).map(|s| (s, why))) {
             Ok((s, why)) => {
+                self.saves.remove(&id);
                 self.status = why.map_or(format!("loaded {}@{}", s.id, s.version), |w| format!("{}@{} from the cache: {w}", s.id, s.version));
                 if self.path.is_empty() {
                     // a new document at the top: the conductor starts over on it (what plays stays until a row changes it)
