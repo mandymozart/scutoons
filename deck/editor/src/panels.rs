@@ -8,7 +8,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
 
 const fn spec(id: &'static str, name: &'static str, icon: &'static str, about: &'static str, place: Place) -> Spec {
-    Spec { id, name, icon, about, place, essential: false }
+    Spec { id, name, icon, about, place, essential: false, inline: false }
 }
 
 const TL: Corner = Corner::TopLeft;
@@ -18,16 +18,17 @@ const BR: Corner = Corner::BottomRight;
 
 // The order is the order of growth: an earlier panel leaves a later one the room it asks for, so the ones whose content
 // scrolls well come first and the ones of a fixed size last.
-pub const BUILD: [Spec; 6] = [
+pub const BUILD: [Spec; 7] = [
     spec("tree", "Rig", "tree", "The rig, its tracks and their nodes. In Wire a click goes to that level.", Place::at(TL, 0.0, 0.0)),
     spec("inspector", "Inspector", "inspector", "What is selected: its values as scrub numbers; the rig picker and Save.", Place::at(TR, 0.0, 0.0)).essential(),
     spec("audio", "Audio", "activity", "The sound card, its inputs and outputs, the map and the test tones.", Place::at(BL, 300.0, 0.0).folded()),
     spec("info", "Info", "info", "What is under the pointer: its name and what it does.", Place::at(BL, 0.0, 0.0)),
     spec("mixer", "Mixer", "sliders", "One strip per track at the level of the tree shown; inside a track its gains.", Place::at(BR, 0.0, 0.0)),
+    spec("tools", "Tools", "tool", "The stage's tools: the tool in hand, the view, grid & snap, framing – what this workspace offers.", Place::at(TR, 360.0, 0.0)).inline().essential(),
     spec("settings", "Settings", "settings", "Motion & feedback, sound and the UI size: this machine's, remembered.", Place::at(TR, 0.0, 0.0).closed()),
 ];
 
-pub const SHOW: [Spec; 8] = [
+pub const SHOW: [Spec; 9] = [
     spec("outline", "Outline", "nodes", "The conductors, the roles this one gives out and the rows of the document shown.", Place::at(TL, 0.0, 0.0)),
     spec("inspector", "Inspector", "inspector", "The row, the role or the cells selected; Load, Flash and Save.", Place::at(TR, 0.0, 0.0)).essential(),
     spec("sheet", "Sheet", "layers", "The sheet open: cues, problems, who is here, a picker or the flash list.", Place::at(TL, 320.0, 0.0)).essential(),
@@ -35,18 +36,20 @@ pub const SHOW: [Spec; 8] = [
     spec("scenes", "Scenes", "grid", "The toon's published scenes: drag one onto a cell.", Place::at(BR, 0.0, 0.0)),
     spec("rows", "Rows", "list", "The rows of the show: what fires each one and every column's cell.", Place::at(BL, 0.0, 0.0)).essential(),
     spec("info", "Info", "info", "What is under the pointer: its name and what it does.", Place::at(BR, 300.0, 0.0).folded()),
+    spec("tools", "Tools", "tool", "The stage's tools: the tool in hand, the view, grid & snap, framing – what this workspace offers.", Place::at(TR, 380.0, 0.0)).inline(),
     spec("settings", "Settings", "settings", "Motion & feedback, sound and the UI size: this machine's, remembered.", Place::at(TR, 0.0, 0.0).closed()),
 ];
 
-pub const MODULE: [Spec; 5] = [
+pub const MODULE: [Spec; 6] = [
     spec("modules", "Modules", "list", "The catalog's modules: a click opens one's working copy.", Place::at(TL, 0.0, 0.0)),
     spec("module", "Module", "code", "The module open: its working copy, Open in editor, Build, what happened last, its parameters.", Place::at(TR, 0.0, 0.0)).essential(),
     spec("problems", "Problems", "alert", "The last build's problems: a click opens the code there.", Place::at(BL, 0.0, 0.0)),
     spec("info", "Info", "info", "What is under the pointer: its name and what it does.", Place::at(BR, 0.0, 0.0).folded()),
+    spec("tools", "Tools", "tool", "The stage's tools: the tool in hand, the view, grid & snap, framing – what this workspace offers.", Place::at(TR, 420.0, 0.0)).inline(),
     spec("settings", "Settings", "settings", "Motion & feedback, sound and the UI size: this machine's, remembered.", Place::at(TR, 0.0, 0.0).closed()),
 ];
 
-pub const PERFORM: [Spec; 8] = [
+pub const PERFORM: [Spec; 9] = [
     spec("rail", "Session", "nodes", "This conductor, its seats, the relay, the linked readers, the vote and the outlets.", Place::at(TL, 0.0, 0.0)),
     spec("side", "Next", "play", "The suggestion with GO and Drop, else GO; the seats.", Place::at(TR, 0.0, 0.0)).essential(),
     spec("sheet", "Show runner", "layers", "The show runner's sheet open: the session for linked readers, or the vote.", Place::at(TL, 300.0, 0.0)).essential(),
@@ -54,6 +57,7 @@ pub const PERFORM: [Spec; 8] = [
     spec("log", "Log", "entry", "What happened, newest first.", Place::at(BR, 0.0, 0.0).folded()),
     spec("matrix", "Cues", "list", "Rows × outlets: the row's play fires it, a cell's play launches it by hand.", Place::at(BL, 0.0, 0.0)).essential(),
     spec("info", "Info", "info", "What is under the pointer: its name and what it does.", Place::at(BR, 120.0, 0.0).folded()),
+    spec("tools", "Tools", "tool", "The stage's tools: the tool in hand, the view, grid & snap, framing – what this workspace offers.", Place::at(TR, 360.0, 0.0)).inline(),
     spec("settings", "Settings", "settings", "Motion & feedback, sound and the UI size: this machine's, remembered.", Place::at(TR, 0.0, 0.0).closed()),
 ];
 
@@ -79,6 +83,8 @@ pub struct Panels {
     grew: bool,
     /// the settings panel's content size (laid out with the workspace's own unless it is closed)
     pub settings: Option<(f32, f32)>,
+    /// the tools pill's content size (tools.rs)
+    pub tools: Option<(f32, f32)>,
 }
 
 /// the settings have a main menu line of their own, so the menu's panel list leaves them out
@@ -86,7 +92,7 @@ pub const SETTINGS: &str = "settings";
 
 impl Panels {
     pub fn new(specs: &[Spec]) -> Panels {
-        Panels { floats: Floats::new(specs), measured: HashMap::new(), known: Vec::new(), grew: false, settings: None }
+        Panels { floats: Floats::new(specs), measured: HashMap::new(), known: Vec::new(), grew: false, settings: None, tools: None }
     }
 
     /// the main menu's panel list: the panels that close, and whether each is open
@@ -113,7 +119,7 @@ impl Panels {
     pub fn layout(&mut self, d: &DrawList, t: &Tokens, (size, top): ((f32, f32), f32), fixed: &[Rect], shown: &[(&'static str, f32, Option<f32>)]) {
         let m = Metrics::of(t, d);
         self.floats.measure_names(|name| d.sans_width(t.size.font, name));
-        let extra = self.settings.map(|(w, h)| (SETTINGS, w, Some(h)));
+        let extra = self.settings.map(|(w, h)| (SETTINGS, w, Some(h))).into_iter().chain(self.tools.map(|(w, h)| ("tools", w, Some(h))));
         let shown: Vec<(&'static str, f32, Option<f32>)> = shown.iter().copied().chain(extra).collect();
         self.known = shown.iter().filter(|(_, _, h)| h.is_some()).map(|(id, ..)| *id).collect();
         let shown: Vec<Shown> = shown.iter().map(|&(id, w, h)| Shown { id, content: (w, h.unwrap_or_else(|| self.measured.get(id).copied().unwrap_or(UNMEASURED))) }).collect();
@@ -216,8 +222,10 @@ mod tests {
         for (name, specs) in workspaces() {
             for size in [(1920.0, 1080.0), (1600.0, 900.0), (1280.0, 720.0), (1024.0, 640.0)] {
                 let mut p = Panels::new(specs);
-                let shown = typical(name);
+                p.tools = Some((8.0 * t.size.row, t.size.row));
+                let mut shown = typical(name);
                 p.layout(&d, &t, (size, 52.0), &[], &shown);
+                shown.push(("tools", 0.0, None));
                 let room = Panels::room(size, 52.0, t.size.gap);
                 let rects: Vec<Rect> = shown.iter().map(|(id, ..)| p.floats.view(id).unwrap().whole).collect();
                 for (i, a) in rects.iter().enumerate() {
@@ -253,7 +261,7 @@ mod tests {
     #[test]
     fn each_workspace_keeps_its_essentials_and_lists_the_rest() {
         let essentials = |specs: &[Spec]| specs.iter().filter(|s| s.essential).map(|s| s.id).collect::<Vec<_>>();
-        assert_eq!(essentials(&BUILD), ["inspector"]);
+        assert_eq!(essentials(&BUILD), ["inspector", "tools"]);
         assert_eq!(essentials(&MODULE), ["module"]);
         assert_eq!(essentials(&SHOW), ["inspector", "sheet", "rows"]);
         assert_eq!(essentials(&PERFORM), ["side", "sheet", "matrix"]);
@@ -288,6 +296,36 @@ mod tests {
                 assert!(!p.floats.closed(s.id), "{name}: {} cannot close", s.id);
             }
         }
+    }
+
+    #[test]
+    fn the_tools_pill_is_one_line_moves_by_its_handle_and_folds_to_its_wrench() {
+        let (t, d) = (Tokens::default(), DrawList::new(0.6));
+        let mut p = Panels::new(&BUILD);
+        p.tools = Some((8.0 * t.size.row, t.size.row));
+        let shown = typical("build");
+        p.layout(&d, &t, ((1600.0, 900.0), 52.0), &[], &shown);
+        let before = p.floats.view("tools").unwrap();
+        assert!(before.whole.h < 2.0 * t.size.row, "one line: {before:?}");
+        assert!(before.handle.y == before.whole.y && before.content.x >= before.handle.x + before.handle.w - 0.01, "the grip beside the tools");
+        let (hx, hy) = (before.handle.x + before.handle.w * 0.5, before.handle.y + before.handle.h * 0.5);
+        assert!(p.floats.press(hx, hy) && p.floats.dragging());
+        p.floats.drag_to(hx, hy + 200.0);
+        p.floats.release();
+        p.layout(&d, &t, ((1600.0, 900.0), 52.0), &[], &shown);
+        let moved = p.floats.view("tools").unwrap();
+        assert!(moved.whole.y > before.whole.y + 10.0, "{before:?} → {moved:?}");
+        let f = moved.fold;
+        assert!(p.floats.press(f.x + f.w * 0.5, f.y + f.h * 0.5));
+        p.floats.release();
+        p.layout(&d, &t, ((1600.0, 900.0), 52.0), &[], &shown);
+        let pill = p.floats.view("tools").unwrap();
+        assert!(pill.collapsed && pill.whole.w == pill.whole.h, "folded: the wrench alone");
+        assert!(p.floats.places()["tools"].collapsed, "kept folded");
+        assert!(!p.floats.close("tools"), "essential in Build");
+        assert!(p.floats.press(pill.whole.x + 2.0, pill.whole.y + 2.0));
+        p.floats.release();
+        assert!(!p.floats.collapsed("tools"), "a click on the wrench opens it");
     }
 
     #[test]

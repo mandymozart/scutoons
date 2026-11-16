@@ -1,4 +1,4 @@
-//! Build's grid & snap: a round pill beside the play button opens its popover (the grid off, on the floor or on a wall,
+//! Build's grid & snap: its button in the tools pill (tools.rs) opens its popover (the grid off, on the floor or on a wall,
 //! its step, snap and what it snaps to, the move and rotate steps); the grid is drawn over the stage in the editor only;
 //! a scene member dragged on the stage snaps (deck-space snap.rs, space/place.rs) and its offset goes into the scene.
 //! Kept per view (a rig, a scene) in the editor's cache.
@@ -137,22 +137,31 @@ impl GridSnap {
         }
     }
 
-    /// The pill at `at` (a toolbar's place for it), lit while the grid is on.
-    pub fn pill(&mut self, ui: &mut DrawList, t: &Tokens, at: Rect, pointer: (f32, f32)) {
-        let color = if self.settings().grid { t.color.accent } else { t.color.muted };
-        self.pill = Some(controls::icon_button(ui, t, at, "grid", color, pointer));
+    /// where its button is this frame (none: not shown, the popover closes)
+    pub fn anchor(&mut self, at: Option<Rect>) {
+        self.pill = at;
+        if at.is_none() {
+            self.open = false;
+        }
     }
 
-    /// The popover under the pill, while open: over everything else.
-    pub fn popover(&mut self, ui: &mut DrawList, t: &Tokens) {
+    pub fn toggle(&mut self) {
+        self.open = !self.open;
+    }
+
+    /// The popover from its button, while open, over everything else: under it, or over it when the window (`room`) has
+    /// no place below.
+    pub fn popover(&mut self, ui: &mut DrawList, t: &Tokens, room: (f32, f32)) {
         self.fields.clear();
         let Some(pill) = self.pill.filter(|_| self.open) else { return };
         let s = self.settings();
         let (pad, row) = (t.size.pad, t.size.row);
         let w = POPOVER_W;
-        let x = pill.x + pill.w - w;
+        let x = (pill.x + pill.w - w).min(room.0 - w - pad).max(pad);
         let rows = 8.0;
-        let top = pill.y + pill.h + pad * 0.5;
+        let below = pill.y + pill.h + pad * 0.5;
+        let whole = rows * row + 2.0 * pad;
+        let top = if below + whole <= room.1 { below } else { (pill.y - pad * 0.5 - whole).max(pad) };
         ui.round_rect(x, top, w, rows * row + 2.0 * pad, t.size.radius, t.color.surface_head);
         ui.outline(x, top, w, rows * row + 2.0 * pad, (t.size.radius, 1.0), t.color.line);
         let (ix, iw) = (x + pad, w - 2.0 * pad);
@@ -190,13 +199,9 @@ impl GridSnap {
         ui.text(ix, y + (row - t.size.small * 1.25) * 0.5, t.size.small, "Shift / Ctrl: snap the other way", t.color.muted);
     }
 
-    /// A press at (`x`, `y`): the pill opens or closes the popover, a field of it is set or starts a scrub; a press
-    /// elsewhere closes it. true = the press was the grid's.
+    /// A press at (`x`, `y`) while the popover is open: a field of it is set or starts a scrub; a press elsewhere closes
+    /// it. true = the press was the grid's.
     pub fn press(&mut self, x: f32, y: f32) -> bool {
-        if self.pill.is_some_and(|r| r.has(x, y)) {
-            self.open = !self.open;
-            return true;
-        }
         if !self.open {
             return false;
         }

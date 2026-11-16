@@ -5,6 +5,7 @@
 use deck_kit::base::draw::DrawList;
 use deck_kit::base::tokens::Tokens;
 use deck_kit::editor::controls::{self, Rect};
+pub use crate::sign_in::Signed;
 
 /// the pills' distance from the window's top
 fn margin(t: &Tokens) -> f32 {
@@ -52,18 +53,56 @@ pub struct Bar<'a> {
     pub play: Option<bool>,
     /// the tempo clock's BPM and whether it runs
     pub beat: Option<(f64, bool)>,
-    pub sign_in: &'a str,
+    pub clock: Clock,
+    pub account: Signed,
+    /// 0..1, the signing-in icon's breath (1 = still, reduce motion)
+    pub pulse: f32,
     pub logo_frame: usize,
     pub pointer: (f32, f32),
     /// how much of a frame's time the CPU and the GPU work (0..1); the GPU where it can be measured
     pub cpu: f32,
     pub gpu: Option<f32>,
+    /// the audio's sample rate and the frames a second, beside their meters
+    pub khz: Option<f32>,
+    pub fps: f32,
     /// the room a workspace keeps in the row for its own pill (Show's and Perform's view switch)
     pub slot: f32,
     /// the dark look is on
     pub night: bool,
     /// a panic holds: the pill resumes
     pub panicked: bool,
+}
+
+/// where the tempo comes from: the deck's own clock, or one it follows (locked, else still waiting for it)
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Clock {
+    Int,
+    Ext { locked: bool },
+}
+
+impl Clock {
+    pub fn word(self) -> &'static str {
+        match self {
+            Clock::Int => "INT",
+            Clock::Ext { .. } => "EXT",
+        }
+    }
+}
+
+/// the toolbar's numbers in words: the meters' full readings, for the info
+pub fn meters_words(cpu: f32, gpu: Option<f32>, rate: Option<f32>, fps: f32) -> String {
+    let audio = rate.map_or_else(|| "no audio".to_string(), |k| format!("audio at {}", khz(k)));
+    let gpu = gpu.map_or_else(|| "the GPU's share not measured here".to_string(), |g| format!("GPU {:.0} %", g * 100.0));
+    format!("CPU {:.0} % of a frame, {audio}; {gpu}, {fps:.0} frames a second.", cpu * 100.0)
+}
+
+/// a sample rate as people say it: 48 kHz, 44.1 kHz
+pub fn khz(k: f32) -> String {
+    if (k - k.round()).abs() < 0.05 {
+        format!("{k:.0} kHz")
+    } else {
+        format!("{k:.1} kHz")
+    }
 }
 
 /// what the panic pill says: what a press does
@@ -87,6 +126,10 @@ pub struct Placed {
     pub day: Rect,
     /// the panic pill, in every workspace
     pub panic: Rect,
+    pub tempo: Rect,
+    pub account: Rect,
+    /// the load meters, where there was room for them
+    pub meters: Option<Rect>,
 }
 
 /// a pill's ground
@@ -149,18 +192,20 @@ pub fn draw(d: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Placed {
     let ws = Rect { x: first.x + first.w + gap, y, w: ws_w, h };
     pill(d, t, ws);
     out.workspaces = controls::pills_rounded(d, t, (ws.x + inset, y + inset, ih), b.workspaces, b.workspace, ir);
-    // the right pill: sign-in, meters, day / night, the version
+    // the right pill: the account, the meters, day / night, the version
     let version_w = d.advance(px) * deck_native::BUILD.chars().count() as f32;
-    let sign_w = d.sans_width(small, b.sign_in).min(t.size.rem(11.4));
-    let meters = t.size.rem(14.3);
+    // a meter's bar and its number: the widest the number gets
+    let reading = |name: &str, most: &str| controls::label_width(d, t, name) + t.size.rem(0.36) + t.size.rem(2.9) + pad * 0.5 + d.sans_width(small, most);
+    let meters = reading("CPU", "48 kHz") + 2.0 * pad + reading("GPU", "240 fps");
     let lead = if b.play.is_some() { inset + ih + pad } else { end };
-    // the clock as wide as its widest words
-    let words = ["BPM · internal", "BPM · stopped"].iter().map(|w| controls::label_width(d, t, w)).fold(0.0, f32::max);
-    let clock_w = lead + d.advance(px) * 5.0 + pad + words + end;
+    // the clock as wide as its widest words: the row does not move when the source changes
+    let words = [Clock::Int, Clock::Ext { locked: true }].iter().map(|c| controls::label_width(d, t, c.word())).fold(0.0, f32::max);
+    let mark = t.size.rem(0.5);
+    let clock_w = lead + d.advance(px) * 5.0 + pad + words + mark + end;
     // as wide in both states: the row does not move when it latches
     let panic_w = controls::label_width(d, t, panic_label(true)).max(controls::label_width(d, t, panic_label(false))) + 4.0 * pad;
     let tempo_w = clock_w + gap + panic_w;
-    let right_of = |wide: bool| end + if b.sign_in.is_empty() { 0.0 } else { sign_w + pad } + if wide { meters + pad } else { 0.0 } + ih + pad + version_w + end;
+    let right_of = |wide: bool| inset + ih + pad + if wide { meters + pad } else { 0.0 } + ih + pad + version_w + end;
     // the load meters only where the path keeps room of its own beside them
     let wide = row(width, gap, ws.x + ws.w, tempo_w, b.slot, right_of(false)).path_w > meters + t.size.rem(17.0);
     let right_w = right_of(wide);
@@ -185,12 +230,18 @@ pub fn draw(d: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Placed {
         let at = Rect { x: tempo.x + inset, y: y + inset, w: ih, h: ih };
         out.play = Some(if wire { inner_button(d, t, at, "play-fill", t.color.go, b.pointer) } else { inner_button(d, t, at, "stop-fill", t.color.stop, b.pointer) });
     }
-    let (value, what) = match b.beat {
-        Some((bpm, running)) => (format!("{bpm:.1}"), format!("BPM · {}", if running { "internal" } else { "stopped" })),
-        None => ("–".to_string(), "BPM".to_string()),
+    // the BPM, muted while the clock stands, and where it comes from; a source not locked yet carries a small mark
+    let (value, ink) = match b.beat {
+        Some((bpm, running)) => (format!("{bpm:.1}"), if running { t.color.text } else { t.color.muted }),
+        None => ("–".to_string(), t.color.muted),
     };
-    let vw = d.text(tempo.x + lead, text_y, px, &value, t.color.text);
-    controls::label(d, t, tempo.x + lead + vw + pad, mid - t.size.label * 0.62, &what, t.color.muted);
+    let vw = d.text(tempo.x + lead, text_y, px, &value, ink);
+    let wx = tempo.x + lead + vw + pad;
+    let ww = controls::label(d, t, wx, mid - t.size.label * 0.62, b.clock.word(), t.color.muted);
+    if b.clock == (Clock::Ext { locked: false }) {
+        d.disc(wx + ww + mark * 0.6, mid - t.size.label * 0.3, mark * 0.25, t.color.warn);
+    }
+    out.tempo = tempo;
     // the panic: red, always there, beside the tempo; latched it is ringed and says RESUME
     let panic = Rect { x: tempo.x + clock_w + gap, y, w: panic_w, h };
     let hot = panic.has(b.pointer.0, b.pointer.1);
@@ -206,18 +257,28 @@ pub fn draw(d: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Placed {
     // the right pill
     let right = Rect { x: r.right_x, y, w: right_w, h };
     pill(d, t, right);
-    let mut x = right.x + end;
-    if !b.sign_in.is_empty() {
-        d.sans(x, small_y, small, &controls::fit_sans(d, small, b.sign_in, sign_w), t.color.muted);
-        x += sign_w + pad;
-    }
-    if wide {
-        let mut mx = x;
-        mx += controls::meter(d, t, mx, small_y, "CPU", b.cpu) + 2.0 * pad;
-        if let Some(g) = b.gpu {
-            controls::meter(d, t, mx, small_y, "GPU", g);
+    // the account: ink when signed in, red when not, breathing while it signs in
+    let at = Rect { x: right.x + inset, y: y + inset, w: ih, h: ih };
+    let ink = match b.account {
+        Signed::In => t.color.text,
+        Signed::Out => t.color.danger,
+        Signed::Signing => {
+            let [r, g, bl, a] = t.color.muted;
+            [r, g, bl, a * (0.35 + 0.65 * b.pulse)]
         }
+    };
+    out.account = inner_button(d, t, at, "account", ink, b.pointer);
+    let mut x = at.x + ih + pad;
+    if wide {
+        let start = x;
+        let mut mx = x;
+        let number = |d: &mut DrawList, x: f32, text: &str| x + pad * 0.5 + d.sans(x + pad * 0.5, small_y, small, text, t.color.muted);
+        mx += controls::meter(d, t, mx, small_y, "CPU", b.cpu);
+        mx = number(d, mx, &b.khz.map_or_else(|| "–".to_string(), khz)) + 2.0 * pad;
+        mx += controls::meter(d, t, mx, small_y, "GPU", b.gpu.unwrap_or(0.0));
+        number(d, mx, &format!("{:.0} fps", b.fps));
         x += meters + pad;
+        out.meters = Some(Rect { x: start, y, w: meters, h });
     }
     let hot = Rect { x, y: y + inset, w: ih, h: ih }.has(b.pointer.0, b.pointer.1);
     out.day = inner_button(d, t, Rect { x, y: y + inset, w: ih, h: ih }, if b.night { "dark" } else { "light" }, if hot { t.color.text } else { t.color.muted }, b.pointer);
@@ -286,7 +347,7 @@ mod tests {
         let t = Tokens::default();
         let mut d = DrawList::new(0.6);
         let path = vec!["main".to_string()];
-        let b = Bar { workspaces: &["Build", "Show"], workspace: 1, path: &path, status: "", play: None, beat: None, sign_in: "", logo_frame: 0, pointer: (0.0, 0.0), cpu: 0.0, gpu: None, slot: 0.0, night: false, panicked: host.sub.panicked() };
+        let b = Bar { workspaces: &["Build", "Show"], workspace: 1, path: &path, status: "", play: None, beat: None, clock: Clock::Int, account: Signed::In, pulse: 1.0, logo_frame: 0, pointer: (0.0, 0.0), cpu: 0.0, gpu: None, khz: None, fps: 60.0, slot: 0.0, night: false, panicked: host.sub.panicked() };
         let placed = draw(&mut d, &t, 1600.0, &b);
         (placed.panic, d.texts().iter().map(|s| s.to_string()).collect())
     }
@@ -313,10 +374,10 @@ mod tests {
         let faces = deck_kit::base::fonts::Faces::shipped(deck_outlet::text::mono_ttf());
         let mut d = DrawList::with_widths(std::sync::Arc::new(faces.widths()));
         let path = vec!["1 Opening".to_string()];
-        let b = Bar { workspaces: &["Build", "Show"], workspace: 0, path: &path, status: "", play: Some(true), beat: Some((120.0, true)), sign_in: "signing in …", logo_frame: 0, pointer: (0.0, 0.0), cpu: 0.0, gpu: None, slot: 0.0, night: false, panicked: false };
+        let b = Bar { workspaces: &["Build", "Show"], workspace: 0, path: &path, status: "", play: Some(true), beat: Some((120.0, true)), clock: Clock::Int, account: Signed::Signing, pulse: 0.5, logo_frame: 0, pointer: (0.0, 0.0), cpu: 0.2, gpu: Some(0.1), khz: Some(48.0), fps: 60.0, slot: 0.0, night: false, panicked: false };
         draw(&mut d, &t, 1600.0, &b);
         let texts = d.texts();
-        for whole in ["signing in …", deck_native::BUILD, "1 Opening", "BPM · INTERNAL"] {
+        for whole in [deck_native::BUILD, "1 Opening", "120.0", "INT", "48 kHz", "60 fps"] {
             assert!(texts.contains(&whole), "{whole}: {texts:?}");
         }
         let inset = t.size.rem(0.29);
@@ -326,6 +387,51 @@ mod tests {
         for (r, h) in pressed {
             assert!((r - inner).abs() < 0.01 && (h - (t.size.top - 2.0 * inset)).abs() < 0.01, "{r} {h}");
         }
+    }
+
+    fn drawn(clock: Clock, account: Signed, pulse: f32) -> (DrawList, Placed) {
+        let t = Tokens::default();
+        let mut d = DrawList::new(0.6);
+        let path = vec!["main".to_string()];
+        let b = Bar { workspaces: &["Build"], workspace: 0, path: &path, status: "", play: None, beat: Some((128.0, true)), clock, account, pulse, logo_frame: 0, pointer: (0.0, 0.0), cpu: 0.3, gpu: None, khz: Some(44.1), fps: 59.6, slot: 0.0, night: false, panicked: false };
+        let placed = draw(&mut d, &t, 1800.0, &b);
+        (d, placed)
+    }
+
+    /// the colour the account icon is drawn in
+    fn account_ink(d: &DrawList) -> [f32; 4] {
+        use deck_kit::base::draw::Prim;
+        d.prims().iter().find_map(|p| if let Prim::Icon { name: "account", color, .. } = *p { Some(color) } else { None }).expect("the account icon")
+    }
+
+    #[test]
+    fn the_tempo_pill_says_the_bpm_and_int_or_ext_and_nothing_else() {
+        let (d, placed) = drawn(Clock::Int, Signed::In, 1.0);
+        let texts = d.texts();
+        assert!(texts.contains(&"128.0") && texts.contains(&"INT"), "{texts:?}");
+        assert!(!texts.iter().any(|s| s.contains("BPM") || s.contains("INTERNAL")), "{texts:?}");
+        let (ext, waiting) = (drawn(Clock::Ext { locked: true }, Signed::In, 1.0), drawn(Clock::Ext { locked: false }, Signed::In, 1.0));
+        assert!(ext.0.texts().contains(&"EXT"));
+        assert_eq!(ext.1.tempo, placed.tempo, "the pill keeps its width whatever the source");
+        assert_eq!(waiting.0.prims().len(), ext.0.prims().len() + 1, "a source not locked yet: a small mark");
+    }
+
+    #[test]
+    fn the_account_icon_is_ink_red_or_breathing() {
+        let t = Tokens::default();
+        assert_eq!(account_ink(&drawn(Clock::Int, Signed::In, 1.0).0), t.color.text);
+        assert_eq!(account_ink(&drawn(Clock::Int, Signed::Out, 1.0).0), t.color.danger);
+        let (a, b) = (account_ink(&drawn(Clock::Int, Signed::Signing, 0.0).0), account_ink(&drawn(Clock::Int, Signed::Signing, 1.0).0));
+        assert!(a[3] < b[3], "signing in: it breathes");
+    }
+
+    #[test]
+    fn the_meters_carry_the_audio_rate_and_the_frames() {
+        let (d, placed) = drawn(Clock::Int, Signed::In, 1.0);
+        let texts = d.texts();
+        assert!(texts.contains(&"44.1 kHz") && texts.contains(&"60 fps"), "{texts:?}");
+        assert!(placed.meters.is_some());
+        assert!(meters_words(0.3, None, Some(48.0), 60.0).contains("audio at 48 kHz"));
     }
 
     #[test]

@@ -69,11 +69,17 @@ pub struct Spec {
     pub about: &'static str,
     pub place: Place,
     pub essential: bool,
+    /// a toolbar: grip and icon at the start of its content's one row, no head above; folded only its icon
+    pub inline: bool,
 }
 
 impl Spec {
     pub const fn essential(self) -> Spec {
         Spec { essential: true, place: Place { closed: false, ..self.place }, ..self }
+    }
+
+    pub const fn inline(self) -> Spec {
+        Spec { inline: true, ..self }
     }
 }
 
@@ -116,6 +122,16 @@ impl Metrics {
     /// the chevron's and the close's width in the chrome
     fn button(&self) -> f32 {
         14.0 + self.pad
+    }
+
+    /// an inline panel's grip and icon before its row
+    fn lead(&self) -> f32 {
+        self.pad + self.rem * 2.4
+    }
+
+    /// an inline panel's size around a row of `c`, its chevron and – when it closes – its close after it
+    fn inline_frame(&self, c: (f32, f32), closes: bool) -> (f32, f32) {
+        (self.lead() + c.0 + self.pad + self.button() * if closes { 2.0 } else { 1.0 }, c.1.max(self.head) + self.pad)
     }
 
     /// an open panel's size around a content of `c`
@@ -177,7 +193,13 @@ pub struct Floats {
     m: Metrics,
     /// the panel in the hand and where the pointer holds it (from its top left)
     drag: Option<(usize, f32, f32)>,
+    /// where the press began and whether the pointer has left it since (a press that stays is a click)
+    pressed: (f32, f32),
+    travelled: bool,
 }
+
+/// how far a press may wander and still be a click
+const CLICK: f32 = 4.0;
 
 fn right(r: &Rect) -> f32 {
     r.x + r.w
@@ -270,11 +292,27 @@ fn sweep(r: &Rect, d: f32, obstacles: &[Rect], area: &Rect, gap: f32, horizontal
     }
 }
 
+/// an inline panel's chrome: folded the whole icon is its handle; open the grip and icon lead its one row, the chevron
+/// and the close end it
+fn inline_view(whole: Rect, collapsed: bool, closes: bool, m: &Metrics) -> View {
+    let end = Rect { x: right(&whole), w: 0.0, ..whole };
+    if collapsed {
+        return View { whole, handle: whole, fold: end, close: end, content: Rect { w: 0.0, h: 0.0, ..whole }, scroll: 0.0, over: 0.0, collapsed };
+    }
+    let b = m.button();
+    let close = if closes { Rect { x: right(&whole) - m.pad - b, w: b + m.pad, ..whole } } else { end };
+    let fold = Rect { x: (if closes { close.x } else { right(&whole) - m.pad }) - b, w: if closes { b } else { b + m.pad }, ..whole };
+    let handle = Rect { w: m.lead().min(whole.w), ..whole };
+    let x = whole.x + handle.w;
+    let content = Rect { x, y: whole.y + m.pad * 0.5, w: (fold.x - x).max(0.0), h: (whole.h - m.pad).max(0.0) };
+    View { whole, handle, fold, close, content, scroll: 0.0, over: 0.0, collapsed }
+}
+
 impl Floats {
     pub fn new(specs: &[Spec]) -> Floats {
         let empty = View { whole: Rect::default(), handle: Rect::default(), fold: Rect::default(), close: Rect::default(), content: Rect::default(), scroll: 0.0, over: 0.0, collapsed: false };
         let panels = specs.iter().map(|s| Panel { spec: *s, name_w: None, place: s.place, scroll: 0.0, own: false, shown: false, content: (0.0, 0.0), want: (0.0, 0.0), min: (0.0, 0.0), corner: s.place.corner, anchor: (0.0, 0.0), at: (0.0, 0.0), view: empty }).collect();
-        Floats { panels, area: Rect::default(), fixed: Vec::new(), m: Metrics { gap: 16.0, pad: 8.0, head: 28.0, pill: 32.0, char_w: 7.0, rem: 14.0, min: (160.0, 48.0) }, drag: None }
+        Floats { panels, area: Rect::default(), fixed: Vec::new(), m: Metrics { gap: 16.0, pad: 8.0, head: 28.0, pill: 32.0, char_w: 7.0, rem: 14.0, min: (160.0, 48.0) }, drag: None, pressed: (0.0, 0.0), travelled: false }
     }
 
     fn index(&self, id: &str) -> Option<usize> {
@@ -321,7 +359,11 @@ impl Floats {
         for &i in &order {
             let p = &mut self.panels[i];
             let pill = m.pill_size(p.spec.name, p.name_w, !p.spec.essential);
-            if p.place.collapsed {
+            if p.spec.inline {
+                p.want = if p.place.collapsed { (m.pill, m.pill) } else { m.inline_frame(p.content, !p.spec.essential) };
+                p.want = (p.want.0.min(area.w), p.want.1.min(area.h));
+                p.min = p.want;
+            } else if p.place.collapsed {
                 p.want = (pill.0.min(area.w), pill.1.min(area.h));
                 p.min = p.want;
             } else {
@@ -374,6 +416,11 @@ impl Floats {
             p.at = (whole.x, whole.y);
             grown.push(whole);
             let collapsed = p.place.collapsed;
+            if p.spec.inline {
+                p.view = inline_view(whole, collapsed, !p.spec.essential, &m);
+                p.scroll = 0.0;
+                continue;
+            }
             // the chrome's row: the handle, the chevron, the close last; the end's padding belongs to the last button
             let (b, end) = (m.button(), if collapsed { m.pad * 0.5 } else { m.pad });
             let head = if collapsed { whole } else { Rect { h: m.head, ..whole } };
@@ -433,6 +480,8 @@ impl Floats {
             Chrome::Handle => {
                 let at = self.panels[i].view.whole;
                 self.drag = Some((i, x - at.x, y - at.y));
+                self.pressed = (x, y);
+                self.travelled = false;
             }
         }
         true
@@ -445,6 +494,9 @@ impl Floats {
     /// the panel in the hand follows the pointer until a wall or another panel stops it
     pub fn drag_to(&mut self, x: f32, y: f32) -> bool {
         let Some((i, ox, oy)) = self.drag else { return false };
+        if (x - self.pressed.0).abs() + (y - self.pressed.1).abs() > CLICK {
+            self.travelled = true;
+        }
         let gap = self.m.gap;
         let obstacles: Vec<Rect> = self.fixed.iter().copied().chain(self.shown().filter(|(j, _)| *j != i).map(|(_, p)| p.view.whole)).collect();
         let mut r = self.panels[i].view.whole;
@@ -457,11 +509,16 @@ impl Floats {
         true
     }
 
-    /// let go: the place is kept from the nearest corner; whether a panel was in the hand (its place changed)
+    /// let go: the place is kept from the nearest corner; a folded inline panel clicked without moving opens; whether a
+    /// panel was in the hand (its place changed)
     pub fn release(&mut self) -> bool {
         let Some((i, ..)) = self.drag.take() else { return false };
         let area = self.area;
         let p = &mut self.panels[i];
+        if p.spec.inline && p.place.collapsed && !self.travelled {
+            p.place.collapsed = false;
+            return true;
+        }
         let seen = p.view.whole;
         let (cx, cy) = (seen.x + seen.w * 0.5, seen.y + seen.h * 0.5);
         let (r, b) = (cx > area.x + area.w * 0.5, cy > area.y + area.h * 0.5);
@@ -567,15 +624,20 @@ pub fn begin(d: &mut DrawList, t: &Tokens, spec: &Spec, v: &View, pointer: (f32,
     let r = t.size.radius * 2.0;
     let s = t.color.surface;
     let ground = [s[0], s[1], s[2], s[3] * t.color.panel_opacity.clamp(0.0, 1.0)];
-    d.round_rect(w.x, w.y, w.w, w.h, if v.collapsed { w.h * 0.5 } else { r }, ground);
-    d.outline(w.x, w.y, w.w, w.h, (if v.collapsed { w.h * 0.5 } else { r }, 1.0), t.color.line);
+    let r = if v.collapsed || spec.inline { w.h * 0.5 } else { r };
+    d.round_rect(w.x, w.y, w.w, w.h, r, ground);
+    d.outline(w.x, w.y, w.w, w.h, (r, 1.0), t.color.line);
     let hot = v.handle.has(pointer.0, pointer.1);
     let mid = v.handle.y + v.handle.h * 0.5;
     let x = w.x + t.size.pad;
     let (grip, icon, chevron) = (t.size.rem(0.86), t.size.rem(1.15), t.size.rem(1.0));
+    if spec.inline && v.collapsed {
+        d.icon(w.x + (w.w - icon) * 0.5, mid - icon * 0.5, icon, spec.icon, if hot { t.color.bright } else { t.color.text });
+        return;
+    }
     d.icon(x, mid - grip * 0.5, grip, "grip", if hot { t.color.text } else { t.color.muted });
     d.icon(x + t.size.rem(1.15), mid - icon * 0.5, icon, spec.icon, t.color.text);
-    if v.collapsed {
+    if v.collapsed && !spec.inline {
         d.sans(x + t.size.rem(2.72), mid - t.size.font * 0.62, t.size.font, spec.name, t.color.text);
     }
     let fold_hot = v.fold.has(pointer.0, pointer.1);
@@ -613,7 +675,64 @@ mod tests {
     }
 
     fn spec(id: &'static str, place: Place) -> Spec {
-        Spec { id, name: id, icon: "list", about: "", place, essential: false }
+        Spec { id, name: id, icon: "list", about: "", place, essential: false, inline: false }
+    }
+
+    /// the four and a toolbar at the top's middle
+    fn with_bar() -> Floats {
+        let mut specs: Vec<Spec> = four().panels.iter().map(|p| p.spec).collect();
+        specs.push(spec("bar", Place::at(Corner::TopLeft, 600.0, 0.0)).inline().essential());
+        Floats::new(&specs)
+    }
+
+    fn shown_bar() -> Vec<Shown> {
+        let mut s = shown(SIZES);
+        s.push(Shown { id: "bar", content: (300.0, 24.0) });
+        s
+    }
+
+    #[test]
+    fn an_inline_panel_is_one_row_its_chrome_beside_its_content() {
+        let mut f = with_bar();
+        let a = area(1920.0, 1080.0);
+        f.layout(a, &[], &shown_bar(), M);
+        let v = f.view("bar").unwrap();
+        assert_eq!(v.whole.h, M.head + M.pad, "one row");
+        assert_eq!((v.handle.y, v.handle.h), (v.whole.y, v.whole.h), "the handle is beside, not above");
+        assert!(right(&v.handle) <= v.content.x + EPS && right(&v.content) <= v.fold.x + EPS, "grip, row, chevron");
+        assert!(v.content.y > v.whole.y && bottom(&v.content) < bottom(&v.whole));
+        assert!(v.content.w >= 300.0 - EPS, "the row fits");
+        assert_eq!(v.close.w, 0.0, "essential: it folds, never closes");
+        assert_valid(&f, &a);
+    }
+
+    #[test]
+    fn a_folded_inline_panel_is_its_icon_and_a_click_opens_it_a_drag_moves_it() {
+        let mut f = with_bar();
+        let a = area(1920.0, 1080.0);
+        f.layout(a, &[], &shown_bar(), M);
+        let v = f.view("bar").unwrap();
+        assert!(f.press(v.fold.x + 2.0, v.fold.y + 2.0));
+        f.layout(a, &[], &shown_bar(), M);
+        let p = f.view("bar").unwrap();
+        assert!(p.collapsed);
+        assert_eq!((p.whole.w, p.whole.h), (M.pill, M.pill), "only the icon");
+        assert_eq!((p.fold.w, p.close.w), (0.0, 0.0), "no chevron, no close");
+        assert_eq!(p.handle, p.whole, "all of it is the handle");
+        // a drag moves it and leaves it folded
+        assert!(f.press(p.whole.x + 4.0, p.whole.y + 4.0));
+        f.drag_to(p.whole.x + 104.0, p.whole.y + 54.0);
+        f.release();
+        f.layout(a, &[], &shown_bar(), M);
+        let moved = f.view("bar").unwrap();
+        assert!(moved.collapsed && moved.whole.x > p.whole.x + 50.0, "{moved:?}");
+        // a click opens it
+        assert!(f.press(moved.whole.x + 4.0, moved.whole.y + 4.0));
+        f.drag_to(moved.whole.x + 5.0, moved.whole.y + 5.0);
+        f.release();
+        f.layout(a, &[], &shown_bar(), M);
+        assert!(!f.view("bar").unwrap().collapsed);
+        assert_valid(&f, &a);
     }
 
     fn four() -> Floats {

@@ -1,8 +1,8 @@
 //! The Show workspace (#91, the owner's draft m1-show), floating panels over the stage: the outline (this deck's
 //! conductor, its seats – a seat enters its sub conductor, the toolbar's path leads back –, the roles, the rows of the
 //! document shown); the 2D node overlay (#446: what comes from far, the cells of the row and what the row sends) or the
-//! sheet open; the rows band; the scene list; the inspector of the row with save and load; the info. The 2D / 3D switch
-//! and the sheets' pills sit in the toolbar. The words are deck-show's view.rs; this file lays them out and names the
+//! sheet open; the rows band; the scene list; the inspector of the row with save and load; the info. The sheets' pills
+//! sit in the toolbar, the 2D / 3D switch in the tools pill. The words are deck-show's view.rs; this file lays them out and names the
 //! places (`Hit`).
 use super::perform::button;
 use super::{Hit, Host, Sheet, Workspace};
@@ -20,7 +20,7 @@ fn fit(d: &DrawList, text: &str, px: f32, w: f32) -> String {
 pub const SHEETS: [(&str, Sheet); 4] = [("Cues", Sheet::Cues), ("Problems", Sheet::Problems), ("Who", Sheet::Who), ("Demos", Sheet::Demos)];
 
 fn view_names(sheets: &[(&'static str, Sheet)]) -> Vec<&'static str> {
-    ["3D", "2D"].into_iter().chain(sheets.iter().map(|(n, _)| *n)).collect()
+    sheets.iter().map(|(n, _)| *n).collect()
 }
 
 /// the toolbar's room for a workspace's view switch
@@ -29,8 +29,8 @@ pub fn view_width(d: &DrawList, t: &Tokens, _host: &Host, ws: Workspace) -> f32 
     view_names(sheets).iter().map(|n| d.advance(t.size.small) * n.chars().count().max(2) as f32 + 2.0 * t.size.pad + 2.0).sum::<f32>() + 8.0
 }
 
-/// the 2D / 3D switch, then a pill per sheet the workspace offers (`sheets`), in the toolbar's slot (a test frame without
-/// a toolbar: left of the top right corner)
+/// a pill per sheet the workspace offers (`sheets`), in the toolbar's slot (a test frame without a toolbar: left of the
+/// top right corner); 3D / 2D are the tools pill's
 pub fn view_switch(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, sheets: &[(&'static str, Sheet)]) {
     let names = view_names(sheets);
     let width: f32 = names.iter().map(|n| d.advance(t.size.small) * n.chars().count().max(2) as f32 + 2.0 * t.size.pad + 2.0).sum::<f32>() + 8.0;
@@ -38,12 +38,9 @@ pub fn view_switch(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, sheets
     d.round_rect(slot.x, slot.y, slot.w, slot.h, slot.h * 0.5, t.color.surface);
     d.outline(slot.x, slot.y, slot.w, slot.h, (slot.h * 0.5, 1.0), t.color.line);
     let (x, y, h) = (slot.x + 4.0, slot.y + 4.0, slot.h - 8.0);
-    let on = match host.sheet {
-        Some(s) => sheets.iter().position(|(_, x)| *x == s).map_or(if matches!(s, Sheet::Flash | Sheet::Event | Sheet::Scene) { usize::MAX } else { usize::from(host.two_d) }, |i| i + 2),
-        None => usize::from(host.two_d),
-    };
+    let on = host.sheet.and_then(|s| sheets.iter().position(|(_, x)| *x == s)).unwrap_or(usize::MAX);
     let r = controls::pills(d, t, x, y, h, &names, on);
-    let hits = [Hit::View(false), Hit::View(true)].into_iter().chain(sheets.iter().map(|(_, s)| Hit::Sheet(*s)));
+    let hits = sheets.iter().map(|(_, s)| Hit::Sheet(*s));
     for (r, hit) in r.into_iter().zip(hits) {
         host.hits.push((r, hit));
     }
