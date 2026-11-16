@@ -63,7 +63,15 @@ impl Library {
 
     /// Loads a module from its wasm bytes: descriptor first (nothing runs), then the compile (cached), then the kind.
     pub fn load(&self, wasm: &[u8]) -> Result<Arc<Loaded>> {
+        self.load_checked(wasm, None)
+    }
+
+    /// … refused before it registers when its SHA-256 is not `hash`
+    fn load_checked(&self, wasm: &[u8], hash: Option<&str>) -> Result<Arc<Loaded>> {
         let host = HostLoaded::<Wasmtime>::load(&self.engine, wasm)?;
+        if let Some(want) = hash.filter(|h| *h != host.hash) {
+            anyhow::bail!("the module's bytes are not its build {want} (they hash to {})", host.hash);
+        }
         if let Some(l) = self.by_hash.lock().unwrap_or_else(|e| e.into_inner()).get(&host.hash).cloned() {
             self.by_name.lock().unwrap_or_else(|e| e.into_inner()).insert(l.desc.name.to_string(), l.clone());
             return Ok(l);
@@ -84,6 +92,29 @@ impl Library {
             .unwrap_or_default();
         files.sort();
         files.into_iter().map(|f| (f.clone(), std::fs::read(&f).map_err(anyhow::Error::from).and_then(|b| self.load(&b)))).collect()
+    }
+
+    /// A published build (`deck_space::rig::build`): loaded already, else the file `<dir>/<hash>.wasm`, else the bytes
+    /// `fetch` brings, kept in `dir` so it plays offline after a restart. Bytes that are not the build are refused.
+    pub fn published(&self, hash: &str, dir: &Path, fetch: impl FnOnce() -> Result<Vec<u8>>) -> Result<Arc<Loaded>> {
+        if let Some(l) = self.by_hash.lock().unwrap_or_else(|e| e.into_inner()).get(hash).cloned() {
+            self.by_name.lock().unwrap_or_else(|e| e.into_inner()).insert(l.desc.name.to_string(), l.clone());
+            return Ok(l);
+        }
+        let file = dir.join(deck_space::rig::build::file_name(hash));
+        if let Ok(bytes) = std::fs::read(&file) {
+            match self.load_checked(&bytes, Some(hash)) {
+                Ok(l) => return Ok(l),
+                Err(e) => tracing::warn!("module cache {}: {e:#} – fetched again", file.display()),
+            }
+        }
+        let bytes = fetch()?;
+        let loaded = self.load_checked(&bytes, Some(hash))?;
+        let tmp = file.with_extension("part");
+        if let Err(e) = std::fs::create_dir_all(dir).and_then(|_| std::fs::write(&tmp, &bytes)).and_then(|_| std::fs::rename(&tmp, &file)) {
+            tracing::warn!("module cache {}: not kept ({e})", file.display());
+        }
+        Ok(loaded)
     }
 
     /// a loaded module by its descriptor name

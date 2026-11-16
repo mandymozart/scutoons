@@ -129,6 +129,37 @@ fn the_compile_is_cached_on_disk_by_the_wasm_hash() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+#[test]
+fn a_published_build_is_fetched_once_kept_by_its_hash_and_checked() {
+    let root = std::env::temp_dir().join(format!("deck-published-modules-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    let (compiled, kept) = (root.join("compiled"), root.join("modules"));
+    let bytes = walk();
+    let hash = Library::with_cache(&compiled).load(&bytes).unwrap().hash.clone();
+    let fetched = std::cell::Cell::new(0);
+    let fetch = || {
+        fetched.set(fetched.get() + 1);
+        Ok(bytes.clone())
+    };
+    let a = Library::with_cache(&compiled).published(&hash, &kept, fetch).unwrap();
+    assert_eq!((a.desc.name.as_ref(), fetched.get()), ("walk", 1));
+    assert_eq!(std::fs::read(kept.join(format!("{hash}.wasm"))).unwrap(), bytes, "kept under its hash");
+    // a restart plays it from the folder, nothing fetched
+    let lib = Library::with_cache(&compiled);
+    lib.published(&hash, &kept, || anyhow::bail!("offline")).unwrap();
+    assert!(lib.get("walk").is_some());
+    // bytes that are not the build are refused and not kept
+    let other = "0".repeat(64);
+    let e = Library::with_cache(&compiled).published(&other, &kept, || Ok(bytes.clone())).unwrap_err();
+    assert!(format!("{e:#}").contains("not its build"), "{e:#}");
+    assert!(!kept.join(format!("{other}.wasm")).exists());
+    // a damaged kept file is fetched again
+    std::fs::write(kept.join(format!("{hash}.wasm")), b"junk").unwrap();
+    Library::with_cache(&compiled).published(&hash, &kept, || Ok(bytes.clone())).unwrap();
+    assert_eq!(std::fs::read(kept.join(format!("{hash}.wasm"))).unwrap(), bytes);
+    let _ = std::fs::remove_dir_all(&root);
+}
+
 /// the scene of the proof: a walk (the built-in or the module) playing an oscillator through the output
 fn walk_scene(kind: &str) -> Scene {
     Scene::parse(&format!(
