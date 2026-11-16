@@ -1,7 +1,7 @@
 //! The event a row fires on, in the Show workspace (#539; SHOW.md §7): the row inspector's "fires on" opens the event
 //! picker in the stage's place – the same picker as the piece's (rows.rs `draw_picker`, one look) – listing the toon's
 //! story events (`GET /api/creator/story-events`, #521), filtered as typed; a press, or Enter on the first found, sets the
-//! row's event, "by hand only" clears it. Where there is no list (no toon, the token lacks the creator role, offline) the
+//! row's event, "manual" clears it. Where there is no list (no toon, the token lacks the creator role, offline) the
 //! picker says why and the typed id is the event. The address, the reading of the answer, the lines and the words are
 //! deck-show's story.rs, every edit goes through `rows::edit` (checked there, refused in its words); this file does the
 //! HTTP (api.rs), lays the picker out and hands the presses in (RULES A1, A2). How and hold stay as they are.
@@ -195,7 +195,7 @@ mod tests {
     }
 
     /// #539's done-when, the editor's half: the row inspector's "fires on" opens the picker with the toon's story events
-    /// from the API; the row's event is picked by a press, found by typing, cleared by "by hand only" – never typed
+    /// from the API; the row's event is picked by a press, found by typing, cleared by "manual" – never typed
     #[test]
     fn a_rows_event_is_picked_from_the_toons_story_events() {
         let mut host = host(serve(200, EVENTS));
@@ -203,7 +203,7 @@ mod tests {
         press(&mut host, |h| *h == Hit::FiresOn);
         assert_eq!(host.sheet, Some(Sheet::Event));
         let labels: Vec<String> = host.event_list().iter().map(|e| e.label.clone()).collect();
-        assert_eq!(labels, ["by hand only", "ch3.dialog-start", "no id", "ch3.yellowmouse-enters", "ch3.vigil", "ch3.end"]);
+        assert_eq!(labels, ["manual", "ch3.dialog-start", "no id", "ch3.yellowmouse-enters", "ch3.vigil", "ch3.end"]);
         // the line without an id is drawn but is no place to press
         let (mut d, t) = (DrawList::new(0.6), Tokens::default());
         host.hits.clear();
@@ -230,7 +230,7 @@ mod tests {
         // by hand only clears it
         press(&mut host, |h| *h == Hit::FiresOn);
         press(&mut host, |h| *h == Hit::EventPick(0));
-        assert_eq!((host.status.as_str(), host.shown().rows[1].fire.event.as_ref()), ("row 2 dialog: by hand only", None));
+        assert_eq!((host.status.as_str(), host.shown().rows[1].fire.event.as_ref()), ("row 2 dialog: manual", None));
     }
     /// the role live alone: 403 – the picker says why and the typed id is the event
     #[test]

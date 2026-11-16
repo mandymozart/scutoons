@@ -258,8 +258,10 @@ pub struct Fire {
 pub enum How {
     Auto,
     Suggest,
+    /// not auto: only the operator fires it. Documents saved before the rename say `hand`
     #[default]
-    Hand,
+    #[serde(alias = "hand")]
+    Manual,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -295,7 +297,8 @@ pub enum Cell {
     Keep,
     /// the same as another outlet
     Mirror { of: String },
-    /// black, idle, all off
+    /// the empty cell, Ableton's stop slot: launched (or its row fired) the column stops – black, the show's background.
+    /// A cell left out of a row is `keep`, not empty
     Black,
     /// a seat: "go to your row"
     Go { row: String },

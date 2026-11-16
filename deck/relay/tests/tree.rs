@@ -35,7 +35,7 @@ const FOYER: &str = r#"{
   "rows": [
     { "id": "idle", "cells": { "wall": { "mode": "play", "piece": "scene:fireflies" } } },
     { "id": "storm", "cells": { "wall": { "mode": "play", "piece": "scene:storm" } } },
-    { "id": "backstage", "fire": { "event": "door", "how": "hand" }, "cells": { "wall": { "mode": "black" } } }
+    { "id": "backstage", "fire": { "event": "door", "how": "manual" }, "cells": { "wall": { "mode": "black" } } }
   ],
   "face": { "rows": ["idle", "storm"], "events": ["door"], "outlets": ["wall"] }
 }"#;

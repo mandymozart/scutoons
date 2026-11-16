@@ -10,7 +10,9 @@
 //! so egui's text stack of harfrust, skrifa and vello_cpu is not linked into the browser deck), or egui's context and
 //! text (`Screen::with_egui_text`, feature `egui-text`: the editor, whose input and layout grow on egui). A frame is run
 //! only when a layer, the screen's size or (egui's) input changed; in between the adapter draws what it has.
-use crate::base::draw::{DrawList, Prim};
+use crate::base::draw::{DrawList, Font, Prim};
+#[cfg(feature = "egui-text")]
+use crate::base::fonts::Faces;
 use crate::base::glyphs::Atlas;
 use crate::base::input::Input;
 use egui::epaint::{ClippedPrimitive, ClippedShape, Color32, ColorImage, CornerRadius, ImageDelta, Mesh, Shape, Stroke, StrokeKind, TessellationOptions, Tessellator, TextureId};
@@ -81,7 +83,7 @@ enum Text {
 pub struct Screen {
     text: Text,
     #[cfg(feature = "egui-text")]
-    mono: &'static [u8],
+    faces: Option<Faces>,
     layers: Vec<Option<Layer>>,
     size: (u32, u32),
     dirty: bool,
@@ -95,21 +97,22 @@ pub struct Screen {
 impl Screen {
     /// `layers` empty layers; `mono` = the deck's mono face (a TrueType file), set by the screen's own glyph atlas
     pub fn new(mono: &'static [u8], layers: usize) -> Screen {
-        Screen::with(Text::Atlas(Box::new(Atlas::new(mono).expect("the deck's mono face is a TrueType font"))), mono, layers)
+        Screen::with(Text::Atlas(Box::new(Atlas::new(mono).expect("the deck's mono face is a TrueType font"))), layers)
     }
 
-    /// The same, the mono face set by egui's context and text (the editor)
+    /// The same, the faces (the sans and the mono one) set by egui's context and text (the editor)
     #[cfg(feature = "egui-text")]
-    pub fn with_egui_text(mono: &'static [u8], layers: usize) -> Screen {
-        Screen::with(Text::Egui { ctx: context(mono), events: Vec::new(), at: Pos2::ZERO }, mono, layers)
+    pub fn with_egui_text(faces: Faces, layers: usize) -> Screen {
+        let mut screen = Screen::with(Text::Egui { ctx: context(&faces), events: Vec::new(), at: Pos2::ZERO }, layers);
+        screen.faces = Some(faces);
+        screen
     }
 
-    #[cfg_attr(not(feature = "egui-text"), allow(unused_variables))]
-    fn with(text: Text, mono: &'static [u8], layers: usize) -> Screen {
+    fn with(text: Text, layers: usize) -> Screen {
         Screen {
             text,
             #[cfg(feature = "egui-text")]
-            mono,
+            faces: None,
             layers: vec![None; layers],
             size: (0, 0),
             dirty: true,
@@ -186,7 +189,11 @@ impl Screen {
         match &mut self.text {
             Text::Atlas(atlas) => atlas.clear(),
             #[cfg(feature = "egui-text")]
-            Text::Egui { ctx, .. } => *ctx = context(self.mono),
+            Text::Egui { ctx, .. } => {
+                if let Some(faces) = &self.faces {
+                    *ctx = context(faces);
+                }
+            }
         }
         #[cfg(feature = "pixel")]
         {
@@ -292,36 +299,49 @@ impl Screen {
     }
 }
 
-/// a context whose only fonts are the deck's mono face, at one pixel a point
+/// a context whose only fonts are the faces, at one pixel a point: the sans and its bold fall back to the mono face
 #[cfg(feature = "egui-text")]
-fn context(mono: &'static [u8]) -> egui::Context {
+fn context(faces: &Faces) -> egui::Context {
     use egui::{FontData, FontDefinitions, FontFamily};
     let ctx = egui::Context::default();
     let mut fonts = FontDefinitions::empty();
-    fonts.font_data.insert("mono".into(), Arc::new(FontData::from_static(mono)));
-    for family in [FontFamily::Monospace, FontFamily::Proportional] {
-        fonts.families.insert(family, vec!["mono".into()]);
+    for (name, font) in [("mono", Font::Mono), ("sans", Font::Sans), ("bold", Font::Bold)] {
+        fonts.font_data.insert(name.into(), Arc::new(FontData::from_static(faces.file(font))));
     }
+    fonts.families.insert(FontFamily::Monospace, vec!["mono".into()]);
+    fonts.families.insert(FontFamily::Proportional, vec!["sans".into(), "mono".into()]);
+    fonts.families.insert(FontFamily::Name("bold".into()), vec!["bold".into(), "mono".into()]);
     ctx.set_fonts(fonts);
     ctx
 }
 
-/// What sets a line of the mono face: a line's height at a size, whether the face has a text's glyphs, and the line
-/// itself – into the layer's mesh (the atlas: the same texture as the flat shapes) or as a shape of its own (egui's).
+/// egui's font of a text's face
+#[cfg(feature = "egui-text")]
+fn font_id(font: Font, size: f32) -> egui::FontId {
+    match font {
+        Font::Mono => egui::FontId::monospace(size),
+        Font::Sans => egui::FontId::proportional(size),
+        Font::Bold => egui::FontId::new(size, egui::FontFamily::Name("bold".into())),
+    }
+}
+
+/// What sets a line of text: a line's height at a size, whether the face has a text's glyphs, and the line itself –
+/// into the layer's mesh (the atlas, the mono face only: the same texture as the flat shapes) or as a shape of its own
+/// (egui's, in the text's face).
 trait Mono {
-    fn row_height(&mut self, size: f32) -> f32;
-    fn has_glyphs(&mut self, size: f32, text: &str) -> bool;
-    fn line(&mut self, mesh: &mut Mesh, text: String, at: Pos2, size: f32, color: Color32) -> Option<Shape>;
+    fn row_height(&mut self, size: f32, font: Font) -> f32;
+    fn has_glyphs(&mut self, size: f32, font: Font, text: &str) -> bool;
+    fn line(&mut self, mesh: &mut Mesh, text: String, at: Pos2, size: (f32, Font), color: Color32) -> Option<Shape>;
 }
 
 impl Mono for Atlas {
-    fn row_height(&mut self, size: f32) -> f32 {
+    fn row_height(&mut self, size: f32, _: Font) -> f32 {
         self.metrics(size).row_height
     }
-    fn has_glyphs(&mut self, _: f32, text: &str) -> bool {
+    fn has_glyphs(&mut self, _: f32, _: Font, text: &str) -> bool {
         Atlas::has_glyphs(self, text)
     }
-    fn line(&mut self, mesh: &mut Mesh, text: String, at: Pos2, size: f32, color: Color32) -> Option<Shape> {
+    fn line(&mut self, mesh: &mut Mesh, text: String, at: Pos2, (size, _): (f32, Font), color: Color32) -> Option<Shape> {
         self.text(mesh, &text, (at.x, at.y), size, color);
         None
     }
@@ -329,14 +349,14 @@ impl Mono for Atlas {
 
 #[cfg(feature = "egui-text")]
 impl Mono for egui::epaint::FontsView<'_> {
-    fn row_height(&mut self, size: f32) -> f32 {
-        egui::epaint::FontsView::row_height(self, &egui::FontId::monospace(size))
+    fn row_height(&mut self, size: f32, font: Font) -> f32 {
+        egui::epaint::FontsView::row_height(self, &font_id(font, size))
     }
-    fn has_glyphs(&mut self, size: f32, text: &str) -> bool {
-        egui::epaint::FontsView::has_glyphs(self, &egui::FontId::monospace(size), text)
+    fn has_glyphs(&mut self, size: f32, font: Font, text: &str) -> bool {
+        egui::epaint::FontsView::has_glyphs(self, &font_id(font, size), text)
     }
-    fn line(&mut self, _: &mut Mesh, text: String, at: Pos2, size: f32, color: Color32) -> Option<Shape> {
-        let galley = self.layout_no_wrap(text, egui::FontId::monospace(size), color);
+    fn line(&mut self, _: &mut Mesh, text: String, at: Pos2, (size, font): (f32, Font), color: Color32) -> Option<Shape> {
+        let galley = self.layout_no_wrap(text, font_id(font, size), color);
         Some(Shape::galley(at, galley, color))
     }
 }
@@ -406,33 +426,33 @@ fn paint(fonts: &mut dyn Mono, layer: &Layer, (pixel, pictures): (Option<Texture
                 fill(&mut mesh, (x, y + t, t, h - 2.0 * t), c);
                 fill(&mut mesh, (x + w - t, y + t, t, h - 2.0 * t), c);
             }
-            Prim::Text { x, y, px, start, end, color: c, spacing } => {
+            Prim::Text { x, y, px, start, end, color: c, spacing, font } => {
                 let text = layer.list.text_of(start, end);
                 if text.is_empty() {
                     continue;
                 }
-                // a spaced text goes letter by letter
-                let step = layer.list.step(px, spacing);
+                // a spaced text goes letter by letter, each where the letters before it end
                 let whole = spacing == 0.0;
                 let mut letters = text.char_indices();
                 let parts = std::iter::from_fn(|| match whole {
                     true => None,
-                    false => letters.next().map(|(b, ch)| &text[b..b + ch.len_utf8()]),
+                    false => letters.next().map(|(b, ch)| (b, &text[b..b + ch.len_utf8()])),
                 });
-                let parts = (whole.then_some(text)).into_iter().chain(parts).enumerate().map(|(i, part)| (x + i as f32 * step, part));
+                let list = &layer.list;
+                let parts = (whole.then_some((0, text))).into_iter().chain(parts).map(|(b, part)| (x + list.measure(font, px, &text[..b], spacing), part));
                 for (x, text) in parts {
                     match layer.face {
                         #[cfg(feature = "pixel")]
                         Face::Pixel => glyphs(&mut mesh, text, (x, y, px), (s, g), color(c)),
                         Face::Mono => {
                             let size = px * s;
-                            let top = y * s + (size * LINE - fonts.row_height(size)) / 2.0;
+                            let top = y * s + (size * LINE - fonts.row_height(size, font)) / 2.0;
                             // the mono face carries no arrows: the core's sentences have them
-                            let text = match fonts.has_glyphs(size, text) {
+                            let text = match fonts.has_glyphs(size, font, text) {
                                 true => text.to_owned(),
                                 false => text.replace('→', ">").replace('←', "<"),
                             };
-                            if let Some(shape) = fonts.line(&mut mesh, text, pos2(snap(x), top), size, color(c)) {
+                            if let Some(shape) = fonts.line(&mut mesh, text, pos2(snap(x), top), (size, font), color(c)) {
                                 flush(&mut mesh, out);
                                 out.push(shape);
                             }
@@ -563,14 +583,14 @@ mod tests {
             let quads: Vec<Rect> = meshes(&p).iter().flat_map(|m| m.vertices.chunks(4).map(|q| Rect::from_two_pos(q[0].pos, q[3].pos))).collect();
             quads
         };
-        let (ours, egui) = (line(Screen::new(MONO, 1)), line(Screen::with_egui_text(MONO, 1)));
+        let (ours, egui) = (line(Screen::new(MONO, 1)), line(Screen::with_egui_text(Faces::shipped(MONO), 1)));
         assert_eq!(ours.len(), egui.len(), "a quad a letter");
         for (a, b) in ours.iter().zip(&egui) {
             // the same line: each glyph's box within a pixel and a half (egui hints its outlines, ab_glyph does not)
             assert!((a.center() - b.center()).length() < 1.5 && (a.size() - b.size()).length() < 3.0, "{a:?} {b:?}");
         }
         // the mono face is 0.6 em wide in egui too: what the panel lays out with
-        let mut screen = Screen::with_egui_text(MONO, 1);
+        let mut screen = Screen::with_egui_text(Faces::shipped(MONO), 1);
         screen.frame((320, 240));
         let ctx = screen.context().expect("egui's context");
         let w = ctx.fonts_mut(|f| f.layout_no_wrap("MMMMMMMMMM".into(), egui::FontId::monospace(28.0), Color32::WHITE).size().x);
@@ -579,8 +599,22 @@ mod tests {
 
     #[cfg(feature = "egui-text")]
     #[test]
+    fn egui_sets_the_sans_where_the_list_measured_it() {
+        let faces = Faces::shipped(MONO);
+        let mut d = DrawList::with_widths(Arc::new(faces.widths()));
+        let w = d.sans(0.0, 0.0, 20.0, "Willkommen", [1.0; 4]);
+        let mut screen = Screen::with_egui_text(faces, 1);
+        screen.set(0, Some(Layer { list: d, scale: 1.0, grid: 1.0, face: Face::Mono }));
+        let p = screen.frame((640, 480)).expect("a frame");
+        let right = meshes(&p).iter().flat_map(|m| m.vertices.iter().map(|v| v.pos.x)).fold(0.0f32, f32::max);
+        // the last glyph's ink ends a little before its advance does
+        assert!(right < w && right > w - 4.0, "{right} {w}");
+    }
+
+    #[cfg(feature = "egui-text")]
+    #[test]
     fn input_reaches_egui_and_a_new_context_sends_everything_again() {
-        let mut screen = Screen::with_egui_text(MONO, 1);
+        let mut screen = Screen::with_egui_text(Faces::shipped(MONO), 1);
         screen.frame((640, 480));
         screen.input(Input::Point(10.0, 20.0));
         assert!(screen.frame((640, 480)).is_some(), "input runs a frame");

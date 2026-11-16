@@ -112,6 +112,7 @@ impl Panels {
     /// height it drew last frame); places nothing may cover
     pub fn layout(&mut self, d: &DrawList, t: &Tokens, (size, top): ((f32, f32), f32), fixed: &[Rect], shown: &[(&'static str, f32, Option<f32>)]) {
         let m = Metrics::of(t, d);
+        self.floats.measure_names(|name| d.sans_width(t.size.font, name));
         let extra = self.settings.map(|(w, h)| (SETTINGS, w, Some(h)));
         let shown: Vec<(&'static str, f32, Option<f32>)> = shown.iter().copied().chain(extra).collect();
         self.known = shown.iter().filter(|(_, _, h)| h.is_some()).map(|(id, ..)| *id).collect();

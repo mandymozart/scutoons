@@ -10,6 +10,7 @@ use std::time::Duration;
 /// a module build is at most 4 MB (the API refuses larger ones); a little over it is read so a larger file fails its hash
 const MAX_MODULE_BYTES: u64 = 5 << 20;
 
+#[derive(Clone)]
 pub struct Api {
     /// `http://127.0.0.1:9000/api`, `https://api.scutoons.com/api`
     pub base: String,
@@ -81,12 +82,16 @@ impl Api {
     }
 
     /// Save `doc` as a new draft; the version the server gave it. Kept in the cache either way.
-    pub fn save(&self, id: &str, doc: &serde_json::Value) -> Result<u64, String> {
+    pub fn save(&self, id: &str, doc: &serde_json::Value) -> Result<u64, Refusal> {
         self.keep(id, &serde_json::to_string_pretty(doc).unwrap_or_default());
         let url = format!("{}/shows/{id}", self.base);
         let body = serde_json::json!({ "content": doc, "message": "deck editor" });
-        let r = self.auth(Self::agent().put(&url)).send_json(body).map_err(|e| format!("{url}: {e} – kept in the cache"))?;
-        let v: serde_json::Value = r.into_json().map_err(|e| e.to_string())?;
+        let r = match self.auth(Self::agent().put(&url)).send_json(body) {
+            Ok(r) => r,
+            Err(ureq::Error::Status(code, r)) => return Err(self.refusal(&format!("show:{id}"), code, &r.into_json().unwrap_or_default())),
+            Err(e) => return Err(Refusal::Offline(format!("{url}: {e} – kept in the cache"))),
+        };
+        let v: serde_json::Value = r.into_json().map_err(|e| Refusal::Other(format!("{url}: {e}")))?;
         Ok(v.pointer("/version/version").or_else(|| v.get("version")).and_then(|x| x.as_u64()).unwrap_or_default())
     }
 }
@@ -120,12 +125,12 @@ impl Api {
 
     /// Save `content` as a new draft of `key` on `base` (the version it was read at; None = the first) → the new version.
     /// Someone else's newer save is a 409, said in words: nothing is overwritten.
-    pub fn save_draft(&self, key: &str, content: &serde_json::Value, base: Option<u64>, message: &str) -> Result<u64, String> {
+    pub fn save_draft(&self, key: &str, content: &serde_json::Value, base: Option<u64>, message: &str) -> Result<u64, Refusal> {
         self.put(&format!("entities/{key}"), key, content, base, message)
     }
 
     /// A deck scene's draft goes through `/api/scenes/<id>` (the server stamps its `version`), the same way.
-    pub fn save_scene(&self, id: &str, content: &serde_json::Value, base: Option<u64>, message: &str) -> Result<u64, String> {
+    pub fn save_scene(&self, id: &str, content: &serde_json::Value, base: Option<u64>, message: &str) -> Result<u64, Refusal> {
         self.put(&format!("scenes/{id}"), &format!("scene:{id}"), content, base, message)
     }
 
@@ -153,16 +158,16 @@ impl Api {
         }
     }
 
-    fn put(&self, path: &str, key: &str, content: &serde_json::Value, base: Option<u64>, message: &str) -> Result<u64, String> {
+    fn put(&self, path: &str, key: &str, content: &serde_json::Value, base: Option<u64>, message: &str) -> Result<u64, Refusal> {
         let url = format!("{}/{path}", self.base);
         let body = serde_json::json!({ "content": content, "base": base, "message": message });
         match self.auth(Self::agent().put(&url)).send_json(body) {
             Ok(r) => {
-                let v: serde_json::Value = r.into_json().map_err(|e| format!("{url}: {e}"))?;
-                v.pointer("/version/id").and_then(|x| x.as_u64()).ok_or_else(|| format!("{url}: the answer has no version"))
+                let v: serde_json::Value = r.into_json().map_err(|e| Refusal::Other(format!("{url}: {e}")))?;
+                v.pointer("/version/id").and_then(|x| x.as_u64()).ok_or_else(|| Refusal::Other(format!("{url}: the answer has no version")))
             }
-            Err(ureq::Error::Status(code, r)) => Err(self.refused_words(key, code, &r.into_json().unwrap_or_default())),
-            Err(e) => Err(format!("{url}: {e} – not saved")),
+            Err(ureq::Error::Status(code, r)) => Err(self.refusal(key, code, &r.into_json().unwrap_or_default())),
+            Err(e) => Err(Refusal::Offline(format!("{url}: {e} – not saved"))),
         }
     }
 
@@ -195,6 +200,30 @@ impl Api {
         }
         refused_words(key, code, body)
     }
+
+    fn refusal(&self, key: &str, code: u16, body: &serde_json::Value) -> Refusal {
+        let words = self.refused_words(key, code, body);
+        match code {
+            409 => Refusal::Conflict { theirs: body.pointer("/latest/id").and_then(serde_json::Value::as_u64), words },
+            _ => Refusal::Other(words),
+        }
+    }
+}
+
+/// why a save did not land: no answer (kept locally, sent again later), someone else's newer version, or a refusal
+#[derive(Debug, Clone, PartialEq)]
+pub enum Refusal {
+    Offline(String),
+    Conflict { theirs: Option<u64>, words: String },
+    Other(String),
+}
+
+impl std::fmt::Display for Refusal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Refusal::Offline(w) | Refusal::Other(w) | Refusal::Conflict { words: w, .. } => f.write_str(w),
+        }
+    }
 }
 
 /// a document's newest draft: its JSON and the version a save names as `base`
@@ -212,7 +241,8 @@ pub fn refused_words(key: &str, code: u16, body: &serde_json::Value) -> String {
             let latest = &body["latest"];
             let who = latest["author_email"].as_str().filter(|w| !w.is_empty()).map(|w| format!(" by {w}")).unwrap_or_default();
             let when = latest["created_at"].as_str().map(|w| format!(" at {w}")).unwrap_or_default();
-            format!("{key}: someone saved a newer version{who}{when} – nothing was overwritten; load the newest and save again")
+            let theirs = latest["id"].as_u64().map(|v| format!(" (v{v})")).unwrap_or_default();
+            format!("{key}: someone saved a newer version{theirs}{who}{when} – nothing was overwritten; yours is kept locally")
         }
         401 => format!("{key}: signed out – approve the editor on the account page, then save again"),
         403 => format!("{key}: this account may not do that{}", if said.is_empty() { String::new() } else { format!(" – {said}") }),
@@ -227,7 +257,8 @@ mod tests {
     #[test]
     fn a_refused_draft_is_said_in_words() {
         let conflict = serde_json::json!({ "error": "conflict", "latest": { "author_email": "ana@scutoons.test", "created_at": "2026-11-15T10:00:00Z" } });
-        assert_eq!(refused_words("rig:character.catpope", 409, &conflict), "rig:character.catpope: someone saved a newer version by ana@scutoons.test at 2026-11-15T10:00:00Z – nothing was overwritten; load the newest and save again");
+        assert_eq!(refused_words("rig:character.catpope", 409, &conflict), "rig:character.catpope: someone saved a newer version by ana@scutoons.test at 2026-11-15T10:00:00Z – nothing was overwritten; yours is kept locally");
+        assert!(refused_words("k", 409, &serde_json::json!({ "latest": { "id": 830 } })).starts_with("k: someone saved a newer version (v830) – "));
         assert!(refused_words("k", 409, &serde_json::json!({})).starts_with("k: someone saved a newer version – "));
         assert!(refused_words("k", 401, &serde_json::json!({})).contains("signed out"));
         assert_eq!(refused_words("k", 403, &serde_json::json!({ "message": "This needs the creator role." })), "k: this account may not do that – This needs the creator role.");
@@ -238,8 +269,9 @@ mod tests {
     fn offline_drafts_say_so() {
         let api = Api::with_cache("http://127.0.0.1:9/api".into(), std::env::temp_dir().join("deck-editor-api-test"));
         assert!(api.draft("moods").unwrap_err().starts_with("http://127.0.0.1:9/api/entities/moods?draft=1"));
-        assert!(api.save_draft("moods", &serde_json::json!({}), Some(3), "deck editor").unwrap_err().ends_with("not saved"));
-        assert!(api.save_scene("duet", &serde_json::json!({}), None, "deck editor").unwrap_err().starts_with("http://127.0.0.1:9/api/scenes/duet: "));
+        assert!(matches!(api.save_draft("moods", &serde_json::json!({}), Some(3), "deck editor"), Err(Refusal::Offline(w)) if w.ends_with("not saved")));
+        assert!(api.save_scene("duet", &serde_json::json!({}), None, "deck editor").unwrap_err().to_string().starts_with("http://127.0.0.1:9/api/scenes/duet: "));
+        assert!(matches!(api.save("show", &serde_json::json!({})), Err(Refusal::Offline(_))));
         assert!(api.scene_draft("duet").unwrap_err().starts_with("http://127.0.0.1:9/api/scenes/duet?draft=1"));
     }
 }

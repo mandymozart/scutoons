@@ -9,8 +9,8 @@
 //!   place the show runner's sheets (#533): Session (session.rs), Vote (vote.rs).
 //! - **Show** (author.rs): the conductors tree with a breadcrumb into a sub conductor, the rows band, the inspector, the
 //!   seats, each deck's answer to the last flash; the 2D node overlay over the dimmed stage (#446) with a 2D / 3D switch; the
-//!   cue sheet and the problems list in its place (sheets.rs); save and load through /api/shows (api.rs). #537 (rows.rs):
-//!   a row added, renamed, removed; a cell's mode and its piece, picked from the published scenes of the toon's book;
+//!   cue sheet and the problems list in its place (sheets.rs); save and load through /api/shows (api.rs). rows.rs: rows,
+//!   columns and groups named in place in the band's heads, columns grouped, a cell's content picked in the cell;
 //!   #539 (events.rs): the event a row fires on, picked from the toon's story events. #551 (ask.rs): several cells of a
 //!   row selected (shift), the right click's typeahead on them – a new question, the story's, add to, leave –, the
 //!   question in the cell inspector, the wide cell in the rows band and in Perform's matrix. The scene list beside the
@@ -34,6 +34,7 @@ pub mod new_scene;
 pub mod perform;
 mod roles;
 mod rows;
+mod saving;
 mod scenes;
 mod session;
 mod sheets;
@@ -81,8 +82,6 @@ pub enum Sheet {
     Session,
     /// #533: the vote's conductor side – open a vote, its tally per group, Hold / Close now / Override, the result (vote.rs)
     Vote,
-    /// #537: the piece picker of the selected cell – the published scenes of the toon's book (rows.rs)
-    Piece,
     /// #539: the event picker of the inspected row – the toon's story events (events.rs)
     Event,
     /// a new scene, or one from the server recast (new_scene.rs)
@@ -105,7 +104,6 @@ impl Sheet {
             "who" => Some(Sheet::Who),
             "session" => Some(Sheet::Session),
             "vote" => Some(Sheet::Vote),
-            "piece" => Some(Sheet::Piece),
             "event" => Some(Sheet::Event),
             "scene" => Some(Sheet::Scene),
             "demos" => Some(Sheet::Demos),
@@ -131,6 +129,11 @@ pub enum Hit {
     Crumb(usize),
     /// a row of the document shown: the inspector shows it (Show)
     Row(usize),
+    /// a column's head (the matrix's order): it alone is selected; with shift or ctrl it joins the selection
+    Column(usize),
+    ColumnAlso(usize),
+    /// a group's head (the matrix's groups): the group and its columns are selected
+    Group(usize),
     /// #478: a role of the document shown (deck-show's `roles` order): the tree and its column mark it (Show)
     Role(usize),
     /// #478: a new role, the selected role's name field, one of its filter's toggles, its remove (asks first)
@@ -150,8 +153,8 @@ pub enum Hit {
     RowAdd,
     RowName,
     RowRemove,
-    /// #537: a cell of the document shown (row, column as the matrix counts): the cell inspector shows it; one of its mode
-    /// chips; its piece field (opens the picker); a line of the picker; the picker's typed field
+    /// a cell of the document shown (row, column as the matrix counts): the cell inspector shows it; one of its mode
+    /// chips; its piece field (opens the cell's typeahead)
     Cell(usize, usize),
     /// #551: a cell pressed with shift: its column joins the selection of the inspected row (or leaves it); a field, chip
     /// or toggle of the selected cell's question (ask.rs)
@@ -159,8 +162,6 @@ pub enum Hit {
     Ask(ask::AskHit),
     CellMode(usize),
     CellPiece,
-    PiecePick(usize),
-    PieceType,
     /// a scene of the list beside the rows band (a press starts its drag); the list's filter field
     Scene(usize),
     SceneFind,
@@ -175,7 +176,8 @@ pub enum Hit {
     FiresOn,
     EventPick(usize),
     EventType,
-    Save,
+    /// the show's stage background: a click types it
+    Background,
     Load,
     /// the tree resolved to exact versions: the list of the devices to flash opens (#471)
     Flash,
@@ -212,10 +214,11 @@ pub enum Hit {
 }
 
 impl Hit {
-    /// #551: the same press with shift held: a cell joins the selection
+    /// the same press with shift (or ctrl) held: a cell, a column joins the selection
     pub fn with_shift(self) -> Hit {
         match self {
             Hit::Cell(r, c) => Hit::CellAlso(r, c),
+            Hit::Column(c) => Hit::ColumnAlso(c),
             other => other,
         }
     }
@@ -235,6 +238,9 @@ pub struct Host {
     /// #537, #551: the columns whose cells of the inspected row are selected (a set within one row; shift adds one); the
     /// cell inspector shows the last (`cell()`)
     pub cells: Vec<String>,
+    /// the columns whose heads are selected (shift or ctrl adds one), and the group whose head is
+    pub columns: Vec<String>,
+    pub group: Option<String>,
     /// #551: the right click's typeahead on the selected cells while it is open (ask.rs)
     pub context: Option<ask::Context>,
     /// the Show and the Perform workspace's floating panels; the toolbar's place for the view switch; what the info says
@@ -252,8 +258,6 @@ pub struct Host {
     /// there is none
     pub book: Option<std::sync::Arc<deck_space::rig::book::Book>>,
     pub book_why: Option<String>,
-    /// #537: the piece picker's typed query (while it is not being typed)
-    pub piece_query: String,
     /// the scene list beside the rows band: its filter, the scene being dragged, the core's refusal where one was dropped
     pub scene_query: String,
     pub dragging: Option<scenes::Dragging>,
@@ -282,6 +286,8 @@ pub struct Host {
     pub hits: Vec<(Rect, Hit)>,
     /// #471: the flash list while it is open
     pub flashing: Option<flash::Flashing>,
+    /// each show document edited saves itself (saving.rs), by its id
+    pub saves: BTreeMap<String, crate::autosave::Autosave<String>>,
     /// #531: the Session sheet's place and lists
     pub session: session::Session,
     /// #533: what the Vote sheet keeps
@@ -352,7 +358,7 @@ impl Host {
         show_panels.floats.scrolls_itself("rows");
         perform_panels.floats.scrolls_itself("matrix");
         let scroll = deck_kit::editor::table::Scroll::default();
-        Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), context: None, show_panels, perform_panels, show_scroll: scroll, perform_scroll: scroll, band: None, view_slot: Rect::default(), help: None, address: None, book: None, book_why: None, piece_query: String::new(), scene_query: String::new(), dragging: None, refused: None, toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, session: session::Session::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), build: None, to_build: None, compose: new_scene::Composer::default(), to_stage: None, demos: Vec::new(), demo_book: None, link, api }
+        Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), columns: Vec::new(), group: None, context: None, show_panels, perform_panels, show_scroll: scroll, perform_scroll: scroll, band: None, view_slot: Rect::default(), help: None, address: None, book: None, book_why: None, scene_query: String::new(), dragging: None, refused: None, toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, saves: BTreeMap::new(), session: session::Session::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), build: None, to_build: None, compose: new_scene::Composer::default(), to_stage: None, demos: Vec::new(), demo_book: None, link, api }
     }
 
     /// the document at the end of the path (the top's when a step is missing)
@@ -477,6 +483,8 @@ impl Host {
                 self.row = i;
                 self.role = None;
                 self.address = None;
+                self.columns.clear();
+                self.group = None;
             }
             Hit::Role(i) => {
                 self.role = deck_show::roles::roles(self.shown(), None).get(i).map(|r| r.id.clone());
@@ -485,12 +493,15 @@ impl Host {
             Hit::RoleAdd | Hit::RoleName | Hit::RoleFact(_) | Hit::RoleRemove | Hit::AskYes | Hit::AskNo => self.roles_press(hit),
             Hit::WhoMove(_) | Hit::WhoRename(_) | Hit::WhoKick(_) | Hit::MenuPick(_) => self.who_press(hit),
             Hit::Ask(h) => self.ask_press(h),
-            Hit::RowAdd | Hit::RowName | Hit::RowRemove | Hit::Cell(..) | Hit::CellAlso(..) | Hit::CellMode(_) | Hit::CellPiece | Hit::PiecePick(_) | Hit::PieceType | Hit::CellFact(_) | Hit::AddressPick(_) | Hit::AddressFact(_) => {
+            Hit::RowAdd | Hit::RowName | Hit::RowRemove | Hit::Cell(..) | Hit::CellAlso(..) | Hit::CellMode(_) | Hit::CellPiece | Hit::Column(_) | Hit::ColumnAlso(_) | Hit::Group(_) | Hit::CellFact(_) | Hit::AddressPick(_) | Hit::AddressFact(_) => {
                 self.rows_press(hit);
             }
             Hit::FiresOn | Hit::EventPick(_) | Hit::EventType => self.events_press(hit),
             Hit::Scene(_) | Hit::SceneFind | Hit::SceneBuild(_) => self.scenes_press(hit),
-            Hit::Save => self.save(),
+            Hit::Background => {
+                let now = self.shown().background.as_ref().map_or("", |b| b.text()).to_string();
+                self.typing = Some((roles::Typing::Background, deck_kit::base::text::Field::with(&now)));
+            }
             Hit::Load => self.load(),
             Hit::Flash => self.open_flash(),
             Hit::FlashTick(_) | Hit::FlashQuick(_) | Hit::FlashType | Hit::FlashLock | Hit::FlashForce | Hit::FlashAsk | Hit::FlashConfirm | Hit::FlashCancel => self.flash_press(hit),
@@ -519,6 +530,15 @@ impl Host {
             Hit::Compose(c) => self.compose_press(c),
             Hit::Demo(i) => self.demo_press(i),
         }
+    }
+
+    /// A key in Show or Perform: the open typeahead or typed field first, then (Show only) the workspace's keys –
+    /// ctrl+r, ctrl+g, Enter, Delete (rows.rs). True = taken.
+    pub fn key(&mut self, key: &winit::keyboard::Key, ctrl: bool, show: bool) -> bool {
+        if self.type_key(key) {
+            return true;
+        }
+        show && self.asking.is_none() && self.show_key(key, ctrl)
     }
 
     /// a problem's line pressed: its row, cell or seat is selected (deck-show's `Points`)
@@ -584,18 +604,11 @@ impl Host {
         deck_show::resolve(self.sub.conductor().show(), &lib).map_err(|problems| format!("not flashed: {}", problems.iter().map(ToString::to_string).collect::<Vec<_>>().join("; ")))
     }
 
-    fn save(&mut self) {
-        let show = self.shown().clone();
-        self.status = match serde_json::to_value(&show).map_err(|e| e.to_string()).and_then(|v| self.api.save(&show.id, &v)) {
-            Ok(v) => format!("saved {} as version {v}", show.id),
-            Err(e) => format!("not saved: {e}"),
-        };
-    }
-
     fn load(&mut self) {
         let id = self.shown().id.clone();
         match self.api.load(&id).and_then(|(t, why)| deck_show::document::open(&t).map(|s| (s, why))) {
             Ok((s, why)) => {
+                self.saves.remove(&id);
                 self.status = why.map_or(format!("loaded {}@{}", s.id, s.version), |w| format!("{}@{} from the cache: {w}", s.id, s.version));
                 if self.path.is_empty() {
                     // a new document at the top: the conductor starts over on it (what plays stays until a row changes it)

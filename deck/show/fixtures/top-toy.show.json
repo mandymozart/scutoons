@@ -48,7 +48,7 @@
     },
     {
       "id": "finale",
-      "fire": { "event": "ch3.end", "how": "hand" },
+      "fire": { "event": "ch3.end", "how": "manual" },
       "cells": {
         "left": { "mode": "black" },
         "right": { "mode": "black" },

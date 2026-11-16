@@ -53,6 +53,8 @@ pub struct CellView {
     pub text: String,
     /// `keep`: nothing happens on this column (drawn quiet)
     pub keep: bool,
+    /// the empty cell, a stop slot: launched (or its row fired) the column stops
+    pub empty: bool,
     /// this row's cell is what plays there now
     pub on: bool,
     /// it plays because the operator launched it off its row (marked, SHOW.md §7)
@@ -124,8 +126,10 @@ pub struct RowView {
     pub id: String,
     /// 1-based, as the operator counts
     pub number: usize,
-    /// `roar · suggest`, `start · auto`, `hand`
+    /// `roar · suggest`, `start · auto`, `manual`
     pub fires: String,
+    /// the head's chip; none for a manual row
+    pub chip: Option<FireChip>,
     /// when what it launches starts: `now`, `next bar`, `next phrase`
     pub moment: String,
     pub state: State,
@@ -222,7 +226,7 @@ pub fn cell_text(cell: &Cell) -> String {
         Cell::Values { values, .. } => format!("values · {}", values_text(values)),
         Cell::Keep => "↑".into(),
         Cell::Mirror { of } => format!("= {of}"),
-        Cell::Black => "black".into(),
+        Cell::Black => "stop".into(),
         Cell::Go { row } => format!("go to {row}"),
         Cell::Free => "free".into(),
         Cell::Look { look, fade: None } => format!("look {look}"),
@@ -246,7 +250,7 @@ pub fn how_text(how: How) -> &'static str {
     match how {
         How::Auto => "auto",
         How::Suggest => "suggest",
-        How::Hand => "hand",
+        How::Manual => "manual",
     }
 }
 
@@ -266,13 +270,37 @@ pub fn word_text(w: Word) -> &'static str {
     }
 }
 
-/// `roar · suggest`, or `hand` for a row only the operator fires
+/// `roar · suggest`, or `manual` for a row only the operator fires
 pub fn fires(fire: &Fire) -> String {
     match &fire.event {
         Some(e) => format!("{e} · {}", how_text(fire.how)),
-        None => "hand".into(),
+        None => how_text(How::Manual).into(),
     }
 }
+
+/// How a row fires, drawn as a chip in its head: an event that fires it by itself (`auto`, a filled bolt) or offers it and
+/// waits for GO (`suggest`, outlined). A manual row has none: it waits for its ▶ or GO.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FireChip {
+    pub event: String,
+    pub auto: bool,
+    pub moment: Moment,
+    /// a suggestion of this row stands: it waits for GO
+    pub waiting: bool,
+}
+
+/// the chip of `fire` (none: manual, or no event)
+pub fn fire_chip(fire: &Fire, waiting: bool) -> Option<FireChip> {
+    let auto = match fire.how {
+        How::Auto => true,
+        How::Suggest => false,
+        How::Manual => return None,
+    };
+    Some(FireChip { event: fire.event.clone()?, auto, moment: fire.moment, waiting: waiting && !auto })
+}
+
+/// what a waiting suggestion says beside its chip
+pub const WAITS: &str = "waits for GO";
 
 /// the inspector's line that says what fires a row (#539: pressed, it opens the event picker)
 pub const FIRES_ON: &str = "fires on";
@@ -299,7 +327,7 @@ pub fn line(what: &Logged) -> String {
         Logged::Fired { row, origin } => format!("fired {row} ({})", origin_text(*origin)),
         Logged::Suggested { row } => format!("suggests {row}"),
         Logged::Withdrawn { row } => format!("{row}: suggestion gone"),
-        Logged::Ignored { row, event } => format!("{event}: {row} is by hand, ignored"),
+        Logged::Ignored { row, event } => format!("{event}: {row} is manual, ignored"),
         Logged::NoRow { event } => format!("{event}: no row listens"),
         Logged::NoId { kind } if kind.is_empty() => "a story event without an id: dropped – no row can listen to it".into(),
         Logged::NoId { kind } => format!("a {kind} without an id: dropped – no row can listen to it"),
@@ -421,7 +449,7 @@ fn cell_view(row: &str, cell: Option<&Cell>, stage: Option<&OnStage>) -> CellVie
         (Cell::Values { .. }, None | Some(Playing::Black)) => Some("nothing plays".to_string()),
         _ => None,
     };
-    CellView { text: cell_text(cell), keep: false, on: mine.is_some(), hand: mine.is_some_and(|s| s.off_row), problem, ask: None, state: state_of(row, stage, None), progress: None }
+    CellView { text: cell_text(cell), keep: false, empty: matches!(cell, Cell::Black), on: mine.is_some(), hand: mine.is_some_and(|s| s.off_row), problem, ask: None, state: state_of(row, stage, None), progress: None }
 }
 
 fn suggested(show: &Show, s: &Suggestion) -> Suggested {
@@ -488,7 +516,8 @@ fn matrix_of(sub: &Subtree, ms: Option<u64>) -> Matrix {
                 (true, false) => State::Playing,
                 _ => State::Idle,
             };
-            RowView { id: r.id.clone(), number: i + 1, fires: fires(&r.fire), moment: moment_text(r.fire.moment).into(), state, current, suggested: c.suggestion().is_some_and(|s| s.row == r.id), cells }
+            let suggested = c.suggestion().is_some_and(|s| s.row == r.id);
+            RowView { id: r.id.clone(), number: i + 1, fires: fires(&r.fire), chip: fire_chip(&r.fire, suggested), moment: moment_text(r.fire.moment).into(), state, current, suggested, cells }
         })
         .collect();
     Matrix { groups: groups(&columns), columns, rows, suggestion: c.suggestion().map(|s| suggested(show, s)), go: go_text(show, c.current(), c.suggestion()) }
@@ -505,6 +534,7 @@ pub fn plan(show: &Show) -> Matrix {
             id: r.id.clone(),
             number: i + 1,
             fires: fires(&r.fire),
+            chip: fire_chip(&r.fire, false),
             moment: moment_text(r.fire.moment).into(),
             state: State::Idle,
             current: false,
@@ -574,8 +604,8 @@ pub struct Cue {
 pub fn trigger(fire: &Fire) -> String {
     let Some(e) = &fire.event else {
         return match fire.moment {
-            Moment::Now => "by hand".into(),
-            m => format!("by hand · {}", moment_text(m)),
+            Moment::Now => "manual".into(),
+            m => format!("manual · {}", moment_text(m)),
         };
     };
     let mut s = format!("{e} · {}", how_text(fire.how));
@@ -775,7 +805,7 @@ mod tests {
         let filters: Vec<Option<&str>> = m.columns.iter().map(|c| c.filter.as_deref()).collect();
         assert_eq!(filters, [Some("guest and up"), Some("guest and up"), None, None], "#478: a role's header says who may take it");
         assert_eq!(m.rows[1].fires, "roar · suggest");
-        assert_eq!(m.rows[2].fires, "hand");
+        assert_eq!(m.rows[2].fires, "manual");
         assert_eq!(m.rows[1].cells[0].text, "values · light 0.8");
         assert!(m.rows[1].cells[2].keep && m.rows[1].cells[2].text == "↑");
         assert_eq!(m.go, "GO: next row 1 arrival");
@@ -915,7 +945,7 @@ mod tests {
         let show = parse(include_str!("../fixtures/top-toy.show.json")).unwrap();
         let cues = cue_sheet(&show);
         assert_eq!(cues.len(), 4);
-        assert_eq!(cues[0].trigger, "by hand");
+        assert_eq!(cues[0].trigger, "manual");
         assert_eq!(cues[0].does[0], ("left".to_string(), "plays scene:nave · light 0.2".to_string()));
         assert_eq!(cues[0].does[1], ("right".to_string(), "shows what left shows".to_string()));
         assert_eq!(cues[0].sends, ["lamps · dmx"]);
@@ -924,7 +954,7 @@ mod tests {
         assert_eq!(sends, &[("lamps".to_string(), "look warm · strobe @1 · panel @10".to_string())]);
         assert_eq!(cues[2].trigger, "ch3.yellowmouse-enters · suggest · hold 1.5 s · next bar");
         assert_eq!(cues[2].sends, ["character:yellowmouse > dance:samba where group left", "location:* > close_doors"]);
-        assert_eq!(cues[3].trigger, "ch3.end · hand · now");
+        assert_eq!(cues[3].trigger, "ch3.end · manual · now");
     }
 
     #[test]

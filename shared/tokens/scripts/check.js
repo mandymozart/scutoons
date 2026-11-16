@@ -36,6 +36,11 @@ const fonts = read('fonts.css');
 const referenced = new Set();
 for (const [, url] of fonts.matchAll(/url\(([^)]+)\)/g)) {
 	const path = url.replace(/['"]/g, '');
+	// the licensed ABC Areal lives only on the CDN
+	if (/^https?:/.test(path)) {
+		if (!path.startsWith('https://cdn.scutoons.com/fonts/abc-areal/')) errors.push(`fonts.css: ${path} is no font of ours`);
+		continue;
+	}
 	referenced.add(path.replace(/^\.\/fonts\//, ''));
 	if (!existsSync(join(root, path))) errors.push(`fonts.css: ${path} does not exist`);
 }

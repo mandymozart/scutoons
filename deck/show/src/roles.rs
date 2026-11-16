@@ -77,7 +77,16 @@ pub enum Edit {
     Remove { id: String },
     /// one fact of its filter on or off
     Fact { id: String, fact: Fact },
+    /// these columns (outlets) one group named `name`, a fresh name when empty; adjacent only (validate refuses a split)
+    Group { ids: Vec<String>, name: String },
+    /// these columns out of their group
+    Ungroup { ids: Vec<String> },
+    /// a group's name for every column in it
+    GroupName { from: String, to: String },
 }
+
+/// what a group is called when it is made, before it is named
+pub const NEW_GROUP: &str = "group";
 
 /// An edit made: the changed document, what it did in words, the role to select after it.
 #[derive(Debug, Clone, PartialEq)]
@@ -90,6 +99,14 @@ pub struct Edited {
 /// the index of role `id` (a stage outlet) in `show`
 fn role_at(show: &Show, id: &str) -> Result<usize, String> {
     show.outlets.iter().position(|o| o.id == id && o.kind == OutletKind::Stage).ok_or_else(|| format!("no role '{id}'"))
+}
+
+/// the indices of the outlets `ids` (a seat has no group: refused)
+fn outlets_at(show: &Show, ids: &[String]) -> Result<Vec<usize>, String> {
+    if ids.is_empty() {
+        return Err("not changed: select the columns first".into());
+    }
+    ids.iter().map(|id| show.outlets.iter().position(|o| o.id == *id).ok_or_else(|| format!("not changed: '{id}' is a seat, a seat has no group"))).collect()
 }
 
 /// Make `e` on `show`. The document is checked after it (`validate`): an edit that adds a problem is refused, with the
@@ -106,10 +123,45 @@ pub fn edit(show: &Show, e: &Edit) -> Result<Edited, String> {
             (format!("role {id} added: {GUEST_AND_UP} may take it"), Some(id))
         }
         Edit::Label { id, label } => {
-            let i = role_at(&next, id)?;
+            // any column with a name for people: a role, a device outlet
+            let i = next.outlets.iter().position(|o| o.id == *id).ok_or_else(|| format!("no column '{id}' to name"))?;
             let label = label.trim();
             next.outlets[i].label = (!label.is_empty() && label != id).then(|| label.to_string());
-            (format!("role {id} is called {}", next.outlets[i].name()), Some(id.clone()))
+            let what = if next.outlets[i].kind == OutletKind::Stage { "role" } else { "column" };
+            (format!("{what} {id} is called {}", next.outlets[i].name()), (next.outlets[i].kind == OutletKind::Stage).then(|| id.clone()))
+        }
+        Edit::Group { ids, name } => {
+            let at = outlets_at(&next, ids)?;
+            let taken = |n: &String| show.outlets.iter().any(|o| o.group.as_ref() == Some(n));
+            let name = match name.trim() {
+                "" => (1..).map(|n| if n == 1 { NEW_GROUP.to_string() } else { format!("{NEW_GROUP}-{n}") }).find(|n| !taken(n)).unwrap_or_default(),
+                n => n.to_string(),
+            };
+            for i in at {
+                next.outlets[i].group = Some(name.clone());
+            }
+            (format!("{} grouped as {name}", ids.join(" · ")), None)
+        }
+        Edit::Ungroup { ids } => {
+            for i in outlets_at(&next, ids)? {
+                next.outlets[i].group = None;
+            }
+            (format!("{} out of their group", ids.join(" · ")), None)
+        }
+        Edit::GroupName { from, to } => {
+            let to = to.trim();
+            if to.is_empty() {
+                return Err("not changed: a group needs a name (ungroup its columns to drop it)".into());
+            }
+            let mut n = 0;
+            for o in next.outlets.iter_mut().filter(|o| o.group.as_deref() == Some(from.as_str())) {
+                o.group = Some(to.to_string());
+                n += 1;
+            }
+            if n == 0 {
+                return Err(format!("no group '{from}'"));
+            }
+            (format!("group {from} is called {to}"), None)
         }
         Edit::Remove { id } => {
             let i = role_at(&next, id)?;

@@ -31,6 +31,41 @@ pub enum Field {
     Background,
 }
 
+/// The stage background's row as a rig, a scene, a show or a module shows it: its own, else what it falls back to.
+#[derive(Debug, Clone, PartialEq)]
+pub struct BackgroundRow {
+    pub value: String,
+    pub swatch: Option<[f32; 3]>,
+    /// said under the row: a video that does not play yet, how a module sets it
+    pub note: Option<String>,
+}
+
+// TODO(#326): a video background plays once the deck decodes video
+pub const VIDEO_NOTE: &str = "a video does not play on the stage yet: black";
+
+pub fn background_row(own: Option<&deck_space::Background>, unset: &str) -> BackgroundRow {
+    let Some(b) = own else { return BackgroundRow { value: format!("none · {unset}"), swatch: None, note: None } };
+    let note = b.video.is_some().then(|| VIDEO_NOTE.to_string());
+    BackgroundRow { value: b.text().to_string(), swatch: b.rgb(), note }
+}
+
+/// The row drawn, its note under it; the rect a click types into.
+pub fn background(d: &mut DrawList, t: &Tokens, area: Rect, y: &mut f32, row: &BackgroundRow) -> Rect {
+    let top = *y;
+    let room = ((area.w - (area.w * 0.42).min(96.0) - t.size.tree_row) / d.advance(t.size.font)).max(0.0) as usize;
+    controls::swatch_row(d, t, area, y, "background", &controls::fit(&row.value, room), row.swatch);
+    let at = Rect { x: area.x, y: top, w: area.w, h: *y - top };
+    if let Some(note) = &row.note {
+        let small = t.size.small;
+        for line in deck_kit::editor::info::wrap(note, (area.w / d.advance(small)).max(8.0) as usize).into_iter().take(3) {
+            d.text(area.x, *y, small, &line, t.color.muted);
+            *y += small * 1.5;
+        }
+        *y += t.size.pad * 0.5;
+    }
+    at
+}
+
 fn remove(d: &mut DrawList, t: &Tokens, area: Rect, y: &mut f32, out: &mut Vec<(Rect, Field)>) {
     if let Some(r) = controls::pills(d, t, area.x, *y, t.size.row - 4.0, &["Remove"], usize::MAX).into_iter().next() {
         out.push((r, Field::Remove));
@@ -82,10 +117,8 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, stage: &Stage, sel: &Sel, 
             if !moods.is_empty() {
                 controls::row(d, t, area, &mut y, "moods", &moods);
             }
-            let top = y;
-            let background = stage.bundle.rig.background.as_ref().map_or("black", |b| b.text());
-            controls::row(d, t, area, &mut y, "background", background);
-            out.push((Rect { x: area.x, y: top, w: area.w, h: y - top }, Field::Background));
+            let row = background_row(stage.bundle.rig.background.as_ref(), "its modules', else black");
+            out.push((background(d, t, area, &mut y, &row), Field::Background));
             knobs(d, t, stage, (area, &mut y), None, hot, &mut out);
         }
         Sel::Track(id) => {
@@ -156,4 +189,29 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, stage: &Stage, sel: &Sel, 
         }
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use deck_space::Background;
+
+    /// the panel model on every holder: none says what plays instead, a colour carries its swatch, a video says it is black
+    #[test]
+    fn the_background_row_says_what_is_set() {
+        assert_eq!(background_row(None, "its rigs', else black"), BackgroundRow { value: "none · its rigs', else black".into(), swatch: None, note: None });
+        let colour = background_row(Some(&Background::colour("#000")), "x");
+        assert_eq!((colour.value.as_str(), colour.swatch, colour.note), ("#000", Some([0.0; 3]), None));
+        let image = background_row(Some(&Background::image("backgrounds/nave.webp")), "x");
+        assert_eq!((image.value.as_str(), image.swatch), ("backgrounds/nave.webp", None));
+        let video = background_row(Background::typed("loops/sky.webm").unwrap().as_ref(), "x");
+        assert_eq!(video.note.as_deref(), Some(VIDEO_NOTE));
+        let (mut d, t) = (DrawList::new(0.6), Tokens::default());
+        let area = Rect { x: 10.0, y: 20.0, w: 300.0, h: 400.0 };
+        let mut y = area.y;
+        let at = background(&mut d, &t, area, &mut y, &video);
+        assert_eq!((at.x, at.y, at.w), (10.0, 20.0, 300.0));
+        assert!((at.h - t.size.tree_row).abs() < 1e-3, "the row is what a click types into");
+        assert!(y > at.y + at.h, "its note under it");
+    }
 }

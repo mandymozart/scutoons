@@ -108,9 +108,9 @@ impl Metrics {
         Metrics { gap: s.gap, pad: s.pad, head: s.row, pill: s.row + s.rem(0.29), char_w: d.advance(s.font), rem: s.base, min: (s.panel_w, s.panel_h) }
     }
 
-    /// a folded panel's pill: grip, icon, name, chevron and – when it closes – the close
-    pub fn pill_size(&self, name: &str, closes: bool) -> (f32, f32) {
-        (2.0 * self.pad + self.rem * 4.14 + self.char_w * name.chars().count() as f32 + if closes { self.button() } else { 0.0 }, self.pill)
+    /// a folded panel's pill: grip, icon, name (`name_w` wide when measured), chevron and – when it closes – the close
+    pub fn pill_size(&self, name: &str, name_w: Option<f32>, closes: bool) -> (f32, f32) {
+        (2.0 * self.pad + self.rem * 4.14 + name_w.unwrap_or(self.char_w * name.chars().count() as f32) + if closes { self.button() } else { 0.0 }, self.pill)
     }
 
     /// the chevron's and the close's width in the chrome
@@ -151,6 +151,8 @@ pub struct View {
 #[derive(Debug, Clone)]
 struct Panel {
     spec: Spec,
+    /// its name's width in the pill, when measured
+    name_w: Option<f32>,
     place: Place,
     scroll: f32,
     /// its content scrolls itself (a table under sticky heads): the panel only grows and clips
@@ -271,7 +273,7 @@ fn sweep(r: &Rect, d: f32, obstacles: &[Rect], area: &Rect, gap: f32, horizontal
 impl Floats {
     pub fn new(specs: &[Spec]) -> Floats {
         let empty = View { whole: Rect::default(), handle: Rect::default(), fold: Rect::default(), close: Rect::default(), content: Rect::default(), scroll: 0.0, over: 0.0, collapsed: false };
-        let panels = specs.iter().map(|s| Panel { spec: *s, place: s.place, scroll: 0.0, own: false, shown: false, content: (0.0, 0.0), want: (0.0, 0.0), min: (0.0, 0.0), corner: s.place.corner, anchor: (0.0, 0.0), at: (0.0, 0.0), view: empty }).collect();
+        let panels = specs.iter().map(|s| Panel { spec: *s, name_w: None, place: s.place, scroll: 0.0, own: false, shown: false, content: (0.0, 0.0), want: (0.0, 0.0), min: (0.0, 0.0), corner: s.place.corner, anchor: (0.0, 0.0), at: (0.0, 0.0), view: empty }).collect();
         Floats { panels, area: Rect::default(), fixed: Vec::new(), m: Metrics { gap: 16.0, pad: 8.0, head: 28.0, pill: 32.0, char_w: 7.0, rem: 14.0, min: (160.0, 48.0) }, drag: None }
     }
 
@@ -293,6 +295,13 @@ impl Floats {
         }
     }
 
+    /// the panels' names measured as their pills set them
+    pub fn measure_names(&mut self, width: impl Fn(&str) -> f32) {
+        for p in &mut self.panels {
+            p.name_w = Some(width(p.spec.name));
+        }
+    }
+
     /// this frame's layout: the room inside the walls, rectangles nothing may cover, the panels shown with their content
     pub fn layout(&mut self, area: Rect, fixed: &[Rect], shown: &[Shown], m: Metrics) {
         let gap = m.gap;
@@ -311,7 +320,7 @@ impl Floats {
         let order: Vec<usize> = (0..self.panels.len()).filter(|&i| self.panels[i].shown).collect();
         for &i in &order {
             let p = &mut self.panels[i];
-            let pill = m.pill_size(p.spec.name, !p.spec.essential);
+            let pill = m.pill_size(p.spec.name, p.name_w, !p.spec.essential);
             if p.place.collapsed {
                 p.want = (pill.0.min(area.w), pill.1.min(area.h));
                 p.min = p.want;
@@ -567,7 +576,7 @@ pub fn begin(d: &mut DrawList, t: &Tokens, spec: &Spec, v: &View, pointer: (f32,
     d.icon(x, mid - grip * 0.5, grip, "grip", if hot { t.color.text } else { t.color.muted });
     d.icon(x + t.size.rem(1.15), mid - icon * 0.5, icon, spec.icon, t.color.text);
     if v.collapsed {
-        d.text(x + t.size.rem(2.72), mid - t.size.font * 0.62, t.size.font, spec.name, t.color.text);
+        d.sans(x + t.size.rem(2.72), mid - t.size.font * 0.62, t.size.font, spec.name, t.color.text);
     }
     let fold_hot = v.fold.has(pointer.0, pointer.1);
     d.icon(v.fold.x + (v.fold.w - chevron) * 0.5, mid - chevron * 0.5, chevron, if v.collapsed { "down" } else { "up" }, if fold_hot { t.color.text } else { t.color.muted });
@@ -741,7 +750,7 @@ mod tests {
         f.layout(a, &[], &shown(SIZES), M);
         let p = f.view("tree").unwrap();
         assert!(p.collapsed);
-        assert_eq!((p.whole.w, p.whole.h), M.pill_size("tree", true));
+        assert_eq!((p.whole.w, p.whole.h), M.pill_size("tree", None, true));
         assert_eq!((p.whole.x, p.whole.y), (v.whole.x, v.whole.y), "in the same corner");
         let info = f.view("info").unwrap();
         assert!(info.collapsed && info.whole.h == M.pill, "a panel can start folded");
@@ -883,7 +892,7 @@ mod tests {
         assert!(f.closable().iter().all(|(s, _)| s.id != "inspector"));
         f.toggle("inspector");
         f.layout(a, &[], &shown(SIZES), M);
-        assert_eq!(f.view("inspector").unwrap().whole.w, M.pill_size("inspector", false).0);
+        assert_eq!(f.view("inspector").unwrap().whole.w, M.pill_size("inspector", None, false).0);
     }
 
     #[test]
