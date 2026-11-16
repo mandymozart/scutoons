@@ -164,6 +164,7 @@ fn kind(
         params: Cow::Owned(params.to_vec()),
         assets: Cow::Borrowed(&[]),
         preset: None,
+        background: None,
     }
 }
 

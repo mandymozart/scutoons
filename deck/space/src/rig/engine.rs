@@ -42,6 +42,7 @@ fn note(page: &[NodeDef]) -> String {
 
 #[derive(Serialize)]
 struct Doc<'a> {
+    stage: &'a crate::scene::StageSettings,
     node: &'a [NodeDef],
     link: &'a [LinkDef],
 }
@@ -49,7 +50,7 @@ struct Doc<'a> {
 /// `scene` (a flattened rig, `Rig::flatten`, or a deck's scene) split for live-core
 pub fn lower(scene: &Scene) -> Result<Engine> {
     let (part, page, dropped) = scene.carried_part(carries);
-    let text = toml::to_string(&Doc { node: &part.nodes, link: &part.links })?;
+    let text = toml::to_string(&Doc { stage: &part.stage, node: &part.nodes, link: &part.links })?;
     let parsed = Scene::parse(&text).map_err(|e| anyhow!("the lowered scene: {e}"))?;
     Graph::build(&parsed).map_err(|e| anyhow!("the lowered scene doesn't build: {e}"))?;
     Ok(Engine { scene: text, note: note(&page), page, dropped })

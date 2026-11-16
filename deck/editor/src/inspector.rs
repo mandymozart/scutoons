@@ -27,6 +27,8 @@ pub enum Field {
     Address(usize),
     /// takes the selected track or node away
     Remove,
+    /// the rig's stage background: a click types it
+    Background,
 }
 
 fn remove(d: &mut DrawList, t: &Tokens, area: Rect, y: &mut f32, out: &mut Vec<(Rect, Field)>) {
@@ -80,6 +82,10 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, stage: &Stage, sel: &Sel, 
             if !moods.is_empty() {
                 controls::row(d, t, area, &mut y, "moods", &moods);
             }
+            let top = y;
+            let background = stage.bundle.rig.background.as_ref().map_or("black", |b| b.text());
+            controls::row(d, t, area, &mut y, "background", background);
+            out.push((Rect { x: area.x, y: top, w: area.w, h: y - top }, Field::Background));
             knobs(d, t, stage, (area, &mut y), None, hot, &mut out);
         }
         Sel::Track(id) => {

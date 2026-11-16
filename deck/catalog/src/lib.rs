@@ -10,7 +10,9 @@ use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 
+pub mod background;
 mod builtin;
+pub use background::Background;
 pub use builtin::builtin_kinds;
 
 pub const CATALOG_VERSION: u32 = 1;
@@ -307,7 +309,9 @@ pub struct Descriptor {
     pub assets: Cow<'static, [AssetDesc]>,
     /// the kind's one factory preset
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub preset: Option<FactoryPreset>,
+    pub preset: Option<FactoryPreset>,    /// modules only: the stage's background while it plays, unless a rig, scene or show above it sets one
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background: Option<Background>,
 }
 
 impl Descriptor {

@@ -41,6 +41,34 @@
       ],
       "type": "string"
     },
+    "Background": {
+      "additionalProperties": false,
+      "description": "One of a colour, an image or a video.",
+      "properties": {
+        "colour": {
+          "description": "`#rgb` or `#rrggbb`",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "image": {
+          "description": "a picture's media path, laid over the stage",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "video": {
+          "description": "a video's media path, laid over the stage",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
     "Bundle": {
       "additionalProperties": false,
       "properties": {
@@ -142,6 +170,17 @@
             "$ref": "#/$defs/AssetDesc"
           },
           "type": "array"
+        },
+        "background": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Background"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "modules only: the stage's background while it plays, unless a rig, scene or show above it sets one"
         },
         "batch": {
           "description": "the batch evaluator (deck-core batch.rs, live-core, the browser) can run it",
@@ -775,6 +814,17 @@
       "additionalProperties": false,
       "description": "A character's (or object's) set of tracks.",
       "properties": {
+        "background": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Background"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "the stage's background while it plays, over its modules' and under a scene's or a show's"
+        },
         "moods": {
           "additionalProperties": {
             "$ref": "#/$defs/Variant"

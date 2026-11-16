@@ -17,6 +17,16 @@ export type Arrange = {
 /** The arrangements of a first version (scene_resolve.rs `arrange`): more (a stack, a crowd) when a use needs one. */
 export type ArrangeKind = 'row' | 'cluster';
 
+/** One of a colour, an image or a video. */
+export type Background = {
+	/** `#rgb` or `#rrggbb` */
+	colour?: string | null;
+	/** a picture's media path, laid over the stage */
+	image?: string | null;
+	/** a video's media path, laid over the stage */
+	video?: string | null;
+};
+
 /** `start` or `join`. */
 export type Enter = 'start' | 'join';
 
@@ -130,6 +140,8 @@ export type SceneUse = {
 export type StageSettings = {
 	/** the audio device's buffer in frames (#208, deck-native's audio/backend.rs): a heavy scene may ask for more; `--audio-buffer` and deck.toml's `audio_buffer` (the machine's) win over it. None = the device's default */
 	audio_buffer?: number | null;
+	/** the stage's background; a played scene carries the one that won (`deck_catalog::background::resolve`) */
+	background?: Background | null;
 	name?: string;
 	/** the render size relative to the window (0.25–1); a software adapter halves it by itself */
 	render_scale?: number;

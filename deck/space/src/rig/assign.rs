@@ -226,7 +226,7 @@ pub fn module_instrument(module: &str, descriptor: &Descriptor) -> Result<Instru
 pub fn audition(subject: &str, descriptor: &Descriptor) -> Result<Bundle> {
     let instrument = module_instrument(&descriptor.name, descriptor)?;
     let track = super::Track { id: "module".into(), instrument: instrument.id.clone(), preset: None, gain: 1.0, pan: 0.0, mute: false };
-    let rig = Rig { subject: subject.to_string(), tracks: vec![track], routes: Vec::new(), personas: BTreeMap::new(), moods: BTreeMap::new(), rights: Default::default(), sticks: None, policy: None };
+    let rig = Rig { subject: subject.to_string(), tracks: vec![track], routes: Vec::new(), personas: BTreeMap::new(), moods: BTreeMap::new(), rights: Default::default(), sticks: None, policy: None, background: None };
     Ok(Bundle { rig, instruments: vec![instrument], presets: Vec::new(), modules: vec![descriptor.clone()] })
 }
 

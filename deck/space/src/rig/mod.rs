@@ -139,6 +139,9 @@ pub struct Rig {
     /// a code rig (#408): the control module that drives the tracks (policy.rs); none = the tables alone
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub policy: Option<Policy>,
+    /// the stage's background while it plays, over its modules' and under a scene's or a show's
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background: Option<deck_catalog::Background>,
 }
 
 /// One track: an instrument, its default preset, its mixer strip.
@@ -248,6 +251,14 @@ impl Rig {
     pub fn check(&self, lib: &Library) -> Result<()> {
         let mut out = Problems::default();
         let rig = format!("rig {}", self.subject);
+        if let Some(e) = self.background.as_ref().and_then(deck_catalog::Background::check) {
+            out.push(&rig, format!("background: {e}"));
+        }
+        for (id, d) in &lib.modules {
+            if let Some(e) = d.background.as_ref().and_then(deck_catalog::Background::check) {
+                out.push(&format!("module {id}"), format!("background: {e}"));
+            }
+        }
         let mut seen = std::collections::BTreeSet::new();
         for t in &self.tracks {
             if !seen.insert(t.id.as_str()) {

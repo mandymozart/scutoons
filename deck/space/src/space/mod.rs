@@ -15,6 +15,7 @@
 //! deck-space (#198): the same code on the deck (deck-native) and in the browser (deck/space-web). What is native stays
 //! behind the feature `native` (the set's loader thread and file, the portraits') or in deck-native (the relay link, a
 //! `Wire`); a host without threads hands a set in with `set_arrived`.
+pub mod backdrop;
 pub mod being;
 pub mod camera;
 pub mod decks;
@@ -288,6 +289,7 @@ pub struct Space {
     places: Vec<Vec3>,
     /// #195: the conductor's push and the decks' answers
     pub sync: sync::Board,
+    pub backdrop: backdrop::Backdrop,
 }
 
 /// Called on the loader thread with a set's file before it is read: the sync (sync.rs) returns once that file is
@@ -424,9 +426,15 @@ impl Space {
             generation: 0,
             places: Vec::new(),
             sync: sync::Board::default(),
+            backdrop: backdrop::Backdrop::default(),
         };
         space.place_cast();
         space
+    }
+
+    /// the stage's background that won (the played scene's `stage.background`)
+    pub fn set_background(&mut self, background: Option<crate::Background>) {
+        self.backdrop = backdrop::Backdrop::new(background, &mut self.portraits);
     }
 
     /// #492: the cast's beings to their holders' spots in the set (lifted like the scene's being), a zone's members by

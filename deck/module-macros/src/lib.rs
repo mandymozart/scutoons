@@ -6,7 +6,7 @@
 //! counting allocator (deck/module/README.md).
 //!
 //! Attributes: `#[module(name, domain = "audio"|"control", doc, needs / wants = "motion|position", latency,
-//! moods = "thinking|sad" (A1, #409: the moods it knows – `ctx.character().mood_index` is the deck's mood's place + 1))]`;
+//! background_colour = "#rrggbb" | background_image / background_video = "<media path>" (the stage's background), moods = "thinking|sad" (A1, #409: the moods it knows – `ctx.character().mood_index` is the deck's mood's place + 1))]`;
 //! `#[reads("story.act", …)]`; `#[port(input|output, audio|cv|control|event|video, name, channels = n|"any",
 //! sidechain, doc, names / props = "a|b", capacity, path, mode, choices)]`; on `f32` fields `#[param(range = a..b,
 //! default, curve = log, unit, choices = "saw|pulse" (the value is the index), doc)]`; `#[asset(name, kind, max_bytes,
@@ -76,6 +76,8 @@ struct Spec {
     needs: Vec<String>,
     wants: Vec<String>,
     latency: u32,
+    /// (`colour` | `image` | `video`, its value)
+    background: Option<(&'static str, String)>,
     reads: Vec<String>,
     moods: Vec<String>,
     ports: Vec<Port>,
@@ -194,7 +196,18 @@ fn parse_module(a: &Attribute, spec: &mut Spec) -> Result<(), Error> {
                 }
                 spec.latency = v as u32;
             }
-            _ => return Err(m.error("module(name, domain, doc, needs, wants, latency, moods)")),
+            "background_colour" | "background_image" | "background_video" => {
+                if spec.background.is_some() {
+                    return Err(m.error("one background: a colour, an image or a video"));
+                }
+                let which = match key.as_str() {
+                    "background_colour" => "colour",
+                    "background_image" => "image",
+                    _ => "video",
+                };
+                spec.background = Some((which, lit_str(&m)?.value()));
+            }
+            _ => return Err(m.error("module(name, domain, doc, needs, wants, latency, background_colour, background_image, background_video, moods)")),
         }
         Ok(())
     })
@@ -423,6 +436,7 @@ fn parse(input: &DeriveInput) -> Result<Spec, Error> {
         needs: vec![],
         wants: vec![],
         latency: 0,
+        background: None,
         reads: vec![],
         moods: vec![],
         ports: vec![],
@@ -562,6 +576,9 @@ fn module(ty: &syn::Ident, spec: &Spec) -> Result<proc_macro2::TokenStream, Erro
     }
     if spec.latency > 0 {
         json += &format!(",\"latency\":{}", spec.latency);
+    }
+    if let Some((which, value)) = &spec.background {
+        json += &format!(",\"background\":{{\"{which}\":{}}}", js(value));
     }
     let params: Vec<String> = spec
         .params
