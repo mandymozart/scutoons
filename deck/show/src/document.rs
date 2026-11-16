@@ -258,9 +258,8 @@ pub struct Fire {
 pub enum How {
     Auto,
     Suggest,
-    /// not auto: only the operator fires it. Documents saved before the rename say `hand`
+    /// not auto: only the operator fires it
     #[default]
-    #[serde(alias = "hand")]
     Manual,
 }
 

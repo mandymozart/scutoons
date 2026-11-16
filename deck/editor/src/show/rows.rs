@@ -518,7 +518,7 @@ pub(super) mod tests {
         press(&mut host, true, |h| *h == Hit::Fire(0));
         let m = deck_show::view::matrix(&host.sub);
         assert!(m.rows[0].current && m.rows[0].cells[0].on && m.rows[0].cells[0].text == "scene:nave", "{m:?}");
-        assert_eq!(deck_show::view::log(host.sub.log(), 1)[0].1, "fired opening (hand)");
+        assert_eq!(deck_show::view::log(host.sub.log(), 1)[0].1, "fired opening (▶)");
         let _ = std::fs::remove_dir_all(&cache);
     }
 

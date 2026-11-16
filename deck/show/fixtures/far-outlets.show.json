@@ -16,7 +16,7 @@
     },
     {
       "id": "together",
-      "fire": { "event": "far.together", "how": "hand" },
+      "fire": { "event": "far.together", "how": "manual" },
       "cells": {
         "left": { "mode": "values", "piece": "character:keys", "values": { "tone:osc.freq": 440 } },
         "right": { "mode": "play", "piece": "character:bells" }
@@ -24,7 +24,7 @@
     },
     {
       "id": "bells-alone",
-      "fire": { "event": "far.end", "how": "hand" },
+      "fire": { "event": "far.end", "how": "manual" },
       "cells": {
         "left": { "mode": "black" },
         "middle": { "mode": "black" }
