@@ -16,6 +16,8 @@ pub enum Prim {
     Logo { x: f32, y: f32, size: f32, frame: usize },
     /// what follows shows only inside `[x, y, w, h]` (a scrolled panel's content); none = the whole screen again
     Clip(Option<[f32; 4]>),
+    /// a straight stroke from `a` to `b`, `thick` wide
+    Segment { a: (f32, f32), b: (f32, f32), thick: f32, color: [f32; 4] },
 }
 
 /// Where a control landed, in logical pixels (what can be pressed is kept by its caller as these).
@@ -112,6 +114,7 @@ impl DrawList {
                 Prim::Rect { x, y, w, h, .. } | Prim::Outline { x, y, w, h, .. } => (x, y, x + w, y + h),
                 Prim::Text { x, y, px, start, end, .. } => (x, y, x + self.advance(px) * self.text[start..end].chars().count() as f32, y + px * 1.25),
                 Prim::Icon { x, y, size, .. } | Prim::Logo { x, y, size, .. } => (x, y, x + size, y + size),
+                Prim::Segment { a, b, .. } => (a.0.min(b.0), a.1.min(b.1), a.0.max(b.0), a.1.max(b.1)),
                 Prim::Clip(_) => continue,
             };
             out = Some(out.map_or(r, |o| (o.0.min(r.0), o.1.min(r.1), o.2.max(r.2), o.3.max(r.3))));
@@ -132,6 +135,11 @@ impl DrawList {
     /// a circle's outline around (x, y)
     pub fn ring(&mut self, x: f32, y: f32, r: f32, color: [f32; 4]) {
         self.outline(x - r, y - r, 2.0 * r, 2.0 * r, (r, 2.0), color);
+    }
+
+    /// a straight stroke, however long (a grid's line)
+    pub fn segment(&mut self, a: (f32, f32), b: (f32, f32), thick: f32, color: [f32; 4]) {
+        self.prims.push(Prim::Segment { a, b, thick, color });
     }
 
     /// a thin straight line of beads

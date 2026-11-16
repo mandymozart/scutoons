@@ -34,6 +34,7 @@ pub mod scene_slots;
 pub mod scene_video;
 pub mod scene_play;
 pub mod scene_resolve;
+pub mod snap;
 pub mod tempo;
 pub mod veil;
 

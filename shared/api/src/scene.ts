@@ -37,6 +37,8 @@ export type Fillers = string | string[];
 export type Holder = {
 	/** a spawn zone's arrangement of its members within the spot (required with `take: many`) */
 	arrange?: Arrange | null;
+	/** where it stands from its spot, metres (x across, y up, z deep): a member moved on the stage */
+	at?: [number, number, number] | null;
 	/** `start` (the default): on stage when the scene starts; `join`: waits for the story (`joinScene`, SCENES.md §9.4) */
 	enter?: Enter;
 	/** a placeholder's filter – or `ref` */

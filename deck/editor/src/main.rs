@@ -15,6 +15,7 @@ mod bar;
 mod book;
 mod empty;
 mod gpu_time;
+mod grid;
 mod logo;
 mod mixer;
 mod module;
@@ -113,10 +114,12 @@ struct Args {
     member: Option<(String, bool)>,
     /// a demo show opened in Show (show/demos.rs)
     demo: Option<String>,
+    /// a check run's grid & snap on every view (grid.rs `script`)
+    grid: Option<String>,
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, add: None, member: None, demo: None };
+    let mut a = Args { module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, add: None, member: None, demo: None, grid: None };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -180,6 +183,7 @@ fn args() -> Result<Args> {
                 let v = val()?;
                 a.member = Some(v.strip_suffix(",inside").map_or((v.clone(), false), |h| (h.to_string(), true)));
             }
+            "--grid" => a.grid = Some(val()?),
             "--open-build" => a.script.open_build = true,
             "--to-cell" => a.script.to_cell = true,
             "--new-scene" => a.script.new_scene = Some(show::NewScene::parse(&val()?).context("--new-scene ID,NAME,FILLER+FILLER[,play|build]")?),
@@ -339,6 +343,8 @@ enum Drag {
     Right(f32, f32),
     /// the stage's own press (Play): its knobs, or its orbit
     Space,
+    /// a scene member in the hand (grid.rs)
+    Member,
     /// the camera, from this pointer position
     Orbit(f32, f32),
     Pan(f32, f32),
@@ -481,6 +487,8 @@ struct App {
     scene: Option<scene::SceneView>,
     /// the scene tree's last press, for a double one
     last_row: Option<(deck_space::scene_edit::Part, Instant)>,
+    /// Build's grid & snap (grid.rs)
+    grid: grid::GridSnap,
 }
 
 /// the language of the book's labels: the editor's own words are English (not translated yet)
@@ -513,6 +521,8 @@ fn run() -> Result<i32> {
     let event_loop = EventLoop::new().context("no event loop (no display?)")?;
     let wire = args.wire;
     let app_workspace = args.workspace;
+    // a check run keeps no grid settings
+    let app_grid_file = args.frames.is_none().then(|| grid::cache_file(&cache));
     // a check run (--frames) never asks for a sign-in: SCUTOONS_TOKEN or the kept token only
     let auth = sign_in::Auth::start(&args.api, &cache, args.frames.is_none());
     let rigs = if args.frames.is_none() || args.script.new_scene.is_some() { rigs::Rigs::new(&args.api, &cache, &subject, version, auth.token().is_some()) } else { rigs::Rigs::offline(&cache, &subject, version, "a check run asks no server") };
@@ -599,6 +609,7 @@ fn run() -> Result<i32> {
         published: app_published,
         scene: None,
         last_row: None,
+        grid: grid::GridSnap::load(app_grid_file),
     };
     event_loop.run_app(&mut app).context("the event loop")?;
     let summary = app.summary();
@@ -837,7 +848,11 @@ impl App {
         if self.module.dragging() {
             return self.module.drag_to(x, &mut self.stage);
         }
+        if self.grid.scrub_to(x) {
+            return;
+        }
         match self.panel.drag {
+            Some(Drag::Member) => self.grid_drag(x, y),
             Some(Drag::Knob(i, _, _)) => self.knob_at(i, x),
             Some(Drag::SceneKnob(i, x0, v0)) => self.scene_knob_to(i, x0, v0, x),
             Some(Drag::Param(node, port, x0, f0)) => {
@@ -937,6 +952,8 @@ impl App {
             if self.panels().floats.covers(x, y) {
                 return;
             }
+        } else if self.grid.press(x, y) {
+            return;
         }
         match self.hit(x, y) {
             Hit::Workspace(w) => {
@@ -1083,7 +1100,9 @@ impl App {
                 self.focus(false);
                 self.armed = None;
                 // Play: the deck's own hand – a knob under the pointer turns, anywhere else it orbits
-                if self.wire {
+                if self.grid_grab(x, y) {
+                    self.panel.drag = Some(Drag::Member);
+                } else if self.wire {
                     self.panel.drag = Some(Drag::Orbit(x, y));
                 } else {
                     self.stage.space.press();
@@ -1558,10 +1577,11 @@ impl App {
             return;
         }
         // Show: a scene dragged from the list lands on the cell under the pointer
-        if self.show.drop_at(self.cursor.0, self.cursor.1) {
+        if self.show.drop_at(self.cursor.0, self.cursor.1) || self.grid.scrub_end() {
             return;
         }
         let a = match self.panel.drag.take() {
+            Some(Drag::Member) => return self.grid_drop(),
             Some(Drag::Cable(a)) => a,
             Some(Drag::Grab(a)) => return self.drop_grabbed(a),
             Some(Drag::Space) => return self.stage.space.release(),
@@ -1980,7 +2000,7 @@ impl App {
         };
         let names = show::WORKSPACES.map(|(_, n)| n);
         let logo_frame = ((self.started.elapsed().as_secs_f32() / logo::SECONDS).fract() * logo::FRAMES as f32) as usize;
-        let slot = if build || self.workspace == show::Workspace::Module { 0.0 } else { show::author::view_width(ui, t, &self.show, self.workspace) };
+        let slot = if build { t.size.top } else if self.workspace == show::Workspace::Module { 0.0 } else { show::author::view_width(ui, t, &self.show, self.workspace) };
         let spec = bar::Bar {
             workspaces: &names,
             workspace: self.workspace.index(),
@@ -2020,6 +2040,8 @@ impl App {
             }
             break 'build;
         }
+        self.grid.follow(self.scene.as_ref(), &self.stage, self.args.grid.as_deref());
+        self.grid.draw_stage(ui, t, &self.stage.space, Rect { x: stage_x, y: top, w: stage_w, h: stage_h }, scale);
         // Build's panels and what each asks for this frame; the view gizmo is a place no panel covers
         let gizmo = Rect { x: wf * 0.5 - 40.0, y: bar_bottom + 16.0, w: 80.0, h: 80.0 };
         let panning = match self.panel.drag {
@@ -2202,6 +2224,13 @@ impl App {
                 self.panel.hits.push((Rect { x: x - 9.0, y: y - 9.0, w: 18.0, h: 18.0 }, Hit::Axis(Some(a))));
             }
             self.panel.hits.push((Rect { x: gx - R - 12.0, y: gy - R - 12.0, w: 2.0 * (R + 12.0), h: 2.0 * (R + 12.0) }, Hit::Axis(None)));
+        }
+        // the grid's pill in the toolbar's place for it
+        {
+            let r = placed.slot;
+            ui.round_rect(r.x, r.y, r.w, r.h, r.h * 0.5, t.color.surface);
+            ui.outline(r.x, r.y, r.w, r.h, (r.h * 0.5, 1.0), t.color.line);
+            self.grid.pill(ui, t, r, self.cursor);
         }
         // the rig's tree: the rig, its tracks, the nodes of the one entered
         if let Some(o) = self.build.open(ui, t, "tree", self.cursor, self.panel.hits.len()) {
@@ -2423,6 +2452,7 @@ impl App {
             ui.text(tx, e.at.y + (e.at.h - px * 1.25) * 0.5, px, &shown, t.color.text);
             ui.rect(tx + column as f32 * adv, e.at.y + 3.0, 1.5, e.at.h - 6.0, t.color.text);
         }
+        self.grid.popover(ui, t);
         if let Some(m) = self.menu.as_mut() {
             m.ta.draw(ui, t, (wf, hf));
         }

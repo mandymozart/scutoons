@@ -204,6 +204,9 @@ pub struct Holder {
     /// the spot of the set where it stands and enters (`spot_left`); none = the scene's spot
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub spot: Option<String>,
+    /// where it stands from its spot, metres (x across, y up, z deep): a member moved on the stage
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub at: Option<[f32; 3]>,
     /// an authored filler (`character:catpope`, `item:incense`) – or `fill`, never both
     #[serde(default, rename = "ref", skip_serializing_if = "Option::is_none")]
     pub filler: Option<String>,
@@ -676,6 +679,9 @@ impl SceneDocument {
             }
             if let Some(Err(e)) = h.spot.as_deref().map(|s| word(s, "a spot")) {
                 out.push(format!("{who}: {e}"));
+            }
+            if h.at.is_some_and(|a| a.iter().any(|v| !v.is_finite())) {
+                out.push(format!("{who}: `at` is three numbers (metres from its spot)"));
             }
             match (&h.filler, &h.fill) {
                 (Some(_), Some(_)) => out.push(format!("{who}: an authored filler (`ref`) or a placeholder (`fill`), not both")),

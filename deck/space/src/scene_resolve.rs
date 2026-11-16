@@ -206,7 +206,9 @@ pub fn resolve(doc: &SceneDocument, with: &BTreeMap<String, Fillers>, previews: 
             });
             continue;
         }
+        let moved = h.at.unwrap_or_default();
         let at = h.arrange.map(|a| arrange(a, given.len())).unwrap_or_else(|| vec![[0.0; 3]; given.len()]);
+        let at = at.into_iter().map(|a| std::array::from_fn::<f32, 3, _>(|k| a[k] + moved[k]));
         for (filler, at) in given.into_iter().zip(at) {
             if let Some(Err(e)) = h.fill.as_ref().map(|f| f.admits(&filler)) {
                 problems.push(format!("holder {}: {e}", h.id));

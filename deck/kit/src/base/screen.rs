@@ -440,6 +440,10 @@ fn paint(fonts: &mut dyn Mono, layer: &Layer, (pixel, pictures): (Option<Texture
                 all.extend(out.drain(..).map(|shape| (clip, shape)));
                 clip = r.map(|[x, y, w, h]| Rect::from_min_size(pos2(x * s, y * s), vec2(w * s, h * s)));
             }
+            Prim::Segment { a, b, thick, color: c } => {
+                flush(&mut mesh, out);
+                out.push(Shape::line_segment([pos2(a.0 * s, a.1 * s), pos2(b.0 * s, b.1 * s)], Stroke::new(thick * s, color(c))));
+            }
         }
     }
     flush(&mut mesh, out);
