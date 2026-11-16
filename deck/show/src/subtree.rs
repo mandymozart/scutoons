@@ -92,6 +92,13 @@ pub struct Subtree {
     moved: BTreeMap<String, (Option<String>, bool)>,
     /// #533: the session's vote as the relay said it (vote.rs)
     vote: crate::vote::Board,
+    /// this conductor's own panic holds until `resume`
+    panicked: bool,
+}
+
+/// what reaches the stage below: held back while a panic holds
+fn stage_bound(m: &Message) -> bool {
+    matches!(m, Message::Cell(_) | Message::Device(_) | Message::Seat(_) | Message::Address(_) | Message::Story(_))
 }
 
 fn word_of(w: &SeatWord) -> Says {
@@ -127,7 +134,30 @@ impl Subtree {
             counts: None,
             moved: BTreeMap::new(),
             vote: crate::vote::Board::default(),
+            panicked: false,
         }
+    }
+
+    pub fn panicked(&self) -> bool {
+        self.panicked
+    }
+
+    /// Black and silence on every deck below, held until [`Subtree::resume`]. While it holds, rows still fire in the core
+    /// (the operator, readers), but nothing of them reaches the stage.
+    pub fn panic(&mut self, ms: u64) -> Vec<Envelope> {
+        self.panicked = true;
+        self.conductor.note(ms, Logged::Panicked);
+        vec![message(Message::Panic(Panic { black: Some(true), stop: Some(true) }), None)]
+    }
+
+    /// The panic lets go: every outlet gets the cell the core holds for it now, at once. Nothing when none held.
+    pub fn resume(&mut self, ms: u64) -> Vec<Envelope> {
+        if !std::mem::take(&mut self.panicked) {
+            return vec![];
+        }
+        self.conductor.note(ms, Logged::Resumed);
+        let outs = self.conductor.resend();
+        self.done(outs, ms)
     }
 
     /// #533: the session's vote as this conductor knows it (the panel: `vote::panel`)
@@ -358,6 +388,9 @@ impl Subtree {
 
     fn done(&mut self, outs: Vec<Out>, ms: u64) -> Vec<Envelope> {
         let mut out = self.wire(outs, ms);
+        if self.panicked {
+            out.retain(|e| !stage_bound(&e.message));
+        }
         self.report(&mut out);
         out
     }
