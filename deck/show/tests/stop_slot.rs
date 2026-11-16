@@ -10,7 +10,7 @@ const DOC: &str = r#"{ "id": "slots", "version": 1, "outlets": [{ "id": "left" }
   "rows": [
     { "id": "opening", "cells": { "left": { "mode": "play", "piece": "scene:nave" }, "right": { "mode": "play", "piece": "scene:vigil" } } },
     { "id": "dark-left", "cells": { "left": { "mode": "black" } } },
-    { "id": "old", "fire": { "event": "door", "how": "hand" } },
+    { "id": "old", "fire": { "event": "door", "how": "manual" } },
     { "id": "meet", "fire": { "event": "meet", "how": "suggest", "moment": "bar" } },
     { "id": "start", "fire": { "event": "start", "how": "auto" } }
   ] }"#;

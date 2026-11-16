@@ -2,7 +2,7 @@
 //! Ableton's session view. A row's head holds its ▶ (the row fires), its number, its name and – auto or suggest – its fire
 //! chip; a column's head its group, its name, who takes it and its small stop; a clip cell its ▶ and its words, an empty
 //! cell a stop slot (a small square), a kept cell a bare ↑. What plays is lime with the bar's progress, what waits for its
-//! moment is ringed, a cell started by hand has an amber corner mark. In Show the selection shows: the row as a soft band
+//! moment is ringed. In Show the selection shows: the row as a soft band
 //! with a bar on its left, a column as a band from its head to its last row with an underline, a group's head, a cell
 //! outlined; names are typed in place in their heads. Every word and state is deck-show's view.rs (`matrix_at`); this file
 //! lays them out and names the places.
@@ -204,12 +204,6 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, mode)
                 };
                 if let Some((words, color)) = note {
                     controls::label(d, t, tx, whole.y + whole.h - pad * 0.6 - t.size.label * 1.4, &fit(d, &words, t.size.label * 1.2, whole.x + whole.w - tx - pad), color);
-                }
-                // a cell started by hand, off its row's own firing: a small amber mark in its corner
-                if cell.hand {
-                    let (mx, my) = (whole.x + whole.w - pad * 0.9, whole.y + pad * 0.9);
-                    d.ring(mx, my, 4.0, t.color.warn);
-                    d.disc(mx, my, 2.0, t.color.warn);
                 }
                 if let (State::Playing, Some(p)) = (cell.state, cell.progress) {
                     let (bx, bw) = (whole.x + pad, whole.w - 2.0 * pad);
@@ -496,7 +490,7 @@ mod tests {
         { "id": "opening", "cells": { "left": { "mode": "play", "piece": "scene:nave" }, "right": { "mode": "play", "piece": "scene:vigil" } } },
         { "id": "dark", "fire": { "event": "meet", "how": "suggest", "moment": "bar" }, "cells": { "left": { "mode": "black" } } },
         { "id": "storm", "fire": { "event": "thunder", "how": "auto" }, "cells": { "right": { "mode": "play", "piece": "scene:storm" } } },
-        { "id": "old", "fire": { "event": "door", "how": "hand" } }
+        { "id": "old", "fire": { "event": "door", "how": "manual" } }
       ] }"#;
 
     fn key(host: &mut Host, k: &str, ctrl: bool) -> bool {
@@ -541,10 +535,10 @@ mod tests {
         host.sub.on_wire(&protocol::Envelope::new("reader", protocol::Message::Story(story)), 5);
         let texts = frame(&mut host, true);
         assert!(texts.iter().any(|t| t == view::WAITS), "a standing suggestion waits for GO: {texts:?}");
-        // a cell started by hand: the corner mark, no word
+        // a cell started off its row: it plays, nothing marks how it started
         press(&mut host, true, |h| *h == Hit::Launch(2, 1));
         let texts = frame(&mut host, true);
-        assert!(view::matrix(&host.sub).rows[2].cells[1].hand && !texts.iter().any(|t| t == "hand"));
+        assert!(view::matrix(&host.sub).rows[2].cells[1].on && !texts.iter().any(|t| t == "hand" || t == "manual"));
     }
 
     #[test]

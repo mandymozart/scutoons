@@ -121,11 +121,11 @@ A cell is a piece and its values. A piece is a scene, rig or module; the current
 
 ## 7. Firing
 
-- A row says which event fires it and how: **auto**, **suggest** or **manual** (saved before 2026-11-16 as `hand`, still read), with a hold time and a moment (now, next bar, next phrase). An event must stand for the hold time before it counts. While it is a suggestion, a newer event replaces it and scrolling back removes it.
+- A row says which event fires it and how: **auto**, **suggest** or **manual** (manual = not auto: no label in the band), with a hold time and a moment (now, next bar, next phrase). An event must stand for the hold time before it counts. While it is a suggestion, a newer event replaces it and scrolling back removes it.
 - **GO is always allowed**, also before the reader got there or with media not ready. A warning can show; it never blocks.
 - A row can fire an event back into the viewer (a character enters, a vote result).
 - On autopilot, a row whose media is not ready is held and shown as a suggestion (proposal).
-- **Rows are the main way to launch** (owner). Any single cell can also be launched by hand (the clip launcher era, amending 2026-10-07): it is the operator's responsibility, like GO. A cell launched off its row is marked, links it breaks end, and a `values` cell that then meets the wrong piece is skipped and logged. The editor checks rows, not hand launches, so availability stays knowable.
+- **Rows are the main way to launch** (owner). Any single cell can also be launched by hand (the clip launcher era, amending 2026-10-07): it is the operator's responsibility, like GO. A cell launched off its row is not marked (2026-11-16), links it breaks end, and a `values` cell that then meets the wrong piece is skipped and logged. The editor checks rows, not hand launches, so availability stays knowable.
 - Built (#588): a column's stop (a stage outlet black at the moment of the row playing there, a seat's child left free); the matrix says each cell idle, queued for its row's moment (the cell it replaces plays on until then) or playing with the bar's progress, a kept ↑ lit while what it keeps plays; an outlet's optional `group` (adjacent columns, one head). Show's and Perform's rows band is one (editor show/band.rs).
 - **Each subtree launches its own rows** (owner): a sub conductor has its own matrix, the parent fires it or leaves it free. The show core is recursive from the start; a show can still begin as a single conductor.
 

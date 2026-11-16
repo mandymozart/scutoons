@@ -57,8 +57,6 @@ pub struct CellView {
     pub empty: bool,
     /// this row's cell is what plays there now
     pub on: bool,
-    /// it plays because the operator launched it off its row (marked, SHOW.md §7)
-    pub hand: bool,
     /// why it would not play as written (`wrong piece`: a `values` cell meets another piece)
     pub problem: Option<String>,
     /// #546: a cell of a question (`ask`): its question, where it stands among the row's columns that ask it
@@ -449,7 +447,7 @@ fn cell_view(row: &str, cell: Option<&Cell>, stage: Option<&OnStage>) -> CellVie
         (Cell::Values { .. }, None | Some(Playing::Black)) => Some("nothing plays".to_string()),
         _ => None,
     };
-    CellView { text: cell_text(cell), keep: false, empty: matches!(cell, Cell::Black), on: mine.is_some(), hand: mine.is_some_and(|s| s.off_row), problem, ask: None, state: state_of(row, stage, None), progress: None }
+    CellView { text: cell_text(cell), keep: false, empty: matches!(cell, Cell::Black), on: mine.is_some(), problem, ask: None, state: state_of(row, stage, None), progress: None }
 }
 
 fn suggested(show: &Show, s: &Suggestion) -> Suggested {
@@ -811,12 +809,12 @@ mod tests {
         assert_eq!(m.go, "GO: next row 1 arrival");
         sub.fire("arrival", 1000);
         let m = matrix(&sub);
-        assert!(m.rows[0].current && m.rows[0].cells[0].on && !m.rows[0].cells[0].hand);
+        assert!(m.rows[0].current && m.rows[0].cells[0].on);
         assert_eq!(m.rows[1].cells[1].problem.as_deref(), Some("nothing plays"), "right is black");
         assert_eq!(m.rows[1].cells[0].problem, None, "the same piece");
         sub.launch_cell("exit", "left", 2000);
         let m = matrix(&sub);
-        assert!(m.rows[2].cells[0].on && m.rows[2].cells[0].hand, "a hand launch off its row is marked");
+        assert!(m.rows[2].cells[0].on, "a launch off its row plays, unmarked");
         assert_eq!(m.go, "GO: next row 2 roar");
     }
 
