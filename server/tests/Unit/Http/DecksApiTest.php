@@ -292,7 +292,12 @@ final class DecksApiTest extends TestCase
         self::assertSame(200, $again->getStatusCode(), (string) $again->getBody());
         $stale = $this->request('PUT', '/api/entities/moods', $editor, ['content' => ['moods' => []], 'base' => $base]);
         self::assertSame([409, 'conflict'], [$stale->getStatusCode(), self::json($stale)['error'] ?? null]);
-        foreach ([['POST', '/api/entities/moods/publish'], ['POST', '/api/entities/publish'], ['POST', '/api/entities/batch'], ['POST', '/api/shows/x/publish'],
+        // a deck scene's draft too (the server stamps its version); its publish stays in the browser
+        $scene = ['format' => 2, 'id' => 'duet', 'toons' => ['catpope'], 'holder' => [['id' => 'catpope', 'ref' => 'character:catpope']], 'node' => [['id' => 'space', 'kind' => 'space']]];
+        $r = $this->request('PUT', '/api/scenes/duet', $editor, ['content' => $scene, 'base' => null]);
+        self::assertSame(200, $r->getStatusCode(), (string) $r->getBody());
+        self::assertSame(1, self::json($this->request('GET', '/api/scenes/duet?draft=1', $editor))['content']['version']);
+        foreach ([['POST', '/api/entities/moods/publish'], ['POST', '/api/entities/publish'], ['POST', '/api/entities/batch'], ['POST', '/api/shows/x/publish'], ['POST', '/api/scenes/duet/publish'],
             ['PUT', '/api/assets/replace'], ['PUT', '/api/me'], ['GET', '/api/me/decks'], ['GET', '/api/me/tokens'], ['POST', '/api/auth/logout']] as [$method, $path]) {
             $r = $this->request($method, $path, $editor, []);
             self::assertSame([403, 'not_for_editor'], [$r->getStatusCode(), self::json($r)['error'] ?? null], "$method $path");
