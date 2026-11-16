@@ -192,12 +192,13 @@ mod tests {
                 let mut p = Panels::new(specs);
                 let shown = typical(name);
                 p.layout(&d, &t, (size, 52.0), &[], &shown);
-                let room = Panels::room(size, 52.0, 16.0);
+                let room = Panels::room(size, 52.0, t.size.gap);
                 let rects: Vec<Rect> = shown.iter().map(|(id, ..)| p.floats.view(id).unwrap().whole).collect();
                 for (i, a) in rects.iter().enumerate() {
                     assert!(a.x >= room.x - 0.01 && a.y >= room.y - 0.01 && a.x + a.w <= room.x + room.w + 0.01 && a.y + a.h <= room.y + room.h + 0.01, "{name} {size:?}: {} inside", shown[i].0);
                     for (j, b) in rects.iter().enumerate().skip(i + 1) {
-                        let apart = a.x + a.w + 15.99 <= b.x || b.x + b.w + 15.99 <= a.x || a.y + a.h + 15.99 <= b.y || b.y + b.h + 15.99 <= a.y;
+                        let g = t.size.gap - 0.01;
+                        let apart = a.x + a.w + g <= b.x || b.x + b.w + g <= a.x || a.y + a.h + g <= b.y || b.y + b.h + g <= a.y;
                         assert!(apart, "{name} {size:?}: {} {a:?} and {} {b:?}", shown[i].0, shown[j].0);
                     }
                 }
@@ -219,7 +220,7 @@ mod tests {
         p.close(&mut d, &t, o, &mut hits);
         p.layout(&d, &t, ((1600.0, 900.0), 52.0), &[], &shown);
         let v = p.floats.view("tree").unwrap();
-        assert_eq!(v.content.h, 121.0, "the rows it drew");
+        assert!((v.content.h - 121.0).abs() < 1e-3, "the rows it drew");
         assert_eq!(v.over, 0.0);
     }
 

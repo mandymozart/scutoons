@@ -6,14 +6,14 @@ use deck_kit::base::draw::DrawList;
 use deck_kit::base::tokens::Tokens;
 use deck_kit::editor::controls::{self, Rect};
 
-/// the logo's side
-const LOGO: f32 = 22.0;
 /// the pills' distance from the window's top
-const MARGIN: f32 = 8.0;
+fn margin(t: &Tokens) -> f32 {
+    t.size.rem(0.57)
+}
 
 /// where the toolbar ends: the panels start a gap under it
 pub fn bottom(t: &Tokens) -> f32 {
-    MARGIN + t.size.top
+    margin(t) + t.size.top
 }
 
 /// a main menu's line
@@ -23,17 +23,19 @@ pub enum Action {
     New,
     Publish,
     DayNight,
+    UiSize,
     Audio,
     Account,
     Quit,
 }
 
 /// the main menu, top down: what each line says, whether it leaves for the browser (no save: everything saves itself)
-pub const MENU: [(Action, &str, bool); 7] = [
+pub const MENU: [(Action, &str, bool); 8] = [
     (Action::Open, "Open…", false),
     (Action::New, "New", false),
     (Action::Publish, "Publish in the creator", true),
     (Action::DayNight, "Day / night", false),
+    (Action::UiSize, "UI size", false),
     (Action::Audio, "Audio & inputs", false),
     (Action::Account, "Account", true),
     (Action::Quit, "Quit to stage  F9", false),
@@ -58,6 +60,8 @@ pub struct Bar<'a> {
     pub gpu: Option<f32>,
     /// the room a workspace keeps in the row for its own pill (Show's and Perform's view switch)
     pub slot: f32,
+    /// the dark look is on
+    pub night: bool,
 }
 
 /// where the toolbar's parts landed
@@ -102,16 +106,17 @@ fn row(width: f32, gap: f32, left: f32, tempo: f32, slot: f32, right: f32) -> Ro
 
 pub fn draw(d: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Placed {
     let (h, pad, px, small) = (t.size.top, t.size.pad, t.size.font, t.size.small);
-    let gap = 16.0;
-    let y = MARGIN;
+    let gap = t.size.gap;
+    let logo = t.size.rem(1.57);
+    let y = margin(t);
     let mid = y + h * 0.5;
     let adv = d.advance(px);
     let text_y = mid - px * 0.62;
     let mut out = Placed::default();
     // the logo and the hamburger
-    let first = Rect { x: gap, y, w: pad + LOGO + pad + h, h };
+    let first = Rect { x: gap, y, w: pad + logo + pad + h, h };
     pill(d, t, first);
-    d.logo(first.x + pad + 2.0, mid - LOGO * 0.5, LOGO, b.logo_frame);
+    d.logo(first.x + pad + 2.0, mid - logo * 0.5, logo, b.logo_frame);
     out.menu = controls::icon_button(d, t, Rect { x: first.x + first.w - h, y, w: h, h }, "menu", t.color.text, b.pointer);
     // the workspaces
     let ws_w: f32 = b.workspaces.iter().map(|w| d.advance(small) * w.chars().count() as f32 + 2.0 * pad + 2.0).sum::<f32>() + 2.0 * 4.0;
@@ -120,15 +125,15 @@ pub fn draw(d: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Placed {
     out.workspaces = controls::pills(d, t, ws.x + 4.0, y + 4.0, h - 8.0, b.workspaces, b.workspace);
     // the right pill: sign-in, meters, day / night, the version
     let version_w = adv * deck_native::BUILD.chars().count() as f32;
-    let sign_w = (adv * b.sign_in.chars().count() as f32).min(160.0);
-    let meters = 200.0;
+    let sign_w = (adv * b.sign_in.chars().count() as f32).min(t.size.rem(11.4));
+    let meters = t.size.rem(14.3);
     let lead = if b.play.is_some() { h + pad } else { 2.0 * pad };
     let clock_w = lead + adv * 21.0 + pad;
-    let panic_w = adv * 5.0 + 4.0 * pad;
+    let panic_w = controls::label_width(d, t, "PANIC") + 4.0 * pad;
     let tempo_w = clock_w + gap * 0.5 + panic_w;
     let right_of = |wide: bool| 2.0 * pad + if b.sign_in.is_empty() { 0.0 } else { sign_w + pad } + if wide { meters + pad } else { 0.0 } + h + pad + version_w;
     // the load meters only where the path keeps room of its own beside them
-    let wide = row(width, gap * 0.5, ws.x + ws.w, tempo_w, b.slot, right_of(false)).path_w > meters + 240.0;
+    let wide = row(width, gap * 0.5, ws.x + ws.w, tempo_w, b.slot, right_of(false)).path_w > meters + t.size.rem(17.0);
     let right_w = right_of(wide);
     let r = row(width, gap * 0.5, ws.x + ws.w, tempo_w, b.slot, right_w);
     // the path, then the status in what is left
@@ -151,16 +156,18 @@ pub fn draw(d: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Placed {
         let at = Rect { x: tempo.x + 2.0, y, w: h, h };
         out.play = Some(if wire { controls::icon_button(d, t, at, "play-fill", t.color.go, b.pointer) } else { controls::icon_button(d, t, at, "stop-fill", t.color.stop, b.pointer) });
     }
-    let clock = match b.beat {
-        Some((bpm, running)) => format!("{bpm:.1} BPM · {}", if running { "INTERNAL" } else { "STOPPED" }),
-        None => "– BPM".to_string(),
+    let (value, what) = match b.beat {
+        Some((bpm, running)) => (format!("{bpm:.1}"), format!("BPM · {}", if running { "internal" } else { "stopped" })),
+        None => ("–".to_string(), "BPM".to_string()),
     };
-    d.text(tempo.x + lead, text_y, px, &controls::fit(&clock, 21), t.color.text);
+    let vw = d.text(tempo.x + lead, text_y, px, &value, t.color.text);
+    let room = ((clock_w - lead - vw - 2.0 * pad) / d.step(t.size.label, t.size.spacing)).max(0.0) as usize;
+    controls::label(d, t, tempo.x + lead + vw + pad, mid - t.size.label * 0.62, &controls::fit(&what, room), t.color.muted);
     // the panic: red, always there, beside the tempo
     let panic = Rect { x: tempo.x + clock_w + gap * 0.5, y, w: panic_w, h };
     let hot = panic.has(b.pointer.0, b.pointer.1);
     d.round_rect(panic.x, panic.y, panic.w, panic.h, h * 0.5, if hot { t.color.stop } else { t.color.danger });
-    d.text(panic.x + (panic.w - adv * 5.0) * 0.5, text_y, px, "PANIC", t.color.text);
+    controls::label(d, t, panic.x + 2.0 * pad, mid - t.size.label * 0.62, "PANIC", t.color.bright);
     out.panic = panic;
     out.slot = Rect { x: r.slot_x, y, w: b.slot, h };
     // the right pill
@@ -180,15 +187,39 @@ pub fn draw(d: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Placed {
         x += meters + pad;
     }
     out.day = Rect { x, y, w: h, h };
-    d.icon(x + (h - 16.0) * 0.5, mid - 8.0, 16.0, "light", t.color.muted);
+    let icon = t.size.rem(1.15);
+    let hot = out.day.has(b.pointer.0, b.pointer.1);
+    d.icon(x + (h - icon) * 0.5, mid - icon * 0.5, icon, if b.night { "dark" } else { "light" }, if hot { t.color.text } else { t.color.muted });
     d.text(right.x + right.w - pad - version_w, text_y, px, deck_native::BUILD, t.color.muted);
     out
 }
 
+/// what a main menu line says now: the look to switch to, the UI size
+fn line_label(a: Action, label: &str, look: &crate::tokens::Look) -> String {
+    match a {
+        Action::DayNight => format!("{label}: {}", if look.theme == crate::tokens::Theme::Day { "day" } else { "night" }),
+        Action::UiSize => format!("{label}   -  {:>3} %  +", look.percent()),
+        _ => label.to_string(),
+    }
+}
+
+/// a press on the UI size's line: its left third smaller (−1), its right third larger (+1), the middle back to 100 % (0)
+pub fn size_step(line: &Rect, x: f32) -> i32 {
+    let at = (x - line.x) / line.w.max(1.0);
+    if at < 1.0 / 3.0 {
+        -1
+    } else if at > 2.0 / 3.0 {
+        1
+    } else {
+        0
+    }
+}
+
 /// the main menu under its hamburger; its lines' places
-pub fn menu(d: &mut DrawList, t: &Tokens, at: Rect, enabled: &dyn Fn(Action) -> bool, pointer: (f32, f32)) -> Vec<(Rect, Action)> {
-    let lines: Vec<controls::Action> = MENU.iter().map(|&(a, label, external)| controls::Action { label, enabled: enabled(a), external }).collect();
-    let rects = controls::actions(d, t, (at.x, at.y + at.h + 6.0), 240.0, &lines, pointer);
+pub fn menu(d: &mut DrawList, t: &Tokens, at: Rect, enabled: &dyn Fn(Action) -> bool, look: &crate::tokens::Look, pointer: (f32, f32)) -> Vec<(Rect, Action)> {
+    let labels: Vec<String> = MENU.iter().map(|&(a, label, _)| line_label(a, label, look)).collect();
+    let lines: Vec<controls::Action> = MENU.iter().zip(&labels).map(|(&(a, _, external), label)| controls::Action { label, enabled: enabled(a), external }).collect();
+    let rects = controls::actions(d, t, (at.x, at.y + at.h + t.size.rem(0.43)), t.size.rem(17.0), &lines, pointer);
     rects.into_iter().zip(MENU).map(|(r, (a, ..))| (r, a)).collect()
 }
 
@@ -221,9 +252,16 @@ mod tests {
     fn every_menu_line_lands_and_a_disabled_one_is_still_placed() {
         let t = Tokens::default();
         let mut d = DrawList::new(0.6);
-        let lines = menu(&mut d, &t, Rect { x: 16.0, y: 8.0, w: 36.0, h: 36.0 }, &|a| a != Action::New, (0.0, 0.0));
+        let lines = menu(&mut d, &t, Rect { x: 16.0, y: 8.0, w: 36.0, h: 36.0 }, &|a| a != Action::New, &crate::tokens::Look::default(), (0.0, 0.0));
         assert_eq!(lines.len(), MENU.len());
         assert!(lines.windows(2).all(|w| w[1].0.y > w[0].0.y));
         assert!(lines[0].0.y > 44.0, "under the hamburger");
+        assert!(d.texts().iter().any(|l| l.contains("100 %")), "the UI size line says the size");
+    }
+
+    #[test]
+    fn the_ui_size_line_is_minus_reset_plus_by_thirds() {
+        let line = Rect { x: 0.0, y: 0.0, w: 300.0, h: 30.0 };
+        assert_eq!([size_step(&line, 10.0), size_step(&line, 150.0), size_step(&line, 290.0)], [-1, 0, 1]);
     }
 }

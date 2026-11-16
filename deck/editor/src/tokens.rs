@@ -1,21 +1,63 @@
-//! The design tokens' file (#444): `tokens.toml` next to the binary (or `--tokens FILE`), watched by its modification time
-//! and applied in the next frame – a changed token shows in under a second without a restart. The tokens are the kit's.
-pub use deck_kit::base::tokens::Tokens;
+//! The design tokens: the look (day or night) and the UI size (the base size, 1rem) are this machine's setting, kept in
+//! the editor's cache; `tokens.toml` next to the binary (or `--tokens FILE`) overrides tokens, watched by its
+//! modification time and applied in the next frame – without a restart.
+pub use deck_kit::base::tokens::{Theme, Tokens, BASE, BASE_RANGE};
+use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
-/// the tokens file, watched
+/// the setting: which look, how large
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Look {
+    pub theme: Theme,
+    pub base: f32,
+}
+
+impl Default for Look {
+    fn default() -> Look {
+        Look { theme: Theme::Day, base: BASE }
+    }
+}
+
+impl Look {
+    /// a step of the UI size: −1 smaller, +1 larger, 0 back to 100 %
+    pub fn sized(self, step: i32) -> Look {
+        let base = if step == 0 { BASE } else { (self.base + step as f32).clamp(BASE_RANGE.0, BASE_RANGE.1) };
+        Look { base, ..self }
+    }
+
+    /// the UI size in percent of the default
+    pub fn percent(&self) -> u32 {
+        (self.base / BASE * 100.0).round() as u32
+    }
+}
+
+/// the editor's cache file of the look
+pub fn look_file(cache: &Path) -> PathBuf {
+    cache.join("editor-look.json")
+}
+
+pub fn load_look(file: &Path) -> Look {
+    std::fs::read_to_string(file).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default()
+}
+
+/// the tokens file, watched, and the look
 pub struct Watched {
     pub path: PathBuf,
     pub tokens: Tokens,
+    pub look: Look,
+    /// where the look is remembered (none in a check run)
+    look_file: Option<PathBuf>,
+    text: String,
     seen: Option<SystemTime>,
     /// the last problem reading it (shown in the panel)
     pub problem: Option<String>,
 }
 
 impl Watched {
-    pub fn new(path: PathBuf) -> Watched {
-        let mut w = Watched { path, tokens: Tokens::default(), seen: None, problem: None };
+    pub fn new(path: PathBuf, look: Look, look_file: Option<PathBuf>) -> Watched {
+        let mut w = Watched { path, tokens: Tokens::new(look.theme, look.base), look, look_file, text: String::new(), seen: None, problem: None };
         w.poll();
         w
     }
@@ -27,7 +69,34 @@ impl Watched {
             return false;
         }
         self.seen = modified;
-        match std::fs::read_to_string(&self.path).map_err(|e| e.to_string()).and_then(|t| toml::from_str::<Tokens>(&t).map_err(|e| e.to_string())) {
+        match std::fs::read_to_string(&self.path) {
+            Ok(t) => {
+                self.text = t;
+                self.apply()
+            }
+            Err(e) => {
+                self.problem = Some(e.to_string());
+                false
+            }
+        }
+    }
+
+    /// another look: applied at once and remembered; true when the tokens changed
+    pub fn set(&mut self, look: Look) -> bool {
+        if look == self.look {
+            return false;
+        }
+        self.look = look;
+        if let Some(f) = &self.look_file {
+            if let Ok(json) = serde_json::to_string_pretty(&look) {
+                let _ = std::fs::write(f, json);
+            }
+        }
+        self.apply()
+    }
+
+    fn apply(&mut self) -> bool {
+        match Tokens::from_toml(&self.text, self.look.theme, self.look.base) {
             Ok(t) => {
                 self.problem = None;
                 if t != self.tokens {
@@ -48,4 +117,38 @@ impl Watched {
 pub fn default_path() -> PathBuf {
     let beside = std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.join("tokens.toml"))).filter(|p| p.is_file());
     beside.unwrap_or_else(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("tokens.toml"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_ui_size_steps_by_a_pixel_and_stays_in_range() {
+        let l = Look::default();
+        assert_eq!(l.percent(), 100);
+        assert_eq!(l.sized(1).base, BASE + 1.0);
+        assert_eq!(l.sized(1).sized(0), l);
+        let mut big = l;
+        for _ in 0..100 {
+            big = big.sized(1);
+        }
+        assert_eq!(big.base, BASE_RANGE.1);
+    }
+
+    #[test]
+    fn a_look_switches_live_and_is_remembered() {
+        let dir = std::env::temp_dir().join(format!("deck-editor-look-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let (toml, file) = (dir.join("tokens.toml"), look_file(&dir));
+        std::fs::write(&toml, "[night.color]\nline = [1.0, 0.0, 0.0, 1.0]\n").unwrap();
+        let mut w = Watched::new(toml.clone(), Look::default(), Some(file.clone()));
+        let day = w.tokens.clone();
+        assert!(w.set(Look { theme: Theme::Night, base: 20.0 }));
+        assert_ne!(w.tokens.color.text, day.color.text);
+        assert_eq!(w.tokens.color.line, [1.0, 0.0, 0.0, 1.0], "the file's night override");
+        assert_eq!(w.tokens.size.font, 20.0);
+        assert_eq!(load_look(&file), Look { theme: Theme::Night, base: 20.0 });
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }

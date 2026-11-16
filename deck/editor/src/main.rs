@@ -116,10 +116,13 @@ struct Args {
     demo: Option<String>,
     /// a check run's grid & snap on every view (grid.rs `script`)
     grid: Option<String>,
+    /// the look and the UI size for this run (else the remembered ones)
+    theme: Option<tokens::Theme>,
+    ui_size: Option<f32>,
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, add: None, member: None, demo: None, grid: None };
+    let mut a = Args { module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -184,6 +187,8 @@ fn args() -> Result<Args> {
                 a.member = Some(v.strip_suffix(",inside").map_or((v.clone(), false), |h| (h.to_string(), true)));
             }
             "--grid" => a.grid = Some(val()?),
+            "--theme" => a.theme = Some(if val()? == "night" { tokens::Theme::Night } else { tokens::Theme::Day }),
+            "--ui-size" => a.ui_size = Some(val()?.parse()?),
             "--open-build" => a.script.open_build = true,
             "--to-cell" => a.script.to_cell = true,
             "--new-scene" => a.script.new_scene = Some(show::NewScene::parse(&val()?).context("--new-scene ID,NAME,FILLER+FILLER[,play|build]")?),
@@ -274,6 +279,8 @@ enum Hit {
     Menu,
     /// the toolbar's panic pill
     Panic,
+    /// the toolbar's day / night switch
+    Look,
     Tab(Tab),
     Knob(usize),
     Field(f32),
@@ -519,7 +526,11 @@ fn run() -> Result<i32> {
     let panels_file = args.frames.is_none().then(|| cache_dir().join("editor-panels.json"));
     let remembered = panels_file.as_deref().map(panels::load).unwrap_or_default();
     let mut build = panels::Panels::new(&panels::BUILD);
-    let tokens = tokens::Watched::new(args.tokens.clone().unwrap_or_else(tokens::default_path));
+    let look_file = args.frames.is_none().then(|| tokens::look_file(&cache));
+    let mut look = look_file.as_deref().map(tokens::load_look).unwrap_or_default();
+    look.theme = args.theme.unwrap_or(look.theme);
+    look.base = args.ui_size.unwrap_or(look.base);
+    let tokens = tokens::Watched::new(args.tokens.clone().unwrap_or_else(tokens::default_path), look, look_file);
     let event_loop = EventLoop::new().context("no event loop (no display?)")?;
     let wire = args.wire;
     let app_workspace = args.workspace;
@@ -698,11 +709,10 @@ impl App {
         match a {
             A::Open if self.workspace == show::Workspace::Perform => Some("Perform runs the show open: open another in Show or Build."),
             A::Open if self.workspace == show::Workspace::Module => Some("Pick a module in Modules."),
-            A::Open | A::Audio => None,
+            A::Open | A::Audio | A::DayNight | A::UiSize => None,
             A::New => Some("Not built yet: a new rig or show starts in the creator."),
             A::Publish => Some("The editor opens no browser yet: publish the saved draft in the creator."),
             A::Account => Some("The editor opens no browser yet: the account is on scutoons.com."),
-            A::DayNight => Some("Comes with the day and night tokens."),
             A::Quit if std::env::var_os("DECK_SWAP").is_some() => None,
             A::Quit => Some("Only when the editor was opened from the deck (F9 goes back to its stage)."),
         }
@@ -724,9 +734,26 @@ impl App {
                 self.build.floats.set_collapsed("audio", false);
                 self.panels_moved = true;
             }
+            (A::DayNight, _) => self.look(self.tokens.look.theme.other(), 0),
+            (A::UiSize, _) => {
+                // the line's left third makes it smaller, the right third larger, the middle back to 100 %
+                self.main_menu = true;
+                let step = self.menu_lines.iter().find(|(_, l)| *l == A::UiSize).map_or(0, |(r, _)| bar::size_step(r, x));
+                self.look(self.tokens.look.theme, step);
+            }
             // the next frame leaves, as F9 does
             (A::Quit, _) => self.exit = 11,
             _ => {}
+        }
+    }
+
+    /// another look or a step of the UI size (0: the size stays, unless the theme is the same: back to 100 %)
+    fn look(&mut self, theme: tokens::Theme, step: i32) {
+        let now = self.tokens.look;
+        let next = if theme != now.theme { tokens::Look { theme, ..now } } else { now.sized(step) };
+        if self.tokens.set(next) {
+            self.token_changes += 1;
+            self.panels_moved = true;
         }
     }
 
@@ -747,7 +774,8 @@ impl App {
             }
         }
         Some(match self.hit(x, y) {
-            Hit::Menu => Help::new("Menu", "Open, publish, the audio and the account; back to the deck's stage."),
+            Hit::Menu => Help::new("Menu", "Open, publish, day or night, the UI size, the audio and the account; back to the deck's stage."),
+            Hit::Look => Help::new("Day / night", "Click to switch between the light and the dark look; ctrl + and ctrl − change the UI size, ctrl 0 sets it back."),
             Hit::Panic => Help::new("Panic", "Black and silence on every deck below this conductor. Not wired yet: it does nothing for now."),
             Hit::Ground => return None,
             Hit::Workspace(_) => Help::new("Workspaces", "Build: rigs and scenes. Module: a module's code in your editor, built here, heard on the stage, saved as a draft. Show: rows, cells, seats, saved through /api/shows. Perform: the matrix, GO, the log."),
@@ -966,6 +994,7 @@ impl App {
                 self.workspace = w;
             }
             Hit::Menu => self.main_menu = true,
+            Hit::Look => self.look(self.tokens.look.theme.other(), 0),
             Hit::Ground | Hit::Panic => {}
             Hit::Crumb(i) if self.workspace != show::Workspace::Build => self.show.press(show::Hit::Crumb(i)),
             Hit::Routing(f) => routing::act(&mut self.routing, &mut self.stage, f),
@@ -2017,10 +2046,12 @@ impl App {
             cpu: self.cpu_load,
             gpu: self.gpu_time.as_ref().map(|_| self.gpu_load),
             slot,
+            night: self.tokens.look.theme == tokens::Theme::Night,
         };
         let placed = bar::draw(ui, t, wf, &spec);
         self.panel.hits.push((placed.menu, Hit::Menu));
         self.panel.hits.push((placed.panic, Hit::Panic));
+        self.panel.hits.push((placed.day, Hit::Look));
         for (r, (w, _)) in placed.workspaces.iter().zip(show::WORKSPACES) {
             self.panel.hits.push((*r, Hit::Workspace(w)));
         }
@@ -2067,7 +2098,7 @@ impl App {
             _ => None,
         };
         let view = mixer::View { tabs, tab, selected, hot, panning };
-        let (mixer_w, mixer_h) = mixer::size(&self.stage, &view);
+        let (mixer_w, mixer_h) = mixer::size(t, &self.stage, &view);
         let info_h = t.size.small * 1.4 * 6.0;
         let shown = [("tree", t.size.tree, None), ("inspector", t.size.inspector, None), ("audio", 320.0, None), ("info", 260.0, Some(info_h)), ("mixer", mixer_w, Some(mixer_h))];
         self.build.layout(ui, t, ((wf, hf), bar_bottom), &[gizmo], &shown);
@@ -2086,7 +2117,7 @@ impl App {
                             continue;
                         }
                         self.bodies.push((bx, by, track.id.clone(), inspector::Sel::Track(track.id.clone())));
-                        ui.text(bx - 16.0, by + 18.0, font, &track.id, t.color.text);
+                        ui.text(bx - 16.0, by + 18.0, font, &track.id, t.color.bright);
                     }
                 }
             } else {
@@ -2104,7 +2135,7 @@ impl App {
                             continue;
                         }
                         let name = p.address.split_once(':').and_then(|(_, r)| r.split_once('.')).map_or("", |(n, _)| n).to_string();
-                        ui.text(bx - 16.0, by + 18.0, font, &name, t.color.text);
+                        ui.text(bx - 16.0, by + 18.0, font, &name, t.color.bright);
                         self.bodies.push((bx, by, name, inspector::Sel::Node(n)));
                     }
                 }
@@ -2120,7 +2151,7 @@ impl App {
                 self.marks.push(Mark { port: index, x: mx, y: my });
                 let near = (self.cursor.0 - mx).hypot(self.cursor.1 - my) < 110.0;
                 let hover = (self.cursor.0 - mx).hypot(self.cursor.1 - my) < 9.0;
-                let c = if q.input { t.color.text } else { t.color.accent };
+                let c = if q.input { t.color.bright } else { t.color.accent };
                 let dragging = self.menu.is_some() || self.armed.is_some() || matches!(self.panel.drag, Some(Drag::Cable(_) | Drag::Grab(_)));
                 // what the typeahead still shows, else what the cable in the hand may reach
                 let open = match &self.menu {
@@ -2129,7 +2160,7 @@ impl App {
                     None => self.reach.get(index).copied().unwrap_or(false),
                 };
                 if self.armed == Some(index) {
-                    ui.ring(mx, my, 13.0, t.color.text);
+                    ui.ring(mx, my, 13.0, t.color.bright);
                 }
                 let c = if dragging && !open { [c[0], c[1], c[2], 0.22] } else { c };
                 if dragging && open {
@@ -2147,7 +2178,7 @@ impl App {
                     let small = font * 0.75;
                     let w = ui.advance(small) * q.name.chars().count() as f32;
                     let lx = if q.input { mx - w - 10.0 } else { mx + 10.0 };
-                    ui.text(lx, my - small * 0.6, small, &q.name, t.color.text);
+                    ui.text(lx, my - small * 0.6, small, &q.name, t.color.bright);
                 }
             }
         }
@@ -2192,7 +2223,7 @@ impl App {
                 if let Some((sx, sy)) = being.point_world(n).and_then(|w| self.stage.space.to_pixel(w)) {
                     let (bx, by) = (sx / scale + stage_x, sy / scale + top);
                     if !covered(&self.build.floats, bx, by) {
-                        ui.ring(bx, by, 20.0, t.color.text);
+                        ui.ring(bx, by, 20.0, t.color.bright);
                     }
                 }
             }
@@ -2465,7 +2496,7 @@ impl App {
         // the main menu over everything
         self.menu_lines.clear();
         if self.main_menu {
-            self.menu_lines = bar::menu(ui, t, placed.menu, &|a| enabled.iter().any(|(b, on)| *b == a && *on), self.cursor);
+            self.menu_lines = bar::menu(ui, t, placed.menu, &|a| enabled.iter().any(|(b, on)| *b == a && *on), &self.tokens.look, self.cursor);
         }
         window.set_cursor(if grab { winit::window::CursorIcon::Grab } else { winit::window::CursorIcon::Default });
         // the pass: logical pixels → the surface's, through the screen uniform
@@ -2634,6 +2665,9 @@ impl ApplicationHandler for App {
                     } else {
                         self.rigs.save(&self.stage.base, &self.stage.bundle);
                     }
+                } else if let Some(step) = (event.state == ElementState::Pressed && self.mods.control_key()).then(|| size_key(&event.logical_key)).flatten() {
+                    let theme = self.tokens.look.theme;
+                    self.look(theme, step);
                 } else if event.state == ElementState::Pressed && event.logical_key == Key::Character("z".into()) && self.mods.control_key() {
                     self.take_back();
                 } else if event.state == ElementState::Pressed && event.logical_key == Key::Named(NamedKey::Delete) && self.workspace == show::Workspace::Build {
@@ -2736,6 +2770,16 @@ fn save(device: &wgpu::Device, buf: &wgpu::Buffer, stride: u32, (w, h): (u32, u3
     drop(data);
     buf.unmap();
     image::RgbaImage::from_raw(w, h, px).context("the screenshot's pixels")?.save(path).with_context(|| format!("writing {}", path.display()))
+}
+
+/// ctrl + / − / 0: a step of the UI size, as a browser's zoom
+fn size_key(key: &Key) -> Option<i32> {
+    match key {
+        Key::Character(c) if c == "+" || c == "=" => Some(1),
+        Key::Character(c) if c == "-" => Some(-1),
+        Key::Character(c) if c == "0" => Some(0),
+        _ => None,
+    }
 }
 
 #[cfg(test)]

@@ -235,7 +235,7 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
                 let by = y + card_h - 48.0;
                 let go = Rect { x: sx + pad, y: by, w: (sw - 3.0 * pad) * 0.68, h: 40.0 };
                 let drop = Rect { x: go.x + go.w + pad, y: by, w: sw - 3.0 * pad - go.w, h: 40.0 };
-                button(d, t, go, "GO", t.color.go, t.color.surface);
+                controls::primary(d, t, go, "GO", false);
                 button(d, t, drop, "Drop", t.color.control, t.color.text);
                 host.hits.push((go, Hit::Go));
                 host.hits.push((drop, Hit::Drop));
@@ -245,7 +245,7 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
                 d.text(sx + pad, y + pad, small, "NEXT", t.color.muted);
                 d.text(sx + pad, y + pad + small * 1.5, font, &fit(d, &m.go, font, sw - 2.0 * pad), t.color.text);
                 let go = Rect { x: sx + pad, y: y + card_h - 48.0, w: sw - 2.0 * pad, h: 40.0 };
-                button(d, t, go, "GO", t.color.go, t.color.surface);
+                controls::primary(d, t, go, "GO", false);
                 host.hits.push((go, Hit::Go));
             }
         }
