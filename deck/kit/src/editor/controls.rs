@@ -181,6 +181,29 @@ pub fn actions(d: &mut DrawList, t: &Tokens, at: (f32, f32), w: f32, lines: &[Ac
     out
 }
 
+/// a titled list of things that are on or off, in the look of `actions`: a dot before each one on; its lines' places
+pub fn checks(d: &mut DrawList, t: &Tokens, at: (f32, f32), w: f32, title: &str, lines: &[(&str, bool)], pointer: (f32, f32)) -> Vec<Rect> {
+    let (h, px, pad) = (t.size.row, t.size.font, t.size.pad);
+    let whole = h * (lines.len() + 1) as f32 + pad;
+    d.round_rect(at.0, at.1, w, whole, t.size.radius * 2.0, t.color.surface);
+    d.outline(at.0, at.1, w, whole, (t.size.radius * 2.0, 1.0), t.color.line);
+    label(d, t, at.0 + pad * 1.5, at.1 + pad * 0.5 + (h - t.size.label * 1.25) * 0.5, title, t.color.muted);
+    let mut out = Vec::with_capacity(lines.len());
+    for (i, &(line, on)) in lines.iter().enumerate() {
+        let r = Rect { x: at.0 + pad * 0.5, y: at.1 + pad * 0.5 + (i + 1) as f32 * h, w: w - pad, h };
+        if r.has(pointer.0, pointer.1) {
+            d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, t.color.hover);
+        }
+        if on {
+            d.disc(r.x + pad * 1.5, r.y + h * 0.5, t.size.rem(0.21), t.color.accent);
+        }
+        let line = fit_sans(d, px, line, r.w - 4.0 * pad);
+        d.sans(r.x + pad * 3.0, r.y + (h - px * 1.25) * 0.5, px, &line, t.color.text);
+        out.push(r);
+    }
+    out
+}
+
 /// a lone icon you press, its ground showing under the pointer; its place
 pub fn icon_button(d: &mut DrawList, t: &Tokens, at: Rect, name: &'static str, color: [f32; 4], pointer: (f32, f32)) -> Rect {
     if at.has(pointer.0, pointer.1) {
@@ -441,6 +464,18 @@ mod tests {
         assert!(cells[1].has(20.0, 20.0 + t.size.row));
         let hover = d.prims().iter().filter(|p| matches!(p, crate::base::draw::Prim::Rect { color, .. } if *color == t.color.hover)).count();
         assert_eq!(hover, 0, "the pointer is on the muted line");
+    }
+
+    #[test]
+    fn a_check_list_puts_its_lines_under_the_title_and_dots_the_ones_on() {
+        let t = Tokens::default();
+        let mut d = list();
+        let cells = checks(&mut d, &t, (0.0, 0.0), 200.0, "PANELS", &[("Info", false), ("Mixer", true)], (0.0, 0.0));
+        assert_eq!(cells.len(), 2);
+        assert!(cells[0].y >= t.size.row, "under the title");
+        assert!((cells[1].y - cells[0].y - t.size.row).abs() < 1e-3);
+        let dots = d.prims().iter().filter(|p| matches!(p, crate::base::draw::Prim::Rect { color, .. } if *color == t.color.accent)).count();
+        assert_eq!(dots, 1, "one is on");
     }
 
     #[test]

@@ -131,10 +131,13 @@ struct Args {
     save_state: Option<String>,
     /// a check run's tools pill folded at the start
     tools_folded: bool,
+    /// a check run's panels closed in every workspace, and the main menu open
+    closed: Vec<String>,
+    main_menu: bool,
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, save_state: None, tools_folded: false };
+    let mut a = Args { module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, save_state: None, tools_folded: false, closed: Vec::new(), main_menu: false };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -205,6 +208,8 @@ fn args() -> Result<Args> {
             "--theme" => a.theme = Some(if val()? == "night" { tokens::Theme::Night } else { tokens::Theme::Day }),
             "--ui-size" => a.ui_size = Some(val()?.parse()?),
             "--settings" => a.settings = true,
+            "--close" => a.closed.extend(val()?.split(',').map(str::trim).filter(|n| !n.is_empty()).map(String::from)),
+            "--main-menu" => a.main_menu = true,
             "--open-build" => a.script.open_build = true,
             "--to-cell" => a.script.to_cell = true,
             "--new-scene" => a.script.new_scene = Some(show::NewScene::parse(&val()?).context("--new-scene ID,NAME,FILLER+FILLER[,play|build]")?),
@@ -265,7 +270,7 @@ fn args() -> Result<Args> {
                 a.size = Some((w.trim().parse()?, h.trim().parse()?));
             }
             "--help" | "-h" => {
-                println!("deck-editor [--rig catpope] [--fullscreen] [--frames N] [--screenshot FILE] [--tokens FILE] [--size W,H] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5] [--menu PORT,QUERY[,pick]] [--toon TOON] [--book FILE] [--select NODE --far QUERY[,pick]] [--demo NAME] [--panic] [--save-state saving|offline|conflict] [--module ID [--module-build] [--module-save] [--module-save-as ID]]");
+                println!("deck-editor [--rig catpope] [--fullscreen] [--frames N] [--screenshot FILE] [--tokens FILE] [--size W,H] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5] [--menu PORT,QUERY[,pick]] [--toon TOON] [--book FILE] [--select NODE --far QUERY[,pick]] [--demo NAME] [--panic] [--save-state saving|offline|conflict] [--settings] [--close ID,ID] [--main-menu] [--module ID [--module-build] [--module-save] [--module-save-as ID]]");
                 std::process::exit(0);
             }
             other => anyhow::bail!("unknown argument {other}"),
@@ -455,10 +460,9 @@ struct App {
     gpu_load: f32,
     stage: stage::Stage,
     tokens: tokens::Watched,
-    /// this machine's settings, where they are kept (none in a check run), whether their panel is open, its places
+    /// this machine's settings, where they are kept (none in a check run), their panel's places
     settings: settings::Settings,
     settings_file: Option<PathBuf>,
-    settings_open: bool,
     settings_hits: Vec<(Rect, settings::Press)>,
     panel: Panel,
     mods: ModifiersState,
@@ -496,7 +500,7 @@ struct App {
     panels_moved: bool,
     /// the main menu is open; its lines this frame
     main_menu: bool,
-    menu_lines: Vec<(Rect, bar::Action)>,
+    menu_lines: Vec<(Rect, bar::Line)>,
     /// the tree's rows this frame: the level each one goes to (empty = the rig), what it selects
     rows: Vec<(Vec<String>, inspector::Sel)>,
     /// what the inspector shows
@@ -561,7 +565,6 @@ fn run() -> Result<i32> {
     let remembered = panels_file.as_deref().map(panels::load).unwrap_or_default();
     let mut build = panels::Panels::new(&panels::BUILD);
     let settings_file = args.frames.is_none().then(|| settings::file(&cache));
-    let settings_open = args.settings;
     let mut app_settings = settings_file.as_deref().map(settings::load).unwrap_or_default();
     app_settings.look.theme = args.theme.unwrap_or(app_settings.look.theme);
     app_settings.look.base = args.ui_size.unwrap_or(app_settings.look.base);
@@ -607,13 +610,24 @@ fn run() -> Result<i32> {
         app_show.perform_panels.floats.restore(p);
     }
     if args.audio {
-        build.floats.set_collapsed("audio", false);
+        build.floats.reopen("audio");
     }
     if args.tools_folded {
         for p in [&mut build.floats, &mut app_module.panels.floats, &mut app_show.show_panels.floats, &mut app_show.perform_panels.floats] {
             p.set_collapsed("tools", true);
         }
     }
+    if args.settings {
+        for p in [&mut build, &mut app_module.panels, &mut app_show.show_panels, &mut app_show.perform_panels] {
+            p.floats.reopen(panels::SETTINGS);
+        }
+    }
+    for id in &args.closed {
+        for p in [&mut build, &mut app_module.panels, &mut app_show.show_panels, &mut app_show.perform_panels] {
+            p.floats.close(id);
+        }
+    }
+    let main_menu = args.main_menu;
     let mut app = App {
         panel: Panel { tab: args.tab, field: text::Field::with("Grüße an die Bühne – type here"), drag: None, hits: Vec::new(), field_rect: Rect { x: 0.0, y: 0.0, w: 0.0, h: 0.0 }, advance: 8.0 },
         args,
@@ -627,7 +641,6 @@ fn run() -> Result<i32> {
         tokens,
         settings: app_settings,
         settings_file,
-        settings_open,
         settings_hits: Vec::new(),
         mods: ModifiersState::empty(),
         cursor: (0.0, 0.0),
@@ -653,7 +666,7 @@ fn run() -> Result<i32> {
         build,
         panels_file,
         panels_moved: false,
-        main_menu: false,
+        main_menu,
         menu_lines: Vec::new(),
         rows: Vec::new(),
         sel: inspector::Sel::Rig,
@@ -807,7 +820,7 @@ impl App {
             (A::Open, _) => self.show.press(show::Hit::Load),
             (A::Audio, _) => {
                 self.workspace = show::Workspace::Build;
-                self.build.floats.set_collapsed("audio", false);
+                self.build.floats.reopen("audio");
                 self.panels_moved = true;
             }
             (A::DayNight, _) => self.look(self.tokens.look.theme.other(), 0),
@@ -841,12 +854,16 @@ impl App {
         }
     }
 
-    /// the settings as a floating panel of every workspace
+    /// the settings as a floating panel of the workspace shown
     fn open_settings(&mut self) {
-        self.settings_open = true;
-        for p in [&mut self.build, &mut self.module.panels, &mut self.show.show_panels, &mut self.show.perform_panels] {
-            p.floats.set_collapsed("settings", false);
-        }
+        self.panels_mut().floats.reopen(panels::SETTINGS);
+        self.panels_moved = true;
+    }
+
+    /// a line of the main menu's panel list: the panel closes, or comes back open
+    fn menu_panel(&mut self, id: &str) {
+        self.main_menu = false;
+        self.panels_mut().flip(id);
         self.panels_moved = true;
     }
 
@@ -855,8 +872,10 @@ impl App {
         let (x, y) = self.cursor;
         if let Some((spec, chrome)) = self.panels().floats.chrome_at(x, y) {
             let how = match chrome {
+                deck_kit::editor::floats::Chrome::Handle if spec.inline && self.panels().floats.collapsed(spec.id) => "Click to open it; drag to move it.",
                 deck_kit::editor::floats::Chrome::Handle => "Drag the handle to move it; it stops 1rem before a wall or another panel.",
                 deck_kit::editor::floats::Chrome::Fold => "Click to fold it to its pill or open it again.",
+                deck_kit::editor::floats::Chrome::Close => "Click to close it; the main menu's Panels bring it back.",
             };
             return Some(Help::new(spec.name, format!("{} {how}", spec.about)));
         }
@@ -864,13 +883,21 @@ impl App {
             return Some(Help::new(name, text));
         }
         if self.main_menu {
-            if let Some((_, a)) = self.menu_lines.iter().find(|(r, _)| r.has(x, y)) {
-                let label = bar::MENU.iter().find(|(m, ..)| m == a).map_or("", |(_, l, _)| *l);
-                return Some(Help::new(label, self.menu_why_not(*a).unwrap_or("Click to do it.")));
+            match self.menu_lines.iter().find(|(r, _)| r.has(x, y)).map(|(_, l)| *l) {
+                Some(bar::Line::Do(a)) => {
+                    let label = bar::MENU.iter().find(|(m, ..)| *m == a).map_or("", |(_, l, _)| *l);
+                    return Some(Help::new(label, self.menu_why_not(a).unwrap_or("Click to do it.")));
+                }
+                Some(bar::Line::Panel(id)) => {
+                    let spec = self.panels().floats.spec(id)?;
+                    let how = if self.panels().floats.closed(id) { "Closed: click to bring it back." } else { "Open: click to close it." };
+                    return Some(Help::new(spec.name, format!("{} {how}", spec.about)));
+                }
+                None => {}
             }
         }
         Some(match self.hit(x, y) {
-            Hit::Menu => Help::new("Menu", "Open, publish, day or night, the settings, the audio and the account; back to the deck's stage."),
+            Hit::Menu => Help::new("Menu", "Open, publish, day or night, the settings, the audio and the account; the workspace's panels; back to the deck's stage."),
             Hit::Tempo => Help::new(format!("{} BPM", self.stage.beat.map_or_else(|| "–".to_string(), |(b, _)| format!("{b:.1}"))), match self.stage.beat {
                 Some((_, true)) => "INT: the deck's own tempo clock runs; it sets the tempo of what plays here.",
                 Some((_, false)) => "INT: the deck's own tempo clock, standing.",
@@ -1066,19 +1093,17 @@ impl App {
         }
         // the main menu takes the press while it is open: a line does what it says, anywhere else closes it
         if self.main_menu {
-            match self.menu_lines.iter().find(|(r, _)| r.has(x, y)).map(|(_, a)| *a) {
-                Some(a) if self.menu_why_not(a).is_some() => {}
-                Some(a) => self.menu_act(a),
+            match self.menu_lines.iter().find(|(r, _)| r.has(x, y)).map(|(_, l)| *l) {
+                Some(bar::Line::Do(a)) if self.menu_why_not(a).is_some() => {}
+                Some(bar::Line::Do(a)) => self.menu_act(a),
+                Some(bar::Line::Panel(id)) => self.menu_panel(id),
                 None => self.main_menu = false,
             }
             return;
         }
-        // a panel's handle takes it in the hand, its chevron folds it (the settings' closes them)
+        // a panel's handle takes it in the hand, its chevron folds it, its close closes it
         if self.panels_mut().floats.press(x, y) {
             self.panels_moved = true;
-            if self.panels().floats.view("settings").is_some_and(|v| v.collapsed) {
-                self.settings_open = false;
-            }
             return;
         }
         if let Some((r, p)) = self.settings_hits.iter().find(|(r, _)| r.has(x, y)).copied() {
@@ -2170,7 +2195,7 @@ impl App {
         // the stage fills the window; the toolbar and the panels float over it
         let (stage_x, top, stage_w, stage_h) = (0.0, 0.0, wf, hf);
         let bar_bottom = bar::bottom(t);
-        let open = self.settings_open.then(|| (t.size.rem(22.0), settings::height(t)));
+        let open = Some((t.size.rem(22.0), settings::height(t)));
         for (p, ws) in [(&mut self.build, show::Workspace::Build), (&mut self.module.panels, show::Workspace::Module), (&mut self.show.show_panels, show::Workspace::Show), (&mut self.show.perform_panels, show::Workspace::Perform)] {
             p.settings = open;
             p.tools = Some(tools::size(t, ws));
@@ -2717,26 +2742,33 @@ impl App {
         }
         // the settings, over the workspace's panels
         self.settings_hits.clear();
-        if self.settings_open {
+        {
             let cursor = self.cursor;
             let s = self.settings;
-            let panels = match self.workspace {
+            let ws = match self.workspace {
                 show::Workspace::Build => &mut self.build,
                 show::Workspace::Module => &mut self.module.panels,
                 show::Workspace::Show => &mut self.show.show_panels,
                 show::Workspace::Perform => &mut self.show.perform_panels,
             };
-            if let Some(o) = panels.open(ui, t, "settings", cursor, 0) {
+            if let Some(o) = ws.open(ui, t, panels::SETTINGS, cursor, 0) {
                 let mut places = settings::draw(ui, t, o.area, &s);
-                panels.close(ui, t, o, &mut places);
+                ws.close(ui, t, o, &mut places);
                 self.settings_hits = places;
             }
         }
         self.tools.draw_menu(ui, t, (wf, hf), self.cursor);
-        // the main menu over everything
+        // the main menu over everything, the workspace's panels under its lines
         self.menu_lines.clear();
         if self.main_menu {
-            self.menu_lines = bar::menu(ui, t, placed.menu, &|a| enabled.iter().any(|(b, on)| *b == a && *on), &self.tokens.look, self.cursor);
+            let listed = match self.workspace {
+                show::Workspace::Build => &self.build,
+                show::Workspace::Module => &self.module.panels,
+                show::Workspace::Show => &self.show.show_panels,
+                show::Workspace::Perform => &self.show.perform_panels,
+            }
+            .listed();
+            self.menu_lines = bar::menu(ui, t, placed.menu, &|a| enabled.iter().any(|(b, on)| *b == a && *on), &self.tokens.look, &listed, self.cursor);
         }
         window.set_cursor(if grab { winit::window::CursorIcon::Grab } else { winit::window::CursorIcon::Default });
         // the pass: logical pixels → the surface's, through the screen uniform
