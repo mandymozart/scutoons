@@ -460,7 +460,11 @@ final class AssetsTest extends TestCase
         // a 3D model: binary glTF only (owner 2026-10-13) – kind model, the GLB magic checked
         $model = $service->upload($user, $this->local('glTF' . pack('V', 2) . str_repeat(chr(0), 8)), 'characters/catpope/catpope-mountaintiger.glb');
         self::assertSame(['characters/catpope/catpope-mountaintiger', 'model'], [$model['asset']['slug'], $model['asset']['kind']]);
-        foreach ([['catpope/images/new-art.png', self::PNG, 'exists'], ['catpope/images/x.webp', self::PNG, 'content_mismatch'], ['catpope/images/x.exe', 'MZ', 'invalid_type'], ['x.png', self::PNG, 'invalid_path'], ['catpope/../x.png', self::PNG, 'invalid_path'], ['catpope/i/x.svg', '<svg onload="alert(1)"></svg>', 'unsafe_svg'], ['characters/catpope/x.glb', self::PNG, 'content_mismatch'], ['characters/catpope/x.gltf', '{}', 'invalid_type']] as [$path, $bytes, $code]) {
+        // a web font (woff2): kind font, the wOF2 magic checked; a PNG named .woff2 is refused below
+        $font = $service->upload($user, $this->local('wOF2' . str_repeat(chr(0), 44)), 'fonts/abc-areal/ABCAreal-Regular.woff2');
+        self::assertSame(['fonts/abc-areal/ABCAreal-Regular', 'font'], [$font['asset']['slug'], $font['asset']['kind']]);
+        self::assertSame('font/woff2', \Scutoons\Infrastructure\AssetStorage\StorageKey::mime('fonts/abc-areal/ABCAreal-Regular.woff2'));
+        foreach ([['catpope/images/new-art.png', self::PNG, 'exists'], ['catpope/images/x.webp', self::PNG, 'content_mismatch'], ['catpope/images/x.exe', 'MZ', 'invalid_type'], ['x.png', self::PNG, 'invalid_path'], ['catpope/../x.png', self::PNG, 'invalid_path'], ['catpope/i/x.svg', '<svg onload="alert(1)"></svg>', 'unsafe_svg'], ['characters/catpope/x.glb', self::PNG, 'content_mismatch'], ['characters/catpope/x.gltf', '{}', 'invalid_type'], ['fonts/x/y.woff2', self::PNG, 'content_mismatch']] as [$path, $bytes, $code]) {
             try {
                 $service->upload($user, $this->local($bytes), $path);
                 self::fail("$path should be refused");

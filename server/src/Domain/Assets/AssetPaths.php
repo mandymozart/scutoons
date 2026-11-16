@@ -17,7 +17,7 @@ use Scutoons\Infrastructure\AssetStorage\StorageKey;
  */
 final class AssetPaths
 {
-    public const KINDS = ['image', 'video', 'audio', 'archive', 'document', 'model', 'other'];
+    public const KINDS = ['image', 'video', 'audio', 'archive', 'document', 'model', 'font', 'other'];
     public const IMAGE = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'avif'];
     public const VIDEO = ['mp4', 'webm', 'mov', 'm4v'];
     public const AUDIO = ['mp3', 'm4a', 'aac', 'ogg', 'oga', 'wav', 'flac'];
@@ -62,6 +62,7 @@ final class AssetPaths
             in_array($ext, self::VIDEO, true) => 'video',
             in_array($ext, self::AUDIO, true) => 'audio',
             $ext === 'zip' => 'archive',
+            in_array($ext, ['woff2', 'woff'], true) => 'font',
             in_array($ext, self::MODEL, true) => 'model',
             in_array($ext, ['pdf', 'mscz', 'musicxml', 'mxl', 'xml', 'json', 'txt'], true) => 'document',
             default => 'other',

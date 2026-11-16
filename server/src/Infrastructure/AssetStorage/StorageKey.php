@@ -92,6 +92,8 @@ final class StorageKey
             'zip' => 'application/zip',
             'pdf' => 'application/pdf',
             'glb' => 'model/gltf-binary',
+            'woff2' => 'font/woff2',
+            'woff' => 'font/woff',
             'wasm' => 'application/wasm',
             'json' => 'application/json',
             'mscz' => 'application/octet-stream',
