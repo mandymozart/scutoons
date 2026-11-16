@@ -74,7 +74,8 @@ impl Drop for Stub {
 
 pub fn serve(mut s: TcpStream, hits: &Mutex<Vec<String>>, api: &Mutex<String>, files: &Mutex<HashMap<String, Vec<u8>>>, scenes: &Mutex<HashMap<String, String>>) {
     s.set_nonblocking(false).unwrap();
-    s.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+    // a loaded machine may send the request head late; an unanswered request would read as an API that is gone
+    s.set_read_timeout(Some(PATIENCE)).unwrap();
     let mut head = Vec::new();
     let mut b = [0u8; 1024];
     while !head.windows(4).any(|w| w == b"\r\n\r\n") {
