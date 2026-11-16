@@ -70,6 +70,15 @@ fn an_audition_plays_the_module_alone_on_the_subjects_being() {
 }
 
 #[test]
+fn a_module_node_without_its_module_is_left_out_with_its_links() {
+    register();
+    let scene = Scene::parse("[[node]]\nid = \"a\"\nkind = \"module:ev_synth\"\n[[node]]\nid = \"b\"\nkind = \"module:never_loaded\"\n[[node]]\nid = \"o\"\nkind = \"osc\"\n[[link]]\nfrom = \"b.out\"\nto = \"a.notes\"\n").unwrap();
+    let part = scene.loaded_part();
+    assert_eq!(part.nodes.iter().map(|n| n.id.as_str()).collect::<Vec<_>>(), ["a", "o"]);
+    assert!(part.links.is_empty());
+}
+
+#[test]
 fn two_pairs_are_two_cables_and_the_ports_are_events() {
     let b = bundle(TWO_PAIRS, "");
     let w = b.play(None, None).unwrap().wiring().unwrap();
