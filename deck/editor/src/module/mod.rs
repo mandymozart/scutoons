@@ -163,7 +163,7 @@ pub struct Module {
     drag: Option<(usize, f32, f32)>,
     listing: Option<Receiver<Result<Vec<Entry>, String>>>,
     building: Option<Receiver<(Outcome, Duration)>>,
-    saving: Option<Receiver<Result<(String, Value, u64), String>>>,
+    saving: Option<Receiver<Saved>>,
     /// the rig the stage played before the first audition: back on leaving
     restore: Option<Bundle>,
     asked: bool,
@@ -180,6 +180,9 @@ pub struct Script {
     pub save: bool,
     pub save_as: Option<String>,
 }
+
+/// a save's answer: the key, the document written, its new version
+type Saved = Result<(String, Value, u64), String>;
 
 /// the deck workspace whose SDK a local build bakes: `DECK_SOURCE`, else this checkout's
 fn deck_source() -> PathBuf {
@@ -485,7 +488,7 @@ impl Module {
         Ok(())
     }
 
-    fn saved(&mut self, r: Result<(String, Value, u64), String>) {
+    fn saved(&mut self, r: Saved) {
         let Some(open) = self.open.as_mut() else { return };
         match r {
             Ok((key, content, version)) => {
