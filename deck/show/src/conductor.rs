@@ -218,6 +218,8 @@ pub enum Logged {
     VoteDecided { vote: String, option: String, how: String, event: Option<String> },
     /// #548: a row's question did not open (no such question, the form's check), and why
     VoteNotOpened { row: String, question: String, why: String },
+    Panicked,
+    Resumed,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -608,6 +610,11 @@ impl Conductor {
     fn send_cell(&mut self, outlet: &str, cell: protocol::Cell, at: Option<i64>, out: &mut Vec<Out>) {
         self.sent.insert(outlet.to_string(), cell.clone());
         out.push(envelope(Message::Cell(CellChange { outlet: outlet.to_string(), cell }), at));
+    }
+
+    /// Every outlet's last cell again, at once.
+    pub fn resend(&self) -> Vec<Out> {
+        self.sent.iter().map(|(outlet, cell)| envelope(Message::Cell(CellChange { outlet: outlet.clone(), cell: cell.clone() }), None)).collect()
     }
 
     /// A device outlet: the bridge takes `device`, not a cell (`Cell.send` has no reader).

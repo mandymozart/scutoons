@@ -417,6 +417,14 @@ impl Host {
         self.band = Some((perform, laid));
     }
 
+    /// The panic pill: the core's panic down the tree, or its resume when one holds; joined or not, the core keeps the state.
+    pub fn panic_pill(&mut self) {
+        let ms = now();
+        let out = if self.sub.panicked() { self.sub.resume(ms) } else { self.sub.panic(ms) };
+        self.status = if self.sub.panicked() { "PANIC – resume on the red pill".into() } else { "resumed".into() };
+        self.send(out);
+    }
+
     pub fn hit(&self, x: f32, y: f32) -> Option<Hit> {
         self.hits.iter().rev().find(|(r, _)| r.has(x, y)).map(|(_, h)| *h)
     }

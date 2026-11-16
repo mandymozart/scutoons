@@ -81,6 +81,9 @@ pub struct Stage {
     pub beat: Option<(f64, bool)>,
     /// a scene of Show's plays in the rig's place (`play_scene`): its id
     pub scene: Option<String>,
+    played_scene: Option<Scene>,
+    /// a panic holds: no sound device, a black picture
+    pub dark: bool,
     /// why a track is silent: its module is not loaded (published.rs), by track id
     pub silent: std::collections::BTreeMap<String, String>,
 }
@@ -184,11 +187,30 @@ impl Stage {
         let tempo = tempo::config_from_graph(&graph)?;
         let space_node = graph.first(Kind::Space).context("the scene has a space node")?;
         let groups = deck_engine::outlet_groups(&graph);
+        let played = scene.clone();
         let ready = Ready { bundle: self.bundle.clone(), knobs: Vec::new(), strips: Vec::new(), sum: None, scene, graph, tempo, space_node, ports: Vec::new(), groups, reach: Default::default() };
         self.path.clear();
         self.take(ready)?;
         self.scene = Some(id.to_string());
+        self.played_scene = Some(played);
         Ok(())
+    }
+
+    /// Black and silent until `resume`: the sound device is let go, the picture goes black.
+    pub fn panic(&mut self) {
+        self._events = None;
+        self._audio = None;
+        self.handles = None;
+        self.dark = true;
+    }
+
+    /// What played before the panic (the rig or Show's scene), from its start.
+    pub fn resume(&mut self) -> Result<()> {
+        self.dark = false;
+        match (self.scene.clone(), self.played_scene.clone()) {
+            (Some(id), Some(scene)) => self.play_scene(&id, scene),
+            _ => self.replay(self.bundle.clone()),
+        }
     }
 
     fn take(&mut self, ready: Ready) -> Result<()> {
@@ -212,7 +234,12 @@ impl Stage {
             next.space.set_view(size.0 as f32, size.1 as f32);
             next.texture = Some((tex, view, size));
         }
+        let dark = self.dark;
         *self = next;
+        // a rig changed during a panic stays silent until the resume
+        if dark {
+            self.panic();
+        }
         Ok(())
     }
 
@@ -318,7 +345,7 @@ impl Stage {
         let master = sum.as_deref().and_then(|s| slot(s, true)).map(|(n, p, _)| (n, p));
         let node_ids = graph.nodes.iter().map(|n| n.id.clone()).collect();
         let kinds = graph.nodes.iter().map(|n| n.kind).collect();
-        Stage { controls, space, gpu: None, texture: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, kinds, strips, inner, master, master_peak: [0.0; 2], master_max: 0.0, volume, path: Vec::new(), core_node: node, groups, reach, scene: None, silent: Default::default(), beat: None }
+        Stage { controls, space, gpu: None, texture: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, kinds, strips, inner, master, master_peak: [0.0; 2], master_max: 0.0, volume, path: Vec::new(), core_node: node, groups, reach, scene: None, played_scene: None, dark: false, silent: Default::default(), beat: None }
     }
 
     /// show this level of the tree in Wire; empty = the rig
@@ -474,7 +501,20 @@ impl Stage {
         });
         gpu.sync(device, queue, space);
         let (_, view, _) = self.texture.as_ref().expect("made above");
-        gpu.draw(queue, enc, view, size, space, time);
+        if self.dark {
+            enc.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("stage dark"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view,
+                    depth_slice: None,
+                    resolve_target: None,
+                    ops: wgpu::Operations { load: wgpu::LoadOp::Clear(wgpu::Color::BLACK), store: wgpu::StoreOp::Store },
+                })],
+                ..Default::default()
+            });
+        } else {
+            gpu.draw(queue, enc, view, size, space, time);
+        }
         (view, fresh)
     }
 

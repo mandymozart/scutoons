@@ -1718,6 +1718,28 @@ mod tests {
         assert_eq!(o.cells.unwrap()["left"].mode, CellMode::Black);
     }
 
+    /// The editor (the top conductor) panics: every deck of the session hears it at once and a deck that joins now is black;
+    /// its resume (the core's cells again) brings the cells back, also for a deck that joins after.
+    #[test]
+    fn the_conductors_panic_reaches_every_deck_and_its_cells_bring_them_back() {
+        let mut r = room();
+        r.add("deck", Role::Musician, Some("decks"));
+        r.send("cond", Message::Cell(CellChange { outlet: "left".into(), cell: cell(r#"{"mode":"own","layers":[{"id":"piece","src":{"kind":"piece","p":{"piece":"scene:nave"}}}]}"#) }), 0);
+        r.drain();
+        r.send("cond", Message::Panic(Panic { black: Some(true), stop: Some(true) }), 10);
+        for id in ["outL", "outR", "deck", "bridge"] {
+            let got = r.inbox(id);
+            assert!(matches!(got.as_slice(), [e] if matches!(&e.message, Message::Panic(p) if p.black == Some(true) && p.stop == Some(true))), "{id}: {got:?}");
+            assert_eq!(got[0].at, Some(10 + 50), "every deck on the same moment");
+        }
+        assert!(r.inbox("cond").is_empty(), "not back to the sender");
+        assert_eq!(r.s.snapshot_for(Role::Output, Some("left")).cells.unwrap()["left"].mode, CellMode::Black);
+
+        r.send("cond", Message::Cell(CellChange { outlet: "left".into(), cell: cell(r#"{"mode":"own","layers":[{"id":"piece","src":{"kind":"piece","p":{"piece":"scene:nave"}}}]}"#) }), 20);
+        assert_eq!(r.kinds("outL"), ["cell"]);
+        assert_eq!(r.s.snapshot_for(Role::Output, Some("left")).cells.unwrap()["left"].mode, CellMode::Own, "a deck joining now plays again");
+    }
+
     /// #186: the outlet's preload stays for its snapshot (a deck that reconnects resolves its cell's media ids); the
     /// output's `media.ready` reaches the conductor, and the output counts as ready once nothing is missing
     #[test]
