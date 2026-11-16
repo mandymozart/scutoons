@@ -43,7 +43,7 @@ pub struct Loader {
 impl Loader {
     pub fn new(base: String) -> Loader {
         let (tx, rx) = channel();
-        Loader { got: HashMap::new(), tx, rx, base, cache: deck_native::cache::default_dir(), rigs: None }
+        Loader { got: HashMap::new(), tx, rx, base, cache: crate::cache_dir(), rigs: None }
     }
 
     /// `piece`'s knobs and reach, or why not; none while they are on their way (the first ask starts it)

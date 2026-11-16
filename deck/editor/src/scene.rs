@@ -288,7 +288,7 @@ impl crate::App {
         let Some(own) = member.bundle.clone() else { return self.say(format!("{}: its rig is not at hand", member.holder), x, y, true) };
         let bundle = with_values(&own, &view.edit.positions(m));
         (view.inside, view.sel) = (Some(m), Part::Member(m));
-        let scratch = deck_native::cache::default_dir().join("scenes").join("members").join(format!("{}.{}.toml", view.edit.doc.id, member.holder));
+        let scratch = crate::cache_dir().join("scenes").join("members").join(format!("{}.{}.toml", view.edit.doc.id, member.holder));
         self.stage.path.clear();
         if let Err(err) = self.stage.replay(bundle) {
             return self.say(format!("{err:#}"), x, y, true);

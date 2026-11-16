@@ -49,6 +49,16 @@ use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::keyboard::{Key, ModifiersState, NamedKey};
 use winit::window::{Window, WindowId};
 
+static CACHE: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
+
+/// the editor's cache: the one for the API it talks to (set at the start), a test's own folder in tests
+pub fn cache_dir() -> PathBuf {
+    if cfg!(test) {
+        return deck_native::cache::test_dir();
+    }
+    CACHE.get_or_init(deck_native::cache::default_dir).clone()
+}
+
 struct Args {
     rig: String,
     /// fullscreen on the current monitor (a deck's kiosk), else a 1280×720 window
@@ -503,13 +513,14 @@ fn main() {
 
 fn run() -> Result<i32> {
     let args = args()?;
+    let _ = CACHE.set(deck_native::cache::for_api(&args.api));
     let subject = if args.rig.contains('.') { args.rig.clone() } else { format!("character.{}", args.rig) };
-    let cache = deck_native::cache::default_dir();
+    let cache = cache_dir();
     let draft = args.draft.clone().unwrap_or_else(|| rigs::draft_path(&cache, &subject));
     let (base, at) = rigs::base(&cache, &subject)?;
     let version = wires::draft_version(&draft).unwrap_or(at);
     let stage = stage::Stage::new(base, args.volume, Some(&draft))?;
-    let info_file = deck_native::cache::default_dir().join("editor-info-closed");
+    let info_file = cache_dir().join("editor-info-closed");
     let tokens = tokens::Watched::new(args.tokens.clone().unwrap_or_else(tokens::default_path));
     let event_loop = EventLoop::new().context("no event loop (no display?)")?;
     let width = tokens.tokens.size.inspector;
@@ -1264,7 +1275,7 @@ impl App {
         let token = self.auth.token();
         let key = (toon, token.is_some());
         if key != self.book_key {
-            self.book = book::Loader::new(&self.args.api, key.0.as_deref(), None, token, &deck_native::cache::default_dir());
+            self.book = book::Loader::new(&self.args.api, key.0.as_deref(), None, token, &cache_dir());
             self.book_key = key;
         }
     }
@@ -1285,7 +1296,7 @@ impl App {
                     self.stage.base = base;
                     (self.undo, self.sel, self.armed, self.draft) = (Vec::new(), inspector::Sel::Rig, None, self.rigs.draft());
                     if self.args.toon.is_none() && self.args.book.is_none() {
-                        self.rig_toon = toon::RigToon::new(&self.args.api, &subject, &deck_native::cache::default_dir());
+                        self.rig_toon = toon::RigToon::new(&self.args.api, &subject, &cache_dir());
                     }
                 }
                 rigs::Event::Saved(link) => {
@@ -1326,7 +1337,7 @@ impl App {
                 }
                 (self.rigs.subject, self.rigs.version) = (subject.clone(), None);
                 (self.undo, self.sel, self.armed) = (Vec::new(), inspector::Sel::Rig, None);
-                self.draft = rigs::draft_path(&deck_native::cache::default_dir(), &subject);
+                self.draft = rigs::draft_path(&cache_dir(), &subject);
                 self.leveled = !self.wire;
                 let line = self.show.status.clone();
                 self.say(line, x, y, false);
@@ -1376,7 +1387,7 @@ impl App {
 
     /// the rig picker: the toon's rigs on the server, the local copy when it differs; why there are none inside it
     fn open_rigs(&mut self, x: f32, y: f32) {
-        let registry = std::fs::read_to_string(toon::kept(&deck_native::cache::default_dir())).unwrap_or_default();
+        let registry = std::fs::read_to_string(toon::kept(&cache_dir())).unwrap_or_default();
         let (items, note) = self.rigs.items(self.book_key.0.as_deref(), &registry, &self.auth.line(&deck_link::pairing::app_url()));
         let mut ta = typeahead::Typeahead::new(items, x, y);
         if let Some(n) = note {
@@ -1759,7 +1770,7 @@ impl App {
         self.follow_cell();
         self.follow_scene();
         if let Some(f) = self.show.demo_book.take() {
-            self.book = book::Loader::new(&self.args.api, None, Some(&f), None, &deck_native::cache::default_dir());
+            self.book = book::Loader::new(&self.args.api, None, Some(&f), None, &cache_dir());
             self.args.book = Some(f);
         }
         self.book.poll();
