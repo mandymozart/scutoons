@@ -166,18 +166,15 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
         host.show_panels.close(d, t, o, &mut host.hits);
     }
 
-    // the inspector: Load, Flash, Save and what the last one came to, then the row's (or #478 the selected role's)
+    // the inspector: Load, Flash and what the last one came to, then the row's (or #478 the selected role's)
     if let Some(o) = host.show_panels.open(d, t, "inspector", pointer, host.hits.len()) {
         let a = o.area;
         let bh = 30.0;
-        let bw = (a.w - 2.0 * pad) / 3.0;
+        let bw = (a.w - pad) / 2.0;
         let load = Rect { x: a.x, y: a.y, w: bw, h: bh };
         let flash = Rect { x: a.x + bw + pad, y: a.y, w: bw, h: bh };
-        let save = Rect { x: a.x + 2.0 * (bw + pad), y: a.y, w: bw, h: bh };
         button(d, t, load, "Load", t.color.control, t.color.text);
         button(d, t, flash, "Flash", t.color.control, t.color.text);
-        controls::primary(d, t, save, "Save", false);
-        host.hits.push((save, Hit::Save));
         host.hits.push((load, Hit::Load));
         host.hits.push((flash, Hit::Flash));
         let line = if host.status.is_empty() { format!("{}@{} · /api/shows", show.id, show.version) } else { host.status.clone() };
