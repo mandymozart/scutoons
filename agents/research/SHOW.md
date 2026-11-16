@@ -97,7 +97,7 @@ A cell is a piece and its values. A piece is a scene, rig or module; the current
 | `values` | Keep the piece, change these. Names the piece it expects | new |
 | `keep` ↑ | Nothing happens on this outlet | designed |
 | `mirror` | Same as another outlet | on the wire |
-| `black` | Black, idle, all off | on the wire |
+| `black` | The empty cell, Ableton's stop slot: launched, or its row fired, the column goes black (the show's background). A cell left out is `keep`, not empty | on the wire |
 
 - You write only what changes. The conductor resolves keep and values along the path really taken and always sends a **full cell**. The deck compares: same piece, the values glide; other piece, load and crossfade.
 - Full cells because a deck that reboots mid-show gets the snapshot and is right at once.
@@ -121,7 +121,7 @@ A cell is a piece and its values. A piece is a scene, rig or module; the current
 
 ## 7. Firing
 
-- A row says which event fires it and how: **auto**, **suggest** or **hand**, with a hold time and a moment (now, next bar, next phrase). An event must stand for the hold time before it counts. While it is a suggestion, a newer event replaces it and scrolling back removes it.
+- A row says which event fires it and how: **auto**, **suggest** or **manual** (saved before 2026-11-16 as `hand`, still read), with a hold time and a moment (now, next bar, next phrase). An event must stand for the hold time before it counts. While it is a suggestion, a newer event replaces it and scrolling back removes it.
 - **GO is always allowed**, also before the reader got there or with media not ready. A warning can show; it never blocks.
 - A row can fire an event back into the viewer (a character enters, a vote result).
 - On autopilot, a row whose media is not ready is held and shown as a suggestion (proposal).

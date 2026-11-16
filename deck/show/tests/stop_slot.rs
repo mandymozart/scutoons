@@ -73,7 +73,7 @@ fn columns_are_grouped_when_adjacent_named_and_renamed_through_the_core() {
     assert_eq!(view::plan(&named.show).columns[1].group.as_deref(), Some("stages"));
     // left and lights stand apart: the core refuses the split group in its words
     let split = edit(&show, &Edit::Group { ids: ids(&["left", "lights"]), name: "far".into() }).unwrap_err();
-    assert_eq!(split, "not changed: outlet 'lights': the group 'far' is split, its columns stand apart");
+    assert_eq!(split, "not changed: show: outlet 'lights': the group 'far' is split, its columns stand apart");
     let out = edit(&named.show, &Edit::Ungroup { ids: ids(&["right"]) }).unwrap();
     assert_eq!(view::plan(&out.show).groups.iter().map(|g| g.span).collect::<Vec<_>>(), [1]);
     // a device column is named in place too

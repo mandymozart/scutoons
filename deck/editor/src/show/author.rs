@@ -39,7 +39,7 @@ pub fn view_switch(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, sheets
     d.outline(slot.x, slot.y, slot.w, slot.h, (slot.h * 0.5, 1.0), t.color.line);
     let (x, y, h) = (slot.x + 4.0, slot.y + 4.0, slot.h - 8.0);
     let on = match host.sheet {
-        Some(s) => sheets.iter().position(|(_, x)| *x == s).map_or(if matches!(s, Sheet::Flash | Sheet::Piece | Sheet::Event | Sheet::Scene) { usize::MAX } else { usize::from(host.two_d) }, |i| i + 2),
+        Some(s) => sheets.iter().position(|(_, x)| *x == s).map_or(if matches!(s, Sheet::Flash | Sheet::Event | Sheet::Scene) { usize::MAX } else { usize::from(host.two_d) }, |i| i + 2),
         None => usize::from(host.two_d),
     };
     let r = controls::pills(d, t, x, y, h, &names, on);
@@ -103,7 +103,7 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
     let sheet = host.sheet.filter(|s| !s.in_perform());
 
     // the panels shown and what each asks for: the rows band as its whole table, scrolled once it cannot grow
-    let band_size = super::band::table(t, &band).size();
+    let band_size = super::band::table(t, &band, true).size();
     let mut shown: Vec<(&'static str, f32, Option<f32>)> = vec![("outline", t.size.tree * 1.3, None), ("inspector", 340.0, None)];
     if sheet.is_some() {
         shown.push(("sheet", 640.0, Some(440.0)));
@@ -140,19 +140,6 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
         role_rows.push(controls::TreeRow { depth: 0, label: deck_show::roles::ADD.into(), detail: String::new(), icon: "plus", open: None, selected: false });
         for (i, r) in controls::tree(d, t, a.x, y, a.w, &role_rows, pointer).into_iter().enumerate() {
             host.hits.push((r, if i + 1 == role_rows.len() { Hit::RoleAdd } else { Hit::Role(i) }));
-        }
-        y += role_rows.len() as f32 * t.size.tree_row + pad;
-        d.text(a.x, y + 4.0, small, "ROWS", t.color.muted);
-        y += t.size.tree_row;
-        let mut rows: Vec<controls::TreeRow> = plan
-            .rows
-            .iter()
-            .map(|r| controls::TreeRow { depth: 0, label: format!("{} {}", r.number, r.id), detail: r.fires.clone(), icon: "list", open: None, selected: r.id == sel })
-            .collect();
-        // #537: a new row after the selected one
-        rows.push(controls::TreeRow { depth: 0, label: deck_show::rows::ADD.into(), detail: String::new(), icon: "plus", open: None, selected: false });
-        for (i, r) in controls::tree(d, t, a.x, y, a.w, &rows, pointer).into_iter().enumerate() {
-            host.hits.push((r, if i + 1 == rows.len() { Hit::RowAdd } else { Hit::Row(i) }));
         }
         host.show_panels.close(d, t, o, &mut host.hits);
     }
@@ -274,20 +261,21 @@ fn nodes(d: &mut DrawList, t: &Tokens, host: &mut Host, (show, sel): (&Show, &st
 /// the cells), the seats, the flash reports; where it ends (#551: it scrolls above the buttons' strip)
 fn row_side(d: &mut DrawList, t: &Tokens, host: &mut Host, (show, sel, seats): (&Show, &str, &[view::SeatView]), (rx, mut y, rw): (f32, f32, f32), pointer: (f32, f32)) -> f32 {
     let (pad, font, small) = (t.size.pad, t.size.font, t.size.small);
-    let columns = view::plan(show).columns;
     for (i, (head, lines)) in view::inspector(show, sel).iter().enumerate() {
+        // the row's cells are edited in place in the rows band: only the selected one's inspector shows here
+        if head == "cells of this row" {
+            y += super::rows::cell_side(d, t, host, (rx, y, rw), show, sel);
+            continue;
+        }
         y += controls::section(d, t, rx, y, rw, &head.to_uppercase(), i == 0);
         if i == 0 {
             y += super::rows::row_head(d, t, host, (rx, y, rw), sel, pointer);
         }
-        let cells = head == "cells of this row";
         let sends = head == "this row sends";
         let mut address = 0;
         for (label, value) in lines {
             if !label.is_empty() {
-                // a column is named for people (a role's label); the id stays the key
-                let shown = if cells { columns.iter().find(|c| c.id == *label).map_or(label.as_str(), |c| c.name.as_str()) } else { label.as_str() };
-                d.text(rx, y + 4.0, font, &fit(d, shown, font, rw * 0.36), t.color.muted);
+                d.text(rx, y + 4.0, font, &fit(d, label, font, rw * 0.36), t.color.muted);
             }
             // #539: "fires on" opens the event picker; #553: an address selects it, its filter's chips under it
             let fires = i == 0 && label == view::FIRES_ON;
@@ -297,19 +285,16 @@ fn row_side(d: &mut DrawList, t: &Tokens, host: &mut Host, (show, sel, seats): (
             });
             let vx = if label.is_empty() { rx } else { rx + rw * 0.38 };
             let r = Rect { x: vx, y, w: rx + rw - vx, h: t.size.row - 4.0 };
-            let presses = cells || fires || addr.is_some();
+            let presses = fires || addr.is_some();
             d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, if presses && r.has(pointer.0, pointer.1) { t.color.hover } else { t.color.control });
             let open = addr.is_some() && addr == host.address;
-            if (cells && host.cells.contains(label)) || (fires && host.sheet == Some(Sheet::Event)) || open {
+            if (fires && host.sheet == Some(Sheet::Event)) || open {
                 d.outline(r.x, r.y, r.w, r.h, (t.size.radius, 1.0), t.color.accent);
             }
             if fires {
                 host.hits.push((r, Hit::FiresOn));
             }
             d.text(vx + 6.0, y + 4.0, font, &fit(d, value, font, rx + rw - vx - 12.0), t.color.text);
-            if let Some(c) = columns.iter().position(|c| cells && c.id == *label) {
-                host.hits.push((r, Hit::Cell(host.row, c)));
-            }
             y += t.size.row;
             if let Some(k) = addr {
                 host.hits.push((r, Hit::AddressPick(k)));
@@ -321,9 +306,6 @@ fn row_side(d: &mut DrawList, t: &Tokens, host: &mut Host, (show, sel, seats): (
                     y += used;
                 }
             }
-        }
-        if cells {
-            y += super::rows::cell_side(d, t, host, (rx, y, rw), show, sel);
         }
         y += pad * 0.5;
     }
