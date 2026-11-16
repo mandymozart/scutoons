@@ -20,10 +20,27 @@ pub fn named(arg: &Path) -> Option<Result<SceneRef, String>> {
 
 /// The published scene `r`: the core's loader driven with `get` (a path after the API's base → its HTTP status and body,
 /// 0 = the server can't be reached) and the cache folder `dir` (`<cache>/scenes`).
-pub fn load(r: SceneRef, dir: &Path, mut get: impl FnMut(&str) -> (u16, String)) -> Result<Loaded> {
+pub fn load(r: SceneRef, dir: &Path, get: impl FnMut(&str) -> (u16, String)) -> Result<Loaded> {
     let file = dir.join(r.cache_name());
     let cached = std::fs::read_to_string(&file).ok();
-    let (mut load, mut step) = Load::start(r, cached.as_deref());
+    let (load, step) = Load::start(r, cached.as_deref());
+    drive(load, step, &file, get)
+}
+
+/// The newest draft of `r` (an editor's), kept apart from the published copies the decks play: `<dir>/drafts/<id>.json`.
+pub fn load_draft(r: SceneRef, dir: &Path, get: impl FnMut(&str) -> (u16, String)) -> Result<Loaded> {
+    let file = draft_file(dir, &r);
+    let cached = std::fs::read_to_string(&file).ok();
+    let (load, step) = Load::draft(r, cached.as_deref());
+    drive(load, step, &file, get)
+}
+
+/// where a draft of `r` is kept under the scenes' cache folder `dir`
+pub fn draft_file(dir: &Path, r: &SceneRef) -> std::path::PathBuf {
+    dir.join("drafts").join(r.cache_name())
+}
+
+fn drive(mut load: Load, mut step: Step, file: &Path, mut get: impl FnMut(&str) -> (u16, String)) -> Result<Loaded> {
     for _ in 0..MAX_ASKS {
         match step {
             Step::Ask(path) => {
@@ -32,7 +49,7 @@ pub fn load(r: SceneRef, dir: &Path, mut get: impl FnMut(&str) -> (u16, String))
             }
             Step::Play(l) => {
                 if let Some(text) = &l.store {
-                    if let Err(e) = write_atomic(&file, text.as_bytes()) {
+                    if let Err(e) = write_atomic(file, text.as_bytes()) {
                         tracing::warn!("scene: {}: not kept: {e}", load.reference());
                     }
                 }

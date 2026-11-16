@@ -221,6 +221,15 @@ pub fn module_instrument(module: &str, descriptor: &Descriptor) -> Result<Instru
     })
 }
 
+/// The rig a module is auditioned in: `subject`'s being with one track, `module`, playing the module alone
+/// (`module_instrument`); nothing else of the subject's rig sounds
+pub fn audition(subject: &str, descriptor: &Descriptor) -> Result<Bundle> {
+    let instrument = module_instrument(&descriptor.name, descriptor)?;
+    let track = super::Track { id: "module".into(), instrument: instrument.id.clone(), preset: None, gain: 1.0, pan: 0.0, mute: false };
+    let rig = Rig { subject: subject.to_string(), tracks: vec![track], routes: Vec::new(), personas: BTreeMap::new(), moods: BTreeMap::new(), rights: Default::default(), sticks: None, policy: None };
+    Ok(Bundle { rig, instruments: vec![instrument], presets: Vec::new(), modules: vec![descriptor.clone()] })
+}
+
 /// `{ module: { id, descriptor, … } }` (a catalog `module:<id>` document, the descriptor the compile service wrote into
 /// it) → the instrument that wraps it, as JSON for the catalog's `instruments` (the rig page's "start from existing modules")
 pub fn module_instrument_json(request: &str) -> Result<String> {
@@ -229,12 +238,17 @@ pub fn module_instrument_json(request: &str) -> Result<String> {
         module: Value,
     }
     let r: Request = serde_json::from_str(request).context("not a request { module }")?;
-    let id = id_of(&r.module).context("the module document has no id")?;
-    let Some(descriptor) = r.module.get("descriptor").filter(|d| !d.is_null()) else {
+    Ok(serde_json::to_string(&module_track(&r.module)?.0)?)
+}
+
+/// A catalog `module:<id>` document → the instrument that wraps it and the descriptor a bundle carries for it
+pub fn module_track(module: &Value) -> Result<(Instrument, Descriptor)> {
+    let id = id_of(module).context("the module document has no id")?;
+    let Some(descriptor) = module.get("descriptor").filter(|d| !d.is_null()) else {
         bail!("module:{id} has no descriptor yet – compile it first")
     };
     let d: Descriptor = serde_json::from_value(descriptor.clone()).with_context(|| format!("the descriptor of module {id}"))?;
-    Ok(serde_json::to_string(&module_instrument(id, &d)?)?)
+    Ok((module_instrument(id, &d)?, d))
 }
 
 /// `{ rig, instruments: [..], presets: [..], modules?: [..] }` (the catalog's documents) → the bundle as JSON for `rig_play`

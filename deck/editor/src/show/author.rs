@@ -17,7 +17,7 @@ fn fit(d: &DrawList, text: &str, px: f32, w: f32) -> String {
 
 /// the sheets the Show workspace offers over its stage (the flash list opens from Flash, not from a pill; the show runner's
 /// sheets are Perform's)
-pub const SHEETS: [(&str, Sheet); 3] = [("Cues", Sheet::Cues), ("Problems", Sheet::Problems), ("Who", Sheet::Who)];
+pub const SHEETS: [(&str, Sheet); 4] = [("Cues", Sheet::Cues), ("Problems", Sheet::Problems), ("Who", Sheet::Who), ("Demos", Sheet::Demos)];
 
 fn view_names(sheets: &[(&'static str, Sheet)]) -> Vec<&'static str> {
     ["3D", "2D"].into_iter().chain(sheets.iter().map(|(n, _)| *n)).collect()
@@ -39,7 +39,7 @@ pub fn view_switch(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, sheets
     d.outline(slot.x, slot.y, slot.w, slot.h, (slot.h * 0.5, 1.0), t.color.line);
     let (x, y, h) = (slot.x + 4.0, slot.y + 4.0, slot.h - 8.0);
     let on = match host.sheet {
-        Some(s) => sheets.iter().position(|(_, x)| *x == s).map_or(if matches!(s, Sheet::Flash | Sheet::Piece | Sheet::Event) { usize::MAX } else { usize::from(host.two_d) }, |i| i + 2),
+        Some(s) => sheets.iter().position(|(_, x)| *x == s).map_or(if matches!(s, Sheet::Flash | Sheet::Piece | Sheet::Event | Sheet::Scene) { usize::MAX } else { usize::from(host.two_d) }, |i| i + 2),
         None => usize::from(host.two_d),
     };
     let r = controls::pills(d, t, x, y, h, &names, on);
@@ -110,7 +110,7 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
         shown.push(("nodes", 760.0, None));
     }
     // the scene list: why there is none, or the filter and a line per scene
-    let scenes_h = if host.book.is_none() { small * 1.25 + 2.0 * pad } else { 2.0 * pad + t.size.tree_row * (1.0 + host.scene_list().len().max(1) as f32) };
+    let scenes_h = 2.0 * pad + small * 1.8 + if host.book.is_none() { small * 1.25 } else { pad * 0.5 + t.size.tree_row * (1.0 + host.scene_list().len().max(1) as f32) };
     shown.extend([("scenes", 260.0, Some(scenes_h)), ("rows", band.0, Some(band.1)), ("info", 260.0, Some(small * 1.4 * 6.0))]);
     host.show_panels.layout(d, t, ((w, h), crate::bar::bottom(t)), &[], &shown);
 
@@ -232,6 +232,17 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
                 }
                 host.hits.push((Rect { x, y, w: col_w - 6.0, h: rh }, Hit::Cell(i, c)));
             }
+            // #568: the cells of this row whose far nodes listen to each other, joined along the row's foot
+            for l in host.row_links(&r.id) {
+                let deck_show::far::Holder::Outlet(to) = &l.holder else { continue };
+                let mid = |id: &str| plan.columns.iter().position(|c| c.id == id).map(|c| bx + first_w + c as f32 * col_w + (col_w - 6.0) * 0.5);
+                if let (Some(a), Some(b)) = (mid(&l.from), mid(to)) {
+                    let fy = y + rh - 4.0;
+                    d.line((a, fy), (b, fy), 1.0, t.color.accent);
+                    d.disc(a, fy, 3.0, t.color.accent);
+                    d.disc(b, fy, 3.0, t.color.accent);
+                }
+            }
         }
         host.show_panels.close(d, t, o, &mut host.hits);
     }
@@ -282,7 +293,7 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
 }
 
 /// the 2D overlay: what comes from far (the reader's events, the clock), the cells of the row, what the row sends
-fn nodes(d: &mut DrawList, t: &Tokens, host: &Host, (show, sel): (&Show, &str), a: Rect) {
+fn nodes(d: &mut DrawList, t: &Tokens, host: &mut Host, (show, sel): (&Show, &str), a: Rect) {
     let (pad, small) = (t.size.pad, t.size.small);
     let top = a.y + 4.0;
     let colw = ((a.w - 2.0 * pad) / 3.6).max(120.0);
@@ -298,6 +309,7 @@ fn nodes(d: &mut DrawList, t: &Tokens, host: &Host, (show, sel): (&Show, &str), 
     let insp = view::inspector(show, sel);
     let mut cy = top + small * 1.8;
     let row_cells = show.rows.get(host.row).map(|r| r.cells.clone()).unwrap_or_default();
+    let mut boxes: Vec<(String, f32, f32)> = Vec::new();
     for o in &show.outlets {
         let cell = row_cells.get(&o.id).cloned().unwrap_or(deck_show::Cell::Keep);
         let mut lines = vec![];
@@ -308,8 +320,20 @@ fn nodes(d: &mut DrawList, t: &Tokens, host: &Host, (show, sel): (&Show, &str), 
             }
             other => view::cell_text(other),
         };
-        let head = if matches!(cell, deck_show::Cell::Keep) { format!("{} ↑", o.id) } else { o.id.clone() };
-        cy += node(d, t, (cx, cy, colw * 1.6), (&head, &detail), &lines, false) + pad;
+        let head = if matches!(cell, deck_show::Cell::Keep) { format!("{} ↑", o.name()) } else { o.name().to_string() };
+        let h = node(d, t, (cx, cy, colw * 1.6), (&head, &detail), &lines, false);
+        boxes.push((o.id.clone(), cy, h));
+        cy += h + pad;
+    }
+    // #568: a far node whose holder plays on another outlet of this row: a tube between the two cells (deck-show far.rs)
+    for l in host.row_links(sel) {
+        let deck_show::far::Holder::Outlet(to) = &l.holder else { continue };
+        let at = |id: &str| boxes.iter().find(|(o, ..)| o == id).map(|(_, y, h)| (cx + colw * 1.6, y + h * 0.5));
+        if let (Some(a), Some(b)) = (at(&l.from), at(to)) {
+            d.cable(a, b, t.color.accent);
+            d.disc(a.0, a.1, 4.0, t.color.accent);
+            d.disc(b.0, b.1, 4.0, t.color.accent);
+        }
     }
     let sends: Vec<(String, bool)> = insp.iter().find(|(h, _)| h == "this row sends").map(|(_, ls)| ls.iter().map(|(a, b)| (if a.is_empty() { b.clone() } else { format!("{a} · {b}") }, false)).collect()).unwrap_or_default();
     // a line without a target is the view's "nothing else": no send to count
@@ -334,7 +358,9 @@ fn row_side(d: &mut DrawList, t: &Tokens, host: &mut Host, (show, sel, seats): (
         let mut address = 0;
         for (label, value) in lines {
             if !label.is_empty() {
-                d.text(rx, y + 4.0, font, &fit(d, label, font, rw * 0.36), t.color.muted);
+                // a column is named for people (a role's label); the id stays the key
+                let shown = if cells { columns.iter().find(|c| c.id == *label).map_or(label.as_str(), |c| c.name.as_str()) } else { label.as_str() };
+                d.text(rx, y + 4.0, font, &fit(d, shown, font, rw * 0.36), t.color.muted);
             }
             // #539: "fires on" opens the event picker; #553: an address selects it, its filter's chips under it
             let fires = i == 0 && label == view::FIRES_ON;

@@ -117,18 +117,23 @@ pub fn draw(d: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Placed {
     out.workspaces = controls::pills(d, t, ws.x + 4.0, y + 4.0, h - 8.0, b.workspaces, b.workspace);
     // the right pill: sign-in, meters, day / night, the version
     let version_w = adv * deck_native::BUILD.chars().count() as f32;
-    let sign_w = (adv * b.sign_in.chars().count() as f32).min(260.0);
+    let sign_w = (adv * b.sign_in.chars().count() as f32).min(160.0);
     let meters = 200.0;
-    let wide = width > 1500.0;
-    let right_w = 2.0 * pad + if b.sign_in.is_empty() { 0.0 } else { sign_w + pad } + if wide { meters + pad } else { 0.0 } + h + pad + version_w;
     let lead = if b.play.is_some() { h + pad } else { 2.0 * pad };
     let tempo_w = lead + adv * 21.0 + pad;
+    let right_of = |wide: bool| 2.0 * pad + if b.sign_in.is_empty() { 0.0 } else { sign_w + pad } + if wide { meters + pad } else { 0.0 } + h + pad + version_w;
+    // the load meters only where the path keeps room of its own beside them
+    let wide = row(width, gap * 0.5, ws.x + ws.w, tempo_w, b.slot, right_of(false)).path_w > meters + 240.0;
+    let right_w = right_of(wide);
     let r = row(width, gap * 0.5, ws.x + ws.w, tempo_w, b.slot, right_w);
     // the path, then the status in what is left
     let path = Rect { x: r.path_x, y, w: r.path_w, h };
     if path.w > 2.0 * h {
         pill(d, t, path);
-        let crumbs = controls::breadcrumb(d, t, path.x + pad, y + 4.0, b.path);
+        // each step at most its share of the pill (the status gets what they leave)
+        let share = ((path.w - 2.0 * pad) / b.path.len().max(1) as f32 - 2.0 * pad - 14.0) / d.advance(px);
+        let steps: Vec<String> = b.path.iter().map(|s| controls::fit(s, share.max(3.0) as usize)).collect();
+        let crumbs = controls::breadcrumb(d, t, path.x + pad, y + 4.0, &steps);
         let end = crumbs.last().map_or(path.x + pad, |c| c.x + c.w);
         out.path = crumbs.into_iter().filter(|c| c.x + c.w <= path.x + path.w).collect();
         let room = ((path.x + path.w - pad - end - pad) / d.advance(small)).max(0.0) as usize;

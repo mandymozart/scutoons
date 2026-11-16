@@ -398,7 +398,7 @@ to = [{ dmx = 1 }]
             let values = Values::new(p.paths.len());
             values.set(0, 1.0);
             let mut r = spawn(p, Ports { dmx: Some(Box::new(dmx)), ..Ports::default() }, values, Box::new(Fixed { epoch: Instant::now(), tempo: Clock::new(0.1, 0.0, 120.0, 4) })).unwrap();
-            std::thread::sleep(Duration::from_millis(300));
+            assert!(widget.wait_frame(Duration::from_secs(60), |f| f[0] == 255).is_some(), "lit before the stop");
             if dark {
                 r.stop_dark();
             } else {

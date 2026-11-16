@@ -190,7 +190,7 @@ pub fn reachable_moved(bundle: &Bundle, ports: &[Port], port: &Port) -> Vec<bool
 }
 
 /// the bundle as the core's validate judges it
-fn checked(bundle: Bundle) -> Result<Bundle, String> {
+pub(crate) fn checked(bundle: Bundle) -> Result<Bundle, String> {
     let values = |v: Result<serde_json::Value, serde_json::Error>| v.map_err(|e| e.to_string());
     let list = |v: serde_json::Value| v.as_array().cloned().unwrap_or_default();
     let request = Request {
@@ -219,6 +219,9 @@ struct Draft {
     instruments: Vec<Instrument>,
     #[serde(default, rename = "preset")]
     presets: Vec<Preset>,
+    /// the descriptors of modules a new track plays
+    #[serde(default, rename = "module", skip_serializing_if = "Vec::is_empty")]
+    modules: Vec<deck_catalog::Descriptor>,
 }
 
 /// the draft over `base`, if the file is there and still valid
@@ -227,13 +230,20 @@ pub fn load_draft(path: &Path, base: &Bundle) -> Bundle {
     let read = toml::from_str::<Draft>(&text).map_err(|e| e.to_string()).and_then(|d| {
         let mut b = Bundle { rig: d.rig, ..base.clone() };
         for i in d.instruments {
-            if let Some(at) = b.instruments.iter().position(|x| x.id == i.id) {
-                b.instruments[at] = i;
+            match b.instruments.iter().position(|x| x.id == i.id) {
+                Some(at) => b.instruments[at] = i,
+                // a new track's instrument
+                None => b.instruments.push(i),
             }
         }
         for p in d.presets {
             if let Some(at) = b.presets.iter().position(|x| x.id == p.id) {
                 b.presets[at] = p;
+            }
+        }
+        for m in d.modules {
+            if !b.modules.iter().any(|x| x.name == m.name) {
+                b.modules.push(m);
             }
         }
         checked(b)
@@ -262,7 +272,8 @@ pub fn save_draft(path: &Path, base: &Bundle, bundle: &Bundle, version: Option<u
     }
     let instruments = bundle.instruments.iter().filter(|i| !base.instruments.contains(i)).cloned().collect();
     let presets = bundle.presets.iter().filter(|p| !base.presets.contains(p)).cloned().collect();
-    let text = toml::to_string(&Draft { version, rig: bundle.rig.clone(), instruments, presets }).context("the draft as TOML")?;
+    let modules = bundle.modules.iter().filter(|m| !base.modules.iter().any(|x| x.name == m.name)).cloned().collect();
+    let text = toml::to_string(&Draft { version, rig: bundle.rig.clone(), instruments, presets, modules }).context("the draft as TOML")?;
     std::fs::write(path, text).with_context(|| format!("writing {}", path.display()))
 }
 

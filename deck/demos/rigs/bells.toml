@@ -1,0 +1,22 @@
+# The bells of the far-nodes demo and the far-outlets fixture: a noise, and a far world node that listens to the keys wherever they play.
+
+[rig]
+subject = "character.bells"
+track = [{ id = "air", instrument = "bells_air" }, { id = "far", instrument = "from_keys" }]
+
+[[instrument]]
+id = "bells_air"
+kind = "texture"
+name = { en = "Bells" }
+out = "hiss"
+node = [{ id = "hiss", kind = "noise", cutoff = 2400.0, gain = 0.1, color = "pink" }]
+expose = [
+  { path = "hiss.gain", label = { en = "bells" }, range = [0.0, 0.5] },
+  { path = "hiss.cutoff", label = { en = "cutoff" }, range = [150.0, 8000.0] },
+]
+
+[[instrument]]
+id = "from_keys"
+kind = "pad"
+name = { en = "From the keys" }
+node = [{ id = "in", kind = "world", source = "far", address = "character:keys/far:in.events", listen = ["music.note"] }]

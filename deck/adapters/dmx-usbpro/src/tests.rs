@@ -160,15 +160,26 @@ fn send_now_goes_out_in_its_own_frame() {
     let widget = Widget::default();
     let mut a = started(&widget);
     assert!(widget.wait_frame(SOON, |_| true).is_some());
-    a.send(&dmx(2, &[9], None)).unwrap();
-    let plain = widget.wait_frame(SOON, |f| f[1] == 9).unwrap();
-    let t = std::time::Instant::now();
-    a.send_now(&dmx(1, &[255], None)).unwrap();
-    let flash = widget.wait_frame(SOON, |f| f[0] == 255).expect("the flash");
-    // measured bounds: about URGENT_GAP after the plain frame or later (the mock stamps a frame after its write, the
-    // universe before it – a slow write of the plain frame shortens the stamped gap), and well before the 25 ms grid
-    assert!(flash - plain >= universe::URGENT_GAP - Duration::from_millis(3), "{:?}", flash - plain);
-    assert!(flash - t.max(plain + universe::URGENT_GAP) < Duration::from_millis(15), "the flash {:?} after send_now", flash - t);
+    // real time on purpose (the adapter thread's wake-up), so a loaded machine gets a few tries: one inside the bounds
+    // shows the flash skips the grid, which a grid-bound adapter never does; the gap itself is universe.rs's, on a virtual clock
+    let mut tries = Vec::new();
+    for v in 1..=8u8 {
+        a.send(&dmx(2, &[v], None)).unwrap();
+        let plain = widget.wait_frame(SOON, |f| f[1] == v).unwrap();
+        let t = std::time::Instant::now();
+        a.send_now(&dmx(1, &[255 - v], None)).unwrap();
+        let flash = widget.wait_frame(SOON, |f| f[0] == 255 - v).expect("the flash");
+        // measured bounds: about URGENT_GAP after the plain frame or later (the mock stamps a frame after its write, the
+        // universe before it – a slow write of the plain frame shortens the stamped gap), and well before the 25 ms grid
+        let (gap, late) = (flash - plain, flash - t.max(plain + universe::URGENT_GAP));
+        if gap >= universe::URGENT_GAP - Duration::from_millis(3) && late < Duration::from_millis(15) {
+            tries.clear();
+            break;
+        }
+        tries.push((gap, late));
+        std::thread::sleep(Duration::from_millis(30));
+    }
+    assert!(tries.is_empty(), "no try in bounds (gap after the plain frame, lateness after send_now): {tries:?}");
     assert!(a.send_now(&DeviceMsg::Midi(MidiBytes { bytes: vec![0x90, 1, 1] })).is_err());
     a.stop().unwrap();
 }

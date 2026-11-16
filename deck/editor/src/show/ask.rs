@@ -364,7 +364,7 @@ mod tests {
     use deck_show::document::Cell;
 
     const VOTE: &str = include_str!("../../../show/fixtures/vote-cell.show.json");
-    const EVENTS: &str = include_str!("../../../show/fixtures/story-events.json");
+    const EVENTS: &str = include_str!("../../../demos/story-events.json");
 
     /// one frame of the Show workspace: its texts
     fn frame(host: &mut Host) -> Vec<String> {
@@ -453,7 +453,10 @@ mod tests {
         assert_eq!((r.cells.get("left"), r.cells.get("right")), (Some(&Cell::Ask { question: "q2".into() }), Some(&Cell::Ask { question: "q2".into() })));
         assert!(matches!(r.cells.get("middle"), Some(Cell::Play { .. })), "the column between plays on");
         assert_eq!(r.r#where.get("left"), Some(&question::new_filter()), "a new question starts with device: phone");
-        // the cell inspector: the form without groups, the cell's filter with the shared control, no piece field
+        // the cell inspector: the form without groups, the cell's filter with the shared control (scrolled to), no piece field
+        frame(&mut host);
+        let side = host.show_panels.floats.view("inspector").unwrap().content;
+        host.show_panels.floats.wheel(side.x + 4.0, side.y + 4.0, -100.0);
         let texts = frame(&mut host);
         assert!(texts.iter().any(|t| t == "QUESTION Q2 · LEFT · RIGHT"), "{texts:?}");
         assert!(host.hits.iter().any(|(_, h)| matches!(h, Hit::CellFact(_))), "the cell's filter chips");
@@ -463,6 +466,7 @@ mod tests {
         let fixture = deck_show::parse(include_str!("../../../show/fixtures/asked-by-right-click.show.json")).unwrap();
         assert_eq!(made, fixture, "the document headless scenario 43 launches: {}", serde_json::to_string(&made).unwrap());
 
+        host.show_panels.floats.wheel(side.x + 4.0, side.y + 4.0, 100.0);
         press(&mut host, false, |h| *h == Hit::Save);
         assert_eq!(host.status, "saved vote-cell as version 2");
         host.sub = deck_show::Subtree::new(deck_show::parse(r#"{ "id": "vote-cell", "version": 1, "outlets": [{ "id": "left" }], "rows": [] }"#).unwrap(), deck_show::ClockChoice::Parent);
@@ -592,8 +596,9 @@ mod tests {
         let v = host.show_panels.floats.view("inspector").unwrap();
         assert!(v.over > 0.0, "the inspector is taller than its place");
         let side = v.content;
-        let toolbar = crate::bar::bottom(&Tokens::default());
-        assert!(host.hits.iter().filter(|(r, _)| r.x >= side.x && r.y > toolbar).all(|(r, _)| r.y >= side.y - 0.5 && r.y + r.h <= side.y + side.h + 0.5), "nothing past the edge");
+        let w = v.whole;
+        let on = |r: &deck_kit::base::draw::Rect| r.x < w.x + w.w && r.x + r.w > w.x && r.y < w.y + w.h && r.y + r.h > w.y;
+        assert!(host.hits.iter().filter(|(r, _)| on(r)).all(|(r, _)| r.y >= side.y - 0.5 && r.y + r.h <= side.y + side.h + 0.5), "nothing past the edge");
         let counts = |host: &Host| host.hits.iter().any(|(_, h)| *h == Hit::Ask(AskHit::Counts));
         for _ in 0..40 {
             assert!(host.show_panels.floats.wheel(side.x + 10.0, side.y + 10.0, -1.0));

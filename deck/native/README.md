@@ -160,7 +160,9 @@ A live tool may not crackle unnoticed, and should not crackle at all:
   the open rig's groups (and `main`) on the device's channels, a test tone per channel and per group on the settings shown,
   saved or not – and Apply writes them into deck.toml (`audio/deck_toml.rs`: the other keys and comments stay) and restarts the
   stage's audio. The map's rules are the core's (`deck_engine::check_outlets`). For ASIO the editor is built with
-  `cargo build --release -p deck-editor --features asio`.
+  `cargo build --release -p deck-editor --features asio`. With `pipewire` (the deck) its first host is **PipeWire**: the sinks
+  (description, the channels the stage's stream opens with), picked by node name into `audio_device`; ALSA is listed but can't
+  be picked (the stage plays PipeWire). The listing runs on a thread of its own ("listing…"), never in the frame.
 - **Host and device**: `--audio-host default|wasapi|asio` (deck.toml `audio_host`), `--audio-device NAME` (a part of
   the name, any case; deck.toml `audio_device`), `--audio-list` prints the hosts, devices, formats and buffer ranges.
   On PipeWire the name picks the **sink** (`target.object`, #285): the first `Audio/Sink` node whose name or description

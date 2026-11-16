@@ -19,7 +19,7 @@
 //! - **The text view** (`Doc::to_toml` / `from_toml`; owner 2026-11-08: TOML if it makes sense long-term, identifiably
 //!   related to the nodes): the same serde form the core sets ship in (deck/native/rigs) and the deck image reads; the
 //!   ids in the text are the view's ids. Stored as JSON as today; comments are not kept (§6 Q5).
-use super::address::{Address, Leaf};
+use super::address::{Address, Leaf, Place};
 use super::bundle::Bundle;
 use super::wiring::Home;
 use super::instrument::canonical;
@@ -450,6 +450,64 @@ impl Bundle {
         }
     }
 
+    /// A node of `kind` added to track `track`'s instrument, under a fresh id from the kind's name: the bundle, the id.
+    pub fn node_added(&self, track: &str, kind: &str) -> Result<(Bundle, String), String> {
+        let id = fresh(kind.rsplit(':').next().unwrap_or(kind), &self.node_ids(track)?);
+        Ok((self.on_instrument(track, &Op::AddNode { id: id.clone(), kind: kind.to_string(), params: toml::Table::new() })?, id))
+    }
+
+    /// A far world node added to track `track`, listening to `holder`'s first event output (`held` is the holder's rig):
+    /// the bundle, the node's id.
+    pub fn far_added(&self, track: &str, holder: &Place, held: &Bundle) -> Result<(Bundle, String), String> {
+        let played = held.play(None, None).map_err(|e| format!("{holder}: {e:#}"))?;
+        let w = played.wiring().map_err(|e| format!("{holder}: {e:#}"))?;
+        let leaf = w.nodes.iter().find_map(|n| n.outputs.iter().find(|p| p.ty == super::wiring::port_type(PortType::Event)).and_then(|p| n.address(&p.name)));
+        let leaf = leaf.ok_or_else(|| format!("{holder} sends no events – nothing for a far node to listen to"))?;
+        let address = format!("{holder}/{leaf}");
+        let id = fresh("far", &self.node_ids(track)?);
+        let mut params = toml::Table::new();
+        params.insert("source".into(), "far".into());
+        params.insert("address".into(), address.into());
+        params.insert("listen".into(), toml::Value::Array(vec![crate::world::NOTE_NAMES[0].into()]));
+        Ok((self.on_instrument(track, &Op::AddNode { id: id.clone(), kind: Kind::World.name().to_string(), params })?, id))
+    }
+
+    /// Node `node` of track `track` removed from its instrument, its cables with it.
+    pub fn node_removed(&self, track: &str, node: &str) -> Result<Bundle, String> {
+        self.on_instrument(track, &Op::RemoveNode { id: node.to_string() })
+    }
+
+    /// A track playing `instrument` added to the rig under a fresh id from the instrument's (the instrument joins the
+    /// bundle when it is new to it): the bundle, the track's id.
+    pub fn track_added(&self, instrument: &Instrument) -> Result<(Bundle, String), String> {
+        let mut next = self.clone();
+        if !next.instruments.iter().any(|i| i.id == instrument.id) {
+            next.instruments.push(instrument.clone());
+        }
+        let base: String = instrument.id.chars().map(|c| if c.is_ascii_alphanumeric() || c == '_' || c == '-' { c } else { '_' }).collect();
+        let id = fresh(&base, &self.rig.tracks.iter().map(|t| t.id.clone()).collect::<Vec<_>>());
+        Ok((next.on_rig(&Op::AddTrack { id: id.clone(), instrument: instrument.id.clone(), preset: None })?, id))
+    }
+
+    /// A track playing the instrument that wraps a module (`assign::module_track`), the module's descriptor carried along
+    pub fn module_track_added(&self, instrument: &Instrument, descriptor: &deck_catalog::Descriptor) -> Result<(Bundle, String), String> {
+        let mut with = self.clone();
+        if !with.modules.iter().any(|d| d.name == descriptor.name) {
+            with.modules.push(descriptor.clone());
+        }
+        with.track_added(instrument)
+    }
+
+    /// Track `track` removed, its routes, variants and sticks with it.
+    pub fn track_removed(&self, track: &str) -> Result<Bundle, String> {
+        self.on_rig(&Op::RemoveTrack { id: track.to_string() })
+    }
+
+    fn node_ids(&self, track: &str) -> Result<Vec<String>, String> {
+        let t = self.rig.tracks.iter().find(|t| t.id == track).ok_or_else(|| format!("rig {}: no track '{track}'", self.rig.subject))?;
+        Ok(self.instruments.iter().find(|i| i.id == t.instrument).map(|i| i.nodes.iter().map(|n| n.id.clone()).collect()).unwrap_or_default())
+    }
+
     /// The cable `from` → `to` cut, on the document its `home` says (#431); the sentence why when no gesture may change it.
     pub fn cut(&self, from: &str, to: &str, home: &Home) -> Result<Bundle, String> {
         match home {
@@ -463,6 +521,18 @@ impl Bundle {
             Home::Bound => Err(format!("{from} → {to} is bound by the module's Rust: it cannot be cut")),
         }
     }
+}
+
+/// `base`, else `base2`, `base3` … – the first not in `taken`
+fn fresh(base: &str, taken: &[String]) -> String {
+    let base = if base.is_empty() { "node" } else { base };
+    std::iter::once(base.to_string()).chain((2..).map(|n| format!("{base}{n}"))).find(|id| !taken.contains(id)).expect("an endless list has a free id")
+}
+
+/// The kinds an author adds to an instrument by name alone: the graph kinds a scene does not own once; a world node
+/// comes with its source (`Bundle::far_added`).
+pub fn node_kinds() -> Vec<&'static str> {
+    Kind::ALL.iter().filter(|k| !super::instrument::SCENE_ONLY.contains(k) && **k != Kind::World).map(|k| k.name()).collect()
 }
 
 /// Which tracks of which rigs play `instrument`: (subject, track), in the rigs' order – "used by N" before an edit.
@@ -511,6 +581,89 @@ mod gesture_tests {
 
     fn catpope() -> Bundle {
         Bundle::core("character.catpope").expect("the core rig").expect("it reads")
+    }
+
+    fn fixture(text: &str) -> Bundle {
+        toml::from_str(text).expect("the far-outlets fixture's rig")
+    }
+
+    #[test]
+    fn a_node_comes_with_a_fresh_id_and_goes_with_its_cables() {
+        let b = catpope();
+        let (next, id) = b.node_added("drone", "lfo").expect("added");
+        let (twice, id2) = next.node_added("drone", "lfo").expect("again");
+        assert_eq!((id.as_str(), id2.as_str()), ("lfo", "lfo2"));
+        twice.play(None, None).expect("it plays");
+        let wired = twice.connected("drone:lfo2.out", "drone:fifth.cv").expect("a cable");
+        let gone = wired.node_removed("drone", "lfo2").expect("removed");
+        assert_eq!(gone.instruments, next.instruments, "its cable went with it");
+        assert!(b.node_added("drone", "nope").unwrap_err().contains("unknown kind"));
+        assert!(b.node_added("nobody", "lfo").unwrap_err().contains("no track"));
+        assert!(b.node_removed("drone", "nobody").unwrap_err().contains("no node"));
+    }
+
+    /// a character without a rig: its empty rig plays nothing, is valid to save, and takes a track as any rig does
+    #[test]
+    fn an_empty_rig_is_silent_valid_and_takes_a_track() {
+        let problems = |b: &Bundle| {
+            let r = super::super::validate::Request { kind: "rigs".into(), id: b.rig.subject.clone(), document: serde_json::to_value(&b.rig).unwrap(), instruments: b.instruments.iter().map(|i| serde_json::to_value(i).unwrap()).collect(), presets: Vec::new(), ..Default::default() };
+            r.problems().expect("a rig")
+        };
+        let e = Bundle::empty("character.nobody");
+        let played = e.play(None, None).expect("it plays");
+        assert!(played.tracks.is_empty() && played.engine.page.is_empty(), "nothing sounds");
+        assert_eq!(played.character, "nobody", "the picture stays: its being");
+        assert!(!played.nodes.iter().any(|n| matches!(n.kind.as_str(), "osc" | "fm" | "noise" | "mixer" | "audio_out")), "{:?}", played.nodes.iter().map(|n| &n.kind).collect::<Vec<_>>());
+        assert_eq!(problems(&e), Vec::<String>::new());
+        let drone = catpope().instruments.into_iter().find(|i| i.id == "drone").expect("catpope plays a drone");
+        let (one, id) = e.track_added(&drone).expect("added");
+        assert_eq!((id.as_str(), one.rig.subject.as_str()), ("drone", "character.nobody"));
+        assert!(!one.play(None, None).expect("it plays").tracks.is_empty());
+        assert_eq!(problems(&one), Vec::<String>::new());
+        let doc = serde_json::json!({ "id": "synthx", "descriptor": { "name": "synthx", "ports": [{ "name": "out", "dir": "out", "type": "audio" }], "params": [{ "name": "volume", "min": 0.0, "max": 1.0 }] } });
+        let (inst, d) = super::super::assign::module_track(&doc).expect("it wraps");
+        let (m, id) = e.module_track_added(&inst, &d).expect("a module track");
+        assert_eq!((id.as_str(), m.modules.len()), ("synthx", 1));
+        assert_eq!(m.module_track_added(&inst, &d).expect("again").0.modules.len(), 1, "the descriptor once");
+        m.play(None, None).expect("it plays");
+    }
+
+    #[test]
+    fn the_kinds_offered_are_the_ones_an_instrument_may_hold() {
+        let kinds = node_kinds();
+        assert!(kinds.contains(&"osc") && kinds.contains(&"lfo"));
+        assert!(!kinds.contains(&"screen") && !kinds.contains(&"audio_out") && !kinds.contains(&"world"), "{kinds:?}");
+    }
+
+    #[test]
+    fn a_track_comes_with_its_instrument_and_goes() {
+        let b = catpope();
+        let bells = fixture(include_str!("../../../demos/rigs/bells.toml"));
+        let air = bells.instruments.iter().find(|i| i.id == "bells_air").expect("the instrument");
+        let (next, id) = b.track_added(air).expect("added");
+        assert_eq!(id, "bells_air");
+        assert!(next.instruments.iter().any(|i| i.id == "bells_air"), "the instrument joined the bundle");
+        next.play(None, None).expect("it plays");
+        let (_, id2) = next.track_added(air).expect("again");
+        assert_eq!(id2, "bells_air2");
+        assert_eq!(next.track_removed(&id).expect("removed").rig, b.rig);
+        assert!(b.track_removed("nobody").unwrap_err().contains("no track"));
+    }
+
+    /// the far-outlets fixture: a far node added to the keys listens to the bells' event output
+    #[test]
+    fn a_far_node_listens_to_its_holders_events() {
+        let keys = fixture(include_str!("../../../demos/rigs/keys.toml"));
+        let bells = fixture(include_str!("../../../demos/rigs/bells.toml"));
+        let holder = Place::new("character", "bells");
+        let (next, id) = keys.far_added("tone", &holder, &bells).expect("added");
+        assert_eq!(id, "far");
+        let far = next.rig.far_world_nodes(&next.library());
+        let (_, _, address) = far.iter().find(|(t, n, _)| t == "tone" && *n == id).expect("a far world node");
+        assert_eq!(address.to_string(), "character:bells/far:in.events");
+        next.play(None, None).expect("it plays");
+        let silent = fixture(&include_str!("../../../demos/rigs/bells.toml").replace("track = [{ id = \"air\", instrument = \"bells_air\" }, { id = \"far\", instrument = \"from_keys\" }]", "track = [{ id = \"air\", instrument = \"bells_air\" }]"));
+        assert!(keys.far_added("tone", &holder, &silent).unwrap_err().contains("sends no events"));
     }
 
     #[test]

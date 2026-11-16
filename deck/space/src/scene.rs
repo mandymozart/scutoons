@@ -326,6 +326,22 @@ impl Scene {
         out.links = links.into_iter().map(|(l, _)| l).collect();
         (out, page.into_iter().map(|(n, _)| n).collect(), dropped.into_iter().map(|(l, _)| l).collect())
     }
+
+    /// The scene without its module nodes whose module is not registered (`modreg`: no wasm loaded) and the links that
+    /// touch them: a module node plays only once its module is loaded
+    pub fn loaded_part(&self) -> Scene {
+        self.modules_kept(|kind| crate::modreg::lookup(kind).is_some())
+    }
+
+    /// The scene without the module nodes `keep` refuses (given the node's kind, `module:<name>`) and their links
+    pub fn modules_kept(&self, keep: impl Fn(&str) -> bool) -> Scene {
+        let gone: Vec<&str> = self.nodes.iter().filter(|n| n.kind.starts_with(crate::modreg::PREFIX) && !keep(&n.kind)).map(|n| n.id.as_str()).collect();
+        let node_of = |r: &str| r.split_once('.').map_or(r, |(n, _)| n).to_string();
+        let mut out = self.clone();
+        out.nodes.retain(|n| !gone.contains(&n.id.as_str()));
+        out.links.retain(|l| !gone.contains(&node_of(&l.from).as_str()) && !gone.contains(&node_of(&l.to).as_str()));
+        out
+    }
 }
 
 /// A set's 3D file at `quality` under `sets` (`--sets`, default `<cache>/sets`): `<sets>/<id>/<id>.<quality>.glb` (the

@@ -160,8 +160,9 @@ fn missing_items_come_back_missing_and_no_api_is_offline() {
     let mut cond = Stage::new(CONDUCTOR_SCENE, &url, None);
     let cache = dir("missing");
     let mut deck = Stage::deck(&url, stub.config(&cache), cache.clone());
-    // a deck whose API is gone, its cache empty
-    let gone = listen();
+    // a deck whose API is gone, its cache empty: a port the system hands out, outside 7000–7099 where the tests beside
+    // this one bind their relays and stubs
+    let gone = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     let dead = gone.local_addr().unwrap().port();
     drop(gone);
     let off_cache = dir("offline-push");

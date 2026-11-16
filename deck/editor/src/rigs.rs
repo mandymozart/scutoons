@@ -174,8 +174,36 @@ pub fn base(cache: &Path, subject: &str) -> anyhow::Result<(Bundle, Option<u64>)
     }
     match Bundle::core(subject) {
         Some(b) => Ok((b?, None)),
-        None => anyhow::bail!("no core rig {subject} and no copy of it from the server"),
+        None => Ok((Bundle::empty(subject), None)),
     }
+}
+
+/// the characters of `toon` in the library's registry (every one with no toon open) that have no rig in the catalog
+pub fn without_rig(c: &Catalog, registry: &str, toon: Option<&str>) -> Vec<String> {
+    let v: Value = serde_json::from_str(registry).unwrap_or_default();
+    let list = v["characters"].as_array().or_else(|| v["content"]["characters"].as_array()).cloned().unwrap_or_default();
+    let mut out: Vec<String> = list
+        .iter()
+        .filter(|ch| toon.is_none_or(|t| ch["own_toon"].as_str() == Some(t)))
+        .filter_map(|ch| ch["id"].as_str())
+        .map(|id| format!("character.{id}"))
+        .filter(|s| c.rig(s).is_none())
+        .collect();
+    out.sort();
+    out
+}
+
+/// what opens for `subject`: its draft, else the catalog's rig, else – a character without one – its empty rig
+fn read(catalog: &Catalog, subject: &str, draft: Option<crate::show::api::Draft>) -> Read {
+    let (content, at) = match draft {
+        Some(d) => (d.content, d.version),
+        None => match catalog.rig(subject) {
+            Some(e) => (e.content.clone(), e.latest),
+            None if toon::character(subject).is_some() => return Ok((subject.to_string(), Bundle::empty(subject), None)),
+            None => return Err(format!("rig:{subject}: not on the server")),
+        },
+    };
+    Ok((subject.to_string(), catalog.bundle(content)?, at))
 }
 
 fn keep_base(cache: &Path, subject: &str, bundle: &Bundle, version: Option<u64>) {
@@ -292,6 +320,14 @@ impl Rigs {
         draft_path(&self.cache, &self.subject)
     }
 
+    /// the catalog once it is here (Show's new scene picks its cast from its rigs)
+    pub fn catalog(&self) -> Option<&Catalog> {
+        match &self.listing {
+            Listing::Ready(c) => Some(c),
+            _ => None,
+        }
+    }
+
     /// the threads' answers; the list asked again when the sign-in changed
     pub fn poll(&mut self, signed: bool) -> Vec<Event> {
         let mut out = Vec::new();
@@ -320,9 +356,11 @@ impl Rigs {
                     keep_base(&self.cache, &subject, &server, at);
                     let (plays, local) = with_copy(&draft_path(&self.cache, &subject), &subject, &server, at);
                     let back = local.is_none() && plays != server;
+                    let empty = at.is_none() && plays.rig.tracks.is_empty();
                     (self.subject, self.version, self.local, self.saved) = (subject.clone(), at, local.clone(), None);
                     out.push(Event::Opened(subject.clone(), Box::new((server, plays))));
                     let words = match (local, back) {
+                        (None, false) if empty =>format!("{subject} has no rig yet – start from modules or write a new module"),
                         (Some(l), _) => format!("{} – the rig picker offers it", l.words()),
                         (None, true) => format!("{subject} {}: the local copy's unsaved changes are back", version(at)),
                         (None, false) => format!("{subject} {} from the server", version(at)),
@@ -367,6 +405,11 @@ impl Rigs {
                     items.push(Item { id: self.choices.len(), label: e.subject.clone(), detail: format!("{state}{open}") });
                     self.choices.push(Choice::Server(e.subject.clone()));
                 }
+                for subject in without_rig(c, registry, toon) {
+                    let open = if subject == self.subject { " · open" } else { "" };
+                    items.push(Item { id: self.choices.len(), label: subject.clone(), detail: format!("no rig yet{open}") });
+                    self.choices.push(Choice::Server(subject));
+                }
                 (items.is_empty()).then(|| format!("no rigs for {}", toon.unwrap_or("this toon")))
             }
         };
@@ -379,15 +422,38 @@ impl Rigs {
         let (catalog, api, subject) = (c.clone(), self.api.clone(), subject.to_string());
         let (tx, rx) = channel();
         std::thread::spawn(move || {
-            let key = format!("rig:{subject}");
-            let read = Api::new(api).draft(&key).and_then(|d| match d {
-                Some(d) => Ok((d.content, d.version)),
-                None => catalog.rig(&subject).map(|e| (e.content.clone(), e.latest)).ok_or_else(|| format!("{key}: not on the server")),
-            });
-            let _ = tx.send(read.and_then(|(content, at)| Ok((subject, catalog.bundle(content)?, at))));
+            let _ = tx.send(Api::new(api).draft(&format!("rig:{subject}")).and_then(|d| read(&catalog, &subject, d)));
         });
         self.opening = Some(rx);
         Ok(())
+    }
+
+    /// the catalog's instruments that read (none until the list came)
+    pub fn instruments(&self) -> Vec<deck_space::rig::Instrument> {
+        match &self.listing {
+            Listing::Ready(c) => c.instruments.iter().filter_map(|v| serde_json::from_value(v.clone()).ok()).collect(),
+            _ => Vec::new(),
+        }
+    }
+
+    /// the catalog's modules as tracks (the core wraps each, `assign::module_track`), and why the others are not
+    pub fn modules(&self) -> (Vec<(deck_space::rig::Instrument, deck_catalog::Descriptor)>, Vec<String>) {
+        let Listing::Ready(c) = &self.listing else { return (Vec::new(), Vec::new()) };
+        let (mut ok, mut not) = (Vec::new(), Vec::new());
+        for m in &c.modules {
+            match assign::module_track(m) {
+                Ok(t) => ok.push(t),
+                Err(e) => not.push(format!("{e:#}")),
+            }
+        }
+        ok.sort_by(|a, b| a.0.id.cmp(&b.0.id));
+        (ok, not)
+    }
+
+    /// the catalog's rig of a holder (`character:bells`), as the core makes a bundle of it
+    pub fn bundle_of(&self, place: &deck_space::rig::address::Place) -> Option<Bundle> {
+        let Listing::Ready(c) = &self.listing else { return None };
+        c.bundle(c.rig(&format!("{}.{}", place.kind, place.id))?.content.clone()).ok()
     }
 
     /// the offline copy over `server`: what plays, saved on the server's version (picking it makes it the next one)
@@ -406,7 +472,10 @@ impl Rigs {
             Listing::Ready(c) => c.versions.clone(),
             _ => BTreeMap::new(),
         };
-        let others = changed(base, now, &versions);
+        // an instrument a new track brought in as the catalog has it is no change of its own
+        let catalog = self.instruments();
+        let mut others = changed(base, now, &versions);
+        others.retain(|(_, v, _)| !catalog.iter().any(|c| serde_json::from_value::<deck_space::rig::Instrument>(v.clone()).is_ok_and(|i| &i == c)));
         let (api, key, at) = (self.api.clone(), format!("rig:{}", now.rig.subject), self.version);
         let rig = serde_json::to_value(&now.rig).unwrap_or_default();
         let (tx, rx) = channel();
@@ -461,6 +530,24 @@ mod tests {
         assert_eq!(r.items(None, REGISTRY, "").0.len(), 3, "no toon open: every rig");
         let (none, note) = r.items(Some("plf"), REGISTRY, "");
         assert_eq!((none.len(), note.as_deref()), (1, None), "an item's rig is every toon's");
+    }
+
+    /// the panel model: the toon's characters without a rig come after its rigs, and one opens as its empty rig
+    #[test]
+    fn a_character_without_a_rig_is_listed_and_opens_empty() {
+        let registry = r#"{ "characters": [{ "id": "catpope", "own_toon": "catpope" }, { "id": "crow-fox", "own_toon": "catpope" }, { "id": "nun", "own_toon": "feilchen" }, { "id": "boy", "own_toon": "catpope" }] }"#;
+        let mut r = ready();
+        let (items, _) = r.items(Some("catpope"), registry, "");
+        let rows: Vec<(&str, &str)> = items.iter().map(|i| (i.label.as_str(), i.detail.as_str())).collect();
+        assert_eq!(rows, [("character.catpope", "v14 · draft · open"), ("item.incense_burner", "in the catalog"), ("character.boy", "no rig yet"), ("character.crow-fox", "no rig yet")]);
+        assert_eq!(r.choices[3], Choice::Server("character.crow-fox".into()));
+        let Listing::Ready(c) = &r.listing else { unreachable!() };
+        let (subject, bundle, at) = read(c, "character.boy", None).expect("its empty rig");
+        assert_eq!((subject.as_str(), bundle, at), ("character.boy", Bundle::empty("character.boy"), None));
+        assert_eq!(read(c, "item.lamp", None).unwrap_err(), "rig:item.lamp: not on the server");
+        let draft = crate::show::api::Draft { content: serde_json::json!({ "subject": "character.boy", "track": [] }), version: Some(1) };
+        assert_eq!(read(c, "character.boy", Some(draft)).expect("its draft").2, Some(1), "a saved draft opens, not the empty rig");
+        assert!(base(&std::env::temp_dir().join("deck-editor-no-base"), "character.boy").expect("no error").0.rig.tracks.is_empty(), "no core rig: empty");
     }
 
     #[test]
@@ -565,6 +652,48 @@ mod tests {
         wait(&mut r, &|r| r.saving.is_none());
         let Some(Saved::Refused(why)) = &r.saved else { panic!("{:?}", r.saved) };
         assert!(why.contains("someone saved a newer version"), "{why}");
+        std::fs::remove_dir_all(&cache).ok();
+    }
+
+    /// Against a running API (as above): a character without a rig opens empty, a catalog instrument becomes its first
+    /// track, Save makes `rig:<subject>` a draft that opens again; its new module's first draft is taken by the server.
+    #[test]
+    fn against_a_server_a_rig_for_a_character_without_one() {
+        let Ok(api) = std::env::var("DECK_TEST_API") else { return };
+        let character = format!("norig{}", std::process::id());
+        let subject = format!("character.{character}");
+        let cache = std::env::temp_dir().join(format!("deck-editor-norig-live-{}", std::process::id()));
+        let mut r = Rigs::new(&api, &cache, &subject, None, true);
+        let wait = |r: &mut Rigs, done: &dyn Fn(&Rigs) -> bool| {
+            let mut seen = Vec::new();
+            for _ in 0..400 {
+                seen.extend(r.poll(true));
+                if done(r) {
+                    return seen;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(25));
+            }
+            panic!("no answer from {api}");
+        };
+        wait(&mut r, &|r| matches!(r.listing, Listing::Ready(_) | Listing::Failed(_)));
+        r.open(&subject).expect("listed");
+        let seen = wait(&mut r, &|r| r.opening.is_none());
+        assert!(seen.iter().any(|e| matches!(e, Event::Say(w, false) if w.ends_with("has no rig yet – start from modules or write a new module"))));
+        let (base, plays) = seen.into_iter().find_map(|e| if let Event::Opened(_, b) = e { Some(*b) } else { None }).expect("opened");
+        assert!(plays.rig.tracks.is_empty() && r.version.is_none());
+        let instruments = crate::adding::instruments(&plays, r.instruments());
+        let first = instruments.first().cloned().expect("the catalog has instruments");
+        let (next, _) = crate::adding::apply(&plays, &crate::adding::Choice::Track(Box::new(first.clone()))).expect("a track");
+        r.save(&base, &next);
+        wait(&mut r, &|r| r.saving.is_none());
+        assert!(matches!(r.saved, Some(Saved::Done { .. })), "{:?}", r.saved);
+        let saved = r.version.expect("its first draft");
+        r.open(&subject).expect("listed");
+        let seen = wait(&mut r, &|r| r.opening.is_none());
+        let (_, again) = seen.into_iter().find_map(|e| if let Event::Opened(_, b) = e { Some(*b) } else { None }).expect("opened");
+        assert_eq!((r.version, again.rig.tracks.iter().map(|t| t.instrument.as_str()).collect::<Vec<_>>()), (Some(saved), vec![first.id.as_str()]));
+        let (key, doc) = crate::empty::new_module(&character);
+        Api::new(api.clone()).save_draft(&key, &doc, None, MESSAGE).expect("the server takes the new module's first draft");
         std::fs::remove_dir_all(&cache).ok();
     }
 

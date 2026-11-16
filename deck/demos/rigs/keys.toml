@@ -1,0 +1,23 @@
+# The keys of the far-nodes demo and the far-outlets fixture: a tone, and a far world node that listens to the bells on the outlet `right`.
+# Built-in nodes only (no module wasm), so the editor and the tests play it on any machine.
+
+[rig]
+subject = "character.keys"
+track = [{ id = "tone", instrument = "keys_tone" }, { id = "far", instrument = "from_bells" }]
+
+[[instrument]]
+id = "keys_tone"
+kind = "texture"
+name = { en = "Keys" }
+out = "osc"
+node = [{ id = "osc", kind = "osc", freq = 330.0, gain = 0.2 }]
+expose = [
+  { path = "osc.gain", label = { en = "keys" }, range = [0.0, 1.0] },
+  { path = "osc.freq", label = { en = "pitch" }, range = [110.0, 880.0] },
+]
+
+[[instrument]]
+id = "from_bells"
+kind = "pad"
+name = { en = "From the bells" }
+node = [{ id = "in", kind = "world", source = "far", address = "/deck:right/character:bells/far:in.events", listen = ["music.note"] }]

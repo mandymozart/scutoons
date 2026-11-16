@@ -478,7 +478,7 @@ pub fn cell_inspector(show: &Show, row: &str, column: &str) -> Option<CellInspec
     let piece = stage.filter(|_| !asks).map(|_| piece_of(r.cells.get(column)).map_or_else(|| NO_PIECE.to_string(), str::to_string));
     let knobs_of = piece.as_ref().and_then(|_| piece_of(r.cells.get(column))).map(str::to_string);
     let warning = crate::values::warnings(show).into_iter().find(|w| w.row == row && w.column == column).map(|w| w.text);
-    Some(CellInspector { title: format!("cell · row {} {row} · {column}", i + 1), modes: modes(show, row, column), piece, filter: cell_condition(show, row, column), knobs_of, warning })
+    Some(CellInspector { title: format!("cell · row {} {row} · {}", i + 1, show.outlets.iter().find(|o| o.id == column).map_or(column, |o| o.name())), modes: modes(show, row, column), piece, filter: cell_condition(show, row, column), knobs_of, warning })
 }
 
 /// One published scene the piece picker lists.
@@ -510,6 +510,20 @@ pub fn pieces(book: &Book, query: &str, locale: &str) -> Vec<PieceView> {
             }
             Some(PieceView { address, label: row.chain, detail })
         })
+        .collect()
+}
+
+/// what marks a scene saved as a draft and never published: usable only in the editor where it is made, played on other
+/// decks once published (decisions/deck.md 2026-11-08 [scenes])
+pub const DRAFT: &str = "draft – this editor only until published";
+
+/// The draft scenes (`scene:<id>`, its stage's name) that match `query` (in the id or the name), marked as drafts.
+pub fn draft_pieces(drafts: &[(String, String)], query: &str) -> Vec<PieceView> {
+    let q = query.trim().to_lowercase();
+    drafts
+        .iter()
+        .filter(|(address, name)| q.is_empty() || address.to_lowercase().contains(&q) || name.to_lowercase().contains(&q))
+        .map(|(address, name)| PieceView { address: address.clone(), label: if name.trim().is_empty() { address.clone() } else { name.clone() }, detail: format!("{address} · {DRAFT}") })
         .collect()
 }
 
@@ -737,6 +751,11 @@ mod tests {
         assert_eq!(all[0], PieceView { address: "scene:nave".into(), label: "Nave".into(), detail: "scene:nave · v2 · newer draft".into() });
         assert_eq!(all[1].detail, "scene:stage · v1 · template");
         assert_eq!(pieces(&book, "nav", "en").len(), 1);
+        let drafts = [("scene:duet".to_string(), "Duet".to_string()), ("scene:crypt".to_string(), String::new())];
+        let d = draft_pieces(&drafts, "");
+        assert_eq!(d[0], PieceView { address: "scene:duet".into(), label: "Duet".into(), detail: format!("scene:duet · {DRAFT}") });
+        assert_eq!(d[1].label, "scene:crypt", "no name: its address");
+        assert_eq!(draft_pieces(&drafts, "DUE").len(), 1, "found by its name or id");
     }
 
     /// a toon's book as the API gives it: two published scenes (one a template), one not yet published, other kinds

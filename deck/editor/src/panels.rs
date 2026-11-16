@@ -36,6 +36,13 @@ pub const SHOW: [Spec; 7] = [
     spec("info", "Info", "info", "What is under the pointer: its name and what it does.", Place::at(BR, 300.0, 0.0).folded()),
 ];
 
+pub const MODULE: [Spec; 4] = [
+    spec("modules", "Modules", "list", "The catalog's modules: a click opens one's working copy.", Place::at(TL, 0.0, 0.0)),
+    spec("module", "Module", "code", "The module open: its working copy, Open in editor, Build, what happened last, its parameters.", Place::at(TR, 0.0, 0.0)),
+    spec("problems", "Problems", "alert", "The last build's problems: a click opens the code there.", Place::at(BL, 0.0, 0.0)),
+    spec("info", "Info", "info", "What is under the pointer: its name and what it does.", Place::at(BR, 0.0, 0.0).folded()),
+];
+
 pub const PERFORM: [Spec; 7] = [
     spec("rail", "Session", "nodes", "This conductor, its seats, the relay, the linked readers, the vote and the outlets.", Place::at(TL, 0.0, 0.0)),
     spec("side", "Next", "play", "The suggestion with GO and Drop, else GO; the seats.", Place::at(TR, 0.0, 0.0)),
@@ -148,14 +155,15 @@ pub fn save(file: &Path, all: &Remembered) {
 mod tests {
     use super::*;
 
-    fn workspaces() -> [(&'static str, &'static [Spec]); 3] {
-        [("build", &BUILD), ("show", &SHOW), ("perform", &PERFORM)]
+    fn workspaces() -> [(&'static str, &'static [Spec]); 4] {
+        [("build", &BUILD), ("module", &MODULE), ("show", &SHOW), ("perform", &PERFORM)]
     }
 
     /// what each workspace's panels ask for on a typical frame (the sheet and its twin are never shown together)
     fn typical(name: &str) -> Vec<(&'static str, f32, Option<f32>)> {
         match name {
             "build" => vec![("tree", 220.0, Some(200.0)), ("inspector", 280.0, Some(900.0)), ("audio", 300.0, Some(500.0)), ("info", 260.0, Some(100.0)), ("mixer", 560.0, Some(112.0))],
+            "module" => vec![("modules", 220.0, Some(400.0)), ("module", 360.0, Some(700.0)), ("problems", 700.0, Some(200.0)), ("info", 260.0, Some(100.0))],
             "show" => vec![("outline", 280.0, Some(500.0)), ("inspector", 320.0, Some(1200.0)), ("nodes", 760.0, Some(360.0)), ("scenes", 240.0, Some(220.0)), ("rows", 900.0, Some(160.0)), ("info", 260.0, Some(100.0))],
             _ => vec![("rail", 220.0, Some(400.0)), ("side", 300.0, Some(300.0)), ("now", 700.0, Some(90.0)), ("log", 520.0, Some(160.0)), ("matrix", 1000.0, Some(200.0)), ("info", 260.0, Some(100.0))],
         }

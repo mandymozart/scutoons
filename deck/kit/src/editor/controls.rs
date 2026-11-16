@@ -269,8 +269,9 @@ pub fn tree(d: &mut DrawList, t: &Tokens, x: f32, y: f32, w: f32, rows: &[TreeRo
         }
         d.icon(cx + 14.0, r.y + (h - 13.0) * 0.5, 13.0, row.icon, t.color.muted);
         let text_y = r.y + (h - px * 1.25) * 0.5;
-        d.text(cx + 32.0, text_y, px, &row.label, t.color.text);
         let dw = d.advance(t.size.small) * row.detail.chars().count() as f32;
+        let room = x + w - dw - 16.0 - (cx + 32.0);
+        d.text(cx + 32.0, text_y, px, &fit(&row.label, (room / d.advance(px)).max(0.0) as usize), t.color.text);
         d.text(x + w - dw - 8.0, text_y + 1.0, t.size.small, &row.detail, t.color.muted);
         out.push(r);
     }

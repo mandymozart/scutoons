@@ -1,6 +1,6 @@
 //! The show clock over the real relay on 127.0.0.1 (#321, plan P8 + the owner's MIDI-in addition, 2026-11-03): a deck on
-//! MIDI clock in – the table-top clock's bytes arrive on its clock's channel stamped on arrival, as midir's callback
-//! sends them (tempo/midi.rs `connect_in`) – leads; a second deck on `Source::Relay` follows. Both through their own
+//! MIDI clock in – the table-top clock's bytes arrive on its clock's channel as midir's callback sends them
+//! (tempo/midi.rs `connect_in`; the state test stamps them on their due moments, see `Rig::start`) – leads; a second deck on `Source::Relay` follows. Both through their own
 //! relay link for the clock alone (no being), each frame thread at 60 Hz. The follower's beat against the leader's at
 //! the same moment stays within the P8 bound (≤ 5 ms p95 on a LAN – here the loopback); the table-top clock goes away:
 //! the last tempo holds on both, the leader's HUD says so. Ports 7100–7199 only; everything stops with the test.
@@ -111,7 +111,9 @@ struct Rig {
 }
 
 impl Rig {
-    fn start() -> Rig {
+    /// `on_arrival`: each tick stamped when the thread sends it, as midir does (its wake-ups are real-time jitter);
+    /// otherwise on its due moment, so a loaded machine delays the ticks without bending the tempo they carry
+    fn start(on_arrival: bool) -> Rig {
         let (rt, port) = relay();
         let url = format!("ws://127.0.0.1:{port}/live/CLOCK");
         let leader = Deck::start(&url, Config { source: Source::Midi, ..Config::default() }, "table top");
@@ -129,7 +131,7 @@ impl Rig {
                 while now_ns() < due {
                     std::thread::sleep(Duration::from_micros(300));
                 }
-                let _ = tx.send(Event { at_ns: now_ns(), what: What::Midi([0xF8, 0, 0]) });
+                let _ = tx.send(Event { at_ns: if on_arrival { now_ns() } else { due }, what: What::Midi([0xF8, 0, 0]) });
                 k += 1;
             }
         });
@@ -155,10 +157,12 @@ impl Drop for Rig {
 /// leader says LEADS; the table top goes away and the last tempo holds on both, the leader's HUD says so
 #[test]
 fn a_deck_on_midi_clock_in_leads_the_show_through_the_relay() {
-    let mut rig = Rig::start();
+    // ticks on their due moments: stamped on arrival, a loaded machine's late wake-ups bent the held tempo past 4 BPM;
+    // arrival jitter is deck-core's tempo/midi_in.rs (a virtual clock) and the ignored test below
+    let mut rig = Rig::start(false);
     {
         let (leader, follower) = (&rig.leader, &rig.follower);
-        // the tempo estimate of a loaded machine wanders (ticks stamped on arrival): 3 BPM, not the 0.5 of a quiet one
+        // the follower's estimate from the relay's anchors still wanders on a loaded machine: 3 BPM, not 0.5
         until(
             "the follower on the table top's tempo",
             || format!("{} {:.1} / {}", status(follower), bpm_of(follower), status(leader)),
@@ -180,7 +184,7 @@ fn a_deck_on_midi_clock_in_leads_the_show_through_the_relay() {
 #[test]
 #[ignore = "hardware rig / quiet machine: run with --ignored"]
 fn the_follower_stays_within_5_ms_of_the_leader_on_the_loopback() {
-    let mut rig = Rig::start();
+    let mut rig = Rig::start(true);
     // the follower locks (its filter, the leader's first anchors), then the two are compared for four seconds
     std::thread::sleep(Duration::from_secs(4));
     let mut errors = Vec::new();

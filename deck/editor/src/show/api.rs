@@ -1,9 +1,14 @@
 //! Show documents through the API (#90 `/api/shows`, role `live`): load the newest draft, save a new draft (the server
 //! stamps the version). Each document read or saved is also kept in the cache (`<cache>/shows/<id>.json`), so the editor
 //! opens a show offline; the API stays the source (RULES E3). The token: the editor's sign-in (sign_in.rs; `SCUTOONS_TOKEN`
-//! overrides it). Drafts of any entity (`draft`, `save_draft`): read with their version, saved on it as `base`.
+//! overrides it). Drafts of any entity (`draft`, `save_draft`) and of a deck scene (`scene_draft`, `save_scene`): read
+//! with their version, saved on it as `base`.
+use std::io::Read;
 use std::path::PathBuf;
 use std::time::Duration;
+
+/// a module build is at most 4 MB (the API refuses larger ones); a little over it is read so a larger file fails its hash
+const MAX_MODULE_BYTES: u64 = 5 << 20;
 
 pub struct Api {
     /// `http://127.0.0.1:9000/api`, `https://api.scutoons.com/api`
@@ -14,7 +19,7 @@ pub struct Api {
 
 impl Api {
     pub fn new(base: String) -> Api {
-        Api { base, auth: crate::sign_in::current(), cache: deck_native::cache::default_dir().join("shows") }
+        Api { base, auth: crate::sign_in::current(), cache: crate::cache_dir().join("shows") }
     }
 
     /// #537's UI-model test: a test API and its own cache
@@ -116,7 +121,40 @@ impl Api {
     /// Save `content` as a new draft of `key` on `base` (the version it was read at; None = the first) → the new version.
     /// Someone else's newer save is a 409, said in words: nothing is overwritten.
     pub fn save_draft(&self, key: &str, content: &serde_json::Value, base: Option<u64>, message: &str) -> Result<u64, String> {
-        let url = format!("{}/entities/{key}", self.base);
+        self.put(&format!("entities/{key}"), key, content, base, message)
+    }
+
+    /// A deck scene's draft goes through `/api/scenes/<id>` (the server stamps its `version`), the same way.
+    pub fn save_scene(&self, id: &str, content: &serde_json::Value, base: Option<u64>, message: &str) -> Result<u64, String> {
+        self.put(&format!("scenes/{id}"), &format!("scene:{id}"), content, base, message)
+    }
+
+    /// The newest draft of deck scene `id` and its version; None = never saved.
+    pub fn scene_draft(&self, id: &str) -> Result<Option<Draft>, String> {
+        let url = format!("{}/scenes/{id}?draft=1", self.base);
+        match self.auth(Self::agent().get(&url)).call() {
+            Ok(r) => {
+                let v: serde_json::Value = r.into_json().map_err(|e| format!("{url}: {e}"))?;
+                Ok(Some(Draft { content: v["content"].clone(), version: v.pointer("/version/id").and_then(|x| x.as_u64()) }))
+            }
+            Err(ureq::Error::Status(404, _)) => Ok(None),
+            Err(ureq::Error::Status(code, r)) => Err(self.refused_words(&format!("scene:{id}"), code, &r.into_json().unwrap_or_default())),
+            Err(e) => Err(format!("{url}: {e}")),
+        }
+    }
+
+    /// every deck scene with its newest draft (`GET /api/scenes`, a content editor's answer): the answer's text
+    pub fn scenes(&self) -> Result<String, String> {
+        let url = format!("{}/scenes", self.base);
+        match self.auth(Self::agent().get(&url)).call() {
+            Ok(r) => r.into_string().map_err(|e| format!("{url}: {e}")),
+            Err(ureq::Error::Status(code, r)) => Err(self.refused_words("scenes", code, &r.into_json().unwrap_or_default())),
+            Err(e) => Err(format!("{url}: {e}")),
+        }
+    }
+
+    fn put(&self, path: &str, key: &str, content: &serde_json::Value, base: Option<u64>, message: &str) -> Result<u64, String> {
+        let url = format!("{}/{path}", self.base);
         let body = serde_json::json!({ "content": content, "base": base, "message": message });
         match self.auth(Self::agent().put(&url)).send_json(body) {
             Ok(r) => {
@@ -126,6 +164,29 @@ impl Api {
             Err(ureq::Error::Status(code, r)) => Err(self.refused_words(key, code, &r.into_json().unwrap_or_default())),
             Err(e) => Err(format!("{url}: {e} – not saved")),
         }
+    }
+
+    /// A catalog module as the API answers it (`GET /api/modules/<id>`: its document, its build's hash and url)
+    pub fn module(&self, id: &str) -> Result<serde_json::Value, String> {
+        let url = format!("{}/{}", self.base, deck_space::rig::build::path(id));
+        match self.auth(Self::agent().get(&url)).call() {
+            Ok(r) => r.into_json().map_err(|e| format!("{url}: {e}")),
+            Err(ureq::Error::Status(404, _)) => Err(format!("module:{id} is not in the catalog")),
+            Err(ureq::Error::Status(401, _)) => {
+                self.auth.refused();
+                Err(format!("module:{id}: signed out – approve the editor on the account page to hear it"))
+            }
+            Err(ureq::Error::Status(code, r)) => Err(refused_words(&format!("module:{id}"), code, &r.into_json().unwrap_or_default())),
+            Err(e) => Err(format!("{url}: {e}")),
+        }
+    }
+
+    /// The file at `url` (a module's build on the CDN, up to a few MB)
+    pub fn bytes(&self, url: &str) -> Result<Vec<u8>, String> {
+        let r = ureq::AgentBuilder::new().timeout(Duration::from_secs(30)).build().get(url).call().map_err(|e| format!("{url}: {e}"))?;
+        let mut out = Vec::new();
+        r.into_reader().take(MAX_MODULE_BYTES).read_to_end(&mut out).map_err(|e| format!("{url}: {e}"))?;
+        Ok(out)
     }
 
     fn refused_words(&self, key: &str, code: u16, body: &serde_json::Value) -> String {
@@ -178,5 +239,7 @@ mod tests {
         let api = Api::with_cache("http://127.0.0.1:9/api".into(), std::env::temp_dir().join("deck-editor-api-test"));
         assert!(api.draft("moods").unwrap_err().starts_with("http://127.0.0.1:9/api/entities/moods?draft=1"));
         assert!(api.save_draft("moods", &serde_json::json!({}), Some(3), "deck editor").unwrap_err().ends_with("not saved"));
+        assert!(api.save_scene("duet", &serde_json::json!({}), None, "deck editor").unwrap_err().starts_with("http://127.0.0.1:9/api/scenes/duet: "));
+        assert!(api.scene_draft("duet").unwrap_err().starts_with("http://127.0.0.1:9/api/scenes/duet?draft=1"));
     }
 }

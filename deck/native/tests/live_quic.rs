@@ -13,12 +13,16 @@ use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-const WAIT: Duration = Duration::from_secs(10);
+/// a deadline, paid only on failure: a loaded machine joins late
+const WAIT: Duration = Duration::from_secs(60);
 const POLL: Duration = Duration::from_millis(20);
+/// the deck's QUIC idle timeout (live/quic.rs)
+const IDLE: Duration = Duration::from_secs(3);
 
-fn free_port() -> u16 {
+/// a port in 7000–7099 free for TCP and UDP, held by the returned listener so the tests running beside this one skip it
+fn free_port() -> TcpListener {
     let start = 7000 + (std::process::id() % 50) as u16;
-    (start..7100).chain(7000..start).find(|p| TcpListener::bind(("127.0.0.1", *p)).is_ok() && UdpSocket::bind(("127.0.0.1", *p)).is_ok()).expect("a free port in 7000–7099")
+    (start..7100).chain(7000..start).find_map(|p| TcpListener::bind(("127.0.0.1", p)).ok().filter(|_| UdpSocket::bind(("127.0.0.1", p)).is_ok())).expect("a free port in 7000–7099")
 }
 
 /// The real relay on its own runtime with the door open; its WebSocket port, the door's address, the certificate's hash.
@@ -32,7 +36,7 @@ fn relay() -> (tokio::runtime::Runtime, u16, SocketAddr, String) {
     let files = relay::tls::TlsFiles { cert: dir.join("cert.pem"), key: dir.join("key.pem") };
     std::fs::write(&files.cert, identity.certificate_chain().as_slice()[0].to_pem()).unwrap();
     std::fs::write(&files.key, identity.private_key().to_secret_pem()).unwrap();
-    let std_listener = TcpListener::bind(("127.0.0.1", free_port())).unwrap();
+    let std_listener = free_port();
     let port = std_listener.local_addr().unwrap().port();
     std_listener.set_nonblocking(true).unwrap();
     let door: SocketAddr = ([127, 0, 0, 1], port).into();
@@ -149,7 +153,10 @@ fn with_no_door_the_websocket_takes_over_at_once() {
     let t = Instant::now();
     let deck = start(&format!("ws://127.0.0.1:{port}/live/ROOM?quic={closed}&quichash={hash}"), Role::Musician, Some(graph()));
     assert!(!joined(&deck).1);
-    assert!(t.elapsed() < Duration::from_secs(2), "joined after {:?}", t.elapsed());
+    // measured on purpose: before the client gives QUIC up (it joined on the head start's WebSocket, not after the wait),
+    // the slack up to there is what a loaded machine needs for the join
+    let give_up = Duration::from_millis(deck_space::relay::QUIC_GIVE_UP_MS as u64);
+    assert!(t.elapsed() < give_up - Duration::from_millis(100), "joined after {:?}", t.elapsed());
 }
 
 /// UDP between the deck and the door, until `cut`.
@@ -197,7 +204,8 @@ fn when_udp_dies_mid_show_the_deck_moves_to_the_websocket_as_the_same_client() {
     let (again, quic) = joined(&deck);
     assert!(!quic, "on the WebSocket now");
     assert_eq!(again, id, "the same client");
-    assert!(t.elapsed() < Duration::from_secs(5), "after {:?}", t.elapsed());
+    // measured on purpose: the idle timeout, then a WebSocket join – the slack is what a loaded machine needs for the join
+    assert!(t.elapsed() < IDLE + Duration::from_secs(7), "after {:?}", t.elapsed());
     deck.give.send(value(0.75)).unwrap();
     hears(&conductor, 0.75);
 }

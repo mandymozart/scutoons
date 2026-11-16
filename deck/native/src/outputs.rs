@@ -244,6 +244,9 @@ mod tests {
         Graph::build(&Scene::parse(text).unwrap()).unwrap()
     }
 
+    /// a deadline for what the output thread will do, paid only on failure (a loaded machine starts the thread late)
+    const PATIENCE: std::time::Duration = std::time::Duration::from_secs(60);
+
     const SCENE: &str = "[[node]]\nid = \"sway\"\nkind = \"lfo\"\nrate = 0.5\n[[node]]\nid = \"tempo\"\nkind = \"tempo\"\n";
 
     #[test]
@@ -313,9 +316,7 @@ to = [{ dmx = 1 }, { dmx = 2 }]
         let ports = Ports { dmx: Some(Box::new(DmxUsbProAdapter::with_opener("lamp", None, widget.opener()))), ..Ports::default() };
         let o = Outputs::launch(plan, ports, slots, None, String::new(), Arc::default(), (None, None, false)).unwrap();
         o.values.set(0, 1.0);
-        std::thread::sleep(std::time::Duration::from_millis(400));
-        let lit = widget.frames().last().expect("a frame while it plays").1;
-        assert_eq!((lit[0], lit[1]), (255, 255), "the lamp is lit before the end");
+        assert!(widget.wait_frame(PATIENCE, |f| f[..2] == [255, 255]).is_some(), "the lamp is lit before the end");
         drop(o);
         let last = widget.frames().last().unwrap().1;
         assert_eq!((last[0], last[1]), (0, 0), "dark after the end");
@@ -344,22 +345,18 @@ to = [{{ dmx = {ch} }}]
         let devices = (plan.dmx.clone(), plan.midi.clone(), false);
         let o = Outputs::launch(plan, ports, slots, None, String::new(), Arc::default(), devices).unwrap();
         o.values.set(0, 1.0);
-        std::thread::sleep(std::time::Duration::from_millis(300));
-        assert_eq!(widget.frames().last().unwrap().1[0], 255);
+        assert!(widget.wait_frame(PATIENCE, |f| f[0] == 255).is_some(), "lit before the switch");
         let at_switch = widget.frames().len();
         let mut before = Some(o);
         let switch = Switch { transition: SceneTransition::Fade, secs: 0.8 };
         let o = Outputs::start_after(b["outputs"].as_table().unwrap(), None, &g, Arc::default(), &mut before, switch).unwrap().expect("handed over");
         assert!(before.is_none());
         o.values.set(0, 1.0);
-        std::thread::sleep(std::time::Duration::from_millis(400));
-        let mid = widget.frames().last().unwrap().1;
-        assert!(mid[0] > 0 && mid[0] < 255 && mid[1] > 0 && mid[1] < 255, "half way: {:?}", &mid[..2]);
-        std::thread::sleep(std::time::Duration::from_millis(800));
-        let end = widget.frames().last().unwrap().1;
-        assert_eq!((end[0], end[1]), (0, 255), "crossed over");
+        assert!(widget.wait_frame(PATIENCE, |f| f[..2] == [0, 255]).is_some(), "crossed over: {:?}", &widget.last_frame().unwrap()[..2]);
+        let since = widget.frames()[at_switch..].to_vec();
+        assert!(since.iter().any(|(_, f)| f[0] > 0 && f[0] < 255 && f[1] > 0 && f[1] < 255), "a fade, not a jump: no frame half way");
         // never dark in between: every frame since the switch has one of the two channels well up
-        assert!(widget.frames()[at_switch..].iter().all(|(_, f)| f[0] >= 60 || f[1] >= 60), "a dark frame in between");
+        assert!(since.iter().all(|(_, f)| f[0] >= 60 || f[1] >= 60), "a dark frame in between");
         // a stop is still a stop
         drop(o);
         let last = widget.frames().last().unwrap().1;
@@ -386,7 +383,7 @@ to = [{ dmx = 1 }]
         let devices = (plan.dmx.clone(), plan.midi.clone(), false);
         let o = Outputs::launch(plan, ports, slots, None, String::new(), Arc::default(), devices).unwrap();
         o.values.set(0, 1.0);
-        std::thread::sleep(std::time::Duration::from_millis(300));
+        assert!(widget.wait_frame(PATIENCE, |f| f[0] == 255).is_some(), "lit before the switch");
         let mut before = Some(o);
         let switch = Switch { transition: SceneTransition::Blackout, secs: 0.4 };
         let _next = Outputs::start_after(table["outputs"].as_table().unwrap(), None, &g, Arc::default(), &mut before, switch).unwrap();
