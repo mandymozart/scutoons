@@ -9,6 +9,8 @@ use std::time::Duration;
 
 use protocol::lines::{line, Lines};
 use tokio_tungstenite::tungstenite::Utf8Bytes;
+use wtransport::config::states::WantsIdentity;
+use wtransport::config::ServerConfigBuilder;
 use wtransport::quinn::{AckFrequencyConfig, TransportConfig};
 use wtransport::{Connection, Endpoint, RecvStream, SendStream, ServerConfig, VarInt};
 
@@ -127,8 +129,17 @@ fn transport() -> anyhow::Result<TransportConfig> {
 /// (tls.rs). The URL's path is the join (`/live/<code>?role=…`), as on the WebSocket path. Binds now (a port in use is
 /// an error at once); the returned future accepts until the relay stops.
 pub fn door(doors: Arc<Doors>, addr: SocketAddr, files: TlsFiles) -> anyhow::Result<impl Future<Output = ()> + Send> {
+    open(doors, ServerConfig::builder().with_bind_address(addr), files)
+}
+
+/// The door on a socket already bound (a port the caller holds, so nothing can take it in between).
+pub fn door_on(doors: Arc<Doors>, socket: std::net::UdpSocket, files: TlsFiles) -> anyhow::Result<impl Future<Output = ()> + Send> {
+    open(doors, ServerConfig::builder().with_bind_socket(socket), files)
+}
+
+fn open(doors: Arc<Doors>, bind: ServerConfigBuilder<WantsIdentity>, files: TlsFiles) -> anyhow::Result<impl Future<Output = ()> + Send> {
     let tls = crate::tls::quic_config(files).map_err(anyhow::Error::msg)?;
-    let config = ServerConfig::builder().with_bind_address(addr).with_custom_tls_and_transport(tls, transport()?).build();
+    let config = bind.with_custom_tls_and_transport(tls, transport()?).build();
     let endpoint = Endpoint::server(config)?;
     Ok(async move {
         loop {

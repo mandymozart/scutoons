@@ -347,6 +347,11 @@ impl Outbox {
         self.lock().skipped
     }
 
+    /// How many messages wait to be taken.
+    pub fn waiting(&self) -> usize {
+        self.lock().entries.len()
+    }
+
     /// Everything waiting, as texts (tests, and the session's own unit tests).
     pub fn drain(&self) -> Vec<Utf8Bytes> {
         let mut out = vec![];
