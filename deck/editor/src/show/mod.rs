@@ -23,7 +23,7 @@ pub mod api;
 mod ask;
 pub mod author;
 pub mod build;
-mod condition;
+pub(crate) mod condition;
 mod events;
 mod flash;
 mod link;

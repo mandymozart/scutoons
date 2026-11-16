@@ -87,14 +87,14 @@ impl crate::App {
         };
         let all = instruments(&self.stage.bundle, self.rigs.instruments());
         let (items, add) = choices(track.as_deref(), self.stage.path.is_empty(), &all);
-        self.menu = Some(crate::Menu { ta: Typeahead::new(items, x, y), from: None, far: None, rigs: false, add, far_new: None });
+        self.menu = Some(crate::Menu { ta: Typeahead::new(items, x, y), from: None, far: None, rigs: false, add, far_new: None, scene: None });
     }
 
     /// a row of Add chosen: a far node asks for its holder next, the rest lands at once
     pub(crate) fn added(&mut self, c: Choice, x: f32, y: f32) {
         if let Choice::Far { track } = c {
             let ta = self.holders(x, y);
-            self.menu = Some(crate::Menu { ta, from: None, far: None, rigs: false, add: Vec::new(), far_new: Some(track) });
+            self.menu = Some(crate::Menu { ta, from: None, far: None, rigs: false, add: Vec::new(), far_new: Some(track), scene: None });
             return;
         }
         match apply(&self.stage.bundle, &c) {

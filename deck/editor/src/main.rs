@@ -23,6 +23,7 @@ mod tokens;
 mod ui;
 mod rigs;
 mod scene;
+mod scene_parts;
 mod show;
 mod sign_in;
 mod toon;
@@ -285,6 +286,8 @@ enum Hit {
     SceneKnob(usize),
     SceneClear(usize),
     SceneInto,
+    /// a slot's or a video node's field (scene_parts.rs)
+    SceneField(scene::Field),
 }
 
 /// what is being dragged
@@ -351,6 +354,8 @@ struct Menu {
     add: Vec<adding::Choice>,
     /// the address book for a new far world node in this track
     far_new: Option<String>,
+    /// the scene's slots and video nodes (scene_parts.rs)
+    scene: Option<scene_parts::Pick>,
 }
 
 /// a sentence at the place of a gesture, for a few seconds
@@ -647,6 +652,7 @@ impl App {
             Hit::SceneKnob(_) => Help::new("Value in the scene", "Drag to set this member's knob in the scene; the stage plays it when you let go. Save makes the scene's draft."),
             Hit::SceneClear(_) => Help::new("Its rig's value", "Takes the scene's value off: the member plays its rig's own."),
             Hit::SceneInto => Help::new("Open as rig", "One level down: the member's rig alone on the stage, the scene's values on its knobs. Esc or the scene's line takes them back into the scene."),
+            Hit::SceneField(_) => Help::new("Slot or video", "A slot's filter (every chip on holds), its preview from the toon's book; a video node's place and knobs. The core refuses what does not fit, in its words."),
             Hit::Field(_) | Hit::InfoBody | Hit::Nothing => return None,
         })
     }
@@ -928,7 +934,8 @@ impl App {
             Hit::RigPick => self.open_rigs(x, y),
             Hit::Save if self.scene.is_some() => self.scene_save(),
             Hit::Save => self.rigs.save(&self.stage.base, &self.stage.bundle),
-            Hit::Add if self.scene.as_ref().is_some_and(|v| v.inside.is_none()) => self.say("a scene's cast is picked in Show's scene sheet".into(), x, y, false),
+            Hit::Add if self.scene.as_ref().is_some_and(|v| v.inside.is_none()) => self.scene_add(x, y),
+            Hit::SceneField(f) => self.scene_field(f, x, y),
             Hit::Add => self.open_add(x, y),
             Hit::Remove => self.remove_selected(),
             Hit::ToCell => self.knobs_to_cell(),
@@ -1147,7 +1154,7 @@ impl App {
         }
         let items = self.stage.ports.iter().enumerate().filter(|(i, _)| if from.is_none() { self.stage.visible[*i] } else { self.reach.get(*i).copied().unwrap_or(false) });
         let items = items.map(|(id, p)| typeahead::Item { id, label: p.address.clone(), detail: format!("{} {}", if p.input { "in" } else { "out" }, p.ty) }).collect();
-        self.menu = Some(Menu { ta: typeahead::Typeahead::new(items, x, y), from, far: None, rigs: false, add: Vec::new(), far_new: None });
+        self.menu = Some(Menu { ta: typeahead::Typeahead::new(items, x, y), from, far: None, rigs: false, add: Vec::new(), far_new: None, scene: None });
     }
 
     /// #477: the typeahead over the toon's address book for a far world node's address – the kinds a holder may be, found
@@ -1155,7 +1162,7 @@ impl App {
     fn open_book(&mut self, node: usize, x: f32, y: f32) {
         let Some(far) = self.stage.far(node) else { return };
         let ta = self.holders(x, y);
-        self.menu = Some(Menu { ta, from: None, far: Some(far), rigs: false, add: Vec::new(), far_new: None });
+        self.menu = Some(Menu { ta, from: None, far: Some(far), rigs: false, add: Vec::new(), far_new: None, scene: None });
     }
 
     /// the address book's holders a far world node may listen to; without a book it says why inside
@@ -1310,13 +1317,16 @@ impl App {
         if let Some(n) = note {
             ta = ta.with_note(n);
         }
-        self.menu = Some(Menu { ta, from: None, far: None, rigs: true, add: Vec::new(), far_new: None });
+        self.menu = Some(Menu { ta, from: None, far: None, rigs: true, add: Vec::new(), far_new: None, scene: None });
     }
 
     /// a row chosen: connected from the armed port, or the port found is armed
     fn pick(&mut self, id: usize) {
         let Some(menu) = self.menu.take() else { return };
         let (x, y) = (menu.ta.x, menu.ta.y);
+        if let Some(p) = menu.scene {
+            return self.scene_pick(p, id, x, y);
+        }
         if menu.rigs {
             match self.rigs.choices.get(id).cloned() {
                 Some(rigs::Choice::Server(subject)) => {
@@ -1882,6 +1892,7 @@ impl App {
                             scene::Field::Knob(i) => Hit::SceneKnob(i),
                             scene::Field::Clear(i) => Hit::SceneClear(i),
                             scene::Field::Into => Hit::SceneInto,
+                            f => Hit::SceneField(f),
                         };
                         self.panel.hits.push((r, hit));
                     }
