@@ -1,4 +1,4 @@
-Status 2026-11-16: concept for the owner's review – where a module can extend the core (camera, animation, devices, picture), attached wherever an entity lives; compared with OSCT's plugins; drafts sent in the chat. Nothing built from it.
+Status 2026-11-16: concept decided (§6 as proposed, decisions/deck.md [modules]); first step #590 (the slot model + the motion domain). Originally: concept for the owner's review – where a module can extend the core (camera, animation, devices, picture), attached wherever an entity lives; compared with OSCT's plugins; drafts sent in the chat. Nothing built from it.
 
 # MODULE-EXTENSIONS – modules as the app's plugins
 
