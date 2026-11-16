@@ -259,7 +259,7 @@ impl Stage {
         let shared = handles.as_ref().map(|h| h.tempo.clone()).unwrap_or_default();
         let mut tempo = Tempo::new(tempo_cfg, shared, rate);
         tempo.start();
-        let cache = deck_native::cache::default_dir();
+        let cache = crate::cache_dir();
         // the rig editor's stage is empty ([rigs] 2026-11-08): no set around the being
         let mut space = Space::with_gate(&graph, node, &scene.being, &cache.join("sets"), Portraits::local(&cache.join("portraits")), None);
         // an editor's view: no breath, the camera stays where the hand puts it (owner 2026-11-09)

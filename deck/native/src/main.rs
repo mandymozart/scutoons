@@ -286,7 +286,8 @@ fn args() -> Result<Args> {
             other => bail!("unknown argument '{other}'\n{HELP}"),
         }
     }
-    Ok(Args { scenes: switcher::sandboxes(a.scenes.take(), a.dev), ..a })
+    let cache = a.cache.take().or_else(|| Some(cache::for_api(&a.api)));
+    Ok(Args { scenes: switcher::sandboxes(a.scenes.take(), a.dev), cache, ..a })
 }
 
 /// what the app measures: the frame count the run's controls read, and deck-core's monitor (the HUD's numbers and the exit line's)
@@ -1698,6 +1699,8 @@ fn run() -> Result<i32> {
         tracing::warn!("quality: {e} – the defaults");
     }
     let quality_note = problem.map_or_else(|| format!("FILE {}", qfile.path.file_name().map(|n| n.to_string_lossy().to_uppercase()).unwrap_or_default()), |e| e.to_uppercase());
+    #[cfg(feature = "live")]
+    let app_cache = args.cache.clone().unwrap_or_else(cache::default_dir);
     let mut app = App {
         hud: hud::Hud::with_mode(if args.hud_bar { hud::Mode::Bar } else { hud::Mode::Full }),
         menu: menu::Native::new(&args),
@@ -1741,7 +1744,7 @@ fn run() -> Result<i32> {
         #[cfg(feature = "outputs")]
         conductor_midi: Vec::new(),
         #[cfg(feature = "live")]
-        pieces: deck_native::live::piece::Side::new(),
+        pieces: deck_native::live::piece::Side::at(app_cache),
     };
     app.watch = app.watch_files();
     if app.args.switcher {
