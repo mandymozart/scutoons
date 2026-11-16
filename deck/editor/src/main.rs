@@ -1126,7 +1126,7 @@ impl App {
             Hit::Remove => self.remove_selected(),
             Hit::Background => {
                 let now = self.stage.bundle.rig.background.as_ref().map_or("", |b| b.text()).to_string();
-                return self.begin_edit(Editing::Background, Hit::Background, now);
+                self.begin_edit(Editing::Background, Hit::Background, now);
             }
             Hit::ToCell => self.knobs_to_cell(),
             Hit::BackToShow => self.workspace = show::Workspace::Show,
