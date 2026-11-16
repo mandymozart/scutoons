@@ -231,6 +231,15 @@ impl SceneEdit {
         }
     }
 
+    /// The scene's stage background as a person typed it (`Background::typed`; empty = none, its rigs' then): the words
+    /// for what it is now, or why it is refused.
+    pub fn set_background(&mut self, typed: &str) -> Result<String, String> {
+        let b = deck_catalog::Background::typed(typed)?;
+        let said = b.as_ref().map_or_else(|| "the scene's background: none – its rigs', else black".to_string(), |b| format!("the scene's background: {}", b.text()));
+        self.doc.stage.background = b;
+        Ok(said)
+    }
+
     /// The knob positions of member `m`'s rig as an editor turned them (its slots) into the scene: how many differ from
     /// what the scene had, and why the others were refused.
     pub fn take(&mut self, m: usize, positions: &[(String, f32)]) -> (usize, Vec<String>) {
@@ -300,6 +309,21 @@ mod tests {
         edit.move_holder(&holder, [0.0; 3]).unwrap();
         assert_eq!(edit.doc.holders[0].at, None);
         assert!(edit.move_holder("nobody", [1.0; 3]).is_err());
+    }
+
+    #[test]
+    fn the_scenes_background_is_typed_and_plays() {
+        use deck_catalog::Background;
+        let (mut edit, _) = SceneEdit::open(duet(), Some(7), &core_rigs, &no_sets).unwrap();
+        assert_eq!(edit.set_background("#102030").unwrap(), "the scene's background: #102030");
+        assert!(edit.changed());
+        assert_eq!(edit.resolved(&core_rigs, &no_sets).unwrap().scene.stage.background, Some(Background::colour("#102030")));
+        assert!(edit.set_background("#12").unwrap_err().contains("no colour"), "refused, as it was");
+        assert_eq!(edit.doc.stage.background, Some(Background::colour("#102030")));
+        edit.set_background("backgrounds/nave.webp").unwrap();
+        assert_eq!(edit.doc.stage.background, Some(Background::image("backgrounds/nave.webp")));
+        assert!(edit.set_background(" ").unwrap().contains("none"));
+        assert!(!edit.changed(), "none again: as saved");
     }
 
     #[test]

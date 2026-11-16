@@ -93,6 +93,7 @@ fn open_module(d: &mut DrawList, t: &Tokens, m: &mut Module, stage: &Stage, a: R
     }
     y += row + pad * 0.5;
     y = status(d, t, m, x0, y, pw);
+    crate::inspector::background(d, t, Rect { x: x0, y, w: pw, h: row }, &mut y, &super::background_row(m.descriptor.as_ref()));
 
     // its Parameters, from the descriptor
     y += controls::section(d, t, x0, y, pw, if m.heard { "PARAMETERS · heard on the stage" } else { "PARAMETERS · defaults" }, false);

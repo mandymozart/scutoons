@@ -532,7 +532,7 @@ impl Show {
             // the one request for the scene goes out before the head asks for its first sprite
             #[cfg(feature = "sync")]
             if let Some(y) = &sync {
-                y.prepare(deck_native::sync::needs_of(&graph, &scene.being));
+                y.prepare(deck_native::sync::needs_of(&graph, &scene.being, scene.stage.background.as_ref()));
             }
             // through the sync (it fetches, then the folder is read), else the local folders as they are
             #[cfg(feature = "sync")]

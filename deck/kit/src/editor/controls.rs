@@ -187,6 +187,17 @@ pub fn row(d: &mut DrawList, t: &Tokens, area: Rect, y: &mut f32, label: &str, v
     *y += t.size.tree_row;
 }
 
+/// `row` with a colour's swatch at its right end, when there is one
+pub fn swatch_row(d: &mut DrawList, t: &Tokens, area: Rect, y: &mut f32, label: &str, value: &str, swatch: Option<[f32; 3]>) {
+    if let Some([r, g, b]) = swatch {
+        let s = t.size.tree_row * 0.6;
+        let (sx, sy) = (area.x + area.w - s, *y + (t.size.tree_row - s) * 0.5);
+        d.round_rect(sx, sy, s, s, t.size.radius, [r, g, b, 1.0]);
+        d.outline(sx, sy, s, s, (t.size.radius, 1.0), t.color.line);
+    }
+    row(d, t, area, y, label, value);
+}
+
 /// a vertical level, filled from the bottom to `position` (0..1) on a gradient: green to `ok`, through amber to `hot`, red above
 pub fn level(d: &mut DrawList, t: &Tokens, r: Rect, position: f32, ok: f32, hot: f32) {
     const SLICES: usize = 32;

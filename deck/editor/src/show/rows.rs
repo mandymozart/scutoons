@@ -487,6 +487,29 @@ pub(super) mod tests {
         host
     }
 
+    /// the show's background typed in its inspector: set through the core, refused in its words, taken off
+    #[test]
+    fn the_shows_background_is_typed_in_the_inspector() {
+        let mut host = Host::new(None, None, None, "http://127.0.0.1:9/api".into());
+        press(&mut host, false, |h| *h == Hit::Background);
+        typed(&mut host, "#204060");
+        assert_eq!(host.status, "the show's background: #204060 – over every scene");
+        assert_eq!(host.shown().background, Some(deck_space::Background::colour("#204060")));
+        press(&mut host, false, |h| *h == Hit::Background);
+        for _ in 0..7 {
+            host.type_key(&Key::Named(NamedKey::Backspace));
+        }
+        typed(&mut host, "#zz");
+        assert!(host.status.starts_with("not changed: '#zz' is no colour"), "{}", host.status);
+        assert_eq!(host.shown().background, Some(deck_space::Background::colour("#204060")), "as it was");
+        press(&mut host, false, |h| *h == Hit::Background);
+        for _ in 0..7 {
+            host.type_key(&Key::Named(NamedKey::Backspace));
+        }
+        typed(&mut host, "");
+        assert_eq!(host.shown().background, None);
+    }
+
     /// #553: the one condition control, by the chips the operator presses – a role's admission (any one fact)
     #[test]
     fn the_condition_control_sets_who_may_take_a_role() {

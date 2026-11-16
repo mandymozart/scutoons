@@ -195,7 +195,17 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
         host.hits.push((flash, Hit::Flash));
         let line = if host.status.is_empty() { format!("{}@{} · /api/shows", show.id, show.version) } else { host.status.clone() };
         d.text(a.x, a.y + bh + 6.0, small, &fit(d, &line, small, a.w), t.color.muted);
-        let y = a.y + bh + 6.0 + small * 2.0;
+        let mut y = a.y + bh + 6.0 + small * 2.0;
+        let typing = host.typing.as_ref().filter(|(what, _)| matches!(what, super::roles::Typing::Background)).map(|(_, f)| f.text.clone());
+        let r = match typing {
+            Some(text) => {
+                let r = super::rows::field(d, t, (a.x, y, a.w), "background", "", Some(&text));
+                y += t.size.tree_row;
+                r
+            }
+            None => crate::inspector::background(d, t, a, &mut y, &crate::inspector::background_row(show.background.as_ref(), "its scenes', else black")),
+        };
+        host.hits.push((r, Hit::Background));
         let role = host.role.as_ref().and_then(|id| deck_show::roles::inspector(&show, host.path.is_empty().then_some(&host.sub), id));
         match role {
             // the role's inspector keeps its remove at its foot: a foot of its own size

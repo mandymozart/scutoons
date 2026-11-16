@@ -157,6 +157,8 @@ pub enum Field {
     Plays,
     /// the slot or the video node taken out
     Remove,
+    /// the scene's stage background: a click types it
+    Background,
 }
 
 /// The inspector of the scene or of its selected member; where its fields landed.
@@ -176,6 +178,8 @@ pub fn inspect(d: &mut DrawList, t: &Tokens, area: Rect, view: &SceneView, hot: 
         controls::row(d, t, area, &mut y, "toons", &e.doc.toons.join(" "));
         controls::row(d, t, area, &mut y, "cast", &e.members.len().to_string());
         controls::row(d, t, area, &mut y, "version", &view.line());
+        let row = crate::inspector::background_row(e.doc.stage.background.as_ref(), "its rigs', else black");
+        out.push((crate::inspector::background(d, t, area, &mut y, &row), Field::Background));
         for n in &e.notes {
             if y + t.size.row > area.y + area.h {
                 break;
@@ -448,7 +452,11 @@ mod tests {
         assert_eq!(tree.iter().map(|l| l.part).collect::<Vec<_>>(), [Part::Scene, Part::Member(0), Part::Member(1)]);
         let (mut d, t) = (DrawList::new(0.6), Tokens::default());
         let area = Rect { x: 0.0, y: 0.0, w: 320.0, h: 2000.0 };
-        assert!(inspect(&mut d, &t, area, &view, None).is_empty(), "the scene's inspector has no fields");
+        let fields: Vec<Field> = inspect(&mut d, &t, area, &view, None).into_iter().map(|(_, f)| f).collect();
+        assert_eq!(fields, [Field::Background], "the scene's one field: its background");
+        view.edit.set_background("#336699").unwrap();
+        assert_eq!(view.scene().unwrap().stage.background, Some(deck_space::Background::colour("#336699")), "the stage plays it");
+        view.edit.set_background("").unwrap();
         view.sel = Part::Member(0);
         let fields = inspect(&mut d, &t, area, &view, None);
         assert!(fields.iter().any(|(_, f)| *f == Field::Into));

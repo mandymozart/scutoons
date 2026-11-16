@@ -386,6 +386,7 @@ enum Editing {
     Param(usize, usize),
     Gain(mixer::Target),
     Background,
+    SceneBackground,
 }
 
 /// a value being typed, in place of its field
@@ -868,6 +869,7 @@ impl App {
             Hit::SceneInto => Help::new("Open as rig", "One level down: the member's rig alone on the stage, the scene's values on its knobs. Esc or the scene's line takes them back into the scene."),
             Hit::Way(empty::Way::Modules) => Help::new("Start from modules", "Add at the rig: a track playing a module or an instrument of the catalog. Save makes the rig's first draft."),
             Hit::Way(empty::Way::NewModule) => Help::new("New module", "A module of the character's own as a draft, opened in the Module workspace: write it, build it, hear it, then add it here as a track."),
+            Hit::SceneField(scene::Field::Background) => Help::new("Background", "The stage's background in this scene: a colour (#rrggbb), an image's media path laid over the stage, or a video's (it does not play yet). Empty = its rigs', else black; a show over it wins."),
             Hit::SceneField(_) => Help::new("Slot or video", "A slot's filter (every chip on holds), its preview from the toon's book; a video node's place and knobs. The core refuses what does not fit, in its words."),
                         Hit::Field(_) | Hit::Nothing => return None,
         })
@@ -1318,6 +1320,17 @@ impl App {
                         if self.take(next, x, y) {
                             self.undo.push(before);
                         }
+                    }
+                    Err(e) => self.say(e, x, y, true),
+                }
+            }
+            Editing::SceneBackground => {
+                let (x, y) = self.cursor;
+                let Some(view) = self.scene.as_mut() else { return };
+                match view.edit.set_background(&text) {
+                    Ok(said) => {
+                        self.replay_scene();
+                        self.say(said, x, y, false);
                     }
                     Err(e) => self.say(e, x, y, true),
                 }
