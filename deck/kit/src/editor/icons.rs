@@ -43,6 +43,14 @@ pub const ICONS: &[(&str, &str)] = &[
     ("open", r#"<line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline>"#),
     ("trash", r#"<polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line>"#),
     ("link", r#"<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>"#),
+    ("menu", r#"<line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line>"#),
+    ("info", r#"<circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line>"#),
+    ("activity", r#"<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>"#),
+    ("users", r#"<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>"#),
+    ("alert", r#"<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line>"#),
+    ("external", r#"<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line>"#),
+    // a panel's drag handle: two columns of dots
+    ("grip", r##"<circle fill="#fff" cx="9" cy="5" r="1.6"></circle><circle fill="#fff" cx="15" cy="5" r="1.6"></circle><circle fill="#fff" cx="9" cy="12" r="1.6"></circle><circle fill="#fff" cx="15" cy="12" r="1.6"></circle><circle fill="#fff" cx="9" cy="19" r="1.6"></circle><circle fill="#fff" cx="15" cy="19" r="1.6"></circle>"##),
     // filled, for the one button that starts and stops (owner 2026-11-09: "a play icon and a stop icon like in unreal")
     ("play-fill", r##"<polygon fill="#fff" points="6 3 20 12 6 21 6 3"></polygon>"##),
     ("left-fill", r##"<polygon fill="#fff" points="19 4 7 12 19 20"></polygon>"##),
@@ -60,7 +68,7 @@ mod tests {
 
     #[test]
     fn the_ones_the_editor_uses_are_there() {
-        for name in ["up", "down", "next", "close", "play-fill", "stop-fill"] {
+        for name in ["up", "down", "next", "close", "play-fill", "stop-fill", "grip", "menu", "info"] {
             assert!(has(name), "{name}");
         }
     }

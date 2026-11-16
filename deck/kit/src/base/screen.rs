@@ -257,7 +257,7 @@ impl Screen {
                 }
                 // epaint's tessellator as egui's context runs it (its default options, a point a pixel)
                 let mut tessellator = Tessellator::new(1.0, TessellationOptions::default(), atlas.size(), Vec::new());
-                let primitives = tessellator.tessellate_shapes(shapes.into_iter().map(|s| ClippedShape::new(screen, s)).collect());
+                let primitives = tessellator.tessellate_shapes(shapes.into_iter().map(|(c, s)| ClippedShape::new(c.map_or(screen, |c| c.intersect(screen)), s)).collect());
                 if let Some(delta) = atlas.delta() {
                     set.insert(0, (TextureId::default(), delta));
                 }
@@ -274,7 +274,12 @@ impl Screen {
                     for layer in layers.iter().flatten() {
                         ctx.fonts_mut(|fonts| paint(fonts, layer, (pixel, pictures), &mut shapes));
                     }
-                    painter.extend(shapes);
+                    for (clip, shape) in shapes {
+                        match clip {
+                            Some(c) => painter.with_clip_rect(c.intersect(screen)).add(shape),
+                            None => painter.add(shape),
+                        };
+                    }
                 });
                 let primitives = ctx.tessellate(out.shapes, out.pixels_per_point);
                 // egui 0.37's delta asserts it was handled when dropped: taken apart here, the adapter gets plain lists
@@ -344,7 +349,10 @@ fn color(c: [f32; 4]) -> Color32 {
 /// One layer's draw list as epaint's shapes, in painter's order: the rectangles as quads of one mesh (whole pixels, no
 /// soft edge, as the CPU painter had them), the text as the mono face's lines (`Mono`) or the pixel atlas's quads, the
 /// icons and the logo's frames as quads on the pictures (when a screen has them).
-fn paint(fonts: &mut dyn Mono, layer: &Layer, (pixel, pictures): (Option<TextureId>, Option<(TextureId, &Pictures)>), out: &mut Vec<Shape>) {
+fn paint(fonts: &mut dyn Mono, layer: &Layer, (pixel, pictures): (Option<TextureId>, Option<(TextureId, &Pictures)>), all: &mut Vec<(Option<Rect>, Shape)>) {
+    let mut shapes: Vec<Shape> = Vec::new();
+    let out = &mut shapes;
+    let mut clip: Option<Rect> = None;
     let (s, g) = (layer.scale.max(f32::MIN_POSITIVE), layer.grid.max(f32::MIN_POSITIVE));
     // a logical place on the layer's grid, in device pixels
     let snap = |v: f32| (v * g).round() * (s / g);
@@ -427,12 +435,18 @@ fn paint(fonts: &mut dyn Mono, layer: &Layer, (pixel, pictures): (Option<Texture
             Prim::Logo { x, y, size, frame } => {
                 picture(&mut pics, &mut mesh, out, (x, y, size), pictures.and_then(|(_, p)| p.frames.get(frame)), Color32::WHITE);
             }
+            Prim::Clip(r) => {
+                flush(&mut mesh, out);
+                all.extend(out.drain(..).map(|shape| (clip, shape)));
+                clip = r.map(|[x, y, w, h]| Rect::from_min_size(pos2(x * s, y * s), vec2(w * s, h * s)));
+            }
         }
     }
     flush(&mut mesh, out);
     if !pics.is_empty() {
         out.push(Shape::mesh(pics));
     }
+    all.extend(shapes.into_iter().map(|shape| (clip, shape)));
 }
 
 /// `text` in the pixel face from (x, y) at size `px`: a quad per glyph from the atlas, its 8 cells whole pixels of the
@@ -487,6 +501,23 @@ mod tests {
         assert!(screen.frame((800, 600)).is_some(), "a new size paints again");
         screen.input(Input::Point(10.0, 20.0));
         assert!(screen.frame((800, 600)).is_none(), "input alone changes nothing the atlas paints");
+    }
+
+    #[test]
+    fn what_follows_a_clip_is_clipped_to_it_until_the_clip_ends() {
+        let mut screen = Screen::new(MONO, 1);
+        let mut d = DrawList::new(0.6);
+        d.rect(0.0, 0.0, 10.0, 10.0, [1.0; 4]);
+        d.clip(Some(crate::base::draw::Rect { x: 5.0, y: 5.0, w: 20.0, h: 10.0 }));
+        d.rect(0.0, 0.0, 100.0, 100.0, [1.0, 0.0, 0.0, 1.0]);
+        d.clip(None);
+        d.rect(0.0, 0.0, 10.0, 10.0, [0.0, 1.0, 0.0, 1.0]);
+        screen.set(0, Some(Layer { list: d, scale: 2.0, grid: 2.0, face: Face::Mono }));
+        let p = screen.frame((640, 480)).expect("a frame");
+        let clips: Vec<Rect> = p.primitives.iter().map(|c| c.clip_rect).collect();
+        assert_eq!(clips.len(), 3, "a primitive per clip");
+        assert_eq!(clips[1], Rect::from_min_size(pos2(10.0, 10.0), vec2(40.0, 20.0)), "in device pixels");
+        assert_eq!(clips[0], clips[2], "the whole screen before and after");
     }
 
     #[test]

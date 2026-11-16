@@ -14,6 +14,8 @@ pub enum Prim {
     Icon { x: f32, y: f32, size: f32, name: &'static str, color: [f32; 4] },
     /// a frame of the animated logo, in a square of `size`
     Logo { x: f32, y: f32, size: f32, frame: usize },
+    /// what follows shows only inside `[x, y, w, h]` (a scrolled panel's content); none = the whole screen again
+    Clip(Option<[f32; 4]>),
 }
 
 /// Where a control landed, in logical pixels (what can be pressed is kept by its caller as these).
@@ -95,6 +97,11 @@ impl DrawList {
 
     pub fn logo(&mut self, x: f32, y: f32, size: f32, frame: usize) {
         self.prims.push(Prim::Logo { x, y, size, frame });
+    }
+
+    /// what is drawn next shows only inside `r` (none: everywhere again)
+    pub fn clip(&mut self, r: Option<Rect>) {
+        self.prims.push(Prim::Clip(r.map(|r| [r.x, r.y, r.w, r.h])));
     }
 
     /// a filled circle around (x, y)
