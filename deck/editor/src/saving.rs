@@ -98,6 +98,20 @@ impl crate::App {
         }
     }
 
+    /// a check run's `--save-state`: Show's pill in that state, on v828 (the screenshots of its states)
+    pub(crate) fn script_save_state(&mut self) {
+        let Some(s) = self.args.save_state.clone() else { return };
+        let id = self.show.shown().id.clone();
+        let a = self.show.saves.entry(id).or_default();
+        a.version = Some(828);
+        a.state = match s.as_str() {
+            "saving" => State::Saving,
+            "offline" => State::Offline,
+            "conflict" => State::Conflict(Some(830)),
+            _ => State::Clean,
+        };
+    }
+
     /// quitting: what is edited goes now, and the answers are waited for a moment
     pub(crate) fn flush_all(&mut self) {
         let now = Instant::now();

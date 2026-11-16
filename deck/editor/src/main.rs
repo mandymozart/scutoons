@@ -126,10 +126,12 @@ struct Args {
     settings: bool,
     /// a check run's panic pill, pressed at the start
     panic: bool,
+    /// a check run shows the save pill in this state: saving, offline or conflict (its screenshots)
+    save_state: Option<String>,
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false };
+    let mut a = Args { module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, save_state: None };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -142,6 +144,7 @@ fn args() -> Result<Args> {
             "--wire" => a.wire = true,
             "--fullscreen" => a.fullscreen = true,
             "--panic" => a.panic = true,
+            "--save-state" => a.save_state = Some(val()?),
             "--view" => a.view = Some(val()?.parse()?),
             "--select" => a.select = Some(val()?),
             "--pull" => {
@@ -258,7 +261,7 @@ fn args() -> Result<Args> {
                 a.size = Some((w.trim().parse()?, h.trim().parse()?));
             }
             "--help" | "-h" => {
-                println!("deck-editor [--rig catpope] [--fullscreen] [--frames N] [--screenshot FILE] [--tokens FILE] [--size W,H] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5] [--menu PORT,QUERY[,pick]] [--toon TOON] [--book FILE] [--select NODE --far QUERY[,pick]] [--demo NAME] [--panic] [--module ID [--module-build] [--module-save] [--module-save-as ID]]");
+                println!("deck-editor [--rig catpope] [--fullscreen] [--frames N] [--screenshot FILE] [--tokens FILE] [--size W,H] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5] [--menu PORT,QUERY[,pick]] [--toon TOON] [--book FILE] [--select NODE --far QUERY[,pick]] [--demo NAME] [--panic] [--save-state saving|offline|conflict] [--module ID [--module-build] [--module-save] [--module-save-as ID]]");
                 std::process::exit(0);
             }
             other => anyhow::bail!("unknown argument {other}"),
@@ -2031,6 +2034,9 @@ impl App {
         }
         if std::mem::take(&mut self.panels_moved) {
             self.remember_panels();
+        }
+        if self.frames == 0 {
+            self.script_save_state();
         }
         if self.frames == 0 && self.args.panic {
             self.panic_pill();
