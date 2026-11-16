@@ -1,6 +1,6 @@
-//! The design tokens: the look (day or night) and the UI size (the base size, 1rem) are this machine's setting, kept in
-//! the editor's cache; `tokens.toml` next to the binary (or `--tokens FILE`) overrides tokens, watched by its
-//! modification time and applied in the next frame – without a restart.
+//! The design tokens of the look (day or night) at the UI size (the base size, 1rem), both settings (settings.rs);
+//! `tokens.toml` next to the binary (or `--tokens FILE`) overrides tokens, watched by its modification time and applied
+//! in the next frame – without a restart.
 pub use deck_kit::base::tokens::{Theme, Tokens, BASE, BASE_RANGE};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -33,22 +33,11 @@ impl Look {
     }
 }
 
-/// the editor's cache file of the look
-pub fn look_file(cache: &Path) -> PathBuf {
-    cache.join("editor-look.json")
-}
-
-pub fn load_look(file: &Path) -> Look {
-    std::fs::read_to_string(file).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default()
-}
-
 /// the tokens file, watched, and the look
 pub struct Watched {
     pub path: PathBuf,
     pub tokens: Tokens,
     pub look: Look,
-    /// where the look is remembered (none in a check run)
-    look_file: Option<PathBuf>,
     text: String,
     seen: Option<SystemTime>,
     /// the last problem reading it (shown in the panel)
@@ -56,8 +45,8 @@ pub struct Watched {
 }
 
 impl Watched {
-    pub fn new(path: PathBuf, look: Look, look_file: Option<PathBuf>) -> Watched {
-        let mut w = Watched { path, tokens: Tokens::new(look.theme, look.base), look, look_file, text: String::new(), seen: None, problem: None };
+    pub fn new(path: PathBuf, look: Look) -> Watched {
+        let mut w = Watched { path, tokens: Tokens::new(look.theme, look.base), look, text: String::new(), seen: None, problem: None };
         w.poll();
         w
     }
@@ -81,17 +70,12 @@ impl Watched {
         }
     }
 
-    /// another look: applied at once and remembered; true when the tokens changed
+    /// another look, applied at once; true when the tokens changed
     pub fn set(&mut self, look: Look) -> bool {
         if look == self.look {
             return false;
         }
         self.look = look;
-        if let Some(f) = &self.look_file {
-            if let Ok(json) = serde_json::to_string_pretty(&look) {
-                let _ = std::fs::write(f, json);
-            }
-        }
         self.apply()
     }
 
@@ -137,18 +121,17 @@ mod tests {
     }
 
     #[test]
-    fn a_look_switches_live_and_is_remembered() {
+    fn a_look_switches_live() {
         let dir = std::env::temp_dir().join(format!("deck-editor-look-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
-        let (toml, file) = (dir.join("tokens.toml"), look_file(&dir));
+        let toml = dir.join("tokens.toml");
         std::fs::write(&toml, "[night.color]\nline = [1.0, 0.0, 0.0, 1.0]\n").unwrap();
-        let mut w = Watched::new(toml.clone(), Look::default(), Some(file.clone()));
+        let mut w = Watched::new(toml.clone(), Look::default());
         let day = w.tokens.clone();
         assert!(w.set(Look { theme: Theme::Night, base: 20.0 }));
         assert_ne!(w.tokens.color.text, day.color.text);
         assert_eq!(w.tokens.color.line, [1.0, 0.0, 0.0, 1.0], "the file's night override");
         assert_eq!(w.tokens.size.font, 20.0);
-        assert_eq!(load_look(&file), Look { theme: Theme::Night, base: 20.0 });
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

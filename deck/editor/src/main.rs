@@ -29,6 +29,7 @@ mod ui;
 mod rigs;
 mod scene;
 mod scene_parts;
+mod settings;
 mod show;
 mod sign_in;
 mod toon;
@@ -119,10 +120,12 @@ struct Args {
     /// the look and the UI size for this run (else the remembered ones)
     theme: Option<tokens::Theme>,
     ui_size: Option<f32>,
+    /// the settings panel open at the start
+    settings: bool,
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None };
+    let mut a = Args { module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -189,6 +192,7 @@ fn args() -> Result<Args> {
             "--grid" => a.grid = Some(val()?),
             "--theme" => a.theme = Some(if val()? == "night" { tokens::Theme::Night } else { tokens::Theme::Day }),
             "--ui-size" => a.ui_size = Some(val()?.parse()?),
+            "--settings" => a.settings = true,
             "--open-build" => a.script.open_build = true,
             "--to-cell" => a.script.to_cell = true,
             "--new-scene" => a.script.new_scene = Some(show::NewScene::parse(&val()?).context("--new-scene ID,NAME,FILLER+FILLER[,play|build]")?),
@@ -432,6 +436,11 @@ struct App {
     gpu_load: f32,
     stage: stage::Stage,
     tokens: tokens::Watched,
+    /// this machine's settings, where they are kept (none in a check run), whether their panel is open, its places
+    settings: settings::Settings,
+    settings_file: Option<PathBuf>,
+    settings_open: bool,
+    settings_hits: Vec<(Rect, settings::Press)>,
     panel: Panel,
     mods: ModifiersState,
     cursor: (f32, f32),
@@ -526,11 +535,12 @@ fn run() -> Result<i32> {
     let panels_file = args.frames.is_none().then(|| cache_dir().join("editor-panels.json"));
     let remembered = panels_file.as_deref().map(panels::load).unwrap_or_default();
     let mut build = panels::Panels::new(&panels::BUILD);
-    let look_file = args.frames.is_none().then(|| tokens::look_file(&cache));
-    let mut look = look_file.as_deref().map(tokens::load_look).unwrap_or_default();
-    look.theme = args.theme.unwrap_or(look.theme);
-    look.base = args.ui_size.unwrap_or(look.base);
-    let tokens = tokens::Watched::new(args.tokens.clone().unwrap_or_else(tokens::default_path), look, look_file);
+    let settings_file = args.frames.is_none().then(|| settings::file(&cache));
+    let settings_open = args.settings;
+    let mut app_settings = settings_file.as_deref().map(settings::load).unwrap_or_default();
+    app_settings.look.theme = args.theme.unwrap_or(app_settings.look.theme);
+    app_settings.look.base = args.ui_size.unwrap_or(app_settings.look.base);
+    let tokens = tokens::Watched::new(args.tokens.clone().unwrap_or_else(tokens::default_path), app_settings.look);
     let event_loop = EventLoop::new().context("no event loop (no display?)")?;
     let wire = args.wire;
     let app_workspace = args.workspace;
@@ -579,6 +589,10 @@ fn run() -> Result<i32> {
         gpu_load: 0.0,
         stage,
         tokens,
+        settings: app_settings,
+        settings_file,
+        settings_open,
+        settings_hits: Vec::new(),
         mods: ModifiersState::empty(),
         cursor: (0.0, 0.0),
         last: None,
@@ -709,7 +723,7 @@ impl App {
         match a {
             A::Open if self.workspace == show::Workspace::Perform => Some("Perform runs the show open: open another in Show or Build."),
             A::Open if self.workspace == show::Workspace::Module => Some("Pick a module in Modules."),
-            A::Open | A::Audio | A::DayNight | A::UiSize => None,
+            A::Open | A::Audio | A::DayNight | A::Settings => None,
             A::New => Some("Not built yet: a new rig or show starts in the creator."),
             A::Publish => Some("The editor opens no browser yet: publish the saved draft in the creator."),
             A::Account => Some("The editor opens no browser yet: the account is on scutoons.com."),
@@ -735,12 +749,7 @@ impl App {
                 self.panels_moved = true;
             }
             (A::DayNight, _) => self.look(self.tokens.look.theme.other(), 0),
-            (A::UiSize, _) => {
-                // the line's left third makes it smaller, the right third larger, the middle back to 100 %
-                self.main_menu = true;
-                let step = self.menu_lines.iter().find(|(_, l)| *l == A::UiSize).map_or(0, |(r, _)| bar::size_step(r, x));
-                self.look(self.tokens.look.theme, step);
-            }
+            (A::Settings, _) => self.open_settings(),
             // the next frame leaves, as F9 does
             (A::Quit, _) => self.exit = 11,
             _ => {}
@@ -749,12 +758,34 @@ impl App {
 
     /// another look or a step of the UI size (0: the size stays, unless the theme is the same: back to 100 %)
     fn look(&mut self, theme: tokens::Theme, step: i32) {
-        let now = self.tokens.look;
+        let now = self.settings.look;
         let next = if theme != now.theme { tokens::Look { theme, ..now } } else { now.sized(step) };
-        if self.tokens.set(next) {
+        self.change_settings(|s| s.look = next);
+    }
+
+    /// the settings changed: kept, and the look applied at once
+    fn change_settings(&mut self, f: impl FnOnce(&mut settings::Settings)) {
+        let was = self.settings;
+        f(&mut self.settings);
+        if self.settings == was {
+            return;
+        }
+        if let Some(file) = &self.settings_file {
+            settings::save(file, &self.settings);
+        }
+        if self.tokens.set(self.settings.look) {
             self.token_changes += 1;
             self.panels_moved = true;
         }
+    }
+
+    /// the settings as a floating panel of every workspace
+    fn open_settings(&mut self) {
+        self.settings_open = true;
+        for p in [&mut self.build, &mut self.module.panels, &mut self.show.show_panels, &mut self.show.perform_panels] {
+            p.floats.set_collapsed("settings", false);
+        }
+        self.panels_moved = true;
     }
 
     /// what the Info view says about what is under the pointer: the name and what it does
@@ -774,7 +805,7 @@ impl App {
             }
         }
         Some(match self.hit(x, y) {
-            Hit::Menu => Help::new("Menu", "Open, publish, day or night, the UI size, the audio and the account; back to the deck's stage."),
+            Hit::Menu => Help::new("Menu", "Open, publish, day or night, the settings, the audio and the account; back to the deck's stage."),
             Hit::Look => Help::new("Day / night", "Click to switch between the light and the dark look; ctrl + and ctrl − change the UI size, ctrl 0 sets it back."),
             Hit::Panic => Help::new("Panic", "Black and silence on every deck below this conductor. Not wired yet: it does nothing for now."),
             Hit::Ground => return None,
@@ -959,10 +990,17 @@ impl App {
             }
             return;
         }
-        // a panel's handle takes it in the hand, its chevron folds it
+        // a panel's handle takes it in the hand, its chevron folds it (the settings' closes them)
         if self.panels_mut().floats.press(x, y) {
             self.panels_moved = true;
+            if self.panels().floats.view("settings").is_some_and(|v| v.collapsed) {
+                self.settings_open = false;
+            }
             return;
+        }
+        if let Some((r, p)) = self.settings_hits.iter().find(|(r, _)| r.has(x, y)).copied() {
+            let p = settings::at(&r, p, x);
+            return self.change_settings(|s| s.press(p));
         }
         if self.workspace == show::Workspace::Module {
             if let Some(h) = self.module.hit(x, y) {
@@ -1981,6 +2019,10 @@ impl App {
         // the stage fills the window; the toolbar and the panels float over it
         let (stage_x, top, stage_w, stage_h) = (0.0, 0.0, wf, hf);
         let bar_bottom = bar::bottom(t);
+        let open = self.settings_open.then(|| (t.size.rem(22.0), settings::height(t)));
+        for p in [&mut self.build, &mut self.module.panels, &mut self.show.show_panels, &mut self.show.perform_panels] {
+            p.settings = open;
+        }
         let work_start = Instant::now();
         let mut enc = gpu.device.create_command_encoder(&Default::default());
         if let Some(g) = self.gpu_time.as_mut() {
@@ -2031,7 +2073,8 @@ impl App {
             (vec![self.show.sub.conductor().show().id.clone()], self.show.link_line())
         };
         let names = show::WORKSPACES.map(|(_, n)| n);
-        let logo_frame = ((self.started.elapsed().as_secs_f32() / logo::SECONDS).fract() * logo::FRAMES as f32) as usize;
+        // reduce motion stills the animated logo
+        let logo_frame = if self.settings.motion.allows(true) { ((self.started.elapsed().as_secs_f32() / logo::SECONDS).fract() * logo::FRAMES as f32) as usize } else { 0 };
         let slot = if build { t.size.top } else if self.workspace == show::Workspace::Module { 0.0 } else { show::author::view_width(ui, t, &self.show, self.workspace) };
         let spec = bar::Bar {
             workspaces: &names,
@@ -2492,6 +2535,23 @@ impl App {
             m.ta.draw(ui, t, (wf, hf));
         }
         self.panel.hits.push((Rect { x: stage_x, y: top, w: stage_w, h: stage_h }, Hit::Stage));
+        }
+        // the settings, over the workspace's panels
+        self.settings_hits.clear();
+        if self.settings_open {
+            let cursor = self.cursor;
+            let s = self.settings;
+            let panels = match self.workspace {
+                show::Workspace::Build => &mut self.build,
+                show::Workspace::Module => &mut self.module.panels,
+                show::Workspace::Show => &mut self.show.show_panels,
+                show::Workspace::Perform => &mut self.show.perform_panels,
+            };
+            if let Some(o) = panels.open(ui, t, "settings", cursor, 0) {
+                let mut places = settings::draw(ui, t, o.area, &s);
+                panels.close(ui, t, o, &mut places);
+                self.settings_hits = places;
+            }
         }
         // the main menu over everything
         self.menu_lines.clear();

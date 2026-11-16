@@ -227,6 +227,16 @@ pub fn toggle(d: &mut DrawList, t: &Tokens, r: Rect, label: &str, on: bool) -> R
     r
 }
 
+/// a switch: a round track, its knob right and the track green when on; its place
+pub fn switch(d: &mut DrawList, t: &Tokens, r: Rect, on: bool) -> Rect {
+    d.round_rect(r.x, r.y, r.w, r.h, r.h * 0.5, if on { t.color.go } else { t.color.within });
+    d.outline(r.x, r.y, r.w, r.h, (r.h * 0.5, t.size.edge), t.color.line);
+    let k = r.h * 0.38;
+    let cx = if on { r.x + r.w - r.h * 0.5 } else { r.x + r.h * 0.5 };
+    d.disc(cx, r.y + r.h * 0.5, k, if on { t.color.bright } else { t.color.muted });
+    r
+}
+
 /// a section's head: its label; the height it took
 pub fn section(d: &mut DrawList, t: &Tokens, x: f32, y: f32, w: f32, label: &str, first: bool) -> f32 {
     if !first {

@@ -23,7 +23,7 @@ pub enum Action {
     New,
     Publish,
     DayNight,
-    UiSize,
+    Settings,
     Audio,
     Account,
     Quit,
@@ -35,7 +35,7 @@ pub const MENU: [(Action, &str, bool); 8] = [
     (Action::New, "New", false),
     (Action::Publish, "Publish in the creator", true),
     (Action::DayNight, "Day / night", false),
-    (Action::UiSize, "UI size", false),
+    (Action::Settings, "Settings…", false),
     (Action::Audio, "Audio & inputs", false),
     (Action::Account, "Account", true),
     (Action::Quit, "Quit to stage  F9", false),
@@ -198,20 +198,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Placed {
 fn line_label(a: Action, label: &str, look: &crate::tokens::Look) -> String {
     match a {
         Action::DayNight => format!("{label}: {}", if look.theme == crate::tokens::Theme::Day { "day" } else { "night" }),
-        Action::UiSize => format!("{label}   -  {:>3} %  +", look.percent()),
         _ => label.to_string(),
-    }
-}
-
-/// a press on the UI size's line: its left third smaller (−1), its right third larger (+1), the middle back to 100 % (0)
-pub fn size_step(line: &Rect, x: f32) -> i32 {
-    let at = (x - line.x) / line.w.max(1.0);
-    if at < 1.0 / 3.0 {
-        -1
-    } else if at > 2.0 / 3.0 {
-        1
-    } else {
-        0
     }
 }
 
@@ -256,12 +243,6 @@ mod tests {
         assert_eq!(lines.len(), MENU.len());
         assert!(lines.windows(2).all(|w| w[1].0.y > w[0].0.y));
         assert!(lines[0].0.y > 44.0, "under the hamburger");
-        assert!(d.texts().iter().any(|l| l.contains("100 %")), "the UI size line says the size");
-    }
-
-    #[test]
-    fn the_ui_size_line_is_minus_reset_plus_by_thirds() {
-        let line = Rect { x: 0.0, y: 0.0, w: 300.0, h: 30.0 };
-        assert_eq!([size_step(&line, 10.0), size_step(&line, 150.0), size_step(&line, 290.0)], [-1, 0, 1]);
+        assert!(d.texts().iter().any(|l| l.ends_with(": day")), "the look line says the look");
     }
 }
