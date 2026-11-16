@@ -21,6 +21,8 @@ pub struct Dragging {
 
 /// what the list says without a book
 pub const NO_BOOK: &str = "the address book is still on its way";
+/// a line's press that opens its scene in Build
+const BUILD: &str = "Build";
 
 impl Host {
     pub(super) fn scenes_press(&mut self, hit: Hit) {
@@ -31,6 +33,12 @@ impl Host {
                 }
             }
             Hit::SceneFind => self.typing = Some((Typing::Scenes, Field::with(&self.scene_query))),
+            Hit::SceneBuild(i) => {
+                if let Some(p) = self.scene_list().get(i) {
+                    let piece = p.address.clone();
+                    self.ask_scene_build(&piece);
+                }
+            }
             _ => {}
         }
     }
@@ -125,8 +133,12 @@ pub fn list(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, pointer: (f3
         }
         let ty = y + (row - font * 1.25) * 0.5;
         d.text(a.x + pad, ty, font, &fit(d, &s.label, font, w * 0.45), t.color.text);
-        d.text(a.x + pad + w * 0.48, ty + 1.0, small, &fit(d, &s.detail, small, w * 0.52), t.color.muted);
+        let bw = d.advance(small) * BUILD.chars().count() as f32 + pad;
+        d.text(a.x + pad + w * 0.48, ty + 1.0, small, &fit(d, &s.detail, small, w * 0.52 - bw), t.color.muted);
         host.hits.push((line, Hit::Scene(i)));
+        let open = Rect { x: a.x + a.w - bw - pad * 0.5, y, w: bw, h: row };
+        d.text(open.x + pad * 0.5, ty + 1.0, small, BUILD, if open.has(pointer.0, pointer.1) { t.color.accent } else { t.color.muted });
+        host.hits.push((open, Hit::SceneBuild(i)));
         y += row;
     }
 }

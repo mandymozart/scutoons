@@ -159,6 +159,8 @@ pub enum Hit {
     /// a scene of the list beside the rows band (a press starts its drag); the list's filter field
     Scene(usize),
     SceneFind,
+    /// a scene of the list opened in Build
+    SceneBuild(usize),
     /// #553: one chip of the selected cell's filter (the one condition control); an address of the inspected row (selects
     /// it: its filter's chips show under it); one chip of the selected address's filter
     CellFact(usize),
@@ -442,7 +444,7 @@ impl Host {
                 self.rows_press(hit);
             }
             Hit::FiresOn | Hit::EventPick(_) | Hit::EventType => self.events_press(hit),
-            Hit::Scene(_) | Hit::SceneFind => self.scenes_press(hit),
+            Hit::Scene(_) | Hit::SceneFind | Hit::SceneBuild(_) => self.scenes_press(hit),
             Hit::Save => self.save(),
             Hit::Load => self.load(),
             Hit::Flash => self.open_flash(),
@@ -619,13 +621,15 @@ pub struct NewScene {
     pub name: String,
     pub cast: Vec<String>,
     pub play: bool,
+    /// opened in Build instead
+    pub build: bool,
 }
 
 impl NewScene {
     pub fn parse(v: &str) -> Option<NewScene> {
         let p: Vec<&str> = v.split(',').map(str::trim).collect();
         let cast = p.get(2)?.split('+').map(str::trim).filter(|f| !f.is_empty()).map(String::from).collect();
-        Some(NewScene { id: p.first()?.to_string(), name: p.get(1)?.to_string(), cast, play: p.get(3) == Some(&"play") })
+        Some(NewScene { id: p.first()?.to_string(), name: p.get(1)?.to_string(), cast, play: p.get(3) == Some(&"play"), build: p.get(3) == Some(&"build") })
     }
 }
 
@@ -736,6 +740,7 @@ impl Host {
                 }
             }
             52 if s.new_scene.as_ref().is_some_and(|n| n.play) => self.press(Hit::Compose(new_scene::ComposeHit::Play)),
+            52 if s.new_scene.as_ref().is_some_and(|n| n.build) => self.press(Hit::Compose(new_scene::ComposeHit::Build)),
             50 if s.flash => self.press(Hit::Flash),
             60 => {
                 if let Some(text) = &s.flash_filter {

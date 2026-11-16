@@ -1,6 +1,6 @@
 //! A show cell's piece in Build (#568; owner 2026-11-15 [workspaces]): the cell inspector's "open in Build" hands Build the
-//! rig the cell's piece plays – a rig, character or item as the core loads it (deck-space holders.rs `opened`), a scene's
-//! first cast member with a rig (published.rs `Cast::opened`, the scene's cached copy the knobs' loader made) – and keeps
+//! rig the cell's piece plays – a rig, character or item as the core loads it (deck-space holders.rs `opened`) – or the
+//! scene itself to edit (its newest draft, scene.rs in the editor; the list's and the scene sheet's scenes too) – and keeps
 //! the link to the cell: the top bar says it, "values → cell" writes Build's knob positions into the cell through the
 //! rows' `Edit::Take` (the piece's slots and ranges are deck-show's, values.rs `from_build`). Which far node's holder plays
 //! on which outlet of a row is deck-show's (far.rs); here it is asked with the loader's reach and handed to the drawing.
@@ -9,6 +9,7 @@ use deck_show::far::{self, Link};
 use deck_show::rows::{self, Edit};
 use deck_show::values;
 use deck_space::holders::{self, Opened, Reach};
+use deck_space::scene_document::SceneDocument;
 use std::collections::HashMap;
 
 /// the cell inspector's button, Build's two buttons while it is linked
@@ -26,11 +27,22 @@ pub struct BuildLink {
     pub prefix: String,
 }
 
-/// What Build is asked to play: a rig at hand with the values the cell sets (its rig's slots), or one the server's
-/// catalog has (rigs.rs opens it).
+/// What Build is asked to play: a rig at hand with the values the cell sets (its rig's slots), one the server's
+/// catalog has (rigs.rs opens it), or a scene to edit (scene.rs).
 pub enum ToBuild {
     Play(Box<Opened>, Vec<(String, f32)>),
     Server(String),
+    Scene(Box<SceneOpen>),
+}
+
+/// A scene for Build: the document to edit, the version a save names as `base`, and what this editor keeps of it (its
+/// rigs as scene-content gave them).
+pub struct SceneOpen {
+    pub doc: SceneDocument,
+    pub base: Option<u64>,
+    pub kept: Option<deck_space::published::Opened>,
+    /// what the opening says beside it (the server not reached …)
+    pub note: Option<String>,
 }
 
 impl Host {
@@ -56,11 +68,11 @@ impl Host {
         let piece = rows::cell_inspector(self.shown(), &row, &column).and_then(|i| i.knobs_of).ok_or("the cell plays no piece – nothing to open in Build")?;
         let link = |place: String, prefix: String| BuildLink { row: row.clone(), column: column.clone(), piece: piece.clone(), place, prefix };
         let opened = match deck_space::published::SceneRef::parse(&piece) {
-            Some(r) => {
-                let file = self.knobs.cache.join("scenes").join(r?.cache_name());
-                let text = std::fs::read_to_string(file).map_err(|_| format!("{piece}: not loaded yet – {}", values::LOADING))?;
-                let cast = deck_space::published::Cast::from_cache(&text)?;
-                cast.opened().into_iter().next().ok_or_else(|| format!("{piece}: no member of its cast has a rig to open"))?
+            Some(_) => {
+                let open = self.scene_for_build(&piece)?;
+                self.build = Some(link(piece.clone(), String::new()));
+                self.status = format!("{}: open in Build", self.build_line().unwrap_or_default());
+                return Ok(ToBuild::Scene(Box::new(open)));
             }
             None => match holders::opened(&piece, |p| super::values::rig_file(self.knobs.rigs.as_deref(), p)) {
                 Ok(o) => o,
@@ -81,6 +93,70 @@ impl Host {
         self.build = Some(link(opened.place.clone(), opened.prefix.clone()));
         self.status = format!("{}: open in Build", self.build_line().unwrap_or_default());
         Ok(ToBuild::Play(Box::new(opened), set))
+    }
+
+    /// Scene `piece` (`scene:<id>`) for Build: its newest draft from the server (a draft never published too) and the
+    /// version to save on; what the cache keeps of it gives its rigs, and stands in for the document when the server is
+    /// not reached (a save then asks the server again).
+    pub fn scene_for_build(&mut self, piece: &str) -> Result<SceneOpen, String> {
+        let r = deck_space::published::SceneRef::parse(piece).ok_or_else(|| format!("{piece} is no scene"))??;
+        let dir = self.knobs.cache.join("scenes");
+        let kept = [deck_native::published::draft_file(&dir, &r), dir.join(r.cache_name())]
+            .iter()
+            .find_map(|f| std::fs::read_to_string(f).ok())
+            .and_then(|t| deck_space::published::Opened::from_cache(&t).ok());
+        let doc = |d: super::api::Draft| SceneDocument::from_value(d.content).map(|doc| (doc, d.version)).map_err(|e| format!("{piece}: {e:#}"));
+        let (doc, base, note) = match self.api.scene_draft(&r.id) {
+            Ok(Some(d)) => {
+                let (doc, base) = doc(d)?;
+                (doc, base, None)
+            }
+            Ok(None) => return Err(format!("{piece} is not on the server")),
+            Err(why) => match &kept {
+                Some(k) => (k.document.clone(), None, Some(format!("the cached copy – the server: {why}"))),
+                None => return Err(format!("{piece}: {why}")),
+            },
+        };
+        Ok(SceneOpen { doc, base, kept, note })
+    }
+
+    /// a scene of the list beside the rows band, or the scene sheet's, to Build
+    pub(super) fn ask_scene_build(&mut self, piece: &str) {
+        match self.scene_for_build(piece) {
+            Ok(open) => {
+                self.build = None;
+                self.status = format!("{piece}: open in Build");
+                self.to_build = Some(ToBuild::Scene(Box::new(open)));
+            }
+            Err(why) => self.status = why,
+        }
+    }
+
+    /// Build's scene saved as a new draft on `base` → its version and the words for it; the sheet and the list follow
+    pub fn save_built_scene(&mut self, doc: &SceneDocument, base: Option<u64>) -> Result<(u64, String), String> {
+        let problems = doc.check_new();
+        if !problems.is_empty() {
+            return Err(format!("not saved: {}", problems.join("; ")));
+        }
+        let content = serde_json::to_value(doc).map_err(|e| format!("not saved: {e}"))?;
+        let version = self.api.save_scene(&doc.id, &content, base, "deck editor").map_err(|e| format!("not saved: {e}"))?;
+        self.scene_saved(doc, version);
+        let link = crate::rigs::creator_link(&self.api.base, &format!("scene:{}", doc.id));
+        Ok((version, crate::rigs::Saved::Done { version, link }.words()))
+    }
+
+    /// Build saved scene `doc` as version `version`: the sheet and the list follow, the knobs are asked again
+    pub fn scene_saved(&mut self, doc: &SceneDocument, version: u64) {
+        let key = format!("scene:{}", doc.id);
+        if self.compose.id == doc.id {
+            (self.compose.doc, self.compose.base) = (Some(doc.clone()), Some(version));
+            self.compose.name.clone_from(&doc.stage.name);
+            self.compose.cast = doc.cast().into_iter().map(String::from).collect();
+        }
+        if !self.compose.drafts.iter().any(|(a, _)| *a == key) {
+            self.compose.drafts.push((key.clone(), doc.stage.name.clone()));
+        }
+        self.knobs.forget(&key);
     }
 
     /// "values → cell": Build's knob positions (its rig's slots) into the linked cell, as the piece names them. Whether it
@@ -202,6 +278,59 @@ mod tests {
         host.build = None;
         assert!(!host.values_to_cell(&positions));
         assert!(host.status.starts_with("Build is not linked"));
+    }
+
+    /// the scene sheet's "Build" hands Build the sheet's document on its version; one the core refuses stays in the sheet
+    #[test]
+    fn the_scene_sheet_opens_its_scene_in_build() {
+        use super::super::new_scene::ComposeHit;
+        let mut host = host();
+        host.toon = Some("keys".into());
+        host.compose_press(ComposeHit::Build);
+        assert!(host.status.starts_with("not opened: "), "{}", host.status);
+        assert!(host.to_build.is_none());
+        (host.compose.id, host.compose.name, host.compose.cast, host.compose.base) = ("duet".into(), "Duet".into(), vec!["character:catpope".into()], Some(5));
+        host.compose_press(ComposeHit::Build);
+        let Some(ToBuild::Scene(open)) = host.to_build.take() else { panic!("{}", host.status) };
+        assert_eq!((open.doc.id.as_str(), open.doc.cast(), open.base), ("duet", vec!["character:catpope"], Some(5)));
+        assert_eq!(host.status, "scene:duet: open in Build");
+    }
+
+    /// Against a running API (`DECK_TEST_API`, the test user's token in `SCUTOONS_TOKEN`; skipped without): a scene made in
+    /// the sheet and saved as a draft opens in Build from the server, a member's value set by the core, saved as the
+    /// scene's next draft; back in Show the sheet has that version and a save on the old one is refused.
+    #[test]
+    fn against_a_server_a_scene_opens_in_build_and_saves_its_draft() {
+        use super::super::new_scene::ComposeHit;
+        let Ok(api) = std::env::var("DECK_TEST_API") else { return };
+        let mut host = host();
+        host.api = super::super::api::Api::new(api);
+        host.toon = Some("catpope".into());
+        let id = format!("build-{}", std::process::id());
+        (host.compose.id, host.compose.name, host.compose.cast) = (id.clone(), "Built".into(), vec!["character:catpope".into(), "item:incense_burner".into()]);
+        host.compose_press(ComposeHit::Save);
+        let first = host.compose.base.unwrap_or_else(|| panic!("{}", host.status));
+        let open = host.scene_for_build(&format!("scene:{id}")).expect("the draft from the server");
+        assert_eq!((open.base, open.doc.cast().len()), (Some(first), 2));
+        let rigs = deck_space::scene_resolve::core_rigs;
+        let (mut edit, _) = deck_space::scene_edit::SceneEdit::open(open.doc, open.base, &rigs, &deck_space::scene_resolve::no_sets).expect("it plays");
+        let k = edit.members[0].knobs[0].clone();
+        let v = if k.value == k.min { k.max } else { k.min };
+        edit.set(0, &k.path, v).unwrap();
+        let (version, words) = host.save_built_scene(&edit.doc, edit.base).expect("saved");
+        assert!(version > first && words.starts_with("saved as draft v"), "{words}");
+        assert_eq!(host.compose.base, Some(version), "Show's sheet follows");
+        assert_eq!(host.compose.doc.as_ref().map(|d| d.holders[0].values.len()), Some(1));
+        let back = host.scene_for_build(&format!("scene:{id}")).unwrap();
+        assert_eq!(back.doc.holders[0].values, edit.doc.holders[0].values, "the value is the server's");
+        assert!(host.save_built_scene(&edit.doc, Some(first)).unwrap_err().contains("someone saved a newer version"));
+        // never published: its knobs come from its draft, kept apart from the published copies
+        host.knobs = super::super::values::Loader::new(host.api.base.clone());
+        host.knobs.cache = std::env::temp_dir().join(format!("deck-editor-{id}"));
+        let read = host.knobs.now(&format!("scene:{id}")).expect("asked").expect("the draft's knobs");
+        assert!(read.knobs.iter().any(|k| k.path.starts_with("catpope_")), "{:?}", read.knobs.iter().map(|k| &k.path).collect::<Vec<_>>());
+        assert!(host.knobs.cache.join("scenes/drafts").join(format!("{id}.json")).exists());
+        let _ = std::fs::remove_dir_all(&host.knobs.cache);
     }
 
     /// the far nodes: in Build the linked cell's, towards the outlet its holder plays on; in Show, the row's pairs
