@@ -1,4 +1,4 @@
-Status 2026-11-16: concept decided – §8 accepted as recommended, except 8.1 / 8.4: adapters (and camera tracking) are part of the deck, no helper beside it (decisions/deck.md 2026-11-16 [inputs]); drafts in the new design dogma sent 2026-11-16; nothing built yet, queued after #579 / #583 / #580. (2026-11-10: concept for the owner's review (#468).) Owner's brief: decisions/deck.md 2026-11-10 [platform]. Drafts: the shared notes folder `468-input-concept/` (sent in the chat). §8 is what the owner decides.
+Status 2026-11-16: concept decided – §8 accepted as recommended, with 8.1 / 8.4 refined: one adapter code, in the deck for light inputs, an on-demand helper (bridge-like, no idle CPU) for heavy ones such as camera tracking (decisions/deck.md 2026-11-16 [inputs]); drafts in the new design dogma sent 2026-11-16; nothing built yet, queued after #579 / #583 / #580. (2026-11-10: concept for the owner's review (#468).) Owner's brief: decisions/deck.md 2026-11-10 [platform]. Drafts: the shared notes folder `468-input-concept/` (sent in the chat). §8 is what the owner decides.
 
 # Inputs: everything that comes into a deck
 
