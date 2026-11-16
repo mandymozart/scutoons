@@ -256,7 +256,7 @@ impl Rig {
         }
         for (id, d) in &lib.modules {
             if let Some(e) = d.background.as_ref().and_then(deck_catalog::Background::check) {
-                out.push(&format!("module {id}"), format!("background: {e}"));
+                out.push(format!("module {id}"), format!("background: {e}"));
             }
         }
         let mut seen = std::collections::BTreeSet::new();
