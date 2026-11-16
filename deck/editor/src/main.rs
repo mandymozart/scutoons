@@ -10,6 +10,7 @@
 //! route in the rig through the core's edit and validate, the rig replays, the draft is a file; ctrl+z takes it back.
 //!
 //! deck-editor [--rig catpope] [--frames N] [--screenshot FILE] [--tokens FILE] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO]
+mod adding;
 mod bar;
 mod book;
 mod gpu_time;
@@ -85,10 +86,12 @@ struct Args {
     story: Option<PathBuf>,
     /// #568: a check run's rigs (`<id>.toml` bundles) for the cells' pieces the deck carries no core rig of
     rigs: Option<PathBuf>,
+    /// a check run's Add typeahead: type this, pick the first row if asked
+    add: Option<(String, bool)>,
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { rig: "catpope".into(), frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None };
+    let mut a = Args { rig: "catpope".into(), frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, add: None };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -132,6 +135,10 @@ fn args() -> Result<Args> {
             "--book" => a.book = Some(PathBuf::from(val()?)),
             "--story-events" => a.story = Some(PathBuf::from(val()?)),
             "--rigs" => a.rigs = Some(PathBuf::from(val()?)),
+            "--add" => {
+                let v = val()?;
+                a.add = Some(v.strip_suffix(",pick").map_or((v.clone(), false), |q| (q.to_string(), true)));
+            }
             "--open-build" => a.script.open_build = true,
             "--to-cell" => a.script.to_cell = true,
             "--far" => {
@@ -255,6 +262,9 @@ enum Hit {
     /// Build's rig row: the rig picker, Save
     RigPick,
     Save,
+    /// Build's Add, the inspector's Remove
+    Add,
+    Remove,
     /// the Audio tab's settings, map and tones
     Routing(routing::Field),
     /// #568: Build linked to a show cell – its knobs into the cell, back to Show
@@ -320,6 +330,10 @@ struct Menu {
     far: Option<(String, String, deck_space::rig::address::Address)>,
     /// the rig picker: a pick opens that rig (rigs.rs)
     rigs: bool,
+    /// Build's Add: what each row adds (adding.rs)
+    add: Vec<adding::Choice>,
+    /// the address book for a new far world node in this track
+    far_new: Option<String>,
 }
 
 /// a sentence at the place of a gesture, for a few seconds
@@ -601,6 +615,8 @@ impl App {
             Hit::Balance(i) => Help::new(format!("Pan {}", self.stage.strips.get(i)?.track), "Left and right on a stereo pair. Drag it; it applies when you let go."),
             Hit::Peak(_) => Help::new("Highest peak", "The loudest moment in dB, red once it went over 0. Click to clear it."),
             Hit::RigPick => Help::new("Rig", "Click: the toon's rigs on the server; a pick opens it on the stage. A local copy that differs from the server's is offered."),
+            Hit::Add => Help::new("Add", "Inside a track: a node, a far world node with its holder from the address book. At the rig: a track playing an instrument of the catalog. Ctrl+z takes it back."),
+            Hit::Remove => Help::new("Remove", "Takes the selected node or track away, its cables with it (delete does the same). Ctrl+z takes it back."),
             Hit::Save => Help::new("Save", "A new draft version on the server, on the version opened (ctrl+s). Publishing is in the creator."),
             Hit::Mute(i) => Help::new(format!("Mute {}", self.stage.strips.get(i)?.track), "Takes the track out of the sound."),
             Hit::ToCell => Help::new(show::build::TO_CELL, "Writes the knobs as Build has them now into the show cell this rig was opened from; the show checks their ranges."),
@@ -879,6 +895,8 @@ impl App {
             }
             Hit::RigPick => self.open_rigs(x, y),
             Hit::Save => self.rigs.save(&self.stage.base, &self.stage.bundle),
+            Hit::Add => self.open_add(x, y),
+            Hit::Remove => self.remove_selected(),
             Hit::ToCell => self.knobs_to_cell(),
             Hit::BackToShow => self.workspace = show::Workspace::Show,
             Hit::Nothing => self.focus(false),
@@ -1084,30 +1102,33 @@ impl App {
         }
         let items = self.stage.ports.iter().enumerate().filter(|(i, _)| if from.is_none() { self.stage.visible[*i] } else { self.reach.get(*i).copied().unwrap_or(false) });
         let items = items.map(|(id, p)| typeahead::Item { id, label: p.address.clone(), detail: format!("{} {}", if p.input { "in" } else { "out" }, p.ty) }).collect();
-        self.menu = Some(Menu { ta: typeahead::Typeahead::new(items, x, y), from, far: None, rigs: false });
+        self.menu = Some(Menu { ta: typeahead::Typeahead::new(items, x, y), from, far: None, rigs: false, add: Vec::new(), far_new: None });
     }
 
     /// #477: the typeahead over the toon's address book for a far world node's address – the kinds a holder may be, found
     /// by the book's own rule (deck-space rig/book.rs); a pick makes the entry the address's holder
     fn open_book(&mut self, node: usize, x: f32, y: f32) {
-        self.book.poll();
         let Some(far) = self.stage.far(node) else { return };
+        let ta = self.holders(x, y);
+        self.menu = Some(Menu { ta, from: None, far: Some(far), rigs: false, add: Vec::new(), far_new: None });
+    }
+
+    /// the address book's holders a far world node may listen to; without a book it says why inside
+    fn holders(&mut self, x: f32, y: f32) -> typeahead::Typeahead {
+        self.book.poll();
         let why = self.book_why();
         let Some(book) = self.book.book.clone() else {
-            // no book: the typeahead opens anyway and says why inside it
-            let ta = typeahead::Typeahead::new(Vec::new(), x, y).with_note(why.unwrap_or_default());
-            self.menu = Some(Menu { ta, from: None, far: Some(far), rigs: false });
-            return;
+            return typeahead::Typeahead::new(Vec::new(), x, y).with_note(why.unwrap_or_default());
         };
         let kinds = deck_space::world::FAR_HOLDERS;
         let row = |i: usize| book.row(i, LOCALE).map(|r| typeahead::Item { id: i, label: r.chain, detail: format!("{}{}", r.kind.as_str(), if r.draft { " · draft" } else { "" }) });
         let items = book.find("", &kinds, LOCALE).into_iter().filter_map(row).collect();
         let found = book.clone();
-        let mut ta = typeahead::Typeahead::found_by(items, x, y, move |q| found.find(q, &kinds, LOCALE));
-        if let Some(w) = why {
-            ta = ta.with_note(w);
+        let ta = typeahead::Typeahead::found_by(items, x, y, move |q| found.find(q, &kinds, LOCALE));
+        match why {
+            Some(w) => ta.with_note(w),
+            None => ta,
         }
-        self.menu = Some(Menu { ta, from: None, far: Some(far), rigs: false });
     }
 
     /// why the book is not fresh, in words (book.rs `Why`)
@@ -1212,7 +1233,7 @@ impl App {
         if let Some(n) = note {
             ta = ta.with_note(n);
         }
-        self.menu = Some(Menu { ta, from: None, far: None, rigs: true });
+        self.menu = Some(Menu { ta, from: None, far: None, rigs: true, add: Vec::new(), far_new: None });
     }
 
     /// a row chosen: connected from the armed port, or the port found is armed
@@ -1233,6 +1254,12 @@ impl App {
                 None => {}
             }
             return;
+        }
+        if let Some(c) = menu.add.get(id).cloned() {
+            return self.added(c, x, y);
+        }
+        if let Some(track) = menu.far_new {
+            return self.far_added(&track, id, x, y);
         }
         if let Some((track, node, address)) = menu.far {
             // the entry's address (the book offers only entries a receiver exists for: rig/book.rs `find`)
@@ -1422,6 +1449,9 @@ impl App {
                 _ => {}
             }
             return;
+        }
+        if self.args.add.is_some() {
+            return self.script_add();
         }
         if let Some((query, pick)) = self.args.far.clone() {
             match self.frames {
@@ -1711,15 +1741,15 @@ impl App {
         }
         let mut y = top + pad;
         // the rig open, its version and what the last save came to; the picker and Save (rigs.rs)
-        let save = ui.advance(t.size.small) * 4.0 + 2.0 * pad;
+        let save = ui.advance(t.size.small) * 7.0 + 4.0 * pad;
         let pick = Rect { x: x0 + pad, y, w: px - 3.0 * pad - save, h: row - 4.0 };
         ui.rect(pick.x, pick.y, pick.w, pick.h, t.color.control);
         let small = font * 0.85;
         let line = controls::fit(&self.rigs.line(), ((pick.w - 12.0) / ui.advance(small)) as usize);
         ui.text(pick.x + 6.0, pick.y + (pick.h - small * 1.25) * 0.5, small, &line, t.color.text);
         self.panel.hits.push((pick, Hit::RigPick));
-        for r in controls::pills(ui, t, pick.x + pick.w + pad, y, row - 4.0, &["Save"], 0) {
-            self.panel.hits.push((r, Hit::Save));
+        for (r, h) in controls::pills(ui, t, pick.x + pick.w + pad, y, row - 4.0, &["Add", "Save"], 1).into_iter().zip([Hit::Add, Hit::Save]) {
+            self.panel.hits.push((r, h));
         }
         y += row + pad / 2.0;
         if let Some(line) = self.show.build_line() {
@@ -1752,6 +1782,7 @@ impl App {
                         inspector::Field::Knob(i) => Hit::Knob(i),
                         inspector::Field::Param(n, p) => Hit::Param(n, p),
                         inspector::Field::Address(n) => Hit::Address(n),
+                        inspector::Field::Remove => Hit::Remove,
                     };
                     self.panel.hits.push((r, hit));
                 }
@@ -1921,7 +1952,7 @@ impl App {
         // #568: every far world node with a tube off the stage's right edge, towards its holder: the outlet of the linked
         // cell's row it plays on (deck-show far.rs), else its address
         {
-            let linked = self.show.build_wires();
+            let linked = self.show.build_wires(&self.stage.reach);
             let being = &self.stage.space.being;
             let mut k = 0.0;
             for (n, id) in self.stage.node_ids.iter().enumerate() {
@@ -2207,6 +2238,8 @@ impl ApplicationHandler for App {
                     self.rigs.save(&self.stage.base, &self.stage.bundle);
                 } else if event.state == ElementState::Pressed && event.logical_key == Key::Character("z".into()) && self.mods.control_key() {
                     self.take_back();
+                } else if event.state == ElementState::Pressed && event.logical_key == Key::Named(NamedKey::Delete) && self.workspace == show::Workspace::Build {
+                    self.remove_selected();
                 } else if event.state == ElementState::Pressed && event.logical_key == Key::Character("w".into()) {
                     self.wire = !self.wire;
                 } else if event.state == ElementState::Pressed && event.logical_key == Key::Character("f".into()) {

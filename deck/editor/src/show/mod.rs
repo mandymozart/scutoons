@@ -32,7 +32,7 @@ mod rows;
 mod scenes;
 mod session;
 mod sheets;
-mod values;
+pub(crate) mod values;
 mod vote;
 
 use deck_kit::editor::controls::Rect;

@@ -116,6 +116,11 @@ impl Host {
     /// The far nodes of row `row`'s pieces and where their holders play (deck-show far.rs); a piece's reach is asked of the
     /// loader, one not known yet waits.
     pub fn row_links(&mut self, row: &str) -> Vec<Link> {
+        self.row_links_with(row, None)
+    }
+
+    /// the same, with `own` standing in for one piece's reach (Build's rig as it is edited now)
+    fn row_links_with(&mut self, row: &str, own: Option<(&str, &Reach)>) -> Vec<Link> {
         let show = self.shown().clone();
         let Some(i) = show.rows.iter().position(|r| r.id == row) else { return Vec::new() };
         let mut got: HashMap<String, Reach> = HashMap::new();
@@ -124,13 +129,18 @@ impl Host {
                 got.insert(p, r.reach.clone());
             }
         }
+        if let Some((piece, reach)) = own {
+            got.insert(piece.to_string(), reach.clone());
+        }
         far::links(&show, row, |p| got.get(p).cloned())
     }
 
-    /// Build's far wires while it is linked: the linked cell's far nodes as Build's node ids (the member's prefix off)
-    pub fn build_wires(&mut self) -> Vec<Link> {
+    /// Build's far wires while it is linked: the linked cell's far nodes as Build's node ids (the member's prefix off).
+    /// `reach` is Build's rig as edited: it stands in for the cell's piece when the piece is that rig itself.
+    pub fn build_wires(&mut self, reach: &Reach) -> Vec<Link> {
         let Some(l) = self.build.clone() else { return Vec::new() };
-        self.row_links(&l.row)
+        let own = l.prefix.is_empty().then_some((l.piece.as_str(), reach));
+        self.row_links_with(&l.row, own)
             .into_iter()
             .filter(|x| x.from == l.column)
             .filter_map(|mut x| {
@@ -200,8 +210,14 @@ mod tests {
         let mut host = host();
         select(&mut host, 1, "left");
         host.ask_build();
-        let wires = host.build_wires();
+        let keys = host.knobs.now("character:keys").and_then(Result::ok).expect("the keys").reach.clone();
+        let wires = host.build_wires(&keys);
         assert_eq!(wires.iter().map(|w| (w.node.as_str(), &w.holder)).collect::<Vec<_>>(), [("far_in", &Holder::Outlet("right".into()))]);
+        // a far node added in Build to the keys, listening to the bells, is wired to the outlet the bells play on
+        let mut edited = keys.clone();
+        edited.far.push(deck_space::holders::FarNode { node: "tone_far".into(), address: deck_space::rig::address::Address::parse("character:bells/far:in.events").expect("an address") });
+        let wires = host.build_wires(&edited);
+        assert!(wires.iter().any(|w| w.node == "tone_far" && w.holder == Holder::Outlet("right".into())), "{wires:?}");
         let row = host.row_links("together");
         assert_eq!(row.iter().map(|l| (l.from.as_str(), &l.holder)).collect::<Vec<_>>(), [("left", &Holder::Outlet("right".into())), ("right", &Holder::Outlet("left".into()))]);
         assert_eq!(host.row_links("keys-alone").iter().map(|l| &l.holder).collect::<Vec<_>>(), [&Holder::Away]);

@@ -23,8 +23,17 @@ pub enum Field {
     Knob(usize),
     /// an input of a node
     Param(usize, usize),
-    /// a far world node's address (by its graph node): a click opens the address book (#477)
+    /// a far world node's address (by its graph node): a click opens the address book
     Address(usize),
+    /// takes the selected track or node away
+    Remove,
+}
+
+fn remove(d: &mut DrawList, t: &Tokens, area: Rect, y: &mut f32, out: &mut Vec<(Rect, Field)>) {
+    if let Some(r) = controls::pills(d, t, area.x, *y, t.size.row - 4.0, &["Remove"], usize::MAX).into_iter().next() {
+        out.push((r, Field::Remove));
+    }
+    *y += t.size.row;
 }
 
 fn knobs(d: &mut DrawList, t: &Tokens, stage: &Stage, (area, y): (Rect, &mut f32), track: Option<&str>, hot: Option<Field>, out: &mut Vec<(Rect, Field)>) {
@@ -82,6 +91,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, stage: &Stage, sel: &Sel, 
                 controls::row(d, t, area, &mut y, "gain", &crate::number(track.gain));
                 controls::row(d, t, area, &mut y, "pan", &crate::number(track.pan));
                 controls::row(d, t, area, &mut y, "mute", if track.mute { "on" } else { "off" });
+                remove(d, t, area, &mut y, &mut out);
             }
             knobs(d, t, stage, (area, &mut y), Some(id), hot, &mut out);
         }
@@ -90,6 +100,9 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, stage: &Stage, sel: &Sel, 
             let id = stage.node_ids.get(*node).cloned().unwrap_or_default();
             controls::row(d, t, area, &mut y, "name", &id);
             controls::row(d, t, area, &mut y, "kind", stage.kind_name(*node));
+            if stage.ports.iter().any(|q| q.node == id && !q.track.is_empty()) {
+                remove(d, t, area, &mut y, &mut out);
+            }
             if let Some((_, _, address)) = stage.far(*node) {
                 let top = y;
                 let room = ((area.w - (area.w * 0.42).min(96.0)) / d.advance(t.size.font)).max(0.0) as usize;
