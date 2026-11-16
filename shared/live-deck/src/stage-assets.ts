@@ -81,7 +81,7 @@ export function askPortraits(host: StageHost, cdn: string, entryOf: (kind: strin
 async function givePortrait(host: StageHost, cdn: string, entryOf: (kind: string, id: string) => Promise<ContentEntry>, slot: number, kind: string, id: string, field: string, mood: string) {
 	try {
 		// an ask without an entry's kind names its media path itself (a stage background's image)
-		const f = kind ? ((await entryOf(kind, id))[field] as (Record<string, { path?: string }> & { path?: string }) | undefined) : { path: id };
+		const f = (kind ? (await entryOf(kind, id))[field] : { path: id }) as (Record<string, { path?: string }> & { path?: string }) | undefined;
 		const file = mood ? f?.[mood] : f;
 		if (!file?.path) throw new Error(`no ${kind}.${id}.${field}${mood ? `.${mood}` : ''}`);
 		const img = await decodeImage(await (await fetch(cdn + file.path)).blob());
