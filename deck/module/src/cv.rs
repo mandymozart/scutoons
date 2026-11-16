@@ -75,7 +75,7 @@ impl GateCv {
     /// until the note off with its id (no glide: its length is unknown); a reset closes the gate.
     pub fn render_notes(&mut self, tempo: &Tempo, events: &[Ev], left: &mut [f32], right: &mut [f32]) {
         let per_frame = tempo.per_frame();
-        let mut notes = [NONE; MAX_NOTES];
+        let mut notes: [Resolved; MAX_NOTES] = [NONE; MAX_NOTES];
         let mut count = 0;
         for e in events.iter() {
             if count == MAX_NOTES {
