@@ -60,6 +60,11 @@ impl Loader {
         None
     }
 
+    /// `piece` changed (a save): asked again next time
+    pub fn forget(&mut self, piece: &str) {
+        self.got.remove(piece);
+    }
+
     pub fn poll(&mut self) {
         while let Ok((piece, a)) = self.rx.try_recv() {
             self.got.insert(piece, Some(a));
@@ -98,7 +103,10 @@ fn load(piece: &str, base: &str, cache: &std::path::Path, rigs: Option<&std::pat
             Err(why) => return Some(deck_space::piece::Found::Missing(why)),
         };
         let agent = ureq::AgentBuilder::new().timeout(std::time::Duration::from_secs(8)).build();
-        let got = deck_native::published::load(r, &cache.join("scenes"), |path| deck_native::published::get_with(&agent, base, path, crate::sign_in::current().token()));
+        let get = |path: &str| deck_native::published::get_with(&agent, base, path, crate::sign_in::current().token());
+        let dir = cache.join("scenes");
+        // a draft never published is this editor's to play
+        let got = deck_native::published::load(r.clone(), &dir, get).or_else(|e| if format!("{e}").ends_with("is not published") { deck_native::published::load_draft(r, &dir, get) } else { Err(e) });
         Some(match got.map_err(|e| format!("{e:#}")).and_then(|l| l.text()) {
             Ok(text) => deck_space::piece::Found::Scene(text),
             Err(why) => deck_space::piece::Found::Missing(why),

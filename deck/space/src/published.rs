@@ -65,6 +65,11 @@ impl SceneRef {
         Some(Ok(SceneRef { id: id.to_string(), version }))
     }
 
+    /// the path of its newest draft after the API's base (an editor's: published or not)
+    pub fn draft_path(&self) -> String {
+        format!("/scenes/{}?draft=1", self.id)
+    }
+
     /// the document's path after the API's base
     pub fn path(&self) -> String {
         match self.version {
@@ -106,6 +111,37 @@ pub fn listed(cached: &str) -> Option<(SceneRef, String)> {
     let name = k.document.get("stage").and_then(|s| s.get("name")).and_then(Value::as_str).map(str::trim).filter(|n| !n.is_empty());
     let name = name.unwrap_or(&k.scene).to_string();
     Some((SceneRef { id: k.scene, version: Some(k.version) }, name))
+}
+
+/// What an editor opens of a host's cache file (a published copy or a draft's): the document as kept and scene-content's
+/// rigs and sets beside it, as the loader resolves them.
+#[derive(Debug, Clone)]
+pub struct Opened {
+    pub document: SceneDocument,
+    /// the kept version (a draft's: its version's id)
+    pub version: u32,
+    rigs: SceneRigs,
+    sets: crate::push::Content,
+}
+
+impl Opened {
+    pub fn from_cache(cached: &str) -> Result<Opened, String> {
+        let k: Kept = serde_json::from_str(cached).map_err(|e| format!("the cached copy: {e}"))?;
+        let document = SceneDocument::from_value(k.document).map_err(|e| format!("scene:{}: the cached copy: {e:#}", k.scene))?;
+        let rigs = serde_json::from_value(k.content.clone()).unwrap_or_default();
+        let sets = serde_json::from_value(k.content).unwrap_or_default();
+        Ok(Opened { document, version: k.version, rigs, sets })
+    }
+
+    /// the rig `subject` scene-content gave it, else none
+    pub fn rig(&self, subject: &str) -> Option<Bundle> {
+        rig_of(&self.rigs, subject)
+    }
+
+    /// the set location `id` names, as scene-content gave it
+    pub fn set(&self, location: &str) -> Option<String> {
+        self.sets.set_of(location)
+    }
 }
 
 /// What the loader wants next.
@@ -336,6 +372,8 @@ pub struct Load {
     /// the fetched document, while its scene-content is asked for
     doc: Option<(Value, SceneDocument)>,
     waits: Waits,
+    /// the newest draft (`/scenes/<id>?draft=1`, `{ content, version }`), kept by its version's id
+    draft: bool,
 }
 
 impl Load {
@@ -343,12 +381,21 @@ impl Load {
     pub fn start(r: SceneRef, cached: Option<&str>) -> (Load, Step) {
         // a cache file that does not read (or names another scene) is as none
         let cached = cached.and_then(|t| serde_json::from_str::<Kept>(t).ok()).filter(|k| k.scene == r.id);
-        let load = Load { r, cached, doc: None, waits: Waits::Document };
+        let load = Load { r, cached, doc: None, waits: Waits::Document, draft: false };
         let step = match (&load.cached, load.r.version) {
             (Some(k), Some(v)) if k.version == v => load.cached_copy(Vec::new()),
             _ => Step::Ask(load.r.path()),
         };
         (load, step)
+    }
+
+    /// Start loading the newest draft of `r` (an editor's: a scene saved but never published plays there too) with what
+    /// the host keeps of its drafts – a file apart from the published copies, which decks play.
+    pub fn draft(r: SceneRef, cached: Option<&str>) -> (Load, Step) {
+        let cached = cached.and_then(|t| serde_json::from_str::<Kept>(t).ok()).filter(|k| k.scene == r.id);
+        let r = SceneRef { version: None, ..r };
+        let step = Step::Ask(r.draft_path());
+        (Load { r, cached, doc: None, waits: Waits::Document, draft: true }, step)
     }
 
     /// the reference being loaded
@@ -370,22 +417,27 @@ impl Load {
         match status {
             200..=299 => {}
             0 | 500..=599 => return self.unreachable(if status == 0 { "the API can't be reached".into() } else { format!("the API answered HTTP {status}") }),
+            404 if self.draft => return Step::Fail(format!("{r} is not on the server")),
             404 if r.version.is_some() => return Step::Fail(format!("{r}: no such version is published")),
             404 => return Step::Fail(format!("{r} is not published")),
             code => return Step::Fail(format!("{r}: the API answered HTTP {code}")),
         }
-        let value = match serde_json::from_str::<Value>(body).ok().and_then(|mut v| v.get_mut("scene").map(Value::take)) {
+        let answer = serde_json::from_str::<Value>(body).ok();
+        let draft_version = answer.as_ref().and_then(|v| v.pointer("/version/id")?.as_u64()).and_then(|v| u32::try_from(v).ok());
+        let value = match answer.and_then(|mut v| v.get_mut(if self.draft { "content" } else { "scene" }).map(Value::take)).filter(Value::is_object) {
             Some(v) => v,
             None => return Step::Fail(format!("{r}: the API's answer holds no scene")),
         };
-        let doc = match SceneDocument::from_value(value.clone()) {
+        let mut doc = match SceneDocument::from_value(value.clone()) {
             Ok(d) => d,
             Err(e) => return Step::Fail(format!("{r}: {e:#}")),
         };
         if doc.id != r.id {
             return Step::Fail(format!("{r}: the API answered scene:{}", doc.id));
         }
-        let Some(version) = doc.version else { return Step::Fail(format!("{r}: the published document carries no version")) };
+        let version = if self.draft { draft_version } else { doc.version };
+        let Some(version) = version else { return Step::Fail(format!("{r}: the document carries no version")) };
+        doc.version = Some(version);
         // unchanged: what the cache has plays, nothing else is fetched
         if self.cached.as_ref().is_some_and(|k| k.version == version) {
             return self.cached_copy(Vec::new());
@@ -566,6 +618,25 @@ mod tests {
             Step::Ask(p) => p,
             other => panic!("not an ask: {other:?}"),
         }
+    }
+
+    /// an editor's draft: the newest draft is asked for, its version is its version's id, its rigs come with it; one never
+    /// saved is not on the server
+    #[test]
+    fn a_draft_loads_with_its_versions_id_and_its_rigs() {
+        let r = SceneRef::parse("scene:vigil").unwrap().unwrap();
+        let (mut load, step) = Load::draft(r.clone(), None);
+        assert_eq!(ask(&step), "/scenes/vigil?draft=1");
+        let answer = serde_json::json!({ "content": serde_json::from_str::<Value>(&at_cathedral()).unwrap(), "version": { "id": 41 } }).to_string();
+        let step = load.answer(200, &answer);
+        assert!(ask(&step).starts_with("/library/scene-content?"));
+        let l = play(load.answer(200, RIGS));
+        assert_eq!(l.version, 41);
+        let opened = Opened::from_cache(&l.store.expect("kept")).unwrap();
+        assert_eq!((opened.version, opened.document.id.as_str()), (41, "vigil"));
+        assert_eq!(opened.rig("character.catpope").map(|b| b.rig.subject), Some("character.catpope".into()));
+        let (mut load, _) = Load::draft(r, None);
+        assert!(matches!(load.answer(404, ""), Step::Fail(why) if why.ends_with("is not on the server")));
     }
 
     #[test]
