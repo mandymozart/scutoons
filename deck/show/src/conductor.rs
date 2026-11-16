@@ -147,6 +147,17 @@ pub struct OnStage {
     pub row: String,
     /// launched by hand off its row
     pub off_row: bool,
+    /// the relay ms it starts at (its row's moment); none: at once
+    pub from: Option<i64>,
+    /// the row whose cell plays there until then
+    pub before: Option<String>,
+}
+
+impl OnStage {
+    /// whether it still waits for its moment at relay time `ms`
+    pub fn queued(&self, ms: u64) -> bool {
+        self.from.is_some_and(|f| f > ms as i64)
+    }
 }
 
 /// One line of the show's log (SHOW.md §9).
@@ -165,6 +176,8 @@ pub enum Logged {
     NoId { kind: String },
     /// a single cell, by hand
     CellLaunched { row: String, column: String, off_row: bool },
+    /// a column stopped by hand
+    Stopped { column: String },
     /// a `values` cell met another piece, or nothing
     ValuesSkipped { row: String, outlet: String, expected: String, found: Option<String> },
     /// GO with no next row
@@ -306,7 +319,8 @@ impl Conductor {
             }
         };
         let row = self.current.clone().unwrap_or_default();
-        self.stage.insert(outlet.to_string(), OnStage { playing, row, off_row: true });
+        let before = self.playing_row(outlet, ms);
+        self.stage.insert(outlet.to_string(), OnStage { playing, row, off_row: true, from: at, before });
         let mut out = vec![];
         self.send_cell(outlet, cell, at, &mut out);
         self.update_mirrors(at, &mut out);
@@ -557,7 +571,38 @@ impl Conductor {
             Playing::Black => self.send_cell(column, black_cell(), at, out),
             Playing::Mirror { .. } | Playing::Sent => {}
         }
-        self.stage.insert(column.to_string(), OnStage { playing, row: row.to_string(), off_row });
+        let before = self.playing_row(column, ms);
+        self.stage.insert(column.to_string(), OnStage { playing, row: row.to_string(), off_row, from: at, before });
+    }
+
+    /// the row whose cell plays on `column` at relay time `ms` (one still waiting for its moment does not yet)
+    fn playing_row(&self, column: &str, ms: u64) -> Option<String> {
+        let on = self.stage.get(column)?;
+        if on.queued(ms) { on.before.clone() } else { Some(on.row.clone()).filter(|r| !r.is_empty()) }
+    }
+
+    /// The operator stops a column: a stage outlet goes black at the moment of the row playing there, a seat's child is
+    /// left free, a device outlet is sent nothing more. Always allowed.
+    pub fn stop_column(&mut self, column: &str, now: Now) -> Vec<Out> {
+        let mut out = vec![];
+        if let Some(seat) = self.show.seat(column) {
+            let word = seat.word;
+            self.record(now.ms, Logged::Stopped { column: column.to_string() });
+            out.push(Out::Seat { seat: column.to_string(), word, says: Says::Free, at: None });
+            return out;
+        }
+        let Some(outlet) = self.show.outlet(column) else { return out };
+        let device = outlet.kind == OutletKind::Device;
+        let playing = self.playing_row(column, now.ms);
+        let moment = playing.as_deref().and_then(|r| self.show.row(r)).map_or(Moment::Now, |r| r.fire.moment);
+        let at = moment_at(moment, now);
+        self.record(now.ms, Logged::Stopped { column: column.to_string() });
+        if !device {
+            self.send_cell(column, black_cell(), at, &mut out);
+        }
+        self.stage.insert(column.to_string(), OnStage { playing: Playing::Black, row: String::new(), off_row: false, from: at, before: playing });
+        self.update_mirrors(at, &mut out);
+        out
     }
 
     fn send_cell(&mut self, outlet: &str, cell: protocol::Cell, at: Option<i64>, out: &mut Vec<Out>) {

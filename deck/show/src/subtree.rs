@@ -388,6 +388,12 @@ impl Subtree {
         self.done(outs, ms)
     }
 
+    pub fn stop_column(&mut self, column: &str, ms: u64) -> Vec<Envelope> {
+        let now = self.now(ms);
+        let outs = self.conductor.stop_column(column, now);
+        self.done(outs, ms)
+    }
+
     pub fn tick(&mut self, ms: u64) -> Vec<Envelope> {
         let now = self.now(ms);
         let outs = self.conductor.tick(now);

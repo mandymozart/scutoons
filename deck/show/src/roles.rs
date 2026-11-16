@@ -102,7 +102,7 @@ pub fn edit(show: &Show, e: &Edit) -> Result<Edited, String> {
             let free = |id: &String| show.outlet(id).is_none() && show.seat(id).is_none();
             let id = (1..).map(|n| if n == 1 { "role".to_string() } else { format!("role-{n}") }).find(free).unwrap_or_default();
             let at = next.outlets.iter().rposition(|o| o.kind == OutletKind::Stage).map_or(0, |i| i + 1);
-            next.outlets.insert(at, Outlet { id: id.clone(), kind: OutletKind::Stage, label: None, admits: None });
+            next.outlets.insert(at, Outlet { id: id.clone(), kind: OutletKind::Stage, label: None, admits: None, group: None });
             (format!("role {id} added: {GUEST_AND_UP} may take it"), Some(id))
         }
         Edit::Label { id, label } => {

@@ -39,15 +39,12 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
 
 fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), pointer: (f32, f32)) {
     let sheet = open_sheet(host);
-    let m = view::matrix(&host.sub);
+    let m = view::matrix_at(&host.sub, super::now());
     let (pad, font, small) = (t.size.pad, t.size.font, t.size.small);
     let big = font * 1.35;
     super::author::view_switch(d, t, host, w, &SHEETS);
     // the panels shown and what each asks for: the matrix as wide as its columns, a row of cues as tall as two lines
-    let row_w = 200.0;
-    let col_w = 200.0;
-    let rh = 48.0;
-    let matrix = (row_w + m.columns.len().max(1) as f32 * col_w + pad, t.size.row + m.rows.len().max(1) as f32 * rh + pad);
+    let matrix = super::band::table(t, &m).size();
     let outlets = host.sub.conductor().show().outlets.len().max(1) as f32;
     let mut shown: Vec<(&'static str, f32, Option<f32>)> = vec![("rail", t.size.tree, None), ("side", 320.0, None)];
     if sheet.is_some() {
@@ -83,84 +80,11 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
         host.perform_panels.close(d, t, o, &mut host.hits);
     }
 
-    // the matrix: a head, then one line per row
+    // the cues: the rows band, a press on a row fires it, on a cell launches it
     if let Some(o) = host.perform_panels.open(d, t, "matrix", pointer, host.hits.len()) {
-        let a = o.area;
-        let head_h = t.size.row;
-        let cols = m.columns.len().max(1) as f32;
-        let col_w = ((a.w - row_w) / cols).max(40.0);
-        let (mx, my) = (a.x, a.y);
-        d.text(mx, my + 6.0, small, "rows", t.color.muted);
-        for (c, col) in m.columns.iter().enumerate() {
-            let x = mx + row_w + c as f32 * col_w;
-            let label = if col.seat { format!("{} · {}", col.id, col.detail) } else { col.id.clone() };
-            d.text(x + 4.0, my + 6.0, small, &fit(d, &label, small, col_w - 8.0), t.color.muted);
-        }
-        for (r, row) in m.rows.iter().enumerate() {
-            let y = my + head_h + r as f32 * rh;
-            // the row ▶: green when it is the row that fired last, outlined when suggested
-            let b = Rect { x: mx, y: y + 3.0, w: rh - 6.0, h: rh - 6.0 };
-            let hot = Rect { x: mx, y, w: row_w - pad, h: rh }.has(pointer.0, pointer.1);
-            d.round_rect(b.x, b.y, b.w, b.h, t.size.radius, if row.current { t.color.go } else if hot { t.color.hover } else { t.color.control });
-            if row.suggested {
-                d.outline(b.x, b.y, b.w, b.h, (t.size.radius, 2.0), t.color.warn);
-            }
-            let s = (b.h * 0.42).min(22.0);
-            d.icon(b.x + (b.w - s) * 0.5, b.y + (b.h - s) * 0.5, s, "play-fill", if row.current { t.color.surface } else { t.color.text });
-            let tx = b.x + b.w + pad;
-            d.text(tx, y + rh * 0.5 - font * 1.3, font, &fit(d, &format!("{} {}", row.number, row.id), font, row_w - b.w - 2.0 * pad), t.color.text);
-            d.text(tx, y + rh * 0.5 + 2.0, small, &fit(d, &row.fires, small, row_w - b.w - 2.0 * pad), t.color.muted);
-            host.hits.push((Rect { x: mx, y, w: row_w - pad, h: rh }, Hit::Fire(r)));
-            for (c, cell) in row.cells.iter().enumerate() {
-                let cr = Rect { x: mx + row_w + c as f32 * col_w + 2.0, y: y + 3.0, w: col_w - 6.0, h: rh - 6.0 };
-                if cell.keep {
-                    d.text(cr.x + 6.0, cr.y + 4.0, font, &cell.text, t.color.muted);
-                    continue;
-                }
-                // #551: adjacent cells of one question are one wide cell, drawn from the column that starts it in deck-show's
-                // words (`AskView::words`; a cell apart says its mark, `q1 · 2 of 3`); its ▶ – a press anywhere on it – opens
-                // the vote of the whole question (the conductor's hand launch, #548); a column inside it draws nothing
-                let (wide, text) = match &cell.ask {
-                    Some(a) => match a.words() {
-                        Some(words) => (Rect { w: a.run.max(1) as f32 * col_w - 6.0, ..cr }, words),
-                        None => {
-                            host.hits.push((cr, Hit::Launch(r, c)));
-                            continue;
-                        }
-                    },
-                    None => (cr, cell.text.clone()),
-                };
-                let over = wide.has(pointer.0, pointer.1);
-                d.round_rect(wide.x, wide.y, wide.w, wide.h, t.size.radius, if over { t.color.hover } else { t.color.control });
-                if cell.on {
-                    // what plays now; a hand launch off its row is marked in the warning colour
-                    d.outline(wide.x, wide.y, wide.w, wide.h, (t.size.radius, 2.0), if cell.hand { t.color.warn } else { t.color.go });
-                }
-                if cell.ask.is_some() {
-                    d.rect(wide.x, wide.y + t.size.radius, 2.0, wide.h - 2.0 * t.size.radius, t.color.accent);
-                }
-                d.icon(wide.x + 5.0, wide.y + 5.0, 12.0, "play-fill", t.color.muted);
-                d.text(wide.x + 22.0, wide.y + 4.0, font, &fit(d, &text, font, wide.w - 28.0), t.color.text);
-                let mut note = wide.y + 4.0 + font * 1.45;
-                // who in the columns gets the question (deck-ui's filter words)
-                if let Some(a) = &cell.ask {
-                    if note + small < wide.y + wide.h {
-                        d.text(wide.x + 6.0, note, small, &fit(d, &a.filter, small, wide.w - 12.0), t.color.muted);
-                        note += small * 1.3;
-                    }
-                }
-                if cell.hand {
-                    d.text(cr.x + 6.0, note, small, "hand", t.color.warn);
-                    note += small * 1.3;
-                }
-                if let Some(p) = &cell.problem {
-                    if note + small < cr.y + cr.h {
-                        d.text(cr.x + 6.0, note, small, &fit(d, p, small, cr.w - 12.0), t.color.warn);
-                    }
-                }
-                host.hits.push((cr, Hit::Launch(r, c)));
-            }
-        }
+        let laid = super::band::draw(d, t, host, o.area, (&m, super::band::Mode { perform: true, runs: true }), host.perform_scroll, pointer);
+        host.perform_scroll = laid.scroll;
+        host.drew_band(true, laid);
         host.perform_panels.close(d, t, o, &mut host.hits);
     }
 

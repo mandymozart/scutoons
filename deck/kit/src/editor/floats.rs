@@ -130,6 +130,8 @@ struct Panel {
     spec: Spec,
     place: Place,
     scroll: f32,
+    /// its content scrolls itself (a table under sticky heads): the panel only grows and clips
+    own: bool,
     shown: bool,
     content: (f32, f32),
     want: (f32, f32),
@@ -246,7 +248,7 @@ fn sweep(r: &Rect, d: f32, obstacles: &[Rect], area: &Rect, gap: f32, horizontal
 impl Floats {
     pub fn new(specs: &[Spec]) -> Floats {
         let empty = View { whole: Rect::default(), handle: Rect::default(), fold: Rect::default(), content: Rect::default(), scroll: 0.0, over: 0.0, collapsed: false };
-        let panels = specs.iter().map(|s| Panel { spec: *s, place: s.place, scroll: 0.0, shown: false, content: (0.0, 0.0), want: (0.0, 0.0), min: (0.0, 0.0), corner: s.place.corner, anchor: (0.0, 0.0), at: (0.0, 0.0), view: empty }).collect();
+        let panels = specs.iter().map(|s| Panel { spec: *s, place: s.place, scroll: 0.0, own: false, shown: false, content: (0.0, 0.0), want: (0.0, 0.0), min: (0.0, 0.0), corner: s.place.corner, anchor: (0.0, 0.0), at: (0.0, 0.0), view: empty }).collect();
         Floats { panels, area: Rect::default(), fixed: Vec::new(), m: Metrics { gap: 16.0, pad: 8.0, head: 28.0, pill: 32.0, char_w: 7.0, rem: 14.0, min: (160.0, 48.0) }, drag: None }
     }
 
@@ -351,7 +353,7 @@ impl Floats {
                     Rect { x: whole.x + m.pad, y: whole.y + m.head, w: (w - 2.0 * m.pad).max(0.0), h: (h - m.head - m.pad).max(0.0) },
                 )
             };
-            let over = if collapsed { 0.0 } else { Some(p.content.1 - content.h).filter(|o| *o > EPS).unwrap_or(0.0) };
+            let over = if collapsed || p.own { 0.0 } else { Some(p.content.1 - content.h).filter(|o| *o > EPS).unwrap_or(0.0) };
             p.scroll = p.scroll.clamp(0.0, over);
             p.view = View { whole, handle, fold, content, scroll: p.scroll, over, collapsed };
         }
@@ -471,7 +473,15 @@ impl Floats {
     pub fn content(&self, id: &str) -> Option<Rect> {
         let v = self.view(id).filter(|v| !v.collapsed)?;
         let p = &self.panels[self.index(id)?];
-        Some(Rect { x: v.content.x, y: v.content.y - v.scroll, w: v.content.w, h: p.content.1.max(v.content.h) })
+        let h = if p.own { v.content.h } else { p.content.1.max(v.content.h) };
+        Some(Rect { x: v.content.x, y: v.content.y - v.scroll, w: v.content.w, h })
+    }
+
+    /// a panel whose content scrolls itself: it grows to its content and is clipped, it never scrolls
+    pub fn scrolls_itself(&mut self, id: &str) {
+        if let Some(i) = self.index(id) {
+            self.panels[i].own = true;
+        }
     }
 }
 
@@ -580,6 +590,19 @@ mod tests {
         assert_eq!(v.over, 0.0);
         let m = f.view("mixer").unwrap();
         assert_eq!((right(&m.whole), bottom(&m.whole)), (right(&a), bottom(&a)), "the bottom right one in its corner");
+    }
+
+    #[test]
+    fn a_panel_whose_content_scrolls_itself_grows_and_is_clipped() {
+        let mut f = four();
+        f.scrolls_itself("inspector");
+        let a = area(1920.0, 700.0);
+        f.layout(a, &[], &shown(SIZES), M);
+        let v = f.view("inspector").unwrap();
+        assert_eq!(bottom(&v.whole), f.view("mixer").unwrap().whole.y - 16.0, "it grows as any panel");
+        assert_eq!(v.over, 0.0, "the panel itself never scrolls");
+        assert!(!f.wheel(v.whole.x + 5.0, v.whole.y + 50.0, -1.0));
+        assert_eq!(f.content("inspector").unwrap().h, v.content.h, "its content is what shows");
     }
 
     #[test]
