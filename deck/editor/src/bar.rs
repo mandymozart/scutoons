@@ -427,6 +427,6 @@ mod tests {
         assert_eq!(lines.len(), MENU.len());
         assert!(lines.windows(2).all(|w| w[1].0.y > w[0].0.y));
         assert!(lines[0].0.y > 44.0, "under the hamburger");
-        assert!(d.texts().iter().any(|l| l.ends_with(": day")), "the look line says the look");
+        assert!(d.texts().iter().any(|l| l.ends_with(": night")), "the look line says the look (night by default)");
     }
 }

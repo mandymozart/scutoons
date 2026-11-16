@@ -16,7 +16,7 @@ pub struct Look {
 
 impl Default for Look {
     fn default() -> Look {
-        Look { theme: Theme::Day, base: BASE }
+        Look { theme: Theme::Night, base: BASE }
     }
 }
 
@@ -126,7 +126,7 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let toml = dir.join("tokens.toml");
         std::fs::write(&toml, "[night.color]\nline = [1.0, 0.0, 0.0, 1.0]\n").unwrap();
-        let mut w = Watched::new(toml.clone(), Look::default());
+        let mut w = Watched::new(toml.clone(), Look { theme: Theme::Day, base: BASE });
         let day = w.tokens.clone();
         assert!(w.set(Look { theme: Theme::Night, base: 20.0 }));
         assert_ne!(w.tokens.color.text, day.color.text);
