@@ -294,12 +294,27 @@ fn line_label(a: Action, label: &str, look: &crate::tokens::Look) -> String {
     }
 }
 
-/// the main menu under its hamburger; its lines' places
-pub fn menu(d: &mut DrawList, t: &Tokens, at: Rect, enabled: &dyn Fn(Action) -> bool, look: &crate::tokens::Look, pointer: (f32, f32)) -> Vec<(Rect, Action)> {
+/// a main menu line: an action, or a panel of the workspace's list
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Line {
+    Do(Action),
+    Panel(&'static str),
+}
+
+/// the main menu under its hamburger, the workspace's panels that close under it (`(id, name, open)`); its lines' places
+pub fn menu(d: &mut DrawList, t: &Tokens, at: Rect, enabled: &dyn Fn(Action) -> bool, look: &crate::tokens::Look, panels: &[(&'static str, &'static str, bool)], pointer: (f32, f32)) -> Vec<(Rect, Line)> {
     let labels: Vec<String> = MENU.iter().map(|&(a, label, _)| line_label(a, label, look)).collect();
     let lines: Vec<controls::Action> = MENU.iter().zip(&labels).map(|(&(a, _, external), label)| controls::Action { label, enabled: enabled(a), external }).collect();
-    let rects = controls::actions(d, t, (at.x, at.y + at.h + t.size.rem(0.43)), t.size.rem(17.0), &lines, pointer);
-    rects.into_iter().zip(MENU).map(|(r, (a, ..))| (r, a)).collect()
+    let w = t.size.rem(17.0);
+    let rects = controls::actions(d, t, (at.x, at.y + at.h + t.size.rem(0.43)), w, &lines, pointer);
+    let below = rects.last().map_or(at.y + at.h, |r| r.y + r.h + t.size.pad * 0.5) + t.size.rem(0.43);
+    let mut out: Vec<(Rect, Line)> = rects.into_iter().zip(MENU).map(|(r, (a, ..))| (r, Line::Do(a))).collect();
+    if !panels.is_empty() {
+        let lines: Vec<(&str, bool)> = panels.iter().map(|p| (p.1, p.2)).collect();
+        let rects = controls::checks(d, t, (at.x, below), w, "PANELS", &lines, pointer);
+        out.extend(rects.into_iter().zip(panels).map(|(r, p)| (r, Line::Panel(p.0))));
+    }
+    out
 }
 
 #[cfg(test)]
@@ -423,10 +438,15 @@ mod tests {
     fn every_menu_line_lands_and_a_disabled_one_is_still_placed() {
         let t = Tokens::default();
         let mut d = DrawList::new(0.6);
-        let lines = menu(&mut d, &t, Rect { x: 16.0, y: 8.0, w: 36.0, h: 36.0 }, &|a| a != Action::New, &crate::tokens::Look::default(), (0.0, 0.0));
-        assert_eq!(lines.len(), MENU.len());
+        let panels = [("info", "Info", true), ("mixer", "Mixer", false)];
+        let lines = menu(&mut d, &t, Rect { x: 16.0, y: 8.0, w: 36.0, h: 36.0 }, &|a| a != Action::New, &crate::tokens::Look::default(), &panels, (0.0, 0.0));
+        assert_eq!(lines.len(), MENU.len() + panels.len());
         assert!(lines.windows(2).all(|w| w[1].0.y > w[0].0.y));
         assert!(lines[0].0.y > 44.0, "under the hamburger");
         assert!(d.texts().iter().any(|l| l.ends_with(": night")), "the look line says the look (night by default)");
+        assert_eq!(lines[MENU.len()].1, Line::Panel("info"), "the panels after the actions");
+        assert!(d.texts().contains(&"PANELS") && d.texts().contains(&"Mixer"));
+        let mut e = DrawList::new(0.6);
+        assert_eq!(menu(&mut e, &t, Rect { x: 16.0, y: 8.0, w: 36.0, h: 36.0 }, &|_| true, &crate::tokens::Look::default(), &[], (0.0, 0.0)).len(), MENU.len(), "no list when nothing closes");
     }
 }
