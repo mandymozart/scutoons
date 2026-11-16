@@ -489,6 +489,15 @@ impl Bundle {
         Ok((next.on_rig(&Op::AddTrack { id: id.clone(), instrument: instrument.id.clone(), preset: None })?, id))
     }
 
+    /// A track playing the instrument that wraps a module (`assign::module_track`), the module's descriptor carried along
+    pub fn module_track_added(&self, instrument: &Instrument, descriptor: &deck_catalog::Descriptor) -> Result<(Bundle, String), String> {
+        let mut with = self.clone();
+        if !with.modules.iter().any(|d| d.name == descriptor.name) {
+            with.modules.push(descriptor.clone());
+        }
+        with.track_added(instrument)
+    }
+
     /// Track `track` removed, its routes, variants and sticks with it.
     pub fn track_removed(&self, track: &str) -> Result<Bundle, String> {
         self.on_rig(&Op::RemoveTrack { id: track.to_string() })
@@ -591,6 +600,32 @@ mod gesture_tests {
         assert!(b.node_added("drone", "nope").unwrap_err().contains("unknown kind"));
         assert!(b.node_added("nobody", "lfo").unwrap_err().contains("no track"));
         assert!(b.node_removed("drone", "nobody").unwrap_err().contains("no node"));
+    }
+
+    /// a character without a rig: its empty rig plays nothing, is valid to save, and takes a track as any rig does
+    #[test]
+    fn an_empty_rig_is_silent_valid_and_takes_a_track() {
+        let problems = |b: &Bundle| {
+            let r = super::super::validate::Request { kind: "rigs".into(), id: b.rig.subject.clone(), document: serde_json::to_value(&b.rig).unwrap(), instruments: b.instruments.iter().map(|i| serde_json::to_value(i).unwrap()).collect(), presets: Vec::new(), ..Default::default() };
+            r.problems().expect("a rig")
+        };
+        let e = Bundle::empty("character.nobody");
+        let played = e.play(None, None).expect("it plays");
+        assert!(played.tracks.is_empty() && played.engine.page.is_empty(), "nothing sounds");
+        assert_eq!(played.character, "nobody", "the picture stays: its being");
+        assert!(!played.nodes.iter().any(|n| matches!(n.kind.as_str(), "osc" | "fm" | "noise" | "mixer" | "audio_out")), "{:?}", played.nodes.iter().map(|n| &n.kind).collect::<Vec<_>>());
+        assert_eq!(problems(&e), Vec::<String>::new());
+        let drone = catpope().instruments.into_iter().find(|i| i.id == "drone").expect("catpope plays a drone");
+        let (one, id) = e.track_added(&drone).expect("added");
+        assert_eq!((id.as_str(), one.rig.subject.as_str()), ("drone", "character.nobody"));
+        assert!(!one.play(None, None).expect("it plays").tracks.is_empty());
+        assert_eq!(problems(&one), Vec::<String>::new());
+        let doc = serde_json::json!({ "id": "synthx", "descriptor": { "name": "synthx", "ports": [{ "name": "out", "dir": "out", "type": "audio" }], "params": [{ "name": "volume", "min": 0.0, "max": 1.0 }] } });
+        let (inst, d) = super::super::assign::module_track(&doc).expect("it wraps");
+        let (m, id) = e.module_track_added(&inst, &d).expect("a module track");
+        assert_eq!((id.as_str(), m.modules.len()), ("synthx", 1));
+        assert_eq!(m.module_track_added(&inst, &d).expect("again").0.modules.len(), 1, "the descriptor once");
+        m.play(None, None).expect("it plays");
     }
 
     #[test]
