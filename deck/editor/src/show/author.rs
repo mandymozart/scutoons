@@ -1,6 +1,6 @@
 //! The Show workspace (#91, the owner's draft m1-show): the conductors tree on the left (this deck's conductor, its seats –
 //! a seat enters its sub conductor, the breadcrumb leads back) and the rows of the document shown; in the middle the 2D
-//! node overlay over the dimmed stage (#446): what comes from far (the reader's events, the clock), the cells of the row
+//! node overlay over the stage (#446): what comes from far (the reader's events, the clock), the cells of the row
 //! and what the row sends, with a 2D / 3D switch; the rows band under it; on the right the row's inspector, the seats,
 //! save and load. The words are deck-show's view.rs; this file lays them out and names the places (`Hit`).
 use super::perform::button;
@@ -42,7 +42,7 @@ fn fit(d: &DrawList, text: &str, px: f32, w: f32) -> String {
 
 /// the sheets the Show workspace offers over its stage (the flash list opens from Flash, not from a pill; the show runner's
 /// sheets are Perform's)
-pub const SHEETS: [(&str, Sheet); 3] = [("Cues", Sheet::Cues), ("Problems", Sheet::Problems), ("Who", Sheet::Who)];
+pub const SHEETS: [(&str, Sheet); 4] = [("Cues", Sheet::Cues), ("Problems", Sheet::Problems), ("Who", Sheet::Who), ("Demos", Sheet::Demos)];
 
 /// the 2D / 3D switch at the top of a stage rect, then a pill per sheet the workspace offers (`sheets`)
 pub fn view_switch(d: &mut DrawList, t: &Tokens, host: &mut Host, stage: Rect, sheets: &[(&str, Sheet)]) {
@@ -53,7 +53,7 @@ pub fn view_switch(d: &mut DrawList, t: &Tokens, host: &mut Host, stage: Rect, s
     let y = stage.y + t.size.pad;
     d.round_rect(x - 3.0, y - 3.0, w + 4.0, h + 6.0, t.size.radius, t.color.surface_head);
     let on = match host.sheet {
-        Some(s) => sheets.iter().position(|(_, x)| *x == s).map_or(if matches!(s, Sheet::Flash | Sheet::Piece | Sheet::Event) { usize::MAX } else { usize::from(host.two_d) }, |i| i + 2),
+        Some(s) => sheets.iter().position(|(_, x)| *x == s).map_or(if matches!(s, Sheet::Flash | Sheet::Piece | Sheet::Event | Sheet::Scene) { usize::MAX } else { usize::from(host.two_d) }, |i| i + 2),
         None => usize::from(host.two_d),
     };
     let r = controls::pills(d, t, x, y, h, &names, on);
@@ -68,7 +68,7 @@ fn node(d: &mut DrawList, t: &Tokens, (x, y, w): (f32, f32, f32), head: (&str, &
     let (font, small, pad) = (t.size.font, t.size.small, t.size.pad);
     let lh = font * 1.5;
     let h = lh + lines.len() as f32 * lh + pad;
-    d.round_rect(x, y, w, h, t.size.radius, [t.color.surface[0], t.color.surface[1], t.color.surface[2], 0.92]);
+    d.round_rect(x, y, w, h, t.size.radius, [t.color.surface[0], t.color.surface[1], t.color.surface[2], 0.6]);
     d.outline(x, y, w, h, (t.size.radius, 1.0), if far { t.color.muted } else { t.color.line });
     d.text(x + pad, y + 4.0, font, head.0, t.color.text);
     let dw = d.advance(small) * head.1.chars().count() as f32;
@@ -145,8 +145,8 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
         host.hits.push((r, if i + 1 == rows.len() { Hit::RowAdd } else { Hit::Row(i) }));
     }
 
-    // middle: the breadcrumb, then the overlay over the dimmed stage
-    let crumbs: Vec<String> = host.crumbs().into_iter().chain(std::iter::once(format!("{} {}", host.row + 1, sel))).collect();
+    // middle: the breadcrumb, then the overlay over the stage
+    let crumbs: Vec<String> = host.crumbs().into_iter().chain(std::iter::once(format!("{} {}", host.row + 1, controls::fit(&sel, 28)))).collect();
     let n = crumbs.len();
     for (i, r) in controls::breadcrumb(d, t, l.stage.x + pad, l.stage.y + pad, &crumbs).into_iter().enumerate() {
         if i + 1 < n {
@@ -158,7 +158,6 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
         let top = l.stage.y + t.size.row + pad;
         super::sheets::draw(d, t, host, Rect { x: l.stage.x, y: top, w: l.stage.w, h: l.stage.h - (top - l.stage.y) }, pointer);
     } else if host.two_d {
-        d.rect(l.stage.x, l.stage.y + t.size.row + pad, l.stage.w, l.stage.h - t.size.row - pad, [t.color.stage[0], t.color.stage[1], t.color.stage[2], 0.6]);
         let top = l.stage.y + t.size.row + 2.0 * pad;
         let colw = ((l.stage.w - 4.0 * pad) / 3.6).max(120.0);
         let (fx, cx) = (l.stage.x + pad, l.stage.x + 2.0 * pad + colw);
@@ -173,6 +172,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
         let insp = view::inspector(&show, &sel);
         let mut cy = top + small * 1.8;
         let row_cells = show.rows.get(host.row).map(|r| r.cells.clone()).unwrap_or_default();
+        let mut boxes: Vec<(String, f32, f32)> = Vec::new();
         for o in &show.outlets {
             let cell = row_cells.get(&o.id).cloned().unwrap_or(deck_show::Cell::Keep);
             let mut lines = vec![];
@@ -183,8 +183,20 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
                 }
                 other => view::cell_text(other),
             };
-            let head = if matches!(cell, deck_show::Cell::Keep) { format!("{} ↑", o.id) } else { o.id.clone() };
-            cy += node(d, t, (cx, cy, colw * 1.6), (&head, &detail), &lines, false) + pad;
+            let head = if matches!(cell, deck_show::Cell::Keep) { format!("{} ↑", o.name()) } else { o.name().to_string() };
+            let h = node(d, t, (cx, cy, colw * 1.6), (&head, &detail), &lines, false);
+            boxes.push((o.id.clone(), cy, h));
+            cy += h + pad;
+        }
+        // #568: a far node whose holder plays on another outlet of this row: a tube between the two cells (deck-show far.rs)
+        for l in host.row_links(&sel) {
+            let deck_show::far::Holder::Outlet(to) = &l.holder else { continue };
+            let at = |id: &str| boxes.iter().find(|(o, ..)| o == id).map(|(_, y, h)| (cx + colw * 1.6, y + h * 0.5));
+            if let (Some(a), Some(b)) = (at(&l.from), at(to)) {
+                d.cable(a, b, t.color.accent);
+                d.disc(a.0, a.1, 4.0, t.color.accent);
+                d.disc(b.0, b.1, 4.0, t.color.accent);
+            }
         }
         let sends: Vec<(String, bool)> = insp.iter().find(|(h, _)| h == "this row sends").map(|(_, ls)| ls.iter().map(|(a, b)| (if a.is_empty() { b.clone() } else { format!("{a} · {b}") }, false)).collect()).unwrap_or_default();
         // a line without a target is the view's "nothing else": no send to count
@@ -262,6 +274,17 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
             }
             host.hits.push((Rect { x, y, w: col_w - 6.0, h: rh }, Hit::Cell(i, c)));
         }
+        // #568: the cells of this row whose far nodes listen to each other, joined along the row's foot
+        for l in host.row_links(&r.id) {
+            let deck_show::far::Holder::Outlet(to) = &l.holder else { continue };
+            let mid = |id: &str| plan.columns.iter().position(|c| c.id == id).map(|c| bx + first_w + c as f32 * col_w + (col_w - 6.0) * 0.5);
+            if let (Some(a), Some(b)) = (mid(&l.from), mid(to)) {
+                let fy = y + rh - 4.0;
+                d.line((a, fy), (b, fy), 1.0, t.color.accent);
+                d.disc(a, fy, 3.0, t.color.accent);
+                d.disc(b, fy, 3.0, t.color.accent);
+            }
+        }
     }
 
     super::scenes::list(d, t, host, l.scenes, pointer);
@@ -338,7 +361,9 @@ fn row_side(d: &mut DrawList, t: &Tokens, host: &mut Host, (show, sel, seats): (
         let mut address = 0;
         for (label, value) in lines {
             if !label.is_empty() {
-                d.text(rx, y + 4.0, font, &fit(d, label, font, rw * 0.36), t.color.muted);
+                // a column is named for people (a role's label); the id stays the key
+                let shown = if cells { columns.iter().find(|c| c.id == *label).map_or(label.as_str(), |c| c.name.as_str()) } else { label.as_str() };
+                d.text(rx, y + 4.0, font, &fit(d, shown, font, rw * 0.36), t.color.muted);
             }
             // #539: "fires on" opens the event picker; #553: an address selects it, its filter's chips under it
             let fires = i == 0 && label == view::FIRES_ON;

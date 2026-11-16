@@ -38,6 +38,9 @@ pub const LOCATION_KINDS: [AddressKind; 1] = [AddressKind::Location];
 /// a person's text: locale → text (the one shape of authored text)
 pub type Label = BTreeMap<String, String>;
 
+/// The neutral staging's spots (the `scene:stage` template's), in the order a new cast member takes them.
+pub const STAGING_SPOTS: [&str; 4] = ["spot_left", "spot_right", "spot_centre", "spot_back"];
+
 /// One `scene:<id>` document as the API stores it.
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -396,6 +399,14 @@ impl FillerRef {
         Ok(FillerRef { kind, place: Place::new(place_kind, levels[0]), persona: levels.get(1).map(|p| p.to_string()) })
     }
 
+    /// the filler whose own rig `subject` is (`character.catpope.pope` → `character:catpope.pope`); none: no rig of
+    /// what stands on a stage
+    pub fn of_rig(subject: &str) -> Option<String> {
+        let (kind, rest) = subject.split_once('.')?;
+        let filler = format!("{kind}:{rest}");
+        FillerRef::parse(&filler).ok().filter(|f| HOLDER_KINDS.contains(&f.kind) && f.rig_subject().as_deref() == Some(subject)).map(|_| filler)
+    }
+
     /// the subject of the filler's own rig (`character.catpope`, `character.catpope.pope`, `item.incense_burner`); a
     /// location has none
     pub fn rig_subject(&self) -> Option<String> {
@@ -483,6 +494,72 @@ impl SceneDocument {
             links: scene.links.clone(),
             outputs: scene.outputs.clone(),
         }
+    }
+
+    /// A new scene as an editor makes it: its id, its stage's name, the toons whose books list it, a `space` node at the
+    /// staging's centre and the stage's defaults; no cast yet (`recast`). `check_new` says what is wrong with it.
+    pub fn new(id: &str, name: &str, toons: Vec<String>) -> SceneDocument {
+        let mut space = toml::Table::new();
+        space.insert("spot".into(), toml::Value::String(STAGING_SPOTS[2].into()));
+        SceneDocument {
+            format: FORMAT,
+            id: id.to_string(),
+            version: None,
+            toons,
+            location: None,
+            holders: Vec::new(),
+            listeners: Vec::new(),
+            stage: StageSettings { name: name.trim().to_string(), ..StageSettings::default() },
+            nodes: vec![NodeDef { id: "space".into(), kind: "space".into(), params: space }],
+            links: Vec::new(),
+            outputs: None,
+        }
+    }
+
+    /// the authored fillers on its stage, in the holders' order (`character:catpope`)
+    pub fn cast(&self) -> Vec<&str> {
+        self.holders.iter().filter_map(|h| h.filler.as_deref()).collect()
+    }
+
+    /// The cast set to `cast` (fillers, `character:catpope`): a holder whose filler stays keeps its spot, rig and values; one
+    /// whose filler left goes; a new one stands at the first staging spot no holder takes, named by its filler's place.
+    /// Placeholders stay as they are.
+    pub fn recast(&mut self, cast: &[String]) {
+        self.holders.retain(|h| h.filler.as_ref().is_none_or(|f| cast.contains(f)));
+        for filler in cast {
+            if self.holders.iter().any(|h| h.filler.as_ref() == Some(filler)) {
+                continue;
+            }
+            let base = FillerRef::parse(filler).map(|f| f.persona.map_or(f.place.id.clone(), |p| format!("{}_{p}", f.place.id))).unwrap_or_else(|_| "member".into());
+            let mut id = base.clone();
+            for n in 2.. {
+                if !self.holders.iter().any(|h| h.id == id) && self.location_placeholder().is_none_or(|p| p.id != id) {
+                    break;
+                }
+                id = format!("{base}_{n}");
+            }
+            let spot = STAGING_SPOTS.iter().find(|s| !self.holders.iter().any(|h| h.spot.as_deref() == Some(**s))).map(|s| s.to_string());
+            self.holders.push(Holder { id, spot, filler: Some(filler.clone()), ..Holder::default() });
+        }
+    }
+
+    /// `check`, and what a new scene needs beside it: an id a `scene:` key takes, a stage name, a toon, a cast.
+    pub fn check_new(&self) -> Vec<String> {
+        let mut out = Vec::new();
+        if !crate::rig::content::safe_id(&self.id) || self.id.contains('.') {
+            out.push(format!("the id '{}' is no scene id: letters, digits, '-' and '_'", self.id));
+        }
+        if self.stage.name.trim().is_empty() {
+            out.push("the scene needs a name".into());
+        }
+        if self.toons.is_empty() {
+            out.push("open a toon first: a scene without one is a template, in every toon's book".into());
+        }
+        if self.holders.is_empty() {
+            out.push("the cast is empty: pick who stands on its stage".into());
+        }
+        out.extend(self.check());
+        out
     }
 
     /// The document from its JSON: the format first (a format this core does not read is said as such), then the fields,
@@ -826,6 +903,38 @@ mod tests {
         assert!(l(None).admits("character:toptoy"));
         assert!(l(Some("character:catpope")).admits("character:catpope.pope") && l(Some("character:catpope")).admits("character:catpope"));
         assert!(!l(Some("character:catpope")).admits("character:catpopet") && !l(Some("character:catpope.pope")).admits("character:catpope"));
+    }
+
+    /// a scene made in the editor: two members at the staging's spots, checked by the core and resolved with the deck's
+    /// core rigs; a recast keeps who stays where they stand; what a new scene lacks is said
+    #[test]
+    fn a_new_scene_with_two_members() {
+        use crate::scene_resolve::{core_rigs, no_sets, resolve};
+        assert_eq!(FillerRef::of_rig("character.catpope.pope").as_deref(), Some("character:catpope.pope"));
+        assert_eq!(FillerRef::of_rig("item.incense_burner").as_deref(), Some("item:incense_burner"));
+        assert_eq!(FillerRef::of_rig("location.dom"), None);
+        let mut doc = SceneDocument::new("duet", " Duet ", vec!["catpope".into()]);
+        assert_eq!(doc.check_new(), ["the cast is empty: pick who stands on its stage"]);
+        doc.recast(&["character:catpope".into(), "item:incense_burner".into()]);
+        assert_eq!(doc.check_new(), Vec::<String>::new());
+        let at: Vec<(&str, Option<&str>, &str)> = doc.holders.iter().map(|h| (h.id.as_str(), h.spot.as_deref(), h.filler.as_deref().unwrap())).collect();
+        assert_eq!(at, [("catpope", Some("spot_left"), "character:catpope"), ("incense_burner", Some("spot_right"), "item:incense_burner")]);
+        assert_eq!(doc.stage.name, "Duet");
+        let r = resolve(&doc, &BTreeMap::new(), false, &core_rigs, &no_sets).unwrap();
+        assert_eq!(r.cast.iter().map(|m| m.place.as_str()).collect::<Vec<_>>(), ["character:catpope", "item:incense_burner"]);
+        crate::graph::Graph::build(&r.scene).expect("the stage builds it");
+        // written and read back as the server stores it
+        assert_eq!(SceneDocument::parse_json(&doc.to_json().unwrap()).unwrap(), doc);
+        // the incense burner leaves, the nun's persona joins at the free spot; catpope keeps hers
+        doc.holders[0].values.insert("drone:drone.gain".into(), HolderValue::Number(0.3));
+        doc.recast(&["character:catpope".into(), "character:nun.sister".into()]);
+        let at: Vec<(&str, Option<&str>)> = doc.holders.iter().map(|h| (h.id.as_str(), h.spot.as_deref())).collect();
+        assert_eq!(at, [("catpope", Some("spot_left")), ("nun_sister", Some("spot_right"))]);
+        assert_eq!(doc.holders[0].values.len(), 1);
+        assert_eq!(doc.cast(), ["character:catpope", "character:nun.sister"]);
+        assert_eq!(doc.check(), Vec::<String>::new());
+        let bad = SceneDocument::new("a.b", "", Vec::new());
+        assert_eq!(bad.check_new()[..3], ["the id 'a.b' is no scene id: letters, digits, '-' and '_'", "the scene needs a name", "open a toon first: a scene without one is a template, in every toon's book"]);
     }
 
     /// #243 / SCENES.md §8.2: a nudge names its control input as `input` in the TOML too (no alias)

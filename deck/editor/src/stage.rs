@@ -53,6 +53,8 @@ pub struct Stage {
     pub audio: String,
     /// the rig as it plays (#431: the documents a gesture changes)
     pub bundle: Bundle,
+    /// what the rig is to far addresses: who it holds, its far world nodes (deck-space holders.rs)
+    pub reach: deck_space::holders::Reach,
     /// the rig before any draft: what the draft is the difference to
     pub base: Bundle,
     /// the ports a cable can end at
@@ -75,6 +77,8 @@ pub struct Stage {
     volume: f32,
     /// the outlet groups the rig plays in, `main` first
     pub groups: Vec<String>,
+    /// a scene of Show's plays in the rig's place (`play_scene`): its id
+    pub scene: Option<String>,
 }
 
 /// a track's strip on the mixer
@@ -133,6 +137,7 @@ struct Ready {
     space_node: usize,
     ports: Vec<Port>,
     groups: Vec<String>,
+    reach: deck_space::holders::Reach,
 }
 
 fn prepare(bundle: Bundle) -> Result<Ready> {
@@ -147,7 +152,8 @@ fn prepare(bundle: Bundle) -> Result<Ready> {
     let space_node = graph.first(Kind::Space).context("the rig's scene has a space node")?;
     let ports = wires::ports(&turn.played)?;
     let groups = deck_engine::outlet_groups(&graph);
-    Ok(Ready { bundle, knobs: turn.played.knobs.clone(), strips: turn.played.strips(), sum: turn.played.sum(), scene, graph, tempo, space_node, ports, groups })
+    let reach = deck_space::rig::address::Place::of_subject(&bundle.rig.subject).map(|p| deck_space::holders::reach_of(&p, &turn.played)).unwrap_or_default();
+    Ok(Ready { reach, bundle, knobs: turn.played.knobs.clone(), strips: turn.played.strips(), sum: turn.played.sum(), scene, graph, tempo, space_node, ports, groups })
 }
 
 impl Stage {
@@ -162,7 +168,24 @@ impl Stage {
     /// a changed rig takes the stage: refused before anything stops; the sound device is let go before the new engine
     /// opens it; the camera and the turned knobs stay
     pub fn replay(&mut self, bundle: Bundle) -> Result<()> {
-        let ready = prepare(bundle)?;
+        self.take(prepare(bundle)?)
+    }
+
+    /// A scene the core resolved (Show's new scene) plays in the rig's place, the rig kept for `replay`: its cast sounds
+    /// and stands at its spots; no knobs, no cables of a rig.
+    pub fn play_scene(&mut self, id: &str, scene: Scene) -> Result<()> {
+        let graph = Graph::build(&scene)?;
+        let tempo = tempo::config_from_graph(&graph)?;
+        let space_node = graph.first(Kind::Space).context("the scene has a space node")?;
+        let groups = deck_engine::outlet_groups(&graph);
+        let ready = Ready { bundle: self.bundle.clone(), knobs: Vec::new(), strips: Vec::new(), sum: None, scene, graph, tempo, space_node, ports: Vec::new(), groups, reach: Default::default() };
+        self.path.clear();
+        self.take(ready)?;
+        self.scene = Some(id.to_string());
+        Ok(())
+    }
+
+    fn take(&mut self, ready: Ready) -> Result<()> {
         let knobs: Vec<(String, f32)> = self.knobs.iter().map(|k| (k.path.clone(), self.value(k))).collect();
         let camera = self.space.camera;
         self._events = None;
@@ -204,7 +227,7 @@ impl Stage {
     }
 
     fn start(ready: Ready, volume: f32) -> Stage {
-        let Ready { bundle, knobs: played_knobs, strips: played_strips, sum, scene, graph, tempo: tempo_cfg, space_node: node, ports, groups } = ready;
+        let Ready { bundle, knobs: played_knobs, strips: played_strips, sum, scene, graph, tempo: tempo_cfg, space_node: node, ports, groups, reach } = ready;
         let mut handles = None;
         let mut audio_name = "off".to_string();
         let audio = {
@@ -288,7 +311,7 @@ impl Stage {
         let master = sum.as_deref().and_then(|s| slot(s, true)).map(|(n, p, _)| (n, p));
         let node_ids = graph.nodes.iter().map(|n| n.id.clone()).collect();
         let kinds = graph.nodes.iter().map(|n| n.kind).collect();
-        Stage { controls, space, gpu: None, texture: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, kinds, strips, inner, master, master_peak: [0.0; 2], master_max: 0.0, volume, path: Vec::new(), core_node: node, groups }
+        Stage { controls, space, gpu: None, texture: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, kinds, strips, inner, master, master_peak: [0.0; 2], master_max: 0.0, volume, path: Vec::new(), core_node: node, groups, reach, scene: None }
     }
 
     /// show this level of the tree in Wire; empty = the rig

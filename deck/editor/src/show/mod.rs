@@ -14,24 +14,29 @@
 //!   #539 (events.rs): the event a row fires on, picked from the toon's story events. #551 (ask.rs): several cells of a
 //!   row selected (shift), the right click's typeahead on them – a new question, the story's, add to, leave –, the
 //!   question in the cell inspector, the wide cell in the rows band and in Perform's matrix. The scene list beside the
-//!   rows band (scenes.rs): a scene dragged onto a cell is its piece, as a pick is.
+//!   rows band (scenes.rs): a scene dragged onto a cell is its piece, as a pick is; its "new scene" opens the scene sheet
+//!   (new_scene.rs): a scene named, cast from the toon's rigs, played, saved as a draft. The Demos sheet (demos.rs) opens a
+//!   demo show in place of the show.
 //!
 //! The editor runs one conductor, this deck's (the tree's top it was given). A sub conductor runs on its own deck with its
 //! own operator; entering it here shows its document, it does not run it.
 pub mod api;
 mod ask;
 pub mod author;
+pub mod build;
 mod condition;
+pub mod demos;
 mod events;
 mod flash;
 mod link;
+pub mod new_scene;
 pub mod perform;
 mod roles;
 mod rows;
 mod scenes;
 mod session;
 mod sheets;
-mod values;
+pub(crate) mod values;
 mod vote;
 
 use deck_kit::editor::controls::Rect;
@@ -79,6 +84,10 @@ pub enum Sheet {
     Piece,
     /// #539: the event picker of the inspected row – the toon's story events (events.rs)
     Event,
+    /// a new scene, or one from the server recast (new_scene.rs)
+    Scene,
+    /// the demo shows to open (demos.rs)
+    Demos,
 }
 
 impl Sheet {
@@ -97,6 +106,8 @@ impl Sheet {
             "vote" => Some(Sheet::Vote),
             "piece" => Some(Sheet::Piece),
             "event" => Some(Sheet::Event),
+            "scene" => Some(Sheet::Scene),
+            "demos" => Some(Sheet::Demos),
             _ => None,
         }
     }
@@ -150,6 +161,8 @@ pub enum Hit {
     /// a scene of the list beside the rows band (a press starts its drag); the list's filter field
     Scene(usize),
     SceneFind,
+    /// a scene of the list opened in Build
+    SceneBuild(usize),
     /// #553: one chip of the selected cell's filter (the one condition control); an address of the inspected row (selects
     /// it: its filter's chips show under it); one chip of the selected address's filter
     CellFact(usize),
@@ -189,6 +202,10 @@ pub enum Hit {
     Vote(vote::VoteHit),
     /// the selected cell's values: a knob, its ×, take current (values.rs)
     Knob(values::KnobHit),
+    /// the scene sheet's fields, buttons and lines (new_scene.rs)
+    Compose(new_scene::ComposeHit),
+    /// a demo of the Demos sheet
+    Demo(usize),
 }
 
 impl Hit {
@@ -265,6 +282,15 @@ pub struct Host {
     pub knobs: values::Loader,
     pub knob_drag: Option<values::KnobDrag>,
     pub cursor: (f32, f32),
+    /// #568: Build linked to a cell, and what Build is asked to play next (build.rs)
+    pub build: Option<build::BuildLink>,
+    pub to_build: Option<build::ToBuild>,
+    /// the scene sheet's state, and a scene it asks the stage to play (new_scene.rs)
+    pub compose: new_scene::Composer,
+    pub to_stage: Option<deck_space::scene::Scene>,
+    /// the Demos sheet's list; the book file of the demo opened, for the editor's book to take (main.rs)
+    pub demos: Vec<demos::Demo>,
+    pub demo_book: Option<PathBuf>,
     link: Option<link::Link>,
     api: api::Api,
 }
@@ -314,7 +340,7 @@ impl Host {
                 })
                 .ok()
         });
-        Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), context: None, side: Rect { x: 0.0, y: 0.0, w: 0.0, h: 0.0 }, side_scroll: 0.0, side_over: 0.0, address: None, book: None, book_why: None, piece_query: String::new(), scene_query: String::new(), dragging: None, refused: None, toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, session: session::Session::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), link, api }
+        Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), context: None, side: Rect { x: 0.0, y: 0.0, w: 0.0, h: 0.0 }, side_scroll: 0.0, side_over: 0.0, address: None, book: None, book_why: None, piece_query: String::new(), scene_query: String::new(), dragging: None, refused: None, toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, session: session::Session::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), build: None, to_build: None, compose: new_scene::Composer::default(), to_stage: None, demos: Vec::new(), demo_book: None, link, api }
     }
 
     /// the document at the end of the path (the top's when a step is missing)
@@ -349,6 +375,7 @@ impl Host {
     pub fn frame(&mut self) {
         let ms = now();
         self.knobs.poll();
+        self.compose_poll();
         let mut out = self.sub.tick(ms);
         if let Some(l) = &self.link {
             while let Ok(e) = l.inbox.try_recv() {
@@ -419,7 +446,7 @@ impl Host {
                 self.rows_press(hit);
             }
             Hit::FiresOn | Hit::EventPick(_) | Hit::EventType => self.events_press(hit),
-            Hit::Scene(_) | Hit::SceneFind => self.scenes_press(hit),
+            Hit::Scene(_) | Hit::SceneFind | Hit::SceneBuild(_) => self.scenes_press(hit),
             Hit::Save => self.save(),
             Hit::Load => self.load(),
             Hit::Flash => self.open_flash(),
@@ -438,11 +465,16 @@ impl Host {
                 if s == Sheet::Event {
                     self.events_open();
                 }
+                if s == Sheet::Demos {
+                    self.demos_open();
+                }
             }
             Hit::Problem(i) => self.select_problem(i),
             Hit::SessionToon(_) | Hit::SessionChapter(_) | Hit::SessionLabel | Hit::SessionCopy | Hit::SessionOpen => self.session_press(hit),
             Hit::Vote(v) => self.vote_press(v),
             Hit::Knob(k) => self.knob_press(k),
+            Hit::Compose(c) => self.compose_press(c),
+            Hit::Demo(i) => self.demo_press(i),
         }
     }
 
@@ -577,6 +609,30 @@ pub struct Script {
     pub cell: Option<(String, String)>,
     /// #551: the right click on the selected cells – the typeahead opened, this typed, the first line found picked if asked
     pub question: Option<(String, bool)>,
+    /// #568: with `cell`, "open in Build" pressed; then "values → cell" in Build
+    pub open_build: bool,
+    pub to_cell: bool,
+    /// the scene sheet filled as typed and picked (`--new-scene`), then played if asked
+    pub new_scene: Option<NewScene>,
+}
+
+/// `ID,NAME,FILLER+FILLER[,play]`
+#[derive(Debug, Clone, Default)]
+pub struct NewScene {
+    pub id: String,
+    pub name: String,
+    pub cast: Vec<String>,
+    pub play: bool,
+    /// opened in Build instead
+    pub build: bool,
+}
+
+impl NewScene {
+    pub fn parse(v: &str) -> Option<NewScene> {
+        let p: Vec<&str> = v.split(',').map(str::trim).collect();
+        let cast = p.get(2)?.split('+').map(str::trim).filter(|f| !f.is_empty()).map(String::from).collect();
+        Some(NewScene { id: p.first()?.to_string(), name: p.get(1)?.to_string(), cast, play: p.get(3) == Some(&"play"), build: p.get(3) == Some(&"build") })
+    }
 }
 
 impl Host {
@@ -640,6 +696,13 @@ impl Host {
                     self.press(if n == 0 { Hit::Cell(r, c) } else { Hit::CellAlso(r, c) });
                 }
             }
+            38 if s.open_build => {
+                let (row, column) = self.selected();
+                if let Some(p) = row.zip(column).and_then(|(r, c)| deck_show::rows::cell_inspector(self.shown(), &r, &c)).and_then(|i| i.knobs_of) {
+                    self.knobs.now(&p);
+                }
+                self.press(Hit::Knob(values::KnobHit::Build));
+            }
             // #551: a frame later, when the rows band has drawn the selection's places
             34 => {
                 if let Some((query, pick)) = &s.question {
@@ -671,6 +734,15 @@ impl Host {
                     self.session.place.label = p.label.clone();
                 }
             }
+            46 => {
+                if let Some(n) = &s.new_scene {
+                    self.press(Hit::Compose(new_scene::ComposeHit::Open));
+                    (self.compose.id, self.compose.name, self.compose.cast) = (n.id.clone(), n.name.clone(), n.cast.clone());
+                    self.typing = None;
+                }
+            }
+            52 if s.new_scene.as_ref().is_some_and(|n| n.play) => self.press(Hit::Compose(new_scene::ComposeHit::Play)),
+            52 if s.new_scene.as_ref().is_some_and(|n| n.build) => self.press(Hit::Compose(new_scene::ComposeHit::Build)),
             50 if s.flash => self.press(Hit::Flash),
             60 => {
                 if let Some(text) = &s.flash_filter {

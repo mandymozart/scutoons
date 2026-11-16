@@ -1,0 +1,9 @@
+{ "address_book": 2, "toon": "catpope", "version": "demo-1", "source": "en", "entries": [
+  { "ref": "character:catpope", "address": "character:catpope", "kind": "character", "name": "catpope", "labels": { "en": "Cat Pope", "de": "Katzenpapst" }, "origin": { "key": "character:catpope", "state": "published" } },
+  { "ref": "character:keys", "address": "character:keys", "kind": "character", "name": "keys", "labels": { "en": "Keys" }, "origin": { "key": "character:keys", "state": "published" } },
+  { "ref": "character:bells", "address": "character:bells", "kind": "character", "name": "bells", "labels": { "en": "Bells" }, "origin": { "key": "character:bells", "state": "published" } },
+  { "ref": "item:incense_burner", "address": "item:incense_burner", "kind": "item", "name": "incense_burner", "labels": { "en": "Incense burner" }, "origin": { "key": "item:incense_burner", "state": "published" } },
+  { "ref": "scene:nave", "address": "scene:nave", "kind": "scene", "name": "nave", "labels": { "en": "Nave", "de": "Kirchenschiff" }, "origin": { "key": "scene:nave", "state": "published" }, "version": 2 },
+  { "ref": "scene:choir", "address": "scene:choir", "kind": "scene", "name": "choir", "labels": { "en": "Choir", "de": "Chor" }, "origin": { "key": "scene:choir", "state": "published" }, "version": 1 },
+  { "ref": "scene:vigil", "address": "scene:vigil", "kind": "scene", "name": "vigil", "labels": { "en": "Vigil", "de": "Nachtwache" }, "origin": { "key": "scene:vigil", "state": "published" }, "version": 1 }
+] }

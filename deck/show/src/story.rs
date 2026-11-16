@@ -337,7 +337,7 @@ mod tests {
     use crate::document::parse as show;
     use crate::rows::{edit, Edit};
 
-    const EVENTS: &str = include_str!("../fixtures/story-events.json");
+    const EVENTS: &str = include_str!("../../demos/story-events.json");
 
     fn top_toy() -> Show {
         show(include_str!("../fixtures/top-toy.show.json")).unwrap()

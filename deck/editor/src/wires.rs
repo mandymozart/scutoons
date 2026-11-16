@@ -190,7 +190,7 @@ pub fn reachable_moved(bundle: &Bundle, ports: &[Port], port: &Port) -> Vec<bool
 }
 
 /// the bundle as the core's validate judges it
-fn checked(bundle: Bundle) -> Result<Bundle, String> {
+pub(crate) fn checked(bundle: Bundle) -> Result<Bundle, String> {
     let values = |v: Result<serde_json::Value, serde_json::Error>| v.map_err(|e| e.to_string());
     let list = |v: serde_json::Value| v.as_array().cloned().unwrap_or_default();
     let request = Request {
@@ -227,8 +227,10 @@ pub fn load_draft(path: &Path, base: &Bundle) -> Bundle {
     let read = toml::from_str::<Draft>(&text).map_err(|e| e.to_string()).and_then(|d| {
         let mut b = Bundle { rig: d.rig, ..base.clone() };
         for i in d.instruments {
-            if let Some(at) = b.instruments.iter().position(|x| x.id == i.id) {
-                b.instruments[at] = i;
+            match b.instruments.iter().position(|x| x.id == i.id) {
+                Some(at) => b.instruments[at] = i,
+                // a new track's instrument
+                None => b.instruments.push(i),
             }
         }
         for p in d.presets {

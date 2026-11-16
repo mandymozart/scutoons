@@ -1,0 +1,15 @@
+{
+  "id": "new-scene",
+  "version": 1,
+  "outlets": [{ "id": "left" }, { "id": "middle" }],
+  "rows": [
+    {
+      "id": "try: scene list › new scene – name · cast · Play · Save draft (signed in)",
+      "cells": { "left": { "mode": "play", "piece": "character:keys" } }
+    },
+    {
+      "id": "then drag your draft from the list onto middle here",
+      "cells": { "left": { "mode": "black" } }
+    }
+  ]
+}

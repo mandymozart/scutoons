@@ -7,7 +7,7 @@ use Scutoons\Domain\ApiError;
 
 /**
  * What the native editor's token (`Bearer sce_…`, Domain\Decks\Decks, kind editor) may do: read with its member's
- * rights and save drafts – a new draft version of an entity or a show. Publishing stays in the browser
+ * rights and save drafts – a new draft version of an entity, a show or a deck scene. Publishing stays in the browser
  * (decisions/deck.md 2026-11-09): every other write is refused, and so are the account's own sign-in routes, like a
  * deck's (DeckTokenScope). The path is matched as the router sees it (decoded, without a trailing slash).
  */
@@ -17,7 +17,7 @@ final class EditorTokenScope
     /** read routes the editor still may not use */
     private const REFUSED = '#^/api/(me/(tokens|decks)|auth)(/.*)?$#';
     /** the draft saves */
-    private const DRAFTS = '#^/api/(entities|shows)/[^/]+$#';
+    private const DRAFTS = '#^/api/(entities|shows|scenes)/[^/]+$#';
 
     public static function guard(string $method, string $path): void
     {

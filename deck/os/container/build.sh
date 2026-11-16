@@ -33,6 +33,8 @@ if [ "${DECK_BINARIES_ONLY:-0}" = 1 ]; then
   for b in relay bridge deck-check deck deck-link deck-update deck-editor; do install -m755 "$WORK/target/release/$b" "$OUT/bin/$b"; done
   # #560: the editor reads its design tokens beside its binary
   install -m644 "$SRC/editor/tokens.toml" "$OUT/bin/tokens.toml"
+  # the editor's demo shows, their rigs, book and story events: the bundle writes them to /usr/share/deck/demos
+  mkdir -p "$OUT/bin/demos" && cp -r "$SRC/demos/." "$OUT/bin/demos/"
   echo "== done: $OUT/bin"; exit 0
 fi
 

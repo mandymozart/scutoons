@@ -292,6 +292,14 @@ impl Rigs {
         draft_path(&self.cache, &self.subject)
     }
 
+    /// the catalog once it is here (Show's new scene picks its cast from its rigs)
+    pub fn catalog(&self) -> Option<&Catalog> {
+        match &self.listing {
+            Listing::Ready(c) => Some(c),
+            _ => None,
+        }
+    }
+
     /// the threads' answers; the list asked again when the sign-in changed
     pub fn poll(&mut self, signed: bool) -> Vec<Event> {
         let mut out = Vec::new();
@@ -390,6 +398,20 @@ impl Rigs {
         Ok(())
     }
 
+    /// the catalog's instruments that read (none until the list came)
+    pub fn instruments(&self) -> Vec<deck_space::rig::Instrument> {
+        match &self.listing {
+            Listing::Ready(c) => c.instruments.iter().filter_map(|v| serde_json::from_value(v.clone()).ok()).collect(),
+            _ => Vec::new(),
+        }
+    }
+
+    /// the catalog's rig of a holder (`character:bells`), as the core makes a bundle of it
+    pub fn bundle_of(&self, place: &deck_space::rig::address::Place) -> Option<Bundle> {
+        let Listing::Ready(c) = &self.listing else { return None };
+        c.bundle(c.rig(&format!("{}.{}", place.kind, place.id))?.content.clone()).ok()
+    }
+
     /// the offline copy over `server`: what plays, saved on the server's version (picking it makes it the next one)
     pub fn take_local(&mut self, server: &Bundle) -> Option<Bundle> {
         let l = self.local.take()?;
@@ -406,7 +428,10 @@ impl Rigs {
             Listing::Ready(c) => c.versions.clone(),
             _ => BTreeMap::new(),
         };
-        let others = changed(base, now, &versions);
+        // an instrument a new track brought in as the catalog has it is no change of its own
+        let catalog = self.instruments();
+        let mut others = changed(base, now, &versions);
+        others.retain(|(_, v, _)| !catalog.iter().any(|c| serde_json::from_value::<deck_space::rig::Instrument>(v.clone()).is_ok_and(|i| &i == c)));
         let (api, key, at) = (self.api.clone(), format!("rig:{}", now.rig.subject), self.version);
         let rig = serde_json::to_value(&now.rig).unwrap_or_default();
         let (tx, rx) = channel();

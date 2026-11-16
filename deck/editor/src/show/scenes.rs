@@ -1,5 +1,5 @@
-//! The scene list beside the rows band in Show: the book's published scenes, filtered as typed. A scene dragged onto a
-//! cell is deck-show's `Edit::Piece`, the same edit as a pick in the picker; a refusal shows the core's sentence where the
+//! The scene list beside the rows band in Show: the book's published scenes, then the toon's drafts never published
+//! (marked: new_scene.rs), filtered as typed; its "new scene" opens the scene sheet. A scene dragged onto a cell is deck-show's `Edit::Piece`, the same edit as a pick in the picker; a refusal shows the core's sentence where the
 //! scene was dropped. Nothing here decides which cell takes a piece (RULES A1, A2).
 use super::roles::Typing;
 use super::rows::{field, LOCALE};
@@ -21,6 +21,8 @@ pub struct Dragging {
 
 /// what the list says without a book
 pub const NO_BOOK: &str = "the address book is still on its way";
+/// a line's press that opens its scene in Build
+const BUILD: &str = "Build";
 
 impl Host {
     pub(super) fn scenes_press(&mut self, hit: Hit) {
@@ -31,6 +33,12 @@ impl Host {
                 }
             }
             Hit::SceneFind => self.typing = Some((Typing::Scenes, Field::with(&self.scene_query))),
+            Hit::SceneBuild(i) => {
+                if let Some(p) = self.scene_list().get(i) {
+                    let piece = p.address.clone();
+                    self.ask_scene_build(&piece);
+                }
+            }
             _ => {}
         }
     }
@@ -43,9 +51,13 @@ impl Host {
         }
     }
 
-    /// the published scenes of the book that match the filter (none without a book)
+    /// the published scenes of the book that match the filter, then the drafts (none without a book)
     pub(super) fn scene_list(&self) -> Vec<PieceView> {
-        self.book.as_ref().map(|b| rows::pieces(b, &self.scene_query_now(), LOCALE)).unwrap_or_default()
+        let Some(b) = self.book.as_ref() else { return Vec::new() };
+        let query = self.scene_query_now();
+        let mut list = rows::pieces(b, &query, LOCALE);
+        list.extend(rows::draft_pieces(&self.drafts_unlisted(), &query));
+        list
     }
 
     /// the pointer moves: a scene being dragged follows it
@@ -87,6 +99,11 @@ pub fn list(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, pointer: (f3
     d.rect(a.x, a.y, 1.0, a.h, t.color.line);
     let mut y = a.y + pad;
     d.text(a.x + pad, y, small, "SCENES", t.color.muted);
+    let nw = d.advance(small) * super::new_scene::NEW.chars().count() as f32 + 2.0 * pad;
+    let new = Rect { x: a.x + a.w - nw - pad, y: y - 3.0, w: nw, h: small * 1.6 };
+    d.round_rect(new.x, new.y, new.w, new.h, t.size.radius, if new.has(pointer.0, pointer.1) { t.color.hover } else { t.color.control });
+    d.text(new.x + pad, y, small, super::new_scene::NEW, t.color.text);
+    host.hits.push((new, Hit::Compose(super::new_scene::ComposeHit::Open)));
     y += small * 1.8;
     if host.book.is_none() {
         let why = host.book_why.clone().unwrap_or_else(|| NO_BOOK.into());
@@ -116,8 +133,12 @@ pub fn list(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, pointer: (f3
         }
         let ty = y + (row - font * 1.25) * 0.5;
         d.text(a.x + pad, ty, font, &fit(d, &s.label, font, w * 0.45), t.color.text);
-        d.text(a.x + pad + w * 0.48, ty + 1.0, small, &fit(d, &s.detail, small, w * 0.52), t.color.muted);
+        let bw = d.advance(small) * BUILD.chars().count() as f32 + pad;
+        d.text(a.x + pad + w * 0.48, ty + 1.0, small, &fit(d, &s.detail, small, w * 0.52 - bw), t.color.muted);
         host.hits.push((line, Hit::Scene(i)));
+        let open = Rect { x: a.x + a.w - bw - pad * 0.5, y, w: bw, h: row };
+        d.text(open.x + pad * 0.5, ty + 1.0, small, BUILD, if open.has(pointer.0, pointer.1) { t.color.accent } else { t.color.muted });
+        host.hits.push((open, Hit::SceneBuild(i)));
         y += row;
     }
 }

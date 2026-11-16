@@ -10,8 +10,8 @@ use deck_kit::base::draw::DrawList;
 use deck_kit::base::tokens::Tokens;
 
 /// the band's height when open and folded
-pub const OPEN: f32 = 112.0;
-pub const FOLDED: f32 = 22.0;
+pub const OPEN: f32 = 336.0;
+pub const FOLDED: f32 = 30.0;
 /// the mixer's gain range (catalog `mixer`)
 pub const GAIN_MAX: f32 = 1.5;
 const STRIP: f32 = 66.0;
