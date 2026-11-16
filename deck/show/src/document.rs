@@ -135,6 +135,9 @@ pub struct Outlet {
     /// #478: who may take the role, any one fact admits (the wire's type, one copy); none = a guest, anyone with the code
     #[serde(rename = "for", default, skip_serializing_if = "Option::is_none")]
     pub admits: Option<protocol::Admits>,
+    /// the head over a run of adjacent columns (`light & sound`); none: no group
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group: Option<String>,
 }
 
 impl Outlet {

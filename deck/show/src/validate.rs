@@ -299,6 +299,25 @@ fn admits(outlet: &crate::document::Outlet, out: &mut Vec<Problem>) {
     }
 }
 
+/// A column group is one head over adjacent outlets: named, and not split by another column.
+fn groups(show: &Show, out: &mut Vec<Problem>) {
+    let mut ended = BTreeSet::new();
+    let mut last: Option<&str> = None;
+    for o in &show.outlets {
+        let group = o.group.as_deref();
+        if group.is_some_and(|g| g.trim().is_empty()) {
+            out.push(refused(&Spot::Show, format!("outlet '{}': an empty group (leave it out: no group)", o.id)));
+        }
+        if group != last {
+            if let Some(g) = group.filter(|g| ended.contains(*g)) {
+                out.push(refused(&Spot::Show, format!("outlet '{}': the group '{g}' is split, its columns stand apart", o.id)));
+            }
+            ended.extend(last);
+        }
+        last = group;
+    }
+}
+
 /// One document on its own. Empty = valid.
 pub fn validate(show: &Show) -> Vec<Problem> {
     let mut out = vec![];
@@ -321,6 +340,7 @@ pub fn validate(show: &Show) -> Vec<Problem> {
     for outlet in &show.outlets {
         admits(outlet, &mut out);
     }
+    groups(show, &mut out);
 
     for seat in &show.seats {
         let at = Spot::Seat(seat.id.clone());

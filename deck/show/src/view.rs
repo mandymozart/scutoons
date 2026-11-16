@@ -19,11 +19,36 @@ pub struct Column {
     pub name: String,
     /// #478: a role's filter in words (`guest and up`, `live · approved deck`); none: no role (a device outlet, a seat)
     pub filter: Option<String>,
+    /// the group whose head stands over it
+    pub group: Option<String>,
+    /// its stop has something to stop (a seat's always: it leaves the child free)
+    pub stops: bool,
+}
+
+/// A group's head over adjacent columns: its name, its first column, how many it spans.
+#[derive(Debug, Clone, PartialEq)]
+pub struct GroupView {
+    pub name: String,
+    pub first: usize,
+    pub span: usize,
+}
+
+/// What a cell or a row is doing at the moment the matrix is read.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum State {
+    #[default]
+    Idle,
+    /// launched, waiting for its row's moment (the next bar, the next phrase)
+    Queued,
+    Playing,
 }
 
 /// One cell as the operator sees it.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct CellView {
+    pub state: State,
+    /// where the bar stands while it plays on a running clock (0–1)
+    pub progress: Option<f32>,
     /// `scene:nave · light 0.2`, `values · rage 0.8`, `↑` (keep), `black`, `go to idle`
     pub text: String,
     /// `keep`: nothing happens on this column (drawn quiet)
@@ -101,6 +126,9 @@ pub struct RowView {
     pub number: usize,
     /// `roar · suggest`, `start · auto`, `hand`
     pub fires: String,
+    /// when what it launches starts: `now`, `next bar`, `next phrase`
+    pub moment: String,
+    pub state: State,
     /// the row that fired last
     pub current: bool,
     /// held as a suggestion
@@ -131,6 +159,7 @@ pub struct SeatView {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Matrix {
     pub columns: Vec<Column>,
+    pub groups: Vec<GroupView>,
     pub rows: Vec<RowView>,
     pub suggestion: Option<Suggested>,
     /// what GO does now, in words (`GO: row 3 ROAR`, `GO: next row 2 sermon`, `GO: no next row`)
@@ -276,6 +305,7 @@ pub fn line(what: &Logged) -> String {
         Logged::NoId { kind } => format!("a {kind} without an id: dropped – no row can listen to it"),
         Logged::CellLaunched { row, column, off_row: true } => format!("hand: {column} > {row}, off the row"),
         Logged::CellLaunched { row, column, off_row: false } => format!("hand: {column} > {row}"),
+        Logged::Stopped { column } => format!("hand: {column} stopped"),
         Logged::ValuesSkipped { row, outlet, expected, found } => {
             format!("{row}: {outlet} plays {}, not {expected} – values skipped", found.as_deref().unwrap_or("nothing"))
         }
@@ -337,15 +367,51 @@ fn columns(show: &Show) -> Vec<Column> {
         },
         name: o.name().to_string(),
         filter: (o.kind == OutletKind::Stage).then(|| crate::roles::filter_words(o.admits.as_ref())),
+        group: o.group.clone().filter(|g| !g.trim().is_empty()),
+        stops: false,
     });
-    let seats = show.seats.iter().map(|s| Column { id: s.id.clone(), seat: true, detail: format!("sub · {}", word_text(s.word)), name: s.id.clone(), filter: None });
+    let seats = show.seats.iter().map(|s| Column { id: s.id.clone(), seat: true, detail: format!("sub · {}", word_text(s.word)), name: s.id.clone(), filter: None, group: None, stops: true });
     outlets.chain(seats).collect()
+}
+
+/// the heads over runs of adjacent columns of one group
+fn groups(columns: &[Column]) -> Vec<GroupView> {
+    let mut out: Vec<GroupView> = vec![];
+    for (i, c) in columns.iter().enumerate() {
+        let Some(name) = &c.group else { continue };
+        match out.last_mut() {
+            Some(g) if g.name == *name && g.first + g.span == i => g.span += 1,
+            _ => out.push(GroupView { name: name.clone(), first: i, span: 1 }),
+        }
+    }
+    out
+}
+
+/// where the bar stands on the clock at `ms` (0–1)
+fn bar_progress(sub: &Subtree, ms: u64) -> Option<f32> {
+    let clock = sub.clock_at(ms)?;
+    let per_bar = f64::from(clock.per_bar.max(1));
+    Some((clock.beat.rem_euclid(per_bar) / per_bar) as f32)
+}
+
+/// what `row`'s cell on a column does against what is there at `ms` (none: no time, nothing waits)
+fn state_of(row: &str, stage: Option<&OnStage>, ms: Option<u64>) -> State {
+    let Some(s) = stage else { return State::Idle };
+    let queued = ms.is_some_and(|ms| s.queued(ms));
+    match (s.row == row, queued) {
+        (true, true) => State::Queued,
+        (true, false) => State::Playing,
+        (false, true) if s.before.as_deref() == Some(row) => State::Playing,
+        _ => State::Idle,
+    }
 }
 
 /// a cell's state against what plays on its column now
 fn cell_view(row: &str, cell: Option<&Cell>, stage: Option<&OnStage>) -> CellView {
     let Some(cell) = cell.filter(|c| !matches!(c, Cell::Keep)) else {
-        return CellView { text: cell_text(&Cell::Keep), keep: true, ..CellView::default() };
+        // a kept cell plays on what an earlier row started there: the arrow says so
+        let lit = stage.filter(|s| !matches!(s.playing, Playing::Black));
+        return CellView { text: cell_text(&Cell::Keep), keep: true, state: state_of(row, lit, None), ..CellView::default() };
     };
     let mine = stage.filter(|s| s.row == row);
     let problem = match (cell, stage.map(|s| &s.playing)) {
@@ -353,7 +419,7 @@ fn cell_view(row: &str, cell: Option<&Cell>, stage: Option<&OnStage>) -> CellVie
         (Cell::Values { .. }, None | Some(Playing::Black)) => Some("nothing plays".to_string()),
         _ => None,
     };
-    CellView { text: cell_text(cell), keep: false, on: mine.is_some(), hand: mine.is_some_and(|s| s.off_row), problem, ask: None }
+    CellView { text: cell_text(cell), keep: false, on: mine.is_some(), hand: mine.is_some_and(|s| s.off_row), problem, ask: None, state: state_of(row, stage, None), progress: None }
 }
 
 fn suggested(show: &Show, s: &Suggestion) -> Suggested {
@@ -379,33 +445,51 @@ fn go_text(show: &Show, current: Option<&str>, s: Option<&Suggestion>) -> String
 
 /// The Perform matrix of one conductor: rows × (outlets, then seats), each cell against what plays.
 pub fn matrix(sub: &Subtree) -> Matrix {
+    matrix_of(sub, None)
+}
+
+/// The same at relay time `ms`: a cell launched for its moment is queued until then, the one it replaces plays on, and
+/// what plays shows where the bar stands.
+pub fn matrix_at(sub: &Subtree, ms: u64) -> Matrix {
+    matrix_of(sub, Some(ms))
+}
+
+fn matrix_of(sub: &Subtree, ms: Option<u64>) -> Matrix {
     let c = sub.conductor();
     let show = c.show();
-    let columns = columns(show);
+    let mut columns = columns(show);
+    for col in columns.iter_mut().filter(|col| !col.seat) {
+        col.stops = c.on_stage(&col.id).is_some_and(|s| !matches!(s.playing, Playing::Black) || (ms.is_some_and(|ms| s.queued(ms)) && s.before.is_some()));
+    }
+    let progress = ms.and_then(|ms| bar_progress(sub, ms));
     // #551: the question whose vote is open now – its cells are what is on (a row asks it once: validate)
     let open = sub.vote().open_now().and_then(|v| sub.vote().asks(v));
     let rows = show
         .rows
         .iter()
         .enumerate()
-        .map(|(i, r)| RowView {
-            id: r.id.clone(),
-            number: i + 1,
-            fires: fires(&r.fire),
-            current: c.current() == Some(r.id.as_str()),
-            suggested: c.suggestion().is_some_and(|s| s.row == r.id),
-            cells: columns
+        .map(|(i, r)| {
+            let cells: Vec<CellView> = columns
                 .iter()
                 .zip(ask_views(show, r, &columns))
                 .map(|(col, ask)| {
-                    let view = cell_view(&r.id, r.cells.get(&col.id), c.on_stage(&col.id));
+                    let stage = c.on_stage(&col.id);
+                    let view = cell_view(&r.id, r.cells.get(&col.id), stage);
                     let asked = ask.as_ref().is_some_and(|a| open == Some(a.question.as_str()));
-                    CellView { on: view.on || asked, ask, ..view }
+                    let state = state_of(&r.id, stage, ms);
+                    CellView { on: view.on || asked, ask, state, progress: progress.filter(|_| state == State::Playing && !view.keep), ..view }
                 })
-                .collect(),
+                .collect();
+            let current = c.current() == Some(r.id.as_str());
+            let state = match (current, cells.iter().any(|x| x.state == State::Queued)) {
+                (true, true) => State::Queued,
+                (true, false) => State::Playing,
+                _ => State::Idle,
+            };
+            RowView { id: r.id.clone(), number: i + 1, fires: fires(&r.fire), moment: moment_text(r.fire.moment).into(), state, current, suggested: c.suggestion().is_some_and(|s| s.row == r.id), cells }
         })
         .collect();
-    Matrix { columns, rows, suggestion: c.suggestion().map(|s| suggested(show, s)), go: go_text(show, c.current(), c.suggestion()) }
+    Matrix { groups: groups(&columns), columns, rows, suggestion: c.suggestion().map(|s| suggested(show, s)), go: go_text(show, c.current(), c.suggestion()) }
 }
 
 /// The same matrix of a document no conductor runs (the Show workspace: authoring, nothing plays).
@@ -419,12 +503,14 @@ pub fn plan(show: &Show) -> Matrix {
             id: r.id.clone(),
             number: i + 1,
             fires: fires(&r.fire),
+            moment: moment_text(r.fire.moment).into(),
+            state: State::Idle,
             current: false,
             suggested: false,
             cells: columns.iter().zip(ask_views(show, r, &columns)).map(|(col, ask)| CellView { ask, problem: None, ..cell_view(&r.id, r.cells.get(&col.id), None) }).collect(),
         })
         .collect();
-    Matrix { columns, rows, suggestion: None, go: go_text(show, None, None) }
+    Matrix { groups: groups(&columns), columns, rows, suggestion: None, go: go_text(show, None, None) }
 }
 
 /// The seats of a show: its sub conductors, for the rail and the tree.
@@ -700,6 +786,89 @@ mod tests {
         let m = matrix(&sub);
         assert!(m.rows[2].cells[0].on && m.rows[2].cells[0].hand, "a hand launch off its row is marked");
         assert_eq!(m.go, "GO: next row 2 roar");
+    }
+
+    fn clocked() -> Subtree {
+        let mut sub = Subtree::new(parse(SERMON).unwrap(), ClockChoice::Parent);
+        // 120 bpm, four beats a bar from 0: a bar is 2 s
+        sub.lead_clock(protocol::Tempo { bpm: 120.0, per_bar: 4, beat: 0.0, running: true, at: Some(0), domain: None }, 0);
+        sub
+    }
+
+    #[test]
+    fn a_cell_waits_for_its_moment_while_the_one_it_replaces_plays_on_and_the_bar_shows() {
+        let mut sub = clocked();
+        sub.fire("arrival", 100);
+        let m = matrix_at(&sub, 500);
+        assert_eq!((m.rows[0].state, m.rows[0].cells[0].state), (State::Playing, State::Playing));
+        assert_eq!(m.rows[0].cells[0].progress, Some(0.25), "beat 1 of 4");
+        // roar falls on the next bar (2 s)
+        sub.fire("roar", 1000);
+        let m = matrix_at(&sub, 1500);
+        assert_eq!((m.rows[1].state, m.rows[1].moment.as_str()), (State::Queued, "next bar"));
+        assert_eq!(m.rows[1].cells[0].state, State::Queued);
+        assert_eq!(m.rows[0].cells[0].state, State::Playing, "arrival plays until the bar");
+        assert_eq!(m.rows[1].cells[0].progress, None, "nothing to show while it waits");
+        let m = matrix_at(&sub, 2500);
+        assert_eq!((m.rows[1].cells[0].state, m.rows[0].cells[0].state), (State::Playing, State::Idle));
+        assert_eq!(m.rows[0].state, State::Idle);
+        // the device column keeps (↑) and nothing plays there: the arrow stays quiet
+        assert!(m.rows[1].cells[2].keep && m.rows[1].cells[2].state == State::Idle);
+    }
+
+    #[test]
+    fn a_kept_cell_is_the_arrow_lit_while_what_an_earlier_row_started_plays_on() {
+        let doc = r#"{ "id": "k", "version": 1, "outlets": [{ "id": "left" }, { "id": "right" }],
+          "rows": [{ "id": "a", "cells": { "left": { "mode": "play", "piece": "scene:nave" }, "right": { "mode": "black" } } }, { "id": "b", "cells": { "right": { "mode": "play", "piece": "scene:vigil" } } }] }"#;
+        let mut sub = Subtree::new(parse(doc).unwrap(), ClockChoice::Parent);
+        sub.fire("a", 0);
+        sub.fire("b", 10);
+        let m = matrix_at(&sub, 20);
+        let left = &m.rows[1].cells[0];
+        assert!(left.keep && left.text == "↑" && left.state == State::Playing, "{left:?}");
+        assert_eq!(m.rows[0].cells[0].state, State::Idle, "it counts as the row that kept it");
+    }
+
+    #[test]
+    fn a_columns_stop_waits_for_the_moment_of_the_row_playing_there() {
+        let mut sub = clocked();
+        sub.fire("roar", 0);
+        sub.fire("arrival", 2100);
+        let m = matrix_at(&sub, 2200);
+        assert!(m.columns[0].stops && m.rows[0].cells[0].state == State::Playing);
+        // arrival fires now: its stop is now too
+        let out = sub.stop_column("left", 3000);
+        let black = out.iter().find(|e| matches!(&e.message, protocol::Message::Cell(c) if c.outlet == "left" && c.cell.mode == protocol::CellMode::Black));
+        assert_eq!(black.map(|e| e.at), Some(None));
+        let m = matrix_at(&sub, 3100);
+        assert!(!m.columns[0].stops && m.rows[0].cells[0].state == State::Idle);
+        assert_eq!(log(sub.log(), 1)[0].1, "hand: left stopped");
+        // roar's left waits for a bar (4 s): so does its stop
+        sub.fire("arrival", 3200);
+        sub.fire("roar", 3300);
+        let out = sub.stop_column("left", 4200);
+        let at = out.iter().find_map(|e| matches!(&e.message, protocol::Message::Cell(c) if c.outlet == "left").then_some(e.at)).flatten();
+        assert_eq!(at, Some(6000), "the next bar after 4.2 s");
+        assert_eq!(matrix_at(&sub, 5000).rows[1].cells[0].state, State::Playing, "roar plays on until then");
+        assert_eq!(matrix_at(&sub, 6100).rows[1].cells[0].state, State::Idle);
+        // a seat's stop leaves the child free
+        let out = sub.stop_column("foyer", 6200);
+        assert!(out.iter().any(|e| matches!(&e.message, protocol::Message::Seat(s) if s.seat == "foyer" && s.says == protocol::Says::Free)));
+    }
+
+    #[test]
+    fn columns_of_a_group_stand_under_one_head() {
+        let doc = r#"{ "id": "g", "version": 1, "rows": [], "outlets": [{ "id": "left", "group": "stages" }, { "id": "right", "group": "stages" },
+          { "id": "lights", "kind": "device", "group": "light & sound" }, { "id": "wall" }] }"#;
+        let show = parse(doc).unwrap();
+        let m = plan(&show);
+        assert_eq!(m.groups, [GroupView { name: "stages".into(), first: 0, span: 2 }, GroupView { name: "light & sound".into(), first: 2, span: 1 }]);
+        assert_eq!(m.columns[3].group, None);
+        let split = doc.replace(r#"{ "id": "wall" }"#, r#"{ "id": "wall", "group": "stages" }"#);
+        let problems: Vec<String> = crate::validate(&crate::document::open(&split).unwrap()).iter().map(ToString::to_string).collect();
+        assert_eq!(problems, ["show: outlet 'wall': the group 'stages' is split, its columns stand apart"]);
+        let empty = doc.replace(r#""group": "light & sound""#, r#""group": " ""#);
+        assert!(crate::validate(&crate::document::open(&empty).unwrap()).iter().any(|p| p.to_string().contains("an empty group")));
     }
 
     #[test]
