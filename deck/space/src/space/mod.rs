@@ -25,6 +25,7 @@ pub mod gpu;
 pub mod label;
 pub mod meshopt;
 pub mod pick;
+pub mod place;
 pub mod portrait;
 pub mod post;
 #[cfg(feature = "gpu")]

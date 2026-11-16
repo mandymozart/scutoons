@@ -427,6 +427,10 @@ fn paint(fonts: &mut dyn Mono, layer: &Layer, (pixel, pictures): (Option<Texture
             Prim::Logo { x, y, size, frame } => {
                 picture(&mut pics, &mut mesh, out, (x, y, size), pictures.and_then(|(_, p)| p.frames.get(frame)), Color32::WHITE);
             }
+            Prim::Segment { a, b, thick, color: c } => {
+                flush(&mut mesh, out);
+                out.push(Shape::line_segment([pos2(a.0 * s, a.1 * s), pos2(b.0 * s, b.1 * s)], Stroke::new(thick * s, color(c))));
+            }
         }
     }
     flush(&mut mesh, out);
