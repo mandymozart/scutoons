@@ -114,6 +114,8 @@ pub enum Edit {
     Value { row: String, column: String, path: String, to: Option<f32> },
     /// "take current" – these knob positions (values.rs `current`) written into the cell
     Take { row: String, column: String, positions: Vec<(String, f32)> },
+    /// the show's stage background, over what its pieces set (none: theirs)
+    Background { to: Option<deck_space::Background> },
 }
 
 /// An edit made: the changed document, what it did in words, the row to select after it.
@@ -407,6 +409,11 @@ pub fn edit_with(show: &Show, e: &Edit, knobs: Option<&[Knob]>) -> Result<Edited
             };
             (format!("row {} {row}, {column}: {}", i + 1, did.map_err(|why| format!("not changed: {why}"))?), Some(row.clone()))
         }
+        Edit::Background { to } => {
+            next.background.clone_from(to);
+            let said = to.as_ref().map_or_else(|| "the show's background: none – its scenes', else black".to_string(), |b| format!("the show's background: {} – over every scene", b.text()));
+            (said, None)
+        }
     };
     let added: Vec<String> = crate::validate::validate(&next).into_iter().filter(|p| !before.contains(p)).map(|p| p.to_string()).collect();
     match added.first() {
@@ -597,6 +604,19 @@ mod tests {
         faced.face.rows = vec!["finale".into()];
         let renamed = ed(&faced, Edit::Rename { id: "finale".into(), to: "curtain".into() });
         assert_eq!(renamed.show.face.rows, ["curtain"]);
+    }
+
+    #[test]
+    fn the_shows_background_is_set_checked_and_taken_off() {
+        use deck_space::Background;
+        let show = parse(NOTHING).unwrap();
+        let set = ed(&show, Edit::Background { to: Some(Background::colour("#204060")) });
+        assert_eq!((set.said.as_str(), set.row), ("the show's background: #204060 – over every scene", None));
+        assert_eq!(set.show.background, Some(Background::colour("#204060")));
+        let bad = Edit::Background { to: Some(Background::colour("teal")) };
+        assert_eq!(edit(&show, &bad).unwrap_err(), "not changed: show: background: 'teal' is no colour: #rgb or #rrggbb");
+        let off = ed(&set.show, Edit::Background { to: None });
+        assert!(off.said.contains("none") && off.show.background.is_none());
     }
 
     #[test]

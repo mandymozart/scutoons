@@ -105,6 +105,17 @@ pub fn draft(open: &Open, files: &Files) -> (String, Value) {
 }
 
 /// a factory module's derived id: `my_<id>` within the id's 32 characters
+/// how a module sets its stage background: in its code, read by the build into the descriptor
+pub const BACKGROUND_NOTE: &str = "read-only: set in the code, #[module(background_colour = \"#rrggbb\")] or background_image / background_video; Build reads it";
+
+/// The module's background row, read-only (the descriptor is the build's): what its descriptor sets, how to set it.
+pub fn background_row(descriptor: Option<&Descriptor>) -> crate::inspector::BackgroundRow {
+    let own = descriptor.and_then(|d| d.background.as_ref());
+    let mut row = crate::inspector::background_row(own, "black, unless its rig, scene or show sets one");
+    row.note = Some(row.note.map_or_else(|| BACKGROUND_NOTE.to_string(), |n| format!("{n} · {BACKGROUND_NOTE}")));
+    row
+}
+
 pub fn derived_id(id: &str) -> String {
     format!("my_{id}").chars().take(32).collect()
 }
@@ -588,6 +599,19 @@ mod tests {
         assert_eq!(key, "module:my_walk");
         assert_eq!(doc, json!({ "id": "my_walk", "origin": "walk", "files": { "lib.rs": "// changed" } }));
         assert_eq!(derived_id(&"x".repeat(40)).len(), 32);
+    }
+
+    #[test]
+    fn the_modules_background_is_the_descriptors_read_only() {
+        let none = background_row(None);
+        assert!(none.value.starts_with("none · black") && none.note.as_deref() == Some(BACKGROUND_NOTE));
+        let mut d = deck_catalog::builtin("osc").unwrap().clone();
+        d.background = Some(deck_space::Background::colour("#ff8000"));
+        let row = background_row(Some(&d));
+        assert_eq!((row.value.as_str(), row.swatch), ("#ff8000", Some([1.0, 128.0 / 255.0, 0.0])));
+        d.background = deck_space::Background::typed("loops/sky.mp4").unwrap();
+        let note = background_row(Some(&d)).note.unwrap();
+        assert!(note.starts_with(crate::inspector::VIDEO_NOTE) && note.ends_with(BACKGROUND_NOTE), "{note}");
     }
 
     #[test]

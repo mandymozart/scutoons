@@ -175,6 +175,8 @@ pub enum Hit {
     FiresOn,
     EventPick(usize),
     EventType,
+    /// the show's stage background: a click types it
+    Background,
     Save,
     Load,
     /// the tree resolved to exact versions: the list of the devices to flash opens (#471)
@@ -482,6 +484,10 @@ impl Host {
             }
             Hit::FiresOn | Hit::EventPick(_) | Hit::EventType => self.events_press(hit),
             Hit::Scene(_) | Hit::SceneFind | Hit::SceneBuild(_) => self.scenes_press(hit),
+            Hit::Background => {
+                let now = self.shown().background.as_ref().map_or("", |b| b.text()).to_string();
+                self.typing = Some((roles::Typing::Background, deck_kit::base::text::Field::with(&now)));
+            }
             Hit::Save => self.save(),
             Hit::Load => self.load(),
             Hit::Flash => self.open_flash(),
