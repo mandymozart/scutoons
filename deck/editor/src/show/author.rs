@@ -183,7 +183,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
                 }
                 other => view::cell_text(other),
             };
-            let head = if matches!(cell, deck_show::Cell::Keep) { format!("{} ↑", o.id) } else { o.id.clone() };
+            let head = if matches!(cell, deck_show::Cell::Keep) { format!("{} ↑", o.name()) } else { o.name().to_string() };
             let h = node(d, t, (cx, cy, colw * 1.6), (&head, &detail), &lines, false);
             boxes.push((o.id.clone(), cy, h));
             cy += h + pad;
@@ -361,7 +361,9 @@ fn row_side(d: &mut DrawList, t: &Tokens, host: &mut Host, (show, sel, seats): (
         let mut address = 0;
         for (label, value) in lines {
             if !label.is_empty() {
-                d.text(rx, y + 4.0, font, &fit(d, label, font, rw * 0.36), t.color.muted);
+                // a column is named for people (a role's label); the id stays the key
+                let shown = if cells { columns.iter().find(|c| c.id == *label).map_or(label.as_str(), |c| c.name.as_str()) } else { label.as_str() };
+                d.text(rx, y + 4.0, font, &fit(d, shown, font, rw * 0.36), t.color.muted);
             }
             // #539: "fires on" opens the event picker; #553: an address selects it, its filter's chips under it
             let fires = i == 0 && label == view::FIRES_ON;
