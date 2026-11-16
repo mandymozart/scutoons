@@ -74,7 +74,8 @@ pub struct Placed {
 
 /// a pill's ground
 fn pill(d: &mut DrawList, t: &Tokens, r: Rect) {
-    d.round_rect(r.x, r.y, r.w, r.h, r.h * 0.5, t.color.surface);
+    let s = t.color.surface;
+    d.round_rect(r.x, r.y, r.w, r.h, r.h * 0.5, [s[0], s[1], s[2], s[3] * t.color.panel_opacity]);
     d.outline(r.x, r.y, r.w, r.h, (r.h * 0.5, 1.0), t.color.line);
 }
 

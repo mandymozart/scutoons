@@ -492,7 +492,9 @@ pub fn clip_hits<H>(view: &View, hits: &mut Vec<(Rect, H)>, from: usize) {
 pub fn begin(d: &mut DrawList, t: &Tokens, spec: &Spec, v: &View, pointer: (f32, f32)) {
     let w = v.whole;
     let r = t.size.radius * 2.0;
-    d.round_rect(w.x, w.y, w.w, w.h, if v.collapsed { w.h * 0.5 } else { r }, t.color.surface);
+    let s = t.color.surface;
+    let ground = [s[0], s[1], s[2], s[3] * t.color.panel_opacity.clamp(0.0, 1.0)];
+    d.round_rect(w.x, w.y, w.w, w.h, if v.collapsed { w.h * 0.5 } else { r }, ground);
     d.outline(w.x, w.y, w.w, w.h, (if v.collapsed { w.h * 0.5 } else { r }, 1.0), t.color.line);
     let hot = v.handle.has(pointer.0, pointer.1);
     let mid = v.handle.y + v.handle.h * 0.5;
@@ -764,6 +766,17 @@ mod tests {
             f.layout(a, &[], &shown(sizes), M);
             assert_valid(&f, &a);
         }
+    }
+
+    #[test]
+    fn a_panels_ground_lets_the_stage_show_through() {
+        let t = Tokens::default();
+        let mut d = DrawList::new(0.6);
+        let v = View { whole: Rect { x: 0.0, y: 0.0, w: 100.0, h: 100.0 }, handle: Rect::default(), fold: Rect::default(), content: Rect::default(), scroll: 0.0, over: 0.0, collapsed: false };
+        begin(&mut d, &t, &spec("x", Place::default()), &v, (0.0, 0.0));
+        let crate::base::draw::Prim::Rect { color, .. } = d.prims()[0] else { panic!("the ground first") };
+        assert_eq!(color[3], t.color.panel_opacity);
+        assert!(color[3] < 1.0);
     }
 
     #[test]

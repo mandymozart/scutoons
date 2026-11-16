@@ -32,6 +32,8 @@ pub struct Colors {
     pub axis: [[f32; 4]; 3],
     /// a strip's stripe, round the list
     pub strips: [[f32; 4]; 6],
+    /// how much a floating panel's ground covers the stage behind it (0..1)
+    pub panel_opacity: f32,
 }
 
 /// `#rrggbb`
@@ -61,6 +63,7 @@ impl Default for Colors {
             stop: rgb(0xe5483b),
             axis: [[0.93, 0.27, 0.32, 1.0], [0.47, 0.75, 0.2, 1.0], [0.25, 0.53, 0.95, 1.0]],
             strips: [rgb(0x00d1ff), rgb(0xf0a030), rgb(0xb36bff), rgb(0x4cc35a), rgb(0xff6b8a), rgb(0xe6d24a)],
+            panel_opacity: 0.86,
         }
     }
 }
