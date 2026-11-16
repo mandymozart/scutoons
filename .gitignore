@@ -25,3 +25,6 @@ deck/os/out/
 .dev-certs/
 # a worktree's cargo config: its deck builds in <git common dir>/deck-target (scripts/deck-target.ts, #526)
 /.cargo/
+
+# third-party mood references: local only (public repo)
+agents/research/cyber-ghost-ui/refs/
