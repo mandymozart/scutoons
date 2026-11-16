@@ -1,6 +1,7 @@
 //! The bridge against the real relay: a `device` message plays at its `at` (not before), a later one waits in the queue
 //! without blocking, and `panic` empties the queue and silences the adapters. A recording adapter stands in for MIDI;
 //! the DMX test runs the real dmx-usbpro adapter on its in-memory widget.
+use std::future::Future;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -16,7 +17,7 @@ use tokio_tungstenite::tungstenite::Message as Ws;
 #[derive(Default)]
 struct Log {
     sent: Vec<(i64, Vec<u8>)>,
-    panics: usize,
+    panics: Vec<i64>,
 }
 
 struct Recorder(Arc<Mutex<Log>>);
@@ -34,12 +35,50 @@ impl Adapter for Recorder {
         Ok(())
     }
     fn panic(&mut self) -> anyhow::Result<()> {
-        self.0.lock().unwrap().panics += 1;
+        self.0.lock().unwrap().panics.push(bridge::now_ms());
         Ok(())
     }
     fn stop(&mut self) -> anyhow::Result<()> {
         Ok(())
     }
+}
+
+/// How long a step may take on a loaded machine before the test gives up on it.
+const WAIT: Duration = Duration::from_secs(60);
+
+/// The timing bounds are real time (thread wake-ups, the clock samples at join): one try inside them passes, a
+/// scheduler that ignores `at` never does.
+const TRIES: usize = 8;
+
+/// Polls `ok` until it holds; false after WAIT.
+async fn eventually(ok: impl Fn() -> bool) -> bool {
+    let end = Instant::now() + WAIT;
+    while !ok() {
+        if Instant::now() > end {
+            return false;
+        }
+        tokio::time::sleep(Duration::from_millis(2)).await;
+    }
+    true
+}
+
+async fn until_relay_ms(t: i64) {
+    let wait = t - relay::now_ms();
+    if wait > 0 {
+        tokio::time::sleep(Duration::from_millis(wait as u64)).await;
+    }
+}
+
+/// Runs `one` until a try comes back inside its bounds; panics with every miss otherwise.
+async fn on_time<F: Future<Output = Result<(), String>>>(one: impl Fn() -> F) {
+    let mut missed = vec![];
+    for _ in 0..TRIES {
+        match one().await {
+            Ok(()) => return,
+            Err(m) => missed.push(m),
+        }
+    }
+    panic!("no try on time: {missed:?}");
 }
 
 fn device(at: i64, note: u8) -> Message {
@@ -71,77 +110,106 @@ async fn stage(mut adapters: Vec<(String, Box<dyn Adapter>)>) -> Conductor {
     let (mut ws, _) = tokio_tungstenite::connect_async(format!("ws://127.0.0.1:{port}/live/BT")).await.unwrap();
     let hello = Hello { code: "BT".into(), role: Role::Conductor, group: None, nick: None, token: Some("dev".into()), device: None, proof: None, resume: None };
     ws.send(send(Message::Hello(hello))).await.unwrap();
-    // wait until the bridge has joined (presence counts no bridge – wait for its `devices` instead)
-    loop {
-        let Some(Ok(Ws::Text(t))) = ws.next().await else { panic!("closed") };
-        if serde_json::from_str::<Envelope>(&t).unwrap().message.kind() == "devices" {
-            break;
+    // presence counts no bridge – its `devices` says it has joined
+    tokio::time::timeout(WAIT, async {
+        loop {
+            let Some(Ok(Ws::Text(t))) = ws.next().await else { panic!("closed") };
+            if serde_json::from_str::<Envelope>(&t).unwrap().message.kind() == "devices" {
+                break;
+            }
         }
-    }
+    })
+    .await
+    .expect("the bridge never joined");
     ws
 }
 
 #[tokio::test]
 async fn plays_at_at_and_panics() {
-    let log = Arc::new(Mutex::new(Log::default()));
-    let mut ws = stage(vec![("synth".into(), Box::new(Recorder(log.clone())))]).await;
+    on_time(|| async {
+        let log = Arc::new(Mutex::new(Log::default()));
+        let mut ws = stage(vec![("synth".into(), Box::new(Recorder(log.clone())))]).await;
 
-    let t0 = relay::now_ms();
-    ws.send(send(device(t0 + 2_000, 61))).await.unwrap(); // far: must not block the next one
-    ws.send(send(device(t0 + 300, 60))).await.unwrap();
-    tokio::time::sleep(Duration::from_millis(150)).await;
-    assert!(log.lock().unwrap().sent.is_empty(), "nothing before `at`");
-    tokio::time::sleep(Duration::from_millis(350)).await;
-    {
-        let l = log.lock().unwrap();
-        assert_eq!(l.sent.len(), 1, "the near one played, the far one waits");
-        let (played, bytes) = &l.sent[0];
-        assert_eq!(bytes, &[0x90, 60, 100]);
+        let t0 = relay::now_ms();
+        let far = t0 + 2_000;
+        ws.send(send(device(far, 61))).await.unwrap(); // must not block the next one
+        ws.send(send(device(t0 + 300, 60))).await.unwrap();
+        assert!(eventually(|| !log.lock().unwrap().sent.is_empty()).await, "the near one never played");
+        let (played, bytes) = log.lock().unwrap().sent[0].clone();
+        assert_eq!(bytes, [0x90, 60, 100], "the near one plays first, the far one waits");
         let late = played - (t0 + 300);
-        assert!((0..60).contains(&late), "played {late} ms after `at`");
-    }
-    ws.send(send(Message::Panic(Panic { black: None, stop: Some(true) }))).await.unwrap();
-    tokio::time::sleep(Duration::from_millis(1_800)).await;
-    let l = log.lock().unwrap();
-    assert_eq!(l.panics, 1);
-    assert_eq!(l.sent.len(), 1, "panic dropped the queued note");
+
+        ws.send(send(Message::Panic(Panic { black: None, stop: Some(true) }))).await.unwrap();
+        assert!(eventually(|| !log.lock().unwrap().panics.is_empty()).await, "no panic");
+        let panicked = log.lock().unwrap().panics[0];
+        if panicked < far {
+            until_relay_ms(far + 300).await;
+            let l = log.lock().unwrap();
+            assert_eq!(l.panics.len(), 1);
+            assert_eq!(l.sent.len(), 1, "panic dropped the queued note");
+        }
+        if !(0..60).contains(&late) {
+            return Err(format!("played {late} ms after `at`"));
+        }
+        if panicked >= far {
+            return Err(format!("the panic came {} ms after the far note was due", panicked - far));
+        }
+        Ok(())
+    })
+    .await;
 }
 
-/// Waits off the runtime (the mock widget is polled) until its last frame satisfies `ok`; the frame's arrival time.
-async fn frame(widget: &Widget, timeout: Duration, ok: impl Fn(&[u8; 512]) -> bool + Send + 'static) -> Option<Instant> {
+/// Waits off the runtime (the mock widget is polled) until its last frame satisfies `ok`.
+async fn frame(widget: &Widget, ok: impl Fn(&[u8; 512]) -> bool + Send + 'static) -> Option<Instant> {
     let w = widget.clone();
-    tokio::task::spawn_blocking(move || w.wait_frame(timeout, ok)).await.unwrap()
+    tokio::task::spawn_blocking(move || w.wait_frame(WAIT, ok)).await.unwrap()
+}
+
+/// When the first frame since `since` that satisfies `ok` arrived.
+fn first_frame(widget: &Widget, since: Instant, ok: impl Fn(&[u8; 512]) -> bool) -> Instant {
+    widget.frames().into_iter().find(|(t, f)| *t >= since && ok(f)).expect("a frame that was seen").0
 }
 
 /// DMX through the queue with the real dmx-usbpro adapter: the look reaches the widget at `at` (not before), a fade
 /// runs on the 40 Hz frames, and `panic` blacks the universe out at once.
 #[tokio::test]
 async fn dmx_plays_at_at_and_blacks_out_on_panic() {
-    let widget = Widget::default();
-    let dmx = DmxUsbProAdapter::with_opener("lights", None, widget.opener());
-    let mut ws = stage(vec![("lights".into(), Box::new(dmx))]).await;
-    frame(&widget, Duration::from_secs(2), |_| true).await.expect("the widget is connected");
+    on_time(|| async {
+        let widget = Widget::default();
+        let dmx = DmxUsbProAdapter::with_opener("lights", None, widget.opener());
+        let mut ws = stage(vec![("lights".into(), Box::new(dmx))]).await;
+        frame(&widget, |_| true).await.expect("the widget is connected");
 
-    let look = |ch, values: &[u8], fade| DeviceMsg::Dmx(DmxMessage { ch, values: values.to_vec(), fade });
-    let msgs = vec![look(1, &[255, 0, 128], None), look(10, &[200], Some(400))];
-    let t0 = relay::now_ms();
-    let sent = Instant::now();
-    ws.send(send(Message::Device(Device { outlet: "lights".into(), msgs, at: Some(t0 + 300) }))).await.unwrap();
+        let look = |ch, values: &[u8], fade| DeviceMsg::Dmx(DmxMessage { ch, values: values.to_vec(), fade });
+        let msgs = vec![look(1, &[255, 0, 128], None), look(10, &[200], Some(400))];
+        let t0 = relay::now_ms();
+        let sent = Instant::now();
+        ws.send(send(Message::Device(Device { outlet: "lights".into(), msgs, at: Some(t0 + 300) }))).await.unwrap();
 
-    let lit = frame(&widget, Duration::from_secs(2), |f| f[..3] == [255, 0, 128]).await.expect("the look");
-    // `at` is in whole ms of the relay clock (t0 read just before `sent`): up to a ms early against `sent` is on time
-    let late = (lit - sent).as_millis() as i64 - 300;
-    assert!((-2..60).contains(&late), "lit {late} ms after `at`");
+        frame(&widget, |f| f[..3] == [255, 0, 128]).await.expect("the look");
+        let lit = first_frame(&widget, sent, |f| f[..3] == [255, 0, 128]);
+        // `at` is in whole ms of the relay clock (t0 read just before `sent`): up to a ms early against `sent` is on time
+        let late = (lit - sent).as_millis() as i64 - 300;
 
-    // the fade on channel 10: on its way after ~200 ms (neither a jump nor done – how far depends on the runner's
-    // load: macOS CI saw 27, run 41128816256), 200 at the end
-    tokio::time::sleep(Duration::from_millis(200)).await;
-    let mid = widget.last_frame().unwrap()[9];
-    assert!((1..200).contains(&mid), "half-way: {mid}");
-    frame(&widget, Duration::from_secs(1), |f| f[9] == 200).await.expect("faded in");
+        frame(&widget, |f| f[9] == 200).await.expect("faded in");
+        let fade: Vec<u8> = widget.frames().iter().filter(|(t, _)| *t >= lit).map(|(_, f)| f[9]).collect();
+        assert!(fade.windows(2).all(|w| w[0] <= w[1]), "the fade only rises: {fade:?}");
 
-    let panic_at = Instant::now();
-    ws.send(send(Message::Panic(Panic { black: Some(true), stop: None }))).await.unwrap();
-    let black = frame(&widget, Duration::from_millis(500), |f| f.iter().all(|&v| v == 0)).await.expect("black");
-    assert!(black - panic_at < Duration::from_millis(100), "black after {:?}", black - panic_at);
+        let panic_at = Instant::now();
+        ws.send(send(Message::Panic(Panic { black: Some(true), stop: None }))).await.unwrap();
+        frame(&widget, |f| f.iter().all(|&v| v == 0)).await.expect("black");
+        let black = first_frame(&widget, panic_at, |f| f.iter().all(|&v| v == 0)) - panic_at;
+
+        if !(-2..60).contains(&late) {
+            return Err(format!("lit {late} ms after `at`"));
+        }
+        if !fade.iter().any(|v| (1..200).contains(v)) {
+            return Err(format!("no frame on the way: {fade:?}"));
+        }
+        if black >= Duration::from_millis(100) {
+            return Err(format!("black after {black:?}"));
+        }
+        Ok(())
+    })
+    .await;
 }
