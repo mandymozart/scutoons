@@ -478,7 +478,7 @@ pub fn cell_inspector(show: &Show, row: &str, column: &str) -> Option<CellInspec
     let piece = stage.filter(|_| !asks).map(|_| piece_of(r.cells.get(column)).map_or_else(|| NO_PIECE.to_string(), str::to_string));
     let knobs_of = piece.as_ref().and_then(|_| piece_of(r.cells.get(column))).map(str::to_string);
     let warning = crate::values::warnings(show).into_iter().find(|w| w.row == row && w.column == column).map(|w| w.text);
-    Some(CellInspector { title: format!("cell · row {} {row} · {column}", i + 1), modes: modes(show, row, column), piece, filter: cell_condition(show, row, column), knobs_of, warning })
+    Some(CellInspector { title: format!("cell · row {} {row} · {}", i + 1, show.outlets.iter().find(|o| o.id == column).map_or(column, |o| o.name())), modes: modes(show, row, column), piece, filter: cell_condition(show, row, column), knobs_of, warning })
 }
 
 /// One published scene the piece picker lists.
