@@ -302,10 +302,10 @@ impl GridSnap {
 }
 
 impl crate::App {
-    /// view pixels of the stage at window point (`x`, `y`)
+    /// view pixels of the stage at window point (`x`, `y`): the stage fills the window
     fn stage_pixel(&self, x: f32, y: f32) -> (f32, f32) {
         let s = self.scale();
-        ((x - self.stage_x) * s, (y - self.tokens.tokens.size.top) * s)
+        (x * s, y * s)
     }
 
     /// A press on the stage of a scene: a member under it goes into the hand. true = it did.

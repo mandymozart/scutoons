@@ -219,17 +219,13 @@ impl Host {
         self.edit_rows(&Edit::Question { question, set });
     }
 
-    /// The wheel over the inspector scrolls it (its buttons keep their own strip). True = taken.
+    /// The wheel over a cell's knob turns it (anywhere else a panel scrolls: main.rs). True = taken.
     pub fn wheel(&mut self, x: f32, y: f32, steps: f32) -> bool {
         if let Some(Hit::Knob(super::values::KnobHit::Turn(i))) = self.hit(x, y) {
             self.knob_wheel(i, steps);
             return true;
         }
-        if !self.side.has(x, y) {
-            return false;
-        }
-        self.side_scroll = (self.side_scroll - steps * 40.0).clamp(0.0, self.side_over);
-        true
+        false
     }
 
     /// A check run (`--question [QUERY][,pick]`): the right click on the selected cells – the typeahead opens on the
@@ -457,7 +453,10 @@ mod tests {
         assert_eq!((r.cells.get("left"), r.cells.get("right")), (Some(&Cell::Ask { question: "q2".into() }), Some(&Cell::Ask { question: "q2".into() })));
         assert!(matches!(r.cells.get("middle"), Some(Cell::Play { .. })), "the column between plays on");
         assert_eq!(r.r#where.get("left"), Some(&question::new_filter()), "a new question starts with device: phone");
-        // the cell inspector: the form without groups, the cell's filter with the shared control, no piece field
+        // the cell inspector: the form without groups, the cell's filter with the shared control (scrolled to), no piece field
+        frame(&mut host);
+        let side = host.show_panels.floats.view("inspector").unwrap().content;
+        host.show_panels.floats.wheel(side.x + 4.0, side.y + 4.0, -100.0);
         let texts = frame(&mut host);
         assert!(texts.iter().any(|t| t == "QUESTION Q2 · LEFT · RIGHT"), "{texts:?}");
         assert!(host.hits.iter().any(|(_, h)| matches!(h, Hit::CellFact(_))), "the cell's filter chips");
@@ -467,6 +466,7 @@ mod tests {
         let fixture = deck_show::parse(include_str!("../../../show/fixtures/asked-by-right-click.show.json")).unwrap();
         assert_eq!(made, fixture, "the document headless scenario 43 launches: {}", serde_json::to_string(&made).unwrap());
 
+        host.show_panels.floats.wheel(side.x + 4.0, side.y + 4.0, 100.0);
         press(&mut host, false, |h| *h == Hit::Save);
         assert_eq!(host.status, "saved vote-cell as version 2");
         host.sub = deck_show::Subtree::new(deck_show::parse(r#"{ "id": "vote-cell", "version": 1, "outlets": [{ "id": "left" }], "rows": [] }"#).unwrap(), deck_show::ClockChoice::Parent);
@@ -582,28 +582,31 @@ mod tests {
         }
     }
 
-    /// #553's finding: the cell inspector with the question's form is taller than its panel – it scrolls above Load /
-    /// Flash / Save, which keep their own strip; nothing it draws under the strip answers a press
+    /// #553's finding: the cell inspector with the question's form is taller than its panel – the panel scrolls inside;
+    /// nothing it draws past its edge answers a press
     #[test]
-    fn the_inspector_scrolls_above_its_buttons() {
+    fn the_inspector_scrolls_inside_its_panel() {
         let mut host = host_with(VOTE);
         let left = column(&host, "left");
         press(&mut host, false, |h| *h == Hit::Cell(1, left));
         press(&mut host, false, |h| *h == Hit::Ask(AskHit::Rule(2)));
         assert!(host.status.contains("first to 20"), "{}", host.status);
         frame(&mut host);
-        let strip = host.side.y + host.side.h;
-        assert!(host.side_over > 0.0, "the inspector is taller than its place");
-        let inside = |h: &Hit| !matches!(h, Hit::Save | Hit::Load | Hit::Flash);
-        assert!(host.hits.iter().filter(|(r, h)| r.x >= host.side.x && inside(h)).all(|(r, _)| r.y + r.h <= strip + 0.5), "nothing under the strip");
+        frame(&mut host);
+        let v = host.show_panels.floats.view("inspector").unwrap();
+        assert!(v.over > 0.0, "the inspector is taller than its place");
+        let side = v.content;
+        let w = v.whole;
+        let on = |r: &deck_kit::base::draw::Rect| r.x < w.x + w.w && r.x + r.w > w.x && r.y < w.y + w.h && r.y + r.h > w.y;
+        assert!(host.hits.iter().filter(|(r, _)| on(r)).all(|(r, _)| r.y >= side.y - 0.5 && r.y + r.h <= side.y + side.h + 0.5), "nothing past the edge");
         let counts = |host: &Host| host.hits.iter().any(|(_, h)| *h == Hit::Ask(AskHit::Counts));
-        let (cx, cy) = (host.side.x + 10.0, host.side.y + 10.0);
         for _ in 0..40 {
-            assert!(host.wheel(cx, cy, -1.0));
+            assert!(host.show_panels.floats.wheel(side.x + 10.0, side.y + 10.0, -1.0));
         }
         frame(&mut host);
-        assert!(host.side_scroll > 0.0 && host.side_scroll <= host.side_over);
+        let v = host.show_panels.floats.view("inspector").unwrap();
+        assert!(v.scroll > 0.0 && v.scroll <= v.over);
         assert!(counts(&host), "scrolled: the form's last toggle answers");
-        assert!(!host.wheel(10.0, 10.0, -1.0), "the wheel elsewhere is not the inspector's");
+        assert!(!host.show_panels.floats.wheel(5.0, 5.0, -1.0), "the wheel on the toolbar scrolls nothing");
     }
 }

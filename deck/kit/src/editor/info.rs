@@ -1,7 +1,6 @@
 //! The Info view (#456; owner 2026-11-09, from the OSCT editor): the name and description of what is under the pointer,
 //! collapsible to its head, so the screen carries no hint lines. Panels show values, states and errors; what a control does
 //! is its help here.
-use crate::base::draw::Rect;
 use crate::base::draw::DrawList;
 use crate::base::tokens::Tokens;
 
@@ -40,45 +39,24 @@ impl Help {
     }
 }
 
-/// Where it landed: the head toggles it, the whole keeps the pointer from what is beneath
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Landed {
-    pub head: Rect,
-    pub whole: Rect,
-}
-
-/// the view in the lower left corner of the area ending at `bottom`
-pub fn view(d: &mut DrawList, t: &Tokens, x: f32, bottom: f32, width: f32, open: bool, help: Option<&Help>) -> Landed {
-    let (font, row, pad) = (t.size.small, t.size.row - 4.0, t.size.pad);
+/// the view's content from (x, y), `width` wide (the info is a floating panel of its own): the name and what it does,
+/// always as tall as its most lines, so it keeps its size while the pointer moves; the height it took
+pub fn body(d: &mut DrawList, t: &Tokens, (x, y, width): (f32, f32, f32), help: Option<&Help>) -> f32 {
+    let font = t.size.small;
     let line_h = font * 1.4;
-    let adv = d.advance(font);
-    let cols = ((width - 2.0 * pad) / adv) as usize;
-    let lines = help.map_or_else(Vec::new, |h| wrap(&h.text, cols));
-    let body = if open { line_h * (1.0 + LINES as f32) + pad } else { 0.0 };
-    let top = bottom - row - body;
-    let whole = Rect { x, y: top, w: width, h: row + body };
-    d.rect(x, top, width, whole.h, t.color.surface_head);
-    d.rect(x, top, width, 1.0, t.color.line);
-    let text_y = (row - font * 1.25) * 0.5;
-    d.icon(x + pad, top + (row - 12.0) * 0.5, 12.0, if open { "down" } else { "up" }, t.color.muted);
-    d.text(x + pad + 16.0, top + text_y, font, "INFO", t.color.muted);
-    if open {
-        let mut y = top + row;
-        match help {
-            Some(h) => {
-                d.text(x + pad, y, font, &h.name, t.color.text);
-                y += line_h;
-                for line in lines.iter().take(LINES) {
-                    d.text(x + pad, y, font, line, t.color.muted);
-                    y += line_h;
-                }
-            }
-            None => {
-                d.text(x + pad, y, font, "Point at something to see what it does.", t.color.muted);
+    let cols = (width / d.advance(font)).max(1.0) as usize;
+    match help {
+        Some(h) => {
+            d.text(x, y, font, &h.name, t.color.text);
+            for (i, line) in wrap(&h.text, cols).iter().take(LINES).enumerate() {
+                d.text(x, y + line_h * (1.0 + i as f32), font, line, t.color.muted);
             }
         }
+        None => {
+            d.text(x, y, font, "Point at something to see what it does.", t.color.muted);
+        }
     }
-    Landed { head: Rect { x, y: top, w: width, h: row }, whole }
+    line_h * (1.0 + LINES as f32)
 }
 
 #[cfg(test)]
@@ -93,14 +71,12 @@ mod tests {
     }
 
     #[test]
-    fn closed_it_is_only_its_head() {
+    fn it_keeps_its_height_whatever_it_says() {
         let t = Tokens::default();
         let mut d = DrawList::new(0.6);
-        let l = view(&mut d, &t, 10.0, 500.0, 300.0, false, None);
-        assert_eq!(l.head, l.whole);
-        assert_eq!(l.whole.y + l.whole.h, 500.0);
-        let l = view(&mut d, &t, 10.0, 500.0, 300.0, true, Some(&Help::new("a", "b")));
-        assert!(l.whole.h > l.head.h);
-        assert_eq!(l.whole.y + l.whole.h, 500.0, "it grows up from its corner");
+        let empty = body(&mut d, &t, (10.0, 500.0, 300.0), None);
+        let long = body(&mut d, &t, (10.0, 500.0, 300.0), Some(&Help::new("a", "word ".repeat(400))));
+        assert_eq!(empty, long);
+        assert!(d.extent(0).unwrap().h <= long + 1.0);
     }
 }
