@@ -2,6 +2,7 @@
 //! its spot, its knobs as the scene sets them), a member opened as its rig one level down, a save = the scene's draft.
 //! The document, its members and the rule for their values are the core's (deck-space scene_edit.rs); here the rigs are
 //! looked up (the toon's catalog, what scene-content gave the cached copy, the deck's core rigs) and the panel is drawn.
+//! Slots and video nodes: scene_parts.rs.
 use crate::rigs::Catalog;
 use crate::show::build::SceneOpen;
 use deck_kit::base::draw::DrawList;
@@ -63,6 +64,14 @@ impl SceneView {
         Ok((SceneView { edit, kept, catalog, sel: Part::Scene, inside: None, rows: Vec::new(), shown: true }, resolved.scene, notes))
     }
 
+    /// the members again after a slot or a video node changed. Err: the core's reasons it does not play.
+    pub fn refresh(&mut self) -> Result<(), String> {
+        let (cat, k) = (self.catalog.as_deref(), self.kept.as_ref());
+        let rig = |s: &str, v: Option<&str>| rig_from(cat, k, s, v);
+        let set = |l: &str| k.and_then(|k| k.set(l));
+        self.edit.refresh(&rig, &set).map(|_| ()).map_err(|p| format!("{}: {}", self.edit.key(), p.join("; ")))
+    }
+
     /// the scene as edited now, for the stage
     pub fn scene(&self) -> Result<Scene, String> {
         let (cat, k) = (self.catalog.as_deref(), self.kept.as_ref());
@@ -97,7 +106,7 @@ impl SceneView {
     pub fn member(&self) -> Option<usize> {
         match self.sel {
             Part::Member(m) => Some(m),
-            Part::Scene => None,
+            _ => None,
         }
     }
 }
@@ -115,11 +124,12 @@ impl SceneView {
         shown
             .into_iter()
             .map(|l| {
-                let open = match l.part {
-                    Part::Scene => Some(true),
-                    Part::Member(m) => Some(self.inside == Some(m)),
+                let (open, icon) = match l.part {
+                    Part::Scene => (Some(true), "nodes"),
+                    Part::Member(m) => (Some(self.inside == Some(m)), "folder"),
+                    Part::Slot(_) => (None, "target"),
+                    Part::Video(_) => (None, "video"),
                 };
-                let icon = if l.part == Part::Scene { "nodes" } else { "folder" };
                 controls::TreeRow { depth: l.depth, label: l.label, detail: l.detail, icon, open, selected: self.inside.is_none() && self.sel == l.part }
             })
             .collect()
@@ -135,6 +145,18 @@ pub enum Field {
     Clear(usize),
     /// the member opened as its rig
     Into,
+    /// a slot's filter chip, by its place in the question
+    Fact(usize),
+    /// a reference for a slot's list, its parent, picked from the book
+    Refs,
+    Parent,
+    /// a slot's preview picked from the book, or taken off
+    Fill,
+    Empty,
+    /// where a video node's picture plays, picked
+    Plays,
+    /// the slot or the video node taken out
+    Remove,
 }
 
 /// The inspector of the scene or of its selected member; where its fields landed.
@@ -142,6 +164,11 @@ pub fn inspect(d: &mut DrawList, t: &Tokens, area: Rect, view: &SceneView, hot: 
     let mut out = Vec::new();
     let mut y = area.y;
     let e = &view.edit;
+    match view.sel {
+        Part::Slot(s) => return crate::scene_parts::inspect_slot(d, t, area, view, s),
+        Part::Video(v) => return crate::scene_parts::inspect_video(d, t, area, view, v, hot),
+        _ => {}
+    }
     let Some(m) = view.member() else {
         y += controls::section(d, t, area.x, y, area.w, "SCENE", true);
         controls::row(d, t, area, &mut y, "id", &e.doc.id);
@@ -335,6 +362,9 @@ impl crate::App {
     /// a scene knob dragged to `x`: the core sets the selected member's value
     pub(crate) fn scene_knob_to(&mut self, i: usize, x0: f32, v0: f32, x: f32) {
         let Some(view) = self.scene.as_mut() else { return };
+        if let Part::Video(v) = view.sel {
+            return crate::scene_parts::video_knob_to(view, v, i, x - x0, v0);
+        }
         let Some(m) = view.member() else { return };
         let Some(k) = view.edit.members.get(m).and_then(|mm| mm.knobs.get(i)).cloned() else { return };
         let v = crate::scrub(v0, x - x0, k.min, k.max, k.log);
@@ -348,6 +378,12 @@ impl crate::App {
 
     pub(crate) fn scene_clear(&mut self, i: usize) {
         let Some(view) = self.scene.as_mut() else { return };
+        if let Part::Video(v) = view.sel {
+            if let Some(param) = view.edit.video_knobs(v).get(i).map(|k| k.param.clone()) {
+                view.edit.clear_video(v, &param);
+            }
+            return self.replay_scene();
+        }
         let Some(m) = view.member() else { return };
         if let Some(path) = view.edit.members.get(m).and_then(|mm| mm.knobs.get(i)).map(|k| k.path.clone()) {
             view.edit.clear(m, &path);
@@ -359,6 +395,9 @@ impl crate::App {
     /// would, then opened as its rig if asked
     pub(crate) fn script_scene(&mut self) {
         let Some((holder, inside)) = self.args.member.clone() else { return };
+        if holder.contains(['+', ':']) {
+            return self.script_parts(&holder);
+        }
         let Some(m) = self.scene.as_ref().and_then(|v| v.edit.members.iter().position(|x| x.holder == holder)) else { return };
         match self.frames {
             75 => self.scene_row(Part::Member(m)),
@@ -380,6 +419,9 @@ impl crate::App {
     /// the knob `i` of the selected member as the scene has it (a drag starts from it)
     pub(crate) fn scene_knob(&self, i: usize) -> Option<f32> {
         let view = self.scene.as_ref()?;
+        if let Part::Video(v) = view.sel {
+            return view.edit.video_knobs(v).get(i).map(|k| k.value);
+        }
         view.edit.knobs(view.member()?).get(i).map(|k| k.value)
     }
 }
