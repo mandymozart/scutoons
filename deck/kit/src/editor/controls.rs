@@ -89,6 +89,36 @@ pub fn menu(d: &mut DrawList, t: &Tokens, at: (f32, f32), w: f32, lines: &[&str]
     out
 }
 
+/// a line of a menu of actions: its words, whether it can be done now, whether it leaves for the browser
+#[derive(Debug, Clone, PartialEq)]
+pub struct Action<'a> {
+    pub label: &'a str,
+    pub enabled: bool,
+    pub external: bool,
+}
+
+/// a menu of actions under `at`: one that cannot be done now is muted and takes no hover; its lines' places
+pub fn actions(d: &mut DrawList, t: &Tokens, at: (f32, f32), w: f32, lines: &[Action], pointer: (f32, f32)) -> Vec<Rect> {
+    let (h, px, pad) = (t.size.row, t.size.font, t.size.pad);
+    let whole = h * lines.len() as f32 + pad;
+    d.round_rect(at.0, at.1, w, whole, t.size.radius * 2.0, t.color.surface);
+    d.outline(at.0, at.1, w, whole, (t.size.radius * 2.0, 1.0), t.color.line);
+    let mut out = Vec::with_capacity(lines.len());
+    for (i, line) in lines.iter().enumerate() {
+        let r = Rect { x: at.0 + pad * 0.5, y: at.1 + pad * 0.5 + i as f32 * h, w: w - pad, h };
+        if line.enabled && r.has(pointer.0, pointer.1) {
+            d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, t.color.hover);
+        }
+        let ink = if line.enabled { t.color.text } else { t.color.muted };
+        d.text(r.x + pad, r.y + (h - px * 1.25) * 0.5, px, &fit(line.label, ((r.w - 3.0 * pad - 14.0) / d.advance(px)).max(0.0) as usize), ink);
+        if line.external {
+            d.icon(r.x + r.w - pad - 12.0, r.y + (h - 12.0) * 0.5, 12.0, "external", ink);
+        }
+        out.push(r);
+    }
+    out
+}
+
 /// a lone icon you press, its ground showing under the pointer; its place
 pub fn icon_button(d: &mut DrawList, t: &Tokens, at: Rect, name: &'static str, color: [f32; 4], pointer: (f32, f32)) -> Rect {
     if at.has(pointer.0, pointer.1) {
@@ -307,6 +337,18 @@ mod tests {
         assert_eq!(cells.len(), 3);
         assert_eq!(cells[2].y - cells[1].y, t.size.tree_row);
         assert!(cells[0].has(20.0, 110.0));
+    }
+
+    #[test]
+    fn an_action_that_cannot_be_done_takes_no_hover() {
+        let t = Tokens::default();
+        let mut d = list();
+        let lines = [Action { label: "Open", enabled: true, external: false }, Action { label: "Account", enabled: false, external: true }];
+        let cells = actions(&mut d, &t, (0.0, 0.0), 200.0, &lines, (20.0, 20.0 + t.size.row));
+        assert_eq!(cells.len(), 2);
+        assert!(cells[1].has(20.0, 20.0 + t.size.row));
+        let hover = d.prims().iter().filter(|p| matches!(p, crate::base::draw::Prim::Rect { color, .. } if *color == t.color.hover)).count();
+        assert_eq!(hover, 0, "the pointer is on the muted line");
     }
 
     #[test]

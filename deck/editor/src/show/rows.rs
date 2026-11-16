@@ -536,6 +536,10 @@ pub(super) mod tests {
         let c = deck_show::rows::cell_condition(host.shown(), "crossroads", "left").unwrap();
         assert_eq!(c.chip("group left"), None, "the column is the group");
         let browser = c.chip("device browser").unwrap();
+        // the cell inspector with the question's form is taller than its panel: scrolled down to the filter
+        author::draw(&mut DrawList::new(0.6), &Tokens::default(), &mut host, W, H, (0.0, 0.0));
+        let v = host.show_panels.floats.view("inspector").unwrap();
+        host.show_panels.floats.wheel(v.content.x + 4.0, v.content.y + 4.0, -100.0);
         press(&mut host, false, |h| *h == Hit::CellFact(browser));
         assert_eq!(host.status, "row 2 crossroads, left · right: device browser · member · live");
         let row = host.shown().row("crossroads").unwrap();

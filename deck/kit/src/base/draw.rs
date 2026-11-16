@@ -52,6 +52,11 @@ impl DrawList {
         self.text.clear();
     }
 
+    /// back to the first `n` primitives (a part drawn again: its text stays in the buffer until the frame is cleared)
+    pub fn truncate(&mut self, n: usize) {
+        self.prims.truncate(n);
+    }
+
     pub fn prims(&self) -> &[Prim] {
         &self.prims
     }
@@ -97,6 +102,21 @@ impl DrawList {
 
     pub fn logo(&mut self, x: f32, y: f32, size: f32, frame: usize) {
         self.prims.push(Prim::Logo { x, y, size, frame });
+    }
+
+    /// the rectangle the primitives from `from` on cover (a text as its line, `LINE` × its size high): what a content took
+    pub fn extent(&self, from: usize) -> Option<Rect> {
+        let mut out: Option<(f32, f32, f32, f32)> = None;
+        for p in self.prims.get(from..).unwrap_or_default() {
+            let r = match *p {
+                Prim::Rect { x, y, w, h, .. } | Prim::Outline { x, y, w, h, .. } => (x, y, x + w, y + h),
+                Prim::Text { x, y, px, start, end, .. } => (x, y, x + self.advance(px) * self.text[start..end].chars().count() as f32, y + px * 1.25),
+                Prim::Icon { x, y, size, .. } | Prim::Logo { x, y, size, .. } => (x, y, x + size, y + size),
+                Prim::Clip(_) => continue,
+            };
+            out = Some(out.map_or(r, |o| (o.0.min(r.0), o.1.min(r.1), o.2.max(r.2), o.3.max(r.3))));
+        }
+        out.map(|(x0, y0, x1, y1)| Rect { x: x0, y: y0, w: x1 - x0, h: y1 - y0 })
     }
 
     /// what is drawn next shows only inside `r` (none: everywhere again)
@@ -175,6 +195,18 @@ mod tests {
         d.text(0.0, 0.0, 10.0, "y", [1.0; 4]);
         let Prim::Text { start, end, .. } = d.prims()[0] else { panic!("a text") };
         assert_eq!(d.text_of(start, end), "y");
+    }
+
+    #[test]
+    fn the_extent_covers_what_was_drawn_from_a_point_on() {
+        let mut d = DrawList::new(0.5);
+        d.rect(-50.0, -50.0, 1.0, 1.0, [1.0; 4]);
+        let from = d.prims().len();
+        assert_eq!(d.extent(from), None);
+        d.rect(10.0, 10.0, 5.0, 5.0, [1.0; 4]);
+        d.clip(None);
+        d.text(0.0, 30.0, 10.0, "abcd", [1.0; 4]);
+        assert_eq!(d.extent(from), Some(Rect { x: 0.0, y: 10.0, w: 20.0, h: 32.5 }));
     }
 
     #[test]

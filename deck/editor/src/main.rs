@@ -16,6 +16,7 @@ mod gpu_time;
 mod logo;
 mod mixer;
 mod inspector;
+mod panels;
 mod routing;
 mod stage;
 mod tokens;
@@ -44,8 +45,9 @@ use winit::window::{Window, WindowId};
 
 struct Args {
     rig: String,
-    /// the panel's tab at the start: inspector | text | audio
+    /// the inspector's tab at the start: inspector | text; audio opens the Audio panel
     tab: Tab,
+    audio: bool,
     frames: Option<u64>,
     screenshot: Option<PathBuf>,
     tokens: Option<PathBuf>,
@@ -86,7 +88,7 @@ struct Args {
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { rig: "catpope".into(), frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None };
+    let mut a = Args { rig: "catpope".into(), frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -115,10 +117,10 @@ fn args() -> Result<Args> {
                 a.wire = true;
             }
             "--draft" => a.draft = Some(PathBuf::from(val()?)),
-            "--tab" => {
-                let v = val()?;
-                a.tab = TABS.iter().find(|(_, n)| n.eq_ignore_ascii_case(&v)).map(|(t, _)| *t).context("--tab inspector | text | audio")?;
-            }
+            "--tab" => match val()? {
+                v if v.eq_ignore_ascii_case("audio") => a.audio = true,
+                v => a.tab = TABS.iter().find(|(_, n)| n.eq_ignore_ascii_case(&v)).map(|(t, _)| *t).context("--tab inspector | text | audio")?,
+            },
             "--workspace" => a.workspace = show::Workspace::parse(&val()?).context("--workspace build | show | perform")?,
             "--show" => match val()? {
                 v if v.ends_with(".json") => a.show_file = Some(PathBuf::from(v)),
@@ -199,10 +201,9 @@ fn args() -> Result<Args> {
 enum Tab {
     Rig,
     Text,
-    Audio,
 }
 
-const TABS: [(Tab, &str); 3] = [(Tab::Rig, "Inspector"), (Tab::Text, "Text"), (Tab::Audio, "Audio")];
+const TABS: [(Tab, &str); 2] = [(Tab::Rig, "Inspector"), (Tab::Text, "Text")];
 /// a scrub-number's travel for the knob's whole range (pixels)
 const SCRUB_PX: f32 = 240.0;
 
@@ -211,7 +212,10 @@ const SCRUB_PX: f32 = 240.0;
 enum Hit {
     Nothing,
     Stage,
-    Divider,
+    /// a panel's ground: it keeps the press from the stage
+    Ground,
+    /// the main menu's hamburger (its lines: `menu_lines`)
+    Menu,
     Tab(Tab),
     Knob(usize),
     Field(f32),
@@ -219,8 +223,7 @@ enum Hit {
     Param(usize, usize),
     /// a far world node's address in the inspector (#477)
     Address(usize),
-    /// the mixer's head, a strip's fader, a strip's mute
-    MixerHead,
+    /// the mixer's level tab, a strip's fader, a strip's mute
     MixerTab(usize),
     GainText(mixer::Target),
     /// a mixer strip: selects what it is the level of; moving its fader does not
@@ -234,12 +237,9 @@ enum Hit {
     Mode(bool),
     /// a port, by its index in the stage's list
     Port(usize),
-    /// a row of the tree on the left
+    /// a row of the rig's tree
     Row(usize),
-    /// the Info view's head, and the view itself
-    InfoHead,
-    InfoBody,
-    /// a step of the way down the tree, 0 = the rig
+    /// a step of the way down the tree, 0 = the rig (in Show: of the conductors' path)
     Crumb(usize),
     /// a track's body at the rig level
     Body(usize),
@@ -250,14 +250,13 @@ enum Hit {
     /// Build's rig row: the rig picker, Save
     RigPick,
     Save,
-    /// the Audio tab's settings, map and tones
+    /// the Audio panel's settings, map and tones
     Routing(routing::Field),
 }
 
 /// what is being dragged
 #[derive(Clone, Copy, PartialEq)]
 enum Drag {
-    Divider,
     Knob(usize, f32, f32),
     /// a strip's fader: which, its travel's rect
     Fader(mixer::Target, Rect),
@@ -323,9 +322,8 @@ struct Notice {
     bad: bool,
 }
 
-/// the panel's state and this frame's hit rectangles
+/// the inspector's state and this frame's hit rectangles
 struct Panel {
-    width: f32,
     tab: Tab,
     field: text::Field,
     drag: Option<Drag>,
@@ -375,16 +373,17 @@ struct App {
     last_body: Option<(usize, Instant)>,
     /// is the stage showing a level (Wire) now
     leveled: bool,
-    /// the Info view is open (remembered in `info_file`)
-    info_open: bool,
-    info_file: PathBuf,
-    /// where the stage starts (logical pixels), after the tree
-    stage_x: f32,
+    /// Build's floating panels; where the viewer left every workspace's (none in a check run: it starts from the defaults)
+    build: panels::Panels,
+    panels_file: Option<PathBuf>,
+    panels_moved: bool,
+    /// the main menu is open; its lines this frame
+    main_menu: bool,
+    menu_lines: Vec<(Rect, bar::Action)>,
     /// the tree's rows this frame: the level each one goes to (empty = the rig), what it selects
     rows: Vec<(Vec<String>, inspector::Sel)>,
     /// what the inspector shows
     sel: inspector::Sel,
-    mixer_open: bool,
     /// the level the mixer shows; none = the one the stage is at
     mixer_tab: Option<usize>,
     /// a value being typed
@@ -401,11 +400,6 @@ struct App {
     auth: sign_in::Auth,
     rigs: rigs::Rigs,
     routing: routing::Page,
-}
-
-/// the top bar's status, the sign-in first while the editor is not signed in (`line`: sign_in.rs, "" when signed in)
-fn signed(line: &str, status: String) -> String {
-    if line.is_empty() { status } else { format!("{line} · {status}") }
 }
 
 /// the language of the book's labels: the editor's own words are English (not translated yet)
@@ -430,10 +424,11 @@ fn run() -> Result<i32> {
     let (base, at) = rigs::base(&cache, &subject)?;
     let version = wires::draft_version(&draft).unwrap_or(at);
     let stage = stage::Stage::new(base, args.volume, Some(&draft))?;
-    let info_file = deck_native::cache::default_dir().join("editor-info-closed");
+    let panels_file = args.frames.is_none().then(|| cache.join("editor-panels.json"));
+    let remembered = panels_file.as_deref().map(panels::load).unwrap_or_default();
+    let mut build = panels::Panels::new(&panels::BUILD);
     let tokens = tokens::Watched::new(args.tokens.clone().unwrap_or_else(tokens::default_path));
     let event_loop = EventLoop::new().context("no event loop (no display?)")?;
-    let width = tokens.tokens.size.inspector;
     let wire = args.wire;
     let app_workspace = args.workspace;
     // a check run (--frames) never asks for a sign-in: SCUTOONS_TOKEN or the kept token only
@@ -447,8 +442,20 @@ fn run() -> Result<i32> {
     }
     let app_book = book::Loader::new(&args.api, args.toon.as_deref(), args.book.as_deref(), auth.token(), &cache);
     let book_key = (args.toon.clone(), auth.token().is_some());
+    if let Some(p) = remembered.get("build") {
+        build.floats.restore(p);
+    }
+    if let Some(p) = remembered.get("show") {
+        app_show.show_panels.floats.restore(p);
+    }
+    if let Some(p) = remembered.get("perform") {
+        app_show.perform_panels.floats.restore(p);
+    }
+    if args.audio {
+        build.floats.set_collapsed("audio", false);
+    }
     let mut app = App {
-        panel: Panel { width, tab: args.tab, field: text::Field::with("Grüße an die Bühne – type here"), drag: None, hits: Vec::new(), field_rect: Rect { x: 0.0, y: 0.0, w: 0.0, h: 0.0 }, advance: 8.0 },
+        panel: Panel { tab: args.tab, field: text::Field::with("Grüße an die Bühne – type here"), drag: None, hits: Vec::new(), field_rect: Rect { x: 0.0, y: 0.0, w: 0.0, h: 0.0 }, advance: 8.0 },
         args,
         window: None,
         gpu: None,
@@ -479,12 +486,13 @@ fn run() -> Result<i32> {
         bodies: Vec::new(),
         last_body: None,
         leveled: false,
-        info_open: !info_closed(&info_file),
-        info_file,
-        stage_x: 0.0,
+        build,
+        panels_file,
+        panels_moved: false,
+        main_menu: false,
+        menu_lines: Vec::new(),
         rows: Vec::new(),
         sel: inspector::Sel::Rig,
-        mixer_open: true,
         mixer_tab: None,
         edit: None,
         last_field: None,
@@ -545,10 +553,89 @@ impl App {
         self.panel.hits.iter().find(|(r, _)| r.has(x, y)).map_or(Hit::Nothing, |(_, h)| *h)
     }
 
+    /// the panels of the workspace shown
+    fn panels(&self) -> &panels::Panels {
+        match self.workspace {
+            show::Workspace::Build => &self.build,
+            show::Workspace::Show => &self.show.show_panels,
+            show::Workspace::Perform => &self.show.perform_panels,
+        }
+    }
+
+    fn panels_mut(&mut self) -> &mut panels::Panels {
+        match self.workspace {
+            show::Workspace::Build => &mut self.build,
+            show::Workspace::Show => &mut self.show.show_panels,
+            show::Workspace::Perform => &mut self.show.perform_panels,
+        }
+    }
+
+    /// where the viewer left the panels, kept when one was moved or folded
+    fn remember_panels(&mut self) {
+        let Some(file) = &self.panels_file else { return };
+        let mut all = panels::Remembered::new();
+        all.insert("build".into(), self.build.floats.places());
+        all.insert("show".into(), self.show.show_panels.floats.places());
+        all.insert("perform".into(), self.show.perform_panels.floats.places());
+        panels::save(file, &all);
+    }
+
+    /// whether a main menu line can be done here, and if not why
+    fn menu_why_not(&self, a: bar::Action) -> Option<&'static str> {
+        use bar::Action as A;
+        match a {
+            A::Open if self.workspace == show::Workspace::Perform => Some("Perform runs the show open: open another in Show or Build."),
+            A::Open | A::Audio => None,
+            A::New => Some("Not built yet: a new rig or show starts in the creator."),
+            A::Publish => Some("The editor opens no browser yet: publish the saved draft in the creator."),
+            A::Account => Some("The editor opens no browser yet: the account is on scutoons.com."),
+            A::DayNight => Some("Comes with the day and night tokens."),
+            A::Quit if std::env::var_os("DECK_SWAP").is_some() => None,
+            A::Quit => Some("Only when the editor was opened from the deck (F9 goes back to its stage)."),
+        }
+    }
+
+    /// a main menu line pressed
+    fn menu_act(&mut self, a: bar::Action) {
+        use bar::Action as A;
+        self.main_menu = false;
+        if self.menu_why_not(a).is_some() {
+            return;
+        }
+        let (x, y) = self.cursor;
+        match (a, self.workspace) {
+            (A::Open, show::Workspace::Build) => self.open_rigs(x, y),
+            (A::Open, _) => self.show.press(show::Hit::Load),
+            (A::Audio, _) => {
+                self.workspace = show::Workspace::Build;
+                self.build.floats.set_collapsed("audio", false);
+                self.panels_moved = true;
+            }
+            // the next frame leaves, as F9 does
+            (A::Quit, _) => self.exit = 11,
+            _ => {}
+        }
+    }
+
     /// what the Info view says about what is under the pointer: the name and what it does
     fn help_now(&self) -> Option<Help> {
         let (x, y) = self.cursor;
+        if let Some((spec, chrome)) = self.panels().floats.chrome_at(x, y) {
+            let how = match chrome {
+                deck_kit::editor::floats::Chrome::Handle => "Drag the handle to move it; it stops 1rem before a wall or another panel.",
+                deck_kit::editor::floats::Chrome::Fold => "Click to fold it to its pill or open it again.",
+            };
+            return Some(Help::new(spec.name, format!("{} {how}", spec.about)));
+        }
+        if self.main_menu {
+            if let Some((_, a)) = self.menu_lines.iter().find(|(r, _)| r.has(x, y)) {
+                let label = bar::MENU.iter().find(|(m, ..)| m == a).map_or("", |(_, l, _)| *l);
+                return Some(Help::new(label, self.menu_why_not(*a).unwrap_or("Click to do it.")));
+            }
+        }
         Some(match self.hit(x, y) {
+            Hit::Menu => Help::new("Menu", "Open, publish, the audio and the account; back to the deck's stage."),
+            Hit::Ground => return None,
             Hit::Workspace(_) => Help::new("Workspaces", "Build: rigs and scenes. Show: rows, cells, seats, saved through /api/shows. Perform: the matrix, GO, the log."),
             Hit::Port(i) => {
                 let p = self.stage.ports.get(i)?;
@@ -571,16 +658,13 @@ impl App {
             Hit::Stage if self.wire => Help::new("Stage", "Left drag orbits, middle or right drag pans, the wheel zooms, F frames. Right click finds any port."),
             Hit::Stage => Help::new("Stage", "Drag a knob to turn it, anywhere else to orbit. Middle drag pans, the wheel zooms."),
             Hit::Knob(i) => Help::new(self.stage.knobs.get(i)?.label.clone(), "Drag or use the wheel to turn it in the engine."),
-            Hit::Divider => Help::new("Panel edge", "Drag to resize the panel."),
-            Hit::Tab(_) => Help::new("Tab", "Switches what the panel shows."),
+            Hit::Tab(_) => Help::new("Tab", "Switches what the inspector shows."),
             Hit::Routing(f) => {
                 let (title, text) = self.routing.help(f);
                 Help::new(title, text)
             }
-            Hit::InfoHead => Help::new("Info", "What is under the pointer. Click to fold or open it."),
             Hit::Param(n, p) => Help::new(self.stage.param(n, p)?.name, "Drag or use the wheel to set it in the engine."),
             Hit::Address(_) => Help::new("Address", "Click: the toon's address book. A pick becomes the holder this far world node listens to."),
-            Hit::MixerHead => Help::new("Mixer", "One strip per track. Click to fold or open it."),
             Hit::GainText(_) => Help::new("Level", "In dB. Double click to type a value, enter to set it, esc to leave it."),
             Hit::StripSelect(_) => Help::new("Strip", "Click to show what it belongs to in the inspector and on the stage."),
             Hit::MixerTab(_) => Help::new("Level", "The mixer at this level of the tree: the rig's tracks, or the gains inside a track."),
@@ -594,7 +678,7 @@ impl App {
             Hit::RigPick => Help::new("Rig", "Click: the toon's rigs on the server; a pick opens it on the stage. A local copy that differs from the server's is offered."),
             Hit::Save => Help::new("Save", "A new draft version on the server, on the version opened (ctrl+s). Publishing is in the creator."),
             Hit::Mute(i) => Help::new(format!("Mute {}", self.stage.strips.get(i)?.track), "Takes the track out of the sound."),
-            Hit::Field(_) | Hit::InfoBody | Hit::Nothing => return None,
+            Hit::Field(_) | Hit::Nothing => return None,
         })
     }
 
@@ -635,13 +719,12 @@ impl App {
         if let Some(m) = self.menu.as_mut() {
             m.ta.hover(x, y);
         }
+        if self.panels_mut().floats.drag_to(x, y) {
+            return;
+        }
         self.show.pointer(x, y);
         self.show.drag_to(x, y);
         match self.panel.drag {
-            Some(Drag::Divider) => {
-                let w = self.gpu.as_ref().map_or(1280.0, |g| g.size().0 as f32);
-                self.panel.width = (w - x).clamp(160.0, w * 0.6);
-            }
             Some(Drag::Knob(i, _, _)) => self.knob_at(i, x),
             Some(Drag::Param(node, port, x0, f0)) => {
                 if let Some(p) = self.stage.param(node, port) {
@@ -657,8 +740,7 @@ impl App {
             Some(Drag::Cable(_) | Drag::Grab(_)) => {}
             Some(Drag::Space) => {
                 let s = self.scale();
-                let top = self.tokens.tokens.size.top;
-                self.stage.pointer((x - self.stage_x) * s, (y - top) * s);
+                self.stage.pointer(x * s, y * s);
             }
             Some(Drag::Fader(i, r)) => self.fader_to(i, r, y),
             Some(Drag::Balance(i, x0, v0, _)) => self.panel.drag = Some(Drag::Balance(i, x0, v0, (v0 + (x - x0) / 40.0).clamp(-1.0, 1.0))),
@@ -672,8 +754,8 @@ impl App {
                 self.panel.drag = Some(Drag::Orbit(x, y));
             }
             Some(Drag::Pan(lx, ly)) => {
-                let (s, top) = (self.scale(), self.tokens.tokens.size.top);
-                let h = self.gpu.as_ref().map_or(720.0, |g| g.size().1 as f32 / s) - top;
+                let s = self.scale();
+                let h = self.gpu.as_ref().map_or(720.0, |g| g.size().1 as f32 / s);
                 self.stage.space.camera.pan(x - lx, y - ly, h);
                 self.panel.drag = Some(Drag::Pan(x, y));
             }
@@ -686,8 +768,7 @@ impl App {
             None => {
                 if let Hit::Stage = self.hit(x, y) {
                     let s = self.scale();
-                    let top = self.tokens.tokens.size.top;
-                    self.stage.pointer((x - self.stage_x) * s, (y - top) * s);
+                    self.stage.pointer(x * s, y * s);
                 }
             }
         }
@@ -709,6 +790,20 @@ impl App {
             }
             return;
         }
+        // the main menu takes the press while it is open: a line does what it says, anywhere else closes it
+        if self.main_menu {
+            match self.menu_lines.iter().find(|(r, _)| r.has(x, y)).map(|(_, a)| *a) {
+                Some(a) if self.menu_why_not(a).is_some() => {}
+                Some(a) => self.menu_act(a),
+                None => self.main_menu = false,
+            }
+            return;
+        }
+        // a panel's handle takes it in the hand, its chevron folds it
+        if self.panels_mut().floats.press(x, y) {
+            self.panels_moved = true;
+            return;
+        }
         if self.workspace != show::Workspace::Build {
             // #551: the right click's typeahead on the selected cells takes the press while it is open
             if self.show.context_press(x, y) {
@@ -718,11 +813,16 @@ impl App {
                 // #551: shift and a press add a cell to the row's selection
                 return self.show.press(if self.mods.shift_key() { h.with_shift() } else { h });
             }
+            if self.panels().floats.covers(x, y) {
+                return;
+            }
         }
         match self.hit(x, y) {
             Hit::Workspace(w) => self.workspace = w,
+            Hit::Menu => self.main_menu = true,
+            Hit::Ground => {}
+            Hit::Crumb(i) if self.workspace != show::Workspace::Build => self.show.press(show::Hit::Crumb(i)),
             Hit::Routing(f) => routing::act(&mut self.routing, &mut self.stage, f),
-            Hit::Divider => self.panel.drag = Some(Drag::Divider),
             Hit::Tab(t) => {
                 self.panel.tab = t;
                 self.focus(false);
@@ -776,7 +876,6 @@ impl App {
             }
             Hit::Axis(a) => self.panel.drag = Some(Drag::Gizmo(a, false, x, y)),
             Hit::Crumb(depth) => self.up_to(depth),
-            Hit::MixerHead => self.mixer_open = !self.mixer_open,
             Hit::MixerTab(depth) => self.mixer_tab = Some(depth),
             Hit::GainText(target) => {
                 if self.double(Editing::Gain(target)) {
@@ -838,11 +937,6 @@ impl App {
                     }
                 }
             }
-            Hit::InfoHead => {
-                self.info_open = !self.info_open;
-                remember_info(&self.info_file, self.info_open);
-            }
-            Hit::InfoBody => {}
             Hit::Body(i) => {
                 let double = self.last_body.is_some_and(|(j, at)| j == i && at.elapsed().as_millis() < 400);
                 self.last_body = Some((i, Instant::now()));
@@ -1222,6 +1316,10 @@ impl App {
 
     /// the button let go: a cable dropped on a port is a gesture on the rig
     fn release(&mut self) {
+        if self.panels_mut().floats.release() {
+            self.panels_moved = true;
+            return;
+        }
         // Show: a scene dragged from the list lands on the cell under the pointer
         if self.show.drop_at(self.cursor.0, self.cursor.1) {
             return;
@@ -1339,14 +1437,13 @@ impl App {
         self.show.script(self.frames, &self.args.script);
         const START: u64 = 60;
         if self.args.pull {
-            let top = self.tokens.tokens.size.top;
             let s = self.scale();
             let values = |app: &App| app.stage.knobs.iter().map(|k| app.stage.value(k)).collect::<Vec<f32>>();
             match self.frames {
                 f if f == START => {
                     let b = self.stage.space.being.buttons.iter().find(|b| !b.hidden && b.turnable).map(|b| b.pos);
                     if let Some((px, py)) = b.and_then(|p| self.stage.space.to_pixel(p)) {
-                        let (x, y) = (px / s, py / s + top);
+                        let (x, y) = (px / s, py / s);
                         self.pointer(x, y);
                         tracing::info!("wire: pull at {x:.0},{y:.0} before {:?}", values(self));
                         self.press();
@@ -1508,7 +1605,18 @@ impl App {
         // #537: the Show workspace picks a cell's piece from the book's scenes
         self.show.book.clone_from(&self.book.book);
         self.show.book_why = self.book_why();
+        // the main menu's Quit to stage: as F9
+        if self.exit == 11 {
+            el.exit();
+            return;
+        }
+        if std::mem::take(&mut self.panels_moved) {
+            self.remember_panels();
+        }
         let help = self.help_now();
+        self.show.help.clone_from(&help);
+        let enabled: Vec<(bar::Action, bool)> = bar::MENU.iter().map(|(a, ..)| (*a, self.menu_why_not(*a).is_none())).collect();
+        let grab = self.panels().floats.dragging() || matches!(self.panels().floats.chrome_at(self.cursor.0, self.cursor.1), Some((_, deck_kit::editor::floats::Chrome::Handle)));
         let sign_in = self.auth.line(&deck_link::pairing::app_url());
         let (Some(window), Some(gpu), Some(ui)) = (self.window.clone(), self.gpu.as_mut(), self.ui.as_mut()) else { return };
         self.stage.space.being.hold(self.wire, false);
@@ -1559,25 +1667,9 @@ impl App {
         let scale = window.scale_factor() as f32;
         let (w, h) = gpu.size();
         let (wf, hf) = (w as f32 / scale, h as f32 / scale);
-        let panel_w = self.panel.width.min(wf - 300.0).max(160.0);
-        let divider = t.size.edge;
-        let tree_w = t.size.tree.min(wf * 0.4);
-        self.stage_x = tree_w;
-        let stage_x = tree_w;
-        let stage_w = (wf - tree_w - panel_w - divider).max(1.0);
-        // the regions start under the top bar (bar.rs: the title, the status, the version)
-        let top = t.size.top;
-        let body = (hf - top).max(1.0);
-        let band = if self.mixer_open { mixer::OPEN } else { mixer::FOLDED };
-        let stage_h = (body - band).max(1.0);
-        // #91: a show workspace puts the stage where its layout says
-        let (stage_x, stage_w, stage_h) = match self.workspace {
-            show::Workspace::Build => (stage_x, stage_w, stage_h),
-            ws => {
-                let r = show::stage_rect(ws, &self.show, wf, hf, t);
-                (r.x, r.w, r.h)
-            }
-        };
+        // the stage fills the window; the toolbar and the panels float over it
+        let (stage_x, top, stage_w, stage_h) = (0.0, 0.0, wf, hf);
+        let bar_bottom = bar::bottom(t);
         let work_start = Instant::now();
         let mut enc = gpu.device.create_command_encoder(&Default::default());
         if let Some(g) = self.gpu_time.as_mut() {
@@ -1588,168 +1680,105 @@ impl App {
         if fresh {
             ui.set_stage(&gpu.device, stage_view);
         }
-        // the panel: everything in logical pixels, the pass scales
+        // the UI: everything in logical pixels, the pass scales
         let t0 = Instant::now();
         ui.begin();
         ui.stage(stage_x, top, stage_w, stage_h);
         self.show.frame();
+        self.panel.hits.clear();
+        self.marks.clear();
+        let (pad, font, row) = (t.size.pad, t.size.font, t.size.row);
+        // the toolbar: the path of what is open and a word of status (Build: the numbers of the gates, a broken tokens
+        // file first: the pill cuts from the end)
+        let build = self.workspace == show::Workspace::Build;
+        let (path, status) = if build {
+            let recent = &self.frame_ms[self.frame_ms.len().saturating_sub(30)..];
+            let mean = if recent.is_empty() { 16.7 } else { recent.iter().sum::<f32>() / recent.len() as f32 };
+            let glitches = self.stage.glitches();
+            let status = format!(
+                "{}{:.0} fps{}{}",
+                self.tokens.problem.as_ref().map(|p| format!("{p} – ")).unwrap_or_default(),
+                1000.0 / mean.max(0.1),
+                self.stage.khz().map(|k| format!(" · {k:.0} kHz")).unwrap_or_default(),
+                if glitches > 0 { format!(" · {glitches} glitches") } else { String::new() },
+            );
+            let status = if self.undo.is_empty() { status } else { format!("{} change{} · {status}", self.undo.len(), if self.undo.len() == 1 { "" } else { "s" }) };
+            let path: Vec<String> = std::iter::once(self.stage.bundle.rig.subject.clone()).chain(self.stage.path.iter().cloned()).collect();
+            (path, status)
+        } else if self.workspace == show::Workspace::Show {
+            let row = self.show.shown().rows.get(self.show.row).map(|r| format!("{} {}", self.show.row + 1, r.id)).unwrap_or_default();
+            (self.show.crumbs().into_iter().chain(std::iter::once(row).filter(|r| !r.is_empty())).collect(), self.show.link_line())
+        } else {
+            (vec![self.show.sub.conductor().show().id.clone()], self.show.link_line())
+        };
+        let names = show::WORKSPACES.map(|(_, n)| n);
+        let logo_frame = ((self.started.elapsed().as_secs_f32() / logo::SECONDS).fract() * logo::FRAMES as f32) as usize;
+        let slot = if build { 0.0 } else { show::author::view_width(ui, t, &self.show, self.workspace) };
+        let spec = bar::Bar {
+            workspaces: &names,
+            workspace: self.workspace.index(),
+            path: &path,
+            status: &status,
+            play: build.then_some(self.wire),
+            beat: self.stage.beat,
+            sign_in: &sign_in,
+            logo_frame,
+            pointer: self.cursor,
+            cpu: self.cpu_load,
+            gpu: self.gpu_time.as_ref().map(|_| self.gpu_load),
+            slot,
+        };
+        let placed = bar::draw(ui, t, wf, &spec);
+        self.panel.hits.push((placed.menu, Hit::Menu));
+        for (r, (w, _)) in placed.workspaces.iter().zip(show::WORKSPACES) {
+            self.panel.hits.push((*r, Hit::Workspace(w)));
+        }
+        if let Some(r) = placed.play {
+            self.panel.hits.push((r, Hit::Mode(!self.wire)));
+        }
+        // a step of the path goes back to it (Show's last one is the row: it goes nowhere)
+        for (i, r) in placed.path.iter().enumerate() {
+            if build || i + 1 < path.len() {
+                self.panel.hits.push((*r, Hit::Crumb(i)));
+            }
+        }
+        self.show.view_slot = placed.slot;
         'build: {
-        if self.workspace != show::Workspace::Build {
-            self.panel.hits.clear();
-            self.marks.clear();
+        if !build {
             self.show.hits.clear();
             match self.workspace {
                 show::Workspace::Show => show::author::draw(ui, t, &mut self.show, wf, hf, self.cursor),
                 _ => show::perform::draw(ui, t, &mut self.show, wf, hf, self.cursor),
             }
-            let names = show::WORKSPACES.map(|(_, n)| n);
-            let logo_frame = ((self.started.elapsed().as_secs_f32() / logo::SECONDS).fract() * logo::FRAMES as f32) as usize;
-            let title = self.show.sub.conductor().show().id.clone();
-            let bar = bar::Bar { title: &title, status: &signed(&sign_in, self.show.link_line()), wire: self.wire, logo_frame, pointer: self.cursor, cpu: self.cpu_load, gpu: None, workspaces: &names, workspace: self.workspace.index() };
-            let (_, pills) = bar::draw(ui, t, wf, &bar);
-            for (r, (w, _)) in pills.into_iter().zip(show::WORKSPACES) {
-                self.panel.hits.push((r, Hit::Workspace(w)));
-            }
             break 'build;
         }
-        let px = panel_w;
-        let x0 = wf - panel_w;
-        ui.rect(x0, top, px, body, t.color.surface);
-        ui.rect(0.0, top, tree_w, body, t.color.surface);
-        ui.rect(tree_w - 1.0, top, 1.0, body, t.color.line);
-        self.panel.hits.clear();
-        self.marks.clear();
-        let edge = Rect { x: x0 - divider - 4.0, y: top, w: divider + 8.0, h: body };
-        let on_edge = edge.has(self.cursor.0, self.cursor.1) || matches!(self.panel.drag, Some(Drag::Divider));
-        controls::edge(ui, t, x0 - divider, top, body, on_edge);
-        window.set_cursor(if on_edge { winit::window::CursorIcon::ColResize } else { winit::window::CursorIcon::Default });
-        self.panel.hits.push((edge, Hit::Divider));
-        let (pad, font, row) = (t.size.pad, t.size.font, t.size.row);
-        // the tree on the left: the rig, its tracks, the nodes of the one entered
-        let mut rows = vec![controls::TreeRow { depth: 0, label: "rig".into(), detail: String::new(), icon: "nodes", open: Some(true), selected: self.sel == inspector::Sel::Rig }];
-        self.rows.clear();
-        self.rows.push((Vec::new(), inspector::Sel::Rig));
-        for track in &self.stage.bundle.rig.tracks {
-            let inside = self.stage.path.first() == Some(&track.id);
-            rows.push(controls::TreeRow { depth: 1, label: track.id.clone(), detail: track.instrument.clone(), icon: "folder", open: Some(inside), selected: self.sel == inspector::Sel::Track(track.id.clone()) });
-            self.rows.push((vec![track.id.clone()], inspector::Sel::Track(track.id.clone())));
-            if inside {
-                let mut seen: Vec<&str> = Vec::new();
-                for p in self.stage.ports.iter().filter(|p| p.track == track.id) {
-                    let name = p.address.split_once(':').and_then(|(_, r)| r.split_once('.')).map_or("", |(n, _)| n);
-                    if !seen.contains(&name) {
-                        seen.push(name);
-                        let node = self.stage.node_ids.iter().position(|id| *id == p.node).unwrap_or(0);
-                        rows.push(controls::TreeRow { depth: 2, label: name.to_string(), detail: String::new(), icon: "sliders", open: None, selected: self.sel == inspector::Sel::Node(node) });
-                        self.rows.push((vec![track.id.clone()], inspector::Sel::Node(node)));
-                    }
-                }
-            }
+        // Build's panels and what each asks for this frame; the view gizmo is a place no panel covers
+        let gizmo = Rect { x: wf * 0.5 - 40.0, y: bar_bottom + 16.0, w: 80.0, h: 80.0 };
+        let panning = match self.panel.drag {
+            Some(Drag::Balance(i, _, _, v)) => Some((i, v)),
+            _ => None,
+        };
+        let hot = match self.panel.drag {
+            Some(Drag::Fader(target, _)) => Some(target),
+            _ => None,
+        };
+        let mut tabs = vec!["rig".to_string()];
+        if self.wire {
+            tabs.extend(self.stage.path.iter().cloned());
         }
-        for (i, r) in controls::tree(ui, t, 0.0, top + pad * 0.5, tree_w - 1.0, &rows, self.cursor).into_iter().enumerate() {
-            self.panel.hits.push((r, Hit::Row(i)));
-        }
-        let mut y = top + pad;
-        // the rig open, its version and what the last save came to; the picker and Save (rigs.rs)
-        let save = ui.advance(t.size.small) * 4.0 + 2.0 * pad;
-        let pick = Rect { x: x0 + pad, y, w: px - 3.0 * pad - save, h: row - 4.0 };
-        ui.rect(pick.x, pick.y, pick.w, pick.h, t.color.control);
-        let small = font * 0.85;
-        let line = controls::fit(&self.rigs.line(), ((pick.w - 12.0) / ui.advance(small)) as usize);
-        ui.text(pick.x + 6.0, pick.y + (pick.h - small * 1.25) * 0.5, small, &line, t.color.text);
-        self.panel.hits.push((pick, Hit::RigPick));
-        for r in controls::pills(ui, t, pick.x + pick.w + pad, y, row - 4.0, &["Save"], 0) {
-            self.panel.hits.push((r, Hit::Save));
-        }
-        y += row + pad / 2.0;
-        // the tabs
-        let names = TABS.map(|(_, name)| name);
-        let active = TABS.iter().position(|(tab, _)| *tab == self.panel.tab).unwrap_or(0);
-        for (r, (tab, _)) in controls::pills(ui, t, x0 + pad, y, row - 4.0, &names, active).into_iter().zip(TABS) {
-            self.panel.hits.push((r, Hit::Tab(tab)));
-        }
-        y += row + pad / 2.0;
-        match self.panel.tab {
-            Tab::Rig => {
-                let area = Rect { x: x0 + pad, y, w: px - 2.0 * pad, h: hf - y - pad };
-                let hot = match self.panel.drag {
-                    Some(Drag::Knob(i, ..)) => Some(inspector::Field::Knob(i)),
-                    Some(Drag::Param(n, p, ..)) => Some(inspector::Field::Param(n, p)),
-                    _ => None,
-                };
-                for (r, field) in inspector::draw(ui, t, area, &self.stage, &self.sel, hot) {
-                    let hit = match field {
-                        inspector::Field::Knob(i) => Hit::Knob(i),
-                        inspector::Field::Param(n, p) => Hit::Param(n, p),
-                        inspector::Field::Address(n) => Hit::Address(n),
-                    };
-                    self.panel.hits.push((r, hit));
-                }
-            }
-            Tab::Audio => {
-                let area = Rect { x: x0 + pad, y, w: px - 2.0 * pad, h: hf - y - pad };
-                for (r, f) in routing::draw(ui, t, area, &mut self.routing, &self.stage, self.cursor) {
-                    self.panel.hits.push((r, Hit::Routing(f)));
-                }
-            }
-            Tab::Text => {
-                ui.text(x0 + pad, y, font * 0.85, "umlauts, dead keys, IME · shift+arrows · ctrl+a/c/x/v", t.color.muted);
-                y += row * 0.8;
-                let fx = x0 + pad;
-                let fw = px - 2.0 * pad;
-                let focused = self.panel.field.focused;
-                ui.rect(fx, y, fw, row, t.color.control);
-                if focused {
-                    ui.rect(fx, y + row - 2.0, fw, 2.0, t.color.accent);
-                }
-                let adv = ui.advance(font);
-                self.panel.advance = adv;
-                self.panel.field_rect = Rect { x: fx + 6.0, y, w: fw - 6.0, h: row };
-                let (shown, cursor_col) = self.panel.field.shown();
-                if let Some((a, b)) = self.panel.field.selection() {
-                    let (ca, cb) = (self.panel.field.chars_before(a) as f32, self.panel.field.chars_before(b) as f32);
-                    ui.rect(fx + 6.0 + ca * adv, y + 4.0, (cb - ca) * adv, row - 8.0, t.color.selection);
-                }
-                ui.text(fx + 6.0, y + 6.0, font, &shown, t.color.text);
-                if let Some((p, _)) = &self.panel.field.preedit {
-                    let c0 = self.panel.field.chars_before(self.panel.field.cursor) as f32;
-                    ui.rect(fx + 6.0 + c0 * adv, y + row - 5.0, p.chars().count() as f32 * adv, 1.5, t.color.accent);
-                }
-                if focused && (self.started.elapsed().as_millis() / 500) % 2 == 0 {
-                    ui.rect(fx + 6.0 + cursor_col as f32 * adv, y + 5.0, 1.5, row - 10.0, t.color.text);
-                }
-                self.panel.hits.push((Rect { x: fx, y, w: fw, h: row }, Hit::Field(fx + 6.0)));
-                if focused {
-                    let cx = (fx + 6.0 + cursor_col as f32 * adv) * scale;
-                    window.set_ime_cursor_area(winit::dpi::PhysicalPosition::new(cx as i32, (y * scale) as i32), winit::dpi::PhysicalSize::new(2u32, (row * scale) as u32));
-                }
-                y += row + pad;
-                ui.text(x0 + pad, y, font * 0.85, &format!("{} chars · cursor {} · selected {:?}", self.panel.field.text.chars().count(), cursor_col, self.panel.field.selected()), t.color.muted);
-            }
-        }
-        // the status: the numbers of the gates, live (a broken tokens file first: the bar cuts from the end)
-        let recent = &self.frame_ms[self.frame_ms.len().saturating_sub(30)..];
-        let mean = if recent.is_empty() { 16.7 } else { recent.iter().sum::<f32>() / recent.len() as f32 };
-        let glitches = self.stage.glitches();
-        let status = format!(
-            "{}{:.0} fps{}{}",
-            self.tokens.problem.as_ref().map(|p| format!("{p} – ")).unwrap_or_default(),
-            1000.0 / mean.max(0.1),
-            self.stage.khz().map(|k| format!(" · {k:.0} kHz")).unwrap_or_default(),
-            if glitches > 0 { format!(" · {glitches} glitches") } else { String::new() },
-        );
-        let status = if self.undo.is_empty() { status } else { format!("{} change{} · {status}", self.undo.len(), if self.undo.len() == 1 { "" } else { "s" }) };
-        let status = signed(&sign_in, status);
-        let logo_frame = ((self.started.elapsed().as_secs_f32() / logo::SECONDS).fract() * logo::FRAMES as f32) as usize;
-        let title = self.stage.bundle.rig.subject.as_str();
-        let names = show::WORKSPACES.map(|(_, n)| n);
-        let bar = bar::Bar { title, status: &status, wire: self.wire, logo_frame, pointer: self.cursor, cpu: self.cpu_load, gpu: self.gpu_time.as_ref().map(|_| self.gpu_load), workspaces: &names, workspace: 0 };
-        let (button, pills) = bar::draw(ui, t, wf, &bar);
-        self.panel.hits.push((button, Hit::Mode(!self.wire)));
-        for (r, (w, _)) in pills.into_iter().zip(show::WORKSPACES) {
-            self.panel.hits.push((r, Hit::Workspace(w)));
-        }
-        // the Wire side: the ports around the being's points, the core's list on this frame's places
+        let tab = self.mixer_tab.unwrap_or(tabs.len() - 1).min(tabs.len() - 1);
+        let selected = match &self.sel {
+            inspector::Sel::Track(id) if tab == 0 => self.stage.strips.iter().position(|s| s.track == *id).map(mixer::Target::Track),
+            inspector::Sel::Node(n) if tab > 0 => self.stage.inner.iter().position(|s| self.stage.inner_source(s) == *n).map(mixer::Target::Inner),
+            _ => None,
+        };
+        let view = mixer::View { tabs, tab, selected, hot, panning };
+        let (mixer_w, mixer_h) = mixer::size(&self.stage, &view);
+        let info_h = t.size.small * 1.4 * 6.0;
+        let shown = [("tree", t.size.tree, None), ("inspector", t.size.inspector, None), ("audio", 320.0, None), ("info", 260.0, Some(info_h)), ("mixer", mixer_w, Some(mixer_h))];
+        self.build.layout(ui, t, ((wf, hf), bar_bottom), &[gizmo], &shown);
+        let covered = |floats: &deck_kit::editor::floats::Floats, x: f32, y: f32| y < bar_bottom || floats.covers(x, y);
+        // the Wire side: the ports around the being's points, the core's list on this frame's places (not under a panel)
         if self.wire {
             let being = &self.stage.space.being;
             self.bodies.clear();
@@ -1759,6 +1788,9 @@ impl App {
                     let place = node.and_then(|n| being.point_world(n)).and_then(|w| self.stage.space.to_pixel(w));
                     if let Some((sx, sy)) = place {
                         let (bx, by) = (sx / scale + stage_x, sy / scale + top);
+                        if covered(&self.build.floats, bx, by) {
+                            continue;
+                        }
                         self.bodies.push((bx, by, track.id.clone(), inspector::Sel::Track(track.id.clone())));
                         ui.text(bx - 16.0, by + 18.0, font, &track.id, t.color.text);
                     }
@@ -1774,6 +1806,9 @@ impl App {
                     seen.push(n);
                     if let Some((sx, sy)) = being.point_world(n).and_then(|w| self.stage.space.to_pixel(w)) {
                         let (bx, by) = (sx / scale + stage_x, sy / scale + top);
+                        if covered(&self.build.floats, bx, by) {
+                            continue;
+                        }
                         let name = p.address.split_once(':').and_then(|(_, r)| r.split_once('.')).map_or("", |(n, _)| n).to_string();
                         ui.text(bx - 16.0, by + 18.0, font, &name, t.color.text);
                         self.bodies.push((bx, by, name, inspector::Sel::Node(n)));
@@ -1785,7 +1820,7 @@ impl App {
                 let Some(world) = being.port_world(node, &q.name, q.input) else { continue };
                 let Some((sx, sy)) = self.stage.space.to_pixel(world) else { continue };
                 let (mx, my) = (sx / scale + stage_x, sy / scale + top);
-                if mx > stage_x + stage_w || mx < stage_x || my < top || my > top + stage_h {
+                if mx > stage_x + stage_w || mx < stage_x || my < top || my > top + stage_h || covered(&self.build.floats, mx, my) {
                     continue;
                 }
                 self.marks.push(Mark { port: index, x: mx, y: my });
@@ -1821,29 +1856,6 @@ impl App {
                     ui.text(lx, my - small * 0.6, small, &q.name, t.color.text);
                 }
             }
-            // where we are in the tree, at any depth
-            let mut crumbs = vec!["rig".to_string()];
-            crumbs.extend(self.stage.path.iter().cloned());
-            for (depth, r) in controls::breadcrumb(ui, t, stage_x + pad, top + pad, &crumbs).into_iter().enumerate() {
-                self.panel.hits.push((r, Hit::Crumb(depth)));
-            }
-            if let Some(Drag::Cable(a)) = self.panel.drag {
-                if let Some(m) = self.marks.iter().find(|m| m.port == a) {
-                    ui.cable((m.x, m.y), self.cursor, t.color.accent);
-                }
-            }
-            if let Some(Drag::Grab(a)) = self.panel.drag {
-                let from = self.stage.ports.get(a).and_then(|p| p.cables.last()).map(|c| c.from.clone());
-                let source = from.and_then(|f| self.stage.ports.iter().position(|p| p.address == f));
-                if let Some(m) = source.and_then(|s| self.marks.iter().find(|m| m.port == s)) {
-                    ui.cable((m.x, m.y), self.cursor, t.color.accent);
-                }
-            }
-            if matches!(self.panel.drag, Some(Drag::Cable(_) | Drag::Grab(_))) {
-                if let Some(q) = nearest(&self.marks, self.cursor.0, self.cursor.1).and_then(|b| self.stage.ports.get(b)) {
-                    controls::chip(ui, t, (self.cursor.0 + 14.0, self.cursor.1 + 14.0), stage_x + stage_w, &format!("{} · {}", q.address, q.ty), false);
-                }
-            }
         }
         // what is selected shows on the stage
         {
@@ -1860,16 +1872,16 @@ impl App {
             for n in nodes {
                 if let Some((sx, sy)) = being.point_world(n).and_then(|w| self.stage.space.to_pixel(w)) {
                     let (bx, by) = (sx / scale + stage_x, sy / scale + top);
-                    if by < top + stage_h {
+                    if !covered(&self.build.floats, bx, by) {
                         ui.ring(bx, by, 20.0, t.color.text);
                     }
                 }
             }
         }
-        // the view gizmo, top right of the stage: its ball orbits, an axis looks along itself
+        // the view gizmo in its place: its ball orbits, an axis looks along itself
         {
             const R: f32 = 24.0;
-            let (gx, gy) = (stage_x + stage_w - R - 20.0, top + R + 20.0);
+            let (gx, gy) = (gizmo.x + gizmo.w * 0.5, gizmo.y + gizmo.h * 0.5);
             let axes = self.stage.space.camera.axes();
             ui.disc(gx, gy, R + 12.0, [t.color.surface_head[0], t.color.surface_head[1], t.color.surface_head[2], 0.55]);
             // back to front to draw; the front ones are hit first
@@ -1898,46 +1910,163 @@ impl App {
             }
             self.panel.hits.push((Rect { x: gx - R - 12.0, y: gy - R - 12.0, w: 2.0 * (R + 12.0), h: 2.0 * (R + 12.0) }, Hit::Axis(None)));
         }
-        let landed = info::view(ui, t, 0.0, hf, tree_w - 1.0, self.info_open, help.as_ref());
-        self.panel.hits.push((landed.head, Hit::InfoHead));
-        self.panel.hits.push((landed.whole, Hit::InfoBody));
+        // the rig's tree: the rig, its tracks, the nodes of the one entered
+        if let Some(o) = self.build.open(ui, t, "tree", self.cursor, self.panel.hits.len()) {
+            let mut rows = vec![controls::TreeRow { depth: 0, label: "rig".into(), detail: String::new(), icon: "nodes", open: Some(true), selected: self.sel == inspector::Sel::Rig }];
+            self.rows.clear();
+            self.rows.push((Vec::new(), inspector::Sel::Rig));
+            for track in &self.stage.bundle.rig.tracks {
+                let inside = self.stage.path.first() == Some(&track.id);
+                rows.push(controls::TreeRow { depth: 1, label: track.id.clone(), detail: track.instrument.clone(), icon: "folder", open: Some(inside), selected: self.sel == inspector::Sel::Track(track.id.clone()) });
+                self.rows.push((vec![track.id.clone()], inspector::Sel::Track(track.id.clone())));
+                if inside {
+                    let mut seen: Vec<&str> = Vec::new();
+                    for p in self.stage.ports.iter().filter(|p| p.track == track.id) {
+                        let name = p.address.split_once(':').and_then(|(_, r)| r.split_once('.')).map_or("", |(n, _)| n);
+                        if !seen.contains(&name) {
+                            seen.push(name);
+                            let node = self.stage.node_ids.iter().position(|id| *id == p.node).unwrap_or(0);
+                            rows.push(controls::TreeRow { depth: 2, label: name.to_string(), detail: String::new(), icon: "sliders", open: None, selected: self.sel == inspector::Sel::Node(node) });
+                            self.rows.push((vec![track.id.clone()], inspector::Sel::Node(node)));
+                        }
+                    }
+                }
+            }
+            for (i, r) in controls::tree(ui, t, o.area.x, o.area.y, o.area.w, &rows, self.cursor).into_iter().enumerate() {
+                self.panel.hits.push((r, Hit::Row(i)));
+            }
+            self.build.close(ui, t, o, &mut self.panel.hits);
+        }
+        // the inspector: the rig open, its version and what the last save came to; the picker and Save (rigs.rs); the tabs
+        if let Some(o) = self.build.open(ui, t, "inspector", self.cursor, self.panel.hits.len()) {
+            let a = o.area;
+            let mut y = a.y;
+            let save = ui.advance(t.size.small) * 4.0 + 2.0 * pad;
+            let pick = Rect { x: a.x, y, w: a.w - pad - save, h: row - 4.0 };
+            ui.round_rect(pick.x, pick.y, pick.w, pick.h, t.size.radius, t.color.control);
+            let small = font * 0.85;
+            let line = controls::fit(&self.rigs.line(), ((pick.w - 12.0) / ui.advance(small)) as usize);
+            ui.text(pick.x + 6.0, pick.y + (pick.h - small * 1.25) * 0.5, small, &line, t.color.text);
+            self.panel.hits.push((pick, Hit::RigPick));
+            for r in controls::pills(ui, t, pick.x + pick.w + pad, y, row - 4.0, &["Save"], 0) {
+                self.panel.hits.push((r, Hit::Save));
+            }
+            y += row + pad / 2.0;
+            let names = TABS.map(|(_, name)| name);
+            let active = TABS.iter().position(|(tab, _)| *tab == self.panel.tab).unwrap_or(0);
+            for (r, (tab, _)) in controls::pills(ui, t, a.x, y, row - 4.0, &names, active).into_iter().zip(TABS) {
+                self.panel.hits.push((r, Hit::Tab(tab)));
+            }
+            y += row + pad / 2.0;
+            match self.panel.tab {
+                Tab::Rig => {
+                    let area = Rect { x: a.x, y, w: a.w, h: a.y + a.h - y };
+                    let hot = match self.panel.drag {
+                        Some(Drag::Knob(i, ..)) => Some(inspector::Field::Knob(i)),
+                        Some(Drag::Param(n, p, ..)) => Some(inspector::Field::Param(n, p)),
+                        _ => None,
+                    };
+                    for (r, field) in inspector::draw(ui, t, area, &self.stage, &self.sel, hot) {
+                        let hit = match field {
+                            inspector::Field::Knob(i) => Hit::Knob(i),
+                            inspector::Field::Param(n, p) => Hit::Param(n, p),
+                            inspector::Field::Address(n) => Hit::Address(n),
+                        };
+                        self.panel.hits.push((r, hit));
+                    }
+                }
+                Tab::Text => {
+                    let cols = (a.w / ui.advance(font * 0.85)) as usize;
+                    ui.text(a.x, y, font * 0.85, &controls::fit("umlauts, dead keys, IME · shift+arrows · ctrl+a/c/x/v", cols), t.color.muted);
+                    y += row * 0.8;
+                    let (fx, fw) = (a.x, a.w);
+                    let focused = self.panel.field.focused;
+                    ui.rect(fx, y, fw, row, t.color.control);
+                    if focused {
+                        ui.rect(fx, y + row - 2.0, fw, 2.0, t.color.accent);
+                    }
+                    let adv = ui.advance(font);
+                    self.panel.advance = adv;
+                    self.panel.field_rect = Rect { x: fx + 6.0, y, w: fw - 6.0, h: row };
+                    let (shown, cursor_col) = self.panel.field.shown();
+                    if let Some((a, b)) = self.panel.field.selection() {
+                        let (ca, cb) = (self.panel.field.chars_before(a) as f32, self.panel.field.chars_before(b) as f32);
+                        ui.rect(fx + 6.0 + ca * adv, y + 4.0, (cb - ca) * adv, row - 8.0, t.color.selection);
+                    }
+                    ui.text(fx + 6.0, y + 6.0, font, &shown, t.color.text);
+                    if let Some((p, _)) = &self.panel.field.preedit {
+                        let c0 = self.panel.field.chars_before(self.panel.field.cursor) as f32;
+                        ui.rect(fx + 6.0 + c0 * adv, y + row - 5.0, p.chars().count() as f32 * adv, 1.5, t.color.accent);
+                    }
+                    if focused && (self.started.elapsed().as_millis() / 500) % 2 == 0 {
+                        ui.rect(fx + 6.0 + cursor_col as f32 * adv, y + 5.0, 1.5, row - 10.0, t.color.text);
+                    }
+                    self.panel.hits.push((Rect { x: fx, y, w: fw, h: row }, Hit::Field(fx + 6.0)));
+                    if focused {
+                        let cx = (fx + 6.0 + cursor_col as f32 * adv) * scale;
+                        window.set_ime_cursor_area(winit::dpi::PhysicalPosition::new(cx as i32, (y * scale) as i32), winit::dpi::PhysicalSize::new(2u32, (row * scale) as u32));
+                    }
+                    y += row + pad;
+                    ui.text(a.x, y, font * 0.85, &format!("{} chars · cursor {} · selected {:?}", self.panel.field.text.chars().count(), cursor_col, self.panel.field.selected()), t.color.muted);
+                }
+            }
+            self.build.close(ui, t, o, &mut self.panel.hits);
+        }
+        // the Audio panel: the settings, the map and the tones
+        if let Some(o) = self.build.open(ui, t, "audio", self.cursor, self.panel.hits.len()) {
+            for (r, f) in routing::draw(ui, t, o.area, &mut self.routing, &self.stage, self.cursor) {
+                self.panel.hits.push((r, Hit::Routing(f)));
+            }
+            self.build.close(ui, t, o, &mut self.panel.hits);
+        }
+        if let Some(o) = self.build.open(ui, t, "info", self.cursor, self.panel.hits.len()) {
+            info::body(ui, t, (o.area.x, o.area.y, o.area.w), help.as_ref());
+            self.build.close(ui, t, o, &mut self.panel.hits);
+        }
+        if let Some(o) = self.build.open(ui, t, "mixer", self.cursor, self.panel.hits.len()) {
+            for (r, part) in mixer::draw(ui, t, o.area, &self.stage, &view) {
+                let hit = match part {
+                    mixer::Part::Tab(depth) => Hit::MixerTab(depth),
+                    mixer::Part::Select(target) => Hit::StripSelect(target),
+                    mixer::Part::GainText(target) => Hit::GainText(target),
+                    mixer::Part::Fader(i, f) => Hit::Fader(i, f),
+                    mixer::Part::Mute(i) => Hit::Mute(i),
+                    mixer::Part::Pan(i) => Hit::Balance(i),
+                    mixer::Part::Peak(p) => Hit::Peak(p),
+                };
+                self.panel.hits.push((r, hit));
+            }
+            self.build.close(ui, t, o, &mut self.panel.hits);
+        }
+        // a panel's ground keeps the press from the stage under it
+        for r in self.build.grounds(&panels::BUILD.map(|s| s.id)) {
+            self.panel.hits.push((r, Hit::Ground));
+        }
+        // over the panels: a cable in the hand, where it would land, a notice
+        if self.wire {
+            if let Some(Drag::Cable(a)) = self.panel.drag {
+                if let Some(m) = self.marks.iter().find(|m| m.port == a) {
+                    ui.cable((m.x, m.y), self.cursor, t.color.accent);
+                }
+            }
+            if let Some(Drag::Grab(a)) = self.panel.drag {
+                let from = self.stage.ports.get(a).and_then(|p| p.cables.last()).map(|c| c.from.clone());
+                let source = from.and_then(|f| self.stage.ports.iter().position(|p| p.address == f));
+                if let Some(m) = source.and_then(|s| self.marks.iter().find(|m| m.port == s)) {
+                    ui.cable((m.x, m.y), self.cursor, t.color.accent);
+                }
+            }
+            if matches!(self.panel.drag, Some(Drag::Cable(_) | Drag::Grab(_))) {
+                if let Some(q) = nearest(&self.marks, self.cursor.0, self.cursor.1).and_then(|b| self.stage.ports.get(b)) {
+                    controls::chip(ui, t, (self.cursor.0 + 14.0, self.cursor.1 + 14.0), wf, &format!("{} · {}", q.address, q.ty), false);
+                }
+            }
+        }
         if self.notice.as_ref().is_some_and(|n| Instant::now() > n.until) {
             self.notice = None;
         }
         if let Some(n) = &self.notice {
-            controls::chip(ui, t, (n.x + 14.0, n.y - 34.0), stage_x + stage_w, &n.text, n.bad);
-        }
-        let panning = match self.panel.drag {
-            Some(Drag::Balance(i, _, _, v)) => Some((i, v)),
-            _ => None,
-        };
-        let hot = match self.panel.drag {
-            Some(Drag::Fader(target, _)) => Some(target),
-            _ => None,
-        };
-        let mut tabs = vec!["rig".to_string()];
-        if self.wire {
-            tabs.extend(self.stage.path.iter().cloned());
-        }
-        let tab = self.mixer_tab.unwrap_or(tabs.len() - 1).min(tabs.len() - 1);
-        let selected = match &self.sel {
-            inspector::Sel::Track(id) if tab == 0 => self.stage.strips.iter().position(|s| s.track == *id).map(mixer::Target::Track),
-            inspector::Sel::Node(n) if tab > 0 => self.stage.inner.iter().position(|s| self.stage.inner_source(s) == *n).map(mixer::Target::Inner),
-            _ => None,
-        };
-        let view = mixer::View { tabs, tab, selected, hot, panning };
-        for (r, part) in mixer::draw(ui, t, Rect { x: stage_x, y: top + stage_h, w: stage_w, h: band }, self.mixer_open, &self.stage, &view) {
-            let hit = match part {
-                mixer::Part::Head => Hit::MixerHead,
-                mixer::Part::Tab(depth) => Hit::MixerTab(depth),
-                mixer::Part::Select(target) => Hit::StripSelect(target),
-                mixer::Part::GainText(target) => Hit::GainText(target),
-                mixer::Part::Fader(i, f) => Hit::Fader(i, f),
-                mixer::Part::Mute(i) => Hit::Mute(i),
-                mixer::Part::Pan(i) => Hit::Balance(i),
-                mixer::Part::Peak(p) => Hit::Peak(p),
-            };
-            self.panel.hits.push((r, hit));
+            controls::chip(ui, t, (n.x + 14.0, n.y - 34.0), wf, &n.text, n.bad);
         }
         // over everything else: what is being typed, the typeahead
         if let Some(e) = &self.edit {
@@ -1959,6 +2088,12 @@ impl App {
         }
         self.panel.hits.push((Rect { x: stage_x, y: top, w: stage_w, h: stage_h }, Hit::Stage));
         }
+        // the main menu over everything
+        self.menu_lines.clear();
+        if self.main_menu {
+            self.menu_lines = bar::menu(ui, t, placed.menu, &|a| enabled.iter().any(|(b, on)| *b == a && *on), self.cursor);
+        }
+        window.set_cursor(if grab { winit::window::CursorIcon::Grab } else { winit::window::CursorIcon::Default });
         // the pass: logical pixels → the surface's, through the screen uniform
         let view = frame.texture.create_view(&Default::default());
         ui.flush(&gpu.device, &gpu.queue, &mut enc, &view, (wf, hf), t.color.stage);
@@ -2056,11 +2191,16 @@ impl ApplicationHandler for App {
                     MouseScrollDelta::LineDelta(_, y) => y,
                     MouseScrollDelta::PixelDelta(p) => p.y as f32 / 40.0,
                 };
-                // #551: Show's inspector scrolls above its buttons
-                if self.workspace == show::Workspace::Show && self.show.wheel(self.cursor.0, self.cursor.1, steps) {
+                // a cell's knob in Show, then a panel taller than its place scrolls
+                if self.workspace != show::Workspace::Build && self.show.wheel(self.cursor.0, self.cursor.1, steps) {
                     return;
                 }
-                match self.hit(self.cursor.0, self.cursor.1) {
+                let hit = self.hit(self.cursor.0, self.cursor.1);
+                let (cx, cy) = self.cursor;
+                if !matches!(hit, Hit::Knob(_) | Hit::Param(..)) && self.panels_mut().floats.wheel(cx, cy, steps) {
+                    return;
+                }
+                match hit {
                     Hit::Knob(i) => {
                         let k = &self.stage.knobs[i];
                         let v = self.stage.value(k);
@@ -2126,22 +2266,6 @@ impl ApplicationHandler for App {
             WindowEvent::RedrawRequested => self.redraw(el),
             _ => {}
         }
-    }
-}
-
-/// is the Info view folded (a file in the cache)
-fn info_closed(file: &std::path::Path) -> bool {
-    file.is_file()
-}
-
-fn remember_info(file: &std::path::Path, open: bool) {
-    if open {
-        std::fs::remove_file(file).ok();
-    } else {
-        if let Some(dir) = file.parent() {
-            std::fs::create_dir_all(dir).ok();
-        }
-        std::fs::write(file, "").ok();
     }
 }
 

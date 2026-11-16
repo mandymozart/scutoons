@@ -12,7 +12,6 @@ fn fit(d: &DrawList, text: &str, px: f32, w: f32) -> String {
 }
 
 pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, pointer: (f32, f32)) {
-    d.rect(area.x, area.y, area.w, area.h, t.color.surface_head);
     match host.sheet {
         Some(Sheet::Cues) => cues(d, t, host, area, pointer),
         Some(Sheet::Problems) => problems(d, t, host, area, pointer),

@@ -215,10 +215,11 @@ pub struct Host {
     pub cells: Vec<String>,
     /// #551: the right click's typeahead on the selected cells while it is open (ask.rs)
     pub context: Option<ask::Context>,
-    /// #551: the inspector's place above its buttons, how far it is scrolled and how far it can be
-    pub side: Rect,
-    pub side_scroll: f32,
-    pub side_over: f32,
+    /// the Show and the Perform workspace's floating panels; the toolbar's place for the view switch; what the info says
+    pub show_panels: crate::panels::Panels,
+    pub perform_panels: crate::panels::Panels,
+    pub view_slot: Rect,
+    pub help: Option<deck_kit::editor::info::Help>,
     /// #553: the address of the inspected row (its index) whose filter's chips show
     pub address: Option<usize>,
     /// #537: the toon's address book (the editor's, main.rs) – its scenes are what a cell's piece is picked from – and why
@@ -312,7 +313,7 @@ impl Host {
                 })
                 .ok()
         });
-        Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), context: None, side: Rect { x: 0.0, y: 0.0, w: 0.0, h: 0.0 }, side_scroll: 0.0, side_over: 0.0, address: None, book: None, book_why: None, piece_query: String::new(), scene_query: String::new(), dragging: None, refused: None, toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, session: session::Session::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), link, api }
+        Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), context: None, show_panels: crate::panels::Panels::new(&crate::panels::SHOW), perform_panels: crate::panels::Panels::new(&crate::panels::PERFORM), view_slot: Rect::default(), help: None, address: None, book: None, book_why: None, piece_query: String::new(), scene_query: String::new(), dragging: None, refused: None, toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, session: session::Session::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), link, api }
     }
 
     /// the document at the end of the path (the top's when a step is missing)
@@ -680,13 +681,5 @@ impl Host {
             90 if s.flash_confirm => self.press(Hit::FlashConfirm),
             _ => {}
         }
-    }
-}
-
-/// The places of a show workspace in a window of `w` × `h` (logical px) under the top bar: where the stage draws.
-pub fn stage_rect(ws: Workspace, host: &Host, w: f32, h: f32, t: &deck_kit::base::tokens::Tokens) -> Rect {
-    match ws {
-        Workspace::Perform => perform::layout(w, h, t, perform::open_sheet(host).is_some()).stage,
-        _ => author::layout(w, h, t).stage,
     }
 }

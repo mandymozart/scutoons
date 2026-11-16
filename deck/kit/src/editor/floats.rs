@@ -175,8 +175,8 @@ fn clamp_into(r: Rect, area: &Rect) -> Rect {
     Rect { x, y, ..r }
 }
 
-/// the free place for `r` nearest to it: beside a wall or the gap away from an obstacle
-fn nearest_free(r: Rect, taken: &[Rect], area: &Rect, gap: f32) -> Rect {
+/// the free place for `r` nearest to it: beside a wall or the gap away from an obstacle (none: no place is free)
+fn nearest_free(r: Rect, taken: &[Rect], area: &Rect, gap: f32) -> Option<Rect> {
     let mut xs = vec![r.x, area.x, right(area) - r.w];
     let mut ys = vec![r.y, area.y, bottom(area) - r.h];
     for o in taken {
@@ -196,7 +196,7 @@ fn nearest_free(r: Rect, taken: &[Rect], area: &Rect, gap: f32) -> Rect {
             }
         }
     }
-    best.map_or(r, |(_, c)| c)
+    best.map(|(_, c)| c)
 }
 
 /// how far a panel may reach along an axis from its anchored `edge` (away from it: up or left when `back`), inside the
@@ -305,13 +305,20 @@ impl Floats {
                 p.anchor = (if corner.right() { right(&area) - dx } else { area.x + dx }, if corner.bottom() { bottom(&area) - dy } else { area.y + dy });
             }
         }
-        // the smallest rectangles first: each inside the walls, none crowding another
+        // the smallest rectangles first: each inside the walls, none crowding another; one that must move goes where it
+        // is in no other panel's way, if there is such a place
+        let asked: Vec<Rect> = order.iter().map(|&i| intersect(&from_corner(self.panels[i].anchor, self.panels[i].corner, self.panels[i].want), &area)).collect();
         let mut mins: Vec<Rect> = Vec::with_capacity(order.len());
-        for &i in &order {
+        for (k, &i) in order.iter().enumerate() {
             let p = &self.panels[i];
             let r = clamp_into(from_corner(p.anchor, p.corner, p.min), &area);
             let taken: Vec<Rect> = self.fixed.iter().chain(&mins).copied().collect();
-            let r = if taken.iter().any(|o| crowd(&r, o, gap)) { nearest_free(r, &taken, &area, gap) } else { r };
+            let r = if taken.iter().any(|o| crowd(&r, o, gap)) {
+                let clear: Vec<Rect> = taken.iter().chain(asked.iter().enumerate().filter(|(j, _)| *j != k).map(|(_, a)| a)).copied().collect();
+                nearest_free(r, &clear, &area, gap).or_else(|| nearest_free(r, &taken, &area, gap)).unwrap_or(r)
+            } else {
+                r
+            };
             let p = &mut self.panels[i];
             p.anchor = corner_of(&r, p.corner);
             mins.push(r);
