@@ -30,6 +30,8 @@ pub mod rig;
 pub mod scene;
 pub mod scene_document;
 pub mod scene_edit;
+pub mod scene_slots;
+pub mod scene_video;
 pub mod scene_play;
 pub mod scene_resolve;
 pub mod tempo;

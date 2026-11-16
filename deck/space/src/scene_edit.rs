@@ -1,12 +1,14 @@
 //! A scene opened in an editor's Build (research/SCENES.md §9.3): its document, its cast as members with each one's rig,
 //! the tree an editor shows of it, and the one rule for a member's values in the scene – a value sets a knob of the
 //! member's rig, inside the knob's range, stored as `<track>:<node>.<port>` on its holder; a value equal to the rig's own
-//! leaves the document. What plays is the resolve step's (scene_resolve.rs); the host only draws and saves the document.
+//! leaves the document. Its slots (placeholders, §9.2) and its video nodes are edited too (scene_slots.rs, scene_video.rs);
+//! every change is refused when the core finds a new problem in it. In Build a slot plays its preview. What plays is the
+//! resolve step's (scene_resolve.rs); the host only draws and saves the document.
 use crate::rig::address::{Address, Leaf};
 use crate::rig::bundle::{Bundle, Knob};
 use crate::rig::Rig;
 use crate::scene_document::{FillerRef, HolderValue, SceneDocument};
-use crate::scene_resolve::{resolve, Resolved, Rigs, Sets};
+use crate::scene_resolve::{no_rigs, no_sets, resolve, Resolved, Rigs, Sets};
 use std::collections::BTreeMap;
 
 /// One filled holder of the scene and the rig it plays.
@@ -28,11 +30,16 @@ pub struct Member {
     pub prefix: Option<String>,
 }
 
-/// What a line of the tree stands for. Slots and video join it later.
+/// What a line of the tree stands for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Part {
     Scene,
+    /// an authored member, by its place in `members`
     Member(usize),
+    /// a placeholder, by its holder's place in the document
+    Slot(usize),
+    /// a video node of the scene's own, by its place in the document's nodes
+    Video(usize),
 }
 
 /// A line of the tree.
@@ -66,11 +73,20 @@ pub struct SceneEdit {
 }
 
 impl SceneEdit {
-    /// `doc` (read at version `base`) resolved with `rigs` and `sets`: its members and the scene the stage plays. Err: the
-    /// core's reasons it does not play.
+    /// `doc` (read at version `base`) resolved with `rigs` and `sets`, its slots playing their previews: its members and
+    /// the scene the stage plays. Err: the core's reasons it does not play.
     pub fn open(doc: SceneDocument, base: Option<u64>, rigs: Rigs, sets: Sets) -> Result<(SceneEdit, Resolved), Vec<String>> {
-        let resolved = resolve(&doc, &BTreeMap::new(), false, rigs, sets)?;
-        let members = resolved
+        let mut edit = SceneEdit { saved: doc.clone(), doc, base, members: Vec::new(), notes: Vec::new() };
+        let resolved = edit.refresh(rigs, sets)?;
+        Ok((edit, resolved))
+    }
+
+    /// The scene as edited now resolved again, its members with it (a slot filled or emptied changes them). Err: the
+    /// core's reasons it does not play; the members stay.
+    pub fn refresh(&mut self, rigs: Rigs, sets: Sets) -> Result<Resolved, Vec<String>> {
+        let resolved = resolve(&self.doc, &BTreeMap::new(), true, rigs, sets)?;
+        let doc = &self.doc;
+        self.members = resolved
             .cast
             .iter()
             .map(|m| {
@@ -84,8 +100,23 @@ impl SceneEdit {
                 Member { holder: m.holder.clone(), filler: m.filler.clone(), place: m.place.clone(), spot: m.spot.clone(), subject, bundle, knobs, prefix: m.slots.clone() }
             })
             .collect();
-        let notes = resolved.notes.clone();
-        Ok((SceneEdit { saved: doc.clone(), doc, base, members, notes }, resolved))
+        self.notes.clone_from(&resolved.notes);
+        Ok(resolved)
+    }
+
+    /// `f` made on a copy of the document; refused with the core's words when the copy has a problem the document did not
+    /// have – its checks, and whether it still resolves (no rigs needed for that)
+    pub(crate) fn change(&mut self, f: impl FnOnce(&mut SceneDocument) -> Result<(), String>) -> Result<(), String> {
+        let problems = |d: &SceneDocument| resolve(d, &BTreeMap::new(), true, &no_rigs, &no_sets).err().unwrap_or_default();
+        let before = problems(&self.doc);
+        let mut next = self.doc.clone();
+        f(&mut next)?;
+        let new: Vec<String> = problems(&next).into_iter().filter(|p| !before.contains(p)).collect();
+        if !new.is_empty() {
+            return Err(new.join("; "));
+        }
+        self.doc = next;
+        Ok(())
     }
 
     /// the document's key (`scene:<id>`)
@@ -93,16 +124,17 @@ impl SceneEdit {
         format!("scene:{}", self.doc.id)
     }
 
-    /// The scene as edited now, for the stage. Err: the core's reasons it does not play.
+    /// The scene as edited now, for the stage (its slots play their previews). Err: the core's reasons it does not play.
     pub fn resolved(&self, rigs: Rigs, sets: Sets) -> Result<Resolved, Vec<String>> {
-        resolve(&self.doc, &BTreeMap::new(), false, rigs, sets)
+        resolve(&self.doc, &BTreeMap::new(), true, rigs, sets)
     }
 
-    /// the tree: the scene, then its members in the scene's order
+    /// the tree: the scene, its authored members in the scene's order, its slots, its video nodes
     pub fn tree(&self) -> Vec<Line> {
         let name = if self.doc.stage.name.is_empty() { String::new() } else { self.doc.stage.name.clone() };
         let mut out = vec![Line { depth: 0, label: self.key(), detail: name, part: Part::Scene }];
-        for (i, m) in self.members.iter().enumerate() {
+        let placeholder = |id: &str| self.doc.holders.iter().any(|h| h.id == id && h.is_placeholder());
+        for (i, m) in self.members.iter().enumerate().filter(|(_, m)| !placeholder(&m.holder)) {
             let kind = m.place.split_once(':').map_or("", |(k, _)| k);
             let detail = match (&m.subject, &m.bundle) {
                 (Some(_), Some(_)) => kind.to_string(),
@@ -111,6 +143,8 @@ impl SceneEdit {
             };
             out.push(Line { depth: 1, label: m.holder.clone(), detail, part: Part::Member(i) });
         }
+        out.extend(self.slot_lines());
+        out.extend(self.video_lines());
         out
     }
 
