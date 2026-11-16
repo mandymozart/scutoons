@@ -30,7 +30,7 @@ fn an_empty_cell_is_a_stop_slot_and_a_left_out_cell_keeps() {
     sub.fire("dark-left", 2);
     assert_eq!(playing(&sub, "left"), Some(Playing::Black));
     assert!(matches!(playing(&sub, "right"), Some(Playing::Piece { piece, .. }) if piece == "scene:vigil"));
-    // launched by hand: the same stop
+    // launched on its own: the same stop
     sub.fire("opening", 3);
     sub.launch_cell("dark-left", "left", 4);
     assert_eq!(playing(&sub, "left"), Some(Playing::Black));

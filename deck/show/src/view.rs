@@ -57,6 +57,8 @@ pub struct CellView {
     pub empty: bool,
     /// this row's cell is what plays there now
     pub on: bool,
+    /// it plays because the operator launched it off its row (marked in its corner, SHOW.md §7)
+    pub off_row: bool,
     /// why it would not play as written (`wrong piece`: a `values` cell meets another piece)
     pub problem: Option<String>,
     /// #546: a cell of a question (`ask`): its question, where it stands among the row's columns that ask it
@@ -313,7 +315,7 @@ pub fn fires_on(fire: &Fire) -> String {
 fn origin_text(o: Origin) -> &'static str {
     match o {
         Origin::Auto => "auto",
-        Origin::Hand => "hand",
+        Origin::Hand => "▶",
         Origin::Go => "GO",
         Origin::Parent => "the parent",
     }
@@ -329,9 +331,9 @@ pub fn line(what: &Logged) -> String {
         Logged::NoRow { event } => format!("{event}: no row listens"),
         Logged::NoId { kind } if kind.is_empty() => "a story event without an id: dropped – no row can listen to it".into(),
         Logged::NoId { kind } => format!("a {kind} without an id: dropped – no row can listen to it"),
-        Logged::CellLaunched { row, column, off_row: true } => format!("hand: {column} > {row}, off the row"),
-        Logged::CellLaunched { row, column, off_row: false } => format!("hand: {column} > {row}"),
-        Logged::Stopped { column } => format!("hand: {column} stopped"),
+        Logged::CellLaunched { row, column, off_row: true } => format!("off-row: {column} > {row}"),
+        Logged::CellLaunched { row, column, off_row: false } => format!("{column} > {row}"),
+        Logged::Stopped { column } => format!("{column} stopped"),
         Logged::ValuesSkipped { row, outlet, expected, found } => {
             format!("{row}: {outlet} plays {}, not {expected} – values skipped", found.as_deref().unwrap_or("nothing"))
         }
@@ -447,7 +449,7 @@ fn cell_view(row: &str, cell: Option<&Cell>, stage: Option<&OnStage>) -> CellVie
         (Cell::Values { .. }, None | Some(Playing::Black)) => Some("nothing plays".to_string()),
         _ => None,
     };
-    CellView { text: cell_text(cell), keep: false, empty: matches!(cell, Cell::Black), on: mine.is_some(), problem, ask: None, state: state_of(row, stage, None), progress: None }
+    CellView { text: cell_text(cell), keep: false, empty: matches!(cell, Cell::Black), on: mine.is_some(), off_row: mine.is_some_and(|s| s.off_row), problem, ask: None, state: state_of(row, stage, None), progress: None }
 }
 
 fn suggested(show: &Show, s: &Suggestion) -> Suggested {
@@ -809,12 +811,12 @@ mod tests {
         assert_eq!(m.go, "GO: next row 1 arrival");
         sub.fire("arrival", 1000);
         let m = matrix(&sub);
-        assert!(m.rows[0].current && m.rows[0].cells[0].on);
+        assert!(m.rows[0].current && m.rows[0].cells[0].on && !m.rows[0].cells[0].off_row);
         assert_eq!(m.rows[1].cells[1].problem.as_deref(), Some("nothing plays"), "right is black");
         assert_eq!(m.rows[1].cells[0].problem, None, "the same piece");
         sub.launch_cell("exit", "left", 2000);
         let m = matrix(&sub);
-        assert!(m.rows[2].cells[0].on, "a launch off its row plays, unmarked");
+        assert!(m.rows[2].cells[0].on && m.rows[2].cells[0].off_row, "a launch off its row is marked");
         assert_eq!(m.go, "GO: next row 2 roar");
     }
 
@@ -872,7 +874,7 @@ mod tests {
         assert_eq!(black.map(|e| e.at), Some(None));
         let m = matrix_at(&sub, 3100);
         assert!(!m.columns[0].stops && m.rows[0].cells[0].state == State::Idle);
-        assert_eq!(log(sub.log(), 1)[0].1, "hand: left stopped");
+        assert_eq!(log(sub.log(), 1)[0].1, "left stopped");
         // roar's left waits for a bar (4 s): so does its stop
         sub.fire("arrival", 3200);
         sub.fire("roar", 3300);
