@@ -1,4 +1,4 @@
-Status 2026-11-10: concept for the owner's review (#468), nothing built from it. Owner's brief: decisions/deck.md 2026-11-10 [platform]. Drafts: the shared notes folder `468-input-concept/` (sent in the chat). §8 is what the owner decides.
+Status 2026-11-16: concept decided – §8 accepted as recommended (decisions/deck.md 2026-11-16 [inputs]); drafts in the new design dogma sent 2026-11-16; nothing built yet, queued after #579 / #583 / #580. (2026-11-10: concept for the owner's review (#468).) Owner's brief: decisions/deck.md 2026-11-10 [platform]. Drafts: the shared notes folder `468-input-concept/` (sent in the chat). §8 is what the owner decides.
 
 # Inputs: everything that comes into a deck
 
