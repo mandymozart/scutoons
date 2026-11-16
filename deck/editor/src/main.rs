@@ -93,10 +93,12 @@ struct Args {
     add: Option<(String, bool)>,
     /// a check run's scene member (scene.rs `script_scene`): selected, a knob turned, opened as its rig if asked
     member: Option<(String, bool)>,
+    /// a demo show opened in Show (show/demos.rs)
+    demo: Option<String>,
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, add: None, member: None };
+    let mut a = Args { rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, add: None, member: None, demo: None };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -141,6 +143,10 @@ fn args() -> Result<Args> {
             "--book" => a.book = Some(PathBuf::from(val()?)),
             "--story-events" => a.story = Some(PathBuf::from(val()?)),
             "--rigs" => a.rigs = Some(PathBuf::from(val()?)),
+            "--demo" => {
+                a.demo = Some(val()?);
+                a.workspace = show::Workspace::Show;
+            }
             "--add" => {
                 let v = val()?;
                 a.add = Some(v.strip_suffix(",pick").map_or((v.clone(), false), |q| (q.to_string(), true)));
@@ -170,7 +176,7 @@ fn args() -> Result<Args> {
             "--flash-force" => a.script.flash_force = true,
             "--seat" => a.script.seat = Some(val()?),
             "--row" => a.script.row = Some(val()?),
-            "--sheet" => a.script.sheet = Some(show::Sheet::parse(&val()?).context("--sheet cues | problems | flash | who | session | vote | piece | event | scene")?),
+            "--sheet" => a.script.sheet = Some(show::Sheet::parse(&val()?).context("--sheet cues | problems | flash | who | session | vote | piece | event | scene | demos")?),
             "--role" => a.script.role = Some(val()?),
             "--who-move" => a.script.who_move = val()?.split_once('=').map(|(c, r)| (c.to_string(), r.to_string())),
             "--who-menu" => a.script.who_menu = Some(val()?),
@@ -208,7 +214,7 @@ fn args() -> Result<Args> {
                 a.size = Some((w.trim().parse()?, h.trim().parse()?));
             }
             "--help" | "-h" => {
-                println!("deck-editor [--rig catpope] [--fullscreen] [--frames N] [--screenshot FILE] [--tokens FILE] [--size W,H] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5] [--menu PORT,QUERY[,pick]] [--toon TOON] [--book FILE] [--select NODE --far QUERY[,pick]]");
+                println!("deck-editor [--rig catpope] [--fullscreen] [--frames N] [--screenshot FILE] [--tokens FILE] [--size W,H] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5] [--menu PORT,QUERY[,pick]] [--toon TOON] [--book FILE] [--select NODE --far QUERY[,pick]] [--demo NAME]");
                 std::process::exit(0);
             }
             other => anyhow::bail!("unknown argument {other}"),
@@ -488,6 +494,9 @@ fn run() -> Result<i32> {
     app_show.knobs.rigs.clone_from(&args.rigs);
     if let Some(f) = &args.story {
         app_show.story_from_file(f);
+    }
+    if let Some(name) = &args.demo {
+        app_show.open_demo(name).map_err(anyhow::Error::msg)?;
     }
     let app_book = book::Loader::new(&args.api, args.toon.as_deref(), args.book.as_deref(), auth.token(), &cache);
     let book_key = (args.toon.clone(), auth.token().is_some());
@@ -1674,6 +1683,10 @@ impl App {
         self.follow_rigs();
         self.follow_cell();
         self.follow_scene();
+        if let Some(f) = self.show.demo_book.take() {
+            self.book = book::Loader::new(&self.args.api, None, Some(&f), None, &deck_native::cache::default_dir());
+            self.args.book = Some(f);
+        }
         self.book.poll();
         // #537: the Show workspace picks a cell's piece from the book's scenes
         self.show.book.clone_from(&self.book.book);
