@@ -406,25 +406,36 @@ fn paint(fonts: &mut dyn Mono, layer: &Layer, (pixel, pictures): (Option<Texture
                 fill(&mut mesh, (x, y + t, t, h - 2.0 * t), c);
                 fill(&mut mesh, (x + w - t, y + t, t, h - 2.0 * t), c);
             }
-            Prim::Text { x, y, px, start, end, color: c } => {
+            Prim::Text { x, y, px, start, end, color: c, spacing } => {
                 let text = layer.list.text_of(start, end);
                 if text.is_empty() {
                     continue;
                 }
-                match layer.face {
-                    #[cfg(feature = "pixel")]
-                    Face::Pixel => glyphs(&mut mesh, text, (x, y, px), (s, g), color(c)),
-                    Face::Mono => {
-                        let size = px * s;
-                        let top = y * s + (size * LINE - fonts.row_height(size)) / 2.0;
-                        // the mono face carries no arrows: the core's sentences have them
-                        let text = match fonts.has_glyphs(size, text) {
-                            true => text.to_owned(),
-                            false => text.replace('→', ">").replace('←', "<"),
-                        };
-                        if let Some(shape) = fonts.line(&mut mesh, text, pos2(snap(x), top), size, color(c)) {
-                            flush(&mut mesh, out);
-                            out.push(shape);
+                // a spaced text goes letter by letter
+                let step = layer.list.step(px, spacing);
+                let whole = spacing == 0.0;
+                let mut letters = text.char_indices();
+                let parts = std::iter::from_fn(|| match whole {
+                    true => None,
+                    false => letters.next().map(|(b, ch)| &text[b..b + ch.len_utf8()]),
+                });
+                let parts = (whole.then_some(text)).into_iter().chain(parts).enumerate().map(|(i, part)| (x + i as f32 * step, part));
+                for (x, text) in parts {
+                    match layer.face {
+                        #[cfg(feature = "pixel")]
+                        Face::Pixel => glyphs(&mut mesh, text, (x, y, px), (s, g), color(c)),
+                        Face::Mono => {
+                            let size = px * s;
+                            let top = y * s + (size * LINE - fonts.row_height(size)) / 2.0;
+                            // the mono face carries no arrows: the core's sentences have them
+                            let text = match fonts.has_glyphs(size, text) {
+                                true => text.to_owned(),
+                                false => text.replace('→', ">").replace('←', "<"),
+                            };
+                            if let Some(shape) = fonts.line(&mut mesh, text, pos2(snap(x), top), size, color(c)) {
+                                flush(&mut mesh, out);
+                                out.push(shape);
+                            }
                         }
                     }
                 }

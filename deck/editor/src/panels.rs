@@ -18,15 +18,16 @@ const BR: Corner = Corner::BottomRight;
 
 // The order is the order of growth: an earlier panel leaves a later one the room it asks for, so the ones whose content
 // scrolls well come first and the ones of a fixed size last.
-pub const BUILD: [Spec; 5] = [
+pub const BUILD: [Spec; 6] = [
     spec("tree", "Rig", "tree", "The rig, its tracks and their nodes. In Wire a click goes to that level.", Place::at(TL, 0.0, 0.0)),
     spec("inspector", "Inspector", "inspector", "What is selected: its values as scrub numbers; the rig picker and Save.", Place::at(TR, 0.0, 0.0)),
     spec("audio", "Audio", "activity", "The sound card, its inputs and outputs, the map and the test tones.", Place::at(BL, 300.0, 0.0).folded()),
     spec("info", "Info", "info", "What is under the pointer: its name and what it does.", Place::at(BL, 0.0, 0.0)),
     spec("mixer", "Mixer", "sliders", "One strip per track at the level of the tree shown; inside a track its gains.", Place::at(BR, 0.0, 0.0)),
+    spec("settings", "Settings", "settings", "Motion & feedback, sound and the UI size: this machine's, remembered.", Place::at(TR, 0.0, 0.0)),
 ];
 
-pub const SHOW: [Spec; 7] = [
+pub const SHOW: [Spec; 8] = [
     spec("outline", "Outline", "nodes", "The conductors, the roles this one gives out and the rows of the document shown.", Place::at(TL, 0.0, 0.0)),
     spec("inspector", "Inspector", "inspector", "The row, the role or the cells selected; Load, Flash and Save.", Place::at(TR, 0.0, 0.0)),
     spec("sheet", "Sheet", "layers", "The sheet open: cues, problems, who is here, a picker or the flash list.", Place::at(TL, 320.0, 0.0)),
@@ -34,16 +35,18 @@ pub const SHOW: [Spec; 7] = [
     spec("scenes", "Scenes", "grid", "The toon's published scenes: drag one onto a cell.", Place::at(BR, 0.0, 0.0)),
     spec("rows", "Rows", "list", "The rows of the show: what fires each one and every column's cell.", Place::at(BL, 0.0, 0.0)),
     spec("info", "Info", "info", "What is under the pointer: its name and what it does.", Place::at(BR, 300.0, 0.0).folded()),
+    spec("settings", "Settings", "settings", "Motion & feedback, sound and the UI size: this machine's, remembered.", Place::at(TR, 0.0, 0.0)),
 ];
 
-pub const MODULE: [Spec; 4] = [
+pub const MODULE: [Spec; 5] = [
     spec("modules", "Modules", "list", "The catalog's modules: a click opens one's working copy.", Place::at(TL, 0.0, 0.0)),
     spec("module", "Module", "code", "The module open: its working copy, Open in editor, Build, what happened last, its parameters.", Place::at(TR, 0.0, 0.0)),
     spec("problems", "Problems", "alert", "The last build's problems: a click opens the code there.", Place::at(BL, 0.0, 0.0)),
     spec("info", "Info", "info", "What is under the pointer: its name and what it does.", Place::at(BR, 0.0, 0.0).folded()),
+    spec("settings", "Settings", "settings", "Motion & feedback, sound and the UI size: this machine's, remembered.", Place::at(TR, 0.0, 0.0)),
 ];
 
-pub const PERFORM: [Spec; 7] = [
+pub const PERFORM: [Spec; 8] = [
     spec("rail", "Session", "nodes", "This conductor, its seats, the relay, the linked readers, the vote and the outlets.", Place::at(TL, 0.0, 0.0)),
     spec("side", "Next", "play", "The suggestion with GO and Drop, else GO; the seats.", Place::at(TR, 0.0, 0.0)),
     spec("sheet", "Show runner", "layers", "The show runner's sheet open: the session for linked readers, or the vote.", Place::at(TL, 300.0, 0.0)),
@@ -51,6 +54,7 @@ pub const PERFORM: [Spec; 7] = [
     spec("log", "Log", "entry", "What happened, newest first.", Place::at(BR, 0.0, 0.0).folded()),
     spec("matrix", "Cues", "list", "Rows × outlets: the row's play fires it, a cell's play launches it by hand.", Place::at(BL, 0.0, 0.0)),
     spec("info", "Info", "info", "What is under the pointer: its name and what it does.", Place::at(BR, 120.0, 0.0).folded()),
+    spec("settings", "Settings", "settings", "Motion & feedback, sound and the UI size: this machine's, remembered.", Place::at(TR, 0.0, 0.0)),
 ];
 
 /// a content height before it was ever drawn: as tall as the room lets it be, the next frame its own
@@ -73,11 +77,13 @@ pub struct Panels {
     /// the panels that said their height this frame; the others draw without an end and are measured
     known: Vec<&'static str>,
     grew: bool,
+    /// the settings panel's content size while it is open (laid out with the workspace's own)
+    pub settings: Option<(f32, f32)>,
 }
 
 impl Panels {
     pub fn new(specs: &[Spec]) -> Panels {
-        Panels { floats: Floats::new(specs), measured: HashMap::new(), known: Vec::new(), grew: false }
+        Panels { floats: Floats::new(specs), measured: HashMap::new(), known: Vec::new(), grew: false, settings: None }
     }
 
     /// the room for panels in a window `size` under a toolbar ending at `top`
@@ -89,6 +95,8 @@ impl Panels {
     /// height it drew last frame); places nothing may cover
     pub fn layout(&mut self, d: &DrawList, t: &Tokens, (size, top): ((f32, f32), f32), fixed: &[Rect], shown: &[(&'static str, f32, Option<f32>)]) {
         let m = Metrics::of(t, d);
+        let extra = self.settings.map(|(w, h)| ("settings", w, Some(h)));
+        let shown: Vec<(&'static str, f32, Option<f32>)> = shown.iter().copied().chain(extra).collect();
         self.known = shown.iter().filter(|(_, _, h)| h.is_some()).map(|(id, ..)| *id).collect();
         let shown: Vec<Shown> = shown.iter().map(|&(id, w, h)| Shown { id, content: (w, h.unwrap_or_else(|| self.measured.get(id).copied().unwrap_or(UNMEASURED))) }).collect();
         self.floats.layout(Self::room(size, top, m.gap), fixed, &shown, m);
@@ -192,12 +200,13 @@ mod tests {
                 let mut p = Panels::new(specs);
                 let shown = typical(name);
                 p.layout(&d, &t, (size, 52.0), &[], &shown);
-                let room = Panels::room(size, 52.0, 16.0);
+                let room = Panels::room(size, 52.0, t.size.gap);
                 let rects: Vec<Rect> = shown.iter().map(|(id, ..)| p.floats.view(id).unwrap().whole).collect();
                 for (i, a) in rects.iter().enumerate() {
                     assert!(a.x >= room.x - 0.01 && a.y >= room.y - 0.01 && a.x + a.w <= room.x + room.w + 0.01 && a.y + a.h <= room.y + room.h + 0.01, "{name} {size:?}: {} inside", shown[i].0);
                     for (j, b) in rects.iter().enumerate().skip(i + 1) {
-                        let apart = a.x + a.w + 15.99 <= b.x || b.x + b.w + 15.99 <= a.x || a.y + a.h + 15.99 <= b.y || b.y + b.h + 15.99 <= a.y;
+                        let g = t.size.gap - 0.01;
+                        let apart = a.x + a.w + g <= b.x || b.x + b.w + g <= a.x || a.y + a.h + g <= b.y || b.y + b.h + g <= a.y;
                         assert!(apart, "{name} {size:?}: {} {a:?} and {} {b:?}", shown[i].0, shown[j].0);
                     }
                 }
@@ -219,7 +228,7 @@ mod tests {
         p.close(&mut d, &t, o, &mut hits);
         p.layout(&d, &t, ((1600.0, 900.0), 52.0), &[], &shown);
         let v = p.floats.view("tree").unwrap();
-        assert_eq!(v.content.h, 121.0, "the rows it drew");
+        assert!((v.content.h - 121.0).abs() < 1e-3, "the rows it drew");
         assert_eq!(v.over, 0.0);
     }
 

@@ -320,8 +320,11 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, pointer: (f3
         let bw = d.advance(font * 1.3) * label.chars().count() as f32 + 2.0 * pad;
         let r = Rect { x: bx, y: y + 4.0, w: bw, h: bh };
         let primary = hit == ComposeHit::Save;
-        let ground = if primary { t.color.accent } else if r.has(pointer.0, pointer.1) { t.color.hover } else { t.color.control };
-        super::perform::button(d, t, r, label, ground, if primary { t.color.surface } else { t.color.text });
+        if primary {
+            controls::primary(d, t, r, label, false);
+        } else {
+            super::perform::button(d, t, r, label, if r.has(pointer.0, pointer.1) { t.color.hover } else { t.color.control }, t.color.text);
+        }
         host.hits.push((r, Hit::Compose(hit)));
         bx += bw + pad * 0.5;
     }
