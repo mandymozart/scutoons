@@ -342,6 +342,8 @@ pub fn line(what: &Logged) -> String {
             format!("vote {vote}: {option} ({how}){event}")
         }
         Logged::VoteNotOpened { row, question, why } => format!("row {row}: question {question} not opened – {why}"),
+        Logged::Panicked => "PANIC – every deck below black and silent".to_string(),
+        Logged::Resumed => "resumed – the decks back to the current cells".to_string(),
     }
 }
 
