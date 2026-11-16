@@ -9,9 +9,6 @@ use crate::base::tokens::Tokens;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-/// a panel's smallest open size before its content scrolls
-const MIN_W: f32 = 160.0;
-const MIN_H: f32 = 48.0;
 /// the wheel's step
 const STEP: f32 = 40.0;
 const EPS: f32 = 0.01;
@@ -84,17 +81,21 @@ pub struct Metrics {
     pub pill: f32,
     /// a character's advance in a pill's name
     pub char_w: f32,
+    /// 1rem: the chrome's icons
+    pub rem: f32,
+    /// a panel's smallest open size before its content scrolls
+    pub min: (f32, f32),
 }
 
 impl Metrics {
     pub fn of(t: &Tokens, d: &DrawList) -> Metrics {
-        let rem = 16.0;
-        Metrics { gap: rem, pad: t.size.pad, head: t.size.row, pill: t.size.row + 4.0, char_w: d.advance(t.size.font) }
+        let s = &t.size;
+        Metrics { gap: s.gap, pad: s.pad, head: s.row, pill: s.row + s.rem(0.29), char_w: d.advance(s.font), rem: s.base, min: (s.panel_w, s.panel_h) }
     }
 
     /// a folded panel's pill: grip, icon, name, chevron
     pub fn pill_size(&self, name: &str) -> (f32, f32) {
-        (self.pad + 12.0 + 4.0 + 16.0 + 6.0 + self.char_w * name.chars().count() as f32 + 6.0 + 14.0 + self.pad, self.pill)
+        (2.0 * self.pad + self.rem * 4.14 + self.char_w * name.chars().count() as f32, self.pill)
     }
 
     /// an open panel's size around a content of `c`
@@ -246,7 +247,7 @@ impl Floats {
     pub fn new(specs: &[Spec]) -> Floats {
         let empty = View { whole: Rect::default(), handle: Rect::default(), fold: Rect::default(), content: Rect::default(), scroll: 0.0, over: 0.0, collapsed: false };
         let panels = specs.iter().map(|s| Panel { spec: *s, place: s.place, scroll: 0.0, shown: false, content: (0.0, 0.0), want: (0.0, 0.0), min: (0.0, 0.0), corner: s.place.corner, anchor: (0.0, 0.0), at: (0.0, 0.0), view: empty }).collect();
-        Floats { panels, area: Rect::default(), fixed: Vec::new(), m: Metrics { gap: 16.0, pad: 8.0, head: 28.0, pill: 32.0, char_w: 7.0 }, drag: None }
+        Floats { panels, area: Rect::default(), fixed: Vec::new(), m: Metrics { gap: 16.0, pad: 8.0, head: 28.0, pill: 32.0, char_w: 7.0, rem: 14.0, min: (160.0, 48.0) }, drag: None }
     }
 
     fn index(&self, id: &str) -> Option<usize> {
@@ -292,7 +293,7 @@ impl Floats {
             } else {
                 let full = m.frame(p.content);
                 p.want = (full.0.max(pill.0).min(area.w), full.1.min(area.h));
-                p.min = (p.want.0.min(MIN_W.max(pill.0)), p.want.1.min(m.head + MIN_H));
+                p.min = (p.want.0.min(m.min.0.max(pill.0)), p.want.1.min(m.head + m.min.1));
             }
             // the one in the hand is held by its top left where the pointer has it
             let held = matches!(self.drag, Some((d, ..)) if d == i);
@@ -350,7 +351,7 @@ impl Floats {
                     Rect { x: whole.x + m.pad, y: whole.y + m.head, w: (w - 2.0 * m.pad).max(0.0), h: (h - m.head - m.pad).max(0.0) },
                 )
             };
-            let over = if collapsed { 0.0 } else { (p.content.1 - content.h).max(0.0) };
+            let over = if collapsed { 0.0 } else { Some(p.content.1 - content.h).filter(|o| *o > EPS).unwrap_or(0.0) };
             p.scroll = p.scroll.clamp(0.0, over);
             p.view = View { whole, handle, fold, content, scroll: p.scroll, over, collapsed };
         }
@@ -499,13 +500,14 @@ pub fn begin(d: &mut DrawList, t: &Tokens, spec: &Spec, v: &View, pointer: (f32,
     let hot = v.handle.has(pointer.0, pointer.1);
     let mid = v.handle.y + v.handle.h * 0.5;
     let x = w.x + t.size.pad;
-    d.icon(x, mid - 6.0, 12.0, "grip", if hot { t.color.text } else { t.color.muted });
-    d.icon(x + 16.0, mid - 8.0, 16.0, spec.icon, t.color.text);
+    let (grip, icon, chevron) = (t.size.rem(0.86), t.size.rem(1.15), t.size.rem(1.0));
+    d.icon(x, mid - grip * 0.5, grip, "grip", if hot { t.color.text } else { t.color.muted });
+    d.icon(x + t.size.rem(1.15), mid - icon * 0.5, icon, spec.icon, t.color.text);
     if v.collapsed {
-        d.text(x + 38.0, mid - t.size.font * 0.62, t.size.font, spec.name, t.color.text);
+        d.text(x + t.size.rem(2.72), mid - t.size.font * 0.62, t.size.font, spec.name, t.color.text);
     }
     let fold_hot = v.fold.has(pointer.0, pointer.1);
-    d.icon(v.fold.x + (v.fold.w - 14.0) * 0.5, mid - 7.0, 14.0, if v.collapsed { "down" } else { "up" }, if fold_hot { t.color.text } else { t.color.muted });
+    d.icon(v.fold.x + (v.fold.w - chevron) * 0.5, mid - chevron * 0.5, chevron, if v.collapsed { "down" } else { "up" }, if fold_hot { t.color.text } else { t.color.muted });
     if !v.collapsed {
         d.clip(Some(v.content));
     }
@@ -528,7 +530,7 @@ pub fn end(d: &mut DrawList, t: &Tokens, v: &View) {
 mod tests {
     use super::*;
 
-    const M: Metrics = Metrics { gap: 16.0, pad: 8.0, head: 28.0, pill: 32.0, char_w: 7.0 };
+    const M: Metrics = Metrics { gap: 16.0, pad: 8.0, head: 28.0, pill: 32.0, char_w: 7.0, rem: 14.0, min: (160.0, 48.0) };
 
     fn area(w: f32, h: f32) -> Rect {
         Rect { x: 16.0, y: 64.0, w: w - 32.0, h: h - 80.0 }

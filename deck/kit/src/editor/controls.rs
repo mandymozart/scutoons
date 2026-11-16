@@ -1,5 +1,6 @@
-//! The controls (#456; the look: the OSCT editor's, on the kit's tokens). A control draws itself into the list and answers
-//! with where it landed; what a press means stays with the caller, the state with its one owner.
+//! The controls, on the kit's tokens. A control draws itself into the list and answers with where it landed; what a press
+//! means stays with the caller, the state with its one owner. The look: a pressed segment in the pressed colours, small
+//! uppercase spaced labels, one primary action per view, an arrow out on what leaves for elsewhere.
 use crate::base::draw::DrawList;
 pub use crate::base::draw::Rect;
 use crate::base::tokens::Tokens;
@@ -23,7 +24,41 @@ pub fn chip(d: &mut DrawList, t: &Tokens, at: (f32, f32), max_x: f32, text: &str
     let x = at.0.min(max_x - w - 8.0).max(8.0);
     let h = px * 1.25 + 10.0;
     d.round_rect(x, at.1, w, h, t.size.radius, if bad { t.color.danger } else { t.color.surface_head });
-    d.text(x + 8.0, at.1 + 5.0, px, text, t.color.text);
+    d.text(x + 8.0, at.1 + 5.0, px, text, if bad { t.color.bright } else { t.color.text });
+}
+
+/// a small uppercase label, letter-spaced; the width it took
+pub fn label(d: &mut DrawList, t: &Tokens, x: f32, y: f32, text: &str, color: [f32; 4]) -> f32 {
+    d.spaced(x, y, t.size.label, &text.to_uppercase(), color, t.size.spacing)
+}
+
+/// how wide `label` draws `text`
+pub fn label_width(d: &DrawList, t: &Tokens, text: &str) -> f32 {
+    d.step(t.size.label, t.size.spacing) * text.chars().count() as f32
+}
+
+/// the arrow of an action that leads elsewhere, in a square of `size`
+pub fn arrow_out(d: &mut DrawList, (x, y): (f32, f32), size: f32, color: [f32; 4]) {
+    let (a, b) = ((x + size * 0.2, y + size * 0.8), (x + size * 0.8, y + size * 0.2));
+    let thick = (size / 9.0).max(1.0);
+    d.segment(a, b, thick, color);
+    d.segment((b.0 - size * 0.45, b.1), b, thick, color);
+    d.segment((b.0, b.1 + size * 0.45), b, thick, color);
+}
+
+/// the view's one primary action: lime, its edge, ink text, an arrow out when it leads elsewhere; its place
+pub fn primary(d: &mut DrawList, t: &Tokens, r: Rect, text: &str, outward: bool) -> Rect {
+    d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, t.color.primary);
+    d.outline(r.x, r.y, r.w, r.h, (t.size.radius, 1.0), t.color.primary_line);
+    let px = t.size.font;
+    let w = d.advance(px) * text.chars().count() as f32;
+    let tx = if outward { r.x + t.size.pad * 1.5 } else { r.x + (r.w - w) * 0.5 };
+    d.text(tx, r.y + (r.h - px * 1.25) * 0.5, px, text, t.color.primary_ink);
+    if outward {
+        let s = px * 0.8;
+        arrow_out(d, (r.x + r.w - t.size.pad * 1.5 - s, r.y + (r.h - s) * 0.5), s, t.color.primary_ink);
+    }
+    r
 }
 
 /// pills side by side, one of them on; their places
@@ -36,7 +71,7 @@ pub fn pills(d: &mut DrawList, t: &Tokens, x: f32, y: f32, h: f32, names: &[&str
         if i == on {
             d.round_rect(cx, y, w, h, t.size.radius, t.color.pressed);
         }
-        d.text(cx + t.size.pad, y + (h - px * 1.25) * 0.5, px, name, if i == on { t.color.text } else { t.color.muted });
+        d.text(cx + t.size.pad, y + (h - px * 1.25) * 0.5, px, name, if i == on { t.color.pressed_text } else { t.color.text });
         out.push(Rect { x: cx, y, w, h });
         cx += w + 2.0;
     }
@@ -110,9 +145,10 @@ pub fn actions(d: &mut DrawList, t: &Tokens, at: (f32, f32), w: f32, lines: &[Ac
             d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, t.color.hover);
         }
         let ink = if line.enabled { t.color.text } else { t.color.muted };
-        d.text(r.x + pad, r.y + (h - px * 1.25) * 0.5, px, &fit(line.label, ((r.w - 3.0 * pad - 14.0) / d.advance(px)).max(0.0) as usize), ink);
+        d.text(r.x + pad, r.y + (h - px * 1.25) * 0.5, px, &fit(line.label, ((r.w - 3.0 * pad - px) / d.advance(px)).max(0.0) as usize), ink);
         if line.external {
-            d.icon(r.x + r.w - pad - 12.0, r.y + (h - 12.0) * 0.5, 12.0, "external", ink);
+            let s = px * 0.8;
+            arrow_out(d, (r.x + r.w - pad - s, r.y + (h - s) * 0.5), s, ink);
         }
         out.push(r);
     }
@@ -130,17 +166,16 @@ pub fn icon_button(d: &mut DrawList, t: &Tokens, at: Rect, name: &'static str, c
 }
 
 /// a small labelled meter of how much of something is in use (0..1); the width it took
-pub fn meter(d: &mut DrawList, t: &Tokens, x: f32, y: f32, label: &str, value: f32) -> f32 {
-    const BAR: f32 = 40.0;
-    let px = t.size.small;
-    let lw = d.text(x, y, px, label, t.color.muted) + 5.0;
+pub fn meter(d: &mut DrawList, t: &Tokens, x: f32, y: f32, name: &str, value: f32) -> f32 {
+    let (bar, thick) = (t.size.rem(2.9), t.size.rem(0.43));
+    let lw = label(d, t, x, y + (t.size.small - t.size.label) * 0.6, name, t.color.muted) + t.size.rem(0.36);
     let v = value.clamp(0.0, 1.0);
-    let by = y + px * 0.35;
-    d.round_rect(x + lw, by, BAR, 6.0, 3.0, t.color.control);
+    let by = y + t.size.small * 0.35;
+    d.round_rect(x + lw, by, bar, thick, thick * 0.5, t.color.within);
     if v > 0.01 {
-        d.round_rect(x + lw, by, (BAR * v).max(6.0), 6.0, 3.0, if v > 0.85 { t.color.danger } else { t.color.muted });
+        d.round_rect(x + lw, by, (bar * v).max(thick), thick, thick * 0.5, if v > 0.85 { t.color.danger } else { t.color.muted });
     }
-    lw + BAR
+    lw + bar
 }
 
 /// a row that shows a value: label left, value in its place; moves `y` on
@@ -179,25 +214,25 @@ pub fn level(d: &mut DrawList, t: &Tokens, r: Rect, position: f32, ok: f32, hot:
 
 /// a fader as a triangle beside its meter, at `fraction` (0..1)
 pub fn fader(d: &mut DrawList, t: &Tokens, r: Rect, fraction: f32, hot: bool) {
-    const SIZE: f32 = 13.0;
+    let size = t.size.rem(0.93);
     let y = r.y + r.h * (1.0 - fraction.clamp(0.0, 1.0));
-    d.icon(r.x - 1.0, y - SIZE * 0.5, SIZE, "left-fill", if hot { t.color.text } else { t.color.muted });
+    d.icon(r.x - 1.0, y - size * 0.5, size, "left-fill", if hot { t.color.text } else { t.color.muted });
 }
 
 /// a small button that is on or off; its place
 pub fn toggle(d: &mut DrawList, t: &Tokens, r: Rect, label: &str, on: bool) -> Rect {
     d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, if on { t.color.danger } else { t.color.control });
     let w = d.advance(t.size.small) * label.chars().count() as f32;
-    d.text(r.x + (r.w - w) * 0.5, r.y + (r.h - t.size.small * 1.25) * 0.5, t.size.small, label, if on { t.color.text } else { t.color.muted });
+    d.text(r.x + (r.w - w) * 0.5, r.y + (r.h - t.size.small * 1.25) * 0.5, t.size.small, label, if on { t.color.bright } else { t.color.muted });
     r
 }
 
 /// a section's head: its label; the height it took
 pub fn section(d: &mut DrawList, t: &Tokens, x: f32, y: f32, w: f32, label: &str, first: bool) -> f32 {
     if !first {
-        d.rect(x, y, w, 1.0, t.color.line);
+        d.rect(x, y, w, t.size.edge, t.color.line);
     }
-    d.text(x, y + 8.0, t.size.small, label, t.color.muted);
+    self::label(d, t, x, y + t.size.pad, label, t.color.muted);
     t.size.row
 }
 
@@ -209,9 +244,10 @@ pub fn scrub(d: &mut DrawList, t: &Tokens, at: Rect, label: &str, value: &str, f
     let field = Rect { x: x + label_w, y: y + 1.0, w: w - label_w, h: row - 3.0 };
     d.text(x, y + (row - font * 1.25) * 0.5, font, label, t.color.muted);
     d.round_rect(field.x, field.y, field.w, field.h, t.size.radius, t.color.control);
+    d.outline(field.x, field.y, field.w, field.h, (t.size.radius, t.size.edge), t.color.line);
     let filled = field.w * fraction.clamp(0.0, 1.0);
     if filled >= 1.0 {
-        d.round_rect(field.x, field.y, filled.max(2.0 * t.size.radius), field.h, t.size.radius, if hot { t.color.selected } else { t.color.pressed });
+        d.round_rect(field.x, field.y, filled.max(2.0 * t.size.radius), field.h, t.size.radius, if hot { t.color.selected } else { t.color.within });
     }
     d.text(field.x + 8.0, y + (row - font * 1.25) * 0.5, font, value, t.color.text);
     field
@@ -229,8 +265,10 @@ pub fn breadcrumb(d: &mut DrawList, t: &Tokens, x: f32, y: f32, path: &[String])
         }
         let w = d.advance(px) * step.chars().count() as f32 + 2.0 * t.size.pad;
         let last = i + 1 == path.len();
-        d.round_rect(cx, y, w, h, t.size.radius, if last { t.color.pressed } else { t.color.surface_head });
-        d.text(cx + t.size.pad, y + (h - px * 1.25) * 0.5, px, step, if last { t.color.text } else { t.color.muted });
+        if last {
+            d.round_rect(cx, y, w, h, t.size.radius, t.color.pressed);
+        }
+        d.text(cx + t.size.pad, y + (h - px * 1.25) * 0.5, px, step, if last { t.color.pressed_text } else { t.color.muted });
         out.push(Rect { x: cx, y, w, h });
         cx += w;
     }
@@ -256,23 +294,23 @@ pub fn tree(d: &mut DrawList, t: &Tokens, x: f32, y: f32, w: f32, rows: &[TreeRo
     for (i, row) in rows.iter().enumerate() {
         let r = Rect { x, y: y + i as f32 * h, w, h };
         if row.selected {
-            d.rect(r.x, r.y, r.w, r.h, t.color.selected);
-            d.rect(r.x, r.y, 2.0, r.h, t.color.text);
+            d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, t.color.pressed);
         } else if r.has(pointer.0, pointer.1) {
             d.rect(r.x, r.y, r.w, r.h, t.color.hover);
         } else if i % 2 == 1 {
             d.rect(r.x, r.y, r.w, r.h, t.color.surface_head);
         }
+        let (ink, quiet) = if row.selected { (t.color.pressed_text, t.color.pressed_text) } else { (t.color.text, t.color.muted) };
         let cx = x + 4.0 + row.depth as f32 * 14.0;
         if let Some(open) = row.open {
-            d.icon(cx, r.y + (h - 12.0) * 0.5, 12.0, if open { "down" } else { "next" }, t.color.muted);
+            d.icon(cx, r.y + (h - 12.0) * 0.5, 12.0, if open { "down" } else { "next" }, quiet);
         }
-        d.icon(cx + 14.0, r.y + (h - 13.0) * 0.5, 13.0, row.icon, t.color.muted);
+        d.icon(cx + 14.0, r.y + (h - 13.0) * 0.5, 13.0, row.icon, quiet);
         let text_y = r.y + (h - px * 1.25) * 0.5;
-        let dw = d.advance(t.size.small) * row.detail.chars().count() as f32;
+        let dw = label_width(d, t, &row.detail);
         let room = x + w - dw - 16.0 - (cx + 32.0);
-        d.text(cx + 32.0, text_y, px, &fit(&row.label, (room / d.advance(px)).max(0.0) as usize), t.color.text);
-        d.text(x + w - dw - 8.0, text_y + 1.0, t.size.small, &row.detail, t.color.muted);
+        d.text(cx + 32.0, text_y, px, &fit(&row.label, (room / d.advance(px)).max(0.0) as usize), ink);
+        label(d, t, x + w - dw - 8.0, r.y + (h - t.size.label * 1.25) * 0.5, &row.detail, quiet);
         out.push(r);
     }
     out
@@ -336,7 +374,7 @@ mod tests {
         let t = Tokens::default();
         let cells = menu(&mut list(), &t, (5.0, 100.0), 120.0, &["tenor", "no role", "lock"], &[true], (0.0, 0.0));
         assert_eq!(cells.len(), 3);
-        assert_eq!(cells[2].y - cells[1].y, t.size.tree_row);
+        assert!((cells[2].y - cells[1].y - t.size.tree_row).abs() < 1e-3);
         assert!(cells[0].has(20.0, 110.0));
     }
 

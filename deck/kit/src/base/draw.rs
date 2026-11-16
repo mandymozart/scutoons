@@ -8,8 +8,8 @@ pub enum Prim {
     Rect { x: f32, y: f32, w: f32, h: f32, r: f32, color: [f32; 4] },
     /// the outline of one, `thick` wide
     Outline { x: f32, y: f32, w: f32, h: f32, r: f32, thick: f32, color: [f32; 4] },
-    /// `start..end` = a byte range of the list's text buffer
-    Text { x: f32, y: f32, px: f32, start: usize, end: usize, color: [f32; 4] },
+    /// `start..end` = a byte range of the list's text buffer; `spacing` = extra room after each letter, in em
+    Text { x: f32, y: f32, px: f32, start: usize, end: usize, color: [f32; 4], spacing: f32 },
     /// an icon by name, in a square of `size`
     Icon { x: f32, y: f32, size: f32, name: &'static str, color: [f32; 4] },
     /// a frame of the animated logo, in a square of `size`
@@ -92,10 +92,20 @@ impl DrawList {
 
     /// `text` from (x, y), its top left, at font size `px`; the width drawn
     pub fn text(&mut self, x: f32, y: f32, px: f32, text: &str, color: [f32; 4]) -> f32 {
+        self.spaced(x, y, px, text, color, 0.0)
+    }
+
+    /// `text` with `spacing` em of extra room after each letter; the width drawn
+    pub fn spaced(&mut self, x: f32, y: f32, px: f32, text: &str, color: [f32; 4], spacing: f32) -> f32 {
         let start = self.text.len();
         self.text.push_str(text);
-        self.prims.push(Prim::Text { x, y, px, start, end: self.text.len(), color });
-        self.advance(px) * text.chars().count() as f32
+        self.prims.push(Prim::Text { x, y, px, start, end: self.text.len(), color, spacing });
+        self.step(px, spacing) * text.chars().count() as f32
+    }
+
+    /// a letter's step at font size `px` with `spacing` em between letters
+    pub fn step(&self, px: f32, spacing: f32) -> f32 {
+        self.advance(px) + spacing * px
     }
 
     pub fn icon(&mut self, x: f32, y: f32, size: f32, name: &'static str, color: [f32; 4]) {
@@ -112,7 +122,7 @@ impl DrawList {
         for p in self.prims.get(from..).unwrap_or_default() {
             let r = match *p {
                 Prim::Rect { x, y, w, h, .. } | Prim::Outline { x, y, w, h, .. } => (x, y, x + w, y + h),
-                Prim::Text { x, y, px, start, end, .. } => (x, y, x + self.advance(px) * self.text[start..end].chars().count() as f32, y + px * 1.25),
+                Prim::Text { x, y, px, start, end, spacing, .. } => (x, y, x + self.step(px, spacing) * self.text[start..end].chars().count() as f32, y + px * 1.25),
                 Prim::Icon { x, y, size, .. } | Prim::Logo { x, y, size, .. } => (x, y, x + size, y + size),
                 Prim::Segment { a, b, .. } => (a.0.min(b.0), a.1.min(b.1), a.0.max(b.0), a.1.max(b.1)),
                 Prim::Clip(_) => continue,
