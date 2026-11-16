@@ -5,12 +5,14 @@
 //! atlas of its own) is gone: the editor and the decks draw their UI through the same base.
 use anyhow::Result;
 use deck_kit::base::draw::DrawList;
+use deck_kit::base::fonts::{Faces, Widths};
 use deck_kit::base::screen::{Layer, Pictures, Screen, Face};
 use deck_kit::egui::epaint::{ClippedPrimitive, Color32, Mesh, Primitive, TextureId};
 use deck_kit::egui::{pos2, Rect};
 use egui_wgpu::{Renderer, RendererOptions, ScreenDescriptor};
 use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
+use std::sync::Arc;
 
 /// an icon's side in the pictures (pixels)
 const ICON: u32 = 36;
@@ -67,6 +69,8 @@ pub struct Ui {
     /// what the kit draws this frame, and the list that takes turns with it
     list: DrawList,
     spare: Option<DrawList>,
+    /// what the lists lay text out with: the faces the screen sets
+    widths: Arc<Widths>,
     /// what egui made last
     jobs: Vec<ClippedPrimitive>,
     free: Vec<TextureId>,
@@ -74,8 +78,11 @@ pub struct Ui {
 
 impl Ui {
     pub fn new(device: &wgpu::Device, _queue: &wgpu::Queue, format: wgpu::TextureFormat, _font_px: f32) -> Result<Ui> {
-        // #485 slice 3: the editor keeps egui's text (the decks set the face on the kit's own atlas)
-        let mut screen = Screen::with_egui_text(deck_outlet::text::mono_ttf(), 1);
+        // the editor keeps egui's text (the decks set the face on the kit's own atlas); ABC Areal when installed
+        let faces = Faces::installed(deck_outlet::text::mono_ttf());
+        tracing::info!(from_folder = ?faces.from_folder, folder = ?deck_kit::base::fonts::folder(), "fonts");
+        let widths = Arc::new(faces.widths());
+        let mut screen = Screen::with_egui_text(faces, 1);
         screen.set_pictures(pictures());
         Ok(Ui {
             screen,
@@ -83,8 +90,9 @@ impl Ui {
             renderer: Renderer::new(device, format, RendererOptions { msaa_samples: 1, depth_stencil_format: None, dithering: false, predictable_texture_filtering: false }),
             stage_id: None,
             stage_rect: None,
-            list: DrawList::new(deck_outlet::text::mono_per_px()),
+            list: DrawList::with_widths(widths.clone()),
             spare: None,
+            widths,
             jobs: Vec::new(),
             free: Vec::new(),
         })
@@ -114,7 +122,7 @@ impl Ui {
         let size = view.texture().size();
         let scale = (size.width as f32 / logical.0.max(1.0)).max(f32::MIN_POSITIVE);
         // the list goes to the screen and comes back after the frame (two lists take turns: their memory is kept)
-        let spare = self.spare.take().unwrap_or_else(|| DrawList::new(deck_outlet::text::mono_per_px()));
+        let spare = self.spare.take().unwrap_or_else(|| DrawList::with_widths(self.widths.clone()));
         let list = std::mem::replace(&mut self.list, spare);
         self.screen.set(0, Some(Layer { list, scale, grid: scale, face: Face::Mono }));
         let painted = self.screen.frame((size.width, size.height));

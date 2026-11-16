@@ -10,7 +10,7 @@ bundles the CSS and emits the font files.
 |---|---|
 | `@scutoons/tokens` / `@scutoons/tokens/index.css` | everything below, in this order (tools.css last) |
 | `@scutoons/tokens/tokens.css` | `:root` custom properties |
-| `@scutoons/tokens/fonts.css` | `@font-face`: IBM Plex Mono 400/700 (+ italic 400/700), Bangers 400 (SIL OFL 1.1, `fonts/*-OFL.txt`) |
+| `@scutoons/tokens/fonts.css` | `@font-face`: IBM Plex Mono 400/700 (+ italic 400/700), Bangers 400 (SIL OFL 1.1, `fonts/*-OFL.txt`); ABC Areal 400/500/700 and ABC Areal Mono 400/700 from `https://cdn.scutoons.com/fonts/abc-areal/` (licensed to the owner: never a file in this repository) |
 | `@scutoons/tokens/base.css` | `html` / `body` / headings / `p`, fluid root font size (14px < 480px, 16px, 24px ≥ 768px); form controls (`button`, `input`, `select`, `textarea`) `font: inherit` and `code`/`kbd`/`samp`/`pre` in `--font-mono`, both with `:where()` (specificity 0) |
 | `@scutoons/tokens/tools.css` | the brutalist tool base (DESIGN.md "Brutalist tools"), **opt-in** with the class `sc-tool` on an app root (creator, admin, embassy): `:where()` element rules (specificity 0) for headings, links, fields (2px ink, `--control-height`), buttons (shape/size), focus (3px ink outline), fieldset/legend, details/summary, tables; utility classes `sc-label`, `sc-heading`, `sc-caption`, `sc-chip` (filled: `is-published|draft|soon|error|warning|info`, neutral default), `sc-frame`, `sc-nav-head`, `sc-nav-item`, `sc-selected` (inverted; the live look inside `[data-sc-region][data-live]`). Inert without `sc-tool` (reader, shop) |
 | `@scutoons/tokens/vectors.css` | the vector library (`vectors/`, its README): `--vector-<slug>: url(…)` per shape, for CSS masks; written by `npm run vectors:pull` |
@@ -28,7 +28,7 @@ Tokens (see `tokens.css` for values and usage notes):
 - Spacing: `--space-025` · `--space-05` · `--space-075` · `--space-1` · `--space-15` · `--space-3`.
 - Radius: `--radius-none` (default, brand signature) · `--radius-sm` · `--radius-full`.
 - Borders: `--border-width-hairline` (1px) · `--border-width-regular` (2px). Borders over shadows, no elevation.
-- Type: `--font-mono`, `--font-lettering`, `--font-weight-regular|bold`, `--type-{body,button,label,caption,nav-micro}-{size,line}`,
+- Type: `--font-mono` (ABC Areal Mono, IBM Plex Mono when it cannot load), `--font-sans` (ABC Areal, the same fallback), `--font-lettering`, `--font-weight-regular|bold`, `--type-{body,button,label,caption,nav-micro}-{size,line}`,
   `--root-size-small|root-size|root-size-large`.
 - Motion: `--duration-fast|base|slow` (0.1–0.3s), `--easing`.
 - Tools: `--tracking-label` (regular caps 0.08em) + `--tracking-label-bold` (0.12em), `--type-title-size|line` (the tool page title, 1.5rem), `--control-height` (2rem + the frame; rem only),
