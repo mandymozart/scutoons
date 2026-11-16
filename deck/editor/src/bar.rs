@@ -70,6 +70,8 @@ pub struct Placed {
     /// the place kept for the workspace's own pill
     pub slot: Rect,
     pub day: Rect,
+    /// the panic pill, in every workspace
+    pub panic: Rect,
 }
 
 /// a pill's ground
@@ -121,7 +123,9 @@ pub fn draw(d: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Placed {
     let sign_w = (adv * b.sign_in.chars().count() as f32).min(160.0);
     let meters = 200.0;
     let lead = if b.play.is_some() { h + pad } else { 2.0 * pad };
-    let tempo_w = lead + adv * 21.0 + pad;
+    let clock_w = lead + adv * 21.0 + pad;
+    let panic_w = adv * 5.0 + 4.0 * pad;
+    let tempo_w = clock_w + gap * 0.5 + panic_w;
     let right_of = |wide: bool| 2.0 * pad + if b.sign_in.is_empty() { 0.0 } else { sign_w + pad } + if wide { meters + pad } else { 0.0 } + h + pad + version_w;
     // the load meters only where the path keeps room of its own beside them
     let wide = row(width, gap * 0.5, ws.x + ws.w, tempo_w, b.slot, right_of(false)).path_w > meters + 240.0;
@@ -141,7 +145,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Placed {
         d.text(end + pad, mid - small * 0.62, small, &controls::fit(b.status, room), t.color.muted);
     }
     // the tempo: the play button, the clock (its content is still to come)
-    let tempo = Rect { x: r.tempo_x, y, w: tempo_w, h };
+    let tempo = Rect { x: r.tempo_x, y, w: clock_w, h };
     pill(d, t, tempo);
     if let Some(wire) = b.play {
         let at = Rect { x: tempo.x + 2.0, y, w: h, h };
@@ -152,6 +156,12 @@ pub fn draw(d: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Placed {
         None => "– BPM".to_string(),
     };
     d.text(tempo.x + lead, text_y, px, &controls::fit(&clock, 21), t.color.text);
+    // the panic: red, always there, beside the tempo
+    let panic = Rect { x: tempo.x + clock_w + gap * 0.5, y, w: panic_w, h };
+    let hot = panic.has(b.pointer.0, b.pointer.1);
+    d.round_rect(panic.x, panic.y, panic.w, panic.h, h * 0.5, if hot { t.color.stop } else { t.color.danger });
+    d.text(panic.x + (panic.w - adv * 5.0) * 0.5, text_y, px, "PANIC", t.color.text);
+    out.panic = panic;
     out.slot = Rect { x: r.slot_x, y, w: b.slot, h };
     // the right pill
     let right = Rect { x: r.right_x, y, w: right_w, h };

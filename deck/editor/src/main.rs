@@ -272,6 +272,8 @@ enum Hit {
     Ground,
     /// the main menu's hamburger (its lines: `menu_lines`)
     Menu,
+    /// the toolbar's panic pill
+    Panic,
     Tab(Tab),
     Knob(usize),
     Field(f32),
@@ -746,6 +748,7 @@ impl App {
         }
         Some(match self.hit(x, y) {
             Hit::Menu => Help::new("Menu", "Open, publish, the audio and the account; back to the deck's stage."),
+            Hit::Panic => Help::new("Panic", "Black and silence on every deck below this conductor. Not wired yet: it does nothing for now."),
             Hit::Ground => return None,
             Hit::Workspace(_) => Help::new("Workspaces", "Build: rigs and scenes. Module: a module's code in your editor, built here, heard on the stage, saved as a draft. Show: rows, cells, seats, saved through /api/shows. Perform: the matrix, GO, the log."),
             Hit::Port(i) => {
@@ -963,7 +966,7 @@ impl App {
                 self.workspace = w;
             }
             Hit::Menu => self.main_menu = true,
-            Hit::Ground => {}
+            Hit::Ground | Hit::Panic => {}
             Hit::Crumb(i) if self.workspace != show::Workspace::Build => self.show.press(show::Hit::Crumb(i)),
             Hit::Routing(f) => routing::act(&mut self.routing, &mut self.stage, f),
             Hit::Tab(t) => {
@@ -2017,6 +2020,7 @@ impl App {
         };
         let placed = bar::draw(ui, t, wf, &spec);
         self.panel.hits.push((placed.menu, Hit::Menu));
+        self.panel.hits.push((placed.panic, Hit::Panic));
         for (r, (w, _)) in placed.workspaces.iter().zip(show::WORKSPACES) {
             self.panel.hits.push((*r, Hit::Workspace(w)));
         }
