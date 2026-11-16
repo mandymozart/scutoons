@@ -50,6 +50,12 @@ pub const ICONS: &[(&str, &str)] = &[
     ("users", r#"<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>"#),
     ("alert", r#"<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line>"#),
     ("external", r#"<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line>"#),
+    ("pointer", r#"<path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"></path><path d="M13 13l6 6"></path>"#),
+    ("maximize", r#"<path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>"#),
+    ("square", r#"<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>"#),
+    ("tool", r#"<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>"#),
+    // the reader's account icon (viewer/src/lib/icons/account.svg), its 100 × 100 drawing scaled into the 24 × 24 box
+    ("account", r##"<g fill="#fff" stroke="none" transform="translate(-3.3 -3.8) scale(0.31)"><path d="M49.7,68.3c-3.9,0-6.1,3.2-6.2,3.3L43,72.3l0.5,0.7c0.1,0.1,2.3,3.3,6.2,3.3c4,0,6.2-3.1,6.2-3.3l0.5-0.7l-0.5-0.7C55.8,71.5,53.6,68.3,49.7,68.3z M49.7,73.8c-1.6,0-2.8-0.9-3.5-1.5c0.7-0.6,1.9-1.5,3.5-1.5c1.6,0,2.8,0.9,3.5,1.5C52.5,72.9,51.3,73.8,49.7,73.8z"/><path d="M45,58.5c0-1.2-0.9-2.2-2.2-2.2c-1.2,0-2.2,1-2.2,2.2s1,2.2,2.2,2.2S45,59.7,45,58.5z"/><path d="M56.6,56.3c-1.2,0-2.2,1-2.2,2.2s1,2.2,2.2,2.2c1.2,0,2.2-1,2.2-2.2S57.8,56.3,56.6,56.3z"/><path d="M85.1,33.7c0-4.3-3.5-7.8-7.8-7.8c-2,0-3.8,0.8-5.2,2c-5.6-5.9-13.6-9.5-22.3-9.5C41,18.4,33,22,27.4,27.9c-1.4-1.2-3.2-2-5.2-2c-4.3,0-7.8,3.5-7.8,7.8c0,3.5,2.3,6.5,5.5,7.5c-0.7,2.6-1.1,5.3-1.1,8.2c0,3.7,0.7,7.3,1.9,10.6c-0.1-0.5-0.2-0.9-0.2-1.4C22.8,72.7,35,83.5,49.7,83.5c16.3,0,29.6-13.3,29.6-29.6c0-0.2,0-0.4,0-0.6h0.1c0,0.5,0,1,0,1.5c0,1.8-0.2,3.5-0.5,5.2c1.2-3.3,1.9-6.9,1.9-10.6c0-2.8-0.4-5.6-1.1-8.2C82.8,40.2,85.1,37.3,85.1,33.7z M49.7,81c-15,0-27.1-12.2-27.1-27.1c0-0.2,0-0.4,0-0.6h0.1h54.1c0,0.2,0,0.4,0,0.6C76.8,68.8,64.7,81,49.7,81z"/></g>"##),
     // a panel's drag handle: two columns of dots
     ("grip", r##"<circle fill="#fff" cx="9" cy="5" r="1.6"></circle><circle fill="#fff" cx="15" cy="5" r="1.6"></circle><circle fill="#fff" cx="9" cy="12" r="1.6"></circle><circle fill="#fff" cx="15" cy="12" r="1.6"></circle><circle fill="#fff" cx="9" cy="19" r="1.6"></circle><circle fill="#fff" cx="15" cy="19" r="1.6"></circle>"##),
     // filled, for the one button that starts and stops (owner 2026-11-09: "a play icon and a stop icon like in unreal")
@@ -71,7 +77,7 @@ mod tests {
 
     #[test]
     fn the_ones_the_editor_uses_are_there() {
-        for name in ["up", "down", "next", "close", "play-fill", "stop-fill", "grip", "menu", "info"] {
+        for name in ["up", "down", "next", "close", "play-fill", "stop-fill", "grip", "menu", "info", "account", "tool", "pointer", "maximize", "square"] {
             assert!(has(name), "{name}");
         }
     }

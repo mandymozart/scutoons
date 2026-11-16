@@ -23,6 +23,14 @@ struct Inner {
     refused: bool,
 }
 
+/// the toolbar's account icon: animated, ink, red
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Signed {
+    Signing,
+    In,
+    Out,
+}
+
 /// The editor's sign-in, shared by everything that asks the API.
 #[derive(Clone, Default)]
 pub struct Auth(Arc<Mutex<Inner>>);
@@ -95,6 +103,26 @@ impl Auth {
         let mut i = self.0.lock().unwrap();
         if i.fixed.is_none() {
             (i.token, i.refused) = (None, true);
+        }
+    }
+
+    /// where the sign-in stands: a code waiting for approval counts as signed out, the member has to act
+    pub fn state(&self) -> Signed {
+        if self.token().is_some() {
+            return Signed::In;
+        }
+        match &self.0.lock().unwrap().shown {
+            None => Signed::Signing,
+            Some(_) => Signed::Out,
+        }
+    }
+
+    /// the name the account page gave this editor, once signed in by the handshake
+    pub fn name(&self) -> Option<String> {
+        self.token()?;
+        match &self.0.lock().unwrap().shown {
+            Some(Shown::Ready { name }) => Some(name.clone()),
+            _ => None,
         }
     }
 
@@ -193,5 +221,18 @@ mod tests {
         assert_eq!(auth.token().as_deref(), Some("sce_a"), "offline: the fresh token stays");
         auth.refused();
         assert_eq!((auth.token(), auth.line("x").as_str()), (None, "signed out – timed out"));
+    }
+
+    #[test]
+    fn the_account_icon_signs_in_goes_red_and_is_ink_once_in() {
+        let auth = Auth::default();
+        assert_eq!(auth.state(), Signed::Signing, "no answer yet: animated");
+        auth.set(Shown::Pending { code: "K7Q42M".into() }, None);
+        assert_eq!(auth.state(), Signed::Out, "a code to approve: red");
+        auth.set(Shown::Ready { name: "studio".into() }, Some("sce_a".into()));
+        assert_eq!((auth.state(), auth.name().as_deref()), (Signed::In, Some("studio")));
+        auth.refused();
+        assert_eq!((auth.state(), auth.name()), (Signed::Out, None), "refused: red");
+        assert_eq!(Auth::fixed(Some("sct_x".into())).state(), Signed::In);
     }
 }
