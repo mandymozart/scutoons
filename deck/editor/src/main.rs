@@ -32,6 +32,7 @@ mod scene_parts;
 mod settings;
 mod show;
 mod sign_in;
+mod tools;
 mod toon;
 mod wires;
 
@@ -124,10 +125,12 @@ struct Args {
     settings: bool,
     /// a check run's panic pill, pressed at the start
     panic: bool,
+    /// a check run's tools pill folded at the start
+    tools_folded: bool,
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false };
+    let mut a = Args { module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, tools_folded: false };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -140,6 +143,7 @@ fn args() -> Result<Args> {
             "--wire" => a.wire = true,
             "--fullscreen" => a.fullscreen = true,
             "--panic" => a.panic = true,
+            "--tools-folded" => a.tools_folded = true,
             "--view" => a.view = Some(val()?.parse()?),
             "--select" => a.select = Some(val()?),
             "--pull" => {
@@ -289,6 +293,10 @@ enum Hit {
     Panic,
     /// the toolbar's day / night switch
     Look,
+    /// the toolbar's tempo pill, its account icon, its meters
+    Tempo,
+    Account,
+    Meters,
     Tab(Tab),
     Knob(usize),
     Field(f32),
@@ -514,6 +522,8 @@ struct App {
     last_row: Option<(deck_space::scene_edit::Part, Instant)>,
     /// Build's grid & snap (grid.rs)
     grid: grid::GridSnap,
+    /// the tools pill (tools.rs)
+    tools: tools::Tools,
 }
 
 /// the language of the book's labels: the editor's own words are English (not translated yet)
@@ -585,6 +595,11 @@ fn run() -> Result<i32> {
     if args.audio {
         build.floats.set_collapsed("audio", false);
     }
+    if args.tools_folded {
+        for p in [&mut build.floats, &mut app_module.panels.floats, &mut app_show.show_panels.floats, &mut app_show.perform_panels.floats] {
+            p.set_collapsed("tools", true);
+        }
+    }
     let mut app = App {
         panel: Panel { tab: args.tab, field: text::Field::with("Grüße an die Bühne – type here"), drag: None, hits: Vec::new(), field_rect: Rect { x: 0.0, y: 0.0, w: 0.0, h: 0.0 }, advance: 8.0 },
         args,
@@ -644,6 +659,7 @@ fn run() -> Result<i32> {
         scene: None,
         last_row: None,
         grid: grid::GridSnap::load(app_grid_file),
+        tools: tools::Tools::default(),
     };
     event_loop.run_app(&mut app).context("the event loop")?;
     let summary = app.summary();
@@ -739,6 +755,28 @@ impl App {
         }
     }
 
+    /// the frames a second over the last half second or so
+    fn fps(&self) -> f32 {
+        let recent = &self.frame_ms[self.frame_ms.len().saturating_sub(30)..];
+        let mean = if recent.is_empty() { 16.7 } else { recent.iter().sum::<f32>() / recent.len() as f32 };
+        1000.0 / mean.max(0.1)
+    }
+
+    /// a press on the tools pill, or an option its menu or a key picked
+    fn tool_press(&mut self, p: tools::Press) {
+        let (x, y) = self.cursor;
+        if let Some(why) = tools::later(p) {
+            return self.say(why.to_string(), x, y, false);
+        }
+        match p {
+            tools::Press::Tool(tool) => self.tools.tool = tool,
+            tools::Press::View(two_d) => self.show.press(show::Hit::View(two_d)),
+            tools::Press::Grid => self.grid.toggle(),
+            tools::Press::Frame => self.stage.space.frame_being(),
+            tools::Press::Look(_) | tools::Press::Menu(_) => {}
+        }
+    }
+
     /// a main menu line pressed
     fn menu_act(&mut self, a: bar::Action) {
         use bar::Action as A;
@@ -805,6 +843,9 @@ impl App {
             };
             return Some(Help::new(spec.name, format!("{} {how}", spec.about)));
         }
+        if let Some((name, text)) = self.tools.help_at(x, y) {
+            return Some(Help::new(name, text));
+        }
         if self.main_menu {
             if let Some((_, a)) = self.menu_lines.iter().find(|(r, _)| r.has(x, y)) {
                 let label = bar::MENU.iter().find(|(m, ..)| m == a).map_or("", |(_, l, _)| *l);
@@ -813,6 +854,21 @@ impl App {
         }
         Some(match self.hit(x, y) {
             Hit::Menu => Help::new("Menu", "Open, publish, day or night, the settings, the audio and the account; back to the deck's stage."),
+            Hit::Tempo => Help::new(format!("{} BPM", self.stage.beat.map_or_else(|| "–".to_string(), |(b, _)| format!("{b:.1}"))), match self.stage.beat {
+                Some((_, true)) => "INT: the deck's own tempo clock runs; it sets the tempo of what plays here.",
+                Some((_, false)) => "INT: the deck's own tempo clock, standing.",
+                None => "No tempo clock plays here.",
+            }),
+            Hit::Account => {
+                let line = self.auth.line(&deck_link::pairing::app_url());
+                match (self.auth.state(), self.auth.name()) {
+                    (sign_in::Signed::In, Some(name)) => Help::new("Signed in", format!("As the editor {name:?}: it reads and saves drafts; publishing is in the creator.")),
+                    (sign_in::Signed::In, None) => Help::new("Signed in", "With a token of its own: it reads and saves drafts; publishing is in the creator."),
+                    (sign_in::Signed::Signing, _) => Help::new("Signing in", "Asking the server for this editor's code …"),
+                    (sign_in::Signed::Out, _) => Help::new("Not signed in", format!("{line}. Click to see it again.")),
+                }
+            }
+            Hit::Meters => Help::new("Load", bar::meters_words(self.cpu_load, self.gpu_time.as_ref().map(|_| self.gpu_load), self.stage.khz().map(|k| k as f32), self.fps())),
             Hit::Look => Help::new("Day / night", "Click to switch between the light and the dark look; ctrl + and ctrl − change the UI size, ctrl 0 sets it back."),
             Hit::Panic if self.show.sub.panicked() => Help::new("Resume", "The panic holds. Press to bring every deck back to the cells the show holds now."),
             Hit::Panic => Help::new("Panic", "Black and silence on every deck below this conductor and on this stage, until you resume here. Shift+Esc too."),
@@ -832,8 +888,8 @@ impl App {
             Hit::Crumb(0) => Help::new("rig", "Back to the rig, every track one body."),
             Hit::Row(_) => Help::new("Tree", "The rig, its tracks and their nodes. In Wire a click goes to that level."),
             Hit::Crumb(d) => Help::new(self.stage.path.get(d - 1)?.clone(), "Back to this level. Esc or shift+tab goes one level up."),
-            Hit::Mode(false) => Help::new("Play", "Play it as a deck shows it: every node, knobs turn on the stage. W does the same."),
-            Hit::Mode(true) => Help::new("Stop", "Back to the wiring: the body holds still, the ports show, one level of the tree at a time. W does the same."),
+            Hit::Mode(false) => Help::new("Play", "Play it as a deck shows it: every node, knobs turn on the stage."),
+            Hit::Mode(true) => Help::new("Stop", "Back to the wiring: the body holds still, the ports show, one level of the tree at a time."),
             Hit::Axis(Some(a)) => Help::new(format!("{}{}", if a < 3 { "+" } else { "-" }, ["X", "Y", "Z"][a % 3]), "Click to look along this axis, drag to orbit."),
             Hit::Axis(None) => Help::new("View", "Drag to orbit, click an axis to look along it."),
             Hit::Stage if self.wire => Help::new("Stage", "Left drag orbits, middle or right drag pans, the wheel zooms, F frames. Right click finds any port."),
@@ -924,7 +980,8 @@ impl App {
             return;
         }
         match self.panel.drag {
-            Some(Drag::Member) => self.grid_drag(x, y),
+            Some(Drag::Member) if self.tools.tool == tools::Tool::Move => self.grid_drag(x, y),
+            Some(Drag::Member) => {}
             Some(Drag::Knob(i, _, _)) => self.knob_at(i, x),
             Some(Drag::SceneKnob(i, x0, v0)) => self.scene_knob_to(i, x0, v0, x),
             Some(Drag::Param(node, port, x0, f0)) => {
@@ -1012,6 +1069,9 @@ impl App {
             let p = settings::at(&r, p, x);
             return self.change_settings(|s| s.press(p));
         }
+        if let Some(p) = self.tools.press(x, y) {
+            return self.tool_press(p);
+        }
         if self.workspace == show::Workspace::Module {
             if let Some(h) = self.module.hit(x, y) {
                 return self.module.press(h, x, &self.stage);
@@ -1044,6 +1104,16 @@ impl App {
             Hit::Menu => self.main_menu = true,
             Hit::Look => self.look(self.tokens.look.theme.other(), 0),
             Hit::Panic => self.panic_pill(),
+            Hit::Account => {
+                let line = self.auth.line(&deck_link::pairing::app_url());
+                let said = match self.auth.name() {
+                    Some(name) => format!("signed in as the editor {name:?}"),
+                    None if line.is_empty() => "signed in".to_string(),
+                    None => line,
+                };
+                self.say(said, x, y, self.auth.state() == sign_in::Signed::Out);
+            }
+            Hit::Tempo | Hit::Meters => {}
             Hit::Ground => {}
             Hit::Crumb(i) if self.workspace != show::Workspace::Build => self.show.press(show::Hit::Crumb(i)),
             Hit::Routing(f) => routing::act(&mut self.routing, &mut self.stage, f),
@@ -2020,7 +2090,8 @@ impl App {
         self.show.help.clone_from(&help);
         let enabled: Vec<(bar::Action, bool)> = bar::MENU.iter().map(|(a, ..)| (*a, self.menu_why_not(*a).is_none())).collect();
         let grab = self.panels().floats.dragging() || matches!(self.panels().floats.chrome_at(self.cursor.0, self.cursor.1), Some((_, deck_kit::editor::floats::Chrome::Handle)));
-        let sign_in = self.auth.line(&deck_link::pairing::app_url());
+        let account = self.auth.state();
+        let fps = self.fps();
         let (Some(window), Some(gpu), Some(ui)) = (self.window.clone(), self.gpu.as_mut(), self.ui.as_mut()) else { return };
         self.stage.space.being.hold(self.wire, false);
         // Wire shows a level of the tree, Play every node
@@ -2074,8 +2145,9 @@ impl App {
         let (stage_x, top, stage_w, stage_h) = (0.0, 0.0, wf, hf);
         let bar_bottom = bar::bottom(t);
         let open = self.settings_open.then(|| (t.size.rem(22.0), settings::height(t)));
-        for p in [&mut self.build, &mut self.module.panels, &mut self.show.show_panels, &mut self.show.perform_panels] {
+        for (p, ws) in [(&mut self.build, show::Workspace::Build), (&mut self.module.panels, show::Workspace::Module), (&mut self.show.show_panels, show::Workspace::Show), (&mut self.show.perform_panels, show::Workspace::Perform)] {
             p.settings = open;
+            p.tools = Some(tools::size(t, ws));
         }
         let work_start = Instant::now();
         let mut enc = gpu.device.create_command_encoder(&Default::default());
@@ -2099,23 +2171,20 @@ impl App {
         // file first: the pill cuts from the end)
         let build = self.workspace == show::Workspace::Build;
         let (path, status) = if build {
-            let recent = &self.frame_ms[self.frame_ms.len().saturating_sub(30)..];
-            let mean = if recent.is_empty() { 16.7 } else { recent.iter().sum::<f32>() / recent.len() as f32 };
             let glitches = self.stage.glitches();
             let status = format!(
-                "{}{:.0} fps{}{}",
+                "{}{}",
                 self.tokens.problem.as_ref().map(|p| format!("{p} – ")).unwrap_or_default(),
-                1000.0 / mean.max(0.1),
-                self.stage.khz().map(|k| format!(" · {k:.0} kHz")).unwrap_or_default(),
-                if glitches > 0 { format!(" · {glitches} glitches") } else { String::new() },
+                if glitches > 0 { format!("{glitches} glitches") } else { String::new() },
             );
-            let status = if self.undo.is_empty() { status } else { format!("{} change{} · {status}", self.undo.len(), if self.undo.len() == 1 { "" } else { "s" }) };
+            let status = if self.undo.is_empty() { status } else { format!("{} change{}{}{status}", self.undo.len(), if self.undo.len() == 1 { "" } else { "s" }, if status.is_empty() { "" } else { " · " }) };
             let open = self.scene.as_ref().map_or_else(|| self.stage.bundle.rig.subject.clone(), |v| v.crumb());
             let path: Vec<String> = std::iter::once(open).chain(self.stage.path.iter().cloned()).collect();
+            let join = |a: String| if status.is_empty() { a } else { format!("{a} · {status}") };
             let status = match (self.show.build_line(), &self.scene) {
-                (Some(l), _) => format!("{l} · {status}"),
-                (None, Some(v)) => format!("{} · {status}", v.title()),
-                (None, None) => status,
+                (Some(l), _) => join(l),
+                (None, Some(v)) => join(v.title()),
+                (None, None) => status.clone(),
             };
             (path, status)
         } else if self.workspace == show::Workspace::Module {
@@ -2129,7 +2198,9 @@ impl App {
         let names = show::WORKSPACES.map(|(_, n)| n);
         // reduce motion stills the animated logo
         let logo_frame = if self.settings.motion.allows(true) { ((self.started.elapsed().as_secs_f32() / logo::SECONDS).fract() * logo::FRAMES as f32) as usize } else { 0 };
-        let slot = if build { t.size.top } else if self.workspace == show::Workspace::Module { 0.0 } else { show::author::view_width(ui, t, &self.show, self.workspace) };
+        let slot = if matches!(self.workspace, show::Workspace::Build | show::Workspace::Module) { 0.0 } else { show::author::view_width(ui, t, &self.show, self.workspace) };
+        // the signing-in icon breathes, unless motion is reduced
+        let pulse = if self.settings.motion.allows(true) { 0.5 + 0.5 * (self.started.elapsed().as_secs_f32() * std::f32::consts::TAU / 1.6).cos() } else { 1.0 };
         let spec = bar::Bar {
             workspaces: &names,
             workspace: self.workspace.index(),
@@ -2137,11 +2208,15 @@ impl App {
             status: &status,
             play: build.then_some(self.wire),
             beat: self.stage.beat,
-            sign_in: &sign_in,
+            clock: bar::Clock::Int,
+            account,
+            pulse,
             logo_frame,
             pointer: self.cursor,
             cpu: self.cpu_load,
             gpu: self.gpu_time.as_ref().map(|_| self.gpu_load),
+            khz: self.stage.khz().map(|k| k as f32),
+            fps,
             slot,
             night: self.tokens.look.theme == tokens::Theme::Night,
             panicked: self.show.sub.panicked(),
@@ -2150,6 +2225,11 @@ impl App {
         self.panel.hits.push((placed.menu, Hit::Menu));
         self.panel.hits.push((placed.panic, Hit::Panic));
         self.panel.hits.push((placed.day, Hit::Look));
+        self.panel.hits.push((placed.account, Hit::Account));
+        self.panel.hits.push((placed.tempo, Hit::Tempo));
+        if let Some(r) = placed.meters {
+            self.panel.hits.push((r, Hit::Meters));
+        }
         for (r, (w, _)) in placed.workspaces.iter().zip(show::WORKSPACES) {
             self.panel.hits.push((*r, Hit::Workspace(w)));
         }
@@ -2357,13 +2437,6 @@ impl App {
                 self.panel.hits.push((Rect { x: x - 9.0, y: y - 9.0, w: 18.0, h: 18.0 }, Hit::Axis(Some(a))));
             }
             self.panel.hits.push((Rect { x: gx - R - 12.0, y: gy - R - 12.0, w: 2.0 * (R + 12.0), h: 2.0 * (R + 12.0) }, Hit::Axis(None)));
-        }
-        // the grid's pill in the toolbar's place for it
-        {
-            let r = placed.slot;
-            ui.round_rect(r.x, r.y, r.w, r.h, r.h * 0.5, t.color.surface);
-            ui.outline(r.x, r.y, r.w, r.h, (r.h * 0.5, 1.0), t.color.line);
-            self.grid.pill(ui, t, r, self.cursor);
         }
         // the rig's tree: the rig, its tracks, the nodes of the one entered
         if let Some(o) = self.build.open(ui, t, "tree", self.cursor, self.panel.hits.len()) {
@@ -2586,11 +2659,30 @@ impl App {
             ui.text(tx, e.at.y + (e.at.h - px * 1.25) * 0.5, px, &shown, t.color.text);
             ui.rect(tx + column as f32 * adv, e.at.y + 3.0, 1.5, e.at.h - 6.0, t.color.text);
         }
-        self.grid.popover(ui, t);
+        self.grid.popover(ui, t, (wf, hf));
         if let Some(m) = self.menu.as_mut() {
             m.ta.draw(ui, t, (wf, hf));
         }
         self.panel.hits.push((Rect { x: stage_x, y: top, w: stage_w, h: stage_h }, Hit::Stage));
+        }
+        // the tools pill, over the workspace's panels
+        {
+            let cursor = self.cursor;
+            let ws = self.workspace;
+            let state = tools::State { tool: self.tools.tool, two_d: self.show.two_d, grid: self.grid.settings().grid };
+            let panels = match ws {
+                show::Workspace::Build => &mut self.build,
+                show::Workspace::Module => &mut self.module.panels,
+                show::Workspace::Show => &mut self.show.show_panels,
+                show::Workspace::Perform => &mut self.show.perform_panels,
+            };
+            let mut places = Vec::new();
+            if let Some(o) = panels.open(ui, t, "tools", cursor, 0) {
+                places = self.tools.draw(ui, t, o.area, ws, &state, cursor);
+                panels.close(ui, t, o, &mut places);
+            }
+            self.tools.shown(places);
+            self.grid.anchor(if build { self.tools.grid_at } else { None });
         }
         // the settings, over the workspace's panels
         self.settings_hits.clear();
@@ -2609,6 +2701,7 @@ impl App {
                 self.settings_hits = places;
             }
         }
+        self.tools.draw_menu(ui, t, (wf, hf), self.cursor);
         // the main menu over everything
         self.menu_lines.clear();
         if self.main_menu {
@@ -2765,6 +2858,14 @@ impl ApplicationHandler for App {
             }
             WindowEvent::KeyboardInput { event, .. } if self.edit.is_some() => self.edit_key(&event),
             WindowEvent::KeyboardInput { event, .. } if self.menu.is_some() => self.menu_key(&event),
+            WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed && self.tools.menu_open() => {
+                let mut chosen = None;
+                if self.tools.key(&event.logical_key, &mut chosen) {
+                    if let Some(p) = chosen {
+                        self.tool_press(p);
+                    }
+                }
+            }
             // #471: the flash list's typed filter has the keys while it is focused
             WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed && matches!(self.workspace, show::Workspace::Show | show::Workspace::Perform) && self.show.key(&event.logical_key, self.mods.control_key() || self.mods.super_key(), self.workspace == show::Workspace::Show) => {}
             // #560: F9 – back to the stage (deck-session swaps; elsewhere F9 does nothing): exit code 11
@@ -2805,8 +2906,8 @@ impl ApplicationHandler for App {
                     self.take_back();
                 } else if event.state == ElementState::Pressed && event.logical_key == Key::Named(NamedKey::Delete) && self.workspace == show::Workspace::Build {
                     self.remove_selected();
-                } else if event.state == ElementState::Pressed && event.logical_key == Key::Character("w".into()) {
-                    self.wire = !self.wire;
+                } else if let Some(tool) = (event.state == ElementState::Pressed && self.workspace == show::Workspace::Build && !self.mods.control_key()).then(|| if let Key::Character(c) = &event.logical_key { tools::tool_key(c) } else { None }).flatten() {
+                    self.tools.tool = tool;
                 } else if event.state == ElementState::Pressed && event.logical_key == Key::Character("f".into()) {
                     self.stage.space.frame_being();
                 } else if event.state == ElementState::Pressed && event.logical_key == Key::Named(NamedKey::Tab) {
