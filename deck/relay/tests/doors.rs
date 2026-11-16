@@ -1,4 +1,4 @@
-//! #438: both doors join the same session, and each message takes its lane.
+//! Both doors join the same session, and each message takes its lane.
 
 use std::net::SocketAddr;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -15,7 +15,20 @@ use tokio::net::TcpListener;
 use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite::Message as Ws;
 
-const WAIT: Duration = Duration::from_secs(10);
+/// How long a step may take on a loaded machine before the test gives up on it.
+const WAIT: Duration = Duration::from_secs(60);
+
+/// Polls `ok` until it holds; false after WAIT.
+async fn eventually(ok: impl Fn() -> bool) -> bool {
+    let end = Instant::now() + WAIT;
+    while !ok() {
+        if Instant::now() > end {
+            return false;
+        }
+        tokio::time::sleep(Duration::from_millis(5)).await;
+    }
+    true
+}
 
 fn hello(role: &str) -> String {
     format!(r#"{{"v":1,"seq":0,"from":"","kind":"hello","p":{{"code":"ROOM","role":"{role}","group":"decks","token":"t"}}}}"#)
@@ -82,7 +95,7 @@ async fn ws_saying(url: &str, first: String) -> (mpsc::UnboundedSender<String>, 
     (out, in_rx)
 }
 
-/// the door on a free UDP port under a fresh certificate; its address and the hash a client pins it by
+/// the door on a free UDP port (held from the probe on) under a fresh certificate; its address and the hash a client pins it by
 fn open_door(doors: Arc<Doors>) -> (SocketAddr, wtransport::tls::Sha256Digest) {
     static N: AtomicU32 = AtomicU32::new(0);
     let identity = wtransport::Identity::self_signed(["localhost", "127.0.0.1"]).unwrap();
@@ -94,8 +107,8 @@ fn open_door(doors: Arc<Doors>) -> (SocketAddr, wtransport::tls::Sha256Digest) {
     std::fs::write(&files.key, identity.private_key().to_secret_pem()).unwrap();
     let udp = std::net::UdpSocket::bind("127.0.0.1:0").unwrap();
     let addr = udp.local_addr().unwrap();
-    drop(udp);
-    tokio::spawn(quic::door(doors, addr, files).unwrap());
+    udp.set_nonblocking(true).unwrap();
+    tokio::spawn(quic::door_on(doors, udp, files).unwrap());
     (addr, hash)
 }
 
@@ -206,13 +219,7 @@ async fn a_client_too_far_behind_is_disconnected() {
         tokio::time::sleep(Duration::from_millis(20)).await;
     }
     tokio::time::timeout(WAIT, conn.closed()).await.expect("still connected, and deaf");
-    tokio::time::timeout(WAIT, async {
-        while relay.with_session("ROOM", |s| s.clients.len()).unwrap() > 0 {
-            tokio::time::sleep(Duration::from_millis(20)).await;
-        }
-    })
-    .await
-    .expect("still in the session");
+    assert!(eventually(|| relay.with_session("ROOM", |s| s.clients.len()).unwrap() == 0).await, "still in the session");
 }
 
 /// What a stalled stream cannot take stays in the outbox, where its limits and "the latest value wins" apply.
@@ -226,16 +233,24 @@ async fn a_stalled_stream_leaves_its_backlog_in_the_outbox() {
         assert!(outbox.push(big(), Instant::now()));
         tokio::time::sleep(Duration::from_millis(20)).await;
     }
-    tokio::time::sleep(Duration::from_millis(300)).await;
-
+    // the outbox's clock from here on is `t`, so a slow machine does not age the backlog
     let t = Instant::now();
+    // stalled: the writer takes everything waiting at once, so a backlog that stays put for a second is one it cannot write
+    let stalled = || async {
+        let before = outbox.waiting();
+        tokio::time::sleep(Duration::from_secs(1)).await;
+        before > 0 && outbox.waiting() == before
+    };
+    let deadline = Instant::now() + WAIT;
+    while !stalled().await {
+        assert!(Instant::now() < deadline, "the stream never stalled");
+    }
+
     let skipped = outbox.skipped();
     assert!(outbox.push(deck_values(0.1), t));
     assert!(outbox.push(deck_values(0.2), t));
-    tokio::time::sleep(Duration::from_millis(100)).await;
     assert_eq!(outbox.skipped(), skipped + 1, "the newer value replaced the waiting one");
     assert!(outbox.push(cue(), t));
-    tokio::time::sleep(Duration::from_millis(100)).await;
     assert!(!outbox.push(cue(), t + MAX_WAIT), "a backlog older than MAX_WAIT drops the client");
 }
 
@@ -299,6 +314,6 @@ async fn a_fall_back_and_a_step_up_keep_their_id() {
     let (_up, stepped) = door_saying(addr, hash, "musician", resume_hello("musician", &fell), &[]).await;
     assert_eq!(stepped.client, first.client, "the step up keeps the id");
     tokio::time::timeout(WAIT, async { while on_ws.recv().await.is_some() {} }).await.expect("the old WebSocket is ended");
-    tokio::time::sleep(Duration::from_millis(100)).await;
-    assert_eq!(relay.with_session("ROOM", |s| s.clients.len()).unwrap(), 1, "one client, no ghost");
+    let clients = || relay.with_session("ROOM", |s| s.clients.len()).unwrap();
+    assert!(eventually(|| clients() == 1).await, "one client, no ghost: {}", clients());
 }
