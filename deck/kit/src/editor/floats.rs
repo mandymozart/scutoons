@@ -1,9 +1,10 @@
 //! Floating panels over a full-window stage: a pure layout model (where each panel is, how large, what scrolls) and its
 //! drawing. A panel opens at the size of its content, grows while there is room – a gap to every other panel and to the
 //! walls – and scrolls inside only when it cannot grow further. It has no header: a drag handle (grip and icon) moves it,
-//! a chevron folds it to a pill (the icon and its name), which is dragged by the same rules. A dragged panel stops at a
-//! wall or another panel, the gap away; nothing overlaps, also after the window changes size. The place is kept per
-//! corner (the nearest one), so it can be remembered and comes back where it was.
+//! a chevron folds it to a pill (the icon and its name), which is dragged by the same rules; a panel that is not essential
+//! to its workspace also has a close, and comes back from a list of the closable ones. A dragged panel stops at a wall or
+//! another panel, the gap away; nothing overlaps, also after the window changes size. The place is kept per corner (the
+//! nearest one), so it can be remembered and comes back where it was.
 use crate::base::draw::{DrawList, Rect};
 use crate::base::tokens::Tokens;
 use serde::{Deserialize, Serialize};
@@ -32,7 +33,7 @@ impl Corner {
     }
 }
 
-/// where a panel is: its distance from its corner's walls, and whether it is folded to its pill
+/// where a panel is: its distance from its corner's walls, whether it is folded to its pill, whether it is closed
 #[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
 pub struct Place {
     pub corner: Corner,
@@ -40,19 +41,26 @@ pub struct Place {
     pub dy: f32,
     #[serde(default)]
     pub collapsed: bool,
+    #[serde(default)]
+    pub closed: bool,
 }
 
 impl Place {
     pub const fn at(corner: Corner, dx: f32, dy: f32) -> Place {
-        Place { corner, dx, dy, collapsed: false }
+        Place { corner, dx, dy, collapsed: false, closed: false }
     }
 
     pub const fn folded(self) -> Place {
         Place { collapsed: true, ..self }
     }
+
+    pub const fn closed(self) -> Place {
+        Place { closed: true, ..self }
+    }
 }
 
-/// what a panel is: its id (what its place is remembered by), its name and icon (the pill, the info), what it is for
+/// what a panel is: its id (what its place is remembered by), its name and icon (the pill, the info), what it is for;
+/// an essential one only folds, the others close too
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Spec {
     pub id: &'static str,
@@ -60,6 +68,13 @@ pub struct Spec {
     pub icon: &'static str,
     pub about: &'static str,
     pub place: Place,
+    pub essential: bool,
+}
+
+impl Spec {
+    pub const fn essential(self) -> Spec {
+        Spec { essential: true, place: Place { closed: false, ..self.place }, ..self }
+    }
 }
 
 /// a panel shown this frame and the size its content asks for
@@ -93,9 +108,14 @@ impl Metrics {
         Metrics { gap: s.gap, pad: s.pad, head: s.row, pill: s.row + s.rem(0.29), char_w: d.advance(s.font), rem: s.base, min: (s.panel_w, s.panel_h) }
     }
 
-    /// a folded panel's pill: grip, icon, name, chevron
-    pub fn pill_size(&self, name: &str) -> (f32, f32) {
-        (2.0 * self.pad + self.rem * 4.14 + self.char_w * name.chars().count() as f32, self.pill)
+    /// a folded panel's pill: grip, icon, name, chevron and – when it closes – the close
+    pub fn pill_size(&self, name: &str, closes: bool) -> (f32, f32) {
+        (2.0 * self.pad + self.rem * 4.14 + self.char_w * name.chars().count() as f32 + if closes { self.button() } else { 0.0 }, self.pill)
+    }
+
+    /// the chevron's and the close's width in the chrome
+    fn button(&self) -> f32 {
+        14.0 + self.pad
     }
 
     /// an open panel's size around a content of `c`
@@ -109,6 +129,7 @@ impl Metrics {
 pub enum Chrome {
     Handle,
     Fold,
+    Close,
 }
 
 /// where a shown panel landed
@@ -117,6 +138,8 @@ pub struct View {
     pub whole: Rect,
     pub handle: Rect,
     pub fold: Rect,
+    /// empty for an essential panel
+    pub close: Rect,
     /// the visible part of the content (open panels; empty when folded)
     pub content: Rect,
     pub scroll: f32,
@@ -247,7 +270,7 @@ fn sweep(r: &Rect, d: f32, obstacles: &[Rect], area: &Rect, gap: f32, horizontal
 
 impl Floats {
     pub fn new(specs: &[Spec]) -> Floats {
-        let empty = View { whole: Rect::default(), handle: Rect::default(), fold: Rect::default(), content: Rect::default(), scroll: 0.0, over: 0.0, collapsed: false };
+        let empty = View { whole: Rect::default(), handle: Rect::default(), fold: Rect::default(), close: Rect::default(), content: Rect::default(), scroll: 0.0, over: 0.0, collapsed: false };
         let panels = specs.iter().map(|s| Panel { spec: *s, place: s.place, scroll: 0.0, own: false, shown: false, content: (0.0, 0.0), want: (0.0, 0.0), min: (0.0, 0.0), corner: s.place.corner, anchor: (0.0, 0.0), at: (0.0, 0.0), view: empty }).collect();
         Floats { panels, area: Rect::default(), fixed: Vec::new(), m: Metrics { gap: 16.0, pad: 8.0, head: 28.0, pill: 32.0, char_w: 7.0, rem: 14.0, min: (160.0, 48.0) }, drag: None }
     }
@@ -261,11 +284,11 @@ impl Floats {
         self.panels.iter().map(|p| (p.spec.id.to_string(), p.place)).collect()
     }
 
-    /// places remembered before (ids no panel has are left)
+    /// places remembered before (ids no panel has are left; an essential panel is never closed)
     pub fn restore(&mut self, places: &BTreeMap<String, Place>) {
         for p in &mut self.panels {
             if let Some(place) = places.get(p.spec.id) {
-                p.place = *place;
+                p.place = Place { closed: place.closed && !p.spec.essential, ..*place };
             }
         }
     }
@@ -280,7 +303,7 @@ impl Floats {
             p.shown = false;
         }
         for s in shown {
-            if let Some(i) = self.index(s.id) {
+            if let Some(i) = self.index(s.id).filter(|&i| !self.panels[i].place.closed) {
                 self.panels[i].shown = true;
                 self.panels[i].content = (s.content.0.max(0.0), s.content.1.max(0.0));
             }
@@ -288,7 +311,7 @@ impl Floats {
         let order: Vec<usize> = (0..self.panels.len()).filter(|&i| self.panels[i].shown).collect();
         for &i in &order {
             let p = &mut self.panels[i];
-            let pill = m.pill_size(p.spec.name);
+            let pill = m.pill_size(p.spec.name, !p.spec.essential);
             if p.place.collapsed {
                 p.want = (pill.0.min(area.w), pill.1.min(area.h));
                 p.min = p.want;
@@ -342,20 +365,16 @@ impl Floats {
             p.at = (whole.x, whole.y);
             grown.push(whole);
             let collapsed = p.place.collapsed;
-            let fold_w = 14.0 + m.pad;
-            let (handle, fold, content) = if collapsed {
-                (Rect { w: (w - fold_w).max(0.0), ..whole }, Rect { x: right(&whole) - fold_w - m.pad * 0.5, w: fold_w + m.pad * 0.5, ..whole }, Rect { x: whole.x, y: whole.y, w: 0.0, h: 0.0 })
-            } else {
-                let head = Rect { h: m.head, ..whole };
-                (
-                    Rect { w: (w - fold_w - m.pad).max(0.0), ..head },
-                    Rect { x: right(&whole) - fold_w - m.pad, w: fold_w + m.pad, ..head },
-                    Rect { x: whole.x + m.pad, y: whole.y + m.head, w: (w - 2.0 * m.pad).max(0.0), h: (h - m.head - m.pad).max(0.0) },
-                )
-            };
+            // the chrome's row: the handle, the chevron, the close last; the end's padding belongs to the last button
+            let (b, end) = (m.button(), if collapsed { m.pad * 0.5 } else { m.pad });
+            let head = if collapsed { whole } else { Rect { h: m.head, ..whole } };
+            let close = if p.spec.essential { Rect { x: right(&whole) - end, w: 0.0, ..head } } else { Rect { x: right(&whole) - end - b, w: b + end, ..head } };
+            let fold = Rect { x: close.x - b, w: if p.spec.essential { b + end } else { b }, ..head };
+            let handle = Rect { w: (fold.x - whole.x).max(0.0), ..head };
+            let content = if collapsed { Rect { x: whole.x, y: whole.y, w: 0.0, h: 0.0 } } else { Rect { x: whole.x + m.pad, y: whole.y + m.head, w: (w - 2.0 * m.pad).max(0.0), h: (h - m.head - m.pad).max(0.0) } };
             let over = if collapsed || p.own { 0.0 } else { Some(p.content.1 - content.h).filter(|o| *o > EPS).unwrap_or(0.0) };
             p.scroll = p.scroll.clamp(0.0, over);
-            p.view = View { whole, handle, fold, content, scroll: p.scroll, over, collapsed };
+            p.view = View { whole, handle, fold, close, content, scroll: p.scroll, over, collapsed };
         }
     }
 
@@ -375,7 +394,9 @@ impl Floats {
     /// the chrome under the pointer
     pub fn chrome_at(&self, x: f32, y: f32) -> Option<(&Spec, Chrome)> {
         self.shown().find_map(|(_, p)| {
-            if p.view.fold.has(x, y) {
+            if p.view.close.has(x, y) {
+                Some((&p.spec, Chrome::Close))
+            } else if p.view.fold.has(x, y) {
                 Some((&p.spec, Chrome::Fold))
             } else if p.view.handle.has(x, y) {
                 Some((&p.spec, Chrome::Handle))
@@ -390,12 +411,16 @@ impl Floats {
         self.shown().any(|(_, p)| p.view.whole.has(x, y))
     }
 
-    /// a press on a handle takes the panel in the hand, on a chevron folds or opens it: whether the press was the chrome's
+    /// a press on a handle takes the panel in the hand, on a chevron folds or opens it, on the close closes it: whether
+    /// the press was the chrome's
     pub fn press(&mut self, x: f32, y: f32) -> bool {
         let Some((id, chrome)) = self.chrome_at(x, y).map(|(s, c)| (s.id, c)) else { return false };
         let Some(i) = self.index(id) else { return false };
         match chrome {
             Chrome::Fold => self.toggle(id),
+            Chrome::Close => {
+                self.close(id);
+            }
             Chrome::Handle => {
                 let at = self.panels[i].view.whole;
                 self.drag = Some((i, x - at.x, y - at.y));
@@ -460,6 +485,34 @@ impl Floats {
         self.index(id).is_some_and(|i| self.panels[i].place.collapsed)
     }
 
+    /// close a panel that is not essential: whether it closed
+    pub fn close(&mut self, id: &str) -> bool {
+        let Some(i) = self.index(id).filter(|&i| !self.panels[i].spec.essential) else { return false };
+        self.panels[i].place.closed = true;
+        if matches!(self.drag, Some((d, ..)) if d == i) {
+            self.drag = None;
+        }
+        true
+    }
+
+    /// a closed panel back, open: at its place, or the nearest free one the next layout finds
+    pub fn reopen(&mut self, id: &str) {
+        if let Some(i) = self.index(id) {
+            let p = &mut self.panels[i].place;
+            p.closed = false;
+            p.collapsed = false;
+        }
+    }
+
+    pub fn closed(&self, id: &str) -> bool {
+        self.index(id).is_some_and(|i| self.panels[i].place.closed)
+    }
+
+    /// the panels that close, in their order, and whether each is open
+    pub fn closable(&self) -> Vec<(&Spec, bool)> {
+        self.panels.iter().filter(|p| !p.spec.essential).map(|p| (&p.spec, !p.place.closed)).collect()
+    }
+
     /// the wheel over an open panel whose content is taller than it: whether it scrolled
     pub fn wheel(&mut self, x: f32, y: f32, steps: f32) -> bool {
         let Some(i) = self.shown().find(|(_, p)| p.view.whole.has(x, y) && p.view.over > 0.0).map(|(i, _)| i) else { return false };
@@ -518,6 +571,10 @@ pub fn begin(d: &mut DrawList, t: &Tokens, spec: &Spec, v: &View, pointer: (f32,
     }
     let fold_hot = v.fold.has(pointer.0, pointer.1);
     d.icon(v.fold.x + (v.fold.w - chevron) * 0.5, mid - chevron * 0.5, chevron, if v.collapsed { "down" } else { "up" }, if fold_hot { t.color.text } else { t.color.muted });
+    if v.close.w > 0.0 {
+        let hot = v.close.has(pointer.0, pointer.1);
+        d.icon(v.close.x + (v.fold.w - chevron) * 0.5, mid - chevron * 0.5, chevron, "close", if hot { t.color.text } else { t.color.muted });
+    }
     if !v.collapsed {
         d.clip(Some(v.content));
     }
@@ -547,13 +604,13 @@ mod tests {
     }
 
     fn spec(id: &'static str, place: Place) -> Spec {
-        Spec { id, name: id, icon: "list", about: "", place }
+        Spec { id, name: id, icon: "list", about: "", place, essential: false }
     }
 
     fn four() -> Floats {
         Floats::new(&[
             spec("tree", Place::at(Corner::TopLeft, 0.0, 0.0)),
-            spec("inspector", Place::at(Corner::TopRight, 0.0, 0.0)),
+            spec("inspector", Place::at(Corner::TopRight, 0.0, 0.0)).essential(),
             spec("mixer", Place::at(Corner::BottomRight, 0.0, 0.0)),
             spec("info", Place::at(Corner::BottomLeft, 0.0, 0.0).folded()),
         ])
@@ -684,7 +741,7 @@ mod tests {
         f.layout(a, &[], &shown(SIZES), M);
         let p = f.view("tree").unwrap();
         assert!(p.collapsed);
-        assert_eq!((p.whole.w, p.whole.h), M.pill_size("tree"));
+        assert_eq!((p.whole.w, p.whole.h), M.pill_size("tree", true));
         assert_eq!((p.whole.x, p.whole.y), (v.whole.x, v.whole.y), "in the same corner");
         let info = f.view("info").unwrap();
         assert!(info.collapsed && info.whole.h == M.pill, "a panel can start folded");
@@ -794,10 +851,74 @@ mod tests {
     }
 
     #[test]
+    fn a_panel_that_is_not_essential_closes_and_comes_back_where_it_was() {
+        let mut f = four();
+        let a = area(1920.0, 1080.0);
+        f.layout(a, &[], &shown(SIZES), M);
+        let v = f.view("tree").unwrap();
+        assert!(v.close.w > 0.0 && v.close.x >= right(&v.fold) - EPS, "the close after the chevron");
+        assert!(f.press(v.close.x + 2.0, v.close.y + 2.0));
+        assert!(f.closed("tree"));
+        f.layout(a, &[], &shown(SIZES), M);
+        assert!(f.view("tree").is_none(), "a closed panel is not shown");
+        assert!(!f.covers(v.whole.x + 4.0, v.whole.y + 4.0));
+        assert!(f.closable().iter().any(|(s, open)| s.id == "tree" && !open));
+        f.reopen("tree");
+        f.layout(a, &[], &shown(SIZES), M);
+        assert_eq!(f.view("tree").unwrap().whole, v.whole);
+    }
+
+    #[test]
+    fn an_essential_panel_only_folds() {
+        let mut f = four();
+        let a = area(1920.0, 1080.0);
+        f.layout(a, &[], &shown(SIZES), M);
+        let v = f.view("inspector").unwrap();
+        assert_eq!(v.close.w, 0.0, "no close");
+        assert!(!f.close("inspector"));
+        let mut places = f.places();
+        places.get_mut("inspector").unwrap().closed = true;
+        f.restore(&places);
+        assert!(!f.closed("inspector"), "not even from a cache");
+        assert!(f.closable().iter().all(|(s, _)| s.id != "inspector"));
+        f.toggle("inspector");
+        f.layout(a, &[], &shown(SIZES), M);
+        assert_eq!(f.view("inspector").unwrap().whole.w, M.pill_size("inspector", false).0);
+    }
+
+    #[test]
+    fn a_reopened_panel_takes_a_free_place_when_its_own_is_taken() {
+        let mut f = four();
+        let a = area(1920.0, 1080.0);
+        f.close("tree");
+        f.layout(a, &[], &shown(SIZES), M);
+        let i = f.view("inspector").unwrap();
+        f.press(i.handle.x + 4.0, i.handle.y + 4.0);
+        f.drag_to(a.x - 5000.0, i.handle.y + 4.0);
+        f.release();
+        f.reopen("tree");
+        f.layout(a, &[], &shown(SIZES), M);
+        assert!(f.view("tree").is_some());
+        assert_valid(&f, &a);
+    }
+
+    #[test]
+    fn closed_is_remembered_with_the_place() {
+        let mut f = four();
+        f.close("mixer");
+        let kept = toml::to_string(&f.places()).unwrap();
+        let mut g = four();
+        g.restore(&toml::from_str(&kept).unwrap());
+        assert!(g.closed("mixer"));
+        let old: Place = toml::from_str("corner = \"TopLeft\"\ndx = 0.0\ndy = 0.0").unwrap();
+        assert!(!old.closed && !old.collapsed, "a place kept before closing existed is open");
+    }
+
+    #[test]
     fn a_panels_ground_lets_the_stage_show_through() {
         let t = Tokens::default();
         let mut d = DrawList::new(0.6);
-        let v = View { whole: Rect { x: 0.0, y: 0.0, w: 100.0, h: 100.0 }, handle: Rect::default(), fold: Rect::default(), content: Rect::default(), scroll: 0.0, over: 0.0, collapsed: false };
+        let v = View { whole: Rect { x: 0.0, y: 0.0, w: 100.0, h: 100.0 }, handle: Rect::default(), fold: Rect::default(), close: Rect::default(), content: Rect::default(), scroll: 0.0, over: 0.0, collapsed: false };
         begin(&mut d, &t, &spec("x", Place::default()), &v, (0.0, 0.0));
         let crate::base::draw::Prim::Rect { color, .. } = d.prims()[0] else { panic!("the ground first") };
         assert_eq!(color[3], t.color.panel_opacity);
@@ -806,7 +927,7 @@ mod tests {
 
     #[test]
     fn hits_of_a_scrolled_content_end_at_its_edge() {
-        let v = View { whole: Rect::default(), handle: Rect::default(), fold: Rect::default(), content: Rect { x: 0.0, y: 100.0, w: 200.0, h: 100.0 }, scroll: 0.0, over: 50.0, collapsed: false };
+        let v = View { whole: Rect::default(), handle: Rect::default(), fold: Rect::default(), close: Rect::default(), content: Rect { x: 0.0, y: 100.0, w: 200.0, h: 100.0 }, scroll: 0.0, over: 50.0, collapsed: false };
         let mut hits = vec![(Rect { x: 0.0, y: 0.0, w: 10.0, h: 10.0 }, 0), (Rect { x: 0.0, y: 90.0, w: 10.0, h: 20.0 }, 1), (Rect { x: 0.0, y: 150.0, w: 10.0, h: 10.0 }, 2), (Rect { x: 0.0, y: 250.0, w: 10.0, h: 10.0 }, 3)];
         clip_hits(&v, &mut hits, 1);
         assert_eq!(hits.iter().map(|(_, h)| *h).collect::<Vec<_>>(), [0, 1, 2], "the first is before `from`, the last below the edge");

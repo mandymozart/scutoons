@@ -8,7 +8,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
 
 const fn spec(id: &'static str, name: &'static str, icon: &'static str, about: &'static str, place: Place) -> Spec {
-    Spec { id, name, icon, about, place }
+    Spec { id, name, icon, about, place, essential: false }
 }
 
 const TL: Corner = Corner::TopLeft;
@@ -20,41 +20,41 @@ const BR: Corner = Corner::BottomRight;
 // scrolls well come first and the ones of a fixed size last.
 pub const BUILD: [Spec; 6] = [
     spec("tree", "Rig", "tree", "The rig, its tracks and their nodes. In Wire a click goes to that level.", Place::at(TL, 0.0, 0.0)),
-    spec("inspector", "Inspector", "inspector", "What is selected: its values as scrub numbers; the rig picker and Save.", Place::at(TR, 0.0, 0.0)),
+    spec("inspector", "Inspector", "inspector", "What is selected: its values as scrub numbers; the rig picker and Save.", Place::at(TR, 0.0, 0.0)).essential(),
     spec("audio", "Audio", "activity", "The sound card, its inputs and outputs, the map and the test tones.", Place::at(BL, 300.0, 0.0).folded()),
     spec("info", "Info", "info", "What is under the pointer: its name and what it does.", Place::at(BL, 0.0, 0.0)),
     spec("mixer", "Mixer", "sliders", "One strip per track at the level of the tree shown; inside a track its gains.", Place::at(BR, 0.0, 0.0)),
-    spec("settings", "Settings", "settings", "Motion & feedback, sound and the UI size: this machine's, remembered.", Place::at(TR, 0.0, 0.0)),
+    spec("settings", "Settings", "settings", "Motion & feedback, sound and the UI size: this machine's, remembered.", Place::at(TR, 0.0, 0.0).closed()),
 ];
 
 pub const SHOW: [Spec; 8] = [
     spec("outline", "Outline", "nodes", "The conductors, the roles this one gives out and the rows of the document shown.", Place::at(TL, 0.0, 0.0)),
-    spec("inspector", "Inspector", "inspector", "The row, the role or the cells selected; Load, Flash and Save.", Place::at(TR, 0.0, 0.0)),
-    spec("sheet", "Sheet", "layers", "The sheet open: cues, problems, who is here, a picker or the flash list.", Place::at(TL, 320.0, 0.0)),
+    spec("inspector", "Inspector", "inspector", "The row, the role or the cells selected; Load, Flash and Save.", Place::at(TR, 0.0, 0.0)).essential(),
+    spec("sheet", "Sheet", "layers", "The sheet open: cues, problems, who is here, a picker or the flash list.", Place::at(TL, 320.0, 0.0)).essential(),
     spec("nodes", "Nodes", "node", "What comes from far, the cells of the row and what the row sends, over the stage.", Place::at(TL, 320.0, 0.0)),
     spec("scenes", "Scenes", "grid", "The toon's published scenes: drag one onto a cell.", Place::at(BR, 0.0, 0.0)),
-    spec("rows", "Rows", "list", "The rows of the show: what fires each one and every column's cell.", Place::at(BL, 0.0, 0.0)),
+    spec("rows", "Rows", "list", "The rows of the show: what fires each one and every column's cell.", Place::at(BL, 0.0, 0.0)).essential(),
     spec("info", "Info", "info", "What is under the pointer: its name and what it does.", Place::at(BR, 300.0, 0.0).folded()),
-    spec("settings", "Settings", "settings", "Motion & feedback, sound and the UI size: this machine's, remembered.", Place::at(TR, 0.0, 0.0)),
+    spec("settings", "Settings", "settings", "Motion & feedback, sound and the UI size: this machine's, remembered.", Place::at(TR, 0.0, 0.0).closed()),
 ];
 
 pub const MODULE: [Spec; 5] = [
     spec("modules", "Modules", "list", "The catalog's modules: a click opens one's working copy.", Place::at(TL, 0.0, 0.0)),
-    spec("module", "Module", "code", "The module open: its working copy, Open in editor, Build, what happened last, its parameters.", Place::at(TR, 0.0, 0.0)),
+    spec("module", "Module", "code", "The module open: its working copy, Open in editor, Build, what happened last, its parameters.", Place::at(TR, 0.0, 0.0)).essential(),
     spec("problems", "Problems", "alert", "The last build's problems: a click opens the code there.", Place::at(BL, 0.0, 0.0)),
     spec("info", "Info", "info", "What is under the pointer: its name and what it does.", Place::at(BR, 0.0, 0.0).folded()),
-    spec("settings", "Settings", "settings", "Motion & feedback, sound and the UI size: this machine's, remembered.", Place::at(TR, 0.0, 0.0)),
+    spec("settings", "Settings", "settings", "Motion & feedback, sound and the UI size: this machine's, remembered.", Place::at(TR, 0.0, 0.0).closed()),
 ];
 
 pub const PERFORM: [Spec; 8] = [
     spec("rail", "Session", "nodes", "This conductor, its seats, the relay, the linked readers, the vote and the outlets.", Place::at(TL, 0.0, 0.0)),
-    spec("side", "Next", "play", "The suggestion with GO and Drop, else GO; the seats.", Place::at(TR, 0.0, 0.0)),
-    spec("sheet", "Show runner", "layers", "The show runner's sheet open: the session for linked readers, or the vote.", Place::at(TL, 300.0, 0.0)),
+    spec("side", "Next", "play", "The suggestion with GO and Drop, else GO; the seats.", Place::at(TR, 0.0, 0.0)).essential(),
+    spec("sheet", "Show runner", "layers", "The show runner's sheet open: the session for linked readers, or the vote.", Place::at(TL, 300.0, 0.0)).essential(),
     spec("now", "Stage now", "eye", "What plays on each outlet now.", Place::at(TL, 300.0, 0.0)),
     spec("log", "Log", "entry", "What happened, newest first.", Place::at(BR, 0.0, 0.0).folded()),
-    spec("matrix", "Cues", "list", "Rows × outlets: the row's play fires it, a cell's play launches it by hand.", Place::at(BL, 0.0, 0.0)),
+    spec("matrix", "Cues", "list", "Rows × outlets: the row's play fires it, a cell's play launches it by hand.", Place::at(BL, 0.0, 0.0)).essential(),
     spec("info", "Info", "info", "What is under the pointer: its name and what it does.", Place::at(BR, 120.0, 0.0).folded()),
-    spec("settings", "Settings", "settings", "Motion & feedback, sound and the UI size: this machine's, remembered.", Place::at(TR, 0.0, 0.0)),
+    spec("settings", "Settings", "settings", "Motion & feedback, sound and the UI size: this machine's, remembered.", Place::at(TR, 0.0, 0.0).closed()),
 ];
 
 /// a content height before it was ever drawn: as tall as the room lets it be, the next frame its own
@@ -77,13 +77,30 @@ pub struct Panels {
     /// the panels that said their height this frame; the others draw without an end and are measured
     known: Vec<&'static str>,
     grew: bool,
-    /// the settings panel's content size while it is open (laid out with the workspace's own)
+    /// the settings panel's content size (laid out with the workspace's own unless it is closed)
     pub settings: Option<(f32, f32)>,
 }
+
+/// the settings have a main menu line of their own, so the menu's panel list leaves them out
+pub const SETTINGS: &str = "settings";
 
 impl Panels {
     pub fn new(specs: &[Spec]) -> Panels {
         Panels { floats: Floats::new(specs), measured: HashMap::new(), known: Vec::new(), grew: false, settings: None }
+    }
+
+    /// the main menu's panel list: the panels that close, and whether each is open
+    pub fn listed(&self) -> Vec<(&'static str, &'static str, bool)> {
+        self.floats.closable().into_iter().filter(|(s, _)| s.id != SETTINGS).map(|(s, open)| (s.id, s.name, open)).collect()
+    }
+
+    /// a line of the panel list pressed: an open panel closes, a closed one comes back open
+    pub fn flip(&mut self, id: &str) {
+        if self.floats.closed(id) {
+            self.floats.reopen(id);
+        } else {
+            self.floats.close(id);
+        }
     }
 
     /// the room for panels in a window `size` under a toolbar ending at `top`
@@ -95,7 +112,7 @@ impl Panels {
     /// height it drew last frame); places nothing may cover
     pub fn layout(&mut self, d: &DrawList, t: &Tokens, (size, top): ((f32, f32), f32), fixed: &[Rect], shown: &[(&'static str, f32, Option<f32>)]) {
         let m = Metrics::of(t, d);
-        let extra = self.settings.map(|(w, h)| ("settings", w, Some(h)));
+        let extra = self.settings.map(|(w, h)| (SETTINGS, w, Some(h)));
         let shown: Vec<(&'static str, f32, Option<f32>)> = shown.iter().copied().chain(extra).collect();
         self.known = shown.iter().filter(|(_, _, h)| h.is_some()).map(|(id, ..)| *id).collect();
         let shown: Vec<Shown> = shown.iter().map(|&(id, w, h)| Shown { id, content: (w, h.unwrap_or_else(|| self.measured.get(id).copied().unwrap_or(UNMEASURED))) }).collect();
@@ -233,11 +250,52 @@ mod tests {
     }
 
     #[test]
+    fn each_workspace_keeps_its_essentials_and_lists_the_rest() {
+        let essentials = |specs: &[Spec]| specs.iter().filter(|s| s.essential).map(|s| s.id).collect::<Vec<_>>();
+        assert_eq!(essentials(&BUILD), ["inspector"]);
+        assert_eq!(essentials(&MODULE), ["module"]);
+        assert_eq!(essentials(&SHOW), ["inspector", "sheet", "rows"]);
+        assert_eq!(essentials(&PERFORM), ["side", "sheet", "matrix"]);
+        for (name, specs) in workspaces() {
+            let p = Panels::new(specs);
+            let listed = p.listed();
+            assert!(listed.iter().all(|(id, ..)| !specs.iter().any(|s| s.id == *id && s.essential)), "{name}: no essential is listed");
+            assert!(listed.iter().all(|(id, ..)| *id != SETTINGS), "{name}: the settings have their own line");
+            assert_eq!(listed.len(), specs.len() - essentials(specs).len() - 1, "{name}: every other panel is");
+            assert!(p.floats.closed(SETTINGS), "{name}: the settings start closed");
+        }
+    }
+
+    #[test]
+    fn a_panel_closed_from_the_list_is_not_laid_out_and_comes_back() {
+        let (t, d) = (Tokens::default(), DrawList::new(0.6));
+        for (name, specs) in workspaces() {
+            let mut p = Panels::new(specs);
+            let shown = typical(name);
+            for (id, _, open) in p.listed() {
+                assert!(open, "{name}: {id} starts open");
+                p.flip(id);
+                p.layout(&d, &t, ((1600.0, 900.0), 52.0), &[], &shown);
+                assert!(p.floats.view(id).is_none(), "{name}: {id} closed");
+                assert!(p.listed().iter().any(|(i, _, open)| *i == id && !open));
+                p.flip(id);
+                p.layout(&d, &t, ((1600.0, 900.0), 52.0), &[], &shown);
+                assert_eq!(p.floats.view(id).is_some(), shown.iter().any(|(s, ..)| *s == id), "{name}: {id} back");
+            }
+            for s in specs.iter().filter(|s| s.essential) {
+                p.flip(s.id);
+                assert!(!p.floats.closed(s.id), "{name}: {} cannot close", s.id);
+            }
+        }
+    }
+
+    #[test]
     fn places_come_back_from_the_cache_file() {
         let file = std::env::temp_dir().join(format!("deck-editor-panels-{}.json", std::process::id()));
         let mut all = Remembered::new();
         let mut p = Panels::new(&SHOW);
         p.floats.toggle("rows");
+        p.flip("scenes");
         all.insert("show".into(), p.floats.places());
         save(&file, &all);
         let back = load(&file);
@@ -246,6 +304,7 @@ mod tests {
         let mut q = Panels::new(&SHOW);
         q.floats.restore(&back["show"]);
         assert!(q.floats.collapsed("rows"));
+        assert!(q.floats.closed("scenes"));
         assert!(load(Path::new("no/such/file.json")).is_empty(), "nothing kept: the defaults");
     }
 }
