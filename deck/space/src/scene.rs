@@ -330,7 +330,12 @@ impl Scene {
     /// The scene without its module nodes whose module is not registered (`modreg`: no wasm loaded) and the links that
     /// touch them: a module node plays only once its module is loaded
     pub fn loaded_part(&self) -> Scene {
-        let gone: Vec<&str> = self.nodes.iter().filter(|n| n.kind.starts_with(crate::modreg::PREFIX) && crate::modreg::lookup(&n.kind).is_none()).map(|n| n.id.as_str()).collect();
+        self.modules_kept(|kind| crate::modreg::lookup(kind).is_some())
+    }
+
+    /// The scene without the module nodes `keep` refuses (given the node's kind, `module:<name>`) and their links
+    pub fn modules_kept(&self, keep: impl Fn(&str) -> bool) -> Scene {
+        let gone: Vec<&str> = self.nodes.iter().filter(|n| n.kind.starts_with(crate::modreg::PREFIX) && !keep(&n.kind)).map(|n| n.id.as_str()).collect();
         let node_of = |r: &str| r.split_once('.').map_or(r, |(n, _)| n).to_string();
         let mut out = self.clone();
         out.nodes.retain(|n| !gone.contains(&n.id.as_str()));

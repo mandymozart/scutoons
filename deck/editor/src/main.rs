@@ -19,6 +19,7 @@ mod logo;
 mod mixer;
 mod module;
 mod inspector;
+mod published;
 mod routing;
 mod stage;
 mod tokens;
@@ -465,6 +466,8 @@ struct App {
     rigs: rigs::Rigs,
     routing: routing::Page,
     module: module::Module,
+    /// the catalog modules Build's rig plays, fetched and loaded
+    published: published::Published,
     /// Build edits this scene (scene.rs); none = a rig
     scene: Option<scene::SceneView>,
     /// the scene tree's last press, for a double one
@@ -520,6 +523,7 @@ fn run() -> Result<i32> {
     let app_book = book::Loader::new(&args.api, args.toon.as_deref(), args.book.as_deref(), auth.token(), &cache);
     let book_key = (args.toon.clone(), auth.token().is_some());
     let app_module = module::Module::new(&args.api, &cache, args.module.clone());
+    let app_published = published::Published::new(&args.api, &cache);
     let mut app = App {
         panel: Panel { width, tab: args.tab, field: text::Field::with("Grüße an die Bühne – type here"), drag: None, hits: Vec::new(), field_rect: Rect { x: 0.0, y: 0.0, w: 0.0, h: 0.0 }, advance: 8.0 },
         args,
@@ -570,6 +574,7 @@ fn run() -> Result<i32> {
         rigs,
         routing: routing::Page::new(deck_native::audio::backend::DeckAudio::read()),
         module: app_module,
+        published: app_published,
         scene: None,
         last_row: None,
     };
@@ -594,13 +599,14 @@ impl App {
         let (f_avg, f_p99) = stat(&self.frame_ms);
         let size = self.gpu.as_ref().map(|g| g.size()).unwrap_or((0, 0));
         format!(
-            "deck-editor: frames={} size={}x{} controls={} ui_ms avg={ui_avg:.2} p99={ui_p99:.2} frame_ms avg={f_avg:.2} p99={f_p99:.2} glitches={} audio={} tokens_reloads={} adapter={}",
+            "deck-editor: frames={} size={}x{} controls={} ui_ms avg={ui_avg:.2} p99={ui_p99:.2} frame_ms avg={f_avg:.2} p99={f_p99:.2} glitches={} audio={} peaks={} tokens_reloads={} adapter={}",
             self.frames,
             size.0,
             size.1,
             self.stage.knobs.len(),
             self.stage.glitches(),
             self.stage.audio,
+            self.stage.strips.iter().map(|s| format!("{}:{:.3}", s.track, s.max)).collect::<Vec<_>>().join(","),
             self.token_changes,
             self.gpu.as_ref().map(|g| g.adapter.name.clone()).unwrap_or_default()
         )
@@ -1722,6 +1728,7 @@ impl App {
     fn redraw(&mut self, el: &ActiveEventLoop) {
         self.follow_toon();
         self.follow_rigs();
+        self.follow_modules();
         if self.workspace == show::Workspace::Module {
             self.module.enter();
         }
@@ -1877,7 +1884,7 @@ impl App {
         }
         for track in self.stage.bundle.rig.tracks.iter().filter(|_| !at_scene) {
             let inside = self.stage.path.first() == Some(&track.id);
-            rows.push(controls::TreeRow { depth: down + 1, label: track.id.clone(), detail: track.instrument.clone(), icon: "folder", open: Some(inside), selected: self.sel == inspector::Sel::Track(track.id.clone()) });
+            rows.push(controls::TreeRow { depth: down + 1, label: track.id.clone(), detail: if self.stage.silent.contains_key(&track.id) { format!("{} · silent", track.instrument) } else { track.instrument.clone() }, icon: "folder", open: Some(inside), selected: self.sel == inspector::Sel::Track(track.id.clone()) });
             self.rows.push((vec![track.id.clone()], inspector::Sel::Track(track.id.clone())));
             if inside {
                 let mut seen: Vec<&str> = Vec::new();

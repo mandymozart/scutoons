@@ -26,6 +26,7 @@ pub mod address;
 pub mod assign;
 /// #477: a toon's address book (the server's), narrowed for the deck editor's typeahead
 pub mod book;
+pub mod build;
 pub mod edit;
 pub mod bundle;
 pub mod content;

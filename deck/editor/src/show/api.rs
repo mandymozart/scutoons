@@ -3,8 +3,12 @@
 //! opens a show offline; the API stays the source (RULES E3). The token: the editor's sign-in (sign_in.rs; `SCUTOONS_TOKEN`
 //! overrides it). Drafts of any entity (`draft`, `save_draft`) and of a deck scene (`scene_draft`, `save_scene`): read
 //! with their version, saved on it as `base`.
+use std::io::Read;
 use std::path::PathBuf;
 use std::time::Duration;
+
+/// a module build is at most 4 MB (the API refuses larger ones); a little over it is read so a larger file fails its hash
+const MAX_MODULE_BYTES: u64 = 5 << 20;
 
 pub struct Api {
     /// `http://127.0.0.1:9000/api`, `https://api.scutoons.com/api`
@@ -160,6 +164,29 @@ impl Api {
             Err(ureq::Error::Status(code, r)) => Err(self.refused_words(key, code, &r.into_json().unwrap_or_default())),
             Err(e) => Err(format!("{url}: {e} – not saved")),
         }
+    }
+
+    /// A catalog module as the API answers it (`GET /api/modules/<id>`: its document, its build's hash and url)
+    pub fn module(&self, id: &str) -> Result<serde_json::Value, String> {
+        let url = format!("{}/{}", self.base, deck_space::rig::build::path(id));
+        match self.auth(Self::agent().get(&url)).call() {
+            Ok(r) => r.into_json().map_err(|e| format!("{url}: {e}")),
+            Err(ureq::Error::Status(404, _)) => Err(format!("module:{id} is not in the catalog")),
+            Err(ureq::Error::Status(401, _)) => {
+                self.auth.refused();
+                Err(format!("module:{id}: signed out – approve the editor on the account page to hear it"))
+            }
+            Err(ureq::Error::Status(code, r)) => Err(refused_words(&format!("module:{id}"), code, &r.into_json().unwrap_or_default())),
+            Err(e) => Err(format!("{url}: {e}")),
+        }
+    }
+
+    /// The file at `url` (a module's build on the CDN, up to a few MB)
+    pub fn bytes(&self, url: &str) -> Result<Vec<u8>, String> {
+        let r = ureq::AgentBuilder::new().timeout(Duration::from_secs(30)).build().get(url).call().map_err(|e| format!("{url}: {e}"))?;
+        let mut out = Vec::new();
+        r.into_reader().take(MAX_MODULE_BYTES).read_to_end(&mut out).map_err(|e| format!("{url}: {e}"))?;
+        Ok(out)
     }
 
     fn refused_words(&self, key: &str, code: u16, body: &serde_json::Value) -> String {

@@ -91,6 +91,14 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, stage: &Stage, sel: &Sel, 
                 controls::row(d, t, area, &mut y, "gain", &crate::number(track.gain));
                 controls::row(d, t, area, &mut y, "pan", &crate::number(track.pan));
                 controls::row(d, t, area, &mut y, "mute", if track.mute { "on" } else { "off" });
+                if let Some(why) = stage.silent.get(id) {
+                    let small = t.size.small;
+                    for line in deck_kit::editor::info::wrap(why, (area.w / d.advance(small)).max(8.0) as usize).into_iter().take(4) {
+                        d.text(area.x, y, small, &line, t.color.danger);
+                        y += small * 1.5;
+                    }
+                    y += t.size.pad;
+                }
                 remove(d, t, area, &mut y, &mut out);
             }
             knobs(d, t, stage, (area, &mut y), Some(id), hot, &mut out);

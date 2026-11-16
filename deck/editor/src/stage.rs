@@ -79,6 +79,8 @@ pub struct Stage {
     pub groups: Vec<String>,
     /// a scene of Show's plays in the rig's place (`play_scene`): its id
     pub scene: Option<String>,
+    /// why a track is silent: its module is not loaded (published.rs), by track id
+    pub silent: std::collections::BTreeMap<String, String>,
 }
 
 /// a track's strip on the mixer
@@ -146,7 +148,9 @@ fn prepare(bundle: Bundle) -> Result<Ready> {
     if !turn.rig {
         bail!("rig {}: it does not play on this build ({})", bundle.rig.subject, turn.note);
     }
-    let scene = Scene::parse(&turn.played.scene)?;
+    // a module whose build is not loaded yet leaves its node out: the rest of the rig sounds meanwhile
+    let library = deck_native::module_host::Library::global();
+    let scene = Scene::parse(&turn.played.scene)?.modules_kept(|kind| library.get(kind.trim_start_matches(deck_space::modreg::PREFIX)).is_some());
     let graph = Graph::build(&scene)?;
     let tempo = tempo::config_from_graph(&graph)?;
     let space_node = graph.first(Kind::Space).context("the rig's scene has a space node")?;
@@ -311,7 +315,7 @@ impl Stage {
         let master = sum.as_deref().and_then(|s| slot(s, true)).map(|(n, p, _)| (n, p));
         let node_ids = graph.nodes.iter().map(|n| n.id.clone()).collect();
         let kinds = graph.nodes.iter().map(|n| n.kind).collect();
-        Stage { controls, space, gpu: None, texture: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, kinds, strips, inner, master, master_peak: [0.0; 2], master_max: 0.0, volume, path: Vec::new(), core_node: node, groups, reach, scene: None }
+        Stage { controls, space, gpu: None, texture: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, kinds, strips, inner, master, master_peak: [0.0; 2], master_max: 0.0, volume, path: Vec::new(), core_node: node, groups, reach, scene: None, silent: Default::default() }
     }
 
     /// show this level of the tree in Wire; empty = the rig
