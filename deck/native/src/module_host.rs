@@ -64,8 +64,9 @@ impl Library {
     /// Loads a module from its wasm bytes: descriptor first (nothing runs), then the compile (cached), then the kind.
     pub fn load(&self, wasm: &[u8]) -> Result<Arc<Loaded>> {
         let host = HostLoaded::<Wasmtime>::load(&self.engine, wasm)?;
-        if let Some(l) = self.by_hash.lock().unwrap_or_else(|e| e.into_inner()).get(&host.hash) {
-            return Ok(l.clone());
+        if let Some(l) = self.by_hash.lock().unwrap_or_else(|e| e.into_inner()).get(&host.hash).cloned() {
+            self.by_name.lock().unwrap_or_else(|e| e.into_inner()).insert(l.desc.name.to_string(), l.clone());
+            return Ok(l);
         }
         // the node kind: deck-engine's one mapping from the host's layout to the graph (#342)
         let kind = deck_engine::register_module(&host.desc, &host.layout);
@@ -93,6 +94,10 @@ impl Library {
     /// the loaded module behind a graph kind
     pub fn of_kind(&self, kind: ModuleKind) -> Option<Arc<Loaded>> {
         let want = kind.spec().kind.strip_prefix(modreg::PREFIX)?;
+        // a rebuild with the same ports is the same kind: the newest load of the name plays
+        if let Some(l) = self.get(want).filter(|l| l.kind == kind) {
+            return Some(l);
+        }
         self.by_hash.lock().unwrap_or_else(|e| e.into_inner()).values().find(|l| l.desc.name == want && l.kind == kind).cloned()
     }
 }

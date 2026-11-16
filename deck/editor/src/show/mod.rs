@@ -50,9 +50,11 @@ pub enum Workspace {
     Build,
     Show,
     Perform,
+    /// a module's code, build and audition (crate::module)
+    Module,
 }
 
-pub const WORKSPACES: [(Workspace, &str); 3] = [(Workspace::Build, "Build"), (Workspace::Show, "Show"), (Workspace::Perform, "Perform")];
+pub const WORKSPACES: [(Workspace, &str); 4] = [(Workspace::Build, "Build"), (Workspace::Module, "Module"), (Workspace::Show, "Show"), (Workspace::Perform, "Perform")];
 
 impl Workspace {
     pub fn parse(s: &str) -> Option<Workspace> {

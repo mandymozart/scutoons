@@ -10,6 +10,7 @@ pub mod diag;
 pub mod files;
 pub mod http;
 pub mod live;
+pub mod local;
 pub mod rebuild;
 pub mod runner;
 pub mod scan;

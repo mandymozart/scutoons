@@ -17,7 +17,10 @@ asio = ["deck-native/asio"]
 
 [dependencies]
 # the deck's own pieces: the window and its GPU (#443), the audio stack, the rig player, the stage
-deck-native = { path = "../native" }
+deck-native = { path = "../native", features = ["modules"] }
+# the Module workspace: a local build by the compile service's own rules (deck/build `local`), the descriptors
+scutoons-build = { path = "../build" }
+deck-catalog = { path = "../catalog" }
 deck-kit = { path = "../kit", features = ["editor"] }
 deck-space = { path = "../space", default-features = false, features = ["being", "gpu", "native"] }
 deck-engine = { path = "../engine" }

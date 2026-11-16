@@ -16,6 +16,7 @@ mod book;
 mod gpu_time;
 mod logo;
 mod mixer;
+mod module;
 mod inspector;
 mod routing;
 mod stage;
@@ -88,6 +89,8 @@ struct Args {
     far: Option<(String, bool)>,
     /// #539: a check run's story events (the API's answer in a file) in place of `GET /api/creator/story-events`
     story: Option<PathBuf>,
+    /// the Module workspace: a module to open, and a check run's build and save
+    module: module::Script,
     /// #568: a check run's rigs (`<id>.toml` bundles) for the cells' pieces the deck carries no core rig of
     rigs: Option<PathBuf>,
     /// a check run's Add typeahead: type this, pick the first row if asked
@@ -99,7 +102,7 @@ struct Args {
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, add: None, member: None, demo: None };
+    let mut a = Args { module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, add: None, member: None, demo: None };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -133,7 +136,7 @@ fn args() -> Result<Args> {
                 let v = val()?;
                 a.tab = TABS.iter().find(|(_, n)| n.eq_ignore_ascii_case(&v)).map(|(t, _)| *t).context("--tab inspector | text | audio")?;
             }
-            "--workspace" => a.workspace = show::Workspace::parse(&val()?).context("--workspace build | show | perform")?,
+            "--workspace" => a.workspace = show::Workspace::parse(&val()?).context("--workspace build | module | show | perform")?,
             "--show" => match val()? {
                 v if v.ends_with(".json") => a.show_file = Some(PathBuf::from(v)),
                 v => a.show_id = Some(v),
@@ -143,6 +146,13 @@ fn args() -> Result<Args> {
             "--toon" => a.toon = Some(val()?),
             "--book" => a.book = Some(PathBuf::from(val()?)),
             "--story-events" => a.story = Some(PathBuf::from(val()?)),
+            "--module" => {
+                a.module.open = Some(val()?);
+                a.workspace = show::Workspace::Module;
+            }
+            "--module-build" => a.module.build = true,
+            "--module-save" => a.module.save = true,
+            "--module-save-as" => a.module.save_as = Some(val()?),
             "--rigs" => a.rigs = Some(PathBuf::from(val()?)),
             "--demo" => {
                 a.demo = Some(val()?);
@@ -215,7 +225,7 @@ fn args() -> Result<Args> {
                 a.size = Some((w.trim().parse()?, h.trim().parse()?));
             }
             "--help" | "-h" => {
-                println!("deck-editor [--rig catpope] [--fullscreen] [--frames N] [--screenshot FILE] [--tokens FILE] [--size W,H] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5] [--menu PORT,QUERY[,pick]] [--toon TOON] [--book FILE] [--select NODE --far QUERY[,pick]] [--demo NAME]");
+                println!("deck-editor [--rig catpope] [--fullscreen] [--frames N] [--screenshot FILE] [--tokens FILE] [--size W,H] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5] [--menu PORT,QUERY[,pick]] [--toon TOON] [--book FILE] [--select NODE --far QUERY[,pick]] [--demo NAME] [--module ID [--module-build] [--module-save] [--module-save-as ID]]");
                 std::process::exit(0);
             }
             other => anyhow::bail!("unknown argument {other}"),
@@ -451,6 +461,7 @@ struct App {
     auth: sign_in::Auth,
     rigs: rigs::Rigs,
     routing: routing::Page,
+    module: module::Module,
     /// Build edits this scene (scene.rs); none = a rig
     scene: Option<scene::SceneView>,
     /// the scene tree's last press, for a double one
@@ -505,6 +516,7 @@ fn run() -> Result<i32> {
     }
     let app_book = book::Loader::new(&args.api, args.toon.as_deref(), args.book.as_deref(), auth.token(), &cache);
     let book_key = (args.toon.clone(), auth.token().is_some());
+    let app_module = module::Module::new(&args.api, &cache, args.module.clone());
     let mut app = App {
         panel: Panel { width, tab: args.tab, field: text::Field::with("Grüße an die Bühne – type here"), drag: None, hits: Vec::new(), field_rect: Rect { x: 0.0, y: 0.0, w: 0.0, h: 0.0 }, advance: 8.0 },
         args,
@@ -554,6 +566,7 @@ fn run() -> Result<i32> {
         auth,
         rigs,
         routing: routing::Page::new(deck_native::audio::backend::DeckAudio::read()),
+        module: app_module,
         scene: None,
         last_row: None,
     };
@@ -609,7 +622,7 @@ impl App {
     fn help_now(&self) -> Option<Help> {
         let (x, y) = self.cursor;
         Some(match self.hit(x, y) {
-            Hit::Workspace(_) => Help::new("Workspaces", "Build: rigs and scenes. Show: rows, cells, seats, saved through /api/shows. Perform: the matrix, GO, the log."),
+            Hit::Workspace(_) => Help::new("Workspaces", "Build: rigs and scenes. Module: a module's code in your editor, built here, heard on the stage, saved as a draft. Show: rows, cells, seats, saved through /api/shows. Perform: the matrix, GO, the log."),
             Hit::Port(i) => {
                 let p = self.stage.ports.get(i)?;
                 let what = format!("{} {}.", if p.input { "An input," } else { "An output," }, p.ty);
@@ -705,6 +718,9 @@ impl App {
         }
         self.show.pointer(x, y);
         self.show.drag_to(x, y);
+        if self.module.dragging() {
+            return self.module.drag_to(x, &mut self.stage);
+        }
         match self.panel.drag {
             Some(Drag::Divider) => {
                 let w = self.gpu.as_ref().map_or(1280.0, |g| g.size().0 as f32);
@@ -778,7 +794,11 @@ impl App {
             }
             return;
         }
-        if self.workspace != show::Workspace::Build {
+        if self.workspace == show::Workspace::Module {
+            if let Some(h) = self.module.hit(x, y) {
+                return self.module.press(h, x, &self.stage);
+            }
+        } else if self.workspace != show::Workspace::Build {
             // #551: the right click's typeahead on the selected cells takes the press while it is open
             if self.show.context_press(x, y) {
                 return;
@@ -789,7 +809,12 @@ impl App {
             }
         }
         match self.hit(x, y) {
-            Hit::Workspace(w) => self.workspace = w,
+            Hit::Workspace(w) => {
+                if self.workspace == show::Workspace::Module && w != show::Workspace::Module {
+                    self.module.leave(&mut self.stage);
+                }
+                self.workspace = w;
+            }
             Hit::Routing(f) => routing::act(&mut self.routing, &mut self.stage, f),
             Hit::Divider => self.panel.drag = Some(Drag::Divider),
             Hit::Tab(t) => {
@@ -1691,6 +1716,13 @@ impl App {
     fn redraw(&mut self, el: &ActiveEventLoop) {
         self.follow_toon();
         self.follow_rigs();
+        if self.workspace == show::Workspace::Module {
+            self.module.enter();
+        }
+        self.module.poll(&mut self.stage);
+        if let (Some(link), Some(cb)) = (self.module.link.take(), self.clipboard.as_mut()) {
+            let _ = cb.set_text(link);
+        }
         self.follow_cell();
         self.follow_scene();
         if let Some(f) = self.show.demo_book.take() {
@@ -1766,6 +1798,10 @@ impl App {
         // #91: a show workspace puts the stage where its layout says
         let (stage_x, stage_w, stage_h) = match self.workspace {
             show::Workspace::Build => (stage_x, stage_w, stage_h),
+            show::Workspace::Module => {
+                let r = module::draw::layout(wf, hf, t).stage;
+                (r.x, r.w, r.h)
+            }
             ws => {
                 let r = show::stage_rect(ws, &self.show, wf, hf, t);
                 (r.x, r.w, r.h)
@@ -1793,12 +1829,16 @@ impl App {
             self.show.hits.clear();
             match self.workspace {
                 show::Workspace::Show => show::author::draw(ui, t, &mut self.show, wf, hf, self.cursor),
+                show::Workspace::Module => module::draw::draw(ui, t, &mut self.module, &self.stage, wf, hf, self.cursor),
                 _ => show::perform::draw(ui, t, &mut self.show, wf, hf, self.cursor),
             }
             let names = show::WORKSPACES.map(|(_, n)| n);
             let logo_frame = ((self.started.elapsed().as_secs_f32() / logo::SECONDS).fract() * logo::FRAMES as f32) as usize;
-            let title = self.show.sub.conductor().show().id.clone();
-            let bar = bar::Bar { title: &title, status: &signed(&sign_in, self.show.link_line()), wire: self.wire, logo_frame, pointer: self.cursor, cpu: self.cpu_load, gpu: None, workspaces: &names, workspace: self.workspace.index() };
+            let (title, line) = match (self.workspace, &self.module.open) {
+                (show::Workspace::Module, open) => (open.as_ref().map_or_else(|| "module".to_string(), module::Open::key), self.stage.audio.clone()),
+                _ => (self.show.sub.conductor().show().id.clone(), self.show.link_line()),
+            };
+            let bar = bar::Bar { title: &title, status: &signed(&sign_in, line), wire: self.wire, logo_frame, pointer: self.cursor, cpu: self.cpu_load, gpu: None, workspaces: &names, workspace: self.workspace.index() };
             let (_, pills) = bar::draw(ui, t, wf, &bar);
             for (r, (w, _)) in pills.into_iter().zip(show::WORKSPACES) {
                 self.panel.hits.push((r, Hit::Workspace(w)));
@@ -2251,7 +2291,10 @@ impl App {
             }
         }
         self.script();
-        self.frames += 1;
+        // a check run waits for the module's build and save before it counts on
+        if self.frames == 0 || !self.module.busy() {
+            self.frames += 1;
+        }
         if self.args.frames.is_some_and(|n| self.frames >= n) {
             el.exit();
             return;
@@ -2313,6 +2356,7 @@ impl ApplicationHandler for App {
             WindowEvent::MouseInput { state: ElementState::Pressed, button: button @ (MouseButton::Middle | MouseButton::Right), .. } => self.press_view(button),
             WindowEvent::MouseInput { state: ElementState::Released, .. } => {
                 self.show.release();
+                self.module.release();
                 self.release()
             }
             WindowEvent::MouseWheel { delta, .. } => {
@@ -2323,6 +2367,9 @@ impl ApplicationHandler for App {
                 // #551: Show's inspector scrolls above its buttons
                 if self.workspace == show::Workspace::Show && self.show.wheel(self.cursor.0, self.cursor.1, steps) {
                     return;
+                }
+                if let (show::Workspace::Module, Some(module::Hit::Param(i))) = (self.workspace, self.module.hit(self.cursor.0, self.cursor.1)) {
+                    return self.module.wheel(i, steps, &mut self.stage);
                 }
                 match self.hit(self.cursor.0, self.cursor.1) {
                     Hit::Knob(i) => {
@@ -2345,7 +2392,7 @@ impl ApplicationHandler for App {
             WindowEvent::KeyboardInput { event, .. } if self.edit.is_some() => self.edit_key(&event),
             WindowEvent::KeyboardInput { event, .. } if self.menu.is_some() => self.menu_key(&event),
             // #471: the flash list's typed filter has the keys while it is focused
-            WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed && self.workspace != show::Workspace::Build && self.show.type_key(&event.logical_key) => {}
+            WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed && matches!(self.workspace, show::Workspace::Show | show::Workspace::Perform) && self.show.type_key(&event.logical_key) => {}
             // #560: F9 – back to the stage (deck-session swaps; elsewhere F9 does nothing): exit code 11
             WindowEvent::KeyboardInput { event, .. }
                 if event.state == ElementState::Pressed && event.logical_key == Key::Named(NamedKey::F9) && std::env::var_os("DECK_SWAP").is_some() =>

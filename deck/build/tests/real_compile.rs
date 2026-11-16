@@ -39,13 +39,7 @@ fn copy_dir(from: &Path, to: &Path) {
 
 /// the SDK as the image bakes it: deck/module/src + deck/module-macros/src with the standalone manifests
 fn bake_sdk(root: &Path) -> PathBuf {
-    let sdk = root.join("sdk");
-    let deck = deck();
-    copy_dir(&deck.join("module/src"), &sdk.join("module/src"));
-    copy_dir(&deck.join("module-macros/src"), &sdk.join("module-macros/src"));
-    std::fs::copy(deck.join("build/sdk/module.Cargo.toml"), sdk.join("module/Cargo.toml")).unwrap();
-    std::fs::copy(deck.join("build/sdk/macros.Cargo.toml"), sdk.join("module-macros/Cargo.toml")).unwrap();
-    sdk
+    scutoons_build::local::bake_sdk(&deck(), &root.join("sdk")).unwrap()
 }
 
 fn config(root: &Path, sdk: &Path, extra: &[(&str, &str)]) -> Arc<Config> {

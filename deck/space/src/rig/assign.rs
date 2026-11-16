@@ -221,6 +221,15 @@ pub fn module_instrument(module: &str, descriptor: &Descriptor) -> Result<Instru
     })
 }
 
+/// The rig a module is auditioned in: `subject`'s being with one track, `module`, playing the module alone
+/// (`module_instrument`); nothing else of the subject's rig sounds
+pub fn audition(subject: &str, descriptor: &Descriptor) -> Result<Bundle> {
+    let instrument = module_instrument(&descriptor.name, descriptor)?;
+    let track = super::Track { id: "module".into(), instrument: instrument.id.clone(), preset: None, gain: 1.0, pan: 0.0, mute: false };
+    let rig = Rig { subject: subject.to_string(), tracks: vec![track], routes: Vec::new(), personas: BTreeMap::new(), moods: BTreeMap::new(), rights: Default::default(), sticks: None, policy: None };
+    Ok(Bundle { rig, instruments: vec![instrument], presets: Vec::new(), modules: vec![descriptor.clone()] })
+}
+
 /// `{ module: { id, descriptor, … } }` (a catalog `module:<id>` document, the descriptor the compile service wrote into
 /// it) → the instrument that wraps it, as JSON for the catalog's `instruments` (the rig page's "start from existing modules")
 pub fn module_instrument_json(request: &str) -> Result<String> {

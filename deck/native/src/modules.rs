@@ -80,7 +80,7 @@ pub fn check_with(scene: &Scene, carried: impl Fn(&str) -> bool) -> Result<()> {
 /// The scene this build plays of `scene` (deck-core's `carried_part` over this build's modules) – for the tests and
 /// benches that play the bundled scenes on any build (the stage itself refuses such a scene, `check`).
 pub fn carried_part(scene: &Scene) -> Scene {
-    scene.carried_part(has).0
+    scene.loaded_part().carried_part(has).0
 }
 
 #[cfg(test)]
