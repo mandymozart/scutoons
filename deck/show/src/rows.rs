@@ -513,6 +513,20 @@ pub fn pieces(book: &Book, query: &str, locale: &str) -> Vec<PieceView> {
         .collect()
 }
 
+/// what marks a scene saved as a draft and never published: usable only in the editor where it is made, played on other
+/// decks once published (decisions/deck.md 2026-11-08 [scenes])
+pub const DRAFT: &str = "draft – this editor only until published";
+
+/// The draft scenes (`scene:<id>`, its stage's name) that match `query` (in the id or the name), marked as drafts.
+pub fn draft_pieces(drafts: &[(String, String)], query: &str) -> Vec<PieceView> {
+    let q = query.trim().to_lowercase();
+    drafts
+        .iter()
+        .filter(|(address, name)| q.is_empty() || address.to_lowercase().contains(&q) || name.to_lowercase().contains(&q))
+        .map(|(address, name)| PieceView { address: address.clone(), label: if name.trim().is_empty() { address.clone() } else { name.clone() }, detail: format!("{address} · {DRAFT}") })
+        .collect()
+}
+
 /// the picker's heading for `column`'s cell in `row`
 pub fn picker_title(show: &Show, row: &str, column: &str) -> String {
     let n = show.rows.iter().position(|r| r.id == row).map_or(0, |i| i + 1);
@@ -737,6 +751,11 @@ mod tests {
         assert_eq!(all[0], PieceView { address: "scene:nave".into(), label: "Nave".into(), detail: "scene:nave · v2 · newer draft".into() });
         assert_eq!(all[1].detail, "scene:stage · v1 · template");
         assert_eq!(pieces(&book, "nav", "en").len(), 1);
+        let drafts = [("scene:duet".to_string(), "Duet".to_string()), ("scene:crypt".to_string(), String::new())];
+        let d = draft_pieces(&drafts, "");
+        assert_eq!(d[0], PieceView { address: "scene:duet".into(), label: "Duet".into(), detail: format!("scene:duet · {DRAFT}") });
+        assert_eq!(d[1].label, "scene:crypt", "no name: its address");
+        assert_eq!(draft_pieces(&drafts, "DUE").len(), 1, "found by its name or id");
     }
 
     /// a toon's book as the API gives it: two published scenes (one a template), one not yet published, other kinds

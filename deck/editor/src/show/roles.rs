@@ -36,6 +36,10 @@ pub enum Typing {
     Ask(String, super::ask::AskField),
     /// the scene list's filter beside the rows band (scenes.rs)
     Scenes,
+    /// the scene sheet's id, name and cast picker query (new_scene.rs)
+    SceneId,
+    SceneName,
+    SceneCast,
 }
 
 /// What a prompt asks before it is done.
@@ -132,6 +136,7 @@ impl Host {
                     Typing::Event => self.event_typed(&text),
                     Typing::Ask(question, field) => self.ask_typed(question, field, &text),
                     Typing::Scenes => self.scene_query = text.trim().to_string(),
+                    Typing::SceneId | Typing::SceneName | Typing::SceneCast => self.compose_typed(&what, &text),
                 }
             }
             Key::Named(NamedKey::Escape) => self.typing = None,
