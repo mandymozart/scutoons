@@ -163,7 +163,7 @@ mod tests {
 
     fn host() -> super::Host {
         let mut host = host_with(SHOW);
-        host.knobs.rigs = Some(concat!(env!("CARGO_MANIFEST_DIR"), "/../show/fixtures/rigs").into());
+        host.knobs.rigs = Some(concat!(env!("CARGO_MANIFEST_DIR"), "/../demos/rigs").into());
         for p in ["character:keys", "character:bells", "item:incense_burner"] {
             assert!(matches!(host.knobs.now(p), Some(Ok(_))), "{p}: {:?}", host.knobs.now(p).map(|a| a.err()));
         }

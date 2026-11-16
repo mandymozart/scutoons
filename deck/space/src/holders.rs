@@ -115,9 +115,9 @@ pub fn opened(piece: &str, find: impl FnOnce(&Place) -> Option<Found>) -> Result
 mod tests {
     use super::*;
 
-    /// two rigs that listen to each other (deck-show's far-outlets fixture's)
-    pub const KEYS: &str = include_str!("../../show/fixtures/rigs/keys.toml");
-    pub const BELLS: &str = include_str!("../../show/fixtures/rigs/bells.toml");
+    /// two rigs that listen to each other (the far-nodes demo's, deck/demos/rigs)
+    pub const KEYS: &str = include_str!("../../demos/rigs/keys.toml");
+    pub const BELLS: &str = include_str!("../../demos/rigs/bells.toml");
 
     fn find(place: &Place) -> Option<Found> {
         match place.id.as_str() {

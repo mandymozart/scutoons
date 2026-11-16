@@ -603,7 +603,7 @@ mod gesture_tests {
     #[test]
     fn a_track_comes_with_its_instrument_and_goes() {
         let b = catpope();
-        let bells = fixture(include_str!("../../../show/fixtures/rigs/bells.toml"));
+        let bells = fixture(include_str!("../../../demos/rigs/bells.toml"));
         let air = bells.instruments.iter().find(|i| i.id == "bells_air").expect("the instrument");
         let (next, id) = b.track_added(air).expect("added");
         assert_eq!(id, "bells_air");
@@ -618,8 +618,8 @@ mod gesture_tests {
     /// the far-outlets fixture: a far node added to the keys listens to the bells' event output
     #[test]
     fn a_far_node_listens_to_its_holders_events() {
-        let keys = fixture(include_str!("../../../show/fixtures/rigs/keys.toml"));
-        let bells = fixture(include_str!("../../../show/fixtures/rigs/bells.toml"));
+        let keys = fixture(include_str!("../../../demos/rigs/keys.toml"));
+        let bells = fixture(include_str!("../../../demos/rigs/bells.toml"));
         let holder = Place::new("character", "bells");
         let (next, id) = keys.far_added("tone", &holder, &bells).expect("added");
         assert_eq!(id, "far");
@@ -627,7 +627,7 @@ mod gesture_tests {
         let (_, _, address) = far.iter().find(|(t, n, _)| t == "tone" && *n == id).expect("a far world node");
         assert_eq!(address.to_string(), "character:bells/far:in.events");
         next.play(None, None).expect("it plays");
-        let silent = fixture(&include_str!("../../../show/fixtures/rigs/bells.toml").replace("track = [{ id = \"air\", instrument = \"bells_air\" }, { id = \"far\", instrument = \"from_keys\" }]", "track = [{ id = \"air\", instrument = \"bells_air\" }]"));
+        let silent = fixture(&include_str!("../../../demos/rigs/bells.toml").replace("track = [{ id = \"air\", instrument = \"bells_air\" }, { id = \"far\", instrument = \"from_keys\" }]", "track = [{ id = \"air\", instrument = \"bells_air\" }]"));
         assert!(keys.far_added("tone", &holder, &silent).unwrap_err().contains("sends no events"));
     }
 

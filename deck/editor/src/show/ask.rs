@@ -368,7 +368,7 @@ mod tests {
     use deck_show::document::Cell;
 
     const VOTE: &str = include_str!("../../../show/fixtures/vote-cell.show.json");
-    const EVENTS: &str = include_str!("../../../show/fixtures/story-events.json");
+    const EVENTS: &str = include_str!("../../../demos/story-events.json");
 
     /// one frame of the Show workspace: its texts
     fn frame(host: &mut Host) -> Vec<String> {

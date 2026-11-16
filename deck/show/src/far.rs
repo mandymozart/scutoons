@@ -98,8 +98,8 @@ pub(crate) mod tests {
     /// the fixture's pieces as the editor's loader reads them (the rigs beside the show)
     pub(crate) fn find(place: &Place) -> Option<Found> {
         match place.id.as_str() {
-            "keys" => Some(Found::Rig(include_str!("../fixtures/rigs/keys.toml").into())),
-            "bells" => Some(Found::Rig(include_str!("../fixtures/rigs/bells.toml").into())),
+            "keys" => Some(Found::Rig(include_str!("../../demos/rigs/keys.toml").into())),
+            "bells" => Some(Found::Rig(include_str!("../../demos/rigs/bells.toml").into())),
             _ => None,
         }
     }

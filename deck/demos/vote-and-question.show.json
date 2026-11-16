@@ -1,0 +1,36 @@
+{
+  "id": "vote-and-question",
+  "version": 1,
+  "outlets": [{ "id": "left" }, { "id": "middle" }, { "id": "right" }],
+  "questions": [
+    {
+      "id": "q1",
+      "typed": { "question": { "en": "Which way?", "de": "Welcher Weg?" }, "options": [{ "en": "Left", "de": "Links" }, { "en": "Right", "de": "Rechts" }, { "en": "Stay", "de": "Bleiben" }] },
+      "rule": "majority",
+      "seconds": 30,
+      "fallback": 2,
+      "show": true
+    }
+  ],
+  "rows": [
+    {
+      "id": "try: shift-click left and right › right-click › the story's question",
+      "cells": {
+        "left": { "mode": "play", "piece": "character:keys" },
+        "middle": { "mode": "play", "piece": "item:incense_burner" },
+        "right": { "mode": "play", "piece": "character:bells" }
+      }
+    },
+    {
+      "id": "crossroads – a vote: Perform › Vote sheet › open it",
+      "fire": { "event": "ch3.door", "how": "suggest" },
+      "cells": { "left": { "mode": "ask", "question": "q1" }, "right": { "mode": "ask", "question": "q1" } },
+      "where": { "left": { "device": "phone" }, "right": { "device": "phone" } }
+    },
+    {
+      "id": "went left – a linked reader: Perform › Session (needs the server)",
+      "fire": { "event": "vote:q1/1", "how": "auto" },
+      "cells": { "left": { "mode": "play", "piece": "character:keys" }, "right": { "mode": "black" } }
+    }
+  ]
+}

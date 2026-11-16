@@ -144,7 +144,7 @@ mod tests {
     use winit::keyboard::{Key, NamedKey};
 
     const TOP_TOY: &str = include_str!("../../../show/fixtures/top-toy.show.json");
-    const EVENTS: &str = include_str!("../../../show/fixtures/story-events.json");
+    const EVENTS: &str = include_str!("../../../demos/story-events.json");
 
     /// an API that answers every request with `code` and `body`
     fn serve(code: u16, body: &'static str) -> String {

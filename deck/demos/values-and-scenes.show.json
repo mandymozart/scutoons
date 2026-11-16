@@ -1,0 +1,25 @@
+{
+  "id": "values-and-scenes",
+  "version": 1,
+  "outlets": [{ "id": "left" }, { "id": "middle" }, { "id": "right" }],
+  "rows": [
+    {
+      "id": "try: drag a scene from the list onto right",
+      "cells": {
+        "left": { "mode": "play", "piece": "character:keys" },
+        "middle": { "mode": "play", "piece": "character:keys" }
+      }
+    },
+    {
+      "id": "values – pick a cell · drag a knob · × it · take current",
+      "cells": {
+        "left": { "mode": "values", "piece": "character:keys", "values": { "tone:osc.gain": 0.5 } },
+        "middle": { "mode": "values", "piece": "character:keys", "values": { "tone:osc.freq": 220 } }
+      }
+    },
+    {
+      "id": "the path warning – no row above plays the bells on right",
+      "cells": { "right": { "mode": "values", "piece": "character:bells", "values": { "air:hiss.cutoff": 900 } } }
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-# The far-outlets fixture's bells (#568): a noise, and a far world node that listens to the keys wherever they play.
+# The bells of the far-nodes demo and the far-outlets fixture: a noise, and a far world node that listens to the keys wherever they play.
 
 [rig]
 subject = "character.bells"
