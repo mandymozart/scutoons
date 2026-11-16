@@ -1,82 +1,195 @@
-//! The window's top bar (#444, #423: every build shows its version top right, always; owner 2026-11-09: "the editor pane
-//! overlaps the version number ... so perhapse this should go to the top"): the whole width, above the stage and the
-//! panel, so no region can cover it. The version keeps its place, then the title; the status line gets what is left.
-use deck_kit::editor::controls::{self, Rect};
+//! The toolbar over the stage: pills in a row, nothing under them but the stage. Left the logo with the main menu's
+//! hamburger, the workspaces, the path of what is open (its steps go back up) with a word of status; the tempo pill
+//! (the play button, the clock's BPM); right the sign-in, the load meters, day / night and the version, which keeps its
+//! place at any width (every build shows it, always).
 use deck_kit::base::draw::DrawList;
 use deck_kit::base::tokens::Tokens;
+use deck_kit::editor::controls::{self, Rect};
 
 /// the logo's side
 const LOGO: f32 = 22.0;
+/// the pills' distance from the window's top
+const MARGIN: f32 = 8.0;
 
-/// what fits in a bar `width` wide: where the texts start and how many characters each may show
-#[derive(Debug, PartialEq)]
-struct Layout {
-    title_cols: usize,
-    status_x: f32,
-    status_cols: usize,
-    version_x: f32,
+/// where the toolbar ends: the panels start a gap under it
+pub fn bottom(t: &Tokens) -> f32 {
+    MARGIN + t.size.top
 }
 
-/// `left` = where the title starts, `switch` = the width of the Play / Wire switch after the title
-fn lay(width: f32, adv: f32, pad: f32, left: f32, title: usize, switch: f32, version: usize) -> Layout {
-    let version_x = (width - pad - version as f32 * adv).max(0.0);
-    let title_cols = title.min(((version_x - left - pad) / adv).max(0.0) as usize);
-    let status_x = left + title_cols as f32 * adv + 2.0 * pad + switch + pad;
-    let status_cols = ((version_x - pad - status_x) / adv).max(0.0) as usize;
-    Layout { title_cols, status_x, status_cols, version_x }
+/// a main menu's line
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Action {
+    Open,
+    New,
+    Publish,
+    DayNight,
+    Audio,
+    Account,
+    Quit,
 }
 
-/// what the bar shows
+/// the main menu, top down: what each line says, whether it leaves for the browser (no save: everything saves itself)
+pub const MENU: [(Action, &str, bool); 7] = [
+    (Action::Open, "Open…", false),
+    (Action::New, "New", false),
+    (Action::Publish, "Publish in the creator", true),
+    (Action::DayNight, "Day / night", false),
+    (Action::Audio, "Audio & inputs", false),
+    (Action::Account, "Account", true),
+    (Action::Quit, "Quit to stage  F9", false),
+];
+
+/// what the toolbar shows
 pub struct Bar<'a> {
-    /// #91: the workspaces (Build, Show, Perform) after the title, this one on
     pub workspaces: &'a [&'a str],
     pub workspace: usize,
-    pub title: &'a str,
+    /// the path of what is open: each step a pill that goes back to it
+    pub path: &'a [String],
     pub status: &'a str,
-    pub wire: bool,
+    /// the play button (Build): true = it starts playing
+    pub play: Option<bool>,
+    /// the tempo clock's BPM and whether it runs
+    pub beat: Option<(f64, bool)>,
+    pub sign_in: &'a str,
     pub logo_frame: usize,
     pub pointer: (f32, f32),
     /// how much of a frame's time the CPU and the GPU work (0..1); the GPU where it can be measured
     pub cpu: f32,
     pub gpu: Option<f32>,
+    /// the room a workspace keeps in the row for its own pill (Show's and Perform's view switch)
+    pub slot: f32,
 }
 
-/// the bar; where its play button and its workspace pills landed
-pub fn draw(ui: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> (Rect, Vec<Rect>) {
-    let Bar { title, status, wire, logo_frame: frame, pointer, cpu, gpu, workspaces, workspace } = *b;
-    let (h, pad, px) = (t.size.top, t.size.pad, t.size.font);
-    ui.rect(0.0, 0.0, width, h, t.color.surface_head);
-    ui.rect(0.0, h - 1.0, width, 1.0, t.color.line);
-    ui.logo(pad, (h - LOGO) * 0.5, LOGO, frame);
-    let left = pad + LOGO + pad;
-    let adv = ui.advance(px);
-    let pills_w: f32 = workspaces.iter().map(|w| ui.advance(t.size.small) * w.chars().count() as f32 + 2.0 * pad + 2.0).sum();
-    let switch = t.size.row + pills_w + pad;
-    let l = lay(width, adv, pad, left, title.chars().count(), switch, deck_native::BUILD.chars().count());
-    let y = (h - px * 1.25) * 0.5;
-    ui.text(left, y, px, &controls::fit(title, l.title_cols), t.color.text);
-    ui.text(l.status_x, y, px, &controls::fit(status, l.status_cols), t.color.muted);
-    ui.text(l.version_x, y, px, deck_native::BUILD, t.color.muted);
-    // how busy: left of the version, where there is room
-    let room = l.version_x - (l.status_x + status.chars().count() as f32 * adv) - 2.0 * pad;
-    if room > 200.0 {
-        let mut mx = l.version_x - 200.0;
-        mx += controls::meter(ui, t, mx, y, "CPU", cpu) + 2.0 * pad;
-        if let Some(g) = gpu {
-            controls::meter(ui, t, mx, y, "GPU", g);
-        }
+/// where the toolbar's parts landed
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Placed {
+    pub menu: Rect,
+    pub workspaces: Vec<Rect>,
+    pub path: Vec<Rect>,
+    pub play: Option<Rect>,
+    /// the place kept for the workspace's own pill
+    pub slot: Rect,
+    pub day: Rect,
+    /// the panic pill, in every workspace
+    pub panic: Rect,
+}
+
+/// a pill's ground
+fn pill(d: &mut DrawList, t: &Tokens, r: Rect) {
+    let s = t.color.surface;
+    d.round_rect(r.x, r.y, r.w, r.h, r.h * 0.5, [s[0], s[1], s[2], s[3] * t.color.panel_opacity]);
+    d.outline(r.x, r.y, r.w, r.h, (r.h * 0.5, 1.0), t.color.line);
+}
+
+/// the widths the row's pills take at `width`: the path pill gets what the others leave
+#[derive(Debug, PartialEq)]
+struct Row {
+    left: f32,
+    path_x: f32,
+    path_w: f32,
+    tempo_x: f32,
+    slot_x: f32,
+    right_x: f32,
+}
+
+fn row(width: f32, gap: f32, left: f32, tempo: f32, slot: f32, right: f32) -> Row {
+    let right_x = (width - gap - right).max(0.0);
+    let slot_x = right_x - gap - slot;
+    let tempo_x = slot_x - if slot > 0.0 { gap } else { 0.0 } - tempo;
+    let path_x = left + gap;
+    Row { left, path_x, path_w: (tempo_x - gap - path_x).max(0.0), tempo_x, slot_x, right_x }
+}
+
+pub fn draw(d: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Placed {
+    let (h, pad, px, small) = (t.size.top, t.size.pad, t.size.font, t.size.small);
+    let gap = 16.0;
+    let y = MARGIN;
+    let mid = y + h * 0.5;
+    let adv = d.advance(px);
+    let text_y = mid - px * 0.62;
+    let mut out = Placed::default();
+    // the logo and the hamburger
+    let first = Rect { x: gap, y, w: pad + LOGO + pad + h, h };
+    pill(d, t, first);
+    d.logo(first.x + pad + 2.0, mid - LOGO * 0.5, LOGO, b.logo_frame);
+    out.menu = controls::icon_button(d, t, Rect { x: first.x + first.w - h, y, w: h, h }, "menu", t.color.text, b.pointer);
+    // the workspaces
+    let ws_w: f32 = b.workspaces.iter().map(|w| d.advance(small) * w.chars().count() as f32 + 2.0 * pad + 2.0).sum::<f32>() + 2.0 * 4.0;
+    let ws = Rect { x: first.x + first.w + gap * 0.5, y, w: ws_w, h };
+    pill(d, t, ws);
+    out.workspaces = controls::pills(d, t, ws.x + 4.0, y + 4.0, h - 8.0, b.workspaces, b.workspace);
+    // the right pill: sign-in, meters, day / night, the version
+    let version_w = adv * deck_native::BUILD.chars().count() as f32;
+    let sign_w = (adv * b.sign_in.chars().count() as f32).min(160.0);
+    let meters = 200.0;
+    let lead = if b.play.is_some() { h + pad } else { 2.0 * pad };
+    let clock_w = lead + adv * 21.0 + pad;
+    let panic_w = adv * 5.0 + 4.0 * pad;
+    let tempo_w = clock_w + gap * 0.5 + panic_w;
+    let right_of = |wide: bool| 2.0 * pad + if b.sign_in.is_empty() { 0.0 } else { sign_w + pad } + if wide { meters + pad } else { 0.0 } + h + pad + version_w;
+    // the load meters only where the path keeps room of its own beside them
+    let wide = row(width, gap * 0.5, ws.x + ws.w, tempo_w, b.slot, right_of(false)).path_w > meters + 240.0;
+    let right_w = right_of(wide);
+    let r = row(width, gap * 0.5, ws.x + ws.w, tempo_w, b.slot, right_w);
+    // the path, then the status in what is left
+    let path = Rect { x: r.path_x, y, w: r.path_w, h };
+    if path.w > 2.0 * h {
+        pill(d, t, path);
+        // each step at most its share of the pill (the status gets what they leave)
+        let share = ((path.w - 2.0 * pad) / b.path.len().max(1) as f32 - 2.0 * pad - 14.0) / d.advance(px);
+        let steps: Vec<String> = b.path.iter().map(|s| controls::fit(s, share.max(3.0) as usize)).collect();
+        let crumbs = controls::breadcrumb(d, t, path.x + pad, y + 4.0, &steps);
+        let end = crumbs.last().map_or(path.x + pad, |c| c.x + c.w);
+        out.path = crumbs.into_iter().filter(|c| c.x + c.w <= path.x + path.w).collect();
+        let room = ((path.x + path.w - pad - end - pad) / d.advance(small)).max(0.0) as usize;
+        d.text(end + pad, mid - small * 0.62, small, &controls::fit(b.status, room), t.color.muted);
     }
-    let sx = left + l.title_cols as f32 * adv + 2.0 * pad;
-    let pills = controls::pills(ui, t, sx, (h - t.size.row + 4.0) * 0.5, t.size.row - 4.0, workspaces, workspace);
-    let sx = sx + pills_w + pad;
-    // one button, as in Unreal: green starts playing, red stops it
-    let at = Rect { x: sx, y: (h - t.size.row) * 0.5, w: t.size.row, h: t.size.row };
-    let button = if wire {
-        controls::icon_button(ui, t, at, "play-fill", t.color.go, pointer)
-    } else {
-        controls::icon_button(ui, t, at, "stop-fill", t.color.stop, pointer)
+    // the tempo: the play button, the clock (its content is still to come)
+    let tempo = Rect { x: r.tempo_x, y, w: clock_w, h };
+    pill(d, t, tempo);
+    if let Some(wire) = b.play {
+        let at = Rect { x: tempo.x + 2.0, y, w: h, h };
+        out.play = Some(if wire { controls::icon_button(d, t, at, "play-fill", t.color.go, b.pointer) } else { controls::icon_button(d, t, at, "stop-fill", t.color.stop, b.pointer) });
+    }
+    let clock = match b.beat {
+        Some((bpm, running)) => format!("{bpm:.1} BPM · {}", if running { "INTERNAL" } else { "STOPPED" }),
+        None => "– BPM".to_string(),
     };
-    (button, pills)
+    d.text(tempo.x + lead, text_y, px, &controls::fit(&clock, 21), t.color.text);
+    // the panic: red, always there, beside the tempo
+    let panic = Rect { x: tempo.x + clock_w + gap * 0.5, y, w: panic_w, h };
+    let hot = panic.has(b.pointer.0, b.pointer.1);
+    d.round_rect(panic.x, panic.y, panic.w, panic.h, h * 0.5, if hot { t.color.stop } else { t.color.danger });
+    d.text(panic.x + (panic.w - adv * 5.0) * 0.5, text_y, px, "PANIC", t.color.text);
+    out.panic = panic;
+    out.slot = Rect { x: r.slot_x, y, w: b.slot, h };
+    // the right pill
+    let right = Rect { x: r.right_x, y, w: right_w, h };
+    pill(d, t, right);
+    let mut x = right.x + pad;
+    if !b.sign_in.is_empty() {
+        x += d.text(x, mid - small * 0.62, small, &controls::fit(b.sign_in, (sign_w / d.advance(small)) as usize), t.color.muted) + pad;
+        x = x.max(right.x + pad + sign_w + pad);
+    }
+    if wide {
+        let mut mx = x;
+        mx += controls::meter(d, t, mx, mid - small * 0.62, "CPU", b.cpu) + 2.0 * pad;
+        if let Some(g) = b.gpu {
+            controls::meter(d, t, mx, mid - small * 0.62, "GPU", g);
+        }
+        x += meters + pad;
+    }
+    out.day = Rect { x, y, w: h, h };
+    d.icon(x + (h - 16.0) * 0.5, mid - 8.0, 16.0, "light", t.color.muted);
+    d.text(right.x + right.w - pad - version_w, text_y, px, deck_native::BUILD, t.color.muted);
+    out
+}
+
+/// the main menu under its hamburger; its lines' places
+pub fn menu(d: &mut DrawList, t: &Tokens, at: Rect, enabled: &dyn Fn(Action) -> bool, pointer: (f32, f32)) -> Vec<(Rect, Action)> {
+    let lines: Vec<controls::Action> = MENU.iter().map(|&(a, label, external)| controls::Action { label, enabled: enabled(a), external }).collect();
+    let rects = controls::actions(d, t, (at.x, at.y + at.h + 6.0), 240.0, &lines, pointer);
+    rects.into_iter().zip(MENU).map(|(r, (a, ..))| (r, a)).collect()
 }
 
 #[cfg(test)]
@@ -84,19 +197,33 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_version_ends_at_the_right_edge_however_wide_the_window() {
+    fn the_version_pill_ends_at_the_right_edge_however_wide_the_window() {
         for width in [400.0, 1280.0, 3840.0] {
-            let l = lay(width, 7.0, 12.0, 12.0, 23, 112.0, 27);
-            assert_eq!(l.version_x + 27.0 * 7.0 + 12.0, width);
+            let r = row(width, 8.0, 300.0, 200.0, 120.0, 260.0);
+            assert_eq!(r.right_x + 260.0 + 8.0, width);
         }
     }
 
     #[test]
-    fn nothing_reaches_the_version() {
-        for width in [120.0, 300.0, 400.0, 900.0, 1280.0] {
-            let l = lay(width, 7.0, 12.0, 12.0, 23, 112.0, 27);
-            assert!(l.title_cols == 0 || 12.0 + l.title_cols as f32 * 7.0 <= l.version_x, "the title at {width}");
-            assert!(l.status_cols == 0 || l.status_x + l.status_cols as f32 * 7.0 <= l.version_x, "the status at {width}");
+    fn the_path_takes_what_the_others_leave_and_never_reaches_them() {
+        for width in [600.0, 1280.0, 1920.0] {
+            let r = row(width, 8.0, 300.0, 200.0, 120.0, 260.0);
+            assert!(r.path_w == 0.0 || r.path_x + r.path_w + 8.0 <= r.tempo_x, "{width}: {r:?}");
+            assert!(r.tempo_x + 200.0 + 8.0 <= r.slot_x + 0.01, "the tempo before the slot");
+            assert!(r.slot_x + 120.0 + 8.0 <= r.right_x + 0.01, "the slot before the right pill");
         }
+        let without = row(1280.0, 8.0, 300.0, 200.0, 0.0, 260.0);
+        let with = row(1280.0, 8.0, 300.0, 200.0, 120.0, 260.0);
+        assert!(without.path_w > with.path_w, "no slot: the path is wider");
+    }
+
+    #[test]
+    fn every_menu_line_lands_and_a_disabled_one_is_still_placed() {
+        let t = Tokens::default();
+        let mut d = DrawList::new(0.6);
+        let lines = menu(&mut d, &t, Rect { x: 16.0, y: 8.0, w: 36.0, h: 36.0 }, &|a| a != Action::New, (0.0, 0.0));
+        assert_eq!(lines.len(), MENU.len());
+        assert!(lines.windows(2).all(|w| w[1].0.y > w[0].0.y));
+        assert!(lines[0].0.y > 44.0, "under the hamburger");
     }
 }

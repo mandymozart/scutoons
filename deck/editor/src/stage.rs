@@ -77,6 +77,8 @@ pub struct Stage {
     volume: f32,
     /// the outlet groups the rig plays in, `main` first
     pub groups: Vec<String>,
+    /// the tempo clock's last frame: its BPM and whether it runs
+    pub beat: Option<(f64, bool)>,
     /// a scene of Show's plays in the rig's place (`play_scene`): its id
     pub scene: Option<String>,
     /// why a track is silent: its module is not loaded (published.rs), by track id
@@ -315,7 +317,7 @@ impl Stage {
         let master = sum.as_deref().and_then(|s| slot(s, true)).map(|(n, p, _)| (n, p));
         let node_ids = graph.nodes.iter().map(|n| n.id.clone()).collect();
         let kinds = graph.nodes.iter().map(|n| n.kind).collect();
-        Stage { controls, space, gpu: None, texture: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, kinds, strips, inner, master, master_peak: [0.0; 2], master_max: 0.0, volume, path: Vec::new(), core_node: node, groups, reach, scene: None, silent: Default::default() }
+        Stage { controls, space, gpu: None, texture: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, kinds, strips, inner, master, master_peak: [0.0; 2], master_max: 0.0, volume, path: Vec::new(), core_node: node, groups, reach, scene: None, silent: Default::default(), beat: None }
     }
 
     /// show this level of the tree in Wire; empty = the rig
@@ -434,6 +436,7 @@ impl Stage {
         }
         let moment = Moment::wall(clock::now_ns(), self.origin_ns, self.rate);
         let now = self.tempo.frame(&moment);
+        self.beat = Some((now.bpm, now.running));
         self.controls.update(dt, moment.lead(), &now);
         let time = self.started.elapsed().as_secs_f32();
         let meters = self.handles.as_ref().and_then(|h| h.meters.clone());

@@ -9,9 +9,9 @@ use deck_kit::editor::controls::{self, Rect};
 use deck_kit::base::draw::DrawList;
 use deck_kit::base::tokens::Tokens;
 
-/// the band's height when open and folded
+/// the content's height, and its tabs' row
 pub const OPEN: f32 = 336.0;
-pub const FOLDED: f32 = 30.0;
+const FOLDED: f32 = 30.0;
 /// the mixer's gain range (catalog `mixer`)
 pub const GAIN_MAX: f32 = 1.5;
 const STRIP: f32 = 66.0;
@@ -25,7 +25,6 @@ pub enum Target {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Part {
-    Head,
     /// a level of the tree: 0 = the rig
     Tab(usize),
     Fader(Target, Rect),
@@ -152,26 +151,22 @@ fn rows(stage: &Stage, v: &View) -> Vec<Row> {
         .collect()
 }
 
-/// the band in `area`; where its parts landed
-pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, open: bool, stage: &Stage, v: &View) -> Vec<(Rect, Part)> {
+/// what the mixer's content asks for: a strip per row and the output, the level's tabs over them
+pub fn size(stage: &Stage, v: &View) -> (f32, f32) {
+    (rows(stage, v).len() as f32 * STRIP + 64.0, OPEN)
+}
+
+/// the mixer in `area` (its panel's content); where its parts landed
+pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, stage: &Stage, v: &View) -> Vec<(Rect, Part)> {
     let mut out = Vec::new();
-    d.rect(area.x, area.y, area.w, area.h, t.color.surface);
-    d.rect(area.x, area.y, area.w, 1.0, t.color.line);
-    let head = Rect { x: area.x, y: area.y, w: area.w, h: FOLDED };
-    d.icon(area.x + t.size.pad, area.y + (FOLDED - 12.0) * 0.5, 12.0, if open { "down" } else { "up" }, t.color.muted);
-    let label_w = d.text(area.x + t.size.pad + 16.0, area.y + (FOLDED - t.size.small * 1.25) * 0.5, t.size.small, "MIXER", t.color.muted);
     let names: Vec<&str> = v.tabs.iter().map(String::as_str).collect();
-    for (depth, r) in controls::pills(d, t, area.x + t.size.pad + 16.0 + label_w + t.size.pad, area.y + 2.0, FOLDED - 4.0, &names, v.tab).into_iter().enumerate() {
+    for (depth, r) in controls::pills(d, t, area.x, area.y + 2.0, FOLDED - 4.0, &names, v.tab).into_iter().enumerate() {
         out.push((r, Part::Tab(depth)));
-    }
-    out.push((head, Part::Head));
-    if !open {
-        return out;
     }
     let small = t.size.small;
     let y0 = area.y + FOLDED;
     for (n, row) in rows(stage, v).into_iter().enumerate() {
-        let x = area.x + t.size.pad + n as f32 * STRIP;
+        let x = area.x + 3.0 + n as f32 * STRIP;
         let name = controls::fit(&row.name, ((STRIP - 8.0) / d.advance(small)) as usize);
         let column = Rect { x: x - 3.0, y: y0 - 1.0, w: STRIP - 5.0, h: area.y + area.h - y0 + 1.0 };
         if v.selected == Some(row.target) {

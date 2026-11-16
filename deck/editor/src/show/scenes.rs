@@ -95,8 +95,6 @@ pub fn list(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, pointer: (f3
     let (pad, font, small, row) = (t.size.pad, t.size.font, t.size.small, t.size.tree_row);
     let w = a.w - 2.0 * pad;
     let fit = |d: &DrawList, s: &str, px: f32, w: f32| controls::fit(s, (w / d.advance(px)).max(0.0) as usize);
-    d.rect(a.x, a.y, a.w, a.h, t.color.surface);
-    d.rect(a.x, a.y, 1.0, a.h, t.color.line);
     let mut y = a.y + pad;
     d.text(a.x + pad, y, small, "SCENES", t.color.muted);
     let nw = d.advance(small) * super::new_scene::NEW.chars().count() as f32 + 2.0 * pad;

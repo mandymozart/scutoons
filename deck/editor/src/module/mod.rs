@@ -160,6 +160,8 @@ pub struct Module {
     pub status: String,
     pub bad: bool,
     pub hits: Vec<(Rect, Hit)>,
+    /// the workspace's floating panels
+    pub panels: crate::panels::Panels,
     drag: Option<(usize, f32, f32)>,
     listing: Option<Receiver<Result<Vec<Entry>, String>>>,
     building: Option<Receiver<(Outcome, Duration)>>,
@@ -206,6 +208,7 @@ impl Module {
             status: String::new(),
             bad: false,
             hits: Vec::new(),
+            panels: crate::panels::Panels::new(&crate::panels::MODULE),
             drag: None,
             listing: None,
             building: None,
