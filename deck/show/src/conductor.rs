@@ -239,8 +239,12 @@ pub struct Conductor {
     log: VecDeque<Entry>,
 }
 
-fn full_cell(piece: &str, values: &Values) -> protocol::Cell {
-    let src = LayerSrc::Piece(PieceSrc { piece: piece.to_string(), values: (!values.is_empty()).then(|| values.clone()) });
+fn full_cell(piece: &str, values: &Values, background: Option<&deck_space::Background>) -> protocol::Cell {
+    let background = background.and_then(|b| match serde_json::to_value(b) {
+        Ok(serde_json::Value::Object(m)) => Some(m),
+        _ => None,
+    });
+    let src = LayerSrc::Piece(PieceSrc { piece: piece.to_string(), values: (!values.is_empty()).then(|| values.clone()), background });
     let layer = Layer { id: PIECE_LAYER.into(), src, r#box: None, fit: None, opacity: None, r#loop: None, enter: None, exit: None };
     protocol::Cell { mode: CellMode::Own, layers: Some(vec![layer]), of: None, send: None }
 }
@@ -563,7 +567,7 @@ impl Conductor {
             Cell::Go { .. } | Cell::Free => return,
         };
         match &playing {
-            Playing::Piece { piece, values } => self.send_cell(column, full_cell(piece, values), at, out),
+            Playing::Piece { piece, values } => self.send_cell(column, full_cell(piece, values, self.show.background.as_ref()), at, out),
             Playing::Black => self.send_cell(column, black_cell(), at, out),
             Playing::Mirror { .. } | Playing::Sent => {}
         }
@@ -618,7 +622,7 @@ impl Conductor {
         for _ in 0..=self.show.outlets.len() {
             match self.stage.get(at).map(|s| &s.playing) {
                 Some(Playing::Mirror { of }) => at = of,
-                Some(Playing::Piece { piece, values }) => return full_cell(piece, values),
+                Some(Playing::Piece { piece, values }) => return full_cell(piece, values, self.show.background.as_ref()),
                 _ => return black_cell(),
             }
         }

@@ -258,12 +258,13 @@ pub(crate) fn set_from_page(space: &mut Space, glb_bytes: &[u8], images: js_sys:
 
 /// the pictures the stage asks for (the heads' portraits, #495 the cards' full views and item pictures), `ASK` values
 /// each: slot, then where scene-content holds it – the entry's kind (`characters`, `items`), its id, the field, the
-/// mood ("" = the field is the file) – so the page only looks up and fetches what the core named
+/// mood ("" = the field is the file); a media picture's kind is "" and its id its path – so the page only looks up and
+/// fetches what the core named
 pub(crate) fn portrait_asks(space: &mut Space) -> js_sys::Array {
     let out = js_sys::Array::new();
     for (slot, p) in space.portraits.requests() {
         out.push(&JsValue::from(slot as u32));
-        out.push(&JsValue::from_str(p.kind));
+        out.push(&JsValue::from_str(if p.kind == deck_space::cast::MEDIA { "" } else { p.kind }));
         out.push(&JsValue::from_str(&p.id));
         out.push(&JsValue::from_str(p.field()));
         out.push(&JsValue::from_str(&p.mood));

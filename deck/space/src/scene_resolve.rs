@@ -236,6 +236,7 @@ pub fn resolve(doc: &SceneDocument, with: &BTreeMap<String, Fillers>, previews: 
     // the rigs, flattened with each holder's preset choices and values
     let mut notes = Vec::new();
     let mut flat: Vec<(usize, Scene)> = Vec::new();
+    let (mut rig_bg, mut module_bg) = (None, None);
     for (i, m) in cast.iter().enumerate() {
         let h = doc.holders.iter().find(|h| h.id == m.holder).expect("a member's holder");
         let f = FillerRef::parse(&m.filler).expect("parsed above");
@@ -245,6 +246,9 @@ pub fn resolve(doc: &SceneDocument, with: &BTreeMap<String, Fillers>, previews: 
             notes.push(format!("holder {}: no rig {subject} at hand: '{}' stands silent", h.id, m.filler));
             continue;
         };
+        // the cast's rigs in holder order: the first one that sets a background, and its modules' first
+        rig_bg = rig_bg.or_else(|| bundle.rig.background.clone());
+        module_bg = module_bg.or_else(|| bundle.modules.iter().find_map(|d| d.background.clone()));
         let mut chosen = BTreeMap::new();
         for (path, v) in &h.values {
             if let (Ok(Leaf::Member { track, .. }), HolderValue::Preset(p)) = (Address::leaf(path), v) {
@@ -276,6 +280,7 @@ pub fn resolve(doc: &SceneDocument, with: &BTreeMap<String, Fillers>, previews: 
 
     let mut scene = Scene::parse("").expect("the empty scene parses");
     scene.stage = doc.stage.clone();
+    scene.stage.background = deck_catalog::background::resolve(None, doc.stage.background.as_ref(), rig_bg.as_ref(), module_bg.as_ref()).cloned();
     scene.outputs = doc.outputs.clone();
     // one member with its rig at the scene's own spot plays as its rig played alone: its slots as they are, its being the
     // space's (so `scene:nave` plays the scene of format 1). Every other stage gives each character member a look of its
@@ -543,6 +548,29 @@ mod tests {
             ..Holder::default()
         }];
         doc
+    }
+
+    #[test]
+    fn the_scenes_background_over_its_rigs_and_their_modules() {
+        use crate::Background;
+        let rigs = |rig: Option<&str>, module: Option<&str>| {
+            let (rig, module) = (rig.map(Background::colour), module.map(Background::colour));
+            move |subject: &str, v: Option<&str>| {
+                let mut b = core_rigs(subject, v)?;
+                b.rig.background = rig.clone();
+                b.modules.push(deck_catalog::Descriptor { background: module.clone(), ..deck_catalog::builtin("osc").unwrap().clone() });
+                Some(b)
+            }
+        };
+        let played = |doc: &SceneDocument, r: &dyn Fn(&str, Option<&str>) -> Option<Bundle>| resolve(doc, &BTreeMap::new(), false, r, &no_sets).unwrap().scene.stage.background;
+        let mut doc = nave();
+        assert_eq!(played(&doc, &rigs(None, None)), None, "none set: black");
+        assert_eq!(played(&doc, &rigs(None, Some("#00f"))), Some(Background::colour("#00f")), "a module's");
+        assert_eq!(played(&doc, &rigs(Some("#0f0"), Some("#00f"))), Some(Background::colour("#0f0")), "the rig over its module");
+        doc.stage.background = Some(Background::image("backgrounds/nave.png"));
+        assert_eq!(played(&doc, &rigs(Some("#0f0"), Some("#00f"))), Some(Background::image("backgrounds/nave.png")), "the scene over its rigs");
+        doc.stage.background = Some(Background::colour("blue"));
+        assert_eq!(doc.check(), ["stage background: 'blue' is no colour: #rgb or #rrggbb"]);
     }
 
     /// #489 acceptance (SCENES.md §9.6 2·0): `scene:nave` in format 2 resolves to the scene it played as format 1 – the

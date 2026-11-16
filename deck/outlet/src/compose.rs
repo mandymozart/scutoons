@@ -157,8 +157,8 @@ pub fn crop_to(img: &RgbaImage, c: &Rect) -> RgbaImage {
 pub fn fit_into(img: &RgbaImage, bw: u32, bh: u32, fit: Fit) -> (RgbaImage, u32, u32) {
     let (iw, ih) = (img.width().max(1) as f32, img.height().max(1) as f32);
     let k = match fit {
-        Fit::Contain => (bw as f32 / iw).min(bh as f32 / ih),
-        Fit::Cover => (bw as f32 / iw).max(bh as f32 / ih),
+        Fit::Contain => deck_core::fit::contain_scale((iw, ih), (bw as f32, bh as f32)),
+        Fit::Cover => deck_core::fit::cover_scale((iw, ih), (bw as f32, bh as f32)),
     };
     let (sw, sh) = (((iw * k).round() as u32).max(1), ((ih * k).round() as u32).max(1));
     let scaled = imageops::resize(img, sw, sh, FilterType::Triangle);

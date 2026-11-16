@@ -96,6 +96,8 @@ pub const CARD_VIEW: &str = "full";
 pub const PORTRAIT_VIEW: &str = "portrait";
 /// an item's picture (one, no moods)
 pub const ITEM_VIEW: &str = "picture";
+/// a picture named by its media path, not by an entry of scene-content
+pub const MEDIA: &str = "media";
 
 /// a card's height in metres: a character stands as tall as a person, an item as a thing on a table
 pub fn card_height(who: &Who) -> f32 {
@@ -126,6 +128,11 @@ impl Picture {
         Picture { kind: "items", id: id.into(), view: ITEM_VIEW, mood: String::new() }
     }
 
+    /// a picture by its media path (a stage background's image)
+    pub fn media(path: &str) -> Picture {
+        Picture { kind: MEDIA, id: path.into(), view: "", mood: String::new() }
+    }
+
     /// the field of scene-content's entry that holds it: a character's `portraits` / `full` (by mood), an item's `picture`
     pub fn field(&self) -> &'static str {
         if self.view == PORTRAIT_VIEW {
@@ -137,7 +144,7 @@ impl Picture {
 
     /// its file's name without the extension (agents/ASSETS.md): `<character>_<view>-<mood>`, an item's `<id>`
     pub fn stem(&self) -> String {
-        if self.kind == "items" {
+        if self.kind == "items" || self.kind == MEDIA {
             self.id.clone()
         } else {
             format!("{}_{}-{}", self.id, self.view, self.mood)

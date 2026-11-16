@@ -15,6 +15,16 @@ export type AssetDesc = {
 /** what an asset slot holds once the host has filled it: planar f32 PCM, raw bytes, or a small RGBA8 image (ABI-V2 §1.5) */
 export type AssetKind = "pcm" | "bytes" | "image";
 
+/** One of a colour, an image or a video. */
+export type Background = {
+	/** `#rgb` or `#rrggbb` */
+	colour?: string | null;
+	/** a picture's media path, laid over the stage */
+	image?: string | null;
+	/** a video's media path, laid over the stage */
+	video?: string | null;
+};
+
 export type Bundle = {
 	instrument?: Instrument[];
 	/** the modules it plays: a code rig's policy (#408), a track's module (#430) – the `module:<id>` documents' descriptors */
@@ -40,6 +50,8 @@ export type Descriptor = {
 	abi?: number | null;
 	/** read-only data slots (samples, sequences, images) the host fills at instantiation */
 	assets?: AssetDesc[];
+	/** modules only: the stage's background while it plays, unless a rig, scene or show above it sets one */
+	background?: Background | null;
 	/** the batch evaluator (deck-core batch.rs, live-core, the browser) can run it */
 	batch?: boolean;
 	doc?: string;
@@ -207,6 +219,8 @@ export type Preset = {
 
 /** A character's (or object's) set of tracks. */
 export type Rig = {
+	/** the stage's background while it plays, over its modules' and under a scene's or a show's */
+	background?: Background | null;
 	/** mood (the `moods` registry's ids) → overrides (applied after the persona's) */
 	moods?: { [key: string]: Variant };
 	/** persona → overrides (applied first) */

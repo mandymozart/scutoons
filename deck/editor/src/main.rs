@@ -323,6 +323,7 @@ enum Hit {
     /// Build's Add, the inspector's Remove
     Add,
     Remove,
+    Background,
     /// the Audio panel's settings, map and tones
     Routing(routing::Field),
     /// #568: Build linked to a show cell – its knobs into the cell, back to Show
@@ -381,6 +382,7 @@ enum Editing {
     Knob(usize),
     Param(usize, usize),
     Gain(mixer::Target),
+    Background,
 }
 
 /// a value being typed, in place of its field
@@ -851,6 +853,7 @@ impl App {
             Hit::Peak(_) => Help::new("Highest peak", "The loudest moment in dB, red once it went over 0. Click to clear it."),
             Hit::RigPick => Help::new("Rig", "Click: the toon's rigs on the server; a pick opens it on the stage. A local copy that differs from the server's is offered."),
             Hit::Add => Help::new("Add", "Inside a track: a node, a far world node with its holder from the address book. At the rig: a track playing an instrument of the catalog. Ctrl+z takes it back."),
+            Hit::Background => Help::new("Background", "The stage's background while this rig plays: a colour (#rrggbb) or a media path (an image laid over the stage). Empty = its modules', else black; a scene or a show over it wins."),
             Hit::Remove => Help::new("Remove", "Takes the selected node or track away, its cables with it (delete does the same). Ctrl+z takes it back."),
             Hit::Save => Help::new("Save", "A new draft version on the server, on the version opened (ctrl+s). Publishing is in the creator."),
             Hit::Mute(i) => Help::new(format!("Mute {}", self.stage.strips.get(i)?.track), "Takes the track out of the sound."),
@@ -1189,6 +1192,10 @@ impl App {
             Hit::Add => self.open_add(x, y),
             Hit::Way(w) => self.start_rig(w, x, y),
             Hit::Remove => self.remove_selected(),
+            Hit::Background => {
+                let now = self.stage.bundle.rig.background.as_ref().map_or("", |b| b.text()).to_string();
+                self.begin_edit(Editing::Background, Hit::Background, now);
+            }
             Hit::ToCell => self.knobs_to_cell(),
             Hit::BackToShow => self.workspace = show::Workspace::Show,
             Hit::SceneKnob(i) => {
@@ -1295,6 +1302,20 @@ impl App {
                     mixer::Target::Inner(i) => self.stage.inner_set(i, gain),
                 }
                 self.store_fader(target);
+            }
+            Editing::Background => {
+                let (x, y) = self.cursor;
+                match deck_space::Background::typed(&text) {
+                    Ok(b) => {
+                        let mut next = self.stage.bundle.clone();
+                        next.rig.background = b;
+                        let before = self.stage.bundle.clone();
+                        if self.take(next, x, y) {
+                            self.undo.push(before);
+                        }
+                    }
+                    Err(e) => self.say(e, x, y, true),
+                }
             }
         }
     }
@@ -2418,6 +2439,7 @@ impl App {
                                 inspector::Field::Param(n, p) => Hit::Param(n, p),
                                 inspector::Field::Address(n) => Hit::Address(n),
                                 inspector::Field::Remove => Hit::Remove,
+                                inspector::Field::Background => Hit::Background,
                             };
                             self.panel.hits.push((r, hit));
                         }

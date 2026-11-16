@@ -17,6 +17,7 @@
 
 pub mod devices;
 pub mod dsp;
+pub mod fit;
 pub mod lanes;
 pub mod lead;
 pub mod limiter;

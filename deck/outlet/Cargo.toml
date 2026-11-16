@@ -14,6 +14,8 @@ publish.workspace = true
 [dependencies]
 # the relay protocol's serde types: the cell, its layers, the messages the outlet routes
 protocol = { workspace = true }
+# the one fit of a picture into a box (cover, contain)
+deck-core = { workspace = true }
 serde.workspace = true
 # a slice's dialog: a string or a locale map, a colour or a gradient
 serde_json.workspace = true

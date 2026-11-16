@@ -222,6 +222,9 @@ pub struct StageSettings {
     pub transition: SceneTransition,
     /// the hand-over's length in s (`fade`); the same time base as the picture's fade in (deck-native switcher.rs `FADE_IN`)
     pub transition_secs: f32,
+    /// the stage's background; a played scene carries the one that won (`deck_catalog::background::resolve`)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub background: Option<deck_catalog::Background>,
 }
 
 /// What a switch does to the outputs (the lamps) between two scenes (#264).
@@ -243,7 +246,7 @@ pub const DEFAULT_TRANSITION_SECS: f32 = 0.4;
 
 impl Default for StageSettings {
     fn default() -> Self {
-        Self { name: "untitled".into(), render_scale: 1.0, audio_buffer: None, transition: SceneTransition::Fade, transition_secs: DEFAULT_TRANSITION_SECS }
+        Self { name: "untitled".into(), render_scale: 1.0, audio_buffer: None, transition: SceneTransition::Fade, transition_secs: DEFAULT_TRANSITION_SECS, background: None }
     }
 }
 
@@ -282,6 +285,15 @@ fn one() -> f32 {
 impl Scene {
     pub fn parse(text: &str) -> Result<Scene> {
         toml::from_str(text).context("the scene is not valid TOML for a stage scene")
+    }
+
+    /// The scene's TOML `text` with its stage's background set to `background` (the rest as written).
+    pub fn with_background(text: &str, background: &deck_catalog::Background) -> Result<String> {
+        let mut table: toml::Table = toml::from_str(text).context("the scene is not valid TOML for a stage scene")?;
+        let stage = table.entry("stage").or_insert_with(|| toml::Value::Table(toml::Table::new()));
+        let toml::Value::Table(stage) = stage else { anyhow::bail!("the scene's `stage` is no table") };
+        stage.insert("background".into(), toml::Value::try_from(background)?);
+        Ok(toml::to_string(&table)?)
     }
 
     pub fn load(path: &Path) -> Result<Scene> {

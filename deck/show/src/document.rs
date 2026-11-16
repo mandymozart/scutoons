@@ -28,6 +28,9 @@ pub struct Show {
     /// #546: the show's questions, each stored once; an `ask` cell names one, the row's columns that carry it are who votes
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub questions: Vec<Question>,
+    /// the stage background on every stage outlet, over what its pieces set
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background: Option<deck_space::Background>,
 }
 
 impl Show {

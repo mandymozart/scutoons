@@ -296,6 +296,8 @@ struct SceneDoc<'a> {
 #[derive(Serialize)]
 struct StageDoc<'a> {
     name: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    background: Option<&'a deck_catalog::Background>,
 }
 
 #[derive(Serialize)]
@@ -315,7 +317,7 @@ impl Bundle {
     /// A rig for `subject` with nothing in it yet: what an editor opens for a character without a rig, silent until a
     /// track is added
     pub fn empty(subject: &str) -> Bundle {
-        let rig = Rig { subject: subject.to_string(), tracks: Vec::new(), routes: Vec::new(), personas: BTreeMap::new(), moods: BTreeMap::new(), rights: Default::default(), sticks: None, policy: None };
+        let rig = Rig { subject: subject.to_string(), tracks: Vec::new(), routes: Vec::new(), personas: BTreeMap::new(), moods: BTreeMap::new(), rights: Default::default(), sticks: None, policy: None, background: None };
         Bundle { rig, instruments: Vec::new(), presets: Vec::new(), modules: Vec::new() }
     }
 
@@ -335,6 +337,11 @@ impl Bundle {
         Library::new(self.instruments.clone(), self.presets.clone()).with_modules(self.modules.clone())
     }
 
+    /// the background it plays with: its rig's, else its modules' first
+    pub fn background(&self) -> Option<&deck_catalog::Background> {
+        deck_catalog::background::resolve(None, None, self.rig.background.as_ref(), self.modules.iter().find_map(|d| d.background.as_ref()))
+    }
+
     pub fn play(&self, persona: Option<&str>, mood: Option<&str>) -> Result<Played> {
         self.play_with(persona, mood, &BTreeMap::new())
     }
@@ -351,9 +358,14 @@ impl Bundle {
         if self.rig.tracks.is_empty() {
             self.rig.check(&lib)?;
             let being = if character.is_empty() { String::new() } else { format!("\n[being]\ncharacter = {}\n", toml::Value::String(character)) };
-            return Played::scene(&format!("{SILENT_SCENE}{being}"));
+            let text = format!("{SILENT_SCENE}{being}");
+            return match self.background() {
+                Some(b) => Played::scene(&Scene::with_background(&text, b)?),
+                None => Played::scene(&text),
+            };
         }
-        let (scene, homes) = self.rig.flatten_homes(&lib, persona, mood, chosen)?;
+        let (mut scene, homes) = self.rig.flatten_homes(&lib, persona, mood, chosen)?;
+        scene.stage.background = self.background().cloned();
         let tracks = self
             .rig
             .play_with(&lib, persona, mood, chosen)?
@@ -427,7 +439,7 @@ impl Bundle {
             }
         };
         let doc = SceneDoc {
-            stage: StageDoc { name: &self.rig.subject },
+            stage: StageDoc { name: &self.rig.subject, background: self.background() },
             node: &scene.nodes,
             link: &scene.links,
             being: BeingDoc { character: &character, expose: knobs.iter().map(|k| k.path.as_str()).collect() },
