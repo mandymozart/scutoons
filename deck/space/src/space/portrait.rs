@@ -14,13 +14,23 @@
 //! Without threads (the browser, #198) the Portraits are `manual`: the host takes the requests (`requests`), fetches
 //! and decodes the sprites itself and hands them in (`deliver`).
 use super::glb::{half, Image};
-use crate::cast::{Picture, PORTRAIT_VIEW};
+use crate::cast::{Picture, MEDIA, PORTRAIT_VIEW};
 #[cfg(feature = "native")]
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, Receiver, Sender};
 
 /// a sprite's longest side on the GPU (a head is at most a third of the screen)
 pub const MAX: u32 = 512;
+/// a media picture's longest side (a background covers the screen)
+pub const MEDIA_MAX: u32 = 2048;
+
+fn max_side(picture: &Picture) -> u32 {
+    if picture.kind == MEDIA {
+        MEDIA_MAX
+    } else {
+        MAX
+    }
+}
 #[cfg(feature = "native")]
 const EXTENSIONS: [&str; 2] = ["png", "webp"];
 
@@ -40,6 +50,9 @@ pub struct LocalDir(pub PathBuf);
 impl LocalDir {
     /// the first file that exists for this picture
     pub fn find(&self, picture: &Picture) -> Option<PathBuf> {
+        if picture.kind == MEDIA {
+            return Some(self.0.join(&picture.id)).filter(|p| p.is_file());
+        }
         let name = picture.stem();
         let sub = if picture.kind == "items" { "items" } else { picture.id.as_str() };
         [self.0.join(sub), self.0.clone()]
@@ -98,7 +111,7 @@ impl Portraits {
             .name("portraits".into())
             .spawn(move || {
                 while let Ok((slot, picture)) = asked.recv() {
-                    let r = source.load(&picture).map(prepare);
+                    let r = source.load(&picture).map(|i| prepare(i, max_side(&picture)));
                     if let Err(e) = &r {
                         tracing::debug!("portrait: {e}");
                     }
@@ -130,7 +143,8 @@ impl Portraits {
 
     /// a requested sprite, decoded by the host (RGBA8), or why there is none – it shows from the next `poll`
     pub fn deliver(&mut self, slot: usize, sprite: Result<image::RgbaImage, String>) {
-        let _ = self.tell.send((slot, sprite.map(prepare)));
+        let max = self.slots.get(slot).map_or(MAX, |s| max_side(&s.picture));
+        let _ = self.tell.send((slot, sprite.map(|i| prepare(i, max))));
     }
 
     /// A portrait slot per mood of `character` (the same character and mood share one).
@@ -250,9 +264,9 @@ pub fn near(moods: &[String]) -> Vec<Vec<usize>> {
         .collect()
 }
 
-fn prepare(img: image::RgbaImage) -> Image {
+fn prepare(img: image::RgbaImage, max: u32) -> Image {
     let mut img = img;
-    while img.width().max(img.height()) > MAX {
+    while img.width().max(img.height()) > max {
         img = image::imageops::resize(&img, (img.width() / 2).max(1), (img.height() / 2).max(1), image::imageops::FilterType::Triangle);
     }
     let mut levels = vec![(img.width(), img.height(), img.into_raw())];

@@ -637,6 +637,9 @@ impl SceneDocument {
     /// fillers and filters, spawn zones, rigs and values. Empty = well formed; the graph is checked when it resolves.
     pub fn check(&self) -> Vec<String> {
         let mut out = Vec::new();
+        if let Some(e) = self.stage.background.as_ref().and_then(deck_catalog::Background::check) {
+            out.push(format!("stage background: {e}"));
+        }
         let set = self.space().and_then(|s| s.params.get("set")).is_some();
         match &self.location {
             None => {}

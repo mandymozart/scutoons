@@ -1339,6 +1339,7 @@ name = "deck-outlet"
 version = "0.1.0"
 dependencies = [
  "ab_glyph",
+ "deck-core",
  "image",
  "protocol",
  "serde",

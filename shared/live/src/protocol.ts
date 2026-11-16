@@ -378,6 +378,8 @@ export type LayerSrc =
 export interface PieceSrc {
 	piece: string;
 	values?: Loose;
+	/** the show's stage background ({ colour } | { image } | { video }), over the piece's own; the deck's core reads it (deck-catalog `Background`) */
+	background?: Loose;
 }
 
 /** scroll: the chapter's slices running one after the other. */

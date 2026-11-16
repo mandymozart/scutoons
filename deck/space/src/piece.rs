@@ -230,13 +230,14 @@ impl Pieces {
             let targets = resolve(&played, &piece, &numbers, problems);
             return self.glide(piece, played, mood, targets, ms, now);
         }
-        let played = match load(&place, mood.as_deref(), find, problems) {
+        let mut played = match load(&place, mood.as_deref(), find, problems) {
             Ok(p) => p,
             Err(e) => {
                 problems.push(e);
                 return What::Kept;
             }
         };
+        show_background(&mut played, src.background.as_ref(), &piece, problems);
         if mood.is_some() && place.kind == "scene" {
             problems.push(format!("{piece}: a scene plays no mood – only a rig does"));
         }
@@ -286,6 +287,26 @@ impl Pieces {
         }
         self.moving = Some(Moving { glides: glides.clone(), at: now, ms });
         What::Glide { piece, glides, ms }
+    }
+}
+
+/// The show's background over the piece's own: the parent wins (`background::resolve`).
+fn show_background(played: &mut Played, background: Option<&protocol::Loose>, piece: &str, problems: &mut Vec<String>) {
+    let Some(b) = background else { return };
+    let b: crate::Background = match serde_json::from_value(serde_json::Value::Object(b.clone())) {
+        Ok(b) => b,
+        Err(e) => return problems.push(format!("{piece}: the show's background: {e}")),
+    };
+    if let Some(e) = b.check() {
+        return problems.push(format!("{piece}: the show's background: {e}"));
+    }
+    for text in [&mut played.scene, &mut played.engine.scene] {
+        let own = Scene::parse(text).ok().and_then(|s| s.stage.background);
+        let won = crate::background::resolve(Some(&b), own.as_ref(), None, None).cloned().unwrap_or_default();
+        match Scene::with_background(text, &won) {
+            Ok(t) => *text = t,
+            Err(e) => problems.push(format!("{piece}: the show's background: {e:#}")),
+        }
     }
 }
 
@@ -635,6 +656,22 @@ to = "out.in"
         assert_eq!(available("character:yellowmouse", |_| None), Err("character:yellowmouse is not on this deck".into()));
         assert!(available("scene:broken", |_| Some(Found::Scene("[[node]]\nid = 1".into()))).unwrap_err().starts_with("scene:broken: "));
         assert!(available("nave", nave).is_err(), "not a place");
+    }
+
+    #[test]
+    fn the_shows_background_over_the_pieces() {
+        let own = Scene::with_background(NAVE, &crate::Background::image("backgrounds/nave.png")).unwrap();
+        let scene_with = |p: &Place| (p.to_string() == "scene:nave").then(|| Found::Scene(own.clone()));
+        let with = |bg: &str| cell(&format!(r#"{{"mode":"own","layers":[{{"id":"piece","src":{{"kind":"piece","p":{{"piece":"scene:nave","background":{bg}}}}}}}]}}"#));
+        let a = Pieces::new().cell(&with(r##"{"colour":"#203040"}"##), 0.0, scene_with);
+        let What::Load { scene, .. } = &a.what else { panic!("{a:?}") };
+        let bg = Scene::parse(&beside(scene, crate::scene::OUTLET_SCENE, &[]).unwrap()).unwrap().stage.background;
+        assert_eq!(bg, Some(crate::Background::colour("#203040")), "the show wins, beside the outlet too");
+        let b = Pieces::new().cell(&pc("scene:nave", "{}"), 0.0, scene_with);
+        let What::Load { scene, .. } = &b.what else { panic!("{b:?}") };
+        assert_eq!(Scene::parse(scene).unwrap().stage.background, Some(crate::Background::image("backgrounds/nave.png")), "no show's: the scene's own");
+        let bad = Pieces::new().cell(&with(r##"{"colour":"red"}"##), 0.0, scene_with);
+        assert!(bad.problems.iter().any(|p| p.contains("the show's background")), "{bad:?}");
     }
 
     #[test]

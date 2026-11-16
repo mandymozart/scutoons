@@ -764,6 +764,9 @@ pub struct PieceSrc {
 	pub piece: String,
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub values: Option<Loose>,
+	/// the show's stage background ({ colour } | { image } | { video }), over the piece's own; the deck's core reads it (deck-catalog `Background`)
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub background: Option<Loose>,
 }
 
 /// scroll: the chapter's slices running one after the other.

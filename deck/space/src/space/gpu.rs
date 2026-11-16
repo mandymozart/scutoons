@@ -61,8 +61,8 @@ struct CardInst {
 
 const SHADER: &str = include_str!("../shaders/space.wgsl");
 const DEPTH: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
-/// the void / the far nave: a deep blue-black, and how fast the fog closes in (per metre)
-const FOG: [f32; 4] = [0.012, 0.014, 0.03, 0.045];
+/// how fast the fog closes in (per metre); its colour is the background's
+const FOG_DENSITY: f32 = 0.045;
 
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
@@ -119,6 +119,7 @@ pub struct SpaceGpu {
     tex_layout: wgpu::BindGroupLayout,
     sampler: wgpu::Sampler,
     room: Option<RoomGpu>,
+    backdrop: super::backdrop::BackdropGpu,
     unit_vb: wgpu::Buffer,
     unit_ib: wgpu::Buffer,
     unit_count: u32,
@@ -367,6 +368,7 @@ impl SpaceGpu {
         queue.write_buffer(&unit_vb, 0, bytemuck::cast_slice(&unit_v));
         queue.write_buffer(&unit_ib, 0, bytemuck::cast_slice(&unit_i));
         queue.write_buffer(&tube_ib, 0, bytemuck::cast_slice(&tube_idx));
+        let backdrop = super::backdrop::BackdropGpu::new(device, &tex_layout, color);
         SpaceGpu {
             room_pipe,
             solid_pipe,
@@ -377,6 +379,7 @@ impl SpaceGpu {
             tex_layout,
             sampler,
             room: None,
+            backdrop,
             unit_vb,
             unit_ib,
             unit_count: unit_i.len() as u32,
@@ -611,6 +614,9 @@ impl SpaceGpu {
     /// One frame of the space into `target` (the node's texture, `size` = its size). `time` drives the shimmer.
     pub fn draw(&mut self, queue: &wgpu::Queue, enc: &mut wgpu::CommandEncoder, target: &wgpu::TextureView, size: (u32, u32), space: &Space, time: f32) {
         let solid = space.write(&mut self.spheres, &mut self.tubes) as u32;
+        // the background's colour is what the space clears to and fades into (display values; the fog's are linear)
+        let clear = space.backdrop.clear();
+        let lin = |c: f32| c.powf(2.2);
         let all = self.spheres.len() as u32;
         queue.write_buffer(&self.inst_buf, 0, bytemuck::cast_slice(&self.spheres));
         queue.write_buffer(&self.tube_vb, 0, bytemuck::cast_slice(&self.tubes));
@@ -628,7 +634,7 @@ impl SpaceGpu {
             view_proj: cam.view_proj(size.0 as f32 / size.1.max(1) as f32).to_cols_array_2d(),
             eye: [eye.x, eye.y, eye.z, 1.0],
             look: [time, space.light, space.being.glow, space.being.hue],
-            fog: FOG,
+            fog: [lin(clear[0]), lin(clear[1]), lin(clear[2]), FOG_DENSITY],
             screen: [size.0 as f32, size.1 as f32, lit as f32, 0.0],
             lights,
         };
@@ -638,7 +644,6 @@ impl SpaceGpu {
         let post = self.post.as_ref().filter(|_| !plan.is_empty()).and_then(|p| p.scene().map(|s| (p, s)));
         let final_target = target;
         let target = post.map_or(target, |(_, s)| s);
-        let srgb = |c: f32| (c as f64).powf(1.0 / 2.2);
         let mut rp = enc.begin_render_pass(&wgpu::RenderPassDescriptor {
             multiview_mask: None,
             label: Some("space"),
@@ -646,7 +651,7 @@ impl SpaceGpu {
                 view: target, depth_slice: None,
                 resolve_target: None,
                 ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color { r: srgb(FOG[0]), g: srgb(FOG[1]), b: srgb(FOG[2]), a: 1.0 }),
+                    load: wgpu::LoadOp::Clear(wgpu::Color { r: f64::from(clear[0]), g: f64::from(clear[1]), b: f64::from(clear[2]), a: 1.0 }),
                     store: wgpu::StoreOp::Store,
                 },
             })],
@@ -710,6 +715,11 @@ impl SpaceGpu {
         drop(rp);
         if let Some((p, _)) = post {
             p.run(queue, enc, &plan, &space.post_knobs, &space.post, final_target);
+        }
+        if let Some((slot, rect)) = space.backdrop.image(&space.portraits, size) {
+            if let Some(Some(bind)) = self.sprites.get(slot) {
+                self.backdrop.draw(queue, enc, final_target, bind, rect);
+            }
         }
     }
 }

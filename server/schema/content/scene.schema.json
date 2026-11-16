@@ -53,6 +53,34 @@
         }
       ]
     },
+    "Background": {
+      "additionalProperties": false,
+      "description": "One of a colour, an image or a video.",
+      "properties": {
+        "colour": {
+          "description": "`#rgb` or `#rrggbb`",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "image": {
+          "description": "a picture's media path, laid over the stage",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "video": {
+          "description": "a video's media path, laid over the stage",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
     "Enter": {
       "description": "`start` or `join`.",
       "enum": [
@@ -479,6 +507,17 @@
             "integer",
             "null"
           ]
+        },
+        "background": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Background"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "the stage's background; a played scene carries the one that won (`deck_catalog::background::resolve`)"
         },
         "name": {
           "default": "untitled",

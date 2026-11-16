@@ -427,7 +427,8 @@
       "type": "object",
       "properties": {
         "piece": { "type": "string" },
-        "values": { "$ref": "#/definitions/Loose" }
+        "values": { "$ref": "#/definitions/Loose" },
+        "background": { "$ref": "#/definitions/Loose", "description": "the show's stage background ({ colour } | { image } | { video }), over the piece's own; the deck's core reads it (deck-catalog `Background`)" }
       },
       "required": ["piece"],
       "additionalProperties": false
