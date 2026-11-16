@@ -51,7 +51,7 @@
 		"dev:viewer": "npm run dev -w viewer",
 		"dev:lan": "node scripts/dev/lan.mjs",
 		"deck:ci": "node --experimental-transform-types --no-warnings scripts/deck-ci.mjs",
-		"check:deck-ci": "node --experimental-transform-types --no-warnings --test scripts/deck-ci-stamps.test.ts scripts/deck-target.test.ts",
+		"check:deck-ci": "node --experimental-transform-types --no-warnings --test scripts/deck-ci-stamps.test.ts scripts/deck-ci-scope.test.ts scripts/deck-target.test.ts",
 		"deck:target": "node --experimental-transform-types --no-warnings scripts/deck-target.ts",
 		"postinstall": "node --experimental-transform-types --no-warnings scripts/deck-target.ts --ensure",
 		"clock:measure": "npm run measure -w tools/clock-measure --",

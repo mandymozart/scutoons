@@ -2,8 +2,11 @@
 // push, then push" – GitHub's macOS / Windows minutes cost 10× / 2×). The same steps as .github/workflows/deck.yml,
 // which now runs by hand only (workflow_dispatch) – the GitHub variant for later, when we iterate less often.
 //
-//   npm run deck:ci                 the default tier: everything below, the release profile only checked (cargo check --release) –
-//                                   before every merge / push of deck work (worker, orchestrator, the pre-push hook)
+//   npm run deck:ci                 the changed tier (#604): only what the change since the last green run touches – its crates and
+//                                   their users (tests, clippy, the guards); a hub crate or a shared file runs the default tier.
+//                                   Per merge (worker, orchestrator). --since <ref> picks the base (else the last green run, else origin/main)
+//   npm run deck:ci -- --all        the default tier: everything below, the release profile only checked (cargo check --release) –
+//                                   the pre-push hook (--if-changed) runs this one
 //   npm run deck:ci -- --full       the full tier: the default tier with the real fat-LTO release build instead of the check –
 //                                   at the end of every shift and before a deck release (#524)
 //   npm run deck:ci -- --quick      the guards, tests + clippy only (no release, no wasm)
@@ -35,11 +38,13 @@ if (!process.execArgv.some((a) => /^--experimental-(transform|strip)-types$/.tes
 }
 const { WATCH, Stamps, contentKey, decide, gitState, stampsDir, toolchain, watched } = await import('./deck-ci-stamps.ts');
 const { ensure, layout } = await import('./deck-target.ts');
+const { changedSince, lastGreen, markGreen, scope, workspace } = await import('./deck-ci-scope.ts');
 const { deckTarget, wasmPath } = await import('../shared/live-core/scripts/wasm.ts');
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
-const tier = args.includes('--quick') ? 'quick' : args.includes('--full') ? 'full' : 'default';
+// no flag: the changed tier (#604) – what the change since the last green run touches; the pre-push hook (--if-changed) runs the default tier
+let tier = args.includes('--quick') ? 'quick' : args.includes('--full') ? 'full' : args.includes('--all') || args.includes('--if-changed') ? 'default' : 'changed';
 const fresh = args.includes('--fresh') || !!process.env.DECK_CI_FRESH;
 const planOnly = args.includes('--plan');
 
@@ -88,7 +93,43 @@ const NODE = ['package.json', 'package-lock.json'];
 const MODULES = ['--features', 'deck-native/modules,deck-engine/events,deck-engine/modules'];
 /** { name, cmd, argv, cwd, env?, after?, paths? (beyond WATCH), stamp? (false: always runs) } */
 const step = (name, cmd, argv, cwd, more = {}) => ({ name, cmd, argv, cwd, ...more });
-const steps = [
+
+// the changed tier: the crates the change touches and their users; a hub change falls back to the default tier
+let touched;
+if (tier === 'changed') {
+	const since = args.indexOf('--since');
+	let base = since >= 0 ? args[since + 1] : lastGreen(stampsDir(root), root);
+	let from = since >= 0 ? `--since ${base}` : base ? `the last green run (${base.slice(0, 8)})` : '';
+	if (!base) {
+		base = execFileSync('git', ['merge-base', 'HEAD', 'origin/main'], { cwd: root, encoding: 'utf8' }).trim();
+		from = `origin/main (${base.slice(0, 8)})`;
+	}
+	const sc = scope(changedSince(root, base, gitState(root).dirty), workspace(deck));
+	if (sc.kind === 'all') {
+		tier = 'default';
+		console.log(`deck:ci changed since ${from}: ${sc.why} – a hub, the whole default tier`);
+	} else if (sc.kind === 'none') {
+		touched = [];
+		console.log(`deck:ci changed since ${from}: nothing the deck builds – the guards only`);
+	} else {
+		touched = sc.closure;
+		console.log(`deck:ci changed since ${from}: ${sc.touched.join(', ')} → tests and clippy of ${sc.closure.join(', ')}`);
+	}
+}
+const pkgs = (names) => names.flatMap((n) => ['-p', n]);
+const steps = touched
+	? [
+			step('🧱 core only', npm, ['run', 'check:core-only'], root, { stamp: false }),
+			step('🧱 core crates platform-free', npm, ['run', 'check:deck-deps'], root, { paths: NODE }),
+			...(touched.length
+				? [
+						step(`🦀 tests (${touched.join(' ')})`, 'cargo', ['test', ...pkgs(touched)], deck),
+						...(touched.includes('deck-native') ? [step('🧩 module tests', 'cargo', ['test', '-p', 'deck-native', '--features', 'modules', '--test', 'modules'], deck)] : []),
+						step(`🦀 clippy (${touched.join(' ')})`, 'cargo', ['clippy', ...pkgs(touched), '--all-targets', ...(touched.includes('deck-native') ? ['--features', 'deck-native/modules'] : []), '--', '-D', 'warnings'], deck)
+					]
+				: [])
+		]
+	: [
 	// #357: no deck logic in the browser's TypeScript (the ratchet: scripts/core-only-baseline.json only shrinks). Never
 	// stamped: it scans viewer / creator / admin / tools and compares with main's baseline – more than the watched tree
 	step('🧱 core only', npm, ['run', 'check:core-only'], root, { stamp: false }),
@@ -145,7 +186,7 @@ const steps = [
 	step('🧩 engine module tests', 'cargo', ['test', '-p', 'deck-engine', '--features', 'events,modules', '--lib', 'module'], deck),
 	// one clippy over the feature union (#524; was three runs: workspace, deck-native modules, deck-engine events + modules)
 	step('🦀 clippy', 'cargo', ['clippy', '--workspace', '--all-targets', ...MODULES, '--', '-D', 'warnings'], deck)
-];
+	];
 
 const stamps = new Stamps(stampsDir(root));
 stamps.prune();
@@ -216,4 +257,6 @@ ${e.message}`;
 	}
 	console.log(`ok (${seconds} s)${note}${stamped}`);
 }
+// the next changed run starts from here – only for a clean tree, where the green run was HEAD's
+if (tier !== 'quick' && !dirtyWatched && gitState(root).head === head) markGreen(stampsDir(root), head, tier);
 console.log(`deck:ci green in ${((Date.now() - started) / 1000).toFixed(0)} s${skipped ? ` (${skipped} of ${steps.length} steps skipped by their green stamps)` : ''}`);

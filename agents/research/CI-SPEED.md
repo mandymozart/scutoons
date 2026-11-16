@@ -1,4 +1,4 @@
-Status 2026-11-14: research (#523); proposals 1, 2 (in part) and 3 built (#524, "Built (#524)" under §4's first three rows); 7 in part (rust-lld, line tables: #525, "Measured (#525)" at the end); 10 built (#526, "Design (#526)" + "Built (#526)" at the end); 7's wasmtime half built (#536: the two wasm tests 331 / 76 s → 13 / 9 s, "Measured (#536)"), 4 cut there; 5–6, 8–9 open.
+Status 2026-11-14: research (#523); proposals 1, 2 (in part) and 3 built (#524, "Built (#524)" under §4's first three rows); 7 in part (rust-lld, line tables: #525, "Measured (#525)" at the end); 10 built (#526, "Design (#526)" + "Built (#526)" at the end); 7's wasmtime half built (#536: the two wasm tests 331 / 76 s → 13 / 9 s, "Measured (#536)"), 4 cut there; 5 built (#604: the changed tier is the default, `--all` the old default tier); 6, 8–9 open.
 
 # Where deck:ci's time goes, and how to cut it
 
