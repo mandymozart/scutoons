@@ -164,6 +164,8 @@ pub struct Module {
     listing: Option<Receiver<Result<Vec<Entry>, String>>>,
     building: Option<Receiver<(Outcome, Duration)>>,
     saving: Option<Receiver<Saved>>,
+    /// a new module's first draft on its way: its id once it is on the server
+    creating: Option<Receiver<Result<String, String>>>,
     /// the rig the stage played before the first audition: back on leaving
     restore: Option<Bundle>,
     asked: bool,
@@ -208,6 +210,7 @@ impl Module {
             listing: None,
             building: None,
             saving: None,
+            creating: None,
             restore: None,
             asked: false,
             link: None,
@@ -216,7 +219,7 @@ impl Module {
     }
 
     pub fn busy(&self) -> bool {
-        self.listing.is_some() || self.building.is_some() || self.saving.is_some() || (!self.bad && (self.script.build || (self.script.save && self.heard)))
+        self.listing.is_some() || self.building.is_some() || self.saving.is_some() || self.creating.is_some() || (!self.bad && (self.script.build || (self.script.save && self.heard)))
     }
 
     fn say(&mut self, text: impl Into<String>, bad: bool) {
@@ -241,6 +244,26 @@ impl Module {
             let _ = tx.send(Api::new(api).catalog("modules").and_then(|t| entries(&t)));
         });
         self.listing = Some(rx);
+    }
+
+    /// a new module (`key`, its first draft `content`) saved as a draft unless it is there already, then opened
+    pub fn create(&mut self, key: &str, content: Value) {
+        if self.creating.is_some() {
+            return;
+        }
+        let (tx, rx) = channel();
+        let (api, key) = (self.api.clone(), key.to_string());
+        std::thread::spawn(move || {
+            let api = Api::new(api);
+            let made = api.draft(&key).and_then(|there| match there {
+                Some(_) => Ok(()),
+                None => api.save_draft(&key, &content, None, "deck editor").map(|_| ()),
+            });
+            let _ = tx.send(made.map(|()| key.trim_start_matches("module:").to_string()));
+        });
+        self.creating = Some(rx);
+        self.asked = true;
+        self.say("saving the new module's first draft …", false);
     }
 
     /// the workspace is left: the rig the stage played before comes back
@@ -427,6 +450,18 @@ impl Module {
                                 None => self.say(format!("module:{id} is not in the catalog"), true),
                             }
                         }
+                    }
+                    Err(e) => self.say(e, true),
+                }
+            }
+        }
+        if let Some(rx) = &self.creating {
+            if let Ok(r) = rx.try_recv() {
+                self.creating = None;
+                match r {
+                    Ok(id) => {
+                        self.script.open = Some(id);
+                        self.relist();
                     }
                     Err(e) => self.say(e, true),
                 }

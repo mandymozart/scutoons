@@ -13,6 +13,7 @@
 mod adding;
 mod bar;
 mod book;
+mod empty;
 mod gpu_time;
 mod logo;
 mod mixer;
@@ -304,6 +305,8 @@ enum Hit {
     SceneInto,
     /// a slot's or a video node's field (scene_parts.rs)
     SceneField(scene::Field),
+    /// a way to start the rig of a character without one (empty.rs)
+    Way(empty::Way),
 }
 
 /// what is being dragged
@@ -674,6 +677,8 @@ impl App {
             Hit::SceneKnob(_) => Help::new("Value in the scene", "Drag to set this member's knob in the scene; the stage plays it when you let go. Save makes the scene's draft."),
             Hit::SceneClear(_) => Help::new("Its rig's value", "Takes the scene's value off: the member plays its rig's own."),
             Hit::SceneInto => Help::new("Open as rig", "One level down: the member's rig alone on the stage, the scene's values on its knobs. Esc or the scene's line takes them back into the scene."),
+            Hit::Way(empty::Way::Modules) => Help::new("Start from modules", "Add at the rig: a track playing a module or an instrument of the catalog. Save makes the rig's first draft."),
+            Hit::Way(empty::Way::NewModule) => Help::new("New module", "A module of the character's own as a draft, opened in the Module workspace: write it, build it, hear it, then add it here as a track."),
             Hit::SceneField(_) => Help::new("Slot or video", "A slot's filter (every chip on holds), its preview from the toon's book; a video node's place and knobs. The core refuses what does not fit, in its words."),
             Hit::Field(_) | Hit::InfoBody | Hit::Nothing => return None,
         })
@@ -971,6 +976,7 @@ impl App {
             Hit::Add if self.scene.as_ref().is_some_and(|v| v.inside.is_none()) => self.scene_add(x, y),
             Hit::SceneField(f) => self.scene_field(f, x, y),
             Hit::Add => self.open_add(x, y),
+            Hit::Way(w) => self.start_rig(w, x, y),
             Hit::Remove => self.remove_selected(),
             Hit::ToCell => self.knobs_to_cell(),
             Hit::BackToShow => self.workspace = show::Workspace::Show,
@@ -1948,6 +1954,10 @@ impl App {
                             f => Hit::SceneField(f),
                         };
                         self.panel.hits.push((r, hit));
+                    }
+                } else if empty::is_empty(&self.stage.bundle) {
+                    for (r, way) in empty::draw(ui, t, area, &self.stage.bundle) {
+                        self.panel.hits.push((r, Hit::Way(way)));
                     }
                 } else {
                     for (r, field) in inspector::draw(ui, t, area, &self.stage, &self.sel, hot) {

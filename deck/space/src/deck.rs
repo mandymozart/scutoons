@@ -612,6 +612,19 @@ mod tests {
         assert!(!d.now().rig, "and what played stays");
     }
 
+    /// a character's rig with no track yet, as the browser hands it over (`play_json`, space-web's `play`) and as native
+    /// plays it: silent, its being stands
+    #[test]
+    fn a_rig_with_no_track_yet_is_silent_on_every_deck() {
+        let empty = serde_json::to_string(&Bundle::empty("character.nobody")).unwrap();
+        let mut d = Deck::new();
+        let t = d.play_json(&empty, "").expect("an empty rig plays");
+        assert!(t.rig && !t.failed && sounding(&t.played).is_empty() && t.played.engine.page.is_empty(), "{}", t.note);
+        assert_eq!(t.played.character, "nobody");
+        let native = Deck::new().play(Some(Bundle::empty("character.nobody")), "").expect("native").played;
+        assert_eq!(native.scene, t.played.scene, "the same scene on both");
+    }
+
     /// #425: the rig editor's deck stands on an empty rigging stage – the same silent being, no room
     #[test]
     fn the_rigging_stage_has_no_room() {

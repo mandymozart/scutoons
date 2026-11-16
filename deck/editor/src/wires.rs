@@ -219,6 +219,9 @@ struct Draft {
     instruments: Vec<Instrument>,
     #[serde(default, rename = "preset")]
     presets: Vec<Preset>,
+    /// the descriptors of modules a new track plays
+    #[serde(default, rename = "module", skip_serializing_if = "Vec::is_empty")]
+    modules: Vec<deck_catalog::Descriptor>,
 }
 
 /// the draft over `base`, if the file is there and still valid
@@ -236,6 +239,11 @@ pub fn load_draft(path: &Path, base: &Bundle) -> Bundle {
         for p in d.presets {
             if let Some(at) = b.presets.iter().position(|x| x.id == p.id) {
                 b.presets[at] = p;
+            }
+        }
+        for m in d.modules {
+            if !b.modules.iter().any(|x| x.name == m.name) {
+                b.modules.push(m);
             }
         }
         checked(b)
@@ -264,7 +272,8 @@ pub fn save_draft(path: &Path, base: &Bundle, bundle: &Bundle, version: Option<u
     }
     let instruments = bundle.instruments.iter().filter(|i| !base.instruments.contains(i)).cloned().collect();
     let presets = bundle.presets.iter().filter(|p| !base.presets.contains(p)).cloned().collect();
-    let text = toml::to_string(&Draft { version, rig: bundle.rig.clone(), instruments, presets }).context("the draft as TOML")?;
+    let modules = bundle.modules.iter().filter(|m| !base.modules.iter().any(|x| x.name == m.name)).cloned().collect();
+    let text = toml::to_string(&Draft { version, rig: bundle.rig.clone(), instruments, presets, modules }).context("the draft as TOML")?;
     std::fs::write(path, text).with_context(|| format!("writing {}", path.display()))
 }
 

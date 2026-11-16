@@ -312,6 +312,13 @@ impl Bundle {
         Some(toml::from_str(text).with_context(|| format!("the core rig {subject}")))
     }
 
+    /// A rig for `subject` with nothing in it yet: what an editor opens for a character without a rig, silent until a
+    /// track is added
+    pub fn empty(subject: &str) -> Bundle {
+        let rig = Rig { subject: subject.to_string(), tracks: Vec::new(), routes: Vec::new(), personas: BTreeMap::new(), moods: BTreeMap::new(), rights: Default::default(), sticks: None, policy: None };
+        Bundle { rig, instruments: Vec::new(), presets: Vec::new(), modules: Vec::new() }
+    }
+
     /// `core` as JSON – the wasm boundary's form; empty when the deck carries none
     pub fn core_json(subject: &str) -> Result<String> {
         match Bundle::core(subject) {
@@ -335,6 +342,17 @@ impl Bundle {
     /// `play` with presets chosen per track (track → preset: a code rig's `@preset` outputs, the deck's replay #410)
     pub fn play_with(&self, persona: Option<&str>, mood: Option<&str>, chosen: &BTreeMap<String, String>) -> Result<Played> {
         let lib = self.library();
+        let character = self
+            .rig
+            .subject
+            .strip_prefix("character.")
+            .map(|c| c.split('.').next().unwrap_or(c).to_string())
+            .unwrap_or_default();
+        if self.rig.tracks.is_empty() {
+            self.rig.check(&lib)?;
+            let being = if character.is_empty() { String::new() } else { format!("\n[being]\ncharacter = {}\n", toml::Value::String(character)) };
+            return Played::scene(&format!("{SILENT_SCENE}{being}"));
+        }
         let (scene, homes) = self.rig.flatten_homes(&lib, persona, mood, chosen)?;
         let tracks = self
             .rig
@@ -342,12 +360,6 @@ impl Bundle {
             .into_iter()
             .map(|t| TrackPlays { track: t.track, preset: t.preset })
             .collect();
-        let character = self
-            .rig
-            .subject
-            .strip_prefix("character.")
-            .map(|c| c.split('.').next().unwrap_or(c).to_string())
-            .unwrap_or_default();
         let mut knobs = Vec::new();
         for t in self.rig.tracks.iter().filter(|t| !t.mute) {
             let inst = lib.instrument(&t.instrument)?;

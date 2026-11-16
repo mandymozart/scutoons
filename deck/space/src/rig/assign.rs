@@ -238,12 +238,17 @@ pub fn module_instrument_json(request: &str) -> Result<String> {
         module: Value,
     }
     let r: Request = serde_json::from_str(request).context("not a request { module }")?;
-    let id = id_of(&r.module).context("the module document has no id")?;
-    let Some(descriptor) = r.module.get("descriptor").filter(|d| !d.is_null()) else {
+    Ok(serde_json::to_string(&module_track(&r.module)?.0)?)
+}
+
+/// A catalog `module:<id>` document → the instrument that wraps it and the descriptor a bundle carries for it
+pub fn module_track(module: &Value) -> Result<(Instrument, Descriptor)> {
+    let id = id_of(module).context("the module document has no id")?;
+    let Some(descriptor) = module.get("descriptor").filter(|d| !d.is_null()) else {
         bail!("module:{id} has no descriptor yet – compile it first")
     };
     let d: Descriptor = serde_json::from_value(descriptor.clone()).with_context(|| format!("the descriptor of module {id}"))?;
-    Ok(serde_json::to_string(&module_instrument(id, &d)?)?)
+    Ok((module_instrument(id, &d)?, d))
 }
 
 /// `{ rig, instruments: [..], presets: [..], modules?: [..] }` (the catalog's documents) → the bundle as JSON for `rig_play`
