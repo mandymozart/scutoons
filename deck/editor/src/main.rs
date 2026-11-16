@@ -122,10 +122,12 @@ struct Args {
     ui_size: Option<f32>,
     /// the settings panel open at the start
     settings: bool,
+    /// a check run's panic pill, pressed at the start
+    panic: bool,
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false };
+    let mut a = Args { module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -137,6 +139,7 @@ fn args() -> Result<Args> {
             "--volume" => a.volume = val()?.parse()?,
             "--wire" => a.wire = true,
             "--fullscreen" => a.fullscreen = true,
+            "--panic" => a.panic = true,
             "--view" => a.view = Some(val()?.parse()?),
             "--select" => a.select = Some(val()?),
             "--pull" => {
@@ -252,7 +255,7 @@ fn args() -> Result<Args> {
                 a.size = Some((w.trim().parse()?, h.trim().parse()?));
             }
             "--help" | "-h" => {
-                println!("deck-editor [--rig catpope] [--fullscreen] [--frames N] [--screenshot FILE] [--tokens FILE] [--size W,H] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5] [--menu PORT,QUERY[,pick]] [--toon TOON] [--book FILE] [--select NODE --far QUERY[,pick]] [--demo NAME] [--module ID [--module-build] [--module-save] [--module-save-as ID]]");
+                println!("deck-editor [--rig catpope] [--fullscreen] [--frames N] [--screenshot FILE] [--tokens FILE] [--size W,H] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5] [--menu PORT,QUERY[,pick]] [--toon TOON] [--book FILE] [--select NODE --far QUERY[,pick]] [--demo NAME] [--panic] [--module ID [--module-build] [--module-save] [--module-save-as ID]]");
                 std::process::exit(0);
             }
             other => anyhow::bail!("unknown argument {other}"),
@@ -809,7 +812,8 @@ impl App {
         Some(match self.hit(x, y) {
             Hit::Menu => Help::new("Menu", "Open, publish, day or night, the settings, the audio and the account; back to the deck's stage."),
             Hit::Look => Help::new("Day / night", "Click to switch between the light and the dark look; ctrl + and ctrl − change the UI size, ctrl 0 sets it back."),
-            Hit::Panic => Help::new("Panic", "Black and silence on every deck below this conductor. Not wired yet: it does nothing for now."),
+            Hit::Panic if self.show.sub.panicked() => Help::new("Resume", "The panic holds. Press to bring every deck back to the cells the show holds now."),
+            Hit::Panic => Help::new("Panic", "Black and silence on every deck below this conductor and on this stage, until you resume here. Shift+Esc too."),
             Hit::Ground => return None,
             Hit::Workspace(_) => Help::new("Workspaces", "Build: rigs and scenes. Module: a module's code in your editor, built here, heard on the stage, saved as a draft. Show: rows, cells, seats, saved through /api/shows. Perform: the matrix, GO, the log."),
             Hit::Port(i) => {
@@ -1036,7 +1040,8 @@ impl App {
             }
             Hit::Menu => self.main_menu = true,
             Hit::Look => self.look(self.tokens.look.theme.other(), 0),
-            Hit::Ground | Hit::Panic => {}
+            Hit::Panic => self.panic_pill(),
+            Hit::Ground => {}
             Hit::Crumb(i) if self.workspace != show::Workspace::Build => self.show.press(show::Hit::Crumb(i)),
             Hit::Routing(f) => routing::act(&mut self.routing, &mut self.stage, f),
             Hit::Tab(t) => {
@@ -1908,6 +1913,17 @@ impl App {
         }
     }
 
+    /// The panic pill: the show core's panic or resume, and this stage with it.
+    fn panic_pill(&mut self) {
+        self.show.panic_pill();
+        if self.show.sub.panicked() {
+            self.stage.panic();
+        } else if let Err(err) = self.stage.resume() {
+            let (x, y) = self.cursor;
+            self.say(format!("{err:#}"), x, y, true);
+        }
+    }
+
     /// a key while the field has the focus
     fn key(&mut self, k: &KeyEvent) {
         if k.state != ElementState::Pressed {
@@ -1982,6 +1998,9 @@ impl App {
         }
         if std::mem::take(&mut self.panels_moved) {
             self.remember_panels();
+        }
+        if self.frames == 0 && self.args.panic {
+            self.panic_pill();
         }
         let help = self.help_now();
         self.show.help.clone_from(&help);
@@ -2111,6 +2130,7 @@ impl App {
             gpu: self.gpu_time.as_ref().map(|_| self.gpu_load),
             slot,
             night: self.tokens.look.theme == tokens::Theme::Night,
+            panicked: self.show.sub.panicked(),
         };
         let placed = bar::draw(ui, t, wf, &spec);
         self.panel.hits.push((placed.menu, Hit::Menu));
@@ -2710,6 +2730,14 @@ impl ApplicationHandler for App {
                     }
                     Hit::Stage | Hit::Port(_) | Hit::Axis(_) => self.stage.space.camera.zoom(steps),
                     _ => {}
+                }
+            }
+            // Shift+Esc panics from anywhere (Esc alone leaves the editor); only the pill resumes
+            WindowEvent::KeyboardInput { event, .. }
+                if event.state == ElementState::Pressed && event.logical_key == Key::Named(NamedKey::Escape) && self.mods.shift_key() =>
+            {
+                if !self.show.sub.panicked() {
+                    self.panic_pill();
                 }
             }
             WindowEvent::KeyboardInput { event, .. } if self.edit.is_some() => self.edit_key(&event),

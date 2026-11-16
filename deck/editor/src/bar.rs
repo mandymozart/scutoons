@@ -62,6 +62,17 @@ pub struct Bar<'a> {
     pub slot: f32,
     /// the dark look is on
     pub night: bool,
+    /// a panic holds: the pill resumes
+    pub panicked: bool,
+}
+
+/// what the panic pill says: what a press does
+pub fn panic_label(panicked: bool) -> &'static str {
+    if panicked {
+        "RESUME"
+    } else {
+        "PANIC"
+    }
 }
 
 /// where the toolbar's parts landed
@@ -129,7 +140,8 @@ pub fn draw(d: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Placed {
     let meters = t.size.rem(14.3);
     let lead = if b.play.is_some() { h + pad } else { 2.0 * pad };
     let clock_w = lead + adv * 21.0 + pad;
-    let panic_w = controls::label_width(d, t, "PANIC") + 4.0 * pad;
+    // as wide in both states: the row does not move when it latches
+    let panic_w = controls::label_width(d, t, panic_label(true)).max(controls::label_width(d, t, panic_label(false))) + 4.0 * pad;
     let tempo_w = clock_w + gap * 0.5 + panic_w;
     let right_of = |wide: bool| 2.0 * pad + if b.sign_in.is_empty() { 0.0 } else { sign_w + pad } + if wide { meters + pad } else { 0.0 } + h + pad + version_w;
     // the load meters only where the path keeps room of its own beside them
@@ -163,11 +175,16 @@ pub fn draw(d: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Placed {
     let vw = d.text(tempo.x + lead, text_y, px, &value, t.color.text);
     let room = ((clock_w - lead - vw - 2.0 * pad) / d.step(t.size.label, t.size.spacing)).max(0.0) as usize;
     controls::label(d, t, tempo.x + lead + vw + pad, mid - t.size.label * 0.62, &controls::fit(&what, room), t.color.muted);
-    // the panic: red, always there, beside the tempo
+    // the panic: red, always there, beside the tempo; latched it is ringed and says RESUME
     let panic = Rect { x: tempo.x + clock_w + gap * 0.5, y, w: panic_w, h };
     let hot = panic.has(b.pointer.0, b.pointer.1);
-    d.round_rect(panic.x, panic.y, panic.w, panic.h, h * 0.5, if hot { t.color.stop } else { t.color.danger });
-    controls::label(d, t, panic.x + 2.0 * pad, mid - t.size.label * 0.62, "PANIC", t.color.bright);
+    d.round_rect(panic.x, panic.y, panic.w, panic.h, h * 0.5, if hot != b.panicked { t.color.stop } else { t.color.danger });
+    if b.panicked {
+        d.outline(panic.x, panic.y, panic.w, panic.h, (h * 0.5, 2.0), t.color.bright);
+    }
+    let label = panic_label(b.panicked);
+    let lx = panic.x + (panic.w - controls::label_width(d, t, label)) * 0.5;
+    controls::label(d, t, lx, mid - t.size.label * 0.62, label, t.color.bright);
     out.panic = panic;
     out.slot = Rect { x: r.slot_x, y, w: b.slot, h };
     // the right pill
@@ -233,6 +250,31 @@ mod tests {
         let without = row(1280.0, 8.0, 300.0, 200.0, 0.0, 260.0);
         let with = row(1280.0, 8.0, 300.0, 200.0, 120.0, 260.0);
         assert!(without.path_w > with.path_w, "no slot: the path is wider");
+    }
+
+    /// the pill as the toolbar draws it for the host's core: where it is and what the bar says
+    fn panic_pill(host: &crate::show::Host) -> (Rect, Vec<String>) {
+        let t = Tokens::default();
+        let mut d = DrawList::new(0.6);
+        let path = vec!["main".to_string()];
+        let b = Bar { workspaces: &["Build", "Show"], workspace: 1, path: &path, status: "", play: None, beat: None, sign_in: "", logo_frame: 0, pointer: (0.0, 0.0), cpu: 0.0, gpu: None, slot: 0.0, night: false, panicked: host.sub.panicked() };
+        let placed = draw(&mut d, &t, 1600.0, &b);
+        (placed.panic, d.texts().iter().map(|s| s.to_string()).collect())
+    }
+
+    #[test]
+    fn the_panic_pill_latches_until_resume_and_keeps_its_place() {
+        let mut host = crate::show::Host::new(None, None, None, "http://127.0.0.1:9".into());
+        let (at, texts) = panic_pill(&host);
+        assert!(texts.iter().any(|s| s == "PANIC") && !texts.iter().any(|s| s == "RESUME"), "{texts:?}");
+        host.panic_pill();
+        assert!(host.sub.panicked());
+        let (latched, texts) = panic_pill(&host);
+        assert!(texts.iter().any(|s| s == "RESUME") && !texts.iter().any(|s| s == "PANIC"), "{texts:?}");
+        assert_eq!(latched, at, "the same place latched");
+        host.panic_pill();
+        assert!(!host.sub.panicked());
+        assert!(panic_pill(&host).1.iter().any(|s| s == "PANIC"));
     }
 
     #[test]
