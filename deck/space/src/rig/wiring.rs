@@ -90,7 +90,7 @@ pub struct WireLink {
     pub bound: bool,
 }
 
-fn port_type(t: PortType) -> &'static str {
+pub(crate) fn port_type(t: PortType) -> &'static str {
     match t {
         PortType::Audio => "audio",
         PortType::Control => "control",

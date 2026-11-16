@@ -53,6 +53,8 @@ pub struct Stage {
     pub audio: String,
     /// the rig as it plays (#431: the documents a gesture changes)
     pub bundle: Bundle,
+    /// what the rig is to far addresses: who it holds, its far world nodes (deck-space holders.rs)
+    pub reach: deck_space::holders::Reach,
     /// the rig before any draft: what the draft is the difference to
     pub base: Bundle,
     /// the ports a cable can end at
@@ -133,6 +135,7 @@ struct Ready {
     space_node: usize,
     ports: Vec<Port>,
     groups: Vec<String>,
+    reach: deck_space::holders::Reach,
 }
 
 fn prepare(bundle: Bundle) -> Result<Ready> {
@@ -147,7 +150,8 @@ fn prepare(bundle: Bundle) -> Result<Ready> {
     let space_node = graph.first(Kind::Space).context("the rig's scene has a space node")?;
     let ports = wires::ports(&turn.played)?;
     let groups = deck_engine::outlet_groups(&graph);
-    Ok(Ready { bundle, knobs: turn.played.knobs.clone(), strips: turn.played.strips(), sum: turn.played.sum(), scene, graph, tempo, space_node, ports, groups })
+    let reach = deck_space::rig::address::Place::of_subject(&bundle.rig.subject).map(|p| deck_space::holders::reach_of(&p, &turn.played)).unwrap_or_default();
+    Ok(Ready { reach, bundle, knobs: turn.played.knobs.clone(), strips: turn.played.strips(), sum: turn.played.sum(), scene, graph, tempo, space_node, ports, groups })
 }
 
 impl Stage {
@@ -204,7 +208,7 @@ impl Stage {
     }
 
     fn start(ready: Ready, volume: f32) -> Stage {
-        let Ready { bundle, knobs: played_knobs, strips: played_strips, sum, scene, graph, tempo: tempo_cfg, space_node: node, ports, groups } = ready;
+        let Ready { bundle, knobs: played_knobs, strips: played_strips, sum, scene, graph, tempo: tempo_cfg, space_node: node, ports, groups, reach } = ready;
         let mut handles = None;
         let mut audio_name = "off".to_string();
         let audio = {
@@ -288,7 +292,7 @@ impl Stage {
         let master = sum.as_deref().and_then(|s| slot(s, true)).map(|(n, p, _)| (n, p));
         let node_ids = graph.nodes.iter().map(|n| n.id.clone()).collect();
         let kinds = graph.nodes.iter().map(|n| n.kind).collect();
-        Stage { controls, space, gpu: None, texture: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, kinds, strips, inner, master, master_peak: [0.0; 2], master_max: 0.0, volume, path: Vec::new(), core_node: node, groups }
+        Stage { controls, space, gpu: None, texture: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, kinds, strips, inner, master, master_peak: [0.0; 2], master_max: 0.0, volume, path: Vec::new(), core_node: node, groups, reach }
     }
 
     /// show this level of the tree in Wire; empty = the rig
