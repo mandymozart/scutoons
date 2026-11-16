@@ -15,7 +15,8 @@
 //!   row selected (shift), the right click's typeahead on them – a new question, the story's, add to, leave –, the
 //!   question in the cell inspector, the wide cell in the rows band and in Perform's matrix. The scene list beside the
 //!   rows band (scenes.rs): a scene dragged onto a cell is its piece, as a pick is; its "new scene" opens the scene sheet
-//!   (new_scene.rs): a scene named, cast from the toon's rigs, played, saved as a draft.
+//!   (new_scene.rs): a scene named, cast from the toon's rigs, played, saved as a draft. The Demos sheet (demos.rs) opens a
+//!   demo show in place of the show.
 //!
 //! The editor runs one conductor, this deck's (the tree's top it was given). A sub conductor runs on its own deck with its
 //! own operator; entering it here shows its document, it does not run it.
@@ -24,6 +25,7 @@ mod ask;
 pub mod author;
 pub mod build;
 pub(crate) mod condition;
+pub mod demos;
 mod events;
 mod flash;
 mod link;
@@ -82,6 +84,8 @@ pub enum Sheet {
     Event,
     /// a new scene, or one from the server recast (new_scene.rs)
     Scene,
+    /// the demo shows to open (demos.rs)
+    Demos,
 }
 
 impl Sheet {
@@ -101,6 +105,7 @@ impl Sheet {
             "piece" => Some(Sheet::Piece),
             "event" => Some(Sheet::Event),
             "scene" => Some(Sheet::Scene),
+            "demos" => Some(Sheet::Demos),
             _ => None,
         }
     }
@@ -197,6 +202,8 @@ pub enum Hit {
     Knob(values::KnobHit),
     /// the scene sheet's fields, buttons and lines (new_scene.rs)
     Compose(new_scene::ComposeHit),
+    /// a demo of the Demos sheet
+    Demo(usize),
 }
 
 impl Hit {
@@ -279,6 +286,9 @@ pub struct Host {
     /// the scene sheet's state, and a scene it asks the stage to play (new_scene.rs)
     pub compose: new_scene::Composer,
     pub to_stage: Option<deck_space::scene::Scene>,
+    /// the Demos sheet's list; the book file of the demo opened, for the editor's book to take (main.rs)
+    pub demos: Vec<demos::Demo>,
+    pub demo_book: Option<PathBuf>,
     link: Option<link::Link>,
     api: api::Api,
 }
@@ -328,7 +338,7 @@ impl Host {
                 })
                 .ok()
         });
-        Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), context: None, side: Rect { x: 0.0, y: 0.0, w: 0.0, h: 0.0 }, side_scroll: 0.0, side_over: 0.0, address: None, book: None, book_why: None, piece_query: String::new(), scene_query: String::new(), dragging: None, refused: None, toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, session: session::Session::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), build: None, to_build: None, compose: new_scene::Composer::default(), to_stage: None, link, api }
+        Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), context: None, side: Rect { x: 0.0, y: 0.0, w: 0.0, h: 0.0 }, side_scroll: 0.0, side_over: 0.0, address: None, book: None, book_why: None, piece_query: String::new(), scene_query: String::new(), dragging: None, refused: None, toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, session: session::Session::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), build: None, to_build: None, compose: new_scene::Composer::default(), to_stage: None, demos: Vec::new(), demo_book: None, link, api }
     }
 
     /// the document at the end of the path (the top's when a step is missing)
@@ -453,12 +463,16 @@ impl Host {
                 if s == Sheet::Event {
                     self.events_open();
                 }
+                if s == Sheet::Demos {
+                    self.demos_open();
+                }
             }
             Hit::Problem(i) => self.select_problem(i),
             Hit::SessionToon(_) | Hit::SessionChapter(_) | Hit::SessionLabel | Hit::SessionCopy | Hit::SessionOpen => self.session_press(hit),
             Hit::Vote(v) => self.vote_press(v),
             Hit::Knob(k) => self.knob_press(k),
             Hit::Compose(c) => self.compose_press(c),
+            Hit::Demo(i) => self.demo_press(i),
         }
     }
 

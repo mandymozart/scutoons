@@ -321,7 +321,7 @@ mod tests {
     use crate::validate::validate;
 
     const VOTE: &str = include_str!("../fixtures/vote-cell.show.json");
-    const EVENTS: &str = include_str!("../fixtures/story-events.json");
+    const EVENTS: &str = include_str!("../../demos/story-events.json");
 
     fn cols(c: &[&str]) -> Vec<String> {
         c.iter().map(|c| c.to_string()).collect()

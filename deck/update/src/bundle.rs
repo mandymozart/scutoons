@@ -41,6 +41,9 @@ const BINARIES: &[(&str, &str)] = &[
 /// writes only usr/bin/deck* and usr/share/deck/, manifest.rs `allowed`)
 const BESIDE: &[(&str, &str)] = &[("tokens.toml", "usr/share/deck/editor/tokens.toml")];
 
+/// the editor's demo shows with their rigs, book and story events (deck/demos, put beside the binaries by build.sh)
+const DEMOS: (&str, &str) = ("demos", "usr/share/deck/demos");
+
 /// What goes into a bundle: the binaries found in `bin` (cargo's release dir), every allowed path of `rootfs`
 /// (deck/os/rootfs), on the dev channel the sandbox scenes (#427: `*.toml` of deck/native/scenes/sandbox → the deck's
 /// /usr/share/deck/scenes/sandbox, its dev mode). Sorted by path.
@@ -61,6 +64,10 @@ pub fn collect(bin: &Path, rootfs: &Path, scenes: Option<&Path>) -> Result<Vec<S
     if files.is_empty() {
         bail!("no deck binaries in {} (relay, deck, …)", bin.display());
     }
+    let demos = bin.join(DEMOS.0);
+    if demos.is_dir() {
+        beside_dir(&demos, &demos, DEMOS.1, &mut files)?;
+    }
     walk(rootfs, rootfs, &mut files)?;
     if let Some(scenes) = scenes {
         for entry in fs::read_dir(scenes).with_context(|| scenes.display().to_string())? {
@@ -74,6 +81,19 @@ pub fn collect(bin: &Path, rootfs: &Path, scenes: Option<&Path>) -> Result<Vec<S
     files.sort_by(|a, b| a.path.cmp(&b.path));
     files.dedup_by(|a, b| a.path == b.path);
     Ok(files)
+}
+
+fn beside_dir(root: &Path, dir: &Path, to: &str, out: &mut Vec<SourceFile>) -> Result<()> {
+    for entry in fs::read_dir(dir).with_context(|| dir.display().to_string())? {
+        let path = entry?.path();
+        if path.is_dir() {
+            beside_dir(root, &path, to, out)?;
+        } else {
+            let rel = path.strip_prefix(root)?.to_string_lossy().replace('\\', "/");
+            out.push(SourceFile { path: format!("{to}/{rel}"), source: path, mode: 0o644 });
+        }
+    }
+    Ok(())
 }
 
 fn walk(root: &Path, dir: &Path, out: &mut Vec<SourceFile>) -> Result<()> {
@@ -200,12 +220,15 @@ pub(crate) mod tests {
         let bin = dir.join("bin");
         let rootfs = dir.join("rootfs");
         let scenes = dir.join("scenes");
-        for d in [&bin, &rootfs.join("usr/bin"), &rootfs.join("usr/lib/systemd/system"), &rootfs.join("etc"), &scenes] {
+        for d in [&bin.join("demos/rigs"), &rootfs.join("usr/bin"), &rootfs.join("usr/lib/systemd/system"), &rootfs.join("etc"), &scenes] {
             fs::create_dir_all(d).unwrap();
         }
         fs::write(bin.join("relay"), b"relay v2").unwrap();
         fs::write(bin.join("deck"), b"stage v2").unwrap();
         fs::write(bin.join("not-ours"), b"x").unwrap();
+        fs::write(bin.join("demos/far-nodes.show.json"), b"{}").unwrap();
+        fs::write(bin.join("demos/rigs/keys.toml"), b"[rig]
+").unwrap();
         fs::write(rootfs.join("usr/bin/deck-session"), b"#!/bin/sh\n").unwrap();
         fs::write(rootfs.join("usr/lib/systemd/system/deck-kiosk.service"), b"[Unit]\n").unwrap();
         fs::write(rootfs.join("etc/secret.conf"), b"no").unwrap();
@@ -225,6 +248,8 @@ pub(crate) mod tests {
                 ("usr/bin/deck-relay".to_string(), 0o755),
                 ("usr/bin/deck-session".to_string(), 0o755),
                 ("usr/lib/systemd/system/deck-kiosk.service".to_string(), 0o644),
+                ("usr/share/deck/demos/far-nodes.show.json".to_string(), 0o644),
+                ("usr/share/deck/demos/rigs/keys.toml".to_string(), 0o644),
                 ("usr/share/deck/scenes/sandbox/fireflies.toml".to_string(), 0o644),
             ]
         );

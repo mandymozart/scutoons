@@ -1,4 +1,4 @@
-# The far-outlets fixture's keys (#568): a tone, and a far world node that listens to the bells on the outlet `right`.
+# The keys of the far-nodes demo and the far-outlets fixture: a tone, and a far world node that listens to the bells on the outlet `right`.
 # Built-in nodes only (no module wasm), so the editor and the tests play it on any machine.
 
 [rig]

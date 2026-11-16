@@ -189,11 +189,11 @@ mod tests {
     }
 
     fn keys() -> Bundle {
-        fixture(include_str!("../../show/fixtures/rigs/keys.toml"))
+        fixture(include_str!("../../demos/rigs/keys.toml"))
     }
 
     fn bells() -> Bundle {
-        fixture(include_str!("../../show/fixtures/rigs/bells.toml"))
+        fixture(include_str!("../../demos/rigs/bells.toml"))
     }
 
     #[test]

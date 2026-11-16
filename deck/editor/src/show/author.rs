@@ -42,7 +42,7 @@ fn fit(d: &DrawList, text: &str, px: f32, w: f32) -> String {
 
 /// the sheets the Show workspace offers over its stage (the flash list opens from Flash, not from a pill; the show runner's
 /// sheets are Perform's)
-pub const SHEETS: [(&str, Sheet); 3] = [("Cues", Sheet::Cues), ("Problems", Sheet::Problems), ("Who", Sheet::Who)];
+pub const SHEETS: [(&str, Sheet); 4] = [("Cues", Sheet::Cues), ("Problems", Sheet::Problems), ("Who", Sheet::Who), ("Demos", Sheet::Demos)];
 
 /// the 2D / 3D switch at the top of a stage rect, then a pill per sheet the workspace offers (`sheets`)
 pub fn view_switch(d: &mut DrawList, t: &Tokens, host: &mut Host, stage: Rect, sheets: &[(&str, Sheet)]) {
@@ -146,7 +146,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, point
     }
 
     // middle: the breadcrumb, then the overlay over the stage
-    let crumbs: Vec<String> = host.crumbs().into_iter().chain(std::iter::once(format!("{} {}", host.row + 1, sel))).collect();
+    let crumbs: Vec<String> = host.crumbs().into_iter().chain(std::iter::once(format!("{} {}", host.row + 1, controls::fit(&sel, 28)))).collect();
     let n = crumbs.len();
     for (i, r) in controls::breadcrumb(d, t, l.stage.x + pad, l.stage.y + pad, &crumbs).into_iter().enumerate() {
         if i + 1 < n {
