@@ -43,6 +43,8 @@ const LINE_MAX: usize = 40;
 pub enum Want {
     Set { id: String, quality: String },
     Portrait { character: String, mood: String },
+    /// a file named by its CDN path (a stage background's image): immutable, so the path is its version
+    Media { path: String },
 }
 
 /// The API's answer (SceneContent.php): each set's media per quality, each location's set (#512), each character's
@@ -157,6 +159,7 @@ impl Content {
                 None if self.missing.characters.contains(character) => Err(format!("character {character} is unknown to the API")),
                 None => Ok(None),
             },
+            Want::Media { .. } => Ok(None),
         }
     }
 }
@@ -495,6 +498,7 @@ pub fn check(path: &str, size: Option<u64>, len: u64, head: &[u8]) -> Result<(),
         "glb" => head.starts_with(b"glTF"),
         "webp" => head.len() >= 12 && &head[..4] == b"RIFF" && &head[8..12] == b"WEBP",
         "png" => head.starts_with(b"\x89PNG\r\n\x1a\n"),
+        "jpg" | "jpeg" => head.starts_with(b"\xFF\xD8\xFF"),
         _ => true,
     };
     if ok {
@@ -518,6 +522,13 @@ pub fn content_url(api: &str, sets: &[&str], characters: &[&str]) -> String {
 /// a file's CDN URL
 pub fn cdn_url(cdn: &str, path: &str) -> String {
     format!("{}/{}", cdn.trim_end_matches('/'), path.trim_start_matches('/'))
+}
+
+/// where a media path lives below a deck's folder: the CDN path itself; None = it would leave the folder
+pub fn media_file(dir: &Path, path: &str) -> Option<std::path::PathBuf> {
+    let rel = Path::new(path.trim_start_matches('/'));
+    let inside = rel.components().all(|c| matches!(c, std::path::Component::Normal(_)));
+    (inside && rel.components().next().is_some()).then(|| dir.join(rel))
 }
 
 /// the space node's set id and quality (None: no set, or a file path) – what a deck fetches for its own scene
@@ -978,6 +989,12 @@ mod tests {
     fn urls_scene_ids_and_a_written_push() {
         assert_eq!(content_url("https://a.test/api/", &["cathedral", "a b"], &[]), "https://a.test/api/library/scene-content?sets=cathedral,a%20b&characters=");
         assert_eq!(cdn_url("https://cdn.test/", "/x/y.glb"), "https://cdn.test/x/y.glb");
+        let d = Path::new("/c/portraits");
+        assert_eq!(media_file(d, "/backgrounds/wide.webp"), Some(d.join("backgrounds").join("wide.webp")));
+        assert_eq!(media_file(d, "../etc/x.png"), None, "never above the folder");
+        assert_eq!(media_file(d, "a/./b.png"), Some(d.join("a").join("b.png")), "a `.` is dropped by the path");
+        assert_eq!(media_file(d, ""), None);
+        assert!(check("b.jpg", None, 4, b"\xFF\xD8\xFF\xE0").is_ok() && check("b.jpg", None, 4, b"<htm").is_err());
         assert_eq!(scene_id(Some(Path::new("conductor")), "x"), "conductor");
         assert_eq!(scene_id(Some(Path::new("/s/scenes/sermon.toml")), "x"), "sermon");
         assert_eq!(scene_id(None, "Cathedral of decks - conductor"), "cathedral-of-decks-conductor");

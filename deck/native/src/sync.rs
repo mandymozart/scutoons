@@ -9,8 +9,9 @@
 //! - **Fetching:** only what is missing or changed: `<cache>/sync/index.json` remembers which CDN path each local file
 //!   came from; same path + same size = cached, skipped. A download goes to `.part`, is checked (the answer's size, the
 //!   file's magic: glTF / WebP / PNG) and only then renamed into place – a broken file is refused, the old one stays.
-//! - **Where:** `<sets>/<id>/<id>.<quality>.glb` (cache::set_file) and `<portraits>/<char>/<char>_portrait-<mood>.<ext>`
-//!   (portrait::LocalDir's layout) – the loaders read them as before. `--sets` / `--portraits` (or their env) point at a
+//! - **Where:** `<sets>/<id>/<id>.<quality>.glb` (cache::set_file), `<portraits>/<char>/<char>_portrait-<mood>.<ext>`
+//!   and a stage background's image at its CDN path below `<portraits>` (portrait::LocalDir's layout; the path is its
+//!   version, the API is not asked) – the loaders read them as before. `--sets` / `--portraits` (or their env) point at a
 //!   local folder instead: then that kind is not synced (local development).
 //! - **Waiting, never on the frame:** the set loader thread passes its file through `gate` and the portraits thread
 //!   through `Portraits` (a portrait::Source next to LocalDir) – each blocks its own thread until the sync has settled
@@ -62,22 +63,24 @@ pub struct Config {
     pub quality: String,
 }
 
-/// what a scene needs: its sets (id, quality) and its characters with their moods
+/// what a scene needs: its sets (id, quality), its characters with their moods, its media by CDN path (a background)
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Needs {
     pub sets: Vec<(String, String)>,
     pub characters: Vec<(String, Vec<String>)>,
+    pub media: Vec<String>,
 }
 
 impl Needs {
     pub fn wants(&self) -> Vec<Want> {
         let sets = self.sets.iter().map(|(id, quality)| Want::Set { id: id.clone(), quality: quality.clone() });
         let faces = self.characters.iter().flat_map(|(c, moods)| moods.iter().map(|m| Want::Portrait { character: c.clone(), mood: m.clone() }));
-        sets.chain(faces).collect()
+        let media = self.media.iter().map(|path| Want::Media { path: path.clone() });
+        sets.chain(faces).chain(media).collect()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.sets.is_empty() && self.characters.is_empty()
+        self.sets.is_empty() && self.characters.is_empty() && self.media.is_empty()
     }
 }
 
@@ -243,13 +246,14 @@ impl crate::space::link::Syncs for DeckSync {
 }
 
 /// What a scene with a space node needs, before its space is built (so the one request names it all): every space
-/// node's set (by id) and the being's character with the being's whole palette – `look.moods`, then the moods its
-/// feelings and nudges name (Feel::new's order).
+/// node's set (by id), the being's character with the being's whole palette – `look.moods`, then the moods its
+/// feelings and nudges name (Feel::new's order) – and the background's image.
 #[cfg(feature = "space")]
-pub fn needs_of(graph: &crate::graph::Graph, look: &crate::space::being::Look) -> Needs {
+pub fn needs_of(graph: &crate::graph::Graph, look: &crate::space::being::Look, background: Option<&deck_space::Background>) -> Needs {
     let sets = (0..graph.nodes.len()).filter(|&i| graph.nodes[i].kind == crate::graph::Kind::Space).filter_map(|i| crate::space::set_need(graph, i)).collect();
+    let media = background.and_then(|b| b.image.clone()).into_iter().collect();
     if look.character.is_empty() {
-        return Needs { sets, characters: Vec::new() };
+        return Needs { sets, characters: Vec::new(), media };
     }
     let mut moods = look.moods.clone();
     for m in look.feel.iter().map(|r| &r.mood).chain(look.react.iter().map(|n| &n.mood)) {
@@ -257,10 +261,10 @@ pub fn needs_of(graph: &crate::graph::Graph, look: &crate::space::being::Look) -
             moods.push(m.clone());
         }
     }
-    Needs { sets, characters: vec![(look.character.clone(), moods)] }
+    Needs { sets, characters: vec![(look.character.clone(), moods)], media }
 }
 
-/// The portraits through the sync (a portrait::Source next to LocalDir): wait for a head's sprite (a card's, #495: #500), then read the folder.
+/// The portraits through the sync (a portrait::Source next to LocalDir): wait for a head's sprite or a background's image, then read the folder.
 #[cfg(feature = "space")]
 pub struct Portraits {
     local: crate::space::portrait::LocalDir,
@@ -270,7 +274,11 @@ pub struct Portraits {
 #[cfg(feature = "space")]
 impl crate::space::portrait::Source for Portraits {
     fn load(&self, picture: &deck_space::cast::Picture) -> Result<image::RgbaImage, String> {
-        let _ = (picture.view == deck_space::cast::PORTRAIT_VIEW).then(|| self.sync.wait(Want::Portrait { character: picture.id.clone(), mood: picture.mood.clone() }, PORTRAIT_WAIT));
+        if picture.kind == deck_space::cast::MEDIA {
+            self.sync.wait(Want::Media { path: picture.id.clone() }, PORTRAIT_WAIT);
+        } else if picture.view == deck_space::cast::PORTRAIT_VIEW {
+            self.sync.wait(Want::Portrait { character: picture.id.clone(), mood: picture.mood.clone() }, PORTRAIT_WAIT);
+        }
         self.local.load(picture)
     }
 }
@@ -307,6 +315,7 @@ impl push::Cache for Config {
                 let stem = d.join(character).join(format!("{character}_portrait-{mood}"));
                 ["webp", "png"].iter().any(|ext| stem.with_extension(ext).is_file())
             }),
+            Want::Media { path } => self.portraits.as_ref().is_none_or(|d| push::media_file(d, path).is_some_and(|f| f.is_file())),
         }
     }
 
@@ -521,6 +530,11 @@ impl Worker {
         let (is_set, id) = match w {
             Want::Set { id, .. } => (true, id.as_str()),
             Want::Portrait { character, .. } => (false, character.as_str()),
+            Want::Media { path } => {
+                let Some(dir) = &self.cfg.portraits else { return Ok(Got::Cached) };
+                let local = push::media_file(dir, path).ok_or_else(|| format!("{path}: not a media path"))?;
+                return self.download(&local, &File { path: path.clone(), size: None });
+            }
         };
         if !self.known.contains(&(is_set, id.to_string())) {
             let id = id.to_string();
@@ -536,6 +550,7 @@ impl Worker {
                 let ext = Path::new(&file.path).extension().and_then(|e| e.to_str()).unwrap_or("webp");
                 dir.join(character).join(format!("{character}_portrait-{mood}.{ext}"))
             }
+            Want::Media { .. } => unreachable!("settled above"),
         };
         self.download(&local, &file)
     }
@@ -591,13 +606,14 @@ mod tests {
 
     #[test]
     fn needs_become_wants_sets_first() {
-        let n = Needs { sets: vec![("cathedral".into(), "low".into())], characters: vec![("plf".into(), vec!["neutral".into(), "smug".into()])] };
+        let n = Needs { sets: vec![("cathedral".into(), "low".into())], characters: vec![("plf".into(), vec!["neutral".into(), "smug".into()])], media: vec!["backgrounds/wide.webp".into()] };
         assert_eq!(
             n.wants(),
             [
                 Want::Set { id: "cathedral".into(), quality: "low".into() },
                 Want::Portrait { character: "plf".into(), mood: "neutral".into() },
                 Want::Portrait { character: "plf".into(), mood: "smug".into() },
+                Want::Media { path: "backgrounds/wide.webp".into() },
             ]
         );
     }
@@ -620,7 +636,8 @@ mod tests {
         use crate::scene::{Scene, CONDUCTOR_SCENE};
         let scene = crate::modules::carried_part(&Scene::parse(CONDUCTOR_SCENE).unwrap());
         let g = crate::graph::Graph::build(&scene).unwrap();
-        let needs = needs_of(&g, &scene.being);
+        let needs = needs_of(&g, &scene.being, Some(&deck_space::Background::image("backgrounds/wide.webp")));
+        assert_eq!(needs.media, ["backgrounds/wide.webp"]);
         assert_eq!(needs.sets, [("cathedral".to_string(), "low".to_string())]);
         let being = crate::space::being::Being::new(&g, &scene.being);
         assert_eq!(needs.characters, [("plf".to_string(), being.moods.clone())]);

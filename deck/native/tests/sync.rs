@@ -1,12 +1,13 @@
 //! The deck's sync (#195) against a stub of scutoons.com in-process (127.0.0.1, 7000–7099): one server answers
 //! `/api/library/scene-content` and serves the CDN files, counting every request. A scene's needs → one API request →
 //! the set's 3D and the portraits in the cache; a second run skips what is cached; a changed path is fetched again; a
-//! broken file is refused (the old one stays); offline plays from the cache; a character wanted later is asked for then.
+//! broken file is refused (the old one stays); offline plays from the cache; a character wanted later is asked for then;
+//! a background's image is fetched by its CDN path.
 #![cfg(feature = "sync")]
 mod common;
 
 use common::*;
-use deck_native::sync::{Config, DeckSync, Want};
+use deck_native::sync::{Config, DeckSync, Needs, Want};
 use std::time::{Duration, Instant};
 
 #[test]
@@ -156,5 +157,53 @@ fn the_space_node_s_loaders_go_through_the_sync() {
     let head = |m: &str| deck_space::cast::Picture::character("catpope", deck_space::cast::PORTRAIT_VIEW, m);
     assert_eq!(faces.load(&head("happy")).unwrap().dimensions(), (4, 4));
     assert!(faces.load(&head("dizzy")).unwrap_err().contains("catpope_portrait-dizzy"), "no sprite: the head falls back");
+    let _ = std::fs::remove_dir_all(&cache);
+}
+
+/// a stage background's image: an empty cache fetches it by its CDN path (the API is not asked), the next scene load
+/// finds it cached, and with the server gone it plays from the cache
+#[cfg(feature = "space")]
+#[test]
+fn a_background_image_is_fetched_once_then_plays_offline() {
+    use deck_native::space::portrait::Source;
+    use deck_space::cast::Picture;
+    const WIDE: &str = "backgrounds/wide.v1.png";
+    let stub = stub_with_files();
+    stub.files.lock().unwrap().insert(WIDE.into(), png());
+    let cache = dir("background");
+    let sync = DeckSync::start(stub.config(&cache));
+    assert_eq!(sync.portraits().unwrap().load(&Picture::media(WIDE)).unwrap().dimensions(), (4, 4), "the stage's loader waited for it");
+    assert!(stub.hits("/api/").is_empty(), "a media path is its own version");
+    assert_eq!(stub.hits("/cdn/"), ["/cdn/backgrounds/wide.v1.png"]);
+    assert_eq!(std::fs::read(cache.join("portraits/backgrounds/wide.v1.png")).unwrap(), png());
+    drop(sync);
+
+    let needs = Needs { media: vec![WIDE.into()], ..Needs::default() };
+    let sync = DeckSync::start(stub.config(&cache));
+    sync.prepare(needs.clone());
+    settle(&sync, &needs);
+    assert_eq!(stub.hits("/cdn/").len(), 1, "cached: not fetched again");
+    assert_eq!(sync.line(), "SYNC OK 0 NEW 1 CACHED");
+    drop(sync);
+
+    let gone = listen();
+    let port = gone.local_addr().unwrap().port();
+    drop(gone);
+    let cfg = Config {
+        api: format!("http://127.0.0.1:{port}/api"),
+        cdn: format!("http://127.0.0.1:{port}/cdn"),
+        cache: cache.clone(),
+        sets: Some(cache.join("sets")),
+        portraits: Some(cache.join("portraits")),
+        token: deck_link::TokenSource::None,
+        quality: "low".into(),
+    };
+    let sync = DeckSync::start(cfg);
+    let pictures = sync.portraits().unwrap();
+    let t = Instant::now();
+    assert_eq!(pictures.load(&Picture::media(WIDE)).unwrap().dimensions(), (4, 4), "offline: from the cache");
+    assert!(pictures.load(&Picture::media("backgrounds/never.png")).is_err(), "not cached: black, no wait");
+    assert!(t.elapsed() < Duration::from_secs(8), "{:?}", t.elapsed());
+    assert!(pictures.load(&Picture::media("../outside.png")).is_err(), "never above the cache");
     let _ = std::fs::remove_dir_all(&cache);
 }
