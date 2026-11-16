@@ -8,6 +8,7 @@ use deck_kit::base::draw::DrawList;
 use deck_kit::base::tokens::Tokens;
 use deck_kit::editor::controls::{self, Rect};
 use deck_native::audio::backend::{self, DeckAudio, Output, Outputs};
+use std::sync::mpsc::{Receiver, TryRecvError};
 
 /// the buffers offered, in frames; 0 = the device's default
 pub const BUFFERS: [u32; 6] = [0, 64, 128, 256, 512, 1024];
@@ -46,6 +47,10 @@ pub struct Page {
     /// the last answer, and whether it is bad
     pub said: Option<(String, bool)>,
     listed: bool,
+    /// the listing on its thread (it loads the hosts' drivers: 1.4 s on Windows)
+    pending: Option<Receiver<Vec<Outputs>>>,
+    /// None = `backend::outputs`
+    lister: Option<fn() -> Vec<Outputs>>,
 }
 
 impl Page {
@@ -53,11 +58,31 @@ impl Page {
         Page { draft: saved.clone(), saved, ..Page::default() }
     }
 
-    /// the stage's groups, and the devices once (listing loads the hosts' drivers)
+    /// the stage's groups, and the devices: listed once on a thread of their own, taken when they arrive
     pub fn sync(&mut self, rig: &[String]) {
         if !self.listed {
             self.listed = true;
-            self.hosts = backend::outputs();
+            let (tx, rx) = std::sync::mpsc::channel();
+            let list = self.lister.unwrap_or(backend::outputs);
+            match std::thread::Builder::new().name("audio-list".into()).spawn(move || {
+                let _ = tx.send(list());
+            }) {
+                Ok(_) => self.pending = Some(rx),
+                Err(e) => self.said = Some((format!("no thread to list the devices on: {e}"), true)),
+            }
+        }
+        if let Some(rx) = &self.pending {
+            match rx.try_recv() {
+                Ok(hosts) => {
+                    self.hosts = hosts;
+                    self.pending = None;
+                }
+                Err(TryRecvError::Disconnected) => {
+                    self.pending = None;
+                    self.said = Some(("listing the devices failed".into(), true));
+                }
+                Err(TryRecvError::Empty) => {}
+            }
         }
         let mut groups: Vec<String> = rig.to_vec();
         for o in &self.draft.audio_outlet {
@@ -66,6 +91,10 @@ impl Page {
             }
         }
         self.groups = groups;
+    }
+
+    pub fn listing(&self) -> bool {
+        self.pending.is_some()
     }
 
     pub fn host(&self) -> Option<usize> {
@@ -81,7 +110,7 @@ impl Page {
     pub fn device(&self) -> Option<usize> {
         let devices = self.devices();
         match &self.draft.audio_device {
-            Some(want) => devices.iter().position(|d| backend::device_matches(&d.name, want)),
+            Some(want) => devices.iter().position(|d| d.matches(want)),
             None => devices.iter().position(|d| d.default),
         }
     }
@@ -165,7 +194,7 @@ impl Page {
 
     pub fn help(&self, f: Field) -> (String, &'static str) {
         match f {
-            Field::Host(_) => ("Host".into(), "The driver layer the stage opens: ASIO for the RME, WASAPI otherwise. Apply restarts the sound on it."),
+            Field::Host(_) => ("Host".into(), "The driver layer the stage opens: PipeWire on the deck, ASIO for the RME on Windows, WASAPI otherwise. Apply restarts the sound on it."),
             Field::Device(_) => ("Device".into(), "The output device; its channels are the columns below."),
             Field::Buffer(_) => ("Buffer".into(), "Frames per device period. ASIO takes the size set in the driver's own dialog."),
             Field::Cell(g, c) => (format!("{} on {c}", self.groups.get(g).map_or("", String::as_str)), "Click to put the group on this channel or take it off."),
@@ -214,6 +243,10 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, page: &mut Page, stage: &S
         hits.push((r, Field::Host(i)));
     }
     y += row + 4.0;
+    if page.listing() {
+        d.text(area.x, text_y(y, small), small, "listing…", t.color.muted);
+        y += row;
+    }
     let chosen = page.device();
     for (i, dev) in page.devices().iter().enumerate() {
         let r = Rect { x: area.x, y, w: area.w, h: row };
@@ -223,8 +256,8 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, page: &mut Page, stage: &S
             d.rect(r.x, r.y, r.w, r.h, t.color.control);
         }
         let what = match &dev.error {
-            Some(e) => format!("{} – {e}", dev.name),
-            None => format!("{} · {} ch · {} Hz", dev.name, dev.channels, dev.rate),
+            Some(e) => format!("{} – {e}", dev.label()),
+            None => format!("{} · {} ch · {} Hz", dev.label(), dev.channels, dev.rate),
         };
         d.text(r.x + 4.0, text_y(y, font), font, &fit(d, &what, font, r.w - 8.0), if dev.error.is_some() { t.color.muted } else { t.color.text });
         hits.push((r, Field::Device(i)));
@@ -303,7 +336,54 @@ mod tests {
     use super::*;
 
     fn out(name: &str, channels: usize, default: bool) -> Output {
-        Output { name: name.into(), channels, rate: 48_000, format: "I32".into(), buffer: Some((128, 128)), default, error: None }
+        Output { name: name.into(), channels, rate: 48_000, format: "I32".into(), buffer: Some((128, 128)), default, ..Output::default() }
+    }
+
+    #[test]
+    fn the_listing_runs_off_the_frame_thread() {
+        fn slow() -> Vec<Outputs> {
+            std::thread::sleep(std::time::Duration::from_millis(300));
+            vec![Outputs { name: "WASAPI".into(), key: Some("default"), devices: vec![out("Speakers", 2, true)] }]
+        }
+        let mut p = Page { lister: Some(slow), ..Page::new(DeckAudio::default()) };
+        let t = std::time::Instant::now();
+        p.sync(&["main".into()]);
+        assert!(t.elapsed() < std::time::Duration::from_millis(100), "sync waited {:?}", t.elapsed());
+        assert!(p.listing() && p.hosts.is_empty());
+        let end = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        while p.listing() && std::time::Instant::now() < end {
+            std::thread::sleep(std::time::Duration::from_millis(10));
+            p.sync(&["main".into()]);
+        }
+        assert!(!p.listing());
+        assert_eq!((p.host(), p.device(), p.channels()), (Some(0), Some(0), 2));
+    }
+
+    #[test]
+    fn a_pipewire_sink_is_picked_by_its_node_name_and_sizes_the_map() {
+        let sinks = [
+            backend::SinkProps { name: "alsa_output.pci.analog-stereo".into(), description: "Built-in Audio".into(), position: Some("FL,FR".into()), channels: Some(2) },
+            backend::SinkProps {
+                name: "alsa_output.usb-RME_Fireface_UCX_II-00.pro-output-0".into(),
+                description: "Fireface UCX II Pro".into(),
+                position: Some((0..20).map(|i| format!("AUX{i}")).collect::<Vec<_>>().join(",")),
+                channels: Some(20),
+            },
+        ];
+        let saved = DeckAudio { audio_device: Some("Fireface".into()), ..DeckAudio::default() };
+        let mut p = Page::new(saved);
+        p.listed = true;
+        p.hosts = vec![
+            Outputs { name: "PipeWire".into(), key: Some("default"), devices: backend::sink_outputs(&sinks, Some("alsa_output.pci.analog-stereo")) },
+            Outputs { name: "ALSA".into(), key: None, devices: vec![out("default", 2, true)] },
+        ];
+        p.sync(&["main".into()]);
+        assert_eq!((p.host(), p.device(), p.channels()), (Some(0), Some(1), 20));
+        p.press(Field::Device(0));
+        assert_eq!((p.draft.audio_device.as_deref(), p.channels()), (Some("alsa_output.pci.analog-stereo"), 2));
+        p.press(Field::Device(1));
+        assert_eq!(p.draft.audio_device.as_deref(), Some("alsa_output.usb-RME_Fireface_UCX_II-00.pro-output-0"));
+        assert_eq!(p.draft.audio_host, None, "the stage plays PipeWire without a host key");
     }
 
     fn page() -> Page {

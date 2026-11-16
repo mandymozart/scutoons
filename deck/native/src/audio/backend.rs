@@ -295,15 +295,76 @@ impl Options {
 }
 
 /// An output device as its host reports it: the default config (rate, channels, format) or why there is none, its buffer range.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Output {
     pub name: String,
+    /// what a person reads (a PipeWire sink's `node.description`); empty = the name
+    pub description: String,
     pub channels: usize,
     pub rate: u32,
     pub format: String,
     pub buffer: Option<(u32, u32)>,
     pub default: bool,
     pub error: Option<String>,
+}
+
+impl Output {
+    /// deck.toml's `audio_device` = `want` opens this device (a sink also by its description, as the stage finds it)
+    pub fn matches(&self, want: &str) -> bool {
+        device_matches(&self.name, want) || (!self.description.is_empty() && device_matches(&self.description, want))
+    }
+
+    pub fn label(&self) -> &str {
+        if self.description.is_empty() { &self.name } else { &self.description }
+    }
+}
+
+/// A PipeWire `Audio/Sink` node as the registry and its info show it.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct SinkProps {
+    pub name: String,
+    pub description: String,
+    pub position: Option<String>,
+    pub channels: Option<usize>,
+}
+
+impl SinkProps {
+    /// its channels' position names: `audio.position`, else `audio.channels` as AUX; empty when it says neither
+    pub fn channel_names(&self) -> Vec<String> {
+        match (&self.position, self.channels) {
+            (Some(p), _) if !position_names(p).is_empty() => position_names(p),
+            (_, Some(n)) => (0..n).map(|i| format!("AUX{i}")).collect(),
+            _ => Vec::new(),
+        }
+    }
+
+    pub fn matches(&self, want: &str) -> bool {
+        device_matches(&self.name, want) || device_matches(&self.description, want)
+    }
+}
+
+/// the rate the stage's PipeWire stream plays at (PipeWire resamples to the sink)
+pub const PIPEWIRE_RATE: u32 = 48_000;
+
+/// PipeWire's sinks as the routing page lists them: the channels the stage's stream opens with (at most the engine's,
+/// stereo when the sink says nothing), the default sink marked; `name` is the node name Apply writes as `audio_device`
+pub fn sink_outputs(sinks: &[SinkProps], default: Option<&str>) -> Vec<Output> {
+    sinks
+        .iter()
+        .map(|s| {
+            let n = s.channel_names().len().min(deck_engine::config::MAX_DEVICE_CHANNELS);
+            Output {
+                name: s.name.clone(),
+                description: s.description.clone(),
+                channels: if n == 0 { 2 } else { n },
+                rate: PIPEWIRE_RATE,
+                format: "F32".into(),
+                buffer: None,
+                default: default == Some(s.name.as_str()),
+                error: None,
+            }
+        })
+        .collect()
 }
 
 /// A cpal host this build has and its output devices; `key` is deck.toml's `audio_host` for it (None: the stage can't pick it).
@@ -314,16 +375,25 @@ pub struct Outputs {
     pub devices: Vec<Output>,
 }
 
-/// every cpal host this build has, the platform's default host first, with its output devices, for the routing page
+/// every host this build has, with its output devices, for the routing page; slow (it loads the drivers – call it off the
+/// frame thread). With PipeWire running its sinks come first as the default host – the stage plays there – and cpal's
+/// default host (ALSA) can't be picked; else the platform's default cpal host first.
 pub fn outputs() -> Vec<Outputs> {
     use cpal::traits::{DeviceTrait, HostTrait};
+    let mut out = Vec::new();
+    #[cfg(all(target_os = "linux", feature = "pipewire"))]
+    match pipewire_sinks() {
+        Ok((sinks, default)) => out.push(Outputs { name: "PipeWire".into(), key: Some("default"), devices: sink_outputs(&sinks, default.as_deref()) }),
+        Err(e) => tracing::warn!("audio: no PipeWire sinks to list ({e:#})"),
+    }
+    let pipewire = !out.is_empty();
     let default_host = cpal::default_host().id();
     let mut ids = cpal::available_hosts();
     ids.sort_by_key(|id| *id != default_host);
-    let mut out = Vec::new();
     for id in ids {
         let Ok(host) = cpal::host_from_id(id) else { continue };
         let key = match id.name() {
+            _ if id == default_host && pipewire => None,
             _ if id == default_host => Some("default"),
             "WASAPI" => Some("wasapi"),
             "ASIO" => Some("asio"),
@@ -336,7 +406,7 @@ pub fn outputs() -> Vec<Outputs> {
             .flatten()
             .map(|d| {
                 let name = d.name().unwrap_or_default();
-                let mut o = Output { default: default.as_deref() == Some(name.as_str()), name, channels: 0, rate: 0, format: String::new(), buffer: None, error: None };
+                let mut o = Output { default: default.as_deref() == Some(name.as_str()), name, ..Output::default() };
                 match d.default_output_config() {
                     Ok(c) => {
                         o.channels = c.channels() as usize;
@@ -369,7 +439,8 @@ pub fn list() -> String {
                     format!("{} Hz, {} ch, {}, {buf}", d.rate, d.channels, d.format)
                 }
             };
-            out += &format!(" {} {}: {cfg}\n", if d.default { "*" } else { " " }, d.name);
+            let name = if d.description.is_empty() { d.name.clone() } else { format!("{} ({})", d.description, d.name) };
+            out += &format!(" {} {name}: {cfg}\n", if d.default { "*" } else { " " });
         }
     }
     out
@@ -725,17 +796,49 @@ struct Sink {
 /// before the stream opens; a sink that says nothing (or none known) is stereo, FL FR.
 #[cfg(all(target_os = "linux", feature = "pipewire"))]
 fn find_sink(mainloop: &pipewire::main_loop::MainLoopRc, core: &pipewire::core::CoreRc, want: Option<&str>) -> Result<Sink, pipewire::Error> {
+    let (sinks, default) = scan_sinks(mainloop, core)?;
+    let named = want.and_then(|want| {
+        let hit = sinks.iter().find(|s| s.matches(want));
+        match hit {
+            Some(s) => tracing::info!("audio: PipeWire sink '{}' ({}) for '{want}'", s.description, s.name),
+            None => {
+                let names: Vec<&str> = sinks.iter().map(|s| s.description.as_str()).collect();
+                tracing::warn!("audio: no PipeWire sink matches '{want}' (there are: {}) – the default sink plays", names.join(", "));
+            }
+        }
+        hit
+    });
+    let sink = named.or_else(|| sinks.iter().find(|s| Some(&s.name) == default.as_ref()));
+    let names = sink.map(SinkProps::channel_names).unwrap_or_default();
+    let mut position: Vec<u32> = names.iter().take(deck_engine::config::MAX_DEVICE_CHANNELS).enumerate().map(|(i, n)| spa_channel(n, i)).collect();
+    if position.is_empty() {
+        position = vec![pipewire::spa::sys::SPA_AUDIO_CHANNEL_FL, pipewire::spa::sys::SPA_AUDIO_CHANNEL_FR];
+    }
+    match sink {
+        Some(s) => tracing::info!("audio: PipeWire sink '{}': {} channels ({})", s.description, position.len(), names.join(" ")),
+        None => tracing::info!("audio: the default PipeWire sink is not known – stereo"),
+    }
+    Ok(Sink { target: named.map(|s| s.name.clone()), position })
+}
+
+/// the sinks and the default sink's name, from a connection of its own (the routing page's listing)
+#[cfg(all(target_os = "linux", feature = "pipewire"))]
+fn pipewire_sinks() -> Result<(Vec<SinkProps>, Option<String>)> {
+    use pipewire as pw;
+    pw::init();
+    let mainloop = pw::main_loop::MainLoopRc::new(None)?;
+    let context = pw::context::ContextRc::new(&mainloop, None)?;
+    let core = context.connect_rc(None)?;
+    Ok(scan_sinks(&mainloop, &core)?)
+}
+
+/// every `Audio/Sink` node (bound for its info) and the `default` metadata's `default.audio.sink`, in two round trips
+#[cfg(all(target_os = "linux", feature = "pipewire"))]
+fn scan_sinks(mainloop: &pipewire::main_loop::MainLoopRc, core: &pipewire::core::CoreRc) -> Result<(Vec<SinkProps>, Option<String>), pipewire::Error> {
     use pipewire as pw;
     use std::cell::RefCell;
     use std::rc::Rc;
-    /// a sink as the registry and its info show it
-    #[derive(Default)]
-    struct Seen {
-        name: String,
-        description: String,
-        position: Option<String>,
-        channels: Option<usize>,
-    }
+    type Seen = SinkProps;
     let registry = core.get_registry_rc()?;
     let sinks: Rc<RefCell<Vec<Seen>>> = Rc::new(RefCell::new(Vec::new()));
     let default: Rc<RefCell<Option<String>>> = Rc::new(RefCell::new(None));
@@ -790,35 +893,9 @@ fn find_sink(mainloop: &pipewire::main_loop::MainLoopRc, core: &pipewire::core::
     // the globals arrive before the first sync's done, the bound objects' info and properties before the second's
     roundtrip(mainloop, core)?;
     roundtrip(mainloop, core)?;
-    let sinks = sinks.borrow();
-    let named = want.and_then(|want| {
-        let w = want.to_lowercase();
-        let hit = sinks.iter().find(|s| s.name.to_lowercase().contains(&w) || s.description.to_lowercase().contains(&w));
-        match hit {
-            Some(s) => tracing::info!("audio: PipeWire sink '{}' ({}) for '{want}'", s.description, s.name),
-            None => {
-                let names: Vec<&str> = sinks.iter().map(|s| s.description.as_str()).collect();
-                tracing::warn!("audio: no PipeWire sink matches '{want}' (there are: {}) – the default sink plays", names.join(", "));
-            }
-        }
-        hit
-    });
+    let sinks = sinks.borrow().clone();
     let default = default.borrow().clone();
-    let sink = named.or_else(|| sinks.iter().find(|s| Some(&s.name) == default.as_ref()));
-    let names: Vec<String> = match sink.map(|s| (&s.position, s.channels)) {
-        Some((Some(p), _)) => position_names(p),
-        Some((None, Some(n))) => (0..n).map(|i| format!("AUX{i}")).collect(),
-        _ => Vec::new(),
-    };
-    let mut position: Vec<u32> = names.iter().take(deck_engine::config::MAX_DEVICE_CHANNELS).enumerate().map(|(i, n)| spa_channel(n, i)).collect();
-    if position.is_empty() {
-        position = vec![pw::spa::sys::SPA_AUDIO_CHANNEL_FL, pw::spa::sys::SPA_AUDIO_CHANNEL_FR];
-    }
-    match sink {
-        Some(s) => tracing::info!("audio: PipeWire sink '{}': {} channels ({})", s.description, position.len(), names.join(" ")),
-        None => tracing::info!("audio: the default PipeWire sink is not known – stereo"),
-    }
-    Ok(Sink { target: named.map(|s| s.name.clone()), position })
+    Ok((sinks, default))
 }
 
 /// run the loop until the server has answered everything sent so far
@@ -872,7 +949,6 @@ fn spa_channel(name: &str, place: usize) -> u32 {
 }
 
 /// a node's `audio.position` (`FL,FR` · `[ FL FR ]` · `AUX0,AUX1,…`) as its names
-#[cfg_attr(not(all(target_os = "linux", feature = "pipewire")), allow(dead_code))]
 fn position_names(s: &str) -> Vec<String> {
     s.split(|c: char| c == ',' || c == '[' || c == ']' || c.is_whitespace()).filter(|t| !t.is_empty()).map(str::to_string).collect()
 }
@@ -900,6 +976,28 @@ mod tests {
         assert_eq!(default_sink_name(r#"{ "name": "alsa_output.usb-RME_Fireface_UCX_II-00.pro-output-0" }"#).as_deref(), Some("alsa_output.usb-RME_Fireface_UCX_II-00.pro-output-0"));
         assert_eq!(default_sink_name(r#"{"name":"x"}"#).as_deref(), Some("x"));
         assert_eq!(default_sink_name("{}"), None);
+    }
+
+    #[test]
+    fn pipewire_sinks_list_with_the_channels_the_stream_opens() {
+        let aux = |n: usize| (0..n).map(|i| format!("AUX{i}")).collect::<Vec<_>>().join(",");
+        let sink = |name: &str, description: &str, position: Option<String>, channels: Option<usize>| SinkProps { name: name.into(), description: description.into(), position, channels };
+        let rme = "alsa_output.usb-RME_Fireface_UCX_II-00.pro-output-0";
+        let sinks = [
+            sink(rme, "Fireface UCX II Pro", Some(aux(20)), Some(20)),
+            sink("alsa_output.pci-0000_00_1f.3.analog-stereo", "Built-in Audio Analog Stereo", Some("[ FL FR ]".into()), Some(2)),
+            sink("surround", "Surround", None, Some(6)),
+            sink("quiet", "Says nothing", None, None),
+            sink("wide", "Wide", Some(aux(64)), None),
+        ];
+        let out = sink_outputs(&sinks, Some(rme));
+        let got: Vec<(usize, bool)> = out.iter().map(|o| (o.channels, o.default)).collect();
+        assert_eq!(got, [(20, true), (2, false), (6, false), (2, false), (deck_engine::config::MAX_DEVICE_CHANNELS, false)]);
+        assert_eq!((out[0].label(), out[0].rate, out[0].format.as_str()), ("Fireface UCX II Pro", PIPEWIRE_RATE, "F32"));
+        assert!(out[0].matches("fireface") && out[0].matches("UCX II Pro") && !out[1].matches("fireface"));
+        assert!(sinks[0].matches("Fireface") && sinks[0].matches("pro-output"));
+        assert_eq!(sinks[2].channel_names()[5], "AUX5");
+        assert!(sink_outputs(&sinks, None).iter().all(|o| !o.default));
     }
 
     #[test]
