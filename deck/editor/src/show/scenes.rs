@@ -1,5 +1,5 @@
-//! The scene list beside the rows band in Show: the book's published scenes, filtered as typed. A scene dragged onto a
-//! cell is deck-show's `Edit::Piece`, the same edit as a pick in the picker; a refusal shows the core's sentence where the
+//! The scene list beside the rows band in Show: the book's published scenes, then the toon's drafts never published
+//! (marked: new_scene.rs), filtered as typed; its "new scene" opens the scene sheet. A scene dragged onto a cell is deck-show's `Edit::Piece`, the same edit as a pick in the picker; a refusal shows the core's sentence where the
 //! scene was dropped. Nothing here decides which cell takes a piece (RULES A1, A2).
 use super::roles::Typing;
 use super::rows::{field, LOCALE};
@@ -43,9 +43,13 @@ impl Host {
         }
     }
 
-    /// the published scenes of the book that match the filter (none without a book)
+    /// the published scenes of the book that match the filter, then the drafts (none without a book)
     pub(super) fn scene_list(&self) -> Vec<PieceView> {
-        self.book.as_ref().map(|b| rows::pieces(b, &self.scene_query_now(), LOCALE)).unwrap_or_default()
+        let Some(b) = self.book.as_ref() else { return Vec::new() };
+        let query = self.scene_query_now();
+        let mut list = rows::pieces(b, &query, LOCALE);
+        list.extend(rows::draft_pieces(&self.drafts_unlisted(), &query));
+        list
     }
 
     /// the pointer moves: a scene being dragged follows it
@@ -87,6 +91,11 @@ pub fn list(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, pointer: (f3
     d.rect(a.x, a.y, 1.0, a.h, t.color.line);
     let mut y = a.y + pad;
     d.text(a.x + pad, y, small, "SCENES", t.color.muted);
+    let nw = d.advance(small) * super::new_scene::NEW.chars().count() as f32 + 2.0 * pad;
+    let new = Rect { x: a.x + a.w - nw - pad, y: y - 3.0, w: nw, h: small * 1.6 };
+    d.round_rect(new.x, new.y, new.w, new.h, t.size.radius, if new.has(pointer.0, pointer.1) { t.color.hover } else { t.color.control });
+    d.text(new.x + pad, y, small, super::new_scene::NEW, t.color.text);
+    host.hits.push((new, Hit::Compose(super::new_scene::ComposeHit::Open)));
     y += small * 1.8;
     if host.book.is_none() {
         let why = host.book_why.clone().unwrap_or_else(|| NO_BOOK.into());

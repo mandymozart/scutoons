@@ -292,6 +292,14 @@ impl Rigs {
         draft_path(&self.cache, &self.subject)
     }
 
+    /// the catalog once it is here (Show's new scene picks its cast from its rigs)
+    pub fn catalog(&self) -> Option<&Catalog> {
+        match &self.listing {
+            Listing::Ready(c) => Some(c),
+            _ => None,
+        }
+    }
+
     /// the threads' answers; the list asked again when the sign-in changed
     pub fn poll(&mut self, signed: bool) -> Vec<Event> {
         let mut out = Vec::new();

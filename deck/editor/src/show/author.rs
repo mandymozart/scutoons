@@ -53,7 +53,7 @@ pub fn view_switch(d: &mut DrawList, t: &Tokens, host: &mut Host, stage: Rect, s
     let y = stage.y + t.size.pad;
     d.round_rect(x - 3.0, y - 3.0, w + 4.0, h + 6.0, t.size.radius, t.color.surface_head);
     let on = match host.sheet {
-        Some(s) => sheets.iter().position(|(_, x)| *x == s).map_or(if matches!(s, Sheet::Flash | Sheet::Piece | Sheet::Event) { usize::MAX } else { usize::from(host.two_d) }, |i| i + 2),
+        Some(s) => sheets.iter().position(|(_, x)| *x == s).map_or(if matches!(s, Sheet::Flash | Sheet::Piece | Sheet::Event | Sheet::Scene) { usize::MAX } else { usize::from(host.two_d) }, |i| i + 2),
         None => usize::from(host.two_d),
     };
     let r = controls::pills(d, t, x, y, h, &names, on);

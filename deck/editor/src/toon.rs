@@ -1,13 +1,14 @@
 //! Which toon's address book the editor reads: the one of what is open – in Build the rig's (its character's `own_toon`
-//! in the library's registry, `GET /api/library/characters`), in Show and Perform the Session sheet's; `--toon` overrides
-//! both. The registry is asked once, on a thread, and kept in the cache for the next offline start.
+//! in the library's registry, `GET /api/library/characters`), in Show and Perform the Session sheet's, else the rig's;
+//! `--toon` overrides both. The registry is asked once, on a thread, and kept in the cache for the next offline start.
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{channel, Receiver};
 use std::time::Duration;
 
-/// the toon to read: `forced` (`--toon`), else the rig's in Build, else the Session sheet's
+/// the toon to read: `forced` (`--toon`), else the rig's in Build, else the Session sheet's and without one the rig's
 pub fn wanted(forced: Option<&str>, build: bool, rig: Option<&str>, place: Option<&str>) -> Option<String> {
-    let t = forced.or(if build { rig } else { place })?.trim();
+    let place = place.filter(|p| !p.trim().is_empty());
+    let t = forced.or(if build { rig } else { place.or(rig) })?.trim();
     (!t.is_empty()).then(|| t.to_string())
 }
 
@@ -72,7 +73,8 @@ mod tests {
         assert_eq!(wanted(None, true, Some("catpope"), Some("feilchen")).as_deref(), Some("catpope"), "Build: the rig's");
         assert_eq!(wanted(None, false, Some("catpope"), Some("feilchen")).as_deref(), Some("feilchen"), "Show / Perform: the Session sheet's");
         assert_eq!(wanted(Some("other"), false, Some("catpope"), Some("feilchen")).as_deref(), Some("other"), "--toon overrides");
-        assert_eq!(wanted(None, false, Some("catpope"), Some(" ")), None, "no toon picked");
+        assert_eq!(wanted(None, false, Some("catpope"), Some(" ")).as_deref(), Some("catpope"), "no toon picked in the Session sheet: the rig's");
+        assert_eq!(wanted(None, false, None, None), None, "none at all");
         assert_eq!(wanted(None, true, None, Some("feilchen")), None);
     }
 

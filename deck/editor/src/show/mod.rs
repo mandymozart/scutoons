@@ -14,7 +14,8 @@
 //!   #539 (events.rs): the event a row fires on, picked from the toon's story events. #551 (ask.rs): several cells of a
 //!   row selected (shift), the right click's typeahead on them – a new question, the story's, add to, leave –, the
 //!   question in the cell inspector, the wide cell in the rows band and in Perform's matrix. The scene list beside the
-//!   rows band (scenes.rs): a scene dragged onto a cell is its piece, as a pick is.
+//!   rows band (scenes.rs): a scene dragged onto a cell is its piece, as a pick is; its "new scene" opens the scene sheet
+//!   (new_scene.rs): a scene named, cast from the toon's rigs, played, saved as a draft.
 //!
 //! The editor runs one conductor, this deck's (the tree's top it was given). A sub conductor runs on its own deck with its
 //! own operator; entering it here shows its document, it does not run it.
@@ -26,6 +27,7 @@ mod condition;
 mod events;
 mod flash;
 mod link;
+pub mod new_scene;
 pub mod perform;
 mod roles;
 mod rows;
@@ -78,6 +80,8 @@ pub enum Sheet {
     Piece,
     /// #539: the event picker of the inspected row – the toon's story events (events.rs)
     Event,
+    /// a new scene, or one from the server recast (new_scene.rs)
+    Scene,
 }
 
 impl Sheet {
@@ -96,6 +100,7 @@ impl Sheet {
             "vote" => Some(Sheet::Vote),
             "piece" => Some(Sheet::Piece),
             "event" => Some(Sheet::Event),
+            "scene" => Some(Sheet::Scene),
             _ => None,
         }
     }
@@ -188,6 +193,8 @@ pub enum Hit {
     Vote(vote::VoteHit),
     /// the selected cell's values: a knob, its ×, take current (values.rs)
     Knob(values::KnobHit),
+    /// the scene sheet's fields, buttons and lines (new_scene.rs)
+    Compose(new_scene::ComposeHit),
 }
 
 impl Hit {
@@ -267,6 +274,9 @@ pub struct Host {
     /// #568: Build linked to a cell, and what Build is asked to play next (build.rs)
     pub build: Option<build::BuildLink>,
     pub to_build: Option<build::ToBuild>,
+    /// the scene sheet's state, and a scene it asks the stage to play (new_scene.rs)
+    pub compose: new_scene::Composer,
+    pub to_stage: Option<deck_space::scene::Scene>,
     link: Option<link::Link>,
     api: api::Api,
 }
@@ -316,7 +326,7 @@ impl Host {
                 })
                 .ok()
         });
-        Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), context: None, side: Rect { x: 0.0, y: 0.0, w: 0.0, h: 0.0 }, side_scroll: 0.0, side_over: 0.0, address: None, book: None, book_why: None, piece_query: String::new(), scene_query: String::new(), dragging: None, refused: None, toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, session: session::Session::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), build: None, to_build: None, link, api }
+        Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), context: None, side: Rect { x: 0.0, y: 0.0, w: 0.0, h: 0.0 }, side_scroll: 0.0, side_over: 0.0, address: None, book: None, book_why: None, piece_query: String::new(), scene_query: String::new(), dragging: None, refused: None, toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, session: session::Session::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), build: None, to_build: None, compose: new_scene::Composer::default(), to_stage: None, link, api }
     }
 
     /// the document at the end of the path (the top's when a step is missing)
@@ -351,6 +361,7 @@ impl Host {
     pub fn frame(&mut self) {
         let ms = now();
         self.knobs.poll();
+        self.compose_poll();
         let mut out = self.sub.tick(ms);
         if let Some(l) = &self.link {
             while let Ok(e) = l.inbox.try_recv() {
@@ -445,6 +456,7 @@ impl Host {
             Hit::SessionToon(_) | Hit::SessionChapter(_) | Hit::SessionLabel | Hit::SessionCopy | Hit::SessionOpen => self.session_press(hit),
             Hit::Vote(v) => self.vote_press(v),
             Hit::Knob(k) => self.knob_press(k),
+            Hit::Compose(c) => self.compose_press(c),
         }
     }
 
@@ -582,6 +594,25 @@ pub struct Script {
     /// #568: with `cell`, "open in Build" pressed; then "values → cell" in Build
     pub open_build: bool,
     pub to_cell: bool,
+    /// the scene sheet filled as typed and picked (`--new-scene`), then played if asked
+    pub new_scene: Option<NewScene>,
+}
+
+/// `ID,NAME,FILLER+FILLER[,play]`
+#[derive(Debug, Clone, Default)]
+pub struct NewScene {
+    pub id: String,
+    pub name: String,
+    pub cast: Vec<String>,
+    pub play: bool,
+}
+
+impl NewScene {
+    pub fn parse(v: &str) -> Option<NewScene> {
+        let p: Vec<&str> = v.split(',').map(str::trim).collect();
+        let cast = p.get(2)?.split('+').map(str::trim).filter(|f| !f.is_empty()).map(String::from).collect();
+        Some(NewScene { id: p.first()?.to_string(), name: p.get(1)?.to_string(), cast, play: p.get(3) == Some(&"play") })
+    }
 }
 
 impl Host {
@@ -683,6 +714,14 @@ impl Host {
                     self.session.place.label = p.label.clone();
                 }
             }
+            46 => {
+                if let Some(n) = &s.new_scene {
+                    self.press(Hit::Compose(new_scene::ComposeHit::Open));
+                    (self.compose.id, self.compose.name, self.compose.cast) = (n.id.clone(), n.name.clone(), n.cast.clone());
+                    self.typing = None;
+                }
+            }
+            52 if s.new_scene.as_ref().is_some_and(|n| n.play) => self.press(Hit::Compose(new_scene::ComposeHit::Play)),
             50 if s.flash => self.press(Hit::Flash),
             60 => {
                 if let Some(text) = &s.flash_filter {

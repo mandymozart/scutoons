@@ -239,7 +239,7 @@ pub fn cell_side(d: &mut DrawList, t: &Tokens, host: &mut Host, (x, y, w): (f32,
     }
     y += used + pad * 0.5;
     if let Some(piece) = &insp.piece {
-        let r = field(d, t, (x, y, w), rows::PIECE, piece, None);
+        let r = field(d, t, (x, y, w), rows::PIECE, &host.marked(piece), None);
         host.hits.push((r, Hit::CellPiece));
         y += row;
     }

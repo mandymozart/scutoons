@@ -134,6 +134,7 @@ fn args() -> Result<Args> {
             "--rigs" => a.rigs = Some(PathBuf::from(val()?)),
             "--open-build" => a.script.open_build = true,
             "--to-cell" => a.script.to_cell = true,
+            "--new-scene" => a.script.new_scene = Some(show::NewScene::parse(&val()?).context("--new-scene ID,NAME,FILLER+FILLER[,play]")?),
             "--far" => {
                 let v = val()?;
                 a.far = Some(match v.strip_suffix(",pick") {
@@ -152,7 +153,7 @@ fn args() -> Result<Args> {
             "--flash-force" => a.script.flash_force = true,
             "--seat" => a.script.seat = Some(val()?),
             "--row" => a.script.row = Some(val()?),
-            "--sheet" => a.script.sheet = Some(show::Sheet::parse(&val()?).context("--sheet cues | problems | flash | who | session | vote | piece | event")?),
+            "--sheet" => a.script.sheet = Some(show::Sheet::parse(&val()?).context("--sheet cues | problems | flash | who | session | vote | piece | event | scene")?),
             "--role" => a.script.role = Some(val()?),
             "--who-move" => a.script.who_move = val()?.split_once('=').map(|(c, r)| (c.to_string(), r.to_string())),
             "--who-menu" => a.script.who_menu = Some(val()?),
@@ -446,7 +447,7 @@ fn run() -> Result<i32> {
     let app_workspace = args.workspace;
     // a check run (--frames) never asks for a sign-in: SCUTOONS_TOKEN or the kept token only
     let auth = sign_in::Auth::start(&args.api, &cache, args.frames.is_none());
-    let rigs = if args.frames.is_none() { rigs::Rigs::new(&args.api, &cache, &subject, version, auth.token().is_some()) } else { rigs::Rigs::offline(&cache, &subject, version, "a check run asks no server") };
+    let rigs = if args.frames.is_none() || args.script.new_scene.is_some() { rigs::Rigs::new(&args.api, &cache, &subject, version, auth.token().is_some()) } else { rigs::Rigs::offline(&cache, &subject, version, "a check run asks no server") };
     let rig_toon = if args.toon.is_none() && args.book.is_none() { toon::RigToon::new(&args.api, &subject, &cache) } else { toon::RigToon::none() };
     let mut app_show = show::Host::new(args.show_file.clone(), args.show_id.clone(), args.relay.clone(), args.api.clone());
     app_show.toon.clone_from(&args.toon);
@@ -1195,6 +1196,26 @@ impl App {
         }
     }
 
+    /// Show's scene sheet: the toon's rigs to cast from, a scene it asks the stage to play; back in Build the rig plays again
+    fn follow_scene(&mut self) {
+        if self.show.compose.catalog.is_none() {
+            self.show.compose.catalog = self.rigs.catalog().map(|c| std::sync::Arc::new(c.clone()));
+        }
+        let (x, y) = self.cursor;
+        if let Some(scene) = self.show.to_stage.take() {
+            let id = self.show.compose.id.clone();
+            if let Err(err) = self.stage.play_scene(&id, scene) {
+                self.say(format!("scene:{id}: {err:#}"), x, y, true);
+            }
+        }
+        if self.workspace == show::Workspace::Build && self.stage.scene.is_some() {
+            if let Err(err) = self.stage.replay(self.stage.bundle.clone()) {
+                self.say(format!("{err:#}"), x, y, true);
+            }
+            self.stage.scene = None;
+        }
+    }
+
     /// #568: "values → cell" – the knobs as the stage has them, into the linked cell (show/build.rs)
     fn knobs_to_cell(&mut self) {
         let positions: Vec<(String, f32)> = self.stage.knobs.iter().map(|k| (k.path.clone(), self.stage.value(k))).collect();
@@ -1564,6 +1585,7 @@ impl App {
         self.follow_toon();
         self.follow_rigs();
         self.follow_cell();
+        self.follow_scene();
         self.book.poll();
         // #537: the Show workspace picks a cell's piece from the book's scenes
         self.show.book.clone_from(&self.book.book);
