@@ -1,5 +1,6 @@
 //! Adding and taking away in Build: a node in a track (its kind from the core's list; a far world node with its holder
-//! from the address book), a track (an instrument of the toon's catalog or the rig's own). The kinds, the ids and whether
+//! from the address book), a track (an instrument of the toon's catalog or the rig's own, or a catalog module wrapped as
+//! one). The kinds, the ids and whether
 //! the result may stand are the core's (rig/edit.rs, validate); this offers them and says what happened.
 use crate::inspector::Sel;
 use crate::wires::{self, Port};
@@ -7,6 +8,7 @@ use deck_kit::editor::typeahead::{Item, Typeahead};
 use deck_space::piece::Found;
 use deck_space::rig::address::Place;
 use deck_space::rig::edit::node_kinds;
+use deck_catalog::Descriptor;
 use deck_space::rig::{Bundle, Instrument};
 
 /// a row of the Add typeahead
@@ -16,10 +18,12 @@ pub enum Choice {
     /// its holder is picked from the address book next
     Far { track: String },
     Track(Box<Instrument>),
+    /// a module of the catalog as a track: the instrument that wraps it, its descriptor
+    Module(Box<(Instrument, Descriptor)>),
 }
 
-/// what may be added: nodes into `track` when there is one, tracks of `instruments` at the rig
-pub fn choices(track: Option<&str>, at_rig: bool, instruments: &[Instrument]) -> (Vec<Item>, Vec<Choice>) {
+/// what may be added: nodes into `track` when there is one, tracks of `instruments` and `modules` at the rig
+pub fn choices(track: Option<&str>, at_rig: bool, instruments: &[Instrument], modules: &[(Instrument, Descriptor)]) -> (Vec<Item>, Vec<Choice>) {
     let mut rows: Vec<(String, String, Choice)> = Vec::new();
     if let Some(t) = track {
         rows.push(("world · far".into(), format!("node in {t} · its holder from the address book"), Choice::Far { track: t.to_string() }));
@@ -27,6 +31,7 @@ pub fn choices(track: Option<&str>, at_rig: bool, instruments: &[Instrument]) ->
     }
     if at_rig {
         rows.extend(instruments.iter().map(|i| (i.id.clone(), format!("track · {}", format!("{:?}", i.kind).to_lowercase()), Choice::Track(Box::new(i.clone())))));
+        rows.extend(modules.iter().map(|m| (format!("module:{}", m.1.name), format!("track · {}", if m.0.out.is_some() { "sound" } else { "events" }), Choice::Module(Box::new(m.clone())))));
     }
     rows.into_iter().enumerate().map(|(id, (label, detail, c))| (Item { id, label, detail }, c)).unzip()
 }
@@ -48,6 +53,7 @@ pub fn apply(bundle: &Bundle, c: &Choice) -> Result<(Bundle, String), String> {
     let (next, words) = match c {
         Choice::Node { track, kind } => bundle.node_added(track, kind).map(|(b, id)| (b, format!("{track}:{id} added")))?,
         Choice::Track(i) => bundle.track_added(i).map(|(b, id)| (b, format!("track {id} added, playing {}", i.id)))?,
+        Choice::Module(m) => bundle.module_track_added(&m.0, &m.1).map(|(b, id)| (b, format!("track {id} added, playing module:{}", m.1.name)))?,
         Choice::Far { track } => return Err(format!("a far node in {track} needs its holder first")),
     };
     Ok((wires::checked(next)?, words))
@@ -86,7 +92,7 @@ impl crate::App {
             Sel::Rig => None,
         };
         let all = instruments(&self.stage.bundle, self.rigs.instruments());
-        let (items, add) = choices(track.as_deref(), self.stage.path.is_empty(), &all);
+        let (items, add) = choices(track.as_deref(), self.stage.path.is_empty(), &all, &self.rigs.modules().0);
         self.menu = Some(crate::Menu { ta: Typeahead::new(items, x, y), from: None, far: None, rigs: false, add, far_new: None, scene: None });
     }
 
@@ -199,11 +205,11 @@ mod tests {
     #[test]
     fn inside_a_track_nodes_at_the_rig_tracks() {
         let all = instruments(&keys(), bells().instruments);
-        let (items, rows) = choices(Some("tone"), false, &all);
+        let (items, rows) = choices(Some("tone"), false, &all, &[]);
         assert_eq!(items.len(), rows.len());
         assert_eq!(rows[0], Choice::Far { track: "tone".into() });
         assert!(items.iter().any(|i| i.label == "osc") && !items.iter().any(|i| i.label == "screen"));
-        let (_, at_rig) = choices(None, true, &all);
+        let (_, at_rig) = choices(None, true, &all, &[]);
         let ids: Vec<&str> = at_rig.iter().filter_map(|c| if let Choice::Track(i) = c { Some(i.id.as_str()) } else { None }).collect();
         assert_eq!(ids, ["bells_air", "from_bells", "from_keys", "keys_tone"]);
     }
