@@ -129,6 +129,19 @@
           ],
           "description": "a spawn zone's arrangement of its members within the spot (required with `take: many`)"
         },
+        "at": {
+          "description": "where it stands from its spot, metres (x across, y up, z deep): a member moved on the stage",
+          "items": {
+            "format": "float",
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "type": [
+            "array",
+            "null"
+          ]
+        },
         "enter": {
           "allOf": [
             {

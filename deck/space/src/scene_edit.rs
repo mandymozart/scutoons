@@ -212,6 +212,15 @@ impl SceneEdit {
         Ok(())
     }
 
+    /// Holder `holder` stands `at` metres from its spot (a member moved on the stage); none, or no offset, = on its spot.
+    pub fn move_holder(&mut self, holder: &str, at: [f32; 3]) -> Result<(), String> {
+        self.change(|d| {
+            let h = d.holders.iter_mut().find(|h| h.id == holder).ok_or_else(|| format!("no holder {holder}"))?;
+            h.at = at.iter().any(|v| *v != 0.0).then_some(at);
+            Ok(())
+        })
+    }
+
     /// member `m`'s knob `slot` back to its rig's own value
     pub fn clear(&mut self, m: usize, slot: &str) {
         let Some(member) = self.members.get(m) else { return };
@@ -274,6 +283,23 @@ mod tests {
         let (silent, _) = SceneEdit::open(duet(), None, &none, &no_sets).unwrap();
         assert_eq!(silent.tree()[1].detail, "rig not at hand");
         assert!(silent.notes.iter().any(|n| n.contains("stands silent")));
+    }
+
+    #[test]
+    fn a_moved_member_stands_off_its_spot_and_back_on_it() {
+        let (mut edit, _) = SceneEdit::open(duet(), Some(7), &core_rigs, &no_sets).unwrap();
+        let holder = edit.members[0].holder.clone();
+        edit.move_holder(&holder, [0.5, 0.0, -1.0]).unwrap();
+        assert_eq!(edit.doc.holders[0].at, Some([0.5, 0.0, -1.0]));
+        assert!(edit.changed());
+        let played = edit.resolved(&core_rigs, &no_sets).unwrap();
+        let look = played.scene.nodes.iter().find(|n| n.kind == "look" && n.params.get("holder").and_then(|v| v.as_str()) == Some(holder.as_str())).expect("its look");
+        let at: Vec<f64> = look.params.get("at").and_then(|v| v.as_array()).unwrap().iter().filter_map(toml::Value::as_float).collect();
+        assert_eq!(at, [0.5, 0.0, -1.0]);
+        assert!(edit.move_holder(&holder, [f32::NAN, 0.0, 0.0]).unwrap_err().contains("three numbers"));
+        edit.move_holder(&holder, [0.0; 3]).unwrap();
+        assert_eq!(edit.doc.holders[0].at, None);
+        assert!(edit.move_holder("nobody", [1.0; 3]).is_err());
     }
 
     #[test]

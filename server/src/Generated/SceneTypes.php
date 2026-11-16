@@ -13,7 +13,7 @@ namespace Scutoons\Generated;
  * @phpstan-type Enter 'start' | 'join'
  * @phpstan-type Fill array{kind: list<'character' | 'persona' | 'look' | 'item' | 'location'>, parent?: string | null, ref?: list<string>}
  * @phpstan-type Fillers string | list<string>
- * @phpstan-type Holder array{arrange?: Arrange | null, enter?: Enter, fill?: Fill | null, id: string, label?: array<string, string> | null, max?: int | null, preview?: Fillers | null, ref?: string | null, rig?: RigPin | null, spot?: string | null, take?: Take, values?: array<string, HolderValue>}
+ * @phpstan-type Holder array{arrange?: Arrange | null, at?: array{float, float, float} | null, enter?: Enter, fill?: Fill | null, id: string, label?: array<string, string> | null, max?: int | null, preview?: Fillers | null, ref?: string | null, rig?: RigPin | null, spot?: string | null, take?: Take, values?: array<string, HolderValue>}
  * @phpstan-type HolderValue float | string
  * @phpstan-type LinkDef array{from: string, map?: list<array{int, int}>, offset?: float, scale?: float, to: string}
  * @phpstan-type Listener array{character?: string | null, do: Act, id?: string | null, on: string}
