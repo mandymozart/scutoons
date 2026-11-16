@@ -56,14 +56,14 @@ impl SceneView {
     /// The scene opened: the view and what the stage plays, with the core's notes (and the opening's own). Err: the
     /// core's reasons it does not play.
     pub fn open(o: SceneOpen, catalog: Option<Arc<Catalog>>) -> Result<(SceneView, Scene, Vec<String>), String> {
-        let SceneOpen { doc, base, kept, note } = o;
+        let SceneOpen { doc, base, kept, note, save } = o;
         let id = doc.id.clone();
         let (cat, k) = (catalog.as_deref(), kept.as_ref());
         let rig = |s: &str, v: Option<&str>| rig_from(cat, k, s, v);
         let set = |l: &str| k.and_then(|k| k.set(l));
         let (edit, resolved) = SceneEdit::open(doc, base, &rig, &set).map_err(|p| format!("scene:{id}: {}", p.join("; ")))?;
         let notes = note.into_iter().chain(resolved.notes).collect();
-        Ok((SceneView { edit, kept, catalog, sel: Part::Scene, inside: None, rows: Vec::new(), shown: true, auto: crate::autosave::Autosave::new(base) }, resolved.scene, notes))
+        Ok((SceneView { edit, kept, catalog, sel: Part::Scene, inside: None, rows: Vec::new(), shown: true, auto: save.unwrap_or_else(|| crate::autosave::Autosave::new(base)) }, resolved.scene, notes))
     }
 
     /// the members again after a slot or a video node changed. Err: the core's reasons it does not play.
@@ -241,6 +241,7 @@ impl crate::App {
         match SceneView::open(o, self.show.compose.catalog.clone()) {
             Ok((view, scene, notes)) => {
                 let id = view.edit.doc.id.clone();
+                self.drop_scene();
                 self.scene = Some(view);
                 if let Err(err) = self.stage.play_scene(&id, scene) {
                     return self.say(format!("scene:{id}: {err:#}"), x, y, true);
@@ -295,7 +296,6 @@ impl crate::App {
         let Some(own) = member.bundle.clone() else { return self.say(format!("{}: its rig is not at hand", member.holder), x, y, true) };
         let bundle = with_values(&own, &view.edit.positions(m));
         (view.inside, view.sel) = (Some(m), Part::Member(m));
-        let scratch = crate::cache_dir().join("scenes").join("members").join(format!("{}.{}.toml", view.edit.doc.id, member.holder));
         self.stage.path.clear();
         if let Err(err) = self.stage.replay(bundle) {
             return self.say(format!("{err:#}"), x, y, true);
@@ -303,7 +303,7 @@ impl crate::App {
         self.stage.base = own;
         (self.undo, self.sel, self.armed) = (Vec::new(), crate::inspector::Sel::Rig, None);
         // its knobs' turns stay out of the rig's own working copy
-        self.draft = scratch;
+        self.draft = crate::rigs::Copy::Nothing;
         if let Some(l) = self.show.build.as_mut() {
             (l.place, l.prefix) = (member.place.clone(), member.prefix.clone().unwrap_or_default());
         }
@@ -349,10 +349,7 @@ impl crate::App {
         self.take_member_out();
         let Some(view) = self.scene.as_mut() else { return };
         view.auto.look(crate::autosave::fingerprint(&view.edit.doc), now);
-        match self.show.scene_job(&view.edit.doc) {
-            Ok(job) => view.auto.send(now, job),
-            Err(why) => view.auto.refuse(why),
-        }
+        crate::show::saving::send_scene(self.show.api(), &mut view.auto, &view.edit.doc, now);
         if let Some(m) = inside {
             self.scene_into(m);
         }
@@ -433,7 +430,7 @@ mod tests {
     fn duet() -> SceneOpen {
         let mut doc = SceneDocument::new("duet", "Duet", vec!["catpope".into()]);
         doc.recast(&["character:catpope".into(), "item:incense_burner".into()]);
-        SceneOpen { doc, base: Some(3), kept: None, note: None }
+        SceneOpen { doc, base: Some(3), kept: None, note: None, save: None }
     }
 
     /// the panel model: the scene opens with its cast in the tree, a member selected shows its knobs as the scene sets

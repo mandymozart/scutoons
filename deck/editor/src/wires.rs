@@ -224,30 +224,61 @@ struct Draft {
     modules: Vec<deck_catalog::Descriptor>,
 }
 
-/// the draft over `base`, if the file is there and still valid
+fn draft(base: &Bundle, bundle: &Bundle, version: Option<u64>) -> Draft {
+    let instruments = bundle.instruments.iter().filter(|i| !base.instruments.contains(i)).cloned().collect();
+    let presets = bundle.presets.iter().filter(|p| !base.presets.contains(p)).cloned().collect();
+    let modules = bundle.modules.iter().filter(|m| !base.modules.iter().any(|x| x.name == m.name)).cloned().collect();
+    Draft { version, rig: bundle.rig.clone(), instruments, presets, modules }
+}
+
+/// what `bundle` changes of `base`, as the rig's outbox entry carries it
+pub fn difference(base: &Bundle, bundle: &Bundle) -> serde_json::Value {
+    serde_json::to_value(draft(base, bundle, None)).unwrap_or_default()
+}
+
+/// an outbox entry's difference over `base`; one that no longer reads leaves `base`
+pub fn over(difference: &serde_json::Value, base: &Bundle) -> Bundle {
+    match serde_json::from_value::<Draft>(difference.clone()).map_err(|e| e.to_string()).and_then(|d| apply(d, base)) {
+        Ok(b) => b,
+        Err(e) => {
+            tracing::warn!("the rig's kept copy: {e}, left out");
+            base.clone()
+        }
+    }
+}
+
+/// a draft file's text as the outbox carries it: the version it was made on and its difference
+pub fn draft_text(text: &str) -> Option<(Option<u64>, serde_json::Value)> {
+    let d = toml::from_str::<Draft>(text).ok()?;
+    Some((d.version, serde_json::to_value(Draft { version: None, ..d }).ok()?))
+}
+
+fn apply(d: Draft, base: &Bundle) -> Result<Bundle, String> {
+    let mut b = Bundle { rig: d.rig, ..base.clone() };
+    for i in d.instruments {
+        match b.instruments.iter().position(|x| x.id == i.id) {
+            Some(at) => b.instruments[at] = i,
+            // a new track's instrument
+            None => b.instruments.push(i),
+        }
+    }
+    for p in d.presets {
+        if let Some(at) = b.presets.iter().position(|x| x.id == p.id) {
+            b.presets[at] = p;
+        }
+    }
+    for m in d.modules {
+        if !b.modules.iter().any(|x| x.name == m.name) {
+            b.modules.push(m);
+        }
+    }
+    checked(b)
+}
+
+/// the draft file `--draft` names over `base`, if it is there and still valid
 pub fn load_draft(path: &Path, base: &Bundle) -> Bundle {
     let Ok(text) = std::fs::read_to_string(path) else { return base.clone() };
-    let read = toml::from_str::<Draft>(&text).map_err(|e| e.to_string()).and_then(|d| {
-        let mut b = Bundle { rig: d.rig, ..base.clone() };
-        for i in d.instruments {
-            match b.instruments.iter().position(|x| x.id == i.id) {
-                Some(at) => b.instruments[at] = i,
-                // a new track's instrument
-                None => b.instruments.push(i),
-            }
-        }
-        for p in d.presets {
-            if let Some(at) = b.presets.iter().position(|x| x.id == p.id) {
-                b.presets[at] = p;
-            }
-        }
-        for m in d.modules {
-            if !b.modules.iter().any(|x| x.name == m.name) {
-                b.modules.push(m);
-            }
-        }
-        checked(b)
-    });
+    let read = toml::from_str::<Draft>(&text).map_err(|e| e.to_string()).and_then(|d| apply(d, base));
     match read {
         Ok(b) => {
             tracing::info!("draft: {}", path.display());
@@ -270,10 +301,7 @@ pub fn save_draft(path: &Path, base: &Bundle, bundle: &Bundle, version: Option<u
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir).with_context(|| format!("making {}", dir.display()))?;
     }
-    let instruments = bundle.instruments.iter().filter(|i| !base.instruments.contains(i)).cloned().collect();
-    let presets = bundle.presets.iter().filter(|p| !base.presets.contains(p)).cloned().collect();
-    let modules = bundle.modules.iter().filter(|m| !base.modules.iter().any(|x| x.name == m.name)).cloned().collect();
-    let text = toml::to_string(&Draft { version, rig: bundle.rig.clone(), instruments, presets, modules }).context("the draft as TOML")?;
+    let text = toml::to_string(&draft(base, bundle, version)).context("the draft as TOML")?;
     std::fs::write(path, text).with_context(|| format!("writing {}", path.display()))
 }
 

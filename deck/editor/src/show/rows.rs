@@ -399,7 +399,7 @@ pub(super) mod tests {
         { "ref": "scene:vigil", "address": "scene:vigil", "kind": "scene", "name": "vigil", "labels": { "en": "Vigil" }, "origin": { "key": "scene:vigil", "state": "published" }, "version": 1 }
     ] }"#;
 
-    /// `/api/shows` as the server answers it, in memory: PUT keeps the content and stamps the next version, GET gives it
+    /// `/api/shows` as the server answers it, in memory: PUT keeps the content as the next version, GET gives it
     pub(in crate::show) fn fake_api() -> String {
         let l = TcpListener::bind("127.0.0.1:0").unwrap();
         let base = format!("http://{}/api", l.local_addr().unwrap());
@@ -427,9 +427,9 @@ pub(super) mod tests {
                         let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
                         kept = v.get("content").cloned();
                         version += 1;
-                        (200, serde_json::json!({ "version": { "version": version } }))
+                        (200, serde_json::json!({ "version": { "id": version } }))
                     }
-                    (Some("GET"), Some(doc)) => (200, serde_json::json!({ "content": doc })),
+                    (Some("GET"), Some(doc)) => (200, serde_json::json!({ "content": doc, "version": { "id": version } })),
                     _ => (404, serde_json::json!({ "error": "not_found" })),
                 };
                 let text = answer.to_string();
