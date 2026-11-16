@@ -15,7 +15,7 @@ pub struct Api {
 
 impl Api {
     pub fn new(base: String) -> Api {
-        Api { base, auth: crate::sign_in::current(), cache: deck_native::cache::default_dir().join("shows") }
+        Api { base, auth: crate::sign_in::current(), cache: crate::cache_dir().join("shows") }
     }
 
     /// #537's UI-model test: a test API and its own cache

@@ -190,7 +190,7 @@ impl Host {
     /// the toon's rigs that stand on a stage, as fillers, with their rig's line, matching the picker's query
     pub(super) fn cast_choices(&self) -> Vec<(String, String)> {
         let Some(c) = &self.compose.catalog else { return Vec::new() };
-        let registry = std::fs::read_to_string(crate::toon::kept(&deck_native::cache::default_dir())).unwrap_or_default();
+        let registry = std::fs::read_to_string(crate::toon::kept(&crate::cache_dir())).unwrap_or_default();
         let toon = self.story_toon();
         let q = self.compose_now(&Typing::SceneCast).to_lowercase();
         c.rigs
@@ -379,8 +379,15 @@ mod tests {
         { "id": "location.dom", "latest": 1, "draft": false, "toons": ["*"], "content": { "subject": "location.dom" } }
     ] }"#;
     const NONE: &str = r#"{ "entries": [] }"#;
+    const REGISTRY: &str = r#"{ "characters": [{ "id": "catpope", "own_toon": "catpope" }] }"#;
+    static KEPT: std::sync::Once = std::sync::Once::new();
 
     fn host() -> super::Host {
+        KEPT.call_once(|| {
+            let kept = crate::toon::kept(&crate::cache_dir());
+            std::fs::create_dir_all(kept.parent().unwrap()).unwrap();
+            std::fs::write(kept, REGISTRY).unwrap();
+        });
         let mut host = host_with(VOTE);
         host.book = Some(Arc::new(deck_space::rig::book::Book::parse(super::super::rows::tests::BOOK).unwrap()));
         host.toon = Some("catpope".into());
