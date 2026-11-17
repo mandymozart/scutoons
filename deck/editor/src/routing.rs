@@ -275,6 +275,10 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, page: &mut Page, stage: &S
         hits.push((r, Field::Device(i)));
         y += row;
     }
+    if let Some(n) = stage.audio_note() {
+        d.text(area.x, text_y(y, small), small, &fit(d, &n.text, small, area.w), if n.away { t.color.warn } else { t.color.muted });
+        y += row;
+    }
 
     y += controls::section(d, t, area.x, y + 4.0, area.w, "BUFFER", false) + 4.0;
     let labels: Vec<String> = BUFFERS.iter().map(|&b| if b == 0 { "default".into() } else { b.to_string() }).collect();

@@ -228,6 +228,14 @@ impl Monitor {
         (frames as f64 * 1e9 / self.rate) as u64
     }
 
+    /// Another clock calls from now on (a device back, the timer standing in): nothing counts until it settles.
+    pub fn rearm(&mut self, check_late: bool, deadline: Deadline) {
+        self.last_start = None;
+        self.settle_until = None;
+        self.check_late = check_late;
+        self.deadline = deadline;
+    }
+
     /// now_ns – what a callback calls first
     pub fn begin(&self) -> u64 {
         now_ns()

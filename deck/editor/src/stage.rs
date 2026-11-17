@@ -276,6 +276,11 @@ impl Stage {
         self.replay(self.bundle.clone())
     }
 
+    /// what the device watch says: the saved device away (silent, waiting for it) or back
+    pub fn audio_note(&self) -> Option<deck_native::audio::watch::Note> {
+        self._audio.as_ref().and_then(backend::Running::note)
+    }
+
     /// the rig's sound stops and a test tone plays on these settings until `restart_audio`
     pub fn tone(&mut self, o: &backend::Options, outlets: &[deck_engine::OutletMap], tone: &deck_engine::Tone) -> Result<()> {
         self._events = None;
