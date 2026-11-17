@@ -251,6 +251,14 @@ pub fn module_track(module: &Value) -> Result<(Instrument, Descriptor)> {
     Ok((module_instrument(id, &d)?, d))
 }
 
+/// The modules related to `character` (`yellowmouse`, a persona `yellowmouse.kid`): the ones made for it
+/// (`Descriptor::made_for`), by name.
+pub fn related<'a>(character: &str, modules: &'a [(Instrument, Descriptor)]) -> Vec<&'a (Instrument, Descriptor)> {
+    let mut out: Vec<_> = modules.iter().filter(|(_, d)| d.made_for(character)).collect();
+    out.sort_by(|a, b| a.1.name.cmp(&b.1.name));
+    out
+}
+
 /// `{ rig, instruments: [..], presets: [..], modules?: [..] }` (the catalog's documents) → the bundle as JSON for `rig_play`
 pub fn catalog_bundle_json(request: &str) -> Result<String> {
     let r: BundleRequest = serde_json::from_str(request).context("not a bundle request { rig, instruments, presets, modules? }")?;
@@ -262,6 +270,17 @@ pub fn catalog_bundle_json(request: &str) -> Result<String> {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn the_related_modules_are_the_ones_made_for_the_character() {
+        let module = |name: &str, characters: &[&str]| module_track(&json!({ "id": name, "descriptor": { "name": name, "characters": characters, "ports": [{ "name": "out", "dir": "out", "type": "audio" }] } })).expect("it wraps");
+        let all = [module("wing", &["yellowmouse"]), module("torso", &["catpope"]), module("drone", &[]), module("bell", &["yellowmouse.kid", "catpope"])];
+        let names = |c: &str| related(c, &all).into_iter().map(|m| m.1.name.to_string()).collect::<Vec<_>>();
+        assert_eq!(names("catpope"), ["bell", "torso"]);
+        assert_eq!(names("yellowmouse"), ["wing"]);
+        assert_eq!(names("yellowmouse.kid"), ["bell", "wing"]);
+        assert!(names("boy").is_empty());
+    }
 
     fn rig(id: &str, live: bool, draft: bool, removed: bool) -> RigState {
         RigState { id: id.into(), live, draft, removed }

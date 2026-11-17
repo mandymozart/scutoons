@@ -113,6 +113,9 @@ final class ModulesTest extends TestCase
         // #409 A1: the moods a module knows, in its own order – a policy module's descriptor carries them
         $this->refused(['descriptor' => self::compiled()['descriptor'] + ['moods' => 'sad']], 'descriptor.moods must be a list of names');
         self::assertSame([], $this->problems(['descriptor' => self::compiled()['descriptor'] + ['moods' => ['thinking', 'sad']]]));
+        // the characters a module is made for (its related ones)
+        $this->refused(['descriptor' => self::compiled()['descriptor'] + ['characters' => 'catpope']], 'descriptor.characters must be a list of names');
+        self::assertSame([], $this->problems(['descriptor' => self::compiled()['descriptor'] + ['characters' => ['catpope', 'yellowmouse.kid']]]));
     }
 
     public function testAnInvalidModuleIsRefusedByAPut(): void

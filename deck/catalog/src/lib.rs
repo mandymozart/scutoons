@@ -294,6 +294,10 @@ pub struct Descriptor {
     /// here + 1 as `mood_index` (0 = a mood not in the list; deck-space context.rs)
     #[serde(default = "empty_strs", skip_serializing_if = "is_empty_slice")]
     pub moods: Cow<'static, [Cow<'static, str>]>,
+    /// modules only: the characters it is made for (`catpope`, a persona `yellowmouse.kid`) – their "related" modules; it
+    /// still plugs in anywhere
+    #[serde(default = "empty_strs", skip_serializing_if = "is_empty_slice")]
+    pub characters: Cow<'static, [Cow<'static, str>]>,
     /// modules only: the ABI version they speak
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub abi: Option<u32>,
@@ -314,7 +318,22 @@ pub struct Descriptor {
     pub background: Option<Background>,
 }
 
+/// a character's id as `characters` names it: `catpope`, `crow-fox`, a persona `yellowmouse.kid`
+pub fn character_id(c: &str) -> bool {
+    let word = |w: &str| !w.is_empty() && w.len() <= 64 && w.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_' || b == b'-');
+    match c.split_once('.') {
+        Some((who, persona)) => word(who) && word(persona),
+        None => word(c),
+    }
+}
+
 impl Descriptor {
+    /// Made for `character` (`catpope`, or a persona `catpope.biker`): it names the character, or that very persona.
+    pub fn made_for(&self, character: &str) -> bool {
+        let base = character.split('.').next().unwrap_or(character);
+        !base.is_empty() && self.characters.iter().any(|c| c == base || c == character)
+    }
+
     pub fn inputs(&self) -> impl Iterator<Item = &PortDesc> {
         self.ports.iter().filter(|p| p.dir == Dir::In)
     }
@@ -454,6 +473,10 @@ impl Descriptor {
         }
         unique("`reads`", &mut self.reads.iter().map(|s| s.as_ref()))?;
         unique("`moods`", &mut self.moods.iter().map(|s| s.as_ref()))?;
+        unique("`characters`", &mut self.characters.iter().map(|s| s.as_ref()))?;
+        if let Some(c) = self.characters.iter().find(|c| !character_id(c)) {
+            return Err(format!("'{me}': '{c}' in `characters` is no character id (lowercase letters, digits, '_' or '-', a persona after one '.')"));
+        }
         unique("`assets`", &mut self.assets.iter().map(|a| a.name.as_ref()))?;
         if let Some(a) = self.assets.iter().find(|a| a.max_bytes == 0) {
             return Err(format!("'{me}': asset '{}' needs a `max_bytes` above 0", a.name));
@@ -565,7 +588,7 @@ mod tests {
     #[test]
     fn the_v2_fields_round_trip_and_check() {
         let json = r#"{"name":"m","abi":1,"latency":64,"needs":["motion"],"wants":["position"],"reads":["story.act"],
-            "moods":["thinking","sad"],"params":[{"name":"cutoff","min":20,"max":20000,"default":800},{"name":"wave","choices":["sine","saw"]}],
+            "moods":["thinking","sad"],"characters":["catpope","yellowmouse.kid"],"params":[{"name":"cutoff","min":20,"max":20000,"default":800},{"name":"wave","choices":["sine","saw"]}],
             "ports":[{"name":"side","dir":"in","type":"audio","channels":2,"sidechain":true},
                      {"name":"notes","dir":"in","type":"event","names":["music.note"],"props":["pitch","vel","glide"],"capacity":128},
                      {"name":"sel","dir":"out","type":"control","path":"child.preset","mode":"add","choices":["calm","wild"]}],
@@ -576,6 +599,8 @@ mod tests {
         assert_eq!(serde_json::from_str::<Descriptor>(&serde_json::to_string(&d).unwrap()).unwrap(), d);
         assert_eq!((d.latency, d.wants[0].as_ref(), d.reads[0].as_ref(), d.assets[0].kind), (64, "position", "story.act", AssetKind::Pcm));
         assert_eq!(d.moods.iter().map(|m| m.as_ref()).collect::<Vec<_>>(), ["thinking", "sad"]);
+        assert!(d.made_for("catpope") && d.made_for("catpope.biker") && d.made_for("yellowmouse.kid"));
+        assert!(!d.made_for("yellowmouse") && !d.made_for("yellowmouse.grown") && !d.made_for("cat") && !d.made_for(""));
         assert_eq!((d.ports[0].sidechain, d.ports[1].capacity, d.ports[2].mode), (true, 128, Mode::Add));
         assert_eq!(d.preset.as_ref().unwrap().values["cutoff"], 1200.0);
         // a port that sets none of them serializes without them
@@ -604,6 +629,8 @@ mod tests {
         assert!(bad(&|x| x.assets.to_mut()[0].max_bytes = 0).contains("max_bytes"));
         assert!(bad(&|x| x.moods.to_mut().push("sad".into())).contains("`moods` twice"));
         assert!(bad(&|x| x.moods.to_mut().push("".into())).contains("empty name in `moods`"));
+        assert!(bad(&|x| x.characters.to_mut().push("catpope".into())).contains("`characters` twice"));
+        assert!(bad(&|x| x.characters.to_mut().push("Cat Pope".into())).contains("no character id"));
         assert!(bad(&|x| _ = x.preset.as_mut().unwrap().values.insert("nope".into(), 1.0)).contains("no parameter"));
         assert!(bad(&|x| _ = x.preset.as_mut().unwrap().values.insert("cutoff".into(), 1.0)).contains("outside"));
         assert!(bad(&|x| _ = x.preset.as_mut().unwrap().values.insert("wave".into(), 2.0)).contains("choices"));

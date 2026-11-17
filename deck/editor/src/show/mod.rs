@@ -269,7 +269,7 @@ pub struct Host {
     pub book_why: Option<String>,
     /// the scene list beside the rows band: its filter, the scene being dragged, the core's refusal where one was dropped
     pub scene_query: String,
-    pub dragging: Option<scenes::Dragging>,
+    pub dragging: Option<deck_kit::editor::carry::Carry>,
     pub refused: Option<(f32, f32, String)>,
     /// #539: the toon whose story events a row's event is picked from (`--toon`; else the book's), the events once asked
     /// (`GET /api/creator/story-events`, read by deck-show story.rs) or why there are none, the picker's typed query;
