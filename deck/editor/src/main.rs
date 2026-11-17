@@ -143,10 +143,13 @@ struct Args {
     /// a check run's library in the list mode, filtered by a query
     library_find: Option<String>,
     library_list: bool,
+    /// a check run's library answers instead of the API's: a folder with `modules.json` (`/catalog/docs/modules`) and
+    /// `assets.json` (`/assets`)
+    library_dir: Option<PathBuf>,
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, save_state: None, tools_folded: false, closed: Vec::new(), main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false };
+    let mut a = Args { module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, save_state: None, tools_folded: false, closed: Vec::new(), main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false, library_dir: None };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -168,6 +171,7 @@ fn args() -> Result<Args> {
             }
             "--library-find" => a.library_find = Some(val()?),
             "--library-list" => a.library_list = true,
+            "--library" => a.library_dir = Some(PathBuf::from(val()?)),
             "--save-state" => a.save_state = Some(val()?),
             "--tools-folded" => a.tools_folded = true,
             "--view" => a.view = Some(val()?.parse()?),
@@ -634,6 +638,12 @@ fn run() -> Result<i32> {
     let book_key = (args.toon.clone(), auth.token().is_some());
     let mut app_module = module::Module::new(&args.api, &cache, args.module.clone());
     app_module.autosaves = args.frames.is_none();
+    let mut app_library = library::Library::new(cache.clone());
+    if let Some(dir) = &args.library_dir {
+        if let Some(list) = app_library.answers(dir) {
+            app_module.list = list;
+        }
+    }
     let app_published = published::Published::new(&args.api, &cache);
     if let Some(p) = remembered.get("build") {
         build.floats.restore(p);
@@ -728,7 +738,7 @@ fn run() -> Result<i32> {
         grid: grid::GridSnap::load(app_grid_file),
         colour: app_colour,
         tools: tools::Tools::default(),
-        library: library::Library::new(cache_dir()),
+        library: app_library,
         library_open: None,
     };
     event_loop.run_app(&mut app).context("the event loop")?;

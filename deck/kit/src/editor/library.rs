@@ -316,7 +316,9 @@ pub fn preview(d: &mut DrawList, t: &Tokens, r: Rect, e: &Entry, picture: &dyn F
         }
         _ => {
             let s = (r.h * 0.42).min(28.0);
-            d.icon(r.x + (r.w - s) * 0.5, r.y + (r.h - s) * 0.5, s, e.kind.icon(), t.color.muted);
+            // a still not taken yet: that it draws, else its kind
+            let icon = if matches!(e.preview, Preview::Still { .. }) && e.kind == Kind::Module { "model" } else { e.kind.icon() };
+            d.icon(r.x + (r.w - s) * 0.5, r.y + (r.h - s) * 0.5, s, icon, t.color.muted);
         }
     }
 }

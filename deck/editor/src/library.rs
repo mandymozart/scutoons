@@ -91,7 +91,8 @@ impl Pictures {
             let url = matches!(e.preview, Preview::Picture { .. }).then(|| key.clone());
             std::thread::spawn(move || {
                 let img = image::open(&file).ok().map(|i| i.to_rgba8()).or_else(|| {
-                    let bytes = Api::bytes_of(url.as_deref()?).ok()?;
+                    let url = url?;
+                    let bytes = if std::path::Path::new(&url).is_file() { std::fs::read(&url).ok()? } else { Api::bytes_of(&url).ok()? };
                     let img = fitted(&image::load_from_memory(&bytes).ok()?.to_rgba8());
                     if let Some(dir) = file.parent() {
                         std::fs::create_dir_all(dir).ok();
@@ -157,11 +158,13 @@ pub struct Library {
     pub refused: Option<(f32, f32, String)>,
     /// what plays on the stage and since which frame, until its still is taken
     playing: Option<(String, u64)>,
+    /// the module documents a check run's folder gave (`--library`)
+    docs: Vec<serde_json::Value>,
 }
 
 impl Library {
     pub fn new(cache: PathBuf) -> Library {
-        Library { browser: Browser::default(), entries: Vec::new(), purpose: Purpose::Build, pictures: Pictures::new(cache.join("stills")), assets: Assets::default(), refused: None, playing: None }
+        Library { browser: Browser::default(), entries: Vec::new(), purpose: Purpose::Build, pictures: Pictures::new(cache.join("stills")), assets: Assets::default(), refused: None, playing: None, docs: Vec::new() }
     }
 
     /// the workspace's entries this frame, only the kinds its purpose loads
@@ -187,6 +190,21 @@ impl Library {
             let _ = tx.send(api.assets().and_then(|t| library::assets(&t)));
         });
         self.assets.rx = Some(rx);
+    }
+
+    /// A check run's folder of answers: its assets, its module documents; the Module workspace's list of them.
+    pub fn answers(&mut self, dir: &std::path::Path) -> Option<Vec<crate::module::Entry>> {
+        if let Ok(text) = std::fs::read_to_string(dir.join("assets.json")) {
+            self.assets.asked = true;
+            match library::assets(&text) {
+                Ok(list) => self.assets.list = list,
+                Err(e) => tracing::warn!("--library assets: {e}"),
+            }
+        }
+        let text = std::fs::read_to_string(dir.join("modules.json")).ok()?;
+        let list = crate::module::entries(&text).map_err(|e| tracing::warn!("--library modules: {e}")).ok()?;
+        self.docs = list.iter().map(|m| m.content.clone()).collect();
+        Some(list)
     }
 
     pub fn assets(&self) -> Vec<Entry> {
@@ -304,7 +322,10 @@ impl crate::App {
             self.library.ask_assets(&self.args.api);
         }
         let entries = match purpose {
-            Purpose::Build => of_build(self.rigs.module_docs(), &self.rigs.instruments(), self.book.book.as_deref(), self.library.assets()),
+            Purpose::Build => {
+                let docs = if self.rigs.module_docs().is_empty() { &self.library.docs } else { self.rigs.module_docs() };
+                of_build(docs, &crate::adding::instruments(&self.stage.bundle, self.rigs.instruments()), self.book.book.as_deref(), self.library.assets())
+            }
             Purpose::Show => self.show.library_entries(),
             Purpose::Module => of_modules(&self.module.list),
         };
@@ -384,7 +405,10 @@ impl crate::App {
             }
             crate::show::Workspace::Build if !self.panels().floats.covers(at.0, at.1) => {
                 let choice = match e.kind {
-                    Kind::Module => self.rigs.modules().0.into_iter().find(|(_, d)| format!("module:{}", d.name) == e.address).map(|m| crate::adding::Choice::Module(Box::new(m))),
+                    Kind::Module => {
+                        let docs = if self.rigs.module_docs().is_empty() { &self.library.docs } else { self.rigs.module_docs() };
+                        docs.iter().find(|d| d["id"].as_str().is_some_and(|id| format!("module:{id}") == e.address)).and_then(|d| deck_space::rig::assign::module_track(d).ok()).map(|m| crate::adding::Choice::Module(Box::new(m)))
+                    }
                     _ => crate::adding::instruments(&self.stage.bundle, self.rigs.instruments()).into_iter().find(|i| format!("instrument:{}", i.id) == e.address).map(|i| crate::adding::Choice::Track(Box::new(i))),
                 };
                 match choice {
