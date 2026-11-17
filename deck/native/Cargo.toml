@@ -17,9 +17,11 @@ path = "src/main.rs"
 # the HUD, the internal tempo clock) is always built; a module adds node kinds or tempo sources (deck-core's
 # stage.rs table). A scene that uses a module this build lacks is refused with the feature's name, on screen.
 # `cargo run -p deck-scene-features -- scenes/*.toml` lists what a set of scenes needs. The default = everything but the
-# platform's (pipewire) and link (it needs cmake): a plain `cargo build` plays every bundled scene.
+# platform's (pipewire) and link (it needs cmake): a plain `cargo build` plays every bundled scene. `asio` is in the default
+# and adds nothing outside Windows; a Windows build without it: `--no-default-features --features bundled`.
 [features]
-default = ["space", "sync", "chapter", "live", "midi", "osc", "outputs", "events"]
+default = ["bundled", "asio"]
+bundled = ["space", "sync", "chapter", "live", "midi", "osc", "outputs", "events"]
 # the 3D space and the deck's being (#188): glTF rooms (meshopt, WebP), the orbit camera, the 3D buttons and their labels –
 # deck-space's (deck/space, #198), with its GPU passes and its loaders on threads
 space = ["deck-space/being", "deck-engine/space", "deck-space/gpu", "deck-space/native", "dep:serde_json", "image/webp"]
@@ -50,7 +52,7 @@ osc = ["dep:rosc"]
 pipewire = ["dep:pipewire"]
 # ASIO on Windows (#208: `--audio-host asio`, RME's driver for the Fireface): cpal's asio host. Its asio-sys builds
 # bindings to Steinberg's ASIO SDK – set CPAL_ASIO_DIR to the unpacked SDK and have LLVM (libclang) installed;
-# deck/native/README.md "Audio". Not in the default: a plain build needs no SDK
+# deck/native/README.md "Audio". Without the SDK build.rs stops the build and says so
 asio = ["cpal/asio"]
 # Ableton Link as a tempo source (tempo/link.rs; rusty_link builds Ableton's abl_link C++ library – needs cmake, a C++
 # compiler and libclang at build time). On Windows a debug build links only with an optimised rusty_link:

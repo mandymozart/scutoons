@@ -107,6 +107,14 @@ jobs:
       - name: 🔊 ALSA headers (midir on Linux)
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libasound2-dev
+      - name: 🎚 ASIO SDK (the Windows build carries ASIO by default; deck/native/README.md "Audio")
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Invoke-WebRequest https://www.steinberg.net/asiosdk -OutFile "$env:RUNNER_TEMP\asiosdk.zip"
+          Expand-Archive "$env:RUNNER_TEMP\asiosdk.zip" "$env:RUNNER_TEMP\asiosdk"
+          $sdk = (Get-ChildItem "$env:RUNNER_TEMP\asiosdk" -Directory | Select-Object -First 1).FullName
+          "CPAL_ASIO_DIR=$sdk" >> $env:GITHUB_ENV
       - run: cargo build --release --target ${{ matrix.target }}
       - run: cargo test --target ${{ matrix.target }}
       - name: 📏 Binary sizes (the dogma's size column, CYBERDECKS.md §2)

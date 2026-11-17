@@ -243,9 +243,30 @@ pub fn pick_buffer(want: u32, range: Option<(u32, u32)>) -> (u32, Option<String>
     match range {
         Some((min, max)) if min <= max && (want < min || want > max) => {
             let got = want.clamp(min, max);
-            (got, Some(format!("the device takes {min}–{max} frames: {want} → {got}")))
+            (got, Some(format!("{}: {want} → {got}", buffer_line(range))))
         }
         _ => (want, None),
+    }
+}
+
+/// a host's buffer range in frames; WASAPI says nothing as 0–u32::MAX
+pub fn buffer_range(min: u32, max: u32) -> Option<(u32, u32)> {
+    (max != u32::MAX && min <= max).then_some((min, max))
+}
+
+fn cpal_buffer_range(b: &cpal::SupportedBufferSize) -> Option<(u32, u32)> {
+    match *b {
+        cpal::SupportedBufferSize::Range { min, max } => buffer_range(min, max),
+        cpal::SupportedBufferSize::Unknown => None,
+    }
+}
+
+/// what a device says about its buffer, as the listing and the routing page show it
+pub fn buffer_line(range: Option<(u32, u32)>) -> String {
+    match range {
+        Some((min, max)) if min == max => format!("the device takes {min} frames"),
+        Some((min, max)) => format!("the device takes {min}–{max} frames"),
+        None => "the device does not say".into(),
     }
 }
 
@@ -260,7 +281,7 @@ fn cpal_host(h: Host) -> Result<cpal::Host> {
         #[cfg(all(windows, feature = "asio"))]
         Host::Asio => Ok(cpal::host_from_id(cpal::HostId::Asio)?),
         #[cfg(not(all(windows, feature = "asio")))]
-        Host::Asio => bail!("this build has no ASIO (Windows, `cargo build --features asio` with the ASIO SDK – deck/native/README.md \"Audio\")"),
+        Host::Asio => bail!("this build has no ASIO (a Windows build with the `asio` feature, a default there – deck/native/README.md \"Audio\")"),
     }
 }
 
@@ -375,6 +396,39 @@ pub struct Outputs {
     pub devices: Vec<Output>,
 }
 
+/// The ASIO device to offer instead of the chosen one: the map needs more channels than it has, and the ASIO host lists
+/// the same interface with all of them (WASAPI shows a multi-channel interface as stereo endpoints, 'Analog (3+4) (Fireface UCX II)').
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Offer {
+    pub host: usize,
+    pub device: usize,
+    pub text: String,
+}
+
+pub fn asio_offer(hosts: &[Outputs], host: usize, device: usize, map: &[deck_engine::OutletMap]) -> Option<Offer> {
+    let need = map.iter().flat_map(|o| o.channels.iter().copied()).max()?;
+    let (from, dev) = (hosts.get(host)?, hosts.get(host)?.devices.get(device)?);
+    if from.key == Some("asio") || dev.channels >= need {
+        return None;
+    }
+    let words = interface_words(dev.label());
+    let to = hosts.iter().position(|h| h.key == Some("asio"))?;
+    let (at, asio) = hosts[to].devices.iter().enumerate().find(|(_, a)| {
+        a.error.is_none() && a.channels >= need && interface_words(a.label()).iter().any(|w| words.contains(w))
+    })?;
+    let text = format!("use ASIO: {} · {} ch", asio.label(), asio.channels);
+    Some(Offer { host: to, device: at, text })
+}
+
+/// the words of a device name that can name its interface (not the driver layer, the bus or the endpoint)
+fn interface_words(name: &str) -> Vec<String> {
+    const GENERIC: [&str; 12] = ["asio", "usb", "audio", "driver", "device", "output", "speakers", "analog", "digital", "line", "the", "pro"];
+    name.split(|c: char| !c.is_alphanumeric())
+        .map(str::to_lowercase)
+        .filter(|w| w.len() >= 3 && !w.chars().all(|c| c.is_ascii_digit()) && !GENERIC.contains(&w.as_str()))
+        .collect()
+}
+
 /// every host this build has, with its output devices, for the routing page; slow (it loads the drivers – call it off the
 /// frame thread). With PipeWire running its sinks come first as the default host – the stage plays there – and cpal's
 /// default host (ALSA) can't be picked; else the platform's default cpal host first.
@@ -412,9 +466,7 @@ pub fn outputs() -> Vec<Outputs> {
                         o.channels = c.channels() as usize;
                         o.rate = c.sample_rate().0;
                         o.format = format!("{:?}", c.sample_format());
-                        if let cpal::SupportedBufferSize::Range { min, max } = c.buffer_size() {
-                            o.buffer = Some((*min, *max));
-                        }
+                        o.buffer = cpal_buffer_range(c.buffer_size());
                     }
                     Err(e) => o.error = Some(e.to_string()),
                 }
@@ -434,10 +486,7 @@ pub fn list() -> String {
         for d in h.devices {
             let cfg = match (&d.error, d.buffer) {
                 (Some(e), _) => format!("({e})"),
-                (None, b) => {
-                    let buf = b.map_or("buffer ?".into(), |(min, max)| format!("buffer {min}–{max}"));
-                    format!("{} Hz, {} ch, {}, {buf}", d.rate, d.channels, d.format)
-                }
+                (None, b) => format!("{} Hz, {} ch, {}, {}", d.rate, d.channels, d.format, buffer_line(b)),
             };
             let name = if d.description.is_empty() { d.name.clone() } else { format!("{} ({})", d.description, d.name) };
             out += &format!(" {} {name}: {cfg}\n", if d.default { "*" } else { " " });
@@ -496,11 +545,7 @@ fn cpal(o: &Options, factory: &mut Factory) -> Result<Running> {
     let wasapi = hostname == "WASAPI";
     let mut sc: cpal::StreamConfig = cfg.config();
     if let Some(want) = o.buffer {
-        let range = match cfg.buffer_size() {
-            cpal::SupportedBufferSize::Range { min, max } => Some((*min, *max)),
-            cpal::SupportedBufferSize::Unknown => None,
-        };
-        let (frames, note) = pick_buffer(want, range);
+        let (frames, note) = pick_buffer(want, cpal_buffer_range(cfg.buffer_size()));
         if let Some(n) = note {
             tracing::warn!("audio: {n}");
         }
@@ -965,8 +1010,7 @@ fn default_sink_name(json: &str) -> Option<String> {
 mod tests {
     use super::*;
 
-    /// #208: a buffer outside the device's range is clamped to its nearest end, with a reason for the log
-    /// #318: what PipeWire says about a sink – its positions in either spelling, the default sink in the metadata's JSON
+    /// what PipeWire says about a sink – its positions in either spelling, the default sink in the metadata's JSON
     #[test]
     fn a_sinks_channels_and_the_default_sink_are_read() {
         assert_eq!(position_names("FL,FR"), ["FL", "FR"]);
@@ -1025,7 +1069,44 @@ mod tests {
         assert!(note.unwrap().contains("64–2048"));
         assert_eq!(pick_buffer(4096, Some((64, 2048))).0, 2048);
         assert_eq!(pick_buffer(128, None), (128, None), "an unknown range: asked as is");
-        assert_eq!(pick_buffer(128, Some((0, u32::MAX))), (128, None), "WASAPI shared reports everything");
+        assert_eq!(pick_buffer(128, buffer_range(0, u32::MAX)), (128, None), "WASAPI shared reports everything");
+    }
+
+    #[test]
+    fn the_buffer_line_says_what_the_device_says() {
+        assert_eq!(buffer_range(0, u32::MAX), None, "WASAPI's 0–u32::MAX is no range");
+        assert_eq!(buffer_line(buffer_range(0, u32::MAX)), "the device does not say");
+        assert_eq!(buffer_line(buffer_range(64, 2048)), "the device takes 64–2048 frames");
+        assert_eq!(buffer_line(buffer_range(128, 128)), "the device takes 128 frames");
+        assert_eq!(pick_buffer(32, Some((64, 2048))).1.as_deref(), Some("the device takes 64–2048 frames: 32 → 64"));
+    }
+
+    fn rme_hosts() -> Vec<Outputs> {
+        let out = |name: &str, channels: usize| Output { name: name.into(), channels, rate: 48_000, format: "F32".into(), ..Output::default() };
+        vec![
+            Outputs {
+                name: "WASAPI".into(),
+                key: Some("default"),
+                devices: vec![out("Speakers (Realtek(R) Audio)", 2), out("Analog (1+2) (RME Fireface UCX II)", 2), out("Analog (5+6) (RME Fireface UCX II)", 2)],
+            },
+            Outputs { name: "ASIO".into(), key: Some("asio"), devices: vec![out("ASIO4ALL v2", 2), out("ASIO Fireface USB", 20)] },
+        ]
+    }
+
+    #[test]
+    fn a_split_interface_offers_its_asio_device() {
+        let hosts = rme_hosts();
+        let cue = [deck_engine::OutletMap { group: "cue".into(), channels: vec![3, 4] }];
+        let o = asio_offer(&hosts, 0, 2, &cue).expect("the RME's stereo endpoint, the map on 3/4");
+        assert_eq!((o.host, o.device), (1, 1));
+        assert_eq!(o.text, "use ASIO: ASIO Fireface USB · 20 ch");
+        assert_eq!(asio_offer(&hosts, 0, 0, &cue), None, "another interface: ASIO4ALL is no match");
+        assert_eq!(asio_offer(&hosts, 0, 2, &[deck_engine::OutletMap { group: "main".into(), channels: vec![1, 2] }]), None, "the map fits");
+        assert_eq!(asio_offer(&hosts, 0, 2, &[]), None, "no map");
+        assert_eq!(asio_offer(&hosts, 1, 1, &cue), None, "already on ASIO");
+        let wide = [deck_engine::OutletMap { group: "stem".into(), channels: vec![21] }];
+        assert_eq!(asio_offer(&hosts, 0, 2, &wide), None, "the ASIO device is too small as well");
+        assert_eq!(asio_offer(&hosts[..1], 0, 2, &cue), None, "a build without ASIO");
     }
 
     #[test]
