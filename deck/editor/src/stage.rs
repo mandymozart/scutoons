@@ -84,6 +84,9 @@ pub struct Stage {
     played_scene: Option<Scene>,
     /// a panic holds: no sound device, a black picture
     pub dark: bool,
+    /// the background of what plays, and the show's over it
+    own_background: Option<deck_space::Background>,
+    over: Option<deck_space::Background>,
     /// why a track is silent: its module is not loaded (published.rs), by track id
     pub silent: std::collections::BTreeMap<String, String>,
 }
@@ -195,6 +198,15 @@ impl Stage {
         Ok(())
     }
 
+    /// The show's background over what plays: the parent wins.
+    pub fn wear(&mut self, show: Option<&deck_space::Background>) {
+        if self.over.as_ref() == show {
+            return;
+        }
+        self.over = show.cloned();
+        self.space.set_background(deck_catalog::background::resolve(show, self.own_background.as_ref(), None, None).cloned());
+    }
+
     /// Black and silent until `resume`: the sound device is let go, the picture goes black.
     pub fn panic(&mut self) {
         self._events = None;
@@ -290,7 +302,8 @@ impl Stage {
         let cache = crate::cache_dir();
         // the rig editor's stage is empty ([rigs] 2026-11-08): no set around the being
         let mut space = Space::with_gate(&graph, node, &scene.being, &cache.join("sets"), Portraits::local(&cache.join("portraits")), None);
-        space.set_background(scene.stage.background.clone());
+        let own_background = scene.stage.background.clone();
+        space.set_background(own_background.clone());
         // an editor's view: no breath, the camera stays where the hand puts it (owner 2026-11-09)
         space.being.look.breath = 0.0;
         space.camera.free = true;
@@ -344,7 +357,7 @@ impl Stage {
         let master = sum.as_deref().and_then(|s| slot(s, true)).map(|(n, p, _)| (n, p));
         let node_ids = graph.nodes.iter().map(|n| n.id.clone()).collect();
         let kinds = graph.nodes.iter().map(|n| n.kind).collect();
-        Stage { controls, space, gpu: None, texture: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, kinds, strips, inner, master, master_peak: [0.0; 2], master_max: 0.0, volume, path: Vec::new(), core_node: node, groups, reach, scene: None, played_scene: None, dark: false, silent: Default::default(), beat: None }
+        Stage { controls, space, gpu: None, texture: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, kinds, strips, inner, master, master_peak: [0.0; 2], master_max: 0.0, volume, path: Vec::new(), core_node: node, groups, reach, scene: None, played_scene: None, dark: false, silent: Default::default(), beat: None, own_background, over: None }
     }
 
     /// show this level of the tree in Wire; empty = the rig
