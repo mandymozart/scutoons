@@ -451,6 +451,7 @@ pub(super) mod tests {
             perform::draw(&mut d, &t, host, W, H, (0.0, 0.0));
         } else {
             author::draw(&mut d, &t, host, W, H, (0.0, 0.0));
+            super::super::scenes::panel(&mut d, &t, host, &mut crate::library::Library::new(std::env::temp_dir().join("deck-editor-rows-library")), (0.0, 0.0));
         }
         let (r, hit) = host.hits.iter().rev().find(|(_, h)| want(h)).copied().unwrap_or_else(|| panic!("no such place: {:?}", host.hits.iter().map(|(_, h)| h).collect::<Vec<_>>()));
         assert_eq!(host.hit(r.x + r.w * 0.5, r.y + r.h * 0.5), Some(hit), "the place answers its press");

@@ -51,6 +51,8 @@ pub enum Did {
     /// it was the browser's, nothing for its owner
     Taken,
     Open(usize),
+    /// a card pressed and let go without moving
+    Click(usize),
     Action,
     /// a card let go over (x, y)
     Drop { entry: usize, at: (f32, f32) },
@@ -165,12 +167,12 @@ impl Browser {
     /// The button let go: a dragged card is dropped where the pointer is (its owner decides what takes it).
     pub fn release(&mut self, x: f32, y: f32) -> Option<Did> {
         let h = self.held.take()?;
-        Some(if h.dragging { Did::Drop { entry: h.entry, at: (x, y) } } else { Did::Taken })
+        Some(if h.dragging { Did::Drop { entry: h.entry, at: (x, y) } } else { Did::Click(h.entry) })
     }
 
     /// The browser in `a`: the find field, the chips, the cards. `picture` answers which of the screen's pictures shows
     /// a preview (a still or a picture already loaded); `action` is the owner's one button.
-    pub fn draw(&mut self, d: &mut DrawList, t: &Tokens, a: Rect, entries: &[Entry], pointer: (f32, f32), picture: &dyn Fn(&Preview) -> Option<u64>, action: Option<&str>) {
+    pub fn draw(&mut self, d: &mut DrawList, t: &Tokens, (a, pointer): (Rect, (f32, f32)), entries: &[Entry], picture: &dyn Fn(&Preview) -> Option<u64>, action: Option<&str>) {
         self.hits.clear();
         let (pad, small, row) = (t.size.pad, t.size.small, t.size.tree_row);
         let mut y = a.y;
@@ -347,7 +349,7 @@ mod tests {
 
     fn drawn(b: &mut Browser, entries: &[Entry], has: &dyn Fn(&Preview) -> Option<u64>) -> DrawList {
         let mut d = DrawList::new(8.0);
-        b.draw(&mut d, &Tokens::default(), Rect { x: 0.0, y: 0.0, w: 420.0, h: 2000.0 }, entries, (-1.0, -1.0), has, Some("new scene"));
+        b.draw(&mut d, &Tokens::default(), (Rect { x: 0.0, y: 0.0, w: 420.0, h: 2000.0 }, (-1.0, -1.0)), entries, has, Some("new scene"));
         d
     }
 
@@ -397,7 +399,7 @@ mod tests {
         assert_eq!(b.release(x + 300.0, y + 200.0), Some(Did::Drop { entry: 3, at: (x + 300.0, y + 200.0) }));
         assert_eq!(b.release(0.0, 0.0), None, "nothing held");
         b.press(x, y, 20.0);
-        assert_eq!(b.release(x, y), Some(Did::Taken));
+        assert_eq!(b.release(x, y), Some(Did::Click(3)));
         assert_eq!(b.press(x, y, 20.3), Some(Did::Open(3)));
         b.press(x, y, 30.0);
         b.release(x, y);

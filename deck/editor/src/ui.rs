@@ -16,6 +16,8 @@ use std::sync::Arc;
 
 /// an icon's side in the pictures (pixels)
 const ICON: u32 = 36;
+/// the pictures' width once previews join them
+const THUMBS_W: usize = 2048;
 
 /// Feather's icons (white, their coverage in alpha) and the logo's frames (their own colours) in one image.
 fn pictures() -> Pictures {
@@ -56,7 +58,37 @@ fn pictures() -> Pictures {
         }
         frames.push(inset(x0, y0, side));
     }
-    Pictures { size: [w as usize, h as usize], rgba: pixels, icons, frames }
+    Pictures { size: [w as usize, h as usize], rgba: pixels, icons, frames, thumbs: HashMap::new() }
+}
+
+/// the base pictures with the previews' pictures under them, a row of them at a time
+fn with_thumbs(base: &Pictures, thumbs: &[(u64, image::RgbaImage)]) -> Pictures {
+    let [bw, bh] = base.size;
+    let (tw, th) = (crate::library::STILL.0 as usize, crate::library::STILL.1 as usize);
+    let w = bw.max(THUMBS_W);
+    let cols = (w / tw).max(1);
+    let rows = thumbs.len().div_ceil(cols);
+    let h = bh + rows * th;
+    let mut rgba = vec![0u8; w * h * 4];
+    for y in 0..bh {
+        rgba[y * w * 4..(y * w + bw) * 4].copy_from_slice(&base.rgba[y * bw * 4..(y + 1) * bw * 4]);
+    }
+    let (wf, hf) = (w as f32, h as f32);
+    let (sx, sy) = (bw as f32 / wf, bh as f32 / hf);
+    let rescale = |r: &Rect| Rect::from_min_max(pos2(r.min.x * sx, r.min.y * sy), pos2(r.max.x * sx, r.max.y * sy));
+    let mut out = Pictures { size: [w, h], rgba: Vec::new(), icons: base.icons.iter().map(|(k, r)| (*k, rescale(r))).collect(), frames: base.frames.iter().map(rescale).collect(), thumbs: HashMap::new() };
+    for (i, (id, img)) in thumbs.iter().enumerate() {
+        let (x0, y0) = (i % cols * tw, bh + i / cols * th);
+        for (y, line) in img.rows().take(th).enumerate() {
+            for (x, p) in line.take(tw).enumerate() {
+                let at = ((y0 + y) * w + x0 + x) * 4;
+                rgba[at..at + 4].copy_from_slice(&p.0);
+            }
+        }
+        out.thumbs.insert(*id, Rect::from_min_max(pos2((x0 as f32 + 0.5) / wf, (y0 as f32 + 0.5) / hf), pos2(((x0 + tw) as f32 - 0.5) / wf, ((y0 + th) as f32 - 0.5) / hf)));
+    }
+    out.rgba = rgba;
+    out
 }
 
 /// The pass: the kit's screen, egui-wgpu's renderer, the stage's texture, this frame's list.
@@ -74,6 +106,8 @@ pub struct Ui {
     /// what egui made last
     jobs: Vec<ClippedPrimitive>,
     free: Vec<TextureId>,
+    /// the icons and the logo, before any preview joined them
+    base: Pictures,
 }
 
 impl Ui {
@@ -83,7 +117,8 @@ impl Ui {
         tracing::info!(from_folder = ?faces.from_folder, folder = ?deck_kit::base::fonts::folder(), "fonts");
         let widths = Arc::new(faces.widths());
         let mut screen = Screen::with_egui_text(faces, 1);
-        screen.set_pictures(pictures());
+        let base = pictures();
+        screen.set_pictures(base.clone());
         Ok(Ui {
             screen,
             // no MSAA, no depth, no dithering (the editor's own pass had none)
@@ -95,7 +130,13 @@ impl Ui {
             widths,
             jobs: Vec::new(),
             free: Vec::new(),
+            base,
         })
+    }
+
+    /// the previews' pictures, from the next frame on
+    pub fn set_thumbs(&mut self, thumbs: &[(u64, image::RgbaImage)]) {
+        self.screen.set_pictures(with_thumbs(&self.base, thumbs));
     }
 
     /// the stage's texture (made again when the stage's texture changes)

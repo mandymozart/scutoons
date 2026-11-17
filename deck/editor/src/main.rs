@@ -18,6 +18,7 @@ mod colour;
 mod empty;
 mod gpu_time;
 mod grid;
+mod library;
 mod logo;
 mod mixer;
 mod module;
@@ -137,10 +138,15 @@ struct Args {
     main_menu: bool,
     /// a check run's colour picker on the shown background: open | pick | drop:X,Y | take:X,Y (colour.rs `script_colour`)
     colour: Option<String>,
+    /// a check run's library: a card of this address dragged to X,Y and let go there (`hold`: kept in the hand)
+    library_drag: Option<(String, f32, f32, bool)>,
+    /// a check run's library in the list mode, filtered by a query
+    library_find: Option<String>,
+    library_list: bool,
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, save_state: None, tools_folded: false, closed: Vec::new(), main_menu: false, colour: None };
+    let mut a = Args { module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, save_state: None, tools_folded: false, closed: Vec::new(), main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -154,6 +160,14 @@ fn args() -> Result<Args> {
             "--fullscreen" => a.fullscreen = true,
             "--panic" => a.panic = true,
             "--colour" => a.colour = Some(val()?),
+            "--library-drag" => {
+                let v = val()?;
+                let p: Vec<&str> = v.split(',').collect();
+                let (Some(address), Some(x), Some(y)) = (p.first(), p.get(1), p.get(2)) else { anyhow::bail!("--library-drag ADDRESS,X,Y[,hold]") };
+                a.library_drag = Some((address.to_string(), x.parse()?, y.parse()?, p.get(3) == Some(&"hold")));
+            }
+            "--library-find" => a.library_find = Some(val()?),
+            "--library-list" => a.library_list = true,
             "--save-state" => a.save_state = Some(val()?),
             "--tools-folded" => a.tools_folded = true,
             "--view" => a.view = Some(val()?.parse()?),
@@ -544,6 +558,9 @@ struct App {
     autosaves: bool,
     /// the tools pill (tools.rs)
     tools: tools::Tools,
+    /// the library panel (library.rs) and a module to open once the Module workspace lists it
+    library: library::Library,
+    library_open: Option<String>,
 }
 
 /// the language of the book's labels: the editor's own words are English (not translated yet)
@@ -711,6 +728,8 @@ fn run() -> Result<i32> {
         grid: grid::GridSnap::load(app_grid_file),
         colour: app_colour,
         tools: tools::Tools::default(),
+        library: library::Library::new(cache_dir()),
+        library_open: None,
     };
     event_loop.run_app(&mut app).context("the event loop")?;
     app.flush_all();
@@ -797,7 +816,7 @@ impl App {
         use bar::Action as A;
         match a {
             A::Open if self.workspace == show::Workspace::Perform => Some("Perform runs the show open: open another in Show or Build."),
-            A::Open if self.workspace == show::Workspace::Module => Some("Pick a module in Modules."),
+            A::Open if self.workspace == show::Workspace::Module => Some(module::draw::PICK),
             A::Open | A::Audio | A::DayNight | A::Settings => None,
             A::New if self.workspace == show::Workspace::Show => None,
             A::New => Some("A new show starts in Show; a new rig in the creator."),
@@ -1044,7 +1063,7 @@ impl App {
             return;
         }
         self.show.pointer(x, y);
-        self.show.drag_to(x, y);
+        self.library.browser.drag_to(x, y);
         if self.module.dragging() {
             return self.module.drag_to(x, &mut self.stage);
         }
@@ -1138,6 +1157,11 @@ impl App {
         if self.panels_mut().floats.press(x, y) {
             self.panels_moved = true;
             return;
+        }
+        self.library.refused = None;
+        match self.library.browser.press(x, y, library::now()) {
+            Some(did) => return self.library_did(did),
+            None => self.library.browser.stop_typing(),
         }
         if let Some((r, p)) = self.settings_hits.iter().find(|(r, _)| r.has(x, y)).copied() {
             let p = settings::at(&r, p, x);
@@ -1871,8 +1895,11 @@ impl App {
             self.panels_moved = true;
             return;
         }
-        // Show: a scene dragged from the list lands on the cell under the pointer
-        if self.show.drop_at(self.cursor.0, self.cursor.1) || self.grid.scrub_end() {
+        // a library card lands where the workspace takes it
+        if let Some(did) = self.library.browser.release(self.cursor.0, self.cursor.1) {
+            return self.library_did(did);
+        }
+        if self.grid.scrub_end() {
             return;
         }
         let a = match self.panel.drag.take() {
@@ -1986,6 +2013,7 @@ impl App {
     /// a check run's drag at fixed frames: the pointer's own path, through hit test, press, move and release
     fn script(&mut self) {
         self.script_colour();
+        self.script_library();
         self.show.script(self.frames, &self.args.script);
         if self.frames == 70 && self.args.script.to_cell {
             self.knobs_to_cell();
@@ -2190,6 +2218,7 @@ impl App {
         // #537: the Show workspace picks a cell's piece from the book's scenes
         self.show.book.clone_from(&self.book.book);
         self.show.book_why = self.book_why();
+        self.follow_library();
         // the main menu's Quit to stage: as F9
         if self.exit == 11 {
             el.exit();
@@ -2407,7 +2436,7 @@ impl App {
         let view = mixer::View { tabs, tab, selected, hot, panning };
         let (mixer_w, mixer_h) = mixer::size(t, &self.stage, &view);
         let info_h = t.size.small * 1.4 * 6.0;
-        let shown = [("tree", t.size.tree, None), ("inspector", t.size.inspector, None), ("audio", 320.0, None), ("info", 260.0, Some(info_h)), ("mixer", mixer_w, Some(mixer_h))];
+        let shown = [("tree", t.size.tree, None), (library::PANEL, library::WIDTH, None), ("inspector", t.size.inspector, None), ("audio", 320.0, None), ("info", 260.0, Some(info_h)), ("mixer", mixer_w, Some(mixer_h))];
         self.build.layout(ui, t, ((wf, hf), bar_bottom), &[gizmo], &shown);
         let covered = |floats: &deck_kit::editor::floats::Floats, x: f32, y: f32| y < bar_bottom || floats.covers(x, y);
         // the Wire side: the ports around the being's points, the core's list on this frame's places (not under a panel)
@@ -2795,6 +2824,24 @@ impl App {
         }
         self.panel.hits.push((Rect { x: stage_x, y: top, w: stage_w, h: stage_h }, Hit::Stage));
         }
+        // the library over the workspace's panels
+        {
+            let cursor = self.cursor;
+            match self.workspace {
+                show::Workspace::Show => show::scenes::panel(ui, t, &mut self.show, &mut self.library, cursor),
+                show::Workspace::Build | show::Workspace::Module => {
+                    let panels = if build { &mut self.build } else { &mut self.module.panels };
+                    match panels.open(ui, t, library::PANEL, cursor, 0) {
+                        Some(o) => {
+                            self.library.draw(ui, t, o.area, cursor, None);
+                            panels.close(ui, t, o, &mut self.library.browser.hits);
+                        }
+                        None => self.library.browser.hits.clear(),
+                    }
+                }
+                show::Workspace::Perform => self.library.browser.hits.clear(),
+            }
+        }
         // the tools pill, over the workspace's panels
         {
             let cursor = self.cursor;
@@ -2834,6 +2881,7 @@ impl App {
         self.tools.draw_menu(ui, t, (wf, hf), self.cursor);
         let value = self.colour.target().and_then(|target| colour::value(target, &self.stage, self.scene.as_ref(), &self.show));
         self.colour.draw(ui, t, (wf, hf), value, self.cursor);
+        self.library.over(ui, t, wf);
         // the main menu over everything, the workspace's panels under its lines
         self.menu_lines.clear();
         if self.main_menu {
@@ -2849,6 +2897,9 @@ impl App {
         window.set_cursor(if grab { winit::window::CursorIcon::Grab } else { winit::window::CursorIcon::Default });
         // the pass: logical pixels → the surface's, through the screen uniform
         let view = frame.texture.create_view(&Default::default());
+        if std::mem::take(&mut self.library.pictures.changed) {
+            ui.set_thumbs(&self.library.pictures.images);
+        }
         ui.flush(&gpu.device, &gpu.queue, &mut enc, &view, (wf, hf), t.color.stage);
         self.ui_ms.push(t0.elapsed().as_secs_f32() * 1000.0);
         let shot = self.args.screenshot.clone().filter(|_| self.args.frames.is_some_and(|n| self.frames + 1 >= n) && gpu.can_capture);
@@ -2869,6 +2920,9 @@ impl App {
         }
         if self.colour.dropper.is_some() {
             self.colour.under = self.stage.read_pixel(&gpu.device);
+        }
+        if let Some(img) = self.stage.read_still(&gpu.device) {
+            self.library.still(img);
         }
         if let (Some(path), Some((buf, stride))) = (shot, readback) {
             if let Err(e) = save(&gpu.device, &buf, stride, (w, h), gpu.format(), &path) {
@@ -3000,6 +3054,7 @@ impl ApplicationHandler for App {
             }
             WindowEvent::KeyboardInput { event, .. } if self.edit.is_some() => self.edit_key(&event),
             WindowEvent::KeyboardInput { event, .. } if self.menu.is_some() => self.menu_key(&event),
+            WindowEvent::KeyboardInput { event, .. } if self.library.browser.typing.is_some() => self.library_key(&event),
             WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed && event.logical_key == Key::Named(NamedKey::Escape) && self.colour.taking() => {
                 let d = self.colour.release();
                 self.colour_do(d);

@@ -398,7 +398,8 @@ mod tests {
     #[test]
     fn a_new_scene_is_named_and_cast_from_the_toons_rigs() {
         let mut host = host();
-        compose(&mut host, ComposeHit::Open);
+        // the library's "new scene" (its one button: main.rs hands it on as this press)
+        host.press(Hit::Compose(ComposeHit::Open));
         assert_eq!(host.sheet, Some(Sheet::Scene));
         assert!(host.compose_scene().unwrap_err().iter().any(|p| p.contains("no scene id")));
         typed(&mut host, "duet");
@@ -443,11 +444,8 @@ mod tests {
         let listed = host.scene_list();
         let duet = listed.iter().position(|p| p.address == "scene:duet").expect("listed");
         assert_eq!(listed[duet].detail, format!("scene:duet · {}", deck_show::rows::DRAFT));
-        press(&mut host, false, |h| *h == Hit::Scene(duet));
-        let plan = deck_show::view::plan(host.shown());
-        let (r, c) = (plan.rows.iter().position(|x| x.id == "opening").unwrap(), plan.columns.iter().position(|x| x.id == "middle").unwrap());
-        let (rect, _) = *host.hits.iter().find(|(_, h)| *h == Hit::Cell(r, c)).unwrap();
-        assert!(host.drop_at(rect.x + rect.w * 0.5, rect.y + rect.h * 0.5));
+        let mut lib = crate::library::Library::new(std::env::temp_dir().join("deck-editor-new-scene-library"));
+        super::super::scenes::tests::drag(&mut host, &mut lib, &listed[duet].address, "opening", "middle");
         assert_eq!(host.status, "row 1 opening, middle: scene:duet");
         assert_eq!(host.marked("scene:duet"), "scene:duet · draft");
         assert_eq!(host.marked("scene:nave"), "scene:nave");

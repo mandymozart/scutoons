@@ -18,8 +18,9 @@ const BR: Corner = Corner::BottomRight;
 
 // The order is the order of growth: an earlier panel leaves a later one the room it asks for, so the ones whose content
 // scrolls well come first and the ones of a fixed size last.
-pub const BUILD: [Spec; 7] = [
+pub const BUILD: [Spec; 8] = [
     spec("tree", "Rig", "tree", "The rig, its tracks and their nodes. In Wire a click goes to that level.", Place::at(TL, 0.0, 0.0)),
+    spec("library", "Library", "grid", "Modules and instruments to drop on the stage as a track, characters to open, the assets; filter, related to the rig open.", Place::at(BL, 0.0, 0.0)),
     spec("inspector", "Inspector", "inspector", "What is selected: its values as scrub numbers; the rig picker and Save.", Place::at(TR, 0.0, 0.0)).essential(),
     spec("audio", "Audio", "activity", "The sound card, its inputs and outputs, the map and the test tones.", Place::at(BL, 300.0, 0.0).folded()),
     spec("info", "Info", "info", "What is under the pointer: its name and what it does.", Place::at(BL, 0.0, 0.0)),
@@ -33,7 +34,7 @@ pub const SHOW: [Spec; 9] = [
     spec("inspector", "Inspector", "inspector", "The row, the role or the cells selected; Load, Flash and Save.", Place::at(TR, 0.0, 0.0)).essential(),
     spec("sheet", "Sheet", "layers", "The sheet open: cues, problems, who is here, a picker or the flash list.", Place::at(TL, 320.0, 0.0)).essential(),
     spec("nodes", "Nodes", "node", "What comes from far, the cells of the row and what the row sends, over the stage.", Place::at(TL, 320.0, 0.0)),
-    spec("scenes", "Scenes", "grid", "The toon's published scenes: drag one onto a cell.", Place::at(BR, 0.0, 0.0)),
+    spec("library", "Library", "grid", "The toon's scenes, characters and items: drag one onto a cell, a double click opens a scene in Build.", Place::at(BR, 0.0, 0.0)),
     spec("rows", "Rows", "list", "The rows of the show: what fires each one and every column's cell.", Place::at(BL, 0.0, 0.0)).essential(),
     spec("info", "Info", "info", "What is under the pointer: its name and what it does.", Place::at(BR, 300.0, 0.0).folded()),
     spec("tools", "Tools", "tool", "The stage's tools: the tool in hand, the view, grid & snap, framing – what this workspace offers.", Place::at(TR, 380.0, 0.0)).inline(),
@@ -41,7 +42,7 @@ pub const SHOW: [Spec; 9] = [
 ];
 
 pub const MODULE: [Spec; 6] = [
-    spec("modules", "Modules", "list", "The catalog's modules: a click opens one's working copy.", Place::at(TL, 0.0, 0.0)),
+    spec("library", "Library", "grid", "The catalog's modules with their previews: a click opens one's working copy.", Place::at(TL, 0.0, 0.0)),
     spec("module", "Module", "code", "The module open: its working copy, Open in editor, Build, what happened last, its parameters.", Place::at(TR, 0.0, 0.0)).essential(),
     spec("problems", "Problems", "alert", "The last build's problems: a click opens the code there.", Place::at(BL, 0.0, 0.0)),
     spec("info", "Info", "info", "What is under the pointer: its name and what it does.", Place::at(BR, 0.0, 0.0).folded()),
@@ -63,6 +64,8 @@ pub const PERFORM: [Spec; 9] = [
 
 /// a content height before it was ever drawn: as tall as the room lets it be, the next frame its own
 const UNMEASURED: f32 = 10_000.0;
+/// the library before it was drawn: a row of cards; it grows to its own height the next frame
+const LIBRARY_START: f32 = 240.0;
 
 /// a panel's content being drawn this frame (from `open` to `close`)
 pub struct Open {
@@ -92,7 +95,7 @@ pub const SETTINGS: &str = "settings";
 
 impl Panels {
     pub fn new(specs: &[Spec]) -> Panels {
-        Panels { floats: Floats::new(specs), measured: HashMap::new(), known: Vec::new(), grew: false, settings: None, tools: None }
+        Panels { floats: Floats::new(specs), measured: HashMap::from([(crate::library::PANEL, LIBRARY_START)]), known: Vec::new(), grew: false, settings: None, tools: None }
     }
 
     /// the main menu's panel list: the panels that close, and whether each is open
@@ -194,9 +197,9 @@ mod tests {
     /// what each workspace's panels ask for on a typical frame (the sheet and its twin are never shown together)
     fn typical(name: &str) -> Vec<(&'static str, f32, Option<f32>)> {
         match name {
-            "build" => vec![("tree", 220.0, Some(200.0)), ("inspector", 280.0, Some(900.0)), ("audio", 300.0, Some(500.0)), ("info", 260.0, Some(100.0)), ("mixer", 560.0, Some(112.0))],
-            "module" => vec![("modules", 220.0, Some(400.0)), ("module", 360.0, Some(700.0)), ("problems", 700.0, Some(200.0)), ("info", 260.0, Some(100.0))],
-            "show" => vec![("outline", 280.0, Some(500.0)), ("inspector", 320.0, Some(1200.0)), ("nodes", 760.0, Some(360.0)), ("scenes", 240.0, Some(220.0)), ("rows", 900.0, Some(160.0)), ("info", 260.0, Some(100.0))],
+            "build" => vec![("tree", 220.0, Some(200.0)), ("library", 412.0, Some(300.0)), ("inspector", 280.0, Some(900.0)), ("audio", 300.0, Some(500.0)), ("info", 260.0, Some(100.0)), ("mixer", 560.0, Some(112.0))],
+            "module" => vec![("library", 412.0, Some(400.0)), ("module", 360.0, Some(700.0)), ("problems", 700.0, Some(200.0)), ("info", 260.0, Some(100.0))],
+            "show" => vec![("outline", 280.0, Some(500.0)), ("inspector", 320.0, Some(1200.0)), ("nodes", 760.0, Some(360.0)), ("library", 412.0, Some(220.0)), ("rows", 900.0, Some(160.0)), ("info", 260.0, Some(100.0))],
             _ => vec![("rail", 220.0, Some(400.0)), ("side", 300.0, Some(300.0)), ("now", 700.0, Some(90.0)), ("log", 520.0, Some(160.0)), ("matrix", 1000.0, Some(200.0)), ("info", 260.0, Some(100.0))],
         }
     }
@@ -334,7 +337,7 @@ mod tests {
         let mut all = Remembered::new();
         let mut p = Panels::new(&SHOW);
         p.floats.toggle("rows");
-        p.flip("scenes");
+        p.flip("library");
         all.insert("show".into(), p.floats.places());
         save(&file, &all);
         let back = load(&file);
@@ -343,7 +346,7 @@ mod tests {
         let mut q = Panels::new(&SHOW);
         q.floats.restore(&back["show"]);
         assert!(q.floats.collapsed("rows"));
-        assert!(q.floats.closed("scenes"));
+        assert!(q.floats.closed("library"));
         assert!(load(Path::new("no/such/file.json")).is_empty(), "nothing kept: the defaults");
     }
 }

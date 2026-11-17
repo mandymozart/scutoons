@@ -126,6 +126,20 @@ impl Purpose {
             Purpose::Module => &[Kind::Module],
         }
     }
+
+    /// whether an entry of `kind` dropped here lands (where exactly is the target's to say), else the sentence why not
+    pub fn takes(self, kind: Kind) -> Result<(), String> {
+        let (ok, here) = match self {
+            Purpose::Build => (matches!(kind, Kind::Module | Kind::Instrument), "on a rig: its tracks play modules and instruments"),
+            Purpose::Show => (matches!(kind, Kind::Scene | Kind::Character | Kind::Item), "on a cell: a cell plays a scene, a character or an item"),
+            Purpose::Module => (false, "here: a double click opens a module"),
+        };
+        if ok {
+            Ok(())
+        } else {
+            Err(format!("{} cannot be dropped {here}", kind.word()))
+        }
+    }
 }
 
 /// `character:catpope.human.default` → `catpope`: the character a reference is of, its persona and look left out
@@ -329,6 +343,14 @@ mod tests {
         assert_eq!(find(&list, &Filter { related: Some("character:catpope.human.default".into()), ..Filter::default() }), [0], "a look of the character counts");
         assert_eq!(find(&list, &Filter { related: Some("yellow_mouse".into()), ..Filter::default() }), [1]);
         assert_eq!(facets(&list), [(Kind::Module, 3), (Kind::Scene, 1)]);
+    }
+
+    #[test]
+    fn a_drop_lands_where_its_kind_is_played_or_says_why_not() {
+        assert_eq!(Purpose::Build.takes(Kind::Module), Ok(()));
+        assert_eq!(Purpose::Show.takes(Kind::Scene), Ok(()));
+        assert_eq!(Purpose::Build.takes(Kind::Scene), Err("scenes cannot be dropped on a rig: its tracks play modules and instruments".into()));
+        assert!(Purpose::Module.takes(Kind::Module).is_err());
     }
 
     #[test]

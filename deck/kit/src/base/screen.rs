@@ -64,6 +64,7 @@ pub struct Painted {
 
 /// The pictures a layer's icons and logo frames come from (the editor's: its adapter rasters Feather's icons and the
 /// creator's logo into one straight RGBA image): where each one lies in it, in uv.
+#[derive(Debug, Clone)]
 pub struct Pictures {
     pub size: [usize; 2],
     pub rgba: Vec<u8>,
