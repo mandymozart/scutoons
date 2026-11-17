@@ -10,3 +10,4 @@ pub mod pixel;
 pub mod screen;
 pub mod text;
 pub mod tokens;
+pub mod wire;

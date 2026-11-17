@@ -265,6 +265,30 @@ impl DrawList {
             self.disc(x, y, 3.0, color);
         }
     }
+
+    /// a hanging wire (wire.rs): a soft glow under it, the line, its beads
+    pub fn wire(&mut self, w: &super::wire::Wire, thick: f32, color: [f32; 4], beads: &[(f32, f32)], bead: [f32; 4]) {
+        let pts = w.points();
+        let soft = |a: f32| [color[0], color[1], color[2], color[3] * a];
+        for (width, a, down) in [(thick * 7.0, 0.07, thick * 1.5), (thick * 3.5, 0.16, thick)] {
+            for p in pts.windows(2) {
+                self.segment((p[0].0, p[0].1 + down), (p[1].0, p[1].1 + down), width, soft(a));
+            }
+        }
+        for p in pts.windows(2) {
+            self.segment(p[0], p[1], thick, color);
+        }
+        for b in beads {
+            self.disc(b.0, b.1, thick * 1.5, bead);
+        }
+    }
+
+    /// a port: a dot in a ring of `color` on `ground`
+    pub fn port(&mut self, (x, y): (f32, f32), r: f32, color: [f32; 4], ground: [f32; 4]) {
+        self.disc(x, y, r, ground);
+        self.ring(x, y, r, color);
+        self.disc(x, y, r * 0.4, color);
+    }
 }
 
 /// A QR code (style-free – both component modules draw it: the deck's pairing, the editor's Session panel, #531): `n × n` modules (`dark(x, y)`), `module` logical pixels each, black on a white square with the quiet zone

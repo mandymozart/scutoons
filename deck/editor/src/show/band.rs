@@ -10,6 +10,7 @@ use super::roles::Typing;
 use super::{Hit, Host};
 use deck_kit::base::draw::DrawList;
 use deck_kit::base::tokens::Tokens;
+use deck_kit::base::wire::Wire;
 use deck_kit::editor::controls::{self, Rect};
 use deck_kit::editor::table::{Laid, Scroll, Table};
 use deck_show::view::{FireChip, Matrix, State};
@@ -123,6 +124,17 @@ pub fn fire_chip(d: &mut DrawList, t: &Tokens, (x, y, w): (f32, f32, f32), chip:
     cw
 }
 
+/// A link hanging from port `a` to port `b` (deck-kit wire.rs), the ports drawn; `flow` = the seconds the beads have
+/// run, none: no beads (Signal flow on wires off, or Reduce motion).
+pub fn wire(d: &mut DrawList, t: &Tokens, (a, b): ((f32, f32), (f32, f32)), (unit, flow): (f32, Option<f32>), color: [f32; 4]) {
+    let w = Wire::hang(a, b, unit);
+    let beads = flow.map(|s| w.flowing(unit, s)).unwrap_or_default();
+    d.wire(&w, 1.5, color, &beads, t.color.text);
+    for p in [a, b] {
+        d.port(p, unit * 0.3, color, t.color.surface);
+    }
+}
+
 fn push(host: &mut Host, r: Rect, region: &Rect, hit: Hit) {
     if let Some(r) = Laid::shown(&r, region) {
         host.hits.push((r, hit));
@@ -146,6 +158,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, mode)
     let sel = (!mode.perform && host.role.is_none() && host.columns.is_empty() && host.group.is_none()).then_some(host.row);
     let gh = if m.groups.is_empty() { 0.0 } else { t.size.rem(1.6) };
     let n = m.rows.len();
+    let mut wires: Vec<((f32, f32), (f32, f32))> = Vec::new();
 
     // the cells, under both heads; first the selection's bands
     d.clip(Some(l.body));
@@ -232,19 +245,29 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, mode)
                 d.outline(at.x, at.y, at.w, at.h, (t.size.radius, 2.0), t.color.go);
             }
         }
-        // #568: the cells of this row whose far nodes listen to each other, joined along the row's foot
+        // the cells of this row whose far nodes listen to each other, and the parts of one question, hang on wires from
+        // ports at their feet
         if !mode.perform {
+            let foot = l.cell(i, 0).y + ch - 3.0;
+            let port = |c: usize| {
+                let run = r.cells.get(c).and_then(|x| x.ask.as_ref()).map_or(1, |a| a.run.max(1));
+                let s = l.span(i, c, run);
+                (s.x + s.w * 0.5, foot)
+            };
             for link in host.row_links(&r.id) {
                 let deck_show::far::Holder::Outlet(to) = &link.holder else { continue };
-                let mid = |id: &str| m.columns.iter().position(|c| c.id == id).map(|c| l.cell(i, c).x + cw * 0.5);
-                if let (Some(a), Some(b)) = (mid(&link.from), mid(to)) {
-                    let fy = l.cell(i, 0).y + ch - 4.0;
-                    d.line((a, fy), (b, fy), 1.0, t.color.accent);
-                    d.disc(a, fy, 3.0, t.color.accent);
-                    d.disc(b, fy, 3.0, t.color.accent);
+                let col = |id: &str| m.columns.iter().position(|c| c.id == id);
+                if let (Some(a), Some(b)) = (col(&link.from), col(to)) {
+                    // the signal runs from the holder to the cell that listens
+                    wires.push((port(b), port(a)));
                 }
             }
+            wires.extend(r.ask_links().into_iter().map(|(a, b)| (port(a), port(b))));
         }
+    }
+    let unit = t.size.rem(1.0);
+    for (a, b) in wires {
+        wire(d, t, (a, b), (unit, host.flow), t.color.accent);
     }
 
     // the column heads: the groups over their columns, then each column's name, who takes it and its stop
@@ -597,6 +620,28 @@ mod tests {
         assert_eq!(host.context_lines(), ["Group the selected columns", "Ungroup", "Rename"]);
         host.key(&winit::keyboard::Key::Named(winit::keyboard::NamedKey::Enter), false, true);
         assert_eq!(host.status, "not changed: show: outlet 'lights': the group 'group' is split, its columns stand apart");
+    }
+
+    #[test]
+    fn the_parts_of_a_question_apart_hang_on_a_wire_whose_beads_run_only_with_signal_flow() {
+        use deck_kit::base::draw::Prim;
+        let mut host = host_with(include_str!("../../../demos/vote-and-question.show.json"));
+        host.two_d = false;
+        let t = Tokens::default();
+        let drawn = |host: &mut Host| {
+            let mut d = DrawList::new(0.6);
+            host.hits.clear();
+            author::draw(&mut d, &t, host, W, H, (0.0, 0.0));
+            let wire = d.prims().iter().filter(|p| matches!(p, Prim::Segment { color, .. } if *color == t.color.accent)).count();
+            let dots = d.prims().iter().filter(|p| matches!(p, Prim::Rect { color, r, .. } if *color == t.color.text && *r > 0.0)).count();
+            (wire, dots)
+        };
+        host.flow = None;
+        let (wire, still) = drawn(&mut host);
+        assert_eq!(wire, deck_kit::base::wire::SAMPLES, "one wire, left to right");
+        host.flow = Some(0.0);
+        let (_, running) = drawn(&mut host);
+        assert!(running > still, "beads on it: {still} → {running}");
     }
 
     fn enter(host: &mut Host) -> bool {

@@ -66,6 +66,10 @@ fn the_matrix_marks_the_cells_of_a_question_and_the_inspector_says_to_whom() {
     let run = view::plan(&parse(&d.to_string()).unwrap());
     let said: Vec<Option<String>> = run.rows[1].cells[..4].iter().map(|c| c.ask.as_ref().and_then(AskView::words)).collect();
     assert_eq!(said, [Some("q1 · 1–2 of 3 · Which way?".to_string()), None, None, Some("q1 · 3 of 3 · Which way?".to_string())]);
+    // the parts that stand apart hang on one wire: from each part's first column to the next part's
+    assert_eq!(m.rows[1].ask_links(), [(0, 2)]);
+    assert_eq!(run.rows[1].ask_links(), [(0, 3)]);
+    assert!(wide.rows[1].ask_links().is_empty(), "one wide cell needs no wire");
 }
 
 #[test]

@@ -140,6 +140,21 @@ pub struct RowView {
     pub cells: Vec<CellView>,
 }
 
+impl RowView {
+    /// The wires between the parts of one question that stand apart in this row: each part's first column to the next
+    /// part's, in the row's order.
+    pub fn ask_links(&self) -> Vec<(usize, usize)> {
+        let starts: Vec<(usize, &str)> = self.cells.iter().enumerate().filter_map(|(c, cell)| cell.ask.as_ref().filter(|a| a.first).map(|a| (c, a.question.as_str()))).collect();
+        let mut out = Vec::new();
+        for (i, (c, q)) in starts.iter().enumerate() {
+            if let Some((next, _)) = starts[i + 1..].iter().find(|(_, x)| x == q) {
+                out.push((*c, *next));
+            }
+        }
+        out
+    }
+}
+
 /// The suggestion card: the row, and why.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Suggested {
