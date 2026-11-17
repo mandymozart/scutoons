@@ -116,6 +116,8 @@ pub enum Edit {
     Take { row: String, column: String, positions: Vec<(String, f32)> },
     /// the show's stage background, over what its pieces set (none: theirs)
     Background { to: Option<deck_space::Background> },
+    /// the show's toon
+    Toon { to: String },
 }
 
 /// An edit made: the changed document, what it did in words, the row to select after it.
@@ -414,6 +416,13 @@ pub fn edit_with(show: &Show, e: &Edit, knobs: Option<&[Knob]>) -> Result<Edited
             let said = to.as_ref().map_or_else(|| "the show's background: none – its scenes', else black".to_string(), |b| format!("the show's background: {} – over every scene", b.text()));
             (said, None)
         }
+        Edit::Toon { to } => {
+            next.toon = to.trim().to_string();
+            if next.toon.is_empty() {
+                return Err(format!("not changed: show: {}", crate::validate::NO_TOON));
+            }
+            (format!("the show's toon: {}", next.toon), None)
+        }
     };
     let added: Vec<String> = crate::validate::validate(&next).into_iter().filter(|p| !before.contains(p)).map(|p| p.to_string()).collect();
     match added.first() {
@@ -548,9 +557,9 @@ mod tests {
     use protocol::{LayerSrc, Message};
 
     /// the editor's new show (deck-editor show/mod.rs `EMPTY`): one role, no row yet
-    const NOTHING: &str = r#"{ "id": "new-show", "version": 1, "outlets": [{ "id": "left" }], "rows": [] }"#;
+    const NOTHING: &str = r#"{ "id": "new-show", "version": 1, "toon": "catpope", "outlets": [{ "id": "left" }], "rows": [] }"#;
     /// two roles and a lamp, no row yet
-    const NEW: &str = r#"{ "id": "new-show", "version": 1, "outlets": [{ "id": "left" }, { "id": "right" }, { "id": "lamps", "kind": "device" }], "rows": [] }"#;
+    const NEW: &str = r#"{ "id": "new-show", "version": 1, "toon": "catpope", "outlets": [{ "id": "left" }, { "id": "right" }, { "id": "lamps", "kind": "device" }], "rows": [] }"#;
 
     fn ed(show: &Show, e: Edit) -> Edited {
         edit(show, &e).unwrap_or_else(|why| panic!("{e:?}: {why}"))
@@ -558,6 +567,18 @@ mod tests {
 
     fn mode(row: &str, column: &str, mode: Mode) -> Edit {
         Edit::Mode { row: row.into(), column: column.into(), mode }
+    }
+
+    #[test]
+    fn a_show_without_its_toon_opens_with_the_problem_and_gets_one_picked() {
+        let show = open(r#"{ "id": "old", "version": 4, "outlets": [{ "id": "left" }], "rows": [] }"#).unwrap();
+        assert_eq!(crate::validate(&show).iter().map(ToString::to_string).collect::<Vec<_>>(), ["show: it names no toon – pick the show's toon"]);
+        assert_eq!(edit(&show, &Edit::Toon { to: " ".into() }).unwrap_err(), "not changed: show: it names no toon – pick the show's toon");
+        assert!(edit(&show, &Edit::Toon { to: "Cat Pope".into() }).unwrap_err().contains("is no toon id"));
+        let set = ed(&show, Edit::Toon { to: " catpope ".into() });
+        assert_eq!((set.said.as_str(), set.show.toon.as_str()), ("the show's toon: catpope", "catpope"));
+        assert!(crate::validate(&set.show).is_empty());
+        assert_eq!(serde_json::to_value(&set.show).unwrap()["toon"], "catpope", "kept with the document");
     }
 
     /// #537's done-when, the core's half: from nothing to a row with a play cell naming a published scene, through the

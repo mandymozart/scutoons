@@ -44,6 +44,9 @@ pub enum Typing {
     SceneCast,
     /// the show's stage background
     Background,
+    /// the new show's name; the toon picker's query (toons.rs)
+    NewName,
+    ToonFind,
 }
 
 /// What a prompt asks before it is done.
@@ -141,6 +144,7 @@ impl Host {
                     Typing::Ask(question, field) => self.ask_typed(question, field, &text),
                     Typing::Scenes => self.scene_query = text.trim().to_string(),
                     Typing::SceneId | Typing::SceneName | Typing::SceneCast => self.compose_typed(&what, &text),
+                    Typing::NewName | Typing::ToonFind => self.toon_typed(&what, &text),
                     Typing::Background => match deck_space::Background::typed(&text) {
                         Ok(to) => {
                             self.edit_rows(&deck_show::rows::Edit::Background { to });
