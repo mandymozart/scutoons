@@ -179,7 +179,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Placed {
     let text_y = mid - px * 0.62;
     let small_y = mid - small * 0.62;
     let mut out = Placed::default();
-    d.halo(Some(t.color.surface));
+    d.halo(t.color.ring());
     // the logo and the hamburger
     let first = Rect { x: t.size.gap, y, w: end + logo + pad + ih + inset, h };
     pill(d, t, first);
