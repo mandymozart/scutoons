@@ -180,6 +180,7 @@ impl Host {
 
     /// The button let go: a knob dragged to a new value is written into the cell (deck-show checks it).
     pub fn release(&mut self) {
+        self.nodes_release();
         let Some(d) = self.knob_drag.take() else { return };
         if d.v == d.v0 {
             return;

@@ -496,6 +496,11 @@ fn paint(fonts: &mut dyn Mono, layer: &Layer, (pixel, pictures): (Option<Texture
                 flush(&mut mesh, out);
                 out.push(Shape::line_segment([pos2(a.0 * s, a.1 * s), pos2(b.0 * s, b.1 * s)], Stroke::new(thick * s, color(c))));
             }
+            Prim::Poly { p, n, color: c } => {
+                flush(&mut mesh, out);
+                let points = p[..n as usize].iter().map(|q| pos2(q.0 * s, q.1 * s)).collect();
+                out.push(Shape::convex_polygon(points, color(c), Stroke::NONE));
+            }
             Prim::Gradient { x, y, w, h, corners } => {
                 let base = mesh.vertices.len() as u32;
                 let at = [(x, y), (x + w, y), (x + w, y + h), (x, y + h)];

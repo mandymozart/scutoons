@@ -236,6 +236,7 @@ impl Host {
     /// the pointer over the open typeahead highlights its line
     pub fn pointer(&mut self, x: f32, y: f32) {
         self.cursor = (x, y);
+        self.nodes_drag(x, y);
         self.knob_moved(x);
         if let Some(c) = self.context.as_mut() {
             c.ta.hover(x, y);

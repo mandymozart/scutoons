@@ -155,10 +155,13 @@ struct Args {
     camera: bool,
     /// a check run's scene camera (dop.rs `script_dop`): shots, a track, a move previewed
     dop: Option<String>,
+    /// a check run's node view: its direction, a zoom once it is framed
+    nodes: Option<deck_kit::base::graph::Direction>,
+    node_zoom: Option<f32>,
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, save_state: None, tools_folded: false, closed: Vec::new(), main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false, library_related: false, pan: None, camera: false, dop: None };
+    let mut a = Args { module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, save_state: None, tools_folded: false, closed: Vec::new(), main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false, library_related: false, pan: None, camera: false, dop: None, nodes: None, node_zoom: None };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -250,6 +253,8 @@ fn args() -> Result<Args> {
                 a.pan = Some((x.trim().parse()?, y.trim().parse()?));
             }
             "--camera" => a.camera = true,
+            "--nodes" => a.nodes = Some(if val()? == "tb" { deck_kit::base::graph::Direction::Tb } else { deck_kit::base::graph::Direction::Lr }),
+            "--node-zoom" => a.node_zoom = Some(val()?.parse()?),
             "--dop" => a.dop = Some(val()?),
             "--close" => a.closed.extend(val()?.split(',').map(str::trim).filter(|n| !n.is_empty()).map(String::from)),
             "--main-menu" => a.main_menu = true,
@@ -673,6 +678,8 @@ fn run() -> Result<i32> {
     let rig_toon = if args.toon.is_none() && args.book.is_none() { toon::RigToon::new(&args.api, &subject, &cache) } else { toon::RigToon::none() };
     let mut app_show = show::Host::new(args.show_file.clone(), args.show_id.clone(), args.relay.clone(), args.api.clone());
     app_show.toon.clone_from(&args.toon);
+    app_show.nodes.direction = args.nodes.unwrap_or(app_settings.node_flow);
+    app_show.nodes.zoom_once = args.node_zoom;
     app_show.knobs.rigs.clone_from(&args.rigs);
     if let Some(f) = &args.story {
         app_show.story_from_file(f);
@@ -1269,6 +1276,9 @@ impl App {
             self.panels_moved = true;
             return;
         }
+        if self.workspace == show::Workspace::Show && self.show.nodes.space && self.show.nodes_grab(x, y) {
+            return;
+        }
         self.library.refused = None;
         match self.library.browser.press(x, y, library::now()) {
             Some(did) => return self.library_did(did),
@@ -1538,6 +1548,9 @@ impl App {
     fn press_view(&mut self, button: MouseButton) {
         let (x, y) = self.cursor;
         if self.menu.take().is_some() {
+            return;
+        }
+        if self.workspace == show::Workspace::Show && button == MouseButton::Middle && self.show.nodes_grab(x, y) {
             return;
         }
         // #551: Show's right click on a cell of the rows band is the same typeahead, on the selected cells of a row
@@ -2338,6 +2351,10 @@ impl App {
 
     fn redraw(&mut self, el: &ActiveEventLoop) {
         self.latency.frame();
+        let dir = self.show.nodes.direction;
+        if dir != self.settings.node_flow {
+            self.change_settings(|s| s.node_flow = dir);
+        }
         self.follow_toon();
         self.follow_rigs();
         self.follow_modules();
@@ -3228,6 +3245,10 @@ impl ApplicationHandler for App {
                     MouseScrollDelta::PixelDelta(p) => p.x as f32 / 40.0,
                 };
                 let band = if self.mods.shift_key() { (steps, 0.0) } else { (across, steps) };
+                let fingers = matches!(delta, MouseScrollDelta::PixelDelta(_));
+                if self.workspace == show::Workspace::Show && self.show.nodes_wheel(self.cursor, (across, steps), fingers, self.mods.control_key()) {
+                    return;
+                }
                 if self.workspace != show::Workspace::Build && self.show.band_wheel(self.cursor.0, self.cursor.1, band) {
                     return;
                 }
@@ -3301,6 +3322,7 @@ impl ApplicationHandler for App {
                     }
                 }
             }
+            WindowEvent::KeyboardInput { event, .. } if self.workspace == show::Workspace::Show && event.logical_key == Key::Named(NamedKey::Space) && !self.panel.field.focused && self.show.nodes_space(event.state == ElementState::Pressed) => {}
             // #471: the flash list's typed filter has the keys while it is focused
             WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed && matches!(self.workspace, show::Workspace::Show | show::Workspace::Perform) && self.show.key(&event.logical_key, self.mods.control_key() || self.mods.super_key(), self.workspace == show::Workspace::Show) => {}
             // #560: F9 – back to the stage (deck-session swaps; elsewhere F9 does nothing): exit code 11

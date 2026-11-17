@@ -2,6 +2,7 @@
 //! adapter turns the list into draws. Shapes are exact at any size (a distance per pixel in the adapter), so a dot does not
 //! depend on a texture. The text of a frame lives in one buffer, so a frame allocates nothing once it has run.
 pub use crate::base::fonts::Font;
+use crate::base::signal::Shape;
 use crate::base::fonts::Widths;
 use std::sync::Arc;
 use crate::base::tokens::contrast;
@@ -27,6 +28,8 @@ pub enum Prim {
     Gradient { x: f32, y: f32, w: f32, h: f32, corners: [[f32; 4]; 4] },
     /// one of the screen's loaded pictures (a preview) by its key, stretched over the rectangle
     Picture { x: f32, y: f32, w: f32, h: f32, key: u64 },
+    /// a filled convex polygon: the first `n` of `p` (a pin's triangle or diamond)
+    Poly { p: [(f32, f32); 4], n: u8, color: [f32; 4] },
 }
 
 /// Where a control landed, in logical pixels (what can be pressed is kept by its caller as these).
@@ -211,6 +214,7 @@ impl DrawList {
                 Prim::Text { x, y, px, start, end, spacing, font, .. } => (x, y, x + self.measure(font, px, &self.text[start..end], spacing), y + px * 1.25),
                 Prim::Icon { x, y, size, .. } | Prim::Logo { x, y, size, .. } => (x, y, x + size, y + size),
                 Prim::Segment { a, b, .. } => (a.0.min(b.0), a.1.min(b.1), a.0.max(b.0), a.1.max(b.1)),
+                Prim::Poly { p, n, .. } => p[..n as usize].iter().fold((f32::MAX, f32::MAX, f32::MIN, f32::MIN), |o, q| (o.0.min(q.0), o.1.min(q.1), o.2.max(q.0), o.3.max(q.1))),
                 Prim::Clip(_) => continue,
             };
             out = Some(out.map_or(r, |o| (o.0.min(r.0), o.1.min(r.1), o.2.max(r.2), o.3.max(r.3))));
@@ -284,10 +288,33 @@ impl DrawList {
     }
 
     /// a port: a dot in a ring of `color` on `ground`
-    pub fn port(&mut self, (x, y): (f32, f32), r: f32, color: [f32; 4], ground: [f32; 4]) {
-        self.disc(x, y, r, ground);
-        self.ring(x, y, r, color);
-        self.disc(x, y, r * 0.4, color);
+    pub fn port(&mut self, at: (f32, f32), r: f32, color: [f32; 4], ground: [f32; 4]) {
+        self.pin(at, r, (Shape::Dot, (1.0, 0.0)), color, ground);
+    }
+
+    /// a typed port (signal.rs) of radius `r` around `at`; a triangle points along `toward` (a unit vector: the flow)
+    pub fn pin(&mut self, (x, y): (f32, f32), r: f32, (shape, toward): (Shape, (f32, f32)), color: [f32; 4], ground: [f32; 4]) {
+        let (fx, fy) = toward;
+        match shape {
+            Shape::Dot | Shape::Ring => {
+                self.disc(x, y, r, ground);
+                self.ring(x, y, r, color);
+                if shape == Shape::Dot {
+                    self.disc(x, y, r * 0.4, color);
+                }
+            }
+            Shape::Square => self.round_rect(x - r * 0.85, y - r * 0.85, r * 1.7, r * 1.7, r * 0.3, color),
+            Shape::Diamond => {
+                let d = r * 1.15;
+                self.prims.push(Prim::Poly { p: [(x, y - d), (x + d, y), (x, y + d), (x - d, y)], n: 4, color });
+            }
+            Shape::Triangle => {
+                let (tip, back, half) = (r * 1.1, r * 0.8, r * 0.95);
+                let (bx, by) = (x - fx * back, y - fy * back);
+                let p = [(x + fx * tip, y + fy * tip), (bx - fy * half, by + fx * half), (bx + fy * half, by - fx * half), (0.0, 0.0)];
+                self.prims.push(Prim::Poly { p, n: 3, color });
+            }
+        }
     }
 }
 
@@ -309,6 +336,22 @@ pub fn qr(d: &mut DrawList, (x, y): (f32, f32), module: f32, n: usize, dark: &dy
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_pin_takes_its_signals_shape_and_an_event_points_along_the_flow() {
+        let mut d = DrawList::new(0.5);
+        d.pin((10.0, 10.0), 4.0, (Shape::Triangle, (0.0, 1.0)), [1.0; 4], [0.0; 4]);
+        let Prim::Poly { p, n: 3, .. } = d.prims()[0] else { panic!("{:?}", d.prims()) };
+        assert!(p[0].1 > 10.0 && p[1].1 < 10.0 && p[2].1 < 10.0, "its tip down, top → bottom: {p:?}");
+        d.clear();
+        d.pin((10.0, 10.0), 4.0, (Shape::Diamond, (1.0, 0.0)), [1.0; 4], [0.0; 4]);
+        assert!(matches!(d.prims()[0], Prim::Poly { n: 4, .. }));
+        d.clear();
+        d.port((10.0, 10.0), 4.0, [1.0; 4], [0.0; 4]);
+        let mut dot = DrawList::new(0.5);
+        dot.pin((10.0, 10.0), 4.0, (Shape::Dot, (1.0, 0.0)), [1.0; 4], [0.0; 4]);
+        assert_eq!(d.prims(), dot.prims(), "a port is the dot pin");
+    }
 
     #[test]
     fn a_text_comes_back_from_the_buffer_and_tells_its_width() {

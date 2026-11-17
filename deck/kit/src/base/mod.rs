@@ -7,7 +7,10 @@ pub mod glyphs;
 pub mod input;
 #[cfg(feature = "pixel")]
 pub mod pixel;
+pub mod canvas;
+pub mod graph;
 pub mod screen;
+pub mod signal;
 pub mod text;
 pub mod tokens;
 pub mod wire;
