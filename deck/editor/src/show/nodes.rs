@@ -10,6 +10,9 @@ use deck_kit::base::tokens::Tokens;
 use deck_kit::base::wire::Wire;
 use deck_kit::editor::controls::{self, Rect};
 
+/// the direction, the canvas's size and the graph's extent a view was framed for
+type Framed = (Direction, (f32, f32), (f32, f32));
+
 /// the view's state: its zoom and pan (kept while the editor runs), the direction, the drag in the hand
 #[derive(Debug, Clone, Default)]
 pub struct NodeView {
@@ -17,7 +20,7 @@ pub struct NodeView {
     pub direction: Direction,
     /// framed for this direction, canvas size and graph extent: a new direction frames again, so does a new size or
     /// graph (another row) until the view is zoomed or panned by hand
-    framed: Option<(Direction, (f32, f32), (f32, f32))>,
+    framed: Option<Framed>,
     touched: bool,
     /// the canvas drawn last, on screen
     canvas: Rect,
