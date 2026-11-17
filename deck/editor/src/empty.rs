@@ -29,7 +29,7 @@ pub fn character(b: &Bundle) -> Option<&str> {
 /// what the empty state says and the labels of its two ways
 pub fn words(b: &Bundle) -> (Vec<String>, [String; 2]) {
     let s = &b.rig.subject;
-    let lines = vec![format!("{s} has no rig yet – it is silent on every deck."), "Build one from the catalog's modules and instruments, or write a module of its own.".into(), format!("Save makes rig:{s} a draft.")];
+    let lines = vec![format!("{s} has no rig yet – it is silent on every deck."), "Build one from the catalog's modules and instruments, or write a module of its own.".into(), format!("It saves itself as rig:{s}'s draft.")];
     let new = match character(b) {
         Some(c) => format!("New module for {c}"),
         None => "New module".into(),
@@ -122,7 +122,7 @@ mod tests {
         assert!(is_empty(&b));
         let (lines, ways) = words(&b);
         assert_eq!(lines[0], "character.yellowbubu has no rig yet – it is silent on every deck.");
-        assert_eq!(lines[2], "Save makes rig:character.yellowbubu a draft.");
+        assert_eq!(lines[2], "It saves itself as rig:character.yellowbubu's draft.");
         assert_eq!(ways, ["Start from modules".to_string(), "New module for yellowbubu".to_string()]);
         assert_eq!(words(&Bundle::empty("item.lamp")).1[1], "New module");
         assert!(!is_empty(&Bundle::core("character.catpope").expect("a core rig").expect("it reads")));

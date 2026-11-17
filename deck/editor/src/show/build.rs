@@ -132,17 +132,28 @@ impl Host {
         }
     }
 
-    /// Build's scene saved as a new draft on `base` → its version and the words for it; the sheet and the list follow
-    pub fn save_built_scene(&mut self, doc: &SceneDocument, base: Option<u64>) -> Result<(u64, String), String> {
+    /// a scene's save as a new draft on the base it is given, for a thread (autosave.rs); Err: the core's problems
+    pub fn scene_job(&self, doc: &SceneDocument) -> Result<impl FnOnce(Option<u64>) -> crate::autosave::Answer<SceneDocument> + Send + 'static, String> {
         let problems = doc.check_new();
         if !problems.is_empty() {
-            return Err(format!("not saved: {}", problems.join("; ")));
+            return Err(problems.join("; "));
         }
-        let content = serde_json::to_value(doc).map_err(|e| format!("not saved: {e}"))?;
-        let version = self.api.save_scene(&doc.id, &content, base, "deck editor").map_err(|e| format!("not saved: {e}"))?;
-        self.scene_saved(doc, version);
+        let content = serde_json::to_value(doc).map_err(|e| e.to_string())?;
+        let (api, doc) = (self.api.clone(), doc.clone());
+        Ok(move |base| {
+            let answer = api.save_scene(&doc.id, &content, base, "deck editor");
+            (doc, answer)
+        })
+    }
+
+    /// Build's scene saved as a new draft on `base`, waiting for the answer → its version and the words for it
+    #[cfg(test)]
+    pub fn save_built_scene(&mut self, doc: &SceneDocument, base: Option<u64>) -> Result<(u64, String), String> {
+        let (doc, answer) = self.scene_job(doc).map_err(|p| format!("not saved: {p}"))?(base);
+        let version = answer.map_err(|e| format!("not saved: {e}"))?;
+        self.scene_saved(&doc, version);
         let link = crate::rigs::creator_link(&self.api.base, &format!("scene:{}", doc.id));
-        Ok((version, crate::rigs::Saved::Done { version, link }.words()))
+        Ok((version, crate::rigs::saved_words(version, &link)))
     }
 
     /// Build saved scene `doc` as version `version`: the sheet and the list follow, the knobs are asked again
@@ -150,6 +161,7 @@ impl Host {
         let key = format!("scene:{}", doc.id);
         if self.compose.id == doc.id {
             (self.compose.doc, self.compose.base) = (Some(doc.clone()), Some(version));
+            self.compose.auto.open(Some(version));
             self.compose.name.clone_from(&doc.stage.name);
             self.compose.cast = doc.cast().into_iter().map(String::from).collect();
         }
@@ -301,14 +313,13 @@ mod tests {
     /// scene's next draft; back in Show the sheet has that version and a save on the old one is refused.
     #[test]
     fn against_a_server_a_scene_opens_in_build_and_saves_its_draft() {
-        use super::super::new_scene::ComposeHit;
         let Ok(api) = std::env::var("DECK_TEST_API") else { return };
         let mut host = host();
         host.api = super::super::api::Api::new(api);
         host.toon = Some("catpope".into());
         let id = format!("build-{}", std::process::id());
         (host.compose.id, host.compose.name, host.compose.cast) = (id.clone(), "Built".into(), vec!["character:catpope".into(), "item:incense_burner".into()]);
-        host.compose_press(ComposeHit::Save);
+        host.compose_save_waiting();
         let first = host.compose.base.unwrap_or_else(|| panic!("{}", host.status));
         let open = host.scene_for_build(&format!("scene:{id}")).expect("the draft from the server");
         assert_eq!((open.base, open.doc.cast().len()), (Some(first), 2));

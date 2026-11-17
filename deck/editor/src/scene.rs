@@ -27,6 +27,8 @@ pub struct SceneView {
     pub rows: Vec<Part>,
     /// the stage plays it as edited (Show's sheet may have played another meanwhile)
     pub shown: bool,
+    /// it saves itself as the scene's draft; a save carries back the document sent
+    pub auto: crate::autosave::Autosave<deck_space::scene_document::SceneDocument>,
 }
 
 /// `bundle` with these knob values written into its tracks (a slot no track's node names is left)
@@ -61,7 +63,7 @@ impl SceneView {
         let set = |l: &str| k.and_then(|k| k.set(l));
         let (edit, resolved) = SceneEdit::open(doc, base, &rig, &set).map_err(|p| format!("scene:{id}: {}", p.join("; ")))?;
         let notes = note.into_iter().chain(resolved.notes).collect();
-        Ok((SceneView { edit, kept, catalog, sel: Part::Scene, inside: None, rows: Vec::new(), shown: true }, resolved.scene, notes))
+        Ok((SceneView { edit, kept, catalog, sel: Part::Scene, inside: None, rows: Vec::new(), shown: true, auto: crate::autosave::Autosave::new(base) }, resolved.scene, notes))
     }
 
     /// the members again after a slot or a video node changed. Err: the core's reasons it does not play.
@@ -157,6 +159,8 @@ pub enum Field {
     Plays,
     /// the slot or the video node taken out
     Remove,
+    /// the scene's stage background: a click types it
+    Background,
 }
 
 /// The inspector of the scene or of its selected member; where its fields landed.
@@ -176,6 +180,8 @@ pub fn inspect(d: &mut DrawList, t: &Tokens, area: Rect, view: &SceneView, hot: 
         controls::row(d, t, area, &mut y, "toons", &e.doc.toons.join(" "));
         controls::row(d, t, area, &mut y, "cast", &e.members.len().to_string());
         controls::row(d, t, area, &mut y, "version", &view.line());
+        let row = crate::inspector::background_row(e.doc.stage.background.as_ref(), "its rigs', else black");
+        out.push((crate::inspector::background(d, t, area, &mut y, &row), Field::Background));
         for n in &e.notes {
             if y + t.size.row > area.y + area.h {
                 break;
@@ -229,6 +235,7 @@ pub fn inspect(d: &mut DrawList, t: &Tokens, area: Rect, view: &SceneView, hot: 
 impl crate::App {
     /// a scene Show asked Build to edit takes the stage
     pub(crate) fn open_scene(&mut self, o: SceneOpen) {
+        self.leave_view();
         let (x, y) = self.cursor;
         self.take_member_out();
         match SceneView::open(o, self.show.compose.catalog.clone()) {
@@ -336,27 +343,19 @@ impl crate::App {
         self.say(said, x, y, false);
     }
 
-    /// Save in a scene: Build's knobs of the member open first, then the scene's draft
-    pub(crate) fn scene_save(&mut self) {
-        let (x, y) = self.cursor;
+    /// the scene's draft on its way (saving.rs): Build's knobs of the member open go into it first
+    pub(crate) fn scene_save(&mut self, now: std::time::Instant) {
         let inside = self.scene.as_ref().and_then(|v| v.inside);
-        let taken = self.take_member_out();
+        self.take_member_out();
         let Some(view) = self.scene.as_mut() else { return };
-        let done = self.show.save_built_scene(&view.edit.doc, view.edit.base);
-        if let Ok((version, _)) = &done {
-            view.edit.saved_as(*version);
+        view.auto.look(crate::autosave::fingerprint(&view.edit.doc), now);
+        match self.show.scene_job(&view.edit.doc) {
+            Ok(job) => view.auto.send(now, job),
+            Err(why) => view.auto.refuse(why),
         }
         if let Some(m) = inside {
             self.scene_into(m);
         }
-        let (line, bad) = match done {
-            Ok((_, words)) => (taken.map_or(words.clone(), |t| format!("{t} – {words}")), false),
-            Err(why) => (why, true),
-        };
-        if let (Some(cb), false) = (self.clipboard.as_mut(), bad) {
-            let _ = cb.set_text(line.rsplit(' ').next().unwrap_or_default().to_string());
-        }
-        self.say(line, x, y, bad);
     }
 
     /// a scene knob dragged to `x`: the core sets the selected member's value
@@ -448,7 +447,11 @@ mod tests {
         assert_eq!(tree.iter().map(|l| l.part).collect::<Vec<_>>(), [Part::Scene, Part::Member(0), Part::Member(1)]);
         let (mut d, t) = (DrawList::new(0.6), Tokens::default());
         let area = Rect { x: 0.0, y: 0.0, w: 320.0, h: 2000.0 };
-        assert!(inspect(&mut d, &t, area, &view, None).is_empty(), "the scene's inspector has no fields");
+        let fields: Vec<Field> = inspect(&mut d, &t, area, &view, None).into_iter().map(|(_, f)| f).collect();
+        assert_eq!(fields, [Field::Background], "the scene's one field: its background");
+        view.edit.set_background("#336699").unwrap();
+        assert_eq!(view.scene().unwrap().stage.background, Some(deck_space::Background::colour("#336699")), "the stage plays it");
+        view.edit.set_background("").unwrap();
         view.sel = Part::Member(0);
         let fields = inspect(&mut d, &t, area, &view, None);
         assert!(fields.iter().any(|(_, f)| *f == Field::Into));

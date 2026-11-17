@@ -19,6 +19,7 @@ use tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream};
 
 const TOP: &str = r#"{
   "id": "top", "version": 1,
+  "toon": "catpope",
   "outlets": [{ "id": "left" }],
   "seats": [{ "id": "foyer", "show": { "id": "foyer-loop", "version": 2 }, "sits": "deck:foyer", "word": "follow", "lockable": true,
               "uses": { "rows": ["idle", "storm"], "events": ["door"], "outlets": ["wall"] } }],
@@ -31,11 +32,12 @@ const TOP: &str = r#"{
 
 const FOYER: &str = r#"{
   "id": "foyer-loop", "version": 2,
+  "toon": "catpope",
   "outlets": [{ "id": "wall" }],
   "rows": [
     { "id": "idle", "cells": { "wall": { "mode": "play", "piece": "scene:fireflies" } } },
     { "id": "storm", "cells": { "wall": { "mode": "play", "piece": "scene:storm" } } },
-    { "id": "backstage", "fire": { "event": "door", "how": "hand" }, "cells": { "wall": { "mode": "black" } } }
+    { "id": "backstage", "fire": { "event": "door", "how": "manual" }, "cells": { "wall": { "mode": "black" } } }
   ],
   "face": { "rows": ["idle", "storm"], "events": ["door"], "outlets": ["wall"] }
 }"#;
@@ -626,6 +628,7 @@ async fn the_show_runner_opens_watches_holds_and_overrides_a_vote_over_the_real_
 /// #548: two rows, each asking a question of its outlets
 const ASKS: &str = r#"{
   "id": "asks", "version": 1,
+  "toon": "catpope",
   "outlets": [{ "id": "left" }, { "id": "right" }],
   "questions": [
     { "id": "q1", "typed": { "question": { "en": "Which way?" }, "options": [{ "en": "Left" }, { "en": "Right" }] }, "rule": "majority", "seconds": 60 },

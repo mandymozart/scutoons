@@ -360,7 +360,7 @@ impl Conductor {
             return vec![];
         };
         let (id, how, hold) = (row.id.clone(), row.fire.how, row.fire.hold_ms);
-        if how == How::Hand {
+        if how == How::Manual {
             self.record(now.ms, Logged::Ignored { row: id, event: event.to_string() });
             return vec![];
         }

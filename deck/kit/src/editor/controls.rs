@@ -1,7 +1,7 @@
 //! The controls, on the kit's tokens. A control draws itself into the list and answers with where it landed; what a press
 //! means stays with the caller, the state with its one owner. The look: a pressed segment in the pressed colours, small
 //! uppercase spaced labels, one primary action per view, an arrow out on what leaves for elsewhere.
-use crate::base::draw::DrawList;
+use crate::base::draw::{DrawList, Font};
 pub use crate::base::draw::Rect;
 use crate::base::tokens::Tokens;
 
@@ -17,24 +17,43 @@ pub fn fit(text: &str, cols: usize) -> String {
     s
 }
 
+/// `text` in the sans face within `room` pixels at size `px`, an ellipsis where it is cut
+pub fn fit_sans(d: &DrawList, px: f32, text: &str, room: f32) -> String {
+    if d.sans_width(px, text) <= room {
+        return text.to_string();
+    }
+    let mut s = String::new();
+    for c in text.chars() {
+        s.push(c);
+        if d.sans_width(px, &s) + d.sans_width(px, "…") > room {
+            s.pop();
+            break;
+        }
+    }
+    if room > 0.0 {
+        s.push('…');
+    }
+    s
+}
+
 /// a sentence on a filled strip, kept inside `max_x`
 pub fn chip(d: &mut DrawList, t: &Tokens, at: (f32, f32), max_x: f32, text: &str, bad: bool) {
     let px = t.size.font;
-    let w = d.advance(px) * text.chars().count() as f32 + 16.0;
+    let w = d.sans_width(px, text) + 16.0;
     let x = at.0.min(max_x - w - 8.0).max(8.0);
     let h = px * 1.25 + 10.0;
     d.round_rect(x, at.1, w, h, t.size.radius, if bad { t.color.danger } else { t.color.surface_head });
-    d.text(x + 8.0, at.1 + 5.0, px, text, if bad { t.color.bright } else { t.color.text });
+    d.sans(x + 8.0, at.1 + 5.0, px, text, if bad { t.color.bright } else { t.color.text });
 }
 
 /// a small uppercase label, letter-spaced; the width it took
 pub fn label(d: &mut DrawList, t: &Tokens, x: f32, y: f32, text: &str, color: [f32; 4]) -> f32 {
-    d.spaced(x, y, t.size.label, &text.to_uppercase(), color, t.size.spacing)
+    d.set(Font::Sans, x, y, t.size.label, &text.to_uppercase(), color, t.size.spacing)
 }
 
 /// how wide `label` draws `text`
 pub fn label_width(d: &DrawList, t: &Tokens, text: &str) -> f32 {
-    d.step(t.size.label, t.size.spacing) * text.chars().count() as f32
+    d.measure(Font::Sans, t.size.label, &text.to_uppercase(), t.size.spacing)
 }
 
 /// the arrow of an action that leads elsewhere, in a square of `size`
@@ -51,9 +70,9 @@ pub fn primary(d: &mut DrawList, t: &Tokens, r: Rect, text: &str, outward: bool)
     d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, t.color.primary);
     d.outline(r.x, r.y, r.w, r.h, (t.size.radius, 1.0), t.color.primary_line);
     let px = t.size.font;
-    let w = d.advance(px) * text.chars().count() as f32;
+    let w = d.sans_width(px, text);
     let tx = if outward { r.x + t.size.pad * 1.5 } else { r.x + (r.w - w) * 0.5 };
-    d.text(tx, r.y + (r.h - px * 1.25) * 0.5, px, text, t.color.primary_ink);
+    d.sans(tx, r.y + (r.h - px * 1.25) * 0.5, px, text, t.color.primary_ink);
     if outward {
         let s = px * 0.8;
         arrow_out(d, (r.x + r.w - t.size.pad * 1.5 - s, r.y + (r.h - s) * 0.5), s, t.color.primary_ink);
@@ -63,15 +82,20 @@ pub fn primary(d: &mut DrawList, t: &Tokens, r: Rect, text: &str, outward: bool)
 
 /// pills side by side, one of them on; their places
 pub fn pills(d: &mut DrawList, t: &Tokens, x: f32, y: f32, h: f32, names: &[&str], on: usize) -> Vec<Rect> {
+    pills_rounded(d, t, (x, y, h), names, on, t.size.radius)
+}
+
+/// the same, the one on rounded by `radius` (inside a pill: the pill's radius less the inset, so their corners share a centre)
+pub fn pills_rounded(d: &mut DrawList, t: &Tokens, (x, y, h): (f32, f32, f32), names: &[&str], on: usize, radius: f32) -> Vec<Rect> {
     let px = t.size.small;
     let mut cx = x;
     let mut out = Vec::with_capacity(names.len());
     for (i, name) in names.iter().enumerate() {
-        let w = d.advance(px) * name.chars().count() as f32 + 2.0 * t.size.pad;
+        let w = d.sans_width(px, name) + 2.0 * t.size.pad;
         if i == on {
-            d.round_rect(cx, y, w, h, t.size.radius, t.color.pressed);
+            d.round_rect(cx, y, w, h, radius, t.color.pressed);
         }
-        d.text(cx + t.size.pad, y + (h - px * 1.25) * 0.5, px, name, if i == on { t.color.pressed_text } else { t.color.text });
+        d.sans(cx + t.size.pad, y + (h - px * 1.25) * 0.5, px, name, if i == on { t.color.pressed_text } else { t.color.text });
         out.push(Rect { x: cx, y, w, h });
         cx += w + 2.0;
     }
@@ -85,7 +109,7 @@ pub fn chips(d: &mut DrawList, t: &Tokens, (x, y, w): (f32, f32, f32), names: &[
     let (mut cx, mut cy) = (x, y);
     let mut out = Vec::with_capacity(names.len());
     for (i, name) in names.iter().enumerate() {
-        let cw = d.advance(px) * name.chars().count() as f32 + t.size.pad;
+        let cw = d.sans_width(px, name) + t.size.pad;
         if cx > x && cx + cw > x + w {
             cx = x;
             cy += h + gap;
@@ -96,7 +120,7 @@ pub fn chips(d: &mut DrawList, t: &Tokens, (x, y, w): (f32, f32, f32), names: &[
         } else {
             d.outline(cx, cy, cw, h, (t.size.radius, 1.0), t.color.line);
         }
-        d.text(cx + t.size.pad * 0.5, cy + (h - px * 1.25) * 0.5, px, name, if lit { t.color.surface } else { t.color.muted });
+        d.sans(cx + t.size.pad * 0.5, cy + (h - px * 1.25) * 0.5, px, name, if lit { t.color.surface } else { t.color.muted });
         out.push(Rect { x: cx, y: cy, w: cw, h });
         cx += cw + gap;
     }
@@ -118,7 +142,8 @@ pub fn menu(d: &mut DrawList, t: &Tokens, at: (f32, f32), w: f32, lines: &[&str]
         if ticked.get(i).copied().unwrap_or(false) {
             d.disc(r.x + 8.0, r.y + h * 0.5, 3.0, t.color.accent);
         }
-        d.text(r.x + 16.0, r.y + (h - px * 1.25) * 0.5, px, &fit(line, ((w - 24.0) / d.advance(px)).max(0.0) as usize), t.color.text);
+        let line = fit_sans(d, px, line, w - 24.0);
+        d.sans(r.x + 16.0, r.y + (h - px * 1.25) * 0.5, px, &line, t.color.text);
         out.push(r);
     }
     out
@@ -145,11 +170,35 @@ pub fn actions(d: &mut DrawList, t: &Tokens, at: (f32, f32), w: f32, lines: &[Ac
             d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, t.color.hover);
         }
         let ink = if line.enabled { t.color.text } else { t.color.muted };
-        d.text(r.x + pad, r.y + (h - px * 1.25) * 0.5, px, &fit(line.label, ((r.w - 3.0 * pad - px) / d.advance(px)).max(0.0) as usize), ink);
+        let label = fit_sans(d, px, line.label, r.w - 3.0 * pad - px);
+        d.sans(r.x + pad, r.y + (h - px * 1.25) * 0.5, px, &label, ink);
         if line.external {
             let s = px * 0.8;
             arrow_out(d, (r.x + r.w - pad - s, r.y + (h - s) * 0.5), s, ink);
         }
+        out.push(r);
+    }
+    out
+}
+
+/// a titled list of things that are on or off, in the look of `actions`: a dot before each one on; its lines' places
+pub fn checks(d: &mut DrawList, t: &Tokens, at: (f32, f32), w: f32, title: &str, lines: &[(&str, bool)], pointer: (f32, f32)) -> Vec<Rect> {
+    let (h, px, pad) = (t.size.row, t.size.font, t.size.pad);
+    let whole = h * (lines.len() + 1) as f32 + pad;
+    d.round_rect(at.0, at.1, w, whole, t.size.radius * 2.0, t.color.surface);
+    d.outline(at.0, at.1, w, whole, (t.size.radius * 2.0, 1.0), t.color.line);
+    label(d, t, at.0 + pad * 1.5, at.1 + pad * 0.5 + (h - t.size.label * 1.25) * 0.5, title, t.color.muted);
+    let mut out = Vec::with_capacity(lines.len());
+    for (i, &(line, on)) in lines.iter().enumerate() {
+        let r = Rect { x: at.0 + pad * 0.5, y: at.1 + pad * 0.5 + (i + 1) as f32 * h, w: w - pad, h };
+        if r.has(pointer.0, pointer.1) {
+            d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, t.color.hover);
+        }
+        if on {
+            d.disc(r.x + pad * 1.5, r.y + h * 0.5, t.size.rem(0.21), t.color.accent);
+        }
+        let line = fit_sans(d, px, line, r.w - 4.0 * pad);
+        d.sans(r.x + pad * 3.0, r.y + (h - px * 1.25) * 0.5, px, &line, t.color.text);
         out.push(r);
     }
     out
@@ -182,9 +231,20 @@ pub fn meter(d: &mut DrawList, t: &Tokens, x: f32, y: f32, name: &str, value: f3
 pub fn row(d: &mut DrawList, t: &Tokens, area: Rect, y: &mut f32, label: &str, value: &str) {
     let font = t.size.font;
     let at = *y + (t.size.tree_row - font * 1.25) * 0.5;
-    d.text(area.x, at, font, label, t.color.muted);
+    d.sans(area.x, at, font, label, t.color.muted);
     d.text(area.x + (area.w * 0.42).min(96.0), at, font, value, t.color.text);
     *y += t.size.tree_row;
+}
+
+/// `row` with a colour's swatch at its right end, when there is one
+pub fn swatch_row(d: &mut DrawList, t: &Tokens, area: Rect, y: &mut f32, label: &str, value: &str, swatch: Option<[f32; 3]>) {
+    if let Some([r, g, b]) = swatch {
+        let s = t.size.tree_row * 0.6;
+        let (sx, sy) = (area.x + area.w - s, *y + (t.size.tree_row - s) * 0.5);
+        d.round_rect(sx, sy, s, s, t.size.radius, [r, g, b, 1.0]);
+        d.outline(sx, sy, s, s, (t.size.radius, 1.0), t.color.line);
+    }
+    row(d, t, area, y, label, value);
 }
 
 /// a vertical level, filled from the bottom to `position` (0..1) on a gradient: green to `ok`, through amber to `hot`, red above
@@ -222,8 +282,8 @@ pub fn fader(d: &mut DrawList, t: &Tokens, r: Rect, fraction: f32, hot: bool) {
 /// a small button that is on or off; its place
 pub fn toggle(d: &mut DrawList, t: &Tokens, r: Rect, label: &str, on: bool) -> Rect {
     d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, if on { t.color.danger } else { t.color.control });
-    let w = d.advance(t.size.small) * label.chars().count() as f32;
-    d.text(r.x + (r.w - w) * 0.5, r.y + (r.h - t.size.small * 1.25) * 0.5, t.size.small, label, if on { t.color.bright } else { t.color.muted });
+    let w = d.sans_width(t.size.small, label);
+    d.sans(r.x + (r.w - w) * 0.5, r.y + (r.h - t.size.small * 1.25) * 0.5, t.size.small, label, if on { t.color.bright } else { t.color.muted });
     r
 }
 
@@ -252,7 +312,7 @@ pub fn scrub(d: &mut DrawList, t: &Tokens, at: Rect, label: &str, value: &str, f
     let (font, row) = (t.size.font, t.size.row);
     let label_w = (w * 0.42).min(96.0);
     let field = Rect { x: x + label_w, y: y + 1.0, w: w - label_w, h: row - 3.0 };
-    d.text(x, y + (row - font * 1.25) * 0.5, font, label, t.color.muted);
+    d.sans(x, y + (row - font * 1.25) * 0.5, font, label, t.color.muted);
     d.round_rect(field.x, field.y, field.w, field.h, t.size.radius, t.color.control);
     d.outline(field.x, field.y, field.w, field.h, (t.size.radius, t.size.edge), t.color.line);
     let filled = field.w * fraction.clamp(0.0, 1.0);
@@ -265,7 +325,12 @@ pub fn scrub(d: &mut DrawList, t: &Tokens, at: Rect, label: &str, value: &str, f
 
 /// the way down a tree: every step a pill, the last one on; their places, whatever the depth
 pub fn breadcrumb(d: &mut DrawList, t: &Tokens, x: f32, y: f32, path: &[String]) -> Vec<Rect> {
-    let (px, h) = (t.size.font, t.size.row - 4.0);
+    breadcrumb_rounded(d, t, (x, y, t.size.row - 4.0), path, t.size.radius)
+}
+
+/// the same `h` high, the last step rounded by `radius` (see `pills_rounded`)
+pub fn breadcrumb_rounded(d: &mut DrawList, t: &Tokens, (x, y, h): (f32, f32, f32), path: &[String], radius: f32) -> Vec<Rect> {
+    let px = t.size.font;
     let mut cx = x;
     let mut out = Vec::with_capacity(path.len());
     for (i, step) in path.iter().enumerate() {
@@ -273,12 +338,12 @@ pub fn breadcrumb(d: &mut DrawList, t: &Tokens, x: f32, y: f32, path: &[String])
             d.icon(cx + 1.0, y + (h - 12.0) * 0.5, 12.0, "next", t.color.muted);
             cx += 14.0;
         }
-        let w = d.advance(px) * step.chars().count() as f32 + 2.0 * t.size.pad;
+        let w = d.sans_width(px, step) + 2.0 * t.size.pad;
         let last = i + 1 == path.len();
         if last {
-            d.round_rect(cx, y, w, h, t.size.radius, t.color.pressed);
+            d.round_rect(cx, y, w, h, radius, t.color.pressed);
         }
-        d.text(cx + t.size.pad, y + (h - px * 1.25) * 0.5, px, step, if last { t.color.pressed_text } else { t.color.muted });
+        d.sans(cx + t.size.pad, y + (h - px * 1.25) * 0.5, px, step, if last { t.color.pressed_text } else { t.color.muted });
         out.push(Rect { x: cx, y, w, h });
         cx += w;
     }
@@ -319,7 +384,8 @@ pub fn tree(d: &mut DrawList, t: &Tokens, x: f32, y: f32, w: f32, rows: &[TreeRo
         let text_y = r.y + (h - px * 1.25) * 0.5;
         let dw = label_width(d, t, &row.detail);
         let room = x + w - dw - 16.0 - (cx + 32.0);
-        d.text(cx + 32.0, text_y, px, &fit(&row.label, (room / d.advance(px)).max(0.0) as usize), ink);
+        let shown = fit_sans(d, px, &row.label, room);
+        d.sans(cx + 32.0, text_y, px, &shown, ink);
         label(d, t, x + w - dw - 8.0, r.y + (h - t.size.label * 1.25) * 0.5, &row.detail, quiet);
         out.push(r);
     }
@@ -398,6 +464,18 @@ mod tests {
         assert!(cells[1].has(20.0, 20.0 + t.size.row));
         let hover = d.prims().iter().filter(|p| matches!(p, crate::base::draw::Prim::Rect { color, .. } if *color == t.color.hover)).count();
         assert_eq!(hover, 0, "the pointer is on the muted line");
+    }
+
+    #[test]
+    fn a_check_list_puts_its_lines_under_the_title_and_dots_the_ones_on() {
+        let t = Tokens::default();
+        let mut d = list();
+        let cells = checks(&mut d, &t, (0.0, 0.0), 200.0, "PANELS", &[("Info", false), ("Mixer", true)], (0.0, 0.0));
+        assert_eq!(cells.len(), 2);
+        assert!(cells[0].y >= t.size.row, "under the title");
+        assert!((cells[1].y - cells[0].y - t.size.row).abs() < 1e-3);
+        let dots = d.prims().iter().filter(|p| matches!(p, crate::base::draw::Prim::Rect { color, .. } if *color == t.color.accent)).count();
+        assert_eq!(dots, 1, "one is on");
     }
 
     #[test]

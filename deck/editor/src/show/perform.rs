@@ -44,7 +44,7 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
     let big = font * 1.35;
     super::author::view_switch(d, t, host, w, &SHEETS);
     // the panels shown and what each asks for: the matrix as wide as its columns, a row of cues as tall as two lines
-    let matrix = super::band::table(t, &m).size();
+    let matrix = super::band::table(t, &m, false).size();
     let outlets = host.sub.conductor().show().outlets.len().max(1) as f32;
     let mut shown: Vec<(&'static str, f32, Option<f32>)> = vec![("rail", t.size.tree, None), ("side", 320.0, None)];
     if sheet.is_some() {

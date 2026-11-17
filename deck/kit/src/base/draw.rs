@@ -1,6 +1,9 @@
 //! What a frame of UI draws (#456): a list of primitives in logical pixels, in painter's order. The kit has no GPU: an
 //! adapter turns the list into draws. Shapes are exact at any size (a distance per pixel in the adapter), so a dot does not
 //! depend on a texture. The text of a frame lives in one buffer, so a frame allocates nothing once it has run.
+pub use crate::base::fonts::Font;
+use crate::base::fonts::Widths;
+use std::sync::Arc;
 use crate::base::tokens::contrast;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -11,7 +14,7 @@ pub enum Prim {
     Outline { x: f32, y: f32, w: f32, h: f32, r: f32, thick: f32, color: [f32; 4] },
     /// `start..end` = a byte range of the list's text buffer; `spacing` = extra room after each letter, in em; `halo` =
     /// its own ground on a see-through panel (alpha 0: none): light ink is ringed with it, dark ink sits on a strip of it
-    Text { x: f32, y: f32, px: f32, start: usize, end: usize, color: [f32; 4], spacing: f32, halo: [f32; 4] },
+    Text { x: f32, y: f32, px: f32, start: usize, end: usize, color: [f32; 4], spacing: f32, font: Font, halo: [f32; 4] },
     /// an icon by name, in a square of `size`
     Icon { x: f32, y: f32, size: f32, name: &'static str, color: [f32; 4], halo: [f32; 4] },
     /// a frame of the animated logo, in a square of `size`
@@ -44,6 +47,8 @@ pub struct DrawList {
     text: String,
     /// a character's advance per pixel of font size (the mono face's)
     per_px: f32,
+    /// the sans faces' advances (none: the sans is measured as the mono face)
+    widths: Option<Arc<Widths>>,
     halo: [f32; 4],
     /// the first primitive drawn on the see-through ground
     halo_from: usize,
@@ -56,7 +61,12 @@ const HALO_CONTRAST: f32 = 3.0;
 
 impl DrawList {
     pub fn new(per_px: f32) -> DrawList {
-        DrawList { prims: Vec::with_capacity(4096), text: String::with_capacity(8192), per_px, halo: NO_HALO, halo_from: 0 }
+        DrawList { prims: Vec::with_capacity(4096), text: String::with_capacity(8192), per_px, widths: None, halo: NO_HALO, halo_from: 0 }
+    }
+
+    /// a list laid out in these faces
+    pub fn with_widths(widths: Arc<Widths>) -> DrawList {
+        DrawList { widths: Some(widths.clone()), ..DrawList::new(widths.mono()) }
     }
 
     pub fn clear(&mut self) {
@@ -123,16 +133,51 @@ impl DrawList {
 
     /// `text` from (x, y), its top left, at font size `px`; the width drawn
     pub fn text(&mut self, x: f32, y: f32, px: f32, text: &str, color: [f32; 4]) -> f32 {
-        self.spaced(x, y, px, text, color, 0.0)
+        self.set(Font::Mono, x, y, px, text, color, 0.0)
+    }
+
+    /// `text` in the sans face (text, labels); the width drawn
+    pub fn sans(&mut self, x: f32, y: f32, px: f32, text: &str, color: [f32; 4]) -> f32 {
+        self.set(Font::Sans, x, y, px, text, color, 0.0)
+    }
+
+    /// `text` in the bold sans (titles); the width drawn
+    pub fn bold(&mut self, x: f32, y: f32, px: f32, text: &str, color: [f32; 4]) -> f32 {
+        self.set(Font::Bold, x, y, px, text, color, 0.0)
     }
 
     /// `text` with `spacing` em of extra room after each letter; the width drawn
     pub fn spaced(&mut self, x: f32, y: f32, px: f32, text: &str, color: [f32; 4], spacing: f32) -> f32 {
+        self.set(Font::Mono, x, y, px, text, color, spacing)
+    }
+
+    /// `text` in `font` with `spacing` em after each letter; the width drawn
+    #[allow(clippy::too_many_arguments)]
+    pub fn set(&mut self, font: Font, x: f32, y: f32, px: f32, text: &str, color: [f32; 4], spacing: f32) -> f32 {
         let start = self.text.len();
         self.text.push_str(text);
         let halo = self.halo_for(color, (x + px * 0.3, y + px * 0.6));
-        self.prims.push(Prim::Text { x, y, px, start, end: self.text.len(), color, spacing, halo });
-        self.step(px, spacing) * text.chars().count() as f32
+        self.prims.push(Prim::Text { x, y, px, start, end: self.text.len(), color, spacing, font, halo });
+        self.measure(font, px, text, spacing)
+    }
+
+    /// the width `text` takes in `font` at size `px` with `spacing` em after each letter
+    pub fn measure(&self, font: Font, px: f32, text: &str, spacing: f32) -> f32 {
+        let n = text.chars().count() as f32;
+        match (&self.widths, font) {
+            (Some(w), Font::Sans | Font::Bold) => text.chars().map(|c| w.of(c, font)).sum::<f32>() * px + n * spacing * px,
+            _ => self.step(px, spacing) * n,
+        }
+    }
+
+    /// the width of a text in the sans face
+    pub fn sans_width(&self, px: f32, text: &str) -> f32 {
+        self.measure(Font::Sans, px, text, 0.0)
+    }
+
+    /// the width of a text in the bold sans
+    pub fn bold_width(&self, px: f32, text: &str) -> f32 {
+        self.measure(Font::Bold, px, text, 0.0)
     }
 
     /// a letter's step at font size `px` with `spacing` em between letters
@@ -155,7 +200,7 @@ impl DrawList {
         for p in self.prims.get(from..).unwrap_or_default() {
             let r = match *p {
                 Prim::Rect { x, y, w, h, .. } | Prim::Outline { x, y, w, h, .. } => (x, y, x + w, y + h),
-                Prim::Text { x, y, px, start, end, spacing, .. } => (x, y, x + self.step(px, spacing) * self.text[start..end].chars().count() as f32, y + px * 1.25),
+                Prim::Text { x, y, px, start, end, spacing, font, .. } => (x, y, x + self.measure(font, px, &self.text[start..end], spacing), y + px * 1.25),
                 Prim::Icon { x, y, size, .. } | Prim::Logo { x, y, size, .. } => (x, y, x + size, y + size),
                 Prim::Segment { a, b, .. } => (a.0.min(b.0), a.1.min(b.1), a.0.max(b.0), a.1.max(b.1)),
                 Prim::Clip(_) => continue,
@@ -234,6 +279,19 @@ mod tests {
         assert_eq!(d.text(0.0, 0.0, 10.0, "Bühne", [1.0; 4]), 25.0);
         let Prim::Text { start, end, .. } = d.prims()[0] else { panic!("a text") };
         assert_eq!(d.text_of(start, end), "Bühne");
+    }
+
+    #[test]
+    fn a_sans_text_is_measured_by_its_letters_and_the_mono_one_by_its_count() {
+        let faces = crate::base::fonts::Faces::shipped(include_bytes!("../../../outlet/assets/IBMPlexMono-Bold-latin.ttf"));
+        let mut d = DrawList::with_widths(Arc::new(faces.widths()));
+        let (ii, mm) = (d.sans(0.0, 0.0, 10.0, "ii", [1.0; 4]), d.sans(0.0, 0.0, 10.0, "MM", [1.0; 4]));
+        assert!(ii < mm, "{ii} {mm}");
+        assert!(d.bold_width(10.0, "MM") > mm);
+        assert!((d.text(0.0, 0.0, 10.0, "ii", [1.0; 4]) - 12.0).abs() < 0.1, "the mono face: 0.6 em a letter");
+        assert_eq!(d.extent(1).map(|r| r.w), Some(mm), "the extent measures in the text's face");
+        // without the faces' widths the sans is laid out as the mono face
+        assert_eq!(DrawList::new(0.5).sans_width(10.0, "ii"), 10.0);
     }
 
     #[test]

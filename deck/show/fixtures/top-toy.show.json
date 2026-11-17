@@ -1,6 +1,7 @@
 {
   "id": "top-toy",
   "version": 1,
+  "toon": "catpope",
   "outlets": [
     { "id": "left" },
     { "id": "right" },
@@ -48,7 +49,7 @@
     },
     {
       "id": "finale",
-      "fire": { "event": "ch3.end", "how": "hand" },
+      "fire": { "event": "ch3.end", "how": "manual" },
       "cells": {
         "left": { "mode": "black" },
         "right": { "mode": "black" },

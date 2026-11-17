@@ -65,8 +65,10 @@
 	--border-width-hairline: 1px;
 	--border-width-regular: 2px;
 
-	/* ── Type: one family, no heading scale ───────────────────────────────── */
-	--font-mono: 'IBM Plex Mono', monospace;
+	/* ── Type: ABC Areal from the CDN (fonts.css), the open IBM Plex Mono when it cannot load; no heading scale ── */
+	--font-mono: 'ABC Areal Mono', 'IBM Plex Mono', monospace;
+	/* text, labels, titles beside the mono values */
+	--font-sans: 'ABC Areal', 'IBM Plex Mono', monospace;
 	/* comic lettering (text boxes `font: 'lettering'`, sfx) */
 	--font-lettering: 'Bangers', 'IBM Plex Mono', monospace;
 	--font-weight-regular: 400;

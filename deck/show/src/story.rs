@@ -16,7 +16,7 @@ use serde_json::Value;
 use std::collections::BTreeMap;
 
 /// the inspector's line while the row fires on no event, the picker's line that clears it
-pub const BY_HAND: &str = "by hand only";
+pub const BY_HAND: &str = "manual";
 /// the picker's field where there is no list: the event's id is typed
 pub const EVENT: &str = "event";
 /// what the picker says where there is no list (why not comes first, from [`refused`])
@@ -143,7 +143,7 @@ pub fn lines(show: &Show, row: &str, events: &[StoryEvent], query: &str) -> Vec<
     let q = query.trim().to_lowercase();
     let mut out = vec![];
     if q.is_empty() {
-        out.push(EventView { event: None, label: BY_HAND.into(), detail: "no event – GO and the hand fire it".into(), can: true });
+        out.push(EventView { event: None, label: BY_HAND.into(), detail: "no event – its ▶ and GO fire it".into(), can: true });
     }
     for e in events {
         let mut words = vec![format!("ch {}", e.chapter)];
@@ -356,7 +356,7 @@ mod tests {
 
         let s = top_toy();
         let all = lines(&s, "opening", &events, "");
-        assert_eq!(all[0], EventView { event: None, label: BY_HAND.into(), detail: "no event – GO and the hand fire it".into(), can: true });
+        assert_eq!(all[0], EventView { event: None, label: BY_HAND.into(), detail: "no event – its ▶ and GO fire it".into(), can: true });
         assert_eq!(all[1].detail, "ch 3 · nave · showMessage · catpope · Miau, Freunde! · fires dialog");
         assert_eq!((all[2].label.as_str(), all[2].can), ("no id", false));
         assert!(all[2].detail.starts_with("no id – the chapter editor gives it one · ch 3 · nave"), "{}", all[2].detail);
@@ -377,7 +377,7 @@ mod tests {
         assert_eq!(picked.show.rows[0].fire.how, s.rows[0].fire.how, "how stays");
         assert_eq!(edit(&s, &Edit::Event { row: "opening".into(), event: Some("ch3.end".into()) }).unwrap_err(), "not changed: row 'finale': the event 'ch3.end' already fires row 'opening'");
         let hand = edit(&picked.show, &Edit::Event { row: "opening".into(), event: None }).unwrap();
-        assert_eq!((hand.said.as_str(), hand.show.rows[0].fire.event.as_ref()), ("row 1 opening: by hand only", None));
+        assert_eq!((hand.said.as_str(), hand.show.rows[0].fire.event.as_ref()), ("row 1 opening: manual", None));
         assert_eq!(edit(&s, &Edit::Event { row: "dialog".into(), event: Some("  ".into()) }).unwrap().show.rows[1].fire.event, None, "empty typed: by hand");
     }
 
