@@ -132,6 +132,7 @@ impl Host {
                 }
             }
             Hit::CellPiece => self.open_pieces(),
+            Hit::CellShot => self.open_shots(),
             _ => {}
         }
     }
@@ -158,6 +159,12 @@ impl Host {
     pub(super) fn pick_piece(&mut self, piece: &str) -> bool {
         let (Some(row), Some(column)) = self.selected() else { return false };
         self.edit_rows(&Edit::Piece { row, column, piece: piece.to_string() })
+    }
+
+    /// the selected cell's camera shot (none: the scene's opening), checked by deck-show
+    pub(super) fn pick_shot(&mut self, shot: Option<&str>) -> bool {
+        let (Some(row), Some(column)) = self.selected() else { return false };
+        self.edit_rows(&Edit::Shot { row, column, shot: shot.map(str::to_string) })
     }
 
     /// ctrl+r: what is selected is renamed in place – the group, else the column, else the row
@@ -301,6 +308,11 @@ pub fn cell_side(d: &mut DrawList, t: &Tokens, host: &mut Host, (x, y, w): (f32,
         let r = field(d, t, (x, y, w), rows::PIECE, &host.marked(piece), None);
         host.hits.push((r, Hit::CellPiece));
         y += row;
+        if let Some(shot) = &insp.shot {
+            let r = field(d, t, (x, y, w), rows::SHOT, shot, None);
+            host.hits.push((r, Hit::CellShot));
+            y += row;
+        }
     }
     if let Some(p) = &insp.knobs_of {
         y += super::values::side(d, t, host, (x, y, w), show, (sel, &col), (p, insp.warning.as_deref()));
@@ -647,5 +659,32 @@ pub(super) mod tests {
         press(&mut host, false, |h| *h == Hit::AskYes);
         assert_eq!(host.status, "row row-2 removed with its 1 cells");
         assert_eq!((host.shown().rows.len(), host.row), (1, 0));
+    }
+
+    /// A scene cell's camera shot picked in place: the shots the editor knows of that scene, the scene's opening first;
+    /// typed `shot:<id>` where it knows none; a cell that plays no scene says to pick the scene first
+    #[test]
+    fn a_scene_cells_shot_is_picked_in_place() {
+        let mut host = Host::new(None, None, None, "http://127.0.0.1:9/api".into());
+        press(&mut host, false, |h| *h == Hit::RowAdd);
+        press(&mut host, false, |h| *h == Hit::Cell(0, 0));
+        host.open_shots();
+        assert_eq!(host.status, deck_show::rows::NO_SCENE_SHOT);
+        press(&mut host, false, |h| *h == Hit::CellPiece);
+        typed(&mut host, "scene:crypt");
+        host.cameras.insert("scene:crypt".into(), vec![("wide".into(), "20° 8° 6 m · 30 mm".into()), ("iso".into(), "45° 35° 12 m · ortho 5 m".into())]);
+        press(&mut host, false, |h| *h == Hit::CellShot);
+        assert_eq!(host.context_lines(), ["the scene's opening", "wide", "iso"]);
+        typed(&mut host, "iso");
+        assert_eq!(host.status, "row 1 row, left: scene:crypt > shot:iso");
+        assert!(host.context.is_none());
+        host.cameras.clear();
+        press(&mut host, false, |h| *h == Hit::CellShot);
+        assert_eq!(host.context_lines(), ["the scene's opening"]);
+        typed(&mut host, "shot:close");
+        assert_eq!(host.status, "row 1 row, left: scene:crypt > shot:close", "typed: the deck's camera reads it");
+        press(&mut host, false, |h| *h == Hit::CellShot);
+        host.type_key(&Key::Named(NamedKey::Enter));
+        assert_eq!(host.status, "row 1 row, left: scene:crypt", "the opening again");
     }
 }

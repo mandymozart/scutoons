@@ -296,6 +296,7 @@ fn args() -> Result<Args> {
                 a.script.author = Some((row, column, p.next().filter(|s| !s.is_empty())));
             }
             "--in-place" => a.script.in_place = Some(val()?),
+            "--known-shots" => a.script.known_shots = val()?.split_once('=').map(|(s, ids)| (s.to_string(), ids.split('+').map(String::from).collect())),
             "--cell" => a.script.cell = val()?.split_once(',').map(|(r, c)| (r.trim().to_string(), c.trim().to_string())),
             "--question" => {
                 let v = val()?;
@@ -2359,6 +2360,10 @@ impl App {
         // #537: the Show workspace picks a cell's piece from the book's scenes
         self.show.book.clone_from(&self.book.book);
         self.show.book_why = self.book_why();
+        if let Some(view) = self.scene.as_ref() {
+            let shots = view.edit.camera().shots.iter().map(|s| (s.id.clone(), dop::shot_words(s))).collect();
+            self.show.cameras.insert(view.edit.key(), shots);
+        }
         self.follow_library();
         // the main menu's Quit to stage: as F9
         if self.exit == 11 {
@@ -2958,6 +2963,7 @@ impl App {
         }
         if let Some(v) = self.scene.as_mut() {
             v.dop.floor = self.stage.space.floor_point().y;
+            v.dop.aims = self.stage.space.aim_choices();
         }
         if let Some(o) = self.build.open(ui, t, "dop", self.cursor, self.panel.hits.len()) {
             match self.scene.as_ref().filter(|v| v.inside.is_none()) {

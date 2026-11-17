@@ -36,6 +36,8 @@ pub struct Context {
 pub(super) enum Offered {
     Questions(Arc<Offers>),
     Pieces(Vec<PieceView>),
+    /// the cell's scene's camera shots (`None`: its own opening)
+    Shots(Vec<Option<String>>),
     Columns(Vec<ColumnAct>),
     Rows(Vec<RowAct>),
 }
@@ -233,6 +235,34 @@ impl Host {
         self.context = Some(Context { ta: Typeahead::found_by(items, at.0, at.1, find).with_note(note), offered: Offered::Pieces(pieces) });
     }
 
+    /// The selected cell's camera shot picked in place: the typeahead opens on the cell with the shots of the scene it
+    /// plays (as far as the editor knows its camera – Build's open scene); a typed `shot:<id>` and Enter take any.
+    pub(super) fn open_shots(&mut self) {
+        let (Some(row), Some(column)) = self.selected() else { return };
+        let Some(piece) = self.shown().row(&row).and_then(|r| r.cells.get(&column)).and_then(|c| match c {
+            deck_show::Cell::Play { piece: Some(p), .. } => Some(p.clone()),
+            _ => None,
+        }) else {
+            self.status = rows::NO_SCENE_SHOT.into();
+            return;
+        };
+        let Some(c) = view::plan(self.shown()).columns.iter().position(|x| x.id == column) else { return };
+        let at = self.hits.iter().rev().find(|(_, h)| *h == Hit::Cell(self.row, c)).map_or((self.cursor.0, self.cursor.1), |(r, _)| (r.x, r.y + r.h));
+        let known = self.cameras.get(&piece).cloned().unwrap_or_default();
+        let mut shots: Vec<Option<String>> = vec![None];
+        let mut items = vec![Item { id: 0, label: "the scene's opening".into(), detail: format!("{piece} · its first shot") }];
+        for (i, (id, detail)) in known.iter().enumerate() {
+            shots.push(Some(id.clone()));
+            let words = if detail.is_empty() { String::new() } else { format!(" · {detail}") };
+            items.push(Item { id: i + 1, label: id.clone(), detail: format!("{piece} > shot:{id}{words}") });
+        }
+        let note = if known.is_empty() { rows::TYPE_SHOT.to_string() } else { String::new() };
+        let labels: Vec<String> = items.iter().map(|i| i.label.clone()).collect();
+        let find = move |q: &str| labels.iter().enumerate().filter(|(_, l)| l.contains(q.trim().trim_start_matches("shot:"))).map(|(i, _)| i).collect();
+        self.typing = None;
+        self.context = Some(Context { ta: Typeahead::found_by(items, at.0, at.1, find).with_note(note), offered: Offered::Shots(shots) });
+    }
+
     /// the pointer over the open typeahead highlights its line
     pub fn pointer(&mut self, x: f32, y: f32) {
         self.cursor = (x, y);
@@ -266,6 +296,12 @@ impl Host {
                     }
                 }
                 (None, Offered::Pieces(_)) if self.book.is_some() => self.status = rows::NONE_FOUND.into(),
+                (None, Offered::Shots(_)) if !c.ta.query().trim().is_empty() => {
+                    let typed = c.ta.query().trim().to_string();
+                    if self.pick_shot(Some(&typed)) {
+                        self.context = None;
+                    }
+                }
                 _ => {}
             },
             Key::Named(NamedKey::ArrowUp) => c.ta.step(-1),
@@ -288,6 +324,7 @@ impl Host {
         let labels: Vec<String> = match &c.offered {
             Offered::Questions(o) => o.list.iter().map(|o| o.label.clone()).collect(),
             Offered::Pieces(p) => p.iter().map(|p| p.label.clone()).collect(),
+            Offered::Shots(s) => s.iter().map(|s| s.clone().unwrap_or_else(|| "the scene's opening".into())).collect(),
             Offered::Columns(a) => a.iter().map(|a| a.label().to_string()).collect(),
             Offered::Rows(a) => a.iter().map(|a| a.label().to_string()).collect(),
         };
@@ -304,6 +341,14 @@ impl Host {
                 if let Some(piece) = p.get(id) {
                     if !self.pick_piece(&piece.address.clone()) {
                         self.context = Some(Context { ta: c.ta, offered: Offered::Pieces(p) });
+                    }
+                }
+                return;
+            }
+            Offered::Shots(s) => {
+                if let Some(shot) = s.get(id) {
+                    if !self.pick_shot(shot.clone().as_deref()) {
+                        self.context = Some(Context { ta: c.ta, offered: Offered::Shots(s) });
                     }
                 }
                 return;

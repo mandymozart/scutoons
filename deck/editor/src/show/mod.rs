@@ -166,6 +166,8 @@ pub enum Hit {
     Ask(ask::AskHit),
     CellMode(usize),
     CellPiece,
+    /// the cell's camera shot field: the shot picker opens in place
+    CellShot,
     /// #553: one chip of the selected cell's filter (the one condition control); an address of the inspected row (selects
     /// it: its filter's chips show under it); one chip of the selected address's filter
     CellFact(usize),
@@ -261,6 +263,8 @@ pub struct Host {
     /// #537: the toon's address book (the editor's, main.rs) – its scenes are what a cell's piece is picked from – and why
     /// there is none
     pub book: Option<std::sync::Arc<deck_space::rig::book::Book>>,
+    /// the camera shots the editor knows per scene (`scene:<id>` → id and its words): Build's open scene's
+    pub cameras: BTreeMap<String, Vec<(String, String)>>,
     pub book_why: Option<String>,
     /// a library card a cell would take is in the hand (the cell under the pointer shows it); the core's refusal where
     /// one was dropped
@@ -371,7 +375,7 @@ impl Host {
         perform_panels.floats.scrolls_itself("matrix");
         let scroll = deck_kit::editor::table::Scroll::default();
         let saves = version.map(|v| (show.id.clone(), crate::autosave::Autosave::new(Some(v)))).into_iter().collect();
-        let mut host = Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), columns: Vec::new(), group: None, context: None, show_panels, perform_panels, show_scroll: scroll, perform_scroll: scroll, band: None, view_slot: Rect::default(), help: None, address: None, book: None, book_why: None, carrying: false, refused: None, toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, status, flow: None, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, saves, unsent: BTreeMap::new(), session: session::Session::default(), toons: toons::Toons::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), build: None, to_build: None, compose: new_scene::Composer::default(), to_stage: None, demos: Vec::new(), demo_book: None, link, api };
+        let mut host = Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), columns: Vec::new(), group: None, context: None, show_panels, perform_panels, show_scroll: scroll, perform_scroll: scroll, band: None, view_slot: Rect::default(), help: None, address: None, book: None, cameras: BTreeMap::new(), book_why: None, carrying: false, refused: None, toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, status, flow: None, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, saves, unsent: BTreeMap::new(), session: session::Session::default(), toons: toons::Toons::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), build: None, to_build: None, compose: new_scene::Composer::default(), to_stage: None, demos: Vec::new(), demo_book: None, link, api };
         host.adopt_kept();
         host
     }
@@ -509,7 +513,7 @@ impl Host {
             Hit::RoleAdd | Hit::RoleName | Hit::RoleFact(_) | Hit::RoleRemove | Hit::AskYes | Hit::AskNo => self.roles_press(hit),
             Hit::WhoMove(_) | Hit::WhoRename(_) | Hit::WhoKick(_) | Hit::MenuPick(_) => self.who_press(hit),
             Hit::Ask(h) => self.ask_press(h),
-            Hit::RowAdd | Hit::RowName | Hit::RowRemove | Hit::Cell(..) | Hit::CellAlso(..) | Hit::CellMode(_) | Hit::CellPiece | Hit::Column(_) | Hit::ColumnAlso(_) | Hit::Group(_) | Hit::CellFact(_) | Hit::AddressPick(_) | Hit::AddressFact(_) => {
+            Hit::RowAdd | Hit::RowName | Hit::RowRemove | Hit::Cell(..) | Hit::CellAlso(..) | Hit::CellMode(_) | Hit::CellPiece | Hit::CellShot | Hit::Column(_) | Hit::ColumnAlso(_) | Hit::Group(_) | Hit::CellFact(_) | Hit::AddressPick(_) | Hit::AddressFact(_) => {
                 self.rows_press(hit);
             }
             Hit::FiresOn | Hit::EventPick(_) | Hit::EventType => self.events_press(hit),
@@ -703,8 +707,11 @@ pub struct Script {
     pub to_cell: bool,
     /// the scene sheet filled as typed and picked (`--new-scene`), then played if asked
     pub new_scene: Option<NewScene>,
-    /// edited in place: `row` the selected row's name, `cell` the selected cell's content, `group:NAME` that group selected
+    /// edited in place: `row` the selected row's name, `cell` the selected cell's content, `shot` its camera shot,
+    /// `group:NAME` that group selected
     pub in_place: Option<String>,
+    /// the shots a scene's camera has, as Build's open scene would tell (`scene:<id>=wide+close`)
+    pub known_shots: Option<(String, Vec<String>)>,
 }
 
 /// `ID,NAME,FILLER+FILLER[,play]`
@@ -809,6 +816,12 @@ impl Host {
             36 => match s.in_place.as_deref() {
                 Some("row") => self.press(Hit::RowName),
                 Some("cell") => self.open_pieces(),
+                Some("shot") => {
+                    if let Some((scene, shots)) = &s.known_shots {
+                        self.cameras.insert(scene.clone(), shots.iter().map(|id| (id.clone(), String::new())).collect());
+                    }
+                    self.open_shots();
+                }
                 Some(g) => {
                     let groups = deck_show::view::plan(self.shown()).groups;
                     if let Some(i) = g.strip_prefix("group:").and_then(|n| groups.iter().position(|x| x.name == n)) {
