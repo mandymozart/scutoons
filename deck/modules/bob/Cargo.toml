@@ -1,0 +1,20 @@
+# bob – a starter motion module for an item (#590, research/MODULE-EXTENSIONS.md §3). Build for the deck / browser:
+# `cargo build --release --target wasm32-unknown-unknown -p bob-module`
+[package]
+name = "bob-module"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+deck-module = { path = "../../module" }
+
+[dev-dependencies]
+deck-core = { workspace = true }
+deck-module = { path = "../../module", features = ["host"] }
+deck-module-host = { path = "../../module-host" }

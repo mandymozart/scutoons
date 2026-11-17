@@ -126,7 +126,7 @@ impl Purpose {
             Purpose::Build => &[Kind::Module, Kind::Instrument, Kind::Character, Kind::Image, Kind::Audio, Kind::Video, Kind::Model],
             Purpose::Show => &[Kind::Scene, Kind::Character, Kind::Item, Kind::Place],
             Purpose::Module => &[Kind::Module],
-            Purpose::Scene => &[Kind::Character, Kind::Item, Kind::Image],
+            Purpose::Scene => &[Kind::Character, Kind::Item, Kind::Image, Kind::Module],
         }
     }
 
@@ -136,7 +136,7 @@ impl Purpose {
             Purpose::Build => (matches!(kind, Kind::Module | Kind::Instrument), "on a rig: its tracks play modules and instruments"),
             Purpose::Show => (matches!(kind, Kind::Scene | Kind::Character | Kind::Item), "on a cell: a cell plays a scene, a character or an item"),
             Purpose::Module => (false, "here: a double click opens a module"),
-            Purpose::Scene => (matches!(kind, Kind::Character | Kind::Item | Kind::Image), "on a scene: its slots take characters and items, its layers pictures"),
+            Purpose::Scene => (matches!(kind, Kind::Character | Kind::Item | Kind::Image | Kind::Module), "on a scene: its slots take characters and items, its layers pictures, the Modules of its camera and members modules"),
         };
         if ok {
             Ok(())
@@ -348,7 +348,8 @@ mod tests {
         assert_eq!(Purpose::Build.takes(Kind::Scene), Err("scenes cannot be dropped on a rig: its tracks play modules and instruments".into()));
         assert!(Purpose::Module.takes(Kind::Module).is_err());
         assert_eq!(Purpose::Scene.takes(Kind::Item), Ok(()));
-        assert!(Purpose::Scene.takes(Kind::Module).is_err());
+        assert_eq!(Purpose::Scene.takes(Kind::Module), Ok(()), "a module lands on an entity's Modules slot");
+        assert!(Purpose::Scene.takes(Kind::Instrument).is_err());
         assert_eq!(Purpose::Scene.takes(Kind::Image), Ok(()), "a picture fills a parallax layer");
     }
 

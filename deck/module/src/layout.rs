@@ -10,6 +10,7 @@
 //! channels the cables carry) and can be hashed and tested.
 use crate::ev::Ev;
 use crate::hdr::{AssetInfo, InHdr, OutHdr};
+use crate::motion::{TransformIn, TransformOut};
 use core::mem::size_of;
 
 /// the ABI version a v2 module speaks (`dm_abi()`, the descriptor's `abi`)
@@ -123,6 +124,8 @@ pub struct Shape {
     pub sensors: [Option<Sensor>; MAX_SENSORS],
     /// asset slots
     pub assets: u8,
+    /// a `*.motion` slot's module: the transform regions (`motion`)
+    pub motion: bool,
 }
 
 const fn count_u8(a: &[u8]) -> usize {
@@ -154,6 +157,7 @@ impl Shape {
         events_out: [0; MAX_EVENT_PORTS],
         sensors: [None; MAX_SENSORS],
         assets: 0,
+        motion: false,
     };
 
     pub const fn audio_in_ports(&self) -> usize {
@@ -252,6 +256,8 @@ pub struct Layout {
     pub assets: u32,
     /// per port: `Ev[capacity]`, the first `InHdr.ev_in_len[p]` used, sorted by frame
     pub events_in: [u32; MAX_EVENT_PORTS],
+    /// `TransformIn` (a motion module; 0 = none)
+    pub motion_in: u32,
     /// bytes the host writes: `[0, inp_size)`
     pub inp_size: u32,
     /// the `OutHdr`; also the size of `inp` rounded to `ALIGN`
@@ -263,6 +269,8 @@ pub struct Layout {
     pub audio_out: [u32; MAX_AUDIO_PORTS],
     /// per port: `Ev[capacity]`, the first `OutHdr.ev_out_len[p]` used
     pub events_out: [u32; MAX_EVENT_PORTS],
+    /// `TransformOut` (a motion module; 0 = none)
+    pub motion_out: u32,
     /// all bytes, `inp` and `out`
     pub size: u32,
     /// `dm_layout()`: FNV-1a over the ABI version, the record sizes, the shape and every offset
@@ -302,6 +310,8 @@ pub const IN_HDR_SIZE: u32 = size_of::<InHdr>() as u32;
 pub const OUT_HDR_SIZE: u32 = size_of::<OutHdr>() as u32;
 pub const EV_SIZE: u32 = size_of::<Ev>() as u32;
 pub const ASSET_INFO_SIZE: u32 = size_of::<AssetInfo>() as u32;
+pub const TRANSFORM_IN_SIZE: u32 = size_of::<TransformIn>() as u32;
+pub const TRANSFORM_OUT_SIZE: u32 = size_of::<TransformOut>() as u32;
 
 impl Layout {
     /// The one layout function (SDK and host). Panics on a shape that breaks [`Shape::check`] – in a `const`, that is
@@ -349,6 +359,10 @@ impl Layout {
             at = up(at + EV_SIZE * s.events_in[i] as u32);
             i += 1;
         }
+        let motion_in = if s.motion { at } else { 0 };
+        if s.motion {
+            at = up(at + TRANSFORM_IN_SIZE);
+        }
         let inp_size = at;
         let out = at;
         at = up(at + OUT_HDR_SIZE);
@@ -369,6 +383,10 @@ impl Layout {
             events_out[i] = at;
             at = up(at + EV_SIZE * s.events_out[i] as u32);
             i += 1;
+        }
+        let motion_out = if s.motion { at } else { 0 };
+        if s.motion {
+            at = up(at + TRANSFORM_OUT_SIZE);
         }
         let size = at;
 
@@ -395,6 +413,10 @@ impl Layout {
             i += 1;
         }
         h = fnv_all(h, &[params, dirty, control_in, vars, assets, inp_size, out, control_out, written, size]);
+        // a layout without the motion regions keeps the hash it had before they existed
+        if s.motion {
+            h = fnv_all(h, &[TRANSFORM_IN_SIZE, TRANSFORM_OUT_SIZE, motion_in, motion_out]);
+        }
 
         Layout {
             shape: s,
@@ -406,12 +428,14 @@ impl Layout {
             sensors,
             assets,
             events_in,
+            motion_in,
             inp_size,
             out,
             control_out,
             written,
             audio_out,
             events_out,
+            motion_out,
             size,
             hash: h,
         }
@@ -502,6 +526,7 @@ mod from_descriptor {
                 return Err(format!("module '{me}' has {} asset slots, at most {MAX_ASSETS}", d.assets.len()));
             }
             s.assets = d.assets.len() as u8;
+            s.motion = deck_catalog::slot::check_descriptor(d)?.is_some_and(|slot| slot.domain == deck_catalog::slot::SlotDomain::Motion);
             s.check().map_err(|e| format!("module '{me}': {e}"))?;
             Ok(s)
         }
@@ -564,6 +589,19 @@ mod tests {
     }
 
     #[test]
+    fn a_motion_module_has_the_transform_regions_last_on_each_side() {
+        let mut s = Shape::EMPTY;
+        s.params = 2;
+        let plain = Layout::of(&s);
+        s.motion = true;
+        let l = Layout::of(&s);
+        assert_eq!((plain.motion_in, plain.motion_out), (0, 0));
+        assert_eq!((l.motion_in, l.inp_size - l.motion_in), (plain.inp_size, TRANSFORM_IN_SIZE));
+        assert_eq!((l.motion_out, l.size - l.motion_out), (l.out + up(OUT_HDR_SIZE), TRANSFORM_OUT_SIZE));
+        assert_eq!((TRANSFORM_IN_SIZE, TRANSFORM_OUT_SIZE), (256, 80));
+    }
+
+    #[test]
     fn a_stereo_synth_is_a_few_kilobytes_each_way() {
         // §1.1: "A stereo synth is ≈ 5 KB each way (v1 ≈ 72 KB)"
         let mut s = Shape::EMPTY;
@@ -598,7 +636,7 @@ mod tests {
     fn the_hash_moves_with_any_number_of_the_shape() {
         let base = Layout::of(&Shape::EMPTY).hash;
         let mut seen = vec![base];
-        let edits: [fn(&mut Shape); 11] = [
+        let edits: [fn(&mut Shape); 12] = [
             |s| s.params = 1,
             |s| s.control_in = 1,
             |s| s.control_out = 1,
@@ -610,6 +648,7 @@ mod tests {
             |s| s.events_out[0] = 1,
             |s| s.sensors[0] = Some(Sensor::Position),
             |s| s.sensors[0] = Some(Sensor::PositionPrecise),
+            |s| s.motion = true,
         ];
         for edit in edits {
             let mut s = Shape::EMPTY;

@@ -433,6 +433,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "bob-module"
+version = "0.1.0"
+dependencies = [
+ "deck-core",
+ "deck-module",
+ "deck-module-host",
+]
+
+[[package]]
 name = "bridge"
 version = "0.1.0"
 dependencies = [
@@ -1176,6 +1185,7 @@ dependencies = [
  "deck-catalog",
  "deck-core",
  "deck-events",
+ "deck-module",
  "deck-module-host",
  "deck-space",
  "libm",
@@ -1264,10 +1274,12 @@ name = "deck-module-host"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bob-module",
  "bytemuck",
  "deck-catalog",
  "deck-core",
  "deck-module",
+ "dolly-module",
  "fixture-module",
  "serde_json",
  "sha2 0.10.9",
@@ -1396,6 +1408,7 @@ dependencies = [
  "deck-events",
  "deck-kit",
  "deck-link",
+ "deck-module",
  "deck-outlet",
  "deck-ui",
  "egui-wgpu",
@@ -1539,6 +1552,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d4b8a88685455ed29a21542a33abd9cb6510b6b129abadabdcef0f4c55bc8f61"
 dependencies = [
  "litrs",
+]
+
+[[package]]
+name = "dolly-module"
+version = "0.1.0"
+dependencies = [
+ "deck-core",
+ "deck-module",
+ "deck-module-host",
 ]
 
 [[package]]

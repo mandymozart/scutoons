@@ -33,6 +33,8 @@ pub struct SceneView {
     pub marks: Vec<(Rect, crate::scene_stage::Mark)>,
     /// the DOP panel's selection and the move it is making
     pub dop: crate::dop::Sel,
+    /// where a card from the library is carried (a Modules slot under it lights up)
+    pub carry: Option<(f32, f32)>,
 }
 
 /// `bundle` with these knob values written into its tracks (a slot no track's node names is left)
@@ -67,7 +69,7 @@ impl SceneView {
         let set = |l: &str| k.and_then(|k| k.set(l));
         let (edit, resolved) = SceneEdit::open(doc, base, &rig, &set).map_err(|p| format!("scene:{id}: {}", p.join("; ")))?;
         let notes = note.into_iter().chain(resolved.notes).collect();
-        Ok((SceneView { edit, kept, catalog, sel: Part::Scene, inside: None, rows: Vec::new(), shown: true, auto: save.unwrap_or_else(|| crate::autosave::Autosave::new(base)), marks: Vec::new(), dop: Default::default() }, resolved.scene, notes))
+        Ok((SceneView { edit, kept, catalog, sel: Part::Scene, inside: None, rows: Vec::new(), shown: true, auto: save.unwrap_or_else(|| crate::autosave::Autosave::new(base)), marks: Vec::new(), dop: Default::default(), carry: None }, resolved.scene, notes))
     }
 
     /// the members again after a slot or a video node changed. Err: the core's reasons it does not play.
@@ -174,6 +176,15 @@ pub enum Field {
     /// the scene's stage background: a click on its value types it, on its swatch opens the colour picker
     Background,
     BackgroundColour,
+    /// the selected member's slot `i` (a module drops on it), its module taken off
+    Slot(usize),
+    Detach(usize),
+}
+
+/// the selected member's holder, where its slots are
+pub fn member_slots(view: &SceneView) -> Option<deck_space::scene_modules::On> {
+    let member = view.edit.members.get(view.member()?)?;
+    view.edit.doc.holders.iter().position(|h| h.id == member.holder).map(deck_space::scene_modules::On::Holder)
 }
 
 /// The inspector of the scene or of its selected member; where its fields landed.
@@ -228,6 +239,14 @@ pub fn inspect(d: &mut DrawList, t: &Tokens, area: Rect, view: &SceneView, hot: 
             out.push((r, Field::Into));
         }
         y += t.size.row;
+    }
+    if let Some(on) = member_slots(view) {
+        for (r, p) in crate::slots::section(d, t, area, &mut y, &e.slot_rows(on), view.carry) {
+            out.push((r, match p {
+                crate::slots::Part::Slot(i) => Field::Slot(i),
+                crate::slots::Part::Detach(i) => Field::Detach(i),
+            }));
+        }
     }
     let knobs = e.knobs(m);
     if knobs.is_empty() {

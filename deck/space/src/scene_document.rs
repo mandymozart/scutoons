@@ -241,6 +241,25 @@ pub struct Holder {
     /// `start` (the default): on stage when the scene starts; `join`: waits for the story (`joinScene`, SCENES.md §9.4)
     #[serde(default, skip_serializing_if = "Enter::is_start")]
     pub enter: Enter,
+    /// the modules on its member's slots (deck-catalog `slot`: an item's `motion`, on top of its spot)
+    #[serde(default, rename = "module", skip_serializing_if = "Vec::is_empty")]
+    pub modules: Vec<deck_catalog::slot::Attach>,
+}
+
+impl Holder {
+    /// what its slots are: an item's when it holds items only, else a character's
+    pub fn entity(&self) -> deck_catalog::slot::Entity {
+        let item = match (&self.filler, &self.fill) {
+            (Some(r), _) => FillerRef::parse(r).is_ok_and(|f| f.kind == AddressKind::Item),
+            (None, Some(f)) => !f.kind.is_empty() && f.kind.iter().all(|k| *k == AddressKind::Item),
+            (None, None) => false,
+        };
+        if item {
+            deck_catalog::slot::Entity::Item
+        } else {
+            deck_catalog::slot::Entity::Character
+        }
+    }
 }
 
 /// One filler or several (a spawn zone's members).
@@ -741,6 +760,7 @@ impl SceneDocument {
             } else if h.preview.is_some() {
                 out.push(format!("{who}: a preview belongs to a placeholder"));
             }
+            deck_catalog::slot::problems(h.entity(), &h.modules, &who, &mut out);
             if let Some(rig) = &h.rig {
                 if rig.subject().is_none() {
                     out.push(format!("{who}: the rig '{}' is no `rig:<subject>` (rig:character.catpope)", rig.rig));

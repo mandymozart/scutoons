@@ -160,6 +160,7 @@ fn kind(
         moods: Cow::Borrowed(&[]),
         characters: Cow::Borrowed(&[]),
         abi: None,
+        slot: None,
         latency: 0,
         ports: Cow::Owned(ports.to_vec()),
         params: Cow::Owned(params.to_vec()),

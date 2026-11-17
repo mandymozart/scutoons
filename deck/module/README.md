@@ -41,7 +41,7 @@ limits (sanity bounds: 8 audio and 8 event ports a direction, 256 control ports,
 - `#[module(name, domain = "audio"|"control", doc, needs = "motion", wants = "position|camera.motion", latency = 32,
   moods = "thinking|sad|happy", characters = "catpope|yellowmouse.kid")]` (`moods`, A1 #409: the moods the module knows –
   `character().mood_index` counts in them; `characters`: the characters it is made for, listed beside their rigs in Build as
-  related – it still plugs in anywhere),
+  related – it still plugs in anywhere; `slot = "camera.motion"`: the entity's slot it attaches to, see "Slots" below),
   `#[reads("story.act", …)]` (→ `Self::STORY_ACT: Var`, `ctx.var(Self::STORY_ACT)`), `#[asset(name, kind = "pcm"|"bytes"|"image",
   max_bytes, doc)]` (→ `Self::KICK: AssetSlot`, `ctx.asset(Self::KICK)`), `#[preset(name, doc, values(p = x, …))]` (the one
   factory preset; every other preset is a document).
@@ -90,6 +90,18 @@ vocabulary, `Descriptor::check`) and returns the `Shape` the layout comes from. 
   name, values)` maps parameter names to indices and reports unknown ones; `Instance::apply_preset` / `apply_factory_preset` write
   defaults, then the values, without allocating. Other presets are documents (the module-preset form and its file import are
   #346; analog's other three presets wait in `modules/analog/analog.preset.json`).
+
+## Slots (motion)
+
+A module can attach to an entity's slot instead of a rig's track (#590, research/MODULE-EXTENSIONS.md): the slot table is
+deck-catalog's `slot` (each entity kind, its domains, what a module there reads and writes; `camera.motion` and
+`item.motion` run today). `slot = "<entity>.motion"` makes a control-domain module without ports that gets the transform
+regions: `ctx.transform()` (`TransformIn`: what the entity is, where its shot, move or spot puts it, the row's time, its
+marks – a camera's shots, an item's spot) and `out.transform()` (`TransformOut`: `offset_position`, `offset_rotation`,
+`scale_by`, `offset_target`, `offset_focal` on top of that base, or `set_*` to drive a part while attached;
+`set_projection`). The deck calls it once a drawn frame, after the moves; only the parts its slot writes are taken.
+`modules/dolly` (a camera) and `modules/bob` (an item) are the examples; `module-host/tests/motion.rs` proves them
+native ≡ wasm.
 
 ## Tests
 

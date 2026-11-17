@@ -38,6 +38,7 @@ mod scene_parts;
 mod scene_stage;
 mod settings;
 mod show;
+mod slots;
 mod sign_in;
 mod tools;
 mod toon;
@@ -157,13 +158,15 @@ struct Args {
     camera: bool,
     /// a check run's scene camera (dop.rs `script_dop`): shots, a track, a move previewed
     dop: Option<String>,
+    /// a check run's scene document (JSON) opened in Build
+    scene_file: Option<PathBuf>,
     /// a check run's node view: its direction, a zoom once it is framed
     nodes: Option<deck_kit::base::graph::Direction>,
     node_zoom: Option<f32>,
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, save_state: None, tools_folded: false, closed: Vec::new(), main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false, library_related: false, pan: None, camera: false, dop: None, nodes: None, node_zoom: None, open: None };
+    let mut a = Args { module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, save_state: None, tools_folded: false, closed: Vec::new(), main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false, library_related: false, pan: None, camera: false, dop: None, scene_file: None, nodes: None, node_zoom: None, open: None };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -259,6 +262,7 @@ fn args() -> Result<Args> {
             "--nodes" => a.nodes = Some(if val()? == "tb" { deck_kit::base::graph::Direction::Tb } else { deck_kit::base::graph::Direction::Lr }),
             "--node-zoom" => a.node_zoom = Some(val()?.parse()?),
             "--dop" => a.dop = Some(val()?),
+            "--scene-file" => a.scene_file = Some(PathBuf::from(val()?)),
             "--close" => a.closed.extend(val()?.split(',').map(str::trim).filter(|n| !n.is_empty()).map(String::from)),
             "--main-menu" => a.main_menu = true,
             "--open-build" => a.script.open_build = true,
@@ -323,7 +327,7 @@ fn args() -> Result<Args> {
                 a.size = Some((w.trim().parse()?, h.trim().parse()?));
             }
             "--help" | "-h" => {
-                println!("deck-editor [--rig catpope] [--fullscreen] [--frames N] [--screenshot FILE] [--tokens FILE] [--size W,H] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5] [--menu PORT,QUERY[,pick]] [--toon TOON] [--book FILE] [--select NODE --far QUERY[,pick]] [--demo NAME] [--panic] [--colour open|pick|drop:X,Y|take:X,Y] [--save-state saving|offline|conflict] [--settings] [--close ID,ID] [--main-menu] [--module ID [--module-build] [--module-save] [--module-save-as ID]]");
+                println!("deck-editor [--rig catpope] [--fullscreen] [--frames N] [--screenshot FILE] [--tokens FILE] [--size W,H] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5] [--menu PORT,QUERY[,pick]] [--toon TOON] [--book FILE] [--select NODE --far QUERY[,pick]] [--demo NAME] [--panic] [--colour open|pick|drop:X,Y|take:X,Y] [--save-state saving|offline|conflict] [--settings] [--close ID,ID] [--main-menu] [--module ID [--module-build] [--module-save] [--module-save-as ID]] [--scene-file FILE [--dop modules]]");
                 std::process::exit(0);
             }
             other => anyhow::bail!("unknown argument {other}"),
@@ -639,6 +643,10 @@ fn main() {
 
 fn run() -> Result<i32> {
     let args = args()?;
+    deck_space::space::motion::install(deck_engine::motion::opener(|id| {
+        deck_native::module_host::autoload();
+        deck_native::module_host::Library::global().get(id).map(|l| l.host())
+    }));
     let _ = CACHE.set(deck_native::cache::for_api(&args.api));
     let subject = if args.rig.contains('.') { args.rig.clone() } else { format!("character.{}", args.rig) };
     let cache = cache_dir();
@@ -2193,6 +2201,7 @@ impl App {
         }
         self.script_scene();
         self.script_dop();
+        self.script_slots();
         const START: u64 = 60;
         if self.args.pull {
             let s = self.scale();
@@ -3028,6 +3037,7 @@ impl App {
             self.build.close(ui, o, &mut self.panel.hits);
         }
         if let Some(v) = self.scene.as_mut() {
+            v.carry = self.carry.as_ref().and_then(|c| c.at);
             v.dop.floor = self.stage.space.floor_point().y;
             v.dop.aims = self.stage.space.aim_choices();
         }

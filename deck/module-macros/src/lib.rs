@@ -7,7 +7,9 @@
 //!
 //! Attributes: `#[module(name, domain = "audio"|"control", doc, needs / wants = "motion|position", latency,
 //! background_colour = "#rrggbb" | background_image / background_video = "<media path>" (the stage's background), moods = "thinking|sad" (A1, #409: the moods it knows – `ctx.character().mood_index` is the deck's mood's place + 1),
-//! characters = "catpope|yellowmouse.kid" (the characters it is made for: their related modules))]`;
+//! characters = "catpope|yellowmouse.kid" (the characters it is made for: their related modules), slot = "camera.motion" (the
+//! entity's slot it attaches to – deck-catalog `slot`; a slot module runs in the control domain, a motion one has no ports
+//! and gets the transform regions))]`;
 //! `#[reads("story.act", …)]`; `#[port(input|output, audio|cv|control|event|video, name, channels = n|"any",
 //! sidechain, doc, names / props = "a|b", capacity, path, mode, choices)]`; on `f32` fields `#[param(range = a..b,
 //! default, curve = log, unit, choices = "saw|pulse" (the value is the index), doc)]`; `#[asset(name, kind, max_bytes,
@@ -73,6 +75,9 @@ struct Preset {
 struct Spec {
     name: String,
     domain: &'static str,
+    domain_set: bool,
+    /// `camera.motion`
+    slot: Option<String>,
     doc: String,
     needs: Vec<String>,
     wants: Vec<String>,
@@ -179,6 +184,16 @@ fn parse_module(a: &Attribute, spec: &mut Spec) -> Result<(), Error> {
                     "control" => "control",
                     _ => return Err(Error::new(s.span(), "domain = \"audio\" or \"control\"")),
                 };
+                spec.domain_set = true;
+            }
+            "slot" => {
+                let s = lit_str(&m)?;
+                let v = s.value();
+                let ok = v.split_once('.').is_some_and(|(e, d)| is_name(e) && is_name(d));
+                if !ok {
+                    return Err(Error::new(s.span(), "slot = \"<entity>.<domain>\" (camera.motion, item.motion)"));
+                }
+                spec.slot = Some(v);
             }
             "doc" => spec.doc = lit_str(&m)?.value(),
             "needs" => spec.needs = pipe_list(&lit_str(&m)?)?,
@@ -210,7 +225,7 @@ fn parse_module(a: &Attribute, spec: &mut Spec) -> Result<(), Error> {
                 };
                 spec.background = Some((which, lit_str(&m)?.value()));
             }
-            _ => return Err(m.error("module(name, domain, doc, needs, wants, latency, background_colour, background_image, background_video, moods, characters)")),
+            _ => return Err(m.error("module(name, domain, doc, needs, wants, latency, background_colour, background_image, background_video, moods, characters, slot)")),
         }
         Ok(())
     })
@@ -435,6 +450,8 @@ fn parse(input: &DeriveInput) -> Result<Spec, Error> {
     let mut spec = Spec {
         name: snake(&ty.to_string()),
         domain: "audio",
+        domain_set: false,
+        slot: None,
         doc: String::new(),
         needs: vec![],
         wants: vec![],
@@ -462,6 +479,9 @@ fn parse(input: &DeriveInput) -> Result<Spec, Error> {
         } else if a.path().is_ident("preset") {
             parse_preset(a, &mut spec)?;
         }
+    }
+    if spec.slot.is_some() && !spec.domain_set {
+        spec.domain = "control";
     }
     if !is_name(&spec.name) {
         return Err(Error::new(ty.span(), format!("module name '{}': lowercase letters, digits and _ (at most 24), not starting with a digit", spec.name)));
@@ -512,6 +532,13 @@ fn group(kind: &str) -> &'static str {
 fn module(ty: &syn::Ident, spec: &Spec) -> Result<proc_macro2::TokenStream, Error> {
     unique_names(spec)?;
     let control = spec.domain == "control";
+    let motion = spec.slot.as_deref().is_some_and(|s| s.ends_with(".motion"));
+    if spec.slot.is_some() && !control {
+        return Err(Error::new(Span::call_site(), "a slot module runs in the control domain"));
+    }
+    if let Some(p) = spec.ports.iter().find(|_| motion) {
+        return Err(Error::new(p.span, "a motion module writes only its entity's transform: no ports"));
+    }
     for p in &spec.ports {
         let event = p.kind == "event";
         let control_out = p.kind == "control" && p.dir == "out";
@@ -580,6 +607,9 @@ fn module(ty: &syn::Ident, spec: &Spec) -> Result<proc_macro2::TokenStream, Erro
     }
     if spec.latency > 0 {
         json += &format!(",\"latency\":{}", spec.latency);
+    }
+    if let Some(slot) = &spec.slot {
+        json += &format!(",\"slot\":{}", js(slot));
     }
     if let Some((which, value)) = &spec.background {
         json += &format!(",\"background\":{{\"{which}\":{}}}", js(value));
@@ -662,6 +692,9 @@ fn module(ty: &syn::Ident, spec: &Spec) -> Result<proc_macro2::TokenStream, Erro
 
     // --- the shape, a constant (`Layout::of` evaluates it)
     let mut shape = Vec::new();
+    if motion {
+        shape.push(quote! { s.motion = true; });
+    }
     let n_params = spec.params.len() as u16;
     let count = |dir: &str, kind: &str| spec.ports.iter().filter(|p| p.dir == dir && p.kind == kind).count() as u16;
     let (ci, co) = (count("in", "control"), count("out", "control"));

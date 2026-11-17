@@ -569,11 +569,14 @@ pub struct SceneCamera {
     pub track: Option<Track>,
     #[serde(default, rename = "move", skip_serializing_if = "Vec::is_empty")]
     pub moves: Vec<MoveDef>,
+    /// the modules on its slots (deck-catalog `slot`: `motion`, on top of its shots and moves)
+    #[serde(default, rename = "module", skip_serializing_if = "Vec::is_empty")]
+    pub modules: Vec<deck_catalog::slot::Attach>,
 }
 
 impl Default for SceneCamera {
     fn default() -> SceneCamera {
-        SceneCamera { source: Source::Scene, lens: Lens::default(), height: DEFAULT_HEIGHT, shots: Vec::new(), track: None, moves: Vec::new() }
+        SceneCamera { source: Source::Scene, lens: Lens::default(), height: DEFAULT_HEIGHT, shots: Vec::new(), track: None, moves: Vec::new(), modules: Vec::new() }
     }
 }
 
@@ -669,6 +672,7 @@ impl SceneCamera {
             }
             m.spec.problems(&who, out);
         }
+        deck_catalog::slot::problems(deck_catalog::slot::Entity::Camera, &self.modules, "camera", out);
     }
 }
 

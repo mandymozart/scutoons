@@ -35,6 +35,7 @@ pub mod scene_dop;
 pub mod scene_document;
 pub mod scene_edit;
 pub mod scene_layers;
+pub mod scene_modules;
 pub mod scene_slots;
 pub mod scene_video;
 pub mod scene_play;

@@ -32,6 +32,13 @@ impl Deref for Loaded {
     }
 }
 
+impl Loaded {
+    /// the host crate's loaded module (what an instance is made from)
+    pub fn host(&self) -> Arc<HostLoaded<Wasmtime>> {
+        self.host.clone()
+    }
+}
+
 impl std::fmt::Debug for Loaded {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.host.fmt(f)
@@ -137,6 +144,8 @@ impl Library {
 pub fn autoload() {
     static ONCE: OnceLock<()> = OnceLock::new();
     ONCE.get_or_init(|| {
+        #[cfg(feature = "space")]
+        deck_space::space::motion::install(deck_engine::motion::opener(|id| Library::global().get(id).map(|l| l.host())));
         let Some(dir) = std::env::var_os("DECK_MODULES").map(PathBuf::from) else { return };
         for (file, r) in Library::global().load_dir(&dir) {
             match r {

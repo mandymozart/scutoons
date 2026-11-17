@@ -41,6 +41,7 @@ pub mod ev;
 pub mod hdr;
 pub mod io;
 pub mod layout;
+pub mod motion;
 pub mod params;
 pub mod rt;
 pub mod testing;
@@ -59,6 +60,7 @@ pub use ev::{Ev, Expr, Kind};
 pub use hdr::{AssetInfo, AssetKind, InHdr, OutHdr};
 pub use io::{InpMut, Planar, PlanarMut};
 pub use layout::{Layout, Sensor, Shape, ABI_VERSION, QUANTUM};
+pub use motion::{TransformIn, TransformOut};
 pub use params::{Dirty, ParamInfo};
 pub use smooth::Smooth;
 

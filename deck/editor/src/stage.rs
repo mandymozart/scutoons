@@ -335,6 +335,7 @@ impl Stage {
         space.camera.free = true;
         space.camera.auto = false;
         space.set_camera(None, scene.camera.clone());
+        space.set_motions(&scene);
         let mut knobs = Vec::new();
         for k in &played_knobs {
             let (id, port) = node_port(&k.path);
