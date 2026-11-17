@@ -115,7 +115,7 @@ impl Module for Synth {
 
 /// a code rig's policy (§5): control domain, path outputs, a variable, the character's senses
 #[derive(Module)]
-#[module(name = "policy", domain = "control", moods = "calm|bright|angry")]
+#[module(name = "policy", domain = "control", moods = "calm|bright|angry", characters = "catpope|yellowmouse.kid")]
 #[reads("story.act", "being.glow")]
 #[port(input, control, name = "meter")]
 #[port(output, control, name = "lead_preset", path = "lead:@preset", choices = "calm|bright|angry")]
@@ -227,6 +227,9 @@ fn the_derive_writes_the_descriptor() {
     let p = parse(Policy::DESCRIPTOR).unwrap();
     assert_eq!(p.moods.iter().map(|m| m.as_ref()).collect::<Vec<_>>(), ["calm", "bright", "angry"]);
     assert!(!Gain::DESCRIPTOR.contains("moods"));
+    // the characters it is made for
+    assert!(p.made_for("catpope") && p.made_for("yellowmouse.kid") && !p.made_for("yellowmouse"));
+    assert!(!Gain::DESCRIPTOR.contains("characters"));
 
     let s = parse(Synth::DESCRIPTOR).unwrap();
     assert_eq!((s.latency, s.params[0].choices.len(), s.params[0].max, s.params[0].default), (32, 4, 3.0, Some(3.0)));

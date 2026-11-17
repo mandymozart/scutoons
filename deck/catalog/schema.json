@@ -186,6 +186,13 @@
           "description": "the batch evaluator (deck-core batch.rs, live-core, the browser) can run it",
           "type": "boolean"
         },
+        "characters": {
+          "description": "modules only: the characters it is made for (`catpope`, a persona `yellowmouse.kid`) – their \"related\" modules; it\nstill plugs in anywhere",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "doc": {
           "type": "string"
         },

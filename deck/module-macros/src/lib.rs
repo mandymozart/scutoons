@@ -6,7 +6,8 @@
 //! counting allocator (deck/module/README.md).
 //!
 //! Attributes: `#[module(name, domain = "audio"|"control", doc, needs / wants = "motion|position", latency,
-//! background_colour = "#rrggbb" | background_image / background_video = "<media path>" (the stage's background), moods = "thinking|sad" (A1, #409: the moods it knows – `ctx.character().mood_index` is the deck's mood's place + 1))]`;
+//! background_colour = "#rrggbb" | background_image / background_video = "<media path>" (the stage's background), moods = "thinking|sad" (A1, #409: the moods it knows – `ctx.character().mood_index` is the deck's mood's place + 1),
+//! characters = "catpope|yellowmouse.kid" (the characters it is made for: their related modules))]`;
 //! `#[reads("story.act", …)]`; `#[port(input|output, audio|cv|control|event|video, name, channels = n|"any",
 //! sidechain, doc, names / props = "a|b", capacity, path, mode, choices)]`; on `f32` fields `#[param(range = a..b,
 //! default, curve = log, unit, choices = "saw|pulse" (the value is the index), doc)]`; `#[asset(name, kind, max_bytes,
@@ -80,6 +81,7 @@ struct Spec {
     background: Option<(&'static str, String)>,
     reads: Vec<String>,
     moods: Vec<String>,
+    characters: Vec<String>,
     ports: Vec<Port>,
     params: Vec<Param>,
     others: Vec<syn::Ident>,
@@ -188,6 +190,7 @@ fn parse_module(a: &Attribute, spec: &mut Spec) -> Result<(), Error> {
                     return Err(Error::new(s.span(), format!("mood '{x}': at most 32 bytes (the context's name)")));
                 }
             }
+            "characters" => spec.characters = pipe_list(&lit_str(&m)?)?,
             "latency" => {
                 let e: Expr = m.value()?.parse()?;
                 let v = number(&e)?;
@@ -207,7 +210,7 @@ fn parse_module(a: &Attribute, spec: &mut Spec) -> Result<(), Error> {
                 };
                 spec.background = Some((which, lit_str(&m)?.value()));
             }
-            _ => return Err(m.error("module(name, domain, doc, needs, wants, latency, background_colour, background_image, background_video, moods)")),
+            _ => return Err(m.error("module(name, domain, doc, needs, wants, latency, background_colour, background_image, background_video, moods, characters)")),
         }
         Ok(())
     })
@@ -439,6 +442,7 @@ fn parse(input: &DeriveInput) -> Result<Spec, Error> {
         background: None,
         reads: vec![],
         moods: vec![],
+        characters: vec![],
         ports: vec![],
         params: vec![],
         others: vec![],
@@ -537,7 +541,7 @@ fn module(ty: &syn::Ident, spec: &Spec) -> Result<proc_macro2::TokenStream, Erro
     if let Some(w) = spec.wants.iter().find(|w| spec.needs.contains(w)) {
         return Err(Error::new(Span::call_site(), format!("'{w}' is in needs and in wants – a capability is one or the other")));
     }
-    for (what, list) in [("reads", &spec.reads), ("needs", &spec.needs), ("wants", &spec.wants), ("moods", &spec.moods)] {
+    for (what, list) in [("reads", &spec.reads), ("needs", &spec.needs), ("wants", &spec.wants), ("moods", &spec.moods), ("characters", &spec.characters)] {
         if let Some((_, x)) = list.iter().enumerate().find(|(i, x)| x.is_empty() || list[..*i].contains(x)) {
             return Err(Error::new(Span::call_site(), format!("{what}: '{x}' is empty or listed twice")));
         }
@@ -569,7 +573,7 @@ fn module(ty: &syn::Ident, spec: &Spec) -> Result<proc_macro2::TokenStream, Erro
     if !spec.doc.is_empty() {
         json += &format!(",\"doc\":{}", js(&spec.doc));
     }
-    for (key, list) in [("needs", &spec.needs), ("wants", &spec.wants), ("reads", &spec.reads), ("moods", &spec.moods)] {
+    for (key, list) in [("needs", &spec.needs), ("wants", &spec.wants), ("reads", &spec.reads), ("moods", &spec.moods), ("characters", &spec.characters)] {
         if !list.is_empty() {
             json += &format!(",\"{key}\":{}", js_list(list));
         }
