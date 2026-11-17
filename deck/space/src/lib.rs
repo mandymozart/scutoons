@@ -3,7 +3,7 @@
 //! parameters' ranges (params.rs), the scene document (scene.rs) – and the tempo's `Now`; the space itself
 //! (space/) is the feature `being`, its GPU passes and the scene renderer every deck draws with (stage.rs) `gpu`, the loaders on threads and from files `native`. rig/ = the
 //! instruments, presets and character rigs a being's sound is made of (#191, research/INSTRUMENTS.md).
-pub use deck_catalog::{background, Background};
+pub use deck_catalog::{background, Background, Layer};
 pub mod cast;
 pub mod context;
 pub mod controls;
@@ -32,6 +32,7 @@ pub mod rig;
 pub mod scene;
 pub mod scene_document;
 pub mod scene_edit;
+pub mod scene_layers;
 pub mod scene_slots;
 pub mod scene_video;
 pub mod scene_play;

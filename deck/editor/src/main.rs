@@ -119,7 +119,8 @@ struct Args {
     catalog: Option<PathBuf>,
     /// a check run's Add typeahead: type this, pick the first row if asked
     add: Option<(String, bool)>,
-    /// a check run's scene member (scene.rs `script_scene`): selected, a knob turned, opened as its rig if asked
+    /// a check run's scene member (scene.rs `script_scene`): selected, a knob turned, opened as its rig if asked; or its
+    /// parts joined by `+` (scene_parts.rs `script_parts`: slot:, video:, stack, layer:DEPTH, fill:N=PATH, background:, camera, orbit:DX,DY)
     member: Option<(String, bool)>,
     /// a demo show opened in Show (show/demos.rs)
     demo: Option<String>,
@@ -427,6 +428,8 @@ enum Drag {
     Gizmo(Option<usize>, bool, f32, f32),
     /// a knob of the scene's member: which, the pointer's start, the start's value
     SceneKnob(usize, f32, f32),
+    /// a parallax layer's handle: which, the pointer's start, its depth then
+    LayerDepth(usize, f32, f32),
 }
 
 /// a port on the screen this frame (logical pixels)
@@ -444,6 +447,8 @@ enum Editing {
     Gain(mixer::Target),
     Background,
     SceneBackground,
+    /// a layer's picture
+    SceneLayer(usize),
 }
 
 /// a value being typed, in place of its field
@@ -1055,6 +1060,7 @@ impl App {
             Hit::Way(empty::Way::Modules) => Help::new("Start from modules", "Add at the rig: a track playing a module or an instrument of the catalog; the rig saves itself as its first draft."),
             Hit::Way(empty::Way::NewModule) => Help::new("New module", "A module of the character's own as a draft, opened in the Module workspace: write it, build it, hear it, then add it here as a track."),
             Hit::SceneField(scene::Field::Background) => Help::new("Background", "The stage's background in this scene: a colour (#rrggbb), an image's media path laid over the stage, or a video's (it does not play yet). Empty = its rigs', else black; a show over it wins."),
+            Hit::SceneField(scene::Field::AddStack | scene::Field::AddLayer | scene::Field::Picture | scene::Field::Anchor) => Help::new("Parallax layers", "Pictures standing in the 3D at their depths, fitted to the scene camera's view there: a far matte, layers behind and around the 3D, strips at the edges in front. Drop a picture from the library on a layer's handle; drag the handle up or down to move it in depth – it is fitted anew."),
             Hit::SceneField(_) => Help::new("Slot or video", "A slot's filter (every chip on holds), its preview from the toon's book; a video node's place and knobs. The core refuses what does not fit, in its words."),
                         Hit::Field(_) | Hit::Nothing => return None,
         })
@@ -1120,6 +1126,7 @@ impl App {
             Some(Drag::Member) => {}
             Some(Drag::Knob(i, _, _)) => self.knob_at(i, x),
             Some(Drag::SceneKnob(i, x0, v0)) => self.scene_knob_to(i, x0, v0, x),
+            Some(Drag::LayerDepth(l, y0, d0)) => self.layer_depth_to(l, y0, d0, y),
             Some(Drag::Param(node, port, x0, f0)) => {
                 if let Some(p) = self.stage.param(node, port) {
                     let v = p.spec.value((f0 + (x - x0) / SCRUB_PX).clamp(0.0, 1.0));
@@ -1544,6 +1551,7 @@ impl App {
             }
             Editing::Background => self.rig_background(&text),
             Editing::SceneBackground => self.scene_background(&text),
+            Editing::SceneLayer(l) => self.scene_layer(l, &text),
         }
     }
 
@@ -1981,7 +1989,7 @@ impl App {
             }
             // the fader let go: the gain goes into the rig, no replay: the engine has it already
             Some(Drag::Fader(target, _)) => return self.store_fader(target),
-            Some(Drag::SceneKnob(..)) => return self.scene_settled(),
+            Some(Drag::SceneKnob(..) | Drag::LayerDepth(..)) => return self.scene_settled(),
             // a knob or a parameter let go: its value goes into the draft
             Some(Drag::Knob(i, ..)) => {
                 if let Some(k) = self.stage.knobs.get(i) {

@@ -19,6 +19,17 @@
       ],
       "title": "517: what a listener makes a character do – the cast words of a playing scene (E1: rig/address.rs `CastWord`)"
     },
+    "Anchor": {
+      "description": "the part of the view a layer covers",
+      "enum": [
+        "full",
+        "left",
+        "right",
+        "top",
+        "bottom"
+      ],
+      "type": "string"
+    },
     "Arrange": {
       "additionalProperties": false,
       "description": "A spawn zone's arrangement: its kind and the spacing between members.",
@@ -281,6 +292,35 @@
       ],
       "description": "A holder's value: a parameter's number, or a track's preset choice."
     },
+    "Layer": {
+      "additionalProperties": false,
+      "properties": {
+        "anchor": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/Anchor"
+            }
+          ],
+          "description": "the part of the view it covers: all of it, or a strip at an edge"
+        },
+        "depth": {
+          "description": "metres behind the camera's pivot; below 0 in front of it",
+          "format": "float",
+          "type": "number"
+        },
+        "image": {
+          "description": "the picture's media path (a PNG with transparency); none = an empty place",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "depth"
+      ],
+      "type": "object"
+    },
     "LinkDef": {
       "additionalProperties": false,
       "properties": {
@@ -518,6 +558,13 @@
             }
           ],
           "description": "the stage's background; a played scene carries the one that won (`deck_catalog::background::resolve`)"
+        },
+        "layers": {
+          "description": "the 2D layers around the 3D, drawn far to near; a front one over it",
+          "items": {
+            "$ref": "#/definitions/Layer"
+          },
+          "type": "array"
         },
         "name": {
           "default": "untitled",

@@ -24,6 +24,7 @@ pub mod glb;
 #[cfg(feature = "gpu")]
 pub mod gpu;
 pub mod label;
+pub mod layers;
 pub mod meshopt;
 pub mod pick;
 pub mod place;
@@ -290,6 +291,7 @@ pub struct Space {
     /// #195: the conductor's push and the decks' answers
     pub sync: sync::Board,
     pub backdrop: backdrop::Backdrop,
+    pub layers: layers::Layers,
 }
 
 /// Called on the loader thread with a set's file before it is read: the sync (sync.rs) returns once that file is
@@ -427,6 +429,7 @@ impl Space {
             places: Vec::new(),
             sync: sync::Board::default(),
             backdrop: backdrop::Backdrop::default(),
+            layers: layers::Layers::default(),
         };
         space.place_cast();
         space
@@ -436,6 +439,25 @@ impl Space {
     pub fn set_background(&mut self, background: Option<crate::Background>) {
         let ground = self.backdrop.ground;
         self.backdrop = backdrop::Backdrop { ground, ..backdrop::Backdrop::new(background, &mut self.portraits) };
+    }
+
+    /// the stage's parallax layers (the played scene's `stage.layers`), their pictures asked for
+    pub fn set_layers(&mut self, layers: &[crate::Layer]) {
+        self.layers = layers::Layers::new(layers, &mut self.portraits);
+    }
+
+    /// The layers' planes in the 3D this frame: fitted to the scene's camera, far to near from the eye (into `out`,
+    /// cleared first). `empty`: the empty places too (an editor outlines them).
+    pub fn layer_planes(&self, empty: bool, out: &mut Vec<layers::Plane>) {
+        // TODO(#582): the scene's primary camera once shots exist
+        let shot = self.scene_camera();
+        self.layers.planes(&shot, self.view.0 / self.view.1.max(1.0), &self.portraits, self.camera.eye(), empty, out);
+    }
+
+    /// what a played scene's stage shows around the 3D: its background and its layers
+    pub fn set_stage(&mut self, stage: &crate::scene::StageSettings) {
+        self.set_background(stage.background.clone());
+        self.set_layers(&stage.layers);
     }
 
     /// what shows when no background sets a colour (display values; black unless the editor's `stage` token says else)

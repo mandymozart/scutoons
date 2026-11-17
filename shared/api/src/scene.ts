@@ -7,6 +7,9 @@ export const SCENE_FORMAT = 2 as const;
 
 export type Act = 'join' | 'leave';
 
+/** the part of the view a layer covers */
+export type Anchor = 'full' | 'left' | 'right' | 'top' | 'bottom';
+
 /** A spawn zone's arrangement: its kind and the spacing between members. */
 export type Arrange = {
 	kind: ArrangeKind;
@@ -76,6 +79,15 @@ export type Holder = {
 /** A holder's value: a parameter's number, or a track's preset choice. */
 export type HolderValue = number | string;
 
+export type Layer = {
+	/** the part of the view it covers: all of it, or a strip at an edge */
+	anchor?: Anchor;
+	/** metres behind the camera's pivot; below 0 in front of it */
+	depth: number;
+	/** the picture's media path (a PNG with transparency); none = an empty place */
+	image?: string | null;
+};
+
 export type LinkDef = {
 	from: string;
 	/** an audio link's channel map (plan 2.6, #318): `[source, target]` pairs counted from 1 – `[[1, 3], [2, 4]]` lands a stereo source on channels 3 and 4 (a send's offset); one source may go to several targets, several sources into one target sum. Empty = channel n to channel n. `scale` on an audio link is the send level. */
@@ -142,6 +154,8 @@ export type StageSettings = {
 	audio_buffer?: number | null;
 	/** the stage's background; a played scene carries the one that won (`deck_catalog::background::resolve`) */
 	background?: Background | null;
+	/** the 2D layers around the 3D, drawn far to near; a front one over it */
+	layers?: Layer[];
 	name?: string;
 	/** the render size relative to the window (0.25–1); a software adapter halves it by itself */
 	render_scale?: number;
