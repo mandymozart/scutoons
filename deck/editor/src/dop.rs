@@ -283,7 +283,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, a: Rect, view: &SceneView, playing: Pl
 pub fn height(t: &Tokens, view: &SceneView) -> f32 {
     let mut d = DrawList::new(0.6);
     let fields = draw(&mut d, t, Rect { x: 0.0, y: 0.0, w: WIDTH, h: 4000.0 }, view, None, None);
-    fields.iter().map(|(r, _)| r.y + r.h).fold(0.0, f32::max) + t.size.pad
+    fields.iter().map(|(r, _)| r.y + r.h).fold(0.0, f32::max) + t.size.pad + t.size.row * 1.5
 }
 
 impl crate::App {
@@ -502,6 +502,11 @@ impl crate::App {
                     let _ = view.edit.set_handle(1, Some([0.9, 0.0, 0.4]));
                 }
                 self.dop_done(Ok(()), "a trolley track".into(), x, y);
+            }
+            82 if spec.contains("wide") => {
+                let c = &mut self.stage.space.camera;
+                c.drag(-260.0, 160.0);
+                c.zoom(-9.0);
             }
             84 if spec.contains("preview") => {
                 if let Some(view) = self.scene.as_mut() {
