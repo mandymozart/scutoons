@@ -2,7 +2,8 @@
 # scutoons-deck – the deck suite as one Arch package (CYBERDECKS.md §3: the decks update with `pacman -Syu` from our
 # own repository; #173). Builds relay, bridge, deck-check, deck-link (pairing, #180) and deck-native (the AV app the kiosk plays, #179; with its
 # PipeWire backend) from this repository's deck/ workspace and installs the boot flow (deck/os/rootfs: units, scripts, PipeWire / NetworkManager config, the kiosk user).
-# Build (in the repo, on Arch): `cd deck/pkg/scutoons-deck && makepkg -sf` (as a user, never root). The live ISO
+# Build (in the repo, on Arch): `cd deck/pkg/scutoons-deck && makepkg -sf` (as a user, never root); DECK_PROFILE=lean builds the
+# deck only, its features from its scenes (deck/os/profiles.toml; default full: the deck + the editor). The live ISO
 # (deck/os) still copies the binaries + rootfs directly; once the repository exists it installs this package instead.
 pkgname=scutoons-deck
 pkgver=0.1.0
@@ -32,14 +33,27 @@ pkgver() {
   printf '%s.r%s.g%s' "$v" "$(git -C "$_deck" rev-list --count HEAD 2>/dev/null || echo 0)" "$(git -C "$_deck" rev-parse --short HEAD 2>/dev/null || echo 0)"
 }
 
+_class=${DECK_PROFILE:-full}
+_tool() { CARGO_TARGET_DIR="$srcdir/target" cargo run -q --release --locked -p deck-scene-features -- "$@"; }
+# the deck's features: the class's platform and modules + what its system scenes need
+_features() { _tool --profile os/profiles.toml "$_class" native/scenes; }
+_apps() { _tool --apps os/profiles.toml "$_class" | tr ',' ' '; }
+
 build() {
   cd "$_deck"
-  CARGO_TARGET_DIR="$srcdir/target" cargo build --release --locked -p relay -p bridge -p deck-check -p deck-native -p deck-link -p deck-update --features deck-native/pipewire
+  local features apps; features=$(_features); apps=$(_apps)
+  # three cargo lines: --no-default-features applies to every -p, and an app beside the deck must not add features to it
+  CARGO_TARGET_DIR="$srcdir/target" cargo build --release --locked -p relay -p bridge -p deck-check -p deck-link -p deck-update
+  CARGO_TARGET_DIR="$srcdir/target" cargo build --release --locked -p deck-native --no-default-features --features "$features"
+  if [ -n "$apps" ]; then
+    CARGO_TARGET_DIR="$srcdir/target" cargo build --release --locked $(printf -- '-p %s ' $apps) --features "$(echo "$features" | sed 's/[^,]*/deck-native\/&/g')"
+  fi
 }
 
 check() {
   cd "$_deck"
-  CARGO_TARGET_DIR="$srcdir/target" cargo test --release --locked -p deck-check -p bridge -p relay -p deck-native -p deck-link -p deck-update
+  CARGO_TARGET_DIR="$srcdir/target" cargo test --release --locked -p deck-check -p bridge -p relay -p deck-link -p deck-update
+  CARGO_TARGET_DIR="$srcdir/target" cargo test --release --locked -p deck-native --no-default-features --features "$(_features)"
 }
 
 package() {
@@ -49,6 +63,12 @@ package() {
   install -Dm755 "$srcdir/target/release/deck" "$pkgdir/usr/bin/deck"
   install -Dm755 "$srcdir/target/release/deck-link" "$pkgdir/usr/bin/deck-link"
   install -Dm755 "$srcdir/target/release/deck-update" "$pkgdir/usr/bin/deck-update"
+  cd "$_deck"
+  case " $(_apps) " in *" deck-editor "*)
+    install -Dm755 "$srcdir/target/release/deck-editor" "$pkgdir/usr/bin/deck-editor"
+    install -Dm644 "$_deck/editor/tokens.toml" "$pkgdir/usr/share/deck/editor/tokens.toml"
+    mkdir -p "$pkgdir/usr/share/deck/demos" && cp -r "$_deck/demos/." "$pkgdir/usr/share/deck/demos/"
+  esac
   # #427: the system scenes are in the binary; a package carries no sandbox scenes (the dev image and channel do)
   # the boot flow: everything under deck/os/rootfs lands as it is laid out there
   cp -r "$_deck/os/rootfs/." "$pkgdir/"

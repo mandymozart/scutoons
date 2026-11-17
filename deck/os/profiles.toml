@@ -1,0 +1,19 @@
+# The deck image classes: what `deck-scene-features --profile os/profiles.toml <class> <scenes>` turns into the deck's
+# cargo features, and which apps the class carries beside the deck (`--apps`). The scenes add what they need.
+#   apps      cargo packages built beside the deck
+#   platform  the platform's features (not modules)
+#   modules   "all" = every stage module (deck-core's STAGE_MODULES) but those in `without`; or a list a class needs beyond its scenes
+# `--host` leaves the platform out: the same class checked on a build machine.
+
+# X1, PCs, the conductor: the deck and the editor, every module
+[full]
+apps = ["deck-editor"]
+platform = ["pipewire", "gamepad"]
+modules = "all"
+without = ["link", "pipewire"]
+
+# Raspberry Pi, RK3588 class B, small decks: the deck only, conducted from another device
+[lean]
+apps = []
+platform = ["pipewire"]
+modules = ["sync"]

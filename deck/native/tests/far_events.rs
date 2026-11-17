@@ -3,7 +3,7 @@
 //! The second deck asks (`deck.listen`), the first answers with what leaves that output (`deck.events`), and the note
 //! lands in the far node's ring with the second engine's names. Each link runs its socket thread as on a deck; the
 //! engines are stood in by a queue and a list. Ports 7100–7199 only; everything stops with the test.
-#![cfg(all(feature = "live", feature = "space"))]
+#![cfg(all(feature = "live", feature = "space", feature = "events"))]
 
 use deck_events::{Event, Names, Time};
 use deck_native::space::link::Link;

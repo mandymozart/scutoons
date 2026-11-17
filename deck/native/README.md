@@ -100,10 +100,12 @@ the build lacks is refused at load with the feature's name (`this build of the s
 (node space) – build deck-native with --features space`): the stage plays the test pattern and shows that in the HUD –
 it never exits for it (deck-session would fall back to the browser); a `--frames` check run exits 2. F3 onto a source
 that isn't built says `NOT IN THIS BUILD`. **Scene-driven builds:** `cargo run -p deck-scene-features -- scenes/*.toml`
-prints the features a set of scenes needs (`chapter,live,space` for the bundled ones; the core alone prints nothing), so a
-deck build is `cargo build --release -p deck-native --no-default-features --features "pipewire,$(deck-scene-features …)"`
-– the platform's features (pipewire) come from the build, not from scenes. Checked: the default, the core alone, each
-feature alone, all with `link` – tests and clippy `-D warnings`.
+prints the features a set of scenes needs (a folder = its `*.toml`; the core alone prints nothing). An image class
+(`deck/os/profiles.toml`: **full** = the deck + the editor, every module; **lean** = the deck only) adds its platform, its
+modules and what the core rigs need: `deck-scene-features --profile os/profiles.toml lean native/scenes` →
+`events,live,pipewire,space,sync`; `--host` leaves the platform out, `--apps` names what the class builds beside the
+deck. The OS image (`DECK_PROFILE`) and the PKGBUILD build the deck with exactly that (`--no-default-features`).
+`npm run deck:ci` clippies the lean set; `check:deck-deps` keeps editor code out of the deck (`apps` in scripts/deck-deps.json).
 
 **Hot reload** (`--dev`): the scene file and its shader nodes' `wgsl` files are watched (`src/watch.rs`, their
 modification times polled every 300 ms). A changed WGSL file recompiles only its pass – the audio plays on; one that

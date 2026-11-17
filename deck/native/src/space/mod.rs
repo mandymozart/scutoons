@@ -52,7 +52,7 @@ impl Connect for Space {
 /// #442: the engine's side of far events for the link (deck-space far.rs): the far world nodes' rings and the event
 /// outputs' rings out of `handles`, this deck's name from deck.toml, the rig it plays (`subject`). None when the engine
 /// has neither.
-#[cfg(feature = "live")]
+#[cfg(all(feature = "live", feature = "events"))]
 pub fn far_table(handles: &mut crate::audio::Handles, subject: &str) -> Option<deck_space::far::FarTable> {
     use deck_space::far::{FarInlet, FarOutlet, FarTable};
     let tempo = handles.tempo.clone();
@@ -72,4 +72,9 @@ pub fn far_table(handles: &mut crate::audio::Handles, subject: &str) -> Option<d
         .collect();
     let outlets = outlets.into_iter().map(|(slot, mut rx)| FarOutlet { slot, pop: Box::new(move || rx.pop().ok()) }).collect();
     Some(FarTable { name, subject: subject.to_string(), names: events.names.clone(), inlets, outlets, tempo: Some(tempo) })
+}
+
+#[cfg(all(feature = "live", not(feature = "events")))]
+pub fn far_table(_: &mut crate::audio::Handles, _: &str) -> Option<deck_space::far::FarTable> {
+    None
 }

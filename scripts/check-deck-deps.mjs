@@ -7,7 +7,8 @@
 //   adapter crate (deck-native, space-web, bridge, relay, the adapters); the justified exceptions are in the file;
 // - deck-native's main.rs and the platform files that still hold deck logic (scripts/native-logic.json, BRIDGE-AUDIT.md
 //   §1) only shrink: main.rs gains no function and no line, each listed file no line; a logic function that left main.rs
-//   is a move done (--shrink drops it). Growth needs `Owner-approved-baseline:` in a commit since main.
+//   is a move done (--shrink drops it). Growth needs `Owner-approved-baseline:` in a commit since main;
+// - the deck apps (`apps`) reach no editor-only crate or feature, with every feature on.
 //
 //   npm run check:deck-deps                 the check (cargo tree, no build; a few seconds)
 //   npm run check:deck-deps -- --shrink     write native-logic.json down to today's numbers
@@ -28,6 +29,33 @@ export function tree(crate, args, deck = join(root, 'deck')) {
 		stdio: ['ignore', 'pipe', 'pipe']
 	});
 	return [...new Set(out.split('\n').map((l) => l.trim().split(' ')[0]).filter(Boolean))].filter((n) => n !== crate).sort();
+}
+
+/** an app's tree under `args` for all targets → its crates and their enabled features as `crate/feature`, itself excluded */
+export function appTree(crate, args, deck = join(root, 'deck')) {
+	const out = execFileSync('cargo', ['tree', '-q', '--offline', '-p', crate, ...args, '-e', 'normal', '--prefix', 'none', '-f', '{p}|{f}', '--target', 'all'], {
+		cwd: deck,
+		encoding: 'utf8',
+		stdio: ['ignore', 'pipe', 'pipe']
+	});
+	return parseAppTree(out, crate);
+}
+
+export function parseAppTree(out, crate) {
+	const names = new Set();
+	for (const line of out.split('\n')) {
+		const [p, f = ''] = line.trim().split('|');
+		const name = p.split(' ')[0];
+		if (!name || name === crate) continue;
+		names.add(name);
+		for (const feature of f.split(',').filter(Boolean)) names.add(`${name}/${feature}`);
+	}
+	return [...names].sort();
+}
+
+/** an app's crates and features against its deny list → the failures */
+export function judgeApp(app, names) {
+	return names.filter((n) => app.deny[n]).map((n) => `${app.crate} reaches ${n} – ${app.deny[n]}: the deck app carries no editor code (a lean image has none); keep it in the editor's crates`);
 }
 
 /** one core crate's dependencies against the allow and deny lists → the failures */
@@ -127,6 +155,14 @@ function main() {
 		checked++;
 		errors.push(...judge(c.crate, names, deps));
 	}
+	for (const app of deps.apps ?? []) {
+		try {
+			errors.push(...judgeApp(app, appTree(app.crate, app.args)));
+			checked++;
+		} catch (e) {
+			errors.push(`${app.crate}: cargo tree failed – ${String(e.stderr || e.message).trim().split('\n')[0]}`);
+		}
+	}
 	const n = native(base, read);
 	if (process.argv.includes('--shrink')) {
 		writeFileSync(join(root, NATIVE), JSON.stringify(shrunk(base, n, read), null, '\t') + '\n');
@@ -143,7 +179,7 @@ function main() {
 		for (const e of errors) console.error(`  ${e}`);
 		process.exit(1);
 	}
-	console.log(`check:deck-deps: ok – ${checked} core crates without a platform library, main.rs ${n.lines} lines / ${n.fns.length} fns (${Object.keys(base.main.logic).length} hold deck logic) · ${Date.now() - t} ms`);
+	console.log(`check:deck-deps: ok – ${checked} crates (core crates without a platform library, deck apps without editor code), main.rs ${n.lines} lines / ${n.fns.length} fns (${Object.keys(base.main.logic).length} hold deck logic) · ${Date.now() - t} ms`);
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();

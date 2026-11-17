@@ -1,5 +1,5 @@
 {
-	"$comment": "check:deck-deps (#363 part B, owner 2026-11-03: 'those that shouldnt will fail if the native deck is properly encapsulated'): the core crates of deck/ and the features they are checked with; every crate in their normal dependency tree (cargo tree, all targets) must be in `allow` with a reason, none may be in `deny` (a platform library: audio, window, GPU, sockets, MIDI / serial / input devices, an async runtime, HTTP). A platform need is an adapter crate's (deck-native, space-web, bridge, relay, the adapters) – never a core crate's. `exceptions` are the justified ones: the feature that pulls a platform library and why it stays. `tools` are workspace crates that are tools, not core (benches): listed so nobody takes them for core crates, not checked.",
+	"$comment": "check:deck-deps (#363 part B, owner 2026-11-03: 'those that shouldnt will fail if the native deck is properly encapsulated'): the core crates of deck/ and the features they are checked with; every crate in their normal dependency tree (cargo tree, all targets) must be in `allow` with a reason, none may be in `deny` (a platform library: audio, window, GPU, sockets, MIDI / serial / input devices, an async runtime, HTTP). A platform need is an adapter crate's (deck-native, space-web, bridge, relay, the adapters) – never a core crate's. `apps` are the deck apps: their tree (crates and `crate/feature`, with every feature) reaches nothing in their `deny`. `exceptions` are the justified ones: the feature that pulls a platform library and why it stays. `tools` are workspace crates that are tools, not core (benches): listed so nobody takes them for core crates, not checked.",
 	"crates": [
 		{ "crate": "deck-kit", "args": ["--features", "editor,live"], "why": "the component library (#456, #485): a base on egui's primitives (no GPU, no window: an adapter draws egui's meshes) and both component modules" },
 { "crate": "deck-catalog", "args": [], "why": "the node-kind catalog: ports, domains, ranges" },
@@ -15,6 +15,20 @@
 		{ "crate": "deck-outlet", "args": [], "why": "the Live outlet's logic (#378): a cell's plan, the composer, the crossfade, the dialog / text layout, the relay messages' routing" },
 		{ "crate": "deck-show", "args": [], "why": "the show core (#89): the show document, its validation, the bare conductor" },
 		{ "crate": "deck-ui", "args": [], "why": "the deck's UI model (#374): the HUD's lines, the stats bar's items, the F1 mode" }
+	],
+	"apps": [
+		{
+			"crate": "deck-native",
+			"args": ["--all-features"],
+			"why": "the deck (bin `deck`): a lean image carries it without the editor (#609), so with every feature it reaches no editor-only crate or feature",
+			"deny": {
+				"deck-editor": "the editor app",
+				"scutoons-build": "the editor's local module builds",
+				"arboard": "the editor's clipboard",
+				"deck-kit/editor": "deck-kit's editor components",
+				"deck-kit/egui-text": "egui's text (the editor's; the decks raster their mono face)"
+			}
+		}
 	],
 	"tools": [
 		{ "crate": "module-bench", "why": "the module runtime benchmark (#306, agents/research/MODULE-BENCH.md): not a core crate and not checked here – wasmi, wasm-instrument, wasm-encoder live in this tool only; no production crate depends on it" },

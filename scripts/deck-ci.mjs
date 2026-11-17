@@ -20,7 +20,7 @@
 // Steps: the bridge guard (check:core-only, check:deck-deps – #363), the protocol schema current (shared/live), the kind catalog's generated files current (deck-space's deck-schema
 // --check: kinds.json, the JSON Schema, shared/live/src/catalog.ts), live-core for wasm32 + simd128 (its gz size under the gate) + its TS tests, deck-engine for wasm32 + simd128 (its gz size under the gate), space-web for wasm32 (its gz size reported, no gate – owner 2026-11-11), deck-outlet + deck-ui for wasm32 (#378, #374), deck-show for wasm32 +
 // shared/live-deck's tests, the release profile (checked; built in the full tier), cargo test (the headless deck host's scenarios run in it:
-// headless/tests/scenarios.rs) + the stage's and the engine's module tests, one cargo clippy -D warnings over the module feature union. The Linux aarch64 cross build
+// headless/tests/scenarios.rs) + the stage's and the engine's module tests, one cargo clippy -D warnings over the module feature union, one over the lean deck's features. The Linux aarch64 cross build
 // and the other platforms stay on GitHub (by hand) – this runs the host's native target.
 import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
@@ -86,7 +86,10 @@ const deck = `${root}/deck`;
 const NODE = ['package.json', 'package-lock.json'];
 /** the stage's and the engine's module features, not in their defaults: one feature union for clippy (#305, #342, #524) */
 const MODULES = ['--features', 'deck-native/modules,deck-engine/events,deck-engine/modules'];
-/** { name, cmd, argv, cwd, env?, after?, paths? (beyond WATCH), stamp? (false: always runs) } */
+/** the lean deck's features on this host (deck/os/profiles.toml and the system scenes, without the platform) */
+const leanFeatures = () =>
+	execFileSync('cargo', ['run', '-q', '-p', 'deck-scene-features', '--', '--profile', 'os/profiles.toml', 'lean', '--host', 'native/scenes'], { cwd: deck, encoding: 'utf8' }).trim();
+/** { name, cmd, argv (or a function giving it when the step runs), cwd, env?, after?, paths? (beyond WATCH), stamp? (false: always runs) } */
 const step = (name, cmd, argv, cwd, more = {}) => ({ name, cmd, argv, cwd, ...more });
 const steps = [
 	// #357: no deck logic in the browser's TypeScript (the ratchet: scripts/core-only-baseline.json only shrinks). Never
@@ -144,7 +147,9 @@ const steps = [
 	// #342: the engine's module node (channels, control outputs, control-domain modules, the event host) behind stand-ins
 	step('🧩 engine module tests', 'cargo', ['test', '-p', 'deck-engine', '--features', 'events,modules', '--lib', 'module'], deck),
 	// one clippy over the feature union (#524; was three runs: workspace, deck-native modules, deck-engine events + modules)
-	step('🦀 clippy', 'cargo', ['clippy', '--workspace', '--all-targets', ...MODULES, '--', '-D', 'warnings'], deck)
+	step('🦀 clippy', 'cargo', ['clippy', '--workspace', '--all-targets', ...MODULES, '--', '-D', 'warnings'], deck),
+	// the lean image's deck (#609): its class's modules and what its scenes need, so a cfg that needs a module it lacks fails here
+	step('🪶 lean deck clippy', 'cargo', () => ['clippy', '-p', 'deck-native', '--no-default-features', '--features', leanFeatures(), '--all-targets', '--', '-D', 'warnings'], deck)
 ];
 
 const stamps = new Stamps(stampsDir(root));
@@ -186,7 +191,7 @@ for (const [i, { name, cmd, argv, cwd, env, after, paths }] of steps.entries()) 
 		continue;
 	}
 	const t = Date.now();
-	const r = spawnSync(cmd, argv, { cwd, encoding: 'utf8', env: { ...process.env, ...env }, shell: process.platform === 'win32' && cmd.endsWith('.cmd') });
+	const r = spawnSync(cmd, typeof argv === 'function' ? argv() : argv, { cwd, encoding: 'utf8', env: { ...process.env, ...env }, shell: process.platform === 'win32' && cmd.endsWith('.cmd') });
 	let failed = r.status !== 0;
 	let note = '';
 	if (!failed && after) {

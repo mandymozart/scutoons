@@ -1365,6 +1365,7 @@ name = "deck-scene-features"
 version = "0.1.0"
 dependencies = [
  "deck-core",
+ "deck-space",
  "toml 0.8.23",
 ]
 

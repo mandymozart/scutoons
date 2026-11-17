@@ -2,7 +2,7 @@
 // platform logic files only shrink, the deny list only grows.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { functions, judge, native, ratchet } from './check-deck-deps.mjs';
+import { functions, judge, judgeApp, native, parseAppTree, ratchet } from './check-deck-deps.mjs';
 
 const lists = { allow: { serde: 'serialization', toml: 'scenes' }, deny: { cpal: 'audio device', tokio: 'async runtime / sockets' } };
 
@@ -38,4 +38,15 @@ test('the ratchet: native-logic.json only shrinks, the deny list only grows, the
 	assert.match(e, /winit left the deny list/);
 	assert.deepEqual(ratchet(main, now, null, { deny: {} }, true), []);
 	assert.deepEqual(ratchet(main, main, null, { deny: {} }, false), []);
+});
+
+test('a deck app: an editor-only crate or feature in its tree fails', () => {
+	const out = 'deck-native v0.1.0 (x)|live,space\ndeck-kit v0.1.0 (y)|default,live\nserde v1.0.0|derive\nwinit v0.30.0|\n';
+	const names = parseAppTree(out, 'deck-native');
+	assert.deepEqual(names, ['deck-kit', 'deck-kit/default', 'deck-kit/live', 'serde', 'serde/derive', 'winit']);
+	const app = { crate: 'deck-native', deny: { 'deck-editor': 'the editor app', 'deck-kit/editor': "deck-kit's editor components" } };
+	assert.deepEqual(judgeApp(app, names), []);
+	const e = judgeApp(app, [...names, 'deck-kit/editor', 'deck-editor']);
+	assert.equal(e.length, 2);
+	assert.match(e[0], /deck-native reaches deck-kit\/editor/);
 });
