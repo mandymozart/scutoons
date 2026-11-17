@@ -2546,6 +2546,7 @@ impl App {
         'build: {
         if !build {
             self.show.hits.clear();
+            self.show.flow = self.settings.motion.allows(self.settings.motion.signal_flow).then(|| self.started.elapsed().as_secs_f32());
             match self.workspace {
                 show::Workspace::Show => show::author::draw(ui, t, &mut self.show, wf, hf, self.cursor),
                 show::Workspace::Module => module::draw::draw(ui, t, &mut self.module, &self.stage, (wf, hf), self.cursor, help.as_ref()),
@@ -2684,8 +2685,8 @@ impl App {
                     None => (format!("{id} ← off stage · {address}"), false),
                 };
                 let c = if held { t.color.accent } else { t.color.muted };
-                ui.cable(from, to, c);
-                ui.disc(to.0, to.1, 5.0, c);
+                let flow = self.settings.motion.allows(self.settings.motion.signal_flow).then(|| self.started.elapsed().as_secs_f32());
+                show::band::wire(ui, t, (from, to), (t.size.rem(1.0), flow), c);
                 let w = ui.advance(font * 0.85) * words.chars().count() as f32 + 12.0;
                 controls::chip(ui, t, ((to.0 - w).max(stage_x + pad), to.1 + 8.0), stage_x + stage_w, &words, false);
             }

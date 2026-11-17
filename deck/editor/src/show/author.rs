@@ -210,21 +210,27 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
 /// the 2D overlay: what comes from far (the reader's events, the clock), the cells of the row, what the row sends
 fn nodes(d: &mut DrawList, t: &Tokens, host: &mut Host, (show, sel): (&Show, &str), a: Rect) {
     let (pad, small) = (t.size.pad, t.size.small);
+    let (unit, lh) = (t.size.rem(1.0), t.size.font * 1.5);
     let top = a.y + 4.0;
-    let colw = ((a.w - 2.0 * pad) / 3.6).max(120.0);
-    let (fx, cx) = (a.x, a.x + pad + colw);
-    let sx = cx + pad + colw * 1.6 + pad;
+    // the wires hang in the gaps between the three columns
+    let gap = t.size.rem(2.5);
+    let colw = ((a.w - 2.0 * gap) / 3.6).max(120.0);
+    let (fx, cx) = (a.x, a.x + colw + gap);
+    let sx = cx + colw * 1.6 + gap;
     d.text(fx, top, small, "FROM FAR", t.color.muted);
     d.text(cx, top, small, "THE CELLS OF THIS ROW", t.color.muted);
     d.text(sx, top, small, "THIS ROW SENDS", t.color.muted);
     let mut fy = top + small * 1.8;
     let events: Vec<(String, bool)> = show.rows.iter().filter_map(|r| r.fire.event.as_ref()).map(|e| (format!("event: {e}"), true)).collect();
+    // the selected row's event: its line's port at the reader's right edge
+    let fired = show.rows.get(host.row).filter(|r| r.fire.event.is_some()).map(|_| show.rows[..host.row].iter().filter(|x| x.fire.event.is_some()).count());
+    let far_port = fired.map(|k| (fx + colw, fy + lh + 4.0 + k as f32 * lh + t.size.font * 0.62));
     fy += node(d, t, (fx, fy, colw), ("reader", "phone"), &events, true) + pad;
     fy += node(d, t, (fx, fy, colw), ("clock", "show"), &[("beat".into(), true), ("bar".into(), true)], true);
     let insp = view::inspector(show, sel);
     let mut cy = top + small * 1.8;
     let row_cells = show.rows.get(host.row).map(|r| r.cells.clone()).unwrap_or_default();
-    let mut boxes: Vec<(String, f32, f32)> = Vec::new();
+    let mut boxes: Vec<(String, f32, bool)> = Vec::new();
     for o in &show.outlets {
         let cell = row_cells.get(&o.id).cloned().unwrap_or(deck_show::Cell::Keep);
         let mut lines = vec![];
@@ -237,23 +243,35 @@ fn nodes(d: &mut DrawList, t: &Tokens, host: &mut Host, (show, sel): (&Show, &st
         };
         let head = if matches!(cell, deck_show::Cell::Keep) { format!("{} ↑", o.name()) } else { o.name().to_string() };
         let h = node(d, t, (cx, cy, colw * 1.6), (&head, &detail), &lines, false);
-        boxes.push((o.id.clone(), cy, h));
+        boxes.push((o.id.clone(), cy + lh * 0.5, matches!(cell, deck_show::Cell::Keep)));
         cy += h + pad;
-    }
-    // #568: a far node whose holder plays on another outlet of this row: a tube between the two cells (deck-show far.rs)
-    for l in host.row_links(sel) {
-        let deck_show::far::Holder::Outlet(to) = &l.holder else { continue };
-        let at = |id: &str| boxes.iter().find(|(o, ..)| o == id).map(|(_, y, h)| (cx + colw * 1.6, y + h * 0.5));
-        if let (Some(a), Some(b)) = (at(&l.from), at(to)) {
-            d.cable(a, b, t.color.accent);
-            d.disc(a.0, a.1, 4.0, t.color.accent);
-            d.disc(b.0, b.1, 4.0, t.color.accent);
-        }
     }
     let sends: Vec<(String, bool)> = insp.iter().find(|(h, _)| h == "this row sends").map(|(_, ls)| ls.iter().map(|(a, b)| (if a.is_empty() { b.clone() } else { format!("{a} · {b}") }, false)).collect()).unwrap_or_default();
     // a line without a target is the view's "nothing else": no send to count
     let count = insp.iter().find(|(h, _)| h == "this row sends").map_or(0, |(_, ls)| ls.iter().filter(|(a, _)| !a.is_empty()).count());
     let sy = top + small * 1.8 + node(d, t, (sx, top + small * 1.8, (a.x + a.w - sx).max(80.0)), ("on fire", &format!("{count} sends")), &sends, false);
+    // every cell has its ports: in on the left, out on the right; what comes from far hangs into the cells this row
+    // changes, they hang into what the row sends, and a far node whose holder plays on another cell of this row hangs
+    // from one cell's out to the other's (deck-show far.rs)
+    let sends_port = (sx, top + small * 1.8 + lh * 0.5);
+    let out = |y: f32| (cx + colw * 1.6, y);
+    for (_, y, kept) in &boxes {
+        if !kept {
+            if let Some(f) = far_port {
+                super::band::wire(d, t, (f, (cx, *y)), (unit, host.flow), t.color.accent);
+            }
+            super::band::wire(d, t, (out(*y), sends_port), (unit, host.flow), t.color.accent);
+        }
+        d.port((cx, *y), unit * 0.3, t.color.accent, t.color.surface);
+        d.port(out(*y), unit * 0.3, t.color.accent, t.color.surface);
+    }
+    for l in host.row_links(sel) {
+        let deck_show::far::Holder::Outlet(to) = &l.holder else { continue };
+        let at = |id: &str| boxes.iter().find(|(o, ..)| o == id).map(|(_, y, _)| out(*y));
+        if let (Some(a), Some(b)) = (at(to), at(&l.from)) {
+            super::band::wire(d, t, (a, b), (unit, host.flow), t.color.accent);
+        }
+    }
     let note = "Grey boxes are far away: only events reach another subtree.";
     d.text(a.x, fy.max(cy).max(sy) + pad, small, &fit(d, note, small, a.w), t.color.muted);
 }

@@ -117,7 +117,7 @@ A cell is a piece and its values. A piece is a scene, rig or module; the current
 
 - A link ends when one end is replaced; the input glides back to its own value.
 - The editor checks along every path the flow can take. The typeahead offers what is on stage in this row and greys the rest, with the row where it plays.
-- Built (#568): which far world node's holder plays on which outlet of a row is deck-show far.rs (a piece's holders and far nodes: deck-space holders.rs); Show joins the two cells, Build draws the far node's tube off the stage. A cell's piece opens in Build with the link kept; "values → cell" goes through `Edit::Take`. Fixture: deck/show/fixtures/far-outlets.show.json + rigs/.
+- Built (#568): which far world node's holder plays on which outlet of a row is deck-show far.rs (a piece's holders and far nodes: deck-space holders.rs); Show hangs a wire from the holder's cell to the listening cell, Build hangs one from the far node off the stage (#614: deck-kit wire.rs – sag by distance, glow, beads with Signal flow on wires, ports; the node panel wires from far into the cells and on to what the row sends; a question's parts apart hang on one wire too). A cell's piece opens in Build with the link kept; "values → cell" goes through `Edit::Take`. Fixture: deck/show/fixtures/far-outlets.show.json + rigs/.
 
 ## 7. Firing
 
