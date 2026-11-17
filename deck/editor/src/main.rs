@@ -145,10 +145,11 @@ struct Args {
     /// a check run's library in the list mode, filtered by a query
     library_find: Option<String>,
     library_list: bool,
+    library_related: bool,
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, save_state: None, tools_folded: false, closed: Vec::new(), main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false };
+    let mut a = Args { module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, save_state: None, tools_folded: false, closed: Vec::new(), main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false, library_related: false };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -174,6 +175,7 @@ fn args() -> Result<Args> {
             }
             "--library-find" => a.library_find = Some(val()?),
             "--library-list" => a.library_list = true,
+            "--library-related" => a.library_related = true,
             "--save-state" => a.save_state = Some(val()?),
             "--tools-folded" => a.tools_folded = true,
             "--view" => a.view = Some(val()?.parse()?),

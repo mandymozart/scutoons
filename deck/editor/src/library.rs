@@ -471,7 +471,7 @@ impl crate::App {
         }
     }
 
-    /// a check run's `--library-find`, `--library-list` and `--library-drag`: the card pressed, carried, let go
+    /// a check run's `--library-find`, `--library-list`, `--library-related` and `--library-drag`: the card pressed, carried, let go
     pub(crate) fn script_library(&mut self) {
         const START: u64 = 150;
         if self.frames == 1 {
@@ -481,6 +481,9 @@ impl crate::App {
             if self.args.library_list {
                 self.library.browser.mode = deck_kit::editor::library::Mode::List;
             }
+        }
+        if self.frames == 2 && self.args.library_related {
+            self.library.browser.filter.related = Some(String::new());
         }
         let Some((address, at, hold)) = self.args.library_drag.clone() else { return };
         let (x, y) = at.unwrap_or_else(|| {
