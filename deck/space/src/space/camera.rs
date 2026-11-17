@@ -64,6 +64,8 @@ pub struct Shot {
     pub pitch: f32,
     pub distance: f32,
     pub fov_y: f32,
+    /// an orthographic view's height (m); none = perspective
+    pub ortho: Option<f32>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -88,6 +90,10 @@ pub struct Orbit {
     pub free: bool,
     /// the camera looked through: the view glides to it and stays until a hand moves the view
     pub through: Option<Shot>,
+    /// an orthographic view's height (m); none = perspective
+    pub ortho: Option<f32>,
+    /// a hand moved the view since the last `take_touched` (a playing move stops)
+    touched: bool,
     home: (f32, f32, f32),
     /// the field of view to go back to when the view leaves a camera
     free_fov: f32,
@@ -109,9 +115,16 @@ impl Orbit {
             auto: false,
             free: false,
             through: None,
+            ortho: None,
+            touched: false,
             home: (yaw, pitch, distance),
             free_fov: FOV_Y,
         }
+    }
+
+    /// whether a hand moved the view since the last ask
+    pub fn take_touched(&mut self) -> bool {
+        std::mem::take(&mut self.touched)
     }
 
     /// look through `shot`: the view glides there (`step`) and holds it
@@ -119,6 +132,7 @@ impl Orbit {
         if self.through.is_none() {
             self.free_fov = self.fov_y;
         }
+        self.ortho = shot.ortho;
         self.through = Some(shot);
         self.goal = shot.target;
         self.want = shot.distance.clamp(self.min_distance, self.max_distance);
@@ -127,8 +141,9 @@ impl Orbit {
 
     /// back to the free view, from where the camera looks now
     pub fn leave(&mut self) {
+        self.touched = true;
         if self.through.take().is_some() {
-            self.fov_y = self.free_fov;
+            (self.fov_y, self.ortho) = (self.free_fov, None);
         }
     }
 
@@ -182,7 +197,13 @@ impl Orbit {
     }
 
     pub fn proj(&self, aspect: f32) -> Mat4 {
-        Mat4::perspective_rh(self.fov_y, aspect.max(1e-3), 0.05, 200.0)
+        match self.ortho {
+            Some(h) => {
+                let (hh, hw) = (h * 0.5, h * 0.5 * aspect.max(1e-3));
+                Mat4::orthographic_rh(-hw, hw, -hh, hh, 0.05, 200.0 + self.distance)
+            }
+            None => Mat4::perspective_rh(self.fov_y, aspect.max(1e-3), 0.05, 200.0),
+        }
     }
 
     pub fn view_proj(&self, aspect: f32) -> Mat4 {
@@ -242,7 +263,8 @@ impl Orbit {
     pub fn pan(&mut self, dx: f32, dy: f32, view_h: f32) {
         self.leave();
         let [right, up, _] = self.basis();
-        let per_pixel = 2.0 * self.distance * (self.fov_y * 0.5).tan() / view_h.max(1.0);
+        let height = self.ortho.unwrap_or_else(|| 2.0 * self.distance * (self.fov_y * 0.5).tan());
+        let per_pixel = height / view_h.max(1.0);
         let by = (up * dy - right * dx) * per_pixel;
         self.target += by;
         self.goal += by;
@@ -272,6 +294,9 @@ impl Orbit {
     pub fn zoom(&mut self, steps: f32) {
         self.leave();
         self.want = (self.want * crate::gesture::ZOOM_STEP.powf(steps)).clamp(self.min_distance, self.max_distance);
+        if let Some(h) = self.ortho.as_mut() {
+            *h = (*h * crate::gesture::ZOOM_STEP.powf(steps)).clamp(crate::scene_camera::SIZE_RANGE.0, crate::scene_camera::SIZE_RANGE.1);
+        }
         self.idle = 0.0;
     }
 
@@ -361,7 +386,7 @@ mod tests {
     fn looking_through_a_camera_glides_there_holds_and_a_hand_leaves_it() {
         let mut c = Orbit::new(Vec3::ZERO, 0.2, 0.1, 4.0);
         c.free = true;
-        let shot = Shot { target: Vec3::new(1.0, 0.5, -1.0), yaw: -0.4, pitch: 0.3, distance: 2.5, fov_y: 40f32.to_radians() };
+        let shot = Shot { target: Vec3::new(1.0, 0.5, -1.0), yaw: -0.4, pitch: 0.3, distance: 2.5, fov_y: 40f32.to_radians(), ortho: None };
         c.look_through(shot);
         assert!(!c.arrived(), "no jump");
         c.step(1.0 / 60.0);

@@ -19,6 +19,7 @@ pub mod backdrop;
 pub mod being;
 pub mod camera;
 pub mod decks;
+pub mod dop;
 pub mod feel;
 pub mod glb;
 #[cfg(feature = "gpu")]
@@ -77,6 +78,11 @@ impl Join {
 const RING: f32 = 3.2;
 
 /// where the camera looks: a little above the body's centre, so the head is in the picture
+/// a view as the orbit camera looks through it
+fn shot_of(v: &dop::View) -> Shot {
+    Shot { target: v.target, yaw: v.yaw, pitch: v.pitch, distance: v.distance, fov_y: v.lens.fov_y(), ortho: v.lens.ortho().then_some(v.lens.size) }
+}
+
 fn aim(b: &Being) -> Vec3 {
     b.anchor + Vec3::Y * b.look.size * 0.45
 }
@@ -290,6 +296,8 @@ pub struct Space {
     /// #195: the conductor's push and the decks' answers
     pub sync: sync::Board,
     pub backdrop: backdrop::Backdrop,
+    /// the scene's primary camera playing: its shots and moves
+    pub dop: dop::Dop,
 }
 
 /// Called on the loader thread with a set's file before it is read: the sync (sync.rs) returns once that file is
@@ -427,6 +435,7 @@ impl Space {
             places: Vec::new(),
             sync: sync::Board::default(),
             backdrop: backdrop::Backdrop::default(),
+            dop: dop::Dop::default(),
         };
         space.place_cast();
         space
@@ -436,6 +445,12 @@ impl Space {
     pub fn set_background(&mut self, background: Option<crate::Background>) {
         let ground = self.backdrop.ground;
         self.backdrop = backdrop::Backdrop { ground, ..backdrop::Backdrop::new(background, &mut self.portraits) };
+    }
+
+    /// what the played scene sets beside its graph: the background that won and its camera
+    pub fn set_scene(&mut self, scene: &crate::scene::Scene) {
+        self.set_background(scene.stage.background.clone());
+        self.set_camera(None, scene.camera.clone());
     }
 
     /// what shows when no background sets a colour (display values; black unless the editor's `stage` token says else)
@@ -569,7 +584,11 @@ impl Space {
         // the focus follows the zoom: the whole being far out, its head close up (owner 2026-10-31) – or, with a knob
         // selected, that knob (#224: "zooming then brings you closer to that point"); the camera glides there – held
         // still while a hand is on a knob (a press selects it: the knob would slide away under the finger)
-        if !self.camera.free && !matches!(self.drag, Drag::Knob { .. } | Drag::Hold) {
+        if self.camera.take_touched() {
+            self.dop.director.interrupt();
+        }
+        let directed = self.direct(&dop::Clock::of(time, beat));
+        if !directed && !self.dop.director.active() && !self.camera.free && !matches!(self.drag, Drag::Knob { .. } | Drag::Hold) {
             self.camera.goal = self.focus_goal(self.camera.distance);
         }
         self.camera.step(dt);
@@ -635,22 +654,73 @@ impl Space {
         self.camera.idle = 0.0;
     }
 
-    /// The scene's primary camera: the view a deck opens the scene with – the space node's yaw, pitch and distance,
-    /// aimed as a deck aims. TODO(#582): the scene's own camera and its shots.
+    /// The scene's primary camera where it stands: the shot it went to last, else the one the scene opens with; a scene
+    /// without shots: the space node's yaw, pitch and distance through the camera's lens, aimed as a deck aims.
     pub fn scene_camera(&self) -> Shot {
+        let taken = self.dop.current.as_deref().and_then(|id| self.dop.camera.shot(id));
+        if let Some(s) = taken.or_else(|| self.dop.camera.opening()) {
+            return shot_of(&dop::View::of_shot(s));
+        }
         let (yaw, pitch, distance) = self.camera.home();
         let target = self.cards_middle().unwrap_or_else(|| {
             let (body, head) = self.being.focus();
             let s = self.being.look.size;
             camera::focus_target(body, head, distance, s * FOCUS_NEAR, s * FOCUS_FAR)
         });
-        Shot { target, yaw, pitch, distance, fov_y: camera::FOV_Y }
+        let mut shot = shot_of(&dop::View { target, yaw, pitch, distance, lens: self.dop.camera.lens });
+        if self.dop.camera == crate::scene_camera::SceneCamera::default() {
+            shot.fov_y = camera::FOV_Y;
+        }
+        shot
     }
 
     /// the view snaps to the scene's camera and holds it until a hand moves it
     pub fn look_through_scene(&mut self) {
+        self.dop.director.interrupt();
         let shot = self.scene_camera();
         self.camera.look_through(shot);
+    }
+
+    /// The scene's camera (`scene`: its place, `scene:<id>`), as the played scene carries it. A deck (not an editor's free
+    /// view) opens on its first shot.
+    pub fn set_camera(&mut self, scene: Option<&str>, camera: Option<crate::scene_camera::SceneCamera>) {
+        self.dop = dop::Dop::new(scene.map(String::from), camera.unwrap_or_default());
+        if let (false, Some(s)) = (self.camera.free, self.dop.camera.opening()) {
+            dop::View::of_shot(s).apply(&mut self.camera);
+            self.dop.current = Some(s.id.clone());
+        }
+    }
+
+    /// An address action for the scene's camera (`scene:nave > shot:wide`, `> move:intro`): whether it was one.
+    pub fn camera_word(&mut self, address: &str, action: &str) -> bool {
+        match self.dop.word(address, action) {
+            None => false,
+            Some(Ok(said)) => {
+                tracing::info!("{address} > {said}");
+                true
+            }
+            Some(Err(e)) => {
+                tracing::warn!("{address} > {action}: {e}");
+                true
+            }
+        }
+    }
+
+    /// the moves' view this frame onto the camera; whether one played
+    fn direct(&mut self, clock: &dop::Clock) -> bool {
+        if !self.dop.director.active() {
+            return false;
+        }
+        let now = dop::View::of(&self.camera);
+        let cast: Vec<(String, Vec3)> = if self.dop.camera.moves.iter().any(|m| m.spec.follow.is_some()) { self.cast.iter().map(|c| (c.holder.clone(), self.member_sphere(c).0)).collect() } else { Vec::new() };
+        let subject = |holder: &str| cast.iter().find(|(h, _)| h == holder).map(|(_, at)| *at);
+        match self.dop.step(clock, now, &subject) {
+            Some(v) => {
+                v.apply(&mut self.camera);
+                true
+            }
+            None => false,
+        }
     }
 
     fn focus_goal(&self, distance: f32) -> Vec3 {
@@ -792,6 +862,7 @@ impl Space {
                 In::Synced { client, synced } => self.sync.answer(client, synced),
                 // a story this deck did not ask for (the conductor hears every reader's) is not its scene's
                 In::Story(_) if !self.story => {}
+                In::Address { address, action } if self.camera_word(&address, &action) => {}
                 cast @ (In::Address { .. } | In::Story(_)) => {
                     if self.cast_in.len() == CAST_CAP {
                         self.cast_in.pop_front();

@@ -78,6 +78,9 @@ pub struct SceneDocument {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "schema", schemars(with = "Option<std::collections::BTreeMap<String, serde_json::Value>>"))]
     pub outputs: Option<toml::Table>,
+    /// its primary camera: shots, track, moves (scene_camera.rs)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub camera: Option<crate::scene_camera::SceneCamera>,
 }
 
 /// #517: a scene's listener – "listen to this event when this character …, then do this" (owner 2026-11-13 [scenes]). A story
@@ -496,6 +499,7 @@ impl SceneDocument {
             nodes: scene.nodes.clone(),
             links: scene.links.clone(),
             outputs: scene.outputs.clone(),
+            camera: scene.camera.clone(),
         }
     }
 
@@ -516,6 +520,7 @@ impl SceneDocument {
             nodes: vec![NodeDef { id: "space".into(), kind: "space".into(), params: space }],
             links: Vec::new(),
             outputs: None,
+            camera: None,
         }
     }
 
@@ -748,6 +753,10 @@ impl SceneDocument {
         }
         for (i, l) in self.listeners.iter().enumerate() {
             l.problems(&format!("listener {}", i + 1), &mut out);
+        }
+        if let Some(c) = &self.camera {
+            let holders: Vec<&str> = self.holders.iter().map(|h| h.id.as_str()).collect();
+            c.problems(&holders, &mut out);
         }
         out
     }

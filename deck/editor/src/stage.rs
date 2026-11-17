@@ -199,6 +199,7 @@ impl Stage {
         let ready = Ready { bundle: self.bundle.clone(), knobs: Vec::new(), strips: Vec::new(), sum: None, scene, graph, tempo, space_node, ports: Vec::new(), groups, reach: Default::default() };
         self.path.clear();
         self.take(ready)?;
+        self.space.dop.scene = Some(format!("scene:{id}"));
         self.scene = Some(id.to_string());
         self.played_scene = Some(played);
         Ok(())
@@ -233,6 +234,7 @@ impl Stage {
     fn take(&mut self, ready: Ready) -> Result<()> {
         let knobs: Vec<(String, f32)> = self.knobs.iter().map(|k| (k.path.clone(), self.value(k))).collect();
         let camera = self.space.camera;
+        let (director, current) = (self.space.dop.director.clone(), self.space.dop.current.clone());
         self._events = None;
         self._audio = None;
         self.handles = None;
@@ -240,6 +242,7 @@ impl Stage {
         next.base = self.base.clone();
         next.enter(self.path.clone());
         next.space.camera = camera;
+        (next.space.dop.director, next.space.dop.current) = (director, current);
         next.space.being.hold(self.space.being.held(), true);
         for (path, value) in knobs {
             if let Some(k) = next.knobs.iter().find(|k| k.path == path) {
@@ -314,6 +317,7 @@ impl Stage {
         space.being.look.breath = 0.0;
         space.camera.free = true;
         space.camera.auto = false;
+        space.set_camera(None, scene.camera.clone());
         let mut knobs = Vec::new();
         for k in &played_knobs {
             let (id, port) = node_port(&k.path);
