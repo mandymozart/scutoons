@@ -203,6 +203,7 @@ impl crate::App {
                 view.sel = Part::Scene;
                 self.scene_changed(done, "the video node left the scene".into(), x, y);
             }
+            (Field::BackgroundColour, Part::Scene) => self.colour_open(crate::colour::Target::Scene),
             (Field::Background, Part::Scene) => {
                 let now = view.edit.doc.stage.background.as_ref().map_or("", |b| b.text()).to_string();
                 self.begin_edit(crate::Editing::SceneBackground, crate::Hit::SceneField(Field::Background), now);

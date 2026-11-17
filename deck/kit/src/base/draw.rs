@@ -23,6 +23,8 @@ pub enum Prim {
     Clip(Option<[f32; 4]>),
     /// a straight stroke from `a` to `b`, `thick` wide
     Segment { a: (f32, f32), b: (f32, f32), thick: f32, color: [f32; 4] },
+    /// a rectangle whose colour runs between its corners: top left, top right, bottom right, bottom left
+    Gradient { x: f32, y: f32, w: f32, h: f32, corners: [[f32; 4]; 4] },
 }
 
 /// Where a control landed, in logical pixels (what can be pressed is kept by its caller as these).
@@ -199,7 +201,7 @@ impl DrawList {
         let mut out: Option<(f32, f32, f32, f32)> = None;
         for p in self.prims.get(from..).unwrap_or_default() {
             let r = match *p {
-                Prim::Rect { x, y, w, h, .. } | Prim::Outline { x, y, w, h, .. } => (x, y, x + w, y + h),
+                Prim::Rect { x, y, w, h, .. } | Prim::Outline { x, y, w, h, .. } | Prim::Gradient { x, y, w, h, .. } => (x, y, x + w, y + h),
                 Prim::Text { x, y, px, start, end, spacing, font, .. } => (x, y, x + self.measure(font, px, &self.text[start..end], spacing), y + px * 1.25),
                 Prim::Icon { x, y, size, .. } | Prim::Logo { x, y, size, .. } => (x, y, x + size, y + size),
                 Prim::Segment { a, b, .. } => (a.0.min(b.0), a.1.min(b.1), a.0.max(b.0), a.1.max(b.1)),
@@ -213,6 +215,11 @@ impl DrawList {
     /// what is drawn next shows only inside `r` (none: everywhere again)
     pub fn clip(&mut self, r: Option<Rect>) {
         self.prims.push(Prim::Clip(r.map(|r| [r.x, r.y, r.w, r.h])));
+    }
+
+    /// a rectangle shaded between its corners' colours (top left, top right, bottom right, bottom left)
+    pub fn gradient(&mut self, x: f32, y: f32, w: f32, h: f32, corners: [[f32; 4]; 4]) {
+        self.prims.push(Prim::Gradient { x, y, w, h, corners });
     }
 
     /// a filled circle around (x, y)

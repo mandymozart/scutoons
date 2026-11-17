@@ -145,18 +145,23 @@ impl Host {
                     Typing::Scenes => self.scene_query = text.trim().to_string(),
                     Typing::SceneId | Typing::SceneName | Typing::SceneCast => self.compose_typed(&what, &text),
                     Typing::NewName | Typing::ToonFind => self.toon_typed(&what, &text),
-                    Typing::Background => match deck_space::Background::typed(&text) {
-                        Ok(to) => {
-                            self.edit_rows(&deck_show::rows::Edit::Background { to });
-                        }
-                        Err(why) => self.status = format!("not changed: {why}"),
-                    },
+                    Typing::Background => self.set_background(&text),
                 }
             }
             Key::Named(NamedKey::Escape) => self.typing = None,
             _ => {}
         }
         true
+    }
+
+    /// The show's background as typed or picked: through the core, refused in its words.
+    pub fn set_background(&mut self, text: &str) {
+        match deck_space::Background::typed(text) {
+            Ok(to) => {
+                self.edit_rows(&deck_show::rows::Edit::Background { to });
+            }
+            Err(why) => self.status = format!("not changed: {why}"),
+        }
     }
 
     /// The prompt asked now, in deck-show's words.

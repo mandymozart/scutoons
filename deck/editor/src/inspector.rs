@@ -3,6 +3,7 @@
 //! landed; the values and their ranges are the core's.
 use crate::stage::Stage;
 use crate::wires::Port;
+use deck_kit::editor::colour;
 use deck_kit::editor::controls::{self, Rect};
 use deck_kit::base::draw::DrawList;
 use deck_kit::base::tokens::Tokens;
@@ -27,8 +28,9 @@ pub enum Field {
     Address(usize),
     /// takes the selected track or node away
     Remove,
-    /// the rig's stage background: a click types it
+    /// the rig's stage background: a click on its value types it, on its swatch opens the colour picker
     Background,
+    BackgroundColour,
 }
 
 /// The stage background's row as a rig, a scene, a show or a module shows it: its own, else what it falls back to.
@@ -49,11 +51,10 @@ pub fn background_row(own: Option<&deck_space::Background>, unset: &str) -> Back
     BackgroundRow { value: b.text().to_string(), swatch: b.rgb(), note }
 }
 
-/// The row drawn, its note under it; the rect a click types into.
-pub fn background(d: &mut DrawList, t: &Tokens, area: Rect, y: &mut f32, row: &BackgroundRow) -> Rect {
+/// The row drawn, its note under it; the swatch's place (the colour picker) and the value's (a click types it).
+pub fn background(d: &mut DrawList, t: &Tokens, area: Rect, y: &mut f32, row: &BackgroundRow) -> (Rect, Rect) {
     let top = *y;
-    let room = ((area.w - (area.w * 0.42).min(96.0) - t.size.tree_row) / d.advance(t.size.font)).max(0.0) as usize;
-    controls::swatch_row(d, t, area, y, "background", &controls::fit(&row.value, room), row.swatch);
+    let (swatch, _) = colour::swatch_field(d, t, area, y, "background", &row.value, row.swatch.map(colour::bytes));
     let at = Rect { x: area.x, y: top, w: area.w, h: *y - top };
     if let Some(note) = &row.note {
         let small = t.size.small;
@@ -63,7 +64,7 @@ pub fn background(d: &mut DrawList, t: &Tokens, area: Rect, y: &mut f32, row: &B
         }
         *y += t.size.pad * 0.5;
     }
-    at
+    (swatch, at)
 }
 
 fn remove(d: &mut DrawList, t: &Tokens, area: Rect, y: &mut f32, out: &mut Vec<(Rect, Field)>) {
@@ -118,7 +119,10 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, stage: &Stage, sel: &Sel, 
                 controls::row(d, t, area, &mut y, "moods", &moods);
             }
             let row = background_row(stage.bundle.rig.background.as_ref(), "its modules', else black");
-            out.push((background(d, t, area, &mut y, &row), Field::Background));
+            let (swatch, at) = background(d, t, area, &mut y, &row);
+            // the first rect that has the pointer takes the press: the swatch before its row
+            out.push((swatch, Field::BackgroundColour));
+            out.push((at, Field::Background));
             knobs(d, t, stage, (area, &mut y), None, hot, &mut out);
         }
         Sel::Track(id) => {
@@ -209,8 +213,9 @@ mod tests {
         let (mut d, t) = (DrawList::new(0.6), Tokens::default());
         let area = Rect { x: 10.0, y: 20.0, w: 300.0, h: 400.0 };
         let mut y = area.y;
-        let at = background(&mut d, &t, area, &mut y, &video);
+        let (swatch, at) = background(&mut d, &t, area, &mut y, &video);
         assert_eq!((at.x, at.y, at.w), (10.0, 20.0, 300.0));
+        assert!(at.has(swatch.x + 1.0, swatch.y + 1.0) && swatch.w < at.w, "the swatch sits in its row");
         assert!((at.h - t.size.tree_row).abs() < 1e-3, "the row is what a click types into");
         assert!(y > at.y + at.h, "its note under it");
     }

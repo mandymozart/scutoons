@@ -14,6 +14,7 @@ mod adding;
 mod autosave;
 mod bar;
 mod book;
+mod colour;
 mod empty;
 mod gpu_time;
 mod grid;
@@ -134,10 +135,12 @@ struct Args {
     /// a check run's panels closed in every workspace, and the main menu open
     closed: Vec<String>,
     main_menu: bool,
+    /// a check run's colour picker on the shown background: open | pick | drop:X,Y | take:X,Y (colour.rs `script_colour`)
+    colour: Option<String>,
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, save_state: None, tools_folded: false, closed: Vec::new(), main_menu: false };
+    let mut a = Args { module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, save_state: None, tools_folded: false, closed: Vec::new(), main_menu: false, colour: None };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -150,6 +153,7 @@ fn args() -> Result<Args> {
             "--wire" => a.wire = true,
             "--fullscreen" => a.fullscreen = true,
             "--panic" => a.panic = true,
+            "--colour" => a.colour = Some(val()?),
             "--save-state" => a.save_state = Some(val()?),
             "--tools-folded" => a.tools_folded = true,
             "--view" => a.view = Some(val()?.parse()?),
@@ -271,7 +275,7 @@ fn args() -> Result<Args> {
                 a.size = Some((w.trim().parse()?, h.trim().parse()?));
             }
             "--help" | "-h" => {
-                println!("deck-editor [--rig catpope] [--fullscreen] [--frames N] [--screenshot FILE] [--tokens FILE] [--size W,H] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5] [--menu PORT,QUERY[,pick]] [--toon TOON] [--book FILE] [--select NODE --far QUERY[,pick]] [--demo NAME] [--panic] [--save-state saving|offline|conflict] [--settings] [--close ID,ID] [--main-menu] [--module ID [--module-build] [--module-save] [--module-save-as ID]]");
+                println!("deck-editor [--rig catpope] [--fullscreen] [--frames N] [--screenshot FILE] [--tokens FILE] [--size W,H] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5] [--menu PORT,QUERY[,pick]] [--toon TOON] [--book FILE] [--select NODE --far QUERY[,pick]] [--demo NAME] [--panic] [--colour open|pick|drop:X,Y|take:X,Y] [--save-state saving|offline|conflict] [--settings] [--close ID,ID] [--main-menu] [--module ID [--module-build] [--module-save] [--module-save-as ID]]");
                 std::process::exit(0);
             }
             other => anyhow::bail!("unknown argument {other}"),
@@ -345,6 +349,8 @@ enum Hit {
     Add,
     Remove,
     Background,
+    /// a background's swatch: the colour picker
+    BackgroundColour,
     /// the Audio panel's settings, map and tones
     Routing(routing::Field),
     /// #568: Build linked to a show cell – its knobs into the cell, back to Show
@@ -531,6 +537,7 @@ struct App {
     last_row: Option<(deck_space::scene_edit::Part, Instant)>,
     /// Build's grid & snap (grid.rs)
     grid: grid::GridSnap,
+    colour: colour::Colour,
     /// the workspace the last frame saved in: leaving one saves what it edits
     saved_in: show::Workspace,
     /// a check run saves nothing by itself (it never writes to the server)
@@ -578,6 +585,7 @@ fn run() -> Result<i32> {
     let remembered = panels_file.as_deref().map(panels::load).unwrap_or_default();
     let mut build = panels::Panels::new(&panels::BUILD);
     let settings_file = args.frames.is_none().then(|| settings::file(&cache));
+    let app_colour = colour::Colour::load(args.frames.is_none().then(|| colour::file(&cache)));
     let mut app_settings = settings_file.as_deref().map(settings::load).unwrap_or_default();
     app_settings.look.theme = args.theme.unwrap_or(app_settings.look.theme);
     app_settings.look.base = args.ui_size.unwrap_or(app_settings.look.base);
@@ -701,6 +709,7 @@ fn run() -> Result<i32> {
         scene: None,
         last_row: None,
         grid: grid::GridSnap::load(app_grid_file),
+        colour: app_colour,
         tools: tools::Tools::default(),
     };
     event_loop.run_app(&mut app).context("the event loop")?;
@@ -973,6 +982,7 @@ impl App {
             Hit::Peak(_) => Help::new("Highest peak", "The loudest moment in dB, red once it went over 0. Click to clear it."),
             Hit::RigPick => Help::new("Rig", "Click: the toon's rigs on the server; a pick opens it on the stage. A local copy that differs from the server's is offered."),
             Hit::Add => Help::new("Add", "Inside a track: a node, a far world node with its holder from the address book. At the rig: a track playing an instrument of the catalog. Ctrl+z takes it back."),
+            Hit::BackgroundColour => Help::new("Colour", "Choose the background's colour: the palette, your recent colours, saturation and brightness over the hue, or the eyedropper – a click takes the colour under the pointer on the stage, Esc cancels."),
             Hit::Background => Help::new("Background", "The stage's background while this rig plays: a colour (#rrggbb) or a media path (an image laid over the stage). Empty = its modules', else black; a scene or a show over it wins."),
             Hit::Remove => Help::new("Remove", "Takes the selected node or track away, its cables with it (delete does the same). Ctrl+z takes it back."),
             Hit::Mute(i) => Help::new(format!("Mute {}", self.stage.strips.get(i)?.track), "Takes the track out of the sound."),
@@ -1023,6 +1033,10 @@ impl App {
 
     fn pointer(&mut self, x: f32, y: f32) {
         self.cursor = (x, y);
+        if self.colour.dragging() {
+            let d = self.colour.drag_to(x, y);
+            return self.colour_do(d);
+        }
         if let Some(m) = self.menu.as_mut() {
             m.ta.hover(x, y);
         }
@@ -1106,6 +1120,10 @@ impl App {
             }
             return;
         }
+        if self.colour.taking() {
+            let d = self.colour.press(x, y);
+            return self.colour_do(d);
+        }
         // the main menu takes the press while it is open: a line does what it says, anywhere else closes it
         if self.main_menu {
             match self.menu_lines.iter().find(|(r, _)| r.has(x, y)).map(|(_, l)| *l) {
@@ -1141,6 +1159,9 @@ impl App {
                 return;
             }
             if let Some(h) = self.show.hit(x, y) {
+                if h == show::Hit::BackgroundColour {
+                    return self.colour_open(colour::Target::Show);
+                }
                 // #551: shift and a press add a cell to the row's selection
                 return self.show.press(if self.mods.shift_key() || self.mods.control_key() { h.with_shift() } else { h });
             }
@@ -1327,6 +1348,7 @@ impl App {
                 let now = self.stage.bundle.rig.background.as_ref().map_or("", |b| b.text()).to_string();
                 self.begin_edit(Editing::Background, Hit::Background, now);
             }
+            Hit::BackgroundColour => self.colour_open(colour::Target::Rig),
             Hit::ToCell => self.knobs_to_cell(),
             Hit::BackToShow => self.workspace = show::Workspace::Show,
             Hit::SceneKnob(i) => {
@@ -1434,31 +1456,36 @@ impl App {
                 }
                 self.store_fader(target);
             }
-            Editing::Background => {
-                let (x, y) = self.cursor;
-                match deck_space::Background::typed(&text) {
-                    Ok(b) => {
-                        let mut next = self.stage.bundle.clone();
-                        next.rig.background = b;
-                        let before = self.stage.bundle.clone();
-                        if self.take(next, x, y) {
-                            self.undo.push(before);
-                        }
-                    }
-                    Err(e) => self.say(e, x, y, true),
+            Editing::Background => self.rig_background(&text),
+            Editing::SceneBackground => self.scene_background(&text),
+        }
+    }
+
+    /// the rig's background as typed or picked: into the rig, the undo and the draft
+    fn rig_background(&mut self, text: &str) {
+        let (x, y) = self.cursor;
+        match deck_space::Background::typed(text) {
+            Ok(b) => {
+                let mut next = self.stage.bundle.clone();
+                next.rig.background = b;
+                let before = self.stage.bundle.clone();
+                if self.take(next, x, y) {
+                    self.undo.push(before);
                 }
             }
-            Editing::SceneBackground => {
-                let (x, y) = self.cursor;
-                let Some(view) = self.scene.as_mut() else { return };
-                match view.edit.set_background(&text) {
-                    Ok(said) => {
-                        self.replay_scene();
-                        self.say(said, x, y, false);
-                    }
-                    Err(e) => self.say(e, x, y, true),
-                }
+            Err(e) => self.say(e, x, y, true),
+        }
+    }
+
+    fn scene_background(&mut self, text: &str) {
+        let (x, y) = self.cursor;
+        let Some(view) = self.scene.as_mut() else { return };
+        match view.edit.set_background(text) {
+            Ok(said) => {
+                self.replay_scene();
+                self.say(said, x, y, false);
             }
+            Err(e) => self.say(e, x, y, true),
         }
     }
 
@@ -1836,6 +1863,10 @@ impl App {
 
     /// the button let go: a cable dropped on a port is a gesture on the rig
     fn release(&mut self) {
+        if self.colour.dragging() {
+            let d = self.colour.release();
+            return self.colour_do(d);
+        }
         if self.panels_mut().floats.release() {
             self.panels_moved = true;
             return;
@@ -1954,6 +1985,7 @@ impl App {
 
     /// a check run's drag at fixed frames: the pointer's own path, through hit test, press, move and release
     fn script(&mut self) {
+        self.script_colour();
         self.show.script(self.frames, &self.args.script);
         if self.frames == 70 && self.args.script.to_cell {
             self.knobs_to_cell();
@@ -2246,6 +2278,7 @@ impl App {
         self.stage.space.set_ground([r, g, b]);
         let show_bg = matches!(self.workspace, show::Workspace::Show | show::Workspace::Perform).then(|| self.show.sub.conductor().show().background.clone()).flatten();
         self.stage.wear(show_bg.as_ref());
+        self.stage.ask_pixel(self.colour.dropper.map(|_| ((self.cursor.0 * scale) as u32, (self.cursor.1 * scale) as u32)));
         let (stage_view, fresh) = self.stage.frame(&gpu.device, &gpu.queue, &mut enc, ((stage_w * scale) as u32, (stage_h * scale) as u32), dt);
         if fresh {
             ui.set_stage(&gpu.device, stage_view);
@@ -2642,6 +2675,7 @@ impl App {
                                 inspector::Field::Address(n) => Hit::Address(n),
                                 inspector::Field::Remove => Hit::Remove,
                                 inspector::Field::Background => Hit::Background,
+                                inspector::Field::BackgroundColour => Hit::BackgroundColour,
                             };
                             self.panel.hits.push((r, hit));
                         }
@@ -2798,6 +2832,8 @@ impl App {
             }
         }
         self.tools.draw_menu(ui, t, (wf, hf), self.cursor);
+        let value = self.colour.target().and_then(|target| colour::value(target, &self.stage, self.scene.as_ref(), &self.show));
+        self.colour.draw(ui, t, (wf, hf), value, self.cursor);
         // the main menu over everything, the workspace's panels under its lines
         self.menu_lines.clear();
         if self.main_menu {
@@ -2830,6 +2866,9 @@ impl App {
         if let Some(g) = self.gpu_time.as_mut() {
             g.after_submit(&gpu.device);
             self.gpu_load = ease(self.gpu_load, g.last_ms / budget);
+        }
+        if self.colour.dropper.is_some() {
+            self.colour.under = self.stage.read_pixel(&gpu.device);
         }
         if let (Some(path), Some((buf, stride))) = (shot, readback) {
             if let Err(e) = save(&gpu.device, &buf, stride, (w, h), gpu.format(), &path) {
@@ -2961,6 +3000,11 @@ impl ApplicationHandler for App {
             }
             WindowEvent::KeyboardInput { event, .. } if self.edit.is_some() => self.edit_key(&event),
             WindowEvent::KeyboardInput { event, .. } if self.menu.is_some() => self.menu_key(&event),
+            WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed && event.logical_key == Key::Named(NamedKey::Escape) && self.colour.taking() => {
+                let d = self.colour.release();
+                self.colour_do(d);
+                self.colour.escape();
+            }
             // ctrl+s: save now, in every workspace (everything saves itself anyway)
             WindowEvent::KeyboardInput { event, .. }
                 if event.state == ElementState::Pressed && event.logical_key == Key::Character("s".into()) && self.mods.control_key() && !self.panel.field.focused && self.show.typing.is_none() =>
