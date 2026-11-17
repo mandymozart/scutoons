@@ -117,6 +117,7 @@ ln -sf /usr/lib/systemd/system/deck-update.timer "$PROFILE/airootfs/etc/systemd/
 [ -e "$PROFILE/airootfs/etc/systemd/system/pacman-init.service" ] && ln -sf /etc/systemd/system/pacman-init.service "$wants/pacman-init.service"
 # releng's file_permissions name a file we removed
 sed -i '/automated_script/d' "$PROFILE/profiledef.sh"
+[ $editor = 1 ] || sed -i '\|"/usr/bin/deck-editor"|d' "$PROFILE/profiledef.sh"
 # the serial console on ttyS0 (the VM test, a cable on a real deck) is NOT enabled here: systemd's serial-getty generator
 # starts it only where console=ttyS0 is on the kernel line (the live entries, profiledef). An installed deck without a
 # serial port then never runs it – a hard enable restarted it forever on the X1 (672 times, #262)
