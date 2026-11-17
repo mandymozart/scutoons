@@ -11,22 +11,36 @@ namespace Scutoons\Generated;
  * @phpstan-type Arrange array{kind: ArrangeKind, spacing?: float}
  * @phpstan-type ArrangeKind 'row' | 'cluster'
  * @phpstan-type Background array{colour?: string | null, image?: string | null, video?: string | null}
+ * @phpstan-type Ease 'linear' | 'in' | 'out' | 'in_out' | 'whip'
  * @phpstan-type Enter 'start' | 'join'
  * @phpstan-type Fill array{kind: list<'character' | 'persona' | 'look' | 'item' | 'location'>, parent?: string | null, ref?: list<string>}
  * @phpstan-type Fillers string | list<string>
  * @phpstan-type Holder array{arrange?: Arrange | null, at?: array{float, float, float} | null, enter?: Enter, fill?: Fill | null, id: string, label?: array<string, string> | null, max?: int | null, preview?: Fillers | null, ref?: string | null, rig?: RigPin | null, spot?: string | null, take?: Take, values?: array<string, HolderValue>}
  * @phpstan-type HolderValue float | string
+ * @phpstan-type Length array{beats: float} | array{bars: float} | array{seconds: float}
+ * @phpstan-type Lens array{focal?: float, projection?: Projection, size?: float}
  * @phpstan-type LinkDef array{from: string, map?: list<array{int, int}>, offset?: float, scale?: float, to: string}
  * @phpstan-type Listener array{character?: string | null, do: Act, id?: string | null, on: string}
  * @phpstan-type LocationPlaceholder array{fill: Fill, id: string, label?: array<string, string> | null, preview?: string | null}
  * @phpstan-type LocationSlot string | LocationPlaceholder
+ * @phpstan-type MoveDef array{amount?: float, ease?: Ease, follow?: string | null, height?: float, id: string, kind: MoveKind, length: Length, rounds?: float, side?: Side, start?: Start, then?: string | null, to: string, turn?: Turn}
+ * @phpstan-type MoveKind 'cut' | 'glide' | 'in' | 'fly' | 'crane_down' | 'crane_up' | 'spiral' | 'push' | 'pull' | 'orbit' | 'truck' | 'tilt' | 'zoom' | 'dolly_zoom' | 'whip' | 'follow' | 'shake'
  * @phpstan-type NodeDef array<string, mixed>
+ * @phpstan-type Projection 'perspective' | 'orthographic'
  * @phpstan-type RigPin array{ref: string, version?: string | null}
+ * @phpstan-type SceneCamera array{lens?: Lens, move?: list<MoveDef>, shot?: list<ShotDef>, source?: Source, track?: Track | null}
  * @phpstan-type SceneTransition 'fade' | 'cut' | 'blackout'
  * @phpstan-type SceneUse array{scene: string, with?: array<string, Fillers>}
+ * @phpstan-type ShotDef array{distance: float, id: string, label?: array<string, string>, lens?: Lens, pitch: float, target: array{float, float, float}, yaw: float}
+ * @phpstan-type Side 'left' | 'right'
+ * @phpstan-type Source 'scene' | 'handheld'
  * @phpstan-type StageSettings array{audio_buffer?: int | null, background?: Background | null, name?: string, render_scale?: float, transition?: SceneTransition, transition_secs?: float}
+ * @phpstan-type Start 'now' | 'bar'
  * @phpstan-type Take 'one' | 'many'
- * @phpstan-type SceneDocument array{format: 2, holder?: list<Holder>, id: string, link?: list<LinkDef>, listener?: list<Listener>, location?: LocationSlot | null, node?: list<NodeDef>, outputs?: array<string, mixed> | null, stage?: StageSettings, toons?: list<string>, version?: int | null}
+ * @phpstan-type Track array{point: list<TrackPoint>}
+ * @phpstan-type TrackPoint array{at: array{float, float, float}, handle?: array{float, float, float} | null}
+ * @phpstan-type Turn 'right' | 'left'
+ * @phpstan-type SceneDocument array{camera?: SceneCamera | null, format: 2, holder?: list<Holder>, id: string, link?: list<LinkDef>, listener?: list<Listener>, location?: LocationSlot | null, node?: list<NodeDef>, outputs?: array<string, mixed> | null, stage?: StageSettings, toons?: list<string>, version?: int | null}
  */
 final class SceneTypes
 {

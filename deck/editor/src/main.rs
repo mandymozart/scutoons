@@ -15,6 +15,7 @@ mod autosave;
 mod bar;
 mod book;
 mod colour;
+mod dop;
 mod empty;
 mod gpu_time;
 mod grid;
@@ -150,10 +151,12 @@ struct Args {
     /// a check run's view: panned by (dx, dy) pixels at the start, then looking through the scene's camera if asked
     pan: Option<(f32, f32)>,
     camera: bool,
+    /// a check run's scene camera (dop.rs `script_dop`): shots, a track, a move previewed
+    dop: Option<String>,
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, save_state: None, tools_folded: false, closed: Vec::new(), main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false, library_related: false, pan: None, camera: false };
+    let mut a = Args { module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, save_state: None, tools_folded: false, closed: Vec::new(), main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false, library_related: false, pan: None, camera: false, dop: None };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -245,6 +248,7 @@ fn args() -> Result<Args> {
                 a.pan = Some((x.trim().parse()?, y.trim().parse()?));
             }
             "--camera" => a.camera = true,
+            "--dop" => a.dop = Some(val()?),
             "--close" => a.closed.extend(val()?.split(',').map(str::trim).filter(|n| !n.is_empty()).map(String::from)),
             "--main-menu" => a.main_menu = true,
             "--open-build" => a.script.open_build = true,
@@ -395,6 +399,8 @@ enum Hit {
     SceneInto,
     /// a slot's or a video node's field (scene_parts.rs)
     SceneField(scene::Field),
+    /// the DOP panel's field (dop.rs)
+    Dop(dop::Field),
     /// a way to start the rig of a character without one (empty.rs)
     Way(empty::Way),
 }
@@ -427,6 +433,10 @@ enum Drag {
     Gizmo(Option<usize>, bool, f32, f32),
     /// a knob of the scene's member: which, the pointer's start, the start's value
     SceneKnob(usize, f32, f32),
+    /// a number of the DOP panel: which, the pointer's start, the start's value
+    Dop(dop::Num, f32, f32),
+    /// a point of the trolley track on the stage (scene_stage.rs), or its handle
+    TrackPoint(usize, bool),
 }
 
 /// a port on the screen this frame (logical pixels)
@@ -444,6 +454,7 @@ enum Editing {
     Gain(mixer::Target),
     Background,
     SceneBackground,
+    Focal,
 }
 
 /// a value being typed, in place of its field
@@ -1055,6 +1066,9 @@ impl App {
             Hit::Way(empty::Way::Modules) => Help::new("Start from modules", "Add at the rig: a track playing a module or an instrument of the catalog; the rig saves itself as its first draft."),
             Hit::Way(empty::Way::NewModule) => Help::new("New module", "A module of the character's own as a draft, opened in the Module workspace: write it, build it, hear it, then add it here as a track."),
             Hit::SceneField(scene::Field::Background) => Help::new("Background", "The stage's background in this scene: a colour (#rrggbb), an image's media path laid over the stage, or a video's (it does not play yet). Empty = its rigs', else black; a show over it wins."),
+            Hit::Dop(dop::Field::Focal) => Help::new("Focal length", "Type a focal length in mm for the extreme cases; the presets are 17, 30, 50, 70, 100 and 150."),
+            Hit::Dop(dop::Field::Preview) => Help::new("Preview", "Plays the move from where the camera is now to the selected shot on this stage; a hand on the view stops it."),
+            Hit::Dop(_) => Help::new("DOP", "The scene's camera: its lens, its shots (a show row picks one by scene:<id> > shot:<id>), a move to preview or keep (scene:<id> > move:<id>), the trolley track."),
             Hit::SceneField(_) => Help::new("Slot or video", "A slot's filter (every chip on holds), its preview from the toon's book; a video node's place and knobs. The core refuses what does not fit, in its words."),
                         Hit::Field(_) | Hit::Nothing => return None,
         })
@@ -1120,6 +1134,8 @@ impl App {
             Some(Drag::Member) => {}
             Some(Drag::Knob(i, _, _)) => self.knob_at(i, x),
             Some(Drag::SceneKnob(i, x0, v0)) => self.scene_knob_to(i, x0, v0, x),
+            Some(Drag::Dop(n, x0, v0)) => self.dop_scrub_to(n, x0, v0, x),
+            Some(Drag::TrackPoint(i, handle)) => self.track_point_to(i, handle, x, y),
             Some(Drag::Param(node, port, x0, f0)) => {
                 if let Some(p) = self.stage.param(node, port) {
                     let v = p.spec.value((f0 + (x - x0) / SCRUB_PX).clamp(0.0, 1.0));
@@ -1422,6 +1438,12 @@ impl App {
             Hit::RigPick => self.open_rigs(x, y),
             Hit::Add if self.scene.as_ref().is_some_and(|v| v.inside.is_none()) => self.scene_add(x, y),
             Hit::SceneField(f) => self.scene_field(f, x, y),
+            Hit::Dop(dop::Field::Scrub(n)) => {
+                if let Some(v) = self.scene.as_ref().map(|v| dop::value(v, n)) {
+                    self.panel.drag = Some(Drag::Dop(n, x, v));
+                }
+            }
+            Hit::Dop(f) => self.dop_field(f, x, y),
             Hit::Add => self.open_add(x, y),
             Hit::Way(w) => self.start_rig(w, x, y),
             Hit::Remove => self.remove_selected(),
@@ -1544,6 +1566,7 @@ impl App {
             }
             Editing::Background => self.rig_background(&text),
             Editing::SceneBackground => self.scene_background(&text),
+            Editing::Focal => self.dop_focal(&text),
         }
     }
 
@@ -1982,6 +2005,8 @@ impl App {
             // the fader let go: the gain goes into the rig, no replay: the engine has it already
             Some(Drag::Fader(target, _)) => return self.store_fader(target),
             Some(Drag::SceneKnob(..)) => return self.scene_settled(),
+            Some(Drag::Dop(n, ..)) => return self.dop_settled(n),
+            Some(Drag::TrackPoint(..)) => return self.track_settled(),
             // a knob or a parameter let go: its value goes into the draft
             Some(Drag::Knob(i, ..)) => {
                 if let Some(k) = self.stage.knobs.get(i) {
@@ -2081,6 +2106,7 @@ impl App {
             self.knobs_to_cell();
         }
         self.script_scene();
+        self.script_dop();
         const START: u64 = 60;
         if self.args.pull {
             let s = self.scale();
@@ -2510,7 +2536,8 @@ impl App {
         let view = mixer::View { tabs, tab, selected, hot, panning };
         let (mixer_w, mixer_h) = mixer::size(t, &self.stage, &view);
         let info_h = t.size.small * 1.4 * 6.0;
-        let shown = [("tree", t.size.tree, None), (library::PANEL, library::WIDTH, None), ("inspector", t.size.inspector, None), ("audio", 320.0, None), ("info", 260.0, Some(info_h)), ("mixer", mixer_w, Some(mixer_h))];
+        let dop_h = self.scene.as_ref().map_or(t.size.row * 2.0, |v| dop::height(t, v));
+        let shown = [("tree", t.size.tree, None), (library::PANEL, library::WIDTH, None), ("inspector", t.size.inspector, None), ("audio", 320.0, None), ("info", 260.0, Some(info_h)), ("mixer", mixer_w, Some(mixer_h)), ("dop", dop::WIDTH, Some(dop_h))];
         self.build.layout(ui, t, ((wf, hf), bar_bottom), &[gizmo], &shown);
         let covered = |floats: &deck_kit::editor::floats::Floats, x: f32, y: f32| y < bar_bottom || floats.covers(x, y);
         // the Wire side: the ports around the being's points, the core's list on this frame's places (not under a panel)
@@ -2852,6 +2879,25 @@ impl App {
                     mixer::Part::Peak(p) => Hit::Peak(p),
                 };
                 self.panel.hits.push((r, hit));
+            }
+            self.build.close(ui, t, o, &mut self.panel.hits);
+        }
+        if let Some(o) = self.build.open(ui, t, "dop", self.cursor, self.panel.hits.len()) {
+            match self.scene.as_ref().filter(|v| v.inside.is_none()) {
+                Some(view) => {
+                    let dop = &self.stage.space.dop;
+                    let playing = dop.clock.and_then(|c| dop.director.playing(&c)).map(|(c, p)| (c.spec.kind.word().to_string(), c.shot.clone(), p));
+                    let hot = match self.panel.drag {
+                        Some(Drag::Dop(n, ..)) => Some(n),
+                        _ => None,
+                    };
+                    for (r, f) in dop::draw(ui, t, o.area, view, playing, hot) {
+                        self.panel.hits.push((r, Hit::Dop(f)));
+                    }
+                }
+                None => {
+                    ui.text(o.area.x, o.area.y + 4.0, t.size.small, "open a scene: its camera, shots and moves", t.color.muted);
+                }
             }
             self.build.close(ui, t, o, &mut self.panel.hits);
         }

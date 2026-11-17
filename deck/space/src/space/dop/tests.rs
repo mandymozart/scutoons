@@ -253,3 +253,37 @@ fn camera_words_cut_and_play_only_for_their_scene() {
     assert!((p.w_axis.w - 1.0).abs() < 1e-6, "an orthographic projection keeps w");
     assert!(View::of(&orbit).gap(&v) < 1e-3, "the orbit's view is the shot's");
 }
+
+/// Build opens a scene on its camera: the same view however the stage was looked at before, a shot exactly
+#[test]
+fn a_scene_opens_on_its_camera_the_same_however_the_stage_was_looked_at() {
+    use crate::scene_document::SceneDocument;
+    use crate::scene_resolve::{core_rigs, no_sets, resolve};
+    use crate::space::portrait::Portraits;
+    use crate::space::values::Table;
+    let mut doc = SceneDocument::new("duet", "Duet", vec!["catpope".into()]);
+    doc.recast(&["character:catpope".into(), "item:incense_burner".into()]);
+    let open = |doc: &SceneDocument, turn: f32| -> View {
+        let scene = resolve(doc, &Default::default(), true, &core_rigs, &no_sets).unwrap().scene;
+        let g = crate::graph::Graph::build(&scene).unwrap();
+        let mut s = crate::space::Space::new(&g, g.first(crate::graph::Kind::Space).unwrap(), &scene.being, std::path::Path::new("/nowhere"), Portraits::manual());
+        s.camera.free = true;
+        s.set_camera(Some("scene:duet"), scene.camera.clone());
+        s.set_view(1280.0, 720.0);
+        s.camera.drag(turn * 300.0, turn * 80.0);
+        s.camera.pan(turn * 40.0, 0.0, 720.0);
+        s.camera.zoom(turn * 3.0);
+        s.open_on_scene_camera();
+        let mut ctl = Table::new(&g);
+        for k in 0..30 {
+            s.update(1.0 / 60.0, k as f32 / 60.0, &mut ctl, &tempo::Now::default(), &|_, _| 0.0);
+        }
+        View::of(&s.camera)
+    };
+    let (a, b) = (open(&doc, 0.0), open(&doc, 1.0));
+    assert!(a.gap(&b) < 1e-4, "{a:?} vs {b:?}");
+    doc.camera = Some(camera());
+    let v = open(&doc, 1.0);
+    let wide = View::of_shot(&camera().shots[0]);
+    assert!(v.gap(&wide) < 1e-3, "on the opening shot: {v:?}");
+}

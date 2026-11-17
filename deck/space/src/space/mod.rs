@@ -681,6 +681,20 @@ impl Space {
         self.camera.look_through(shot);
     }
 
+    /// An editor opens a scene on its camera: the view is there at once and holds it until a hand moves it – the same
+    /// view however the stage was looked at before.
+    pub fn open_on_scene_camera(&mut self) {
+        let home = self.camera.home();
+        let (free, auto) = (self.camera.free, self.camera.auto);
+        self.camera = Orbit::new(self.camera.target, home.0, home.1, home.2);
+        (self.camera.free, self.camera.auto) = (free, auto);
+        let shot = self.scene_camera();
+        self.camera.look_through(shot);
+        let c = &mut self.camera;
+        c.max_distance = c.max_distance.max(shot.distance);
+        (c.target, c.goal, c.yaw, c.pitch, c.distance, c.want, c.fov_y) = (shot.target, shot.target, shot.yaw, shot.pitch, shot.distance, shot.distance, shot.fov_y);
+    }
+
     /// The scene's camera (`scene`: its place, `scene:<id>`), as the played scene carries it. A deck (not an editor's free
     /// view) opens on its first shot.
     pub fn set_camera(&mut self, scene: Option<&str>, camera: Option<crate::scene_camera::SceneCamera>) {
@@ -689,6 +703,21 @@ impl Space {
             dop::View::of_shot(s).apply(&mut self.camera);
             self.dop.current = Some(s.id.clone());
         }
+    }
+
+    /// the view glides to the shot `id` and looks through it until a hand moves it
+    pub fn look_through_shot(&mut self, id: &str) {
+        let Some(v) = self.dop.view(id) else { return };
+        self.dop.director.interrupt();
+        self.dop.current = Some(id.to_string());
+        self.camera.look_through(shot_of(&v));
+    }
+
+    /// where the ray through view pixel (`x`, `y`) meets the level `height` in front of the eye (a track point dragged)
+    pub fn level_point(&self, x: f32, y: f32, height: f32) -> Option<Vec3> {
+        let ray = self.camera.ray(x, y, self.view.0, self.view.1);
+        let t = (height - ray.origin.y) / ray.dir.y;
+        (ray.dir.y.abs() > 1e-4 && t > 0.0).then(|| ray.origin + ray.dir * t)
     }
 
     /// An address action for the scene's camera (`scene:nave > shot:wide`, `> move:intro`): whether it was one.
@@ -787,12 +816,17 @@ impl Space {
                 }
                 let base = spot.unwrap_or_else(|| Vec3::new((model.min.x + model.max.x) * 0.5, model.min.y, (model.min.z + model.max.z) * 0.5));
                 self.being.anchor = self.at.unwrap_or(base + Vec3::Y * self.lift);
-                self.camera.look_at(aim(&self.being));
+                if self.dop.camera.opening().is_none() {
+                    self.camera.look_at(aim(&self.being));
+                }
                 self.set_status = format!("SET {}K TRIS", model.triangles() / 1000);
                 self.spots = model.spots.clone();
                 self.model = Some(model);
                 self.set_failed = false;
                 self.place_cast();
+                if self.camera.through.is_some() {
+                    self.look_through_scene();
+                }
             }
             Err(e) => {
                 tracing::error!("set: {e:#}");

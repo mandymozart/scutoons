@@ -89,6 +89,7 @@ impl View {
     /// the orbit camera looks through this view at once (its glides have nothing left to do)
     pub fn apply(&self, c: &mut Orbit) {
         c.through = None;
+        c.max_distance = c.max_distance.max(self.distance);
         (c.target, c.goal, c.yaw, c.pitch) = (self.target, self.target, self.yaw, self.pitch);
         (c.distance, c.want) = (self.distance, self.distance);
         c.fov_y = self.lens.fov_y();
@@ -294,6 +295,8 @@ pub struct Dop {
     pub director: Director,
     /// the shot the camera went to last
     pub current: Option<String>,
+    /// the clock at the last frame
+    pub clock: Option<Clock>,
 }
 
 impl Dop {
@@ -372,6 +375,7 @@ impl Dop {
 
     /// the view at `clock` while a move plays (None: the camera is the hand's)
     pub fn step(&mut self, clock: &Clock, now: View, subject: Subject) -> Option<View> {
+        self.clock = Some(*clock);
         self.director.step(clock, now, self.path.as_ref(), subject)
     }
 }

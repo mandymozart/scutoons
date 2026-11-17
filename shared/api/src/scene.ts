@@ -27,6 +27,8 @@ export type Background = {
 	video?: string | null;
 };
 
+export type Ease = 'linear' | 'in' | 'out' | 'in_out' | 'whip';
+
 /** `start` or `join`. */
 export type Enter = 'start' | 'join';
 
@@ -76,6 +78,22 @@ export type Holder = {
 /** A holder's value: a parameter's number, or a track's preset choice. */
 export type HolderValue = number | string;
 
+export type Length = {
+	beats: number;
+} | {
+	bars: number;
+} | {
+	seconds: number;
+};
+
+export type Lens = {
+	/** mm on a full-frame sensor (perspective) */
+	focal?: number;
+	projection?: Projection;
+	/** the view's height in metres (orthographic) */
+	size?: number;
+};
+
 export type LinkDef = {
 	from: string;
 	/** an audio link's channel map (plan 2.6, #318): `[source, target]` pairs counted from 1 – `[[1, 3], [2, 4]]` lands a stereo source on channels 3 and 4 (a send's offset); one source may go to several targets, several sources into one target sum. Empty = channel n to channel n. `scale` on an audio link is the send level. */
@@ -112,11 +130,39 @@ export type LocationPlaceholder = {
 /** The scene's location: a reference, or a placeholder. */
 export type LocationSlot = string | LocationPlaceholder;
 
+/** A named move of the scene: `scene:<id> > move:<id>` plays it. */
+export type MoveDef = {
+	/** shake: degrees of unrest */
+	amount?: number;
+	ease?: Ease;
+	/** follow: the holder it keeps in the shot */
+	follow?: string | null;
+	/** crane: metres above (or below) the higher (lower) end */
+	height?: number;
+	id: string;
+	kind: MoveKind;
+	length: Length;
+	/** orbit, spiral */
+	rounds?: number;
+	/** in */
+	side?: Side;
+	start?: Start;
+	/** the move that follows when it ends (a chain) */
+	then?: string | null;
+	/** the shot it ends on */
+	to: string;
+	turn?: Turn;
+};
+
+export type MoveKind = 'cut' | 'glide' | 'in' | 'fly' | 'crane_down' | 'crane_up' | 'spiral' | 'push' | 'pull' | 'orbit' | 'truck' | 'tilt' | 'zoom' | 'dolly_zoom' | 'whip' | 'follow' | 'shake';
+
 export type NodeDef = {
 	id: string;
 	kind: string;
 	[key: string]: unknown;
 };
+
+export type Projection = 'perspective' | 'orthographic';
 
 /** A rig by reference and the version it was wired against (SCENE-PACKAGE §2). */
 export type RigPin = {
@@ -124,6 +170,17 @@ export type RigPin = {
 	ref: string;
 	/** the version it was wired against: the rig's `version` as scene-content serves it (16 hex of its data's SHA-256 – the catalog keeps no version number); none = the current one */
 	version?: string | null;
+};
+
+/** The scene's primary camera. */
+export type SceneCamera = {
+	/** the lens before a shot is taken */
+	lens?: Lens;
+	move?: MoveDef[];
+	/** its shots; the first opens the scene */
+	shot?: ShotDef[];
+	source?: Source;
+	track?: Track | null;
 };
 
 /** What a switch does to the outputs (the lamps) between two scenes (#264). */
@@ -136,6 +193,26 @@ export type SceneUse = {
 	/** its fillers by placeholder id (the location placeholder's or a holder's `id`): a reference, or several for a spawn zone; a placeholder left out stays empty, or is filled by context (the receiver's) or the story (`joinScene`) */
 	with?: Record<string, Fillers>;
 };
+
+export type ShotDef = {
+	/** metres from the aim */
+	distance: number;
+	/** a word: `scene:<id> > shot:<id>` picks it */
+	id: string;
+	label?: Record<string, string>;
+	lens?: Lens;
+	/** degrees above the aim */
+	pitch: number;
+	/** where it aims (m, the set's space) */
+	target: [number, number, number];
+	/** degrees around the aim: 0 looks along −z from +z */
+	yaw: number;
+};
+
+export type Side = 'left' | 'right';
+
+/** What steers the camera. */
+export type Source = 'scene' | 'handheld';
 
 export type StageSettings = {
 	/** the audio device's buffer in frames (#208, deck-native's audio/backend.rs): a heavy scene may ask for more; `--audio-buffer` and deck.toml's `audio_buffer` (the machine's) win over it. None = the device's default */
@@ -151,11 +228,30 @@ export type StageSettings = {
 	transition_secs?: number;
 };
 
+/** When a move starts. */
+export type Start = 'now' | 'bar';
+
 /** How many fillers a holder takes. */
 export type Take = 'one' | 'many';
 
+/** The trolley track: its first point is the start, its last the end. */
+export type Track = {
+	point: TrackPoint[];
+};
+
+/** A point of the trolley track: where it is, and its Bézier handle (the way out of it; the way in is its mirror). */
+export type TrackPoint = {
+	at: [number, number, number];
+	/** metres from `at`; none = a smooth curve through the neighbours */
+	handle?: [number, number, number] | null;
+};
+
+export type Turn = 'right' | 'left';
+
 /** One `scene:<id>` document as the API stores it. */
 export type SceneDocument = {
+	/** its primary camera: shots, track, moves (scene_camera.rs) */
+	camera?: SceneCamera | null;
 	/** the document's format: 2 (location, holders, spawn zones; #489) */
 	format: 2;
 	/** the places on its stage, in the order a story's `joinScene` tries them (SCENES.md §9.4) */

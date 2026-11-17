@@ -11,18 +11,25 @@ use deck_space::scene_video::SCREEN;
 use deck_space::space::Space;
 
 /// what a mark on the stage stands for
-// TODO(#594): the parallax layers and TODO(#582): the trolley track become marks of their own
+// TODO(#594): the parallax layers become marks of their own
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Mark {
     Slot(usize),
     Video(usize),
+    /// a shot of the scene's camera, where its eye is
+    Shot(usize),
+    /// a point of the trolley track, and the selected point's Bézier handle
+    TrackPoint(usize),
+    Handle(usize),
 }
 
 impl Mark {
-    pub fn part(self) -> Part {
+    /// the tree's part it selects; a camera mark selects in the DOP panel
+    pub fn part(self) -> Option<Part> {
         match self {
-            Mark::Slot(s) => Part::Slot(s),
-            Mark::Video(v) => Part::Video(v),
+            Mark::Slot(s) => Some(Part::Slot(s)),
+            Mark::Video(v) => Some(Part::Video(v)),
+            Mark::Shot(_) | Mark::TrackPoint(_) | Mark::Handle(_) => None,
         }
     }
 }
@@ -82,6 +89,70 @@ pub fn draw(d: &mut DrawList, t: &Tokens, view: &mut SceneView, space: &Space, a
         }
     }
     videos(d, t, view, area);
+    camera(d, t, view, space, area, scale);
+}
+
+/// The scene camera's shots as small cameras at their eyes, a line to where each aims, and the trolley track as its
+/// curve with its points (the selected one with its Bézier handle).
+fn camera(d: &mut DrawList, t: &Tokens, view: &mut SceneView, space: &Space, area: Rect, scale: f32) {
+    let cam = view.edit.camera();
+    let px = |p: glam::Vec3| space.to_pixel(p).map(|(x, y)| (area.x + x / scale, area.y + y / scale)).filter(|(x, y)| area.has(*x, *y));
+    if let Some(track) = cam.track.as_ref() {
+        if let Some(path) = deck_space::space::dop::track::Path::of(track) {
+            let line = alpha(t.color.accent, 0.8);
+            let n = 96;
+            let mut last = px(path.at(0.0));
+            for k in 1..=n {
+                let p = px(path.at(k as f32 / n as f32));
+                if let (Some(a), Some(b)) = (last, p) {
+                    d.segment(a, b, 2.0, line);
+                }
+                last = p;
+            }
+            let controls = deck_space::space::dop::track::controls(track);
+            for (i, p) in track.points.iter().enumerate() {
+                let at = glam::Vec3::from_array(p.at);
+                let Some((x, y)) = px(at) else { continue };
+                let sel = view.dop.point == Some(i);
+                if sel {
+                    let out = controls.get(i).map_or_else(|| at + (at - controls[i - 1][2]), |c| c[1]);
+                    if let Some(h) = px(out) {
+                        d.segment((x, y), h, 1.0, t.color.bright);
+                        d.ring(h.0, h.1, 5.0, t.color.bright);
+                        view.marks.push((Rect { x: h.0 - 8.0, y: h.1 - 8.0, w: 16.0, h: 16.0 }, Mark::Handle(i)));
+                    }
+                }
+                let r = if i == 0 || i + 1 == track.points.len() { 7.0 } else { 5.0 };
+                d.disc(x, y, r, if sel { t.color.bright } else { t.color.accent });
+                let word = if i == 0 {
+                    "start"
+                } else if i + 1 == track.points.len() {
+                    "end"
+                } else {
+                    ""
+                };
+                if !word.is_empty() {
+                    d.sans(x + 10.0, y - t.size.small * 0.6, t.size.small, word, line);
+                }
+                view.marks.push((Rect { x: x - 10.0, y: y - 10.0, w: 20.0, h: 20.0 }, Mark::TrackPoint(i)));
+            }
+        }
+    }
+    for (i, s) in cam.shots.iter().enumerate() {
+        let v = deck_space::space::dop::View::of_shot(s);
+        let Some((x, y)) = px(v.eye()) else { continue };
+        let sel = view.dop.shot == Some(i);
+        let color = if sel { t.color.accent } else { alpha(t.color.bright, 0.75) };
+        if let Some(aim) = px(v.target) {
+            d.segment((x, y), aim, 1.0, alpha(color, 0.5));
+            d.ring(aim.0, aim.1, 3.0, alpha(color, 0.7));
+        }
+        let size = t.size.row * 0.8;
+        d.round_rect(x - size * 0.6, y - size * 0.6, size * 1.2, size * 1.2, t.size.radius, alpha(t.color.surface, 0.8));
+        d.icon(x - size * 0.5, y - size * 0.5, size, "camera", color);
+        controls::label(d, t, x + size * 0.8, y - t.size.label * 0.6, &s.id, color);
+        view.marks.push((Rect { x: x - size * 0.6, y: y - size * 0.6, w: size * 1.2 + controls::label_width(d, t, &s.id) + size * 0.2, h: size * 1.2 }, Mark::Shot(i)));
+    }
 }
 
 /// The scene's video nodes as cards across the back of the stage, and the window framed while one that plays there is
@@ -142,8 +213,46 @@ impl crate::App {
     pub(crate) fn scene_mark_press(&mut self, x: f32, y: f32) -> bool {
         let Some(view) = self.scene.as_mut().filter(|v| v.inside.is_none()) else { return false };
         let Some(m) = under(&view.marks, x, y) else { return false };
-        view.sel = m.part();
+        match m {
+            Mark::Shot(i) => {
+                view.dop.shot = Some(i);
+                let id = view.edit.camera().shots.get(i).map(|s| s.id.clone());
+                if let Some(id) = id {
+                    self.stage.space.look_through_shot(&id);
+                }
+            }
+            Mark::TrackPoint(i) | Mark::Handle(i) => {
+                view.dop.point = Some(i);
+                self.panel.drag = Some(crate::Drag::TrackPoint(i, matches!(m, Mark::Handle(_))));
+            }
+            m => view.sel = m.part().unwrap_or(view.sel),
+        }
         true
+    }
+
+    /// a track point (or its handle) dragged to (`x`, `y`): along its own height, through the core
+    pub(crate) fn track_point_to(&mut self, i: usize, handle: bool, x: f32, y: f32) {
+        let (sx, sy) = self.stage_pixel(x, y);
+        let Some(view) = self.scene.as_mut() else { return };
+        let Some(track) = view.edit.camera().track else { return };
+        let Some(p) = track.points.get(i) else { return };
+        let at = glam::Vec3::from_array(p.at);
+        if handle {
+            let auto = deck_space::space::dop::track::controls(&track);
+            let now = p.handle.map(glam::Vec3::from_array).or_else(|| auto.get(i).map(|c| c[1] - at)).unwrap_or(glam::Vec3::X);
+            if let Some(w) = self.stage.space.level_point(sx, sy, at.y + now.y) {
+                let _ = view.edit.set_handle(i, Some((w - at).to_array()));
+            }
+        } else if let Some(w) = self.stage.space.level_point(sx, sy, at.y) {
+            let _ = view.edit.move_track_point(i, w.to_array());
+        }
+        self.sync_dop();
+    }
+
+    /// a track point let go: the scene plays and saves it
+    pub(crate) fn track_settled(&mut self) {
+        let (x, y) = self.cursor;
+        self.scene_changed(Ok(()), "the trolley track moved".into(), x, y);
     }
 
     /// A book entry let go on the scene: a slot under it takes it as its preview, elsewhere the first slot that admits
@@ -210,7 +319,7 @@ mod tests {
         assert!(d.texts().iter().any(|s| s.contains("no poster")), "the placeholder says why");
         let (cx, cy) = (card.x + card.w * 0.5, card.y + card.h * 0.3);
         assert_eq!(under(&view.marks, cx, cy), Some(Mark::Slot(empty)));
-        assert_eq!(under(&view.marks, screen.x + 2.0, screen.y + 2.0).map(Mark::part), Some(Part::Video(v)));
+        assert_eq!(under(&view.marks, screen.x + 2.0, screen.y + 2.0).and_then(Mark::part), Some(Part::Video(v)));
         let accent = |d: &DrawList| d.prims().iter().filter(|p| matches!(p, deck_kit::base::draw::Prim::Segment { color, .. } if *color == t.color.accent)).count();
         let quiet = accent(&d);
         let mut lit = DrawList::new(0.6);

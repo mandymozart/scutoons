@@ -185,7 +185,7 @@ impl Stage {
     /// a changed rig takes the stage: refused before anything stops; the sound device is let go before the new engine
     /// opens it; the camera and the turned knobs stay
     pub fn replay(&mut self, bundle: Bundle) -> Result<()> {
-        self.take(prepare(bundle)?)
+        self.take(prepare(bundle)?, true)
     }
 
     /// A scene the core resolved (Show's new scene) plays in the rig's place, the rig kept for `replay`: its cast sounds
@@ -198,8 +198,12 @@ impl Stage {
         let played = scene.clone();
         let ready = Ready { bundle: self.bundle.clone(), knobs: Vec::new(), strips: Vec::new(), sum: None, scene, graph, tempo, space_node, ports: Vec::new(), groups, reach: Default::default() };
         self.path.clear();
-        self.take(ready)?;
+        let same = self.scene.as_deref() == Some(id);
+        self.take(ready, same)?;
         self.space.dop.scene = Some(format!("scene:{id}"));
+        if !same {
+            self.space.open_on_scene_camera();
+        }
         self.scene = Some(id.to_string());
         self.played_scene = Some(played);
         Ok(())
@@ -231,7 +235,8 @@ impl Stage {
         }
     }
 
-    fn take(&mut self, ready: Ready) -> Result<()> {
+    /// the stage plays `ready`; `keep`: the view and a playing move stay (else the new scene's own camera)
+    fn take(&mut self, ready: Ready, keep: bool) -> Result<()> {
         let knobs: Vec<(String, f32)> = self.knobs.iter().map(|k| (k.path.clone(), self.value(k))).collect();
         let camera = self.space.camera;
         let (director, current) = (self.space.dop.director.clone(), self.space.dop.current.clone());
@@ -241,8 +246,11 @@ impl Stage {
         let mut next = Stage::start(ready, self.volume);
         next.base = self.base.clone();
         next.enter(self.path.clone());
-        next.space.camera = camera;
-        (next.space.dop.director, next.space.dop.current) = (director, current);
+        if keep {
+            next.started = self.started;
+            next.space.camera = camera;
+            (next.space.dop.director, next.space.dop.current) = (director, current);
+        }
         next.space.being.hold(self.space.being.held(), true);
         for (path, value) in knobs {
             if let Some(k) = next.knobs.iter().find(|k| k.path == path) {
