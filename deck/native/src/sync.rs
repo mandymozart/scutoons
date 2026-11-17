@@ -14,7 +14,7 @@
 //!   version, the API is not asked) – the loaders read them as before. `--sets` / `--portraits` (or their env) point at a
 //!   local folder instead: then that kind is not synced (local development).
 //! - **Waiting, never on the frame:** the set loader thread passes its file through `gate` and the portraits thread
-//!   through `Portraits` (a portrait::Source next to LocalDir) – each blocks its own thread until the sync has settled
+//!   through `portraits` (deck-space's `Arriving` source, push.rs `want_of`) – each blocks its own thread until the sync has settled
 //!   that file (fetched, cached, failed, or offline), then reads the local file.
 //! - **Offline:** the request fails → the board says so, every file settles at once and the stage plays from the cache;
 //!   the API is asked again after 30 s when something new is wanted, and at the next scene load.
@@ -205,10 +205,15 @@ impl DeckSync {
         })
     }
 
-    /// the heads' sprites through the sync (None: `--portraits` names a local folder – read it as it is)
+    /// the heads' sprites and the stage's media through the sync, each read once the sync settled its file (None:
+    /// `--portraits` names a local folder – read it as it is)
     #[cfg(feature = "space")]
-    pub fn portraits(&self) -> Option<Portraits> {
-        Some(Portraits { local: crate::space::portrait::LocalDir(self.portraits.clone()?), sync: self.clone() })
+    pub fn portraits(&self) -> Option<crate::space::portrait::Arriving<impl Fn(&deck_space::cast::Picture) + Send + 'static>> {
+        let sync = self.clone();
+        let wait = move |p: &deck_space::cast::Picture| {
+            let _ = push::want_of(p).map(|w| sync.wait(w, PORTRAIT_WAIT));
+        };
+        Some(crate::space::portrait::Arriving { dir: crate::space::portrait::LocalDir(self.portraits.clone()?), wait })
     }
 }
 
@@ -241,25 +246,6 @@ pub fn needs_of(graph: &crate::graph::Graph, look: &crate::space::being::Look, s
         }
     }
     Needs { sets, characters: vec![(look.character.clone(), moods)], media }
-}
-
-/// The portraits through the sync (a portrait::Source next to LocalDir): wait for a head's sprite or a background's image, then read the folder.
-#[cfg(feature = "space")]
-pub struct Portraits {
-    local: crate::space::portrait::LocalDir,
-    sync: DeckSync,
-}
-
-#[cfg(feature = "space")]
-impl crate::space::portrait::Source for Portraits {
-    fn load(&self, picture: &deck_space::cast::Picture) -> Result<image::RgbaImage, String> {
-        if picture.kind == deck_space::cast::MEDIA {
-            self.sync.wait(Want::Media { path: picture.id.clone() }, PORTRAIT_WAIT);
-        } else if picture.view == deck_space::cast::PORTRAIT_VIEW {
-            self.sync.wait(Want::Portrait { character: picture.id.clone(), mood: picture.mood.clone() }, PORTRAIT_WAIT);
-        }
-        self.local.load(picture)
-    }
 }
 
 /// which CDN file each local file came from: `<cache>/sync/index.json`

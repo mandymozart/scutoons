@@ -46,6 +46,8 @@ pub mod veil;
 
 #[cfg(feature = "being")]
 pub mod space;
+#[cfg(feature = "media")]
+pub mod video;
 
 /// #549: the audience start – a deck that is only there to vote (a phone), with its own relay client and its proof
 #[cfg(feature = "gpu")]

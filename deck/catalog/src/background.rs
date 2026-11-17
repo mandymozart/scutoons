@@ -36,7 +36,7 @@ impl Background {
         }
         let b = if t.starts_with('#') {
             Background::colour(t)
-        } else if VIDEO.iter().any(|e| t.to_ascii_lowercase().ends_with(e)) {
+        } else if is_video(t) {
             Background { video: Some(t.into()), ..Background::default() }
         } else {
             Background::image(t)
@@ -75,8 +75,14 @@ impl Background {
     }
 }
 
-/// the extensions a typed path is a video by
+/// the extensions a media path is a video by
 const VIDEO: [&str; 4] = [".mp4", ".webm", ".mov", ".mkv"];
+
+/// whether a media path is a video (a background's, a layer's picture)
+pub fn is_video(path: &str) -> bool {
+    let p = path.trim().to_ascii_lowercase();
+    VIDEO.iter().any(|e| p.ends_with(e))
+}
 
 /// `#rgb` / `#rrggbb` → display values 0–1
 pub fn rgb(hex: &str) -> Option<[f32; 3]> {

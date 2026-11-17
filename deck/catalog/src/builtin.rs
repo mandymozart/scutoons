@@ -278,6 +278,16 @@ fn build() -> Vec<Descriptor> {
         &[lin("opacity", 0.0, 1.0, 1.0, "", "dims the outlet")],
     ),
     kind(
+        0,
+        "video",
+        Video,
+        "media",
+        "stage",
+        "A video clip on the deck's own playback (deck-media): `src` its file – MP4 / WebM with AV1, MOV with HAP –, looped on the stage's clock, covering the picture.",
+        &[ci("speed", "playback speed"), vo("out", "the picture")],
+        &[lin("speed", 0.0, 4.0, 1.0, "", "playback speed, 1 = as recorded")],
+    ),
+    kind(
         F_BATCH,
         "lfo",
         Control,
@@ -552,6 +562,5 @@ fn build() -> Vec<Descriptor> {
     // planned modules (CYBERDECKS.md §8, the owner's list #182)
     kind(F_PLANNED, "model3d", Video, "", "3d", "Planned: a 3D model.", &[ci("rot", "rotation"), vo("out", "the picture")], &[lin("rot", 0.0, 1.0, 0.0, "", "rotation")]),
     kind(F_PLANNED, "text", Video, "", "text", "Planned: text over a picture.", &[vi("in", "the picture"), vo("out", "the picture with text")], &[]),
-    kind(F_PLANNED, "video", Video, "", "video", "Planned: a video clip.", &[ci("speed", "playback speed"), vo("out", "the picture")], &[lin("speed", 0.0, 1.0, 0.0, "", "playback speed")]),
 ]
 }

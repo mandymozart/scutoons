@@ -35,7 +35,7 @@ impl Anchor {
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Layer {
-    /// the picture's media path (a PNG with transparency); none = an empty place
+    /// the picture's media path (a PNG with transparency, or a video – `background::is_video`); none = an empty place
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub image: Option<String>,
     /// metres behind the camera's pivot; below 0 in front of it

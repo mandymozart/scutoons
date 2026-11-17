@@ -60,6 +60,8 @@ pub enum Kind {
     /// panels, pictures, text, colour) as one plane over `in` (the backdrop: a space node, where a cell has a 3D set),
     /// cross-faded on each cell change; `opacity` dims it
     Outlet,
+    /// a video clip on the deck's own playback (deck-media, the `media` feature): `src`, looped, cover-fit
+    Video,
     /// a low-frequency oscillator (control)
     Lfo,
     /// the tempo clock (tempo/, #181): bpm, beat, bar, phase, bar_phase, pulse – one per scene, its params set the
@@ -119,7 +121,7 @@ pub enum Kind {
 
 impl Kind {
     /// every kind with its name in a scene: the `graph` kinds (`ALL`), then the internal control helpers
-    const NAMES: [(&'static str, Kind); 30] = [
+    const NAMES: [(&'static str, Kind); 31] = [
         ("test_pattern", Kind::TestPattern),
         ("shader", Kind::Shader),
         ("screen", Kind::Screen),
@@ -127,6 +129,7 @@ impl Kind {
         ("overlay", Kind::Overlay),
         ("space", Kind::Space),
         ("outlet", Kind::Outlet),
+        ("video", Kind::Video),
         ("lfo", Kind::Lfo),
         ("tempo", Kind::Tempo),
         ("click", Kind::Click),
@@ -152,10 +155,10 @@ impl Kind {
         ("look", Kind::Look),
     ];
     /// the `graph` kinds – what an author places (the catalog's `graph` scope, in its order)
-    pub const ALL: [Kind; 26] = {
-        let mut all = [Kind::Screen; 26];
+    pub const ALL: [Kind; 27] = {
+        let mut all = [Kind::Screen; 27];
         let mut i = 0;
-        while i < 26 {
+        while i < 27 {
             all[i] = Kind::NAMES[i].1;
             i += 1;
         }

@@ -45,6 +45,7 @@ fn builtin(name: &str) -> Option<&'static str> {
         "overlay" => include_str!("shaders/stage/overlay.wgsl"),
         "outlet" => include_str!("shaders/stage/outlet.wgsl"),
         "splash" => include_str!("shaders/stage/splash.wgsl"),
+        "video" => include_str!("shaders/stage/video.wgsl"),
         _ => return None,
     })
 }
@@ -151,6 +152,18 @@ struct Slides {
     last_beat: f64,
 }
 
+/// A video node: its clip (the host opens it, `set_video`), its frame's texture, its own clock (the stage's time at
+/// its `speed`).
+struct VideoNode {
+    node: usize,
+    #[cfg(feature = "media")]
+    movie: Option<crate::video::Movie>,
+    #[cfg(feature = "media")]
+    tex: Option<crate::video::Texture>,
+    aspect: f32,
+    clock: f64,
+}
+
 /// the outlet node's planes (#186, live/): the composer's channel, the current and previous plane, their crossfade
 struct OutletPlanes {
     node: usize,
@@ -176,6 +189,7 @@ pub struct Stage {
     slides: Vec<Slides>,
     /// the outlet node's planes (#186)
     outlet: Option<OutletPlanes>,
+    videos: Vec<VideoNode>,
     /// the space node's GPU side, made at its first frame
     space: Option<SpaceGpu>,
     /// the host sized the surface to the quality rung already (the browser's governor): the render size is the surface's
@@ -265,6 +279,7 @@ impl Stage {
             scene_scale: scene_scale.clamp(0.25, 1.0),
             slides: Vec::new(),
             outlet: None,
+            videos: Vec::new(),
             space: None,
             host_sized: false,
             hud_pass,
@@ -299,6 +314,18 @@ impl Stage {
                     self.passes.push(Pass { node: i, kind: Kind::Space, pipeline: None, ubuf: uniform_buffer(device), inputs: [None; 3], target: None, bind: None });
                     continue;
                 }
+                Kind::Video => {
+                    self.videos.push(VideoNode {
+                        node: i,
+                        #[cfg(feature = "media")]
+                        movie: None,
+                        #[cfg(feature = "media")]
+                        tex: None,
+                        aspect: 1.0,
+                        clock: 0.0,
+                    });
+                    builtin("video").unwrap().to_string()
+                }
                 _ => continue,
             };
             let fmt = if node.kind == Kind::Screen { format } else { OFFSCREEN };
@@ -313,6 +340,7 @@ impl Stage {
             let inputs = match node.kind {
                 Kind::Chapter | Kind::Outlet => [link("in"), Some(Src::Current(i)), Some(Src::Previous(i))],
                 Kind::Overlay => [link("in"), link("top"), None],
+                Kind::Video => [None, Some(Src::Current(i)), None],
                 _ => [link("in"), None, None],
             };
             let pass = Pass { node: i, kind: node.kind, pipeline: Some(pipe), ubuf: uniform_buffer(device), inputs, target: None, bind: None };
@@ -373,6 +401,20 @@ impl Stage {
     pub fn set_outlet(&mut self, rx: Receiver<Frame>) {
         if let Some(o) = self.outlet.as_mut() {
             o.rx = Some(rx);
+        }
+    }
+
+    /// the video nodes and their `src` (the host opens each file: `set_video`)
+    pub fn video_sources<'a>(&self, graph: &'a Graph) -> Vec<(usize, Option<&'a str>)> {
+        self.videos.iter().map(|v| (v.node, graph.nodes[v.node].str("src"))).collect()
+    }
+
+    /// video node `node`'s clip, opened by the host
+    #[cfg(feature = "media")]
+    pub fn set_video(&mut self, node: usize, movie: crate::video::Movie) {
+        if let Some(v) = self.videos.iter_mut().find(|v| v.node == node) {
+            v.aspect = movie.aspect();
+            v.movie = Some(movie);
         }
     }
 
@@ -507,6 +549,12 @@ impl Stage {
                 }
             }
         }
+        #[cfg(feature = "media")]
+        for v in &self.videos {
+            if let Some(t) = &v.tex {
+                views.insert(Src::Current(v.node), &t.view);
+            }
+        }
         let find = |s: Option<Src>| s.and_then(|s| views.get(&s).copied()).unwrap_or(&self.dummy);
         let bind = |p: &Pass| bind_group(device, &self.layout, &p.ubuf, p.inputs.map(find), &self.linear);
         let binds: Vec<wgpu::BindGroup> = self.passes.iter().map(bind).collect();
@@ -524,6 +572,14 @@ impl Stage {
     /// ready. Returns whether a texture changed (the bind groups follow).
     fn advance(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, t: &Tick) -> bool {
         let mut changed = false;
+        // the video nodes: each its clock at its speed, the frame for that time into its texture
+        for v in &mut self.videos {
+            v.clock += f64::from(t.dt) * f64::from((t.input)(v.node, "speed", 1.0).max(0.0));
+            #[cfg(feature = "media")]
+            if let Some(p) = v.movie.as_mut().and_then(|m| m.next_picture(v.clock)) {
+                changed |= crate::video::upload(device, queue, &p, false, &mut v.tex);
+            }
+        }
         // the outlet: a composed cell → its plane on the GPU, the crossfade from the last one (#186)
         if let Some(o) = self.outlet.as_mut() {
             if let Some(f) = o.rx.as_ref().and_then(|rx| rx.try_recv().ok()) {
@@ -578,6 +634,16 @@ impl Stage {
                 let Some(o) = &self.outlet else { return };
                 let [a, gone, cur_bg, prev_bg] = o.fade.mix(time);
                 (out[1], out[2], out[3], out[4], out[5]) = (a, gone, cur_bg, prev_bg, if p.inputs[0].is_some() { 1.0 } else { 0.0 });
+            }
+            Kind::Video => {
+                let Some(v) = self.videos.iter().find(|v| v.node == p.node) else { return };
+                let (w, h) = self.render_size();
+                #[cfg(feature = "media")]
+                let shown = v.tex.is_some();
+                #[cfg(not(feature = "media"))]
+                let shown = false;
+                out[1] = if shown { 1.0 } else { 0.0 };
+                out[4..8].copy_from_slice(&deck_core::fit::cover((v.aspect, 1.0), (w as f32, h as f32)));
             }
             Kind::Overlay => {
                 let top = p.inputs[1];
@@ -766,6 +832,7 @@ fn params(t: &Tick, p: &Pass) -> [f32; 8] {
         Kind::Chapter => &["zoom", "pulse"],
         Kind::Overlay => &["opacity", "pulse", "shake"],
         Kind::Outlet => &["opacity"],
+        Kind::Video => &["speed"],
         _ => &[],
     };
     let input = |name: &str| (t.input)(p.node, name, crate::params::default(p.kind, name));

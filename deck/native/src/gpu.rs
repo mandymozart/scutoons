@@ -41,7 +41,7 @@ impl Gpu {
         Gpu::with_features(window, wgpu::Features::empty())
     }
 
-    /// `new`, with these features where the adapter has them (the editor's GPU timing)
+    /// `new`, with these features where the adapter has them (the editor's GPU timing), and always BC textures (HAP's frames)
     pub fn with_features(window: Arc<Window>, wanted: wgpu::Features) -> Result<Gpu> {
         let mut backends = backends_first();
         let (surface, adapter) = loop {
@@ -74,7 +74,7 @@ impl Gpu {
         tracing::info!("render: {} ({:?}, {:?}, driver {})", info.name, info.backend, info.device_type, info.driver_info);
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("deck-native"),
-            required_features: adapter.features() & wanted,
+            required_features: adapter.features() & (wanted | wgpu::Features::TEXTURE_COMPRESSION_BC),
             required_limits: wgpu::Limits::downlevel_webgl2_defaults().using_resolution(adapter.limits()),
             memory_hints: wgpu::MemoryHints::Performance,
             trace: wgpu::Trace::Off,

@@ -37,6 +37,15 @@ impl Renderer {
             gpu.queue.present(frame);
         }
         pollster::block_on(stage.load(&gpu.device, format, graph, feeds))?;
+        // the video nodes' files, read here and played by deck-media; TODO(#325): the asset manifest's derivative
+        #[cfg(feature = "media")]
+        for (node, src) in stage.video_sources(graph) {
+            let opened = src.ok_or_else(|| "no `src`".to_string()).and_then(|p| std::fs::read(p).map_err(|e| format!("{p}: {e}")).and_then(|b| deck_space::video::Movie::spawn(b, p)));
+            match opened {
+                Ok(m) => stage.set_video(node, m),
+                Err(e) => tracing::error!("video node '{}': {e}", graph.nodes[node].id),
+            }
+        }
         Ok(Renderer { gpu, stage, capture: None })
     }
 

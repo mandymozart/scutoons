@@ -1,0 +1,15 @@
+# deck-media-wasm – deck-media as a wasm module with raw exports for its goldens (deck/media/tests/wasm.rs): a clip in,
+# its golden line out, so native ≡ wasm32 is checked bit for bit. Dev only; nothing depends on it.
+[package]
+name = "deck-media-wasm"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+deck-media = { path = ".." }
