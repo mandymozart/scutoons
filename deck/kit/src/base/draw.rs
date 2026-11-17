@@ -25,6 +25,8 @@ pub enum Prim {
     Segment { a: (f32, f32), b: (f32, f32), thick: f32, color: [f32; 4] },
     /// a rectangle whose colour runs between its corners: top left, top right, bottom right, bottom left
     Gradient { x: f32, y: f32, w: f32, h: f32, corners: [[f32; 4]; 4] },
+    /// one of the screen's loaded pictures (a preview) by its key, stretched over the rectangle
+    Picture { x: f32, y: f32, w: f32, h: f32, key: u64 },
 }
 
 /// Where a control landed, in logical pixels (what can be pressed is kept by its caller as these).
@@ -196,12 +198,16 @@ impl DrawList {
         self.prims.push(Prim::Logo { x, y, size, frame });
     }
 
+    pub fn picture(&mut self, x: f32, y: f32, w: f32, h: f32, key: u64) {
+        self.prims.push(Prim::Picture { x, y, w, h, key });
+    }
+
     /// the rectangle the primitives from `from` on cover (a text as its line, `LINE` × its size high): what a content took
     pub fn extent(&self, from: usize) -> Option<Rect> {
         let mut out: Option<(f32, f32, f32, f32)> = None;
         for p in self.prims.get(from..).unwrap_or_default() {
             let r = match *p {
-                Prim::Rect { x, y, w, h, .. } | Prim::Outline { x, y, w, h, .. } | Prim::Gradient { x, y, w, h, .. } => (x, y, x + w, y + h),
+                Prim::Rect { x, y, w, h, .. } | Prim::Outline { x, y, w, h, .. } | Prim::Gradient { x, y, w, h, .. } | Prim::Picture { x, y, w, h, .. } => (x, y, x + w, y + h),
                 Prim::Text { x, y, px, start, end, spacing, font, .. } => (x, y, x + self.measure(font, px, &self.text[start..end], spacing), y + px * 1.25),
                 Prim::Icon { x, y, size, .. } | Prim::Logo { x, y, size, .. } => (x, y, x + size, y + size),
                 Prim::Segment { a, b, .. } => (a.0.min(b.0), a.1.min(b.1), a.0.max(b.0), a.1.max(b.1)),

@@ -11,6 +11,7 @@ use std::borrow::Cow;
 use std::collections::BTreeMap;
 
 pub mod background;
+pub mod library;
 mod builtin;
 pub use background::Background;
 pub use builtin::builtin_kinds;

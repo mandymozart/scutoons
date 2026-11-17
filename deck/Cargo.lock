@@ -1228,6 +1228,7 @@ name = "deck-kit"
 version = "0.1.0"
 dependencies = [
  "ab_glyph",
+ "deck-catalog",
  "egui",
  "font8x8",
  "serde",

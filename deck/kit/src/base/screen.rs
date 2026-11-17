@@ -69,6 +69,8 @@ pub struct Pictures {
     pub rgba: Vec<u8>,
     pub icons: HashMap<&'static str, Rect>,
     pub frames: Vec<Rect>,
+    /// the loaded pictures (previews) by key
+    pub thumbs: HashMap<u64, Rect>,
 }
 
 /// What sets the mono face.
@@ -405,7 +407,7 @@ fn paint(fonts: &mut dyn Mono, layer: &Layer, (pixel, pictures): (Option<Texture
         }
     };
     for p in layer.list.prims() {
-        if !matches!(p, Prim::Icon { .. } | Prim::Logo { .. }) && !pics.is_empty() {
+        if !matches!(p, Prim::Icon { .. } | Prim::Logo { .. } | Prim::Picture { .. }) && !pics.is_empty() {
             out.push(Shape::mesh(std::mem::replace(&mut pics, Mesh::with_texture(pics_texture))));
         }
         match *p {
@@ -485,6 +487,12 @@ fn paint(fonts: &mut dyn Mono, layer: &Layer, (pixel, pictures): (Option<Texture
             }
             Prim::Logo { x, y, size, frame } => {
                 picture(&mut pics, &mut mesh, out, (x, y, size), pictures.and_then(|(_, p)| p.frames.get(frame)), Color32::WHITE);
+            }
+            Prim::Picture { x, y, w, h, key } => {
+                if let Some(uv) = pictures.and_then(|(_, p)| p.thumbs.get(&key)) {
+                    flush(&mut mesh, out);
+                    pics.add_rect_with_uv(Rect::from_min_size(pos2(x * s, y * s), vec2(w * s, h * s)), *uv, Color32::WHITE);
+                }
             }
             Prim::Clip(r) => {
                 flush(&mut mesh, out);
@@ -746,7 +754,7 @@ mod tests {
         let mut screen = Screen::new(MONO, 1);
         let uv = Rect::from_min_max(pos2(0.0, 0.0), pos2(0.5, 0.5));
         let rgba = vec![255; 4 * 4 * 4];
-        screen.set_pictures(Pictures { size: [4, 4], rgba, icons: HashMap::from([("play", uv)]), frames: vec![uv] });
+        screen.set_pictures(Pictures { size: [4, 4], rgba, icons: HashMap::from([("play", uv)]), frames: vec![uv], thumbs: HashMap::from([(7, uv)]) });
         let mut d = DrawList::new(0.6);
         d.rect(0.0, 0.0, 10.0, 10.0, [0.0, 0.0, 0.0, 1.0]);
         d.icon(1.0, 2.0, 8.0, "play", [1.0, 0.0, 0.0, 1.0]);
@@ -760,5 +768,20 @@ mod tests {
         assert!(p.set.iter().any(|(id, _)| *id == m[1].texture_id), "the pictures go to the GPU");
         assert_eq!((m[1].vertices[0].pos, m[1].vertices[0].color), (pos2(2.0, 4.0), Color32::RED), "the icon in its colour");
         assert_eq!(m[1].vertices[4].color, Color32::WHITE, "the logo in its own colours");
+    }
+
+    #[test]
+    fn a_loaded_picture_is_a_quad_on_the_pictures_and_an_unknown_one_nothing() {
+        let mut screen = Screen::new(MONO, 1);
+        let uv = Rect::from_min_max(pos2(0.5, 0.5), pos2(1.0, 1.0));
+        screen.set_pictures(Pictures { size: [4, 4], rgba: vec![255; 64], icons: HashMap::new(), frames: Vec::new(), thumbs: HashMap::from([(7, uv)]) });
+        let mut d = DrawList::new(0.6);
+        d.picture(10.0, 20.0, 30.0, 15.0, 7);
+        d.picture(0.0, 0.0, 5.0, 5.0, 8);
+        screen.set(0, Some(Layer { list: d, scale: 2.0, grid: 2.0, face: Face::Mono }));
+        let p = screen.frame((320, 240)).expect("a frame");
+        let m = meshes(&p);
+        assert_eq!(m.iter().map(|m| m.vertices.len()).sum::<usize>(), 4, "one quad");
+        assert_eq!((m[0].vertices[0].pos, m[0].vertices[0].uv), (pos2(20.0, 40.0), pos2(0.5, 0.5)));
     }
 }

@@ -16,6 +16,7 @@ pub mod gesture;
 pub mod holders;
 pub mod linked;
 pub mod graph;
+pub mod library;
 pub mod world;
 pub mod modreg;
 pub mod mood;
