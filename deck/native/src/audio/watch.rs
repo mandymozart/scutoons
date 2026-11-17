@@ -454,7 +454,8 @@ mod tests {
                         std::thread::sleep(Duration::from_millis(1));
                         continue;
                     }
-                    let heard = now_ns() + 1_000_000;
+                    // the device's own clock: a late callback (a loaded machine) does not move when its frames are heard
+                    let heard = at(k) + 1_000_000;
                     match held.feed() {
                         Some(f) => f.play(&mut buf, ch, heard, |x| x),
                         None => buf.fill(0.0),
@@ -494,9 +495,14 @@ mod tests {
 
     fn plays_the_map(fake: &Fake) {
         fake.take_peaks();
-        std::thread::sleep(Duration::from_millis(150));
-        let p = fake.take_peaks();
-        assert!(p[0] == 0.0 && p[1] == 0.0 && p[2] > 0.01 && p[3] > 0.01, "the tone on 3 and 4 only: {p:?}");
+        let mut p = vec![0.0f32; fake.channels];
+        wait("the tone", 10, || {
+            for (a, b) in p.iter_mut().zip(fake.take_peaks()) {
+                *a = a.max(b);
+            }
+            p[2] > 0.01 && p[3] > 0.01
+        });
+        assert!(p[0] == 0.0 && p[1] == 0.0, "the tone on 3 and 4 only: {p:?}");
     }
 
     fn away(notes: &Notes) -> bool {
