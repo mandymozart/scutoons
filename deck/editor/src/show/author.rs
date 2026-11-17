@@ -178,15 +178,18 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
         d.text(a.x, a.y + bh + 6.0, small, &fit(d, &line, small, a.w), t.color.muted);
         let mut y = a.y + bh + 6.0 + small * 2.0;
         let typing = host.typing.as_ref().filter(|(what, _)| matches!(what, super::roles::Typing::Background)).map(|(_, f)| f.text.clone());
-        let r = match typing {
+        match typing {
             Some(text) => {
-                let r = super::rows::field(d, t, (a.x, y, a.w), "background", "", Some(&text));
+                host.hits.push((super::rows::field(d, t, (a.x, y, a.w), "background", "", Some(&text)), Hit::Background));
                 y += t.size.tree_row;
-                r
             }
-            None => crate::inspector::background(d, t, a, &mut y, &crate::inspector::background_row(show.background.as_ref(), "its scenes', else black")),
-        };
-        host.hits.push((r, Hit::Background));
+            None => {
+                let (swatch, at) = crate::inspector::background(d, t, a, &mut y, &crate::inspector::background_row(show.background.as_ref(), "its scenes', else black"));
+                // the last rect that has the pointer takes the press: the row, then its swatch
+                host.hits.push((at, Hit::Background));
+                host.hits.push((swatch, Hit::BackgroundColour));
+            }
+        }
         let role = host.role.as_ref().and_then(|id| deck_show::roles::inspector(&show, host.path.is_empty().then_some(&host.sub), id));
         match role {
             // the role's inspector keeps its remove at its foot: a foot of its own size

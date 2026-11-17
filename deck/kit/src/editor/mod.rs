@@ -3,6 +3,7 @@
 //! editor's `tokens.toml`). Behind the `editor` feature: the decks never build them. Drawn through the editor's own GPU
 //! adapter (deck-editor `ui.rs`) until the editor moves onto the base's egui screen (#485, slice 2).
 pub mod carry;
+pub mod colour;
 pub mod controls;
 pub mod floats;
 pub mod icons;

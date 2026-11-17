@@ -180,8 +180,9 @@ pub enum Hit {
     FiresOn,
     EventPick(usize),
     EventType,
-    /// the show's stage background: a click types it
+    /// the show's stage background: a click on its value types it, on its swatch opens the colour picker (the editor's)
     Background,
+    BackgroundColour,
     Load,
     /// the tree resolved to exact versions: the list of the devices to flash opens (#471)
     Flash,
@@ -516,6 +517,8 @@ impl Host {
             }
             Hit::FiresOn | Hit::EventPick(_) | Hit::EventType => self.events_press(hit),
             Hit::Scene(_) | Hit::SceneFind | Hit::SceneBuild(_) => self.scenes_press(hit),
+            // the editor's colour picker takes it before the show (colour.rs)
+            Hit::BackgroundColour => {}
             Hit::Background => {
                 let now = self.shown().background.as_ref().map_or("", |b| b.text()).to_string();
                 self.typing = Some((roles::Typing::Background, deck_kit::base::text::Field::with(&now)));
