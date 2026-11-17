@@ -69,6 +69,8 @@ pub struct Stage {
     pub visible: Vec<bool>,
     /// the level shown: the tracks entered, top down (#457; a path, so it can go deep: #458)
     pub path: Vec<String>,
+    /// the parameter groups opened on the stage: (node, group)
+    opened: Vec<(usize, String)>,
     core_node: usize,
     /// the graph's node ids: a being's point is its node
     pub node_ids: Vec<String>,
@@ -245,6 +247,7 @@ impl Stage {
         self.handles = None;
         let mut next = Stage::start(ready, self.volume);
         next.base = self.base.clone();
+        next.opened = std::mem::take(&mut self.opened);
         next.enter(self.path.clone());
         if keep {
             next.started = self.started;
@@ -381,15 +384,25 @@ impl Stage {
         let master = sum.as_deref().and_then(|s| slot(s, true)).map(|(n, p, _)| (n, p));
         let node_ids = graph.nodes.iter().map(|n| n.id.clone()).collect();
         let kinds = graph.nodes.iter().map(|n| n.kind).collect();
-        Stage { controls, space, gpu: None, texture: None, pixel: None, pixel_buf: None, still: false, still_buf: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, kinds, strips, inner, master, master_peak: [0.0; 2], master_max: 0.0, volume, path: Vec::new(), core_node: node, groups, reach, scene: None, played_scene: None, dark: false, silent: Default::default(), beat: None, own_background, over: None }
+        Stage { controls, space, gpu: None, texture: None, pixel: None, pixel_buf: None, still: false, still_buf: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, kinds, strips, inner, master, master_peak: [0.0; 2], master_max: 0.0, volume, path: Vec::new(), opened: Vec::new(), core_node: node, groups, reach, scene: None, played_scene: None, dark: false, silent: Default::default(), beat: None, own_background, over: None }
     }
 
     /// show this level of the tree in Wire; empty = the rig
     pub fn enter(&mut self, path: Vec<String>) {
-        let (level, visible) = wires::level(&self.bundle, &self.ports, &self.node_ids, self.core_node, path.last().map(String::as_str));
+        let (mut level, visible) = wires::level(&self.bundle, &self.ports, &self.node_ids, self.core_node, path.last().map(String::as_str));
+        level.opened = self.opened.clone();
         self.space.being.show_level(Some(&level));
         self.visible = visible;
         self.path = path;
+    }
+
+    /// a parameter group on the stage opened, or closed again
+    pub fn toggle_group(&mut self, node: usize, group: &str) {
+        match self.opened.iter().position(|(n, g)| *n == node && g == group) {
+            Some(at) => _ = self.opened.remove(at),
+            None => self.opened.push((node, group.to_string())),
+        }
+        self.enter(self.path.clone());
     }
 
     /// Play: every node, as the deck shows it

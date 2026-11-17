@@ -11,6 +11,7 @@ use std::borrow::Cow;
 use std::collections::BTreeMap;
 
 pub mod background;
+pub mod groups;
 pub mod layer;
 pub mod library;
 mod builtin;
@@ -354,6 +355,10 @@ impl Descriptor {
     }
     pub fn param_index(&self, name: &str) -> Option<usize> {
         self.params.iter().position(|p| p.name == name)
+    }
+    /// its parameters in groups (`groups::by_prefix`)
+    pub fn param_groups(&self) -> Vec<groups::Group> {
+        groups::by_prefix(&self.params.iter().map(|p| p.name.as_ref()).collect::<Vec<_>>())
     }
     /// the ports of one direction and type, in declaration order – for a module the n-th is `block.audio_in(n)` and so on
     pub fn ports_of(&self, dir: Dir, ty: PortType) -> impl Iterator<Item = &PortDesc> {

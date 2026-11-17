@@ -217,9 +217,10 @@ pub struct Point {
     own_rest: Vec3,
     /// its sphere's radius at the base ring
     own_radius: f32,
-    /// its port ring at the level shown: the radius (world) and the angle between two dots (`port_ring`)
+    /// its port ring's radius at the level shown (world, `port_ring`)
     pub reach: f32,
-    step: f32,
+    /// the ring as drawn: it eases toward `reach`
+    ring: f32,
     /// not at the level shown (#457)
     hidden: bool,
 }
@@ -240,16 +241,57 @@ const PORT_REACH: f32 = 0.16;
 const PORT_ARC: f32 = PORT_REACH * 0.5;
 /// the widest a port ring grows, against the being's size
 const PORT_REACH_MAX: f32 = 2.5;
+/// what each further round of ports adds to the ring, against its base radius
+const RING_GROWTH: f32 = 0.5;
+/// the air between two kinds of ports on a ring, in dots
+const KIND_GAP: f32 = 0.5;
 /// the air between a grown node and its neighbours, against the being's size
 const RING_GAP: f32 = 0.3;
+/// a node showing more ports than this shows its parameters' groups closed until one is opened
+pub const FOLD: usize = 12;
 
-/// A node's port ring for `n` ports on its busier side (inputs on the left half, outputs on the right): its radius and the
-/// angle between two dots. Up to what fits the base radius nothing changes; past it the ring grows so the dots keep
-/// their spacing, up to PORT_REACH_MAX (beyond, they close up within their half).
-pub fn port_ring(size: f32, n: usize) -> (f32, f32) {
-    let (base, arc) = (size * PORT_REACH, size * PORT_ARC);
-    let r = (n as f32 * arc / std::f32::consts::PI).clamp(base, size * PORT_REACH_MAX);
-    (r, (arc / r).min(std::f32::consts::PI / n.max(1) as f32))
+/// how many dots a ring of radius `r` holds at the fixed spacing
+pub fn ring_fits(size: f32, r: f32) -> usize {
+    (TAU * r / (size * PORT_ARC) + 1e-3) as usize
+}
+
+/// A node's port ring for `units` dots (a gap counts its share): the base ring while they fit, then one step of
+/// RING_GROWTH per further round until they do, up to PORT_REACH_MAX (beyond, they close up).
+pub fn port_ring(size: f32, units: f32) -> f32 {
+    let (base, most) = (size * PORT_REACH, size * PORT_REACH_MAX);
+    let mut r = base;
+    while (ring_fits(size, r) as f32) < units.ceil() && r < most {
+        r += base * RING_GROWTH;
+    }
+    r.min(most)
+}
+
+/// the three kinds of ports, in their order on a ring
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum Side {
+    Inlet,
+    Outlet,
+    Event,
+}
+
+/// The angles of a ring's spots (in order, sorted by side), spread evenly around the whole circle with a gap between
+/// kinds, the first kind centred on the left; and the units they take.
+fn spread(sides: &[Side]) -> (Vec<f32>, f32) {
+    let mut at = Vec::with_capacity(sides.len());
+    let mut u = 0.0;
+    for (k, s) in sides.iter().enumerate() {
+        if k > 0 && sides[k - 1] != *s {
+            u += KIND_GAP;
+        }
+        at.push(u + 0.5);
+        u += 1.0;
+    }
+    if sides.first() != sides.last() {
+        u += KIND_GAP;
+    }
+    let first: Vec<f32> = sides.iter().zip(&at).filter(|(s, _)| Some(*s) == sides.first()).map(|(_, a)| *a).collect();
+    let centre = first.iter().sum::<f32>() / first.len().max(1) as f32;
+    (at.iter().map(|a| std::f32::consts::PI - TAU * (a - centre) / u.max(1.0)).collect(), u)
 }
 
 /// One level of a tree of nodes, as the body shows it (#457): the rest is not drawn.
@@ -259,28 +301,38 @@ pub struct Level {
     pub shown: Vec<Option<usize>>,
     /// the ports this level shows: (graph node, port name, is it an input)
     pub outlets: Vec<(usize, String, bool)>,
+    /// the parameter groups opened on a folded node: (graph node, group)
+    pub opened: Vec<(usize, String)>,
 }
 
-/// a port this level shows, placed: on `point`, the `i`th of `n` on its side
+/// a port placed on `point`'s ring; None = inside a closed group
 #[derive(Debug, Clone, PartialEq)]
 struct Outlet {
     node: usize,
     port: String,
     input: bool,
     point: usize,
-    i: usize,
-    n: usize,
+    at: Option<f32>,
 }
 
-/// where the `i`th of a point's `n` inputs or outputs sits this frame: around the point in the plane facing the eye, inputs
-/// left, outputs right
-fn port_at(p: &Point, eye: Option<Vec3>, i: usize, n: usize, input: bool) -> Vec3 {
+/// a group of a node's parameters as one spot on its point's ring
+#[derive(Debug, Clone, PartialEq)]
+pub struct Cluster {
+    pub node: usize,
+    pub point: usize,
+    pub name: &'static str,
+    /// its parameters the level shows
+    pub count: usize,
+    pub open: bool,
+    at: f32,
+}
+
+/// where the port at angle `at` of a point's ring sits this frame, in the plane facing the eye (π = left)
+fn port_at(p: &Point, eye: Option<Vec3>, at: f32) -> Vec3 {
     let to_eye = eye.and_then(|e| (e - p.pos).try_normalize()).unwrap_or(Vec3::Z);
     let right = Vec3::Y.cross(to_eye).try_normalize().unwrap_or(Vec3::X);
     let up = to_eye.cross(right);
-    let (base, side) = if input { (std::f32::consts::PI, -1.0) } else { (0.0, 1.0) };
-    let angle = base + side * (i as f32 - (n as f32 - 1.0) * 0.5) * p.step;
-    p.pos + (right * angle.cos() + up * angle.sin()) * p.reach
+    p.pos + (right * at.cos() + up * at.sin()) * p.ring
 }
 
 /// Push every node whose ring grew out from the body's middle until it keeps clear of every other shown point and the
@@ -335,8 +387,8 @@ fn clear_rings(points: &mut [Point], size: f32, fixed: &[(Vec3, f32)]) {
 struct HoseEnds {
     from: usize,
     to: usize,
-    from_slot: Option<(usize, usize)>,
-    to_slot: Option<(usize, usize)>,
+    from_slot: Option<f32>,
+    to_slot: Option<f32>,
 }
 
 #[derive(Debug, Clone)]
@@ -570,8 +622,10 @@ pub struct Being {
     still: bool,
     /// 0..1, how far it has settled
     held: f32,
-    /// the level shown (#457): the ports it places; none = every node
-    outlets: Option<Vec<Outlet>>,
+    /// the ports placed at the level shown (#457), or every node's
+    outlets: Vec<Outlet>,
+    /// the parameter groups on the rings
+    clusters: Vec<Cluster>,
     pub points: Vec<Point>,
     pub hoses: Vec<Hose>,
     pub buttons: Vec<Button>,
@@ -666,8 +720,8 @@ impl Being {
                 Domain::Video => 0.0,
                 Domain::Control => -0.18,
             };
-            let (reach, step) = port_ring(s, 0);
-            points.push(Point { node: i, rest, pos: rest, radius, tint, phase: h * TAU, flash: 0.0, level: 0.0, colour: None, kind: graph.nodes[i].kind, own_rest: rest, own_radius: radius, reach, step, hidden: false });
+            let reach = port_ring(s, 0.0);
+            points.push(Point { node: i, rest, pos: rest, radius, tint, phase: h * TAU, flash: 0.0, level: 0.0, colour: None, kind: graph.nodes[i].kind, own_rest: rest, own_radius: radius, reach, ring: reach, hidden: false });
         }
         let point_of = |node: usize| points.iter().position(|p| p.node == node).expect("a point per node");
         let hoses = graph
@@ -810,11 +864,12 @@ impl Being {
         let neck: Vec<usize> = core_point.into_iter().chain(by_height).take(NECK).collect();
         let mut moods = look.moods.clone();
         let feel = Feel::new(graph, &look.feel, &look.react, &mut moods, (hash(&look.character) * 16_777_216.0) as u32 ^ 0x9e37_79b9);
-        Being {
+        let mut b = Being {
             look: look.clone(),
             still: false,
             held: 0.0,
-            outlets: None,
+            outlets: Vec::new(),
+            clusters: Vec::new(),
             points,
             hoses,
             buttons,
@@ -852,7 +907,9 @@ impl Being {
             reset: None,
             strain: 0.0,
             dt: 0.0,
-        }
+        };
+        b.show_level(None);
+        b
     }
 
     /// The output limiter's gain reduction this frame (dB, the deepest since the last frame): `strain` rises at once
@@ -898,18 +955,26 @@ impl Being {
         self.still = still;
         if at_once {
             self.held = if still { 1.0 } else { 0.0 };
+            for p in &mut self.points {
+                p.ring = p.reach;
+            }
         }
     }
 
-    /// where a node's port sits this frame (world); at a level only the ports it shows
+    /// where a node's port sits this frame (world); at a level only the ports it shows, not one inside a closed group
     pub fn port_world(&self, node: usize, port: &str, input: bool) -> Option<Vec3> {
-        if let Some(outlets) = &self.outlets {
-            let o = outlets.iter().find(|o| o.node == node && o.input == input && o.port == port)?;
-            return Some(port_at(&self.points[o.point], self.eye, o.i, o.n, input));
-        }
-        let p = self.points.iter().find(|p| p.node == node)?;
-        let (i, n) = if input { (p.kind.input(port)?, p.kind.inputs().len()) } else { (p.kind.output(port)?, p.kind.outputs().len()) };
-        Some(port_at(p, self.eye, i, n, input))
+        let o = self.outlets.iter().find(|o| o.node == node && o.input == input && o.port == port)?;
+        Some(port_at(&self.points[o.point], self.eye, o.at?))
+    }
+
+    /// the parameter groups on the rings at the level shown
+    pub fn clusters(&self) -> &[Cluster] {
+        &self.clusters
+    }
+
+    /// where a group's spot sits this frame (world)
+    pub fn cluster_world(&self, c: &Cluster) -> Vec3 {
+        port_at(&self.points[c.point], self.eye, c.at)
     }
 
     /// a node's point this frame, if the level shows it
@@ -918,15 +983,15 @@ impl Being {
     }
 
     /// Show one level of the tree (#457), or every node. A group collapsed into one point rests at the middle of its
-    /// members; what is not at the level is not drawn and cannot be picked. At a level each point's port ring is sized by
-    /// the ports it shows, and a grown one keeps its neighbours clear; every node (the deck's body, no port dots) keeps
-    /// the base ring.
+    /// members; what is not at the level is not drawn and cannot be picked. At a level each point's ring holds the
+    /// spots it shows and grows past what fits, and a grown one keeps its neighbours clear; every node (the deck's body,
+    /// no port dots) keeps the base ring.
     pub fn show_level(&mut self, level: Option<&Level>) {
         self.place_level(level);
         let s = self.look.size;
-        for (i, p) in self.points.iter_mut().enumerate() {
-            let n = self.outlets.as_ref().and_then(|outlets| outlets.iter().filter(|o| o.point == i).map(|o| o.n).max()).unwrap_or(0);
-            (p.reach, p.step) = port_ring(s, n);
+        let units = self.lay_out_rings(level.map(|l| &l.opened[..]));
+        for (p, u) in self.points.iter_mut().zip(units) {
+            p.reach = port_ring(s, if level.is_some() { u } else { 0.0 });
             // the sphere grows with the ring, gentler: a node, not a planet
             p.radius = p.own_radius * (p.reach / (s * PORT_REACH)).sqrt();
         }
@@ -945,8 +1010,15 @@ impl Being {
         for b in &mut self.buttons {
             b.out_of_level = false;
         }
-        self.outlets = None;
-        let Some(level) = level else { return };
+        self.outlets.clear();
+        let Some(level) = level else {
+            for (point, p) in self.points.iter().enumerate() {
+                for (list, input) in [(p.kind.inputs(), true), (p.kind.outputs(), false)] {
+                    self.outlets.extend(list.iter().map(|q| Outlet { node: p.node, port: q.name.to_string(), input, point, at: None }));
+                }
+            }
+            return;
+        };
         let rep = |node: usize| level.shown.get(node).copied().flatten();
         let point_of = |points: &[Point], node: usize| points.iter().position(|p| p.node == node);
         for i in 0..self.points.len() {
@@ -972,19 +1044,10 @@ impl Being {
         for b in &mut self.buttons {
             b.out_of_level = rep(b.node) != Some(b.node) || collapsed(b.node, &level.shown);
         }
-        // the outlets, numbered on each side of their point
-        let mut outlets: Vec<Outlet> = Vec::with_capacity(level.outlets.len());
         for (node, port, input) in &level.outlets {
             let Some(point) = rep(*node).and_then(|r| point_of(&self.points, r)) else { continue };
-            outlets.push(Outlet { node: *node, port: port.clone(), input: *input, point, i: 0, n: 0 });
+            self.outlets.push(Outlet { node: *node, port: port.clone(), input: *input, point, at: None });
         }
-        for k in 0..outlets.len() {
-            let side = |o: &Outlet, a: &Outlet| o.point == a.point && o.input == a.input;
-            let of = outlets[k].clone();
-            outlets[k].i = outlets[..k].iter().filter(|o| side(o, &of)).count();
-            outlets[k].n = outlets.iter().filter(|o| side(o, &of)).count();
-        }
-        let slot = |node: usize, name: &str, input: bool| outlets.iter().find(|o| o.node == node && o.input == input && o.port == name).map(|o| (o.i, o.n));
         for h in &mut self.hoses {
             let (fp, tp) = (&self.points[h.from], &self.points[h.to]);
             let (Some(rf), Some(rt)) = (rep(fp.node), rep(tp.node)) else {
@@ -995,14 +1058,83 @@ impl Being {
                 h.hidden = true;
                 continue;
             }
-            let (from_slot, to_slot) = (slot(fp.node, fp.kind.outputs()[h.from_port].name, false), slot(tp.node, tp.kind.inputs()[h.to_port].name, true));
             let (Some(from), Some(to)) = (point_of(&self.points, rf), point_of(&self.points, rt)) else {
                 h.hidden = true;
                 continue;
             };
-            h.ends = Some(HoseEnds { from, to, from_slot, to_slot });
+            h.ends = Some(HoseEnds { from, to, from_slot: None, to_slot: None });
         }
-        self.outlets = Some(outlets);
+    }
+
+    /// Each point's ring: its spots in order (inlets, outlets, events), a folded node's parameter groups one spot each
+    /// with the ports of an open one (and the wired ones of a closed one) after it; every spot's angle, the hoses' ends.
+    /// The units each ring takes.
+    fn lay_out_rings(&mut self, opened: Option<&[(usize, String)]>) -> Vec<f32> {
+        let kind_of = |node: usize| self.points.iter().find(|p| p.node == node).map(|p| p.kind);
+        let wired = |node: usize, port: &str| {
+            self.hoses.iter().any(|h| {
+                let p = &self.points[h.to];
+                p.node == node && p.kind.inputs().get(h.to_port).is_some_and(|q| q.name == port)
+            })
+        };
+        let side = |o: &Outlet| {
+            let list = kind_of(o.node).map_or(&[][..], |k| if o.input { k.inputs() } else { k.outputs() });
+            match list.iter().find(|q| q.name == o.port) {
+                Some(q) if q.ty == PortType::Event => Side::Event,
+                _ if o.input => Side::Inlet,
+                _ => Side::Outlet,
+            }
+        };
+        let mut units = vec![0.0; self.points.len()];
+        let mut clusters: Vec<Cluster> = Vec::new();
+        let mut at: Vec<Option<f32>> = vec![None; self.outlets.len()];
+        for (point, u) in units.iter_mut().enumerate() {
+            let mine: Vec<usize> = (0..self.outlets.len()).filter(|&k| self.outlets[k].point == point).collect();
+            if mine.is_empty() {
+                continue;
+            }
+            let folds = opened.is_some() && mine.len() > FOLD;
+            let group = |o: &Outlet| if folds && o.input { kind_of(o.node).and_then(|k| k.group(&o.port)) } else { None };
+            // (its side, Ok(an outlet) or Err(a cluster))
+            let mut spots: Vec<(Side, Result<usize, usize>)> = Vec::new();
+            for &k in &mine {
+                let o = &self.outlets[k];
+                let Some(g) = group(o) else {
+                    spots.push((side(o), Ok(k)));
+                    continue;
+                };
+                if clusters.iter().any(|c| c.point == point && c.node == o.node && c.name == g) {
+                    continue;
+                }
+                let open = opened.unwrap_or_default().iter().any(|(n, name)| *n == o.node && name == g);
+                let members: Vec<usize> = mine.iter().copied().filter(|&j| self.outlets[j].node == o.node && group(&self.outlets[j]) == Some(g)).collect();
+                spots.push((Side::Inlet, Err(clusters.len())));
+                clusters.push(Cluster { node: o.node, point, name: g, count: members.len(), open, at: 0.0 });
+                spots.extend(members.into_iter().filter(|&j| open || wired(o.node, &self.outlets[j].port)).map(|j| (Side::Inlet, Ok(j))));
+            }
+            spots.sort_by_key(|(s, _)| *s);
+            let (angles, used) = spread(&spots.iter().map(|(s, _)| *s).collect::<Vec<_>>());
+            *u = used;
+            for ((_, spot), a) in spots.iter().zip(angles) {
+                match *spot {
+                    Ok(k) => at[k] = Some(a),
+                    Err(c) => clusters[c].at = a,
+                }
+            }
+        }
+        for (o, a) in self.outlets.iter_mut().zip(at) {
+            o.at = a;
+        }
+        self.clusters = clusters;
+        let slot = |outlets: &[Outlet], node: usize, port: &str, input: bool| outlets.iter().find(|o| o.node == node && o.input == input && o.port == port).and_then(|o| o.at);
+        for h in self.hoses.iter_mut().filter(|h| !h.hidden) {
+            let (fp, tp) = (&self.points[h.from], &self.points[h.to]);
+            let from_slot = fp.kind.outputs().get(h.from_port).and_then(|q| slot(&self.outlets, fp.node, q.name, false));
+            let to_slot = tp.kind.inputs().get(h.to_port).and_then(|q| slot(&self.outlets, tp.node, q.name, true));
+            let ends = h.ends.get_or_insert(HoseEnds { from: h.from, to: h.to, from_slot: None, to_slot: None });
+            (ends.from_slot, ends.to_slot) = (from_slot, to_slot);
+        }
+        units
     }
 
     /// is it held still
@@ -1034,6 +1166,7 @@ impl Being {
         self.center = self.anchor + Vec3::new(d * (0.13 * time).sin(), 0.6 * d * (0.21 * time + 1.0).sin(), d * (0.17 * time + 2.0).sin());
         for p in &mut self.points {
             let w = look.wobble * s * calm;
+            p.ring += (p.reach - p.ring) * (1.0 - (-dt.max(0.0) / 0.2).exp());
             let ph = p.phase;
             let sway = Vec3::new((1.3 * time + ph).sin(), (1.7 * time + 2.0 * ph).sin(), (1.1 * time + 3.0 * ph).sin()) * w;
             p.pos = self.center + p.rest * self.swell + if p.rest == Vec3::ZERO { Vec3::ZERO } else { sway };
@@ -1046,19 +1179,13 @@ impl Being {
         }
         for h in &mut self.hoses {
             // held for an editor, the hoses plug into the ports (owner 2026-11-09: "those tubes should go between ins and outs")
-            let end = |point: usize, slot: Option<(usize, usize)>, port: usize, input: bool, level: bool| -> Vec3 {
+            let end = |point: usize, slot: Option<f32>| -> Vec3 {
                 let p = &self.points[point];
-                let all = if input { p.kind.inputs().len() } else { p.kind.outputs().len() };
-                match (slot, level) {
-                    (Some((i, n)), _) => port_at(p, self.eye, i, n, input),
-                    (None, true) => p.pos,
-                    (None, false) => port_at(p, self.eye, port, all, input),
-                }
+                slot.map_or(p.pos, |a| port_at(p, self.eye, a))
             };
-            let level = h.ends.is_some();
             let e = h.ends.unwrap_or(HoseEnds { from: h.from, to: h.to, from_slot: None, to_slot: None });
-            let a = self.points[e.from].pos.lerp(end(e.from, e.from_slot, h.from_port, false, level), self.held);
-            let b = self.points[e.to].pos.lerp(end(e.to, e.to_slot, h.to_port, true, level), self.held);
+            let a = self.points[e.from].pos.lerp(end(e.from, e.from_slot), self.held);
+            let b = self.points[e.to].pos.lerp(end(e.to, e.to_slot), self.held);
             let out = |p: Vec3| (p - center).try_normalize().unwrap_or(Vec3::Y);
             let bow = 0.35 * (b - a).length() + 0.1 * s;
             h.ctrl = [a, a + out(a) * bow, b + out(b) * bow, b];
@@ -2127,7 +2254,7 @@ mod tests {
         shown[1] = None;
         let l = &g.links[0];
         let out = g.nodes[l.from.0].kind.outputs()[l.from.1].name.to_string();
-        b.show_level(Some(&Level { shown, outlets: vec![(l.from.0, out.clone(), false)] }));
+        b.show_level(Some(&Level { shown, outlets: vec![(l.from.0, out.clone(), false)], ..Default::default() }));
         b.hold(true, true);
         b.update(0.016, 1.0, &Local { ctl: &c, meter: &|_, _| 0.0 }, &now(8.0));
         assert!(b.points.iter().filter(|p| !p.hidden).count() == 1, "one body");
@@ -2138,20 +2265,38 @@ mod tests {
     }
 
     #[test]
-    fn a_port_ring_keeps_its_spacing_and_grows_past_what_fits() {
+    fn a_ring_holds_what_fits_and_then_grows_one_round_at_a_time() {
         let s = 0.5;
-        for n in 0..=6 {
-            assert_eq!(port_ring(s, n), (s * PORT_REACH, 0.5), "{n} fit the base ring");
+        let base = s * PORT_REACH;
+        assert_eq!(ring_fits(s, base), 12, "the base ring at the fixed spacing");
+        for u in [0.0, 1.0, 11.5, 12.0] {
+            assert_eq!(port_ring(s, u), base, "{u} fit the base ring");
         }
-        for n in [7, 12, 45, 91] {
-            let (r, step) = port_ring(s, n);
-            assert!(r > s * PORT_REACH, "{n} grow it");
-            assert!((r * step - s * PORT_ARC).abs() < 1e-5, "{n}: the same arc between dots");
-            assert!(step * n as f32 <= std::f32::consts::PI + 1e-5, "{n}: one side stays in its half");
+        assert_eq!(port_ring(s, 13.0), base * 1.5, "one round more: one step");
+        assert_eq!(port_ring(s, 19.0), base * 2.0, "and the next");
+        let mut last = base;
+        for u in 1..200 {
+            let r = port_ring(s, u as f32);
+            assert!(r >= last && r - last <= base * RING_GROWTH + 1e-6, "{u}: gradual, never a jump");
+            assert!(ring_fits(s, r) >= u || r == s * PORT_REACH_MAX, "{u} fit the ring they get");
+            last = r;
         }
-        let (r, step) = port_ring(s, 1000);
-        assert_eq!(r, s * PORT_REACH_MAX, "a ceiling");
-        assert!(step * 1000.0 <= std::f32::consts::PI + 1e-4, "past it the dots close up, never wrap");
+        assert_eq!(port_ring(s, 1000.0), s * PORT_REACH_MAX, "a ceiling");
+    }
+
+    #[test]
+    fn the_ports_share_the_whole_circle_by_kind_with_a_gap_between() {
+        let (a, u) = spread(&[Side::Inlet, Side::Outlet]);
+        assert_eq!(u, 3.0);
+        assert!((a[0] - std::f32::consts::PI).abs() < 1e-5 && a[1].abs() < 1e-5, "one in on the left, one out on the right: {a:?}");
+        let sides = [Side::Inlet, Side::Inlet, Side::Inlet, Side::Outlet, Side::Outlet, Side::Event];
+        let (a, u) = spread(&sides);
+        assert_eq!(u, 6.0 + 3.0 * KIND_GAP, "three kinds, three gaps around the circle");
+        let step = TAU / u;
+        assert!((a[1] - std::f32::consts::PI).abs() < 1e-5, "the inlets centre on the left");
+        assert!((a[0] - a[1] - step).abs() < 1e-5 && (a[3] - a[4] - step).abs() < 1e-5, "even within a kind");
+        assert!((a[2] - a[3] - step * (1.0 + KIND_GAP)).abs() < 1e-5, "a gap between kinds");
+        assert!((a[5] - a[0] + TAU - step * (1.0 + KIND_GAP)).abs() < 1e-4, "and round to the first");
     }
 
     /// a level showing node `big`'s 91 inputs and node `small`'s 3 (fake names: a level's outlets are names)
@@ -2159,7 +2304,7 @@ mod tests {
         let names: Vec<String> = (0..91).map(|k| format!("p{k}")).collect();
         let mut outlets: Vec<(usize, String, bool)> = names.iter().map(|n| (big, n.clone(), true)).collect();
         outlets.extend((0..3).map(|k| (small, format!("q{k}"), true)));
-        b.show_level(Some(&Level { shown: (0..g.nodes.len()).map(Some).collect(), outlets }));
+        b.show_level(Some(&Level { shown: (0..g.nodes.len()).map(Some).collect(), outlets, ..Default::default() }));
         names
     }
 
@@ -2180,9 +2325,6 @@ mod tests {
         let p = &b.points[big];
         assert!(p.reach > s * PORT_REACH * 5.0 && p.radius > before[big].1 * 2.0, "the ring and the sphere grew: {} {}", p.reach, p.radius);
         let dots: Vec<Vec3> = names.iter().map(|n| b.port_world(big_node, n, true).expect("a dot")).collect();
-        for w in dots.windows(2) {
-            assert!((w[0].distance(w[1]) - s * PORT_ARC).abs() < s * PORT_ARC * 0.02, "evenly spaced: {}", w[0].distance(w[1]));
-        }
         for (k, d) in dots.iter().enumerate() {
             assert!((d.distance(p.pos) - p.reach).abs() < 1e-4, "on the ring");
             let nearest = dots.iter().enumerate().filter(|(j, _)| *j != k).map(|(_, e)| e.distance(*d)).fold(f32::MAX, f32::min);
@@ -2195,6 +2337,62 @@ mod tests {
         }
         b.show_level(None);
         assert_eq!(b.points.iter().map(|p| (p.rest, p.radius)).collect::<Vec<_>>(), before, "the deck's body is as before");
+    }
+
+    /// a module of `params` parameters, a note input and an audio output, its node `syn` fed by an lfo into `o1_a`
+    fn synth(name: &str, params: &[&str]) -> Graph {
+        let desc = serde_json::json!({
+            "name": name,
+            "ports": [{ "name": "notes", "dir": "in", "type": "event" }, { "name": "out", "dir": "out", "type": "audio" }],
+            "params": params.iter().map(|p| serde_json::json!({ "name": p, "max": 1.0 })).collect::<Vec<_>>(),
+        });
+        let desc: deck_catalog::Descriptor = serde_json::from_value(desc).expect("a descriptor");
+        crate::modreg::register(name, &crate::modreg::ModuleDef::of(&desc));
+        graph(&format!("[[node]]\nid=\"lfo\"\nkind=\"lfo\"\n[[node]]\nid=\"syn\"\nkind=\"module:{name}\"\n[[link]]\nfrom=\"lfo\"\nto=\"syn.{}\"\n", params[0]))
+    }
+
+    /// a level showing every port of node `syn`, these groups open
+    fn show_synth(b: &mut Being, g: &Graph, opened: &[&str]) -> usize {
+        let syn = g.nodes.iter().position(|n| n.id == "syn").expect("syn");
+        let k = g.nodes[syn].kind;
+        let mut outlets: Vec<(usize, String, bool)> = k.inputs().iter().map(|p| (syn, p.name.to_string(), true)).collect();
+        outlets.extend(k.outputs().iter().map(|p| (syn, p.name.to_string(), false)));
+        b.show_level(Some(&Level { shown: (0..g.nodes.len()).map(Some).collect(), outlets, opened: opened.iter().map(|o| (syn, o.to_string())).collect() }));
+        syn
+    }
+
+    #[test]
+    fn a_big_module_shows_its_parameter_groups_closed_and_opens_one_in_place() {
+        let mut params: Vec<String> = ["o1", "o2"].iter().flat_map(|o| (0..8).map(move |k| format!("{o}_{}", (b'a' + k) as char))).collect();
+        params.extend((0..4).map(|k| format!("f1_{k}")));
+        params.push("volume".into());
+        let g = synth("ringtest_groups", &params.iter().map(String::as_str).collect::<Vec<_>>());
+        let mut b = Being::new(&g, &Look::default());
+        let syn = show_synth(&mut b, &g, &[]);
+        let groups: Vec<(&str, usize, bool)> = b.clusters().iter().map(|c| (c.name, c.count, c.open)).collect();
+        assert_eq!(groups, [("o1/o2", 16, false), ("f1", 4, false)]);
+        assert!(b.port_world(syn, "o1_b", true).is_none(), "inside a closed group");
+        assert!(b.port_world(syn, "o1_a", true).is_some(), "a wired port stays");
+        assert!(b.port_world(syn, "volume", true).is_some() && b.port_world(syn, "notes", true).is_some(), "loose ports and the rest");
+        let point = b.points.iter().position(|p| p.node == syn).unwrap();
+        let closed = b.points[point].reach;
+        assert_eq!(closed, b.look.size * PORT_REACH, "two groups, four ports, two kinds of gap: the base ring");
+        show_synth(&mut b, &g, &["o1/o2"]);
+        assert!(b.clusters()[0].open && b.port_world(syn, "o1_b", true).is_some(), "opened, its ports show");
+        assert!(b.points[point].reach > closed, "the ring grows with the open ports");
+        // the open group's ports follow its spot round the ring
+        let at = |b: &Being, port: &str| b.outlets.iter().find(|o| o.port == port).and_then(|o| o.at).unwrap();
+        let c = b.clusters()[0].at;
+        assert!(at(&b, "o1_a") < c && at(&b, "o2_h") < at(&b, "o1_a"), "after its spot, in order");
+    }
+
+    #[test]
+    fn a_small_module_shows_its_ports_without_groups() {
+        let g = synth("ringtest_small", &["o1_a", "o1_b", "o1_c", "gain"]);
+        let mut b = Being::new(&g, &Look::default());
+        let syn = show_synth(&mut b, &g, &[]);
+        assert!(b.clusters().is_empty(), "six ports: nothing folds");
+        assert!(["o1_a", "o1_b", "o1_c", "gain", "notes"].iter().all(|p| b.port_world(syn, p, true).is_some()));
     }
 
     #[test]

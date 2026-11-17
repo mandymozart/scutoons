@@ -92,6 +92,8 @@ struct Args {
     view: Option<usize>,
     /// a check run's level: enter this track
     enter: Option<String>,
+    /// a parameter group opened on the level entered (`o1/o2`)
+    open: Option<String>,
     /// a check run's selection: this graph node's id, or a track's
     select: Option<String>,
     /// a check run's knob pull on the stage, in Play
@@ -158,7 +160,7 @@ struct Args {
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, save_state: None, tools_folded: false, closed: Vec::new(), main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false, library_related: false, pan: None, camera: false, dop: None };
+    let mut a = Args { module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, open: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, save_state: None, tools_folded: false, closed: Vec::new(), main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false, library_related: false, pan: None, camera: false, dop: None };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -194,6 +196,7 @@ fn args() -> Result<Args> {
                 a.wire = false;
             }
             "--play" => a.wire = false,
+            "--open" => a.open = Some(val()?),
             "--enter" => {
                 a.enter = Some(val()?);
                 a.wire = true;
@@ -371,6 +374,8 @@ enum Hit {
     Mode(bool),
     /// a port, by its index in the stage's list
     Port(usize),
+    /// a node's parameter group on its ring, by its index in this frame's list
+    Cluster(usize),
     /// a row of the rig's tree
     Row(usize),
     /// a step of the way down the tree, 0 = the rig (in Show: of the conductors' path)
@@ -555,6 +560,8 @@ struct App {
     menu: Option<Menu>,
     /// this frame's bodies you can click: (x, y, name, what it selects)
     bodies: Vec<(f32, f32, String, inspector::Sel)>,
+    /// this frame's parameter groups you can click: (x, y, node, group, how many)
+    clusters: Vec<(f32, f32, usize, &'static str, usize)>,
     /// the last press on a body: for a double click
     last_body: Option<(usize, Instant)>,
     /// the last press on a cast member: a double one frames it
@@ -758,6 +765,7 @@ fn run() -> Result<i32> {
         armed: None,
         menu: None,
         bodies: Vec::new(),
+        clusters: Vec::new(),
         last_body: None,
         last_member: None,
         leveled: false,
@@ -844,6 +852,9 @@ impl App {
     fn hit(&self, x: f32, y: f32) -> Hit {
         if let Some(port) = nearest(&self.marks, x, y) {
             return Hit::Port(port);
+        }
+        if let Some(k) = self.clusters.iter().position(|(cx, cy, ..)| (cx - x).hypot(cy - y) < 12.0) {
+            return Hit::Cluster(k);
         }
         if let Some(i) = self.body_at(x, y) {
             return Hit::Body(i);
@@ -1073,6 +1084,10 @@ impl App {
                     (false, _) => "Drag to an in to connect it.".to_string(),
                 };
                 Help::new(p.address.clone(), format!("{what} {how} Click to make it active, then right click to find what it can reach. Ctrl+z takes a change back."))
+            }
+            Hit::Cluster(k) => {
+                let &(_, _, _, name, count) = self.clusters.get(k)?;
+                Help::new(format!("{name} · {count}"), "A group of the node's parameters. Click to open it in place, again to close it. Its wired ports always show.")
             }
             Hit::Body(i) => Help::new(self.bodies.get(i)?.2.clone(), "A track, one body from outside: only its outlets show. Double click, or point at it and press tab, to go in."),
             Hit::Crumb(0) => Help::new("rig", "Back to the rig, every track one body."),
@@ -1446,6 +1461,11 @@ impl App {
                         self.reach.clear();
                         self.stage.enter(path);
                     }
+                }
+            }
+            Hit::Cluster(k) => {
+                if let Some(&(_, _, node, group, _)) = self.clusters.get(k) {
+                    self.stage.toggle_group(node, group);
                 }
             }
             Hit::Body(i) => {
@@ -2419,6 +2439,16 @@ impl App {
                 };
             }
         }
+        // a module loads after the first frames: its groups show then
+        if let Some(group) = self.args.open.clone() {
+            let nodes: Vec<usize> = self.stage.space.being.clusters().iter().filter(|c| c.name == group).map(|c| c.node).collect();
+            if !nodes.is_empty() {
+                self.args.open = None;
+            }
+            for n in nodes {
+                self.stage.toggle_group(n, &group);
+            }
+        }
         if self.frames == 20 && self.args.camera {
             self.stage.space.look_through_scene();
         }
@@ -2475,6 +2505,7 @@ impl App {
         self.show.frame();
         self.panel.hits.clear();
         self.marks.clear();
+        self.clusters.clear();
         let (pad, font, row) = (t.size.pad, t.size.font, t.size.row);
         // the toolbar: the path of what is open and a word of status (Build: the numbers of the gates, a broken tokens
         // file first: the pill cuts from the end)
@@ -2645,6 +2676,24 @@ impl App {
                     continue;
                 }
                 self.marks.push(Mark { port: index, x: mx, y: my });
+            }
+            for c in being.clusters() {
+                let Some((sx, sy)) = self.stage.space.to_pixel(being.cluster_world(c)) else { continue };
+                let (cx, cy) = (sx / scale + stage_x, sy / scale + top);
+                if cx > stage_x + stage_w || cx < stage_x || cy < top || cy > top + stage_h || covered(&self.build.floats, cx, cy) {
+                    continue;
+                }
+                self.clusters.push((cx, cy, c.node, c.name, c.count));
+                if c.open {
+                    ui.ring(cx, cy, 8.0, t.color.bright);
+                } else {
+                    ui.disc(cx, cy, 8.0, t.color.bright);
+                }
+                let small = font * 0.75;
+                let label = format!("{} {}", c.name, c.count);
+                let w = ui.advance(small) * label.chars().count() as f32;
+                let left = self.stage.space.to_pixel(being.points[c.point].pos).is_some_and(|(px, _)| sx < px);
+                ui.text(if left { cx - w - 12.0 } else { cx + 12.0 }, cy - small * 0.6, small, &label, t.color.bright);
             }
             let under = nearest(&self.marks, self.cursor.0, self.cursor.1);
             let small = font * 0.75;
