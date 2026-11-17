@@ -544,7 +544,7 @@ impl Show {
             let (portraits, gate) = (Portraits::local(&faces), None);
             #[cfg_attr(not(feature = "live"), allow(unused_mut))]
             let mut s = deck_native::space::Space::with_gate(&graph, n, &scene.being, &sets, portraits, gate);
-            s.set_scene(&scene);
+            s.set_scene(scene);
             // phase 4: with a relay (deck.toml or --relay) the being joins the session as its `join` says
             #[cfg(feature = "live")]
             {
