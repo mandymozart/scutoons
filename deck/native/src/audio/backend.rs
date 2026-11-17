@@ -9,6 +9,7 @@ use anyhow::{bail, Result};
 use std::any::Any;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+#[cfg(all(target_os = "linux", feature = "pipewire"))]
 use std::time::Duration;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -37,10 +38,16 @@ pub struct Running {
     pub rate: u32,
     /// asks the stream to fade out ahead of the drop (PipeWire; #250 – the picture fades as long)
     closing: Option<Arc<AtomicBool>>,
+    note: Option<super::watch::Notes>,
     _keep: Box<dyn Any>,
 }
 
 impl Running {
+    /// what the watch says of the saved device: away (the deck runs silent, waiting for it) or back
+    pub fn note(&self) -> Option<super::watch::Note> {
+        self.note.as_ref().and_then(super::watch::Notes::get)
+    }
+
     /// Starts the fade-out without waiting; dropping it later finds the stream already silent.
     pub fn fade_out(&self) {
         if let Some(c) = &self.closing {
@@ -69,12 +76,11 @@ impl Direct {
         Direct { engine, mon, underruns, gaps: true }
     }
 
-    /// a host whose callbacks top up one buffer (WASAPI shared): the deadline is the buffer, the stamps' gaps are
-    /// jitter (glitch.rs `Deadline::Buffer`)
-    fn buffered(mut self) -> Direct {
-        self.mon.deadline = super::glitch::Deadline::Buffer;
-        self.gaps = false;
-        self
+    /// `wasapi`: a host whose callbacks top up one buffer – the deadline is the buffer, the stamps' gaps are jitter
+    /// (glitch.rs `Deadline::Buffer`)
+    fn on_device(&mut self, wasapi: bool) {
+        self.mon.rearm(true, deadline(wasapi));
+        self.gaps = !wasapi;
     }
 
     /// One device callback: `out` (interleaved, `channels` per frame) whose first frame is heard at `heard_ns`.
@@ -90,6 +96,14 @@ impl Direct {
 
     pub fn glitches(&self) -> &super::glitch::Glitches {
         &self.mon.shared
+    }
+}
+
+fn deadline(wasapi: bool) -> super::glitch::Deadline {
+    if wasapi {
+        super::glitch::Deadline::Buffer
+    } else {
+        super::glitch::Deadline::Period
     }
 }
 
@@ -110,15 +124,21 @@ impl Feed {
         })
     }
 
-    /// a host whose callbacks top up one buffer (WASAPI shared – glitch.rs `Deadline::Buffer`)
-    fn buffered(self) -> Feed {
+    /// a device plays it from now on; `wasapi`: one whose callbacks top up one buffer (glitch.rs `Deadline::Buffer`)
+    pub fn on_device(&mut self, wasapi: bool) {
         match self {
-            Feed::Direct(d) => Feed::Direct(Box::new(d.buffered())),
-            Feed::Ring(mut r) => {
-                r.mon.deadline = super::glitch::Deadline::Buffer;
-                Feed::Ring(r)
-            }
+            Feed::Direct(d) => d.on_device(wasapi),
+            Feed::Ring(r) => r.mon.rearm(true, deadline(wasapi)),
         }
+    }
+
+    /// a timer plays it from now on: its sleep is no device deadline, only long renders count
+    pub fn on_timer(&mut self) {
+        let mon = match self {
+            Feed::Direct(d) => &mut d.mon,
+            Feed::Ring(r) => &mut r.mon,
+        };
+        mon.rearm(false, super::glitch::Deadline::Period);
     }
 
     pub fn play<T: Copy>(&mut self, out: &mut [T], channels: usize, heard_ns: u64, conv: impl Fn(f32) -> T) {
@@ -188,6 +208,8 @@ pub fn start(o: &Options, factory: &mut Factory) -> Result<Running> {
     for &c in order {
         let r = match c {
             Choice::PipeWire => pipewire(o, factory),
+            // TODO(#617): Linux watches PipeWire's nodes instead of cpal's ALSA list
+            Choice::Cpal if o.device.is_some() && !cfg!(target_os = "linux") => watched(o, factory),
             Choice::Cpal => cpal(o, factory),
             _ => null(factory),
         };
@@ -202,39 +224,84 @@ pub fn start(o: &Options, factory: &mut Factory) -> Result<Running> {
     Err(last.unwrap_or_else(|| anyhow::anyhow!("no audio backend")))
 }
 
-const NULL_RATE: u32 = 48_000;
-const NULL_BLOCK: usize = 512;
+pub(super) const NULL_RATE: u32 = 48_000;
 
 /// no device: the engine runs on a timer thread so the clock, the music and the FFT still move
 fn null(factory: &mut Factory) -> Result<Running> {
-    let mut direct = Direct::new(factory(NULL_RATE as f32, 2)?);
-    // a timer's sleep is no device deadline: only long renders count
-    direct.mon.check_late = false;
-    let stop = Arc::new(AtomicBool::new(false));
-    let flag = stop.clone();
-    std::thread::Builder::new().name("audio-null".into()).spawn(move || {
-        let mut buf = vec![0.0f32; NULL_BLOCK * 2];
-        let period = Duration::from_secs_f64(NULL_BLOCK as f64 / NULL_RATE as f64);
-        let mut next = std::time::Instant::now();
-        // block k is "heard" on its schedule (no device, no latency)
-        let (t0, mut k) = (now_ns(), 0u64);
-        while !flag.load(Ordering::Relaxed) {
-            let heard = t0 + k * NULL_BLOCK as u64 * 1_000_000_000 / NULL_RATE as u64;
-            k += 1;
-            direct.play(&mut buf, 2, heard, |x| x);
-            next += period;
-            if let Some(wait) = next.checked_duration_since(std::time::Instant::now()) {
-                std::thread::sleep(wait);
-            }
-        }
-    })?;
-    struct Stop(Arc<AtomicBool>);
-    impl Drop for Stop {
-        fn drop(&mut self) {
-            self.0.store(true, Ordering::Relaxed);
-        }
+    let feed = Feed::Direct(Box::new(Direct::new(factory(NULL_RATE as f32, 2)?)));
+    let timer = super::watch::Timer::start(feed, NULL_RATE, 2, now_ns())?;
+    Ok(Running { name: "null", rate: NULL_RATE, closing: None, note: None, _keep: Box::new(timer) })
+}
+
+/// The saved device (deck.toml's `audio_device`) on cpal, watched (#615): missing at the start or lost while playing,
+/// the engine plays on the timer and the watch reopens the device when it is back. The engine is built once: at the
+/// device's rate and channels, or – away at the start – at the timer's rate on the channels the saved map uses.
+fn watched(o: &Options, factory: &mut Factory) -> Result<Running> {
+    let mut port = CpalPort { host: o.host, want: o.device.clone().unwrap_or_default(), buffer: o.buffer, thread: o.thread };
+    cpal_host(o.host)?;
+    let found = super::watch::Port::find(&mut port);
+    let (rate, channels) = match &found {
+        Some(f) => (f.rate, f.channels),
+        None => (NULL_RATE, map_channels(&DeckAudio::read().audio_outlet)),
+    };
+    let feed = Feed::new(factory(rate as f32, channels)?, o.thread, o.buffer)?;
+    let watch = super::watch::Watch::start(Box::new(port), feed, rate, channels, found, super::watch::EVERY)?;
+    let name = match o.host {
+        Host::Asio => "asio",
+        Host::Wasapi => "wasapi",
+        Host::Default => "cpal",
+    };
+    Ok(Running { name, rate, closing: None, note: Some(watch.notes()), _keep: Box::new(watch) })
+}
+
+/// the channels a saved map plays on (2 at least)
+pub(super) fn map_channels(map: &[deck_engine::OutletMap]) -> usize {
+    map.iter().flat_map(|o| o.channels.iter().copied()).max().unwrap_or(0).max(2)
+}
+
+/// the saved device on a cpal host, for the watch
+struct CpalPort {
+    host: Host,
+    want: String,
+    buffer: Option<u32>,
+    thread: bool,
+}
+
+impl super::watch::Port for CpalPort {
+    fn name(&self) -> String {
+        self.want.clone()
     }
-    Ok(Running { name: "null", rate: NULL_RATE, closing: None, _keep: Box::new(Stop(stop)) })
+
+    fn find(&mut self) -> Option<super::watch::Found> {
+        use cpal::traits::DeviceTrait;
+        let host = cpal_host(self.host).ok()?;
+        let device = cpal_device(&host, Some(&self.want)).ok()?;
+        let cfg = device.default_output_config().ok()?;
+        Some(super::watch::Found { name: device.name().unwrap_or_default(), rate: cfg.sample_rate().0, channels: cfg.channels() as usize })
+    }
+
+    fn open(&mut self, rate: u32, link: &mut super::watch::Link) -> Result<super::watch::Opened> {
+        let host = cpal_host(self.host)?;
+        let device = cpal_device(&host, Some(&self.want))?;
+        let cfg = config_at(&device, rate)?;
+        let lost = link.lost();
+        let stream = cpal_stream(&host, &device, &cfg, self.buffer, self.thread, &mut |_| Ok(super::watch::Held::handed(link.hand())), Some(lost))?;
+        Ok(super::watch::Opened { stream: Box::new(stream), wasapi: host.id().name() == "WASAPI" })
+    }
+}
+
+/// the device's default config, at `rate` when it plays another by default
+fn config_at(device: &cpal::Device, rate: u32) -> Result<cpal::SupportedStreamConfig> {
+    use cpal::traits::DeviceTrait;
+    let cfg = device.default_output_config()?;
+    if cfg.sample_rate().0 == rate {
+        return Ok(cfg);
+    }
+    device
+        .supported_output_configs()?
+        .find(|c| c.channels() == cfg.channels() && c.sample_format() == cfg.sample_format() && c.min_sample_rate().0 <= rate && rate <= c.max_sample_rate().0)
+        .map(|c| c.with_sample_rate(cpal::SampleRate(rate)))
+        .ok_or_else(|| anyhow::anyhow!("it plays {} Hz, the show runs at {rate} Hz – Apply restarts the sound there", cfg.sample_rate().0))
 }
 
 /// The buffer a device gets for `want` frames (#208): `want` within the device's supported range, else the nearest end
@@ -497,7 +564,7 @@ pub fn list() -> String {
 
 /// One cpal callback's player: the heard stamp for the host, then the feed.
 struct CpalPlayer {
-    feed: Feed,
+    held: super::watch::Held,
     channels: usize,
     rate: u32,
     /// WASAPI shared: cpal 0.15's playback instant there is callback + the frames asked for – but the new frames play
@@ -520,7 +587,14 @@ impl CpalPlayer {
             }
         }
         let frames = out.len() / self.channels.max(1);
-        let g = self.feed.glitches();
+        let Some(feed) = self.held.feed() else {
+            for x in out.iter_mut() {
+                *x = conv(0.0);
+            }
+            self.held.heard(now_ns());
+            return;
+        };
+        let g = feed.glitches();
         let latency = if self.wasapi {
             let queued = (g.device_frames() as usize).saturating_sub(frames);
             (queued as f64 * 1e9 / self.rate as f64) as u64
@@ -530,21 +604,53 @@ impl CpalPlayer {
             ts.playback.duration_since(&ts.callback).map(|d| d.as_nanos() as u64).unwrap_or(0)
         };
         g.set_latency_us((latency / 1000) as u32);
-        self.feed.play(out, self.channels, now_ns() + latency, conv);
+        let heard = now_ns() + latency;
+        feed.play(out, self.channels, heard, conv);
+        self.held.heard(heard + frames as u64 * 1_000_000_000 / self.rate as u64);
     }
 }
 
 fn cpal(o: &Options, factory: &mut Factory) -> Result<Running> {
-    use cpal::traits::{DeviceTrait, StreamTrait};
-    use cpal::SampleFormat;
+    use cpal::traits::DeviceTrait;
     let host = cpal_host(o.host)?;
     let device = cpal_device(&host, o.device.as_deref())?;
     let cfg = device.default_output_config()?;
     let (rate, channels) = (cfg.sample_rate().0, cfg.channels() as usize);
+    let mut held = |wasapi: bool| -> Result<super::watch::Held> {
+        let mut feed = Feed::new(factory(rate as f32, channels)?, o.thread, o.buffer)?;
+        feed.on_device(wasapi);
+        Ok(super::watch::Held::own(feed))
+    };
+    let stream = cpal_stream(&host, &device, &cfg, o.buffer, o.thread, &mut held, None)?;
+    let name = match host.id().name() {
+        "WASAPI" => "wasapi",
+        "ASIO" => "asio",
+        "ALSA" => "alsa",
+        "CoreAudio" => "coreaudio",
+        "JACK" => "jack",
+        _ => "cpal",
+    };
+    Ok(Running { name, rate, closing: None, note: None, _keep: Box::new(stream) })
+}
+
+/// A playing stream on `device` in `cfg`, the buffer asked for (the host's default when it refuses it); `held` gives each
+/// build its callback's feed (told whether the host is WASAPI), `lost` hears the device go away.
+fn cpal_stream(
+    host: &cpal::Host,
+    device: &cpal::Device,
+    cfg: &cpal::SupportedStreamConfig,
+    buffer: Option<u32>,
+    thread: bool,
+    held: &mut dyn FnMut(bool) -> Result<super::watch::Held>,
+    lost: Option<super::watch::Lost>,
+) -> Result<cpal::Stream> {
+    use cpal::traits::{DeviceTrait, StreamTrait};
+    use cpal::SampleFormat;
+    let (rate, channels) = (cfg.sample_rate().0, cfg.channels() as usize);
     let hostname = host.id().name();
     let wasapi = hostname == "WASAPI";
     let mut sc: cpal::StreamConfig = cfg.config();
-    if let Some(want) = o.buffer {
+    if let Some(want) = buffer {
         let (frames, note) = pick_buffer(want, cpal_buffer_range(cfg.buffer_size()));
         if let Some(n) = note {
             tracing::warn!("audio: {n}");
@@ -552,15 +658,15 @@ fn cpal(o: &Options, factory: &mut Factory) -> Result<Running> {
         sc.buffer_size = cpal::BufferSize::Fixed(frames);
     }
     let asio = hostname == "ASIO";
-    let player = |factory: &mut Factory| -> Result<CpalPlayer> {
-        let mut feed = Feed::new(factory(rate as f32, channels)?, o.thread, o.buffer)?;
-        if wasapi {
-            feed = feed.buffered();
-        }
-        Ok(CpalPlayer { feed, channels, rate, wasapi, raise: !asio })
-    };
+    let mut player = || -> Result<CpalPlayer> { Ok(CpalPlayer { held: held(wasapi)?, channels, rate, wasapi, raise: !asio }) };
     let build = |sc: &cpal::StreamConfig, mut p: CpalPlayer| -> Result<cpal::Stream, cpal::BuildStreamError> {
-        let err = |e| tracing::error!("audio stream: {e}");
+        let lost = lost.clone();
+        let err = move |e: cpal::StreamError| {
+            tracing::error!("audio stream: {e}");
+            if let (cpal::StreamError::DeviceNotAvailable, Some(l)) = (&e, &lost) {
+                l.now();
+            }
+        };
         match cfg.sample_format() {
             SampleFormat::F32 => device.build_output_stream(sc, move |d: &mut [f32], i| p.fill(d, i, |x| x), err, None),
             SampleFormat::I16 => device.build_output_stream(sc, move |d: &mut [i16], i| p.fill(d, i, |x| (x * i16::MAX as f32) as i16), err, None),
@@ -572,13 +678,13 @@ fn cpal(o: &Options, factory: &mut Factory) -> Result<Running> {
     if !matches!(cfg.sample_format(), SampleFormat::F32 | SampleFormat::I16 | SampleFormat::I32) {
         bail!("output sample format {:?} (f32, i16 and i32 are supported)", cfg.sample_format());
     }
-    let stream = match build(&sc, player(factory)?) {
+    let stream = match build(&sc, player()?) {
         Ok(s) => s,
-        Err(e) if o.buffer.is_some() => {
+        Err(e) if buffer.is_some() => {
             // the host refused the fixed buffer: its default (the player went into the failed build – a fresh one)
             tracing::warn!("audio: {hostname} refused a {:?} buffer ({e}) – its default instead", sc.buffer_size);
             sc.buffer_size = cpal::BufferSize::Default;
-            build(&sc, player(factory)?)?
+            build(&sc, player()?)?
         }
         Err(e) => return Err(e.into()),
     };
@@ -588,17 +694,9 @@ fn cpal(o: &Options, factory: &mut Factory) -> Result<Running> {
         device.name().unwrap_or_default(),
         cfg.sample_format(),
         sc.buffer_size,
-        if o.thread { "a render thread + ring" } else { "rendered in the callback" }
+        if thread { "a render thread + ring" } else { "rendered in the callback" }
     );
-    let name = match hostname {
-        "WASAPI" => "wasapi",
-        "ASIO" => "asio",
-        "ALSA" => "alsa",
-        "CoreAudio" => "coreaudio",
-        "JACK" => "jack",
-        _ => "cpal",
-    };
-    Ok(Running { name, rate, closing: None, _keep: Box::new(stream) })
+    Ok(stream)
 }
 
 
@@ -818,7 +916,7 @@ fn pipewire(o: &Options, factory: &mut Factory) -> Result<Running> {
         Ok(Ok(quit)) => {
             tracing::info!("audio: PipeWire stream 'deck-native', {RATE} Hz, {chans} channels, latency {shown}");
             let flag = closing.clone();
-            Ok(Running { name: "pipewire", rate: RATE, closing: Some(flag), _keep: Box::new(PipewireStop { closing, silent, quit, thread: Some(thread) }) })
+            Ok(Running { name: "pipewire", rate: RATE, closing: Some(flag), note: None, _keep: Box::new(PipewireStop { closing, silent, quit, thread: Some(thread) }) })
         }
         Ok(Err(e)) => bail!("{e}"),
         Err(_) => bail!("no answer from PipeWire within 3 s"),
