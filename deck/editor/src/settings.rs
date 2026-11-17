@@ -1,7 +1,7 @@
 //! The editor's settings, this machine's (the editor cache): the look and the UI size, motion & feedback, sound. The
 //! main menu opens them as a floating panel. A motion switch says whether an effect may run; "reduce motion" turns
 //! every one off.
-use crate::tokens::Look;
+use crate::tokens::{Look, Theme};
 use deck_kit::base::draw::DrawList;
 use deck_kit::base::tokens::Tokens;
 use deck_kit::editor::controls::{self, Rect};
@@ -121,6 +121,7 @@ impl Settings {
             }
             Press::Volume(v) => self.sound.volume = v.clamp(0.0, 1.0),
             Press::Size(step) => self.look = self.look.sized(step),
+            Press::Theme(theme) => self.look.theme = theme,
         }
     }
 }
@@ -133,12 +134,13 @@ pub enum Press {
     Volume(f32),
     /// −1 smaller, +1 larger, 0 back to 100 %
     Size(i32),
+    Theme(Theme),
 }
 
 /// how tall the panel's content is
 pub fn height(t: &Tokens) -> f32 {
     let row = t.size.tree_row;
-    t.size.row * 3.0 + row * (MOTION.len() + SOUND.len() + 1) as f32 + t.size.row
+    t.size.row * 4.0 + row * (MOTION.len() + SOUND.len() + 1) as f32 + 2.0 * t.size.row
 }
 
 /// the panel's content in `area`; its places, and where the volume's track is (a press there sets it)
@@ -146,6 +148,17 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, s: &Settings) -> Vec<(Rect
     let (row, pad) = (t.size.tree_row, t.size.pad);
     let mut out = Vec::new();
     let mut y = area.y;
+    y += controls::section(d, t, area.x, y, area.w, "Look", true);
+    let half = (area.w - pad) / 2.0;
+    for (i, (label, theme)) in [("Day", Theme::Day), ("Night", Theme::Night)].into_iter().enumerate() {
+        let r = Rect { x: area.x + i as f32 * (half + pad), y, w: half, h: t.size.row - 4.0 };
+        let on = s.look.theme == theme;
+        d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, if on { t.color.pressed } else { t.color.within });
+        let tw = d.advance(t.size.small) * label.chars().count() as f32;
+        d.text(r.x + (r.w - tw) * 0.5, r.y + (r.h - t.size.small * 1.25) * 0.5, t.size.small, label, if on { t.color.pressed_text } else { t.color.text });
+        out.push((r, Press::Theme(theme)));
+    }
+    y += t.size.row;
     // a label keeps clear of its control on the right
     let room = ((area.w - row * 1.6 - pad) / d.advance(t.size.font)).max(0.0) as usize;
     let line = |d: &mut DrawList, y: f32, label: &str| d.text(area.x, y + (row - t.size.font * 1.25) * 0.5, t.size.font, &controls::fit(label, room), t.color.text);
@@ -158,7 +171,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, s: &Settings) -> Vec<(Rect
             *y += row;
         }
     };
-    y += controls::section(d, t, area.x, y, area.w, "Motion & feedback", true);
+    y += controls::section(d, t, area.x, y, area.w, "Motion & feedback", false);
     switches(d, &mut y, &MOTION, &mut out);
     y += controls::section(d, t, area.x, y, area.w, "Sound", false);
     switches(d, &mut y, &SOUND, &mut out);
@@ -227,7 +240,11 @@ mod tests {
         let mut d = DrawList::new(0.6);
         let s = Settings::default();
         let places = draw(&mut d, &t, Rect { x: 0.0, y: 0.0, w: 320.0, h: 600.0 }, &s);
-        assert_eq!(places.len(), MOTION.len() + SOUND.len() + 1 + 3);
+        assert_eq!(places.len(), 2 + MOTION.len() + SOUND.len() + 1 + 3);
+        let (_, day) = places[0];
+        let mut pressed = s;
+        pressed.press(day);
+        assert_eq!((pressed.look.theme, places[1].1), (Theme::Day, Press::Theme(Theme::Night)), "the look first: day and night");
         let last = places.last().unwrap().0;
         assert!(last.y + last.h <= height(&t) + 0.01, "the content fits its height");
         let (track, p) = places.iter().find(|(_, p)| matches!(p, Press::Volume(_))).copied().unwrap();

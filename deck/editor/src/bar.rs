@@ -1,6 +1,6 @@
 //! The toolbar over the stage: pills in a row, nothing under them but the stage. Left the logo with the main menu's
 //! hamburger, the workspaces, the path of what is open (its steps go back up) with a word of status; the tempo pill
-//! (the play button, the clock's BPM); right the sign-in, the load meters, day / night and the version, which keeps its
+//! (the play button, the clock's BPM); right the sign-in, the load meters and the version, which keeps its
 //! place at any width (every build shows it, always).
 use deck_kit::base::draw::DrawList;
 use deck_kit::base::tokens::Tokens;
@@ -23,7 +23,6 @@ pub enum Action {
     Open,
     New,
     Publish,
-    DayNight,
     Settings,
     Audio,
     Account,
@@ -31,11 +30,10 @@ pub enum Action {
 }
 
 /// the main menu, top down: what each line says, whether it leaves for the browser (no save: everything saves itself)
-pub const MENU: [(Action, &str, bool); 8] = [
+pub const MENU: [(Action, &str, bool); 7] = [
     (Action::Open, "Open…", false),
     (Action::New, "New show…", false),
     (Action::Publish, "Publish in the creator", true),
-    (Action::DayNight, "Day / night", false),
     (Action::Settings, "Settings…", false),
     (Action::Audio, "Audio & inputs", false),
     (Action::Account, "Account", true),
@@ -67,8 +65,6 @@ pub struct Bar<'a> {
     pub fps: f32,
     /// the room a workspace keeps in the row for its own pill (Show's and Perform's view switch)
     pub slot: f32,
-    /// the dark look is on
-    pub night: bool,
     /// a panic holds: the pill resumes
     pub panicked: bool,
 }
@@ -123,7 +119,6 @@ pub struct Placed {
     pub play: Option<Rect>,
     /// the place kept for the workspace's own pill
     pub slot: Rect,
-    pub day: Rect,
     /// the panic pill, in every workspace
     pub panic: Rect,
     pub tempo: Rect,
@@ -193,7 +188,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Placed {
     let ws = Rect { x: first.x + first.w + gap, y, w: ws_w, h };
     pill(d, t, ws);
     out.workspaces = controls::pills_rounded(d, t, (ws.x + inset, y + inset, ih), b.workspaces, b.workspace, ir);
-    // the right pill: the account, the meters, day / night, the version
+    // the right pill: the account, the meters, the version
     let version_w = d.advance(px) * deck_native::BUILD.chars().count() as f32;
     // a meter's bar and its number: the widest the number gets
     let reading = |name: &str, most: &str| controls::label_width(d, t, name) + t.size.rem(0.36) + t.size.rem(2.9) + pad * 0.5 + d.sans_width(small, most);
@@ -206,7 +201,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Placed {
     // as wide in both states: the row does not move when it latches
     let panic_w = controls::label_width(d, t, panic_label(true)).max(controls::label_width(d, t, panic_label(false))) + 4.0 * pad;
     let tempo_w = clock_w + gap + panic_w;
-    let right_of = |wide: bool| inset + ih + pad + if wide { meters + pad } else { 0.0 } + ih + pad + version_w + end;
+    let right_of = |wide: bool| inset + ih + pad + if wide { meters + pad } else { 0.0 } + version_w + end;
     // the load meters only where the path keeps room of its own beside them
     let wide = row(width, gap, ws.x + ws.w, tempo_w, b.slot, right_of(false)).path_w > meters + t.size.rem(17.0);
     let right_w = right_of(wide);
@@ -269,31 +264,19 @@ pub fn draw(d: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Placed {
         }
     };
     out.account = inner_button(d, t, at, "account", ink, b.pointer);
-    let mut x = at.x + ih + pad;
     if wide {
-        let start = x;
-        let mut mx = x;
+        let start = at.x + ih + pad;
+        let mut mx = start;
         let number = |d: &mut DrawList, x: f32, text: &str| x + pad * 0.5 + d.sans(x + pad * 0.5, small_y, small, text, t.color.muted);
         mx += controls::meter(d, t, mx, small_y, "CPU", b.cpu);
         mx = number(d, mx, &b.khz.map_or_else(|| "–".to_string(), khz)) + 2.0 * pad;
         mx += controls::meter(d, t, mx, small_y, "GPU", b.gpu.unwrap_or(0.0));
         number(d, mx, &format!("{:.0} fps", b.fps));
-        x += meters + pad;
         out.meters = Some(Rect { x: start, y, w: meters, h });
     }
-    let hot = Rect { x, y: y + inset, w: ih, h: ih }.has(b.pointer.0, b.pointer.1);
-    out.day = inner_button(d, t, Rect { x, y: y + inset, w: ih, h: ih }, if b.night { "dark" } else { "light" }, if hot { t.color.text } else { t.color.muted }, b.pointer);
     d.text(right.x + right.w - end - version_w, text_y, px, deck_native::BUILD, t.color.muted);
     d.halo(None);
     out
-}
-
-/// what a main menu line says now: the look to switch to, the UI size
-fn line_label(a: Action, label: &str, look: &crate::tokens::Look) -> String {
-    match a {
-        Action::DayNight => format!("{label}: {}", if look.theme == crate::tokens::Theme::Day { "day" } else { "night" }),
-        _ => label.to_string(),
-    }
 }
 
 /// a main menu line: an action, or a panel of the workspace's list
@@ -304,9 +287,8 @@ pub enum Line {
 }
 
 /// the main menu under its hamburger, the workspace's panels that close under it (`(id, name, open)`); its lines' places
-pub fn menu(d: &mut DrawList, t: &Tokens, at: Rect, enabled: &dyn Fn(Action) -> bool, look: &crate::tokens::Look, panels: &[(&'static str, &'static str, bool)], pointer: (f32, f32)) -> Vec<(Rect, Line)> {
-    let labels: Vec<String> = MENU.iter().map(|&(a, label, _)| line_label(a, label, look)).collect();
-    let lines: Vec<controls::Action> = MENU.iter().zip(&labels).map(|(&(a, _, external), label)| controls::Action { label, enabled: enabled(a), external }).collect();
+pub fn menu(d: &mut DrawList, t: &Tokens, at: Rect, enabled: &dyn Fn(Action) -> bool, panels: &[(&'static str, &'static str, bool)], pointer: (f32, f32)) -> Vec<(Rect, Line)> {
+    let lines: Vec<controls::Action> = MENU.iter().map(|&(a, label, external)| controls::Action { label, enabled: enabled(a), external }).collect();
     let w = t.size.rem(17.0);
     let rects = controls::actions(d, t, (at.x, at.y + at.h + t.size.rem(0.43)), w, &lines, pointer);
     let below = rects.last().map_or(at.y + at.h, |r| r.y + r.h + t.size.pad * 0.5) + t.size.rem(0.43);
@@ -349,7 +331,7 @@ mod tests {
         let t = Tokens::default();
         let mut d = DrawList::new(0.6);
         let path = vec!["main".to_string()];
-        let b = Bar { workspaces: &["Build", "Show"], workspace: 1, path: &path, status: "", play: None, beat: None, clock: Clock::Int, account: Signed::In, pulse: 1.0, logo_frame: 0, pointer: (0.0, 0.0), cpu: 0.0, gpu: None, khz: None, fps: 60.0, slot: 0.0, night: false, panicked: host.sub.panicked() };
+        let b = Bar { workspaces: &["Build", "Show"], workspace: 1, path: &path, status: "", play: None, beat: None, clock: Clock::Int, account: Signed::In, pulse: 1.0, logo_frame: 0, pointer: (0.0, 0.0), cpu: 0.0, gpu: None, khz: None, fps: 60.0, slot: 0.0, panicked: host.sub.panicked() };
         let placed = draw(&mut d, &t, 1600.0, &b);
         (placed.panic, d.texts().iter().map(|s| s.to_string()).collect())
     }
@@ -376,7 +358,7 @@ mod tests {
         let faces = deck_kit::base::fonts::Faces::shipped(deck_outlet::text::mono_ttf());
         let mut d = DrawList::with_widths(std::sync::Arc::new(faces.widths()));
         let path = vec!["1 Opening".to_string()];
-        let b = Bar { workspaces: &["Build", "Show"], workspace: 0, path: &path, status: "", play: Some(true), beat: Some((120.0, true)), clock: Clock::Int, account: Signed::Signing, pulse: 0.5, logo_frame: 0, pointer: (0.0, 0.0), cpu: 0.2, gpu: Some(0.1), khz: Some(48.0), fps: 60.0, slot: 0.0, night: false, panicked: false };
+        let b = Bar { workspaces: &["Build", "Show"], workspace: 0, path: &path, status: "", play: Some(true), beat: Some((120.0, true)), clock: Clock::Int, account: Signed::Signing, pulse: 0.5, logo_frame: 0, pointer: (0.0, 0.0), cpu: 0.2, gpu: Some(0.1), khz: Some(48.0), fps: 60.0, slot: 0.0, panicked: false };
         draw(&mut d, &t, 1600.0, &b);
         let texts = d.texts();
         for whole in [deck_native::BUILD, "1 Opening", "120.0", "INT", "48 kHz", "60 fps"] {
@@ -395,7 +377,7 @@ mod tests {
         let t = Tokens::default();
         let mut d = DrawList::new(0.6);
         let path = vec!["main".to_string()];
-        let b = Bar { workspaces: &["Build"], workspace: 0, path: &path, status: "", play: None, beat: Some((128.0, true)), clock, account, pulse, logo_frame: 0, pointer: (0.0, 0.0), cpu: 0.3, gpu: None, khz: Some(44.1), fps: 59.6, slot: 0.0, night: false, panicked: false };
+        let b = Bar { workspaces: &["Build"], workspace: 0, path: &path, status: "", play: None, beat: Some((128.0, true)), clock, account, pulse, logo_frame: 0, pointer: (0.0, 0.0), cpu: 0.3, gpu: None, khz: Some(44.1), fps: 59.6, slot: 0.0, panicked: false };
         let placed = draw(&mut d, &t, 1800.0, &b);
         (d, placed)
     }
@@ -441,14 +423,14 @@ mod tests {
         let t = Tokens::default();
         let mut d = DrawList::new(0.6);
         let panels = [("info", "Info", true), ("mixer", "Mixer", false)];
-        let lines = menu(&mut d, &t, Rect { x: 16.0, y: 8.0, w: 36.0, h: 36.0 }, &|a| a != Action::New, &crate::tokens::Look::default(), &panels, (0.0, 0.0));
+        let lines = menu(&mut d, &t, Rect { x: 16.0, y: 8.0, w: 36.0, h: 36.0 }, &|a| a != Action::New, &panels, (0.0, 0.0));
         assert_eq!(lines.len(), MENU.len() + panels.len());
         assert!(lines.windows(2).all(|w| w[1].0.y > w[0].0.y));
         assert!(lines[0].0.y > 44.0, "under the hamburger");
-        assert!(d.texts().iter().any(|l| l.ends_with(": night")), "the look line says the look (night by default)");
+        assert!(!d.texts().iter().any(|l| l.contains("night")), "the look is in the settings");
         assert_eq!(lines[MENU.len()].1, Line::Panel("info"), "the panels after the actions");
         assert!(d.texts().contains(&"PANELS") && d.texts().contains(&"Mixer"));
         let mut e = DrawList::new(0.6);
-        assert_eq!(menu(&mut e, &t, Rect { x: 16.0, y: 8.0, w: 36.0, h: 36.0 }, &|_| true, &crate::tokens::Look::default(), &[], (0.0, 0.0)).len(), MENU.len(), "no list when nothing closes");
+        assert_eq!(menu(&mut e, &t, Rect { x: 16.0, y: 8.0, w: 36.0, h: 36.0 }, &|_| true, &[], (0.0, 0.0)).len(), MENU.len(), "no list when nothing closes");
     }
 }

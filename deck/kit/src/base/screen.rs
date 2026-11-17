@@ -10,7 +10,7 @@
 //! so egui's text stack of harfrust, skrifa and vello_cpu is not linked into the browser deck), or egui's context and
 //! text (`Screen::with_egui_text`, feature `egui-text`: the editor, whose input and layout grow on egui). A frame is run
 //! only when a layer, the screen's size or (egui's) input changed; in between the adapter draws what it has.
-use crate::base::draw::{DrawList, Font, Prim, NO_HALO};
+use crate::base::draw::{DrawList, Font, Prim};
 #[cfg(feature = "egui-text")]
 use crate::base::fonts::Faces;
 use crate::base::tokens::luminance;
@@ -449,11 +449,7 @@ fn paint(fonts: &mut dyn Mono, layer: &Layer, (pixel, pictures): (Option<Texture
                     Face::Pixel => 1.0 / g,
                     Face::Mono => halo_width(px * s) / s,
                 };
-                let ((halo, strip), ground) = (split(halo, c), halo);
-                if strip {
-                    let w = list.measure(font, px, text, spacing);
-                    fill(&mut mesh, (x - px * 0.25, y, w + px * 0.5, px * LINE), color(ground));
-                }
+                let r = outline(halo, c, r, s);
                 for (x, text) in parts {
                     for (dx, dy, c) in ring(halo, r).chain([(0.0, 0.0, c)]) {
                         match layer.face {
@@ -478,11 +474,7 @@ fn paint(fonts: &mut dyn Mono, layer: &Layer, (pixel, pictures): (Option<Texture
             }
             Prim::Icon { x, y, size, name, color: c, halo } => {
                 let uv = pictures.and_then(|(_, p)| p.icons.get(name));
-                let ((halo, strip), ground) = (split(halo, c), halo);
-                if strip {
-                    fill(&mut mesh, (x, y, size, size), color(ground));
-                }
-                for (dx, dy, c) in ring(halo, halo_width(size * s) / s).chain([(0.0, 0.0, c)]) {
+                for (dx, dy, c) in ring(halo, outline(halo, c, halo_width(size * s) / s, s)).chain([(0.0, 0.0, c)]) {
                     picture(&mut pics, &mut mesh, out, (x + dx, y + dy, size), uv, color(c));
                 }
             }
@@ -526,12 +518,11 @@ fn halo_width(size: f32) -> f32 {
     (size * 0.08).max(1.0)
 }
 
-/// a halo round light ink is a ring; dark ink gets it as a strip under it instead (a ring hollows dark letters): the ring's
-/// halo, and whether it is a strip
-fn split(halo: [f32; 4], ink: [f32; 4]) -> ([f32; 4], bool) {
-    match halo[3] > 0.0 && luminance(ink) < luminance(halo) {
-        true => (NO_HALO, true),
-        false => (halo, false),
+/// the halo ring's width in logical pixels: round dark ink one device pixel, as a wider light ring hollows dark letters
+fn outline(halo: [f32; 4], ink: [f32; 4], r: f32, s: f32) -> f32 {
+    match luminance(ink) < luminance(halo) {
+        true => r.min(1.0 / s),
+        false => r,
     }
 }
 
@@ -646,15 +637,22 @@ mod tests {
     }
 
     #[test]
-    fn dark_ink_sits_on_a_strip_of_its_halo_not_in_a_ring() {
-        let mut screen = Screen::new(MONO, 1);
-        let mut d = DrawList::new(0.6);
-        d.halo(Some([1.0, 1.0, 1.0, 0.3]));
-        d.text(0.0, 0.0, 14.0, "ab", [0.0, 0.0, 0.0, 1.0]);
-        screen.set(0, Some(Layer { list: d, scale: 2.0, grid: 2.0, face: Face::Mono }));
-        let p = screen.frame((320, 240)).expect("a frame");
-        let colors: Vec<Color32> = meshes(&p)[0].vertices.iter().step_by(4).map(|v| v.color).collect();
-        assert_eq!(colors, [Color32::WHITE, Color32::BLACK, Color32::BLACK], "the strip, then a quad a letter");
+    fn dark_ink_gets_a_one_pixel_outline_not_a_strip() {
+        let ring = |ink: [f32; 4], halo: [f32; 4]| {
+            let mut screen = Screen::new(MONO, 1);
+            let mut d = DrawList::new(0.6);
+            d.halo(Some(halo));
+            d.text(0.0, 0.0, 28.0, "a", ink);
+            screen.set(0, Some(Layer { list: d, scale: 2.0, grid: 2.0, face: Face::Mono }));
+            let p = screen.frame((320, 240)).expect("a frame");
+            let quads: Vec<(f32, Color32)> = meshes(&p)[0].vertices.chunks(4).map(|q| (q[0].pos.x, q[0].color)).collect();
+            assert_eq!(quads.len(), 9, "eight copies round the letter and the letter");
+            let ink_x = quads[8].0;
+            (quads[0].0 - ink_x, quads[0].1)
+        };
+        assert_eq!(ring([0.0, 0.0, 0.0, 1.0], [1.0, 1.0, 1.0, 0.3]), (1.0, Color32::WHITE), "dark ink: a light ring one device pixel wide");
+        let (r, c) = ring([1.0; 4], [0.0, 0.0, 0.0, 0.3]);
+        assert!(r > 1.0 && c == Color32::BLACK, "light ink keeps its wider ring: {r}");
     }
 
     #[cfg(feature = "egui-text")]

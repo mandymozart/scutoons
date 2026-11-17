@@ -345,8 +345,6 @@ enum Hit {
     Menu,
     /// the toolbar's panic pill
     Panic,
-    /// the toolbar's day / night switch
-    Look,
     /// the toolbar's tempo pill, its account icon, its meters
     Tempo,
     Account,
@@ -880,7 +878,7 @@ impl App {
         match a {
             A::Open if self.workspace == show::Workspace::Perform => Some("Perform runs the show open: open another in Show or Build."),
             A::Open if self.workspace == show::Workspace::Module => Some(module::draw::PICK),
-            A::Open | A::Audio | A::DayNight | A::Settings => None,
+            A::Open | A::Audio | A::Settings => None,
             A::New if self.workspace == show::Workspace::Show => None,
             A::New => Some("A new show starts in Show; a new rig in the creator."),
             A::Publish => Some("The editor opens no browser yet: publish the saved draft in the creator."),
@@ -962,7 +960,6 @@ impl App {
                 self.build.floats.reopen("audio");
                 self.panels_moved = true;
             }
-            (A::DayNight, _) => self.look(self.tokens.look.theme.other(), 0),
             (A::Settings, _) => self.open_settings(),
             // the next frame leaves, as F9 does
             (A::Quit, _) => self.exit = 11,
@@ -1054,7 +1051,6 @@ impl App {
                 }
             }
             Hit::Meters => Help::new("Load", bar::meters_words(self.cpu_load, self.gpu_time.as_ref().map(|_| self.gpu_load), self.stage.khz().map(|k| k as f32), self.fps())),
-            Hit::Look => Help::new("Day / night", "Click to switch between the light and the dark look; ctrl + and ctrl − change the UI size, ctrl 0 sets it back."),
             Hit::Panic if self.show.sub.panicked() => Help::new("Resume", "The panic holds. Press to bring every deck back to the cells the show holds now."),
             Hit::Panic => Help::new("Panic", "Black and silence on every deck below this conductor and on this stage, until you resume here. Shift+Esc too."),
             Hit::Ground => return None,
@@ -1310,7 +1306,6 @@ impl App {
                 self.workspace = w;
             }
             Hit::Menu => self.main_menu = true,
-            Hit::Look => self.look(self.tokens.look.theme.other(), 0),
             Hit::Panic => self.panic_pill(),
             Hit::Account => {
                 let line = self.auth.line(&deck_link::pairing::app_url());
@@ -2525,13 +2520,11 @@ impl App {
             khz: self.stage.khz().map(|k| k as f32),
             fps,
             slot,
-            night: self.tokens.look.theme == tokens::Theme::Night,
             panicked: self.show.sub.panicked(),
         };
         let placed = bar::draw(ui, t, wf, &spec);
         self.panel.hits.push((placed.menu, Hit::Menu));
         self.panel.hits.push((placed.panic, Hit::Panic));
-        self.panel.hits.push((placed.day, Hit::Look));
         self.panel.hits.push((placed.account, Hit::Account));
         self.panel.hits.push((placed.tempo, Hit::Tempo));
         if let Some(r) = placed.meters {
@@ -3083,7 +3076,7 @@ impl App {
                 show::Workspace::Perform => &self.show.perform_panels,
             }
             .listed();
-            self.menu_lines = bar::menu(ui, t, placed.menu, &|a| enabled.iter().any(|(b, on)| *b == a && *on), &self.tokens.look, &listed, self.cursor);
+            self.menu_lines = bar::menu(ui, t, placed.menu, &|a| enabled.iter().any(|(b, on)| *b == a && *on), &listed, self.cursor);
         }
         window.set_cursor(grab);
         // the pass: logical pixels → the surface's, through the screen uniform

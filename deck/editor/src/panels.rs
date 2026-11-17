@@ -27,7 +27,7 @@ pub const BUILD: [Spec; 9] = [
     spec("mixer", "Mixer", "sliders", "One strip per track at the level of the tree shown; inside a track its gains.", Place::at(BR, 0.0, 0.0)),
     spec("dop", "DOP", "camera", "The scene's camera: its lens, its shots, the moves between them and the trolley track.", Place::at(TL, 340.0, 0.0)),
     spec("tools", "Tools", "tool", "The stage's tools: the tool in hand, the view, grid & snap, framing – what this workspace offers.", Place::at(TR, 360.0, 0.0)).inline().essential(),
-    spec("settings", "Settings", "settings", "Motion & feedback, sound and the UI size: this machine's, remembered.", Place::at(TR, 0.0, 0.0).closed()),
+    spec("settings", "Settings", "settings", "Day or night, motion & feedback, sound and the UI size: this machine's, remembered.", Place::at(TR, 0.0, 0.0).closed()),
 ];
 
 pub const SHOW: [Spec; 9] = [
@@ -39,7 +39,7 @@ pub const SHOW: [Spec; 9] = [
     spec("rows", "Rows", "list", "The rows of the show: what fires each one and every column's cell.", Place::at(BL, 0.0, 0.0)).essential(),
     spec("info", "Info", "info", "What is under the pointer: its name and what it does.", Place::at(BR, 440.0, 0.0).folded()),
     spec("tools", "Tools", "tool", "The stage's tools: the tool in hand, the view, grid & snap, framing – what this workspace offers.", Place::at(TR, 380.0, 0.0)).inline(),
-    spec("settings", "Settings", "settings", "Motion & feedback, sound and the UI size: this machine's, remembered.", Place::at(TR, 0.0, 0.0).closed()),
+    spec("settings", "Settings", "settings", "Day or night, motion & feedback, sound and the UI size: this machine's, remembered.", Place::at(TR, 0.0, 0.0).closed()),
 ];
 
 pub const MODULE: [Spec; 6] = [
@@ -48,7 +48,7 @@ pub const MODULE: [Spec; 6] = [
     spec("problems", "Problems", "alert", "The last build's problems: a click opens the code there.", Place::at(BL, 0.0, 0.0)),
     spec("info", "Info", "info", "What is under the pointer: its name and what it does.", Place::at(BR, 0.0, 0.0).folded()),
     spec("tools", "Tools", "tool", "The stage's tools: the tool in hand, the view, grid & snap, framing – what this workspace offers.", Place::at(TR, 420.0, 0.0)).inline(),
-    spec("settings", "Settings", "settings", "Motion & feedback, sound and the UI size: this machine's, remembered.", Place::at(TR, 0.0, 0.0).closed()),
+    spec("settings", "Settings", "settings", "Day or night, motion & feedback, sound and the UI size: this machine's, remembered.", Place::at(TR, 0.0, 0.0).closed()),
 ];
 
 pub const PERFORM: [Spec; 9] = [
@@ -60,7 +60,7 @@ pub const PERFORM: [Spec; 9] = [
     spec("matrix", "Cues", "list", "Rows × outlets: the row's play fires it, a cell's play launches it by hand.", Place::at(BL, 0.0, 0.0)).essential(),
     spec("info", "Info", "info", "What is under the pointer: its name and what it does.", Place::at(BR, 120.0, 0.0).folded()),
     spec("tools", "Tools", "tool", "The stage's tools: the tool in hand, the view, grid & snap, framing – what this workspace offers.", Place::at(TR, 360.0, 0.0)).inline(),
-    spec("settings", "Settings", "settings", "Motion & feedback, sound and the UI size: this machine's, remembered.", Place::at(TR, 0.0, 0.0).closed()),
+    spec("settings", "Settings", "settings", "Day or night, motion & feedback, sound and the UI size: this machine's, remembered.", Place::at(TR, 0.0, 0.0).closed()),
 ];
 
 /// a content height before it was ever drawn: as tall as the room lets it be, the next frame its own
