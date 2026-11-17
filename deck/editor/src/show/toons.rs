@@ -243,8 +243,10 @@ mod tests {
     fn where_the_show_names_no_toon_the_picker_sits_in_place() {
         let mut host = host(&["catpope", "feilchen"]);
         assert_eq!(host.show_toon(), None);
-        tall_press(&mut host, Hit::ToonFind);
-        typed(&mut host, "pope");
+        host.press(Hit::ToonFind);
+        typed(&mut host, "e");
+        assert_eq!((host.status.as_str(), host.show_toon()), ("more than one toon found – pick one", None));
+        tall_press(&mut host, Hit::ToonPick(0));
         assert_eq!((host.status.as_str(), host.show_toon()), ("the show's toon: catpope", Some("catpope")));
         host.book = Some(std::sync::Arc::new(deck_space::rig::book::Book::parse(super::super::rows::tests::BOOK).unwrap()));
         tall_press(&mut host, Hit::SceneFind);
