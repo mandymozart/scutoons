@@ -38,6 +38,7 @@ pub mod saving;
 mod scenes;
 mod session;
 mod sheets;
+mod toons;
 pub(crate) mod values;
 mod vote;
 
@@ -88,6 +89,8 @@ pub enum Sheet {
     Scene,
     /// the demo shows to open (demos.rs)
     Demos,
+    /// a new show: its name and its toon (toons.rs)
+    NewShow,
 }
 
 impl Sheet {
@@ -107,6 +110,7 @@ impl Sheet {
             "event" => Some(Sheet::Event),
             "scene" => Some(Sheet::Scene),
             "demos" => Some(Sheet::Demos),
+            "new-show" => Some(Sheet::NewShow),
             _ => None,
         }
     }
@@ -211,6 +215,10 @@ pub enum Hit {
     Compose(new_scene::ComposeHit),
     /// a demo of the Demos sheet
     Demo(usize),
+    /// the new show's name field; the toon picker's field and a toon it found (toons.rs)
+    NewName,
+    ToonFind,
+    ToonPick(usize),
 }
 
 impl Hit {
@@ -292,6 +300,8 @@ pub struct Host {
     pub unsent: BTreeMap<String, (deck_space::scene_document::SceneDocument, crate::autosave::Autosave<deck_space::scene_document::SceneDocument>)>,
     /// #531: the Session sheet's place and lists
     pub session: session::Session,
+    /// the library's toons for the toon picker, its query, the new show's name
+    pub toons: toons::Toons,
     /// #533: what the Vote sheet keeps
     pub voting: vote::Voting,
     /// the knobs of the cells' pieces, the knob being dragged, where the pointer is (values.rs)
@@ -363,7 +373,7 @@ impl Host {
         perform_panels.floats.scrolls_itself("matrix");
         let scroll = deck_kit::editor::table::Scroll::default();
         let saves = version.map(|v| (show.id.clone(), crate::autosave::Autosave::new(Some(v)))).into_iter().collect();
-        let mut host = Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), columns: Vec::new(), group: None, context: None, show_panels, perform_panels, show_scroll: scroll, perform_scroll: scroll, band: None, view_slot: Rect::default(), help: None, address: None, book: None, book_why: None, scene_query: String::new(), dragging: None, refused: None, toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, saves, unsent: BTreeMap::new(), session: session::Session::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), build: None, to_build: None, compose: new_scene::Composer::default(), to_stage: None, demos: Vec::new(), demo_book: None, link, api };
+        let mut host = Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), columns: Vec::new(), group: None, context: None, show_panels, perform_panels, show_scroll: scroll, perform_scroll: scroll, band: None, view_slot: Rect::default(), help: None, address: None, book: None, book_why: None, scene_query: String::new(), dragging: None, refused: None, toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, saves, unsent: BTreeMap::new(), session: session::Session::default(), toons: toons::Toons::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), build: None, to_build: None, compose: new_scene::Composer::default(), to_stage: None, demos: Vec::new(), demo_book: None, link, api };
         host.adopt_kept();
         host
     }
@@ -401,6 +411,7 @@ impl Host {
         let ms = now();
         self.knobs.poll();
         self.compose_poll();
+        self.toons_poll();
         let mut out = self.sub.tick(ms);
         if let Some(l) = &self.link {
             while let Ok(e) = l.inbox.try_recv() {
@@ -529,6 +540,9 @@ impl Host {
                 if s == Sheet::Demos {
                     self.demos_open();
                 }
+                if s == Sheet::NewShow {
+                    self.new_show_open();
+                }
             }
             Hit::Problem(i) => self.select_problem(i),
             Hit::SessionToon(_) | Hit::SessionChapter(_) | Hit::SessionLabel | Hit::SessionCopy | Hit::SessionOpen => self.session_press(hit),
@@ -536,6 +550,7 @@ impl Host {
             Hit::Knob(k) => self.knob_press(k),
             Hit::Compose(c) => self.compose_press(c),
             Hit::Demo(i) => self.demo_press(i),
+            Hit::NewName | Hit::ToonFind | Hit::ToonPick(_) => self.toons_press(hit),
         }
     }
 

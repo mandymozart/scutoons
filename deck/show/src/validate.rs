@@ -67,6 +67,9 @@ impl fmt::Display for Problem {
     }
 }
 
+/// what a show without its toon is told
+pub const NO_TOON: &str = "it names no toon – pick the show's toon";
+
 fn refused(at: &Spot, why: impl Into<String>) -> Problem {
     Problem::Refused { at: at.clone(), why: why.into() }
 }
@@ -323,6 +326,11 @@ pub fn validate(show: &Show) -> Vec<Problem> {
     let mut out = vec![];
     if show.id.is_empty() {
         out.push(refused(&Spot::Show, "an empty id"));
+    }
+    if show.toon.is_empty() {
+        out.push(refused(&Spot::Show, NO_TOON));
+    } else if !show.toon.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_') {
+        out.push(refused(&Spot::Show, format!("the toon '{}' is no toon id", show.toon)));
     }
     if let Some(e) = show.background.as_ref().and_then(deck_space::Background::check) {
         out.push(refused(&Spot::Show, format!("background: {e}")));

@@ -52,8 +52,8 @@ pub const fn rgb(v: u32) -> [f32; 4] {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Theme {
-    #[default]
     Day,
+    #[default]
     Night,
 }
 

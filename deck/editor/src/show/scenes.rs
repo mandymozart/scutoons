@@ -96,6 +96,10 @@ pub fn list(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, pointer: (f3
     let w = a.w - 2.0 * pad;
     let fit = |d: &DrawList, s: &str, px: f32, w: f32| controls::fit(s, (w / d.advance(px)).max(0.0) as usize);
     let mut y = a.y + pad;
+    if host.show_toon().is_none() {
+        super::toons::in_place(d, t, host, (a.x + pad, y, w));
+        return;
+    }
     d.text(a.x + pad, y, small, "SCENES", t.color.muted);
     let nw = d.advance(small) * super::new_scene::NEW.chars().count() as f32 + 2.0 * pad;
     let new = Rect { x: a.x + a.w - nw - pad, y: y - 3.0, w: nw, h: small * 1.6 };

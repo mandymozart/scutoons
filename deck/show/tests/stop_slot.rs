@@ -6,11 +6,11 @@ use deck_show::document::How;
 use deck_show::roles::{edit, Edit};
 use deck_show::{parse, view, ClockChoice, Subtree};
 
-const DOC: &str = r#"{ "id": "slots", "version": 1, "outlets": [{ "id": "left" }, { "id": "right" }, { "id": "lights", "kind": "device" }],
+const DOC: &str = r#"{ "id": "slots", "version": 1, "toon": "catpope", "outlets": [{ "id": "left" }, { "id": "right" }, { "id": "lights", "kind": "device" }],
   "rows": [
     { "id": "opening", "cells": { "left": { "mode": "play", "piece": "scene:nave" }, "right": { "mode": "play", "piece": "scene:vigil" } } },
     { "id": "dark-left", "cells": { "left": { "mode": "black" } } },
-    { "id": "old", "fire": { "event": "door", "how": "hand" } },
+    { "id": "old", "fire": { "event": "door", "how": "manual" } },
     { "id": "meet", "fire": { "event": "meet", "how": "suggest", "moment": "bar" } },
     { "id": "start", "fire": { "event": "start", "how": "auto" } }
   ] }"#;
@@ -30,7 +30,7 @@ fn an_empty_cell_is_a_stop_slot_and_a_left_out_cell_keeps() {
     sub.fire("dark-left", 2);
     assert_eq!(playing(&sub, "left"), Some(Playing::Black));
     assert!(matches!(playing(&sub, "right"), Some(Playing::Piece { piece, .. }) if piece == "scene:vigil"));
-    // launched by hand: the same stop
+    // launched on its own: the same stop
     sub.fire("opening", 3);
     sub.launch_cell("dark-left", "left", 4);
     assert_eq!(playing(&sub, "left"), Some(Playing::Black));
