@@ -130,7 +130,7 @@ pub fn level(bundle: &Bundle, ports: &[Port], node_ids: &[String], core_node: us
             outlets.push((n, p.name.clone(), p.input));
         }
     }
-    (Level { shown, outlets }, visible)
+    (Level { shown, outlets, ..Default::default() }, visible)
 }
 
 /// `a` joined to `b` (dragged either way): the changed bundle, or the core's sentence

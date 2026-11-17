@@ -254,6 +254,14 @@ impl Kind {
     pub fn output(self, name: &str) -> Option<usize> {
         self.outputs().iter().position(|p| p.name == name)
     }
+
+    /// the group a module's parameter `port` belongs to (deck_catalog::groups); a built-in's ports have none
+    pub fn group(self, port: &str) -> Option<&'static str> {
+        match self {
+            Kind::Module(m) => m.spec().groups.iter().find(|(p, _)| *p == port).map(|&(_, g)| g),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

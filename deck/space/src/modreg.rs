@@ -28,6 +28,8 @@ pub struct ModuleSpec {
     pub targets: &'static [(usize, &'static str, Mode)],
     /// the moods the module knows (A1, #409): a mood's `mood_index` is its place here + 1 (context.rs)
     pub moods: &'static [&'static str],
+    /// a parameter's group (its name, the group's): `deck_catalog::groups`
+    pub groups: &'static [(&'static str, &'static str)],
 }
 
 /// One port of a module as the registry takes it: its name, type and – an audio port of ABI v2 – its channels (None: the
@@ -60,12 +62,14 @@ pub struct ModuleDef {
     pub targets: Vec<(usize, String, Mode)>,
     /// the moods it knows (the descriptor's `moods`, A1)
     pub moods: Vec<String>,
+    /// (parameter, its group)
+    pub groups: Vec<(String, String)>,
 }
 
 impl ModuleDef {
     /// an audio-domain module with these ports and no targets
     pub fn new(inputs: Vec<PortDef>, outputs: Vec<PortDef>, defaults: Vec<(String, f32)>) -> ModuleDef {
-        ModuleDef { inputs, outputs, defaults, ranges: Vec::new(), domain: Domain::Audio, targets: Vec::new(), moods: Vec::new() }
+        ModuleDef { inputs, outputs, defaults, ranges: Vec::new(), domain: Domain::Audio, targets: Vec::new(), moods: Vec::new(), groups: Vec::new() }
     }
 
     /// What a module's descriptor registers: its graph ports as the catalog numbers them (`Descriptor::graph`, the
@@ -91,6 +95,7 @@ impl ModuleDef {
             domain: if desc.domain == deck_catalog::Domain::Control { Domain::Control } else { Domain::Audio },
             targets: g.targets,
             moods: desc.moods.iter().map(|m| m.to_string()).collect(),
+            groups: desc.param_groups().into_iter().flat_map(|g| g.params.into_iter().map(move |p| (p, g.name.clone()))).collect(),
         }
     }
 }
@@ -129,6 +134,7 @@ pub fn register(name: &str, def: &ModuleDef) -> ModuleKind {
             && s.targets.iter().zip(&def.targets).all(|(a, b)| a.0 == b.0 && a.1 == b.1 && a.2 == b.2)
             && s.moods.len() == def.moods.len()
             && s.moods.iter().zip(&def.moods).all(|(a, b)| a == b)
+            && s.groups.iter().map(|&(p, g)| (p, g)).eq(def.groups.iter().map(|(p, g)| (p.as_str(), g.as_str())))
     };
     if let Some(i) = reg.iter().rposition(|s| same(s)) {
         return ModuleKind(i as u32);
@@ -144,6 +150,7 @@ pub fn register(name: &str, def: &ModuleDef) -> ModuleKind {
         domain: def.domain,
         targets: Box::leak(targets.into_boxed_slice()),
         moods: Box::leak(def.moods.iter().map(|m| leak(m)).collect::<Vec<_>>().into_boxed_slice()),
+        groups: Box::leak(def.groups.iter().map(|(p, g)| (leak(p), leak(g))).collect::<Vec<_>>().into_boxed_slice()),
     }));
     reg.push(spec);
     ModuleKind(reg.len() as u32 - 1)
