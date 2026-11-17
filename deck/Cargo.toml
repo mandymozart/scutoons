@@ -4,7 +4,7 @@
 resolver = "2"
 # deck/lab is its own workspace: the #182 experiments (wasm, wasmtime, plugins, benchmarks) stay out of CI and the deck builds
 exclude = ["lab"]
-members = ["catalog", "module", "module-macros", "module-host", "engine", "modules/walk", "modules/stepseq", "modules/fixture", "modules/analog", "build", "core", "live-core", "scene-features", "protocol", "show", "adapters/core", "adapters/midi", "adapters/osc", "adapters/dmx-usbpro", "outputs", "relay", "bridge", "os/check", "space", "space-web", "relay-web", "outlet", "ui", "native", "editor", "kit", "link", "update", "conformance", "conformance/engine-wasm", "conformance/modules/context", "conformance/modules/catpope-rig","headless", "module-bench", "module-bench/web", "module-bench/modules/fm16", "module-bench/modules/stress", "module-bench/modules/chain-stage", "module-bench/modules/chain-merged"]
+members = ["catalog", "module", "module-macros", "module-host", "engine", "modules/walk", "modules/stepseq", "modules/fixture", "modules/analog", "build", "core", "media", "media/wasm", "live-core", "scene-features", "protocol", "show", "adapters/core", "adapters/midi", "adapters/osc", "adapters/dmx-usbpro", "outputs", "relay", "bridge", "os/check", "space", "space-web", "relay-web", "outlet", "ui", "native", "editor", "kit", "link", "update", "conformance", "conformance/engine-wasm", "conformance/modules/context", "conformance/modules/catpope-rig","headless", "module-bench", "module-bench/web", "module-bench/modules/fm16", "module-bench/modules/stress", "module-bench/modules/chain-stage", "module-bench/modules/chain-merged"]
 
 [workspace.package]
 version = "0.1.0"
@@ -82,6 +82,15 @@ opt-level = 2
 # the being's frames in the stage's tests (no_alloc) and its own
 [profile.dev.package.deck-space]
 opt-level = 2
+
+# AV1 in deck-media (rav1d, no assembly) and its picture conversions: unoptimised – or with rav1d's debug checks of its
+# shared buffers – a dev deck decodes a 720p frame in half a second
+[profile.dev.package.rav1d]
+opt-level = 3
+debug-assertions = false
+overflow-checks = false
+[profile.dev.package.deck-media]
+opt-level = 3
 
 # wasmtime and its compiler in dev and test builds (#536): the conformance and headless wasm tests compile live-core,
 # deck-engine-wasm and deck-headless (1–5 MB of wasm each) with Cranelift on every run – unoptimised, one module took
