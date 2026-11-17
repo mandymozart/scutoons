@@ -308,7 +308,7 @@ impl GridSnap {
 
 impl crate::App {
     /// view pixels of the stage at window point (`x`, `y`): the stage fills the window
-    fn stage_pixel(&self, x: f32, y: f32) -> (f32, f32) {
+    pub(crate) fn stage_pixel(&self, x: f32, y: f32) -> (f32, f32) {
         let s = self.scale();
         (x * s, y * s)
     }

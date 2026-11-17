@@ -44,7 +44,7 @@ use anyhow::Result;
 use crate::cast::{self, Form, Who};
 use being::{Being, Hit, Look, Sphere, TubeVertex};
 use label::Label;
-use camera::Orbit;
+use camera::{Orbit, Shot};
 use decks::{Remote, Route};
 use glam::Vec3;
 use portrait::Portraits;
@@ -603,10 +603,54 @@ impl Space {
     /// knob comes to the middle of the picture as the camera nears it).
     /// the whole being in the view, from where the camera looks now (an editor's `f`)
     pub fn frame_being(&mut self) {
+        self.camera.leave();
         let want = self.frame_distance();
         self.camera.want = want;
         self.camera.goal = self.focus_goal(want);
         self.camera.idle = 0.0;
+    }
+
+    /// everything on the stage in view: the whole cast, else the being (`frame_being`)
+    pub fn frame_all(&mut self) {
+        if self.cast.is_empty() {
+            return self.frame_being();
+        }
+        let spheres: Vec<(Vec3, f32)> = self.cast.iter().map(|c| self.member_sphere(c)).collect();
+        self.frame_spheres(&spheres);
+    }
+
+    /// cast member `i` in view
+    pub fn frame_member(&mut self, i: usize) {
+        let Some(c) = self.cast.get(i) else { return };
+        let sphere = self.member_sphere(c);
+        self.frame_spheres(&[sphere]);
+    }
+
+    fn frame_spheres(&mut self, spheres: &[(Vec3, f32)]) {
+        self.camera.leave();
+        let (lo, hi) = spheres.iter().fold((Vec3::splat(f32::MAX), Vec3::splat(f32::MIN)), |(lo, hi), &(c, r)| (lo.min(c - r), hi.max(c + r)));
+        let target = (lo + hi) * 0.5;
+        self.camera.goal = target;
+        self.camera.want = self.camera.fit_distance(self.view.0 / self.view.1, target, spheres, FRAME_MARGIN);
+        self.camera.idle = 0.0;
+    }
+
+    /// The scene's primary camera: the view a deck opens the scene with – the space node's yaw, pitch and distance,
+    /// aimed as a deck aims. TODO(#582): the scene's own camera and its shots.
+    pub fn scene_camera(&self) -> Shot {
+        let (yaw, pitch, distance) = self.camera.home();
+        let target = self.cards_middle().unwrap_or_else(|| {
+            let (body, head) = self.being.focus();
+            let s = self.being.look.size;
+            camera::focus_target(body, head, distance, s * FOCUS_NEAR, s * FOCUS_FAR)
+        });
+        Shot { target, yaw, pitch, distance, fov_y: camera::FOV_Y }
+    }
+
+    /// the view snaps to the scene's camera and holds it until a hand moves it
+    pub fn look_through_scene(&mut self) {
+        let shot = self.scene_camera();
+        self.camera.look_through(shot);
     }
 
     fn focus_goal(&self, distance: f32) -> Vec3 {
