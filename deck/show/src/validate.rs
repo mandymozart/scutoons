@@ -92,9 +92,19 @@ fn place(at: &Spot, text: &str, out: &mut Vec<Problem>) -> Option<Place> {
 /// a cell on a stage outlet
 fn stage_cell(show: &Show, at: &Spot, cell: &Cell, out: &mut Vec<Problem>) {
     match cell {
-        Cell::Play { piece, send, .. } => {
+        Cell::Play { piece, send, shot, .. } => {
             match piece {
-                Some(p) => drop(place(at, p, out)),
+                Some(p) => {
+                    let p = place(at, p, out);
+                    if let Some(s) = shot {
+                        if p.is_some_and(|p| p.kind != "scene") {
+                            out.push(refused(at, "a shot belongs to a scene's camera – the piece is no scene"));
+                        }
+                        if let Some(Err(why)) = deck_space::rig::address::CameraWord::parse(&format!("{}:{s}", deck_space::rig::address::SHOT)) {
+                            out.push(refused(at, why));
+                        }
+                    }
+                }
                 None => out.push(refused(at, "`play` on a stage outlet names a piece")),
             }
             if !send.is_empty() {

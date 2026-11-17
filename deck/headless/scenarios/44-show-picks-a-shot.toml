@@ -1,0 +1,70 @@
+name = "a show row's cell picks its scene's camera shot: the deck's camera cuts to it"
+about = "#582: a cell that plays a scene picks one of its camera's shots (the Show workspace's in-place shot picker, deck-show rows.rs `Edit::Shot`); the conductor fires the row and sends the cell, then the scene's camera word `scene:stage > shot:<id>` (as the relay's `address` brings it to the decks playing the scene); the deck's Space takes it (Space `camera_word`) and looks through the shot – the orthographic one orthographic, the perspective one with its own lens. The scene document here carries the camera the DOP panel would store"
+
+[[step]]
+do = "load"
+document = "../server/tests/fixtures/scenes/templates/stage.json"
+
+[step.camera]
+lens = { focal = 30.0 }
+
+[[step.camera.shot]]
+id = "wide"
+target = [0.0, 1.0, 0.0]
+yaw = 20.0
+pitch = 8.0
+distance = 6.0
+lens = { focal = 50.0 }
+
+[[step.camera.shot]]
+id = "iso"
+target = [0.0, 0.5, 0.0]
+yaw = 45.0
+pitch = 35.0
+distance = 12.0
+lens = { projection = "orthographic", size = 5.0 }
+
+[[step]]
+do = "show"
+show = "show/fixtures/camera-shot.show.json"
+outlet = "left"
+expect = { rows = ["opening", "overhead", "closer"] }
+
+[step.pieces."scene:stage"]
+toml = """
+[stage]
+name = "stage"
+transition_secs = 0.5
+
+[[node]]
+id = "light"
+kind = "osc"
+freq = 220.0
+gain = 0.8
+
+[[node]]
+id = "out"
+kind = "audio_out"
+
+[[link]]
+from = "light"
+to = "out.in"
+"""
+
+# the first row picks no shot: no camera word, the scene opens on its own
+[[step]]
+do = "fire"
+row = "opening"
+expect = { do = "load", piece = "scene:stage", playing = "scene:stage" }
+
+# the overhead row's cell picks the orthographic shot: the cell, then the camera word, and the stage looks through it
+[[step]]
+do = "fire"
+row = "overhead"
+expect = { addresses = ["scene:stage > shot:iso: camera"], camera = { viewing = "shot:iso", ortho = 5.0 } }
+
+# the next row picks the perspective one: its own lens (50 mm: 27°)
+[[step]]
+do = "fire"
+row = "closer"
+expect = { addresses = ["scene:stage > shot:wide: camera"], camera = { viewing = "shot:wide", fov = { near = 27.0, tol = 0.1 } } }
