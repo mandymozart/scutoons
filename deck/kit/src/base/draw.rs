@@ -13,7 +13,7 @@ pub enum Prim {
     /// the outline of one, `thick` wide
     Outline { x: f32, y: f32, w: f32, h: f32, r: f32, thick: f32, color: [f32; 4] },
     /// `start..end` = a byte range of the list's text buffer; `spacing` = extra room after each letter, in em; `halo` =
-    /// its own ground on a see-through panel (alpha 0: none): light ink is ringed with it, dark ink sits on a strip of it
+    /// its own ground on a see-through panel (alpha 0: none): the ink is ringed with it, dark ink thinly
     Text { x: f32, y: f32, px: f32, start: usize, end: usize, color: [f32; 4], spacing: f32, font: Font, halo: [f32; 4] },
     /// an icon by name, in a square of `size`
     Icon { x: f32, y: f32, size: f32, name: &'static str, color: [f32; 4], halo: [f32; 4] },
