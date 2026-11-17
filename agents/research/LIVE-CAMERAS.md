@@ -38,7 +38,7 @@ A camera has **one holder**, under the same rule we settled for one reader drivi
   - The camera holds its last view while the phone is away, until the no-pose timeout returns it to its owner. A returning phone reclaims it.
   - Identity is the phone's client id plus its handheld token, kept in the browser, so a reload is the same holder. In a performance this matters most.
 - **A remote camera can be flashed.** The conductor pushes a camera's settings (lens, height, which camera it is, its access rule) to the phone holding it, the way a deck is flashed: Flash sends the tree down. The phone shows what it now is.
-- **Forced assignment.** The conductor can force an active phone camera to become a certain camera of the show or scene, from the Session panel or by a show row's address (`… > camera:<id>`). The phone switches at once. Its page names the new camera, and the old one returns to its owner.
+- **Forced assignment.** The conductor can force an active phone camera to become a certain camera of the show or scene, from the Session panel or by a show row's address (`… > camera:<id>`). The phone switches at once. Its page names the new camera, and the old one returns to its owner. **So a show's cells switch the cameras on the phones:** a cell whose piece is `camera:<id>` (with the phone's role or holder as its target) fires the switch like any other cell, on its row, its moment and its quantize.
 
 ## 6. On the deck (INPUT.md's takeover rule)
 - While a phone holds a camera, that camera follows the phone. The deck's own camera (a shot, a move, the editor's view) is put aside, not changed, and returns when the phone lets go. **Recenter** starts from the camera the deck had, so nothing jumps.
