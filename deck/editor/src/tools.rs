@@ -47,6 +47,8 @@ pub struct State {
     pub tool: Tool,
     pub two_d: bool,
     pub grid: bool,
+    /// looking through the scene's camera
+    pub camera: bool,
 }
 
 /// one option of a group: its press, icon, name, key and what it does; `later` = why it cannot be used yet
@@ -63,8 +65,6 @@ const fn opt(press: Press, icon: &'static str, name: &'static str, key: &'static
     Opt { press, icon, name, key, about, later: None }
 }
 
-pub const CAMERA_LATER: &str = "Looking through the scene's camera comes with the cameras; until then the view is free.";
-
 /// a group's options, in the order they show
 pub fn options(g: Group) -> Vec<Opt> {
     match g {
@@ -79,11 +79,11 @@ pub fn options(g: Group) -> Vec<Opt> {
             opt(Press::View(true), "square", "2D", "", "The node view over the stage: what comes from far, the cells of the row and what the row sends."),
         ],
         Group::Look => vec![
-            opt(Press::Look(false), "eye", "Free view", "", "Orbit with a drag, pan with the middle or right button, zoom with the wheel."),
-            Opt { later: Some(CAMERA_LATER), ..opt(Press::Look(true), "camera", "Camera", "", "Look through the scene's camera, at its shots.") },
+            opt(Press::Look(false), "eye", "Free view", "", "Orbit with a drag, pan with the middle or right button, Shift + drag or two fingers, zoom with the wheel. F frames everything, a double click on a member frames it."),
+            opt(Press::Look(true), "camera", "Camera", "", "The view snaps to the scene's camera – what the decks open the scene with – and looks through it; moving the view leaves it."),
         ],
         Group::Grid => vec![opt(Press::Grid, "grid", "Grid & snap", "", "The grid on the floor or a wall, its step, what a moved member snaps to; lit while the grid shows.")],
-        Group::Frame => vec![opt(Press::Frame, "maximize", "Frame", "F", "The whole figure in view; while a knob is selected the camera aims at it.")],
+        Group::Frame => vec![opt(Press::Frame, "maximize", "Frame", "F", "Everything in view: the whole figure (while a knob is selected the camera aims at it), a scene's whole cast.")],
     }
 }
 
@@ -107,7 +107,7 @@ fn active(g: Group, s: &State) -> Option<usize> {
             Tool::Scale => 3,
         }),
         Group::View => Some(usize::from(s.two_d)),
-        Group::Look => Some(0),
+        Group::Look => Some(usize::from(s.camera)),
         Group::Grid => s.grid.then_some(0),
         Group::Frame => None,
     }
@@ -341,7 +341,7 @@ mod tests {
     use super::*;
 
     fn state() -> State {
-        State { tool: Tool::Move, two_d: false, grid: true }
+        State { tool: Tool::Move, two_d: false, grid: true, camera: false }
     }
 
     fn drawn(tools: &mut Tools, ws: Workspace, w: f32) -> Vec<(Rect, Press)> {
@@ -357,7 +357,7 @@ mod tests {
         for o in all() {
             assert!(deck_kit::editor::icons::has(o.icon), "{}: {}", o.name, o.icon);
         }
-        assert_eq!(later(Press::Look(true)), Some(CAMERA_LATER), "the scene's camera says why it waits");
+        assert_eq!(later(Press::Look(true)), None, "the scene's camera can be looked through");
         assert_eq!(later(Press::Tool(Tool::Rotate)), None, "rotate switches the mode");
     }
 
@@ -393,7 +393,7 @@ mod tests {
     }
 
     #[test]
-    fn the_scene_camera_in_a_menu_is_not_picked() {
+    fn the_scene_camera_is_picked_from_a_folded_menu() {
         let t = Tokens::default();
         let mut tools = Tools::default();
         let narrow = drawn(&mut tools, Workspace::Show, size(&t, Workspace::Show).0 * 0.4);
@@ -402,8 +402,8 @@ mod tests {
         let mut chosen = None;
         tools.key(&Key::Named(NamedKey::End), &mut chosen);
         tools.key(&Key::Named(NamedKey::Enter), &mut chosen);
-        assert_eq!(chosen, None);
-        assert!(tools.menu_open(), "still open on the camera");
+        assert_eq!(chosen, Some(Press::Look(true)));
+        assert!(!tools.menu_open());
     }
 
     #[test]

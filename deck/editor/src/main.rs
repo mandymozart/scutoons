@@ -142,10 +142,13 @@ struct Args {
     main_menu: bool,
     /// a check run's colour picker on the shown background: open | pick | drop:X,Y | take:X,Y (colour.rs `script_colour`)
     colour: Option<String>,
+    /// a check run's view: panned by (dx, dy) pixels at the start, then looking through the scene's camera if asked
+    pan: Option<(f32, f32)>,
+    camera: bool,
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, related: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, save_state: None, tools_folded: false, closed: Vec::new(), main_menu: false, colour: None };
+    let mut a = Args { module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, related: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, save_state: None, tools_folded: false, closed: Vec::new(), main_menu: false, colour: None, pan: None, camera: false };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -222,6 +225,12 @@ fn args() -> Result<Args> {
             "--theme" => a.theme = Some(if val()? == "night" { tokens::Theme::Night } else { tokens::Theme::Day }),
             "--ui-size" => a.ui_size = Some(val()?.parse()?),
             "--settings" => a.settings = true,
+            "--pan" => {
+                let v = val()?;
+                let (x, y) = v.split_once(',').context("--pan DX,DY")?;
+                a.pan = Some((x.trim().parse()?, y.trim().parse()?));
+            }
+            "--camera" => a.camera = true,
             "--close" => a.closed.extend(val()?.split(',').map(str::trim).filter(|n| !n.is_empty()).map(String::from)),
             "--main-menu" => a.main_menu = true,
             "--open-build" => a.script.open_build = true,
@@ -511,6 +520,8 @@ struct App {
     bodies: Vec<(f32, f32, String, inspector::Sel)>,
     /// the last press on a body: for a double click
     last_body: Option<(usize, Instant)>,
+    /// the last press on a cast member: a double one frames it
+    last_member: Option<(usize, Instant)>,
     /// is the stage showing a level (Wire) now
     leveled: bool,
     /// Build's floating panels; where the viewer left every workspace's (none in a check run: it starts from the defaults)
@@ -700,6 +711,7 @@ fn run() -> Result<i32> {
         menu: None,
         bodies: Vec::new(),
         last_body: None,
+        last_member: None,
         leveled: false,
         build,
         panels_file,
@@ -849,8 +861,10 @@ impl App {
             tools::Press::Tool(tool) => self.tools.tool = tool,
             tools::Press::View(two_d) => self.show.press(show::Hit::View(two_d)),
             tools::Press::Grid => self.grid.toggle(),
-            tools::Press::Frame => self.stage.space.frame_being(),
-            tools::Press::Look(_) | tools::Press::Menu(_) => {}
+            tools::Press::Frame => self.stage.space.frame_all(),
+            tools::Press::Look(true) => self.stage.space.look_through_scene(),
+            tools::Press::Look(false) => self.stage.space.camera.leave(),
+            tools::Press::Menu(_) => {}
         }
     }
 
@@ -984,8 +998,8 @@ impl App {
             Hit::Mode(true) => Help::new("Stop", "Back to the wiring: the body holds still, the ports show, one level of the tree at a time."),
             Hit::Axis(Some(a)) => Help::new(format!("{}{}", if a < 3 { "+" } else { "-" }, ["X", "Y", "Z"][a % 3]), "Click to look along this axis, drag to orbit."),
             Hit::Axis(None) => Help::new("View", "Drag to orbit, click an axis to look along it."),
-            Hit::Stage if self.wire => Help::new("Stage", "Left drag orbits, middle or right drag pans, the wheel zooms, F frames. Right click finds any port."),
-            Hit::Stage => Help::new("Stage", "Drag a knob to turn it, anywhere else to orbit. Middle drag pans, the wheel zooms."),
+            Hit::Stage if self.wire => Help::new("Stage", "Left drag orbits; middle or right drag, Shift + drag or two fingers pan; the wheel zooms, F frames. Right click finds any port."),
+            Hit::Stage => Help::new("Stage", "Drag a knob to turn it, anywhere else to orbit. Middle or right drag, Shift + drag or two fingers pan; the wheel zooms, F frames all, a double click frames a member."),
             Hit::Knob(i) => Help::new(self.stage.knobs.get(i)?.label.clone(), "Drag or use the wheel to turn it in the engine."),
             Hit::Tab(_) => Help::new("Tab", "Switches what the inspector shows."),
             Hit::Routing(f) => {
@@ -1112,8 +1126,7 @@ impl App {
                 self.panel.drag = Some(Drag::Orbit(x, y));
             }
             Some(Drag::Pan(lx, ly)) => {
-                let s = self.scale();
-                let h = self.gpu.as_ref().map_or(720.0, |g| g.size().1 as f32 / s);
+                let h = self.view_h();
                 self.stage.space.camera.pan(x - lx, y - ly, h);
                 self.panel.drag = Some(Drag::Pan(x, y));
             }
@@ -1355,8 +1368,18 @@ impl App {
             Hit::Stage => {
                 self.focus(false);
                 self.armed = None;
-                // Play: the deck's own hand – a knob under the pointer turns, anywhere else it orbits
-                if self.grid_grab(x, y) {
+                let (sx, sy) = self.stage_pixel(x, y);
+                let member = self.stage.space.pick_at(sx, sy);
+                let double = member.is_some() && self.last_member.is_some_and(|(m, at)| Some(m) == member && at.elapsed().as_millis() < 400);
+                self.last_member = member.map(|m| (m, Instant::now()));
+                if let (true, Some(m)) = (double, member) {
+                    self.stage.space.frame_member(m);
+                    return;
+                }
+                // Play: the deck's own hand – a knob under the pointer turns, anywhere else it orbits; Shift pans off the cast
+                if self.mods.shift_key() && member.is_none() {
+                    self.panel.drag = Some(Drag::Pan(x, y));
+                } else if self.grid_grab(x, y) {
                     self.panel.drag = Some(Drag::Member);
                 } else if self.wire {
                     self.panel.drag = Some(Drag::Orbit(x, y));
@@ -1433,6 +1456,11 @@ impl App {
                 _ => Drag::Pan(x, y),
             });
         }
+    }
+
+    /// the stage's height in logical pixels
+    fn view_h(&self) -> f32 {
+        self.gpu.as_ref().map_or(720.0, |g| g.size().1 as f32 / self.scale())
     }
 
     /// is this press the second of a double click on this field
@@ -2260,6 +2288,11 @@ impl App {
             if let Some(a) = self.args.view {
                 self.stage.space.camera.view_along(a % 3, a < 3);
             }
+            if let Some((dx, dy)) = self.args.pan {
+                let h = gpu.size().1 as f32 / window.scale_factor() as f32;
+                self.stage.space.camera.drag(dx * 0.4, dy * 0.2);
+                self.stage.space.camera.pan(dx, dy, h);
+            }
             if let Some(track) = self.args.enter.clone() {
                 self.stage.enter(vec![track]);
             }
@@ -2269,6 +2302,9 @@ impl App {
                     None => inspector::Sel::Track(id),
                 };
             }
+        }
+        if self.frames == 20 && self.args.camera {
+            self.stage.space.look_through_scene();
         }
         if self.tokens.poll() {
             self.token_changes += 1;
@@ -2598,6 +2634,12 @@ impl App {
                 self.panel.hits.push((Rect { x: x - 9.0, y: y - 9.0, w: 18.0, h: 18.0 }, Hit::Axis(Some(a))));
             }
             self.panel.hits.push((Rect { x: gx - R - 12.0, y: gy - R - 12.0, w: 2.0 * (R + 12.0), h: 2.0 * (R + 12.0) }, Hit::Axis(None)));
+            if self.stage.space.camera.through.is_some() {
+                let small = font * 0.75;
+                let label = "PRIMARY CAMERA";
+                let w = ui.advance(small) * label.chars().count() as f32;
+                ui.text(gx - w * 0.5, gy + R + 12.0 + small * 0.4, small, label, t.color.accent);
+            }
         }
         // the rig's tree: the rig, its tracks, the nodes of the one entered
         if let Some(o) = self.build.open(ui, t, "tree", self.cursor, self.panel.hits.len()) {
@@ -2851,7 +2893,7 @@ impl App {
         {
             let cursor = self.cursor;
             let ws = self.workspace;
-            let state = tools::State { tool: self.tools.tool, two_d: self.show.two_d, grid: self.grid.settings().grid };
+            let state = tools::State { tool: self.tools.tool, two_d: self.show.two_d, grid: self.grid.settings().grid, camera: self.stage.space.camera.through.is_some() };
             let panels = match ws {
                 show::Workspace::Build => &mut self.build,
                 show::Workspace::Module => &mut self.module.panels,
@@ -3038,9 +3080,20 @@ impl ApplicationHandler for App {
                             self.stage.set(n, port, v, p.spec.min, p.spec.max);
                         }
                     }
-                    Hit::Stage | Hit::Port(_) | Hit::Axis(_) => self.stage.space.camera.zoom(steps),
+                    // a touchpad's two fingers pan, its pinch (Ctrl) and a wheel's notches zoom
+                    Hit::Stage | Hit::Port(_) | Hit::Axis(_) => match delta {
+                        MouseScrollDelta::PixelDelta(p) if !self.mods.control_key() => {
+                            let h = self.view_h();
+                            self.stage.space.camera.pan(p.x as f32 / self.scale(), p.y as f32 / self.scale(), h);
+                        }
+                        _ => self.stage.space.camera.zoom(steps),
+                    },
                     _ => {}
                 }
+            }
+            WindowEvent::PinchGesture { delta, .. } if matches!(self.hit(self.cursor.0, self.cursor.1), Hit::Stage | Hit::Port(_) | Hit::Axis(_)) => {
+                let steps = (1.0 + delta as f32).max(0.1).ln() / -deck_space::gesture::ZOOM_STEP.ln();
+                self.stage.space.camera.zoom(steps);
             }
             // Shift+Esc panics from anywhere (Esc alone leaves the editor); only the pill resumes
             WindowEvent::KeyboardInput { event, .. }
@@ -3108,7 +3161,7 @@ impl ApplicationHandler for App {
                 } else if let Some(tool) = (event.state == ElementState::Pressed && self.workspace == show::Workspace::Build && !self.mods.control_key()).then(|| if let Key::Character(c) = &event.logical_key { tools::tool_key(c) } else { None }).flatten() {
                     self.tools.tool = tool;
                 } else if event.state == ElementState::Pressed && event.logical_key == Key::Character("f".into()) {
-                    self.stage.space.frame_being();
+                    self.stage.space.frame_all();
                 } else if event.state == ElementState::Pressed && event.logical_key == Key::Named(NamedKey::Tab) {
                     let i = TABS.iter().position(|(t, _)| *t == self.panel.tab).unwrap_or(0);
                     self.panel.tab = TABS[(i + 1) % TABS.len()].0;

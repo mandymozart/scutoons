@@ -12,6 +12,8 @@ const PITCH_MIN: f32 = -1.2;
 const PITCH_MAX: f32 = 1.4;
 /// a free camera's limit: just short of the poles, where "up" would be undefined
 const POLE: f32 = 1.56;
+/// the vertical field of view a camera has unless a shot says otherwise (rad)
+pub const FOV_Y: f32 = 55.0 * std::f32::consts::PI / 180.0;
 /// the zoom glides to where the wheel / pinch sent it (owner 2026-10-31: "a bit of damping … it should ease in and
 /// smooth out. Flowing", #224): the time constant of the distance's ease, s – ~95 % there after 3 of them
 pub const ZOOM_EASE_S: f32 = 0.12;
@@ -54,6 +56,16 @@ pub struct Frame {
     pub min_depth: f32,
 }
 
+/// a camera to look through: where it aims, from which side, how far and how wide
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Shot {
+    pub target: Vec3,
+    pub yaw: f32,
+    pub pitch: f32,
+    pub distance: f32,
+    pub fov_y: f32,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Orbit {
     pub target: Vec3,
@@ -74,7 +86,11 @@ pub struct Orbit {
     pub auto: bool,
     /// an editor's camera (#454): the pivot stays where the hand put it, the pitch goes to the poles
     pub free: bool,
+    /// the camera looked through: the view glides to it and stays until a hand moves the view
+    pub through: Option<Shot>,
     home: (f32, f32, f32),
+    /// the field of view to go back to when the view leaves a camera
+    free_fov: f32,
 }
 
 impl Orbit {
@@ -88,12 +104,66 @@ impl Orbit {
             want: distance,
             min_distance: 0.4,
             max_distance: 14.0,
-            fov_y: 55f32.to_radians(),
+            fov_y: FOV_Y,
             idle: IDLE_S,
             auto: false,
             free: false,
+            through: None,
             home: (yaw, pitch, distance),
+            free_fov: FOV_Y,
         }
+    }
+
+    /// look through `shot`: the view glides there (`step`) and holds it
+    pub fn look_through(&mut self, shot: Shot) {
+        if self.through.is_none() {
+            self.free_fov = self.fov_y;
+        }
+        self.through = Some(shot);
+        self.goal = shot.target;
+        self.want = shot.distance.clamp(self.min_distance, self.max_distance);
+        self.idle = 0.0;
+    }
+
+    /// back to the free view, from where the camera looks now
+    pub fn leave(&mut self) {
+        if self.through.take().is_some() {
+            self.fov_y = self.free_fov;
+        }
+    }
+
+    /// whether the view has arrived at the camera it looks through
+    pub fn arrived(&self) -> bool {
+        self.through.is_some_and(|s| {
+            let angle = wrap_pi(s.yaw - self.yaw).abs() + (s.pitch - self.pitch).abs() + (s.fov_y - self.fov_y).abs();
+            angle < 1e-3 && self.target.distance(s.target) < 1e-3 && (self.distance / self.want - 1.0).abs() < 1e-3
+        })
+    }
+
+    /// The distance from which every sphere fits the view of `aspect` around `target`, from this side; the farthest the
+    /// camera goes if even that is too close.
+    pub fn fit_distance(&self, aspect: f32, target: Vec3, spheres: &[(Vec3, f32)], margin: f32) -> f32 {
+        let fits = |d: f32| {
+            let mut c = *self;
+            (c.target, c.distance) = (target, d);
+            c.fits(aspect, spheres.iter().copied(), margin)
+        };
+        let (mut lo, mut hi) = (self.min_distance, self.max_distance);
+        if fits(lo) {
+            return lo;
+        }
+        if !fits(hi) {
+            return hi;
+        }
+        for _ in 0..24 {
+            let mid = (lo * hi).sqrt();
+            if fits(mid) {
+                hi = mid;
+            } else {
+                lo = mid;
+            }
+        }
+        hi
     }
 
     /// the start view (yaw, pitch, distance) – R goes back to it
@@ -126,6 +196,16 @@ impl Orbit {
 
     /// the zoom's and the focus' glides, and the auto-orbit once idle (eased in) when `auto`
     pub fn step(&mut self, dt: f32) {
+        if let Some(s) = self.through {
+            self.goal = s.target;
+            self.want = s.distance.clamp(self.min_distance, self.max_distance);
+            let k = 1.0 - (-dt.max(0.0) / FOCUS_EASE_S).exp();
+            let ease = |from: f32, to: f32| if (to - from).abs() < 1e-5 { to } else { from + (to - from) * k };
+            let turn = wrap_pi(s.yaw - self.yaw);
+            self.yaw = wrap_angle(if turn.abs() < 1e-5 { s.yaw } else { self.yaw + turn * k });
+            self.pitch = ease(self.pitch, s.pitch);
+            self.fov_y = ease(self.fov_y, s.fov_y);
+        }
         // in the log of the distance, so a step in is as smooth close up as far out
         let k = 1.0 - (-dt.max(0.0) / ZOOM_EASE_S).exp();
         let d = (self.distance.ln() + (self.want.ln() - self.distance.ln()) * k).exp();
@@ -144,6 +224,7 @@ impl Orbit {
 
     /// a drag by (dx, dy) pixels: right turns the camera to the left around the target, up looks from above
     pub fn drag(&mut self, dx: f32, dy: f32) {
+        self.leave();
         self.yaw = wrap_angle(self.yaw - dx * 0.006);
         let (lo, hi) = if self.free { (-POLE, POLE) } else { (PITCH_MIN, PITCH_MAX) };
         self.pitch = (self.pitch + dy * 0.006).clamp(lo, hi);
@@ -159,6 +240,7 @@ impl Orbit {
     /// a drag by (dx, dy) pixels of a view `view_h` pixels high moves the view sideways, the pivot with it: the point at
     /// the pivot's depth stays under the pointer
     pub fn pan(&mut self, dx: f32, dy: f32, view_h: f32) {
+        self.leave();
         let [right, up, _] = self.basis();
         let per_pixel = 2.0 * self.distance * (self.fov_y * 0.5).tan() / view_h.max(1.0);
         let by = (up * dy - right * dx) * per_pixel;
@@ -169,6 +251,7 @@ impl Orbit {
 
     /// look along a world axis (0 x, 1 y, 2 z) from its plus side, or from its minus side
     pub fn view_along(&mut self, axis: usize, plus: bool) {
+        self.leave();
         use std::f32::consts::{FRAC_PI_2, PI};
         let s = if plus { 1.0 } else { -1.0 };
         (self.yaw, self.pitch) = match axis {
@@ -187,17 +270,20 @@ impl Orbit {
 
     /// `steps` > 0 moves in (a wheel notch = 1, 12 % each); the camera glides there in `step`
     pub fn zoom(&mut self, steps: f32) {
+        self.leave();
         self.want = (self.want * crate::gesture::ZOOM_STEP.powf(steps)).clamp(self.min_distance, self.max_distance);
         self.idle = 0.0;
     }
 
     /// turn by `rad` (the arrow keys)
     pub fn turn(&mut self, rad: f32) {
+        self.leave();
         self.yaw = wrap_angle(self.yaw + rad);
         self.idle = 0.0;
     }
 
     pub fn reset(&mut self) {
+        self.leave();
         (self.yaw, self.pitch, self.distance) = self.home;
         self.want = self.distance;
         self.idle = 0.0;
@@ -251,6 +337,12 @@ fn wrap_angle(a: f32) -> f32 {
     a - tau * (a / tau).floor()
 }
 
+/// an angle as the shorter turn, in −π..π
+fn wrap_pi(a: f32) -> f32 {
+    let pi = std::f32::consts::PI;
+    wrap_angle(a + pi) - pi
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -263,6 +355,42 @@ mod tests {
         assert!(c.target.y.abs() < 1e-5 && c.target.z.abs() < 1e-5);
         assert_eq!(c.goal, c.target);
         assert_eq!(c.distance, 4.0);
+    }
+
+    #[test]
+    fn looking_through_a_camera_glides_there_holds_and_a_hand_leaves_it() {
+        let mut c = Orbit::new(Vec3::ZERO, 0.2, 0.1, 4.0);
+        c.free = true;
+        let shot = Shot { target: Vec3::new(1.0, 0.5, -1.0), yaw: -0.4, pitch: 0.3, distance: 2.5, fov_y: 40f32.to_radians() };
+        c.look_through(shot);
+        assert!(!c.arrived(), "no jump");
+        c.step(1.0 / 60.0);
+        assert!(c.yaw < 0.2 || c.yaw > 6.0, "the shorter way round: {}", c.yaw);
+        for _ in 0..240 {
+            c.step(1.0 / 60.0);
+        }
+        assert!(c.arrived(), "{c:?}");
+        // a pan while looking through leaves the camera, the free field of view comes back
+        c.pan(10.0, 0.0, 800.0);
+        assert_eq!(c.through, None);
+        assert_eq!(c.fov_y, FOV_Y);
+        c.look_through(shot);
+        c.zoom(1.0);
+        assert_eq!(c.through, None, "a zoom leaves it too");
+        c.look_through(shot);
+        c.drag(1.0, 0.0);
+        assert_eq!(c.through, None, "and an orbit");
+    }
+
+    #[test]
+    fn the_fit_distance_grows_with_what_must_fit() {
+        let c = Orbit::new(Vec3::ZERO, 0.0, 0.0, 4.0);
+        let near = c.fit_distance(1.6, Vec3::ZERO, &[(Vec3::ZERO, 0.3)], 0.1);
+        let far = c.fit_distance(1.6, Vec3::ZERO, &[(Vec3::new(-1.0, 0.0, 0.0), 0.3), (Vec3::new(1.0, 0.0, 0.0), 0.3)], 0.1);
+        assert!(near < far, "{near} {far}");
+        let mut at = c;
+        at.distance = far;
+        assert!(at.fits(1.6, [(Vec3::new(1.0, 0.0, 0.0), 0.3)], 0.1));
     }
 
     #[test]
