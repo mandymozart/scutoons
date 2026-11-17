@@ -1,4 +1,4 @@
-Status 2026-11-17: concept for the owner's review (#605). Nothing built from it. It builds on the linked reader's QR and claim (#527–#531), the handheld camera (HANDHELD-CAMERA.md, #469), the deck camera (#582) and the one condition control (#553).
+Status 2026-11-17: concept, owner's answers in §5, §5a and §9 (#605). Nothing built from it. It builds on the linked reader's QR and claim (#527–#531), the handheld camera (HANDHELD-CAMERA.md, #469), the deck camera (#582) and the one condition control (#553).
 
 # LIVE-CAMERAS – a phone takes a deck's camera by QR
 
@@ -32,6 +32,14 @@ A camera has **one holder**, under the same rule we settled for one reader drivi
 - **Leave** lets go. So does leaving the page, or **no pose for a set time**: the camera returns to its owner.
 - **Per camera option, for shows:** "locked while held". Nobody can take it over until the holder lets go or the conductor frees it. The conductor can always free any camera.
 
+## 5a. Persistence, flash, force (owner 2026-11-17)
+- **A held camera persists.** The claim is kept for a resume, the way the reader's drive is kept (#527: the relay keeps `driver` for a resume).
+  - If the phone goes offline (Wi-Fi hiccup, the browser in the background, a dead battery) and comes back, it **takes that camera again by itself**, with no question asked, as long as nobody else claimed it meanwhile.
+  - The camera holds its last view while the phone is away, until the no-pose timeout returns it to its owner. A returning phone reclaims it.
+  - Identity is the phone's client id plus its handheld token, kept in the browser, so a reload is the same holder. In a performance this matters most.
+- **A remote camera can be flashed.** The conductor pushes a camera's settings (lens, height, which camera it is, its access rule) to the phone holding it, the way a deck is flashed: Flash sends the tree down. The phone shows what it now is.
+- **Forced assignment.** The conductor can force an active phone camera to become a certain camera of the show or scene, from the Session panel or by a show row's address (`… > camera:<id>`). The phone switches at once. Its page names the new camera, and the old one returns to its owner.
+
 ## 6. On the deck (INPUT.md's takeover rule)
 - While a phone holds a camera, that camera follows the phone. The deck's own camera (a shot, a move, the editor's view) is put aside, not changed, and returns when the phone lets go. **Recenter** starts from the camera the deck had, so nothing jumps.
 - Moves (#582) and the phone can both be in play: a move triggered while a phone holds the camera waits, or the conductor's setting lets the move win.
@@ -49,6 +57,6 @@ A camera has **one holder**, under the same rule we settled for one reader drivi
 5. Record a take as a move.
 
 ## 9. Open for the owner
-- The default when a camera is taken: newest wins with a warning (the linked reader's rule), or locked while held?
+- ~~The default when a camera is taken~~ – answered: the same rules as the reader (newest wins, with the warning and Take it back).
 - Do guests see cameras they can't take yet (with the reason), or only the ones they can?
 - How long without a pose before a camera returns (proposal: 5 s)?
