@@ -41,6 +41,9 @@ pub struct Stage {
     pub space: Space,
     gpu: Option<SpaceGpu>,
     texture: Option<(wgpu::Texture, wgpu::TextureView, (u32, u32))>,
+    /// the eyedropper's pixel (the stage's pixels): asked before a frame, copied after its draw, read after its submit
+    pixel: Option<(u32, u32)>,
+    pixel_buf: Option<wgpu::Buffer>,
     tempo: Tempo,
     handles: Option<audio::Handles>,
     _audio: Option<backend::Running>,
@@ -344,7 +347,7 @@ impl Stage {
         let master = sum.as_deref().and_then(|s| slot(s, true)).map(|(n, p, _)| (n, p));
         let node_ids = graph.nodes.iter().map(|n| n.id.clone()).collect();
         let kinds = graph.nodes.iter().map(|n| n.kind).collect();
-        Stage { controls, space, gpu: None, texture: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, kinds, strips, inner, master, master_peak: [0.0; 2], master_max: 0.0, volume, path: Vec::new(), core_node: node, groups, reach, scene: None, played_scene: None, dark: false, silent: Default::default(), beat: None }
+        Stage { controls, space, gpu: None, texture: None, pixel: None, pixel_buf: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, kinds, strips, inner, master, master_peak: [0.0; 2], master_max: 0.0, volume, path: Vec::new(), core_node: node, groups, reach, scene: None, played_scene: None, dark: false, silent: Default::default(), beat: None }
     }
 
     /// show this level of the tree in Wire; empty = the rig
@@ -450,7 +453,7 @@ impl Stage {
                 sample_count: 1,
                 dimension: wgpu::TextureDimension::D2,
                 format: FORMAT,
-                usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_SRC,
                 view_formats: &[],
             });
             let view = tex.create_view(&Default::default());
@@ -514,7 +517,42 @@ impl Stage {
         } else {
             gpu.draw(queue, enc, view, size, space, time);
         }
+        if let (Some((x, y)), Some((tex, _, _))) = (self.pixel.filter(|&(x, y)| x < size.0 && y < size.1), self.texture.as_ref()) {
+            let buf = self.pixel_buf.get_or_insert_with(|| device.create_buffer(&wgpu::BufferDescriptor { label: Some("eyedropper"), size: 256, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false }));
+            enc.copy_texture_to_buffer(
+                wgpu::TexelCopyTextureInfo { texture: tex, mip_level: 0, origin: wgpu::Origin3d { x, y, z: 0 }, aspect: wgpu::TextureAspect::All },
+                wgpu::TexelCopyBufferInfo { buffer: buf, layout: wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(256), rows_per_image: None } },
+                wgpu::Extent3d { width: 1, height: 1, depth_or_array_layers: 1 },
+            );
+        } else {
+            self.pixel = None;
+        }
+        let (_, view, _) = self.texture.as_ref().expect("made above");
         (view, fresh)
+    }
+
+    /// the eyedropper asks for the stage's pixel at (x, y) in the next frame; none: it stops
+    pub fn ask_pixel(&mut self, at: Option<(u32, u32)>) {
+        self.pixel = at;
+    }
+
+    /// The pixel asked for, as the stage drew it (lit and tone-mapped, no panels over it): after the frame's submit.
+    pub fn read_pixel(&mut self, device: &wgpu::Device) -> Option<[u8; 3]> {
+        self.pixel?;
+        let buf = self.pixel_buf.as_ref()?;
+        let slice = buf.slice(..);
+        let (tx, rx) = std::sync::mpsc::channel();
+        slice.map_async(wgpu::MapMode::Read, move |r| {
+            let _ = tx.send(r);
+        });
+        device.poll(wgpu::PollType::wait_indefinitely()).ok()?;
+        rx.recv().ok()?.ok()?;
+        let px = {
+            let data = slice.get_mapped_range().ok()?;
+            [data[0], data[1], data[2]]
+        };
+        buf.unmap();
+        Some(px)
     }
 
 }

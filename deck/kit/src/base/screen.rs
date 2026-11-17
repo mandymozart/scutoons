@@ -475,6 +475,14 @@ fn paint(fonts: &mut dyn Mono, layer: &Layer, (pixel, pictures): (Option<Texture
                 flush(&mut mesh, out);
                 out.push(Shape::line_segment([pos2(a.0 * s, a.1 * s), pos2(b.0 * s, b.1 * s)], Stroke::new(thick * s, color(c))));
             }
+            Prim::Gradient { x, y, w, h, corners } => {
+                let base = mesh.vertices.len() as u32;
+                let at = [(x, y), (x + w, y), (x + w, y + h), (x, y + h)];
+                for ((px, py), c) in at.into_iter().zip(corners) {
+                    mesh.vertices.push(egui::epaint::Vertex { pos: pos2(snap(px), snap(py)), uv: white, color: color(c) });
+                }
+                mesh.indices.extend_from_slice(&[base, base + 1, base + 2, base, base + 2, base + 3]);
+            }
         }
     }
     flush(&mut mesh, out);
