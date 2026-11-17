@@ -641,7 +641,7 @@ impl SpaceGpu {
             lights,
         };
         queue.write_buffer(&self.frame_buf, 0, bytemuck::bytes_of(&u));
-        space.backdrop.show(&space.portraits, &super::backdrop::view(cam, size), &mut self.shown);
+        space.backdrop.show(&space.portraits, &space.backdrop.view(cam, size), &mut self.shown);
         self.backdrop.write(queue, &self.shown);
         let sprite = |s: &(usize, deck_core::parallax::Quad)| self.sprites.get(s.0).and_then(Option::as_ref);
         // the post stack (#204): the space into its first texture when a pass runs this frame, else into the target

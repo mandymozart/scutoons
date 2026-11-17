@@ -1,10 +1,11 @@
 //! The stage's background and its 2D layers on the space (deck-catalog `Background`, the one that won; `Layer`). A colour
 //! is what the space clears to and fades into; an image is laid over the drawn stage, cover-fit, its transparency kept,
 //! and with a horizon or a parallax it follows the camera. The layers lie around the 3D, far to near: behind it before
-//! it is drawn, the front ones over it. Each picture is one textured quad placed by deck-core `parallax`; across it
-//! repeats mirrored. Pictures come through the portraits' loader (`Picture::media`). With no colour set the space clears
+//! it is drawn, the front ones over it. Each picture is one screen-filling textured quad placed by deck-core `parallax`;
+//! across it repeats mirrored, above and below its edge rows go on. Pictures come through the portraits' loader (`Picture::media`). With no colour set the space clears
 //! to its ground (black; the editor's `stage` token). A video does not play yet: the ground, said once.
 use deck_core::parallax::{self, Quad, View};
+use glam::Vec3;
 
 use crate::cast::Picture;
 use crate::{Background, Layer};
@@ -21,6 +22,8 @@ pub struct Backdrop {
     pub ground: [f32; 3],
     /// the layers far to near, each with its picture's slot
     pub layers: Vec<(Layer, usize)>,
+    /// the pivot the pictures were placed around: where the camera aimed when they first showed
+    pub home: std::cell::Cell<Option<Vec3>>,
 }
 
 /// the pictures of one frame: the layers behind the 3D, the ones in front, the background over all
@@ -38,13 +41,21 @@ impl Backdrop {
             // TODO(#326): play it on the core's own video playback
             tracing::warn!("background: the video '{v}' does not play on this deck yet – black");
         }
-        Backdrop { background, slot, ground: [0.0; 3], layers: Vec::new() }
+        Backdrop { background, slot, ground: [0.0; 3], layers: Vec::new(), home: Default::default() }
     }
 
     /// the scene's layers (`stage.layers`), their pictures asked for
     pub fn set_layers(&mut self, layers: &[Layer], portraits: &mut Portraits) {
         let far_to_near = deck_catalog::layer::order(layers).into_iter().map(|i| &layers[i]);
         self.layers = far_to_near.map(|l| (l.clone(), portraits.picture(Picture::media(&l.image)))).collect();
+        self.home.set(None);
+    }
+
+    /// the camera as the pictures see it on a stage `size` pixels; the first view after they were set places them
+    pub fn view(&self, cam: &Orbit, size: (u32, u32)) -> View {
+        let home = self.home.get().unwrap_or(cam.goal);
+        self.home.set(Some(home));
+        view(cam, size, home)
     }
 
     /// what the stage clears to, display values: the colour, else the ground
@@ -66,12 +77,12 @@ impl Backdrop {
     }
 }
 
-/// the camera as the pictures see it, on a stage `size` pixels
-pub fn view(cam: &Orbit, size: (u32, u32)) -> View {
+/// the camera as the pictures see it on a stage `size` pixels, its pivot's pan from `home`
+pub fn view(cam: &Orbit, size: (u32, u32), home: Vec3) -> View {
     let (home_yaw, home_pitch, _) = cam.home();
     let (sy, cy) = cam.yaw.sin_cos();
     let (sp, cp) = cam.pitch.sin_cos();
-    let t = cam.target;
+    let t = cam.target - home;
     let pan = (t.x * cy - t.z * sy, -t.x * sp * sy + t.y * cp - t.z * sp * cy);
     View { yaw: cam.yaw, pitch: cam.pitch, home_yaw, home_pitch, distance: cam.distance, pan, fov_y: cam.fov_y, aspect: size.0 as f32 / size.1.max(1) as f32 }
 }
@@ -90,7 +101,7 @@ struct V { @builtin(position) pos: vec4<f32>, @location(0) ndc: vec2<f32>, @loca
 @vertex fn vs(@builtin(vertex_index) i: u32, @location(0) q: vec4<f32>) -> V {
     let c = array<vec2<f32>, 6>(vec2(0.0, 0.0), vec2(1.0, 0.0), vec2(0.0, 1.0), vec2(0.0, 1.0), vec2(1.0, 0.0), vec2(1.0, 1.0));
     let k = c[i];
-    let p = vec2<f32>(k.x * 2.0 - 1.0, q.z - 2.0 * q.w * k.y);
+    let p = vec2<f32>(k.x * 2.0 - 1.0, 1.0 - 2.0 * k.y);
     var o: V;
     o.pos = vec4<f32>(p, 0.0, 1.0);
     o.ndc = p;
@@ -218,7 +229,7 @@ mod tests {
         let b = Backdrop::new(Some(Background::image("backgrounds/wide.png")), &mut portraits);
         assert_eq!(b.clear(), [0.0; 3], "an image lies over black");
         assert_eq!(portraits.requests().len(), 1, "its picture is asked for");
-        let v = view(&Orbit::new(Vec3::ZERO, 0.0, 0.2, 4.0), (1600, 900));
+        let v = view(&Orbit::new(Vec3::ZERO, 0.0, 0.2, 4.0), (1600, 900), Vec3::ZERO);
         let mut shown = Shown::default();
         b.show(&portraits, &v, &mut shown);
         assert!(shown.over.is_none(), "not here yet");
@@ -251,11 +262,11 @@ mod tests {
         }
         let mut cam = Orbit::new(Vec3::ZERO, 0.0, 0.2, 4.0);
         let mut shown = Shown::default();
-        b.show(&portraits, &view(&cam, (1600, 900)), &mut shown);
+        b.show(&portraits, &view(&cam, (1600, 900), Vec3::ZERO), &mut shown);
         assert_eq!((shown.behind.len(), shown.front.len()), (3, 1));
         assert!(shown.behind.iter().chain(&shown.front).all(|(_, q)| q.x == 0.0), "at home all centred");
         cam.drag(-20.0, 0.0);
-        b.show(&portraits, &view(&cam, (1600, 900)), &mut shown);
+        b.show(&portraits, &view(&cam, (1600, 900), Vec3::ZERO), &mut shown);
         let x: Vec<f32> = shown.behind.iter().chain(&shown.front).map(|(_, q)| q.x).collect();
         assert!(x[0] > x[1] && x[1] > x[2] && x[2] > 0.0 && x[3] < 0.0, "the camera turned: the far follow more, the front one goes against, {x:?}");
     }
@@ -264,11 +275,24 @@ mod tests {
     fn the_pan_is_the_pivot_on_the_cameras_right_and_up() {
         let mut cam = Orbit::new(Vec3::ZERO, 0.7, 0.3, 4.0);
         cam.pan(-100.0, 0.0, 900.0);
-        let v = view(&cam, (1600, 900));
+        let v = view(&cam, (1600, 900), Vec3::ZERO);
         assert!(v.pan.0 > 0.0 && v.pan.1.abs() < 1e-5, "a drag to the left moved the pivot right: {:?}", v.pan);
         let mut cam = Orbit::new(Vec3::ZERO, -1.1, 0.4, 4.0);
         cam.pan(0.0, 100.0, 900.0);
-        let v = view(&cam, (1600, 900));
+        let v = view(&cam, (1600, 900), Vec3::ZERO);
         assert!(v.pan.1 > 0.0 && v.pan.0.abs() < 1e-5, "up: {:?}", v.pan);
+    }
+
+    #[test]
+    fn the_pictures_are_placed_where_the_camera_first_aims() {
+        let mut portraits = Portraits::manual();
+        let mut b = Backdrop::default();
+        b.set_layers(&[Layer { image: "fog.png".into(), depth: Some(-1.0), horizon: None }], &mut portraits);
+        let mut cam = Orbit::new(Vec3::new(0.4, 1.2, 0.0), 0.0, 0.2, 3.0);
+        assert_eq!(b.view(&cam, (1600, 900)).pan, (0.0, 0.0), "a pivot at the chest is no pan");
+        cam.pan(-100.0, 0.0, 900.0);
+        assert!(b.view(&cam, (1600, 900)).pan.0 > 0.0, "a pan from there is");
+        b.set_layers(&[], &mut portraits);
+        assert_eq!(b.view(&cam, (1600, 900)).pan, (0.0, 0.0), "set anew: placed anew");
     }
 }
