@@ -161,8 +161,10 @@ A live tool may not crackle unnoticed, and should not crackle at all:
   **The editor's Audio tab** (deck/editor `routing.rs`, #565) sets all of this on the machine it runs on – host, device, buffer,
   the open rig's groups (and `main`) on the device's channels, a test tone per channel and per group on the settings shown,
   saved or not – and Apply writes them into deck.toml (`audio/deck_toml.rs`: the other keys and comments stay) and restarts the
-  stage's audio. The map's rules are the core's (`deck_engine::check_outlets`). For ASIO the editor is built with
-  `cargo build --release -p deck-editor --features asio`. With `pipewire` (the deck) its first host is **PipeWire**: the sinks
+  stage's audio. The map's rules are the core's (`deck_engine::check_outlets`). WASAPI shows a multi-channel interface as
+  stereo endpoints ('Analog (3+4) (RME Fireface UCX II)'): when the map needs more channels than the chosen device has and
+  ASIO lists the same interface with enough, the tab offers that device in one line (`backend::asio_offer`). The buffer line
+  is `backend::buffer_line` (WASAPI reports no range: "the device does not say"). With `pipewire` (the deck) its first host is **PipeWire**: the sinks
   (description, the channels the stage's stream opens with), picked by node name into `audio_device`; ALSA is listed but can't
   be picked (the stage plays PipeWire). The listing runs on a thread of its own ("listing…"), never in the frame.
 - **Host and device**: `--audio-host default|wasapi|asio` (deck.toml `audio_host`), `--audio-device NAME` (a part of
@@ -179,12 +181,14 @@ A live tool may not crackle unnoticed, and should not crackle at all:
   `audio_host = "asio"`, `audio_device = "Fireface"`, `audio_buffer = 128` – owner 2026-11-02, #230).
   **WASAPI exclusive** is not possible: cpal (0.15 and 0.16) opens WASAPI in shared mode only.
 - **ASIO** (the RME Fireface's reference driver on Windows) is the cargo feature `asio` (cpal's asio host; output in
-  f32, i16 or i32 – RME's driver talks i32). Its `asio-sys` builds bindings to Steinberg's ASIO SDK at build time:
+  f32, i16 or i32 – RME's driver talks i32), in the default features of deck-native and deck-editor; it adds nothing outside
+  Windows. A Windows build without the SDK stops in build.rs and says so; one without ASIO: `--no-default-features --features bundled`
+  (deck-native) or `--no-default-features` (deck-editor). Its `asio-sys` builds bindings to Steinberg's ASIO SDK at build time:
   1. get the ASIO SDK from steinberg.net (a free download after accepting Steinberg's licence) and unpack it, e.g. to
      `C:\SDK\asiosdk` (the folder holding `common\`, `host\`);
   2. LLVM for bindgen (`winget install LLVM.LLVM`; `LIBCLANG_PATH=C:\Program Files\LLVM\bin`) and the MSVC build tools;
-  3. `set CPAL_ASIO_DIR=C:\SDK\asiosdk` (without it, or with a folder that doesn't exist, asio-sys downloads the SDK
-     itself into %TEMP% – set it), then `cargo build --release -p deck-native --features asio`;
+  3. `setx CPAL_ASIO_DIR C:\SDK\asiosdk` (a user variable; build.rs refuses a folder without `common\asio.h`), then
+     `cargo build --release -p deck-native`;
   4. run `deck --audio cpal --audio-host asio --audio-device fireface --audio-buffer 128` (the RME's driver is
      `ASIO Fireface USB`; the buffer is also the driver's setting in RME's Settings dialog – cpal asks the driver for it).
   ASIO hands one client the interface's driver (RME's is multi-client); the HUD then says `AUDIO ASIO …`.

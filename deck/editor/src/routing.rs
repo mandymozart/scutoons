@@ -24,6 +24,8 @@ pub enum Field {
     ToneGroup(usize),
     Apply,
     Rescan,
+    /// the ASIO device the core offers for a split interface
+    Offer,
 }
 
 /// what a press asks of the stage
@@ -128,6 +130,10 @@ impl Page {
         }
     }
 
+    pub fn offer(&self) -> Option<backend::Offer> {
+        backend::asio_offer(&self.hosts, self.host()?, self.device()?, &self.draft.audio_outlet)
+    }
+
     pub fn problems(&self) -> Vec<String> {
         check_outlets(&self.draft.audio_outlet, self.channels()).iter().map(ToString::to_string).collect()
     }
@@ -179,6 +185,11 @@ impl Page {
                 return Ask::Apply;
             }
             Field::Rescan => self.listed = false,
+            Field::Offer => {
+                let Some(o) = self.offer() else { return Ask::Nothing };
+                self.draft.audio_host = self.hosts[o.host].key.filter(|k| *k != "default").map(str::to_string);
+                self.draft.audio_device = Some(self.hosts[o.host].devices[o.device].name.clone());
+            }
         }
         Ask::Nothing
     }
@@ -202,6 +213,7 @@ impl Page {
             Field::ToneGroup(_) => ("Group".into(), "A test tone where this group plays; click again to stop it."),
             Field::Apply => ("Apply".into(), "Writes deck.toml and restarts the stage's sound on it."),
             Field::Rescan => ("Rescan".into(), "Lists the hosts and devices again."),
+            Field::Offer => ("ASIO".into(), "WASAPI shows this interface as stereo pairs; its ASIO device has every channel. Click to take it, Apply restarts the sound on it."),
         }
     }
 }
@@ -272,8 +284,8 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, page: &mut Page, stage: &S
         hits.push((r, Field::Buffer(i)));
     }
     y += row;
-    if let Some((min, max)) = chosen.and_then(|i| page.devices()[i].buffer) {
-        d.text(area.x, text_y(y, small), small, &format!("the device takes {min}–{max} frames"), t.color.muted);
+    if let Some(dev) = chosen.map(|i| &page.devices()[i]).filter(|o| o.error.is_none()) {
+        d.text(area.x, text_y(y, small), small, &fit(d, &backend::buffer_line(dev.buffer), small, area.w), t.color.muted);
         y += row;
     }
 
@@ -316,6 +328,15 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, page: &mut Page, stage: &S
 
     for p in page.problems() {
         d.text(area.x, text_y(y, small), small, &fit(d, &p, small, area.w), t.color.danger);
+        y += row;
+    }
+    if let Some(o) = page.offer() {
+        let r = Rect { x: area.x, y, w: area.w, h: row };
+        if r.has(pointer.0, pointer.1) {
+            d.rect(r.x, r.y, r.w, r.h, t.color.control);
+        }
+        d.text(area.x, text_y(y, small), small, &fit(d, &o.text, small, area.w), t.color.accent);
+        hits.push((r, Field::Offer));
         y += row;
     }
     if let Some((s, bad)) = &page.said {
@@ -445,6 +466,24 @@ mod tests {
         assert_eq!(p.press(Field::ToneGroup(1)), Ask::Tone(Tone::Group("cue".into())), "another tone takes over");
         assert_eq!(p.press(Field::ToneGroup(1)), Ask::Quiet, "the same again stops it");
         assert_eq!(p.tone, None);
+    }
+
+    #[test]
+    fn a_split_wasapi_endpoint_offers_the_asio_device() {
+        let mut p = page();
+        p.press(Field::Cell(1, 3));
+        p.press(Field::Cell(1, 4));
+        assert_eq!(p.offer(), None, "on ASIO the map fits");
+        p.press(Field::Host(0));
+        p.press(Field::Device(1));
+        assert!(!p.problems().is_empty());
+        assert!(p.offer().is_some_and(|o| o.text.contains("ASIO Fireface USB")), "{:?}", p.offer());
+        p.press(Field::Offer);
+        assert_eq!((p.draft.audio_host.as_deref(), p.draft.audio_device.as_deref(), p.channels()), (Some("asio"), Some("ASIO Fireface USB"), 20));
+        assert!(p.problems().is_empty() && p.offer().is_none());
+        p.press(Field::Host(0));
+        p.press(Field::Device(0));
+        assert_eq!(p.offer(), None, "the Realtek is another interface");
     }
 
     #[test]

@@ -12,12 +12,13 @@ name = "deck-editor"
 path = "src/main.rs"
 
 [features]
-# the stage on ASIO (the RME's driver on Windows; the SDK as deck/native/README.md "Audio" says)
+# the stage on ASIO (the RME's driver on Windows; the SDK as deck/native/README.md "Audio" says); no-op elsewhere
+default = ["asio"]
 asio = ["deck-native/asio"]
 
 [dependencies]
 # the deck's own pieces: the window and its GPU (#443), the audio stack, the rig player, the stage
-deck-native = { path = "../native", features = ["modules"] }
+deck-native = { path = "../native", default-features = false, features = ["bundled", "modules"] }
 # the Module workspace: a local build by the compile service's own rules (deck/build `local`), the descriptors
 scutoons-build = { path = "../build" }
 deck-catalog = { path = "../catalog" }
