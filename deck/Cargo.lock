@@ -1152,6 +1152,7 @@ dependencies = [
  "deck-space",
  "deck-ui",
  "egui-wgpu",
+ "glam",
  "image",
  "pollster",
  "protocol",

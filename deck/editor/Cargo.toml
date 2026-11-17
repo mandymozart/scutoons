@@ -24,6 +24,8 @@ deck-catalog = { path = "../catalog" }
 deck-kit = { path = "../kit", features = ["editor"] }
 deck-space = { path = "../space", default-features = false, features = ["being", "gpu", "native"] }
 deck-engine = { path = "../engine" }
+# the scene camera's points on the stage (deck-space's own vectors)
+glam = "0.28"
 deck-core = { workspace = true, features = ["tempo"] }
 anyhow.workspace = true
 serde.workspace = true

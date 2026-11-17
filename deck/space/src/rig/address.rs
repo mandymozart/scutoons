@@ -189,6 +189,31 @@ impl CastWord {
     }
 }
 
+/// the reserved action that cuts a scene's camera to one of its shots: `shot:<id>`
+pub const SHOT: &str = "shot";
+/// the reserved action that plays one of a scene camera's moves (and its chain): `move:<id>`
+pub const MOVE: &str = "move";
+
+/// A playing scene's camera word (scene_camera.rs): `scene:nave > shot:wide`, `scene:nave > move:intro`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CameraWord {
+    Shot(String),
+    Move(String),
+}
+
+impl CameraWord {
+    /// None: not a camera word; else the word or why its id is no id
+    pub fn parse(action: &str) -> Option<Result<CameraWord, String>> {
+        let (verb, id) = action.split_once(':')?;
+        let make = match verb {
+            SHOT => CameraWord::Shot,
+            MOVE => CameraWord::Move,
+            _ => return None,
+        };
+        Some(word(id, &format!("the {verb}'s id")).map(|id| make(id.to_string())))
+    }
+}
+
 /// the kind of `<kind>:…`
 fn t_kind(s: &str) -> &str {
     s.split_once(':').map_or(s, |(k, _)| k)

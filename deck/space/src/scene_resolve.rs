@@ -282,6 +282,7 @@ pub fn resolve(doc: &SceneDocument, with: &BTreeMap<String, Fillers>, previews: 
     scene.stage = doc.stage.clone();
     scene.stage.background = deck_catalog::background::resolve(None, doc.stage.background.as_ref(), rig_bg.as_ref(), module_bg.as_ref()).cloned();
     scene.outputs = doc.outputs.clone();
+    scene.camera = doc.camera.clone();
     // one member with its rig at the scene's own spot plays as its rig played alone: its slots as they are, its being the
     // space's (so `scene:nave` plays the scene of format 1). Every other stage gives each character member a look of its
     // own (#492): a `look` node at its holder's spot that only its own rig's links to the being move – no rig, or a rig

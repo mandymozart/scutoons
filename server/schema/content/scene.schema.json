@@ -92,6 +92,24 @@
       },
       "type": "object"
     },
+    "Ease": {
+      "oneOf": [
+        {
+          "enum": [
+            "linear",
+            "in",
+            "out",
+            "in_out"
+          ],
+          "type": "string"
+        },
+        {
+          "const": "whip",
+          "description": "slow at both ends, a snap in the middle",
+          "type": "string"
+        }
+      ]
+    },
     "Enter": {
       "description": "`start` or `join`.",
       "enum": [
@@ -321,6 +339,76 @@
       ],
       "type": "object"
     },
+    "Length": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "on the tempo clock",
+          "properties": {
+            "beats": {
+              "format": "float",
+              "type": "number"
+            }
+          },
+          "required": [
+            "beats"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "bars": {
+              "format": "float",
+              "type": "number"
+            }
+          },
+          "required": [
+            "bars"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "seconds": {
+              "format": "float",
+              "type": "number"
+            }
+          },
+          "required": [
+            "seconds"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "Lens": {
+      "additionalProperties": false,
+      "properties": {
+        "focal": {
+          "default": 30.0,
+          "description": "mm on a full-frame sensor (perspective)",
+          "format": "float",
+          "type": "number"
+        },
+        "projection": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/Projection"
+            }
+          ],
+          "default": "perspective"
+        },
+        "size": {
+          "default": 4.0,
+          "description": "the view's height in metres (orthographic)",
+          "format": "float",
+          "type": "number"
+        }
+      },
+      "type": "object"
+    },
     "LinkDef": {
       "additionalProperties": false,
       "properties": {
@@ -457,6 +545,177 @@
       ],
       "description": "The scene's location: a reference, or a placeholder."
     },
+    "MoveDef": {
+      "additionalProperties": false,
+      "description": "A named move of the scene: `scene:<id> > move:<id>` plays it.",
+      "properties": {
+        "amount": {
+          "description": "shake: degrees of unrest",
+          "format": "float",
+          "type": "number"
+        },
+        "ease": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/Ease"
+            }
+          ],
+          "default": "in_out"
+        },
+        "follow": {
+          "description": "follow: the holder it keeps in the shot",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "height": {
+          "description": "crane: metres above (or below) the higher (lower) end",
+          "format": "float",
+          "type": "number"
+        },
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/definitions/MoveKind"
+        },
+        "length": {
+          "$ref": "#/definitions/Length"
+        },
+        "rounds": {
+          "description": "orbit, spiral",
+          "format": "float",
+          "type": "number"
+        },
+        "side": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/Side"
+            }
+          ],
+          "description": "in"
+        },
+        "start": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/Start"
+            }
+          ],
+          "default": "now"
+        },
+        "then": {
+          "description": "the move that follows when it ends (a chain)",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "to": {
+          "description": "the shot it ends on",
+          "type": "string"
+        },
+        "turn": {
+          "$ref": "#/definitions/Turn"
+        }
+      },
+      "required": [
+        "id",
+        "to",
+        "kind",
+        "length"
+      ],
+      "type": "object"
+    },
+    "MoveKind": {
+      "oneOf": [
+        {
+          "const": "cut",
+          "description": "at once",
+          "type": "string"
+        },
+        {
+          "const": "glide",
+          "description": "an eased glide around the aim",
+          "type": "string"
+        },
+        {
+          "const": "in",
+          "description": "travels in from a side onto the subject (`side`)",
+          "type": "string"
+        },
+        {
+          "const": "fly",
+          "description": "along the trolley track",
+          "type": "string"
+        },
+        {
+          "const": "crane_down",
+          "description": "from high above down onto the shot (`height`)",
+          "type": "string"
+        },
+        {
+          "const": "crane_up",
+          "description": "from below up onto the shot (`height`)",
+          "type": "string"
+        },
+        {
+          "const": "spiral",
+          "description": "zooms in while circling the aim (`rounds`, `turn`)",
+          "type": "string"
+        },
+        {
+          "const": "push",
+          "description": "dollies straight in",
+          "type": "string"
+        },
+        {
+          "const": "pull",
+          "description": "dollies straight out",
+          "type": "string"
+        },
+        {
+          "const": "orbit",
+          "description": "circles the aim at a steady speed (`rounds`, `turn`)",
+          "type": "string"
+        },
+        {
+          "const": "truck",
+          "description": "slides sideways, turning as it goes",
+          "type": "string"
+        },
+        {
+          "const": "tilt",
+          "description": "the head turns where the camera stands",
+          "type": "string"
+        },
+        {
+          "const": "zoom",
+          "description": "between focal lengths",
+          "type": "string"
+        },
+        {
+          "const": "dolly_zoom",
+          "description": "distance and focal length against each other: the subject keeps its size, the room stretches",
+          "type": "string"
+        },
+        {
+          "const": "whip",
+          "description": "a fast swing of the head",
+          "type": "string"
+        },
+        {
+          "const": "follow",
+          "description": "keeps the shot on a moving subject (`follow`) and stays on it",
+          "type": "string"
+        },
+        {
+          "const": "shake",
+          "description": "a handheld unrest on the way (`amount`)",
+          "type": "string"
+        }
+      ]
+    },
     "NodeDef": {
       "additionalProperties": true,
       "properties": {
@@ -472,6 +731,21 @@
         "kind"
       ],
       "type": "object"
+    },
+    "Projection": {
+      "oneOf": [
+        {
+          "enum": [
+            "perspective"
+          ],
+          "type": "string"
+        },
+        {
+          "const": "orthographic",
+          "description": "parallel rays: isometric views; the lens's `size` is the view's height",
+          "type": "string"
+        }
+      ]
     },
     "RigPin": {
       "additionalProperties": false,
@@ -492,6 +766,57 @@
       "required": [
         "ref"
       ],
+      "type": "object"
+    },
+    "SceneCamera": {
+      "additionalProperties": false,
+      "description": "The scene's primary camera.",
+      "properties": {
+        "height": {
+          "description": "the eye height (m above the floor) of the primary camera while the scene has no shots: head-on at the stage's\ncentre, level",
+          "format": "float",
+          "type": "number"
+        },
+        "lens": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/Lens"
+            }
+          ],
+          "default": {
+            "focal": 30.0,
+            "projection": "perspective",
+            "size": 4.0
+          },
+          "description": "the lens before a shot is taken"
+        },
+        "move": {
+          "items": {
+            "$ref": "#/definitions/MoveDef"
+          },
+          "type": "array"
+        },
+        "shot": {
+          "description": "its shots; the first opens the scene",
+          "items": {
+            "$ref": "#/definitions/ShotDef"
+          },
+          "type": "array"
+        },
+        "source": {
+          "$ref": "#/definitions/Source"
+        },
+        "track": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Track"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
       "type": "object"
     },
     "SceneTransition": {
@@ -535,6 +860,88 @@
         "scene"
       ],
       "type": "object"
+    },
+    "ShotDef": {
+      "additionalProperties": false,
+      "properties": {
+        "distance": {
+          "description": "metres from the aim",
+          "format": "float",
+          "type": "number"
+        },
+        "id": {
+          "description": "a word: `scene:<id> > shot:<id>` picks it",
+          "type": "string"
+        },
+        "label": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "lens": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/Lens"
+            }
+          ],
+          "default": {
+            "focal": 30.0,
+            "projection": "perspective",
+            "size": 4.0
+          }
+        },
+        "pitch": {
+          "description": "degrees above the aim",
+          "format": "float",
+          "type": "number"
+        },
+        "target": {
+          "description": "where it aims (m, the set's space)",
+          "items": {
+            "format": "float",
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "type": "array"
+        },
+        "yaw": {
+          "description": "degrees around the aim: 0 looks along −z from +z",
+          "format": "float",
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "target",
+        "yaw",
+        "pitch",
+        "distance"
+      ],
+      "type": "object"
+    },
+    "Side": {
+      "enum": [
+        "left",
+        "right"
+      ],
+      "type": "string"
+    },
+    "Source": {
+      "description": "What steers the camera.",
+      "oneOf": [
+        {
+          "const": "scene",
+          "description": "its shots and moves",
+          "type": "string"
+        },
+        {
+          "const": "handheld",
+          "description": "a phone in a hand – no behaviour yet. TODO(#605)",
+          "type": "string"
+        }
+      ]
     },
     "StageSettings": {
       "additionalProperties": false,
@@ -594,6 +1001,22 @@
       },
       "type": "object"
     },
+    "Start": {
+      "description": "When a move starts.",
+      "oneOf": [
+        {
+          "enum": [
+            "now"
+          ],
+          "type": "string"
+        },
+        {
+          "const": "bar",
+          "description": "on the next bar line of the tempo clock",
+          "type": "string"
+        }
+      ]
+    },
     "Take": {
       "description": "How many fillers a holder takes.",
       "oneOf": [
@@ -608,10 +1031,84 @@
           "type": "string"
         }
       ]
+    },
+    "Track": {
+      "additionalProperties": false,
+      "description": "The trolley track: its first point is the start, its last the end.",
+      "properties": {
+        "point": {
+          "items": {
+            "$ref": "#/definitions/TrackPoint"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "point"
+      ],
+      "type": "object"
+    },
+    "TrackPoint": {
+      "additionalProperties": false,
+      "description": "A point of the trolley track: where it is, and its Bézier handle (the way out of it; the way in is its mirror).",
+      "properties": {
+        "at": {
+          "items": {
+            "format": "float",
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "type": "array"
+        },
+        "handle": {
+          "description": "metres from `at`; none = a smooth curve through the neighbours",
+          "items": {
+            "format": "float",
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "type": [
+            "array",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "at"
+      ],
+      "type": "object"
+    },
+    "Turn": {
+      "oneOf": [
+        {
+          "enum": [
+            "right"
+          ],
+          "type": "string"
+        },
+        {
+          "const": "left",
+          "description": "counter-clockwise seen from above",
+          "type": "string"
+        }
+      ]
     }
   },
   "description": "One `scene:<id>` document as the API stores it.",
   "properties": {
+    "camera": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/SceneCamera"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "its primary camera: shots, track, moves (scene_camera.rs)"
+    },
     "format": {
       "const": 2,
       "description": "the document's format: 2 (location, holders, spawn zones; #489)",

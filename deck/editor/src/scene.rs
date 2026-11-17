@@ -31,6 +31,8 @@ pub struct SceneView {
     pub auto: crate::autosave::Autosave<deck_space::scene_document::SceneDocument>,
     /// where the stage drew its slots and video nodes this frame
     pub marks: Vec<(Rect, crate::scene_stage::Mark)>,
+    /// the DOP panel's selection and the move it is making
+    pub dop: crate::dop::Sel,
 }
 
 /// `bundle` with these knob values written into its tracks (a slot no track's node names is left)
@@ -65,7 +67,7 @@ impl SceneView {
         let set = |l: &str| k.and_then(|k| k.set(l));
         let (edit, resolved) = SceneEdit::open(doc, base, &rig, &set).map_err(|p| format!("scene:{id}: {}", p.join("; ")))?;
         let notes = note.into_iter().chain(resolved.notes).collect();
-        Ok((SceneView { edit, kept, catalog, sel: Part::Scene, inside: None, rows: Vec::new(), shown: true, auto: save.unwrap_or_else(|| crate::autosave::Autosave::new(base)), marks: Vec::new() }, resolved.scene, notes))
+        Ok((SceneView { edit, kept, catalog, sel: Part::Scene, inside: None, rows: Vec::new(), shown: true, auto: save.unwrap_or_else(|| crate::autosave::Autosave::new(base)), marks: Vec::new(), dop: Default::default() }, resolved.scene, notes))
     }
 
     /// the members again after a slot or a video node changed. Err: the core's reasons it does not play.
@@ -265,6 +267,7 @@ impl crate::App {
                 if let Err(err) = self.stage.play_scene(&id, scene) {
                     return self.say(format!("scene:{id}: {err:#}"), x, y, true);
                 }
+                self.stage.space.open_on_scene_camera();
                 let line = std::iter::once(format!("scene:{id} in Build")).chain(notes).collect::<Vec<_>>().join(" – ");
                 self.say(line, x, y, false);
             }

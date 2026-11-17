@@ -193,7 +193,7 @@ mod tests {
     use super::*;
 
     fn shot() -> Shot {
-        Shot { target: Vec3::new(0.0, 1.0, 0.0), yaw: 0.0, pitch: 0.0, distance: 4.0, fov_y: 55f32.to_radians() }
+        Shot { target: Vec3::new(0.0, 1.0, 0.0), yaw: 0.0, pitch: 0.0, distance: 4.0, fov_y: 55f32.to_radians(), ortho: None }
     }
 
     fn near(a: Vec3, b: Vec3) -> bool {

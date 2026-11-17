@@ -124,7 +124,7 @@ impl Show {
         let space = space_node.map(|n| {
             room = graph.nodes[n].str("set").unwrap_or_default().to_string();
             let mut s = Space::new(&graph, n, &scene.being, std::path::Path::new(""), Portraits::manual());
-            s.set_stage(&scene.stage);
+            s.set_scene(&scene);
             s.set_view(size.0 as f32, size.1 as f32);
             frame_for(&mut s, size.0, size.1);
             s

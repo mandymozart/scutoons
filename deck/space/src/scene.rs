@@ -153,6 +153,9 @@ pub struct Scene {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "schema", schemars(with = "Option<std::collections::BTreeMap<String, serde_json::Value>>"))]
     pub outputs: Option<toml::Table>,
+    /// the scene's primary camera (scene_camera.rs)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub camera: Option<crate::scene_camera::SceneCamera>,
     #[cfg(feature = "being")]
     #[serde(default)]
     pub being: crate::space::being::Look,

@@ -64,6 +64,8 @@ pub struct Shot {
     pub pitch: f32,
     pub distance: f32,
     pub fov_y: f32,
+    /// an orthographic view's height (m); none = perspective
+    pub ortho: Option<f32>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -88,10 +90,26 @@ pub struct Orbit {
     pub free: bool,
     /// the camera looked through: the view glides to it and stays until a hand moves the view
     pub through: Option<Shot>,
+    /// an orthographic view's height (m); none = perspective
+    pub ortho: Option<f32>,
+    /// a hand moved the view since the last `take_touched` (a playing move stops)
+    touched: bool,
     home: (f32, f32, f32),
     /// the field of view to go back to when the view leaves a camera
     free_fov: f32,
+    /// the free view the camera left for a shot: `go_free` glides back to it
+    free_view: Option<Shot>,
+    /// gliding back to the free view: on arrival the camera is free again
+    returning: bool,
+    /// a hand left a shot: the field of view glides back to the free one
+    fov_back: bool,
+    /// the view a glide into `through` started from, and how long it has run (s)
+    glide_from: Shot,
+    glide_t: f32,
 }
+
+/// how long a glide into a shot, or back to the free view, takes (s): eased in and out
+pub const GLIDE_S: f32 = 1.0;
 
 impl Orbit {
     pub fn new(target: Vec3, yaw: f32, pitch: f32, distance: f32) -> Orbit {
@@ -109,35 +127,73 @@ impl Orbit {
             auto: false,
             free: false,
             through: None,
+            ortho: None,
+            touched: false,
             home: (yaw, pitch, distance),
             free_fov: FOV_Y,
+            free_view: None,
+            returning: false,
+            fov_back: false,
+            glide_from: Shot { target, yaw, pitch, distance, fov_y: FOV_Y, ortho: None },
+            glide_t: 0.0,
         }
+    }
+
+    /// whether a hand moved the view since the last ask
+    pub fn take_touched(&mut self) -> bool {
+        std::mem::take(&mut self.touched)
     }
 
     /// look through `shot`: the view glides there (`step`) and holds it
     pub fn look_through(&mut self, shot: Shot) {
-        if self.through.is_none() {
-            self.free_fov = self.fov_y;
+        if self.through.is_none() && !self.returning {
+            self.free_fov = if self.fov_back { self.free_fov } else { self.fov_y };
+            self.free_view = Some(self.as_shot(self.free_fov));
         }
+        (self.returning, self.fov_back) = (false, false);
+        self.glide_from = Shot { target: self.target, yaw: self.yaw, pitch: self.pitch, distance: self.distance, fov_y: self.fov_y, ortho: None };
+        self.glide_t = 0.0;
+        self.max_distance = self.max_distance.max(shot.distance);
+        self.ortho = shot.ortho;
         self.through = Some(shot);
         self.goal = shot.target;
         self.want = shot.distance.clamp(self.min_distance, self.max_distance);
         self.idle = 0.0;
     }
 
-    /// back to the free view, from where the camera looks now
+    /// this view as a shot, with the field of view `fov_y`
+    fn as_shot(&self, fov_y: f32) -> Shot {
+        Shot { target: self.goal, yaw: self.yaw, pitch: self.pitch, distance: self.want, fov_y, ortho: None }
+    }
+
+    /// the eased glide back to the free view the camera left for a shot; already free: nothing
+    pub fn go_free(&mut self) {
+        match self.free_view.take() {
+            Some(free) if self.through.is_some() => {
+                self.look_through(free);
+                self.returning = true;
+            }
+            _ => {}
+        }
+    }
+
+    /// whether the camera looks through a shot (or glides to one) – not on its way back to the free view
+    pub fn looking(&self) -> bool {
+        self.through.is_some() && !self.returning
+    }
+
+    /// a hand takes the view where it is: no jump; the field of view glides back to the free one
     pub fn leave(&mut self) {
+        self.touched = true;
+        self.returning = false;
         if self.through.take().is_some() {
-            self.fov_y = self.free_fov;
+            self.fov_back = self.ortho.is_none();
         }
     }
 
     /// whether the view has arrived at the camera it looks through
     pub fn arrived(&self) -> bool {
-        self.through.is_some_and(|s| {
-            let angle = wrap_pi(s.yaw - self.yaw).abs() + (s.pitch - self.pitch).abs() + (s.fov_y - self.fov_y).abs();
-            angle < 1e-3 && self.target.distance(s.target) < 1e-3 && (self.distance / self.want - 1.0).abs() < 1e-3
-        })
+        self.through.is_some() && self.glide_t >= GLIDE_S
     }
 
     /// The distance from which every sphere fits the view of `aspect` around `target`, from this side; the farthest the
@@ -182,7 +238,13 @@ impl Orbit {
     }
 
     pub fn proj(&self, aspect: f32) -> Mat4 {
-        Mat4::perspective_rh(self.fov_y, aspect.max(1e-3), 0.05, 200.0)
+        match self.ortho {
+            Some(h) => {
+                let (hh, hw) = (h * 0.5, h * 0.5 * aspect.max(1e-3));
+                Mat4::orthographic_rh(-hw, hw, -hh, hh, 0.05, 200.0 + self.distance)
+            }
+            None => Mat4::perspective_rh(self.fov_y, aspect.max(1e-3), 0.05, 200.0),
+        }
     }
 
     pub fn view_proj(&self, aspect: f32) -> Mat4 {
@@ -197,14 +259,28 @@ impl Orbit {
     /// the zoom's and the focus' glides, and the auto-orbit once idle (eased in) when `auto`
     pub fn step(&mut self, dt: f32) {
         if let Some(s) = self.through {
-            self.goal = s.target;
-            self.want = s.distance.clamp(self.min_distance, self.max_distance);
+            // a glide eased in and out: it starts and ends at rest, so neither the shot nor a hand meets a jump
+            self.glide_t += dt.max(0.0);
+            let x = (self.glide_t / GLIDE_S).min(1.0);
+            let u = x * x * x * (x * (x * 6.0 - 15.0) + 10.0);
+            let f = self.glide_from;
+            let to = s.distance.clamp(self.min_distance, self.max_distance);
+            self.target = f.target.lerp(s.target, u);
+            self.goal = self.target;
+            self.yaw = wrap_angle(f.yaw + wrap_pi(s.yaw - f.yaw) * u);
+            self.pitch = f.pitch + (s.pitch - f.pitch) * u;
+            self.fov_y = f.fov_y + (s.fov_y - f.fov_y) * u;
+            self.distance = (f.distance.max(1e-4).ln() + (to.ln() - f.distance.max(1e-4).ln()) * u).exp();
+            if x >= 1.0 {
+                (self.target, self.goal, self.yaw, self.pitch, self.fov_y, self.distance) = (s.target, s.target, s.yaw, s.pitch, s.fov_y, to);
+            }
+            self.want = self.distance;
+        } else if self.fov_back {
             let k = 1.0 - (-dt.max(0.0) / FOCUS_EASE_S).exp();
-            let ease = |from: f32, to: f32| if (to - from).abs() < 1e-5 { to } else { from + (to - from) * k };
-            let turn = wrap_pi(s.yaw - self.yaw);
-            self.yaw = wrap_angle(if turn.abs() < 1e-5 { s.yaw } else { self.yaw + turn * k });
-            self.pitch = ease(self.pitch, s.pitch);
-            self.fov_y = ease(self.fov_y, s.fov_y);
+            self.fov_y += (self.free_fov - self.fov_y) * k;
+            if (self.fov_y - self.free_fov).abs() < 1e-5 {
+                (self.fov_y, self.fov_back) = (self.free_fov, false);
+            }
         }
         // in the log of the distance, so a step in is as smooth close up as far out
         let k = 1.0 - (-dt.max(0.0) / ZOOM_EASE_S).exp();
@@ -214,6 +290,9 @@ impl Orbit {
         let k = 1.0 - (-dt.max(0.0) / FOCUS_EASE_S).exp();
         let t = self.target + (self.goal - self.target) * k;
         self.target = if t.distance(self.goal) < 1e-5 { self.goal } else { t };
+        if self.returning && self.arrived() {
+            (self.through, self.returning) = (None, false);
+        }
         self.idle += dt;
         if !self.auto {
             return;
@@ -242,7 +321,8 @@ impl Orbit {
     pub fn pan(&mut self, dx: f32, dy: f32, view_h: f32) {
         self.leave();
         let [right, up, _] = self.basis();
-        let per_pixel = 2.0 * self.distance * (self.fov_y * 0.5).tan() / view_h.max(1.0);
+        let height = self.ortho.unwrap_or_else(|| 2.0 * self.distance * (self.fov_y * 0.5).tan());
+        let per_pixel = height / view_h.max(1.0);
         let by = (up * dy - right * dx) * per_pixel;
         self.target += by;
         self.goal += by;
@@ -272,6 +352,9 @@ impl Orbit {
     pub fn zoom(&mut self, steps: f32) {
         self.leave();
         self.want = (self.want * crate::gesture::ZOOM_STEP.powf(steps)).clamp(self.min_distance, self.max_distance);
+        if let Some(h) = self.ortho.as_mut() {
+            *h = (*h * crate::gesture::ZOOM_STEP.powf(steps)).clamp(crate::scene_camera::SIZE_RANGE.0, crate::scene_camera::SIZE_RANGE.1);
+        }
         self.idle = 0.0;
     }
 
@@ -361,7 +444,7 @@ mod tests {
     fn looking_through_a_camera_glides_there_holds_and_a_hand_leaves_it() {
         let mut c = Orbit::new(Vec3::ZERO, 0.2, 0.1, 4.0);
         c.free = true;
-        let shot = Shot { target: Vec3::new(1.0, 0.5, -1.0), yaw: -0.4, pitch: 0.3, distance: 2.5, fov_y: 40f32.to_radians() };
+        let shot = Shot { target: Vec3::new(1.0, 0.5, -1.0), yaw: -0.4, pitch: 0.3, distance: 2.5, fov_y: 40f32.to_radians(), ortho: None };
         c.look_through(shot);
         assert!(!c.arrived(), "no jump");
         c.step(1.0 / 60.0);
@@ -370,9 +453,13 @@ mod tests {
             c.step(1.0 / 60.0);
         }
         assert!(c.arrived(), "{c:?}");
-        // a pan while looking through leaves the camera, the free field of view comes back
+        // a pan while looking through leaves the camera, the free field of view glides back
         c.pan(10.0, 0.0, 800.0);
         assert_eq!(c.through, None);
+        assert!((c.fov_y - shot.fov_y).abs() < 1e-4, "no jump of the lens");
+        for _ in 0..240 {
+            c.step(1.0 / 60.0);
+        }
         assert_eq!(c.fov_y, FOV_Y);
         c.look_through(shot);
         c.zoom(1.0);
@@ -380,6 +467,64 @@ mod tests {
         c.look_through(shot);
         c.drag(1.0, 0.0);
         assert_eq!(c.through, None, "and an orbit");
+    }
+
+    /// the largest change of the eye (m), the angles (rad) and the lens (rad) from one frame to the next
+    fn worst_step(frames: &[Orbit]) -> (f32, f32, f32) {
+        frames.windows(2).fold((0.0f32, 0.0f32, 0.0f32), |(e, a, f), w| {
+            let angle = wrap_pi(w[1].yaw - w[0].yaw).abs() + (w[1].pitch - w[0].pitch).abs();
+            (e.max(w[0].eye().distance(w[1].eye())), a.max(angle), f.max((w[1].fov_y - w[0].fov_y).abs()))
+        })
+    }
+
+    /// into a shot and back to the free view, each an eased glide; a hand mid-glide takes the view where it is – no
+    /// frame jumps in position, angle or lens either way
+    #[test]
+    fn into_a_shot_and_back_to_free_glide_without_a_jump_even_when_grabbed() {
+        let start = |c: &mut Orbit| {
+            *c = Orbit::new(Vec3::new(0.0, 1.0, 0.0), 0.3, 0.1, 4.0);
+            c.free = true;
+        };
+        let shot = Shot { target: Vec3::new(1.5, 0.8, -1.0), yaw: 2.6, pitch: 0.5, distance: 1.8, fov_y: 20f32.to_radians(), ortho: None };
+        let mut c = Orbit::new(Vec3::ZERO, 0.0, 0.0, 1.0);
+        start(&mut c);
+        let free = c;
+        let run = |c: &mut Orbit, n: usize, frames: &mut Vec<Orbit>| {
+            for _ in 0..n {
+                c.step(1.0 / 60.0);
+                frames.push(*c);
+            }
+        };
+        // in, all the way, then back to free, all the way
+        let mut frames = vec![c];
+        c.look_through(shot);
+        run(&mut c, 240, &mut frames);
+        assert!(c.arrived() && c.looking());
+        c.go_free();
+        run(&mut c, 240, &mut frames);
+        assert!(!c.looking() && c.through.is_none(), "free again once back");
+        assert!(c.eye().distance(free.eye()) < 1e-3 && (c.fov_y - free.fov_y).abs() < 1e-4, "back where it was: {c:?} vs {free:?}");
+        let (e, a, f) = worst_step(&frames);
+        assert!(e < 0.4 && a < 0.4 && f < 0.05, "no jump: {e} m, {a} rad, {f} rad");
+        assert!(frames.len() > 400 && e > 0.0);
+        // grabbed mid-glide, in and on the way back: the frame of the grab is the frame before
+        for back in [false, true] {
+            start(&mut c);
+            let mut frames = vec![c];
+            c.look_through(shot);
+            run(&mut c, if back { 240 } else { 10 }, &mut frames);
+            if back {
+                c.go_free();
+                run(&mut c, 10, &mut frames);
+            }
+            let before = c;
+            c.drag(0.0, 0.0);
+            assert!(c.through.is_none() && !c.looking());
+            assert!(c.eye().distance(before.eye()) < 1e-6 && c.fov_y == before.fov_y, "the grab itself moves nothing");
+            run(&mut c, 120, &mut frames);
+            let (e, a, f) = worst_step(&frames);
+            assert!(e < 0.4 && a < 0.4 && f < 0.05, "back {back}: {e} m, {a} rad, {f} rad");
+        }
     }
 
     #[test]

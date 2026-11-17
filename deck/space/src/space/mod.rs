@@ -19,6 +19,7 @@ pub mod backdrop;
 pub mod being;
 pub mod camera;
 pub mod decks;
+pub mod dop;
 pub mod feel;
 pub mod glb;
 #[cfg(feature = "gpu")]
@@ -78,6 +79,11 @@ impl Join {
 const RING: f32 = 3.2;
 
 /// where the camera looks: a little above the body's centre, so the head is in the picture
+/// a view as the orbit camera looks through it
+fn shot_of(v: &dop::View) -> Shot {
+    Shot { target: v.target, yaw: v.yaw, pitch: v.pitch, distance: v.distance, fov_y: v.lens.fov_y(), ortho: v.lens.ortho().then_some(v.lens.size) }
+}
+
 fn aim(b: &Being) -> Vec3 {
     b.anchor + Vec3::Y * b.look.size * 0.45
 }
@@ -292,6 +298,8 @@ pub struct Space {
     pub sync: sync::Board,
     pub backdrop: backdrop::Backdrop,
     pub layers: layers::Layers,
+    /// the scene's primary camera playing: its shots and moves
+    pub dop: dop::Dop,
 }
 
 /// Called on the loader thread with a set's file before it is read: the sync (sync.rs) returns once that file is
@@ -430,6 +438,7 @@ impl Space {
             sync: sync::Board::default(),
             backdrop: backdrop::Backdrop::default(),
             layers: layers::Layers::default(),
+            dop: dop::Dop::default(),
         };
         space.place_cast();
         space
@@ -441,15 +450,20 @@ impl Space {
         self.backdrop = backdrop::Backdrop { ground, ..backdrop::Backdrop::new(background, &mut self.portraits) };
     }
 
+    /// what the played scene sets beside its graph: its stage (background, layers) and its camera
+    pub fn set_scene(&mut self, scene: &crate::scene::Scene) {
+        self.set_stage(&scene.stage);
+        self.set_camera(None, scene.camera.clone());
+    }
+
     /// the stage's parallax layers (the played scene's `stage.layers`), their pictures asked for
     pub fn set_layers(&mut self, layers: &[crate::Layer]) {
         self.layers = layers::Layers::new(layers, &mut self.portraits);
     }
 
-    /// The layers' planes in the 3D this frame: fitted to the scene's camera, far to near from the eye (into `out`,
-    /// cleared first). `empty`: the empty places too (an editor outlines them).
+    /// The layers' planes in the 3D this frame: fitted to the scene's primary camera, far to near from the eye (into
+    /// `out`, cleared first). `empty`: the empty places too (an editor outlines them).
     pub fn layer_planes(&self, empty: bool, out: &mut Vec<layers::Plane>) {
-        // TODO(#582): the scene's primary camera once shots exist
         let shot = self.scene_camera();
         self.layers.planes(&shot, self.view.0 / self.view.1.max(1.0), &self.portraits, self.camera.eye(), empty, out);
     }
@@ -591,7 +605,12 @@ impl Space {
         // the focus follows the zoom: the whole being far out, its head close up (owner 2026-10-31) – or, with a knob
         // selected, that knob (#224: "zooming then brings you closer to that point"); the camera glides there – held
         // still while a hand is on a knob (a press selects it: the knob would slide away under the finger)
-        if !self.camera.free && !matches!(self.drag, Drag::Knob { .. } | Drag::Hold) {
+        if self.camera.take_touched() {
+            self.dop.director.interrupt();
+            self.dop.viewing = dop::Viewing::Free;
+        }
+        let directed = self.direct(&dop::Clock::of(time, beat));
+        if !directed && !self.dop.director.active() && !self.camera.free && !matches!(self.drag, Drag::Knob { .. } | Drag::Hold) {
             self.camera.goal = self.focus_goal(self.camera.distance);
         }
         self.camera.step(dt);
@@ -657,22 +676,122 @@ impl Space {
         self.camera.idle = 0.0;
     }
 
-    /// The scene's primary camera: the view a deck opens the scene with – the space node's yaw, pitch and distance,
-    /// aimed as a deck aims. TODO(#582): the scene's own camera and its shots.
+    /// The scene's primary camera: the shot the scene opens with; a scene without shots: head-on (yaw 0) at the stage's
+    /// centre, level at the camera's eye height (adult unless the scene says), from the space node's distance.
     pub fn scene_camera(&self) -> Shot {
-        let (yaw, pitch, distance) = self.camera.home();
-        let target = self.cards_middle().unwrap_or_else(|| {
-            let (body, head) = self.being.focus();
-            let s = self.being.look.size;
-            camera::focus_target(body, head, distance, s * FOCUS_NEAR, s * FOCUS_FAR)
-        });
-        Shot { target, yaw, pitch, distance, fov_y: camera::FOV_Y }
+        if let Some(s) = self.dop.camera.opening() {
+            return shot_of(&dop::View::of_shot(s));
+        }
+        let (_, _, distance) = self.camera.home();
+        let centre = self.stage_centre();
+        let target = centre + Vec3::Y * self.dop.camera.height;
+        let mut shot = shot_of(&dop::View { target, yaw: 0.0, pitch: 0.0, distance, lens: self.dop.camera.lens });
+        if self.dop.camera == crate::scene_camera::SceneCamera::default() {
+            shot.fov_y = camera::FOV_Y;
+        }
+        shot
+    }
+
+    /// the stage's centre on its floor: the middle of the cast's feet across, else under the scene's being
+    pub fn stage_centre(&self) -> Vec3 {
+        let floor = self.floor_point();
+        if self.cast.is_empty() {
+            return Vec3::new(self.being.anchor.x, floor.y, self.being.anchor.z);
+        }
+        let (lo, hi) = self.cast.iter().fold((Vec3::splat(f32::MAX), Vec3::splat(f32::MIN)), |(lo, hi), c| (lo.min(c.feet), hi.max(c.feet)));
+        Vec3::new((lo.x + hi.x) * 0.5, floor.y, (lo.z + hi.z) * 0.5)
     }
 
     /// the view snaps to the scene's camera and holds it until a hand moves it
     pub fn look_through_scene(&mut self) {
+        self.dop.director.interrupt();
         let shot = self.scene_camera();
         self.camera.look_through(shot);
+        self.dop.viewing = dop::Viewing::Primary;
+    }
+
+    /// an eased glide back to the free view the camera left; a move playing stops where it is
+    pub fn look_free(&mut self) {
+        self.dop.director.interrupt();
+        self.camera.go_free();
+        self.dop.viewing = dop::Viewing::Free;
+    }
+
+    /// what the stage looks through now
+    pub fn viewing(&self) -> &dop::Viewing {
+        &self.dop.viewing
+    }
+
+    /// An editor opens a scene on its camera: the view is there at once and holds it until a hand moves it – the same
+    /// view however the stage was looked at before.
+    pub fn open_on_scene_camera(&mut self) {
+        let home = self.camera.home();
+        let (free, auto) = (self.camera.free, self.camera.auto);
+        self.camera = Orbit::new(self.camera.target, home.0, home.1, home.2);
+        (self.camera.free, self.camera.auto) = (free, auto);
+        let shot = self.scene_camera();
+        let c = &mut self.camera;
+        c.max_distance = c.max_distance.max(shot.distance);
+        (c.target, c.goal, c.yaw, c.pitch, c.distance, c.want, c.fov_y) = (shot.target, shot.target, shot.yaw, shot.pitch, shot.distance, shot.distance, shot.fov_y);
+        c.look_through(shot);
+        self.dop.viewing = dop::Viewing::Primary;
+    }
+
+    /// The scene's camera (`scene`: its place, `scene:<id>`), as the played scene carries it. A deck (not an editor's free
+    /// view) opens on its first shot.
+    pub fn set_camera(&mut self, scene: Option<&str>, camera: Option<crate::scene_camera::SceneCamera>) {
+        self.dop = dop::Dop::new(scene.map(String::from), camera.unwrap_or_default());
+        if !self.camera.free {
+            self.open_on_scene_camera();
+        }
+    }
+
+    /// the view glides to the shot `id` and looks through it until a hand moves it
+    pub fn look_through_shot(&mut self, id: &str) {
+        let Some(v) = self.dop.view(id) else { return };
+        self.dop.director.interrupt();
+        self.dop.current = Some(id.to_string());
+        self.camera.look_through(shot_of(&v));
+        self.dop.viewing = dop::Viewing::Shot(id.to_string());
+    }
+
+    /// where the ray through view pixel (`x`, `y`) meets the level `height` in front of the eye (a track point dragged)
+    pub fn level_point(&self, x: f32, y: f32, height: f32) -> Option<Vec3> {
+        let ray = self.camera.ray(x, y, self.view.0, self.view.1);
+        let t = (height - ray.origin.y) / ray.dir.y;
+        (ray.dir.y.abs() > 1e-4 && t > 0.0).then(|| ray.origin + ray.dir * t)
+    }
+
+    /// An address action for the scene's camera (`scene:nave > shot:wide`, `> move:intro`): whether it was one.
+    pub fn camera_word(&mut self, address: &str, action: &str) -> bool {
+        match self.dop.word(address, action) {
+            None => false,
+            Some(Ok(said)) => {
+                tracing::info!("{address} > {said}");
+                true
+            }
+            Some(Err(e)) => {
+                tracing::warn!("{address} > {action}: {e}");
+                true
+            }
+        }
+    }
+
+    /// the moves' view this frame onto the camera; whether one played
+    fn direct(&mut self, clock: &dop::Clock) -> bool {
+        if !self.dop.director.active() {
+            return false;
+        }
+        let now = dop::View::of(&self.camera);
+        let cast: Vec<(String, Vec3)> = if self.dop.camera.moves.iter().any(|m| m.spec.follow.is_some()) { self.cast.iter().map(|c| (c.holder.clone(), self.member_sphere(c).0)).collect() } else { Vec::new() };
+        let subject = |holder: &str| cast.iter().find(|(h, _)| h == holder).map(|(_, at)| *at);
+        match self.dop.step(clock, now, &subject) {
+            Some(v) => {
+                v.apply(&mut self.camera);
+                true
+            }
+            None => false,
+        }
     }
 
     fn focus_goal(&self, distance: f32) -> Vec3 {
@@ -739,12 +858,17 @@ impl Space {
                 }
                 let base = spot.unwrap_or_else(|| Vec3::new((model.min.x + model.max.x) * 0.5, model.min.y, (model.min.z + model.max.z) * 0.5));
                 self.being.anchor = self.at.unwrap_or(base + Vec3::Y * self.lift);
-                self.camera.look_at(aim(&self.being));
+                if !self.camera.looking() && !self.dop.director.active() {
+                    self.camera.look_at(aim(&self.being));
+                }
                 self.set_status = format!("SET {}K TRIS", model.triangles() / 1000);
                 self.spots = model.spots.clone();
                 self.model = Some(model);
                 self.set_failed = false;
                 self.place_cast();
+                if self.camera.looking() && self.dop.viewing == dop::Viewing::Primary {
+                    self.look_through_scene();
+                }
             }
             Err(e) => {
                 tracing::error!("set: {e:#}");
@@ -814,6 +938,7 @@ impl Space {
                 In::Synced { client, synced } => self.sync.answer(client, synced),
                 // a story this deck did not ask for (the conductor hears every reader's) is not its scene's
                 In::Story(_) if !self.story => {}
+                In::Address { address, action } if self.camera_word(&address, &action) => {}
                 cast @ (In::Address { .. } | In::Story(_)) => {
                     if self.cast_in.len() == CAST_CAP {
                         self.cast_in.pop_front();

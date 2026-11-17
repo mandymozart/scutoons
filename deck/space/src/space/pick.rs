@@ -403,8 +403,12 @@ mod tests {
         space.look_through_scene();
         settle(&mut space, &mut ctl);
         assert!(space.camera.arrived());
-        assert!(space.camera.eye().distance(deck.eye()) < 0.01, "{:?} {:?}", space.camera.eye(), deck.eye());
-        assert!(space.camera.target.distance(deck.target) < 0.01);
+        let primary = space.scene_camera();
+        let mut want = deck;
+        (want.target, want.yaw, want.pitch, want.distance) = (primary.target, primary.yaw, primary.pitch, primary.distance);
+        assert!(space.camera.eye().distance(want.eye()) < 0.01, "{:?} {:?}", space.camera.eye(), want.eye());
+        assert!(space.camera.target.distance(primary.target) < 0.01);
+        assert!(primary.yaw.abs() < 1e-6, "head-on");
         space.camera.pan(40.0, 0.0, 720.0);
         assert_eq!(space.camera.through, None);
     }

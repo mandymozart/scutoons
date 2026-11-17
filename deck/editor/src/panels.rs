@@ -18,13 +18,14 @@ const BR: Corner = Corner::BottomRight;
 
 // The order is the order of growth: an earlier panel leaves a later one the room it asks for, so the ones whose content
 // scrolls well come first and the ones of a fixed size last.
-pub const BUILD: [Spec; 8] = [
+pub const BUILD: [Spec; 9] = [
     spec("tree", "Rig", "tree", "The rig, its tracks and their nodes. In Wire a click goes to that level.", Place::at(TL, 0.0, 0.0)),
     spec("library", "Library", "grid", "Modules and instruments to drop on the stage as a track, characters to open, the assets; filter, related to the rig open.", Place::at(BL, 0.0, 0.0)),
     spec("inspector", "Inspector", "inspector", "What is selected: its values as scrub numbers; the rig picker and Save.", Place::at(TR, 0.0, 0.0)).essential(),
     spec("audio", "Audio", "activity", "The sound card, its inputs and outputs, the map and the test tones.", Place::at(BL, 740.0, 0.0).folded()),
     spec("info", "Info", "info", "What is under the pointer: its name and what it does.", Place::at(BL, 450.0, 0.0)),
     spec("mixer", "Mixer", "sliders", "One strip per track at the level of the tree shown; inside a track its gains.", Place::at(BR, 0.0, 0.0)),
+    spec("dop", "DOP", "camera", "The scene's camera: its lens, its shots, the moves between them and the trolley track.", Place::at(TL, 340.0, 0.0)),
     spec("tools", "Tools", "tool", "The stage's tools: the tool in hand, the view, grid & snap, framing – what this workspace offers.", Place::at(TR, 360.0, 0.0)).inline().essential(),
     spec("settings", "Settings", "settings", "Motion & feedback, sound and the UI size: this machine's, remembered.", Place::at(TR, 0.0, 0.0).closed()),
 ];
