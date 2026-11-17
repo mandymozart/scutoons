@@ -321,6 +321,14 @@ impl Rigs {
         Rigs { api: String::new(), cache: cache.to_path_buf(), subject: subject.to_string(), auto: Autosave::new(version), listing: Listing::Failed(why.to_string()), asked_signed: false, told: true, opening: None, local: None, choices: Vec::new(), outbox: Outbox::none() }
     }
 
+    /// A check run's catalog from `dir`: `rigs.json`, `instruments.json`, `presets.json`, `modules.json`, each the API's
+    /// answer to `/catalog/docs/<kind>` (a missing one = none of that kind).
+    pub fn read_catalog(&mut self, dir: &Path) -> Result<(), String> {
+        let read = |kind: &str| std::fs::read_to_string(dir.join(format!("{kind}.json"))).unwrap_or_else(|_| r#"{ "entries": [] }"#.to_string());
+        self.listing = Listing::Ready(Catalog::parse(&read("rigs"), &read("instruments"), &read("presets"), &read("modules"))?);
+        Ok(())
+    }
+
     /// a check run's rigs ask nothing, so they save nothing
     pub fn saves(&self) -> bool {
         !self.api.is_empty()
