@@ -442,10 +442,17 @@ enum Drag {
 }
 
 /// a port on the screen this frame (logical pixels)
+#[derive(Clone, Copy)]
 struct Mark {
     port: usize,
     x: f32,
     y: f32,
+}
+
+impl Mark {
+    fn distance(&self, (x, y): (f32, f32)) -> f32 {
+        (self.x - x).hypot(self.y - y)
+    }
 }
 
 /// what a typed value goes into
@@ -2633,8 +2640,20 @@ impl App {
                     continue;
                 }
                 self.marks.push(Mark { port: index, x: mx, y: my });
-                let near = (self.cursor.0 - mx).hypot(self.cursor.1 - my) < 110.0;
-                let hover = (self.cursor.0 - mx).hypot(self.cursor.1 - my) < 9.0;
+            }
+            let under = nearest(&self.marks, self.cursor.0, self.cursor.1);
+            let small = font * 0.75;
+            let mut labels: Vec<Rect> = Vec::new();
+            let mut by_cursor: Vec<usize> = (0..self.marks.len()).collect();
+            by_cursor.sort_by(|&a, &b| self.marks[a].distance(self.cursor).total_cmp(&self.marks[b].distance(self.cursor)));
+            for k in by_cursor {
+                let Mark { port: index, x: mx, y: my } = self.marks[k];
+                let q = &self.stage.ports[index];
+                // a dense ring seen from afar: the dots shrink rather than touch
+                let gap = self.marks.iter().enumerate().filter(|(j, _)| *j != k).map(|(_, m)| m.distance((mx, my))).fold(f32::MAX, f32::min);
+                let dot = (gap * 0.4).clamp(2.0, 6.0);
+                let near = self.marks[k].distance(self.cursor) < 110.0;
+                let hover = under == Some(index);
                 let c = if q.input { t.color.bright } else { t.color.accent };
                 let dragging = self.menu.is_some() || self.armed.is_some() || matches!(self.panel.drag, Some(Drag::Cable(_) | Drag::Grab(_)));
                 // what the typeahead still shows, else what the cable in the hand may reach
@@ -2654,15 +2673,19 @@ impl App {
                     ui.ring(mx, my, 11.0, t.color.accent);
                 }
                 if q.input && q.cables.is_empty() {
-                    ui.ring(mx, my, 6.0, c);
+                    ui.ring(mx, my, dot, c);
                 } else {
-                    ui.disc(mx, my, 6.0, c);
+                    ui.disc(mx, my, dot, c);
                 }
+                // the labels nearest the pointer first, none over another
                 if near {
-                    let small = font * 0.75;
                     let w = ui.advance(small) * q.name.chars().count() as f32;
                     let lx = if q.input { mx - w - 10.0 } else { mx + 10.0 };
-                    ui.text(lx, my - small * 0.6, small, &q.name, t.color.bright);
+                    let r = Rect { x: lx, y: my - small * 0.6, w, h: small * 1.2 };
+                    if !labels.iter().any(|o| o.x < r.x + r.w && r.x < o.x + o.w && o.y < r.y + r.h && r.y < o.y + o.h) {
+                        ui.text(lx, my - small * 0.6, small, &q.name, t.color.bright);
+                        labels.push(r);
+                    }
                 }
             }
         }

@@ -213,10 +213,22 @@ pub struct Point {
     pub colour: Option<usize>,
     /// its node's kind: the ports around it
     kind: Kind,
-    /// where it rests when every node shows
+    /// where it rests when every node shows, before a grown ring pushes it clear (`clear_rings`)
     own_rest: Vec3,
+    /// its sphere's radius at the base ring
+    own_radius: f32,
+    /// its port ring at the level shown: the radius (world) and the angle between two dots (`port_ring`)
+    pub reach: f32,
+    step: f32,
     /// not at the level shown (#457)
     hidden: bool,
+}
+
+impl Point {
+    /// how far it reaches out: its sphere or its port ring
+    pub fn extent(&self) -> f32 {
+        self.radius.max(self.reach)
+    }
 }
 
 /// how much a bounce of 1 swells the body
@@ -224,6 +236,21 @@ const BOUNCE: f32 = 0.06;
 
 /// how far a node's ports sit from its point, against the being's size
 const PORT_REACH: f32 = 0.16;
+/// the arc between two port dots, against the being's size: the base ring's half a radian
+const PORT_ARC: f32 = PORT_REACH * 0.5;
+/// the widest a port ring grows, against the being's size
+const PORT_REACH_MAX: f32 = 2.5;
+/// the air between a grown node and its neighbours, against the being's size
+const RING_GAP: f32 = 0.3;
+
+/// A node's port ring for `n` ports on its busier side (inputs on the left half, outputs on the right): its radius and the
+/// angle between two dots. Up to what fits the base radius nothing changes; past it the ring grows so the dots keep
+/// their spacing, up to PORT_REACH_MAX (beyond, they close up within their half).
+pub fn port_ring(size: f32, n: usize) -> (f32, f32) {
+    let (base, arc) = (size * PORT_REACH, size * PORT_ARC);
+    let r = (n as f32 * arc / std::f32::consts::PI).clamp(base, size * PORT_REACH_MAX);
+    (r, (arc / r).min(std::f32::consts::PI / n.max(1) as f32))
+}
 
 /// One level of a tree of nodes, as the body shows it (#457): the rest is not drawn.
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -247,14 +274,60 @@ struct Outlet {
 
 /// where the `i`th of a point's `n` inputs or outputs sits this frame: around the point in the plane facing the eye, inputs
 /// left, outputs right
-fn port_at(p: &Point, eye: Option<Vec3>, reach: f32, i: usize, n: usize, input: bool) -> Vec3 {
-    const STEP: f32 = 0.5;
+fn port_at(p: &Point, eye: Option<Vec3>, i: usize, n: usize, input: bool) -> Vec3 {
     let to_eye = eye.and_then(|e| (e - p.pos).try_normalize()).unwrap_or(Vec3::Z);
     let right = Vec3::Y.cross(to_eye).try_normalize().unwrap_or(Vec3::X);
     let up = to_eye.cross(right);
     let (base, side) = if input { (std::f32::consts::PI, -1.0) } else { (0.0, 1.0) };
-    let angle = base + side * (i as f32 - (n as f32 - 1.0) * 0.5) * STEP;
-    p.pos + (right * angle.cos() + up * angle.sin()) * reach
+    let angle = base + side * (i as f32 - (n as f32 - 1.0) * 0.5) * p.step;
+    p.pos + (right * angle.cos() + up * angle.sin()) * p.reach
+}
+
+/// Push every node whose ring grew out from the body's middle until it keeps clear of every other shown point and the
+/// `fixed` spheres (the core, the head), the biggest first; a grown point at the middle pushes the others out instead.
+/// Points whose rings did not grow stay where they are.
+fn clear_rings(points: &mut [Point], size: f32, fixed: &[(Vec3, f32)]) {
+    let base = size * PORT_REACH;
+    let gap = size * RING_GAP;
+    let mut grown: Vec<usize> = (0..points.len()).filter(|&i| !points[i].hidden && points[i].reach > base * 1.001).collect();
+    grown.sort_by(|&a, &b| points[b].reach.total_cmp(&points[a].reach));
+    let (middle, out): (Vec<usize>, Vec<usize>) = grown.into_iter().partition(|&i| points[i].rest == Vec3::ZERO);
+    for i in middle {
+        let me = points[i].extent();
+        for (j, q) in points.iter_mut().enumerate() {
+            if j == i || q.hidden || q.rest == Vec3::ZERO {
+                continue;
+            }
+            let need = me + q.extent() + gap;
+            if q.rest.length() < need {
+                q.rest = q.rest.normalize() * need;
+            }
+        }
+    }
+    for i in out {
+        let dir = points[i].rest.normalize();
+        let mut t = points[i].rest.length();
+        let me = points[i].extent();
+        let others: Vec<(Vec3, f32)> = points.iter().enumerate().filter(|(j, q)| *j != i && !q.hidden).map(|(_, q)| (q.rest, q.extent())).chain(fixed.iter().copied()).collect();
+        // each pass only moves outward; a few settle it
+        for _ in 0..16 {
+            let mut moved = false;
+            for &(q, e) in &others {
+                let need = me + e + gap;
+                if (dir * t - q).length() >= need {
+                    continue;
+                }
+                let along = dir.dot(q);
+                let off = (q - dir * along).length_squared();
+                t = t.max(along + (need * need - off).max(0.0).sqrt());
+                moved = true;
+            }
+            if !moved {
+                break;
+            }
+        }
+        points[i].rest = dir * t;
+    }
 }
 
 /// a hose's ends at a level: the points they stand on, the outlet's (i, n) where the level shows one
@@ -593,7 +666,8 @@ impl Being {
                 Domain::Video => 0.0,
                 Domain::Control => -0.18,
             };
-            points.push(Point { node: i, rest, pos: rest, radius, tint, phase: h * TAU, flash: 0.0, level: 0.0, colour: None, kind: graph.nodes[i].kind, own_rest: rest, hidden: false });
+            let (reach, step) = port_ring(s, 0);
+            points.push(Point { node: i, rest, pos: rest, radius, tint, phase: h * TAU, flash: 0.0, level: 0.0, colour: None, kind: graph.nodes[i].kind, own_rest: rest, own_radius: radius, reach, step, hidden: false });
         }
         let point_of = |node: usize| points.iter().position(|p| p.node == node).expect("a point per node");
         let hoses = graph
@@ -799,7 +873,7 @@ impl Being {
         let (mut lo, mut hi) = (head - r, head + r);
         for p in &self.points {
             let q = self.anchor + p.rest;
-            (lo, hi) = (lo.min(q - Vec3::splat(p.radius)), hi.max(q + Vec3::splat(p.radius)));
+            (lo, hi) = (lo.min(q - Vec3::splat(p.extent())), hi.max(q + Vec3::splat(p.extent())));
         }
         ((lo + hi) * 0.5, head)
     }
@@ -829,14 +903,13 @@ impl Being {
 
     /// where a node's port sits this frame (world); at a level only the ports it shows
     pub fn port_world(&self, node: usize, port: &str, input: bool) -> Option<Vec3> {
-        let reach = self.look.size * PORT_REACH;
         if let Some(outlets) = &self.outlets {
             let o = outlets.iter().find(|o| o.node == node && o.input == input && o.port == port)?;
-            return Some(port_at(&self.points[o.point], self.eye, reach, o.i, o.n, input));
+            return Some(port_at(&self.points[o.point], self.eye, o.i, o.n, input));
         }
         let p = self.points.iter().find(|p| p.node == node)?;
         let (i, n) = if input { (p.kind.input(port)?, p.kind.inputs().len()) } else { (p.kind.output(port)?, p.kind.outputs().len()) };
-        Some(port_at(p, self.eye, reach, i, n, input))
+        Some(port_at(p, self.eye, i, n, input))
     }
 
     /// a node's point this frame, if the level shows it
@@ -845,8 +918,22 @@ impl Being {
     }
 
     /// Show one level of the tree (#457), or every node. A group collapsed into one point rests at the middle of its
-    /// members; what is not at the level is not drawn and cannot be picked.
+    /// members; what is not at the level is not drawn and cannot be picked. At a level each point's port ring is sized by
+    /// the ports it shows, and a grown one keeps its neighbours clear; every node (the deck's body, no port dots) keeps
+    /// the base ring.
     pub fn show_level(&mut self, level: Option<&Level>) {
+        self.place_level(level);
+        let s = self.look.size;
+        for (i, p) in self.points.iter_mut().enumerate() {
+            let n = self.outlets.as_ref().and_then(|outlets| outlets.iter().filter(|o| o.point == i).map(|o| o.n).max()).unwrap_or(0);
+            (p.reach, p.step) = port_ring(s, n);
+            // the sphere grows with the ring, gentler: a node, not a planet
+            p.radius = p.own_radius * (p.reach / (s * PORT_REACH)).sqrt();
+        }
+        clear_rings(&mut self.points, s, &[(Vec3::ZERO, self.core_radius), (Vec3::Y * s * 1.3, self.head.radius)]);
+    }
+
+    fn place_level(&mut self, level: Option<&Level>) {
         for p in &mut self.points {
             p.hidden = false;
             p.rest = p.own_rest;
@@ -959,14 +1046,13 @@ impl Being {
         }
         for h in &mut self.hoses {
             // held for an editor, the hoses plug into the ports (owner 2026-11-09: "those tubes should go between ins and outs")
-            let reach = s * PORT_REACH;
             let end = |point: usize, slot: Option<(usize, usize)>, port: usize, input: bool, level: bool| -> Vec3 {
                 let p = &self.points[point];
                 let all = if input { p.kind.inputs().len() } else { p.kind.outputs().len() };
                 match (slot, level) {
-                    (Some((i, n)), _) => port_at(p, self.eye, reach, i, n, input),
+                    (Some((i, n)), _) => port_at(p, self.eye, i, n, input),
                     (None, true) => p.pos,
-                    (None, false) => port_at(p, self.eye, reach, port, all, input),
+                    (None, false) => port_at(p, self.eye, port, all, input),
                 }
             };
             let level = h.ends.is_some();
@@ -2049,6 +2135,66 @@ mod tests {
         assert!(b.port_world(l.from.0, "no such port", false).is_none());
         b.show_level(None);
         assert!(b.points.iter().all(|p| !p.hidden && p.rest == p.own_rest), "and back");
+    }
+
+    #[test]
+    fn a_port_ring_keeps_its_spacing_and_grows_past_what_fits() {
+        let s = 0.5;
+        for n in 0..=6 {
+            assert_eq!(port_ring(s, n), (s * PORT_REACH, 0.5), "{n} fit the base ring");
+        }
+        for n in [7, 12, 45, 91] {
+            let (r, step) = port_ring(s, n);
+            assert!(r > s * PORT_REACH, "{n} grow it");
+            assert!((r * step - s * PORT_ARC).abs() < 1e-5, "{n}: the same arc between dots");
+            assert!(step * n as f32 <= std::f32::consts::PI + 1e-5, "{n}: one side stays in its half");
+        }
+        let (r, step) = port_ring(s, 1000);
+        assert_eq!(r, s * PORT_REACH_MAX, "a ceiling");
+        assert!(step * 1000.0 <= std::f32::consts::PI + 1e-4, "past it the dots close up, never wrap");
+    }
+
+    /// a level showing node `big`'s 91 inputs and node `small`'s 3 (fake names: a level's outlets are names)
+    fn many_ports(b: &mut Being, g: &Graph, big: usize, small: usize) -> Vec<String> {
+        let names: Vec<String> = (0..91).map(|k| format!("p{k}")).collect();
+        let mut outlets: Vec<(usize, String, bool)> = names.iter().map(|n| (big, n.clone(), true)).collect();
+        outlets.extend((0..3).map(|k| (small, format!("q{k}"), true)));
+        b.show_level(Some(&Level { shown: (0..g.nodes.len()).map(Some).collect(), outlets }));
+        names
+    }
+
+    #[test]
+    fn a_node_with_many_ports_grows_its_ring_and_its_neighbours_keep_clear() {
+        let g = graph(SCENE);
+        let mut b = Being::new(&g, &Look::default());
+        let c = Table::new(&g);
+        let core = b.core_point;
+        let big = (0..b.points.len()).find(|&i| Some(i) != core).unwrap();
+        let small = (0..b.points.len()).find(|&i| Some(i) != core && i != big).unwrap();
+        let (big_node, small_node) = (b.points[big].node, b.points[small].node);
+        let before: Vec<(Vec3, f32)> = b.points.iter().map(|p| (p.rest, p.radius)).collect();
+        let names = many_ports(&mut b, &g, big_node, small_node);
+        b.hold(true, true);
+        b.update(0.016, 1.0, &Local { ctl: &c, meter: &|_, _| 0.0 }, &now(8.0));
+        let s = b.look.size;
+        let p = &b.points[big];
+        assert!(p.reach > s * PORT_REACH * 5.0 && p.radius > before[big].1 * 2.0, "the ring and the sphere grew: {} {}", p.reach, p.radius);
+        let dots: Vec<Vec3> = names.iter().map(|n| b.port_world(big_node, n, true).expect("a dot")).collect();
+        for w in dots.windows(2) {
+            assert!((w[0].distance(w[1]) - s * PORT_ARC).abs() < s * PORT_ARC * 0.02, "evenly spaced: {}", w[0].distance(w[1]));
+        }
+        for (k, d) in dots.iter().enumerate() {
+            assert!((d.distance(p.pos) - p.reach).abs() < 1e-4, "on the ring");
+            let nearest = dots.iter().enumerate().filter(|(j, _)| *j != k).map(|(_, e)| e.distance(*d)).fold(f32::MAX, f32::min);
+            assert!(nearest > s * PORT_ARC * 0.95, "no two dots touch, a pick finds the right one");
+        }
+        assert_eq!(b.points[small].reach, s * PORT_REACH, "three ports: the base ring");
+        assert_eq!((b.points[small].rest, b.points[small].radius), before[small], "and where it was");
+        for (j, q) in b.points.iter().enumerate().filter(|(j, _)| *j != big) {
+            assert!(p.rest.distance(q.rest) >= p.extent() + q.extent(), "point {j} keeps clear of the grown ring");
+        }
+        b.show_level(None);
+        assert_eq!(b.points.iter().map(|p| (p.rest, p.radius)).collect::<Vec<_>>(), before, "the deck's body is as before");
     }
 
     #[test]
