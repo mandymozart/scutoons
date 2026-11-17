@@ -281,6 +281,31 @@ fn a_scene_opens_on_its_camera_the_same_however_the_stage_was_looked_at() {
         View::of(&s.camera)
     };
     let (a, b) = (open(&doc, 0.0), open(&doc, 1.0));
+    {
+        let mut d2 = doc.clone();
+        d2.camera = Some(camera());
+        let scene = resolve(&d2, &Default::default(), true, &core_rigs, &no_sets).unwrap().scene;
+        let g = crate::graph::Graph::build(&scene).unwrap();
+        let mut s = crate::space::Space::new(&g, g.first(crate::graph::Kind::Space).unwrap(), &scene.being, std::path::Path::new("/nowhere"), Portraits::manual());
+        s.camera.free = true;
+        s.set_camera(Some("scene:duet"), scene.camera.clone());
+        s.set_view(1280.0, 720.0);
+        s.open_on_scene_camera();
+        s.look_through_shot("close");
+        let mut ctl = Table::new(&g);
+        for k in 0..120 {
+            s.update(1.0 / 60.0, k as f32 / 60.0, &mut ctl, &tempo::Now::default(), &|_, _| 0.0);
+        }
+        let close = View::of_shot(&camera().shots[1]);
+        assert!(View::of(&s.camera).gap(&close) < 1e-3, "glided into the shot: {:?} vs {close:?}", View::of(&s.camera));
+        assert_eq!(s.viewing(), &Viewing::Shot("close".into()));
+        s.look_free();
+        for k in 0..120 {
+            s.update(1.0 / 60.0, 2.0 + k as f32 / 60.0, &mut ctl, &tempo::Now::default(), &|_, _| 0.0);
+        }
+        assert!(View::of(&s.camera).gap(&View::of_shot(&camera().shots[0])) < 1e-3, "back to the free view it left (the opening shot): {:?} {:?}", View::of(&s.camera), s.camera);
+        assert!(!s.camera.looking());
+    }
     assert!(a.gap(&b) < 1e-4, "{a:?} vs {b:?}");
     doc.camera = Some(camera());
     let v = open(&doc, 1.0);

@@ -586,6 +586,7 @@ impl Space {
         // still while a hand is on a knob (a press selects it: the knob would slide away under the finger)
         if self.camera.take_touched() {
             self.dop.director.interrupt();
+            self.dop.viewing = dop::Viewing::Free;
         }
         let directed = self.direct(&dop::Clock::of(time, beat));
         if !directed && !self.dop.director.active() && !self.camera.free && !matches!(self.drag, Drag::Knob { .. } | Drag::Hold) {
@@ -654,11 +655,10 @@ impl Space {
         self.camera.idle = 0.0;
     }
 
-    /// The scene's primary camera where it stands: the shot it went to last, else the one the scene opens with; a scene
-    /// without shots: the space node's yaw, pitch and distance through the camera's lens, aimed as a deck aims.
+    /// The scene's primary camera: the shot the scene opens with; a scene without shots: the space node's yaw, pitch and
+    /// distance through the camera's lens, aimed as a deck aims.
     pub fn scene_camera(&self) -> Shot {
-        let taken = self.dop.current.as_deref().and_then(|id| self.dop.camera.shot(id));
-        if let Some(s) = taken.or_else(|| self.dop.camera.opening()) {
+        if let Some(s) = self.dop.camera.opening() {
             return shot_of(&dop::View::of_shot(s));
         }
         let (yaw, pitch, distance) = self.camera.home();
@@ -679,6 +679,19 @@ impl Space {
         self.dop.director.interrupt();
         let shot = self.scene_camera();
         self.camera.look_through(shot);
+        self.dop.viewing = dop::Viewing::Primary;
+    }
+
+    /// an eased glide back to the free view the camera left; a move playing stops where it is
+    pub fn look_free(&mut self) {
+        self.dop.director.interrupt();
+        self.camera.go_free();
+        self.dop.viewing = dop::Viewing::Free;
+    }
+
+    /// what the stage looks through now
+    pub fn viewing(&self) -> &dop::Viewing {
+        &self.dop.viewing
     }
 
     /// An editor opens a scene on its camera: the view is there at once and holds it until a hand moves it – the same
@@ -689,10 +702,11 @@ impl Space {
         self.camera = Orbit::new(self.camera.target, home.0, home.1, home.2);
         (self.camera.free, self.camera.auto) = (free, auto);
         let shot = self.scene_camera();
-        self.camera.look_through(shot);
         let c = &mut self.camera;
         c.max_distance = c.max_distance.max(shot.distance);
         (c.target, c.goal, c.yaw, c.pitch, c.distance, c.want, c.fov_y) = (shot.target, shot.target, shot.yaw, shot.pitch, shot.distance, shot.distance, shot.fov_y);
+        c.look_through(shot);
+        self.dop.viewing = dop::Viewing::Primary;
     }
 
     /// The scene's camera (`scene`: its place, `scene:<id>`), as the played scene carries it. A deck (not an editor's free
@@ -711,6 +725,7 @@ impl Space {
         self.dop.director.interrupt();
         self.dop.current = Some(id.to_string());
         self.camera.look_through(shot_of(&v));
+        self.dop.viewing = dop::Viewing::Shot(id.to_string());
     }
 
     /// where the ray through view pixel (`x`, `y`) meets the level `height` in front of the eye (a track point dragged)
@@ -824,7 +839,7 @@ impl Space {
                 self.model = Some(model);
                 self.set_failed = false;
                 self.place_cast();
-                if self.camera.through.is_some() {
+                if self.camera.looking() && self.dop.viewing == dop::Viewing::Primary {
                     self.look_through_scene();
                 }
             }

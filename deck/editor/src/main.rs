@@ -896,9 +896,40 @@ impl App {
             tools::Press::View(two_d) => self.show.press(show::Hit::View(two_d)),
             tools::Press::Grid => self.grid.toggle(),
             tools::Press::Frame => self.stage.space.frame_all(),
-            tools::Press::Look(true) => self.stage.space.look_through_scene(),
-            tools::Press::Look(false) => self.stage.space.camera.leave(),
+            tools::Press::Look(l) => self.look_to(l),
             tools::Press::Menu(_) => {}
+        }
+    }
+
+    /// what the stage looks through now, as the camera switcher shows it
+    fn looking(&self) -> tools::Look {
+        let space = &self.stage.space;
+        match space.viewing() {
+            deck_space::space::dop::Viewing::Free => tools::Look::Free,
+            deck_space::space::dop::Viewing::Primary => tools::Look::Primary,
+            deck_space::space::dop::Viewing::Shot(id) => space.dop.camera.shots.iter().position(|s| s.id == *id).map_or(tools::Look::Primary, tools::Look::Shot),
+        }
+    }
+
+    /// the camera switcher: an eased glide to the free view, the primary camera or a shot; previous / next walk them
+    fn look_to(&mut self, l: tools::Look) {
+        let n = self.stage.space.dop.camera.shots.len();
+        let l = match l {
+            tools::Look::Prev | tools::Look::Next => self.looking().step(n, l == tools::Look::Next),
+            l => l,
+        };
+        let space = &mut self.stage.space;
+        match l {
+            tools::Look::Free | tools::Look::Prev | tools::Look::Next => space.look_free(),
+            tools::Look::Primary => space.look_through_scene(),
+            tools::Look::Shot(i) => {
+                if let Some(id) = space.dop.camera.shots.get(i).map(|s| s.id.clone()) {
+                    space.look_through_shot(&id);
+                    if let Some(v) = self.scene.as_mut() {
+                        v.dop.shot = Some(i);
+                    }
+                }
+            }
         }
     }
 
@@ -2328,6 +2359,7 @@ impl App {
         let pill = self.save_pill();
         let account = self.auth.state();
         let fps = self.fps();
+        let look = self.looking();
         let (Some(window), Some(gpu), Some(ui)) = (self.window.clone(), self.gpu.as_mut(), self.ui.as_mut()) else { return };
         self.stage.space.being.hold(self.wire, false);
         // Wire shows a level of the tree, Play every node
@@ -2389,9 +2421,11 @@ impl App {
         let (stage_x, top, stage_w, stage_h) = (0.0, 0.0, wf, hf);
         let bar_bottom = bar::bottom(t);
         let open = Some((t.size.rem(22.0), settings::height(t)));
+        self.tools.shots = self.stage.space.dop.camera.shots.iter().map(|s| s.id.clone()).collect();
+        let shots = &self.tools.shots;
         for (p, ws) in [(&mut self.build, show::Workspace::Build), (&mut self.module.panels, show::Workspace::Module), (&mut self.show.show_panels, show::Workspace::Show), (&mut self.show.perform_panels, show::Workspace::Perform)] {
             p.settings = open;
-            p.tools = Some(tools::size(t, ws));
+            p.tools = Some(tools::size(t, ws, shots));
         }
         let work_start = Instant::now();
         let mut enc = gpu.device.create_command_encoder(&Default::default());
@@ -2696,11 +2730,15 @@ impl App {
                 self.panel.hits.push((Rect { x: x - 9.0, y: y - 9.0, w: 18.0, h: 18.0 }, Hit::Axis(Some(a))));
             }
             self.panel.hits.push((Rect { x: gx - R - 12.0, y: gy - R - 12.0, w: 2.0 * (R + 12.0), h: 2.0 * (R + 12.0) }, Hit::Axis(None)));
-            if self.stage.space.camera.through.is_some() {
+            let label = match self.stage.space.viewing() {
+                _ if !self.stage.space.camera.looking() => None,
+                deck_space::space::dop::Viewing::Shot(id) => Some(format!("SHOT {}", id.to_uppercase())),
+                _ => Some("PRIMARY CAMERA".to_string()),
+            };
+            if let Some(label) = label {
                 let small = font * 0.75;
-                let label = "PRIMARY CAMERA";
                 let w = ui.advance(small) * label.chars().count() as f32;
-                ui.text(gx - w * 0.5, gy + R + 12.0 + small * 0.4, small, label, t.color.accent);
+                ui.text(gx - w * 0.5, gy + R + 12.0 + small * 0.4, small, &label, t.color.accent);
             }
         }
         // the rig's tree: the rig, its tracks, the nodes of the one entered
@@ -2977,7 +3015,7 @@ impl App {
         {
             let cursor = self.cursor;
             let ws = self.workspace;
-            let state = tools::State { tool: self.tools.tool, two_d: self.show.two_d, grid: self.grid.settings().grid, camera: self.stage.space.camera.through.is_some() };
+            let state = tools::State { tool: self.tools.tool, two_d: self.show.two_d, grid: self.grid.settings().grid, look };
             let panels = match ws {
                 show::Workspace::Build => &mut self.build,
                 show::Workspace::Module => &mut self.module.panels,
@@ -3231,6 +3269,8 @@ impl ApplicationHandler for App {
                         self.up_to(self.stage.path.len() - 1);
                     } else if self.scene.as_ref().is_some_and(|v| v.inside.is_some()) {
                         self.scene_up();
+                    } else if self.looking() != tools::Look::Free || self.stage.space.dop.director.active() {
+                        self.look_to(tools::Look::Free);
                     } else {
                         el.exit();
                     }
@@ -3252,6 +3292,8 @@ impl ApplicationHandler for App {
                     self.remove_selected();
                 } else if let Some(tool) = (event.state == ElementState::Pressed && self.workspace == show::Workspace::Build && !self.mods.control_key()).then(|| if let Key::Character(c) = &event.logical_key { tools::tool_key(c) } else { None }).flatten() {
                     self.tools.tool = tool;
+                } else if let Some(l) = (event.state == ElementState::Pressed && !self.mods.control_key()).then(|| tools::look_key(&event.logical_key, self.stage.space.dop.camera.shots.len())).flatten() {
+                    self.look_to(l);
                 } else if event.state == ElementState::Pressed && event.logical_key == Key::Character("f".into()) {
                     self.stage.space.frame_all();
                 } else if event.state == ElementState::Pressed && event.logical_key == Key::Named(NamedKey::Tab) {

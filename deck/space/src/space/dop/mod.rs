@@ -285,6 +285,15 @@ fn aimed(c: &Cue, subject: Subject) -> View {
     }
 }
 
+/// What the stage looks through: the free view, the scene's primary camera (where it opens) or one of its shots.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub enum Viewing {
+    #[default]
+    Free,
+    Primary,
+    Shot(String),
+}
+
 /// The scene's camera on a stage: its document, its track as a path, the director, the shot taken last.
 #[derive(Debug, Clone, Default)]
 pub struct Dop {
@@ -297,6 +306,7 @@ pub struct Dop {
     pub current: Option<String>,
     /// the clock at the last frame
     pub clock: Option<Clock>,
+    pub viewing: Viewing,
 }
 
 impl Dop {
@@ -344,6 +354,7 @@ impl Dop {
     pub fn play(&mut self, cues: Vec<Cue>) {
         if let Some(c) = cues.last() {
             self.current = Some(c.shot.clone());
+            self.viewing = Viewing::Shot(c.shot.clone());
         }
         self.director.play(cues);
     }

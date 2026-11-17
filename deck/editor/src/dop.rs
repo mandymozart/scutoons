@@ -508,6 +508,7 @@ impl crate::App {
                 c.drag(-260.0, 160.0);
                 c.zoom(-9.0);
             }
+            84 if spec.contains("look") => self.look_to(crate::tools::Look::Shot(2)),
             84 if spec.contains("preview") => {
                 if let Some(view) = self.scene.as_mut() {
                     view.dop.shot = Some(1);
