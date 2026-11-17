@@ -51,6 +51,11 @@ impl<'a> Outputs<'a> {
     pub fn events(&self, port: usize) -> &[Ev] {
         self.out.events_out(port)
     }
+
+    /// a motion module's transform to write this call (none for another module)
+    pub fn transform(&mut self) -> Option<&mut crate::motion::TransformOut> {
+        self.out.transform_mut()
+    }
 }
 
 /// One audio call: `frames()` frames (≤ `QUANTUM`), the declared audio inputs and outputs (planar, outputs start

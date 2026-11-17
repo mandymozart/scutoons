@@ -86,6 +86,9 @@ pub enum Field {
     AddPoint,
     RemovePoint,
     RemoveTrack,
+    /// the camera's slot `i` (a module drops on it), its module taken off
+    Slot(usize),
+    Detach(usize),
 }
 
 const UNITS: [&str; 3] = ["beats", "bars", "s"];
@@ -308,7 +311,13 @@ pub fn draw(d: &mut DrawList, t: &Tokens, a: Rect, view: &SceneView, playing: Pl
             pills_row(d, t, a, &mut y, &names, usize::MAX, &fields, &mut out);
         }
     }
-    let _ = y;
+    let rows = view.edit.slot_rows(deck_space::scene_modules::On::Camera);
+    for (r, p) in crate::slots::section(d, t, a, &mut y, &rows, view.carry) {
+        out.push((r, match p {
+            crate::slots::Part::Slot(i) => Field::Slot(i),
+            crate::slots::Part::Detach(i) => Field::Detach(i),
+        }));
+    }
     out
 }
 
@@ -457,6 +466,8 @@ impl crate::App {
                     Err(e) => self.say(e, x, y, true),
                 }
             }
+            Field::Slot(_) => self.say("drop a module from the library on the slot".into(), x, y, false),
+            Field::Detach(i) => self.slot_detach(deck_space::scene_modules::On::Camera, i, x, y),
             Field::RemoveKept => {
                 let Some(i) = sel.kept.take() else { return };
                 let done = view.edit.remove_move(i);

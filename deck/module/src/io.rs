@@ -3,6 +3,7 @@
 //! creating one costs nothing and allocates nothing. `Planar` / `PlanarMut` are an audio port's channels (§1.3).
 use crate::ev::Ev;
 use crate::hdr::{AssetInfo, InHdr, OutHdr};
+use crate::motion::{TransformIn, TransformOut};
 use crate::layout::{Layout, MAX_ASSETS, MAX_AUDIO_PORTS, MAX_EVENT_PORTS, MAX_SENSORS, QUANTUM};
 use core::marker::PhantomData;
 use core::mem::size_of;
@@ -188,6 +189,12 @@ impl<'a> Inp<'a> {
         // SAFETY: as `f32s`; Ev is 4-aligned
         unsafe { slice::from_raw_parts(self.base.add(self.layout.events_in[p] as usize) as *const Ev, n) }
     }
+
+    /// a motion module's `TransformIn` (none for another module)
+    pub fn transform(&self) -> Option<&'a TransformIn> {
+        // SAFETY: the region holds one TransformIn (4-aligned) when the shape has it
+        self.layout.shape.motion.then(|| unsafe { &*(self.base.add(self.layout.motion_in as usize) as *const TransformIn) })
+    }
 }
 
 /// The block the host writes, from the host's side: `testing::Rig` and the module host (#341) stage `inp` through it
@@ -327,6 +334,12 @@ impl<'a> InpMut<'a> {
         n
     }
 
+    /// a motion module's `TransformIn` (none for another module)
+    pub fn transform(&mut self) -> Option<&mut TransformIn> {
+        // SAFETY: as `Inp::transform`; `&mut self` is the only access
+        self.layout.shape.motion.then(|| unsafe { &mut *(self.base.add(self.layout.motion_in as usize) as *mut TransformIn) })
+    }
+
     /// After a call, what the host clears (§9a): the dirty bits, the event inputs, the late count.
     pub fn after_call(&mut self) {
         self.table().1.fill(0);
@@ -449,10 +462,24 @@ impl<'a> Out<'a> {
         (PlanarMut { ch: ch.min(alen / QUANTUM), frames: frames.min(QUANTUM), data }, events)
     }
 
+    /// a motion module's `TransformOut` (none for another module)
+    pub fn transform(&self) -> Option<&TransformOut> {
+        // SAFETY: the region holds one TransformOut (4-aligned) when the shape has it
+        self.layout.shape.motion.then(|| unsafe { &*self.at::<TransformOut>(self.layout.motion_out) })
+    }
+
+    pub fn transform_mut(&mut self) -> Option<&mut TransformOut> {
+        // SAFETY: as `transform`; `&mut self` is the only access
+        self.layout.shape.motion.then(|| unsafe { &mut *self.at::<TransformOut>(self.layout.motion_out) })
+    }
+
     /// at the start of a call: the header zeroed, no control output written, no event out, the audio outputs silent
-    /// for `frames` frames
+    /// for `frames` frames, no part of a transform written
     pub fn reset(&mut self, frames: usize) {
         *self.hdr_mut() = OutHdr::ZERO;
+        if let Some(t) = self.transform_mut() {
+            *t = TransformOut::ZERO;
+        }
         self.written_mut().fill(0);
         for p in 0..self.layout.shape.audio_out_ports().min(MAX_AUDIO_PORTS) {
             let (ptr, len) = self.audio_region(p);

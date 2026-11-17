@@ -21,7 +21,7 @@ pub fn wasm(file: &str) -> Vec<u8> {
         let cargo = std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
         let out = std::process::Command::new(cargo)
             .current_dir(&root)
-            .args(["build", "--release", "--target", "wasm32-unknown-unknown", "-p", "walk-module", "-p", "fixture-module", "--target-dir"])
+            .args(["build", "--release", "--target", "wasm32-unknown-unknown", "-p", "walk-module", "-p", "fixture-module", "-p", "dolly-module", "-p", "bob-module", "--target-dir"])
             .arg(&dir)
             .output()
             .expect("running cargo");

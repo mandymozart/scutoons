@@ -27,6 +27,7 @@ pub mod gpu;
 pub mod label;
 pub mod layers;
 pub mod meshopt;
+pub mod motion;
 pub mod pick;
 pub mod place;
 pub mod portrait;
@@ -153,6 +154,8 @@ pub struct Cast {
     pub feet: Vec3,
     /// its card's pictures: a character's full view per mood of its being, an item's one picture
     pub pictures: Vec<usize>,
+    /// where its motion module puts it this frame (none: its spot)
+    pub moved: Option<motion::Pose>,
 }
 
 /// One card on the stage this frame (#495): an upright picture with its feet on its spot, turned to the eye around the
@@ -207,7 +210,7 @@ impl Cast {
                     Who::Item(id) => vec![portraits.picture(cast::Picture::item(id))],
                 };
                 let (holder, spot) = (n.str("holder").unwrap_or_default().to_string(), n.str("spot").map(String::from));
-                Cast { being, holder, spot, at, who, form: Form::Card, feet: Vec3::ZERO, pictures }
+                Cast { being, holder, spot, at, who, form: Form::Card, feet: Vec3::ZERO, pictures, moved: None }
             })
             .collect()
     }
@@ -302,6 +305,10 @@ pub struct Space {
     pub dop: dop::Dop,
     /// a camera word for a scene not (yet) on this stage: tried once more when the next scene's camera arrives
     camera_pending: Option<(String, String)>,
+    /// the modules on the camera's and the members' slots
+    pub motions: motion::Motions,
+    /// when the scene's row started (s, beat): what a motion module counts its row time from
+    row_from: Option<(f32, f64)>,
 }
 
 /// Called on the loader thread with a set's file before it is read: the sync (sync.rs) returns once that file is
@@ -442,6 +449,8 @@ impl Space {
             layers: layers::Layers::default(),
             dop: dop::Dop::default(),
             camera_pending: None,
+            motions: motion::Motions::default(),
+            row_from: None,
         };
         space.place_cast();
         space
@@ -457,6 +466,86 @@ impl Space {
     pub fn set_scene(&mut self, scene: &crate::scene::Scene) {
         self.set_stage(&scene.stage);
         self.set_camera(None, scene.camera.clone());
+        self.set_motions(scene);
+    }
+
+    /// The modules the played scene attaches: the camera's and its members'. The row's time counts from here.
+    pub fn set_motions(&mut self, scene: &crate::scene::Scene) {
+        use motion::Target;
+        let camera = scene.camera.iter().flat_map(|c| c.modules.iter()).map(|a| (Target::Camera, a.clone()));
+        let members = scene.modules.iter().map(|p| (Target::Holder(p.holder.clone()), p.attach()));
+        self.motions.set(camera.chain(members).collect());
+        self.row_from = None;
+    }
+
+    /// an editor's attachments changed: those still attached run on as they were, the row's time too
+    pub fn edit_motions(&mut self, list: Vec<(motion::Target, deck_catalog::slot::Attach)>) {
+        self.motions.set(list);
+    }
+
+    /// The motion modules this frame, on top of what the shot, the move or the spot made: the camera's while the view is
+    /// the scene camera's (never the free one), each member's on its card.
+    fn move_by_modules(&mut self, clock: &dop::Clock) {
+        self.camera.over = None;
+        for c in &mut self.cast {
+            c.moved = None;
+        }
+        if self.motions.is_empty() {
+            return;
+        }
+        let (from_s, from_b) = *self.row_from.get_or_insert((clock.secs as f32, clock.beat));
+        let row = (clock.secs as f32 - from_s, (clock.beat - from_b) as f32);
+        if self.dop.viewing != dop::Viewing::Free && self.motions.has(&motion::Target::Camera) {
+            let input = self.camera_input(clock, row);
+            if let Some((out, slot)) = self.motions.step(&motion::Target::Camera, clock, &input) {
+                let c = &self.camera;
+                let base = motion::Lensed { eye: c.base_eye(), target: c.target, focal: crate::scene_camera::focal_of(c.fov_y), ortho: c.ortho };
+                let m = motion::camera(base, &out, slot);
+                self.camera.over = Some(camera::Over { eye: m.eye, target: m.target, fov_y: crate::scene_camera::fov_of(m.focal), ortho: m.ortho });
+            }
+        }
+        for i in 0..self.cast.len() {
+            let c = &self.cast[i];
+            if !self.motions.has_holder(&c.holder) {
+                continue;
+            }
+            let base = motion::Pose::at(c.feet);
+            let mut input = deck_module::TransformIn { kind: deck_module::motion::KIND_ENTITY, position: base.position.to_array(), marks: 1, ..deck_module::TransformIn::ZERO };
+            input.mark[0] = [c.feet.x, c.feet.y, c.feet.z, 0.0];
+            (input.row_valid, input.row_secs, input.row_beats) = (1, row.0, row.1);
+            if let Some((out, slot)) = self.motions.step_holder(&c.holder, clock, &input) {
+                self.cast[i].moved = Some(motion::entity(base, &out, slot));
+            }
+        }
+    }
+
+    /// what a camera's motion module reads: the view now, the shot it went to, the move under way, its shots' eyes
+    fn camera_input(&self, clock: &dop::Clock, row: (f32, f32)) -> deck_module::TransformIn {
+        let c = &self.camera;
+        let shots = &self.dop.camera.shots;
+        let mut t = deck_module::TransformIn {
+            kind: deck_module::motion::KIND_CAMERA,
+            row_valid: 1,
+            row_secs: row.0,
+            row_beats: row.1,
+            position: c.base_eye().to_array(),
+            target: c.target.to_array(),
+            focal: crate::scene_camera::focal_of(c.fov_y),
+            size: c.ortho.unwrap_or(0.0),
+            projection: u32::from(c.ortho.is_some()),
+            shot: self.dop.current.as_deref().and_then(|id| shots.iter().position(|s| s.id == id)).map_or(0, |i| i as u32 + 1),
+            shots: shots.len() as u32,
+            ..deck_module::TransformIn::ZERO
+        };
+        if let Some((_, p)) = self.dop.director.playing(clock) {
+            (t.progress, t.moving) = (p, 1);
+        }
+        for (m, s) in t.mark.iter_mut().zip(shots.iter()) {
+            let e = dop::View::of_shot(s).eye();
+            *m = [e.x, e.y, e.z, s.lens.focal];
+        }
+        t.marks = shots.len().min(deck_module::motion::MARKS) as u32;
+        t
     }
 
     /// the stage's parallax layers (the played scene's `stage.layers`), their pictures asked for
@@ -524,10 +613,21 @@ impl Space {
         let picture = self.portraits.pick_near(&c.pictures, h.near.get(h.mood), h.mood).or_else(|| self.portraits.pick_near(&h.sprites, h.near.get(h.mood), h.mood));
         let aspect = picture.map_or(CARD_ASPECT, |s| self.portraits.slots[s].aspect);
         let height = cast::card_height(&c.who);
-        let flat = Vec3::new(eye.x - c.feet.x, 0.0, eye.z - c.feet.z);
-        let right = Vec3::Y.cross(flat.try_normalize().unwrap_or(Vec3::Z));
-        let feet = c.feet + Vec3::Y * c.being.bounce * CARD_HOP * height;
-        Card { feet, right: right * height * aspect * 0.5, up: Vec3::Y * height, picture, glow: c.being.glow, hue: c.being.hue, pulse: c.being.pulse }
+        let at = c.moved.map_or(c.feet, |m| m.position);
+        let flat = Vec3::new(eye.x - at.x, 0.0, eye.z - at.z);
+        let mut right = Vec3::Y.cross(flat.try_normalize().unwrap_or(Vec3::Z));
+        let mut up = Vec3::Y;
+        let mut size = glam::Vec2::ONE;
+        // a module's turn on a card that stands facing the eye: its roll in the card's plane, then its yaw about the vertical
+        if let Some(m) = c.moved {
+            let (s, co) = m.rotation.z.sin_cos();
+            (right, up) = (right * co + up * s, up * co - right * s);
+            let yaw = glam::Quat::from_rotation_y(m.rotation.y);
+            (right, up) = (yaw * right, yaw * up);
+            size = glam::Vec2::new(m.scale.x, m.scale.y);
+        }
+        let feet = at + Vec3::Y * c.being.bounce * CARD_HOP * height;
+        Card { feet, right: right * height * aspect * 0.5 * size.x, up: up * height * size.y, picture, glow: c.being.glow, hue: c.being.hue, pulse: c.being.pulse }
     }
 
     /// #495: the middle of a stage whose every member is a card (half way up the cards); None while any stands in 3D
@@ -617,6 +717,7 @@ impl Space {
             self.camera.goal = self.focus_goal(self.camera.distance);
         }
         self.camera.step(dt);
+        self.move_by_modules(&dop::Clock::of(time, beat));
         // #209: the knobs face the camera; #224: and fold into its view close up
         self.being.eye = Some(self.camera.eye());
         self.being.frame = Some(self.camera.frame(self.view.0 / self.view.1));

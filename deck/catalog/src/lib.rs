@@ -14,6 +14,7 @@ pub mod background;
 pub mod groups;
 pub mod layer;
 pub mod library;
+pub mod slot;
 mod builtin;
 pub use background::Background;
 pub use layer::Layer;
@@ -305,6 +306,9 @@ pub struct Descriptor {
     /// modules only: the ABI version they speak
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub abi: Option<u32>,
+    /// modules only: the entity's slot it is built for (`camera.motion`, slot.rs); none = a rig's track module
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub slot: Option<Cow<'static, str>>,
     /// constant latency in frames, for the engine's compensation (ENGINE-REFACTOR-PLAN §2.6a)
     #[serde(default, skip_serializing_if = "is_zero")]
     pub latency: u32,
@@ -441,6 +445,7 @@ impl Descriptor {
     /// event limits, no capability both needed and wanted, unique slots, a preset that names real parameters inside
     /// their ranges. Built-ins and modules alike; a module host adds its own checks (`deck_module::host::validate`).
     pub fn check(&self) -> Result<(), String> {
+        slot::check_descriptor(self)?;
         let me = &self.name;
         let unique = |what: &str, list: &mut dyn Iterator<Item = &str>| -> Result<(), String> {
             let mut seen = std::collections::BTreeSet::new();

@@ -452,6 +452,17 @@ Estimate from the ledger's classes (M $2.2–2.9, L $4.7–11.2): **≈ $35–55
   `a_module_reads_the_deck_s_live_mood` (the real wasm probe `deck/conformance/modules/context`, a test module, not a
   factory one – changing the fixture would need a catalog migration, §9f), headless 27 (native ≡ wasm32 ≡ wasm32 + simd128).
 
+### 9h. Built in #590 – the motion region (2026-11-17)
+- **One optional region each way, no header change:** a descriptor naming a `*.motion` slot (`Descriptor::slot`, deck-catalog
+  `slot`) gets `TransformIn` (256 bytes, the last `inp` region) and `TransformOut` (80 bytes, the last `out` region); `Shape::motion`
+  adds them, a shape without it lays out and hashes as before (the frozen hashes hold). A motion module runs `dm_control`, has no
+  ports (its writes are its entity's transform only), and is called once a drawn frame with the stage's clock as its frame
+  (48 kHz) and tempo.
+- **Composition with the camera's moves (#582):** the module goes on top of whatever the shot, the move or the hand put the camera
+  at – an offset by default (shake, dolly, bob), the director and its moves untouched under it; a part the module `set_*`s
+  replaces the base while the module is attached (the module drives that part). The free editor view is never moved.
+- **Proof:** `module-host/tests/motion.rs` – dolly and bob, wasm against their native `Rig` run bit for bit, tempo running and standing.
+
 ## 10. Questions for the owner – all decided 2026-11-03
 
 Settled by the owner's principle (2026-11-03: "dont worry about backwards compatibility. we are building this fresh. the refactor is design choice.") and therefore **not** questions: the TS module host, `module-abi.ts` and their test are deleted in A6 (§7; confirmed by the owner 2026-11-03: "Delete it", instead of porting it to v2); v1 shapes (`dm_set_param`, the second descriptor type, `deck.params` / `deck.presets`, cv-lane notes) simply go. Pitch is decided too (Q2).

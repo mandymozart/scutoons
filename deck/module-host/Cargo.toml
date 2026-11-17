@@ -31,3 +31,6 @@ wat = "1"
 serde_json.workspace = true
 # the conformance fixture natively: its derived shape and layout against the host's
 fixture-module = { path = "../modules/fixture" }
+# the starter motion modules natively: native ≡ wasm for the transform regions
+dolly-module = { path = "../modules/dolly" }
+bob-module = { path = "../modules/bob" }

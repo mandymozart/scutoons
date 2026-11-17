@@ -80,6 +80,8 @@ export type Descriptor = {
 	/** a scene owns it once: never inside an instrument */
 	scene_only?: boolean;
 	scope?: Scope;
+	/** modules only: the entity's slot it is built for (`camera.motion`, slot.rs); none = a rig's track module */
+	slot?: string | null;
 	version?: string;
 	/** capabilities the kind uses when they are there (#312): without one it runs on, the sensor reads "absent" */
 	wants?: string[];

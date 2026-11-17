@@ -320,7 +320,7 @@ pub fn of_build(modules: &[serde_json::Value], instruments: &[deck_space::rig::I
 
 /// Build at a scene: the book's characters and items to fill its slots (without a book, what the deck's core rigs stand
 /// for), and the pictures among the assets to fill its parallax layers
-pub fn of_scene(book: Option<&deck_space::rig::book::Book>, assets: Vec<Entry>) -> Vec<Entry> {
+pub fn of_scene(modules: &[serde_json::Value], book: Option<&deck_space::rig::book::Book>, assets: Vec<Entry>) -> Vec<Entry> {
     let mut out: Vec<Entry> = match book {
         Some(b) => deck_space::library::from_book(b, crate::LOCALE).into_iter().filter(|e| matches!(e.kind, Kind::Character | Kind::Item)).collect(),
         None => deck_space::rig::bundle::CORE
@@ -333,6 +333,8 @@ pub fn of_scene(book: Option<&deck_space::rig::book::Book>, assets: Vec<Entry>) 
             })
             .collect(),
     };
+    let slotted = modules.iter().filter(|c| c["descriptor"]["slot"].is_string());
+    out.extend(slotted.filter_map(|c| library::module(&serde_json::json!({ "id": c["id"], "content": c }))));
     out.extend(assets.into_iter().filter(|e| e.kind == Kind::Image));
     out
 }
@@ -357,7 +359,7 @@ impl crate::App {
         }
         let entries = match purpose {
             Purpose::Build => of_build(self.rigs.module_docs(), &crate::adding::instruments(&self.stage.bundle, self.rigs.instruments()), self.book.book.as_deref(), self.library.assets()),
-            Purpose::Scene => of_scene(self.book.book.as_deref(), self.library.assets()),
+            Purpose::Scene => of_scene(self.rigs.module_docs(), self.book.book.as_deref(), self.library.assets()),
             Purpose::Show => self.show.library_entries(),
             Purpose::Module => of_modules(&self.module.list),
         };
@@ -452,6 +454,7 @@ impl crate::App {
             crate::show::Workspace::Show => {
                 self.show.drop_piece(&e.address, at.0, at.1);
             }
+            crate::show::Workspace::Build if self.library.purpose == Purpose::Scene && e.kind == Kind::Module => self.module_drop(&e.address, at.0, at.1),
             crate::show::Workspace::Build if self.library.purpose == Purpose::Scene => {
                 if !self.panels().floats.covers(at.0, at.1) {
                     self.scene_drop(&e.address, e.kind, at.0, at.1);

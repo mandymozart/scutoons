@@ -275,6 +275,13 @@
           "$ref": "#/$defs/Scope",
           "default": "graph"
         },
+        "slot": {
+          "description": "modules only: the entity's slot it is built for (`camera.motion`, slot.rs); none = a rig's track module",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "version": {
           "default": "1",
           "type": "string"

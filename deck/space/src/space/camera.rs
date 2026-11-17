@@ -142,6 +142,18 @@ pub struct Orbit {
     /// the view a glide into `through` started from, and how long it has run (s)
     glide_from: Shot,
     glide_t: f32,
+    /// where a motion module moved the camera this frame, on top of all the above: the picture's view (none: the base)
+    pub over: Option<Over>,
+}
+
+/// A camera's view as a motion module left it (space/motion.rs): eye and aim, the vertical field of view, an orthographic
+/// view's height.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Over {
+    pub eye: Vec3,
+    pub target: Vec3,
+    pub fov_y: f32,
+    pub ortho: Option<f32>,
 }
 
 /// how long a glide into a shot, or back to the free view, takes (s): eased in and out
@@ -173,6 +185,7 @@ impl Orbit {
             fov_back: false,
             glide_from: Shot { target, yaw, pitch, distance, fov_y: FOV_Y, ortho: None },
             glide_t: 0.0,
+            over: None,
         }
     }
 
@@ -263,25 +276,37 @@ impl Orbit {
         self.home
     }
 
+    /// the eye the picture sees from (a motion module's, else the base's)
     pub fn eye(&self) -> Vec3 {
+        self.over.map_or_else(|| self.base_eye(), |o| o.eye)
+    }
+
+    /// the eye of the orbit, the shot, the move – before a motion module
+    pub fn base_eye(&self) -> Vec3 {
         let (sy, cy) = self.yaw.sin_cos();
         let (sp, cp) = self.pitch.sin_cos();
         self.target + self.distance * Vec3::new(cp * sy, sp, cp * cy)
     }
 
+    /// what the picture aims at
+    pub fn aim(&self) -> Vec3 {
+        self.over.map_or(self.target, |o| o.target)
+    }
+
     pub fn view(&self) -> Mat4 {
-        Mat4::look_at_rh(self.eye(), self.target, Vec3::Y)
+        Mat4::look_at_rh(self.eye(), self.aim(), Vec3::Y)
     }
 
     pub fn proj(&self, aspect: f32) -> Mat4 {
         // far back mid-blend the near plane moves out with the eye, so the depth keeps its precision
         let near = (self.distance * 0.005).max(0.05);
-        match self.ortho {
+        let (fov_y, ortho) = self.over.map_or((self.fov_y, self.ortho), |o| (o.fov_y, o.ortho));
+        match ortho {
             Some(h) => {
                 let (hh, hw) = (h * 0.5, h * 0.5 * aspect.max(1e-3));
                 Mat4::orthographic_rh(-hw, hw, -hh, hh, 0.05, 200.0 + self.distance)
             }
-            None => Mat4::perspective_rh(self.fov_y, aspect.max(1e-3), near, 200.0 + self.distance),
+            None => Mat4::perspective_rh(fov_y, aspect.max(1e-3), near, 200.0 + self.distance),
         }
     }
 
@@ -446,7 +471,7 @@ impl Orbit {
     /// #224: this view's frame for a w / h of `aspect`
     pub fn frame(&self, aspect: f32) -> Frame {
         let eye = self.eye();
-        let fwd = (self.target - eye).try_normalize().unwrap_or(Vec3::NEG_Z);
+        let fwd = (self.aim() - eye).try_normalize().unwrap_or(Vec3::NEG_Z);
         let right = fwd.cross(Vec3::Y).try_normalize().unwrap_or(Vec3::X);
         let tan_y = (self.fov_y * 0.5).tan();
         Frame { eye, fwd, right, up: right.cross(fwd), tan_x: tan_y * aspect.max(1e-3), tan_y, min_depth: self.distance * 0.6 }

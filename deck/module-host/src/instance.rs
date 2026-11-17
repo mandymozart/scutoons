@@ -419,6 +419,22 @@ impl<B: Backend> Instance<B> {
     }
 
     /// a declared sensor's status and channels for the next call; false when the module does not declare it
+    /// a motion module's entity for the next call; false for a module without the transform regions
+    pub fn set_transform(&mut self, t: &deck_module::TransformIn) -> bool {
+        match self.inp().transform() {
+            Some(slot) => {
+                *slot = *t;
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// the transform the last call wrote (none: no motion slot)
+    pub fn transform_out(&self) -> Option<deck_module::TransformOut> {
+        self.out().transform().copied()
+    }
+
     pub fn set_sensor(&mut self, sensor: Sensor, status: Status, values: &[f32]) -> bool {
         let Some(slot) = self.layout.sensor_slot(sensor) else { return false };
         self.inp().set_sensor(slot, status as u32, values)

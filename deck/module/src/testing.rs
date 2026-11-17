@@ -196,6 +196,11 @@ impl<M: Module> Rig<M> {
         self.inp_mut().set_sensor(slot, status as u32, values);
     }
 
+    /// a motion module's entity for the next call
+    pub fn set_transform(&mut self, t: &crate::TransformIn) {
+        *self.inp_mut().transform().expect("the module names no motion slot") = *t;
+    }
+
     /// Fill asset `slot` as the host does at instantiation: `dm_asset_buf`, the bytes, the slot's record (ready).
     /// PCM: `channels` planar channels of f32 at `rate`.
     pub fn load_asset(&mut self, slot: AssetSlot, kind: AssetKind, bytes: &[u8], channels: u8, frames: u32, rate: f32) {
@@ -245,6 +250,11 @@ impl<M: Module> Rig<M> {
         let v = out.control_out().get(i).copied().unwrap_or(0.0);
         let w = out.written().get(i / 32).is_some_and(|w| w & (1 << (i % 32)) != 0);
         (v, w)
+    }
+
+    /// the transform the last call wrote (none: no motion slot)
+    pub fn transform_out(&self) -> Option<crate::TransformOut> {
+        self.out().transform().copied()
     }
 
     /// event output `p`'s records of the last call

@@ -231,6 +231,12 @@ impl crate::App {
             return;
         };
         match (f, view.sel) {
+            (Field::Slot(_), _) => self.say("drop a module from the library on the slot".into(), x, y, false),
+            (Field::Detach(i), _) => {
+                if let Some(on) = crate::scene::member_slots(view) {
+                    self.slot_detach(on, i, x, y);
+                }
+            }
             (Field::Fact(i), Part::Slot(s)) => {
                 let Some(fact) = view.edit.question(s, &[]).and_then(|q| q.facts.get(i).map(|(f, _)| f.clone())) else {
                     return;

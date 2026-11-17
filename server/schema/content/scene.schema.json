@@ -64,6 +64,33 @@
         }
       ]
     },
+    "Attach": {
+      "additionalProperties": false,
+      "description": "A module attached to a slot of an entity, on that entity's document.",
+      "properties": {
+        "module": {
+          "description": "the module's id (`dolly`): the catalog's `module:<id>`",
+          "type": "string"
+        },
+        "params": {
+          "additionalProperties": {
+            "format": "float",
+            "type": "number"
+          },
+          "description": "its parameters by name; the rest at their defaults",
+          "type": "object"
+        },
+        "slot": {
+          "description": "the slot's domain word on this entity (`motion`)",
+          "type": "string"
+        }
+      },
+      "required": [
+        "slot",
+        "module"
+      ],
+      "type": "object"
+    },
     "Background": {
       "additionalProperties": false,
       "description": "One of a colour, an image or a video.",
@@ -240,6 +267,13 @@
             "integer",
             "null"
           ]
+        },
+        "module": {
+          "description": "the modules on its member's slots (deck-catalog `slot`: an item's `motion`, on top of its spot)",
+          "items": {
+            "$ref": "#/definitions/Attach"
+          },
+          "type": "array"
         },
         "preview": {
           "anyOf": [
@@ -789,6 +823,13 @@
             "size": 4.0
           },
           "description": "the lens before a shot is taken"
+        },
+        "module": {
+          "description": "the modules on its slots (deck-catalog `slot`: `motion`, on top of its shots and moves)",
+          "items": {
+            "$ref": "#/definitions/Attach"
+          },
+          "type": "array"
         },
         "move": {
           "items": {

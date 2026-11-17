@@ -11,12 +11,13 @@ namespace Scutoons\Generated;
  * @phpstan-type Anchor 'full' | 'left' | 'right' | 'top' | 'bottom'
  * @phpstan-type Arrange array{kind: ArrangeKind, spacing?: float}
  * @phpstan-type ArrangeKind 'row' | 'cluster'
+ * @phpstan-type Attach array{module: string, params?: array<string, float>, slot: string}
  * @phpstan-type Background array{colour?: string | null, image?: string | null, video?: string | null}
  * @phpstan-type Ease 'linear' | 'in' | 'out' | 'in_out' | 'whip'
  * @phpstan-type Enter 'start' | 'join'
  * @phpstan-type Fill array{kind: list<'character' | 'persona' | 'look' | 'item' | 'location'>, parent?: string | null, ref?: list<string>}
  * @phpstan-type Fillers string | list<string>
- * @phpstan-type Holder array{arrange?: Arrange | null, at?: array{float, float, float} | null, enter?: Enter, fill?: Fill | null, id: string, label?: array<string, string> | null, max?: int | null, preview?: Fillers | null, ref?: string | null, rig?: RigPin | null, spot?: string | null, take?: Take, values?: array<string, HolderValue>}
+ * @phpstan-type Holder array{arrange?: Arrange | null, at?: array{float, float, float} | null, enter?: Enter, fill?: Fill | null, id: string, label?: array<string, string> | null, max?: int | null, module?: list<Attach>, preview?: Fillers | null, ref?: string | null, rig?: RigPin | null, spot?: string | null, take?: Take, values?: array<string, HolderValue>}
  * @phpstan-type HolderValue float | string
  * @phpstan-type Layer array{anchor?: Anchor, depth: float, image?: string | null}
  * @phpstan-type Length array{beats: float} | array{bars: float} | array{seconds: float}
@@ -30,7 +31,7 @@ namespace Scutoons\Generated;
  * @phpstan-type NodeDef array<string, mixed>
  * @phpstan-type Projection 'perspective' | 'orthographic'
  * @phpstan-type RigPin array{ref: string, version?: string | null}
- * @phpstan-type SceneCamera array{height?: float, lens?: Lens, move?: list<MoveDef>, shot?: list<ShotDef>, source?: Source, track?: Track | null}
+ * @phpstan-type SceneCamera array{height?: float, lens?: Lens, module?: list<Attach>, move?: list<MoveDef>, shot?: list<ShotDef>, source?: Source, track?: Track | null}
  * @phpstan-type SceneTransition 'fade' | 'cut' | 'blackout'
  * @phpstan-type SceneUse array{scene: string, with?: array<string, Fillers>}
  * @phpstan-type ShotDef array{aim?: string | null, distance: float, id: string, label?: array<string, string>, lens?: Lens, pitch: float, target: array{float, float, float}, yaw: float}

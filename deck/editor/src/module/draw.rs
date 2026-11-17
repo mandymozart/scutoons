@@ -80,6 +80,8 @@ fn open_module(d: &mut DrawList, t: &Tokens, m: &mut Module, stage: &Stage, a: R
     y += row + pad * 0.5;
     y = status(d, t, m, x0, y, pw);
     crate::inspector::background(d, t, Rect { x: x0, y, w: pw, h: row }, &mut y, &super::background_row(m.descriptor.as_ref()));
+    let slot = m.descriptor.as_ref().and_then(|d| d.slot.as_deref()).map_or_else(|| "none · a rig's track".to_string(), |s| format!("{s} · drop it on that slot"));
+    controls::row(d, t, Rect { x: x0, y, w: pw, h: row }, &mut y, "slot", &slot);
 
     // its Parameters, from the descriptor
     y += controls::section(d, t, x0, y, pw, if m.heard { "PARAMETERS · heard on the stage" } else { "PARAMETERS · defaults" }, false);

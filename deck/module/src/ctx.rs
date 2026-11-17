@@ -272,6 +272,11 @@ impl<'a> Ctx<'a> {
         self.inp.events_in(p)
     }
 
+    /// a motion module's entity this call: what it is, where its base puts it, the row's time, its marks
+    pub fn transform(&self) -> Option<&'a crate::motion::TransformIn> {
+        self.inp.transform()
+    }
+
     // --- sensors (§4)
 
     /// a sensor's status and channels; `Unavailable` and no channels when the module did not declare it

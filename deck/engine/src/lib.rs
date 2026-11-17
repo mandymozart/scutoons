@@ -24,6 +24,8 @@ pub mod fft;
 pub mod layout;
 #[cfg(feature = "modules")]
 mod module;
+#[cfg(all(feature = "modules", feature = "space"))]
+pub mod motion;
 pub mod pan;
 mod route;
 #[cfg(feature = "events")]

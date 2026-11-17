@@ -20,6 +20,16 @@ export type Arrange = {
 /** The arrangements of a first version (scene_resolve.rs `arrange`): more (a stack, a crowd) when a use needs one. */
 export type ArrangeKind = 'row' | 'cluster';
 
+/** A module attached to a slot of an entity, on that entity's document. */
+export type Attach = {
+	/** the module's id (`dolly`): the catalog's `module:<id>` */
+	module: string;
+	/** its parameters by name; the rest at their defaults */
+	params?: Record<string, number>;
+	/** the slot's domain word on this entity (`motion`) */
+	slot: string;
+};
+
 /** One of a colour, an image or a video. */
 export type Background = {
 	/** `#rgb` or `#rrggbb` */
@@ -64,6 +74,8 @@ export type Holder = {
 	label?: Record<string, string> | null;
 	/** a spawn zone's limit; none = any number */
 	max?: number | null;
+	/** the modules on its member's slots (deck-catalog `slot`: an item's `motion`, on top of its spot) */
+	module?: Attach[];
 	/** fillers for the editor and the browser (a spawn zone may preview several) */
 	preview?: Fillers | null;
 	/** an authored filler (`character:catpope`, `item:incense`) – or `fill`, never both */
@@ -190,6 +202,8 @@ export type SceneCamera = {
 	height?: number;
 	/** the lens before a shot is taken */
 	lens?: Lens;
+	/** the modules on its slots (deck-catalog `slot`: `motion`, on top of its shots and moves) */
+	module?: Attach[];
 	move?: MoveDef[];
 	/** its shots; the first opens the scene */
 	shot?: ShotDef[];

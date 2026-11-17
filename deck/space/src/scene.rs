@@ -156,6 +156,9 @@ pub struct Scene {
     /// the scene's primary camera (scene_camera.rs)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub camera: Option<crate::scene_camera::SceneCamera>,
+    /// the modules on the members' slots, by holder (scene_document.rs `Holder::modules`)
+    #[serde(default, rename = "module", skip_serializing_if = "Vec::is_empty")]
+    pub modules: Vec<Placed>,
     #[cfg(feature = "being")]
     #[serde(default)]
     pub being: crate::space::being::Look,
@@ -165,6 +168,28 @@ pub struct Scene {
     #[serde(default)]
     #[cfg_attr(feature = "schema", schemars(with = "std::collections::BTreeMap<String, serde_json::Value>"))]
     pub being: toml::Table,
+}
+
+/// A module on a member's slot as the played scene carries it.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct Placed {
+    pub holder: String,
+    pub slot: String,
+    pub module: String,
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub params: std::collections::BTreeMap<String, f32>,
+}
+
+impl Placed {
+    pub fn new(holder: &str, a: &deck_catalog::slot::Attach) -> Placed {
+        Placed { holder: holder.to_string(), slot: a.slot.clone(), module: a.module.clone(), params: a.params.clone() }
+    }
+
+    pub fn attach(&self) -> deck_catalog::slot::Attach {
+        deck_catalog::slot::Attach { slot: self.slot.clone(), module: self.module.clone(), params: self.params.clone() }
+    }
 }
 
 /// a being's look as this build keeps it: the space's `Look`, or its table without the space
