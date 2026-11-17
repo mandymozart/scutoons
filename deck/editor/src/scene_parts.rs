@@ -10,6 +10,7 @@ use deck_kit::editor::controls::{self, Rect};
 use deck_kit::editor::typeahead::{Item, Typeahead};
 use deck_space::scene_document::{FillerRef, HOLDER_KINDS};
 use deck_space::scene_edit::Part;
+use deck_space::scene_layers::depth_words;
 use deck_space::scene_slots::{fill_words, FillFact};
 use deck_space::scene_video::{about, video_kinds, SCREEN};
 use protocol::address_book::AddressKind;
@@ -129,6 +130,74 @@ pub fn inspect_video(d: &mut DrawList, t: &Tokens, area: Rect, view: &SceneView,
     out
 }
 
+/// The inspector of layer `l`: its picture (typed), its depth and horizon as scrub bars, Remove.
+pub fn inspect_layer(d: &mut DrawList, t: &Tokens, area: Rect, view: &SceneView, l: usize, hot: Option<Field>) -> Vec<(Rect, Field)> {
+    let mut out = Vec::new();
+    let e = &view.edit;
+    let Some(layer) = e.doc.stage.layers.get(l) else {
+        return out;
+    };
+    let mut y = area.y;
+    y += controls::section(d, t, area.x, y, area.w, "LAYER", true);
+    let top = y;
+    controls::row(d, t, area, &mut y, "picture", &layer.image);
+    out.push((Rect { x: area.x, y: top, w: area.w, h: y - top }, Field::Picture));
+    let place = if layer.front() { "over the 3D" } else { "behind the 3D" };
+    controls::row(d, t, area, &mut y, "lies", &format!("{} · {place}", depth_words(layer.depth)));
+    pills(d, t, area, &mut y, &["Remove"], &[Field::Remove], &mut out);
+    y += controls::section(d, t, area.x, y, area.w, "KNOBS", false);
+    let row = t.size.row;
+    for (i, k) in e.layer_knobs(l).iter().enumerate() {
+        let x_w = if k.set { row } else { 0.0 };
+        let f = crate::fraction(k.value, k.min, k.max, k.log);
+        let value = match (k.set, k.param.as_str()) {
+            (false, "depth") => "matte".to_string(),
+            (false, _) => "centred".to_string(),
+            _ => format!("{}{}", crate::number(k.value), if k.unit.is_empty() { String::new() } else { format!(" {}", k.unit) }),
+        };
+        let bar = controls::scrub(d, t, Rect { x: area.x, y, w: area.w - x_w, h: row }, &k.param, &value, f, hot == Some(Field::Knob(i)));
+        out.push((bar, Field::Knob(i)));
+        if k.set {
+            let r = Rect { x: area.x + area.w - row, y, w: row, h: row };
+            d.text(r.x + row * 0.35, y + (row - t.size.font * 1.25) * 0.5, t.size.font, "×", t.color.muted);
+            out.push((r, Field::Clear(i)));
+        }
+        y += row;
+    }
+    out
+}
+
+/// a layer knob dragged by `dx` from `v0`: the core sets it
+pub fn layer_knob_to(view: &mut SceneView, l: usize, i: usize, dx: f32, v0: f32) {
+    let Some(k) = view.edit.layer_knobs(l).get(i).cloned() else {
+        return;
+    };
+    let x = crate::scrub(v0, dx, k.min, k.max, k.log);
+    let _ = view.edit.turn_layer(l, &k.param, x);
+}
+
+impl crate::App {
+    /// a layer typed: a new one (`None`) or layer `l`'s picture, depth and horizon anew
+    pub(crate) fn scene_layer(&mut self, l: Option<usize>, text: &str) {
+        let (x, y) = self.cursor;
+        let Some(view) = self.scene.as_mut() else {
+            return;
+        };
+        let done = match l {
+            Some(l) => view.edit.set_layer(l, text).map(|()| l),
+            None => view.edit.add_layer(text),
+        };
+        match done {
+            Ok(l) => {
+                view.sel = Part::Layer(l);
+                let said = view.edit.doc.stage.layers.get(l).map_or_else(String::new, |layer| format!("layer {}: {}", layer.image, depth_words(layer.depth)));
+                self.scene_changed(Ok(()), said, x, y);
+            }
+            Err(e) => self.say(e, x, y, true),
+        }
+    }
+}
+
 /// a video knob dragged by `dx` from `v0`: the core sets it
 pub fn video_knob_to(view: &mut SceneView, v: usize, i: usize, dx: f32, v0: f32) {
     let Some(k) = view.edit.video_knobs(v).get(i).cloned() else {
@@ -203,9 +272,19 @@ impl crate::App {
                 view.sel = Part::Scene;
                 self.scene_changed(done, "the video node left the scene".into(), x, y);
             }
+            (Field::Remove, Part::Layer(l)) => {
+                let done = view.edit.remove_layer(l);
+                view.sel = Part::Scene;
+                self.scene_changed(done, "the layer left the stage".into(), x, y);
+            }
+            (Field::Picture, Part::Layer(l)) => {
+                let now = view.edit.doc.stage.layers.get(l).map_or_else(String::new, |layer| layer.text());
+                self.begin_edit(crate::Editing::SceneLayer(Some(l)), crate::Hit::SceneField(Field::Picture), now);
+            }
+            (Field::AddLayer, Part::Scene) => self.begin_edit(crate::Editing::SceneLayer(None), crate::Hit::SceneField(Field::AddLayer), String::new()),
             (Field::BackgroundColour, Part::Scene) => self.colour_open(crate::colour::Target::Scene),
             (Field::Background, Part::Scene) => {
-                let now = view.edit.doc.stage.background.as_ref().map_or("", |b| b.text()).to_string();
+                let now = view.edit.doc.stage.background.as_ref().map_or(String::new(), |b| b.text());
                 self.begin_edit(crate::Editing::SceneBackground, crate::Hit::SceneField(Field::Background), now);
             }
             _ => {}
@@ -294,11 +373,19 @@ impl crate::App {
             return;
         }
         let (x, y) = self.cursor;
+        let mut orbit = None;
         for step in spec.split('+').map(str::trim) {
             let Some(view) = self.scene.as_mut() else {
                 return;
             };
-            let done = if let Some(rest) = step.strip_prefix("slot:") {
+            let done = if let Some(typed) = step.strip_prefix("layer:") {
+                view.edit.add_layer(typed).map(|l| view.sel = Part::Layer(l))
+            } else if let Some(typed) = step.strip_prefix("background:") {
+                view.edit.set_background(typed).map(|_| ())
+            } else if let Some(by) = step.strip_prefix("orbit:") {
+                orbit = by.split_once(',').and_then(|(dx, dy)| Some((dx.trim().parse::<f32>().ok()?, dy.trim().parse::<f32>().ok()?)));
+                Ok(())
+            } else if let Some(rest) = step.strip_prefix("slot:") {
                 let (kind, filler) = rest.split_once('=').map_or((rest, None), |(k, f)| (k, Some(f)));
                 let kind = HOLDER_KINDS.iter().find(|k| k.as_str() == kind).copied().ok_or(format!("no slot kind {kind}"));
                 kind.and_then(|k| view.edit.add_slot(k)).and_then(|s| filler.map_or(Ok(()), |f| view.edit.fill(s, f)))
@@ -315,7 +402,10 @@ impl crate::App {
                 self.say(why, x, y, true);
             }
         }
-        self.scene_changed(Ok(()), "the scene's slots and video".into(), x, y);
+        self.scene_changed(Ok(()), "the scene's slots, video and layers".into(), x, y);
+        if let Some((dx, dy)) = orbit {
+            self.stage.space.camera.drag(dx, dy);
+        }
     }
 }
 

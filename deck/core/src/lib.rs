@@ -24,6 +24,7 @@ pub mod limiter;
 pub mod math;
 pub mod meters;
 pub mod monitor;
+pub mod parallax;
 pub mod smooth;
 pub mod stage;
 

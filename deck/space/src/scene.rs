@@ -225,6 +225,9 @@ pub struct StageSettings {
     /// the stage's background; a played scene carries the one that won (`deck_catalog::background::resolve`)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub background: Option<deck_catalog::Background>,
+    /// the 2D layers around the 3D, drawn far to near; a front one over it
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub layers: Vec<deck_catalog::Layer>,
 }
 
 /// What a switch does to the outputs (the lamps) between two scenes (#264).
@@ -246,7 +249,15 @@ pub const DEFAULT_TRANSITION_SECS: f32 = 0.4;
 
 impl Default for StageSettings {
     fn default() -> Self {
-        Self { name: "untitled".into(), render_scale: 1.0, audio_buffer: None, transition: SceneTransition::Fade, transition_secs: DEFAULT_TRANSITION_SECS, background: None }
+        Self { name: "untitled".into(), render_scale: 1.0, audio_buffer: None, transition: SceneTransition::Fade, transition_secs: DEFAULT_TRANSITION_SECS, background: None, layers: Vec::new() }
+    }
+}
+
+impl StageSettings {
+    /// the pictures the stage shows around the 3D, by media path: the background's, then the layers'
+    pub fn media(&self) -> Vec<String> {
+        let background = self.background.as_ref().and_then(|b| b.image.clone());
+        background.into_iter().chain(self.layers.iter().map(|l| l.image.clone())).collect()
     }
 }
 

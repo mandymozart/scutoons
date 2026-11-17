@@ -434,8 +434,19 @@ impl Space {
 
     /// the stage's background that won (the played scene's `stage.background`)
     pub fn set_background(&mut self, background: Option<crate::Background>) {
-        let ground = self.backdrop.ground;
-        self.backdrop = backdrop::Backdrop { ground, ..backdrop::Backdrop::new(background, &mut self.portraits) };
+        let (ground, layers) = (self.backdrop.ground, std::mem::take(&mut self.backdrop.layers));
+        self.backdrop = backdrop::Backdrop { ground, layers, ..backdrop::Backdrop::new(background, &mut self.portraits) };
+    }
+
+    /// the stage's 2D layers around the 3D (the played scene's `stage.layers`)
+    pub fn set_layers(&mut self, layers: &[crate::Layer]) {
+        self.backdrop.set_layers(layers, &mut self.portraits);
+    }
+
+    /// what a played scene's stage shows around the 3D: its background and its layers
+    pub fn set_stage(&mut self, stage: &crate::scene::StageSettings) {
+        self.set_background(stage.background.clone());
+        self.set_layers(&stage.layers);
     }
 
     /// what shows when no background sets a colour (display values; black unless the editor's `stage` token says else)

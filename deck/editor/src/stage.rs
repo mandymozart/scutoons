@@ -310,6 +310,7 @@ impl Stage {
         let mut space = Space::with_gate(&graph, node, &scene.being, &cache.join("sets"), Portraits::local(&cache.join("portraits")), None);
         let own_background = scene.stage.background.clone();
         space.set_background(own_background.clone());
+        space.set_layers(&scene.stage.layers);
         // an editor's view: no breath, the camera stays where the hand puts it (owner 2026-11-09)
         space.being.look.breath = 0.0;
         space.camera.free = true;

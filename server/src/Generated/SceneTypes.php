@@ -10,12 +10,13 @@ namespace Scutoons\Generated;
  * @phpstan-type Act 'join' | 'leave'
  * @phpstan-type Arrange array{kind: ArrangeKind, spacing?: float}
  * @phpstan-type ArrangeKind 'row' | 'cluster'
- * @phpstan-type Background array{colour?: string | null, image?: string | null, video?: string | null}
+ * @phpstan-type Background array{colour?: string | null, horizon?: float | null, image?: string | null, parallax?: float | null, video?: string | null}
  * @phpstan-type Enter 'start' | 'join'
  * @phpstan-type Fill array{kind: list<'character' | 'persona' | 'look' | 'item' | 'location'>, parent?: string | null, ref?: list<string>}
  * @phpstan-type Fillers string | list<string>
  * @phpstan-type Holder array{arrange?: Arrange | null, at?: array{float, float, float} | null, enter?: Enter, fill?: Fill | null, id: string, label?: array<string, string> | null, max?: int | null, preview?: Fillers | null, ref?: string | null, rig?: RigPin | null, spot?: string | null, take?: Take, values?: array<string, HolderValue>}
  * @phpstan-type HolderValue float | string
+ * @phpstan-type Layer array{depth?: float | null, horizon?: float | null, image: string}
  * @phpstan-type LinkDef array{from: string, map?: list<array{int, int}>, offset?: float, scale?: float, to: string}
  * @phpstan-type Listener array{character?: string | null, do: Act, id?: string | null, on: string}
  * @phpstan-type LocationPlaceholder array{fill: Fill, id: string, label?: array<string, string> | null, preview?: string | null}
@@ -24,7 +25,7 @@ namespace Scutoons\Generated;
  * @phpstan-type RigPin array{ref: string, version?: string | null}
  * @phpstan-type SceneTransition 'fade' | 'cut' | 'blackout'
  * @phpstan-type SceneUse array{scene: string, with?: array<string, Fillers>}
- * @phpstan-type StageSettings array{audio_buffer?: int | null, background?: Background | null, name?: string, render_scale?: float, transition?: SceneTransition, transition_secs?: float}
+ * @phpstan-type StageSettings array{audio_buffer?: int | null, background?: Background | null, layers?: list<Layer>, name?: string, render_scale?: float, transition?: SceneTransition, transition_secs?: float}
  * @phpstan-type Take 'one' | 'many'
  * @phpstan-type SceneDocument array{format: 2, holder?: list<Holder>, id: string, link?: list<LinkDef>, listener?: list<Listener>, location?: LocationSlot | null, node?: list<NodeDef>, outputs?: array<string, mixed> | null, stage?: StageSettings, toons?: list<string>, version?: int | null}
  */

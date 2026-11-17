@@ -226,11 +226,11 @@ impl crate::space::link::Syncs for DeckSync {
 
 /// What a scene with a space node needs, before its space is built (so the one request names it all): every space
 /// node's set (by id), the being's character with the being's whole palette – `look.moods`, then the moods its
-/// feelings and nudges name (Feel::new's order) – and the background's image.
+/// feelings and nudges name (Feel::new's order) – and the pictures around the 3D.
 #[cfg(feature = "space")]
-pub fn needs_of(graph: &crate::graph::Graph, look: &crate::space::being::Look, background: Option<&deck_space::Background>) -> Needs {
+pub fn needs_of(graph: &crate::graph::Graph, look: &crate::space::being::Look, stage: &deck_space::scene::StageSettings) -> Needs {
     let sets = (0..graph.nodes.len()).filter(|&i| graph.nodes[i].kind == crate::graph::Kind::Space).filter_map(|i| crate::space::set_need(graph, i)).collect();
-    let media = background.and_then(|b| b.image.clone()).into_iter().collect();
+    let media = stage.media();
     if look.character.is_empty() {
         return Needs { sets, characters: Vec::new(), media };
     }
@@ -615,8 +615,10 @@ mod tests {
         use crate::scene::{Scene, CONDUCTOR_SCENE};
         let scene = crate::modules::carried_part(&Scene::parse(CONDUCTOR_SCENE).unwrap());
         let g = crate::graph::Graph::build(&scene).unwrap();
-        let needs = needs_of(&g, &scene.being, Some(&deck_space::Background::image("backgrounds/wide.webp")));
-        assert_eq!(needs.media, ["backgrounds/wide.webp"]);
+        let layer = deck_space::Layer { image: "layers/hills.webp".into(), depth: Some(8.0), horizon: None };
+        let stage = deck_space::scene::StageSettings { background: Some(deck_space::Background::image("backgrounds/wide.webp")), layers: vec![layer], ..Default::default() };
+        let needs = needs_of(&g, &scene.being, &stage);
+        assert_eq!(needs.media, ["backgrounds/wide.webp", "layers/hills.webp"]);
         assert_eq!(needs.sets, [("cathedral".to_string(), "low".to_string())]);
         let being = crate::space::being::Being::new(&g, &scene.being);
         assert_eq!(needs.characters, [("plf".to_string(), being.moods.clone())]);

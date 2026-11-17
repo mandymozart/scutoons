@@ -21,8 +21,12 @@ export type ArrangeKind = 'row' | 'cluster';
 export type Background = {
 	/** `#rgb` or `#rrggbb` */
 	colour?: string | null;
+	/** the picture's horizon, a share of its height from the top (0–1): it sits on the 3D's horizon */
+	horizon?: number | null;
 	/** a picture's media path, laid over the stage */
 	image?: string | null;
+	/** how much of the camera's turn the picture follows: 0 fixed (the default), 1 as far as the sky */
+	parallax?: number | null;
 	/** a video's media path, laid over the stage */
 	video?: string | null;
 };
@@ -75,6 +79,15 @@ export type Holder = {
 
 /** A holder's value: a parameter's number, or a track's preset choice. */
 export type HolderValue = number | string;
+
+export type Layer = {
+	/** metres behind the camera's pivot; below 0 in front of it (drawn over the 3D); none = the matte, infinitely far */
+	depth?: number | null;
+	/** the picture's horizon, a share of its height from the top (0–1); none = centred */
+	horizon?: number | null;
+	/** the picture's media path */
+	image: string;
+};
 
 export type LinkDef = {
 	from: string;
@@ -142,6 +155,8 @@ export type StageSettings = {
 	audio_buffer?: number | null;
 	/** the stage's background; a played scene carries the one that won (`deck_catalog::background::resolve`) */
 	background?: Background | null;
+	/** the 2D layers around the 3D, drawn far to near; a front one over it */
+	layers?: Layer[];
 	name?: string;
 	/** the render size relative to the window (0.25–1); a software adapter halves it by itself */
 	render_scale?: number;

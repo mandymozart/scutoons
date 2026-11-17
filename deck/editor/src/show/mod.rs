@@ -514,7 +514,7 @@ impl Host {
             // the editor's colour picker takes it before the show (colour.rs)
             Hit::BackgroundColour => {}
             Hit::Background => {
-                let now = self.shown().background.as_ref().map_or("", |b| b.text()).to_string();
+                let now = self.shown().background.as_ref().map_or(String::new(), |b| b.text());
                 self.typing = Some((roles::Typing::Background, deck_kit::base::text::Field::with(&now)));
             }
             Hit::Load => self.load(),

@@ -64,10 +64,26 @@
             "null"
           ]
         },
+        "horizon": {
+          "description": "the picture's horizon, a share of its height from the top (0–1): it sits on the 3D's horizon",
+          "format": "float",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
         "image": {
           "description": "a picture's media path, laid over the stage",
           "type": [
             "string",
+            "null"
+          ]
+        },
+        "parallax": {
+          "description": "how much of the camera's turn the picture follows: 0 fixed (the default), 1 as far as the sky",
+          "format": "float",
+          "type": [
+            "number",
             "null"
           ]
         },
@@ -280,6 +296,35 @@
         }
       ],
       "description": "A holder's value: a parameter's number, or a track's preset choice."
+    },
+    "Layer": {
+      "additionalProperties": false,
+      "properties": {
+        "depth": {
+          "description": "metres behind the camera's pivot; below 0 in front of it (drawn over the 3D); none = the matte, infinitely far",
+          "format": "float",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "horizon": {
+          "description": "the picture's horizon, a share of its height from the top (0–1); none = centred",
+          "format": "float",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "image": {
+          "description": "the picture's media path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "image"
+      ],
+      "type": "object"
     },
     "LinkDef": {
       "additionalProperties": false,
@@ -518,6 +563,13 @@
             }
           ],
           "description": "the stage's background; a played scene carries the one that won (`deck_catalog::background::resolve`)"
+        },
+        "layers": {
+          "description": "the 2D layers around the 3D, drawn far to near; a front one over it",
+          "items": {
+            "$ref": "#/definitions/Layer"
+          },
+          "type": "array"
         },
         "name": {
           "default": "untitled",

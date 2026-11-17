@@ -11,9 +11,11 @@ use std::borrow::Cow;
 use std::collections::BTreeMap;
 
 pub mod background;
+pub mod layer;
 pub mod library;
 mod builtin;
 pub use background::Background;
+pub use layer::Layer;
 pub use builtin::builtin_kinds;
 
 pub const CATALOG_VERSION: u32 = 1;

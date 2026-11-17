@@ -48,7 +48,7 @@ pub const VIDEO_NOTE: &str = "a video does not play on the stage yet: black";
 pub fn background_row(own: Option<&deck_space::Background>, unset: &str) -> BackgroundRow {
     let Some(b) = own else { return BackgroundRow { value: format!("none · {unset}"), swatch: None, note: None } };
     let note = b.video.is_some().then(|| VIDEO_NOTE.to_string());
-    BackgroundRow { value: b.text().to_string(), swatch: b.rgb(), note }
+    BackgroundRow { value: b.text(), swatch: b.rgb(), note }
 }
 
 /// The row drawn, its note under it; the swatch's place (the colour picker) and the value's (a click types it).
