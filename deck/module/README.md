@@ -39,7 +39,9 @@ The memory layout is derived from the descriptor (`Layout::of(&Shape)`, one `con
 limits (sanity bounds: 8 audio and 8 event ports a direction, 256 control ports, 1024 parameters, 32 channels a port).
 
 - `#[module(name, domain = "audio"|"control", doc, needs = "motion", wants = "position|camera.motion", latency = 32,
-  moods = "thinking|sad|happy")]` (`moods`, A1 #409: the moods the module knows – `character().mood_index` counts in them),
+  moods = "thinking|sad|happy", characters = "catpope|yellowmouse.kid")]` (`moods`, A1 #409: the moods the module knows –
+  `character().mood_index` counts in them; `characters`: the characters it is made for, listed beside their rigs in Build as
+  related – it still plugs in anywhere),
   `#[reads("story.act", …)]` (→ `Self::STORY_ACT: Var`, `ctx.var(Self::STORY_ACT)`), `#[asset(name, kind = "pcm"|"bytes"|"image",
   max_bytes, doc)]` (→ `Self::KICK: AssetSlot`, `ctx.asset(Self::KICK)`), `#[preset(name, doc, values(p = x, …))]` (the one
   factory preset; every other preset is a document).

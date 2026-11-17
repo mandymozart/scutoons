@@ -158,13 +158,13 @@ pub struct Library {
     pub refused: Option<(f32, f32, String)>,
     /// what plays on the stage and since which frame, until its still is taken
     playing: Option<(String, u64)>,
-    /// the module documents a check run's folder gave (`--library`)
-    docs: Vec<serde_json::Value>,
+    /// the rig the "related" filter last turned itself on for (an empty character rig: its modules first)
+    related_for: Option<String>,
 }
 
 impl Library {
     pub fn new(cache: PathBuf) -> Library {
-        Library { browser: Browser::default(), entries: Vec::new(), purpose: Purpose::Build, pictures: Pictures::new(cache.join("stills")), assets: Assets::default(), refused: None, playing: None, docs: Vec::new() }
+        Library { browser: Browser::default(), entries: Vec::new(), purpose: Purpose::Build, pictures: Pictures::new(cache.join("stills")), assets: Assets::default(), refused: None, playing: None, related_for: None }
     }
 
     /// the workspace's entries this frame, only the kinds its purpose loads
@@ -192,19 +192,18 @@ impl Library {
         self.assets.rx = Some(rx);
     }
 
-    /// A check run's folder of answers: its assets, its module documents; the Module workspace's list of them.
+    /// A check run's catalog folder (`--catalog`): its assets (`assets.json`, `/assets`) and the Module workspace's list
+    /// of its modules (`modules.json`).
     pub fn answers(&mut self, dir: &std::path::Path) -> Option<Vec<crate::module::Entry>> {
         if let Ok(text) = std::fs::read_to_string(dir.join("assets.json")) {
             self.assets.asked = true;
             match library::assets(&text) {
                 Ok(list) => self.assets.list = list,
-                Err(e) => tracing::warn!("--library assets: {e}"),
+                Err(e) => tracing::warn!("--catalog assets: {e}"),
             }
         }
         let text = std::fs::read_to_string(dir.join("modules.json")).ok()?;
-        let list = crate::module::entries(&text).map_err(|e| tracing::warn!("--library modules: {e}")).ok()?;
-        self.docs = list.iter().map(|m| m.content.clone()).collect();
-        Some(list)
+        crate::module::entries(&text).map_err(|e| tracing::warn!("--catalog modules: {e}")).ok()
     }
 
     pub fn assets(&self) -> Vec<Entry> {
@@ -245,11 +244,23 @@ impl Library {
         self.browser.draw(d, t, (a, pointer), &self.entries, &|p| pictures.get(p), action);
     }
 
-    /// over everything: the card in the hand, the sentence where one was refused
+    /// over everything: the sentence where a card was refused (the card in the hand is the editor's one `Carry`)
     pub fn over(&self, d: &mut DrawList, t: &Tokens, max_x: f32) {
-        self.browser.over(d, t, &self.entries, max_x);
         if let Some((x, y, why)) = &self.refused {
-            deck_kit::editor::controls::chip(d, t, (*x, *y + 8.0), max_x, why, true);
+            deck_kit::editor::carry::refused(d, t, (*x, *y), max_x, why);
+        }
+    }
+
+    /// An empty character rig turns "related" on once, with the modules: what is made for it first (owner 2026-11-16
+    /// [rigs]); any other rig leaves the filter as the viewer set it.
+    pub fn follow_rig(&mut self, subject: &str, character: Option<&str>, empty: bool) {
+        if self.related_for.as_deref() == Some(subject) {
+            return;
+        }
+        self.related_for = Some(subject.to_string());
+        if let (Some(_), true) = (character, empty) {
+            self.browser.filter.related = Some(String::new());
+            self.browser.filter.kinds = vec![Kind::Module];
         }
     }
 
@@ -270,13 +281,16 @@ pub fn of_modules(list: &[crate::module::Entry]) -> Vec<Entry> {
 pub fn of_show(scenes: Vec<deck_show::rows::PieceView>, book: Option<&deck_space::rig::book::Book>) -> Vec<Entry> {
     let mut out: Vec<Entry> = scenes
         .into_iter()
-        .map(|p| Entry { preview: Preview::Still { key: p.address.clone() }, address: p.address, label: p.label, detail: p.detail, kind: Kind::Scene, receivers: Vec::new() })
+        .map(|p| Entry { preview: Preview::Still { key: p.address.clone() }, address: p.address, label: p.label, detail: p.detail, kind: Kind::Scene, made_for: Vec::new() })
         .collect();
     if let Some(b) = book {
         out.extend(deck_space::library::from_book(b, crate::LOCALE).into_iter().filter(|e| e.kind != Kind::Scene));
     }
     out
 }
+
+/// a check run's drag: the card's address, where it is let go (none: the stage's middle), kept in the hand
+pub type ScriptDrag = (String, Option<(f32, f32)>, bool);
 
 /// seconds since the editor started: the browser's clock for a second press
 pub fn now() -> f64 {
@@ -322,16 +336,17 @@ impl crate::App {
             self.library.ask_assets(&self.args.api);
         }
         let entries = match purpose {
-            Purpose::Build => {
-                let docs = if self.rigs.module_docs().is_empty() { &self.library.docs } else { self.rigs.module_docs() };
-                of_build(docs, &crate::adding::instruments(&self.stage.bundle, self.rigs.instruments()), self.book.book.as_deref(), self.library.assets())
-            }
+            Purpose::Build => of_build(self.rigs.module_docs(), &crate::adding::instruments(&self.stage.bundle, self.rigs.instruments()), self.book.book.as_deref(), self.library.assets()),
             Purpose::Show => self.show.library_entries(),
             Purpose::Module => of_modules(&self.module.list),
         };
         self.library.set(purpose, entries);
         let rig = (self.scene.is_none()).then(|| self.stage.bundle.rig.subject.clone());
-        self.library.browser.character = if purpose == Purpose::Build { playing_key(rig.as_deref(), None) } else { None };
+        let character = rig.as_deref().and_then(crate::toon::character).map(String::from);
+        self.library.browser.character = if purpose == Purpose::Build { character.clone() } else { None };
+        if let (Purpose::Build, Some(subject)) = (purpose, rig.as_deref()) {
+            self.library.follow_rig(subject, character.as_deref(), crate::empty::is_empty(&self.stage.bundle));
+        }
         self.show.carrying = purpose == Purpose::Show && self.library.carrying().is_some();
         if self.workspace == Workspace::Module {
             if let Some(j) = self.library_open.as_ref().and_then(|id| self.module.list.iter().position(|m| m.id == *id)) {
@@ -364,7 +379,20 @@ impl crate::App {
             Did::Click(i) if self.workspace == crate::show::Workspace::Module => self.library_open_entry(i),
             Did::Click(_) => {}
             Did::Open(i) => self.library_open_entry(i),
-            Did::Drop { entry, at } => self.library_drop(entry, at),
+            Did::Drop { entry, at } => {
+                self.carry = None;
+                self.library_drop(entry, at)
+            }
+        }
+    }
+
+    /// the pointer moved: a card dragged far enough goes into the one hand
+    pub(crate) fn library_drag_to(&mut self, x: f32, y: f32) {
+        self.library.browser.drag_to(x, y);
+        if self.carry.is_none() {
+            if let Some(e) = self.library.browser.dragging().and_then(|i| self.library.entries.get(i)) {
+                self.carry = Some(deck_kit::editor::carry::Carry::new(&e.address, &e.label));
+            }
         }
     }
 
@@ -405,10 +433,7 @@ impl crate::App {
             }
             crate::show::Workspace::Build if !self.panels().floats.covers(at.0, at.1) => {
                 let choice = match e.kind {
-                    Kind::Module => {
-                        let docs = if self.rigs.module_docs().is_empty() { &self.library.docs } else { self.rigs.module_docs() };
-                        docs.iter().find(|d| d["id"].as_str().is_some_and(|id| format!("module:{id}") == e.address)).and_then(|d| deck_space::rig::assign::module_track(d).ok()).map(|m| crate::adding::Choice::Module(Box::new(m)))
-                    }
+                    Kind::Module => self.rigs.modules().0.into_iter().find(|(_, d)| format!("module:{}", d.name) == e.address).map(|m| crate::adding::Choice::Module(Box::new(m))),
                     _ => crate::adding::instruments(&self.stage.bundle, self.rigs.instruments()).into_iter().find(|i| format!("instrument:{}", i.id) == e.address).map(|i| crate::adding::Choice::Track(Box::new(i))),
                 };
                 match choice {
@@ -457,7 +482,11 @@ impl crate::App {
                 self.library.browser.mode = deck_kit::editor::library::Mode::List;
             }
         }
-        let Some((address, x, y, hold)) = self.args.library_drag.clone() else { return };
+        let Some((address, at, hold)) = self.args.library_drag.clone() else { return };
+        let (x, y) = at.unwrap_or_else(|| {
+            let (w, h) = self.window_size();
+            (w * 0.5, h * 0.45)
+        });
         match self.frames {
             f if f == START => {
                 let card = self.library.entries.iter().position(|e| e.address == address).and_then(|i| self.library.browser.hits.iter().find(|(_, h)| *h == deck_kit::editor::library::Hit::Card(i)).map(|(r, _)| *r));
@@ -492,13 +521,31 @@ mod tests {
     fn each_workspace_loads_its_kinds_into_the_one_browser() {
         let mut lib = Library::new(std::env::temp_dir().join(format!("deck-editor-library-{}", std::process::id())));
         let modules = of_modules(&[module("walk"), module("analog")]);
-        let scene = Entry { address: "scene:nave".into(), label: "Nave".into(), detail: String::new(), kind: Kind::Scene, preview: Preview::Kind, receivers: Vec::new() };
+        let scene = Entry { address: "scene:nave".into(), label: "Nave".into(), detail: String::new(), kind: Kind::Scene, preview: Preview::Kind, made_for: Vec::new() };
         let mut all = modules.clone();
         all.push(scene);
         lib.set(Purpose::Module, all.clone());
         assert_eq!(lib.entries.iter().map(|e| e.address.as_str()).collect::<Vec<_>>(), ["module:walk", "module:analog"], "Module: only modules");
         lib.set(Purpose::Show, all);
         assert_eq!(lib.entries.iter().map(|e| e.address.as_str()).collect::<Vec<_>>(), ["scene:nave"]);
+    }
+
+    /// #578's list beside an empty rig is the library's "related" filter on the modules: on once for an empty character
+    /// rig, by the descriptor's rule (a persona of a character it names counts)
+    #[test]
+    fn an_empty_character_rig_shows_the_modules_made_for_it() {
+        let made = |id: &str, characters: &[&str]| crate::module::Entry { id: id.into(), factory: false, draft: false, latest: None, content: serde_json::json!({ "descriptor": { "name": id, "characters": characters, "ports": [{ "name": "out", "dir": "out", "type": "audio" }] } }) };
+        let mut lib = Library::new(std::env::temp_dir().join(format!("deck-editor-related-{}", std::process::id())));
+        lib.set(Purpose::Build, of_modules(&[made("wing", &["yellowmouse"]), made("torso", &["catpope"]), made("drone", &[])]));
+        lib.browser.character = Some("yellowmouse.kid".into());
+        lib.follow_rig("character.yellowmouse.kid", Some("yellowmouse.kid"), true);
+        let shown: Vec<&str> = lib.browser.shown(&lib.entries).into_iter().map(|i| lib.entries[i].address.as_str()).collect();
+        assert_eq!(shown, ["module:wing"]);
+        lib.browser.filter.related = None;
+        lib.follow_rig("character.yellowmouse.kid", Some("yellowmouse.kid"), true);
+        assert_eq!(lib.browser.shown(&lib.entries).len(), 3, "the viewer's choice stays for the same rig");
+        lib.follow_rig("character.catpope", Some("catpope"), false);
+        assert_eq!(lib.browser.filter.related, None, "a rig with tracks: as the viewer set it");
     }
 
     #[test]
@@ -514,7 +561,7 @@ mod tests {
         assert!(lib.pictures.get(&p).is_some());
         assert_eq!(lib.pictures.images[0].1.dimensions(), STILL);
         let mut again = Pictures::new(dir.join("stills"));
-        again.want(&[Entry { address: "module:walk".into(), label: String::new(), detail: String::new(), kind: Kind::Module, preview: p.clone(), receivers: Vec::new() }]);
+        again.want(&[Entry { address: "module:walk".into(), label: String::new(), detail: String::new(), kind: Kind::Module, preview: p.clone(), made_for: Vec::new() }]);
         for _ in 0..200 {
             again.poll();
             if again.get(&p).is_some() {

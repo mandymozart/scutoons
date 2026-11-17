@@ -114,6 +114,8 @@ struct Args {
     module: module::Script,
     /// #568: a check run's rigs (`<id>.toml` bundles) for the cells' pieces the deck carries no core rig of
     rigs: Option<PathBuf>,
+    /// a check run's catalog: the answers of `/catalog/docs/<kind>` as `<kind>.json` in a folder
+    catalog: Option<PathBuf>,
     /// a check run's Add typeahead: type this, pick the first row if asked
     add: Option<(String, bool)>,
     /// a check run's scene member (scene.rs `script_scene`): selected, a knob turned, opened as its rig if asked
@@ -139,17 +141,14 @@ struct Args {
     /// a check run's colour picker on the shown background: open | pick | drop:X,Y | take:X,Y (colour.rs `script_colour`)
     colour: Option<String>,
     /// a check run's library: a card of this address dragged to X,Y and let go there (`hold`: kept in the hand)
-    library_drag: Option<(String, f32, f32, bool)>,
+    library_drag: Option<library::ScriptDrag>,
     /// a check run's library in the list mode, filtered by a query
     library_find: Option<String>,
     library_list: bool,
-    /// a check run's library answers instead of the API's: a folder with `modules.json` (`/catalog/docs/modules`) and
-    /// `assets.json` (`/assets`)
-    library_dir: Option<PathBuf>,
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, save_state: None, tools_folded: false, closed: Vec::new(), main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false, library_dir: None };
+    let mut a = Args { module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, save_state: None, tools_folded: false, closed: Vec::new(), main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -166,12 +165,15 @@ fn args() -> Result<Args> {
             "--library-drag" => {
                 let v = val()?;
                 let p: Vec<&str> = v.split(',').collect();
-                let (Some(address), Some(x), Some(y)) = (p.first(), p.get(1), p.get(2)) else { anyhow::bail!("--library-drag ADDRESS,X,Y[,hold]") };
-                a.library_drag = Some((address.to_string(), x.parse()?, y.parse()?, p.get(3) == Some(&"hold")));
+                let hold = p.last() == Some(&"hold");
+                let at = match (p.get(1), p.get(2)) {
+                    (Some(x), Some(y)) if *x != "hold" => Some((x.parse()?, y.parse()?)),
+                    _ => None,
+                };
+                a.library_drag = Some((p[0].to_string(), at, hold));
             }
             "--library-find" => a.library_find = Some(val()?),
             "--library-list" => a.library_list = true,
-            "--library" => a.library_dir = Some(PathBuf::from(val()?)),
             "--save-state" => a.save_state = Some(val()?),
             "--tools-folded" => a.tools_folded = true,
             "--view" => a.view = Some(val()?.parse()?),
@@ -214,6 +216,7 @@ fn args() -> Result<Args> {
             "--module-save" => a.module.save = true,
             "--module-save-as" => a.module.save_as = Some(val()?),
             "--rigs" => a.rigs = Some(PathBuf::from(val()?)),
+            "--catalog" => a.catalog = Some(PathBuf::from(val()?)),
             "--demo" => {
                 a.demo = Some(val()?);
                 a.workspace = show::Workspace::Show;
@@ -545,6 +548,8 @@ struct App {
     rig_toon: toon::RigToon,
     auth: sign_in::Auth,
     rigs: rigs::Rigs,
+    /// the one hand (deck-kit `carry`): a library card on its way into a view
+    carry: Option<deck_kit::editor::carry::Carry>,
     routing: routing::Page,
     module: module::Module,
     /// the catalog modules Build's rig plays, fetched and loaded
@@ -620,6 +625,9 @@ fn run() -> Result<i32> {
     // a check run (--frames) never asks for a sign-in: SCUTOONS_TOKEN or the kept token only
     let auth = sign_in::Auth::start(&args.api, &cache, args.frames.is_none());
     let mut rigs = if args.frames.is_none() || args.script.new_scene.is_some() { rigs::Rigs::new(&args.api, &cache, &subject, version, auth.token().is_some()) } else { rigs::Rigs::offline(&cache, &subject, version, "a check run asks no server") };
+    if let Some(dir) = &args.catalog {
+        rigs.read_catalog(dir).map_err(|e| anyhow::anyhow!("--catalog {}: {e}", dir.display()))?;
+    }
     // the kept changes the server has not got yet go up by themselves
     if stage.bundle != stage.base {
         rigs.auto.edit(Instant::now());
@@ -639,7 +647,7 @@ fn run() -> Result<i32> {
     let mut app_module = module::Module::new(&args.api, &cache, args.module.clone());
     app_module.autosaves = args.frames.is_none();
     let mut app_library = library::Library::new(cache.clone());
-    if let Some(dir) = &args.library_dir {
+    if let Some(dir) = &args.catalog {
         if let Some(list) = app_library.answers(dir) {
             app_module.list = list;
         }
@@ -730,6 +738,7 @@ fn run() -> Result<i32> {
         rig_toon,
         auth,
         rigs,
+        carry: None,
         routing: routing::Page::new(deck_native::audio::backend::DeckAudio::read()),
         module: app_module,
         published: app_published,
@@ -778,6 +787,12 @@ impl App {
 
     fn scale(&self) -> f32 {
         self.window.as_ref().map_or(1.0, |w| w.scale_factor() as f32)
+    }
+
+    /// the window's size in logical pixels
+    fn window_size(&self) -> (f32, f32) {
+        let s = self.scale();
+        self.window.as_ref().map_or((1280.0, 720.0), |w| (w.inner_size().width as f32 / s, w.inner_size().height as f32 / s))
     }
 
     /// what is under the pointer, from the last frame's layout
@@ -1073,7 +1088,10 @@ impl App {
             return;
         }
         self.show.pointer(x, y);
-        self.library.browser.drag_to(x, y);
+        self.library_drag_to(x, y);
+        if let Some(c) = self.carry.as_mut() {
+            c.to(x, y);
+        }
         if self.module.dragging() {
             return self.module.drag_to(x, &mut self.stage);
         }
@@ -2703,7 +2721,9 @@ impl App {
                             self.panel.hits.push((r, hit));
                         }
                     } else if empty::is_empty(&self.stage.bundle) {
+                        let mut end = area.y;
                         for (r, way) in empty::draw(ui, t, area, &self.stage.bundle) {
+                            end = end.max(r.y + r.h);
                             self.panel.hits.push((r, Hit::Way(way)));
                         }
                     } else {
@@ -2812,6 +2832,9 @@ impl App {
         }
         if let Some(n) = &self.notice {
             controls::chip(ui, t, (n.x + 14.0, n.y - 34.0), wf, &n.text, n.bad);
+        }
+        if let Some(c) = &self.carry {
+            c.draw(ui, t, wf);
         }
         // over everything else: what is being typed, the typeahead
         if let Some(e) = &self.edit {

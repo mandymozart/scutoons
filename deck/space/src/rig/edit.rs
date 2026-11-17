@@ -613,6 +613,12 @@ mod gesture_tests {
         let played = e.play(None, None).expect("it plays");
         assert!(played.tracks.is_empty() && played.engine.page.is_empty(), "nothing sounds");
         assert_eq!(played.character, "nobody", "the picture stays: its being");
+        assert_eq!(e.stands_as(), Some(crate::cast::Form::Card), "no 3D model for it: its 2D picture");
+        let scene = crate::scene::Scene::parse(&played.scene).expect("its scene");
+        let look = scene.nodes.iter().find(|n| n.kind == "look").expect("a card stands for it");
+        assert_eq!(look.params.get("who").and_then(|v| v.as_str()), Some("character:nobody"));
+        assert!(!crate::cast::stage_3d(&scene), "a stage without a set: the look is a card");
+        assert_eq!(Bundle::empty("item.lamp").stands_as(), None);
         assert!(!played.nodes.iter().any(|n| matches!(n.kind.as_str(), "osc" | "fm" | "noise" | "mixer" | "audio_out")), "{:?}", played.nodes.iter().map(|n| &n.kind).collect::<Vec<_>>());
         assert_eq!(problems(&e), Vec::<String>::new());
         let drone = catpope().instruments.into_iter().find(|i| i.id == "drone").expect("catpope plays a drone");
@@ -623,6 +629,7 @@ mod gesture_tests {
         let doc = serde_json::json!({ "id": "synthx", "descriptor": { "name": "synthx", "ports": [{ "name": "out", "dir": "out", "type": "audio" }], "params": [{ "name": "volume", "min": 0.0, "max": 1.0 }] } });
         let (inst, d) = super::super::assign::module_track(&doc).expect("it wraps");
         let (m, id) = e.module_track_added(&inst, &d).expect("a module track");
+        assert_eq!(m.stands_as(), None, "with a track its being is its graph");
         assert_eq!((id.as_str(), m.modules.len()), ("synthx", 1));
         assert_eq!(m.module_track_added(&inst, &d).expect("again").0.modules.len(), 1, "the descriptor once");
         m.play(None, None).expect("it plays");

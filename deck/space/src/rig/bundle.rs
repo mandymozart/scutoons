@@ -307,6 +307,9 @@ struct BeingDoc<'a> {
     expose: Vec<&'a str>,
 }
 
+/// the holder a rig with no track yet stands at on its own stage
+pub const STAND: &str = "stand";
+
 impl Bundle {
     /// the core rig of `subject` (`character.<id>` / `item.<id>`), if the deck carries one
     pub fn core(subject: &str) -> Option<Result<Bundle>> {
@@ -319,6 +322,14 @@ impl Bundle {
     pub fn empty(subject: &str) -> Bundle {
         let rig = Rig { subject: subject.to_string(), tracks: Vec::new(), routes: Vec::new(), personas: BTreeMap::new(), moods: BTreeMap::new(), rights: Default::default(), sticks: None, policy: None, background: None };
         Bundle { rig, instruments: Vec::new(), presets: Vec::new(), modules: Vec::new() }
+    }
+
+    /// How a rig with no track yet shows its character on the stage: its 2D picture (a card) – none is drawn for a
+    /// rig that has tracks (its being is its graph) or one that is no character's.
+    // TODO(#491): the base rig's 3D model before the picture, once there is one
+    pub fn stands_as(&self) -> Option<crate::cast::Form> {
+        let c = self.rig.subject.strip_prefix("character.")?;
+        (self.rig.tracks.is_empty() && !c.is_empty()).then_some(crate::cast::Form::Card)
     }
 
     /// `core` as JSON – the wasm boundary's form; empty when the deck carries none
@@ -357,8 +368,14 @@ impl Bundle {
             .unwrap_or_default();
         if self.rig.tracks.is_empty() {
             self.rig.check(&lib)?;
-            let being = if character.is_empty() { String::new() } else { format!("\n[being]\ncharacter = {}\n", toml::Value::String(character)) };
-            let text = format!("{SILENT_SCENE}{being}");
+            let text = match self.stands_as() {
+                Some(crate::cast::Form::Card) => {
+                    let who = toml::Value::String(format!("character:{character}"));
+                    let c = toml::Value::String(character);
+                    format!("{SILENT_SCENE}\n[[node]]\nid = \"{STAND}_look\"\nkind = \"look\"\nholder = \"{STAND}\"\nwho = {who}\nbeing = {{ character = {c} }}\n\n[being]\ncharacter = {c}\n")
+                }
+                _ => SILENT_SCENE.to_string(),
+            };
             return match self.background() {
                 Some(b) => Played::scene(&Scene::with_background(&text, b)?),
                 None => Played::scene(&text),

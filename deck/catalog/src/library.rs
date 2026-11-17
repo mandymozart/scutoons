@@ -94,8 +94,8 @@ pub struct Entry {
     pub detail: String,
     pub kind: Kind,
     pub preview: Preview,
-    /// the characters it is made for (`character:catpope`): "related" for those
-    pub receivers: Vec<String>,
+    /// the characters it is made for (a module's `characters`: `catpope`, a persona `yellowmouse.kid`): "related" for those
+    pub made_for: Vec<String>,
 }
 
 /// what the browser shows of a list: a query (every word in the label, the address or the detail – the typeahead's
@@ -142,17 +142,11 @@ impl Purpose {
     }
 }
 
-/// `character:catpope.human.default` → `catpope`: the character a reference is of, its persona and look left out
-fn character_of(reference: &str) -> &str {
-    let id = reference.strip_prefix("character:").unwrap_or(reference);
-    id.split('.').next().unwrap_or(id)
-}
-
 impl Entry {
-    /// made for `character` (any of its personas or looks)
+    /// made for `character` (`catpope`, a persona `catpope.biker`; a reference `character:catpope` too) by the
+    /// descriptor's rule
     pub fn related_to(&self, character: &str) -> bool {
-        let c = character_of(character);
-        !c.is_empty() && self.receivers.iter().any(|r| character_of(r) == c)
+        crate::made_for(&self.made_for, character.strip_prefix("character:").unwrap_or(character))
     }
 
     fn found_by(&self, query: &str) -> bool {
@@ -231,11 +225,6 @@ pub fn graph(nodes: &[(String, bool)], links: &[(String, String)]) -> Preview {
     Preview::Graph { dots, tubes }
 }
 
-/// the characters a document names as the ones it is made for (`receivers`)
-pub fn receivers(content: &Value) -> Vec<String> {
-    content["receivers"].as_array().map(|a| a.iter().filter_map(|r| r.as_str().map(String::from)).collect()).unwrap_or_default()
-}
-
 /// `GET /api/catalog/docs/modules`'s answer: the modules not removed, each with its preview
 pub fn modules(text: &str) -> Result<Vec<Entry>, String> {
     let v: Value = serde_json::from_str(text).map_err(|e| format!("the modules' answer: {e}"))?;
@@ -262,7 +251,8 @@ pub fn module(e: &Value) -> Option<Entry> {
         }
         None => (Preview::Kind, [state, "not built"].iter().filter(|s| !s.is_empty()).copied().collect::<Vec<_>>().join(" · ")),
     };
-    Some(Entry { address: format!("module:{id}"), label: id.to_string(), detail, kind: Kind::Module, preview, receivers: receivers(content) })
+    let made_for = d.as_ref().map(|d| d.characters.iter().map(|c| c.to_string()).collect()).unwrap_or_default();
+    Some(Entry { address: format!("module:{id}"), label: id.to_string(), detail, kind: Kind::Module, preview, made_for })
 }
 
 /// `GET /api/assets`'s answer (`items`, `cdn`): each asset by its kind, an image's preview its smallest picture
@@ -298,7 +288,7 @@ fn asset(a: &Value, cdn: &str) -> Option<Entry> {
         _ => a["folder"].as_str().unwrap_or("").to_string(),
     };
     let label = a["title"].as_str().filter(|t| !t.is_empty()).or_else(|| a["slug"].as_str()).unwrap_or(path).to_string();
-    Some(Entry { address: path.to_string(), label, detail, kind, preview, receivers: Vec::new() })
+    Some(Entry { address: path.to_string(), label, detail, kind, preview, made_for: Vec::new() })
 }
 
 #[cfg(test)]
@@ -310,8 +300,8 @@ mod tests {
         serde_json::from_value(v).unwrap()
     }
 
-    fn entry(address: &str, kind: Kind, receivers: &[&str]) -> Entry {
-        Entry { address: address.into(), label: address.split(':').nth(1).unwrap_or(address).into(), detail: String::new(), kind, preview: Preview::Kind, receivers: receivers.iter().map(|s| s.to_string()).collect() }
+    fn entry(address: &str, kind: Kind, made_for: &[&str]) -> Entry {
+        Entry { address: address.into(), label: address.split(':').nth(1).unwrap_or(address).into(), detail: String::new(), kind, preview: Preview::Kind, made_for: made_for.iter().map(|s| s.to_string()).collect() }
     }
 
     #[test]
@@ -336,12 +326,14 @@ mod tests {
 
     #[test]
     fn the_filter_takes_words_kinds_and_related() {
-        let list = [entry("module:torso", Kind::Module, &["character:catpope"]), entry("module:wing", Kind::Module, &["character:yellow_mouse.default"]), entry("scene:nave", Kind::Scene, &[]), entry("module:walk", Kind::Module, &[])];
+        let list = [entry("module:torso", Kind::Module, &["catpope"]), entry("module:wing", Kind::Module, &["yellow_mouse.kid"]), entry("scene:nave", Kind::Scene, &[]), entry("module:walk", Kind::Module, &[])];
         assert_eq!(find(&list, &Filter::default()), [0, 1, 2, 3]);
         assert_eq!(find(&list, &Filter { query: "MODULE w".into(), ..Filter::default() }), [1, 3], "every word, any case");
         assert_eq!(find(&list, &Filter { kinds: vec![Kind::Scene], ..Filter::default() }), [2]);
-        assert_eq!(find(&list, &Filter { related: Some("character:catpope.human.default".into()), ..Filter::default() }), [0], "a look of the character counts");
-        assert_eq!(find(&list, &Filter { related: Some("yellow_mouse".into()), ..Filter::default() }), [1]);
+        assert_eq!(find(&list, &Filter { related: Some("character:catpope".into()), ..Filter::default() }), [0]);
+        assert_eq!(find(&list, &Filter { related: Some("catpope.biker".into()), ..Filter::default() }), [0], "a persona of a character it names");
+        assert_eq!(find(&list, &Filter { related: Some("yellow_mouse.kid".into()), ..Filter::default() }), [1], "the persona it names");
+        assert_eq!(find(&list, &Filter { related: Some("yellow_mouse".into()), ..Filter::default() }), Vec::<usize>::new(), "not the whole character");
         assert_eq!(facets(&list), [(Kind::Module, 3), (Kind::Scene, 1)]);
     }
 
@@ -358,10 +350,10 @@ mod tests {
         let modules_answer = json!({ "entries": [
             { "id": "walk", "factory": true, "content": { "descriptor": { "name": "walk", "ports": [{ "name": "out", "dir": "out", "type": "audio" }] } } },
             { "id": "gone", "removed": true, "content": {} },
-            { "id": "torso", "draft": true, "content": { "receivers": ["character:catpope"] } },
+            { "id": "torso", "draft": true, "content": { "descriptor": { "name": "torso", "domain": "video", "characters": ["catpope"], "ports": [{ "name": "out", "dir": "out", "type": "video" }] } } },
         ] });
         let m = modules(&modules_answer.to_string()).unwrap();
-        assert_eq!(m.iter().map(|e| (e.address.as_str(), e.detail.as_str())).collect::<Vec<_>>(), [("module:walk", "factory · sound"), ("module:torso", "draft · not built")]);
+        assert_eq!(m.iter().map(|e| (e.address.as_str(), e.detail.as_str())).collect::<Vec<_>>(), [("module:walk", "factory · sound"), ("module:torso", "draft · draws")]);
         assert!(m[1].related_to("catpope"));
         let assets_answer = json!({ "cdn": "https://cdn.example/", "items": [
             { "path": "a/cat.webp", "kind": "image", "title": "Cat", "width": 2340, "height": 3744, "renditions": [{ "path": "a/cat.webp", "mime": "image/webp", "width": 2340 }, { "path": "a/cat.small.webp", "mime": "image/webp", "width": 390 }] },

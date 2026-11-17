@@ -1886,6 +1886,20 @@ to = "burner_look.pulse"
         (g, space, ctl)
     }
 
+    /// a character's rig with no track yet stands on its stage as its 2D picture: one card, no body
+    #[test]
+    fn a_rig_with_no_track_yet_stands_as_its_card() {
+        let played = crate::rig::Bundle::empty("character.yellowmouse").play(None, None).unwrap();
+        let scene = Scene::parse(&played.scene).unwrap();
+        let g = Graph::build(&scene).unwrap();
+        let node = g.first(crate::graph::Kind::Space).unwrap();
+        let mut space = Space::new(&g, node, &scene.being, Path::new("/nowhere"), Portraits::manual());
+        assert_eq!((space.cast.len(), space.cards(), space.beings().count()), (1, 1, 0));
+        assert_eq!(space.cast[0].who, Who::Character("yellowmouse".into()));
+        let mut ctl = Table::new(&g);
+        run(&mut space, &mut ctl, 3, &mut |_| {});
+    }
+
     fn run(space: &mut Space, ctl: &mut Table, frames: usize, each: &mut dyn FnMut(&Space)) {
         for k in 0..frames {
             ctl.step(1.0 / 30.0);

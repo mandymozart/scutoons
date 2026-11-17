@@ -54,6 +54,8 @@ export type Descriptor = {
 	background?: Background | null;
 	/** the batch evaluator (deck-core batch.rs, live-core, the browser) can run it */
 	batch?: boolean;
+	/** modules only: the characters it is made for (`catpope`, a persona `yellowmouse.kid`) – their "related" modules; it still plugs in anywhere */
+	characters?: string[];
 	doc?: string;
 	domain?: Domain;
 	/** the stage's cargo feature that carries the kind (`core` = always); empty = none */

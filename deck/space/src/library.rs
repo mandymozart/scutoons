@@ -27,7 +27,7 @@ pub fn from_book(book: &Book, locale: &str) -> Vec<Entry> {
             Kind::Scene => e.set.clone().unwrap_or_default(),
             _ => e.r#ref.clone(),
         };
-        out.push(Entry { address, label: book.label(i, locale).to_string(), detail, kind, preview, receivers: Vec::new() });
+        out.push(Entry { address, label: book.label(i, locale).to_string(), detail, kind, preview, made_for: Vec::new() });
     }
     out
 }
@@ -40,7 +40,7 @@ pub fn from_instruments(instruments: &[Instrument]) -> Vec<Entry> {
             let nodes: Vec<(String, bool)> = i.nodes.iter().map(|n| (n.id.clone(), deck_catalog::builtin(&n.kind).is_some_and(|d| d.domain == Domain::Audio))).collect();
             let links: Vec<(String, String)> = i.links.iter().map(|l| (l.from.clone(), l.to.clone())).collect();
             let detail = format!("{} · {} nodes", format!("{:?}", i.kind).to_lowercase(), i.nodes.len());
-            Entry { address: format!("instrument:{}", i.id), label: i.id.clone(), detail, kind: Kind::Instrument, preview: graph(&nodes, &links), receivers: Vec::new() }
+            Entry { address: format!("instrument:{}", i.id), label: i.id.clone(), detail, kind: Kind::Instrument, preview: graph(&nodes, &links), made_for: Vec::new() }
         })
         .collect()
 }

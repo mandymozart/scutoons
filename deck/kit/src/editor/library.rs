@@ -1,7 +1,8 @@
 //! The library browser (owner 2026-11-16 [design]): one component for whatever source it is handed – modules,
 //! instruments, the catalog, scenes, assets (deck-catalog `library`). A find field, a chip per kind there is (and
 //! "related" when a character is open), cards in a grid or rows in a list, each with the preview the core chose for its
-//! content. A card pressed and moved is dragged; let go, its owner is told where; a second press on it soon after opens it.
+//! content. A card pressed and moved is dragged (its owner puts it in the one hand, `carry`); let go, its owner is told
+//! where; a second press on it soon after opens it.
 use crate::base::draw::{DrawList, Rect};
 use crate::base::text::Field;
 use crate::base::tokens::Tokens;
@@ -264,15 +265,6 @@ impl Browser {
             }
         }
     }
-
-    /// Over everything: the card being dragged at the pointer.
-    pub fn over(&self, d: &mut DrawList, t: &Tokens, entries: &[Entry], max_x: f32) {
-        if let Some(h) = self.held.filter(|h| h.dragging) {
-            if let Some(e) = entries.get(h.entry) {
-                controls::chip(d, t, (h.at.0 + 12.0, h.at.1 + 8.0), max_x, &e.label, false);
-            }
-        }
-    }
 }
 
 /// An entry's preview in `r`: its picture when the screen has it, its wiring, its code's face, else its kind.
@@ -336,14 +328,14 @@ mod tests {
     use super::*;
     use crate::base::draw::Prim;
 
-    fn entry(address: &str, kind: Kind, preview: Preview, receivers: &[&str]) -> Entry {
-        Entry { address: address.into(), label: address.split(':').nth(1).unwrap_or(address).into(), detail: String::new(), kind, preview, receivers: receivers.iter().map(|s| s.to_string()).collect() }
+    fn entry(address: &str, kind: Kind, preview: Preview, made_for: &[&str]) -> Entry {
+        Entry { address: address.into(), label: address.split(':').nth(1).unwrap_or(address).into(), detail: String::new(), kind, preview, made_for: made_for.iter().map(|s| s.to_string()).collect() }
     }
 
     fn list() -> Vec<Entry> {
         vec![
             entry("module:walk", Kind::Module, Preview::Code { params: vec!["rate".into()], ins: 0, outs: 1 }, &[]),
-            entry("module:torso", Kind::Module, Preview::Still { key: "module:torso".into() }, &["character:catpope"]),
+            entry("module:torso", Kind::Module, Preview::Still { key: "module:torso".into() }, &["catpope"]),
             entry("instrument:keys", Kind::Instrument, deck_catalog::library::graph(&[("osc".into(), true), ("out".into(), true)], &[("osc".into(), "out".into())]), &[]),
             entry("scene:nave", Kind::Scene, Preview::Kind, &[]),
         ]
