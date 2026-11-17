@@ -511,9 +511,9 @@ struct App {
     gpu: Option<Gpu>,
     ui: Option<ui::Ui>,
     gpu_time: Option<gpu_time::GpuTime>,
-    /// how much of the frame the CPU and the GPU work, smoothed
-    cpu_load: f32,
-    gpu_load: f32,
+    cpu: Option<deck_native::cpu::CpuMeter>,
+    gpu_busy: deck_core::load::Busy,
+    gpu_load: deck_core::load::Meter,
     stage: stage::Stage,
     tokens: tokens::Watched,
     /// this machine's settings, where they are kept (none in a check run), their panel's places
@@ -722,8 +722,9 @@ fn run() -> Result<i32> {
         gpu: None,
         ui: None,
         gpu_time: None,
-        cpu_load: 0.0,
-        gpu_load: 0.0,
+        cpu: deck_native::cpu::CpuMeter::spawn(),
+        gpu_busy: Default::default(),
+        gpu_load: Default::default(),
         stage,
         tokens,
         settings: app_settings,
@@ -1050,7 +1051,7 @@ impl App {
                     (sign_in::Signed::Out, _) => Help::new("Not signed in", format!("{line}. Click to see it again.")),
                 }
             }
-            Hit::Meters => Help::new("Load", bar::meters_words(self.cpu_load, self.gpu_time.as_ref().map(|_| self.gpu_load), self.stage.khz().map(|k| k as f32), self.fps())),
+            Hit::Meters => Help::new("Load", bar::meters_words(self.cpu.as_ref().and_then(|c| c.reading()), self.gpu_time.as_ref().map(|_| self.gpu_load.reading().unwrap_or_default()), self.stage.khz().map(|k| k as f32), self.fps())),
             Hit::Panic if self.show.sub.panicked() => Help::new("Resume", "The panic holds. Press to bring every deck back to the cells the show holds now."),
             Hit::Panic => Help::new("Panic", "Black and silence on every deck below this conductor and on this stage, until you resume here. Shift+Esc too."),
             Hit::Ground => return None,
@@ -2441,7 +2442,6 @@ impl App {
             p.settings = open;
             p.tools = Some(tools::size(t, ws, shots));
         }
-        let work_start = Instant::now();
         let mut enc = gpu.device.create_command_encoder(&Default::default());
         if let Some(g) = self.gpu_time.as_mut() {
             g.begin(&mut enc);
@@ -2515,8 +2515,8 @@ impl App {
             pulse,
             logo_frame,
             pointer: self.cursor,
-            cpu: self.cpu_load,
-            gpu: self.gpu_time.as_ref().map(|_| self.gpu_load),
+            cpu: self.cpu.as_ref().and_then(|c| c.reading()),
+            gpu: self.gpu_load.reading(),
             khz: self.stage.khz().map(|k| k as f32),
             fps,
             slot,
@@ -3091,17 +3091,14 @@ impl App {
         if let Some(g) = self.gpu_time.as_mut() {
             g.end(&mut enc);
         }
-        // the CPU's part ends here: present waits for the display
-        let cpu_ms = work_start.elapsed().as_secs_f32() * 1000.0;
         gpu.queue.submit([enc.finish()]);
         gpu.queue.present(frame);
         self.latency.presented();
-        let budget = self.frame_ms.last().copied().unwrap_or(16.7).max(1.0);
-        let ease = |load: f32, now: f32| load + (now - load) * 0.08;
-        self.cpu_load = ease(self.cpu_load, cpu_ms / budget);
-        if let Some(g) = self.gpu_time.as_mut() {
-            g.after_submit(&gpu.device);
-            self.gpu_load = ease(self.gpu_load, g.last_ms / budget);
+        if let Some(ms) = self.gpu_time.as_mut().and_then(|g| g.after_submit(&gpu.device)) {
+            let frame_s = f64::from(self.frame_ms.last().copied().unwrap_or(16.7).max(1.0)) / 1000.0;
+            if let Some((share, span)) = self.gpu_busy.add(f64::from(ms) / 1000.0, frame_s, 1) {
+                self.gpu_load.push(share, span);
+            }
         }
         if self.colour.dropper.is_some() {
             self.colour.under = self.stage.read_pixel(&gpu.device);

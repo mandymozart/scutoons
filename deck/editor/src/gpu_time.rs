@@ -1,5 +1,5 @@
-//! How long the GPU worked on a frame (#456; owner 2026-11-09: "a meter of how much the gpu and cpu are used"): two timestamps
-//! around the frame's commands, read back when the GPU is done; a frame is measured only when the last answer has come.
+//! How long the GPU worked on a frame: two timestamps around the frame's commands, read back when the GPU is done; a frame
+//! is measured only when the last answer has come.
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
@@ -16,7 +16,6 @@ pub struct GpuTime {
     /// written this frame
     armed: bool,
     mapped: Arc<AtomicBool>,
-    pub last_ms: f32,
 }
 
 impl GpuTime {
@@ -28,7 +27,7 @@ impl GpuTime {
         let set = device.create_query_set(&wgpu::QuerySetDescriptor { label: Some("gpu time"), ty: wgpu::QueryType::Timestamp, count: 2 });
         let resolve = device.create_buffer(&wgpu::BufferDescriptor { label: Some("gpu time"), size: 16, usage: wgpu::BufferUsages::QUERY_RESOLVE | wgpu::BufferUsages::COPY_SRC, mapped_at_creation: false });
         let read = device.create_buffer(&wgpu::BufferDescriptor { label: Some("gpu time"), size: 16, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
-        Some(GpuTime { set, resolve, read, period_ns: queue.get_timestamp_period(), busy: false, armed: false, mapped: Arc::new(AtomicBool::new(false)), last_ms: 0.0 })
+        Some(GpuTime { set, resolve, read, period_ns: queue.get_timestamp_period(), busy: false, armed: false, mapped: Arc::new(AtomicBool::new(false)) })
     }
 
     /// at the start of the frame's commands
@@ -48,8 +47,8 @@ impl GpuTime {
         }
     }
 
-    /// after the submit: ask for the answer; and take one that has come
-    pub fn after_submit(&mut self, device: &wgpu::Device) {
+    /// after the submit: ask for the answer; and the GPU's ms of a frame whose answer has come
+    pub fn after_submit(&mut self, device: &wgpu::Device) -> Option<f32> {
         if self.armed {
             self.armed = false;
             self.busy = true;
@@ -57,15 +56,15 @@ impl GpuTime {
             self.read.slice(..).map_async(wgpu::MapMode::Read, move |r| flag.store(r.is_ok(), Ordering::Release));
         }
         let _ = device.poll(wgpu::PollType::Poll);
-        if self.busy && self.mapped.swap(false, Ordering::AcqRel) {
-            {
-                if let Ok(data) = self.read.slice(..).get_mapped_range() {
-                    let stamps: &[u64] = bytemuck::cast_slice(&data);
-                    self.last_ms = stamps[1].wrapping_sub(stamps[0]) as f32 * self.period_ns / 1.0e6;
-                }
-            }
-            self.read.unmap();
-            self.busy = false;
+        if !(self.busy && self.mapped.swap(false, Ordering::AcqRel)) {
+            return None;
         }
+        let ms = self.read.slice(..).get_mapped_range().ok().map(|data| {
+            let stamps: &[u64] = bytemuck::cast_slice(&data);
+            stamps[1].wrapping_sub(stamps[0]) as f32 * self.period_ns / 1.0e6
+        });
+        self.read.unmap();
+        self.busy = false;
+        ms
     }
 }
