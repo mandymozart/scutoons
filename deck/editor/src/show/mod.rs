@@ -35,7 +35,7 @@ pub mod perform;
 mod roles;
 mod rows;
 pub mod saving;
-mod scenes;
+pub mod scenes;
 mod session;
 mod sheets;
 mod toons;
@@ -166,11 +166,6 @@ pub enum Hit {
     Ask(ask::AskHit),
     CellMode(usize),
     CellPiece,
-    /// a scene of the list beside the rows band (a press starts its drag); the list's filter field
-    Scene(usize),
-    SceneFind,
-    /// a scene of the list opened in Build
-    SceneBuild(usize),
     /// #553: one chip of the selected cell's filter (the one condition control); an address of the inspected row (selects
     /// it: its filter's chips show under it); one chip of the selected address's filter
     CellFact(usize),
@@ -267,9 +262,9 @@ pub struct Host {
     /// there is none
     pub book: Option<std::sync::Arc<deck_space::rig::book::Book>>,
     pub book_why: Option<String>,
-    /// the scene list beside the rows band: its filter, the scene being dragged, the core's refusal where one was dropped
-    pub scene_query: String,
-    pub dragging: Option<deck_kit::editor::carry::Carry>,
+    /// a library card a cell would take is in the hand (the cell under the pointer shows it); the core's refusal where
+    /// one was dropped
+    pub carrying: bool,
     pub refused: Option<(f32, f32, String)>,
     /// #539: the toon whose story events a row's event is picked from (`--toon`; else the book's), the events once asked
     /// (`GET /api/creator/story-events`, read by deck-show story.rs) or why there are none, the picker's typed query;
@@ -374,7 +369,7 @@ impl Host {
         perform_panels.floats.scrolls_itself("matrix");
         let scroll = deck_kit::editor::table::Scroll::default();
         let saves = version.map(|v| (show.id.clone(), crate::autosave::Autosave::new(Some(v)))).into_iter().collect();
-        let mut host = Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), columns: Vec::new(), group: None, context: None, show_panels, perform_panels, show_scroll: scroll, perform_scroll: scroll, band: None, view_slot: Rect::default(), help: None, address: None, book: None, book_why: None, scene_query: String::new(), dragging: None, refused: None, toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, saves, unsent: BTreeMap::new(), session: session::Session::default(), toons: toons::Toons::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), build: None, to_build: None, compose: new_scene::Composer::default(), to_stage: None, demos: Vec::new(), demo_book: None, link, api };
+        let mut host = Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), columns: Vec::new(), group: None, context: None, show_panels, perform_panels, show_scroll: scroll, perform_scroll: scroll, band: None, view_slot: Rect::default(), help: None, address: None, book: None, book_why: None, carrying: false, refused: None, toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, saves, unsent: BTreeMap::new(), session: session::Session::default(), toons: toons::Toons::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), build: None, to_build: None, compose: new_scene::Composer::default(), to_stage: None, demos: Vec::new(), demo_book: None, link, api };
         host.adopt_kept();
         host
     }
@@ -516,7 +511,6 @@ impl Host {
                 self.rows_press(hit);
             }
             Hit::FiresOn | Hit::EventPick(_) | Hit::EventType => self.events_press(hit),
-            Hit::Scene(_) | Hit::SceneFind | Hit::SceneBuild(_) => self.scenes_press(hit),
             // the editor's colour picker takes it before the show (colour.rs)
             Hit::BackgroundColour => {}
             Hit::Background => {

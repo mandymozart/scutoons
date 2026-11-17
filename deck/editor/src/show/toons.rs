@@ -1,5 +1,5 @@
 //! A show's toon: picked at New show (its name, then its toon), kept with the document (deck-show's `toon`, `Edit::Toon`);
-//! where the show names none the picker sits in place – the scene list, the Session sheet's toon chips. The toons are the
+//! where the show names none the picker sits in place – the library panel, the Session sheet's toon chips. The toons are the
 //! public library's list, asked once on a thread.
 use super::roles::Typing;
 use super::rows::field;
@@ -212,6 +212,7 @@ mod tests {
         let (mut d, t) = (deck_kit::base::draw::DrawList::new(0.6), deck_kit::base::tokens::Tokens::default());
         host.hits.clear();
         super::super::author::draw(&mut d, &t, host, 2560.0, 1440.0, (0.0, 0.0));
+        super::super::scenes::panel(&mut d, &t, host, &mut crate::library::Library::new(std::env::temp_dir().join("deck-editor-toons-library")), (0.0, 0.0));
         let (r, hit) = host.hits.iter().rev().find(|(_, h)| *h == want).copied().unwrap_or_else(|| panic!("no such place: {:?}", host.hits));
         assert_eq!(host.hit(r.x + r.w * 0.5, r.y + r.h * 0.5), Some(hit));
         host.press(hit);
@@ -249,8 +250,10 @@ mod tests {
         tall_press(&mut host, Hit::ToonPick(0));
         assert_eq!((host.status.as_str(), host.show_toon()), ("the show's toon: catpope", Some("catpope")));
         host.book = Some(std::sync::Arc::new(deck_space::rig::book::Book::parse(super::super::rows::tests::BOOK).unwrap()));
-        tall_press(&mut host, Hit::SceneFind);
-        assert!(!host.hits.iter().any(|(_, h)| matches!(h, Hit::ToonPick(_) | Hit::ToonFind)), "with its toon: the scene list again");
+        let mut lib = crate::library::Library::new(std::env::temp_dir().join("deck-editor-toons-library"));
+        super::super::scenes::tests::frame(&mut host, &mut lib);
+        assert!(!host.hits.iter().any(|(_, h)| matches!(h, Hit::ToonPick(_) | Hit::ToonFind)), "with its toon: the library again");
+        assert!(!lib.browser.hits.is_empty());
     }
 
     #[test]

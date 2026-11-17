@@ -1,159 +1,103 @@
-//! The scene list beside the rows band in Show: the book's published scenes, then the toon's drafts never published
-//! (marked: new_scene.rs), filtered as typed; its "new scene" opens the scene sheet. A scene dragged onto a cell is deck-show's `Edit::Piece`, the same edit as a pick in the picker; a refusal shows the core's sentence where the
-//! scene was dropped. Nothing here decides which cell takes a piece (RULES A1, A2).
-use super::roles::Typing;
-use super::rows::{field, LOCALE};
-use super::{Hit, Host};
+//! Show's side of the library (library.rs): what it lists – the book's published scenes, then the toon's drafts never
+//! published (marked: new_scene.rs) –, the panel's content while the show names no toon or has no book, and a card
+//! dropped on a cell: deck-show's `Edit::Piece`, the same edit as a pick in the picker; a refusal shows the core's
+//! sentence where it was dropped. Nothing here decides which cell takes a piece (RULES A1, A2).
+use super::rows::LOCALE;
+use super::Host;
+use crate::library::{Library, PANEL};
 use deck_kit::base::draw::DrawList;
-use deck_kit::base::text::Field;
 use deck_kit::base::tokens::Tokens;
-use deck_kit::editor::carry::{self, Carry};
-use deck_kit::editor::controls::{self, Rect};
+use deck_kit::editor::controls;
 use deck_show::rows::{self, Edit, PieceView};
 use deck_show::view;
 
-/// what the list says without a book
+/// what the panel says without a book
 pub const NO_BOOK: &str = "the address book is still on its way";
-/// a line's press that opens its scene in Build
-const BUILD: &str = "Build";
 
 impl Host {
-    pub(super) fn scenes_press(&mut self, hit: Hit) {
-        match hit {
-            Hit::Scene(i) => {
-                if let Some(p) = self.scene_list().get(i) {
-                    self.dragging = Some(Carry::new(&p.address, &p.label));
-                }
-            }
-            Hit::SceneFind => self.typing = Some((Typing::Scenes, Field::with(&self.scene_query))),
-            Hit::SceneBuild(i) => {
-                if let Some(p) = self.scene_list().get(i) {
-                    let piece = p.address.clone();
-                    self.ask_scene_build(&piece);
-                }
-            }
-            _ => {}
-        }
-    }
-
-    /// the filter field's text: what is being typed, else the query kept
-    pub(super) fn scene_query_now(&self) -> String {
-        match &self.typing {
-            Some((Typing::Scenes, f)) => f.text.clone(),
-            _ => self.scene_query.clone(),
-        }
-    }
-
-    /// the published scenes of the book that match the filter, then the drafts (none without a book)
+    /// the book's published scenes, then the drafts (none without a book)
     pub(super) fn scene_list(&self) -> Vec<PieceView> {
         let Some(b) = self.book.as_ref() else { return Vec::new() };
-        let query = self.scene_query_now();
-        let mut list = rows::pieces(b, &query, LOCALE);
-        list.extend(rows::draft_pieces(&self.drafts_unlisted(), &query));
+        let mut list = rows::pieces(b, "", LOCALE);
+        list.extend(rows::draft_pieces(&self.drafts_unlisted(), ""));
         list
     }
 
-    /// the pointer moves: a scene being dragged follows it
-    pub fn drag_to(&mut self, x: f32, y: f32) {
-        if let Some(d) = self.dragging.as_mut() {
-            d.to(x, y);
-        }
+    /// the library's entries for Show
+    pub fn library_entries(&self) -> Vec<deck_catalog::library::Entry> {
+        crate::library::of_show(self.scene_list(), self.book.as_deref())
     }
 
-    /// the cell under the pointer (row, column as the matrix counts) – where a scene would land
+    /// the cell under the pointer (row, column as the matrix counts) – where a piece would land
     pub(super) fn drop_target(&self, x: f32, y: f32) -> Option<(usize, usize)> {
         self.hits.iter().rev().find_map(|(r, h)| match h {
-            Hit::Cell(row, col) if r.has(x, y) => Some((*row, *col)),
+            super::Hit::Cell(row, col) if r.has(x, y) => Some((*row, *col)),
             _ => None,
         })
     }
 
-    /// The button let go. A scene dropped on a cell selects it and becomes its piece, or the core says why not, there;
-    /// dropped elsewhere nothing happens. True = a drag was under way.
-    pub fn drop_at(&mut self, x: f32, y: f32) -> bool {
-        let Some(drag) = self.dragging.take() else { return false };
-        let Some((r, c)) = self.drop_target(x, y) else { return true };
+    /// A piece let go at (x, y): on a cell it selects the cell and becomes its piece, or the core says why not, there.
+    /// False = no cell there.
+    pub fn drop_piece(&mut self, piece: &str, x: f32, y: f32) -> bool {
+        let Some((r, c)) = self.drop_target(x, y) else { return false };
         let plan = view::plan(self.shown());
         let (Some(row), Some(column)) = (plan.rows.get(r).map(|x| x.id.clone()), plan.columns.get(c).map(|x| x.id.clone())) else { return true };
         self.select_cell(r, c, false);
-        if !self.edit_rows(&Edit::Piece { row, column, piece: drag.address }) {
+        if !self.edit_rows(&Edit::Piece { row, column, piece: piece.to_string() }) {
             self.refused = Some((x, y, self.status.clone()));
         }
         true
     }
+
+    /// a scene opened from the library: Build edits it
+    pub fn open_scene(&mut self, piece: &str) {
+        self.ask_scene_build(piece);
+    }
 }
 
-/// The scene list in `a`: its heading, the filter field, the scenes found (a press starts a drag), or why there is none.
-pub fn list(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, pointer: (f32, f32)) {
-    let (pad, font, small, row) = (t.size.pad, t.size.font, t.size.small, t.size.tree_row);
-    let w = a.w - 2.0 * pad;
-    let fit = |d: &DrawList, s: &str, px: f32, w: f32| controls::fit(s, (w / d.advance(px)).max(0.0) as usize);
-    let mut y = a.y + pad;
+/// Show's library panel: the toon picker in place while the show names none, why there is no book yet, else the library
+/// with "new scene".
+pub fn panel(d: &mut DrawList, t: &Tokens, host: &mut Host, lib: &mut Library, pointer: (f32, f32)) {
+    let (pad, small) = (t.size.pad, t.size.small);
+    if host.show_toon().is_some() && host.book.is_some() {
+        if let Some(o) = host.show_panels.open(d, t, PANEL, pointer, 0) {
+            lib.draw(d, t, o.area, pointer, Some(super::new_scene::NEW));
+            host.show_panels.close(d, t, o, &mut lib.browser.hits);
+        }
+        return;
+    }
+    lib.browser.hits.clear();
+    let Some(o) = host.show_panels.open(d, t, PANEL, pointer, host.hits.len()) else { return };
+    let a = o.area;
     if host.show_toon().is_none() {
-        super::toons::in_place(d, t, host, (a.x + pad, y, w));
-        return;
-    }
-    d.text(a.x + pad, y, small, "SCENES", t.color.muted);
-    let nw = d.advance(small) * super::new_scene::NEW.chars().count() as f32 + 2.0 * pad;
-    let new = Rect { x: a.x + a.w - nw - pad, y: y - 3.0, w: nw, h: small * 1.6 };
-    d.round_rect(new.x, new.y, new.w, new.h, t.size.radius, if new.has(pointer.0, pointer.1) { t.color.hover } else { t.color.control });
-    d.text(new.x + pad, y, small, super::new_scene::NEW, t.color.text);
-    host.hits.push((new, Hit::Compose(super::new_scene::ComposeHit::Open)));
-    y += small * 1.8;
-    if host.book.is_none() {
+        super::toons::in_place(d, t, host, (a.x + pad, a.y + pad, a.w - 2.0 * pad));
+    } else {
         let why = host.book_why.clone().unwrap_or_else(|| NO_BOOK.into());
-        d.text(a.x + pad, y, small, &fit(d, &why, small, w), t.color.warn);
-        return;
+        d.text(a.x + pad, a.y + pad, small, &controls::fit(&why, ((a.w - 2.0 * pad) / d.advance(small)).max(0.0) as usize), t.color.warn);
     }
-    let typing = host.typing.as_ref().filter(|(what, _)| *what == Typing::Scenes).map(|(_, f)| f.text.clone());
-    let query = host.scene_query_now();
-    let r = field(d, t, (a.x + pad, y, w), "find", &query, typing.as_deref());
-    host.hits.push((r, Hit::SceneFind));
-    y += row + pad * 0.5;
-    let scenes = host.scene_list();
-    if scenes.is_empty() {
-        d.text(a.x + pad, y + 4.0, small, &fit(d, rows::NONE_FOUND, small, w), t.color.muted);
-    }
-    let dragged = host.dragging.as_ref().map(|g| g.address.clone());
-    for (i, s) in scenes.iter().enumerate() {
-        if y + row > a.y + a.h {
-            d.text(a.x + pad, y + 2.0, small, &format!("{} more …", scenes.len() - i), t.color.muted);
-            break;
-        }
-        let line = Rect { x: a.x + 1.0, y, w: a.w - 1.0, h: row };
-        if dragged.as_deref() == Some(s.address.as_str()) {
-            d.rect(line.x, line.y, line.w, line.h, t.color.selected);
-        } else if line.has(pointer.0, pointer.1) {
-            d.rect(line.x, line.y, line.w, line.h, t.color.hover);
-        }
-        let ty = y + (row - font * 1.25) * 0.5;
-        d.text(a.x + pad, ty, font, &fit(d, &s.label, font, w * 0.45), t.color.text);
-        let bw = d.advance(small) * BUILD.chars().count() as f32 + pad;
-        d.text(a.x + pad + w * 0.48, ty + 1.0, small, &fit(d, &s.detail, small, w * 0.52 - bw), t.color.muted);
-        host.hits.push((line, Hit::Scene(i)));
-        let open = Rect { x: a.x + a.w - bw - pad * 0.5, y, w: bw, h: row };
-        d.text(open.x + pad * 0.5, ty + 1.0, small, BUILD, if open.has(pointer.0, pointer.1) { t.color.accent } else { t.color.muted });
-        host.hits.push((open, Hit::SceneBuild(i)));
-        y += row;
-    }
+    host.show_panels.close(d, t, o, &mut host.hits);
 }
 
-/// Over everything: the scene being dragged at the pointer, or the core's refusal where a scene was dropped.
+/// the panel's height while it only says why there is no book (else it measures itself)
+pub fn note_height(t: &Tokens, host: &Host) -> Option<f32> {
+    (host.show_toon().is_some() && host.book.is_none()).then_some(2.0 * t.size.pad + t.size.small * 1.6)
+}
+
+/// Over everything: the core's refusal where a piece was dropped.
 pub fn over(d: &mut DrawList, t: &Tokens, host: &Host, (w, _h): (f32, f32)) {
-    if let Some(c) = &host.dragging {
-        c.draw(d, t, w);
-    }
     if let Some((x, y, why)) = &host.refused {
-        carry::refused(d, t, (*x, *y), w, why);
+        controls::chip(d, t, (*x, *y + 8.0), w, why, true);
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::super::rows::tests::{host_with, press, typed, BOOK};
+pub(in crate::show) mod tests {
+    use super::super::rows::tests::{host_with, press, BOOK};
     use super::super::{Hit, Host};
+    use crate::library::Library;
+    use deck_catalog::library::Purpose;
+    use deck_kit::editor::library::Did;
     use std::sync::Arc;
-    use winit::keyboard::{Key, NamedKey};
 
     const VOTE: &str = include_str!("../../../show/fixtures/vote-cell.show.json");
 
@@ -163,8 +107,13 @@ mod tests {
         host
     }
 
-    fn listed(host: &Host) -> Vec<String> {
-        host.scene_list().into_iter().map(|p| p.address).collect()
+    /// one Show frame with its library panel; the library's entries are the host's
+    pub(in crate::show) fn frame(host: &mut Host, lib: &mut Library) {
+        let (mut d, t) = (deck_kit::base::draw::DrawList::new(0.6), deck_kit::base::tokens::Tokens::default());
+        host.hits.clear();
+        super::super::author::draw(&mut d, &t, host, 2560.0, 1440.0, (0.0, 0.0));
+        lib.set(Purpose::Show, host.library_entries());
+        super::panel(&mut d, &t, host, lib, (0.0, 0.0));
     }
 
     /// the middle of the cell on `column` in `row`, as the last frame drew it
@@ -175,63 +124,61 @@ mod tests {
         (rect.x + rect.w * 0.5, rect.y + rect.h * 0.5)
     }
 
-    /// a scene of the list pressed, carried to the cell on `column` in `row` and let go there
-    fn drag(host: &mut Host, scene: usize, row: &str, column: &str) -> (f32, f32) {
-        press(host, false, |h| *h == Hit::Scene(scene));
-        assert!(host.dragging.is_some());
+    /// the library's card of `address` carried to the cell on `column` in `row` and let go there
+    pub(in crate::show) fn drag(host: &mut Host, lib: &mut Library, address: &str, row: &str, column: &str) -> (f32, f32) {
+        // twice: the second frame lays the library out at the height the first drew
+        frame(host, lib);
+        frame(host, lib);
+        let i = lib.entries.iter().position(|e| e.address == address).unwrap_or_else(|| panic!("{address} in {:?}", lib.entries));
+        let (r, _) = *lib.browser.hits.iter().find(|(_, h)| *h == deck_kit::editor::library::Hit::Card(i)).expect("its card");
+        static CLOCK: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+        let now = f64::from(CLOCK.fetch_add(1, std::sync::atomic::Ordering::Relaxed)) * 10.0;
+        lib.browser.press(r.x + 4.0, r.y + 4.0, now);
         let at = cell_at(host, row, column);
-        host.drag_to(at.0, at.1);
-        assert!(host.drop_target(at.0, at.1).is_some(), "the cell under the pointer takes the drop");
-        assert!(host.drop_at(at.0, at.1));
-        assert_eq!(host.dragging, None);
+        lib.browser.drag_to(at.0, at.1);
+        assert!(lib.carrying().is_some(), "Show takes a scene");
+        let Some(Did::Drop { entry, at }) = lib.browser.release(at.0, at.1) else { panic!("a drop") };
+        assert!(host.drop_piece(&lib.entries[entry].address.clone(), at.0, at.1), "a cell under the pointer");
         at
     }
 
     #[test]
-    fn the_list_shows_the_books_scenes_filtered_or_why_there_are_none() {
+    fn the_library_lists_the_books_scenes_and_characters_or_why_there_are_none() {
         let mut host = host_with(VOTE);
         host.book_why = Some("no address book – the editor reads one with --toon <toon> (or --book FILE)".into());
-        press(&mut host, false, |h| *h == Hit::RowAdd);
-        assert!(listed(&host).is_empty());
-        assert!(!host.hits.iter().any(|(_, h)| matches!(h, Hit::Scene(_) | Hit::SceneFind)), "without a book: the note, no field, no line");
-
+        let mut lib = Library::new(std::env::temp_dir().join("deck-editor-show-library"));
+        frame(&mut host, &mut lib);
+        assert!(lib.browser.hits.is_empty(), "without a book: the note, no card");
         let mut host = with_book(VOTE);
-        press(&mut host, false, |h| *h == Hit::SceneFind);
-        assert_eq!(listed(&host), ["scene:nave", "scene:vigil"]);
-        typed(&mut host, "vig");
-        assert_eq!(host.scene_query, "vig");
-        assert_eq!(listed(&host), ["scene:vigil"]);
-        press(&mut host, false, |h| *h == Hit::SceneFind);
-        for _ in 0..3 {
-            host.type_key(&Key::Named(NamedKey::Backspace));
-        }
-        typed(&mut host, "zzz");
-        assert!(listed(&host).is_empty(), "nothing found: the list says so");
+        frame(&mut host, &mut lib);
+        let listed: Vec<&str> = lib.entries.iter().map(|e| e.address.as_str()).collect();
+        assert_eq!(listed, ["scene:nave", "scene:vigil", "character:catpope"]);
+        assert!(lib.browser.hits.iter().any(|(_, h)| *h == deck_kit::editor::library::Hit::Action), "new scene");
     }
 
     #[test]
     fn a_scene_dropped_on_a_cell_is_its_piece() {
         let mut host = with_book(VOTE);
-        drag(&mut host, 1, "opening", "middle");
+        let mut lib = Library::new(std::env::temp_dir().join("deck-editor-show-library"));
+        drag(&mut host, &mut lib, "scene:vigil", "opening", "middle");
         assert_eq!(host.status, "row 1 opening, middle: scene:vigil");
         assert_eq!((host.row, host.cell().map(String::as_str)), (0, Some("middle")), "the cell it landed on is selected");
         assert_eq!(host.refused, None);
-        // let go over nothing: nothing changes
         let before = host.shown().clone();
-        press(&mut host, false, |h| *h == Hit::Scene(0));
-        assert!(host.drop_at(1.0, 1.0));
+        assert!(!host.drop_piece("scene:nave", 1.0, 1.0), "let go over nothing: nothing changes");
         assert_eq!(host.shown(), &before);
     }
 
     #[test]
     fn a_cell_that_takes_no_piece_refuses_in_the_cores_words_where_it_was_dropped() {
         let mut host = with_book(VOTE);
+        let mut lib = Library::new(std::env::temp_dir().join("deck-editor-show-library"));
         let before = host.shown().clone();
-        let at = drag(&mut host, 0, "crossroads", "lamps");
+        let at = drag(&mut host, &mut lib, "scene:nave", "crossroads", "lamps");
         assert!(host.status.starts_with("not changed: "), "{}", host.status);
         assert_eq!(host.refused, Some((at.0, at.1, host.status.clone())), "the sentence where it was dropped");
         assert_eq!(host.shown(), &before);
-        drag(&mut host, 0, "crossroads", "left");
+        drag(&mut host, &mut lib, "scene:nave", "crossroads", "left");
         assert!(host.status.starts_with("not changed: "), "an ask cell takes no piece: {}", host.status);
         assert_eq!(host.shown(), &before);
         press(&mut host, false, |h| *h == Hit::RowAdd);

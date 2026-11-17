@@ -36,8 +36,6 @@ pub enum Typing {
     Event,
     /// #551: a typed field of a question's form in the cell inspector (the question's id, the field)
     Ask(String, super::ask::AskField),
-    /// the scene list's filter beside the rows band (scenes.rs)
-    Scenes,
     /// the scene sheet's id, name and cast picker query (new_scene.rs)
     SceneId,
     SceneName,
@@ -142,7 +140,6 @@ impl Host {
                     Typing::ColumnName(_) | Typing::GroupName(_) => self.name_typed(&what, &text),
                     Typing::Event => self.event_typed(&text),
                     Typing::Ask(question, field) => self.ask_typed(question, field, &text),
-                    Typing::Scenes => self.scene_query = text.trim().to_string(),
                     Typing::SceneId | Typing::SceneName | Typing::SceneCast => self.compose_typed(&what, &text),
                     Typing::NewName | Typing::ToonFind => self.toon_typed(&what, &text),
                     Typing::Background => self.set_background(&text),

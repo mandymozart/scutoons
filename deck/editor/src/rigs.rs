@@ -478,6 +478,14 @@ impl Rigs {
         }
     }
 
+    /// the catalog's module documents as listed (the library's source)
+    pub fn module_docs(&self) -> &[Value] {
+        match &self.listing {
+            Listing::Ready(c) => &c.modules,
+            _ => &[],
+        }
+    }
+
     /// the catalog's modules as tracks (the core wraps each, `assign::module_track`), and why the others are not
     pub fn modules(&self) -> (Vec<(deck_space::rig::Instrument, deck_catalog::Descriptor)>, Vec<String>) {
         let Listing::Ready(c) = &self.listing else { return (Vec::new(), Vec::new()) };
