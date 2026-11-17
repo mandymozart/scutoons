@@ -2242,6 +2242,10 @@ impl App {
             g.begin(&mut enc);
         }
         // the stage at its viewport's size in pixels
+        let [r, g, b, _] = t.color.stage;
+        self.stage.space.set_ground([r, g, b]);
+        let show_bg = matches!(self.workspace, show::Workspace::Show | show::Workspace::Perform).then(|| self.show.sub.conductor().show().background.clone()).flatten();
+        self.stage.wear(show_bg.as_ref());
         let (stage_view, fresh) = self.stage.frame(&gpu.device, &gpu.queue, &mut enc, ((stage_w * scale) as u32, (stage_h * scale) as u32), dt);
         if fresh {
             ui.set_stage(&gpu.device, stage_view);

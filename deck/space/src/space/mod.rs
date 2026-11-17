@@ -434,7 +434,13 @@ impl Space {
 
     /// the stage's background that won (the played scene's `stage.background`)
     pub fn set_background(&mut self, background: Option<crate::Background>) {
-        self.backdrop = backdrop::Backdrop::new(background, &mut self.portraits);
+        let ground = self.backdrop.ground;
+        self.backdrop = backdrop::Backdrop { ground, ..backdrop::Backdrop::new(background, &mut self.portraits) };
+    }
+
+    /// what shows when no background sets a colour (display values; black unless the editor's `stage` token says else)
+    pub fn set_ground(&mut self, rgb: [f32; 3]) {
+        self.backdrop.ground = rgb;
     }
 
     /// #492: the cast's beings to their holders' spots in the set (lifted like the scene's being), a zone's members by
