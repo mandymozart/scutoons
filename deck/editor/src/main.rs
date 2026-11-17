@@ -24,6 +24,7 @@ mod logo;
 mod mixer;
 mod module;
 mod inspector;
+mod latency;
 mod panels;
 mod published;
 mod routing;
@@ -530,6 +531,7 @@ struct App {
     /// per frame: the UI's build and encode time (ms), the frame interval (ms)
     ui_ms: Vec<f32>,
     frame_ms: Vec<f32>,
+    latency: latency::Probe,
     exit: i32,
     clipboard: Option<arboard::Clipboard>,
     token_changes: u32,
@@ -736,6 +738,7 @@ fn run() -> Result<i32> {
         frames: 0,
         ui_ms: Vec::new(),
         frame_ms: Vec::new(),
+        latency: latency::Probe::from_env(),
         exit: 0,
         clipboard: arboard::Clipboard::new().map_err(|e| tracing::warn!("no clipboard: {e}")).ok(),
         token_changes: 0,
@@ -787,6 +790,9 @@ fn run() -> Result<i32> {
     let summary = app.summary();
     tracing::info!("{summary}");
     println!("{summary}");
+    if let Some(l) = app.latency.summary() {
+        println!("{l}");
+    }
     Ok(app.exit)
 }
 
@@ -1009,6 +1015,8 @@ impl App {
                 deck_kit::editor::floats::Chrome::Handle => "Drag the handle to move it; it stops 1rem before a wall or another panel.",
                 deck_kit::editor::floats::Chrome::Fold => "Click to fold it to its pill or open it again.",
                 deck_kit::editor::floats::Chrome::Close => "Click to close it; the main menu's Panels bring it back.",
+                deck_kit::editor::floats::Chrome::Edge(_) => "Drag to resize it; it stops 1rem before a wall or another panel, and keeps its size.",
+                deck_kit::editor::floats::Chrome::Scroll => "Click the track to jump there; drag the thumb to scroll.",
             };
             return Some(Help::new(spec.name, format!("{} {how}", spec.about)));
         }
@@ -2326,6 +2334,7 @@ impl App {
     }
 
     fn redraw(&mut self, el: &ActiveEventLoop) {
+        self.latency.frame();
         self.follow_toon();
         self.follow_rigs();
         self.follow_modules();
@@ -2365,7 +2374,7 @@ impl App {
         let help = self.help_now();
         self.show.help.clone_from(&help);
         let enabled: Vec<(bar::Action, bool)> = bar::MENU.iter().map(|(a, ..)| (*a, self.menu_why_not(*a).is_none())).collect();
-        let grab = self.panels().floats.dragging() || matches!(self.panels().floats.chrome_at(self.cursor.0, self.cursor.1), Some((_, deck_kit::editor::floats::Chrome::Handle)));
+        let grab = panels::cursor(&self.panels().floats, self.cursor);
         let pill = self.save_pill();
         let account = self.auth.state();
         let fps = self.fps();
@@ -2784,7 +2793,7 @@ impl App {
             for (i, r) in controls::tree(ui, t, o.area.x, o.area.y, o.area.w, &rows, self.cursor).into_iter().enumerate() {
                 self.panel.hits.push((r, Hit::Row(i)));
             }
-            self.build.close(ui, t, o, &mut self.panel.hits);
+            self.build.close(ui, o, &mut self.panel.hits);
         }
         // the inspector: the rig open, its version and what the last save came to; the picker and Save (rigs.rs); the tabs
         if let Some(o) = self.build.open(ui, t, "inspector", self.cursor, self.panel.hits.len()) {
@@ -2902,18 +2911,18 @@ impl App {
                     ui.text(a.x, y, font * 0.85, &format!("{} chars · cursor {} · selected {:?}", self.panel.field.text.chars().count(), cursor_col, self.panel.field.selected()), t.color.muted);
                 }
             }
-            self.build.close(ui, t, o, &mut self.panel.hits);
+            self.build.close(ui, o, &mut self.panel.hits);
         }
         // the Audio panel: the settings, the map and the tones
         if let Some(o) = self.build.open(ui, t, "audio", self.cursor, self.panel.hits.len()) {
             for (r, f) in routing::draw(ui, t, o.area, &mut self.routing, &self.stage, self.cursor) {
                 self.panel.hits.push((r, Hit::Routing(f)));
             }
-            self.build.close(ui, t, o, &mut self.panel.hits);
+            self.build.close(ui, o, &mut self.panel.hits);
         }
         if let Some(o) = self.build.open(ui, t, "info", self.cursor, self.panel.hits.len()) {
             info::body(ui, t, (o.area.x, o.area.y, o.area.w), help.as_ref());
-            self.build.close(ui, t, o, &mut self.panel.hits);
+            self.build.close(ui, o, &mut self.panel.hits);
         }
         if let Some(o) = self.build.open(ui, t, "mixer", self.cursor, self.panel.hits.len()) {
             for (r, part) in mixer::draw(ui, t, o.area, &self.stage, &view) {
@@ -2928,7 +2937,7 @@ impl App {
                 };
                 self.panel.hits.push((r, hit));
             }
-            self.build.close(ui, t, o, &mut self.panel.hits);
+            self.build.close(ui, o, &mut self.panel.hits);
         }
         if let Some(v) = self.scene.as_mut() {
             v.dop.floor = self.stage.space.floor_point().y;
@@ -2950,7 +2959,7 @@ impl App {
                     ui.text(o.area.x, o.area.y + 4.0, t.size.small, "open a scene: its camera, shots and moves", t.color.muted);
                 }
             }
-            self.build.close(ui, t, o, &mut self.panel.hits);
+            self.build.close(ui, o, &mut self.panel.hits);
         }
         // a panel's ground keeps the press from the stage under it
         for r in self.build.grounds(&panels::BUILD.map(|s| s.id)) {
@@ -3016,7 +3025,7 @@ impl App {
                     match panels.open(ui, t, library::PANEL, cursor, 0) {
                         Some(o) => {
                             self.library.draw(ui, t, o.area, cursor, None);
-                            panels.close(ui, t, o, &mut self.library.browser.hits);
+                            panels.close(ui, o, &mut self.library.browser.hits);
                         }
                         None => self.library.browser.hits.clear(),
                     }
@@ -3038,7 +3047,7 @@ impl App {
             let mut places = Vec::new();
             if let Some(o) = panels.open(ui, t, "tools", cursor, 0) {
                 places = self.tools.draw(ui, t, o.area, ws, &state, cursor);
-                panels.close(ui, t, o, &mut places);
+                panels.close(ui, o, &mut places);
             }
             self.tools.shown(places);
             self.grid.anchor(if build { self.tools.grid_at } else { None });
@@ -3056,7 +3065,7 @@ impl App {
             };
             if let Some(o) = ws.open(ui, t, panels::SETTINGS, cursor, 0) {
                 let mut places = settings::draw(ui, t, o.area, &s);
-                ws.close(ui, t, o, &mut places);
+                ws.close(ui, o, &mut places);
                 self.settings_hits = places;
             }
         }
@@ -3076,7 +3085,7 @@ impl App {
             .listed();
             self.menu_lines = bar::menu(ui, t, placed.menu, &|a| enabled.iter().any(|(b, on)| *b == a && *on), &self.tokens.look, &listed, self.cursor);
         }
-        window.set_cursor(if grab { winit::window::CursorIcon::Grab } else { winit::window::CursorIcon::Default });
+        window.set_cursor(grab);
         // the pass: logical pixels → the surface's, through the screen uniform
         let view = frame.texture.create_view(&Default::default());
         if std::mem::take(&mut self.library.pictures.changed) {
@@ -3093,6 +3102,7 @@ impl App {
         let cpu_ms = work_start.elapsed().as_secs_f32() * 1000.0;
         gpu.queue.submit([enc.finish()]);
         gpu.queue.present(frame);
+        self.latency.presented();
         let budget = self.frame_ms.last().copied().unwrap_or(16.7).max(1.0);
         let ease = |load: f32, now: f32| load + (now - load) * 0.08;
         self.cpu_load = ease(self.cpu_load, cpu_ms / budget);
@@ -3122,6 +3132,14 @@ impl App {
             el.exit();
             return;
         }
+        // the wait for the display comes now, so the pointer events that arrive meanwhile reach the next frame
+        if let Some(g) = self.gpu.as_mut() {
+            let asked = Instant::now();
+            if let Err(e) = g.prepare() {
+                tracing::error!("render: {e:#}");
+            }
+            self.latency.acquired(asked, g.config.desired_maximum_frame_latency as usize);
+        }
         window.request_redraw();
     }
 }
@@ -3141,7 +3159,8 @@ impl ApplicationHandler for App {
             }
         };
         match Gpu::with_features(window.clone(), gpu_time::FEATURES).and_then(|gpu| ui::Ui::new(&gpu.device, &gpu.queue, gpu.format(), self.tokens.tokens.size.font).map(|ui| (gpu, ui))) {
-            Ok((gpu, ui)) => {
+            Ok((mut gpu, ui)) => {
+                gpu.set_frame_latency(1);
                 self.gpu_time = gpu_time::GpuTime::new(&gpu.device, &gpu.queue);
                 self.gpu = Some(gpu);
                 self.ui = Some(ui);
@@ -3172,6 +3191,7 @@ impl ApplicationHandler for App {
             WindowEvent::ScaleFactorChanged { .. } => {}
             WindowEvent::ModifiersChanged(m) => self.mods = m.state(),
             WindowEvent::CursorMoved { position, .. } => {
+                self.latency.event(self.panels().floats.dragging());
                 let s = self.scale();
                 self.pointer(position.x as f32 / s, position.y as f32 / s);
             }
