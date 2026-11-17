@@ -29,6 +29,13 @@ impl Wire {
         Wire { c: [a, (a.0 + (b.0 - a.0) / 3.0, low), (b.0 + (a.0 - b.0) / 3.0, low), b] }
     }
 
+    /// The wire from an outlet at the foot of a node down to an inlet on top of another (a top → bottom view): it leaves
+    /// straight down and comes straight down into `b`, by half their height apart, at least the sag's least.
+    pub fn drop(a: (f32, f32), b: (f32, f32), unit: f32) -> Wire {
+        let pull = ((b.1 - a.1).abs() * 0.5).max(SAG_MIN * unit * 4.0);
+        Wire { c: [a, (a.0, a.1 + pull), (b.0, b.1 - pull), b] }
+    }
+
     /// the point at `t` (0 = from, 1 = to)
     pub fn at(&self, t: f32) -> (f32, f32) {
         let [p0, p1, p2, p3] = self.c;
@@ -109,6 +116,17 @@ mod tests {
         let w = Wire::hang((0.0, 0.0), (40.0, 200.0), 16.0);
         assert!(w.depth() > 0.0);
         assert!(w.points().iter().all(|p| p.0 >= -1e-3 && p.0 <= 40.0 + 1e-3), "it hangs, it does not swing out sideways");
+    }
+
+    #[test]
+    fn a_dropped_wire_leaves_and_enters_straight_down() {
+        let w = Wire::drop((0.0, 0.0), (120.0, 200.0), 16.0);
+        assert_eq!((w.at(0.0), w.at(1.0)), ((0.0, 0.0), (120.0, 200.0)));
+        let (start, end) = (w.at(0.02), w.at(0.98));
+        assert!(start.0.abs() < 1.0 && start.1 > 0.0, "{start:?}");
+        assert!((end.0 - 120.0).abs() < 1.0 && end.1 < 200.0, "{end:?}");
+        let back = Wire::drop((0.0, 200.0), (0.0, 0.0), 16.0);
+        assert!(back.points().iter().any(|p| p.1 > 200.0) && back.points().iter().any(|p| p.1 < 0.0), "a wire back up loops round both ends");
     }
 
     #[test]

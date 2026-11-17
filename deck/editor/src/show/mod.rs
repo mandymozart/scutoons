@@ -28,6 +28,7 @@ pub mod build;
 pub(crate) mod condition;
 pub mod demos;
 mod events;
+pub mod nodes;
 mod flash;
 mod link;
 pub mod new_scene;
@@ -195,6 +196,9 @@ pub enum Hit {
     FlashCancel,
     /// the overlay: 2D (true) or the stage alone (3D)
     View(bool),
+    /// the node view: its direction, framing everything
+    NodeFlow(deck_kit::base::graph::Direction),
+    NodeFrame,
     /// the cue sheet or the problems list in the stage's place
     Sheet(Sheet),
     /// a line of the problems list: select what it points at
@@ -286,6 +290,8 @@ pub struct Host {
     /// the last thing done, or why not
     pub status: String,
     pub two_d: bool,
+    /// the node view's zoom, pan and direction
+    pub nodes: nodes::NodeView,
     /// the seconds the beads on the wires have run; none: they rest out of sight (Signal flow on wires off, Reduce motion)
     pub flow: Option<f32>,
     /// the sheet shown in the stage's place (Show), none = the stage
@@ -372,10 +378,11 @@ impl Host {
         });
         let (mut show_panels, mut perform_panels) = (crate::panels::Panels::new(&crate::panels::SHOW), crate::panels::Panels::new(&crate::panels::PERFORM));
         show_panels.floats.scrolls_itself("rows");
+        show_panels.floats.scrolls_itself("nodes");
         perform_panels.floats.scrolls_itself("matrix");
         let scroll = deck_kit::editor::table::Scroll::default();
         let saves = version.map(|v| (show.id.clone(), crate::autosave::Autosave::new(Some(v)))).into_iter().collect();
-        let mut host = Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), columns: Vec::new(), group: None, context: None, show_panels, perform_panels, show_scroll: scroll, perform_scroll: scroll, band: None, view_slot: Rect::default(), help: None, address: None, book: None, cameras: BTreeMap::new(), book_why: None, carrying: false, refused: None, toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, status, flow: None, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, saves, unsent: BTreeMap::new(), session: session::Session::default(), toons: toons::Toons::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), build: None, to_build: None, compose: new_scene::Composer::default(), to_stage: None, demos: Vec::new(), demo_book: None, link, api };
+        let mut host = Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), columns: Vec::new(), group: None, context: None, show_panels, perform_panels, show_scroll: scroll, perform_scroll: scroll, band: None, view_slot: Rect::default(), help: None, address: None, book: None, cameras: BTreeMap::new(), book_why: None, carrying: false, refused: None, toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, status, flow: None, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, saves, unsent: BTreeMap::new(), session: session::Session::default(), toons: toons::Toons::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), build: None, to_build: None, compose: new_scene::Composer::default(), to_stage: None, demos: Vec::new(), demo_book: None, link, api, nodes: nodes::NodeView::default() };
         host.adopt_kept();
         host
     }
@@ -526,6 +533,7 @@ impl Host {
             Hit::Load => self.load(),
             Hit::Flash => self.open_flash(),
             Hit::FlashTick(_) | Hit::FlashQuick(_) | Hit::FlashType | Hit::FlashLock | Hit::FlashForce | Hit::FlashAsk | Hit::FlashConfirm | Hit::FlashCancel => self.flash_press(hit),
+            Hit::NodeFlow(_) | Hit::NodeFrame => self.nodes_press(hit),
             Hit::View(two_d) => {
                 self.two_d = two_d;
                 self.sheet = None;
@@ -561,6 +569,9 @@ impl Host {
     /// ctrl+r, ctrl+g, Enter, Delete (rows.rs). True = taken.
     pub fn key(&mut self, key: &winit::keyboard::Key, ctrl: bool, show: bool) -> bool {
         if self.type_key(key) {
+            return true;
+        }
+        if show && !ctrl && *key == winit::keyboard::Key::Character("f".into()) && self.nodes_frame() {
             return true;
         }
         show && self.asking.is_none() && self.show_key(key, ctrl)

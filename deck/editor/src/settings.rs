@@ -54,6 +54,8 @@ pub struct Settings {
     pub look: Look,
     pub motion: Motion,
     pub sound: Sound,
+    /// the Show workspace's node view: left → right or top → bottom
+    pub node_flow: deck_kit::base::graph::Direction,
 }
 
 /// the editor's cache file of the settings

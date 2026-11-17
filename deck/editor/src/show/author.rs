@@ -1,6 +1,6 @@
 //! The Show workspace (#91, the owner's draft m1-show), floating panels over the stage: the outline (this deck's
 //! conductor, its seats – a seat enters its sub conductor, the toolbar's path leads back –, the roles, the rows of the
-//! document shown); the 2D node overlay (#446: what comes from far, the cells of the row and what the row sends) or the
+//! document shown); the node view of the selected row (nodes.rs) or the
 //! sheet open; the rows band; the scene list; the inspector of the row with save and load; the info. The sheets' pills
 //! sit in the toolbar, the 2D / 3D switch in the tools pill. The words are deck-show's view.rs; this file lays them out and names the
 //! places (`Hit`).
@@ -46,31 +46,6 @@ pub fn view_switch(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, sheets
     }
 }
 
-/// one node of the overlay: a head (name, detail) and its lines (a dot before an input, after an output)
-fn node(d: &mut DrawList, t: &Tokens, (x, y, w): (f32, f32, f32), head: (&str, &str), lines: &[(String, bool)], far: bool) -> f32 {
-    let (font, small, pad) = (t.size.font, t.size.small, t.size.pad);
-    let lh = font * 1.5;
-    let h = lh + lines.len() as f32 * lh + pad;
-    d.round_rect(x, y, w, h, t.size.radius, t.color.surface_head);
-    d.outline(x, y, w, h, (t.size.radius, 1.0), if far { t.color.muted } else { t.color.line });
-    d.text(x + pad, y + 4.0, font, head.0, t.color.text);
-    let dw = d.advance(small) * head.1.chars().count() as f32;
-    d.text(x + w - dw - pad, y + 5.0, small, head.1, t.color.muted);
-    d.rect(x, y + lh, w, 1.0, t.color.line);
-    for (i, (text, out)) in lines.iter().enumerate() {
-        let ly = y + lh + 4.0 + i as f32 * lh;
-        if *out {
-            let tw = d.advance(font) * text.chars().count() as f32;
-            d.text(x + w - tw - 2.0 * pad - 4.0, ly, font, &fit(d, text, font, w - 3.0 * pad), t.color.text);
-            d.disc(x + w - pad - 2.0, ly + font * 0.62, 3.5, t.color.accent);
-        } else {
-            d.disc(x + pad + 2.0, ly + font * 0.62, 3.5, t.color.text);
-            d.text(x + 2.0 * pad + 4.0, ly, font, &fit(d, text, font, w - 3.0 * pad - 4.0), t.color.text);
-        }
-    }
-    h
-}
-
 pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, pointer: (f32, f32)) {
     let (prims, hits) = (d.prims().len(), host.hits.len());
     draw_once(d, t, host, (w, h), pointer);
@@ -105,7 +80,7 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
     if sheet.is_some() {
         shown.push(("sheet", 640.0, Some(440.0)));
     } else if host.two_d {
-        shown.push(("nodes", 760.0, None));
+        shown.push(("nodes", 960.0, Some(560.0)));
     }
     // the library: drawn by the editor over these panels (scenes.rs `panel`)
     shown.extend([(crate::library::PANEL, crate::library::WIDTH, super::scenes::note_height(t, host)), ("rows", band_size.0, Some(band_size.1)), ("info", 260.0, Some(small * 1.4 * 6.0))]);
@@ -146,7 +121,9 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
         host.show_panels.close(d, o, &mut host.hits);
     }
     if let Some(o) = host.show_panels.open(d, t, "nodes", pointer, host.hits.len()) {
-        nodes(d, t, host, (&show, &sel), o.area);
+        let far = host.row_links(&sel);
+        let g = deck_show::nodes::row_graph(&show, host.row, &far);
+        super::nodes::draw(d, t, host, &g, o.area);
         host.show_panels.close(d, o, &mut host.hits);
     }
 
@@ -205,75 +182,6 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
     // #551: the right click's typeahead on the selected cells, over everything
     super::ask::draw_context(d, t, host, (w, h));
     super::scenes::over(d, t, host, (w, h));
-}
-
-/// the 2D overlay: what comes from far (the reader's events, the clock), the cells of the row, what the row sends
-fn nodes(d: &mut DrawList, t: &Tokens, host: &mut Host, (show, sel): (&Show, &str), a: Rect) {
-    let (pad, small) = (t.size.pad, t.size.small);
-    let (unit, lh) = (t.size.rem(1.0), t.size.font * 1.5);
-    let top = a.y + 4.0;
-    // the wires hang in the gaps between the three columns
-    let gap = t.size.rem(2.5);
-    let colw = ((a.w - 2.0 * gap) / 3.6).max(120.0);
-    let (fx, cx) = (a.x, a.x + colw + gap);
-    let sx = cx + colw * 1.6 + gap;
-    d.text(fx, top, small, "FROM FAR", t.color.muted);
-    d.text(cx, top, small, "THE CELLS OF THIS ROW", t.color.muted);
-    d.text(sx, top, small, "THIS ROW SENDS", t.color.muted);
-    let mut fy = top + small * 1.8;
-    let events: Vec<(String, bool)> = show.rows.iter().filter_map(|r| r.fire.event.as_ref()).map(|e| (format!("event: {e}"), true)).collect();
-    // the selected row's event: its line's port at the reader's right edge
-    let fired = show.rows.get(host.row).filter(|r| r.fire.event.is_some()).map(|_| show.rows[..host.row].iter().filter(|x| x.fire.event.is_some()).count());
-    let far_port = fired.map(|k| (fx + colw, fy + lh + 4.0 + k as f32 * lh + t.size.font * 0.62));
-    fy += node(d, t, (fx, fy, colw), ("reader", "phone"), &events, true) + pad;
-    fy += node(d, t, (fx, fy, colw), ("clock", "show"), &[("beat".into(), true), ("bar".into(), true)], true);
-    let insp = view::inspector(show, sel);
-    let mut cy = top + small * 1.8;
-    let row_cells = show.rows.get(host.row).map(|r| r.cells.clone()).unwrap_or_default();
-    let mut boxes: Vec<(String, f32, bool)> = Vec::new();
-    for o in &show.outlets {
-        let cell = row_cells.get(&o.id).cloned().unwrap_or(deck_show::Cell::Keep);
-        let mut lines = vec![];
-        let detail = match &cell {
-            deck_show::Cell::Play { piece: Some(p), values, .. } | deck_show::Cell::Values { piece: p, values } => {
-                lines.extend(view::values_text(values).split(" · ").filter(|s| !s.is_empty()).map(|s| (s.to_string(), false)));
-                p.clone()
-            }
-            other => view::cell_text(other),
-        };
-        let head = if matches!(cell, deck_show::Cell::Keep) { format!("{} ↑", o.name()) } else { o.name().to_string() };
-        let h = node(d, t, (cx, cy, colw * 1.6), (&head, &detail), &lines, false);
-        boxes.push((o.id.clone(), cy + lh * 0.5, matches!(cell, deck_show::Cell::Keep)));
-        cy += h + pad;
-    }
-    let sends: Vec<(String, bool)> = insp.iter().find(|(h, _)| h == "this row sends").map(|(_, ls)| ls.iter().map(|(a, b)| (if a.is_empty() { b.clone() } else { format!("{a} · {b}") }, false)).collect()).unwrap_or_default();
-    // a line without a target is the view's "nothing else": no send to count
-    let count = insp.iter().find(|(h, _)| h == "this row sends").map_or(0, |(_, ls)| ls.iter().filter(|(a, _)| !a.is_empty()).count());
-    let sy = top + small * 1.8 + node(d, t, (sx, top + small * 1.8, (a.x + a.w - sx).max(80.0)), ("on fire", &format!("{count} sends")), &sends, false);
-    // every cell has its ports: in on the left, out on the right; what comes from far hangs into the cells this row
-    // changes, they hang into what the row sends, and a far node whose holder plays on another cell of this row hangs
-    // from one cell's out to the other's (deck-show far.rs)
-    let sends_port = (sx, top + small * 1.8 + lh * 0.5);
-    let out = |y: f32| (cx + colw * 1.6, y);
-    for (_, y, kept) in &boxes {
-        if !kept {
-            if let Some(f) = far_port {
-                super::band::wire(d, t, (f, (cx, *y)), (unit, host.flow), t.color.accent);
-            }
-            super::band::wire(d, t, (out(*y), sends_port), (unit, host.flow), t.color.accent);
-        }
-        d.port((cx, *y), unit * 0.3, t.color.accent, t.color.surface);
-        d.port(out(*y), unit * 0.3, t.color.accent, t.color.surface);
-    }
-    for l in host.row_links(sel) {
-        let deck_show::far::Holder::Outlet(to) = &l.holder else { continue };
-        let at = |id: &str| boxes.iter().find(|(o, ..)| o == id).map(|(_, y, _)| out(*y));
-        if let (Some(a), Some(b)) = (at(to), at(&l.from)) {
-            super::band::wire(d, t, (a, b), (unit, host.flow), t.color.accent);
-        }
-    }
-    let note = "Grey boxes are far away: only events reach another subtree.";
-    d.text(a.x, fy.max(cy).max(sy) + pad, small, &fit(d, note, small, a.w), t.color.muted);
 }
 
 /// the right side for a row: its inspector (the selected cell's inspector in place of the cells), the seats, the flash

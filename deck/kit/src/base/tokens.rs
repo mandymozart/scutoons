@@ -1,6 +1,7 @@
 //! Design tokens: the names are what a thing is, not where it is used. The editor has two colour sets, day (light) and
 //! night (dark), with the same roles; its sizes are multiples of one base size (its rem), so the whole UI scales like a
 //! browser zoom. A `tokens.toml` overrides them live. The `live` module brings its own sets (`live/tokens.rs`).
+use crate::base::signal::Signals;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -39,6 +40,8 @@ pub struct Colors {
     pub axis: [[f32; 4]; 3],
     /// a strip's stripe, round the list
     pub strips: [[f32; 4]; 6],
+    /// what a port carries (signal.rs)
+    pub signals: Signals,
     /// how much a floating panel's ground covers the stage behind it (0..1)
     pub panel_opacity: f32,
     /// a panel's text and icons get its ground's colour, opaque, as an outline (`DrawList::halo`), so they read over any
@@ -88,6 +91,7 @@ impl Colors {
             stop: rgb(0xd63a2d),
             axis: [[0.93, 0.27, 0.32, 1.0], [0.47, 0.75, 0.2, 1.0], [0.25, 0.53, 0.95, 1.0]],
             strips: [rgb(0x00a6cc), rgb(0xe08e1c), rgb(0x9a52e6), rgb(0x3aa84a), rgb(0xe8577a), rgb(0xc9b42e)],
+            signals: Signals::day(),
             panel_opacity: 0.8,
             ink_ring: false,
         }
@@ -120,6 +124,7 @@ impl Colors {
             stop: rgb(0xe5483b),
             axis: [[0.93, 0.27, 0.32, 1.0], [0.47, 0.75, 0.2, 1.0], [0.25, 0.53, 0.95, 1.0]],
             strips: [rgb(0x00d1ff), rgb(0xf0a030), rgb(0xb36bff), rgb(0x4cc35a), rgb(0xff6b8a), rgb(0xe6d24a)],
+            signals: Signals::night(),
             panel_opacity: 0.5,
             ink_ring: true,
         }

@@ -22,6 +22,8 @@ pub mod face;
 pub mod far;
 pub mod flash;
 pub mod flashed;
+/// a row as a node graph: the Show workspace's node view
+pub mod nodes;
 /// #551: a vote as cells of the launcher – what the right click on selected cells offers, the question in the cell inspector
 pub mod question;
 pub mod ready;
