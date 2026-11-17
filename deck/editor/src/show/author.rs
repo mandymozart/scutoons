@@ -137,24 +137,24 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
         for (i, r) in controls::tree(d, t, a.x, y, a.w, &role_rows, pointer).into_iter().enumerate() {
             host.hits.push((r, if i + 1 == role_rows.len() { Hit::RoleAdd } else { Hit::Role(i) }));
         }
-        host.show_panels.close(d, t, o, &mut host.hits);
+        host.show_panels.close(d, o, &mut host.hits);
     }
 
     // the sheet open, else the 2D overlay
     if let Some(o) = host.show_panels.open(d, t, "sheet", pointer, host.hits.len()) {
         super::sheets::draw(d, t, host, o.area, pointer);
-        host.show_panels.close(d, t, o, &mut host.hits);
+        host.show_panels.close(d, o, &mut host.hits);
     }
     if let Some(o) = host.show_panels.open(d, t, "nodes", pointer, host.hits.len()) {
         nodes(d, t, host, (&show, &sel), o.area);
-        host.show_panels.close(d, t, o, &mut host.hits);
+        host.show_panels.close(d, o, &mut host.hits);
     }
 
     if let Some(o) = host.show_panels.open(d, t, "rows", pointer, host.hits.len()) {
         let laid = super::band::draw(d, t, host, o.area, (&band, super::band::Mode { perform: false, runs }), host.show_scroll, pointer);
         host.show_scroll = laid.scroll;
         host.drew_band(false, laid);
-        host.show_panels.close(d, t, o, &mut host.hits);
+        host.show_panels.close(d, o, &mut host.hits);
     }
 
     // the inspector: Load, Flash and what the last one came to, then the row's (or #478 the selected role's)
@@ -192,12 +192,12 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
                 row_side(d, t, host, (&show, &sel, &seats), (a.x, y, a.w), pointer);
             }
         }
-        host.show_panels.close(d, t, o, &mut host.hits);
+        host.show_panels.close(d, o, &mut host.hits);
     }
 
     if let Some(o) = host.show_panels.open(d, t, "info", pointer, host.hits.len()) {
         deck_kit::editor::info::body(d, t, (o.area.x, o.area.y, o.area.w), host.help.as_ref());
-        host.show_panels.close(d, t, o, &mut host.hits);
+        host.show_panels.close(d, o, &mut host.hits);
     }
     // #478: a prompt asked (a role's remove) over everything: only its presses count
     let room = crate::panels::Panels::room((w, h), crate::bar::bottom(t), t.size.gap);

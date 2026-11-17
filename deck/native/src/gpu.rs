@@ -4,7 +4,8 @@
 //! a GL backend in the instance opens its own EGL display on the Wayland connection and segfaults when the compositor
 //! dies), GL only after Vulkan found nothing, a software adapter (llvmpipe / lavapipe / WARP) as the last fallback; a
 //! non-sRGB surface format (the shaders write display values); `can_capture` when the surface's texture may be copied
-//! (`--screenshot`); vsync (`AutoVsync`), two frames of latency.
+//! (`--screenshot`); vsync (`AutoVsync`), two frames of latency – a window that draws what the pointer holds asks for one
+//! and takes its next frame ahead (`prepare`), so the wait for the display comes before the input is read.
 use anyhow::{bail, Context, Result};
 use std::sync::Arc;
 use winit::window::Window;
@@ -17,6 +18,7 @@ pub struct Gpu {
     pub adapter: wgpu::AdapterInfo,
     /// a screenshot copies the surface's texture – where the surface allows it
     pub can_capture: bool,
+    next: Option<wgpu::SurfaceTexture>,
 }
 
 /// #257: the backends the first instance gets – `WGPU_BACKEND` if set, else Vulkan alone on Linux (all elsewhere)
@@ -97,7 +99,7 @@ impl Gpu {
             color_space: wgpu::SurfaceColorSpace::Auto,
         };
         surface.configure(&device, &config);
-        Ok(Gpu { surface, device, queue, config, adapter: info, can_capture })
+        Ok(Gpu { surface, device, queue, config, adapter: info, can_capture, next: None })
     }
 
     /// a software adapter (the fallback): the deck renders at half size on it
@@ -114,11 +116,28 @@ impl Gpu {
         (self.config.width, self.config.height)
     }
 
+    /// how many frames the surface queues before an acquire waits (the deck two, a pointer-driven window one)
+    pub fn set_frame_latency(&mut self, frames: u32) {
+        self.next = None;
+        self.config.desired_maximum_frame_latency = frames.max(1);
+        self.surface.configure(&self.device, &self.config);
+    }
+
+    /// the next frame taken now, after a present: its wait for the display passes before the events that come in
+    /// meanwhile are read, and `acquire` hands it out at once
+    pub fn prepare(&mut self) -> Result<()> {
+        if self.next.is_none() {
+            self.next = self.acquire()?;
+        }
+        Ok(())
+    }
+
     /// the surface at the window's new size; false for an empty size (a minimised window), which changes nothing
     pub fn resize(&mut self, w: u32, h: u32) -> bool {
         if w == 0 || h == 0 {
             return false;
         }
+        self.next = None;
         self.config.width = w;
         self.config.height = h;
         self.surface.configure(&self.device, &self.config);
@@ -128,6 +147,9 @@ impl Gpu {
     /// the frame to draw on; None when the surface was outdated or lost (configured again – draw next time) or this
     /// frame is skipped; an error when the GPU is out of memory
     pub fn acquire(&mut self) -> Result<Option<wgpu::SurfaceTexture>> {
+        if let Some(f) = self.next.take() {
+            return Ok(Some(f));
+        }
         // wgpu 30: the answer is an enum without an out-of-memory case (the device's errors report that)
         match self.surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(f) | wgpu::CurrentSurfaceTexture::Suboptimal(f) => Ok(Some(f)),

@@ -62,7 +62,7 @@ pub fn panel(d: &mut DrawList, t: &Tokens, host: &mut Host, lib: &mut Library, p
     if host.show_toon().is_some() && host.book.is_some() {
         if let Some(o) = host.show_panels.open(d, t, PANEL, pointer, 0) {
             lib.draw(d, t, o.area, pointer, Some(super::new_scene::NEW));
-            host.show_panels.close(d, t, o, &mut lib.browser.hits);
+            host.show_panels.close(d, o, &mut lib.browser.hits);
         }
         return;
     }
@@ -75,7 +75,7 @@ pub fn panel(d: &mut DrawList, t: &Tokens, host: &mut Host, lib: &mut Library, p
         let why = host.book_why.clone().unwrap_or_else(|| NO_BOOK.into());
         d.text(a.x + pad, a.y + pad, small, &controls::fit(&why, ((a.w - 2.0 * pad) / d.advance(small)).max(0.0) as usize), t.color.warn);
     }
-    host.show_panels.close(d, t, o, &mut host.hits);
+    host.show_panels.close(d, o, &mut host.hits);
 }
 
 /// the panel's height while it only says why there is no book (else it measures itself)
