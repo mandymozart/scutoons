@@ -120,7 +120,8 @@ struct Args {
     catalog: Option<PathBuf>,
     /// a check run's Add typeahead: type this, pick the first row if asked
     add: Option<(String, bool)>,
-    /// a check run's scene member (scene.rs `script_scene`): selected, a knob turned, opened as its rig if asked
+    /// a check run's scene member (scene.rs `script_scene`): selected, a knob turned, opened as its rig if asked; or its
+    /// parts joined by `+` (scene_parts.rs `script_parts`: slot:, video:, stack, layer:DEPTH, fill:N=PATH, background:, camera, orbit:DX,DY)
     member: Option<(String, bool)>,
     /// a demo show opened in Show (show/demos.rs)
     demo: Option<String>,
@@ -437,6 +438,8 @@ enum Drag {
     Dop(dop::Num, f32, f32),
     /// a point of the trolley track on the stage (scene_stage.rs), or its handle
     TrackPoint(usize, bool),
+    /// a parallax layer's handle: which, the pointer's start, its depth then
+    LayerDepth(usize, f32, f32),
 }
 
 /// a port on the screen this frame (logical pixels)
@@ -455,6 +458,9 @@ enum Editing {
     Background,
     SceneBackground,
     Focal,
+    Height,
+    /// a layer's picture
+    SceneLayer(usize),
 }
 
 /// a value being typed, in place of its field
@@ -1100,6 +1106,7 @@ impl App {
             Hit::Dop(dop::Field::Focal) => Help::new("Focal length", "Type a focal length in mm for the extreme cases; the presets are 17, 30, 50, 70, 100 and 150."),
             Hit::Dop(dop::Field::Preview) => Help::new("Preview", "Plays the move from where the camera is now to the selected shot on this stage; a hand on the view stops it."),
             Hit::Dop(_) => Help::new("DOP", "The scene's camera: its lens, its shots (a show row picks one by scene:<id> > shot:<id>), a move to preview or keep (scene:<id> > move:<id>), the trolley track."),
+            Hit::SceneField(scene::Field::AddStack | scene::Field::AddLayer | scene::Field::Picture | scene::Field::Anchor) => Help::new("Parallax layers", "Pictures standing in the 3D at their depths, fitted to the scene camera's view there: a far matte, layers behind and around the 3D, strips at the edges in front. Drop a picture from the library on a layer's handle; drag the handle up or down to move it in depth – it is fitted anew."),
             Hit::SceneField(_) => Help::new("Slot or video", "A slot's filter (every chip on holds), its preview from the toon's book; a video node's place and knobs. The core refuses what does not fit, in its words."),
                         Hit::Field(_) | Hit::Nothing => return None,
         })
@@ -1167,6 +1174,7 @@ impl App {
             Some(Drag::SceneKnob(i, x0, v0)) => self.scene_knob_to(i, x0, v0, x),
             Some(Drag::Dop(n, x0, v0)) => self.dop_scrub_to(n, x0, v0, x),
             Some(Drag::TrackPoint(i, handle)) => self.track_point_to(i, handle, x, y),
+            Some(Drag::LayerDepth(l, y0, d0)) => self.layer_depth_to(l, y0, d0, y),
             Some(Drag::Param(node, port, x0, f0)) => {
                 if let Some(p) = self.stage.param(node, port) {
                     let v = p.spec.value((f0 + (x - x0) / SCRUB_PX).clamp(0.0, 1.0));
@@ -1598,6 +1606,8 @@ impl App {
             Editing::Background => self.rig_background(&text),
             Editing::SceneBackground => self.scene_background(&text),
             Editing::Focal => self.dop_focal(&text),
+            Editing::Height => self.dop_height(&text),
+            Editing::SceneLayer(l) => self.scene_layer(l, &text),
         }
     }
 
@@ -2035,7 +2045,7 @@ impl App {
             }
             // the fader let go: the gain goes into the rig, no replay: the engine has it already
             Some(Drag::Fader(target, _)) => return self.store_fader(target),
-            Some(Drag::SceneKnob(..)) => return self.scene_settled(),
+            Some(Drag::SceneKnob(..) | Drag::LayerDepth(..)) => return self.scene_settled(),
             Some(Drag::Dop(n, ..)) => return self.dop_settled(n),
             Some(Drag::TrackPoint(..)) => return self.track_settled(),
             // a knob or a parameter let go: its value goes into the draft
@@ -2919,6 +2929,9 @@ impl App {
                 self.panel.hits.push((r, hit));
             }
             self.build.close(ui, t, o, &mut self.panel.hits);
+        }
+        if let Some(v) = self.scene.as_mut() {
+            v.dop.floor = self.stage.space.floor_point().y;
         }
         if let Some(o) = self.build.open(ui, t, "dop", self.cursor, self.panel.hits.len()) {
             match self.scene.as_ref().filter(|v| v.inside.is_none()) {

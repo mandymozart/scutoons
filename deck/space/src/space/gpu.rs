@@ -120,6 +120,8 @@ pub struct SpaceGpu {
     sampler: wgpu::Sampler,
     room: Option<RoomGpu>,
     backdrop: super::backdrop::BackdropGpu,
+    planes_gpu: super::layers::PlanesGpu,
+    planes: Vec<super::layers::Plane>,
     unit_vb: wgpu::Buffer,
     unit_ib: wgpu::Buffer,
     unit_count: u32,
@@ -369,6 +371,7 @@ impl SpaceGpu {
         queue.write_buffer(&unit_ib, 0, bytemuck::cast_slice(&unit_i));
         queue.write_buffer(&tube_ib, 0, bytemuck::cast_slice(&tube_idx));
         let backdrop = super::backdrop::BackdropGpu::new(device, &tex_layout, color);
+        let planes_gpu = super::layers::PlanesGpu::new(device, &room_layout, color, DEPTH);
         SpaceGpu {
             room_pipe,
             solid_pipe,
@@ -380,6 +383,8 @@ impl SpaceGpu {
             sampler,
             room: None,
             backdrop,
+            planes_gpu,
+            planes: Vec::with_capacity(deck_catalog::layer::MOST),
             unit_vb,
             unit_ib,
             unit_count: unit_i.len() as u32,
@@ -621,6 +626,8 @@ impl SpaceGpu {
         queue.write_buffer(&self.inst_buf, 0, bytemuck::cast_slice(&self.spheres));
         queue.write_buffer(&self.tube_vb, 0, bytemuck::cast_slice(&self.tubes));
         let cam = &space.camera;
+        space.layer_planes(false, &mut self.planes);
+        self.planes_gpu.write(queue, &self.planes);
         let eye: Vec3 = cam.eye();
         self.heads(space, eye);
         queue.write_buffer(&self.head_buf, 0, bytemuck::cast_slice(&self.layers));
@@ -697,6 +704,7 @@ impl SpaceGpu {
             rp.set_bind_group(1, bind, &[]);
             rp.draw_indexed(0..self.plate_count, 0, i as u32..i as u32 + 1);
         }
+        self.planes_gpu.draw(&mut rp, self.planes.iter().map(|p| p.picture.and_then(|s| self.sprites.get(s)).and_then(Option::as_ref)));
         rp.set_pipeline(&self.tube_pipe);
         rp.set_vertex_buffer(0, self.tube_vb.slice(..));
         rp.set_index_buffer(self.tube_ib.slice(..), wgpu::IndexFormat::Uint32);

@@ -135,6 +135,7 @@ impl SceneView {
                     Part::Member(m) => (Some(self.inside == Some(m)), "folder"),
                     Part::Slot(_) => (None, "target"),
                     Part::Video(_) => (None, "video"),
+                    Part::Layer(_) => (None, "layers"),
                 };
                 controls::TreeRow { depth: l.depth, label: l.label, detail: l.detail, icon, open, selected: self.inside.is_none() && self.sel == l.part }
             })
@@ -161,8 +162,15 @@ pub enum Field {
     Empty,
     /// where a video node's picture plays, picked
     Plays,
-    /// the slot or the video node taken out
+    /// the slot, the video node or the layer taken out
     Remove,
+    /// a layer's picture, typed
+    Picture,
+    /// a layer's anchor, the next one
+    Anchor,
+    /// the default parallax stack, or one empty layer
+    AddStack,
+    AddLayer,
     /// the scene's stage background: a click on its value types it, on its swatch opens the colour picker
     Background,
     BackgroundColour,
@@ -176,6 +184,7 @@ pub fn inspect(d: &mut DrawList, t: &Tokens, area: Rect, view: &SceneView, hot: 
     match view.sel {
         Part::Slot(s) => return crate::scene_parts::inspect_slot(d, t, area, view, s),
         Part::Video(v) => return crate::scene_parts::inspect_video(d, t, area, view, v, hot),
+        Part::Layer(l) => return crate::scene_parts::inspect_layer(d, t, area, view, l, hot),
         _ => {}
     }
     let Some(m) = view.member() else {
@@ -189,6 +198,11 @@ pub fn inspect(d: &mut DrawList, t: &Tokens, area: Rect, view: &SceneView, hot: 
         let (swatch, at) = crate::inspector::background(d, t, area, &mut y, &row);
         out.push((swatch, Field::BackgroundColour));
         out.push((at, Field::Background));
+        controls::row(d, t, area, &mut y, "layers", &e.doc.stage.layers.len().to_string());
+        for (r, f) in controls::pills(d, t, area.x, y, t.size.row - 4.0, &["Parallax stack", "Add layer"], usize::MAX).into_iter().zip([Field::AddStack, Field::AddLayer]) {
+            out.push((r, f));
+        }
+        y += t.size.row;
         for n in &e.notes {
             if y + t.size.row > area.y + area.h {
                 break;
@@ -366,8 +380,14 @@ impl crate::App {
     /// a scene knob dragged to `x`: the core sets the selected member's value
     pub(crate) fn scene_knob_to(&mut self, i: usize, x0: f32, v0: f32, x: f32) {
         let Some(view) = self.scene.as_mut() else { return };
-        if let Part::Video(v) = view.sel {
-            return crate::scene_parts::video_knob_to(view, v, i, x - x0, v0);
+        match view.sel {
+            Part::Video(v) => return crate::scene_parts::video_knob_to(view, v, i, x - x0, v0),
+            Part::Layer(l) => {
+                crate::scene_parts::layer_knob_to(view, l, i, x - x0, v0);
+                let layers = view.edit.doc.stage.layers.clone();
+                return self.stage.space.set_layers(&layers);
+            }
+            _ => {}
         }
         let Some(m) = view.member() else { return };
         let Some(k) = view.edit.members.get(m).and_then(|mm| mm.knobs.get(i)).cloned() else { return };
@@ -399,7 +419,7 @@ impl crate::App {
     /// would, then opened as its rig if asked
     pub(crate) fn script_scene(&mut self) {
         let Some((holder, inside)) = self.args.member.clone() else { return };
-        if holder.contains(['+', ':']) {
+        if holder.contains(['+', ':']) || holder == "stack" {
             return self.script_parts(&holder);
         }
         let Some(m) = self.scene.as_ref().and_then(|v| v.edit.members.iter().position(|x| x.holder == holder)) else { return };
@@ -423,8 +443,10 @@ impl crate::App {
     /// the knob `i` of the selected member as the scene has it (a drag starts from it)
     pub(crate) fn scene_knob(&self, i: usize) -> Option<f32> {
         let view = self.scene.as_ref()?;
-        if let Part::Video(v) = view.sel {
-            return view.edit.video_knobs(v).get(i).map(|k| k.value);
+        match view.sel {
+            Part::Video(v) => return view.edit.video_knobs(v).get(i).map(|k| k.value),
+            Part::Layer(l) => return view.edit.layer_knobs(l).get(i).map(|k| k.value),
+            _ => {}
         }
         view.edit.knobs(view.member()?).get(i).map(|k| k.value)
     }
@@ -441,6 +463,26 @@ mod tests {
         SceneOpen { doc, base: Some(3), kept: None, note: None, save: None }
     }
 
+    /// the panel model: the default stack shows in the tree far to near, a layer's inspector has its picture, its anchor,
+    /// Remove and its depth knob, and the stage plays the scene with it
+    #[test]
+    fn the_parallax_stack_in_the_tree_and_a_layers_inspector() {
+        let (mut view, _, _) = SceneView::open(duet(), None).expect("it plays");
+        view.edit.add_stack().unwrap();
+        let rows = view.tree_rows();
+        let layer_rows: Vec<_> = rows.iter().filter(|r| r.icon == "layers").map(|r| r.label.as_str()).collect();
+        assert_eq!(layer_rows.len(), 7);
+        assert_eq!(layer_rows.first(), Some(&"empty full"));
+        let l = view.edit.empty_layer().unwrap();
+        view.edit.fill_layer(l, Some("layers/hills.png")).unwrap();
+        view.sel = Part::Layer(l);
+        let (mut d, t) = (DrawList::new(0.6), Tokens::default());
+        let area = Rect { x: 0.0, y: 0.0, w: 320.0, h: 2000.0 };
+        let fields: Vec<Field> = inspect(&mut d, &t, area, &view, None).into_iter().map(|(_, f)| f).collect();
+        assert_eq!(fields, [Field::Picture, Field::Anchor, Field::Remove, Field::Knob(0)]);
+        assert_eq!(view.scene().unwrap().stage.layers[l].image.as_deref(), Some("layers/hills.png"), "the stage plays it");
+    }
+
     /// the panel model: the scene opens with its cast in the tree, a member selected shows its knobs as the scene sets
     /// them, a value set through the core shows as set and changes the scene the stage plays
     #[test]
@@ -453,7 +495,7 @@ mod tests {
         let (mut d, t) = (DrawList::new(0.6), Tokens::default());
         let area = Rect { x: 0.0, y: 0.0, w: 320.0, h: 2000.0 };
         let fields: Vec<Field> = inspect(&mut d, &t, area, &view, None).into_iter().map(|(_, f)| f).collect();
-        assert_eq!(fields, [Field::BackgroundColour, Field::Background], "the scene's one field: its background, its swatch first");
+        assert_eq!(fields, [Field::BackgroundColour, Field::Background, Field::AddStack, Field::AddLayer], "the scene's background, its swatch first, then the layers' pills");
         view.edit.set_background("#336699").unwrap();
         assert_eq!(view.scene().unwrap().stage.background, Some(deck_space::Background::colour("#336699")), "the stage plays it");
         view.edit.set_background("").unwrap();

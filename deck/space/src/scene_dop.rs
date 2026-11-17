@@ -67,6 +67,21 @@ impl SceneEdit {
         })
     }
 
+    /// the eye height of shot `i` (level at its aim, the bird looking down), or of the primary camera (none), `height` m
+    /// above a floor at `floor`
+    pub fn set_height(&mut self, shot: Option<usize>, height: f32, floor: f32) -> Result<(), String> {
+        self.camera_change(|c| {
+            match shot {
+                Some(i) => {
+                    let s = c.shots.get_mut(i).ok_or("no such shot")?;
+                    *s = s.at_height(height, floor);
+                }
+                None => c.height = height,
+            }
+            Ok(())
+        })
+    }
+
     /// a straight track between two points
     pub fn add_track(&mut self, start: [f32; 3], end: [f32; 3]) -> Result<(), String> {
         self.camera_change(|c| {

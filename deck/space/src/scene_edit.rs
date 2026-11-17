@@ -40,6 +40,8 @@ pub enum Part {
     Slot(usize),
     /// a video node of the scene's own, by its place in the document's nodes
     Video(usize),
+    /// a 2D layer of the stage, by its place in `stage.layers`
+    Layer(usize),
 }
 
 /// A line of the tree.
@@ -145,6 +147,7 @@ impl SceneEdit {
         }
         out.extend(self.slot_lines());
         out.extend(self.video_lines());
+        out.extend(self.layer_lines());
         out
     }
 

@@ -25,6 +25,7 @@ pub mod glb;
 #[cfg(feature = "gpu")]
 pub mod gpu;
 pub mod label;
+pub mod layers;
 pub mod meshopt;
 pub mod pick;
 pub mod place;
@@ -296,6 +297,7 @@ pub struct Space {
     /// #195: the conductor's push and the decks' answers
     pub sync: sync::Board,
     pub backdrop: backdrop::Backdrop,
+    pub layers: layers::Layers,
     /// the scene's primary camera playing: its shots and moves
     pub dop: dop::Dop,
 }
@@ -435,6 +437,7 @@ impl Space {
             places: Vec::new(),
             sync: sync::Board::default(),
             backdrop: backdrop::Backdrop::default(),
+            layers: layers::Layers::default(),
             dop: dop::Dop::default(),
         };
         space.place_cast();
@@ -447,10 +450,28 @@ impl Space {
         self.backdrop = backdrop::Backdrop { ground, ..backdrop::Backdrop::new(background, &mut self.portraits) };
     }
 
-    /// what the played scene sets beside its graph: the background that won and its camera
+    /// what the played scene sets beside its graph: its stage (background, layers) and its camera
     pub fn set_scene(&mut self, scene: &crate::scene::Scene) {
-        self.set_background(scene.stage.background.clone());
+        self.set_stage(&scene.stage);
         self.set_camera(None, scene.camera.clone());
+    }
+
+    /// the stage's parallax layers (the played scene's `stage.layers`), their pictures asked for
+    pub fn set_layers(&mut self, layers: &[crate::Layer]) {
+        self.layers = layers::Layers::new(layers, &mut self.portraits);
+    }
+
+    /// The layers' planes in the 3D this frame: fitted to the scene's primary camera, far to near from the eye (into
+    /// `out`, cleared first). `empty`: the empty places too (an editor outlines them).
+    pub fn layer_planes(&self, empty: bool, out: &mut Vec<layers::Plane>) {
+        let shot = self.scene_camera();
+        self.layers.planes(&shot, self.view.0 / self.view.1.max(1.0), &self.portraits, self.camera.eye(), empty, out);
+    }
+
+    /// what a played scene's stage shows around the 3D: its background and its layers
+    pub fn set_stage(&mut self, stage: &crate::scene::StageSettings) {
+        self.set_background(stage.background.clone());
+        self.set_layers(&stage.layers);
     }
 
     /// what shows when no background sets a colour (display values; black unless the editor's `stage` token says else)
@@ -655,23 +676,30 @@ impl Space {
         self.camera.idle = 0.0;
     }
 
-    /// The scene's primary camera: the shot the scene opens with; a scene without shots: the space node's yaw, pitch and
-    /// distance through the camera's lens, aimed as a deck aims.
+    /// The scene's primary camera: the shot the scene opens with; a scene without shots: head-on (yaw 0) at the stage's
+    /// centre, level at the camera's eye height (adult unless the scene says), from the space node's distance.
     pub fn scene_camera(&self) -> Shot {
         if let Some(s) = self.dop.camera.opening() {
             return shot_of(&dop::View::of_shot(s));
         }
-        let (yaw, pitch, distance) = self.camera.home();
-        let target = self.cards_middle().unwrap_or_else(|| {
-            let (body, head) = self.being.focus();
-            let s = self.being.look.size;
-            camera::focus_target(body, head, distance, s * FOCUS_NEAR, s * FOCUS_FAR)
-        });
-        let mut shot = shot_of(&dop::View { target, yaw, pitch, distance, lens: self.dop.camera.lens });
+        let (_, _, distance) = self.camera.home();
+        let centre = self.stage_centre();
+        let target = centre + Vec3::Y * self.dop.camera.height;
+        let mut shot = shot_of(&dop::View { target, yaw: 0.0, pitch: 0.0, distance, lens: self.dop.camera.lens });
         if self.dop.camera == crate::scene_camera::SceneCamera::default() {
             shot.fov_y = camera::FOV_Y;
         }
         shot
+    }
+
+    /// the stage's centre on its floor: the middle of the cast's feet across, else under the scene's being
+    pub fn stage_centre(&self) -> Vec3 {
+        let floor = self.floor_point();
+        if self.cast.is_empty() {
+            return Vec3::new(self.being.anchor.x, floor.y, self.being.anchor.z);
+        }
+        let (lo, hi) = self.cast.iter().fold((Vec3::splat(f32::MAX), Vec3::splat(f32::MIN)), |(lo, hi), c| (lo.min(c.feet), hi.max(c.feet)));
+        Vec3::new((lo.x + hi.x) * 0.5, floor.y, (lo.z + hi.z) * 0.5)
     }
 
     /// the view snaps to the scene's camera and holds it until a hand moves it
@@ -713,9 +741,8 @@ impl Space {
     /// view) opens on its first shot.
     pub fn set_camera(&mut self, scene: Option<&str>, camera: Option<crate::scene_camera::SceneCamera>) {
         self.dop = dop::Dop::new(scene.map(String::from), camera.unwrap_or_default());
-        if let (false, Some(s)) = (self.camera.free, self.dop.camera.opening()) {
-            dop::View::of_shot(s).apply(&mut self.camera);
-            self.dop.current = Some(s.id.clone());
+        if !self.camera.free {
+            self.open_on_scene_camera();
         }
     }
 
@@ -831,7 +858,7 @@ impl Space {
                 }
                 let base = spot.unwrap_or_else(|| Vec3::new((model.min.x + model.max.x) * 0.5, model.min.y, (model.min.z + model.max.z) * 0.5));
                 self.being.anchor = self.at.unwrap_or(base + Vec3::Y * self.lift);
-                if self.dop.camera.opening().is_none() {
+                if !self.camera.looking() && !self.dop.director.active() {
                     self.camera.look_at(aim(&self.being));
                 }
                 self.set_status = format!("SET {}K TRIS", model.triangles() / 1000);

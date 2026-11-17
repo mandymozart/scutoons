@@ -645,6 +645,12 @@ impl SceneDocument {
         if let Some(e) = self.stage.background.as_ref().and_then(deck_catalog::Background::check) {
             out.push(format!("stage background: {e}"));
         }
+        if self.stage.layers.len() > deck_catalog::layer::MOST {
+            out.push(format!("stage layers: at most {}, not {}", deck_catalog::layer::MOST, self.stage.layers.len()));
+        }
+        for (i, e) in self.stage.layers.iter().enumerate().filter_map(|(i, l)| Some((i, l.check()?))) {
+            out.push(format!("stage layer {}: {e}", i + 1));
+        }
         let set = self.space().and_then(|s| s.params.get("set")).is_some();
         match &self.location {
             None => {}

@@ -28,6 +28,21 @@ pub const DISTANCE_RANGE: (f32, f32) = (0.05, 500.0);
 /// the most rounds an orbit or a spiral turns
 pub const MAX_ROUNDS: f32 = 16.0;
 
+/// The eye heights a camera stands at (m above the stage's floor; the cast's cards stand ~1.7 m): each looks level at
+/// its aim, the bird down from high above.
+pub const EYE_HEIGHTS: [(&str, f32); 7] = [("frog", 0.1), ("cat", 0.3), ("kid", 1.1), ("adult", 1.6), ("giant", 3.0), ("giraffe", 5.0), ("bird", 9.0)];
+/// the bird's look down (degrees)
+pub const BIRD_PITCH: f32 = 50.0;
+/// the default primary camera's eye height: adult
+pub const DEFAULT_HEIGHT: f32 = 1.6;
+/// a typed eye height's range (m)
+pub const HEIGHT_RANGE: (f32, f32) = (0.02, 100.0);
+
+/// which preset an eye height is, if one
+pub fn height_preset(h: f32) -> Option<usize> {
+    EYE_HEIGHTS.iter().position(|(_, p)| (p - h).abs() < 1e-3)
+}
+
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -148,6 +163,22 @@ impl ShotDef {
         let (sp, cp) = self.pitch.to_radians().sin_cos();
         let [x, y, z] = self.target;
         [x + self.distance * cp * sy, y + self.distance * sp, z + self.distance * cp * cy]
+    }
+
+    /// The shot with its eye `height` m above a floor at `floor`, its side kept: level at its aim (the aim rises or sinks
+    /// with the eye, the distance stays) – the bird keeps its aim and looks down at it from that height.
+    pub fn at_height(&self, height: f32, floor: f32) -> ShotDef {
+        let eye_y = floor + height;
+        if height_preset(height) == Some(EYE_HEIGHTS.len() - 1) {
+            let above = (eye_y - self.target[1]).max(DISTANCE_RANGE.0);
+            return ShotDef { pitch: BIRD_PITCH, distance: (above / BIRD_PITCH.to_radians().sin()).min(DISTANCE_RANGE.1), ..self.clone() };
+        }
+        ShotDef { target: [self.target[0], eye_y, self.target[2]], pitch: 0.0, ..self.clone() }
+    }
+
+    /// its eye's height above a floor at `floor`
+    pub fn height(&self, floor: f32) -> f32 {
+        self.eye()[1] - floor
     }
 }
 
@@ -453,6 +484,12 @@ fn shake_amount() -> f32 {
 fn is_shake_amount(v: &f32) -> bool {
     *v == shake_amount()
 }
+fn default_height() -> f32 {
+    DEFAULT_HEIGHT
+}
+fn is_default_height(v: &f32) -> bool {
+    *v == DEFAULT_HEIGHT
+}
 fn is_default<T: Default + PartialEq>(v: &T) -> bool {
     *v == T::default()
 }
@@ -500,7 +537,7 @@ pub struct MoveDef {
 
 /// The scene's primary camera.
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SceneCamera {
     #[serde(default, skip_serializing_if = "is_default")]
@@ -508,6 +545,10 @@ pub struct SceneCamera {
     /// the lens before a shot is taken
     #[serde(default)]
     pub lens: Lens,
+    /// the eye height (m above the floor) of the primary camera while the scene has no shots: head-on at the stage's
+    /// centre, level
+    #[serde(default = "default_height", skip_serializing_if = "is_default_height")]
+    pub height: f32,
     /// its shots; the first opens the scene
     #[serde(default, rename = "shot", skip_serializing_if = "Vec::is_empty")]
     pub shots: Vec<ShotDef>,
@@ -515,6 +556,12 @@ pub struct SceneCamera {
     pub track: Option<Track>,
     #[serde(default, rename = "move", skip_serializing_if = "Vec::is_empty")]
     pub moves: Vec<MoveDef>,
+}
+
+impl Default for SceneCamera {
+    fn default() -> SceneCamera {
+        SceneCamera { source: Source::Scene, lens: Lens::default(), height: DEFAULT_HEIGHT, shots: Vec::new(), track: None, moves: Vec::new() }
+    }
 }
 
 impl SceneCamera {
@@ -553,6 +600,9 @@ impl SceneCamera {
     /// the core's checks; `holders` are the scene's holder ids (what a follow may name)
     pub fn problems(&self, holders: &[&str], out: &mut Vec<String>) {
         self.lens.problems("camera lens", out);
+        if !(HEIGHT_RANGE.0..=HEIGHT_RANGE.1).contains(&self.height) {
+            out.push(format!("camera: the eye height is {}–{} m", HEIGHT_RANGE.0, HEIGHT_RANGE.1));
+        }
         let mut ids = BTreeSet::new();
         for s in &self.shots {
             let who = format!("shot {}", s.id);
@@ -623,6 +673,24 @@ mod tests {
         assert!(fov_of(17.0) > fov_of(150.0));
         assert_eq!(Lens::focal(70.0).preset(), Some(3));
         assert_eq!(Lens::focal(85.0).preset(), None, "a typed value is no preset");
+    }
+
+    #[test]
+    fn eye_heights_look_level_and_the_bird_looks_down() {
+        let s = shot("wide");
+        for (name, h) in EYE_HEIGHTS {
+            let at = s.at_height(h, 0.5);
+            assert!((at.height(0.5) - h).abs() < 1e-3, "{name}: {}", at.height(0.5));
+            assert_eq!(height_preset(h).map(|i| EYE_HEIGHTS[i].0), Some(name));
+            if name == "bird" {
+                assert_eq!((at.pitch, at.target), (BIRD_PITCH, s.target), "the bird keeps its aim and looks down at it");
+            } else {
+                assert_eq!((at.pitch, at.yaw, at.distance), (0.0, s.yaw, s.distance), "{name}: level, from the same side");
+            }
+        }
+        assert_eq!(height_preset(2.2), None, "a typed height is no preset");
+        assert_eq!(SceneCamera::default().height, DEFAULT_HEIGHT);
+        assert_eq!(serde_json::to_string(&SceneCamera::default()).unwrap(), "{\"lens\":{\"projection\":\"perspective\",\"focal\":30.0,\"size\":4.0}}");
     }
 
     #[test]

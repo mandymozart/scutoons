@@ -254,6 +254,82 @@ fn camera_words_cut_and_play_only_for_their_scene() {
     assert!(View::of(&orbit).gap(&v) < 1e-3, "the orbit's view is the shot's");
 }
 
+/// The parallax layers fit the primary camera (the opening shot, its lens): a full layer covers that camera's whole view
+/// wherever the hand has turned the stage
+#[test]
+fn a_layer_covers_its_part_of_the_primary_cameras_view() {
+    use crate::scene_document::SceneDocument;
+    use crate::scene_resolve::{core_rigs, no_sets, resolve};
+    use crate::space::portrait::Portraits;
+    use deck_catalog::layer::Anchor;
+    let mut doc = SceneDocument::new("duet", "Duet", vec!["catpope".into()]);
+    doc.recast(&["character:catpope".into()]);
+    doc.camera = Some(camera());
+    doc.stage.layers = vec![crate::Layer::empty(5.0, Anchor::Full)];
+    let scene = resolve(&doc, &Default::default(), true, &core_rigs, &no_sets).unwrap().scene;
+    let g = crate::graph::Graph::build(&scene).unwrap();
+    let mut s = crate::space::Space::new(&g, g.first(crate::graph::Kind::Space).unwrap(), &scene.being, std::path::Path::new("/nowhere"), Portraits::manual());
+    s.camera.free = true;
+    s.set_scene(&scene);
+    s.set_view(1600.0, 900.0);
+    s.camera.drag(300.0, -120.0);
+    let mut planes = Vec::new();
+    s.layer_planes(true, &mut planes);
+    let p = planes.first().expect("the layer");
+    let mut primary = Orbit::new(Vec3::ZERO, 0.0, 0.0, 1.0);
+    View::of_shot(&camera().shots[0]).apply(&mut primary);
+    let vp = primary.view_proj(1600.0 / 900.0);
+    for (c, want) in p.corners().into_iter().zip([(-1.0, 1.0), (1.0, 1.0), (1.0, -1.0), (-1.0, -1.0)]) {
+        let q = vp * c.extend(1.0);
+        let (x, y) = (q.x / q.w, q.y / q.w);
+        assert!((x - want.0).abs() < 1e-3 && (y - want.1).abs() < 1e-3, "a corner on the view's corner: ({x}, {y}) vs {want:?}");
+    }
+}
+
+/// A scene without a camera – new, or cast but never given one – opens head-on: yaw 0, level at an adult's eye height,
+/// on the stage's centre line, the same view every time; a scene that sets its camera's height stands there
+#[test]
+fn a_scene_without_a_camera_opens_head_on_at_the_centre() {
+    use crate::scene_document::SceneDocument;
+    use crate::scene_resolve::{core_rigs, no_sets, resolve};
+    use crate::space::portrait::Portraits;
+    use crate::space::values::Table;
+    let open = |doc: &SceneDocument, turn: f32, free: bool| -> (View, Vec3, f32) {
+        let scene = resolve(doc, &Default::default(), true, &core_rigs, &no_sets).unwrap().scene;
+        let g = crate::graph::Graph::build(&scene).unwrap();
+        let mut s = crate::space::Space::new(&g, g.first(crate::graph::Kind::Space).unwrap(), &scene.being, std::path::Path::new("/nowhere"), Portraits::manual());
+        s.camera.free = free;
+        s.camera.drag(turn * 400.0, turn * 90.0);
+        s.set_scene(&scene);
+        s.set_view(1280.0, 720.0);
+        if free {
+            s.open_on_scene_camera();
+        }
+        let mut ctl = Table::new(&g);
+        for k in 0..90 {
+            s.update(1.0 / 60.0, k as f32 / 60.0, &mut ctl, &tempo::Now::default(), &|_, _| 0.0);
+        }
+        (View::of(&s.camera), s.stage_centre(), s.floor_point().y)
+    };
+    let new = SceneDocument::new("fresh", "Fresh", vec!["catpope".into()]);
+    let mut cast = SceneDocument::new("duet", "Duet", vec!["catpope".into()]);
+    cast.recast(&["character:catpope".into(), "item:incense_burner".into()]);
+    for doc in [&new, &cast] {
+        for free in [true, false] {
+            let (a, centre, floor) = open(doc, 0.0, free);
+            let (b, ..) = open(doc, 1.0, free);
+            assert!(a.gap(&b) < 1e-4, "{}: the same view every time ({free})", doc.id);
+            assert!(wrap_pi(a.yaw).abs() < 1e-5 && a.pitch.abs() < 1e-5, "{}: head-on and level: {a:?}", doc.id);
+            assert!((a.target.x - centre.x).abs() < 1e-4 && (a.target.z - centre.z).abs() < 1e-4, "{}: on the centre line", doc.id);
+            assert!((a.eye().y - floor - crate::scene_camera::DEFAULT_HEIGHT).abs() < 1e-3, "{}: an adult's eye", doc.id);
+        }
+    }
+    let mut kid = cast.clone();
+    kid.camera = Some(SceneCamera { height: crate::scene_camera::EYE_HEIGHTS[2].1, ..SceneCamera::default() });
+    let (v, _, floor) = open(&kid, 0.0, true);
+    assert!((v.eye().y - floor - 1.1).abs() < 1e-3, "a kid's eye");
+}
+
 /// Build opens a scene on its camera: the same view however the stage was looked at before, a shot exactly
 #[test]
 fn a_scene_opens_on_its_camera_the_same_however_the_stage_was_looked_at() {

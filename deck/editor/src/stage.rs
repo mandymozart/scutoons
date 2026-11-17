@@ -239,7 +239,7 @@ impl Stage {
     fn take(&mut self, ready: Ready, keep: bool) -> Result<()> {
         let knobs: Vec<(String, f32)> = self.knobs.iter().map(|k| (k.path.clone(), self.value(k))).collect();
         let camera = self.space.camera;
-        let (director, current) = (self.space.dop.director.clone(), self.space.dop.current.clone());
+        let (director, current, viewing) = (self.space.dop.director.clone(), self.space.dop.current.clone(), self.space.dop.viewing.clone());
         self._events = None;
         self._audio = None;
         self.handles = None;
@@ -249,7 +249,7 @@ impl Stage {
         if keep {
             next.started = self.started;
             next.space.camera = camera;
-            (next.space.dop.director, next.space.dop.current) = (director, current);
+            (next.space.dop.director, next.space.dop.current, next.space.dop.viewing) = (director, current, viewing);
         }
         next.space.being.hold(self.space.being.held(), true);
         for (path, value) in knobs {
@@ -321,6 +321,7 @@ impl Stage {
         let mut space = Space::with_gate(&graph, node, &scene.being, &cache.join("sets"), Portraits::local(&cache.join("portraits")), None);
         let own_background = scene.stage.background.clone();
         space.set_background(own_background.clone());
+        space.set_layers(&scene.stage.layers);
         // an editor's view: no breath, the camera stays where the hand puts it (owner 2026-11-09)
         space.being.look.breath = 0.0;
         space.camera.free = true;

@@ -8,6 +8,7 @@ namespace Scutoons\Generated;
  * The stored scene document `scene:<id>` (#243; deck-space's SceneDocument, its JSON Schema written by deck-schema)
  *
  * @phpstan-type Act 'join' | 'leave'
+ * @phpstan-type Anchor 'full' | 'left' | 'right' | 'top' | 'bottom'
  * @phpstan-type Arrange array{kind: ArrangeKind, spacing?: float}
  * @phpstan-type ArrangeKind 'row' | 'cluster'
  * @phpstan-type Background array{colour?: string | null, image?: string | null, video?: string | null}
@@ -17,6 +18,7 @@ namespace Scutoons\Generated;
  * @phpstan-type Fillers string | list<string>
  * @phpstan-type Holder array{arrange?: Arrange | null, at?: array{float, float, float} | null, enter?: Enter, fill?: Fill | null, id: string, label?: array<string, string> | null, max?: int | null, preview?: Fillers | null, ref?: string | null, rig?: RigPin | null, spot?: string | null, take?: Take, values?: array<string, HolderValue>}
  * @phpstan-type HolderValue float | string
+ * @phpstan-type Layer array{anchor?: Anchor, depth: float, image?: string | null}
  * @phpstan-type Length array{beats: float} | array{bars: float} | array{seconds: float}
  * @phpstan-type Lens array{focal?: float, projection?: Projection, size?: float}
  * @phpstan-type LinkDef array{from: string, map?: list<array{int, int}>, offset?: float, scale?: float, to: string}
@@ -28,13 +30,13 @@ namespace Scutoons\Generated;
  * @phpstan-type NodeDef array<string, mixed>
  * @phpstan-type Projection 'perspective' | 'orthographic'
  * @phpstan-type RigPin array{ref: string, version?: string | null}
- * @phpstan-type SceneCamera array{lens?: Lens, move?: list<MoveDef>, shot?: list<ShotDef>, source?: Source, track?: Track | null}
+ * @phpstan-type SceneCamera array{height?: float, lens?: Lens, move?: list<MoveDef>, shot?: list<ShotDef>, source?: Source, track?: Track | null}
  * @phpstan-type SceneTransition 'fade' | 'cut' | 'blackout'
  * @phpstan-type SceneUse array{scene: string, with?: array<string, Fillers>}
  * @phpstan-type ShotDef array{distance: float, id: string, label?: array<string, string>, lens?: Lens, pitch: float, target: array{float, float, float}, yaw: float}
  * @phpstan-type Side 'left' | 'right'
  * @phpstan-type Source 'scene' | 'handheld'
- * @phpstan-type StageSettings array{audio_buffer?: int | null, background?: Background | null, name?: string, render_scale?: float, transition?: SceneTransition, transition_secs?: float}
+ * @phpstan-type StageSettings array{audio_buffer?: int | null, background?: Background | null, layers?: list<Layer>, name?: string, render_scale?: float, transition?: SceneTransition, transition_secs?: float}
  * @phpstan-type Start 'now' | 'bar'
  * @phpstan-type Take 'one' | 'many'
  * @phpstan-type Track array{point: list<TrackPoint>}

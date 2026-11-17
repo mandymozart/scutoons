@@ -1,7 +1,9 @@
 //! Build's scene on the stage: each slot marked where it stands – an empty one a dashed card with its filter, a filled
 //! one a tag under its preview's feet – and the scene's video nodes as cards; a press on a mark selects it, a library
-//! card let go on a slot fills it (elsewhere on the stage: the first slot that admits it). Where a slot stands, what it
-//! admits and every refusal are the core's (deck-space place.rs, scene_slots.rs).
+//! card let go on a slot fills it (elsewhere on the stage: the first slot that admits it). The parallax layers are
+//! outlined where they stand in the 3D, each with a handle: pressed it selects the layer, dragged up or down it moves it
+//! in depth, a picture let go on it fills it. Where a slot or a layer stands, what it admits and every refusal are the
+//! core's (deck-space place.rs, scene_slots.rs, space/layers.rs, scene_layers.rs).
 use crate::scene::SceneView;
 use deck_kit::base::draw::DrawList;
 use deck_kit::base::tokens::Tokens;
@@ -11,11 +13,12 @@ use deck_space::scene_video::SCREEN;
 use deck_space::space::Space;
 
 /// what a mark on the stage stands for
-// TODO(#594): the parallax layers become marks of their own
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Mark {
     Slot(usize),
     Video(usize),
+    /// a parallax layer's handle
+    Layer(usize),
     /// a shot of the scene's camera, where its eye is
     Shot(usize),
     /// a point of the trolley track, and the selected point's Bézier handle
@@ -29,6 +32,7 @@ impl Mark {
         match self {
             Mark::Slot(s) => Some(Part::Slot(s)),
             Mark::Video(v) => Some(Part::Video(v)),
+            Mark::Layer(l) => Some(Part::Layer(l)),
             Mark::Shot(_) | Mark::TrackPoint(_) | Mark::Handle(_) => None,
         }
     }
@@ -89,6 +93,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, view: &mut SceneView, space: &Space, a
         }
     }
     videos(d, t, view, area);
+    layers(d, t, view, space, area, scale, carry);
     camera(d, t, view, space, area, scale);
 }
 
@@ -155,6 +160,40 @@ fn camera(d: &mut DrawList, t: &Tokens, view: &mut SceneView, space: &Space, are
     }
 }
 
+/// metres a layer moves per logical pixel its handle is dragged
+pub const DEPTH_PER_PX: f32 = 0.05;
+
+/// The parallax layers outlined where they stand (an empty place brighter), each with its handle at its left edge –
+/// its picture's name and its depth; handles of layers that stand alike are stacked far to near.
+fn layers(d: &mut DrawList, t: &Tokens, view: &mut SceneView, space: &Space, area: Rect, scale: f32, carry: Option<(f32, f32)>) {
+    let mut planes = Vec::new();
+    space.layer_planes(true, &mut planes);
+    let stack = view.edit.doc.stage.layers.len() as f32;
+    let row = t.size.row;
+    for (rank, p) in planes.iter().enumerate() {
+        let Some(layer) = view.edit.doc.stage.layers.get(p.layer) else { continue };
+        let sel = view.sel == Part::Layer(p.layer);
+        let px = |v| space.to_pixel(v).map(|(x, y)| (area.x + x / scale, area.y + y / scale));
+        let Some(c) = p.corners().map(px).into_iter().collect::<Option<Vec<_>>>() else { continue };
+        let line = if sel { t.color.accent } else { alpha(t.color.bright, if layer.image.is_none() { 0.55 } else { 0.25 }) };
+        for i in 0..4 {
+            d.segment(c[i], c[(i + 1) % 4], if sel { 2.0 } else { 1.0 }, line);
+        }
+        let Some((ex, ey)) = px(p.middle - p.across) else { continue };
+        let name = crate::scene_parts::layer_handle(layer);
+        let w = d.sans_width(t.size.small, &name) + t.size.pad * 2.0 + row * 0.6;
+        let x = ex.clamp(area.x + t.size.pad, area.x + area.w - w - t.size.pad);
+        let y = (ey + (rank as f32 - stack * 0.5) * (row + 2.0)).clamp(area.y + t.size.pad, area.y + area.h - row - t.size.pad);
+        let r = Rect { x, y, w, h: row - 4.0 };
+        let hot = carry.is_some_and(|(cx, cy)| r.has(cx, cy));
+        d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, alpha(if hot { t.color.selection } else { t.color.surface }, 0.85));
+        d.outline(r.x, r.y, r.w, r.h, (t.size.radius, 1.0), if sel || hot { t.color.accent } else { line });
+        d.icon(r.x + t.size.pad * 0.5, r.y + (r.h - row * 0.5) * 0.5, row * 0.5, "layers", if sel { t.color.accent } else { t.color.muted });
+        d.sans(r.x + t.size.pad + row * 0.5, r.y + (r.h - t.size.small * 1.25) * 0.5, t.size.small, &name, t.color.text);
+        view.marks.push((r, Mark::Layer(p.layer)));
+    }
+}
+
 /// The scene's video nodes as cards across the back of the stage, and the window framed while one that plays there is
 /// selected.
 fn videos(d: &mut DrawList, t: &Tokens, view: &mut SceneView, area: Rect) {
@@ -214,6 +253,12 @@ impl crate::App {
         let Some(view) = self.scene.as_mut().filter(|v| v.inside.is_none()) else { return false };
         let Some(m) = under(&view.marks, x, y) else { return false };
         match m {
+            Mark::Layer(l) => {
+                view.sel = Part::Layer(l);
+                if let Some(depth) = view.edit.doc.stage.layers.get(l).map(|l| l.depth) {
+                    self.panel.drag = Some(crate::Drag::LayerDepth(l, y, depth));
+                }
+            }
             Mark::Shot(i) => {
                 view.dop.shot = Some(i);
                 let id = view.edit.camera().shots.get(i).map(|s| s.id.clone());
@@ -255,10 +300,33 @@ impl crate::App {
         self.scene_changed(Ok(()), "the trolley track moved".into(), x, y);
     }
 
+    /// a layer's handle dragged from `y0` (its depth then `d0`) to `y`: up is farther; the stage shows it at once
+    pub(crate) fn layer_depth_to(&mut self, l: usize, y0: f32, d0: f32, y: f32) {
+        let Some(view) = self.scene.as_mut() else { return };
+        let depth = (d0 + (y0 - y) * DEPTH_PER_PX).clamp(deck_space::scene_layers::NEAREST_KNOB, deck_space::scene_layers::DEEPEST_KNOB);
+        if view.edit.move_layer(l, (depth * 10.0).round() / 10.0).is_ok() {
+            let layers = view.edit.doc.stage.layers.clone();
+            self.stage.space.set_layers(&layers);
+        }
+    }
+
     /// A book entry let go on the scene: a slot under it takes it as its preview, elsewhere the first slot that admits
     /// it; the core's words where it was let go when none does.
-    pub(crate) fn scene_drop(&mut self, address: &str, x: f32, y: f32) {
+    pub(crate) fn scene_drop(&mut self, address: &str, kind: deck_catalog::library::Kind, x: f32, y: f32) {
         let Some(view) = self.scene.as_mut() else { return };
+        if kind == deck_catalog::library::Kind::Image {
+            let layer = match under(&view.marks, x, y) {
+                Some(Mark::Layer(l)) => Some(l),
+                _ => view.edit.empty_layer(),
+            };
+            let Some(l) = layer else {
+                self.library.refused = Some((x, y, "no empty layer: add the parallax stack or a layer first".into()));
+                return;
+            };
+            let done = view.edit.fill_layer(l, Some(address));
+            view.sel = Part::Layer(l);
+            return self.scene_changed(done, format!("{address} fills the layer"), x, y);
+        }
         let slot = match under(&view.marks, x, y) {
             Some(Mark::Slot(s)) => Ok(s),
             _ => view.edit.slot_for(address),

@@ -318,20 +318,23 @@ pub fn of_build(modules: &[serde_json::Value], instruments: &[deck_space::rig::I
     out
 }
 
-/// Build at a scene: the book's characters and items to fill its slots; without a book, what the deck's core rigs stand for
-pub fn of_scene(book: Option<&deck_space::rig::book::Book>) -> Vec<Entry> {
-    if let Some(b) = book {
-        return deck_space::library::from_book(b, crate::LOCALE).into_iter().filter(|e| matches!(e.kind, Kind::Character | Kind::Item)).collect();
-    }
-    deck_space::rig::bundle::CORE
-        .iter()
-        .filter_map(|(s, _)| deck_space::scene_document::FillerRef::of_rig(s))
-        .map(|f| {
-            let kind = if f.starts_with("item:") { Kind::Item } else { Kind::Character };
-            let label = f.split_once(':').map_or(f.as_str(), |(_, id)| id).to_string();
-            Entry { address: f.clone(), label, detail: f, kind, preview: Preview::Kind, made_for: Vec::new() }
-        })
-        .collect()
+/// Build at a scene: the book's characters and items to fill its slots (without a book, what the deck's core rigs stand
+/// for), and the pictures among the assets to fill its parallax layers
+pub fn of_scene(book: Option<&deck_space::rig::book::Book>, assets: Vec<Entry>) -> Vec<Entry> {
+    let mut out: Vec<Entry> = match book {
+        Some(b) => deck_space::library::from_book(b, crate::LOCALE).into_iter().filter(|e| matches!(e.kind, Kind::Character | Kind::Item)).collect(),
+        None => deck_space::rig::bundle::CORE
+            .iter()
+            .filter_map(|(s, _)| deck_space::scene_document::FillerRef::of_rig(s))
+            .map(|f| {
+                let kind = if f.starts_with("item:") { Kind::Item } else { Kind::Character };
+                let label = f.split_once(':').map_or(f.as_str(), |(_, id)| id).to_string();
+                Entry { address: f.clone(), label, detail: f, kind, preview: Preview::Kind, made_for: Vec::new() }
+            })
+            .collect(),
+    };
+    out.extend(assets.into_iter().filter(|e| e.kind == Kind::Image));
+    out
 }
 
 /// The library on the editor: its entries each frame, a card's way out, the find field's keys, a check run's drag.
@@ -349,12 +352,12 @@ impl crate::App {
                 return;
             }
         };
-        if purpose == Purpose::Build && self.auth.token().is_some() {
+        if matches!(purpose, Purpose::Build | Purpose::Scene) && self.auth.token().is_some() {
             self.library.ask_assets(&self.args.api);
         }
         let entries = match purpose {
             Purpose::Build => of_build(self.rigs.module_docs(), &crate::adding::instruments(&self.stage.bundle, self.rigs.instruments()), self.book.book.as_deref(), self.library.assets()),
-            Purpose::Scene => of_scene(self.book.book.as_deref()),
+            Purpose::Scene => of_scene(self.book.book.as_deref(), self.library.assets()),
             Purpose::Show => self.show.library_entries(),
             Purpose::Module => of_modules(&self.module.list),
         };
@@ -451,7 +454,7 @@ impl crate::App {
             }
             crate::show::Workspace::Build if self.library.purpose == Purpose::Scene => {
                 if !self.panels().floats.covers(at.0, at.1) {
-                    self.scene_drop(&e.address, at.0, at.1);
+                    self.scene_drop(&e.address, e.kind, at.0, at.1);
                 }
             }
             crate::show::Workspace::Build if !self.panels().floats.covers(at.0, at.1) => {

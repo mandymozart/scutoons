@@ -6,7 +6,7 @@ use crate::scene::SceneView;
 use deck_kit::base::draw::DrawList;
 use deck_kit::base::tokens::Tokens;
 use deck_kit::editor::controls::{self, Rect};
-use deck_space::scene_camera::{fov_of, Ease, Length, Lens, MoveKind, MoveSpec, Projection, SceneCamera, Side, Source, Start, Turn, FOCAL_PRESETS, MAX_ROUNDS, SIZE_RANGE};
+use deck_space::scene_camera::{fov_of, height_preset, Ease, EYE_HEIGHTS, Length, Lens, MoveKind, MoveSpec, Projection, SceneCamera, Side, Source, Start, Turn, FOCAL_PRESETS, MAX_ROUNDS, SIZE_RANGE};
 use deck_space::space::dop::View;
 
 pub const WIDTH: f32 = 340.0;
@@ -18,11 +18,13 @@ pub struct Sel {
     pub point: Option<usize>,
     pub kept: Option<usize>,
     pub draft: MoveSpec,
+    /// the stage's floor (m): eye heights stand on it
+    pub floor: f32,
 }
 
 impl Default for Sel {
     fn default() -> Sel {
-        Sel { shot: None, point: None, kept: None, draft: MoveSpec::of(MoveKind::Glide) }
+        Sel { shot: None, point: None, kept: None, draft: MoveSpec::of(MoveKind::Glide), floor: 0.0 }
     }
 }
 
@@ -56,6 +58,9 @@ pub enum Field {
     Preset(usize),
     /// the focal length typed
     Focal,
+    /// an eye height preset, or typed
+    Height(usize),
+    HeightTyped,
     Scrub(Num),
     Shot(usize),
     AddShot,
@@ -159,6 +164,15 @@ pub fn draw(d: &mut DrawList, t: &Tokens, a: Rect, view: &SceneView, playing: Pl
         pills_row(d, t, a, &mut y, &names, lens.preset().unwrap_or(FOCAL_PRESETS.len()), &fields, &mut out);
         caption(d, t, a, &mut y, &format!("{} mm · {:.0}° high on full frame", mm(lens.focal), fov_of(lens.focal).to_degrees()));
     }
+    let height = sel.shot.and_then(|i| cam.shots.get(i)).map_or(cam.height, |s| s.height(sel.floor));
+    let preset = height_preset(height);
+    let mut names: Vec<String> = EYE_HEIGHTS.iter().map(|(n, _)| n.to_string()).collect();
+    names.push(format!("{} m…", crate::number(height)));
+    let names: Vec<&str> = names.iter().map(String::as_str).collect();
+    let lit: Vec<bool> = (0..=EYE_HEIGHTS.len()).map(|i| preset.map_or(i == EYE_HEIGHTS.len(), |p| p == i)).collect();
+    let (rects, used) = controls::chips(d, t, (a.x, y, a.w), &names, &lit);
+    out.extend(rects.into_iter().enumerate().map(|(i, r)| (r, if i < EYE_HEIGHTS.len() { Field::Height(i) } else { Field::HeightTyped })));
+    y += used + 6.0;
 
     y += controls::section(d, t, a.x, y, a.w, "SHOTS", false);
     if cam.shots.is_empty() {
@@ -324,6 +338,16 @@ impl crate::App {
                 self.dop_done(done, format!("lens: {} mm", FOCAL_PRESETS[i]), x, y);
             }
             Field::Focal => self.begin_edit(crate::Editing::Focal, crate::Hit::Dop(Field::Focal), mm(lens.focal)),
+            Field::Height(i) => {
+                let (name, h) = EYE_HEIGHTS[i];
+                let done = view.edit.set_height(shot, h, view.dop.floor);
+                self.dop_done(done, format!("eye height: {name}, {} m", crate::number(h)), x, y);
+                self.dop_relook(shot);
+            }
+            Field::HeightTyped => {
+                let now = shot.and_then(|i| cam.shots.get(i)).map_or(cam.height, |s| s.height(view.dop.floor));
+                self.begin_edit(crate::Editing::Height, crate::Hit::Dop(Field::HeightTyped), crate::number(now));
+            }
             Field::Scrub(_) => {}
             Field::Shot(i) => {
                 sel.shot = Some(i);
@@ -520,6 +544,27 @@ impl crate::App {
         }
     }
 
+    /// an eye height typed (m)
+    pub(crate) fn dop_height(&mut self, text: &str) {
+        let (x, y) = self.cursor;
+        let Some(view) = self.scene.as_mut() else { return };
+        let Some(h) = crate::typed_number(text.trim().trim_end_matches('m')) else { return self.say(format!("'{text}': an eye height in metres"), x, y, true) };
+        let shot = view.dop.shot;
+        let done = view.edit.set_height(shot, h, view.dop.floor);
+        self.dop_done(done, format!("eye height: {} m", crate::number(h)), x, y);
+        self.dop_relook(shot);
+    }
+
+    /// the view follows a changed height: through the shot changed, or the primary camera
+    fn dop_relook(&mut self, shot: Option<usize>) {
+        let id = shot.and_then(|i| self.stage.space.dop.camera.shots.get(i)).map(|s| s.id.clone());
+        match id {
+            Some(id) => self.stage.space.look_through_shot(&id),
+            None if self.stage.space.dop.camera.shots.is_empty() => self.stage.space.look_through_scene(),
+            None => {}
+        }
+    }
+
     /// a focal length typed
     pub(crate) fn dop_focal(&mut self, text: &str) {
         let (x, y) = self.cursor;
@@ -550,6 +595,8 @@ mod tests {
         let f = fields(&mut d, &view);
         assert!(f.contains(&Field::Source(Source::Handheld)) && d.texts().iter().any(|s| s.contains("Handheld – later")));
         assert!((0..6).all(|i| f.contains(&Field::Preset(i))) && f.contains(&Field::Focal));
+        assert!((0..7).all(|i| f.contains(&Field::Height(i))) && f.contains(&Field::HeightTyped), "the eye heights beside the lens");
+        assert!(d.texts().contains(&"giraffe"));
         assert!(!f.contains(&Field::SetShot) && f.contains(&Field::AddTrack));
         let now = View { target: glam::Vec3::new(0.0, 1.0, 0.0), yaw: 0.3, pitch: 0.1, distance: 3.0, lens: Lens::focal(85.0) };
         let i = view.edit.add_shot(now.shot("")).unwrap();
