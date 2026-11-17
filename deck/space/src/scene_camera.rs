@@ -216,6 +216,7 @@ pub enum MoveKind {
     Follow,
     /// a handheld unrest on the way (`amount`)
     Shake,
+    // TODO(#606): rack focus, once the stage has a depth of field – a lens's focus distance beside `focal`
 }
 
 impl MoveKind {
