@@ -7,17 +7,10 @@ use super::{Hit, Host};
 use deck_kit::base::draw::DrawList;
 use deck_kit::base::text::Field;
 use deck_kit::base::tokens::Tokens;
+use deck_kit::editor::carry::{self, Carry};
 use deck_kit::editor::controls::{self, Rect};
 use deck_show::rows::{self, Edit, PieceView};
 use deck_show::view;
-
-/// a scene on its way to a cell: what it plays, what people read, where the pointer is
-#[derive(Debug, Clone, PartialEq)]
-pub struct Dragging {
-    pub piece: String,
-    pub label: String,
-    pub at: Option<(f32, f32)>,
-}
 
 /// what the list says without a book
 pub const NO_BOOK: &str = "the address book is still on its way";
@@ -29,7 +22,7 @@ impl Host {
         match hit {
             Hit::Scene(i) => {
                 if let Some(p) = self.scene_list().get(i) {
-                    self.dragging = Some(Dragging { piece: p.address.clone(), label: p.label.clone(), at: None });
+                    self.dragging = Some(Carry::new(&p.address, &p.label));
                 }
             }
             Hit::SceneFind => self.typing = Some((Typing::Scenes, Field::with(&self.scene_query))),
@@ -63,7 +56,7 @@ impl Host {
     /// the pointer moves: a scene being dragged follows it
     pub fn drag_to(&mut self, x: f32, y: f32) {
         if let Some(d) = self.dragging.as_mut() {
-            d.at = Some((x, y));
+            d.to(x, y);
         }
     }
 
@@ -83,7 +76,7 @@ impl Host {
         let plan = view::plan(self.shown());
         let (Some(row), Some(column)) = (plan.rows.get(r).map(|x| x.id.clone()), plan.columns.get(c).map(|x| x.id.clone())) else { return true };
         self.select_cell(r, c, false);
-        if !self.edit_rows(&Edit::Piece { row, column, piece: drag.piece }) {
+        if !self.edit_rows(&Edit::Piece { row, column, piece: drag.address }) {
             self.refused = Some((x, y, self.status.clone()));
         }
         true
@@ -121,7 +114,7 @@ pub fn list(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, pointer: (f3
     if scenes.is_empty() {
         d.text(a.x + pad, y + 4.0, small, &fit(d, rows::NONE_FOUND, small, w), t.color.muted);
     }
-    let dragged = host.dragging.as_ref().map(|g| g.piece.clone());
+    let dragged = host.dragging.as_ref().map(|g| g.address.clone());
     for (i, s) in scenes.iter().enumerate() {
         if y + row > a.y + a.h {
             d.text(a.x + pad, y + 2.0, small, &format!("{} more …", scenes.len() - i), t.color.muted);
@@ -147,11 +140,11 @@ pub fn list(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, pointer: (f3
 
 /// Over everything: the scene being dragged at the pointer, or the core's refusal where a scene was dropped.
 pub fn over(d: &mut DrawList, t: &Tokens, host: &Host, (w, _h): (f32, f32)) {
-    if let Some((Some((x, y)), label)) = host.dragging.as_ref().map(|g| (g.at, &g.label)) {
-        controls::chip(d, t, (x + 12.0, y + 8.0), w, label, false);
+    if let Some(c) = &host.dragging {
+        c.draw(d, t, w);
     }
     if let Some((x, y, why)) = &host.refused {
-        controls::chip(d, t, (*x, *y + 8.0), w, why, true);
+        carry::refused(d, t, (*x, *y), w, why);
     }
 }
 
