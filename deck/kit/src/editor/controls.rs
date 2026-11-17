@@ -214,8 +214,8 @@ pub fn icon_button(d: &mut DrawList, t: &Tokens, at: Rect, name: &'static str, c
     at
 }
 
-/// a small labelled meter of how much of something is in use (0..1); the width it took
-pub fn meter(d: &mut DrawList, t: &Tokens, x: f32, y: f32, name: &str, value: f32) -> f32 {
+/// a small labelled meter of how much of something is in use (0..1), its held peak a tick; the width it took
+pub fn meter(d: &mut DrawList, t: &Tokens, x: f32, y: f32, name: &str, value: f32, peak: f32) -> f32 {
     let (bar, thick) = (t.size.rem(2.9), t.size.rem(0.43));
     let lw = label(d, t, x, y + (t.size.small - t.size.label) * 0.6, name, t.color.muted) + t.size.rem(0.36);
     let v = value.clamp(0.0, 1.0);
@@ -223,6 +223,11 @@ pub fn meter(d: &mut DrawList, t: &Tokens, x: f32, y: f32, name: &str, value: f3
     d.round_rect(x + lw, by, bar, thick, thick * 0.5, t.color.within);
     if v > 0.01 {
         d.round_rect(x + lw, by, (bar * v).max(thick), thick, thick * 0.5, if v > 0.85 { t.color.danger } else { t.color.muted });
+    }
+    let p = peak.clamp(0.0, 1.0);
+    if p > v + 0.01 {
+        let w = t.size.rem(0.12);
+        d.round_rect(x + lw + ((bar - w) * p), by, w, thick, 0.0, if p > 0.85 { t.color.danger } else { t.color.text });
     }
     lw + bar
 }
