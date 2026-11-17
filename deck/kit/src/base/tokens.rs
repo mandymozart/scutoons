@@ -39,7 +39,8 @@ pub struct Colors {
     pub axis: [[f32; 4]; 3],
     /// a strip's stripe, round the list
     pub strips: [[f32; 4]; 6],
-    /// how much a floating panel's ground covers the stage behind it (0..1)
+    /// how much a floating panel's ground covers the stage behind it (0..1); its text and icons get the ground's colour,
+    /// opaque, as their own ground (`DrawList::halo`), so they read over any stage (no blur: it is heavy on the GPU)
     pub panel_opacity: f32,
 }
 
@@ -94,7 +95,7 @@ impl Colors {
             stop: rgb(0xd63a2d),
             axis: [[0.93, 0.27, 0.32, 1.0], [0.47, 0.75, 0.2, 1.0], [0.25, 0.53, 0.95, 1.0]],
             strips: [rgb(0x00a6cc), rgb(0xe08e1c), rgb(0x9a52e6), rgb(0x3aa84a), rgb(0xe8577a), rgb(0xc9b42e)],
-            panel_opacity: 0.86,
+            panel_opacity: 0.3,
         }
     }
 
@@ -125,7 +126,7 @@ impl Colors {
             stop: rgb(0xe5483b),
             axis: [[0.93, 0.27, 0.32, 1.0], [0.47, 0.75, 0.2, 1.0], [0.25, 0.53, 0.95, 1.0]],
             strips: [rgb(0x00d1ff), rgb(0xf0a030), rgb(0xb36bff), rgb(0x4cc35a), rgb(0xff6b8a), rgb(0xe6d24a)],
-            panel_opacity: 0.84,
+            panel_opacity: 0.3,
         }
     }
 
@@ -317,13 +318,15 @@ impl Tokens {
     }
 }
 
+/// the relative luminance of an opaque colour (0..1)
+pub fn luminance(c: [f32; 4]) -> f32 {
+    let ch = |v: f32| if v <= 0.04045 { v / 12.92 } else { ((v + 0.055) / 1.055).powf(2.4) };
+    0.2126 * ch(c[0]) + 0.7152 * ch(c[1]) + 0.0722 * ch(c[2])
+}
+
 /// the WCAG contrast of two opaque colours (1..21)
 pub fn contrast(a: [f32; 4], b: [f32; 4]) -> f32 {
-    let lum = |c: [f32; 4]| {
-        let ch = |v: f32| if v <= 0.04045 { v / 12.92 } else { ((v + 0.055) / 1.055).powf(2.4) };
-        0.2126 * ch(c[0]) + 0.7152 * ch(c[1]) + 0.0722 * ch(c[2])
-    };
-    let (x, y) = (lum(a), lum(b));
+    let (x, y) = (luminance(a), luminance(b));
     (x.max(y) + 0.05) / (x.min(y) + 0.05)
 }
 
@@ -344,12 +347,14 @@ mod tests {
     fn both_looks_read_on_their_panels_over_a_bright_and_a_dark_stage() {
         for theme in [Theme::Day, Theme::Night] {
             let c = Colors::of(theme);
-            for stage in [BRIGHT_STAGE, DARK_STAGE] {
-                let panel = over(c.surface, c.panel_opacity, stage);
-                assert!(contrast(c.text, panel) >= 7.0, "{theme:?} text on panel over {stage:?}: {}", contrast(c.text, panel));
-                assert!(contrast(c.muted, panel) >= 4.5, "{theme:?} muted on panel over {stage:?}: {}", contrast(c.muted, panel));
-                assert!(contrast(c.accent, panel) >= 3.0, "{theme:?} accent on panel over {stage:?}: {}", contrast(c.accent, panel));
-            }
+            // over a bright stage the see-through ground alone does not hold the text: its halo (the surface, opaque) does
+            let halo = c.surface;
+            assert!(contrast(c.text, halo) >= 7.0, "{theme:?} text in its halo: {}", contrast(c.text, halo));
+            assert!(contrast(c.muted, halo) >= 4.5, "{theme:?} muted in its halo: {}", contrast(c.muted, halo));
+            assert!(contrast(c.accent, halo) >= 3.0, "{theme:?} accent in its halo: {}", contrast(c.accent, halo));
+            let panels: Vec<f32> = [BRIGHT_STAGE, DARK_STAGE].iter().map(|&stage| contrast(c.text, over(c.surface, c.panel_opacity, stage))).collect();
+            assert!(panels.iter().any(|&k| k >= 7.0), "{theme:?} text reads on the panel alone over one of the stages: {panels:?}");
+            assert!(c.panel_opacity <= 0.35, "{theme:?} the stage shows through");
             assert!(contrast(c.text, c.control) >= 7.0, "{theme:?} text in a field");
             assert!(contrast(c.muted, c.control) >= 4.5, "{theme:?} muted in a field");
             assert!(contrast(c.primary_ink, c.primary) >= 7.0, "{theme:?} ink on lime");

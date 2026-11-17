@@ -182,6 +182,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Placed {
     let text_y = mid - px * 0.62;
     let small_y = mid - small * 0.62;
     let mut out = Placed::default();
+    d.halo(Some(t.color.surface));
     // the logo and the hamburger
     let first = Rect { x: t.size.gap, y, w: end + logo + pad + ih + inset, h };
     pill(d, t, first);
@@ -283,6 +284,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Placed {
     let hot = Rect { x, y: y + inset, w: ih, h: ih }.has(b.pointer.0, b.pointer.1);
     out.day = inner_button(d, t, Rect { x, y: y + inset, w: ih, h: ih }, if b.night { "dark" } else { "light" }, if hot { t.color.text } else { t.color.muted }, b.pointer);
     d.text(right.x + right.w - end - version_w, text_y, px, deck_native::BUILD, t.color.muted);
+    d.halo(None);
     out
 }
 
