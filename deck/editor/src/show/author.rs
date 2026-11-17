@@ -107,9 +107,8 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
     } else if host.two_d {
         shown.push(("nodes", 760.0, None));
     }
-    // the scene list: why there is none, or the filter and a line per scene
-    let scenes_h = 2.0 * pad + small * 1.8 + if host.book.is_none() { small * 1.25 } else { pad * 0.5 + t.size.tree_row * (1.0 + host.scene_list().len().max(1) as f32) };
-    shown.extend([("scenes", 260.0, Some(scenes_h)), ("rows", band_size.0, Some(band_size.1)), ("info", 260.0, Some(small * 1.4 * 6.0))]);
+    // the library: drawn by the editor over these panels (scenes.rs `panel`)
+    shown.extend([(crate::library::PANEL, crate::library::WIDTH, super::scenes::note_height(t, host)), ("rows", band_size.0, Some(band_size.1)), ("info", 260.0, Some(small * 1.4 * 6.0))]);
     host.show_panels.layout(d, t, ((w, h), crate::bar::bottom(t)), &[], &shown);
 
     // the outline: the conductors (the top, then the seats of the document shown), the roles, the rows
@@ -155,11 +154,6 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
         let laid = super::band::draw(d, t, host, o.area, (&band, super::band::Mode { perform: false, runs }), host.show_scroll, pointer);
         host.show_scroll = laid.scroll;
         host.drew_band(false, laid);
-        host.show_panels.close(d, t, o, &mut host.hits);
-    }
-
-    if let Some(o) = host.show_panels.open(d, t, "scenes", pointer, host.hits.len()) {
-        super::scenes::list(d, t, host, o.area, pointer);
         host.show_panels.close(d, t, o, &mut host.hits);
     }
 

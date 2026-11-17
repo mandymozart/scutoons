@@ -207,8 +207,22 @@ impl Api {
         }
     }
 
+    /// the asset library's first page (`GET /api/assets`, an editor's): the answer's text
+    pub fn assets(&self) -> Result<String, String> {
+        let url = format!("{}/assets?pageSize=200", self.base);
+        match self.auth(Self::agent().get(&url)).call() {
+            Ok(r) => r.into_string().map_err(|e| format!("{url}: {e}")),
+            Err(ureq::Error::Status(code, r)) => Err(self.refused_words("assets", code, &r.into_json().unwrap_or_default())),
+            Err(e) => Err(format!("{url}: {e}")),
+        }
+    }
+
     /// The file at `url` (a module's build on the CDN, up to a few MB)
     pub fn bytes(&self, url: &str) -> Result<Vec<u8>, String> {
+        Self::bytes_of(url)
+    }
+
+    pub fn bytes_of(url: &str) -> Result<Vec<u8>, String> {
         let r = ureq::AgentBuilder::new().timeout(Duration::from_secs(30)).build().get(url).call().map_err(|e| format!("{url}: {e}"))?;
         let mut out = Vec::new();
         r.into_reader().take(MAX_MODULE_BYTES).read_to_end(&mut out).map_err(|e| format!("{url}: {e}"))?;

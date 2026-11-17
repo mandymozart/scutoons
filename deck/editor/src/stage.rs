@@ -44,6 +44,9 @@ pub struct Stage {
     /// the eyedropper's pixel (the stage's pixels): asked before a frame, copied after its draw, read after its submit
     pixel: Option<(u32, u32)>,
     pixel_buf: Option<wgpu::Buffer>,
+    /// the library's still of what plays: asked before a frame, the whole stage copied after its draw (rows padded)
+    still: bool,
+    still_buf: Option<(wgpu::Buffer, u32, (u32, u32))>,
     tempo: Tempo,
     handles: Option<audio::Handles>,
     _audio: Option<backend::Running>,
@@ -360,7 +363,7 @@ impl Stage {
         let master = sum.as_deref().and_then(|s| slot(s, true)).map(|(n, p, _)| (n, p));
         let node_ids = graph.nodes.iter().map(|n| n.id.clone()).collect();
         let kinds = graph.nodes.iter().map(|n| n.kind).collect();
-        Stage { controls, space, gpu: None, texture: None, pixel: None, pixel_buf: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, kinds, strips, inner, master, master_peak: [0.0; 2], master_max: 0.0, volume, path: Vec::new(), core_node: node, groups, reach, scene: None, played_scene: None, dark: false, silent: Default::default(), beat: None, own_background, over: None }
+        Stage { controls, space, gpu: None, texture: None, pixel: None, pixel_buf: None, still: false, still_buf: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, kinds, strips, inner, master, master_peak: [0.0; 2], master_max: 0.0, volume, path: Vec::new(), core_node: node, groups, reach, scene: None, played_scene: None, dark: false, silent: Default::default(), beat: None, own_background, over: None }
     }
 
     /// show this level of the tree in Wire; empty = the rig
@@ -540,8 +543,45 @@ impl Stage {
         } else {
             self.pixel = None;
         }
+        if std::mem::take(&mut self.still) {
+            if let Some((tex, _, _)) = self.texture.as_ref() {
+                let stride = (size.0 * 4).div_ceil(256) * 256;
+                let buf = device.create_buffer(&wgpu::BufferDescriptor { label: Some("still"), size: u64::from(stride) * u64::from(size.1), usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
+                enc.copy_texture_to_buffer(
+                    wgpu::TexelCopyTextureInfo { texture: tex, mip_level: 0, origin: wgpu::Origin3d::ZERO, aspect: wgpu::TextureAspect::All },
+                    wgpu::TexelCopyBufferInfo { buffer: &buf, layout: wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(stride), rows_per_image: None } },
+                    wgpu::Extent3d { width: size.0, height: size.1, depth_or_array_layers: 1 },
+                );
+                self.still_buf = Some((buf, stride, size));
+            }
+        }
         let (_, view, _) = self.texture.as_ref().expect("made above");
         (view, fresh)
+    }
+
+    /// the library asks for a still of the stage in the next frame
+    pub fn ask_still(&mut self) {
+        self.still = true;
+    }
+
+    /// The still asked for, as the stage drew it: after the frame's submit.
+    pub fn read_still(&mut self, device: &wgpu::Device) -> Option<image::RgbaImage> {
+        let (buf, stride, (w, h)) = self.still_buf.take()?;
+        let slice = buf.slice(..);
+        let (tx, rx) = std::sync::mpsc::channel();
+        slice.map_async(wgpu::MapMode::Read, move |r| {
+            let _ = tx.send(r);
+        });
+        device.poll(wgpu::PollType::wait_indefinitely()).ok()?;
+        rx.recv().ok()?.ok()?;
+        let data = slice.get_mapped_range().ok()?;
+        let mut px = Vec::with_capacity((w * h * 4) as usize);
+        for row in 0..h {
+            px.extend(data[(row * stride) as usize..(row * stride + w * 4) as usize].chunks_exact(4).flat_map(|p| [p[0], p[1], p[2], 255]));
+        }
+        drop(data);
+        buf.unmap();
+        image::RgbaImage::from_raw(w, h, px)
     }
 
     /// the eyedropper asks for the stage's pixel at (x, y) in the next frame; none: it stops

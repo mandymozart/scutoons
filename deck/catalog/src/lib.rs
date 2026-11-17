@@ -11,6 +11,7 @@ use std::borrow::Cow;
 use std::collections::BTreeMap;
 
 pub mod background;
+pub mod library;
 mod builtin;
 pub use background::Background;
 pub use builtin::builtin_kinds;
@@ -327,11 +328,17 @@ pub fn character_id(c: &str) -> bool {
     }
 }
 
+/// Whether `characters` (a module's) name `character` (`catpope`, or a persona `catpope.biker`): the character, or that
+/// very persona.
+pub fn made_for<S: AsRef<str>>(characters: &[S], character: &str) -> bool {
+    let base = character.split('.').next().unwrap_or(character);
+    !base.is_empty() && characters.iter().any(|c| c.as_ref() == base || c.as_ref() == character)
+}
+
 impl Descriptor {
     /// Made for `character` (`catpope`, or a persona `catpope.biker`): it names the character, or that very persona.
     pub fn made_for(&self, character: &str) -> bool {
-        let base = character.split('.').next().unwrap_or(character);
-        !base.is_empty() && self.characters.iter().any(|c| c == base || c == character)
+        made_for(&self.characters, character)
     }
 
     pub fn inputs(&self) -> impl Iterator<Item = &PortDesc> {

@@ -1,5 +1,5 @@
-//! The Module workspace, floating panels over the stage: the catalog's modules, the open module – its working copy, Open
-//! in editor · Build, what happened last, its Parameters –, the last build's Problems, the info.
+//! The Module workspace, floating panels over the stage: the open module – its working copy, Open in editor · Build, what
+//! happened last, its Parameters –, the last build's Problems, the info; the catalog's modules are the library's (main.rs).
 use super::{fraction, problems, shown, Hit, Module};
 use crate::stage::Stage;
 use deck_kit::base::draw::DrawList;
@@ -15,25 +15,8 @@ pub fn draw(d: &mut DrawList, t: &Tokens, m: &mut Module, stage: &Stage, (w, h):
     let (pad, font, small) = (t.size.pad, t.size.font, t.size.small);
     m.hits.clear();
     let problems_h = t.size.tree_row * (1.0 + m.problems.len().max(1) as f32);
-    let shown_panels = [("modules", t.size.tree, None), ("module", 360.0, None), ("problems", 640.0, Some(problems_h)), ("info", 260.0, Some(small * 1.4 * 6.0))];
+    let shown_panels = [(crate::library::PANEL, crate::library::WIDTH, None), ("module", 360.0, None), ("problems", 640.0, Some(problems_h)), ("info", 260.0, Some(small * 1.4 * 6.0))];
     m.panels.layout(d, t, ((w, h), crate::bar::bottom(t)), &[], &shown_panels);
-
-    // the catalog's modules
-    if let Some(o) = m.panels.open(d, t, "modules", pointer, m.hits.len()) {
-        let open_id = m.open.as_ref().map(|o| o.id.clone());
-        let rows: Vec<controls::TreeRow> = m
-            .list
-            .iter()
-            .map(|e| controls::TreeRow { depth: 0, label: e.id.clone(), detail: if e.factory { "factory".into() } else if e.draft { "draft".into() } else { String::new() }, icon: "sliders", open: None, selected: open_id.as_deref() == Some(e.id.as_str()) })
-            .collect();
-        if rows.is_empty() {
-            d.text(o.area.x, o.area.y + 4.0, small, "no module listed yet", t.color.muted);
-        }
-        for (i, r) in controls::tree(d, t, o.area.x, o.area.y, o.area.w, &rows, pointer).into_iter().enumerate() {
-            m.hits.push((r, Hit::Open(i)));
-        }
-        m.panels.close(d, t, o, &mut m.hits);
-    }
 
     // the last build's problems, a click opens the code there
     if let Some(o) = m.panels.open(d, t, "problems", pointer, m.hits.len()) {
@@ -70,12 +53,15 @@ pub fn draw(d: &mut DrawList, t: &Tokens, m: &mut Module, stage: &Stage, (w, h):
     }
 }
 
+/// what the module panel says before one is open
+pub const PICK: &str = "Pick a module in the Library.";
+
 fn open_module(d: &mut DrawList, t: &Tokens, m: &mut Module, stage: &Stage, a: Rect, _pointer: (f32, f32)) {
     let (pad, font, small, row) = (t.size.pad, t.size.font, t.size.small, t.size.row);
     let (x0, pw) = (a.x, a.w);
     let mut y = a.y;
     let Some(open) = m.open.clone() else {
-        d.text(x0, y + 4.0, font, "Pick a module in Modules.", t.color.muted);
+        d.text(x0, y + 4.0, font, PICK, t.color.muted);
         status(d, t, m, x0, y + row, pw);
         return;
     };

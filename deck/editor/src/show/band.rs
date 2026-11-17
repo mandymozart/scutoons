@@ -227,8 +227,8 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, mode)
             if selected {
                 d.outline(whole.x, whole.y, whole.w, whole.h, (t.size.radius, 1.5), t.color.accent);
             }
-            // a scene being dragged: the cell under the pointer is where it lands
-            if !mode.perform && host.dragging.is_some() && at.has(pointer.0, pointer.1) {
+            // a library card being dragged: the cell under the pointer is where it lands
+            if !mode.perform && host.carrying && at.has(pointer.0, pointer.1) {
                 d.outline(at.x, at.y, at.w, at.h, (t.size.radius, 2.0), t.color.go);
             }
         }
