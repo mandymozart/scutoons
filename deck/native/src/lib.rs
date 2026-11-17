@@ -6,6 +6,7 @@ pub mod audio;
 pub mod cache;
 pub mod chapter;
 pub mod clock;
+pub mod cpu;
 pub mod gpu;
 pub mod host;
 pub mod live;

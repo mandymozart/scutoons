@@ -2,6 +2,7 @@
 //! hamburger, the workspaces, the path of what is open (its steps go back up) with a word of status; the tempo pill
 //! (the play button, the clock's BPM); right the sign-in, the load meters and the version, which keeps its
 //! place at any width (every build shows it, always).
+use deck_core::load::{Reading, CPU_MEANS, GPU_MEANS};
 use deck_kit::base::draw::DrawList;
 use deck_kit::base::tokens::Tokens;
 use deck_kit::editor::controls::{self, Rect};
@@ -57,9 +58,9 @@ pub struct Bar<'a> {
     pub pulse: f32,
     pub logo_frame: usize,
     pub pointer: (f32, f32),
-    /// how much of a frame's time the CPU and the GPU work (0..1); the GPU where it can be measured
-    pub cpu: f32,
-    pub gpu: Option<f32>,
+    /// the load meters (deck-core's load), each where it can be measured
+    pub cpu: Option<Reading>,
+    pub gpu: Option<Reading>,
     /// the audio's sample rate and the frames a second, beside their meters
     pub khz: Option<f32>,
     pub fps: f32,
@@ -86,10 +87,11 @@ impl Clock {
 }
 
 /// the toolbar's numbers in words: the meters' full readings, for the info
-pub fn meters_words(cpu: f32, gpu: Option<f32>, rate: Option<f32>, fps: f32) -> String {
+pub fn meters_words(cpu: Option<Reading>, gpu: Option<Reading>, rate: Option<f32>, fps: f32) -> String {
     let audio = rate.map_or_else(|| "no audio".to_string(), |k| format!("audio at {}", khz(k)));
-    let gpu = gpu.map_or_else(|| "the GPU's share not measured here".to_string(), |g| format!("GPU {:.0} %", g * 100.0));
-    format!("CPU {:.0} % of a frame, {audio}; {gpu}, {fps:.0} frames a second.", cpu * 100.0)
+    let cpu = cpu.map_or_else(|| "CPU not measured here".to_string(), |c| format!("{} ({CPU_MEANS})", c.words("CPU")));
+    let gpu = gpu.map_or_else(|| "GPU not measured here".to_string(), |g| format!("{} ({GPU_MEANS})", g.words("GPU")));
+    format!("{cpu}, {audio}. {gpu}, {fps:.0} frames a second.")
 }
 
 /// a sample rate as people say it: 48 kHz, 44.1 kHz
@@ -268,9 +270,10 @@ pub fn draw(d: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Placed {
         let start = at.x + ih + pad;
         let mut mx = start;
         let number = |d: &mut DrawList, x: f32, text: &str| x + pad * 0.5 + d.sans(x + pad * 0.5, small_y, small, text, t.color.muted);
-        mx += controls::meter(d, t, mx, small_y, "CPU", b.cpu);
+        let (cpu, gpu) = (b.cpu.unwrap_or_default(), b.gpu.unwrap_or_default());
+        mx += controls::meter(d, t, mx, small_y, "CPU", cpu.value, cpu.peak);
         mx = number(d, mx, &b.khz.map_or_else(|| "–".to_string(), khz)) + 2.0 * pad;
-        mx += controls::meter(d, t, mx, small_y, "GPU", b.gpu.unwrap_or(0.0));
+        mx += controls::meter(d, t, mx, small_y, "GPU", gpu.value, gpu.peak);
         number(d, mx, &format!("{:.0} fps", b.fps));
         out.meters = Some(Rect { x: start, y, w: meters, h });
     }
@@ -331,7 +334,7 @@ mod tests {
         let t = Tokens::default();
         let mut d = DrawList::new(0.6);
         let path = vec!["main".to_string()];
-        let b = Bar { workspaces: &["Build", "Show"], workspace: 1, path: &path, status: "", play: None, beat: None, clock: Clock::Int, account: Signed::In, pulse: 1.0, logo_frame: 0, pointer: (0.0, 0.0), cpu: 0.0, gpu: None, khz: None, fps: 60.0, slot: 0.0, panicked: host.sub.panicked() };
+        let b = Bar { workspaces: &["Build", "Show"], workspace: 1, path: &path, status: "", play: None, beat: None, clock: Clock::Int, account: Signed::In, pulse: 1.0, logo_frame: 0, pointer: (0.0, 0.0), cpu: None, gpu: None, khz: None, fps: 60.0, slot: 0.0, panicked: host.sub.panicked() };
         let placed = draw(&mut d, &t, 1600.0, &b);
         (placed.panic, d.texts().iter().map(|s| s.to_string()).collect())
     }
@@ -358,7 +361,7 @@ mod tests {
         let faces = deck_kit::base::fonts::Faces::shipped(deck_outlet::text::mono_ttf());
         let mut d = DrawList::with_widths(std::sync::Arc::new(faces.widths()));
         let path = vec!["1 Opening".to_string()];
-        let b = Bar { workspaces: &["Build", "Show"], workspace: 0, path: &path, status: "", play: Some(true), beat: Some((120.0, true)), clock: Clock::Int, account: Signed::Signing, pulse: 0.5, logo_frame: 0, pointer: (0.0, 0.0), cpu: 0.2, gpu: Some(0.1), khz: Some(48.0), fps: 60.0, slot: 0.0, panicked: false };
+        let b = Bar { workspaces: &["Build", "Show"], workspace: 0, path: &path, status: "", play: Some(true), beat: Some((120.0, true)), clock: Clock::Int, account: Signed::Signing, pulse: 0.5, logo_frame: 0, pointer: (0.0, 0.0), cpu: Some(Reading { value: 0.2, peak: 0.3 }), gpu: Some(Reading { value: 0.1, peak: 0.1 }), khz: Some(48.0), fps: 60.0, slot: 0.0, panicked: false };
         draw(&mut d, &t, 1600.0, &b);
         let texts = d.texts();
         for whole in [deck_native::BUILD, "1 Opening", "120.0", "INT", "48 kHz", "60 fps"] {
@@ -377,7 +380,7 @@ mod tests {
         let t = Tokens::default();
         let mut d = DrawList::new(0.6);
         let path = vec!["main".to_string()];
-        let b = Bar { workspaces: &["Build"], workspace: 0, path: &path, status: "", play: None, beat: Some((128.0, true)), clock, account, pulse, logo_frame: 0, pointer: (0.0, 0.0), cpu: 0.3, gpu: None, khz: Some(44.1), fps: 59.6, slot: 0.0, panicked: false };
+        let b = Bar { workspaces: &["Build"], workspace: 0, path: &path, status: "", play: None, beat: Some((128.0, true)), clock, account, pulse, logo_frame: 0, pointer: (0.0, 0.0), cpu: Some(Reading { value: 0.3, peak: 0.3 }), gpu: None, khz: Some(44.1), fps: 59.6, slot: 0.0, panicked: false };
         let placed = draw(&mut d, &t, 1800.0, &b);
         (d, placed)
     }
@@ -415,7 +418,8 @@ mod tests {
         let texts = d.texts();
         assert!(texts.contains(&"44.1 kHz") && texts.contains(&"60 fps"), "{texts:?}");
         assert!(placed.meters.is_some());
-        assert!(meters_words(0.3, None, Some(48.0), 60.0).contains("audio at 48 kHz"));
+        let words = meters_words(Some(Reading { value: 0.07, peak: 0.12 }), None, Some(48.0), 60.0);
+        assert!(words.contains("audio at 48 kHz") && words.contains("CPU 7 %, peak 12 %") && words.contains(CPU_MEANS) && words.contains("GPU not measured"), "{words}");
     }
 
     #[test]

@@ -3,7 +3,7 @@
 //! - **Always:** `math` (sines with the same bits on every target), `lanes` (the `F8` vector ops), `dsp` (the oscillator,
 //!   noise and filter units), `smooth` (control values glide into audio – no zipper, #188), `limiter` (the output's soft
 //!   cap), `monitor` (the stats every deck shows, #364), `lead` (the adaptive output lead, #365), `meters` (the level
-//!   meters' ballistics and dB scale), `devices` (a device message's words, its lamp's activity – #373) and `stage` (the
+//!   meters' ballistics and dB scale), `load` (the CPU / GPU meters' sampling, smoothing and peak), `devices` (a device message's words, its lamp's activity – #373) and `stage` (the
 //!   deck-native modules a scene needs, the carried part of a scene).
 //! - **Modules** (cargo features): `analysis` (the FFT: bands, the analyzer), `tempo` (the tempo map, quantize, tap, the
 //!   clock controller – #181 / #185).
@@ -21,6 +21,7 @@ pub mod fit;
 pub mod lanes;
 pub mod lead;
 pub mod limiter;
+pub mod load;
 pub mod math;
 pub mod meters;
 pub mod monitor;
