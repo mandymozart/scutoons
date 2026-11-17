@@ -23,5 +23,6 @@ file_permissions+=(
   ["/usr/bin/deck"]="0:0:755"
   ["/usr/bin/deck-link"]="0:0:755"
   ["/usr/bin/deck-update"]="0:0:755"
+  ["/usr/bin/deck-editor"]="0:0:755"
   ["/etc/NetworkManager/system-connections/deck-hotspot.nmconnection"]="0:0:600"
 )

@@ -72,8 +72,10 @@ impl DerefMut for Tempo {
 
 /// The platform side of the controller: opens a source's port when it becomes the master, asks Link.
 struct Native<'a> {
+    #[cfg_attr(not(any(feature = "midi", feature = "osc")), allow(dead_code))]
     cfg: &'a Config,
     io: &'a mut Io,
+    #[cfg_attr(not(any(feature = "midi", feature = "osc")), allow(dead_code))]
     tx: &'a Sender<Event>,
     live: bool,
     /// the map's tempo, for a Link session opened now
@@ -197,7 +199,7 @@ impl Tempo {
             return e.chars().take(24).collect::<String>().to_uppercase();
         }
         let lead = if self.ctl.leading() { " LEADS" } else { "" };
-        let io = match self.ctl.source {
+        let io: Option<String> = match self.ctl.source {
             #[cfg(feature = "link")]
             Source::Link => self.io.link.as_ref().map(|l| format!("{} PEERS", l.peers())),
             #[cfg(feature = "osc")]

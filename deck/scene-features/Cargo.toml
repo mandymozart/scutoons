@@ -1,5 +1,6 @@
 # deck-scene-features – the cargo features a set of scenes needs (#185): `cargo run -p deck-scene-features -- scenes/*.toml`.
-# deck-core without its modules: only the scene format and the stage's module table (core/src/stage.rs), no FFT.
+# deck-core without its modules: only the scene format and the stage's module table (core/src/stage.rs), no FFT;
+# deck-space without its GPU and loaders: the core rigs a deck carries.
 [package]
 name = "deck-scene-features"
 version.workspace = true
@@ -10,4 +11,6 @@ publish.workspace = true
 
 [dependencies]
 deck-core.workspace = true
+# the core rigs every deck carries (rig::bundle::CORE), played into their scenes – without the GPU or the loaders
+deck-space = { path = "../space", default-features = false }
 toml.workspace = true

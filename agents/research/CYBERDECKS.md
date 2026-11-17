@@ -50,6 +50,14 @@ image and hides what the deck cannot do. Phones, tablets and the audience never 
 - **Network**: NetworkManager with a hotspot profile (the deck is the venue's LAN if there is none, LIVE B.4 local) and
   mDNS (`scutoons-<deck>.local`); the hosted uplink as in B.4 linked mode.
 - **GPIO / panels** (class B/C): a `gpio` adapter (§4) for the deck's own buttons, encoders and LEDs (`gpiocdev`).
+- **Image classes** (#609, #185; `deck/os/profiles.toml`): **full** (X1, PCs, the conductor) = the deck + the editor, every
+  module; **lean** (Pi, RK3588 class B, small decks) = the deck only, its features its class's platform + what its scenes and
+  the core rigs need (`events,live,pipewire,space,sync`). `DECK_PROFILE=lean npm run deck:iso`; `check:deck-deps` keeps editor
+  code out of the deck, deck:ci clippies the lean set. Measured 2026-11-17 (Windows x86_64 host, release fat LTO, stripped, no
+  pipewire): `deck` full 24.6 MiB (10.4 MiB gz), lean 16.5 MiB (7.5 MiB gz, −33 %), `deck-editor` 27.5 MiB; crates in the deck's
+  tree for aarch64-unknown-linux-gnu with pipewire: full 395, lean 331 (lean drops wasmtime / cranelift, midir, rosc, gilrs,
+  serialport, the outputs' adapters). A local aarch64 check stops at the C build scripts (ring, ALSA need an arm64 sysroot);
+  the cross build is deck.yml's on GitHub, the Pi size is still to measure on a Pi.
 - First boot: a QR / code pairs the deck with the SCUTOONS account (the API's device id, the member's token) – the deck
   is a device of a member, no password typing on a deck.
 

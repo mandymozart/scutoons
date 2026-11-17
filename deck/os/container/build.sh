@@ -3,7 +3,8 @@
 #   /src   = deck/ (read-only)        /work = a named volume (cargo target, the profile, mkarchiso's work dir)
 #   /out   = deck/os/out on the host  /var/cache/pacman/pkg = a named volume (the package cache between builds)
 # Steps: packages → the deck binaries (cargo, release; the stage with PipeWire) → releng + deck/os/profile + deck/os/rootfs → mkarchiso → /out.
-# Env: DECK_KERNEL (linux-rt; `linux` when the rt kernel is unavailable), DECK_SKIP_CARGO=1 (reuse /work/target),
+# Env: DECK_PROFILE (full: the deck + the editor, every module; lean: the deck only, its features from its scenes – os/profiles.toml),
+# DECK_KERNEL (linux-rt; `linux` when the rt kernel is unavailable), DECK_SKIP_CARGO=1 (reuse /work/target),
 # DECK_BINARIES_ONLY=1 (stop after cargo: the binaries into /out/bin – `npm run deck:update`, deck/os/update.sh).
 set -euo pipefail
 [ "${DECK_TRACE:-0}" = 1 ] && set -x
@@ -21,20 +22,35 @@ pacman -Syu --noconfirm --needed archiso rust base-devel alsa-lib git pipewire c
 echo "   archiso $(pacman -Q archiso | cut -d' ' -f2), rust $(rustc --version | cut -d' ' -f2), kernel package: $KERNEL"
 pacman -Si "$KERNEL" >/dev/null 2>&1 || { echo "no package '$KERNEL' in the repos – set DECK_KERNEL=linux"; exit 1; }
 
-echo "== the deck binaries (relay, bridge, deck-check, deck with PipeWire, the gamepad and the rig modules (#406), deck-link, deck-update, the editor (#560)) – release, Linux x86_64"
+CLASS=${DECK_PROFILE:-full}
+cargo_in_src() { (cd "$SRC" && CARGO_TARGET_DIR=$WORK/target CARGO_HOME=$WORK/cargo-home cargo "$@"); }
+# the deck's features: the class's platform and modules + what the scenes it carries need (the sandboxes only on a dev image)
+scenes=(native/scenes); [ "${DECK_SANDBOXES:-}" = 1 ] && scenes+=(native/scenes/sandbox)
+FEATURES=$(cargo_in_src run -q --release --locked -p deck-scene-features -- --profile os/profiles.toml "$CLASS" "${scenes[@]}")
+APPS=$(cargo_in_src run -q --release --locked -p deck-scene-features -- --apps os/profiles.toml "$CLASS" | tr ',' ' ')
+BINS="relay bridge deck-check deck deck-link deck-update $APPS"
+echo "== the deck binaries, $CLASS: relay, bridge, deck-check, deck ($FEATURES), deck-link, deck-update${APPS:+, $APPS} – release, Linux x86_64"
 if [ "${DECK_SKIP_CARGO:-0}" != 1 ]; then
-  (cd "$SRC" && CARGO_TARGET_DIR=$WORK/target CARGO_HOME=$WORK/cargo-home cargo build --release --locked     -p relay -p bridge -p deck-check -p deck-native -p deck-link -p deck-update -p deck-editor --features deck-native/pipewire,deck-native/gamepad,deck-native/modules >"$OUT/cargo.log" 2>&1) || { echo "cargo failed – the last lines (all: deck/os/out/cargo.log):"; tail -40 "$OUT/cargo.log"; exit 1; }
+  # three cargo lines: --no-default-features applies to every -p, and an app beside the deck must not add features to it
+  {
+    cargo_in_src build --release --locked -p relay -p bridge -p deck-check -p deck-link -p deck-update &&
+      cargo_in_src build --release --locked -p deck-native --no-default-features --features "$FEATURES" &&
+      if [ -n "$APPS" ]; then cargo_in_src build --release --locked $(printf -- '-p %s ' $APPS) --features "$(echo "$FEATURES" | sed 's/[^,]*/deck-native\/&/g')"; fi
+  } >"$OUT/cargo.log" 2>&1 || { echo "cargo failed – the last lines (all: deck/os/out/cargo.log):"; tail -40 "$OUT/cargo.log"; exit 1; }
   tail -3 "$OUT/cargo.log"
 fi
-for b in relay bridge deck-check deck deck-link deck-update deck-editor; do [ -x "$WORK/target/release/$b" ] || { echo "missing $WORK/target/release/$b"; exit 1; }; done
+for b in $BINS; do [ -x "$WORK/target/release/$b" ] || { echo "missing $WORK/target/release/$b"; exit 1; }; done
+editor=0; case " $APPS " in *" deck-editor "*) editor=1;; esac
 if [ "${DECK_BINARIES_ONLY:-0}" = 1 ]; then
   # a remote update's binaries (#237): deck/os/update.sh bundles them with deck/os/rootfs on the host
   rm -rf "$OUT/bin"; mkdir -p "$OUT/bin"
-  for b in relay bridge deck-check deck deck-link deck-update deck-editor; do install -m755 "$WORK/target/release/$b" "$OUT/bin/$b"; done
-  # #560: the editor reads its design tokens beside its binary
-  install -m644 "$SRC/editor/tokens.toml" "$OUT/bin/tokens.toml"
-  # the editor's demo shows, their rigs, book and story events: the bundle writes them to /usr/share/deck/demos
-  mkdir -p "$OUT/bin/demos" && cp -r "$SRC/demos/." "$OUT/bin/demos/"
+  for b in $BINS; do install -m755 "$WORK/target/release/$b" "$OUT/bin/$b"; done
+  if [ $editor = 1 ]; then
+    # the editor reads its design tokens beside its binary
+    install -m644 "$SRC/editor/tokens.toml" "$OUT/bin/tokens.toml"
+    # the editor's demo shows, their rigs, book and story events: the bundle writes them to /usr/share/deck/demos
+    mkdir -p "$OUT/bin/demos" && cp -r "$SRC/demos/." "$OUT/bin/demos/"
+  fi
   echo "== done: $OUT/bin"; exit 0
 fi
 
@@ -72,6 +88,12 @@ install -Dm755 "$WORK/target/release/deck-check" "$PROFILE/airootfs/usr/bin/deck
 install -Dm755 "$WORK/target/release/deck" "$PROFILE/airootfs/usr/bin/deck"
 install -Dm755 "$WORK/target/release/deck-link" "$PROFILE/airootfs/usr/bin/deck-link"
 install -Dm755 "$WORK/target/release/deck-update" "$PROFILE/airootfs/usr/bin/deck-update"
+if [ $editor = 1 ]; then
+  # where an update bundle puts them too (deck/update bundle.rs); deck-session starts the editor only where it is installed
+  install -Dm755 "$WORK/target/release/deck-editor" "$PROFILE/airootfs/usr/bin/deck-editor"
+  install -Dm644 "$SRC/editor/tokens.toml" "$PROFILE/airootfs/usr/share/deck/editor/tokens.toml"
+  mkdir -p "$PROFILE/airootfs/usr/share/deck/demos" && cp -r "$SRC/demos/." "$PROFILE/airootfs/usr/share/deck/demos/"
+fi
 # #427: the system scenes are in the binary; the sandboxes (checks, demos) only on a dev image – DECK_SANDBOXES=1 – where
 # F5 lists them (the deck's dev mode); a release image carries none
 if [ "${DECK_SANDBOXES:-}" = 1 ]; then
@@ -95,6 +117,7 @@ ln -sf /usr/lib/systemd/system/deck-update.timer "$PROFILE/airootfs/etc/systemd/
 [ -e "$PROFILE/airootfs/etc/systemd/system/pacman-init.service" ] && ln -sf /etc/systemd/system/pacman-init.service "$wants/pacman-init.service"
 # releng's file_permissions name a file we removed
 sed -i '/automated_script/d' "$PROFILE/profiledef.sh"
+[ $editor = 1 ] || sed -i '\|"/usr/bin/deck-editor"|d' "$PROFILE/profiledef.sh"
 # the serial console on ttyS0 (the VM test, a cable on a real deck) is NOT enabled here: systemd's serial-getty generator
 # starts it only where console=ttyS0 is on the kernel line (the live entries, profiledef). An installed deck without a
 # serial port then never runs it – a hard enable restarted it forever on the X1 (672 times, #262)
@@ -119,6 +142,7 @@ echo "== mkarchiso"
 rm -rf "$WORK/iso"; mkdir -p "$OUT"
 mkarchiso -v -w "$WORK/iso" -o "$OUT" "$PROFILE" >"$WORK/mkarchiso.log" 2>&1 || { tail -40 "$WORK/mkarchiso.log"; exit 1; }
 iso=$(ls -t "$OUT"/scutoonsdeck-*-x86_64.iso | head -1)
+if [ "$CLASS" != full ]; then mv "$iso" "${iso/scutoonsdeck-/scutoonsdeck-$CLASS-}"; iso=${iso/scutoonsdeck-/scutoonsdeck-$CLASS-}; fi
 cp "$WORK/mkarchiso.log" "$OUT/mkarchiso.log"
 ls -l "$iso"
 echo "== done: $iso"
