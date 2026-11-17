@@ -31,11 +31,39 @@ pub struct Context {
 }
 
 /// What the typeahead offers: on cells by the right click, the questions; in the cell, its content (the book's published
-/// scenes – without a book the typed text is the piece); on column heads, grouping and naming.
+/// scenes – without a book the typed text is the piece); on column heads, grouping and naming; on a row head, its name,
+/// a new row after it and its remove.
 pub(super) enum Offered {
     Questions(Arc<Offers>),
     Pieces(Vec<PieceView>),
     Columns(Vec<ColumnAct>),
+    Rows(Vec<RowAct>),
+}
+
+/// a line of a row head's typeahead
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum RowAct {
+    Rename,
+    Add,
+    Remove,
+}
+
+impl RowAct {
+    fn label(self) -> &'static str {
+        match self {
+            RowAct::Rename => "Rename",
+            RowAct::Add => "New row",
+            RowAct::Remove => rows::REMOVE,
+        }
+    }
+
+    fn detail(self) -> &'static str {
+        match self {
+            RowAct::Rename => "ctrl+r · in place",
+            RowAct::Add => "after this one",
+            RowAct::Remove => "asks first",
+        }
+    }
 }
 
 /// a line of a column head's typeahead
@@ -132,7 +160,8 @@ impl Host {
     }
 
     /// The right click at `(x, y)`: on a cell of the rows band (one outside the selection is selected alone first) the
-    /// typeahead opens there with what deck-show offers for the selected cells; anywhere else an open one closes.
+    /// typeahead opens there with what deck-show offers for the selected cells; on a column, group or row head that
+    /// head's menu; anywhere else an open one closes.
     pub fn context(&mut self, x: f32, y: f32) -> bool {
         self.context = None;
         let (r, c) = match self.hit(x, y) {
@@ -149,6 +178,18 @@ impl Host {
                 let items = acts.iter().enumerate().map(|(id, a)| Item { id, label: a.label().into(), detail: a.detail().into() }).collect();
                 self.typing = None;
                 self.context = Some(Context { ta: Typeahead::new(items, x, y), offered: Offered::Columns(acts.to_vec()) });
+                return true;
+            }
+            Some(h @ (Hit::Row(_) | Hit::RowName)) => {
+                if let Hit::Row(i) = h {
+                    if i != self.row {
+                        self.press(h);
+                    }
+                }
+                let acts = [RowAct::Rename, RowAct::Add, RowAct::Remove];
+                let items = acts.iter().enumerate().map(|(id, a)| Item { id, label: a.label().into(), detail: a.detail().into() }).collect();
+                self.typing = None;
+                self.context = Some(Context { ta: Typeahead::new(items, x, y), offered: Offered::Rows(acts.to_vec()) });
                 return true;
             }
             _ => return false,
@@ -248,6 +289,7 @@ impl Host {
             Offered::Questions(o) => o.list.iter().map(|o| o.label.clone()).collect(),
             Offered::Pieces(p) => p.iter().map(|p| p.label.clone()).collect(),
             Offered::Columns(a) => a.iter().map(|a| a.label().to_string()).collect(),
+            Offered::Rows(a) => a.iter().map(|a| a.label().to_string()).collect(),
         };
         labels.into_iter().enumerate().filter(|(i, _)| c.ta.shows(*i)).map(|(_, l)| l).collect()
     }
@@ -272,6 +314,16 @@ impl Host {
                     Some(ColumnAct::Ungroup) => self.ungroup_selected(),
                     Some(ColumnAct::Rename) => self.rename_selected(),
                     None => {}
+                }
+                return;
+            }
+            Offered::Rows(a) => {
+                if let Some(act) = a.get(id) {
+                    self.rows_press(match act {
+                        RowAct::Rename => Hit::RowName,
+                        RowAct::Add => Hit::RowAdd,
+                        RowAct::Remove => Hit::RowRemove,
+                    });
                 }
                 return;
             }

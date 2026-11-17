@@ -598,4 +598,71 @@ mod tests {
         host.key(&winit::keyboard::Key::Named(winit::keyboard::NamedKey::Enter), false, true);
         assert_eq!(host.status, "not changed: show: outlet 'lights': the group 'group' is split, its columns stand apart");
     }
+
+    fn enter(host: &mut Host) -> bool {
+        host.key(&winit::keyboard::Key::Named(winit::keyboard::NamedKey::Enter), false, true)
+    }
+
+    #[test]
+    fn a_selected_head_pressed_again_or_entered_is_renamed_in_place_and_escape_leaves_it() {
+        let mut host = host_with(DOC);
+        press(&mut host, false, |h| *h == Hit::Column(0));
+        assert!(host.typing.is_none(), "the first press selects");
+        press(&mut host, false, |h| *h == Hit::Column(0));
+        assert!(frame(&mut host, false).iter().any(|t| t == "left|"), "the second one names it in its head");
+        super::super::rows::tests::typed(&mut host, "-nave");
+        assert_eq!(host.status, "role left is called left-nave");
+        // a group's head: selected, then Enter names it
+        press(&mut host, false, |h| *h == Hit::Group(0));
+        assert!(enter(&mut host));
+        assert!(frame(&mut host, false).iter().any(|t| t == "stages|"));
+        host.type_key(&winit::keyboard::Key::Named(winit::keyboard::NamedKey::Escape));
+        assert_eq!(host.shown().outlets[0].group.as_deref(), Some("stages"), "Escape leaves it as it was");
+        press(&mut host, false, |h| *h == Hit::Group(0));
+        assert!(frame(&mut host, false).iter().any(|t| t == "stages|"), "pressed again: in place too");
+        super::super::rows::tests::typed(&mut host, "-wide");
+        assert_eq!(host.shown().outlets[1].group.as_deref(), Some("stages-wide"));
+        // a row head selected, no cell: Enter names the row
+        press(&mut host, false, |h| *h == Hit::Row(1));
+        host.cells.clear();
+        assert!(enter(&mut host));
+        assert!(frame(&mut host, false).iter().any(|t| t == "together|"));
+    }
+
+    #[test]
+    fn a_row_heads_right_click_renames_adds_after_and_removes_it() {
+        let mut host = host_with(DOC);
+        frame(&mut host, false);
+        let head = place(&host, Hit::Row(0)).unwrap();
+        assert!(host.context(head.x + head.w - 2.0, head.y + 2.0), "the head's right click opens its menu");
+        assert_eq!(host.row, 0);
+        assert_eq!(host.context_lines(), ["Rename", "New row", deck_show::rows::REMOVE]);
+        assert!(enter(&mut host), "Rename");
+        assert!(frame(&mut host, false).iter().any(|t| t == "opening|"), "the name in its head");
+        super::super::rows::tests::typed(&mut host, "-act");
+        assert_eq!(host.shown().rows[0].id, "opening-act");
+        // another row's head: selected first; a new row after it
+        let head = place(&host, Hit::Row(1)).unwrap();
+        assert!(host.context(head.x + head.w - 2.0, head.y + 2.0));
+        assert_eq!(host.row, 1);
+        for c in "new".chars() {
+            host.key(&winit::keyboard::Key::Character(c.to_string().into()), false, true);
+        }
+        assert!(enter(&mut host));
+        assert_eq!(host.shown().rows.iter().map(|r| r.id.as_str()).collect::<Vec<_>>(), ["opening-act", "together", "row"]);
+        // its remove asks first
+        frame(&mut host, false);
+        let head = place(&host, Hit::Row(0)).unwrap();
+        assert!(host.context(head.x + head.w - 2.0, head.y + 2.0));
+        for c in "remove".chars() {
+            host.key(&winit::keyboard::Key::Character(c.to_string().into()), false, true);
+        }
+        assert!(enter(&mut host));
+        assert_eq!(host.shown().rows.len(), 3, "not yet");
+        press(&mut host, false, |h| *h == Hit::AskYes);
+        assert_eq!(host.shown().rows.iter().map(|r| r.id.as_str()).collect::<Vec<_>>(), ["together", "row"]);
+        // the inspector carries no second remove
+        frame(&mut host, false);
+        assert!(place(&host, Hit::RowRemove).is_none());
+    }
 }

@@ -261,8 +261,8 @@ fn nodes(d: &mut DrawList, t: &Tokens, host: &mut Host, (show, sel): (&Show, &st
     d.text(a.x, fy.max(cy).max(sy) + pad, small, &fit(d, note, small, a.w), t.color.muted);
 }
 
-/// the right side for a row: #537 its name and remove, its inspector (a cell's line selects it, the cell inspector under
-/// the cells), the seats, the flash reports; where it ends (#551: it scrolls above the buttons' strip)
+/// the right side for a row: its inspector (the selected cell's inspector in place of the cells), the seats, the flash
+/// reports; where it ends (it scrolls above the buttons' strip)
 fn row_side(d: &mut DrawList, t: &Tokens, host: &mut Host, (show, sel, seats): (&Show, &str, &[view::SeatView]), (rx, mut y, rw): (f32, f32, f32), pointer: (f32, f32)) -> f32 {
     let (pad, font, small) = (t.size.pad, t.size.font, t.size.small);
     for (i, (head, lines)) in view::inspector(show, sel).iter().enumerate() {
@@ -272,9 +272,6 @@ fn row_side(d: &mut DrawList, t: &Tokens, host: &mut Host, (show, sel, seats): (
             continue;
         }
         y += controls::section(d, t, rx, y, rw, &head.to_uppercase(), i == 0);
-        if i == 0 {
-            y += super::rows::row_head(d, t, host, (rx, y, rw), sel, pointer);
-        }
         let sends = head == "this row sends";
         let mut address = 0;
         for (label, value) in lines {

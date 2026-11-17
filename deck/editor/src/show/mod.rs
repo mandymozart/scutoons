@@ -704,6 +704,8 @@ pub struct Script {
     pub to_cell: bool,
     /// the scene sheet filled as typed and picked (`--new-scene`), then played if asked
     pub new_scene: Option<NewScene>,
+    /// edited in place: `row` the selected row's name, `cell` the selected cell's content, `group:NAME` that group selected
+    pub in_place: Option<String>,
 }
 
 /// `ID,NAME,FILLER+FILLER[,play]`
@@ -805,6 +807,17 @@ impl Host {
                     self.script_question(query, *pick);
                 }
             }
+            36 => match s.in_place.as_deref() {
+                Some("row") => self.press(Hit::RowName),
+                Some("cell") => self.open_pieces(),
+                Some(g) => {
+                    let groups = deck_show::view::plan(self.shown()).groups;
+                    if let Some(i) = g.strip_prefix("group:").and_then(|n| groups.iter().position(|x| x.name == n)) {
+                        self.press(Hit::Group(i));
+                    }
+                }
+                None => {}
+            },
             35 => {
                 if let Some(i) = s.role.as_ref().and_then(|id| deck_show::roles::roles(self.shown(), None).iter().position(|r| r.id == *id)) {
                     self.press(Hit::Role(i));
