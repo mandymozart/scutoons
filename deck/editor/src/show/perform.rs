@@ -61,7 +61,7 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
             Some(Sheet::Vote) => super::vote::draw(d, t, host, o.area, pointer),
             _ => super::session::draw(d, t, host, o.area, pointer),
         }
-        host.perform_panels.close(d, t, o, &mut host.hits);
+        host.perform_panels.close(d, o, &mut host.hits);
     }
     // the stage now: what plays on each outlet
     if let Some(o) = host.perform_panels.open(d, t, "now", pointer, host.hits.len()) {
@@ -77,7 +77,7 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
             d.text(bx + pad, by + 4.0, font, &o.id, t.color.text);
             d.text(bx + pad, by + 4.0 + font * 1.4, small, &fit(d, playing.as_deref().unwrap_or("nothing yet"), small, bw - 2.0 * pad), t.color.accent);
         }
-        host.perform_panels.close(d, t, o, &mut host.hits);
+        host.perform_panels.close(d, o, &mut host.hits);
     }
 
     // the cues: the rows band, a press on a row fires it, on a cell launches it
@@ -85,7 +85,7 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
         let laid = super::band::draw(d, t, host, o.area, (&m, super::band::Mode { perform: true, runs: true }), host.perform_scroll, pointer);
         host.perform_scroll = laid.scroll;
         host.drew_band(true, laid);
-        host.perform_panels.close(d, t, o, &mut host.hits);
+        host.perform_panels.close(d, o, &mut host.hits);
     }
 
     // the log, newest first
@@ -98,7 +98,7 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
             let warn = words.contains("nobody") || words.contains("skipped") || words.contains("off the row");
             d.text(a.x + tw + pad, y, font, &fit(d, words, font, a.w - tw - pad), if warn { t.color.warn } else { t.color.text });
         }
-        host.perform_panels.close(d, t, o, &mut host.hits);
+        host.perform_panels.close(d, o, &mut host.hits);
     }
 
     // the rail: this conductor, its seats, the far side, the outlets
@@ -140,7 +140,7 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
             d.text(a.x + 16.0, y, font, &o.id, t.color.text);
             y += t.size.tree_row;
         }
-        host.perform_panels.close(d, t, o, &mut host.hits);
+        host.perform_panels.close(d, o, &mut host.hits);
     }
 
     // the side: the suggestion with GO / Drop, else GO; then the seats; what the last press came to
@@ -185,12 +185,12 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
         if !host.status.is_empty() {
             d.text(sx, y, small, &fit(d, &host.status, small, sw), t.color.muted);
         }
-        host.perform_panels.close(d, t, o, &mut host.hits);
+        host.perform_panels.close(d, o, &mut host.hits);
     }
 
     if let Some(o) = host.perform_panels.open(d, t, "info", pointer, host.hits.len()) {
         deck_kit::editor::info::body(d, t, (o.area.x, o.area.y, o.area.w), host.help.as_ref());
-        host.perform_panels.close(d, t, o, &mut host.hits);
+        host.perform_panels.close(d, o, &mut host.hits);
     }
 }
 

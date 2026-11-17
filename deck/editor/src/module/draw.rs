@@ -38,18 +38,18 @@ pub fn draw(d: &mut DrawList, t: &Tokens, m: &mut Module, stage: &Stage, (w, h):
             m.hits.push((r, Hit::Problem(i)));
             by += line_h;
         }
-        m.panels.close(d, t, o, &mut m.hits);
+        m.panels.close(d, o, &mut m.hits);
     }
 
     // the module open
     if let Some(o) = m.panels.open(d, t, "module", pointer, m.hits.len()) {
         open_module(d, t, m, stage, o.area, pointer);
-        m.panels.close(d, t, o, &mut m.hits);
+        m.panels.close(d, o, &mut m.hits);
     }
 
     if let Some(o) = m.panels.open(d, t, "info", pointer, m.hits.len()) {
         deck_kit::editor::info::body(d, t, (o.area.x, o.area.y, o.area.w), help);
-        m.panels.close(d, t, o, &mut m.hits);
+        m.panels.close(d, o, &mut m.hits);
     }
 }
 

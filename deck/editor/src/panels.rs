@@ -3,7 +3,7 @@
 //! them – a per-viewer convenience in the editor's cache, one map per workspace.
 use deck_kit::base::draw::{DrawList, Rect};
 use deck_kit::base::tokens::Tokens;
-use deck_kit::editor::floats::{self, Corner, Floats, Metrics, Place, Shown, Spec, View};
+use deck_kit::editor::floats::{self, Chrome, Corner, Floats, Metrics, Place, Shown, Spec, View};
 use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
 
@@ -153,7 +153,7 @@ impl Panels {
     }
 
     /// the content drawn: its height is kept for the next frame, its places cut to what shows
-    pub fn close<H>(&mut self, d: &mut DrawList, t: &Tokens, o: Open, hits: &mut Vec<(Rect, H)>) {
+    pub fn close<H>(&mut self, d: &mut DrawList, o: Open, hits: &mut Vec<(Rect, H)>) {
         if let Some(e) = d.extent(o.prims) {
             let h = (e.y + e.h - o.area.y).max(0.0) + 1.0;
             if !self.known.contains(&o.id) && h > self.measured.get(o.id).copied().unwrap_or(UNMEASURED) + 0.5 && o.view.over <= 0.0 {
@@ -162,12 +162,26 @@ impl Panels {
             self.measured.insert(o.id, h);
         }
         floats::clip_hits(&o.view, hits, o.hits);
-        floats::end(d, t, &o.view);
+        floats::end(d, &o.view);
     }
 
     /// the panels' chrome (handles, chevrons) and grounds, so the stage under them takes no press
     pub fn grounds(&self, ids: &[&'static str]) -> Vec<Rect> {
         ids.iter().filter_map(|id| self.floats.view(id)).map(|v| v.whole).collect()
+    }
+}
+
+/// the pointer over the panels: a grab on a handle or a panel in the hand, an edge's arrows on its grip or while it resizes
+pub fn cursor(f: &Floats, (x, y): (f32, f32)) -> winit::window::CursorIcon {
+    use winit::window::CursorIcon as C;
+    let edge = f.resizing().or_else(|| if f.dragging() { None } else { f.chrome_at(x, y).and_then(|(_, c)| if let Chrome::Edge(e) = c { Some(e) } else { None }) });
+    match edge.map(|e| (e.x, e.y)) {
+        Some((0, _)) => C::NsResize,
+        Some((_, 0)) => C::EwResize,
+        Some((x, y)) if x == y => C::NwseResize,
+        Some(_) => C::NeswResize,
+        None if f.dragging() || matches!(f.chrome_at(x, y), Some((_, Chrome::Handle))) => C::Grab,
+        None => C::Default,
     }
 }
 
@@ -255,7 +269,7 @@ mod tests {
         let mut hits: Vec<(Rect, ())> = Vec::new();
         let o = p.open(&mut d, &t, "tree", (0.0, 0.0), 0).unwrap();
         d.rect(o.area.x, o.area.y, 10.0, 120.0, [1.0; 4]);
-        p.close(&mut d, &t, o, &mut hits);
+        p.close(&mut d, o, &mut hits);
         p.layout(&d, &t, ((1600.0, 900.0), 52.0), &[], &shown);
         let v = p.floats.view("tree").unwrap();
         assert!((v.content.h - 121.0).abs() < 1e-3, "the rows it drew");

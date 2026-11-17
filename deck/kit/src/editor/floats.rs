@@ -4,7 +4,9 @@
 //! a chevron folds it to a pill (the icon and its name), which is dragged by the same rules; a panel that is not essential
 //! to its workspace also has a close, and comes back from a list of the closable ones. A dragged panel stops at a wall or
 //! another panel, the gap away; nothing overlaps, also after the window changes size. The place is kept per corner (the
-//! nearest one), so it can be remembered and comes back where it was.
+//! nearest one), so it can be remembered and comes back where it was. An open panel resizes from every edge and corner
+//! by the same rules; the size is kept with the place and replaces the content's size (a smaller one scrolls). The
+//! scrollbar takes the pointer: a press on its track jumps the thumb there, the thumb drags.
 use crate::base::draw::{DrawList, Rect};
 use crate::base::tokens::Tokens;
 use serde::{Deserialize, Serialize};
@@ -43,11 +45,14 @@ pub struct Place {
     pub collapsed: bool,
     #[serde(default)]
     pub closed: bool,
+    /// the open size the viewer resized it to (none: its content's)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub size: Option<(f32, f32)>,
 }
 
 impl Place {
     pub const fn at(corner: Corner, dx: f32, dy: f32) -> Place {
-        Place { corner, dx, dy, collapsed: false, closed: false }
+        Place { corner, dx, dy, collapsed: false, closed: false, size: None }
     }
 
     pub const fn folded(self) -> Place {
@@ -140,13 +145,29 @@ impl Metrics {
     }
 }
 
+/// which edges a resize moves: -1 the left / top one, 1 the right / bottom one, 0 neither
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Edge {
+    pub x: i8,
+    pub y: i8,
+}
+
 /// a part of a panel's chrome
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Chrome {
     Handle,
     Fold,
     Close,
+    Edge(Edge),
+    /// the scrollbar's track and thumb
+    Scroll,
 }
+
+/// how far an edge's grip reaches out of the panel (into the gap) and into it
+const EDGE_OUT: f32 = 6.0;
+const EDGE_IN: f32 = 2.0;
+/// how far along an edge from a corner the corner's grip reaches
+const CORNER: f32 = 14.0;
 
 /// where a shown panel landed
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -162,6 +183,76 @@ pub struct View {
     /// how much of the content is below the visible part at scroll 0
     pub over: f32,
     pub collapsed: bool,
+    /// the scrollbar's track along the right edge and its thumb (empty when nothing scrolls)
+    pub track: Rect,
+    pub thumb: Rect,
+    /// whether it resizes (open and not a toolbar)
+    pub sizes: bool,
+}
+
+impl View {
+    fn empty(whole: Rect, collapsed: bool) -> View {
+        let none = Rect { w: 0.0, h: 0.0, ..whole };
+        View { whole, handle: none, fold: none, close: none, content: none, scroll: 0.0, over: 0.0, collapsed, track: none, thumb: none, sizes: false }
+    }
+
+    /// the edges whose grip is under the pointer
+    pub fn edge_at(&self, x: f32, y: f32) -> Option<Edge> {
+        if !self.sizes {
+            return None;
+        }
+        let w = self.whole;
+        let near = |p: f32, lo: f32, hi: f32| -> i8 {
+            if p >= lo - EDGE_OUT && p < lo + EDGE_IN {
+                -1
+            } else if p > hi - EDGE_IN && p <= hi + EDGE_OUT {
+                1
+            } else {
+                0
+            }
+        };
+        let (ex, ey) = (near(x, w.x, right(&w)), near(y, w.y, bottom(&w)));
+        let along_x = x >= w.x - EDGE_OUT && x <= right(&w) + EDGE_OUT;
+        let along_y = y >= w.y - EDGE_OUT && y <= bottom(&w) + EDGE_OUT;
+        // a corner's grip reaches along both of its edges
+        let cx = if x < w.x + CORNER { -1 } else if x > right(&w) - CORNER { 1 } else { 0 };
+        let cy = if y < w.y + CORNER { -1 } else if y > bottom(&w) - CORNER { 1 } else { 0 };
+        match (ex, ey) {
+            (0, 0) => None,
+            (ex, 0) if along_y => Some(Edge { x: ex, y: cy }),
+            (0, ey) if along_x => Some(Edge { x: cx, y: ey }),
+            (ex, ey) if ex != 0 && ey != 0 => Some(Edge { x: ex, y: ey }),
+            _ => None,
+        }
+    }
+
+    /// the thumb's place for a scroll
+    fn thumb_at(track: Rect, over: f32, scroll: f32, min: f32) -> Rect {
+        if over <= 0.0 {
+            return Rect { w: 0.0, h: 0.0, ..track };
+        }
+        let h = (track.h * track.h / (track.h + over)).max(min).min(track.h);
+        Rect { y: track.y + (track.h - h) * (scroll / over).clamp(0.0, 1.0), h, ..track }
+    }
+}
+
+/// what the pointer holds
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Hold {
+    /// the panel moved, where the pointer holds it (from its top left)
+    Move(usize, f32, f32),
+    /// the panel resized by these edges, its rectangle and the pointer when the press began
+    Size(usize, Edge, Rect, (f32, f32)),
+    /// the scrollbar's thumb, where the pointer holds it (from the thumb's top)
+    Scroll(usize, f32),
+}
+
+impl Hold {
+    fn panel(self) -> usize {
+        match self {
+            Hold::Move(i, ..) | Hold::Size(i, ..) | Hold::Scroll(i, _) => i,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -191,8 +282,7 @@ pub struct Floats {
     area: Rect,
     fixed: Vec<Rect>,
     m: Metrics,
-    /// the panel in the hand and where the pointer holds it (from its top left)
-    drag: Option<(usize, f32, f32)>,
+    hold: Option<Hold>,
     /// where the press began and whether the pointer has left it since (a press that stays is a click)
     pressed: (f32, f32),
     travelled: bool,
@@ -297,7 +387,7 @@ fn sweep(r: &Rect, d: f32, obstacles: &[Rect], area: &Rect, gap: f32, horizontal
 fn inline_view(whole: Rect, collapsed: bool, closes: bool, m: &Metrics) -> View {
     let end = Rect { x: right(&whole), w: 0.0, ..whole };
     if collapsed {
-        return View { whole, handle: whole, fold: end, close: end, content: Rect { w: 0.0, h: 0.0, ..whole }, scroll: 0.0, over: 0.0, collapsed };
+        return View { handle: whole, fold: end, close: end, ..View::empty(whole, collapsed) };
     }
     let b = m.button();
     let close = if closes { Rect { x: right(&whole) - m.pad - b, w: b + m.pad, ..whole } } else { end };
@@ -305,14 +395,20 @@ fn inline_view(whole: Rect, collapsed: bool, closes: bool, m: &Metrics) -> View 
     let handle = Rect { w: m.lead().min(whole.w), ..whole };
     let x = whole.x + handle.w;
     let content = Rect { x, y: whole.y + m.pad * 0.5, w: (fold.x - x).max(0.0), h: (whole.h - m.pad).max(0.0) };
-    View { whole, handle, fold, close, content, scroll: 0.0, over: 0.0, collapsed }
+    View { handle, fold, close, content, ..View::empty(whole, collapsed) }
 }
 
 impl Floats {
     pub fn new(specs: &[Spec]) -> Floats {
-        let empty = View { whole: Rect::default(), handle: Rect::default(), fold: Rect::default(), close: Rect::default(), content: Rect::default(), scroll: 0.0, over: 0.0, collapsed: false };
+        let empty = View::empty(Rect::default(), false);
         let panels = specs.iter().map(|s| Panel { spec: *s, name_w: None, place: s.place, scroll: 0.0, own: false, shown: false, content: (0.0, 0.0), want: (0.0, 0.0), min: (0.0, 0.0), corner: s.place.corner, anchor: (0.0, 0.0), at: (0.0, 0.0), view: empty }).collect();
-        Floats { panels, area: Rect::default(), fixed: Vec::new(), m: Metrics { gap: 16.0, pad: 8.0, head: 28.0, pill: 32.0, char_w: 7.0, rem: 14.0, min: (160.0, 48.0) }, drag: None, pressed: (0.0, 0.0), travelled: false }
+        Floats { panels, area: Rect::default(), fixed: Vec::new(), m: Metrics { gap: 16.0, pad: 8.0, head: 28.0, pill: 32.0, char_w: 7.0, rem: 14.0, min: (160.0, 48.0) }, hold: None, pressed: (0.0, 0.0), travelled: false }
+    }
+
+    /// the smallest size an open panel resizes to: its chrome's row, a little of its content
+    fn least(&self, p: &Panel) -> (f32, f32) {
+        let m = &self.m;
+        (m.pill_size(p.spec.name, p.name_w, !p.spec.essential).0, m.head + m.pad + m.min.1 * 0.5)
     }
 
     fn index(&self, id: &str) -> Option<usize> {
@@ -367,12 +463,12 @@ impl Floats {
                 p.want = (pill.0.min(area.w), pill.1.min(area.h));
                 p.min = p.want;
             } else {
-                let full = m.frame(p.content);
+                let full = p.place.size.unwrap_or_else(|| m.frame(p.content));
                 p.want = (full.0.max(pill.0).min(area.w), full.1.min(area.h));
                 p.min = (p.want.0.min(m.min.0.max(pill.0)), p.want.1.min(m.head + m.min.1));
             }
             // the one in the hand is held by its top left where the pointer has it
-            let held = matches!(self.drag, Some((d, ..)) if d == i);
+            let held = matches!(self.hold, Some(Hold::Move(d, ..) | Hold::Size(d, ..)) if d == i);
             if held {
                 p.corner = Corner::TopLeft;
                 p.anchor = p.at;
@@ -430,7 +526,9 @@ impl Floats {
             let content = if collapsed { Rect { x: whole.x, y: whole.y, w: 0.0, h: 0.0 } } else { Rect { x: whole.x + m.pad, y: whole.y + m.head, w: (w - 2.0 * m.pad).max(0.0), h: (h - m.head - m.pad).max(0.0) } };
             let over = if collapsed || p.own { 0.0 } else { Some(p.content.1 - content.h).filter(|o| *o > EPS).unwrap_or(0.0) };
             p.scroll = p.scroll.clamp(0.0, over);
-            p.view = View { whole, handle, fold, close, content, scroll: p.scroll, over, collapsed };
+            let track = if over > 0.0 { Rect { x: right(&whole) - m.pad, y: content.y, w: m.pad - EDGE_IN, h: content.h } } else { Rect { w: 0.0, h: 0.0, ..content } };
+            let thumb = View::thumb_at(track, over, p.scroll, m.rem * 1.5);
+            p.view = View { whole, handle, fold, close, content, scroll: p.scroll, over, collapsed, track, thumb, sizes: !collapsed };
         }
     }
 
@@ -450,7 +548,11 @@ impl Floats {
     /// the chrome under the pointer
     pub fn chrome_at(&self, x: f32, y: f32) -> Option<(&Spec, Chrome)> {
         self.shown().find_map(|(_, p)| {
-            if p.view.close.has(x, y) {
+            if let Some(e) = p.view.edge_at(x, y) {
+                Some((&p.spec, Chrome::Edge(e)))
+            } else if p.view.track.has(x, y) {
+                Some((&p.spec, Chrome::Scroll))
+            } else if p.view.close.has(x, y) {
                 Some((&p.spec, Chrome::Close))
             } else if p.view.fold.has(x, y) {
                 Some((&p.spec, Chrome::Fold))
@@ -463,15 +565,19 @@ impl Floats {
     }
 
     /// is a shown panel under the pointer (its ground keeps the press from the stage)
+    /// is a shown panel or an edge's grip under the pointer (its ground keeps the press from the stage)
     pub fn covers(&self, x: f32, y: f32) -> bool {
-        self.shown().any(|(_, p)| p.view.whole.has(x, y))
+        self.shown().any(|(_, p)| p.view.whole.has(x, y) || p.view.edge_at(x, y).is_some())
     }
 
-    /// a press on a handle takes the panel in the hand, on a chevron folds or opens it, on the close closes it: whether
-    /// the press was the chrome's
+    /// a press on a handle takes the panel in the hand, on an edge resizes it, on the scrollbar scrolls it (the track
+    /// jumps the thumb there and holds it), on a chevron folds or opens it, on the close closes it: whether the press
+    /// was the chrome's
     pub fn press(&mut self, x: f32, y: f32) -> bool {
         let Some((id, chrome)) = self.chrome_at(x, y).map(|(s, c)| (s.id, c)) else { return false };
         let Some(i) = self.index(id) else { return false };
+        self.pressed = (x, y);
+        self.travelled = false;
         match chrome {
             Chrome::Fold => self.toggle(id),
             Chrome::Close => {
@@ -479,43 +585,113 @@ impl Floats {
             }
             Chrome::Handle => {
                 let at = self.panels[i].view.whole;
-                self.drag = Some((i, x - at.x, y - at.y));
-                self.pressed = (x, y);
-                self.travelled = false;
+                self.hold = Some(Hold::Move(i, x - at.x, y - at.y));
+            }
+            Chrome::Edge(e) => self.hold = Some(Hold::Size(i, e, self.panels[i].view.whole, (x, y))),
+            Chrome::Scroll => {
+                let thumb = self.panels[i].view.thumb;
+                let grab = if thumb.has(x, y) { y - thumb.y } else { thumb.h * 0.5 };
+                self.hold = Some(Hold::Scroll(i, grab));
+                self.scroll_to(i, y);
             }
         }
         true
     }
 
+    /// a panel moved, resized or scrolled by the pointer
     pub fn dragging(&self) -> bool {
-        self.drag.is_some()
+        self.hold.is_some()
     }
 
-    /// the panel in the hand follows the pointer until a wall or another panel stops it
+    /// the edges of the panel being resized
+    pub fn resizing(&self) -> Option<Edge> {
+        match self.hold {
+            Some(Hold::Size(_, e, ..)) => Some(e),
+            _ => None,
+        }
+    }
+
+    /// the panel in the hand follows the pointer until a wall or another panel stops it; a resized one's edges do the
+    /// same; a held thumb scrolls
     pub fn drag_to(&mut self, x: f32, y: f32) -> bool {
-        let Some((i, ox, oy)) = self.drag else { return false };
+        let Some(hold) = self.hold else { return false };
         if (x - self.pressed.0).abs() + (y - self.pressed.1).abs() > CLICK {
             self.travelled = true;
         }
+        let i = hold.panel();
         let gap = self.m.gap;
         let obstacles: Vec<Rect> = self.fixed.iter().copied().chain(self.shown().filter(|(j, _)| *j != i).map(|(_, p)| p.view.whole)).collect();
-        let mut r = self.panels[i].view.whole;
-        r.x += sweep(&r, x - ox - r.x, &obstacles, &self.area, gap, true);
-        r.y += sweep(&r, y - oy - r.y, &obstacles, &self.area, gap, false);
-        let p = &mut self.panels[i];
-        p.at = (r.x, r.y);
-        p.view.whole.x = r.x;
-        p.view.whole.y = r.y;
+        match hold {
+            Hold::Move(_, ox, oy) => {
+                let mut r = self.panels[i].view.whole;
+                r.x += sweep(&r, x - ox - r.x, &obstacles, &self.area, gap, true);
+                r.y += sweep(&r, y - oy - r.y, &obstacles, &self.area, gap, false);
+                let p = &mut self.panels[i];
+                p.at = (r.x, r.y);
+                p.view.whole.x = r.x;
+                p.view.whole.y = r.y;
+            }
+            Hold::Size(_, e, start, (px, py)) => {
+                let r = self.resized(i, e, start, (x - px, y - py), &obstacles);
+                let p = &mut self.panels[i];
+                p.at = (r.x, r.y);
+                p.place.size = Some((r.w, r.h));
+                p.view.whole = r;
+            }
+            Hold::Scroll(..) => self.scroll_to(i, y),
+        }
         true
     }
 
-    /// let go: the place is kept from the nearest corner; a folded inline panel clicked without moving opens; whether a
-    /// panel was in the hand (its place changed)
+    /// `start` with the edges `e` moved by `d`: no smaller than the panel's least size, no further than a wall or the
+    /// gap before an obstacle
+    fn resized(&self, i: usize, e: Edge, start: Rect, (dx, dy): (f32, f32), obstacles: &[Rect]) -> Rect {
+        let (least_w, least_h) = self.least(&self.panels[i]);
+        let (area, gap) = (&self.area, self.m.gap);
+        let mut r = start;
+        if e.x != 0 {
+            let back = e.x < 0;
+            let edge = if back { right(&r) } else { r.x };
+            let most = reach(edge, back, (r.y, bottom(&r)), obstacles, area, gap, true).max(least_w);
+            r.w = (if back { start.w - dx } else { start.w + dx }).clamp(least_w, most);
+            r.x = if back { edge - r.w } else { edge };
+        }
+        if e.y != 0 {
+            let back = e.y < 0;
+            let edge = if back { bottom(&r) } else { r.y };
+            let most = reach(edge, back, (r.x, right(&r)), obstacles, area, gap, false).max(least_h);
+            r.h = (if back { start.h - dy } else { start.h + dy }).clamp(least_h, most);
+            r.y = if back { edge - r.h } else { edge };
+        }
+        r
+    }
+
+    /// the held thumb's top follows the pointer at `y`
+    fn scroll_to(&mut self, i: usize, y: f32) {
+        let Some(Hold::Scroll(_, grab)) = self.hold else { return };
+        let v = self.panels[i].view;
+        let room = (v.track.h - v.thumb.h).max(EPS);
+        self.set_scroll(i, (y - grab - v.track.y) / room * v.over);
+    }
+
+    fn set_scroll(&mut self, i: usize, s: f32) {
+        let p = &mut self.panels[i];
+        p.scroll = s.clamp(0.0, p.view.over.max(0.0));
+        p.view.scroll = p.scroll;
+        p.view.thumb = View::thumb_at(p.view.track, p.view.over, p.scroll, self.m.rem * 1.5);
+    }
+
+    /// let go: the place (and a size given) is kept from the nearest corner; a folded inline panel clicked without moving
+    /// opens; whether its place changed
     pub fn release(&mut self) -> bool {
-        let Some((i, ..)) = self.drag.take() else { return false };
+        let Some(hold) = self.hold.take() else { return false };
+        let i = hold.panel();
+        if matches!(hold, Hold::Scroll(..)) {
+            return false;
+        }
         let area = self.area;
         let p = &mut self.panels[i];
-        if p.spec.inline && p.place.collapsed && !self.travelled {
+        if matches!(hold, Hold::Move(..)) && p.spec.inline && p.place.collapsed && !self.travelled {
             p.place.collapsed = false;
             return true;
         }
@@ -555,8 +731,8 @@ impl Floats {
     pub fn close(&mut self, id: &str) -> bool {
         let Some(i) = self.index(id).filter(|&i| !self.panels[i].spec.essential) else { return false };
         self.panels[i].place.closed = true;
-        if matches!(self.drag, Some((d, ..)) if d == i) {
-            self.drag = None;
+        if self.hold.is_some_and(|h| h.panel() == i) {
+            self.hold = None;
         }
         true
     }
@@ -582,9 +758,7 @@ impl Floats {
     /// the wheel over an open panel whose content is taller than it: whether it scrolled
     pub fn wheel(&mut self, x: f32, y: f32, steps: f32) -> bool {
         let Some(i) = self.shown().find(|(_, p)| p.view.whole.has(x, y) && p.view.over > 0.0).map(|(i, _)| i) else { return false };
-        let p = &mut self.panels[i];
-        p.scroll = (p.scroll - steps * STEP).clamp(0.0, p.view.over);
-        p.view.scroll = p.scroll;
+        self.set_scroll(i, self.panels[i].scroll - steps * STEP);
         true
     }
 
@@ -648,24 +822,30 @@ pub fn begin(d: &mut DrawList, t: &Tokens, spec: &Spec, v: &View, pointer: (f32,
         let hot = v.close.has(pointer.0, pointer.1);
         d.icon(v.close.x + (v.fold.w - chevron) * 0.5, mid - chevron * 0.5, chevron, "close", if hot { t.color.text } else { t.color.muted });
     }
+    if v.over > 0.0 {
+        // the scrollbar: thin at rest, wider under the pointer
+        let (tr, th) = (v.track, v.thumb);
+        let hot = tr.has(pointer.0, pointer.1);
+        let w = if hot { 5.0 } else { 3.0 };
+        let x = right(&tr) - w;
+        if hot {
+            d.round_rect(x, tr.y, w, tr.h, w * 0.5, t.color.line);
+        }
+        d.round_rect(x, th.y, w, th.h, w * 0.5, if hot { t.color.text } else { t.color.muted });
+    }
     match v.collapsed {
         true => d.halo(None),
         false => d.clip(Some(v.content)),
     }
 }
 
-/// after the content: the clip ends, a scrolled panel shows where its view stands
-pub fn end(d: &mut DrawList, t: &Tokens, v: &View) {
+/// after the content: the clip ends
+pub fn end(d: &mut DrawList, v: &View) {
     if v.collapsed {
         return;
     }
     d.halo(None);
     d.clip(None);
-    if v.over > 0.0 {
-        let c = v.content;
-        let whole = c.h + v.over;
-        d.round_rect(right(&v.whole) - 5.0, c.y + c.h * v.scroll / whole, 3.0, c.h * c.h / whole, 1.5, t.color.muted);
-    }
 }
 
 #[cfg(test)]
@@ -1050,21 +1230,181 @@ mod tests {
     fn a_panels_ground_lets_the_stage_show_through() {
         let t = Tokens::default();
         let mut d = DrawList::new(0.6);
-        let v = View { whole: Rect { x: 0.0, y: 0.0, w: 100.0, h: 100.0 }, handle: Rect::default(), fold: Rect::default(), close: Rect::default(), content: Rect::default(), scroll: 0.0, over: 0.0, collapsed: false };
+        let v = View::empty(Rect { x: 0.0, y: 0.0, w: 100.0, h: 100.0 }, false);
         begin(&mut d, &t, &spec("x", Place::default()), &v, (0.0, 0.0));
         let crate::base::draw::Prim::Rect { color, .. } = d.prims()[0] else { panic!("the ground first") };
         assert_eq!(color[3], t.color.panel_opacity);
         assert!(color[3] < 1.0);
         d.text(0.0, 0.0, 10.0, "in", t.color.text);
-        end(&mut d, &t, &v);
+        end(&mut d, &v);
         d.text(0.0, 0.0, 10.0, "out", t.color.text);
         let halos: Vec<f32> = d.prims().iter().filter_map(|p| if let crate::base::draw::Prim::Text { halo, .. } = *p { Some(halo[3]) } else { None }).collect();
         assert_eq!(halos, [1.0, 0.0], "the content's text rings itself with the panel's colour, what follows the panel does not");
     }
 
+    /// a press on `v`'s grip of `e`, a drag by (dx, dy) and the release
+    fn resize(f: &mut Floats, v: &View, e: Edge, (dx, dy): (f32, f32)) {
+        let w = v.whole;
+        let at = |side: i8, lo: f32, hi: f32| match side {
+            -1 => lo - 2.0,
+            1 => hi + 2.0,
+            _ => (lo + hi) * 0.5,
+        };
+        let (x, y) = (at(e.x, w.x, right(&w)), at(e.y, w.y, bottom(&w)));
+        assert_eq!(f.chrome_at(x, y).map(|(_, c)| c), Some(Chrome::Edge(e)), "the grip of {e:?} at {x},{y}");
+        assert!(f.press(x, y));
+        assert_eq!(f.resizing(), Some(e));
+        f.drag_to(x + dx, y + dy);
+        assert!(f.release(), "a resize is remembered");
+    }
+
+    #[test]
+    fn a_panel_resizes_from_every_edge_and_corner() {
+        let a = area(1920.0, 1080.0);
+        for ex in [-1i8, 0, 1] {
+            for ey in [-1i8, 0, 1] {
+                if ex == 0 && ey == 0 {
+                    continue;
+                }
+                let mut f = four();
+                let mut places = f.places();
+                places.insert("tree".into(), Place::at(Corner::TopLeft, 300.0, 200.0));
+                f.restore(&places);
+                f.layout(a, &[], &shown(SIZES), M);
+                let v = f.view("tree").unwrap();
+                let e = Edge { x: ex, y: ey };
+                resize(&mut f, &v, e, (40.0 * ex as f32, 30.0 * ey as f32));
+                f.layout(a, &[], &shown(SIZES), M);
+                let w = f.view("tree").unwrap().whole;
+                let grew = |side: i8, d: f32| if side == 0 { 0.0 } else { d };
+                assert_eq!((w.w, w.h), (v.whole.w + grew(ex, 40.0), v.whole.h + grew(ey, 30.0)), "{e:?} grows outwards");
+                assert_eq!(w.x, if ex < 0 { v.whole.x - 40.0 } else { v.whole.x }, "{e:?}: the left edge moves only from the left");
+                assert_eq!(w.y, if ey < 0 { v.whole.y - 30.0 } else { v.whole.y }, "{e:?}: the top moves only from the top");
+                assert_valid(&f, &a);
+            }
+        }
+    }
+
+    #[test]
+    fn a_resized_panel_stops_at_walls_and_panels_and_keeps_a_least_size() {
+        let mut f = four();
+        let a = area(1920.0, 1080.0);
+        f.layout(a, &[], &shown(SIZES), M);
+        let v = f.view("tree").unwrap();
+        let other = f.view("inspector").unwrap().whole;
+        resize(&mut f, &v, Edge { x: 1, y: 0 }, (5000.0, 0.0));
+        f.layout(a, &[], &shown(SIZES), M);
+        assert_eq!(right(&f.view("tree").unwrap().whole), other.x - 16.0, "1rem before the inspector");
+        let v = f.view("tree").unwrap();
+        resize(&mut f, &v, Edge { x: -1, y: -1 }, (-5000.0, -5000.0));
+        f.layout(a, &[], &shown(SIZES), M);
+        let w = f.view("tree").unwrap().whole;
+        assert_eq!((w.x, w.y), (a.x, a.y), "the walls hold it");
+        let v = f.view("tree").unwrap();
+        resize(&mut f, &v, Edge { x: 1, y: 1 }, (-5000.0, -5000.0));
+        f.layout(a, &[], &shown(SIZES), M);
+        let w = f.view("tree").unwrap().whole;
+        assert_eq!((w.w, w.h), f.least(&f.panels[0]), "no smaller than its chrome and a little content");
+        assert_valid(&f, &a);
+    }
+
+    #[test]
+    fn a_size_is_remembered_with_the_place_and_a_smaller_one_scrolls() {
+        let mut f = four();
+        let a = area(1920.0, 1080.0);
+        f.layout(a, &[], &shown(SIZES), M);
+        let v = f.view("tree").unwrap();
+        assert_eq!(v.over, 0.0);
+        resize(&mut f, &v, Edge { x: 1, y: 1 }, (60.0, -150.0));
+        f.layout(a, &[], &shown(SIZES), M);
+        let sized = f.view("tree").unwrap();
+        assert_eq!((sized.whole.w, sized.whole.h), (v.whole.w + 60.0, v.whole.h - 150.0));
+        assert!(sized.over > 0.0, "the content is taller than the panel now: it scrolls");
+        let kept = toml::to_string(&f.places()).unwrap();
+        let mut g = four();
+        g.restore(&toml::from_str(&kept).unwrap());
+        g.layout(a, &[], &shown(SIZES), M);
+        assert_eq!(g.view("tree").unwrap().whole, sized.whole, "the size comes back with the place");
+        let old: Place = toml::from_str("corner = \"TopLeft\"\ndx = 0.0\ndy = 0.0").unwrap();
+        assert_eq!(old.size, None, "a place kept before sizes existed sizes to its content");
+        // a smaller window still keeps every panel inside and apart
+        for (w, h) in [(1280.0, 720.0), (800.0, 500.0)] {
+            g.layout(area(w, h), &[], &shown(SIZES), M);
+            assert_valid(&g, &area(w, h));
+        }
+    }
+
+    #[test]
+    fn pills_and_toolbars_do_not_resize() {
+        let mut f = with_bar();
+        let a = area(1920.0, 1080.0);
+        f.layout(a, &[], &shown_bar(), M);
+        for id in ["bar", "info"] {
+            let w = f.view(id).unwrap().whole;
+            assert!(!matches!(f.chrome_at(right(&w) + 2.0, w.y + w.h * 0.5), Some((_, Chrome::Edge(_)))), "{id}");
+            assert!(!matches!(f.chrome_at(w.x + w.w * 0.5, bottom(&w) + 2.0), Some((_, Chrome::Edge(_)))), "{id}");
+        }
+    }
+
+    #[test]
+    fn a_click_on_the_track_jumps_there_and_the_thumb_drags() {
+        let mut f = four();
+        let a = area(1920.0, 700.0);
+        f.layout(a, &[], &shown(SIZES), M);
+        let v = f.view("inspector").unwrap();
+        assert!(v.over > 0.0 && v.thumb.h > 0.0 && v.thumb.y == v.track.y, "{v:?}");
+        let x = v.track.x + v.track.w * 0.5;
+        // the track's bottom: the thumb jumps to the end and stays in the hand
+        assert_eq!(f.chrome_at(x, bottom(&v.track) - 1.0).map(|(_, c)| c), Some(Chrome::Scroll));
+        assert!(f.press(x, bottom(&v.track) - 1.0));
+        assert_eq!(f.view("inspector").unwrap().scroll, v.over);
+        f.drag_to(x, v.track.y + v.track.h * 0.5);
+        let mid = f.view("inspector").unwrap();
+        assert!(mid.scroll > 0.0 && mid.scroll < v.over, "dragged back up: {}", mid.scroll);
+        assert!(!f.release(), "scrolling changes no place");
+        // the thumb itself drags from where it is held, without a jump
+        let held = mid.thumb;
+        assert!(f.press(x, held.y + 2.0));
+        assert_eq!(f.view("inspector").unwrap().scroll, mid.scroll, "a press on the thumb does not jump");
+        f.drag_to(x, held.y + 2.0 - 5000.0);
+        assert_eq!(f.view("inspector").unwrap().scroll, 0.0, "the top stops it");
+        f.release();
+        f.layout(a, &[], &shown(SIZES), M);
+        assert_eq!(f.view("inspector").unwrap().scroll, 0.0, "the scroll holds through the next layout");
+        assert!(f.view("tree").unwrap().track.h == 0.0, "a panel that fits has no scrollbar");
+    }
+
+    #[test]
+    fn any_mix_of_resizes_keeps_every_panel_apart() {
+        let mut seed = 11u32;
+        let mut next = |n: f32| {
+            seed = seed.wrapping_mul(1_103_515_245).wrapping_add(12_345);
+            (seed >> 8) as f32 / (1u32 << 24) as f32 * n
+        };
+        let a = area(1600.0, 900.0);
+        let mut f = four();
+        f.layout(a, &[], &shown(SIZES), M);
+        for _ in 0..300 {
+            let id = ["tree", "inspector", "mixer"][next(3.0) as usize % 3];
+            let v = f.view(id).unwrap();
+            let e = Edge { x: next(3.0) as i8 - 1, y: next(3.0) as i8 - 1 };
+            if e == (Edge { x: 0, y: 0 }) {
+                continue;
+            }
+            let w = v.whole;
+            let at = |side: i8, lo: f32, hi: f32| [lo - 2.0, (lo + hi) * 0.5, hi + 2.0][(side + 1) as usize];
+            if f.press(at(e.x, w.x, right(&w)), at(e.y, w.y, bottom(&w))) {
+                f.drag_to(next(1600.0), next(900.0));
+                f.release();
+            }
+            f.layout(a, &[], &shown(SIZES), M);
+            assert_valid(&f, &a);
+        }
+    }
+
     #[test]
     fn hits_of_a_scrolled_content_end_at_its_edge() {
-        let v = View { whole: Rect::default(), handle: Rect::default(), fold: Rect::default(), close: Rect::default(), content: Rect { x: 0.0, y: 100.0, w: 200.0, h: 100.0 }, scroll: 0.0, over: 50.0, collapsed: false };
+        let v = View { content: Rect { x: 0.0, y: 100.0, w: 200.0, h: 100.0 }, over: 50.0, ..View::empty(Rect::default(), false) };
         let mut hits = vec![(Rect { x: 0.0, y: 0.0, w: 10.0, h: 10.0 }, 0), (Rect { x: 0.0, y: 90.0, w: 10.0, h: 20.0 }, 1), (Rect { x: 0.0, y: 150.0, w: 10.0, h: 10.0 }, 2), (Rect { x: 0.0, y: 250.0, w: 10.0, h: 10.0 }, 3)];
         clip_hits(&v, &mut hits, 1);
         assert_eq!(hits.iter().map(|(_, h)| *h).collect::<Vec<_>>(), [0, 1, 2], "the first is before `from`, the last below the edge");
