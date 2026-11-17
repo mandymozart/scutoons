@@ -4,6 +4,7 @@
 pub use crate::base::fonts::Font;
 use crate::base::fonts::Widths;
 use std::sync::Arc;
+use crate::base::tokens::contrast;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Prim {
@@ -11,10 +12,11 @@ pub enum Prim {
     Rect { x: f32, y: f32, w: f32, h: f32, r: f32, color: [f32; 4] },
     /// the outline of one, `thick` wide
     Outline { x: f32, y: f32, w: f32, h: f32, r: f32, thick: f32, color: [f32; 4] },
-    /// `start..end` = a byte range of the list's text buffer; `spacing` = extra room after each letter, in em
-    Text { x: f32, y: f32, px: f32, start: usize, end: usize, color: [f32; 4], spacing: f32, font: Font },
+    /// `start..end` = a byte range of the list's text buffer; `spacing` = extra room after each letter, in em; `halo` =
+    /// its own ground on a see-through panel (alpha 0: none): light ink is ringed with it, dark ink sits on a strip of it
+    Text { x: f32, y: f32, px: f32, start: usize, end: usize, color: [f32; 4], spacing: f32, font: Font, halo: [f32; 4] },
     /// an icon by name, in a square of `size`
-    Icon { x: f32, y: f32, size: f32, name: &'static str, color: [f32; 4] },
+    Icon { x: f32, y: f32, size: f32, name: &'static str, color: [f32; 4], halo: [f32; 4] },
     /// a frame of the animated logo, in a square of `size`
     Logo { x: f32, y: f32, size: f32, frame: usize },
     /// what follows shows only inside `[x, y, w, h]` (a scrolled panel's content); none = the whole screen again
@@ -47,11 +49,19 @@ pub struct DrawList {
     per_px: f32,
     /// the sans faces' advances (none: the sans is measured as the mono face)
     widths: Option<Arc<Widths>>,
+    halo: [f32; 4],
+    /// the first primitive drawn on the see-through ground
+    halo_from: usize,
 }
+
+/// no halo
+pub const NO_HALO: [f32; 4] = [0.0; 4];
+/// below this contrast to the ink a halo would not set it apart: the ink is on a ground of its own
+const HALO_CONTRAST: f32 = 3.0;
 
 impl DrawList {
     pub fn new(per_px: f32) -> DrawList {
-        DrawList { prims: Vec::with_capacity(4096), text: String::with_capacity(8192), per_px, widths: None }
+        DrawList { prims: Vec::with_capacity(4096), text: String::with_capacity(8192), per_px, widths: None, halo: NO_HALO, halo_from: 0 }
     }
 
     /// a list laid out in these faces
@@ -62,6 +72,27 @@ impl DrawList {
     pub fn clear(&mut self) {
         self.prims.clear();
         self.text.clear();
+        self.halo = NO_HALO;
+    }
+
+    /// what is drawn next on a see-through ground: its text and icons get an outline of `ground` (opaque), unless their
+    /// ink is on a ground of its own; `None` ends it
+    pub fn halo(&mut self, ground: Option<[f32; 4]>) {
+        self.halo = ground.map_or(NO_HALO, |g| [g[0], g[1], g[2], 1.0]);
+        self.halo_from = self.prims.len();
+    }
+
+    /// ink at (x, y) gets the halo when it is on the see-through ground: not on an opaque ground drawn since, and set apart by it
+    fn halo_for(&self, ink: [f32; 4], (x, y): (f32, f32)) -> [f32; 4] {
+        if self.halo[3] <= 0.0 || contrast(ink, self.halo) < HALO_CONTRAST {
+            return NO_HALO;
+        }
+        let covered = self.prims[self.halo_from..].iter().any(|p| matches!(*p, Prim::Rect { x: rx, y: ry, w, h, color, .. } if color[3] >= 0.99 && Rect { x: rx, y: ry, w, h }.has(x, y)));
+        if covered {
+            NO_HALO
+        } else {
+            self.halo
+        }
     }
 
     /// back to the first `n` primitives (a part drawn again: its text stays in the buffer until the frame is cleared)
@@ -125,7 +156,8 @@ impl DrawList {
     pub fn set(&mut self, font: Font, x: f32, y: f32, px: f32, text: &str, color: [f32; 4], spacing: f32) -> f32 {
         let start = self.text.len();
         self.text.push_str(text);
-        self.prims.push(Prim::Text { x, y, px, start, end: self.text.len(), color, spacing, font });
+        let halo = self.halo_for(color, (x + px * 0.3, y + px * 0.6));
+        self.prims.push(Prim::Text { x, y, px, start, end: self.text.len(), color, spacing, font, halo });
         self.measure(font, px, text, spacing)
     }
 
@@ -154,7 +186,8 @@ impl DrawList {
     }
 
     pub fn icon(&mut self, x: f32, y: f32, size: f32, name: &'static str, color: [f32; 4]) {
-        self.prims.push(Prim::Icon { x, y, size, name, color });
+        let halo = self.halo_for(color, (x + size * 0.5, y + size * 0.5));
+        self.prims.push(Prim::Icon { x, y, size, name, color, halo });
     }
 
     pub fn logo(&mut self, x: f32, y: f32, size: f32, frame: usize) {
@@ -283,6 +316,26 @@ mod tests {
         d.clip(None);
         d.text(0.0, 30.0, 10.0, "abcd", [1.0; 4]);
         assert_eq!(d.extent(from), Some(Rect { x: 0.0, y: 10.0, w: 20.0, h: 32.5 }));
+    }
+
+    #[test]
+    fn a_halo_rings_ink_that_its_ground_sets_apart_and_ends() {
+        let (ground, light, dark) = ([0.1, 0.1, 0.1, 0.3], [0.95, 0.95, 0.95, 1.0], [0.09, 0.1, 0.09, 1.0]);
+        let mut d = DrawList::new(0.5);
+        d.halo(Some(ground));
+        d.text(0.0, 0.0, 10.0, "a", light);
+        d.text(0.0, 0.0, 10.0, "b", dark);
+        d.icon(0.0, 0.0, 10.0, "grip", light);
+        d.rect(0.0, 0.0, 20.0, 20.0, [0.2, 0.2, 0.2, 1.0]);
+        d.text(2.0, 2.0, 10.0, "in a field", light);
+        d.halo(None);
+        d.text(0.0, 0.0, 10.0, "c", light);
+        let halos: Vec<[f32; 4]> = d.prims().iter().filter_map(|p| match *p {
+            Prim::Text { halo, .. } | Prim::Icon { halo, .. } => Some(halo),
+            _ => None,
+        }).collect();
+        let g = [0.1, 0.1, 0.1, 1.0];
+        assert_eq!(halos, [g, NO_HALO, g, NO_HALO, NO_HALO], "opaque round light ink; none round ink the ground does not set apart, on an opaque field, or after the end");
     }
 
     #[test]
