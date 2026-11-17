@@ -816,7 +816,7 @@ impl Space {
     pub fn frame_distance(&self) -> f32 {
         let b = &self.being;
         let spheres = || {
-            let points = b.points.iter().map(|p| (p.pos, p.radius));
+            let points = b.points.iter().map(|p| (p.pos, p.extent()));
             let knobs = b.buttons.iter().map(|k| (k.free, k.radius * being::RING_REST));
             points.chain(knobs).chain(std::iter::once((b.head.pos, b.head.radius)))
         };
