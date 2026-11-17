@@ -147,7 +147,7 @@ export type MoveDef = {
 	/** shake: degrees of unrest */
 	amount?: number;
 	ease?: Ease;
-	/** follow: the holder it keeps in the shot */
+	/** follow: what it keeps in the shot, as a shot's `aim` names it */
 	follow?: string | null;
 	/** crane: metres above (or below) the higher (lower) end */
 	height?: number;
@@ -209,6 +209,8 @@ export type SceneUse = {
 };
 
 export type ShotDef = {
+	/** what it aims at by address in place of `target` (rig/address.rs `Aim`): a holder, `character:<id>`, `item:<id>`, `spot:<name>` – the shot keeps its angles and distance around it, wherever it stands */
+	aim?: string | null;
 	/** metres from the aim */
 	distance: number;
 	/** a word: `scene:<id> > shot:<id>` picks it */

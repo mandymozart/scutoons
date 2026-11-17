@@ -83,13 +83,17 @@ impl View {
             pitch: r(self.pitch.to_degrees().clamp(-90.0, 90.0)),
             distance: r(self.distance.max(crate::scene_camera::DISTANCE_RANGE.0)),
             lens: self.lens,
+            aim: None,
         }
     }
 
     /// the orbit camera looks through this view at once (its glides have nothing left to do)
     pub fn apply(&self, c: &mut Orbit) {
         c.through = None;
-        c.max_distance = c.max_distance.max(self.distance);
+        // a blend's eye far back on its way is no reach for the hand
+        if !c.far_back {
+            c.max_distance = c.max_distance.max(self.distance);
+        }
         (c.target, c.goal, c.yaw, c.pitch) = (self.target, self.target, self.yaw, self.pitch);
         (c.distance, c.want) = (self.distance, self.distance);
         c.fov_y = self.lens.fov_y();
@@ -99,6 +103,50 @@ impl View {
     /// how far apart two views are: the eyes' and the aims' distance (m) and the lens's field (rad)
     pub fn gap(&self, o: &View) -> f32 {
         self.eye().distance(o.eye()) + self.target.distance(o.target) + (self.lens.fov_y() - o.lens.fov_y()).abs() + (self.lens.size - o.lens.size).abs() * f32::from(u8::from(self.lens.ortho() || o.lens.ortho()))
+    }
+}
+
+/// How a camera shows itself in an editor's 3D (never on a deck's output): its view as a pyramid from the eye to the
+/// frame at its aim's depth – orthographic, a box from the eye's plane to the aim's – and the aim, its focal point.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Frustum {
+    pub eye: Vec3,
+    pub aim: Vec3,
+    /// the frame at the aim's depth: top left, top right, bottom right, bottom left
+    pub far: [Vec3; 4],
+    /// orthographic: the same frame at the eye; none = the corner lines meet at the eye
+    pub near: Option<[Vec3; 4]>,
+}
+
+impl Frustum {
+    /// from `eye` toward `aim` with a vertical field of view `fov_y` (rad), or an orthographic view `ortho` m high, on a
+    /// screen of `aspect` (w / h)
+    pub fn of(eye: Vec3, aim: Vec3, fov_y: f32, ortho: Option<f32>, aspect: f32) -> Frustum {
+        let depth = eye.distance(aim).max(1e-3);
+        let fwd = (aim - eye) / depth;
+        let right = fwd.cross(Vec3::Y).try_normalize().unwrap_or(Vec3::X);
+        let up = right.cross(fwd);
+        let half = ortho.map_or(depth * (fov_y * 0.5).tan(), |h| h * 0.5);
+        let (r, u) = (right * half * aspect.max(1e-3), up * half);
+        let frame = |c: Vec3| [c - r + u, c + r + u, c + r - u, c - r - u];
+        Frustum { eye, aim, far: frame(aim), near: ortho.map(|_| frame(eye)) }
+    }
+
+    /// its lines: the corner lines (from the eye, or the near frame's corners) and the far frame; the near frame too
+    pub fn lines(&self) -> Vec<(Vec3, Vec3)> {
+        let ring = |f: [Vec3; 4]| (0..4).map(move |i| (f[i], f[(i + 1) % 4]));
+        let mut out: Vec<(Vec3, Vec3)> = (0..4).map(|i| (self.near.map_or(self.eye, |n| n[i]), self.far[i])).collect();
+        out.extend(ring(self.far));
+        if let Some(n) = self.near {
+            out.extend(ring(n));
+        }
+        out
+    }
+}
+
+impl View {
+    pub fn frustum(&self, aspect: f32) -> Frustum {
+        Frustum::of(self.eye(), self.target, self.lens.fov_y(), self.lens.ortho().then_some(self.lens.size), aspect)
     }
 }
 
@@ -145,6 +193,8 @@ pub struct Cue {
     pub to: View,
     /// the shot it ends on
     pub shot: String,
+    /// what that shot aims at by address (its `aim`): the move ends on it where it stands
+    pub aim: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -174,7 +224,7 @@ pub struct Director {
     ended: Option<(View, f64)>,
 }
 
-/// where a holder stands now, by its id (a follow's subject)
+/// where an aim address (rig/address.rs `Aim`) stands now: a follow's subject, a shot's aim
 pub type Subject<'a> = &'a dyn Fn(&str) -> Option<Vec3>;
 
 impl Director {
@@ -198,6 +248,14 @@ impl Director {
     /// playing, waiting, queued or holding a subject
     pub fn active(&self) -> bool {
         self.run.is_some() || self.hold.is_some() || !self.queue.is_empty()
+    }
+
+    /// a move between a perspective and an orthographic lens on its way (moves.rs `blended`)
+    pub fn blending(&self, clock: &Clock) -> bool {
+        self.run.as_ref().is_some_and(|r| {
+            let p = progress(r, clock);
+            r.from.is_some_and(|f| f.lens.ortho() != r.cue.to.lens.ortho()) && p > 0.0 && p < 1.0 && r.cue.spec.kind != MoveKind::Cut
+        })
     }
 
     /// the cue playing (or waiting to) and how far it is (0..1)
@@ -277,11 +335,12 @@ fn progress(r: &Run, clock: &Clock) -> f64 {
     (now - r.at) / r.len
 }
 
-/// a cue's end view; a follow's aimed at its subject where it stands now
+/// a cue's end view, aimed where its follow's subject or its shot's aim stands now
 fn aimed(c: &Cue, subject: Subject) -> View {
-    match c.spec.follow.as_deref().and_then(subject) {
-        Some(at) if c.spec.kind == MoveKind::Follow => View { target: at, ..c.to },
-        _ => c.to,
+    let follow = c.spec.follow.as_deref().filter(|_| c.spec.kind == MoveKind::Follow);
+    match follow.or(c.aim.as_deref()).and_then(subject) {
+        Some(at) => View { target: at, ..c.to },
+        None => c.to,
     }
 }
 
@@ -332,14 +391,20 @@ impl Dop {
     /// the shot `id` by a cut
     pub fn cut(&self, id: &str) -> Result<Cue, String> {
         let to = self.view(id).ok_or_else(|| format!("no shot '{id}'"))?;
-        Ok(Cue { spec: MoveSpec::of(MoveKind::Cut), to, shot: id.to_string() })
+        Ok(Cue { spec: MoveSpec::of(MoveKind::Cut), to, shot: id.to_string(), aim: self.aim_of(id) })
     }
 
     /// `spec` to the shot `to`
     pub fn cue(&self, spec: MoveSpec, to: &str) -> Result<Cue, String> {
         let view = self.view(to).ok_or_else(|| format!("no shot '{to}'"))?;
-        Ok(Cue { spec, to: view, shot: to.to_string() })
+        Ok(Cue { spec, to: view, shot: to.to_string(), aim: self.aim_of(to) })
     }
+
+    /// what shot `id` aims at by address
+    pub fn aim_of(&self, id: &str) -> Option<String> {
+        self.camera.shot(id).and_then(|s| s.aim.clone())
+    }
+
 
     /// the named move `id` and its chain
     pub fn chain(&self, id: &str) -> Result<Vec<Cue>, String> {

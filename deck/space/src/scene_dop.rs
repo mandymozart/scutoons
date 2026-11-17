@@ -41,7 +41,16 @@ impl SceneEdit {
     pub fn set_shot(&mut self, i: usize, view: ShotDef) -> Result<(), String> {
         self.camera_change(|c| {
             let s = c.shots.get_mut(i).ok_or("no such shot")?;
-            *s = ShotDef { id: s.id.clone(), label: s.label.clone(), ..view };
+            *s = ShotDef { id: s.id.clone(), label: s.label.clone(), aim: s.aim.clone(), ..view };
+            Ok(())
+        })
+    }
+
+    /// what shot `i` aims at by address (none: its own `target`), checked by the core
+    pub fn set_aim(&mut self, i: usize, aim: Option<&str>) -> Result<(), String> {
+        self.camera_change(|c| {
+            let s = c.shots.get_mut(i).ok_or("no such shot")?;
+            s.aim = aim.map(str::trim).filter(|a| !a.is_empty()).map(String::from);
             Ok(())
         })
     }
@@ -184,7 +193,7 @@ mod tests {
     use crate::scene_resolve::{core_rigs, no_sets};
 
     fn view(yaw: f32) -> ShotDef {
-        ShotDef { id: String::new(), label: Default::default(), target: [0.0, 1.0, 0.0], yaw, pitch: 10.0, distance: 3.0, lens: Lens::default() }
+        ShotDef { id: String::new(), label: Default::default(), target: [0.0, 1.0, 0.0], yaw, pitch: 10.0, distance: 3.0, lens: Lens::default(), aim: None }
     }
 
     #[test]

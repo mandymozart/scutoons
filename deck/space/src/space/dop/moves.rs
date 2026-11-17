@@ -138,5 +138,16 @@ pub fn pose(spec: &MoveSpec, f: &View, t: &View, lin: f32, ctx: &Ctx) -> View {
             v
         }
     };
-    v.wrapped()
+    blended(v, f, t, u).wrapped()
+}
+
+/// Between a perspective and an orthographic end the lens blends as a dolly zoom (camera.rs `projection_blend`): the eye
+/// on the way backs off along its line of sight while the lens narrows, the aim and the angles stay the move's.
+fn blended(mut v: View, f: &View, t: &View, u: f32) -> View {
+    let end = |w: &View| (w.lens.fov_y(), w.lens.ortho().then_some(w.lens.size), w.distance);
+    if let Some((fov, distance)) = crate::space::camera::projection_blend(end(f), end(t), u) {
+        v.lens = Lens { projection: Projection::Perspective, focal: focal_of(fov), size: v.lens.size };
+        v.distance = distance;
+    }
+    v
 }

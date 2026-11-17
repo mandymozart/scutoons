@@ -2,7 +2,7 @@ use super::*;
 use crate::scene_camera::{Ease, Length, MoveDef, Track, TrackPoint, Turn};
 
 fn shot(id: &str, target: [f32; 3], yaw: f32, pitch: f32, distance: f32, lens: Lens) -> ShotDef {
-    ShotDef { id: id.into(), label: Default::default(), target, yaw, pitch, distance, lens }
+    ShotDef { id: id.into(), label: Default::default(), target, yaw, pitch, distance, lens, aim: None }
 }
 
 fn camera() -> SceneCamera {
@@ -56,6 +56,28 @@ fn run(dop: &mut Dop, spec: MoveSpec, to: &str, from: View) -> Vec<View> {
     out
 }
 
+/// how high the view is at its aim (m)
+fn view_height(v: &View) -> f32 {
+    if v.lens.ortho() {
+        v.lens.size
+    } else {
+        2.0 * v.distance * (v.lens.fov_y() * 0.5).tan()
+    }
+}
+
+/// where fixed points around the stage land on the screen through `v` (NDC)
+fn on_screen(v: &View) -> Vec<glam::Vec2> {
+    let mut o = Orbit::new(Vec3::ZERO, 0.0, 0.0, 1.0);
+    v.apply(&mut o);
+    let vp = o.view_proj(16.0 / 9.0);
+    [[0.0, 1.0, 0.0], [0.6, 0.5, 0.3], [-0.5, 1.4, -0.4], [0.2, 0.0, 0.6]].iter().map(|p| vp.project_point3(Vec3::from_array(*p)).truncate()).collect()
+}
+
+/// the most any of those points moves on the screen from one frame to the next
+fn picture_jump(frames: &[View]) -> f32 {
+    frames.windows(2).map(|w| on_screen(&w[0]).iter().zip(on_screen(&w[1])).map(|(a, b)| a.distance(b)).fold(0.0, f32::max)).fold(0.0, f32::max)
+}
+
 fn spec(kind: MoveKind) -> MoveSpec {
     let mut s = MoveSpec::of(kind);
     s.length = if kind == MoveKind::Cut { Length::Seconds(0.0) } else { Length::Seconds(2.0) };
@@ -79,7 +101,13 @@ fn every_move_ends_exactly_on_its_shot_and_starts_where_the_camera_is() {
             }
             assert!(frames[0].gap(&start()) < 1e-3, "{kind:?} → {to}: no jump at the start ({})", frames[0].gap(&start()));
             assert!(frames.len() > 100, "{kind:?}: it takes its two seconds");
-            // no jump on the way: every frame near the one before (a whip is fast, a fly-through long)
+            // no jump on the way: every frame near the one before (a whip is fast, a fly-through long); into the orthographic
+            // shot the eye backs far off on purpose – there the picture is what must not jump
+            if to == "iso" {
+                let jump = frames.windows(2).map(|w| w[0].target.distance(w[1].target) + (view_height(&w[1]) / view_height(&w[0]) - 1.0).abs()).fold(0.0, f32::max);
+                assert!(jump < 2.5, "{kind:?} → iso: the picture jumps {jump}");
+                continue;
+            }
             let worst = frames.windows(2).map(|w| w[0].eye().distance(w[1].eye()) + w[0].target.distance(w[1].target)).fold(0.0, f32::max);
             assert!(worst < 2.5, "{kind:?} → {to}: a frame jumps {worst} m");
         }
@@ -387,4 +415,152 @@ fn a_scene_opens_on_its_camera_the_same_however_the_stage_was_looked_at() {
     let v = open(&doc, 1.0);
     let wide = View::of_shot(&camera().shots[0]);
     assert!(v.gap(&wide) < 1e-3, "on the opening shot: {v:?}");
+}
+
+/// Between a perspective and an orthographic shot the projection blends as a dolly zoom – a move and the stage's glide
+/// alike: the picture never jumps (the orthographic end too), half way it is a long lens far back, the end is the shot
+/// exactly; a hand mid-blend brings the eye in as the lens opens, the picture held
+#[test]
+fn perspective_and_orthographic_blend_without_a_jump() {
+    let mut dop = Dop::new(None, camera());
+    let (wide, iso) = (dop.view("wide").unwrap(), dop.view("iso").unwrap());
+    let mut glide = spec(MoveKind::Glide);
+    glide.ease = Ease::Linear;
+    for (from, to, id) in [(wide, iso, "iso"), (iso, wide, "wide")] {
+        let frames = run(&mut dop, glide.clone(), id, from);
+        assert_eq!(*frames.last().unwrap(), to);
+        assert!(picture_jump(&frames) < 0.05, "→ {id}: the picture jumps {}", picture_jump(&frames));
+        let mid = frames[frames.len() / 2];
+        assert!(!mid.lens.ortho() && mid.lens.focal > 55.0 && mid.distance > from.distance.max(to.distance), "half way a long lens far back: {mid:?}");
+        let half = (view_height(&from) + view_height(&to)) * 0.5;
+        assert!((view_height(&mid) / half - 1.0).abs() < 0.03, "the view's height glides: {} vs {half}", view_height(&mid));
+    }
+    let shot = |v: &View| crate::space::camera::Shot { target: v.target, yaw: v.yaw, pitch: v.pitch, distance: v.distance, fov_y: v.lens.fov_y(), ortho: v.lens.ortho().then_some(v.lens.size) };
+    let mut o = Orbit::new(wide.target, wide.yaw, wide.pitch, wide.distance);
+    wide.apply(&mut o);
+    o.look_through(shot(&iso));
+    let mut frames = vec![View::of(&o)];
+    for _ in 0..80 {
+        o.step(1.0 / 60.0);
+        frames.push(View::of(&o));
+    }
+    assert!(View::of(&o).gap(&iso) < 1e-3 && o.ortho == Some(5.0) && !o.far_back, "arrived orthographic");
+    assert!(picture_jump(&frames) < 0.05, "the glide into it: {}", picture_jump(&frames));
+    o.go_free();
+    let mut frames = vec![View::of(&o)];
+    for _ in 0..25 {
+        o.step(1.0 / 60.0);
+        frames.push(View::of(&o));
+    }
+    assert!(o.far_back && o.ortho.is_none(), "half way back: perspective, far back");
+    o.drag(0.0, 0.0);
+    for _ in 0..240 {
+        o.step(1.0 / 60.0);
+        frames.push(View::of(&o));
+    }
+    assert!(picture_jump(&frames) < 0.05, "back and a hand on the way: {}", picture_jump(&frames));
+    assert!(!o.far_back && (o.fov_y - wide.lens.fov_y()).abs() < 1e-3 && o.distance < 30.0, "the hand's lens again, the eye near: {o:?}");
+}
+
+/// Every camera shows its view: a pyramid from the eye to the frame at its aim (the frame on the view's corners), the
+/// orthographic one a box as high as its view; a longer lens a narrower pyramid
+#[test]
+fn a_camera_shows_its_view_as_a_pyramid_or_a_box() {
+    let dop = Dop::new(None, camera());
+    let wide = dop.view("wide").unwrap();
+    let aspect = 16.0 / 9.0;
+    let f = wide.frustum(aspect);
+    assert_eq!((f.lines().len(), f.near, f.aim, f.eye), (8, None, wide.target, wide.eye()));
+    let mut o = Orbit::new(Vec3::ZERO, 0.0, 0.0, 1.0);
+    wide.apply(&mut o);
+    let vp = o.view_proj(aspect);
+    for (c, want) in f.far.iter().zip([(-1.0, 1.0), (1.0, 1.0), (1.0, -1.0), (-1.0, -1.0)]) {
+        let q = vp.project_point3(*c);
+        assert!((q.x - want.0).abs() < 1e-3 && (q.y - want.1).abs() < 1e-3, "a corner of the frame on the view's: {q} vs {want:?}");
+    }
+    let long = View { lens: Lens::focal(150.0), ..wide }.frustum(aspect);
+    assert!(long.far[0].distance(long.far[1]) < f.far[0].distance(f.far[1]) * 0.25, "a long lens: narrow");
+    let iso = dop.view("iso").unwrap().frustum(aspect);
+    assert_eq!(iso.lines().len(), 12);
+    let near = iso.near.expect("a box");
+    assert!((iso.far[0].distance(iso.far[3]) - 5.0).abs() < 1e-4 && (near[0].distance(near[3]) - 5.0).abs() < 1e-4, "as high as its view");
+}
+
+/// a cast stage (catpope and the incense burner) on `cam`, a deck's (not an editor's free view)
+fn cast_stage(cam: SceneCamera) -> crate::space::Space {
+    use crate::scene_document::SceneDocument;
+    use crate::scene_resolve::{core_rigs, no_sets, resolve};
+    use crate::space::portrait::Portraits;
+    let mut doc = SceneDocument::new("duet", "Duet", vec!["catpope".into()]);
+    doc.recast(&["character:catpope".into(), "item:incense_burner".into()]);
+    doc.camera = Some(cam);
+    let scene = resolve(&doc, &Default::default(), true, &core_rigs, &no_sets).unwrap().scene;
+    let g = crate::graph::Graph::build(&scene).unwrap();
+    let mut s = crate::space::Space::new(&g, g.first(crate::graph::Kind::Space).unwrap(), &scene.being, std::path::Path::new("/nowhere"), Portraits::manual());
+    s.set_view(1280.0, 720.0);
+    s.set_camera(Some("scene:duet"), scene.camera.clone());
+    s
+}
+
+/// A shot aims at an address – a filler, a holder – wherever it stands, with its own angles; what cannot be aimed at is
+/// refused by the core; the editor's view gets every camera's frustum, the one looked through lit
+#[test]
+fn a_shot_aims_at_an_address_and_every_camera_shows_itself() {
+    let mut cam = camera();
+    cam.shots[1].aim = Some("item:incense_burner".into());
+    let mut s = cast_stage(cam.clone());
+    let item = s.cast.iter().find(|c| c.who.place() == "item:incense_burner").expect("the item stands");
+    let (at, holder) = (s.member_sphere(item).0, item.holder.clone());
+    let v = s.shot_view("close").unwrap();
+    assert!(v.target.distance(at) < 1e-5, "aimed at the item");
+    assert_eq!((v.yaw, v.pitch, v.distance), (cam.shots[1].yaw.to_radians(), cam.shots[1].pitch.to_radians(), cam.shots[1].distance));
+    assert_eq!(s.aim_point(&holder), Some(at), "by its holder too");
+    assert!(s.aim_point("character:catpope").is_some() && s.aim_point("spot:nowhere").is_none());
+    let holders = [holder.as_str()];
+    for (aim, ok) in [("item:incense_burner", true), (holder.as_str(), true), ("spot:altar", true), ("nobody", false), ("scene:duet", false), ("character:catpope.ghost", false)] {
+        let mut c = cam.clone();
+        c.shots[1].aim = Some(aim.into());
+        let mut out = Vec::new();
+        c.problems(&holders, &mut out);
+        assert_eq!(out.is_empty(), ok, "{aim}: {out:?}");
+    }
+    s.look_through_shot("close");
+    let frusta = s.camera_frusta();
+    assert_eq!(frusta.iter().map(|(id, _, lit)| (id.clone().unwrap_or_default(), *lit)).collect::<Vec<_>>(), [("wide".into(), false), ("close".into(), true), ("iso".into(), false)]);
+    assert!(frusta[1].1.aim.distance(at) < 1e-5);
+    let bare = cast_stage(SceneCamera::default());
+    let f = bare.camera_frusta();
+    assert!(f.len() == 1 && f[0].0.is_none() && f[0].2, "no shots: the primary camera, looked through");
+    let (eye, ahead) = (s.camera.eye(), s.camera.target);
+    assert!(s.segment_to_pixels(eye + (eye - ahead), ahead).is_some(), "a segment half behind the eye is cut where it passes it");
+    assert!(s.segment_to_pixels(eye + (eye - ahead), eye + (eye - ahead) * 2.0).is_none());
+}
+
+/// Upright (a phone in portrait) the free view widens; a shot's own lens wins and is never widened
+#[test]
+fn a_shots_lens_wins_over_the_portrait_widening() {
+    let mut s = cast_stage(camera());
+    s.look_through_shot("close");
+    let close = camera().shots[1].lens.fov_y();
+    s.fit_screen(390.0, 844.0);
+    assert_eq!(s.camera.through.map(|t| t.fov_y), Some(close), "the shot's lens");
+    let wide = crate::space::camera::screen_fov(390.0 / 844.0);
+    assert!(wide > crate::space::camera::FOV_Y && s.camera.free_fov() == wide);
+    let mut free = cast_stage(SceneCamera::default());
+    free.fit_screen(390.0, 844.0);
+    assert_eq!(free.camera.fov_y, wide, "a scene without a lens of its own: the free view's, widened");
+    free.fit_screen(1280.0, 720.0);
+    assert_eq!(free.camera.fov_y, crate::space::camera::FOV_Y);
+}
+
+/// A camera word for a scene that is not on the stage yet (a show row starts the scene and picks its shot) waits for it
+#[test]
+fn a_camera_word_before_its_scene_waits_for_it() {
+    let mut s = cast_stage(camera());
+    assert!(s.camera_word("scene:next", "shot:iso"), "a camera word, kept");
+    assert_eq!(s.viewing(), &Viewing::Primary);
+    s.set_camera(Some("scene:next"), Some(camera()));
+    assert_eq!(s.viewing(), &Viewing::Shot("iso".into()), "taken as the scene arrived");
+    s.set_camera(Some("scene:later"), Some(camera()));
+    assert_eq!(s.viewing(), &Viewing::Primary, "once only");
 }

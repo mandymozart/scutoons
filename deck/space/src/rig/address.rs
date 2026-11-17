@@ -214,6 +214,33 @@ impl CameraWord {
     }
 }
 
+/// the reserved place of a set's spot (glb.rs `spots`), as a camera aims at it: `spot:<name>`
+pub const SPOT: &str = "spot";
+
+/// What a scene camera's shot aims at, or a follow keeps in the shot (scene_camera.rs): a holder of the scene by its id
+/// (`duet_1`), who fills one by its place (`character:catpope`, `item:incense_burner`), or a spot of the set (`spot:altar`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Aim {
+    Holder(String),
+    Who(String),
+    Spot(String),
+}
+
+impl Aim {
+    pub fn parse(s: &str) -> Result<Aim, String> {
+        let Some((kind, id)) = s.split_once(':') else { return word(s, "a holder's id").map(|h| Aim::Holder(h.to_string())) };
+        match kind {
+            SPOT => word(id, "a spot's name").map(|n| Aim::Spot(n.to_string())),
+            k if k == CHARACTER || k == protocol::address_book::AddressKind::Item.as_str() => match Target::parse(s) {
+                Ok(t) if t.id.is_some() && t.below.is_empty() => Ok(Aim::Who(s.to_string())),
+                Ok(_) => Err(format!("'{s}': a camera aims at one {k}, by its id")),
+                Err(e) => Err(e),
+            },
+            _ => Err(format!("'{s}': a camera aims at a holder, character:<id>, item:<id> or {SPOT}:<name>")),
+        }
+    }
+}
+
 /// the kind of `<kind>:…`
 fn t_kind(s: &str) -> &str {
     s.split_once(':').map_or(s, |(k, _)| k)

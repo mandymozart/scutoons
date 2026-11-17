@@ -10,7 +10,7 @@
 //!   optional Bézier handle (none = a smooth curve through its neighbours).
 //! - **Move:** a kind, the shot it ends on, a length in beats, bars or seconds, an ease, whether it waits for the bar line,
 //!   the move it chains to; `scene:<id> > move:<move>` plays it.
-use crate::rig::address::word;
+use crate::rig::address::{word, Aim};
 use crate::scene_document::Label;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
@@ -154,6 +154,10 @@ pub struct ShotDef {
     pub distance: f32,
     #[serde(default)]
     pub lens: Lens,
+    /// what it aims at by address in place of `target` (rig/address.rs `Aim`): a holder, `character:<id>`, `item:<id>`,
+    /// `spot:<name>` – the shot keeps its angles and distance around it, wherever it stands
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub aim: Option<String>,
 }
 
 impl ShotDef {
@@ -461,7 +465,7 @@ pub struct MoveSpec {
     /// shake: degrees of unrest
     #[serde(default = "shake_amount", skip_serializing_if = "is_shake_amount")]
     pub amount: f32,
-    /// follow: the holder it keeps in the shot
+    /// follow: what it keeps in the shot, as a shot's `aim` names it
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub follow: Option<String>,
 }
@@ -533,6 +537,15 @@ pub struct MoveDef {
     /// the move that follows when it ends (a chain)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub then: Option<String>,
+}
+
+/// why `aim` is nothing a camera can aim at here (a bare word must be one of the scene's `holders`)
+fn aim_problem(aim: &str, holders: &[&str]) -> Option<String> {
+    match Aim::parse(aim) {
+        Ok(Aim::Holder(h)) if !holders.contains(&h.as_str()) => Some(format!("'{h}', which is no holder of the scene")),
+        Ok(_) => None,
+        Err(e) => Some(e),
+    }
 }
 
 /// The scene's primary camera.
@@ -622,6 +635,9 @@ impl SceneCamera {
                 out.push(format!("{who}: the distance is {}–{} m", DISTANCE_RANGE.0, DISTANCE_RANGE.1));
             }
             s.lens.problems(&who, out);
+            if let Some(why) = s.aim.as_deref().and_then(|a| aim_problem(a, holders)) {
+                out.push(format!("{who}: {why}"));
+            }
         }
         if let Some(t) = &self.track {
             if t.points.len() < 2 {
@@ -645,8 +661,8 @@ impl SceneCamera {
             if m.spec.kind == MoveKind::Fly && self.track.is_none() {
                 out.push(format!("{who}: a fly-through runs along the camera's track – the scene has none"));
             }
-            if let Some(h) = m.spec.follow.as_deref().filter(|h| !holders.contains(h)) {
-                out.push(format!("{who}: it follows '{h}', which is no holder of the scene"));
+            if let Some(why) = m.spec.follow.as_deref().and_then(|a| aim_problem(a, holders)) {
+                out.push(format!("{who}: it follows {why}"));
             }
             if let Some(then) = m.then.as_deref().filter(|t| self.find_move(t).is_none()) {
                 out.push(format!("{who}: it chains to '{then}', which is no move of the camera"));
@@ -661,7 +677,7 @@ mod tests {
     use super::*;
 
     fn shot(id: &str) -> ShotDef {
-        ShotDef { id: id.into(), label: Label::new(), target: [0.0, 1.0, 0.0], yaw: 20.0, pitch: 8.0, distance: 3.0, lens: Lens::default() }
+        ShotDef { id: id.into(), label: Label::new(), target: [0.0, 1.0, 0.0], yaw: 20.0, pitch: 8.0, distance: 3.0, lens: Lens::default(), aim: None }
     }
 
     #[test]
