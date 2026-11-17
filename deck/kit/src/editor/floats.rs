@@ -801,7 +801,7 @@ pub fn begin(d: &mut DrawList, t: &Tokens, spec: &Spec, v: &View, pointer: (f32,
     let r = if v.collapsed || spec.inline { w.h * 0.5 } else { r };
     d.round_rect(w.x, w.y, w.w, w.h, r, ground);
     d.outline(w.x, w.y, w.w, w.h, (r, 1.0), t.color.line);
-    d.halo(Some(s));
+    d.halo(t.color.ring());
     let hot = v.handle.has(pointer.0, pointer.1);
     let mid = v.handle.y + v.handle.h * 0.5;
     let x = w.x + t.size.pad;
@@ -851,6 +851,7 @@ pub fn end(d: &mut DrawList, v: &View) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::base::tokens::{Colors, Theme};
 
     const M: Metrics = Metrics { gap: 16.0, pad: 8.0, head: 28.0, pill: 32.0, char_w: 7.0, rem: 14.0, min: (160.0, 48.0) };
 
@@ -1228,18 +1229,20 @@ mod tests {
 
     #[test]
     fn a_panels_ground_lets_the_stage_show_through() {
-        let t = Tokens::default();
-        let mut d = DrawList::new(0.6);
-        let v = View::empty(Rect { x: 0.0, y: 0.0, w: 100.0, h: 100.0 }, false);
-        begin(&mut d, &t, &spec("x", Place::default()), &v, (0.0, 0.0));
-        let crate::base::draw::Prim::Rect { color, .. } = d.prims()[0] else { panic!("the ground first") };
-        assert_eq!(color[3], t.color.panel_opacity);
-        assert!(color[3] < 1.0);
-        d.text(0.0, 0.0, 10.0, "in", t.color.text);
-        end(&mut d, &v);
-        d.text(0.0, 0.0, 10.0, "out", t.color.text);
-        let halos: Vec<f32> = d.prims().iter().filter_map(|p| if let crate::base::draw::Prim::Text { halo, .. } = *p { Some(halo[3]) } else { None }).collect();
-        assert_eq!(halos, [1.0, 0.0], "the content's text rings itself with the panel's colour, what follows the panel does not");
+        for (theme, ring) in [(Theme::Night, 1.0), (Theme::Day, 0.0)] {
+            let t = Tokens { color: Colors::of(theme), ..Tokens::default() };
+            let mut d = DrawList::new(0.6);
+            let v = View::empty(Rect { x: 0.0, y: 0.0, w: 100.0, h: 100.0 }, false);
+            begin(&mut d, &t, &spec("x", Place::default()), &v, (0.0, 0.0));
+            let crate::base::draw::Prim::Rect { color, .. } = d.prims()[0] else { panic!("the ground first") };
+            assert_eq!(color[3], t.color.panel_opacity);
+            assert!(color[3] < 1.0);
+            d.text(0.0, 0.0, 10.0, "in", t.color.text);
+            end(&mut d, &v);
+            d.text(0.0, 0.0, 10.0, "out", t.color.text);
+            let halos: Vec<f32> = d.prims().iter().filter_map(|p| if let crate::base::draw::Prim::Text { halo, .. } = *p { Some(halo[3]) } else { None }).collect();
+            assert_eq!(halos, [ring, 0.0], "{theme:?}: night rings the content's text in the panel's colour, day does not; nothing after the panel");
+        }
     }
 
     /// a press on `v`'s grip of `e`, a drag by (dx, dy) and the release
