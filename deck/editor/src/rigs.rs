@@ -2,9 +2,10 @@
 //! from the catalog (`GET /api/catalog/docs/rigs`, and the instruments, presets and modules a rig names), one opened as
 //! the core makes a bundle of it (`rig::assign::catalog_bundle`), saving itself (autosave.rs) as a new draft version on
 //! the version it was opened at (`PUT /api/entities/rig:<subject>`, a 409 said in words). Publishing stays in the
-//! browser (the creator). The draft file (wires.rs) stays the offline copy: sent when the rig opens
-//! on the version it was made on, offered when the server's differs. Every ask runs on a thread; the UI polls.
-use crate::autosave::Autosave;
+//! browser (the creator). What the server has not got is the rig's outbox entry (autosave.rs), its difference written at
+//! every edit: sent when the rig opens on the version it was made on, offered when the server's differs. Every ask runs
+//! on a thread; the UI polls.
+use crate::autosave::{self, Autosave, Outbox};
 use crate::show::api::{Api, Refusal};
 use crate::{toon, wires};
 use deck_kit::editor::typeahead::Item;
@@ -146,9 +147,38 @@ pub fn creator_link(api: &str, key: &str) -> String {
     format!("{}/edit/{key}", base.trim_end_matches('/'))
 }
 
-/// the offline copy of `subject`
-pub fn draft_path(cache: &Path, subject: &str) -> PathBuf {
-    cache.join("drafts").join(format!("{subject}.rig.toml"))
+/// where Build's rig keeps what the server has not got: its outbox entry, the file `--draft` names, or nowhere (a check
+/// run, a scene's member opened as its rig)
+#[derive(Debug, Clone, PartialEq)]
+pub enum Copy {
+    Outbox,
+    File(PathBuf),
+    Nothing,
+}
+
+const KIND: &str = "rig";
+
+/// the draft files of before the outbox (`<cache>/drafts/<subject>.rig.toml`), each read once into it and removed
+pub fn migrate(cache: &Path, outbox: &Outbox) {
+    let Ok(files) = std::fs::read_dir(cache.join("drafts")) else { return };
+    for f in files.flatten().map(|f| f.path()) {
+        let Some(subject) = f.file_name().and_then(|n| n.to_str()).and_then(|n| n.strip_suffix(".rig.toml")) else { continue };
+        let Some((version, body)) = std::fs::read_to_string(&f).ok().and_then(|t| wires::draft_text(&t)) else { continue };
+        if outbox.get(KIND, subject).is_none() {
+            outbox.put(&autosave::Entry::new(KIND, subject, version, body));
+        }
+        if outbox.get(KIND, subject).is_some() {
+            let _ = std::fs::remove_file(&f);
+        }
+    }
+}
+
+/// what plays at the start: the outbox's copy of `subject` over `base`, and the version it was made on
+pub fn kept(outbox: &Outbox, subject: &str, base: &Bundle) -> (Bundle, Option<Option<u64>>) {
+    match outbox.get(KIND, subject) {
+        Some(e) => (wires::over(&e.body, base), Some(e.base)),
+        None => (base.clone(), None),
+    }
 }
 
 fn base_path(cache: &Path, subject: &str) -> PathBuf {
@@ -201,11 +231,11 @@ fn keep_base(cache: &Path, subject: &str, bundle: &Bundle, version: Option<u64>)
     let _ = path.parent().map_or(Ok(()), std::fs::create_dir_all).and_then(|_| std::fs::write(&path, text));
 }
 
-/// A rig opened from the server and the offline copy beside it: what plays (the copy when it was made on this very
+/// A rig opened from the server and its outbox copy beside it: what plays (the copy when it was made on this very
 /// version: its unsaved changes are back), and the copy to offer when it was made on another
-pub fn with_copy(path: &Path, subject: &str, server: &Bundle, at: Option<u64>) -> (Bundle, Option<Local>) {
-    let Some(made_on) = wires::draft_version(path) else { return (server.clone(), None) };
-    let copy = wires::load_draft(path, server);
+pub fn with_copy(outbox: &Outbox, subject: &str, server: &Bundle, at: Option<u64>) -> (Bundle, Option<Local>) {
+    let Some(e) = outbox.get(KIND, subject) else { return (server.clone(), None) };
+    let (made_on, copy) = (e.base, wires::over(&e.body, server));
     if made_on == at {
         return (copy, None);
     }
@@ -275,18 +305,20 @@ pub struct Rigs {
     pub local: Option<Local>,
     /// what the picker shows now, by its ids
     pub choices: Vec<Choice>,
+    pub outbox: Outbox,
 }
 
 impl Rigs {
     pub fn new(api: &str, cache: &Path, subject: &str, version: Option<u64>, signed: bool) -> Rigs {
-        let mut r = Rigs { api: api.to_string(), cache: cache.to_path_buf(), subject: subject.to_string(), auto: Autosave::new(version), listing: Listing::Failed(String::new()), asked_signed: signed, told: false, opening: None, local: None, choices: Vec::new() };
+        let mut r = Rigs { api: api.to_string(), outbox: Outbox::current(), ..Rigs::offline(cache, subject, version, "") };
+        (r.told, r.listing) = (false, Listing::Failed(String::new()));
         r.list(signed);
         r
     }
 
     /// no asking at all (a check run): nothing saves itself
     pub fn offline(cache: &Path, subject: &str, version: Option<u64>, why: &str) -> Rigs {
-        Rigs { api: String::new(), cache: cache.to_path_buf(), subject: subject.to_string(), auto: Autosave::new(version), listing: Listing::Failed(why.to_string()), asked_signed: false, told: true, opening: None, local: None, choices: Vec::new() }
+        Rigs { api: String::new(), cache: cache.to_path_buf(), subject: subject.to_string(), auto: Autosave::new(version), listing: Listing::Failed(why.to_string()), asked_signed: false, told: true, opening: None, local: None, choices: Vec::new(), outbox: Outbox::none() }
     }
 
     /// a check run's rigs ask nothing, so they save nothing
@@ -303,8 +335,20 @@ impl Rigs {
         (self.listing, self.asked_signed) = (Listing::Asking(rx), signed);
     }
 
-    pub fn draft(&self) -> PathBuf {
-        draft_path(&self.cache, &self.subject)
+    /// the rig as it plays, written as its outbox entry on the version open
+    pub fn keep(&self, base: &Bundle, now: &Bundle) {
+        self.outbox.put(&autosave::Entry::new(KIND, &self.subject, self.auto.version, wires::difference(base, now)));
+    }
+
+    /// `sent` is the server's at the version open now: kept as the base of what opens next; the entry goes unless
+    /// something changed since
+    pub fn saved(&self, sent: &Bundle, now: &Bundle) {
+        keep_base(&self.cache, &self.subject, sent, self.auto.version);
+        if now == sent {
+            self.outbox.remove(KIND, &self.subject);
+        } else {
+            self.keep(sent, now);
+        }
     }
 
     /// the catalog once it is here (Show's new scene picks its cast from its rigs)
@@ -341,7 +385,7 @@ impl Rigs {
             match answer {
                 Ok((subject, server, at)) => {
                     keep_base(&self.cache, &subject, &server, at);
-                    let (plays, local) = with_copy(&draft_path(&self.cache, &subject), &subject, &server, at);
+                    let (plays, local) = with_copy(&self.outbox, &subject, &server, at);
                     let back = local.is_none() && plays != server;
                     let empty = at.is_none() && plays.rig.tracks.is_empty();
                     (self.subject, self.local) = (subject.clone(), local.clone());
@@ -450,7 +494,7 @@ impl Rigs {
     pub fn take_local(&mut self, server: &Bundle) -> Option<Bundle> {
         let l = self.local.take()?;
         self.auto.version = l.server;
-        Some(wires::load_draft(&self.draft(), server))
+        Some(kept(&self.outbox, &self.subject, server).0)
     }
 
     /// `now` saved as the rig's next draft on the version open, the documents changed against `base` before it
@@ -676,7 +720,7 @@ mod tests {
         assert!(seen.iter().any(|e| matches!(e, Event::Saved(_))));
         let saved = r.auto.version.expect("a version");
         assert_ne!(Some(saved), first);
-        std::fs::remove_file(r.draft()).ok();
+        r.outbox.remove(KIND, "character.catpope");
         r.open("character.catpope").expect("listed");
         let (_, again) = opened(wait(&mut r, &|r| r.opening.is_none()));
         assert_eq!((r.auto.version, &again.rig), (Some(saved), &next.rig), "the saved draft comes back");
@@ -729,16 +773,50 @@ mod tests {
         std::fs::remove_dir_all(&cache).ok();
     }
 
+    fn outbox(name: &str) -> (PathBuf, Outbox) {
+        let dir = std::env::temp_dir().join(format!("deck-editor-rigs-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let ob = Outbox::at(&dir);
+        (dir, ob)
+    }
+
     #[test]
     fn opened_beside_its_copy() {
         let b = Bundle::core("character.catpope").expect("a core rig").expect("it reads");
         let next = wires::set_gain(&b, "drone", 0.5).expect("set");
-        let file = std::env::temp_dir().join(format!("deck-editor-rigs-{}", std::process::id())).join("rig.toml");
-        assert_eq!(with_copy(&file, "character.catpope", &b, Some(14)), (b.clone(), None), "no copy");
+        let (dir, ob) = outbox("copy");
+        assert_eq!(with_copy(&ob, "character.catpope", &b, Some(14)), (b.clone(), None), "no copy");
+        let mut r = Rigs::offline(&dir, "character.catpope", Some(14), "");
+        r.outbox = ob.clone();
+        r.keep(&b, &next);
+        assert_eq!(with_copy(&ob, "character.catpope", &b, Some(14)).0.rig, next.rig, "made on this version: its changes are back");
+        let (plays, local) = with_copy(&ob, "character.catpope", &b, Some(16));
+        assert_eq!((plays.rig, local.map(|l| l.made_on)), (b.rig.clone(), Some(Some(14))), "made on an older one: offered");
+        r.auto.version = Some(15);
+        r.saved(&next, &next);
+        assert!(ob.all().is_empty(), "saved as it plays: off the outbox");
+        assert_eq!(base(&dir, "character.catpope").expect("kept").1, Some(15), "what opens next is the saved one");
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// a draft file of before the outbox becomes the rig's entry once, and is gone; an entry already there wins
+    #[test]
+    fn a_legacy_draft_file_is_moved_into_the_outbox_once() {
+        let b = Bundle::core("character.catpope").expect("a core rig").expect("it reads");
+        let next = wires::set_gain(&b, "drone", 0.5).expect("set");
+        let (dir, ob) = outbox("legacy");
+        let file = dir.join("drafts").join("character.catpope.rig.toml");
         wires::save_draft(&file, &b, &next, Some(14)).expect("written");
-        assert_eq!(with_copy(&file, "character.catpope", &b, Some(14)).0.rig, next.rig, "made on this version: its changes are back");
-        let (plays, local) = with_copy(&file, "character.catpope", &b, Some(16));
-        assert_eq!((plays.rig, local.map(|l| l.made_on)), (b.rig, Some(Some(14))), "made on an older one: offered");
-        std::fs::remove_file(&file).ok();
+        migrate(&dir, &ob);
+        assert!(!file.exists(), "read once and moved");
+        let e = ob.get(KIND, "character.catpope").expect("its entry");
+        assert_eq!((e.kind.as_str(), e.base), ("rig", Some(14)));
+        let (plays, made_on) = kept(&ob, "character.catpope", &b);
+        assert_eq!((plays.rig, made_on), (next.rig.clone(), Some(Some(14))), "the same rig plays");
+        let other = wires::set_gain(&b, "drone", 0.9).expect("set");
+        wires::save_draft(&file, &b, &other, Some(3)).expect("written");
+        migrate(&dir, &ob);
+        assert_eq!((file.exists(), ob.get(KIND, "character.catpope").map(|e| e.base)), (false, Some(Some(14))), "the outbox's own stays");
+        std::fs::remove_dir_all(&dir).ok();
     }
 }

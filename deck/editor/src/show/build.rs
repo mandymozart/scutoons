@@ -43,6 +43,8 @@ pub struct SceneOpen {
     pub kept: Option<deck_space::published::Opened>,
     /// what the opening says beside it (the server not reached …)
     pub note: Option<String>,
+    /// the save of a copy not sent yet, which Build takes over
+    pub save: Option<crate::autosave::Autosave<SceneDocument>>,
 }
 
 impl Host {
@@ -105,6 +107,10 @@ impl Host {
             .iter()
             .find_map(|f| std::fs::read_to_string(f).ok())
             .and_then(|t| deck_space::published::Opened::from_cache(&t).ok());
+        if let Some((doc, save)) = self.take_unsent(&r.id) {
+            let note = if let crate::autosave::State::Conflict(_) = save.state { save.pill() } else { "unsent – kept locally".into() };
+            return Ok(SceneOpen { doc, base: save.version, kept, note: Some(note), save: Some(save) });
+        }
         let doc = |d: super::api::Draft| SceneDocument::from_value(d.content).map(|doc| (doc, d.version)).map_err(|e| format!("{piece}: {e:#}"));
         let (doc, base, note) = match self.api.scene_draft(&r.id) {
             Ok(Some(d)) => {
@@ -117,7 +123,7 @@ impl Host {
                 None => return Err(format!("{piece}: {why}")),
             },
         };
-        Ok(SceneOpen { doc, base, kept, note })
+        Ok(SceneOpen { doc, base, kept, note, save: None })
     }
 
     /// a scene of the list beside the rows band, or the scene sheet's, to Build
@@ -132,24 +138,16 @@ impl Host {
         }
     }
 
-    /// a scene's save as a new draft on the base it is given, for a thread (autosave.rs); Err: the core's problems
-    pub fn scene_job(&self, doc: &SceneDocument) -> Result<impl FnOnce(Option<u64>) -> crate::autosave::Answer<SceneDocument> + Send + 'static, String> {
-        let problems = doc.check_new();
-        if !problems.is_empty() {
-            return Err(problems.join("; "));
-        }
-        let content = serde_json::to_value(doc).map_err(|e| e.to_string())?;
-        let (api, doc) = (self.api.clone(), doc.clone());
-        Ok(move |base| {
-            let answer = api.save_scene(&doc.id, &content, base, "deck editor");
-            (doc, answer)
-        })
-    }
-
     /// Build's scene saved as a new draft on `base`, waiting for the answer → its version and the words for it
     #[cfg(test)]
     pub fn save_built_scene(&mut self, doc: &SceneDocument, base: Option<u64>) -> Result<(u64, String), String> {
-        let (doc, answer) = self.scene_job(doc).map_err(|p| format!("not saved: {p}"))?(base);
+        let mut auto = crate::autosave::Autosave::new(base);
+        auto.edit(std::time::Instant::now());
+        super::saving::send_scene(&self.api, &mut auto, doc, std::time::Instant::now());
+        if let crate::autosave::State::Refused(p) = &auto.state {
+            return Err(format!("not saved: {p}"));
+        }
+        let (doc, answer) = crate::autosave::tests::settle(&mut auto).ok_or("not saved: no answer")?;
         let version = answer.map_err(|e| format!("not saved: {e}"))?;
         self.scene_saved(&doc, version);
         let link = crate::rigs::creator_link(&self.api.base, &format!("scene:{}", doc.id));

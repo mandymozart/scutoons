@@ -151,6 +151,9 @@ impl Host {
 
     /// Enter in one of the sheet's fields
     pub(super) fn compose_typed(&mut self, what: &Typing, text: &str) {
+        if *what == Typing::SceneId && text.trim() != self.compose.id {
+            self.compose_leave();
+        }
         let c = &mut self.compose;
         match what {
             Typing::SceneId => {
@@ -248,21 +251,35 @@ impl Host {
             return;
         }
         self.status = format!("scene:{}: open in Build", doc.id);
-        self.to_build = Some(super::build::ToBuild::Scene(Box::new(super::build::SceneOpen { doc, base: self.compose.base, kept: None, note: None })));
+        self.to_build = Some(super::build::ToBuild::Scene(Box::new(super::build::SceneOpen { doc, base: self.compose.base, kept: None, note: None, save: None })));
         self.build = None;
         self.sheet = None;
         self.typing = None;
     }
 
-    /// the scene named by the id from the server: its name and cast fill the sheet, a save goes on its version
+    /// the scene named by the id from the server: its name and cast fill the sheet, a save goes on its version. A local
+    /// copy not sent yet opens instead; one in conflict gives way to the server's newest.
     fn compose_load(&mut self) {
         let id = self.compose.id.clone();
         if id.is_empty() {
             self.status = "type the scene's id first".into();
             return;
         }
+        if let Some((doc, auto)) = self.take_unsent(&id) {
+            let c = &mut self.compose;
+            (c.name, c.cast) = (doc.stage.name.clone(), doc.cast().into_iter().map(String::from).collect());
+            (c.doc, c.base, c.auto) = (Some(doc), auto.version, auto);
+        }
+        let kept = self.api.outbox.get("scene", &id);
+        if kept.as_ref().is_some_and(|e| !e.conflict) {
+            self.status = format!("scene:{id}: unsent – kept locally, it goes up first");
+            return;
+        }
         match self.api.scene_draft(&id).and_then(|d| d.map(|d| SceneDocument::from_value(d.content).map(|doc| (doc, d.version)).map_err(|e| format!("scene:{id}: {e:#}"))).transpose()) {
             Ok(Some((doc, version))) => {
+                if kept.is_some() {
+                    self.api.outbox.remove("scene", &id);
+                }
                 let c = &mut self.compose;
                 c.name = doc.stage.name.clone();
                 c.cast = doc.cast().into_iter().map(String::from).collect();

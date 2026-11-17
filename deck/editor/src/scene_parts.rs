@@ -327,7 +327,7 @@ mod tests {
     fn duet() -> SceneOpen {
         let mut doc = SceneDocument::new("duet", "Duet", vec!["catpope".into()]);
         doc.recast(&["character:catpope".into()]);
-        SceneOpen { doc, base: Some(3), kept: None, note: None }
+        SceneOpen { doc, base: Some(3), kept: None, note: None, save: None }
     }
 
     /// the panel model: Add offers the slot kinds and the built video kinds; a slot added shows its filter as chips and its

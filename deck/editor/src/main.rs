@@ -7,7 +7,7 @@
 //! (the UI's build time per frame, the frame interval, the audio glitches); `--screenshot FILE` saves the last frame.
 //!
 //! The Wire side (#431, wires.rs): the top bar's switch or `w`; the ports around the being's points, a dragged cable is a
-//! route in the rig through the core's edit and validate, the rig replays, the draft is a file; ctrl+z takes it back.
+//! route in the rig through the core's edit and validate, the rig replays, the draft is its outbox entry; ctrl+z takes it back.
 //!
 //! deck-editor [--rig catpope] [--frames N] [--screenshot FILE] [--tokens FILE] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO]
 mod adding;
@@ -79,7 +79,7 @@ struct Args {
     size: Option<(u32, u32)>,
     /// start on the Wire side
     wire: bool,
-    /// the rig's draft file (default: the cache's drafts folder)
+    /// a rig draft file to play and keep the rig in, instead of the outbox
     draft: Option<PathBuf>,
     /// a check run's drag, by the pointer's own path: from a port to a port (their addresses)
     gesture: Option<(String, String)>,
@@ -482,7 +482,7 @@ struct App {
     notice: Option<Notice>,
     /// the rigs before each change: ctrl+z
     undo: Vec<deck_space::rig::Bundle>,
-    draft: PathBuf,
+    draft: rigs::Copy,
     /// the ports the cable in the hand may reach (the core's answer, per port)
     reach: Vec<bool>,
     /// a port clicked (not dragged): the next right click connects from it
@@ -557,10 +557,22 @@ fn run() -> Result<i32> {
     let _ = CACHE.set(deck_native::cache::for_api(&args.api));
     let subject = if args.rig.contains('.') { args.rig.clone() } else { format!("character.{}", args.rig) };
     let cache = cache_dir();
-    let draft = args.draft.clone().unwrap_or_else(|| rigs::draft_path(&cache, &subject));
+    // a check run never reads or writes the outbox
+    let outbox = if args.frames.is_none() { autosave::Outbox::open(&cache) } else { autosave::Outbox::none() };
+    if args.frames.is_none() {
+        rigs::migrate(&cache, &outbox);
+    }
     let (base, at) = rigs::base(&cache, &subject)?;
-    let version = wires::draft_version(&draft).unwrap_or(at);
-    let stage = stage::Stage::new(base, args.volume, Some(&draft))?;
+    let (draft, plays, made_on) = match &args.draft {
+        Some(f) => (rigs::Copy::File(f.clone()), wires::load_draft(f, &base), wires::draft_version(f)),
+        None if args.frames.is_some() => (rigs::Copy::Nothing, base.clone(), None),
+        None => {
+            let (plays, made_on) = rigs::kept(&outbox, &subject, &base);
+            (rigs::Copy::Outbox, plays, made_on)
+        }
+    };
+    let version = made_on.unwrap_or(at);
+    let stage = stage::Stage::new(base, plays, args.volume)?;
     let panels_file = args.frames.is_none().then(|| cache_dir().join("editor-panels.json"));
     let remembered = panels_file.as_deref().map(panels::load).unwrap_or_default();
     let mut build = panels::Panels::new(&panels::BUILD);
@@ -578,7 +590,7 @@ fn run() -> Result<i32> {
     // a check run (--frames) never asks for a sign-in: SCUTOONS_TOKEN or the kept token only
     let auth = sign_in::Auth::start(&args.api, &cache, args.frames.is_none());
     let mut rigs = if args.frames.is_none() || args.script.new_scene.is_some() { rigs::Rigs::new(&args.api, &cache, &subject, version, auth.token().is_some()) } else { rigs::Rigs::offline(&cache, &subject, version, "a check run asks no server") };
-    // the draft file's changes the server has not got yet go up by themselves
+    // the kept changes the server has not got yet go up by themselves
     if stage.bundle != stage.base {
         rigs.auto.edit(Instant::now());
     }
@@ -1471,13 +1483,31 @@ impl App {
         }
     }
 
-    /// the rig as it plays into the draft file; outside a scene it saves itself (inside, the scene takes its knobs)
+    /// the rig as it plays into its copy; outside a scene it saves itself (inside, the scene takes its knobs)
     fn drafted(&mut self, x: f32, y: f32) {
-        if let Err(e) = wires::save_draft(&self.draft, &self.stage.base, &self.stage.bundle, self.rigs.auto.version) {
-            self.say(format!("{e:#}"), x, y, true);
-        }
+        self.keep_copy(x, y);
         if self.scene.is_none() {
             self.rigs.auto.edit(Instant::now());
+        }
+    }
+
+    fn keep_copy(&mut self, x: f32, y: f32) {
+        let (base, now) = (&self.stage.base, &self.stage.bundle);
+        match &self.draft {
+            rigs::Copy::Outbox => self.rigs.keep(base, now),
+            rigs::Copy::File(f) => {
+                if let Err(e) = wires::save_draft(f, base, now, self.rigs.auto.version) {
+                    self.say(format!("{e:#}"), x, y, true);
+                }
+            }
+            rigs::Copy::Nothing => {}
+        }
+    }
+
+    /// the scene leaves Build: what it has not sent waits in Show's `unsent`
+    pub(crate) fn drop_scene(&mut self) {
+        if let Some(v) = self.scene.take() {
+            self.show.keep_unsent(v.edit.doc, v.auto);
         }
     }
 
@@ -1620,21 +1650,24 @@ impl App {
             match e {
                 rigs::Event::Opened(subject, opened) => {
                     let (base, plays) = *opened;
-                    self.scene = None;
+                    self.drop_scene();
                     self.stage.path.clear();
                     if let Err(err) = self.stage.replay(plays) {
                         self.say(format!("{err:#}"), x, y, true);
                         continue;
                     }
                     self.stage.base = base;
-                    (self.undo, self.sel, self.armed, self.draft) = (Vec::new(), inspector::Sel::Rig, None, self.rigs.draft());
+                    (self.undo, self.sel, self.armed, self.draft) = (Vec::new(), inspector::Sel::Rig, None, rigs::Copy::Outbox);
                     if self.args.toon.is_none() && self.args.book.is_none() {
                         self.rig_toon = toon::RigToon::new(&self.args.api, &subject, &cache_dir());
                     }
                 }
                 rigs::Event::Saved(sent) => {
                     self.stage.base = *sent;
-                    let _ = wires::save_draft(&self.draft, &self.stage.base, &self.stage.bundle, self.rigs.auto.version);
+                    match &self.draft {
+                        rigs::Copy::Outbox => self.rigs.saved(&self.stage.base, &self.stage.bundle),
+                        _ => self.keep_copy(x, y),
+                    }
                 }
                 rigs::Event::Say(text, bad) => self.say(text, x, y, bad),
             }
@@ -1652,7 +1685,7 @@ impl App {
         if let show::build::ToBuild::Scene(o) = asked {
             return self.open_scene(*o);
         }
-        self.scene = None;
+        self.drop_scene();
         match asked {
             show::build::ToBuild::Scene(_) => {}
             show::build::ToBuild::Play(o, set) => {
@@ -1670,7 +1703,7 @@ impl App {
                 }
                 (self.rigs.subject, self.rigs.auto.version) = (subject.clone(), None);
                 (self.undo, self.sel, self.armed) = (Vec::new(), inspector::Sel::Rig, None);
-                self.draft = rigs::draft_path(&cache_dir(), &subject);
+                self.draft = rigs::Copy::Outbox;
                 self.leveled = !self.wire;
                 let line = self.show.status.clone();
                 self.say(line, x, y, false);

@@ -34,7 +34,7 @@ pub mod new_scene;
 pub mod perform;
 mod roles;
 mod rows;
-mod saving;
+pub mod saving;
 mod scenes;
 mod session;
 mod sheets;
@@ -296,6 +296,8 @@ pub struct Host {
     pub flashing: Option<flash::Flashing>,
     /// each show document edited saves itself (saving.rs), by its id
     pub saves: BTreeMap<String, crate::autosave::Autosave<String>>,
+    /// scenes with something unsent that are open nowhere, by id: they go up from here (saving.rs)
+    pub unsent: BTreeMap<String, (deck_space::scene_document::SceneDocument, crate::autosave::Autosave<deck_space::scene_document::SceneDocument>)>,
     /// #531: the Session sheet's place and lists
     pub session: session::Session,
     /// the library's toons for the toon picker, its query, the new show's name
@@ -333,13 +335,15 @@ impl Host {
     pub fn new(file: Option<PathBuf>, id: Option<String>, relay: Option<String>, api: String) -> Host {
         let api = api::Api::new(api);
         let mut status = String::new();
+        let mut version = None;
         let text = match (&file, &id) {
             (Some(f), _) => std::fs::read_to_string(f).map_err(|e| format!("{}: {e}", f.display())),
-            (None, Some(id)) => api.load(id).map(|(t, why)| {
-                if let Some(w) = why {
+            (None, Some(id)) => api.load(id).map(|l| {
+                if let Some(w) = l.why {
                     status = format!("from the cache: {w}");
                 }
-                t
+                version = l.version;
+                l.text
             }),
             (None, None) => Ok(EMPTY.to_string()),
         };
@@ -368,7 +372,10 @@ impl Host {
         show_panels.floats.scrolls_itself("rows");
         perform_panels.floats.scrolls_itself("matrix");
         let scroll = deck_kit::editor::table::Scroll::default();
-        Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), columns: Vec::new(), group: None, context: None, show_panels, perform_panels, show_scroll: scroll, perform_scroll: scroll, band: None, view_slot: Rect::default(), help: None, address: None, book: None, book_why: None, scene_query: String::new(), dragging: None, refused: None, toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, saves: BTreeMap::new(), session: session::Session::default(), toons: toons::Toons::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), build: None, to_build: None, compose: new_scene::Composer::default(), to_stage: None, demos: Vec::new(), demo_book: None, link, api }
+        let saves = version.map(|v| (show.id.clone(), crate::autosave::Autosave::new(Some(v)))).into_iter().collect();
+        let mut host = Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), columns: Vec::new(), group: None, context: None, show_panels, perform_panels, show_scroll: scroll, perform_scroll: scroll, band: None, view_slot: Rect::default(), help: None, address: None, book: None, book_why: None, scene_query: String::new(), dragging: None, refused: None, toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, status, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, saves, unsent: BTreeMap::new(), session: session::Session::default(), toons: toons::Toons::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), build: None, to_build: None, compose: new_scene::Composer::default(), to_stage: None, demos: Vec::new(), demo_book: None, link, api };
+        host.adopt_kept();
+        host
     }
 
     /// the document at the end of the path (the top's when a step is missing)
@@ -585,9 +592,10 @@ impl Host {
     fn enter(&mut self, i: usize) {
         let Some(seat) = self.shown().seats.get(i).cloned() else { return };
         if !self.library.contains_key(&seat.show.id) {
-            match self.api.load(&seat.show.id).and_then(|(t, why)| deck_show::document::open(&t).map(|s| (s, why))) {
-                Ok((s, why)) => {
-                    self.status = why.map_or(format!("{} loaded", seat.show), |w| format!("{} from the cache: {w}", seat.show));
+            match self.api.load(&seat.show.id).and_then(|l| deck_show::document::open(&l.text).map(|s| (s, l))) {
+                Ok((s, l)) => {
+                    self.status = l.why.map_or(format!("{} loaded", seat.show), |w| format!("{} from the cache: {w}", seat.show));
+                    self.saves.insert(seat.show.id.clone(), crate::autosave::Autosave::new(l.version));
                     self.library.insert(seat.show.id.clone(), s);
                 }
                 Err(e) => {
@@ -610,8 +618,9 @@ impl Host {
             if self.library.contains_key(&p.id) {
                 continue;
             }
-            if let Some(s) = self.api.load(&p.id).ok().and_then(|(t, _)| deck_show::parse(&t).ok()) {
+            if let Some((s, version)) = self.api.load(&p.id).ok().and_then(|l| deck_show::parse(&l.text).ok().map(|s| (s, l.version))) {
                 todo.extend(s.seats.iter().map(|x| x.show.clone()));
+                self.saves.insert(p.id.clone(), crate::autosave::Autosave::new(version));
                 self.library.insert(p.id.clone(), s);
             }
         }
@@ -619,12 +628,20 @@ impl Host {
         deck_show::resolve(self.sub.conductor().show(), &lib).map_err(|problems| format!("not flashed: {}", problems.iter().map(ToString::to_string).collect::<Vec<_>>().join("; ")))
     }
 
+    /// the server's newest of the shown document; a local copy not sent yet stays open, one in conflict gives way
     fn load(&mut self) {
         let id = self.shown().id.clone();
-        match self.api.load(&id).and_then(|(t, why)| deck_show::document::open(&t).map(|s| (s, why))) {
-            Ok((s, why)) => {
-                self.saves.remove(&id);
-                self.status = why.map_or(format!("loaded {}@{}", s.id, s.version), |w| format!("{}@{} from the cache: {w}", s.id, s.version));
+        if self.api.outbox.get("show", &id).is_some_and(|e| !e.conflict) {
+            self.status = format!("{id}: unsent – kept locally, it goes up first");
+            return;
+        }
+        match self.api.load(&id).and_then(|l| deck_show::document::open(&l.text).map(|s| (s, l))) {
+            Ok((s, l)) => {
+                if l.why.is_none() {
+                    self.api.outbox.remove("show", &id);
+                }
+                self.saves.insert(id.clone(), crate::autosave::Autosave::new(l.version));
+                self.status = l.why.map_or(format!("loaded {}@{}", s.id, s.version), |w| format!("{}@{} from the cache: {w}", s.id, s.version));
                 if self.path.is_empty() {
                     // a new document at the top: the conductor starts over on it (what plays stays until a row changes it)
                     self.sub = Subtree::new(s, ClockChoice::Parent);

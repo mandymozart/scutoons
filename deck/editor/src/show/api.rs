@@ -16,17 +16,25 @@ pub struct Api {
     pub base: String,
     auth: crate::sign_in::Auth,
     cache: PathBuf,
+    /// where what is sent waits until the server has it
+    pub outbox: crate::autosave::Outbox,
 }
 
 impl Api {
     pub fn new(base: String) -> Api {
-        Api { base, auth: crate::sign_in::current(), cache: crate::cache_dir().join("shows") }
+        Api { base, auth: crate::sign_in::current(), cache: crate::cache_dir().join("shows"), outbox: crate::autosave::Outbox::current() }
     }
 
     /// #537's UI-model test: a test API and its own cache
     #[cfg(test)]
     pub fn with_cache(base: String, cache: PathBuf) -> Api {
-        Api { base, auth: crate::sign_in::Auth::fixed(None), cache }
+        Api { base, auth: crate::sign_in::Auth::fixed(None), cache, outbox: crate::autosave::Outbox::none() }
+    }
+
+    /// the same API at another address (a test's server coming back)
+    #[cfg(test)]
+    pub fn with_base(&self, base: &str) -> Api {
+        Api { base: base.into(), ..self.clone() }
     }
 
     fn agent() -> ureq::Agent {
@@ -44,15 +52,16 @@ impl Api {
         let _ = std::fs::create_dir_all(&self.cache).and_then(|_| std::fs::write(self.cache.join(format!("{id}.json")), text));
     }
 
-    /// The newest draft of show `id` (its document's JSON) – from the API, else the cache (and why the API did not answer).
-    pub fn load(&self, id: &str) -> Result<(String, Option<String>), String> {
+    /// The newest draft of show `id` (its document's JSON) and its version – from the API, else the cache (and why the
+    /// API did not answer).
+    pub fn load(&self, id: &str) -> Result<Loaded, String> {
         let url = format!("{}/shows/{id}?draft=1", self.base);
         let api = self.auth(Self::agent().get(&url)).call().map_err(|e| e.to_string()).and_then(|r| r.into_json::<serde_json::Value>().map_err(|e| e.to_string()));
-        match api.map(|v| v.get("content").cloned()) {
-            Ok(Some(doc)) if doc.is_object() => {
+        match api.map(|v| (v.get("content").cloned(), v.pointer("/version/id").and_then(serde_json::Value::as_u64))) {
+            Ok((Some(doc), version)) if doc.is_object() => {
                 let text = serde_json::to_string_pretty(&doc).unwrap_or_default();
                 self.keep(id, &text);
-                Ok((text, None))
+                Ok(Loaded { text, version, why: None })
             }
             other => {
                 let why = match other {
@@ -60,7 +69,7 @@ impl Api {
                     _ => "no document".into(),
                 };
                 let text = std::fs::read_to_string(self.cache.join(format!("{id}.json"))).map_err(|_| format!("{url}: {why}"))?;
-                Ok((text, Some(why)))
+                Ok(Loaded { text, version: None, why: Some(why) })
             }
         }
     }
@@ -81,19 +90,31 @@ impl Api {
         }
     }
 
-    /// Save `doc` as a new draft; the version the server gave it. Kept in the cache either way.
-    pub fn save(&self, id: &str, doc: &serde_json::Value) -> Result<u64, Refusal> {
+    /// Save `doc` as a new draft on `base` (none known: on whatever the server has); the version the server gave it.
+    /// Kept in the cache either way.
+    pub fn save(&self, id: &str, doc: &serde_json::Value, base: Option<u64>) -> Result<u64, Refusal> {
         self.keep(id, &serde_json::to_string_pretty(doc).unwrap_or_default());
         let url = format!("{}/shows/{id}", self.base);
-        let body = serde_json::json!({ "content": doc, "message": "deck editor" });
+        let mut body = serde_json::json!({ "content": doc, "message": "deck editor" });
+        if let Some(b) = base {
+            body["base"] = b.into();
+        }
         let r = match self.auth(Self::agent().put(&url)).send_json(body) {
             Ok(r) => r,
             Err(ureq::Error::Status(code, r)) => return Err(self.refusal(&format!("show:{id}"), code, &r.into_json().unwrap_or_default())),
             Err(e) => return Err(Refusal::Offline(format!("{url}: {e} – kept in the cache"))),
         };
         let v: serde_json::Value = r.into_json().map_err(|e| Refusal::Other(format!("{url}: {e}")))?;
-        Ok(v.pointer("/version/version").or_else(|| v.get("version")).and_then(|x| x.as_u64()).unwrap_or_default())
+        v.pointer("/version/id").and_then(serde_json::Value::as_u64).ok_or_else(|| Refusal::Other(format!("{url}: the answer has no version")))
     }
+}
+
+/// a show read: its document's JSON, its version (none from the cache), why the API did not answer
+#[derive(Debug, Clone, PartialEq)]
+pub struct Loaded {
+    pub text: String,
+    pub version: Option<u64>,
+    pub why: Option<String>,
 }
 
 impl Api {
@@ -271,7 +292,7 @@ mod tests {
         assert!(api.draft("moods").unwrap_err().starts_with("http://127.0.0.1:9/api/entities/moods?draft=1"));
         assert!(matches!(api.save_draft("moods", &serde_json::json!({}), Some(3), "deck editor"), Err(Refusal::Offline(w)) if w.ends_with("not saved")));
         assert!(api.save_scene("duet", &serde_json::json!({}), None, "deck editor").unwrap_err().to_string().starts_with("http://127.0.0.1:9/api/scenes/duet: "));
-        assert!(matches!(api.save("show", &serde_json::json!({})), Err(Refusal::Offline(_))));
+        assert!(matches!(api.save("show", &serde_json::json!({}), None), Err(Refusal::Offline(_))));
         assert!(api.scene_draft("duet").unwrap_err().starts_with("http://127.0.0.1:9/api/scenes/duet?draft=1"));
     }
 }
