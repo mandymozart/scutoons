@@ -318,12 +318,29 @@ pub fn of_build(modules: &[serde_json::Value], instruments: &[deck_space::rig::I
     out
 }
 
+/// Build at a scene: the book's characters and items to fill its slots; without a book, what the deck's core rigs stand for
+pub fn of_scene(book: Option<&deck_space::rig::book::Book>) -> Vec<Entry> {
+    if let Some(b) = book {
+        return deck_space::library::from_book(b, crate::LOCALE).into_iter().filter(|e| matches!(e.kind, Kind::Character | Kind::Item)).collect();
+    }
+    deck_space::rig::bundle::CORE
+        .iter()
+        .filter_map(|(s, _)| deck_space::scene_document::FillerRef::of_rig(s))
+        .map(|f| {
+            let kind = if f.starts_with("item:") { Kind::Item } else { Kind::Character };
+            let label = f.split_once(':').map_or(f.as_str(), |(_, id)| id).to_string();
+            Entry { address: f.clone(), label, detail: f, kind, preview: Preview::Kind, made_for: Vec::new() }
+        })
+        .collect()
+}
+
 /// The library on the editor: its entries each frame, a card's way out, the find field's keys, a check run's drag.
 impl crate::App {
     pub(crate) fn follow_library(&mut self) {
         use crate::show::Workspace;
         self.library.poll();
         let purpose = match self.workspace {
+            Workspace::Build if self.scene.as_ref().is_some_and(|v| v.inside.is_none()) => Purpose::Scene,
             Workspace::Build => Purpose::Build,
             Workspace::Module => Purpose::Module,
             Workspace::Show => Purpose::Show,
@@ -337,6 +354,7 @@ impl crate::App {
         }
         let entries = match purpose {
             Purpose::Build => of_build(self.rigs.module_docs(), &crate::adding::instruments(&self.stage.bundle, self.rigs.instruments()), self.book.book.as_deref(), self.library.assets()),
+            Purpose::Scene => of_scene(self.book.book.as_deref()),
             Purpose::Show => self.show.library_entries(),
             Purpose::Module => of_modules(&self.module.list),
         };
@@ -430,6 +448,11 @@ impl crate::App {
         match self.workspace {
             crate::show::Workspace::Show => {
                 self.show.drop_piece(&e.address, at.0, at.1);
+            }
+            crate::show::Workspace::Build if self.library.purpose == Purpose::Scene => {
+                if !self.panels().floats.covers(at.0, at.1) {
+                    self.scene_drop(&e.address, at.0, at.1);
+                }
             }
             crate::show::Workspace::Build if !self.panels().floats.covers(at.0, at.1) => {
                 let choice = match e.kind {

@@ -33,6 +33,7 @@ mod rigs;
 mod saving;
 mod scene;
 mod scene_parts;
+mod scene_stage;
 mod settings;
 mod show;
 mod sign_in;
@@ -1382,7 +1383,8 @@ impl App {
                 self.focus(false);
                 self.armed = None;
                 // Play: the deck's own hand – a knob under the pointer turns, anywhere else it orbits
-                if self.grid_grab(x, y) {
+                if self.scene_mark_press(x, y) {
+                } else if self.grid_grab(x, y) {
                     self.panel.drag = Some(Drag::Member);
                 } else if self.wire {
                     self.panel.drag = Some(Drag::Orbit(x, y));
@@ -2443,6 +2445,10 @@ impl App {
         }
         self.grid.follow(self.scene.as_ref(), &self.stage, self.args.grid.as_deref());
         self.grid.draw_stage(ui, t, &self.stage.space, Rect { x: stage_x, y: top, w: stage_w, h: stage_h }, scale);
+        if let Some(view) = self.scene.as_mut() {
+            let carry = self.carry.as_ref().and_then(|c| c.at);
+            scene_stage::draw(ui, t, view, &self.stage.space, Rect { x: stage_x, y: top, w: stage_w, h: stage_h }, scale, carry);
+        }
         // Build's panels and what each asks for this frame; the view gizmo is a place no panel covers
         let gizmo = Rect { x: wf * 0.5 - 40.0, y: bar_bottom + 16.0, w: 80.0, h: 80.0 };
         let panning = match self.panel.drag {
