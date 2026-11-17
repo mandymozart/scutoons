@@ -449,7 +449,7 @@ mod tests {
 
     const TOP: &str = r#"{
       "id": "top", "version": 3,
-      "outlets": [{ "id": "left" }, { "id": "right" }, { "id": "lights", "kind": "device" }],
+      "toon": "catpope", "outlets": [{ "id": "left" }, { "id": "right" }, { "id": "lights", "kind": "device" }],
       "rows": [
         { "id": "arrival", "cells": { "left": { "mode": "play", "piece": "scene:nave" }, "right": { "mode": "mirror", "of": "left" } } },
         { "id": "roar", "cells": { "left": { "mode": "values", "piece": "scene:nave", "values": { "light": 0.8 } }, "right": { "mode": "play", "piece": "character:catpope" } } },

@@ -44,6 +44,9 @@ follow a pointer, that is a finding, not a reason to paste. Grep the area's deci
 ## Checks (one at a time)
 - `deck/` (Rust workspace): `cargo test` and `cargo clippy` in the crate touched; the `pipewire` feature builds only on Linux. This machine's clippy
   may be newer than a worker's: `npm run deck:ci` here before every merge.
+- deck:ci's changed tier (#604, the default since 2026-11-16): `npm run deck:ci` runs only what changed since the last green run. That is the touched
+  crates and their users (tests, clippy, the guards); a hub crate (core, space, engine, kit, show, module, relay, the wasm crates), the workspace files
+  or shared/live* run the whole default tier. The whole default tier is `--all`, and the pre-push hook runs that one before every push.
 - deck:ci's green stamps (#524): a step green on the same clean tree – in any worktree – is skipped and named, so the rerun before a merge and the
   pre-push hook take seconds after the worker's green run; a dirty watched path runs everything, `--fresh` forces.
 - Deck builds (#526): a worktree builds into `<git common dir>/deck-target/<id>` (sccache shares the registry crates) – set up by its `npm install` and by deck:ci,

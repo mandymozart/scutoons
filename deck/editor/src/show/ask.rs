@@ -15,7 +15,7 @@ use deck_kit::base::tokens::Tokens;
 use deck_kit::editor::controls::{self, Rect};
 use deck_kit::editor::typeahead::{Item, Typeahead};
 use deck_show::question::{self, Offers, QuestionView, Set};
-use deck_show::rows::Edit;
+use deck_show::rows::{self, Edit, PieceView};
 use deck_show::view;
 use deck_ui::vote::{self as words, RULES};
 use std::sync::Arc;
@@ -24,10 +24,72 @@ use winit::keyboard::{Key, NamedKey};
 /// the language of the labels (the editor's own words are English, main.rs)
 const LOCALE: &str = "en";
 
-/// The right click's typeahead on the selected cells, and what its lines do.
+/// The typeahead open in the rows band, and what its lines do.
 pub struct Context {
     ta: Typeahead,
-    offers: Arc<Offers>,
+    offered: Offered,
+}
+
+/// What the typeahead offers: on cells by the right click, the questions; in the cell, its content (the book's published
+/// scenes – without a book the typed text is the piece); on column heads, grouping and naming; on a row head, its name,
+/// a new row after it and its remove.
+pub(super) enum Offered {
+    Questions(Arc<Offers>),
+    Pieces(Vec<PieceView>),
+    Columns(Vec<ColumnAct>),
+    Rows(Vec<RowAct>),
+}
+
+/// a line of a row head's typeahead
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum RowAct {
+    Rename,
+    Add,
+    Remove,
+}
+
+impl RowAct {
+    fn label(self) -> &'static str {
+        match self {
+            RowAct::Rename => "Rename",
+            RowAct::Add => "New row",
+            RowAct::Remove => rows::REMOVE,
+        }
+    }
+
+    fn detail(self) -> &'static str {
+        match self {
+            RowAct::Rename => "ctrl+r · in place",
+            RowAct::Add => "after this one",
+            RowAct::Remove => "asks first",
+        }
+    }
+}
+
+/// a line of a column head's typeahead
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum ColumnAct {
+    Group,
+    Ungroup,
+    Rename,
+}
+
+impl ColumnAct {
+    fn label(self) -> &'static str {
+        match self {
+            ColumnAct::Group => "Group the selected columns",
+            ColumnAct::Ungroup => "Ungroup",
+            ColumnAct::Rename => "Rename",
+        }
+    }
+
+    fn detail(self) -> &'static str {
+        match self {
+            ColumnAct::Group => "ctrl+g · adjacent columns, then named",
+            ColumnAct::Ungroup => "the selected columns leave their group",
+            ColumnAct::Rename => "ctrl+r · in place",
+        }
+    }
 }
 
 /// A typed field of the question's form.
@@ -98,10 +160,40 @@ impl Host {
     }
 
     /// The right click at `(x, y)`: on a cell of the rows band (one outside the selection is selected alone first) the
-    /// typeahead opens there with what deck-show offers for the selected cells; anywhere else an open one closes.
+    /// typeahead opens there with what deck-show offers for the selected cells; on a column, group or row head that
+    /// head's menu; anywhere else an open one closes.
     pub fn context(&mut self, x: f32, y: f32) -> bool {
         self.context = None;
-        let Some(Hit::Cell(r, c)) = self.hit(x, y) else { return false };
+        let (r, c) = match self.hit(x, y) {
+            Some(Hit::Cell(r, c)) => (r, c),
+            Some(h @ (Hit::Column(c) | Hit::Group(c))) => {
+                let picked = match h {
+                    Hit::Column(_) => view::plan(self.shown()).columns.get(c).is_some_and(|col| self.columns.contains(&col.id)),
+                    _ => false,
+                };
+                if !picked {
+                    self.press(h);
+                }
+                let acts = [ColumnAct::Group, ColumnAct::Ungroup, ColumnAct::Rename];
+                let items = acts.iter().enumerate().map(|(id, a)| Item { id, label: a.label().into(), detail: a.detail().into() }).collect();
+                self.typing = None;
+                self.context = Some(Context { ta: Typeahead::new(items, x, y), offered: Offered::Columns(acts.to_vec()) });
+                return true;
+            }
+            Some(h @ (Hit::Row(_) | Hit::RowName)) => {
+                if let Hit::Row(i) = h {
+                    if i != self.row {
+                        self.press(h);
+                    }
+                }
+                let acts = [RowAct::Rename, RowAct::Add, RowAct::Remove];
+                let items = acts.iter().enumerate().map(|(id, a)| Item { id, label: a.label().into(), detail: a.detail().into() }).collect();
+                self.typing = None;
+                self.context = Some(Context { ta: Typeahead::new(items, x, y), offered: Offered::Rows(acts.to_vec()) });
+                return true;
+            }
+            _ => return false,
+        };
         let column = view::plan(self.shown()).columns.get(c).map(|c| c.id.clone());
         if r != self.row || self.role.is_some() || !column.is_some_and(|c| self.cells.contains(&c)) {
             self.select_cell(r, c, false);
@@ -118,8 +210,27 @@ impl Host {
         let items = offers.list.iter().enumerate().map(|(id, o)| Item { id, label: o.label.clone(), detail: o.detail.clone() }).collect();
         let found = offers.clone();
         self.typing = None;
-        self.context = Some(Context { ta: Typeahead::found_by(items, x, y, move |q| found.find(q)), offers });
+        self.context = Some(Context { ta: Typeahead::found_by(items, x, y, move |q| found.find(q)), offered: Offered::Questions(offers) });
         true
+    }
+
+    /// The selected cell's content picked in place: the typeahead opens on the cell with the book's published scenes,
+    /// found as typed (without a book it lists nothing and Enter takes the typed `scene:<id>`; the core reads it).
+    pub(super) fn open_pieces(&mut self) {
+        let (Some(_), Some(column)) = self.selected() else { return };
+        let Some(c) = view::plan(self.shown()).columns.iter().position(|x| x.id == column) else { return };
+        let at = self.hits.iter().rev().find(|(_, h)| *h == Hit::Cell(self.row, c)).map_or((self.cursor.0, self.cursor.1), |(r, _)| (r.x, r.y + r.h));
+        let pieces = self.book.as_ref().map(|b| rows::pieces(b, "", super::rows::LOCALE)).unwrap_or_default();
+        let items = pieces.iter().enumerate().map(|(id, p)| Item { id, label: p.label.clone(), detail: p.detail.clone() }).collect();
+        let note = if self.book.is_none() { rows::TYPE_IT.to_string() } else { String::new() };
+        let book = self.book.clone();
+        let addresses: Vec<String> = pieces.iter().map(|p| p.address.clone()).collect();
+        let find = move |q: &str| match &book {
+            Some(b) => rows::pieces(b, q, super::rows::LOCALE).iter().filter_map(|p| addresses.iter().position(|a| *a == p.address)).collect(),
+            None => vec![],
+        };
+        self.typing = None;
+        self.context = Some(Context { ta: Typeahead::found_by(items, at.0, at.1, find).with_note(note), offered: Offered::Pieces(pieces) });
     }
 
     /// the pointer over the open typeahead highlights its line
@@ -146,11 +257,17 @@ impl Host {
         let Some(c) = self.context.as_mut() else { return false };
         match key {
             Key::Named(NamedKey::Escape) => self.context = None,
-            Key::Named(NamedKey::Enter) => {
-                if let Some(id) = c.ta.chosen() {
-                    self.context_pick(id);
+            Key::Named(NamedKey::Enter) => match (c.ta.chosen(), &c.offered) {
+                (Some(id), _) => self.context_pick(id),
+                (None, Offered::Pieces(_)) if !c.ta.query().trim().is_empty() => {
+                    let typed = c.ta.query().trim().to_string();
+                    if self.pick_piece(&typed) {
+                        self.context = None;
+                    }
                 }
-            }
+                (None, Offered::Pieces(_)) if self.book.is_some() => self.status = rows::NONE_FOUND.into(),
+                _ => {}
+            },
             Key::Named(NamedKey::ArrowUp) => c.ta.step(-1),
             Key::Named(NamedKey::ArrowDown) => c.ta.step(1),
             Key::Named(NamedKey::ArrowLeft) => c.ta.left(),
@@ -168,15 +285,51 @@ impl Host {
     #[cfg(test)]
     pub fn context_lines(&self) -> Vec<String> {
         let Some(c) = self.context.as_ref() else { return vec![] };
-        c.offers.list.iter().enumerate().filter(|(i, _)| c.ta.shows(*i)).map(|(_, o)| o.label.clone()).collect()
+        let labels: Vec<String> = match &c.offered {
+            Offered::Questions(o) => o.list.iter().map(|o| o.label.clone()).collect(),
+            Offered::Pieces(p) => p.iter().map(|p| p.label.clone()).collect(),
+            Offered::Columns(a) => a.iter().map(|a| a.label().to_string()).collect(),
+            Offered::Rows(a) => a.iter().map(|a| a.label().to_string()).collect(),
+        };
+        labels.into_iter().enumerate().filter(|(i, _)| c.ta.shows(*i)).map(|(_, l)| l).collect()
     }
 
     /// A line picked: deck-show makes the edit (checked there; a line that cannot be picked says why). A new question's
     /// words are typed next: its field opens.
     fn context_pick(&mut self, id: usize) {
         let Some(c) = self.context.take() else { return };
-        let new = c.offers.list.get(id).is_some_and(|o| o.act == Some(question::Act::New));
-        match c.offers.pick(self.shown(), id) {
+        let offers = match c.offered {
+            Offered::Questions(o) => o,
+            Offered::Pieces(p) => {
+                if let Some(piece) = p.get(id) {
+                    if !self.pick_piece(&piece.address.clone()) {
+                        self.context = Some(Context { ta: c.ta, offered: Offered::Pieces(p) });
+                    }
+                }
+                return;
+            }
+            Offered::Columns(a) => {
+                match a.get(id) {
+                    Some(ColumnAct::Group) => self.group_selected(),
+                    Some(ColumnAct::Ungroup) => self.ungroup_selected(),
+                    Some(ColumnAct::Rename) => self.rename_selected(),
+                    None => {}
+                }
+                return;
+            }
+            Offered::Rows(a) => {
+                if let Some(act) = a.get(id) {
+                    self.rows_press(match act {
+                        RowAct::Rename => Hit::RowName,
+                        RowAct::Add => Hit::RowAdd,
+                        RowAct::Remove => Hit::RowRemove,
+                    });
+                }
+                return;
+            }
+        };
+        let new = offers.list.get(id).is_some_and(|o| o.act == Some(question::Act::New));
+        match offers.pick(self.shown(), id) {
             Ok(done) => {
                 self.status = done.said;
                 self.changed(done.show);
@@ -467,9 +620,9 @@ mod tests {
         assert_eq!(made, fixture, "the document headless scenario 43 launches: {}", serde_json::to_string(&made).unwrap());
 
         host.show_panels.floats.wheel(side.x + 4.0, side.y + 4.0, 100.0);
-        press(&mut host, false, |h| *h == Hit::Save);
-        assert_eq!(host.status, "saved vote-cell as version 2");
-        host.sub = deck_show::Subtree::new(deck_show::parse(r#"{ "id": "vote-cell", "version": 1, "outlets": [{ "id": "left" }], "rows": [] }"#).unwrap(), deck_show::ClockChoice::Parent);
+        host.save_waiting();
+        assert_eq!(host.save_pill(), "saved · v2");
+        host.sub = deck_show::Subtree::new(deck_show::parse(r#"{ "id": "vote-cell", "version": 1, "toon": "catpope", "outlets": [{ "id": "left" }], "rows": [] }"#).unwrap(), deck_show::ClockChoice::Parent);
         press(&mut host, false, |h| *h == Hit::Load);
         assert_eq!(host.shown(), &made, "loaded as saved");
 

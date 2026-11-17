@@ -1,6 +1,7 @@
 //! The stage's background on the space (deck-catalog `Background`, the one that won): a colour is what the space clears
 //! to and fades into; an image is laid over the drawn stage, cover-fit (deck-core `fit::cover`), its transparency kept.
-//! Its picture comes through the portraits' loader (`Picture::media`). A video does not play yet: black, said once.
+//! Its picture comes through the portraits' loader (`Picture::media`). With no colour set the space clears to its ground
+//! (black; the editor's `stage` token). A video does not play yet: the ground, said once.
 use crate::cast::Picture;
 use crate::Background;
 
@@ -11,20 +12,23 @@ pub struct Backdrop {
     pub background: Option<Background>,
     /// the image's slot in the portraits
     pub slot: Option<usize>,
+    /// what shows when no background sets a colour, display values
+    pub ground: [f32; 3],
 }
 
 impl Backdrop {
     pub fn new(background: Option<Background>, portraits: &mut Portraits) -> Backdrop {
         let slot = background.as_ref().and_then(|b| b.image.as_deref()).map(|p| portraits.picture(Picture::media(p)));
         if let Some(v) = background.as_ref().and_then(|b| b.video.as_deref()) {
+            // TODO(#326): play it on the core's own video playback
             tracing::warn!("background: the video '{v}' does not play on this deck yet – black");
         }
-        Backdrop { background, slot }
+        Backdrop { background, slot, ground: [0.0; 3] }
     }
 
-    /// what the stage clears to, display values: the colour, else black
+    /// what the stage clears to, display values: the colour, else the ground
     pub fn clear(&self) -> [f32; 3] {
-        self.background.as_ref().and_then(Background::rgb).unwrap_or([0.0; 3])
+        self.background.as_ref().and_then(Background::rgb).unwrap_or(self.ground)
     }
 
     /// the image's slot and its texture coordinates on a `size` stage, once its picture is here
@@ -142,5 +146,16 @@ mod tests {
         portraits.poll();
         let (_, rect) = b.image(&portraits, (1600, 900)).unwrap();
         assert!((rect[2] - 0.888_888_9).abs() < 1e-5 && rect[3] == 1.0, "too wide: the height fits, {rect:?}");
+    }
+
+    #[test]
+    fn with_no_colour_set_the_ground_shows() {
+        let mut portraits = Portraits::manual();
+        let grey = [0.2, 0.2, 0.2];
+        let mut b = Backdrop::new(Some(Background::image("backgrounds/wide.png")), &mut portraits);
+        b.ground = grey;
+        assert_eq!(b.clear(), grey);
+        b = Backdrop { ground: grey, ..Backdrop::new(Some(Background::colour("#fff")), &mut portraits) };
+        assert_eq!(b.clear(), [1.0; 3], "a set colour wins over the ground");
     }
 }

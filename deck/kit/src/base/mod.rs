@@ -2,6 +2,7 @@
 //! pixels, painter's order) and answers where it landed; `screen` paints draw lists as epaint's shapes, the mono face
 //! set on the decks' own atlas (`glyphs`) or by egui's context (the editor, feature `egui-text`). The token shape is here, the token sets are the modules'.
 pub mod draw;
+pub mod fonts;
 pub mod glyphs;
 pub mod input;
 #[cfg(feature = "pixel")]

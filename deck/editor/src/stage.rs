@@ -41,6 +41,12 @@ pub struct Stage {
     pub space: Space,
     gpu: Option<SpaceGpu>,
     texture: Option<(wgpu::Texture, wgpu::TextureView, (u32, u32))>,
+    /// the eyedropper's pixel (the stage's pixels): asked before a frame, copied after its draw, read after its submit
+    pixel: Option<(u32, u32)>,
+    pixel_buf: Option<wgpu::Buffer>,
+    /// the library's still of what plays: asked before a frame, the whole stage copied after its draw (rows padded)
+    still: bool,
+    still_buf: Option<(wgpu::Buffer, u32, (u32, u32))>,
     tempo: Tempo,
     handles: Option<audio::Handles>,
     _audio: Option<backend::Running>,
@@ -84,6 +90,9 @@ pub struct Stage {
     played_scene: Option<Scene>,
     /// a panic holds: no sound device, a black picture
     pub dark: bool,
+    /// the background of what plays, and the show's over it
+    own_background: Option<deck_space::Background>,
+    over: Option<deck_space::Background>,
     /// why a track is silent: its module is not loaded (published.rs), by track id
     pub silent: std::collections::BTreeMap<String, String>,
 }
@@ -166,10 +175,9 @@ fn prepare(bundle: Bundle) -> Result<Ready> {
 }
 
 impl Stage {
-    /// the rig `base` (rigs.rs `base`), with the `draft` file's rig over it if there is one; it plays at `volume`
-    pub fn new(base: Bundle, volume: f32, draft: Option<&std::path::Path>) -> Result<Stage> {
-        let bundle = draft.map_or_else(|| base.clone(), |path| wires::load_draft(path, &base));
-        let mut stage = Stage::start(prepare(bundle)?, volume);
+    /// `plays` on the stage at `volume`, the difference to the rig `base` (rigs.rs `base`)
+    pub fn new(base: Bundle, plays: Bundle, volume: f32) -> Result<Stage> {
+        let mut stage = Stage::start(prepare(plays)?, volume);
         stage.base = base;
         Ok(stage)
     }
@@ -177,7 +185,7 @@ impl Stage {
     /// a changed rig takes the stage: refused before anything stops; the sound device is let go before the new engine
     /// opens it; the camera and the turned knobs stay
     pub fn replay(&mut self, bundle: Bundle) -> Result<()> {
-        self.take(prepare(bundle)?)
+        self.take(prepare(bundle)?, true)
     }
 
     /// A scene the core resolved (Show's new scene) plays in the rig's place, the rig kept for `replay`: its cast sounds
@@ -190,10 +198,24 @@ impl Stage {
         let played = scene.clone();
         let ready = Ready { bundle: self.bundle.clone(), knobs: Vec::new(), strips: Vec::new(), sum: None, scene, graph, tempo, space_node, ports: Vec::new(), groups, reach: Default::default() };
         self.path.clear();
-        self.take(ready)?;
+        let same = self.scene.as_deref() == Some(id);
+        self.take(ready, same)?;
+        self.space.dop.scene = Some(format!("scene:{id}"));
+        if !same {
+            self.space.open_on_scene_camera();
+        }
         self.scene = Some(id.to_string());
         self.played_scene = Some(played);
         Ok(())
+    }
+
+    /// The show's background over what plays: the parent wins.
+    pub fn wear(&mut self, show: Option<&deck_space::Background>) {
+        if self.over.as_ref() == show {
+            return;
+        }
+        self.over = show.cloned();
+        self.space.set_background(deck_catalog::background::resolve(show, self.own_background.as_ref(), None, None).cloned());
     }
 
     /// Black and silent until `resume`: the sound device is let go, the picture goes black.
@@ -213,16 +235,22 @@ impl Stage {
         }
     }
 
-    fn take(&mut self, ready: Ready) -> Result<()> {
+    /// the stage plays `ready`; `keep`: the view and a playing move stay (else the new scene's own camera)
+    fn take(&mut self, ready: Ready, keep: bool) -> Result<()> {
         let knobs: Vec<(String, f32)> = self.knobs.iter().map(|k| (k.path.clone(), self.value(k))).collect();
         let camera = self.space.camera;
+        let (director, current, viewing) = (self.space.dop.director.clone(), self.space.dop.current.clone(), self.space.dop.viewing.clone());
         self._events = None;
         self._audio = None;
         self.handles = None;
         let mut next = Stage::start(ready, self.volume);
         next.base = self.base.clone();
         next.enter(self.path.clone());
-        next.space.camera = camera;
+        if keep {
+            next.started = self.started;
+            next.space.camera = camera;
+            (next.space.dop.director, next.space.dop.current, next.space.dop.viewing) = (director, current, viewing);
+        }
         next.space.being.hold(self.space.being.held(), true);
         for (path, value) in knobs {
             if let Some(k) = next.knobs.iter().find(|k| k.path == path) {
@@ -291,11 +319,14 @@ impl Stage {
         let cache = crate::cache_dir();
         // the rig editor's stage is empty ([rigs] 2026-11-08): no set around the being
         let mut space = Space::with_gate(&graph, node, &scene.being, &cache.join("sets"), Portraits::local(&cache.join("portraits")), None);
-        space.set_background(scene.stage.background.clone());
+        let own_background = scene.stage.background.clone();
+        space.set_background(own_background.clone());
+        space.set_layers(&scene.stage.layers);
         // an editor's view: no breath, the camera stays where the hand puts it (owner 2026-11-09)
         space.being.look.breath = 0.0;
         space.camera.free = true;
         space.camera.auto = false;
+        space.set_camera(None, scene.camera.clone());
         let mut knobs = Vec::new();
         for k in &played_knobs {
             let (id, port) = node_port(&k.path);
@@ -345,7 +376,7 @@ impl Stage {
         let master = sum.as_deref().and_then(|s| slot(s, true)).map(|(n, p, _)| (n, p));
         let node_ids = graph.nodes.iter().map(|n| n.id.clone()).collect();
         let kinds = graph.nodes.iter().map(|n| n.kind).collect();
-        Stage { controls, space, gpu: None, texture: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, kinds, strips, inner, master, master_peak: [0.0; 2], master_max: 0.0, volume, path: Vec::new(), core_node: node, groups, reach, scene: None, played_scene: None, dark: false, silent: Default::default(), beat: None }
+        Stage { controls, space, gpu: None, texture: None, pixel: None, pixel_buf: None, still: false, still_buf: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, kinds, strips, inner, master, master_peak: [0.0; 2], master_max: 0.0, volume, path: Vec::new(), core_node: node, groups, reach, scene: None, played_scene: None, dark: false, silent: Default::default(), beat: None, own_background, over: None }
     }
 
     /// show this level of the tree in Wire; empty = the rig
@@ -451,7 +482,7 @@ impl Stage {
                 sample_count: 1,
                 dimension: wgpu::TextureDimension::D2,
                 format: FORMAT,
-                usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_SRC,
                 view_formats: &[],
             });
             let view = tex.create_view(&Default::default());
@@ -515,7 +546,79 @@ impl Stage {
         } else {
             gpu.draw(queue, enc, view, size, space, time);
         }
+        if let (Some((x, y)), Some((tex, _, _))) = (self.pixel.filter(|&(x, y)| x < size.0 && y < size.1), self.texture.as_ref()) {
+            let buf = self.pixel_buf.get_or_insert_with(|| device.create_buffer(&wgpu::BufferDescriptor { label: Some("eyedropper"), size: 256, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false }));
+            enc.copy_texture_to_buffer(
+                wgpu::TexelCopyTextureInfo { texture: tex, mip_level: 0, origin: wgpu::Origin3d { x, y, z: 0 }, aspect: wgpu::TextureAspect::All },
+                wgpu::TexelCopyBufferInfo { buffer: buf, layout: wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(256), rows_per_image: None } },
+                wgpu::Extent3d { width: 1, height: 1, depth_or_array_layers: 1 },
+            );
+        } else {
+            self.pixel = None;
+        }
+        if std::mem::take(&mut self.still) {
+            if let Some((tex, _, _)) = self.texture.as_ref() {
+                let stride = (size.0 * 4).div_ceil(256) * 256;
+                let buf = device.create_buffer(&wgpu::BufferDescriptor { label: Some("still"), size: u64::from(stride) * u64::from(size.1), usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
+                enc.copy_texture_to_buffer(
+                    wgpu::TexelCopyTextureInfo { texture: tex, mip_level: 0, origin: wgpu::Origin3d::ZERO, aspect: wgpu::TextureAspect::All },
+                    wgpu::TexelCopyBufferInfo { buffer: &buf, layout: wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(stride), rows_per_image: None } },
+                    wgpu::Extent3d { width: size.0, height: size.1, depth_or_array_layers: 1 },
+                );
+                self.still_buf = Some((buf, stride, size));
+            }
+        }
+        let (_, view, _) = self.texture.as_ref().expect("made above");
         (view, fresh)
+    }
+
+    /// the library asks for a still of the stage in the next frame
+    pub fn ask_still(&mut self) {
+        self.still = true;
+    }
+
+    /// The still asked for, as the stage drew it: after the frame's submit.
+    pub fn read_still(&mut self, device: &wgpu::Device) -> Option<image::RgbaImage> {
+        let (buf, stride, (w, h)) = self.still_buf.take()?;
+        let slice = buf.slice(..);
+        let (tx, rx) = std::sync::mpsc::channel();
+        slice.map_async(wgpu::MapMode::Read, move |r| {
+            let _ = tx.send(r);
+        });
+        device.poll(wgpu::PollType::wait_indefinitely()).ok()?;
+        rx.recv().ok()?.ok()?;
+        let data = slice.get_mapped_range().ok()?;
+        let mut px = Vec::with_capacity((w * h * 4) as usize);
+        for row in 0..h {
+            px.extend(data[(row * stride) as usize..(row * stride + w * 4) as usize].chunks_exact(4).flat_map(|p| [p[0], p[1], p[2], 255]));
+        }
+        drop(data);
+        buf.unmap();
+        image::RgbaImage::from_raw(w, h, px)
+    }
+
+    /// the eyedropper asks for the stage's pixel at (x, y) in the next frame; none: it stops
+    pub fn ask_pixel(&mut self, at: Option<(u32, u32)>) {
+        self.pixel = at;
+    }
+
+    /// The pixel asked for, as the stage drew it (lit and tone-mapped, no panels over it): after the frame's submit.
+    pub fn read_pixel(&mut self, device: &wgpu::Device) -> Option<[u8; 3]> {
+        self.pixel?;
+        let buf = self.pixel_buf.as_ref()?;
+        let slice = buf.slice(..);
+        let (tx, rx) = std::sync::mpsc::channel();
+        slice.map_async(wgpu::MapMode::Read, move |r| {
+            let _ = tx.send(r);
+        });
+        device.poll(wgpu::PollType::wait_indefinitely()).ok()?;
+        rx.recv().ok()?.ok()?;
+        let px = {
+            let data = slice.get_mapped_range().ok()?;
+            [data[0], data[1], data[2]]
+        };
+        buf.unmap();
+        Some(px)
     }
 
 }

@@ -2,9 +2,12 @@
 //! editor's controls in its look (the OSCT editor's dark values, the base's `Tokens::default()`, overridden live by the
 //! editor's `tokens.toml`). Behind the `editor` feature: the decks never build them. Drawn through the editor's own GPU
 //! adapter (deck-editor `ui.rs`) until the editor moves onto the base's egui screen (#485, slice 2).
+pub mod carry;
+pub mod colour;
 pub mod controls;
 pub mod floats;
 pub mod icons;
 pub mod info;
+pub mod library;
 pub mod table;
 pub mod typeahead;

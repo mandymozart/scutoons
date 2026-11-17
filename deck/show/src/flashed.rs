@@ -399,7 +399,7 @@ mod tests {
     use deck_space::scene::builtin;
 
     /// a show with the outlet `left`: a built-in scene, then a character whose rig the deck does not carry
-    const SHOW: &str = r#"{ "id": "top", "version": 3, "outlets": [{ "id": "left" }],
+    const SHOW: &str = r#"{ "id": "top", "version": 3, "toon": "catpope", "outlets": [{ "id": "left" }],
         "rows": [{ "id": "a", "cells": { "left": { "mode": "play", "piece": "scene:test-pattern" } } },
                  { "id": "b", "cells": { "left": { "mode": "play", "piece": "character:boy" } } }] }"#;
     /// scene-content as the server writes it: boy has no rig
@@ -470,7 +470,7 @@ mod tests {
     /// one that is not published is what the deck lacks
     #[test]
     fn a_flash_fetches_the_published_scenes_it_names() {
-        const SCENES: &str = r#"{ "id": "top", "version": 3, "outlets": [{ "id": "left" }],
+        const SCENES: &str = r#"{ "id": "top", "version": 3, "toon": "catpope", "outlets": [{ "id": "left" }],
             "rows": [{ "id": "a", "cells": { "left": { "mode": "play", "piece": "scene:nave" } } },
                      { "id": "b", "cells": { "left": { "mode": "play", "piece": "scene:crypt" } } },
                      { "id": "c", "cells": { "left": { "mode": "play", "piece": "scene:outlet" } } }] }"#;

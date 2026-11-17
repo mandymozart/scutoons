@@ -1,6 +1,7 @@
 {
   "id": "new-scene",
   "version": 1,
+  "toon": "catpope",
   "outlets": [{ "id": "left" }, { "id": "middle" }],
   "rows": [
     {

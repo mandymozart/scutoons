@@ -5,15 +5,19 @@
 //! atlas of its own) is gone: the editor and the decks draw their UI through the same base.
 use anyhow::Result;
 use deck_kit::base::draw::DrawList;
+use deck_kit::base::fonts::{Faces, Widths};
 use deck_kit::base::screen::{Layer, Pictures, Screen, Face};
 use deck_kit::egui::epaint::{ClippedPrimitive, Color32, Mesh, Primitive, TextureId};
 use deck_kit::egui::{pos2, Rect};
 use egui_wgpu::{Renderer, RendererOptions, ScreenDescriptor};
 use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
+use std::sync::Arc;
 
 /// an icon's side in the pictures (pixels)
 const ICON: u32 = 36;
+/// the pictures' width once previews join them
+const THUMBS_W: usize = 2048;
 
 /// Feather's icons (white, their coverage in alpha) and the logo's frames (their own colours) in one image.
 fn pictures() -> Pictures {
@@ -54,7 +58,37 @@ fn pictures() -> Pictures {
         }
         frames.push(inset(x0, y0, side));
     }
-    Pictures { size: [w as usize, h as usize], rgba: pixels, icons, frames }
+    Pictures { size: [w as usize, h as usize], rgba: pixels, icons, frames, thumbs: HashMap::new() }
+}
+
+/// the base pictures with the previews' pictures under them, a row of them at a time
+fn with_thumbs(base: &Pictures, thumbs: &[(u64, image::RgbaImage)]) -> Pictures {
+    let [bw, bh] = base.size;
+    let (tw, th) = (crate::library::STILL.0 as usize, crate::library::STILL.1 as usize);
+    let w = bw.max(THUMBS_W);
+    let cols = (w / tw).max(1);
+    let rows = thumbs.len().div_ceil(cols);
+    let h = bh + rows * th;
+    let mut rgba = vec![0u8; w * h * 4];
+    for y in 0..bh {
+        rgba[y * w * 4..(y * w + bw) * 4].copy_from_slice(&base.rgba[y * bw * 4..(y + 1) * bw * 4]);
+    }
+    let (wf, hf) = (w as f32, h as f32);
+    let (sx, sy) = (bw as f32 / wf, bh as f32 / hf);
+    let rescale = |r: &Rect| Rect::from_min_max(pos2(r.min.x * sx, r.min.y * sy), pos2(r.max.x * sx, r.max.y * sy));
+    let mut out = Pictures { size: [w, h], rgba: Vec::new(), icons: base.icons.iter().map(|(k, r)| (*k, rescale(r))).collect(), frames: base.frames.iter().map(rescale).collect(), thumbs: HashMap::new() };
+    for (i, (id, img)) in thumbs.iter().enumerate() {
+        let (x0, y0) = (i % cols * tw, bh + i / cols * th);
+        for (y, line) in img.rows().take(th).enumerate() {
+            for (x, p) in line.take(tw).enumerate() {
+                let at = ((y0 + y) * w + x0 + x) * 4;
+                rgba[at..at + 4].copy_from_slice(&p.0);
+            }
+        }
+        out.thumbs.insert(*id, Rect::from_min_max(pos2((x0 as f32 + 0.5) / wf, (y0 as f32 + 0.5) / hf), pos2(((x0 + tw) as f32 - 0.5) / wf, ((y0 + th) as f32 - 0.5) / hf)));
+    }
+    out.rgba = rgba;
+    out
 }
 
 /// The pass: the kit's screen, egui-wgpu's renderer, the stage's texture, this frame's list.
@@ -67,27 +101,42 @@ pub struct Ui {
     /// what the kit draws this frame, and the list that takes turns with it
     list: DrawList,
     spare: Option<DrawList>,
+    /// what the lists lay text out with: the faces the screen sets
+    widths: Arc<Widths>,
     /// what egui made last
     jobs: Vec<ClippedPrimitive>,
     free: Vec<TextureId>,
+    /// the icons and the logo, before any preview joined them
+    base: Pictures,
 }
 
 impl Ui {
     pub fn new(device: &wgpu::Device, _queue: &wgpu::Queue, format: wgpu::TextureFormat, _font_px: f32) -> Result<Ui> {
-        // #485 slice 3: the editor keeps egui's text (the decks set the face on the kit's own atlas)
-        let mut screen = Screen::with_egui_text(deck_outlet::text::mono_ttf(), 1);
-        screen.set_pictures(pictures());
+        // the editor keeps egui's text (the decks set the face on the kit's own atlas); ABC Areal when installed
+        let faces = Faces::installed(deck_outlet::text::mono_ttf());
+        tracing::info!(from_folder = ?faces.from_folder, folder = ?deck_kit::base::fonts::folder(), "fonts");
+        let widths = Arc::new(faces.widths());
+        let mut screen = Screen::with_egui_text(faces, 1);
+        let base = pictures();
+        screen.set_pictures(base.clone());
         Ok(Ui {
             screen,
             // no MSAA, no depth, no dithering (the editor's own pass had none)
             renderer: Renderer::new(device, format, RendererOptions { msaa_samples: 1, depth_stencil_format: None, dithering: false, predictable_texture_filtering: false }),
             stage_id: None,
             stage_rect: None,
-            list: DrawList::new(deck_outlet::text::mono_per_px()),
+            list: DrawList::with_widths(widths.clone()),
             spare: None,
+            widths,
             jobs: Vec::new(),
             free: Vec::new(),
+            base,
         })
+    }
+
+    /// the previews' pictures, from the next frame on
+    pub fn set_thumbs(&mut self, thumbs: &[(u64, image::RgbaImage)]) {
+        self.screen.set_pictures(with_thumbs(&self.base, thumbs));
     }
 
     /// the stage's texture (made again when the stage's texture changes)
@@ -114,7 +163,7 @@ impl Ui {
         let size = view.texture().size();
         let scale = (size.width as f32 / logical.0.max(1.0)).max(f32::MIN_POSITIVE);
         // the list goes to the screen and comes back after the frame (two lists take turns: their memory is kept)
-        let spare = self.spare.take().unwrap_or_else(|| DrawList::new(deck_outlet::text::mono_per_px()));
+        let spare = self.spare.take().unwrap_or_else(|| DrawList::with_widths(self.widths.clone()));
         let list = std::mem::replace(&mut self.list, spare);
         self.screen.set(0, Some(Layer { list, scale, grid: scale, face: Face::Mono }));
         let painted = self.screen.frame((size.width, size.height));

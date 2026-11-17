@@ -46,7 +46,7 @@ impl Mode {
             Mode::Play => "play",
             Mode::Values => "values",
             Mode::Mirror => "mirror",
-            Mode::Black => "black",
+            Mode::Black => "stop",
             Mode::Keep => "keep",
             Mode::Go => "go",
             Mode::Free => "free",
@@ -114,6 +114,10 @@ pub enum Edit {
     Value { row: String, column: String, path: String, to: Option<f32> },
     /// "take current" – these knob positions (values.rs `current`) written into the cell
     Take { row: String, column: String, positions: Vec<(String, f32)> },
+    /// the show's stage background, over what its pieces set (none: theirs)
+    Background { to: Option<deck_space::Background> },
+    /// the show's toon
+    Toon { to: String },
 }
 
 /// An edit made: the changed document, what it did in words, the row to select after it.
@@ -270,7 +274,7 @@ pub fn edit_with(show: &Show, e: &Edit, knobs: Option<&[Knob]>) -> Result<Edited
                 None => next.rows.len(),
             };
             next.rows.insert(at, Row { id: id.clone(), fire: Default::default(), cells: Default::default(), addresses: vec![], r#where: Default::default() });
-            (format!("row {} {id} added: by hand, every column keeps", at + 1), Some(id))
+            (format!("row {} {id} added: manual, every column keeps", at + 1), Some(id))
         }
         Edit::Rename { id, to } => {
             let i = row_at(&next, id)?;
@@ -407,6 +411,18 @@ pub fn edit_with(show: &Show, e: &Edit, knobs: Option<&[Knob]>) -> Result<Edited
             };
             (format!("row {} {row}, {column}: {}", i + 1, did.map_err(|why| format!("not changed: {why}"))?), Some(row.clone()))
         }
+        Edit::Background { to } => {
+            next.background.clone_from(to);
+            let said = to.as_ref().map_or_else(|| "the show's background: none – its scenes', else black".to_string(), |b| format!("the show's background: {} – over every scene", b.text()));
+            (said, None)
+        }
+        Edit::Toon { to } => {
+            next.toon = to.trim().to_string();
+            if next.toon.is_empty() {
+                return Err(format!("not changed: show: {}", crate::validate::NO_TOON));
+            }
+            (format!("the show's toon: {}", next.toon), None)
+        }
     };
     let added: Vec<String> = crate::validate::validate(&next).into_iter().filter(|p| !before.contains(p)).map(|p| p.to_string()).collect();
     match added.first() {
@@ -541,9 +557,9 @@ mod tests {
     use protocol::{LayerSrc, Message};
 
     /// the editor's new show (deck-editor show/mod.rs `EMPTY`): one role, no row yet
-    const NOTHING: &str = r#"{ "id": "new-show", "version": 1, "outlets": [{ "id": "left" }], "rows": [] }"#;
+    const NOTHING: &str = r#"{ "id": "new-show", "version": 1, "toon": "catpope", "outlets": [{ "id": "left" }], "rows": [] }"#;
     /// two roles and a lamp, no row yet
-    const NEW: &str = r#"{ "id": "new-show", "version": 1, "outlets": [{ "id": "left" }, { "id": "right" }, { "id": "lamps", "kind": "device" }], "rows": [] }"#;
+    const NEW: &str = r#"{ "id": "new-show", "version": 1, "toon": "catpope", "outlets": [{ "id": "left" }, { "id": "right" }, { "id": "lamps", "kind": "device" }], "rows": [] }"#;
 
     fn ed(show: &Show, e: Edit) -> Edited {
         edit(show, &e).unwrap_or_else(|why| panic!("{e:?}: {why}"))
@@ -553,18 +569,30 @@ mod tests {
         Edit::Mode { row: row.into(), column: column.into(), mode }
     }
 
+    #[test]
+    fn a_show_without_its_toon_opens_with_the_problem_and_gets_one_picked() {
+        let show = open(r#"{ "id": "old", "version": 4, "outlets": [{ "id": "left" }], "rows": [] }"#).unwrap();
+        assert_eq!(crate::validate(&show).iter().map(ToString::to_string).collect::<Vec<_>>(), ["show: it names no toon – pick the show's toon"]);
+        assert_eq!(edit(&show, &Edit::Toon { to: " ".into() }).unwrap_err(), "not changed: show: it names no toon – pick the show's toon");
+        assert!(edit(&show, &Edit::Toon { to: "Cat Pope".into() }).unwrap_err().contains("is no toon id"));
+        let set = ed(&show, Edit::Toon { to: " catpope ".into() });
+        assert_eq!((set.said.as_str(), set.show.toon.as_str()), ("the show's toon: catpope", "catpope"));
+        assert!(crate::validate(&set.show).is_empty());
+        assert_eq!(serde_json::to_value(&set.show).unwrap()["toon"], "catpope", "kept with the document");
+    }
+
     /// #537's done-when, the core's half: from nothing to a row with a play cell naming a published scene, through the
     /// document; saved as JSON it is the document the headless scenario fires (show/fixtures/first-row.show.json)
     #[test]
     fn a_show_gets_a_row_and_a_play_cell_naming_a_scene_from_nothing() {
         let show = parse(NOTHING).unwrap();
         let added = ed(&show, Edit::Add { after: None });
-        assert_eq!((added.said.as_str(), added.row.as_deref()), ("row 1 row added: by hand, every column keeps", Some("row")));
+        assert_eq!((added.said.as_str(), added.row.as_deref()), ("row 1 row added: manual, every column keeps", Some("row")));
         let named = ed(&added.show, Edit::Rename { id: "row".into(), to: " opening ".into() });
         assert_eq!(named.said, "row 1 row is called opening");
         let m = modes(&named.show, "opening", "left");
         let words: Vec<(&str, bool, bool)> = m.iter().map(|m| (m.word, m.on, m.picks)).collect();
-        assert_eq!(words, [("play", false, true), ("values", false, false), ("mirror", false, false), ("black", false, false), ("keep", true, false)], "play picks a piece first");
+        assert_eq!(words, [("play", false, true), ("values", false, false), ("mirror", false, false), ("stop", false, false), ("keep", true, false)], "play picks a piece first");
         assert_eq!(edit(&named.show, &mode("opening", "left", Mode::Play)).unwrap_err(), "left: pick a piece – `play` names one");
         let played = ed(&named.show, Edit::Piece { row: "opening".into(), column: "left".into(), piece: "scene:nave".into() });
         assert_eq!(played.said, "row 1 opening, left: scene:nave");
@@ -587,7 +615,7 @@ mod tests {
         let show = parse(include_str!("../fixtures/top-toy.show.json")).unwrap();
         let added = ed(&show, Edit::Add { after: Some("opening".into()) });
         assert_eq!(added.show.rows[1].id, "row");
-        assert_eq!(added.said, "row 2 row added: by hand, every column keeps");
+        assert_eq!(added.said, "row 2 row added: manual, every column keeps");
         assert_eq!(ed(&added.show, Edit::Add { after: None }).row.as_deref(), Some("row-2"));
         assert_eq!(edit(&added.show, &Edit::Rename { id: "row".into(), to: "dialog".into() }).unwrap_err(), "not changed: two rows named 'dialog'");
         assert_eq!(edit(&added.show, &Edit::Rename { id: "row".into(), to: " ".into() }).unwrap_err(), "not changed: show: an empty row id");
@@ -597,6 +625,19 @@ mod tests {
         faced.face.rows = vec!["finale".into()];
         let renamed = ed(&faced, Edit::Rename { id: "finale".into(), to: "curtain".into() });
         assert_eq!(renamed.show.face.rows, ["curtain"]);
+    }
+
+    #[test]
+    fn the_shows_background_is_set_checked_and_taken_off() {
+        use deck_space::Background;
+        let show = parse(NOTHING).unwrap();
+        let set = ed(&show, Edit::Background { to: Some(Background::colour("#204060")) });
+        assert_eq!((set.said.as_str(), set.row), ("the show's background: #204060 – over every scene", None));
+        assert_eq!(set.show.background, Some(Background::colour("#204060")));
+        let bad = Edit::Background { to: Some(Background::colour("teal")) };
+        assert_eq!(edit(&show, &bad).unwrap_err(), "not changed: show: background: 'teal' is no colour: #rgb or #rrggbb");
+        let off = ed(&set.show, Edit::Background { to: None });
+        assert!(off.said.contains("none") && off.show.background.is_none());
     }
 
     #[test]

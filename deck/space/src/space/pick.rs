@@ -200,6 +200,17 @@ impl Space {
         self.to_pixel(at)
     }
 
+    /// the sphere a member stands in as the stage draws it: its card's, its body's
+    pub(super) fn member_sphere(&self, c: &Cast) -> (Vec3, f32) {
+        match c.form {
+            Form::Card => {
+                let card = self.card(c, self.camera.eye());
+                (card.feet + card.up * 0.5, (card.up.length() * 0.5).max(card.right.length()))
+            }
+            Form::Look => (c.being.center, c.being.look.size * LOOK_BOUNDS),
+        }
+    }
+
     /// the hand's knobs as paths (`node.port`, `node.shape`), in its buttons' order – what the sticks are set over
     pub fn hand_paths(&self) -> Vec<String> {
         self.hand().buttons.iter().map(|b| format!("{}.{}", self.graph_id(b.node), b.name)).collect()
@@ -371,6 +382,55 @@ mod tests {
         let (mut spheres, mut tubes) = (Vec::with_capacity(cap), Vec::with_capacity(tcap));
         space.write(&mut spheres, &mut tubes);
         assert!(spheres.len() <= cap, "{} of {cap}", spheres.len());
+    }
+
+    fn settle(space: &mut Space, ctl: &mut Table) {
+        for k in 0..240 {
+            space.update(1.0 / 60.0, 5.0 + k as f32 / 60.0, ctl, &tempo::Now::default(), &|_, _| 0.0);
+        }
+    }
+
+    /// an editor's free view, panned away, snaps back to the scene's camera – the view a deck opens with – and a pan leaves it
+    #[test]
+    fn the_editor_s_view_snaps_to_the_scene_camera_and_a_pan_leaves_it() {
+        let (_, mut space, mut ctl) = duo();
+        let deck = space.camera;
+        space.camera.free = true;
+        space.camera.drag(200.0, 80.0);
+        space.camera.pan(300.0, -120.0, 720.0);
+        settle(&mut space, &mut ctl);
+        assert!(space.camera.eye().distance(deck.eye()) > 0.5, "moved off");
+        space.look_through_scene();
+        settle(&mut space, &mut ctl);
+        assert!(space.camera.arrived());
+        let primary = space.scene_camera();
+        let mut want = deck;
+        (want.target, want.yaw, want.pitch, want.distance) = (primary.target, primary.yaw, primary.pitch, primary.distance);
+        assert!(space.camera.eye().distance(want.eye()) < 0.01, "{:?} {:?}", space.camera.eye(), want.eye());
+        assert!(space.camera.target.distance(primary.target) < 0.01);
+        assert!(primary.yaw.abs() < 1e-6, "head-on");
+        space.camera.pan(40.0, 0.0, 720.0);
+        assert_eq!(space.camera.through, None);
+    }
+
+    /// F frames the whole cast; a member framed alone comes nearer, at its middle
+    #[test]
+    fn frame_all_holds_the_cast_and_a_member_is_framed_alone() {
+        let (_, mut space, mut ctl) = duo();
+        space.camera.free = true;
+        space.camera.zoom(-30.0);
+        space.frame_all();
+        settle(&mut space, &mut ctl);
+        let all = space.camera.distance;
+        let spheres: Vec<_> = space.cast.iter().map(|c| space.member_sphere(c)).collect();
+        assert!(space.camera.fits(1280.0 / 720.0, spheres.iter().copied(), 0.0), "every member in view");
+        space.look_through_scene();
+        space.frame_member(1);
+        assert_eq!(space.camera.through, None, "framing leaves the camera");
+        settle(&mut space, &mut ctl);
+        assert!(space.camera.distance < all, "{} {all}", space.camera.distance);
+        let (middle, _) = space.member_sphere(&space.cast[1]);
+        assert!(space.camera.target.distance(middle) < 0.05);
     }
 
     /// a host that passes only taps (the browser's scene): the same pick

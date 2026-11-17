@@ -1,10 +1,12 @@
 //! Build's rigs on the server (research/NATIVE-EDITOR-GUI.md §5 "How the two sides share data"): the open toon's rigs
 //! from the catalog (`GET /api/catalog/docs/rigs`, and the instruments, presets and modules a rig names), one opened as
-//! the core makes a bundle of it (`rig::assign::catalog_bundle`), saved back as a new draft version on the version it
-//! was opened at (`PUT /api/entities/rig:<subject>`, a 409 said in words). Publishing stays in the browser
-//! (decisions/deck.md 2026-11-09): a save gives the creator's link. The draft file (wires.rs) stays the offline copy and
-//! is offered when the server's version differs from the one it was made on. Every ask runs on a thread; the UI polls.
-use crate::show::api::Api;
+//! the core makes a bundle of it (`rig::assign::catalog_bundle`), saving itself (autosave.rs) as a new draft version on
+//! the version it was opened at (`PUT /api/entities/rig:<subject>`, a 409 said in words). Publishing stays in the
+//! browser (the creator). What the server has not got is the rig's outbox entry (autosave.rs), its difference written at
+//! every edit: sent when the rig opens on the version it was made on, offered when the server's differs. Every ask runs
+//! on a thread; the UI polls.
+use crate::autosave::{self, Autosave, Outbox};
+use crate::show::api::{Api, Refusal};
 use crate::{toon, wires};
 use deck_kit::editor::typeahead::Item;
 use deck_space::rig::{assign, Bundle, Rig};
@@ -129,22 +131,10 @@ pub enum Choice {
     Local,
 }
 
-/// what a save came to
-#[derive(Debug, Clone, PartialEq)]
-pub enum Saved {
-    Busy,
-    Done { version: u64, link: String },
-    Refused(String),
-}
-
-impl Saved {
-    pub fn words(&self) -> String {
-        match self {
-            Saved::Busy => "saving …".into(),
-            Saved::Done { version, link } => format!("saved as draft v{version} – publish it in the creator: {link}"),
-            Saved::Refused(why) => why.clone(),
-        }
-    }
+/// a draft saved as `version`, and where it is published
+#[cfg(test)]
+pub fn saved_words(version: u64, link: &str) -> String {
+    format!("saved as draft v{version} – publish it in the creator: {link}")
 }
 
 /// the creator's page of `key`: `DECK_CREATOR`, else the API's host as the creator's (`api.` → `creator.`, the dev
@@ -157,9 +147,38 @@ pub fn creator_link(api: &str, key: &str) -> String {
     format!("{}/edit/{key}", base.trim_end_matches('/'))
 }
 
-/// the offline copy of `subject`
-pub fn draft_path(cache: &Path, subject: &str) -> PathBuf {
-    cache.join("drafts").join(format!("{subject}.rig.toml"))
+/// where Build's rig keeps what the server has not got: its outbox entry, the file `--draft` names, or nowhere (a check
+/// run, a scene's member opened as its rig)
+#[derive(Debug, Clone, PartialEq)]
+pub enum Copy {
+    Outbox,
+    File(PathBuf),
+    Nothing,
+}
+
+const KIND: &str = "rig";
+
+/// the draft files of before the outbox (`<cache>/drafts/<subject>.rig.toml`), each read once into it and removed
+pub fn migrate(cache: &Path, outbox: &Outbox) {
+    let Ok(files) = std::fs::read_dir(cache.join("drafts")) else { return };
+    for f in files.flatten().map(|f| f.path()) {
+        let Some(subject) = f.file_name().and_then(|n| n.to_str()).and_then(|n| n.strip_suffix(".rig.toml")) else { continue };
+        let Some((version, body)) = std::fs::read_to_string(&f).ok().and_then(|t| wires::draft_text(&t)) else { continue };
+        if outbox.get(KIND, subject).is_none() {
+            outbox.put(&autosave::Entry::new(KIND, subject, version, body));
+        }
+        if outbox.get(KIND, subject).is_some() {
+            let _ = std::fs::remove_file(&f);
+        }
+    }
+}
+
+/// what plays at the start: the outbox's copy of `subject` over `base`, and the version it was made on
+pub fn kept(outbox: &Outbox, subject: &str, base: &Bundle) -> (Bundle, Option<Option<u64>>) {
+    match outbox.get(KIND, subject) {
+        Some(e) => (wires::over(&e.body, base), Some(e.base)),
+        None => (base.clone(), None),
+    }
 }
 
 fn base_path(cache: &Path, subject: &str) -> PathBuf {
@@ -212,11 +231,11 @@ fn keep_base(cache: &Path, subject: &str, bundle: &Bundle, version: Option<u64>)
     let _ = path.parent().map_or(Ok(()), std::fs::create_dir_all).and_then(|_| std::fs::write(&path, text));
 }
 
-/// A rig opened from the server and the offline copy beside it: what plays (the copy when it was made on this very
+/// A rig opened from the server and its outbox copy beside it: what plays (the copy when it was made on this very
 /// version: its unsaved changes are back), and the copy to offer when it was made on another
-pub fn with_copy(path: &Path, subject: &str, server: &Bundle, at: Option<u64>) -> (Bundle, Option<Local>) {
-    let Some(made_on) = wires::draft_version(path) else { return (server.clone(), None) };
-    let copy = wires::load_draft(path, server);
+pub fn with_copy(outbox: &Outbox, subject: &str, server: &Bundle, at: Option<u64>) -> (Bundle, Option<Local>) {
+    let Some(e) = outbox.get(KIND, subject) else { return (server.clone(), None) };
+    let (made_on, copy) = (e.base, wires::over(&e.body, server));
     if made_on == at {
         return (copy, None);
     }
@@ -240,19 +259,15 @@ pub fn changed(base: &Bundle, now: &Bundle, versions: &BTreeMap<String, u64>) ->
 }
 
 /// the changed documents first, then the rig on `base`: the first refusal stops it; the versions the documents got
-fn save(api: &Api, key: &str, rig: &Value, base: Option<u64>, others: &[(String, Value, Option<u64>)]) -> (Saved, Vec<(String, u64)>) {
+fn save(api: &Api, key: &str, rig: &Value, base: Option<u64>, others: &[(String, Value, Option<u64>)]) -> (Result<u64, Refusal>, Vec<(String, u64)>) {
     let mut got = Vec::new();
     for (k, content, on) in others {
         match api.save_draft(k, content, *on, MESSAGE) {
             Ok(v) => got.push((k.clone(), v)),
-            Err(e) => return (Saved::Refused(format!("{e} – the local copy keeps it")), got),
+            Err(e) => return (Err(e), got),
         }
     }
-    let saved = match api.save_draft(key, rig, base, MESSAGE) {
-        Ok(version) => Saved::Done { version, link: creator_link(&api.base, key) },
-        Err(e) => Saved::Refused(format!("{e} – the local copy keeps it")),
-    };
-    (saved, got)
+    (api.save_draft(key, rig, base, MESSAGE), got)
 }
 
 enum Listing {
@@ -263,15 +278,13 @@ enum Listing {
 
 /// a rig read from the server: its subject, its bundle, its version
 type Read = Result<(String, Bundle, Option<u64>), String>;
-/// a save's outcome and the versions the changed documents got
-type Done = (Saved, Vec<(String, u64)>);
 
 /// what happened since the last poll, for the stage and the notice
 pub enum Event {
     /// a rig opened: its subject, the bundle it is the difference to, what plays
     Opened(String, Box<(Bundle, Bundle)>),
-    /// saved: what plays is the server's now; the creator's link
-    Saved(String),
+    /// saved: the bundle sent is the server's now
+    Saved(Box<Bundle>),
     Say(String, bool),
 }
 
@@ -280,31 +293,45 @@ pub struct Rigs {
     api: String,
     cache: PathBuf,
     pub subject: String,
-    /// the server version open: the base of the next save (None: never saved there)
-    pub version: Option<u64>,
+    /// when it saves itself; its version is the server's open, the base of the next save (None: never saved there).
+    /// A save carries back the versions the changed documents got and the bundle sent.
+    pub auto: Autosave<(Vec<(String, u64)>, Bundle)>,
     listing: Listing,
     /// signed in when the list was asked: asked again when that changes
     asked_signed: bool,
     told: bool,
     opening: Option<Receiver<Read>>,
-    saving: Option<Receiver<Done>>,
-    pub saved: Option<Saved>,
     /// the offline copy offered
     pub local: Option<Local>,
     /// what the picker shows now, by its ids
     pub choices: Vec<Choice>,
+    pub outbox: Outbox,
 }
 
 impl Rigs {
     pub fn new(api: &str, cache: &Path, subject: &str, version: Option<u64>, signed: bool) -> Rigs {
-        let mut r = Rigs { api: api.to_string(), cache: cache.to_path_buf(), subject: subject.to_string(), version, listing: Listing::Failed(String::new()), asked_signed: signed, told: false, opening: None, saving: None, saved: None, local: None, choices: Vec::new() };
+        let mut r = Rigs { api: api.to_string(), outbox: Outbox::current(), ..Rigs::offline(cache, subject, version, "") };
+        (r.told, r.listing) = (false, Listing::Failed(String::new()));
         r.list(signed);
         r
     }
 
-    /// no asking at all (a check run)
+    /// no asking at all (a check run): nothing saves itself
     pub fn offline(cache: &Path, subject: &str, version: Option<u64>, why: &str) -> Rigs {
-        Rigs { api: String::new(), cache: cache.to_path_buf(), subject: subject.to_string(), version, listing: Listing::Failed(why.to_string()), asked_signed: false, told: true, opening: None, saving: None, saved: None, local: None, choices: Vec::new() }
+        Rigs { api: String::new(), cache: cache.to_path_buf(), subject: subject.to_string(), auto: Autosave::new(version), listing: Listing::Failed(why.to_string()), asked_signed: false, told: true, opening: None, local: None, choices: Vec::new(), outbox: Outbox::none() }
+    }
+
+    /// A check run's catalog from `dir`: `rigs.json`, `instruments.json`, `presets.json`, `modules.json`, each the API's
+    /// answer to `/catalog/docs/<kind>` (a missing one = none of that kind).
+    pub fn read_catalog(&mut self, dir: &Path) -> Result<(), String> {
+        let read = |kind: &str| std::fs::read_to_string(dir.join(format!("{kind}.json"))).unwrap_or_else(|_| r#"{ "entries": [] }"#.to_string());
+        self.listing = Listing::Ready(Catalog::parse(&read("rigs"), &read("instruments"), &read("presets"), &read("modules"))?);
+        Ok(())
+    }
+
+    /// a check run's rigs ask nothing, so they save nothing
+    pub fn saves(&self) -> bool {
+        !self.api.is_empty()
     }
 
     fn list(&mut self, signed: bool) {
@@ -316,8 +343,20 @@ impl Rigs {
         (self.listing, self.asked_signed) = (Listing::Asking(rx), signed);
     }
 
-    pub fn draft(&self) -> PathBuf {
-        draft_path(&self.cache, &self.subject)
+    /// the rig as it plays, written as its outbox entry on the version open
+    pub fn keep(&self, base: &Bundle, now: &Bundle) {
+        self.outbox.put(&autosave::Entry::new(KIND, &self.subject, self.auto.version, wires::difference(base, now)));
+    }
+
+    /// `sent` is the server's at the version open now: kept as the base of what opens next; the entry goes unless
+    /// something changed since
+    pub fn saved(&self, sent: &Bundle, now: &Bundle) {
+        keep_base(&self.cache, &self.subject, sent, self.auto.version);
+        if now == sent {
+            self.outbox.remove(KIND, &self.subject);
+        } else {
+            self.keep(sent, now);
+        }
     }
 
     /// the catalog once it is here (Show's new scene picks its cast from its rigs)
@@ -344,8 +383,8 @@ impl Rigs {
         }
         if let (false, Listing::Ready(c)) = (self.told, &self.listing) {
             self.told = true;
-            if let Some(e) = c.rig(&self.subject).filter(|e| compare(self.version, e.latest).is_some()) {
-                let local = Local { subject: self.subject.clone(), made_on: self.version, server: e.latest };
+            if let Some(e) = c.rig(&self.subject).filter(|e| compare(self.auto.version, e.latest).is_some()) {
+                let local = Local { subject: self.subject.clone(), made_on: self.auto.version, server: e.latest };
                 out.push(Event::Say(format!("{} – the rig picker opens the server's", local.words()), false));
             }
         }
@@ -354,10 +393,14 @@ impl Rigs {
             match answer {
                 Ok((subject, server, at)) => {
                     keep_base(&self.cache, &subject, &server, at);
-                    let (plays, local) = with_copy(&draft_path(&self.cache, &subject), &subject, &server, at);
+                    let (plays, local) = with_copy(&self.outbox, &subject, &server, at);
                     let back = local.is_none() && plays != server;
                     let empty = at.is_none() && plays.rig.tracks.is_empty();
-                    (self.subject, self.version, self.local, self.saved) = (subject.clone(), at, local.clone(), None);
+                    (self.subject, self.local) = (subject.clone(), local.clone());
+                    self.auto.open(at);
+                    if local.is_none() && back {
+                        self.auto.edit(std::time::Instant::now());
+                    }
                     out.push(Event::Opened(subject.clone(), Box::new((server, plays))));
                     let words = match (local, back) {
                         (None, false) if empty =>format!("{subject} has no rig yet – start from modules or write a new module"),
@@ -370,17 +413,16 @@ impl Rigs {
                 Err(why) => out.push(Event::Say(why, true)),
             }
         }
-        if let Some(Ok((saved, versions))) = self.saving.as_ref().map(Receiver::try_recv) {
-            self.saving = None;
+        if let Some(((versions, sent), answer)) = self.auto.poll() {
             if let Listing::Ready(c) = &mut self.listing {
                 c.versions.extend(versions);
             }
-            out.push(Event::Say(saved.words(), !matches!(saved, Saved::Done { .. })));
-            if let Saved::Done { version, link } = &saved {
-                self.version = Some(*version);
-                out.push(Event::Saved(link.clone()));
+            match answer {
+                Ok(_) => out.push(Event::Saved(Box::new(sent))),
+                // the pill says it goes again; a refusal or a conflict is said once
+                Err(Refusal::Offline(_)) => {}
+                Err(e) => out.push(Event::Say(e.to_string(), true)),
             }
-            self.saved = Some(saved);
         }
         out
     }
@@ -436,6 +478,14 @@ impl Rigs {
         }
     }
 
+    /// the catalog's module documents as listed (the library's source)
+    pub fn module_docs(&self) -> &[Value] {
+        match &self.listing {
+            Listing::Ready(c) => &c.modules,
+            _ => &[],
+        }
+    }
+
     /// the catalog's modules as tracks (the core wraps each, `assign::module_track`), and why the others are not
     pub fn modules(&self) -> (Vec<(deck_space::rig::Instrument, deck_catalog::Descriptor)>, Vec<String>) {
         let Listing::Ready(c) = &self.listing else { return (Vec::new(), Vec::new()) };
@@ -459,13 +509,13 @@ impl Rigs {
     /// the offline copy over `server`: what plays, saved on the server's version (picking it makes it the next one)
     pub fn take_local(&mut self, server: &Bundle) -> Option<Bundle> {
         let l = self.local.take()?;
-        self.version = l.server;
-        Some(wires::load_draft(&self.draft(), server))
+        self.auto.version = l.server;
+        Some(kept(&self.outbox, &self.subject, server).0)
     }
 
     /// `now` saved as the rig's next draft on the version open, the documents changed against `base` before it
-    pub fn save(&mut self, base: &Bundle, now: &Bundle) {
-        if self.saving.is_some() {
+    pub fn save(&mut self, base: &Bundle, now: &Bundle, at: std::time::Instant) {
+        if self.auto.busy() {
             return;
         }
         let versions = match &self.listing {
@@ -476,22 +526,17 @@ impl Rigs {
         let catalog = self.instruments();
         let mut others = changed(base, now, &versions);
         others.retain(|(_, v, _)| !catalog.iter().any(|c| serde_json::from_value::<deck_space::rig::Instrument>(v.clone()).is_ok_and(|i| &i == c)));
-        let (api, key, at) = (self.api.clone(), format!("rig:{}", now.rig.subject), self.version);
+        let (api, key, sent) = (self.api.clone(), format!("rig:{}", now.rig.subject), now.clone());
         let rig = serde_json::to_value(&now.rig).unwrap_or_default();
-        let (tx, rx) = channel();
-        std::thread::spawn(move || {
-            let _ = tx.send(save(&Api::new(api), &key, &rig, at, &others));
+        self.auto.send(at, move |on| {
+            let (answer, got) = save(&Api::new(api), &key, &rig, on, &others);
+            ((got, sent), answer)
         });
-        (self.saving, self.saved) = (Some(rx), Some(Saved::Busy));
     }
 
-    /// the rig row's line: the subject, its version, what the last save came to
+    /// the rig row's line: the subject and its version (where its save stands: the toolbar's pill)
     pub fn line(&self) -> String {
-        let at = format!("{} {}", self.subject, version(self.version));
-        match &self.saved {
-            Some(s) => format!("{at} · {}", s.words()),
-            None => at,
-        }
+        format!("{} {}", self.subject, version(self.auto.version))
     }
 }
 
@@ -576,25 +621,73 @@ mod tests {
         assert_eq!(r.choices[0], Choice::Local);
     }
 
-    /// the panel model: saving, saved with the creator's link, refused in words
     #[test]
-    fn the_save_states_are_said() {
-        assert_eq!(Saved::Busy.words(), "saving …");
-        let done = Saved::Done { version: 15, link: creator_link("https://api.scutoons.com/api", "rig:character.catpope") };
-        assert_eq!(done.words(), "saved as draft v15 – publish it in the creator: https://creator.scutoons.com/edit/rig:character.catpope");
+    fn a_save_gives_the_creators_link() {
+        let link = creator_link("https://api.scutoons.com/api", "rig:character.catpope");
+        assert_eq!(saved_words(15, &link), "saved as draft v15 – publish it in the creator: https://creator.scutoons.com/edit/rig:character.catpope");
         assert_eq!(creator_link("http://127.0.0.1:9000/api", "rig:x"), "http://127.0.0.1:10000/edit/rig:x");
-        let mut r = offline();
-        assert_eq!(r.line(), "character.catpope v12");
-        r.saved = Some(Saved::Refused("rig:character.catpope: someone saved a newer version – nothing was overwritten".into()));
-        assert_eq!(r.line(), "character.catpope v12 · rig:character.catpope: someone saved a newer version – nothing was overwritten");
+        assert_eq!(offline().line(), "character.catpope v12");
     }
 
-    /// no API (nothing listens on port 9): the save is refused, says where it tried and that the local copy keeps it
+    /// no API (nothing listens on port 9): the save is offline and says where it tried
     #[test]
     fn an_offline_save_keeps_the_local_copy() {
         let (saved, _) = save(&Api::new("http://127.0.0.1:9/api".into()), "rig:character.catpope", &serde_json::json!({}), Some(12), &[]);
-        let Saved::Refused(why) = saved else { panic!("{saved:?}") };
-        assert!(why.starts_with("http://127.0.0.1:9/api/entities/rig:character.catpope") && why.ends_with("the local copy keeps it"), "{why}");
+        let Err(Refusal::Offline(why)) = saved else { panic!("{saved:?}") };
+        assert!(why.starts_with("http://127.0.0.1:9/api/entities/rig:character.catpope"), "{why}");
+    }
+
+    fn answer(r: &mut Rigs) -> Vec<Event> {
+        for _ in 0..400 {
+            let seen = r.poll(false);
+            if !r.auto.busy() {
+                return seen;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        panic!("no answer");
+    }
+
+    /// the panel model on a fake API: a burst of edits is one PUT on the version open, its answer the next base and
+    /// the bundle sent the new difference; a conflict keeps yours and names both versions; offline goes again later
+    #[test]
+    fn the_rig_saves_itself_once_per_burst() {
+        use crate::autosave::{tests::Fake, IDLE, RETRY};
+        use std::time::{Duration, Instant};
+        let fake = Fake::start(&[200, 409]);
+        let mut r = Rigs::offline(&std::env::temp_dir(), "character.catpope", Some(12), "");
+        r.api = fake.base.clone();
+        let b = Bundle::core("character.catpope").expect("a core rig").expect("it reads");
+        let t0 = Instant::now();
+        let mut now = b.clone();
+        for i in 0..4 {
+            now = wires::set_gain(&now, "drone", 0.1 + i as f32 * 0.1).expect("set");
+            r.auto.edit(t0 + Duration::from_millis(400 * i));
+            assert!(!r.auto.due(t0 + Duration::from_millis(400 * i + 100)));
+        }
+        let end = t0 + Duration::from_millis(1200) + IDLE;
+        assert!(r.auto.due(end));
+        r.save(&b, &now, end);
+        r.save(&b, &now, end);
+        let seen = answer(&mut r);
+        assert_eq!(fake.count(), 1, "one PUT for the burst");
+        let (path, body) = fake.puts.lock().unwrap()[0].clone();
+        assert_eq!((path.as_str(), &body["base"]), ("/api/entities/rig:character.catpope", &serde_json::json!(12)));
+        assert!(seen.iter().any(|e| matches!(e, Event::Saved(sent) if sent.rig == now.rig)));
+        assert_eq!((r.auto.version, r.auto.pill()), (Some(101), "saved · v101".to_string()));
+        r.auto.edit(end);
+        r.save(&b, &now, end + IDLE);
+        let seen = answer(&mut r);
+        assert_eq!(fake.puts.lock().unwrap()[1].1["base"], 101);
+        assert!(seen.iter().any(|e| matches!(e, Event::Say(w, true) if w.contains("someone saved a newer version (v902)"))));
+        assert_eq!(r.auto.pill(), "conflict – v902 on the server, yours (on v101) kept locally");
+        r.auto.open(Some(101));
+        r.api = "http://127.0.0.1:9/api".into();
+        r.auto.edit(end);
+        r.save(&b, &now, end + IDLE);
+        assert!(answer(&mut r).is_empty(), "offline is not said in a notice");
+        assert_eq!(r.auto.pill(), "offline – kept locally");
+        assert!(!r.auto.due(end + IDLE + Duration::from_secs(1)) && r.auto.due(end + IDLE + RETRY));
     }
 
     #[test]
@@ -633,25 +726,24 @@ mod tests {
         let opened = |seen: Vec<Event>| seen.into_iter().find_map(|e| if let Event::Opened(_, b) = e { Some(*b) } else { None }).expect("opened");
         r.open("character.catpope").expect("listed");
         let (base, plays) = opened(wait(&mut r, &|r| r.opening.is_none()));
-        let first = r.version;
+        let first = r.auto.version;
         // another gain each run: an unchanged save keeps its version
         let next = wires::set_gain(&plays, "drone", 0.2 + (std::process::id() % 60) as f32 / 100.0).expect("set");
         let next = wires::set_value(&next, "drone", "drone.gain", 0.33).expect("a preset's value");
-        r.save(&base, &next);
-        let seen = wait(&mut r, &|r| r.saving.is_none());
-        assert!(matches!(r.saved, Some(Saved::Done { .. })), "{:?}", r.saved);
-        assert!(seen.iter().any(|e| matches!(e, Event::Saved(link) if link.ends_with("/edit/rig:character.catpope"))));
-        let saved = r.version.expect("a version");
+        r.save(&base, &next, std::time::Instant::now());
+        let seen = wait(&mut r, &|r| !r.auto.busy());
+        assert_eq!(r.auto.state, crate::autosave::State::Clean);
+        assert!(seen.iter().any(|e| matches!(e, Event::Saved(_))));
+        let saved = r.auto.version.expect("a version");
         assert_ne!(Some(saved), first);
-        std::fs::remove_file(r.draft()).ok();
+        r.outbox.remove(KIND, "character.catpope");
         r.open("character.catpope").expect("listed");
         let (_, again) = opened(wait(&mut r, &|r| r.opening.is_none()));
-        assert_eq!((r.version, &again.rig), (Some(saved), &next.rig), "the saved draft comes back");
-        r.version = first;
-        r.save(&base, &next);
-        wait(&mut r, &|r| r.saving.is_none());
-        let Some(Saved::Refused(why)) = &r.saved else { panic!("{:?}", r.saved) };
-        assert!(why.contains("someone saved a newer version"), "{why}");
+        assert_eq!((r.auto.version, &again.rig), (Some(saved), &next.rig), "the saved draft comes back");
+        r.auto.version = first;
+        r.save(&base, &next, std::time::Instant::now());
+        wait(&mut r, &|r| !r.auto.busy());
+        assert!(matches!(r.auto.state, crate::autosave::State::Conflict(Some(_))), "{:?}", r.auto.state);
         std::fs::remove_dir_all(&cache).ok();
     }
 
@@ -680,33 +772,67 @@ mod tests {
         let seen = wait(&mut r, &|r| r.opening.is_none());
         assert!(seen.iter().any(|e| matches!(e, Event::Say(w, false) if w.ends_with("has no rig yet – start from modules or write a new module"))));
         let (base, plays) = seen.into_iter().find_map(|e| if let Event::Opened(_, b) = e { Some(*b) } else { None }).expect("opened");
-        assert!(plays.rig.tracks.is_empty() && r.version.is_none());
+        assert!(plays.rig.tracks.is_empty() && r.auto.version.is_none());
         let instruments = crate::adding::instruments(&plays, r.instruments());
         let first = instruments.first().cloned().expect("the catalog has instruments");
         let (next, _) = crate::adding::apply(&plays, &crate::adding::Choice::Track(Box::new(first.clone()))).expect("a track");
-        r.save(&base, &next);
-        wait(&mut r, &|r| r.saving.is_none());
-        assert!(matches!(r.saved, Some(Saved::Done { .. })), "{:?}", r.saved);
-        let saved = r.version.expect("its first draft");
+        r.save(&base, &next, std::time::Instant::now());
+        wait(&mut r, &|r| !r.auto.busy());
+        assert_eq!(r.auto.state, crate::autosave::State::Clean);
+        let saved = r.auto.version.expect("its first draft");
         r.open(&subject).expect("listed");
         let seen = wait(&mut r, &|r| r.opening.is_none());
         let (_, again) = seen.into_iter().find_map(|e| if let Event::Opened(_, b) = e { Some(*b) } else { None }).expect("opened");
-        assert_eq!((r.version, again.rig.tracks.iter().map(|t| t.instrument.as_str()).collect::<Vec<_>>()), (Some(saved), vec![first.id.as_str()]));
+        assert_eq!((r.auto.version, again.rig.tracks.iter().map(|t| t.instrument.as_str()).collect::<Vec<_>>()), (Some(saved), vec![first.id.as_str()]));
         let (key, doc) = crate::empty::new_module(&character);
         Api::new(api.clone()).save_draft(&key, &doc, None, MESSAGE).expect("the server takes the new module's first draft");
         std::fs::remove_dir_all(&cache).ok();
+    }
+
+    fn outbox(name: &str) -> (PathBuf, Outbox) {
+        let dir = std::env::temp_dir().join(format!("deck-editor-rigs-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let ob = Outbox::at(&dir);
+        (dir, ob)
     }
 
     #[test]
     fn opened_beside_its_copy() {
         let b = Bundle::core("character.catpope").expect("a core rig").expect("it reads");
         let next = wires::set_gain(&b, "drone", 0.5).expect("set");
-        let file = std::env::temp_dir().join(format!("deck-editor-rigs-{}", std::process::id())).join("rig.toml");
-        assert_eq!(with_copy(&file, "character.catpope", &b, Some(14)), (b.clone(), None), "no copy");
+        let (dir, ob) = outbox("copy");
+        assert_eq!(with_copy(&ob, "character.catpope", &b, Some(14)), (b.clone(), None), "no copy");
+        let mut r = Rigs::offline(&dir, "character.catpope", Some(14), "");
+        r.outbox = ob.clone();
+        r.keep(&b, &next);
+        assert_eq!(with_copy(&ob, "character.catpope", &b, Some(14)).0.rig, next.rig, "made on this version: its changes are back");
+        let (plays, local) = with_copy(&ob, "character.catpope", &b, Some(16));
+        assert_eq!((plays.rig, local.map(|l| l.made_on)), (b.rig.clone(), Some(Some(14))), "made on an older one: offered");
+        r.auto.version = Some(15);
+        r.saved(&next, &next);
+        assert!(ob.all().is_empty(), "saved as it plays: off the outbox");
+        assert_eq!(base(&dir, "character.catpope").expect("kept").1, Some(15), "what opens next is the saved one");
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// a draft file of before the outbox becomes the rig's entry once, and is gone; an entry already there wins
+    #[test]
+    fn a_legacy_draft_file_is_moved_into_the_outbox_once() {
+        let b = Bundle::core("character.catpope").expect("a core rig").expect("it reads");
+        let next = wires::set_gain(&b, "drone", 0.5).expect("set");
+        let (dir, ob) = outbox("legacy");
+        let file = dir.join("drafts").join("character.catpope.rig.toml");
         wires::save_draft(&file, &b, &next, Some(14)).expect("written");
-        assert_eq!(with_copy(&file, "character.catpope", &b, Some(14)).0.rig, next.rig, "made on this version: its changes are back");
-        let (plays, local) = with_copy(&file, "character.catpope", &b, Some(16));
-        assert_eq!((plays.rig, local.map(|l| l.made_on)), (b.rig, Some(Some(14))), "made on an older one: offered");
-        std::fs::remove_file(&file).ok();
+        migrate(&dir, &ob);
+        assert!(!file.exists(), "read once and moved");
+        let e = ob.get(KIND, "character.catpope").expect("its entry");
+        assert_eq!((e.kind.as_str(), e.base), ("rig", Some(14)));
+        let (plays, made_on) = kept(&ob, "character.catpope", &b);
+        assert_eq!((plays.rig, made_on), (next.rig.clone(), Some(Some(14))), "the same rig plays");
+        let other = wires::set_gain(&b, "drone", 0.9).expect("set");
+        wires::save_draft(&file, &b, &other, Some(3)).expect("written");
+        migrate(&dir, &ob);
+        assert_eq!((file.exists(), ob.get(KIND, "character.catpope").map(|e| e.base)), (false, Some(Some(14))), "the outbox's own stays");
+        std::fs::remove_dir_all(&dir).ok();
     }
 }

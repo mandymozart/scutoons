@@ -13,6 +13,10 @@ pub type Values = serde_json::Map<String, serde_json::Value>;
 pub struct Show {
     pub id: String,
     pub version: u32,
+    /// the toon whose scenes, story events and address book the show uses; required – a document without one opens
+    /// with the problem, so its toon can be picked
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub toon: String,
     pub outlets: Vec<Outlet>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub seats: Vec<Seat>,
@@ -258,8 +262,9 @@ pub struct Fire {
 pub enum How {
     Auto,
     Suggest,
+    /// not auto: only the operator fires it
     #[default]
-    Hand,
+    Manual,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -295,7 +300,8 @@ pub enum Cell {
     Keep,
     /// the same as another outlet
     Mirror { of: String },
-    /// black, idle, all off
+    /// the empty cell, Ableton's stop slot: launched (or its row fired) the column stops – black, the show's background.
+    /// A cell left out of a row is `keep`, not empty
     Black,
     /// a seat: "go to your row"
     Go { row: String },
@@ -429,11 +435,43 @@ pub fn parse(json: &str) -> Result<Show, ParseError> {
     }
 }
 
+/// What New > Show makes: the name as its id (lowercase words joined by `-`), the toon, one stage role, no row yet.
+pub fn new_show(name: &str, toon: &str) -> Result<Show, String> {
+    let id = name.trim().to_lowercase().split(|c: char| !c.is_alphanumeric()).filter(|w| !w.is_empty()).collect::<Vec<_>>().join("-");
+    if id.is_empty() {
+        return Err("a new show needs a name".into());
+    }
+    let doc = serde_json::json!({ "id": id, "version": 1, "toon": toon.trim(), "outlets": [{ "id": "left" }], "rows": [] });
+    parse(&doc.to_string()).map_err(|e| e.to_string())
+}
+
+/// what stands where the show names no toon, over the picker
+pub const PICK_TOON: &str = "No toon yet – pick the show's:";
+/// the toon picker's query found none
+pub const NO_TOON_FOUND: &str = "No toon matches.";
+
+/// The toons whose id holds `query` (any case), in the list's order.
+pub fn toons_found<'a>(toons: &'a [String], query: &str) -> Vec<&'a String> {
+    let q = query.trim().to_lowercase();
+    toons.iter().filter(|t| t.to_lowercase().contains(&q)).collect()
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
+    fn a_new_show_is_named_and_has_its_toon() {
+        let s = super::new_show(" Top Toy: Opening ", "catpope").unwrap();
+        assert_eq!((s.id.as_str(), s.toon.as_str(), s.version, s.outlets.len(), s.rows.len()), ("top-toy-opening", "catpope", 1, 1, 0));
+        assert_eq!(super::new_show(" – ", "catpope").unwrap_err(), "a new show needs a name");
+        assert_eq!(super::new_show("Opening", " ").unwrap_err(), "invalid show: show: it names no toon – pick the show's toon");
+        let toons = ["catpope".to_string(), "feilchen".to_string()];
+        assert_eq!(super::toons_found(&toons, "FEIL"), [&toons[1]]);
+        assert_eq!(super::toons_found(&toons, "").len(), 2);
+    }
+
+    #[test]
     fn a_document_with_problems_opens_for_editing_and_does_not_parse() {
-        let doc = r#"{ "id": "x", "version": 1, "outlets": [{ "id": "left" }], "rows": [{ "id": "a", "cells": { "nowhere": { "mode": "black" } } }] }"#;
+        let doc = r#"{ "id": "x", "version": 1, "toon": "catpope", "outlets": [{ "id": "left" }], "rows": [{ "id": "a", "cells": { "nowhere": { "mode": "black" } } }] }"#;
         assert!(super::open(doc).is_ok());
         assert!(matches!(super::parse(doc), Err(super::ParseError::Invalid(_))));
         assert!(super::open("{}").unwrap_err().starts_with("not a show document"));

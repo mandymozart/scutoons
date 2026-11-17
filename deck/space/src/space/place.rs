@@ -30,6 +30,21 @@ impl Space {
         (ray.dir.y.abs() > 1e-4 && t > 0.0).then(|| ray.origin + ray.dir * t)
     }
 
+    /// Where a holder that plays nothing (an empty slot, `k` of `of`) would stand on the screen as a card `height`
+    /// metres tall: on its set's spot, else in the cast's row (after its members; centred when there are none), moved by
+    /// `at`. (left, top, width, height) in view pixels; None while its feet are behind the eye.
+    pub fn standee_pixels(&self, spot: Option<&str>, at: [f32; 3], (k, of): (usize, usize), height: f32) -> Option<[f32; 4]> {
+        let n = self.cast.len() as f32;
+        let place = if self.cast.is_empty() { k as f32 - (of as f32 - 1.0) * 0.5 } else { n + k as f32 - (n - 1.0) * 0.5 };
+        let row = self.being.anchor - Vec3::Y * self.lift + Vec3::X * place * super::CAST_SPACING;
+        let feet = spot.and_then(|s| self.spots.iter().find(|(name, _)| name == s)).map_or(row, |(_, p)| *p) + Vec3::from(at);
+        let (bx, by) = self.to_pixel(feet)?;
+        let (_, ty) = self.to_pixel(feet + Vec3::Y * height)?;
+        let h = (by - ty).max(1.0);
+        let w = h * super::CARD_ASPECT;
+        Some([bx - w * 0.5, ty, w, h])
+    }
+
     /// a press at view pixel (`x`, `y`): the member under it in the hand, None = no member there
     pub fn grab_member(&self, x: f32, y: f32) -> Option<Grab> {
         let member = self.pick_at(x, y)?;
@@ -182,6 +197,20 @@ mod tests {
         assert_eq!(lines.iter().filter(|l| l.2).count(), 2, "the origin's two zero lines");
         assert!(!space.grid_pixels(&Settings { plane: Plane::Wall, ..floor.clone() }, 4.0).is_empty());
         assert!(space.grid_pixels(&Settings { grid: false, ..floor }, 4.0).is_empty());
+    }
+
+    #[test]
+    fn an_empty_slot_stands_after_the_cast_as_tall_as_its_card() {
+        let space = duo();
+        let right = space.cast[1].feet;
+        let r = space.standee_pixels(None, [0.0; 3], (0, 1), 1.7).expect("in front");
+        let (rx, _) = pixel(&space, right);
+        assert!(r[0] > rx, "beside the row's last member: {r:?} vs {rx}");
+        let small = space.standee_pixels(None, [0.0; 3], (0, 1), 0.6).unwrap();
+        assert!(small[3] < r[3] && (small[1] + small[3] - (r[1] + r[3])).abs() < 1.0, "same feet, shorter");
+        let moved = space.standee_pixels(None, [-1.0, 0.0, 0.0], (0, 1), 1.7).unwrap();
+        assert!(moved[0] < r[0], "its offset moves it");
+        assert_eq!(space.standee_pixels(Some("spot_nowhere"), [0.0; 3], (0, 1), 1.7), Some(r), "a spot the set lacks: the row");
     }
 
     #[test]

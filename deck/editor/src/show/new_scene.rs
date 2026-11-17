@@ -21,7 +21,7 @@ use std::sync::Arc;
 
 /// the scene list's button, the sheet's buttons
 pub const NEW: &str = "new scene";
-const BUTTONS: [(&str, ComposeHit); 5] = [("Load", ComposeHit::Load), ("Play", ComposeHit::Play), ("Build", ComposeHit::Build), ("Save draft", ComposeHit::Save), ("Close", ComposeHit::Close)];
+const BUTTONS: [(&str, ComposeHit); 4] = [("Load", ComposeHit::Load), ("Play", ComposeHit::Play), ("Build", ComposeHit::Build), ("Close", ComposeHit::Close)];
 const NO_RIGS: &str = "the toon's rigs come from the server: sign in, or wait for Build's list";
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -38,7 +38,6 @@ pub enum ComposeHit {
     Play,
     /// the scene as the sheet has it, edited in Build
     Build,
-    Save,
     Close,
 }
 
@@ -55,6 +54,8 @@ pub struct Composer {
     pub catalog: Option<Arc<Catalog>>,
     /// the drafts never published of the toon: `scene:<id>`, its stage's name
     pub drafts: Vec<(String, String)>,
+    /// it saves itself once it names an id (show/saving.rs); a save carries back the document sent
+    pub auto: crate::autosave::Autosave<SceneDocument>,
     asking: Option<Receiver<Result<String, String>>>,
     asked: bool,
 }
@@ -141,7 +142,6 @@ impl Host {
             ComposeHit::Load => self.compose_load(),
             ComposeHit::Play => self.compose_play(),
             ComposeHit::Build => self.compose_build(),
-            ComposeHit::Save => self.compose_save(),
             ComposeHit::Close => {
                 self.sheet = None;
                 self.typing = None;
@@ -151,12 +151,16 @@ impl Host {
 
     /// Enter in one of the sheet's fields
     pub(super) fn compose_typed(&mut self, what: &Typing, text: &str) {
+        if *what == Typing::SceneId && text.trim() != self.compose.id {
+            self.compose_leave();
+        }
         let c = &mut self.compose;
         match what {
             Typing::SceneId => {
                 let id = text.trim().to_string();
                 if id != c.id {
                     (c.doc, c.base) = (None, None);
+                    c.auto.open(None);
                 }
                 c.id = id;
                 if c.name.is_empty() {
@@ -247,48 +251,40 @@ impl Host {
             return;
         }
         self.status = format!("scene:{}: open in Build", doc.id);
-        self.to_build = Some(super::build::ToBuild::Scene(Box::new(super::build::SceneOpen { doc, base: self.compose.base, kept: None, note: None })));
+        self.to_build = Some(super::build::ToBuild::Scene(Box::new(super::build::SceneOpen { doc, base: self.compose.base, kept: None, note: None, save: None })));
         self.build = None;
         self.sheet = None;
         self.typing = None;
     }
 
-    fn compose_save(&mut self) {
-        let doc = self.compose_document();
-        let problems = doc.check_new();
-        if !problems.is_empty() {
-            self.status = format!("not saved: {}", problems.join("; "));
-            return;
-        }
-        let content = serde_json::to_value(&doc).unwrap_or_default();
-        let key = format!("scene:{}", doc.id);
-        match self.api.save_scene(&doc.id, &content, self.compose.base, "deck editor") {
-            Ok(version) => {
-                let link = rigs::creator_link(&self.api.base, &key);
-                self.status = rigs::Saved::Done { version, link }.words();
-                self.compose.base = Some(version);
-                self.compose.doc = Some(doc.clone());
-                if !self.compose.drafts.iter().any(|(a, _)| *a == key) {
-                    self.compose.drafts.push((key, doc.stage.name.clone()));
-                }
-            }
-            Err(e) => self.status = format!("not saved: {e}"),
-        }
-    }
-
-    /// the scene named by the id from the server: its name and cast fill the sheet, a save goes on its version
+    /// the scene named by the id from the server: its name and cast fill the sheet, a save goes on its version. A local
+    /// copy not sent yet opens instead; one in conflict gives way to the server's newest.
     fn compose_load(&mut self) {
         let id = self.compose.id.clone();
         if id.is_empty() {
             self.status = "type the scene's id first".into();
             return;
         }
+        if let Some((doc, auto)) = self.take_unsent(&id) {
+            let c = &mut self.compose;
+            (c.name, c.cast) = (doc.stage.name.clone(), doc.cast().into_iter().map(String::from).collect());
+            (c.doc, c.base, c.auto) = (Some(doc), auto.version, auto);
+        }
+        let kept = self.api.outbox.get("scene", &id);
+        if kept.as_ref().is_some_and(|e| !e.conflict) {
+            self.status = format!("scene:{id}: unsent – kept locally, it goes up first");
+            return;
+        }
         match self.api.scene_draft(&id).and_then(|d| d.map(|d| SceneDocument::from_value(d.content).map(|doc| (doc, d.version)).map_err(|e| format!("scene:{id}: {e:#}"))).transpose()) {
             Ok(Some((doc, version))) => {
+                if kept.is_some() {
+                    self.api.outbox.remove("scene", &id);
+                }
                 let c = &mut self.compose;
                 c.name = doc.stage.name.clone();
                 c.cast = doc.cast().into_iter().map(String::from).collect();
                 (c.doc, c.base) = (Some(doc), version);
+                c.auto.open(version);
                 self.status = format!("scene:{id} loaded: {} on its stage", c.cast.len());
             }
             Ok(None) => self.status = format!("scene:{id} is not on the server: a new one"),
@@ -305,7 +301,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, pointer: (f3
     let w = (a.w * 0.5 - 2.0 * pad).max(200.0).min(a.w - 2.0 * pad);
     let x = a.x + pad;
     let mut y = a.y + pad;
-    let title = if host.compose.doc.is_some() { format!("SCENE SCENE:{} – A DRAFT OF THE SERVER'S", host.compose.id.to_uppercase()) } else { "NEW SCENE – SAVED AS A DRAFT, PUBLISHED IN THE CREATOR".into() };
+    let title = if host.compose.doc.is_some() { format!("SCENE SCENE:{} – A DRAFT OF THE SERVER'S", host.compose.id.to_uppercase()) } else { "NEW SCENE – IT SAVES ITSELF AS A DRAFT, PUBLISHED IN THE CREATOR".into() };
     d.text(x, y, small, &fit(d, &title, small, a.w - 2.0 * pad), t.color.muted);
     y += small * 1.8;
     for (what, label, hit) in [(Typing::SceneId, "id", ComposeHit::Id), (Typing::SceneName, "name", ComposeHit::Name)] {
@@ -319,12 +315,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, pointer: (f3
     for (label, hit) in BUTTONS {
         let bw = d.advance(font * 1.3) * label.chars().count() as f32 + 2.0 * pad;
         let r = Rect { x: bx, y: y + 4.0, w: bw, h: bh };
-        let primary = hit == ComposeHit::Save;
-        if primary {
-            controls::primary(d, t, r, label, false);
-        } else {
-            super::perform::button(d, t, r, label, if r.has(pointer.0, pointer.1) { t.color.hover } else { t.color.control }, t.color.text);
-        }
+        super::perform::button(d, t, r, label, if r.has(pointer.0, pointer.1) { t.color.hover } else { t.color.control }, t.color.text);
         host.hits.push((r, Hit::Compose(hit)));
         bx += bw + pad * 0.5;
     }
@@ -407,7 +398,8 @@ mod tests {
     #[test]
     fn a_new_scene_is_named_and_cast_from_the_toons_rigs() {
         let mut host = host();
-        compose(&mut host, ComposeHit::Open);
+        // the library's "new scene" (its one button: main.rs hands it on as this press)
+        host.press(Hit::Compose(ComposeHit::Open));
         assert_eq!(host.sheet, Some(Sheet::Scene));
         assert!(host.compose_scene().unwrap_err().iter().any(|p| p.contains("no scene id")));
         typed(&mut host, "duet");
@@ -439,7 +431,7 @@ mod tests {
         host.compose.id = "duet".into();
         host.compose.name = "Duet".into();
         host.compose.cast = vec!["character:catpope".into()];
-        host.compose_press(ComposeHit::Save);
+        host.compose_save_waiting();
         assert!(host.status.starts_with("not saved: "), "{}", host.status);
         assert!(host.compose.drafts.is_empty());
         let answer = r#"{ "scenes": [
@@ -452,11 +444,8 @@ mod tests {
         let listed = host.scene_list();
         let duet = listed.iter().position(|p| p.address == "scene:duet").expect("listed");
         assert_eq!(listed[duet].detail, format!("scene:duet · {}", deck_show::rows::DRAFT));
-        press(&mut host, false, |h| *h == Hit::Scene(duet));
-        let plan = deck_show::view::plan(host.shown());
-        let (r, c) = (plan.rows.iter().position(|x| x.id == "opening").unwrap(), plan.columns.iter().position(|x| x.id == "middle").unwrap());
-        let (rect, _) = *host.hits.iter().find(|(_, h)| *h == Hit::Cell(r, c)).unwrap();
-        assert!(host.drop_at(rect.x + rect.w * 0.5, rect.y + rect.h * 0.5));
+        let mut lib = crate::library::Library::new(std::env::temp_dir().join("deck-editor-new-scene-library"));
+        super::super::scenes::tests::drag(&mut host, &mut lib, &listed[duet].address, "opening", "middle");
         assert_eq!(host.status, "row 1 opening, middle: scene:duet");
         assert_eq!(host.marked("scene:duet"), "scene:duet · draft");
         assert_eq!(host.marked("scene:nave"), "scene:nave");
@@ -473,7 +462,7 @@ mod tests {
         host.compose.id = id.clone();
         host.compose.name = "Duet".into();
         host.compose.cast = vec!["character:catpope".into(), "item:incense_burner".into()];
-        host.compose_press(ComposeHit::Save);
+        host.compose_save_waiting();
         assert!(host.status.starts_with("saved as draft v"), "{}", host.status);
         assert!(host.status.ends_with(&format!("/edit/scene:{id}")), "{}", host.status);
         assert!(host.compose.drafts.iter().any(|(a, _)| *a == format!("scene:{id}")));
@@ -482,11 +471,11 @@ mod tests {
         host.compose_press(ComposeHit::Load);
         assert_eq!((host.compose.name.as_str(), host.compose.cast.len(), host.compose.base), ("Duet", 2, first), "{}", host.status);
         host.compose.cast.pop();
-        host.compose_press(ComposeHit::Save);
+        host.compose_save_waiting();
         assert!(host.status.starts_with("saved as draft v"), "{}", host.status);
         host.compose.base = first;
         host.compose.cast.push("item:incense_burner".into());
-        host.compose_press(ComposeHit::Save);
+        host.compose_save_waiting();
         assert!(host.status.contains("someone saved a newer version"), "{}", host.status);
     }
 }

@@ -43,6 +43,8 @@ pub struct SceneOpen {
     pub kept: Option<deck_space::published::Opened>,
     /// what the opening says beside it (the server not reached …)
     pub note: Option<String>,
+    /// the save of a copy not sent yet, which Build takes over
+    pub save: Option<crate::autosave::Autosave<SceneDocument>>,
 }
 
 impl Host {
@@ -105,6 +107,10 @@ impl Host {
             .iter()
             .find_map(|f| std::fs::read_to_string(f).ok())
             .and_then(|t| deck_space::published::Opened::from_cache(&t).ok());
+        if let Some((doc, save)) = self.take_unsent(&r.id) {
+            let note = if let crate::autosave::State::Conflict(_) = save.state { save.pill() } else { "unsent – kept locally".into() };
+            return Ok(SceneOpen { doc, base: save.version, kept, note: Some(note), save: Some(save) });
+        }
         let doc = |d: super::api::Draft| SceneDocument::from_value(d.content).map(|doc| (doc, d.version)).map_err(|e| format!("{piece}: {e:#}"));
         let (doc, base, note) = match self.api.scene_draft(&r.id) {
             Ok(Some(d)) => {
@@ -117,7 +123,7 @@ impl Host {
                 None => return Err(format!("{piece}: {why}")),
             },
         };
-        Ok(SceneOpen { doc, base, kept, note })
+        Ok(SceneOpen { doc, base, kept, note, save: None })
     }
 
     /// a scene of the list beside the rows band, or the scene sheet's, to Build
@@ -132,17 +138,20 @@ impl Host {
         }
     }
 
-    /// Build's scene saved as a new draft on `base` → its version and the words for it; the sheet and the list follow
+    /// Build's scene saved as a new draft on `base`, waiting for the answer → its version and the words for it
+    #[cfg(test)]
     pub fn save_built_scene(&mut self, doc: &SceneDocument, base: Option<u64>) -> Result<(u64, String), String> {
-        let problems = doc.check_new();
-        if !problems.is_empty() {
-            return Err(format!("not saved: {}", problems.join("; ")));
+        let mut auto = crate::autosave::Autosave::new(base);
+        auto.edit(std::time::Instant::now());
+        super::saving::send_scene(&self.api, &mut auto, doc, std::time::Instant::now());
+        if let crate::autosave::State::Refused(p) = &auto.state {
+            return Err(format!("not saved: {p}"));
         }
-        let content = serde_json::to_value(doc).map_err(|e| format!("not saved: {e}"))?;
-        let version = self.api.save_scene(&doc.id, &content, base, "deck editor").map_err(|e| format!("not saved: {e}"))?;
-        self.scene_saved(doc, version);
+        let (doc, answer) = crate::autosave::tests::settle(&mut auto).ok_or("not saved: no answer")?;
+        let version = answer.map_err(|e| format!("not saved: {e}"))?;
+        self.scene_saved(&doc, version);
         let link = crate::rigs::creator_link(&self.api.base, &format!("scene:{}", doc.id));
-        Ok((version, crate::rigs::Saved::Done { version, link }.words()))
+        Ok((version, crate::rigs::saved_words(version, &link)))
     }
 
     /// Build saved scene `doc` as version `version`: the sheet and the list follow, the knobs are asked again
@@ -150,6 +159,7 @@ impl Host {
         let key = format!("scene:{}", doc.id);
         if self.compose.id == doc.id {
             (self.compose.doc, self.compose.base) = (Some(doc.clone()), Some(version));
+            self.compose.auto.open(Some(version));
             self.compose.name.clone_from(&doc.stage.name);
             self.compose.cast = doc.cast().into_iter().map(String::from).collect();
         }
@@ -301,14 +311,13 @@ mod tests {
     /// scene's next draft; back in Show the sheet has that version and a save on the old one is refused.
     #[test]
     fn against_a_server_a_scene_opens_in_build_and_saves_its_draft() {
-        use super::super::new_scene::ComposeHit;
         let Ok(api) = std::env::var("DECK_TEST_API") else { return };
         let mut host = host();
         host.api = super::super::api::Api::new(api);
         host.toon = Some("catpope".into());
         let id = format!("build-{}", std::process::id());
         (host.compose.id, host.compose.name, host.compose.cast) = (id.clone(), "Built".into(), vec!["character:catpope".into(), "item:incense_burner".into()]);
-        host.compose_press(ComposeHit::Save);
+        host.compose_save_waiting();
         let first = host.compose.base.unwrap_or_else(|| panic!("{}", host.status));
         let open = host.scene_for_build(&format!("scene:{id}")).expect("the draft from the server");
         assert_eq!((open.base, open.doc.cast().len()), (Some(first), 2));

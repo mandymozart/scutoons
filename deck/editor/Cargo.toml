@@ -24,6 +24,8 @@ deck-catalog = { path = "../catalog" }
 deck-kit = { path = "../kit", features = ["editor"] }
 deck-space = { path = "../space", default-features = false, features = ["being", "gpu", "native"] }
 deck-engine = { path = "../engine" }
+# the scene camera's points on the stage (deck-space's own vectors)
+glam = "0.28"
 deck-core = { workspace = true, features = ["tempo"] }
 anyhow.workspace = true
 serde.workspace = true
@@ -40,7 +42,7 @@ egui-wgpu = { version = "0.37", default-features = false }
 deck-outlet = { path = "../outlet" }
 # the logo and the icons
 resvg = { version = "0.45", default-features = false }
-image = { version = "0.25", default-features = false, features = ["png"] }
+image = { version = "0.25", default-features = false, features = ["png", "webp", "jpeg"] }
 # the OS clipboard for the text field's copy and paste
 arboard = { version = "3", default-features = false }
 serde_json.workspace = true

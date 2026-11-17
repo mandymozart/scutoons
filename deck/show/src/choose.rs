@@ -440,7 +440,7 @@ mod tests {
     use crate::{ClockChoice, Show};
     use protocol::{Envelope, FlashReport, Message};
 
-    const TOP: &str = r#"{ "id": "top", "version": 3, "outlets": [{ "id": "left" }, { "id": "right" }],
+    const TOP: &str = r#"{ "id": "top", "version": 3, "toon": "catpope", "outlets": [{ "id": "left" }, { "id": "right" }],
       "seats": [{ "id": "foyer", "show": { "id": "foyer-loop", "version": 2 }, "word": "follow" }],
       "rows": [{ "id": "start", "cells": { "left": { "mode": "black" } } }] }"#;
 
@@ -604,7 +604,7 @@ mod tests {
         // #475: the conductor holds the pinned version, so the flash says what each outlet plays
         assert!(f.needs.as_ref().is_some_and(|n| !n.is_empty()), "{:?}", f.needs);
         // the child conductor of foyer-loop refuses what left it out, and sends nothing down
-        let mut child = Subtree::new(crate::parse(r#"{ "id": "foyer-loop", "version": 2, "outlets": [], "rows": [] }"#).unwrap(), ClockChoice::Parent);
+        let mut child = Subtree::new(crate::parse(r#"{ "id": "foyer-loop", "version": 2, "toon": "catpope", "outlets": [], "rows": [] }"#).unwrap(), ClockChoice::Parent);
         let back = child.on_wire(&Envelope::new(protocol::PARENT, Message::Flash(f.clone())), 101);
         assert_eq!(back.len(), 1);
         let Message::FlashReport(r) = &back[0].message else { panic!() };

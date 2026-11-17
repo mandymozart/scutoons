@@ -532,7 +532,7 @@ impl Show {
             // the one request for the scene goes out before the head asks for its first sprite
             #[cfg(feature = "sync")]
             if let Some(y) = &sync {
-                y.prepare(deck_native::sync::needs_of(&graph, &scene.being));
+                y.prepare(deck_native::sync::needs_of(&graph, &scene.being, &scene.stage));
             }
             // through the sync (it fetches, then the folder is read), else the local folders as they are
             #[cfg(feature = "sync")]
@@ -544,7 +544,7 @@ impl Show {
             let (portraits, gate) = (Portraits::local(&faces), None);
             #[cfg_attr(not(feature = "live"), allow(unused_mut))]
             let mut s = deck_native::space::Space::with_gate(&graph, n, &scene.being, &sets, portraits, gate);
-            s.set_background(scene.stage.background.clone());
+            s.set_scene(scene);
             // phase 4: with a relay (deck.toml or --relay) the being joins the session as its `join` says
             #[cfg(feature = "live")]
             {

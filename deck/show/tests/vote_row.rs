@@ -120,7 +120,7 @@ fn the_result_fires_the_row_set_to_its_event_and_is_logged() {
 
 #[test]
 fn a_result_on_suggest_waits_for_the_operator_and_on_hand_does_nothing() {
-    for (how, expect) in [("suggest", "suggests went-left"), ("hand", "vote:q1/1: went-left is by hand, ignored")] {
+    for (how, expect) in [("suggest", "suggests went-left"), ("manual", "vote:q1/1: went-left is manual, ignored")] {
         let mut d: Value = serde_json::from_str(VOTE).unwrap();
         d["rows"][2]["fire"]["how"] = json!(how);
         let mut sub = subtree(&d.to_string());

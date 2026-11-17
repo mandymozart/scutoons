@@ -7,15 +7,19 @@
 //! (the UI's build time per frame, the frame interval, the audio glitches); `--screenshot FILE` saves the last frame.
 //!
 //! The Wire side (#431, wires.rs): the top bar's switch or `w`; the ports around the being's points, a dragged cable is a
-//! route in the rig through the core's edit and validate, the rig replays, the draft is a file; ctrl+z takes it back.
+//! route in the rig through the core's edit and validate, the rig replays, the draft is its outbox entry; ctrl+z takes it back.
 //!
 //! deck-editor [--rig catpope] [--frames N] [--screenshot FILE] [--tokens FILE] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO]
 mod adding;
+mod autosave;
 mod bar;
 mod book;
+mod colour;
+mod dop;
 mod empty;
 mod gpu_time;
 mod grid;
+mod library;
 mod logo;
 mod mixer;
 mod module;
@@ -27,11 +31,14 @@ mod stage;
 mod tokens;
 mod ui;
 mod rigs;
+mod saving;
 mod scene;
 mod scene_parts;
+mod scene_stage;
 mod settings;
 mod show;
 mod sign_in;
+mod tools;
 mod toon;
 mod wires;
 
@@ -76,7 +83,7 @@ struct Args {
     size: Option<(u32, u32)>,
     /// start on the Wire side
     wire: bool,
-    /// the rig's draft file (default: the cache's drafts folder)
+    /// a rig draft file to play and keep the rig in, instead of the outbox
     draft: Option<PathBuf>,
     /// a check run's drag, by the pointer's own path: from a port to a port (their addresses)
     gesture: Option<(String, String)>,
@@ -109,9 +116,12 @@ struct Args {
     module: module::Script,
     /// #568: a check run's rigs (`<id>.toml` bundles) for the cells' pieces the deck carries no core rig of
     rigs: Option<PathBuf>,
+    /// a check run's catalog: the answers of `/catalog/docs/<kind>` as `<kind>.json` in a folder
+    catalog: Option<PathBuf>,
     /// a check run's Add typeahead: type this, pick the first row if asked
     add: Option<(String, bool)>,
-    /// a check run's scene member (scene.rs `script_scene`): selected, a knob turned, opened as its rig if asked
+    /// a check run's scene member (scene.rs `script_scene`): selected, a knob turned, opened as its rig if asked; or its
+    /// parts joined by `+` (scene_parts.rs `script_parts`: slot:, video:, stack, layer:DEPTH, fill:N=PATH, background:, camera, orbit:DX,DY)
     member: Option<(String, bool)>,
     /// a demo show opened in Show (show/demos.rs)
     demo: Option<String>,
@@ -124,10 +134,30 @@ struct Args {
     settings: bool,
     /// a check run's panic pill, pressed at the start
     panic: bool,
+    /// a check run shows the save pill in this state: saving, offline or conflict (its screenshots)
+    save_state: Option<String>,
+    /// a check run's tools pill folded at the start
+    tools_folded: bool,
+    /// a check run's panels closed in every workspace, and the main menu open
+    closed: Vec<String>,
+    main_menu: bool,
+    /// a check run's colour picker on the shown background: open | pick | drop:X,Y | take:X,Y (colour.rs `script_colour`)
+    colour: Option<String>,
+    /// a check run's library: a card of this address dragged to X,Y and let go there (`hold`: kept in the hand)
+    library_drag: Option<library::ScriptDrag>,
+    /// a check run's library in the list mode, filtered by a query
+    library_find: Option<String>,
+    library_list: bool,
+    library_related: bool,
+    /// a check run's view: panned by (dx, dy) pixels at the start, then looking through the scene's camera if asked
+    pan: Option<(f32, f32)>,
+    camera: bool,
+    /// a check run's scene camera (dop.rs `script_dop`): shots, a track, a move previewed
+    dop: Option<String>,
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false };
+    let mut a = Args { module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, save_state: None, tools_folded: false, closed: Vec::new(), main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false, library_related: false, pan: None, camera: false, dop: None };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -140,6 +170,22 @@ fn args() -> Result<Args> {
             "--wire" => a.wire = true,
             "--fullscreen" => a.fullscreen = true,
             "--panic" => a.panic = true,
+            "--colour" => a.colour = Some(val()?),
+            "--library-drag" => {
+                let v = val()?;
+                let p: Vec<&str> = v.split(',').collect();
+                let hold = p.last() == Some(&"hold");
+                let at = match (p.get(1), p.get(2)) {
+                    (Some(x), Some(y)) if *x != "hold" => Some((x.parse()?, y.parse()?)),
+                    _ => None,
+                };
+                a.library_drag = Some((p[0].to_string(), at, hold));
+            }
+            "--library-find" => a.library_find = Some(val()?),
+            "--library-list" => a.library_list = true,
+            "--library-related" => a.library_related = true,
+            "--save-state" => a.save_state = Some(val()?),
+            "--tools-folded" => a.tools_folded = true,
             "--view" => a.view = Some(val()?.parse()?),
             "--select" => a.select = Some(val()?),
             "--pull" => {
@@ -180,6 +226,7 @@ fn args() -> Result<Args> {
             "--module-save" => a.module.save = true,
             "--module-save-as" => a.module.save_as = Some(val()?),
             "--rigs" => a.rigs = Some(PathBuf::from(val()?)),
+            "--catalog" => a.catalog = Some(PathBuf::from(val()?)),
             "--demo" => {
                 a.demo = Some(val()?);
                 a.workspace = show::Workspace::Show;
@@ -196,6 +243,15 @@ fn args() -> Result<Args> {
             "--theme" => a.theme = Some(if val()? == "night" { tokens::Theme::Night } else { tokens::Theme::Day }),
             "--ui-size" => a.ui_size = Some(val()?.parse()?),
             "--settings" => a.settings = true,
+            "--pan" => {
+                let v = val()?;
+                let (x, y) = v.split_once(',').context("--pan DX,DY")?;
+                a.pan = Some((x.trim().parse()?, y.trim().parse()?));
+            }
+            "--camera" => a.camera = true,
+            "--dop" => a.dop = Some(val()?),
+            "--close" => a.closed.extend(val()?.split(',').map(str::trim).filter(|n| !n.is_empty()).map(String::from)),
+            "--main-menu" => a.main_menu = true,
             "--open-build" => a.script.open_build = true,
             "--to-cell" => a.script.to_cell = true,
             "--new-scene" => a.script.new_scene = Some(show::NewScene::parse(&val()?).context("--new-scene ID,NAME,FILLER+FILLER[,play|build]")?),
@@ -218,7 +274,7 @@ fn args() -> Result<Args> {
             "--flash-force" => a.script.flash_force = true,
             "--seat" => a.script.seat = Some(val()?),
             "--row" => a.script.row = Some(val()?),
-            "--sheet" => a.script.sheet = Some(show::Sheet::parse(&val()?).context("--sheet cues | problems | flash | who | session | vote | piece | event | scene | demos")?),
+            "--sheet" => a.script.sheet = Some(show::Sheet::parse(&val()?).context("--sheet cues | problems | flash | who | session | vote | event | scene | demos | new-show")?),
             "--role" => a.script.role = Some(val()?),
             "--who-move" => a.script.who_move = val()?.split_once('=').map(|(c, r)| (c.to_string(), r.to_string())),
             "--who-menu" => a.script.who_menu = Some(val()?),
@@ -238,6 +294,7 @@ fn args() -> Result<Args> {
                 let (row, column) = (p.next().unwrap_or_default(), p.next().context("--author ROW,COLUMN[,PIECE]")?);
                 a.script.author = Some((row, column, p.next().filter(|s| !s.is_empty())));
             }
+            "--in-place" => a.script.in_place = Some(val()?),
             "--cell" => a.script.cell = val()?.split_once(',').map(|(r, c)| (r.trim().to_string(), c.trim().to_string())),
             "--question" => {
                 let v = val()?;
@@ -256,7 +313,7 @@ fn args() -> Result<Args> {
                 a.size = Some((w.trim().parse()?, h.trim().parse()?));
             }
             "--help" | "-h" => {
-                println!("deck-editor [--rig catpope] [--fullscreen] [--frames N] [--screenshot FILE] [--tokens FILE] [--size W,H] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5] [--menu PORT,QUERY[,pick]] [--toon TOON] [--book FILE] [--select NODE --far QUERY[,pick]] [--demo NAME] [--panic] [--module ID [--module-build] [--module-save] [--module-save-as ID]]");
+                println!("deck-editor [--rig catpope] [--fullscreen] [--frames N] [--screenshot FILE] [--tokens FILE] [--size W,H] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5] [--menu PORT,QUERY[,pick]] [--toon TOON] [--book FILE] [--select NODE --far QUERY[,pick]] [--demo NAME] [--panic] [--colour open|pick|drop:X,Y|take:X,Y] [--save-state saving|offline|conflict] [--settings] [--close ID,ID] [--main-menu] [--module ID [--module-build] [--module-save] [--module-save-as ID]]");
                 std::process::exit(0);
             }
             other => anyhow::bail!("unknown argument {other}"),
@@ -289,6 +346,10 @@ enum Hit {
     Panic,
     /// the toolbar's day / night switch
     Look,
+    /// the toolbar's tempo pill, its account icon, its meters
+    Tempo,
+    Account,
+    Meters,
     Tab(Tab),
     Knob(usize),
     Field(f32),
@@ -320,13 +381,14 @@ enum Hit {
     Axis(Option<usize>),
     /// #91: a workspace pill in the top bar
     Workspace(show::Workspace),
-    /// Build's rig row: the rig picker, Save
+    /// Build's rig row: the rig picker
     RigPick,
-    Save,
     /// Build's Add, the inspector's Remove
     Add,
     Remove,
     Background,
+    /// a background's swatch: the colour picker
+    BackgroundColour,
     /// the Audio panel's settings, map and tones
     Routing(routing::Field),
     /// #568: Build linked to a show cell – its knobs into the cell, back to Show
@@ -338,6 +400,8 @@ enum Hit {
     SceneInto,
     /// a slot's or a video node's field (scene_parts.rs)
     SceneField(scene::Field),
+    /// the DOP panel's field (dop.rs)
+    Dop(dop::Field),
     /// a way to start the rig of a character without one (empty.rs)
     Way(empty::Way),
 }
@@ -370,6 +434,12 @@ enum Drag {
     Gizmo(Option<usize>, bool, f32, f32),
     /// a knob of the scene's member: which, the pointer's start, the start's value
     SceneKnob(usize, f32, f32),
+    /// a number of the DOP panel: which, the pointer's start, the start's value
+    Dop(dop::Num, f32, f32),
+    /// a point of the trolley track on the stage (scene_stage.rs), or its handle
+    TrackPoint(usize, bool),
+    /// a parallax layer's handle: which, the pointer's start, its depth then
+    LayerDepth(usize, f32, f32),
 }
 
 /// a port on the screen this frame (logical pixels)
@@ -386,6 +456,11 @@ enum Editing {
     Param(usize, usize),
     Gain(mixer::Target),
     Background,
+    SceneBackground,
+    Focal,
+    Height,
+    /// a layer's picture
+    SceneLayer(usize),
 }
 
 /// a value being typed, in place of its field
@@ -442,10 +517,9 @@ struct App {
     gpu_load: f32,
     stage: stage::Stage,
     tokens: tokens::Watched,
-    /// this machine's settings, where they are kept (none in a check run), whether their panel is open, its places
+    /// this machine's settings, where they are kept (none in a check run), their panel's places
     settings: settings::Settings,
     settings_file: Option<PathBuf>,
-    settings_open: bool,
     settings_hits: Vec<(Rect, settings::Press)>,
     panel: Panel,
     mods: ModifiersState,
@@ -465,7 +539,7 @@ struct App {
     notice: Option<Notice>,
     /// the rigs before each change: ctrl+z
     undo: Vec<deck_space::rig::Bundle>,
-    draft: PathBuf,
+    draft: rigs::Copy,
     /// the ports the cable in the hand may reach (the core's answer, per port)
     reach: Vec<bool>,
     /// a port clicked (not dragged): the next right click connects from it
@@ -475,6 +549,8 @@ struct App {
     bodies: Vec<(f32, f32, String, inspector::Sel)>,
     /// the last press on a body: for a double click
     last_body: Option<(usize, Instant)>,
+    /// the last press on a cast member: a double one frames it
+    last_member: Option<(usize, Instant)>,
     /// is the stage showing a level (Wire) now
     leveled: bool,
     /// Build's floating panels; where the viewer left every workspace's (none in a check run: it starts from the defaults)
@@ -483,7 +559,7 @@ struct App {
     panels_moved: bool,
     /// the main menu is open; its lines this frame
     main_menu: bool,
-    menu_lines: Vec<(Rect, bar::Action)>,
+    menu_lines: Vec<(Rect, bar::Line)>,
     /// the tree's rows this frame: the level each one goes to (empty = the rig), what it selects
     rows: Vec<(Vec<String>, inspector::Sel)>,
     /// what the inspector shows
@@ -503,6 +579,8 @@ struct App {
     rig_toon: toon::RigToon,
     auth: sign_in::Auth,
     rigs: rigs::Rigs,
+    /// the one hand (deck-kit `carry`): a library card on its way into a view
+    carry: Option<deck_kit::editor::carry::Carry>,
     routing: routing::Page,
     module: module::Module,
     /// the catalog modules Build's rig plays, fetched and loaded
@@ -513,6 +591,16 @@ struct App {
     last_row: Option<(deck_space::scene_edit::Part, Instant)>,
     /// Build's grid & snap (grid.rs)
     grid: grid::GridSnap,
+    colour: colour::Colour,
+    /// the workspace the last frame saved in: leaving one saves what it edits
+    saved_in: show::Workspace,
+    /// a check run saves nothing by itself (it never writes to the server)
+    autosaves: bool,
+    /// the tools pill (tools.rs)
+    tools: tools::Tools,
+    /// the library panel (library.rs) and a module to open once the Module workspace lists it
+    library: library::Library,
+    library_open: Option<String>,
 }
 
 /// the language of the book's labels: the editor's own words are English (not translated yet)
@@ -534,15 +622,27 @@ fn run() -> Result<i32> {
     let _ = CACHE.set(deck_native::cache::for_api(&args.api));
     let subject = if args.rig.contains('.') { args.rig.clone() } else { format!("character.{}", args.rig) };
     let cache = cache_dir();
-    let draft = args.draft.clone().unwrap_or_else(|| rigs::draft_path(&cache, &subject));
+    // a check run never reads or writes the outbox
+    let outbox = if args.frames.is_none() { autosave::Outbox::open(&cache) } else { autosave::Outbox::none() };
+    if args.frames.is_none() {
+        rigs::migrate(&cache, &outbox);
+    }
     let (base, at) = rigs::base(&cache, &subject)?;
-    let version = wires::draft_version(&draft).unwrap_or(at);
-    let stage = stage::Stage::new(base, args.volume, Some(&draft))?;
+    let (draft, plays, made_on) = match &args.draft {
+        Some(f) => (rigs::Copy::File(f.clone()), wires::load_draft(f, &base), wires::draft_version(f)),
+        None if args.frames.is_some() => (rigs::Copy::Nothing, base.clone(), None),
+        None => {
+            let (plays, made_on) = rigs::kept(&outbox, &subject, &base);
+            (rigs::Copy::Outbox, plays, made_on)
+        }
+    };
+    let version = made_on.unwrap_or(at);
+    let stage = stage::Stage::new(base, plays, args.volume)?;
     let panels_file = args.frames.is_none().then(|| cache_dir().join("editor-panels.json"));
     let remembered = panels_file.as_deref().map(panels::load).unwrap_or_default();
     let mut build = panels::Panels::new(&panels::BUILD);
     let settings_file = args.frames.is_none().then(|| settings::file(&cache));
-    let settings_open = args.settings;
+    let app_colour = colour::Colour::load(args.frames.is_none().then(|| colour::file(&cache)));
     let mut app_settings = settings_file.as_deref().map(settings::load).unwrap_or_default();
     app_settings.look.theme = args.theme.unwrap_or(app_settings.look.theme);
     app_settings.look.base = args.ui_size.unwrap_or(app_settings.look.base);
@@ -550,11 +650,19 @@ fn run() -> Result<i32> {
     let event_loop = EventLoop::new().context("no event loop (no display?)")?;
     let wire = args.wire;
     let app_workspace = args.workspace;
+    let app_autosaves = args.frames.is_none();
     // a check run keeps no grid settings
     let app_grid_file = args.frames.is_none().then(|| grid::cache_file(&cache));
     // a check run (--frames) never asks for a sign-in: SCUTOONS_TOKEN or the kept token only
     let auth = sign_in::Auth::start(&args.api, &cache, args.frames.is_none());
-    let rigs = if args.frames.is_none() || args.script.new_scene.is_some() { rigs::Rigs::new(&args.api, &cache, &subject, version, auth.token().is_some()) } else { rigs::Rigs::offline(&cache, &subject, version, "a check run asks no server") };
+    let mut rigs = if args.frames.is_none() || args.script.new_scene.is_some() { rigs::Rigs::new(&args.api, &cache, &subject, version, auth.token().is_some()) } else { rigs::Rigs::offline(&cache, &subject, version, "a check run asks no server") };
+    if let Some(dir) = &args.catalog {
+        rigs.read_catalog(dir).map_err(|e| anyhow::anyhow!("--catalog {}: {e}", dir.display()))?;
+    }
+    // the kept changes the server has not got yet go up by themselves
+    if stage.bundle != stage.base {
+        rigs.auto.edit(Instant::now());
+    }
     let rig_toon = if args.toon.is_none() && args.book.is_none() { toon::RigToon::new(&args.api, &subject, &cache) } else { toon::RigToon::none() };
     let mut app_show = show::Host::new(args.show_file.clone(), args.show_id.clone(), args.relay.clone(), args.api.clone());
     app_show.toon.clone_from(&args.toon);
@@ -568,6 +676,13 @@ fn run() -> Result<i32> {
     let app_book = book::Loader::new(&args.api, args.toon.as_deref(), args.book.as_deref(), auth.token(), &cache);
     let book_key = (args.toon.clone(), auth.token().is_some());
     let mut app_module = module::Module::new(&args.api, &cache, args.module.clone());
+    app_module.autosaves = args.frames.is_none();
+    let mut app_library = library::Library::new(cache.clone());
+    if let Some(dir) = &args.catalog {
+        if let Some(list) = app_library.answers(dir) {
+            app_module.list = list;
+        }
+    }
     let app_published = published::Published::new(&args.api, &cache);
     if let Some(p) = remembered.get("build") {
         build.floats.restore(p);
@@ -582,8 +697,24 @@ fn run() -> Result<i32> {
         app_show.perform_panels.floats.restore(p);
     }
     if args.audio {
-        build.floats.set_collapsed("audio", false);
+        build.floats.reopen("audio");
     }
+    if args.tools_folded {
+        for p in [&mut build.floats, &mut app_module.panels.floats, &mut app_show.show_panels.floats, &mut app_show.perform_panels.floats] {
+            p.set_collapsed("tools", true);
+        }
+    }
+    if args.settings {
+        for p in [&mut build, &mut app_module.panels, &mut app_show.show_panels, &mut app_show.perform_panels] {
+            p.floats.reopen(panels::SETTINGS);
+        }
+    }
+    for id in &args.closed {
+        for p in [&mut build, &mut app_module.panels, &mut app_show.show_panels, &mut app_show.perform_panels] {
+            p.floats.close(id);
+        }
+    }
+    let main_menu = args.main_menu;
     let mut app = App {
         panel: Panel { tab: args.tab, field: text::Field::with("Grüße an die Bühne – type here"), drag: None, hits: Vec::new(), field_rect: Rect { x: 0.0, y: 0.0, w: 0.0, h: 0.0 }, advance: 8.0 },
         args,
@@ -597,7 +728,6 @@ fn run() -> Result<i32> {
         tokens,
         settings: app_settings,
         settings_file,
-        settings_open,
         settings_hits: Vec::new(),
         mods: ModifiersState::empty(),
         cursor: (0.0, 0.0),
@@ -619,11 +749,12 @@ fn run() -> Result<i32> {
         menu: None,
         bodies: Vec::new(),
         last_body: None,
+        last_member: None,
         leveled: false,
         build,
         panels_file,
         panels_moved: false,
-        main_menu: false,
+        main_menu,
         menu_lines: Vec::new(),
         rows: Vec::new(),
         sel: inspector::Sel::Rig,
@@ -631,20 +762,28 @@ fn run() -> Result<i32> {
         edit: None,
         last_field: None,
         workspace: app_workspace,
+        saved_in: app_workspace,
+        autosaves: app_autosaves,
         show: app_show,
         book: app_book,
         book_key,
         rig_toon,
         auth,
         rigs,
+        carry: None,
         routing: routing::Page::new(deck_native::audio::backend::DeckAudio::read()),
         module: app_module,
         published: app_published,
         scene: None,
         last_row: None,
         grid: grid::GridSnap::load(app_grid_file),
+        colour: app_colour,
+        tools: tools::Tools::default(),
+        library: app_library,
+        library_open: None,
     };
     event_loop.run_app(&mut app).context("the event loop")?;
+    app.flush_all();
     let summary = app.summary();
     tracing::info!("{summary}");
     println!("{summary}");
@@ -680,6 +819,12 @@ impl App {
 
     fn scale(&self) -> f32 {
         self.window.as_ref().map_or(1.0, |w| w.scale_factor() as f32)
+    }
+
+    /// the window's size in logical pixels
+    fn window_size(&self) -> (f32, f32) {
+        let s = self.scale();
+        self.window.as_ref().map_or((1280.0, 720.0), |w| (w.inner_size().width as f32 / s, w.inner_size().height as f32 / s))
     }
 
     /// what is under the pointer, from the last frame's layout
@@ -728,13 +873,69 @@ impl App {
         use bar::Action as A;
         match a {
             A::Open if self.workspace == show::Workspace::Perform => Some("Perform runs the show open: open another in Show or Build."),
-            A::Open if self.workspace == show::Workspace::Module => Some("Pick a module in Modules."),
+            A::Open if self.workspace == show::Workspace::Module => Some(module::draw::PICK),
             A::Open | A::Audio | A::DayNight | A::Settings => None,
-            A::New => Some("Not built yet: a new rig or show starts in the creator."),
+            A::New if self.workspace == show::Workspace::Show => None,
+            A::New => Some("A new show starts in Show; a new rig in the creator."),
             A::Publish => Some("The editor opens no browser yet: publish the saved draft in the creator."),
             A::Account => Some("The editor opens no browser yet: the account is on scutoons.com."),
             A::Quit if std::env::var_os("DECK_SWAP").is_some() => None,
             A::Quit => Some("Only when the editor was opened from the deck (F9 goes back to its stage)."),
+        }
+    }
+
+    /// the frames a second over the last half second or so
+    fn fps(&self) -> f32 {
+        let recent = &self.frame_ms[self.frame_ms.len().saturating_sub(30)..];
+        let mean = if recent.is_empty() { 16.7 } else { recent.iter().sum::<f32>() / recent.len() as f32 };
+        1000.0 / mean.max(0.1)
+    }
+
+    /// a press on the tools pill, or an option its menu or a key picked
+    fn tool_press(&mut self, p: tools::Press) {
+        let (x, y) = self.cursor;
+        if let Some(why) = tools::later(p) {
+            return self.say(why.to_string(), x, y, false);
+        }
+        match p {
+            tools::Press::Tool(tool) => self.tools.tool = tool,
+            tools::Press::View(two_d) => self.show.press(show::Hit::View(two_d)),
+            tools::Press::Grid => self.grid.toggle(),
+            tools::Press::Frame => self.stage.space.frame_all(),
+            tools::Press::Look(l) => self.look_to(l),
+            tools::Press::Menu(_) => {}
+        }
+    }
+
+    /// what the stage looks through now, as the camera switcher shows it
+    fn looking(&self) -> tools::Look {
+        let space = &self.stage.space;
+        match space.viewing() {
+            deck_space::space::dop::Viewing::Free => tools::Look::Free,
+            deck_space::space::dop::Viewing::Primary => tools::Look::Primary,
+            deck_space::space::dop::Viewing::Shot(id) => space.dop.camera.shots.iter().position(|s| s.id == *id).map_or(tools::Look::Primary, tools::Look::Shot),
+        }
+    }
+
+    /// the camera switcher: an eased glide to the free view, the primary camera or a shot; previous / next walk them
+    fn look_to(&mut self, l: tools::Look) {
+        let n = self.stage.space.dop.camera.shots.len();
+        let l = match l {
+            tools::Look::Prev | tools::Look::Next => self.looking().step(n, l == tools::Look::Next),
+            l => l,
+        };
+        let space = &mut self.stage.space;
+        match l {
+            tools::Look::Free | tools::Look::Prev | tools::Look::Next => space.look_free(),
+            tools::Look::Primary => space.look_through_scene(),
+            tools::Look::Shot(i) => {
+                if let Some(id) = space.dop.camera.shots.get(i).map(|s| s.id.clone()) {
+                    space.look_through_shot(&id);
+                    if let Some(v) = self.scene.as_mut() {
+                        v.dop.shot = Some(i);
+                    }
+                }
+            }
         }
     }
 
@@ -749,9 +950,10 @@ impl App {
         match (a, self.workspace) {
             (A::Open, show::Workspace::Build) => self.open_rigs(x, y),
             (A::Open, _) => self.show.press(show::Hit::Load),
+            (A::New, _) => self.show.press(show::Hit::Sheet(show::Sheet::NewShow)),
             (A::Audio, _) => {
                 self.workspace = show::Workspace::Build;
-                self.build.floats.set_collapsed("audio", false);
+                self.build.floats.reopen("audio");
                 self.panels_moved = true;
             }
             (A::DayNight, _) => self.look(self.tokens.look.theme.other(), 0),
@@ -785,12 +987,16 @@ impl App {
         }
     }
 
-    /// the settings as a floating panel of every workspace
+    /// the settings as a floating panel of the workspace shown
     fn open_settings(&mut self) {
-        self.settings_open = true;
-        for p in [&mut self.build, &mut self.module.panels, &mut self.show.show_panels, &mut self.show.perform_panels] {
-            p.floats.set_collapsed("settings", false);
-        }
+        self.panels_mut().floats.reopen(panels::SETTINGS);
+        self.panels_moved = true;
+    }
+
+    /// a line of the main menu's panel list: the panel closes, or comes back open
+    fn menu_panel(&mut self, id: &str) {
+        self.main_menu = false;
+        self.panels_mut().flip(id);
         self.panels_moved = true;
     }
 
@@ -799,19 +1005,47 @@ impl App {
         let (x, y) = self.cursor;
         if let Some((spec, chrome)) = self.panels().floats.chrome_at(x, y) {
             let how = match chrome {
+                deck_kit::editor::floats::Chrome::Handle if spec.inline && self.panels().floats.collapsed(spec.id) => "Click to open it; drag to move it.",
                 deck_kit::editor::floats::Chrome::Handle => "Drag the handle to move it; it stops 1rem before a wall or another panel.",
                 deck_kit::editor::floats::Chrome::Fold => "Click to fold it to its pill or open it again.",
+                deck_kit::editor::floats::Chrome::Close => "Click to close it; the main menu's Panels bring it back.",
             };
             return Some(Help::new(spec.name, format!("{} {how}", spec.about)));
         }
+        if let Some((name, text)) = self.tools.help_at(x, y) {
+            return Some(Help::new(name, text));
+        }
         if self.main_menu {
-            if let Some((_, a)) = self.menu_lines.iter().find(|(r, _)| r.has(x, y)) {
-                let label = bar::MENU.iter().find(|(m, ..)| m == a).map_or("", |(_, l, _)| *l);
-                return Some(Help::new(label, self.menu_why_not(*a).unwrap_or("Click to do it.")));
+            match self.menu_lines.iter().find(|(r, _)| r.has(x, y)).map(|(_, l)| *l) {
+                Some(bar::Line::Do(a)) => {
+                    let label = bar::MENU.iter().find(|(m, ..)| *m == a).map_or("", |(_, l, _)| *l);
+                    return Some(Help::new(label, self.menu_why_not(a).unwrap_or("Click to do it.")));
+                }
+                Some(bar::Line::Panel(id)) => {
+                    let spec = self.panels().floats.spec(id)?;
+                    let how = if self.panels().floats.closed(id) { "Closed: click to bring it back." } else { "Open: click to close it." };
+                    return Some(Help::new(spec.name, format!("{} {how}", spec.about)));
+                }
+                None => {}
             }
         }
         Some(match self.hit(x, y) {
-            Hit::Menu => Help::new("Menu", "Open, publish, day or night, the settings, the audio and the account; back to the deck's stage."),
+            Hit::Menu => Help::new("Menu", "Open, publish, day or night, the settings, the audio and the account; the workspace's panels; back to the deck's stage."),
+            Hit::Tempo => Help::new(format!("{} BPM", self.stage.beat.map_or_else(|| "–".to_string(), |(b, _)| format!("{b:.1}"))), match self.stage.beat {
+                Some((_, true)) => "INT: the deck's own tempo clock runs; it sets the tempo of what plays here.",
+                Some((_, false)) => "INT: the deck's own tempo clock, standing.",
+                None => "No tempo clock plays here.",
+            }),
+            Hit::Account => {
+                let line = self.auth.line(&deck_link::pairing::app_url());
+                match (self.auth.state(), self.auth.name()) {
+                    (sign_in::Signed::In, Some(name)) => Help::new("Signed in", format!("As the editor {name:?}: it reads and saves drafts; publishing is in the creator.")),
+                    (sign_in::Signed::In, None) => Help::new("Signed in", "With a token of its own: it reads and saves drafts; publishing is in the creator."),
+                    (sign_in::Signed::Signing, _) => Help::new("Signing in", "Asking the server for this editor's code …"),
+                    (sign_in::Signed::Out, _) => Help::new("Not signed in", format!("{line}. Click to see it again.")),
+                }
+            }
+            Hit::Meters => Help::new("Load", bar::meters_words(self.cpu_load, self.gpu_time.as_ref().map(|_| self.gpu_load), self.stage.khz().map(|k| k as f32), self.fps())),
             Hit::Look => Help::new("Day / night", "Click to switch between the light and the dark look; ctrl + and ctrl − change the UI size, ctrl 0 sets it back."),
             Hit::Panic if self.show.sub.panicked() => Help::new("Resume", "The panic holds. Press to bring every deck back to the cells the show holds now."),
             Hit::Panic => Help::new("Panic", "Black and silence on every deck below this conductor and on this stage, until you resume here. Shift+Esc too."),
@@ -831,12 +1065,12 @@ impl App {
             Hit::Crumb(0) => Help::new("rig", "Back to the rig, every track one body."),
             Hit::Row(_) => Help::new("Tree", "The rig, its tracks and their nodes. In Wire a click goes to that level."),
             Hit::Crumb(d) => Help::new(self.stage.path.get(d - 1)?.clone(), "Back to this level. Esc or shift+tab goes one level up."),
-            Hit::Mode(false) => Help::new("Play", "Play it as a deck shows it: every node, knobs turn on the stage. W does the same."),
-            Hit::Mode(true) => Help::new("Stop", "Back to the wiring: the body holds still, the ports show, one level of the tree at a time. W does the same."),
+            Hit::Mode(false) => Help::new("Play", "Play it as a deck shows it: every node, knobs turn on the stage."),
+            Hit::Mode(true) => Help::new("Stop", "Back to the wiring: the body holds still, the ports show, one level of the tree at a time."),
             Hit::Axis(Some(a)) => Help::new(format!("{}{}", if a < 3 { "+" } else { "-" }, ["X", "Y", "Z"][a % 3]), "Click to look along this axis, drag to orbit."),
             Hit::Axis(None) => Help::new("View", "Drag to orbit, click an axis to look along it."),
-            Hit::Stage if self.wire => Help::new("Stage", "Left drag orbits, middle or right drag pans, the wheel zooms, F frames. Right click finds any port."),
-            Hit::Stage => Help::new("Stage", "Drag a knob to turn it, anywhere else to orbit. Middle drag pans, the wheel zooms."),
+            Hit::Stage if self.wire => Help::new("Stage", "Left drag orbits; middle or right drag, Shift + drag or two fingers pan; the wheel zooms, F frames. Right click finds any port."),
+            Hit::Stage => Help::new("Stage", "Drag a knob to turn it, anywhere else to orbit. Middle or right drag, Shift + drag or two fingers pan; the wheel zooms, F frames all, a double click frames a member."),
             Hit::Knob(i) => Help::new(self.stage.knobs.get(i)?.label.clone(), "Drag or use the wheel to turn it in the engine."),
             Hit::Tab(_) => Help::new("Tab", "Switches what the inspector shows."),
             Hit::Routing(f) => {
@@ -857,17 +1091,22 @@ impl App {
             Hit::Peak(_) => Help::new("Highest peak", "The loudest moment in dB, red once it went over 0. Click to clear it."),
             Hit::RigPick => Help::new("Rig", "Click: the toon's rigs on the server; a pick opens it on the stage. A local copy that differs from the server's is offered."),
             Hit::Add => Help::new("Add", "Inside a track: a node, a far world node with its holder from the address book. At the rig: a track playing an instrument of the catalog. Ctrl+z takes it back."),
+            Hit::BackgroundColour => Help::new("Colour", "Choose the background's colour: the palette, your recent colours, saturation and brightness over the hue, or the eyedropper – a click takes the colour under the pointer on the stage, Esc cancels."),
             Hit::Background => Help::new("Background", "The stage's background while this rig plays: a colour (#rrggbb) or a media path (an image laid over the stage). Empty = its modules', else black; a scene or a show over it wins."),
             Hit::Remove => Help::new("Remove", "Takes the selected node or track away, its cables with it (delete does the same). Ctrl+z takes it back."),
-            Hit::Save => Help::new("Save", "A new draft version on the server, on the version opened (ctrl+s). Publishing is in the creator."),
             Hit::Mute(i) => Help::new(format!("Mute {}", self.stage.strips.get(i)?.track), "Takes the track out of the sound."),
             Hit::ToCell => Help::new(show::build::TO_CELL, "Writes the knobs as Build has them now into the show cell this rig was opened from; the show checks their ranges."),
             Hit::BackToShow => Help::new(show::build::BACK, "The Show workspace, the linked cell selected."),
-            Hit::SceneKnob(_) => Help::new("Value in the scene", "Drag to set this member's knob in the scene; the stage plays it when you let go. Save makes the scene's draft."),
+            Hit::SceneKnob(_) => Help::new("Value in the scene", "Drag to set this member's knob in the scene; the stage plays it when you let go; the scene saves itself as a draft."),
             Hit::SceneClear(_) => Help::new("Its rig's value", "Takes the scene's value off: the member plays its rig's own."),
             Hit::SceneInto => Help::new("Open as rig", "One level down: the member's rig alone on the stage, the scene's values on its knobs. Esc or the scene's line takes them back into the scene."),
-            Hit::Way(empty::Way::Modules) => Help::new("Start from modules", "Add at the rig: a track playing a module or an instrument of the catalog. Save makes the rig's first draft."),
+            Hit::Way(empty::Way::Modules) => Help::new("Start from modules", "Add at the rig: a track playing a module or an instrument of the catalog; the rig saves itself as its first draft."),
             Hit::Way(empty::Way::NewModule) => Help::new("New module", "A module of the character's own as a draft, opened in the Module workspace: write it, build it, hear it, then add it here as a track."),
+            Hit::SceneField(scene::Field::Background) => Help::new("Background", "The stage's background in this scene: a colour (#rrggbb), an image's media path laid over the stage, or a video's (it does not play yet). Empty = its rigs', else black; a show over it wins."),
+            Hit::Dop(dop::Field::Focal) => Help::new("Focal length", "Type a focal length in mm for the extreme cases; the presets are 17, 30, 50, 70, 100 and 150."),
+            Hit::Dop(dop::Field::Preview) => Help::new("Preview", "Plays the move from where the camera is now to the selected shot on this stage; a hand on the view stops it."),
+            Hit::Dop(_) => Help::new("DOP", "The scene's camera: its lens, its shots (a show row picks one by scene:<id> > shot:<id>), a move to preview or keep (scene:<id> > move:<id>), the trolley track."),
+            Hit::SceneField(scene::Field::AddStack | scene::Field::AddLayer | scene::Field::Picture | scene::Field::Anchor) => Help::new("Parallax layers", "Pictures standing in the 3D at their depths, fitted to the scene camera's view there: a far matte, layers behind and around the 3D, strips at the edges in front. Drop a picture from the library on a layer's handle; drag the handle up or down to move it in depth – it is fitted anew."),
             Hit::SceneField(_) => Help::new("Slot or video", "A slot's filter (every chip on holds), its preview from the toon's book; a video node's place and knobs. The core refuses what does not fit, in its words."),
                         Hit::Field(_) | Hit::Nothing => return None,
         })
@@ -907,6 +1146,10 @@ impl App {
 
     fn pointer(&mut self, x: f32, y: f32) {
         self.cursor = (x, y);
+        if self.colour.dragging() {
+            let d = self.colour.drag_to(x, y);
+            return self.colour_do(d);
+        }
         if let Some(m) = self.menu.as_mut() {
             m.ta.hover(x, y);
         }
@@ -914,7 +1157,10 @@ impl App {
             return;
         }
         self.show.pointer(x, y);
-        self.show.drag_to(x, y);
+        self.library_drag_to(x, y);
+        if let Some(c) = self.carry.as_mut() {
+            c.to(x, y);
+        }
         if self.module.dragging() {
             return self.module.drag_to(x, &mut self.stage);
         }
@@ -922,9 +1168,13 @@ impl App {
             return;
         }
         match self.panel.drag {
-            Some(Drag::Member) => self.grid_drag(x, y),
+            Some(Drag::Member) if self.tools.tool == tools::Tool::Move => self.grid_drag(x, y),
+            Some(Drag::Member) => {}
             Some(Drag::Knob(i, _, _)) => self.knob_at(i, x),
             Some(Drag::SceneKnob(i, x0, v0)) => self.scene_knob_to(i, x0, v0, x),
+            Some(Drag::Dop(n, x0, v0)) => self.dop_scrub_to(n, x0, v0, x),
+            Some(Drag::TrackPoint(i, handle)) => self.track_point_to(i, handle, x, y),
+            Some(Drag::LayerDepth(l, y0, d0)) => self.layer_depth_to(l, y0, d0, y),
             Some(Drag::Param(node, port, x0, f0)) => {
                 if let Some(p) = self.stage.param(node, port) {
                     let v = p.spec.value((f0 + (x - x0) / SCRUB_PX).clamp(0.0, 1.0));
@@ -953,8 +1203,7 @@ impl App {
                 self.panel.drag = Some(Drag::Orbit(x, y));
             }
             Some(Drag::Pan(lx, ly)) => {
-                let s = self.scale();
-                let h = self.gpu.as_ref().map_or(720.0, |g| g.size().1 as f32 / s);
+                let h = self.view_h();
                 self.stage.space.camera.pan(x - lx, y - ly, h);
                 self.panel.drag = Some(Drag::Pan(x, y));
             }
@@ -989,26 +1238,36 @@ impl App {
             }
             return;
         }
+        if self.colour.taking() {
+            let d = self.colour.press(x, y);
+            return self.colour_do(d);
+        }
         // the main menu takes the press while it is open: a line does what it says, anywhere else closes it
         if self.main_menu {
-            match self.menu_lines.iter().find(|(r, _)| r.has(x, y)).map(|(_, a)| *a) {
-                Some(a) if self.menu_why_not(a).is_some() => {}
-                Some(a) => self.menu_act(a),
+            match self.menu_lines.iter().find(|(r, _)| r.has(x, y)).map(|(_, l)| *l) {
+                Some(bar::Line::Do(a)) if self.menu_why_not(a).is_some() => {}
+                Some(bar::Line::Do(a)) => self.menu_act(a),
+                Some(bar::Line::Panel(id)) => self.menu_panel(id),
                 None => self.main_menu = false,
             }
             return;
         }
-        // a panel's handle takes it in the hand, its chevron folds it (the settings' closes them)
+        // a panel's handle takes it in the hand, its chevron folds it, its close closes it
         if self.panels_mut().floats.press(x, y) {
             self.panels_moved = true;
-            if self.panels().floats.view("settings").is_some_and(|v| v.collapsed) {
-                self.settings_open = false;
-            }
             return;
+        }
+        self.library.refused = None;
+        match self.library.browser.press(x, y, library::now()) {
+            Some(did) => return self.library_did(did),
+            None => self.library.browser.stop_typing(),
         }
         if let Some((r, p)) = self.settings_hits.iter().find(|(r, _)| r.has(x, y)).copied() {
             let p = settings::at(&r, p, x);
             return self.change_settings(|s| s.press(p));
+        }
+        if let Some(p) = self.tools.press(x, y) {
+            return self.tool_press(p);
         }
         if self.workspace == show::Workspace::Module {
             if let Some(h) = self.module.hit(x, y) {
@@ -1023,8 +1282,11 @@ impl App {
                 return;
             }
             if let Some(h) = self.show.hit(x, y) {
+                if h == show::Hit::BackgroundColour {
+                    return self.colour_open(colour::Target::Show);
+                }
                 // #551: shift and a press add a cell to the row's selection
-                return self.show.press(if self.mods.shift_key() { h.with_shift() } else { h });
+                return self.show.press(if self.mods.shift_key() || self.mods.control_key() { h.with_shift() } else { h });
             }
             if self.panels().floats.covers(x, y) {
                 return;
@@ -1042,6 +1304,16 @@ impl App {
             Hit::Menu => self.main_menu = true,
             Hit::Look => self.look(self.tokens.look.theme.other(), 0),
             Hit::Panic => self.panic_pill(),
+            Hit::Account => {
+                let line = self.auth.line(&deck_link::pairing::app_url());
+                let said = match self.auth.name() {
+                    Some(name) => format!("signed in as the editor {name:?}"),
+                    None if line.is_empty() => "signed in".to_string(),
+                    None => line,
+                };
+                self.say(said, x, y, self.auth.state() == sign_in::Signed::Out);
+            }
+            Hit::Tempo | Hit::Meters => {}
             Hit::Ground => {}
             Hit::Crumb(i) if self.workspace != show::Workspace::Build => self.show.press(show::Hit::Crumb(i)),
             Hit::Routing(f) => routing::act(&mut self.routing, &mut self.stage, f),
@@ -1178,8 +1450,21 @@ impl App {
             Hit::Stage => {
                 self.focus(false);
                 self.armed = None;
-                // Play: the deck's own hand – a knob under the pointer turns, anywhere else it orbits
-                if self.grid_grab(x, y) {
+                if self.scene_mark_press(x, y) {
+                    return;
+                }
+                let (sx, sy) = self.stage_pixel(x, y);
+                let member = self.stage.space.pick_at(sx, sy);
+                let double = member.is_some() && self.last_member.is_some_and(|(m, at)| Some(m) == member && at.elapsed().as_millis() < 400);
+                self.last_member = member.map(|m| (m, Instant::now()));
+                if let (true, Some(m)) = (double, member) {
+                    self.stage.space.frame_member(m);
+                    return;
+                }
+                // Play: the deck's own hand – a knob under the pointer turns, anywhere else it orbits; Shift pans off the cast
+                if self.mods.shift_key() && member.is_none() {
+                    self.panel.drag = Some(Drag::Pan(x, y));
+                } else if self.grid_grab(x, y) {
                     self.panel.drag = Some(Drag::Member);
                 } else if self.wire {
                     self.panel.drag = Some(Drag::Orbit(x, y));
@@ -1190,10 +1475,14 @@ impl App {
                 }
             }
             Hit::RigPick => self.open_rigs(x, y),
-            Hit::Save if self.scene.is_some() => self.scene_save(),
-            Hit::Save => self.rigs.save(&self.stage.base, &self.stage.bundle),
             Hit::Add if self.scene.as_ref().is_some_and(|v| v.inside.is_none()) => self.scene_add(x, y),
             Hit::SceneField(f) => self.scene_field(f, x, y),
+            Hit::Dop(dop::Field::Scrub(n)) => {
+                if let Some(v) = self.scene.as_ref().map(|v| dop::value(v, n)) {
+                    self.panel.drag = Some(Drag::Dop(n, x, v));
+                }
+            }
+            Hit::Dop(f) => self.dop_field(f, x, y),
             Hit::Add => self.open_add(x, y),
             Hit::Way(w) => self.start_rig(w, x, y),
             Hit::Remove => self.remove_selected(),
@@ -1201,6 +1490,7 @@ impl App {
                 let now = self.stage.bundle.rig.background.as_ref().map_or("", |b| b.text()).to_string();
                 self.begin_edit(Editing::Background, Hit::Background, now);
             }
+            Hit::BackgroundColour => self.colour_open(colour::Target::Rig),
             Hit::ToCell => self.knobs_to_cell(),
             Hit::BackToShow => self.workspace = show::Workspace::Show,
             Hit::SceneKnob(i) => {
@@ -1258,6 +1548,11 @@ impl App {
         }
     }
 
+    /// the stage's height in logical pixels
+    fn view_h(&self) -> f32 {
+        self.gpu.as_ref().map_or(720.0, |g| g.size().1 as f32 / self.scale())
+    }
+
     /// is this press the second of a double click on this field
     fn double(&mut self, what: Editing) -> bool {
         let twice = self.last_field.is_some_and(|(w, at)| w == what && at.elapsed().as_millis() < 400);
@@ -1308,20 +1603,39 @@ impl App {
                 }
                 self.store_fader(target);
             }
-            Editing::Background => {
-                let (x, y) = self.cursor;
-                match deck_space::Background::typed(&text) {
-                    Ok(b) => {
-                        let mut next = self.stage.bundle.clone();
-                        next.rig.background = b;
-                        let before = self.stage.bundle.clone();
-                        if self.take(next, x, y) {
-                            self.undo.push(before);
-                        }
-                    }
-                    Err(e) => self.say(e, x, y, true),
+            Editing::Background => self.rig_background(&text),
+            Editing::SceneBackground => self.scene_background(&text),
+            Editing::Focal => self.dop_focal(&text),
+            Editing::Height => self.dop_height(&text),
+            Editing::SceneLayer(l) => self.scene_layer(l, &text),
+        }
+    }
+
+    /// the rig's background as typed or picked: into the rig, the undo and the draft
+    fn rig_background(&mut self, text: &str) {
+        let (x, y) = self.cursor;
+        match deck_space::Background::typed(text) {
+            Ok(b) => {
+                let mut next = self.stage.bundle.clone();
+                next.rig.background = b;
+                let before = self.stage.bundle.clone();
+                if self.take(next, x, y) {
+                    self.undo.push(before);
                 }
             }
+            Err(e) => self.say(e, x, y, true),
+        }
+    }
+
+    fn scene_background(&mut self, text: &str) {
+        let (x, y) = self.cursor;
+        let Some(view) = self.scene.as_mut() else { return };
+        match view.edit.set_background(text) {
+            Ok(said) => {
+                self.replay_scene();
+                self.say(said, x, y, false);
+            }
+            Err(e) => self.say(e, x, y, true),
         }
     }
 
@@ -1341,11 +1655,37 @@ impl App {
             Ok(next) => {
                 self.undo.push(self.stage.bundle.clone());
                 self.stage.bundle = next;
-                if let Err(e) = wires::save_draft(&self.draft, &self.stage.base, &self.stage.bundle, self.rigs.version) {
+                self.drafted(x, y);
+            }
+            Err(sentence) => self.say(sentence, x, y, true),
+        }
+    }
+
+    /// the rig as it plays into its copy; outside a scene it saves itself (inside, the scene takes its knobs)
+    fn drafted(&mut self, x: f32, y: f32) {
+        self.keep_copy(x, y);
+        if self.scene.is_none() {
+            self.rigs.auto.edit(Instant::now());
+        }
+    }
+
+    fn keep_copy(&mut self, x: f32, y: f32) {
+        let (base, now) = (&self.stage.base, &self.stage.bundle);
+        match &self.draft {
+            rigs::Copy::Outbox => self.rigs.keep(base, now),
+            rigs::Copy::File(f) => {
+                if let Err(e) = wires::save_draft(f, base, now, self.rigs.auto.version) {
                     self.say(format!("{e:#}"), x, y, true);
                 }
             }
-            Err(sentence) => self.say(sentence, x, y, true),
+            rigs::Copy::Nothing => {}
+        }
+    }
+
+    /// the scene leaves Build: what it has not sent waits in Show's `unsent`
+    pub(crate) fn drop_scene(&mut self) {
+        if let Some(v) = self.scene.take() {
+            self.show.keep_unsent(v.edit.doc, v.auto);
         }
     }
 
@@ -1472,7 +1812,7 @@ impl App {
         }
         self.rig_toon.poll();
         let build = self.workspace == show::Workspace::Build;
-        let toon = toon::wanted(self.args.toon.as_deref(), build, self.rig_toon.toon.as_deref(), self.show.place_toon());
+        let toon = toon::wanted(self.args.toon.as_deref(), build, self.rig_toon.toon.as_deref(), self.show.show_toon());
         let token = self.auth.token();
         let key = (toon, token.is_some());
         if key != self.book_key {
@@ -1488,23 +1828,23 @@ impl App {
             match e {
                 rigs::Event::Opened(subject, opened) => {
                     let (base, plays) = *opened;
-                    self.scene = None;
+                    self.drop_scene();
                     self.stage.path.clear();
                     if let Err(err) = self.stage.replay(plays) {
                         self.say(format!("{err:#}"), x, y, true);
                         continue;
                     }
                     self.stage.base = base;
-                    (self.undo, self.sel, self.armed, self.draft) = (Vec::new(), inspector::Sel::Rig, None, self.rigs.draft());
+                    (self.undo, self.sel, self.armed, self.draft) = (Vec::new(), inspector::Sel::Rig, None, rigs::Copy::Outbox);
                     if self.args.toon.is_none() && self.args.book.is_none() {
                         self.rig_toon = toon::RigToon::new(&self.args.api, &subject, &cache_dir());
                     }
                 }
-                rigs::Event::Saved(link) => {
-                    self.stage.base = self.stage.bundle.clone();
-                    let _ = wires::save_draft(&self.draft, &self.stage.base, &self.stage.bundle, self.rigs.version);
-                    if let Some(cb) = self.clipboard.as_mut() {
-                        let _ = cb.set_text(link);
+                rigs::Event::Saved(sent) => {
+                    self.stage.base = *sent;
+                    match &self.draft {
+                        rigs::Copy::Outbox => self.rigs.saved(&self.stage.base, &self.stage.bundle),
+                        _ => self.keep_copy(x, y),
                     }
                 }
                 rigs::Event::Say(text, bad) => self.say(text, x, y, bad),
@@ -1514,13 +1854,16 @@ impl App {
 
     /// #568: what Show asked Build to play (show/build.rs): a rig at hand takes the stage, the server's is opened
     fn follow_cell(&mut self) {
+        if self.show.to_build.is_some() {
+            self.leave_view();
+        }
         let Some(asked) = self.show.to_build.take() else { return };
         let (x, y) = self.cursor;
         self.workspace = show::Workspace::Build;
         if let show::build::ToBuild::Scene(o) = asked {
             return self.open_scene(*o);
         }
-        self.scene = None;
+        self.drop_scene();
         match asked {
             show::build::ToBuild::Scene(_) => {}
             show::build::ToBuild::Play(o, set) => {
@@ -1536,9 +1879,9 @@ impl App {
                         self.stage.set(node, port, v, min, max);
                     }
                 }
-                (self.rigs.subject, self.rigs.version) = (subject.clone(), None);
+                (self.rigs.subject, self.rigs.auto.version) = (subject.clone(), None);
                 (self.undo, self.sel, self.armed) = (Vec::new(), inspector::Sel::Rig, None);
-                self.draft = rigs::draft_path(&cache_dir(), &subject);
+                self.draft = rigs::Copy::Outbox;
                 self.leveled = !self.wire;
                 let line = self.show.status.clone();
                 self.say(line, x, y, false);
@@ -1607,6 +1950,7 @@ impl App {
         if menu.rigs {
             match self.rigs.choices.get(id).cloned() {
                 Some(rigs::Choice::Server(subject)) => {
+                    self.leave_view();
                     if let Err(e) = self.rigs.open(&subject) {
                         self.say(e, x, y, true);
                     }
@@ -1669,12 +2013,19 @@ impl App {
 
     /// the button let go: a cable dropped on a port is a gesture on the rig
     fn release(&mut self) {
+        if self.colour.dragging() {
+            let d = self.colour.release();
+            return self.colour_do(d);
+        }
         if self.panels_mut().floats.release() {
             self.panels_moved = true;
             return;
         }
-        // Show: a scene dragged from the list lands on the cell under the pointer
-        if self.show.drop_at(self.cursor.0, self.cursor.1) || self.grid.scrub_end() {
+        // a library card lands where the workspace takes it
+        if let Some(did) = self.library.browser.release(self.cursor.0, self.cursor.1) {
+            return self.library_did(did);
+        }
+        if self.grid.scrub_end() {
             return;
         }
         let a = match self.panel.drag.take() {
@@ -1694,7 +2045,9 @@ impl App {
             }
             // the fader let go: the gain goes into the rig, no replay: the engine has it already
             Some(Drag::Fader(target, _)) => return self.store_fader(target),
-            Some(Drag::SceneKnob(..)) => return self.scene_settled(),
+            Some(Drag::SceneKnob(..) | Drag::LayerDepth(..)) => return self.scene_settled(),
+            Some(Drag::Dop(n, ..)) => return self.dop_settled(n),
+            Some(Drag::TrackPoint(..)) => return self.track_settled(),
             // a knob or a parameter let go: its value goes into the draft
             Some(Drag::Knob(i, ..)) => {
                 if let Some(k) = self.stage.knobs.get(i) {
@@ -1770,9 +2123,7 @@ impl App {
             self.say(format!("{e:#}"), x, y, true);
             return false;
         }
-        if let Err(e) = wires::save_draft(&self.draft, &self.stage.base, &self.stage.bundle, self.rigs.version) {
-            self.say(format!("{e:#}"), x, y, true);
-        }
+        self.drafted(x, y);
         true
     }
 
@@ -1789,11 +2140,14 @@ impl App {
 
     /// a check run's drag at fixed frames: the pointer's own path, through hit test, press, move and release
     fn script(&mut self) {
+        self.script_colour();
+        self.script_library();
         self.show.script(self.frames, &self.args.script);
         if self.frames == 70 && self.args.script.to_cell {
             self.knobs_to_cell();
         }
         self.script_scene();
+        self.script_dop();
         const START: u64 = 60;
         if self.args.pull {
             let s = self.scale();
@@ -1975,6 +2329,7 @@ impl App {
         self.follow_toon();
         self.follow_rigs();
         self.follow_modules();
+        self.autosave();
         if self.workspace == show::Workspace::Module {
             self.module.enter();
         }
@@ -1992,6 +2347,7 @@ impl App {
         // #537: the Show workspace picks a cell's piece from the book's scenes
         self.show.book.clone_from(&self.book.book);
         self.show.book_why = self.book_why();
+        self.follow_library();
         // the main menu's Quit to stage: as F9
         if self.exit == 11 {
             el.exit();
@@ -2000,6 +2356,9 @@ impl App {
         if std::mem::take(&mut self.panels_moved) {
             self.remember_panels();
         }
+        if self.frames == 0 {
+            self.script_save_state();
+        }
         if self.frames == 0 && self.args.panic {
             self.panic_pill();
         }
@@ -2007,7 +2366,10 @@ impl App {
         self.show.help.clone_from(&help);
         let enabled: Vec<(bar::Action, bool)> = bar::MENU.iter().map(|(a, ..)| (*a, self.menu_why_not(*a).is_none())).collect();
         let grab = self.panels().floats.dragging() || matches!(self.panels().floats.chrome_at(self.cursor.0, self.cursor.1), Some((_, deck_kit::editor::floats::Chrome::Handle)));
-        let sign_in = self.auth.line(&deck_link::pairing::app_url());
+        let pill = self.save_pill();
+        let account = self.auth.state();
+        let fps = self.fps();
+        let look = self.looking();
         let (Some(window), Some(gpu), Some(ui)) = (self.window.clone(), self.gpu.as_mut(), self.ui.as_mut()) else { return };
         self.stage.space.being.hold(self.wire, false);
         // Wire shows a level of the tree, Play every node
@@ -2025,6 +2387,11 @@ impl App {
             if let Some(a) = self.args.view {
                 self.stage.space.camera.view_along(a % 3, a < 3);
             }
+            if let Some((dx, dy)) = self.args.pan {
+                let h = gpu.size().1 as f32 / window.scale_factor() as f32;
+                self.stage.space.camera.drag(dx * 0.4, dy * 0.2);
+                self.stage.space.camera.pan(dx, dy, h);
+            }
             if let Some(track) = self.args.enter.clone() {
                 self.stage.enter(vec![track]);
             }
@@ -2034,6 +2401,9 @@ impl App {
                     None => inspector::Sel::Track(id),
                 };
             }
+        }
+        if self.frames == 20 && self.args.camera {
+            self.stage.space.look_through_scene();
         }
         if self.tokens.poll() {
             self.token_changes += 1;
@@ -2060,9 +2430,12 @@ impl App {
         // the stage fills the window; the toolbar and the panels float over it
         let (stage_x, top, stage_w, stage_h) = (0.0, 0.0, wf, hf);
         let bar_bottom = bar::bottom(t);
-        let open = self.settings_open.then(|| (t.size.rem(22.0), settings::height(t)));
-        for p in [&mut self.build, &mut self.module.panels, &mut self.show.show_panels, &mut self.show.perform_panels] {
+        let open = Some((t.size.rem(22.0), settings::height(t)));
+        self.tools.shots = self.stage.space.dop.camera.shots.iter().map(|s| s.id.clone()).collect();
+        let shots = &self.tools.shots;
+        for (p, ws) in [(&mut self.build, show::Workspace::Build), (&mut self.module.panels, show::Workspace::Module), (&mut self.show.show_panels, show::Workspace::Show), (&mut self.show.perform_panels, show::Workspace::Perform)] {
             p.settings = open;
+            p.tools = Some(tools::size(t, ws, shots));
         }
         let work_start = Instant::now();
         let mut enc = gpu.device.create_command_encoder(&Default::default());
@@ -2070,6 +2443,11 @@ impl App {
             g.begin(&mut enc);
         }
         // the stage at its viewport's size in pixels
+        let [r, g, b, _] = t.color.stage;
+        self.stage.space.set_ground([r, g, b]);
+        let show_bg = matches!(self.workspace, show::Workspace::Show | show::Workspace::Perform).then(|| self.show.sub.conductor().show().background.clone()).flatten();
+        self.stage.wear(show_bg.as_ref());
+        self.stage.ask_pixel(self.colour.dropper.map(|_| ((self.cursor.0 * scale) as u32, (self.cursor.1 * scale) as u32)));
         let (stage_view, fresh) = self.stage.frame(&gpu.device, &gpu.queue, &mut enc, ((stage_w * scale) as u32, (stage_h * scale) as u32), dt);
         if fresh {
             ui.set_stage(&gpu.device, stage_view);
@@ -2086,23 +2464,20 @@ impl App {
         // file first: the pill cuts from the end)
         let build = self.workspace == show::Workspace::Build;
         let (path, status) = if build {
-            let recent = &self.frame_ms[self.frame_ms.len().saturating_sub(30)..];
-            let mean = if recent.is_empty() { 16.7 } else { recent.iter().sum::<f32>() / recent.len() as f32 };
             let glitches = self.stage.glitches();
             let status = format!(
-                "{}{:.0} fps{}{}",
+                "{}{}",
                 self.tokens.problem.as_ref().map(|p| format!("{p} – ")).unwrap_or_default(),
-                1000.0 / mean.max(0.1),
-                self.stage.khz().map(|k| format!(" · {k:.0} kHz")).unwrap_or_default(),
-                if glitches > 0 { format!(" · {glitches} glitches") } else { String::new() },
+                if glitches > 0 { format!("{glitches} glitches") } else { String::new() },
             );
-            let status = if self.undo.is_empty() { status } else { format!("{} change{} · {status}", self.undo.len(), if self.undo.len() == 1 { "" } else { "s" }) };
+            let status = if self.undo.is_empty() { status } else { format!("{} change{}{}{status}", self.undo.len(), if self.undo.len() == 1 { "" } else { "s" }, if status.is_empty() { "" } else { " · " }) };
             let open = self.scene.as_ref().map_or_else(|| self.stage.bundle.rig.subject.clone(), |v| v.crumb());
             let path: Vec<String> = std::iter::once(open).chain(self.stage.path.iter().cloned()).collect();
+            let join = |a: String| if status.is_empty() { a } else { format!("{a} · {status}") };
             let status = match (self.show.build_line(), &self.scene) {
-                (Some(l), _) => format!("{l} · {status}"),
-                (None, Some(v)) => format!("{} · {status}", v.title()),
-                (None, None) => status,
+                (Some(l), _) => join(l),
+                (None, Some(v)) => join(v.title()),
+                (None, None) => status.clone(),
             };
             (path, status)
         } else if self.workspace == show::Workspace::Module {
@@ -2113,10 +2488,17 @@ impl App {
         } else {
             (vec![self.show.sub.conductor().show().id.clone()], self.show.link_line())
         };
+        let status = match pill {
+            Some(p) if status.is_empty() => p,
+            Some(p) => format!("{p} · {status}"),
+            None => status,
+        };
         let names = show::WORKSPACES.map(|(_, n)| n);
         // reduce motion stills the animated logo
         let logo_frame = if self.settings.motion.allows(true) { ((self.started.elapsed().as_secs_f32() / logo::SECONDS).fract() * logo::FRAMES as f32) as usize } else { 0 };
-        let slot = if build { t.size.top } else if self.workspace == show::Workspace::Module { 0.0 } else { show::author::view_width(ui, t, &self.show, self.workspace) };
+        let slot = if matches!(self.workspace, show::Workspace::Build | show::Workspace::Module) { 0.0 } else { show::author::view_width(ui, t, &self.show, self.workspace) };
+        // the signing-in icon breathes, unless motion is reduced
+        let pulse = if self.settings.motion.allows(true) { 0.5 + 0.5 * (self.started.elapsed().as_secs_f32() * std::f32::consts::TAU / 1.6).cos() } else { 1.0 };
         let spec = bar::Bar {
             workspaces: &names,
             workspace: self.workspace.index(),
@@ -2124,11 +2506,15 @@ impl App {
             status: &status,
             play: build.then_some(self.wire),
             beat: self.stage.beat,
-            sign_in: &sign_in,
+            clock: bar::Clock::Int,
+            account,
+            pulse,
             logo_frame,
             pointer: self.cursor,
             cpu: self.cpu_load,
             gpu: self.gpu_time.as_ref().map(|_| self.gpu_load),
+            khz: self.stage.khz().map(|k| k as f32),
+            fps,
             slot,
             night: self.tokens.look.theme == tokens::Theme::Night,
             panicked: self.show.sub.panicked(),
@@ -2137,6 +2523,11 @@ impl App {
         self.panel.hits.push((placed.menu, Hit::Menu));
         self.panel.hits.push((placed.panic, Hit::Panic));
         self.panel.hits.push((placed.day, Hit::Look));
+        self.panel.hits.push((placed.account, Hit::Account));
+        self.panel.hits.push((placed.tempo, Hit::Tempo));
+        if let Some(r) = placed.meters {
+            self.panel.hits.push((r, Hit::Meters));
+        }
         for (r, (w, _)) in placed.workspaces.iter().zip(show::WORKSPACES) {
             self.panel.hits.push((*r, Hit::Workspace(w)));
         }
@@ -2162,6 +2553,10 @@ impl App {
         }
         self.grid.follow(self.scene.as_ref(), &self.stage, self.args.grid.as_deref());
         self.grid.draw_stage(ui, t, &self.stage.space, Rect { x: stage_x, y: top, w: stage_w, h: stage_h }, scale);
+        if let Some(view) = self.scene.as_mut() {
+            let carry = self.carry.as_ref().and_then(|c| c.at);
+            scene_stage::draw(ui, t, view, &self.stage.space, Rect { x: stage_x, y: top, w: stage_w, h: stage_h }, scale, carry);
+        }
         // Build's panels and what each asks for this frame; the view gizmo is a place no panel covers
         let gizmo = Rect { x: wf * 0.5 - 40.0, y: bar_bottom + 16.0, w: 80.0, h: 80.0 };
         let panning = match self.panel.drag {
@@ -2185,7 +2580,8 @@ impl App {
         let view = mixer::View { tabs, tab, selected, hot, panning };
         let (mixer_w, mixer_h) = mixer::size(t, &self.stage, &view);
         let info_h = t.size.small * 1.4 * 6.0;
-        let shown = [("tree", t.size.tree, None), ("inspector", t.size.inspector, None), ("audio", 320.0, None), ("info", 260.0, Some(info_h)), ("mixer", mixer_w, Some(mixer_h))];
+        let dop_h = self.scene.as_ref().map_or(t.size.row * 2.0, |v| dop::height(t, v));
+        let shown = [("tree", t.size.tree, None), (library::PANEL, library::WIDTH, None), ("inspector", t.size.inspector, None), ("audio", 320.0, None), ("info", 260.0, Some(info_h)), ("mixer", mixer_w, Some(mixer_h)), ("dop", dop::WIDTH, Some(dop_h))];
         self.build.layout(ui, t, ((wf, hf), bar_bottom), &[gizmo], &shown);
         let covered = |floats: &deck_kit::editor::floats::Floats, x: f32, y: f32| y < bar_bottom || floats.covers(x, y);
         // the Wire side: the ports around the being's points, the core's list on this frame's places (not under a panel)
@@ -2344,13 +2740,16 @@ impl App {
                 self.panel.hits.push((Rect { x: x - 9.0, y: y - 9.0, w: 18.0, h: 18.0 }, Hit::Axis(Some(a))));
             }
             self.panel.hits.push((Rect { x: gx - R - 12.0, y: gy - R - 12.0, w: 2.0 * (R + 12.0), h: 2.0 * (R + 12.0) }, Hit::Axis(None)));
-        }
-        // the grid's pill in the toolbar's place for it
-        {
-            let r = placed.slot;
-            ui.round_rect(r.x, r.y, r.w, r.h, r.h * 0.5, t.color.surface);
-            ui.outline(r.x, r.y, r.w, r.h, (r.h * 0.5, 1.0), t.color.line);
-            self.grid.pill(ui, t, r, self.cursor);
+            let label = match self.stage.space.viewing() {
+                _ if !self.stage.space.camera.looking() => None,
+                deck_space::space::dop::Viewing::Shot(id) => Some(format!("SHOT {}", id.to_uppercase())),
+                _ => Some("PRIMARY CAMERA".to_string()),
+            };
+            if let Some(label) = label {
+                let small = font * 0.75;
+                let w = ui.advance(small) * label.chars().count() as f32;
+                ui.text(gx - w * 0.5, gy + R + 12.0 + small * 0.4, small, &label, t.color.accent);
+            }
         }
         // the rig's tree: the rig, its tracks, the nodes of the one entered
         if let Some(o) = self.build.open(ui, t, "tree", self.cursor, self.panel.hits.len()) {
@@ -2399,7 +2798,7 @@ impl App {
             let line = controls::fit(&line, ((pick.w - 12.0) / ui.advance(small)) as usize);
             ui.text(pick.x + 6.0, pick.y + (pick.h - small * 1.25) * 0.5, small, &line, t.color.text);
             self.panel.hits.push((pick, Hit::RigPick));
-            for (r, h) in controls::pills(ui, t, pick.x + pick.w + pad, y, row - 4.0, &["Add", "Save"], 1).into_iter().zip([Hit::Add, Hit::Save]) {
+            for (r, h) in controls::pills(ui, t, pick.x + pick.w + pad, y, row - 4.0, &["Add"], usize::MAX).into_iter().zip([Hit::Add]) {
                 self.panel.hits.push((r, h));
             }
             y += row + pad / 2.0;
@@ -2449,7 +2848,9 @@ impl App {
                             self.panel.hits.push((r, hit));
                         }
                     } else if empty::is_empty(&self.stage.bundle) {
+                        let mut end = area.y;
                         for (r, way) in empty::draw(ui, t, area, &self.stage.bundle) {
+                            end = end.max(r.y + r.h);
                             self.panel.hits.push((r, Hit::Way(way)));
                         }
                     } else {
@@ -2460,6 +2861,7 @@ impl App {
                                 inspector::Field::Address(n) => Hit::Address(n),
                                 inspector::Field::Remove => Hit::Remove,
                                 inspector::Field::Background => Hit::Background,
+                                inspector::Field::BackgroundColour => Hit::BackgroundColour,
                             };
                             self.panel.hits.push((r, hit));
                         }
@@ -2528,6 +2930,28 @@ impl App {
             }
             self.build.close(ui, t, o, &mut self.panel.hits);
         }
+        if let Some(v) = self.scene.as_mut() {
+            v.dop.floor = self.stage.space.floor_point().y;
+        }
+        if let Some(o) = self.build.open(ui, t, "dop", self.cursor, self.panel.hits.len()) {
+            match self.scene.as_ref().filter(|v| v.inside.is_none()) {
+                Some(view) => {
+                    let dop = &self.stage.space.dop;
+                    let playing = dop.clock.and_then(|c| dop.director.playing(&c)).map(|(c, p)| (c.spec.kind.word().to_string(), c.shot.clone(), p));
+                    let hot = match self.panel.drag {
+                        Some(Drag::Dop(n, ..)) => Some(n),
+                        _ => None,
+                    };
+                    for (r, f) in dop::draw(ui, t, o.area, view, playing, hot) {
+                        self.panel.hits.push((r, Hit::Dop(f)));
+                    }
+                }
+                None => {
+                    ui.text(o.area.x, o.area.y + 4.0, t.size.small, "open a scene: its camera, shots and moves", t.color.muted);
+                }
+            }
+            self.build.close(ui, t, o, &mut self.panel.hits);
+        }
         // a panel's ground keeps the press from the stage under it
         for r in self.build.grounds(&panels::BUILD.map(|s| s.id)) {
             self.panel.hits.push((r, Hit::Ground));
@@ -2558,6 +2982,9 @@ impl App {
         if let Some(n) = &self.notice {
             controls::chip(ui, t, (n.x + 14.0, n.y - 34.0), wf, &n.text, n.bad);
         }
+        if let Some(c) = &self.carry {
+            c.draw(ui, t, wf);
+        }
         // over everything else: what is being typed, the typeahead
         if let Some(e) = &self.edit {
             let px = font;
@@ -2573,37 +3000,88 @@ impl App {
             ui.text(tx, e.at.y + (e.at.h - px * 1.25) * 0.5, px, &shown, t.color.text);
             ui.rect(tx + column as f32 * adv, e.at.y + 3.0, 1.5, e.at.h - 6.0, t.color.text);
         }
-        self.grid.popover(ui, t);
+        self.grid.popover(ui, t, (wf, hf));
         if let Some(m) = self.menu.as_mut() {
             m.ta.draw(ui, t, (wf, hf));
         }
         self.panel.hits.push((Rect { x: stage_x, y: top, w: stage_w, h: stage_h }, Hit::Stage));
         }
-        // the settings, over the workspace's panels
-        self.settings_hits.clear();
-        if self.settings_open {
+        // the library over the workspace's panels
+        {
             let cursor = self.cursor;
-            let s = self.settings;
-            let panels = match self.workspace {
+            match self.workspace {
+                show::Workspace::Show => show::scenes::panel(ui, t, &mut self.show, &mut self.library, cursor),
+                show::Workspace::Build | show::Workspace::Module => {
+                    let panels = if build { &mut self.build } else { &mut self.module.panels };
+                    match panels.open(ui, t, library::PANEL, cursor, 0) {
+                        Some(o) => {
+                            self.library.draw(ui, t, o.area, cursor, None);
+                            panels.close(ui, t, o, &mut self.library.browser.hits);
+                        }
+                        None => self.library.browser.hits.clear(),
+                    }
+                }
+                show::Workspace::Perform => self.library.browser.hits.clear(),
+            }
+        }
+        // the tools pill, over the workspace's panels
+        {
+            let cursor = self.cursor;
+            let ws = self.workspace;
+            let state = tools::State { tool: self.tools.tool, two_d: self.show.two_d, grid: self.grid.settings().grid, look };
+            let panels = match ws {
                 show::Workspace::Build => &mut self.build,
                 show::Workspace::Module => &mut self.module.panels,
                 show::Workspace::Show => &mut self.show.show_panels,
                 show::Workspace::Perform => &mut self.show.perform_panels,
             };
-            if let Some(o) = panels.open(ui, t, "settings", cursor, 0) {
-                let mut places = settings::draw(ui, t, o.area, &s);
+            let mut places = Vec::new();
+            if let Some(o) = panels.open(ui, t, "tools", cursor, 0) {
+                places = self.tools.draw(ui, t, o.area, ws, &state, cursor);
                 panels.close(ui, t, o, &mut places);
+            }
+            self.tools.shown(places);
+            self.grid.anchor(if build { self.tools.grid_at } else { None });
+        }
+        // the settings, over the workspace's panels
+        self.settings_hits.clear();
+        {
+            let cursor = self.cursor;
+            let s = self.settings;
+            let ws = match self.workspace {
+                show::Workspace::Build => &mut self.build,
+                show::Workspace::Module => &mut self.module.panels,
+                show::Workspace::Show => &mut self.show.show_panels,
+                show::Workspace::Perform => &mut self.show.perform_panels,
+            };
+            if let Some(o) = ws.open(ui, t, panels::SETTINGS, cursor, 0) {
+                let mut places = settings::draw(ui, t, o.area, &s);
+                ws.close(ui, t, o, &mut places);
                 self.settings_hits = places;
             }
         }
-        // the main menu over everything
+        self.tools.draw_menu(ui, t, (wf, hf), self.cursor);
+        let value = self.colour.target().and_then(|target| colour::value(target, &self.stage, self.scene.as_ref(), &self.show));
+        self.colour.draw(ui, t, (wf, hf), value, self.cursor);
+        self.library.over(ui, t, wf);
+        // the main menu over everything, the workspace's panels under its lines
         self.menu_lines.clear();
         if self.main_menu {
-            self.menu_lines = bar::menu(ui, t, placed.menu, &|a| enabled.iter().any(|(b, on)| *b == a && *on), &self.tokens.look, self.cursor);
+            let listed = match self.workspace {
+                show::Workspace::Build => &self.build,
+                show::Workspace::Module => &self.module.panels,
+                show::Workspace::Show => &self.show.show_panels,
+                show::Workspace::Perform => &self.show.perform_panels,
+            }
+            .listed();
+            self.menu_lines = bar::menu(ui, t, placed.menu, &|a| enabled.iter().any(|(b, on)| *b == a && *on), &self.tokens.look, &listed, self.cursor);
         }
         window.set_cursor(if grab { winit::window::CursorIcon::Grab } else { winit::window::CursorIcon::Default });
         // the pass: logical pixels → the surface's, through the screen uniform
         let view = frame.texture.create_view(&Default::default());
+        if std::mem::take(&mut self.library.pictures.changed) {
+            ui.set_thumbs(&self.library.pictures.images);
+        }
         ui.flush(&gpu.device, &gpu.queue, &mut enc, &view, (wf, hf), t.color.stage);
         self.ui_ms.push(t0.elapsed().as_secs_f32() * 1000.0);
         let shot = self.args.screenshot.clone().filter(|_| self.args.frames.is_some_and(|n| self.frames + 1 >= n) && gpu.can_capture);
@@ -2621,6 +3099,12 @@ impl App {
         if let Some(g) = self.gpu_time.as_mut() {
             g.after_submit(&gpu.device);
             self.gpu_load = ease(self.gpu_load, g.last_ms / budget);
+        }
+        if self.colour.dropper.is_some() {
+            self.colour.under = self.stage.read_pixel(&gpu.device);
+        }
+        if let Some(img) = self.stage.read_still(&gpu.device) {
+            self.library.still(img);
         }
         if let (Some(path), Some((buf, stride))) = (shot, readback) {
             if let Err(e) = save(&gpu.device, &buf, stride, (w, h), gpu.format(), &path) {
@@ -2738,9 +3222,20 @@ impl ApplicationHandler for App {
                             self.stage.set(n, port, v, p.spec.min, p.spec.max);
                         }
                     }
-                    Hit::Stage | Hit::Port(_) | Hit::Axis(_) => self.stage.space.camera.zoom(steps),
+                    // a touchpad's two fingers pan, its pinch (Ctrl) and a wheel's notches zoom
+                    Hit::Stage | Hit::Port(_) | Hit::Axis(_) => match delta {
+                        MouseScrollDelta::PixelDelta(p) if !self.mods.control_key() => {
+                            let h = self.view_h();
+                            self.stage.space.camera.pan(p.x as f32 / self.scale(), p.y as f32 / self.scale(), h);
+                        }
+                        _ => self.stage.space.camera.zoom(steps),
+                    },
                     _ => {}
                 }
+            }
+            WindowEvent::PinchGesture { delta, .. } if matches!(self.hit(self.cursor.0, self.cursor.1), Hit::Stage | Hit::Port(_) | Hit::Axis(_)) => {
+                let steps = (1.0 + delta as f32).max(0.1).ln() / -deck_space::gesture::ZOOM_STEP.ln();
+                self.stage.space.camera.zoom(steps);
             }
             // Shift+Esc panics from anywhere (Esc alone leaves the editor); only the pill resumes
             WindowEvent::KeyboardInput { event, .. }
@@ -2752,8 +3247,28 @@ impl ApplicationHandler for App {
             }
             WindowEvent::KeyboardInput { event, .. } if self.edit.is_some() => self.edit_key(&event),
             WindowEvent::KeyboardInput { event, .. } if self.menu.is_some() => self.menu_key(&event),
+            WindowEvent::KeyboardInput { event, .. } if self.library.browser.typing.is_some() => self.library_key(&event),
+            WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed && event.logical_key == Key::Named(NamedKey::Escape) && self.colour.taking() => {
+                let d = self.colour.release();
+                self.colour_do(d);
+                self.colour.escape();
+            }
+            // ctrl+s: save now, in every workspace (everything saves itself anyway)
+            WindowEvent::KeyboardInput { event, .. }
+                if event.state == ElementState::Pressed && event.logical_key == Key::Character("s".into()) && self.mods.control_key() && !self.panel.field.focused && self.show.typing.is_none() =>
+            {
+                self.save_now();
+            }
+            WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed && self.tools.menu_open() => {
+                let mut chosen = None;
+                if self.tools.key(&event.logical_key, &mut chosen) {
+                    if let Some(p) = chosen {
+                        self.tool_press(p);
+                    }
+                }
+            }
             // #471: the flash list's typed filter has the keys while it is focused
-            WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed && matches!(self.workspace, show::Workspace::Show | show::Workspace::Perform) && self.show.type_key(&event.logical_key) => {}
+            WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed && matches!(self.workspace, show::Workspace::Show | show::Workspace::Perform) && self.show.key(&event.logical_key, self.mods.control_key() || self.mods.super_key(), self.workspace == show::Workspace::Show) => {}
             // #560: F9 – back to the stage (deck-session swaps; elsewhere F9 does nothing): exit code 11
             WindowEvent::KeyboardInput { event, .. }
                 if event.state == ElementState::Pressed && event.logical_key == Key::Named(NamedKey::F9) && std::env::var_os("DECK_SWAP").is_some() =>
@@ -2767,6 +3282,8 @@ impl ApplicationHandler for App {
                         self.up_to(self.stage.path.len() - 1);
                     } else if self.scene.as_ref().is_some_and(|v| v.inside.is_some()) {
                         self.scene_up();
+                    } else if self.looking() != tools::Look::Free || self.stage.space.dop.director.active() {
+                        self.look_to(tools::Look::Free);
                     } else {
                         el.exit();
                     }
@@ -2779,12 +3296,6 @@ impl ApplicationHandler for App {
                     }
                 } else if self.panel.field.focused {
                     self.key(&event);
-                } else if event.state == ElementState::Pressed && event.logical_key == Key::Character("s".into()) && self.mods.control_key() && self.workspace == show::Workspace::Build {
-                    if self.scene.is_some() {
-                        self.scene_save();
-                    } else {
-                        self.rigs.save(&self.stage.base, &self.stage.bundle);
-                    }
                 } else if let Some(step) = (event.state == ElementState::Pressed && self.mods.control_key()).then(|| size_key(&event.logical_key)).flatten() {
                     let theme = self.tokens.look.theme;
                     self.look(theme, step);
@@ -2792,10 +3303,12 @@ impl ApplicationHandler for App {
                     self.take_back();
                 } else if event.state == ElementState::Pressed && event.logical_key == Key::Named(NamedKey::Delete) && self.workspace == show::Workspace::Build {
                     self.remove_selected();
-                } else if event.state == ElementState::Pressed && event.logical_key == Key::Character("w".into()) {
-                    self.wire = !self.wire;
+                } else if let Some(tool) = (event.state == ElementState::Pressed && self.workspace == show::Workspace::Build && !self.mods.control_key()).then(|| if let Key::Character(c) = &event.logical_key { tools::tool_key(c) } else { None }).flatten() {
+                    self.tools.tool = tool;
+                } else if let Some(l) = (event.state == ElementState::Pressed && !self.mods.control_key()).then(|| tools::look_key(&event.logical_key, self.stage.space.dop.camera.shots.len())).flatten() {
+                    self.look_to(l);
                 } else if event.state == ElementState::Pressed && event.logical_key == Key::Character("f".into()) {
-                    self.stage.space.frame_being();
+                    self.stage.space.frame_all();
                 } else if event.state == ElementState::Pressed && event.logical_key == Key::Named(NamedKey::Tab) {
                     let i = TABS.iter().position(|(t, _)| *t == self.panel.tab).unwrap_or(0);
                     self.panel.tab = TABS[(i + 1) % TABS.len()].0;

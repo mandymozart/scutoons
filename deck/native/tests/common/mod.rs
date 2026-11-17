@@ -140,7 +140,7 @@ pub const NEUTRAL: &str = "characters/catpope/catpope_portrait-neutral.png";
 pub const HAPPY: &str = "characters/catpope/catpope_portrait-happy.png";
 
 pub fn scene() -> Needs {
-    Needs { sets: vec![("cathedral".into(), "low".into())], characters: vec![("catpope".into(), vec!["neutral".into(), "happy".into(), "dizzy".into()])] }
+    Needs { sets: vec![("cathedral".into(), "low".into())], characters: vec![("catpope".into(), vec!["neutral".into(), "happy".into(), "dizzy".into()])], media: Vec::new() }
 }
 
 /// wait until the sync has settled every want of `needs`
