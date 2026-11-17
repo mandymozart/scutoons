@@ -33,7 +33,7 @@
 //! | `fire` / `go` | `row` / – : the show's conductor fires, its cell for the outlet goes to the deck (deck-space's piece.rs, #467) | do (load, glide, black, same, kept), piece, ms, values, glides, problems, playing; `vote` (#548: the `vote.open` a row's question sends) |
 //! | `launch` | `row`, `column` (#551: Perform's ▶ on one cell, the conductor's hand launch; an `ask` cell opens its whole question) | as `fire` |
 //! | `vote` | `option` (#548: the relay's result of the last question, the option's place from 0) – the show's event `vote:<question>/<n>`, the row set to it fires | event, row, said (the log's last line), and as `fire` |
-//! | `address` | `address`, `action` (#516: as the relay's `address` brings it; a show row's `addresses` reach the same path through `fire` / `go`: a line each under `addresses`, the last change's `stage`) – to the scene document playing (deck-space scene_play.rs: `join:<who>` / `leave:<who>`), a changed cast recast in the engine (live-core `recast`) | did (changed, nothing, not_mine), holder, ms, said (the log's last line), ids, stage |
+//! | `address` | `address`, `action` (#516: as the relay's `address` brings it; a show row's `addresses` reach the same path through `fire` / `go`: a line each under `addresses`, the last change's `stage`) – to the scene document playing (deck-space scene_play.rs: `join:<who>` / `leave:<who>`), a changed cast recast in the engine (live-core `recast`); a camera word (`shot:<id>`, `move:<id>`) to the stage's camera (Space `camera_word`; through `fire` its answer is `camera`) | did (changed, nothing, not_mine; camera), holder, ms, said (the log's last line), ids, stage; viewing, ortho, fov |
 //! | `story` | `event` (#517: a reader's story event as the relay brings it – `type`, `params`, `id`) – to the playing scene document's listeners (deck-space scene_play.rs `Playing::story`; a `load` of a `document` may add `listener`s), a changed cast recast once | did (a line per cast word: changed at <holder>, nothing), said, ids, stage |
 //! | `pick` | on the last scene document loaded (#496, stage.rs): `click` (a holder, or `[x, y]` of a 1280 × 720 window), `key` (+ `shift`), `drag` (a knob of the hand, `by`) | picked, selection, knobs (the hand's), mark, key, reach, turned (sent to the engine) |
 //! | a capability (caps.rs) | `with` | its answer, or `Missing` |
@@ -273,6 +273,9 @@ impl Run<'_> {
             if answer.get("stage").is_some() {
                 out["stage"] = answer["stage"].clone();
             }
+            if answer.get("viewing").is_some() {
+                out["camera"] = answer.clone();
+            }
         }
         if !addressed.is_empty() {
             out["addresses"] = json!(addressed);
@@ -334,6 +337,15 @@ impl Run<'_> {
     /// The answer: did (changed, nothing, not_mine), the holder, the log's last line, the stage after a change
     fn address(&mut self, address: &str, action: &str) -> Result<Value, Fault> {
         use deck_space::scene_play::Recast;
+        // a camera word (`shot:<id>`, `move:<id>`) goes to the stage's camera (deck-space Space `camera_word`), as a deck's
+        // Space takes the relay's `address`
+        if deck_space::rig::address::CameraWord::parse(action).is_some() {
+            let Some(scene) = self.resolved.as_ref() else { return Ok(json!({ "did": "not_mine" })) };
+            if self.stage.is_none() {
+                self.stage = Some(stage::Stage::new(scene).map_err(Fault::Error)?);
+            }
+            return Ok(self.stage.as_mut().expect("made above").camera(address, action));
+        }
         let Some(playing) = self.playing.as_mut() else { return Ok(json!({ "did": "not_mine" })) };
         let (own, content) = (&self.own_rigs, &self.content);
         let rigs = |s: &str, v: Option<&str>| own.get(s).cloned().or_else(|| deck_space::scene_resolve::core_rigs(s, v));
@@ -404,6 +416,10 @@ impl Run<'_> {
             use deck_space::scene_document::{Fillers, SceneDocument};
             let mut doc = SceneDocument::parse_json(self.file(path)?).map_err(|e| err(format!("{path}: {e:#}")))?;
             // #517: listeners written into the scenario (`listener`, as a document writes them), checked by the core
+            // a camera written into the scenario (`camera`, as the DOP panel stores it, scene_camera.rs)
+            if let Some(c) = step.get("camera") {
+                doc.camera = Some(c.clone().try_into().map_err(|e| err(format!("camera: {e}")))?);
+            }
             if let Some(l) = step.get("listener") {
                 doc.listeners = l.clone().try_into().map_err(|e| err(format!("listener: {e}")))?;
                 let problems = doc.check();

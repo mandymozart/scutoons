@@ -233,8 +233,14 @@ pub fn address_text(a: &Addressed) -> String {
 /// A cell's words (on its column; `device` = a device outlet).
 pub fn cell_text(cell: &Cell) -> String {
     match cell {
-        Cell::Play { piece: Some(p), values, .. } if values.is_empty() => p.clone(),
-        Cell::Play { piece: Some(p), values, .. } => format!("{p} · {}", values_text(values)),
+        Cell::Play { piece: Some(p), values, shot, .. } => {
+            let shot = shot.as_deref().map(|s| format!(" > {}:{s}", deck_space::rig::address::SHOT)).unwrap_or_default();
+            if values.is_empty() {
+                format!("{p}{shot}")
+            } else {
+                format!("{p}{shot} · {}", values_text(values))
+            }
+        }
         Cell::Play { piece: None, send, .. } if !send.is_empty() => format!("send {}", send.iter().map(device_text).collect::<Vec<_>>().join(" · ")),
         Cell::Play { piece: None, .. } => "nothing".into(),
         Cell::Values { piece, values } if values.is_empty() => format!("values · {piece}"),

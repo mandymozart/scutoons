@@ -575,6 +575,10 @@ impl Conductor {
         }
         let before = self.playing_row(column, ms);
         self.stage.insert(column.to_string(), OnStage { playing, row: row.to_string(), off_row, from: at, before });
+        // the cell's camera shot: the scene's camera word, after the cell (a deck that is still opening the scene keeps it)
+        if let Cell::Play { piece: Some(p), shot: Some(s), .. } = cell {
+            out.push(Out::Address(crate::document::Addressed { address: p.clone(), action: format!("{}:{s}", deck_space::rig::address::SHOT), filter: None }));
+        }
     }
 
     /// the row whose cell plays on `column` at relay time `ms` (one still waiting for its moment does not yet)

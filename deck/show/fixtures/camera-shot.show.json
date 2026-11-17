@@ -1,0 +1,11 @@
+{
+  "id": "camera-shot",
+  "version": 1,
+  "toon": "catpope",
+  "outlets": [{ "id": "left" }],
+  "rows": [
+    { "id": "opening", "cells": { "left": { "mode": "play", "piece": "scene:stage" } } },
+    { "id": "overhead", "cells": { "left": { "mode": "play", "piece": "scene:stage", "shot": "iso" } } },
+    { "id": "closer", "cells": { "left": { "mode": "play", "piece": "scene:stage", "shot": "wide" } } }
+  ]
+}

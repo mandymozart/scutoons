@@ -23,7 +23,7 @@
 //! and a published scene a show's cell launched listens like a `?scene=`: the link's cast is the scene that plays (the
 //! core's piece.rs `Side::playing`), its changed cast switched to beside the outlet (`Side::recast`).
 use crate::outlet::Outlet;
-use crate::{err, frame_for, open_canvas, portrait_asks, set_from_page, CanvasGpu, SPLASH_AT_MOST};
+use crate::{err, open_canvas, portrait_asks, set_from_page, CanvasGpu, SPLASH_AT_MOST};
 use deck_engine::control::Controls;
 use deck_show::face::Face;
 use deck_space::chapter::{finish_slice, Chapter, Dialog, Source};
@@ -125,8 +125,7 @@ impl Show {
             room = graph.nodes[n].str("set").unwrap_or_default().to_string();
             let mut s = Space::new(&graph, n, &scene.being, std::path::Path::new(""), Portraits::manual());
             s.set_scene(&scene);
-            s.set_view(size.0 as f32, size.1 as f32);
-            frame_for(&mut s, size.0, size.1);
+            s.fit_screen(size.0 as f32, size.1 as f32);
             s
         });
         let controls = Controls::new(&graph, None);
@@ -137,8 +136,7 @@ impl Show {
         self.size = (w, h);
         self.stage.resize(device, (w, h));
         if let Some(s) = self.space.as_mut() {
-            s.set_view(w as f32, h as f32);
-            frame_for(s, w, h);
+            s.fit_screen(w as f32, h as f32);
         }
     }
 }

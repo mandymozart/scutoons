@@ -52,6 +52,8 @@ pub struct Stage {
     space: Space,
     hands: Hands,
     time: f32,
+    /// the scene's camera, taken on by the stage at its first camera word
+    camera: Option<Option<deck_space::scene_camera::SceneCamera>>,
 }
 
 impl Stage {
@@ -62,9 +64,26 @@ impl Stage {
         let mut space = Space::new(&graph, node, &scene.being, std::path::Path::new(""), Portraits::manual());
         space.set_view(VIEW.0, VIEW.1);
         let hands = Hands { table: Table::new(&graph), turned: Vec::new() };
-        let mut stage = Stage { graph, space, hands, time: 0.0 };
+        let mut stage = Stage { graph, space, hands, time: 0.0, camera: Some(scene.camera.clone()) };
         stage.frames(SETTLE);
         Ok(stage)
+    }
+
+    /// A camera word (`scene:<id> > shot:<id>` / `move:<id>`) to the stage's camera, as a deck's Space takes the relay's
+    /// `address`; its glide later: did (camera, not_mine), what the stage looks through, its lens.
+    pub fn camera(&mut self, address: &str, action: &str) -> Value {
+        if let Some(camera) = self.camera.take() {
+            self.space.set_camera(None, camera);
+        }
+        let took = self.space.camera_word(address, action);
+        self.frames(75);
+        let viewing = match self.space.viewing() {
+            deck_space::space::dop::Viewing::Free => "free".to_string(),
+            deck_space::space::dop::Viewing::Primary => "primary".to_string(),
+            deck_space::space::dop::Viewing::Shot(id) => format!("shot:{id}"),
+        };
+        let c = &self.space.camera;
+        json!({ "did": if took { "camera" } else { "not_mine" }, "viewing": viewing, "ortho": c.ortho.map(|h| round(f64::from(h), 2)), "fov": round(f64::from(c.fov_y.to_degrees()), 1) })
     }
 
     fn frames(&mut self, n: usize) {

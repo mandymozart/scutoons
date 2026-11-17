@@ -19,6 +19,39 @@ pub const FOV_Y: f32 = 55.0 * std::f32::consts::PI / 180.0;
 pub const ZOOM_EASE_S: f32 = 0.12;
 /// #224: the focus glides the same way – to a tapped knob, back to the being: the time constant of the target's ease, s
 pub const FOCUS_EASE_S: f32 = 0.2;
+/// a screen held upright sees as much across as a landscape one from top to bottom, at most this wide (rad)
+pub const PORTRAIT_FOV_MAX: f32 = 75.0 * std::f32::consts::PI / 180.0;
+/// the narrowest lens a perspective ↔ orthographic blend passes through (rad), far back from its aim
+pub const BLEND_FOV: f32 = 0.5 * std::f32::consts::PI / 180.0;
+
+/// The free view's field of view on a screen of `aspect` (w / h): `FOV_Y` on a landscape one; upright, it widens with the
+/// height (at most `PORTRAIT_FOV_MAX`). A shot's own lens is not widened (Space `fit_screen`).
+pub fn screen_fov(aspect: f32) -> f32 {
+    if aspect >= 1.0 {
+        return FOV_Y;
+    }
+    (2.0 * ((FOV_Y * 0.5).tan() / aspect.max(1e-3)).atan()).min(PORTRAIT_FOV_MAX)
+}
+
+/// One end of a lens blend: the vertical field of view (rad), the orthographic view height if it is one (m), the distance
+/// from the aim (m).
+pub type LensEnd = (f32, Option<f32>, f32);
+
+/// Between a perspective and an orthographic end, `u` of the way, as a dolly zoom: the lens narrows (or opens) while the
+/// eye backs off (or comes in), so the view's height at the aim glides from one end's to the other's and the picture
+/// flattens without a jump. The (field of view, distance) of the perspective view in between – it is orthographic only at
+/// that end. None when both ends project alike.
+pub fn projection_blend(from: LensEnd, to: LensEnd, u: f32) -> Option<(f32, f32)> {
+    let (persp, o) = match (from.1, to.1) {
+        (None, Some(_)) => (from, u),
+        (Some(_), None) => (to, 1.0 - u),
+        _ => return None,
+    };
+    let height = |e: LensEnd| e.1.unwrap_or_else(|| 2.0 * e.2 * (e.0 * 0.5).tan());
+    let h = height(from) + (height(to) - height(from)) * u.clamp(0.0, 1.0);
+    let tan = ((persp.0 * 0.5).tan() * (1.0 - o.clamp(0.0, 1.0))).max((BLEND_FOV * 0.5).tan());
+    Some((2.0 * tan.atan(), h / (2.0 * tan)))
+}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Ray {
@@ -92,6 +125,9 @@ pub struct Orbit {
     pub through: Option<Shot>,
     /// an orthographic view's height (m); none = perspective
     pub ortho: Option<f32>,
+    /// mid perspective ↔ orthographic blend: far back with a long lens; a hand leaving it brings the eye in as the lens
+    /// opens, the view's height held
+    pub far_back: bool,
     /// a hand moved the view since the last `take_touched` (a playing move stops)
     touched: bool,
     home: (f32, f32, f32),
@@ -128,6 +164,7 @@ impl Orbit {
             free: false,
             through: None,
             ortho: None,
+            far_back: false,
             touched: false,
             home: (yaw, pitch, distance),
             free_fov: FOV_Y,
@@ -151,10 +188,9 @@ impl Orbit {
             self.free_view = Some(self.as_shot(self.free_fov));
         }
         (self.returning, self.fov_back) = (false, false);
-        self.glide_from = Shot { target: self.target, yaw: self.yaw, pitch: self.pitch, distance: self.distance, fov_y: self.fov_y, ortho: None };
+        self.glide_from = Shot { target: self.target, yaw: self.yaw, pitch: self.pitch, distance: self.distance, fov_y: self.fov_y, ortho: self.ortho };
         self.glide_t = 0.0;
         self.max_distance = self.max_distance.max(shot.distance);
-        self.ortho = shot.ortho;
         self.through = Some(shot);
         self.goal = shot.target;
         self.want = shot.distance.clamp(self.min_distance, self.max_distance);
@@ -186,7 +222,7 @@ impl Orbit {
     pub fn leave(&mut self) {
         self.touched = true;
         self.returning = false;
-        if self.through.take().is_some() {
+        if self.through.take().is_some() || self.far_back {
             self.fov_back = self.ortho.is_none();
         }
     }
@@ -238,13 +274,34 @@ impl Orbit {
     }
 
     pub fn proj(&self, aspect: f32) -> Mat4 {
+        // far back mid-blend the near plane moves out with the eye, so the depth keeps its precision
+        let near = (self.distance * 0.005).max(0.05);
         match self.ortho {
             Some(h) => {
                 let (hh, hw) = (h * 0.5, h * 0.5 * aspect.max(1e-3));
                 Mat4::orthographic_rh(-hw, hw, -hh, hh, 0.05, 200.0 + self.distance)
             }
-            None => Mat4::perspective_rh(self.fov_y, aspect.max(1e-3), 0.05, 200.0),
+            None => Mat4::perspective_rh(self.fov_y, aspect.max(1e-3), near, 200.0 + self.distance),
         }
+    }
+
+    /// The free view's field of view (`screen_fov`); `now` = the view takes it at once (it looks through no lens of its own).
+    pub fn set_free_fov(&mut self, fov: f32, now: bool) {
+        self.free_fov = fov;
+        if let Some(v) = self.free_view.as_mut() {
+            v.fov_y = fov;
+        }
+        if now {
+            self.fov_y = fov;
+            self.fov_back = false;
+            if let Some(t) = self.through.as_mut().filter(|t| t.ortho.is_none()) {
+                t.fov_y = fov;
+            }
+        }
+    }
+
+    pub fn free_fov(&self) -> f32 {
+        self.free_fov
     }
 
     pub fn view_proj(&self, aspect: f32) -> Mat4 {
@@ -271,15 +328,29 @@ impl Orbit {
             self.pitch = f.pitch + (s.pitch - f.pitch) * u;
             self.fov_y = f.fov_y + (s.fov_y - f.fov_y) * u;
             self.distance = (f.distance.max(1e-4).ln() + (to.ln() - f.distance.max(1e-4).ln()) * u).exp();
+            self.ortho = match (f.ortho, s.ortho) {
+                (Some(a), Some(b)) => Some((a.ln() + (b.ln() - a.ln()) * u).exp()),
+                _ => s.ortho.filter(|_| f.ortho.is_some()),
+            };
+            let blend = projection_blend((f.fov_y, f.ortho, f.distance), (s.fov_y, s.ortho, to), u);
+            self.far_back = blend.is_some() && x < 1.0;
+            if let Some((fov, d)) = blend {
+                (self.ortho, self.fov_y, self.distance) = (None, fov, d);
+            }
             if x >= 1.0 {
-                (self.target, self.goal, self.yaw, self.pitch, self.fov_y, self.distance) = (s.target, s.target, s.yaw, s.pitch, s.fov_y, to);
+                (self.target, self.goal, self.yaw, self.pitch, self.fov_y, self.distance, self.ortho) = (s.target, s.target, s.yaw, s.pitch, s.fov_y, to, s.ortho);
             }
             self.want = self.distance;
         } else if self.fov_back {
+            let far = self.far_back.then(|| 2.0 * self.distance * (self.fov_y * 0.5).tan());
             let k = 1.0 - (-dt.max(0.0) / FOCUS_EASE_S).exp();
             self.fov_y += (self.free_fov - self.fov_y) * k;
             if (self.fov_y - self.free_fov).abs() < 1e-5 {
-                (self.fov_y, self.fov_back) = (self.free_fov, false);
+                (self.fov_y, self.fov_back, self.far_back) = (self.free_fov, false, false);
+            }
+            if let Some(h) = far {
+                self.distance = (h / (2.0 * (self.fov_y * 0.5).tan())).clamp(self.min_distance, self.distance);
+                self.want = self.distance;
             }
         }
         // in the log of the distance, so a step in is as smooth close up as far out

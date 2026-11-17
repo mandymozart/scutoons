@@ -157,14 +157,6 @@ fn mirror_of(graph: &Graph) -> Mirror {
     m
 }
 
-/// The native stage frames the being for a landscape screen (55° high); a phone held upright sees as much across as the
-/// stage sees from top to bottom – the field of view widens with the height (at most 75°), the camera stays.
-pub(crate) fn frame_for(space: &mut Space, w: u32, h: u32) {
-    let aspect = w as f32 / h.max(1) as f32;
-    let native = 55f32.to_radians();
-    space.camera.fov_y = if aspect >= 1.0 { native } else { (2.0 * ((native * 0.5).tan() / aspect).atan()).min(75f32.to_radians()) };
-}
-
 /// A character's rig played for a persona and a mood (#191, deck-space `rig::Bundle`): `bundle` = the rig with its
 /// instruments and presets as JSON (scene-content's answer), `persona` / `mood` empty = none. Returns JSON: the
 /// flattened scene (`scene` TOML, `nodes`, `links`), `character`, `knobs` (path, label, min, max, value, log) and
@@ -392,8 +384,7 @@ impl SpaceView {
         stage.set_host_quality(*governor.rung());
         stage.load(&device, format, &graph, Vec::new()).await.map_err(err)?;
         let mut space = Space::new(&graph, node, &look, std::path::Path::new(""), Portraits::manual());
-        space.set_view(w as f32, h as f32);
-        frame_for(&mut space, w, h);
+        space.fit_screen(w as f32, h as f32);
         let page = Page { mirror: mirror_of(&graph), turned: Vec::new() };
         let meters = graph.nodes.iter().map(|n| vec![0.0; n.kind.outputs().len()]).collect();
         // a browser's WebGPU adapter often has no name (privacy): the backend alone then
@@ -436,8 +427,7 @@ impl SpaceView {
         self.config.width = w;
         self.config.height = h;
         self.surface.configure(&self.device, &self.config);
-        self.space.set_view(w as f32, h as f32);
-        frame_for(&mut self.space, w, h);
+        self.space.fit_screen(w as f32, h as f32);
         self.stage.resize(&self.device, (w, h));
     }
 

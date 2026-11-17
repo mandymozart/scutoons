@@ -143,21 +143,66 @@ fn camera(d: &mut DrawList, t: &Tokens, view: &mut SceneView, space: &Space, are
             }
         }
     }
+    // every camera's view as its frustum and its focal point – the one looked through or selected lit, the others quiet
+    let to_area = |(x, y): (f32, f32)| (area.x + x / scale, area.y + y / scale);
+    for (id, f, active) in space.camera_frusta() {
+        let sel = id.as_deref().is_some_and(|id| view.dop.shot.and_then(|i| cam.shots.get(i)).is_some_and(|s| s.id == id));
+        let lit = active || sel;
+        let color = if lit { t.color.accent } else { alpha(t.color.bright, 0.35) };
+        for (a, b) in f.lines() {
+            if let Some((a, b)) = space.segment_to_pixels(a, b).and_then(|(a, b)| clip(area, to_area(a), to_area(b))) {
+                d.segment(a, b, if lit { 1.5 } else { 1.0 }, color);
+            }
+        }
+        if let Some((x, y)) = px(f.aim) {
+            let r = if lit { 6.0 } else { 4.0 };
+            d.ring(x, y, r, color);
+            d.segment((x - r * 1.8, y), (x - r * 0.6, y), 1.0, color);
+            d.segment((x + r * 0.6, y), (x + r * 1.8, y), 1.0, color);
+            d.segment((x, y - r * 1.8), (x, y - r * 0.6), 1.0, color);
+            d.segment((x, y + r * 0.6), (x, y + r * 1.8), 1.0, color);
+        }
+        if id.is_none() {
+            if let Some((x, y)) = px(f.eye) {
+                controls::label(d, t, x + 8.0, y - t.size.label * 0.6, "primary", color);
+            }
+        }
+    }
     for (i, s) in cam.shots.iter().enumerate() {
-        let v = deck_space::space::dop::View::of_shot(s);
+        let v = space.shot_view(&s.id).unwrap_or_else(|| deck_space::space::dop::View::of_shot(s));
         let Some((x, y)) = px(v.eye()) else { continue };
         let sel = view.dop.shot == Some(i);
         let color = if sel { t.color.accent } else { alpha(t.color.bright, 0.75) };
-        if let Some(aim) = px(v.target) {
-            d.segment((x, y), aim, 1.0, alpha(color, 0.5));
-            d.ring(aim.0, aim.1, 3.0, alpha(color, 0.7));
-        }
         let size = t.size.row * 0.8;
         d.round_rect(x - size * 0.6, y - size * 0.6, size * 1.2, size * 1.2, t.size.radius, alpha(t.color.surface, 0.8));
         d.icon(x - size * 0.5, y - size * 0.5, size, "camera", color);
         controls::label(d, t, x + size * 0.8, y - t.size.label * 0.6, &s.id, color);
         view.marks.push((Rect { x: x - size * 0.6, y: y - size * 0.6, w: size * 1.2 + controls::label_width(d, t, &s.id) + size * 0.2, h: size * 1.2 }, Mark::Shot(i)));
     }
+}
+
+/// the part of the segment `a`–`b` inside `r` (Liang–Barsky)
+fn clip(r: Rect, a: (f32, f32), b: (f32, f32)) -> Option<((f32, f32), (f32, f32))> {
+    let (dx, dy) = (b.0 - a.0, b.1 - a.1);
+    let (mut t0, mut t1) = (0.0f32, 1.0f32);
+    for (p, q) in [(-dx, a.0 - r.x), (dx, r.x + r.w - a.0), (-dy, a.1 - r.y), (dy, r.y + r.h - a.1)] {
+        if p == 0.0 {
+            if q < 0.0 {
+                return None;
+            }
+            continue;
+        }
+        let t = q / p;
+        if p < 0.0 {
+            t0 = t0.max(t);
+        } else {
+            t1 = t1.min(t);
+        }
+        if t0 > t1 {
+            return None;
+        }
+    }
+    Some(((a.0 + dx * t0, a.1 + dy * t0), (a.0 + dx * t1, a.1 + dy * t1)))
 }
 
 /// metres a layer moves per logical pixel its handle is dragged

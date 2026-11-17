@@ -33,7 +33,7 @@ namespace Scutoons\Generated;
  * @phpstan-type SceneCamera array{height?: float, lens?: Lens, move?: list<MoveDef>, shot?: list<ShotDef>, source?: Source, track?: Track | null}
  * @phpstan-type SceneTransition 'fade' | 'cut' | 'blackout'
  * @phpstan-type SceneUse array{scene: string, with?: array<string, Fillers>}
- * @phpstan-type ShotDef array{distance: float, id: string, label?: array<string, string>, lens?: Lens, pitch: float, target: array{float, float, float}, yaw: float}
+ * @phpstan-type ShotDef array{aim?: string | null, distance: float, id: string, label?: array<string, string>, lens?: Lens, pitch: float, target: array{float, float, float}, yaw: float}
  * @phpstan-type Side 'left' | 'right'
  * @phpstan-type Source 'scene' | 'handheld'
  * @phpstan-type StageSettings array{audio_buffer?: int | null, background?: Background | null, layers?: list<Layer>, name?: string, render_scale?: float, transition?: SceneTransition, transition_secs?: float}

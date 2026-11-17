@@ -25,6 +25,14 @@ pub const NO_PIECE: &str = "none – pick a published scene";
 pub const TYPE_IT: &str = "Type scene:<id> and Enter – the core reads it; a book (--toon) lists the published scenes.";
 /// what the picker says when the book lists no published scene that matches
 pub const NONE_FOUND: &str = "No published scene matches.";
+/// the cell inspector's field of a scene cell's camera shot
+pub const SHOT: &str = "shot";
+/// a scene cell that picks no shot: the scene opens on its own
+pub const NO_SHOT: &str = "the scene's opening";
+/// what the shot picker says where the editor does not know the scene's camera
+pub const TYPE_SHOT: &str = "Type shot:<id> and Enter – the deck's camera reads it; Build's open scene lists its shots.";
+/// a shot asked for where the cell plays no scene
+pub const NO_SCENE_SHOT: &str = "A shot belongs to the scene a cell plays – pick the scene first.";
 
 /// A cell's mode as the inspector offers it (SHOW.md §5). Device outlets' sends and looks are not authored here.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -93,6 +101,8 @@ pub enum Edit {
     Mode { row: String, column: String, mode: Mode },
     /// the cell plays this piece (a `values` cell expects it instead); values meant for another piece go
     Piece { row: String, column: String, piece: String },
+    /// one of the cell's scene's camera shots (its id; none: the scene's own opening), sent as `<scene> > shot:<id>`
+    Shot { row: String, column: String, shot: Option<String> },
     /// #539: the story event that fires the row (none or empty: by hand only); how, hold and moment stay
     Event { row: String, event: Option<String> },
     /// #553: one fact of the filter of the row's address `address` (its index in the row) on or off; a filter that asks
@@ -130,6 +140,14 @@ pub struct Edited {
 
 fn row_at(show: &Show, id: &str) -> Result<usize, String> {
     show.rows.iter().position(|r| r.id == id).ok_or_else(|| format!("no row '{id}'"))
+}
+
+/// the camera shot a `play` cell picks
+fn shot_of(cell: Option<&Cell>) -> Option<&str> {
+    match cell? {
+        Cell::Play { shot, .. } => shot.as_deref(),
+        _ => None,
+    }
 }
 
 /// the piece a cell names, if it names one
@@ -180,7 +198,7 @@ fn cell_for(show: &Show, at: usize, column: &str, mode: Mode, was: Option<&Cell>
         Mode::Black => Cell::Black,
         Mode::Free => Cell::Free,
         Mode::Play => match piece_of(was) {
-            Some(p) => Cell::Play { piece: Some(p.to_string()), values, send: vec![] },
+            Some(p) => Cell::Play { piece: Some(p.to_string()), values, send: vec![], shot: shot_of(was).map(str::to_string) },
             None => return Err(format!("{column}: pick a piece – `play` names one")),
         },
         Mode::Values => match piece_of(was).map(str::to_string).or_else(|| playing_before(show, at, column)) {
@@ -322,13 +340,23 @@ pub fn edit_with(show: &Show, e: &Edit, knobs: Option<&[Knob]>) -> Result<Edited
             let (cell, dropped) = match next.rows[i].cells.get(column) {
                 Some(Cell::Values { piece: p, values }) if *p == piece => (Cell::Values { piece: piece.clone(), values: values.clone() }, false),
                 Some(Cell::Values { values, .. }) => (Cell::Values { piece: piece.clone(), values: Values::new() }, !values.is_empty()),
-                Some(Cell::Play { piece: Some(p), values, .. }) if *p == piece => (Cell::Play { piece: Some(piece.clone()), values: values.clone(), send: vec![] }, false),
-                Some(Cell::Play { values, .. }) => (Cell::Play { piece: Some(piece.clone()), values: Values::new(), send: vec![] }, !values.is_empty()),
-                _ => (Cell::Play { piece: Some(piece.clone()), values: Values::new(), send: vec![] }, false),
+                Some(Cell::Play { piece: Some(p), values, shot, .. }) if *p == piece => (Cell::Play { piece: Some(piece.clone()), values: values.clone(), send: vec![], shot: shot.clone() }, false),
+                Some(Cell::Play { values, .. }) => (Cell::Play { piece: Some(piece.clone()), values: Values::new(), send: vec![], shot: None }, !values.is_empty()),
+                _ => (Cell::Play { piece: Some(piece.clone()), values: Values::new(), send: vec![], shot: None }, false),
             };
             let text = cell_text(&cell);
             put(&mut next.rows[i], column, cell);
             (format!("row {} {row}, {column}: {text}{}", i + 1, if dropped { " – the values for the other piece went" } else { "" }), Some(row.clone()))
+        }
+        Edit::Shot { row, column, shot } => {
+            let i = row_at(&next, row)?;
+            let shot = shot.as_deref().map(str::trim).filter(|s| !s.is_empty()).map(|s| s.strip_prefix("shot:").unwrap_or(s).to_string());
+            match next.rows[i].cells.get_mut(column) {
+                Some(Cell::Play { piece: Some(_), shot: s, .. }) => s.clone_from(&shot),
+                _ => return Err(format!("not changed: row '{row}', '{column}' plays no scene – a shot belongs to the scene the cell plays")),
+            }
+            let text = cell_text(&next.rows[i].cells[column]);
+            (format!("row {} {row}, {column}: {text}", i + 1), Some(row.clone()))
         }
         Edit::Event { row, event } => {
             let i = row_at(&next, row)?;
@@ -460,6 +488,8 @@ pub struct CellInspector {
     /// a stage outlet's piece field: the piece, or [`NO_PIECE`]; none: the column holds no piece (a seat, a device) or
     /// its cell asks a question (the question's form shows instead: question.rs `inspect`)
     pub piece: Option<String>,
+    /// a `play` cell's camera shot of its scene: `shot:<id>`, or [`NO_SHOT`]; none: the cell plays no scene
+    pub shot: Option<String>,
     /// #553: who in the column gets the cell – [`FILTER`] and the one condition control ([`cell_condition`]); none: not
     /// offered here
     pub filter: Option<Condition>,
@@ -494,7 +524,11 @@ pub fn cell_inspector(show: &Show, row: &str, column: &str) -> Option<CellInspec
     let piece = stage.filter(|_| !asks).map(|_| piece_of(r.cells.get(column)).map_or_else(|| NO_PIECE.to_string(), str::to_string));
     let knobs_of = piece.as_ref().and_then(|_| piece_of(r.cells.get(column))).map(str::to_string);
     let warning = crate::values::warnings(show).into_iter().find(|w| w.row == row && w.column == column).map(|w| w.text);
-    Some(CellInspector { title: format!("cell · row {} {row} · {}", i + 1, show.outlets.iter().find(|o| o.id == column).map_or(column, |o| o.name())), modes: modes(show, row, column), piece, filter: cell_condition(show, row, column), knobs_of, warning })
+    let shot = match r.cells.get(column) {
+        Some(Cell::Play { piece: Some(p), shot, .. }) if stage.is_some() && p.starts_with("scene:") => Some(shot.as_deref().map_or_else(|| NO_SHOT.to_string(), |s| format!("{}:{s}", deck_space::rig::address::SHOT))),
+        _ => None,
+    };
+    Some(CellInspector { title: format!("cell · row {} {row} · {}", i + 1, show.outlets.iter().find(|o| o.id == column).map_or(column, |o| o.name())), modes: modes(show, row, column), piece, shot, filter: cell_condition(show, row, column), knobs_of, warning })
 }
 
 /// One published scene the piece picker lists.

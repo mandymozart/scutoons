@@ -293,6 +293,9 @@ pub enum Cell {
         values: Values,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         send: Vec<DeviceMsg>,
+        /// one of the piece's camera shots: playing, the cell sends `<piece> > shot:<id>` (a scene's camera word)
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        shot: Option<String>,
     },
     /// keep the piece, change these. Names the piece it expects
     Values { piece: String, values: Values },

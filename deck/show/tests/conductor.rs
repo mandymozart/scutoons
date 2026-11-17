@@ -277,6 +277,27 @@ fn a_fired_row_sends_its_addresses() {
     assert_eq!(sent, ["character:yellowmouse > dance:samba", "location:* > close_doors"]);
 }
 
+/// A cell picks one of its scene's camera shots (the in-place picker's edit): firing the row sends the cell, then the
+/// scene's camera word; a cell that plays no scene takes no shot, a shot that is no word is refused
+#[test]
+fn a_cell_picks_its_scenes_shot_and_the_row_sends_the_camera_word() {
+    use deck_show::rows::{edit, Edit};
+    let show = parse(TOP_TOY).unwrap();
+    let e = |shot: &str| Edit::Shot { row: "opening".into(), column: "left".into(), shot: Some(shot.into()) };
+    let picked = edit(&show, &e("shot:wide")).unwrap();
+    assert_eq!(picked.said, "row 1 opening, left: scene:nave > shot:wide · light 0.2");
+    assert!(matches!(picked.show.row("opening").unwrap().cells.get("left"), Some(deck_show::Cell::Play { shot: Some(s), .. }) if s == "wide"));
+    assert!(edit(&show, &Edit::Shot { row: "opening".into(), column: "right".into(), shot: Some("wide".into()) }).unwrap_err().contains("plays no scene"));
+    assert!(edit(&show, &e("two words")).is_err(), "the core's word rule");
+    let mut c = Conductor::new(picked.show.clone());
+    let out = c.fire("opening", Now::at(0));
+    let first_cell = out.iter().position(|o| o.envelope().is_some_and(|e| matches!(&e.message, Message::Cell(c) if c.outlet == "left"))).unwrap();
+    let word = out.iter().position(|o| matches!(o, Out::Address(a) if a.address == "scene:nave" && a.action == "shot:wide")).expect("the camera word");
+    assert!(word > first_cell, "after the cell");
+    let back = edit(&picked.show, &Edit::Shot { row: "opening".into(), column: "left".into(), shot: None }).unwrap();
+    assert_eq!(back.show, show, "none: the scene's own opening again");
+}
+
 #[test]
 fn a_look_sets_its_fixtures_dmx_in_address_order() {
     let mut c = opened();

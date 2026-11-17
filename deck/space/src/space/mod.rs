@@ -300,6 +300,8 @@ pub struct Space {
     pub layers: layers::Layers,
     /// the scene's primary camera playing: its shots and moves
     pub dop: dop::Dop,
+    /// a camera word for a scene not (yet) on this stage: tried once more when the next scene's camera arrives
+    camera_pending: Option<(String, String)>,
 }
 
 /// Called on the loader thread with a set's file before it is read: the sync (sync.rs) returns once that file is
@@ -439,6 +441,7 @@ impl Space {
             backdrop: backdrop::Backdrop::default(),
             layers: layers::Layers::default(),
             dop: dop::Dop::default(),
+            camera_pending: None,
         };
         space.place_cast();
         space
@@ -679,17 +682,94 @@ impl Space {
     /// The scene's primary camera: the shot the scene opens with; a scene without shots: head-on (yaw 0) at the stage's
     /// centre, level at the camera's eye height (adult unless the scene says), from the space node's distance.
     pub fn scene_camera(&self) -> Shot {
-        if let Some(s) = self.dop.camera.opening() {
-            return shot_of(&dop::View::of_shot(s));
+        if let Some(v) = self.dop.camera.opening().and_then(|s| self.shot_view(&s.id)) {
+            return shot_of(&v);
         }
         let (_, _, distance) = self.camera.home();
         let centre = self.stage_centre();
         let target = centre + Vec3::Y * self.dop.camera.height;
         let mut shot = shot_of(&dop::View { target, yaw: 0.0, pitch: 0.0, distance, lens: self.dop.camera.lens });
         if self.dop.camera == crate::scene_camera::SceneCamera::default() {
-            shot.fov_y = camera::FOV_Y;
+            shot.fov_y = self.camera.free_fov();
         }
         shot
+    }
+
+    /// shot `id`'s view, aimed where its `aim` stands now
+    pub fn shot_view(&self, id: &str) -> Option<dop::View> {
+        let v = self.dop.view(id)?;
+        Some(match self.dop.aim_of(id).and_then(|a| self.aim_point(&a)) {
+            Some(target) => dop::View { target, ..v },
+            None => v,
+        })
+    }
+
+    /// Where an aim address (rig/address.rs `Aim`) stands now: a holder's or a filler's member at its middle, a set's
+    /// spot at an adult's eye above it. None: not on this stage.
+    pub fn aim_point(&self, aim: &str) -> Option<Vec3> {
+        use crate::rig::address::Aim;
+        let member = |hit: &dyn Fn(&Cast) -> bool| self.cast.iter().find(|c| hit(c)).map(|c| self.member_sphere(c).0);
+        match Aim::parse(aim).ok()? {
+            Aim::Holder(h) => member(&|c| c.holder == h),
+            Aim::Who(w) => member(&|c| c.who.place() == w),
+            Aim::Spot(n) => self.spots.iter().find(|(s, _)| *s == n).map(|(_, at)| *at + Vec3::Y * crate::scene_camera::DEFAULT_HEIGHT),
+        }
+    }
+
+    /// what a shot can aim at on this stage: who fills each holder (`character:<id>`, `item:<id>`), then the set's spots
+    pub fn aim_choices(&self) -> Vec<String> {
+        let who = self.cast.iter().map(|c| c.who.place());
+        let spots = self.spots.iter().map(|(n, _)| format!("{}:{n}", crate::rig::address::SPOT));
+        let mut out: Vec<String> = who.chain(spots).collect();
+        out.dedup();
+        out
+    }
+
+    /// The scene camera's frusta for an editor's own view (a deck's output never draws them): each shot's by its id, the
+    /// primary camera's (none) when there are no shots – and whether it is the one the stage looks through or moves to.
+    pub fn camera_frusta(&self) -> Vec<(Option<String>, dop::Frustum, bool)> {
+        let aspect = self.view.0 / self.view.1.max(1.0);
+        let playing = self.dop.clock.as_ref().and_then(|c| self.dop.director.playing(c)).map(|(c, _)| c.shot.clone());
+        let active = playing.or_else(|| match &self.dop.viewing {
+            dop::Viewing::Shot(id) => Some(id.clone()),
+            dop::Viewing::Primary => self.dop.camera.opening().map(|s| s.id.clone()).or_else(|| Some(String::new())),
+            dop::Viewing::Free => None,
+        });
+        if self.dop.camera.shots.is_empty() {
+            let s = self.scene_camera();
+            let eye = s.target + s.distance * dop::back(s.yaw, s.pitch);
+            return vec![(None, dop::Frustum::of(eye, s.target, s.fov_y, s.ortho, aspect), active.as_deref() == Some(""))];
+        }
+        self.dop.camera.shots.iter().filter_map(|s| Some((Some(s.id.clone()), self.shot_view(&s.id)?.frustum(aspect), active.as_deref() == Some(s.id.as_str())))).collect()
+    }
+
+    /// a world segment in window pixels, cut where it passes behind the eye (None: wholly behind)
+    pub fn segment_to_pixels(&self, a: Vec3, b: Vec3) -> Option<((f32, f32), (f32, f32))> {
+        const W: f32 = 1e-3;
+        let m = self.camera.view_proj(self.view.0 / self.view.1);
+        let (mut ca, mut cb) = (m * a.extend(1.0), m * b.extend(1.0));
+        if ca.w < W && cb.w < W {
+            return None;
+        }
+        if ca.w < W {
+            ca = ca.lerp(cb, (W - ca.w) / (cb.w - ca.w));
+        } else if cb.w < W {
+            cb = cb.lerp(ca, (W - cb.w) / (ca.w - cb.w));
+        }
+        let px = |c: glam::Vec4| ((c.x / c.w + 1.0) * 0.5 * self.view.0, (1.0 - c.y / c.w) * 0.5 * self.view.1);
+        Some((px(ca), px(cb)))
+    }
+
+    /// The view's size in pixels and the free view's lens for it (camera.rs `screen_fov`: upright, wider). A shot's or a
+    /// scene camera's own lens is not widened: it wins on every screen.
+    pub fn fit_screen(&mut self, w: f32, h: f32) {
+        self.set_view(w, h);
+        let own = match &self.dop.viewing {
+            dop::Viewing::Free => false,
+            dop::Viewing::Primary => self.dop.camera != crate::scene_camera::SceneCamera::default(),
+            dop::Viewing::Shot(_) => true,
+        };
+        self.camera.set_free_fov(camera::screen_fov(w / h.max(1.0)), !own);
     }
 
     /// the stage's centre on its floor: the middle of the cast's feet across, else under the scene's being
@@ -726,13 +806,14 @@ impl Space {
     /// view however the stage was looked at before.
     pub fn open_on_scene_camera(&mut self) {
         let home = self.camera.home();
-        let (free, auto) = (self.camera.free, self.camera.auto);
+        let (free, auto, fov) = (self.camera.free, self.camera.auto, self.camera.free_fov());
         self.camera = Orbit::new(self.camera.target, home.0, home.1, home.2);
         (self.camera.free, self.camera.auto) = (free, auto);
+        self.camera.set_free_fov(fov, true);
         let shot = self.scene_camera();
         let c = &mut self.camera;
         c.max_distance = c.max_distance.max(shot.distance);
-        (c.target, c.goal, c.yaw, c.pitch, c.distance, c.want, c.fov_y) = (shot.target, shot.target, shot.yaw, shot.pitch, shot.distance, shot.distance, shot.fov_y);
+        (c.target, c.goal, c.yaw, c.pitch, c.distance, c.want, c.fov_y, c.ortho) = (shot.target, shot.target, shot.yaw, shot.pitch, shot.distance, shot.distance, shot.fov_y, shot.ortho);
         c.look_through(shot);
         self.dop.viewing = dop::Viewing::Primary;
     }
@@ -744,11 +825,17 @@ impl Space {
         if !self.camera.free {
             self.open_on_scene_camera();
         }
+        // a camera word that came before its scene (a show row's cell picks the shot of a scene that starts with it)
+        if let Some((address, action)) = self.camera_pending.take() {
+            if let Some(Ok(said)) = self.dop.word(&address, &action) {
+                tracing::info!("{address} > {said} (as the scene arrived)");
+            }
+        }
     }
 
     /// the view glides to the shot `id` and looks through it until a hand moves it
     pub fn look_through_shot(&mut self, id: &str) {
-        let Some(v) = self.dop.view(id) else { return };
+        let Some(v) = self.shot_view(id) else { return };
         self.dop.director.interrupt();
         self.dop.current = Some(id.to_string());
         self.camera.look_through(shot_of(&v));
@@ -765,13 +852,18 @@ impl Space {
     /// An address action for the scene's camera (`scene:nave > shot:wide`, `> move:intro`): whether it was one.
     pub fn camera_word(&mut self, address: &str, action: &str) -> bool {
         match self.dop.word(address, action) {
+            None if crate::rig::address::CameraWord::parse(action).is_some() && address.starts_with("scene:") => {
+                self.camera_pending = Some((address.to_string(), action.to_string()));
+                true
+            }
             None => false,
             Some(Ok(said)) => {
                 tracing::info!("{address} > {said}");
                 true
             }
             Some(Err(e)) => {
-                tracing::warn!("{address} > {action}: {e}");
+                tracing::warn!("{address} > {action}: {e} – kept for the next scene");
+                self.camera_pending = Some((address.to_string(), action.to_string()));
                 true
             }
         }
@@ -783,10 +875,13 @@ impl Space {
             return false;
         }
         let now = dop::View::of(&self.camera);
-        let cast: Vec<(String, Vec3)> = if self.dop.camera.moves.iter().any(|m| m.spec.follow.is_some()) { self.cast.iter().map(|c| (c.holder.clone(), self.member_sphere(c).0)).collect() } else { Vec::new() };
-        let subject = |holder: &str| cast.iter().find(|(h, _)| h == holder).map(|(_, at)| *at);
+        let c = &self.dop.camera;
+        let named = c.shots.iter().filter_map(|s| s.aim.clone()).chain(c.moves.iter().filter_map(|m| m.spec.follow.clone()));
+        let at: Vec<(String, Vec3)> = named.filter_map(|a| self.aim_point(&a).map(|p| (a, p))).collect();
+        let subject = |aim: &str| at.iter().find(|(a, _)| a == aim).map(|(_, p)| *p);
         match self.dop.step(clock, now, &subject) {
             Some(v) => {
+                self.camera.far_back = self.dop.director.blending(clock);
                 v.apply(&mut self.camera);
                 true
             }

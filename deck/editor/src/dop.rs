@@ -20,11 +20,13 @@ pub struct Sel {
     pub draft: MoveSpec,
     /// the stage's floor (m): eye heights stand on it
     pub floor: f32,
+    /// what a shot can aim at on the stage (Space `aim_choices`)
+    pub aims: Vec<String>,
 }
 
 impl Default for Sel {
     fn default() -> Sel {
-        Sel { shot: None, point: None, kept: None, draft: MoveSpec::of(MoveKind::Glide), floor: 0.0 }
+        Sel { shot: None, point: None, kept: None, draft: MoveSpec::of(MoveKind::Glide), floor: 0.0, aims: Vec::new() }
     }
 }
 
@@ -73,6 +75,8 @@ pub enum Field {
     Turn(Turn),
     Side(Side),
     Follow(usize),
+    /// what the selected shot aims at: none = its own point, else `Sel::aims`'s
+    Aim(Option<usize>),
     Preview,
     Keep,
     Kept(usize),
@@ -94,6 +98,13 @@ fn mm(f: f32) -> String {
     } else {
         format!("{r:.1}")
     }
+}
+
+/// a shot in a few words: its angles, distance and lens (and its aim when it has one)
+pub fn shot_words(s: &deck_space::scene_camera::ShotDef) -> String {
+    let lens = if s.lens.ortho() { format!("ortho {} m", crate::number(s.lens.size)) } else { format!("{} mm", mm(s.lens.focal)) };
+    let aim = s.aim.as_deref().map(|a| format!(" · at {a}")).unwrap_or_default();
+    format!("{:.0}° {:.0}° {} m · {lens}{aim}", s.yaw, s.pitch, crate::number(s.distance))
 }
 
 /// what plays on the stage: the move's kind word, the shot it ends on, how far it is (0..1)
@@ -185,8 +196,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, a: Rect, view: &SceneView, playing: Pl
             d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, t.color.selection);
         }
         let first = if i == 0 { " · opens" } else { "" };
-        let lens = if s.lens.ortho() { format!("ortho {} m", crate::number(s.lens.size)) } else { format!("{} mm", mm(s.lens.focal)) };
-        let line = format!("{}{first}   {:.0}° {:.0}° {} m · {lens}", s.id, s.yaw, s.pitch, crate::number(s.distance));
+        let line = format!("{}{first}   {}", s.id, shot_words(s));
         d.text(r.x + 6.0, r.y + (r.h - t.size.small * 1.25) * 0.5, t.size.small, &controls::fit(&line, ((r.w - 12.0) / d.advance(t.size.small)) as usize), if picked { t.color.bright } else { t.color.text });
         out.push((r, Field::Shot(i)));
         y += t.size.tree_row;
@@ -199,6 +209,15 @@ pub fn draw(d: &mut DrawList, t: &Tokens, a: Rect, view: &SceneView, playing: Pl
         fields.extend([Field::SetShot, Field::RemoveShot]);
     }
     pills_row(d, t, a, &mut y, &names, usize::MAX, &fields, &mut out);
+    if let Some(s) = sel.shot.and_then(|i| cam.shots.get(i)) {
+        caption(d, t, a, &mut y, "aims at");
+        let mut names = vec!["its point"];
+        names.extend(sel.aims.iter().map(String::as_str));
+        let lit: Vec<bool> = std::iter::once(s.aim.is_none()).chain(sel.aims.iter().map(|x| s.aim.as_deref() == Some(x.as_str()))).collect();
+        let (rects, used) = controls::chips(d, t, (a.x, y, a.w), &names, &lit);
+        out.extend(rects.into_iter().enumerate().map(|(i, r)| (r, Field::Aim(i.checked_sub(1)))));
+        y += used + 6.0;
+    }
 
     y += controls::section(d, t, a.x, y, a.w, "MOVE", false);
     let s = &sel.draft;
@@ -389,6 +408,13 @@ impl crate::App {
             Field::Turn(t) => sel.draft.turn = t,
             Field::Side(s) => sel.draft.side = s,
             Field::Follow(i) => sel.draft.follow = view.edit.doc.holders.get(i).map(|h| h.id.clone()),
+            Field::Aim(k) => {
+                let Some(i) = shot else { return };
+                let aim = k.and_then(|k| sel.aims.get(k).cloned());
+                let done = view.edit.set_aim(i, aim.as_deref());
+                self.dop_done(done, format!("the shot aims at {}", aim.as_deref().unwrap_or("its own point")), x, y);
+                self.dop_relook(shot);
+            }
             Field::Preview => {
                 let Some(to) = shot.and_then(|i| cam.shots.get(i)).map(|s| s.id.clone()) else { return self.say("pick the shot it ends on".into(), x, y, true) };
                 let draft = sel.draft.clone();
@@ -533,6 +559,20 @@ impl crate::App {
                 c.zoom(-9.0);
             }
             84 if spec.contains("look") => self.look_to(crate::tools::Look::Shot(2)),
+            // half way from the first shot (perspective) to the isometric one, as a move or the switcher's glide passes it
+            84 if spec.contains("blend") => {
+                let dop = &self.stage.space.dop;
+                let ids: Vec<String> = dop.camera.shots.iter().map(|s| s.id.clone()).collect();
+                let (Some(a), Some(b)) = (ids.first().and_then(|i| dop.view(i)), ids.get(2).and_then(|i| dop.view(i))) else { return };
+                let glide = MoveSpec { ease: Ease::Linear, ..MoveSpec::of(MoveKind::Glide) };
+                let v = deck_space::space::dop::moves::pose(&glide, &a, &b, 0.5, &deck_space::space::dop::moves::Ctx { track: None, secs: 0.0 });
+                let c = &mut self.stage.space.camera;
+                c.far_back = true;
+                v.apply(c);
+                if let Some(view) = self.scene.as_mut() {
+                    view.dop.shot = Some(2);
+                }
+            }
             84 if spec.contains("preview") => {
                 if let Some(view) = self.scene.as_mut() {
                     view.dop.shot = Some(1);
