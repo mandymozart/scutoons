@@ -1,6 +1,7 @@
 //! A show's rows, columns and a cell's content in the Show workspace, edited in place in the rows band: a row, a column or
-//! a group renamed in its head (ctrl+r, or a press on the selected row's name), columns grouped (ctrl+g or their head's
-//! right click), a cell's content picked in the cell (its typeahead: Enter, a press on the selected cell, the cell
+//! a group renamed in its head (ctrl+r, Enter, a second press on the selected head, its right click), columns grouped
+//! (ctrl+g or their head's right click), a row added under the last or after one and removed from its head's right click,
+//! a cell's content picked in the cell (its typeahead: Enter, a press on the selected cell, the cell
 //! inspector's piece field) or dropped from the scene list, delete empties a cell (a stop slot). The cell inspector keeps
 //! the mode chips, the knobs, the question and the filter. Every edit goes through deck-show's `rows::edit` and
 //! `roles::edit` (checked there, refused in their words); this file hands the presses and keys in (RULES A1, A2).
@@ -86,10 +87,22 @@ impl Host {
                 }
             }
             Hit::CellAlso(r, c) => self.select_cell(r, c, true),
-            Hit::Column(c) | Hit::ColumnAlso(c) => self.select_column(c, matches!(hit, Hit::ColumnAlso(_))),
+            // the one selected column's head, or the selected group's, pressed again: renamed in place
+            Hit::Column(c) => {
+                let again = self.group.is_none() && self.columns.len() == 1 && view::plan(self.shown()).columns.get(c).is_some_and(|x| self.columns[0] == x.id);
+                self.select_column(c, false);
+                if again {
+                    self.rename_selected();
+                }
+            }
+            Hit::ColumnAlso(c) => self.select_column(c, true),
             Hit::Group(g) => {
                 let m = view::plan(self.shown());
                 if let Some(group) = m.groups.get(g) {
+                    if self.group.as_deref() == Some(group.name.as_str()) {
+                        self.rename_selected();
+                        return;
+                    }
                     self.columns = m.columns[group.first..group.first + group.span].iter().map(|c| c.id.clone()).collect();
                     self.group = Some(group.name.clone());
                     self.cells.clear();
@@ -194,12 +207,14 @@ impl Host {
     }
 
     /// The Show workspace's keys while nothing is typed: ctrl+r renames in place, ctrl+g groups the selected columns,
-    /// Enter picks the selected cell's content in place, Delete empties the selected cells (stop slots). True = taken.
+    /// Enter picks the selected cell's content in place (no cell selected: renames the selected head), Delete empties
+    /// the selected cells (stop slots). True = taken.
     pub(super) fn show_key(&mut self, key: &Key, ctrl: bool) -> bool {
         match key {
             Key::Character(c) if ctrl && c.eq_ignore_ascii_case("r") => self.rename_selected(),
             Key::Character(c) if ctrl && c.eq_ignore_ascii_case("g") => self.group_selected(),
             Key::Named(NamedKey::Enter) if self.selected().1.is_some() => self.open_pieces(),
+            Key::Named(NamedKey::Enter) if !self.columns.is_empty() || self.selected().0.is_some() => self.rename_selected(),
             Key::Named(NamedKey::Delete) if self.selected().1.is_some() => {
                 let (Some(row), columns) = self.selection() else { return false };
                 for column in columns {
@@ -265,20 +280,6 @@ pub(super) fn in_place(d: &mut DrawList, t: &Tokens, r: Rect, text: &str, px: f3
     d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, t.color.control);
     d.outline(r.x, r.y, r.w, r.h, (t.size.radius, 1.0), t.color.accent);
     d.text(r.x + 4.0, r.y + (r.h - px * 1.25) * 0.5, px, &fit(d, &format!("{text}|"), px, r.w - 8.0), t.color.text);
-}
-
-/// The row inspector's head: the row's remove (its name is edited in place in the rows band). The height used.
-pub fn row_head(d: &mut DrawList, t: &Tokens, host: &mut Host, (x, y, w): (f32, f32, f32), sel: &str, pointer: (f32, f32)) -> f32 {
-    if sel.is_empty() {
-        return 0.0;
-    }
-    let (small, row, pad) = (t.size.small, t.size.tree_row, t.size.pad);
-    let rw = (d.advance(small) * rows::REMOVE.chars().count() as f32 + 2.0 * pad).min(w * 0.5);
-    let remove = Rect { x: x + w - rw, y: y + 2.0, w: rw, h: row - 4.0 };
-    d.round_rect(remove.x, remove.y, remove.w, remove.h, t.size.radius, if remove.has(pointer.0, pointer.1) { t.color.danger } else { t.color.control });
-    d.text(remove.x + pad, remove.y + (remove.h - small * 1.25) * 0.5, small, &fit(d, rows::REMOVE, small, remove.w - 2.0 * pad), t.color.text);
-    host.hits.push((remove, Hit::RowRemove));
-    row + pad * 0.5
 }
 
 /// The cell inspector of the selected cell (its title, the mode chips, a stage outlet's piece field – or, #551, the question
@@ -639,7 +640,9 @@ pub(super) mod tests {
         }
         typed(&mut host, "scene:crypt");
         assert_eq!(host.status, "row 2 row-2, left: scene:crypt");
-        press(&mut host, false, |h| *h == Hit::RowRemove);
+        let (head, _) = host.hits.iter().rev().find(|(_, h)| *h == Hit::Row(1)).copied().unwrap();
+        assert!(host.context(head.x + head.w - 2.0, head.y + 2.0));
+        typed(&mut host, "remove");
         press(&mut host, false, |h| *h == Hit::AskYes);
         assert_eq!(host.status, "row row-2 removed with its 1 cells");
         assert_eq!((host.shown().rows.len(), host.row), (1, 0));

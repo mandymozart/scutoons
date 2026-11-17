@@ -252,6 +252,7 @@ fn args() -> Result<Args> {
                 let (row, column) = (p.next().unwrap_or_default(), p.next().context("--author ROW,COLUMN[,PIECE]")?);
                 a.script.author = Some((row, column, p.next().filter(|s| !s.is_empty())));
             }
+            "--in-place" => a.script.in_place = Some(val()?),
             "--cell" => a.script.cell = val()?.split_once(',').map(|(r, c)| (r.trim().to_string(), c.trim().to_string())),
             "--question" => {
                 let v = val()?;
