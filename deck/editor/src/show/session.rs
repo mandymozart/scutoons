@@ -19,10 +19,7 @@ use std::time::Duration;
 #[derive(Debug, Default)]
 pub struct Session {
     pub place: Place,
-    toons: Vec<String>,
     chapters: Vec<u32>,
-    /// the toons were asked for (once; Load asks again)
-    asked: bool,
     /// a check run's linked readers (`--linked`), in place of the relay's
     pub demo: Option<Readers>,
 }
@@ -58,21 +55,15 @@ impl Host {
         let base = deck_link::pairing::app_url();
         let s = &self.session;
         let state = self.link_line();
-        session_panel::panel(&Facts { base: &base, code, relay, state: &state, place: &s.place, toons: &s.toons, chapters: &s.chapters, readers: &readers })
+        session_panel::panel(&Facts { base: &base, code, relay, state: &state, place: &s.place, toons: &self.toons.list, chapters: &s.chapters, readers: &readers })
     }
 
-    /// the toon the Session sheet picked (the editor's book follows it in Show and Perform)
-    pub fn place_toon(&self) -> Option<&str> {
-        Some(self.session.place.toon.as_str()).filter(|t| !t.is_empty())
-    }
-
-    /// the sheet opened: the toons, once
+    /// the sheet opened: the toons asked; the place starts at the show's toon
     pub(super) fn session_open(&mut self) {
-        if !self.session.asked {
-            self.session.asked = true;
-            match get(&session_panel::toons_url(&self.api.base)).and_then(|t| session_panel::toons(&t)) {
-                Ok(t) => self.session.toons = t,
-                Err(e) => self.status = format!("the toons: {e}"),
+        self.toons_ask();
+        if self.session.place.toon.is_empty() {
+            if let Some(t) = self.show_toon().map(str::to_string) {
+                self.session_toon(&t);
             }
         }
     }
@@ -90,7 +81,10 @@ impl Host {
     pub(super) fn session_press(&mut self, hit: Hit) {
         match hit {
             Hit::SessionToon(i) => {
-                if let Some(t) = self.session.toons.get(i).cloned() {
+                if let Some(t) = self.toons.list.get(i).cloned() {
+                    if self.show_toon().is_none() {
+                        self.edit_rows(&deck_show::rows::Edit::Toon { to: t.clone() });
+                    }
                     self.session_toon(&t);
                 }
             }

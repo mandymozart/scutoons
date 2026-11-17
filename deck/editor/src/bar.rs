@@ -33,7 +33,7 @@ pub enum Action {
 /// the main menu, top down: what each line says, whether it leaves for the browser (no save: everything saves itself)
 pub const MENU: [(Action, &str, bool); 8] = [
     (Action::Open, "Open…", false),
-    (Action::New, "New", false),
+    (Action::New, "New show…", false),
     (Action::Publish, "Publish in the creator", true),
     (Action::DayNight, "Day / night", false),
     (Action::Settings, "Settings…", false),

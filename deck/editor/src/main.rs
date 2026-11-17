@@ -232,7 +232,7 @@ fn args() -> Result<Args> {
             "--flash-force" => a.script.flash_force = true,
             "--seat" => a.script.seat = Some(val()?),
             "--row" => a.script.row = Some(val()?),
-            "--sheet" => a.script.sheet = Some(show::Sheet::parse(&val()?).context("--sheet cues | problems | flash | who | session | vote | event | scene | demos")?),
+            "--sheet" => a.script.sheet = Some(show::Sheet::parse(&val()?).context("--sheet cues | problems | flash | who | session | vote | event | scene | demos | new-show")?),
             "--role" => a.script.role = Some(val()?),
             "--who-move" => a.script.who_move = val()?.split_once('=').map(|(c, r)| (c.to_string(), r.to_string())),
             "--who-menu" => a.script.who_menu = Some(val()?),
@@ -777,7 +777,8 @@ impl App {
             A::Open if self.workspace == show::Workspace::Perform => Some("Perform runs the show open: open another in Show or Build."),
             A::Open if self.workspace == show::Workspace::Module => Some("Pick a module in Modules."),
             A::Open | A::Audio | A::DayNight | A::Settings => None,
-            A::New => Some("Not built yet: a new rig or show starts in the creator."),
+            A::New if self.workspace == show::Workspace::Show => None,
+            A::New => Some("A new show starts in Show; a new rig in the creator."),
             A::Publish => Some("The editor opens no browser yet: publish the saved draft in the creator."),
             A::Account => Some("The editor opens no browser yet: the account is on scutoons.com."),
             A::Quit if std::env::var_os("DECK_SWAP").is_some() => None,
@@ -818,6 +819,7 @@ impl App {
         match (a, self.workspace) {
             (A::Open, show::Workspace::Build) => self.open_rigs(x, y),
             (A::Open, _) => self.show.press(show::Hit::Load),
+            (A::New, _) => self.show.press(show::Hit::Sheet(show::Sheet::NewShow)),
             (A::Audio, _) => {
                 self.workspace = show::Workspace::Build;
                 self.build.floats.reopen("audio");
@@ -1602,7 +1604,7 @@ impl App {
         }
         self.rig_toon.poll();
         let build = self.workspace == show::Workspace::Build;
-        let toon = toon::wanted(self.args.toon.as_deref(), build, self.rig_toon.toon.as_deref(), self.show.place_toon());
+        let toon = toon::wanted(self.args.toon.as_deref(), build, self.rig_toon.toon.as_deref(), self.show.show_toon());
         let token = self.auth.token();
         let key = (toon, token.is_some());
         if key != self.book_key {

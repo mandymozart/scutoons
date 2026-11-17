@@ -570,7 +570,7 @@ mod tests {
         host.show_panels.floats.wheel(side.x + 4.0, side.y + 4.0, 100.0);
         host.save_waiting();
         assert_eq!(host.save_pill(), "saved · v2");
-        host.sub = deck_show::Subtree::new(deck_show::parse(r#"{ "id": "vote-cell", "version": 1, "outlets": [{ "id": "left" }], "rows": [] }"#).unwrap(), deck_show::ClockChoice::Parent);
+        host.sub = deck_show::Subtree::new(deck_show::parse(r#"{ "id": "vote-cell", "version": 1, "toon": "catpope", "outlets": [{ "id": "left" }], "rows": [] }"#).unwrap(), deck_show::ClockChoice::Parent);
         press(&mut host, false, |h| *h == Hit::Load);
         assert_eq!(host.shown(), &made, "loaded as saved");
 

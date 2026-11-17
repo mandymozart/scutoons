@@ -33,7 +33,7 @@ impl Why {
                 Some(c) => format!("signed out – approve code {} on the account page (Decks)", deck_link::format_code(c)),
                 None => "signed out – waiting for a sign-in code".into(),
             },
-            Why::NoToon => "no toon – pick a toon in the Session sheet (Build: open a rig of a toon's character)".into(),
+            Why::NoToon => "no toon – pick the show's toon (Build: open a rig of a toon's character)".into(),
             Why::Offline { kept: Some(at) } => format!("offline – the kept copy from {} ago", age(now.duration_since(*at).unwrap_or_default())),
             Why::Offline { kept: None } => "offline – no kept copy of this toon's book yet".into(),
             Why::Loading => "the address book is on its way".into(),

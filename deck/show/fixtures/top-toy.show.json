@@ -1,6 +1,7 @@
 {
   "id": "top-toy",
   "version": 1,
+  "toon": "catpope",
   "outlets": [
     { "id": "left" },
     { "id": "right" },

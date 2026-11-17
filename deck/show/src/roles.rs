@@ -377,7 +377,7 @@ mod tests {
 
     pub(crate) const CHOIR: &str = r#"{
       "id": "choir", "version": 1,
-      "outlets": [
+      "toon": "catpope", "outlets": [
         { "id": "tenor" },
         { "id": "baritone", "for": { "account": ["member"] } },
         { "id": "click", "label": "click monitor", "for": { "account": ["live"], "approved": true } },
