@@ -2,6 +2,7 @@
 //! address book's question – its kinds, a hand-picked list, a parent – and filled with a preview the filter admits. The
 //! question is drawn like the one condition control (deck-ui `filter::Condition`): words, then chips, every fact holds.
 //! A change the core finds a problem in is refused with its words (`SceneEdit::change`).
+use crate::cast::{card_height, Who};
 use crate::scene_document::{Fill, FillerRef, Fillers, Holder, Take, HOLDER_KINDS, STAGING_SPOTS};
 use crate::scene_edit::{Line, Part, SceneEdit};
 use protocol::address_book::AddressKind;
@@ -44,6 +45,21 @@ impl FillQuestion {
     pub fn chip(&self, word: &str) -> Option<usize> {
         self.facts.iter().position(|(f, _)| f.word() == word)
     }
+}
+
+/// A slot as the stage view marks it: where it stands and what previews it.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SlotMark {
+    pub slot: usize,
+    pub id: String,
+    pub words: String,
+    pub spot: Option<String>,
+    /// its offset from its spot (m)
+    pub at: [f32; 3],
+    /// empty = it plays nothing: the stage marks where it would stand
+    pub previews: Vec<String>,
+    /// as tall as a card of what it takes (m)
+    pub height: f32,
 }
 
 /// a filter in words: `character or item · one of character:catpope · below character:catpope`
@@ -140,6 +156,39 @@ impl SceneEdit {
         })
     }
 
+    /// The slots as the stage marks them, in the document's order.
+    pub fn slot_marks(&self) -> Vec<SlotMark> {
+        (0..self.doc.holders.len())
+            .filter_map(|i| {
+                let (h, fill) = self.slot(i)?;
+                let items_only = fill.kind.iter().all(|k| *k == AddressKind::Item);
+                let height = card_height(&if items_only { Who::Item(String::new()) } else { Who::Character(String::new()) });
+                let previews = h.preview.as_ref().map(|p| p.list().into_iter().map(String::from).collect()).unwrap_or_default();
+                Some(SlotMark { slot: i, id: h.id.clone(), words: fill_words(fill), spot: h.spot.clone(), at: h.at.unwrap_or_default(), previews, height })
+            })
+            .collect()
+    }
+
+    /// The slot a filler let go on the stage away from any slot goes into: the first with room whose filter admits it.
+    /// Err: why none does (the first slot's sentence when there is one).
+    pub fn slot_for(&self, filler: &str) -> Result<usize, String> {
+        let mut why = None;
+        for i in 0..self.doc.holders.len() {
+            let Some((h, fill)) = self.slot(i) else { continue };
+            let taken = h.preview.as_ref().map_or(0, |p| p.list().len());
+            if !h.has_room(taken) {
+                continue;
+            }
+            match fill.admits(filler) {
+                Ok(()) => return Ok(i),
+                Err(e) => {
+                    why.get_or_insert(format!("{}: {e}", h.id));
+                }
+            }
+        }
+        Err(why.unwrap_or_else(|| format!("no empty slot on this stage takes {filler}: add one")))
+    }
+
     /// slot `slot` without its preview: it plays nothing, its spot stays empty
     pub fn empty(&mut self, slot: usize) -> Result<(), String> {
         self.slot(slot).ok_or("no such slot")?;
@@ -203,6 +252,26 @@ mod tests {
         edit.remove_slot(t).unwrap();
         let back = SceneDocument::parse_json(&edit.doc.to_json().unwrap()).unwrap();
         assert_eq!(back, edit.doc, "saved with the draft");
+    }
+
+    #[test]
+    fn the_stage_marks_each_slot_and_a_filler_let_go_finds_the_slot_that_admits_it() {
+        let mut edit = solo();
+        assert!(edit.slot_marks().is_empty(), "an authored member is no slot");
+        let thing = edit.add_slot(AddressKind::Item).unwrap();
+        let who = edit.add_slot(AddressKind::Character).unwrap();
+        let marks = edit.slot_marks();
+        assert_eq!(marks.iter().map(|m| (m.slot, m.words.as_str())).collect::<Vec<_>>(), [(thing, "item"), (who, "character")]);
+        assert!(marks[0].height < marks[1].height, "an item stands as tall as a thing on a table");
+        assert_eq!(marks[1].spot.as_deref(), Some(STAGING_SPOTS[2]));
+        assert_eq!(edit.slot_for("character:toptoy"), Ok(who));
+        assert_eq!(edit.slot_for("item:incense"), Ok(thing));
+        edit.fill(who, "character:toptoy").unwrap();
+        assert_eq!(edit.slot_marks()[1].previews, ["character:toptoy"]);
+        let err = edit.slot_for("character:yellowmouse").unwrap_err();
+        assert!(err.contains("slot: ") && err.contains("takes item"), "the first slot's sentence: {err}");
+        edit.remove_slot(thing).unwrap();
+        assert!(edit.slot_for("character:yellowmouse").unwrap_err().contains("no empty slot"));
     }
 
     #[test]

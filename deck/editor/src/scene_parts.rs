@@ -155,7 +155,7 @@ impl crate::App {
     }
 
     /// a change the core made or refused: the members again and the stage, or the core's words
-    fn scene_changed(&mut self, done: Result<(), String>, said: String, x: f32, y: f32) {
+    pub(crate) fn scene_changed(&mut self, done: Result<(), String>, said: String, x: f32, y: f32) {
         let Some(view) = self.scene.as_mut() else {
             return;
         };

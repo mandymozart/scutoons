@@ -390,12 +390,34 @@ pub fn edge(d: &mut DrawList, t: &Tokens, x: f32, y: f32, h: f32, hot: bool) {
     }
 }
 
+/// an empty slot: a dashed frame (`dash` long, as long a gap), `thick` wide
+pub fn dashed(d: &mut DrawList, r: Rect, dash: f32, thick: f32, color: [f32; 4]) {
+    let corners = [(r.x, r.y), (r.x + r.w, r.y), (r.x + r.w, r.y + r.h), (r.x, r.y + r.h), (r.x, r.y)];
+    for e in corners.windows(2) {
+        let ((ax, ay), (bx, by)) = (e[0], e[1]);
+        let len = (bx - ax).abs() + (by - ay).abs();
+        let n = (len / (dash * 2.0)).floor().max(1.0);
+        let step = len / n;
+        for k in 0..n as usize {
+            let (s, f) = (k as f32 * step / len, (k as f32 * step + step * 0.5) / len);
+            d.segment((ax + (bx - ax) * s, ay + (by - ay) * s), (ax + (bx - ax) * f, ay + (by - ay) * f), thick, color);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     fn list() -> DrawList {
         DrawList::new(0.6)
+    }
+
+    #[test]
+    fn a_dashed_frame_has_dashes_on_every_side() {
+        let mut d = list();
+        dashed(&mut d, Rect { x: 0.0, y: 0.0, w: 80.0, h: 40.0 }, 5.0, 1.0, [1.0; 4]);
+        assert_eq!(d.prims().len(), 8 + 4 + 8 + 4);
     }
 
     #[test]
