@@ -21,7 +21,9 @@ path = "src/main.rs"
 # and adds nothing outside Windows; a Windows build without it: `--no-default-features --features bundled`.
 [features]
 default = ["bundled", "asio"]
-bundled = ["space", "sync", "chapter", "live", "midi", "osc", "outputs", "events"]
+bundled = ["space", "sync", "chapter", "live", "midi", "osc", "outputs", "events", "media"]
+# the deck's own video playback (deck-media): the `video` node, video backgrounds and layers – only when a scene plays video
+media = ["deck-space/media", "deck-space/native"]
 # the 3D space and the deck's being (#188): glTF rooms (meshopt, WebP), the orbit camera, the 3D buttons and their labels –
 # deck-space's (deck/space, #198), with its GPU passes and its loaders on threads
 space = ["deck-space/being", "deck-engine/space", "deck-space/gpu", "deck-space/native", "dep:serde_json", "image/webp"]

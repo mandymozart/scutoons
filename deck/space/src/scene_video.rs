@@ -154,6 +154,23 @@ impl SceneEdit {
         })
     }
 
+    /// what a `video` node plays: its file's media path
+    pub fn video_src(&self, v: usize) -> Option<&str> {
+        self.doc.nodes.get(v)?.params.get("src")?.as_str()
+    }
+
+    /// A `video` node's file. Err: not a video node, or no video file (MP4, WebM, MOV, MKV).
+    pub fn set_video_src(&mut self, v: usize, src: &str) -> Result<(), String> {
+        let id = self.doc.nodes.get(v).filter(|n| n.kind == "video").map(|n| n.id.clone()).ok_or("no video node")?;
+        if !deck_catalog::background::is_video(src) {
+            return Err(format!("{id}: '{src}' is no video file (.mp4, .webm, .mov, .mkv)"));
+        }
+        self.change(|d| {
+            d.nodes[v].params.insert("src".into(), toml::Value::String(src.trim().to_string()));
+            Ok(())
+        })
+    }
+
     /// node `v`'s knob `param` back to the kind's own value
     pub fn clear_video(&mut self, v: usize, param: &str) {
         if let Some(n) = self.doc.nodes.get_mut(v) {
@@ -204,14 +221,27 @@ mod tests {
     #[test]
     fn the_video_kinds_are_the_catalogs_built_picture_kinds() {
         let kinds = video_kinds();
-        assert!(kinds.contains(&"test_pattern") && kinds.contains(&"shader"), "{kinds:?}");
-        assert!(!kinds.iter().any(|k| ["screen", "space", "outlet", "look", "video"].contains(k)), "no sink, no scene-owned node, nothing planned: {kinds:?}");
+        assert!(kinds.contains(&"test_pattern") && kinds.contains(&"shader") && kinds.contains(&"video"), "{kinds:?}");
+        assert!(!kinds.iter().any(|k| ["screen", "space", "outlet", "look", "model3d"].contains(k)), "no sink, no scene-owned node, nothing planned: {kinds:?}");
+    }
+
+    #[test]
+    fn a_clip_is_a_video_node_with_its_file() {
+        let mut edit = solo();
+        let v = edit.add_video("video").unwrap();
+        assert_eq!(edit.plays_at(v).as_deref(), Some(SCREEN));
+        assert!(edit.set_video_src(v, "layers/sky.png").unwrap_err().contains("no video file"));
+        edit.set_video_src(v, "live/x/loop.mov").unwrap();
+        assert_eq!(edit.video_src(v), Some("live/x/loop.mov"));
+        let played = edit.resolved(&core_rigs, &no_sets).expect("the stage plays it");
+        let node = played.scene.nodes.iter().find(|n| n.kind == "video").unwrap();
+        assert_eq!(node.params.get("src").and_then(|s| s.as_str()), Some("live/x/loop.mov"));
+        assert!(edit.video_knobs(v).iter().any(|k| k.param == "speed" && k.value == 1.0), "as recorded");
     }
 
     #[test]
     fn a_video_node_is_added_plays_on_the_window_and_its_knobs_are_the_kinds_params() {
         let mut edit = solo();
-        assert!(edit.add_video("video").unwrap_err().contains("no video kind"), "the planned clip is not built");
         let v = edit.add_video("test_pattern").unwrap();
         assert_eq!(edit.plays_at(v).as_deref(), Some(SCREEN));
         assert!(edit.doc.nodes.iter().any(|n| n.kind == "screen"), "the window made");

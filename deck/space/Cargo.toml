@@ -13,7 +13,7 @@ publish.workspace = true
 
 [features]
 # everything by default (`cargo test -p deck-space` covers it all); deck-native and space-web pick theirs
-default = ["being", "gpu", "native"]
+default = ["being", "gpu", "native", "media"]
 # the space: the set's glTF (meshopt), the being (tethered buttons, hoses, bubbles, the head, labels), the camera,
 # picking and drag, the feelings, the conductor's mirrored beings, the deck stream's wire forms
 being = ["dep:glam", "dep:ab_glyph", "dep:image", "dep:bytemuck"]
@@ -21,6 +21,9 @@ being = ["dep:glam", "dep:ab_glyph", "dep:image", "dep:bytemuck"]
 gpu = ["being", "dep:wgpu", "dep:deck-outlet", "dep:deck-link", "dep:font8x8", "dep:qrcodegen", "dep:resvg", "dep:deck-kit", "dep:egui-wgpu"]
 # loaders on threads and from files: a set's .glb, the portraits from a folder, images decoded in Rust (WebP, PNG)
 native = ["being", "image/png", "image/webp"]
+# the deck's own video playback (deck-media): the `video` node, a video background or layer – their frames through the
+# pictures' slots (portrait.rs) and the stage's passes; only a build whose scenes play video carries it
+media = ["being", "dep:deck-media"]
 # the generator (src/bin/deck-schema.rs): kinds.json, the JSON Schema and the TS types from the catalog and
 # the documents' types (#315). Never in a wasm build.
 schema = ["dep:schemars", "deck-catalog/schema"]
@@ -62,6 +65,7 @@ font8x8 = { version = "0.3", default-features = false, features = ["unicode"], o
 qrcodegen = { version = "1.8", optional = true }
 resvg = { version = "0.45", default-features = false, optional = true }
 schemars = { version = "1", optional = true }
+deck-media = { path = "../media", optional = true }
 
 # the acceptance test of the events adapters (tests/story_to_rig.rs): a chapter event routed to a core rig
 [dev-dependencies]

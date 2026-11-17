@@ -17,6 +17,7 @@ pub fn built(feature: &str) -> Option<bool> {
         "modules" => cfg!(feature = "modules"),
         "chapter" => cfg!(feature = "chapter"),
         "live" => cfg!(feature = "live"),
+        "media" => cfg!(feature = "media"),
         "sync" => cfg!(feature = "sync"),
         "midi" => cfg!(feature = "midi"),
         "osc" => cfg!(feature = "osc"),
@@ -38,12 +39,7 @@ pub fn registry() -> impl Iterator<Item = &'static StageModule> {
 
 /// the modules this build carries besides the core, comma-separated ("-" for the core alone)
 pub fn summary() -> String {
-    let names: Vec<&str> = registry().map(|m| m.feature).filter(|&f| f != deck_core::stage::CORE).collect();
-    if names.is_empty() {
-        "-".into()
-    } else {
-        names.join(",")
-    }
+    deck_core::stage::summary(has)
 }
 
 /// A scene against this build: Err names each missing module's feature and the nodes that need it.

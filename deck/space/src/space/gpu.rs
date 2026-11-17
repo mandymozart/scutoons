@@ -142,6 +142,9 @@ pub struct SpaceGpu {
     head_sampler: wgpu::Sampler,
     /// a texture per portrait slot (None until its sprite came), and the blank one for a head without a face
     sprites: Vec<Option<wgpu::BindGroup>>,
+    /// a video slot's texture, its frames written into it
+    #[cfg(feature = "media")]
+    videos: Vec<Option<crate::video::Texture>>,
     blank: wgpu::BindGroup,
     /// this frame's head layers and their textures (slot, or None = blank); the heads far to near
     layers: Vec<HeadLayer>,
@@ -403,6 +406,8 @@ impl SpaceGpu {
             head_buf,
             head_sampler,
             sprites: Vec::new(),
+            #[cfg(feature = "media")]
+            videos: Vec::new(),
             blank,
             layers: Vec::with_capacity(heads * 3),
             layer_tex: Vec::with_capacity(heads * 3),
@@ -490,6 +495,17 @@ impl SpaceGpu {
                 self.sprites.resize_with(slot + 1, || None);
             }
             self.sprites[slot] = Some(tex_bind(device, &self.tex_layout, &view, &self.head_sampler));
+        }
+        #[cfg(feature = "media")]
+        for (slot, pic) in space.portraits.take_frames() {
+            if self.videos.len() <= slot {
+                self.videos.resize_with(slot + 1, || None);
+                self.sprites.resize_with(self.sprites.len().max(slot + 1), || None);
+            }
+            if crate::video::upload(device, queue, &pic, true, &mut self.videos[slot]) {
+                let view = &self.videos[slot].as_ref().expect("uploaded").view;
+                self.sprites[slot] = Some(tex_bind(device, &self.tex_layout, view, &self.head_sampler));
+            }
         }
         if space.generation != self.generation {
             self.generation = space.generation;

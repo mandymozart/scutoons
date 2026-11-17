@@ -87,6 +87,7 @@ the basic audio nodes (`osc`, `noise`, `fm`, `seq`, `click`, `mixer`, `fft`, `au
 | `sync` | the scene's sets and portraits from the API into the cache (#195 – below); no node kind | ureq, serde_json |
 | `chapter` | `chapter`, `chapter_music` (the library API + cache) | ureq, symphonia, ab_glyph, image/webp |
 | `live` | `outlet` (a Live outlet, #186 – below) | `chapter`, protocol, tungstenite |
+| `media` | `video` (a clip), video backgrounds and layers – the deck's own playback (deck-media: AV1, HAP, the frame for the heard time) | deck-media (rav1d, snap, symphonia, re_mp4, matroska-demuxer) |
 | `midi` | the tempo source `midi`, `midi_out` (MIDI clock in / out) | midir |
 | `outputs` | the scene's `[outputs]` (#211): parameters as outputs – MIDI out (a port, or the conductor as `deck.midi`), DMX fixtures through a USB-DMX widget, the clock-synced strobe; no node kind (below) | deck-outputs, adapters-dmx-usbpro, adapters-midi |
 | `osc` | the tempo source `osc` (`/tempo/*`) | rosc |
@@ -94,7 +95,7 @@ the basic audio nodes (`osc`, `noise`, `fm`, `seq`, `click`, `mixer`, `fft`, `au
 | `pipewire` | the PipeWire backend (Linux) | pipewire (clang) |
 | `gamepad` | a gamepad on the space's sticks (#228 – below) | gilrs (libudev at build time on Linux; the deck image build carries it) |
 
-Default = `space`, `sync`, `chapter`, `live`, `midi`, `osc`, `outputs`, `events` – a plain build plays every bundled scene. The table lives in deck-core
+Default = `space`, `sync`, `chapter`, `live`, `midi`, `osc`, `outputs`, `events`, `media` – a plain build plays every bundled scene. The table lives in deck-core
 (`core/src/stage.rs`, data only); `src/modules.rs` says which modules this build carries. A scene that needs a module
 the build lacks is refused at load with the feature's name (`this build of the stage does not carry the module 'space'
 (node space) – build deck-native with --features space`): the stage plays the test pattern and shows that in the HUD –
@@ -252,6 +253,7 @@ An input takes one link; an output feeds any number. Every control input can als
 | `shader` | in (video), a, b, c, d (control) | out (video) | `effect` = `kaleido` · `rgb_shift` · `invert` · `pass` · `fireflies` (draws on its own – a brightness, b drift speed, c size, d how many; the idle scene, #252), or `wgsl` = a file defining `fn effect(uv: vec2<f32>) -> vec4<f32>` (bindings: shaders/common.wgsl) |
 | `chapter` | in (video), next, hold, zoom, pulse (control) | out (video), text (video) | `toon`, `chapter`, `quality` = low · medium · high, `dialog` (true: set the dialog in), `start` (slice index), `threshold` (0.6), `min_hold` (1.5 s), `quantize` = off · beat · bar (a due cut waits for the tempo clock's next beat / bar); `hold` default 6 s |
 | `overlay` | in, top (video), opacity, pulse, shake (control) | out (video) | – |
+| `video` | speed (control, 1 = as recorded) | out (video) | `src` = the clip's file (MP4 / WebM with AV1, MOV with HAP), looped on the stage's clock, covering the picture |
 | `screen` | in (video) | – | the window (one per scene) |
 | `lfo` | rate (Hz), depth | out (control, 0–depth) | `shape` = sine · saw · square, `phase` (0–1, where it starts) |
 | `tempo` | – | bpm, beat, bar (counts), phase, bar_phase (0–1), pulse (1 on the beat, gone by its middle) | `bpm` (120), `beats` per bar (4), `source` = internal · midi · link · osc · relay, `click` (false), `midi_in` / `midi_out` (a part of a port name; out = MIDI clock out), `midi_out_lead` (ms), `osc_port` (9001), `lead` (false: this deck sends the show clock's anchor; MIDI clock in leads anyway, #321) – one per scene |

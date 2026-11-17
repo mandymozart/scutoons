@@ -327,7 +327,7 @@
           "type": "number"
         },
         "image": {
-          "description": "the picture's media path (a PNG with transparency); none = an empty place",
+          "description": "the picture's media path (a PNG with transparency, or a video – `background::is_video`); none = an empty place",
           "type": [
             "string",
             "null"

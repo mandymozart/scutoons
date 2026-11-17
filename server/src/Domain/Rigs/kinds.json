@@ -597,6 +597,40 @@
       ]
     },
     {
+      "name": "video",
+      "version": "1",
+      "domain": "video",
+      "doc": "A video clip on the deck's own playback (deck-media): `src` its file – MP4 / WebM with AV1, MOV with HAP –, looped on the stage's clock, covering the picture.",
+      "feature": "media",
+      "module": "stage",
+      "scope": "graph",
+      "ports": [
+        {
+          "name": "speed",
+          "dir": "in",
+          "type": "control",
+          "doc": "playback speed"
+        },
+        {
+          "name": "out",
+          "dir": "out",
+          "type": "video",
+          "doc": "the picture"
+        }
+      ],
+      "params": [
+        {
+          "name": "speed",
+          "min": 0.0,
+          "max": 4.0,
+          "default": 1.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "playback speed, 1 = as recorded"
+        }
+      ]
+    },
+    {
       "name": "lfo",
       "version": "1",
       "domain": "control",
@@ -2085,39 +2119,6 @@
         }
       ],
       "params": []
-    },
-    {
-      "name": "video",
-      "version": "1",
-      "domain": "video",
-      "doc": "Planned: a video clip.",
-      "module": "video",
-      "scope": "planned",
-      "ports": [
-        {
-          "name": "speed",
-          "dir": "in",
-          "type": "control",
-          "doc": "playback speed"
-        },
-        {
-          "name": "out",
-          "dir": "out",
-          "type": "video",
-          "doc": "the picture"
-        }
-      ],
-      "params": [
-        {
-          "name": "speed",
-          "min": 0.0,
-          "max": 1.0,
-          "default": 0.0,
-          "curve": "lin",
-          "port": true,
-          "doc": "playback speed"
-        }
-      ]
     }
   ]
 }

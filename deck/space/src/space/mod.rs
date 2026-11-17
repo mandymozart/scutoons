@@ -602,6 +602,8 @@ impl Space {
             }
         }
         self.portraits.poll();
+        #[cfg(feature = "media")]
+        self.portraits.play(f64::from(time));
         self.clock = time;
         self.light = ctl.input(self.node, "light", params::default(crate::graph::Kind::Space, "light"));
         self.post_knobs = post::Knobs::read(&*ctl, self.node);

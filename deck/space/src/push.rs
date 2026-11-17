@@ -545,6 +545,16 @@ pub fn cdn_url(cdn: &str, path: &str) -> String {
     format!("{}/{}", cdn.trim_end_matches('/'), path.trim_start_matches('/'))
 }
 
+/// what a picture's loader waits for in a deck's sync: a stage's media file (a still or a video) by its path, a head's
+/// portrait; a card's other views are not synced
+pub fn want_of(p: &crate::cast::Picture) -> Option<Want> {
+    if p.kind == crate::cast::MEDIA {
+        Some(Want::Media { path: p.id.clone() })
+    } else {
+        (p.view == crate::cast::PORTRAIT_VIEW).then(|| Want::Portrait { character: p.id.clone(), mood: p.mood.clone() })
+    }
+}
+
 /// where a media path lives below a deck's folder: the CDN path itself; None = it would leave the folder
 pub fn media_file(dir: &Path, path: &str) -> Option<std::path::PathBuf> {
     let rel = Path::new(path.trim_start_matches('/'));
@@ -1004,6 +1014,14 @@ mod tests {
     fn the_line_cuts_at_forty() {
         let r = DeckSynced { scene: "a very long scene name for the hud line".into(), state: SyncState::Syncing, done: Some(2), total: Some(5), bytes: None, ready: vec![], missing: vec![], why: None };
         assert_eq!(push_line(&r), "PUSH 2/5 A VERY LONG SCENE NAME FOR THE ");
+    }
+
+    #[test]
+    fn a_picture_waits_for_its_own_file() {
+        use crate::cast::{Picture, CARD_VIEW};
+        assert_eq!(want_of(&Picture::media("live/x/loop.mov")), Some(Want::Media { path: "live/x/loop.mov".into() }));
+        assert_eq!(want_of(&Picture::character("catpope", crate::cast::PORTRAIT_VIEW, "happy")), Some(Want::Portrait { character: "catpope".into(), mood: "happy".into() }));
+        assert_eq!(want_of(&Picture::character("catpope", CARD_VIEW, "happy")), None, "a card's view is not synced");
     }
 
     #[test]

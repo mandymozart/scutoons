@@ -1,7 +1,8 @@
 //! The stage's background on the space (deck-catalog `Background`, the one that won): a colour is what the space clears
 //! to and fades into; an image is laid over the drawn stage, cover-fit (deck-core `fit::cover`), its transparency kept.
-//! Its picture comes through the portraits' loader (`Picture::media`). With no colour set the space clears to its ground
-//! (black; the editor's `stage` token). A video does not play yet: the ground, said once.
+//! Its picture comes through the portraits' loader (`Picture::media`) – a video's frames too (deck-media, the `media`
+//! feature; without it the ground shows, said once). With no colour set the space clears to its ground (black; the
+//! editor's `stage` token).
 use crate::cast::Picture;
 use crate::Background;
 
@@ -10,7 +11,7 @@ use super::portrait::Portraits;
 #[derive(Debug, Clone, Default)]
 pub struct Backdrop {
     pub background: Option<Background>,
-    /// the image's slot in the portraits
+    /// the picture's slot in the portraits
     pub slot: Option<usize>,
     /// what shows when no background sets a colour, display values
     pub ground: [f32; 3],
@@ -18,11 +19,12 @@ pub struct Backdrop {
 
 impl Backdrop {
     pub fn new(background: Option<Background>, portraits: &mut Portraits) -> Backdrop {
-        let slot = background.as_ref().and_then(|b| b.image.as_deref()).map(|p| portraits.picture(Picture::media(p)));
-        if let Some(v) = background.as_ref().and_then(|b| b.video.as_deref()) {
-            // TODO(#326): play it on the core's own video playback
-            tracing::warn!("background: the video '{v}' does not play on this deck yet – black");
+        let video = background.as_ref().and_then(|b| b.video.as_deref());
+        if let (Some(v), false) = (video, cfg!(feature = "media")) {
+            tracing::warn!("background: '{v}' needs the deck's video playback (the media module) – black");
         }
+        let path = background.as_ref().and_then(|b| b.image.as_deref().or(video.filter(|_| cfg!(feature = "media"))));
+        let slot = path.map(|p| portraits.picture(Picture::media(p)));
         Backdrop { background, slot, ground: [0.0; 3] }
     }
 

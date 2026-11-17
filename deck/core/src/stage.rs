@@ -41,7 +41,8 @@ pub const STAGE_MODULES: &[StageModule] = &[
     module("modules", "rig modules (#280, deck-module): compiled wasm instruments run in wasmtime – the scene's `module:<name>` kinds, whose ports come from the module's descriptor", &[]),
     module("sync", "the scenes' sets (3D) and portraits from the API into the deck's cache, offline from it (#195)", &[]),
     module("chapter", "a chapter from scutoons.com: its slices and its music, cached (library API)", &[]),
-    module("live", "a Live outlet: the relay's cells for this deck's outlet, drawn natively; show media preloaded with the deck token (#186)", &[]),
+    module("media", "the deck's own video playback (deck-media): the `video` node, video backgrounds and layers – AV1, HAP", &[]),
+    module("live","a Live outlet: the relay's cells for this deck's outlet, drawn natively; show media preloaded with the deck token (#186)", &[]),
     module("midi", "MIDI clock in and out (the tempo clock's `midi` source, `midi_out`)", &["midi"]),
     module("osc", "the OSC remote for the tempo clock (`/tempo/*`)", &["osc"]),
     module("outputs", "the parameters as outputs: MIDI out, DMX fixtures, the clock-synced strobe – the scene's [outputs] (#211)", &[]),
@@ -83,6 +84,17 @@ pub fn node_needs(id: &str, kind: &str, params: &Params) -> Result<Vec<&'static 
 /// Not yet: `chapter` (decoded audio – deck-media, plan 2.9), `modules` (the browser's module backend, P9b), the rest
 /// are devices a browser has no port for.
 pub const BROWSER_MODULES: &[&str] = &[CORE, "events", "space", "midi"];
+
+/// the modules a build that carries `carries` has besides the core, in the table's order, comma-separated ("-" for the
+/// core alone) – the line a deck prints about its build
+pub fn summary(carries: impl Fn(&str) -> bool) -> String {
+    let names: Vec<&str> = STAGE_MODULES.iter().map(|m| m.feature).filter(|&f| f != CORE && carries(f)).collect();
+    if names.is_empty() {
+        "-".into()
+    } else {
+        names.join(",")
+    }
+}
 
 /// whether a build that carries the modules `carries` plays the node (an unknown kind: no build plays it)
 pub fn carries_node(id: &str, kind: &str, params: &Params, carries: impl Fn(&str) -> bool) -> bool {
@@ -147,7 +159,21 @@ pub fn scene_nodes(text: &str) -> Result<Vec<(String, String, Params)>, String> 
 /// The modules (features) a scene text needs besides `core`, sorted (`features` over its `[[node]]` tables).
 pub fn scene_features(text: &str) -> Result<Vec<&'static str>, String> {
     let nodes = scene_nodes(text)?;
-    features(nodes.iter().map(|(id, kind, params)| (id.as_str(), kind.as_str(), params)))
+    let mut out = features(nodes.iter().map(|(id, kind, params)| (id.as_str(), kind.as_str(), params)))?;
+    if stage_video(text) && !out.contains(&"media") {
+        out.push("media");
+        out.sort_unstable();
+    }
+    Ok(out)
+}
+
+/// whether a scene's stage plays a video around its graph: the background's, or a layer's picture
+fn stage_video(text: &str) -> bool {
+    let Ok(table) = text.parse::<Params>() else { return false };
+    let Some(stage) = table.get("stage").and_then(|s| s.as_table()) else { return false };
+    let background = stage.get("background").and_then(|b| b.get("video")).is_some();
+    let layers = stage.get("layers").and_then(|l| l.as_array()).into_iter().flatten().filter_map(|l| l.get("image")?.as_str()).any(deck_catalog::background::is_video);
+    background || layers
 }
 
 /// The modules (features) the nodes need besides `core`, sorted – what `deck-scene-features` prints.
@@ -182,6 +208,20 @@ mod tests {
         assert_eq!(needs("[[node]]\nid=\"s\"\nkind=\"space\"\n[[node]]\nid=\"m\"\nkind=\"chapter_music\"\n").unwrap(), ["chapter", "space"]);
         assert_eq!(needs("[[node]]\nid=\"t\"\nkind=\"tempo\"\nsource=\"Link\"\nmidi_out=\"UCX\"\n").unwrap(), ["link", "midi"]);
         assert_eq!(needs("[[node]]\nid=\"t\"\nkind=\"tempo\"\nsource=\"internal\"\n").unwrap(), Vec::<&str>::new());
+    }
+
+    #[test]
+    fn a_builds_summary() {
+        assert_eq!(summary(|f| f == CORE), "-");
+        assert_eq!(summary(|f| ["media", "space", CORE].contains(&f)), "space,media", "the table's order");
+    }
+
+    #[test]
+    fn a_video_anywhere_on_the_stage_needs_the_media_module() {
+        assert_eq!(needs("[[node]]\nid=\"v\"\nkind=\"video\"\nsrc=\"a.mp4\"\n").unwrap(), ["media"]);
+        assert_eq!(needs("[stage.background]\nvideo=\"live/x/loop.mov\"\n").unwrap(), ["media"]);
+        assert_eq!(needs("[stage]\n[[stage.layers]]\nimage=\"layers/sea.webm\"\ndepth=4.0\n[[node]]\nid=\"s\"\nkind=\"space\"\n").unwrap(), ["media", "space"]);
+        assert!(needs("[stage.background]\nimage=\"sky.png\"\n").unwrap().is_empty(), "a still needs no decoder");
     }
 
     #[test]

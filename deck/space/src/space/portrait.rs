@@ -39,6 +39,10 @@ const EXTENSIONS: [&str; 2] = ["png", "webp"];
 pub trait Source: Send + 'static {
     /// `picture` – its file, decoded (RGBA8); Err = why there is none
     fn load(&self, picture: &Picture) -> Result<image::RgbaImage, String>;
+    /// `picture`'s file as it is (a video's, for deck-media)
+    fn bytes(&self, picture: &Picture) -> Result<Vec<u8>, String> {
+        Err(format!("{}: no file to read here", picture.id))
+    }
 }
 
 /// a local folder: a character's `<dir>/<char>/<char>_<view>-<mood>.<png|webp>`, else `<dir>/<char>_<view>-<mood>.<…>`;
@@ -70,6 +74,44 @@ impl Source for LocalDir {
         };
         image::open(&path).map(|i| i.to_rgba8()).map_err(|e| format!("{}: {e}", path.display()))
     }
+
+    fn bytes(&self, picture: &Picture) -> Result<Vec<u8>, String> {
+        let path = self.find(picture).ok_or_else(|| format!("no {} in {}", picture.stem(), self.0.display()))?;
+        std::fs::read(&path).map_err(|e| format!("{}: {e}", path.display()))
+    }
+}
+
+/// A folder whose files arrive from elsewhere (a deck's sync): `wait` until a picture's file is there, then read it.
+#[cfg(feature = "native")]
+pub struct Arriving<W> {
+    pub dir: LocalDir,
+    pub wait: W,
+}
+
+#[cfg(feature = "native")]
+impl<W: Fn(&Picture) + Send + 'static> Source for Arriving<W> {
+    fn load(&self, picture: &Picture) -> Result<image::RgbaImage, String> {
+        (self.wait)(picture);
+        self.dir.load(picture)
+    }
+
+    fn bytes(&self, picture: &Picture) -> Result<Vec<u8>, String> {
+        (self.wait)(picture);
+        self.dir.bytes(picture)
+    }
+}
+
+/// whether a picture is a video (by its media path) – it plays on deck-media, frame by frame into its slot
+#[cfg(feature = "native")]
+fn moving(picture: &Picture) -> bool {
+    picture.kind == MEDIA && deck_catalog::background::is_video(&picture.id)
+}
+
+/// what the loader hands back for a slot
+enum Got {
+    Image(Image),
+    #[cfg(feature = "media")]
+    Movie(crate::video::Movie),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -94,10 +136,28 @@ pub struct Portraits {
     /// the loader thread's inbox; None = manual (the host asks: `requests`)
     ask: Option<Sender<(usize, Picture)>>,
     asked: Vec<(usize, Picture)>,
-    got: Receiver<(usize, Result<Image, String>)>,
-    tell: Sender<(usize, Result<Image, String>)>,
+    got: Receiver<(usize, Result<Got, String>)>,
+    tell: Sender<(usize, Result<Got, String>)>,
     /// decoded, not yet on the GPU
     fresh: Vec<(usize, Image)>,
+    /// the video slots' players
+    #[cfg(feature = "media")]
+    movies: Vec<(usize, crate::video::Movie)>,
+    /// video frames for their slots' textures, not yet on the GPU
+    #[cfg(feature = "media")]
+    frames: Vec<(usize, std::sync::Arc<deck_media::Picture>)>,
+}
+
+/// a picture's file → what its slot holds
+#[cfg(feature = "native")]
+fn load(source: &dyn Source, picture: &Picture) -> Result<Got, String> {
+    if moving(picture) {
+        #[cfg(feature = "media")]
+        return crate::video::Movie::spawn(source.bytes(picture)?, &picture.id).map(Got::Movie);
+        #[cfg(not(feature = "media"))]
+        return Err(format!("{}: this deck is built without video (the media module)", picture.id));
+    }
+    source.load(picture).map(|i| Got::Image(prepare(i, max_side(picture))))
 }
 
 impl Portraits {
@@ -111,7 +171,7 @@ impl Portraits {
             .name("portraits".into())
             .spawn(move || {
                 while let Ok((slot, picture)) = asked.recv() {
-                    let r = source.load(&picture).map(|i| prepare(i, max_side(&picture)));
+                    let r = load(&*source, &picture);
                     if let Err(e) = &r {
                         tracing::debug!("portrait: {e}");
                     }
@@ -121,7 +181,22 @@ impl Portraits {
                 }
             })
             .expect("a thread");
-        Portraits { slots: Vec::new(), ask: Some(ask), asked: Vec::new(), got, tell, fresh: Vec::new() }
+        Portraits::with(Some(ask), got, tell)
+    }
+
+    fn with(ask: Option<Sender<(usize, Picture)>>, got: Receiver<(usize, Result<Got, String>)>, tell: Sender<(usize, Result<Got, String>)>) -> Portraits {
+        Portraits {
+            slots: Vec::new(),
+            ask,
+            asked: Vec::new(),
+            got,
+            tell,
+            fresh: Vec::new(),
+            #[cfg(feature = "media")]
+            movies: Vec::new(),
+            #[cfg(feature = "media")]
+            frames: Vec::new(),
+        }
     }
 
     /// from a folder (`--portraits`)
@@ -133,7 +208,7 @@ impl Portraits {
     /// no loader: the host takes the requests and delivers the sprites (the browser)
     pub fn manual() -> Portraits {
         let (tell, got) = mpsc::channel();
-        Portraits { slots: Vec::new(), ask: None, asked: Vec::new(), got, tell, fresh: Vec::new() }
+        Portraits::with(None, got, tell)
     }
 
     /// the pictures asked for since the last call – manual Portraits only
@@ -144,7 +219,30 @@ impl Portraits {
     /// a requested sprite, decoded by the host (RGBA8), or why there is none – it shows from the next `poll`
     pub fn deliver(&mut self, slot: usize, sprite: Result<image::RgbaImage, String>) {
         let max = self.slots.get(slot).map_or(MAX, |s| max_side(&s.picture));
-        let _ = self.tell.send((slot, sprite.map(|i| prepare(i, max))));
+        let _ = self.tell.send((slot, sprite.map(|i| Got::Image(prepare(i, max)))));
+    }
+
+    /// a requested video's file (`moving` pictures), fetched by the host; it plays from the next `poll`, decoded on the
+    /// frame's thread
+    #[cfg(feature = "media")]
+    pub fn deliver_video(&mut self, slot: usize, file: Result<Vec<u8>, String>) {
+        let _ = self.tell.send((slot, file.and_then(crate::video::Movie::open).map(Got::Movie)));
+    }
+
+    /// Each frame: every video slot's frame for the heard time `heard` (s), when it changed, waits for the GPU.
+    #[cfg(feature = "media")]
+    pub fn play(&mut self, heard: f64) {
+        for (slot, m) in &mut self.movies {
+            if let Some(p) = m.next_picture(heard) {
+                self.frames.push((*slot, p));
+            }
+        }
+    }
+
+    /// the video frames for their slots' textures, once
+    #[cfg(feature = "media")]
+    pub fn take_frames(&mut self) -> Vec<(usize, std::sync::Arc<deck_media::Picture>)> {
+        std::mem::take(&mut self.frames)
     }
 
     /// A portrait slot per mood of `character` (the same character and mood share one).
@@ -180,10 +278,16 @@ impl Portraits {
     pub fn poll(&mut self) {
         while let Ok((slot, r)) = self.got.try_recv() {
             self.slots[slot].state = match r {
-                Ok(img) => {
+                Ok(Got::Image(img)) => {
                     let (w, h) = img.size();
                     self.slots[slot].aspect = w as f32 / h.max(1) as f32;
                     self.fresh.push((slot, img));
+                    State::Ready
+                }
+                #[cfg(feature = "media")]
+                Ok(Got::Movie(m)) => {
+                    self.slots[slot].aspect = m.aspect();
+                    self.movies.push((slot, m));
                     State::Ready
                 }
                 Err(e) => State::Missing(e),
@@ -363,5 +467,28 @@ mod tests {
         assert_eq!(src.find(&Picture::character("catpope", crate::cast::CARD_VIEW, "happy")), Some(dir.join("catpope").join("catpope_full-happy.png")));
         assert_eq!(src.find(&Picture::item("incense_burner")), Some(dir.join("items").join("incense_burner.png")));
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(feature = "media")]
+    #[test]
+    fn a_video_slot_gets_the_frame_for_the_heard_time() {
+        let clip = std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../media/tests/fixtures/hap.mov")).unwrap();
+        let mut p = Portraits::manual();
+        let slot = p.picture(Picture::media("layers/sea.mov"));
+        assert_eq!(p.requests().len(), 1, "the host fetches its file");
+        p.deliver_video(slot, Ok(clip));
+        p.poll();
+        assert!(p.ready(slot) && (p.slots[slot].aspect - 64.0 / 48.0).abs() < 1e-6);
+        p.play(0.0);
+        p.play(0.01);
+        assert_eq!(p.take_frames().len(), 1, "one frame for both times");
+        p.play(0.5);
+        let f = p.take_frames();
+        assert_eq!((f.len(), f[0].0), (1, slot));
+        assert!(p.take().is_empty(), "no still for a video slot");
+        let bad = p.picture(Picture::media("layers/broken.webm"));
+        p.deliver_video(bad, Ok(vec![0; 64]));
+        p.poll();
+        assert!(matches!(p.slots[bad].state, State::Missing(_)));
     }
 }
