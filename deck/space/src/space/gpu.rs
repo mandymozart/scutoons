@@ -119,8 +119,9 @@ pub struct SpaceGpu {
     tex_layout: wgpu::BindGroupLayout,
     sampler: wgpu::Sampler,
     room: Option<RoomGpu>,
-    backdrop: super::backdrop::LayersGpu,
-    shown: super::backdrop::Shown,
+    backdrop: super::backdrop::BackdropGpu,
+    planes_gpu: super::layers::PlanesGpu,
+    planes: Vec<super::layers::Plane>,
     unit_vb: wgpu::Buffer,
     unit_ib: wgpu::Buffer,
     unit_count: u32,
@@ -369,7 +370,8 @@ impl SpaceGpu {
         queue.write_buffer(&unit_vb, 0, bytemuck::cast_slice(&unit_v));
         queue.write_buffer(&unit_ib, 0, bytemuck::cast_slice(&unit_i));
         queue.write_buffer(&tube_ib, 0, bytemuck::cast_slice(&tube_idx));
-        let backdrop = super::backdrop::LayersGpu::new(device, &room_layout, color, DEPTH);
+        let backdrop = super::backdrop::BackdropGpu::new(device, &tex_layout, color);
+        let planes_gpu = super::layers::PlanesGpu::new(device, &room_layout, color, DEPTH);
         SpaceGpu {
             room_pipe,
             solid_pipe,
@@ -381,7 +383,8 @@ impl SpaceGpu {
             sampler,
             room: None,
             backdrop,
-            shown: Default::default(),
+            planes_gpu,
+            planes: Vec::with_capacity(deck_catalog::layer::MOST),
             unit_vb,
             unit_ib,
             unit_count: unit_i.len() as u32,
@@ -623,6 +626,8 @@ impl SpaceGpu {
         queue.write_buffer(&self.inst_buf, 0, bytemuck::cast_slice(&self.spheres));
         queue.write_buffer(&self.tube_vb, 0, bytemuck::cast_slice(&self.tubes));
         let cam = &space.camera;
+        space.layer_planes(false, &mut self.planes);
+        self.planes_gpu.write(queue, &self.planes);
         let eye: Vec3 = cam.eye();
         self.heads(space, eye);
         queue.write_buffer(&self.head_buf, 0, bytemuck::cast_slice(&self.layers));
@@ -641,9 +646,6 @@ impl SpaceGpu {
             lights,
         };
         queue.write_buffer(&self.frame_buf, 0, bytemuck::bytes_of(&u));
-        space.backdrop.show(&space.portraits, &space.backdrop.view(cam, size), &mut self.shown);
-        self.backdrop.write(queue, &self.shown);
-        let sprite = |s: &(usize, deck_core::parallax::Quad)| self.sprites.get(s.0).and_then(Option::as_ref);
         // the post stack (#204): the space into its first texture when a pass runs this frame, else into the target
         let plan = space.post.plan_quality(&space.post_knobs, self.quality.bloom, self.quality.fxaa);
         let post = self.post.as_ref().filter(|_| !plan.is_empty()).and_then(|p| p.scene().map(|s| (p, s)));
@@ -669,9 +671,6 @@ impl SpaceGpu {
             occlusion_query_set: None,
         });
         rp.set_bind_group(0, &self.frame_bind, &[]);
-        if !self.shown.behind.is_empty() {
-            self.backdrop.draw(&mut rp, 0, self.shown.behind.iter().map(sprite));
-        }
         if let Some(room) = &self.room {
             rp.set_pipeline(&self.room_pipe);
             rp.set_vertex_buffer(0, room.vb.slice(..));
@@ -705,6 +704,7 @@ impl SpaceGpu {
             rp.set_bind_group(1, bind, &[]);
             rp.draw_indexed(0..self.plate_count, 0, i as u32..i as u32 + 1);
         }
+        self.planes_gpu.draw(&mut rp, self.planes.iter().map(|p| p.picture.and_then(|s| self.sprites.get(s)).and_then(Option::as_ref)));
         rp.set_pipeline(&self.tube_pipe);
         rp.set_vertex_buffer(0, self.tube_vb.slice(..));
         rp.set_index_buffer(self.tube_ib.slice(..), wgpu::IndexFormat::Uint32);
@@ -714,9 +714,6 @@ impl SpaceGpu {
         rp.set_vertex_buffer(1, self.inst_buf.slice(..));
         rp.set_index_buffer(self.unit_ib.slice(..), wgpu::IndexFormat::Uint32);
         rp.draw_indexed(0..self.unit_count, 0, solid..all);
-        if !self.shown.front.is_empty() {
-            self.backdrop.draw(&mut rp, self.shown.behind.len(), self.shown.front.iter().map(sprite));
-        }
         if !self.glyphs.is_empty() {
             rp.set_pipeline(&self.label_pipe);
             rp.set_bind_group(1, &self.atlas_bind, &[]);
@@ -727,8 +724,10 @@ impl SpaceGpu {
         if let Some((p, _)) = post {
             p.run(queue, enc, &plan, &space.post_knobs, &space.post, final_target);
         }
-        if let Some(Some(bind)) = self.shown.over.and_then(|(slot, _)| self.sprites.get(slot)) {
-            self.backdrop.over(enc, final_target, &self.frame_bind, bind, self.shown.behind.len() + self.shown.front.len());
+        if let Some((slot, rect)) = space.backdrop.image(&space.portraits, size) {
+            if let Some(Some(bind)) = self.sprites.get(slot) {
+                self.backdrop.draw(queue, enc, final_target, bind, rect);
+            }
         }
     }
 }

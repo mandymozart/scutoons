@@ -8,15 +8,16 @@ namespace Scutoons\Generated;
  * The stored scene document `scene:<id>` (#243; deck-space's SceneDocument, its JSON Schema written by deck-schema)
  *
  * @phpstan-type Act 'join' | 'leave'
+ * @phpstan-type Anchor 'full' | 'left' | 'right' | 'top' | 'bottom'
  * @phpstan-type Arrange array{kind: ArrangeKind, spacing?: float}
  * @phpstan-type ArrangeKind 'row' | 'cluster'
- * @phpstan-type Background array{colour?: string | null, horizon?: float | null, image?: string | null, parallax?: float | null, video?: string | null}
+ * @phpstan-type Background array{colour?: string | null, image?: string | null, video?: string | null}
  * @phpstan-type Enter 'start' | 'join'
  * @phpstan-type Fill array{kind: list<'character' | 'persona' | 'look' | 'item' | 'location'>, parent?: string | null, ref?: list<string>}
  * @phpstan-type Fillers string | list<string>
  * @phpstan-type Holder array{arrange?: Arrange | null, at?: array{float, float, float} | null, enter?: Enter, fill?: Fill | null, id: string, label?: array<string, string> | null, max?: int | null, preview?: Fillers | null, ref?: string | null, rig?: RigPin | null, spot?: string | null, take?: Take, values?: array<string, HolderValue>}
  * @phpstan-type HolderValue float | string
- * @phpstan-type Layer array{depth?: float | null, horizon?: float | null, image: string}
+ * @phpstan-type Layer array{anchor?: Anchor, depth: float, image?: string | null}
  * @phpstan-type LinkDef array{from: string, map?: list<array{int, int}>, offset?: float, scale?: float, to: string}
  * @phpstan-type Listener array{character?: string | null, do: Act, id?: string | null, on: string}
  * @phpstan-type LocationPlaceholder array{fill: Fill, id: string, label?: array<string, string> | null, preview?: string | null}

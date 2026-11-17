@@ -257,7 +257,7 @@ impl StageSettings {
     /// the pictures the stage shows around the 3D, by media path: the background's, then the layers'
     pub fn media(&self) -> Vec<String> {
         let background = self.background.as_ref().and_then(|b| b.image.clone());
-        background.into_iter().chain(self.layers.iter().map(|l| l.image.clone())).collect()
+        background.into_iter().chain(self.layers.iter().filter_map(|l| l.image.clone())).collect()
     }
 }
 

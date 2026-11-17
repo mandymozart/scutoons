@@ -19,12 +19,8 @@ export type AssetKind = "pcm" | "bytes" | "image";
 export type Background = {
 	/** `#rgb` or `#rrggbb` */
 	colour?: string | null;
-	/** the picture's horizon, a share of its height from the top (0–1): it sits on the 3D's horizon */
-	horizon?: number | null;
 	/** a picture's media path, laid over the stage */
 	image?: string | null;
-	/** how much of the camera's turn the picture follows: 0 fixed (the default), 1 as far as the sky */
-	parallax?: number | null;
 	/** a video's media path, laid over the stage */
 	video?: string | null;
 };

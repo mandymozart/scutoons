@@ -211,11 +211,11 @@ impl crate::App {
                 }
             }
             Do::Type(Target::Rig) => {
-                let now = self.stage.bundle.rig.background.as_ref().map_or(String::new(), |b| b.text());
+                let now = self.stage.bundle.rig.background.as_ref().map_or("", |b| b.text()).to_string();
                 self.begin_edit(crate::Editing::Background, crate::Hit::Background, now);
             }
             Do::Type(Target::Scene) => {
-                let now = self.scene.as_ref().and_then(|v| v.edit.doc.stage.background.as_ref()).map_or(String::new(), |b| b.text());
+                let now = self.scene.as_ref().and_then(|v| v.edit.doc.stage.background.as_ref()).map_or("", |b| b.text()).to_string();
                 self.begin_edit(crate::Editing::SceneBackground, crate::Hit::SceneField(crate::scene::Field::Background), now);
             }
             Do::Type(Target::Show) => self.show.press(crate::show::Hit::Background),

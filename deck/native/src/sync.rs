@@ -615,7 +615,7 @@ mod tests {
         use crate::scene::{Scene, CONDUCTOR_SCENE};
         let scene = crate::modules::carried_part(&Scene::parse(CONDUCTOR_SCENE).unwrap());
         let g = crate::graph::Graph::build(&scene).unwrap();
-        let layer = deck_space::Layer { image: "layers/hills.webp".into(), depth: Some(8.0), horizon: None };
+        let layer = deck_space::Layer { image: Some("layers/hills.webp".into()), ..deck_space::Layer::default() };
         let stage = deck_space::scene::StageSettings { background: Some(deck_space::Background::image("backgrounds/wide.webp")), layers: vec![layer], ..Default::default() };
         let needs = needs_of(&g, &scene.being, &stage);
         assert_eq!(needs.media, ["backgrounds/wide.webp", "layers/hills.webp"]);

@@ -7,6 +7,9 @@ export const SCENE_FORMAT = 2 as const;
 
 export type Act = 'join' | 'leave';
 
+/** the part of the view a layer covers */
+export type Anchor = 'full' | 'left' | 'right' | 'top' | 'bottom';
+
 /** A spawn zone's arrangement: its kind and the spacing between members. */
 export type Arrange = {
 	kind: ArrangeKind;
@@ -21,12 +24,8 @@ export type ArrangeKind = 'row' | 'cluster';
 export type Background = {
 	/** `#rgb` or `#rrggbb` */
 	colour?: string | null;
-	/** the picture's horizon, a share of its height from the top (0–1): it sits on the 3D's horizon */
-	horizon?: number | null;
 	/** a picture's media path, laid over the stage */
 	image?: string | null;
-	/** how much of the camera's turn the picture follows: 0 fixed (the default), 1 as far as the sky */
-	parallax?: number | null;
 	/** a video's media path, laid over the stage */
 	video?: string | null;
 };
@@ -81,12 +80,12 @@ export type Holder = {
 export type HolderValue = number | string;
 
 export type Layer = {
-	/** metres behind the camera's pivot; below 0 in front of it (drawn over the 3D); none = the matte, infinitely far */
-	depth?: number | null;
-	/** the picture's horizon, a share of its height from the top (0–1); none = centred */
-	horizon?: number | null;
-	/** the picture's media path */
-	image: string;
+	/** the part of the view it covers: all of it, or a strip at an edge */
+	anchor?: Anchor;
+	/** metres behind the camera's pivot; below 0 in front of it */
+	depth: number;
+	/** the picture's media path (a PNG with transparency); none = an empty place */
+	image?: string | null;
 };
 
 export type LinkDef = {

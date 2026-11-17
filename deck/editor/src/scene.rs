@@ -164,7 +164,10 @@ pub enum Field {
     Remove,
     /// a layer's picture, typed
     Picture,
-    /// a new layer, typed
+    /// a layer's anchor, the next one
+    Anchor,
+    /// the default parallax stack, or one empty layer
+    AddStack,
     AddLayer,
     /// the scene's stage background: a click on its value types it, on its swatch opens the colour picker
     Background,
@@ -194,8 +197,8 @@ pub fn inspect(d: &mut DrawList, t: &Tokens, area: Rect, view: &SceneView, hot: 
         out.push((swatch, Field::BackgroundColour));
         out.push((at, Field::Background));
         controls::row(d, t, area, &mut y, "layers", &e.doc.stage.layers.len().to_string());
-        if let Some(r) = controls::pills(d, t, area.x, y, t.size.row - 4.0, &["Add layer"], usize::MAX).into_iter().next() {
-            out.push((r, Field::AddLayer));
+        for (r, f) in controls::pills(d, t, area.x, y, t.size.row - 4.0, &["Parallax stack", "Add layer"], usize::MAX).into_iter().zip([Field::AddStack, Field::AddLayer]) {
+            out.push((r, f));
         }
         y += t.size.row;
         for n in &e.notes {
@@ -402,12 +405,6 @@ impl crate::App {
             }
             return self.replay_scene();
         }
-        if let Part::Layer(l) = view.sel {
-            if let Some(param) = view.edit.layer_knobs(l).get(i).map(|k| k.param.clone()) {
-                view.edit.clear_layer(l, &param);
-            }
-            return self.replay_scene();
-        }
         let Some(m) = view.member() else { return };
         if let Some(path) = view.edit.members.get(m).and_then(|mm| mm.knobs.get(i)).map(|k| k.path.clone()) {
             view.edit.clear(m, &path);
@@ -419,7 +416,7 @@ impl crate::App {
     /// would, then opened as its rig if asked
     pub(crate) fn script_scene(&mut self) {
         let Some((holder, inside)) = self.args.member.clone() else { return };
-        if holder.contains(['+', ':']) {
+        if holder.contains(['+', ':']) || holder == "stack" {
             return self.script_parts(&holder);
         }
         let Some(m) = self.scene.as_ref().and_then(|v| v.edit.members.iter().position(|x| x.holder == holder)) else { return };
@@ -463,22 +460,24 @@ mod tests {
         SceneOpen { doc, base: Some(3), kept: None, note: None, save: None }
     }
 
-    /// the panel model: a layer added shows in the tree, its inspector has its picture, Remove and its depth and horizon
-    /// knobs; a knob set shows its ×, and the stage plays the scene with it
+    /// the panel model: the default stack shows in the tree far to near, a layer's inspector has its picture, its anchor,
+    /// Remove and its depth knob, and the stage plays the scene with it
     #[test]
-    fn a_layer_in_the_tree_and_its_inspector() {
+    fn the_parallax_stack_in_the_tree_and_a_layers_inspector() {
         let (mut view, _, _) = SceneView::open(duet(), None).expect("it plays");
-        let l = view.edit.add_layer("layers/hills.png").unwrap();
+        view.edit.add_stack().unwrap();
         let rows = view.tree_rows();
-        assert_eq!(rows.last().map(|r| (r.label.as_str(), r.detail.as_str(), r.icon)), Some(("hills.png", "matte", "layers")));
+        let layer_rows: Vec<_> = rows.iter().filter(|r| r.icon == "layers").map(|r| r.label.as_str()).collect();
+        assert_eq!(layer_rows.len(), 7);
+        assert_eq!(layer_rows.first(), Some(&"empty full"));
+        let l = view.edit.empty_layer().unwrap();
+        view.edit.fill_layer(l, Some("layers/hills.png")).unwrap();
         view.sel = Part::Layer(l);
         let (mut d, t) = (DrawList::new(0.6), Tokens::default());
         let area = Rect { x: 0.0, y: 0.0, w: 320.0, h: 2000.0 };
-        let fields = |view: &SceneView, d: &mut DrawList| inspect(d, &t, area, view, None).into_iter().map(|(_, f)| f).collect::<Vec<Field>>();
-        assert_eq!(fields(&view, &mut d), [Field::Picture, Field::Remove, Field::Knob(0), Field::Knob(1)], "unset knobs have no ×");
-        view.edit.turn_layer(l, "depth", -1.0).unwrap();
-        assert_eq!(fields(&view, &mut d), [Field::Picture, Field::Remove, Field::Knob(0), Field::Clear(0), Field::Knob(1)]);
-        assert_eq!(view.scene().unwrap().stage.layers[0].depth, Some(-1.0), "the stage plays it");
+        let fields: Vec<Field> = inspect(&mut d, &t, area, &view, None).into_iter().map(|(_, f)| f).collect();
+        assert_eq!(fields, [Field::Picture, Field::Anchor, Field::Remove, Field::Knob(0)]);
+        assert_eq!(view.scene().unwrap().stage.layers[l].image.as_deref(), Some("layers/hills.png"), "the stage plays it");
     }
 
     /// the panel model: the scene opens with its cast in the tree, a member selected shows its knobs as the scene sets
@@ -493,7 +492,7 @@ mod tests {
         let (mut d, t) = (DrawList::new(0.6), Tokens::default());
         let area = Rect { x: 0.0, y: 0.0, w: 320.0, h: 2000.0 };
         let fields: Vec<Field> = inspect(&mut d, &t, area, &view, None).into_iter().map(|(_, f)| f).collect();
-        assert_eq!(fields, [Field::BackgroundColour, Field::Background, Field::AddLayer], "the scene's background, its swatch first, then Add layer");
+        assert_eq!(fields, [Field::BackgroundColour, Field::Background, Field::AddStack, Field::AddLayer], "the scene's background, its swatch first, then the layers' pills");
         view.edit.set_background("#336699").unwrap();
         assert_eq!(view.scene().unwrap().stage.background, Some(deck_space::Background::colour("#336699")), "the stage plays it");
         view.edit.set_background("").unwrap();

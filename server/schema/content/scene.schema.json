@@ -19,6 +19,17 @@
       ],
       "title": "517: what a listener makes a character do – the cast words of a playing scene (E1: rig/address.rs `CastWord`)"
     },
+    "Anchor": {
+      "description": "the part of the view a layer covers",
+      "enum": [
+        "full",
+        "left",
+        "right",
+        "top",
+        "bottom"
+      ],
+      "type": "string"
+    },
     "Arrange": {
       "additionalProperties": false,
       "description": "A spawn zone's arrangement: its kind and the spacing between members.",
@@ -64,26 +75,10 @@
             "null"
           ]
         },
-        "horizon": {
-          "description": "the picture's horizon, a share of its height from the top (0–1): it sits on the 3D's horizon",
-          "format": "float",
-          "type": [
-            "number",
-            "null"
-          ]
-        },
         "image": {
           "description": "a picture's media path, laid over the stage",
           "type": [
             "string",
-            "null"
-          ]
-        },
-        "parallax": {
-          "description": "how much of the camera's turn the picture follows: 0 fixed (the default), 1 as far as the sky",
-          "format": "float",
-          "type": [
-            "number",
             "null"
           ]
         },
@@ -300,29 +295,29 @@
     "Layer": {
       "additionalProperties": false,
       "properties": {
-        "depth": {
-          "description": "metres behind the camera's pivot; below 0 in front of it (drawn over the 3D); none = the matte, infinitely far",
-          "format": "float",
-          "type": [
-            "number",
-            "null"
-          ]
+        "anchor": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/Anchor"
+            }
+          ],
+          "description": "the part of the view it covers: all of it, or a strip at an edge"
         },
-        "horizon": {
-          "description": "the picture's horizon, a share of its height from the top (0–1); none = centred",
+        "depth": {
+          "description": "metres behind the camera's pivot; below 0 in front of it",
           "format": "float",
-          "type": [
-            "number",
-            "null"
-          ]
+          "type": "number"
         },
         "image": {
-          "description": "the picture's media path",
-          "type": "string"
+          "description": "the picture's media path (a PNG with transparency); none = an empty place",
+          "type": [
+            "string",
+            "null"
+          ]
         }
       },
       "required": [
-        "image"
+        "depth"
       ],
       "type": "object"
     },
