@@ -124,6 +124,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Placed {
     let adv = d.advance(px);
     let text_y = mid - px * 0.62;
     let mut out = Placed::default();
+    d.halo(Some(t.color.surface));
     // the logo and the hamburger
     let first = Rect { x: gap, y, w: pad + logo + pad + h, h };
     pill(d, t, first);
@@ -178,6 +179,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Placed {
     // the panic: red, always there, beside the tempo; latched it is ringed and says RESUME
     let panic = Rect { x: tempo.x + clock_w + gap * 0.5, y, w: panic_w, h };
     let hot = panic.has(b.pointer.0, b.pointer.1);
+    d.halo(None);
     d.round_rect(panic.x, panic.y, panic.w, panic.h, h * 0.5, if hot != b.panicked { t.color.stop } else { t.color.danger });
     if b.panicked {
         d.outline(panic.x, panic.y, panic.w, panic.h, (h * 0.5, 2.0), t.color.bright);
@@ -186,6 +188,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Placed {
     let lx = panic.x + (panic.w - controls::label_width(d, t, label)) * 0.5;
     controls::label(d, t, lx, mid - t.size.label * 0.62, label, t.color.bright);
     out.panic = panic;
+    d.halo(Some(t.color.surface));
     out.slot = Rect { x: r.slot_x, y, w: b.slot, h };
     // the right pill
     let right = Rect { x: r.right_x, y, w: right_w, h };
@@ -208,6 +211,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Placed {
     let hot = out.day.has(b.pointer.0, b.pointer.1);
     d.icon(x + (h - icon) * 0.5, mid - icon * 0.5, icon, if b.night { "dark" } else { "light" }, if hot { t.color.text } else { t.color.muted });
     d.text(right.x + right.w - pad - version_w, text_y, px, deck_native::BUILD, t.color.muted);
+    d.halo(None);
     out
 }
 

@@ -507,6 +507,7 @@ pub fn begin(d: &mut DrawList, t: &Tokens, spec: &Spec, v: &View, pointer: (f32,
     let ground = [s[0], s[1], s[2], s[3] * t.color.panel_opacity.clamp(0.0, 1.0)];
     d.round_rect(w.x, w.y, w.w, w.h, if v.collapsed { w.h * 0.5 } else { r }, ground);
     d.outline(w.x, w.y, w.w, w.h, (if v.collapsed { w.h * 0.5 } else { r }, 1.0), t.color.line);
+    d.halo(Some(s));
     let hot = v.handle.has(pointer.0, pointer.1);
     let mid = v.handle.y + v.handle.h * 0.5;
     let x = w.x + t.size.pad;
@@ -518,8 +519,9 @@ pub fn begin(d: &mut DrawList, t: &Tokens, spec: &Spec, v: &View, pointer: (f32,
     }
     let fold_hot = v.fold.has(pointer.0, pointer.1);
     d.icon(v.fold.x + (v.fold.w - chevron) * 0.5, mid - chevron * 0.5, chevron, if v.collapsed { "down" } else { "up" }, if fold_hot { t.color.text } else { t.color.muted });
-    if !v.collapsed {
-        d.clip(Some(v.content));
+    match v.collapsed {
+        true => d.halo(None),
+        false => d.clip(Some(v.content)),
     }
 }
 
@@ -528,6 +530,7 @@ pub fn end(d: &mut DrawList, t: &Tokens, v: &View) {
     if v.collapsed {
         return;
     }
+    d.halo(None);
     d.clip(None);
     if v.over > 0.0 {
         let c = v.content;
@@ -802,6 +805,11 @@ mod tests {
         let crate::base::draw::Prim::Rect { color, .. } = d.prims()[0] else { panic!("the ground first") };
         assert_eq!(color[3], t.color.panel_opacity);
         assert!(color[3] < 1.0);
+        d.text(0.0, 0.0, 10.0, "in", t.color.text);
+        end(&mut d, &t, &v);
+        d.text(0.0, 0.0, 10.0, "out", t.color.text);
+        let halos: Vec<f32> = d.prims().iter().filter_map(|p| if let crate::base::draw::Prim::Text { halo, .. } = *p { Some(halo[3]) } else { None }).collect();
+        assert_eq!(halos, [1.0, 0.0], "the content's text rings itself with the panel's colour, what follows the panel does not");
     }
 
     #[test]
