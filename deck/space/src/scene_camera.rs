@@ -7,9 +7,10 @@
 //! - **Shot:** where the camera stands – aim, yaw and pitch in degrees, distance in metres, its lens. Picked from outside by
 //!   address: `scene:<id> > shot:<shot>` cuts to it (rig/address.rs `CameraWord`).
 //! - **Track:** the trolley track a fly-through runs along: a start and an end point, points between them, each with an
-//!   optional Bézier handle (none = a smooth curve through its neighbours).
+//!   optional Bézier handle (none = a smooth curve through its neighbours) and its arrival time with an ease for the way
+//!   there (a fly-through synced to the music).
 //! - **Move:** a kind, the shot it ends on, a length in beats, bars or seconds, an ease, whether it waits for the bar line,
-//!   the move it chains to; `scene:<id> > move:<move>` plays it.
+//!   whether it repeats (once, loop, ping-pong), the move it chains to; `scene:<id> > move:<move>` plays it.
 use crate::rig::address::{word, Aim};
 use crate::scene_document::Label;
 use serde::{Deserialize, Serialize};
@@ -186,7 +187,8 @@ impl ShotDef {
     }
 }
 
-/// A point of the trolley track: where it is, and its Bézier handle (the way out of it; the way in is its mirror).
+/// A point of the trolley track: where it is, its Bézier handle (the way out of it; the way in is its mirror), and when a
+/// fly-through reaches it.
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -195,6 +197,19 @@ pub struct TrackPoint {
     /// metres from `at`; none = a smooth curve through the neighbours
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub handle: Option<[f32; 3]>,
+    /// when the fly-through arrives here, counted from its start (beats, bars or seconds); none = by the track's length
+    /// between the points that have one (the end without one: the move's length). The start has none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub time: Option<Length>,
+    /// the ease of the way here from the point before; none = an even speed
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ease: Option<Ease>,
+}
+
+impl TrackPoint {
+    pub fn at(at: [f32; 3]) -> TrackPoint {
+        TrackPoint { at, handle: None, time: None, ease: None }
+    }
 }
 
 /// The trolley track: its first point is the start, its last the end.
@@ -209,7 +224,37 @@ pub struct Track {
 impl Track {
     /// a straight track from `start` to `end`
     pub fn between(start: [f32; 3], end: [f32; 3]) -> Track {
-        Track { points: vec![TrackPoint { at: start, handle: None }, TrackPoint { at: end, handle: None }] }
+        Track { points: vec![TrackPoint::at(start), TrackPoint::at(end)] }
+    }
+
+    /// whether a point has its own arrival time
+    pub fn timed(&self) -> bool {
+        self.points.iter().any(|p| p.time.is_some())
+    }
+
+    /// how long a fly-through along it takes: the end's time, else the move's `length`
+    pub fn length(&self, length: Length) -> Length {
+        self.points.last().and_then(|p| p.time).unwrap_or(length)
+    }
+
+    fn problems(&self, out: &mut Vec<String>) {
+        if self.points.first().is_some_and(|p| p.time.is_some() || p.ease.is_some()) {
+            out.push("camera track: the start has no time – the move starts there".into());
+        }
+        let mut last: Option<Length> = None;
+        for (i, p) in self.points.iter().enumerate().skip(1) {
+            let Some(t) = p.time else { continue };
+            let v = t.value();
+            if !v.is_finite() || v <= 0.0 {
+                out.push(format!("camera track: point {}'s time is more than 0", i + 1));
+            }
+            match last {
+                Some(l) if l.unit() != t.unit() => out.push("camera track: its times share one unit (beats, bars or s)".into()),
+                Some(l) if v <= l.value() => out.push(format!("camera track: point {} arrives before the point ahead of it", i + 1)),
+                _ => {}
+            }
+            last = Some(t);
+        }
     }
 }
 
@@ -410,6 +455,30 @@ impl Ease {
     }
 }
 
+/// What a move does once it arrived: stays, runs again from its start, or runs back and forth – until another move, a
+/// cut, a hand on the view or the row's end. A move in beats or bars repeats on the bar line.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Repeat {
+    #[default]
+    Once,
+    Loop,
+    PingPong,
+}
+
+impl Repeat {
+    pub const ALL: [Repeat; 3] = [Repeat::Once, Repeat::Loop, Repeat::PingPong];
+
+    pub fn word(self) -> &'static str {
+        match self {
+            Repeat::Once => "once",
+            Repeat::Loop => "loop",
+            Repeat::PingPong => "ping-pong",
+        }
+    }
+}
+
 /// When a move starts.
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -451,6 +520,8 @@ pub struct MoveSpec {
     pub ease: Ease,
     #[serde(default)]
     pub start: Start,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub repeat: Repeat,
     /// orbit, spiral
     #[serde(default = "one", skip_serializing_if = "is_one")]
     pub rounds: f32,
@@ -501,7 +572,7 @@ fn is_default<T: Default + PartialEq>(v: &T) -> bool {
 impl MoveSpec {
     /// a move of `kind` with its usual length and ease
     pub fn of(kind: MoveKind) -> MoveSpec {
-        MoveSpec { kind, length: kind.length(), ease: kind.ease(), start: Start::Now, rounds: 1.0, turn: Turn::Left, side: Side::Left, height: crane_height(), amount: shake_amount(), follow: None }
+        MoveSpec { kind, length: kind.length(), ease: kind.ease(), start: Start::Now, repeat: Repeat::Once, rounds: 1.0, turn: Turn::Left, side: Side::Left, height: crane_height(), amount: shake_amount(), follow: None }
     }
 
     pub fn problems(&self, who: &str, out: &mut Vec<String>) {
@@ -520,6 +591,9 @@ impl MoveSpec {
         }
         if self.follow.is_some() != (self.kind == MoveKind::Follow) {
             out.push(format!("{who}: `follow` names the holder of a follow, and only of a follow"));
+        }
+        if self.repeat != Repeat::Once && matches!(self.kind, MoveKind::Cut | MoveKind::Follow) {
+            out.push(format!("{who}: a {} does not repeat", self.kind.word()));
         }
     }
 }
@@ -649,6 +723,7 @@ impl SceneCamera {
             if t.points.iter().any(|p| p.at.iter().chain(p.handle.iter().flatten()).any(|v| !v.is_finite())) {
                 out.push("camera track: its points and handles are numbers".into());
             }
+            t.problems(out);
         }
         for m in &self.moves {
             let who = format!("move {}", m.id);
@@ -759,5 +834,39 @@ mod tests {
         for want in ["taken twice", "no shot of the camera", "the scene has none", "no holder of the scene", "focal length"] {
             assert!(all.contains(want), "{want}: {all}");
         }
+    }
+
+    #[test]
+    fn repeats_and_track_times_are_stored_and_checked() {
+        let mut c = SceneCamera { shots: vec![shot("wide")], ..SceneCamera::default() };
+        let mut t = Track::between([0.0; 3], [4.0, 0.0, 0.0]);
+        t.points.insert(1, TrackPoint { time: Some(Length::Bars(2.0)), ease: Some(Ease::Out), ..TrackPoint::at([2.0, 0.0, 0.0]) });
+        t.points[2].time = Some(Length::Bars(4.0));
+        c.track = Some(t);
+        c.moves.push(MoveDef { id: "fly".into(), to: "wide".into(), spec: MoveSpec { repeat: Repeat::PingPong, ..MoveSpec::of(MoveKind::Fly) }, then: None });
+        let mut out = Vec::new();
+        c.problems(&[], &mut out);
+        assert!(out.is_empty(), "{out:?}");
+        let text = serde_json::to_string(&c).unwrap();
+        assert!(text.contains("\"repeat\":\"ping_pong\"") && text.contains("\"time\":{\"bars\":2.0},\"ease\":\"out\""), "{text}");
+        assert_eq!(serde_json::from_str::<SceneCamera>(&text).unwrap(), c);
+        assert!(!serde_json::to_string(&MoveSpec::of(MoveKind::Glide)).unwrap().contains("repeat"), "once is the default, not written");
+        let track = c.track.as_ref().unwrap();
+        assert_eq!(track.length(Length::Bars(8.0)), Length::Bars(4.0), "the end's time is the fly-through's length");
+
+        let t = c.track.as_mut().unwrap();
+        t.points[1].time = Some(Length::Bars(5.0));
+        t.points[0].time = Some(Length::Bars(1.0));
+        c.moves[0].spec = MoveSpec { repeat: Repeat::Loop, ..MoveSpec::of(MoveKind::Cut) };
+        let mut out = Vec::new();
+        c.problems(&[], &mut out);
+        let all = out.join(" | ");
+        for want in ["the start has no time", "point 3 arrives before", "a cut does not repeat"] {
+            assert!(all.contains(want), "{want}: {all}");
+        }
+        c.track.as_mut().unwrap().points[2].time = Some(Length::Seconds(9.0));
+        let mut out = Vec::new();
+        c.problems(&[], &mut out);
+        assert!(out.join(" | ").contains("share one unit"), "{out:?}");
     }
 }

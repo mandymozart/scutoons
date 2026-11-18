@@ -212,8 +212,9 @@ pub enum In {
     Pushed(SceneSync),
     /// #195: a deck's answer to it
     Synced { client: String, synced: DeckSynced },
-    /// #517: an address action (`address`, SHOW.md §8) for this deck's playing scene – the core's scene_play.rs reads it
-    Address { address: String, action: String },
+    /// #517: an address action (`address`, SHOW.md §8) for this deck's playing scene – the core's scene_play.rs reads it;
+    /// `beat`: the show clock's beat it plays on (a show cell's camera cut on its row's bar or phrase), none = now
+    Address { address: String, action: String, beat: Option<f64> },
     /// #517: a reader's story event (the VNEvent's JSON), there because this deck asked (`set_story`)
     Story(Loose),
 }
@@ -838,6 +839,15 @@ impl Client {
         self.hello();
     }
 
+    /// whether a filter takes this client by the facts it knows of itself: its group and its device. Account facts and an
+    /// approved deck come from the server's proof – the relay decides those, a deck can't prove them to itself, so they are
+    /// left out here (else a row address naming an account would miss every deck)
+    fn passes(&self, filter: Option<&protocol::Filter>) -> bool {
+        let Some(f) = filter else { return true };
+        let mine = protocol::Filter { group: f.group.clone(), device: f.device.clone(), account: None, approved: None };
+        protocol::filter::passes(Some(&mine), &protocol::filter::Facts { group: self.o.group.as_deref(), device: self.o.device.as_deref(), ..Default::default() })
+    }
+
     fn hello(&mut self) {
         let conductor = self.o.role == Role::Conductor;
         let hello = Hello {
@@ -1420,7 +1430,8 @@ impl Client {
             Message::DeckListen(l) => self.out.push(Out::Listen { client: from, addresses: l.addresses }),
             Message::DeckEvents(ev) => self.out.push(Out::Events { client: from, events: ev.events }),
             // #517: what the deck's playing scene takes – the core reads it (scene_play.rs), the link only passes it
-            Message::Address(a) => self.out.push(Out::Deck(In::Address { address: a.address, action: a.action })),
+            // the address tests its filter here (show address.rs `passes`): a cell's camera cut names its column's group
+            Message::Address(a) if self.passes(a.r#where.as_ref()) => self.out.push(Out::Deck(In::Address { address: a.address, action: a.action, beat: a.beat })),
             Message::Story(s) => {
                 // #527: the conductor keeps the last story heard (the relay passes only the driving reader's)
                 if conductor {
@@ -2133,6 +2144,38 @@ mod tests {
         assert_eq!(heard, ["vote.open", "say", "vote.tally", "vote.result", "say"]);
         assert_eq!(kinds(&t), ["hello", "vote.cast"], "a cast only into an open vote");
         assert_eq!(sent(&t)[1]["p"], json!({ "vote": "v1", "option": 1 }));
+    }
+
+    /// a show cell's camera cut names its column's group: the left deck takes it with its beat, the right one does not
+    #[test]
+    fn an_address_reaches_only_the_decks_its_filter_takes() {
+        let cut = json!({ "kind": "address", "p": { "id": "duo/1", "address": "scene:nave", "action": "shot:close", "where": { "group": "left" }, "beat": 8.0 } });
+        let heard = |group: &str| {
+            let join = json!({ "relay": RELAY, "role": "output", "group": group, "device": "native" });
+            let mut c = Client::new(serde_json::from_value(join).unwrap()).unwrap();
+            c.start(0.0);
+            let at = |c: &mut Client, s: f64, what: &str, with: Value| step(c, s * 1000.0, &st(s, what, with)).unwrap();
+            at(&mut c, 0.0, "open", Value::Null);
+            at(&mut c, 0.1, "message", welcome("c3", json!({})));
+            at(&mut c, 1.0, "message", cut.clone());
+            c.take().into_iter().filter_map(|o| if let Out::Deck(In::Address { action, beat, .. }) = o { Some((action, beat)) } else { None }).collect::<Vec<_>>()
+        };
+        assert_eq!(heard("left"), [("shot:close".to_string(), Some(8.0))]);
+        assert!(heard("right").is_empty(), "the right column's camera is left alone");
+    }
+
+    /// account and approval facts are the relay's to check (the server's proof): a deck doesn't drop an address for them
+    #[test]
+    fn an_address_naming_an_account_still_reaches_the_deck() {
+        let cut = json!({ "kind": "address", "p": { "id": "duo/2", "address": "scene:nave", "action": "shot:wide", "where": { "group": "left", "account": ["creator"], "approved": true } } });
+        let join = json!({ "relay": RELAY, "role": "output", "group": "left", "device": "native" });
+        let mut c = Client::new(serde_json::from_value(join).unwrap()).unwrap();
+        c.start(0.0);
+        let at = |c: &mut Client, s: f64, what: &str, with: Value| step(c, s * 1000.0, &st(s, what, with)).unwrap();
+        at(&mut c, 0.0, "open", Value::Null);
+        at(&mut c, 0.1, "message", welcome("c3", json!({})));
+        at(&mut c, 1.0, "message", cut);
+        assert!(c.take().into_iter().any(|o| matches!(o, Out::Deck(In::Address { .. }))), "the group fits; the account is the relay's to check");
     }
 
     /// #556: the ballot of a deck that hears the vote follows the relay client – the open vote, this deck's cast once

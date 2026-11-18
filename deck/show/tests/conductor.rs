@@ -292,10 +292,33 @@ fn a_cell_picks_its_scenes_shot_and_the_row_sends_the_camera_word() {
     let mut c = Conductor::new(picked.show.clone());
     let out = c.fire("opening", Now::at(0));
     let first_cell = out.iter().position(|o| o.envelope().is_some_and(|e| matches!(&e.message, Message::Cell(c) if c.outlet == "left"))).unwrap();
-    let word = out.iter().position(|o| matches!(o, Out::Address(a) if a.address == "scene:nave" && a.action == "shot:wide")).expect("the camera word");
+    let word = out.iter().position(|o| matches!(o, Out::Camera { column, address, action, beat: None } if column == "left" && address == "scene:nave" && action == "shot:wide")).expect("the camera word");
     assert!(word > first_cell, "after the cell");
     let back = edit(&picked.show, &Edit::Shot { row: "opening".into(), column: "left".into(), shot: None }).unwrap();
     assert_eq!(back.show, show, "none: the scene's own opening again");
+}
+
+/// Both columns play the same scene: the left cell's cut goes only to the left column's decks (the address's group), on
+/// the row's bar line; the right camera is left alone
+#[test]
+fn a_left_columns_cut_leaves_the_right_columns_camera_alone() {
+    let show = parse(
+        r#"{ "id": "duo", "version": 1, "toon": "catpope", "outlets": [{ "id": "left" }, { "id": "right" }], "rows": [
+            { "id": "open", "cells": { "left": { "mode": "play", "piece": "scene:nave" }, "right": { "mode": "play", "piece": "scene:nave" } } },
+            { "id": "cut", "fire": { "moment": "bar" }, "cells": { "left": { "mode": "play", "piece": "scene:nave", "shot": "close" } } } ] }"#,
+    )
+    .unwrap();
+    let mut sub = deck_show::subtree::Subtree::new(show, deck_show::subtree::ClockChoice::Parent);
+    sub.fire("open", 0);
+    sub.lead_clock(protocol::Tempo { bpm: 120.0, per_bar: 4, beat: 5.5, running: true, at: Some(1_000), domain: None }, 1_000);
+    let out = sub.fire("cut", 1_000);
+    let words: Vec<&protocol::Address> = out.iter().filter_map(|e| if let Message::Address(a) = &e.message { Some(a) } else { None }).collect();
+    assert_eq!(words.len(), 1, "one camera word: {words:?}");
+    let a = words[0];
+    assert_eq!((a.address.as_str(), a.action.as_str()), ("scene:nave", "shot:close"));
+    assert_eq!(a.beat, Some(8.0), "on the row's bar line, not at once");
+    let take = |group: &str| protocol::filter::passes(a.r#where.as_ref(), &protocol::filter::Facts { group: Some(group), device: Some("native"), ..Default::default() });
+    assert!(take("left") && !take("right"), "only the left column's decks take it: {:?}", a.r#where);
 }
 
 #[test]

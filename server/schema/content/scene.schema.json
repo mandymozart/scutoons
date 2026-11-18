@@ -617,6 +617,9 @@
         "length": {
           "$ref": "#/definitions/Length"
         },
+        "repeat": {
+          "$ref": "#/definitions/Repeat"
+        },
         "rounds": {
           "description": "orbit, spiral",
           "format": "float",
@@ -780,6 +783,15 @@
           "type": "string"
         }
       ]
+    },
+    "Repeat": {
+      "description": "What a move does once it arrived: stays, runs again from its start, or runs back and forth – until another move, a\ncut, a hand on the view or the row's end. A move in beats or bars repeats on the bar line.",
+      "enum": [
+        "once",
+        "loop",
+        "ping_pong"
+      ],
+      "type": "string"
     },
     "RigPin": {
       "additionalProperties": false,
@@ -1098,7 +1110,7 @@
     },
     "TrackPoint": {
       "additionalProperties": false,
-      "description": "A point of the trolley track: where it is, and its Bézier handle (the way out of it; the way in is its mirror).",
+      "description": "A point of the trolley track: where it is, its Bézier handle (the way out of it; the way in is its mirror), and when a\nfly-through reaches it.",
       "properties": {
         "at": {
           "items": {
@@ -1108,6 +1120,17 @@
           "maxItems": 3,
           "minItems": 3,
           "type": "array"
+        },
+        "ease": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Ease"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "the ease of the way here from the point before; none = an even speed"
         },
         "handle": {
           "description": "metres from `at`; none = a smooth curve through the neighbours",
@@ -1121,6 +1144,17 @@
             "array",
             "null"
           ]
+        },
+        "time": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Length"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "when the fly-through arrives here, counted from its start (beats, bars or seconds); none = by the track's length\nbetween the points that have one (the end without one: the move's length). The start has none."
         }
       },
       "required": [

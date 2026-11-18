@@ -6,7 +6,7 @@ use crate::scene::SceneView;
 use deck_kit::base::draw::DrawList;
 use deck_kit::base::tokens::Tokens;
 use deck_kit::editor::controls::{self, Rect};
-use deck_space::scene_camera::{fov_of, height_preset, Ease, EYE_HEIGHTS, Length, Lens, MoveKind, MoveSpec, Projection, SceneCamera, Side, Source, Start, Turn, FOCAL_PRESETS, MAX_ROUNDS, SIZE_RANGE};
+use deck_space::scene_camera::{fov_of, height_preset, Ease, EYE_HEIGHTS, Length, Lens, MoveKind, MoveSpec, Projection, Repeat, SceneCamera, Side, Source, Start, Turn, FOCAL_PRESETS, MAX_ROUNDS, SIZE_RANGE};
 use deck_space::space::dop::View;
 
 pub const WIDTH: f32 = 340.0;
@@ -38,6 +38,8 @@ pub enum Num {
     Rounds,
     Height,
     Amount,
+    /// the selected track point's arrival time
+    PointTime,
 }
 
 impl Num {
@@ -49,6 +51,7 @@ impl Num {
             Num::Rounds => (0.0, MAX_ROUNDS, false),
             Num::Height => (0.0, 10.0, false),
             Num::Amount => (0.0, 10.0, false),
+            Num::PointTime => (0.25, 64.0, true),
         }
     }
 }
@@ -72,6 +75,7 @@ pub enum Field {
     Unit(usize),
     Ease(usize),
     Start(Start),
+    Repeat(Repeat),
     Turn(Turn),
     Side(Side),
     Follow(usize),
@@ -86,12 +90,43 @@ pub enum Field {
     AddPoint,
     RemovePoint,
     RemoveTrack,
+    /// a track point picked from the list
+    Point(usize),
+    /// the selected point's time: by the track's length (none), or in `UNITS[i]`
+    PointUnit(Option<usize>),
+    /// the ease of the way to the selected point: even (none), or `POINT_EASES[i]`
+    PointEase(Option<usize>),
     /// the camera's slot `i` (a module drops on it), its module taken off
     Slot(usize),
     Detach(usize),
 }
 
 const UNITS: [&str; 3] = ["beats", "bars", "s"];
+/// the eases a way to a track point may take beside an even speed
+const POINT_EASES: [Ease; 4] = [Ease::In, Ease::Out, Ease::InOut, Ease::Whip];
+
+fn unit_of(l: Length) -> usize {
+    match l {
+        Length::Beats(_) => 0,
+        Length::Bars(_) => 1,
+        Length::Seconds(_) => 2,
+    }
+}
+
+/// a track point in a few words: its name, when it arrives, the way's ease
+pub fn point_words(track: &deck_space::scene_camera::Track, i: usize) -> String {
+    let n = track.points.len();
+    let name = if i == 0 { "start".to_string() } else if i + 1 == n { "end".to_string() } else { format!("point {}", i + 1) };
+    let p = &track.points[i];
+    let time = match (i, p.time) {
+        (0, _) => "0".to_string(),
+        (_, Some(t)) => format!("{} {}", crate::number(t.value()), t.unit()),
+        (_, None) if i + 1 == n => "the move's length".to_string(),
+        (_, None) => "by length".to_string(),
+    };
+    let ease = p.ease.map(|e| format!(" · {}", e.word())).unwrap_or_default();
+    format!("{name} · {time}{ease}")
+}
 
 /// a focal length as a person reads it: whole millimetres, a tenth when it has one
 fn mm(f: f32) -> String {
@@ -148,6 +183,7 @@ pub fn value(view: &SceneView, n: Num) -> f32 {
         Num::Rounds => s.rounds,
         Num::Height => s.height,
         Num::Amount => s.amount,
+        Num::PointTime => view.dop.point.and_then(|i| view.edit.camera().track?.points.get(i)?.time).map_or(1.0, |t| t.value()),
     }
 }
 
@@ -232,11 +268,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, a: Rect, view: &SceneView, playing: Pl
     let to = sel.shot.and_then(|i| cam.shots.get(i)).map_or("pick a shot above", |s| s.id.as_str());
     controls::row(d, t, a, &mut y, "ends on", to);
     if s.kind != MoveKind::Cut {
-        let unit = match s.length {
-            Length::Beats(_) => 0,
-            Length::Bars(_) => 1,
-            Length::Seconds(_) => 2,
-        };
+        let unit = unit_of(s.length);
         scrub(d, t, a, &mut y, Num::Length, "length", s.length.value(), &format!("{} {}", crate::number(s.length.value()), s.length.unit()), hot, &mut out);
         pills_row(d, t, a, &mut y, &UNITS, unit, &[Field::Unit(0), Field::Unit(1), Field::Unit(2)], &mut out);
         let eases: Vec<&str> = Ease::ALL.iter().map(|e| e.word()).collect();
@@ -244,6 +276,13 @@ pub fn draw(d: &mut DrawList, t: &Tokens, a: Rect, view: &SceneView, playing: Pl
         pills_row(d, t, a, &mut y, &eases, Ease::ALL.iter().position(|e| *e == s.ease).unwrap_or(0), &fields, &mut out);
     }
     pills_row(d, t, a, &mut y, &["now", "on the bar line"], usize::from(s.start == Start::Bar), &[Field::Start(Start::Now), Field::Start(Start::Bar)], &mut out);
+    if !matches!(s.kind, MoveKind::Cut | MoveKind::Follow) {
+        let names: Vec<&str> = Repeat::ALL.iter().map(|r| r.word()).collect();
+        let lit: Vec<bool> = Repeat::ALL.iter().map(|r| *r == s.repeat).collect();
+        let (rects, used) = controls::chips(d, t, (a.x, y, a.w), &names, &lit);
+        out.extend(rects.into_iter().zip(Repeat::ALL).map(|(r, k)| (r, Field::Repeat(k))));
+        y += used + 6.0;
+    }
     match s.kind {
         MoveKind::Orbit | MoveKind::Spiral => {
             scrub(d, t, a, &mut y, Num::Rounds, "rounds", s.rounds, &crate::number(s.rounds), hot, &mut out);
@@ -282,7 +321,8 @@ pub fn draw(d: &mut DrawList, t: &Tokens, a: Rect, view: &SceneView, playing: Pl
                 d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, t.color.selection);
             }
             let then = m.then.as_deref().map_or(String::new(), |n| format!(" → {n}"));
-            let line = format!("{} · {} to {} · {} {}{then}", m.id, m.spec.kind.word(), m.to, crate::number(m.spec.length.value()), m.spec.length.unit());
+            let repeat = if m.spec.repeat == Repeat::Once { String::new() } else { format!(" · {}", m.spec.repeat.word()) };
+            let line = format!("{} · {} to {} · {} {}{repeat}{then}", m.id, m.spec.kind.word(), m.to, crate::number(m.spec.length.value()), m.spec.length.unit());
             d.text(r.x + 6.0, r.y + (r.h - t.size.small * 1.25) * 0.5, t.size.small, &controls::fit(&line, ((r.w - 12.0) / d.advance(t.size.small)) as usize), t.color.text);
             out.push((r, Field::Kept(i)));
             y += t.size.tree_row;
@@ -300,6 +340,36 @@ pub fn draw(d: &mut DrawList, t: &Tokens, a: Rect, view: &SceneView, playing: Pl
             let len = deck_space::space::dop::track::Path::of(track).map_or(0.0, |p| p.len());
             let at = sel.point.map_or(String::new(), |p| format!(" · point {} selected", p + 1));
             caption(d, t, a, &mut y, &format!("{} points · {} m{at} · drag them on the stage", track.points.len(), crate::number(len)));
+            for i in 0..track.points.len() {
+                let r = Rect { x: a.x, y, w: a.w, h: t.size.tree_row };
+                let picked = sel.point == Some(i);
+                if picked {
+                    d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, t.color.selection);
+                }
+                let line = point_words(track, i);
+                d.text(r.x + 6.0, r.y + (r.h - t.size.small * 1.25) * 0.5, t.size.small, &controls::fit(&line, ((r.w - 12.0) / d.advance(t.size.small)) as usize), if picked { t.color.bright } else { t.color.text });
+                out.push((r, Field::Point(i)));
+                y += t.size.tree_row;
+            }
+            y += 4.0;
+            if let Some(p) = sel.point.filter(|p| *p > 0).and_then(|i| track.points.get(i)) {
+                caption(d, t, a, &mut y, "arrives");
+                let mut names = vec!["by length"];
+                names.extend(UNITS);
+                let lit: Vec<bool> = (0..=UNITS.len()).map(|k| p.time.map_or(k == 0, |t| k == unit_of(t) + 1)).collect();
+                let (rects, used) = controls::chips(d, t, (a.x, y, a.w), &names, &lit);
+                out.extend(rects.into_iter().enumerate().map(|(k, r)| (r, Field::PointUnit(k.checked_sub(1)))));
+                y += used + 6.0;
+                if let Some(time) = p.time {
+                    scrub(d, t, a, &mut y, Num::PointTime, "at", time.value(), &format!("{} {}", crate::number(time.value()), time.unit()), hot, &mut out);
+                }
+                let mut names = vec!["even"];
+                names.extend(POINT_EASES.iter().map(|e| e.word()));
+                let lit: Vec<bool> = std::iter::once(p.ease.is_none()).chain(POINT_EASES.iter().map(|e| p.ease == Some(*e))).collect();
+                let (rects, used) = controls::chips(d, t, (a.x, y, a.w), &names, &lit);
+                out.extend(rects.into_iter().enumerate().map(|(k, r)| (r, Field::PointEase(k.checked_sub(1)))));
+                y += used + 6.0;
+            }
             let mut names = vec!["Add point"];
             let mut fields = vec![Field::AddPoint];
             if sel.point.is_some_and(|p| p > 0 && p + 1 < track.points.len()) {
@@ -414,6 +484,7 @@ impl crate::App {
             }
             Field::Ease(i) => sel.draft.ease = Ease::ALL[i],
             Field::Start(s) => sel.draft.start = s,
+            Field::Repeat(r) => sel.draft.repeat = r,
             Field::Turn(t) => sel.draft.turn = t,
             Field::Side(s) => sel.draft.side = s,
             Field::Follow(i) => sel.draft.follow = view.edit.doc.holders.get(i).map(|h| h.id.clone()),
@@ -497,6 +568,26 @@ impl crate::App {
                 let done = view.edit.remove_track_point(p);
                 self.dop_done(done, "the point left the track".into(), x, y);
             }
+            Field::Point(i) => sel.point = Some(i),
+            Field::PointUnit(u) => {
+                let Some(i) = sel.point.filter(|i| *i > 0) else { return };
+                let Some(track) = cam.track.as_ref() else { return };
+                let time = u.map(|u| {
+                    let v = track.points.get(i).and_then(|p| p.time).map(|t| t.value()).unwrap_or_else(|| {
+                        track.points[..i].iter().filter_map(|p| p.time).map(|t| t.value()).fold(0.0, f32::max) + 1.0
+                    });
+                    [Length::Beats(v), Length::Bars(v), Length::Seconds(v)][u]
+                });
+                let done = view.edit.set_point_time(i, time);
+                let said = time.map_or("the point: by the track's length".into(), |t| format!("the point arrives at {} {}", crate::number(t.value()), t.unit()));
+                self.dop_done(done, said, x, y);
+            }
+            Field::PointEase(k) => {
+                let Some(i) = sel.point.filter(|i| *i > 0) else { return };
+                let ease = k.map(|k| POINT_EASES[k]);
+                let done = view.edit.set_point_ease(i, ease);
+                self.dop_done(done, format!("the way to the point: {}", ease.map_or("even", |e| e.word())), x, y);
+            }
             Field::RemoveTrack => {
                 let done = view.edit.remove_track();
                 if done.is_ok() {
@@ -519,6 +610,12 @@ impl crate::App {
             Num::Rounds => s.rounds = v,
             Num::Height => s.height = v,
             Num::Amount => s.amount = v,
+            Num::PointTime => {
+                let Some(i) = view.dop.point else { return };
+                let Some(t) = view.edit.camera().track.and_then(|t| t.points.get(i).and_then(|p| p.time)) else { return };
+                let _ = view.edit.set_point_time(i, Some(t.with(v)));
+                self.sync_dop();
+            }
             Num::Size => {
                 let lens = lens_of(&view.edit.camera(), &view.dop);
                 let _ = view.edit.set_lens(view.dop.shot, Lens { size: v, ..lens });
@@ -529,9 +626,11 @@ impl crate::App {
 
     /// a scrub let go: a lens change plays
     pub(crate) fn dop_settled(&mut self, n: Num) {
-        if n == Num::Size {
-            let (x, y) = self.cursor;
-            self.dop_done(Ok(()), "lens: view height".into(), x, y);
+        let (x, y) = self.cursor;
+        match n {
+            Num::Size => self.dop_done(Ok(()), "lens: view height".into(), x, y),
+            Num::PointTime => self.dop_done(Ok(()), "the point's time".into(), x, y),
+            _ => {}
         }
     }
 
@@ -561,6 +660,14 @@ impl crate::App {
                     let p = view.edit.camera().track.map(|t| t.points[1].at).unwrap_or_default();
                     let _ = view.edit.move_track_point(1, [p[0], p[1] + 0.8, p[2] - 1.2]);
                     let _ = view.edit.set_handle(1, Some([0.9, 0.0, 0.4]));
+                    // `times`: the point between on bar 2 eased out, the end on bar 4, a fly-through that ping-pongs
+                    if spec.contains("times") {
+                        let _ = view.edit.set_point_time(1, Some(Length::Bars(2.0)));
+                        let _ = view.edit.set_point_ease(1, Some(Ease::Out));
+                        let _ = view.edit.set_point_time(2, Some(Length::Bars(4.0)));
+                        view.dop.point = Some(1);
+                        view.dop.draft = MoveSpec { repeat: Repeat::PingPong, ..MoveSpec::of(MoveKind::Fly) };
+                    }
                 }
                 self.dop_done(Ok(()), "a trolley track".into(), x, y);
             }
@@ -576,7 +683,7 @@ impl crate::App {
                 let ids: Vec<String> = dop.camera.shots.iter().map(|s| s.id.clone()).collect();
                 let (Some(a), Some(b)) = (ids.first().and_then(|i| dop.view(i)), ids.get(2).and_then(|i| dop.view(i))) else { return };
                 let glide = MoveSpec { ease: Ease::Linear, ..MoveSpec::of(MoveKind::Glide) };
-                let v = deck_space::space::dop::moves::pose(&glide, &a, &b, 0.5, &deck_space::space::dop::moves::Ctx { track: None, secs: 0.0 });
+                let v = deck_space::space::dop::moves::pose(&glide, &a, &b, 0.5, &deck_space::space::dop::moves::Ctx { track: None, secs: 0.0, knots: None });
                 let c = &mut self.stage.space.camera;
                 c.far_back = true;
                 v.apply(c);
@@ -663,6 +770,18 @@ mod tests {
         view.dop.point = Some(0);
         let f = fields(&mut d, &view);
         assert!(f.contains(&Field::AddPoint) && !f.contains(&Field::RemovePoint), "the start stays");
+        assert!(Repeat::ALL.iter().all(|r| f.contains(&Field::Repeat(*r))) && d.texts().contains(&"ping-pong"), "the repeat chip");
+        assert!(f.contains(&Field::Point(0)) && f.contains(&Field::Point(1)) && !f.contains(&Field::PointUnit(None)), "the start takes no time");
+        view.edit.add_track_point(0).unwrap();
+        view.edit.set_point_time(1, Some(Length::Bars(2.0))).unwrap();
+        view.edit.set_point_ease(1, Some(Ease::Out)).unwrap();
+        view.dop.point = Some(1);
+        let f = fields(&mut d, &view);
+        let texts = d.texts();
+        assert!(texts.iter().any(|s| s.contains("point 2 · 2.000 bars · out")) && texts.iter().any(|s| s.contains("end · the move's length")), "each point with its time: {texts:?}");
+        assert!(f.contains(&Field::PointUnit(Some(1))) && f.contains(&Field::Scrub(Num::PointTime)) && f.contains(&Field::PointEase(None)));
+        view.dop.draft = MoveSpec::of(MoveKind::Cut);
+        assert!(!fields(&mut d, &view).contains(&Field::Repeat(Repeat::Loop)), "a cut does not repeat");
         assert!(height(&t, &view) > t.size.row * 10.0);
     }
 }
