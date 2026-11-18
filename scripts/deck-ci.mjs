@@ -234,7 +234,9 @@ for (const [i, { name, cmd, argv, cwd, env, after, paths }] of steps.entries()) 
 		continue;
 	}
 	const t = Date.now();
-	const r = spawnSync(cmd, typeof argv === 'function' ? argv() : argv, { cwd, encoding: 'utf8', env: { ...process.env, ...env }, shell: process.platform === 'win32' && cmd.endsWith('.cmd') });
+	// the machine's own deck.toml (the user variable DECK_TOML: its audio device and outlet map) stays out of the checks:
+	// a test renders as a fresh deck does, never with this PC's routing (control_rate failed on the owner's 'main' outlet, #623)
+	const r = spawnSync(cmd, typeof argv === 'function' ? argv() : argv, { cwd, encoding: 'utf8', env: { ...process.env, DECK_TOML: `${deck}/target/deck-ci-no-deck.toml`, ...env }, shell: process.platform === 'win32' && cmd.endsWith('.cmd') });
 	let failed = r.status !== 0;
 	let note = '';
 	if (!failed && after) {
