@@ -546,7 +546,7 @@ impl crate::App {
             Field::FocusAim => {
                 if let Some(i) = shot.filter(|i| cam.shots.get(*i).is_some_and(|s| s.focus_on.is_some())) {
                     if let Err(e) = view.edit.set_focus_on(i, None) {
-                        return self.say(e, x, y, true);
+                        return self.refuse(e, x, y);
                     }
                 }
                 let done = view.edit.set_lens(shot, Lens { focus: None, ..lens });
