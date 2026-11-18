@@ -2,7 +2,7 @@
 //! a dev machine –, its display's sizes for the settings page (#220), and the frame-rate cap's wait (#220: an early frame
 //! waits, the loop sleeps until it is due). main.rs and the native editor's proof (#444) make their windows here.
 use winit::event_loop::{ActiveEventLoop, ControlFlow};
-use winit::window::{Fullscreen, Window};
+use winit::window::{Fullscreen, Window, WindowAttributes};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -11,6 +11,11 @@ pub const WINDOWED: (f64, f64) = (1280.0, 720.0);
 
 /// a window titled `title`: fullscreen borderless on the current monitor, or `WINDOWED` when `windowed`
 pub fn window(el: &ActiveEventLoop, title: &str, windowed: bool) -> Result<Arc<Window>, winit::error::OsError> {
+    el.create_window(attributes(title, windowed)).map(Arc::new)
+}
+
+/// `window`'s attributes, for a host that adds its own (the editor's own frame)
+pub fn attributes(title: &str, windowed: bool) -> WindowAttributes {
     let mut attrs = Window::default_attributes().with_title(title);
     // #531: `DECK_OFFSCREEN` – a check run's window opens off every screen (`--frames N --screenshot FILE`); a hidden one
     // gets no frames on Windows (no paint for an invisible window)
@@ -22,7 +27,7 @@ pub fn window(el: &ActiveEventLoop, title: &str, windowed: bool) -> Result<Arc<W
     } else {
         attrs = attrs.with_fullscreen(Some(Fullscreen::Borderless(None)));
     }
-    el.create_window(attrs).map(Arc::new)
+    attrs
 }
 
 /// #220: the display's sizes from its modes (quality.rs `sizes`: largest first, each once; the largest is the hardware's

@@ -1,11 +1,10 @@
-//! The animated logo in the bar (owner 2026-11-09: "can you use the same animated svg we have on the creator?"): the creator's
-//! SVG, its one scroll animation evaluated here and rasterised into frames at start.
+//! The creator's animated logo, its one scroll animation evaluated here and rasterised into the atlas at start (the
+//! toolbar does not show it for now).
 use resvg::tiny_skia::{Pixmap, Transform};
 use resvg::usvg::{Options, Tree};
 
 const SVG: &str = include_str!("../../../creator/static/SCUTOONS-logo-animated.svg");
-/// the animation's length and how finely it is sampled
-pub const SECONDS: f32 = 6.0;
+/// how finely the animation is sampled
 pub const FRAMES: usize = 72;
 /// a frame's side in the atlas (pixels)
 pub const SIDE: u32 = 72;
