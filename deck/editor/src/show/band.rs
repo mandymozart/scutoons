@@ -125,6 +125,9 @@ pub fn fire_chip(d: &mut DrawList, t: &Tokens, (x, y, w): (f32, f32, f32), chip:
     cw
 }
 
+/// a far node's or a question's link: its two ports and the signal it carries
+type Hung = ((f32, f32), (f32, f32), Signal);
+
 /// A link hanging from port `a` to port `b` (deck-kit wire.rs), the ports drawn; `flow` = the seconds the beads have
 /// run, none: no beads (Signal flow on wires off, or Reduce motion).
 pub fn wire(d: &mut DrawList, t: &Tokens, (a, b): ((f32, f32), (f32, f32)), (unit, flow): (f32, Option<f32>), color: [f32; 4]) {
@@ -159,7 +162,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, mode)
     let sel = (!mode.perform && host.role.is_none() && host.columns.is_empty() && host.group.is_none()).then_some(host.row);
     let gh = if m.groups.is_empty() { 0.0 } else { t.size.rem(1.6) };
     let n = m.rows.len();
-    let mut wires: Vec<((f32, f32), (f32, f32), Signal)> = Vec::new();
+    let mut wires: Vec<Hung> = Vec::new();
     let mut laid: Vec<super::wiring::RowLay> = Vec::new();
 
     // the cells, under both heads; first the selection's bands

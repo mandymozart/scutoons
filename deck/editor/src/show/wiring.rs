@@ -40,12 +40,15 @@ fn port_at(t: &Tokens, cell: &Rect, out: bool, k: usize, n: usize) -> (f32, f32)
     }
 }
 
+/// a port to draw: where, its signal, outlet, lit as a place the wire in the hand may go, its place
+type ShownPin = ((f32, f32), Signal, bool, bool, Hit);
+
 /// The wires and ports of the laid rows, over the cells; their ports' places go to the host's hits.
 pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, (show, columns): (&Show, &[String]), rows: &[RowLay], (region, pointer): (&Rect, (f32, f32))) {
     let unit = t.size.rem(1.0);
     let r = t.size.rem(0.3);
     let held = host.wiring.clone();
-    let mut pins: Vec<((f32, f32), Signal, bool, bool, Hit)> = Vec::new();
+    let mut pins: Vec<ShownPin> = Vec::new();
     for lay in rows {
         let Some(row) = show.rows.iter().find(|x| x.id == lay.id) else { continue };
         let at = |id: &str| columns.iter().position(|c| c == id);
@@ -63,7 +66,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, (show, columns): (&Sh
             let list = if out { outs } else { ins };
             let Some(p) = list.get(k) else { return };
             let hit = Hit::Port(lay.i, c, out, k);
-            if !pins.iter().any(|x: &((f32, f32), Signal, bool, bool, Hit)| x.4 == hit) {
+            if !pins.iter().any(|x: &ShownPin| x.4 == hit) {
                 pins.push((port_at(t, &b, out, k, list.len()), p.signal, out, lit, hit));
             }
         };
