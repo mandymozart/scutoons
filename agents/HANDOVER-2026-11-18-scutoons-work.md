@@ -27,3 +27,38 @@ For the next OpenCode session that continues the **work**, not the setup. Read `
 - One issue per worker, own worktree, own branch, `Refs #N` / `Fixes #N` in commits, comment the result on the issue (RULES B, C).
 - Owner reviews/merges the parked session worktrees listed in `git worktree list`; agents do not touch them.
 - Keep context small: grep and targeted reads; do not re-read whole files.
+
+## From the Claude orchestrator (night shift 2026-11-17 → 18)
+Claude's workers stopped on the weekly limit (resets 2026-11-22 04:00 Berlin). Their work is uncommitted in the worktrees above; nothing is lost.
+- **#622** stopped mid-edit "wiring it into the Node branch of `draw`" (the ring's area clusters). Before that: the macro `section`/`slot`, the descriptor and `param_groups`, analog's params, the inspector and kit controls. Spec = the A4 table in #622's second comment (areas SRC/FLTR/AMP/LFO/VOICE, pages ≤ 8, twin pages share slots 0–7). Still to do: finish `graph.rs`, the library card, regenerate the catalog (`check:generate`), the tests, screenshots, deck:ci.
+- **#621** stopped at "the Director: repeat rounds, timed fly-through, and a cue's start beat". Protocol schema, the relay and the track/moves edits are in progress. Still to do: the Director, the column-scoped cut (cell role/outlet) on the bar/phrase, the DOP repeat chip and per-point times, the tests.
+- Both worktrees started from origin/main and already have local main merged. Merge `develop` in again before the final checks.
+- **deck:ci after #326 did not finish.** The run (default tier) was green through `🦀 tests` (1225 s) and then exited with code 4 in `🧩 module tests`, while I committed the deck-deps change during it ("tree changed"). Rerun it before trusting develop. `check:deck-deps` is green at 1d064d30.
+
+### Queue after #622 / #621 (Cyberdecks epic, owner-approved)
+#608 status bar + Log panel · #607 Windows title bar (minimal buttons, no logo, mac default) · #606 camera focus outlets (no DOF) · #617 PipeWire reconnect · #618 rows port wiring on #591's type table · #591 leftovers (groups, comments, previews, latent grid, focus flash, selection) · #605 live cameras steps 1–5 (agents/research/LIVE-CAMERAS.md) · #609 hand-off (F9, lock) · #329 remainder (YUV/YCoCg in a shader, FSR 1, A/V sync, zero-copy, the editor's live video card) · #623 the editor crash.
+Review list (probably done, check and close after the push): #503, #494/#501, #507/#508/#510/#511, #534, #468, #461, #445, #439.
+
+### Open questions for the owner (don't decide them)
+- The push: 183 commits ahead; about 90 issues would close.
+- Close the superseded tickets #266, #299, #384, #385.
+- #612 CPU bar scaling.
+- #584 background as a skybox.
+- The node panel summary.
+- #605 details: do guests see locked cameras; the 5 s timeout.
+- A hardware session for MIDI/DMX and for #326's X1/S22 checks.
+
+### Routine and traps
+- `npm run deck:ci` runs only what changed since the last green run; `--all` is the full default tier. Main builds in deck/target; worktrees build in .git/deck-target/<id>. After each merge: `npm run deck:target -- --clear`. Keep an eye on the disk (C: has about 90 GB free; the full tier takes about 45–60 min).
+- Wait on a process's exit, never on a grep of its output: two workers hung that way.
+- Known timing flakes that pass alone:
+  - live_quic `when_udp_dies_mid_show…`;
+  - deck-native `audio::watch::a_device_lost_while_playing…`.
+  Rerun once; don't "fix" them blindly.
+- On Windows, `git worktree remove` often leaves the folder behind ("Directory not empty"): unlock it, `remove -f -f`, then delete the folder.
+- Don't commit on the branch while deck:ci runs on it: it stops stamping and can fail.
+- Design: night mode is the default; panels are 50 % with a ring at night and 80 % with no outline by day; no blur.
+- Third-party reference images stay local (gitignored); the ABC Areal fonts are never in the repo.
+- Decisions go into `agents/decisions/deck.md` (newest first, the owner's words quoted).
+- Desktop control is allowed for screenshots, but close everything opened afterwards.
+- Don't open scenes against the production API with the owner's token; use `--scene-file` fixtures.
