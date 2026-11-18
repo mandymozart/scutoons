@@ -639,8 +639,10 @@ mod tests {
             let mut d = DrawList::new(0.6);
             host.hits.clear();
             author::draw(&mut d, &t, host, W, H, (0.0, 0.0));
-            let wire = d.prims().iter().filter(|p| matches!(p, Prim::Segment { color, .. } if *color == t.color.accent)).count();
-            let dots = d.prims().iter().filter(|p| matches!(p, Prim::Rect { color, r, .. } if *color == t.color.text && *r > 0.0)).count();
+            let vote = t.color.signals.vote;
+            let bead = [vote[0], vote[1], vote[2], vote[3] * deck_kit::base::wire::BEAD_ALPHA];
+            let wire = d.prims().iter().filter(|p| matches!(p, Prim::Segment { color, .. } if *color == vote)).count();
+            let dots = d.prims().iter().filter(|p| matches!(p, Prim::Rect { color, r, .. } if *color == bead && *r > 0.0)).count();
             (wire, dots)
         };
         host.flow = None;
