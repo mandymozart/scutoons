@@ -238,7 +238,7 @@ impl Host {
                 self.sheet = None;
                 self.typing = None;
             }
-            Err(p) => self.status = format!("not played: {}", p.join("; ")),
+            Err(p) => self.refuse(format!("not played: {}", p.join("; "))),
         }
     }
 
@@ -247,7 +247,7 @@ impl Host {
         let doc = self.compose_document();
         let problems = doc.check_new();
         if !problems.is_empty() {
-            self.status = format!("not opened: {}", problems.join("; "));
+            self.refuse(format!("not opened: {}", problems.join("; ")));
             return;
         }
         self.status = format!("scene:{}: open in Build", doc.id);
@@ -262,7 +262,7 @@ impl Host {
     fn compose_load(&mut self) {
         let id = self.compose.id.clone();
         if id.is_empty() {
-            self.status = "type the scene's id first".into();
+            self.refuse("type the scene's id first".into());
             return;
         }
         if let Some((doc, auto)) = self.take_unsent(&id) {
@@ -288,7 +288,7 @@ impl Host {
                 self.status = format!("scene:{id} loaded: {} on its stage", c.cast.len());
             }
             Ok(None) => self.status = format!("scene:{id} is not on the server: a new one"),
-            Err(e) => self.status = format!("not loaded: {e}"),
+            Err(e) => self.refuse(format!("not loaded: {e}")),
         }
     }
 }

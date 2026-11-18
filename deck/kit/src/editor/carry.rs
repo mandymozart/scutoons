@@ -32,11 +32,6 @@ impl Carry {
     }
 }
 
-/// why a view did not take what was dropped, where it was dropped
-pub fn refused(d: &mut DrawList, t: &Tokens, (x, y): (f32, f32), w: f32, why: &str) {
-    controls::chip(d, t, (x, y + 8.0), w, why, true);
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

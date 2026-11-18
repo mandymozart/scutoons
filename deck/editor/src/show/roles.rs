@@ -68,7 +68,7 @@ impl Host {
                 self.role = done.role;
                 self.changed(done.show);
             }
-            Err(why) => self.status = why,
+            Err(why) => self.refuse(why),
         }
     }
 
@@ -157,7 +157,7 @@ impl Host {
             Ok(to) => {
                 self.edit_rows(&deck_show::rows::Edit::Background { to });
             }
-            Err(why) => self.status = format!("not changed: {why}"),
+            Err(why) => self.refuse(format!("not changed: {why}")),
         }
     }
 

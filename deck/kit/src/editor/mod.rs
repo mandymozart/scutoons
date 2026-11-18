@@ -9,5 +9,6 @@ pub mod floats;
 pub mod icons;
 pub mod info;
 pub mod library;
+pub mod status;
 pub mod table;
 pub mod typeahead;

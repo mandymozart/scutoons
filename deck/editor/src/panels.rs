@@ -18,7 +18,7 @@ const BR: Corner = Corner::BottomRight;
 
 // The order is the order of growth: an earlier panel leaves a later one the room it asks for, so the ones whose content
 // scrolls well come first and the ones of a fixed size last.
-pub const BUILD: [Spec; 9] = [
+pub const BUILD: [Spec; 10] = [
     spec("tree", "Rig", "tree", "The rig, its tracks and their nodes. In Wire a click goes to that level.", Place::at(TL, 0.0, 0.0)),
     spec("library", "Library", "grid", "Modules and instruments to drop on the stage as a track, characters to open, the assets; filter, related to the rig open.", Place::at(BL, 0.0, 0.0)),
     spec("inspector", "Inspector", "inspector", "What is selected: its values as scrub numbers; the rig picker and Save.", Place::at(TR, 0.0, 0.0)).essential(),
@@ -27,10 +27,11 @@ pub const BUILD: [Spec; 9] = [
     spec("mixer", "Mixer", "sliders", "One strip per track at the level of the tree shown; inside a track its gains.", Place::at(BR, 0.0, 0.0)),
     spec("dop", "DOP", "camera", "The scene's camera: its lens, its shots, the moves between them and the trolley track.", Place::at(TL, 340.0, 0.0)),
     spec("tools", "Tools", "tool", "The stage's tools: the tool in hand, the view, grid & snap, framing – what this workspace offers.", Place::at(TR, 360.0, 0.0)).inline().essential(),
+    spec("log", "Log", "entry", "Every message, newest first, and the technical log: filter, find, copy all, save as a file.", Place::at(BR, 0.0, 0.0).closed()),
     spec("settings", "Settings", "settings", "Day or night, motion & feedback, sound and the UI size: this machine's, remembered.", Place::at(TR, 0.0, 0.0).closed()),
 ];
 
-pub const SHOW: [Spec; 9] = [
+pub const SHOW: [Spec; 10] = [
     spec("outline", "Outline", "nodes", "The conductors, the roles this one gives out and the rows of the document shown.", Place::at(TL, 0.0, 0.0)),
     spec("inspector", "Inspector", "inspector", "The row, the role or the cells selected; Load, Flash and Save.", Place::at(TR, 0.0, 0.0)).essential(),
     spec("sheet", "Sheet", "layers", "The sheet open: cues, problems, who is here, a picker or the flash list.", Place::at(TL, 320.0, 0.0)).essential(),
@@ -39,27 +40,29 @@ pub const SHOW: [Spec; 9] = [
     spec("rows", "Rows", "list", "The rows of the show: what fires each one and every column's cell.", Place::at(BL, 0.0, 0.0)).essential(),
     spec("info", "Info", "info", "What is under the pointer: its name and what it does.", Place::at(BR, 440.0, 0.0).folded()),
     spec("tools", "Tools", "tool", "The stage's tools: the tool in hand, the view, grid & snap, framing – what this workspace offers.", Place::at(TR, 380.0, 0.0)).inline(),
+    spec("log", "Log", "entry", "Every message, newest first, and the technical log: filter, find, copy all, save as a file.", Place::at(BR, 0.0, 0.0).closed()),
     spec("settings", "Settings", "settings", "Day or night, motion & feedback, sound and the UI size: this machine's, remembered.", Place::at(TR, 0.0, 0.0).closed()),
 ];
 
-pub const MODULE: [Spec; 6] = [
+pub const MODULE: [Spec; 7] = [
     spec("library", "Library", "grid", "The catalog's modules with their previews: a click opens one's working copy.", Place::at(TL, 0.0, 0.0)),
-    spec("module", "Module", "code", "The module open: its working copy, Open in editor, Build, what happened last, its parameters.", Place::at(TR, 0.0, 0.0)).essential(),
+    spec("module", "Module", "code", "The module open: its working copy, Open in editor, Build, its parameters.", Place::at(TR, 0.0, 0.0)).essential(),
     spec("problems", "Problems", "alert", "The last build's problems: a click opens the code there.", Place::at(BL, 0.0, 0.0)),
     spec("info", "Info", "info", "What is under the pointer: its name and what it does.", Place::at(BR, 0.0, 0.0).folded()),
     spec("tools", "Tools", "tool", "The stage's tools: the tool in hand, the view, grid & snap, framing – what this workspace offers.", Place::at(TR, 420.0, 0.0)).inline(),
+    spec("log", "Log", "entry", "Every message, newest first, and the technical log: filter, find, copy all, save as a file.", Place::at(BR, 0.0, 0.0).closed()),
     spec("settings", "Settings", "settings", "Day or night, motion & feedback, sound and the UI size: this machine's, remembered.", Place::at(TR, 0.0, 0.0).closed()),
 ];
 
 pub const PERFORM: [Spec; 9] = [
-    spec("rail", "Session", "nodes", "This conductor, its seats, the relay, the linked readers, the vote and the outlets.", Place::at(TL, 0.0, 0.0)),
+    spec("rail", "Session", "nodes", "This conductor, its seats, the linked readers, the vote and the outlets.", Place::at(TL, 0.0, 0.0)),
     spec("side", "Next", "play", "The suggestion with GO and Drop, else GO; the seats.", Place::at(TR, 0.0, 0.0)).essential(),
     spec("sheet", "Show runner", "layers", "The show runner's sheet open: the session for linked readers, or the vote.", Place::at(TL, 300.0, 0.0)).essential(),
     spec("now", "Stage now", "eye", "What plays on each outlet now.", Place::at(TL, 300.0, 0.0)),
-    spec("log", "Log", "entry", "What happened, newest first.", Place::at(BR, 0.0, 0.0).folded()),
     spec("matrix", "Cues", "list", "Rows × outlets: the row's play fires it, a cell's play launches it by hand.", Place::at(BL, 0.0, 0.0)).essential(),
     spec("info", "Info", "info", "What is under the pointer: its name and what it does.", Place::at(BR, 120.0, 0.0).folded()),
     spec("tools", "Tools", "tool", "The stage's tools: the tool in hand, the view, grid & snap, framing – what this workspace offers.", Place::at(TR, 360.0, 0.0)).inline(),
+    spec("log", "Log", "entry", "Every message, newest first, and the technical log: filter, find, copy all, save as a file.", Place::at(BR, 0.0, 0.0).closed()),
     spec("settings", "Settings", "settings", "Day or night, motion & feedback, sound and the UI size: this machine's, remembered.", Place::at(TR, 0.0, 0.0).closed()),
 ];
 
@@ -123,10 +126,12 @@ impl Panels {
     pub fn layout(&mut self, d: &DrawList, t: &Tokens, (size, top): ((f32, f32), f32), fixed: &[Rect], shown: &[(&'static str, f32, Option<f32>)]) {
         let m = Metrics::of(t, d);
         self.floats.measure_names(|name| d.sans_width(t.size.font, name));
-        let extra = self.settings.map(|(w, h)| (SETTINGS, w, Some(h))).into_iter().chain(self.tools.map(|(w, h)| ("tools", w, Some(h))));
+        let extra = self.settings.map(|(w, h)| (SETTINGS, w, Some(h))).into_iter().chain(self.tools.map(|(w, h)| ("tools", w, Some(h)))).chain([(crate::log::PANEL, crate::log::WIDTH, None)]);
         let shown: Vec<(&'static str, f32, Option<f32>)> = shown.iter().copied().chain(extra).collect();
         self.known = shown.iter().filter(|(_, _, h)| h.is_some()).map(|(id, ..)| *id).collect();
         let shown: Vec<Shown> = shown.iter().map(|&(id, w, h)| Shown { id, content: (w, h.unwrap_or_else(|| self.measured.get(id).copied().unwrap_or(UNMEASURED))) }).collect();
+        // the status bar keeps the bottom edge
+        let size = (size.0, size.1 - deck_kit::editor::status::reserve(t));
         self.floats.layout(Self::room(size, top, m.gap), fixed, &shown, m);
     }
 
@@ -215,7 +220,7 @@ mod tests {
             "build" => vec![("tree", 220.0, Some(200.0)), ("library", 412.0, Some(300.0)), ("inspector", 280.0, Some(900.0)), ("audio", 300.0, Some(500.0)), ("info", 260.0, Some(100.0)), ("mixer", 560.0, Some(112.0))],
             "module" => vec![("library", 412.0, Some(400.0)), ("module", 360.0, Some(700.0)), ("problems", 700.0, Some(200.0)), ("info", 260.0, Some(100.0))],
             "show" => vec![("outline", 280.0, Some(500.0)), ("inspector", 320.0, Some(1200.0)), ("nodes", 760.0, Some(360.0)), ("library", 412.0, Some(220.0)), ("rows", 900.0, Some(160.0)), ("info", 260.0, Some(100.0))],
-            _ => vec![("rail", 220.0, Some(400.0)), ("side", 300.0, Some(300.0)), ("now", 700.0, Some(90.0)), ("log", 520.0, Some(160.0)), ("matrix", 1000.0, Some(200.0)), ("info", 260.0, Some(100.0))],
+            _ => vec![("rail", 220.0, Some(400.0)), ("side", 300.0, Some(300.0)), ("now", 700.0, Some(90.0)), ("matrix", 1000.0, Some(200.0)), ("info", 260.0, Some(100.0))],
         }
     }
 
@@ -241,9 +246,10 @@ mod tests {
             for size in [(1920.0, 1080.0), (1600.0, 900.0), (1280.0, 720.0), (1024.0, 640.0)] {
                 let mut p = Panels::new(specs);
                 p.tools = Some((8.0 * t.size.row, t.size.row));
+                p.floats.reopen(crate::log::PANEL);
                 let mut shown = typical(name);
                 p.layout(&d, &t, (size, 52.0), &[], &shown);
-                shown.push(("tools", 0.0, None));
+                shown.extend([("tools", 0.0, None), (crate::log::PANEL, 0.0, None)]);
                 let room = Panels::room(size, 52.0, t.size.gap);
                 let rects: Vec<Rect> = shown.iter().map(|(id, ..)| p.floats.view(id).unwrap().whole).collect();
                 for (i, a) in rects.iter().enumerate() {
@@ -300,6 +306,10 @@ mod tests {
             let mut p = Panels::new(specs);
             let shown = typical(name);
             for (id, _, open) in p.listed() {
+                if id == crate::log::PANEL {
+                    assert!(!open, "{name}: the Log starts closed, the status bar opens it");
+                    continue;
+                }
                 assert!(open, "{name}: {id} starts open");
                 p.flip(id);
                 p.layout(&d, &t, ((1600.0, 900.0), 52.0), &[], &shown);

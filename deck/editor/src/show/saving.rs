@@ -67,7 +67,7 @@ impl Host {
     fn unsent_autosave(&mut self, leave: bool, now: Instant) {
         for (doc, a) in self.unsent.values_mut() {
             if let Some((_, Err(e @ (Refusal::Conflict { .. } | Refusal::Other(_))))) = a.poll() {
-                self.status = format!("not saved: {e}");
+                (self.status, self.bad) = (format!("not saved: {e}"), true);
             }
             if a.due(now) || (leave && a.leave()) {
                 send_scene(&self.api, a, doc, now);
@@ -89,7 +89,7 @@ impl Host {
     pub fn autosave(&mut self, leave: bool, now: Instant) {
         for a in self.saves.values_mut() {
             if let Some((_, Err(e @ (Refusal::Conflict { .. } | Refusal::Other(_))))) = a.poll() {
-                self.status = format!("not saved: {e}");
+                (self.status, self.bad) = (format!("not saved: {e}"), true);
             }
         }
         let shown = self.shown();
@@ -126,7 +126,7 @@ impl Host {
                 }
             }
             Err(Refusal::Offline(_)) => {}
-            Err(e) => self.status = format!("not saved: {e}"),
+            Err(e) => self.refuse(format!("not saved: {e}")),
         }
     }
 
@@ -198,7 +198,7 @@ impl Host {
         self.compose.auto.edit(now);
         self.compose_send(now);
         if let crate::autosave::State::Refused(why) = &self.compose.auto.state {
-            self.status = format!("not saved: {why}");
+            self.refuse(format!("not saved: {why}"));
             return;
         }
         let Some((doc, answer)) = crate::autosave::tests::settle(&mut self.compose.auto) else { return };

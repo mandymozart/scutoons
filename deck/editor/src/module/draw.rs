@@ -62,7 +62,6 @@ fn open_module(d: &mut DrawList, t: &Tokens, m: &mut Module, stage: &Stage, a: R
     let mut y = a.y;
     let Some(open) = m.open.clone() else {
         d.text(x0, y + 4.0, font, PICK, t.color.muted);
-        status(d, t, m, x0, y + row, pw);
         return;
     };
     d.text(x0, y + 2.0, font, &open.key(), t.color.text);
@@ -78,7 +77,6 @@ fn open_module(d: &mut DrawList, t: &Tokens, m: &mut Module, stage: &Stage, a: R
         m.hits.push((r, hit));
     }
     y += row + pad * 0.5;
-    y = status(d, t, m, x0, y, pw);
     crate::inspector::background(d, t, Rect { x: x0, y, w: pw, h: row }, &mut y, &super::background_row(m.descriptor.as_ref()));
     let slot = m.descriptor.as_ref().and_then(|d| d.slot.as_deref()).map_or_else(|| "none · a rig's track".to_string(), |s| format!("{s} · drop it on that slot"));
     controls::row(d, t, Rect { x: x0, y, w: pw, h: row }, &mut y, "slot", &slot);
@@ -98,13 +96,3 @@ fn open_module(d: &mut DrawList, t: &Tokens, m: &mut Module, stage: &Stage, a: R
     }
 }
 
-/// the last thing that happened, wrapped; the y under it
-fn status(d: &mut DrawList, t: &Tokens, m: &Module, x: f32, mut y: f32, w: f32) -> f32 {
-    let small = t.size.small;
-    let cols = (w / d.advance(small)).max(8.0) as usize;
-    for line in deck_kit::editor::info::wrap(&m.status, cols).into_iter().take(4) {
-        d.text(x, y, small, &line, if m.bad { t.color.danger } else { t.color.text });
-        y += small * 1.5;
-    }
-    y + t.size.pad
-}

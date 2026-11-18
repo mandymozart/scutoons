@@ -37,7 +37,7 @@ impl Host {
                 true
             }
             Err(why) => {
-                self.status = why;
+                self.refuse(why);
                 false
             }
         }
@@ -52,7 +52,7 @@ impl Host {
                 true
             }
             Err(why) => {
-                self.status = why;
+                self.refuse(why);
                 false
             }
         }

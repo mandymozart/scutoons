@@ -74,7 +74,7 @@ impl Host {
         self.session.chapters.clear();
         match get(&session_panel::toon_url(&self.api.base, toon)).and_then(|t| session_panel::chapters(&t)) {
             Ok(c) => self.session.chapters = c,
-            Err(e) => self.status = format!("{toon}: {e}"),
+            Err(e) => self.refuse(format!("{toon}: {e}")),
         }
     }
 

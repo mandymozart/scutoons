@@ -139,7 +139,7 @@ impl Host {
                 (self.toons.name, self.toons.query) = (String::new(), String::new());
                 self.session.place = deck_ui::session::Place::default();
             }
-            Err(e) => self.status = e,
+            Err(e) => self.refuse(e),
         }
     }
 }

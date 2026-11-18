@@ -219,9 +219,9 @@ impl crate::App {
         match done.and_then(|()| view.refresh()) {
             Ok(()) => {
                 self.replay_scene();
-                self.say(said, x, y, false);
+                self.note(said);
             }
-            Err(why) => self.say(why, x, y, true),
+            Err(why) => self.refuse(why, x, y),
         }
     }
 
@@ -231,7 +231,7 @@ impl crate::App {
             return;
         };
         match (f, view.sel) {
-            (Field::Slot(_), _) => self.say("drop a module from the library on the slot".into(), x, y, false),
+            (Field::Slot(_), _) => self.note("drop a module from the library on the slot".into()),
             (Field::Detach(i), _) => {
                 if let Some(on) = crate::scene::member_slots(view) {
                     self.slot_detach(on, i, x, y);
@@ -418,7 +418,7 @@ impl crate::App {
                 Ok(())
             };
             if let Err(why) = done {
-                self.say(why, x, y, true);
+                self.refuse(why, x, y);
             }
         }
         self.scene_changed(Ok(()), "the scene's slots, video and layers".into(), x, y);
