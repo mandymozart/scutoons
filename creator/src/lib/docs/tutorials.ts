@@ -127,7 +127,7 @@ export const GROUPS: Group[] = [
 						text: '“Status” is set per language: “published”, “draft” or “coming soon” (listed, not readable yet). It is kept in the season.'
 					},
 					{
-						text: '“Save” (or Ctrl+S) keeps it all as a draft, with a short note if you like.'
+						text: '“Save” keeps it all as a draft and asks for a short note. Ctrl+S saves at once, without asking.'
 					}
 				],
 				note: 'The chapter number is its address and never changes. If “+ New chapter” is grey, save the toon’s language list first.'
@@ -138,7 +138,17 @@ export const GROUPS: Group[] = [
 				summary: 'One screenplay per toon, in the screenplay format',
 				who: ['writer'],
 				where: ['creator'],
-				often: 2
+				often: 2,
+				steps: [
+					{ text: 'Open your toon’s “Script” tab: the Kanon, one screenplay per season and one per chapter, each “published”, “draft” or “not written”.' },
+					{ text: 'Open one: it is read-only at first – “Edit script” unlocks it.' },
+					{
+						text: 'Write in the screenplay format: the spaces count – action at 4, the character’s name in capitals at 25–30, dialogue at 16. Tab puts in 4 spaces.'
+					},
+					{ text: 'The “Outline” on the side lists the scenes; “Format rules” opens all the rules.' },
+					{ text: 'Save and publish as everywhere else. A translation may be partial: the source language is the master.' }
+				],
+				note: 'The screenplay is for the team – readers never see it.'
 			},
 			{
 				slug: 'kanon',
@@ -146,7 +156,14 @@ export const GROUPS: Group[] = [
 				summary: 'The story text behind a toon, a character or a place',
 				who: ['writer'],
 				where: ['creator'],
-				often: 2
+				often: 2,
+				steps: [
+					{ text: 'Open the Kanon from the toon’s “Script” tab, a place’s “Kanon” link on the map, or the “Kanon” square of a character, persona or look.' },
+					{ text: 'An empty one offers “Start empty”, “Start with the headings” or – in a translation – a copy of the source.' },
+					{ text: 'Write in sections: “## heading” opens one. Sections are optional and their order is fixed – the rules are in the “Info” panel.' },
+					{ text: 'Save drafts as you go. Publishing makes it Kanon: the generators, the artist briefs and the AI connection read the published text.' }
+				],
+				note: 'The Kanon is the team’s story text: readers never see it.'
 			},
 			{
 				slug: 'story-flow',
@@ -154,7 +171,18 @@ export const GROUPS: Group[] = [
 				summary: 'Where readers go, and where they get stuck',
 				who: ['writer', 'lead'],
 				where: ['creator'],
-				often: 2
+				often: 2,
+				steps: [
+					{
+						text: 'On the toon page the round flow button opens the toon’s “Flow”: seasons, chapters, map and jumps. In the chapter editor the same button shows this chapter’s story flow.'
+					},
+					{ text: 'It is read-only: a box opens its chapter, so you fix things where they are.' },
+					{
+						text: 'The chips show the trouble: “may get stuck” (every choice has a condition – give one none, like “Go on”), “unreachable”, “endless loop” or “never true”.'
+					},
+					{ text: '“Unused” lists variables set but never read, read but never set, and points nothing jumps to.' },
+					{ text: '“Flow” in the menu shows every toon and the jumps between them.' }
+				]
 			}
 		]
 	},
@@ -240,7 +268,17 @@ export const GROUPS: Group[] = [
 				summary: 'A slice’s background, its fit and poster, and a content warning',
 				who: ['artist'],
 				where: ['creator'],
-				often: 2
+				often: 2,
+				steps: [
+					{ text: 'Select a slice and open the “Slice” tab in the inspector.' },
+					{ text: 'Fill the “Image” slot. For a video, fill the “Video” slot too – the image becomes its poster.' },
+					{ text: 'For a video choose “Loop”, “Autoplay” and “Controls”.' },
+					{
+						text: 'Choose the “Placement” (“In the reading column” or “Full viewport”), the “Aspect ratio” and how it should “Fit” – the previews show a phone and a desktop.'
+					},
+					{ text: 'Tick “Sensitive content” if needed: readers who hide sensitive content see it blurred and muted.' }
+				],
+				note: 'A poster with another aspect ratio than its video makes the slice shift while it loads – the inspector warns about it.'
 			},
 			{
 				slug: 'lettering',
@@ -276,7 +314,17 @@ export const GROUPS: Group[] = [
 				summary: 'Copy from the source language, then check what is missing',
 				who: ['writer'],
 				where: ['creator'],
-				often: 2
+				often: 2,
+				steps: [
+					{ text: 'On the toon page, under “Languages”, “+ Add” adds a translation. Save the draft before the editors offer the new language.' },
+					{
+						text: 'Switch the text language with the globe select in the top bar: the source is marked ★, and the button turns dark while you see a translation.'
+					},
+					{ text: 'Type the translation into each text field; the original shows under it. On a phone, “Copy the original” fills it in to start from.' },
+					{ text: 'For a script or Kanon text the empty language offers “Start empty” or “Copy the … script”.' },
+					{ text: 'Check the “Problems”: a missing translation and a text much longer than the original (over 130 %) are warnings.' }
+				],
+				note: 'The source language is changed on the script page (“Make … the source”), after the script is saved.'
 			},
 			{
 				slug: 'choices-events',
@@ -284,7 +332,18 @@ export const GROUPS: Group[] = [
 				summary: 'Visual-novel events, choices, conditions and jumps',
 				who: ['writer'],
 				where: ['creator'],
-				often: 2
+				often: 2,
+				steps: [
+					{
+						text: 'Select a slice and open the “Events” tab, or draw an area with the “Event” tool for a tap event. For a whole group: its “Visual novel” section → “+ VN script”.'
+					},
+					{ text: 'Add events with the buttons: “+ showMessage” for dialog, “+ addChoice” and “+ showChoices” for choices, “+ jumpTo” to go elsewhere.' },
+					{ text: 'A choice has a “Text” and what happens “When picked”: set a variable, give an item, jump to a group, continue at a point.' },
+					{ text: 'Points are “+ label” events; “+ divert” and choices continue there.' },
+					{ text: '“+ Only if” puts a condition on any event: “Simple” (variable, comparison, value) or an “Expression” like count("e…") < 3.' },
+					{ text: 'Watch the chips: “may get stuck”, “unreachable” or “endless loop” say where readers could not go on.' }
+				],
+				note: 'A speaker who is not on stage is skipped – the fix button “+ joinScene before” brings them in.'
 			},
 			{
 				slug: 'variables',
@@ -292,7 +351,16 @@ export const GROUPS: Group[] = [
 				summary: 'The reader’s name and other values inside a text',
 				who: ['writer'],
 				where: ['creator'],
-				often: 2
+				often: 2,
+				steps: [
+					{ text: 'In a text field type “{”: the hint says “Enter = builder”. Press Enter for the builder, or keep typing the code.' },
+					{ text: 'In the builder choose “What”: a “Value”, “If … else”, “Per visit” or “Code”, then search the value – story variables and functions.' },
+					{
+						text: '“Apply” puts it into the text as a chip. Click the chip to change it in the builder, double click to edit its code; Backspace removes it whole.'
+					},
+					{ text: 'On the canvas “Preview texts with expressions” shows the text “as written”, for a “new guest”, “halfway” or with “everything collected”.' }
+				],
+				note: 'A brace as text needs a backslash before it. And = sets a value: to compare, write ==.'
 			},
 			{
 				slug: 'chapter-sound',
@@ -300,7 +368,19 @@ export const GROUPS: Group[] = [
 				summary: 'Music volumes per slice, samples on scroll or on a click',
 				who: ['sound'],
 				where: ['creator'],
-				often: 2
+				often: 2,
+				steps: [
+					{
+						text: 'In the chapter tree choose “Audio”. Under “Music” add tracks with “+ Track” (an “ID” and a “File”), and set the “Default track” and the “Crossfade (ms)”.'
+					},
+					{ text: 'Under “Sample library” add each sound with “+ Sample”: an “ID” and a “File”.' },
+					{
+						text: 'Select a slice and open its “Audio” tab: the “Music” faders set each track’s volume from this slice on. “×” goes back to the earlier level.'
+					},
+					{ text: 'Under “Samples” add “+ on scroll” (it plays when the slice comes into view) or “+ on click (area)”, and choose its “Sound”.' },
+					{ text: 'Set “Volume”, “Delay (ms)”, “Loop” and the rest per sample. Draw a click area with the “Sample area” tool on the slice.' }
+				],
+				note: 'Music and samples are shared by every language. File paths are relative to the toon’s media folder.'
 			}
 		]
 	},
@@ -401,7 +481,20 @@ export const GROUPS: Group[] = [
 				summary: 'Driver, device, buffer, channels and test tones',
 				who: ['performer', 'sound'],
 				where: ['editor', 'deck'],
-				often: 1
+				often: 1,
+				facts: [
+					{ label: 'On a deck', text: 'deck --audio cpal --audio-host asio --audio-device fireface --audio-buffer 128 (--audio-list shows the devices).' }
+				],
+				steps: [
+					{ text: 'The menu (top left) → “Audio & inputs” opens the “Audio” panel.' },
+					{ text: 'Under “HOST” choose the driver: ASIO for an RME and other studio cards, PipeWire on a deck, WASAPI otherwise. Then pick the device.' },
+					{ text: 'Under “BUFFER” choose a size; smaller is quicker but harder for the computer. With ASIO the size is set in the driver’s own dialog.' },
+					{
+						text: '“GROUPS ON CHANNELS”: click a cell to put a group of the rig’s outlets on a channel. A channel number or a group’s name plays a test tone; click again to stop it.'
+					},
+					{ text: '“Apply” writes the settings and restarts the stage’s sound on them.' }
+				],
+				note: 'Under WASAPI the buffer only grows (an RME gets about 1056 frames): for small buffers use ASIO.'
 			},
 			{
 				slug: 'open-rig',
@@ -444,7 +537,18 @@ export const GROUPS: Group[] = [
 				summary: 'Tracks and nodes, ports and cables, far-world addresses',
 				who: ['sound'],
 				where: ['editor'],
-				often: 2
+				often: 2,
+				steps: [
+					{ text: 'Build starts in the wiring: every track is one body with its outlets. Double click a body (or point at it and press Tab) to go in.' },
+					{ text: 'Drag from an out to an in to connect them. Pull a cable off an in and let go to cut it, or drop it on another in to move it.' },
+					{ text: 'Right click a port (or the stage) and “type to find”: it lists the ports that one can reach.' },
+					{
+						text: '“Add” beside the rig picker adds a node inside a track, a “world · far” node with its holder from the address book, or at the rig a track playing an instrument or a module.'
+					},
+					{ text: '“Remove” (or Delete) takes the selected node or track away with its cables; Ctrl+Z takes any change back.' },
+					{ text: 'The crumbs on top lead back: “rig” shows every track as one body again. Esc or Shift+Tab goes one level up.' }
+				],
+				note: 'At the rig level Esc quits the editor. Audio can’t go into a control in.'
 			},
 			{
 				slug: 'mixer',
@@ -452,7 +556,15 @@ export const GROUPS: Group[] = [
 				summary: 'Faders, gains inside a track, pan, mute and peaks',
 				who: ['sound'],
 				where: ['editor'],
-				often: 2
+				often: 2,
+				steps: [
+					{ text: 'Open the “Mixer” panel (bottom right): one strip per track at the level shown, plus the “out” strip.' },
+					{ text: 'The pills on top choose the level: “rig” for the tracks, or a track you entered for the gains inside it.' },
+					{ text: 'Drag a fader – it goes into the draft when you let go. Double click the dB value to type one, Enter sets it, Esc leaves it.' },
+					{ text: 'Drag the pan bar for left and right; “M” mutes the track.' },
+					{ text: 'The peak readout holds the loudest moment, red once it went over 0 dB. Click it to clear it.' }
+				],
+				note: 'A fader fed by a cable has no handle: the cable sets it.'
 			},
 			{
 				slug: 'module-params',
@@ -460,7 +572,19 @@ export const GROUPS: Group[] = [
 				summary: 'Areas and pages, eight knobs a page, the Analog Four way',
 				who: ['sound'],
 				where: ['editor'],
-				often: 3
+				often: 3,
+				steps: [
+					{ text: 'On the stage a module shows one ring cluster per area, like “SRC · 4”. A click opens it in place, another click closes it.' },
+					{ text: 'Select the node itself (not its track): the “Inspector” shows “NODE”, then “PARAMETERS” with a row of area pills.' },
+					{
+						text: 'Press an area – SRC, FLTR, AMP, LFO, VOICE on the analog synth – to open its first page. Press it again for its next page; it wraps round.'
+					},
+					{
+						text: 'Each page is two rows of four knobs: drag or use the wheel to turn one in the engine. Twin pages put the same idea on the same knob, like the level of OSC 1 and OSC 2.'
+					},
+					{ text: 'Parameters that are on no page follow below as bars, then the “PORTS”.' }
+				],
+				note: 'A parameter fed by a cable shows “< source” and can’t be turned by hand. To open a page straight away: --select NODE --page "SRC/OSC 2".'
 			},
 			{
 				slug: 'own-module',
@@ -468,7 +592,17 @@ export const GROUPS: Group[] = [
 				summary: 'Write, build and hear a module; save it as a draft',
 				who: ['sound'],
 				where: ['editor'],
-				often: 1
+				often: 1,
+				steps: [
+					{ text: 'Switch to “Module” and pick a module in the “Library”. A rig without one offers “New module” for its character.' },
+					{ text: '“Open in editor” opens the module’s code in your code editor (VS Code, or the command in DECK_CODE_EDITOR).' },
+					{
+						text: 'Press “Build”. When it works the parameters read “heard on the stage”; if not, the “Problems” panel lists them and a click opens the code there.'
+					},
+					{ text: 'Turn its parameters and listen. The working copy saves itself as a draft whenever its sources change.' },
+					{ text: 'Back in “Build”, add it to a rig as a track: “Add” → module:<name>.' }
+				],
+				note: 'A factory module is read-only: it saves as a module of your own, my_<id>.'
 			},
 			{
 				slug: 'library',
@@ -518,7 +652,17 @@ export const GROUPS: Group[] = [
 				summary: 'Move the members and set their values in the scene',
 				who: ['performer'],
 				where: ['editor'],
-				often: 2
+				often: 2,
+				steps: [
+					{ text: 'Open a scene in Build: a double click on it in Show’s “Library”, or “open in Build” on a show cell.' },
+					{ text: 'The tree lists the scene and its members. Select one: “MEMBER” shows its holder, filler, spot and rig.' },
+					{ text: '“Move” (W) drags a member on the stage, snapping; “Pick” (Q) only selects. “Grid & snap” sets the grid, the step and what it snaps to.' },
+					{
+						text: 'Under “VALUES IN THE SCENE” drag a knob to set it for this scene; the stage plays it when you let go and the scene saves itself. The “×” beside it goes back to its rig’s value.'
+					},
+					{ text: '“Open as rig” shows the member’s rig alone with the scene’s values on its knobs. Esc or the scene’s line brings them back into the scene.' }
+				],
+				note: '“Rotate” (E) and “Scale” (R) switch the mode only; their handles are coming.'
 			},
 			{
 				slug: 'camera-shots',
@@ -552,7 +696,17 @@ export const GROUPS: Group[] = [
 				summary: 'Pictures in depth around the 3D, fitted to the camera',
 				who: ['artist', 'performer'],
 				where: ['editor'],
-				often: 1
+				often: 1,
+				steps: [
+					{ text: 'Open a scene in Build and select the scene in the tree.' },
+					{
+						text: '“Parallax stack” adds seven empty layers: a far matte, three full layers behind the 3D and strips left, right and below in front. “Add layer” adds one more, 4 m behind.'
+					},
+					{ text: 'Each layer has a handle at its left edge on the stage. Drop a picture from the library on a handle to fill the layer.' },
+					{ text: 'Drag a handle up or down to move the layer in depth; the picture is fitted anew to the camera’s view there.' },
+					{ text: 'In the “PARALLAX LAYER” inspector “covers” sets full, left, right, top or bottom, and “Remove” takes the layer away.' }
+				],
+				note: 'A scene takes up to 12 layers.'
 			},
 			{
 				slug: 'module-slots',
@@ -560,7 +714,14 @@ export const GROUPS: Group[] = [
 				summary: 'A motion module on a camera or an item',
 				who: ['performer'],
 				where: ['editor'],
-				often: 1
+				often: 1,
+				steps: [
+					{ text: 'The camera’s slot is in the “MODULES” section of the “DOP” panel; a member’s slot in “MODULES” in its inspector.' },
+					{ text: 'An empty slot is dashed: drag a module from the library onto it. It lights up while you carry one over.' },
+					{ text: 'Start with dolly on the camera (it pushes in and back on the clock) or bob on an item (it floats).' },
+					{ text: 'The filled slot shows its module; “×” takes it off.' }
+				],
+				note: 'A module needs a build before it fits a slot: “module:… has no descriptor yet – build it first”.'
 			},
 			{
 				slug: 'video-on-stage',
@@ -586,7 +747,16 @@ export const GROUPS: Group[] = [
 				summary: 'A colour or a picture behind a rig or a scene',
 				who: ['performer'],
 				where: ['editor'],
-				often: 1
+				often: 1,
+				steps: [
+					{ text: 'Select the rig (or the scene) in Build: the inspector shows a “background” row.' },
+					{
+						text: 'Click the swatch for the colour picker: the “PALETTE” (with green and blue screen), your “RECENT” colours, saturation and brightness, the hue.'
+					},
+					{ text: 'The eyedropper takes the colour under the pointer on the stage; Esc cancels it.' },
+					{ text: 'Or click the value and type a colour (#rrggbb) or a picture’s media path.' }
+				],
+				note: 'A scene’s background wins over its rigs’, and a show’s over both. Empty means the modules’ (or the rigs’) background, else black.'
 			}
 		]
 	},
@@ -601,7 +771,14 @@ export const GROUPS: Group[] = [
 				summary: 'Small shows that each show one idea',
 				who: ['performer'],
 				where: ['editor'],
-				often: 1
+				often: 1,
+				steps: [
+					{ text: 'In “Show” open the “Sheet” panel and its “Demos” tab.' },
+					{ text: 'A press opens a demo in place of the show. Its first row says what to try.' },
+					{ text: '“far-nodes” shows far nodes, “new-scene” making a scene, “values-and-scenes” scenes on cells, “vote-and-question” a vote.' },
+					{ text: 'Follow the first row’s “try:” steps, then open the next demo.' }
+				],
+				note: 'A demo replaces the open show – save yours first. From the command line: --demo NAME.'
 			},
 			{
 				slug: 'show-matrix',
@@ -644,7 +821,14 @@ export const GROUPS: Group[] = [
 				summary: 'The same show drawn as nodes and wires',
 				who: ['performer'],
 				where: ['editor'],
-				often: 1
+				often: 1,
+				steps: [
+					{ text: 'In “Show” switch the tools to “2D” and open the “Nodes” panel.' },
+					{ text: 'It draws the row: what comes from far, the cells and what the row sends, with typed pins and wires.' },
+					{ text: '“LR” or “TB” lays it out left to right or top to bottom; the editor remembers your choice.' },
+					{ text: 'The wheel zooms, a middle drag (or Space + drag) pans, “Fit” or F shows it all.' }
+				],
+				note: 'The Nodes panel hides while a sheet is open.'
 			}
 		]
 	},
@@ -711,7 +895,16 @@ export const GROUPS: Group[] = [
 				summary: 'Black and silence on every deck, and back',
 				who: ['performer'],
 				where: ['editor'],
-				often: 3
+				often: 3,
+				steps: [
+					{ text: 'The red “PANIC” pill sits in the top bar of every workspace; Shift+Esc does the same from anywhere.' },
+					{
+						text: 'A panic is black and silence on every deck below this conductor and on the editor’s own stage. The log says “PANIC – every deck below black and silent”.'
+					},
+					{ text: 'While it holds, the pill reads “RESUME”. Rows still fire in the show, but nothing reaches a stage.' },
+					{ text: 'Press “RESUME” to bring every deck back – to the cells the show holds now, not the ones that played before.' }
+				],
+				note: 'Shift+Esc only panics; only the pill resumes. Plain Esc at the top level quits the editor.'
 			},
 			{
 				slug: 'live-session',
@@ -790,7 +983,17 @@ export const GROUPS: Group[] = [
 				summary: 'Save a draft and see it as readers will',
 				who: ['all'],
 				where: ['creator', 'editor'],
-				often: 3
+				often: 3,
+				steps: [
+					{ text: '“Save” in the bottom bar stores a draft; a dot on it means there are unsaved changes. Only creators see drafts.' },
+					{ text: '“Add a note?” asks what changed – a suggestion is already typed, so just type over it, or press “Save without note”.' },
+					{
+						text: 'In the chapter editor the round phone button in the top bar opens the “Reader” in the dock; “Screen” switches between “Phone” and “Desktop”.'
+					},
+					{ text: 'The reader opens at the group and slice you are on and follows you. It shows saved drafts only and reloads after every save.' },
+					{ text: 'Unsaved edits wait in this browser: after a reload a bar offers “Restore” or “Discard”.' }
+				],
+				note: 'In the chapter editor Ctrl+S saves at once, without the note; on the other pages it asks. In the deck editor everything saves itself.'
 			},
 			{
 				slug: 'problems',
@@ -798,7 +1001,15 @@ export const GROUPS: Group[] = [
 				summary: 'The problem list: errors, warnings, a click to jump there',
 				who: ['all'],
 				where: ['creator'],
-				often: 3
+				often: 3,
+				steps: [
+					{ text: '“Problems” in the bottom bar shows its count; press it to open the list. On a phone it is the ⚠ button.' },
+					{ text: 'The head counts errors and warnings. Each line says where (group, slice, line, language) and what is wrong.' },
+					{ text: 'Click a line to jump to the place and fix it there.' },
+					{ text: 'A warning that is fine can be accepted with its ✓ (“Looks fine – accept the warning”). That is an edit like any other, so save it.' },
+					{ text: 'Errors can’t be accepted. Publishing with errors asks “Publish anyway?” first.' }
+				],
+				note: 'Tick “accepted” or “notes” to see the accepted warnings and the quiet notes again.'
 			},
 			{
 				slug: 'publish',
@@ -809,7 +1020,7 @@ export const GROUPS: Group[] = [
 				often: 2,
 				steps: [
 					{
-						text: '“Save” (or Ctrl+S) stores a draft: only creators see it. The note you add says what changed.'
+						text: '“Save” (or Ctrl+S) stores a draft: only creators see it. The note “Save” asks for says what changed.'
 					},
 					{
 						text: 'The phone icon in the top bar opens the “Reader” in the dock – choose “Phone” or “Desktop”. It shows your saved drafts as readers will see them.'
@@ -835,7 +1046,20 @@ export const GROUPS: Group[] = [
 				summary: 'Publish a submission or send it back with a note',
 				who: ['lead'],
 				where: ['creator'],
-				often: 2
+				often: 2,
+				facts: [
+					{
+						label: 'Who reviews',
+						text: 'Set in the admin per account and toon: “Reviews publishing requests” or “Submits for review”. Without a rule, an account publishes itself.'
+					}
+				],
+				steps: [
+					{ text: 'When work waits for you, the start page shows “Waiting for you” with its count.' },
+					{ text: 'Each submission shows the toon, the files, who sent it, when, and their note. Click its name to open the page and look.' },
+					{ text: '“Publish” makes it live as submitted; the author gets a mail.' },
+					{ text: 'Or “Send back” with a note to the author: they get it by mail, and the drafts stay as they are.' }
+				],
+				note: '“Newer drafts exist – not part of this review” means the author changed more since: only the submitted version goes live.'
 			},
 			{
 				slug: 'history',
@@ -843,7 +1067,14 @@ export const GROUPS: Group[] = [
 				summary: 'Restore an earlier version, version notes, unpublish',
 				who: ['all'],
 				where: ['creator'],
-				often: 2
+				often: 2,
+				steps: [
+					{ text: '“History” in the bottom bar holds “Undo”, “Redo” and “Versions”. Outside a text field Ctrl+Z undoes and Ctrl+Shift+Z redoes.' },
+					{ text: '“Versions” lists every saved version: when, by whom, its note, and whether it is “current” or “in review”.' },
+					{ text: '“Restore” brings an earlier version back as a new draft. Nothing is published until you publish it.' },
+					{ text: 'A published version has “Unpublish”: readers then see nothing until a version is published again.' }
+				],
+				note: 'Chapters and seasons hold every language in one version, so unpublishing takes them all. Accounts that submit for review see no Publish or Unpublish here.'
 			}
 		]
 	}
