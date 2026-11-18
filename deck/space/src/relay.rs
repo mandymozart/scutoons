@@ -839,10 +839,13 @@ impl Client {
         self.hello();
     }
 
-    /// whether a filter takes this client by the facts it knows of itself (its group, its device; an account fact or an
-    /// approved deck it cannot prove fails – protocol `filter::passes`)
+    /// whether a filter takes this client by the facts it knows of itself: its group and its device. Account facts and an
+    /// approved deck come from the server's proof – the relay decides those, a deck can't prove them to itself, so they are
+    /// left out here (else a row address naming an account would miss every deck)
     fn passes(&self, filter: Option<&protocol::Filter>) -> bool {
-        protocol::filter::passes(filter, &protocol::filter::Facts { group: self.o.group.as_deref(), device: self.o.device.as_deref(), ..Default::default() })
+        let Some(f) = filter else { return true };
+        let mine = protocol::Filter { group: f.group.clone(), device: f.device.clone(), account: None, approved: None };
+        protocol::filter::passes(Some(&mine), &protocol::filter::Facts { group: self.o.group.as_deref(), device: self.o.device.as_deref(), ..Default::default() })
     }
 
     fn hello(&mut self) {
@@ -2159,6 +2162,20 @@ mod tests {
         };
         assert_eq!(heard("left"), [("shot:close".to_string(), Some(8.0))]);
         assert!(heard("right").is_empty(), "the right column's camera is left alone");
+    }
+
+    /// account and approval facts are the relay's to check (the server's proof): a deck doesn't drop an address for them
+    #[test]
+    fn an_address_naming_an_account_still_reaches_the_deck() {
+        let cut = json!({ "kind": "address", "p": { "id": "duo/2", "address": "scene:nave", "action": "shot:wide", "where": { "group": "left", "account": ["creator"], "approved": true } } });
+        let join = json!({ "relay": RELAY, "role": "output", "group": "left", "device": "native" });
+        let mut c = Client::new(serde_json::from_value(join).unwrap()).unwrap();
+        c.start(0.0);
+        let at = |c: &mut Client, s: f64, what: &str, with: Value| step(c, s * 1000.0, &st(s, what, with)).unwrap();
+        at(&mut c, 0.0, "open", Value::Null);
+        at(&mut c, 0.1, "message", welcome("c3", json!({})));
+        at(&mut c, 1.0, "message", cut);
+        assert!(c.take().into_iter().any(|o| matches!(o, Out::Deck(In::Address { .. }))), "the group fits; the account is the relay's to check");
     }
 
     /// #556: the ballot of a deck that hears the vote follows the relay client – the open vote, this deck's cast once
