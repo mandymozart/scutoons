@@ -36,6 +36,7 @@ use winit::keyboard::{Key, ModifiersState, NamedKey};
 use winit::window::{Fullscreen, Window, WindowId};
 
 mod hud_status;
+mod f9;
 mod menu;
 mod pages;
 
@@ -1085,28 +1086,6 @@ impl App {
             }
         }
         window.request_redraw();
-    }
-
-    /// #609: F9 – the editor instead of the stage, on this session and scene (handoff.rs); a lean deck, a locked one or a
-    /// failed start stays and says why on the HUD
-    fn hand_off(&mut self, el: &ActiveEventLoop) {
-        use deck_native::handoff::{self, App, Handoff};
-        let h = Handoff {
-            relay: self.args.relay.clone(),
-            scene: self.current_scene().map(str::to_owned),
-            ..self.args.handoff.clone()
-        };
-        match handoff::go(App::Deck, h, handoff::own_args(std::env::args().skip(1)), &switcher::deck_toml()) {
-            Ok(code) => {
-                self.exit = code;
-                el.exit();
-            }
-            Err(r) => {
-                tracing::info!("{}", r.sentence());
-                self.refusal = Some((r, Instant::now()));
-                self.hud_at = -1.0;
-            }
-        }
     }
 
     /// Ctrl+Alt+Del: a clean power-off (logind lets the active local session do it); the logo stays up meanwhile.
