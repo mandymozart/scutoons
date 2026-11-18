@@ -40,13 +40,11 @@ pub struct Watched {
     pub look: Look,
     text: String,
     seen: Option<SystemTime>,
-    /// the last problem reading it (shown in the panel)
-    pub problem: Option<String>,
 }
 
 impl Watched {
     pub fn new(path: PathBuf, look: Look) -> Watched {
-        let mut w = Watched { path, tokens: Tokens::new(look.theme, look.base), look, text: String::new(), seen: None, problem: None };
+        let mut w = Watched { path, tokens: Tokens::new(look.theme, look.base), look, text: String::new(), seen: None };
         w.poll();
         w
     }
@@ -64,7 +62,7 @@ impl Watched {
                 self.apply()
             }
             Err(e) => {
-                self.problem = Some(e.to_string());
+                crate::log::post(deck_ui::messages::Level::Warn, "tokens", format!("{}: {e}", self.path.display()));
                 false
             }
         }
@@ -82,7 +80,6 @@ impl Watched {
     fn apply(&mut self) -> bool {
         match Tokens::from_toml(&self.text, self.look.theme, self.look.base) {
             Ok(t) => {
-                self.problem = None;
                 if t != self.tokens {
                     self.tokens = t;
                     return true;
@@ -90,7 +87,7 @@ impl Watched {
                 false
             }
             Err(e) => {
-                self.problem = Some(e);
+                crate::log::post(deck_ui::messages::Level::Warn, "tokens", format!("{}: {e}", self.path.display()));
                 false
             }
         }

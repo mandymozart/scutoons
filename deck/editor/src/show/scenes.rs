@@ -44,7 +44,7 @@ impl Host {
         let (Some(row), Some(column)) = (plan.rows.get(r).map(|x| x.id.clone()), plan.columns.get(c).map(|x| x.id.clone())) else { return true };
         self.select_cell(r, c, false);
         if !self.edit_rows(&Edit::Piece { row, column, piece: piece.to_string() }) {
-            self.refused = Some((x, y, self.status.clone()));
+            self.refused = Some((x, y));
         }
         true
     }
@@ -81,13 +81,6 @@ pub fn panel(d: &mut DrawList, t: &Tokens, host: &mut Host, lib: &mut Library, p
 /// the panel's height while it only says why there is no book (else it measures itself)
 pub fn note_height(t: &Tokens, host: &Host) -> Option<f32> {
     (host.show_toon().is_some() && host.book.is_none()).then_some(2.0 * t.size.pad + t.size.small * 1.6)
-}
-
-/// Over everything: the core's refusal where a piece was dropped.
-pub fn over(d: &mut DrawList, t: &Tokens, host: &Host, (w, _h): (f32, f32)) {
-    if let Some((x, y, why)) = &host.refused {
-        controls::chip(d, t, (*x, *y + 8.0), w, why, true);
-    }
 }
 
 #[cfg(test)]
@@ -176,7 +169,7 @@ pub(in crate::show) mod tests {
         let before = host.shown().clone();
         let at = drag(&mut host, &mut lib, "scene:nave", "crossroads", "lamps");
         assert!(host.status.starts_with("not changed: "), "{}", host.status);
-        assert_eq!(host.refused, Some((at.0, at.1, host.status.clone())), "the sentence where it was dropped");
+        assert_eq!(host.refused, Some(at), "the ring where it was dropped");
         assert_eq!(host.shown(), &before);
         drag(&mut host, &mut lib, "scene:nave", "crossroads", "left");
         assert!(host.status.starts_with("not changed: "), "an ask cell takes no piece: {}", host.status);

@@ -33,7 +33,7 @@ impl Host {
                 self.flashing = Some(Flashing { choice, lock, asking: false, typed: String::new(), typing: false });
                 self.sheet = Some(Sheet::Flash);
             }
-            Err(e) => self.status = e,
+            Err(e) => self.refuse(e),
         }
     }
 

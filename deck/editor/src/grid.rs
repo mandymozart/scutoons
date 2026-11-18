@@ -338,7 +338,7 @@ impl crate::App {
             Some(at) => {
                 if let Err(why) = view.edit.move_holder(&holder, at) {
                     let (x, y) = self.cursor;
-                    self.say(why, x, y, true);
+                    self.refuse(why, x, y);
                 }
                 self.replay_scene();
             }

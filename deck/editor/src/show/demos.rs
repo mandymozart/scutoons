@@ -82,7 +82,7 @@ impl Host {
     pub(super) fn demo_press(&mut self, i: usize) {
         let Some(name) = self.demos.get(i).map(|d| d.name.clone()) else { return };
         if let Err(e) = self.open_demo(&name) {
-            self.status = e;
+            self.refuse(e);
         }
     }
 }

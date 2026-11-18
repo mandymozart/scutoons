@@ -273,7 +273,7 @@ pub struct Host {
     /// a library card a cell would take is in the hand (the cell under the pointer shows it); the core's refusal where
     /// one was dropped
     pub carrying: bool,
-    pub refused: Option<(f32, f32, String)>,
+    pub refused: Option<(f32, f32)>,
     /// #539: the toon whose story events a row's event is picked from (`--toon`; else the book's), the events once asked
     /// (`GET /api/creator/story-events`, read by deck-show story.rs) or why there are none, the picker's typed query;
     /// #551: the same answer's questions are what the right click offers as the story's
@@ -287,8 +287,10 @@ pub struct Host {
     /// #478: the move menu open for a client (by its id), and whether a move from it locks
     pub menu: Option<String>,
     pub lock: bool,
-    /// the last thing done, or why not
+    /// the last thing done, or why not: the editor takes it into its messages each frame (main.rs)
     pub status: String,
+    /// the status is a refusal (a warning in the messages)
+    pub bad: bool,
     pub two_d: bool,
     /// the node view's zoom, pan and direction
     pub nodes: nodes::NodeView,
@@ -355,15 +357,9 @@ impl Host {
             }),
             (None, None) => Ok(EMPTY.to_string()),
         };
-        // a document with problems opens: the problems list says what (#91)
+        // a document with problems opens: the problems list says what, the status bar counts them (#91)
         let show = match text.and_then(|t| deck_show::document::open(&t)) {
-            Ok(s) => {
-                let n = deck_show::validate(&s).len();
-                if n > 0 {
-                    status = format!("{n} problems – see Problems");
-                }
-                s
-            }
+            Ok(s) => s,
             Err(e) => {
                 status = e;
                 deck_show::parse(EMPTY).expect("the empty show parses")
@@ -382,7 +378,7 @@ impl Host {
         perform_panels.floats.scrolls_itself("matrix");
         let scroll = deck_kit::editor::table::Scroll::default();
         let saves = version.map(|v| (show.id.clone(), crate::autosave::Autosave::new(Some(v)))).into_iter().collect();
-        let mut host = Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), columns: Vec::new(), group: None, context: None, show_panels, perform_panels, show_scroll: scroll, perform_scroll: scroll, band: None, view_slot: Rect::default(), help: None, address: None, book: None, cameras: BTreeMap::new(), book_why: None, carrying: false, refused: None, toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, status, flow: None, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, saves, unsent: BTreeMap::new(), session: session::Session::default(), toons: toons::Toons::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), build: None, to_build: None, compose: new_scene::Composer::default(), to_stage: None, demos: Vec::new(), demo_book: None, link, api, nodes: nodes::NodeView::default() };
+        let mut host = Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), columns: Vec::new(), group: None, context: None, show_panels, perform_panels, show_scroll: scroll, perform_scroll: scroll, band: None, view_slot: Rect::default(), help: None, address: None, book: None, cameras: BTreeMap::new(), book_why: None, carrying: false, refused: None, toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, status, bad: false, flow: None, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, saves, unsent: BTreeMap::new(), session: session::Session::default(), toons: toons::Toons::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), build: None, to_build: None, compose: new_scene::Composer::default(), to_stage: None, demos: Vec::new(), demo_book: None, link, api, nodes: nodes::NodeView::default() };
         host.adopt_kept();
         host
     }
@@ -405,6 +401,12 @@ impl Host {
     }
 
     /// the relay link's line
+    /// why not: the status, as a refusal
+    pub(crate) fn refuse(&mut self, why: String) {
+        self.status = why;
+        self.bad = true;
+    }
+
     pub fn link_line(&self) -> String {
         self.link.as_ref().map_or("no relay (--relay ws://host:port/live/CODE)".into(), |l| l.line.lock().unwrap().clone())
     }
@@ -592,7 +594,7 @@ impl Host {
 
     /// The problems list of the document shown: deck-show's (the document's errors, the decks' flash reports), then – once
     /// the toon's story questions are here – a story question whose published choice changed (#550 `story::changed`).
-    pub(super) fn problems(&self) -> Vec<deck_show::view::ProblemView> {
+    pub(crate) fn problems(&self) -> Vec<deck_show::view::ProblemView> {
         let show = self.shown();
         // the flash reports belong to the conductor this editor runs: the top
         let mut list = deck_show::view::problems(show, self.path.is_empty().then_some(&self.sub));
@@ -613,7 +615,7 @@ impl Host {
                     self.library.insert(seat.show.id.clone(), s);
                 }
                 Err(e) => {
-                    self.status = format!("{}: {e}", seat.show);
+                    self.refuse(format!("{}: {e}", seat.show));
                     return;
                 }
             }
@@ -663,7 +665,7 @@ impl Host {
                     self.library.insert(id, s);
                 }
             }
-            Err(e) => self.status = format!("not loaded: {e}"),
+            Err(e) => self.refuse(format!("not loaded: {e}")),
         }
     }
 }

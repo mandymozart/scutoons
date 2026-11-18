@@ -458,7 +458,7 @@ impl crate::App {
                     view.dop.shot = Some(i);
                     self.dop_done(Ok(()), "a shot from the view".into(), x, y);
                 }
-                Err(e) => self.say(e, x, y, true),
+                Err(e) => self.refuse(e, x, y),
             },
             Field::SetShot => {
                 let Some(i) = shot else { return };
@@ -496,21 +496,21 @@ impl crate::App {
                 self.dop_relook(shot);
             }
             Field::Preview => {
-                let Some(to) = shot.and_then(|i| cam.shots.get(i)).map(|s| s.id.clone()) else { return self.say("pick the shot it ends on".into(), x, y, true) };
+                let Some(to) = shot.and_then(|i| cam.shots.get(i)).map(|s| s.id.clone()) else { return self.refuse("pick the shot it ends on".into(), x, y) };
                 let draft = sel.draft.clone();
                 let mut problems = Vec::new();
                 draft.problems("the move", &mut problems);
                 if let Some(p) = problems.first() {
-                    return self.say(p.clone(), x, y, true);
+                    return self.refuse(p.clone(), x, y);
                 }
                 self.stage.space.dop.edited(cam);
                 match self.stage.space.dop.cue(draft, &to) {
                     Ok(c) => self.stage.space.dop.play(vec![c]),
-                    Err(e) => self.say(e, x, y, true),
+                    Err(e) => self.refuse(e, x, y),
                 }
             }
             Field::Keep => {
-                let Some(to) = shot.and_then(|i| cam.shots.get(i)).map(|s| s.id.clone()) else { return self.say("pick the shot it ends on".into(), x, y, true) };
+                let Some(to) = shot.and_then(|i| cam.shots.get(i)).map(|s| s.id.clone()) else { return self.refuse("pick the shot it ends on".into(), x, y) };
                 match view.edit.add_move(sel.draft.clone(), &to) {
                     Ok(i) => {
                         view.dop.kept = Some(i);
@@ -518,7 +518,7 @@ impl crate::App {
                         let place = view.edit.key();
                         self.dop_done(Ok(()), format!("kept as {place} > move:{id}"), x, y);
                     }
-                    Err(e) => self.say(e, x, y, true),
+                    Err(e) => self.refuse(e, x, y),
                 }
             }
             Field::Kept(i) => {
@@ -534,10 +534,10 @@ impl crate::App {
                 self.stage.space.dop.edited(cam);
                 match self.stage.space.dop.chain(&id) {
                     Ok(c) => self.stage.space.dop.play(c),
-                    Err(e) => self.say(e, x, y, true),
+                    Err(e) => self.refuse(e, x, y),
                 }
             }
-            Field::Slot(_) => self.say("drop a module from the library on the slot".into(), x, y, false),
+            Field::Slot(_) => self.note("drop a module from the library on the slot".into()),
             Field::Detach(i) => self.slot_detach(deck_space::scene_modules::On::Camera, i, x, y),
             Field::RemoveKept => {
                 let Some(i) = sel.kept.take() else { return };
@@ -560,7 +560,7 @@ impl crate::App {
                         view.dop.point = Some(p);
                         self.dop_done(Ok(()), "a point between".into(), x, y);
                     }
-                    Err(e) => self.say(e, x, y, true),
+                    Err(e) => self.refuse(e, x, y),
                 }
             }
             Field::RemovePoint => {
@@ -647,7 +647,7 @@ impl crate::App {
                 let iso = View { yaw: 45f32.to_radians(), pitch: 35f32.to_radians(), distance: now.distance * 2.5, lens: Lens::orthographic(now.distance * 1.4), ..now };
                 for v in [now, close, iso] {
                     if let Err(e) = view.edit.add_shot(v.shot("")) {
-                        return self.say(e, x, y, true);
+                        return self.refuse(e, x, y);
                     }
                 }
                 view.dop.shot = Some(1);
@@ -706,7 +706,7 @@ impl crate::App {
     pub(crate) fn dop_height(&mut self, text: &str) {
         let (x, y) = self.cursor;
         let Some(view) = self.scene.as_mut() else { return };
-        let Some(h) = crate::typed_number(text.trim().trim_end_matches('m')) else { return self.say(format!("'{text}': an eye height in metres"), x, y, true) };
+        let Some(h) = crate::typed_number(text.trim().trim_end_matches('m')) else { return self.refuse(format!("'{text}': an eye height in metres"), x, y) };
         let shot = view.dop.shot;
         let done = view.edit.set_height(shot, h, view.dop.floor);
         self.dop_done(done, format!("eye height: {} m", crate::number(h)), x, y);
@@ -727,7 +727,7 @@ impl crate::App {
     pub(crate) fn dop_focal(&mut self, text: &str) {
         let (x, y) = self.cursor;
         let Some(view) = self.scene.as_mut() else { return };
-        let Ok(focal) = text.trim().trim_end_matches("mm").trim().replace(',', ".").parse::<f32>() else { return self.say(format!("'{text}': a focal length in mm"), x, y, true) };
+        let Ok(focal) = text.trim().trim_end_matches("mm").trim().replace(',', ".").parse::<f32>() else { return self.refuse(format!("'{text}': a focal length in mm"), x, y) };
         let lens = lens_of(&view.edit.camera(), &view.dop);
         let done = view.edit.set_lens(view.dop.shot, Lens { focal, projection: Projection::Perspective, ..lens });
         self.dop_done(done, format!("lens: {} mm", mm(focal)), x, y);

@@ -72,7 +72,7 @@ impl crate::App {
                     self.show.scene_saved(&doc, version);
                 }
                 Err(Refusal::Offline(_)) => {}
-                Err(e) => self.say(e.to_string(), x, y, true),
+                Err(e) => self.refuse(e.to_string(), x, y),
             }
         }
         let Some(v) = self.scene.as_mut() else { return };

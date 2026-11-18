@@ -105,7 +105,7 @@ impl crate::App {
         }
         match apply(&self.stage.bundle, &c) {
             Ok((next, words)) => self.change(Ok(next), words, x, y),
-            Err(why) => self.say(why, x, y, true),
+            Err(why) => self.refuse(why, x, y),
         }
     }
 
@@ -121,7 +121,7 @@ impl crate::App {
         });
         match done {
             Ok((next, words)) => self.change(Ok(next), words, x, y),
-            Err(why) => self.say(why, x, y, true),
+            Err(why) => self.refuse(why, x, y),
         }
     }
 
@@ -146,7 +146,7 @@ impl crate::App {
                 self.sel = Sel::Rig;
                 self.change(Ok(next), words, x, y);
             }
-            Err(why) => self.say(why, x, y, true),
+            Err(why) => self.refuse(why, x, y),
         }
     }
 

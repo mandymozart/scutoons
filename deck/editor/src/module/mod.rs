@@ -171,7 +171,7 @@ pub struct Module {
     /// the built module plays on the stage
     pub heard: bool,
     pub problems: Vec<problems::Row>,
-    pub status: String,
+    /// the last thing said was a refusal or a failure
     pub bad: bool,
     pub hits: Vec<(Rect, Hit)>,
     /// the workspace's floating panels
@@ -221,7 +221,6 @@ impl Module {
             descriptor: None,
             heard: false,
             problems: Vec::new(),
-            status: String::new(),
             bad: false,
             hits: Vec::new(),
             panels: crate::panels::Panels::new(&crate::panels::MODULE),
@@ -243,9 +242,10 @@ impl Module {
         self.listing.is_some() || self.building.is_some() || self.auto.busy() || self.creating.is_some() || (!self.bad && (self.script.build || (self.script.save && self.heard)))
     }
 
-    fn say(&mut self, text: impl Into<String>, bad: bool) {
-        self.status = text.into();
+    /// what happened, to the status bar and the Log
+    fn post(&mut self, text: impl Into<String>, bad: bool) {
         self.bad = bad;
+        crate::log::post(if bad { deck_ui::messages::Level::Warn } else { deck_ui::messages::Level::Info }, "module", text);
     }
 
     /// the workspace is shown: the catalog's modules are asked for once
@@ -255,7 +255,7 @@ impl Module {
         }
         self.asked = true;
         self.relist();
-        self.say("asking the catalog for its modules", false);
+        self.post("asking the catalog for its modules", false);
     }
 
     fn relist(&mut self) {
@@ -284,7 +284,7 @@ impl Module {
         });
         self.creating = Some(rx);
         self.asked = true;
-        self.say("saving the new module's first draft …", false);
+        self.post("saving the new module's first draft …", false);
     }
 
     /// the workspace is left: the rig the stage played before comes back
@@ -360,7 +360,7 @@ impl Module {
             let (min, max) = if p.choices.is_empty() { (p.min, p.max) } else { (0.0, (p.choices.len().max(1) - 1) as f32) };
             stage.set(node, port, value_at(&p, f), min, max);
         } else {
-            self.say("build to hear it: the parameters turn the module on the stage", false);
+            self.post("build to hear it: the parameters turn the module on the stage", false);
         }
     }
 
@@ -371,11 +371,11 @@ impl Module {
         let dir = copy::folder(&self.root, &key);
         let local = match self.local() {
             Ok(l) => l,
-            Err(e) => return self.say(e, true),
+            Err(e) => return self.post(e, true),
         };
         let files = files_of(&e.content);
         if files.is_empty() {
-            return self.say(format!("{key} has no sources"), true);
+            return self.post(format!("{key} has no sources"), true);
         }
         let how = copy::checkout(&dir, &key, e.latest, &files, &local.manifest(), &scutoons_build::determinism::clippy_toml());
         let save_as = self.script.save_as.clone().unwrap_or_else(|| derived_id(&e.id));
@@ -387,9 +387,9 @@ impl Module {
         self.auto.look(fingerprint(&files), Instant::now());
         self.looked = None;
         match how {
-            Ok(copy::Checkout::Fresh) => self.say(format!("{key} in {}", dir.display()), false),
-            Ok(copy::Checkout::Kept) => self.say(format!("{key}: the working copy's own changes are kept ({})", dir.display()), false),
-            Err(err) => self.say(format!("{key}: the working copy could not be written: {err}"), true),
+            Ok(copy::Checkout::Fresh) => self.post(format!("{key} in {}", dir.display()), false),
+            Ok(copy::Checkout::Kept) => self.post(format!("{key}: the working copy's own changes are kept ({})", dir.display()), false),
+            Err(err) => self.post(format!("{key}: the working copy could not be written: {err}"), true),
         }
     }
 
@@ -400,26 +400,26 @@ impl Module {
     }
 
     fn code(&mut self, problem: Option<usize>) {
-        let Some(open) = &self.open else { return self.say("open a module first", true) };
+        let Some(open) = &self.open else { return self.post("open a module first", true) };
         let (file, line, column) = match problem.and_then(|i| self.problems.get(i)) {
             Some(p) if !p.file.is_empty() => (p.file.clone(), p.line, p.column),
             _ => (scutoons_build::files::MAIN_FILE.to_string(), 1, 1),
         };
         let path = open.dir.join("src").join(file);
         match self.editor.open(&open.dir, &path, line, column) {
-            Ok(()) => self.say(format!("opened {}:{line}", path.display()), false),
-            Err(e) => self.say(e, true),
+            Ok(()) => self.post(format!("opened {}:{line}", path.display()), false),
+            Err(e) => self.post(e, true),
         }
     }
 
     pub fn build(&mut self) {
-        let Some(open) = &self.open else { return self.say("open a module first", true) };
+        let Some(open) = &self.open else { return self.post("open a module first", true) };
         if self.building.is_some() {
             return;
         }
         let files = match copy::sources(&open.dir) {
             Ok(f) => f,
-            Err(e) => return self.say(format!("the working copy does not read: {e}"), true),
+            Err(e) => return self.post(format!("the working copy does not read: {e}"), true),
         };
         let (tx, rx) = channel();
         let local = self.local.clone();
@@ -433,7 +433,7 @@ impl Module {
             let _ = tx.send((outcome, started.elapsed()));
         });
         self.building = Some(rx);
-        self.say("building …", false);
+        self.post("building …", false);
     }
 
     /// each frame: the working copy read once a second; a finished burst of changes (or leaving) saves it
@@ -460,13 +460,13 @@ impl Module {
     }
 
     pub fn save(&mut self, now: Instant) {
-        let Some(open) = self.open.clone() else { return self.say("open a module first", true) };
+        let Some(open) = self.open.clone() else { return self.post("open a module first", true) };
         if self.auto.busy() {
             return;
         }
         let files = match copy::sources(&open.dir) {
             Ok(f) => f,
-            Err(e) => return self.say(format!("the working copy does not read: {e}"), true),
+            Err(e) => return self.post(format!("the working copy does not read: {e}"), true),
         };
         let (key, content) = draft(&open, &files);
         self.auto.look(fingerprint(&files), now);
@@ -488,17 +488,17 @@ impl Module {
                 match r {
                     Ok(list) => {
                         if self.open.is_none() {
-                            self.say(format!("{} modules in the catalog", list.len()), false);
+                            self.post(format!("{} modules in the catalog", list.len()), false);
                         }
                         self.list = list;
                         if let Some(id) = self.script.open.take() {
                             match self.list.iter().position(|e| e.id == id) {
                                 Some(i) => self.open_entry(i),
-                                None => self.say(format!("module:{id} is not in the catalog"), true),
+                                None => self.post(format!("module:{id} is not in the catalog"), true),
                             }
                         }
                     }
-                    Err(e) => self.say(e, true),
+                    Err(e) => self.post(e, true),
                 }
             }
         }
@@ -510,7 +510,7 @@ impl Module {
                         self.script.open = Some(id);
                         self.relist();
                     }
-                    Err(e) => self.say(e, true),
+                    Err(e) => self.post(e, true),
                 }
             }
         }
@@ -540,13 +540,13 @@ impl Module {
                 let heard = self.audition(&built.wasm, stage);
                 let words = format!("built in {:.1} s · {} · {}", took.as_secs_f32(), problems::summary(&self.problems), &built.hash[..12]);
                 match heard {
-                    Ok(()) => self.say(format!("{words} · heard on the stage"), false),
-                    Err(e) => self.say(format!("{words} · not heard: {e}"), true),
+                    Ok(()) => self.post(format!("{words} · heard on the stage"), false),
+                    Err(e) => self.post(format!("{words} · not heard: {e}"), true),
                 }
             }
             Err(diags) => {
                 self.problems = problems::rows(&diags);
-                self.say(format!("the build failed after {:.1} s · {}", took.as_secs_f32(), problems::summary(&self.problems)), true);
+                self.post(format!("the build failed after {:.1} s · {}", took.as_secs_f32(), problems::summary(&self.problems)), true);
             }
         }
     }
@@ -589,7 +589,7 @@ impl Module {
                 self.relist();
             }
             Err(crate::show::api::Refusal::Offline(_)) => {}
-            Err(e) => self.say(e.to_string(), true),
+            Err(e) => self.post(e.to_string(), true),
         }
     }
 }

@@ -1,5 +1,5 @@
 //! The toolbar over the stage: pills in a row, nothing under them but the stage. Left the logo with the main menu's
-//! hamburger, the workspaces, the path of what is open (its steps go back up) with a word of status; the tempo pill
+//! hamburger, the workspaces, the path of what is open (its steps go back up); the tempo pill
 //! (the play button, the clock's BPM); right the sign-in, the load meters and the version, which keeps its
 //! place at any width (every build shows it, always).
 use deck_core::load::{Reading, CPU_MEANS, GPU_MEANS};
@@ -47,7 +47,6 @@ pub struct Bar<'a> {
     pub workspace: usize,
     /// the path of what is open: each step a pill that goes back to it
     pub path: &'a [String],
-    pub status: &'a str,
     /// the play button (Build): true = it starts playing
     pub play: Option<bool>,
     /// the tempo clock's BPM and whether it runs
@@ -208,18 +207,15 @@ pub fn draw(d: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Placed {
     let wide = row(width, gap, ws.x + ws.w, tempo_w, b.slot, right_of(false)).path_w > meters + t.size.rem(17.0);
     let right_w = right_of(wide);
     let r = row(width, gap, ws.x + ws.w, tempo_w, b.slot, right_w);
-    // the path, then the status in what is left
+    // the path, only the path (the state words are the status bar's)
     let path = Rect { x: r.path_x, y, w: r.path_w, h };
     if path.w > 2.0 * h {
         pill(d, t, path);
-        // each step at most its share of the pill (the status gets what they leave)
+        // each step at most its share of the pill
         let share = (path.w - 2.0 * inset) / b.path.len().max(1) as f32 - 2.0 * pad - 14.0;
         let steps: Vec<String> = b.path.iter().map(|s| controls::fit_sans(d, px, s, share.max(3.0 * px))).collect();
         let crumbs = controls::breadcrumb_rounded(d, t, (path.x + inset, y + inset, ih), &steps, ir);
-        let last = crumbs.last().map_or(path.x + inset, |c| c.x + c.w);
         out.path = crumbs.into_iter().filter(|c| c.x + c.w <= path.x + path.w).collect();
-        let status = controls::fit_sans(d, small, b.status, path.x + path.w - end - last - pad);
-        d.sans(last + pad, small_y, small, &status, t.color.muted);
     }
     // the tempo: the play button, the clock's value and what it is
     let tempo = Rect { x: r.tempo_x, y, w: clock_w, h };
@@ -334,7 +330,7 @@ mod tests {
         let t = Tokens::default();
         let mut d = DrawList::new(0.6);
         let path = vec!["main".to_string()];
-        let b = Bar { workspaces: &["Build", "Show"], workspace: 1, path: &path, status: "", play: None, beat: None, clock: Clock::Int, account: Signed::In, pulse: 1.0, logo_frame: 0, pointer: (0.0, 0.0), cpu: None, gpu: None, khz: None, fps: 60.0, slot: 0.0, panicked: host.sub.panicked() };
+        let b = Bar { workspaces: &["Build", "Show"], workspace: 1, path: &path, play: None, beat: None, clock: Clock::Int, account: Signed::In, pulse: 1.0, logo_frame: 0, pointer: (0.0, 0.0), cpu: None, gpu: None, khz: None, fps: 60.0, slot: 0.0, panicked: host.sub.panicked() };
         let placed = draw(&mut d, &t, 1600.0, &b);
         (placed.panic, d.texts().iter().map(|s| s.to_string()).collect())
     }
@@ -361,7 +357,7 @@ mod tests {
         let faces = deck_kit::base::fonts::Faces::shipped(deck_outlet::text::mono_ttf());
         let mut d = DrawList::with_widths(std::sync::Arc::new(faces.widths()));
         let path = vec!["1 Opening".to_string()];
-        let b = Bar { workspaces: &["Build", "Show"], workspace: 0, path: &path, status: "", play: Some(true), beat: Some((120.0, true)), clock: Clock::Int, account: Signed::Signing, pulse: 0.5, logo_frame: 0, pointer: (0.0, 0.0), cpu: Some(Reading { value: 0.2, peak: 0.3 }), gpu: Some(Reading { value: 0.1, peak: 0.1 }), khz: Some(48.0), fps: 60.0, slot: 0.0, panicked: false };
+        let b = Bar { workspaces: &["Build", "Show"], workspace: 0, path: &path, play: Some(true), beat: Some((120.0, true)), clock: Clock::Int, account: Signed::Signing, pulse: 0.5, logo_frame: 0, pointer: (0.0, 0.0), cpu: Some(Reading { value: 0.2, peak: 0.3 }), gpu: Some(Reading { value: 0.1, peak: 0.1 }), khz: Some(48.0), fps: 60.0, slot: 0.0, panicked: false };
         draw(&mut d, &t, 1600.0, &b);
         let texts = d.texts();
         for whole in [deck_native::BUILD, "1 Opening", "120.0", "INT", "48 kHz", "60 fps"] {
@@ -380,7 +376,7 @@ mod tests {
         let t = Tokens::default();
         let mut d = DrawList::new(0.6);
         let path = vec!["main".to_string()];
-        let b = Bar { workspaces: &["Build"], workspace: 0, path: &path, status: "", play: None, beat: Some((128.0, true)), clock, account, pulse, logo_frame: 0, pointer: (0.0, 0.0), cpu: Some(Reading { value: 0.3, peak: 0.3 }), gpu: None, khz: Some(44.1), fps: 59.6, slot: 0.0, panicked: false };
+        let b = Bar { workspaces: &["Build"], workspace: 0, path: &path, play: None, beat: Some((128.0, true)), clock, account, pulse, logo_frame: 0, pointer: (0.0, 0.0), cpu: Some(Reading { value: 0.3, peak: 0.3 }), gpu: None, khz: Some(44.1), fps: 59.6, slot: 0.0, panicked: false };
         let placed = draw(&mut d, &t, 1800.0, &b);
         (d, placed)
     }

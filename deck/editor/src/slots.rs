@@ -75,12 +75,12 @@ impl crate::App {
     pub(crate) fn module_drop(&mut self, address: &str, x: f32, y: f32) {
         let id = address.strip_prefix("module:").unwrap_or(address).to_string();
         let Some(on) = self.slot_under(x, y) else {
-            self.library.refused = Some((x, y, "a module goes on a Modules slot: the camera's in the DOP panel, a member's in its inspector".into()));
+            self.refuse("a module goes on a Modules slot: the camera's in the DOP panel, a member's in its inspector".into(), x, y);
             return;
         };
         let descriptor = self.rigs.module_docs().iter().find(|c| c["id"].as_str() == Some(id.as_str())).and_then(|c| serde_json::from_value::<deck_catalog::Descriptor>(c["descriptor"].clone()).ok());
         let Some(d) = descriptor else {
-            self.library.refused = Some((x, y, format!("module:{id} has no descriptor yet – build it first")));
+            self.refuse(format!("module:{id} has no descriptor yet – build it first"), x, y);
             return;
         };
         let Some(view) = self.scene.as_mut() else { return };
@@ -92,7 +92,7 @@ impl crate::App {
                 };
                 self.scene_changed(Ok(()), format!("{id} on {whose}'s {slot} slot"), x, y);
             }
-            Err(why) => self.library.refused = Some((x, y, why)),
+            Err(why) => self.refuse(why, x, y),
         }
     }
 

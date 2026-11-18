@@ -60,7 +60,7 @@ impl Host {
     pub(super) fn ask_build(&mut self) {
         match self.open_in_build() {
             Ok(t) => self.to_build = Some(t),
-            Err(why) => self.status = why,
+            Err(why) => self.refuse(why),
         }
     }
 
@@ -134,7 +134,7 @@ impl Host {
                 self.status = format!("{piece}: open in Build");
                 self.to_build = Some(ToBuild::Scene(Box::new(open)));
             }
-            Err(why) => self.status = why,
+            Err(why) => self.refuse(why),
         }
     }
 
@@ -173,13 +173,13 @@ impl Host {
     /// was written; the status says what.
     pub fn values_to_cell(&mut self, positions: &[(String, f32)]) -> bool {
         let Some(l) = self.build.clone() else {
-            self.status = "Build is not linked to a cell – open one from Show's cell inspector".into();
+            self.refuse("Build is not linked to a cell – open one from Show's cell inspector".into());
             return false;
         };
         let read = match self.knobs.get(&l.piece) {
             Some(Ok(r)) => r,
             Some(Err(why)) => {
-                self.status = why;
+                self.refuse(why);
                 return false;
             }
             None => {
@@ -189,7 +189,7 @@ impl Host {
         };
         let (taken, left) = values::from_build(positions, &l.prefix, &read.knobs);
         if taken.is_empty() {
-            self.status = format!("none of Build's knobs turns a knob of {}", l.piece);
+            self.refuse(format!("none of Build's knobs turns a knob of {}", l.piece));
             return false;
         }
         let done = self.edit_rows_with(&Edit::Take { row: l.row, column: l.column, positions: taken }, Some(&read.knobs));
