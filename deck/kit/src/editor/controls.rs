@@ -291,6 +291,41 @@ pub fn switch(d: &mut DrawList, t: &Tokens, r: Rect, on: bool) -> Rect {
     r
 }
 
+/// A knob in `r`: a ring of 270° open at the bottom, filled clockwise to `fraction` (0..1), its value inside and its label
+/// under it; `None` = an empty knob place (a page's unused slot), a faint ring only. The place a drag takes.
+pub fn knob(d: &mut DrawList, t: &Tokens, r: Rect, label: &str, value: Option<(&str, f32)>, hot: bool) -> Rect {
+    const SEGMENTS: usize = 36;
+    let small = t.size.small;
+    let radius = ((r.h - small * 1.6) * 0.5).min(r.w * 0.5 - 2.0).max(4.0) * 0.86;
+    let (cx, cy) = (r.x + r.w * 0.5, r.y + radius / 0.86);
+    let thick = (radius * 0.16).clamp(1.5, 4.0);
+    let at = |k: f32| {
+        let a = std::f32::consts::PI * (0.75 + 1.5 * k);
+        (cx + radius * a.cos(), cy + radius * a.sin())
+    };
+    let Some((text, fraction)) = value else {
+        d.ring(cx, cy, radius, t.color.line);
+        return r;
+    };
+    let arc = |d: &mut DrawList, to: f32, thick: f32, color: [f32; 4]| {
+        let n = ((SEGMENTS as f32 * to).ceil() as usize).max(1);
+        for i in 0..n {
+            d.segment(at(to * i as f32 / n as f32), at(to * (i + 1) as f32 / n as f32), thick, color);
+        }
+    };
+    arc(d, 1.0, thick, t.color.within);
+    let f = fraction.clamp(0.0, 1.0);
+    if f > 0.0 {
+        arc(d, f, thick, if hot { t.color.selected } else { t.color.accent });
+    }
+    d.disc(at(f).0, at(f).1, thick * 0.9, t.color.text);
+    let shown = fit_sans(d, small, text, radius * 1.7);
+    d.sans(cx - d.sans_width(small, &shown) * 0.5, cy - small * 0.62, small, &shown, t.color.text);
+    let name = fit_sans(d, small, label, r.w - 2.0);
+    d.sans(cx - d.sans_width(small, &name) * 0.5, r.y + r.h - small * 1.3, small, &name, if hot { t.color.text } else { t.color.muted });
+    r
+}
+
 /// a section's head: its label; the height it took
 pub fn section(d: &mut DrawList, t: &Tokens, x: f32, y: f32, w: f32, label: &str, first: bool) -> f32 {
     if !first {

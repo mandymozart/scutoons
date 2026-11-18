@@ -9,10 +9,12 @@
 //! background_colour = "#rrggbb" | background_image / background_video = "<media path>" (the stage's background), moods = "thinking|sad" (A1, #409: the moods it knows – `ctx.character().mood_index` is the deck's mood's place + 1),
 //! characters = "catpope|yellowmouse.kid" (the characters it is made for: their related modules), slot = "camera.motion" (the
 //! entity's slot it attaches to – deck-catalog `slot`; a slot module runs in the control domain, a motion one has no ports
-//! and gets the transform regions))]`;
+//! and gets the transform regions), sections = ["SRC/OSC 1", "SRC/OSC 2", …] (its parameters' pages, area by area, the
+//! Analog Four's way: descriptor metadata only))]`;
 //! `#[reads("story.act", …)]`; `#[port(input|output, audio|cv|control|event|video, name, channels = n|"any",
 //! sidechain, doc, names / props = "a|b", capacity, path, mode, choices)]`; on `f32` fields `#[param(range = a..b,
-//! default, curve = log, unit, choices = "saw|pulse" (the value is the index), doc)]`; `#[asset(name, kind, max_bytes,
+//! default, curve = log, unit, choices = "saw|pulse" (the value is the index), doc, section = "SRC/OSC 1", slot = 0..7
+//! (its knob on the page, two rows of four; without, the next free one))]`; `#[asset(name, kind, max_bytes,
 //! doc)]`; `#[preset(name, doc, values(p = x, …))]` (the one factory preset).
 //!
 //! Everything it needs is a literal in the source, so the descriptor is a constant: a host reads it without running
@@ -34,6 +36,9 @@ struct Param {
     unit: String,
     choices: Vec<String>,
     doc: String,
+    /// its page (`SRC/OSC 1`) and knob
+    section: Option<(String, Span)>,
+    slot: Option<u8>,
     span: Span,
 }
 
@@ -87,6 +92,8 @@ struct Spec {
     reads: Vec<String>,
     moods: Vec<String>,
     characters: Vec<String>,
+    /// (area, page)
+    sections: Vec<(String, String)>,
     ports: Vec<Port>,
     params: Vec<Param>,
     others: Vec<syn::Ident>,
@@ -107,6 +114,11 @@ fn number(e: &Expr) -> Result<f64, Error> {
 
 fn is_name(s: &str) -> bool {
     !s.is_empty() && s.len() <= 24 && s.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_') && !s.as_bytes()[0].is_ascii_digit()
+}
+
+/// an area's or a page's name: 1 … 24 characters, no '/'
+fn section_name(s: &str) -> bool {
+    !s.trim().is_empty() && s.chars().count() <= 24 && !s.contains('/')
 }
 
 fn snake(s: &str) -> String {
@@ -206,6 +218,22 @@ fn parse_module(a: &Attribute, spec: &mut Spec) -> Result<(), Error> {
                 }
             }
             "characters" => spec.characters = pipe_list(&lit_str(&m)?)?,
+            "sections" => {
+                let e: syn::ExprArray = m.value()?.parse()?;
+                for x in &e.elems {
+                    let Expr::Lit(ExprLit { lit: Lit::Str(s), .. }) = x else {
+                        return Err(Error::new(x.span(), "sections = [\"AREA/PAGE\", …]"));
+                    };
+                    let v = s.value();
+                    let Some((area, page)) = v.split_once('/').filter(|(a, p)| section_name(a) && section_name(p)) else {
+                        return Err(Error::new(s.span(), "a section is \"AREA/PAGE\": two names of 1 … 24 characters, one '/'"));
+                    };
+                    if spec.sections.iter().any(|(a, p)| a == area && p == page) {
+                        return Err(Error::new(s.span(), format!("the section '{v}' is listed twice")));
+                    }
+                    spec.sections.push((area.to_string(), page.to_string()));
+                }
+            }
             "latency" => {
                 let e: Expr = m.value()?.parse()?;
                 let v = number(&e)?;
@@ -225,7 +253,7 @@ fn parse_module(a: &Attribute, spec: &mut Spec) -> Result<(), Error> {
                 };
                 spec.background = Some((which, lit_str(&m)?.value()));
             }
-            _ => return Err(m.error("module(name, domain, doc, needs, wants, latency, background_colour, background_image, background_video, moods, characters, slot)")),
+            _ => return Err(m.error("module(name, domain, doc, needs, wants, latency, background_colour, background_image, background_video, moods, characters, slot, sections)")),
         }
         Ok(())
     })
@@ -308,6 +336,7 @@ fn parse_port(a: &Attribute, spec: &mut Spec) -> Result<(), Error> {
 fn parse_param(f: &syn::Field, a: &Attribute) -> Result<Param, Error> {
     let ident = f.ident.clone().expect("named");
     let (mut range, mut default, mut curve, mut unit, mut choices, mut doc) = (None, None, None, String::new(), Vec::new(), String::new());
+    let (mut section, mut slot) = (None, None);
     a.parse_nested_meta(|m| {
         let key = m.path.get_ident().map(|i| i.to_string()).unwrap_or_default();
         match key.as_str() {
@@ -339,7 +368,19 @@ fn parse_param(f: &syn::Field, a: &Attribute) -> Result<Param, Error> {
             "unit" => unit = lit_str(&m)?.value(),
             "choices" => choices = pipe_list(&lit_str(&m)?)?,
             "doc" => doc = lit_str(&m)?.value(),
-            _ => return Err(m.error("param(range = a..b, default = x, curve, unit, choices, doc)")),
+            "section" => {
+                let s = lit_str(&m)?;
+                section = Some((s.value(), s.span()));
+            }
+            "slot" => {
+                let e: Expr = m.value()?.parse()?;
+                let v = number(&e)?;
+                if !((0.0..8.0).contains(&v) && v.fract() == 0.0) {
+                    return Err(Error::new(e.span(), "slot = 0 … 7: the knob on its page (two rows of four)"));
+                }
+                slot = Some(v as u8);
+            }
+            _ => return Err(m.error("param(range = a..b, default = x, curve, unit, choices, doc, section, slot)")),
         }
         Ok(())
     })?;
@@ -375,7 +416,10 @@ fn parse_param(f: &syn::Field, a: &Attribute) -> Result<Param, Error> {
     if !is_name(&name) {
         return Err(Error::new(ident.span(), "a parameter's name is lowercase letters, digits and _ (at most 24)"));
     }
-    Ok(Param { span: ident.span(), ident, name, min, max, default, curve, unit, choices, doc })
+    if slot.is_some() && section.is_none() {
+        return Err(Error::new(a.span(), "a slot is a knob on a page: name its section = \"AREA/PAGE\""));
+    }
+    Ok(Param { span: ident.span(), ident, name, min, max, default, curve, unit, choices, doc, section, slot })
 }
 
 fn parse_asset(a: &Attribute, spec: &mut Spec) -> Result<(), Error> {
@@ -460,6 +504,7 @@ fn parse(input: &DeriveInput) -> Result<Spec, Error> {
         reads: vec![],
         moods: vec![],
         characters: vec![],
+        sections: vec![],
         ports: vec![],
         params: vec![],
         others: vec![],
@@ -528,6 +573,42 @@ fn group(kind: &str) -> &'static str {
     }
 }
 
+/// Each parameter's knob on its page: declared pages only, every parameter on one once there are sections, a free knob
+/// (without `slot` the next free one in declaration order), no page empty.
+fn place_sections(spec: &Spec) -> Result<Vec<Option<u8>>, Error> {
+    let keys: Vec<String> = spec.sections.iter().map(|(a, p)| format!("{a}/{p}")).collect();
+    let mut taken = vec![[false; 8]; keys.len()];
+    let mut out = vec![None; spec.params.len()];
+    let page_of = |p: &Param| -> Result<Option<usize>, Error> {
+        match &p.section {
+            None if !keys.is_empty() => Err(Error::new(p.span, "the module has sections: name this parameter's section = \"AREA/PAGE\"")),
+            None => Ok(None),
+            Some((s, span)) => keys.iter().position(|k| k == s).map(Some).ok_or_else(|| Error::new(*span, format!("section '{s}' is not in #[module(sections = [...])]"))),
+        }
+    };
+    for (i, p) in spec.params.iter().enumerate() {
+        if let (Some(k), Some(slot)) = (page_of(p)?, p.slot) {
+            if std::mem::replace(&mut taken[k][slot as usize], true) {
+                return Err(Error::new(p.span, format!("knob {slot} of '{}' is taken", keys[k])));
+            }
+            out[i] = Some(slot);
+        }
+    }
+    for (i, p) in spec.params.iter().enumerate() {
+        if let (Some(k), None) = (page_of(p)?, p.slot) {
+            let Some(free) = taken[k].iter().position(|t| !t) else {
+                return Err(Error::new(p.span, format!("'{}' is full: a page holds eight", keys[k])));
+            };
+            taken[k][free] = true;
+            out[i] = Some(free as u8);
+        }
+    }
+    if let Some(k) = taken.iter().position(|t| !t.contains(&true)) {
+        return Err(Error::new(Span::call_site(), format!("section '{}' holds no parameter", keys[k])));
+    }
+    Ok(out)
+}
+
 /// what the derive writes (research/ABI-V2.md)
 fn module(ty: &syn::Ident, spec: &Spec) -> Result<proc_macro2::TokenStream, Error> {
     unique_names(spec)?;
@@ -580,6 +661,7 @@ fn module(ty: &syn::Ident, spec: &Spec) -> Result<proc_macro2::TokenStream, Erro
         }
         asset_names.push(&a.name);
     }
+    let slots = place_sections(spec)?;
     let mut preset_values: Vec<(usize, f64)> = vec![];
     if let Some(preset) = &spec.preset {
         for (k, v, span) in &preset.values {
@@ -614,10 +696,15 @@ fn module(ty: &syn::Ident, spec: &Spec) -> Result<proc_macro2::TokenStream, Erro
     if let Some((which, value)) = &spec.background {
         json += &format!(",\"background\":{{\"{which}\":{}}}", js(value));
     }
+    if !spec.sections.is_empty() {
+        let list: Vec<String> = spec.sections.iter().map(|(a, p)| format!("{{\"area\":{},\"page\":{}}}", js(a), js(p))).collect();
+        json += &format!(",\"sections\":[{}]", list.join(","));
+    }
     let params: Vec<String> = spec
         .params
         .iter()
-        .map(|p| {
+        .zip(&slots)
+        .map(|(p, slot)| {
             let mut s = format!("{{\"name\":{},\"min\":{},\"max\":{},\"default\":{}", js(&p.name), json_f(p.min), json_f(p.max), json_f(p.default));
             if let Some(c) = p.curve {
                 s += &format!(",\"curve\":{}", js(c));
@@ -631,6 +718,9 @@ fn module(ty: &syn::Ident, spec: &Spec) -> Result<proc_macro2::TokenStream, Erro
             s += ",\"port\":true";
             if !p.doc.is_empty() {
                 s += &format!(",\"doc\":{}", js(&p.doc));
+            }
+            if let (Some((section, _)), Some(slot)) = (&p.section, slot) {
+                s += &format!(",\"section\":{},\"slot\":{slot}", js(section));
             }
             s + "}"
         })

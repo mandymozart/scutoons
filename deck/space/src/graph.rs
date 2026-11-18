@@ -262,6 +262,19 @@ impl Kind {
             _ => None,
         }
     }
+
+    /// a module's sections' pages in order; none without sections (and for a built-in)
+    pub fn pages(self) -> &'static [crate::modreg::PageSpec] {
+        match self {
+            Kind::Module(m) => m.spec().pages,
+            _ => &[],
+        }
+    }
+
+    /// the page (`area/page`) a module's parameter `port` sits on
+    pub fn page(self, port: &str) -> Option<&'static str> {
+        self.pages().iter().find(|p| p.slots.contains(&Some(port))).map(|p| p.key)
+    }
 }
 
 #[derive(Debug, Clone)]

@@ -13,6 +13,33 @@ fn descriptor() -> Descriptor {
 
 // ── the declaration ─────────────────────────────────────────────────────────────────────────────────────────────
 
+/// the Analog Four's pages: five areas, every page eight knobs at most, twin pages with one idea on one knob
+#[test]
+fn the_parameters_sit_on_the_analog_fours_pages() {
+    let d = descriptor();
+    let g = d.param_groups();
+    assert_eq!(g.iter().map(|g| (g.name.as_str(), g.pages.len())).collect::<Vec<_>>(), [("SRC", 3), ("FLTR", 3), ("AMP", 2), ("LFO", 4), ("VOICE", 1)]);
+    assert_eq!(g.iter().map(|g| g.params.len()).sum::<usize>(), PARAM_NAMES.len(), "every parameter on a page");
+    let page = |area: &str, name: &str| g.iter().find(|x| x.name == area).and_then(|x| x.pages.iter().find(|p| p.name == name)).unwrap_or_else(|| panic!("{area}/{name}"));
+    let stem = |n: &Option<String>| n.as_deref().map(|n| n.split_once('_').map_or(n, |(_, rest)| rest).to_string());
+    for (area, a, b) in [("SRC", "OSC 1", "OSC 2"), ("FLTR", "FILTER 1", "FILTER 2"), ("LFO", "LFO 1", "LFO 2"), ("LFO", "LFO 1 DEST", "LFO 2 DEST")] {
+        let (a, b) = (page(area, a), page(area, b));
+        for k in 0..8 {
+            if a.slots[k].is_some() {
+                assert_eq!(stem(&a.slots[k]), stem(&b.slots[k]), "{} / {} knob {k}", a.name, b.name);
+            }
+        }
+    }
+    // the two-channel pages: channel 1 on the top row, channel 2 on the bottom row, the same knobs
+    for (area, name) in [("FLTR", "FILTER ENV"), ("AMP", "AMP"), ("AMP", "AMP ENV")] {
+        let p = page(area, name);
+        for k in 0..4 {
+            assert_eq!(stem(&p.slots[k]), stem(&p.slots[k + 4]), "{name} knob {k}");
+        }
+    }
+    assert_eq!(page("SRC", "OSC 2").slots[7].as_deref(), Some("o2_sync"), "sync on osc 2, the follower");
+}
+
 #[test]
 fn the_descriptor_declares_the_ports_and_every_parameter() {
     let d = descriptor();

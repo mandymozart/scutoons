@@ -83,7 +83,7 @@ fn ai_graph(name: &'static str, doc: &'static str) -> PortDesc {
 }
 
 fn param(name: &'static str, curve: Curve, min: f32, max: f32, default: Option<f32>, unit: &'static str, doc: &'static str) -> ParamDesc {
-    ParamDesc { name: Cow::Borrowed(name), min, max, default, curve, unit: Cow::Borrowed(unit), choices: Cow::Borrowed(&[]), port: true, doc: Cow::Borrowed(d(doc)) }
+    ParamDesc { name: Cow::Borrowed(name), min, max, default, curve, unit: Cow::Borrowed(unit), choices: Cow::Borrowed(&[]), port: true, doc: Cow::Borrowed(d(doc)), section: Cow::Borrowed(""), slot: None }
 }
 fn lin(name: &'static str, min: f32, max: f32, default: f32, unit: &'static str, doc: &'static str) -> ParamDesc {
     param(name, Curve::Lin, min, max, Some(default), unit, doc)
@@ -107,6 +107,8 @@ fn choice(name: &'static str, choices: &[Cow<'static, str>], doc: &'static str) 
         choices: Cow::Owned(choices.to_vec()),
         port: false,
         doc: Cow::Borrowed(d(doc)),
+        section: Cow::Borrowed(""),
+        slot: None,
     }
 }
 /// a number parameter without a port
@@ -164,6 +166,7 @@ fn kind(
         latency: 0,
         ports: Cow::Owned(ports.to_vec()),
         params: Cow::Owned(params.to_vec()),
+        sections: Cow::Borrowed(&[]),
         assets: Cow::Borrowed(&[]),
         preset: None,
         background: None,

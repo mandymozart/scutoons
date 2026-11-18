@@ -65,17 +65,17 @@ impl Module for Gain {
     }
 }
 
-/// a synth's skeleton: note events in, a choice parameter, a log curve, the factory preset
+/// a synth's skeleton: note events in, a choice parameter, a log curve, the factory preset, its parameters on pages
 #[derive(Module)]
-#[module(name = "synth", latency = 32)]
+#[module(name = "synth", latency = 32, sections = ["SRC/OSC", "FLTR/FILTER"])]
 #[port(input, event, name = "notes", names = "music.note", props = "pitch|vel|glide|key", capacity = 8)]
 #[port(input, control, name = "sustain")]
 #[port(output, audio, name = "out", channels = 2)]
 #[preset(name = "bright", doc = "open and sawtooth", values(cutoff = 6000.0, wave = 0))]
 struct Synth {
-    #[param(choices = "saw|pulse|triangle|sine", default = 3, doc = "waveform")]
+    #[param(choices = "saw|pulse|triangle|sine", default = 3, doc = "waveform", section = "SRC/OSC", slot = 4)]
     wave: f32,
-    #[param(range = 20.0..20000.0, default = 800.0, curve = log, unit = "Hz")]
+    #[param(range = 20.0..20000.0, default = 800.0, curve = log, unit = "Hz", section = "FLTR/FILTER")]
     cutoff: f32,
     held: [u32; 8],
     voices: usize,
@@ -202,8 +202,8 @@ fn the_host_computes_the_layout_the_derive_compiled() {
 }
 
 /// the hash a module exports as `dm_layout()`, frozen for these descriptors: a change here means every module built
-/// before is refused by the host – only together with a new ABI version (§7). `Policy` lists `moods` (A1, #409): a list
-/// that places no byte, so its hash is the one it had before
+/// before is refused by the host – only together with a new ABI version (§7). `Policy` lists `moods` (A1, #409) and
+/// `Synth` its sections: lists that place no byte, so their hashes are the ones they had before
 #[test]
 fn the_layout_hash_of_the_fixture_modules_is_frozen() {
     let got = [Gain::LAYOUT, Synth::LAYOUT, Policy::LAYOUT, Tilt::LAYOUT].map(|l| (l.size, l.hash));
@@ -237,6 +237,11 @@ fn the_derive_writes_the_descriptor() {
     let preset = s.preset.as_ref().unwrap();
     assert_eq!((preset.name.as_str(), preset.values["cutoff"], preset.values["wave"]), ("bright", 6000.0, 0.0));
     assert_eq!(Synth::PRESET, &[(1, 6000.0), (0, 0.0)]);
+    // sections: the pages in order, each parameter on its knob (a free one when it names none); none = none in the JSON
+    assert_eq!(s.sections.iter().map(|x| x.key()).collect::<Vec<_>>(), ["SRC/OSC", "FLTR/FILTER"]);
+    assert_eq!((s.params[0].section.as_ref(), s.params[0].slot, s.params[1].section.as_ref(), s.params[1].slot), ("SRC/OSC", Some(4), "FLTR/FILTER", Some(0)));
+    assert_eq!(s.param_groups().iter().map(|g| (g.name.as_str(), g.params.len())).collect::<Vec<_>>(), [("SRC", 1), ("FLTR", 1)]);
+    assert!(!Gain::DESCRIPTOR.contains("section") && !Gain::DESCRIPTOR.contains("slot"));
 
     let p = parse(Policy::DESCRIPTOR).unwrap();
     assert_eq!(p.domain, CatalogDomain::Control);
@@ -304,6 +309,9 @@ fn a_descriptor_with_every_field_round_trips_through_validate() {
     // the catalog's rules hold for modules too: a misplaced field is refused by the host
     assert!(parse(&json.replace(r#""sidechain":true"#, r#""sidechain":true,"path":"x.y""#)).unwrap_err().contains("control outputs"));
     assert!(parse(&json.replace(r#""drive":0.25"#, r#""drive":2"#)).unwrap_err().contains("outside"));
+    // and the sections' rules: a parameter on a page that is not declared
+    let paged = json.replace(r#""default":800}"#, r#""default":800,"section":"A/B","slot":0}"#);
+    assert!(parse(&paged).unwrap_err().contains("not declared"));
 }
 
 #[test]
