@@ -383,7 +383,7 @@ impl Host {
                     self.typing = Some((Typing::Ask(q.id, AskField::Text), Field::with("")));
                 }
             }
-            Err(why) => self.status = why,
+            Err(why) => self.refuse(why),
         }
     }
 

@@ -284,13 +284,13 @@ impl crate::App {
                 self.drop_scene();
                 self.scene = Some(view);
                 if let Err(err) = self.stage.play_scene(&id, scene) {
-                    return self.say(format!("scene:{id}: {err:#}"), x, y, true);
+                    return self.refuse(format!("scene:{id}: {err:#}"), x, y);
                 }
                 self.stage.space.open_on_scene_camera();
                 let line = std::iter::once(format!("scene:{id} in Build")).chain(notes).collect::<Vec<_>>().join(" – ");
-                self.say(line, x, y, false);
+                self.note(line);
             }
-            Err(why) => self.say(why, x, y, true),
+            Err(why) => self.refuse(why, x, y),
         }
     }
 
@@ -304,10 +304,10 @@ impl crate::App {
         match view.scene() {
             Ok(scene) => {
                 if let Err(err) = self.stage.play_scene(&id, scene) {
-                    self.say(format!("scene:{id}: {err:#}"), x, y, true);
+                    self.refuse(format!("scene:{id}: {err:#}"), x, y);
                 }
             }
-            Err(why) => self.say(why, x, y, true),
+            Err(why) => self.refuse(why, x, y),
         }
     }
 
@@ -334,12 +334,12 @@ impl crate::App {
         let (x, y) = self.cursor;
         let Some(view) = self.scene.as_mut() else { return };
         let Some(member) = view.edit.members.get(m).cloned() else { return };
-        let Some(own) = member.bundle.clone() else { return self.say(format!("{}: its rig is not at hand", member.holder), x, y, true) };
+        let Some(own) = member.bundle.clone() else { return self.refuse(format!("{}: its rig is not at hand", member.holder), x, y) };
         let bundle = with_values(&own, &view.edit.positions(m));
         (view.inside, view.sel) = (Some(m), Part::Member(m));
         self.stage.path.clear();
         if let Err(err) = self.stage.replay(bundle) {
-            return self.say(format!("{err:#}"), x, y, true);
+            return self.refuse(format!("{err:#}"), x, y);
         }
         self.stage.base = own;
         (self.undo, self.sel, self.armed) = (Vec::new(), crate::inspector::Sel::Rig, None);
@@ -348,7 +348,7 @@ impl crate::App {
         if let Some(l) = self.show.build.as_mut() {
             (l.place, l.prefix) = (member.place.clone(), member.prefix.clone().unwrap_or_default());
         }
-        self.say(format!("{} · {} as its rig: its knobs go into the scene when you go back up", member.holder, member.filler), x, y, false);
+        self.note(format!("{} · {} as its rig: its knobs go into the scene when you go back up", member.holder, member.filler));
     }
 
     /// Build's knobs of the member open go into the scene (the core says which it takes); the member leaves the stage
@@ -377,11 +377,10 @@ impl crate::App {
 
     /// back up from a member to the scene
     pub(crate) fn scene_up(&mut self) {
-        let (x, y) = self.cursor;
         let Some(said) = self.take_member_out() else { return };
         self.stage.path.clear();
         self.replay_scene();
-        self.say(said, x, y, false);
+        self.note(said);
     }
 
     /// the scene's draft on its way (saving.rs): Build's knobs of the member open go into it first

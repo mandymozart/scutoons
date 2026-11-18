@@ -20,6 +20,7 @@ mod empty;
 mod gpu_time;
 mod grid;
 mod library;
+mod log;
 mod logo;
 mod mixer;
 mod module;
@@ -39,6 +40,7 @@ mod scene_stage;
 mod settings;
 mod show;
 mod slots;
+mod status;
 mod sign_in;
 mod tools;
 mod toon;
@@ -146,6 +148,8 @@ struct Args {
     tools_folded: bool,
     /// a check run's panels closed in every workspace, and the main menu open
     closed: Vec<String>,
+    /// the Log panel open in every workspace
+    log: bool,
     main_menu: bool,
     /// a check run's colour picker on the shown background: open | pick | drop:X,Y | take:X,Y (colour.rs `script_colour`)
     colour: Option<String>,
@@ -168,7 +172,7 @@ struct Args {
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, save_state: None, tools_folded: false, closed: Vec::new(), main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false, library_related: false, pan: None, camera: false, dop: None, scene_file: None, nodes: None, node_zoom: None, open: None, page: None };
+    let mut a = Args { module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, save_state: None, tools_folded: false, closed: Vec::new(), log: false, main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false, library_related: false, pan: None, camera: false, dop: None, scene_file: None, nodes: None, node_zoom: None, open: None, page: None };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -266,6 +270,8 @@ fn args() -> Result<Args> {
             "--node-zoom" => a.node_zoom = Some(val()?.parse()?),
             "--dop" => a.dop = Some(val()?),
             "--scene-file" => a.scene_file = Some(PathBuf::from(val()?)),
+            "--log" => a.log = true,
+            "--log-info" => {}
             "--close" => a.closed.extend(val()?.split(',').map(str::trim).filter(|n| !n.is_empty()).map(String::from)),
             "--main-menu" => a.main_menu = true,
             "--open-build" => a.script.open_build = true,
@@ -487,6 +493,8 @@ enum Editing {
     Height,
     /// a layer's picture
     SceneLayer(usize),
+    /// the Log panel's find
+    LogFind,
 }
 
 /// a value being typed, in place of its field
@@ -514,14 +522,6 @@ struct Menu {
 }
 
 /// a sentence at the place of a gesture, for a few seconds
-struct Notice {
-    text: String,
-    x: f32,
-    y: f32,
-    until: Instant,
-    bad: bool,
-}
-
 /// the inspector's state and this frame's hit rectangles
 struct Panel {
     tab: Tab,
@@ -563,7 +563,11 @@ struct App {
     /// the Wire side: the ports show, a drag from one is a cable
     wire: bool,
     marks: Vec<Mark>,
-    notice: Option<Notice>,
+    /// the messages: the status bar's newest and counts, the Log panel's lines
+    log: log::Log,
+    /// the Log panel's places and the status bar's that open it, this frame
+    log_hits: Vec<(Rect, log::Press)>,
+    opens_log: Vec<Rect>,
     /// the rigs before each change: ctrl+z
     undo: Vec<deck_space::rig::Bundle>,
     draft: rigs::Copy,
@@ -638,7 +642,13 @@ struct App {
 const LOCALE: &str = "en";
 
 fn main() {
-    tracing_subscriber::fmt().with_env_filter(tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info,wgpu_core=warn,wgpu_hal=error,naga=warn".into())).init();
+    use tracing_subscriber::layer::SubscriberExt;
+    use tracing_subscriber::util::SubscriberInitExt;
+    use tracing_subscriber::Layer;
+    let filter = tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info,wgpu_core=warn,wgpu_hal=error,naga=warn".into());
+    // the technical log goes to stderr and into the Log panel (info there only with --log-info)
+    let info = std::env::args().any(|a| a == "--log-info");
+    tracing_subscriber::registry().with(tracing_subscriber::fmt::layer().with_filter(filter)).with(log::Tech::new(info)).init();
     match run() {
         Ok(code) => std::process::exit(code),
         Err(e) => {
@@ -748,6 +758,11 @@ fn run() -> Result<i32> {
             p.floats.reopen(panels::SETTINGS);
         }
     }
+    if args.log {
+        for p in [&mut build, &mut app_module.panels, &mut app_show.show_panels, &mut app_show.perform_panels] {
+            p.floats.reopen(log::PANEL);
+        }
+    }
     for id in &args.closed {
         for p in [&mut build, &mut app_module.panels, &mut app_show.show_panels, &mut app_show.perform_panels] {
             p.floats.close(id);
@@ -782,7 +797,9 @@ fn run() -> Result<i32> {
         token_changes: 0,
         wire,
         marks: Vec::new(),
-        notice: None,
+        log: log::Log::default(),
+        log_hits: Vec::new(),
+        opens_log: Vec::new(),
         undo: Vec::new(),
         draft,
         reach: Vec::new(),
@@ -942,9 +959,8 @@ impl App {
 
     /// a press on the tools pill, or an option its menu or a key picked
     fn tool_press(&mut self, p: tools::Press) {
-        let (x, y) = self.cursor;
         if let Some(why) = tools::later(p) {
-            return self.say(why.to_string(), x, y, false);
+            return self.note(why.to_string());
         }
         match p {
             tools::Press::Tool(tool) => self.tools.tool = tool,
@@ -1306,15 +1322,20 @@ impl App {
             }
             return;
         }
+        if self.press_status(x, y) {
+            return;
+        }
         // a panel's handle takes it in the hand, its chevron folds it, its close closes it
         if self.panels_mut().floats.press(x, y) {
             self.panels_moved = true;
             return;
         }
+        if self.press_log(x, y) {
+            return;
+        }
         if self.workspace == show::Workspace::Show && self.show.nodes.space && self.show.nodes_grab(x, y) {
             return;
         }
-        self.library.refused = None;
         match self.library.browser.press(x, y, library::now()) {
             Some(did) => return self.library_did(did),
             None => self.library.browser.stop_typing(),
@@ -1367,7 +1388,11 @@ impl App {
                     None if line.is_empty() => "signed in".to_string(),
                     None => line,
                 };
-                self.say(said, x, y, self.auth.state() == sign_in::Signed::Out);
+                if self.auth.state() == sign_in::Signed::Out {
+                    self.refuse(said, x, y);
+                } else {
+                    self.note(said);
+                }
             }
             Hit::Tempo | Hit::Meters => {}
             Hit::Ground => {}
@@ -1421,7 +1446,7 @@ impl App {
                             self.reach = self.at_level(reach);
                             self.panel.drag = Some(Drag::Grab(i));
                         }
-                        Err(sentence) => self.say(sentence, x, y, true),
+                        Err(sentence) => self.refuse(sentence, x, y),
                     }
                 } else {
                     let reach = wires::reachable(&self.stage.bundle, &self.stage.ports, p);
@@ -1677,6 +1702,7 @@ impl App {
             Editing::Focal => self.dop_focal(&text),
             Editing::Height => self.dop_height(&text),
             Editing::SceneLayer(l) => self.scene_layer(l, &text),
+            Editing::LogFind => self.log.find = text,
         }
     }
 
@@ -1692,7 +1718,7 @@ impl App {
                     self.undo.push(before);
                 }
             }
-            Err(e) => self.say(e, x, y, true),
+            Err(e) => self.refuse(e, x, y),
         }
     }
 
@@ -1702,9 +1728,9 @@ impl App {
         match view.edit.set_background(text) {
             Ok(said) => {
                 self.replay_scene();
-                self.say(said, x, y, false);
+                self.note(said);
             }
-            Err(e) => self.say(e, x, y, true),
+            Err(e) => self.refuse(e, x, y),
         }
     }
 
@@ -1726,7 +1752,7 @@ impl App {
                 self.stage.bundle = next;
                 self.drafted(x, y);
             }
-            Err(sentence) => self.say(sentence, x, y, true),
+            Err(sentence) => self.refuse(sentence, x, y),
         }
     }
 
@@ -1744,7 +1770,7 @@ impl App {
             rigs::Copy::Outbox => self.rigs.keep(base, now),
             rigs::Copy::File(f) => {
                 if let Err(e) = wires::save_draft(f, base, now, self.rigs.auto.version) {
-                    self.say(format!("{e:#}"), x, y, true);
+                    self.refuse(format!("{e:#}"), x, y);
                 }
             }
             rigs::Copy::Nothing => {}
@@ -1890,7 +1916,7 @@ impl App {
         }
     }
 
-    /// Build's rig on the server (rigs.rs): what its threads answered goes onto the stage and into the notice
+    /// Build's rig on the server (rigs.rs): what its threads answered goes onto the stage and into the messages
     fn follow_rigs(&mut self) {
         let (x, y) = self.cursor;
         for e in self.rigs.poll(self.auth.token().is_some()) {
@@ -1900,7 +1926,7 @@ impl App {
                     self.drop_scene();
                     self.stage.path.clear();
                     if let Err(err) = self.stage.replay(plays) {
-                        self.say(format!("{err:#}"), x, y, true);
+                        self.refuse(format!("{err:#}"), x, y);
                         continue;
                     }
                     self.stage.base = base;
@@ -1916,7 +1942,8 @@ impl App {
                         _ => self.keep_copy(x, y),
                     }
                 }
-                rigs::Event::Say(text, bad) => self.say(text, x, y, bad),
+                rigs::Event::Say(text, true) => self.refuse(text, x, y),
+                rigs::Event::Say(text, false) => self.note(text),
             }
         }
     }
@@ -1939,7 +1966,7 @@ impl App {
                 let subject = o.bundle.rig.subject.clone();
                 self.stage.path.clear();
                 if let Err(err) = self.stage.replay(o.bundle.clone()) {
-                    return self.say(format!("{err:#}"), x, y, true);
+                    return self.refuse(format!("{err:#}"), x, y);
                 }
                 self.stage.base = o.bundle;
                 for (path, v) in set {
@@ -1952,12 +1979,10 @@ impl App {
                 (self.undo, self.sel, self.armed) = (Vec::new(), inspector::Sel::Rig, None);
                 self.draft = rigs::Copy::Outbox;
                 self.leveled = !self.wire;
-                let line = self.show.status.clone();
-                self.say(line, x, y, false);
             }
             show::build::ToBuild::Server(subject) => {
                 if let Err(e) = self.rigs.open(&subject) {
-                    self.say(format!("{subject}: {e}"), x, y, true);
+                    self.refuse(format!("{subject}: {e}"), x, y);
                 }
             }
         }
@@ -1975,12 +2000,12 @@ impl App {
             }
             let id = self.show.compose.id.clone();
             if let Err(err) = self.stage.play_scene(&id, scene) {
-                self.say(format!("scene:{id}: {err:#}"), x, y, true);
+                self.refuse(format!("scene:{id}: {err:#}"), x, y);
             }
         }
         if self.workspace == show::Workspace::Build && self.stage.scene.is_some() && self.scene.is_none() {
             if let Err(err) = self.stage.replay(self.stage.bundle.clone()) {
-                self.say(format!("{err:#}"), x, y, true);
+                self.refuse(format!("{err:#}"), x, y);
             }
             self.stage.scene = None;
         }
@@ -1993,9 +2018,9 @@ impl App {
     fn knobs_to_cell(&mut self) {
         let positions: Vec<(String, f32)> = self.stage.knobs.iter().map(|k| (k.path.clone(), self.stage.value(k))).collect();
         let done = self.show.values_to_cell(&positions);
-        let (x, y) = self.cursor;
-        let line = self.show.status.clone();
-        self.say(line, x, y, !done);
+        if !done {
+            self.show.bad = true;
+        }
     }
 
     /// the rig picker: the toon's rigs on the server, the local copy when it differs; why there are none inside it
@@ -2021,7 +2046,7 @@ impl App {
                 Some(rigs::Choice::Server(subject)) => {
                     self.leave_view();
                     if let Err(e) = self.rigs.open(&subject) {
-                        self.say(e, x, y, true);
+                        self.refuse(e, x, y);
                     }
                 }
                 Some(rigs::Choice::Local) => {
@@ -2179,26 +2204,31 @@ impl App {
                 let before = self.stage.bundle.clone();
                 if self.take(next, x, y) {
                     self.undo.push(before);
-                    self.say(text, x, y, false);
+                    self.note(text);
                 }
             }
-            Err(sentence) => self.say(sentence, x, y, true),
+            Err(sentence) => self.refuse(sentence, x, y),
         }
     }
 
     /// a changed rig on the stage and in the draft; false and the sentence when it does not play
     fn take(&mut self, next: deck_space::rig::Bundle, x: f32, y: f32) -> bool {
         if let Err(e) = self.stage.replay(next) {
-            self.say(format!("{e:#}"), x, y, true);
+            self.refuse(format!("{e:#}"), x, y);
             return false;
         }
         self.drafted(x, y);
         true
     }
 
-    fn say(&mut self, text: String, x: f32, y: f32, bad: bool) {
-        tracing::info!("wire: {}{text}", if bad { "refused: " } else { "" });
-        self.notice = Some(Notice { text, x, y, until: Instant::now() + std::time::Duration::from_secs(6), bad });
+    /// what the editor did or found, to the status bar and the Log
+    fn note(&mut self, text: String) {
+        log::post(deck_ui::messages::Level::Info, "editor", text);
+    }
+
+    /// a press or a drop refused at (x, y): a short ring there, the sentence to the status bar and the Log
+    fn refuse(&mut self, text: String, x: f32, y: f32) {
+        self.log.refuse(text, (x, y));
     }
 
     fn take_back(&mut self) {
@@ -2345,7 +2375,7 @@ impl App {
             self.stage.panic();
         } else if let Err(err) = self.stage.resume() {
             let (x, y) = self.cursor;
-            self.say(format!("{err:#}"), x, y, true);
+            self.refuse(format!("{err:#}"), x, y);
         }
     }
 
@@ -2445,7 +2475,8 @@ impl App {
         self.show.help.clone_from(&help);
         let enabled: Vec<(bar::Action, bool)> = bar::MENU.iter().map(|(a, ..)| (*a, self.menu_why_not(*a).is_none())).collect();
         let grab = panels::cursor(&self.panels().floats, self.cursor);
-        let pill = self.save_pill();
+        self.take_messages();
+        let words = self.state_words();
         let account = self.auth.state();
         let fps = self.fps();
         let look = self.looking();
@@ -2565,38 +2596,18 @@ impl App {
         self.marks.clear();
         self.clusters.clear();
         let (pad, font, row) = (t.size.pad, t.size.font, t.size.row);
-        // the toolbar: the path of what is open and a word of status (Build: the numbers of the gates, a broken tokens
-        // file first: the pill cuts from the end)
+        // the toolbar: the path of what is open, nothing else (the state words are the status bar's)
         let build = self.workspace == show::Workspace::Build;
-        let (path, status) = if build {
-            let glitches = self.stage.glitches();
-            let status = format!(
-                "{}{}",
-                self.tokens.problem.as_ref().map(|p| format!("{p} – ")).unwrap_or_default(),
-                if glitches > 0 { format!("{glitches} glitches") } else { String::new() },
-            );
-            let status = if self.undo.is_empty() { status } else { format!("{} change{}{}{status}", self.undo.len(), if self.undo.len() == 1 { "" } else { "s" }, if status.is_empty() { "" } else { " · " }) };
+        let path: Vec<String> = if build {
             let open = self.scene.as_ref().map_or_else(|| self.stage.bundle.rig.subject.clone(), |v| v.crumb());
-            let path: Vec<String> = std::iter::once(open).chain(self.stage.path.iter().cloned()).collect();
-            let join = |a: String| if status.is_empty() { a } else { format!("{a} · {status}") };
-            let status = match (self.show.build_line(), &self.scene) {
-                (Some(l), _) => join(l),
-                (None, Some(v)) => join(v.title()),
-                (None, None) => status.clone(),
-            };
-            (path, status)
+            std::iter::once(open).chain(self.stage.path.iter().cloned()).collect()
         } else if self.workspace == show::Workspace::Module {
-            (vec![self.module.open.as_ref().map_or_else(|| "module".to_string(), module::Open::key)], self.stage.audio.clone())
+            vec![self.module.open.as_ref().map_or_else(|| "module".to_string(), module::Open::key)]
         } else if self.workspace == show::Workspace::Show {
             let row = self.show.shown().rows.get(self.show.row).map(|r| format!("{} {}", self.show.row + 1, r.id)).unwrap_or_default();
-            (self.show.crumbs().into_iter().chain(std::iter::once(row).filter(|r| !r.is_empty())).collect(), self.show.link_line())
+            self.show.crumbs().into_iter().chain(std::iter::once(row).filter(|r| !r.is_empty())).collect()
         } else {
-            (vec![self.show.sub.conductor().show().id.clone()], self.show.link_line())
-        };
-        let status = match pill {
-            Some(p) if status.is_empty() => p,
-            Some(p) => format!("{p} · {status}"),
-            None => status,
+            vec![self.show.sub.conductor().show().id.clone()]
         };
         let names = show::WORKSPACES.map(|(_, n)| n);
         // reduce motion stills the animated logo
@@ -2608,7 +2619,6 @@ impl App {
             workspaces: &names,
             workspace: self.workspace.index(),
             path: &path,
-            status: &status,
             play: build.then_some(self.wire),
             beat: self.stage.beat,
             clock: bar::Clock::Int,
@@ -3097,7 +3107,7 @@ impl App {
         for r in self.build.grounds(&panels::BUILD.map(|s| s.id)) {
             self.panel.hits.push((r, Hit::Ground));
         }
-        // over the panels: a cable in the hand, where it would land, a notice
+        // over the panels: a cable in the hand, where it would land
         if self.wire {
             if let Some(Drag::Cable(a)) = self.panel.drag {
                 if let Some(m) = self.marks.iter().find(|m| m.port == a) {
@@ -3116,12 +3126,6 @@ impl App {
                     controls::chip(ui, t, (self.cursor.0 + 14.0, self.cursor.1 + 14.0), wf, &format!("{} · {}", q.address, q.ty), false);
                 }
             }
-        }
-        if self.notice.as_ref().is_some_and(|n| Instant::now() > n.until) {
-            self.notice = None;
-        }
-        if let Some(n) = &self.notice {
-            controls::chip(ui, t, (n.x + 14.0, n.y - 34.0), wf, &n.text, n.bad);
         }
         if let Some(c) = &self.carry {
             c.draw(ui, t, wf);
@@ -3201,10 +3205,21 @@ impl App {
                 self.settings_hits = places;
             }
         }
+        // the Log panel and the status bar, in every workspace
+        {
+            let typing = self.edit.as_ref().filter(|e| e.what == Editing::LogFind).map(|e| e.field.text.clone());
+            let ws = match self.workspace {
+                show::Workspace::Build => &mut self.build,
+                show::Workspace::Module => &mut self.module.panels,
+                show::Workspace::Show => &mut self.show.show_panels,
+                show::Workspace::Perform => &mut self.show.perform_panels,
+            };
+            (self.log_hits, self.opens_log) = status::draw(ui, t, (wf, hf), &self.log, ws, (typing.as_deref(), &words), self.cursor);
+        }
         self.tools.draw_menu(ui, t, (wf, hf), self.cursor);
         let value = self.colour.target().and_then(|target| colour::value(target, &self.stage, self.scene.as_ref(), &self.show));
         self.colour.draw(ui, t, (wf, hf), value, self.cursor);
-        self.library.over(ui, t, wf);
+        self.log.draw_ring(ui, t);
         // the main menu over everything, the workspace's panels under its lines
         self.menu_lines.clear();
         if self.main_menu {

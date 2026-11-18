@@ -88,7 +88,7 @@ impl crate::App {
                 }
             }
             Way::NewModule => {
-                let Some(c) = character(&self.stage.bundle).map(str::to_string) else { return self.say("only a character's rig gets a module of its own".into(), x, y, true) };
+                let Some(c) = character(&self.stage.bundle).map(str::to_string) else { return self.refuse("only a character's rig gets a module of its own".into(), x, y) };
                 let (key, content) = new_module(&c);
                 self.module.create(&key, content);
                 self.workspace = crate::show::Workspace::Module;

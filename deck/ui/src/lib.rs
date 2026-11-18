@@ -23,6 +23,9 @@ pub mod vote;
 /// #556: the ballot – the vote a deck may cast in, drawn by the deck over its scene: its words, its picture, its keys
 pub mod ballot;
 
+/// the messages: what the app says and its technical log, one ring the status bar and the Log read
+pub mod messages;
+
 /// #546: one condition, one look – a filter's facts, which are on, its words (a role's, a row address's, a cell's)
 pub mod filter;
 

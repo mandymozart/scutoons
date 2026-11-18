@@ -88,7 +88,7 @@ impl crate::App {
         if self.published.follow(&self.stage.bundle) && self.stage.scene.is_none() {
             if let Err(err) = self.stage.replay(self.stage.bundle.clone()) {
                 let (x, y) = self.cursor;
-                self.say(format!("{err:#}"), x, y, true);
+                self.refuse(format!("{err:#}"), x, y);
             }
         }
         let silent = self.stage.bundle.rig.tracks.iter().filter_map(|t| Some((t.id.clone(), self.published.why(&self.stage.bundle, &t.id)?))).collect();

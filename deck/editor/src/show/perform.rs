@@ -1,6 +1,6 @@
 //! The Perform workspace (#91, the owner's draft m2-perform), floating panels over the stage: the cues – the matrix of
 //! rows × outlets and seats, the big row ▶ (rows are the main way to launch), a small ▶ per cell (a hand launch, marked off
-//! its row) –, the log, the session rail, the suggestion with GO / Drop and GO itself, the stage now in 2D. All words and
+//! its row) –, the session rail, the suggestion with GO / Drop and GO itself, the stage now in 2D. All words and
 //! states are deck-show's view.rs; this file lays them out and names the places (`Hit`).
 //!
 //! #533 (owner 2026-11-14 [live]: the show runner works from Perform): the show runner's sheets open in a panel of their
@@ -52,7 +52,7 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
     } else if host.two_d {
         shown.push(("now", outlets * (220.0 + pad), Some(2.6 * font * 1.25 + small * 2.0)));
     }
-    shown.extend([("log", 520.0, Some(small * 2.2 + 8.0 * font * 1.35)), ("matrix", matrix.0, Some(matrix.1)), ("info", 260.0, Some(small * 1.4 * 6.0))]);
+    shown.extend([("matrix", matrix.0, Some(matrix.1)), ("info", 260.0, Some(small * 1.4 * 6.0))]);
     host.perform_panels.layout(d, t, ((w, h), crate::bar::bottom(t)), &[], &shown);
 
     // the show runner's sheet
@@ -88,19 +88,6 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
         host.perform_panels.close(d, o, &mut host.hits);
     }
 
-    // the log, newest first
-    if let Some(o) = host.perform_panels.open(d, t, "log", pointer, host.hits.len()) {
-        let a = o.area;
-        let lines = ((a.h - small * 0.4) / (font * 1.35)).max(0.0) as usize;
-        for (i, (time, words)) in view::log(host.sub.log(), lines).iter().enumerate() {
-            let y = a.y + i as f32 * font * 1.35;
-            let tw = d.text(a.x, y, font, time, t.color.muted);
-            let warn = words.contains("nobody") || words.contains("skipped") || words.contains("off the row");
-            d.text(a.x + tw + pad, y, font, &fit(d, words, font, a.w - tw - pad), if warn { t.color.warn } else { t.color.text });
-        }
-        host.perform_panels.close(d, o, &mut host.hits);
-    }
-
     // the rail: this conductor, its seats, the far side, the outlets
     if let Some(o) = host.perform_panels.open(d, t, "rail", pointer, host.hits.len()) {
         let a = o.area;
@@ -120,8 +107,6 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
         controls::tree(d, t, a.x, y, a.w, &rows, pointer);
         y += n as f32 * t.size.tree_row + pad;
         rail(d, &mut y, "FROM FAR");
-        d.text(a.x, y, small, &fit(d, &format!("relay · {}", host.link_line()), small, a.w), t.color.text);
-        y += t.size.tree_row;
         // #533: the linked readers at a glance (the Session sheet has the link and the list)
         let readers = host.session_panel().readers_line();
         d.text(a.x, y, small, &fit(d, &readers, small, a.w), t.color.text);
@@ -181,9 +166,6 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
             d.text(sx + pad, y + pad + font * 1.4, small, &fit(d, &format!("{} · {}", s.show, s.sits), small, sw - 2.0 * pad), t.color.muted);
             d.text(sx + pad, y + pad + font * 1.4 + small * 1.4, small, "own operator, own rows", t.color.muted);
             y += ch + pad;
-        }
-        if !host.status.is_empty() {
-            d.text(sx, y, small, &fit(d, &host.status, small, sw), t.color.muted);
         }
         host.perform_panels.close(d, o, &mut host.hits);
     }

@@ -365,7 +365,7 @@ impl crate::App {
                 _ => view.edit.empty_layer(),
             };
             let Some(l) = layer else {
-                self.library.refused = Some((x, y, "no empty layer: add the parallax stack or a layer first".into()));
+                self.refuse("no empty layer: add the parallax stack or a layer first".into(), x, y);
                 return;
             };
             let done = view.edit.fill_layer(l, Some(address));
@@ -382,7 +382,7 @@ impl crate::App {
                 let id = view.edit.doc.holders[s].id.clone();
                 self.scene_changed(Ok(()), format!("{address} previews {id}"), x, y);
             }
-            Err(why) => self.library.refused = Some((x, y, why)),
+            Err(why) => self.refuse(why, x, y),
         }
     }
 }

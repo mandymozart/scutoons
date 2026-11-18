@@ -145,9 +145,7 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
         button(d, t, flash, "Flash", t.color.control, t.color.text);
         host.hits.push((load, Hit::Load));
         host.hits.push((flash, Hit::Flash));
-        let line = if host.status.is_empty() { format!("{}@{} · /api/shows", show.id, show.version) } else { host.status.clone() };
-        d.text(a.x, a.y + bh + 6.0, small, &fit(d, &line, small, a.w), t.color.muted);
-        let mut y = a.y + bh + 6.0 + small * 2.0;
+        let mut y = a.y + bh + 6.0 + small * 0.6;
         let typing = host.typing.as_ref().filter(|(what, _)| matches!(what, super::roles::Typing::Background)).map(|(_, f)| f.text.clone());
         match typing {
             Some(text) => {
@@ -181,7 +179,6 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
     super::roles::ask(d, t, host, room);
     // #551: the right click's typeahead on the selected cells, over everything
     super::ask::draw_context(d, t, host, (w, h));
-    super::scenes::over(d, t, host, (w, h));
 }
 
 /// the right side for a row: its inspector (the selected cell's inspector in place of the cells), the seats, the flash
@@ -248,10 +245,6 @@ fn row_side(d: &mut DrawList, t: &Tokens, host: &mut Host, (show, sel, seats): (
     // #91 item 5: what each deck and sub conductor answered to the last flash (deck-show's words)
     y += controls::section(d, t, rx, y, rw, "FLASH REPORTS", false);
     let reports = view::reports(&host.sub);
-    if reports.is_empty() {
-        d.text(rx, y + 4.0, small, "no answer yet: Flash sends the tree down", t.color.muted);
-        y += t.size.row;
-    }
     for r in &reports {
         d.disc(rx + 4.0, y + 4.0 + font * 0.62, 3.5, if r.ok { t.color.go } else { t.color.warn });
         d.text(rx + 14.0, y + 4.0, font, &fit(d, &format!("{} · {}", r.what, r.from), font, rw - 14.0), t.color.text);

@@ -131,7 +131,7 @@ impl Host {
         match self.knobs.get(&piece) {
             Some(Ok(k)) => Some((row, column, piece, k)),
             Some(Err(why)) => {
-                self.status = why;
+                self.refuse(why);
                 None
             }
             None => {
@@ -163,7 +163,7 @@ impl Host {
                 Ok(positions) => {
                     self.edit_rows_with(&Edit::Take { row, column, positions }, Some(knobs));
                 }
-                Err(why) => self.status = why,
+                Err(why) => self.refuse(why),
             },
             KnobHit::Build => {}
         }

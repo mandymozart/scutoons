@@ -154,8 +154,6 @@ pub struct Library {
     pub purpose: Purpose,
     pub pictures: Pictures,
     assets: Assets,
-    /// the sentence where a drop was refused
-    pub refused: Option<(f32, f32, String)>,
     /// what plays on the stage and since which frame, until its still is taken
     playing: Option<(String, u64)>,
     /// the rig the "related" filter last turned itself on for (an empty character rig: its modules first)
@@ -164,7 +162,7 @@ pub struct Library {
 
 impl Library {
     pub fn new(cache: PathBuf) -> Library {
-        Library { browser: Browser::default(), entries: Vec::new(), purpose: Purpose::Build, pictures: Pictures::new(cache.join("stills")), assets: Assets::default(), refused: None, playing: None, related_for: None }
+        Library { browser: Browser::default(), entries: Vec::new(), purpose: Purpose::Build, pictures: Pictures::new(cache.join("stills")), assets: Assets::default(), playing: None, related_for: None }
     }
 
     /// the workspace's entries this frame, only the kinds its purpose loads
@@ -242,13 +240,6 @@ impl Library {
     pub fn draw(&mut self, d: &mut DrawList, t: &Tokens, a: Rect, pointer: (f32, f32), action: Option<&str>) {
         let pictures = &self.pictures;
         self.browser.draw(d, t, (a, pointer), &self.entries, &|p| pictures.get(p), action);
-    }
-
-    /// over everything: the sentence where a card was refused (the card in the hand is the editor's one `Carry`)
-    pub fn over(&self, d: &mut DrawList, t: &Tokens, max_x: f32) {
-        if let Some((x, y, why)) = &self.refused {
-            deck_kit::editor::carry::refused(d, t, (*x, *y), max_x, why);
-        }
     }
 
     /// An empty character rig turns "related" on once, with the modules: what is made for it first (owner 2026-11-16
@@ -433,10 +424,10 @@ impl crate::App {
                 self.leave_view();
                 self.library_go(crate::show::Workspace::Build);
                 if let Err(err) = self.rigs.open(&e.address.replacen(':', ".", 1)) {
-                    self.say(err, x, y, true);
+                    self.refuse(err, x, y);
                 }
             }
-            _ => self.say(format!("{} has no editor view here", e.label), x, y, false),
+            _ => self.note(format!("{} has no editor view here", e.label)),
         }
     }
 
@@ -447,7 +438,7 @@ impl crate::App {
             return;
         }
         if let Err(why) = self.library.purpose.takes(e.kind) {
-            self.library.refused = Some((at.0, at.1, why));
+            self.refuse(why, at.0, at.1);
             return;
         }
         match self.workspace {
@@ -467,7 +458,7 @@ impl crate::App {
                 };
                 match choice {
                     Some(c) => self.added(c, at.0, at.1),
-                    None => self.say(format!("{} is not built yet: it has no track to play", e.address), at.0, at.1, true),
+                    None => self.refuse(format!("{} is not built yet: it has no track to play", e.address), at.0, at.1),
                 }
             }
             _ => {}
