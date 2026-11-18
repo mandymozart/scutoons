@@ -469,6 +469,11 @@ impl Rung {
     pub fn interval_ms(&self) -> f32 {
         1000.0 / self.fps.max(1) as f32
     }
+
+    /// whether a video smaller than its place is upscaled by FSR 1 (EASU + RCAS) – off on low
+    pub fn fsr(&self) -> bool {
+        self.level > Level::Low
+    }
 }
 
 impl Default for Rung {

@@ -1,7 +1,7 @@
-//! 8-bit YUV 4:2:0 planes to RGBA8 in integers (BT.601 / BT.709, limited or full range). TODO(#329): YUV → RGB in a
-//! shader, the planes uploaded as they are.
+//! 8-bit YUV 4:2:0 planes to RGBA8 in integers (BT.601 / BT.709, limited or full range): the goldens and a host without
+//! a GPU; a deck's GPU turns the planes into RGB in a shader (deck-space video.wgsl, the same coefficients).
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Matrix {
     Bt601,
     Bt709,
@@ -14,16 +14,23 @@ pub struct Planes<'a> {
     pub v: (&'a [u8], usize),
 }
 
+impl Matrix {
+    /// (a, rv, gu, gv, bu) ×256 and the black level: R = a·(Y − black) + rv·V, G = a·(Y − black) − gu·U − gv·V,
+    /// B = a·(Y − black) + bu·U (U, V centred on 128)
+    pub fn coefficients(self, full: bool) -> ([i32; 5], i32) {
+        let c = match (self, full) {
+            (Matrix::Bt709, false) => [298, 459, 55, 136, 541],
+            (Matrix::Bt709, true) => [256, 403, 48, 120, 475],
+            (Matrix::Bt601, false) => [298, 409, 100, 208, 516],
+            (Matrix::Bt601, true) => [256, 359, 88, 183, 454],
+        };
+        (c, if full { 0 } else { 16 })
+    }
+}
+
 /// RGBA8, `w` × `h`
 pub fn to_rgba(p: &Planes, w: usize, h: usize, matrix: Matrix, full: bool) -> Vec<u8> {
-    // R = a·Y + rv·V, G = a·Y − gu·U − gv·V, B = a·Y + bu·U, ×256
-    let (a, rv, gu, gv, bu) = match (matrix, full) {
-        (Matrix::Bt709, false) => (298, 459, 55, 136, 541),
-        (Matrix::Bt709, true) => (256, 403, 48, 120, 475),
-        (Matrix::Bt601, false) => (298, 409, 100, 208, 516),
-        (Matrix::Bt601, true) => (256, 359, 88, 183, 454),
-    };
-    let floor = if full { 0 } else { 16 };
+    let ([a, rv, gu, gv, bu], floor) = matrix.coefficients(full);
     let mut out = vec![0u8; w * h * 4];
     for row in 0..h {
         let (ys, us, vs) = (&p.y.0[row * p.y.1..], &p.u.0[row / 2 * p.u.1..], &p.v.0[row / 2 * p.v.1..]);

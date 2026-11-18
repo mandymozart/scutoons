@@ -152,8 +152,8 @@ struct Slides {
     last_beat: f64,
 }
 
-/// A video node: its clip (the host opens it, `set_video`), its frame's texture, its own clock (the stage's time at
-/// its `speed`).
+/// A video node: its clip (the host opens it, `set_video`), its frame's texture, its own clock – the heard time at its
+/// `speed` (the time passed in a `Tick`), counted from the heard time its clip arrived at.
 struct VideoNode {
     node: usize,
     #[cfg(feature = "media")]
@@ -162,6 +162,8 @@ struct VideoNode {
     tex: Option<crate::video::Texture>,
     aspect: f32,
     clock: f64,
+    /// the heard time of the last frame (none: the clock starts at the next)
+    heard: Option<f32>,
 }
 
 /// the outlet node's planes (#186, live/): the composer's channel, the current and previous plane, their crossfade
@@ -178,6 +180,9 @@ pub struct Stage {
     linear: wgpu::Sampler,
     nearest: wgpu::Sampler,
     dummy: wgpu::TextureView,
+    /// the video frames' passes (planes → RGB, FSR), made with the first frame
+    #[cfg(feature = "media")]
+    video_conv: Option<crate::video::Converter>,
     passes: Vec<Pass>,
     screen: Option<Pass>,
     /// the surface's size in pixels
@@ -271,6 +276,8 @@ impl Stage {
             linear,
             nearest,
             dummy,
+            #[cfg(feature = "media")]
+            video_conv: None,
             passes: Vec::new(),
             screen: None,
             size,
@@ -323,6 +330,7 @@ impl Stage {
                         tex: None,
                         aspect: 1.0,
                         clock: 0.0,
+                        heard: None,
                     });
                     builtin("video").unwrap().to_string()
                 }
@@ -415,6 +423,7 @@ impl Stage {
         if let Some(v) = self.videos.iter_mut().find(|v| v.node == node) {
             v.aspect = movie.aspect();
             v.movie = Some(movie);
+            (v.clock, v.heard) = (0.0, None);
         }
     }
 
@@ -572,12 +581,19 @@ impl Stage {
     /// ready. Returns whether a texture changed (the bind groups follow).
     fn advance(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, t: &Tick) -> bool {
         let mut changed = false;
-        // the video nodes: each its clock at its speed, the frame for that time into its texture
+        // the video nodes: each its clock – the heard time at its speed – and the frame heard when this one shows (the
+        // next refresh: `video::shown_ahead`) into its texture, upscaled to the picture it covers
+        #[cfg(feature = "media")]
+        let (size, fsr) = (self.render_size(), self.quality.fsr());
         for v in &mut self.videos {
-            v.clock += f64::from(t.dt) * f64::from((t.input)(v.node, "speed", 1.0).max(0.0));
+            let speed = f64::from((t.input)(v.node, "speed", 1.0).max(0.0));
+            v.clock += v.heard.map_or(0.0, |h| f64::from((t.time - h).max(0.0))) * speed;
+            v.heard = Some(t.time);
             #[cfg(feature = "media")]
-            if let Some(p) = v.movie.as_mut().and_then(|m| m.next_picture(v.clock)) {
-                changed |= crate::video::upload(device, queue, &p, false, &mut v.tex);
+            if let Some(p) = v.movie.as_mut().and_then(|m| m.next_picture(v.clock + crate::video::shown_ahead(t.dt) * speed)) {
+                let conv = self.video_conv.get_or_insert_with(|| crate::video::Converter::new(device));
+                let up = crate::video::upscale_to(p.width, p.height, size, fsr);
+                changed |= crate::video::upload(device, queue, conv, &p, false, up, &mut v.tex);
             }
         }
         // the outlet: a composed cell → its plane on the GPU, the crossfade from the last one (#186)
