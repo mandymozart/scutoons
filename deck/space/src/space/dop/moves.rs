@@ -13,6 +13,8 @@ pub struct Ctx<'a> {
     pub track: Option<&'a Path>,
     /// the show's time (s): shake's unrest
     pub secs: f64,
+    /// a fly-through along a timed track: each point on its time, the ways eased (track.rs `warp`) in place of the move's ease
+    pub knots: Option<&'a [super::track::Knot]>,
 }
 
 fn lerp(a: f32, b: f32, u: f32) -> f32 {
@@ -93,7 +95,10 @@ pub fn pose(spec: &MoveSpec, f: &View, t: &View, lin: f32, ctx: &Ctx) -> View {
         return *t;
     }
     let lin = lin.max(0.0);
-    let u = spec.ease.at(lin);
+    let u = match ctx.knots {
+        Some(k) if spec.kind == MoveKind::Fly => super::track::warp(k, lin),
+        _ => spec.ease.at(lin),
+    };
     let turns = |rounds: f32| rounds * TAU * if spec.turn == Turn::Left { 1.0 } else { -1.0 };
     let v = match spec.kind {
         MoveKind::Cut => *t,

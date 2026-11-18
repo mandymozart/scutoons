@@ -63,6 +63,9 @@ pub enum Out {
     Seat { seat: String, word: Word, says: Says, at: Option<i64> },
     /// #91: a fired row's address, down this subtree (the subtree asks it and logs the answers)
     Address(crate::document::Addressed),
+    /// a cell's camera word (`<scene> > shot:<id>`) for its column's decks only (the address's `where.group`), on the beat
+    /// of the row's moment (none: at once)
+    Camera { column: String, address: String, action: String, beat: Option<f64> },
     /// #548: a fired row's question, to open as the session's vote (the subtree closes one still open first, then opens it:
     /// `Subtree::vote_open`)
     Ask(Ask),
@@ -73,7 +76,7 @@ impl Out {
     pub fn envelope(&self) -> Option<&Envelope> {
         match self {
             Out::Send(e) => Some(e),
-            Out::Seat { .. } | Out::Address(_) | Out::Ask(_) => None,
+            Out::Seat { .. } | Out::Address(_) | Out::Camera { .. } | Out::Ask(_) => None,
         }
     }
 }
@@ -118,6 +121,8 @@ struct Launch<'a> {
     row: &'a str,
     off_row: bool,
     at: Option<i64>,
+    /// the show clock's beat at `at`
+    beat: Option<f64>,
     ms: u64,
 }
 
@@ -264,14 +269,26 @@ fn envelope(message: Message, at: Option<i64>) -> Out {
 /// when a moment falls (relay ms); None = at once
 fn moment_at(moment: Moment, now: Now) -> Option<i64> {
     let clock = now.clock?;
-    let per_bar = clock.per_bar.max(1);
-    let next = match moment {
-        Moment::Now => return None,
-        Moment::Bar => Quantize::Bar.next(clock.beat, per_bar),
-        Moment::Phrase => Quantize::Bar.next(clock.beat, per_bar * BARS_PER_PHRASE),
-    };
+    let next = moment_beat(moment, now)?;
     let ms = (next - clock.beat) * 60_000.0 / clock.bpm.max(1.0);
     Some(now.ms as i64 + ms.round() as i64)
+}
+
+/// the show clock's beat of a row's moment (none: now, or no clock)
+fn moment_beat(moment: Moment, now: Now) -> Option<f64> {
+    let clock = now.clock?;
+    let per_bar = clock.per_bar.max(1);
+    match moment {
+        Moment::Now => None,
+        Moment::Bar => Some(Quantize::Bar.next(clock.beat, per_bar)),
+        Moment::Phrase => Some(Quantize::Bar.next(clock.beat, per_bar * BARS_PER_PHRASE)),
+    }
+}
+
+/// the show clock's beat at relay time `at`
+fn beat_at(at: Option<i64>, now: Now) -> Option<f64> {
+    let (at, clock) = (at?, now.clock?);
+    Some(clock.beat + (at - now.ms as i64) as f64 * clock.bpm / 60_000.0)
 }
 
 impl Conductor {
@@ -463,12 +480,13 @@ impl Conductor {
         let Some(r) = self.show.row(row) else { return vec![] };
         let cell = r.cells.get(column).cloned().unwrap_or(Cell::Keep);
         let at = moment_at(r.fire.moment, now);
+        let beat = moment_beat(r.fire.moment, now);
         let off_row = self.current.as_deref() != Some(row);
         // #548: one `ask` cell by hand opens its whole question – every column of the row that asks it votes
         let ask = matches!(cell, Cell::Ask { .. }).then(|| Ask::of(&self.show, r)).flatten();
         self.record(now.ms, Logged::CellLaunched { row: row.to_string(), column: column.to_string(), off_row });
         let mut out = vec![];
-        self.apply(Launch { row, off_row, at, ms: now.ms }, column, &cell, &mut out);
+        self.apply(Launch { row, off_row, at, beat, ms: now.ms }, column, &cell, &mut out);
         self.update_mirrors(at, &mut out);
         out.extend(ask.map(Out::Ask));
         out
@@ -495,6 +513,7 @@ impl Conductor {
 
     fn fire_row_at(&mut self, id: &str, origin: Origin, at: Option<i64>, now: Now) -> Vec<Out> {
         let Some(row) = self.show.row(id).cloned() else { return vec![] };
+        let beat = if at.is_some() { beat_at(at, now) } else { moment_beat(row.fire.moment, now) };
         let at = at.or_else(|| moment_at(row.fire.moment, now));
         self.record(now.ms, Logged::Fired { row: id.to_string(), origin });
         if self.suggestion.as_ref().is_some_and(|s| s.row == id) {
@@ -505,7 +524,7 @@ impl Conductor {
         let mut out = vec![];
         for column in &columns {
             let cell = row.cells.get(column).unwrap_or(&Cell::Keep);
-            self.apply(Launch { row: id, off_row: false, at, ms: now.ms }, column, cell, &mut out);
+            self.apply(Launch { row: id, off_row: false, at, beat, ms: now.ms }, column, cell, &mut out);
         }
         self.update_mirrors(at, &mut out);
         // #548: the row's question opens as one vote for its `ask` columns (no vote outside the show)
@@ -515,7 +534,7 @@ impl Conductor {
     }
 
     fn apply(&mut self, launch: Launch, column: &str, cell: &Cell, out: &mut Vec<Out>) {
-        let Launch { row, off_row, at, ms } = launch;
+        let Launch { row, off_row, at, beat, ms } = launch;
         if let Some(seat) = self.show.seat(column) {
             let word = seat.word;
             match cell {
@@ -575,9 +594,10 @@ impl Conductor {
         }
         let before = self.playing_row(column, ms);
         self.stage.insert(column.to_string(), OnStage { playing, row: row.to_string(), off_row, from: at, before });
-        // the cell's camera shot: the scene's camera word, after the cell (a deck that is still opening the scene keeps it)
+        // the cell's camera shot: the scene's camera word, after the cell (a deck that is still opening the scene keeps it),
+        // only to this column's decks, on the row's moment
         if let Cell::Play { piece: Some(p), shot: Some(s), .. } = cell {
-            out.push(Out::Address(crate::document::Addressed { address: p.clone(), action: format!("{}:{s}", deck_space::rig::address::SHOT), filter: None }));
+            out.push(Out::Camera { column: column.to_string(), address: p.clone(), action: format!("{}:{s}", deck_space::rig::address::SHOT), beat });
         }
     }
 

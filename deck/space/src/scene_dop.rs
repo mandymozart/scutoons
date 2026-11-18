@@ -1,6 +1,6 @@
 //! A scene's camera in an editor (the DOP panel): shots set from the view, the lens, the trolley track and its points,
 //! the named moves. Every change goes through `SceneEdit::change`: the core's checks refuse it in their words.
-use crate::scene_camera::{Lens, MoveDef, MoveKind, MoveSpec, SceneCamera, ShotDef, Source, Track, TrackPoint};
+use crate::scene_camera::{Ease, Length, Lens, MoveDef, MoveKind, MoveSpec, SceneCamera, ShotDef, Source, Track, TrackPoint};
 use crate::scene_edit::SceneEdit;
 
 impl SceneEdit {
@@ -111,7 +111,7 @@ impl SceneEdit {
         self.camera_change(|c| {
             let t = c.track.as_mut().ok_or("the scene has no track")?;
             let (a, b) = (t.points.get(i).ok_or("no such point")?.at, t.points.get(i + 1).ok_or("no point after it")?.at);
-            t.points.insert(i + 1, TrackPoint { at: [(a[0] + b[0]) * 0.5, (a[1] + b[1]) * 0.5, (a[2] + b[2]) * 0.5], handle: None });
+            t.points.insert(i + 1, TrackPoint::at([(a[0] + b[0]) * 0.5, (a[1] + b[1]) * 0.5, (a[2] + b[2]) * 0.5]));
             Ok(())
         })?;
         Ok(i + 1)
@@ -128,6 +128,22 @@ impl SceneEdit {
     pub fn set_handle(&mut self, i: usize, handle: Option<[f32; 3]>) -> Result<(), String> {
         self.camera_change(|c| {
             c.track.as_mut().and_then(|t| t.points.get_mut(i)).ok_or("no such point")?.handle = handle;
+            Ok(())
+        })
+    }
+
+    /// when the fly-through reaches point `i` (none: by the track's length), checked by the core
+    pub fn set_point_time(&mut self, i: usize, time: Option<Length>) -> Result<(), String> {
+        self.camera_change(|c| {
+            c.track.as_mut().and_then(|t| t.points.get_mut(i)).ok_or("no such point")?.time = time;
+            Ok(())
+        })
+    }
+
+    /// the ease of the way to point `i` (none: an even speed)
+    pub fn set_point_ease(&mut self, i: usize, ease: Option<Ease>) -> Result<(), String> {
+        self.camera_change(|c| {
+            c.track.as_mut().and_then(|t| t.points.get_mut(i)).ok_or("no such point")?.ease = ease;
             Ok(())
         })
     }
@@ -214,6 +230,11 @@ mod tests {
         e.move_track_point(1, [0.0, 2.5, 1.0]).unwrap();
         e.set_handle(1, Some([1.0, 0.0, 0.0])).unwrap();
         assert!(e.remove_track_point(0).is_err(), "the start stays");
+        e.set_point_time(1, Some(Length::Bars(2.0))).unwrap();
+        e.set_point_ease(1, Some(Ease::Out)).unwrap();
+        assert!(e.set_point_time(0, Some(Length::Bars(1.0))).unwrap_err().contains("the start has no time"), "the core's words");
+        assert!(e.set_point_time(2, Some(Length::Bars(1.0))).unwrap_err().contains("arrives before"));
+        assert_eq!(e.camera().track.unwrap().points[1].time, Some(Length::Bars(2.0)));
         let fly = e.add_move(MoveSpec::of(MoveKind::Fly), "shot2").unwrap();
         let crane = e.add_move(MoveSpec::of(MoveKind::CraneDown), "shot1").unwrap();
         assert_eq!(e.camera().moves[crane].id, "crane1");

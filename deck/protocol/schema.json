@@ -678,7 +678,8 @@
         "id": { "type": "string", "description": "the sender's, the answers carry it" },
         "address": { "type": "string" },
         "action": { "type": "string" },
-        "where": { "$ref": "#/definitions/Filter" }
+        "where": { "$ref": "#/definitions/Filter" },
+        "beat": { "type": "number", "description": "#621: the show clock's beat it plays on (a show cell's camera cut on its row's bar or phrase); none = at once" }
       },
       "required": ["id", "address", "action"],
       "additionalProperties": false

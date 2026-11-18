@@ -42,7 +42,7 @@ mod tests {
     use super::*;
 
     fn address(a: &str, filter: Option<Filter>) -> Address {
-        Address { id: "a1".into(), address: a.into(), action: "dance:samba".into(), r#where: filter }
+        Address { id: "a1".into(), address: a.into(), action: "dance:samba".into(), r#where: filter, beat: None }
     }
 
     fn receiver<'a>(group: Option<&'a str>, device: Option<&'a str>, plays: &'a [String]) -> Receiver<'a> {

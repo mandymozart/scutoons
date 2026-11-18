@@ -246,7 +246,7 @@ impl Cast {
     /// on; anything else is not the scene's
     pub fn came(&mut self, came: In) -> Vec<Recast> {
         match came {
-            In::Address { address, action } => vec![self.word(&address, &action)],
+            In::Address { address, action, .. } => vec![self.word(&address, &action)],
             In::Story(event) => self.story(&event.into()),
             _ => Vec::new(),
         }

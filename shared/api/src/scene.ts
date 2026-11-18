@@ -98,7 +98,7 @@ export type Layer = {
 	anchor?: Anchor;
 	/** metres behind the camera's pivot; below 0 in front of it */
 	depth: number;
-	/** the picture's media path (a PNG with transparency); none = an empty place */
+	/** the picture's media path (a PNG with transparency, or a video – `background::is_video`); none = an empty place */
 	image?: string | null;
 };
 
@@ -166,6 +166,7 @@ export type MoveDef = {
 	id: string;
 	kind: MoveKind;
 	length: Length;
+	repeat?: Repeat;
 	/** orbit, spiral */
 	rounds?: number;
 	/** in */
@@ -187,6 +188,9 @@ export type NodeDef = {
 };
 
 export type Projection = 'perspective' | 'orthographic';
+
+/** What a move does once it arrived: stays, runs again from its start, or runs back and forth – until another move, a cut, a hand on the view or the row's end. A move in beats or bars repeats on the bar line. */
+export type Repeat = 'once' | 'loop' | 'ping_pong';
 
 /** A rig by reference and the version it was wired against (SCENE-PACKAGE §2). */
 export type RigPin = {
@@ -271,11 +275,15 @@ export type Track = {
 	point: TrackPoint[];
 };
 
-/** A point of the trolley track: where it is, and its Bézier handle (the way out of it; the way in is its mirror). */
+/** A point of the trolley track: where it is, its Bézier handle (the way out of it; the way in is its mirror), and when a fly-through reaches it. */
 export type TrackPoint = {
 	at: [number, number, number];
+	/** the ease of the way here from the point before; none = an even speed */
+	ease?: Ease | null;
 	/** metres from `at`; none = a smooth curve through the neighbours */
 	handle?: [number, number, number] | null;
+	/** when the fly-through arrives here, counted from its start (beats, bars or seconds); none = by the track's length between the points that have one (the end without one: the move's length). The start has none. */
+	time?: Length | null;
 };
 
 export type Turn = 'right' | 'left';
