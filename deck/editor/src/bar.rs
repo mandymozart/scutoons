@@ -1,11 +1,12 @@
-//! The toolbar over the stage: pills in a row, nothing under them but the stage. Left the logo with the main menu's
-//! hamburger, the workspaces, the path of what is open (its steps go back up); the tempo pill
+//! The toolbar over the stage, and the window's title bar where the editor draws its own frame: pills in a row, nothing
+//! under them but the stage. Left the main menu's hamburger, the workspaces, the path of what is open (its steps go back up); the tempo pill
 //! (the play button, the clock's BPM); right the sign-in, the load meters and the version, which keeps its
-//! place at any width (every build shows it, always).
+//! place at any width (every build shows it, always); on Windows the window buttons bare at the row's right end.
 use deck_core::load::{Reading, CPU_MEANS, GPU_MEANS};
 use deck_kit::base::draw::DrawList;
 use deck_kit::base::tokens::Tokens;
 use deck_kit::editor::controls::{self, Rect};
+use deck_kit::editor::window::{self, Button, Side};
 pub use crate::sign_in::Signed;
 
 /// the pills' distance from the window's top
@@ -55,7 +56,6 @@ pub struct Bar<'a> {
     pub account: Signed,
     /// 0..1, the signing-in icon's breath (1 = still, reduce motion)
     pub pulse: f32,
-    pub logo_frame: usize,
     pub pointer: (f32, f32),
     /// the load meters (deck-core's load), each where it can be measured
     pub cpu: Option<Reading>,
@@ -67,6 +67,8 @@ pub struct Bar<'a> {
     pub slot: f32,
     /// a panic holds: the pill resumes
     pub panicked: bool,
+    /// the editor's own frame: where the window buttons go, and whether the window is maximised
+    pub window: Option<(Side, bool)>,
 }
 
 /// where the tempo comes from: the deck's own clock, or one it follows (locked, else still waiting for it)
@@ -126,6 +128,10 @@ pub struct Placed {
     pub account: Rect,
     /// the load meters, where there was room for them
     pub meters: Option<Rect>,
+    /// the window buttons, when the editor draws its own frame
+    pub window: Vec<(Rect, Button)>,
+    /// every pill and control in the row: what is not the empty run the window drags by
+    pub solid: Vec<Rect>,
 }
 
 /// a pill's ground
@@ -172,18 +178,19 @@ pub fn draw(d: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Placed {
     let inset = t.size.rem(0.29);
     let (ih, ir) = (h - 2.0 * inset, h * 0.5 - inset);
     let end = pad + inset;
-    let logo = t.size.rem(1.57);
     let y = margin(t);
     let mid = y + h * 0.5;
     let text_y = mid - px * 0.62;
     let small_y = mid - small * 0.62;
     let mut out = Placed::default();
     d.halo(t.color.ring());
-    // the logo and the hamburger
-    let first = Rect { x: t.size.gap, y, w: end + logo + pad + ih + inset, h };
+    // macOS's traffic lights (the system's) keep the row's start; Windows' buttons its end
+    let frame = |side: Side| if b.window.is_some_and(|(s, _)| s == side) { window::width(t) + gap } else { 0.0 };
+    let (lead_room, end_room) = (frame(Side::Left), frame(Side::Right));
+    // the hamburger
+    let first = Rect { x: t.size.gap + lead_room, y, w: ih + 2.0 * inset, h };
     pill(d, t, first);
-    d.logo(first.x + end, mid - logo * 0.5, logo, b.logo_frame);
-    out.menu = inner_button(d, t, Rect { x: first.x + first.w - inset - ih, y: y + inset, w: ih, h: ih }, "menu", t.color.text, b.pointer);
+    out.menu = inner_button(d, t, Rect { x: first.x + inset, y: y + inset, w: ih, h: ih }, "menu", t.color.text, b.pointer);
     // the workspaces
     let ws_w: f32 = b.workspaces.iter().map(|w| d.sans_width(small, w) + 2.0 * pad).sum::<f32>() + 2.0 * b.workspaces.len().saturating_sub(1) as f32 + 2.0 * inset;
     let ws = Rect { x: first.x + first.w + gap, y, w: ws_w, h };
@@ -204,9 +211,10 @@ pub fn draw(d: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Placed {
     let tempo_w = clock_w + gap + panic_w;
     let right_of = |wide: bool| inset + ih + pad + if wide { meters + pad } else { 0.0 } + version_w + end;
     // the load meters only where the path keeps room of its own beside them
-    let wide = row(width, gap, ws.x + ws.w, tempo_w, b.slot, right_of(false)).path_w > meters + t.size.rem(17.0);
+    let room = width - end_room;
+    let wide = row(room, gap, ws.x + ws.w, tempo_w, b.slot, right_of(false)).path_w > meters + t.size.rem(17.0);
     let right_w = right_of(wide);
-    let r = row(width, gap, ws.x + ws.w, tempo_w, b.slot, right_w);
+    let r = row(room, gap, ws.x + ws.w, tempo_w, b.slot, right_w);
     // the path, only the path (the state words are the status bar's)
     let path = Rect { x: r.path_x, y, w: r.path_w, h };
     if path.w > 2.0 * h {
@@ -274,7 +282,12 @@ pub fn draw(d: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Placed {
         out.meters = Some(Rect { x: start, y, w: meters, h });
     }
     d.text(right.x + right.w - end - version_w, text_y, px, deck_native::BUILD, t.color.muted);
+    if let Some((Side::Right, maximised)) = b.window {
+        out.window = window::draw(d, t, room, y, maximised, b.pointer);
+    }
     d.halo(None);
+    // the path pill's ground is the run too: only its steps are controls
+    out.solid = [first, ws, tempo, panic, out.slot, right].into_iter().chain(out.path.iter().copied()).filter(|r| r.w > 0.0).collect();
     out
 }
 
@@ -330,7 +343,7 @@ mod tests {
         let t = Tokens::default();
         let mut d = DrawList::new(0.6);
         let path = vec!["main".to_string()];
-        let b = Bar { workspaces: &["Build", "Show"], workspace: 1, path: &path, play: None, beat: None, clock: Clock::Int, account: Signed::In, pulse: 1.0, logo_frame: 0, pointer: (0.0, 0.0), cpu: None, gpu: None, khz: None, fps: 60.0, slot: 0.0, panicked: host.sub.panicked() };
+        let b = Bar { workspaces: &["Build", "Show"], workspace: 1, path: &path, play: None, beat: None, clock: Clock::Int, account: Signed::In, pulse: 1.0, pointer: (0.0, 0.0), cpu: None, gpu: None, khz: None, fps: 60.0, slot: 0.0, panicked: host.sub.panicked(), window: None };
         let placed = draw(&mut d, &t, 1600.0, &b);
         (placed.panic, d.texts().iter().map(|s| s.to_string()).collect())
     }
@@ -357,7 +370,7 @@ mod tests {
         let faces = deck_kit::base::fonts::Faces::shipped(deck_outlet::text::mono_ttf());
         let mut d = DrawList::with_widths(std::sync::Arc::new(faces.widths()));
         let path = vec!["1 Opening".to_string()];
-        let b = Bar { workspaces: &["Build", "Show"], workspace: 0, path: &path, play: Some(true), beat: Some((120.0, true)), clock: Clock::Int, account: Signed::Signing, pulse: 0.5, logo_frame: 0, pointer: (0.0, 0.0), cpu: Some(Reading { value: 0.2, peak: 0.3 }), gpu: Some(Reading { value: 0.1, peak: 0.1 }), khz: Some(48.0), fps: 60.0, slot: 0.0, panicked: false };
+        let b = Bar { workspaces: &["Build", "Show"], workspace: 0, path: &path, play: Some(true), beat: Some((120.0, true)), clock: Clock::Int, account: Signed::Signing, pulse: 0.5, pointer: (0.0, 0.0), cpu: Some(Reading { value: 0.2, peak: 0.3 }), gpu: Some(Reading { value: 0.1, peak: 0.1 }), khz: Some(48.0), fps: 60.0, slot: 0.0, panicked: false, window: None };
         draw(&mut d, &t, 1600.0, &b);
         let texts = d.texts();
         for whole in [deck_native::BUILD, "1 Opening", "120.0", "INT", "48 kHz", "60 fps"] {
@@ -376,7 +389,7 @@ mod tests {
         let t = Tokens::default();
         let mut d = DrawList::new(0.6);
         let path = vec!["main".to_string()];
-        let b = Bar { workspaces: &["Build"], workspace: 0, path: &path, play: None, beat: Some((128.0, true)), clock, account, pulse, logo_frame: 0, pointer: (0.0, 0.0), cpu: Some(Reading { value: 0.3, peak: 0.3 }), gpu: None, khz: Some(44.1), fps: 59.6, slot: 0.0, panicked: false };
+        let b = Bar { workspaces: &["Build"], workspace: 0, path: &path, play: None, beat: Some((128.0, true)), clock, account, pulse, pointer: (0.0, 0.0), cpu: Some(Reading { value: 0.3, peak: 0.3 }), gpu: None, khz: Some(44.1), fps: 59.6, slot: 0.0, panicked: false, window: None };
         let placed = draw(&mut d, &t, 1800.0, &b);
         (d, placed)
     }
@@ -416,6 +429,36 @@ mod tests {
         assert!(placed.meters.is_some());
         let words = meters_words(Some(Reading { value: 0.07, peak: 0.12 }), None, Some(48.0), 60.0);
         assert!(words.contains("audio at 48 kHz") && words.contains("CPU 7 %, peak 12 %") && words.contains(CPU_MEANS) && words.contains("GPU not measured"), "{words}");
+    }
+
+    #[test]
+    fn the_bar_is_the_title_bar_buttons_at_the_end_the_run_drags_the_controls_do_not() {
+        use deck_kit::base::draw::Prim;
+        use deck_kit::editor::window::{Frame, Zone};
+        let t = Tokens::default();
+        let mut d = DrawList::new(0.6);
+        let path = vec!["main".to_string()];
+        let b = Bar { workspaces: &["Build", "Show"], workspace: 0, path: &path, play: Some(true), beat: Some((120.0, true)), clock: Clock::Int, account: Signed::In, pulse: 1.0, pointer: (0.0, 0.0), cpu: None, gpu: None, khz: None, fps: 60.0, slot: 0.0, panicked: false, window: Some((Side::Right, false)) };
+        let (width, height) = (1600.0, 900.0);
+        let p = draw(&mut d, &t, width, &b);
+        assert!(!d.prims().iter().any(|p| matches!(p, Prim::Logo { .. })), "no logo: the row starts with the menu");
+        assert!(p.menu.x < p.workspaces[0].x);
+        let [min, max, close] = [p.window[0], p.window[1], p.window[2]];
+        assert_eq!((min.1, max.1, close.1), (Button::Minimise, Button::Maximise, Button::Close));
+        let right = p.solid.iter().map(|r| r.x + r.w).fold(0.0, f32::max);
+        assert!(right <= min.0.x, "the version pill makes room for the buttons");
+        assert!((close.0.x + close.0.w - (width - t.size.gap * 0.5)).abs() < 0.01, "close ends the row");
+        let f = Frame { size: (width, height), maximised: false, band: bottom(&t), buttons: p.window.clone(), solid: p.solid.clone() };
+        let mid = margin(&t) + t.size.top * 0.5;
+        assert_eq!(f.hit(p.tempo.x - t.size.gap * 0.5 - 4.0, mid), Zone::Drag, "the path pill's empty end");
+        let ws = p.solid[1];
+        assert_eq!(f.hit(ws.x + ws.w + t.size.gap * 0.25, mid), Zone::Drag, "the gap after the workspaces");
+        for (r, what) in [(p.menu, "menu"), (p.workspaces[1], "a workspace"), (p.path[0], "a path step"), (p.play.unwrap(), "play"), (p.tempo, "tempo"), (p.panic, "panic"), (p.account, "account")] {
+            assert_eq!(f.hit(r.x + r.w * 0.5, r.y + r.h * 0.5), Zone::App, "{what}");
+        }
+        assert_eq!(f.hit(close.0.x + 4.0, mid), Zone::Button(Button::Close));
+        let mut e = DrawList::new(0.6);
+        assert!(draw(&mut e, &t, width, &Bar { window: None, ..b }).window.is_empty(), "fullscreen and the decks: no buttons");
     }
 
     #[test]
