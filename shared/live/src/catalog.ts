@@ -80,6 +80,8 @@ export type Descriptor = {
 	/** a scene owns it once: never inside an instrument */
 	scene_only?: boolean;
 	scope?: Scope;
+	/** modules only: its parameters' pages in order (area by area); none = they group by their names' prefixes */
+	sections?: Section[];
 	/** modules only: the entity's slot it is built for (`camera.motion`, slot.rs); none = a rig's track module */
 	slot?: string | null;
 	version?: string;
@@ -159,6 +161,10 @@ export type ParamDesc = {
 	name: string;
 	/** the value is also an input port of this name (a control input is both) */
 	port?: boolean;
+	/** the page it sits on (`SRC/OSC 1`, one of the descriptor's `sections`); empty = none */
+	section?: string;
+	/** its knob on that page: 0 … 7, two rows of four (twin pages put one idea on one knob) */
+	slot?: number | null;
 	/** Hz, s, dB, ratio, px … */
 	unit?: string;
 };
@@ -261,6 +267,12 @@ export type Route = {
 
 /** where a kind stands: usable in a scene / instrument graph, a helper only the batch evaluator runs, or planned */
 export type Scope = "graph" | "internal" | "planned";
+
+/** A named page of a module's parameters, the Analog Four's way: an area (one button, `SRC`) and one of its pages (`OSC 1`; pressed again, the next). Descriptor metadata only: the parameters' order and the module's layout stay. */
+export type Section = {
+	area: string;
+	page: string;
+};
 
 /** One track: an instrument, its default preset, its mixer strip. */
 export type Track = {

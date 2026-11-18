@@ -275,6 +275,13 @@
           "$ref": "#/$defs/Scope",
           "default": "graph"
         },
+        "sections": {
+          "description": "modules only: its parameters' pages in order (area by area); none = they group by their names' prefixes",
+          "items": {
+            "$ref": "#/$defs/Section"
+          },
+          "type": "array"
+        },
         "slot": {
           "description": "modules only: the entity's slot it is built for (`camera.motion`, slot.rs); none = a rig's track module",
           "type": [
@@ -600,6 +607,20 @@
         "port": {
           "description": "the value is also an input port of this name (a control input is both)",
           "type": "boolean"
+        },
+        "section": {
+          "description": "the page it sits on (`SRC/OSC 1`, one of the descriptor's `sections`); empty = none",
+          "type": "string"
+        },
+        "slot": {
+          "description": "its knob on that page: 0 … 7, two rows of four (twin pages put one idea on one knob)",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
         },
         "unit": {
           "description": "Hz, s, dB, ratio, px …",
@@ -1025,6 +1046,22 @@
         "planned"
       ],
       "type": "string"
+    },
+    "Section": {
+      "description": "A named page of a module's parameters, the Analog Four's way: an area (one button, `SRC`) and one of its pages\n(`OSC 1`; pressed again, the next). Descriptor metadata only: the parameters' order and the module's layout stay.",
+      "properties": {
+        "area": {
+          "type": "string"
+        },
+        "page": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "area",
+        "page"
+      ],
+      "type": "object"
     },
     "Track": {
       "additionalProperties": false,
