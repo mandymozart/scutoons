@@ -135,7 +135,8 @@ gilrs = { version = "0.11.1", optional = true }
 
 [target.'cfg(windows)'.dependencies]
 # the audio threads in MMCSS "Pro Audio" (#208, audio/priority.rs) – the version cpal and wgpu already pull
-windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_System_Threading"] }
+# … and COM on a thread that loads an ASIO driver (cpal sets COM up for WASAPI only; audio/backend.rs `asio_lock`)
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_System_Threading", "Win32_System_Com"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 pipewire = { version = "0.10", optional = true, features = ["v0_3_50"] }

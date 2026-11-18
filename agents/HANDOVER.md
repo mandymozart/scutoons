@@ -23,5 +23,4 @@ Open work: GitHub issues + the board "SCUTOONS" (RULES C). Decisions: agents/dec
   worktrees (`.claude/worktrees/*`) – the owner reviews and merges them; agents don't (RULES B3).
 
 ## Last run
-2026-11-04 night (orchestrated; details in HANDOFF.md "State"): the one-core fix tickets #364-#391 merged to local main, ABI v2 (#339-#345), P9a native rigs (#322), P10 validate by the core (#313),
-P12 retirements (#324); guards: `check:core-only` baseline 3 hits, `check:deck-deps`, `check:generate`, headless host with no `expected_fail`. Not pushed. Open: the #306 owner bench (X1 / S22), then #290.
+2026-11-18 · branch `develop`, nothing pushed: Gemini usage switched to Vertex service-account ADC (`vienna-struggle`), verified; rule in RULES B10 / AGENTS.md, models approved. Setup: `agents/HANDOVER-2026-11-18-vertex.md`. Next session's work queue (cost booking, deck:ci, #622 then #621, #623, #290/#306): `agents/HANDOVER-2026-11-18-scutoons-work.md`. Older run state: HANDOFF.md "State".

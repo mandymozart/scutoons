@@ -1,8 +1,9 @@
 //! The inspector (#456; owner 2026-11-09: "the right side is the inspector ... it should show what can be set on the current
 //! node"): what the selection is and what can be set on it – the rig, a track or a node. It draws and says where its fields
 //! landed; the values and their ranges are the core's.
-use crate::stage::Stage;
+use crate::stage::{Param, Stage};
 use crate::wires::Port;
+use deck_space::modreg::PageSpec;
 use deck_kit::editor::colour;
 use deck_kit::editor::controls::{self, Rect};
 use deck_kit::base::draw::DrawList;
@@ -24,6 +25,8 @@ pub enum Field {
     Knob(usize),
     /// an input of a node
     Param(usize, usize),
+    /// an area tab of a node's sections (node, area): its first page, pressed again its next page
+    Area(usize, usize),
     /// a far world node's address (by its graph node): a click opens the address book
     Address(usize),
     /// takes the selected track or node away
@@ -31,6 +34,111 @@ pub enum Field {
     /// the rig's stage background: a click on its value types it, on its swatch opens the colour picker
     Background,
     BackgroundColour,
+}
+
+/// Which page of a node's sections the inspector shows: an area (its tab) and a page of it. One button per area, the
+/// Analog Four's way: a press on another area opens its first page, a press on the open one its next page.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Paging {
+    pub node: usize,
+    pub area: usize,
+    pub page: usize,
+}
+
+/// the areas of `pages` in their order, each with the indices of its pages
+pub fn areas(pages: &[PageSpec]) -> Vec<(&'static str, Vec<usize>)> {
+    let mut out: Vec<(&'static str, Vec<usize>)> = Vec::new();
+    for (i, p) in pages.iter().enumerate() {
+        match out.iter_mut().find(|(a, _)| *a == p.area) {
+            Some((_, list)) => list.push(i),
+            None => out.push((p.area, vec![i])),
+        }
+    }
+    out
+}
+
+impl Paging {
+    /// where `node` stands: this paging if it is that node's, else its first page
+    pub fn of(self, node: usize) -> Paging {
+        if self.node == node {
+            self
+        } else {
+            Paging { node, area: 0, page: 0 }
+        }
+    }
+
+    /// a press on area tab `area` of `node`, which has `count` pages
+    pub fn press(self, node: usize, area: usize, count: usize) -> Paging {
+        let now = self.of(node);
+        let page = if now.area == area { (now.page + 1) % count.max(1) } else { 0 };
+        Paging { node, area, page }
+    }
+
+    /// page `area/page` of `pages` opened on `node`
+    pub fn at(node: usize, pages: &[PageSpec], key: &str) -> Option<Paging> {
+        areas(pages).iter().enumerate().find_map(|(a, (_, list))| list.iter().position(|&i| pages[i].key == key).map(|page| Paging { node, area: a, page }))
+    }
+}
+
+/// the knobs' grid: two rows of four
+const COLUMNS: usize = 4;
+
+/// A node's sections: the area tabs, the open area's page names (the shown one bright) and its page as two rows of four
+/// knobs; a knob place without a parameter stays, so twin pages line up. The parameters it placed.
+#[allow(clippy::too_many_arguments)]
+fn sections(d: &mut DrawList, t: &Tokens, (area, y): (Rect, &mut f32), node: usize, pages: &[PageSpec], params: &[Param], paging: Paging, hot: Option<Field>, out: &mut Vec<(Rect, Field)>) {
+    let list = areas(pages);
+    let now = paging.of(node);
+    let a = now.area.min(list.len().saturating_sub(1));
+    let names: Vec<&str> = list.iter().map(|(n, _)| *n).collect();
+    let h = t.size.row - 4.0;
+    for (i, r) in controls::pills(d, t, area.x, *y, h, &names, a).into_iter().enumerate() {
+        out.push((r, Field::Area(node, i)));
+    }
+    *y += t.size.row;
+    let Some((_, in_area)) = list.get(a) else { return };
+    let shown = in_area[now.page.min(in_area.len() - 1)];
+    let small = t.size.small;
+    let mut x = area.x;
+    for &i in in_area {
+        let name = pages[i].page;
+        d.sans(x, *y, small, name, if i == shown { t.color.text } else { t.color.muted });
+        x += d.sans_width(small, name) + t.size.pad;
+    }
+    *y += small * 1.8;
+    let labels = knob_labels(&pages[shown].slots);
+    let cell = area.w / COLUMNS as f32;
+    let tall = (cell * 1.05).min(t.size.row * 3.2);
+    for (k, slot) in pages[shown].slots.iter().enumerate() {
+        let r = Rect { x: area.x + (k % COLUMNS) as f32 * cell, y: *y + (k / COLUMNS) as f32 * tall, w: cell, h: tall - t.size.pad * 0.5 };
+        let Some(p) = slot.and_then(|name| params.iter().find(|p| p.name == name)) else {
+            controls::knob(d, t, r, "", None, false);
+            continue;
+        };
+        let field = Field::Param(node, p.port);
+        let value = match &p.linked {
+            Some(from) => format!("< {from}"),
+            None => crate::number(p.value),
+        };
+        let f = if p.linked.is_some() { 0.0 } else { p.spec.norm(p.value) };
+        controls::knob(d, t, r, labels[k], Some((&value, f)), hot == Some(field));
+        if p.linked.is_none() {
+            out.push((r, field));
+        }
+    }
+    *y += tall * 2.0;
+}
+
+/// What a page's knobs say: their names without the prefix the page already names (`o1_wave` on OSC 1 is `wave`), the
+/// whole names where that would leave two the same.
+fn knob_labels(slots: &[Option<&'static str>]) -> Vec<&'static str> {
+    let short: Vec<&'static str> = slots.iter().map(|s| s.map_or("", |n| n.split_once('_').map_or(n, |(_, rest)| rest))).collect();
+    let unique = short.iter().enumerate().all(|(i, a)| a.is_empty() || !short[..i].contains(a));
+    if unique {
+        short
+    } else {
+        slots.iter().map(|s| s.unwrap_or("")).collect()
+    }
 }
 
 /// The stage background's row as a rig, a scene, a show or a module shows it: its own, else what it falls back to.
@@ -105,7 +213,7 @@ fn port_line(d: &mut DrawList, t: &Tokens, area: Rect, y: &mut f32, p: &Port) {
 }
 
 /// draw it inside `area`; where its fields landed
-pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, stage: &Stage, sel: &Sel, hot: Option<Field>) -> Vec<(Rect, Field)> {
+pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, stage: &Stage, sel: &Sel, paging: Paging, hot: Option<Field>) -> Vec<(Rect, Field)> {
     let mut out = Vec::new();
     let mut y = area.y;
     let row = t.size.row;
@@ -164,7 +272,12 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, stage: &Stage, sel: &Sel, 
             if !params.is_empty() {
                 y += controls::section(d, t, area.x, y, area.w, "PARAMETERS", false);
             }
-            for p in params {
+            let pages = stage.kinds.get(*node).map_or(&[][..], |k| k.pages());
+            if !pages.is_empty() {
+                sections(d, t, (area, &mut y), *node, pages, &params, paging, hot, &mut out);
+            }
+            let on_a_page = |name: &str| pages.iter().any(|p| p.slots.contains(&Some(name)));
+            for p in params.iter().filter(|p| !on_a_page(p.name)) {
                 if y + row > area.y + area.h {
                     break;
                 }

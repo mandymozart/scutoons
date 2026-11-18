@@ -238,7 +238,10 @@ fn null(factory: &mut Factory) -> Result<Running> {
 /// device's rate and channels, or – away at the start – at the timer's rate on the channels the saved map uses.
 fn watched(o: &Options, factory: &mut Factory) -> Result<Running> {
     let mut port = CpalPort { host: o.host, want: o.device.clone().unwrap_or_default(), buffer: o.buffer, thread: o.thread };
-    cpal_host(o.host)?;
+    {
+        let _asio = asio_lock(o.host);
+        cpal_host(o.host)?;
+    }
     let found = super::watch::Port::find(&mut port);
     let (rate, channels) = match &found {
         Some(f) => (f.rate, f.channels),
@@ -259,6 +262,44 @@ pub(super) fn map_channels(map: &[deck_engine::OutletMap]) -> usize {
     map.iter().flat_map(|o| o.channels.iter().copied()).max().unwrap_or(0).max(2)
 }
 
+/// ASIO keeps one driver loaded per process and its SDK is not thread-safe: the routing page's listing (its own thread,
+/// loading every ASIO driver) and the watch opening the saved device at the same time found no devices and corrupted
+/// the heap (the editor's 0xC0000374 / 0xC0000409 crashes, #623). Every use of cpal's ASIO host holds this lock.
+static ASIO_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+/// the ASIO device a stream was opened on: a listing then shows it alone and loads no other driver (loading one would
+/// unload the playing one)
+static ASIO_LIVE: std::sync::Mutex<Option<Output>> = std::sync::Mutex::new(None);
+
+/// the ASIO lock when `h` is ASIO, with COM set up on this thread: an ASIO driver is a COM object, and cpal initialises
+/// COM for WASAPI only – the watch's own thread (#615) found no ASIO devices without it, so nothing played
+fn asio_lock(h: Host) -> Option<std::sync::MutexGuard<'static, ()>> {
+    (h == Host::Asio).then(|| {
+        com_here();
+        ASIO_LOCK.lock().unwrap_or_else(|e| e.into_inner())
+    })
+}
+
+/// COM on this thread, once (single-threaded apartment, as ASIO drivers expect); a thread that has it already keeps its own
+fn com_here() {
+    #[cfg(windows)]
+    {
+        thread_local!(static COM: () = {
+            // SAFETY: CoInitializeEx with no reserved pointer; S_FALSE / RPC_E_CHANGED_MODE leave the thread's COM as it is
+            let _ = unsafe { windows_sys::Win32::System::Com::CoInitializeEx(std::ptr::null(), windows_sys::Win32::System::Com::COINIT_APARTMENTTHREADED as u32) };
+        });
+        COM.with(|_| {});
+    }
+}
+
+/// the device a stream now plays on, when it is ASIO's
+fn asio_live(h: Host, device: &cpal::Device, cfg: &cpal::SupportedStreamConfig) {
+    use cpal::traits::DeviceTrait;
+    if h == Host::Asio {
+        let o = Output { name: device.name().unwrap_or_default(), channels: cfg.channels() as usize, rate: cfg.sample_rate().0, format: format!("{:?}", cfg.sample_format()), default: true, ..Output::default() };
+        *ASIO_LIVE.lock().unwrap_or_else(|e| e.into_inner()) = Some(o);
+    }
+}
+
 /// the saved device on a cpal host, for the watch
 struct CpalPort {
     host: Host,
@@ -274,6 +315,7 @@ impl super::watch::Port for CpalPort {
 
     fn find(&mut self) -> Option<super::watch::Found> {
         use cpal::traits::DeviceTrait;
+        let _asio = asio_lock(self.host);
         let host = cpal_host(self.host).ok()?;
         let device = cpal_device(&host, Some(&self.want)).ok()?;
         let cfg = device.default_output_config().ok()?;
@@ -281,11 +323,13 @@ impl super::watch::Port for CpalPort {
     }
 
     fn open(&mut self, rate: u32, link: &mut super::watch::Link) -> Result<super::watch::Opened> {
+        let _asio = asio_lock(self.host);
         let host = cpal_host(self.host)?;
         let device = cpal_device(&host, Some(&self.want))?;
         let cfg = config_at(&device, rate)?;
         let lost = link.lost();
         let stream = cpal_stream(&host, &device, &cfg, self.buffer, self.thread, &mut |_| Ok(super::watch::Held::handed(link.hand())), Some(lost))?;
+        asio_live(self.host, &device, &cfg);
         Ok(super::watch::Opened { stream: Box::new(stream), wasapi: host.id().name() == "WASAPI" })
     }
 }
@@ -512,6 +556,17 @@ pub fn outputs() -> Vec<Outputs> {
     let mut ids = cpal::available_hosts();
     ids.sort_by_key(|id| *id != default_host);
     for id in ids {
+        // ASIO: one at a time (ASIO_LOCK); while a stream plays on it, only that device (loading another driver unloads it)
+        let _asio = (id.name() == "ASIO").then(|| {
+            com_here();
+            ASIO_LOCK.lock().unwrap_or_else(|e| e.into_inner())
+        });
+        if id.name() == "ASIO" {
+            if let Some(live) = ASIO_LIVE.lock().unwrap_or_else(|e| e.into_inner()).clone() {
+                out.push(Outputs { name: "ASIO".to_string(), key: Some("asio"), devices: vec![live] });
+                continue;
+            }
+        }
         let Ok(host) = cpal::host_from_id(id) else { continue };
         let key = match id.name() {
             _ if id == default_host && pipewire => None,
@@ -612,6 +667,7 @@ impl CpalPlayer {
 
 fn cpal(o: &Options, factory: &mut Factory) -> Result<Running> {
     use cpal::traits::DeviceTrait;
+    let _asio = asio_lock(o.host);
     let host = cpal_host(o.host)?;
     let device = cpal_device(&host, o.device.as_deref())?;
     let cfg = device.default_output_config()?;
@@ -622,6 +678,7 @@ fn cpal(o: &Options, factory: &mut Factory) -> Result<Running> {
         Ok(super::watch::Held::own(feed))
     };
     let stream = cpal_stream(&host, &device, &cfg, o.buffer, o.thread, &mut held, None)?;
+    asio_live(o.host, &device, &cfg);
     let name = match host.id().name() {
         "WASAPI" => "wasapi",
         "ASIO" => "asio",

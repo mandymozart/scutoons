@@ -136,6 +136,9 @@ fn is_zero(n: &u32) -> bool {
 fn empty_assets() -> Cow<'static, [AssetDesc]> {
     Cow::Borrowed(&[])
 }
+fn empty_sections() -> Cow<'static, [Section]> {
+    Cow::Borrowed(&[])
+}
 
 /// an event port's prop slots: deck-events' `Event` carries at most this many props (ABI-V2 §1.2, §1.4)
 pub const MAX_EVENT_PROPS: usize = 6;
@@ -256,6 +259,33 @@ pub struct ParamDesc {
     pub port: bool,
     #[serde(default = "empty_str", skip_serializing_if = "is_empty_str")]
     pub doc: Cow<'static, str>,
+    /// the page it sits on (`SRC/OSC 1`, one of the descriptor's `sections`); empty = none
+    #[serde(default = "empty_str", skip_serializing_if = "is_empty_str")]
+    pub section: Cow<'static, str>,
+    /// its knob on that page: 0 … 7, two rows of four (twin pages put one idea on one knob)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub slot: Option<u8>,
+}
+
+/// the knobs of one page: two rows of four, the most parameters a section holds
+pub const PAGE_SLOTS: usize = 8;
+/// an area's or a page's name: at most this many characters
+pub const SECTION_NAME: usize = 24;
+
+/// A named page of a module's parameters, the Analog Four's way: an area (one button, `SRC`) and one of its pages
+/// (`OSC 1`; pressed again, the next). Descriptor metadata only: the parameters' order and the module's layout stay.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+pub struct Section {
+    pub area: Cow<'static, str>,
+    pub page: Cow<'static, str>,
+}
+
+impl Section {
+    /// `area/page`, what a parameter's `section` names
+    pub fn key(&self) -> String {
+        format!("{}/{}", self.area, self.page)
+    }
 }
 
 /// One node kind or module: what the engine, the validator, the editor and the agents all read.
@@ -316,12 +346,16 @@ pub struct Descriptor {
     pub ports: Cow<'static, [PortDesc]>,
     #[serde(default = "empty_params")]
     pub params: Cow<'static, [ParamDesc]>,
+    /// modules only: its parameters' pages in order (area by area); none = they group by their names' prefixes
+    #[serde(default = "empty_sections", skip_serializing_if = "is_empty_slice")]
+    pub sections: Cow<'static, [Section]>,
     /// read-only data slots (samples, sequences, images) the host fills at instantiation
     #[serde(default = "empty_assets", skip_serializing_if = "is_empty_slice")]
     pub assets: Cow<'static, [AssetDesc]>,
     /// the kind's one factory preset
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub preset: Option<FactoryPreset>,    /// modules only: the stage's background while it plays, unless a rig, scene or show above it sets one
+    pub preset: Option<FactoryPreset>,
+    /// modules only: the stage's background while it plays, unless a rig, scene or show above it sets one
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub background: Option<Background>,
 }
@@ -360,9 +394,14 @@ impl Descriptor {
     pub fn param_index(&self, name: &str) -> Option<usize> {
         self.params.iter().position(|p| p.name == name)
     }
-    /// its parameters in groups (`groups::by_prefix`)
+    /// its parameters in groups: an area each when it has sections (`groups::by_sections`), else by their names
+    /// (`groups::by_prefix`)
     pub fn param_groups(&self) -> Vec<groups::Group> {
-        groups::by_prefix(&self.params.iter().map(|p| p.name.as_ref()).collect::<Vec<_>>())
+        if self.sections.is_empty() {
+            groups::by_prefix(&self.params.iter().map(|p| p.name.as_ref()).collect::<Vec<_>>())
+        } else {
+            groups::by_sections(self)
+        }
     }
     /// the ports of one direction and type, in declaration order – for a module the n-th is `block.audio_in(n)` and so on
     pub fn ports_of(&self, dir: Dir, ty: PortType) -> impl Iterator<Item = &PortDesc> {
@@ -497,6 +536,7 @@ impl Descriptor {
             return Err(format!("'{me}': '{c}' in `characters` is no character id (lowercase letters, digits, '_' or '-', a persona after one '.')"));
         }
         unique("`assets`", &mut self.assets.iter().map(|a| a.name.as_ref()))?;
+        self.check_sections()?;
         if let Some(a) = self.assets.iter().find(|a| a.max_bytes == 0) {
             return Err(format!("'{me}': asset '{}' needs a `max_bytes` above 0", a.name));
         }
@@ -514,6 +554,50 @@ impl Descriptor {
                     return Err(format!("'{me}': preset '{}': '{k}' = {v} is outside {} … {}", preset.name, p.min, p.max));
                 }
             }
+        }
+        Ok(())
+    }
+}
+
+impl Descriptor {
+    /// Sections: each `area/page` once, names without `/`, every parameter on a declared page (once there are pages), on
+    /// a knob 0 … 7 of its own, no page empty.
+    fn check_sections(&self) -> Result<(), String> {
+        let me = &self.name;
+        let name_ok = |n: &str| !n.trim().is_empty() && n.chars().count() <= SECTION_NAME && !n.contains('/');
+        let keys: Vec<String> = self.sections.iter().map(Section::key).collect();
+        for (i, s) in self.sections.iter().enumerate() {
+            if !name_ok(&s.area) || !name_ok(&s.page) {
+                return Err(format!("'{me}': section '{}': an area and a page are 1 … {SECTION_NAME} characters without '/'", keys[i]));
+            }
+            if keys[..i].contains(&keys[i]) {
+                return Err(format!("'{me}': section '{}' is declared twice", keys[i]));
+            }
+        }
+        let mut taken: Vec<(usize, u8)> = Vec::new();
+        for p in self.params.iter() {
+            let at = format!("'{me}': parameter '{}'", p.name);
+            if p.section.is_empty() {
+                if !self.sections.is_empty() {
+                    return Err(format!("{at} is on no page (the module has sections: each parameter names one)"));
+                }
+                if p.slot.is_some() {
+                    return Err(format!("{at}: a `slot` is a knob on a page – it needs a `section`"));
+                }
+                continue;
+            }
+            let s = keys.iter().position(|k| *k == p.section).ok_or_else(|| format!("{at}: section '{}' is not declared", p.section))?;
+            let slot = p.slot.ok_or_else(|| format!("{at}: no `slot` on its page"))?;
+            if slot as usize >= PAGE_SLOTS {
+                return Err(format!("{at}: slot {slot}, a page has knobs 0 … {}", PAGE_SLOTS - 1));
+            }
+            if taken.contains(&(s, slot)) {
+                return Err(format!("{at}: knob {slot} of '{}' is taken", p.section));
+            }
+            taken.push((s, slot));
+        }
+        if let Some(i) = (0..keys.len()).find(|i| !taken.iter().any(|(s, _)| s == i)) {
+            return Err(format!("'{me}': section '{}' holds no parameter", keys[i]));
         }
         Ok(())
     }
