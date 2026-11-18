@@ -15,6 +15,9 @@ pub const ICONS: &[(&str, &str)] = &[
     ("replay", r#"<polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>"#),
     ("camera", r#"<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle>"#),
     ("close", r#"<line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>"#),
+    ("window-min", r#"<line x1="6" y1="12" x2="18" y2="12"></line>"#),
+    ("window-max", r#"<rect x="6" y="6" width="12" height="12"></rect>"#),
+    ("window-restore", r#"<rect x="6" y="9" width="9" height="9"></rect><polyline points="9 9 9 6 18 6 18 15 15 15"></polyline>"#),
     ("reset", r#"<polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>"#),
     ("up", r#"<polyline points="18 15 12 9 6 15"></polyline>"#),
     ("down", r#"<polyline points="6 9 12 15 18 9"></polyline>"#),
@@ -77,7 +80,7 @@ mod tests {
 
     #[test]
     fn the_ones_the_editor_uses_are_there() {
-        for name in ["up", "down", "next", "close", "play-fill", "stop-fill", "grip", "menu", "info", "account", "tool", "pointer", "maximize", "square"] {
+        for name in ["up", "down", "next", "close", "play-fill", "stop-fill", "grip", "menu", "info", "account", "tool", "pointer", "maximize", "square", "window-min", "window-max", "window-restore"] {
             assert!(has(name), "{name}");
         }
     }

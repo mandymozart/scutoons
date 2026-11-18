@@ -17,6 +17,7 @@ mod book;
 mod colour;
 mod dop;
 mod empty;
+mod frame;
 mod gpu_time;
 mod grid;
 mod library;
@@ -99,6 +100,8 @@ struct Args {
     open: Option<String>,
     /// the selected node's inspector opened on this page of its sections (`SRC/OSC 2`)
     page: Option<String>,
+    /// a check run's pointer, logical pixels: what it hovers
+    pointer: Option<(f32, f32)>,
     /// a check run's selection: this graph node's id, or a track's
     select: Option<String>,
     /// a check run's knob pull on the stage, in Play
@@ -172,7 +175,7 @@ struct Args {
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, save_state: None, tools_folded: false, closed: Vec::new(), log: false, main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false, library_related: false, pan: None, camera: false, dop: None, scene_file: None, nodes: None, node_zoom: None, open: None, page: None };
+    let mut a = Args { module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, save_state: None, tools_folded: false, closed: Vec::new(), log: false, main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false, library_related: false, pan: None, camera: false, dop: None, scene_file: None, nodes: None, node_zoom: None, open: None, page: None, pointer: None };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -330,13 +333,18 @@ fn args() -> Result<Args> {
                 a.gesture = Some((from.to_string(), to.to_string()));
                 a.wire = true;
             }
+            "--pointer" => {
+                let v = val()?;
+                let (x, y) = v.split_once(',').with_context(|| format!("--pointer takes X,Y, not {v}"))?;
+                a.pointer = Some((x.trim().parse()?, y.trim().parse()?));
+            }
             "--size" => {
                 let v = val()?;
                 let (w, h) = v.split_once([',', 'x']).with_context(|| format!("--size takes W,H, not {v}"))?;
                 a.size = Some((w.trim().parse()?, h.trim().parse()?));
             }
             "--help" | "-h" => {
-                println!("deck-editor [--rig catpope] [--fullscreen] [--frames N] [--screenshot FILE] [--tokens FILE] [--size W,H] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5] [--menu PORT,QUERY[,pick]] [--toon TOON] [--book FILE] [--select NODE --far QUERY[,pick]] [--demo NAME] [--panic] [--colour open|pick|drop:X,Y|take:X,Y] [--save-state saving|offline|conflict] [--settings] [--close ID,ID] [--main-menu] [--module ID [--module-build] [--module-save] [--module-save-as ID]] [--scene-file FILE [--dop modules]]");
+                println!("deck-editor [--rig catpope] [--fullscreen] [--frames N] [--screenshot FILE] [--tokens FILE] [--size W,H] [--pointer X,Y] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5] [--menu PORT,QUERY[,pick]] [--toon TOON] [--book FILE] [--select NODE --far QUERY[,pick]] [--demo NAME] [--panic] [--colour open|pick|drop:X,Y|take:X,Y] [--save-state saving|offline|conflict] [--settings] [--close ID,ID] [--main-menu] [--module ID [--module-build] [--module-save] [--module-save-as ID]] [--scene-file FILE [--dop modules]]");
                 std::process::exit(0);
             }
             other => anyhow::bail!("unknown argument {other}"),
@@ -557,6 +565,9 @@ struct App {
     ui_ms: Vec<f32>,
     frame_ms: Vec<f32>,
     latency: latency::Probe,
+    /// the window's own frame (Windows, windowed): the toolbar is its title bar
+    own_frame: Option<deck_kit::editor::window::Side>,
+    frame: frame::Own,
     exit: i32,
     clipboard: Option<arboard::Clipboard>,
     token_changes: u32,
@@ -769,6 +780,8 @@ fn run() -> Result<i32> {
         }
     }
     let main_menu = args.main_menu;
+    let own_frame = frame::own(args.fullscreen);
+    let pointer = args.pointer;
     let mut app = App {
         panel: Panel { tab: args.tab, field: text::Field::with("Grüße an die Bühne – type here"), drag: None, hits: Vec::new(), field_rect: Rect { x: 0.0, y: 0.0, w: 0.0, h: 0.0 }, advance: 8.0 },
         args,
@@ -785,13 +798,15 @@ fn run() -> Result<i32> {
         settings_file,
         settings_hits: Vec::new(),
         mods: ModifiersState::empty(),
-        cursor: (0.0, 0.0),
+        cursor: pointer.unwrap_or_default(),
         last: None,
         started: Instant::now(),
         frames: 0,
         ui_ms: Vec::new(),
         frame_ms: Vec::new(),
         latency: latency::Probe::from_env(),
+        own_frame,
+        frame: frame::Own::default(),
         exit: 0,
         clipboard: arboard::Clipboard::new().map_err(|e| tracing::warn!("no clipboard: {e}")).ok(),
         token_changes: 0,
@@ -1290,6 +1305,16 @@ impl App {
                 }
             }
         }
+    }
+
+    /// the window's own frame takes a press on its edge, a window button or the toolbar's empty run; an open menu,
+    /// a typed field or the colour taker has the press first
+    fn frame_press(&mut self) -> bool {
+        if self.edit.is_some() || self.menu.is_some() || self.main_menu || self.colour.taking() {
+            return false;
+        }
+        let Some(w) = self.window.clone() else { return false };
+        self.frame.press(&w, self.cursor, self.started.elapsed().as_secs_f64())
     }
 
     fn press(&mut self) {
@@ -2474,7 +2499,7 @@ impl App {
         let help = self.help_now();
         self.show.help.clone_from(&help);
         let enabled: Vec<(bar::Action, bool)> = bar::MENU.iter().map(|(a, ..)| (*a, self.menu_why_not(*a).is_none())).collect();
-        let grab = panels::cursor(&self.panels().floats, self.cursor);
+        let grab = frame::cursor(&self.frame.frame, self.cursor).unwrap_or_else(|| panels::cursor(&self.panels().floats, self.cursor));
         self.take_messages();
         let words = self.state_words();
         let account = self.auth.state();
@@ -2610,8 +2635,6 @@ impl App {
             vec![self.show.sub.conductor().show().id.clone()]
         };
         let names = show::WORKSPACES.map(|(_, n)| n);
-        // reduce motion stills the animated logo
-        let logo_frame = if self.settings.motion.allows(true) { ((self.started.elapsed().as_secs_f32() / logo::SECONDS).fract() * logo::FRAMES as f32) as usize } else { 0 };
         let slot = if matches!(self.workspace, show::Workspace::Build | show::Workspace::Module) { 0.0 } else { show::author::view_width(ui, t, &self.show, self.workspace) };
         // the signing-in icon breathes, unless motion is reduced
         let pulse = if self.settings.motion.allows(true) { 0.5 + 0.5 * (self.started.elapsed().as_secs_f32() * std::f32::consts::TAU / 1.6).cos() } else { 1.0 };
@@ -2624,7 +2647,6 @@ impl App {
             clock: bar::Clock::Int,
             account,
             pulse,
-            logo_frame,
             pointer: self.cursor,
             cpu: self.cpu.as_ref().and_then(|c| c.reading()),
             gpu: self.gpu_load.reading(),
@@ -2632,8 +2654,12 @@ impl App {
             fps,
             slot,
             panicked: self.show.sub.panicked(),
+            window: self.own_frame.map(|s| (s, window.is_maximized())),
         };
         let placed = bar::draw(ui, t, wf, &spec);
+        if self.own_frame.is_some() {
+            self.frame.frame = deck_kit::editor::window::Frame { size: (wf, hf), maximised: window.is_maximized(), band: bar_bottom, buttons: placed.window.clone(), solid: placed.solid.clone() };
+        }
         self.panel.hits.push((placed.menu, Hit::Menu));
         self.panel.hits.push((placed.panic, Hit::Panic));
         self.panel.hits.push((placed.account, Hit::Account));
@@ -3293,7 +3319,11 @@ impl ApplicationHandler for App {
         if self.window.is_some() {
             return;
         }
-        let window = match host::window(el, "SCUTOONS editor", !self.args.fullscreen) {
+        let mut attrs = host::attributes("SCUTOONS editor", !self.args.fullscreen);
+        if self.own_frame.is_some() {
+            attrs = frame::undecorated(attrs);
+        }
+        let window = match el.create_window(attrs).map(Arc::new) {
             Ok(w) => w,
             Err(e) => {
                 tracing::error!("no window: {e}");
@@ -3339,9 +3369,18 @@ impl ApplicationHandler for App {
                 let s = self.scale();
                 self.pointer(position.x as f32 / s, position.y as f32 / s);
             }
-            WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Left, .. } => self.press(),
+            WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Left, .. } => {
+                if !self.frame_press() {
+                    self.press();
+                }
+            }
             WindowEvent::MouseInput { state: ElementState::Pressed, button: button @ (MouseButton::Middle | MouseButton::Right), .. } => self.press_view(button),
             WindowEvent::MouseInput { state: ElementState::Released, .. } => {
+                if let Some(w) = self.window.clone() {
+                    if self.frame.release(&w, el, self.cursor) {
+                        return;
+                    }
+                }
                 self.show.release();
                 self.module.release();
                 self.release()
