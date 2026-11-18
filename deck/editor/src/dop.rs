@@ -204,7 +204,8 @@ fn focus_of(cam: &SceneCamera, sel: &Sel) -> f32 {
 }
 
 /// The focus: at the aim, a distance (scrubbed) or – a shot's – a subject on the stage it follows.
-fn focus_rows(d: &mut DrawList, t: &Tokens, a: Rect, y: &mut f32, cam: &SceneCamera, sel: &Sel, hot: Option<Num>, out: &mut Vec<(Rect, Field)>) {
+fn focus_rows(d: &mut DrawList, t: &Tokens, a: Rect, y: &mut f32, view: &SceneView, hot: Option<Num>, out: &mut Vec<(Rect, Field)>) {
+    let (cam, sel) = (&view.edit.camera(), &view.dop);
     let lens = lens_of(cam, sel);
     let shot = sel.shot.and_then(|i| cam.shots.get(i));
     let on = shot.and_then(|s| s.focus_on.as_deref());
@@ -260,7 +261,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, a: Rect, view: &SceneView, playing: Pl
         pills_row(d, t, a, &mut y, &names, lens.preset().unwrap_or(FOCAL_PRESETS.len()), &fields, &mut out);
         caption(d, t, a, &mut y, &format!("{} mm · {:.0}° high on full frame", mm(lens.focal), fov_of(lens.focal).to_degrees()));
     }
-    focus_rows(d, t, a, &mut y, &cam, sel, hot, &mut out);
+    focus_rows(d, t, a, &mut y, view, hot, &mut out);
     let height = sel.shot.and_then(|i| cam.shots.get(i)).map_or(cam.height, |s| s.height(sel.floor));
     let preset = height_preset(height);
     let mut names: Vec<String> = EYE_HEIGHTS.iter().map(|(n, _)| n.to_string()).collect();
