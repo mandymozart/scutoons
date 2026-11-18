@@ -58,7 +58,7 @@ impl Side {
         let mut changed = false;
         for c in came {
             let did = match c {
-                In::Address { address, action } => vec![cast.word(&address, &action)],
+                In::Address { address, action, .. } => vec![cast.word(&address, &action)],
                 In::Story(event) => cast.story(&event.into()),
                 _ => Vec::new(),
             };

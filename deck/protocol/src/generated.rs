@@ -1122,6 +1122,9 @@ pub struct Address {
 	pub action: String,
 	#[serde(rename = "where", default, skip_serializing_if = "Option::is_none")]
 	pub r#where: Option<Filter>,
+	/// #621: the show clock's beat it plays on (a show cell's camera cut on its row's bar or phrase); none = at once
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub beat: Option<f64>,
 }
 
 /// #90: one receiver's count, up to the conductor that asked: it picked up (`reached`), passed the filter (`passed`), a handler took it (`answered`). A receiver the address does not name sends nothing.

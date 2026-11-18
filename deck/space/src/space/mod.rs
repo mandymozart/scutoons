@@ -304,7 +304,7 @@ pub struct Space {
     /// the scene's primary camera playing: its shots and moves
     pub dop: dop::Dop,
     /// a camera word for a scene not (yet) on this stage: tried once more when the next scene's camera arrives
-    camera_pending: Option<(String, String)>,
+    camera_pending: Option<(String, String, Option<f64>)>,
     /// the modules on the camera's and the members' slots
     pub motions: motion::Motions,
     /// when the scene's row started (s, beat): what a motion module counts its row time from
@@ -929,8 +929,8 @@ impl Space {
             self.open_on_scene_camera();
         }
         // a camera word that came before its scene (a show row's cell picks the shot of a scene that starts with it)
-        if let Some((address, action)) = self.camera_pending.take() {
-            if let Some(Ok(said)) = self.dop.word(&address, &action) {
+        if let Some((address, action, beat)) = self.camera_pending.take() {
+            if let Some(Ok(said)) = self.dop.word_on(&address, &action, beat) {
                 tracing::info!("{address} > {said} (as the scene arrived)");
             }
         }
@@ -954,9 +954,14 @@ impl Space {
 
     /// An address action for the scene's camera (`scene:nave > shot:wide`, `> move:intro`): whether it was one.
     pub fn camera_word(&mut self, address: &str, action: &str) -> bool {
-        match self.dop.word(address, action) {
+        self.camera_word_on(address, action, None)
+    }
+
+    /// `camera_word`, played from `beat` of the show clock (a show cell's cut on its row's bar or phrase; none: now)
+    pub fn camera_word_on(&mut self, address: &str, action: &str, beat: Option<f64>) -> bool {
+        match self.dop.word_on(address, action, beat) {
             None if crate::rig::address::CameraWord::parse(action).is_some() && address.starts_with("scene:") => {
-                self.camera_pending = Some((address.to_string(), action.to_string()));
+                self.camera_pending = Some((address.to_string(), action.to_string(), beat));
                 true
             }
             None => false,
@@ -966,7 +971,7 @@ impl Space {
             }
             Some(Err(e)) => {
                 tracing::warn!("{address} > {action}: {e} – kept for the next scene");
-                self.camera_pending = Some((address.to_string(), action.to_string()));
+                self.camera_pending = Some((address.to_string(), action.to_string(), beat));
                 true
             }
         }
@@ -1136,7 +1141,7 @@ impl Space {
                 In::Synced { client, synced } => self.sync.answer(client, synced),
                 // a story this deck did not ask for (the conductor hears every reader's) is not its scene's
                 In::Story(_) if !self.story => {}
-                In::Address { address, action } if self.camera_word(&address, &action) => {}
+                In::Address { address, action, beat } if self.camera_word_on(&address, &action, beat) => {}
                 cast @ (In::Address { .. } | In::Story(_)) => {
                     if self.cast_in.len() == CAST_CAP {
                         self.cast_in.pop_front();

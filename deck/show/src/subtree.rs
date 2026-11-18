@@ -347,6 +347,10 @@ impl Subtree {
             .flat_map(|o| match o {
                 Out::Send(e) => vec![*e],
                 Out::Address(a) => self.address(&a.address, &a.action, a.filter, ms),
+                Out::Camera { column, address, action, beat } => {
+                    let only = protocol::Filter { group: Some(column), ..Default::default() };
+                    self.address_on(&address, &action, Some(only), beat, ms)
+                }
                 Out::Ask(a) => self.ask(&a, ms),
                 Out::Seat { seat, word, says, at } => {
                     let (says, row) = match says {
@@ -494,10 +498,15 @@ impl Subtree {
 
     /// `kind:id > action`, filtered, down this subtree. The log line comes when the answers are in (or after [`ANSWER_MS`]).
     pub fn address(&mut self, address: &str, action: &str, filter: Option<protocol::Filter>, ms: u64) -> Vec<Envelope> {
+        self.address_on(address, action, filter, None, ms)
+    }
+
+    /// `address`, played on `beat` of the show clock (a cell's camera cut on its row's moment)
+    pub fn address_on(&mut self, address: &str, action: &str, filter: Option<protocol::Filter>, beat: Option<f64>, ms: u64) -> Vec<Envelope> {
         self.next_address += 1;
         let id = format!("{}/{}", self.conductor.show().id, self.next_address);
         self.asked.insert(id.clone(), Asked { address: address.to_string(), action: action.to_string(), since: ms, reached: 0, passed: 0, answered: 0 });
-        vec![message(Message::Address(Address { id, address: address.to_string(), action: action.to_string(), r#where: filter }), None)]
+        vec![message(Message::Address(Address { id, address: address.to_string(), action: action.to_string(), r#where: filter, beat }), None)]
     }
 
     /// The operator's flash to every device, the tree resolved to exact versions (`validate::resolve`).

@@ -1,13 +1,15 @@
 //! The DOP: the scene's primary camera playing – its shots as views, its moves on the tempo clock, its trolley track as a
 //! path. A move starts from wherever the camera is, runs over beats, bars (the tempo clock) or seconds, eased, and ends
 //! exactly on its shot; it may wait for the bar line, chain to the next, and a hand on the view interrupts it where it
-//! is – the orbit camera goes on from that view, nothing jumps. A follow stays on its subject until a hand or another move.
+//! is – the orbit camera goes on from that view, nothing jumps. A follow stays on its subject until a hand or another move;
+//! a move that loops or ping-pongs runs its rounds until another move, a cut or a hand (moves in beats or bars on the bar
+//! line); a fly-through along a timed track reaches each point on its time.
 pub mod moves;
 pub mod track;
 
 use super::camera::Orbit;
 use crate::rig::address::{CameraWord, Target};
-use crate::scene_camera::{focal_of, Lens, MoveKind, MoveSpec, Projection, SceneCamera, ShotDef, Start};
+use crate::scene_camera::{focal_of, Lens, MoveKind, MoveSpec, Projection, Repeat, SceneCamera, ShotDef, Start};
 use crate::tempo;
 use glam::Vec3;
 use std::collections::VecDeque;
@@ -203,6 +205,15 @@ enum Base {
     Secs,
 }
 
+impl Base {
+    fn now(self, clock: &Clock) -> f64 {
+        match self {
+            Base::Beats => clock.beat,
+            Base::Secs => clock.secs,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 struct Run {
     cue: Cue,
@@ -211,6 +222,8 @@ struct Run {
     base: Base,
     at: f64,
     len: f64,
+    /// a fly-through along a timed track: its points' knots
+    knots: Option<Vec<track::Knot>>,
 }
 
 /// Plays cues: one at a time, the next from where the last ended.
@@ -222,6 +235,8 @@ pub struct Director {
     hold: Option<Cue>,
     /// where and when the last move ended – the next starts there
     ended: Option<(View, f64)>,
+    /// the beat the next cue starts on (a show cell's camera word on its row's bar or phrase)
+    on_beat: Option<f64>,
 }
 
 /// where an aim address (rig/address.rs `Aim`) stands now: a follow's subject, a shot's aim
@@ -234,6 +249,14 @@ impl Director {
         self.queue.extend(cues);
     }
 
+    /// `cues` as `play`, the first starting on `beat` of the show clock (none: as it would); what plays goes on until then
+    pub fn play_on(&mut self, cues: impl IntoIterator<Item = Cue>, beat: Option<f64>) {
+        let Some(beat) = beat else { return self.play(cues) };
+        self.queue.clear();
+        self.queue.extend(cues);
+        self.on_beat = Some(beat);
+    }
+
     /// `cue` after everything playing or queued
     pub fn queue(&mut self, cue: Cue) {
         self.queue.push_back(cue);
@@ -241,7 +264,7 @@ impl Director {
 
     /// a hand on the view: everything stops where it is
     pub fn interrupt(&mut self) {
-        (self.run, self.hold, self.ended) = (None, None, None);
+        (self.run, self.hold, self.ended, self.on_beat) = (None, None, None, None);
         self.queue.clear();
     }
 
@@ -253,28 +276,32 @@ impl Director {
     /// a move between a perspective and an orthographic lens on its way (moves.rs `blended`)
     pub fn blending(&self, clock: &Clock) -> bool {
         self.run.as_ref().is_some_and(|r| {
-            let p = progress(r, clock);
+            let (_, _, p) = round(r, clock);
             r.from.is_some_and(|f| f.lens.ortho() != r.cue.to.lens.ortho()) && p > 0.0 && p < 1.0 && r.cue.spec.kind != MoveKind::Cut
         })
     }
 
-    /// the cue playing (or waiting to) and how far it is (0..1)
+    /// the cue playing (or waiting to) and how far it is (0..1; a repeating move: in its round)
     pub fn playing(&self, clock: &Clock) -> Option<(&Cue, f32)> {
-        self.run.as_ref().map(|r| (&r.cue, progress(r, clock).clamp(0.0, 1.0) as f32))
+        self.run.as_ref().map(|r| (&r.cue, round(r, clock).2.clamp(0.0, 1.0) as f32))
     }
 
-    fn begin(&mut self, cue: Cue, now: &View, clock: &Clock) {
+    fn begin(&mut self, cue: Cue, now: &View, clock: &Clock, track: Option<&Path>) {
         let (from, at_secs) = match self.ended.take() {
             Some((v, secs)) => (Some(v), secs),
             None => (None, clock.secs),
         };
-        let at_beat = clock.beat_at(at_secs);
-        let tempo = matches!(cue.spec.length, crate::scene_camera::Length::Beats(_) | crate::scene_camera::Length::Bars(_));
-        let run = if clock.running && (tempo || cue.spec.start == Start::Bar) {
+        let on_beat = self.on_beat.take().filter(|_| clock.running);
+        let at_beat = on_beat.unwrap_or_else(|| clock.beat_at(at_secs));
+        let timed = track.filter(|p| cue.spec.kind == MoveKind::Fly && p.timed());
+        let length = timed.map_or(cue.spec.length, |p| p.length(cue.spec.length));
+        let knots = timed.and_then(|p| p.knots(cue.spec.length, clock.per_bar, clock.bpm));
+        let tempo = matches!(length, crate::scene_camera::Length::Beats(_) | crate::scene_camera::Length::Bars(_));
+        let run = if clock.running && (tempo || cue.spec.start == Start::Bar || on_beat.is_some()) {
             let at = if cue.spec.start == Start::Bar { clock.bar_after(at_beat) } else { at_beat };
-            Run { len: cue.spec.length.beats(clock.per_bar, clock.bpm), cue, from, base: Base::Beats, at }
+            Run { len: length.beats(clock.per_bar, clock.bpm), cue, from, base: Base::Beats, at, knots }
         } else {
-            Run { len: cue.spec.length.seconds(clock.per_bar, clock.bpm), cue, from, base: Base::Secs, at: at_secs }
+            Run { len: length.seconds(clock.per_bar, clock.bpm), cue, from, base: Base::Secs, at: at_secs, knots }
         };
         self.run = Some(run);
         if self.run.as_ref().is_some_and(|r| r.from.is_none() && progress(r, clock) >= 0.0) {
@@ -286,13 +313,16 @@ impl Director {
 
     /// The view at `clock` – None while nothing plays (or a move waits for its bar line): the camera is the hand's.
     pub fn step(&mut self, clock: &Clock, now: View, track: Option<&Path>, subject: Subject) -> Option<View> {
-        let ctx = moves::Ctx { track, secs: clock.secs };
+        // a camera word on a beat: what plays goes until then
+        if self.on_beat.is_some_and(|b| !clock.running || clock.beat >= b) && !self.queue.is_empty() {
+            (self.run, self.ended) = (None, None);
+        }
         loop {
             if self.run.is_none() {
                 match self.queue.pop_front() {
                     Some(cue) => {
                         self.hold = None;
-                        self.begin(cue, &now, clock);
+                        self.begin(cue, &now, clock, track);
                     }
                     None => {
                         self.ended = None;
@@ -301,38 +331,69 @@ impl Director {
                 }
             }
             let run = self.run.as_mut()?;
-            let p = progress(run, clock);
-            if p < 0.0 {
+            if progress(run, clock) < 0.0 {
                 return None;
             }
             let from = *run.from.get_or_insert(now);
             let to = aimed(&run.cue, subject);
+            let ctx = moves::Ctx { track, secs: clock.secs, knots: run.knots.as_deref() };
+            let (k, start, p) = round(run, clock);
+            // ping-pong: every second round runs back
+            let back = run.cue.spec.repeat == Repeat::PingPong && k % 2 == 1;
+            let to_end = if back { from } else { to };
             if p < 1.0 {
-                return Some(moves::pose(&run.cue.spec, &from, &to, p as f32, &ctx));
+                let lin = if back { 1.0 - p } else { p };
+                return Some(moves::pose(&run.cue.spec, &from, &to, lin as f32, &ctx));
+            }
+            // a repeat waits for its next round, unless a move is queued after it
+            if run.cue.spec.repeat != Repeat::Once && self.queue.is_empty() {
+                return Some(to_end);
             }
             let end = match run.base {
-                Base::Beats => clock.secs_at(run.at + run.len),
-                Base::Secs => run.at + run.len,
+                Base::Beats => clock.secs_at(start + run.len),
+                Base::Secs => start + run.len,
             };
             let done = self.run.take().map(|r| r.cue);
             if self.queue.is_empty() {
                 self.hold = done.filter(|c| c.spec.kind == MoveKind::Follow);
-                return Some(to);
+                return Some(to_end);
             }
-            self.ended = Some((to, end));
+            self.ended = Some((to_end, end));
         }
     }
 }
 
 fn progress(r: &Run, clock: &Clock) -> f64 {
-    let now = match r.base {
-        Base::Beats => clock.beat,
-        Base::Secs => clock.secs,
-    };
+    let now = r.base.now(clock);
     if r.len <= 0.0 {
         return if now >= r.at { 1.0 } else { -1.0 };
     }
     (now - r.at) / r.len
+}
+
+/// Which round a run plays (0 the first), where that round started, and how far it is in it (0..1; past 1 while a repeat
+/// waits for its next round). A move in beats or bars starts each repeat on a bar line: a round that ends between two waits
+/// for the next.
+fn round(r: &Run, clock: &Clock) -> (u64, f64, f64) {
+    let p = progress(r, clock);
+    if r.cue.spec.repeat == Repeat::Once || r.len <= 0.0 || p < 1.0 {
+        return (0, r.at, p);
+    }
+    let now = r.base.now(clock);
+    let end = r.at + r.len;
+    let (next, period) = match r.base {
+        Base::Beats => {
+            let per = f64::from(clock.per_bar.max(1));
+            (clock.bar_after(end - 1e-9), (r.len / per - 1e-9).ceil().max(1.0) * per)
+        }
+        Base::Secs => (end, r.len),
+    };
+    if now < next {
+        return (0, r.at, p);
+    }
+    let k = ((now - next) / period).floor();
+    let start = next + k * period;
+    (1 + k as u64, start, (now - start) / r.len)
 }
 
 /// a cue's end view, aimed where its follow's subject or its shot's aim stands now
@@ -417,16 +478,26 @@ impl Dop {
 
     /// cues to play now, in place of what plays
     pub fn play(&mut self, cues: Vec<Cue>) {
+        self.play_on(cues, None);
+    }
+
+    /// cues to play from `beat` of the show clock (none: now), in place of what plays then
+    pub fn play_on(&mut self, cues: Vec<Cue>, beat: Option<f64>) {
         if let Some(c) = cues.last() {
             self.current = Some(c.shot.clone());
             self.viewing = Viewing::Shot(c.shot.clone());
         }
-        self.director.play(cues);
+        self.director.play_on(cues, beat);
     }
 
     /// An address action on this camera (`scene:nave`, `shot:wide` / `move:intro`): None = not a camera word of this
     /// scene; else what it did, or why not.
     pub fn word(&mut self, address: &str, action: &str) -> Option<Result<String, String>> {
+        self.word_on(address, action, None)
+    }
+
+    /// `word`, played from `beat` of the show clock (a show cell's camera word on its row's bar or phrase)
+    pub fn word_on(&mut self, address: &str, action: &str, beat: Option<f64>) -> Option<Result<String, String>> {
         let word = CameraWord::parse(action)?;
         let mine = match &self.scene {
             Some(place) => Target::parse(address).is_ok_and(|t| t.picks_up(place)),
@@ -444,8 +515,11 @@ impl Dop {
             CameraWord::Move(id) => self.chain(id),
         };
         Some(cues.map(|c| {
-            self.play(c);
-            format!("camera: {action}")
+            self.play_on(c, beat);
+            match beat {
+                Some(b) => format!("camera: {action} on beat {b}"),
+                None => format!("camera: {action}"),
+            }
         }))
     }
 

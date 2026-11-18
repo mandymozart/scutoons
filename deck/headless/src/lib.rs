@@ -265,11 +265,18 @@ impl Run<'_> {
         let mut out = self.deliver_cell(&outs)?;
         // #516: then the row's address actions, to the playing scene document by the same path as the relay's `address`
         // each as a line (`<address> > <action>: <did>[ at <holder>]`), the stage after the last change as `stage`
+        // a cell's camera cut only on its own column (the relay's `where.group`)
+        let outlet = self.show.as_ref().map(|s| s.outlet.clone()).unwrap_or_default();
         let mut addressed = Vec::new();
-        for a in outs.iter().filter_map(|o| if let Out::Address(a) = o { Some(a) } else { None }) {
-            let answer = self.address(&a.address, &a.action)?;
+        let words = outs.iter().filter_map(|o| match o {
+            Out::Address(a) => Some((a.address.as_str(), a.action.as_str())),
+            Out::Camera { column, address, action, .. } if *column == outlet => Some((address.as_str(), action.as_str())),
+            _ => None,
+        });
+        for (address, action) in words {
+            let answer = self.address(address, action)?;
             let at = answer["holder"].as_str().map(|h| format!(" at {h}")).unwrap_or_default();
-            addressed.push(format!("{} > {}: {}{at}", a.address, a.action, answer["did"].as_str().unwrap_or_default()));
+            addressed.push(format!("{address} > {action}: {}{at}", answer["did"].as_str().unwrap_or_default()));
             if answer.get("stage").is_some() {
                 out["stage"] = answer["stage"].clone();
             }

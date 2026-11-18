@@ -604,6 +604,8 @@ export interface Address {
 	address: string;
 	action: string;
 	where?: Filter;
+	/** #621: the show clock's beat it plays on (a show cell's camera cut on its row's bar or phrase); none = at once */
+	beat?: number;
 }
 
 /** #90: one receiver's count, up to the conductor that asked: it picked up (`reached`), passed the filter (`passed`), a handler took it (`answered`). A receiver the address does not name sends nothing. */

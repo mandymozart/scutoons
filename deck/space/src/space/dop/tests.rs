@@ -1,5 +1,5 @@
 use super::*;
-use crate::scene_camera::{Ease, Length, MoveDef, Track, TrackPoint, Turn};
+use crate::scene_camera::{Ease, Length, MoveDef, Repeat, Track, TrackPoint, Turn};
 
 fn shot(id: &str, target: [f32; 3], yaw: f32, pitch: f32, distance: f32, lens: Lens) -> ShotDef {
     ShotDef { id: id.into(), label: Default::default(), target, yaw, pitch, distance, lens, aim: None }
@@ -8,9 +8,9 @@ fn shot(id: &str, target: [f32; 3], yaw: f32, pitch: f32, distance: f32, lens: L
 fn camera() -> SceneCamera {
     let track = Track {
         points: vec![
-            TrackPoint { at: [-4.0, 1.6, 3.0], handle: None },
-            TrackPoint { at: [0.0, 1.2, 0.5], handle: None },
-            TrackPoint { at: [4.0, 2.0, 2.0], handle: Some([1.0, 0.0, -1.0]) },
+            TrackPoint::at([-4.0, 1.6, 3.0]),
+            TrackPoint::at([0.0, 1.2, 0.5]),
+            TrackPoint { handle: Some([1.0, 0.0, -1.0]), ..TrackPoint::at([4.0, 2.0, 2.0]) },
         ],
     };
     SceneCamera {
@@ -563,4 +563,108 @@ fn a_camera_word_before_its_scene_waits_for_it() {
     assert_eq!(s.viewing(), &Viewing::Shot("iso".into()), "taken as the scene arrived");
     s.set_camera(Some("scene:later"), Some(camera()));
     assert_eq!(s.viewing(), &Viewing::Primary, "once only");
+}
+
+/// a linear glide of `len` from the bar line at beat 0 to "close", repeating as `repeat`
+fn repeating(repeat: Repeat, len: Length) -> Dop {
+    let mut dop = Dop::new(Some("scene:nave".into()), camera());
+    let s = MoveSpec { length: len, ease: Ease::Linear, start: Start::Bar, repeat, ..MoveSpec::of(MoveKind::Glide) };
+    dop.play(vec![dop.cue(s, "close").unwrap()]);
+    assert!(dop.step(&at_beat(0.0), start(), &no_one).is_some(), "starts on the bar line at 0");
+    dop
+}
+
+fn dop_view(id: &str) -> View {
+    Dop::new(None, camera()).view(id).unwrap()
+}
+
+#[test]
+fn once_loop_and_ping_pong_on_the_beat_grid() {
+    let close = dop_view("close");
+    let at = |d: &mut Dop, beat: f64| d.step(&at_beat(beat), start(), &no_one).expect("a view");
+    // once: there after its bar, and stays
+    let mut once = repeating(Repeat::Once, Length::Bars(1.0));
+    assert!(at(&mut once, 4.0).gap(&close) < 1e-3);
+    assert!(!once.director.active(), "once: done");
+
+    // loop: from its start again on every bar line
+    let mut lp = repeating(Repeat::Loop, Length::Bars(1.0));
+    let mid = at(&mut lp, 2.0);
+    for bar in 1..6 {
+        let b = f64::from(bar) * 4.0;
+        assert!(at(&mut lp, b + 0.001).gap(&start()) < 0.05, "bar {bar}: back at its start");
+        assert!(at(&mut lp, b + 2.0).gap(&mid) < 1e-3, "bar {bar}: the same way again");
+        assert!(at(&mut lp, b + 3.999).gap(&close) < 0.05, "bar {bar}: there at its end");
+        assert!(lp.director.active(), "a loop runs on");
+    }
+
+    // ping-pong: there in the first bar, back in the second, there again in the third
+    let mut pp = repeating(Repeat::PingPong, Length::Bars(1.0));
+    assert!(at(&mut pp, 3.999).gap(&close) < 0.05);
+    assert!(at(&mut pp, 6.0).gap(&mid) < 1e-3, "halfway back");
+    assert!(at(&mut pp, 7.999).gap(&start()) < 0.05, "back at its start at bar 2's end");
+    assert!(at(&mut pp, 11.999).gap(&close) < 0.05, "there again");
+
+    // 3 beats in 4/4: each round waits for the bar line, holding where it arrived
+    let mut odd = repeating(Repeat::Loop, Length::Beats(3.0));
+    assert!(at(&mut odd, 3.5).gap(&close) < 1e-3, "holds the shot until the bar line");
+    assert!(at(&mut odd, 4.001).gap(&start()) < 0.05, "the repeat lands on the bar line");
+    assert!(at(&mut odd, 7.5).gap(&close) < 1e-3);
+    assert!(at(&mut odd, 8.001).gap(&start()) < 0.05);
+
+    // seconds: no bar line, the rounds follow each other at once
+    let mut secs = Dop::new(None, camera());
+    let s = MoveSpec { length: Length::Seconds(1.5), ease: Ease::Linear, repeat: Repeat::Loop, ..MoveSpec::of(MoveKind::Glide) };
+    secs.play(vec![secs.cue(s, "close").unwrap()]);
+    let idle_at = |d: &mut Dop, t: f64| d.step(&idle(t), start(), &no_one).expect("a view");
+    let first = idle_at(&mut secs, 0.0);
+    assert!(idle_at(&mut secs, 1.5001).gap(&first) < 0.05, "round two right after round one");
+
+    // another move ends a loop; a hand ends a ping-pong
+    lp.play(vec![lp.cut("wide").unwrap()]);
+    assert!(at(&mut lp, 30.0).gap(&dop_view("wide")) < 1e-3);
+    assert!(!lp.director.active());
+    pp.director.interrupt();
+    assert!(!pp.director.active(), "a hand stops a ping-pong");
+}
+
+#[test]
+fn a_fly_through_reaches_each_timed_point_on_its_bar() {
+    // the start view's eye on the track's start, the shot's eye on its end: the eye runs exactly on the track
+    let pts = [[-4.0, 1.6, 3.0], [0.0, 1.2, 0.5], [2.0, 1.4, 1.0], [4.0, 2.0, 2.0]];
+    let aim = Vec3::new(0.0, 1.0, 0.0);
+    let mut cam = camera();
+    let mut track = Track { points: pts.iter().map(|p| TrackPoint::at(*p)).collect() };
+    track.points[1].time = Some(Length::Bars(1.0));
+    track.points[2].time = Some(Length::Bars(3.0));
+    track.points[2].ease = Some(Ease::InOut);
+    track.points[3].time = Some(Length::Bars(4.0));
+    cam.track = Some(track);
+    cam.shots.push(View::from_eye(Vec3::from_array(pts[3]), aim, Lens::default()).shot("end"));
+    let mut dop = Dop::new(None, cam);
+    let from = View::from_eye(Vec3::from_array(pts[0]), aim, Lens::default());
+    let mut s = MoveSpec::of(MoveKind::Fly);
+    (s.length, s.start) = (Length::Bars(16.0), Start::Bar);
+    dop.play(vec![dop.cue(s, "end").unwrap()]);
+    assert_eq!(dop.step(&at_beat(2.5), from, &no_one), None, "waits for the bar line");
+    for (bar, p) in [(1.0, 0), (2.0, 1), (4.0, 2), (5.0, 3)] {
+        let v = dop.step(&at_beat(bar * 4.0), from, &no_one).unwrap();
+        assert!(v.eye().distance(Vec3::from_array(pts[p])) < 0.05, "point {} on bar {bar}: {:?}", p + 1, v.eye());
+    }
+    assert!(!dop.director.active(), "the end's time is its length, not the move's 16 bars");
+}
+
+#[test]
+fn a_camera_word_on_a_beat_waits_for_it() {
+    let mut dop = Dop::new(Some("scene:nave".into()), camera());
+    let wide = dop.view("wide").unwrap();
+    assert_eq!(dop.step(&at_beat(5.0), start(), &no_one), None);
+    assert!(matches!(dop.word_on("scene:nave", "shot:wide", Some(8.0)), Some(Ok(_))));
+    assert_eq!(dop.step(&at_beat(7.9), start(), &no_one), None, "nothing before its bar");
+    assert_eq!(dop.step(&at_beat(8.0), start(), &no_one), Some(wide), "the cut on its beat");
+    // a move playing goes on until the beat, then the cut replaces it
+    let mut dop = repeating(Repeat::Loop, Length::Bars(1.0));
+    dop.word_on("scene:nave", "shot:wide", Some(12.0)).unwrap().unwrap();
+    assert_ne!(dop.step(&at_beat(10.0), start(), &no_one), Some(wide), "the loop still runs");
+    assert_eq!(dop.step(&at_beat(12.0), start(), &no_one), Some(wide));
 }
