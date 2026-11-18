@@ -205,7 +205,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, g: &Graph, a: Rect) {
         let c = t.color.signals.of(l.signal);
         let c = if l.live { c } else { faded(c, 0.35) };
         let beads = host.flow.filter(|_| l.live).map(|secs| w.flowing(unit * z, secs)).unwrap_or_default();
-        d.wire(&w, 1.4 * z * l.signal.weight(), faded(c, 0.85), &beads, faded(c, 0.5));
+        d.wire(&w, 1.4 * z * l.signal.weight(), faded(c, 0.85), &beads);
     }
     for (node, p) in g.nodes.iter().zip(&placed) {
         box_of(d, t, node, p, &cam, dir);

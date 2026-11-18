@@ -406,6 +406,11 @@ pub fn validate(show: &Show) -> Vec<Problem> {
             addressed(&Spot::Row(row.id.clone()), a, &mut out);
         }
         asks(show, row, &mut out);
+        for w in &row.wires {
+            if let Some(why) = crate::wiring::check(show, row, w) {
+                out.push(refused(&Spot::Row(row.id.clone()), why));
+            }
+        }
     }
 
     // #546: each question once, checked, and asked somewhere

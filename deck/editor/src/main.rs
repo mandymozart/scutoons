@@ -318,6 +318,7 @@ fn args() -> Result<Args> {
             }
             "--in-place" => a.script.in_place = Some(val()?),
             "--known-shots" => a.script.known_shots = val()?.split_once('=').map(|(s, ids)| (s.to_string(), ids.split('+').map(String::from).collect())),
+            "--wiring" => a.script.wiring = Some(val()?),
             "--cell" => a.script.cell = val()?.split_once(',').map(|(r, c)| (r.trim().to_string(), c.trim().to_string())),
             "--question" => {
                 let v = val()?;
