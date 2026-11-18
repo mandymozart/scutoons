@@ -23,4 +23,4 @@ Open work: GitHub issues + the board "SCUTOONS" (RULES C). Decisions: agents/dec
   worktrees (`.claude/worktrees/*`) – the owner reviews and merges them; agents don't (RULES B3).
 
 ## Last run
-2026-11-18 · branch `develop`: Gemini usage switched from the AI Studio key to Vertex service-account ADC (`vienna-struggle`), verified end-to-end; rule in RULES B10 / AGENTS.md. Full state, setup and open work: `agents/HANDOVER-2026-11-18-vertex.md`. Older run state: HANDOFF.md "State". Nothing pushed.
+2026-11-18 · branch `develop`, nothing pushed: Gemini usage switched to Vertex service-account ADC (`vienna-struggle`), verified; rule in RULES B10 / AGENTS.md, models approved. Setup: `agents/HANDOVER-2026-11-18-vertex.md`. Next session's work queue (cost booking, deck:ci, #622 then #621, #623, #290/#306): `agents/HANDOVER-2026-11-18-scutoons-work.md`. Older run state: HANDOFF.md "State".
