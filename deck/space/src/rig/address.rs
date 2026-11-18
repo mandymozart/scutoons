@@ -26,8 +26,11 @@ pub const BEING: &str = "being";
 pub const SOUND: &str = "sound";
 /// the reserved scope of the show's clock (`clock:<name>`)
 pub const CLOCK: &str = "clock";
+/// the reserved scope of the scene camera's view of the rig's subject (`camera:<name>`): how sharp it is under the focus
+/// (`focus`, 0…1, scene_camera.rs `in_focus`) and how far from the eye (`distance`, m) – outlets, wired on like any control
+pub const CAMERA: &str = "camera";
 /// what a rig can read from outside its tracks: scope, name, the compiled slot it reads
-pub const SOURCES: [(&str, &str, &str); 10] = [
+pub const SOURCES: [(&str, &str, &str); 12] = [
     (SOUND, "level", "fft.level"),
     (SOUND, "bass", "fft.bass"),
     (SOUND, "mid", "fft.mid"),
@@ -38,6 +41,8 @@ pub const SOURCES: [(&str, &str, &str); 10] = [
     (CLOCK, "bar_phase", "tempo.bar_phase"),
     (CLOCK, "pulse", "tempo.pulse"),
     (CLOCK, "bpm", "tempo.bpm"),
+    (CAMERA, "focus", "camera_focus.out"),
+    (CAMERA, "distance", "camera_distance.out"),
 ];
 
 /// the compiled slot of a source
@@ -266,7 +271,7 @@ pub enum Leaf {
     Member { track: String, member: String },
     /// `being:<input>` – an input of the being's look (hue, glow, light, pulse, bounce)
     Being(String),
-    /// `sound:<name>`, `clock:<name>` – what a rig reads from outside its tracks (`SOURCES`), a source only
+    /// `sound:<name>`, `clock:<name>`, `camera:<name>` – what a rig reads from outside its tracks (`SOURCES`), a source only
     Source(String, String),
     /// `policy:<port>` – a port or parameter of a code rig's policy node
     Policy(String),
@@ -393,7 +398,7 @@ fn leaf(s: &str) -> Result<Leaf, String> {
                 word(rest, "the being's input")?;
                 return Ok(Leaf::Being(rest.to_string()));
             }
-            if scope == SOUND || scope == CLOCK {
+            if scope == SOUND || scope == CLOCK || scope == CAMERA {
                 word(rest, "the source's name")?;
                 if source_slot(scope, rest).is_none() {
                     let names: Vec<&str> = SOURCES.iter().filter(|(s, ..)| *s == scope).map(|(_, n, _)| *n).collect();

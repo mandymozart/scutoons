@@ -1,15 +1,17 @@
 //! Build's DOP panel: the scene's primary camera – its source, the lens (projection, the focal presets, a typed focal
-//! length, an orthographic view's height), its shots (taken from the view, looked through), a move to preview or keep,
+//! length, an orthographic view's height, the focus: at the aim, a distance or a subject), its shots (taken from the view, looked through), a move to preview or keep,
 //! the kept moves, the trolley track. The camera, its checks and the moves are the core's (deck-space scene_camera.rs,
 //! scene_dop.rs, space/dop); here the panel is drawn and its presses go to the core.
 use crate::scene::SceneView;
 use deck_kit::base::draw::DrawList;
 use deck_kit::base::tokens::Tokens;
 use deck_kit::editor::controls::{self, Rect};
-use deck_space::scene_camera::{fov_of, height_preset, Ease, EYE_HEIGHTS, Length, Lens, MoveKind, MoveSpec, Projection, Repeat, SceneCamera, Side, Source, Start, Turn, FOCAL_PRESETS, MAX_ROUNDS, SIZE_RANGE};
+use deck_space::scene_camera::{fov_of, height_preset, Ease, EYE_HEIGHTS, Length, Lens, MoveKind, MoveSpec, Projection, Repeat, SceneCamera, Side, Source, Start, Turn, FOCAL_PRESETS, FOCUS_RANGE, MAX_ROUNDS, SIZE_RANGE};
 use deck_space::space::dop::View;
 
 pub const WIDTH: f32 = 340.0;
+/// how near (logical px) the focus marker is let go to a subject to focus on it
+const SUBJECT_REACH: f32 = 40.0;
 
 /// what the panel has selected and the move it is making
 #[derive(Debug, Clone, PartialEq)]
@@ -40,6 +42,8 @@ pub enum Num {
     Amount,
     /// the selected track point's arrival time
     PointTime,
+    /// the lens's focus distance
+    Focus,
 }
 
 impl Num {
@@ -52,6 +56,7 @@ impl Num {
             Num::Height => (0.0, 10.0, false),
             Num::Amount => (0.0, 10.0, false),
             Num::PointTime => (0.25, 64.0, true),
+            Num::Focus => (0.1, 100.0, true),
         }
     }
 }
@@ -81,6 +86,10 @@ pub enum Field {
     Follow(usize),
     /// what the selected shot aims at: none = its own point, else `Sel::aims`'s
     Aim(Option<usize>),
+    /// the focus at the aim (no distance, no subject)
+    FocusAim,
+    /// the selected shot's focus on `Sel::aims`'s subject
+    FocusOn(usize),
     Preview,
     Keep,
     Kept(usize),
@@ -184,6 +193,44 @@ pub fn value(view: &SceneView, n: Num) -> f32 {
         Num::Height => s.height,
         Num::Amount => s.amount,
         Num::PointTime => view.dop.point.and_then(|i| view.edit.camera().track?.points.get(i)?.time).map_or(1.0, |t| t.value()),
+        Num::Focus => focus_of(&view.edit.camera(), &view.dop),
+    }
+}
+
+/// the focus distance the panel shows (m): the lens's, else the selected shot's aim's distance
+fn focus_of(cam: &SceneCamera, sel: &Sel) -> f32 {
+    let shot = sel.shot.and_then(|i| cam.shots.get(i));
+    lens_of(cam, sel).focus.unwrap_or_else(|| shot.map_or(3.0, |s| s.distance))
+}
+
+/// The focus: at the aim, a distance (scrubbed) or – a shot's – a subject on the stage it follows.
+fn focus_rows(d: &mut DrawList, t: &Tokens, a: Rect, y: &mut f32, view: &SceneView, hot: Option<Num>, out: &mut Vec<(Rect, Field)>) {
+    let (cam, sel) = (&view.edit.camera(), &view.dop);
+    let lens = lens_of(cam, sel);
+    let shot = sel.shot.and_then(|i| cam.shots.get(i));
+    let on = shot.and_then(|s| s.focus_on.as_deref());
+    caption(d, t, a, y, "focus");
+    let mut names = vec!["at the aim".to_string()];
+    let mut lit = vec![lens.focus.is_none() && on.is_none()];
+    let mut fields = vec![Field::FocusAim];
+    if shot.is_some() {
+        for (k, s) in sel.aims.iter().enumerate().filter(|(_, s)| !s.starts_with("spot:")) {
+            names.push(s.clone());
+            lit.push(on == Some(s.as_str()));
+            fields.push(Field::FocusOn(k));
+        }
+    }
+    let names: Vec<&str> = names.iter().map(String::as_str).collect();
+    let (rects, used) = controls::chips(d, t, (a.x, *y, a.w), &names, &lit);
+    out.extend(rects.into_iter().zip(fields));
+    *y += used + 6.0;
+    match on {
+        Some(s) => caption(d, t, a, y, &format!("follows {s}: drag the marker off it for a distance")),
+        None => {
+            let v = focus_of(cam, sel);
+            let shown = if lens.focus.is_some() { format!("{} m", crate::number(v)) } else { format!("{} m · the aim", crate::number(v)) };
+            scrub(d, t, a, y, Num::Focus, "focus distance", v, &shown, hot, out);
+        }
     }
 }
 
@@ -214,6 +261,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, a: Rect, view: &SceneView, playing: Pl
         pills_row(d, t, a, &mut y, &names, lens.preset().unwrap_or(FOCAL_PRESETS.len()), &fields, &mut out);
         caption(d, t, a, &mut y, &format!("{} mm · {:.0}° high on full frame", mm(lens.focal), fov_of(lens.focal).to_degrees()));
     }
+    focus_rows(d, t, a, &mut y, view, hot, &mut out);
     let height = sel.shot.and_then(|i| cam.shots.get(i)).map_or(cam.height, |s| s.height(sel.floor));
     let preset = height_preset(height);
     let mut names: Vec<String> = EYE_HEIGHTS.iter().map(|(n, _)| n.to_string()).collect();
@@ -495,6 +543,21 @@ impl crate::App {
                 self.dop_done(done, format!("the shot aims at {}", aim.as_deref().unwrap_or("its own point")), x, y);
                 self.dop_relook(shot);
             }
+            Field::FocusAim => {
+                if let Some(i) = shot.filter(|i| cam.shots.get(*i).is_some_and(|s| s.focus_on.is_some())) {
+                    if let Err(e) = view.edit.set_focus_on(i, None) {
+                        return self.refuse(e, x, y);
+                    }
+                }
+                let done = view.edit.set_lens(shot, Lens { focus: None, ..lens });
+                self.dop_done(done, "focus: at the aim".into(), x, y);
+            }
+            Field::FocusOn(k) => {
+                let Some(i) = shot else { return };
+                let on = sel.aims.get(k).cloned();
+                let done = view.edit.set_focus_on(i, on.as_deref());
+                self.dop_done(done, format!("focus on {}", on.as_deref().unwrap_or("nothing")), x, y);
+            }
             Field::Preview => {
                 let Some(to) = shot.and_then(|i| cam.shots.get(i)).map(|s| s.id.clone()) else { return self.refuse("pick the shot it ends on".into(), x, y) };
                 let draft = sel.draft.clone();
@@ -621,6 +684,46 @@ impl crate::App {
                 let _ = view.edit.set_lens(view.dop.shot, Lens { size: v, ..lens });
                 self.sync_dop();
             }
+            Num::Focus => {
+                let lens = lens_of(&view.edit.camera(), &view.dop);
+                let _ = view.edit.set_lens(view.dop.shot, Lens { focus: Some(v), ..lens });
+                self.sync_dop();
+            }
+        }
+    }
+
+    /// The focus marker of shot `i` dragged to (`x`, `y`): the focus distance is where its line of sight passes closest
+    /// to the pointer – off a subject it was on.
+    pub(crate) fn focus_to(&mut self, i: usize, x: f32, y: f32) {
+        let (sx, sy) = self.stage_pixel(x, y);
+        let Some(view) = self.scene.as_mut() else { return };
+        let Some(s) = view.edit.camera().shots.get(i).cloned() else { return };
+        let Some(v) = self.stage.space.shot_view(&s.id) else { return };
+        let eye = v.eye();
+        let Some(d) = self.stage.space.along_sight(sx, sy, eye, v.target - eye) else { return };
+        let d = (d.clamp(FOCUS_RANGE.0, FOCUS_RANGE.1) * 100.0).round() / 100.0;
+        if s.focus_on.is_some() {
+            let _ = view.edit.set_focus_on(i, None);
+        }
+        let _ = view.edit.set_lens(Some(i), Lens { focus: Some(d), ..s.lens });
+        self.sync_dop();
+    }
+
+    /// The focus marker let go: on a subject the focus follows it, elsewhere it keeps its distance.
+    pub(crate) fn focus_settled(&mut self, i: usize) {
+        let (x, y) = self.cursor;
+        let (sx, sy) = self.stage_pixel(x, y);
+        let on = self.stage.space.subject_at(sx, sy, SUBJECT_REACH * self.scale());
+        let Some(view) = self.scene.as_mut() else { return };
+        match on {
+            Some(on) => {
+                let done = view.edit.set_focus_on(i, Some(&on));
+                self.dop_done(done, format!("focus on {on}"), x, y);
+            }
+            None => {
+                let d = view.edit.camera().shots.get(i).and_then(|s| s.lens.focus);
+                self.dop_done(Ok(()), d.map_or("focus: at the aim".into(), |d| format!("focus: {} m", crate::number(d))), x, y);
+            }
         }
     }
 
@@ -630,6 +733,7 @@ impl crate::App {
         match n {
             Num::Size => self.dop_done(Ok(()), "lens: view height".into(), x, y),
             Num::PointTime => self.dop_done(Ok(()), "the point's time".into(), x, y),
+            Num::Focus => self.dop_done(Ok(()), "focus distance".into(), x, y),
             _ => {}
         }
     }
@@ -690,6 +794,20 @@ impl crate::App {
                 if let Some(view) = self.scene.as_mut() {
                     view.dop.shot = Some(2);
                 }
+            }
+            // the first shot focused 4.5 m out, the second on the stage's first subject
+            86 if spec.contains("focus") => {
+                let Some(view) = self.scene.as_mut() else { return };
+                let on = view.dop.aims.iter().find(|a| !a.starts_with("spot:")).cloned();
+                let lens = view.edit.camera().shots.first().map(|s| s.lens).unwrap_or_default();
+                let _ = view.edit.set_lens(Some(0), Lens { focus: Some(4.5), ..lens });
+                if let Some(on) = on.as_deref() {
+                    let _ = view.edit.set_focus_on(1, Some(on));
+                }
+                // `distance`: the first shot selected, its focus a distance
+                view.dop.shot = Some(if spec.contains("distance") { 0 } else { 1 });
+                view.dop.draft = MoveSpec { repeat: Repeat::PingPong, ..MoveSpec::of(MoveKind::Rack) };
+                self.dop_done(Ok(()), format!("focus on {}", on.as_deref().unwrap_or("nothing")), x, y);
             }
             84 if spec.contains("preview") => {
                 if let Some(view) = self.scene.as_mut() {
@@ -763,6 +881,16 @@ mod tests {
         let f = fields(&mut d, &view);
         assert!(f.contains(&Field::SetShot) && f.contains(&Field::Scrub(Num::Rounds)) && f.contains(&Field::Turn(Turn::Right)));
         assert!(d.texts().iter().any(|s| s.contains("85 mm")), "a typed focal length shows on its own segment");
+        view.dop.aims = vec!["character:catpope".into(), "spot:altar".into()];
+        let f = fields(&mut d, &view);
+        assert!(f.contains(&Field::FocusAim) && f.contains(&Field::FocusOn(0)) && !f.contains(&Field::FocusOn(1)), "a subject to focus on, no spot");
+        assert!(f.contains(&Field::Scrub(Num::Focus)) && d.texts().iter().any(|s| s.contains("3.000 m · the aim")), "at the aim: its distance");
+        view.edit.set_focus_on(i, Some("character:catpope")).unwrap();
+        let f = fields(&mut d, &view);
+        assert!(!f.contains(&Field::Scrub(Num::Focus)) && d.texts().iter().any(|s| s.contains("follows character:catpope")), "on a subject: no distance");
+        view.dop.draft = MoveSpec::of(MoveKind::Rack);
+        assert!(fields(&mut d, &view).contains(&Field::Repeat(Repeat::PingPong)), "a rack focus repeats");
+        view.dop.draft = MoveSpec::of(MoveKind::Spiral);
         view.edit.set_lens(Some(i), Lens::orthographic(6.0)).unwrap();
         let f = fields(&mut d, &view);
         assert!(f.contains(&Field::Scrub(Num::Size)) && !f.contains(&Field::Preset(0)), "orthographic: a view height");

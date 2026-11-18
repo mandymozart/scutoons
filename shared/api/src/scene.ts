@@ -113,6 +113,8 @@ export type Length = {
 export type Lens = {
 	/** mm on a full-frame sensor (perspective) */
 	focal?: number;
+	/** metres from the eye to where it is sharp; none = at the aim */
+	focus?: number | null;
 	projection?: Projection;
 	/** the view's height in metres (orthographic) */
 	size?: number;
@@ -179,7 +181,7 @@ export type MoveDef = {
 	turn?: Turn;
 };
 
-export type MoveKind = 'cut' | 'glide' | 'in' | 'fly' | 'crane_down' | 'crane_up' | 'spiral' | 'push' | 'pull' | 'orbit' | 'truck' | 'tilt' | 'zoom' | 'dolly_zoom' | 'whip' | 'follow' | 'shake';
+export type MoveKind = 'cut' | 'glide' | 'in' | 'fly' | 'crane_down' | 'crane_up' | 'spiral' | 'push' | 'pull' | 'orbit' | 'truck' | 'tilt' | 'zoom' | 'dolly_zoom' | 'whip' | 'follow' | 'shake' | 'rack';
 
 export type NodeDef = {
 	id: string;
@@ -231,6 +233,8 @@ export type ShotDef = {
 	aim?: string | null;
 	/** metres from the aim */
 	distance: number;
+	/** what it keeps in focus by address, as `aim` names it: the focus follows it (its distance from the eye each frame) in place of the lens's `focus` */
+	focus_on?: string | null;
 	/** a word: `scene:<id> > shot:<id>` picks it */
 	id: string;
 	label?: Record<string, string>;

@@ -2,7 +2,7 @@ use super::*;
 use crate::scene_camera::{Ease, Length, MoveDef, Repeat, Track, TrackPoint, Turn};
 
 fn shot(id: &str, target: [f32; 3], yaw: f32, pitch: f32, distance: f32, lens: Lens) -> ShotDef {
-    ShotDef { id: id.into(), label: Default::default(), target, yaw, pitch, distance, lens, aim: None }
+    ShotDef { id: id.into(), label: Default::default(), target, yaw, pitch, distance, lens, aim: None, focus_on: None }
 }
 
 fn camera() -> SceneCamera {
@@ -90,7 +90,8 @@ fn spec(kind: MoveKind) -> MoveSpec {
 #[test]
 fn every_move_ends_exactly_on_its_shot_and_starts_where_the_camera_is() {
     let mut dop = Dop::new(None, camera());
-    for kind in MoveKind::ALL {
+    // a rack keeps its frame (a_rack_focus_keeps_the_frame_and_shifts_the_focus)
+    for kind in MoveKind::ALL.into_iter().filter(|k| *k != MoveKind::Rack) {
         for to in ["close", "iso", "wide"] {
             let frames = run(&mut dop, spec(kind), to, start());
             let end = dop.view(to).unwrap();
@@ -667,4 +668,68 @@ fn a_camera_word_on_a_beat_waits_for_it() {
     dop.word_on("scene:nave", "shot:wide", Some(12.0)).unwrap().unwrap();
     assert_ne!(dop.step(&at_beat(10.0), start(), &no_one), Some(wide), "the loop still runs");
     assert_eq!(dop.step(&at_beat(12.0), start(), &no_one), Some(wide));
+}
+
+#[test]
+fn a_rack_focus_keeps_the_frame_and_shifts_the_focus() {
+    let mut cam = camera();
+    cam.shots[1].focus_on = Some("pope".into());
+    let mut dop = Dop::new(None, cam);
+    let from = View { lens: Lens { focus: Some(2.0), ..start().lens }, ..start() };
+    let pope = Vec3::new(0.4, 1.1, 0.3);
+    dop.play(vec![dop.cue(spec(MoveKind::Rack), "close").unwrap()]);
+    let mut frames = Vec::new();
+    let mut now = from;
+    for f in 0..=200 {
+        let Some(v) = dop.step(&idle(f64::from(f) / 60.0), now, &|h: &str| (h == "pope").then_some(pope)) else { break };
+        frames.push(v);
+        now = v;
+        if !dop.director.active() {
+            break;
+        }
+    }
+    let end = *frames.last().unwrap();
+    for v in &frames {
+        assert_eq!((v.target, v.yaw, v.pitch, v.distance, v.lens.focal), (from.target, from.yaw, from.pitch, from.distance, from.lens.focal), "the frame stays");
+    }
+    let want = from.eye().distance(pope);
+    assert!((end.focus() - want).abs() < 1e-4, "on the subject, measured from this eye: {} vs {want}", end.focus());
+    let sign = (want - 2.0).signum();
+    assert!(frames.windows(2).all(|w| (w[1].focus() - w[0].focus()) * sign >= -1e-5), "the focus travels one way");
+    assert_eq!((&dop.viewing, dop.focus_shot.as_deref()), (&Viewing::Free, Some("close")), "the frame is not the shot's, its focus holds");
+    assert_eq!(dop.focus_holder(), None, "free: the focus is the view's");
+}
+
+#[test]
+fn a_shot_s_subject_keeps_the_focus_as_it_moves() {
+    let mut cam = camera();
+    cam.shots[1].focus_on = Some("pope".into());
+    let mut dop = Dop::new(None, cam);
+    let mut s = spec(MoveKind::Follow);
+    s.length = Length::Seconds(0.5);
+    dop.play(vec![dop.cue(s, "close").unwrap()]);
+    let walk = |secs: f64| Vec3::new(secs as f32 * 0.5, 1.0, 0.0);
+    let mut v = start();
+    for f in 0..120 {
+        let secs = f64::from(f) / 60.0;
+        v = dop.step(&idle(secs), v, &move |h: &str| (h == "pope").then(|| walk(secs))).unwrap();
+        if secs > 0.6 {
+            assert!((v.focus() - v.eye().distance(walk(secs))).abs() < 1e-4, "the focus follows: {}", v.focus());
+        }
+    }
+    assert_eq!(dop.focus_holder().map(|s| s.id.as_str()), Some("close"));
+}
+
+#[test]
+fn a_move_s_focus_is_the_lens_s_else_the_aim_s() {
+    let mut cam = camera();
+    cam.shots[0].lens.focus = Some(9.0);
+    let mut dop = Dop::new(None, cam);
+    let wide = run(&mut dop, spec(MoveKind::Glide), "wide", start());
+    assert!((wide.last().unwrap().focus() - 9.0).abs() < 1e-4);
+    let close = run(&mut dop, spec(MoveKind::Glide), "close", *wide.last().unwrap());
+    let end = close.last().unwrap();
+    assert_eq!(end.lens.focus, None, "none: at the aim");
+    assert!(close.iter().all(|v| v.focus() <= 9.0 + 1e-4 && v.focus() >= end.distance - 1e-4), "it travels between them");
+    assert!(close.windows(2).all(|w| (w[1].focus() - w[0].focus()).abs() < 0.5), "no jump");
 }

@@ -6,6 +6,9 @@
 //!   with a view height in metres (isometric views).
 //! - **Shot:** where the camera stands – aim, yaw and pitch in degrees, distance in metres, its lens. Picked from outside by
 //!   address: `scene:<id> > shot:<shot>` cuts to it (rig/address.rs `CameraWord`).
+//! - **Focus:** a distance only – no depth of field, the picture is always sharp. A lens's `focus` (m from the eye; none =
+//!   at the aim), or a shot's `focus_on` subject by address, which it follows. Every subject's "in focus" (`in_focus`) and
+//!   distance to the camera are parameter outlets a rig reads (`camera:focus`, `camera:distance`); a rack focus moves it.
 //! - **Track:** the trolley track a fly-through runs along: a start and an end point, points between them, each with an
 //!   optional Bézier handle (none = a smooth curve through its neighbours) and its arrival time with an ease for the way
 //!   there (a fly-through synced to the music).
@@ -38,6 +41,21 @@ pub const BIRD_PITCH: f32 = 50.0;
 pub const DEFAULT_HEIGHT: f32 = 1.6;
 /// a typed eye height's range (m)
 pub const HEIGHT_RANGE: (f32, f32) = (0.02, 100.0);
+/// a focus distance's range (m)
+pub const FOCUS_RANGE: (f32, f32) = (0.05, 1000.0);
+/// how far off the focus "in focus" reaches 0: this many times the focus distance, or that part of it
+pub const FOCUS_FALLOFF: f32 = 2.0;
+
+/// How sharp a subject `distance` m from the eye is with the focus at `focus` m (its "in focus" outlet, 0…1): 1 at the
+/// focus distance, falling off by a smooth step of the distances' ratio to 0 at `FOCUS_FALLOFF` times it (or that part of
+/// it) – the same in front and behind, as far as the ratio goes.
+pub fn in_focus(distance: f32, focus: f32) -> f32 {
+    if !(distance > 0.0 && focus > 0.0) {
+        return if distance <= 0.0 && focus <= 0.0 { 1.0 } else { 0.0 };
+    }
+    let r = ((distance / focus).ln().abs() / FOCUS_FALLOFF.ln()).min(1.0);
+    1.0 - r * r * (3.0 - 2.0 * r)
+}
 
 /// which preset an eye height is, if one
 pub fn height_preset(h: f32) -> Option<usize> {
@@ -78,6 +96,9 @@ pub struct Lens {
     /// the view's height in metres (orthographic)
     #[serde(default = "default_size")]
     pub size: f32,
+    /// metres from the eye to where it is sharp; none = at the aim
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub focus: Option<f32>,
 }
 
 fn default_focal() -> f32 {
@@ -90,7 +111,7 @@ fn default_size() -> f32 {
 
 impl Default for Lens {
     fn default() -> Lens {
-        Lens { projection: Projection::Perspective, focal: default_focal(), size: default_size() }
+        Lens { projection: Projection::Perspective, focal: default_focal(), size: default_size(), focus: None }
     }
 }
 
@@ -123,6 +144,9 @@ impl Lens {
         }
         if !(SIZE_RANGE.0..=SIZE_RANGE.1).contains(&self.size) {
             out.push(format!("{who}: an orthographic view is {}–{} m high", SIZE_RANGE.0, SIZE_RANGE.1));
+        }
+        if self.focus.is_some_and(|f| !(FOCUS_RANGE.0..=FOCUS_RANGE.1).contains(&f)) {
+            out.push(format!("{who}: the focus is {}–{} m away", FOCUS_RANGE.0, FOCUS_RANGE.1));
         }
     }
 }
@@ -159,6 +183,10 @@ pub struct ShotDef {
     /// `spot:<name>` – the shot keeps its angles and distance around it, wherever it stands
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub aim: Option<String>,
+    /// what it keeps in focus by address, as `aim` names it: the focus follows it (its distance from the eye each frame)
+    /// in place of the lens's `focus`
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub focus_on: Option<String>,
 }
 
 impl ShotDef {
@@ -296,11 +324,12 @@ pub enum MoveKind {
     Follow,
     /// a handheld unrest on the way (`amount`)
     Shake,
-    // TODO(#606): rack focus, once the stage has a depth of field – a lens's focus distance beside `focal`
+    /// the frame stays, the focus shifts to the shot's (its `focus_on` subject, its lens's distance or its aim)
+    Rack,
 }
 
 impl MoveKind {
-    pub const ALL: [MoveKind; 17] = [
+    pub const ALL: [MoveKind; 18] = [
         MoveKind::Cut,
         MoveKind::Glide,
         MoveKind::In,
@@ -318,6 +347,7 @@ impl MoveKind {
         MoveKind::Whip,
         MoveKind::Follow,
         MoveKind::Shake,
+        MoveKind::Rack,
     ];
 
     pub fn word(self) -> &'static str {
@@ -339,6 +369,7 @@ impl MoveKind {
             MoveKind::Whip => "whip pan",
             MoveKind::Follow => "follow",
             MoveKind::Shake => "shake",
+            MoveKind::Rack => "rack focus",
         }
     }
 
@@ -347,6 +378,7 @@ impl MoveKind {
         match self {
             MoveKind::Cut => Length::Seconds(0.0),
             MoveKind::Whip => Length::Beats(1.0),
+            MoveKind::Rack => Length::Beats(2.0),
             MoveKind::Orbit | MoveKind::Spiral | MoveKind::Fly => Length::Bars(4.0),
             _ => Length::Bars(2.0),
         }
@@ -715,6 +747,9 @@ impl SceneCamera {
             if let Some(why) = s.aim.as_deref().and_then(|a| aim_problem(a, holders)) {
                 out.push(format!("{who}: {why}"));
             }
+            if let Some(why) = s.focus_on.as_deref().and_then(|a| aim_problem(a, holders)) {
+                out.push(format!("{who}: its focus is on {why}"));
+            }
         }
         if let Some(t) = &self.track {
             if t.points.len() < 2 {
@@ -756,7 +791,7 @@ mod tests {
     use super::*;
 
     fn shot(id: &str) -> ShotDef {
-        ShotDef { id: id.into(), label: Label::new(), target: [0.0, 1.0, 0.0], yaw: 20.0, pitch: 8.0, distance: 3.0, lens: Lens::default(), aim: None }
+        ShotDef { id: id.into(), label: Label::new(), target: [0.0, 1.0, 0.0], yaw: 20.0, pitch: 8.0, distance: 3.0, lens: Lens::default(), aim: None, focus_on: None }
     }
 
     #[test]
@@ -786,6 +821,46 @@ mod tests {
         assert_eq!(height_preset(2.2), None, "a typed height is no preset");
         assert_eq!(SceneCamera::default().height, DEFAULT_HEIGHT);
         assert_eq!(serde_json::to_string(&SceneCamera::default()).unwrap(), "{\"lens\":{\"projection\":\"perspective\",\"focal\":30.0,\"size\":4.0}}");
+    }
+
+    #[test]
+    fn in_focus_is_one_at_the_focus_and_falls_off_by_the_ratio() {
+        assert_eq!(in_focus(4.0, 4.0), 1.0);
+        assert_eq!(in_focus(8.0, 4.0), 0.0, "twice as far: out");
+        assert_eq!(in_focus(2.0, 4.0), 0.0, "half as far: out");
+        assert_eq!(in_focus(40.0, 4.0), 0.0);
+        assert!((in_focus(4.0 * 2f32.sqrt(), 4.0) - 0.5).abs() < 1e-5, "half way in the ratio: half");
+        assert!((in_focus(3.0, 4.0) - in_focus(4.0 * 4.0 / 3.0, 4.0)).abs() < 1e-5, "in front and behind alike, by the ratio");
+        let mut last = 1.0;
+        for i in 0..=40 {
+            let v = in_focus(4.0 + i as f32 * 0.1, 4.0);
+            assert!((0.0..=1.0).contains(&v) && v <= last + 1e-6, "falls off: {v}");
+            last = v;
+        }
+        assert_eq!(in_focus(0.0, 4.0), 0.0);
+    }
+
+    #[test]
+    fn focus_is_a_distance_or_a_subject_stored_and_checked() {
+        let mut c = SceneCamera { shots: vec![shot("wide"), shot("close")], ..SceneCamera::default() };
+        c.shots[0].lens.focus = Some(6.5);
+        c.shots[1].focus_on = Some("character:pope".into());
+        c.moves.push(MoveDef { id: "rack".into(), to: "close".into(), spec: MoveSpec { repeat: Repeat::PingPong, ..MoveSpec::of(MoveKind::Rack) }, then: None });
+        let mut out = Vec::new();
+        c.problems(&["pope"], &mut out);
+        assert!(out.is_empty(), "{out:?}");
+        let text = serde_json::to_string(&c).unwrap();
+        assert!(text.contains("\"focus\":6.5") && text.contains("\"focus_on\":\"character:pope\"") && text.contains("\"kind\":\"rack\""), "{text}");
+        assert_eq!(serde_json::from_str::<SceneCamera>(&text).unwrap(), c);
+        assert!(!serde_json::to_string(&Lens::default()).unwrap().contains("focus"), "at the aim is the default, not written");
+        c.shots[0].lens.focus = Some(0.0);
+        c.shots[1].focus_on = Some("ghost".into());
+        let mut out = Vec::new();
+        c.problems(&["pope"], &mut out);
+        let all = out.join(" | ");
+        for want in ["the focus is", "its focus is on 'ghost'"] {
+            assert!(all.contains(want), "{want}: {all}");
+        }
     }
 
     #[test]

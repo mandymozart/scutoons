@@ -3,13 +3,14 @@
 //! exactly on its shot; it may wait for the bar line, chain to the next, and a hand on the view interrupts it where it
 //! is – the orbit camera goes on from that view, nothing jumps. A follow stays on its subject until a hand or another move;
 //! a move that loops or ping-pongs runs its rounds until another move, a cut or a hand (moves in beats or bars on the bar
-//! line); a fly-through along a timed track reaches each point on its time.
+//! line); a fly-through along a timed track reaches each point on its time. Every view a move gives carries its focus
+//! distance: a shot's subject (`focus_on`) measured from the eye each frame – a follow focus – else its lens's, else its aim's.
 pub mod moves;
 pub mod track;
 
 use super::camera::Orbit;
 use crate::rig::address::{CameraWord, Target};
-use crate::scene_camera::{focal_of, Lens, MoveKind, MoveSpec, Projection, Repeat, SceneCamera, ShotDef, Start};
+use crate::scene_camera::{focal_of, Lens, MoveKind, MoveSpec, Projection, Repeat, SceneCamera, ShotDef, Start, FOCUS_RANGE};
 use crate::tempo;
 use glam::Vec3;
 use std::collections::VecDeque;
@@ -51,8 +52,8 @@ impl View {
     /// the orbit camera's view now
     pub fn of(c: &Orbit) -> View {
         let lens = match c.ortho {
-            Some(size) => Lens { projection: Projection::Orthographic, size, focal: focal_of(c.fov_y) },
-            None => Lens { projection: Projection::Perspective, focal: focal_of(c.fov_y), size: Lens::default().size },
+            Some(size) => Lens { projection: Projection::Orthographic, size, focal: focal_of(c.fov_y), focus: None },
+            None => Lens { projection: Projection::Perspective, focal: focal_of(c.fov_y), size: Lens::default().size, focus: None },
         };
         View { target: c.target, yaw: c.yaw, pitch: c.pitch, distance: c.distance, lens }
     }
@@ -86,7 +87,19 @@ impl View {
             distance: r(self.distance.max(crate::scene_camera::DISTANCE_RANGE.0)),
             lens: self.lens,
             aim: None,
+            focus_on: None,
         }
+    }
+
+    /// its focus distance (m): the lens's, else at the aim
+    pub fn focus(&self) -> f32 {
+        self.lens.focus.unwrap_or(self.distance)
+    }
+
+    /// the point it is focused on: its focus distance along its line of sight
+    pub fn focus_point(&self) -> Vec3 {
+        let eye = self.eye();
+        eye + (self.target - eye).try_normalize().unwrap_or(Vec3::NEG_Z) * self.focus()
     }
 
     /// the orbit camera looks through this view at once (its glides have nothing left to do)
@@ -197,6 +210,8 @@ pub struct Cue {
     pub shot: String,
     /// what that shot aims at by address (its `aim`): the move ends on it where it stands
     pub aim: Option<String>,
+    /// what that shot keeps in focus by address (its `focus_on`)
+    pub focus_on: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -326,7 +341,10 @@ impl Director {
                     }
                     None => {
                         self.ended = None;
-                        return self.hold.as_ref().map(|c| aimed(c, subject));
+                        return self.hold.as_ref().map(|c| {
+                            let v = aimed(c, subject);
+                            focused(c, &v, v, subject)
+                        });
                     }
                 }
             }
@@ -335,7 +353,7 @@ impl Director {
                 return None;
             }
             let from = *run.from.get_or_insert(now);
-            let to = aimed(&run.cue, subject);
+            let to = focused(&run.cue, &from, aimed(&run.cue, subject), subject);
             let ctx = moves::Ctx { track, secs: clock.secs, knots: run.knots.as_deref() };
             let (k, start, p) = round(run, clock);
             // ping-pong: every second round runs back
@@ -405,6 +423,17 @@ fn aimed(c: &Cue, subject: Subject) -> View {
     }
 }
 
+/// A cue's end view with its focus distance: its subject's distance from the eye now, else its lens's (none: at its aim)
+/// – a rack focus keeps the frame it starts on (`from`) and measures from that eye, its aim's distance included.
+fn focused(c: &Cue, from: &View, to: View, subject: Subject) -> View {
+    let rack = c.spec.kind == MoveKind::Rack;
+    let base = if rack { *from } else { to };
+    let eye = base.eye();
+    let on = c.focus_on.as_deref().and_then(subject).map(|p| eye.distance(p)).or(to.lens.focus);
+    let focus = if rack { Some(on.unwrap_or_else(|| eye.distance(to.target))) } else { on };
+    View { lens: Lens { focus: focus.map(|f| f.clamp(FOCUS_RANGE.0, FOCUS_RANGE.1)), ..base.lens }, ..base }
+}
+
 /// What the stage looks through: the free view, the scene's primary camera (where it opens) or one of its shots.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub enum Viewing {
@@ -427,6 +456,8 @@ pub struct Dop {
     /// the clock at the last frame
     pub clock: Option<Clock>,
     pub viewing: Viewing,
+    /// the shot whose focus holds once nothing plays, when it is not the one looked through (a rack focus ended)
+    pub focus_shot: Option<String>,
 }
 
 impl Dop {
@@ -452,18 +483,33 @@ impl Dop {
     /// the shot `id` by a cut
     pub fn cut(&self, id: &str) -> Result<Cue, String> {
         let to = self.view(id).ok_or_else(|| format!("no shot '{id}'"))?;
-        Ok(Cue { spec: MoveSpec::of(MoveKind::Cut), to, shot: id.to_string(), aim: self.aim_of(id) })
+        Ok(Cue { spec: MoveSpec::of(MoveKind::Cut), to, shot: id.to_string(), aim: self.aim_of(id), focus_on: self.focus_on(id) })
     }
 
     /// `spec` to the shot `to`
     pub fn cue(&self, spec: MoveSpec, to: &str) -> Result<Cue, String> {
         let view = self.view(to).ok_or_else(|| format!("no shot '{to}'"))?;
-        Ok(Cue { spec, to: view, shot: to.to_string(), aim: self.aim_of(to) })
+        Ok(Cue { spec, to: view, shot: to.to_string(), aim: self.aim_of(to), focus_on: self.focus_on(to) })
     }
 
     /// what shot `id` aims at by address
     pub fn aim_of(&self, id: &str) -> Option<String> {
         self.camera.shot(id).and_then(|s| s.aim.clone())
+    }
+
+    /// what shot `id` keeps in focus by address
+    pub fn focus_on(&self, id: &str) -> Option<String> {
+        self.camera.shot(id).and_then(|s| s.focus_on.clone())
+    }
+
+    /// the shot whose focus holds when nothing plays: a rack's, else the one looked through (the primary camera: its first)
+    pub fn focus_holder(&self) -> Option<&ShotDef> {
+        let id = match (&self.focus_shot, &self.viewing) {
+            (_, Viewing::Free) => return None,
+            (Some(id), _) | (None, Viewing::Shot(id)) => id.as_str(),
+            (None, Viewing::Primary) => return self.camera.opening(),
+        };
+        self.camera.shot(id)
     }
 
 
@@ -484,8 +530,14 @@ impl Dop {
     /// cues to play from `beat` of the show clock (none: now), in place of what plays then
     pub fn play_on(&mut self, cues: Vec<Cue>, beat: Option<f64>) {
         if let Some(c) = cues.last() {
-            self.current = Some(c.shot.clone());
-            self.viewing = Viewing::Shot(c.shot.clone());
+            if cues.iter().all(|c| c.spec.kind == MoveKind::Rack) {
+                // the frame stays: only the focus is the shot's
+                self.focus_shot = Some(c.shot.clone());
+            } else {
+                self.current = Some(c.shot.clone());
+                self.viewing = Viewing::Shot(c.shot.clone());
+                self.focus_shot = (c.spec.kind == MoveKind::Rack).then(|| c.shot.clone());
+            }
         }
         self.director.play_on(cues, beat);
     }
