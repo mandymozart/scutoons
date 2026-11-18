@@ -15,9 +15,9 @@ pub enum Press<K> {
     None,
 }
 
-/// the keys an open page lets through: F1 (the HUD), F12 (the web), F9 (the editor, #560), the pages' own F-keys, the volume
+/// the keys an open page lets through: F1 (the HUD), F9 (the editor), the pages' own F-keys, the volume
 pub fn passes(k: &Key) -> bool {
-    matches!(k.as_ref(), Key::Named(NamedKey::F1 | NamedKey::F9 | NamedKey::F12 | NamedKey::F4 | NamedKey::F5 | NamedKey::F6 | NamedKey::AudioVolumeUp | NamedKey::AudioVolumeDown | NamedKey::AudioVolumeMute))
+    matches!(k.as_ref(), Key::Named(NamedKey::F1 | NamedKey::F9 | NamedKey::F4 | NamedKey::F5 | NamedKey::F6 | NamedKey::AudioVolumeUp | NamedKey::AudioVolumeDown | NamedKey::AudioVolumeMute))
 }
 
 pub fn switcher_key(k: &Key) -> Press<switcher::Key> {

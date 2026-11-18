@@ -1,12 +1,10 @@
 #!/bin/bash
 # The kiosk session (deck-kiosk.service, as the user deck): cage runs this script again inside the compositor
 # ("inside"), which plays the deck's app – `kiosk` in /var/lib/deck/deck.toml:
-#   "stage" (the default) – deck-native, the native AV app (CYBERDECKS.md §8, #179); F12 in the stage starts the browser
-#                           on the conductor page ON TOP of the stage (DECK_BROWSER = "deck-session browser"; cage
-#                           shows the newest window): the stage keeps the logo up until the browser's window maps,
-#                           then pauses and mutes; closing the browser (Ctrl+Shift+W) shows the stage at once. A stage
-#                           that fails opens the browser alone.
+#   "stage" (the default) – deck-native, the native AV app (CYBERDECKS.md §8, #179). A stage that fails opens the
+#                           browser alone.
 #   "browser"             – Chromium only, as before the stage (the conductor page)
+#   "editor"              – the editor (below)
 # `scene` = a scene TOML for the stage (empty = the built-in "AV madness"); `conductor` = the browser's page (empty =
 # the deck's own start page: the machine report, the relay status).
 set -u
@@ -47,20 +45,25 @@ d}" /usr/share/deck/start.html <<<"$report" >"$page"
 
 case "${1:-}" in
   inside) ;;
-  browser) browser; exit $? ;;              # the stage's F12 (DECK_BROWSER), inside cage already
   # -s: VT switching stays on (Ctrl+Alt+F2 = the shell on tty2; cage blocks it without -s – X1, 2026-10-29)
   *) exec cage -s -- "$0" inside ;;
 esac
 
 mode=$(setting kiosk)
 # #560: "editor" – the editor (Show / Perform) as the kiosk app, so this deck can be the conductor: Perform, joining the
-# deck's `relay`, with the `show` setting (a file or show:<id>; empty = a new show). F9 swaps: the stage's F9 starts the
-# editor, the editor's F9 the stage again (exit code 11 from either; DECK_SWAP tells both they may). Quitting the editor
-# starts it again.
-export DECK_SWAP=1
+# deck's `relay`, with the `show` setting (a file or show:<id>; empty = a new show). F9 swaps (#609, deck-native
+# handoff.rs): the leaving app writes the session, the show and the scene to DECK_HANDOFF and exits 11, the other starts
+# with --handoff (the same file and fields as on Windows, where the app starts its sibling itself). A lean deck (no
+# deck-editor) and deck.toml's `editor = "locked"` keep the stage: the stage checks both before it exits. Quitting the
+# editor starts it again.
+export DECK_SWAP=1 DECK_HANDOFF="$XDG_RUNTIME_DIR/deck-handoff.toml"
+rm -f "$DECK_HANDOFF"
+# the hand-off's flag while its file is there (the app reads it once and removes it)
+handoff() { [ -f "$DECK_HANDOFF" ] && printf '%s\n' --handoff "$DECK_HANDOFF"; }
 editor() {
   local relay show; relay=$(setting relay); show=$(setting show)
-  deck-editor --fullscreen --workspace perform --tokens /usr/share/deck/editor/tokens.toml ${relay:+--relay "$relay"} ${show:+--show "$show"}
+  local h; mapfile -t h < <(handoff)
+  deck-editor --fullscreen --workspace perform --tokens /usr/share/deck/editor/tokens.toml ${relay:+--relay "$relay"} ${show:+--show "$show"} "${h[@]}"
 }
 if [ "${mode:-stage}" = editor ] && command -v deck-editor >/dev/null; then
   trap 'exit 0' TERM HUP INT
@@ -77,19 +80,18 @@ if [ "${mode:-stage}" = browser ] || ! command -v deck >/dev/null; then
 fi
 
 scene=$(setting scene)
-export DECK_BROWSER="$0 browser"
 # the kiosk stops (deck-kiosk.service's ExecStop signals the whole group, #256): end here – the stage exits too, and
 # its exit code must not read as a crash that starts the browser
 trap 'exit 0' TERM HUP INT
 while :; do
-  deck --cache "$STATE/cache" ${scene:+--scene "$scene"}
+  mapfile -t h < <(handoff)
+  deck --cache "$STATE/cache" ${scene:+--scene "$scene"} "${h[@]}"
   rc=$?
   case $rc in
     0) continue ;;                       # Ctrl+Q: the stage starts again
     75) echo "deck lost its display (cage went away) – the session ends, the kiosk restarts" >&2
         exit 75 ;;                       # not the browser: its display is dead too (#257)
-    10) browser ;;                       # F12 of a stage without DECK_BROWSER: the conductor page, then back
-    11) if command -v deck-editor >/dev/null; then   # #560: F9 – the editor; its F9 comes back here
+    11) if command -v deck-editor >/dev/null; then   # F9 – the editor; its F9 comes back here
           while :; do editor; rc=$?; [ $rc = 11 ] && break; [ $rc = 0 ] || sleep 1; done
         fi ;;
     *) echo "deck exited with $rc – the browser instead (journalctl -u deck-kiosk)" >&2

@@ -102,6 +102,9 @@ struct Args {
     page: Option<String>,
     /// a check run's pointer, logical pixels: what it hovers
     pointer: Option<(f32, f32)>,
+    /// #609: the hand-off this editor came with (its scene goes back to the stage), a check run's F9 at frame N
+    handoff: deck_native::handoff::Handoff,
+    f9_at: Option<u64>,
     /// a check run's selection: this graph node's id, or a track's
     select: Option<String>,
     /// a check run's knob pull on the stage, in Play
@@ -175,7 +178,7 @@ struct Args {
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, save_state: None, tools_folded: false, closed: Vec::new(), log: false, main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false, library_related: false, pan: None, camera: false, dop: None, scene_file: None, nodes: None, node_zoom: None, open: None, page: None, pointer: None };
+    let mut a = Args { module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, save_state: None, tools_folded: false, closed: Vec::new(), log: false, main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false, library_related: false, pan: None, camera: false, dop: None, scene_file: None, nodes: None, node_zoom: None, open: None, page: None, pointer: None, handoff: Default::default(), f9_at: None };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -234,6 +237,8 @@ fn args() -> Result<Args> {
                 v => a.show_id = Some(v),
             },
             "--relay" => a.relay = Some(val()?),
+            "--handoff" => a.handoff = deck_native::handoff::Handoff::take(std::path::Path::new(&val()?)),
+            "--f9" => a.f9_at = Some(val()?.parse()?),
             "--api" => a.api = val()?,
             "--toon" => a.toon = Some(val()?),
             "--book" => a.book = Some(PathBuf::from(val()?)),
@@ -345,13 +350,22 @@ fn args() -> Result<Args> {
                 a.size = Some((w.trim().parse()?, h.trim().parse()?));
             }
             "--help" | "-h" => {
-                println!("deck-editor [--rig catpope] [--fullscreen] [--frames N] [--screenshot FILE] [--tokens FILE] [--size W,H] [--pointer X,Y] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5] [--menu PORT,QUERY[,pick]] [--toon TOON] [--book FILE] [--select NODE --far QUERY[,pick]] [--demo NAME] [--panic] [--colour open|pick|drop:X,Y|take:X,Y] [--save-state saving|offline|conflict] [--settings] [--close ID,ID] [--main-menu] [--module ID [--module-build] [--module-save] [--module-save-as ID]] [--scene-file FILE [--dop modules]]");
+                println!("deck-editor [--rig catpope] [--fullscreen] [--frames N] [--screenshot FILE] [--tokens FILE] [--size W,H] [--pointer X,Y] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5] [--menu PORT,QUERY[,pick]] [--toon TOON] [--book FILE] [--select NODE --far QUERY[,pick]] [--demo NAME] [--panic] [--colour open|pick|drop:X,Y|take:X,Y] [--save-state saving|offline|conflict] [--settings] [--close ID,ID] [--main-menu] [--module ID [--module-build] [--module-save] [--module-save-as ID]] [--scene-file FILE [--dop modules]] [--handoff FILE] [--f9 N]");
                 std::process::exit(0);
             }
             other => anyhow::bail!("unknown argument {other}"),
         }
     }
     a.script.character.clone_from(&a.rig);
+    // #609: the hand-off wins over the flags – they are how the editor was started, it is where the stage left off
+    if let Some(r) = a.handoff.relay.clone() {
+        a.relay = Some(r);
+    }
+    match a.handoff.show.clone() {
+        Some(v) if v.ends_with(".json") => (a.show_file, a.show_id) = (Some(PathBuf::from(v)), None),
+        Some(v) => (a.show_file, a.show_id) = (None, Some(v)),
+        None => {}
+    }
     Ok(a)
 }
 
@@ -572,6 +586,8 @@ struct App {
     own_frame: Option<deck_kit::editor::window::Side>,
     frame: frame::Own,
     exit: i32,
+    /// #609: F9 or the main menu's Quit to stage – the next frame hands over
+    to_deck: bool,
     clipboard: Option<arboard::Clipboard>,
     token_changes: u32,
     /// the Wire side: the ports show, a drag from one is a cable
@@ -811,6 +827,7 @@ fn run() -> Result<i32> {
         own_frame,
         frame: frame::Own::default(),
         exit: 0,
+        to_deck: false,
         clipboard: arboard::Clipboard::new().map_err(|e| tracing::warn!("no clipboard: {e}")).ok(),
         token_changes: 0,
         wire,
@@ -963,8 +980,8 @@ impl App {
             A::New => Some("A new show starts in Show; a new rig in the creator."),
             A::Publish => Some("The editor opens no browser yet: publish the saved draft in the creator."),
             A::Account => Some("The editor opens no browser yet: the account is on scutoons.com."),
-            A::Quit if std::env::var_os("DECK_SWAP").is_some() => None,
-            A::Quit => Some("Only when the editor was opened from the deck (F9 goes back to its stage)."),
+            A::Quit if deck_native::handoff::sibling(deck_native::handoff::App::Deck).is_some() => None,
+            A::Quit => Some("No stage next to this editor (deck is not installed here)."),
         }
     }
 
@@ -1041,7 +1058,7 @@ impl App {
             }
             (A::Settings, _) => self.open_settings(),
             // the next frame leaves, as F9 does
-            (A::Quit, _) => self.exit = 11,
+            (A::Quit, _) => self.to_deck = true,
             _ => {}
         }
     }
@@ -2251,6 +2268,25 @@ impl App {
         true
     }
 
+    /// #609: F9 – hands the session, the show and the stage's scene to the deck and quits; no deck next to this editor (or
+    /// a failed start) stays and says why in the status bar. True = the editor is leaving.
+    fn hand_off(&mut self, el: &ActiveEventLoop) -> bool {
+        use deck_native::handoff::{self, App, Handoff};
+        let show = self.args.show_file.as_ref().map(|p| p.display().to_string()).or_else(|| self.args.show_id.clone());
+        let h = Handoff { relay: self.args.relay.clone(), show, ..self.args.handoff.clone() };
+        match handoff::go(App::Editor, h, handoff::own_args(std::env::args().skip(1)), &deck_native::switcher::deck_toml()) {
+            Ok(code) => {
+                self.exit = code;
+                el.exit();
+                true
+            }
+            Err(r) => {
+                log::post(deck_ui::messages::Level::Warn, "editor", r.sentence());
+                false
+            }
+        }
+    }
+
     /// what the editor did or found, to the status bar and the Log
     fn note(&mut self, text: String) {
         log::post(deck_ui::messages::Level::Info, "editor", text);
@@ -2487,11 +2523,6 @@ impl App {
             self.show.cameras.insert(view.edit.key(), shots);
         }
         self.follow_library();
-        // the main menu's Quit to stage: as F9
-        if self.exit == 11 {
-            el.exit();
-            return;
-        }
         if std::mem::take(&mut self.panels_moved) {
             self.remember_panels();
         }
@@ -3307,6 +3338,14 @@ impl App {
             el.exit();
             return;
         }
+        // the main menu's Quit to stage, a check run's F9: as F9 – here, before the next frame is prepared (a prepared
+        // frame dropped unpresented panics in wgpu)
+        if std::mem::take(&mut self.to_deck) || self.args.f9_at.is_some_and(|n| self.frames >= n) {
+            self.args.f9_at = None;
+            if self.hand_off(el) {
+                return;
+            }
+        }
         // the wait for the display comes now, so the pointer events that arrive meanwhile reach the next frame
         if let Some(g) = self.gpu.as_mut() {
             let asked = Instant::now();
@@ -3482,12 +3521,9 @@ impl ApplicationHandler for App {
             WindowEvent::KeyboardInput { event, .. } if self.workspace == show::Workspace::Show && event.logical_key == Key::Named(NamedKey::Space) && !self.panel.field.focused && self.show.nodes_space(event.state == ElementState::Pressed) => {}
             // #471: the flash list's typed filter has the keys while it is focused
             WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed && matches!(self.workspace, show::Workspace::Show | show::Workspace::Perform) && self.show.key(&event.logical_key, self.mods.control_key() || self.mods.super_key(), self.workspace == show::Workspace::Show) => {}
-            // #560: F9 – back to the stage (deck-session swaps; elsewhere F9 does nothing): exit code 11
-            WindowEvent::KeyboardInput { event, .. }
-                if event.state == ElementState::Pressed && event.logical_key == Key::Named(NamedKey::F9) && std::env::var_os("DECK_SWAP").is_some() =>
-            {
-                self.exit = 11;
-                el.exit();
+            // #609: F9 – the stage instead of the editor, on this session and show (deck-native handoff.rs)
+            WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed && event.logical_key == Key::Named(NamedKey::F9) => {
+                self.to_deck = true;
             }
             WindowEvent::KeyboardInput { event, .. } => {
                 if event.state == ElementState::Pressed && event.logical_key == Key::Named(NamedKey::Escape) && !self.panel.field.focused {

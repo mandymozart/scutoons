@@ -101,7 +101,9 @@ fn states() -> Vec<(&'static str, Status)> {
         slices: vec!["1 / 12 ready".into()],
         ..Status::default()
     };
-    vec![("boot", boot), ("full", full), ("broken", broken), ("outlet", outlet), ("stage", stage), ("media", media)]
+    // #609: F9 on a lean deck stays and says why
+    let lean = Status { handoff: Some(deck_ui::handoff::Refusal::NoEditor), ..boot.clone() };
+    vec![("boot", boot), ("full", full), ("broken", broken), ("outlet", outlet), ("stage", stage), ("media", media), ("lean", lean)]
 }
 
 fn render() -> String {
