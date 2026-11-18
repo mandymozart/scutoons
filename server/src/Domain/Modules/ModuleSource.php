@@ -31,8 +31,11 @@ final class ModuleSource
     private const TYPES = ['audio', 'cv', 'control', 'event', 'video'];
     /** what the derive writes (deck-catalog's `Descriptor`, deck-module-macros); deck/build's real_compile test checks these
      * lists against the service's real answers (#416: the derive's `port: true` on every param was missing here) */
-    private const FIELDS = ['abi', 'name', 'version', 'domain', 'doc', 'needs', 'wants', 'reads', 'moods', 'characters', 'latency', 'params', 'ports', 'assets', 'preset'];
-    private const PARAM_FIELDS = ['name', 'min', 'max', 'default', 'curve', 'unit', 'choices', 'port', 'doc'];
+    private const FIELDS = ['abi', 'name', 'version', 'domain', 'doc', 'needs', 'wants', 'reads', 'moods', 'characters', 'latency', 'params', 'ports', 'assets', 'preset', 'slot', 'sections', 'background'];
+    private const PARAM_FIELDS = ['name', 'min', 'max', 'default', 'curve', 'unit', 'choices', 'port', 'doc', 'section', 'slot'];
+    /** #622: a page's knobs (deck-catalog PAGE_SLOTS) and an area's or a page's name (SECTION_NAME) */
+    private const PAGE_SLOTS = 8;
+    private const SECTION_NAME = 24;
     private const PORT_FIELDS = ['name', 'dir', 'type', 'channels', 'sidechain', 'doc', 'names', 'props', 'capacity', 'path', 'mode', 'choices'];
     /** the layout's sanity bounds (deck-module layout.rs) */
     private const MAX_PARAMS = 1024;
@@ -93,8 +96,10 @@ final class ModuleSource
                     && is_string($param['name'] ?? null) && preg_match(self::IDENT, $param['name']) === 1
                     && (!array_key_exists('port', $param) || is_bool($param['port']))
                     && is_numeric($param['min'] ?? null) && is_numeric($param['max'] ?? null) && is_numeric($param['default'] ?? null)
-                    && (!array_key_exists('choices', $param) || self::texts($param['choices']));
-                if (!$ok && !$extra) $p[] = "descriptor.params[$i] must be { name, min, max, default, curve?, unit?, choices?, port?, doc? }";
+                    && (!array_key_exists('choices', $param) || self::texts($param['choices']))
+                    && (!array_key_exists('section', $param) || is_string($param['section']))
+                    && (!array_key_exists('slot', $param) || is_int($param['slot']) && $param['slot'] >= 0 && $param['slot'] < self::PAGE_SLOTS);
+                if (!$ok && !$extra) $p[] = "descriptor.params[$i] must be { name, min, max, default, curve?, unit?, choices?, port?, doc?, section?, slot? (0 … 7) }";
             }
         }
         $ports = $d['ports'] ?? null;
@@ -110,6 +115,17 @@ final class ModuleSource
                 if (!$ok && !$extra) $p[] = "descriptor.ports[$i] must be { name, dir: in | out, type: audio | cv | control | event | video, … }";
             }
         }
+        // #590: the entity slot a slot module attaches to (`camera.motion`); #622: its parameters' pages (the Analog Four's areas)
+        if (array_key_exists('slot', $d) && !(is_string($d['slot']) && preg_match('#^[a-z_]+\.[a-z_]+$#', $d['slot']) === 1)) $p[] = 'descriptor.slot must be an entity slot (kind.slot)';
+        if (array_key_exists('sections', $d)) {
+            $name = fn($n) => is_string($n) && trim($n) !== '' && mb_strlen($n) <= self::SECTION_NAME && !str_contains($n, '/');
+            $ok = is_array($d['sections']) && array_is_list($d['sections']);
+            foreach ($ok ? $d['sections'] : [] as $s) {
+                $ok = $ok && is_array($s) && array_keys($s) == ['area', 'page'] && $name($s['area']) && $name($s['page']);
+            }
+            if (!$ok) $p[] = 'descriptor.sections must be a list of { area, page } (1 … ' . self::SECTION_NAME . " characters, no '/')";
+        }
+        if (array_key_exists('background', $d) && !is_array($d['background'])) $p[] = 'descriptor.background must be an object';
         if (array_key_exists('assets', $d) && !(is_array($d['assets']) && array_is_list($d['assets']))) $p[] = 'descriptor.assets must be a list';
         if (array_key_exists('preset', $d) && !(is_array($d['preset']) && is_string($d['preset']['name'] ?? null))) $p[] = 'descriptor.preset must be { name, doc?, values }';
         return $p;
