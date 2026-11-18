@@ -74,7 +74,7 @@ pub struct Stage {
     core_node: usize,
     /// the graph's node ids: a being's point is its node
     pub node_ids: Vec<String>,
-    kinds: Vec<Kind>,
+    pub kinds: Vec<Kind>,
     /// the mixer's strips, and what goes out
     pub strips: Vec<Strip>,
     /// the gains inside the tracks

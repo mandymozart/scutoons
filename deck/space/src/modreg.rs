@@ -30,6 +30,25 @@ pub struct ModuleSpec {
     pub moods: &'static [&'static str],
     /// a parameter's group (its name, the group's): `deck_catalog::groups`
     pub groups: &'static [(&'static str, &'static str)],
+    /// its sections' pages in order (none: it groups by prefix)
+    pub pages: &'static [PageSpec],
+}
+
+/// One page of a module's sections as the graph keeps it: its area, its name, `area/page` (a cluster's name on a ring)
+/// and the parameter on each of its eight knobs.
+#[derive(Debug)]
+pub struct PageSpec {
+    pub area: &'static str,
+    pub page: &'static str,
+    pub key: &'static str,
+    pub slots: [Option<&'static str>; deck_catalog::PAGE_SLOTS],
+}
+
+/// One page as a module registers it: its area and the page (`deck_catalog::groups::Page`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct PageDef {
+    pub area: String,
+    pub page: deck_catalog::groups::Page,
 }
 
 /// One port of a module as the registry takes it: its name, type and – an audio port of ABI v2 – its channels (None: the
@@ -64,12 +83,14 @@ pub struct ModuleDef {
     pub moods: Vec<String>,
     /// (parameter, its group)
     pub groups: Vec<(String, String)>,
+    /// its sections' pages, area by area
+    pub pages: Vec<PageDef>,
 }
 
 impl ModuleDef {
     /// an audio-domain module with these ports and no targets
     pub fn new(inputs: Vec<PortDef>, outputs: Vec<PortDef>, defaults: Vec<(String, f32)>) -> ModuleDef {
-        ModuleDef { inputs, outputs, defaults, ranges: Vec::new(), domain: Domain::Audio, targets: Vec::new(), moods: Vec::new(), groups: Vec::new() }
+        ModuleDef { inputs, outputs, defaults, ranges: Vec::new(), domain: Domain::Audio, targets: Vec::new(), moods: Vec::new(), groups: Vec::new(), pages: Vec::new() }
     }
 
     /// What a module's descriptor registers: its graph ports as the catalog numbers them (`Descriptor::graph`, the
@@ -77,6 +98,7 @@ impl ModuleDef {
     /// one mapping from a module to the graph (the native library's loaded modules, a rig's policy in a validation).
     pub fn of(desc: &deck_catalog::Descriptor) -> ModuleDef {
         let g = desc.graph();
+        let groups = desc.param_groups();
         let port = |p: &deck_catalog::GraphPort| PortDef {
             name: p.name.clone(),
             ty: match p.ty {
@@ -95,7 +117,8 @@ impl ModuleDef {
             domain: if desc.domain == deck_catalog::Domain::Control { Domain::Control } else { Domain::Audio },
             targets: g.targets,
             moods: desc.moods.iter().map(|m| m.to_string()).collect(),
-            groups: desc.param_groups().into_iter().flat_map(|g| g.params.into_iter().map(move |p| (p, g.name.clone()))).collect(),
+            groups: groups.iter().flat_map(|g| g.params.iter().map(move |p| (p.clone(), g.name.clone()))).collect(),
+            pages: groups.iter().flat_map(|g| g.pages.iter().map(move |p| PageDef { area: g.name.clone(), page: p.clone() })).collect(),
         }
     }
 }
@@ -135,6 +158,8 @@ pub fn register(name: &str, def: &ModuleDef) -> ModuleKind {
             && s.moods.len() == def.moods.len()
             && s.moods.iter().zip(&def.moods).all(|(a, b)| a == b)
             && s.groups.iter().map(|&(p, g)| (p, g)).eq(def.groups.iter().map(|(p, g)| (p.as_str(), g.as_str())))
+            && s.pages.len() == def.pages.len()
+            && s.pages.iter().zip(&def.pages).all(|(a, b)| a.area == b.area && a.page == b.page.name && a.slots.iter().zip(&b.page.slots).all(|(x, y)| *x == y.as_deref()))
     };
     if let Some(i) = reg.iter().rposition(|s| same(s)) {
         return ModuleKind(i as u32);
@@ -151,6 +176,13 @@ pub fn register(name: &str, def: &ModuleDef) -> ModuleKind {
         targets: Box::leak(targets.into_boxed_slice()),
         moods: Box::leak(def.moods.iter().map(|m| leak(m)).collect::<Vec<_>>().into_boxed_slice()),
         groups: Box::leak(def.groups.iter().map(|(p, g)| (leak(p), leak(g))).collect::<Vec<_>>().into_boxed_slice()),
+        pages: Box::leak(
+            def.pages
+                .iter()
+                .map(|p| PageSpec { area: leak(&p.area), page: leak(&p.page.name), key: leak(&format!("{}/{}", p.area, p.page.name)), slots: p.page.slots.each_ref().map(|s| s.as_deref().map(leak)) })
+                .collect::<Vec<_>>()
+                .into_boxed_slice(),
+        ),
     }));
     reg.push(spec);
     ModuleKind(reg.len() as u32 - 1)

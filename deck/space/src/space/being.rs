@@ -315,7 +315,8 @@ struct Outlet {
     at: Option<f32>,
 }
 
-/// a group of a node's parameters as one spot on its point's ring
+/// a group of a node's parameters as one spot on its point's ring: an area of its sections (`SRC`) or one of an open
+/// area's pages (`SRC/OSC 1`), else a prefix group (`o1/o2`)
 #[derive(Debug, Clone, PartialEq)]
 pub struct Cluster {
     pub node: usize,
@@ -324,7 +325,16 @@ pub struct Cluster {
     /// its parameters the level shows
     pub count: usize,
     pub open: bool,
+    /// one of an open area's pages
+    pub page: bool,
     at: f32,
+}
+
+impl Cluster {
+    /// what its spot says: a page's own name (`OSC 1`), else its name
+    pub fn label(&self) -> &'static str {
+        self.name.rsplit_once('/').filter(|_| self.page).map_or(self.name, |(_, page)| page)
+    }
 }
 
 /// where the port at angle `at` of a point's ring sits this frame, in the plane facing the eye (π = left)
@@ -1106,11 +1116,24 @@ impl Being {
                 if clusters.iter().any(|c| c.point == point && c.node == o.node && c.name == g) {
                     continue;
                 }
-                let open = opened.unwrap_or_default().iter().any(|(n, name)| *n == o.node && name == g);
+                let is_open = |name: &str| opened.unwrap_or_default().iter().any(|(n, x)| *n == o.node && x == name);
+                let open = is_open(g);
                 let members: Vec<usize> = mine.iter().copied().filter(|&j| self.outlets[j].node == o.node && group(&self.outlets[j]) == Some(g)).collect();
                 spots.push((Side::Inlet, Err(clusters.len())));
-                clusters.push(Cluster { node: o.node, point, name: g, count: members.len(), open, at: 0.0 });
-                spots.extend(members.into_iter().filter(|&j| open || wired(o.node, &self.outlets[j].port)).map(|j| (Side::Inlet, Ok(j))));
+                clusters.push(Cluster { node: o.node, point, name: g, count: members.len(), open, page: false, at: 0.0 });
+                let pages: Vec<&crate::modreg::PageSpec> = kind_of(o.node).map_or(&[][..], |k| k.pages()).iter().filter(|p| p.area == g).collect();
+                if !open || pages.is_empty() {
+                    spots.extend(members.into_iter().filter(|&j| open || wired(o.node, &self.outlets[j].port)).map(|j| (Side::Inlet, Ok(j))));
+                    continue;
+                }
+                // an open area shows its pages, each a spot that opens in turn: its knobs in order
+                for page in pages {
+                    let on: Vec<usize> = page.slots.iter().flatten().filter_map(|name| members.iter().copied().find(|&j| self.outlets[j].port == *name)).collect();
+                    let page_open = is_open(page.key);
+                    spots.push((Side::Inlet, Err(clusters.len())));
+                    clusters.push(Cluster { node: o.node, point, name: page.key, count: on.len(), open: page_open, page: true, at: 0.0 });
+                    spots.extend(on.into_iter().filter(|&j| page_open || wired(o.node, &self.outlets[j].port)).map(|j| (Side::Inlet, Ok(j))));
+                }
             }
             spots.sort_by_key(|(s, _)| *s);
             let (angles, used) = spread(&spots.iter().map(|(s, _)| *s).collect::<Vec<_>>());
@@ -2384,6 +2407,49 @@ mod tests {
         let at = |b: &Being, port: &str| b.outlets.iter().find(|o| o.port == port).and_then(|o| o.at).unwrap();
         let c = b.clusters()[0].at;
         assert!(at(&b, "o1_a") < c && at(&b, "o2_h") < at(&b, "o1_a"), "after its spot, in order");
+    }
+
+    /// a module with sections: a cluster per area; an open area shows its pages, an open page its knobs
+    #[test]
+    fn an_area_opens_to_its_pages_and_a_page_to_its_knobs() {
+        let section = |p: &str, k: usize| if p.starts_with('f') { ("FLTR/FILTER", k) } else if p.starts_with("o1") { ("SRC/OSC 1", k) } else { ("SRC/OSC 2", k) };
+        let names: Vec<String> = ["o1", "o2"].iter().flat_map(|o| (0..4).map(move |k| format!("{o}_{k}"))).chain((0..6).map(|k| format!("f_{k}"))).collect();
+        let params: Vec<serde_json::Value> = names.iter().map(|n| {
+            let (sec, k) = section(n, n[n.len() - 1..].parse().unwrap());
+            serde_json::json!({ "name": n, "max": 1.0, "section": sec, "slot": k })
+        }).collect();
+        let desc = serde_json::json!({
+            "name": "ringtest_sections",
+            "sections": [{ "area": "SRC", "page": "OSC 1" }, { "area": "SRC", "page": "OSC 2" }, { "area": "FLTR", "page": "FILTER" }],
+            "ports": [{ "name": "notes", "dir": "in", "type": "event" }, { "name": "out", "dir": "out", "type": "audio" }],
+            "params": params,
+        });
+        let desc: deck_catalog::Descriptor = serde_json::from_value(desc).expect("a descriptor");
+        desc.check().unwrap();
+        crate::modreg::register("ringtest_sections", &crate::modreg::ModuleDef::of(&desc));
+        let g = graph("[[node]]
+id=\"lfo\"
+kind=\"lfo\"
+[[node]]
+id=\"syn\"
+kind=\"module:ringtest_sections\"
+[[link]]
+from=\"lfo\"
+to=\"syn.f_0\"
+");
+        let mut b = Being::new(&g, &Look::default());
+        let syn = show_synth(&mut b, &g, &[]);
+        let spots = |b: &Being| b.clusters().iter().map(|c| (c.label(), c.count, c.open)).collect::<Vec<_>>();
+        assert_eq!(spots(&b), [("SRC", 8, false), ("FLTR", 6, false)], "a cluster per area, not per prefix");
+        show_synth(&mut b, &g, &["SRC"]);
+        assert_eq!(spots(&b), [("SRC", 8, true), ("OSC 1", 4, false), ("OSC 2", 4, false), ("FLTR", 6, false)], "the open area shows its pages");
+        assert!(b.port_world(syn, "o1_1", true).is_none(), "a closed page keeps its knobs");
+        assert!(b.port_world(syn, "f_0", true).is_some(), "a wired port stays");
+        show_synth(&mut b, &g, &["SRC", "SRC/OSC 2"]);
+        assert!(b.port_world(syn, "o2_1", true).is_some() && b.port_world(syn, "o1_1", true).is_none(), "the open page shows its knobs");
+        show_synth(&mut b, &g, &["SRC/OSC 2"]);
+        assert_eq!(spots(&b).len(), 2, "a page opens only inside its open area");
+        assert!(b.port_world(syn, "o2_1", true).is_none());
     }
 
     #[test]

@@ -93,8 +93,10 @@ struct Args {
     view: Option<usize>,
     /// a check run's level: enter this track
     enter: Option<String>,
-    /// a parameter group opened on the level entered (`o1/o2`)
+    /// parameter groups opened on the level entered, comma-separated in turn (`o1/o2`; `SRC,SRC/OSC 2`: an area, then its page)
     open: Option<String>,
+    /// the selected node's inspector opened on this page of its sections (`SRC/OSC 2`)
+    page: Option<String>,
     /// a check run's selection: this graph node's id, or a track's
     select: Option<String>,
     /// a check run's knob pull on the stage, in Play
@@ -166,7 +168,7 @@ struct Args {
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, save_state: None, tools_folded: false, closed: Vec::new(), main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false, library_related: false, pan: None, camera: false, dop: None, scene_file: None, nodes: None, node_zoom: None, open: None };
+    let mut a = Args { module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Build, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, save_state: None, tools_folded: false, closed: Vec::new(), main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false, library_related: false, pan: None, camera: false, dop: None, scene_file: None, nodes: None, node_zoom: None, open: None, page: None };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -203,6 +205,7 @@ fn args() -> Result<Args> {
             }
             "--play" => a.wire = false,
             "--open" => a.open = Some(val()?),
+            "--page" => a.page = Some(val()?),
             "--enter" => {
                 a.enter = Some(val()?);
                 a.wire = true;
@@ -369,6 +372,8 @@ enum Hit {
     Param(usize, usize),
     /// a far world node's address in the inspector (#477)
     Address(usize),
+    /// an area tab of a node's sections (node, area)
+    Area(usize, usize),
     /// the mixer's level tab, a strip's fader, a strip's mute
     MixerTab(usize),
     GainText(mixer::Target),
@@ -588,6 +593,8 @@ struct App {
     rows: Vec<(Vec<String>, inspector::Sel)>,
     /// what the inspector shows
     sel: inspector::Sel,
+    /// the inspector's page of a node's sections
+    paging: inspector::Paging,
     /// the level the mixer shows; none = the one the stage is at
     mixer_tab: Option<usize>,
     /// a value being typed
@@ -643,6 +650,8 @@ fn main() {
 
 fn run() -> Result<i32> {
     let args = args()?;
+    // `DECK_MODULES` before the rig: a draft naming `module:<name>` finds its kind
+    deck_native::module_host::autoload();
     deck_space::space::motion::install(deck_engine::motion::opener(|id| {
         deck_native::module_host::autoload();
         deck_native::module_host::Library::global().get(id).map(|l| l.host())
@@ -791,6 +800,7 @@ fn run() -> Result<i32> {
         menu_lines: Vec::new(),
         rows: Vec::new(),
         sel: inspector::Sel::Rig,
+        paging: inspector::Paging::default(),
         mixer_tab: None,
         edit: None,
         last_field: None,
@@ -1121,6 +1131,7 @@ impl App {
                 Help::new(title, text)
             }
             Hit::Param(n, p) => Help::new(self.stage.param(n, p)?.name, "Drag or use the wheel to set it in the engine."),
+            Hit::Area(..) => Help::new("Area", "One button per area, the Analog Four's way: a press opens its first page, a press again its next page. Twin pages put one idea on the same knob."),
             Hit::Address(_) => Help::new("Address", "Click: the toon's address book. A pick becomes the holder this far world node listens to."),
             Hit::GainText(_) => Help::new("Level", "In dB. Double click to type a value, enter to set it, esc to leave it."),
             Hit::StripSelect(_) => Help::new("Strip", "Click to show what it belongs to in the inspector and on the stage."),
@@ -1388,6 +1399,11 @@ impl App {
                 }
             }
             Hit::Address(n) => self.open_book(n, x, y),
+            Hit::Area(n, a) => {
+                let pages = self.stage.kinds.get(n).map_or(&[][..], |k| k.pages());
+                let count = inspector::areas(pages).get(a).map_or(1, |(_, list)| list.len());
+                self.paging = self.paging.press(n, a, count);
+            }
             Hit::Field(_) => {
                 let col = ((x - self.panel.field_rect.x) / self.panel.advance).round().max(0.0) as usize;
                 let to = self.panel.field.byte_at_char(col);
@@ -2466,13 +2482,29 @@ impl App {
             }
         }
         // a module loads after the first frames: its groups show then
-        if let Some(group) = self.args.open.clone() {
+        // a node of a module selects once its module has loaded (the first frame may not have it)
+        if let Some(id) = self.args.select.clone() {
+            if let Some(n) = self.stage.node_ids.iter().position(|x| *x == id) {
+                self.sel = inspector::Sel::Node(n);
+                self.args.select = None;
+            }
+        }
+        if let (Some(key), inspector::Sel::Node(n)) = (self.args.page.clone(), &self.sel) {
+            let n = *n;
+            if let Some(p) = self.stage.kinds.get(n).and_then(|k| inspector::Paging::at(n, k.pages(), &key)) {
+                self.paging = p;
+                self.args.page = None;
+            }
+        }
+        // `--open AREA,AREA/PAGE`: one at a time, each once its cluster shows (a page shows inside its open area)
+        if let Some(open) = self.args.open.clone() {
+            let (group, rest) = open.split_once(',').map_or((open.as_str(), None), |(g, r)| (g, Some(r.to_string())));
             let nodes: Vec<usize> = self.stage.space.being.clusters().iter().filter(|c| c.name == group).map(|c| c.node).collect();
             if !nodes.is_empty() {
-                self.args.open = None;
+                self.args.open = rest;
             }
             for n in nodes {
-                self.stage.toggle_group(n, &group);
+                self.stage.toggle_group(n, group);
             }
         }
         if self.frames == 20 && self.args.camera {
@@ -2716,7 +2748,7 @@ impl App {
                     ui.disc(cx, cy, 8.0, t.color.bright);
                 }
                 let small = font * 0.75;
-                let label = format!("{} {}", c.name, c.count);
+                let label = format!("{} {}", c.label(), c.count);
                 let w = ui.advance(small) * label.chars().count() as f32;
                 let left = self.stage.space.to_pixel(being.points[c.point].pos).is_some_and(|(px, _)| sx < px);
                 ui.text(if left { cx - w - 12.0 } else { cx + 12.0 }, cy - small * 0.6, small, &label, t.color.bright);
@@ -2960,11 +2992,12 @@ impl App {
                             self.panel.hits.push((r, Hit::Way(way)));
                         }
                     } else {
-                        for (r, field) in inspector::draw(ui, t, area, &self.stage, &self.sel, hot) {
+                        for (r, field) in inspector::draw(ui, t, area, &self.stage, &self.sel, self.paging, hot) {
                             let hit = match field {
                                 inspector::Field::Knob(i) => Hit::Knob(i),
                                 inspector::Field::Param(n, p) => Hit::Param(n, p),
                                 inspector::Field::Address(n) => Hit::Address(n),
+                                inspector::Field::Area(n, a) => Hit::Area(n, a),
                                 inspector::Field::Remove => Hit::Remove,
                                 inspector::Field::Background => Hit::Background,
                                 inspector::Field::BackgroundColour => Hit::BackgroundColour,
