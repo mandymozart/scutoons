@@ -1,10 +1,8 @@
 //! deck-native – the native AV app the deck boots into (CYBERDECKS.md §8, #179). One window (fullscreen; under cage on
 //! the deck), a node graph from a TOML scene: video passes on wgpu, an audio graph on PipeWire / cpal, control values
-//! per frame. Keys: Esc the menu (#386, menu.rs) · F1 the HUD · F12 the conductor page · Ctrl+Q quit · Ctrl+Alt+Del power off · the tempo clock
+//! per frame. Keys: Esc the menu (#386, menu.rs) · F1 the HUD · F9 the editor (handoff.rs) · Ctrl+Q quit · Ctrl+Alt+Del power off · the tempo clock
 //! (#181): T tap · + / − BPM · Space start / stop · F3 the next source · K the click. The splash (the logo) covers the start until the
-//! chapter's first slice and the music are there, and the browser's start: with DECK_BROWSER set (deck-session does)
-//! F12 starts that command on top of the running stage – cage shows the newest window – and the stage pauses and mutes
-//! behind it until it closes; without it F12 quits with exit code 10 (deck-session's older loop opens the browser).
+//! chapter's first slice and the music are there.
 //! A scene with a `space` node (#188): the mouse (or a finger) turns the camera or pulls the being's 3D buttons along
 //! their tethers (a double click: back to the scene's value), the wheel / ↑ ↓ zoom, ← → turn, R resets the camera; the
 //! conductor's S pushes the scene's sync to the decks (#195 – also once at the start; `--sync` names what).
@@ -33,26 +31,23 @@ use winit::event::{ElementState, WindowEvent};
 #[cfg(feature = "space")]
 use winit::event::{MouseButton, MouseScrollDelta, TouchPhase};
 use winit::event::StartCause;
-use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop, EventLoopProxy};
+use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit::keyboard::{Key, ModifiersState, NamedKey};
 use winit::window::{Fullscreen, Window, WindowId};
 
 mod hud_status;
+mod f9;
 mod menu;
 mod pages;
 
-/// the exit code that asks deck-session for the browser (the conductor page) instead of the stage
-const EXIT_BROWSER: i32 = 10;
-/// #560: the exit code that asks deck-session for the editor (F9, only where the session swaps: `DECK_SWAP`)
-const EXIT_EDITOR: i32 = 11;
+/// #609: how long F9's refusal stays on the HUD
+const REFUSAL_S: f32 = 4.0;
 /// the splash waits this long at most for the chapter and the music (offline without a cache: the scene anyway)
 const SPLASH_MAX_S: f32 = 30.0;
 
 /// what other threads tell the event loop
 #[derive(Debug)]
 enum Event {
-    /// the browser (DECK_BROWSER) exited
-    BrowserClosed,
     /// #263: a stop signal (SIGTERM / SIGHUP / SIGINT, Ctrl+C on Windows) – the show ends like Ctrl+Q
     Stop,
 }
@@ -100,7 +95,10 @@ const HELP: &str = "deck [--scene FILE|NAME|rig:NAME|scene:ID[@V]] [--audio auto
                lists the system scenes and these, Enter loads one in place, S sets deck.toml's start `scene`; --switcher starts with
                the list open, --switch NAME loads that scene after 30 frames (a check run); --live-page starts with F6 open
   --show-volume  the volume overlay (#253: the volume keys' feedback) stays on, at 60 % (a check run's screenshot)
-  exit codes   0 quit (Ctrl+Q) · 10 F12 without DECK_BROWSER · 75 the display was lost (the compositor went away) · 1 failed
+  --handoff    F9's hand-off file from the editor (#609, handoff.rs): its relay and scene over the flags', read once
+  --f9         a check run presses F9 after N frames (the hand-off to the editor)
+  exit codes   0 quit (Ctrl+Q; F9 once the editor runs) · 11 F9 under deck-session (DECK_SWAP) · 75 the display was lost
+               (the compositor went away) · 1 failed
   --frames     quit after N frames and print the measured numbers (a check run)
   --screenshot save the last frame of a --frames run as a PNG
   --pointer    put the pointer at window pixel X,Y, or on the being's button NODE.PORT (a check run's hover)
@@ -157,6 +155,9 @@ struct Args {
     live_page: bool,
     /// #253: a check run's volume overlay, shown all the time
     show_volume: bool,
+    /// #609: the hand-off this stage came with (its show goes back to the editor), a check run's F9 at frame N
+    handoff: deck_native::handoff::Handoff,
+    f9_at: Option<u64>,
 }
 
 /// a check run's pointer: a pixel, or on a button of the being (it follows the button)
@@ -202,6 +203,8 @@ fn args() -> Result<Args> {
         live_page: false,
         switch_to: None,
         show_volume: false,
+        handoff: Default::default(),
+        f9_at: None,
     };
     let mut it = std::env::args().skip(1);
     while let Some(arg) = it.next() {
@@ -268,6 +271,8 @@ fn args() -> Result<Args> {
             "--live-page" => a.live_page = true,
             "--show-volume" => a.show_volume = true,
             "--switch" => a.switch_to = Some(val()?),
+            "--handoff" => a.handoff = deck_native::handoff::Handoff::take(std::path::Path::new(&val()?)),
+            "--f9" => a.f9_at = Some(val()?.parse()?),
             "--quality" => {
                 let v = val()?;
                 a.quality = quality::Choice::parse(&v).with_context(|| format!("--quality {v}: auto, low, medium, high or ultra (,fixed)"))?
@@ -285,6 +290,13 @@ fn args() -> Result<Args> {
             }
             other => bail!("unknown argument '{other}'\n{HELP}"),
         }
+    }
+    // the hand-off wins over the flags: they are how the stage was started, it is where the editor left off
+    if let Some(r) = a.handoff.relay.clone() {
+        a.relay = Some(r);
+    }
+    if let Some(sc) = a.handoff.scene.clone() {
+        a.scene = Some(sc.into());
     }
     let cache = a.cache.take().or_else(|| Some(cache::for_api(&a.api)));
     Ok(Args { scenes: switcher::sandboxes(a.scenes.take(), a.dev), cache, ..a })
@@ -322,7 +334,7 @@ struct Show {
     clock_link: Option<deck_native::space::link::Link>,
     /// the chapter nodes' loaders, until the renderer takes them
     feeds: Vec<chapter::ChapterFeed>,
-    /// the master gain (the browser mutes it; it returns to --volume)
+    /// the master gain (the power-off mutes it)
     master: Option<audio::Param>,
     /// the limiter's gain reduction (dB, f32 bits – taken each frame, #188)
     reduction: Option<Arc<std::sync::atomic::AtomicU32>>,
@@ -723,10 +735,10 @@ struct App {
     splash: splash::Fade,
     /// #386: the deck's menu (the splash's START, the main menu, Pair this deck – the corner card that was)
     menu: menu::Native,
-    /// the browser on top: since when; `paused` once it has the focus (the stage stops drawing)
-    browser: Option<Instant>,
-    paused: bool,
-    proxy: EventLoopProxy<Event>,
+    /// the logo up for good (the power-off)
+    blackout: bool,
+    /// #609: F9 stayed put – why, and since when (the HUD says it for a few seconds)
+    refusal: Option<(deck_ui::handoff::Refusal, Instant)>,
     /// the pointer's look shown (#188: a hand over a button)
     #[cfg(feature = "space")]
     cursor: deck_native::space::Cursor,
@@ -1076,34 +1088,6 @@ impl App {
         window.request_redraw();
     }
 
-    /// F12: the conductor page (a locked-down browser window) on top of the stage (DECK_BROWSER), else exit code 10 for deck-session
-    fn open_browser(&mut self, el: &ActiveEventLoop) {
-        if self.browser.is_some() {
-            return;
-        }
-        let Some(cmd) = std::env::var("DECK_BROWSER").ok().filter(|c| !c.trim().is_empty()) else {
-            self.exit = EXIT_BROWSER;
-            el.exit();
-            return;
-        };
-        tracing::info!("browser: {cmd}");
-        match std::process::Command::new("/bin/sh").arg("-c").arg(&cmd).spawn() {
-            Ok(mut child) => {
-                let proxy = self.proxy.clone();
-                std::thread::spawn(move || {
-                    let st = child.wait();
-                    tracing::info!("browser closed ({st:?})");
-                    let _ = proxy.send_event(Event::BrowserClosed);
-                });
-                self.browser = Some(Instant::now());
-                if let Some(m) = &self.show.master {
-                    m.set(0.0);
-                }
-            }
-            Err(e) => tracing::error!("browser: {cmd}: {e}"),
-        }
-    }
-
     /// Ctrl+Alt+Del: a clean power-off (logind lets the active local session do it); the logo stays up meanwhile.
     /// Not in a --windowed stage (a desktop).
     fn power_off(&mut self) {
@@ -1111,7 +1095,7 @@ impl App {
             return;
         }
         tracing::info!("power off (Ctrl+Alt+Del)");
-        self.browser.get_or_insert_with(Instant::now); // the splash comes up and stays
+        self.blackout = true; // the splash comes up and stays
         if let Some(m) = &self.show.master {
             m.set(0.0);
         }
@@ -1121,10 +1105,11 @@ impl App {
     }
 
     fn redraw(&mut self, el: &ActiveEventLoop) {
-        if self.paused {
-            return; // the browser has the screen; the next frame comes when it closes
-        }
         self.poll_watch();
+        if self.args.f9_at.is_some_and(|n| self.stats.frames >= n) {
+            self.args.f9_at = None;
+            self.hand_off(el);
+        }
         if self.stats.frames >= 30 {
             if let Some(name) = self.args.switch_to.take() {
                 self.change.ask(&name);
@@ -1240,17 +1225,23 @@ impl App {
             self.vol_overlay.show(time, volume::Level { volume: 0.6, muted: false });
         }
         let vol = self.vol_overlay.text(time);
-        // #253: with the HUD off the bar carries the overlay for its second, then goes away again
-        if vol.is_some() && self.hud.mode == hud::Mode::Off {
+        // #609: F9's refusal stays on the HUD for a few seconds
+        if self.refusal.as_ref().is_some_and(|(_, at)| at.elapsed().as_secs_f32() > REFUSAL_S) {
+            self.refusal = None;
+            self.hud_at = -1.0;
+        }
+        let forced = vol.is_some() || self.refusal.is_some();
+        // #253: with the HUD off the bar carries the overlay for its second (or the refusal), then goes away again
+        if forced && self.hud.mode == hud::Mode::Off {
             self.hud.mode = hud::Mode::Bar;
             self.vol_forced = true;
-        } else if vol.is_none() && self.vol_forced {
+        } else if !forced && self.vol_forced {
             self.hud.mode = hud::Mode::Off;
             self.vol_forced = false;
             self.hud_at = -1.0;
         }
         let paged = self.page.open || self.switcher.open || self.live.page.open;
-        let hud_on = self.args.hud || self.error.is_some() || paged || vol.is_some();
+        let hud_on = self.args.hud || self.error.is_some() || paged || forced;
         if hud_on && time - self.hud_at >= 0.25 || self.stats.frames == 0 || self.hud_at < 0.0 {
             self.hud_at = time;
             self.stats.feed.report = self.stats.feed.monitor.report(wall_ms);
@@ -1298,7 +1289,7 @@ impl App {
             hud::Mode::Bar => self.hud.raster_bar(self.renderer.as_ref().map_or(hud::W, |r| r.bar_width())),
             hud::Mode::Off => {}
         }
-        let cover = self.loading() || self.browser.is_some() || self.menu.menu.on_splash();
+        let cover = self.loading() || self.blackout || self.menu.menu.on_splash();
         self.splash.step(cover, dt);
         // #250: a scene change fades through a black veil (no logo): out, the load behind it, in
         let mut splash = (self.splash.alpha, cover);
@@ -1485,17 +1476,6 @@ impl App {
 impl ApplicationHandler<Event> for App {
     fn user_event(&mut self, el: &ActiveEventLoop, event: Event) {
         match event {
-            Event::BrowserClosed => {
-                self.browser = None;
-                self.paused = false;
-                self.last = None; // the pause is not a frame interval
-                if let Some(m) = &self.show.master {
-                    m.set(self.args.volume);
-                }
-                if let Some(w) = &self.window {
-                    w.request_redraw();
-                }
-            }
             Event::Stop => {
                 tracing::info!("stop signal – ending the show");
                 el.exit();
@@ -1593,8 +1573,6 @@ impl ApplicationHandler<Event> for App {
                 self.space_event(&event);
             }
             WindowEvent::ModifiersChanged(m) => self.mods = m.state(),
-            // the browser's window took the screen: stop drawing behind it (hidden, a frame could block on vsync)
-            WindowEvent::Focused(false) if self.browser.is_some() => self.paused = true,
             // #253: the hardware volume keys – the default sink's volume, wpctl off the frame thread; held keys repeat
             WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed && volume_key(&event.logical_key).is_some() => {
                 if let Some(k) = volume_key(&event.logical_key) {
@@ -1616,12 +1594,7 @@ impl ApplicationHandler<Event> for App {
                         self.vol_forced = false;
                         self.hud.mode = self.hud.mode.next();
                     }
-                    Key::Named(NamedKey::F12) => self.open_browser(el),
-                    // #560: F9 – the editor instead of the stage (deck-session swaps; elsewhere F9 does nothing)
-                    Key::Named(NamedKey::F9) if std::env::var_os("DECK_SWAP").is_some() => {
-                        self.exit = EXIT_EDITOR;
-                        el.exit();
-                    }
+                    Key::Named(NamedKey::F9) => self.hand_off(el),
                     Key::Named(NamedKey::Delete) if self.mods.control_key() && self.mods.alt_key() => self.power_off(),
                     Key::Character("q") if self.mods.control_key() => el.exit(),
                     Key::Named(NamedKey::F3) => tempo.key(tempo::Key::NextSource),
@@ -1683,10 +1656,9 @@ fn run() -> Result<i32> {
     let rate = show.clock.as_ref().map_or(48_000.0, |c| c.rate as f64);
 
     let event_loop = EventLoop::<Event>::with_user_event().build().context("no event loop (no display?)")?;
-    let proxy = event_loop.create_proxy();
     // #263: a stop signal (the kiosk's stop, `deck-set --restart`, Ctrl+C) ends the show the normal way: the outputs dark,
     // the audio faded out. A handler that can't be installed never stops the show.
-    let stop_proxy = proxy.clone();
+    let stop_proxy = event_loop.create_proxy();
     if let Err(e) = deck_native::stop::install(move || {
         let _ = stop_proxy.send_event(Event::Stop);
     }) {
@@ -1723,9 +1695,8 @@ fn run() -> Result<i32> {
         mods: ModifiersState::empty(),
         exit: 0,
         splash: splash::Fade { alpha: 1.0 },
-        browser: None,
-        paused: false,
-        proxy,
+        blackout: false,
+        refusal: None,
         #[cfg(feature = "space")]
         cursor: deck_native::space::Cursor::Default,
         #[cfg(feature = "space")]

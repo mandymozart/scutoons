@@ -137,7 +137,7 @@ impl App {
                 Key::Named(NamedKey::ArrowLeft) => Input::Left,
                 Key::Named(NamedKey::ArrowRight) => Input::Right,
                 Key::Named(NamedKey::Enter) => Input::Enter,
-                // a drawn page keeps the other keys, but those that pass every page (F1, F12, the volume)
+                // a drawn page keeps the other keys, but those that pass every page (F1, F9, the volume)
                 k if drawn && !crate::pages::passes(&kev.logical_key) && !(self.mods.control_key() && k == Key::Character("q")) => return true,
                 _ => return false,
             },
