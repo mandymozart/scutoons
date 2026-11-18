@@ -76,6 +76,8 @@ impl Rig {
         self.policy_node(lib, &played, persona, mood, &mut scene)?;
         let playing = |t: &str| played.iter().any(|p| p.track == t) || (t == policy::NODE && self.policy.is_some());
         let mut clock = false;
+        // the camera's outlets for the rig's subject: a node each that the stage sets every frame (space/focus.rs)
+        let mut outlets: Vec<String> = Vec::new();
         // a route end as the compiled slot it lands on, and the track it is off with (`check` refused every other form)
         let end = |s: &str| -> Option<(String, Option<String>)> {
             match Address::leaf(s).ok()? {
@@ -93,12 +95,20 @@ impl Rig {
                 continue;
             }
             clock |= from.starts_with("tempo.");
+            if let Some((n, _)) = from.split_once('.').filter(|(n, _)| super::address::SOURCES.iter().any(|(s, _, slot)| *s == super::address::CAMERA && slot.starts_with(&format!("{n}.")))) {
+                if !outlets.iter().any(|o| o == n) {
+                    outlets.push(n.to_string());
+                }
+            }
             scene.links.push(link(from, to, r.scale, r.offset));
             homes.push(Home::Route { index });
         }
         // the clock joins the rig's scene only when a route reads it
         if clock {
             scene.nodes.push(node("tempo", "tempo", &[]));
+        }
+        for n in &outlets {
+            scene.nodes.push(node(n, "add", &[]));
         }
         // the being moves only by the routes its rig wires: no default breath with the sum's level (#492, owner 2026-11-12
         // [rigs]: "Breath with my loudness is a demo remain. Only if i decided the wiring" – `sound:level → being:pulse`)

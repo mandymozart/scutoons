@@ -236,7 +236,7 @@ fn rig(r: &mut Rig, op: &Op, lib: &Library) -> Result<(), String> {
             if r.tracks.iter().any(|t| &t.id == id) {
                 return Err(format!("{who}: track '{id}' is there already"));
             }
-            if id == super::policy::NODE || id == super::address::BEING || id == super::address::SOUND || id == super::address::CLOCK {
+            if id == super::policy::NODE || id == super::address::BEING || id == super::address::SOUND || id == super::address::CLOCK || id == super::address::CAMERA {
                 return Err(format!("{who}: the track id '{id}' is reserved"));
             }
             if !lib.instruments.contains_key(instrument) {

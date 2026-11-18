@@ -37,11 +37,12 @@ impl SceneEdit {
         Ok(at)
     }
 
-    /// shot `i` set to `view` – its id and label stay
+    /// shot `i` set to `view` – its id, label, aim and focus stay
     pub fn set_shot(&mut self, i: usize, view: ShotDef) -> Result<(), String> {
         self.camera_change(|c| {
             let s = c.shots.get_mut(i).ok_or("no such shot")?;
-            *s = ShotDef { id: s.id.clone(), label: s.label.clone(), aim: s.aim.clone(), ..view };
+            let lens = Lens { focus: s.lens.focus, ..view.lens };
+            *s = ShotDef { id: s.id.clone(), label: s.label.clone(), aim: s.aim.clone(), focus_on: s.focus_on.clone(), lens, ..view };
             Ok(())
         })
     }
@@ -51,6 +52,15 @@ impl SceneEdit {
         self.camera_change(|c| {
             let s = c.shots.get_mut(i).ok_or("no such shot")?;
             s.aim = aim.map(str::trim).filter(|a| !a.is_empty()).map(String::from);
+            Ok(())
+        })
+    }
+
+    /// what shot `i` keeps in focus by address (none: its lens's focus distance), checked by the core
+    pub fn set_focus_on(&mut self, i: usize, on: Option<&str>) -> Result<(), String> {
+        self.camera_change(|c| {
+            let s = c.shots.get_mut(i).ok_or("no such shot")?;
+            s.focus_on = on.map(str::trim).filter(|a| !a.is_empty()).map(String::from);
             Ok(())
         })
     }
@@ -166,6 +176,7 @@ impl SceneEdit {
         let stem = match spec.kind {
             MoveKind::CraneDown | MoveKind::CraneUp => "crane",
             MoveKind::DollyZoom => "vertigo",
+            MoveKind::Rack => "rack",
             k => k.word(),
         }
         .replace(' ', "_");
@@ -209,7 +220,7 @@ mod tests {
     use crate::scene_resolve::{core_rigs, no_sets};
 
     fn view(yaw: f32) -> ShotDef {
-        ShotDef { id: String::new(), label: Default::default(), target: [0.0, 1.0, 0.0], yaw, pitch: 10.0, distance: 3.0, lens: Lens::default(), aim: None }
+        ShotDef { id: String::new(), label: Default::default(), target: [0.0, 1.0, 0.0], yaw, pitch: 10.0, distance: 3.0, lens: Lens::default(), aim: None, focus_on: None }
     }
 
     #[test]
@@ -225,6 +236,15 @@ mod tests {
         assert_eq!((e.camera().shots[0].id.as_str(), e.camera().shots[0].yaw), ("shot1", 25.0), "set from the view: the id stays");
         e.set_lens(Some(1), Lens::orthographic(6.0)).unwrap();
         assert!(e.set_lens(Some(1), Lens::focal(2.0)).unwrap_err().contains("focal length"), "the core's words");
+        e.set_lens(Some(0), Lens { focus: Some(5.0), ..Lens::default() }).unwrap();
+        e.set_focus_on(0, Some("character:catpope")).unwrap();
+        e.set_shot(0, view(30.0)).unwrap();
+        assert_eq!((e.camera().shots[0].lens.focus, e.camera().shots[0].focus_on.as_deref()), (Some(5.0), Some("character:catpope")), "set from the view: the focus stays");
+        assert!(e.set_lens(Some(0), Lens { focus: Some(-1.0), ..Lens::default() }).unwrap_err().contains("the focus is"), "the core's words");
+        assert!(e.set_focus_on(0, Some("ghost")).unwrap_err().contains("no holder"));
+        let rack = e.add_move(MoveSpec::of(MoveKind::Rack), "shot1").unwrap();
+        assert_eq!(e.camera().moves[rack].id, "rack1");
+        e.remove_move(rack).unwrap();
         e.add_track([-2.0, 1.5, 3.0], [2.0, 1.5, 3.0]).unwrap();
         assert_eq!(e.add_track_point(0), Ok(1));
         e.move_track_point(1, [0.0, 2.5, 1.0]).unwrap();

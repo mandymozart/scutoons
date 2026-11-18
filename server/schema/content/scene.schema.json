@@ -426,6 +426,14 @@
           "format": "float",
           "type": "number"
         },
+        "focus": {
+          "description": "metres from the eye to where it is sharp; none = at the aim",
+          "format": "float",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
         "projection": {
           "allOf": [
             {
@@ -750,6 +758,11 @@
           "const": "shake",
           "description": "a handheld unrest on the way (`amount`)",
           "type": "string"
+        },
+        {
+          "const": "rack",
+          "description": "the frame stays, the focus shifts to the shot's (its `focus_on` subject, its lens's distance or its aim)",
+          "type": "string"
         }
       ]
     },
@@ -928,6 +941,13 @@
           "description": "metres from the aim",
           "format": "float",
           "type": "number"
+        },
+        "focus_on": {
+          "description": "what it keeps in focus by address, as `aim` names it: the focus follows it (its distance from the eye each frame)\nin place of the lens's `focus`",
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "id": {
           "description": "a word: `scene:<id> > shot:<id>` picks it",

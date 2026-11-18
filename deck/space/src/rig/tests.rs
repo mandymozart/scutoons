@@ -756,6 +756,22 @@ fn the_sound_and_the_clock_can_be_wired() {
 }
 
 #[test]
+fn the_camera_s_focus_and_distance_are_outlets_a_rig_wires() {
+    let b = Bundle::core("character.catpope").expect("the core rig").expect("it reads");
+    let b = b.connected("camera:focus", "voice:voice.index").expect("in focus drives the voice");
+    let b = b.connected("camera:distance", "being:glow").expect("the distance drives the glow");
+    let played = b.play(None, None).expect("it plays");
+    for (id, slot, to) in [("camera_focus", "camera_focus.out", "voice_voice.index"), ("camera_distance", "camera_distance.out", "space.glow")] {
+        assert!(played.nodes.iter().any(|n| n.id == id && n.kind == "add"), "{id}: a node the stage sets");
+        assert!(played.links.iter().any(|l| l.from == slot && l.to == to), "{slot} → {to}");
+    }
+    let plain = Bundle::core("character.catpope").unwrap().unwrap().play(None, None).unwrap();
+    assert!(plain.nodes.iter().all(|n| !n.id.starts_with("camera_")), "no outlet node unless a route reads it");
+    assert!(b.connected("voice:voice.out", "camera:focus").is_err(), "an outlet is only a source");
+    assert!(b.connected("camera:blur", "being:glow").unwrap_err().contains("camera has no 'blur'"));
+}
+
+#[test]
 fn a_source_is_only_a_source() {
     let b = Bundle::core("character.catpope").expect("the core rig").expect("it reads");
     assert!(b.connected("voice:voice.out", "sound:level").is_err());

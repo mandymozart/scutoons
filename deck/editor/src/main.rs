@@ -457,6 +457,8 @@ enum Drag {
     Dop(dop::Num, f32, f32),
     /// a point of the trolley track on the stage (scene_stage.rs), or its handle
     TrackPoint(usize, bool),
+    /// a shot's focus marker on the stage
+    Focus(usize),
     /// a parallax layer's handle: which, the pointer's start, its depth then
     LayerDepth(usize, f32, f32),
 }
@@ -1228,6 +1230,7 @@ impl App {
             Some(Drag::SceneKnob(i, x0, v0)) => self.scene_knob_to(i, x0, v0, x),
             Some(Drag::Dop(n, x0, v0)) => self.dop_scrub_to(n, x0, v0, x),
             Some(Drag::TrackPoint(i, handle)) => self.track_point_to(i, handle, x, y),
+            Some(Drag::Focus(i)) => self.focus_to(i, x, y),
             Some(Drag::LayerDepth(l, y0, d0)) => self.layer_depth_to(l, y0, d0, y),
             Some(Drag::Param(node, port, x0, f0)) => {
                 if let Some(p) = self.stage.param(node, port) {
@@ -2117,6 +2120,7 @@ impl App {
             Some(Drag::SceneKnob(..) | Drag::LayerDepth(..)) => return self.scene_settled(),
             Some(Drag::Dop(n, ..)) => return self.dop_settled(n),
             Some(Drag::TrackPoint(..)) => return self.track_settled(),
+            Some(Drag::Focus(i)) => return self.focus_settled(i),
             // a knob or a parameter let go: its value goes into the draft
             Some(Drag::Knob(i, ..)) => {
                 if let Some(k) = self.stage.knobs.get(i) {

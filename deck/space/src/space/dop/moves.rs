@@ -1,7 +1,7 @@
 //! Each move as a path from the view it starts on to the shot it ends on: `pose` at progress 0 is the start, at 1 exactly
 //! the shot. Paths come in families – around the aim (glide, orbit, spiral, zoom), a straight dolly (push, pull), the head
 //! turning where the camera stands (truck, tilt, whip), a curve through a control point (in, crane), the trolley track
-//! (fly) – and shake adds unrest that is gone at both ends.
+//! (fly) – and shake adds unrest that is gone at both ends. A rack focus keeps the frame; only the focus travels.
 use super::track::Path;
 use super::{wrap_pi, View};
 use crate::scene_camera::{focal_of, Lens, MoveKind, MoveSpec, Projection, Side, Turn};
@@ -29,9 +29,15 @@ fn smooth(u: f32) -> f32 {
     u * u * (3.0 - 2.0 * u)
 }
 
-/// the lenses between two: focal length and view height in their logs; the projection changes halfway
+/// the lenses between two: focal length and view height in their logs; the projection changes halfway (the focus is
+/// the views', `focus`)
 pub fn lens(a: &Lens, b: &Lens, u: f32) -> Lens {
-    Lens { projection: if u < 0.5 { a.projection } else { b.projection }, focal: log_lerp(a.focal, b.focal, u), size: log_lerp(a.size, b.size, u) }
+    Lens { projection: if u < 0.5 { a.projection } else { b.projection }, focal: log_lerp(a.focal, b.focal, u), size: log_lerp(a.size, b.size, u), focus: None }
+}
+
+/// the focus distance between two views, in its log (each view's own, or its aim's); none while both focus at their aim
+pub fn focus(f: &View, t: &View, u: f32) -> Option<f32> {
+    (f.lens.focus.is_some() || t.lens.focus.is_some()).then(|| log_lerp(f.focus(), t.focus(), u))
 }
 
 /// around the aim: the aim straight, the angles the shorter way plus `extra` turns, the distance in its log
@@ -134,6 +140,9 @@ pub fn pose(spec: &MoveSpec, f: &View, t: &View, lin: f32, ctx: &Ctx) -> View {
             Some(p) => fly(f, t, u, p),
             None => around(f, t, u, 0.0),
         },
+        MoveKind::Rack => {
+            return View { lens: Lens { focus: focus(f, t, u), ..f.lens }, ..*f };
+        }
         MoveKind::Shake => {
             let mut v = around(f, t, u, 0.0);
             let env = (lin * PI).sin().sqrt();
@@ -143,7 +152,9 @@ pub fn pose(spec: &MoveSpec, f: &View, t: &View, lin: f32, ctx: &Ctx) -> View {
             v
         }
     };
-    blended(v, f, t, u).wrapped()
+    let mut v = blended(v, f, t, u).wrapped();
+    v.lens.focus = focus(f, t, u);
+    v
 }
 
 /// Between a perspective and an orthographic end the lens blends as a dolly zoom (camera.rs `projection_blend`): the eye
@@ -151,7 +162,7 @@ pub fn pose(spec: &MoveSpec, f: &View, t: &View, lin: f32, ctx: &Ctx) -> View {
 fn blended(mut v: View, f: &View, t: &View, u: f32) -> View {
     let end = |w: &View| (w.lens.fov_y(), w.lens.ortho().then_some(w.lens.size), w.distance);
     if let Some((fov, distance)) = crate::space::camera::projection_blend(end(f), end(t), u) {
-        v.lens = Lens { projection: Projection::Perspective, focal: focal_of(fov), size: v.lens.size };
+        v.lens = Lens { projection: Projection::Perspective, focal: focal_of(fov), size: v.lens.size, focus: v.lens.focus };
         v.distance = distance;
     }
     v

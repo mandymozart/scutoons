@@ -21,6 +21,7 @@ pub mod camera;
 pub mod decks;
 pub mod dop;
 pub mod feel;
+pub mod focus;
 pub mod glb;
 #[cfg(feature = "gpu")]
 pub mod gpu;
@@ -309,6 +310,10 @@ pub struct Space {
     pub motions: motion::Motions,
     /// when the scene's row started (s, beat): what a motion module counts its row time from
     row_from: Option<(f32, f64)>,
+    /// the scene camera's focus this frame: metres from the eye
+    pub focus: f32,
+    /// the subjects whose rigs read the focus's outlets (`camera:focus`, `camera:distance`)
+    focus_outlets: Vec<focus::Outlet>,
 }
 
 /// Called on the loader thread with a set's file before it is read: the sync (sync.rs) returns once that file is
@@ -451,6 +456,8 @@ impl Space {
             camera_pending: None,
             motions: motion::Motions::default(),
             row_from: None,
+            focus: 0.0,
+            focus_outlets: focus::outlets(graph),
         };
         space.place_cast();
         space
@@ -720,6 +727,14 @@ impl Space {
         }
         self.camera.step(dt);
         self.move_by_modules(&dop::Clock::of(time, beat));
+        if !directed {
+            self.focus = self.settled_focus();
+        }
+        let at = |m: Option<usize>| match m {
+            Some(i) => self.cast.get(i).map(|c| self.member_sphere(c).0),
+            None => Some(self.being.focus().0),
+        };
+        focus::push(&self.focus_outlets, self.camera.eye(), self.focus, &at, ctl);
         // #209: the knobs face the camera; #224: and fold into its view close up
         self.being.eye = Some(self.camera.eye());
         self.being.frame = Some(self.camera.frame(self.view.0 / self.view.1));
@@ -814,14 +829,21 @@ impl Space {
         let member = |hit: &dyn Fn(&Cast) -> bool| self.cast.iter().find(|c| hit(c)).map(|c| self.member_sphere(c).0);
         match Aim::parse(aim).ok()? {
             Aim::Holder(h) => member(&|c| c.holder == h),
+            Aim::Who(w) if self.cast.is_empty() => (self.alone_subject().as_deref() == Some(w.as_str())).then(|| self.being.focus().0),
             Aim::Who(w) => member(&|c| c.who.place() == w),
             Aim::Spot(n) => self.spots.iter().find(|(s, _)| *s == n).map(|(_, at)| *at + Vec3::Y * crate::scene_camera::DEFAULT_HEIGHT),
         }
     }
 
+    /// a rig played alone: its character as a subject (`character:<id>`), the space's own being
+    fn alone_subject(&self) -> Option<String> {
+        let c = &self.being.look.character;
+        (!c.is_empty()).then(|| format!("character:{c}"))
+    }
+
     /// what a shot can aim at on this stage: who fills each holder (`character:<id>`, `item:<id>`), then the set's spots
     pub fn aim_choices(&self) -> Vec<String> {
-        let who = self.cast.iter().map(|c| c.who.place());
+        let who = self.cast.iter().map(|c| c.who.place()).chain(self.alone_subject().filter(|_| self.cast.is_empty()));
         let spots = self.spots.iter().map(|(n, _)| format!("{}:{n}", crate::rig::address::SPOT));
         let mut out: Vec<String> = who.chain(spots).collect();
         out.dedup();
@@ -891,6 +913,7 @@ impl Space {
         let shot = self.scene_camera();
         self.camera.look_through(shot);
         self.dop.viewing = dop::Viewing::Primary;
+        self.dop.focus_shot = None;
     }
 
     /// an eased glide back to the free view the camera left; a move playing stops where it is
@@ -898,6 +921,7 @@ impl Space {
         self.dop.director.interrupt();
         self.camera.go_free();
         self.dop.viewing = dop::Viewing::Free;
+        self.dop.focus_shot = None;
     }
 
     /// what the stage looks through now
@@ -943,6 +967,7 @@ impl Space {
         self.dop.current = Some(id.to_string());
         self.camera.look_through(shot_of(&v));
         self.dop.viewing = dop::Viewing::Shot(id.to_string());
+        self.dop.focus_shot = None;
     }
 
     /// where the ray through view pixel (`x`, `y`) meets the level `height` in front of the eye (a track point dragged)
@@ -950,6 +975,34 @@ impl Space {
         let ray = self.camera.ray(x, y, self.view.0, self.view.1);
         let t = (height - ray.origin.y) / ray.dir.y;
         (ray.dir.y.abs() > 1e-4 && t > 0.0).then(|| ray.origin + ray.dir * t)
+    }
+
+    /// how far along the line from `eye` toward `dir` the ray through view pixel (`x`, `y`) passes closest (m; a focus
+    /// marker dragged)
+    pub fn along_sight(&self, x: f32, y: f32, eye: Vec3, dir: Vec3) -> Option<f32> {
+        let ray = self.camera.ray(x, y, self.view.0, self.view.1);
+        let d = dir.try_normalize()?;
+        let w = eye - ray.origin;
+        let (b, e) = (d.dot(ray.dir), ray.dir.dot(w));
+        let denom = ray.dir.length_squared() - b * b;
+        let s = (b * e - ray.dir.length_squared() * d.dot(w)) / denom;
+        (denom.abs() > 1e-6 && s > 0.0).then_some(s)
+    }
+
+    /// the subject (`character:<id>`, `item:<id>`) whose middle is nearest view pixel (`x`, `y`), within `reach` pixels
+    pub fn subject_at(&self, x: f32, y: f32, reach: f32) -> Option<String> {
+        let alone = self.alone_subject().filter(|_| self.cast.is_empty()).map(|w| (self.being.focus().0, w));
+        self.cast
+            .iter()
+            .map(|c| (self.member_sphere(c).0, c.who.place()))
+            .chain(alone)
+            .filter_map(|(at, who)| {
+                let (px, py) = self.to_pixel(at)?;
+                let d = ((px - x).powi(2) + (py - y).powi(2)).sqrt();
+                (d <= reach).then_some((d, who))
+            })
+            .min_by(|a, b| a.0.total_cmp(&b.0))
+            .map(|(_, w)| w)
     }
 
     /// An address action for the scene's camera (`scene:nave > shot:wide`, `> move:intro`): whether it was one.
@@ -982,19 +1035,63 @@ impl Space {
         if !self.dop.director.active() {
             return false;
         }
-        let now = dop::View::of(&self.camera);
+        let mut now = dop::View::of(&self.camera);
+        now.lens.focus = Some(self.focus).filter(|f| *f > 0.0);
         let c = &self.dop.camera;
-        let named = c.shots.iter().filter_map(|s| s.aim.clone()).chain(c.moves.iter().filter_map(|m| m.spec.follow.clone()));
+        let named = c.shots.iter().flat_map(|s| [s.aim.clone(), s.focus_on.clone()]).flatten().chain(c.moves.iter().filter_map(|m| m.spec.follow.clone()));
         let at: Vec<(String, Vec3)> = named.filter_map(|a| self.aim_point(&a).map(|p| (a, p))).collect();
         let subject = |aim: &str| at.iter().find(|(a, _)| a == aim).map(|(_, p)| *p);
         match self.dop.step(clock, now, &subject) {
             Some(v) => {
                 self.camera.far_back = self.dop.director.blending(clock);
                 v.apply(&mut self.camera);
+                self.focus = v.focus();
                 true
             }
             None => false,
         }
+    }
+
+    /// Where the focus is while no move plays (m from the eye): the shot that holds it (dop `focus_holder`) – its subject's
+    /// distance from the eye now (a follow focus), else its lens's, else its aim's; free, at the aim.
+    fn settled_focus(&self) -> f32 {
+        let eye = self.camera.eye();
+        let Some(s) = self.dop.focus_holder() else {
+            let primary = self.dop.viewing == dop::Viewing::Primary;
+            return primary.then_some(self.dop.camera.lens.focus).flatten().unwrap_or(self.camera.distance);
+        };
+        let on = s.focus_on.as_deref().and_then(|a| self.aim_point(a)).map(|p| eye.distance(p));
+        on.or(s.lens.focus).unwrap_or_else(|| self.shot_view(&s.id).map_or(self.camera.distance, |v| eye.distance(v.target)))
+    }
+
+    /// Where shot `id` is focused: on its subject where it stands, else its focus distance along its line of sight, else
+    /// its aim (the scene view's focus marker).
+    pub fn shot_focus_point(&self, id: &str) -> Option<Vec3> {
+        let v = self.shot_view(id)?;
+        Some(self.dop.focus_on(id).and_then(|a| self.aim_point(&a)).unwrap_or_else(|| v.focus_point()))
+    }
+
+    /// the focus this frame as a point: the focus distance along the camera's line of sight
+    pub fn focus_point(&self) -> Vec3 {
+        let eye = self.camera.eye();
+        eye + (self.camera.target - eye).try_normalize().unwrap_or(Vec3::NEG_Z) * self.focus
+    }
+
+    /// every subject's outlets now – its address, how sharp it is, its distance from the eye (m): the cast, else the
+    /// space's own being (`scene`)
+    pub fn focus_values(&self) -> Vec<(String, f32, f32)> {
+        let eye = self.camera.eye();
+        if self.cast.is_empty() {
+            let (s, d) = focus::values(eye, self.focus, self.being.focus().0);
+            return vec![(self.alone_subject().unwrap_or_else(|| "scene".into()), s, d)];
+        }
+        self.cast
+            .iter()
+            .map(|c| {
+                let (s, d) = focus::values(eye, self.focus, self.member_sphere(c).0);
+                (c.who.place(), s, d)
+            })
+            .collect()
     }
 
     fn focus_goal(&self, distance: f32) -> Vec3 {
@@ -1087,6 +1184,7 @@ impl Space {
     /// one did; the set and the camera stay, the renderer sizes its buffers anew.
     pub fn replace_being(&mut self, graph: &Graph, look: &Look) {
         self.cast = Cast::of(graph, &mut self.portraits);
+        self.focus_outlets = focus::outlets(graph);
         self.picked = None;
         let mut being = if self.cast.is_empty() { Being::new(graph, look) } else { Being::part(graph, look, None, &|_| false) };
         being.head.sprites = self.portraits.request(&look.character, &being.moods);

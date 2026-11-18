@@ -24,6 +24,8 @@ pub enum Mark {
     /// a point of the trolley track, and the selected point's Bézier handle
     TrackPoint(usize),
     Handle(usize),
+    /// the selected shot's focus marker
+    Focus(usize),
 }
 
 impl Mark {
@@ -33,7 +35,7 @@ impl Mark {
             Mark::Slot(s) => Some(Part::Slot(s)),
             Mark::Video(v) => Some(Part::Video(v)),
             Mark::Layer(l) => Some(Part::Layer(l)),
-            Mark::Shot(_) | Mark::TrackPoint(_) | Mark::Handle(_) => None,
+            Mark::Shot(_) | Mark::TrackPoint(_) | Mark::Handle(_) | Mark::Focus(_) => None,
         }
     }
 }
@@ -165,6 +167,34 @@ fn camera(d: &mut DrawList, t: &Tokens, view: &mut SceneView, space: &Space, are
         if id.is_none() {
             if let Some((x, y)) = px(f.eye) {
                 controls::label(d, t, x + 8.0, y - t.size.label * 0.6, "primary", color);
+            }
+        }
+    }
+    // the selected shot's focus: a marker where it is sharp – on its subject, or along its line of sight – dragged along
+    // that line, or let go on a subject to follow it
+    if let Some((i, s)) = view.dop.shot.and_then(|i| cam.shots.get(i).map(|s| (i, s))) {
+        if let (Some(p), Some(v)) = (space.shot_focus_point(&s.id), space.shot_view(&s.id)) {
+            if let Some((x, y)) = px(p) {
+                let color = t.color.bright;
+                if let Some(e) = px(v.eye()) {
+                    let n = 24;
+                    for k in (0..n).step_by(2) {
+                        let at = |u: f32| (e.0 + (x - e.0) * u, e.1 + (y - e.1) * u);
+                        d.segment(at(k as f32 / n as f32), at((k + 1) as f32 / n as f32), 1.0, alpha(color, 0.55));
+                    }
+                }
+                let r = 9.0;
+                let pts = [(x, y - r), (x + r, y), (x, y + r), (x - r, y)];
+                for k in 0..4 {
+                    d.segment(pts[k], pts[(k + 1) % 4], 1.5, color);
+                }
+                d.disc(x, y, 2.5, color);
+                let words = match s.focus_on.as_deref() {
+                    Some(on) => format!("on {on}"),
+                    None => format!("{} m", crate::number(v.eye().distance(p))),
+                };
+                caption(d, t, (x, y + r + 4.0), "FOCUS", &words, color);
+                view.marks.push((Rect { x: x - 14.0, y: y - 14.0, w: 28.0, h: 28.0 }, Mark::Focus(i)));
             }
         }
     }
@@ -310,6 +340,10 @@ impl crate::App {
                 if let Some(id) = id {
                     self.stage.space.look_through_shot(&id);
                 }
+            }
+            Mark::Focus(i) => {
+                view.dop.shot = Some(i);
+                self.panel.drag = Some(crate::Drag::Focus(i));
             }
             Mark::TrackPoint(i) | Mark::Handle(i) => {
                 view.dop.point = Some(i);
