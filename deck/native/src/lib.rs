@@ -8,6 +8,8 @@ pub mod chapter;
 pub mod clock;
 pub mod cpu;
 pub mod gpu;
+/// #609: F9 – the deck and the editor hand over to each other
+pub mod handoff;
 pub mod host;
 pub mod live;
 pub mod modules;

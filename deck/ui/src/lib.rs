@@ -29,6 +29,9 @@ pub mod messages;
 /// #546: one condition, one look – a filter's facts, which are on, its words (a role's, a row address's, a cell's)
 pub mod filter;
 
+/// #609: F9 between the deck and the editor – why it stayed put
+pub mod handoff;
+
 /// text lines the HUD has room for (above the frame-time graph; #208: two audio lines + the glitch warning)
 pub const LINES: usize = 13;
 /// characters a line has room for (8 px each, a 4 px margin)
@@ -143,6 +146,8 @@ pub struct Status {
     pub fft: Option<[f32; 4]>,
     pub music: Vec<String>,
     pub slices: Vec<String>,
+    /// #609: F9 just stayed put, and why (shown for a few seconds)
+    pub handoff: Option<handoff::Refusal>,
 }
 
 /// #423: characters the build label has room for (its raster is 8 px a character)
@@ -225,12 +230,15 @@ pub fn hud_lines(s: &Status) -> Vec<String> {
         live.push(format!("LIVE: {}", n.replace(['–', '—'], "-").to_uppercase()));
     }
     lines.push(format!("SCUTOONSDECK STAGE  {}", s.scene));
+    if let Some(r) = &s.handoff {
+        lines.extend(wrap(&r.hud_line(), COLS));
+    }
     // #208: a glitch flashes the warning right under the title for a few seconds (the adapter draws its row red)
     if !report.alert_line.is_empty() {
         lines.push(format!("{ALERT} {}", report.alert_line));
     }
     lines.extend(live.iter().flat_map(|l| wrap(l, COLS)));
-    lines.extend(["F12 WEB CTRL+ALT+ F2 SHELL / DEL OFF".into(), "T TAP +/- BPM SPACE RUN F3 SRC K CLICK".into(), format!("GPU {gpu}")]);
+    lines.extend(["F9 EDITOR CTRL+ALT+ F2 SHELL / DEL OFF".into(), "T TAP +/- BPM SPACE RUN F3 SRC K CLICK".into(), format!("GPU {gpu}")]);
     // #220: the quality now, the level chosen, the governor; the keys
     if let Some(q) = &s.quality {
         lines.push(format!("Q {} {:.2}X OF {} {} F4 SET", q.level, q.render, q.ceiling, if q.auto { "AUTO" } else { "FIXED" }).to_uppercase());
@@ -284,6 +292,9 @@ pub fn bar_items(s: &Status) -> Vec<Item> {
     }
     if !relay.is_empty() {
         out.push(item(relay.replace(['–', '—'], "-").to_uppercase(), false));
+    }
+    if let Some(r) = &s.handoff {
+        out.push(item(r.hud_line(), true));
     }
     out.push(item("F1".into(), false));
     out

@@ -65,6 +65,7 @@ impl App {
             fft: show.controls.fft(),
             music: show.music.iter().map(|s| s.lock().unwrap().clone()).collect(),
             slices: r.map(|r| r.slides_status()).unwrap_or_default(),
+            handoff: self.refusal.as_ref().map(|(r, _)| r.clone()),
         }
     }
 }

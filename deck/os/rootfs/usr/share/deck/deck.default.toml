@@ -6,6 +6,9 @@ kiosk = "stage"
 # #560: "editor" = the editor in Perform, joining `relay` – this deck is the conductor (`deck-set kiosk editor`).
 # The show it opens: a file or show:<id> (empty = a new show).
 show = ""
+# F9 swaps the stage and the editor (#609): "allowed", or "locked" – F9 never drops this deck into the editor (a deck
+# in a show). A lean image carries no editor: F9 says so and the stage stays.
+editor = "allowed"
 # The stage's start scene (F5's S sets it, #427): a scene TOML or a system scene (idle, silent, outlet, test-pattern; a
 # sandbox's name only on a dev image). Empty = the system scene idle: fireflies on black, no sound (#252).
 scene = ""
