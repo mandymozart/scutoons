@@ -167,6 +167,7 @@ struct VideoNode {
     /// the heard time of the last frame (none: the clock starts at the next)
     heard: Option<f32>,
     /// the use's in and out points on its file, s (`start`, `end`; 0 = none): the file stays whole
+    #[cfg(feature = "media")]
     trim: (f32, f32),
 }
 
@@ -335,6 +336,7 @@ impl Stage {
                         aspect: 1.0,
                         clock: 0.0,
                         heard: None,
+                        #[cfg(feature = "media")]
                         trim: (node.f32("start", 0.0), node.f32("end", 0.0)),
                     });
                     builtin("video").unwrap().to_string()
