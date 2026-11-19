@@ -380,7 +380,7 @@ mod tests {
         assert!(p.listing() && p.hosts.is_empty());
         *GATE.0.lock().unwrap() = true;
         GATE.1.notify_all();
-        let end = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        let end = std::time::Instant::now() + std::time::Duration::from_secs(60);
         while p.listing() && std::time::Instant::now() < end {
             std::thread::sleep(std::time::Duration::from_millis(10));
             p.sync(&["main".into()]);

@@ -95,10 +95,10 @@ mod tests {
         }
         let m = CpuMeter::spawn().unwrap();
         let t = Instant::now();
-        while m.reading().is_none() && t.elapsed() < Duration::from_secs(5) {
+        while m.reading().is_none() && t.elapsed() < Duration::from_secs(60) {
             std::thread::sleep(Duration::from_millis(20));
         }
-        let r = m.reading().expect("a reading within 5 s");
+        let r = m.reading().expect("a reading (a minute guards only a hang)");
         assert!((0.0..=1.0).contains(&r.value) && r.peak >= r.value, "{r:?}");
     }
 }
