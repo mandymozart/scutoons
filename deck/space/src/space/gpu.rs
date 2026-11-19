@@ -145,6 +145,11 @@ pub struct SpaceGpu {
     /// a video slot's texture, its frames written into it
     #[cfg(feature = "media")]
     videos: Vec<Option<crate::video::Texture>>,
+    /// the video frames' passes (planes → RGB, FSR), made with the first frame
+    #[cfg(feature = "media")]
+    video_conv: Option<crate::video::Converter>,
+    /// the render size (what a video slot is upscaled towards)
+    render: (u32, u32),
     blank: wgpu::BindGroup,
     /// this frame's head layers and their textures (slot, or None = blank); the heads far to near
     layers: Vec<HeadLayer>,
@@ -408,6 +413,9 @@ impl SpaceGpu {
             sprites: Vec::new(),
             #[cfg(feature = "media")]
             videos: Vec::new(),
+            #[cfg(feature = "media")]
+            video_conv: None,
+            render: size,
             blank,
             layers: Vec::with_capacity(heads * 3),
             layer_tex: Vec::with_capacity(heads * 3),
@@ -502,7 +510,10 @@ impl SpaceGpu {
                 self.videos.resize_with(slot + 1, || None);
                 self.sprites.resize_with(self.sprites.len().max(slot + 1), || None);
             }
-            if crate::video::upload(device, queue, &pic, true, &mut self.videos[slot]) {
+            // a slot's picture covers the screen at most (a background): FSR up to that, by the rung
+            let conv = self.video_conv.get_or_insert_with(|| crate::video::Converter::new(device));
+            let up = crate::video::upscale_to(pic.width, pic.height, self.render, self.quality.fsr());
+            if crate::video::upload(device, queue, conv, &pic, true, up, &mut self.videos[slot]) {
                 let view = &self.videos[slot].as_ref().expect("uploaded").view;
                 self.sprites[slot] = Some(tex_bind(device, &self.tex_layout, view, &self.head_sampler));
             }
@@ -601,6 +612,7 @@ impl SpaceGpu {
 
     /// the depth buffer follows the render size
     pub fn resize(&mut self, device: &wgpu::Device, size: (u32, u32)) {
+        self.render = size;
         self.depth = depth_view(device, size);
         if let Some(p) = self.post.as_mut() {
             p.resize(device, size);

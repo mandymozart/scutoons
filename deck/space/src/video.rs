@@ -8,6 +8,12 @@ use std::sync::Arc;
 const QUEUE: usize = 6;
 const AHEAD: f64 = 0.2;
 
+/// How long after its heard time (s) a picture drawn now shows: at the next refresh, one frame interval `dt` later with
+/// a FIFO swap chain – a video picks the frame heard then, not the one heard while it is drawn.
+pub fn shown_ahead(dt: f32) -> f64 {
+    f64::from(dt.clamp(0.0, 0.05))
+}
+
 pub struct Movie {
     width: u32,
     height: u32,
@@ -68,58 +74,10 @@ impl Movie {
     }
 }
 
-/// A video's texture: the frames go into it one after another.
 #[cfg(feature = "gpu")]
-pub struct Texture {
-    pub view: wgpu::TextureView,
-    tex: wgpu::Texture,
-    key: (u32, u32, wgpu::TextureFormat),
-}
-
-/// Frame `pic` into `slot`'s texture – the one there when size and format match, else a new one (then true: a bind
-/// group over the old view is stale). HAP's blocks go up as they are where the device samples BC (and the size is whole
-/// blocks), else as RGBA; `srgb`: the texture decodes sRGB (the space's pictures) or not (the stage's passes).
-/// TODO(#329): HAP Q's YCoCg and AV1's planes converted in a shader instead of on the CPU.
+mod gpu;
 #[cfg(feature = "gpu")]
-pub fn upload(device: &wgpu::Device, queue: &wgpu::Queue, pic: &Picture, srgb: bool, slot: &mut Option<Texture>) -> bool {
-    use deck_media::Format;
-    use wgpu::TextureFormat as T;
-    let bc = device.features().contains(wgpu::Features::TEXTURE_COMPRESSION_BC) && pic.width % 4 == 0 && pic.height % 4 == 0;
-    let rgba;
-    let (pic, format, row) = match (pic.format, bc) {
-        (Format::Bc1, true) => (pic, if srgb { T::Bc1RgbaUnormSrgb } else { T::Bc1RgbaUnorm }, pic.width / 4 * 8),
-        (Format::Bc3, true) => (pic, if srgb { T::Bc3RgbaUnormSrgb } else { T::Bc3RgbaUnorm }, pic.width / 4 * 16),
-        _ => {
-            rgba = pic.to_rgba();
-            (&rgba, if srgb { T::Rgba8UnormSrgb } else { T::Rgba8Unorm }, pic.width * 4)
-        }
-    };
-    let key = (pic.width, pic.height, format);
-    let size = wgpu::Extent3d { width: pic.width, height: pic.height, depth_or_array_layers: 1 };
-    let fresh = slot.as_ref().is_none_or(|t| t.key != key);
-    if fresh {
-        let tex = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("video"),
-            size,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-            view_formats: &[],
-        });
-        *slot = Some(Texture { view: tex.create_view(&Default::default()), tex, key });
-    }
-    let t = slot.as_ref().expect("made above");
-    let rows = if pic.compressed() { pic.height / 4 } else { pic.height };
-    queue.write_texture(
-        wgpu::TexelCopyTextureInfo { texture: &t.tex, mip_level: 0, origin: wgpu::Origin3d::ZERO, aspect: wgpu::TextureAspect::All },
-        &pic.data,
-        wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(row), rows_per_image: Some(rows) },
-        size,
-    );
-    fresh
-}
+pub use gpu::{upload, upscale_to, Converter, Texture};
 
 #[cfg(all(feature = "native", not(target_arch = "wasm32")))]
 mod threaded {

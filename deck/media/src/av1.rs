@@ -1,6 +1,6 @@
 //! AV1 through rav1d (the Rust port of dav1d) – its C-shaped API wrapped once here: one decoding thread (the caller's,
 //! no worker threads, so wasm without threads decodes too), no frame delay, each packet's id echoed by the picture.
-use crate::yuv::{self, Matrix, Planes};
+use crate::yuv::Matrix;
 use crate::{err, Error, Format, Picture};
 use rav1d::include::dav1d::data::Dav1dData;
 use rav1d::include::dav1d::dav1d::{Dav1dContext, Dav1dSettings};
@@ -78,7 +78,7 @@ impl Av1 {
             if r.0 != 0 {
                 return err(format!("AV1: decoding failed ({})", r.0));
             }
-            let (id, got) = (pic.m.timestamp, rgba(&pic));
+            let (id, got) = (pic.m.timestamp, planes(&pic));
             // SAFETY: `pic` came from `dav1d_get_picture`
             unsafe { d::dav1d_picture_unref(Some(NonNull::from(&mut pic))) };
             out.push((id, got?));
@@ -101,19 +101,23 @@ impl Drop for Av1 {
     }
 }
 
-/// a decoded 8-bit 4:2:0 picture as RGBA8
-fn rgba(pic: &Dav1dPicture) -> Result<Picture, Error> {
+/// a decoded 8-bit 4:2:0 picture's planes, copied out of rav1d's pool with tight rows (the GPU converts them)
+fn planes(pic: &Dav1dPicture) -> Result<Picture, Error> {
     let (w, h) = (pic.p.w as usize, pic.p.h as usize);
     if pic.p.bpc != 8 || pic.p.layout != DAV1D_PIXEL_LAYOUT_I420 {
         return err(format!("AV1: {}-bit layout {} – only 8-bit 4:2:0 plays yet", pic.p.bpc, pic.p.layout));
     }
     let (ys, cs) = (pic.stride[0] as usize, pic.stride[1] as usize);
     let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
-    let plane = |i: usize, stride: usize, rows: usize, width: usize| -> Result<&[u8], Error> {
+    let mut data = Vec::with_capacity(w * h + 2 * cw * ch);
+    for (i, stride, rows, width) in [(0, ys, h, w), (1, cs, ch, cw), (2, cs, ch, cw)] {
         let p = pic.data[i].ok_or_else(|| Error("AV1: a picture without its planes".into()))?;
         // SAFETY: rav1d's plane `i` holds `rows` rows of `stride` bytes (the last one at least `width`)
-        Ok(unsafe { std::slice::from_raw_parts(p.as_ptr().cast::<u8>(), stride * (rows - 1) + width) })
-    };
+        let plane = unsafe { std::slice::from_raw_parts(p.as_ptr().cast::<u8>(), stride * (rows - 1) + width) };
+        for r in 0..rows {
+            data.extend_from_slice(&plane[r * stride..][..width]);
+        }
+    }
     // SAFETY: a decoded picture carries its sequence header
     let seq = pic.seq_hdr.map(|s| unsafe { s.as_ref() });
     let matrix = match seq.map(|s| s.mtrx) {
@@ -121,6 +125,5 @@ fn rgba(pic: &Dav1dPicture) -> Result<Picture, Error> {
         _ => Matrix::Bt709,
     };
     let full = seq.is_some_and(|s| s.color_range != 0);
-    let planes = Planes { y: (plane(0, ys, h, w)?, ys), u: (plane(1, cs, ch, cw)?, cs), v: (plane(2, cs, ch, cw)?, cs) };
-    Ok(Picture { width: w as u32, height: h as u32, format: Format::Rgba8, data: yuv::to_rgba(&planes, w, h, matrix, full) })
+    Ok(Picture { width: w as u32, height: h as u32, format: Format::Yuv420 { matrix, full }, data })
 }

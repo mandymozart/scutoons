@@ -52,6 +52,9 @@ pub enum Format {
     Bc3,
     /// HAP Q: scaled YCoCg in DXT5 blocks – a shader (or `to_rgba`) turns it into RGB
     Bc3YCoCg,
+    /// 8-bit YUV 4:2:0 (AV1): the luma plane `width` × `height`, then U, then V at half size rounded up, rows tight –
+    /// the GPU gets the planes as they are and a shader turns them into RGB (or `to_rgba`)
+    Yuv420 { matrix: yuv::Matrix, full: bool },
 }
 
 /// One decoded picture.
@@ -75,13 +78,29 @@ impl Picture {
                 dxt::ycocg_to_rgb(&mut px);
                 px
             }
+            Format::Yuv420 { matrix, full } => {
+                let [y, u, v] = self.planes().expect("a 4:2:0 picture");
+                let planes = yuv::Planes { y: (y.0, y.1 as usize), u: (u.0, u.1 as usize), v: (v.0, v.1 as usize) };
+                yuv::to_rgba(&planes, self.width as usize, self.height as usize, matrix, full)
+            }
         };
         Picture { width: self.width, height: self.height, format: Format::Rgba8, data }
     }
 
     /// whether the GPU gets it as blocks
     pub fn compressed(&self) -> bool {
-        self.format != Format::Rgba8
+        matches!(self.format, Format::Bc1 | Format::Bc3 | Format::Bc3YCoCg)
+    }
+
+    /// A 4:2:0 picture's planes Y, U, V: (bytes, width = row length, height). None for any other format.
+    pub fn planes(&self) -> Option<[(&[u8], u32, u32); 3]> {
+        let Format::Yuv420 { .. } = self.format else { return None };
+        let (w, h) = (self.width, self.height);
+        let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
+        let (luma, chroma) = ((w * h) as usize, (cw * ch) as usize);
+        let (y, rest) = self.data.split_at(luma);
+        let (u, v) = rest.split_at(chroma);
+        Some([(y, w, h), (u, cw, ch), (&v[..chroma], cw, ch)])
     }
 }
 

@@ -28,6 +28,7 @@ mod module;
 mod inspector;
 mod latency;
 mod panels;
+mod posters;
 mod published;
 mod routing;
 mod stage;
@@ -652,6 +653,8 @@ struct App {
     published: published::Published,
     /// Build edits this scene (scene.rs); none = a rig
     scene: Option<scene::SceneView>,
+    /// the video nodes' cards: their live frames (posters.rs)
+    posters: posters::Posters,
     /// the scene tree's last press, for a double one
     last_row: Option<(deck_space::scene_edit::Part, Instant)>,
     /// Build's grid & snap (grid.rs)
@@ -820,6 +823,7 @@ fn run() -> Result<i32> {
         cursor: pointer.unwrap_or_default(),
         last: None,
         started: Instant::now(),
+        posters: Default::default(),
         frames: 0,
         ui_ms: Vec::new(),
         frame_ms: Vec::new(),
@@ -2730,8 +2734,30 @@ impl App {
         self.grid.follow(self.scene.as_ref(), &self.stage, self.args.grid.as_deref());
         self.grid.draw_stage(ui, t, &self.stage.space, Rect { x: stage_x, y: top, w: stage_w, h: stage_h }, scale);
         if let Some(view) = self.scene.as_mut() {
+            // the `video` nodes with a file: their live frames on their cards
+            let doc = &view.edit.doc;
+            let nodes: Vec<(String, String)> = view.edit.videos().into_iter().filter(|&v| doc.nodes[v].kind == "video").filter_map(|v| Some((doc.nodes[v].id.clone(), view.edit.video_src(v)?.to_string()))).collect();
+            let index = |id: &str| doc.nodes.iter().position(|n| n.id == id);
+            let mut posters = Vec::new();
+            for (id, f) in self.posters.frame(&gpu.device, &gpu.queue, &nodes) {
+                let Some(v) = index(&id) else { continue };
+                posters.push((v, match f {
+                    posters::Frame::Live(tex, fresh) => {
+                        ui.set_card(&gpu.device, &id, tex, fresh);
+                        None
+                    }
+                    posters::Frame::Not(why) => Some(why.to_string()),
+                }));
+            }
+            ui.keep_cards(&nodes.iter().map(|(id, _)| id.as_str()).collect::<Vec<_>>());
+            view.posters = posters;
             let carry = self.carry.as_ref().and_then(|c| c.at);
             scene_stage::draw(ui, t, view, &self.stage.space, Rect { x: stage_x, y: top, w: stage_w, h: stage_h }, scale, carry);
+            for &(r, v) in &view.poster_rects {
+                ui.card(&view.edit.doc.nodes[v].id, r.x, r.y, r.w, r.h);
+            }
+        } else {
+            ui.keep_cards(&[]);
         }
         // Build's panels and what each asks for this frame; the view gizmo is a place no panel covers
         let gizmo = Rect { x: wf * 0.5 - 40.0, y: bar_bottom + 16.0, w: 80.0, h: 80.0 };

@@ -83,6 +83,11 @@ pollster = "0.4"
 name = "ui-frames"
 required-features = ["gpu", "native"]
 
+# a video frame's way to the GPU, before and after the planes went up as they are (ms per frame)
+[[example]]
+name = "video-upload"
+required-features = ["gpu", "media"]
+
 [[bin]]
 name = "deck-schema"
 path = "src/bin/deck-schema.rs"
