@@ -128,6 +128,10 @@ pub enum Edit {
     Background { to: Option<deck_space::Background> },
     /// the show's toon
     Toon { to: String },
+    /// a wire from one cell's outlet into another's inlet in the row (wiring.rs); `replaces` = the wire it was lifted from
+    Wire { row: String, wire: crate::wiring::CellWire, replaces: Option<crate::wiring::CellWire> },
+    /// the wire goes
+    Unwire { row: String, wire: crate::wiring::CellWire },
 }
 
 /// An edit made: the changed document, what it did in words, the row to select after it.
@@ -291,7 +295,7 @@ pub fn edit_with(show: &Show, e: &Edit, knobs: Option<&[Knob]>) -> Result<Edited
                 Some(a) => row_at(show, a)? + 1,
                 None => next.rows.len(),
             };
-            next.rows.insert(at, Row { id: id.clone(), fire: Default::default(), cells: Default::default(), addresses: vec![], r#where: Default::default() });
+            next.rows.insert(at, Row { id: id.clone(), fire: Default::default(), cells: Default::default(), addresses: vec![], r#where: Default::default(), wires: vec![] });
             (format!("row {} {id} added: manual, every column keeps", at + 1), Some(id))
         }
         Edit::Rename { id, to } => {
@@ -451,7 +455,31 @@ pub fn edit_with(show: &Show, e: &Edit, knobs: Option<&[Knob]>) -> Result<Edited
             }
             (format!("the show's toon: {}", next.toon), None)
         }
+        Edit::Wire { row, wire, replaces } => {
+            let i = row_at(&next, row)?;
+            let wires = &mut next.rows[i].wires;
+            if let Some(old) = replaces {
+                wires.retain(|w| w != old);
+            }
+            if wires.contains(wire) {
+                return Err(format!("not changed: {} is wired already", wire.words()));
+            }
+            wires.push(wire.clone());
+            (format!("row {} {row}: wired {}", i + 1, wire.words()), Some(row.clone()))
+        }
+        Edit::Unwire { row, wire } => {
+            let i = row_at(&next, row)?;
+            let n = next.rows[i].wires.len();
+            next.rows[i].wires.retain(|w| w != wire);
+            if next.rows[i].wires.len() == n {
+                return Err(format!("not changed: {} is no wire of row {row}", wire.words()));
+            }
+            (format!("row {} {row}: unwired {}", i + 1, wire.words()), Some(row.clone()))
+        }
     };
+    // a wire whose ends a change took away goes with it
+    let pruned = if matches!(e, Edit::Wire { .. }) { Vec::new() } else { crate::wiring::prune(&mut next) };
+    let said = if pruned.is_empty() { said } else { format!("{said}; unwired {}", pruned.join(", ")) };
     let added: Vec<String> = crate::validate::validate(&next).into_iter().filter(|p| !before.contains(p)).map(|p| p.to_string()).collect();
     match added.first() {
         Some(p) => Err(format!("not changed: {p}")),

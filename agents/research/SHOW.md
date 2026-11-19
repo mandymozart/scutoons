@@ -104,6 +104,7 @@ A cell is a piece and its values. A piece is a scene, rig or module; the current
 - A `values` cell on a path where another piece plays: the editor warns on that path; at the show it is skipped and logged.
 - A piece says which outlets can play it, with a fallback for phones.
 - A pure light controller is a plain scene today. Later a module or rig reaches lamp outputs by address (`dmx:`).
+- Cells wired to cells (#618): a row's `wires` (`{ from, out, to, in }`, column ids and port names) join one cell's outlet to another's inlet in the row. The ports come from what a cell holds (deck-show wiring.rs `ports`: inlets `fire` + one per value, outlets `plays` / `sends` / `answer` + `ends`), typed by deck-kit signal.rs; a wire stands only where the signal feeds (same signal, or an answer into a value), and a wire whose end a change took away goes with it. The rows band and the node view draw them alike; what a wire does at the show is not built yet.
 - Lamps on a device outlet (#91, LIVE.md B.5.2's model, the smallest that runs): the show's `fixtures` (`id`, `outlet`, `address`, `profile` dimmer · rgb · rgbw · rgbw-strobe) and `looks` (`values` by fixture and channel, 0–255, a missing channel is 0); a device cell `{ "mode": "look", "look", "fade" }` sends one DMX range per lit fixture. Venue patches are open: LIVE.md B.5.4 keeps them in the show, the 2026-11-02 `[venue]` decision makes the venue its own document that shows reference.
 
 ## 6. Reach

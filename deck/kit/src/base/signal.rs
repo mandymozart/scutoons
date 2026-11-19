@@ -64,6 +64,11 @@ impl Signal {
         }
     }
 
+    /// whether an outlet of this signal may be wired into an inlet of `into`: the same signal, or an answer setting a value
+    pub fn feeds(self, into: Signal) -> bool {
+        self == into || (self, into) == (Signal::Vote, Signal::Control)
+    }
+
     /// a wire's width relative to the others: an event's is heavier, it is what makes things happen
     pub fn weight(self) -> f32 {
         match self {
@@ -163,6 +168,15 @@ mod tests {
                 assert!(contrast(set.of(s), ground) >= 2.5, "{s:?} {}", contrast(set.of(s), ground));
             }
         }
+    }
+
+    #[test]
+    fn a_signal_feeds_its_own_kind_and_an_answer_feeds_a_value() {
+        for s in Signal::ALL {
+            assert!(s.feeds(s));
+        }
+        assert!(Signal::Vote.feeds(Signal::Control));
+        assert!(!Signal::Control.feeds(Signal::Vote) && !Signal::Event.feeds(Signal::Control) && !Signal::Audio.feeds(Signal::Picture));
     }
 
     #[test]

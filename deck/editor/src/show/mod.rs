@@ -42,6 +42,7 @@ mod sheets;
 mod toons;
 pub(crate) mod values;
 mod vote;
+pub mod wiring;
 
 use deck_kit::editor::controls::Rect;
 use deck_show::{ClockChoice, Show, Subtree};
@@ -158,6 +159,9 @@ pub enum Hit {
     RowAdd,
     RowName,
     RowRemove,
+    /// a port on a cell's foot in the rows band: row, column (the matrix's), outlet or inlet, its index (deck-show
+    /// wiring.rs `ports`): pressed, a wire is taken in the hand
+    Port(usize, usize, bool, usize),
     /// a cell of the document shown (row, column as the matrix counts): the cell inspector shows it; one of its mode
     /// chips; its piece field (opens the cell's typeahead)
     Cell(usize, usize),
@@ -294,6 +298,8 @@ pub struct Host {
     pub two_d: bool,
     /// the node view's zoom, pan and direction
     pub nodes: nodes::NodeView,
+    /// a wire between two cells in the hand (wiring.rs)
+    pub wiring: Option<wiring::Wiring>,
     /// the seconds the beads on the wires have run; none: they rest out of sight (Signal flow on wires off, Reduce motion)
     pub flow: Option<f32>,
     /// the sheet shown in the stage's place (Show), none = the stage
@@ -378,7 +384,7 @@ impl Host {
         perform_panels.floats.scrolls_itself("matrix");
         let scroll = deck_kit::editor::table::Scroll::default();
         let saves = version.map(|v| (show.id.clone(), crate::autosave::Autosave::new(Some(v)))).into_iter().collect();
-        let mut host = Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), columns: Vec::new(), group: None, context: None, show_panels, perform_panels, show_scroll: scroll, perform_scroll: scroll, band: None, view_slot: Rect::default(), help: None, address: None, book: None, cameras: BTreeMap::new(), book_why: None, carrying: false, refused: None, toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, status, bad: false, flow: None, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, saves, unsent: BTreeMap::new(), session: session::Session::default(), toons: toons::Toons::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), build: None, to_build: None, compose: new_scene::Composer::default(), to_stage: None, demos: Vec::new(), demo_book: None, link, api, nodes: nodes::NodeView::default() };
+        let mut host = Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), columns: Vec::new(), group: None, context: None, show_panels, perform_panels, show_scroll: scroll, perform_scroll: scroll, band: None, view_slot: Rect::default(), help: None, address: None, book: None, cameras: BTreeMap::new(), book_why: None, carrying: false, refused: None, toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, status, bad: false, wiring: None, flow: None, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, saves, unsent: BTreeMap::new(), session: session::Session::default(), toons: toons::Toons::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), build: None, to_build: None, compose: new_scene::Composer::default(), to_stage: None, demos: Vec::new(), demo_book: None, link, api, nodes: nodes::NodeView::default() };
         host.adopt_kept();
         host
     }
@@ -561,6 +567,7 @@ impl Host {
             Hit::SessionToon(_) | Hit::SessionChapter(_) | Hit::SessionLabel | Hit::SessionCopy | Hit::SessionOpen => self.session_press(hit),
             Hit::Vote(v) => self.vote_press(v),
             Hit::Knob(k) => self.knob_press(k),
+            Hit::Port(r, c, out, k) => self.port_press(r, c, out, k),
             Hit::Compose(c) => self.compose_press(c),
             Hit::Demo(i) => self.demo_press(i),
             Hit::NewName | Hit::ToonFind | Hit::ToonPick(_) => self.toons_press(hit),
@@ -713,6 +720,8 @@ pub struct Script {
     /// #553: a cell selected (`ROW,COLUMN`): the cell inspector shows it, its filter's chips too; #551: more columns of
     /// the row selected with it (`ROW,COLUMN+COLUMN`)
     pub cell: Option<(String, String)>,
+    /// with `cell`, a wire taken from its outlet of this name and held over the first inlet that takes it (wiring.rs)
+    pub wiring: Option<String>,
     /// #551: the right click on the selected cells – the typeahead opened, this typed, the first line found picked if asked
     pub question: Option<(String, bool)>,
     /// #568: with `cell`, "open in Build" pressed; then "values → cell" in Build
@@ -819,6 +828,28 @@ impl Host {
                     self.knobs.now(&p);
                 }
                 self.press(Hit::Knob(values::KnobHit::Build));
+            }
+            41 => {
+                let Some(out) = s.wiring.as_deref() else { return };
+                let columns = deck_show::view::plan(self.shown()).columns;
+                let at = self.hits.iter().find_map(|(_, h)| match *h {
+                    Hit::Port(r, c, true, k) if r == self.row => {
+                        let column = &columns.get(c)?.id;
+                        let cell = self.shown().rows.get(r)?.cells.get(column)?;
+                        (deck_show::wiring::ports(self.shown(), column, cell).1.get(k)?.label == out).then_some(*h)
+                    }
+                    _ => None,
+                });
+                if let Some(h) = at {
+                    self.press(h);
+                }
+            }
+            43 => {
+                let Some(w) = self.wiring.clone() else { return };
+                let from = deck_show::view::plan(self.shown()).columns.iter().position(|c| c.id == w.from);
+                if let Some((r, _)) = self.hits.iter().rev().find(|(_, h)| matches!(*h, Hit::Port(_, c, false, _) if Some(c) != from)) {
+                    self.cursor = (r.x + r.w * 0.5, r.y + r.h * 0.5);
+                }
             }
             // #551: a frame later, when the rows band has drawn the selection's places
             34 => {

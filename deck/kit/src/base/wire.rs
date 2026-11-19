@@ -7,9 +7,12 @@ pub const SAG_MIN: f32 = 0.35;
 pub const SAG_PER_PX: f32 = 0.1;
 /// the polyline's pieces
 pub const SAMPLES: usize = 32;
-/// the beads' spacing and how far they run per second, in `unit`s
-pub const BEAD_GAP: f32 = 2.4;
-pub const BEAD_SPEED: f32 = 2.5;
+/// the beads' spacing and how far they run per second, in `unit`s: few and slow, the flow is a hint, not a show
+pub const BEAD_GAP: f32 = 4.5;
+pub const BEAD_SPEED: f32 = 1.1;
+/// a bead's radius against the wire's thickness and its opacity: small and dim, in the wire's own colour
+pub const BEAD_SIZE: f32 = 0.95;
+pub const BEAD_ALPHA: f32 = 0.7;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Wire {
@@ -79,6 +82,11 @@ impl Wire {
     /// the beads after the signal has run `secs`
     pub fn flowing(&self, unit: f32, secs: f32) -> Vec<(f32, f32)> {
         self.beads(BEAD_GAP * unit, BEAD_SPEED * unit * secs)
+    }
+
+    /// the point where it hangs lowest (where a bundle's count sits)
+    pub fn lowest(&self) -> (f32, f32) {
+        self.points().into_iter().fold((0.0, f32::MIN), |a, p| if p.1 > a.1 { p } else { a })
     }
 
     /// how far its lowest point hangs under its lower end

@@ -271,7 +271,7 @@ impl DrawList {
     }
 
     /// a hanging wire (wire.rs): a soft glow under it, the line, its beads
-    pub fn wire(&mut self, w: &super::wire::Wire, thick: f32, color: [f32; 4], beads: &[(f32, f32)], bead: [f32; 4]) {
+    pub fn wire(&mut self, w: &super::wire::Wire, thick: f32, color: [f32; 4], beads: &[(f32, f32)]) {
         let pts = w.points();
         let soft = |a: f32| [color[0], color[1], color[2], color[3] * a];
         for (width, a, down) in [(thick * 7.0, 0.07, thick * 1.5), (thick * 3.5, 0.16, thick)] {
@@ -282,8 +282,9 @@ impl DrawList {
         for p in pts.windows(2) {
             self.segment(p[0], p[1], thick, color);
         }
+        let bead = [color[0], color[1], color[2], color[3] * super::wire::BEAD_ALPHA];
         for b in beads {
-            self.disc(b.0, b.1, thick * 1.5, bead);
+            self.disc(b.0, b.1, thick * super::wire::BEAD_SIZE, bead);
         }
     }
 
