@@ -61,7 +61,7 @@ pub fn end_prompt(other: &str, this: &str) -> Prompt {
         (format!("Only one show is live: {other} ends – its decks and readers leave the relay – and {this} goes live."), Tone::Warn),
         ("Its tab stays open; Go live there brings it back.".to_string(), Tone::Muted),
     ];
-    Prompt { title: format!("End {other} and go live with {this}?"), lines, warn: true, confirm: "End and go live".into(), can: true }
+    Prompt { title: format!("End {other} and go live with {this}?"), lines, warn: true, confirm: "Go live".into(), can: true }
 }
 
 impl Host {
@@ -72,19 +72,18 @@ impl Host {
 
     /// Go live: join `relay` as the show's conductor; the running show's panels open.
     pub fn go_live(&mut self, relay: &str) {
-        if self.live() {
-            return;
-        }
-        match super::link::Link::start(relay, std::env::var("SCUTOONS_LIVE_TOKEN").ok()) {
-            Ok(l) => {
-                self.link = Some(l);
-                self.status = format!("{} is live on {relay}", self.sub.conductor().show().id);
-                self.bad = false;
-                for id in crate::panels::OPTIONAL {
-                    self.show_panels.floats.reopen(id);
+        if !self.live() {
+            match super::link::Link::start(relay, std::env::var("SCUTOONS_LIVE_TOKEN").ok()) {
+                Ok(l) => {
+                    self.link = Some(l);
+                    self.status = format!("{} is live on {relay}", self.sub.conductor().show().id);
+                    self.bad = false;
                 }
+                Err(e) => return self.refuse(format!("relay: {e}")),
             }
-            Err(e) => self.refuse(format!("relay: {e}")),
+        }
+        for id in crate::panels::OPTIONAL {
+            self.show_panels.floats.reopen(id);
         }
     }
 
