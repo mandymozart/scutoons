@@ -168,10 +168,11 @@ impl Seat {
         Holding { hold: self.hold, camera: self.want.clone(), other, refused: self.refused.clone() }
     }
 
-    /// what changed since it was last told (relay.rs `Out::Holding`)
+    /// what changed since it was last told (relay.rs `Out::Holding`); a phone that never took part says nothing
     pub fn change(&mut self, me: &str) -> Option<Holding> {
         let now = self.now(me);
-        (self.told.as_ref() != Some(&now)).then(|| {
+        let quiet = self.told.is_none() && now == Holding::default();
+        (!quiet && self.told.as_ref() != Some(&now)).then(|| {
             self.told = Some(now.clone());
             now
         })
