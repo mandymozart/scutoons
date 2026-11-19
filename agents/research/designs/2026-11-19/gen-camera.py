@@ -50,7 +50,7 @@ def cone(deg):
     return svg(f'<path d="M4 16L34 {16-h:.1f}M4 16L34 {16+h:.1f}"/><circle cx="4" cy="16" r="2"/>', 38, 32)
 
 # ── heights (eye line on a ground) ──
-HEIGHTS = [('frog', .05, 'frog'), ('cat', .25, 'cat'), ('kid', 1.1, 'kid'), ('adult', 1.6, 'adult'), ('giant', 3.0, 'giant'), ('giraffe', 5.0, 'giraffe'), ('bird', 12, 'bird')]
+HEIGHTS = [('frog', .05, 'frog'), ('cat', .25, 'cat'), ('kid', 1.1, 'kid'), ('adult', 1.6, 'adult'), ('cyclops', 3.0, 'cyclops'), ('giraffe', 5.0, 'giraffe'), ('bird', 12, 'bird')]
 def height_icon(name):
     g = 'M3 27h26'
     bodies = {
@@ -58,7 +58,7 @@ def height_icon(name):
      'cat':     '<path d="M8 27v-6l3-4 1 3h6l1-3 3 4v6"/><path d="M22 23c3 0 4-3 4-6"/>',
      'kid':     '<circle cx="16" cy="13" r="2.5"/><path d="M16 16v6M12 18h8M13.5 27l2.5-5 2.5 5"/>',
      'adult':   '<circle cx="16" cy="7" r="2.5"/><path d="M16 10v9M11 13h10M13 27l3-8 3 8"/>',
-     'giant':   '<circle cx="16" cy="4.5" r="2.2"/><path d="M16 7v12M9 11h14M12 27l4-8 4 8"/><path d="M5 27V15"/>',
+     'cyclops': '<circle cx="16" cy="5" r="3.2"/><circle cx="16" cy="5" r="1" fill="currentColor"/><path d="M16 8.5v10M9 12h14M12 27l4-8.5 4 8.5"/>',
      'giraffe': '<path d="M10 27v-8h10v8M13 19L20 5M19 3.5l3 1.5-1.5 2"/><path d="M14 19v8"/>',
      'bird':    '<path d="M7 9c3-3 6-3 9 0 3-3 6-3 9 0"/><path d="M12 27h8" stroke-dasharray="1 2"/>',
     }
@@ -137,9 +137,15 @@ def height_body():
     tiles = ''.join(f'<div class="tile{" on" if n=="adult" else ""}">{height_icon(n)}<span class="n">{lab}</span></div>' for n, _, lab in HEIGHTS)
     return f'<div class="lbl">Eye height</div><div class="grid g7">{tiles}</div><div class="lbl">Exact</div><div class="val"><span>1.600 m</span><span class="u">drag to scrub</span></div>'
 
+GROUPS = [('Locomotion · the camera travels', ['glide','in','fly through','crane down','crane up','spiral','push in','pull out','orbit','truck','follow']),
+          ('Lens · the optics change', ['zoom','dolly zoom','rack focus']),
+          ('Accents', ['cut','tilt','whip pan','shake'])]
 def move_body():
-    tiles = ''.join(f'<div class="tile{" on" if n=="glide" else ""}">{svg(p)}<span class="n">{n}</span></div>' for n, p in MOVES)
-    return (f'<div class="lbl">Move · pick one</div><div class="grid g6">{tiles}</div>'
+    M = dict(MOVES); out = ''
+    for title, names in GROUPS:
+        tiles = ''.join(f'<div class="tile{" on" if n=="glide" else ""}">{svg(M[n])}<span class="n">{n}</span></div>' for n in names)
+        out += f'<div class="lbl">{title}</div><div class="grid g6">{tiles}</div>'
+    return (out +
             '<div class="lbl">Glide settings</div>'
             '<div class="row"><div class="val"><span>ends on</span><span class="u">shot2 ▾</span></div><div class="val"><span>2.000</span><span class="u">bars</span></div></div>'
             '<div class="lbl">Starts</div><div class="seg" style="display:inline-flex"><span class="on">now</span><span>on the bar line</span></div>'
@@ -172,13 +178,13 @@ B = {
    'Focal lengths as cones (the angle you get), eye heights as figures on a ground line. The exact value stays one scrub away.',
    panel({'lens': lens_body(), 'height': height_body()}),
    '<ul><li><b>Cones</b> show the field of view of each focal length, wide 17 to narrow 150.</li>'
-   '<li><b>Height figures</b>: frog, cat, kid, adult, giant, giraffe, bird – the eye line you get.</li>'
+   '<li><b>Height figures</b>: frog, cat, kid, adult, cyclops, giraffe, bird – the eye line you get.</li>'
    '<li>The <b>exact field</b> under each grid replaces the "mm…" / "1.600 m…" chip.</li>'
    '<li>Several sections may be open at once; the panel scrolls.</li></ul>'),
  'board3': board('Camera tools · 3 · move and phones open',
    'Every move is an icon tile; only the picked move\'s settings show under the grid. Phones keep the one condition control.',
    panel({'shots': shots_body(), 'move': move_body(), 'phones': phones_body()}),
-   '<ul><li><b>18 move tiles</b> in a 6-wide grid (cut, glide, in, fly through, crane down / up, spiral, push in / pull out, orbit, truck, tilt, zoom, dolly zoom, whip pan, follow, shake, rack focus).</li>'
+   '<ul><li><b>Moves in three groups</b>: Locomotion (the camera travels: glide, in, fly through, crane, spiral, push / pull, orbit, truck, follow), Lens (zoom, dolly zoom, rack focus), Accents (cut, tilt, whip pan, shake).</li>'
    '<li><b>Shots</b> get a small thumbnail of their view.</li>'
    '<li><b>Phones</b>: who and device as chips, the QR line with the shot\'s address.</li>'
    '<li>Icons are line art at 1.5 px, the accent colour only on the picked one.</li></ul>'),

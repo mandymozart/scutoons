@@ -21,38 +21,38 @@ h1{font-size:15px;font-weight:600;margin:0 0 4px}.lead{color:var(--muted);margin
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;position:relative}
 /* matrix */
 .m{display:grid;gap:0;position:relative}
-.ch{padding:6px 10px 8px;border-bottom:1px solid var(--line);position:relative}
+.ch{padding:6px 10px 8px;position:relative}
 .ch .n{font-weight:600;font-size:13px}.ch .k{color:var(--faint);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;margin-top:2px}
-.rh{display:flex;gap:8px;align-items:flex-start;padding:10px 10px;border-bottom:1px solid var(--line);position:relative}
+.rh{display:flex;gap:8px;align-items:flex-start;padding:10px 10px;position:relative}
 .rh .num{color:var(--faint);font-family:Consolas,monospace;font-size:11px;padding-top:4px}
 .rh .t{font-weight:600}.rh .tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
 .pbtn{width:24px;height:24px;border-radius:50%;border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;color:var(--muted);flex:none}
-.c{padding:6px;border-bottom:1px solid var(--line);border-left:1px solid var(--line);position:relative}
+.c{padding:4px;position:relative}
 .card{height:100%;background:var(--cell);border:1px solid var(--line2);border-radius:8px;padding:7px 9px;display:flex;flex-direction:column;gap:4px}
 .card .top{display:flex;align-items:center;gap:7px}.card .top .p{color:var(--muted)}.card .ttl{font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .card.live{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--adim)}.card.live .p{color:var(--accent)}
 .status{display:flex;align-items:center;gap:5px;font-size:10.5px;color:var(--warn);letter-spacing:.04em}.status:before{content:'';width:6px;height:6px;border-radius:50%;background:var(--warn)}
 .carry{color:var(--faint);display:flex;align-items:center;justify-content:center;height:100%;font-size:12px}
 .tag{display:inline-flex;align-items:center;gap:4px;padding:1px 7px 1px 5px;border-radius:5px;background:rgba(255,255,255,.04);border:1px solid var(--line2);color:var(--muted);font-size:11px;max-width:150px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tag svg{flex:none}.tag.ev svg{color:#ffd166}.tag.scn svg{color:var(--scn)}
+.tag svg{flex:none}.tag.dash{border-style:dashed}.ticks{display:inline-block;width:9px;height:9px;margin-left:4px;background:linear-gradient(currentColor,currentColor) 0 100%/1.5px 9px no-repeat,linear-gradient(currentColor,currentColor) 3px 100%/1.5px 4px no-repeat,linear-gradient(currentColor,currentColor) 6px 100%/1.5px 4px no-repeat}.tag.ev svg{color:#ffd166}.tag.scn svg{color:var(--scn)}
 .colh{position:absolute;top:4px;bottom:-9999px;right:-3px;width:6px;cursor:col-resize}
-.colh:after{content:'';position:absolute;left:2px;top:0;height:30px;width:2px;border-radius:1px;background:var(--line2)}
+.colh:after{content:'';position:absolute;left:2px;top:0;height:30px;width:2px;border-radius:1px;background:transparent}
 .colh.hot:after{background:var(--accent);height:470px}
 .rowh{position:absolute;left:0;right:-9999px;bottom:-3px;height:6px;cursor:row-resize}
 .rowh.hot{background:linear-gradient(var(--accent),var(--accent)) center/100% 2px no-repeat}
 .size{position:absolute;background:var(--accent);color:#001318;font-size:10.5px;font-weight:600;padding:2px 6px;border-radius:4px}
-.before{opacity:.95}
+.before{opacity:.95}.before .c{border-left:1px solid var(--line);border-bottom:1px solid var(--line);padding:6px}.before .rh,.before .ch{border-bottom:1px solid var(--line)}
 .lab{color:var(--faint);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;margin:0 0 8px}
 .uglypill{display:inline-flex;align-items:center;gap:3px;background:#fff;color:#111;border-radius:10px;padding:1px 8px;font-family:Consolas,monospace;font-size:11px}
 /* nodes */
 .canvas{position:relative;width:940px;height:470px;background:radial-gradient(circle at 1px 1px,#1a1f25 1px,transparent 1.2px) 0 0/18px 18px,#090b0d;border:1px solid var(--line);border-radius:10px;overflow:hidden}
-.node{position:absolute;width:228px;background:#12161b;border:1px solid var(--line2);border-radius:9px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,.45)}
+.node{position:absolute;width:228px;background:#12161b;border:1px solid color-mix(in srgb,var(--kc) 55%,transparent);border-radius:9px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,.45)}
 .node .hd{display:flex;align-items:center;gap:7px;padding:7px 9px 7px 10px;position:relative}
-.node .hd:before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--kc)}
+.node .hd{background:color-mix(in srgb,var(--kc) 9%,transparent)}
 .node .hd .ki{color:var(--kc);display:flex}.node .hd .nm{font-weight:600;font-size:12.5px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .node .hd .kd{color:var(--faint);font-size:10.5px;letter-spacing:.06em}
 .node .hd .mn{color:var(--faint);display:flex}
-.node .bd{border-top:1px solid var(--line);padding:4px 0 6px}
+.node .bd{border-top:1px solid color-mix(in srgb,var(--kc) 22%,transparent);padding:4px 0 6px}
 .port{display:flex;align-items:center;height:22px;font-size:11.5px;color:var(--muted);padding:0 16px;position:relative}
 .port.in{justify-content:flex-start}.port.out{justify-content:flex-end}
 .port .dot{position:absolute;width:9px;height:9px;border-radius:50%;background:var(--pc);border:2px solid #12161b;box-shadow:0 0 0 1px var(--pc)}
@@ -76,9 +76,9 @@ def matrix(widths, rows, hot_col=None, hot_row=None, ugly=False):
     for ri, (num, title, cells, h) in enumerate(rows):
         tags = ''
         if title == 'dialog':
-            tags = f'<span class="uglypill">⚡ch3.dial… |</span>' if ugly else f'<span class="tag ev">{EVENT}ch3 · dialog</span>'
+            tags = f'<span class="uglypill">⚡ch3.dial… |</span>' if ugly else f'<span class="tag ev">{EVENT}ch3<span class="ticks"></span></span>'
         if title == 'yellowmouse enters':
-            tags = f'<span class="uglypill">⚡ch3.yell… |</span>' if ugly else f'<span class="tag ev">{EVENT}ch3 · yellowmouse</span><span class="tag scn">{SCENE}nave</span>'
+            tags = f'<span class="uglypill">⚡ch3.yell… |</span>' if ugly else f'<span class="tag ev dash">{EVENT}ch3 · yellowmouse-enters</span>'
         s += (f'<div class="rh"><span class="pbtn">{PLAY}</span><div style="min-width:0"><div><span class="num">0{num}</span> <span class="t">{title}</span></div>'
               f'<div class="tags">{tags}</div></div><span class="rowh{" hot" if hot_row==ri else ""}"></span></div>')
         for c in cells:
@@ -103,14 +103,14 @@ board4 = f"""<!doctype html><html><head><meta charset="utf-8"><style>{CSS}</styl
 <div class="wrap"><div>
 <div class="lab">Today</div>
 <div class="panel before" style="margin-bottom:18px">{matrix([200,150,150,150,150], ROWS([44,50,50,44]), ugly=True)}</div>
-<div class="lab">Proposed · column "right" being dragged wider</div>
+<div class="lab">Proposed · no grid lines · column "right" being dragged wider</div>
 <div class="panel">{matrix([230,170,230,150,150], ROWS([56,66,72,48]), hot_col=1)}<span class="size" style="left:560px;top:-10px">right · 230 px</span></div>
 </div>
 <div class="note"><ul>
-<li><b>Columns</b>: drag the right edge of a column head (the handle lights up the whole line); double-click fits the widest cell. The first column (rows) resizes the same way.</li>
+<li><b>No grid lines</b>: cells are cards on the panel; the edges show only on hover, as a handle. The minimum is a square cell.</li><li><b>Columns</b>: drag the right edge of a column head (the handle lights up the whole line); double-click fits the widest cell. The first column (rows) resizes the same way.</li>
 <li><b>Rows</b>: drag a row's bottom edge; double-click fits. A taller row shows the full title and all its tags.</li>
 <li>Sizes are saved with the show's view, not as show data.</li>
-<li><b>Tags</b> instead of the white pills: transparent, a thin border, a coloured kind icon (⚡ event, scene, address), the text muted, ellipsis at the column width.</li>
+<li><b>The row's fire tag shows only what the name doesn't</b>: row "dialog" fires on ch3's dialog event, so the tag says ⚡ ch3 plus the moment ticks (bar / phrase). The full event shows only when it differs from the name (row 03, a dashed suggestion that waits for GO).</li><li><b>Tags</b> instead of the white pills: transparent, a thin border, a coloured kind icon (⚡ event, scene, address), the text muted, ellipsis at the column width.</li>
 <li><b>Cells</b> as cards: play, title, and a status line (e.g. "nothing set") with a dot instead of the orange caps.</li>
 <li>"↑" becomes "↑ carries on" in the faint colour.</li></ul></div></div></body></html>"""
 
@@ -156,15 +156,15 @@ old = ('<div class="canvas" style="width:420px;height:200px">'
 
 board5 = f"""<!doctype html><html><head><meta charset="utf-8"><style>{CSS}</style></head><body>
 <h1>Nodes · one card, a seamless head</h1>
-<p class="lead">Today the head is a loose strip: a coloured bar above, a separate title line, a floating label for events. Proposed: one rounded card, the kind's colour as an edge inside the head, its icon, name and kind on one line, ports as rows with their dots on the card's border.</p>
+<p class="lead">Today the head is a loose strip: a coloured bar above, a separate title line, a floating label for events. Proposed: one rounded card, its whole thin border in the kind's colour, its icon, name and kind on one line, ports as rows with their dots on the card's border.</p>
 <div class="wrap"><div>
 <div class="legend"><span><i style="background:#e6e9ee"></i>event</span><span><i style="background:#38d17a"></i>control</span><span><i style="background:#ff5d6c"></i>clock</span><span><i style="background:#a77bff"></i>address</span><span><i style="background:#ff6fa8"></i>scene</span></div>
 {canvas}
 <div class="lab" style="margin-top:16px">Today (sketch of the screenshot)</div>{old}
 </div>
 <div class="note"><ul>
-<li><b>One card</b>: head and body share the border and radius; no bar floating above, no gap.</li>
-<li><b>Head</b>: a 3 px edge in the kind's colour, kind icon, name (ellipsis), the kind in small caps on the right, a menu chevron. Same height for every node.</li>
+<li><b>One card</b>: head and body share the border and radius; nothing floating above, no gap.</li>
+<li><b>The whole border</b> in the kind's colour, 1 px, a little transparent; the head only faintly tinted. No bar on any side.</li><li><b>Head</b>: kind icon, name (ellipsis), the kind small on the right, a menu chevron. Same height for every node.</li>
 <li><b>The event node</b> keeps its full name in the head instead of a separate white label over the wire.</li>
 <li><b>Ports</b>: one row each, the dot sits on the card edge in its signal colour; live values in mono after the label.</li>
 <li><b>Folded groups</b> (right, lamps) are the head alone, same look as an open node.</li>
