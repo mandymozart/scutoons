@@ -2,9 +2,10 @@
 //! bottom (the workspace's setting) by deck-kit's graph, its pins and wires typed by deck-kit's signal table. Zoom and
 //! pan as the stage: the wheel zooms round the pointer, a middle drag or space + drag pans, F frames the selection (or
 //! everything). A click selects a node (shift adds), Tab moves the focus as a browser does; selected nodes group
-//! (ctrl+G or Group), a note joins the focused node; groups, notes and folds are the row's (deck-show canvas.rs). The
-//! painting is node_paint.rs.
+//! (ctrl+G or Group), a note joins the focused node; groups, notes and folds are the row's (deck-show canvas.rs). A drag
+//! on the empty canvas selects by a box, a click on a wire pins its value (node_pick.rs). The painting is node_paint.rs.
 use super::node_paint::{self, Cam, Frame, Reveal};
+use super::node_pick::{self, Boxing};
 use super::roles::Typing;
 use super::{Hit, Host};
 use deck_kit::base::canvas::View;
@@ -75,7 +76,7 @@ pub struct NodeView {
     framed: Option<Framed>,
     touched: bool,
     /// the canvas drawn last, on screen; whether it was drawn this frame
-    canvas: Rect,
+    pub(super) canvas: Rect,
     pub(super) shown: bool,
     bounds: Rect,
     grab: Option<(f32, f32)>,
@@ -89,7 +90,7 @@ pub struct NodeView {
     pub selected: Vec<String>,
     pub focus: Option<String>,
     /// the node that flashed, and when (secs)
-    flash: Option<(String, f32)>,
+    pub(super) flash: Option<(String, f32)>,
     /// what the pointer is on (`node:<id>`, `group:<id>`, `wire:<n>`) and the reveals fading in and out
     pub hover: Option<String>,
     reveals: Vec<Reveal>,
@@ -101,9 +102,19 @@ pub struct NodeView {
     /// the pictures of the pieces the nodes play, by key, and the keys the last frame drew
     pub pictures: BTreeMap<String, u64>,
     pub wanted: Vec<String>,
-    /// the nodes drawn last: id and place on the canvas, in the graph's order; Tab's order through them
-    drawn: Vec<(String, Rect)>,
-    order: Vec<usize>,
+    /// the nodes drawn last: id and place on the canvas, in the graph's order; Tab's order through them; their tones
+    pub(super) drawn: Vec<(String, Rect)>,
+    pub(super) order: Vec<usize>,
+    pub(super) tones: Vec<f32>,
+    /// the wires drawn last, by link: the key a pin keeps (None: no value to pin) and the middle on screen
+    pub(super) wire_keys: Vec<Option<String>>,
+    pub(super) wire_mids: Vec<Option<(f32, f32)>>,
+    /// the wires whose value stays shown, by key
+    pub pinned: Vec<String>,
+    /// the box being drawn
+    pub boxing: Option<Boxing>,
+    /// the tone asked for (Hz), until main.rs takes it
+    pub(super) tone: Option<f32>,
 }
 
 /// how long a reveal fades in and out, the flash and its shimmer, secs
@@ -136,6 +147,7 @@ impl NodeView {
     fn focus_on(&mut self, id: String) {
         self.selected = vec![id.clone()];
         self.flash = Some((id.clone(), self.secs));
+        self.ask_tone(&id);
         self.focus = Some(id);
     }
 
@@ -178,6 +190,7 @@ impl Host {
             self.nodes.view.pan_by((x - gx, y - gy));
             self.nodes.grab = Some((x, y));
         }
+        self.nodes.box_move((x, y));
     }
 
     /// space over the canvas (nothing typed): a left drag pans while it is held
@@ -193,6 +206,7 @@ impl Host {
 
     pub(super) fn nodes_release(&mut self) {
         self.nodes.grab = None;
+        self.nodes.box_end();
     }
 
     /// F over the canvas frames the selected nodes, or everything when none is
@@ -258,12 +272,10 @@ impl Host {
 
     fn nodes_hit(&mut self, h: NodeHit) {
         let c = self.shown().rows.get(self.row).map(|r| r.nodes.clone()).unwrap_or_default();
+        let cursor = self.cursor;
         let n = &mut self.nodes;
         match h {
-            NodeHit::Canvas => {
-                n.selected.clear();
-                n.focus = None;
-            }
+            NodeHit::Canvas => n.box_start(cursor),
             NodeHit::Node(i) => {
                 if let Some(id) = n.id(i) {
                     n.focus_on(id);
@@ -278,6 +290,7 @@ impl Host {
                     None => {
                         n.selected.push(id.clone());
                         n.flash = Some((id.clone(), n.secs));
+                        n.ask_tone(&id);
                         n.focus = Some(id);
                     }
                 }
@@ -401,6 +414,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, (g, frames): (&Graph,
     n.bounds = graph::bounds(&placed);
     n.drawn = g.nodes.iter().zip(&placed).map(|(x, p)| (x.id.clone(), p.rect)).collect();
     n.order = graph::order(&placed, dir);
+    n.tones = g.nodes.iter().map(deck_show::focus::tone).collect();
     n.wanted = g.nodes.iter().filter_map(|x| x.picture.clone()).collect();
     let size = (canvas.w, canvas.h);
     let extent = (n.bounds.w, n.bounds.h);
@@ -418,6 +432,11 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, (g, frames): (&Graph,
     let cam = Cam { at: (canvas.x, canvas.y), view: n.view, unit, dir };
     let frames: Vec<Frame> = frames.iter().filter_map(|(k, members)| node_paint::frame_of(&doc, *k, members, g, &placed, &cam)).collect();
     let wires = node_paint::wires(g, &placed, &cam);
+    n.wire_keys = (0..g.links.len()).map(|i| node_pick::wire_key(g, i)).collect();
+    n.wire_mids = vec![None; g.links.len()];
+    for (i, w) in &wires {
+        n.wire_mids[*i] = Some(w.at(0.5));
+    }
     // what the pointer is on: a node, else a wire, else a group's frame
     let over = n.over(cursor.0, cursor.1);
     let hover = over
@@ -441,9 +460,10 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, (g, frames): (&Graph,
     for r in &n.reveals {
         node_paint::reveal(d, r, (&n, &cam, canvas), (&frames, &wires, g, &placed));
     }
+    let pinned = |i: usize| n.wire_keys.get(i).cloned().flatten().is_some_and(|k| n.pinned.contains(&k));
     for (i, w) in &wires {
         let l = &g.links[*i];
-        node_paint::wire(d, t, (l, w), (&cam, n.motion.activity, host.flow), n.hover.as_deref() == Some(&format!("wire:{i}")));
+        node_paint::wire(d, t, (l, w), (&cam, n.motion.activity, host.flow), n.hover.as_deref() == Some(&format!("wire:{i}")) || pinned(*i));
     }
     for (i, (node, p)) in g.nodes.iter().zip(&placed).enumerate() {
         let tint = node.id.strip_prefix(GROUP).and_then(|id| doc.group(id)).and_then(|grp| deck_kit::editor::colour::rgb(&grp.colour));
@@ -466,10 +486,16 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, (g, frames): (&Graph,
     for (k, r) in notes {
         host.hits.push((r, Hit::Nodes(NodeHit::NoteText(k))));
     }
-    if let Some(i) = n.hover.as_deref().and_then(|h| h.strip_prefix("wire:")).and_then(|i| i.parse::<usize>().ok()) {
+    for (i, w) in wires.iter().filter(|(i, _)| pinned(*i)) {
+        node_paint::value_label(d, t, &g.links[*i], w.at(0.5));
+    }
+    if let Some(i) = n.hover.as_deref().and_then(|h| h.strip_prefix("wire:")).and_then(|i| i.parse::<usize>().ok()).filter(|&i| !pinned(i)) {
         if let Some(l) = g.links.get(i) {
             node_paint::value_label(d, t, l, cursor);
         }
+    }
+    if let Some(b) = &n.boxing {
+        node_pick::draw_box(d, t, b);
     }
     d.clip(None);
     if let Some((Typing::NodeGroup(id), field)) = &typing {
