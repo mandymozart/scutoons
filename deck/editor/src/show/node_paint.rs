@@ -183,6 +183,9 @@ pub fn follow(reveals: &mut Vec<Reveal>, hover: Option<(String, [f32; 4])>, now:
     }
 }
 
+/// what a reveal may lie under: the open groups' frames, the wires on screen, the graph and where its nodes are
+type Under<'a> = (&'a [Frame], &'a [(usize, Wire)], &'a Graph, &'a [Placed]);
+
 /// the shape a reveal lies under, on screen
 enum Shape {
     Rect(Rect),
@@ -191,7 +194,7 @@ enum Shape {
 
 /// A reveal: the grid's dots round what it lies under in its colour, each the same small size, its opacity fading with
 /// the distance and following the pointer slowly (the blob); without blur.
-pub fn reveal(d: &mut DrawList, r: &Reveal, (n, cam, canvas): (&NodeView, &Cam, Rect), (frames, wires, g, placed): (&[Frame], &[(usize, Wire)], &Graph, &[Placed])) {
+pub fn reveal(d: &mut DrawList, r: &Reveal, (n, cam, canvas): (&NodeView, &Cam, Rect), (frames, wires, g, placed): Under<'_>) {
     let s = r.strength(n.secs);
     if s <= 0.0 {
         return;
