@@ -168,8 +168,11 @@ A live tool may not crackle unnoticed, and should not crackle at all:
 - **Host and device**: `--audio-host default|wasapi|asio` (deck.toml `audio_host`), `--audio-device NAME` (a part of
   the name, any case; deck.toml `audio_device`), `--audio-list` prints the hosts, devices, formats and buffer ranges.
   On PipeWire the name picks the **sink** (`target.object`, #285): the first `Audio/Sink` node whose name or description
-  holds it – the X1's RME in the Pro Audio profile is `…pro-output-0`, so `audio_device = "Fireface"` finds it; no match
-  logs the sinks there are and the default sink plays.
+  holds it – the X1's RME in the Pro Audio profile is `…pro-output-0`, so `audio_device = "Fireface"` finds it. The saved
+  sink is watched (#617, `audio/pw_watch.rs`, the watch of `audio/watch.rs`): missing at the start or unplugged, the stream
+  never moves to another sink (`node.dont-reconnect`); the engine plays silent on the timer, the Audio panel says
+  "'…' not found / lost – running silent", and the sink's node appearing in the registry reopens it with the same engine
+  (the map, the buffer, the clock without a jump). No `audio_device`: the default sink plays, unwatched.
   The stream opens with the sink's channels (#318: `audio.position`, else `audio.channels` as AUX; at most 32) – the RME's
   Pro Audio sink is 20 channels, AUX0…AUX19, analog 1/2 first; a sink that says nothing is stereo. In class-compliant mode
   the RME plays the mixer preset stored in the unit: routing is fixed in TotalMix on Windows (driver mode), then back to CC
