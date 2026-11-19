@@ -264,7 +264,8 @@ const bottomH=v==='scene'?8.6*rem:9.7*rem;
 if(tablet){
   // the library folds to a pill; the inspector and the bottom panel keep 1rem to each other and the walls
   out+=`<div class="mini" style="left:${gap}px;top:${topY}px">☰ Library <span class="n">4 wanted</span></div>`;
-  out+=`<div class="panel solid" style="${box(W-gap-inspW,topY,inspW,H-topY-gap-bottomH-gap)}">${sections(v==='scene')}</div>`;
+  // the inspector takes its content's height and scrolls only when it would reach the bottom panel
+  out+=`<div class="panel solid" style="left:${W-gap-inspW}px;top:${topY}px;width:${inspW}px;max-height:${H-topY-gap-bottomH-gap}px">${sections(v==='scene')}</div>`;
   out+=`<div class="panel" style="${box(gap,H-gap-bottomH,W-2*gap,bottomH)}">${v==='scene'?shotsPanel():moodsPanel()}</div>`;
 }else{
   out+=`<div class="panel" style="${box(gap,topY,libW,H-topY-gap)}">${library(v==='scene')}</div>`;
