@@ -76,6 +76,8 @@ impl Pair {
 pub struct Facts {
     /// the native deck: Quit, F4 / F5 / F6, Esc opens the menu (the browser: M)
     pub native: bool,
+    /// the deck can open the browser on the creator (the Deck OS's session: OPEN CREATOR, the deck comes back after it)
+    pub creator: bool,
     /// the deck's own pages it has: F6 (Live), F5 (Scenes), F4 (Settings)
     pub live_page: bool,
     pub scenes_page: bool,
@@ -115,6 +117,8 @@ pub enum Answer {
     Started,
     /// QUIT (the native deck)
     Quit,
+    /// OPEN CREATOR: the browser on the creator; closing it brings the deck back
+    Creator,
 }
 
 /// One row of the main menu.
@@ -122,13 +126,17 @@ pub enum Answer {
 pub enum Row {
     Continue,
     Open(Page),
+    Creator,
     Quit,
 }
 
-/// The main menu's rows (QUIT only on the native deck).
+/// The main menu's rows (OPEN CREATOR where the deck can open it, QUIT only on the native deck).
 pub fn rows(f: &Facts) -> Vec<Row> {
     let mut out = vec![Row::Continue];
     out.extend([Page::Live, Page::Scenes, Page::Avatar, Page::Equip, Page::Mappings, Page::Settings, Page::Pair].map(Row::Open));
+    if f.creator {
+        out.push(Row::Creator);
+    }
     if f.native {
         out.push(Row::Quit);
     }
@@ -150,6 +158,7 @@ pub fn words(row: Row, f: &Facts) -> (&'static str, String, bool) {
     let later = |label| (label, "LATER".to_string(), true);
     match row {
         Row::Continue => ("CONTINUE", String::new(), false),
+        Row::Creator => ("OPEN CREATOR", String::new(), false),
         Row::Quit => ("QUIT", String::new(), false),
         Row::Open(Page::Live) if f.session.is_none() => ("LIVE", "NO SESSION".into(), !f.live_page),
         Row::Open(Page::Live) => ("LIVE", f.who.to_uppercase(), false),
@@ -236,6 +245,10 @@ impl Menu {
         match row {
             Row::Continue => self.close(),
             Row::Quit => return Answer::Quit,
+            Row::Creator => {
+                self.close();
+                return Answer::Creator;
+            }
             Row::Open(page) => self.stack.push(page),
         }
         Answer::Yes
@@ -369,6 +382,20 @@ mod tests {
         assert_eq!(m.input(Input::Enter, &f), Answer::Quit);
         assert!(!rows(&browser()).contains(&Row::Quit), "the browser deck has no quit");
         assert_eq!(rows(&browser()).len(), rows(&f).len() - 1);
+    }
+
+    #[test]
+    fn open_creator_sits_above_quit_only_where_the_deck_can_open_it() {
+        let f = Facts { creator: true, ..native() };
+        assert!(!rows(&native()).contains(&Row::Creator), "a desktop deck has no creator row");
+        let r = rows(&f);
+        assert_eq!(r[r.len() - 2..], [Row::Creator, Row::Quit]);
+        assert_eq!(words(Row::Creator, &f), ("OPEN CREATOR", String::new(), false));
+        let mut m = Menu::new(true);
+        m.input(Input::Open, &f);
+        down_to(&mut m, &f, r.len() - 2);
+        assert_eq!(m.input(Input::Enter, &f), Answer::Creator);
+        assert!(!m.open(), "the menu closes behind it: the deck comes back on its scene");
     }
 
     #[test]

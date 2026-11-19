@@ -1,6 +1,6 @@
 //! The splash (S3, owner 2026-10-29: "das scutoons logo gross in weiss"): the official SCUTOONS logo
 //! (viewer/static/SCUTOONS-logo.svg, its fill turned white – assets/SCUTOONS-logo-white.svg) big on black, over the
-//! stage while it loads (the first frame, the chapter, the music) and while the browser starts after F2. The same SVG
+//! stage while it loads (the first frame, the chapter, the music). The same SVG
 //! is the boot splash (plymouth) and the BIOS menu's background (deck/os, rendered at build time).
 use anyhow::{Context, Result};
 
@@ -27,7 +27,7 @@ pub fn logo(width: u32) -> Result<(u32, u32, Vec<u8>)> {
     Ok((width.max(1), h, px))
 }
 
-/// The splash's visibility: it fades in fast (F2) and out gently (loaded), 0 = gone, 1 = only the logo.
+/// The splash's visibility: it fades in fast and out gently (loaded), 0 = gone, 1 = only the logo.
 #[derive(Debug, Clone, Copy)]
 pub struct Fade {
     pub alpha: f32,

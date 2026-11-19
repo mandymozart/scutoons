@@ -15,6 +15,14 @@ use std::path::{Path, PathBuf};
 
 /// the exit code that asks deck-session for the other app (F9 under `DECK_SWAP`)
 pub const EXIT_SWAP: i32 = 11;
+/// the exit code that asks deck-session for the browser on the creator (the menu's OPEN CREATOR); the deck comes back
+/// after it, on the hand-off
+pub const EXIT_CREATOR: i32 = 12;
+
+/// the deck runs under deck-session (the Deck OS), which swaps the apps and opens the browser for it
+pub fn in_session() -> bool {
+    std::env::var_os("DECK_SWAP").is_some()
+}
 
 /// the two apps
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -178,6 +186,21 @@ pub fn go(from: App, mut h: Handoff, own: Vec<String>, deck_toml: &Path) -> Resu
     }
 }
 
+/// OPEN CREATOR under deck-session: the stage's state goes to `DECK_HANDOFF` (the deck starts on it again once the
+/// browser closes), Ok = the exit code to quit with now. Outside deck-session the menu has no such row.
+pub fn creator(h: Handoff, own: Vec<String>) -> Result<i32, Refusal> {
+    creator_to(std::env::var_os("DECK_HANDOFF").map(PathBuf::from).as_deref(), h, own)
+}
+
+fn creator_to(file: Option<&Path>, mut h: Handoff, own: Vec<String>) -> Result<i32, Refusal> {
+    h.set_args(App::Deck, own);
+    if let Some(file) = file {
+        write(file, &h)?;
+    }
+    tracing::info!("OPEN CREATOR: deck → the browser (deck-session), the deck again after it");
+    Ok(EXIT_CREATOR)
+}
+
 fn write(file: &Path, h: &Handoff) -> Result<(), Refusal> {
     let text = toml::to_string(h).map_err(|e| Refusal::Failed(e.to_string()))?;
     std::fs::write(file, text).map_err(|e| Refusal::Failed(format!("{}: {e}", file.display())))
@@ -212,6 +235,18 @@ mod tests {
         assert!(!f.exists(), "used once");
         assert_eq!(Handoff::take(&f), Handoff::default());
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn open_creator_leaves_the_stages_state_for_its_return() {
+        let file = std::env::temp_dir().join(format!("deck-creator-test-{}.toml", std::process::id()));
+        let h = Handoff { relay: Some("ws://x/live/CATH".into()), scene: Some("cathedral".into()), ..Handoff::default() };
+        assert_eq!(creator_to(Some(&file), h, vec!["--windowed".into()]), Ok(EXIT_CREATOR));
+        let back = Handoff::take(&file);
+        assert_eq!((back.relay.as_deref(), back.scene.as_deref()), (Some("ws://x/live/CATH"), Some("cathedral")));
+        assert_eq!(back.deck_args, ["--windowed"]);
+        assert!(!file.exists(), "used once");
+        assert_ne!(EXIT_CREATOR, EXIT_SWAP);
     }
 
     #[test]

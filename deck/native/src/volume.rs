@@ -1,5 +1,5 @@
 //! The deck's hardware volume keys (#253): AudioVolumeUp / Down / Mute change the **PipeWire default sink's** volume
-//! through `wpctl` (so Chromium on F2 and everything else follow, and WirePlumber keeps the level), and the level shows
+//! through `wpctl` (so the browser and everything else follow, and WirePlumber keeps the level), and the level shows
 //! in the HUD for about a second. No window, no GPU here: the command lines, the parsing of `wpctl get-volume` and the
 //! overlay's timing; main.rs only wires the keys and draws the text.
 use std::process::Command;

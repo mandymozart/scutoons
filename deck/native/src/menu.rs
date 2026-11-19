@@ -53,6 +53,7 @@ impl App {
         let h = self.renderer.as_ref().map_or(1080.0, |r| r.size().1);
         Facts {
             native: true,
+            creator: deck_native::handoff::in_session(),
             live_page: true,
             scenes_page: true,
             settings_page: true,
@@ -75,6 +76,7 @@ impl App {
         match self.menu.menu.input(i, &facts) {
             Answer::No => return self.ballot_input(i),
             Answer::Quit => el.exit(),
+            Answer::Creator => self.open_creator(el),
             Answer::Yes | Answer::Started => {}
         }
         self.menu_sync(&facts);
