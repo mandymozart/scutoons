@@ -94,10 +94,12 @@ frame is the logo again (deck/native: until the chapter and the music are loaded
    built-in idle scene – fireflies on black, no sound (#252); `scene = "madness"` = "AV madness": catpope 1's slices, captions and music + synths, the FFT drives the picture; its cache in
    `/var/lib/deck/cache`); **F9** swaps to the editor and back (#609: the session, the show and
    the scene travel in `DECK_HANDOFF`; a lean image has no editor and stays; `editor = "locked"` keeps a deck in a show
-   from dropping into the editor). A stage that fails opens Chromium (an `--app` window, DevTools / printing off by a managed
-   policy, #268) alone, on the page `conductor` names (empty = the deck's own start page: the machine report, the relay's
-   `/status`, the link to the conductor).
-   `kiosk = "browser"` = Chromium only. `deck-bridge.service` joins the local relay with `/var/lib/deck/venue.toml`.
+   from dropping into the editor). The deck always plays natively (#641): a crash starts the stage again (1 s; the third
+   within a minute waits 30 s, each said in `journalctl -u deck-kiosk`), a missing `deck` is said on tty1, never the
+   browser. Chromium (an `--app` window, DevTools / printing off by a managed policy, #268) opens only from the stage's
+   menu **OPEN CREATOR**, on `browser_url` (empty = the creator, `start` = the deck's own start page: the machine report,
+   the relay's `/status`); closing it (Ctrl+W) brings the stage back on its session and scene. An old
+   `kiosk = "browser"` plays the stage (one journal line). `deck-bridge.service` joins the local relay with `/var/lib/deck/venue.toml`.
    The stage's relay: deck.toml's `relay`, empty = the hosted `wss://live.scutoons.com/live/CATH` (#199) – joined only
    when the scene joins a session (`deck-set --restart scene cathedral`) or an outlet is set, so a deck needs no typed
    address; `deck-set relay ws://<host>:7700/live/<code>` joins a venue's relay instead.

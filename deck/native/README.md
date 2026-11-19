@@ -43,11 +43,13 @@ Keys: **F1** the HUD → the collapsed stats bar (#209: one line across the whol
 glitches / DSP load / limiter, the relay, the GPU backend; red when out of the green) → nothing · **F9** the editor (#609, `handoff.rs`: `deck-editor` next to `deck` starts on this session and scene and the stage quits; under deck-session exit code 11; a lean deck without the editor, or deck.toml's `editor = "locked"`, stays and says why on the HUD) · **Ctrl+Q** quit (on the deck the stage starts again; a stop signal – SIGTERM, Ctrl+C – ends the same way, outputs dark, #263) · **Ctrl+Alt+Del** power off (`systemctl
 poweroff`, the logo stays up; not in a `--windowed` stage) · Esc quits a `--windowed` stage · the tempo clock: **T** tap ·
 **+ / −** BPM · **Space** start / stop · **F3** the next source (internal → MIDI → Link → OSC → relay) · **K** the click · **F4** the
-quality settings page, **Shift+F4** the governor on / off ("Quality" below) · **F5** the scene list ("Scenes" below). **Volume up / down / mute** (the hardware keys, `volume.rs`, #253): the PipeWire default sink's volume in 5 % steps up to 100 % (`wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+ -l 1.0`, `set-mute … toggle`) – so Chromium (F2) follows too – and `VOL ######.... 60%` / `VOL MUTED 60%` for about a second on the HUD, also with the HUD off (the bar appears for that second); WirePlumber keeps the level across reboots. `--show-volume` keeps the overlay on (a check run's screenshot). In a scene with a `space` node: a **mouse drag** turns the camera around the being (or, on a 3D
+quality settings page, **Shift+F4** the governor on / off ("Quality" below) · **F5** the scene list ("Scenes" below). **Volume up / down / mute** (the hardware keys, `volume.rs`, #253): the PipeWire default sink's volume in 5 % steps up to 100 % (`wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+ -l 1.0`, `set-mute … toggle`) – so the browser (the menu's OPEN CREATOR) follows too – and `VOL ######.... 60%` / `VOL MUTED 60%` for about a second on the HUD, also with the HUD off (the bar appears for that second); WirePlumber keeps the level across reboots. `--show-volume` keeps the overlay on (a check run's screenshot). In a scene with a `space` node: a **mouse drag** turns the camera around the being (or, on a 3D
 button, pulls it along its tether – out = more; a double click: back to the scene's value; a finger the same), the **wheel** / **↑ ↓** zoom, **← →** turn, **R** the camera's home; the pointer stays
 visible in the kiosk then. The HUD names the keys. If the display connection dies (cage went away) the stage logs "display lost" and exits with
 code **75** at once; `deck-session` ends on it with a non-zero exit, so deck-kiosk (Restart=on-failure) brings the
-kiosk back – no browser on a dead display (#257).
+kiosk back (#257). Any other exit starts the stage again – never the browser (#641); the Esc menu's **OPEN CREATOR**
+(only under deck-session) exits **12**, deck-session opens Chromium on the creator and starts the stage again on its
+session and scene once it closes.
 
 **Gamepad** (#228: the feature `gamepad`, `cargo run --release -p deck-native --features gamepad -- --windowed`; gilrs – a
 pad system that can't start is logged and the stage plays without one): the left stick drives the left stick of the
@@ -96,7 +98,7 @@ Default = `space`, `sync`, `chapter`, `live`, `midi`, `osc`, `outputs`, `events`
 (`core/src/stage.rs`, data only); `src/modules.rs` says which modules this build carries. A scene that needs a module
 the build lacks is refused at load with the feature's name (`this build of the stage does not carry the module 'space'
 (node space) – build deck-native with --features space`): the stage plays the test pattern and shows that in the HUD –
-it never exits for it (deck-session would fall back to the browser); a `--frames` check run exits 2. F3 onto a source
+it never exits for it (deck-session would only start it again); a `--frames` check run exits 2. F3 onto a source
 that isn't built says `NOT IN THIS BUILD`. **Scene-driven builds:** `cargo run -p deck-scene-features -- scenes/*.toml`
 prints the features a set of scenes needs (a folder = its `*.toml`; the core alone prints nothing). An image class
 (`deck/os/profiles.toml`: **full** = the deck + the editor, every module; **lean** = the deck only) adds its platform, its

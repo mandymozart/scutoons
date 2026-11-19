@@ -33,6 +33,7 @@ fn main() -> Result<()> {
     let gpu = (&device, &queue);
     let deck = Facts {
         native: true,
+        creator: true,
         live_page: true,
         scenes_page: true,
         settings_page: true,
@@ -51,7 +52,7 @@ fn main() -> Result<()> {
     m.direct(Page::Pair);
     frame(gpu, DECK, menu(&mut m, &waiting, DECK), None, &Path::new(&out).join("2-pair.png"))?;
     // 3 · a phone: a finger's rows, the value under the label
-    let phone = Facts { native: false, scenes_page: false, settings_page: false, density: 2.0, top: 48.0, ..deck.clone() };
+    let phone = Facts { native: false, creator: false, scenes_page: false, settings_page: false, density: 2.0, top: 48.0, ..deck.clone() };
     let mut m = Menu::new(true);
     m.input(Input::Open, &phone);
     frame(gpu, PHONE, menu(&mut m, &phone, PHONE), None, &Path::new(&out).join("3-phone-menu.png"))?;

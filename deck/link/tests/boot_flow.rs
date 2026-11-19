@@ -1,6 +1,7 @@
 //! deck-link in the deck's boot flow (#180, deck/os/README.md "Pairing"): the scripts parse (`bash -n`), the units and
 //! tmpfiles.d wire the daemon, the run directory and deck-tls the way `pairing` expects, the image builds deck-link, and
-//! no admin token is left on a deck (owner 2026-10-31).
+//! no admin token is left on a deck (owner 2026-10-31). deck-session's restart and browser logic runs against fakes
+//! (#641).
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -156,4 +157,78 @@ fn no_admin_token_on_a_deck() {
         assert!(!text.contains("tls_token"), "{rel} still names tls_token");
         assert!(!text.contains("/api/admin/lan-cert"), "{rel} still uses the admin route");
     }
+}
+
+/// deck-session against fakes of `deck`, `chromium`, `cage` and `sleep` (each logs its call; `deck` exits with the next
+/// of `codes`, then 75 – the display lost, the session ends). `inside` = the part cage runs. The log, and whether the
+/// session's own exit was 75.
+fn session(bash: &Path, name: &str, inside: bool, codes: &[i32], deck_toml: &str, with_deck: bool) -> (String, bool) {
+    let t = std::env::temp_dir().join(format!("deck-session-{}-{name}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&t);
+    for d in ["bin", "state", "run"] {
+        std::fs::create_dir_all(t.join(d)).unwrap();
+    }
+    let fake = |bin: &str, body: &str| std::fs::write(t.join("bin").join(bin), format!("#!/bin/bash\necho \"{bin} $*\" >>\"$T/log\"\n{body}\n")).unwrap();
+    if with_deck {
+        fake("deck", "n=$(( $(cat \"$T/n\" 2>/dev/null || echo 0) + 1 )); echo $n >\"$T/n\"; c=$(sed -n \"${n}p\" \"$T/codes\"); exit ${c:-75}");
+    }
+    fake("chromium", "");
+    fake("cage", "");
+    // the wait for a missing deck never ends by itself: the fake ends the session there
+    fake("sleep", if with_deck { "" } else { "kill -TERM $PPID" });
+    std::fs::write(t.join("codes"), codes.iter().map(|c| format!("{c}\n")).collect::<String>()).unwrap();
+    std::fs::write(t.join("state/deck.toml"), deck_toml).unwrap();
+    let script = os().join("rootfs/usr/bin/deck-session");
+    let run = "T=$(cygpath -u \"$T\" 2>/dev/null || echo \"$T\"); S=$(cygpath -u \"$S\" 2>/dev/null || echo \"$S\"); chmod +x \"$T\"/bin/*; \
+               export T DECK_STATE=\"$T/state\" XDG_RUNTIME_DIR=\"$T/run\" PATH=\"$T/bin:/usr/bin:/bin\"; bash \"$S\" $ARG 2>>\"$T/log\"";
+    let out = Command::new(bash)
+        .args(["-c", run])
+        .env("T", &t)
+        .env("S", &script)
+        .env("ARG", if inside { "inside" } else { "" })
+        .output()
+        .unwrap();
+    let log = std::fs::read_to_string(t.join("log")).unwrap_or_default();
+    let _ = std::fs::remove_dir_all(&t);
+    (log, out.status.code() == Some(75))
+}
+
+/// #641: the deck always plays natively – a crash starts the stage again (the third within a minute waits 30 s), never
+/// the browser; the browser opens only on the menu's OPEN CREATOR (exit 12) and the stage comes back after it; an old
+/// `kiosk = "browser"` plays the stage; a missing `deck` is said and waited for, never the browser.
+#[test]
+fn the_session_restarts_the_stage_and_opens_the_browser_only_on_purpose() {
+    let Some(bash) = bash() else {
+        eprintln!("no bash here – the session test is skipped");
+        return;
+    };
+    let count = |log: &str, what: &str| log.lines().filter(|l| l.starts_with(what)).count();
+    let sleeps = |log: &str| log.lines().filter(|l| l.starts_with("sleep ")).map(str::to_owned).collect::<Vec<_>>();
+
+    let (log, ended) = session(&bash, "crash", true, &[1, 139, 1], "kiosk = \"stage\"\n", true);
+    assert!(ended, "{log}");
+    assert_eq!(count(&log, "deck --"), 4, "three crashes, each the stage again: {log}");
+    assert_eq!(sleeps(&log), ["sleep 1", "sleep 1", "sleep 30"], "the third within a minute backs off: {log}");
+    assert_eq!(count(&log, "chromium"), 0, "never the browser on a crash: {log}");
+    assert!(log.contains("3 crashes within a minute"), "{log}");
+
+    let (log, ended) = session(&bash, "creator", true, &[12], "browser_url = \"\"\n", true);
+    assert!(ended, "{log}");
+    assert!(log.contains("chromium --kiosk --app=https://creator.scutoons.com"), "OPEN CREATOR: the creator: {log}");
+    assert_eq!(count(&log, "deck --"), 2, "the stage again after the browser: {log}");
+    let (log, _) = session(&bash, "url", true, &[12], "browser_url = \"https://example.test/x\"\n", true);
+    assert!(log.contains("--app=https://example.test/x"), "{log}");
+
+    let (log, ended) = session(&bash, "old", true, &[], "kiosk = \"browser\"\n", true);
+    assert!(ended && count(&log, "deck --") == 1 && count(&log, "chromium") == 0, "an old browser mode plays the stage: {log}");
+    assert!(log.contains("kiosk = \"browser\" is no mode any more"), "{log}");
+
+    let (log, ended) = session(&bash, "missing", false, &[], "", false);
+    assert!(!ended && log.contains("no deck in this image"), "{log}");
+    assert_eq!((count(&log, "chromium"), count(&log, "cage")), (0, 0), "no browser, no kiosk without the stage: {log}");
+
+    // deck-set refuses the old mode before it touches deck.toml
+    let set = Command::new(&bash).arg(os().join("rootfs/usr/bin/deck-set")).args(["kiosk", "browser"]).output().unwrap();
+    assert_eq!(set.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&set.stdout).contains("OPEN CREATOR"));
 }
