@@ -2,7 +2,8 @@
 //! clock), the row that fires, the cells it changes on each outlet, what it sends to addresses. Each pin carries its
 //! signal (deck-kit signal.rs), so the view types its inlets, outlets and wires by colour and shape. A kept cell plays on
 //! from above: it stands folded, unwired. A far node of a cell's piece hangs from the cell whose piece holds it (far.rs).
-use crate::document::{Cell, Moment, OutletKind, Show};
+use crate::document::{Cell, Moment, Show};
+use crate::wiring;
 use crate::far::{Holder, Link as FarLink};
 use crate::view;
 use deck_kit::base::graph::{Graph, Link, Node, Pin};
@@ -55,30 +56,19 @@ pub fn row_graph(show: &Show, row: usize, far: &[FarLink]) -> Graph {
     for o in &show.outlets {
         let cell = r.cells.get(&o.id).cloned().unwrap_or(Cell::Keep);
         let kept = matches!(cell, Cell::Keep);
-        let mut node = Node { id: o.id.clone(), title: o.name().to_string(), detail: view::cell_text(&cell), collapsed: kept, ..Node::default() };
-        if !kept {
-            node.ins.push(Pin::new("fire", Signal::Event));
-        }
-        if let Cell::Play { values, .. } | Cell::Values { values, .. } = &cell {
-            node.ins.extend(values.keys().map(|k| Pin::new(k.clone(), Signal::Control)));
-        }
+        let (ins, outs) = wiring::ports(show, &o.id, &cell);
+        let mut node = Node { id: o.id.clone(), title: o.name().to_string(), detail: view::cell_text(&cell), collapsed: kept, ins, outs, ..Node::default() };
+        // the far nodes' inlets after the cell's own, before a mirror's
+        let mirrors = node.ins.iter().position(|p| p.signal == Signal::Scene).unwrap_or(node.ins.len());
         for l in far.iter().filter(|l| l.from == o.id) {
             let from = match &l.holder {
                 Holder::Here => "this piece".to_string(),
                 Holder::Outlet(h) => h.clone(),
                 Holder::Away => "not in this row".to_string(),
             };
-            node.ins.push(Pin::new(format!("{} ← {from}", l.node), Signal::Far));
+            let at = mirrors + node.ins.iter().filter(|p| p.signal == Signal::Far).count();
+            node.ins.insert(at, Pin::new(format!("{} ← {from}", l.node), Signal::Far));
         }
-        if let Cell::Mirror { .. } = &cell {
-            node.ins.push(Pin::new("mirrors", Signal::Scene));
-        }
-        node.outs = match (&cell, o.kind) {
-            (Cell::Ask { .. }, _) => vec![Pin::new("answer", Signal::Vote)],
-            (Cell::Black | Cell::Go { .. } | Cell::Free, _) => Vec::new(),
-            (_, OutletKind::Device) => vec![Pin::new("sends", Signal::Address)],
-            (_, OutletKind::Stage) => vec![Pin::new("plays", Signal::Scene)],
-        };
         g.nodes.push(node);
         if !kept {
             let at = g.nodes.len() - 1;
@@ -101,6 +91,12 @@ pub fn row_graph(show: &Show, row: usize, far: &[FarLink]) -> Graph {
             if !g.nodes[from].outs.is_empty() {
                 wire(&mut g, (from, 0), (to, pin), Signal::Scene);
             }
+        }
+    }
+    // the wires drawn by hand between the cells
+    for p in wiring::placed(show, r) {
+        if let (Some(from), Some(to)) = (g.node(&p.wire.from), g.node(&p.wire.to)) {
+            wire(&mut g, (from, p.out_at), (to, p.in_at), p.signal);
         }
     }
     if !r.addresses.is_empty() {

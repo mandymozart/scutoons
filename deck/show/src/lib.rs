@@ -40,6 +40,7 @@ pub mod view;
 /// #533: the vote's conductor side – what the relay said of the session's vote, the panel in words; #548: a row's question
 /// as `vote.open`, its result as the show's event
 pub mod vote;
+pub mod wiring;
 
 pub use conductor::{Ask, Clock, Conductor, Entry, Logged, Now, Origin, Out, Says, Suggestion};
 pub use document::{parse, Cell, Face, Fire, How, Moment, Outlet, OutletKind, ParseError, Pinned, Row, Seat, Show, Values, Word};

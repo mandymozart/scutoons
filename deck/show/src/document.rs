@@ -228,6 +228,9 @@ pub struct Row {
     /// the relay tests it); none = everyone in the column. Every fact holds (protocol `filter::passes`)
     #[serde(rename = "where", default, skip_serializing_if = "BTreeMap::is_empty")]
     pub r#where: BTreeMap<String, protocol::Filter>,
+    /// cells of this row wired to each other by their ports (wiring.rs)
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub wires: Vec<crate::wiring::CellWire>,
 }
 
 /// One address a row sends to: `character:yellowmouse > dance:samba`, filtered (for the workshop by group and device).

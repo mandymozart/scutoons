@@ -9,6 +9,7 @@
 use super::roles::Typing;
 use super::{Hit, Host};
 use deck_kit::base::draw::DrawList;
+use deck_kit::base::signal::Signal;
 use deck_kit::base::tokens::Tokens;
 use deck_kit::base::wire::Wire;
 use deck_kit::editor::controls::{self, Rect};
@@ -124,12 +125,15 @@ pub fn fire_chip(d: &mut DrawList, t: &Tokens, (x, y, w): (f32, f32, f32), chip:
     cw
 }
 
+/// a far node's or a question's link: its two ports and the signal it carries
+type Hung = ((f32, f32), (f32, f32), Signal);
+
 /// A link hanging from port `a` to port `b` (deck-kit wire.rs), the ports drawn; `flow` = the seconds the beads have
 /// run, none: no beads (Signal flow on wires off, or Reduce motion).
 pub fn wire(d: &mut DrawList, t: &Tokens, (a, b): ((f32, f32), (f32, f32)), (unit, flow): (f32, Option<f32>), color: [f32; 4]) {
     let w = Wire::hang(a, b, unit);
     let beads = flow.map(|s| w.flowing(unit, s)).unwrap_or_default();
-    d.wire(&w, 1.5, color, &beads, t.color.text);
+    d.wire(&w, 1.5, color, &beads);
     for p in [a, b] {
         d.port(p, unit * 0.3, color, t.color.surface);
     }
@@ -158,7 +162,8 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, mode)
     let sel = (!mode.perform && host.role.is_none() && host.columns.is_empty() && host.group.is_none()).then_some(host.row);
     let gh = if m.groups.is_empty() { 0.0 } else { t.size.rem(1.6) };
     let n = m.rows.len();
-    let mut wires: Vec<((f32, f32), (f32, f32))> = Vec::new();
+    let mut wires: Vec<Hung> = Vec::new();
+    let mut laid: Vec<super::wiring::RowLay> = Vec::new();
 
     // the cells, under both heads; first the selection's bands
     d.clip(Some(l.body));
@@ -173,6 +178,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, mode)
         }
     }
     for (i, r) in m.rows.iter().enumerate().take(l.visible_rows().end.min(n)).skip(l.visible_rows().start) {
+        let mut boxes = vec![None; r.cells.len()];
         for (c, cell) in r.cells.iter().enumerate() {
             let box_ = l.cell(i, c);
             // #551: adjacent cells of one question are one wide cell, drawn from the column that starts it; a column inside
@@ -196,6 +202,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, mode)
                 }
             } else if let Some(words) = words.filter(|_| !cell.keep) {
                 let over = whole.has(pointer.0, pointer.1);
+                boxes[c] = Some(whole);
                 d.round_rect(whole.x, whole.y, whole.w, whole.h, t.size.radius, if over { t.color.hover } else { t.color.control });
                 match cell.state {
                     State::Playing => d.outline(whole.x, whole.y, whole.w, whole.h, (t.size.radius, 2.0), t.color.primary_line),
@@ -259,16 +266,19 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, mode)
                 let col = |id: &str| m.columns.iter().position(|c| c.id == id);
                 if let (Some(a), Some(b)) = (col(&link.from), col(to)) {
                     // the signal runs from the holder to the cell that listens
-                    wires.push((port(b), port(a)));
+                    wires.push((port(b), port(a), Signal::Far));
                 }
             }
-            wires.extend(r.ask_links().into_iter().map(|(a, b)| (port(a), port(b))));
+            wires.extend(r.ask_links().into_iter().map(|(a, b)| (port(a), port(b), Signal::Vote)));
+            laid.push(super::wiring::RowLay { i, id: r.id.clone(), cells: boxes });
         }
     }
     let unit = t.size.rem(1.0);
-    for (a, b) in wires {
-        wire(d, t, (a, b), (unit, host.flow), t.color.accent);
+    for (a, b, s) in wires {
+        wire(d, t, (a, b), (unit, host.flow), t.color.signals.of(s));
     }
+    let columns: Vec<String> = m.columns.iter().map(|c| c.id.clone()).collect();
+    super::wiring::draw(d, t, host, (&show, &columns), &laid, (&l.body, pointer));
 
     // the column heads: the groups over their columns, then each column's name, who takes it and its stop
     d.clip(Some(l.heads_top));
@@ -632,8 +642,10 @@ mod tests {
             let mut d = DrawList::new(0.6);
             host.hits.clear();
             author::draw(&mut d, &t, host, W, H, (0.0, 0.0));
-            let wire = d.prims().iter().filter(|p| matches!(p, Prim::Segment { color, .. } if *color == t.color.accent)).count();
-            let dots = d.prims().iter().filter(|p| matches!(p, Prim::Rect { color, r, .. } if *color == t.color.text && *r > 0.0)).count();
+            let vote = t.color.signals.vote;
+            let bead = [vote[0], vote[1], vote[2], vote[3] * deck_kit::base::wire::BEAD_ALPHA];
+            let wire = d.prims().iter().filter(|p| matches!(p, Prim::Segment { color, .. } if *color == vote)).count();
+            let dots = d.prims().iter().filter(|p| matches!(p, Prim::Rect { color, r, .. } if *color == bead && *r > 0.0)).count();
             (wire, dots)
         };
         host.flow = None;
