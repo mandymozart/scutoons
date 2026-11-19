@@ -101,7 +101,7 @@ impl crate::App {
             },
             show::Workspace::Module => self.module.open.as_ref().map(|_| self.module.auto.pill()),
             show::Workspace::Show => Some(self.show.save_pill()),
-            show::Workspace::Perform | show::Workspace::Home => None,
+            show::Workspace::Home => None,
         }
     }
 

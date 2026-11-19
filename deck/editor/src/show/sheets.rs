@@ -21,8 +21,9 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, pointer: 
         Some(Sheet::Scene) => super::new_scene::draw(d, t, host, area, pointer),
         Some(Sheet::Demos) => super::demos::draw(d, t, host, area, pointer),
         Some(Sheet::NewShow) => super::toons::new_sheet(d, t, host, area, pointer),
-        // #533: the show runner's sheets are Perform's (perform.rs)
-        Some(Sheet::Session | Sheet::Vote) | None => {}
+        Some(Sheet::Session) => super::session::draw(d, t, host, area, pointer),
+        Some(Sheet::Vote) => super::vote::draw(d, t, host, area, pointer),
+        None => {}
     }
 }
 

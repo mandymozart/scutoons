@@ -603,7 +603,7 @@ mod tests {
     fn shift_adds_a_column_of_the_same_row_to_the_selection() {
         let mut host = host_with(VOTE);
         let (left, middle, right) = (column(&host, "left"), column(&host, "middle"), column(&host, "right"));
-        press(&mut host, false, |h| *h == Hit::Cell(0, left));
+        press(&mut host, |h| *h == Hit::Cell(0, left));
         shift(&mut host, 0, right);
         assert_eq!(host.selection(), (Some("opening".into()), vec!["left".to_string(), "right".to_string()]));
         assert_eq!(host.cell().map(String::as_str), Some("right"), "the inspector shows the cell added last");
@@ -617,21 +617,21 @@ mod tests {
         assert!(outlined >= 2, "{outlined} outlines");
         shift(&mut host, 1, left);
         assert_eq!(host.selection(), (Some("crossroads".into()), vec!["left".to_string()]), "another row: it starts over");
-        press(&mut host, false, |h| *h == Hit::Cell(1, middle));
+        press(&mut host, |h| *h == Hit::Cell(1, middle));
         assert_eq!(host.selection().1, ["middle"], "a press without shift: the cell alone");
     }
 
     /// #551's done-when, the editor's half: two cells that are not adjacent become one question by the right click, its
-    /// words typed in the cell inspector; saved and loaded through /api/shows; Perform's ▶ on it opens the vote through
-    /// the relay link and the Vote sheet's panel shows it
+    /// words typed in the cell inspector; saved and loaded through /api/shows; the cell's ▶ opens the vote through the
+    /// relay link and the Vote sheet's panel shows it
     #[test]
-    fn two_cells_apart_become_one_question_by_right_click_saved_loaded_and_opened_from_perform() {
+    fn two_cells_apart_become_one_question_by_right_click_saved_loaded_and_opened_by_its_play() {
         let cache = std::env::temp_dir().join(format!("deck-editor-ask-{}", std::process::id()));
         let base = fake_api();
         let mut host = host_with(VOTE);
         host.api = api::Api::with_cache(base, cache.join("shows"));
         let (left, right) = (column(&host, "left"), column(&host, "right"));
-        press(&mut host, false, |h| *h == Hit::Cell(0, left));
+        press(&mut host, |h| *h == Hit::Cell(0, left));
         shift(&mut host, 0, right);
         right_click(&mut host, 0, right);
         // no toon: the story's questions say why in one line
@@ -642,7 +642,7 @@ mod tests {
         assert!(host.context.is_none(), "a pick closes it");
         // the new question's words are typed next, in the cell inspector's form; then its options
         typed(&mut host, "Which door?");
-        press(&mut host, false, |h| *h == Hit::Ask(AskHit::Field(AskField::Options)));
+        press(&mut host, |h| *h == Hit::Ask(AskHit::Field(AskField::Options)));
         for _ in 0.."Yes, No".len() {
             host.type_key(&Key::Named(NamedKey::Backspace));
         }
@@ -669,13 +669,13 @@ mod tests {
         host.save_waiting();
         assert_eq!(host.save_pill(), "saved · v2");
         host.sub = deck_show::Subtree::new(deck_show::parse(r#"{ "id": "vote-cell", "version": 1, "toon": "catpope", "outlets": [{ "id": "left" }], "rows": [] }"#).unwrap(), deck_show::ClockChoice::Parent);
-        press(&mut host, false, |h| *h == Hit::Load);
+        press(&mut host, |h| *h == Hit::Load);
         assert_eq!(host.shown(), &made, "loaded as saved");
 
-        // Perform: the cell's ▶ – the conductor opens the question's vote for both columns, through the relay
+        // the cell's ▶ – the conductor opens the question's vote for both columns, through the relay
         let (l, sent, relay) = link::Link::loopback();
         host.link = Some(l);
-        press(&mut host, true, |h| *h == Hit::Launch(0, left));
+        press(&mut host, |h| *h == Hit::Launch(0, left));
         let open = sent.try_iter().find(|e| matches!(e.message, protocol::Message::VoteOpen(_))).expect("a vote.open went out");
         let protocol::Message::VoteOpen(v) = &open.message else { unreachable!() };
         assert_eq!((v.groups.clone(), v.options.clone(), v.r#where.clone()), (Some(vec!["left".to_string(), "right".to_string()]), vec!["Red".to_string(), "Blue".to_string()], Some(question::new_filter())));
@@ -694,7 +694,7 @@ mod tests {
         host.toon = Some("catpope".into());
         host.story = Some(deck_show::story::read(EVENTS, "catpope"));
         let (left, right) = (column(&host, "left"), column(&host, "right"));
-        press(&mut host, false, |h| *h == Hit::Cell(0, left));
+        press(&mut host, |h| *h == Hit::Cell(0, left));
         shift(&mut host, 0, right);
         right_click(&mut host, 0, left);
         assert_eq!(host.context_lines(), [question::NEW, "ch3.door", "no id", "ch3.empty"]);
@@ -720,39 +720,27 @@ mod tests {
         assert!(host.context.is_none());
     }
 
-    /// one frame of Perform: its texts
-    fn perform_frame(host: &mut Host) -> Vec<String> {
-        let (mut d, t) = (DrawList::new(0.6), Tokens::default());
-        host.hits.clear();
-        super::super::perform::draw(&mut d, &t, host, W, H, (0.0, 0.0));
-        d.texts().into_iter().map(str::to_string).collect()
-    }
-
-    /// step 4: cells of one question apart are each marked (`q1 · 2 of 2`); adjacent ones are one wide cell, in the rows
-    /// band and in Perform's matrix; every column of it launches, and its ▶ opens the vote of the whole question
+    /// step 4: cells of one question apart are each marked (`q1 · 2 of 2`); adjacent ones are one wide cell in the rows
+    /// band; its ▶ opens the vote of the whole question
     #[test]
-    fn the_question_is_one_wide_cell_in_show_and_perform_and_its_play_opens_the_vote() {
+    fn the_question_is_one_wide_cell_and_its_play_opens_the_vote() {
         let mut host = host_with(VOTE);
-        let (left, middle, right) = (column(&host, "left"), column(&host, "middle"), column(&host, "right"));
+        let (left, middle) = (column(&host, "left"), column(&host, "middle"));
         let marks = |texts: &[String], prefix: &str| texts.iter().filter(|t| t.starts_with(prefix)).count();
-        let (show, perform) = (frame(&mut host), perform_frame(&mut host));
-        for texts in [&show, &perform] {
-            assert_eq!((marks(texts, "q1 · 1 of 2"), marks(texts, "q1 · 2 of 2")), (1, 1), "two cells apart: {texts:?}");
-        }
+        let texts = frame(&mut host);
+        assert_eq!((marks(&texts, "q1 · 1 of 2"), marks(&texts, "q1 · 2 of 2")), (1, 1), "two cells apart: {texts:?}");
         // the column between joins: one wide cell over three columns, said once
-        press(&mut host, false, |h| *h == Hit::Cell(1, middle));
+        press(&mut host, |h| *h == Hit::Cell(1, middle));
         right_click(&mut host, 1, middle);
         typed(&mut host, "add");
         assert_eq!(host.status, "row 2 crossroads: middle asks q1 – device phone · member · live");
-        let (show, perform) = (frame(&mut host), perform_frame(&mut host));
-        for texts in [&show, &perform] {
-            assert_eq!((marks(texts, "q1 · Which way?"), marks(texts, "q1 · ")), (1, 1), "one wide cell: {texts:?}");
-        }
+        let texts = frame(&mut host);
+        assert_eq!((marks(&texts, "q1 · Which way?"), marks(&texts, "q1 · ")), (1, 1), "one wide cell: {texts:?}");
         let launches: Vec<usize> = host.hits.iter().filter_map(|(_, h)| if let Hit::Launch(1, c) = h { Some(*c) } else { None }).collect();
-        assert!([left, middle, right].iter().all(|c| launches.contains(c)), "{launches:?}");
+        assert!(launches.contains(&left), "the wide cell's ▶ sits in its first column: {launches:?}");
         let (l, sent, _relay) = link::Link::loopback();
         host.link = Some(l);
-        press(&mut host, true, |h| *h == Hit::Launch(1, right));
+        press(&mut host, |h| *h == Hit::Launch(1, left));
         let groups = sent.try_iter().find_map(|e| if let protocol::Message::VoteOpen(v) = e.message { v.groups } else { None });
         assert_eq!(groups, Some(vec!["left".to_string(), "middle".to_string(), "right".to_string()]), "the whole question votes");
     }
@@ -764,17 +752,17 @@ mod tests {
         let mut host = host_with(VOTE);
         let (l, sent, relay) = link::Link::loopback();
         host.link = Some(l);
-        press(&mut host, true, |h| *h == Hit::Sheet(super::super::Sheet::Vote));
-        let texts = perform_frame(&mut host);
+        press(&mut host, |h| *h == Hit::Sheet(super::super::Sheet::Vote));
+        let texts = frame(&mut host);
         assert!(texts.iter().any(|t| t == deck_ui::vote::NONE) && texts.iter().any(|t| t.starts_with("A vote opens from a row's question")), "{texts:?}");
         assert!(!host.hits.iter().any(|(_, h)| matches!(h, Hit::Vote(_))), "no form, no Open: {:?}", host.hits.iter().map(|(_, h)| h).collect::<Vec<_>>());
         assert!(sent.try_iter().all(|e| !matches!(e.message, protocol::Message::VoteOpen(_))));
         // the row crossroads fires: its question's vote opens, the panel shows it
-        press(&mut host, true, |h| *h == Hit::Fire(1));
+        press(&mut host, |h| *h == Hit::Fire(1));
         let open = sent.try_iter().find(|e| matches!(e.message, protocol::Message::VoteOpen(_))).expect("the row's question opened its vote");
         relay.send(protocol::Envelope { from: "relay".into(), ..open }).unwrap();
         host.frame();
-        let texts = perform_frame(&mut host);
+        let texts = frame(&mut host);
         assert!(texts.iter().any(|t| t == "Which way?"), "{texts:?}");
         for want in [super::super::vote::VoteHit::Hold, super::super::vote::VoteHit::Override, super::super::vote::VoteHit::Close] {
             assert!(host.hits.iter().any(|(_, h)| *h == Hit::Vote(want)), "{want:?}");
@@ -787,8 +775,8 @@ mod tests {
     fn the_inspector_scrolls_inside_its_panel() {
         let mut host = host_with(VOTE);
         let left = column(&host, "left");
-        press(&mut host, false, |h| *h == Hit::Cell(1, left));
-        press(&mut host, false, |h| *h == Hit::Ask(AskHit::Rule(2)));
+        press(&mut host, |h| *h == Hit::Cell(1, left));
+        press(&mut host, |h| *h == Hit::Ask(AskHit::Rule(2)));
         assert!(host.status.contains("first to 20"), "{}", host.status);
         frame(&mut host);
         frame(&mut host);

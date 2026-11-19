@@ -1,19 +1,20 @@
-//! The Show and Perform workspaces (#91; SHOW.md §3, §7, §10; the owner's drafts m1-show, m2-perform, m3-tree): beside
-//! Build (the rig editor), the editor shows a show's conductor. The conductor is deck-show's `Subtree` (RULES A1, A2): the
-//! editor hands it the operator's presses and the relay's envelopes with the time, sends what it answers through its
-//! relay link (link.rs), and draws what deck-show's view.rs says – the matrix, the log in words, the inspector. Nothing
-//! here decides what plays.
+//! A Show tab (#91; SHOW.md §3, §7, §10; the owner's drafts m1-show, m2-perform, m3-tree): beside the stage editor, the
+//! editor shows a show's conductor. The conductor is deck-show's `Subtree` (RULES A1, A2): the editor hands it the
+//! operator's presses and the relay's envelopes with the time, sends what it answers through its relay link (link.rs), and
+//! draws what deck-show's view.rs says – the matrix, the log in words, the inspector. Nothing here decides what plays.
 //!
-//! - **Perform** (perform.rs): the matrix of rows × outlets and seats, the big row ▶, a small ▶ per cell (a hand launch,
-//!   marked off its row), GO, the suggestion with GO / Drop, the log, the conductors rail; the stage on top, or in its
-//!   place the show runner's sheets (#533): Session (session.rs), Vote (vote.rs).
-//! - **Show** (author.rs): the conductors tree with a breadcrumb into a sub conductor, the rows band, the inspector, the
+//! A Show tab authors and runs at once (Ableton-style: a cell is edited while it plays). Running (live.rs): the rows band
+//! is the cue matrix – a row's ▶ fires it, a cell's ▶ launches it by hand (marked off its row) –, and the optional panels
+//! Next (the suggestion with GO / Drop, else GO), Stage now and Session (the conductors rail), the Session and Vote sheets
+//! (session.rs, vote.rs). Go live joins the relay (the decks, the readers, the vote), End leaves it; the lock refuses
+//! every edit of the document while it is on.
+//! - **Authoring** (author.rs): the conductors tree with a breadcrumb into a sub conductor, the rows band, the inspector, the
 //!   seats, each deck's answer to the last flash; the 2D node overlay over the dimmed stage (#446) with a 2D / 3D switch; the
 //!   cue sheet and the problems list in its place (sheets.rs); save and load through /api/shows (api.rs). rows.rs: rows,
 //!   columns and groups named in place in the band's heads, columns grouped, a cell's content picked in the cell;
 //!   #539 (events.rs): the event a row fires on, picked from the toon's story events. #551 (ask.rs): several cells of a
 //!   row selected (shift), the right click's typeahead on them – a new question, the story's, add to, leave –, the
-//!   question in the cell inspector, the wide cell in the rows band and in Perform's matrix. The scene list beside the
+//!   question in the cell inspector, the wide cell in the rows band. The scene list beside the
 //!   rows band (scenes.rs): a scene dragged onto a cell is its piece, as a pick is; its "new scene" opens the scene sheet
 //!   (new_scene.rs): a scene named, cast from the toon's rigs, played, saved as a draft. The Demos sheet (demos.rs) opens a
 //!   demo show in place of the show.
@@ -33,8 +34,8 @@ mod node_paint;
 mod node_pick;
 mod flash;
 mod link;
+pub mod live;
 pub mod new_scene;
-pub mod perform;
 mod roles;
 mod rows;
 pub mod saving;
@@ -53,25 +54,23 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 /// What the front tab draws with (tabs.rs): the stage editor of a Scene tab and of a character's Asset tab, a module's
-/// Asset tab, a Show tab authoring or performing; Home when no tab is open.
+/// Asset tab, a Show tab; Home when no tab is open.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Workspace {
     Stage,
     Show,
-    Perform,
     /// a module's code, build and audition (crate::module)
     Module,
     Home,
 }
 
 impl Workspace {
-    /// a check run's `--workspace`: build | module | show | perform, the names before the tabs
+    /// a check run's `--workspace`: build | module | show | home, the names before the tabs
     pub fn parse(s: &str) -> Option<Workspace> {
         match s.to_ascii_lowercase().as_str() {
             "build" | "stage" | "scene" | "asset" => Some(Workspace::Stage),
             "module" => Some(Workspace::Module),
             "show" => Some(Workspace::Show),
-            "perform" => Some(Workspace::Perform),
             "home" => Some(Workspace::Home),
             _ => None,
         }
@@ -87,8 +86,7 @@ pub enum Sheet {
     Flash,
     /// #478: who is here, `role: name`, with move to, rename, kick (roles.rs)
     Who,
-    /// #531: the session offered to a linked reader – the link, its QR, the linked readers (session.rs); #533: Perform's,
-    /// where the show runner works
+    /// #531: the session offered to a linked reader – the link, its QR, the linked readers (session.rs)
     Session,
     /// #533: the vote's conductor side – open a vote, its tally per group, Hold / Close now / Override, the result (vote.rs)
     Vote,
@@ -103,11 +101,6 @@ pub enum Sheet {
 }
 
 impl Sheet {
-    /// #533: a sheet of the show runner's – Perform draws it over its stage, Show does not offer it
-    pub fn in_perform(self) -> bool {
-        matches!(self, Sheet::Session | Sheet::Vote)
-    }
-
     pub fn parse(s: &str) -> Option<Sheet> {
         match s {
             "cues" => Some(Sheet::Cues),
@@ -128,7 +121,7 @@ impl Sheet {
 /// what a press in a show workspace means
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Hit {
-    /// a row's big ▶ (Perform)
+    /// a row's ▶
     Fire(usize),
     /// a cell's small ▶: row, column
     Launch(usize, usize),
@@ -269,13 +262,11 @@ pub struct Host {
     pub group: Option<String>,
     /// #551: the right click's typeahead on the selected cells while it is open (ask.rs)
     pub context: Option<ask::Context>,
-    /// the Show and the Perform workspace's floating panels; the toolbar's place for the view switch; what the info says
+    /// the Show tab's floating panels; the toolbar's place for the view switch; what the info says
     pub show_panels: crate::panels::Panels,
-    pub perform_panels: crate::panels::Panels,
-    /// where Show's rows band and Perform's are scrolled, and the band drawn last (Perform's: true) for the wheel
+    /// where the rows band is scrolled, and the band as drawn last for the wheel
     pub show_scroll: deck_kit::editor::table::Scroll,
-    pub perform_scroll: deck_kit::editor::table::Scroll,
-    band: Option<(bool, deck_kit::editor::table::Laid)>,
+    band: Option<deck_kit::editor::table::Laid>,
     pub view_slot: Rect,
     pub help: Option<deck_kit::editor::info::Help>,
     /// #553: the address of the inspected row (its index) whose filter's chips show
@@ -305,6 +296,10 @@ pub struct Host {
     /// #478: the move menu open for a client (by its id), and whether a move from it locks
     pub menu: Option<String>,
     pub lock: bool,
+    /// the live night's lock (live.rs): every edit of the document is refused while it is on – not the deck's editor lock
+    pub locked: bool,
+    /// Go live was confirmed over another live show: the editor ends that one and this one goes live (live.rs)
+    pub live_asked: bool,
     /// the last thing done, or why not: the editor takes it into its messages each frame (main.rs)
     pub status: String,
     /// the status is a refusal (a warning in the messages)
@@ -392,13 +387,12 @@ impl Host {
                 })
                 .ok()
         });
-        let (mut show_panels, mut perform_panels) = (crate::panels::Panels::new(&crate::panels::SHOW), crate::panels::Panels::new(&crate::panels::PERFORM));
+        let mut show_panels = crate::panels::Panels::new(&crate::panels::SHOW);
         show_panels.floats.scrolls_itself("rows");
         show_panels.floats.scrolls_itself("nodes");
-        perform_panels.floats.scrolls_itself("matrix");
         let scroll = deck_kit::editor::table::Scroll::default();
         let saves = version.map(|v| (show.id.clone(), crate::autosave::Autosave::new(Some(v)))).into_iter().collect();
-        let mut host = Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), columns: Vec::new(), group: None, context: None, show_panels, perform_panels, show_scroll: scroll, perform_scroll: scroll, band: None, view_slot: Rect::default(), help: None, address: None, book: None, cameras: BTreeMap::new(), live_cameras: BTreeMap::new(), book_why: None, carrying: false, refused: None, toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, status, bad: false, wiring: None, flow: None, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, saves, unsent: BTreeMap::new(), session: session::Session::default(), toons: toons::Toons::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), build: None, to_build: None, compose: new_scene::Composer::default(), to_stage: None, demos: Vec::new(), demo_book: None, link, api, nodes: nodes::NodeView::default() };
+        let mut host = Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), columns: Vec::new(), group: None, context: None, show_panels, show_scroll: scroll, band: None, view_slot: Rect::default(), help: None, address: None, book: None, cameras: BTreeMap::new(), live_cameras: BTreeMap::new(), book_why: None, carrying: false, refused: None, toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, locked: false, live_asked: false, status, bad: false, wiring: None, flow: None, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, saves, unsent: BTreeMap::new(), session: session::Session::default(), toons: toons::Toons::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), build: None, to_build: None, compose: new_scene::Composer::default(), to_stage: None, demos: Vec::new(), demo_book: None, link, api, nodes: nodes::NodeView::default() };
         host.adopt_kept();
         host
     }
@@ -433,7 +427,7 @@ impl Host {
     }
 
     pub fn link_line(&self) -> String {
-        self.link.as_ref().map_or("no relay (--relay ws://host:port/live/CODE)".into(), |l| l.line.lock().unwrap().clone())
+        self.link.as_ref().map_or("not live: Go live joins the relay".into(), |l| l.line.lock().unwrap().clone())
     }
 
     /// the live cameras scene `scene` offers to phones (its DOP panel's access rows): the session hears every scene's
@@ -475,18 +469,18 @@ impl Host {
 
     /// The wheel over the rows band drawn last (`steps` across, down): whether it scrolled.
     pub fn band_wheel(&mut self, x: f32, y: f32, steps: (f32, f32)) -> bool {
-        let Some((perform, laid)) = self.band else { return false };
+        let Some(laid) = self.band else { return false };
         if !laid.area.has(x, y) {
             return false;
         }
         let Some(s) = laid.wheel(steps) else { return false };
-        if perform { self.perform_scroll = s } else { self.show_scroll = s }
-        self.band = Some((perform, deck_kit::editor::table::Laid { scroll: s, ..laid }));
+        self.show_scroll = s;
+        self.band = Some(deck_kit::editor::table::Laid { scroll: s, ..laid });
         true
     }
 
-    pub(super) fn drew_band(&mut self, perform: bool, laid: deck_kit::editor::table::Laid) {
-        self.band = Some((perform, laid));
+    pub(super) fn drew_band(&mut self, laid: deck_kit::editor::table::Laid) {
+        self.band = Some(laid);
     }
 
     /// The panic pill: the core's panic down the tree, or its resume when one holds; joined or not, the core keeps the state.
@@ -510,6 +504,9 @@ impl Host {
         }
         self.context = None;
         self.refused = None;
+        if self.locked && live::edits(hit) {
+            return self.refuse(live::LOCKED.into());
+        }
         let rows: Vec<String> = self.sub.conductor().show().rows.iter().map(|r| r.id.clone()).collect();
         match hit {
             Hit::Fire(i) => {
@@ -605,19 +602,19 @@ impl Host {
         }
     }
 
-    /// A key in Show or Perform: the open typeahead or typed field first, then (Show only) the workspace's keys –
-    /// ctrl+r, ctrl+g, Enter, Delete (rows.rs). True = taken.
-    pub fn key(&mut self, key: &winit::keyboard::Key, ctrl: bool, show: bool) -> bool {
+    /// A key in a Show tab: the open typeahead or typed field first, then the tab's keys – ctrl+r, ctrl+g, Enter, Delete
+    /// (rows.rs); none that edits while the lock is on. True = taken.
+    pub fn key(&mut self, key: &winit::keyboard::Key, ctrl: bool) -> bool {
         if self.type_key(key) {
             return true;
         }
-        if show && !ctrl && *key == winit::keyboard::Key::Character("f".into()) && self.nodes_frame() {
+        if !ctrl && *key == winit::keyboard::Key::Character("f".into()) && self.nodes_frame() {
             return true;
         }
-        if show && self.asking.is_none() && self.nodes_key(key, ctrl) {
-            return true;
+        if self.locked || self.asking.is_some() {
+            return false;
         }
-        show && self.asking.is_none() && self.show_key(key, ctrl)
+        self.nodes_key(key, ctrl) || self.show_key(key, ctrl)
     }
 
     /// a problem's line pressed: its row, cell or seat is selected (deck-show's `Points`)

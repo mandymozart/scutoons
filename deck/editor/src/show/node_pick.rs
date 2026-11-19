@@ -266,7 +266,7 @@ mod tests {
         host.press(Hit::Nodes(NodeHit::Node(i)));
         assert_eq!(host.nodes.take_tone(), Some(deck_show::focus::pitch(deck_kit::base::signal::Signal::Clock)));
         assert_eq!(host.nodes.take_tone(), None, "taken once");
-        host.key(&winit::keyboard::Key::Named(winit::keyboard::NamedKey::Tab), false, true);
+        host.key(&winit::keyboard::Key::Named(winit::keyboard::NamedKey::Tab), false);
         assert!(host.nodes.take_tone().is_some(), "Tab too, a kept cell without pins as well");
     }
 }

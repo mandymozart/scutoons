@@ -252,12 +252,12 @@ pub fn side(d: &mut DrawList, t: &Tokens, host: &mut Host, (x, y, w): (f32, f32,
             }
             let bw = d.advance(small) * values::TAKE.chars().count() as f32 + 2.0 * pad;
             let b = Rect { x, y: y + 2.0, w: bw, h: h - 4.0 };
-            super::perform::button(d, t, b, values::TAKE, t.color.control, t.color.text);
+            super::live::button(d, t, b, values::TAKE, t.color.control, t.color.text);
             host.hits.push((b, Hit::Knob(KnobHit::Take)));
             y += h;
             let ow = d.advance(small) * super::build::OPEN.chars().count() as f32 + 2.0 * pad;
             let o = Rect { x, y: y + 2.0, w: ow, h: h - 4.0 };
-            super::perform::button(d, t, o, super::build::OPEN, t.color.control, t.color.text);
+            super::live::button(d, t, o, super::build::OPEN, t.color.control, t.color.text);
             host.hits.push((o, Hit::Knob(KnobHit::Build)));
             y += h;
         }
@@ -297,10 +297,10 @@ mod tests {
         let mut host = host_with(include_str!("../../../show/fixtures/top-toy.show.json"));
         host.row = 1;
         let left = deck_show::view::plan(host.shown()).columns.iter().position(|c| c.id == "left").unwrap();
-        press(&mut host, false, |h| *h == Hit::Cell(1, left));
+        press(&mut host, |h| *h == Hit::Cell(1, left));
         // the knobs not known yet: the inspector says so, a press on nothing happens
         host.knobs.put("scene:nave", nave());
-        press(&mut host, false, |h| *h == Hit::Knob(KnobHit::Turn(0)));
+        press(&mut host, |h| *h == Hit::Knob(KnobHit::Turn(0)));
         assert!(host.knob_drag.is_some(), "a press on light starts its drag");
         host.pointer(crate::SCRUB_PX * 0.5, 0.0);
         assert!((host.knob_drag.unwrap().v - 0.8).abs() < 1e-4, "half the travel: 0.3 → 0.8");
@@ -308,14 +308,14 @@ mod tests {
         assert!(host.status.starts_with("row 2 dialog, left: light.gain 0.8"), "{}", host.status);
         assert!((value(&host, "light.gain").unwrap() - 0.8).abs() < 1e-6);
         // dim is set by the cell (`dim 0.5`): its × gives it back to the piece
-        press(&mut host, false, |h| *h == Hit::Knob(KnobHit::Clear(1)));
+        press(&mut host, |h| *h == Hit::Knob(KnobHit::Clear(1)));
         assert_eq!(host.status, "row 2 dialog, left: dim.gain is the piece's own again");
         assert_eq!(value(&host, "dim"), None);
         // take current: nothing plays yet, then opening fired (light 0.2, dim the piece's own)
-        press(&mut host, false, |h| *h == Hit::Knob(KnobHit::Take));
+        press(&mut host, |h| *h == Hit::Knob(KnobHit::Take));
         assert!(host.status.starts_with("nothing plays on left"), "{}", host.status);
         host.sub.fire("opening", 1000);
-        press(&mut host, false, |h| *h == Hit::Knob(KnobHit::Take));
+        press(&mut host, |h| *h == Hit::Knob(KnobHit::Take));
         assert_eq!(host.status, "row 2 dialog, left: took 2 knobs – values · dim.gain 0.6 · light.gain 0.2");
         // the wheel over a knob turns it a step
         let (r, _) = *host.hits.iter().find(|(_, h)| *h == Hit::Knob(KnobHit::Turn(1))).unwrap();
@@ -329,13 +329,13 @@ mod tests {
         let mut host = host_with(include_str!("../../../show/fixtures/top-toy.show.json"));
         host.row = 1;
         let left = deck_show::view::plan(host.shown()).columns.iter().position(|c| c.id == "left").unwrap();
-        press(&mut host, false, |h| *h == Hit::Cell(1, left));
+        press(&mut host, |h| *h == Hit::Cell(1, left));
         host.edit_rows(&deck_show::rows::Edit::Piece { row: "dialog".into(), column: "left".into(), piece: "scene:vigil".into() });
         let i = deck_show::rows::cell_inspector(host.shown(), "dialog", "left").unwrap();
         assert_eq!(i.knobs_of.as_deref(), Some("scene:vigil"));
         assert!(i.warning.unwrap().contains("scene:nave plays there"));
         host.knobs.put("scene:vigil", nave());
-        press(&mut host, false, |h| *h == Hit::Knob(KnobHit::Take));
+        press(&mut host, |h| *h == Hit::Knob(KnobHit::Take));
         assert!(host.status.contains("plays scene:nave, not scene:vigil") || host.status.starts_with("nothing plays"), "{}", host.status);
     }
 }

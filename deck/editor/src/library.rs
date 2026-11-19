@@ -359,7 +359,7 @@ impl crate::App {
             Workspace::Stage => Purpose::Build,
             Workspace::Module => Purpose::Module,
             Workspace::Show => Purpose::Show,
-            Workspace::Perform | Workspace::Home => {
+            Workspace::Home => {
                 self.show.carrying = false;
                 return;
             }
@@ -393,7 +393,7 @@ impl crate::App {
             Workspace::Module => playing_key(None, self.module.open.as_ref().filter(|_| self.module.heard).map(|o| o.id.as_str())),
             // a Show scene on the stage: its still is the node's preview
             Workspace::Show => self.stage.scene.as_ref().map(|id| format!("scene:{id}")),
-            Workspace::Perform | Workspace::Home => None,
+            Workspace::Home => None,
         };
         if self.library.playing(key, self.frames) {
             self.stage.ask_still();

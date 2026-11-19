@@ -1,8 +1,9 @@
-//! The rows band, Show's and Perform's: the session grid of rows × columns under sticky heads (deck-kit `table`), after
-//! Ableton's session view. A row's head holds its ▶ (the row fires), its number, its name and – auto or suggest – its fire
-//! chip; a column's head its group, its name, who takes it and its small stop; a clip cell its ▶ and its words, an empty
-//! cell a stop slot (a small square), a kept cell a bare ↑. What plays is lime with the bar's progress, what waits for its
-//! moment is ringed, a cell started off its row has a corner mark. In Show the selection shows: the row as a soft band
+//! The rows band, which is the cue matrix too: the session grid of rows × columns under sticky heads (deck-kit `table`),
+//! after Ableton's session view – authored and launched in one place, a cell edited while it plays. A row's head holds its
+//! ▶ (the row fires), its number, its name and – auto or suggest – its fire chip; a column's head its group, its name, who
+//! takes it and its small stop; a clip cell its ▶ and its words, an empty cell a stop slot (a small square), a kept cell a
+//! bare ↑. What plays is lime with the bar's progress, what waits for its moment is ringed, a cell started off its row has
+//! a corner mark, a cell playing a published scene with a newer draft says so. The selection shows: the row as a soft band
 //! with a bar on its left, a column as a band from its head to its last row with an underline, a group's head, a cell
 //! outlined; names are typed in place in their heads. Every word and state is deck-show's view.rs (`matrix_at`); this file
 //! lays them out and names the places.
@@ -16,15 +17,6 @@ use deck_kit::editor::controls::{self, Rect};
 use deck_kit::editor::table::{Laid, Scroll, Table};
 use deck_show::view::{FireChip, Matrix, State};
 use deck_show::Moment;
-
-/// what the band's presses mean where it is drawn
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Mode {
-    /// Perform: a press on a row's head fires it, on a cell launches it; Show: they select, the ▶ launches
-    pub perform: bool,
-    /// the conductor runs the document shown: the ▶ and the stops work (a sub conductor's document only shows)
-    pub runs: bool,
-}
 
 fn fit(d: &DrawList, text: &str, px: f32, w: f32) -> String {
     controls::fit(text, (w / d.advance(px)).max(0.0) as usize)
@@ -150,16 +142,18 @@ fn typed(host: &Host, what: impl Fn(&Typing) -> bool) -> Option<String> {
     host.typing.as_ref().filter(|(w, _)| what(w)).map(|(_, f)| f.text.clone())
 }
 
-/// The band in `area` (a panel's visible content), scrolled by `scroll`; its laid table (for the wheel).
-pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, mode): (&Matrix, Mode), scroll: Scroll, pointer: (f32, f32)) -> Laid {
-    let l = table(t, m, !mode.perform).lay(area, scroll);
+/// The band in `area` (a panel's visible content), scrolled by `scroll`; its laid table (for the wheel). `runs`: the
+/// conductor runs the document shown – the ▶ and the stops work (a sub conductor's document only shows).
+pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, runs): (&Matrix, bool), scroll: Scroll, pointer: (f32, f32)) -> Laid {
+    let l = table(t, m, true).lay(area, scroll);
     let (pad, font, small) = (t.size.pad, t.size.font, t.size.small);
     let (cw, ch) = l.table.cell;
     let show = host.shown().clone();
     let roles = deck_show::roles::roles(&show, host.path.is_empty().then_some(&host.sub));
-    let picked: Vec<String> = if mode.perform { vec![] } else { host.columns.clone() };
+    let picked: Vec<String> = host.columns.clone();
     let columns_on = |id: &str| picked.iter().any(|c| c == id);
-    let sel = (!mode.perform && host.role.is_none() && host.columns.is_empty() && host.group.is_none()).then_some(host.row);
+    let sel = (host.role.is_none() && host.columns.is_empty() && host.group.is_none()).then_some(host.row);
+    let book = host.book.clone();
     let gh = if m.groups.is_empty() { 0.0 } else { t.size.rem(1.6) };
     let n = m.rows.len();
     let mut wires: Vec<Hung> = Vec::new();
@@ -188,16 +182,16 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, mode)
                 None => (1, Some(cell.text.clone())),
             };
             let whole = Rect { x: box_.x + 3.0, y: box_.y + 3.0, w: l.span(i, c, span).w - 6.0, h: ch - 6.0 };
-            let selected = !mode.perform && host.role.is_none() && host.row == i && m.columns.get(c).is_some_and(|col| host.cells.contains(&col.id));
+            let selected = host.role.is_none() && host.row == i && m.columns.get(c).is_some_and(|col| host.cells.contains(&col.id));
             let at = Rect { x: box_.x + 3.0, y: box_.y + 3.0, w: cw - 6.0, h: ch - 6.0 };
-            push(host, at, &l.body, if mode.perform { Hit::Launch(i, c) } else { Hit::Cell(i, c) });
+            push(host, at, &l.body, Hit::Cell(i, c));
             let rad = (ch * 0.19).min(t.size.rem(0.8));
             let c0 = (whole.x + pad + rad, whole.y + pad * 0.6 + rad);
             let on_launcher = Rect { x: c0.0 - rad, y: c0.1 - rad, w: 2.0 * rad, h: 2.0 * rad }.has(pointer.0, pointer.1);
             if cell.empty {
                 // an empty cell: Ableton's stop slot
                 stop_slot(d, t, (c0.0, box_.y + ch * 0.5), rad, cell.state, on_launcher);
-                if mode.runs {
+                if runs {
                     push(host, Rect { x: c0.0 - rad - 2.0, y: box_.y + ch * 0.5 - rad - 2.0, w: 2.0 * rad + 4.0, h: 2.0 * rad + 4.0 }, &l.body, Hit::Launch(i, c));
                 }
             } else if let Some(words) = words.filter(|_| !cell.keep) {
@@ -215,11 +209,14 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, mode)
                 launcher(d, t, c0, rad, cell.state, on_launcher);
                 let tx = c0.0 + rad + pad * 0.75;
                 d.text(tx, c0.1 - font * 0.62, font, &fit(d, &words, font, whole.x + whole.w - tx - pad), t.color.text);
-                // under it: what waits for which moment, why it would not play, who the question reaches
+                // under it: what waits for which moment, why it would not play, who the question reaches, a published
+                // scene playing while a newer draft of it exists
+                let newer = cell.state == State::Playing && book.as_ref().zip(m.columns.get(c)).is_some_and(|(b, col)| deck_show::rows::newer_draft(&show, &r.id, &col.id, b));
                 let note = match (&cell.state, &cell.problem, &cell.ask) {
                     (State::Queued, ..) => Some((r.moment.clone(), t.color.text)),
                     (_, Some(p), _) => Some((p.clone(), t.color.warn)),
                     (_, _, Some(a)) => Some((a.filter.clone(), t.color.muted)),
+                    _ if newer => Some((deck_show::rows::NEWER_DRAFT.to_string(), t.color.warn)),
                     _ => None,
                 };
                 if let Some((words, color)) = note {
@@ -236,7 +233,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, mode)
                     d.rect(bx, by, bw, 2.0, t.color.line);
                     d.rect(bx, by, bw * p.clamp(0.0, 1.0), 2.0, t.color.primary_line);
                 }
-                if mode.runs {
+                if runs {
                     push(host, Rect { x: c0.0 - rad - 2.0, y: c0.1 - rad - 2.0, w: 2.0 * rad + 4.0, h: 2.0 * rad + 4.0 }, &l.body, Hit::Launch(i, c));
                 }
             } else if cell.keep {
@@ -248,30 +245,28 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, mode)
                 d.outline(whole.x, whole.y, whole.w, whole.h, (t.size.radius, 1.5), t.color.accent);
             }
             // a library card being dragged: the cell under the pointer is where it lands
-            if !mode.perform && host.carrying && at.has(pointer.0, pointer.1) {
+            if host.carrying && at.has(pointer.0, pointer.1) {
                 d.outline(at.x, at.y, at.w, at.h, (t.size.radius, 2.0), t.color.go);
             }
         }
         // the cells of this row whose far nodes listen to each other, and the parts of one question, hang on wires from
         // ports at their feet
-        if !mode.perform {
-            let foot = l.cell(i, 0).y + ch - 3.0;
-            let port = |c: usize| {
-                let run = r.cells.get(c).and_then(|x| x.ask.as_ref()).map_or(1, |a| a.run.max(1));
-                let s = l.span(i, c, run);
-                (s.x + s.w * 0.5, foot)
-            };
-            for link in host.row_links(&r.id) {
-                let deck_show::far::Holder::Outlet(to) = &link.holder else { continue };
-                let col = |id: &str| m.columns.iter().position(|c| c.id == id);
-                if let (Some(a), Some(b)) = (col(&link.from), col(to)) {
-                    // the signal runs from the holder to the cell that listens
-                    wires.push((port(b), port(a), Signal::Far));
-                }
+        let foot = l.cell(i, 0).y + ch - 3.0;
+        let port = |c: usize| {
+            let run = r.cells.get(c).and_then(|x| x.ask.as_ref()).map_or(1, |a| a.run.max(1));
+            let s = l.span(i, c, run);
+            (s.x + s.w * 0.5, foot)
+        };
+        for link in host.row_links(&r.id) {
+            let deck_show::far::Holder::Outlet(to) = &link.holder else { continue };
+            let col = |id: &str| m.columns.iter().position(|c| c.id == id);
+            if let (Some(a), Some(b)) = (col(&link.from), col(to)) {
+                // the signal runs from the holder to the cell that listens
+                wires.push((port(b), port(a), Signal::Far));
             }
-            wires.extend(r.ask_links().into_iter().map(|(a, b)| (port(a), port(b), Signal::Vote)));
-            laid.push(super::wiring::RowLay { i, id: r.id.clone(), cells: boxes });
         }
+        wires.extend(r.ask_links().into_iter().map(|(a, b)| (port(a), port(b), Signal::Vote)));
+        laid.push(super::wiring::RowLay { i, id: r.id.clone(), cells: boxes });
     }
     let unit = t.size.rem(1.0);
     for (a, b, s) in wires {
@@ -284,7 +279,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, mode)
     d.clip(Some(l.heads_top));
     for (gi, g) in m.groups.iter().enumerate() {
         let r = l.col_head(g.first, g.span);
-        let on = !mode.perform && host.group.as_ref() == Some(&g.name);
+        let on = host.group.as_ref() == Some(&g.name);
         if on {
             d.rect(r.x + 1.0, r.y, r.w - 2.0, gh - 4.0, soft(t.color.selected, 0.45));
         }
@@ -295,15 +290,13 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, mode)
             }
         }
         d.rect(r.x + pad, r.y + gh - 6.0, r.w - 2.0 * pad, if on { 2.0 } else { 1.0 }, if on { t.color.accent } else { t.color.line });
-        if !mode.perform {
-            push(host, Rect { x: r.x, y: r.y, w: r.w, h: gh - 4.0 }, &l.heads_top, Hit::Group(gi));
-        }
+        push(host, Rect { x: r.x, y: r.y, w: r.w, h: gh - 4.0 }, &l.heads_top, Hit::Group(gi));
     }
     for (c, col) in m.columns.iter().enumerate() {
         let r = l.col_head(c, 1);
         let y = r.y + gh;
         let role = roles.iter().position(|x| x.id == col.id);
-        let on = columns_on(&col.id) || (!mode.perform && role.is_some() && host.role.as_ref() == Some(&col.id));
+        let on = columns_on(&col.id) || (role.is_some() && host.role.as_ref() == Some(&col.id));
         if on {
             // the column's band, the same x and width as its cells below
             d.rect(r.x + 1.0, y, cw - 2.0, r.h - gh, soft(t.color.selected, 0.45));
@@ -321,13 +314,11 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, mode)
         }
         let kind = col.filter.as_ref().map_or_else(|| col.detail.clone(), |f| format!("{} · {f}", col.detail));
         controls::label(d, t, r.x + pad, y + 6.0 + font * 1.3, &fit(d, &kind, t.size.label * 1.2, r.w - 2.0 * pad), t.color.muted);
-        if !mode.perform {
-            push(host, Rect { x: r.x, y, w: r.w, h: r.h - gh }, &l.heads_top, Hit::Column(c));
-        }
+        push(host, Rect { x: r.x, y, w: r.w, h: r.h - gh }, &l.heads_top, Hit::Column(c));
         // the column's stop: a small square, filled only while something plays there
         let s = Rect { x: r.x + r.w - pad - stop, y: y + 4.0 + (font * 1.25 - stop) * 0.5, w: stop, h: stop };
-        let live = mode.runs && col.stops;
-        if mode.runs && s.has(pointer.0, pointer.1) {
+        let live = runs && col.stops;
+        if runs && s.has(pointer.0, pointer.1) {
             d.round_rect(s.x - 2.0, s.y - 2.0, s.w + 4.0, s.h + 4.0, 3.0, t.color.hover);
         }
         if live {
@@ -335,7 +326,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, mode)
         } else {
             d.outline(s.x, s.y, s.w, s.h, (2.0, 1.0), t.color.muted);
         }
-        if mode.runs {
+        if runs {
             push(host, Rect { x: s.x - 3.0, y: s.y - 3.0, w: s.w + 6.0, h: s.h + 6.0 }, &l.heads_top, Hit::Stop(c));
         }
     }
@@ -354,11 +345,11 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, mode)
         if r.suggested {
             d.outline(whole.x, whole.y, whole.w, whole.h, (t.size.radius, 2.0), t.color.warn);
         }
-        push(host, whole, &l.heads_left, if mode.perform { Hit::Fire(i) } else { Hit::Row(i) });
+        push(host, whole, &l.heads_left, Hit::Row(i));
         let rr = (h.h * 0.26).min(t.size.rem(1.0));
         let c0 = (h.x + pad + 3.0 + rr, h.y + h.h * 0.5);
         launcher(d, t, c0, rr, r.state, Rect { x: c0.0 - rr, y: c0.1 - rr, w: 2.0 * rr, h: 2.0 * rr }.has(pointer.0, pointer.1));
-        if mode.runs {
+        if runs {
             push(host, Rect { x: c0.0 - rr - 2.0, y: c0.1 - rr - 2.0, w: 2.0 * rr + 4.0, h: 2.0 * rr + 4.0 }, &l.heads_left, Hit::Fire(i));
         }
         let nx = c0.0 + rr + pad;
@@ -388,7 +379,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, mode)
             }
         }
     }
-    if !mode.perform && l.visible_rows().end > n {
+    if l.visible_rows().end > n {
         let h = l.row_head(n);
         let whole = Rect { x: h.x, y: h.y + 3.0, w: h.w - pad, h: h.h - 6.0 };
         if whole.has(pointer.0, pointer.1) {
@@ -417,7 +408,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, mode)
 #[cfg(test)]
 mod tests {
     use super::super::rows::tests::{host_with, press, H, W};
-    use super::super::{author, perform, Hit, Host};
+    use super::super::{author, Hit, Host};
     use deck_kit::base::draw::DrawList;
     use deck_kit::base::tokens::Tokens;
     use deck_show::view::{self, State};
@@ -429,14 +420,10 @@ mod tests {
         { "id": "together", "fire": { "event": "meet", "how": "suggest" }, "cells": { "right": { "mode": "play", "piece": "scene:choir" } } }
       ] }"#;
 
-    fn frame(host: &mut Host, perform_: bool) -> Vec<String> {
+    fn frame(host: &mut Host) -> Vec<String> {
         let (mut d, t) = (DrawList::new(0.6), Tokens::default());
         host.hits.clear();
-        if perform_ {
-            perform::draw(&mut d, &t, host, W, H, (0.0, 0.0));
-        } else {
-            author::draw(&mut d, &t, host, W, H, (0.0, 0.0));
-        }
+        author::draw(&mut d, &t, host, W, H, (0.0, 0.0));
         d.texts().into_iter().map(str::to_string).collect()
     }
 
@@ -451,19 +438,19 @@ mod tests {
     #[test]
     fn in_show_a_cell_selects_its_launcher_launches_the_row_head_fires_and_a_column_stops() {
         let mut host = host_with(DOC);
-        press(&mut host, false, |h| *h == Hit::Cell(0, 0));
+        press(&mut host, |h| *h == Hit::Cell(0, 0));
         assert_eq!(host.cell().map(String::as_str), Some("left"), "a press on the cell selects it");
         assert_eq!(state(&host, 0, 0), State::Idle, "and launches nothing");
-        press(&mut host, false, |h| *h == Hit::Launch(0, 0));
+        press(&mut host, |h| *h == Hit::Launch(0, 0));
         assert_eq!(state(&host, 0, 0), State::Playing, "its ▶ launches it");
         assert_eq!(view::log(host.sub.log(), 1)[0].1, "off-row: left > opening");
         // the row's ▶ sits in its head; the rest of the head selects the row
-        press(&mut host, false, |h| *h == Hit::Row(1));
+        press(&mut host, |h| *h == Hit::Row(1));
         assert_eq!((host.row, view::matrix(&host.sub).rows[1].state), (1, State::Idle));
-        press(&mut host, false, |h| *h == Hit::Fire(1));
+        press(&mut host, |h| *h == Hit::Fire(1));
         let m = view::matrix(&host.sub);
         assert_eq!((m.rows[1].state, m.rows[1].cells[1].state, m.rows[1].cells[0].state), (State::Playing, State::Playing, State::Playing), "left keeps what row 1 started");
-        press(&mut host, false, |h| *h == Hit::Stop(1));
+        press(&mut host, |h| *h == Hit::Stop(1));
         assert_eq!(state(&host, 1, 1), State::Idle, "right is stopped");
         assert_eq!(view::log(host.sub.log(), 1)[0].1, "right stopped");
         let m = view::matrix(&host.sub);
@@ -471,21 +458,21 @@ mod tests {
     }
 
     #[test]
-    fn in_perform_the_head_fires_and_the_cell_launches() {
+    fn a_cell_playing_a_published_scene_with_a_newer_draft_says_so() {
         let mut host = host_with(DOC);
-        press(&mut host, true, |h| *h == Hit::Launch(1, 1));
-        assert_eq!(state(&host, 1, 1), State::Playing);
-        press(&mut host, true, |h| *h == Hit::Fire(0));
-        assert_eq!((state(&host, 0, 0), state(&host, 0, 1)), (State::Playing, State::Playing));
-        press(&mut host, true, |h| *h == Hit::Stop(0));
-        assert_eq!(state(&host, 0, 0), State::Idle);
+        let book = super::super::rows::tests::BOOK.replace(r#""key": "scene:nave", "state": "published""#, r#""key": "scene:nave", "state": "draft""#);
+        host.book = Some(std::sync::Arc::new(deck_space::rig::book::Book::parse(&book).unwrap()));
+        assert!(!frame(&mut host).iter().any(|t| t.starts_with("A NEWER DRAFT")), "idle: nothing said");
+        press(&mut host, |h| *h == Hit::Fire(0));
+        let texts = frame(&mut host);
+        assert_eq!(texts.iter().filter(|t| t.starts_with("A NEWER DRAFT")).count(), 1, "nave plays with a newer draft, vigil without: {texts:?}");
     }
 
     #[test]
     fn a_kept_cell_is_a_bare_arrow_and_the_groups_head_their_columns() {
         let mut host = host_with(DOC);
         host.two_d = false;
-        let texts = frame(&mut host, false);
+        let texts = frame(&mut host);
         assert_eq!(texts.iter().filter(|t| *t == "↑").count(), 3, "row 1's lights, row 2's left and lights (the inspector lists no cells): {texts:?}");
         assert!(place(&host, Hit::Cell(1, 0)).is_some(), "a kept cell is still a place to select");
         assert!(place(&host, Hit::Launch(1, 0)).is_none(), "but has no ▶ of its own");
@@ -495,7 +482,7 @@ mod tests {
         assert_eq!(stop(&host, 0).y, stop(&host, 2).y);
         // a sub conductor's document only shows: no ▶, no stop
         host.path.push("x".into());
-        frame(&mut host, false);
+        frame(&mut host);
         assert!(!host.hits.iter().any(|(_, h)| matches!(h, Hit::Launch(..) | Hit::Fire(_) | Hit::Stop(_))));
     }
 
@@ -505,14 +492,14 @@ mod tests {
         let rows: Vec<String> = (0..30).map(|i| format!(r#"{{ "id": "r{i}", "cells": {{ "o0": {{ "mode": "play", "piece": "scene:nave" }} }} }}"#)).collect();
         let doc = format!(r#"{{ "id": "big", "version": 1, "toon": "catpope", "outlets": [{}], "rows": [{}] }}"#, outlets.join(","), rows.join(","));
         let mut host = host_with(&doc);
-        let texts = frame(&mut host, true);
+        let texts = frame(&mut host);
         let counter = |texts: &[String], end: &str| texts.iter().find(|t| t.starts_with('+') && t.ends_with(end)).cloned();
         let (rows0, cols0) = (counter(&texts, "↓").expect("rows out of view"), counter(&texts, "→").expect("columns out of view"));
         let row_head = place(&host, Hit::Fire(0)).unwrap();
         let stop = place(&host, Hit::Stop(0)).unwrap();
         assert!(host.band_wheel(row_head.x + 4.0, row_head.y + 4.0, (-2.0, -3.0)));
-        assert!(host.perform_scroll.x > 0.0 && host.perform_scroll.y > 0.0);
-        let texts = frame(&mut host, true);
+        assert!(host.show_scroll.x > 0.0 && host.show_scroll.y > 0.0);
+        let texts = frame(&mut host);
         assert!(place(&host, Hit::Fire(0)).is_none(), "row 1 scrolled away under the column heads");
         assert_eq!(place(&host, Hit::Fire(3)).unwrap().x, row_head.x, "a row head stays at the left");
         assert_eq!(place(&host, Hit::Stop(2)).unwrap().y, stop.y, "a column head stays on top");
@@ -532,51 +519,53 @@ mod tests {
       ] }"#;
 
     fn key(host: &mut Host, k: &str, ctrl: bool) -> bool {
-        host.key(&winit::keyboard::Key::Character(k.into()), ctrl, true)
+        host.key(&winit::keyboard::Key::Character(k.into()), ctrl)
     }
 
     #[test]
     fn an_empty_cell_is_a_stop_slot_its_launch_and_its_rows_stop_the_column_and_a_kept_cell_continues() {
         let mut host = host_with(SLOTS);
-        let texts = frame(&mut host, false);
+        let texts = frame(&mut host);
         assert!(!texts.iter().any(|t| t == "stop" || t == "black"), "a stop slot has no words: {texts:?}");
         assert!(place(&host, Hit::Launch(1, 0)).is_some(), "but its own launch");
-        press(&mut host, false, |h| *h == Hit::Fire(0));
+        press(&mut host, |h| *h == Hit::Fire(0));
         assert_eq!((state(&host, 0, 0), state(&host, 0, 1)), (State::Playing, State::Playing));
         // the stop slot launched: left stops, right plays on
-        press(&mut host, false, |h| *h == Hit::Launch(1, 0));
+        press(&mut host, |h| *h == Hit::Launch(1, 0));
         let stage = |host: &Host, c: &str| host.sub.conductor().on_stage(c).map(|s| s.playing.clone());
         assert_eq!(stage(&host, "left"), Some(deck_show::conductor::Playing::Black));
         assert_eq!(state(&host, 0, 1), State::Playing, "right keeps playing");
         // its row fired: the same stop on left, right continues (↑ lit)
-        press(&mut host, false, |h| *h == Hit::Fire(0));
-        press(&mut host, false, |h| *h == Hit::Fire(1));
+        press(&mut host, |h| *h == Hit::Fire(0));
+        press(&mut host, |h| *h == Hit::Fire(1));
         assert_eq!(stage(&host, "left"), Some(deck_show::conductor::Playing::Black));
         let m = view::matrix(&host.sub);
         assert!(m.rows[1].cells[1].keep && m.rows[1].cells[1].state == State::Playing, "↑ continues what row 1 started");
         assert!(!m.columns[0].stops && m.columns[1].stops, "the column stop fills only where something plays");
         // Delete on a selected cell empties it
-        press(&mut host, false, |h| *h == Hit::Cell(0, 1));
-        assert!(host.key(&winit::keyboard::Key::Named(winit::keyboard::NamedKey::Delete), false, true));
+        press(&mut host, |h| *h == Hit::Cell(0, 1));
+        assert!(host.key(&winit::keyboard::Key::Named(winit::keyboard::NamedKey::Delete), false));
         assert_eq!(host.shown().rows[0].cells.get("right"), Some(&deck_show::Cell::Black));
     }
 
     #[test]
     fn a_rows_fire_shows_as_a_chip_auto_filled_suggest_outlined_and_manual_shows_nothing() {
         let mut host = host_with(SLOTS);
-        let texts = frame(&mut host, false);
+        let texts = frame(&mut host);
         assert!(texts.iter().any(|t| t == "meet") && texts.iter().any(|t| t == "thunder"), "{texts:?}");
-        let band = frame(&mut host, true);
-        assert!(!band.iter().any(|t| t == "door" || t.contains("hand") || t.contains("HAND") || t.contains("manual")), "manual shows nothing: {band:?}");
+        // the band alone, without the node view (which lists the row's events)
+        host.two_d = false;
+        let band = frame(&mut host);
+        assert!(!band.iter().any(|t| t == "door" || t.contains("hand") || t.contains("HAND")), "manual shows nothing: {band:?}");
         assert!(!texts.iter().any(|t| t == view::WAITS));
         let story = serde_json::json!({ "id": "meet" }).as_object().cloned().unwrap();
         host.sub.on_wire(&protocol::Envelope::new("reader", protocol::Message::Story(story)), 5);
-        let texts = frame(&mut host, true);
+        let texts = frame(&mut host);
         assert!(texts.iter().any(|t| t == view::WAITS), "a standing suggestion waits for GO: {texts:?}");
         // a cell started off its row: the corner mark, no word
-        press(&mut host, true, |h| *h == Hit::Launch(2, 1));
-        let texts = frame(&mut host, true);
-        assert!(view::matrix(&host.sub).rows[2].cells[1].off_row && !texts.iter().any(|t| t.contains("hand") || t == "manual"));
+        press(&mut host, |h| *h == Hit::Launch(2, 1));
+        let texts = frame(&mut host);
+        assert!(view::matrix(&host.sub).rows[2].cells[1].off_row && !texts.iter().any(|t| t.contains("hand")), "no word for it: {texts:?}");
     }
 
     #[test]
@@ -588,20 +577,20 @@ mod tests {
         author::draw(&mut d, &t, &mut host, super::super::rows::tests::W, super::super::rows::tests::H, (0.0, 0.0));
         assert_eq!(bands(&d), 2, "row 1 selected: its band over the cells and its head");
         // a column head: its band from the head down to the last row, lined up with the cells
-        press(&mut host, false, |h| *h == Hit::Column(1));
+        press(&mut host, |h| *h == Hit::Column(1));
         let head = place(&host, Hit::Column(1)).unwrap();
         let cell = place(&host, Hit::Cell(1, 1)).unwrap();
         assert!((head.x - (cell.x - 3.0)).abs() < 0.5, "the head stands over its column");
         assert_eq!(host.columns, ["right"]);
         assert!(key(&mut host, "r", true));
-        assert_eq!(frame(&mut host, false).iter().filter(|t| *t == "right|").count(), 1, "the column's name typed in its head");
+        assert_eq!(frame(&mut host).iter().filter(|t| *t == "right|").count(), 1, "the column's name typed in its head");
         super::super::rows::tests::typed(&mut host, "-choir");
         assert_eq!(host.status, "role right is called right-choir");
         // ctrl+r on a row: its name in its head
-        press(&mut host, false, |h| *h == Hit::Row(1));
+        press(&mut host, |h| *h == Hit::Row(1));
         assert!(host.columns.is_empty());
         assert!(key(&mut host, "r", true));
-        assert!(frame(&mut host, false).iter().any(|t| t == "together|"));
+        assert!(frame(&mut host).iter().any(|t| t == "together|"));
         host.type_key(&winit::keyboard::Key::Named(winit::keyboard::NamedKey::Escape));
         assert_eq!(host.shown().rows[1].id, "together", "Escape leaves it as it was");
     }
@@ -609,26 +598,26 @@ mod tests {
     #[test]
     fn columns_selected_with_shift_are_grouped_by_ctrl_g_or_the_heads_menu_and_named_in_place() {
         let mut host = host_with(SLOTS);
-        press(&mut host, false, |h| *h == Hit::Column(0));
+        press(&mut host, |h| *h == Hit::Column(0));
         let right = place(&host, Hit::Column(1)).unwrap();
         host.press(host.hit(right.x + 4.0, right.y + 4.0).unwrap().with_shift());
         assert_eq!(host.columns, ["left", "right"]);
         assert!(key(&mut host, "g", true));
         assert_eq!(host.status, "left · right grouped as group");
-        assert!(frame(&mut host, false).iter().any(|t| t == "group|"), "named next, in place");
+        assert!(frame(&mut host).iter().any(|t| t == "group|"), "named next, in place");
         super::super::rows::tests::typed(&mut host, "s");
         assert_eq!(host.status, "group group is called groups");
         // the group's head selects it and its columns; ctrl+r names it again
-        press(&mut host, false, |h| *h == Hit::Group(0));
+        press(&mut host, |h| *h == Hit::Group(0));
         assert_eq!((host.group.as_deref(), host.columns.clone()), (Some("groups"), vec!["left".to_string(), "right".to_string()]));
         // columns apart: the core refuses in its words (left and lights, right between)
-        press(&mut host, false, |h| *h == Hit::Column(0));
+        press(&mut host, |h| *h == Hit::Column(0));
         let lights = place(&host, Hit::Column(2)).unwrap();
         host.press(host.hit(lights.x + 4.0, lights.y + 4.0).unwrap().with_shift());
         let at = place(&host, Hit::Column(2)).unwrap();
         assert!(host.context(at.x + 4.0, at.y + 4.0), "the head's right click opens its menu");
         assert_eq!(host.context_lines(), ["Group the selected columns", "Ungroup", "Rename"]);
-        host.key(&winit::keyboard::Key::Named(winit::keyboard::NamedKey::Enter), false, true);
+        host.key(&winit::keyboard::Key::Named(winit::keyboard::NamedKey::Enter), false);
         assert_eq!(host.status, "not changed: show: outlet 'lights': the group 'group' is split, its columns stand apart");
     }
 
@@ -657,45 +646,45 @@ mod tests {
     }
 
     fn enter(host: &mut Host) -> bool {
-        host.key(&winit::keyboard::Key::Named(winit::keyboard::NamedKey::Enter), false, true)
+        host.key(&winit::keyboard::Key::Named(winit::keyboard::NamedKey::Enter), false)
     }
 
     #[test]
     fn a_selected_head_pressed_again_or_entered_is_renamed_in_place_and_escape_leaves_it() {
         let mut host = host_with(DOC);
-        press(&mut host, false, |h| *h == Hit::Column(0));
+        press(&mut host, |h| *h == Hit::Column(0));
         assert!(host.typing.is_none(), "the first press selects");
-        press(&mut host, false, |h| *h == Hit::Column(0));
-        assert!(frame(&mut host, false).iter().any(|t| t == "left|"), "the second one names it in its head");
+        press(&mut host, |h| *h == Hit::Column(0));
+        assert!(frame(&mut host).iter().any(|t| t == "left|"), "the second one names it in its head");
         super::super::rows::tests::typed(&mut host, "-nave");
         assert_eq!(host.status, "role left is called left-nave");
         // a group's head: selected, then Enter names it
-        press(&mut host, false, |h| *h == Hit::Group(0));
+        press(&mut host, |h| *h == Hit::Group(0));
         assert!(enter(&mut host));
-        assert!(frame(&mut host, false).iter().any(|t| t == "stages|"));
+        assert!(frame(&mut host).iter().any(|t| t == "stages|"));
         host.type_key(&winit::keyboard::Key::Named(winit::keyboard::NamedKey::Escape));
         assert_eq!(host.shown().outlets[0].group.as_deref(), Some("stages"), "Escape leaves it as it was");
-        press(&mut host, false, |h| *h == Hit::Group(0));
-        assert!(frame(&mut host, false).iter().any(|t| t == "stages|"), "pressed again: in place too");
+        press(&mut host, |h| *h == Hit::Group(0));
+        assert!(frame(&mut host).iter().any(|t| t == "stages|"), "pressed again: in place too");
         super::super::rows::tests::typed(&mut host, "-wide");
         assert_eq!(host.shown().outlets[1].group.as_deref(), Some("stages-wide"));
         // a row head selected, no cell: Enter names the row
-        press(&mut host, false, |h| *h == Hit::Row(1));
+        press(&mut host, |h| *h == Hit::Row(1));
         host.cells.clear();
         assert!(enter(&mut host));
-        assert!(frame(&mut host, false).iter().any(|t| t == "together|"));
+        assert!(frame(&mut host).iter().any(|t| t == "together|"));
     }
 
     #[test]
     fn a_row_heads_right_click_renames_adds_after_and_removes_it() {
         let mut host = host_with(DOC);
-        frame(&mut host, false);
+        frame(&mut host);
         let head = place(&host, Hit::Row(0)).unwrap();
         assert!(host.context(head.x + head.w - 2.0, head.y + 2.0), "the head's right click opens its menu");
         assert_eq!(host.row, 0);
         assert_eq!(host.context_lines(), ["Rename", "New row", deck_show::rows::REMOVE]);
         assert!(enter(&mut host), "Rename");
-        assert!(frame(&mut host, false).iter().any(|t| t == "opening|"), "the name in its head");
+        assert!(frame(&mut host).iter().any(|t| t == "opening|"), "the name in its head");
         super::super::rows::tests::typed(&mut host, "-act");
         assert_eq!(host.shown().rows[0].id, "opening-act");
         // another row's head: selected first; a new row after it
@@ -703,23 +692,23 @@ mod tests {
         assert!(host.context(head.x + head.w - 2.0, head.y + 2.0));
         assert_eq!(host.row, 1);
         for c in "new".chars() {
-            host.key(&winit::keyboard::Key::Character(c.to_string().into()), false, true);
+            host.key(&winit::keyboard::Key::Character(c.to_string().into()), false);
         }
         assert!(enter(&mut host));
         assert_eq!(host.shown().rows.iter().map(|r| r.id.as_str()).collect::<Vec<_>>(), ["opening-act", "together", "row"]);
         // its remove asks first
-        frame(&mut host, false);
+        frame(&mut host);
         let head = place(&host, Hit::Row(0)).unwrap();
         assert!(host.context(head.x + head.w - 2.0, head.y + 2.0));
         for c in "remove".chars() {
-            host.key(&winit::keyboard::Key::Character(c.to_string().into()), false, true);
+            host.key(&winit::keyboard::Key::Character(c.to_string().into()), false);
         }
         assert!(enter(&mut host));
         assert_eq!(host.shown().rows.len(), 3, "not yet");
-        press(&mut host, false, |h| *h == Hit::AskYes);
+        press(&mut host, |h| *h == Hit::AskYes);
         assert_eq!(host.shown().rows.iter().map(|r| r.id.as_str()).collect::<Vec<_>>(), ["together", "row"]);
         // the inspector carries no second remove
-        frame(&mut host, false);
+        frame(&mut host);
         assert!(place(&host, Hit::RowRemove).is_none());
     }
 }

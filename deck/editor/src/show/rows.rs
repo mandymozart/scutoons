@@ -397,7 +397,7 @@ pub(super) fn draw_picker(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect
 
 #[cfg(test)]
 pub(super) mod tests {
-    use super::super::{api, author, perform, Hit, Host};
+    use super::super::{api, author, Hit, Host};
     use deck_kit::base::draw::DrawList;
     use deck_kit::base::tokens::Tokens;
     use std::io::{BufRead, BufReader, Read, Write};
@@ -455,16 +455,12 @@ pub(super) mod tests {
     pub(in crate::show) const W: f32 = 1600.0;
     pub(in crate::show) const H: f32 = 900.0;
 
-    /// one frame of the Show workspace (or Perform), then a press on the first place that is `want`
-    pub(in crate::show) fn press(host: &mut Host, perform: bool, want: impl Fn(&Hit) -> bool) {
+    /// one frame of the Show tab, then a press on the first place that is `want`
+    pub(in crate::show) fn press(host: &mut Host, want: impl Fn(&Hit) -> bool) {
         let (mut d, t) = (DrawList::new(0.6), Tokens::default());
         host.hits.clear();
-        if perform {
-            perform::draw(&mut d, &t, host, W, H, (0.0, 0.0));
-        } else {
-            author::draw(&mut d, &t, host, W, H, (0.0, 0.0));
-            super::super::scenes::panel(&mut d, &t, host, &mut crate::library::Library::new(std::env::temp_dir().join("deck-editor-rows-library")), (0.0, 0.0));
-        }
+        author::draw(&mut d, &t, host, W, H, (0.0, 0.0));
+        super::super::scenes::panel(&mut d, &t, host, &mut crate::library::Library::new(std::env::temp_dir().join("deck-editor-rows-library")), (0.0, 0.0));
         let (r, hit) = host.hits.iter().rev().find(|(_, h)| want(h)).copied().unwrap_or_else(|| panic!("no such place: {:?}", host.hits.iter().map(|(_, h)| h).collect::<Vec<_>>()));
         assert_eq!(host.hit(r.x + r.w * 0.5, r.y + r.h * 0.5), Some(hit), "the place answers its press");
         host.press(hit);
@@ -478,9 +474,9 @@ pub(super) mod tests {
     }
 
     /// #537's done-when, the editor's half: from nothing to a row with a play cell naming a published scene picked from the
-    /// book, by the places the operator presses; saved and loaded through /api/shows; fired from Perform
+    /// book, by the places the operator presses; saved and loaded through /api/shows; fired by the row's ▶ in the same tab
     #[test]
-    fn a_show_is_made_from_nothing_saved_loaded_and_fired_from_perform() {
+    fn a_show_is_made_from_nothing_saved_loaded_and_fired_in_place() {
         let cache = std::env::temp_dir().join(format!("deck-editor-rows-{}", std::process::id()));
         let base = fake_api();
         let mut host = Host::new(None, None, None, base.clone());
@@ -488,13 +484,13 @@ pub(super) mod tests {
         host.book = Some(Arc::new(deck_space::rig::book::Book::parse(BOOK).unwrap()));
         assert!(host.shown().rows.is_empty(), "from nothing: one role, no row");
         host.toons.list = vec!["catpope".into()];
-        press(&mut host, false, |h| *h == Hit::ToonPick(0));
+        press(&mut host, |h| *h == Hit::ToonPick(0));
         assert_eq!(host.shown().toon, "catpope", "its toon picked in the scene list");
 
-        press(&mut host, false, |h| *h == Hit::RowAdd);
+        press(&mut host, |h| *h == Hit::RowAdd);
         assert_eq!(host.status, "row 1 row added: manual, every column keeps");
         // the selected row's name in its head, pressed again: renamed in place
-        press(&mut host, false, |h| *h == Hit::RowName);
+        press(&mut host, |h| *h == Hit::RowName);
         assert!(frame_texts(&mut host).iter().any(|t| t == "row|"), "the field in the head");
         for _ in 0..3 {
             host.type_key(&Key::Named(NamedKey::Backspace));
@@ -502,9 +498,9 @@ pub(super) mod tests {
         typed(&mut host, "opening");
         assert_eq!(host.shown().rows[0].id, "opening");
         // the cell on `left` in the rows band, then `play`: it names no piece yet, so its typeahead opens in the cell
-        press(&mut host, false, |h| *h == Hit::Cell(0, 0));
+        press(&mut host, |h| *h == Hit::Cell(0, 0));
         assert_eq!(host.cell().map(String::as_str), Some("left"));
-        press(&mut host, false, |h| *h == Hit::CellMode(0));
+        press(&mut host, |h| *h == Hit::CellMode(0));
         assert_eq!(host.context_lines(), ["Nave", "Vigil"]);
         assert_eq!(host.sheet, None, "nothing in the stage's place");
         // typed to find, Enter picks the first found
@@ -515,24 +511,24 @@ pub(super) mod tests {
         let fixture = deck_show::parse(include_str!("../../../show/fixtures/first-row.show.json")).unwrap();
         assert_eq!(made, fixture, "the document the headless scenario fires");
         // a press on the selected cell opens it again; a line chosen by the arrows; the inspector's piece field the same
-        press(&mut host, false, |h| *h == Hit::Cell(0, 0));
+        press(&mut host, |h| *h == Hit::Cell(0, 0));
         assert_eq!(host.context_lines(), ["Nave", "Vigil"]);
         host.type_key(&Key::Named(NamedKey::ArrowDown));
         host.type_key(&Key::Named(NamedKey::Enter));
         assert_eq!(host.status, "row 1 opening, left: scene:vigil");
-        press(&mut host, false, |h| *h == Hit::CellPiece);
+        press(&mut host, |h| *h == Hit::CellPiece);
         host.type_key(&Key::Named(NamedKey::Enter));
         assert_eq!(host.status, "row 1 opening, left: scene:nave");
 
         host.save_waiting();
         assert_eq!(host.save_pill(), "saved · v2");
         host.sub = deck_show::Subtree::new(deck_show::parse(r#"{ "id": "new-show", "version": 1, "toon": "catpope", "outlets": [{ "id": "left" }], "rows": [] }"#).unwrap(), deck_show::ClockChoice::Parent);
-        press(&mut host, false, |h| *h == Hit::Load);
+        press(&mut host, |h| *h == Hit::Load);
         assert_eq!(host.status, "loaded new-show@1");
         assert_eq!(host.shown(), &fixture, "loaded as saved");
 
-        // Perform: the row's ▶ – the conductor plays the scene on left and logs the fire
-        press(&mut host, true, |h| *h == Hit::Fire(0));
+        // the row's ▶ in the rows band – the conductor plays the scene on left and logs the fire
+        press(&mut host, |h| *h == Hit::Fire(0));
         let m = deck_show::view::matrix(&host.sub);
         assert!(m.rows[0].current && m.rows[0].cells[0].on && m.rows[0].cells[0].text == "scene:nave", "{m:?}");
         assert_eq!(deck_show::view::log(host.sub.log(), 1)[0].1, "fired opening (▶)");
@@ -556,18 +552,18 @@ pub(super) mod tests {
     #[test]
     fn the_shows_background_is_typed_in_the_inspector() {
         let mut host = Host::new(None, None, None, "http://127.0.0.1:9/api".into());
-        press(&mut host, false, |h| *h == Hit::Background);
+        press(&mut host, |h| *h == Hit::Background);
         typed(&mut host, "#204060");
         assert_eq!(host.status, "the show's background: #204060 – over every scene");
         assert_eq!(host.shown().background, Some(deck_space::Background::colour("#204060")));
-        press(&mut host, false, |h| *h == Hit::Background);
+        press(&mut host, |h| *h == Hit::Background);
         for _ in 0..7 {
             host.type_key(&Key::Named(NamedKey::Backspace));
         }
         typed(&mut host, "#zz");
         assert!(host.status.starts_with("not changed: '#zz' is no colour"), "{}", host.status);
         assert_eq!(host.shown().background, Some(deck_space::Background::colour("#204060")), "as it was");
-        press(&mut host, false, |h| *h == Hit::Background);
+        press(&mut host, |h| *h == Hit::Background);
         for _ in 0..7 {
             host.type_key(&Key::Named(NamedKey::Backspace));
         }
@@ -579,15 +575,15 @@ pub(super) mod tests {
     #[test]
     fn the_condition_control_sets_who_may_take_a_role() {
         let mut host = Host::new(None, None, None, "http://127.0.0.1:9/api".into());
-        press(&mut host, false, |h| *h == Hit::Role(0));
+        press(&mut host, |h| *h == Hit::Role(0));
         let c = deck_show::roles::condition(host.shown(), "left").unwrap();
         assert_eq!((c.mode, c.words.as_str()), (deck_ui::filter::Mode::Any, "guest and up"));
         let chip = |host: &Host, word: &str| deck_show::roles::condition(host.shown(), "left").unwrap().chip(word).unwrap();
         let member = chip(&host, "member");
-        press(&mut host, false, |h| *h == Hit::RoleFact(member));
+        press(&mut host, |h| *h == Hit::RoleFact(member));
         assert_eq!(host.status, "left: guest and up", "a guest still lets anyone in");
         let guest = chip(&host, "guest");
-        press(&mut host, false, |h| *h == Hit::RoleFact(guest));
+        press(&mut host, |h| *h == Hit::RoleFact(guest));
         assert_eq!(host.status, "left: member");
         assert_eq!(host.shown().outlets[0].admits.as_ref().and_then(|a| a.account.clone()), Some(vec![protocol::Account::Member]), "a member admits");
     }
@@ -597,21 +593,21 @@ pub(super) mod tests {
     fn the_condition_control_sets_and_clears_an_addresss_filter() {
         let mut host = host_with(include_str!("../../../show/fixtures/top-toy.show.json"));
         host.row = 2;
-        press(&mut host, false, |h| *h == Hit::AddressPick(1));
+        press(&mut host, |h| *h == Hit::AddressPick(1));
         assert_eq!(host.address, Some(1));
         let chip = |host: &Host, word: &str| deck_show::rows::address_condition(host.shown(), "yellowmouse-enters", 1).unwrap().chip(word).unwrap();
         let phone = chip(&host, "device phone");
-        press(&mut host, false, |h| *h == Hit::AddressFact(phone));
+        press(&mut host, |h| *h == Hit::AddressFact(phone));
         assert_eq!(host.status, "row 3 yellowmouse-enters, address 2: location:* > close_doors where device phone");
         let left = chip(&host, "group left");
-        press(&mut host, false, |h| *h == Hit::AddressFact(left));
+        press(&mut host, |h| *h == Hit::AddressFact(left));
         assert_eq!(host.status, "row 3 yellowmouse-enters, address 2: location:* > close_doors where group left · device phone");
         for word in ["device phone", "group left"] {
             let i = chip(&host, word);
-            press(&mut host, false, |h| *h == Hit::AddressFact(i));
+            press(&mut host, |h| *h == Hit::AddressFact(i));
         }
         assert_eq!(host.shown().rows[2].addresses[1].filter, None, "every chip off: no filter");
-        press(&mut host, false, |h| *h == Hit::AddressPick(1));
+        press(&mut host, |h| *h == Hit::AddressPick(1));
         assert_eq!(host.address, None, "pressed again: closed");
     }
 
@@ -620,7 +616,7 @@ pub(super) mod tests {
     fn the_condition_control_sets_a_cells_filter_on_both_columns_of_its_question() {
         let mut host = host_with(include_str!("../../../show/fixtures/vote-cell.show.json"));
         let left = deck_show::view::plan(host.shown()).columns.iter().position(|c| c.id == "left").unwrap();
-        press(&mut host, false, |h| *h == Hit::Cell(1, left));
+        press(&mut host, |h| *h == Hit::Cell(1, left));
         let c = deck_show::rows::cell_condition(host.shown(), "crossroads", "left").unwrap();
         assert_eq!(c.chip("group left"), None, "the column is the group");
         let browser = c.chip("device browser").unwrap();
@@ -628,7 +624,7 @@ pub(super) mod tests {
         author::draw(&mut DrawList::new(0.6), &Tokens::default(), &mut host, W, H, (0.0, 0.0));
         let v = host.show_panels.floats.view("inspector").unwrap();
         host.show_panels.floats.wheel(v.content.x + 4.0, v.content.y + 4.0, -100.0);
-        press(&mut host, false, |h| *h == Hit::CellFact(browser));
+        press(&mut host, |h| *h == Hit::CellFact(browser));
         assert_eq!(host.status, "row 2 crossroads, left · right: device browser · member · live");
         let row = host.shown().row("crossroads").unwrap();
         assert_eq!(row.r#where.get("right").and_then(|f| f.device.as_deref()), Some("browser"));
@@ -639,11 +635,11 @@ pub(super) mod tests {
     fn a_row_is_removed_after_its_prompt_and_without_a_book_the_piece_is_typed() {
         let mut host = Host::new(None, None, None, "http://127.0.0.1:9/api".into());
         host.book_why = Some("no address book – the editor reads one with --toon <toon> (or --book FILE)".into());
-        press(&mut host, false, |h| *h == Hit::RowAdd);
-        press(&mut host, false, |h| *h == Hit::RowAdd);
+        press(&mut host, |h| *h == Hit::RowAdd);
+        press(&mut host, |h| *h == Hit::RowAdd);
         assert_eq!(host.shown().rows.iter().map(|r| r.id.as_str()).collect::<Vec<_>>(), ["row", "row-2"]);
-        press(&mut host, false, |h| *h == Hit::Cell(1, 0));
-        press(&mut host, false, |h| *h == Hit::CellPiece);
+        press(&mut host, |h| *h == Hit::Cell(1, 0));
+        press(&mut host, |h| *h == Hit::CellPiece);
         assert!(host.context_lines().is_empty(), "no book: nothing listed, the typed text is the piece");
         typed(&mut host, "nave");
         assert!(host.status.starts_with("not changed: row 'row-2', 'left'"), "the core reads the typed piece: {}", host.status);
@@ -656,7 +652,7 @@ pub(super) mod tests {
         let (head, _) = host.hits.iter().rev().find(|(_, h)| *h == Hit::Row(1)).copied().unwrap();
         assert!(host.context(head.x + head.w - 2.0, head.y + 2.0));
         typed(&mut host, "remove");
-        press(&mut host, false, |h| *h == Hit::AskYes);
+        press(&mut host, |h| *h == Hit::AskYes);
         assert_eq!(host.status, "row row-2 removed with its 1 cells");
         assert_eq!((host.shown().rows.len(), host.row), (1, 0));
     }
@@ -666,24 +662,24 @@ pub(super) mod tests {
     #[test]
     fn a_scene_cells_shot_is_picked_in_place() {
         let mut host = Host::new(None, None, None, "http://127.0.0.1:9/api".into());
-        press(&mut host, false, |h| *h == Hit::RowAdd);
-        press(&mut host, false, |h| *h == Hit::Cell(0, 0));
+        press(&mut host, |h| *h == Hit::RowAdd);
+        press(&mut host, |h| *h == Hit::Cell(0, 0));
         host.open_shots();
         assert_eq!(host.status, deck_show::rows::NO_SCENE_SHOT);
-        press(&mut host, false, |h| *h == Hit::CellPiece);
+        press(&mut host, |h| *h == Hit::CellPiece);
         typed(&mut host, "scene:crypt");
         host.cameras.insert("scene:crypt".into(), vec![("wide".into(), "20° 8° 6 m · 30 mm".into()), ("iso".into(), "45° 35° 12 m · ortho 5 m".into())]);
-        press(&mut host, false, |h| *h == Hit::CellShot);
+        press(&mut host, |h| *h == Hit::CellShot);
         assert_eq!(host.context_lines(), ["the scene's opening", "wide", "iso"]);
         typed(&mut host, "iso");
         assert_eq!(host.status, "row 1 row, left: scene:crypt > shot:iso");
         assert!(host.context.is_none());
         host.cameras.clear();
-        press(&mut host, false, |h| *h == Hit::CellShot);
+        press(&mut host, |h| *h == Hit::CellShot);
         assert_eq!(host.context_lines(), ["the scene's opening"]);
         typed(&mut host, "shot:close");
         assert_eq!(host.status, "row 1 row, left: scene:crypt > shot:close", "typed: the deck's camera reads it");
-        press(&mut host, false, |h| *h == Hit::CellShot);
+        press(&mut host, |h| *h == Hit::CellShot);
         host.type_key(&Key::Named(NamedKey::Enter));
         assert_eq!(host.status, "row 1 row, left: scene:crypt", "the opening again");
     }

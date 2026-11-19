@@ -73,7 +73,7 @@ impl crate::App {
                 None => rig_key(&self.stage.bundle.rig.subject),
             }),
             Workspace::Module => Some(self.module.open.as_ref().map_or_else(|| (NEW_MODULE.to_string(), "new module".to_string()), |o| (o.key(), o.id.clone()))),
-            Workspace::Show | Workspace::Perform => {
+            Workspace::Show => {
                 let id = self.show.sub.conductor().show().id.clone();
                 Some((format!("show:{id}"), id))
             }
@@ -90,7 +90,7 @@ impl crate::App {
                 None => dirty(self.rigs.auto.pending(), &self.rigs.auto.state),
             },
             Workspace::Module => dirty(self.module.auto.pending(), &self.module.auto.state),
-            Workspace::Show | Workspace::Perform => show_dirty(&self.show),
+            Workspace::Show => show_dirty(&self.show),
         }
     }
 
@@ -109,7 +109,7 @@ impl crate::App {
         }
         let camera = self.stage.space.camera;
         match self.workspace {
-            Workspace::Home | Workspace::Show | Workspace::Perform => None,
+            Workspace::Home | Workspace::Show => None,
             Workspace::Module => {
                 self.module.autosave(true, std::time::Instant::now());
                 self.module.leave(&mut self.stage);
@@ -145,13 +145,9 @@ impl crate::App {
     /// the front tab goes behind into its place in the list
     fn put_behind(&mut self) {
         let dirty = self.live_dirty();
-        let perform = self.workspace == Workspace::Perform;
         let kept = self.freeze();
         if let Some(t) = self.tabs.front_mut() {
             (t.kept, t.dirty) = (kept, dirty);
-            if t.kind == Kind::Show {
-                t.perform = perform;
-            }
         } else if let Some(Kept::Scene(s)) = kept {
             self.show.keep_unsent(s.view.edit.doc, s.view.auto);
         }
@@ -180,7 +176,7 @@ impl crate::App {
     /// the front tab's item takes the stage: from what it kept, else from its address
     fn thaw(&mut self) {
         let Some(f) = self.tabs.front else { return self.go_home() };
-        let (key, kind, perform) = (self.tabs.list[f].key.clone(), self.tabs.list[f].kind, self.tabs.list[f].perform);
+        let (key, kind) = (self.tabs.list[f].key.clone(), self.tabs.list[f].kind);
         let kept = self.tabs.list[f].kept.take();
         let (x, y) = self.cursor;
         match kept {
@@ -214,14 +210,14 @@ impl crate::App {
             Some(Kept::Show(host)) => {
                 self.wake_stage();
                 self.take_host(*host);
-                self.workspace = if perform { Workspace::Perform } else { Workspace::Show };
+                self.workspace = Workspace::Show;
             }
-            None => self.load(&key, kind, perform),
+            None => self.load(&key, kind),
         }
     }
 
     /// a tab with nothing kept (a later start's, one replaced in place) opens from its address
-    fn load(&mut self, key: &str, kind: Kind, perform: bool) {
+    fn load(&mut self, key: &str, kind: Kind) {
         let (x, y) = self.cursor;
         match kind {
             Kind::Show => {
@@ -230,7 +226,7 @@ impl crate::App {
                     let host = self.new_host(key.trim_start_matches("show:"));
                     self.take_host(host);
                 }
-                self.workspace = if perform { Workspace::Perform } else { Workspace::Show };
+                self.workspace = Workspace::Show;
             }
             Kind::Module => {
                 self.workspace = Workspace::Module;
@@ -313,7 +309,7 @@ impl crate::App {
             Kind::Character if self.autosaves && self.rigs.open(&subject_of(key)).is_ok() => {}
             _ => {
                 self.adopt(key, name);
-                self.load(key, kind, false);
+                self.load(key, kind);
             }
         }
     }
@@ -347,7 +343,7 @@ impl crate::App {
                 self.module.open = None;
                 self.module.problems.clear();
             }
-            Workspace::Show | Workspace::Perform => {
+            Workspace::Show => {
                 self.show.autosave(true, std::time::Instant::now());
                 let empty = self.new_host("");
                 self.take_host(empty);
@@ -406,7 +402,7 @@ impl crate::App {
     }
 
     /// the address of the show the editor's host holds
-    fn live_show_key(&self) -> String {
+    pub(crate) fn live_show_key(&self) -> String {
         format!("show:{}", self.show.sub.conductor().show().id)
     }
 
@@ -421,7 +417,6 @@ impl crate::App {
         host.nodes.direction = self.show.nodes.direction;
         host.knobs.rigs.clone_from(&self.show.knobs.rigs);
         host.show_panels.floats.restore(&self.show.show_panels.floats.places());
-        host.perform_panels.floats.restore(&self.show.perform_panels.floats.places());
         host
     }
 
@@ -447,23 +442,13 @@ impl crate::App {
         }
     }
 
-    /// a Show tab's switch: authoring or performing
-    pub(crate) fn show_mode(&mut self, w: Workspace) {
-        if matches!(self.workspace, Workspace::Show | Workspace::Perform) {
-            self.workspace = w;
-            if let Some(t) = self.tabs.front_mut() {
-                t.perform = w == Workspace::Perform;
-            }
-        }
-    }
-
     /// Each frame: an item replaced in place without its tab knowing – a show or a module picked in its empty tab names
     /// it; another show loaded (a demo, a new show) or another module picked in a tab that held one gets a tab of its
     /// own, in front (the other reopens from its address). The stage's items come through `adopt`.
     pub(crate) fn follow_tabs(&mut self) {
         let Some(f) = self.tabs.front else { return };
         let (key, name) = match self.workspace {
-            Workspace::Show | Workspace::Perform => match self.live_key() {
+            Workspace::Show => match self.live_key() {
                 Some(k) => k,
                 None => return,
             },
@@ -480,13 +465,12 @@ impl crate::App {
         if self.tabs.list[f].key == empty {
             self.tabs.rekey(f, &key, &name);
         } else {
-            let perform = self.workspace == Workspace::Perform;
             self.tabs.list[f].kept = None;
             let gone = self.tabs.add(&key, &name);
             self.let_go(gone);
             // what loaded is newer than what its tab kept, if it was open
             if let Some(t) = self.tabs.front_mut() {
-                (t.kept, t.perform) = (None, perform);
+                t.kept = None;
             }
         }
         self.remember_tabs();
@@ -523,7 +507,7 @@ impl crate::App {
     pub(crate) fn start_tabs(&mut self) {
         let mut keys: Vec<String> = Vec::new();
         let rig = rig_key(&self.rigs.subject).0;
-        let shows = self.args.show_file.is_some() || self.args.show_id.is_some() || self.args.demo.is_some() || matches!(self.args.workspace, Workspace::Show | Workspace::Perform);
+        let shows = self.args.show_file.is_some() || self.args.show_id.is_some() || self.args.demo.is_some() || matches!(self.args.workspace, Workspace::Show);
         let modules = self.args.module.open.is_some() || self.args.workspace == Workspace::Module;
         if self.args.rig_given {
             keys.push(rig.clone());
@@ -563,10 +547,6 @@ impl crate::App {
             let name = if k == NEW_MODULE { "new module".to_string() } else { tabs::name_of(k) };
             let gone = self.tabs.add(k, &name);
             self.let_go(gone);
-        }
-        let perform = self.args.workspace == Workspace::Perform;
-        if let Some(i) = self.tabs.find(&self.live_show_key()) {
-            self.tabs.list[i].perform = perform;
         }
         // the one asked for, else the last named; the rig the stage holds is the one in front until then
         let want = match &self.args.front {
@@ -608,7 +588,7 @@ impl crate::App {
                     Workspace::Module => self.module.heard,
                     _ => false,
                 };
-                let mark = if live.as_deref() == Some(t.key.as_str()) {
+                let mark = if live.as_deref() == Some(t.key.as_str()) || matches!(&t.kept, Some(Kept::Show(h)) if h.live()) {
                     bar::Mark::Live
                 } else if playing {
                     bar::Mark::Playing

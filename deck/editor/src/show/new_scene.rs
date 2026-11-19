@@ -315,7 +315,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, pointer: (f3
     for (label, hit) in BUTTONS {
         let bw = d.advance(font * 1.3) * label.chars().count() as f32 + 2.0 * pad;
         let r = Rect { x: bx, y: y + 4.0, w: bw, h: bh };
-        super::perform::button(d, t, r, label, if r.has(pointer.0, pointer.1) { t.color.hover } else { t.color.control }, t.color.text);
+        super::live::button(d, t, r, label, if r.has(pointer.0, pointer.1) { t.color.hover } else { t.color.control }, t.color.text);
         host.hits.push((r, Hit::Compose(hit)));
         bx += bw + pad * 0.5;
     }
@@ -390,7 +390,7 @@ mod tests {
     }
 
     fn compose(host: &mut super::Host, hit: ComposeHit) {
-        press(host, false, |h| *h == Hit::Compose(hit));
+        press(host, |h| *h == Hit::Compose(hit));
     }
 
     /// the panel model: "new scene" opens the sheet, id and name typed, two of the toon's rigs picked (a location's

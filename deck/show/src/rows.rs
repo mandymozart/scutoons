@@ -591,6 +591,15 @@ pub fn pieces(book: &Book, query: &str, locale: &str) -> Vec<PieceView> {
         .collect()
 }
 
+/// what a cell playing a published scene says while that scene has a newer draft (the draft plays only where it is edited)
+pub const NEWER_DRAFT: &str = "a newer draft exists";
+
+/// `column`'s cell in `row` holds a published scene of `book` that has a newer draft: [`NEWER_DRAFT`] is said under it.
+pub fn newer_draft(show: &Show, row: &str, column: &str, book: &Book) -> bool {
+    let Some(piece) = show.rows.iter().find(|r| r.id == row).and_then(|r| piece_of(r.cells.get(column))) else { return false };
+    book.entries().iter().any(|e| e.address.as_deref() == Some(piece) && e.version.is_some() && e.origin.state == protocol::address_book::OriginState::Draft)
+}
+
 /// what marks a scene saved as a draft and never published: usable only in the editor where it is made, played on other
 /// decks once published (decisions/deck.md 2026-11-08 [scenes])
 pub const DRAFT: &str = "draft – this editor only until published";
@@ -859,6 +868,18 @@ mod tests {
         assert_eq!(d[0], PieceView { address: "scene:duet".into(), label: "Duet".into(), detail: format!("scene:duet · {DRAFT}") });
         assert_eq!(d[1].label, "scene:crypt", "no name: its address");
         assert_eq!(draft_pieces(&drafts, "DUE").len(), 1, "found by its name or id");
+    }
+
+    #[test]
+    fn a_cell_of_a_published_scene_with_a_newer_draft_says_so() {
+        let show = open(include_str!("../fixtures/top-toy.show.json")).unwrap();
+        let book = Book::parse(BOOK).unwrap();
+        assert!(newer_draft(&show, "dialog", "left", &book), "scene:nave v2 has a newer draft");
+        assert!(!newer_draft(&show, "finale", "left", &book), "no piece");
+        let clean = BOOK.replace(r#""key": "scene:nave", "state": "draft""#, r#""key": "scene:nave", "state": "published""#);
+        assert!(!newer_draft(&show, "dialog", "left", &Book::parse(&clean).unwrap()), "published, no draft");
+        let unpublished = BOOK.replace(r#""state": "draft" }, "version": 2"#, r#""state": "draft" }"#);
+        assert!(!newer_draft(&show, "dialog", "left", &Book::parse(&unpublished).unwrap()), "a draft never published is a draft, not a newer one");
     }
 
     /// a toon's book as the API gives it: two published scenes (one a template), one not yet published, other kinds

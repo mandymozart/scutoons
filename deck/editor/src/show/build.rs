@@ -259,7 +259,7 @@ mod tests {
     fn select(host: &mut super::Host, row: usize, column: &str) {
         host.row = row;
         let c = deck_show::view::plan(host.shown()).columns.iter().position(|c| c.id == column).unwrap();
-        press(host, false, |h| *h == Hit::Cell(row, c));
+        press(host, |h| *h == Hit::Cell(row, c));
     }
 
     /// the cell inspector's "open in Build": Build gets the cell's rig, the link names the cell; "values → cell" writes
@@ -268,7 +268,7 @@ mod tests {
     fn a_cell_opens_in_build_and_builds_values_go_back_into_it() {
         let mut host = host();
         select(&mut host, 1, "left");
-        press(&mut host, false, |h| *h == Hit::Knob(KnobHit::Build));
+        press(&mut host, |h| *h == Hit::Knob(KnobHit::Build));
         let Some(ToBuild::Play(opened, set)) = host.to_build.take() else { panic!("Build gets a rig: {}", host.status) };
         assert_eq!(opened.bundle.rig.subject, "character.keys");
         assert_eq!(set, [("tone_osc.freq".to_string(), 440.0)], "Build starts from the cell's values");
