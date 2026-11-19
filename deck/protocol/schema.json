@@ -879,11 +879,12 @@
       "additionalProperties": false
     },
     "CameraForce": {
-      "description": "conductor → relay: the phone `client` holds the camera `camera` from now on, whoever held it (its old camera returns to its owner); `camera` empty: the conductor frees what the phone holds.",
+      "description": "conductor → relay: the phone `client` holds the camera `camera` from now on, whoever held it (its old camera returns to its owner); `camera` empty: the conductor frees what the phone holds. `client` empty (a show row's `camera` word): the relay picks the phone – the first, by client id, that holds another camera and passes `where` (its group, device and proven account, the one filter).",
       "type": "object",
       "properties": {
         "client": { "type": "string" },
-        "camera": { "type": "string" }
+        "camera": { "type": "string" },
+        "where": { "$ref": "#/definitions/Filter" }
       },
       "required": ["client", "camera"],
       "additionalProperties": false

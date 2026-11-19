@@ -317,10 +317,13 @@ impl SceneView {
     /// through black – the deck's own scene from then on, or (#538) a cell's scene beside the outlet
     fn cast_turn(&mut self) {
         let Some(link) = self.cast.as_ref() else { return };
-        let (said, changed) = {
+        let (said, changed, held) = {
             let mut l = link.borrow_mut();
-            (l.said(), l.changed())
+            (l.said(), l.changed(), l.held())
         };
+        if let Some(s) = self.show.space.as_mut() {
+            held.into_iter().for_each(|h| s.held(h));
+        }
         for line in said {
             web_sys::console::log_1(&JsValue::from_str(&line));
         }
@@ -903,6 +906,9 @@ impl SceneView {
         }
         if let Some(o) = self.outlet.as_mut() {
             o.frame(Duration::from_secs_f32(time.max(0.0)), (self.config.width, self.config.height));
+            if let Some(s) = self.show.space.as_mut() {
+                o.held.drain(..).for_each(|h| s.held(h));
+            }
             if let (Some(t), Some(s)) = (o.space.take(), self.show.space.as_mut()) {
                 s.show(None, t.spot.as_deref());
                 let set = t.set.map(|p| p.to_string_lossy().into_owned()).filter(|set| *set != self.show.room);

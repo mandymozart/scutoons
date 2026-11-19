@@ -29,7 +29,7 @@
 //! `script` runs scripted socket events through a `Client` – the outs every adapter's test compares against
 //! (shared/live-deck/test/fixtures/relay.json, the headless scenario `relay_join`).
 use crate::linked::{Choice, Driving, Place, Readers, Steer};
-use crate::live_cameras::{Holding, Seat};
+use crate::live_cameras::{Held, Holders, Holding, Seat};
 use crate::rig::Stream;
 use protocol::lines::{line, Lines, DATAGRAM_MAX};
 use protocol::{
@@ -221,6 +221,8 @@ pub enum In {
     Address { address: String, action: String, beat: Option<f64> },
     /// #517: a reader's story event (the VNEvent's JSON), there because this deck asked (`set_story`)
     Story(Loose),
+    /// a phone holding one of the session's live cameras (live_cameras.rs): the deck whose scene it is follows it
+    Held(Held),
 }
 
 /// where the link stands
@@ -304,6 +306,8 @@ pub enum Out {
     Cameras(Vec<LiveCamera>),
     /// the conductor flashed the camera this phone holds: what it now is
     CameraFlash { camera: String, settings: Loose },
+    /// #478: fetch this client's proof with the person's sign-in (`Client::ask_proof`), the answer to `proof`
+    AskProof { url: String },
     /// every envelope as it came (`Options::messages`)
     Message(Envelope),
 }
@@ -526,6 +530,10 @@ pub struct Client {
     seat: Seat,
     cameras: Vec<LiveCamera>,
     camera_defs: Option<Vec<LiveCamera>>,
+    /// a deck's: who holds which camera, so a holder's stream is that camera's
+    holders: Holders,
+    /// #478: a phone that asks its own proof (`ask_proof`): the API and when to ask again
+    proof_ask: Option<(String, protocol::proof::Renew)>,
 }
 
 impl Client {
@@ -582,6 +590,8 @@ impl Client {
             seat,
             cameras: Vec::new(),
             camera_defs: None,
+            holders: Holders::default(),
+            proof_ask: None,
         })
     }
 
@@ -619,6 +629,37 @@ impl Client {
         if self.proof_hold.take().is_some() {
             // the next `tick` dials (the adapter's timer: `next_wake` is due)
             self.phase = Phase::Waiting(f64::NEG_INFINITY);
+        }
+    }
+
+    /// #478: a page that has the person's sign-in (a reader's camera phone) asks the API at `api` for this client's proof
+    /// itself: `Out::AskProof` says when, `proof` takes the answer; the first hello waits for it. Call before `start`.
+    pub fn ask_proof(&mut self, api: &str) {
+        self.proof_ask = Some((api.trim().trim_end_matches('/').to_string(), protocol::proof::Renew::default()));
+        self.o.wait_proof = true;
+    }
+
+    /// #478: the API's answer to `Out::AskProof` at `now` (`status` 0: no answer)
+    pub fn proof(&mut self, now: f64, status: u16, body: &str) {
+        let Some((_, renew)) = self.proof_ask.as_mut() else { return };
+        let body = serde_json::from_str(body).unwrap_or(serde_json::Value::Null);
+        let answer = renew.answered(now / 1000.0, protocol::proof::read(status, &body));
+        self.proof_answered(answer);
+    }
+
+    /// #478: who is signed in changed: the proof is asked again at once
+    pub fn proof_again(&mut self, now: f64) {
+        if let Some((_, renew)) = self.proof_ask.as_mut() {
+            renew.again();
+        }
+        self.proof_due(now);
+    }
+
+    fn proof_due(&mut self, now: f64) {
+        let Some((api, renew)) = self.proof_ask.as_mut() else { return };
+        if renew.due(now / 1000.0) {
+            let url = protocol::proof::request(api, &self.code);
+            self.out.push(Out::AskProof { url });
         }
     }
 
@@ -742,6 +783,7 @@ impl Client {
         if self.phase != Phase::Idle {
             return;
         }
+        self.proof_due(now);
         if self.o.wait_proof && !self.proof_heard {
             // #478: the first hello waits for the proof's answer, not longer than PROOF_WAIT_MS
             self.proof_hold = Some(now + PROOF_WAIT_MS);
@@ -972,6 +1014,7 @@ impl Client {
 
     /// Time passes: a due dial, the keepalive, a sync answer that waited.
     pub fn tick(&mut self, now: f64) {
+        self.proof_due(now);
         match self.phase {
             Phase::Waiting(at) if now >= at => self.dial(now),
             Phase::Dialing => {
@@ -1318,6 +1361,11 @@ impl Client {
         true
     }
 
+    /// a deck (a musician, an output, a performer): a camera a phone holds may be its own to follow
+    fn looks(&self) -> bool {
+        matches!(self.o.role, Role::Musician | Role::Output | Role::Performer)
+    }
+
     /// a phone's hold on a camera as its page shows it
     pub fn holding(&self) -> Holding {
         self.seat.now(&self.client)
@@ -1338,7 +1386,7 @@ impl Client {
 
     /// a conductor forces the phone `client` onto `camera` ('' frees what it holds) – only while joined
     pub fn camera_force(&mut self, client: &str, camera: &str) -> bool {
-        self.joined && self.send(Message::CameraForce(CameraForce { client: client.to_string(), camera: camera.to_string() }))
+        self.joined && self.send(Message::CameraForce(CameraForce { client: client.to_string(), camera: camera.to_string(), r#where: None }))
     }
 
     /// a conductor flashes a camera's settings to the phone holding it – only while joined
@@ -1497,6 +1545,9 @@ impl Client {
             Message::HandPose(pose) => {
                 if self.fresh_pose(&from, &pose) {
                     self.hand_heard(&from);
+                    if let Some(camera) = self.holders.of(&from).filter(|_| self.looks()) {
+                        self.out.push(Out::Deck(In::Held(Held::Pose { camera: camera.to_string(), pose: pose.clone() })));
+                    }
                     self.out.push(Out::HandPose { client: from, pose });
                 }
             }
@@ -1510,6 +1561,9 @@ impl Client {
             }
             Message::HandRecenter(_) => {
                 self.hand_heard(&from);
+                if let Some(camera) = self.holders.of(&from).filter(|_| self.looks()) {
+                    self.out.push(Out::Deck(In::Held(Held::Recenter { camera: camera.to_string() })));
+                }
                 self.out.push(Out::HandRecenter { client: from });
             }
             Message::HandView(v) => self.out.push(Out::HandView(v)),
@@ -1542,6 +1596,11 @@ impl Client {
                 if self.o.role == Role::Reader {
                     self.seat.heard(&self.client, c.cameras.clone());
                     self.tell_holding();
+                }
+                if self.looks() {
+                    for h in self.holders.heard(&c.cameras) {
+                        self.out.push(Out::Deck(In::Held(h)));
+                    }
                 }
                 self.cameras.clone_from(&c.cameras);
                 self.out.push(Out::Cameras(c.cameras));
@@ -2196,6 +2255,55 @@ mod tests {
         assert_eq!((r.linked.get("c4").cloned().flatten().as_deref(), r.driver.as_deref()), (Some("Mira"), Some("c4")));
         let last = r.last.as_ref().unwrap();
         assert_eq!((last.kind.as_str(), last.characters.as_slice(), last.from.as_str()), ("joinScene", &["character:catpope".to_string()][..], "c4"));
+    }
+
+    /// #478: a phone that asks its own proof says where, waits for the answer to dial, and its hello carries it
+    #[test]
+    fn a_phone_asks_its_proof_and_its_hello_carries_it() {
+        let mut c = Client::new(Options { key: Some("k".into()), ..Options::new(RELAY, Role::Reader, None) }).unwrap();
+        c.ask_proof("https://api.test/api/");
+        c.start(0.0);
+        let out = c.take();
+        let asked: Vec<&str> = out.iter().filter_map(|o| if let Out::AskProof { url } = o { Some(url.as_str()) } else { None }).collect();
+        assert_eq!(asked, [format!("https://api.test/api/live/proof?session={}", c.code())]);
+        assert!(!out.iter().any(|o| matches!(o, Out::Dial(_))), "the first dial waits for the proof");
+        c.proof(10.0, 200, r#"{"proof":"p.s","expires_in":3600}"#);
+        c.tick(11.0);
+        assert!(c.take().iter().any(|o| matches!(o, Out::Dial(_))));
+        c.opened(12.0);
+        let hello = c.take().into_iter().find_map(|o| if let Out::Send(t) = o { serde_json::from_str::<Value>(&t).ok() } else { None }).unwrap();
+        assert_eq!(hello["p"]["proof"], "p.s");
+        c.tick(1_900_000.0);
+        assert!(c.take().iter().any(|o| matches!(o, Out::AskProof { .. })), "asked again at half its life");
+    }
+
+    /// a deck hears a camera's holder from the relay's list and that phone's stream as the camera's (`In::Held`); another
+    /// phone's pose is no camera's; a reader hears no held word
+    #[test]
+    fn a_deck_hears_the_phone_holding_a_camera() {
+        use crate::live_cameras::Held;
+        let held = |c: &mut Client| -> Vec<Held> { c.take().into_iter().filter_map(|o| if let Out::Deck(In::Held(h)) = o { Some(h) } else { None }).collect() };
+        let mut deck = Client::new(Options::new(RELAY, Role::Musician, Some(DECKS))).unwrap();
+        deck.start(0.0);
+        deck.opened(1.0);
+        deck.text(2.0, &stamped(welcome("c2", json!({}))).to_string());
+        deck.take();
+        deck.text(3.0, &stamped(json!({ "kind": "cameras", "p": { "cameras": [{ "id": "scene:duet", "holder": "c4" }] } })).to_string());
+        assert_eq!(held(&mut deck), [Held::Holder { camera: "scene:duet".into(), holder: Some("c4".into()) }]);
+        let pose = |from: &str, t: f64| stamped(json!({ "kind": "hand.pose", "from": from, "p": { "t": t, "p": [0.0, 1.5, 0.0], "q": [0.0, 0.0, 0.0, 1.0] } })).to_string();
+        deck.text(4.0, &pose("c4", 10.0));
+        deck.text(5.0, &pose("c9", 10.0));
+        deck.text(6.0, &stamped(json!({ "kind": "hand.recenter", "from": "c4", "p": {} })).to_string());
+        let h = held(&mut deck);
+        assert!(matches!(&h[..], [Held::Pose { camera, pose }, Held::Recenter { .. }] if camera == "scene:duet" && pose.t == 10.0), "{h:?}");
+        deck.text(7.0, &stamped(json!({ "kind": "cameras", "p": { "cameras": [{ "id": "scene:duet" }] } })).to_string());
+        assert_eq!(held(&mut deck), [Held::Holder { camera: "scene:duet".into(), holder: None }], "back to its owner");
+        let mut reader = Client::new(Options { key: Some("k".into()), ..Options::new(RELAY, Role::Reader, None) }).unwrap();
+        reader.start(0.0);
+        reader.opened(1.0);
+        reader.text(2.0, &stamped(welcome("c5", json!({}))).to_string());
+        reader.text(3.0, &stamped(json!({ "kind": "cameras", "p": { "cameras": [{ "id": "scene:duet", "holder": "c4" }] } })).to_string());
+        assert!(held(&mut reader).is_empty());
     }
 
     /// a reader phone holds a live camera from the relay's word; back from a drop it claims again by its key (a

@@ -213,6 +213,9 @@ fn addressed(at: &Spot, a: &Addressed, out: &mut Vec<Problem>) {
     if let Err(why) = Target::action(&a.action) {
         out.push(refused(at, format!("{}: {why}", a.address)));
     }
+    if let Some(Err(why)) = deck_space::rig::address::PhoneCamera::parse(&a.address, &a.action) {
+        out.push(refused(at, why));
+    }
     if let Some(f) = &a.filter {
         filter(at, &a.address, f, out);
     }

@@ -4,6 +4,7 @@
 // Leave in and the core's words out. The phone's motion is the one handheld (@scutoons/content/storyboard `Handheld`).
 import type { LiveCamera } from '@scutoons/live';
 import { HandLink, type HandCore, type HandLinkOptions } from './hand.ts';
+import { phoneProof, type PhoneProof } from './phone-proof.ts';
 
 /** a phone's hold on a live camera, the core's word (deck-space live_cameras `Holding`) */
 export interface Holding {
@@ -22,8 +23,9 @@ interface CameraCore extends HandCore {
 	camera_leave(): boolean;
 }
 
-export interface CameraLinkOptions extends Omit<HandLinkOptions, 'role' | 'token' | 'onOther'> {
-	/** the phone's own secret, kept in its browser */
+export interface CameraLinkOptions extends Omit<HandLinkOptions, 'role' | 'token' | 'onOther' | 'proofApi'>, PhoneProof {
+	/** the phone's own secret, kept in its browser; `api` and `user` (#478): its proof – its account facts, which a camera's
+	 *  rule may ask – fetched there with that sign-in (the cookie, or its bearer token) */
 	key: string;
 	/** its hold changed; the cameras it may take, with who holds each; the conductor's flash for its camera */
 	onHolding?: (h: Holding) => void;
@@ -43,12 +45,14 @@ export class CameraLink {
 		this.link = new HandLink({
 			...o,
 			role: 'reader',
+			proofApi: o.api,
 			onStatus: (s, rung, line) => {
 				this.flush();
 				o.onStatus?.(s, rung, line);
 			},
 			onOther: (w) => {
-				if ('holding' in w) o.onHolding?.(w.holding);
+				if ('ask_proof' in w) void phoneProof(this.link, o, w.ask_proof['url']);
+				else if ('holding' in w) o.onHolding?.(w.holding);
 				else if ('cameras' in w) o.onCameras?.(w.cameras);
 				else if ('camera_flash' in w) o.onFlash?.(w.camera_flash['camera'], w.camera_flash['settings']);
 			}

@@ -42,7 +42,13 @@ impl Side for Conductor {
     fn feed(&mut self, c: &mut Client, _now: f64) {
         while c.open() {
             let Ok(e) = self.outbox.try_recv() else { break };
-            c.send_whole(e);
+            // the cameras its scenes offer are kept by the client and sent again at every welcome
+            match e.message {
+                protocol::Message::Cameras(cams) => c.set_cameras(cams.cameras),
+                _ => {
+                    c.send_whole(e);
+                }
+            }
         }
     }
 

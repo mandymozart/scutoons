@@ -317,6 +317,9 @@ pub struct Space {
     /// a phone holds this deck's camera: the picture follows it (live_cameras.rs `Follow`), the deck's own view put
     /// aside, not changed – it returns when the phone lets go
     pub held: Option<crate::live_cameras::Follow>,
+    /// the live camera it follows (its id: this scene's primary camera or one of its shots); a move played over it
+    held_by: Option<String>,
+    held_moved: bool,
 }
 
 /// Called on the loader thread with a set's file before it is read: the sync (sync.rs) returns once that file is
@@ -462,6 +465,8 @@ impl Space {
             focus: 0.0,
             focus_outlets: focus::outlets(graph),
             held: None,
+            held_by: None,
+            held_moved: false,
         };
         space.place_cast();
         space
@@ -502,6 +507,47 @@ impl Space {
         self.held.get_or_insert_with(Default::default).pose(t, p, q, deck)
     }
 
+    /// A camera of the session's phones (relay.rs `In::Held`): one of this scene's – its primary camera, or a shot, whose
+    /// first pose starts from that shot's view – is followed while a phone holds it; one at a time, the first held. Another
+    /// phone taking it goes on from the view held now; free again, the deck's own camera returns.
+    pub fn held(&mut self, h: crate::live_cameras::Held) {
+        use crate::live_cameras::{camera_of, look_rotation, Held};
+        let (Held::Holder { camera, .. } | Held::Pose { camera, .. } | Held::Recenter { camera }) = &h;
+        let (scene, shot) = camera_of(camera);
+        let mine = match &self.dop.scene {
+            Some(place) => crate::rig::address::Target::parse(scene).is_ok_and(|t| t.picks_up(place)),
+            None => crate::rig::address::Target::parse(scene).is_ok_and(|t| t.kind == "scene"),
+        };
+        let from_shot = shot.map(|s| self.dop.camera.shot(s).map(dop::View::of_shot));
+        if !mine || matches!(from_shot, Some(None)) || self.held_by.as_ref().is_some_and(|c| c != camera) {
+            return;
+        }
+        match h {
+            Held::Holder { holder: None, .. } => {
+                self.held_by = None;
+                self.held_release();
+            }
+            Held::Holder { camera, holder: Some(_) } => match self.held.as_mut() {
+                Some(f) if self.held_by.is_some() => f.handover(),
+                _ => self.held_by = Some(camera),
+            },
+            Held::Pose { camera, pose } => {
+                let anchor = match from_shot.flatten() {
+                    Some(v) => (v.eye(), look_rotation(v.eye(), v.target)),
+                    None => (self.camera.eye(), look_rotation(self.camera.eye(), self.camera.aim())),
+                };
+                self.held_by = Some(camera);
+                self.held.get_or_insert_with(Default::default).pose(pose.t, &pose.p, &pose.q, anchor);
+            }
+            Held::Recenter { .. } => self.held_recenter(),
+        }
+    }
+
+    /// the live camera this deck follows now, if a phone holds one of its scene's
+    pub fn held_camera(&self) -> Option<&str> {
+        self.held_by.as_deref()
+    }
+
     /// the holder's Recenter: its next pose is the view now
     pub fn held_recenter(&mut self) {
         if let Some(f) = self.held.as_mut() {
@@ -514,9 +560,19 @@ impl Space {
         self.held = None;
     }
 
-    /// the held view over everything the deck's camera did this frame, with the deck's lens
+    /// the held view over everything the deck's camera did this frame, with the deck's lens. A move that plays meanwhile
+    /// plays over it (LIVE-CAMERAS.md §6, [delegated]); when it ends the phone goes on from where the move ended.
     fn follow_held(&mut self, dt: f32) {
         let Some(f) = self.held.as_mut() else { return };
+        if self.dop.director.moving() {
+            self.held_moved = true;
+            f.step(dt);
+            return;
+        }
+        if std::mem::take(&mut self.held_moved) {
+            let eye = self.camera.eye();
+            f.rebase((eye, crate::live_cameras::look_rotation(eye, self.camera.aim())));
+        }
         f.step(dt);
         let (fov_y, ortho) = self.camera.over.map_or((self.camera.fov_y, self.camera.ortho), |o| (o.fov_y, o.ortho));
         if let Some(over) = f.over(fov_y, ortho) {
@@ -1071,6 +1127,10 @@ impl Space {
             return false;
         }
         let mut now = dop::View::of(&self.camera);
+        // a phone holds the camera: a move starts from the phone's view
+        if let Some((eye, rot)) = self.held.as_ref().and_then(|f| f.view()).filter(|_| !self.held_moved) {
+            now = dop::View::from_eye(eye, eye + rot * Vec3::NEG_Z, now.lens);
+        }
         now.lens.focus = Some(self.focus).filter(|f| *f > 0.0);
         let c = &self.dop.camera;
         let named = c.shots.iter().flat_map(|s| [s.aim.clone(), s.focus_on.clone()]).flatten().chain(c.moves.iter().filter_map(|m| m.spec.follow.clone()));
@@ -1274,6 +1334,7 @@ impl Space {
                 In::Synced { client, synced } => self.sync.answer(client, synced),
                 // a story this deck did not ask for (the conductor hears every reader's) is not its scene's
                 In::Story(_) if !self.story => {}
+                In::Held(h) => self.held(h),
                 In::Address { address, action, beat } if self.camera_word_on(&address, &action, beat) => {}
                 cast @ (In::Address { .. } | In::Story(_)) => {
                     if self.cast_in.len() == CAST_CAP {

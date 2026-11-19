@@ -764,10 +764,11 @@ export interface CameraLeave {
 	camera: string;
 }
 
-/** conductor → relay: the phone `client` holds the camera `camera` from now on, whoever held it (its old camera returns to its owner); `camera` empty: the conductor frees what the phone holds. */
+/** conductor → relay: the phone `client` holds the camera `camera` from now on, whoever held it (its old camera returns to its owner); `camera` empty: the conductor frees what the phone holds. `client` empty (a show row's `camera` word): the relay picks the phone – the first, by client id, that holds another camera and passes `where` (its group, device and proven account, the one filter). */
 export interface CameraForce {
 	client: string;
 	camera: string;
+	where?: Filter;
 }
 
 /** conductor → relay → the phone holding `camera`: the camera's settings (lens, height, its name, its rule …) as the deck is flashed. The relay keeps the last one per camera and sends it to each new holder. */

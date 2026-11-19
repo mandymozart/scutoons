@@ -221,6 +221,8 @@ pub enum Hit {
     SessionLabel,
     SessionCopy,
     SessionOpen,
+    /// a live camera of the list picked (again: the list) – the QR becomes its own
+    SessionCamera(usize),
     /// #533, the Vote sheet: a field, chip or button of the form or the panel (vote.rs)
     Vote(vote::VoteHit),
     /// the selected cell's values: a knob, its ×, take current (values.rs)
@@ -282,6 +284,8 @@ pub struct Host {
     pub book: Option<std::sync::Arc<deck_space::rig::book::Book>>,
     /// the camera shots the editor knows per scene (`scene:<id>` → id and its words): Build's open scene's
     pub cameras: BTreeMap<String, Vec<(String, String)>>,
+    /// the live cameras each scene the editor knows offers to phones (`scene:<id>` → its cameras): Build's open scene's
+    pub live_cameras: BTreeMap<String, Vec<protocol::LiveCamera>>,
     pub book_why: Option<String>,
     /// a library card a cell would take is in the hand (the cell under the pointer shows it); the core's refusal where
     /// one was dropped
@@ -393,7 +397,7 @@ impl Host {
         perform_panels.floats.scrolls_itself("matrix");
         let scroll = deck_kit::editor::table::Scroll::default();
         let saves = version.map(|v| (show.id.clone(), crate::autosave::Autosave::new(Some(v)))).into_iter().collect();
-        let mut host = Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), columns: Vec::new(), group: None, context: None, show_panels, perform_panels, show_scroll: scroll, perform_scroll: scroll, band: None, view_slot: Rect::default(), help: None, address: None, book: None, cameras: BTreeMap::new(), book_why: None, carrying: false, refused: None, toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, status, bad: false, wiring: None, flow: None, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, saves, unsent: BTreeMap::new(), session: session::Session::default(), toons: toons::Toons::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), build: None, to_build: None, compose: new_scene::Composer::default(), to_stage: None, demos: Vec::new(), demo_book: None, link, api, nodes: nodes::NodeView::default() };
+        let mut host = Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), columns: Vec::new(), group: None, context: None, show_panels, perform_panels, show_scroll: scroll, perform_scroll: scroll, band: None, view_slot: Rect::default(), help: None, address: None, book: None, cameras: BTreeMap::new(), live_cameras: BTreeMap::new(), book_why: None, carrying: false, refused: None, toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, status, bad: false, wiring: None, flow: None, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, saves, unsent: BTreeMap::new(), session: session::Session::default(), toons: toons::Toons::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), build: None, to_build: None, compose: new_scene::Composer::default(), to_stage: None, demos: Vec::new(), demo_book: None, link, api, nodes: nodes::NodeView::default() };
         host.adopt_kept();
         host
     }
@@ -429,6 +433,18 @@ impl Host {
 
     pub fn link_line(&self) -> String {
         self.link.as_ref().map_or("no relay (--relay ws://host:port/live/CODE)".into(), |l| l.line.lock().unwrap().clone())
+    }
+
+    /// the live cameras scene `scene` offers to phones (its DOP panel's access rows): the session hears every scene's
+    /// when they changed
+    pub fn offer_cameras(&mut self, scene: String, cameras: Vec<protocol::LiveCamera>) {
+        if self.live_cameras.get(&scene) == Some(&cameras) {
+            return;
+        }
+        self.live_cameras.insert(scene, cameras);
+        let all = self.live_cameras.values().flatten().cloned().collect();
+        let out = self.sub.offer_cameras(all);
+        self.send(out);
     }
 
     fn send(&mut self, out: Vec<protocol::Envelope>) {
@@ -578,7 +594,7 @@ impl Host {
                 }
             }
             Hit::Problem(i) => self.select_problem(i),
-            Hit::SessionToon(_) | Hit::SessionChapter(_) | Hit::SessionLabel | Hit::SessionCopy | Hit::SessionOpen => self.session_press(hit),
+            Hit::SessionToon(_) | Hit::SessionChapter(_) | Hit::SessionLabel | Hit::SessionCopy | Hit::SessionOpen | Hit::SessionCamera(_) => self.session_press(hit),
             Hit::Vote(v) => self.vote_press(v),
             Hit::Knob(k) => self.knob_press(k),
             Hit::Port(r, c, out, k) => self.port_press(r, c, out, k),
@@ -727,6 +743,8 @@ pub struct Script {
     pub linked: Vec<String>,
     /// with `--sheet session`, the live cameras a check run names (`ID=HOLDER`, `~` away; none: free)
     pub cameras: Vec<(String, Option<String>)>,
+    /// with `--sheet session`, the live camera picked in the list (its id): its own QR
+    pub camera_pick: Option<String>,
     /// the character the first reader joined with (the editor's rig)
     pub character: String,
     pub reader_place: Option<Place>,
@@ -898,6 +916,9 @@ impl Host {
                 None => {}
             },
             35 => {
+                if s.camera_pick.is_some() {
+                    self.session.camera.clone_from(&s.camera_pick);
+                }
                 if let Some(i) = s.role.as_ref().and_then(|id| deck_show::roles::roles(self.shown(), None).iter().position(|r| r.id == *id)) {
                     self.press(Hit::Role(i));
                 }

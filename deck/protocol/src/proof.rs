@@ -1,7 +1,7 @@
-//! A deck's proof for its live session (#478): the API's signed facts of this client (`GET /api/live/proof?session=<code>`:
+//! A client's proof for its live session (#478): the API's signed facts of this client (`GET /api/live/proof?session=<code>`:
 //! a signed-in reader's account roles, an approved deck), which the relay client puts in its `hello.proof`. The browser deck
-//! asks with its reader's sign-in, the native deck with its own token; where it asks and what the answer means is here, for
-//! both. Without a proof a deck joins as a guest, as before.
+//! and a reader's camera phone ask with the reader's sign-in, the native deck with its own token; where it asks and what the answer means is here, for
+//! each. Without a proof a client joins as a guest.
 use serde_json::Value;
 
 /// how long after an answer without a proof the deck asks again (a reader may sign in, a deck be paired), seconds

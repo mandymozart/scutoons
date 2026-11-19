@@ -88,6 +88,7 @@ impl View {
             lens: self.lens,
             aim: None,
             focus_on: None,
+            phones: None,
         }
     }
 
@@ -281,6 +282,11 @@ impl Director {
     pub fn interrupt(&mut self) {
         (self.run, self.hold, self.ended, self.on_beat) = (None, None, None, None);
         self.queue.clear();
+    }
+
+    /// a move plays now (not one waiting for its beat, nor a follow holding its subject after it)
+    pub fn moving(&self) -> bool {
+        self.run.is_some()
     }
 
     /// playing, waiting, queued or holding a subject

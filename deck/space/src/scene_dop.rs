@@ -1,6 +1,7 @@
 //! A scene's camera in an editor (the DOP panel): shots set from the view, the lens, the trolley track and its points,
 //! the named moves. Every change goes through `SceneEdit::change`: the core's checks refuse it in their words.
-use crate::scene_camera::{Ease, Length, Lens, MoveDef, MoveKind, MoveSpec, SceneCamera, ShotDef, Source, Track, TrackPoint};
+use crate::scene_camera::{Ease, Length, Lens, MoveDef, MoveKind, MoveSpec, Phones, SceneCamera, ShotDef, Source, Track, TrackPoint};
+use deck_ui::filter::{open_admits, Fact};
 use crate::scene_edit::SceneEdit;
 
 impl SceneEdit {
@@ -37,12 +38,12 @@ impl SceneEdit {
         Ok(at)
     }
 
-    /// shot `i` set to `view` – its id, label, aim and focus stay
+    /// shot `i` set to `view` – its id, label, aim, focus and phones stay
     pub fn set_shot(&mut self, i: usize, view: ShotDef) -> Result<(), String> {
         self.camera_change(|c| {
             let s = c.shots.get_mut(i).ok_or("no such shot")?;
             let lens = Lens { focus: s.lens.focus, ..view.lens };
-            *s = ShotDef { id: s.id.clone(), label: s.label.clone(), aim: s.aim.clone(), focus_on: s.focus_on.clone(), lens, ..view };
+            *s = ShotDef { id: s.id.clone(), label: s.label.clone(), aim: s.aim.clone(), focus_on: s.focus_on.clone(), phones: s.phones.clone(), lens, ..view };
             Ok(())
         })
     }
@@ -61,6 +62,26 @@ impl SceneEdit {
         self.camera_change(|c| {
             let s = c.shots.get_mut(i).ok_or("no such shot")?;
             s.focus_on = on.map(str::trim).filter(|a| !a.is_empty()).map(String::from);
+            Ok(())
+        })
+    }
+
+    /// phones may take shot `i`, or the primary camera (none), or no longer: opened to anyone with the code, or closed
+    pub fn set_phones(&mut self, shot: Option<usize>, open: bool) -> Result<(), String> {
+        self.camera_change(|c| {
+            *phones_of(c, shot)? = open.then(Phones::default);
+            Ok(())
+        })
+    }
+
+    /// one fact of who may take shot `i`'s camera (none: the primary camera) on or off – the one condition control, any one
+    /// fact; only the guest left is no filter, anyone with the code
+    pub fn phones_fact(&mut self, shot: Option<usize>, fact: &Fact) -> Result<(), String> {
+        self.camera_change(|c| {
+            let p = phones_of(c, shot)?.as_mut().ok_or("no phone takes this camera")?;
+            let mut a = p.admits.clone().unwrap_or_else(open_admits);
+            fact.flip_admits(&mut a);
+            p.admits = (a != open_admits()).then_some(a);
             Ok(())
         })
     }
@@ -212,6 +233,14 @@ impl SceneEdit {
     }
 }
 
+/// who may take shot `i`'s camera, or the primary camera's (none)
+fn phones_of(c: &mut SceneCamera, shot: Option<usize>) -> Result<&mut Option<Phones>, String> {
+    match shot {
+        Some(i) => Ok(&mut c.shots.get_mut(i).ok_or("no such shot")?.phones),
+        None => Ok(&mut c.phones),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::scene_camera::*;
@@ -220,7 +249,7 @@ mod tests {
     use crate::scene_resolve::{core_rigs, no_sets};
 
     fn view(yaw: f32) -> ShotDef {
-        ShotDef { id: String::new(), label: Default::default(), target: [0.0, 1.0, 0.0], yaw, pitch: 10.0, distance: 3.0, lens: Lens::default(), aim: None, focus_on: None }
+        ShotDef { id: String::new(), label: Default::default(), target: [0.0, 1.0, 0.0], yaw, pitch: 10.0, distance: 3.0, lens: Lens::default(), aim: None, focus_on: None, phones: None }
     }
 
     #[test]
@@ -268,5 +297,29 @@ mod tests {
         let played = e.resolved(&core_rigs, &no_sets).unwrap().scene;
         assert_eq!(played.camera, e.doc.camera, "the stage plays it");
         assert!(e.changed());
+    }
+
+    /// the DOP panel's access row: a phone may take the primary camera or a shot, who by the one condition control
+    #[test]
+    fn phones_are_let_take_a_camera_and_who_is_set_by_its_facts() {
+        use deck_ui::filter::Fact;
+        let mut doc = SceneDocument::new("duet", "Duet", vec!["catpope".into()]);
+        doc.recast(&["character:catpope".into()]);
+        let (mut e, _) = SceneEdit::open(doc, None, &core_rigs, &no_sets).unwrap();
+        e.add_shot(view(10.0)).unwrap();
+        assert!(e.phones_fact(None, &Fact::Account(protocol::Account::Member)).is_err(), "closed: nobody to admit");
+        e.set_phones(None, true).unwrap();
+        e.set_phones(Some(0), true).unwrap();
+        assert_eq!(e.camera().phones, Some(Phones::default()), "open to anyone with the code");
+        e.phones_fact(Some(0), &Fact::Account(protocol::Account::Member)).unwrap();
+        assert_eq!(e.camera().shots[0].phones.as_ref().and_then(|p| p.admits.as_ref()).and_then(|a| a.account.clone()), Some(vec![protocol::Account::Guest, protocol::Account::Member]));
+        e.phones_fact(Some(0), &Fact::Account(protocol::Account::Guest)).unwrap();
+        assert_eq!(e.camera().shots[0].phones.as_ref().and_then(|p| p.admits.as_ref()).and_then(|a| a.account.clone()), Some(vec![protocol::Account::Member]), "members only");
+        e.set_shot(0, view(30.0)).unwrap();
+        assert!(e.camera().shots[0].phones.is_some(), "set from the view: who may take it stays");
+        e.set_phones(None, false).unwrap();
+        assert_eq!(e.camera().phones, None);
+        let played = e.resolved(&core_rigs, &no_sets).unwrap().scene;
+        assert_eq!(played.camera, e.doc.camera, "the stage plays it");
     }
 }

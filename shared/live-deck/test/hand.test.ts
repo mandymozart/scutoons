@@ -122,3 +122,24 @@ test('a reader phone: its claim kept for the join, its hold from the relay\'s wo
 	phone.link.close();
 });
 
+test('a reader phone: its proof fetched with the sign-in before the first hello, which carries it', { skip: NO_CORE || false }, async () => {
+	const asked: { url: string; auth: string | null }[] = [];
+	const real = globalThis.fetch;
+	globalThis.fetch = (async (url: string, init?: RequestInit) => {
+		asked.push({ url, auth: new Headers(init?.headers).get('Authorization') });
+		return new Response(JSON.stringify({ proof: 'p.s', expires_in: 3600 }), { status: 200 });
+	}) as typeof fetch;
+	try {
+		const soon = { ...platform, setTimer: (f: () => void, ms: number) => (ms <= 0 ? (queueMicrotask(f), 0) : 0) };
+		const phone = new CameraLink({ ...soon, relay: 'ws://relay.test:7070/live/HQ7K2M', key: 'k-phone', core: await relayCore(), api: 'https://api.test/api', user: { bearer: 'tok' } });
+		for (let i = 0; i < 5; i++) await new Promise((r) => setTimeout(r, 0));
+		assert.deepEqual(asked, [{ url: 'https://api.test/api/live/proof?session=HQ7K2M', auth: 'Bearer tok' }]);
+		const ws = FakeSocket.last;
+		ws.open();
+		assert.equal(JSON.parse(ws.sent[0]).p.proof, 'p.s', 'the first hello waited for it');
+		phone.link.close();
+	} finally {
+		globalThis.fetch = real;
+	}
+});
+

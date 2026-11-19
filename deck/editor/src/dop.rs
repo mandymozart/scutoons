@@ -1,6 +1,7 @@
 //! Build's DOP panel: the scene's primary camera – its source, the lens (projection, the focal presets, a typed focal
 //! length, an orthographic view's height, the focus: at the aim, a distance or a subject), its shots (taken from the view, looked through), a move to preview or keep,
-//! the kept moves, the trolley track. The camera, its checks and the moves are the core's (deck-space scene_camera.rs,
+//! the kept moves, the trolley track, who may take it on a phone in a live session (the access row: the one condition
+//! control; its QR is in Perform's Session sheet). The camera, its checks and the moves are the core's (deck-space scene_camera.rs,
 //! scene_dop.rs, space/dop); here the panel is drawn and its presses go to the core.
 use crate::scene::SceneView;
 use deck_kit::base::draw::DrawList;
@@ -8,6 +9,7 @@ use deck_kit::base::tokens::Tokens;
 use deck_kit::editor::controls::{self, Rect};
 use deck_space::scene_camera::{fov_of, height_preset, Ease, EYE_HEIGHTS, Length, Lens, MoveKind, MoveSpec, Projection, Repeat, SceneCamera, Side, Source, Start, Turn, FOCAL_PRESETS, FOCUS_RANGE, MAX_ROUNDS, SIZE_RANGE};
 use deck_space::space::dop::View;
+use deck_ui::filter::Condition;
 
 pub const WIDTH: f32 = 340.0;
 /// how near (logical px) the focus marker is let go to a subject to focus on it
@@ -105,6 +107,10 @@ pub enum Field {
     PointUnit(Option<usize>),
     /// the ease of the way to the selected point: even (none), or `POINT_EASES[i]`
     PointEase(Option<usize>),
+    /// phones may take the selected shot's camera (none selected: the primary camera), or no longer
+    Phones(bool),
+    /// a chip of who may take it (the one condition control's fact `i`)
+    PhonesFact(usize),
     /// the camera's slot `i` (a module drops on it), its module taken off
     Slot(usize),
     Detach(usize),
@@ -234,6 +240,34 @@ fn focus_rows(d: &mut DrawList, t: &Tokens, a: Rect, y: &mut f32, view: &SceneVi
     }
 }
 
+/// who may take the selected shot's camera (none: the primary camera) on a phone, and its condition's chips
+pub fn phones_condition(cam: &SceneCamera, sel: &Sel) -> Option<Condition> {
+    let phones = match sel.shot {
+        Some(i) => cam.shots.get(i)?.phones.as_ref(),
+        None => cam.phones.as_ref(),
+    }?;
+    Some(Condition::admits(phones.admits.as_ref(), &[]))
+}
+
+/// The access row (LIVE-CAMERAS.md §4): whether a phone may take this camera in a live session, who (the one condition
+/// control, any one fact) and its id the show and the QR name.
+fn phones_rows(d: &mut DrawList, t: &Tokens, a: Rect, y: &mut f32, cam: &SceneCamera, sel: &Sel, out: &mut Vec<(Rect, Field)>) {
+    let shot = sel.shot.and_then(|i| cam.shots.get(i));
+    let whose = shot.map_or("PHONES · THE CAMERA".to_string(), |s| format!("PHONES · {}", s.id.to_uppercase()));
+    *y += controls::section(d, t, a.x, *y, a.w, &whose, false);
+    let c = phones_condition(cam, sel);
+    pills_row(d, t, a, y, &["No phone", "Phones may take it"], usize::from(c.is_some()), &[Field::Phones(false), Field::Phones(true)], out);
+    if let Some(c) = c {
+        let (names, on) = c.chips();
+        caption(d, t, a, y, &format!("who: {}", c.words));
+        let (rects, used) = controls::chips(d, t, (a.x, *y, a.w), &names, &on);
+        out.extend(rects.into_iter().enumerate().map(|(i, r)| (r, Field::PhonesFact(i))));
+        *y += used + 6.0;
+        let id = shot.map_or_else(|| "scene:<this> ".to_string(), |s| format!("scene:<this> > shot:{}", s.id));
+        caption(d, t, a, y, &format!("{} · its QR: Perform › Session", id.trim()));
+    }
+}
+
 /// The panel; where its fields landed.
 pub fn draw(d: &mut DrawList, t: &Tokens, a: Rect, view: &SceneView, playing: Playing, hot: Option<Num>) -> Vec<(Rect, Field)> {
     let mut out = Vec::new();
@@ -305,6 +339,8 @@ pub fn draw(d: &mut DrawList, t: &Tokens, a: Rect, view: &SceneView, playing: Pl
         out.extend(rects.into_iter().enumerate().map(|(i, r)| (r, Field::Aim(i.checked_sub(1)))));
         y += used + 6.0;
     }
+
+    phones_rows(d, t, a, &mut y, &cam, sel, &mut out);
 
     y += controls::section(d, t, a.x, y, a.w, "MOVE", false);
     let s = &sel.draft;
@@ -495,6 +531,17 @@ impl crate::App {
                 self.begin_edit(crate::Editing::Height, crate::Hit::Dop(Field::HeightTyped), crate::number(now));
             }
             Field::Scrub(_) => {}
+            Field::Phones(open) => {
+                let done = view.edit.set_phones(shot, open);
+                let whose = shot.and_then(|i| cam.shots.get(i)).map_or("the camera".to_string(), |s| s.id.clone());
+                self.dop_done(done, format!("{whose}: {}", if open { "phones may take it – anyone with the code" } else { "no phone takes it" }), x, y);
+            }
+            Field::PhonesFact(i) => {
+                let Some(fact) = phones_condition(&cam, sel).and_then(|c| c.fact(i)) else { return };
+                let done = view.edit.phones_fact(shot, &fact);
+                let words = phones_condition(&view.edit.camera(), &view.dop).map(|c| c.words).unwrap_or_default();
+                self.dop_done(done, format!("phones: {words}"), x, y);
+            }
             Field::Shot(i) => {
                 sel.shot = Some(i);
                 if let Some(id) = cam.shots.get(i).map(|s| s.id.clone()) {
@@ -739,7 +786,8 @@ impl crate::App {
     }
 
     /// A check run's camera (`--dop shots+track+preview`): three shots around the view (the second a long lens, the third
-    /// isometric), a track with a point between that is selected, a spiral previewed to the second shot.
+    /// isometric), a track with a point between that is selected, a spiral previewed to the second shot; `phones` opens the
+    /// camera and the second shot to phones.
     pub(crate) fn script_dop(&mut self) {
         let Some(spec) = self.args.dop.clone() else { return };
         let (x, y) = self.cursor;
@@ -774,6 +822,15 @@ impl crate::App {
                     }
                 }
                 self.dop_done(Ok(()), "a trolley track".into(), x, y);
+            }
+            // `phones`: the primary camera open to anyone with the code, the second shot to members only, selected
+            81 if spec.contains("phones") => {
+                let Some(view) = self.scene.as_mut() else { return };
+                let member = deck_ui::filter::Fact::Account(protocol::Account::Member);
+                let guest = deck_ui::filter::Fact::Account(protocol::Account::Guest);
+                let done = view.edit.set_phones(None, true).and(view.edit.set_phones(Some(1), true)).and(view.edit.phones_fact(Some(1), &member)).and(view.edit.phones_fact(Some(1), &guest));
+                view.dop.shot = Some(1);
+                self.dop_done(done, "phones: the camera, and shot2 for members".into(), x, y);
             }
             82 if spec.contains("wide") => {
                 let c = &mut self.stage.space.camera;
@@ -881,6 +938,12 @@ mod tests {
         let f = fields(&mut d, &view);
         assert!(f.contains(&Field::SetShot) && f.contains(&Field::Scrub(Num::Rounds)) && f.contains(&Field::Turn(Turn::Right)));
         assert!(d.texts().iter().any(|s| s.contains("85 mm")), "a typed focal length shows on its own segment");
+        // the access row: closed, then open – who may take it as the one condition control's chips
+        assert!(f.contains(&Field::Phones(true)) && !f.contains(&Field::PhonesFact(0)));
+        view.edit.set_phones(Some(i), true).unwrap();
+        let f = fields(&mut d, &view);
+        assert!(f.contains(&Field::PhonesFact(1)) && d.texts().iter().any(|s| s.contains("who: guest and up")) && d.texts().iter().any(|s| s.contains("> shot:shot1")));
+        view.edit.set_phones(Some(i), false).unwrap();
         view.dop.aims = vec!["character:catpope".into(), "spot:altar".into()];
         let f = fields(&mut d, &view);
         assert!(f.contains(&Field::FocusAim) && f.contains(&Field::FocusOn(0)) && !f.contains(&Field::FocusOn(1)), "a subject to focus on, no spot");

@@ -267,6 +267,8 @@ pub struct CastLink {
     changed: bool,
     /// what the cast's words did, for the host's log, until it reads them
     said: Vec<String>,
+    /// what came of the session's live cameras, for the host's space (`Space::held`), until it takes them
+    held: Vec<crate::live_cameras::Held>,
 }
 
 impl CastLink {
@@ -280,7 +282,7 @@ impl CastLink {
         let mut o = Options::new(relay, protocol::Role::Musician, Some(DECKS));
         o.nick = Some(nick.to_string()).filter(|n| !n.trim().is_empty());
         o.device = Some(device.to_string()).filter(|d| !d.is_empty());
-        Some(Client::new(o).map(|relay| CastLink { relay, cast: None, now: 0.0, changed: false, said: Vec::new() }))
+        Some(Client::new(o).map(|relay| CastLink { relay, cast: None, now: 0.0, changed: false, said: Vec::new(), held: Vec::new() }))
     }
 
     /// the relay client, for a call of the host's socket at its clock `now` (ms)
@@ -328,6 +330,7 @@ impl CastLink {
         for o in self.relay.take() {
             match o {
                 Out::Deck(came @ (In::Address { .. } | In::Story(_))) => self.came(came),
+                Out::Deck(In::Held(h)) => self.held.push(h),
                 Out::Deck(_) => {}
                 o => out.push(o),
             }
@@ -354,6 +357,11 @@ impl CastLink {
     /// what the cast's words did since the host last asked, for its log
     pub fn said(&mut self) -> Vec<String> {
         std::mem::take(&mut self.said)
+    }
+
+    /// what came of the session's live cameras since the host last asked, for its space (`Space::held`)
+    pub fn held(&mut self) -> Vec<crate::live_cameras::Held> {
+        std::mem::take(&mut self.held)
     }
 }
 

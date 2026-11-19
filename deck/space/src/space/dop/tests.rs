@@ -2,7 +2,7 @@ use super::*;
 use crate::scene_camera::{Ease, Length, MoveDef, Repeat, Track, TrackPoint, Turn};
 
 fn shot(id: &str, target: [f32; 3], yaw: f32, pitch: f32, distance: f32, lens: Lens) -> ShotDef {
-    ShotDef { id: id.into(), label: Default::default(), target, yaw, pitch, distance, lens, aim: None, focus_on: None }
+    ShotDef { id: id.into(), label: Default::default(), target, yaw, pitch, distance, lens, aim: None, focus_on: None, phones: None }
 }
 
 fn camera() -> SceneCamera {
@@ -732,4 +732,59 @@ fn a_move_s_focus_is_the_lens_s_else_the_aim_s() {
     assert_eq!(end.lens.focus, None, "none: at the aim");
     assert!(close.iter().all(|v| v.focus() <= 9.0 + 1e-4 && v.focus() >= end.distance - 1e-4), "it travels between them");
     assert!(close.windows(2).all(|w| (w[1].focus() - w[0].focus()).abs() < 0.5), "no jump");
+}
+
+/// LIVE-CAMERAS.md §6: a phone holding a shot of this deck's scene steers the picture from that shot's view; another
+/// scene's camera is not its own; a move played meanwhile plays over the phone, then the phone goes on from where it ended
+/// ([delegated]); free again, the deck's own camera
+#[test]
+fn a_held_camera_steers_the_deck_and_a_move_plays_over_it() {
+    use crate::live_cameras::Held;
+    use crate::scene_document::SceneDocument;
+    use crate::scene_resolve::{core_rigs, no_sets, resolve};
+    use crate::space::portrait::Portraits;
+    use crate::space::values::Table;
+    use protocol::HandPose;
+    let mut cam = camera();
+    cam.moves.push(MoveDef { id: "push".into(), to: "wide".into(), spec: MoveSpec { length: Length::Seconds(0.5), ..MoveSpec::of(MoveKind::Glide) }, then: None });
+    let mut doc = SceneDocument::new("duet", "Duet", vec!["catpope".into()]);
+    doc.recast(&["character:catpope".into()]);
+    doc.camera = Some(cam);
+    let scene = resolve(&doc, &Default::default(), true, &core_rigs, &no_sets).unwrap().scene;
+    let g = crate::graph::Graph::build(&scene).unwrap();
+    let mut s = crate::space::Space::new(&g, g.first(crate::graph::Kind::Space).unwrap(), &scene.being, std::path::Path::new("/nowhere"), Portraits::manual());
+    s.set_view(1280.0, 720.0);
+    s.set_camera(Some("scene:duet"), scene.camera.clone());
+    let mut ctl = Table::new(&g);
+    let mut t = 0.0;
+    let mut run = |s: &mut crate::space::Space, frames: usize| {
+        for _ in 0..frames {
+            t += 1.0 / 60.0;
+            s.update(1.0 / 60.0, t, &mut ctl, &crate::tempo::Now::default(), &|_, _| 0.0);
+        }
+    };
+    run(&mut s, 5);
+    let pose = |t: f64, p: [f64; 3]| HandPose { t, p: p.to_vec(), q: vec![0.0, 0.0, 0.0, 1.0] };
+    s.held(Held::Pose { camera: "scene:crypt".into(), pose: pose(1.0, [0.0, 0.0, 0.0]) });
+    assert_eq!(s.held_camera(), None, "another scene's camera");
+    s.held(Held::Holder { camera: "scene:duet > shot:close".into(), holder: Some("c4".into()) });
+    s.held(Held::Pose { camera: "scene:duet > shot:close".into(), pose: pose(1.0, [0.0, 0.0, 0.0]) });
+    run(&mut s, 30);
+    let close = View::of_shot(&camera().shots[1]);
+    assert!(s.camera.eye().distance(close.eye()) < 1e-3, "from the shot's view: {} vs {}", s.camera.eye(), close.eye());
+    s.held(Held::Pose { camera: "scene:duet".into(), pose: pose(2.0, [5.0, 0.0, 0.0]) });
+    run(&mut s, 30);
+    assert!(s.camera.eye().distance(close.eye()) < 1e-3, "one held camera at a time");
+    s.held(Held::Pose { camera: "scene:duet > shot:close".into(), pose: pose(2.0, [1.0, 0.0, 0.0]) });
+    run(&mut s, 30);
+    assert!((s.camera.eye().distance(close.eye()) - 1.0).abs() < 1e-3, "a metre stepped is a metre moved: {}", s.camera.eye());
+    assert!(s.camera_word("scene:duet", "move:push"));
+    run(&mut s, 60);
+    let wide = View::of_shot(&camera().shots[0]);
+    assert!(s.camera.eye().distance(wide.eye()) < 1e-2, "the move played over the phone to its end: {} vs {}", s.camera.eye(), wide.eye());
+    s.held(Held::Pose { camera: "scene:duet > shot:close".into(), pose: pose(3.0, [1.0, 0.0, 0.0]) });
+    run(&mut s, 30);
+    assert!(s.camera.eye().distance(wide.eye()) < 1e-2, "handed back: the phone goes on from there, nothing jumps: {}", s.camera.eye());
+    s.held(Held::Holder { camera: "scene:duet > shot:close".into(), holder: None });
+    assert!(s.held.is_none() && s.held_camera().is_none(), "free: the deck's own camera");
 }

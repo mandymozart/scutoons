@@ -782,6 +782,28 @@
       ],
       "type": "object"
     },
+    "Phones": {
+      "additionalProperties": false,
+      "description": "Who may take a camera on a phone (LIVE-CAMERAS.md §4, §5): the one condition control's filter (any one fact; none:\nanyone with the code) and the time without a pose before it returns (none: only Leave, a take-over or the conductor).",
+      "properties": {
+        "for": {
+          "additionalProperties": true,
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "release_ms": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
     "Projection": {
       "oneOf": [
         {
@@ -861,6 +883,17 @@
             "$ref": "#/definitions/MoveDef"
           },
           "type": "array"
+        },
+        "phones": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Phones"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "a phone in a live session may take the primary camera (`scene:<id>`)"
         },
         "shot": {
           "description": "its shots; the first opens the scene",
@@ -970,6 +1003,17 @@
             "projection": "perspective",
             "size": 4.0
           }
+        },
+        "phones": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Phones"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "a phone in a live session may take this shot as a camera of its own (`scene:<id> > shot:<id>`)"
         },
         "pitch": {
           "description": "degrees above the aim",

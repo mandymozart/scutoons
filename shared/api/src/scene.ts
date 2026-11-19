@@ -189,6 +189,12 @@ export type NodeDef = {
 	[key: string]: unknown;
 };
 
+/** Who may take a camera on a phone (LIVE-CAMERAS.md §4, §5): the one condition control's filter (any one fact; none: anyone with the code) and the time without a pose before it returns (none: only Leave, a take-over or the conductor). */
+export type Phones = {
+	for?: Record<string, unknown> | null;
+	release_ms?: number | null;
+};
+
 export type Projection = 'perspective' | 'orthographic';
 
 /** What a move does once it arrived: stays, runs again from its start, or runs back and forth – until another move, a cut, a hand on the view or the row's end. A move in beats or bars repeats on the bar line. */
@@ -211,6 +217,8 @@ export type SceneCamera = {
 	/** the modules on its slots (deck-catalog `slot`: `motion`, on top of its shots and moves) */
 	module?: Attach[];
 	move?: MoveDef[];
+	/** a phone in a live session may take the primary camera (`scene:<id>`) */
+	phones?: Phones | null;
 	/** its shots; the first opens the scene */
 	shot?: ShotDef[];
 	source?: Source;
@@ -239,6 +247,8 @@ export type ShotDef = {
 	id: string;
 	label?: Record<string, string>;
 	lens?: Lens;
+	/** a phone in a live session may take this shot as a camera of its own (`scene:<id> > shot:<id>`) */
+	phones?: Phones | null;
 	/** degrees above the aim */
 	pitch: number;
 	/** where it aims (m, the set's space) */
