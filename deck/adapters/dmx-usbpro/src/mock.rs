@@ -22,6 +22,8 @@ pub struct State {
     pub silent: bool,
     /// How often the port was opened.
     pub opens: usize,
+    /// How many writes failed because it was unplugged.
+    pub failed_writes: usize,
     /// What stamps the frames (the adapter's virtual clock in this crate's tests, #639); `None` = real time.
     pub(crate) clock: Option<Arc<dyn Clock>>,
     decoder: Decoder,
@@ -77,6 +79,7 @@ impl Write for Port {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         let mut s = self.0 .0.lock().unwrap();
         if s.unplugged {
+            s.failed_writes += 1;
             return Err(io::Error::new(io::ErrorKind::BrokenPipe, "mock: device disconnected"));
         }
         for (label, data) in s.decoder.push(buf) {

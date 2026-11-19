@@ -134,7 +134,12 @@ fn missing_at_start_then_pulled_and_back() {
     // pulled: the next write fails; a value set meanwhile is kept; plugged again → one frame with both
     widget.set_unplugged(true);
     a.send(&dmx(6, &[88], None)).unwrap();
-    std::thread::sleep(Duration::from_millis(100));
+    // plugged again only once the adapter has seen the write fail (a fixed sleep raced it on a loaded machine, #639)
+    let end = Instant::now() + PATIENCE;
+    while widget.0.lock().unwrap().failed_writes == 0 {
+        assert!(Instant::now() < end, "the write to the pulled widget never came");
+        std::thread::sleep(Duration::from_millis(2));
+    }
     widget.set_unplugged(false);
     assert!(widget.wait_frame(PATIENCE, |f| f[4] == 77 && f[5] == 88).is_some());
     assert_eq!(widget.0.lock().unwrap().opens, 2);
