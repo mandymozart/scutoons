@@ -13,7 +13,7 @@ use deck_space::scene_document::SceneDocument;
 use std::collections::HashMap;
 
 /// the cell inspector's button, Build's two buttons while it is linked
-pub const OPEN: &str = "open in Build";
+pub const OPEN: &str = "open in a tab";
 pub const TO_CELL: &str = "values → cell";
 pub const BACK: &str = "back to Show";
 
@@ -67,13 +67,13 @@ impl Host {
     /// The selected cell's piece for Build, and the link kept.
     pub fn open_in_build(&mut self) -> Result<ToBuild, String> {
         let (Some(row), Some(column)) = self.selected() else { return Err("select a cell first".into()) };
-        let piece = rows::cell_inspector(self.shown(), &row, &column).and_then(|i| i.knobs_of).ok_or("the cell plays no piece – nothing to open in Build")?;
+        let piece = rows::cell_inspector(self.shown(), &row, &column).and_then(|i| i.knobs_of).ok_or("the cell plays no piece – nothing to open")?;
         let link = |place: String, prefix: String| BuildLink { row: row.clone(), column: column.clone(), piece: piece.clone(), place, prefix };
         let opened = match deck_space::published::SceneRef::parse(&piece) {
             Some(_) => {
                 let open = self.scene_for_build(&piece)?;
                 self.build = Some(link(piece.clone(), String::new()));
-                self.status = format!("{}: open in Build", self.build_line().unwrap_or_default());
+                self.status = format!("{}: open in a tab", self.build_line().unwrap_or_default());
                 return Ok(ToBuild::Scene(Box::new(open)));
             }
             None => match holders::opened(&piece, |p| super::values::rig_file(self.knobs.rigs.as_deref(), p)) {
@@ -93,7 +93,7 @@ impl Host {
             _ => Vec::new(),
         };
         self.build = Some(link(opened.place.clone(), opened.prefix.clone()));
-        self.status = format!("{}: open in Build", self.build_line().unwrap_or_default());
+        self.status = format!("{}: open in a tab", self.build_line().unwrap_or_default());
         Ok(ToBuild::Play(Box::new(opened), set))
     }
 
@@ -131,7 +131,7 @@ impl Host {
         match self.scene_for_build(piece) {
             Ok(open) => {
                 self.build = None;
-                self.status = format!("{piece}: open in Build");
+                self.status = format!("{piece}: open in a tab");
                 self.to_build = Some(ToBuild::Scene(Box::new(open)));
             }
             Err(why) => self.refuse(why),
@@ -173,7 +173,7 @@ impl Host {
     /// was written; the status says what.
     pub fn values_to_cell(&mut self, positions: &[(String, f32)]) -> bool {
         let Some(l) = self.build.clone() else {
-            self.refuse("Build is not linked to a cell – open one from Show's cell inspector".into());
+            self.refuse("No tab is linked to a cell – open one from Show's cell inspector".into());
             return false;
         };
         let read = match self.knobs.get(&l.piece) {
@@ -189,12 +189,12 @@ impl Host {
         };
         let (taken, left) = values::from_build(positions, &l.prefix, &read.knobs);
         if taken.is_empty() {
-            self.refuse(format!("none of Build's knobs turns a knob of {}", l.piece));
+            self.refuse(format!("none of the tab's knobs turns a knob of {}", l.piece));
             return false;
         }
         let done = self.edit_rows_with(&Edit::Take { row: l.row, column: l.column, positions: taken }, Some(&read.knobs));
         if done && left > 0 {
-            self.status = format!("{} ({left} of Build's knobs are not the piece's)", self.status);
+            self.status = format!("{} ({left} of the tab's knobs are not the piece's)", self.status);
         }
         done
     }
@@ -273,11 +273,11 @@ mod tests {
         assert_eq!(opened.bundle.rig.subject, "character.keys");
         assert_eq!(set, [("tone_osc.freq".to_string(), 440.0)], "Build starts from the cell's values");
         assert_eq!(host.build_line().as_deref(), Some("row 2 together · left"));
-        assert_eq!(host.status, "row 2 together · left: open in Build");
+        assert_eq!(host.status, "row 2 together · left: open in a tab");
         // Build turned the keys: their gain and pitch go back, a knob the piece lacks is counted
         let positions = [("tone_osc.gain".to_string(), 0.65), ("tone_osc.freq".to_string(), 523.0), ("far_in.x".to_string(), 0.0)];
         assert!(host.values_to_cell(&positions), "{}", host.status);
-        assert!(host.status.starts_with("row 2 together, left: took 2 knobs") && host.status.ends_with("(1 of Build's knobs are not the piece's)"), "{}", host.status);
+        assert!(host.status.starts_with("row 2 together, left: took 2 knobs") && host.status.ends_with("(1 of the tab's knobs are not the piece's)"), "{}", host.status);
         let Some(deck_show::Cell::Values { values, .. }) = host.shown().row("together").unwrap().cells.get("left") else { panic!() };
         assert_eq!(values.get("tone:osc.freq").and_then(|v| v.as_f64()), Some(523.0));
         assert!(!host.values_to_cell(&[("tone_osc.freq".to_string(), 9000.0)]), "out of range");
@@ -287,7 +287,7 @@ mod tests {
         assert!(host.open_in_build().is_err());
         host.build = None;
         assert!(!host.values_to_cell(&positions));
-        assert!(host.status.starts_with("Build is not linked"));
+        assert!(host.status.starts_with("No tab is linked"));
     }
 
     /// the scene sheet's "Build" hands Build the sheet's document on its version; one the core refuses stays in the sheet
@@ -303,7 +303,7 @@ mod tests {
         host.compose_press(ComposeHit::Build);
         let Some(ToBuild::Scene(open)) = host.to_build.take() else { panic!("{}", host.status) };
         assert_eq!((open.doc.id.as_str(), open.doc.cast(), open.base), ("duet", vec!["character:catpope"], Some(5)));
-        assert_eq!(host.status, "scene:duet: open in Build");
+        assert_eq!(host.status, "scene:duet: open in a tab");
     }
 
     /// Against a running API (`DECK_TEST_API`, the test user's token in `SCUTOONS_TOKEN`; skipped without): a scene made in

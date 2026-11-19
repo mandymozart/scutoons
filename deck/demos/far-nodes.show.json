@@ -5,7 +5,7 @@
   "outlets": [{ "id": "left" }, { "id": "middle" }, { "id": "right" }],
   "rows": [
     {
-      "id": "try: left cell › Open in Build › add a far node › back to Show",
+      "id": "try: left cell › Open in a tab › add a far node › back to Show",
       "cells": {
         "left": { "mode": "play", "piece": "character:keys", "values": { "tone:osc.gain": 0.3 } },
         "middle": { "mode": "play", "piece": "item:incense_burner" }
@@ -20,7 +20,7 @@
       }
     },
     {
-      "id": "bells alone – in Build try the Audio tab: map and tones",
+      "id": "bells alone – in its tab try the Audio panel: map and tones",
       "fire": { "event": "far.end", "how": "manual" },
       "cells": { "left": { "mode": "black" }, "middle": { "mode": "black" } }
     }

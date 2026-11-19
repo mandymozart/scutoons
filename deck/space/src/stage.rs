@@ -93,6 +93,8 @@ pub struct Over<'a> {
     pub splash: (f32, bool),
     /// the build label centred at the top (a page keeps its own buttons in the corners), else top right
     pub label_centred: bool,
+    /// no build label: the host shows the build itself (the editor's toolbar over its idle stage)
+    pub label_hidden: bool,
     /// #478: where the full HUD is drawn (`hud::page_rect`: the browser's Live page); None = top left (`hud::rect`)
     pub hud_at: Option<[f32; 4]>,
 }
@@ -756,10 +758,12 @@ impl Stage {
         // #386 #481: the deck's menu and its panel (deck-kit's egui screen), over the splash, under the build label
         self.ui.draw(&mut rp);
         // #423: the build label in the top right corner – over everything, in every scene and HUD mode (deck-ui places it)
-        let [x, y, w, h] = deck_ui::label_rect(sw, sh, hud::label_scale(sw, sh), self.label_size.0, self.label_size.1);
-        let x = if over.label_centred { (sw - w) / 2.0 } else { x };
-        rp.set_viewport(x, y, w, h, 0.0, 1.0);
-        draw(&mut rp, &self.label_pass);
+        if !over.label_hidden {
+            let [x, y, w, h] = deck_ui::label_rect(sw, sh, hud::label_scale(sw, sh), self.label_size.0, self.label_size.1);
+            let x = if over.label_centred { (sw - w) / 2.0 } else { x };
+            rp.set_viewport(x, y, w, h, 0.0, 1.0);
+            draw(&mut rp, &self.label_pass);
+        }
     }
 
     /// the frame's offscreen passes: the chapters' cuts, the uniforms, every node's pass

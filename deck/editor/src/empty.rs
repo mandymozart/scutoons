@@ -1,6 +1,6 @@
 //! Build for a character without a rig: its empty rig plays nothing (the core's, `Bundle::empty`), and the inspector
 //! offers the two ways to start one – tracks from the catalog's modules and instruments (Add, adding.rs), or a new module
-//! for the character in the Module workspace. Save then makes `rig:<subject>` a draft like any rig's.
+//! for the character in an Asset tab of its own. Save then makes `rig:<subject>` a draft like any rig's.
 use deck_kit::base::draw::DrawList;
 use deck_kit::base::tokens::Tokens;
 use deck_kit::editor::controls::{self, Rect};
@@ -71,7 +71,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, b: &Bundle) -> Vec<(Rect, 
 }
 
 impl crate::App {
-    /// a way chosen: Add at the rig with the catalog's modules, or the character's new module in the Module workspace
+    /// a way chosen: Add at the rig with the catalog's modules, or the character's new module in a tab of its own
     pub(crate) fn start_rig(&mut self, way: Way, x: f32, y: f32) {
         match way {
             Way::Modules => {
@@ -90,15 +90,16 @@ impl crate::App {
             Way::NewModule => {
                 let Some(c) = character(&self.stage.bundle).map(str::to_string) else { return self.refuse("only a character's rig gets a module of its own".into(), x, y) };
                 let (key, content) = new_module(&c);
-                self.module.create(&key, content);
+                self.adopt(crate::tab_view::NEW_MODULE, "new module");
                 self.workspace = crate::show::Workspace::Module;
+                self.module.create(&key, content);
             }
         }
     }
 }
 
 /// `text` in lines of at most `room` characters, broken between words
-fn wrap(text: &str, room: usize) -> Vec<String> {
+pub(crate) fn wrap(text: &str, room: usize) -> Vec<String> {
     let mut out = vec![String::new()];
     for w in text.split(' ') {
         let line = out.last_mut().expect("one line");

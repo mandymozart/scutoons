@@ -67,6 +67,11 @@ pub const ICONS: &[(&str, &str)] = &[
     ("stop-fill", r##"<rect fill="#fff" x="5" y="5" width="14" height="14" rx="1"></rect>"##),
     ("bolt-fill", r##"<polygon fill="#fff" points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>"##),
     ("bolt", r#"<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>"#),
+    // the editor's tabs: Home, and the kinds of what a tab holds
+    ("home", r#"<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline>"#),
+    ("map", r#"<polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon><line x1="8" y1="2" x2="8" y2="18"></line><line x1="16" y1="6" x2="16" y2="22"></line>"#),
+    ("user", r#"<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle>"#),
+    ("smile", r#"<circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line>"#),
 ];
 
 /// is there an icon of this name
@@ -80,7 +85,7 @@ mod tests {
 
     #[test]
     fn the_ones_the_editor_uses_are_there() {
-        for name in ["up", "down", "next", "close", "play-fill", "stop-fill", "grip", "menu", "info", "account", "tool", "pointer", "maximize", "square", "window-min", "window-max", "window-restore"] {
+        for name in ["up", "down", "next", "close", "play-fill", "stop-fill", "grip", "menu", "info", "account", "tool", "pointer", "maximize", "square", "window-min", "window-max", "window-restore", "home", "map", "user", "package", "smile", "code", "video", "list"] {
             assert!(has(name), "{name}");
         }
     }

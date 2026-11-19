@@ -28,7 +28,7 @@ impl App {
     pub(crate) fn state_words(&self) -> Vec<Word> {
         let mut words: Vec<Word> = Vec::new();
         match self.workspace {
-            show::Workspace::Build => {
+            show::Workspace::Stage => {
                 if let Some(v) = &self.scene {
                     words.push((v.title(), None));
                 }
@@ -40,7 +40,7 @@ impl App {
                     words.push((format!("{n} change{}", if n == 1 { "" } else { "s" }), None));
                 }
             }
-            show::Workspace::Module => {
+            show::Workspace::Module | show::Workspace::Home => {
                 if !self.stage.audio.is_empty() {
                     words.push((self.stage.audio.clone(), None));
                 }

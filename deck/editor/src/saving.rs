@@ -36,12 +36,12 @@ impl crate::App {
     pub(crate) fn save_now(&mut self) {
         let now = Instant::now();
         match self.workspace {
-            show::Workspace::Build if self.scene.is_some() => {
+            show::Workspace::Stage if self.scene.is_some() => {
                 if self.scene.as_ref().is_some_and(|v| v.auto.now()) {
                     self.scene_save(now);
                 }
             }
-            show::Workspace::Build => {
+            show::Workspace::Stage => {
                 if self.rigs.saves() && self.rigs.auto.now() {
                     self.rigs.save(&self.stage.base, &self.stage.bundle, now);
                 }
@@ -88,13 +88,13 @@ impl crate::App {
     /// the toolbar pill's words for what the workspace edits; none where nothing saves itself
     pub(crate) fn save_pill(&self) -> Option<String> {
         match self.workspace {
-            show::Workspace::Build => match &self.scene {
+            show::Workspace::Stage => match &self.scene {
                 Some(v) => Some(v.auto.pill()),
                 None => self.rigs.saves().then(|| self.rigs.auto.pill()),
             },
             show::Workspace::Module => self.module.open.as_ref().map(|_| self.module.auto.pill()),
             show::Workspace::Show => Some(self.show.save_pill()),
-            show::Workspace::Perform => None,
+            show::Workspace::Perform | show::Workspace::Home => None,
         }
     }
 

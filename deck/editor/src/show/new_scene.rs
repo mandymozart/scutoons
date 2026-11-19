@@ -21,8 +21,8 @@ use std::sync::Arc;
 
 /// the scene list's button, the sheet's buttons
 pub const NEW: &str = "new scene";
-const BUTTONS: [(&str, ComposeHit); 4] = [("Load", ComposeHit::Load), ("Play", ComposeHit::Play), ("Build", ComposeHit::Build), ("Close", ComposeHit::Close)];
-const NO_RIGS: &str = "the toon's rigs come from the server: sign in, or wait for Build's list";
+const BUTTONS: [(&str, ComposeHit); 4] = [("Load", ComposeHit::Load), ("Play", ComposeHit::Play), ("Open", ComposeHit::Build), ("Close", ComposeHit::Close)];
+const NO_RIGS: &str = "the toon's rigs come from the server: sign in, or wait for the rigs' list";
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ComposeHit {
@@ -250,7 +250,7 @@ impl Host {
             self.refuse(format!("not opened: {}", problems.join("; ")));
             return;
         }
-        self.status = format!("scene:{}: open in Build", doc.id);
+        self.status = format!("scene:{}: open in a tab", doc.id);
         self.to_build = Some(super::build::ToBuild::Scene(Box::new(super::build::SceneOpen { doc, base: self.compose.base, kept: None, note: None, save: None })));
         self.build = None;
         self.sheet = None;

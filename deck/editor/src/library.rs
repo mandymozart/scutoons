@@ -355,11 +355,11 @@ impl crate::App {
         use crate::show::Workspace;
         self.library.poll();
         let purpose = match self.workspace {
-            Workspace::Build if self.scene.as_ref().is_some_and(|v| v.inside.is_none()) => Purpose::Scene,
-            Workspace::Build => Purpose::Build,
+            Workspace::Stage if self.scene.as_ref().is_some_and(|v| v.inside.is_none()) => Purpose::Scene,
+            Workspace::Stage => Purpose::Build,
             Workspace::Module => Purpose::Module,
             Workspace::Show => Purpose::Show,
-            Workspace::Perform => {
+            Workspace::Perform | Workspace::Home => {
                 self.show.carrying = false;
                 return;
             }
@@ -389,22 +389,15 @@ impl crate::App {
             }
         }
         let key = match self.workspace {
-            Workspace::Build => playing_key(rig.as_deref(), None),
+            Workspace::Stage => playing_key(rig.as_deref(), None),
             Workspace::Module => playing_key(None, self.module.open.as_ref().filter(|_| self.module.heard).map(|o| o.id.as_str())),
             // a Show scene on the stage: its still is the node's preview
             Workspace::Show => self.stage.scene.as_ref().map(|id| format!("scene:{id}")),
-            Workspace::Perform => None,
+            Workspace::Perform | Workspace::Home => None,
         };
         if self.library.playing(key, self.frames) {
             self.stage.ask_still();
         }
-    }
-
-    fn library_go(&mut self, w: crate::show::Workspace) {
-        if self.workspace == crate::show::Workspace::Module && w != crate::show::Workspace::Module {
-            self.module.leave(&mut self.stage);
-        }
-        self.workspace = w;
     }
 
     pub(crate) fn library_did(&mut self, did: Did) {
@@ -431,24 +424,12 @@ impl crate::App {
         }
     }
 
-    /// an entry opened in its editor view: a module in Module, a scene or a character's rig in Build
+    /// an entry opened in its tab: a scene in a Scene tab, a character's rig or a module in an Asset tab
     fn library_open_entry(&mut self, i: usize) {
         let Some(e) = self.library.entries.get(i).cloned() else { return };
-        let (x, y) = self.cursor;
         match e.kind {
-            Kind::Module => {
-                self.library_open = e.address.strip_prefix("module:").map(String::from);
-                self.library_go(crate::show::Workspace::Module);
-            }
-            Kind::Scene => self.show.open_scene(&e.address),
-            Kind::Character => {
-                self.leave_view();
-                self.library_go(crate::show::Workspace::Build);
-                if let Err(err) = self.rigs.open(&e.address.replacen(':', ".", 1)) {
-                    self.refuse(err, x, y);
-                }
-            }
-            _ => self.note(format!("{} has no editor view here", e.label)),
+            Kind::Module | Kind::Scene | Kind::Character => self.open_item(&e.address, &e.label),
+            _ => self.note(format!("{} has no Asset view yet", e.label)),
         }
     }
 
@@ -466,13 +447,13 @@ impl crate::App {
             crate::show::Workspace::Show => {
                 self.show.drop_piece(&e.address, at.0, at.1);
             }
-            crate::show::Workspace::Build if self.library.purpose == Purpose::Scene && e.kind == Kind::Module => self.module_drop(&e.address, at.0, at.1),
-            crate::show::Workspace::Build if self.library.purpose == Purpose::Scene => {
+            crate::show::Workspace::Stage if self.library.purpose == Purpose::Scene && e.kind == Kind::Module => self.module_drop(&e.address, at.0, at.1),
+            crate::show::Workspace::Stage if self.library.purpose == Purpose::Scene => {
                 if !self.panels().floats.covers(at.0, at.1) {
                     self.scene_drop(&e.address, e.kind, at.0, at.1);
                 }
             }
-            crate::show::Workspace::Build if !self.panels().floats.covers(at.0, at.1) => {
+            crate::show::Workspace::Stage if !self.panels().floats.covers(at.0, at.1) => {
                 let choice = match e.kind {
                     Kind::Module => self.rigs.modules().0.into_iter().find(|(_, d)| format!("module:{}", d.name) == e.address).map(|m| crate::adding::Choice::Module(Box::new(m))),
                     _ => crate::adding::instruments(&self.stage.bundle, self.rigs.instruments()).into_iter().find(|i| format!("instrument:{}", i.id) == e.address).map(|i| crate::adding::Choice::Track(Box::new(i))),

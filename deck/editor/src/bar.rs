@@ -1,5 +1,6 @@
 //! The toolbar over the stage, and the window's title bar where the editor draws its own frame: pills in a row, nothing
-//! under them but the stage. Left the main menu's hamburger, the workspaces, the path of what is open (its steps go back up); the tempo pill
+//! under them but the stage. Left the main menu's hamburger, Home, the tabs of the items open (tabs.rs: the front one carries
+//! the path inside it, its steps go back up; an overflow list with Close others / Close all); the tempo pill
 //! (the play button, the clock's BPM); right the sign-in, the load meters and the version, which keeps its
 //! place at any width (every build shows it, always); on Windows the window buttons bare at the row's right end.
 use deck_core::load::{Reading, CPU_MEANS, GPU_MEANS};
@@ -34,7 +35,7 @@ pub enum Action {
 /// the main menu, top down: what each line says, whether it leaves for the browser (no save: everything saves itself)
 pub const MENU: [(Action, &str, bool); 7] = [
     (Action::Open, "Open…", false),
-    (Action::New, "New show…", false),
+    (Action::New, "New…", false),
     (Action::Publish, "Publish in the creator", true),
     (Action::Settings, "Settings…", false),
     (Action::Audio, "Audio & inputs", false),
@@ -42,12 +43,32 @@ pub const MENU: [(Action, &str, bool); 7] = [
     (Action::Quit, "Quit to stage  F9", false),
 ];
 
+/// a tab's mark beside its name: its item plays (Play, #629), or it is the show live
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Mark {
+    None,
+    Playing,
+    Live,
+}
+
+/// one tab as the toolbar shows it: its kind's icon, its item's name, unsaved changes, a mark
+#[derive(Debug, Clone, Copy)]
+pub struct TabPill<'a> {
+    pub icon: &'static str,
+    pub name: &'a str,
+    pub dirty: bool,
+    pub mark: Mark,
+}
+
 /// what the toolbar shows
 pub struct Bar<'a> {
-    pub workspaces: &'a [&'a str],
-    pub workspace: usize,
-    /// the path of what is open: each step a pill that goes back to it
+    /// the items open, and the one in front (none: Home)
+    pub tabs: &'a [TabPill<'a>],
+    pub front: Option<usize>,
+    /// the path inside the front tab, after its name: each step a pill that goes back to it
     pub path: &'a [String],
+    /// the front tab's own switch (a Show tab: Show · Perform) and the one on
+    pub modes: Option<(&'a [&'a str], usize)>,
     /// the play button (Build): true = it starts playing
     pub play: Option<bool>,
     /// the tempo clock's BPM and whether it runs
@@ -117,8 +138,14 @@ pub fn panic_label(panicked: bool) -> &'static str {
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Placed {
     pub menu: Rect,
-    pub workspaces: Vec<Rect>,
+    pub home: Rect,
+    /// the tabs shown: which, its place, its close button
+    pub tabs: Vec<(usize, Rect, Rect)>,
+    /// the tab list (every tab, Close others, Close all) and how many tabs did not fit beside it
+    pub list: Option<Rect>,
+    pub hidden: usize,
     pub path: Vec<Rect>,
+    pub modes: Vec<Rect>,
     pub play: Option<Rect>,
     /// the place kept for the workspace's own pill
     pub slot: Rect,
@@ -191,11 +218,14 @@ pub fn draw(d: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Placed {
     let first = Rect { x: t.size.gap + lead_room, y, w: ih + 2.0 * inset, h };
     pill(d, t, first);
     out.menu = inner_button(d, t, Rect { x: first.x + inset, y: y + inset, w: ih, h: ih }, "menu", t.color.text, b.pointer);
-    // the workspaces
-    let ws_w: f32 = b.workspaces.iter().map(|w| d.sans_width(small, w) + 2.0 * pad).sum::<f32>() + 2.0 * b.workspaces.len().saturating_sub(1) as f32 + 2.0 * inset;
-    let ws = Rect { x: first.x + first.w + gap, y, w: ws_w, h };
+    // Home: lit while nothing is open
+    let ws = Rect { x: first.x + first.w + gap, y, w: ih + 2.0 * inset, h };
     pill(d, t, ws);
-    out.workspaces = controls::pills_rounded(d, t, (ws.x + inset, y + inset, ih), b.workspaces, b.workspace, ir);
+    let home = Rect { x: ws.x + inset, y: y + inset, w: ih, h: ih };
+    if b.front.is_none() {
+        d.round_rect(home.x, home.y, home.w, home.h, ir, t.color.pressed);
+    }
+    out.home = inner_button(d, t, home, "home", if b.front.is_none() { t.color.pressed_text } else { t.color.text }, b.pointer);
     // the right pill: the account, the meters, the version
     let version_w = d.advance(px) * deck_native::BUILD.chars().count() as f32;
     // a meter's bar and its number: the widest the number gets
@@ -215,15 +245,11 @@ pub fn draw(d: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Placed {
     let wide = row(room, gap, ws.x + ws.w, tempo_w, b.slot, right_of(false)).path_w > meters + t.size.rem(17.0);
     let right_w = right_of(wide);
     let r = row(room, gap, ws.x + ws.w, tempo_w, b.slot, right_w);
-    // the path, only the path (the state words are the status bar's)
-    let path = Rect { x: r.path_x, y, w: r.path_w, h };
-    if path.w > 2.0 * h {
-        pill(d, t, path);
-        // each step at most its share of the pill
-        let share = (path.w - 2.0 * inset) / b.path.len().max(1) as f32 - 2.0 * pad - 14.0;
-        let steps: Vec<String> = b.path.iter().map(|s| controls::fit_sans(d, px, s, share.max(3.0 * px))).collect();
-        let crumbs = controls::breadcrumb_rounded(d, t, (path.x + inset, y + inset, ih), &steps, ir);
-        out.path = crumbs.into_iter().filter(|c| c.x + c.w <= path.x + path.w).collect();
+    // the tabs, the front one with its path (the state words are the status bar's)
+    let strip = Rect { x: r.path_x, y, w: r.path_w, h };
+    if strip.w > 2.0 * h && !b.tabs.is_empty() {
+        pill(d, t, strip);
+        tabs(d, t, Rect { x: strip.x + inset, y: y + inset, w: strip.w - 2.0 * inset, h: ih }, b, &mut out);
     }
     // the tempo: the play button, the clock's value and what it is
     let tempo = Rect { x: r.tempo_x, y, w: clock_w, h };
@@ -287,8 +313,140 @@ pub fn draw(d: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Placed {
     }
     d.halo(None);
     // the path pill's ground is the run too: only its steps are controls
-    out.solid = [first, ws, tempo, panic, out.slot, right].into_iter().chain(out.path.iter().copied()).filter(|r| r.w > 0.0).collect();
+    out.solid = [first, ws, tempo, panic, out.slot, right].into_iter().chain(out.tabs.iter().map(|t| t.1)).chain(out.list).chain(out.modes.iter().copied()).filter(|r| r.w > 0.0).collect();
     out
+}
+
+/// a tab's width: its icon, its name, a dot or a mark, its close button; the front one's path too
+fn tab_width(d: &DrawList, t: &Tokens, tab: &TabPill, path: &[String], h: f32) -> f32 {
+    let (px, pad) = (t.size.font, t.size.pad);
+    let icon = t.size.rem(1.0);
+    let steps: f32 = path.iter().map(|s| 14.0 + d.sans_width(px, s) + 2.0 * pad).sum();
+    let marks = if tab.dirty { t.size.rem(0.6) } else { 0.0 } + if tab.mark != Mark::None { t.size.rem(1.0) } else { 0.0 };
+    pad + icon + pad * 0.6 + d.sans_width(px, tab.name) + steps + marks + pad * 0.3 + h
+}
+
+/// The tabs in `a` (the strip's inside): the front one always, the others in their order while they fit; the list's
+/// button at the end, counting the ones left out.
+fn tabs(d: &mut DrawList, t: &Tokens, a: Rect, b: &Bar, out: &mut Placed) {
+    let (px, pad, h) = (t.size.font, t.size.pad, a.h);
+    let radius = h * 0.5;
+    let list_w = h + d.sans_width(t.size.small, "+99");
+    let modes_w = b.modes.map_or(0.0, |(names, _)| names.iter().map(|n| d.sans_width(t.size.small, n) + 2.0 * pad + 2.0).sum::<f32>() + pad);
+    let room = a.w - list_w - modes_w - 4.0;
+    let widths: Vec<f32> = b.tabs.iter().enumerate().map(|(i, tab)| tab_width(d, t, tab, if Some(i) == b.front { b.path } else { &[] }, h) + 2.0).collect();
+    let front_w = b.front.and_then(|f| widths.get(f)).copied().unwrap_or(0.0);
+    // the front tab's path shortens to fit before anything else gives way
+    let squeeze = (front_w - room).max(0.0);
+    let mut left = room - (front_w - squeeze);
+    let shown: Vec<bool> = widths
+        .iter()
+        .enumerate()
+        .map(|(i, w)| {
+            if Some(i) == b.front {
+                return true;
+            }
+            let fits = *w <= left;
+            if fits {
+                left -= w;
+            }
+            fits
+        })
+        .collect();
+    out.hidden = shown.iter().filter(|s| !**s).count();
+    let mut x = a.x;
+    let mid = a.y + h * 0.5;
+    let text_y = mid - px * 0.62;
+    for (i, tab) in b.tabs.iter().enumerate().filter(|(i, _)| shown[*i]) {
+        let front = Some(i) == b.front;
+        let w = if front { widths[i] - squeeze } else { widths[i] } - 2.0;
+        let r = Rect { x, y: a.y, w, h };
+        if front {
+            d.round_rect(r.x, r.y, r.w, r.h, radius, t.color.pressed);
+        } else if r.has(b.pointer.0, b.pointer.1) {
+            d.round_rect(r.x, r.y, r.w, r.h, radius, t.color.hover);
+        }
+        let ink = if front { t.color.pressed_text } else { t.color.text };
+        let icon = t.size.rem(1.0);
+        let mut cx = r.x + pad;
+        d.icon(cx, mid - icon * 0.5, icon, tab.icon, ink);
+        cx += icon + pad * 0.6;
+        let end = r.x + r.w - h;
+        cx += d.sans(cx, text_y, px, &controls::fit_sans(d, px, tab.name, (end - cx).max(px)), ink);
+        if tab.dirty {
+            d.disc(cx + t.size.rem(0.3), mid, t.size.rem(0.17), t.color.warn);
+            cx += t.size.rem(0.6);
+        }
+        match tab.mark {
+            Mark::Playing => d.icon(cx + t.size.rem(0.15), mid - t.size.rem(0.35), t.size.rem(0.7), "play-fill", t.color.go),
+            Mark::Live => d.disc(cx + t.size.rem(0.45), mid, t.size.rem(0.25), t.color.danger),
+            Mark::None => {}
+        }
+        if tab.mark != Mark::None {
+            cx += t.size.rem(1.0);
+        }
+        if front {
+            // the path inside the tab, each step back to it
+            for step in b.path {
+                if cx + 14.0 + 2.0 * px > end {
+                    break;
+                }
+                d.icon(cx + 1.0, mid - 6.0, 12.0, "next", t.color.muted);
+                cx += 14.0;
+                let fitted = controls::fit_sans(d, px, step, (end - cx - 2.0 * pad).max(px));
+                let sw = d.sans_width(px, &fitted) + 2.0 * pad;
+                if (Rect { x: cx, y: a.y, w: sw, h }).has(b.pointer.0, b.pointer.1) {
+                    d.round_rect(cx, a.y, sw, h, radius, t.color.hover);
+                }
+                d.sans(cx + pad, text_y, px, &fitted, ink);
+                out.path.push(Rect { x: cx, y: a.y, w: sw, h });
+                cx += sw;
+            }
+        }
+        let close = Rect { x: end, y: a.y, w: h, h };
+        if close.has(b.pointer.0, b.pointer.1) {
+            d.round_rect(close.x + 3.0, close.y + 3.0, close.w - 6.0, close.h - 6.0, radius, t.color.hover);
+        }
+        let s = t.size.rem(0.8);
+        d.icon(close.x + (h - s) * 0.5, mid - s * 0.5, s, "close", if front { t.color.pressed_text } else { t.color.muted });
+        out.tabs.push((i, r, close));
+        x += w + 2.0;
+    }
+    if let Some((names, on)) = b.modes {
+        out.modes = controls::pills_rounded(d, t, (x + pad, a.y, h), names, on, radius);
+    }
+    // the list: every tab, Close others, Close all; the count of the ones left out
+    let list = Rect { x: a.x + a.w - list_w, y: a.y, w: list_w, h };
+    if list.has(b.pointer.0, b.pointer.1) {
+        d.round_rect(list.x, list.y, list.w, list.h, radius, t.color.hover);
+    }
+    let s = t.size.rem(1.0);
+    d.icon(list.x + (h - s) * 0.5, mid - s * 0.5, s, "down", t.color.text);
+    if out.hidden > 0 {
+        d.sans(list.x + h - pad * 0.3, mid - t.size.small * 0.62, t.size.small, &format!("+{}", out.hidden), t.color.text);
+    }
+    out.list = Some(list);
+}
+
+/// a line of the tab list
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ListLine {
+    Tab(usize),
+    CloseOthers,
+    CloseAll,
+}
+
+/// the tab list under its button: every tab (the front one marked), then Close others and Close all; its lines' places
+pub fn tab_list(d: &mut DrawList, t: &Tokens, at: Rect, tabs: &[TabPill], front: Option<usize>, pointer: (f32, f32)) -> Vec<(Rect, ListLine)> {
+    let names: Vec<String> = tabs.iter().enumerate().map(|(i, tab)| format!("{}{}{}", if Some(i) == front { "› " } else { "  " }, tab.name, if tab.dirty { " •" } else { "" })).collect();
+    let mut lines: Vec<controls::Action> = names.iter().map(|n| controls::Action { label: n, enabled: true, external: false }).collect();
+    lines.push(controls::Action { label: "Close others", enabled: front.is_some() && tabs.len() > 1, external: false });
+    lines.push(controls::Action { label: "Close all", enabled: !tabs.is_empty(), external: false });
+    let w = t.size.rem(17.0);
+    let x = (at.x + at.w - w).max(0.0);
+    let rects = controls::actions(d, t, (x, at.y + at.h + t.size.rem(0.43)), w, &lines, pointer);
+    let what = (0..tabs.len()).map(ListLine::Tab).chain([ListLine::CloseOthers, ListLine::CloseAll]);
+    rects.into_iter().zip(what).collect()
 }
 
 /// a main menu line: an action, or a panel of the workspace's list
@@ -338,12 +496,14 @@ mod tests {
         assert!(without.path_w > with.path_w, "no slot: the path is wider");
     }
 
+    const TABS: [TabPill<'static>; 2] = [TabPill { icon: "user", name: "catpope", dirty: false, mark: Mark::None }, TabPill { icon: "list", name: "duet", dirty: true, mark: Mark::Live }];
+
     /// the pill as the toolbar draws it for the host's core: where it is and what the bar says
     fn panic_pill(host: &crate::show::Host) -> (Rect, Vec<String>) {
         let t = Tokens::default();
         let mut d = DrawList::new(0.6);
         let path = vec!["main".to_string()];
-        let b = Bar { workspaces: &["Build", "Show"], workspace: 1, path: &path, play: None, beat: None, clock: Clock::Int, account: Signed::In, pulse: 1.0, pointer: (0.0, 0.0), cpu: None, gpu: None, khz: None, fps: 60.0, slot: 0.0, panicked: host.sub.panicked(), window: None };
+        let b = Bar { tabs: &TABS, front: Some(1), path: &path, modes: None, play: None, beat: None, clock: Clock::Int, account: Signed::In, pulse: 1.0, pointer: (0.0, 0.0), cpu: None, gpu: None, khz: None, fps: 60.0, slot: 0.0, panicked: host.sub.panicked(), window: None };
         let placed = draw(&mut d, &t, 1600.0, &b);
         (placed.panic, d.texts().iter().map(|s| s.to_string()).collect())
     }
@@ -370,16 +530,16 @@ mod tests {
         let faces = deck_kit::base::fonts::Faces::shipped(deck_outlet::text::mono_ttf());
         let mut d = DrawList::with_widths(std::sync::Arc::new(faces.widths()));
         let path = vec!["1 Opening".to_string()];
-        let b = Bar { workspaces: &["Build", "Show"], workspace: 0, path: &path, play: Some(true), beat: Some((120.0, true)), clock: Clock::Int, account: Signed::Signing, pulse: 0.5, pointer: (0.0, 0.0), cpu: Some(Reading { value: 0.2, peak: 0.3 }), gpu: Some(Reading { value: 0.1, peak: 0.1 }), khz: Some(48.0), fps: 60.0, slot: 0.0, panicked: false, window: None };
+        let b = Bar { tabs: &TABS, front: Some(0), path: &path, modes: None, play: Some(true), beat: Some((120.0, true)), clock: Clock::Int, account: Signed::Signing, pulse: 0.5, pointer: (0.0, 0.0), cpu: Some(Reading { value: 0.2, peak: 0.3 }), gpu: Some(Reading { value: 0.1, peak: 0.1 }), khz: Some(48.0), fps: 60.0, slot: 0.0, panicked: false, window: None };
         draw(&mut d, &t, 1600.0, &b);
         let texts = d.texts();
-        for whole in [deck_native::BUILD, "1 Opening", "120.0", "INT", "48 kHz", "60 fps"] {
+        for whole in [deck_native::BUILD, "catpope", "1 Opening", "duet", "120.0", "INT", "48 kHz", "60 fps"] {
             assert!(texts.contains(&whole), "{whole}: {texts:?}");
         }
         let inset = t.size.rem(0.29);
         let inner = t.size.top * 0.5 - inset;
         let pressed: Vec<(f32, f32)> = d.prims().iter().filter_map(|p| if let Prim::Rect { r, h, color, .. } = *p { (color == t.color.pressed).then_some((r, h)) } else { None }).collect();
-        assert_eq!(pressed.len(), 2, "the workspace on and the path's last step");
+        assert_eq!(pressed.len(), 1, "the front tab, its path inside it");
         for (r, h) in pressed {
             assert!((r - inner).abs() < 0.01 && (h - (t.size.top - 2.0 * inset)).abs() < 0.01, "{r} {h}");
         }
@@ -389,7 +549,7 @@ mod tests {
         let t = Tokens::default();
         let mut d = DrawList::new(0.6);
         let path = vec!["main".to_string()];
-        let b = Bar { workspaces: &["Build"], workspace: 0, path: &path, play: None, beat: Some((128.0, true)), clock, account, pulse, pointer: (0.0, 0.0), cpu: Some(Reading { value: 0.3, peak: 0.3 }), gpu: None, khz: Some(44.1), fps: 59.6, slot: 0.0, panicked: false, window: None };
+        let b = Bar { tabs: &TABS[..1], front: Some(0), path: &path, modes: None, play: None, beat: Some((128.0, true)), clock, account, pulse, pointer: (0.0, 0.0), cpu: Some(Reading { value: 0.3, peak: 0.3 }), gpu: None, khz: Some(44.1), fps: 59.6, slot: 0.0, panicked: false, window: None };
         let placed = draw(&mut d, &t, 1800.0, &b);
         (d, placed)
     }
@@ -438,11 +598,11 @@ mod tests {
         let t = Tokens::default();
         let mut d = DrawList::new(0.6);
         let path = vec!["main".to_string()];
-        let b = Bar { workspaces: &["Build", "Show"], workspace: 0, path: &path, play: Some(true), beat: Some((120.0, true)), clock: Clock::Int, account: Signed::In, pulse: 1.0, pointer: (0.0, 0.0), cpu: None, gpu: None, khz: None, fps: 60.0, slot: 0.0, panicked: false, window: Some((Side::Right, false)) };
+        let b = Bar { tabs: &TABS, front: Some(0), path: &path, modes: None, play: Some(true), beat: Some((120.0, true)), clock: Clock::Int, account: Signed::In, pulse: 1.0, pointer: (0.0, 0.0), cpu: None, gpu: None, khz: None, fps: 60.0, slot: 0.0, panicked: false, window: Some((Side::Right, false)) };
         let (width, height) = (1600.0, 900.0);
         let p = draw(&mut d, &t, width, &b);
         assert!(!d.prims().iter().any(|p| matches!(p, Prim::Logo { .. })), "no logo: the row starts with the menu");
-        assert!(p.menu.x < p.workspaces[0].x);
+        assert!(p.menu.x < p.home.x);
         let [min, max, close] = [p.window[0], p.window[1], p.window[2]];
         assert_eq!((min.1, max.1, close.1), (Button::Minimise, Button::Maximise, Button::Close));
         let right = p.solid.iter().map(|r| r.x + r.w).fold(0.0, f32::max);
@@ -450,15 +610,57 @@ mod tests {
         assert!((close.0.x + close.0.w - (width - t.size.gap * 0.5)).abs() < 0.01, "close ends the row");
         let f = Frame { size: (width, height), maximised: false, band: bottom(&t), buttons: p.window.clone(), solid: p.solid.clone() };
         let mid = margin(&t) + t.size.top * 0.5;
-        assert_eq!(f.hit(p.tempo.x - t.size.gap * 0.5 - 4.0, mid), Zone::Drag, "the path pill's empty end");
+        let last = p.tabs.last().expect("the tabs").1;
+        assert_eq!(f.hit(last.x + last.w + 8.0, mid), Zone::Drag, "the tab strip's empty run");
         let ws = p.solid[1];
-        assert_eq!(f.hit(ws.x + ws.w + t.size.gap * 0.25, mid), Zone::Drag, "the gap after the workspaces");
-        for (r, what) in [(p.menu, "menu"), (p.workspaces[1], "a workspace"), (p.path[0], "a path step"), (p.play.unwrap(), "play"), (p.tempo, "tempo"), (p.panic, "panic"), (p.account, "account")] {
+        assert_eq!(f.hit(ws.x + ws.w + t.size.gap * 0.25, mid), Zone::Drag, "the gap after Home");
+        for (r, what) in [(p.menu, "menu"), (p.home, "home"), (p.tabs[1].1, "a tab"), (p.tabs[0].2, "a close"), (p.list.unwrap(), "the tab list"), (p.path[0], "a path step"), (p.play.unwrap(), "play"), (p.tempo, "tempo"), (p.panic, "panic"), (p.account, "account")] {
             assert_eq!(f.hit(r.x + r.w * 0.5, r.y + r.h * 0.5), Zone::App, "{what}");
         }
         assert_eq!(f.hit(close.0.x + 4.0, mid), Zone::Button(Button::Close));
         let mut e = DrawList::new(0.6);
         assert!(draw(&mut e, &t, width, &Bar { window: None, ..b }).window.is_empty(), "fullscreen and the decks: no buttons");
+    }
+
+    fn with_tabs(tabs: &[TabPill], front: Option<usize>, width: f32) -> (DrawList, Placed) {
+        let t = Tokens::default();
+        let mut d = DrawList::new(0.6);
+        let path = vec!["analog".to_string()];
+        let b = Bar { tabs, front, path: &path, modes: None, play: None, beat: None, clock: Clock::Int, account: Signed::In, pulse: 1.0, pointer: (0.0, 0.0), cpu: None, gpu: None, khz: None, fps: 60.0, slot: 0.0, panicked: false, window: None };
+        let p = draw(&mut d, &t, width, &b);
+        (d, p)
+    }
+
+    #[test]
+    fn nothing_open_lights_home_and_shows_no_tab_strip() {
+        let t = Tokens::default();
+        let (d, p) = with_tabs(&[], None, 1600.0);
+        assert!(p.tabs.is_empty() && p.list.is_none());
+        use deck_kit::base::draw::Prim;
+        assert!(d.prims().iter().any(|q| matches!(*q, Prim::Icon { name: "home", color, .. } if color == t.color.pressed_text)), "Home lit");
+    }
+
+    #[test]
+    fn the_front_tab_always_shows_the_rest_overflow_into_the_list() {
+        let names = ["nave", "catpope", "analog", "duet", "fireflies", "cathedral", "balkon", "yellowmouse", "walk", "drone"];
+        let tabs: Vec<TabPill> = names.iter().map(|n| TabPill { icon: "map", name: n, dirty: false, mark: Mark::None }).collect();
+        let (wide_d, wide) = with_tabs(&tabs, Some(9), 3840.0);
+        assert_eq!((wide.tabs.len(), wide.hidden), (10, 0), "room for all: {:?}", wide_d.texts());
+        let (d, narrow) = with_tabs(&tabs, Some(9), 1280.0);
+        assert!(narrow.hidden > 0 && narrow.tabs.len() + narrow.hidden == 10);
+        assert!(narrow.tabs.iter().any(|(i, ..)| *i == 9), "the front one stays");
+        assert!(d.texts().iter().any(|s| *s == format!("+{}", narrow.hidden)), "the list counts the ones left out");
+        let list = narrow.list.unwrap();
+        assert!(narrow.tabs.iter().all(|(_, r, c)| r.x + r.w <= list.x && c.x + c.w <= list.x), "no tab under the list");
+    }
+
+    #[test]
+    fn the_tab_list_has_every_tab_then_close_others_and_close_all() {
+        let t = Tokens::default();
+        let mut d = DrawList::new(0.6);
+        let lines = tab_list(&mut d, &t, Rect { x: 900.0, y: 8.0, w: 36.0, h: 36.0 }, &TABS, Some(1), (0.0, 0.0));
+        assert_eq!(lines.iter().map(|l| l.1).collect::<Vec<_>>(), [ListLine::Tab(0), ListLine::Tab(1), ListLine::CloseOthers, ListLine::CloseAll]);
+        assert!(d.texts().iter().any(|s| s.contains("› duet") && s.contains('•')), "the front one marked, its unsaved dot: {:?}", d.texts());
     }
 
     #[test]
