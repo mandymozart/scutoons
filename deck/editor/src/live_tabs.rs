@@ -112,6 +112,9 @@ impl crate::App {
         if let Some(m) = mix {
             self.stage.set_cue_mix(m);
         }
+        if self.media.sound_stale(live) {
+            self.media_sound();
+        }
         match self.show.to_prelisten.take() {
             Some(Ask::Play { label, scene, set }) => {
                 if let Err(e) = self.stage.prelisten(&label, &scene, &set) {
