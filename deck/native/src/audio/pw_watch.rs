@@ -224,36 +224,36 @@ mod tests {
         assert_eq!(port.find(), None);
         let (engine, handles) = engine(4);
         let feed = Feed::new(engine, true, Some(128)).unwrap();
-        let watch = Watch::start(Box::new(port), feed, RATE, 4, None, Duration::from_secs(60)).unwrap();
+        let watch = Watch::start(fake.time(), Box::new(port), feed, RATE, 4, None, Duration::from_secs(60)).unwrap();
         let notes = watch.notes();
         assert_eq!(notes.get().map(|n| (n.text, n.away)), Some(("'Fireface' not found – running silent, waiting for it".into(), true)));
         let rendered = handles.clock.rendered();
-        wait("the timer to play", 5, || handles.clock.rendered() > rendered + 4096);
+        wait(&fake.clock, "the timer to play", 5, || handles.clock.rendered() > rendered + 4096);
 
         // another sink comes and goes: nothing opens
         events.added(40, "alsa_output.pci-0000_00_1f.3.analog-stereo", "Built-in Audio Analog Stereo");
         events.info(40, Some("FL,FR"), Some(2));
         events.removed(40);
         events.added(57, RME, "Fireface UCX II Pro");
-        std::thread::sleep(Duration::from_millis(100));
+        fake.clock.advance(Duration::from_millis(100));
         assert_eq!(fake.opens.load(Ordering::Relaxed), 0, "no info yet: not opened");
         events.info(57, Some(&aux(20)), Some(20));
-        wait("the sink back", 5, || back(&notes));
+        wait(&fake.clock, "the sink back", 5, || back(&notes));
         assert_eq!(opened.lock().unwrap().last().map(|s| (s.name.clone(), s.positions.len())), Some((RME.to_string(), 20)));
         plays_the_map(&fake);
 
         // unplugged: the node goes, the stream is lost, the timer plays
         fake.quiet.store(true, Ordering::Relaxed);
         events.removed(57);
-        wait("the loss said", 5, || away(&notes));
+        wait(&fake.clock, "the loss said", 5, || away(&notes));
         assert_eq!(notes.get().unwrap().text, "'Fireface UCX II Pro' lost – running silent, waiting for it");
         let rendered = handles.clock.rendered();
-        wait("the timer to play again", 5, || handles.clock.rendered() > rendered + 4096);
+        wait(&fake.clock, "the timer to play again", 5, || handles.clock.rendered() > rendered + 4096);
 
         // replugged: a new global id
         events.added(61, RME, "Fireface UCX II Pro");
         events.info(61, Some(&aux(20)), Some(20));
-        wait("the sink back again", 5, || back(&notes));
+        wait(&fake.clock, "the sink back again", 5, || back(&notes));
         plays_the_map(&fake);
         assert_eq!(fake.opens.load(Ordering::Relaxed), 2);
         assert_eq!(opened.lock().unwrap().iter().map(|s| s.id).collect::<Vec<_>>(), [57, 61]);

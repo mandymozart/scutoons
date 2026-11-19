@@ -587,14 +587,11 @@ mod tests {
         assert_eq!(lib.pictures.images[0].1.dimensions(), STILL);
         let mut again = Pictures::new(dir.join("stills"));
         again.want(&[Entry { address: "module:walk".into(), label: String::new(), detail: String::new(), kind: Kind::Module, preview: p.clone(), made_for: Vec::new() }]);
-        for _ in 0..200 {
-            again.poll();
-            if again.get(&p).is_some() {
-                break;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(5));
-        }
-        assert!(again.get(&p).is_some(), "the next start reads it from the cache");
+        // the reading thread's one answer, however long a loaded machine takes (only a hang runs into the minute)
+        let (key, img) = again.rx.recv_timeout(std::time::Duration::from_secs(60)).expect("the cache read answers");
+        assert!(img.is_some(), "the next start reads it from the cache");
+        again.show(key, img.unwrap());
+        assert!(again.get(&p).is_some());
         assert!(!lib.playing(Some("character:catpope".into()), 500), "something else plays: it settles first");
         std::fs::remove_dir_all(&dir).ok();
     }

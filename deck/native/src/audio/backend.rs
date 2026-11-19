@@ -237,7 +237,7 @@ pub(super) const NULL_RATE: u32 = 48_000;
 /// no device: the engine runs on a timer thread so the clock, the music and the FFT still move
 fn null(factory: &mut Factory) -> Result<Running> {
     let feed = Feed::Direct(Box::new(Direct::new(factory(NULL_RATE as f32, 2)?)));
-    let timer = super::watch::Timer::start(feed, NULL_RATE, 2, now_ns())?;
+    let timer = super::watch::Timer::start(super::time::Time::Real, feed, NULL_RATE, 2, now_ns())?;
     Ok(Running { name: "null", rate: NULL_RATE, closing: None, note: None, _keep: Box::new(timer) })
 }
 
@@ -256,7 +256,7 @@ fn watched(o: &Options, factory: &mut Factory) -> Result<Running> {
         None => (NULL_RATE, map_channels(&DeckAudio::read().audio_outlet)),
     };
     let feed = Feed::new(factory(rate as f32, channels)?, o.thread, o.buffer)?;
-    let watch = super::watch::Watch::start(Box::new(port), feed, rate, channels, found, super::watch::EVERY)?;
+    let watch = super::watch::Watch::start(super::time::Time::Real, Box::new(port), feed, rate, channels, found, super::watch::EVERY)?;
     let name = match o.host {
         Host::Asio => "asio",
         Host::Wasapi => "wasapi",
@@ -1095,7 +1095,7 @@ fn pipewire_watched(o: &Options, want: &str, factory: &mut Factory) -> Result<Ru
         None => (PIPEWIRE_RATE, map_channels(&DeckAudio::read().audio_outlet)),
     };
     let feed = Feed::new(factory(rate as f32, channels)?, o.thread, Some(quantum))?;
-    let watch = super::watch::Watch::start(Box::new(port), feed, rate, channels, found, super::watch::EVERY)?;
+    let watch = super::watch::Watch::start(super::time::Time::Real, Box::new(port), feed, rate, channels, found, super::watch::EVERY)?;
     tracing::info!("audio: PipeWire, the saved sink '{want}' watched, {rate} Hz, {channels} channels, latency {quantum}/{rate}");
     // the watch (and its stream) goes before the loop
     Ok(Running { name: "pipewire", rate, closing: Some(all), note: Some(watch.notes()), _keep: Box::new((watch, lp)) })
