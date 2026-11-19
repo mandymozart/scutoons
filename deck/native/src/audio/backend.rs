@@ -215,8 +215,8 @@ pub fn start(o: &Options, factory: &mut Factory) -> Result<Running> {
     let mut last = None;
     for &c in order {
         let r = match c {
-            Choice::PipeWire => pipewire(o, factory),
-            // TODO(#617): Linux watches PipeWire's nodes instead of cpal's ALSA list
+            Choice::PipeWire => pipewire_for(o, factory),
+            // Linux: the saved device is PipeWire's sink, watched there; ALSA's list under PipeWire does not name it
             Choice::Cpal if o.device.is_some() && !cfg!(target_os = "linux") => watched(o, factory),
             Choice::Cpal => cpal(o, factory),
             _ => null(factory),
@@ -766,8 +766,17 @@ fn cpal_stream(
 
 
 #[cfg(not(all(target_os = "linux", feature = "pipewire")))]
-fn pipewire(_: &Options, _: &mut Factory) -> Result<Running> {
+fn pipewire_for(_: &Options, _: &mut Factory) -> Result<Running> {
     bail!("built without the pipewire feature")
+}
+
+/// the saved sink watched (#617), else the default sink
+#[cfg(all(target_os = "linux", feature = "pipewire"))]
+fn pipewire_for(o: &Options, factory: &mut Factory) -> Result<Running> {
+    match o.device.as_deref() {
+        Some(want) => pipewire_watched(o, want, factory),
+        None => pipewire(o, factory),
+    }
 }
 
 /// the length of a stream's fade in and out (#250: a scene switch no longer leaves the old scene's sound playing)
@@ -832,28 +841,175 @@ impl Drop for PipewireStop {
     }
 }
 
-/// PipeWire: an output stream at 48 kHz / f32 with the sink's channels (#318: the count and positions the sink reports – the
-/// RME's Pro Audio sink has 20, AUX0…AUX19 – so PipeWire maps channel n to channel n, no remix; stereo when the sink says
-/// nothing) and a latency request of the buffer setting (default 128 frames, the deck's quantum, rootfs/etc/pipewire),
-/// processed on PipeWire's realtime data thread (RT_PROCESS). The engine is built for that channel count once the loop's
-/// thread has asked the sink.
+/// A stream's flags: it fades out when the backend's drop asks (`all`) or its own close (`this`); `silent` answers once it
+/// is; `streaming` while PipeWire drives it.
+#[cfg(all(target_os = "linux", feature = "pipewire"))]
+#[derive(Clone)]
+struct Closing {
+    all: Arc<AtomicBool>,
+    this: Arc<AtomicBool>,
+    silent: Arc<AtomicBool>,
+    streaming: Arc<AtomicBool>,
+}
+
+#[cfg(all(target_os = "linux", feature = "pipewire"))]
+impl Closing {
+    fn new(all: Arc<AtomicBool>) -> Closing {
+        Closing { all, this: Arc::default(), silent: Arc::default(), streaming: Arc::default() }
+    }
+}
+
+/// A connected PipeWire output stream and its listener (the callbacks; dropping it drops the feed's `Held`).
+#[cfg(all(target_os = "linux", feature = "pipewire"))]
+struct PwOut {
+    stream: pipewire::stream::StreamRc,
+    listener: Option<pipewire::stream::StreamListener<()>>,
+}
+
+#[cfg(all(target_os = "linux", feature = "pipewire"))]
+impl Drop for PwOut {
+    /// the data thread stops before the callbacks go
+    fn drop(&mut self) {
+        let _ = self.stream.disconnect();
+        self.listener = None;
+    }
+}
+
+/// An output stream at 48 kHz / f32 on the loop of `core`, with the sink's channel `position`s (#318: the count and
+/// positions the sink reports – the RME's Pro Audio sink has 20, AUX0…AUX19 – so PipeWire maps channel n to channel n, no
+/// remix) and a latency request of the buffer setting (default 128 frames, the deck's quantum, rootfs/etc/pipewire),
+/// processed on PipeWire's realtime data thread (RT_PROCESS). `target` = the sink's node name (None: the default sink).
+/// `lost` (the watch, #617): the stream never moves to another sink and says when it loses its own.
+#[cfg(all(target_os = "linux", feature = "pipewire"))]
+fn pw_stream(core: &pipewire::core::CoreRc, target: Option<&str>, position: &[u32], quantum: u32, mut held: super::watch::Held, closing: Closing, lost: Option<super::watch::Lost>) -> Result<PwOut, pipewire::Error> {
+    use pipewire as pw;
+    use pw::spa;
+    const RATE: u32 = PIPEWIRE_RATE;
+    let chans = position.len();
+    let latency = format!("{quantum}/{RATE}");
+    let channels = chans.to_string();
+    let mut props = pw::properties::properties! {
+        *pw::keys::MEDIA_TYPE => "Audio",
+        *pw::keys::MEDIA_ROLE => "Music",
+        *pw::keys::MEDIA_CATEGORY => "Playback",
+        *pw::keys::NODE_NAME => "deck-native",
+        *pw::keys::APP_NAME => "SCUTOONS deck stage",
+        *pw::keys::NODE_LATENCY => latency.as_str(),
+        *pw::keys::AUDIO_CHANNELS => channels.as_str(),
+        // the positions are the sink's own: channel n is channel n, never up- or down-mixed (the engine folds)
+        *pw::keys::STREAM_DONT_REMIX => "true",
+    };
+    if let Some(t) = target {
+        props.insert(*pw::keys::TARGET_OBJECT, t);
+    }
+    if lost.is_some() {
+        // the saved sink gone: the timer plays, not the laptop's speakers
+        props.insert(*pw::keys::NODE_DONT_RECONNECT, "true");
+    }
+    let stream = pw::stream::StreamRc::new(core.clone(), "deck-native", props)?;
+    let mut fade = Fade::new(RATE as f32, FADE_SECS);
+    let streaming = closing.streaming.clone();
+    let listener = stream
+        .add_local_listener_with_user_data(())
+        .state_changed(move |_, _, old, new| {
+            streaming.store(new == pw::stream::StreamState::Streaming, Ordering::Relaxed);
+            let gone = matches!(new, pw::stream::StreamState::Error(_)) || (new == pw::stream::StreamState::Unconnected && old != pw::stream::StreamState::Unconnected);
+            if let (true, Some(l)) = (gone, &lost) {
+                tracing::warn!("audio: the PipeWire stream is {new:?}");
+                l.now();
+            }
+        })
+        .process(move |stream, _| {
+            let Some(mut buffer) = stream.dequeue_buffer() else { return };
+            // the frames this cycle wants (#208: not the whole mapped buffer – rendering all of it queued latency); 0 =
+            // unknown, then the buffer
+            let requested = buffer.requested() as usize;
+            let datas = buffer.datas_mut();
+            let Some(data) = datas.first_mut() else { return };
+            // pw_time (RT-safe): `now` = this cycle on CLOCK_MONOTONIC, `delay` = until the device plays the next sample
+            // (ticks of `rate`), `buffered` = frames in the resampler; no timing yet → the quantum
+            let heard = match stream.time() {
+                Ok(t) if t.rate().denom > 0 && t.now() > 0 => {
+                    let r = t.rate();
+                    let delay = t.delay().max(0) as f64 * r.num as f64 / r.denom as f64;
+                    let buffered = t.buffered() as f64 / RATE as f64;
+                    t.now() as u64 + ((delay + buffered) * 1e9) as u64
+                }
+                _ => now_ns() + quantum as u64 * 1_000_000_000 / RATE as u64,
+            };
+            let stride = std::mem::size_of::<f32>() * chans;
+            let shut = closing.all.load(Ordering::Relaxed) || closing.this.load(Ordering::Relaxed);
+            let frames = match data.data() {
+                Some(bytes) => match bytemuck::try_cast_slice_mut::<u8, f32>(bytes) {
+                    Ok(samples) => {
+                        let all = samples.len() / chans;
+                        let n = if requested > 0 { requested.min(all) } else { all };
+                        let out = &mut samples[..n * chans];
+                        // silence until the watch hands the engine over
+                        let quiet = match held.feed() {
+                            Some(feed) => {
+                                feed.play(out, chans, heard, |x| x);
+                                fade.apply(out, chans, shut)
+                            }
+                            None => {
+                                out.fill(0.0);
+                                shut
+                            }
+                        };
+                        if quiet {
+                            closing.silent.store(true, Ordering::Relaxed);
+                        }
+                        held.heard(heard + n as u64 * 1_000_000_000 / RATE as u64);
+                        n
+                    }
+                    Err(_) => 0,
+                },
+                None => 0,
+            };
+            let chunk = data.chunk_mut();
+            *chunk.offset_mut() = 0;
+            *chunk.stride_mut() = stride as _;
+            *chunk.size_mut() = (stride * frames) as _;
+        })
+        .register()?;
+    let mut info = spa::param::audio::AudioInfoRaw::new();
+    info.set_format(spa::param::audio::AudioFormat::F32LE);
+    info.set_rate(RATE);
+    info.set_channels(chans as u32);
+    let mut slots = [0; spa::param::audio::MAX_CHANNELS];
+    slots[..chans].copy_from_slice(position);
+    info.set_position(slots);
+    let values: Vec<u8> = spa::pod::serialize::PodSerializer::serialize(
+        std::io::Cursor::new(Vec::new()),
+        &spa::pod::Value::Object(spa::pod::Object { type_: spa::sys::SPA_TYPE_OBJECT_Format, id: spa::sys::SPA_PARAM_EnumFormat, properties: info.into() }),
+    )
+    .map_err(|_| pw::Error::CreationFailed)?
+    .0
+    .into_inner();
+    let mut params = [spa::pod::Pod::from_bytes(&values).ok_or(pw::Error::CreationFailed)?];
+    stream.connect(
+        spa::utils::Direction::Output,
+        None,
+        pw::stream::StreamFlags::AUTOCONNECT | pw::stream::StreamFlags::MAP_BUFFERS | pw::stream::StreamFlags::RT_PROCESS,
+        &mut params,
+    )?;
+    Ok(PwOut { stream, listener: Some(listener) })
+}
+
+/// PipeWire on the default sink (no `audio_device`): the engine is built for the sink's channels once the loop's thread has
+/// asked the sink, and plays until the backend is dropped.
 #[cfg(all(target_os = "linux", feature = "pipewire"))]
 fn pipewire(o: &Options, factory: &mut Factory) -> Result<Running> {
     use pipewire as pw;
-    use pw::spa;
-    const RATE: u32 = 48_000;
+    const RATE: u32 = PIPEWIRE_RATE;
     let quantum = o.buffer.unwrap_or(128);
-    let latency = format!("{quantum}/{RATE}");
-    let shown = latency.clone();
     // the loop's thread asks the sink for its channels, this thread builds the engine for them and hands the feed over
     let (sink_tx, sink_rx) = std::sync::mpsc::channel::<usize>();
     let (feed_tx, feed_rx) = std::sync::mpsc::channel::<Feed>();
     let (ready_tx, ready_rx) = std::sync::mpsc::channel::<Result<pw::channel::Sender<()>, String>>();
     // the stream fades in on its first cycles and out when the Running is dropped (#250): `closing` asks, `silent` answers
-    let closing = Arc::new(AtomicBool::new(false));
-    let silent = Arc::new(AtomicBool::new(false));
-    let (closing_cb, silent_cb) = (closing.clone(), silent.clone());
-    let mut fade = Fade::new(RATE as f32, FADE_SECS);
+    let closing = Closing::new(Arc::default());
+    let cl = closing.clone();
     let want = o.device.clone();
     let thread = std::thread::Builder::new().name("pipewire".into()).spawn(move || {
         let run = || -> Result<(), pw::Error> {
@@ -861,97 +1017,12 @@ fn pipewire(o: &Options, factory: &mut Factory) -> Result<Running> {
             let mainloop = pw::main_loop::MainLoopRc::new(None)?;
             let context = pw::context::ContextRc::new(&mainloop, None)?;
             let core = context.connect_rc(None)?;
-            // #285: a named device (`--audio-device`, deck.toml `audio_device`) picks the sink; none = the default sink.
             // #318: the sink's channel positions size the stream and the engine
             let sink = find_sink(&mainloop, &core, want.as_deref())?;
-            let (target, position) = (sink.target, sink.position);
-            let chans = position.len();
-            sink_tx.send(chans).map_err(|_| pw::Error::CreationFailed)?;
+            sink_tx.send(sink.position.len()).map_err(|_| pw::Error::CreationFailed)?;
             // the ring + render thread (#208) also here when on: the X1's quantum of 128 leaves the callback 2.7 ms
-            let mut direct = feed_rx.recv_timeout(Duration::from_secs(10)).map_err(|_| pw::Error::CreationFailed)?;
-            let channels = chans.to_string();
-            let mut props = pw::properties::properties! {
-                *pw::keys::MEDIA_TYPE => "Audio",
-                *pw::keys::MEDIA_ROLE => "Music",
-                *pw::keys::MEDIA_CATEGORY => "Playback",
-                *pw::keys::NODE_NAME => "deck-native",
-                *pw::keys::APP_NAME => "SCUTOONS deck stage",
-                *pw::keys::NODE_LATENCY => latency.as_str(),
-                *pw::keys::AUDIO_CHANNELS => channels.as_str(),
-                // the positions are the sink's own: channel n is channel n, never up- or down-mixed (the engine folds)
-                *pw::keys::STREAM_DONT_REMIX => "true",
-            };
-            if let Some(t) = &target {
-                props.insert(*pw::keys::TARGET_OBJECT, t.as_str());
-            }
-            let stream = pw::stream::StreamBox::new(&core, "deck-native", props)?;
-            let _listener = stream
-                .add_local_listener_with_user_data(())
-                .process(move |stream, _| {
-                    let Some(mut buffer) = stream.dequeue_buffer() else { return };
-                    // the frames this cycle wants (#208: not the whole mapped buffer – rendering all of it queued
-                    // latency); 0 = unknown, then the buffer
-                    let requested = buffer.requested() as usize;
-                    let datas = buffer.datas_mut();
-                    let Some(data) = datas.first_mut() else { return };
-                    // pw_time (RT-safe): `now` = this cycle on CLOCK_MONOTONIC, `delay` = until the device plays the
-                    // next sample (ticks of `rate`), `buffered` = frames in the resampler; no timing yet → the quantum
-                    let heard = match stream.time() {
-                        Ok(t) if t.rate().denom > 0 && t.now() > 0 => {
-                            let r = t.rate();
-                            let delay = t.delay().max(0) as f64 * r.num as f64 / r.denom as f64;
-                            let buffered = t.buffered() as f64 / RATE as f64;
-                            t.now() as u64 + ((delay + buffered) * 1e9) as u64
-                        }
-                        _ => now_ns() + quantum as u64 * 1_000_000_000 / RATE as u64,
-                    };
-                    let stride = std::mem::size_of::<f32>() * chans;
-                    let frames = match data.data() {
-                        Some(bytes) => match bytemuck::try_cast_slice_mut::<u8, f32>(bytes) {
-                            Ok(samples) => {
-                                let all = samples.len() / chans;
-                                let n = if requested > 0 { requested.min(all) } else { all };
-                                direct.play(&mut samples[..n * chans], chans, heard, |x| x);
-                                if fade.apply(&mut samples[..n * chans], chans, closing_cb.load(Ordering::Relaxed)) {
-                                    silent_cb.store(true, Ordering::Relaxed);
-                                }
-                                n
-                            }
-                            Err(_) => 0,
-                        },
-                        None => 0,
-                    };
-                    let chunk = data.chunk_mut();
-                    *chunk.offset_mut() = 0;
-                    *chunk.stride_mut() = stride as _;
-                    *chunk.size_mut() = (stride * frames) as _;
-                })
-                .register()?;
-            let mut info = spa::param::audio::AudioInfoRaw::new();
-            info.set_format(spa::param::audio::AudioFormat::F32LE);
-            info.set_rate(RATE);
-            info.set_channels(chans as u32);
-            let mut slots = [0; spa::param::audio::MAX_CHANNELS];
-            slots[..chans].copy_from_slice(&position);
-            info.set_position(slots);
-            let values: Vec<u8> = spa::pod::serialize::PodSerializer::serialize(
-                std::io::Cursor::new(Vec::new()),
-                &spa::pod::Value::Object(spa::pod::Object {
-                    type_: spa::sys::SPA_TYPE_OBJECT_Format,
-                    id: spa::sys::SPA_PARAM_EnumFormat,
-                    properties: info.into(),
-                }),
-            )
-            .map_err(|_| pw::Error::CreationFailed)?
-            .0
-            .into_inner();
-            let mut params = [spa::pod::Pod::from_bytes(&values).ok_or(pw::Error::CreationFailed)?];
-            stream.connect(
-                spa::utils::Direction::Output,
-                None,
-                pw::stream::StreamFlags::AUTOCONNECT | pw::stream::StreamFlags::MAP_BUFFERS | pw::stream::StreamFlags::RT_PROCESS,
-                &mut params,
-            )?;
+            let feed = feed_rx.recv_timeout(Duration::from_secs(10)).map_err(|_| pw::Error::CreationFailed)?;
+            let _out = pw_stream(&core, sink.target.as_deref(), &sink.position, quantum, super::watch::Held::own(feed), cl, None)?;
             // the drop's quit: a message into the loop's thread ends `run`
             let (quit_tx, quit_rx) = pw::channel::channel::<()>();
             let weak = mainloop.downgrade();
@@ -979,10 +1050,215 @@ fn pipewire(o: &Options, factory: &mut Factory) -> Result<Running> {
     feed_tx.send(Feed::new(factory(RATE as f32, chans)?, o.thread, Some(quantum))?).map_err(|_| anyhow::anyhow!("the PipeWire thread ended"))?;
     match ready_rx.recv_timeout(Duration::from_secs(3)) {
         Ok(Ok(quit)) => {
-            tracing::info!("audio: PipeWire stream 'deck-native', {RATE} Hz, {chans} channels, latency {shown}");
-            let flag = closing.clone();
-            Ok(Running { name: "pipewire", rate: RATE, closing: Some(flag), note: None, _keep: Box::new(PipewireStop { closing, silent, quit, thread: Some(thread) }) })
+            tracing::info!("audio: PipeWire stream 'deck-native', {RATE} Hz, {chans} channels, latency {quantum}/{RATE}");
+            let flag = closing.all.clone();
+            Ok(Running { name: "pipewire", rate: RATE, closing: Some(flag), note: None, _keep: Box::new(PipewireStop { closing: closing.all, silent: closing.silent, quit, thread: Some(thread) }) })
         }
+        Ok(Err(e)) => bail!("{e}"),
+        Err(_) => bail!("no answer from PipeWire within 3 s"),
+    }
+}
+
+/// A stream the watch's port asks for.
+#[cfg(all(target_os = "linux", feature = "pipewire"))]
+struct Open {
+    sink: super::pw_watch::Sink,
+    held: super::watch::Held,
+    lost: super::watch::Lost,
+    closing: Closing,
+    reply: std::sync::mpsc::Sender<Result<u64, String>>,
+}
+
+/// What the watch's port asks of PipeWire's loop thread.
+#[cfg(all(target_os = "linux", feature = "pipewire"))]
+enum Cmd {
+    Open(Box<Open>),
+    Close { token: u64, done: std::sync::mpsc::Sender<()> },
+    Quit,
+}
+
+/// The saved sink (deck.toml's `audio_device`) on PipeWire, watched (#617): a loop thread of its own keeps the registry's
+/// sinks and hears their node events – the saved sink appearing wakes the watch, its node going loses the stream – and
+/// opens the watch's streams. Missing at the start or lost while playing, the engine plays on the timer; the engine is
+/// built once, for the sink's channels, or – away at the start – for the channels the saved map uses.
+#[cfg(all(target_os = "linux", feature = "pipewire"))]
+fn pipewire_watched(o: &Options, want: &str, factory: &mut Factory) -> Result<Running> {
+    let quantum = o.buffer.unwrap_or(128);
+    let events = super::pw_watch::Events::new(want);
+    let all = Arc::new(AtomicBool::new(false));
+    let lp = pw_loop(events.clone(), quantum)?;
+    let streams = PwStreams { cmd: lp.cmd.clone(), all: all.clone() };
+    let mut port = super::pw_watch::PwPort::new(events, Box::new(streams));
+    let found = super::watch::Port::find(&mut port);
+    let (rate, channels) = match &found {
+        Some(f) => (f.rate, f.channels),
+        None => (PIPEWIRE_RATE, map_channels(&DeckAudio::read().audio_outlet)),
+    };
+    let feed = Feed::new(factory(rate as f32, channels)?, o.thread, Some(quantum))?;
+    let watch = super::watch::Watch::start(Box::new(port), feed, rate, channels, found, super::watch::EVERY)?;
+    tracing::info!("audio: PipeWire, the saved sink '{want}' watched, {rate} Hz, {channels} channels, latency {quantum}/{rate}");
+    // the watch (and its stream) goes before the loop
+    Ok(Running { name: "pipewire", rate, closing: Some(all), note: Some(watch.notes()), _keep: Box::new((watch, lp)) })
+}
+
+/// The watch's streams, opened on the loop thread.
+#[cfg(all(target_os = "linux", feature = "pipewire"))]
+struct PwStreams {
+    cmd: pipewire::channel::Sender<Cmd>,
+    all: Arc<AtomicBool>,
+}
+
+#[cfg(all(target_os = "linux", feature = "pipewire"))]
+impl super::pw_watch::Streams for PwStreams {
+    fn open(&mut self, sink: &super::pw_watch::Sink, held: super::watch::Held, lost: super::watch::Lost) -> Result<Box<dyn Any>> {
+        let closing = Closing::new(self.all.clone());
+        let (reply, answer) = std::sync::mpsc::channel();
+        let open = Cmd::Open(Box::new(Open { sink: sink.clone(), held, lost, closing: closing.clone(), reply }));
+        if self.cmd.send(open).is_err() {
+            bail!("the PipeWire loop ended");
+        }
+        let token = match answer.recv_timeout(Duration::from_secs(3)) {
+            Ok(Ok(token)) => token,
+            Ok(Err(e)) => bail!("{e}"),
+            Err(_) => bail!("no answer from PipeWire within 3 s"),
+        };
+        tracing::info!("audio: PipeWire stream 'deck-native' on '{}', {} channels", sink.name, sink.positions.len());
+        Ok(Box::new(PwStream { token, cmd: self.cmd.clone(), closing }))
+    }
+}
+
+/// A watched stream; dropping it fades it out (while it still plays) and closes it on the loop thread.
+#[cfg(all(target_os = "linux", feature = "pipewire"))]
+struct PwStream {
+    token: u64,
+    cmd: pipewire::channel::Sender<Cmd>,
+    closing: Closing,
+}
+
+#[cfg(all(target_os = "linux", feature = "pipewire"))]
+impl Drop for PwStream {
+    fn drop(&mut self) {
+        self.closing.this.store(true, Ordering::Relaxed);
+        let end = std::time::Instant::now() + Duration::from_millis(400);
+        while !self.closing.silent.load(Ordering::Relaxed) && self.closing.streaming.load(Ordering::Relaxed) && std::time::Instant::now() < end {
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        let (done, closed) = std::sync::mpsc::channel();
+        if self.cmd.send(Cmd::Close { token: self.token, done }).is_ok() && closed.recv_timeout(Duration::from_millis(500)).is_err() {
+            tracing::warn!("audio: the PipeWire stream did not close in time");
+        }
+    }
+}
+
+/// PipeWire's loop thread for the watch; dropping it ends the loop (bounded, as `PipewireStop`).
+#[cfg(all(target_os = "linux", feature = "pipewire"))]
+struct PwLoop {
+    cmd: pipewire::channel::Sender<Cmd>,
+    thread: Option<std::thread::JoinHandle<()>>,
+}
+
+#[cfg(all(target_os = "linux", feature = "pipewire"))]
+impl Drop for PwLoop {
+    fn drop(&mut self) {
+        let _ = self.cmd.send(Cmd::Quit);
+        let Some(t) = self.thread.take() else { return };
+        let end = std::time::Instant::now() + Duration::from_millis(500);
+        while !t.is_finished() && std::time::Instant::now() < end {
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        if t.is_finished() {
+            let _ = t.join();
+        } else {
+            tracing::warn!("audio: the PipeWire loop did not end – left behind");
+        }
+    }
+}
+
+/// Connects, reads the registry's sinks (two round trips: the globals, then their info) into `events` and keeps listening
+/// to its node events, then serves the port's commands.
+#[cfg(all(target_os = "linux", feature = "pipewire"))]
+fn pw_loop(events: super::pw_watch::Events, quantum: u32) -> Result<PwLoop> {
+    use pipewire as pw;
+    use std::cell::{Cell, RefCell};
+    use std::collections::HashMap;
+    use std::rc::Rc;
+    let (ready_tx, ready_rx) = std::sync::mpsc::channel::<Result<pw::channel::Sender<Cmd>, String>>();
+    let thread = std::thread::Builder::new().name("pipewire".into()).spawn(move || {
+        let run = || -> Result<(), pw::Error> {
+            pw::init();
+            let mainloop = pw::main_loop::MainLoopRc::new(None)?;
+            let context = pw::context::ContextRc::new(&mainloop, None)?;
+            let core = context.connect_rc(None)?;
+            let registry = core.get_registry_rc()?;
+            // the bound sink nodes and their info listeners, until their global goes
+            let bound: Rc<RefCell<HashMap<u32, Box<dyn Any>>>> = Rc::default();
+            let (ev, gone, kept, unbind, weak) = (events.clone(), events, bound.clone(), bound, registry.downgrade());
+            let _globals = registry
+                .add_listener_local()
+                .global(move |g| {
+                    let Some(p) = g.props.as_ref() else { return };
+                    if g.type_ != pw::types::ObjectType::Node || p.get("media.class") != Some("Audio/Sink") {
+                        return;
+                    }
+                    ev.added(g.id, p.get("node.name").unwrap_or_default(), p.get("node.description").unwrap_or_default());
+                    let Some(registry) = weak.upgrade() else { return };
+                    let Ok(node) = registry.bind::<pw::node::Node, _>(g) else { return };
+                    let (ev, id) = (ev.clone(), g.id);
+                    let listener = node
+                        .add_listener_local()
+                        .info(move |info| {
+                            let props = info.props();
+                            let position = props.and_then(|p| p.get("audio.position"));
+                            let channels = props.and_then(|p| p.get("audio.channels")).and_then(|c| c.trim().parse().ok());
+                            ev.info(id, position, channels);
+                        })
+                        .register();
+                    kept.borrow_mut().insert(g.id, Box::new((node, listener)));
+                })
+                .global_remove(move |id| {
+                    gone.removed(id);
+                    unbind.borrow_mut().remove(&id);
+                })
+                .register();
+            roundtrip(&mainloop, &core)?;
+            roundtrip(&mainloop, &core)?;
+            let streams: Rc<RefCell<HashMap<u64, PwOut>>> = Rc::default();
+            let next = Cell::new(0u64);
+            let (cmd_tx, cmd_rx) = pw::channel::channel::<Cmd>();
+            let weak = mainloop.downgrade();
+            let _cmds = cmd_rx.attach(mainloop.loop_(), move |cmd| match cmd {
+                Cmd::Open(open) => {
+                    let Open { sink, held, lost, closing, reply } = *open;
+                    let position: Vec<u32> = sink.positions.iter().enumerate().map(|(i, n)| spa_channel(n, i)).collect();
+                    let r = pw_stream(&core, Some(&sink.name), &position, quantum, held, closing, Some(lost)).map_err(|e| e.to_string()).map(|out| {
+                        next.set(next.get() + 1);
+                        streams.borrow_mut().insert(next.get(), out);
+                        next.get()
+                    });
+                    let _ = reply.send(r);
+                }
+                Cmd::Close { token, done } => {
+                    let out = streams.borrow_mut().remove(&token);
+                    drop(out);
+                    let _ = done.send(());
+                }
+                Cmd::Quit => {
+                    streams.borrow_mut().clear();
+                    if let Some(m) = weak.upgrade() {
+                        m.quit();
+                    }
+                }
+            });
+            let _ = ready_tx.send(Ok(cmd_tx));
+            mainloop.run();
+            Ok(())
+        };
+        if let Err(e) = run() {
+            let _ = ready_tx.send(Err(e.to_string()));
+        }
+    })?;
+    match ready_rx.recv_timeout(Duration::from_secs(3)) {
+        Ok(Ok(cmd)) => Ok(PwLoop { cmd, thread: Some(thread) }),
         Ok(Err(e)) => bail!("{e}"),
         Err(_) => bail!("no answer from PipeWire within 3 s"),
     }

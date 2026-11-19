@@ -107,6 +107,8 @@ impl Drop for Held {
 enum Wake {
     /// the stream of this opening says its device is gone
     Lost(u64),
+    /// the host says a device appeared: look now, not at the next tick
+    Look,
     Stop,
 }
 
@@ -117,6 +119,16 @@ pub struct Lost(Sender<Wake>, u64);
 impl Lost {
     pub fn now(&self) {
         let _ = self.0.send(Wake::Lost(self.1));
+    }
+}
+
+/// A host's device events: the saved device may be there now.
+#[derive(Clone)]
+pub struct Waker(Sender<Wake>);
+
+impl Waker {
+    pub fn look(&self) {
+        let _ = self.0.send(Wake::Look);
     }
 }
 
@@ -167,6 +179,8 @@ pub trait Port: Send {
     fn find(&mut self) -> Option<Found>;
     /// a playing stream on it at `rate`, its callbacks' hands from `link`
     fn open(&mut self, rate: u32, link: &mut Link) -> Result<Opened>;
+    /// a host that hears its devices come and go wakes the watch with this (the tick looks anyway)
+    fn watch(&mut self, _waker: Waker) {}
 }
 
 /// The engine on a timer thread, its blocks heard on their schedule from `from_ns` on. Every wake plays all the blocks
@@ -252,8 +266,9 @@ pub struct Watch {
 
 impl Watch {
     /// Watches `port` with this feed (built for `rate`, `channels`): `found` opens it at once, else the timer plays.
-    pub fn start(port: Box<dyn Port>, feed: Feed, rate: u32, channels: usize, found: Option<Found>, every: Duration) -> std::io::Result<Watch> {
+    pub fn start(mut port: Box<dyn Port>, feed: Feed, rate: u32, channels: usize, found: Option<Found>, every: Duration) -> std::io::Result<Watch> {
         let (wake_tx, wake) = mpsc::channel();
+        port.watch(Waker(wake_tx.clone()));
         let (back_tx, back) = mpsc::channel();
         let notes = Notes::default();
         let link = Link { give: None, back_tx, back, heard: Arc::new(AtomicU64::new(0)), resume: Arc::new(AtomicU64::new(0)), wake: wake_tx.clone(), opening: 0 };
@@ -323,6 +338,7 @@ impl Run {
                 Ok(Wake::Stop) | Err(RecvTimeoutError::Disconnected) => return,
                 Ok(Wake::Lost(opening)) if opening == self.link.opening => self.lost(),
                 Ok(Wake::Lost(_)) => {}
+                Ok(Wake::Look) => self.look(),
                 Err(RecvTimeoutError::Timeout) => {
                     tick = Instant::now() + every;
                     self.tick();
@@ -342,13 +358,19 @@ impl Run {
                     *seen = heard;
                 }
             }
-            State::Silent(_) => {
-                if let Some(f) = self.port.find() {
-                    self.name = f.name;
-                    self.open(true);
-                }
-            }
+            State::Silent(_) => self.look(),
             State::Gone => {}
+        }
+    }
+
+    /// silent: the device opened if it is there
+    fn look(&mut self) {
+        if !matches!(self.state, State::Silent(_)) {
+            return;
+        }
+        if let Some(f) = self.port.find() {
+            self.name = f.name;
+            self.open(true);
         }
     }
 
@@ -420,29 +442,29 @@ impl Run {
 }
 
 #[cfg(test)]
-mod tests {
+pub(super) mod tests {
     use super::*;
     use crate::graph::Graph;
     use crate::scene::Scene;
     use std::sync::atomic::AtomicUsize;
 
-    const RATE: u32 = 48_000;
+    pub(in crate::audio) const RATE: u32 = 48_000;
     const FAKE_BLOCK: usize = 256;
 
     /// A device that can be plugged in and pulled out; what it plays lands in `peaks`.
     #[derive(Clone)]
-    struct Fake {
+    pub(in crate::audio) struct Fake {
         there: Arc<AtomicBool>,
         /// pulled while playing: its callbacks stop
-        quiet: Arc<AtomicBool>,
-        opens: Arc<AtomicUsize>,
+        pub(in crate::audio) quiet: Arc<AtomicBool>,
+        pub(in crate::audio) opens: Arc<AtomicUsize>,
         peaks: Arc<Mutex<Vec<f32>>>,
         lost: Arc<Mutex<Option<Lost>>>,
         channels: usize,
     }
 
     impl Fake {
-        fn new(there: bool, channels: usize) -> Fake {
+        pub(in crate::audio) fn new(there: bool, channels: usize) -> Fake {
             Fake {
                 there: Arc::new(AtomicBool::new(there)),
                 quiet: Arc::new(AtomicBool::new(false)),
@@ -461,37 +483,10 @@ mod tests {
         fn take_peaks(&self) -> Vec<f32> {
             std::mem::replace(&mut *self.peaks.lock().unwrap(), vec![0.0; self.channels])
         }
-    }
 
-    struct FakeStream {
-        stop: Arc<AtomicBool>,
-        thread: Option<JoinHandle<()>>,
-    }
-
-    impl Drop for FakeStream {
-        fn drop(&mut self) {
-            self.stop.store(true, Ordering::Relaxed);
-            if let Some(t) = self.thread.take() {
-                let _ = t.join();
-            }
-        }
-    }
-
-    impl Port for Fake {
-        fn name(&self) -> String {
-            "UCX".into()
-        }
-
-        fn find(&mut self) -> Option<Found> {
-            self.there.load(Ordering::Relaxed).then(|| Found { name: "Fake UCX II".into(), rate: RATE, channels: self.channels })
-        }
-
-        fn open(&mut self, rate: u32, link: &mut Link) -> Result<Opened> {
-            anyhow::ensure!(self.there.load(Ordering::Relaxed), "not there");
-            anyhow::ensure!(rate == RATE, "{rate} Hz");
+        /// a playing stream: its callbacks on the device's own clock, quiet while it is pulled
+        pub(in crate::audio) fn stream(&self, mut held: Held) -> FakeStream {
             self.opens.fetch_add(1, Ordering::Relaxed);
-            *self.lost.lock().unwrap() = Some(link.lost());
-            let mut held = Held::handed(link.hand());
             let stop = Arc::new(AtomicBool::new(false));
             let me = self.clone();
             let halt = stop.clone();
@@ -524,12 +519,43 @@ mod tests {
                     std::thread::sleep(Duration::from_nanos(at(k).saturating_sub(now_ns())));
                 }
             });
-            Ok(Opened { stream: Box::new(FakeStream { stop, thread: Some(thread) }), wasapi: false })
+            FakeStream { stop, thread: Some(thread) }
+        }
+    }
+
+    pub(in crate::audio) struct FakeStream {
+        stop: Arc<AtomicBool>,
+        thread: Option<JoinHandle<()>>,
+    }
+
+    impl Drop for FakeStream {
+        fn drop(&mut self) {
+            self.stop.store(true, Ordering::Relaxed);
+            if let Some(t) = self.thread.take() {
+                let _ = t.join();
+            }
+        }
+    }
+
+    impl Port for Fake {
+        fn name(&self) -> String {
+            "UCX".into()
+        }
+
+        fn find(&mut self) -> Option<Found> {
+            self.there.load(Ordering::Relaxed).then(|| Found { name: "Fake UCX II".into(), rate: RATE, channels: self.channels })
+        }
+
+        fn open(&mut self, rate: u32, link: &mut Link) -> Result<Opened> {
+            anyhow::ensure!(self.there.load(Ordering::Relaxed), "not there");
+            anyhow::ensure!(rate == RATE, "{rate} Hz");
+            *self.lost.lock().unwrap() = Some(link.lost());
+            Ok(Opened { stream: Box::new(self.stream(Held::handed(link.hand()))), wasapi: false })
         }
     }
 
     /// a test tone on the group `cue`, which the saved map puts on channels 3 and 4
-    fn engine(channels: usize) -> (super::super::Engine, super::super::Handles) {
+    pub(in crate::audio) fn engine(channels: usize) -> (super::super::Engine, super::super::Handles) {
         let map = [deck_engine::OutletMap { group: "cue".into(), channels: vec![3, 4] }];
         assert_eq!(super::super::backend::map_channels(&map), 4);
         let tone = deck_engine::Tone::Group("cue".into());
@@ -537,7 +563,7 @@ mod tests {
         super::super::Engine::build_mapped(&graph, RATE as f32, 1.0, super::super::detect_build(), deck_engine::Sequencing::InBlock, channels, &map).unwrap()
     }
 
-    fn wait(what: &str, secs: u64, mut ok: impl FnMut() -> bool) {
+    pub(in crate::audio) fn wait(what: &str, secs: u64, mut ok: impl FnMut() -> bool) {
         let end = Instant::now() + Duration::from_secs(secs);
         while !ok() {
             assert!(Instant::now() < end, "waited {secs} s for {what}");
@@ -545,7 +571,7 @@ mod tests {
         }
     }
 
-    fn plays_the_map(fake: &Fake) {
+    pub(in crate::audio) fn plays_the_map(fake: &Fake) {
         fake.take_peaks();
         let mut p = vec![0.0f32; fake.channels];
         wait("the tone", 10, || {
@@ -557,7 +583,7 @@ mod tests {
         assert!(p[0] == 0.0 && p[1] == 0.0, "the tone on 3 and 4 only: {p:?}");
     }
 
-    fn away(notes: &Notes) -> bool {
+    pub(in crate::audio) fn away(notes: &Notes) -> bool {
         notes.get().is_some_and(|n| n.away)
     }
 
