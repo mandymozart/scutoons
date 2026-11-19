@@ -57,6 +57,10 @@ pub struct Node {
     pub far: bool,
     /// folded to a pill with one pin per signal on each side
     pub collapsed: bool,
+    /// what it plays, as a preview's key (`scene:nave`): the view shows its picture when it has one
+    pub picture: Option<String>,
+    /// the group it is framed in (the crate's index): a layer keeps a group's nodes together
+    pub group: Option<usize>,
 }
 
 impl Node {
@@ -72,14 +76,33 @@ impl Node {
     }
 }
 
+/// what runs on a wire this frame (the crate's core says it; the view draws it)
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub enum Activity {
+    /// nothing: drawn faint
+    #[default]
+    Idle,
+    /// a stream flows (a piece plays, the clock runs): it glows
+    Stream,
+    /// an event went through: lit, a pulse on its way to the inlet, 0 -> 1 as it runs
+    Pulse(f32),
+}
+
 /// a wire: from an outlet (node, its outs' index) to an inlet (node, its ins' index)
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Link {
     pub from: (usize, usize),
     pub to: (usize, usize),
     pub signal: Signal,
-    /// something runs on it now (else it is drawn faint)
-    pub live: bool,
+    pub activity: Activity,
+    /// what it carries, for people (the value on hovering it): `0.8`, `bar`, `yellowmouse-enters`
+    pub value: Option<String>,
+}
+
+impl Link {
+    pub fn new(from: (usize, usize), to: (usize, usize), signal: Signal) -> Link {
+        Link { from, to, signal, activity: Activity::Idle, value: None }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -113,6 +136,38 @@ impl Graph {
         }
         layer
     }
+
+    /// The graph with nodes `members` folded into `pill`: it stands collapsed after the others, each wire that crossed
+    /// the fold now on a pin of its own (the pill merges them per signal); the wires between members go.
+    pub fn fold(&self, members: &[usize], mut pill: Node) -> Graph {
+        let inside = |i: usize| members.contains(&i);
+        let mut out = Graph::default();
+        let mut map = vec![usize::MAX; self.nodes.len()];
+        for (i, n) in self.nodes.iter().enumerate().filter(|(i, _)| !inside(*i)) {
+            map[i] = out.nodes.len();
+            out.nodes.push(n.clone());
+        }
+        let at = out.nodes.len();
+        (pill.collapsed, pill.ins, pill.outs) = (true, Vec::new(), Vec::new());
+        for l in self.links.iter().filter(|l| l.from.0 < map.len() && l.to.0 < map.len()) {
+            let mut k = l.clone();
+            match (inside(l.from.0), inside(l.to.0)) {
+                (true, true) => continue,
+                (false, false) => (k.from.0, k.to.0) = (map[l.from.0], map[l.to.0]),
+                (true, false) => {
+                    pill.outs.push(self.nodes[l.from.0].outs.get(l.from.1).cloned().unwrap_or_else(|| Pin::new("", l.signal)));
+                    (k.from, k.to.0) = ((at, pill.outs.len() - 1), map[l.to.0]);
+                }
+                (false, true) => {
+                    pill.ins.push(self.nodes[l.to.0].ins.get(l.to.1).cloned().unwrap_or_else(|| Pin::new("", l.signal)));
+                    (k.from.0, k.to) = (map[l.from.0], (at, pill.ins.len() - 1));
+                }
+            }
+            out.links.push(k);
+        }
+        out.nodes.push(pill);
+        out
+    }
 }
 
 /// the sizes a layout is made of, in canvas pixels (the zoom scales them)
@@ -130,12 +185,14 @@ pub struct Metrics {
     pub spacing: f32,
     /// the least room per pin along a top â†’ bottom node's edge
     pub pin_gap: f32,
+    /// the room under an open node for its preview (0: no previews)
+    pub preview: f32,
 }
 
 impl Metrics {
     /// the sizes for a UI whose rem is `unit`
     pub fn of(unit: f32) -> Metrics {
-        Metrics { unit, width: 14.0 * unit, head: 2.0 * unit, line: 1.5 * unit, gap: 5.0 * unit, spacing: 2.0 * unit, pin_gap: 4.0 * unit }
+        Metrics { unit, width: 14.0 * unit, head: 2.0 * unit, line: 1.5 * unit, gap: 5.0 * unit, spacing: 2.0 * unit, pin_gap: 4.0 * unit, preview: 0.0 }
     }
 }
 
@@ -150,15 +207,16 @@ pub struct Placed {
 /// a node's size before it is placed
 fn size(n: &Node, dir: Direction, m: &Metrics) -> (f32, f32) {
     let snap = |v: f32| (v / m.unit).ceil() * m.unit;
+    let preview = if n.picture.is_some() { m.preview } else { 0.0 };
     let (ins, outs) = match n.collapsed {
         true => (Node::merged(&n.ins).len(), Node::merged(&n.outs).len()),
         false => (n.ins.len(), n.outs.len()),
     };
     match (dir, n.collapsed) {
         (Direction::Lr, true) => (snap(m.width * 0.75), snap(m.head.max(ins.max(outs) as f32 * m.line * 0.6))),
-        (Direction::Lr, false) => (snap(m.width), snap(m.head + ins.max(outs) as f32 * m.line + m.line * 0.4)),
+        (Direction::Lr, false) => (snap(m.width), snap(m.head + ins.max(outs) as f32 * m.line + m.line * 0.4 + preview)),
         (Direction::Tb, true) => (snap((m.width * 0.75).max(ins.max(outs) as f32 * m.pin_gap * 0.6)), snap(m.head)),
-        (Direction::Tb, false) => (snap(m.width.max(ins.max(outs) as f32 * m.pin_gap)), snap(m.head + m.line)),
+        (Direction::Tb, false) => (snap(m.width.max(ins.max(outs) as f32 * m.pin_gap)), snap(m.head + m.line + preview)),
     }
 }
 
@@ -218,6 +276,15 @@ pub fn layout(g: &Graph, dir: Direction, m: &Metrics) -> Vec<Placed> {
             })
             .collect();
         here.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
+        // a group's nodes follow its first one, so its frame holds them alone
+        let mut kept: Vec<(f32, usize)> = Vec::with_capacity(here.len());
+        for (k, i) in here {
+            match g.nodes[i].group.and_then(|grp| kept.iter().rposition(|(_, j)| g.nodes[*j].group == Some(grp))) {
+                Some(last) => kept.insert(last + 1, (k, i)),
+                None => kept.push((k, i)),
+            }
+        }
+        let here = kept;
         for (k, (_, i)) in here.iter().enumerate() {
             rank[*i] = k as f32;
         }
@@ -254,9 +321,25 @@ pub fn layout(g: &Graph, dir: Direction, m: &Metrics) -> Vec<Placed> {
         .collect()
 }
 
+/// The nodes in reading order (Tab's): layer after layer along the flow, across each layer from its start.
+pub fn order(placed: &[Placed], dir: Direction) -> Vec<usize> {
+    let key = |i: usize| {
+        let r = placed[i].rect;
+        if dir == Direction::Lr { (r.x, r.y) } else { (r.y, r.x) }
+    };
+    let mut o: Vec<usize> = (0..placed.len()).collect();
+    o.sort_by(|&a, &b| key(a).0.total_cmp(&key(b).0).then(key(a).1.total_cmp(&key(b).1)));
+    o
+}
+
 /// what the laid out nodes cover together
 pub fn bounds(placed: &[Placed]) -> Rect {
-    let mut it = placed.iter().map(|p| p.rect);
+    bounds_of(placed.iter().map(|p| p.rect))
+}
+
+/// what some rectangles cover together
+pub fn bounds_of(rects: impl IntoIterator<Item = Rect>) -> Rect {
+    let mut it = rects.into_iter();
     let Some(first) = it.next() else { return Rect::default() };
     let (x0, y0, x1, y1) = it.fold((first.x, first.y, first.x + first.w, first.y + first.h), |o, r| (o.0.min(r.x), o.1.min(r.y), o.2.max(r.x + r.w), o.3.max(r.y + r.h)));
     Rect { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }
@@ -272,7 +355,7 @@ mod tests {
     }
 
     fn link(from: (usize, usize), to: (usize, usize), signal: Signal) -> Link {
-        Link { from, to, signal, live: true }
+        Link::new(from, to, signal)
     }
 
     /// reader â†’ row â†’ two cells, the row also â†’ sends
@@ -355,6 +438,56 @@ mod tests {
         let g = Graph { nodes: vec![node("s1", &[], &[Event]), node("s2", &[], &[Event]), node("b", &[Event], &[]), node("a", &[Event], &[])], links: vec![link((1, 0), (2, 0), Event), link((0, 0), (3, 0), Event)] };
         let p = layout(&g, Direction::Lr, &Metrics::of(16.0));
         assert!(p[3].rect.y < p[2].rect.y);
+    }
+
+    #[test]
+    fn a_fold_stands_for_its_members_and_keeps_the_wires_that_cross_it() {
+        let g = row();
+        // left and bells folded: the row's two event wires reach the pill, the far wire between them goes
+        let f = g.fold(&[2, 3], Node { id: "group:a".into(), title: "a".into(), ..Node::default() });
+        assert_eq!(f.nodes.len(), 4);
+        let pill = f.node("group:a").unwrap();
+        assert!(f.nodes[pill].collapsed);
+        assert_eq!(f.nodes[pill].ins.len(), 2, "one pin per crossing wire");
+        assert!(f.nodes[pill].outs.is_empty());
+        assert_eq!(f.links.len(), 4);
+        for l in &f.links {
+            assert_eq!(f.nodes[l.to.0].ins[l.to.1].signal, l.signal);
+            assert_eq!(f.nodes[l.from.0].outs[l.from.1].signal, l.signal);
+        }
+        let p = layout(&f, Direction::Lr, &Metrics::of(16.0));
+        assert_eq!(p[pill].ins[0], p[pill].ins[1], "two event wires meet at one merged pin");
+    }
+
+    #[test]
+    fn a_layer_keeps_a_groups_nodes_together() {
+        use Signal::*;
+        let mut g = Graph { nodes: vec![node("s", &[], &[Event]), node("a", &[Event], &[]), node("b", &[Event], &[]), node("c", &[Event], &[])], links: vec![link((0, 0), (1, 0), Event), link((0, 0), (2, 0), Event), link((0, 0), (3, 0), Event)] };
+        g.nodes[1].group = Some(0);
+        g.nodes[3].group = Some(0);
+        let p = layout(&g, Direction::Lr, &Metrics::of(16.0));
+        assert!(p[1].rect.y < p[3].rect.y && p[3].rect.y < p[2].rect.y, "a, c, then b");
+    }
+
+    #[test]
+    fn an_open_node_with_a_picture_has_room_for_its_preview() {
+        let mut g = row();
+        g.nodes[2].picture = Some("scene:nave".into());
+        g.nodes[3].picture = Some("scene:bells".into());
+        g.nodes[3].collapsed = true;
+        let m = Metrics { preview: 5.0 * 16.0, ..Metrics::of(16.0) };
+        let (plain, shown) = (layout(&g, Direction::Lr, &Metrics::of(16.0)), layout(&g, Direction::Lr, &m));
+        assert_eq!(shown[2].rect.h, plain[2].rect.h + 80.0);
+        assert_eq!(shown[3].rect.h, plain[3].rect.h, "a folded node shows no preview");
+        assert_eq!(shown[1].rect.h, plain[1].rect.h, "nor one without a picture");
+    }
+
+    #[test]
+    fn tab_reads_layer_by_layer() {
+        let p = layout(&row(), Direction::Lr, &Metrics::of(16.0));
+        let o = order(&p, Direction::Lr);
+        assert_eq!(&o[2..], [1, 2, 3], "the row, then the cells it fires");
+        assert!(o[..2].contains(&0) && o[..2].contains(&4), "the sources first");
     }
 
     #[test]

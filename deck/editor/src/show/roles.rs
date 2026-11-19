@@ -45,6 +45,9 @@ pub enum Typing {
     /// the new show's name; the toon picker's query (toons.rs)
     NewName,
     ToonFind,
+    /// the node view: a group's label, a note's text (by id)
+    NodeGroup(String),
+    Note(String),
 }
 
 /// What a prompt asks before it is done.
@@ -143,6 +146,12 @@ impl Host {
                     Typing::SceneId | Typing::SceneName | Typing::SceneCast => self.compose_typed(&what, &text),
                     Typing::NewName | Typing::ToonFind => self.toon_typed(&what, &text),
                     Typing::Background => self.set_background(&text),
+                    Typing::NodeGroup(group) => {
+                        self.edit_canvas(&deck_show::canvas::Edit::GroupLabel { group, to: text });
+                    }
+                    Typing::Note(note) => {
+                        self.edit_canvas(&deck_show::canvas::Edit::NoteText { note, to: text });
+                    }
                 }
             }
             Key::Named(NamedKey::Escape) => self.typing = None,

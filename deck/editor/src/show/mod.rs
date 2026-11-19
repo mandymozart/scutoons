@@ -29,6 +29,7 @@ pub(crate) mod condition;
 pub mod demos;
 mod events;
 pub mod nodes;
+mod node_paint;
 mod flash;
 mod link;
 pub mod new_scene;
@@ -203,6 +204,8 @@ pub enum Hit {
     /// the node view: its direction, framing everything
     NodeFlow(deck_kit::base::graph::Direction),
     NodeFrame,
+    /// a node, a group, a note or a button of the node view (nodes.rs)
+    Nodes(nodes::NodeHit),
     /// the cue sheet or the problems list in the stage's place
     Sheet(Sheet),
     /// a line of the problems list: select what it points at
@@ -233,6 +236,7 @@ impl Hit {
         match self {
             Hit::Cell(r, c) => Hit::CellAlso(r, c),
             Hit::Column(c) => Hit::ColumnAlso(c),
+            Hit::Nodes(nodes::NodeHit::Node(i)) => Hit::Nodes(nodes::NodeHit::NodeAlso(i)),
             other => other,
         }
     }
@@ -541,7 +545,7 @@ impl Host {
             Hit::Load => self.load(),
             Hit::Flash => self.open_flash(),
             Hit::FlashTick(_) | Hit::FlashQuick(_) | Hit::FlashType | Hit::FlashLock | Hit::FlashForce | Hit::FlashAsk | Hit::FlashConfirm | Hit::FlashCancel => self.flash_press(hit),
-            Hit::NodeFlow(_) | Hit::NodeFrame => self.nodes_press(hit),
+            Hit::NodeFlow(_) | Hit::NodeFrame | Hit::Nodes(_) => self.nodes_press(hit),
             Hit::View(two_d) => {
                 self.two_d = two_d;
                 self.sheet = None;
@@ -581,6 +585,9 @@ impl Host {
             return true;
         }
         if show && !ctrl && *key == winit::keyboard::Key::Character("f".into()) && self.nodes_frame() {
+            return true;
+        }
+        if show && self.asking.is_none() && self.nodes_key(key, ctrl) {
             return true;
         }
         show && self.asking.is_none() && self.show_key(key, ctrl)
@@ -734,6 +741,9 @@ pub struct Script {
     pub in_place: Option<String>,
     /// the shots a scene's camera has, as Build's open scene would tell (`scene:<id>=wide+close`)
     pub known_shots: Option<(String, Vec<String>)>,
+    /// the node view: these nodes selected (the last focused), then F over the canvas frames them
+    pub node_select: Vec<String>,
+    pub node_frame: bool,
 }
 
 /// `ID,NAME,FILLER+FILLER[,play]`
@@ -781,6 +791,7 @@ impl Host {
                     self.press(Hit::Fire(i));
                 }
             }
+            95 => self.script_nodes(&s.node_select, s.node_frame),
             70 => {
                 let cols = deck_show::view::matrix(&self.sub).columns;
                 if let Some((r, c)) = s.launch.as_ref().and_then(|(r, c)| Some((rows.iter().position(|x| x == r)?, cols.iter().position(|x| x.id == *c)?))) {

@@ -12,6 +12,16 @@ pub fn hex([r, g, b]: Rgb) -> String {
     format!("#{r:02x}{g:02x}{b:02x}")
 }
 
+/// `#rrggbb` (or `rrggbb`) as bytes; anything else: none
+pub fn rgb(hex: &str) -> Option<Rgb> {
+    let h = hex.trim().strip_prefix('#').unwrap_or(hex.trim());
+    if h.len() != 6 || !h.is_ascii() {
+        return None;
+    }
+    let at = |i: usize| u8::from_str_radix(&h[i..i + 2], 16).ok();
+    Some([at(0)?, at(2)?, at(4)?])
+}
+
 /// display values 0–1 (deck-catalog's reading of a hex) as bytes
 pub fn bytes(c: [f32; 3]) -> Rgb {
     c.map(|v| (v.clamp(0.0, 1.0) * 255.0).round() as u8)
@@ -321,6 +331,10 @@ mod tests {
     #[test]
     fn hex_and_hsv_go_both_ways() {
         assert_eq!(hex([255, 128, 0]), "#ff8000");
+        assert_eq!(rgb("#ff8000"), Some([255, 128, 0]));
+        assert_eq!(rgb("5FB3FF"), Some([0x5f, 0xb3, 0xff]));
+        assert_eq!(rgb("#ff80"), None);
+        assert_eq!(rgb("#gg8000"), None);
         assert_eq!(bytes([1.0, 128.0 / 255.0, 0.0]), [255, 128, 0]);
         let red = Hsv::of([255, 0, 0]);
         assert_eq!((red.h, red.s, red.v), (0.0, 1.0, 1.0));

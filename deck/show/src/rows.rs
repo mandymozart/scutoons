@@ -295,7 +295,7 @@ pub fn edit_with(show: &Show, e: &Edit, knobs: Option<&[Knob]>) -> Result<Edited
                 Some(a) => row_at(show, a)? + 1,
                 None => next.rows.len(),
             };
-            next.rows.insert(at, Row { id: id.clone(), fire: Default::default(), cells: Default::default(), addresses: vec![], r#where: Default::default(), wires: vec![] });
+            next.rows.insert(at, Row { id: id.clone(), fire: Default::default(), cells: Default::default(), addresses: vec![], r#where: Default::default(), wires: vec![], nodes: Default::default() });
             (format!("row {} {id} added: manual, every column keeps", at + 1), Some(id))
         }
         Edit::Rename { id, to } => {
