@@ -151,6 +151,6 @@ mod tests {
         host.press(crate::show::Hit::Demo(i));
         assert_eq!(host.shown().id, "far-nodes");
         assert_eq!(host.sheet, None);
-        assert!(host.status.contains("Open in Build"), "{}", host.status);
+        assert!(host.status.contains("Open in a tab"), "{}", host.status);
     }
 }

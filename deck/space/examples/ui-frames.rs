@@ -101,7 +101,7 @@ fn frame((device, queue): (&wgpu::Device, &wgpu::Queue), (w, h): (u32, u32), men
     let now = Now::default();
     let mut enc = device.create_command_encoder(&Default::default());
     let tick = Tick { graph: &graph, input: &input, tempo: &now, time: 4.0, dt: 1.0 / 60.0 };
-    stage.frame(device, queue, &mut enc, &view, &tick, &Over { hud: None, splash: (0.0, false), label_centred: false, hud_at: None }, None);
+    stage.frame(device, queue, &mut enc, &view, &tick, &Over { hud: None, splash: (0.0, false), label_centred: false, label_hidden: false, hud_at: None }, None);
     let row = (w * 4).div_ceil(wgpu::COPY_BYTES_PER_ROW_ALIGNMENT) * wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
     let buf = device.create_buffer(&wgpu::BufferDescriptor { label: Some("read back"), size: (row * h) as u64, usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ, mapped_at_creation: false });
     enc.copy_texture_to_buffer(

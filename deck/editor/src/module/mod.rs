@@ -109,7 +109,7 @@ pub fn draft(open: &Open, files: &Files) -> (String, Value) {
 
 /// a factory module's derived id: `my_<id>` within the id's 32 characters
 /// how a module sets its stage background: in its code, read by the build into the descriptor
-pub const BACKGROUND_NOTE: &str = "read-only: set in the code, #[module(background_colour = \"#rrggbb\")] or background_image / background_video; Build reads it";
+pub const BACKGROUND_NOTE: &str = "read-only: set in the code, #[module(background_colour = \"#rrggbb\")] or background_image / background_video; its Asset tab reads it";
 
 /// The module's background row, read-only (the descriptor is the build's): what its descriptor sets, how to set it.
 pub fn background_row(descriptor: Option<&Descriptor>) -> crate::inspector::BackgroundRow {

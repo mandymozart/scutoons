@@ -51,24 +51,29 @@ use deck_ui::session::Place;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
+/// What the front tab draws with (tabs.rs): the stage editor of a Scene tab and of a character's Asset tab, a module's
+/// Asset tab, a Show tab authoring or performing; Home when no tab is open.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Workspace {
-    Build,
+    Stage,
     Show,
     Perform,
     /// a module's code, build and audition (crate::module)
     Module,
+    Home,
 }
 
-pub const WORKSPACES: [(Workspace, &str); 4] = [(Workspace::Build, "Build"), (Workspace::Module, "Module"), (Workspace::Show, "Show"), (Workspace::Perform, "Perform")];
-
 impl Workspace {
+    /// a check run's `--workspace`: build | module | show | perform, the names before the tabs
     pub fn parse(s: &str) -> Option<Workspace> {
-        WORKSPACES.iter().find(|(_, n)| n.eq_ignore_ascii_case(s)).map(|(w, _)| *w)
-    }
-
-    pub fn index(self) -> usize {
-        WORKSPACES.iter().position(|(w, _)| *w == self).unwrap_or(0)
+        match s.to_ascii_lowercase().as_str() {
+            "build" | "stage" | "scene" | "asset" => Some(Workspace::Stage),
+            "module" => Some(Workspace::Module),
+            "show" => Some(Workspace::Show),
+            "perform" => Some(Workspace::Perform),
+            "home" => Some(Workspace::Home),
+            _ => None,
+        }
     }
 }
 
@@ -415,6 +420,11 @@ impl Host {
     pub(crate) fn refuse(&mut self, why: String) {
         self.status = why;
         self.bad = true;
+    }
+
+    /// the relay this show is joined to, if any: the show live
+    pub fn relay(&self) -> Option<&str> {
+        self.link.as_ref().map(|l| l.relay.as_str())
     }
 
     pub fn link_line(&self) -> String {

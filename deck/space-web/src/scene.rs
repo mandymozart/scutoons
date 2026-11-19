@@ -951,7 +951,7 @@ impl SceneView {
         }
         let hud = self.live.open.then_some(&self.hud);
         let hud_at = Some(deck_space::hud::page_rect(self.config.width as f32, self.config.height as f32, self.live_at.0, self.live_at.1).0);
-        show.stage.frame(&self.device, &self.queue, &mut enc, &view, &Tick { graph, input: &input, tempo: &self.beat, time, dt }, &Over { hud, splash, label_centred: true, hud_at }, show.space.as_mut());
+        show.stage.frame(&self.device, &self.queue, &mut enc, &view, &Tick { graph, input: &input, tempo: &self.beat, time, dt }, &Over { hud, splash, label_centred: true, label_hidden: false, hud_at }, show.space.as_mut());
         self.queue.submit([enc.finish()]);
         self.queue.present(frame);
         Ok(())

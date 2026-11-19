@@ -16,8 +16,13 @@ const TR: Corner = Corner::TopRight;
 const BL: Corner = Corner::BottomLeft;
 const BR: Corner = Corner::BottomRight;
 
+// the panels every view has alike, defined once
+const LOG: Spec = spec("log", "Log", "entry", "Every message, newest first, and the technical log: filter, find, copy all, save as a file.", Place::at(BR, 0.0, 0.0).closed());
+const SETTINGS_PANEL: Spec = spec("settings", "Settings", "settings", "Day or night, motion & feedback, sound and the UI size: this machine's, remembered.", Place::at(TR, 0.0, 0.0).closed());
+
 // The order is the order of growth: an earlier panel leaves a later one the room it asks for, so the ones whose content
 // scrolls well come first and the ones of a fixed size last.
+/// the stage editor's: a Scene tab and a character's Asset tab
 pub const BUILD: [Spec; 10] = [
     spec("tree", "Rig", "tree", "The rig, its tracks and their nodes. In Wire a click goes to that level.", Place::at(TL, 0.0, 0.0)),
     spec("library", "Library", "grid", "Modules and instruments to drop on the stage as a track, characters to open, the assets; filter, related to the rig open.", Place::at(BL, 0.0, 0.0)),
@@ -26,9 +31,9 @@ pub const BUILD: [Spec; 10] = [
     spec("info", "Info", "info", "What is under the pointer: its name and what it does.", Place::at(BL, 450.0, 0.0)),
     spec("mixer", "Mixer", "sliders", "One strip per track at the level of the tree shown; inside a track its gains.", Place::at(BR, 0.0, 0.0)),
     spec("dop", "DOP", "camera", "The scene's camera: its lens, its shots, the moves between them and the trolley track.", Place::at(TL, 340.0, 0.0)),
-    spec("tools", "Tools", "tool", "The stage's tools: the tool in hand, the view, grid & snap, framing – what this workspace offers.", Place::at(TR, 360.0, 0.0)).inline().essential(),
-    spec("log", "Log", "entry", "Every message, newest first, and the technical log: filter, find, copy all, save as a file.", Place::at(BR, 0.0, 0.0).closed()),
-    spec("settings", "Settings", "settings", "Day or night, motion & feedback, sound and the UI size: this machine's, remembered.", Place::at(TR, 0.0, 0.0).closed()),
+    spec("tools", "Tools", "tool", "The stage's tools: the tool in hand, the view, grid & snap, framing – what this view offers.", Place::at(TR, 360.0, 0.0)).inline().essential(),
+    LOG,
+    SETTINGS_PANEL,
 ];
 
 pub const SHOW: [Spec; 10] = [
@@ -36,12 +41,12 @@ pub const SHOW: [Spec; 10] = [
     spec("inspector", "Inspector", "inspector", "The row, the role or the cells selected; Load, Flash and Save.", Place::at(TR, 0.0, 0.0)).essential(),
     spec("sheet", "Sheet", "layers", "The sheet open: cues, problems, who is here, a picker or the flash list.", Place::at(TL, 320.0, 0.0)).essential(),
     spec("nodes", "Nodes", "node", "What comes from far, the cells of the row and what the row sends, over the stage.", Place::at(TL, 320.0, 0.0)),
-    spec("library", "Library", "grid", "The toon's scenes, characters and items: drag one onto a cell, a double click opens a scene in Build.", Place::at(BR, 0.0, 0.0)),
+    spec("library", "Library", "grid", "The toon's scenes, characters and items: drag one onto a cell, a double click opens it as a tab.", Place::at(BR, 0.0, 0.0)),
     spec("rows", "Rows", "list", "The rows of the show: what fires each one and every column's cell.", Place::at(BL, 0.0, 0.0)).essential(),
     spec("info", "Info", "info", "What is under the pointer: its name and what it does.", Place::at(BR, 440.0, 0.0).folded()),
-    spec("tools", "Tools", "tool", "The stage's tools: the tool in hand, the view, grid & snap, framing – what this workspace offers.", Place::at(TR, 380.0, 0.0)).inline(),
-    spec("log", "Log", "entry", "Every message, newest first, and the technical log: filter, find, copy all, save as a file.", Place::at(BR, 0.0, 0.0).closed()),
-    spec("settings", "Settings", "settings", "Day or night, motion & feedback, sound and the UI size: this machine's, remembered.", Place::at(TR, 0.0, 0.0).closed()),
+    spec("tools", "Tools", "tool", "The stage's tools: the tool in hand, the view, grid & snap, framing – what this view offers.", Place::at(TR, 380.0, 0.0)).inline(),
+    LOG,
+    SETTINGS_PANEL,
 ];
 
 pub const MODULE: [Spec; 7] = [
@@ -49,9 +54,9 @@ pub const MODULE: [Spec; 7] = [
     spec("module", "Module", "code", "The module open: its working copy, Open in editor, Build, its parameters.", Place::at(TR, 0.0, 0.0)).essential(),
     spec("problems", "Problems", "alert", "The last build's problems: a click opens the code there.", Place::at(BL, 0.0, 0.0)),
     spec("info", "Info", "info", "What is under the pointer: its name and what it does.", Place::at(BR, 0.0, 0.0).folded()),
-    spec("tools", "Tools", "tool", "The stage's tools: the tool in hand, the view, grid & snap, framing – what this workspace offers.", Place::at(TR, 420.0, 0.0)).inline(),
-    spec("log", "Log", "entry", "Every message, newest first, and the technical log: filter, find, copy all, save as a file.", Place::at(BR, 0.0, 0.0).closed()),
-    spec("settings", "Settings", "settings", "Day or night, motion & feedback, sound and the UI size: this machine's, remembered.", Place::at(TR, 0.0, 0.0).closed()),
+    spec("tools", "Tools", "tool", "The stage's tools: the tool in hand, the view, grid & snap, framing – what this view offers.", Place::at(TR, 420.0, 0.0)).inline(),
+    LOG,
+    SETTINGS_PANEL,
 ];
 
 pub const PERFORM: [Spec; 9] = [
@@ -61,10 +66,13 @@ pub const PERFORM: [Spec; 9] = [
     spec("now", "Stage now", "eye", "What plays on each outlet now.", Place::at(TL, 300.0, 0.0)),
     spec("matrix", "Cues", "list", "Rows × outlets: the row's play fires it, a cell's play launches it by hand.", Place::at(BL, 0.0, 0.0)).essential(),
     spec("info", "Info", "info", "What is under the pointer: its name and what it does.", Place::at(BR, 120.0, 0.0).folded()),
-    spec("tools", "Tools", "tool", "The stage's tools: the tool in hand, the view, grid & snap, framing – what this workspace offers.", Place::at(TR, 360.0, 0.0)).inline(),
-    spec("log", "Log", "entry", "Every message, newest first, and the technical log: filter, find, copy all, save as a file.", Place::at(BR, 0.0, 0.0).closed()),
-    spec("settings", "Settings", "settings", "Day or night, motion & feedback, sound and the UI size: this machine's, remembered.", Place::at(TR, 0.0, 0.0).closed()),
+    spec("tools", "Tools", "tool", "The stage's tools: the tool in hand, the view, grid & snap, framing – what this view offers.", Place::at(TR, 360.0, 0.0)).inline(),
+    LOG,
+    SETTINGS_PANEL,
 ];
+
+/// Home's: only what every view has
+pub const HOME: [Spec; 2] = [LOG, SETTINGS_PANEL];
 
 /// a content height before it was ever drawn: as tall as the room lets it be, the next frame its own
 const UNMEASURED: f32 = 10_000.0;

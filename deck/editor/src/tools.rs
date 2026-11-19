@@ -139,10 +139,11 @@ pub fn options(g: Group, shots: &[String]) -> Vec<Opt> {
 /// the groups a workspace's pill holds
 pub fn groups(ws: Workspace) -> &'static [Group] {
     match ws {
-        Workspace::Build => &[Group::Tool, Group::Look, Group::Grid, Group::Frame],
+        Workspace::Stage => &[Group::Tool, Group::Look, Group::Grid, Group::Frame],
         Workspace::Show => &[Group::View, Group::Look, Group::Frame],
         Workspace::Perform => &[Group::View, Group::Look],
         Workspace::Module => &[Group::Frame],
+        Workspace::Home => &[],
     }
 }
 
@@ -417,7 +418,7 @@ mod tests {
 
     #[test]
     fn each_workspace_holds_its_groups_and_every_option_has_an_icon_of_the_kit() {
-        assert_eq!(groups(Workspace::Build), &[Group::Tool, Group::Look, Group::Grid, Group::Frame]);
+        assert_eq!(groups(Workspace::Stage), &[Group::Tool, Group::Look, Group::Grid, Group::Frame]);
         assert!(groups(Workspace::Show).contains(&Group::View) && !groups(Workspace::Show).contains(&Group::Tool));
         for o in all(&[]) {
             assert!(deck_kit::editor::icons::has(o.icon), "{}: {}", o.name, o.icon);
@@ -435,12 +436,12 @@ mod tests {
     #[test]
     fn with_room_every_option_shows_without_it_a_group_folds_into_a_menu() {
         let t = Tokens::default();
-        let full = size(&t, Workspace::Build, &[]).0;
+        let full = size(&t, Workspace::Stage, &[]).0;
         let mut tools = Tools::default();
-        let wide = drawn(&mut tools, Workspace::Build, full);
+        let wide = drawn(&mut tools, Workspace::Stage, full);
         assert_eq!(wide.len(), 4 + 2 + 1 + 1);
         assert!(tools.grid_at.is_some(), "the grid's popover has its button");
-        let narrow = drawn(&mut tools, Workspace::Build, full * 0.5);
+        let narrow = drawn(&mut tools, Workspace::Stage, full * 0.5);
         assert_eq!(narrow.iter().filter(|(_, p)| matches!(p, Press::Menu(_))).count(), 2, "the tools and the view fold");
         // the folded tools: a press opens the menu on the tool in hand, the keys move and pick
         let (r, _) = narrow[0];
@@ -484,7 +485,7 @@ mod tests {
     /// with a stage; it folds into a menu like the other groups
     #[test]
     fn the_camera_switcher_holds_free_primary_and_the_shots() {
-        for ws in [Workspace::Build, Workspace::Show, Workspace::Perform] {
+        for ws in [Workspace::Stage, Workspace::Show, Workspace::Perform] {
             assert!(groups(ws).contains(&Group::Look), "{ws:?}");
         }
         let shots: Vec<String> = ["wide", "close", "iso"].map(String::from).to_vec();

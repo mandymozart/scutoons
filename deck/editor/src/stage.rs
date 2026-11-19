@@ -220,6 +220,18 @@ impl Stage {
         self.space.set_background(deck_catalog::background::resolve(show, self.own_background.as_ref(), None, None).cloned());
     }
 
+    /// Home: the sound device is let go until the next replay (the picture is the idle scene's, idle.rs)
+    pub fn rest(&mut self) {
+        self._events = None;
+        self._audio = None;
+        self.handles = None;
+    }
+
+    /// let go by `rest` (not by a panic): a replay brings the sound back
+    pub fn resting(&self) -> bool {
+        self._audio.is_none() && !self.dark
+    }
+
     /// Black and silent until `resume`: the sound device is let go, the picture goes black.
     pub fn panic(&mut self) {
         self._events = None;

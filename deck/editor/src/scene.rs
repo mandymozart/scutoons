@@ -105,14 +105,6 @@ impl SceneView {
         }
     }
 
-    /// the stage's first crumb: the scene, or the member open as its rig
-    pub fn crumb(&self) -> String {
-        match self.inside.and_then(|m| self.edit.members.get(m)) {
-            Some(m) => m.holder.clone(),
-            None => self.edit.key(),
-        }
-    }
-
     /// the member selected in the tree
     pub fn member(&self) -> Option<usize> {
         match self.sel {
@@ -276,21 +268,23 @@ pub fn inspect(d: &mut DrawList, t: &Tokens, area: Rect, view: &SceneView, hot: 
 }
 
 impl crate::App {
-    /// a scene Show asked Build to edit takes the stage
+    /// a scene opened (from Show, the library, Home) takes the stage in its own tab
     pub(crate) fn open_scene(&mut self, o: SceneOpen) {
         self.leave_view();
         let (x, y) = self.cursor;
-        self.take_member_out();
         match SceneView::open(o, self.show.compose.catalog.clone()) {
             Ok((view, scene, notes)) => {
                 let id = view.edit.doc.id.clone();
+                self.adopt(&view.edit.key(), &id);
+                self.workspace = crate::show::Workspace::Stage;
+                self.take_member_out();
                 self.drop_scene();
                 self.scene = Some(view);
                 if let Err(err) = self.stage.play_scene(&id, scene) {
                     return self.refuse(format!("scene:{id}: {err:#}"), x, y);
                 }
                 self.stage.space.open_on_scene_camera();
-                let line = std::iter::once(format!("scene:{id} in Build")).chain(notes).collect::<Vec<_>>().join(" – ");
+                let line = std::iter::once(format!("scene:{id} open")).chain(notes).collect::<Vec<_>>().join(" – ");
                 self.note(line);
             }
             Err(why) => self.refuse(why, x, y),
