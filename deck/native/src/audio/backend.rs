@@ -1059,10 +1059,20 @@ fn pipewire(o: &Options, factory: &mut Factory) -> Result<Running> {
     }
 }
 
+/// A stream the watch's port asks for.
+#[cfg(all(target_os = "linux", feature = "pipewire"))]
+struct Open {
+    sink: super::pw_watch::Sink,
+    held: super::watch::Held,
+    lost: super::watch::Lost,
+    closing: Closing,
+    reply: std::sync::mpsc::Sender<Result<u64, String>>,
+}
+
 /// What the watch's port asks of PipeWire's loop thread.
 #[cfg(all(target_os = "linux", feature = "pipewire"))]
 enum Cmd {
-    Open { sink: super::pw_watch::Sink, held: super::watch::Held, lost: super::watch::Lost, closing: Closing, reply: std::sync::mpsc::Sender<Result<u64, String>> },
+    Open(Box<Open>),
     Close { token: u64, done: std::sync::mpsc::Sender<()> },
     Quit,
 }
@@ -1103,7 +1113,7 @@ impl super::pw_watch::Streams for PwStreams {
     fn open(&mut self, sink: &super::pw_watch::Sink, held: super::watch::Held, lost: super::watch::Lost) -> Result<Box<dyn Any>> {
         let closing = Closing::new(self.all.clone());
         let (reply, answer) = std::sync::mpsc::channel();
-        let open = Cmd::Open { sink: sink.clone(), held, lost, closing: closing.clone(), reply };
+        let open = Cmd::Open(Box::new(Open { sink: sink.clone(), held, lost, closing: closing.clone(), reply }));
         if self.cmd.send(open).is_err() {
             bail!("the PipeWire loop ended");
         }
@@ -1217,7 +1227,8 @@ fn pw_loop(events: super::pw_watch::Events, quantum: u32) -> Result<PwLoop> {
             let (cmd_tx, cmd_rx) = pw::channel::channel::<Cmd>();
             let weak = mainloop.downgrade();
             let _cmds = cmd_rx.attach(mainloop.loop_(), move |cmd| match cmd {
-                Cmd::Open { sink, held, lost, closing, reply } => {
+                Cmd::Open(open) => {
+                    let Open { sink, held, lost, closing, reply } = *open;
                     let position: Vec<u32> = sink.positions.iter().enumerate().map(|(i, n)| spa_channel(n, i)).collect();
                     let r = pw_stream(&core, Some(&sink.name), &position, quantum, held, closing, Some(lost)).map_err(|e| e.to_string()).map(|out| {
                         next.set(next.get() + 1);
