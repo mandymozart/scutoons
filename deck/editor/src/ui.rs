@@ -15,7 +15,7 @@ use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 
 /// an icon's side in the pictures (pixels)
-const ICON: u32 = 36;
+const ICON: u32 = 48;
 /// the pictures' width once previews join them
 const THUMBS_W: usize = 2048;
 

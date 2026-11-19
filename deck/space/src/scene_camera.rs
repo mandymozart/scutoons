@@ -38,7 +38,7 @@ pub const MAX_ROUNDS: f32 = 16.0;
 
 /// The eye heights a camera stands at (m above the stage's floor; the cast's cards stand ~1.7 m): each looks level at
 /// its aim, the bird down from high above.
-pub const EYE_HEIGHTS: [(&str, f32); 7] = [("frog", 0.1), ("cat", 0.3), ("kid", 1.1), ("adult", 1.6), ("giant", 3.0), ("giraffe", 5.0), ("bird", 9.0)];
+pub const EYE_HEIGHTS: [(&str, f32); 7] = [("frog", 0.1), ("cat", 0.3), ("kid", 1.1), ("adult", 1.6), ("cyclops", 3.0), ("giraffe", 5.0), ("bird", 9.0)];
 /// the bird's look down (degrees)
 pub const BIRD_PITCH: f32 = 50.0;
 /// the default primary camera's eye height: adult
@@ -373,12 +373,23 @@ impl MoveKind {
         MoveKind::Rack,
     ];
 
+    /// the kinds in the panel's groups: what travels, what changes the optics, the accents; each of `ALL` once
+    pub const GROUPS: [(&'static str, &'static str, &'static [MoveKind]); 3] = [
+        (
+            "locomotion",
+            "the camera travels",
+            &[MoveKind::Glide, MoveKind::In, MoveKind::Fly, MoveKind::CraneDown, MoveKind::CraneUp, MoveKind::Spiral, MoveKind::Push, MoveKind::Pull, MoveKind::Orbit, MoveKind::Truck, MoveKind::Follow],
+        ),
+        ("lens", "the optics change", &[MoveKind::Zoom, MoveKind::DollyZoom, MoveKind::Rack]),
+        ("accents", "", &[MoveKind::Cut, MoveKind::Tilt, MoveKind::Whip, MoveKind::Shake]),
+    ];
+
     pub fn word(self) -> &'static str {
         match self {
             MoveKind::Cut => "cut",
             MoveKind::Glide => "glide",
             MoveKind::In => "in",
-            MoveKind::Fly => "fly",
+            MoveKind::Fly => "fly through",
             MoveKind::CraneDown => "crane down",
             MoveKind::CraneUp => "crane up",
             MoveKind::Spiral => "spiral",
@@ -894,6 +905,13 @@ mod tests {
     }
 
     #[test]
+    fn the_move_groups_hold_every_kind_once() {
+        let grouped: Vec<MoveKind> = MoveKind::GROUPS.iter().flat_map(|(_, _, k)| k.iter().copied()).collect();
+        assert_eq!(grouped.len(), MoveKind::ALL.len());
+        assert!(MoveKind::ALL.iter().all(|k| grouped.contains(k)) && !grouped.contains(&MoveKind::Take));
+    }
+
+    #[test]
     fn eye_heights_look_level_and_the_bird_looks_down() {
         let s = shot("wide");
         for (name, h) in EYE_HEIGHTS {
@@ -907,6 +925,7 @@ mod tests {
             }
         }
         assert_eq!(height_preset(2.2), None, "a typed height is no preset");
+        assert_eq!(EYE_HEIGHTS[4].0, "cyclops");
         assert_eq!(SceneCamera::default().height, DEFAULT_HEIGHT);
         assert_eq!(serde_json::to_string(&SceneCamera::default()).unwrap(), "{\"lens\":{\"projection\":\"perspective\",\"focal\":30.0,\"size\":4.0}}");
     }

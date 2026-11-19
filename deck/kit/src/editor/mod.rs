@@ -6,6 +6,7 @@ pub mod carry;
 pub mod colour;
 pub mod controls;
 pub mod floats;
+pub mod fold;
 pub mod icons;
 pub mod info;
 pub mod library;

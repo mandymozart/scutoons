@@ -30,7 +30,7 @@ pub const BUILD: [Spec; 10] = [
     spec("audio", "Audio", "activity", "The sound card, its inputs and outputs, the map and the test tones.", Place::at(BL, 740.0, 0.0).folded()),
     spec("info", "Info", "info", "What is under the pointer: its name and what it does.", Place::at(BL, 450.0, 0.0)),
     spec("mixer", "Mixer", "sliders", "One strip per track at the level of the tree shown; inside a track its gains.", Place::at(BR, 0.0, 0.0)),
-    spec("dop", "DOP", "camera", "The scene's camera: its lens, its shots, the moves between them and the trolley track.", Place::at(TL, 340.0, 0.0)),
+    spec("dop", "Camera tools", "dop-camera", "The scene's camera: its lens, its shots, the moves between them and the trolley track.", Place::at(TL, 340.0, 0.0)),
     spec("tools", "Tools", "tool", "The stage's tools: the tool in hand, the view, grid & snap, framing – what this view offers.", Place::at(TR, 360.0, 0.0)).inline().essential(),
     LOG,
     SETTINGS_PANEL,
