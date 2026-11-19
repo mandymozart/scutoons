@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Character asset drafts</title>
+<!-- #657 / epic #626 – draft only. The deck's night tokens (deck/kit/src/base/tokens.rs), base 14px.
+     ?v=a  tree · stage · inspector (deck editor layout)
+     ?v=b  tree · mood matrix · floating stage
+     Open at 1440×900 and at 744×1133 (the creator's minimum). -->
+<style>
+@font-face{font-family:"Noto Sans";src:url("../../../deck/kit/assets/NotoSans-Regular-latin.ttf");font-weight:400}
+@font-face{font-family:"Noto Sans";src:url("../../../deck/kit/assets/NotoSans-Bold-latin.ttf");font-weight:700}
+:root{
+  --stage:#000;--surface:#1a1c18;--head:#141612;--line:#3a4034;--text:#f3f3f0;--muted:#a7af9b;
+  --control:#262922;--hover:#2e3229;--pressed:#f3f3f0;--pressed-text:#171916;--selected:#3a4132;--within:#23261f;
+  --accent:#00d1ff;--primary:#b4ff32;--primary-ink:#171916;--warn:#f0a030;--go:#4cc35a;
+  --top:2.6rem;--tree:20rem;--insp:27rem;--pad:.57rem;--gap:1rem;--small:.86rem;--label:.72rem;--title:1.15rem;
+  --row:2.15rem;--tree-row:1.8rem;--radius:.36rem;
+  --mono:"ABC Areal Mono","IBM Plex Mono",ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+html{font-size:14px}
+body{margin:0;height:100vh;background:var(--surface);color:var(--text);font:400 1rem/1.35 "Noto Sans",system-ui,sans-serif;overflow:hidden;display:flex;flex-direction:column}
+button{font:inherit;color:inherit}
+.lbl{font-size:var(--label);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.mono{font-family:var(--mono);font-size:var(--small)}
+.muted{color:var(--muted)}
+
+/* top bar */
+.top{height:var(--top);flex:none;display:flex;align-items:center;gap:.6rem;padding:0 var(--pad);background:var(--head);border-bottom:1px solid var(--line)}
+.logo{font-weight:700;letter-spacing:.04em;padding:0 .4rem}
+.seg{display:flex;background:var(--control);border:1px solid var(--line);border-radius:var(--radius);padding:2px}
+.seg button{border:0;background:none;height:calc(var(--row) - 6px);padding:0 .8rem;border-radius:calc(var(--radius) - 2px);cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--pressed);color:var(--pressed-text)}
+.crumb{color:var(--muted);display:flex;gap:.4rem;align-items:center;min-width:0;white-space:nowrap;overflow:hidden}
+.crumb b{color:var(--text);font-weight:400}
+.sp{flex:1}
+.btn{height:var(--row);padding:0 .8rem;border:1px solid var(--line);background:var(--control);border-radius:var(--radius);display:inline-flex;align-items:center;gap:.4rem;cursor:pointer;white-space:nowrap}
+.btn.primary{background:var(--primary);color:var(--primary-ink);border-color:#9ce327}
+.round{width:var(--row);height:var(--row);border-radius:50%;border:1px solid var(--line);background:var(--control);display:inline-grid;place-items:center;cursor:pointer;flex:none}
+.save{display:flex;align-items:center;gap:.35rem;color:var(--muted);font-size:var(--small)}
+.dot{width:.5rem;height:.5rem;border-radius:50%;background:var(--go);display:inline-block}
+.dot.warn{background:var(--warn)}
+
+/* regions */
+.body{flex:1;display:flex;min-height:0}
+.tree{width:var(--tree);flex:none;border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.tree .search{margin:var(--pad);height:var(--row);border:1px solid var(--line);background:var(--control);border-radius:var(--radius);display:flex;align-items:center;padding:0 .6rem;color:var(--muted);gap:.4rem}
+.tree .kinds{display:flex;gap:.3rem;padding:0 var(--pad) var(--pad);flex-wrap:wrap}
+.chip{font-size:var(--small);padding:.1rem .55rem;border:1px solid var(--line);border-radius:1rem;color:var(--muted)}
+.chip.on{background:var(--pressed);color:var(--pressed-text);border-color:var(--pressed)}
+.list{overflow:auto;flex:1;padding-bottom:1rem}
+.tr{height:var(--tree-row);display:flex;align-items:center;gap:.45rem;padding:0 var(--pad) 0 calc(var(--pad) + var(--d,0) * 1.1rem);white-space:nowrap;cursor:default}
+.tr:hover{background:var(--hover)}
+.tr.sel{background:var(--selected)}
+.tr.within{background:var(--within)}
+.tr .chev{width:.8rem;color:var(--muted);font-size:.7rem}
+.tr img{width:1.3rem;height:1.3rem;border-radius:50%;object-fit:cover;background:var(--control)}
+.tr .n{margin-left:auto;font-family:var(--mono);font-size:var(--label);color:var(--muted)}
+.tr .n.warn{color:var(--warn)}
+.grp{padding:.8rem var(--pad) .3rem}
+
+.main{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--stage);position:relative}
+.insp{width:var(--insp);flex:none;border-left:1px solid var(--line);overflow:auto;background:var(--surface)}
+
+/* stage */
+.stage{flex:1;position:relative;display:grid;place-items:center;min-height:0;background:radial-gradient(ellipse at 50% 85%,#20241c 0,#000 60%)}
+.stage{overflow:hidden}
+.stage .fig{position:absolute;inset:6% 0 8% 0;margin:auto;height:86%;max-width:70%;object-fit:contain;filter:drop-shadow(0 1.2rem 1.2rem #0008)}
+.floor{position:absolute;left:20%;right:20%;bottom:9%;height:1px;background:linear-gradient(90deg,transparent,var(--line),transparent)}
+.float{position:absolute;background:rgba(26,28,24,.5);border:1px solid var(--line);border-radius:var(--radius);padding:var(--pad);backdrop-filter:none}
+.float.tl{top:var(--gap);left:var(--gap);display:flex;gap:.4rem;align-items:center}
+.float.tr{top:var(--gap);right:var(--gap);display:flex;gap:.4rem}
+.float.bl{bottom:var(--gap);left:var(--gap)}
+.halo{text-shadow:0 0 2px var(--surface),0 0 2px var(--surface),0 0 3px var(--surface)}
+
+/* mood strip under the stage */
+.strip{flex:none;border-top:1px solid var(--line);background:var(--surface);padding:var(--pad) var(--pad) .8rem}
+.strip-head{display:flex;align-items:center;gap:.6rem;margin-bottom:.45rem}
+.moods{display:flex;gap:.4rem;overflow-x:auto;padding-bottom:.2rem}
+.mood{flex:none;width:5.2rem;text-align:center;font-size:var(--small);color:var(--muted)}
+.mood .th{width:5.2rem;height:5.2rem;border-radius:var(--radius);background:var(--control);border:1px solid var(--line);display:grid;place-items:center;overflow:hidden}
+.mood .th img{width:100%;height:100%;object-fit:cover}
+.mood.sel .th{outline:2px solid var(--accent);outline-offset:1px}
+.mood.sel{color:var(--text)}
+.mood .th.empty{border-style:dashed;color:var(--muted);font-size:1.4rem}
+.mood .th.wanted{border-style:dashed;border-color:var(--warn);color:var(--warn);font-size:var(--label)}
+
+/* inspector: OSCT-style sections */
+.sec{border-bottom:1px solid var(--line)}
+.sec>summary{list-style:none;height:var(--row);display:flex;align-items:center;gap:.5rem;padding:0 var(--pad);cursor:pointer;background:var(--head)}
+.sec>summary::-webkit-details-marker{display:none}
+.sec>summary .chev{color:var(--muted);font-size:.7rem;width:.8rem}
+.sec>summary .sum{margin-left:auto;color:var(--muted);font-size:var(--small);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:55%}
+.sec .in{padding:var(--pad) var(--pad) .9rem;display:grid;gap:.5rem}
+.prop{display:grid;grid-template-columns:7.5rem 1fr;align-items:center;gap:.5rem;min-height:var(--row)}
+.prop>span:first-child{color:var(--muted);font-size:var(--small)}
+.field{height:var(--row);border:1px solid var(--line);background:var(--control);border-radius:var(--radius);display:flex;align-items:center;padding:0 .6rem;min-width:0;white-space:nowrap;overflow:hidden}
+.field.area{height:auto;min-height:4.4rem;align-items:flex-start;padding:.45rem .6rem;white-space:normal;line-height:1.4}
+.toggle{width:1.875rem;height:1.125rem;border-radius:1rem;background:var(--text);position:relative;display:inline-block}
+.toggle::after{content:"";position:absolute;width:.75rem;height:.75rem;border-radius:50%;background:var(--surface);top:.1875rem;left:.9375rem}
+.toggle.off{background:var(--control);border:1px solid var(--line)}
+.toggle.off::after{background:var(--muted);left:.125rem;top:.125rem}
+.faces{display:flex;gap:.4rem;flex-wrap:wrap}
+.face{width:3rem;text-align:center;font-size:var(--label);color:var(--muted)}
+.face img,.face .add{width:3rem;height:3rem;border-radius:50%;object-fit:cover;background:var(--control);border:1px solid var(--line);display:grid;place-items:center}
+.face.sel img{outline:2px solid var(--accent);outline-offset:1px}
+.face.sel{color:var(--text)}
+.face .add{border-style:dashed;font-size:1.2rem}
+.kanon{display:flex;gap:.5rem;align-items:center}
+.pill{font-size:var(--label);text-transform:uppercase;letter-spacing:.08em;padding:.1rem .5rem;border-radius:1rem;border:1px solid var(--line)}
+.pill.ok{border-color:var(--go);color:var(--go)}
+.pill.warn{border-color:var(--warn);color:var(--warn)}
+
+/* variant B: matrix */
+.matrix{flex:1;overflow:auto;background:var(--surface);padding:var(--gap)}
+.mx{display:grid;grid-template-columns:7rem repeat(3,7.5rem);gap:.4rem;align-items:center}
+.mx .h{position:sticky;top:0;background:var(--surface);padding:.3rem 0;z-index:1}
+.mx .rl{color:var(--muted);font-size:var(--small)}
+.cell{aspect-ratio:1;border-radius:var(--radius);background:var(--control);border:1px solid var(--line);overflow:hidden;display:grid;place-items:center;color:var(--muted)}
+.cell img{width:100%;height:100%;object-fit:contain;background:#000}
+.cell.empty{border-style:dashed}
+.cell.wanted{border-style:dashed;border-color:var(--warn);color:var(--warn);font-size:var(--label);text-transform:uppercase;letter-spacing:.08em}
+.cell.sel{outline:2px solid var(--accent);outline-offset:1px}
+.mx .rowsel .rl{color:var(--text)}
+.pv{position:absolute;right:var(--gap);bottom:var(--gap);width:17rem;height:24rem;background:#000;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;display:grid;place-items:center}
+.pv img{position:absolute;inset:2.2rem 0 .5rem;margin:auto;height:calc(100% - 2.7rem);max-width:100%;object-fit:contain}
+.pv .bar{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;gap:.4rem;padding:.35rem .5rem;background:rgba(26,28,24,.5)}
+
+/* rail (tree folded) */
+.rail{width:var(--row);flex:none;border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;gap:.4rem;padding-top:var(--pad)}
+.rail img{width:1.7rem;height:1.7rem;border-radius:50%;object-fit:cover}
+.rail img.sel{outline:2px solid var(--accent);outline-offset:1px}
+
+/* tablet: the inspector floats over the stage, the tree is a rail */
+.tablet .insp{position:absolute;right:var(--gap);top:var(--gap);bottom:calc(9.5rem + var(--gap));width:19rem;border:1px solid var(--line);border-radius:var(--radius);background:rgba(26,28,24,.92)}
+.tablet .seg button{padding:0 .55rem}
+.tablet .crumb .lead{display:none}
+.tablet .hide-t{display:none}
+.tablet .prop{grid-template-columns:5.2rem minmax(0,1fr)}
+.field{text-overflow:ellipsis}
+.tablet .mx{grid-template-columns:5.5rem repeat(3,6.5rem)}
+.tablet .pv{width:13rem;height:19rem}
+.tablet .stage .fig{right:19rem;max-width:60%}
+</style>
+</head>
+<body>
+<script>
+const P='../../../media/characters/';
+const q=new URLSearchParams(location.search);
+const v=q.get('v')||'a';
+const tablet=innerWidth<1000;
+if(tablet)document.body.classList.add('tablet');
+const moods=['neutral','happy','laughing','smug','thinking','confused','surprised','sad','crying','angry','furious','scared','embarrassed','disgusted','denial','bargaining','acceptance','dizzy'];
+const wanted=new Set(['dizzy']);
+const sel='happy';
+const img=(c,view,m)=>`${P}${c}/${c}_${view}-${m}.webp`;
+const chars=[
+ ['catpope','CatPope',3,[['catpope','Regular',18],['catpope-biker','Biker',18],['catpope-mountaintiger','Mountain tiger',0]],1],
+ ['yellowmouse','Yellow Mouse',2,null,0],
+ ['billthefrog','Bill the Frog',1,null,2],
+ ['yellowbubu','Yellow Bubu',1,null,0],
+ ['boy','Boy',1,null,0],
+ ['crows','Crows',1,null,1],
+ ['passerby','Passerby',1,null,0],
+];
+function treeHTML(){
+  let h=`<div class="search">⌕ <span>Search assets</span></div>
+  <div class="kinds"><span class="chip on">Characters</span><span class="chip">Items</span><span class="chip">Moods</span><span class="chip">Modules</span><span class="chip">Rigs</span></div>
+  <div class="list"><div class="grp lbl">Characters · 7</div>`;
+  for(const [id,name,pc,looks,w] of chars){
+    const open=!!looks;
+    h+=`<div class="tr ${open?'within':''}" style="--d:0"><span class="chev">${open?'▾':'▸'}</span><img src="${img(id==='crows'||id==='passerby'||id==='boy'?id:id,'avatar','neutral')}" onerror="this.style.visibility='hidden'">${name}<span class="n ${w?'warn':''}">${w?w+' wanted':''}</span></div>`;
+    if(open){
+      h+=`<div class="tr within" style="--d:1"><span class="chev">▾</span>Persona · Pope<span class="n">3 looks</span></div>`;
+      looks.forEach(([lid,ln,c],i)=>{h+=`<div class="tr ${i===0?'sel':'within'}" style="--d:2"><span class="chev"></span><img src="${img(lid,'avatar','neutral')}" onerror="this.style.visibility='hidden'">${ln}<span class="n ${c?'':'warn'}">${c?c+'/18':'0/18'}</span></div>`});
+      h+=`<div class="tr within" style="--d:1"><span class="chev">▸</span>Persona · Human<span class="n">1 look</span></div>`;
+      h+=`<div class="tr within" style="--d:1"><span class="chev">▸</span>Persona · Cat<span class="n">1 look</span></div>`;
+    }
+  }
+  return h+`<div class="grp lbl">Moods · 18</div><div class="tr" style="--d:0"><span class="chev">▸</span>Vocabulary<span class="n">18</span></div></div>`;
+}
+function topHTML(){
+  return `<div class="top"><span class="logo">SCUTOONS</span>
+  <div class="seg"><button>Scene</button><button aria-pressed="true">Asset</button><button>Show</button><button>Perform</button></div>
+  <div class="crumb"><span class="lead">Characters ›</span> <span class="lead">CatPope › Pope ›</span> <b>Regular</b></div>
+  <span class="sp"></span>
+  <span class="save hide-t"><span class="dot"></span>Saved 14:02</span>
+  <div class="seg"><button aria-pressed="true">Edit</button><button>▶ Play</button></div>
+  <button class="round" title="Kanon">K</button><button class="round" title="Help">?</button></div>`;
+}
+function inspHTML(){
+  return `
+  <details class="sec" open><summary><span class="chev">▾</span><span class="lbl">Character</span><span class="sum">CatPope · in 3 toons</span></summary><div class="in">
+    <div class="prop"><span>Name</span><div class="field">CatPope <span class="muted" style="margin-left:auto">EN · DE · JA</span></div></div>
+    <div class="prop"><span>Colour</span><div class="field"><span style="width:1rem;height:1rem;border-radius:50%;background:#00d1ff;margin-right:.5rem"></span><span class="mono">#00d1ff</span></div></div>
+    <div class="prop"><span>Appears in</span><div class="field">Cat Pope · Top Toy · Feilchen</div></div>
+    <div class="prop"><span>Sound</span><div class="field">Rig · CatPope choir <span class="muted" style="margin-left:auto">open ↗</span></div></div>
+  </div></details>
+  <details class="sec" open><summary><span class="chev">▾</span><span class="lbl">Persona</span><span class="sum">Pope</span></summary><div class="in">
+    <div class="faces">
+      <div class="face sel"><img src="${img('catpope','avatar','neutral')}">Pope</div>
+      <div class="face"><img src="${img('catpope-human','avatar','neutral')}" onerror="this.removeAttribute('src')">Human</div>
+      <div class="face"><img src="${img('catpope-cat','avatar','neutral')}" onerror="this.removeAttribute('src')">Cat</div>
+      <div class="face"><span class="add">+</span>New</div>
+    </div>
+    <div class="prop"><span>Voice</span><div class="field">Warm baritone, slow</div></div>
+  </div></details>
+  <details class="sec" open><summary><span class="chev">▾</span><span class="lbl">Look</span><span class="sum">Regular · 17 / 18 moods</span></summary><div class="in">
+    <div class="prop"><span>Views</span><div class="field">avatar · portrait · full</div></div>
+    <div class="prop"><span>A-pose</span><div class="field">catpope_apose-tourist.webp</div></div>
+    <div class="prop"><span>3D model</span><div class="field">catpope-regular.glb</div></div>
+    <div class="prop"><span>Bust crop</span><span class="toggle"></span></div>
+  </div></details>
+  <details class="sec" open><summary><span class="chev">▾</span><span class="lbl">Mood · Happy</span><span class="sum">3 views</span></summary><div class="in">
+    <div class="prop"><span>Portrait</span><div class="field">catpope_portrait-happy.webp</div></div>
+    <div class="prop"><span>Full</span><div class="field">catpope_full-happy.webp</div></div>
+    <div class="prop"><span>Prompt</span><div class="field area">Beaming, eyes closed, paws raised – the moment the choir lands the chord.</div></div>
+  </div></details>
+  <details class="sec"><summary><span class="chev">▸</span><span class="lbl">Kanon</span><span class="sum"><span class="pill ok">agreed</span></span></summary></details>
+  <details class="sec"><summary><span class="chev">▸</span><span class="lbl">Wanted</span><span class="sum" style="color:var(--warn)">1 image · dizzy</span></summary></details>
+  <details class="sec"><summary><span class="chev">▸</span><span class="lbl">Profile</span><span class="sum">age, traits, likes</span></summary></details>`;
+}
+function stripHTML(){
+  return `<div class="strip"><div class="strip-head"><span class="lbl">Moods</span><div class="seg"><button>Avatar</button><button aria-pressed="true">Portrait</button><button>Full</button></div><span class="sp"></span><span class="muted" style="font-size:var(--small)">17 / 18 · drop images on a mood</span><button class="btn">Import…</button></div>
+  <div class="moods">${moods.map(m=>wanted.has(m)?`<div class="mood"><div class="th wanted">WANTED</div>${m}</div>`:`<div class="mood ${m===sel?'sel':''}"><div class="th"><img src="${img('catpope','portrait',m)}"></div>${m}</div>`).join('')}<div class="mood"><div class="th empty">+</div>mood</div></div></div>`;
+}
+function A(){
+  return topHTML()+`<div class="body">${tablet?railHTML():`<nav class="tree">${treeHTML()}</nav>`}
+  <main class="main"><div class="stage"><div class="floor"></div><img class="fig" src="${img('catpope','full',sel)}">
+    <div class="float tl halo"><span class="lbl" style="color:var(--text)">Regular</span><span class="muted">· happy · full</span></div>
+    <div class="float tr"><button class="round">◐</button><button class="round">⤢</button></div>
+  </div>${stripHTML()}${tablet?`<aside class="insp">${inspHTML()}</aside>`:''}</main>
+  ${tablet?'':`<aside class="insp">${inspHTML()}</aside>`}</div>`;
+}
+function railHTML(){return `<nav class="rail"><button class="round" title="Assets">☰</button>${chars.map(([id],i)=>`<img class="${i===0?'sel':''}" src="${img(id,'avatar','neutral')}" onerror="this.style.visibility='hidden'">`).join('')}</nav>`}
+function B(){
+  const views=['avatar','portrait','full'];
+  let mx=`<div class="mx"><span class="h"></span>${views.map(x=>`<span class="h lbl">${x}</span>`).join('')}`;
+  for(const m of moods){
+    mx+=`<span class="rl ${m===sel?'':''}">${m===sel?'<b style="font-weight:400;color:var(--text)">'+m+'</b>':m}</span>`;
+    for(const x of views){
+      if(wanted.has(m)&&x!=='avatar'){mx+=`<div class="cell wanted">wanted</div>`;continue}
+      mx+=`<div class="cell ${m===sel&&x==='full'?'sel':''}"><img src="${img('catpope',x,m)}" onerror="this.replaceWith('+');this.parentNode&&0"></div>`;
+    }
+  }
+  mx+='</div>';
+  return topHTML()+`<div class="body">${tablet?railHTML():`<nav class="tree">${treeHTML()}</nav>`}
+  <main class="main"><div class="matrix">${mx}</div>
+   <div class="pv"><div class="bar halo"><span class="lbl" style="color:var(--text)">Preview</span><span class="muted">happy · full</span><span class="sp"></span><span>⤢</span></div><img src="${img('catpope','full',sel)}"></div>
+  </main>${tablet?'':`<aside class="insp">${inspHTML()}</aside>`}</div>`;
+}
+document.body.insertAdjacentHTML('beforeend',v==='b'?B():A());
+</script>
+</body>
+</html>
