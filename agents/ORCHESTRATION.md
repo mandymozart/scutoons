@@ -34,6 +34,8 @@ Acceptance: <the issue's done-when>. ALWAYS, for deck / shared / viewer / creato
   TS/Svelte that the core has or should have" — `npm run check:core-only` green, baseline not grown, `npm run deck:ci`; say "twins
   introduced: none". Anything you keep outside the core is a ticket first (AUDIT.md §7).
 Checks (named, one at a time, each once): <list>.
+Background jobs: one job, one watcher – a wait that times out keeps waiting on the same task or reads its output, never starts
+  another loop; stop every watcher and `tail -f` you started before reporting (2026-11-19: 25 idle loops on 3 jobs).
 Model · effort · caps: <e.g. Sonnet 5.5 medium · 100 turns / $15 | Opus 5.5 high> (agents/models.json; complexity:S/M/L on the issue).
 Report ≤ 15 lines: branch + tip SHA · done per checklist item · checks and results · left out and why · twins/"for now": none or listed ·
   servers stopped · turns / cost. Comment it on the issue. Last: `python C:\Development\agents\costs\report_usage.py --issues N`.

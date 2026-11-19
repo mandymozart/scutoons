@@ -78,3 +78,6 @@ From the old MEMORY.md (archive/MEMORY.md, 2026-09-28 … 10-04) and later sessi
   starts it again with the new code. The session's tool LIST may stay the old one until a new session – a new tool can
   need a new session (2026-10-14: upload_score_file).
 - **Sound in a browser check:** Playwright's Chromium cannot load an AudioWorklet module on this PC (even a blob processor never resolves), so live-core's Start stalls in "starting" there – check the sound in the in-app browser; its pane gets no animation frames while off screen (fps / levels stay 0: replace `requestAnimationFrame` with a 16 ms timer in the page first). Git Bash rewrites `VITE_API_URL=/api` into a Windows path – prefix `MSYS_NO_PATHCONV=1`.
+- **Waiting on a background job (workers, 2026-11-19):** a Bash wait that hits its timeout moves to the background, and a new
+  `until grep …; do sleep` loop on the same file starts one more shell each time – two workers left 25 idle loops on 3 jobs.
+  One job, one watcher: keep waiting on the same task id or read its output file; never `tail -f` without a stop.
