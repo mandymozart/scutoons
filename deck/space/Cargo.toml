@@ -83,7 +83,7 @@ pollster = "0.4"
 name = "ui-frames"
 required-features = ["gpu", "native"]
 
-# #329: a video frame's way to the GPU, before and after the planes went up as they are (ms per frame)
+# a video frame's way to the GPU, before and after the planes went up as they are (ms per frame)
 [[example]]
 name = "video-upload"
 required-features = ["gpu", "media"]
