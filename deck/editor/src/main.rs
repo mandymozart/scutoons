@@ -2793,7 +2793,7 @@ impl App {
                 self.idle = idle::Idle::new(&gpu.device, &gpu.queue, stage_px).map_err(|e| tracing::warn!("the idle scene: {e:#}")).ok();
             }
             if let Some(i) = self.idle.as_mut() {
-                i.frame(&gpu.device, &gpu.queue, &mut enc, stage_view, stage_px, dt, &tempo_now);
+                i.frame(&gpu.device, &gpu.queue, &mut enc, (stage_view, stage_px), dt, &tempo_now);
             }
         }
         if fresh {

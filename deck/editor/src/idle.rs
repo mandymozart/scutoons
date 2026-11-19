@@ -22,7 +22,7 @@ impl Idle {
     }
 
     /// the idle scene over `view` (the stage's texture, `size` pixels)
-    pub fn frame(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, enc: &mut wgpu::CommandEncoder, view: &wgpu::TextureView, size: (u32, u32), dt: f32, tempo: &deck_core::tempo::Now) {
+    pub fn frame(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, enc: &mut wgpu::CommandEncoder, (view, size): (&wgpu::TextureView, (u32, u32)), dt: f32, tempo: &deck_core::tempo::Now) {
         if size != self.size {
             self.stage.resize(device, size);
             self.size = size;
