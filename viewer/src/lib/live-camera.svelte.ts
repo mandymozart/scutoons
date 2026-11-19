@@ -33,10 +33,11 @@ export class CameraSession {
 			onStatus: (st) => {
 				this.status = st.state;
 				if (st.client) this.client = st.client;
+				this.keep();
 			},
 			onHolding: (h) => {
 				this.holding = h;
-				keepHeld(s, h.hold === 'held' ? (h.camera ?? null) : null, h.hold === 'held' ? this.client : null);
+				this.keep();
 			},
 			onCameras: (c) => (this.cameras = c),
 			onFlash: (_, settings) => (this.flash = settings)
@@ -47,9 +48,11 @@ export class CameraSession {
 		if (camera && was) this.link.resume(camera, was);
 	}
 
-	/** the camera as the relay shows it now */
-	camera(id: string): LiveCamera | undefined {
-		return this.cameras.find((c) => c.id === id);
+	/** what this browser holds now, for a reload: kept while joined, once the client id is known (the hold may come first) */
+	private keep(): void {
+		const held = this.holding.hold === 'held';
+		if (this.status !== 'connected' || (held && !this.client)) return;
+		keepHeld(store(), held ? (this.holding.camera ?? null) : null, held ? this.client : null);
 	}
 
 	claim = (camera: string) => this.link.claim(camera);

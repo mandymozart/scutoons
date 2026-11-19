@@ -44,8 +44,12 @@
 		margin: 0;
 		background: var(--ink);
 	}
+	/* over the reader's menu and logo (main-menu.svelte), as the deck page */
 	.cameras {
-		min-height: 100dvh;
+		position: fixed;
+		inset: 0;
+		z-index: 1005;
+		overflow-y: auto;
 		box-sizing: border-box;
 		padding: var(--space-1);
 		background: var(--ink);

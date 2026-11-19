@@ -34,7 +34,7 @@
 	};
 	// a forced switch: the page follows the camera the core says it holds
 	const shown = $derived(s?.holding.hold === 'held' && s.holding.camera ? s.holding.camera : id);
-	const cam = $derived(s?.camera(shown));
+	const cam = $derived(s?.cameras.find((c) => c.id === shown));
 	const held = $derived(s?.holding.hold === 'held');
 	const status = $derived(!s ? m['live_cameras.no_session']() : s.status === 'joining' ? m['live_cameras.connecting']() : s.status === 'offline' ? m['live_cameras.offline']() : held && s.denied ? m['live_cameras.no_sensor']() : '');
 	const flashed = $derived(typeof s?.flash?.['label'] === 'string' ? (s.flash['label'] as string) : null);
@@ -54,7 +54,7 @@
 			<button type="button" class="secondary" onclick={s.leave} data-testid="camera-leave">{m['live_cameras.leave']()}</button>
 		{/snippet}
 		{#if s.status === 'connected'}
-			<CameraAsk hold={s.holding.hold} other={s.holding.other} refused={s.holding.refused} ontake={() => s.claim(shown)} onleave={s.leave} />
+			<CameraAsk hold={s.holding.hold} other={s.holding.other ?? (cam?.holder ? (cam.nick ?? cam.holder) : undefined)} refused={s.holding.refused} ontake={() => s.claim(shown)} onleave={s.leave} />
 		{/if}
 	</HandheldStage>
 {:else}

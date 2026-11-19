@@ -29,6 +29,25 @@ pub struct Heard {
     pub from: String,
 }
 
+/// A live camera of the session (research/LIVE-CAMERAS.md): its id (its address), its name, who holds it (the phone's
+/// name, else its client id; none: free) and whether that phone is away (its claim kept for its return).
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Camera {
+    pub id: String,
+    pub name: String,
+    pub holder: Option<String>,
+    pub away: bool,
+}
+
+/// a camera's line in the list: `Duet close · held by Mira`, `· Mira away`, `· free`
+pub fn camera_line(c: &Camera) -> String {
+    match (&c.holder, c.away) {
+        (None, _) => format!("{} · free", c.name),
+        (Some(h), false) => format!("{} · held by {h}", c.name),
+        (Some(h), true) => format!("{} · {h} away", c.name),
+    }
+}
+
 /// The panel: the session, the place picked with what there is to pick, the link and its QR, the readers, the last event.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct Panel {
@@ -46,6 +65,10 @@ pub struct Panel {
     pub qr: Qr,
     pub readers: Vec<Reader>,
     pub last: Option<Heard>,
+    /// the session's live cameras and who holds each; the list's address a phone opens (empty without a session) and its QR
+    pub cameras: Vec<Camera>,
+    pub cameras_link: String,
+    pub cameras_qr: Qr,
 }
 
 /// the words before a place is whole
@@ -124,6 +147,16 @@ impl Panel {
         }
     }
 
+    /// the cameras' head: `2 cameras · 1 held`, `no camera`
+    pub fn cameras_line(&self) -> String {
+        let held = self.cameras.iter().filter(|c| c.holder.is_some()).count();
+        match self.cameras.len() {
+            0 => "no camera".into(),
+            1 => format!("1 camera · {held} held"),
+            n => format!("{n} cameras · {held} held"),
+        }
+    }
+
     /// Copy link and Open here want a link
     pub fn has_link(&self) -> bool {
         !self.link.is_empty()
@@ -159,6 +192,15 @@ mod tests {
         none.readers.truncate(1);
         none.readers[0].drives = false;
         assert_eq!(none.readers_line(), "1 linked reader · nobody drives");
+    }
+
+    #[test]
+    fn the_cameras_say_who_holds_them() {
+        let cam = |name: &str, holder: Option<&str>, away: bool| Camera { id: format!("scene:{name}"), name: name.into(), holder: holder.map(String::from), away };
+        let p = Panel { cameras: vec![cam("Duet", Some("Mira"), false), cam("Close", None, false), cam("Wide", Some("c7"), true)], ..Panel::default() };
+        assert_eq!(p.cameras_line(), "3 cameras · 2 held");
+        assert_eq!(p.cameras.iter().map(camera_line).collect::<Vec<_>>(), ["Duet · held by Mira", "Close · free", "Wide · c7 away"]);
+        assert_eq!(Panel::default().cameras_line(), "no camera");
     }
 
     #[test]

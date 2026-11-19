@@ -40,7 +40,9 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-05);
+		width: 100%;
 		max-width: 22rem;
+		box-sizing: border-box;
 		margin: var(--space-1) 0 0;
 		padding: var(--space-1);
 		border: var(--border-width, 1px) solid var(--paper);
@@ -59,6 +61,9 @@
 	}
 	.buttons button {
 		flex: 1 1 0;
+		min-width: 0;
+		margin: 0;
+		padding-inline: var(--space-05);
 		background: var(--paper);
 		color: var(--ink);
 		border-color: var(--paper);
@@ -66,5 +71,6 @@
 	.buttons button.secondary {
 		background: var(--ink);
 		color: var(--paper);
+		border: var(--border-width, 1px) solid var(--paper);
 	}
 </style>

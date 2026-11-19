@@ -1,6 +1,7 @@
 //! The Session sheet (#531; agents/research/SCENE-EVENTS.md §6.3, §6.7): the editor as conductor offers its session to a
 //! linked reader – the code and the link's state, the place a reader starts at (a toon, a chapter, a label typed; the
-//! label picker is a ticket), the link and its QR, Copy link, Open here; then the linked readers and the last story heard.
+//! label picker is a ticket), the link and its QR, Copy link, Open here; then the linked readers and the last story heard;
+//! then the session's live cameras, who holds each, and the QR of their list a phone scans.
 //! What it says is deck-ui `session::Panel`, filled by deck-space `session_panel` (the core's `reader_link`, the relay
 //! client's `Readers`, the QR); this file fetches the public library's lists (HTTP), lays the panel out and does what a
 //! press says: the clipboard and the system's opener are the platform's (periphery).
@@ -12,7 +13,7 @@ use deck_kit::base::tokens::Tokens;
 use deck_kit::editor::controls::{self, Rect};
 use deck_space::linked::Readers;
 use deck_space::session_panel::{self, Facts};
-use deck_ui::session::{reader_line, Panel, Place};
+use deck_ui::session::{camera_line, reader_line, Panel, Place};
 use std::time::Duration;
 
 /// What the sheet keeps: the place picked, what there is to pick, a check run's readers.
@@ -22,6 +23,8 @@ pub struct Session {
     chapters: Vec<u32>,
     /// a check run's linked readers (`--linked`), in place of the relay's
     pub demo: Option<Readers>,
+    /// a check run's live cameras (`--cameras`), in place of the relay's
+    pub demo_cameras: Option<Vec<protocol::LiveCamera>>,
 }
 
 /// the public library's answer at `url` (the reader's own lists, no token)
@@ -55,7 +58,9 @@ impl Host {
         let base = deck_link::pairing::app_url();
         let s = &self.session;
         let state = self.link_line();
-        session_panel::panel(&Facts { base: &base, code, relay, state: &state, place: &s.place, toons: &self.toons.list, chapters: &s.chapters, readers: &readers })
+        let heard = self.link.as_ref().map(|l| l.cameras.lock().unwrap().clone());
+        let cameras = self.session.demo_cameras.clone().or(heard).unwrap_or_default();
+        session_panel::panel(&Facts { base: &base, code, relay, state: &state, place: &s.place, toons: &self.toons.list, chapters: &s.chapters, readers: &readers, cameras: &cameras })
     }
 
     /// the sheet opened: the toons asked; the place starts at the show's toon
@@ -132,6 +137,19 @@ impl Host {
             r.heard("c4", join.as_object().unwrap_or(&serde_json::Map::new()));
         }
         self.session.demo = Some(r);
+    }
+}
+
+impl Host {
+    /// a check run (`--cameras ID=HOLDER,ID,ID=HOLDER~`): the session's cameras as the relay would list them – a holder by
+    /// its name, `~` away
+    pub fn session_cameras_demo(&mut self, cameras: &[(String, Option<String>)]) {
+        let list = cameras.iter().enumerate().map(|(i, (id, who))| {
+            let away = who.as_deref().is_some_and(|w| w.ends_with('~'));
+            let nick = who.as_deref().map(|w| w.trim_end_matches('~').to_string());
+            serde_json::json!({ "id": id, "holder": nick.as_ref().map(|_| format!("c{}", i + 4)), "nick": nick, "away": away.then_some(true) })
+        });
+        self.session.demo_cameras = serde_json::from_value(serde_json::Value::Array(list.collect())).ok();
     }
 }
 
@@ -222,9 +240,13 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, _pointer: (f
     }
     y = y.max(top + qr_side + pad);
 
-    // the linked readers now and the last story heard
+    // the linked readers now and the last story heard on the left; the live cameras, who holds each, and their list's QR
+    // a phone scans on the right
     d.rect(a.x, y - 4.0, a.w, 1.0, t.color.line);
-    d.text(x, y + 4.0, small, &fit(d, &p.readers_line().to_uppercase(), small, a.w - 2.0 * pad), t.color.muted);
+    let split = a.x + a.w * 0.4;
+    let col = a.w * 0.4 - 2.0 * pad;
+    let below = y;
+    d.text(x, y + 4.0, small, &fit(d, &p.readers_line().to_uppercase(), small, col), t.color.muted);
     y += row;
     for (i, r) in p.readers.iter().enumerate() {
         if y + row * 2.0 > a.y + a.h {
@@ -235,8 +257,37 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, _pointer: (f
         if r.drives {
             d.disc(x + 4.0, y + row * 0.5, 4.0, t.color.accent);
         }
-        d.text(x + 16.0, y + (row - font * 1.25) * 0.5, font, &fit(d, &reader_line(r), font, a.w - 2.0 * pad - 16.0), t.color.text);
+        d.text(x + 16.0, y + (row - font * 1.25) * 0.5, font, &fit(d, &reader_line(r), font, col - 16.0), t.color.text);
         y += row;
     }
-    d.text(x, y + 4.0, font, &fit(d, &p.last_line(), font, a.w - 2.0 * pad), if p.last.is_some() { t.color.text } else { t.color.muted });
+    d.text(x, y + 4.0, font, &fit(d, &p.last_line(), font, col), if p.last.is_some() { t.color.text } else { t.color.muted });
+    if p.code.is_empty() {
+        return;
+    }
+    let cx = split + pad;
+    let col = a.x + a.w - cx - pad;
+    let mut y = below;
+    d.rect(split, below - 4.0, 1.0, (a.y + a.h - below + 4.0).max(0.0), t.color.line);
+    d.text(cx, y + 4.0, small, &fit(d, &format!("LIVE CAMERAS · {}", p.cameras_line().to_uppercase()), small, col), t.color.muted);
+    y += row;
+    let side = (a.y + a.h - y - pad).clamp(0.0, 96.0);
+    let lw = if p.cameras_qr.n > 0 && side >= 72.0 {
+        let module = (side / (p.cameras_qr.n + 8) as f32).floor().max(1.0);
+        draw::qr(d, (a.x + a.w - side - pad, y), module, p.cameras_qr.n, &|mx, my| p.cameras_qr.dark.get(my * p.cameras_qr.n + mx).copied().unwrap_or(false));
+        col - side - pad
+    } else {
+        col
+    };
+    for (i, c) in p.cameras.iter().enumerate() {
+        if y + row > a.y + a.h {
+            d.text(cx, y + 2.0, small, &format!("{} more …", p.cameras.len() - i), t.color.muted);
+            break;
+        }
+        if c.holder.is_some() {
+            d.disc(cx + 4.0, y + row * 0.5, 4.0, if c.away { t.color.muted } else { t.color.accent });
+        }
+        d.text(cx + 16.0, y + (row - small * 1.25) * 0.5, small, &fit(d, &camera_line(c), small, lw - 16.0), t.color.text);
+        y += row;
+    }
+    d.text(cx, y + 4.0, small, &fit(d, &p.cameras_link, small, lw), t.color.accent);
 }

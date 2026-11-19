@@ -86,9 +86,11 @@
 		margin: 0;
 		background: var(--ink);
 	}
+	/* over an app's chrome (the reader's menu 1003 and logo 1004) */
 	.phone {
 		position: fixed;
 		inset: 0;
+		z-index: 1005;
 		background: var(--ink);
 		color: var(--paper);
 		overflow: hidden;
@@ -148,6 +150,7 @@
 	.bottom :global(button.secondary) {
 		background: var(--ink);
 		color: var(--paper);
+		border: var(--border-width, 1px) solid var(--paper);
 	}
 	.bottom :global(button.rec-on) {
 		background: var(--state-error);
