@@ -523,7 +523,11 @@ impl crate::App {
     pub(crate) fn start_tabs(&mut self) {
         let mut keys: Vec<String> = Vec::new();
         let rig = rig_key(&self.rigs.subject).0;
-        let shows = self.args.show_file.is_some() || self.args.show_id.is_some() || self.args.demo.is_some() || matches!(self.args.workspace, Workspace::Show | Workspace::Perform);
+        let named = self.args.show_file.is_some() || self.args.show_id.is_some();
+        let shows = opens_show(named, self.show.unloaded.is_some(), self.args.demo.is_some(), self.args.workspace);
+        if let Some(why) = &self.show.unloaded {
+            crate::log::post(deck_ui::messages::Level::Warn, "editor", format!("no show opened – {why}"));
+        }
         let modules = self.args.module.open.is_some() || self.args.workspace == Workspace::Module;
         if self.args.rig_given {
             keys.push(rig.clone());
@@ -735,4 +739,22 @@ impl crate::App {
 /// a show's documents not all on the server
 fn show_dirty(h: &show::Host) -> bool {
     h.saves.values().any(|a| a.pending() || a.state != crate::autosave::State::Clean) || !h.unsent.is_empty()
+}
+
+/// whether the start opens a Show tab: a show that was named and did not load opens none (Home says why)
+fn opens_show(named: bool, unloaded: bool, demo: bool, workspace: Workspace) -> bool {
+    !(named && unloaded) && (named || demo || matches!(workspace, Workspace::Show | Workspace::Perform))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_show_that_did_not_load_opens_no_tab() {
+        assert!(!opens_show(true, true, false, Workspace::Show));
+        assert!(opens_show(true, false, false, Workspace::Stage));
+        assert!(opens_show(false, false, false, Workspace::Perform));
+        assert!(!opens_show(false, false, false, Workspace::Stage));
+    }
 }

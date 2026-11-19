@@ -552,6 +552,16 @@ pub(super) mod tests {
         host
     }
 
+    /// a show id that does not load opens the empty show and the status says why (no panic)
+    #[test]
+    fn an_unknown_show_id_opens_empty_and_says_why() {
+        let host = Host::new(None, Some("no-such-show-637".into()), None, "http://127.0.0.1:9/api".into());
+        assert_eq!(host.shown().id, "new-show");
+        assert!(host.status.contains("no-such-show-637"), "{}", host.status);
+        assert_eq!(host.unloaded.as_deref(), Some(host.status.as_str()));
+        assert!(Host::new(None, None, None, "http://127.0.0.1:9/api".into()).unloaded.is_none());
+    }
+
     /// the show's background typed in its inspector: set through the core, refused in its words, taken off
     #[test]
     fn the_shows_background_is_typed_in_the_inspector() {
