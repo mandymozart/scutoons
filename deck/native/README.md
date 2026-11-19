@@ -173,6 +173,13 @@ A live tool may not crackle unnoticed, and should not crackle at all:
   is `backend::buffer_line` (WASAPI reports no range: "the device does not say"). With `pipewire` (the deck) its first host is **PipeWire**: the sinks
   (description, the channels the stage's stream opens with), picked by node name into `audio_device`; ALSA is listed but can't
   be picked (the stage plays PipeWire). The listing runs on a thread of its own ("listing…"), never in the frame.
+  **Device presets** (#633, deck-space `device_preset.rs`): the tab's PRESET section names the preset the machine plays with
+  (deck.toml `audio_preset` + `audio_preset_version`; the file then keeps only the keys that differ from it – `DeckAudio::resolved` /
+  `local`), offers the preset the core recommends for a device it lists (the catalog's before the factory's, then the most used,
+  then the one naming more of the device) and a newer version of the one in use, and "Save as preset" sends the settings as a draft
+  `device-preset:<id>` (a factory preset's child names it in `origin`). The factory presets are compiled in
+  (`deck/space/presets/device-presets.toml`); the catalog's are asked from `GET /api/library/device-presets` when the tab first
+  shows and kept beside deck.toml as `device-presets.json`, so the stage starts with them offline.
 - **Host and device**: `--audio-host default|wasapi|asio` (deck.toml `audio_host`), `--audio-device NAME` (a part of
   the name, any case; deck.toml `audio_device`), `--audio-list` prints the hosts, devices, formats and buffer ranges.
   On PipeWire the name picks the **sink** (`target.object`, #285): the first `Audio/Sink` node whose name or description

@@ -258,6 +258,27 @@ final class ValidateByCoreTest extends TestCase
         self::assertCount($before, $this->core->requests);
     }
 
+    /** #633: a member's device preset is checked by the core on publish, a factory one is refused, and decks list it with its version */
+    public function testADevicePresetPublishesThroughTheCoreAndDecksListIt(): void
+    {
+        $writer = $this->creator('writer@example.com');
+        $preset = ['id' => 'studio.rme', 'name' => 'Studio RME', 'origin' => 'rme-ucx2.asio', 'hardware' => ['names' => ['Fireface'], 'driver' => 'asio'], 'host' => 'asio', 'buffer' => 256, 'outlets' => [['group' => 'main', 'channels' => [1, 2]]]];
+        self::assertSame(200, $this->request('PUT', '/api/entities/device-preset:studio.rme', $writer, ['content' => $preset])->getStatusCode());
+        self::assertSame([], $this->core->requests, 'a draft is saved without the core');
+        $factory = $this->request('PUT', '/api/entities/device-preset:mine', $writer, ['content' => ['factory' => true, 'id' => 'mine'] + $preset]);
+        self::assertSame([422, 'invalid_catalog'], [$factory->getStatusCode(), self::json($factory)['error'] ?? null], 'factory presets ship with the deck');
+
+        $published = $this->request('POST', '/api/entities/device-preset:studio.rme/publish', $writer, (object) []);
+        self::assertSame(200, $published->getStatusCode(), (string) $published->getBody());
+        $sent = $this->core->requests[count($this->core->requests) - 1]['request'];
+        self::assertSame(['device-presets', 'studio.rme', $preset], [$sent['kind'], $sent['id'], $sent['document']], 'the document goes to the core as it is');
+        self::assertNotNull($this->row('device-presets', 'studio.rme'));
+
+        $listed = $this->request('GET', '/api/library/device-presets', $writer, null);
+        $version = (int) $this->db->value("SELECT id FROM entity_versions WHERE entity_key = 'device-preset:studio.rme' AND status = 'published'");
+        self::assertSame(['presets' => [['version' => $version, 'document' => $preset]]], self::json($listed));
+    }
+
     public function testNotSetUpIsA503AndADraftStillSaves(): void
     {
         $this->withService = false;

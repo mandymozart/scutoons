@@ -15,7 +15,8 @@
 //! - a use of a scene (#504, kind `uses`, `id` = the scene's id): `{ scene, with }` (scene_resolve.rs `Use`, unknown fields
 //!   refused) with its scene's published document in `scenes` and the toon's book in `book` – `Use::problems`: the scene
 //!   and every filler in the book, each filler against its placeholder's `fill`, the scene resolved with them. The
-//!   requests as the API builds them and the core's answers: server/tests/fixtures/scenes/uses.json (shared vectors).
+//!   requests as the API builds them and the core's answers: server/tests/fixtures/scenes/uses.json (shared vectors);
+//! - a device preset (kind `device-presets`): `DevicePreset` (unknown fields refused, id = the request's), its `problems`.
 //!
 //! The lookups travel by value: the instruments it names, the presets it names with their ancestors, a code rig's policy
 //! module's descriptor (the API reads them from its catalog). Every problem a check lists is in the answer, each naming
@@ -94,7 +95,8 @@ impl Request {
             "rigs" => "rig",
             "scenes" => "scene",
             "uses" => "use of scene",
-            other => return Err(format!("unknown kind '{other}' (instruments, presets, rigs, scenes, uses)")),
+            "device-presets" => "device preset",
+            other => return Err(format!("unknown kind '{other}' (instruments, presets, rigs, scenes, uses, device-presets)")),
         };
         let who = format!("{label} {}", self.id);
         let checked = match label {
@@ -102,6 +104,7 @@ impl Request {
             "preset" => self.preset(&who).map(|_| Vec::new()),
             "scene" => self.scene(&who).map(|_| Vec::new()),
             "use of scene" => self.scene_use(&who).map(|_| Vec::new()),
+            "device preset" => self.device_preset(&who).map(|_| Vec::new()),
             _ => self.rig(&who),
         };
         Ok(match checked {
@@ -129,6 +132,16 @@ impl Request {
         let book = PresetBook::new(presets);
         let resolved = book.resolve(&p.id).map_err(said)?;
         instrument.patch(&resolved).map(|_| ()).map_err(said)
+    }
+
+    /// a device preset's problems
+    fn device_preset(&self, who: &str) -> Result<(), Problems> {
+        let p: crate::device_preset::DevicePreset = parse(who, &self.document)?;
+        let mut problems: Problems = p.problems().into_iter().map(|s| format!("{who}: {s}")).collect();
+        if p.id != self.id {
+            problems.push(format!("{who}: the document's id is \"{}\", the key's \"{}\"", p.id, self.id));
+        }
+        if problems.is_empty() { Ok(()) } else { Err(problems) }
     }
 
     /// a scene document's problems (#243): what a deck refuses to load
@@ -223,6 +236,11 @@ mod tests {
         assert_eq!(p, ["rig character.boy: unknown instrument \"kazoo\""]);
         assert!(ask(r#"{"kind":"items","id":"x","document":{}}"#).is_err());
         assert!(ask(r#"{"kind":"rigs","id":"x"}"#).is_err(), "a document is required");
+        let good = r#"{"kind":"device-presets","id":"mine","document":{"id":"mine","name":"Mine","hardware":{"channels":2},"outlets":[{"group":"main","channels":[1,2]}]}}"#;
+        assert_eq!(ask(good).unwrap(), Vec::<String>::new());
+        let p = ask(r#"{"kind":"device-presets","id":"other","document":{"id":"mine","name":"Mine","hardware":{"channels":2},"outlets":[{"group":"main","channels":[3]}]}}"#).unwrap();
+        assert_eq!(p, ["device preset other: 'main': channel 3 is not on the device (it has 1–2)", "device preset other: the document's id is \"mine\", the key's \"other\""]);
+        assert!(ask(r#"{"kind":"device-presets","id":"m","document":{"id":"m","name":"M","hardware":{},"colour":1}}"#).unwrap()[0].contains("unknown field `colour`"));
     }
 
     /// #243: a scene document – the first real scene passes; what a deck could not load is refused with its reasons

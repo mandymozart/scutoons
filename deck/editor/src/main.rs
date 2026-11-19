@@ -892,6 +892,9 @@ fn run() -> Result<i32> {
     }
     let own_frame = frame::own(args.fullscreen);
     let pointer = args.pointer;
+    // a check run asks no server for presets
+    let app_routing = routing::Page::new(deck_native::audio::backend::DeckAudio::read());
+    let app_routing = if args.frames.is_none() { app_routing.with_api(&args.api) } else { app_routing };
     let mut app = App {
         panel: Panel { tab: args.tab, field: text::Field::with("Grüße an die Bühne – type here"), drag: None, hits: Vec::new(), field_rect: Rect { x: 0.0, y: 0.0, w: 0.0, h: 0.0 }, advance: 8.0 },
         args,
@@ -965,7 +968,7 @@ fn run() -> Result<i32> {
         auth,
         rigs,
         carry: None,
-        routing: routing::Page::new(deck_native::audio::backend::DeckAudio::read()),
+        routing: app_routing,
         module: app_module,
         published: app_published,
         scene: None,
@@ -1599,7 +1602,7 @@ impl App {
             Hit::Tempo | Hit::Meters => {}
             Hit::Ground => {}
             Hit::Crumb(i) if self.workspace != show::Workspace::Stage => self.show.press(show::Hit::Crumb(i)),
-            Hit::Routing(f) => routing::act(&mut self.routing, &mut self.stage, f),
+            Hit::Routing(f) => routing::act(&mut self.routing, &mut self.stage, &self.args.api, f),
             Hit::Tab(t) => {
                 self.panel.tab = t;
                 self.focus(false);

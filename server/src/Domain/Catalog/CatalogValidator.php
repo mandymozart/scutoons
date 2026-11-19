@@ -51,6 +51,8 @@ final class CatalogValidator
     /** an instrument's id */
     public const INSTRUMENT_ID = '#^[a-z0-9][a-z0-9_-]{0,63}$#';
     /** a factory preset: dot-separated slugs (`cathedral_voice.bright`), ≤ 100 characters */
+    /** a device preset's id (deck-space device_preset.rs `valid_id`) */
+    public const DEVICE_PRESET_ID = '#^[a-z0-9][a-z0-9_.-]{0,63}$#';
     public const PRESET_ID = '#^(?=.{1,100}$)[a-z0-9][a-z0-9_-]*(?:\.[a-z0-9][a-z0-9_-]*){0,3}$#';
     /** a rig's id = its subject (KANON's form): `character.<id>[.<persona>]` or `item.<id>` */
     public const SUBJECT = '#^(?:character\.[a-z0-9][a-z0-9_-]{0,63}(?:\.[a-z0-9][a-z0-9_-]{0,63})?|item\.[A-Za-z0-9][A-Za-z0-9_-]{0,63})$#';
@@ -79,6 +81,7 @@ final class CatalogValidator
             'modules' => ModuleSource::ID_PATTERN,
             'presets' => self::PRESET_ID,
             'rigs' => self::SUBJECT,
+            'device-presets' => self::DEVICE_PRESET_ID,
             default => self::ID_PATTERN,
         };
         if (!preg_match($pattern, $id)) $p[] = "id \"$id\" is not a valid $kind id";
@@ -108,6 +111,7 @@ final class CatalogValidator
             'toons' => self::toon($data),
             'meta' => self::meta($id, $data),
             'modules' => self::module($data),
+            'device-presets' => $this->devicePreset($id, $data, self::rigData($raw ?? json_decode((string) json_encode($data))), $core),
             'instruments', 'presets', 'rigs' => $this->rigKind($kind, $id, self::rigData($raw ?? json_decode((string) json_encode($data))), $core),
             default => [],
         };
@@ -130,6 +134,18 @@ final class CatalogValidator
         if (array_key_exists('factory', $module) && $module['factory'] !== true) $p[] = 'factory is true or absent';
         if (array_key_exists('origin', $module) && !(is_string($module['origin']) && preg_match(ModuleSource::ID_PATTERN, $module['origin']))) $p[] = 'origin must be a module id';
         return [...$p, ...ModuleSource::filesProblems($module['files'] ?? null), ...ModuleSource::resultProblems($module)];
+    }
+
+    /**
+     * A device preset: the core's problems (deck-space `DevicePreset::problems`). Factory presets ship in the deck
+     * image and are never catalog entries: `factory` is refused here, so no write makes one.
+     * @param array<string, mixed> $data
+     * @return list<string>
+     */
+    private function devicePreset(string $id, array $data, mixed $raw, bool $core): array
+    {
+        $p = array_key_exists('factory', $data) ? ['factory presets ship with the deck; a preset in the catalog is a member\'s own (derive one: origin)'] : [];
+        return $core ? [...$p, ...$this->core->problems('device-presets', $id, $raw, [], [])] : $p;
     }
 
     /**

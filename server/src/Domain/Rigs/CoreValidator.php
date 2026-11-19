@@ -24,7 +24,7 @@ final class CoreValidator
 
     /**
      * The core's problems of $document as catalog entry $id of $kind (none = valid)
-     * @param 'instruments'|'presets'|'rigs' $kind
+     * @param 'instruments'|'presets'|'rigs'|'device-presets' $kind
      * @param list<mixed> $instruments the instruments it names, decoded with objects
      * @param list<mixed> $presets the presets it names and their ancestors (without itself), decoded with objects
      * @param list<mixed> $modules a code rig's policy module (#414): the descriptor of its `module:<id>` document, decoded with

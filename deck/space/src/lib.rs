@@ -8,6 +8,7 @@ pub mod cast;
 pub mod context;
 pub mod controls;
 pub mod deck;
+pub mod device_preset;
 pub mod devices;
 pub mod far;
 pub mod fetched;
