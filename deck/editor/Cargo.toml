@@ -29,6 +29,8 @@ deck-engine = { path = "../engine", features = ["modules", "space"] }
 # the scene camera's points on the stage (deck-space's own vectors)
 glam = "0.28"
 deck-core = { workspace = true, features = ["tempo"] }
+# #629: a MIDI message into the stage's MIDI world nodes in Play (deck-events' MIDI adapter, as the deck's)
+deck-events = { path = "../events" }
 anyhow.workspace = true
 serde.workspace = true
 toml.workspace = true

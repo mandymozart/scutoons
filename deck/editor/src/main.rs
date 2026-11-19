@@ -30,6 +30,7 @@ mod module;
 mod inspector;
 mod latency;
 mod panels;
+mod play;
 mod posters;
 mod published;
 mod routing;
@@ -80,7 +81,7 @@ pub fn cache_dir() -> PathBuf {
 
 struct Args {
     rig: String,
-    /// `--rig` was given: its tab opens (else a check run opens the default rig, a start the last tabs or Home)
+    /// `--rig` was given: its tab opens (else the last tabs or Home; a check run without item flags starts on Home)
     rig_given: bool,
     /// the tabs a check run opens (`--open scene:nave,character:catpope`; `home`: none), the one in front (`--tab`, an
     /// address or an index), the most tabs at once
@@ -89,6 +90,15 @@ struct Args {
     tab_cap: Option<usize>,
     /// a check run's tab list open at the start
     tab_list: bool,
+    /// where the tabs are remembered: a check run's own file (`--tabs-file`, a warm start tried by hand), else none in a
+    /// check run and the cache's otherwise
+    tabs_file: Option<PathBuf>,
+    /// a check run's inputs from outside (play.rs `Input::parse`), at this frame; its Stop at that frame
+    inputs: Vec<String>,
+    input_at: Option<u64>,
+    stop_at: Option<u64>,
+    /// a check run's press on Home's New (scene | show | module) at its start
+    home_new: Option<String>,
     /// fullscreen on the current monitor (a deck's kiosk), else a 1280×720 window
     fullscreen: bool,
     /// the inspector's tab at the start: inspector | text; audio opens the Audio panel
@@ -192,7 +202,7 @@ struct Args {
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { rig_given: false, tabs: None, front: None, tab_cap: None, tab_list: false, module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Stage, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, save_state: None, tools_folded: false, closed: Vec::new(), log: false, main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false, library_related: false, pan: None, camera: false, dop: None, scene_file: None, nodes: None, node_zoom: None, open: None, page: None, pointer: None, handoff: Default::default(), f9_at: None };
+    let mut a = Args { rig_given: false, tabs: None, front: None, tab_cap: None, tab_list: false, tabs_file: None, inputs: Vec::new(), input_at: None, stop_at: None, home_new: None, module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Stage, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, save_state: None, tools_folded: false, closed: Vec::new(), log: false, main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false, library_related: false, pan: None, camera: false, dop: None, scene_file: None, nodes: None, node_zoom: None, open: None, page: None, pointer: None, handoff: Default::default(), f9_at: None };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -203,6 +213,11 @@ fn args() -> Result<Args> {
             }
             "--tab-cap" => a.tab_cap = Some(val()?.parse()?),
             "--tab-list" => a.tab_list = true,
+            "--tabs-file" => a.tabs_file = Some(PathBuf::from(val()?)),
+            "--input" => a.inputs.push(val()?),
+            "--input-at" => a.input_at = Some(val()?.parse()?),
+            "--stop-at" => a.stop_at = Some(val()?.parse()?),
+            "--home-new" => a.home_new = Some(val()?),
             "--frames" => a.frames = Some(val()?.parse()?),
             "--screenshot" => a.screenshot = Some(PathBuf::from(val()?)),
             "--tokens" => a.tokens = Some(PathBuf::from(val()?)),
@@ -385,13 +400,16 @@ fn args() -> Result<Args> {
                 a.size = Some((w.trim().parse()?, h.trim().parse()?));
             }
             "--help" | "-h" => {
-                println!("deck-editor [--open ITEM,ITEM|home] [--tab ITEM|N] [--tab-cap N] [--tab-list] [--rig catpope] [--fullscreen] [--frames N] [--screenshot FILE] [--tokens FILE] [--size W,H] [--pointer X,Y] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5] [--menu PORT,QUERY[,pick]] [--toon TOON] [--book FILE] [--select NODE --far QUERY[,pick]] [--demo NAME] [--panic] [--colour open|pick|drop:X,Y|take:X,Y] [--save-state saving|offline|conflict] [--settings] [--close ID,ID] [--main-menu] [--module ID [--module-build] [--module-save] [--module-save-as ID]] [--scene-file FILE [--dop modules]] [--handoff FILE] [--f9 N]");
+                println!("deck-editor [--open ITEM,ITEM|home] [--tab ITEM|N] [--tab-cap N] [--tab-list] [--tabs-file FILE] [--input ADDRESS=V|ADDRESS>NAME[:K=V;…]|midi:B,B,B [--input-at N]] [--play [--stop-at N]] [--home-new scene|show|module] [--rig catpope] [--fullscreen] [--frames N] [--screenshot FILE] [--tokens FILE] [--size W,H] [--pointer X,Y] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5] [--menu PORT,QUERY[,pick]] [--toon TOON] [--book FILE] [--select NODE --far QUERY[,pick]] [--demo NAME] [--panic] [--colour open|pick|drop:X,Y|take:X,Y] [--save-state saving|offline|conflict] [--settings] [--close ID,ID] [--main-menu] [--module ID [--module-build] [--module-save] [--module-save-as ID]] [--scene-file FILE [--dop modules]] [--handoff FILE] [--f9 N]");
                 std::process::exit(0);
             }
             other => anyhow::bail!("unknown argument {other}"),
         }
     }
     a.script.character.clone_from(&a.rig);
+    if !a.inputs.is_empty() && a.input_at.is_none() {
+        a.input_at = Some(40);
+    }
     // #609: the hand-off wins over the flags – they are how the editor was started, it is where the stage left off
     if let Some(r) = a.handoff.relay.clone() {
         a.relay = Some(r);
@@ -631,8 +649,10 @@ struct App {
     to_deck: bool,
     clipboard: Option<arboard::Clipboard>,
     token_changes: u32,
-    /// the Wire side: the ports show, a drag from one is a cable
+    /// Edit (the Wire side: the ports show, a drag from one is a cable); off: Play (play.rs)
     wire: bool,
+    /// the front tab's Play: what Edit left, what reached it from outside
+    play: play::Play,
     marks: Vec<Mark>,
     /// the messages: the status bar's newest and counts, the Log panel's lines
     log: log::Log,
@@ -852,7 +872,7 @@ fn run() -> Result<i32> {
     }
     let main_menu = args.main_menu;
     let app_tabs = tabs::Tabs::new(args.tab_cap.unwrap_or_else(|| tabs::cap_for(tabs::memory_mib(), std::env::var("DECK_EDITOR_TABS").ok().as_deref())));
-    let tabs_file = args.frames.is_none().then(|| tabs::file(&cache));
+    let tabs_file = args.tabs_file.clone().or_else(|| args.frames.is_none().then(|| tabs::file(&cache)));
     let tab_list = args.tab_list;
     let mut home_panels = panels::Panels::new(&panels::HOME);
     if args.log {
@@ -894,6 +914,7 @@ fn run() -> Result<i32> {
         clipboard: arboard::Clipboard::new().map_err(|e| tracing::warn!("no clipboard: {e}")).ok(),
         token_changes: 0,
         wire,
+        play: play::Play::default(),
         marks: Vec::new(),
         log: log::Log::default(),
         log_hits: Vec::new(),
@@ -1276,8 +1297,8 @@ impl App {
             Hit::Crumb(0) => Help::new("rig", "Back to the rig, every track one body."),
             Hit::Row(_) => Help::new("Tree", "The rig, its tracks and their nodes. In Wire a click goes to that level."),
             Hit::Crumb(d) => Help::new(self.stage.path.get(d - 1)?.clone(), "Back to this level. Esc or shift+tab goes one level up."),
-            Hit::Mode(false) => Help::new("Play", "Play it as a deck shows it: every node, knobs turn on the stage."),
-            Hit::Mode(true) => Help::new("Stop", "Back to the wiring: the body holds still, the ports show, one level of the tree at a time."),
+            Hit::Mode(false) => Help::new("Play", "Run it as a deck would: its clock follows its own source, what is addressed to it goes in, its events fire. What you change while playing is dropped on Stop."),
+            Hit::Mode(true) => Help::new("Edit", "Work on it: the body holds still, the ports show, one level of the tree at a time; inputs from outside only light their ports."),
             Hit::Axis(Some(a)) => Help::new(format!("{}{}", if a < 3 { "+" } else { "-" }, ["X", "Y", "Z"][a % 3]), "Click to look along this axis, drag to orbit."),
             Hit::Axis(None) => Help::new("View", "Drag to orbit, click an axis to look along it."),
             Hit::Stage if self.wire => Help::new("Stage", "Left drag orbits; middle or right drag, Shift + drag or two fingers pan; the wheel zooms, F frames. Right click finds any port."),
@@ -1605,7 +1626,7 @@ impl App {
                 self.panel.drag = Some(Drag::Select);
                 self.focus(true);
             }
-            Hit::Mode(on) => self.wire = on,
+            Hit::Mode(on) => self.set_play(!on),
             Hit::Port(i) => {
                 let p = &self.stage.ports[i];
                 if p.input && !p.cables.is_empty() {
@@ -1927,6 +1948,10 @@ impl App {
 
     /// the rig as it plays into its copy; outside a scene it saves itself (inside, the scene takes its knobs)
     fn drafted(&mut self, x: f32, y: f32) {
+        // Play's changes are dropped on Stop: no copy, no save
+        if self.playing() {
+            return;
+        }
         self.keep_copy(x, y);
         if self.scene.is_none() {
             self.rigs.auto.edit(Instant::now());
@@ -2631,6 +2656,7 @@ impl App {
         self.follow_toon();
         self.follow_rigs();
         self.follow_modules();
+        self.script_play();
         self.autosave();
         // Home lists the catalog's modules too (a check run's come from --catalog)
         if self.workspace == show::Workspace::Module || (self.workspace == show::Workspace::Home && self.autosaves) {
@@ -2812,7 +2838,7 @@ impl App {
         let build = self.workspace == show::Workspace::Stage;
         let tab_pills: Vec<bar::TabPill> = pills.iter().map(|(name, icon, dirty, mark)| bar::TabPill { icon, name, dirty: *dirty, mark: *mark }).collect();
         let shows = matches!(self.workspace, show::Workspace::Show | show::Workspace::Perform);
-        let modes: [&str; 2] = ["Show", "Perform"];
+        let modes: [&str; 2] = if build { ["Edit", "Play"] } else { ["Show", "Perform"] };
         let slot = if shows { show::author::view_width(ui, t, &self.show, self.workspace) } else { 0.0 };
         // the signing-in icon breathes, unless motion is reduced
         let pulse = if self.settings.motion.allows(true) { 0.5 + 0.5 * (self.started.elapsed().as_secs_f32() * std::f32::consts::TAU / 1.6).cos() } else { 1.0 };
@@ -2820,8 +2846,8 @@ impl App {
             tabs: &tab_pills,
             front: self.tabs.front,
             path: &path,
-            modes: shows.then_some((&modes[..], usize::from(self.workspace == show::Workspace::Perform))),
-            play: build.then_some(self.wire),
+            modes: if build { Some((&modes[..], usize::from(self.play.playing()))) } else { shows.then_some((&modes[..], usize::from(self.workspace == show::Workspace::Perform))) },
+            play: None,
             beat: self.stage.beat,
             clock: bar::Clock::Int,
             account,
@@ -2847,11 +2873,9 @@ impl App {
             self.panel.hits.push((r, Hit::Meters));
         }
         self.panel.hits.push((placed.home, Hit::Home));
-        for (r, w) in placed.modes.iter().zip([show::Workspace::Show, show::Workspace::Perform]) {
-            self.panel.hits.push((*r, Hit::Workspace(w)));
-        }
-        if let Some(r) = placed.play {
-            self.panel.hits.push((r, Hit::Mode(!self.wire)));
+        let mode_hits = if build { [Hit::Mode(true), Hit::Mode(false)] } else { [Hit::Workspace(show::Workspace::Show), Hit::Workspace(show::Workspace::Perform)] };
+        for (r, h) in placed.modes.iter().zip(mode_hits) {
+            self.panel.hits.push((*r, h));
         }
         // a step of the path goes back to it (Show's last one is the row: it goes nowhere)
         for (i, r) in placed.path.iter().enumerate() {
@@ -2980,6 +3004,7 @@ impl App {
                     }
                 }
             }
+            let mut lit_nodes: Vec<String> = Vec::new();
             for (index, q) in self.stage.ports.iter().enumerate().filter(|(i, _)| self.stage.visible[*i]) {
                 let Some(node) = self.stage.node_ids.iter().position(|n| *n == q.node) else { continue };
                 let Some(world) = being.port_world(node, &q.name, q.input) else { continue };
@@ -2989,6 +3014,14 @@ impl App {
                     continue;
                 }
                 self.marks.push(Mark { port: index, x: mx, y: my });
+                // an input from outside reached it: lit, with what came (Edit takes none in)
+                if let Some(a) = self.play.lit(&q.address).filter(|_| q.input).or_else(|| self.play.lit(&q.node).filter(|_| !lit_nodes.contains(&q.node))) {
+                    lit_nodes.push(q.node.clone());
+                    let fade = 1.0 - a.at.elapsed().as_secs_f32() / play::LIT.as_secs_f32();
+                    let c = t.color.accent;
+                    ui.ring(mx, my, 9.0 + 4.0 * (1.0 - fade), [c[0], c[1], c[2], c[3] * fade.max(0.2)]);
+                    controls::chip(ui, t, (mx + 12.0, my - 26.0), wf, &a.words, false);
+                }
             }
             for c in being.clusters() {
                 let Some((sx, sy)) = self.stage.space.to_pixel(being.cluster_world(c)) else { continue };

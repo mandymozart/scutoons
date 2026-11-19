@@ -97,6 +97,14 @@ pub struct Stage {
     over: Option<deck_space::Background>,
     /// why a track is silent: its module is not loaded (published.rs), by track id
     pub silent: std::collections::BTreeMap<String, String>,
+    /// Play (#629): the item runs as a deck would – its clock follows its own source, what is addressed to it goes in;
+    /// Edit: the clock is the editor's own and nothing from outside goes in
+    pub playing: bool,
+    /// the source the item's clock names (its tempo node)
+    clock_source: tempo::Source,
+    /// the far world nodes' rings (deck-space far.rs), the MIDI world nodes' way in
+    far: Option<deck_space::far::FarTable>,
+    midi: Option<deck_events::adapters::midi::Midi>,
 }
 
 /// a track's strip on the mixer
@@ -277,8 +285,9 @@ impl Stage {
             next.space.set_view(size.0 as f32, size.1 as f32);
             next.texture = Some((tex, view, size));
         }
-        let dark = self.dark;
+        let (dark, playing) = (self.dark, self.playing);
         *self = next;
+        self.follow(playing);
         // a rig changed during a panic stays silent until the resume
         if dark {
             self.panic();
@@ -330,12 +339,18 @@ impl Stage {
                 }
             }
         };
+        let far = handles.as_mut().and_then(|h| deck_native::space::far_table(h, &bundle.rig.subject));
+        let midi = handles.as_mut().map(|h| deck_events::adapters::midi::Midi::new(&mut h.core_mut().events.names.clone(), Some("midi:editor")));
         let events = handles.as_mut().and_then(|h| h.start_events().map_err(|e| tracing::warn!("events: no thread ({e})")).ok().flatten());
         let controls = Controls::new(&graph, handles.as_mut().map(|h| h.core_mut()));
         let rate = handles.as_ref().map_or(48_000.0, |h| h.clock.rate as f64);
         let shared = handles.as_ref().map(|h| h.tempo.clone()).unwrap_or_default();
+        let clock_source = tempo_cfg.source;
         let mut tempo = Tempo::new(tempo_cfg, shared, rate);
         tempo.start();
+        if clock_source != tempo::Source::Internal {
+            tempo.set_source(tempo::Source::Internal);
+        }
         let cache = crate::cache_dir();
         // the rig editor's stage is empty ([rigs] 2026-11-08): no set around the being
         let mut space = Space::with_gate(&graph, node, &scene.being, &cache.join("sets"), Portraits::local(&cache.join("portraits")), None);
@@ -397,7 +412,61 @@ impl Stage {
         let master = sum.as_deref().and_then(|s| slot(s, true)).map(|(n, p, _)| (n, p));
         let node_ids = graph.nodes.iter().map(|n| n.id.clone()).collect();
         let kinds = graph.nodes.iter().map(|n| n.kind).collect();
-        Stage { controls, space, gpu: None, texture: None, pixel: None, pixel_buf: None, still: false, still_buf: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, kinds, strips, inner, master, master_peak: [0.0; 2], master_max: 0.0, volume, path: Vec::new(), opened: Vec::new(), core_node: node, groups, reach, scene: None, played_scene: None, dark: false, silent: Default::default(), beat: None, own_background, over: None }
+        Stage { controls, space, gpu: None, texture: None, pixel: None, pixel_buf: None, still: false, still_buf: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, kinds, strips, inner, master, master_peak: [0.0; 2], master_max: 0.0, volume, path: Vec::new(), opened: Vec::new(), core_node: node, groups, reach, scene: None, played_scene: None, dark: false, silent: Default::default(), beat: None, own_background, over: None, playing: false, clock_source, far, midi }
+    }
+
+    /// Play or Edit (#629): the clock follows the item's own source, or the editor's
+    pub fn follow(&mut self, playing: bool) {
+        self.playing = playing;
+        if self.clock_source != tempo::Source::Internal {
+            self.tempo.set_source(if playing { self.clock_source } else { tempo::Source::Internal });
+        }
+    }
+
+    /// the clock's source now and the item's own (`midi`, `internal` …)
+    pub fn clock(&self) -> (&'static str, &'static str) {
+        (self.tempo.source.name(), self.clock_source.name())
+    }
+
+    /// far events into the far world nodes listening to their address; how many went in
+    pub fn take_far(&mut self, events: &[protocol::DeckEvent]) -> usize {
+        self.far.as_mut().map_or(0, |f| f.take(events))
+    }
+
+    /// a MIDI message into the rig's MIDI world nodes (through the dispatcher, as the deck's MIDI adapter does)
+    pub fn take_midi(&mut self, bytes: &[u8]) -> bool {
+        let (Some(m), Some(run)) = (self.midi.as_mut(), self._events.as_ref()) else { return false };
+        let mut out = Vec::new();
+        let fed = m.feed(bytes, self.started.elapsed().as_secs_f64(), &mut out);
+        for e in out {
+            run.inlet.send(e);
+        }
+        fed
+    }
+
+    /// a control input named by its compiled slot (`drone_osc.freq`) to `value` inside its range; false: no such input
+    pub fn set_slot(&mut self, slot: &str, value: f32) -> bool {
+        let (id, port) = node_port(slot);
+        let Some(node) = self.node_ids.iter().position(|n| n == id) else { return false };
+        let Some(&kind) = self.kinds.get(node) else { return false };
+        let Some(index) = kind.input(port) else { return false };
+        let spec = params::spec(kind, kind.inputs()[index].name);
+        self.set(node, index, value, spec.min, spec.max);
+        true
+    }
+
+    /// every rig knob's value as the engine has it, by its path
+    pub fn knob_values(&self) -> Vec<(String, f32)> {
+        self.knobs.iter().map(|k| (k.path.clone(), self.value(k))).collect()
+    }
+
+    /// knobs back to these values (by path)
+    pub fn set_knob_values(&mut self, values: &[(String, f32)]) {
+        for (path, v) in values {
+            if let Some((node, port, min, max)) = self.knobs.iter().find(|k| k.path == *path).map(|k| (k.node, k.port_index, k.min, k.max)) {
+                self.set(node, port, *v, min, max);
+            }
+        }
     }
 
     /// show this level of the tree in Wire; empty = the rig

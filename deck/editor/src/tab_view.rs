@@ -60,6 +60,8 @@ pub fn subject_of(key: &str) -> String {
 
 /// the empty module tab's address: a module is picked or made in it
 pub const NEW_MODULE: &str = "module:";
+/// a new show's tab before it has a name
+const EMPTY_SHOW: &str = "show:";
 
 impl crate::App {
     /// what the editor has in front now, as a tab's address and name (none: Home)
@@ -95,6 +97,8 @@ impl crate::App {
     /// the front tab goes behind: what it edited is sent, its state kept (a show stays the editor's host); what the
     /// stage holds that is not the tab's own (its item still loading) is not kept, the tab opens from its address again
     fn freeze(&mut self) -> Option<Kept> {
+        // switching away stops its Play
+        self.stop_play();
         self.leave_view();
         self.menu = None;
         self.edit = None;
@@ -333,6 +337,7 @@ impl crate::App {
 
     /// the front item is let go: sent, and the editor's own state of it cleared
     fn let_go_live(&mut self) {
+        self.stop_play();
         self.leave_view();
         match self.workspace {
             Workspace::Stage => self.drop_scene(),
@@ -452,9 +457,9 @@ impl crate::App {
         }
     }
 
-    /// Each frame: an item replaced in place without its tab knowing – a show loaded or saved under a new id renames
-    /// its tab; a module picked in the empty module tab names it, one picked in another module's tab gets a tab of its
-    /// own (the other reopens from its address). The stage's items come through `adopt`.
+    /// Each frame: an item replaced in place without its tab knowing – a show or a module picked in its empty tab names
+    /// it; another show loaded (a demo, a new show) or another module picked in a tab that held one gets a tab of its
+    /// own, in front (the other reopens from its address). The stage's items come through `adopt`.
     pub(crate) fn follow_tabs(&mut self) {
         let Some(f) = self.tabs.front else { return };
         let (key, name) = match self.workspace {
@@ -471,14 +476,38 @@ impl crate::App {
         if self.tabs.list[f].key == key {
             return;
         }
-        if self.workspace != Workspace::Module || self.tabs.list[f].key == NEW_MODULE {
+        let empty = if self.workspace == Workspace::Module { NEW_MODULE } else { EMPTY_SHOW };
+        if self.tabs.list[f].key == empty {
             self.tabs.rekey(f, &key, &name);
         } else {
+            let perform = self.workspace == Workspace::Perform;
             self.tabs.list[f].kept = None;
             let gone = self.tabs.add(&key, &name);
             self.let_go(gone);
+            // what loaded is newer than what its tab kept, if it was open
+            if let Some(t) = self.tabs.front_mut() {
+                (t.kept, t.perform) = (None, perform);
+            }
         }
         self.remember_tabs();
+    }
+
+    /// Quitting: the saves of the tabs behind (sent as each went behind) are waited for too, until `until`; a show
+    /// behind sends what it has not sent first
+    pub(crate) fn wait_behind(&mut self, until: std::time::Instant) {
+        let now = std::time::Instant::now();
+        for t in &mut self.tabs.list {
+            match t.kept.as_mut() {
+                Some(Kept::Rig(r)) => _ = r.auto.wait(until),
+                Some(Kept::Scene(s)) => _ = s.view.auto.wait(until),
+                Some(Kept::Module(m)) => _ = m.auto.wait(until),
+                Some(Kept::Show(h)) => {
+                    h.autosave(true, now);
+                    h.wait_saves(until);
+                }
+                None => {}
+            }
+        }
     }
 
     /// what a later start reopens (none in a check run)
@@ -488,16 +517,15 @@ impl crate::App {
         }
     }
 
-    /// The first frame: the tabs a check run's flags or the last start name; none is Home. The stage holds the start's
-    /// rig already, so its tab is the one in front before the asked one comes forward.
+    /// The first frame: the tabs the flags name, else the last start's (`tabs_file`; a check run has one only with
+    /// `--tabs-file`); none is Home. The stage holds the start's rig already, so its tab is the one in front before the
+    /// asked one comes forward.
     pub(crate) fn start_tabs(&mut self) {
         let mut keys: Vec<String> = Vec::new();
         let rig = rig_key(&self.rigs.subject).0;
-        let check = self.args.frames.is_some();
         let shows = self.args.show_file.is_some() || self.args.show_id.is_some() || self.args.demo.is_some() || matches!(self.args.workspace, Workspace::Show | Workspace::Perform);
         let modules = self.args.module.open.is_some() || self.args.workspace == Workspace::Module;
-        let flags = self.args.rig_given || modules || shows || self.args.workspace == Workspace::Home;
-        if self.args.rig_given || (check && self.args.tabs.is_none() && self.args.scene_file.is_none() && !flags) {
+        if self.args.rig_given {
             keys.push(rig.clone());
         }
         for k in self.args.tabs.clone().unwrap_or_default() {
@@ -512,7 +540,7 @@ impl crate::App {
         if shows {
             keys.push(self.live_show_key());
         }
-        if !check && keys.is_empty() && self.args.tabs.is_none() {
+        if self.tabs_file.is_some() && keys.is_empty() && self.args.tabs.is_none() && self.args.scene_file.is_none() {
             // a later start: the last tabs, or Home
             let saved = self.tabs_file.as_deref().map(tabs::load).unwrap_or_default();
             self.tabs = tabs::Tabs::from_saved(saved, self.tabs.cap);
@@ -562,6 +590,7 @@ impl crate::App {
             Some(_) => {}
             None => self.go_home(),
         }
+        self.remember_tabs();
     }
 
     /// the toolbar's tabs this frame: each one's pill, the front one's read live
@@ -575,7 +604,7 @@ impl crate::App {
                 let front = self.tabs.front == Some(i);
                 let dirty = if front { self.live_dirty() } else { t.dirty || matches!(&t.kept, Some(Kept::Show(h)) if show_dirty(h)) };
                 let playing = front && match self.workspace {
-                    Workspace::Stage => !self.wire,
+                    Workspace::Stage => self.playing(),
                     Workspace::Module => self.module.heard,
                     _ => false,
                 };
@@ -631,8 +660,10 @@ impl crate::App {
                     self.open_item(&l.key, &l.name);
                 }
             }
+            // the system's browser on a desktop (a check run opens none); its link copied where none opens
+            home::Press::Docs if self.autosaves && home::open_in_browser(home::DOCS).is_ok() => self.note(format!("{} opens in the browser", home::DOCS)),
             home::Press::Docs => match self.clipboard.as_mut().map(|c| c.set_text(home::DOCS)) {
-                Some(Ok(())) => self.note(format!("{} copied: the editor opens no browser yet", home::DOCS)),
+                Some(Ok(())) => self.note(format!("{} copied: no browser opened here", home::DOCS)),
                 _ => self.refuse(format!("the help is at {}", home::DOCS), x, y),
             },
             home::Press::New(home::New::Module) => {
@@ -644,11 +675,20 @@ impl crate::App {
                 self.new_show_tab();
                 self.show.press(show::Hit::Sheet(show::Sheet::NewShow));
             }
-            home::Press::New(home::New::Scene) => {
-                self.new_show_tab();
-                self.show.press(show::Hit::Sheet(show::Sheet::Scene));
-            }
+            home::Press::New(home::New::Scene) => self.new_scene_tab(),
         }
+    }
+
+    /// a new scene, empty, in a Scene tab in front: its cast comes from the library; it saves itself as a draft once
+    /// it has one
+    pub(crate) fn new_scene_tab(&mut self) {
+        let secs = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
+        let mut id = format!("new_{secs}");
+        while self.tabs.find(&format!("scene:{id}")).is_some() {
+            id.push('_');
+        }
+        let doc = deck_space::scene_document::SceneDocument::new(&id, "New scene", self.show.story_toon().into_iter().collect());
+        self.open_scene(show::build::SceneOpen { doc, base: None, kept: None, note: Some("new: drag its cast in from the library".into()), save: None });
     }
 
     /// a new show of its own, in a tab in front
