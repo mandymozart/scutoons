@@ -947,6 +947,8 @@
 		"partly": "{done} von {total} übernommen",
 		"note": "Nichts ändert sich, bevor du übernimmst.",
 		"undo_catalog": "Rückgängig: Verlauf auf der Katalogseite",
+		"catalog_new": "Neu: {kind}",
+		"exists_since": "Den Eintrag gibt es schon (seit dem Vorschlag angelegt).",
 		"calendar_new": "Neuer Kalendereintrag",
 		"calendar_entry": "Kalender",
 		"calendar_draft": "Als Entwurf gespeichert – auf der Kalenderseite veröffentlichen",

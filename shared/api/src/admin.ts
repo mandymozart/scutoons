@@ -804,7 +804,9 @@ export interface AdminChangeField {
 }
 
 export type AdminChange =
-	| { type: 'catalog'; kind: CatalogKind; id: string; label: string; base: string; fields: AdminChangeField[] }
+	| { type: 'catalog'; action?: 'update'; kind: CatalogKind; id: string; label: string; base: string; fields: AdminChangeField[] }
+	/** a NEW catalog entry (today only a toon, #643): `fields` = its data (before null); Apply refuses when the id exists */
+	| { type: 'catalog'; action: 'add'; kind: CatalogKind; id: string; label: string; fields: AdminChangeField[] }
 	| { type: 'calendar'; action: 'add'; event: Record<string, unknown> }
 	| { type: 'calendar'; action: 'update'; index: number; label: string; fields: AdminChangeField[] }
 	| { type: 'asset'; path: string; source: string | null; usages: number };

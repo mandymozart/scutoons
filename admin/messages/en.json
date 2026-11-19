@@ -947,6 +947,8 @@
 		"partly": "{done} of {total} applied",
 		"note": "Nothing is changed until you apply.",
 		"undo_catalog": "Undo: History on the catalog page",
+		"catalog_new": "New {kind}",
+		"exists_since": "The entry exists already (made since the proposal).",
 		"calendar_new": "New calendar entry",
 		"calendar_entry": "Calendar",
 		"calendar_draft": "Saved as a draft – publish it on the Calendar page",

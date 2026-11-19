@@ -398,6 +398,12 @@ export function registerAdminTools(server: McpServer, config: Config, options: {
 			set: z.record(z.string(), z.unknown()).describe('dot path → new value (JSON), e.g. { "icon": "catpope/items/new.webp", "name.en": "…", "variants.0.icon": "…" }; null removes an optional field')
 		}),
 		z.object({
+			type: z.literal('toon_add'),
+			id: z.string().regex(/^[a-z0-9_-]{1,64}$/).describe('id of the new toon (lowercase, a-z 0-9 _ -), e.g. "sandbox" – it cannot be changed later'),
+			name: z.string().min(1),
+			redirectUrl: z.string().regex(/^https?:\/\/[^\s/]+(\/\S*)?$/).describe('where the QR codes of the toon lead, e.g. "https://scutoons.com/sandbox"')
+		}),
+		z.object({
 			type: z.literal('calendar_add'),
 			event: z.object({
 				title: z.string().min(1),
@@ -424,7 +430,7 @@ export function registerAdminTools(server: McpServer, config: Config, options: {
 		'propose_changes',
 		{
 			description:
-				'Saves the changes as a PROPOSAL and returns its link – nothing is changed by you: the admin opens the link, reads before → after and presses Apply, then the admin app makes the changes. Kinds: `catalog` (fields of an existing toons entry – every applied change lands in the catalog history with undo; items / recipes / albums / products / editions are NOT changed here: they are documents – read_entity + save_draft `item:<id>`, `album:<id>` …, published in the creator), `calendar_add` / `calendar_update` (the calendar, saved as a DRAFT – a person publishes it on the Calendar page), `asset` (a file replaced under its old path: every use shows the new picture – the fast way to swap the same image in many places). Read first (read_catalog / read_calendar / asset_usages); the proposal page shows before → after. Not possible here: deleting, revoking / transferring codes, roles, asset cleanup.',
+				'Saves the changes as a PROPOSAL and returns its link – nothing is changed by you: the admin opens the link, reads before → after and presses Apply, then the admin app makes the changes. Kinds: `catalog` (fields of an existing toons entry – every applied change lands in the catalog history with undo; items / recipes / albums / products / editions are NOT changed here: they are documents – read_entity + save_draft `item:<id>`, `album:<id>` …, published in the creator), `toon_add` (a NEW toon – on Apply it gets its catalog entry and an empty draft in the creator; readers see nothing until a person publishes it there – e.g. a sandbox toon for demos and tests), `calendar_add` / `calendar_update` (the calendar, saved as a DRAFT – a person publishes it on the Calendar page), `asset` (a file replaced under its old path: every use shows the new picture – the fast way to swap the same image in many places). Read first (read_catalog / read_calendar / asset_usages); the proposal page shows before → after. Not possible here: deleting, revoking / transferring codes, roles, asset cleanup.',
 			inputSchema: z.object({
 				title: z.string().min(1).max(200).describe('one line: what the changes do, in the admin\'s language'),
 				changes: z.array(change).min(1).max(100)
@@ -459,6 +465,26 @@ export function registerAdminTools(server: McpServer, config: Config, options: {
 					const fields = fieldsOf(entry.data, c.set, `${c.kind} ${c.id}`);
 					if (typeof fields === 'string') problems.push(fields);
 					else if (fields.length) changes.push({ type: 'catalog', kind: c.kind, id: c.id, label: String(name(entry.data) || c.id), base: entry.updated_at, fields });
+				} else if (c.type === 'toon_add') {
+					try {
+						await admin.catalogGet('toons', c.id);
+						problems.push(`toons ${c.id}: the id is taken (read_catalog toons)`);
+						continue;
+					} catch (error) {
+						if (!(error instanceof ApiError && error.status === 404)) {
+							problems.push(`toons ${c.id}: ${apiMessage(error)}`);
+							continue;
+						}
+					}
+					if (changes.some((x) => x.type === 'catalog' && x.action === 'add' && x.id === c.id)) {
+						problems.push(`toons ${c.id}: proposed twice`);
+						continue;
+					}
+					const fields = [
+						{ path: 'name', before: null, after: c.name.trim() },
+						{ path: 'redirectUrl', before: null, after: c.redirectUrl }
+					];
+					changes.push({ type: 'catalog', action: 'add', kind: 'toons', id: c.id, label: c.name.trim(), fields });
 				} else if (c.type === 'calendar_add') {
 					await loadCalendar();
 					const e = c.event;

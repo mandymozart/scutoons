@@ -50,9 +50,23 @@
 	const statusLabel = (s: AdminProposal['status']) => m[`proposals.status_${s}`]();
 
 	async function applyCatalog(c: Extract<AdminChange, { type: 'catalog' }>) {
+		if (c.action === 'add') return addCatalog(c);
 		const { entry } = await admin.catalogGet(c.kind, c.id);
 		if (entry.updated_at !== c.base) throw new Error(m['changes.changed_since']());
 		const data = structuredClone(entry.data);
+		for (const f of c.fields) setPath(data, f.path, f.after);
+		await admin.catalogPut(c.kind, c.id, data, note);
+	}
+
+	// a new entry (a toon, #643): refused when the id was taken since; the server makes a new toon's draft content entry
+	async function addCatalog(c: Extract<AdminChange, { type: 'catalog'; action: 'add' }>) {
+		try {
+			await admin.catalogGet(c.kind, c.id);
+			throw new Error(m['changes.exists_since']());
+		} catch (e) {
+			if (!(e instanceof ApiError && e.status === 404)) throw e;
+		}
+		const data: Record<string, unknown> = { id: c.id };
 		for (const f of c.fields) setPath(data, f.path, f.after);
 		await admin.catalogPut(c.kind, c.id, data, note);
 	}
@@ -154,6 +168,7 @@
 			<li class:failed={results[i] && results[i] !== 'ok'}>
 				{#if c.type === 'catalog'}
 					<p class="target">
+						{#if c.action === 'add'}<span class="new">{m['changes.catalog_new']({ kind: kindLabel(c.kind) })}</span>{/if}
 						<a href="/catalog/{c.kind}?open={encodeURIComponent(c.id)}">{kindLabel(c.kind)} · {c.label}</a>
 						{#if c.label !== c.id}<span class="muted">{c.id}</span>{/if}
 					</p>
@@ -253,6 +268,12 @@
 	.muted {
 		font-size: var(--type-caption-size);
 		color: var(--text-muted);
+	}
+	.new {
+		font-size: var(--type-caption-size);
+		font-weight: 600;
+		color: var(--accent, currentColor);
+		margin-inline-end: 0.5em;
 	}
 	.field .path {
 		flex-basis: 100%;
