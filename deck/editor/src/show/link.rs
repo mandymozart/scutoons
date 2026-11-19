@@ -6,7 +6,7 @@
 use deck_native::live::socket::{self, Side};
 use deck_space::linked::Readers;
 use deck_space::relay::{Client, Options, Out};
-use protocol::{Envelope, Role};
+use protocol::{Envelope, LiveCamera, Role};
 use std::sync::atomic::AtomicBool;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
@@ -25,6 +25,8 @@ pub struct Link {
     /// #530: the relay it joined – the reader's link names it when it is not the hosted one
     pub relay: String,
     pub readers: Arc<Mutex<Readers>>,
+    /// the session's live cameras and who holds each, as the relay client last heard them
+    pub cameras: Arc<Mutex<Vec<LiveCamera>>>,
     stop: Arc<AtomicBool>,
 }
 
@@ -33,6 +35,7 @@ struct Conductor {
     inbox: Sender<Envelope>,
     line: Arc<Mutex<String>>,
     readers: Arc<Mutex<Readers>>,
+    cameras: Arc<Mutex<Vec<LiveCamera>>>,
 }
 
 impl Side for Conductor {
@@ -49,6 +52,7 @@ impl Side for Conductor {
             Out::Message(e) => {
                 let _ = self.inbox.send(e);
             }
+            Out::Cameras(c) => *self.cameras.lock().unwrap() = c,
             _ => {}
         }
         let mut readers = self.readers.lock().unwrap();
@@ -73,10 +77,11 @@ impl Link {
         let line = Arc::new(Mutex::new(format!("joining {relay}")));
         let stop = Arc::new(AtomicBool::new(false));
         let readers = Arc::new(Mutex::new(Readers::default()));
-        let mut side = Conductor { outbox: out_rx, inbox: in_tx, line: line.clone(), readers: readers.clone() };
+        let cameras = Arc::new(Mutex::new(Vec::new()));
+        let mut side = Conductor { outbox: out_rx, inbox: in_tx, line: line.clone(), readers: readers.clone(), cameras: cameras.clone() };
         let flag = stop.clone();
         std::thread::Builder::new().name("show-link".into()).spawn(move || socket::run(client, &mut side, &flag, None, POLL)).map_err(|e| e.to_string())?;
-        Ok(Link { inbox, outbox, line, code, relay: relay.to_string(), readers, stop })
+        Ok(Link { inbox, outbox, line, code, relay: relay.to_string(), readers, cameras, stop })
     }
 
     /// #551: a link without a socket, for the UI-model tests – what the core sends comes out of the first, what the second
@@ -85,7 +90,7 @@ impl Link {
     pub fn loopback() -> (Link, Receiver<Envelope>, Sender<Envelope>) {
         let (outbox, sent) = mpsc::channel();
         let (relay, inbox) = mpsc::channel();
-        let link = Link { inbox, outbox, line: Arc::new(Mutex::new("loopback".into())), code: "test".into(), relay: "loopback".into(), readers: Arc::default(), stop: Arc::default() };
+        let link = Link { inbox, outbox, line: Arc::new(Mutex::new("loopback".into())), code: "test".into(), relay: "loopback".into(), readers: Arc::default(), cameras: Arc::default(), stop: Arc::default() };
         (link, sent, relay)
     }
 

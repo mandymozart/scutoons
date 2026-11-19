@@ -29,6 +29,7 @@ use serde_json::Value;
 use std::sync::Arc;
 use std::time::Instant;
 
+use crate::cameras::{Cameras, Refused};
 use crate::outbox::{Frame, Outbox};
 use crate::roles;
 use crate::token::Facts;
@@ -78,17 +79,20 @@ pub struct Client {
     pub locked: bool,
     /// #478: the roles it was last told it may take (a change is told again)
     offered: Option<Vec<ShowRole>>,
+    /// the cameras it was last told (a change is told again)
+    told_cameras: Option<Vec<protocol::LiveCamera>>,
 }
 
 impl Client {
     pub fn new(role: Role, group: Option<String>, nick: Option<String>, outbox: Arc<Outbox>, now: i64) -> Self {
         let bucket = Bucket { tokens: AUDIENCE_RATE, at: now, rate: AUDIENCE_RATE, burst: AUDIENCE_RATE };
         let values = match role {
-            Role::Handheld => Bucket { tokens: POSE_BURST, at: now, rate: POSE_RATE, burst: POSE_BURST },
+            // a reader's phone holding a live camera streams its pose like a handheld
+            Role::Handheld | Role::Reader => Bucket { tokens: POSE_BURST, at: now, rate: POSE_RATE, burst: POSE_BURST },
             _ => Bucket { tokens: VALUES_BURST, at: now, rate: VALUES_RATE, burst: VALUES_BURST },
         };
         let came = group.clone();
-        Client { role, group, nick, ready: false, outbox, key: String::new(), up: false, bucket, values, pose_t: None, device: None, came, facts: Facts::default(), locked: false, offered: None }
+        Client { role, group, nick, ready: false, outbox, key: String::new(), up: false, bucket, values, pose_t: None, device: None, came, facts: Facts::default(), locked: false, offered: None, told_cameras: None }
     }
 }
 
@@ -213,6 +217,9 @@ fn conductor_only(m: &Message) -> bool {
             | Message::Kick(_)
             | Message::Rename(_)
             | Message::Roles(_)
+            | Message::Cameras(_)
+            | Message::CameraForce(_)
+            | Message::CameraFlash(_)
     )
 }
 
@@ -301,6 +308,8 @@ pub struct Session {
     story_asks: HashMap<String, i64>,
     /// #527: the reader who drives the session's story – the newest `reader.drive`; only its `story` goes on
     driver: Option<String>,
+    /// the live cameras and who holds each (cameras.rs)
+    cameras: Cameras,
 }
 
 impl Session {
@@ -429,6 +438,10 @@ impl Session {
         // #527: a driver that left frees the place (a resume claims again, relay.rs `Client::drive`)
         if self.driver.as_deref() == Some(id) {
             self.drive(None, now);
+        }
+        // a holder that dropped keeps its camera, away, for its return
+        if self.cameras.gone(id, now) {
+            self.tell_cameras();
         }
         self.synced.remove(id);
         self.reports.remove(id);
@@ -650,9 +663,15 @@ impl Session {
     /// One message from client `id`: authority, rate limit, fold into the snapshot, votes, the clock's lead, routing.
     /// `lead` = ms added to `at` for timed kinds that come without one (B.6: 50 LAN, 150 hosted).
     pub fn handle(&mut self, id: &str, mut e: Envelope, now: i64, lead: i64) -> After {
+        // a camera without a pose for its release time returns to its owner (checked as messages come)
+        if self.cameras.expire(now) {
+            self.tell_cameras();
+        }
         let Some(sender) = self.clients.get_mut(id) else { return After::Nothing };
         let role = sender.role;
-        if matches!(role, Role::Audience | Role::Reader) && !sender.bucket.take(now) {
+        // a camera holder's pose has its own bucket (`hand_pose`)
+        let pose = matches!(e.message, Message::HandPose(_));
+        if matches!(role, Role::Audience | Role::Reader) && !pose && !sender.bucket.take(now) {
             self.error(id, "rate", "5 messages per second");
             return After::Nothing;
         }
@@ -664,6 +683,9 @@ impl Session {
         // deck whose ask stands (`deck.story`), one copy each, in order, not kept – nobody else. #527: one reader drives
         // at a time – the newest claim (`reader.drive`) wins; another reader's story reaches nobody
         if role == Role::Reader {
+            if self.camera_says(id, &e, now) {
+                return After::Nothing;
+            }
             if !matches!(e.message, Message::Story(_) | Message::Ping(_) | Message::Ready(_) | Message::ReaderDrive(_)) {
                 self.error(id, "authority", &format!("a reader does not send {}", e.message.kind()));
                 return After::Nothing;
@@ -709,6 +731,10 @@ impl Session {
             self.error(id, "authority", &format!("only a handheld sends {}", e.message.kind()));
             return After::Nothing;
         }
+        if matches!(e.message, Message::CameraClaim(_) | Message::CameraLeave(_)) {
+            self.error(id, "authority", "only a reader takes a camera");
+            return After::Nothing;
+        }
         // #527: who drives is the relay's word to the readers; only a reader claims
         if matches!(e.message, Message::ReaderDrive(_)) {
             self.error(id, "authority", "only a reader drives the story");
@@ -738,6 +764,9 @@ impl Session {
         }
         if relay_only(&e.message) && !uplink {
             self.error(id, "authority", &format!("{} comes from the relay", e.message.kind()));
+            return After::Nothing;
+        }
+        if self.conductor_cameras(id, &e.message, now) {
             return After::Nothing;
         }
         if matches!(e.message, Message::Devices(_) | Message::DeviceIn(_)) && role != Role::Bridge {
@@ -1097,25 +1126,144 @@ impl Session {
         }
     }
 
-    /// #469: a handheld's pose – not 3 + 4 finite numbers: refused; not newer than its last one (a datagram overtaken)
-    /// or over the rate: dropped; to the conductor(s), latest wins (outbox.rs), never logged.
-    fn hand_pose(&mut self, id: &str, e: Envelope, now: i64) {
-        let Message::HandPose(p) = &e.message else { return };
+    /// a reader's camera words – Some: handled. A claim (refused when the camera's filter does not admit the phone,
+    /// or a resume another phone overtook), Leave; and while it holds a camera its pose, state, Recenter and Record go to
+    /// the conductor and the decks (an external pose source of deck-space's camera).
+    fn camera_says(&mut self, id: &str, e: &Envelope, now: i64) -> bool {
+        match &e.message {
+            Message::CameraClaim(c) => {
+                let Some(client) = self.clients.get(id) else { return true };
+                let admitted = self.cameras.def(&c.camera).is_none_or(|d| roles::admits(d.r#for.as_ref(), client));
+                if !admitted {
+                    self.error(id, "camera", "this camera is not open to you");
+                    return true;
+                }
+                let nick = client.nick.clone();
+                match self.cameras.claim(id, &c.key, nick, &c.camera, c.resume == Some(true), now) {
+                    Ok(()) => {
+                        if let Some(settings) = self.cameras.last_flash(&c.camera).cloned() {
+                            self.send_to(id, Message::CameraFlash(protocol::CameraFlash { camera: c.camera.clone(), settings }));
+                        }
+                    }
+                    Err(Refused::Unknown) => self.error(id, "camera", "no such camera"),
+                    // it learns who holds it now from the list, told again
+                    Err(Refused::TakenOver) => {
+                        if let Some(c) = self.clients.get_mut(id) {
+                            c.told_cameras = None;
+                        }
+                    }
+                }
+                self.tell_cameras();
+                true
+            }
+            Message::CameraLeave(c) => {
+                if self.cameras.leave(id, &c.camera) {
+                    self.tell_cameras();
+                }
+                true
+            }
+            Message::HandPose(_) | Message::HandState(_) | Message::HandRecenter(_) | Message::HandRecord(_) => {
+                let pose = matches!(e.message, Message::HandPose(_));
+                let held = if pose { self.cameras.pose(id, now).is_some() } else { self.cameras.held_by(id).is_some() };
+                if !held {
+                    // a phone that holds no camera (any more): its pose goes nowhere, quietly – a take-over races its stream
+                    return true;
+                }
+                let to: Vec<String> = self.clients.iter().filter(|(_, c)| matches!(c.role, Role::Conductor | Role::Uplink | Role::Output | Role::Performer | Role::Musician)).map(|(k, _)| k.clone()).collect();
+                if pose {
+                    if self.fresh_pose(id, e, now) {
+                        for t in to {
+                            self.deliver(id, e.clone().to(To::client(t)));
+                        }
+                    }
+                } else {
+                    for t in to {
+                        self.deliver(id, e.clone().to(To::client(t)));
+                    }
+                }
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// the conductor's camera words – true: handled. Its cameras, a forced assignment (the forced phone gets its
+    /// camera's flash), a flash to a camera's holder (kept for the next).
+    fn conductor_cameras(&mut self, id: &str, m: &Message, now: i64) -> bool {
+        match m {
+            Message::Cameras(c) => {
+                self.cameras.set(c.cameras.clone());
+                self.tell_cameras();
+            }
+            Message::CameraForce(f) => match self.cameras.force(&f.client, &f.camera, now) {
+                Ok(()) => {
+                    if let Some(settings) = self.cameras.last_flash(&f.camera).cloned() {
+                        self.send_to(&f.client, Message::CameraFlash(protocol::CameraFlash { camera: f.camera.clone(), settings }));
+                    }
+                    self.tell_cameras();
+                }
+                Err(why) => self.error(id, "camera", why),
+            },
+            Message::CameraFlash(f) => match self.cameras.flash(&f.camera, f.settings.clone()) {
+                Some(holder) => self.send_to(&holder, m.clone()),
+                None if self.cameras.def(&f.camera).is_none() => self.error(id, "camera", "no such camera"),
+                None => {}
+            },
+            _ => return false,
+        }
+        true
+    }
+
+    /// every client the cameras it sees, with who holds each – only when that changed for it: the conductor every
+    /// camera with its filter, a deck every camera, a reader those it may take.
+    pub fn tell_cameras(&mut self) {
+        let mut tell = vec![];
+        for (id, c) in &self.clients {
+            let (all, filter) = match c.role {
+                Role::Conductor | Role::Uplink => (true, true),
+                Role::Output | Role::Performer | Role::Musician => (true, false),
+                Role::Reader => (false, false),
+                _ => continue,
+            };
+            let view = self.cameras.view(all, filter, |cam| roles::admits(cam.r#for.as_ref(), c));
+            if c.told_cameras.as_ref() != Some(&view) && !(c.told_cameras.is_none() && view.is_empty() && self.cameras.is_empty()) {
+                tell.push((id.clone(), view));
+            }
+        }
+        for (id, view) in tell {
+            if let Some(c) = self.clients.get_mut(&id) {
+                c.told_cameras = Some(view.clone());
+            }
+            self.send_to(&id, Message::Cameras(protocol::Cameras { cameras: view }));
+        }
+    }
+
+    /// #469 a pose is 3 + 4 finite numbers (else refused) newer than this client's last and within its rate
+    fn fresh_pose(&mut self, id: &str, e: &Envelope, now: i64) -> bool {
+        let Message::HandPose(p) = &e.message else { return false };
         let finite = |v: &[f64], n: usize| v.len() == n && v.iter().all(|x| x.is_finite());
         if !(p.t.is_finite() && finite(&p.p, 3) && finite(&p.q, 4)) {
             self.error(id, "pose", "a pose is t, p (3 numbers) and q (4 numbers)");
-            return;
+            return false;
         }
-        let Some(c) = self.clients.get_mut(id) else { return };
+        let Some(c) = self.clients.get_mut(id) else { return false };
         if c.pose_t.is_some_and(|t| p.t <= t) {
-            return;
+            return false;
         }
         if !c.values.take(now) {
             self.dropped += 1;
-            return;
+            return false;
         }
         c.pose_t = Some(p.t);
-        self.deliver(id, e);
+        true
+    }
+
+    /// #469: a handheld's pose – not 3 + 4 finite numbers: refused; not newer than its last one (a datagram overtaken)
+    /// or over the rate: dropped; to the conductor(s), latest wins (outbox.rs), never logged.
+    fn hand_pose(&mut self, id: &str, e: Envelope, now: i64) {
+        if self.fresh_pose(id, &e, now) {
+            self.deliver(id, e);
+        }
     }
 
     /// #90: a child's relay (role `seat`, its group the seat's id) said something: to this session's conductor(s), `from` a
@@ -1358,6 +1506,91 @@ mod tests {
         r.add("a3", Role::Audience, Some("right"));
         r.add("bridge", Role::Bridge, None);
         r
+    }
+
+    /// the cameras each client was last told, by client id
+    fn cams(r: &mut Room, id: &str) -> Vec<Vec<protocol::LiveCamera>> {
+        r.inbox(id).into_iter().filter_map(|e| if let Message::Cameras(c) = e.message { Some(c.cameras) } else { None }).collect()
+    }
+
+    fn holder_of(r: &Room, id: &str) -> Option<String> {
+        r.s.cameras.holder(id).map(str::to_owned)
+    }
+
+    /// one holder per camera – the newest claim wins and the holder before hears it; the filter refuses; a dropped
+    /// holder keeps the camera (away) and takes it again by its key, unless someone claimed it meanwhile; its pose reaches
+    /// the conductor and the decks only while it holds a camera; the conductor forces and flashes.
+    #[test]
+    fn a_camera_has_one_holder_who_comes_back_by_its_key() {
+        let mut r = room();
+        r.add("maya", Role::Reader, None);
+        r.add("ben", Role::Reader, None);
+        r.drain();
+        let crew = protocol::Admits { account: Some(vec![protocol::Account::Member]), approved: None, device: None, group: None };
+        let cam = |id: &str, f: Option<protocol::Admits>| protocol::LiveCamera { id: id.into(), label: None, r#for: f, release_ms: None, holder: None, nick: None, away: None };
+        let list = Message::Cameras(protocol::Cameras { cameras: vec![cam("scene:duet", None), cam("scene:duet > shot:crew", Some(crew))] });
+        r.send("a1", list.clone(), 1);
+        assert!(r.inbox("a1").iter().any(|e| matches!(&e.message, Message::Error(x) if x.code == "authority")), "only the conductor sets the cameras");
+        r.send("cond", list, 2);
+        let told = cams(&mut r, "maya");
+        assert_eq!(told.len(), 1);
+        assert_eq!(told[0].iter().map(|c| c.id.as_str()).collect::<Vec<_>>(), ["scene:duet"], "a guest sees what it may take, no filter");
+        assert!(cams(&mut r, "cond")[0][1].r#for.is_some(), "the conductor sees each filter");
+        assert_eq!(cams(&mut r, "outL")[0].len(), 2, "a deck sees every camera");
+        assert!(cams(&mut r, "a1").is_empty(), "an audience phone hears nothing of them");
+
+        let claim = |c: &str, key: &str, resume: bool| Message::CameraClaim(protocol::CameraClaim { camera: c.into(), key: key.into(), resume: resume.then_some(true) });
+        r.send("maya", claim("scene:duet > shot:crew", "km", false), 3);
+        assert!(r.inbox("maya").iter().any(|e| matches!(&e.message, Message::Error(x) if x.code == "camera")), "the filter refuses a guest");
+        r.send("maya", claim("scene:duet", "km", false), 4);
+        assert_eq!(holder_of(&r, "scene:duet").as_deref(), Some("maya"));
+        assert_eq!(cams(&mut r, "ben").last().unwrap()[0].holder.as_deref(), Some("maya"), "a newcomer knows a claim would take over");
+        r.send("ben", claim("scene:duet", "kb", false), 5);
+        assert_eq!(cams(&mut r, "maya").last().unwrap()[0].holder.as_deref(), Some("ben"), "taken over: the holder before hears it");
+
+        // the pose: only the holder's, to the conductor and the decks
+        let pose = |t: f64| Message::HandPose(protocol::HandPose { t, p: vec![0.0, 1.5, 0.0], q: vec![0.0, 0.0, 0.0, 1.0] });
+        r.drain();
+        r.send("maya", pose(1.0), 6);
+        r.send("ben", pose(1.0), 6);
+        for (i, t) in [2.0, 3.0, 4.0, 5.0, 6.0, 7.0].into_iter().enumerate() {
+            r.send("ben", pose(t), 7 + i as i64);
+        }
+        let got = r.inbox("cond");
+        assert!(got.iter().all(|e| e.from == "ben"), "the one before streams into nothing");
+        assert!(!got.is_empty() && got.iter().all(|e| matches!(e.message, Message::HandPose(_))));
+        assert!(r.kinds("outL").contains(&"hand.pose"), "the decks take the pose");
+        assert!(r.inbox("ben").iter().all(|e| !matches!(&e.message, Message::Error(x) if x.code == "rate")), "a pose stream is not the 5 / s bucket");
+        assert!(r.kinds("a1").is_empty() && r.kinds("maya").is_empty());
+
+        // Take it back; then maya drops: the camera stays hers, away, and her reload takes it again by its key
+        r.send("maya", claim("scene:duet", "km", false), 20);
+        r.drain();
+        r.s.leave("maya", 21);
+        let seen = cams(&mut r, "ben");
+        assert_eq!((seen[0][0].holder.as_deref(), seen[0][0].away), (Some("maya"), Some(true)), "held, away");
+        r.add("maya2", Role::Reader, None);
+        r.send("maya2", claim("scene:duet", "km", true), 22);
+        assert_eq!(holder_of(&r, "scene:duet").as_deref(), Some("maya2"), "back by itself, no question");
+        // she drops again; ben claims meanwhile; her return is refused and she hears who holds it
+        r.s.leave("maya2", 23);
+        r.send("ben", claim("scene:duet", "kb", false), 24);
+        r.add("maya3", Role::Reader, None);
+        r.drain();
+        r.send("maya3", claim("scene:duet", "km", true), 25);
+        assert_eq!(holder_of(&r, "scene:duet").as_deref(), Some("ben"));
+        assert_eq!(cams(&mut r, "maya3").last().unwrap()[0].holder.as_deref(), Some("ben"), "told again: taken over");
+
+        // the conductor flashes (kept for the next holder) and forces ben onto the crew camera
+        let flash = Message::CameraFlash(protocol::CameraFlash { camera: "scene:duet > shot:crew".into(), settings: serde_json::from_str(r#"{"label":"Crew"}"#).unwrap() });
+        r.send("cond", flash, 26);
+        r.send("cond", Message::CameraForce(protocol::CameraForce { client: "ben".into(), camera: "scene:duet > shot:crew".into() }), 27);
+        assert_eq!((holder_of(&r, "scene:duet"), holder_of(&r, "scene:duet > shot:crew").as_deref()), (None, Some("ben")));
+        assert!(r.kinds("ben").contains(&"camera.flash"), "the forced phone hears what it now is");
+        r.send("ben", Message::CameraLeave(protocol::CameraLeave { camera: "scene:duet > shot:crew".into() }), 28);
+        assert_eq!(holder_of(&r, "scene:duet > shot:crew"), None, "Leave");
+        r.send("outL", claim("scene:duet", "ko", false), 29);
+        assert!(r.inbox("outL").iter().any(|e| matches!(&e.message, Message::Error(x) if x.code == "authority")), "only a reader takes a camera");
     }
 
     /// #469: a handheld talks to the editor (the conductor) only; its newest pose wins, a late or malformed one never passes

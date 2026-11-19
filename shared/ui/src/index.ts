@@ -73,3 +73,5 @@ export { default as Timeline } from './timeline.svelte';
 export { clampTrim, formatTime, FRAME, itemAt, msOf, placeOf, sequence, type Ms, type Place, type TimeFormat, type TimelineItem, type TimelineLane, type TimelineMarker, type TimelineTrim } from './timeline.ts';
 export { default as DialogHost } from './dialog-host.svelte';
 export { confirmDialog, askDialog, checklistDialog, choiceDialog, type ChecklistGroup, type ChecklistItem } from './dialogs.svelte.ts';
+// the one handheld's phone screen (the storyboard's phone page, the reader's camera page)
+export { default as HandheldStage, type HandheldControls, type HandheldWords } from './handheld-stage.svelte';

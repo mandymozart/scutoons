@@ -310,6 +310,7 @@ fn args() -> Result<Args> {
             "--who-move" => a.script.who_move = val()?.split_once('=').map(|(c, r)| (c.to_string(), r.to_string())),
             "--who-menu" => a.script.who_menu = Some(val()?),
             "--linked" => a.script.linked = val()?.split(',').map(str::trim).filter(|n| !n.is_empty()).map(String::from).collect(),
+            "--cameras" => a.script.cameras = val()?.split(',').map(str::trim).filter(|n| !n.is_empty()).map(|c| c.split_once('=').map_or((c.to_string(), None), |(id, who)| (id.to_string(), Some(who.to_string())))).collect(),
             "--reader-place" => {
                 let v = val()?;
                 let mut p = v.splitn(3, ',');

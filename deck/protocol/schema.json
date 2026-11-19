@@ -95,6 +95,11 @@
         { "type": "object", "properties": { "kind": { "const": "hand.record" }, "p": { "$ref": "#/definitions/HandRecord" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "hand.recenter" }, "p": { "$ref": "#/definitions/Empty" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "hand.view" }, "p": { "$ref": "#/definitions/HandView" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "cameras" }, "p": { "$ref": "#/definitions/Cameras" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "camera.claim" }, "p": { "$ref": "#/definitions/CameraClaim" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "camera.leave" }, "p": { "$ref": "#/definitions/CameraLeave" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "camera.force" }, "p": { "$ref": "#/definitions/CameraForce" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "camera.flash" }, "p": { "$ref": "#/definitions/CameraFlash" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "error" }, "p": { "$ref": "#/definitions/Error" } }, "required": ["kind", "p"] }
       ]
     },
@@ -831,6 +836,66 @@
       "description": "#527 (agents/research/SCENE-EVENTS.md §6.4): one linked reader drives a session's story at a time, the newest claim wins – the relay's rule (relay session.rs), no reader key. A reader → relay, `{}`: it drives from now on (deck-space relay.rs `Client::drive`, sent only after the person said yes). Relay → every reader of the session, kept for a resume: who drives now, on each claim and when the driver leaves (`driver` missing: nobody) – the reader before it hears it was taken over, a newcomer that it would take over. The welcome's snapshot carries the same `driver`, presence the conductor's (`readers`, `driver`). A reader joins without driving: only the driver's `story` goes on.",
       "type": "object",
       "properties": { "driver": { "type": "string", "description": "the driving reader's client id (relay → reader only)" } },
+      "additionalProperties": false
+    },
+    "LiveCamera": {
+      "description": "(agents/research/LIVE-CAMERAS.md) a camera of the live session a phone can hold. `id` its address (`scene:<id> > shot:<id>`, a scene's primary camera); `for` who may take it (the one condition control, any one fact; none: anyone with the code), only the conductor sees it; `release_ms` how long without a pose before it returns to its owner (none: only Leave, a take-over or the conductor frees it). The relay adds who holds it now (`holder`, its name `nick`) and whether that phone is away (`away`: it dropped; its claim is kept for its return).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "label": { "type": "string", "description": "its name for people (none: the id)" },
+        "for": { "$ref": "#/definitions/Admits" },
+        "release_ms": { "type": "integer", "minimum": 0 },
+        "holder": { "type": "string", "description": "the holding phone's client id (relay → client)" },
+        "nick": { "type": "string", "description": "the holder's name, if it has one (relay → client)" },
+        "away": { "type": "boolean", "description": "the holder dropped and has not come back yet (relay → client)" }
+      },
+      "required": ["id"],
+      "additionalProperties": false
+    },
+    "Cameras": {
+      "description": "conductor → relay: the session's cameras (the relay keeps them). Relay → client, when it joins and whenever its view changed: the conductor every camera with its filter, a reader the cameras it may take, a deck every camera – each with who holds it now.",
+      "type": "object",
+      "properties": { "cameras": { "type": "array", "items": { "$ref": "#/definitions/LiveCamera" } } },
+      "required": ["cameras"],
+      "additionalProperties": false
+    },
+    "CameraClaim": {
+      "description": "a reader → relay: it takes the camera `camera` (sent after the person said yes; the newest claim wins, the holder before hears it in `cameras` and may take it back). `key`: the phone's own secret kept in its browser – a phone that comes back (a drop, a reload) claims with `resume`, which the relay grants only while the camera's holder is still this key. A phone holds one camera: a claim lets its other one go.",
+      "type": "object",
+      "properties": {
+        "camera": { "type": "string" },
+        "key": { "type": "string" },
+        "resume": { "type": "boolean" }
+      },
+      "required": ["camera", "key"],
+      "additionalProperties": false
+    },
+    "CameraLeave": {
+      "description": "a reader → relay: it lets the camera go (Leave).",
+      "type": "object",
+      "properties": { "camera": { "type": "string" } },
+      "required": ["camera"],
+      "additionalProperties": false
+    },
+    "CameraForce": {
+      "description": "conductor → relay: the phone `client` holds the camera `camera` from now on, whoever held it (its old camera returns to its owner); `camera` empty: the conductor frees what the phone holds.",
+      "type": "object",
+      "properties": {
+        "client": { "type": "string" },
+        "camera": { "type": "string" }
+      },
+      "required": ["client", "camera"],
+      "additionalProperties": false
+    },
+    "CameraFlash": {
+      "description": "conductor → relay → the phone holding `camera`: the camera's settings (lens, height, its name, its rule …) as the deck is flashed. The relay keeps the last one per camera and sends it to each new holder.",
+      "type": "object",
+      "properties": {
+        "camera": { "type": "string" },
+        "settings": { "$ref": "#/definitions/Loose" }
+      },
+      "required": ["camera", "settings"],
       "additionalProperties": false
     },
     "DeckListen": {

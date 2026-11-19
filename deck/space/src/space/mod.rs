@@ -314,6 +314,9 @@ pub struct Space {
     pub focus: f32,
     /// the subjects whose rigs read the focus's outlets (`camera:focus`, `camera:distance`)
     focus_outlets: Vec<focus::Outlet>,
+    /// a phone holds this deck's camera: the picture follows it (live_cameras.rs `Follow`), the deck's own view put
+    /// aside, not changed – it returns when the phone lets go
+    pub held: Option<crate::live_cameras::Follow>,
 }
 
 /// Called on the loader thread with a set's file before it is read: the sync (sync.rs) returns once that file is
@@ -458,6 +461,7 @@ impl Space {
             row_from: None,
             focus: 0.0,
             focus_outlets: focus::outlets(graph),
+            held: None,
         };
         space.place_cast();
         space
@@ -488,6 +492,36 @@ impl Space {
     /// an editor's attachments changed: those still attached run on as they were, the row's time too
     pub fn edit_motions(&mut self, list: Vec<(motion::Target, deck_catalog::slot::Attach)>) {
         self.motions.set(list);
+    }
+
+    /// a phone's pose for the camera it holds (relay.rs `Out::HandPose` of the camera's holder): the first one takes
+    /// the camera over from the view the deck has now; false: late or malformed
+    pub fn held_pose(&mut self, t: f64, p: &[f64], q: &[f64]) -> bool {
+        let eye = self.camera.eye();
+        let deck = (eye, crate::live_cameras::look_rotation(eye, self.camera.aim()));
+        self.held.get_or_insert_with(Default::default).pose(t, p, q, deck)
+    }
+
+    /// the holder's Recenter: its next pose is the view now
+    pub fn held_recenter(&mut self) {
+        if let Some(f) = self.held.as_mut() {
+            f.recenter();
+        }
+    }
+
+    /// the phone let go (or the camera returned to its owner): the deck's own camera again
+    pub fn held_release(&mut self) {
+        self.held = None;
+    }
+
+    /// the held view over everything the deck's camera did this frame, with the deck's lens
+    fn follow_held(&mut self, dt: f32) {
+        let Some(f) = self.held.as_mut() else { return };
+        f.step(dt);
+        let (fov_y, ortho) = self.camera.over.map_or((self.camera.fov_y, self.camera.ortho), |o| (o.fov_y, o.ortho));
+        if let Some(over) = f.over(fov_y, ortho) {
+            self.camera.over = Some(over);
+        }
     }
 
     /// The motion modules this frame, on top of what the shot, the move or the spot made: the camera's while the view is
@@ -727,6 +761,7 @@ impl Space {
         }
         self.camera.step(dt);
         self.move_by_modules(&dop::Clock::of(time, beat));
+        self.follow_held(dt);
         if !directed {
             self.focus = self.settled_focus();
         }

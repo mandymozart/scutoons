@@ -6,8 +6,9 @@
 //! (Library.php `seasonOverview`), so nothing is filtered here. The editor does the HTTP; the addresses and the reading of
 //! the answers are here.
 use crate::linked::{reader_link, Readers};
+use crate::live_cameras::cameras_link;
 use crate::relay::encode;
-use deck_ui::session::{Heard, Panel, Place, Reader};
+use deck_ui::session::{Camera, Heard, Panel, Place, Reader};
 use serde_json::Value;
 
 /// What the editor knows of its session: the viewer's base (deck-link `app_url`), the session's code, the relay client's
@@ -22,6 +23,8 @@ pub struct Facts<'a> {
     pub toons: &'a [String],
     pub chapters: &'a [u32],
     pub readers: &'a Readers,
+    /// the session's live cameras as the relay client last heard them
+    pub cameras: &'a [protocol::LiveCamera],
 }
 
 /// The address a linked reader opens for `place`: the core's `reader_link`; empty without a session (no code) and until a
@@ -41,7 +44,10 @@ pub fn panel(f: &Facts) -> Panel {
     let r = f.readers;
     let readers = r.linked.iter().map(|(id, name)| Reader { id: id.clone(), name: name.clone(), drives: r.driver.as_deref() == Some(id.as_str()) }).collect();
     let last = r.last.as_ref().map(|h| Heard { kind: h.kind.clone(), characters: h.characters.clone(), from: h.from.clone() });
-    Panel { code: f.code.to_string(), state: f.state.to_string(), place: f.place.clone(), toons: f.toons.to_vec(), chapters: f.chapters.to_vec(), link, qr, readers, last }
+    let cameras = f.cameras.iter().map(|c| Camera { id: c.id.clone(), name: c.label.clone().filter(|l| !l.trim().is_empty()).unwrap_or_else(|| c.id.clone()), holder: c.nick.clone().or(c.holder.clone()), away: c.away == Some(true) }).collect();
+    let cameras_link = if f.code.trim().is_empty() { String::new() } else { cameras_link(f.base, f.code, Some(f.relay)) };
+    let cameras_qr = if cameras_link.is_empty() { Default::default() } else { crate::pairing::qr(&cameras_link) };
+    Panel { code: f.code.to_string(), state: f.state.to_string(), place: f.place.clone(), toons: f.toons.to_vec(), chapters: f.chapters.to_vec(), link, qr, readers, last, cameras, cameras_link, cameras_qr }
 }
 
 /// `GET <api>/library/toons` – the toons a reader sees (the public list, no draft)
@@ -109,7 +115,7 @@ mod tests {
         let r = readers();
         let place = Place { toon: "catpope".into(), chapter: Some(3), label: "dialog-start".into() };
         let (toons, chapters) = (vec!["catpope".to_string()], vec![0, 1, 2, 3]);
-        let f = Facts { base: "https://scutoons.com", code: "A7K2", relay: "", state: "connected as c1", place: &place, toons: &toons, chapters: &chapters, readers: &r };
+        let f = Facts { base: "https://scutoons.com", code: "A7K2", relay: "", state: "connected as c1", place: &place, toons: &toons, chapters: &chapters, readers: &r, cameras: &[] };
         let p = panel(&f);
         assert_eq!(p.driver().as_deref(), Some("Mira"), "the driving reader by name");
         assert_eq!(p.readers_line(), "2 linked readers · Mira drives");
@@ -125,7 +131,7 @@ mod tests {
     fn no_link_and_no_qr_until_a_toon_and_a_chapter_are_picked() {
         let r = Readers::default();
         for place in [Place::default(), Place { toon: "catpope".into(), chapter: None, label: "x".into() }, Place { toon: " ".into(), chapter: Some(1), label: String::new() }] {
-            let p = panel(&Facts { base: "https://scutoons.com", code: "A7K2", relay: "", state: "", place: &place, toons: &[], chapters: &[], readers: &r });
+            let p = panel(&Facts { base: "https://scutoons.com", code: "A7K2", relay: "", state: "", place: &place, toons: &[], chapters: &[], readers: &r, cameras: &[] });
             assert_eq!((p.link.as_str(), p.qr.n), ("", 0), "{place:?}");
         }
         let start = Place { toon: "catpope".into(), chapter: Some(0), label: "  ".into() };
@@ -141,5 +147,23 @@ mod tests {
         let toon = r#"{ "entry": {}, "seasons": [{ "number": 1, "chapters": [{ "number": 0 }, { "number": "1" }, { "number": 2, "status": "coming-soon" }] }, { "number": 2, "chapters": [{ "number": 3 }, { "title": "no number" }] }] }"#;
         assert_eq!(chapters(toon).unwrap(), [0, 1, 2, 3], "every chapter the library lists, season by season");
         assert!(toons("{}").is_err() && chapters("[]").is_err() && chapters("not json").is_err());
+    }
+
+    /// the session's live cameras: each with its name and who holds it, the list's link a phone opens and its QR
+    #[test]
+    fn the_cameras_and_the_list_s_qr() {
+        let cams: Vec<protocol::LiveCamera> = serde_json::from_value(serde_json::json!([
+            { "id": "scene:duet", "label": "Duet", "holder": "c4", "nick": "Mira" },
+            { "id": "scene:duet > shot:close" },
+            { "id": "scene:wide", "holder": "c7", "away": true }
+        ]))
+        .unwrap();
+        let (place, r) = (Place::default(), Readers::default());
+        let p = panel(&Facts { base: "https://scutoons.com", code: "A7K2", relay: "", state: "", place: &place, toons: &[], chapters: &[], readers: &r, cameras: &cams });
+        assert_eq!(p.cameras.iter().map(deck_ui::session::camera_line).collect::<Vec<_>>(), ["Duet · held by Mira", "scene:duet > shot:close · free", "scene:wide · c7 away"]);
+        assert_eq!(p.cameras_link, "https://scutoons.com/live/cameras?live=A7K2");
+        assert!(p.cameras_qr.n > 0);
+        let none = panel(&Facts { base: "https://scutoons.com", code: "", relay: "", state: "", place: &place, toons: &[], chapters: &[], readers: &r, cameras: &[] });
+        assert!(none.cameras_link.is_empty() && none.cameras_qr.n == 0, "no session: no link");
     }
 }

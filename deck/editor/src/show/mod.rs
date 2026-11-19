@@ -715,6 +715,8 @@ pub struct Script {
     /// #531: with `--sheet session`, the readers a check run names (the first drives; the rig's character joined) and
     /// the place picked (`TOON,CHAPTER[,LABEL]`)
     pub linked: Vec<String>,
+    /// with `--sheet session`, the live cameras a check run names (`ID=HOLDER`, `~` away; none: free)
+    pub cameras: Vec<(String, Option<String>)>,
     /// the character the first reader joined with (the editor's rig)
     pub character: String,
     pub reader_place: Option<Place>,
@@ -903,6 +905,9 @@ impl Host {
             145 => {
                 if !s.linked.is_empty() {
                     self.session_demo(&s.linked, &s.character);
+                }
+                if !s.cameras.is_empty() {
+                    self.session_cameras_demo(&s.cameras);
                 }
                 if let Some(p) = &s.reader_place {
                     self.session_toon(&p.toon);

@@ -192,6 +192,16 @@ pub enum Message {
 	HandRecenter(Empty),
 	#[serde(rename = "hand.view")]
 	HandView(HandView),
+	#[serde(rename = "cameras")]
+	Cameras(Cameras),
+	#[serde(rename = "camera.claim")]
+	CameraClaim(CameraClaim),
+	#[serde(rename = "camera.leave")]
+	CameraLeave(CameraLeave),
+	#[serde(rename = "camera.force")]
+	CameraForce(CameraForce),
+	#[serde(rename = "camera.flash")]
+	CameraFlash(CameraFlash),
 	#[serde(rename = "error")]
 	Error(Error),
 }
@@ -255,6 +265,11 @@ impl Message {
 			Message::HandRecord(_) => "hand.record",
 			Message::HandRecenter(_) => "hand.recenter",
 			Message::HandView(_) => "hand.view",
+			Message::Cameras(_) => "cameras",
+			Message::CameraClaim(_) => "camera.claim",
+			Message::CameraLeave(_) => "camera.leave",
+			Message::CameraForce(_) => "camera.force",
+			Message::CameraFlash(_) => "camera.flash",
 			Message::Error(_) => "error",
 		}
 	}
@@ -1297,6 +1312,63 @@ pub struct ReaderDrive {
 	/// the driving reader's client id (relay → reader only)
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub driver: Option<String>,
+}
+
+/// (agents/research/LIVE-CAMERAS.md) a camera of the live session a phone can hold. `id` its address (`scene:<id> > shot:<id>`, a scene's primary camera); `for` who may take it (the one condition control, any one fact; none: anyone with the code), only the conductor sees it; `release_ms` how long without a pose before it returns to its owner (none: only Leave, a take-over or the conductor frees it). The relay adds who holds it now (`holder`, its name `nick`) and whether that phone is away (`away`: it dropped; its claim is kept for its return).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LiveCamera {
+	pub id: String,
+	/// its name for people (none: the id)
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub label: Option<String>,
+	#[serde(rename = "for", default, skip_serializing_if = "Option::is_none")]
+	pub r#for: Option<Admits>,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub release_ms: Option<u64>,
+	/// the holding phone's client id (relay → client)
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub holder: Option<String>,
+	/// the holder's name, if it has one (relay → client)
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub nick: Option<String>,
+	/// the holder dropped and has not come back yet (relay → client)
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub away: Option<bool>,
+}
+
+/// conductor → relay: the session's cameras (the relay keeps them). Relay → client, when it joins and whenever its view changed: the conductor every camera with its filter, a reader the cameras it may take, a deck every camera – each with who holds it now.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Cameras {
+	pub cameras: Vec<LiveCamera>,
+}
+
+/// a reader → relay: it takes the camera `camera` (sent after the person said yes; the newest claim wins, the holder before hears it in `cameras` and may take it back). `key`: the phone's own secret kept in its browser – a phone that comes back (a drop, a reload) claims with `resume`, which the relay grants only while the camera's holder is still this key. A phone holds one camera: a claim lets its other one go.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CameraClaim {
+	pub camera: String,
+	pub key: String,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub resume: Option<bool>,
+}
+
+/// a reader → relay: it lets the camera go (Leave).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CameraLeave {
+	pub camera: String,
+}
+
+/// conductor → relay: the phone `client` holds the camera `camera` from now on, whoever held it (its old camera returns to its owner); `camera` empty: the conductor frees what the phone holds.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CameraForce {
+	pub client: String,
+	pub camera: String,
+}
+
+/// conductor → relay → the phone holding `camera`: the camera's settings (lens, height, its name, its rule …) as the deck is flashed. The relay keeps the last one per camera and sends it to each new holder.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CameraFlash {
+	pub camera: String,
+	pub settings: Loose,
 }
 
 /// #442: a deck → relay → the group `decks`: the absolute addresses its far world nodes name (deck-space rig/address.rs: `/deck:<name>/scene:<id>/character:<id>/<track>:<node>.<port>`), sent on each welcome and again every 10 s while it has any (a subscription not refreshed for 30 s lapses). The deck whose name and rig the address names answers with `deck.events` to this client; the relay never parses an address. Ordered, not kept for replay.

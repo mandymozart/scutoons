@@ -11,6 +11,7 @@
 // tungstenite's handshake callback must return its (large) `ErrorResponse` – not ours to shrink.
 #![allow(clippy::result_large_err)]
 
+pub mod cameras;
 pub mod cert;
 pub mod doors;
 pub mod link;
@@ -209,6 +210,7 @@ impl Relay {
         }
         s.tell_presence();
         s.tell_roles();
+        s.tell_cameras();
         Ok(id)
     }
 

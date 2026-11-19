@@ -1,4 +1,4 @@
-Status 2026-11-17: concept, owner's answers in §5, §5a and §9 (#605). Nothing built from it. It builds on the linked reader's QR and claim (#527–#531), the handheld camera (HANDHELD-CAMERA.md, #469), the deck camera (#582) and the one condition control (#553).
+Status 2026-11-19: steps 1–3 built, step 4 in part (#605, branch feature/605-live-cameras): relay claims per camera (deck/relay cameras.rs), the phone's hold and the deck camera following it (deck-space live_cameras.rs), the one handheld (@scutoons/content/storyboard `Handheld`, @scutoons/ui `HandheldStage`; the creator's /h/<code> on it), the reader's /live/cameras and /live/cameras/<id>, the editor's Session sheet with the cameras and the list's QR. Open: the DOP panel's access row and per-camera QR, the row address `camera:<id>`, the deck's native wiring of a held camera, Record (step 5), §9.
 
 # LIVE-CAMERAS – a phone takes a deck's camera by QR
 
