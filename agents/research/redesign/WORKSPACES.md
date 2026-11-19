@@ -58,6 +58,26 @@ AR targets (#169). OSCT's editor stage: three.js in a sandboxed frame (tree · s
 
 Short term: **posters printed in December, rolled out in January (#674)** – P1's Poster type and P2.
 
+**OSCT's pieces to copy (read 2026-11-20):**
+- **Stage** (`osct/editor/src/lib/stage/`, ~6.7k lines): the engine's own `ArScene` (three.js 0.174) in an iframe sandboxed
+  without same-origin, behind a typed postMessage protocol (`frame-protocol.ts`); picking, gizmo, snapping, sky; a simulated
+  image tracker (`mock-tracker.ts`: found / lost / tap without a camera); surface-mm ↔ stage math (`surfaces.ts`,
+  `surface-gizmo.ts`, `snap-scene.ts`). Surfaces are boards on a 3D tabletop; targets lie on them.
+- **Schema 3.0:** scene = id, label, group, `surfaces[]`; surface = `widthMm`, `heightMm`, a required `place` {x, y, z mm;
+  rx, ry, rz °} in the scene's coordinates (origin on the table, +y up, +z to the reader; a wall is rx 90); a poster is one
+  surface; target `place {surface, x, y, width, height}` mm; reference image per surface (editor only).
+- **Surface mode** (S tool, shipped): outlines, select, Inspector (label, size, place + gizmo, reference), Tree level,
+  + surface (page / wall / custom), reorder, arrange in a row, floor and vertical grid.
+- **Scene overview** (filmstrip, #307 phase 3): order, add, delete scenes; groups. The experience **type becomes a layout
+  of surfaces**, not a stage of its own – this replaces XR.md's "stage set per type".
+- **Print** (#321 targets placed from the print PDF; #169 PDF export of books, posters, wallpaper with targets): the
+  poster's production path – nothing like it in SCUTOONS yet.
+- **Kit:** OSCT already has `FloatingPanel`, floats, `ToolGroup` / `ToolMenu`, `GridSnapMenu`, `ScrubNumber` – the same
+  rules as deck-kit's floats; a source for #656.
+- **three.js** must be one version (OSCT 0.174, creator 0.186): plugins receive `api.three`.
+- XR.md §8.1 and XR-SHARED-CORE §3 named "surfaces without pages" as the one conflict; schema 3.0 resolves it, so the
+  copy fits. Both docs predate 3.0.
+
 ## 3. Same background, different apps
 
 - **3D stage – three engines today:** deck-space (wgpu native #12–14, #17, #19, #26; the same as wasm in #18, #20),
@@ -84,7 +104,7 @@ One workspace per **background kind**, opened items as tabs inside it, panels de
 |---|---|---|---|
 | **Scene** | 3D stage (deck-space) | deck Scene / DOP, storyboard viewport (moves here), sound workspace's stage | 3D / AR / VR scenes (P3–P5) |
 | **Asset** | 3D or 2D stage, isolated | character (#8 + #13), item + collage (#9), rig / module (#17, #18), emotion, medium | – |
-| **Experience** (XR) | surfaces stage (OSCT) | – | Poster, Book, Exhibition, Concert reading (P1); posters first |
+| **Experience** (XR) | surfaces on a 3D tabletop (OSCT stage, copied) | – | Poster, Book, Exhibition, Concert reading as layouts of surfaces (P1); scene filmstrip; print PDF; posters first |
 | **Chapter** | 2D layer canvas | chapter editor (#6), cover (#7) | – |
 | **Storyboard** | timeline + shot list over the Scene stage | storyboard (#1, #4) | – |
 | **Generations** | variants canvas + compare | #2, #3 | the library every other workspace pulls approved media from |
