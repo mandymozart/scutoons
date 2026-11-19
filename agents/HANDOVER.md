@@ -18,7 +18,7 @@ Open work: GitHub issues + the board "SCUTOONS" (RULES C). Decisions: agents/dec
   recorded here – check the DNS before relying on it. Until then every Live test runs against the local relay: `cargo run --release -p relay -- 127.0.0.1:7070` in
   deck/, the deck at `/live/deck?relay=ws://localhost:7070` (or `VITE_LIVE_URL` in viewer/.env.development).
 - Dates: Chapter 3 "Feilchen" public Sun 2026-11-15 (art freeze 11-10; the deploy freeze of 11-12 lifted by the owner on 11-11; plan #64); Live performance mode restarts 2026-11-16; Top Toy workshop 2027-02-17
-  (code complete 02-05, freeze 02-12); WEBTOON.com launch 2027-02-28; deck release that counts 2027-02-05. A side task that doesn't help these goes to an issue (workspace CLAUDE.md "Scope creep"). Owner 2026-11-20: the web tools overhaul (epic #626) comes **before** this February work.
+  (code complete 02-05, freeze 02-12); WEBTOON.com launch 2027-02-28; deck release that counts 2027-02-05. A side task that doesn't help these goes to an issue (workspace CLAUDE.md "Scope creep"). Owner 2026-11-20: the web tools overhaul (epic #626) comes **before** this February work. Short-term goal: **posters printed in December 2026, rolled out in January 2027** (XR type Poster, #674).
 - Owner-requested checkouts (`git worktree list`): drafts and parked branches (newsletter, onion-camera `C:\Development\scutoons-onion-camera`, storyboard, …) and the app's session
   worktrees (`.claude/worktrees/*`) – the owner reviews and merges them; agents don't (RULES B3).
 
