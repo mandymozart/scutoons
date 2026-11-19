@@ -2206,7 +2206,7 @@ mod tests {
         let claims = |c: &mut Client| -> Vec<Value> {
             c.take().into_iter().filter_map(|o| if let Out::Send(t) = o { serde_json::from_str::<Value>(&t).ok() } else { None }).filter(|e| e["kind"] == "camera.claim").map(|e| e["p"].clone()).collect()
         };
-        let holding = |c: &mut Client| c.take().into_iter().filter_map(|o| if let Out::Holding(h) = o { Some(h) } else { None }).last();
+        let holding = |c: &mut Client| c.take().into_iter().filter_map(|o| if let Out::Holding(h) = o { Some(h) } else { None }).next_back();
         let mut no_key = Client::new(Options::new(RELAY, Role::Reader, None)).unwrap();
         assert!(!no_key.camera_claim("scene:duet"), "without its key a phone cannot come back: no claim");
         let mut c = Client::new(Options { key: Some("k1".into()), ..Options::new(RELAY, Role::Reader, None) }).unwrap();
