@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import {
 	S, SLICE_ASPECTS, UNIT, W, aspectSlices, chapterStoryboard, findShot, isIn, measureShot, measureVn, parseAspect, POSES,
 	readSeconds, shotHeight, shotSpec, slicesOf, storyboardKey, summarize, validate, validateChapter, words,
-	type ChapterStoryboard, type Shot, type StoryboardDoc
+	Handheld, type ChapterStoryboard, type HandheldEnv, type Shot, type StoryboardDoc
 } from '../src/storyboard/index.ts';
 
 const shot = (extra: Partial<Shot> = {}): Shot => ({
@@ -116,4 +116,36 @@ test('shotSpec: canvas size, merged light, accent colour, cast with persona / lo
 	assert.equal(s.dialog[0]!.variant, 'narration');
 	assert.equal(shotSpec(sb, shot({ aspect: 'x', light: { accent: { color: '#123' } } })).accent, '#123');
 	assert.equal(shotSpec(sb, shot({ aspect: 'x' })).outH, Math.round(W * 16 / 9));
+});
+
+test('the one handheld (a phone\'s motion as a pose stream): the orientation sensor, a drag for the position, every pose to the sink on the phone\'s clock', async () => {
+	let listener: ((e: { alpha: number | null; beta: number | null; gamma: number | null }) => void) | null = null;
+	let clock = 0;
+	const env: HandheldEnv = {
+		addEventListener: (_, fn) => (listener = fn),
+		removeEventListener: () => (listener = null),
+		now: () => (clock += 16),
+		screenAngle: () => 0,
+		ua: 'S22',
+		askMotion: async () => 'granted'
+	};
+	const poses: { t: number; p: number[] }[] = [];
+	const states: string[] = [];
+	let changes = 0;
+	const hand = new Handheld({ pose: (t, p) => poses.push({ t, p: [...p] }), state: (s) => states.push(`${s.mode}:${s.ua}`) }, () => changes++, env);
+	hand.move({ pointerId: 1, clientX: 0, clientY: 0 });
+	assert.equal(poses.length, 0, 'nothing before it starts');
+	await hand.startOrientation();
+	assert.deepEqual([hand.mode, states, changes > 0], ['orientation', ['orientation:S22'], true]);
+	listener!({ alpha: 0, beta: 90, gamma: 0 }); // upright, looking north
+	hand.down({ pointerId: 1, clientX: 0, clientY: 100 });
+	hand.move({ pointerId: 1, clientX: 0, clientY: 0 }); // one finger up: a metre forward
+	const last = poses.at(-1)!;
+	assert.ok(Math.abs(last.p[2] + 1) < 1e-9 && Math.abs(last.p[0]) < 1e-9, String(last.p));
+	assert.ok(poses[1].t > poses[0].t, 'on its own clock');
+	hand.close();
+	assert.equal(listener, null, 'the sensor let go');
+	const denied = new Handheld({ pose: () => undefined, state: () => undefined }, undefined, { ...env, askMotion: async () => 'denied' });
+	await denied.startOrientation();
+	assert.deepEqual([denied.mode, denied.error], ['none', 'denied']);
 });
