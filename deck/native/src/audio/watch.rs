@@ -18,6 +18,9 @@ pub const EVERY: Duration = Duration::from_secs(2);
 /// frames per timer block
 const BLOCK: usize = 512;
 
+/// how long an opened device may take to call back before it takes the engine anyway
+const FIRST_CALL: Duration = Duration::from_millis(500);
+
 /// What the watch says of the device.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Note {
@@ -59,6 +62,7 @@ pub struct Hand {
     next: rtrb::Consumer<Feed>,
     back: Sender<Feed>,
     heard: Arc<AtomicU64>,
+    resume: Arc<AtomicU64>,
 }
 
 impl Held {
@@ -78,10 +82,14 @@ impl Held {
         self.feed.as_mut()
     }
 
-    /// the frame after this callback's is heard at `ns`: the watch's heartbeat, and where the timer goes on from
+    /// the frame after this callback's is heard at `ns`: the watch's heartbeat, and – once the feed plays here – where
+    /// the timer goes on from
     pub fn heard(&self, ns: u64) {
         if let Some(h) = &self.hand {
             h.heard.store(ns, Ordering::Relaxed);
+            if self.feed.is_some() {
+                h.resume.store(ns, Ordering::Relaxed);
+            }
         }
     }
 }
@@ -118,6 +126,9 @@ pub struct Link {
     back_tx: Sender<Feed>,
     back: Receiver<Feed>,
     heard: Arc<AtomicU64>,
+    /// when the feed's next frame is heard: the timer's schedule at the hand-over, then the callbacks that play it
+    /// (#638: not the heartbeat – a stream lost before its callback took the engine has stamped only silence)
+    resume: Arc<AtomicU64>,
     wake: Sender<Wake>,
     opening: u64,
 }
@@ -126,7 +137,7 @@ impl Link {
     pub fn hand(&mut self) -> Hand {
         let (tx, rx) = rtrb::RingBuffer::new(1);
         self.give = Some(tx);
-        Hand { next: rx, back: self.back_tx.clone(), heard: self.heard.clone() }
+        Hand { next: rx, back: self.back_tx.clone(), heard: self.heard.clone(), resume: self.resume.clone() }
     }
 
     pub fn lost(&self) -> Lost {
@@ -158,11 +169,43 @@ pub trait Port: Send {
     fn open(&mut self, rate: u32, link: &mut Link) -> Result<Opened>;
 }
 
-/// The engine on a timer thread, its blocks heard on their schedule from `from_ns` on. A schedule in the past (a device
-/// that went quiet) is caught up a block a millisecond, so the frames keep their time.
+/// The engine on a timer thread, its blocks heard on their schedule from `from_ns` on. Every wake plays all the blocks
+/// due by then, so a schedule in the past (a device that went quiet) or a late wake (a loaded machine) is caught up and
+/// the frames keep their time; ending it plays what is due too, in the thread that takes the engine, so the device
+/// takes it where the time is (#638: a block a wake fell behind by the wakes lost, the device came back with a jump).
 pub struct Timer {
     stop: Arc<AtomicBool>,
-    thread: Option<JoinHandle<Feed>>,
+    thread: Option<JoinHandle<(Feed, u64)>>,
+    schedule: Schedule,
+}
+
+/// A timer's blocks: block `k` is heard at `at(k)`.
+#[derive(Clone, Copy)]
+struct Schedule {
+    from_ns: u64,
+    rate: u32,
+    channels: usize,
+}
+
+impl Schedule {
+    fn at(&self, k: u64) -> u64 {
+        self.from_ns + k * BLOCK as u64 * 1_000_000_000 / u64::from(self.rate)
+    }
+
+    /// plays the blocks due by now from block `k` on – the first one always, the ones behind it while the feed holds
+    /// them (a ring's render thread keeps up between wakes, never run dry by a burst) and a second's at most (a long
+    /// stall is caught up a second a wake); the next block
+    fn due(&self, feed: &mut Feed, buf: &mut [f32], mut k: u64) -> u64 {
+        let now = now_ns();
+        for n in 0..(self.rate as usize).div_ceil(BLOCK).max(1) {
+            if self.at(k) > now || (n > 0 && !feed.holds(BLOCK)) {
+                break;
+            }
+            feed.play(buf, self.channels, self.at(k), |x| x);
+            k += 1;
+        }
+        k
+    }
 }
 
 impl Timer {
@@ -170,25 +213,27 @@ impl Timer {
         feed.on_timer();
         let stop = Arc::new(AtomicBool::new(false));
         let flag = stop.clone();
+        let schedule = Schedule { from_ns, rate, channels };
         let thread = std::thread::Builder::new().name("audio-null".into()).spawn(move || {
             let mut buf = vec![0.0f32; BLOCK * channels];
-            let at = |k: u64| from_ns + k * BLOCK as u64 * 1_000_000_000 / u64::from(rate);
             let mut k = 0;
             while !flag.load(Ordering::Relaxed) {
-                feed.play(&mut buf, channels, at(k), |x| x);
-                k += 1;
-                let wait = at(k).saturating_sub(now_ns()).max(1_000_000);
+                k = schedule.due(&mut feed, &mut buf, k);
+                let wait = schedule.at(k).saturating_sub(now_ns()).max(1_000_000);
                 std::thread::sleep(Duration::from_nanos(wait));
             }
-            feed
+            (feed, k)
         })?;
-        Ok(Timer { stop, thread: Some(thread) })
+        Ok(Timer { stop, thread: Some(thread), schedule })
     }
 
-    /// stops it and takes the feed back
-    pub fn end(mut self) -> Option<Feed> {
+    /// stops it and takes the feed back, what is due played, with when its next frame is heard
+    pub fn end(mut self) -> Option<(Feed, u64)> {
         self.stop.store(true, Ordering::Relaxed);
-        self.thread.take()?.join().ok()
+        let (mut feed, k) = self.thread.take()?.join().ok()?;
+        let mut buf = vec![0.0f32; BLOCK * self.schedule.channels];
+        let k = self.schedule.due(&mut feed, &mut buf, k);
+        Some((feed, self.schedule.at(k)))
     }
 }
 
@@ -211,7 +256,7 @@ impl Watch {
         let (wake_tx, wake) = mpsc::channel();
         let (back_tx, back) = mpsc::channel();
         let notes = Notes::default();
-        let link = Link { give: None, back_tx, back, heard: Arc::new(AtomicU64::new(0)), wake: wake_tx.clone(), opening: 0 };
+        let link = Link { give: None, back_tx, back, heard: Arc::new(AtomicU64::new(0)), resume: Arc::new(AtomicU64::new(0)), wake: wake_tx.clone(), opening: 0 };
         let (ready_tx, ready) = mpsc::channel();
         let said = notes.clone();
         let thread = std::thread::Builder::new().name("audio-watch".into()).spawn(move || {
@@ -318,9 +363,11 @@ impl Run {
         };
     }
 
-    /// The device opens first (silent until the engine arrives), then the timer hands the engine over.
+    /// The device opens first (silent until the engine arrives) and calls back, then the timer hands the engine over –
+    /// not before: the frames due while a device starts up are the timer's (#638: they were nobody's, the clock jumped).
     fn open(&mut self, back: bool) {
         self.link.opening += 1;
+        self.link.heard.store(0, Ordering::Relaxed);
         let opened = match self.port.open(self.rate, &mut self.link) {
             Ok(o) => o,
             Err(e) => {
@@ -333,15 +380,20 @@ impl Run {
             }
         };
         self.tried = None;
+        let end = Instant::now() + FIRST_CALL;
+        while self.link.heard.load(Ordering::Relaxed) == 0 && Instant::now() < end {
+            std::thread::sleep(Duration::from_millis(1));
+        }
         let State::Silent(timer) = std::mem::replace(&mut self.state, State::Gone) else { return };
-        let Some(mut feed) = timer.end() else {
+        let Some((mut feed, next)) = timer.end() else {
             tracing::error!("audio: the timer ended without the engine");
             return;
         };
         feed.on_device(opened.wasapi);
         let Some(give) = self.link.give.as_mut() else { return };
+        self.link.resume.store(next, Ordering::Relaxed);
         if let Err(rtrb::PushError::Full(feed)) = give.push(feed) {
-            self.silent(feed, now_ns());
+            self.silent(feed, next);
             return;
         }
         self.state = State::Playing { _stream: opened.stream, seen: self.link.heard.load(Ordering::Relaxed) };
@@ -356,7 +408,7 @@ impl Run {
             return;
         }
         self.state = State::Gone;
-        let from = self.link.heard.load(Ordering::Relaxed);
+        let from = self.link.resume.load(Ordering::Relaxed);
         match self.link.back.recv_timeout(Duration::from_secs(1)) {
             Ok(feed) => {
                 self.notes.set(format!("'{}' lost – running silent, waiting for it", self.name), true);
@@ -538,7 +590,9 @@ mod tests {
         let (engine, handles) = engine(4);
         let feed = Feed::new(engine, false, None).unwrap();
         let found = fake.clone().find();
-        let watch = Watch::start(Box::new(fake.clone()), feed, RATE, 4, found, Duration::from_millis(50)).unwrap();
+        // the loss is said by the error callback here: a tick long enough that a starved fake (a loaded test run) is not
+        // lost besides
+        let watch = Watch::start(Box::new(fake.clone()), feed, RATE, 4, found, Duration::from_millis(250)).unwrap();
         let notes = watch.notes();
         assert_eq!(notes.get(), None, "there at the start: nothing to say");
         plays_the_map(&fake);
@@ -550,33 +604,50 @@ mod tests {
         };
         let o0 = offset();
         let mut worst = 0.0f64;
+        // a fifth of a second of the engine's own frames (the timer's or the device's, not the wall's), the clock checked
+        // all along
         let mut track = |label: &str| {
-            let d = (offset() - o0).abs();
-            worst = worst.max(d);
-            assert!(d < 40.0, "{label}: the clock moved {d:.1} ms");
+            let to = handles.clock.rendered() + u64::from(RATE / 5);
+            wait(label, 10, || {
+                let d = offset() - o0;
+                worst = worst.max(d.abs());
+                assert!(d.abs() < 40.0, "{label}: the clock moved {d:+.1} ms");
+                handles.clock.rendered() >= to
+            });
         };
 
+        // pulled: its callbacks stop, its error callback says so
         fake.plug(false);
-        std::thread::sleep(Duration::from_millis(300));
         fake.lost.lock().unwrap().as_ref().unwrap().now();
         wait("the loss said", 5, || away(&notes));
         assert!(notes.get().unwrap().text.contains("'Fake UCX II' lost – running silent"));
-        for _ in 0..40 {
-            std::thread::sleep(Duration::from_millis(5));
-            track("silent");
-        }
+        // the stream is closed once the loss is said: what it played before is not the silent phase's
+        fake.take_peaks();
+        track("silent");
         assert!(fake.take_peaks().iter().all(|&p| p == 0.0), "nothing plays while it is away");
 
         fake.plug(true);
         wait("the device back", 5, || back(&notes));
         plays_the_map(&fake);
-        for _ in 0..40 {
-            std::thread::sleep(Duration::from_millis(5));
-            track("back");
-        }
-        assert_eq!(fake.opens.load(Ordering::Relaxed), 2);
+        track("back");
+        assert_eq!(fake.opens.load(Ordering::Relaxed), 2, "opened once more only: {:?}", notes.get());
         drop(watch);
         eprintln!("the clock moved {worst:.1} ms at most");
+    }
+
+    /// #638: a schedule half a second in the past is caught up by the time the timer ends, however few its wakes were –
+    /// the device that takes the engine then goes on where the time is, without a jump
+    #[test]
+    fn a_timer_ends_with_its_schedule_caught_up() {
+        let (engine, handles) = engine(4);
+        let feed = Feed::new(engine, false, None).unwrap();
+        let from = now_ns() - 500_000_000;
+        let timer = Timer::start(feed, RATE, 4, from).unwrap();
+        let before = now_ns();
+        assert!(timer.end().is_some(), "the engine back");
+        let due = (before - from) * u64::from(RATE) / 1_000_000_000;
+        let rendered = handles.clock.rendered();
+        assert!(rendered + 2 * BLOCK as u64 >= due, "{rendered} of the {due} frames due were played");
     }
 
     #[test]

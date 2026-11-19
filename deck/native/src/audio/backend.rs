@@ -148,6 +148,14 @@ impl Feed {
         }
     }
 
+    /// `frames` can be played now without running short: always where the callback renders, what the ring holds
+    pub fn holds(&self, frames: usize) -> bool {
+        match self {
+            Feed::Direct(_) => true,
+            Feed::Ring(r) => r.holds(frames),
+        }
+    }
+
     pub fn glitches(&self) -> &super::glitch::Glitches {
         match self {
             Feed::Direct(d) => d.glitches(),
