@@ -326,6 +326,8 @@ fn args() -> Result<Args> {
                 a.script.author = Some((row, column, p.next().filter(|s| !s.is_empty())));
             }
             "--in-place" => a.script.in_place = Some(val()?),
+            "--node-select" => a.script.node_select = val()?.split('+').map(String::from).collect(),
+            "--node-frame" => a.script.node_frame = true,
             "--known-shots" => a.script.known_shots = val()?.split_once('=').map(|(s, ids)| (s.to_string(), ids.split('+').map(String::from).collect())),
             "--wiring" => a.script.wiring = Some(val()?),
             "--cell" => a.script.cell = val()?.split_once(',').map(|(r, c)| (r.trim().to_string(), c.trim().to_string())),
@@ -1072,6 +1074,25 @@ impl App {
         let now = self.settings.look;
         let next = if theme != now.theme { tokens::Look { theme, ..now } } else { now.sized(step) };
         self.change_settings(|s| s.look = next);
+    }
+
+    /// the node view's switches, its clock and the stills of the pieces its nodes play (settings.rs, library.rs); a
+    /// check run's pointer stays where it was put
+    fn follow_nodes(&mut self) {
+        let m = self.settings.motion;
+        self.show.cursor = self.args.pointer.unwrap_or(self.cursor);
+        let n = &mut self.show.nodes;
+        n.secs = self.started.elapsed().as_secs_f32();
+        n.motion = show::nodes::Motion { activity: m.allows(m.signal_flow), reveal: m.allows(m.hover_reveal), flash: m.allows(m.focus_flash), previews: m.allows(m.live_previews) };
+        n.pictures.clear();
+        if n.motion.previews {
+            self.library.pictures.want_stills(&n.wanted);
+            for k in &n.wanted {
+                if let Some(id) = self.library.pictures.of(k) {
+                    n.pictures.insert(k.clone(), id);
+                }
+            }
+        }
     }
 
     /// the settings changed: kept, and the look applied at once
@@ -2545,6 +2566,7 @@ impl App {
         let account = self.auth.state();
         let fps = self.fps();
         let look = self.looking();
+        self.follow_nodes();
         let (Some(window), Some(gpu), Some(ui)) = (self.window.clone(), self.gpu.as_mut(), self.ui.as_mut()) else { return };
         self.stage.space.being.hold(self.wire, false);
         // Wire shows a level of the tree, Play every node
@@ -3433,7 +3455,10 @@ impl ApplicationHandler for App {
                 }
             }
             WindowEvent::ScaleFactorChanged { .. } => {}
-            WindowEvent::ModifiersChanged(m) => self.mods = m.state(),
+            WindowEvent::ModifiersChanged(m) => {
+                self.mods = m.state();
+                self.show.nodes.shift = self.mods.shift_key();
+            }
             WindowEvent::CursorMoved { position, .. } => {
                 self.latency.event(self.panels().floats.dragging());
                 let s = self.scale();

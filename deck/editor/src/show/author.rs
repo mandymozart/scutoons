@@ -120,10 +120,15 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
         super::sheets::draw(d, t, host, o.area, pointer);
         host.show_panels.close(d, o, &mut host.hits);
     }
+    host.nodes.shown = false;
     if let Some(o) = host.show_panels.open(d, t, "nodes", pointer, host.hits.len()) {
         let far = host.row_links(&sel);
-        let g = deck_show::nodes::row_graph(&show, host.row, &far);
-        super::nodes::draw(d, t, host, &g, o.area);
+        let mut g = deck_show::nodes::row_graph(&show, host.row, &far);
+        if host.nodes.motion.activity && host.path.is_empty() {
+            deck_show::nodes::activity(&mut g, &show, host.row, host.sub.conductor(), super::now());
+        }
+        let (g, frames) = deck_show::nodes::folded(g, &show, host.row);
+        super::nodes::draw(d, t, host, (&g, &frames), o.area);
         host.show_panels.close(d, o, &mut host.hits);
     }
 

@@ -60,6 +60,68 @@ impl View {
     }
 }
 
+/// the least room between two dots of a grid on screen: zoomed far out, every second line (and so on) is left out
+pub const DOT_ROOM: f32 = 6.0;
+
+/// The grid's dots (a group's ground, the latent grid under what is hovered): the canvas's grid of `unit`, drawn by
+/// `view` from the area's top left `at`, the points inside `area` (screen) whose strength `near` (by the screen point)
+/// is above 0, with that strength.
+pub fn dots(area: Rect, at: (f32, f32), view: View, unit: f32, near: impl Fn((f32, f32)) -> f32) -> Vec<((f32, f32), f32)> {
+    let mut step = unit * view.zoom;
+    if step <= 0.0 {
+        return Vec::new();
+    }
+    while step < DOT_ROOM {
+        step *= 2.0;
+    }
+    let origin = (at.0 + view.pan.0, at.1 + view.pan.1);
+    let first = |o: f32, from: f32| o + ((from - o) / step).ceil() * step;
+    let (x0, y0) = (first(origin.0, area.x), first(origin.1, area.y));
+    let mut out = Vec::new();
+    let mut y = y0;
+    while y <= area.y + area.h {
+        let mut x = x0;
+        while x <= area.x + area.w {
+            let a = near((x, y));
+            if a > 0.0 {
+                out.push(((x, y), a));
+            }
+            x += step;
+        }
+        y += step;
+    }
+    out
+}
+
+/// 1 at the shape, falling smoothly to 0 at `reach` from it
+pub fn falloff(distance: f32, reach: f32) -> f32 {
+    let t = (1.0 - distance / reach.max(1e-3)).clamp(0.0, 1.0);
+    t * t * (3.0 - 2.0 * t)
+}
+
+/// how far `p` is from `r` (0 inside)
+pub fn to_rect(r: Rect, p: (f32, f32)) -> f32 {
+    let dx = (r.x - p.0).max(p.0 - (r.x + r.w)).max(0.0);
+    let dy = (r.y - p.1).max(p.1 - (r.y + r.h)).max(0.0);
+    (dx * dx + dy * dy).sqrt()
+}
+
+/// how far `p` is from the line through `points`
+pub fn to_line(points: &[(f32, f32)], p: (f32, f32)) -> f32 {
+    let seg = |a: (f32, f32), b: (f32, f32)| {
+        let (dx, dy) = (b.0 - a.0, b.1 - a.1);
+        let len = dx * dx + dy * dy;
+        let t = if len <= 0.0 { 0.0 } else { (((p.0 - a.0) * dx + (p.1 - a.1) * dy) / len).clamp(0.0, 1.0) };
+        let (qx, qy) = (a.0 + t * dx - p.0, a.1 + t * dy - p.1);
+        (qx * qx + qy * qy).sqrt()
+    };
+    match points {
+        [] => f32::MAX,
+        [one] => seg(*one, *one),
+        _ => points.windows(2).map(|w| seg(w[0], w[1])).fold(f32::MAX, f32::min),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -106,6 +168,32 @@ mod tests {
         assert!(((tl.0 + br.0) * 0.5 - 250.0).abs() < 1e-3 && ((tl.1 + br.1) * 0.5 - 200.0).abs() < 1e-3);
         let small = View::framing(Rect { x: 0.0, y: 0.0, w: 10.0, h: 10.0 }, (1000.0, 1000.0), 0.0);
         assert_eq!(small.zoom, FRAME_MAX, "a little graph is not blown up");
+    }
+
+    #[test]
+    fn the_dots_sit_on_the_grid_and_thin_out_far_away() {
+        let area = Rect { x: 0.0, y: 0.0, w: 100.0, h: 100.0 };
+        let v = View { zoom: 1.0, pan: (5.0, 5.0) };
+        let all = dots(area, (0.0, 0.0), v, 16.0, |_| 1.0);
+        assert!(all.iter().all(|((x, y), _)| ((x - 5.0) % 16.0).abs() < 1e-3 && ((y - 5.0) % 16.0).abs() < 1e-3));
+        assert_eq!(all.len(), 6 * 6);
+        let near = dots(area, (0.0, 0.0), v, 16.0, |p| falloff(to_rect(Rect { x: 40.0, y: 40.0, w: 10.0, h: 10.0 }, p), 20.0));
+        assert!(!near.is_empty() && near.len() < all.len(), "only round the shape");
+        let far = dots(area, (0.0, 0.0), View { zoom: 0.25, pan: (0.0, 0.0) }, 16.0, |_| 1.0);
+        let gap = far[1].0 .0 - far[0].0 .0;
+        assert!(gap >= DOT_ROOM, "zoomed out the dots keep their room: {gap}");
+    }
+
+    #[test]
+    fn the_fade_falls_from_the_shape() {
+        assert_eq!(falloff(0.0, 10.0), 1.0);
+        assert_eq!(falloff(10.0, 10.0), 0.0);
+        assert!(falloff(3.0, 10.0) > falloff(6.0, 10.0));
+        let r = Rect { x: 0.0, y: 0.0, w: 10.0, h: 10.0 };
+        assert_eq!(to_rect(r, (5.0, 5.0)), 0.0);
+        assert_eq!(to_rect(r, (13.0, 14.0)), 5.0);
+        assert_eq!(to_line(&[(0.0, 0.0), (10.0, 0.0)], (5.0, 3.0)), 3.0);
+        assert_eq!(to_line(&[(0.0, 0.0), (10.0, 0.0)], (13.0, 4.0)), 5.0);
     }
 
     #[test]

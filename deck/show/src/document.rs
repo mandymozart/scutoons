@@ -231,6 +231,9 @@ pub struct Row {
     /// cells of this row wired to each other by their ports (wiring.rs)
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub wires: Vec<crate::wiring::CellWire>,
+    /// the node view's groups, notes and nodes folded by hand (canvas.rs)
+    #[serde(default, skip_serializing_if = "crate::canvas::Canvas::is_empty")]
+    pub nodes: crate::canvas::Canvas,
 }
 
 /// One address a row sends to: `character:yellowmouse > dance:samba`, filtered (for the workshop by group and device).

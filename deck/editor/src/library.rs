@@ -74,6 +74,11 @@ impl Pictures {
         key_of(p).and_then(|k| self.loaded.get(k).copied())
     }
 
+    /// the screen's picture of `key`, once it is there
+    pub fn of(&self, key: &str) -> Option<u64> {
+        self.loaded.get(key).copied()
+    }
+
     /// whether the cache has a picture of `key`
     pub fn has(&self, key: &str) -> bool {
         self.loaded.contains_key(key)
@@ -83,12 +88,26 @@ impl Pictures {
     /// thread).
     pub fn want(&mut self, entries: &[Entry]) {
         for e in entries {
-            let Some(key) = key_of(&e.preview) else { continue };
-            if !self.asked.insert(key.to_string()) {
-                continue;
+            if let Some(key) = key_of(&e.preview) {
+                self.ask(key, matches!(e.preview, Preview::Picture { .. }));
             }
+        }
+    }
+
+    /// the stills of `keys` (a node's piece) asked of the cache once each
+    pub fn want_stills(&mut self, keys: &[String]) {
+        for k in keys {
+            self.ask(k, false);
+        }
+    }
+
+    fn ask(&mut self, key: &str, fetch: bool) {
+        if !self.asked.insert(key.to_string()) {
+            return;
+        }
+        {
             let (file, tx, key) = (self.file(key), self.tx.clone(), key.to_string());
-            let url = matches!(e.preview, Preview::Picture { .. }).then(|| key.clone());
+            let url = fetch.then(|| key.clone());
             std::thread::spawn(move || {
                 let img = image::open(&file).ok().map(|i| i.to_rgba8()).or_else(|| {
                     let url = url?;
@@ -372,7 +391,9 @@ impl crate::App {
         let key = match self.workspace {
             Workspace::Build => playing_key(rig.as_deref(), None),
             Workspace::Module => playing_key(None, self.module.open.as_ref().filter(|_| self.module.heard).map(|o| o.id.as_str())),
-            _ => None,
+            // a Show scene on the stage: its still is the node's preview
+            Workspace::Show => self.stage.scene.as_ref().map(|id| format!("scene:{id}")),
+            Workspace::Perform => None,
         };
         if self.library.playing(key, self.frames) {
             self.stage.ask_still();

@@ -25,6 +25,11 @@ impl Api {
         Api { base, auth: crate::sign_in::current(), cache: crate::cache_dir().join("shows"), outbox: crate::autosave::Outbox::current() }
     }
 
+    /// the signed-in member's name (a note's author); empty when nobody is
+    pub fn who(&self) -> String {
+        self.auth.name().unwrap_or_default()
+    }
+
     /// #537's UI-model test: a test API and its own cache
     #[cfg(test)]
     pub fn with_cache(base: String, cache: PathBuf) -> Api {
