@@ -20,6 +20,8 @@ export class CameraSession {
 	tracking = $state(true);
 	xr = $state(false);
 	denied = $state(false);
+	/** the phone asked the editor to record its take (Record / Stop; the editor records and keeps it) */
+	recording = $state(false);
 
 	private client = '';
 	private readonly link: CameraLink;
@@ -41,6 +43,7 @@ export class CameraSession {
 				this.keep();
 			},
 			onHolding: (h) => {
+				if (h.hold !== 'held') this.recording = false;
 				this.holding = h;
 				this.keep();
 			},
@@ -61,7 +64,15 @@ export class CameraSession {
 	}
 
 	claim = (camera: string) => this.link.claim(camera);
-	leave = () => this.link.leave();
+	leave = () => {
+		this.recording = false;
+		this.link.leave();
+	};
+	/** Record / Stop: the editor records the take of the camera this phone holds */
+	record = () => {
+		this.recording = !this.recording;
+		this.link.link.record(this.recording);
+	};
 	recenter = () => this.link.link.recenter();
 
 	close(): void {

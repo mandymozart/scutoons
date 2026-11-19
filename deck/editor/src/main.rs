@@ -53,6 +53,7 @@ mod status;
 mod sign_in;
 mod tab_view;
 mod tabs;
+mod take;
 mod tools;
 mod toon;
 mod wires;
@@ -743,6 +744,8 @@ struct App {
     published: published::Published,
     /// Build edits this scene (scene.rs); none = a rig
     scene: Option<scene::SceneView>,
+    /// a phone's take being recorded from Build's DOP panel (take.rs)
+    take: Option<deck_space::space::dop::take::Recorder>,
     /// the video nodes' cards: their live frames (posters.rs)
     posters: posters::Posters,
     /// the medium in front, in its Asset tab (media.rs)
@@ -984,6 +987,7 @@ fn run() -> Result<i32> {
         module: app_module,
         published: app_published,
         scene: None,
+        take: None,
         last_row: None,
         grid: grid::GridSnap::load(app_grid_file),
         colour: app_colour,
@@ -2704,6 +2708,7 @@ impl App {
         self.follow_cell();
         self.follow_scene();
         self.follow_tabs();
+        self.take_frame();
         if let Some(f) = self.show.demo_book.take() {
             self.book = book::Loader::new(&self.args.api, None, Some(&f), None, &cache_dir());
             self.args.book = Some(f);

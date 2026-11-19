@@ -1,7 +1,8 @@
 //! Build's DOP panel: the scene's primary camera – its source, the lens (projection, the focal presets, a typed focal
 //! length, an orthographic view's height, the focus: at the aim, a distance or a subject), its shots (taken from the view, looked through), a move to preview or keep,
 //! the kept moves, the trolley track, who may take it on a phone in a live session (the access row: the one condition
-//! control; its QR is in Perform's Session sheet). The camera, its checks and the moves are the core's (deck-space scene_camera.rs,
+//! control, how long without a pose before it returns, Record – a phone's take kept as a move, take.rs; its QR is in
+//! Perform's Session sheet). The camera, its checks and the moves are the core's (deck-space scene_camera.rs,
 //! scene_dop.rs, space/dop); here the panel is drawn and its presses go to the core.
 use crate::scene::SceneView;
 use deck_kit::base::draw::DrawList;
@@ -26,11 +27,13 @@ pub struct Sel {
     pub floor: f32,
     /// what a shot can aim at on the stage (Space `aim_choices`)
     pub aims: Vec<String>,
+    /// a phone's take being recorded (take.rs)
+    pub rec: Option<crate::take::Rec>,
 }
 
 impl Default for Sel {
     fn default() -> Sel {
-        Sel { shot: None, point: None, kept: None, draft: MoveSpec::of(MoveKind::Glide), floor: 0.0, aims: Vec::new() }
+        Sel { shot: None, point: None, kept: None, draft: MoveSpec::of(MoveKind::Glide), floor: 0.0, aims: Vec::new(), rec: None }
     }
 }
 
@@ -46,6 +49,8 @@ pub enum Num {
     PointTime,
     /// the lens's focus distance
     Focus,
+    /// how long a phone holding the camera may go without a pose (s; 0 = no limit)
+    Release,
 }
 
 impl Num {
@@ -59,6 +64,7 @@ impl Num {
             Num::Amount => (0.0, 10.0, false),
             Num::PointTime => (0.25, 64.0, true),
             Num::Focus => (0.1, 100.0, true),
+            Num::Release => (0.0, 120.0, false),
         }
     }
 }
@@ -111,6 +117,9 @@ pub enum Field {
     Phones(bool),
     /// a chip of who may take it (the one condition control's fact `i`)
     PhonesFact(usize),
+    /// record the selected camera's phone as a take; pressed while recording: keep it
+    Record,
+    Discard,
     /// the camera's slot `i` (a module drops on it), its module taken off
     Slot(usize),
     Detach(usize),
@@ -200,6 +209,7 @@ pub fn value(view: &SceneView, n: Num) -> f32 {
         Num::Amount => s.amount,
         Num::PointTime => view.dop.point.and_then(|i| view.edit.camera().track?.points.get(i)?.time).map_or(1.0, |t| t.value()),
         Num::Focus => focus_of(&view.edit.camera(), &view.dop),
+        Num::Release => release_of(&view.edit.camera(), &view.dop).map_or(0.0, |ms| ms as f32 / 1000.0),
     }
 }
 
@@ -240,6 +250,14 @@ fn focus_rows(d: &mut DrawList, t: &Tokens, a: Rect, y: &mut f32, view: &SceneVi
     }
 }
 
+/// how long the selected camera's phone may go without a pose (ms; none: no limit)
+fn release_of(cam: &SceneCamera, sel: &Sel) -> Option<u64> {
+    match sel.shot {
+        Some(i) => cam.shots.get(i)?.phones.as_ref()?.release_ms,
+        None => cam.phones.as_ref()?.release_ms,
+    }
+}
+
 /// who may take the selected shot's camera (none: the primary camera) on a phone, and its condition's chips
 pub fn phones_condition(cam: &SceneCamera, sel: &Sel) -> Option<Condition> {
     let phones = match sel.shot {
@@ -252,7 +270,7 @@ pub fn phones_condition(cam: &SceneCamera, sel: &Sel) -> Option<Condition> {
 /// The access row (LIVE-CAMERAS.md §4): whether a phone may take this camera in a live session, who (the one condition
 /// control, any one fact) and its id the show and the QR name.
 #[allow(clippy::too_many_arguments)]
-fn phones_rows(d: &mut DrawList, t: &Tokens, a: Rect, y: &mut f32, scene: &str, cam: &SceneCamera, sel: &Sel, out: &mut Vec<(Rect, Field)>) {
+fn phones_rows(d: &mut DrawList, t: &Tokens, a: Rect, y: &mut f32, scene: &str, cam: &SceneCamera, sel: &Sel, hot: Option<Num>, out: &mut Vec<(Rect, Field)>) {
     let shot = sel.shot.and_then(|i| cam.shots.get(i));
     let whose = shot.map_or("PHONES · THE CAMERA".to_string(), |s| format!("PHONES · {}", s.id.to_uppercase()));
     *y += controls::section(d, t, a.x, *y, a.w, &whose, false);
@@ -265,7 +283,17 @@ fn phones_rows(d: &mut DrawList, t: &Tokens, a: Rect, y: &mut f32, scene: &str, 
         out.extend(rects.into_iter().enumerate().map(|(i, r)| (r, Field::PhonesFact(i))));
         *y += used + 6.0;
         let id = deck_space::live_cameras::camera_id(scene, shot.map(|s| s.id.as_str()));
+        let release = release_of(cam, sel).map_or(0.0, |ms| ms as f32 / 1000.0);
+        let shown = if release > 0.0 { format!("{} s, then it returns", crate::number(release)) } else { "no limit – Leave frees it".into() };
+        scrub(d, t, a, y, Num::Release, "no pose for", release, &shown, hot, out);
         caption(d, t, a, y, &format!("{id} · its QR: Perform › Session"));
+        match sel.rec.as_ref() {
+            Some(r) => {
+                caption(d, t, a, y, &format!("● REC {:.1} s · {} poses · the stage looks through it", r.secs, r.poses));
+                pills_row(d, t, a, y, &["Stop and keep", "Discard"], usize::MAX, &[Field::Record, Field::Discard], out);
+            }
+            None => pills_row(d, t, a, y, &["Record a take"], usize::MAX, &[Field::Record], out),
+        }
     }
 }
 
@@ -341,7 +369,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, a: Rect, view: &SceneView, playing: Pl
         y += used + 6.0;
     }
 
-    phones_rows(d, t, a, &mut y, &view.edit.key(), &cam, sel, &mut out);
+    phones_rows(d, t, a, &mut y, &view.edit.key(), &cam, sel, hot, &mut out);
 
     y += controls::section(d, t, a.x, y, a.w, "MOVE", false);
     let s = &sel.draft;
@@ -484,7 +512,7 @@ pub fn height(t: &Tokens, view: &SceneView) -> f32 {
 }
 
 impl crate::App {
-    fn dop_done(&mut self, done: Result<(), String>, said: String, x: f32, y: f32) {
+    pub(crate) fn dop_done(&mut self, done: Result<(), String>, said: String, x: f32, y: f32) {
         let ok = done.is_ok();
         self.scene_changed(done, said, x, y);
         if ok {
@@ -543,6 +571,8 @@ impl crate::App {
                 let words = phones_condition(&view.edit.camera(), &view.dop).map(|c| c.words).unwrap_or_default();
                 self.dop_done(done, format!("phones: {words}"), x, y);
             }
+            Field::Record => self.take_toggle(x, y),
+            Field::Discard => self.take_discard(),
             Field::Shot(i) => {
                 sel.shot = Some(i);
                 if let Some(id) = cam.shots.get(i).map(|s| s.id.clone()) {
@@ -737,6 +767,10 @@ impl crate::App {
                 let _ = view.edit.set_lens(view.dop.shot, Lens { focus: Some(v), ..lens });
                 self.sync_dop();
             }
+            Num::Release => {
+                let s = (v * 2.0).round() / 2.0;
+                let _ = view.edit.set_release(view.dop.shot, (s > 0.0).then_some((s * 1000.0) as u64));
+            }
         }
     }
 
@@ -782,6 +816,10 @@ impl crate::App {
             Num::Size => self.dop_done(Ok(()), "lens: view height".into(), x, y),
             Num::PointTime => self.dop_done(Ok(()), "the point's time".into(), x, y),
             Num::Focus => self.dop_done(Ok(()), "focus distance".into(), x, y),
+            Num::Release => {
+                let ms = self.scene.as_ref().and_then(|v| release_of(&v.edit.camera(), &v.dop));
+                self.dop_done(Ok(()), ms.map_or("phones: no limit – only Leave or a take-over frees it".into(), |ms| format!("phones: back after {} s without a pose", crate::number(ms as f32 / 1000.0))), x, y);
+            }
             _ => {}
         }
     }
@@ -867,6 +905,24 @@ impl crate::App {
                 view.dop.draft = MoveSpec { repeat: Repeat::PingPong, ..MoveSpec::of(MoveKind::Rack) };
                 self.dop_done(Ok(()), format!("focus on {}", on.as_deref().unwrap_or("nothing")), x, y);
             }
+            // `take`: a phone holding shot2 recorded from frame 88 – 2 m to the right, rising a little and turning to look
+            // back left, 30 poses a second – kept at frame 140, then played
+            88 if spec.contains("take") => {
+                let id = self.scene.as_ref().map(|v| deck_space::live_cameras::camera_id(&v.edit.key(), Some("shot2")));
+                if let Some(id) = id {
+                    self.take_begin(id);
+                }
+            }
+            f @ 89..=139 if spec.contains("take") => {
+                let s = (f - 89) as f64 / 30.0;
+                let u = s / (50.0 / 30.0);
+                let (sh, ch) = (u * 0.6 / 2.0).sin_cos();
+                if let Some(r) = self.take.as_mut() {
+                    r.pose(s * 1000.0, &[u * 2.0, (u * std::f64::consts::PI).sin() * 0.3, -u * 0.5], &[0.0, sh, 0.0, ch]);
+                }
+            }
+            140 if spec.contains("take") => self.take_keep(x, y),
+            142 if spec.contains("take") => self.dop_field(Field::PlayKept, x, y),
             84 if spec.contains("preview") => {
                 if let Some(view) = self.scene.as_mut() {
                     view.dop.shot = Some(1);
@@ -944,6 +1000,15 @@ mod tests {
         view.edit.set_phones(Some(i), true).unwrap();
         let f = fields(&mut d, &view);
         assert!(f.contains(&Field::PhonesFact(1)) && d.texts().iter().any(|s| s.contains("who: guest and up")) && d.texts().iter().any(|s| s.contains("scene:duet > shot:shot1")));
+        // how long without a pose, and Record; while recording: the take's line, Stop and keep, Discard
+        assert!(f.contains(&Field::Scrub(Num::Release)) && d.texts().iter().any(|s| s.contains("no limit")) && f.contains(&Field::Record) && !f.contains(&Field::Discard));
+        view.edit.set_release(Some(i), Some(4500)).unwrap();
+        assert_eq!(value(&view, Num::Release), 4.5);
+        view.dop.rec = Some(crate::take::Rec { camera: "scene:duet > shot:shot1".into(), secs: 3.24, poses: 97 });
+        let f = fields(&mut d, &view);
+        assert!(d.texts().iter().any(|s| s.contains("4.500 s, then it returns")), "{:?}", d.texts());
+        assert!(f.contains(&Field::Discard) && d.texts().iter().any(|s| s.starts_with("● REC 3.2 s · 97 poses")), "{:?}", d.texts());
+        view.dop.rec = None;
         view.edit.set_phones(Some(i), false).unwrap();
         view.dop.aims = vec!["character:catpope".into(), "spot:altar".into()];
         let f = fields(&mut d, &view);

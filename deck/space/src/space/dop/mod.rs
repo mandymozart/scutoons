@@ -5,7 +5,9 @@
 //! a move that loops or ping-pongs runs its rounds until another move, a cut or a hand (moves in beats or bars on the bar
 //! line); a fly-through along a timed track reaches each point on its time. Every view a move gives carries its focus
 //! distance: a shot's subject (`focus_on`) measured from the eye each frame – a follow focus – else its lens's, else its aim's.
+//! A recorded take (take.rs) plays its keys on their times.
 pub mod moves;
+pub mod take;
 pub mod track;
 
 use super::camera::Orbit;
@@ -315,7 +317,10 @@ impl Director {
         let on_beat = self.on_beat.take().filter(|_| clock.running);
         let at_beat = on_beat.unwrap_or_else(|| clock.beat_at(at_secs));
         let timed = track.filter(|p| cue.spec.kind == MoveKind::Fly && p.timed());
-        let length = timed.map_or(cue.spec.length, |p| p.length(cue.spec.length));
+        let length = match cue.spec.take.as_ref().filter(|_| cue.spec.kind == MoveKind::Take).and_then(|t| t.length()) {
+            Some(l) => l,
+            None => timed.map_or(cue.spec.length, |p| p.length(cue.spec.length)),
+        };
         let knots = timed.and_then(|p| p.knots(cue.spec.length, clock.per_bar, clock.bpm));
         let tempo = matches!(length, crate::scene_camera::Length::Beats(_) | crate::scene_camera::Length::Bars(_));
         let run = if clock.running && (tempo || cue.spec.start == Start::Bar || on_beat.is_some()) {

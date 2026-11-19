@@ -26,8 +26,8 @@ namespace Scutoons\Generated;
  * @phpstan-type Listener array{character?: string | null, do: Act, id?: string | null, on: string}
  * @phpstan-type LocationPlaceholder array{fill: Fill, id: string, label?: array<string, string> | null, preview?: string | null}
  * @phpstan-type LocationSlot string | LocationPlaceholder
- * @phpstan-type MoveDef array{amount?: float, ease?: Ease, follow?: string | null, height?: float, id: string, kind: MoveKind, length: Length, repeat?: Repeat, rounds?: float, side?: Side, start?: Start, then?: string | null, to: string, turn?: Turn}
- * @phpstan-type MoveKind 'cut' | 'glide' | 'in' | 'fly' | 'crane_down' | 'crane_up' | 'spiral' | 'push' | 'pull' | 'orbit' | 'truck' | 'tilt' | 'zoom' | 'dolly_zoom' | 'whip' | 'follow' | 'shake' | 'rack'
+ * @phpstan-type MoveDef array{amount?: float, ease?: Ease, follow?: string | null, height?: float, id: string, kind: MoveKind, length: Length, repeat?: Repeat, rounds?: float, side?: Side, start?: Start, take?: Take2 | null, then?: string | null, to: string, turn?: Turn}
+ * @phpstan-type MoveKind 'cut' | 'glide' | 'in' | 'fly' | 'crane_down' | 'crane_up' | 'spiral' | 'push' | 'pull' | 'orbit' | 'truck' | 'tilt' | 'zoom' | 'dolly_zoom' | 'whip' | 'follow' | 'shake' | 'rack' | 'take'
  * @phpstan-type NodeDef array<string, mixed>
  * @phpstan-type Phones array{for?: array<string, mixed> | null, release_ms?: int | null}
  * @phpstan-type Projection 'perspective' | 'orthographic'
@@ -42,6 +42,8 @@ namespace Scutoons\Generated;
  * @phpstan-type StageSettings array{audio_buffer?: int | null, background?: Background | null, layers?: list<Layer>, name?: string, render_scale?: float, transition?: SceneTransition, transition_secs?: float}
  * @phpstan-type Start 'now' | 'bar'
  * @phpstan-type Take 'one' | 'many'
+ * @phpstan-type Take2 array{key: list<TakeKey>}
+ * @phpstan-type TakeKey array{at: array{float, float, float}, pitch: float, time: Length, yaw: float}
  * @phpstan-type Track array{point: list<TrackPoint>}
  * @phpstan-type TrackPoint array{at: array{float, float, float}, ease?: Ease | null, handle?: array{float, float, float} | null, time?: Length | null}
  * @phpstan-type Turn 'right' | 'left'

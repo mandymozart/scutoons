@@ -14,6 +14,8 @@
 //!   there (a fly-through synced to the music).
 //! - **Move:** a kind, the shot it ends on, a length in beats, bars or seconds, an ease, whether it waits for the bar line,
 //!   whether it repeats (once, loop, ping-pong), the move it chains to; `scene:<id> > move:<move>` plays it.
+//! - **Take:** a phone's pose stream recorded as a move (LIVE-CAMERAS.md §7): its keys – the eye and the look, each at
+//!   its time in beats, bars or seconds as the track's points have – thinned and smoothed by the core (space/dop take.rs).
 //! - **Phones:** the camera and each shot may be offered to a phone in a live session (LIVE-CAMERAS.md §4): who may take it
 //!   (the one condition control's filter) and how long without a pose before it returns. Unset: no phone takes it.
 use crate::rig::address::{word, Aim};
@@ -344,9 +346,12 @@ pub enum MoveKind {
     Shake,
     /// the frame stays, the focus shifts to the shot's (its `focus_on` subject, its lens's distance or its aim)
     Rack,
+    /// a phone's recorded take (`take`): its eye and look on their times; it ends on its own shot
+    Take,
 }
 
 impl MoveKind {
+    /// the kinds a move is made from in the panel (a take only by recording)
     pub const ALL: [MoveKind; 18] = [
         MoveKind::Cut,
         MoveKind::Glide,
@@ -388,6 +393,7 @@ impl MoveKind {
             MoveKind::Follow => "follow",
             MoveKind::Shake => "shake",
             MoveKind::Rack => "rack focus",
+            MoveKind::Take => "take",
         }
     }
 
@@ -405,7 +411,7 @@ impl MoveKind {
     pub fn ease(self) -> Ease {
         match self {
             MoveKind::Whip => Ease::Whip,
-            MoveKind::Orbit => Ease::Linear,
+            MoveKind::Orbit | MoveKind::Take => Ease::Linear,
             _ => Ease::InOut,
         }
     }
@@ -589,6 +595,62 @@ pub struct MoveSpec {
     /// follow: what it keeps in the shot, as a shot's `aim` names it
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub follow: Option<String>,
+    /// take: the recorded keys
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub take: Option<Take>,
+}
+
+/// A key of a recorded take: where the eye is and where it looks – yaw and pitch in degrees as a shot's (the eye stands at
+/// that turn and tilt from its aim) – and when, counted from the take's start.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TakeKey {
+    pub at: [f32; 3],
+    pub yaw: f32,
+    pub pitch: f32,
+    pub time: Length,
+}
+
+/// A recorded take: its keys in time, the first at 0, all in one unit; the last one's time is the move's length.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(deny_unknown_fields)]
+pub struct Take {
+    #[serde(rename = "key")]
+    pub keys: Vec<TakeKey>,
+}
+
+/// the most keys a take keeps
+pub const TAKE_MAX_KEYS: usize = 2000;
+
+impl Take {
+    /// how long it plays: its last key's time
+    pub fn length(&self) -> Option<Length> {
+        self.keys.last().map(|k| k.time)
+    }
+
+    fn problems(&self, who: &str, out: &mut Vec<String>) {
+        if self.keys.len() < 2 {
+            out.push(format!("{who}: a take has two keys at least"));
+        }
+        if self.keys.len() > TAKE_MAX_KEYS {
+            out.push(format!("{who}: a take keeps {TAKE_MAX_KEYS} keys at most"));
+        }
+        if self.keys.iter().any(|k| k.at.iter().chain([&k.yaw, &k.pitch]).any(|v| !v.is_finite()) || !(-90.0..=90.0).contains(&k.pitch)) {
+            out.push(format!("{who}: its keys are numbers, the pitch −90–90°"));
+        }
+        let unit = self.keys.first().map(|k| k.time.unit());
+        if self.keys.iter().any(|k| Some(k.time.unit()) != unit) {
+            out.push(format!("{who}: its keys share one unit (beats, bars or s)"));
+        }
+        if self.keys.first().is_some_and(|k| k.time.value() != 0.0) {
+            out.push(format!("{who}: its first key is at 0"));
+        }
+        if self.keys.windows(2).any(|w| w[1].time.value().partial_cmp(&w[0].time.value()) != Some(std::cmp::Ordering::Greater)) {
+            out.push(format!("{who}: its keys follow each other in time"));
+        }
+    }
 }
 
 fn one() -> f32 {
@@ -622,7 +684,7 @@ fn is_default<T: Default + PartialEq>(v: &T) -> bool {
 impl MoveSpec {
     /// a move of `kind` with its usual length and ease
     pub fn of(kind: MoveKind) -> MoveSpec {
-        MoveSpec { kind, length: kind.length(), ease: kind.ease(), start: Start::Now, repeat: Repeat::Once, rounds: 1.0, turn: Turn::Left, side: Side::Left, height: crane_height(), amount: shake_amount(), follow: None }
+        MoveSpec { kind, length: kind.length(), ease: kind.ease(), start: Start::Now, repeat: Repeat::Once, rounds: 1.0, turn: Turn::Left, side: Side::Left, height: crane_height(), amount: shake_amount(), follow: None, take: None }
     }
 
     pub fn problems(&self, who: &str, out: &mut Vec<String>) {
@@ -644,6 +706,11 @@ impl MoveSpec {
         }
         if self.repeat != Repeat::Once && matches!(self.kind, MoveKind::Cut | MoveKind::Follow) {
             out.push(format!("{who}: a {} does not repeat", self.kind.word()));
+        }
+        match (&self.take, self.kind == MoveKind::Take) {
+            (Some(t), true) => t.problems(who, out),
+            (None, false) => {}
+            _ => out.push(format!("{who}: `take` holds the keys of a take, and only of a take")),
         }
     }
 }

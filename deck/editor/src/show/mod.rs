@@ -283,6 +283,8 @@ pub struct Host {
     pub cameras: BTreeMap<String, Vec<(String, String)>>,
     /// the live cameras each scene the editor knows offers to phones (`scene:<id>` → its cameras): Build's open scene's
     pub live_cameras: BTreeMap<String, Vec<protocol::LiveCamera>>,
+    /// the phones' pose, Record and Recenter heard this frame (Build's DOP panel records a take from them)
+    pub hands: Vec<protocol::Envelope>,
     pub book_why: Option<String>,
     /// a library card a cell would take is in the hand (the cell under the pointer shows it); the core's refusal where
     /// one was dropped
@@ -409,7 +411,7 @@ impl Host {
         show_panels.floats.scrolls_itself("nodes");
         let scroll = deck_kit::editor::table::Scroll::default();
         let saves = version.map(|v| (show.id.clone(), crate::autosave::Autosave::new(Some(v)))).into_iter().collect();
-        let mut host = Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), columns: Vec::new(), group: None, context: None, show_panels, show_scroll: scroll, band: None, view_slot: Rect::default(), help: None, address: None, book: None, cameras: BTreeMap::new(), live_cameras: BTreeMap::new(), book_why: None, carrying: false, refused: None, toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, locked: false, live_asked: false, status, unloaded, bad: false, wiring: None, flow: None, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, saves, unsent: BTreeMap::new(), session: session::Session::default(), toons: toons::Toons::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), cue_mix: deck_engine::cue::MIX, mix_drag: None, mix_width: 1.0, to_prelisten: None, prelistening: None, cue_note: None, build: None, to_build: None, compose: new_scene::Composer::default(), to_stage: None, demos: Vec::new(), demo_book: None, link, api, nodes: nodes::NodeView::default() };
+        let mut host = Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), columns: Vec::new(), group: None, context: None, show_panels, show_scroll: scroll, band: None, view_slot: Rect::default(), help: None, address: None, book: None, cameras: BTreeMap::new(), live_cameras: BTreeMap::new(), hands: Vec::new(), book_why: None, carrying: false, refused: None, toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, locked: false, live_asked: false, status, unloaded, bad: false, wiring: None, flow: None, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, saves, unsent: BTreeMap::new(), session: session::Session::default(), toons: toons::Toons::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), cue_mix: deck_engine::cue::MIX, mix_drag: None, mix_width: 1.0, to_prelisten: None, prelistening: None, cue_note: None, build: None, to_build: None, compose: new_scene::Composer::default(), to_stage: None, demos: Vec::new(), demo_book: None, link, api, nodes: nodes::NodeView::default() };
         host.adopt_kept();
         host
     }
@@ -459,6 +461,20 @@ impl Host {
         self.send(out);
     }
 
+    /// who holds live camera `camera` now (its client id), as the relay last listed it; none while not live
+    pub fn holder_of(&self, camera: &str) -> Option<String> {
+        let l = self.link.as_ref()?;
+        let list = l.cameras.lock().unwrap();
+        list.iter().find(|c| c.id == camera).and_then(|c| c.holder.clone())
+    }
+
+    /// the live camera client `client` holds now, if any
+    pub fn held_by(&self, client: &str) -> Option<String> {
+        let l = self.link.as_ref()?;
+        let list = l.cameras.lock().unwrap();
+        list.iter().find(|c| c.holder.as_deref() == Some(client)).map(|c| c.id.clone())
+    }
+
     fn send(&mut self, out: Vec<protocol::Envelope>) {
         if let Some(l) = &self.link {
             l.send(out);
@@ -473,7 +489,11 @@ impl Host {
         self.toons_poll();
         let mut out = self.sub.tick(ms);
         if let Some(l) = &self.link {
+            self.hands.clear();
             while let Ok(e) = l.inbox.try_recv() {
+                if matches!(e.message, protocol::Message::HandPose(_) | protocol::Message::HandRecord(_) | protocol::Message::HandRecenter(_)) {
+                    self.hands.push(e.clone());
+                }
                 out.extend(self.sub.on_wire(&e, ms));
             }
         }
