@@ -25,6 +25,7 @@ Before 2026-11-03 this set was 312 lines / ≈ 7.6k tokens and was *followed* by
 | touching stored data, API, server | `DATA.md`, `PLATFORM.md`, `CATALOG.md`; server/docs/DATABASE.md | 652 · 942 · 271 |
 | touching items, avatar, carrier bag | `ITEMS.md`, `CATALOG.md` | 1565 · 271 |
 | touching the map / places | `MAP.md` §8 | 1107 |
+| a demo, a test or "try this" that needs data | `SANDBOX.md` (the toon `sandbox`: Sandgirl, dunes, story, scenes, demo shows) | ~40 |
 | touching media, slices, CDN | `ASSETS.md` | 461 |
 | texts, variables, logic | `EXPRESSIONS.md` | 368 |
 | MCP / AI connections | `MCP.md` | 300 |
