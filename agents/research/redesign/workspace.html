@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Workspace drafts</title>
+<!-- #657 / #656, epic #626 – draft 2 (owner 2026-11-20: floating panels + workspaces).
+     The deck's night tokens (deck/kit/src/base/tokens.rs), base 14px, panels at 50 % over the stage with the ink halo.
+     ?v=asset  CatPope › Regular open as an Asset tab
+     ?v=scene  the same panels (Library, Inspector) in a Scene tab
+     Open at 1440×900 and 744×1133. -->
+<style>
+@font-face{font-family:"Noto Sans";src:url("../../../deck/kit/assets/NotoSans-Regular-latin.ttf");font-weight:400}
+@font-face{font-family:"Noto Sans";src:url("../../../deck/kit/assets/NotoSans-Bold-latin.ttf");font-weight:700}
+:root{
+  --surface:#1a1c18;--head:#141612;--line:#3a4034;--text:#f3f3f0;--muted:#a7af9b;
+  --control:#262922;--hover:#2e3229;--pressed:#f3f3f0;--pressed-text:#171916;--selected:#3a4132;--within:#23261f;
+  --accent:#00d1ff;--primary:#b4ff32;--primary-ink:#171916;--warn:#f0a030;--go:#4cc35a;
+  --glass:rgba(26,28,24,.5);--glass-strong:rgba(26,28,24,.82);
+  --gap:1rem;--pad:.57rem;--small:.86rem;--label:.72rem;--row:2.15rem;--tree-row:1.8rem;--radius:.36rem;
+  --mono:"ABC Areal Mono","IBM Plex Mono",ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+html{font-size:14px}
+body{margin:0;height:100vh;overflow:hidden;background:#000;color:var(--text);font:400 1rem/1.35 "Noto Sans",system-ui,sans-serif;position:relative}
+button{font:inherit;color:inherit}
+.lbl{font-size:var(--label);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.muted{color:var(--muted)}
+.mono{font-family:var(--mono);font-size:var(--small)}
+.halo{text-shadow:0 0 2px var(--surface),0 0 2px var(--surface),0 0 3px var(--surface)}
+.sp{flex:1}
+
+/* the stage fills the window; everything else floats over it */
+.stage{position:absolute;inset:0;overflow:hidden}
+.stage.asset{background:radial-gradient(ellipse at 50% 80%,#22261d 0,#000 62%)}
+.stage .fig{position:absolute;left:0;right:0;top:12%;bottom:15%;margin:auto;height:73%;object-fit:contain;filter:drop-shadow(0 1.2rem 1.2rem #0009)}
+.stage .floor{position:absolute;left:30%;right:30%;bottom:15%;height:1px;background:linear-gradient(90deg,transparent,#4a5242,transparent)}
+.stage.scene img.bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.9}
+.holder{position:absolute;transform:translate(-50%,-100%)}
+.holder img{display:block;height:100%;object-fit:contain}
+.holder.sel{outline:1px dashed var(--accent);outline-offset:4px}
+.holder .tag{position:absolute;left:50%;top:-1.7rem;transform:translateX(-50%);white-space:nowrap;font-size:var(--small);padding:.1rem .45rem;border-radius:1rem;background:var(--accent);color:#001b22}
+.gizmo{position:absolute;width:5rem;height:5rem;left:50%;bottom:-2.5rem;transform:translateX(-50%)}
+
+/* pill toolbar */
+.bar{position:absolute;top:var(--gap);left:var(--gap);right:var(--gap);display:flex;gap:.5rem;align-items:center;pointer-events:none}
+.bar>*{pointer-events:auto}
+.pill{display:flex;align-items:center;gap:.25rem;background:var(--glass-strong);border:1px solid var(--line);border-radius:2rem;padding:.2rem;height:calc(var(--row) + .4rem)}
+.logo{font-weight:700;letter-spacing:.04em;padding:0 .55rem 0 .7rem}
+.ib{width:var(--row);height:var(--row);border-radius:50%;border:0;background:none;display:inline-grid;place-items:center;cursor:pointer}
+.ib:hover{background:var(--hover)}
+.tab{display:flex;align-items:center;gap:.45rem;height:var(--row);padding:0 .35rem 0 .7rem;border-radius:1.2rem;white-space:nowrap;color:var(--muted)}
+.tab.on{background:var(--pressed);color:var(--pressed-text)}
+.tab .k{font-size:var(--label);letter-spacing:.08em;text-transform:uppercase;opacity:.7}
+.tab .x{width:1.4rem;height:1.4rem;border-radius:50%;display:grid;place-items:center;font-size:.8rem;opacity:.6}
+.tab img{width:1.2rem;height:1.2rem;border-radius:50%;object-fit:cover}
+.seg{display:flex;gap:2px}
+.seg button{border:0;background:none;height:var(--row);padding:0 .8rem;border-radius:1.2rem;cursor:pointer;white-space:nowrap}
+.seg button[aria-pressed=true]{background:var(--pressed);color:var(--pressed-text)}
+.seg button.play{color:var(--go)}
+.dot{width:.5rem;height:.5rem;border-radius:50%;background:var(--go);display:inline-block}
+.saved{display:flex;gap:.35rem;align-items:center;color:var(--muted);font-size:var(--small);padding:0 .6rem}
+
+/* floating panel: no header, a grip; 1rem to each other and the walls */
+.panel{position:absolute;background:var(--glass);border:1px solid var(--line);border-radius:var(--radius);display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.panel.solid{background:var(--glass-strong)}
+.grip{height:1rem;flex:none;display:flex;justify-content:center;align-items:center;cursor:grab;position:relative}
+.grip::before{content:"";width:2.2rem;height:.22rem;border-radius:1rem;background:var(--line)}
+.grip .fold{position:absolute;right:.35rem;top:.05rem;font-size:.65rem;color:var(--muted)}
+.tip{position:absolute;top:-2.1rem;left:50%;transform:translateX(-50%);background:var(--pressed);color:var(--pressed-text);font-size:var(--small);padding:.2rem .55rem;border-radius:var(--radius);white-space:nowrap;z-index:5}
+.tip::after{content:"";position:absolute;left:50%;bottom:-.3rem;transform:translateX(-50%) rotate(45deg);width:.5rem;height:.5rem;background:var(--pressed)}
+.ptabs{display:flex;gap:.2rem;padding:0 var(--pad) var(--pad)}
+.ptabs span{font-size:var(--small);padding:.15rem .6rem;border-radius:1rem;color:var(--muted)}
+.ptabs span.on{background:var(--pressed);color:var(--pressed-text)}
+.scroll{overflow:auto;min-height:0;flex:1}
+/* collapsed panel = a pill with its icon and name */
+.mini{position:absolute;display:flex;align-items:center;gap:.45rem;height:calc(var(--row) + .2rem);padding:0 .8rem;border:1px solid var(--line);border-radius:2rem;background:var(--glass-strong);white-space:nowrap}
+.mini .n{font-family:var(--mono);font-size:var(--label);color:var(--warn)}
+
+/* library */
+.search{margin:0 var(--pad) var(--pad);height:var(--row);border:1px solid var(--line);background:var(--control);border-radius:var(--radius);display:flex;align-items:center;padding:0 .6rem;color:var(--muted);gap:.4rem}
+.kinds{display:flex;gap:.3rem;padding:0 var(--pad) var(--pad);flex-wrap:wrap}
+.chip{font-size:var(--small);padding:.1rem .55rem;border:1px solid var(--line);border-radius:1rem;color:var(--muted)}
+.chip.on{background:var(--pressed);color:var(--pressed-text);border-color:var(--pressed)}
+.tr{height:var(--tree-row);display:flex;align-items:center;gap:.45rem;padding:0 var(--pad) 0 calc(var(--pad) + var(--d,0) * 1.1rem);white-space:nowrap}
+.tr.sel{background:var(--selected)}
+.tr.within{background:rgba(35,38,31,.6)}
+.tr .chev{width:.8rem;color:var(--muted);font-size:.7rem}
+.tr img{width:1.3rem;height:1.3rem;border-radius:50%;object-fit:cover;background:var(--control)}
+.tr .n{margin-left:auto;font-family:var(--mono);font-size:var(--label);color:var(--muted)}
+.tr .n.warn{color:var(--warn)}
+.tr .open{font-size:var(--label);color:var(--accent);margin-left:.3rem}
+.grp{padding:.6rem var(--pad) .25rem}
+.drag{opacity:.55}
+
+/* inspector sections */
+.sec{border-top:1px solid var(--line)}
+.sec .h{height:var(--row);display:flex;align-items:center;gap:.5rem;padding:0 var(--pad)}
+.sec .h .chev{color:var(--muted);font-size:.7rem;width:.8rem}
+.sec .h .sum{margin-left:auto;color:var(--muted);font-size:var(--small);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:58%}
+.sec .in{padding:0 var(--pad) .8rem;display:grid;gap:.45rem}
+.prop{display:grid;grid-template-columns:6.5rem minmax(0,1fr);align-items:center;gap:.5rem;min-height:var(--row)}
+.prop>span:first-child{color:var(--muted);font-size:var(--small)}
+.field{height:var(--row);border:1px solid var(--line);background:var(--control);border-radius:var(--radius);display:flex;align-items:center;padding:0 .6rem;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.field.area{height:auto;min-height:4rem;align-items:flex-start;padding:.45rem .6rem;white-space:normal;line-height:1.4}
+.toggle{width:1.875rem;height:1.125rem;border-radius:1rem;background:var(--text);position:relative;display:inline-block}
+.toggle::after{content:"";position:absolute;width:.75rem;height:.75rem;border-radius:50%;background:var(--surface);top:.1875rem;left:.9375rem}
+.faces{display:flex;gap:.4rem;flex-wrap:wrap}
+.face{width:2.8rem;text-align:center;font-size:var(--label);color:var(--muted)}
+.face img,.face .add{width:2.8rem;height:2.8rem;border-radius:50%;object-fit:cover;background:var(--control);border:1px solid var(--line);display:grid;place-items:center}
+.face.sel img{outline:2px solid var(--accent);outline-offset:1px}
+.face.sel{color:var(--text)}
+.face .add{border-style:dashed}
+.xyz{display:grid;grid-template-columns:repeat(3,1fr);gap:.3rem}
+.xyz .field{font-family:var(--mono);font-size:var(--small)}
+.xyz .field b{font-weight:400;margin-right:.4rem}
+.pillstate{font-size:var(--label);text-transform:uppercase;letter-spacing:.08em;padding:.05rem .45rem;border-radius:1rem;border:1px solid var(--go);color:var(--go)}
+
+/* moods strip */
+.strip-head{display:flex;align-items:center;gap:.6rem;padding:0 var(--pad) .45rem}
+.segbox{display:flex;background:var(--control);border:1px solid var(--line);border-radius:var(--radius);padding:2px}
+.segbox button{border:0;background:none;height:calc(var(--row) - 6px);padding:0 .7rem;border-radius:calc(var(--radius) - 2px)}
+.segbox button[aria-pressed=true]{background:var(--pressed);color:var(--pressed-text)}
+.moods{display:flex;gap:.4rem;overflow:hidden;padding:0 var(--pad) var(--pad)}
+.mood{flex:none;width:4.6rem;text-align:center;font-size:var(--small);color:var(--muted)}
+.mood .th{width:4.6rem;height:4.6rem;border-radius:var(--radius);background:var(--control);border:1px solid var(--line);overflow:hidden;display:grid;place-items:center}
+.mood .th img{width:100%;height:100%;object-fit:cover}
+.mood.sel .th{outline:2px solid var(--accent);outline-offset:1px}
+.mood.sel{color:var(--text)}
+.mood .th.wanted{border-style:dashed;border-color:var(--warn);color:var(--warn);font-size:var(--label)}
+
+/* shots */
+.shots{display:flex;gap:.4rem;padding:0 var(--pad) var(--pad);overflow:hidden}
+.shot{flex:none;width:8.5rem}
+.shot .th{height:4.8rem;border-radius:var(--radius);overflow:hidden;border:1px solid var(--line);background:#000}
+.shot .th img{width:100%;height:100%;object-fit:cover}
+.shot.sel .th{outline:2px solid var(--accent);outline-offset:1px}
+.shot .c{font-size:var(--small);color:var(--muted);display:flex;justify-content:space-between;padding-top:.2rem}
+.shot.sel .c{color:var(--text)}
+.shot .c .mono{font-size:var(--label)}
+</style>
+</head>
+<body>
+<script>
+const P='../../../media/';
+const C=P+'characters/';
+const img=(c,view,m)=>`${C}${c}/${c}_${view}-${m}.webp`;
+const v=new URLSearchParams(location.search).get('v')||'asset';
+const W=innerWidth, H=innerHeight, tablet=W<1000;
+const rem=14, gap=rem;
+const topY=gap+2.55*rem+gap; // under the pill toolbar
+const moods=['neutral','happy','laughing','smug','thinking','confused','surprised','sad','crying','angry','furious','scared','embarrassed','disgusted','denial','bargaining','acceptance','dizzy'];
+const sel='happy';
+const chars=[['catpope','CatPope',1],['yellowmouse','Yellow Mouse',0],['billthefrog','Bill the Frog',2],['yellowbubu','Yellow Bubu',0],['boy','Boy',0],['crows','Crows',1],['passerby','Passerby',0]];
+const px=n=>n+'px';
+const box=(l,t,w,h)=>`left:${px(l)};top:${px(t)};width:${px(w)};height:${px(h)}`;
+
+function bar(){
+  const tabs=[
+    ['asset','Asset',`<img src="${img('catpope','avatar','neutral')}">`,'CatPope · Regular'],
+    ['scene','Scene','▦','Feilchen · Cathedral'],
+    ['show','Show','▶▶','Rotor session'],
+  ];
+  return `<div class="bar">
+   <div class="pill"><span class="logo">SCUTOONS</span><button class="ib" title="Main menu">☰</button></div>
+   <div class="pill" style="min-width:0;overflow:hidden">${tabs.filter((t,i)=>!tablet||i<2).map(([id,k,ic,name])=>`<span class="tab ${id===v?'on':''}"><span class="k">${k}</span>${ic.startsWith('<')?ic:`<span>${ic}</span>`}<span>${tablet&&id!==v?name.split(' · ')[0]:name}</span><span class="x">✕</span></span>`).join('')}<button class="ib" title="Open…">＋</button></div>
+   <span class="sp"></span>
+   ${tablet?'':`<div class="pill"><span class="saved"><span class="dot"></span>Saved 14:02</span></div>`}
+   <div class="pill"><div class="seg"><button aria-pressed="true">Edit</button><button class="play">▶ Play</button></div></div>
+   <div class="pill"><button class="ib" title="Kanon">K</button><button class="ib" title="Help">?</button></div>
+  </div>`;
+}
+
+function library(scene){
+  let h=`<div class="grip"><span class="fold">—</span></div>
+  <div class="ptabs"><span class="${scene?'':'on'}">Library</span><span class="${scene?'on':''}">${scene?'In this scene':'Recent'}</span></div>
+  <div class="search">⌕ <span>Search assets</span></div>`;
+  if(scene){
+    h+=`<div class="scroll"><div class="grp lbl">Holders · 4</div>
+     <div class="tr sel"><span class="chev">▾</span><img src="${img('catpope','avatar','neutral')}">CatPope<span class="n">Regular · happy</span></div>
+     <div class="tr" style="--d:1"><span class="chev"></span><span class="muted">▸</span>Choir rig<span class="n">module</span></div>
+     <div class="tr"><span class="chev"></span><img src="${img('yellowmouse','avatar','neutral')}">Yellow Mouse<span class="n">Regular · smug</span></div>
+     <div class="tr"><span class="chev"></span><img src="${img('crows','avatar','neutral')}" onerror="this.style.visibility='hidden'">Crows<span class="n">3 × </span></div>
+     <div class="grp lbl">Camera · 4 shots</div>
+     <div class="tr"><span class="chev"></span>Wide · nave<span class="n">0:00</span></div>
+     <div class="tr"><span class="chev"></span>Close · CatPope<span class="n">0:12</span></div>
+     <div class="grp lbl">Events · 2</div>
+     <div class="tr"><span class="chev"></span>Bells on bar 1<span class="n">cue</span></div>
+     <div class="tr"><span class="chev"></span>Choir lands<span class="n">cue</span></div>
+     <div class="grp lbl">Drag in from the library</div>
+     <div class="tr drag"><span class="chev"></span><img src="${img('billthefrog','avatar','neutral')}">Bill the Frog<span class="n">⇢ stage</span></div>
+    </div>`;
+    return h;
+  }
+  h+=`<div class="kinds"><span class="chip on">Characters</span><span class="chip">Items</span><span class="chip">Moods</span><span class="chip">Modules</span><span class="chip">Rigs</span><span class="chip">Scenes</span></div><div class="scroll"><div class="grp lbl">Characters · 7</div>`;
+  for(const [id,name,w] of chars){
+    const open=id==='catpope';
+    h+=`<div class="tr ${open?'within':''}"><span class="chev">${open?'▾':'▸'}</span><img src="${img(id,'avatar','neutral')}" onerror="this.style.visibility='hidden'">${name}<span class="n ${w?'warn':''}">${w?w+' wanted':''}</span></div>`;
+    if(open){
+      h+=`<div class="tr within" style="--d:1"><span class="chev">▾</span>Pope<span class="n">3 looks</span></div>
+       <div class="tr sel" style="--d:2"><span class="chev"></span><img src="${img('catpope','avatar','neutral')}">Regular<span class="open">open</span><span class="n">18/18</span></div>
+       <div class="tr within" style="--d:2"><span class="chev"></span><img src="${img('catpope-biker','avatar','neutral')}">Biker<span class="n">18/18</span></div>
+       <div class="tr within" style="--d:2"><span class="chev"></span><img src="${img('catpope-mountaintiger','avatar','neutral')}" onerror="this.style.visibility='hidden'">Mountain tiger<span class="n warn">0/18</span></div>
+       <div class="tr within" style="--d:1"><span class="chev">▸</span>Human<span class="n">1 look</span></div>
+       <div class="tr within" style="--d:1"><span class="chev">▸</span>Cat<span class="n">1 look</span></div>`;
+    }
+  }
+  return h+'</div>';
+}
+
+function sections(scene){
+  const s=(open,name,sum,body)=>`<div class="sec"><div class="h"><span class="chev">${open?'▾':'▸'}</span><span class="lbl">${name}</span><span class="sum">${sum}</span></div>${open?`<div class="in">${body}</div>`:''}</div>`;
+  let h=`<div class="grip"><span class="fold">—</span></div><div class="ptabs"><span class="on">Inspector</span><span>Kanon</span><span>Problems</span></div><div class="scroll">`;
+  if(scene){
+    h+=s(true,'Holder · CatPope','in the nave',`
+      <div class="prop"><span>Position</span><div class="xyz"><div class="field"><b style="color:#ee4552">x</b>0.40</div><div class="field"><b style="color:#78bf33">y</b>0.00</div><div class="field"><b style="color:#4087f2">z</b>-2.1</div></div></div>
+      <div class="prop"><span>Scale</span><div class="field mono">1.00</div></div>
+      <div class="prop"><span>Enters</span><div class="field">on cue · Choir lands</div></div>`);
+  }
+  h+=s(!scene,'Character','CatPope · in 3 toons',`
+      <div class="prop"><span>Name</span><div class="field">CatPope <span class="muted" style="margin-left:auto">EN · DE · JA</span></div></div>
+      <div class="prop"><span>Colour</span><div class="field"><span style="width:1rem;height:1rem;border-radius:50%;background:#00d1ff;margin-right:.5rem"></span><span class="mono">#00d1ff</span></div></div>
+      <div class="prop"><span>Sound</span><div class="field">Rig · CatPope choir <span class="muted" style="margin-left:auto">open ↗</span></div></div>`);
+  h+=s(true,'Persona','Pope',`<div class="faces">
+      <div class="face sel"><img src="${img('catpope','avatar','neutral')}">Pope</div>
+      <div class="face"><img src="${img('catpope-human','avatar','neutral')}" onerror="this.removeAttribute('src')">Human</div>
+      <div class="face"><img src="${img('catpope-cat','avatar','neutral')}" onerror="this.removeAttribute('src')">Cat</div>
+      ${scene?'':'<div class="face"><span class="add">＋</span>New</div>'}</div>`);
+  h+=s(true,'Look','Regular · 18 / 18',`
+      <div class="prop"><span>3D model</span><div class="field">catpope-regular.glb</div></div>
+      <div class="prop"><span>Bust crop</span><span class="toggle"></span></div>`);
+  h+=s(!scene,'Mood · Happy','3 views',`
+      <div class="prop"><span>Full</span><div class="field">catpope_full-happy.webp</div></div>
+      <div class="prop"><span>Prompt</span><div class="field area">Beaming, eyes closed, paws raised – the moment the choir lands the chord.</div></div>`);
+  h+=s(false,'Profile','age, traits, likes','');
+  return h+'</div>';
+}
+
+function moodsPanel(){
+  return `<div class="grip"><span class="fold">—</span>${''}</div>
+   <div class="strip-head"><span class="lbl">Moods</span><div class="segbox"><button>Avatar</button><button aria-pressed="true">Portrait</button><button>Full</button></div><span class="sp"></span>${tablet?'':`<span class="muted" style="font-size:var(--small)">17 / 18 · drop images on a mood</span>`}<span class="segbox"><button aria-pressed="true">Strip</button><button>Grid</button></span></div>
+   <div class="moods">${moods.map(m=>m==='dizzy'?`<div class="mood"><div class="th wanted">WANTED</div>${m}</div>`:`<div class="mood ${m===sel?'sel':''}"><div class="th"><img src="${img('catpope','portrait',m)}"></div>${m}</div>`).join('')}</div>`;
+}
+
+function shotsPanel(){
+  const sh=[['Wide · nave','0:00',1],['Close · CatPope','0:12',0],['Over the choir','0:31',0],['Bells','0:48',0]];
+  return `<div class="grip"><span class="fold">—</span></div>
+   <div class="strip-head"><span class="lbl">Shots</span><span class="sp"></span><span class="muted" style="font-size:var(--small)">camera · 4 shots · 1:04</span></div>
+   <div class="shots">${sh.map(([n,t,s],i)=>`<div class="shot ${s?'sel':''}"><div class="th"><img src="${P}catpope/s1/c1/s1c1-key-visual.webp" style="object-position:${20+i*22}% ${30+i*10}%;transform:scale(${1+i*.35})"></div><div class="c"><span>${n}</span><span class="mono">${t}</span></div></div>`).join('')}</div>`;
+}
+
+let out='';
+if(v==='scene'){
+  out+=`<div class="stage scene"><img class="bg" src="${P}catpope/s1/c1/s1c1-key-visual.webp">
+    <div class="holder sel" style="left:${W*0.52}px;top:${H*0.78}px;height:${H*0.42}px"><span class="tag">CatPope · happy</span><img src="${img('catpope','full','happy')}"></div>
+    <div class="holder" style="left:${W*0.33}px;top:${H*0.8}px;height:${H*0.25}px"><img src="${img('yellowmouse','full','smug')}" onerror="this.src='${img('yellowmouse','avatar','smug')}'"></div>
+  </div>`;
+}else{
+  out+=`<div class="stage asset"><div class="floor"></div><img class="fig" src="${img('catpope','full',sel)}" style="${tablet?'left:-14rem':''}"></div>`;
+}
+out+=bar();
+const libW=19*rem, inspW=(tablet?19:24)*rem;
+const bottomH=v==='scene'?8.6*rem:9.7*rem;
+if(tablet){
+  // the library folds to a pill; the inspector and the bottom panel keep 1rem to each other and the walls
+  out+=`<div class="mini" style="left:${gap}px;top:${topY}px">☰ Library <span class="n">4 wanted</span></div>`;
+  out+=`<div class="panel solid" style="${box(W-gap-inspW,topY,inspW,H-topY-gap-bottomH-gap)}">${sections(v==='scene')}</div>`;
+  out+=`<div class="panel" style="${box(gap,H-gap-bottomH,W-2*gap,bottomH)}">${v==='scene'?shotsPanel():moodsPanel()}</div>`;
+}else{
+  out+=`<div class="panel" style="${box(gap,topY,libW,H-topY-gap)}">${library(v==='scene')}</div>`;
+  out+=`<div class="panel solid" style="${box(W-gap-inspW,topY,inspW,H-topY-gap)}">${sections(v==='scene')}</div>`;
+  const bl=gap+libW+gap, bw=W-bl-gap-inspW-gap;
+  out+=`<div class="panel" style="${box(bl,H-gap-bottomH,bw,bottomH)}">${v==='scene'?shotsPanel():moodsPanel()}<span class="tip" style="top:-2.2rem">${v==='scene'?'Shots':'Moods'} – drag to move</span></div>`;
+  if(v==='asset')out+=`<div class="mini" style="left:${bl}px;top:${topY}px"><span class="lbl" style="color:var(--text)">Regular</span><span class="muted">happy · full</span></div>`;
+  if(v==='scene')out+=`<div class="mini" style="left:${bl}px;top:${topY}px">⚑ Events <span class="n" style="color:var(--muted)">2</span></div>`;
+}
+document.body.insertAdjacentHTML('beforeend',out);
+</script>
+</body>
+</html>
