@@ -90,7 +90,7 @@ Keys here: `[reader]` 47 the reader app · `[ui]` 19 UI design rules · `[fx]` 1
 - 2026-10-01 · reader · [reader] Landing page after design "D · Brutal", everything from the API · → DESIGN "Landing page"
 - 2026-10-01 · ui · [ui] No hand tool: canvases pan with the middle button or Space + drag · → DESIGN "Icons", MAP.md §8.1
 - 2026-10-01 · ui · [ui] UI icons come from Feather via the shared `Icon`; icons where a word makes no sense · → DESIGN "Icons"
-- 2026-10-01 · ui · [ui] Brutalist tools: the reader's font sizes and look in every tool, no tiny text · "I want clear brutalism, not something in between." · → DESIGN "Brutalist tools" (superseded 2026-10-11 in part → 70 % on desktop)
+- 2026-10-01 · ui · [ui] **Superseded 2026-11-19 by [editor-style] (law.md, #626) for the creator and embassy.** Brutalist tools: the reader's font sizes and look in every tool, no tiny text · "I want clear brutalism, not something in between." · → DESIGN "Brutalist tools" (superseded 2026-10-11 in part → 70 % on desktop)
 - 2026-10-01 · ui · [ui] Badges are filled (white text where it reaches 4.5:1, else ink); colours from one tokens file · → DESIGN (badges)
 - 2026-10-01 · ui · [ui] Sizes in rem; the 44px touch minimum only on coarse pointers · → DESIGN (sizes), RULES "UI rules"
 - 2026-10-01 · ui · [ui] Buttons = the viewer's (secondary outline turns ink on hover, no inversion) · "no new invention" · → DESIGN (buttons)

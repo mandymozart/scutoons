@@ -83,7 +83,7 @@ Old section names in code comments (until 2026-11-03): "Backlog" = C · "Git, se
 - **F6** Tool traps (Windows, heredocs, paraglide, vite preview …): GOTCHAS.md.
 
 ## G · Working with the owner
-- **G1** Steps one at a time; never re-ask an answered question. Bigger UI: drafts on the real page (phone + desktop) first, small owner-described fixes may be built. (2026-10-06 [drafts-first])
+- **G1** Steps one at a time; never re-ask an answered question. Bigger UI: drafts on the real page first (phone + desktop; the creator: desktop only), small owner-described fixes may be built. (2026-10-06 [drafts-first], 2026-11-19 [editor-style])
 - **G2** AI = the member's own Claude through the SCUTOONS MCP, no in-app AI; the AI saves drafts + a link, the member publishes / sends / applies in the browser (`save_draft` is always allowed). (2026-10-09 [mcp-byo-ai] [mcp-drafts], 2026-10-21 [mcp-draft-ok])
 - **G3** Models: used without the big AI companies' license restrictions; note the license where you use one, don't block on it. Focus: small creators. (2026-10-31 [ai-license]: "Meta is stealing from everyone …")
 
@@ -96,6 +96,7 @@ Old section names in code comments (until 2026-11-03): "Backlog" = C · "Git, se
 - **H6** Confirmations in-page (`confirmDialog` / `askDialog`), never `confirm()`; primary action last, one only. Media fields are slots (preview = button, empty = dashed slot; multi-resolution = one slot with chips). (2026-10-03 [confirm])
 - **H7** Empty list shows nothing; a muted `.sc-empty` line only when the area would be blank and it says what to do. Warnings can be accepted (✓, stored in the doc); errors can't. (2026-10-06 [empty-states])
 - **H8** Shared 2D UI in Rust – the native editor, the deck's own UI, module interfaces – comes from ONE internal library, deck-kit (`deck/kit`), built on egui's primitives (text, layout, input, painting; not its widgets or look) and shared by the crates. Two component modules over one shared base: **editor** and **live** (audience-facing, its own style); behaviour and basic implementations are shared, the styling splits (tokens per style, `tokens.toml` live), and each module holds its own specialised components (most editor components are not needed live). No second component set, no layout format of our own, no PNG design loop. The web apps keep Svelte + `shared/ui`. (2026-11-11 [ui-kit])
+- **H9** The web tools take the editor style of deck-kit's editor module and the OSCT editor (one kit in `shared/ui`), not the "Brutalist tools" look; the creator, storyboard included, is desktop-only – no phone or responsive editing code; the embassy keeps its phone layout; the admin stays as it is until moved. Until #626's tokens land, H2–H7 hold as written. (2026-11-19 [editor-style], #626)
 
 ## I · Product
 - **I1** Printed / public URLs never change (QR `?c=`, `/verify.html`, `/<toon>`, `/<toon>/chapter/<n>`, `?code=`, locale prefixes); new may be added; a change only by server-side mapping + tests + rollback (PLATFORM "Printed URLs"). Codes are case-sensitive. (2026-09-30 [urls], 2026-10-03 [codes])

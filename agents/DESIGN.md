@@ -1314,6 +1314,10 @@ labels the levels 1x / 2x / 3x for the later slice images. Used by the season tr
 
 ## Brutalist tools (owner rule, 2026-10-01)
 
+> **Superseded 2026-11-19** (RULES H9, law.md [editor-style], epic #626): the tools move to the editor style of deck-kit's
+> editor module and the OSCT editor; the creator becomes desktop-only. This section stays the reference for what is built
+> until #626's tokens and kit land, then it is rewritten and moved to `agents/archive/`.
+
 > "The UI should use the font sizes I used in the reader even in all the admin tools (creator, admin, embassy, shop).
 > I don't like the tiny stuff; the font doesn't look good too small." · "I want clear brutalism, not something in
 > between. It makes it more playful, even if we lose some space."
