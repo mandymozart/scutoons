@@ -1,5 +1,7 @@
 # DOCKING – one layout model for the tool shell (creator, admin, embassy)
 
+> **To be replaced** (2026-11-20, RULES H9, law.md [editor-style], #626 / #656): the tools move to the deck's floating panels and workspaces. This model holds for what is built until the kit lands.
+
 Owner 2026-10-06: "these areas should all behave a bit more like in Blender or here in the Claude Code desktop app, so we
 don't have to deal with their sizing and collapsing individually. Closing them is a different story." Status: approved
 (owner 2026-10-06: "go go go, sounds good, we can still revise it later") and migrated (merged into `main`) –
