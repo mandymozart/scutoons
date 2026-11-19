@@ -42,6 +42,7 @@ use anyhow::Result;
 use cols::levels;
 use deck_core::limiter::{self, LinkedLimiter};
 use deck_core::tempo::{SeqLock, Shared};
+use deck_core::ui_tone::{Tones, Voice as ToneVoice};
 use deck_space::graph::{Domain, Graph, Kind, PortType, MAX_CHANNELS};
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -359,6 +360,10 @@ pub struct Engine {
     underruns: Arc<AtomicU64>,
     last_mark: Option<(u64, u64)>,
     rate: f32,
+    /// the UI's tone, its asks and the device channels it plays on
+    tone: ToneVoice,
+    tones: Arc<Tones>,
+    tone_on: Vec<usize>,
     /// the control half (#319): stepped at the start of every quantum, before the audio steps read its Params
     control: control::Control,
 }
@@ -393,6 +398,8 @@ pub struct Handles {
     /// what the build did with the deck configuration, in words: an outlet with no device channels, a fold, channels the
     /// device lacks – for the log and the HUD
     pub notes: Vec<String>,
+    /// the UI's short tones (deck-core `ui_tone`): the frame thread asks, the engine plays them on the cue, else main
+    pub tones: Arc<Tones>,
     /// the hosts' events (#236): names, the sequencer, the routing for the dispatcher – `events.start()` runs them
     #[cfg(feature = "events")]
     pub events: dispatch::Events,
@@ -461,6 +468,7 @@ impl Engine {
             underruns: Arc::new(AtomicU64::new(0)),
             device: device.clone(),
             notes: Vec::new(),
+            tones: Arc::new(Tones::default()),
             #[cfg(feature = "events")]
             events: dispatch::Events::new(seq),
             #[cfg(feature = "modules")]
@@ -655,6 +663,9 @@ impl Engine {
             underruns: handles.underruns.clone(),
             last_mark: None,
             rate,
+            tone: ToneVoice::new(rate),
+            tones: handles.tones.clone(),
+            tone_on: tone_channels(deck),
             control,
         };
         Ok((engine, handles))
@@ -815,12 +826,28 @@ impl Engine {
                 self.reduction.fetch_max(set.limiter.take_reduction().to_bits(), Ordering::Relaxed);
             }
         }
+        self.add_tone(to, n);
         for c in 0..self.dev.channels() {
             let peak = self.dev.ch(c)[..n].iter().fold(0.0f32, |p, x| p.max(x.abs()));
             self.device.0[c].store(peak.to_bits(), Ordering::Relaxed);
         }
         self.pending = n;
         self.frames.fetch_add(n as u64, Ordering::Relaxed);
+    }
+
+    /// the UI's tone on top of what goes out, under the master gain (a mute or a panic silences it too)
+    fn add_tone(&mut self, master: f32, n: usize) {
+        if self.tone_on.is_empty() {
+            return;
+        }
+        let mut chans: [&mut [f32]; 2] = [&mut [], &mut []];
+        let (data, stride) = self.dev.planar_mut();
+        for (k, ch) in data.chunks_mut(stride).enumerate() {
+            if let Some(at) = self.tone_on.iter().take(2).position(|&c| c == k) {
+                chans[at] = &mut ch[..n];
+            }
+        }
+        self.tone.add(&self.tones, &mut chans, n, master);
     }
 
     fn run(&mut self, n: usize) {
@@ -960,6 +987,13 @@ pub fn outlet_groups(graph: &Graph) -> Vec<String> {
         }
     }
     out
+}
+
+/// where the UI's tone plays: the cue's channels when the deck has a cue, else main's
+fn tone_channels(deck: &DeckConfig) -> Vec<usize> {
+    let of = |g: &str| deck.channels_of(g, 2).into_iter().flatten().collect::<Vec<usize>>();
+    let cue = of("cue");
+    if cue.is_empty() { of("main") } else { cue }
 }
 
 /// what the outlets come to on a device
@@ -1181,6 +1215,30 @@ mod tests {
         assert!(buf[deck_core::limiter::LOOK * 4..].iter().all(|x| *x == 0.0), "the ramp ends at the new gain");
         e.render(&mut buf, 4, |x| x);
         assert!(buf.iter().all(|x| *x == 0.0));
+    }
+
+    /// the UI's tone plays on the cue's channels when the deck has a cue, else on main's; a muted master silences it
+    #[test]
+    fn the_ui_tone_plays_on_the_cue_else_on_main() {
+        let silent = "[[node]]
+id=\"out\"
+kind=\"audio_out\"
+volume=1
+";
+        let g = Graph::build(&Scene::parse(silent).unwrap()).unwrap();
+        let peaks = |deck: DeckConfig, master: f32| {
+            let (mut e, h) = Engine::build_seams(&g, 48_000.0, master, Build::detect(), Sequencing::InBlock, &Seams::with_deck(deck)).unwrap();
+            h.tones.play(880.0, 1.0);
+            let ch = e.dev.channels();
+            let mut buf = vec![0.0f32; 4800 * ch];
+            e.render(&mut buf, ch, |x| x);
+            (0..ch).map(|c| buf.iter().skip(c).step_by(ch).fold(0.0f32, |m, x| m.max(x.abs()))).collect::<Vec<f32>>()
+        };
+        let main = peaks(DeckConfig::device(2), 1.0);
+        assert!(main.iter().all(|&p| p > 0.1), "main: {main:?}");
+        let cue = peaks(DeckConfig::device(4).with_outlet("cue", &[3, 4]), 1.0);
+        assert!(cue[..2].iter().all(|&p| p == 0.0) && cue[2..].iter().all(|&p| p > 0.1), "the cue only: {cue:?}");
+        assert!(peaks(DeckConfig::device(2), 0.0).iter().all(|&p| p == 0.0), "muted");
     }
 
     /// #188: four loud voices summed far over 1 never reach the device's 1 (the soft limiter, no hard clip), and the

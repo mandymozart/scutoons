@@ -36,6 +36,8 @@ impl Motion {
 #[serde(default)]
 pub struct Sound {
     pub ui_sounds: bool,
+    /// the node view's tone on focus and selection, pitched by the node's signal (deck-show focus.rs)
+    pub focus_tone: bool,
     pub signal_ticks: bool,
     /// 0..1
     pub volume: f32,
@@ -43,7 +45,14 @@ pub struct Sound {
 
 impl Default for Sound {
     fn default() -> Sound {
-        Sound { ui_sounds: true, signal_ticks: false, volume: 0.35 }
+        Sound { ui_sounds: true, focus_tone: deck_show::focus::ON, signal_ticks: false, volume: 0.35 }
+    }
+}
+
+impl Sound {
+    /// the volume a focus tone plays at, None while switched off
+    pub fn focus(&self) -> Option<f32> {
+        (self.ui_sounds && self.focus_tone).then_some(self.volume)
     }
 }
 
@@ -83,6 +92,7 @@ pub enum Switch {
     LivePreviews,
     ReduceMotion,
     UiSounds,
+    FocusTone,
     SignalTicks,
 }
 
@@ -94,7 +104,7 @@ const MOTION: [(Switch, &str); 6] = [
     (Switch::LivePreviews, "Live previews in nodes"),
     (Switch::ReduceMotion, "Reduce motion (all off)"),
 ];
-const SOUND: [(Switch, &str); 2] = [(Switch::UiSounds, "UI sounds"), (Switch::SignalTicks, "Signal ticks")];
+const SOUND: [(Switch, &str); 3] = [(Switch::UiSounds, "UI sounds"), (Switch::FocusTone, "Focus tone per signal"), (Switch::SignalTicks, "Signal ticks")];
 
 impl Settings {
     fn flag(&mut self, s: Switch) -> &mut bool {
@@ -106,6 +116,7 @@ impl Settings {
             Switch::LivePreviews => &mut self.motion.live_previews,
             Switch::ReduceMotion => &mut self.motion.reduce_motion,
             Switch::UiSounds => &mut self.sound.ui_sounds,
+            Switch::FocusTone => &mut self.sound.focus_tone,
             Switch::SignalTicks => &mut self.sound.signal_ticks,
         }
     }
@@ -234,6 +245,19 @@ mod tests {
         let json = serde_json::to_string(&s).unwrap();
         assert_eq!(serde_json::from_str::<Settings>(&json).unwrap(), s);
         assert_eq!(serde_json::from_str::<Settings>("{\"theme\":\"night\"}").unwrap().look.theme, crate::tokens::Theme::Night, "a part of a file keeps what it has");
+    }
+
+    #[test]
+    fn the_focus_tone_is_on_by_the_cores_default_and_ui_sounds_off_silences_it() {
+        let mut s = Settings::default();
+        assert_eq!(s.sound.focus_tone, deck_show::focus::ON);
+        assert_eq!(s.sound.focus(), Some(s.sound.volume));
+        s.press(Press::Switch(Switch::FocusTone));
+        assert_eq!(s.sound.focus(), None);
+        s.press(Press::Switch(Switch::FocusTone));
+        s.press(Press::Switch(Switch::UiSounds));
+        assert_eq!(s.sound.focus(), None, "UI sounds off: every UI sound");
+        assert_eq!(serde_json::from_str::<Settings>("{\"sound\":{\"ui_sounds\":true}}").unwrap().sound.focus_tone, deck_show::focus::ON, "an older file gets the default");
     }
 
     #[test]

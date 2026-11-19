@@ -375,6 +375,11 @@ fn args() -> Result<Args> {
             "--in-place" => a.script.in_place = Some(val()?),
             "--node-select" => a.script.node_select = val()?.split('+').map(String::from).collect(),
             "--node-frame" => a.script.node_frame = true,
+            "--node-box" => {
+                let v: Vec<f32> = val()?.split(',').map(|x| x.trim().parse()).collect::<Result<_, _>>()?;
+                a.script.node_box = Some(v.try_into().map_err(|_| anyhow::anyhow!("--node-box X0,Y0,X1,Y1 (fractions of the canvas)"))?);
+            }
+            "--node-pin" => a.script.node_pin = Some(val()?.parse()?),
             "--known-shots" => a.script.known_shots = val()?.split_once('=').map(|(s, ids)| (s.to_string(), ids.split('+').map(String::from).collect())),
             "--wiring" => a.script.wiring = Some(val()?),
             "--cell" => a.script.cell = val()?.split_once(',').map(|(r, c)| (r.trim().to_string(), c.trim().to_string())),
@@ -1168,14 +1173,17 @@ impl App {
         self.change_settings(|s| s.look = next);
     }
 
-    /// the node view's switches, its clock and the stills of the pieces its nodes play (settings.rs, library.rs); a
-    /// check run's pointer stays where it was put
+    /// the node view's switches, its clock, its focus tone and the stills of the pieces its nodes play (settings.rs,
+    /// library.rs); a check run's pointer stays where it was put
     fn follow_nodes(&mut self) {
         let m = self.settings.motion;
         self.show.cursor = self.args.pointer.unwrap_or(self.cursor);
         let n = &mut self.show.nodes;
         n.secs = self.started.elapsed().as_secs_f32();
         n.motion = show::nodes::Motion { activity: m.allows(m.signal_flow), reveal: m.allows(m.hover_reveal), flash: m.allows(m.focus_flash), previews: m.allows(m.live_previews) };
+        if let (Some(hz), Some(volume)) = (n.take_tone(), self.settings.sound.focus()) {
+            self.stage.ui_tone(hz, volume);
+        }
         n.pictures.clear();
         if n.motion.previews {
             self.library.pictures.want_stills(&n.wanted);

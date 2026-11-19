@@ -30,6 +30,7 @@ pub mod demos;
 mod events;
 pub mod nodes;
 mod node_paint;
+mod node_pick;
 mod flash;
 mod link;
 pub mod new_scene;
@@ -756,6 +757,10 @@ pub struct Script {
     /// the node view: these nodes selected (the last focused), then F over the canvas frames them
     pub node_select: Vec<String>,
     pub node_frame: bool,
+    /// a box dragged on the canvas, from and to as fractions of it, held (not let go) for the screenshot
+    pub node_box: Option<[f32; 4]>,
+    /// the value of the n-th wire that has one pinned by a click
+    pub node_pin: Option<usize>,
 }
 
 /// `ID,NAME,FILLER+FILLER[,play]`
@@ -804,6 +809,7 @@ impl Host {
                 }
             }
             95 => self.script_nodes(&s.node_select, s.node_frame),
+            96 => self.script_pick(s.node_box, s.node_pin),
             70 => {
                 let cols = deck_show::view::matrix(&self.sub).columns;
                 if let Some((r, c)) = s.launch.as_ref().and_then(|(r, c)| Some((rows.iter().position(|x| x == r)?, cols.iter().position(|x| x.id == *c)?))) {

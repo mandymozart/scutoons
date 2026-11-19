@@ -59,7 +59,7 @@ fn sans_fit(d: &DrawList, text: &str, px: f32, room: f32) -> String {
 
 /// the colour of what a node gives (else takes)
 pub fn main_colour(t: &Tokens, n: &Node) -> [f32; 4] {
-    n.outs.first().or(n.ins.first()).map(|p| t.color.signals.of(p.signal)).unwrap_or(t.color.muted)
+    deck_show::focus::signal_of(n).map(|s| t.color.signals.of(s)).unwrap_or(t.color.muted)
 }
 
 /// an open group's frame on screen

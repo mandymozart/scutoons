@@ -305,6 +305,13 @@ impl Stage {
         self._audio.as_ref().and_then(backend::Running::note)
     }
 
+    /// a short UI tone at `hz` on top of what plays (the cue, else main; deck-core `ui_tone`); nothing while the audio is off
+    pub fn ui_tone(&self, hz: f32, volume: f32) {
+        if let Some(h) = &self.handles {
+            h.tones.play(hz, volume);
+        }
+    }
+
     /// the rig's sound stops and a test tone plays on these settings until `restart_audio`
     pub fn tone(&mut self, o: &backend::Options, outlets: &[deck_engine::OutletMap], tone: &deck_engine::Tone) -> Result<()> {
         self._events = None;
