@@ -147,6 +147,11 @@ impl Renderer {
 }
 
 impl Feed {
+    /// the ring holds `frames` to copy now
+    pub fn holds(&self, frames: usize) -> bool {
+        self.ring.slots() >= frames * self.chans
+    }
+
     pub fn glitches(&self) -> &Glitches {
         &self.mon.shared
     }
