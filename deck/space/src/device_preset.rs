@@ -326,6 +326,9 @@ pub struct Offer {
     pub device: usize,
 }
 
+/// how an offer ranks: where it is from, then the most used, then the one naming more of the device
+type Rank = (Source, std::cmp::Reverse<u32>, std::cmp::Reverse<u32>);
+
 /// The presets a deck knows: the factory ones and those it got from the catalog.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Library {
@@ -389,7 +392,7 @@ impl Library {
     /// The presets for the devices found, best first: a device a preset fits, the catalog's (the org's) before the factory's,
     /// then the most used, then the one that names more of the device; one offer per preset (its best device).
     pub fn recommend(&self, found: &[Found]) -> Vec<Offer> {
-        let mut offers: Vec<(Offer, (Source, std::cmp::Reverse<u32>, std::cmp::Reverse<u32>))> = Vec::new();
+        let mut offers: Vec<(Offer, Rank)> = Vec::new();
         for (i, p) in self.presets.iter().enumerate() {
             if self.find(&p.document.id, None).map(|n| n.version) != Some(p.version) {
                 continue;

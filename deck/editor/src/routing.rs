@@ -47,7 +47,7 @@ pub enum Ask {
     Quiet,
     Apply,
     /// sent as a draft to the catalog
-    SavePreset(DevicePreset),
+    SavePreset(Box<DevicePreset>),
 }
 
 #[derive(Default)]
@@ -317,7 +317,7 @@ impl Page {
                     return Ask::Nothing;
                 }
                 match self.as_preset() {
-                    Some(p) if p.problems().is_empty() => return Ask::SavePreset(p),
+                    Some(p) if p.problems().is_empty() => return Ask::SavePreset(Box::new(p)),
                     Some(p) => self.said = Some((p.problems().join("; "), true)),
                     None => self.said = Some(("choose a device first".into(), true)),
                 }
