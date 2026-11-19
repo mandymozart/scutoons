@@ -558,6 +558,8 @@ pub(super) mod tests {
         let host = Host::new(None, Some("no-such-show-637".into()), None, "http://127.0.0.1:9/api".into());
         assert_eq!(host.shown().id, "new-show");
         assert!(host.status.contains("no-such-show-637"), "{}", host.status);
+        assert_eq!(host.unloaded.as_deref(), Some(host.status.as_str()));
+        assert!(Host::new(None, None, None, "http://127.0.0.1:9/api".into()).unloaded.is_none());
     }
 
     /// the show's background typed in its inspector: set through the core, refused in its words, taken off
