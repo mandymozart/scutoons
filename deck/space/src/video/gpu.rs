@@ -145,8 +145,11 @@ fn make(device: &wgpu::Device, label: &str, (width, height): (u32, u32), format:
     })
 }
 
-/// how a frame of this kind goes up: (the source textures' formats and sizes, the pass that turns them into RGB)
-fn sources(key: &Key) -> (Vec<(T, (u32, u32))>, Option<Stage>) {
+/// a texture's format and size
+type Made = (T, (u32, u32));
+
+/// how a frame of this kind goes up: (the source textures, the pass that turns them into RGB)
+fn sources(key: &Key) -> (Vec<Made>, Option<Stage>) {
     let (w, h) = (key.width, key.height);
     // straight to the stage (no pass at all): encoded as the stage samples it
     let direct = key.up.is_none();
