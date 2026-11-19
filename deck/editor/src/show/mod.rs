@@ -378,7 +378,7 @@ impl Host {
             Ok(s) => s,
             Err(e) => {
                 status = e;
-                deck_show::parse(EMPTY).expect("the empty show parses")
+                deck_show::document::open(EMPTY).expect("the empty show has its shape")
             }
         };
         let link = relay.and_then(|r| {
