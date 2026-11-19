@@ -401,7 +401,7 @@ fn take_one(live: &mut Live, stream: &Stream, wait: bool, ready: &mut VecDeque<D
     live.ring.waiting.pop_front();
     COPIES.fetch_add(1, Ordering::Relaxed);
     COPY_NS.fetch_add(t.elapsed().as_nanos() as u64, Ordering::Relaxed);
-    ready.push_back(Decoded { id, picture: Picture { width: w, height: h, format: Format::Nv12 { matrix: live.matrix, full: live.full }, data } });
+    ready.push_back(Decoded { id, picture: Picture::new(w, h, Format::Nv12 { matrix: live.matrix, full: live.full }, data) });
     Ok(true)
 }
 
@@ -432,7 +432,7 @@ fn read(live: &Live, stream: &Stream, sample: &IMFSample) -> Result<Picture, Err
     }
     COPIES.fetch_add(1, Ordering::Relaxed);
     COPY_NS.fetch_add(t.elapsed().as_nanos() as u64, Ordering::Relaxed);
-    Ok(Picture { width: w, height: h, format: Format::Nv12 { matrix: live.matrix, full: live.full }, data })
+    Ok(Picture::new(w, h, Format::Nv12 { matrix: live.matrix, full: live.full }, data))
 }
 
 impl DecodeBackend for MediaFoundation {

@@ -99,7 +99,7 @@ impl Movie {
 #[cfg(feature = "gpu")]
 mod gpu;
 #[cfg(feature = "gpu")]
-pub use gpu::{upload, upscale_to, Converter, Texture};
+pub use gpu::{install_held, upload, upscale_to, Converter, CopyHeld, Texture};
 
 #[cfg(all(feature = "native", not(target_arch = "wasm32")))]
 mod threaded {

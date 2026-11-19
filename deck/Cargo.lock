@@ -4943,6 +4943,7 @@ dependencies = [
  "deck-core",
  "deck-engine",
  "deck-link",
+ "deck-media",
  "deck-outlet",
  "deck-show",
  "deck-space",

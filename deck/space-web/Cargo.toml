@@ -20,7 +20,9 @@ crate-type = ["cdylib", "rlib"]
 sandbox = ["deck-space/sandbox"]
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-deck-space = { path = "../space", default-features = false, features = ["gpu"] }
+# the `video` node plays on the deck's own playback (deck-media), WebCodecs as its hardware (webcodecs.rs)
+deck-space = { path = "../space", default-features = false, features = ["gpu", "media"] }
+deck-media = { path = "../media" }
 # #364: the monitor beside the governor (deck-core is platform-free; its monitor is always built)
 deck-core = { workspace = true }
 # #465: a scene's control domain (its LFOs, its links), as the native deck runs it
@@ -45,4 +47,4 @@ wgpu = { version = "30", default-features = false, features = ["std", "webgpu", 
 wasm-bindgen = "=0.2.129"
 wasm-bindgen-futures = "0.4"
 js-sys = "0.3"
-web-sys = { version = "0.3", features = ["HtmlCanvasElement", "console"] }
+web-sys = { version = "0.3", features = ["HtmlCanvasElement", "console", "VideoFrame"] }

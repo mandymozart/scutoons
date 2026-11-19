@@ -94,6 +94,8 @@ struct Show {
     bpm: f64,
     per_bar: u32,
     size: (u32, u32),
+    /// the video nodes' files were asked for
+    videos_asked: bool,
 }
 
 impl Show {
@@ -129,7 +131,7 @@ impl Show {
             s
         });
         let controls = Controls::new(&graph, None);
-        Ok(Show { graph, stage, controls, space, room, pumps, bpm: tempo.bpm, per_bar: tempo.per_bar, size })
+        Ok(Show { graph, stage, controls, space, room, pumps, bpm: tempo.bpm, per_bar: tempo.per_bar, size, videos_asked: false })
     }
 
     fn resize(&mut self, device: &wgpu::Device, (w, h): (u32, u32)) {
@@ -700,6 +702,36 @@ impl SceneView {
             p.failed = 0;
             p.wait_until = now + RETRY_S;
             p.say(format!("no slice loads ({why}) – again in {RETRY_S} s"));
+        }
+    }
+
+    /// the video nodes' files to fetch, once per scene: video node, its media path, …
+    pub fn video_requests(&mut self) -> js_sys::Array {
+        let out = js_sys::Array::new();
+        if std::mem::replace(&mut self.show.videos_asked, true) {
+            return out;
+        }
+        let asks: Vec<(usize, String)> = self.show.stage.video_sources(&self.show.graph).into_iter().filter_map(|(n, src)| Some((n, src?.to_string()))).collect();
+        for (node, src) in asks {
+            out.push(&JsValue::from(self.numbered(node)));
+            out.push(&JsValue::from_str(&src));
+        }
+        out
+    }
+
+    /// video node `node`'s file, as fetched
+    pub fn give_video(&mut self, node: usize, bytes: Vec<u8>) {
+        let Some(node) = self.mine(node) else { return };
+        match deck_space::video::Movie::open(bytes) {
+            Ok(movie) => self.show.stage.set_video(node, movie),
+            Err(e) => self.no_video(self.numbered(node) as usize, e),
+        }
+    }
+
+    /// video node `node`'s file did not come or does not play: the node stays dark
+    pub fn no_video(&mut self, node: usize, why: String) {
+        if let Some(node) = self.mine(node) {
+            web_sys::console::warn_1(&JsValue::from_str(&format!("video {}: {why}", self.show.graph.nodes[node].id)));
         }
     }
 

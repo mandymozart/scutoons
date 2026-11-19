@@ -8,6 +8,10 @@ use crate::{err, Error, Picture};
 use std::collections::VecDeque;
 use std::sync::Arc;
 
+/// the most packets a decoder that answers later (the browser's) holds without having given their pictures back: not a
+/// whole lap at once, and still the packets a reordering decoder waits for
+const IN_FLIGHT: usize = 16;
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Frame {
     /// on the heard clock, s
@@ -159,6 +163,7 @@ impl Player {
     /// in decode order, pictures come back in presentation order (a hardware decoder some packets later). Returns how
     /// many frames were decoded.
     pub fn fill(&mut self, heard: f64, frames: &mut Frames) -> Result<usize, Error> {
+        self.backend.check()?;
         let want = self.position(heard.max(0.0));
         let (lap, i) = self.split(want);
         let key = self.track.key_before(i) as i64 + lap * self.n();
@@ -175,7 +180,7 @@ impl Player {
         let mut decoded = self.collect(frames);
         // a decoder that gives nothing back stops after a lap
         let mut budget = self.n() + frames.most as i64;
-        while self.next < end && frames.len() < frames.most && budget > 0 {
+        while self.next < end && frames.len() < frames.most && self.backend.in_flight() < IN_FLIGHT && budget > 0 {
             budget -= 1;
             if frames.last_time().is_some_and(|t| t >= heard + self.ahead) && frames.first_pos().is_some_and(|f| f <= want) {
                 break;
@@ -227,6 +232,78 @@ mod tests {
             let got = walk(&mut p, &[0.0, 0.04, 0.09, 0.5, 0.99, 1.0, 1.55, 0.2, 13.0]);
             assert_eq!(got, [(0, 0.0), (0, 0.0), (1, 0.083), (6, 0.5), (11, 0.917), (0, 1.0), (6, 1.5), (2, 0.167), (0, 13.0)], "{name}");
         }
+    }
+
+    /// what a decoder that answers later has: packets taken, pictures on their way, pictures out, a failure
+    #[derive(Default)]
+    struct Mail {
+        taken: usize,
+        coming: Vec<crate::Decoded>,
+        out: std::collections::VecDeque<crate::Decoded>,
+        failed: Option<String>,
+    }
+
+    /// a decoder that answers later (WebCodecs): its pictures come out only after the caller returned (`arrive`)
+    struct Later {
+        sw: Software,
+        mail: Arc<std::sync::Mutex<Mail>>,
+    }
+
+    impl DecodeBackend for Later {
+        fn caps(&self) -> crate::Caps {
+            self.sw.caps()
+        }
+        fn configure(&mut self, stream: &Stream) -> Result<(), Error> {
+            self.sw.configure(stream)
+        }
+        fn submit(&mut self, packet: Packet<'_>) -> Result<(), Error> {
+            self.sw.submit(packet)?;
+            let mut m = self.mail.lock().unwrap();
+            m.taken += 1;
+            m.coming.extend(std::iter::from_fn(|| self.sw.poll()));
+            Ok(())
+        }
+        fn poll(&mut self) -> Option<crate::Decoded> {
+            self.mail.lock().unwrap().out.pop_front()
+        }
+        fn reset(&mut self) {
+            self.sw.reset();
+            let mut m = self.mail.lock().unwrap();
+            m.coming.clear();
+            m.out.clear();
+        }
+        fn check(&mut self) -> Result<(), Error> {
+            self.mail.lock().unwrap().failed.take().map_or(Ok(()), |e| Err(Error(e)))
+        }
+        fn in_flight(&self) -> usize {
+            self.mail.lock().unwrap().coming.len()
+        }
+    }
+
+    #[test]
+    fn a_decoder_that_answers_later_gets_packets_in_measure_shows_the_same_frames_and_says_when_it_failed() {
+        let bytes = std::fs::read(format!("{}/tests/fixtures/hap.mov", env!("CARGO_MANIFEST_DIR"))).unwrap();
+        let clip = Clip::open(bytes.into()).unwrap();
+        let mail = Arc::new(std::sync::Mutex::new(Mail::default()));
+        let mut p = Player::new(&clip, Box::new(Later { sw: Software::default(), mail: mail.clone() })).unwrap();
+        let arrive = || {
+            let mut m = mail.lock().unwrap();
+            let got = std::mem::take(&mut m.coming);
+            m.out.extend(got);
+        };
+        let mut q = Frames::new(4);
+        assert_eq!(p.fill(0.0, &mut q).unwrap(), 0, "nothing back yet");
+        assert_eq!(mail.lock().unwrap().taken, IN_FLIGHT, "not a lap and more at once: the most in flight");
+        let mut got = vec![];
+        for t in [0.0, 0.04, 0.09, 0.5, 0.99, 1.0, 1.55, 0.2] {
+            // one frame asks, the page's event loop runs, the next frame has it
+            p.fill(t, &mut q).unwrap();
+            arrive();
+            got.push(p.frame_for(t, &mut q).unwrap().map(|f| f.index));
+        }
+        assert_eq!(got, [0, 0, 1, 6, 11, 0, 6, 2].map(Some));
+        mail.lock().unwrap().failed = Some("Decoding error.".into());
+        assert_eq!(p.fill(0.3, &mut q).unwrap_err().0, "Decoding error.", "a failure between two frames comes out on the next");
     }
 
     #[test]

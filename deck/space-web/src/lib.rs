@@ -41,6 +41,8 @@ mod link;
 mod outlet;
 mod scene;
 mod vote;
+/// the browser's video decoders behind deck-media
+mod webcodecs;
 
 use deck_space::controls::{Controls, Midi, Selection};
 use deck_space::graph::{Graph, Kind};
