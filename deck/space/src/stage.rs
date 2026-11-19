@@ -166,6 +166,8 @@ struct VideoNode {
     clock: f64,
     /// the heard time of the last frame (none: the clock starts at the next)
     heard: Option<f32>,
+    /// the use's in and out points on its file, s (`start`, `end`; 0 = none): the file stays whole
+    trim: (f32, f32),
 }
 
 /// the outlet node's planes (#186, live/): the composer's channel, the current and previous plane, their crossfade
@@ -333,6 +335,7 @@ impl Stage {
                         aspect: 1.0,
                         clock: 0.0,
                         heard: None,
+                        trim: (node.f32("start", 0.0), node.f32("end", 0.0)),
                     });
                     builtin("video").unwrap().to_string()
                 }
@@ -421,9 +424,10 @@ impl Stage {
 
     /// video node `node`'s clip, opened by the host
     #[cfg(feature = "media")]
-    pub fn set_video(&mut self, node: usize, movie: crate::video::Movie) {
+    pub fn set_video(&mut self, node: usize, mut movie: crate::video::Movie) {
         if let Some(v) = self.videos.iter_mut().find(|v| v.node == node) {
             v.aspect = movie.aspect();
+            movie.set_trim(deck_media::Trim::new(f64::from(v.trim.0), f64::from(v.trim.1)));
             v.movie = Some(movie);
             (v.clock, v.heard) = (0.0, None);
         }

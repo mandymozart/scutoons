@@ -600,7 +600,7 @@
       "name": "video",
       "version": "1",
       "domain": "video",
-      "doc": "A video clip on the deck's own playback (deck-media): `src` its file – MP4 / WebM with AV1, MOV with HAP –, looped on the stage's clock, covering the picture.",
+      "doc": "A video clip on the deck's own playback (deck-media): `src` its file – MP4 / WebM with AV1, MOV with HAP –, looped on the stage's clock, covering the picture; `start` / `end` trim this use, the file stays whole.",
       "feature": "media",
       "module": "stage",
       "scope": "graph",
@@ -627,6 +627,24 @@
           "curve": "lin",
           "port": true,
           "doc": "playback speed, 1 = as recorded"
+        },
+        {
+          "name": "start",
+          "min": 0.0,
+          "max": 3600.0,
+          "default": 0.0,
+          "curve": "lin",
+          "unit": "s",
+          "doc": "in point: where on its file this use starts (the file is not changed)"
+        },
+        {
+          "name": "end",
+          "min": 0.0,
+          "max": 3600.0,
+          "default": 0.0,
+          "curve": "lin",
+          "unit": "s",
+          "doc": "out point: where this use loops back, 0 = the file's end"
         }
       ]
     },

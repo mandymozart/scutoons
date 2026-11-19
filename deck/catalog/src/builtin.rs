@@ -286,9 +286,13 @@ fn build() -> Vec<Descriptor> {
         Video,
         "media",
         "stage",
-        "A video clip on the deck's own playback (deck-media): `src` its file – MP4 / WebM with AV1, MOV with HAP –, looped on the stage's clock, covering the picture.",
+        "A video clip on the deck's own playback (deck-media): `src` its file – MP4 / WebM with AV1, MOV with HAP –, looped on the stage's clock, covering the picture; `start` / `end` trim this use, the file stays whole.",
         &[ci("speed", "playback speed"), vo("out", "the picture")],
-        &[lin("speed", 0.0, 4.0, 1.0, "", "playback speed, 1 = as recorded")],
+        &[
+            lin("speed", 0.0, 4.0, 1.0, "", "playback speed, 1 = as recorded"),
+            knob("start", 0.0, 3600.0, 0.0, "s", "in point: where on its file this use starts (the file is not changed)"),
+            knob("end", 0.0, 3600.0, 0.0, "s", "out point: where this use loops back, 0 = the file's end"),
+        ],
     ),
     kind(
         F_BATCH,
