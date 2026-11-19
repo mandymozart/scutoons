@@ -40,7 +40,7 @@ impl App {
                     words.push((format!("{n} change{}", if n == 1 { "" } else { "s" }), None));
                 }
             }
-            show::Workspace::Module | show::Workspace::Home => {
+            show::Workspace::Module | show::Workspace::Home | show::Workspace::Media => {
                 if !self.stage.audio.is_empty() {
                     words.push((self.stage.audio.clone(), None));
                 }

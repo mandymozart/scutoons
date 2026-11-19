@@ -50,6 +50,8 @@ impl crate::App {
                 }
             }
             show::Workspace::Module => self.module.save_now(now),
+            // a medium saves nothing: its trim is its use's, saved with that scene
+            show::Workspace::Media => {}
             _ => self.show.save_now(now),
         }
     }
@@ -101,7 +103,7 @@ impl crate::App {
             },
             show::Workspace::Module => self.module.open.as_ref().map(|_| self.module.auto.pill()),
             show::Workspace::Show => Some(self.show.save_pill()),
-            show::Workspace::Home => None,
+            show::Workspace::Home | show::Workspace::Media => None,
         }
     }
 

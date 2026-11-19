@@ -17,6 +17,8 @@ pub enum Kept {
     Module(Box<ModuleKept>),
     /// a show behind another show (the one in front, or the last one in front, is the editor's own host)
     Show(Box<show::Host>),
+    /// a medium: its file as loaded, its use and trim, where its playhead stood
+    Media(Box<crate::media::Open>),
 }
 
 pub struct RigKept {
@@ -73,6 +75,7 @@ impl crate::App {
                 None => rig_key(&self.stage.bundle.rig.subject),
             }),
             Workspace::Module => Some(self.module.open.as_ref().map_or_else(|| (NEW_MODULE.to_string(), "new module".to_string()), |o| (o.key(), o.id.clone()))),
+            Workspace::Media => self.media.open.as_ref().map(|o| (o.key.clone(), tabs::name_of(&o.key))),
             Workspace::Show => {
                 let id = self.show.sub.conductor().show().id.clone();
                 Some((format!("show:{id}"), id))
@@ -84,7 +87,7 @@ impl crate::App {
     fn live_dirty(&self) -> bool {
         let dirty = |pending: bool, state: &crate::autosave::State| pending || *state != crate::autosave::State::Clean;
         match self.workspace {
-            Workspace::Home => false,
+            Workspace::Home | Workspace::Media => false,
             Workspace::Stage => match &self.scene {
                 Some(v) => dirty(v.auto.pending(), &v.auto.state),
                 None => dirty(self.rigs.auto.pending(), &self.rigs.auto.state),
@@ -110,6 +113,11 @@ impl crate::App {
         let camera = self.stage.space.camera;
         match self.workspace {
             Workspace::Home | Workspace::Show => None,
+            Workspace::Media => {
+                self.media.drag = None;
+                let o = self.media.open.take()?;
+                own.then(|| Kept::Media(Box::new(o)))
+            }
             Workspace::Module => {
                 self.module.autosave(true, std::time::Instant::now());
                 self.module.leave(&mut self.stage);
@@ -212,6 +220,11 @@ impl crate::App {
                 self.take_host(*host);
                 self.workspace = Workspace::Show;
             }
+            Some(Kept::Media(o)) => {
+                self.workspace = Workspace::Media;
+                self.stage.rest();
+                self.media.open = Some(*o);
+            }
             None => self.load(&key, kind),
         }
     }
@@ -246,9 +259,10 @@ impl crate::App {
                 self.idle_stage();
                 self.show.open_scene(key);
             }
-            Kind::Item | Kind::Emotion | Kind::Media => {
+            Kind::Media => self.media_load(key, None, deck_media::Trim::WHOLE),
+            Kind::Item | Kind::Emotion => {
                 self.workspace = Workspace::Stage;
-                self.refuse(format!("{key}: no Asset view for a {} yet (TODO(#632))", kind.word()), x, y);
+                self.refuse(format!("{key}: no Asset view for a {} yet", kind.word()), x, y);
             }
         }
     }
@@ -348,8 +362,26 @@ impl crate::App {
                 let empty = self.new_host("");
                 self.take_host(empty);
             }
+            Workspace::Media => {
+                self.media.drag = None;
+                self.media.open = None;
+            }
             Workspace::Home => {}
         }
+    }
+
+    /// A medium's trim onto its use: the scene's `video` node `start` / `end` in that scene's tab (behind the medium's),
+    /// sent with the scene when it saves. Err: the scene is not open, or the node has gone.
+    pub(crate) fn trim_use(&mut self, used: &crate::media::Use, trim: deck_media::Trim) -> Result<(), String> {
+        let Some(i) = self.tabs.find(&used.scene) else { return Err(format!("{} is not open: open it to trim its video", used.scene)) };
+        let Some(Kept::Scene(s)) = self.tabs.list[i].kept.as_mut() else { return Err(format!("{} is still loading", used.scene)) };
+        let e = &mut s.view.edit;
+        let v = e.doc.nodes.iter().position(|n| n.id == used.node && n.kind == "video").ok_or_else(|| format!("{}: no video node {}", used.scene, used.node))?;
+        e.set_video(v, "start", trim.start as f32)?;
+        e.set_video(v, "end", trim.end as f32)?;
+        s.view.refresh()?;
+        self.tabs.list[i].dirty = true;
+        Ok(())
     }
 
     pub(crate) fn close_others(&mut self) {
@@ -489,7 +521,7 @@ impl crate::App {
                     h.autosave(true, now);
                     h.wait_saves(until);
                 }
-                None => {}
+                Some(Kept::Media(_)) | None => {}
             }
         }
     }
@@ -590,6 +622,7 @@ impl crate::App {
                 let playing = front && match self.workspace {
                     Workspace::Stage => self.playing(),
                     Workspace::Module => self.module.heard,
+                    Workspace::Media => self.playing(),
                     _ => false,
                 };
                 let mark = if live.as_deref() == Some(t.key.as_str()) || matches!(&t.kept, Some(Kept::Show(h)) if h.live()) {

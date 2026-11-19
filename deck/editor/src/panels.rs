@@ -54,8 +54,9 @@ pub const SHOW: [Spec; 13] = [
     SETTINGS_PANEL,
 ];
 
-pub const MODULE: [Spec; 7] = [
+pub const MODULE: [Spec; 8] = [
     spec("library", "Library", "grid", "The catalog's modules with their previews: a click opens one's working copy.", Place::at(TL, 0.0, 0.0)),
+    spec("drives", "Drives", "activity", "What the module drives while it plays: each control output as a lamp, its value and its trace.", Place::at(BL, 0.0, 200.0)),
     spec("module", "Module", "code", "The module open: its working copy, Open in editor, Build, its parameters.", Place::at(TR, 0.0, 0.0)).essential(),
     spec("problems", "Problems", "alert", "The last build's problems: a click opens the code there.", Place::at(BL, 0.0, 0.0)),
     spec("info", "Info", "info", "What is under the pointer: its name and what it does.", Place::at(BR, 0.0, 0.0).folded()),

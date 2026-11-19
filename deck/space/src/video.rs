@@ -1,7 +1,7 @@
 //! A video on the deck's own playback (deck-media): a clip's player and its frame queue. Where there are threads
 //! (`native`) the player decodes ahead on one of its own and the frame's thread only picks; else both happen on the
 //! frame's thread. The stage's clock gives the heard time, the queue the frame for it.
-use deck_media::{Clip, Frames, Picture, Player};
+use deck_media::{Clip, Frames, Picture, Player, Trim};
 use std::sync::Arc;
 
 /// how many decoded frames wait at most, and how far ahead of the heard time they reach (s)
@@ -17,6 +17,10 @@ pub fn shown_ahead(dt: f32) -> f64 {
 pub struct Movie {
     width: u32,
     height: u32,
+    /// the file's length, s
+    length: f64,
+    /// the use's in and out points: the heard time runs inside them (deck-media `Trim`)
+    trim: Trim,
     /// the shown frame's place in the stream; none yet: −1
     shown: i64,
     inner: Inner,
@@ -28,26 +32,27 @@ enum Inner {
     Thread(threaded::Ahead),
 }
 
-fn player(bytes: Vec<u8>) -> Result<(Player, u32, u32), String> {
+fn player(bytes: Vec<u8>) -> Result<(Player, u32, u32, f64), String> {
     let clip = Clip::open(bytes.into()).map_err(|e| e.0)?;
     let mut p = Player::open(&clip).map_err(|e| e.0)?;
     p.ahead = AHEAD;
     let (w, h) = (p.track().width, p.track().height);
-    Ok((p, w, h))
+    let length = p.length();
+    Ok((p, w, h, length))
 }
 
 impl Movie {
     /// the clip in `bytes`, decoded on the caller's thread
     pub fn open(bytes: Vec<u8>) -> Result<Movie, String> {
-        let (p, width, height) = player(bytes)?;
-        Ok(Movie { width, height, shown: -1, inner: Inner::Here(Box::new(p), Frames::new(QUEUE)) })
+        let (p, width, height, length) = player(bytes)?;
+        Ok(Movie { width, height, length, trim: Trim::WHOLE, shown: -1, inner: Inner::Here(Box::new(p), Frames::new(QUEUE)) })
     }
 
     /// the clip in `bytes`, decoded ahead on a thread of its own
     #[cfg(all(feature = "native", not(target_arch = "wasm32")))]
     pub fn spawn(bytes: Vec<u8>, name: &str) -> Result<Movie, String> {
-        let (p, width, height) = player(bytes)?;
-        Ok(Movie { width, height, shown: -1, inner: Inner::Thread(threaded::Ahead::start(p, name)) })
+        let (p, width, height, length) = player(bytes)?;
+        Ok(Movie { width, height, length, trim: Trim::WHOLE, shown: -1, inner: Inner::Thread(threaded::Ahead::start(p, name)) })
     }
 
     /// width over height
@@ -55,8 +60,25 @@ impl Movie {
         self.width as f32 / self.height.max(1) as f32
     }
 
-    /// The picture for the heard time `heard` (s) when it is another than the one shown.
+    /// the file's length, s
+    pub fn length(&self) -> f64 {
+        self.length
+    }
+
+    pub fn trim(&self) -> Trim {
+        self.trim
+    }
+
+    /// the use's in and out points from now on
+    pub fn set_trim(&mut self, trim: Trim) {
+        self.trim = trim;
+    }
+
+    /// The picture for `heard` s since the use started (inside its trim, looped) when it is another than the one shown.
+    /// The whole file loops on the player's own laps (decoded ahead across the end); a trimmed span seeks back to its in
+    /// point.
     pub fn next_picture(&mut self, heard: f64) -> Option<Arc<Picture>> {
+        let heard = if self.trim.whole() { heard } else { self.trim.at(heard, self.length) };
         let (pos, pic) = match &mut self.inner {
             Inner::Here(p, frames) => {
                 if let Err(e) = p.fill(heard, frames) {
@@ -158,6 +180,22 @@ mod tests {
         let later = print(m.next_picture(0.5)).expect("the seventh frame");
         assert_ne!(first, later);
         assert_eq!(print(m.next_picture(1.0)), Some(first), "looped: one second later the first again");
+    }
+
+    #[test]
+    fn a_trimmed_use_shows_only_its_span_and_loops_back_to_its_in_point() {
+        let mut whole = Movie::open(clip()).unwrap();
+        let at = |m: &mut Movie, t: f64| {
+            m.shown = -1;
+            print(m.next_picture(t))
+        };
+        let (half, seventh) = (at(&mut whole, 0.5), at(&mut whole, 7.0 / 12.0));
+        let mut m = Movie::open(clip()).unwrap();
+        m.set_trim(Trim::new(0.5, 0.75));
+        assert!((m.length() - 1.0).abs() < 1e-3, "the file stays a second long");
+        assert_eq!(at(&mut m, 0.0), half, "its first picture is the in point's");
+        assert_eq!(at(&mut m, 1.0 / 12.0), seventh);
+        assert_eq!(at(&mut m, 0.25), half, "a quarter second later it is back at the in point");
     }
 
     #[cfg(all(feature = "native", not(target_arch = "wasm32")))]

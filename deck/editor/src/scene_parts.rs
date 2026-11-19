@@ -105,7 +105,7 @@ pub fn inspect_video(d: &mut DrawList, t: &Tokens, area: Rect, view: &SceneView,
     controls::row(d, t, area, &mut y, "id", &n.id);
     controls::row(d, t, area, &mut y, "kind", &n.kind);
     controls::row(d, t, area, &mut y, "plays at", e.plays_at(v).as_deref().unwrap_or("nowhere"));
-    pills(d, t, area, &mut y, &["Remove", "Play at"], &[Field::Remove, Field::Plays], &mut out);
+    pills(d, t, area, &mut y, &["Remove", "Play at", "Open"], &[Field::Remove, Field::Plays, Field::Asset], &mut out);
     let knobs = e.video_knobs(v);
     if knobs.is_empty() {
         return out;
@@ -261,6 +261,7 @@ impl crate::App {
                 view.sel = Part::Scene;
                 self.scene_changed(done, "the slot left the scene".into(), x, y);
             }
+            (Field::Asset, Part::Video(v)) => self.open_video_use(v),
             (Field::Remove, Part::Video(v)) => {
                 let done = view.edit.remove_video(v);
                 view.sel = Part::Scene;

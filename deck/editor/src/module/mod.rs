@@ -6,6 +6,7 @@
 pub mod code;
 pub mod copy;
 pub mod draw;
+pub mod lamps;
 pub mod problems;
 
 use crate::autosave::{fingerprint, Autosave};
@@ -170,6 +171,8 @@ pub struct Module {
     pub descriptor: Option<Descriptor>,
     /// the built module plays on the stage
     pub heard: bool,
+    /// what it drives while heard: its control outputs as lamps and traces
+    pub lamps: lamps::Lamps,
     pub problems: Vec<problems::Row>,
     /// the last thing said was a refusal or a failure
     pub bad: bool,
@@ -220,6 +223,7 @@ impl Module {
             open: None,
             descriptor: None,
             heard: false,
+            lamps: lamps::Lamps::default(),
             problems: Vec::new(),
             bad: false,
             hits: Vec::new(),
@@ -254,6 +258,13 @@ impl Module {
             return;
         }
         self.asked = true;
+        // a check run's catalog (`--catalog`) is the list already: its module opens from it
+        if !self.list.is_empty() {
+            if let Some(i) = self.script.open.take().and_then(|id| self.list.iter().position(|e| e.id == id)) {
+                self.open_entry(i);
+            }
+            return;
+        }
         self.relist();
         self.post("asking the catalog for its modules", false);
     }

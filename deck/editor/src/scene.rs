@@ -159,6 +159,8 @@ pub enum Field {
     Empty,
     /// where a video node's picture plays, picked
     Plays,
+    /// a video node opened in its Asset tab: that use, to trim it
+    Asset,
     /// the slot, the video node or the layer taken out
     Remove,
     /// a layer's picture, typed
