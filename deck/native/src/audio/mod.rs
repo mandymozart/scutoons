@@ -60,6 +60,37 @@ fn seams(device_channels: usize, outlets: &[deck_engine::OutletMap]) -> deck_eng
     seams
 }
 
+/// The groups of `outlets` with a channel beyond a device of `device` channels (#627: deck.toml's map made for a bigger
+/// interface). Those channels are silent – the group plays on the ones it has, every other group as mapped.
+fn out_of_range(outlets: &[deck_engine::OutletMap], device: usize) -> Vec<&str> {
+    outlets.iter().filter(|o| o.channels.iter().any(|&c| c < 1 || c > device)).map(|o| o.group.as_str()).collect()
+}
+
+/// `main` mapped to no channel (`channels = []`, what the Audio tab writes when every main cell is off): the main mix is
+/// silent on purpose – the one map that silences everything a plain scene plays (#627 was this, not the cue on 3/4)
+fn main_unmapped(outlets: &[deck_engine::OutletMap]) -> bool {
+    outlets.iter().any(|o| o.group == "main" && o.channels.is_empty())
+}
+
+/// what the map leaves silent on this device, in the log once per map and device – an engine is built per scene, the
+/// warning is not repeated
+fn say_map(outlets: &[deck_engine::OutletMap], device: usize) {
+    static SAID: std::sync::Mutex<Option<(Vec<deck_engine::OutletMap>, usize)>> = std::sync::Mutex::new(None);
+    let groups = out_of_range(outlets, device);
+    let main = main_unmapped(outlets);
+    let mut said = SAID.lock().unwrap_or_else(|e| e.into_inner());
+    if (groups.is_empty() && !main) || said.as_ref().is_some_and(|(m, d)| m == outlets && *d == device) {
+        return;
+    }
+    *said = Some((outlets.to_vec(), device));
+    if !groups.is_empty() {
+        tracing::warn!("audio: deck.toml maps {} beyond the device's {device} channels – silent there, the rest plays", groups.iter().map(|g| format!("'{g}'")).collect::<Vec<_>>().join(", "));
+    }
+    if main {
+        tracing::warn!("audio: deck.toml maps 'main' to no channel (channels = []) – the main mix is silent; remove the entry for channels 1..");
+    }
+}
+
 /// The engine and the glitch monitor of its device callback (#208).
 pub struct Engine {
     core: deck_engine::Engine,
@@ -142,6 +173,7 @@ impl Engine {
 
     /// `build_device` with this channel map instead of deck.toml's: a test tone on a map not saved yet
     fn build_mapped(graph: &Graph, rate: f32, volume: f32, build: Build, seq: Sequencing, channels: usize, outlets: &[deck_engine::OutletMap]) -> Result<(Engine, Handles)> {
+        say_map(outlets, channels);
         let (monitor, glitches, glitch_log) = glitch::Monitor::new(rate);
         #[allow(unused_mut)] // the restart lanes are a field of a feature
         let (core, mut handles) = deck_engine::Engine::build_seams(graph, rate, volume, build, seq, &seams(channels, outlets))?;
@@ -179,5 +211,54 @@ mod tests {
             let run = Engine::tone(&null, &map, &tone).unwrap();
             assert_eq!(run.name, "null");
         }
+    }
+
+    /// #627: a map made for a 20-channel interface (main 1/2, cue 3/4, stem 5/6) on a 2-channel output – the groups beyond the
+    /// device are silent on their own, main still plays. The map is passed in, never the machine's deck.toml.
+    #[test]
+    fn a_group_mapped_beyond_the_device_is_silent_on_its_own() {
+        let map = |g: &str, c: &[usize]| deck_engine::OutletMap { group: g.into(), channels: c.to_vec() };
+        let rack = [map("main", &[1, 2]), map("cue", &[3, 4]), map("stem", &[5, 6])];
+        let scene = "[[node]]\nid=\"a\"\nkind=\"osc\"\nfreq=440\ngain=0.5\n\
+                     [[node]]\nid=\"b\"\nkind=\"osc\"\nfreq=660\ngain=0.5\n\
+                     [[node]]\nid=\"m\"\nkind=\"out\"\ngroup=\"main\"\n\
+                     [[node]]\nid=\"c\"\nkind=\"out\"\ngroup=\"cue\"\n\
+                     [[link]]\nfrom=\"a\"\nto=\"m.in\"\n[[link]]\nfrom=\"b\"\nto=\"c.in\"\n";
+        let graph = Graph::build(&deck_space::scene::Scene::parse(scene).unwrap()).unwrap();
+        let peaks = |channels: usize| {
+            let (mut e, h) = Engine::build_mapped(&graph, 48_000.0, 1.0, detect_build(), Sequencing::InBlock, channels, &rack).unwrap();
+            let mut out = vec![0.0f32; 4800 * channels];
+            e.render(&mut out, channels, |x| x);
+            let mut p = vec![0.0f32; channels];
+            for f in out.chunks_exact(channels) {
+                for (a, &x) in p.iter_mut().zip(f) {
+                    *a = a.max(x.abs());
+                }
+            }
+            (p, h.notes.clone())
+        };
+        let (two, notes) = peaks(2);
+        assert!(two.iter().all(|&p| p > 0.05), "main plays on the 2-channel output: {two:?}");
+        assert!(notes.iter().any(|n| n.contains("'cue'") && n.contains("silent")), "the cue is named silent: {notes:?}");
+        let (six, _) = peaks(6);
+        assert!(six[..4].iter().all(|&p| p > 0.05) && six[4..] == [0.0, 0.0], "on six channels main and cue both play, stem has no outlet: {six:?}");
+        assert_eq!(out_of_range(&rack, 2), ["cue", "stem"]);
+        assert!(out_of_range(&rack, 6).is_empty());
+        assert!(!main_unmapped(&rack));
+    }
+
+    /// #627's real cause on the owner's PC: deck.toml had `main` with `channels = []` (the Audio tab's "main off") – main is
+    /// silent then on any device, by the map, while cue and stem still play where the device has them
+    #[test]
+    fn main_mapped_to_no_channel_is_silent_and_said() {
+        let map = |g: &str, c: &[usize]| deck_engine::OutletMap { group: g.into(), channels: c.to_vec() };
+        let off = [map("cue", &[3, 4]), map("main", &[])];
+        assert!(main_unmapped(&off));
+        let graph = Graph::build(&deck_space::scene::Scene::parse(&deck_engine::Tone::Group("main".into()).scene()).unwrap()).unwrap();
+        let (mut e, h) = Engine::build_mapped(&graph, 48_000.0, 1.0, detect_build(), Sequencing::InBlock, 2, &off).unwrap();
+        let mut out = vec![0.0f32; 4800 * 2];
+        e.render(&mut out, 2, |x| x);
+        assert!(out.iter().all(|x| *x == 0.0), "main off: silent");
+        assert!(h.notes.iter().any(|n| n.contains("'main'") && n.contains("silent")), "{:?}", h.notes);
     }
 }
