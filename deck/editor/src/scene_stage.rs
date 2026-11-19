@@ -59,6 +59,7 @@ fn caption(d: &mut DrawList, t: &Tokens, (x, y): (f32, f32), name: &str, words: 
 /// `carry` = where a carried card is: a slot under it lights up. Where each landed goes into `view.marks`.
 pub fn draw(d: &mut DrawList, t: &Tokens, view: &mut SceneView, space: &Space, area: Rect, scale: f32, carry: Option<(f32, f32)>) {
     view.marks.clear();
+    view.poster_rects.clear();
     if view.inside.is_some() {
         return;
     }
@@ -287,12 +288,21 @@ fn videos(d: &mut DrawList, t: &Tokens, view: &mut SceneView, area: Rect) {
         let plays = view.edit.plays_at(v);
         let line = if sel { t.color.accent } else { alpha(t.color.bright, 0.6) };
         let r = Rect { x, y, w, h };
-        // TODO(#326): the node's poster once the deck decodes video; until then the placeholder says so
-        d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, alpha(t.color.surface, 0.85));
-        controls::dashed(d, r, DASH, if sel { 2.0 } else { 1.25 }, line);
-        let icon = t.size.row;
-        d.icon(r.x + (r.w - icon) * 0.5, r.y + (r.h - icon) * 0.5 - t.size.small, icon, "video", line);
         let pad = t.size.pad;
+        // a `video` node's live frame (posters.rs) under its lines, a quiet band behind them; else the placeholder says why
+        let poster = view.posters.iter().find(|(n, _)| *n == v).map(|(_, why)| why.as_deref());
+        if poster == Some(None) {
+            view.poster_rects.push((r, v));
+            let band = t.size.small * 1.3 * 2.0 + pad * 1.5;
+            d.round_rect(r.x, r.y, r.w, t.size.font + pad * 1.5, t.size.radius, alpha(t.color.surface, 0.6));
+            d.round_rect(r.x, r.y + r.h - band, r.w, band, t.size.radius, alpha(t.color.surface, 0.6));
+            d.outline(r.x, r.y, r.w, r.h, (t.size.radius, if sel { 2.0 } else { 1.25 }), line);
+        } else {
+            d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, alpha(t.color.surface, 0.85));
+            controls::dashed(d, r, DASH, if sel { 2.0 } else { 1.25 }, line);
+            let icon = t.size.row;
+            d.icon(r.x + (r.w - icon) * 0.5, r.y + (r.h - icon) * 0.5 - t.size.small, icon, "video", line);
+        }
         let room = r.w - pad * 2.0;
         let used = controls::label(d, t, r.x + pad, r.y + pad, &controls::fit(&node.id, 24), line);
         if node.kind != node.id {
@@ -304,7 +314,12 @@ fn videos(d: &mut DrawList, t: &Tokens, view: &mut SceneView, area: Rect) {
             Some(p) => format!("into {p}"),
             None => "nowhere yet".to_string(),
         };
-        let lines = [format!("plays {place}"), "no poster: the deck plays no video yet".to_string()];
+        let second = match poster {
+            Some(None) => String::new(),
+            Some(Some(why)) => format!("no frame: {why}"),
+            None => "no poster: no video file".to_string(),
+        };
+        let lines = [format!("plays {place}"), second];
         for (i, l) in lines.iter().enumerate() {
             let ly = r.y + r.h - pad - t.size.small * 1.3 * (2 - i) as f32;
             d.sans(r.x + pad, ly, t.size.small, &controls::fit_sans(d, t.size.small, l, room), if i == 0 { t.color.text } else { t.color.muted });
@@ -472,6 +487,16 @@ mod tests {
         let mut lit = DrawList::new(0.6);
         draw(&mut lit, &t, &mut view, &space, area, 1.0, Some((cx, cy)));
         assert!(accent(&lit) > quiet, "a carried card lights the slot under it");
+        // a live frame (posters.rs): the card leaves its place to the frame, the placeholder goes; none: why
+        view.posters = vec![(v, None)];
+        let mut live = DrawList::new(0.6);
+        draw(&mut live, &t, &mut view, &space, area, 1.0, None);
+        assert_eq!(view.poster_rects, vec![(screen, v)]);
+        assert!(!live.texts().iter().any(|s| s.contains("no poster")));
+        view.posters = vec![(v, Some("clip.mp4: not found".into()))];
+        let mut not = DrawList::new(0.6);
+        draw(&mut not, &t, &mut view, &space, area, 1.0, None);
+        assert!(view.poster_rects.is_empty() && not.texts().iter().any(|s| s.contains("no frame: clip.mp4")));
         view.inside = Some(0);
         draw(&mut d, &t, &mut view, &space, area, 1.0, None);
         assert!(view.marks.is_empty());

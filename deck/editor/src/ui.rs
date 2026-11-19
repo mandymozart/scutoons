@@ -98,6 +98,9 @@ pub struct Ui {
     /// the stage's texture in the renderer, and where it goes this frame (logical pixels)
     stage_id: Option<TextureId>,
     stage_rect: Option<[f32; 4]>,
+    /// the video cards' live frames (posters.rs) in the renderer by node id, and where each goes this frame
+    cards: HashMap<String, TextureId>,
+    card_rects: Vec<([f32; 4], TextureId)>,
     /// what the kit draws this frame, and the list that takes turns with it
     list: DrawList,
     spare: Option<DrawList>,
@@ -125,6 +128,8 @@ impl Ui {
             renderer: Renderer::new(device, format, RendererOptions { msaa_samples: 1, depth_stencil_format: None, dithering: false, predictable_texture_filtering: false }),
             stage_id: None,
             stage_rect: None,
+            cards: HashMap::new(),
+            card_rects: Vec::new(),
             list: DrawList::with_widths(widths.clone()),
             spare: None,
             widths,
@@ -147,9 +152,38 @@ impl Ui {
         }
     }
 
+    /// a video card's frame texture (made again when `fresh`: its texture changed)
+    pub fn set_card(&mut self, device: &wgpu::Device, id: &str, view: &wgpu::TextureView, fresh: bool) {
+        match self.cards.get(id) {
+            Some(&t) if fresh => self.renderer.update_egui_texture_from_wgpu_texture(device, view, wgpu::FilterMode::Linear, t),
+            Some(_) => {}
+            None => {
+                let t = self.renderer.register_native_texture(device, view, wgpu::FilterMode::Linear);
+                self.cards.insert(id.to_string(), t);
+            }
+        }
+    }
+
+    /// the cards' textures of nodes not in `keep` freed
+    pub fn keep_cards(&mut self, keep: &[&str]) {
+        let renderer = &mut self.renderer;
+        self.cards.retain(|id, t| keep.contains(&id.as_str()) || {
+            renderer.free_texture(t);
+            false
+        });
+    }
+
+    /// card `id`'s frame into this rectangle, under the list (its lines stay over it)
+    pub fn card(&mut self, id: &str, x: f32, y: f32, w: f32, h: f32) {
+        if let Some(&t) = self.cards.get(id) {
+            self.card_rects.push(([x, y, w, h], t));
+        }
+    }
+
     pub fn begin(&mut self) {
         self.list.clear();
         self.stage_rect = None;
+        self.card_rects.clear();
     }
 
     /// the stage into this rectangle
@@ -190,7 +224,12 @@ impl Ui {
             }
             _ => None,
         };
-        let jobs: Vec<ClippedPrimitive> = stage.into_iter().chain(self.jobs.iter().cloned()).collect();
+        let cards = self.card_rects.iter().map(|&([x, y, w, h], id)| {
+            let mut mesh = Mesh::with_texture(id);
+            mesh.add_rect_with_uv(Rect::from_min_size(pos2(x * scale, y * scale), deck_kit::egui::vec2(w * scale, h * scale)), Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
+            ClippedPrimitive { clip_rect: full, primitive: Primitive::Mesh(mesh) }
+        });
+        let jobs: Vec<ClippedPrimitive> = stage.into_iter().chain(cards).chain(self.jobs.iter().cloned()).collect();
         let desc = ScreenDescriptor { size_in_pixels: [size.width, size.height], pixels_per_point: 1.0 };
         // no paint callbacks: nothing comes back to submit
         let _ = self.renderer.update_buffers(device, queue, enc, &jobs, &desc);

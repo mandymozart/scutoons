@@ -23,7 +23,7 @@ deck-native = { path = "../native", default-features = false, features = ["bundl
 scutoons-build = { path = "../build" }
 deck-catalog = { path = "../catalog" }
 deck-kit = { path = "../kit", features = ["editor"] }
-deck-space = { path = "../space", default-features = false, features = ["being", "gpu", "native"] }
+deck-space = { path = "../space", default-features = false, features = ["being", "gpu", "native", "media"] }
 # the motion slots' modules on the stage (deck-engine `motion`)
 deck-engine = { path = "../engine", features = ["modules", "space"] }
 # the scene camera's points on the stage (deck-space's own vectors)

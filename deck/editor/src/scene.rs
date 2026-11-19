@@ -35,6 +35,9 @@ pub struct SceneView {
     pub dop: crate::dop::Sel,
     /// where a card from the library is carried (a Modules slot under it lights up)
     pub carry: Option<(f32, f32)>,
+    /// the video nodes' cards this frame: a live frame (posters.rs), or why there is none; and where a frame goes
+    pub posters: Vec<(usize, Option<String>)>,
+    pub poster_rects: Vec<(Rect, usize)>,
 }
 
 /// `bundle` with these knob values written into its tracks (a slot no track's node names is left)
@@ -69,7 +72,7 @@ impl SceneView {
         let set = |l: &str| k.and_then(|k| k.set(l));
         let (edit, resolved) = SceneEdit::open(doc, base, &rig, &set).map_err(|p| format!("scene:{id}: {}", p.join("; ")))?;
         let notes = note.into_iter().chain(resolved.notes).collect();
-        Ok((SceneView { edit, kept, catalog, sel: Part::Scene, inside: None, rows: Vec::new(), shown: true, auto: save.unwrap_or_else(|| crate::autosave::Autosave::new(base)), marks: Vec::new(), dop: Default::default(), carry: None }, resolved.scene, notes))
+        Ok((SceneView { edit, kept, catalog, sel: Part::Scene, inside: None, rows: Vec::new(), shown: true, auto: save.unwrap_or_else(|| crate::autosave::Autosave::new(base)), marks: Vec::new(), dop: Default::default(), carry: None, posters: Vec::new(), poster_rects: Vec::new() }, resolved.scene, notes))
     }
 
     /// the members again after a slot or a video node changed. Err: the core's reasons it does not play.
