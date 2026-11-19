@@ -193,6 +193,27 @@ export interface SpaceModule {
 	rig_catalog_bundle(request: string): string;
 	rig_face(bundle: string): string; rig_policy_template(request: string): string;
 	rig_module_instrument(request: string): string;
+	/** asks the browser which codecs it decodes and offers those decoders to the deck's playback; once per page */
+	video_install(prefer: 'prefer-hardware' | 'prefer-software'): Promise<string[]>;
+}
+
+/** a scene's video nodes: the files its core asks for (node, media path, …) and the answers */
+export interface VideoView { video_requests(): unknown[]; give_video(node: number, bytes: Uint8Array): void; no_video(node: number, why: string): void }
+
+/** the video files the core asks for, whole: it demuxes and decodes them */
+export async function fetchVideos(s: { view: VideoView; stopped: boolean }, cdn: string) {
+	const asked = s.view.video_requests();
+	for (let i = 0; i + 1 < asked.length; i += 2) {
+		const node = asked[i] as number;
+		try {
+			const r = await fetch(cdn + (asked[i + 1] as string));
+			if (!r.ok) throw new Error(`${r.status} ${r.url}`);
+			const bytes = new Uint8Array(await r.arrayBuffer());
+			if (!s.stopped) s.view.give_video(node, bytes);
+		} catch (e) {
+			if (!s.stopped) s.view.no_video(node, String(e));
+		}
+	}
 }
 
 const modules = new Map<string, Promise<SpaceModule>>();
@@ -204,6 +225,7 @@ export function spaceModule(base: string): Promise<SpaceModule> {
 		m = (async () => {
 			const mod = (await import(/* @vite-ignore */ `${base}space_web.js`)) as SpaceModule;
 			await mod.default({ module_or_path: `${base}space_web_bg.wasm` });
+			await mod.video_install('prefer-hardware');
 			return mod;
 		})();
 		modules.set(base, m);

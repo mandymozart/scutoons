@@ -1,14 +1,13 @@
 // scene-stage.ts (#463, #465): a scene playing in an element – the renderer every deck draws with, compiled to wasm
 // (deck/space-web `SceneView`). Here only the canvas, its size, the animation frames and the fetches the core asks for.
-import { sniff, spaceModule, stageCanvas, type SpaceModule } from './space.ts';
+import { fetchVideos, sniff, spaceModule, stageCanvas, type SpaceModule, type VideoView } from './space.ts';
 import { askPortraits, contentAt, fetchChapter, fetchOutletAsks, fetchSceneAsks, fetchSet, fetchSlice, joinScene, type ChapterView, type ContentEntry, type OutletView, type PublishedView, type SetView } from './stage-assets.ts';
 import { RelaySocket, type RelayCoreView } from './client.ts';
 import { driveLink, ensureLink, type Paired, type SignedIn } from './deck-key.ts';
 import { watchPanel, type PanelView } from './deck-panel.ts';
 import { LivePage, readKept, type LiveView } from './live-page.ts';
 
-/** #463: the wasm-bindgen API of deck/space-web's `SceneView` */
-export interface SceneView extends SetView, ChapterView, OutletView, PanelView, LiveView, PublishedView {
+export interface SceneView extends SetView, ChapterView, OutletView, PanelView, LiveView, PublishedView, VideoView {
 	join_outlet(relay: string, outlet: string, kept: string, reader: string, locale: string, api: string): boolean;
 	deck_link(why: string, code: string, app: string, signed: boolean): void;
 	set_request(): string;
@@ -117,6 +116,7 @@ export class SceneStage {
 		fetchSceneAsks(this, this.o.api);
 		const asked = this.view.slice_requests();
 		for (let i = 0; i + 1 < asked.length; i += 2) void fetchSlice(this, this.o.cdn + (asked[i + 1] as string), asked[i] as number);
+		void fetchVideos(this, this.o.cdn);
 		this.live?.frame();
 		if (!this.relay) return;
 		// what the outlet says (media.ready) goes out; what it asks for is fetched; a cell's set loads

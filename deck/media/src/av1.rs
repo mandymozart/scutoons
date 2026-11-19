@@ -125,5 +125,5 @@ fn planes(pic: &Dav1dPicture) -> Result<Picture, Error> {
         _ => Matrix::Bt709,
     };
     let full = seq.is_some_and(|s| s.color_range != 0);
-    Ok(Picture { width: w as u32, height: h as u32, format: Format::Yuv420 { matrix, full }, data })
+    Ok(Picture::new(w as u32, h as u32, Format::Yuv420 { matrix, full }, data))
 }

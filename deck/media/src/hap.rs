@@ -38,6 +38,7 @@ pub fn texture_len(f: Format, width: u32, height: u32) -> usize {
         Format::Bc3 | Format::Bc3YCoCg => blocks * 16,
         Format::Rgba8 => width as usize * height as usize * 4,
         Format::Yuv420 { .. } | Format::Nv12 { .. } => (width * height + 2 * width.div_ceil(2) * height.div_ceil(2)) as usize,
+        Format::Held => 0,
     }
 }
 
@@ -64,7 +65,7 @@ pub fn decode(frame: &[u8], width: u32, height: u32) -> Result<Picture, Error> {
     if data.len() != want {
         return err(format!("HAP: {} bytes of blocks for a {width} × {height} frame, {want} expected", data.len()));
     }
-    Ok(Picture { width, height, format, data })
+    Ok(Picture::new(width, height, format, data))
 }
 
 /// the decode instructions, then the chunks they describe

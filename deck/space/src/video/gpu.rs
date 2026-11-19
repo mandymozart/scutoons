@@ -1,10 +1,22 @@
 //! A video's frames on the GPU: each frame written into the textures that are there (made again only when the size or
 //! the format changes); AV1's planes, a hardware decoder's NV12 and HAP Q's YCoCg blocks turned into RGB by a pass (shaders/video.wgsl), HAP's
-//! BC1 / BC3 blocks sampled as they are where the device samples BC; a frame smaller than its place upscaled by FSR 1
-//! (EASU, then RCAS) when the caller asks for a size.
-use deck_media::{Format, Picture};
+//! BC1 / BC3 blocks sampled as they are where the device samples BC; a frame the platform keeps on the GPU (`Held`)
+//! copied there by its adapter; a frame smaller than its place upscaled by FSR 1 (EASU, then RCAS) when the caller asks
+//! for a size.
+use deck_media::{Format, Held, Picture};
 use std::collections::HashMap;
+use std::sync::OnceLock;
 use wgpu::TextureFormat as T;
+
+/// How a platform copies a picture its decoder keeps (`Format::Held`) into an RGBA texture, on the GPU
+pub type CopyHeld = fn(&Held, &wgpu::Queue, &wgpu::Texture);
+
+static HELD: OnceLock<CopyHeld> = OnceLock::new();
+
+/// The host's copy of held pictures (its adapter's), once at start; a second call is ignored.
+pub fn install_held(copy: CopyHeld) {
+    let _ = HELD.set(copy);
+}
 
 /// RCAS's sharpening in stops (0 = the most; AMD's default 0.2)
 const SHARPNESS_STOPS: f32 = 0.2;
@@ -133,8 +145,13 @@ pub fn upscale_to(w: u32, h: u32, slot: (u32, u32), fsr: bool) -> Option<(u32, u
     (fsr && s > 1.05).then(|| (side(w), side(h)))
 }
 
-fn make(device: &wgpu::Device, label: &str, (width, height): (u32, u32), format: T, target: bool) -> wgpu::Texture {
-    let usage = if target { wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC } else { wgpu::TextureUsages::COPY_DST };
+/// `held`: a copy on the GPU writes it (WebGPU's external image copy wants a render attachment); it reads back like a target
+fn make(device: &wgpu::Device, label: &str, (width, height): (u32, u32), format: T, target: bool, held: bool) -> wgpu::Texture {
+    let usage = match (target, held) {
+        (true, _) => wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
+        (false, true) => wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
+        (false, false) => wgpu::TextureUsages::COPY_DST,
+    };
     device.create_texture(&wgpu::TextureDescriptor {
         label: Some(label),
         size: wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
@@ -172,7 +189,7 @@ fn sources(key: &Key) -> (Vec<Made>, Option<Stage>) {
 impl Texture {
     fn new(device: &wgpu::Device, conv: &mut Converter, key: Key) -> Texture {
         let (formats, convert) = sources(&key);
-        let sources: Vec<wgpu::Texture> = formats.iter().map(|&(f, size)| make(device, "video frame", size, f, false)).collect();
+        let sources: Vec<wgpu::Texture> = formats.iter().map(|&(f, size)| make(device, "video frame", size, f, false, key.format == Format::Held)).collect();
         let last = if key.srgb { T::Rgba8UnormSrgb } else { T::Rgba8Unorm };
         let own = (key.width, key.height);
         // the chain: [convert] → [EASU → RCAS]; the last pass writes `last`, the others gamma-encoded RGBA
@@ -186,7 +203,7 @@ impl Texture {
         for (i, &(stage, size)) in stages.iter().enumerate() {
             let end = i + 1 == stages.len();
             let format = if end { last } else { T::Rgba8Unorm };
-            let target = make(device, stage.entry(), size, format, true);
+            let target = make(device, stage.entry(), size, format, true, false);
             let mut u = [0f32; 12];
             if let Format::Yuv420 { matrix, full } | Format::Nv12 { matrix, full } = key.format {
                 let ([a, rv, gu, gv, bu], black) = matrix.coefficients(full);
@@ -237,6 +254,11 @@ pub fn upload(device: &wgpu::Device, queue: &wgpu::Queue, conv: &mut Converter, 
         );
     };
     match (pic.planes(), pic.compressed() && bc) {
+        _ if pic.format == Format::Held => {
+            if let (Some(copy), Some(held)) = (HELD.get(), &pic.held) {
+                copy(held, queue, &t.sources[0]);
+            }
+        }
         (Some(planes), _) => {
             for (tex, p) in t.sources.iter().zip(planes) {
                 write(tex, p.data, p.width * p.texel, p.height);
@@ -307,7 +329,7 @@ mod tests {
         let y: Vec<u8> = (0..w * h).map(|i| (16 + i * 5 % 220) as u8).collect();
         let (u, v) = (vec![90u8; 12], vec![170u8; 12]);
         for (matrix, full) in [(Matrix::Bt709, false), (Matrix::Bt601, true)] {
-            let pic = Picture { width: w, height: h, format: Format::Yuv420 { matrix, full }, data: [&y[..], &u, &v].concat() };
+            let pic = Picture::new(w, h, Format::Yuv420 { matrix, full }, [&y[..], &u, &v].concat());
             let mut slot = None;
             assert!(upload(&device, &queue, &mut conv, &pic, false, None, &mut slot));
             let got = read(&device, &queue, slot.as_ref().unwrap());
@@ -317,7 +339,7 @@ mod tests {
         // the same picture as NV12 (a hardware decoder's): the same RGB as its planes
         for (matrix, full) in [(Matrix::Bt709, false), (Matrix::Bt601, true)] {
             let uv: Vec<u8> = u.iter().zip(&v).flat_map(|(a, b)| [*a, *b]).collect();
-            let pic = Picture { width: w, height: h, format: Format::Nv12 { matrix, full }, data: [&y[..], &uv].concat() };
+            let pic = Picture::new(w, h, Format::Nv12 { matrix, full }, [&y[..], &uv].concat());
             let planar = Picture { format: Format::Yuv420 { matrix, full }, data: [&y[..], &u, &v].concat(), ..pic.clone() };
             assert_eq!(pic.to_rgba(), planar.to_rgba(), "the CPU reads both alike");
             let mut slot = None;
@@ -361,7 +383,7 @@ mod tests {
         // a hard edge: black | white; upscaled 4× it stays within black..white and the edge stays where it was
         let (w, h) = (16u32, 8u32);
         let data: Vec<u8> = (0..w * h).flat_map(|i| if i % w < w / 2 { [0, 0, 0, 255] } else { [255, 255, 255, 255] }).collect();
-        let pic = Picture { width: w, height: h, format: Format::Rgba8, data };
+        let pic = Picture::new(w, h, Format::Rgba8, data);
         let (mut conv, mut slot) = (Converter::new(&device), None);
         upload(&device, &queue, &mut conv, &pic, false, Some((64, 32)), &mut slot);
         let t = slot.as_ref().unwrap();
@@ -372,5 +394,22 @@ mod tests {
             assert!(at(4, y) < 8 && at(27, y) < 8, "black side, row {y}");
             assert!(at(36, y) > 247 && at(60, y) > 247, "white side, row {y}");
         }
+    }
+
+    #[test]
+    fn a_held_picture_is_the_platforms_copy_on_the_gpu() {
+        let Some((device, queue)) = device() else { return eprintln!("no GPU adapter: skipped") };
+        // the platform's copy, as a browser's would write the frame: here one colour, the handle's
+        install_held(|held, queue, tex| {
+            let rgba = *held.0.downcast_ref::<[u8; 4]>().expect("this test's handle");
+            let px: Vec<u8> = (0..tex.width() * tex.height()).flat_map(|_| rgba).collect();
+            queue.write_texture(tex.as_image_copy(), &px, wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(tex.width() * 4), rows_per_image: None }, tex.size());
+        });
+        let pic = Picture { width: 8, height: 4, format: Format::Held, data: Vec::new(), held: Some(Held(std::sync::Arc::new([10u8, 200, 30, 255]))) };
+        let (mut conv, mut slot) = (Converter::new(&device), None);
+        assert!(upload(&device, &queue, &mut conv, &pic, false, None, &mut slot), "made");
+        let got = read(&device, &queue, slot.as_ref().unwrap());
+        assert_eq!(got.len(), 8 * 4 * 4);
+        assert!(got.chunks(4).all(|p| p == [10, 200, 30, 255]), "the held frame as the platform copied it");
     }
 }

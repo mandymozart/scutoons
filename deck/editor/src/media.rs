@@ -269,7 +269,7 @@ impl Media {
         }
         let picture = match &mut o.body {
             Body::Video(m) => m.next_picture(o.clock),
-            Body::Image(i) if !o.shown => Some(Arc::new(deck_media::Picture { width: i.width(), height: i.height(), format: deck_media::Format::Rgba8, data: i.as_raw().clone() })),
+            Body::Image(i) if !o.shown => Some(Arc::new(deck_media::Picture::new(i.width(), i.height(), deck_media::Format::Rgba8, i.as_raw().clone()))),
             _ => None,
         };
         let mut fresh = false;

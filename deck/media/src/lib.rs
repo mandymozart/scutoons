@@ -14,6 +14,7 @@ pub mod demux;
 pub mod dxt;
 pub mod hap;
 pub mod player;
+pub mod rfc6381;
 pub mod trim;
 pub mod yuv;
 
@@ -61,6 +62,27 @@ pub enum Format {
     /// 8-bit YUV 4:2:0 with U and V interleaved (NV12, what hardware decoders give): the luma plane, then the U, V pairs
     /// at half size rounded up, rows tight
     Nv12 { matrix: yuv::Matrix, full: bool },
+    /// a picture the platform's decoder keeps on its GPU (the browser's `VideoFrame`): no bytes, its `held` handle –
+    /// the host's adapter copies it into a texture there (deck-space `video::install_held`)
+    Held,
+}
+
+/// A platform's handle on a picture it keeps (`Format::Held`); the last one dropped frees it.
+#[derive(Clone)]
+pub struct Held(pub std::sync::Arc<dyn std::any::Any + Send + Sync>);
+
+impl PartialEq for Held {
+    fn eq(&self, other: &Held) -> bool {
+        std::sync::Arc::ptr_eq(&self.0, &other.0)
+    }
+}
+
+impl Eq for Held {}
+
+impl std::fmt::Debug for Held {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Held")
+    }
 }
 
 /// One plane of a planar picture: its bytes, its size in texels, the bytes per texel (2: NV12's U, V pairs).
@@ -79,13 +101,22 @@ pub struct Picture {
     pub height: u32,
     pub format: Format,
     pub data: Vec<u8>,
+    /// `Format::Held`: the platform's handle; else none
+    pub held: Option<Held>,
 }
 
 impl Picture {
-    /// the same picture as RGBA8 (the software path for a GPU without BC, and the goldens)
+    /// a picture whose bytes are here
+    pub fn new(width: u32, height: u32, format: Format, data: Vec<u8>) -> Picture {
+        Picture { width, height, format, data, held: None }
+    }
+
+    /// the same picture as RGBA8 (the software path for a GPU without BC, and the goldens); a held one is not here to
+    /// read: transparent
     pub fn to_rgba(&self) -> Picture {
         let data = match self.format {
             Format::Rgba8 => return self.clone(),
+            Format::Held => vec![0; self.width as usize * self.height as usize * 4],
             Format::Bc1 => dxt::decode(&self.data, self.width, self.height, dxt::Block::Bc1),
             Format::Bc3 => dxt::decode(&self.data, self.width, self.height, dxt::Block::Bc3),
             Format::Bc3YCoCg => {
@@ -105,7 +136,7 @@ impl Picture {
                 yuv::to_rgba(&planes, self.width as usize, self.height as usize, matrix, full)
             }
         };
-        Picture { width: self.width, height: self.height, format: Format::Rgba8, data }
+        Picture::new(self.width, self.height, Format::Rgba8, data)
     }
 
     /// whether the GPU gets it as blocks
@@ -184,4 +215,32 @@ pub fn golden(bytes: &[u8]) -> Result<Golden, Error> {
         }
     }
     Ok(Golden { frames, video, samples, audio })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// a platform frame that counts its releases
+    struct Kept(std::sync::Arc<std::sync::atomic::AtomicU32>);
+
+    impl Drop for Kept {
+        fn drop(&mut self) {
+            self.0.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        }
+    }
+
+    #[test]
+    fn a_held_picture_is_its_handle_freed_with_the_last_copy_and_reads_as_nothing() {
+        let freed = std::sync::Arc::new(std::sync::atomic::AtomicU32::new(0));
+        let held = Held(std::sync::Arc::new(Kept(freed.clone())));
+        let a = Picture { width: 2, height: 2, format: Format::Held, data: Vec::new(), held: Some(held) };
+        let b = a.clone();
+        assert_eq!(a, b, "one frame");
+        assert_ne!(a, Picture { held: Some(Held(std::sync::Arc::new(0u8))), ..b.clone() }, "another frame");
+        assert_eq!(a.to_rgba().data, [0; 16], "not here to read: transparent");
+        assert!(a.planes().is_none() && !a.compressed());
+        drop((a, b));
+        assert_eq!(freed.load(std::sync::atomic::Ordering::Relaxed), 1, "freed once, with the last");
+    }
 }

@@ -49,6 +49,14 @@ pub trait DecodeBackend: Send {
     fn drain(&mut self) {}
     /// forget what was submitted (a seek, a loop)
     fn reset(&mut self);
+    /// a decoder that answers later (the browser's) says here what failed since it took its packets
+    fn check(&mut self) -> Result<(), Error> {
+        Ok(())
+    }
+    /// packets taken whose pictures did not come out yet, for a decoder that answers later (one that answers at once: 0)
+    fn in_flight(&self) -> usize {
+        0
+    }
 }
 
 enum Inner {
@@ -63,12 +71,19 @@ pub struct Software {
     inner: Inner,
     stream: Option<Stream>,
     ready: std::collections::VecDeque<Decoded>,
+    #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
     got: Vec<(i64, Picture)>,
 }
 
 impl Default for Software {
     fn default() -> Self {
-        Software { inner: Inner::None, stream: None, ready: Default::default(), got: Vec::new() }
+        Software {
+            inner: Inner::None,
+            stream: None,
+            ready: Default::default(),
+            #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
+            got: Vec::new(),
+        }
     }
 }
 
@@ -215,12 +230,7 @@ impl DecodeBackend for Auto {
         if let Some(h) = &mut self.hardware {
             match h.submit(packet) {
                 Ok(()) => return Ok(()),
-                Err(e) if self.software.stream.is_some() => {
-                    tracing::warn!("video: the hardware decoder failed, software from the next key frame: {e}");
-                    self.hardware = None;
-                    self.wait_key = true;
-                }
-                Err(e) => return Err(e),
+                Err(e) => self.hardware_failed(e)?,
             }
         }
         if self.wait_key && !packet.key {
@@ -249,6 +259,30 @@ impl DecodeBackend for Auto {
             Some(h) => h.reset(),
             None => self.software.reset(),
         }
+    }
+
+    fn check(&mut self) -> Result<(), Error> {
+        match self.hardware.as_mut().map(|h| h.check()) {
+            Some(Err(e)) => self.hardware_failed(e),
+            _ => Ok(()),
+        }
+    }
+
+    fn in_flight(&self) -> usize {
+        self.hardware.as_ref().map_or(0, |h| h.in_flight())
+    }
+}
+
+impl Auto {
+    /// the hardware failed: software from the next key frame where software decodes the codec, else the error
+    fn hardware_failed(&mut self, e: Error) -> Result<(), Error> {
+        if self.software.stream.is_none() {
+            return Err(e);
+        }
+        tracing::warn!("video: the hardware decoder failed, software from the next key frame: {e}");
+        self.hardware = None;
+        self.wait_key = true;
+        Ok(())
     }
 }
 
