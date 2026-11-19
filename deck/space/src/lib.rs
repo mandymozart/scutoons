@@ -15,6 +15,7 @@ pub mod gamepad;
 pub mod gesture;
 pub mod holders;
 pub mod linked;
+pub mod live_cameras;
 pub mod graph;
 pub mod library;
 pub mod world;

@@ -205,6 +205,43 @@ impl RelayClient {
         serde_json::to_string(self.c.readers()).unwrap_or_default()
     }
 
+    /// the person said yes to the live camera `camera` (or Take it back): this phone holds it from the relay's
+    /// answer on, and takes it again by itself after a drop or a reload; false: no reader, or no `key` in its options
+    pub fn camera_claim(&mut self, camera: &str) -> bool {
+        self.c.camera_claim(camera)
+    }
+
+    /// Leave – the phone lets its camera go
+    pub fn camera_leave(&mut self) -> bool {
+        self.c.camera_leave()
+    }
+
+    /// a phone's hold (JSON: `{ hold: none | asked | holds | taken_over, camera?, other?, refused? }`)
+    pub fn holding(&self) -> String {
+        serde_json::to_string(&self.c.holding()).unwrap_or_default()
+    }
+
+    /// the session's cameras as the relay last showed them (JSON: protocol `LiveCamera`s, with who holds each)
+    pub fn cameras(&self) -> String {
+        serde_json::to_string(self.c.cameras()).unwrap_or_default()
+    }
+
+    /// a conductor's cameras (JSON: protocol `LiveCamera`s), sent again at every welcome
+    pub fn set_cameras(&mut self, json: &str) -> Result<(), JsValue> {
+        self.c.set_cameras(parse(json)?);
+        Ok(())
+    }
+
+    /// a conductor forces the phone `client` onto `camera` ('' frees what it holds); false: not joined
+    pub fn camera_force(&mut self, client: &str, camera: &str) -> bool {
+        self.c.camera_force(client, camera)
+    }
+
+    /// a conductor flashes a camera's settings (JSON object) to the phone holding it; false: not joined
+    pub fn camera_flash(&mut self, camera: &str, json: &str) -> Result<bool, JsValue> {
+        Ok(self.c.camera_flash(camera, parse(json)?))
+    }
+
     /// the vote open now as a screen hears it (an envelope, JSON); '' when none is open
     pub fn current_vote(&self) -> String {
         self.c.current_vote().and_then(|e| serde_json::to_string(&e).ok()).unwrap_or_default()
@@ -214,6 +251,17 @@ impl RelayClient {
 /// #527: the address a linked reader opens – `<base>/<toon>/chapter/<n>?label=<label>&live=<code>&relay=<relay>`
 /// (deck-space linked.rs `reader_link`; `label` '' = the chapter's start; `relay` the session's relay URL, named in the
 /// link only when it is not the hosted one, #530), the same text the deck editor offers
+/// the handheld page of one live camera – `<base>/live/cameras/<id>?live=<code>&relay=<relay>` (deck-space
+/// live_cameras.rs `camera_link`; `relay` named only when it is not the hosted one); `camera` '' = the list of cameras
+#[wasm_bindgen]
+pub fn camera_link(base: &str, camera: &str, code: &str, relay: &str) -> String {
+    if camera.is_empty() {
+        deck_space::live_cameras::cameras_link(base, code, Some(relay))
+    } else {
+        deck_space::live_cameras::camera_link(base, camera, code, Some(relay))
+    }
+}
+
 #[wasm_bindgen]
 pub fn reader_link(base: &str, toon: &str, chapter: u32, label: &str, code: &str, relay: &str) -> String {
     deck_space::linked::reader_link(base, toon, chapter, Some(label), code, Some(relay))

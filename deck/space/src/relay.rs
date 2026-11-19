@@ -29,11 +29,12 @@
 //! `script` runs scripted socket events through a `Client` – the outs every adapter's test compares against
 //! (shared/live-deck/test/fixtures/relay.json, the headless scenario `relay_join`).
 use crate::linked::{Choice, Driving, Place, Readers, Steer};
+use crate::live_cameras::{Holding, Seat};
 use crate::rig::Stream;
 use protocol::lines::{line, Lines, DATAGRAM_MAX};
 use protocol::{
-    Assign, DeckEvent, DeckEvents, DeckGraph, DeckListen, DeckMidi, DeckQuality, DeckSynced, DeckValues, Empty, Envelope, HandPose, HandRecord, HandState, HandView, Hello,
-    LinkQuality, Loose, Message, Ping, Rename, Resume, Role, SceneSync, ShowRole, Snapshot, SyncState, Tempo, To, VoteCast, VoteOpen,
+    Assign, CameraFlash, CameraForce, CameraLeave, Cameras, DeckEvent, DeckEvents, DeckGraph, DeckListen, DeckMidi, DeckQuality, DeckSynced, DeckValues, Empty, Envelope, HandPose, HandRecord, HandState, HandView, Hello,
+    LinkQuality, LiveCamera, Loose, Message, Ping, Rename, Resume, Role, SceneSync, ShowRole, Snapshot, SyncState, Tempo, To, VoteCast, VoteOpen,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
@@ -189,11 +190,14 @@ pub struct Options {
     /// `PROOF_WAIT_MS` – a hello with the proof, not a guest's hello and a join again a moment later
     #[serde(default)]
     pub wait_proof: bool,
+    /// a reader phone's own secret for the live cameras, kept in its browser: a drop or a reload is the same holder
+    #[serde(default)]
+    pub key: Option<String>,
 }
 
 impl Options {
     pub fn new(relay: &str, role: Role, group: Option<&str>) -> Options {
-        Options { relay: relay.into(), role, group: group.map(String::from), nick: None, token: None, resume: false, messages: false, device: None, proof: None, wait_proof: false }
+        Options { relay: relay.into(), role, group: group.map(String::from), nick: None, token: None, resume: false, messages: false, device: None, proof: None, wait_proof: false, key: None }
     }
 }
 
@@ -294,6 +298,12 @@ pub enum Out {
     Driving(Driving),
     /// #552: a story question's result for the driving reader (linked.rs `Choice`): pick that option, or ignored and why
     Choice(Choice),
+    /// a phone's hold on a live camera changed (live_cameras.rs `Holding`: asked, holds, taken over – who has it)
+    Holding(Holding),
+    /// the session's cameras as the relay shows them to this client, with who holds each
+    Cameras(Vec<LiveCamera>),
+    /// the conductor flashed the camera this phone holds: what it now is
+    CameraFlash { camera: String, settings: Loose },
     /// every envelope as it came (`Options::messages`)
     Message(Envelope),
 }
@@ -512,6 +522,10 @@ pub struct Client {
     /// came (`proof_answered`)
     proof_hold: Option<f64>,
     proof_heard: bool,
+    /// a reader phone's hold on a live camera; the cameras as last heard; a conductor's cameras, sent at every welcome
+    seat: Seat,
+    cameras: Vec<LiveCamera>,
+    camera_defs: Option<Vec<LiveCamera>>,
 }
 
 impl Client {
@@ -520,6 +534,7 @@ impl Client {
         let door = parse_quic(&o.relay).map(|(base, hash)| Quic::new(base, hash));
         // moving between the two sockets keeps the client: what it missed is replayed
         o.resume |= door.is_some();
+        let seat = Seat::new(o.key.as_deref().unwrap_or_default());
         Ok(Client {
             o,
             base,
@@ -564,6 +579,9 @@ impl Client {
             locked: false,
             proof_hold: None,
             proof_heard: false,
+            seat,
+            cameras: Vec::new(),
+            camera_defs: None,
         })
     }
 
@@ -1259,6 +1277,65 @@ impl Client {
         }
     }
 
+    /// the person said yes to `camera` (or Take it back): this phone holds it from the relay's answer on (the newest
+    /// claim wins). Sent now when joined, else at the welcome; taken again by itself after a drop or a reload while
+    /// nobody else claimed it. False: no reader, or it has no key.
+    pub fn camera_claim(&mut self, camera: &str) -> bool {
+        if self.o.role != Role::Reader || self.seat.key().is_empty() {
+            return false;
+        }
+        let claim = self.seat.claim(camera);
+        if self.joined {
+            self.send(Message::CameraClaim(claim));
+        }
+        self.tell_holding();
+        true
+    }
+
+    /// Leave – the phone lets its camera go
+    pub fn camera_leave(&mut self) -> bool {
+        let Some(camera) = self.seat.leave() else { return false };
+        if self.joined {
+            self.send(Message::CameraLeave(CameraLeave { camera }));
+        }
+        self.tell_holding();
+        true
+    }
+
+    /// a phone's hold on a camera as its page shows it
+    pub fn holding(&self) -> Holding {
+        self.seat.now(&self.client)
+    }
+
+    /// the session's cameras as the relay last showed them to this client (with who holds each)
+    pub fn cameras(&self) -> &[LiveCamera] {
+        &self.cameras
+    }
+
+    /// a conductor's cameras – kept, sent again at every welcome
+    pub fn set_cameras(&mut self, cameras: Vec<LiveCamera>) {
+        self.camera_defs = Some(cameras.clone());
+        if self.joined {
+            self.send(Message::Cameras(Cameras { cameras }));
+        }
+    }
+
+    /// a conductor forces the phone `client` onto `camera` ('' frees what it holds) – only while joined
+    pub fn camera_force(&mut self, client: &str, camera: &str) -> bool {
+        self.joined && self.send(Message::CameraForce(CameraForce { client: client.to_string(), camera: camera.to_string() }))
+    }
+
+    /// a conductor flashes a camera's settings to the phone holding it – only while joined
+    pub fn camera_flash(&mut self, camera: &str, settings: Loose) -> bool {
+        self.joined && self.send(Message::CameraFlash(CameraFlash { camera: camera.to_string(), settings }))
+    }
+
+    fn tell_holding(&mut self) {
+        if let Some(h) = self.seat.change(&self.client) {
+            self.out.push(Out::Holding(h));
+        }
+    }
+
     /// #442: events for one subscriber's far world nodes (only while joined – stale events are dropped)
     pub fn events(&mut self, client: &str, events: Vec<DeckEvent>) -> bool {
         self.joined && !events.is_empty() && self.send_to(Message::DeckEvents(DeckEvents { events }), To { role: None, group: None, client: Some(client.to_string()) })
@@ -1444,6 +1521,16 @@ impl Client {
                 self.steer.heard(&self.client, d.driver);
                 self.tell_driving();
             }
+            // the cameras this client sees and who holds each – a phone's hold follows from it
+            Message::Cameras(c) => {
+                if self.o.role == Role::Reader {
+                    self.seat.heard(&self.client, c.cameras.clone());
+                    self.tell_holding();
+                }
+                self.cameras.clone_from(&c.cameras);
+                self.out.push(Out::Cameras(c.cameras));
+            }
+            Message::CameraFlash(f) => self.out.push(Out::CameraFlash { camera: f.camera, settings: f.settings }),
             Message::DeckSynced(synced) if conductor => self.out.push(Out::Deck(In::Synced { client: from, synced })),
             Message::Presence(p) => {
                 // every client but the audience has a link in presence: a phone without one left
@@ -1481,6 +1568,10 @@ impl Client {
             Message::Say(_) => self.out.push(Out::Vote(e)),
             Message::Error(err) => {
                 self.out.push(Out::Vote(e));
+                if err.code == "camera" && self.o.role == Role::Reader {
+                    self.seat.refused(&err.message);
+                    self.tell_holding();
+                }
                 if err.code == "token" {
                     self.set_status(Status { state: State::Refused, client: None, why: Some(err.message), wait: None });
                     self.out.push(Out::Close {});
@@ -1551,6 +1642,14 @@ impl Client {
                 self.send(Message::ReaderDrive(protocol::ReaderDrive::default()));
             }
             self.tell_driving();
+            // a held camera is taken again by itself (a yes still waiting goes again)
+            if let Some(claim) = self.seat.welcome(&self.client) {
+                self.send(Message::CameraClaim(claim));
+            }
+            self.tell_holding();
+        }
+        if let Some(c) = self.camera_defs.clone() {
+            self.send(Message::Cameras(Cameras { cameras: c }));
         }
         if let Some(t) = snap.tempo {
             self.out.push(Out::Tempo { tempo: t, arrived: now });
@@ -2081,6 +2180,53 @@ mod tests {
         assert_eq!((r.linked.get("c4").cloned().flatten().as_deref(), r.driver.as_deref()), (Some("Mira"), Some("c4")));
         let last = r.last.as_ref().unwrap();
         assert_eq!((last.kind.as_str(), last.characters.as_slice(), last.from.as_str()), ("joinScene", &["character:catpope".to_string()][..], "c4"));
+    }
+
+    /// a reader phone holds a live camera from the relay's word; back from a drop it claims again by its key (a
+    /// resume), a newer claim takes it over; a refusal and a flash reach its page; a conductor's cameras go at each welcome
+    #[test]
+    fn a_reader_phone_holds_a_camera_and_takes_it_again_after_a_drop() {
+        use crate::live_cameras::Hold;
+        let claims = |c: &mut Client| -> Vec<Value> {
+            c.take().into_iter().filter_map(|o| if let Out::Send(t) = o { serde_json::from_str::<Value>(&t).ok() } else { None }).filter(|e| e["kind"] == "camera.claim").map(|e| e["p"].clone()).collect()
+        };
+        let holding = |c: &mut Client| c.take().into_iter().filter_map(|o| if let Out::Holding(h) = o { Some(h) } else { None }).last();
+        let mut no_key = Client::new(Options::new(RELAY, Role::Reader, None)).unwrap();
+        assert!(!no_key.camera_claim("scene:duet"), "without its key a phone cannot come back: no claim");
+        let mut c = Client::new(Options { key: Some("k1".into()), ..Options::new(RELAY, Role::Reader, None) }).unwrap();
+        assert!(c.camera_claim("scene:duet"), "asked before the welcome");
+        c.start(0.0);
+        c.opened(1.0);
+        c.text(2.0, &stamped(welcome("c4", json!({}))).to_string());
+        assert_eq!(claims(&mut c), [json!({ "camera": "scene:duet", "key": "k1" })], "the yes goes at the welcome");
+        c.text(3.0, &stamped(json!({ "kind": "cameras", "p": { "cameras": [{ "id": "scene:duet", "holder": "c4" }] } })).to_string());
+        assert_eq!(c.holding().hold, Hold::Holds);
+        c.take();
+        // a drop: the new welcome claims again with resume, no question
+        c.closed(4.0, "gone");
+        c.tick(400.0);
+        c.opened(500.0);
+        c.text(600.0, &stamped(welcome("c9", json!({}))).to_string());
+        assert_eq!(claims(&mut c), [json!({ "camera": "scene:duet", "key": "k1", "resume": true })]);
+        c.text(7.0, &stamped(json!({ "kind": "cameras", "p": { "cameras": [{ "id": "scene:duet", "holder": "c4", "away": true }] } })).to_string());
+        assert_eq!(c.holding().hold, Hold::Holds, "its old id: still its own");
+        c.text(8.0, &stamped(json!({ "kind": "cameras", "p": { "cameras": [{ "id": "scene:duet", "holder": "c5", "nick": "Ben" }] } })).to_string());
+        let h = holding(&mut c).unwrap();
+        assert_eq!((h.hold, h.other.as_deref()), (Hold::TakenOver, Some("Ben")), "the warning names who took it");
+        // the flash and a refusal
+        c.text(9.0, &stamped(json!({ "kind": "camera.flash", "p": { "camera": "scene:duet", "settings": { "label": "Duet" } } })).to_string());
+        assert!(c.take().iter().any(|o| matches!(o, Out::CameraFlash { camera, .. } if camera == "scene:duet")));
+        c.camera_claim("scene:crew");
+        c.text(10.0, &stamped(json!({ "kind": "error", "p": { "code": "camera", "message": "this camera is not open to you" } })).to_string());
+        assert_eq!(c.holding().refused.as_deref(), Some("this camera is not open to you"));
+        // a conductor's cameras go out at each welcome
+        let mut cond = Client::new(Options { token: Some("dev".into()), ..Options::new(RELAY, Role::Conductor, None) }).unwrap();
+        cond.set_cameras(vec![LiveCamera { id: "scene:duet".into(), label: None, r#for: None, release_ms: None, holder: None, nick: None, away: None }]);
+        cond.start(0.0);
+        cond.opened(1.0);
+        cond.text(2.0, &stamped(welcome("c1", json!({}))).to_string());
+        assert!(cond.take().iter().any(|o| matches!(o, Out::Send(t) if t.contains("\"cameras\""))));
+        assert!(cond.camera_force("c4", "scene:duet"));
     }
 
     #[test]

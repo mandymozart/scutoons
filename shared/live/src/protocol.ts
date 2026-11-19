@@ -82,6 +82,11 @@ export type Message =
 	| { kind: 'hand.record'; p: HandRecord }
 	| { kind: 'hand.recenter'; p: Empty }
 	| { kind: 'hand.view'; p: HandView }
+	| { kind: 'cameras'; p: Cameras }
+	| { kind: 'camera.claim'; p: CameraClaim }
+	| { kind: 'camera.leave'; p: CameraLeave }
+	| { kind: 'camera.force'; p: CameraForce }
+	| { kind: 'camera.flash'; p: CameraFlash }
 	| { kind: 'error'; p: Error };
 
 /** A payload whose shape B.6 names but this skeleton does not fix yet (say / line / fx / colour, cue actions). */
@@ -725,6 +730,50 @@ export interface HandView {
 export interface ReaderDrive {
 	/** the driving reader's client id (relay → reader only) */
 	driver?: string;
+}
+
+/** (agents/research/LIVE-CAMERAS.md) a camera of the live session a phone can hold. `id` its address (`scene:<id> > shot:<id>`, a scene's primary camera); `for` who may take it (the one condition control, any one fact; none: anyone with the code), only the conductor sees it; `release_ms` how long without a pose before it returns to its owner (none: only Leave, a take-over or the conductor frees it). The relay adds who holds it now (`holder`, its name `nick`) and whether that phone is away (`away`: it dropped; its claim is kept for its return). */
+export interface LiveCamera {
+	id: string;
+	/** its name for people (none: the id) */
+	label?: string;
+	for?: Admits;
+	release_ms?: number;
+	/** the holding phone's client id (relay → client) */
+	holder?: string;
+	/** the holder's name, if it has one (relay → client) */
+	nick?: string;
+	/** the holder dropped and has not come back yet (relay → client) */
+	away?: boolean;
+}
+
+/** conductor → relay: the session's cameras (the relay keeps them). Relay → client, when it joins and whenever its view changed: the conductor every camera with its filter, a reader the cameras it may take, a deck every camera – each with who holds it now. */
+export interface Cameras {
+	cameras: LiveCamera[];
+}
+
+/** a reader → relay: it takes the camera `camera` (sent after the person said yes; the newest claim wins, the holder before hears it in `cameras` and may take it back). `key`: the phone's own secret kept in its browser – a phone that comes back (a drop, a reload) claims with `resume`, which the relay grants only while the camera's holder is still this key. A phone holds one camera: a claim lets its other one go. */
+export interface CameraClaim {
+	camera: string;
+	key: string;
+	resume?: boolean;
+}
+
+/** a reader → relay: it lets the camera go (Leave). */
+export interface CameraLeave {
+	camera: string;
+}
+
+/** conductor → relay: the phone `client` holds the camera `camera` from now on, whoever held it (its old camera returns to its owner); `camera` empty: the conductor frees what the phone holds. */
+export interface CameraForce {
+	client: string;
+	camera: string;
+}
+
+/** conductor → relay → the phone holding `camera`: the camera's settings (lens, height, its name, its rule …) as the deck is flashed. The relay keeps the last one per camera and sends it to each new holder. */
+export interface CameraFlash {
+	camera: string;
+	settings: Loose;
 }
 
 /** #442: a deck → relay → the group `decks`: the absolute addresses its far world nodes name (deck-space rig/address.rs: `/deck:<name>/scene:<id>/character:<id>/<track>:<node>.<port>`), sent on each welcome and again every 10 s while it has any (a subscription not refreshed for 30 s lapses). The deck whose name and rig the address names answers with `deck.events` to this client; the relay never parses an address. Ordered, not kept for replay. */
