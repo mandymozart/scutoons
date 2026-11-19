@@ -309,7 +309,8 @@ mod tests {
         {
             let mut host = started(&fake.base, &ob);
             let id = host.shown().id.clone();
-            for _ in 0..500 {
+            let mut waiting = crate::autosave::tests::waiting();
+            while waiting() {
                 host.autosave(false, Instant::now());
                 if fake.count() == 1 && !host.saves[&id].busy() {
                     break;
@@ -344,7 +345,8 @@ mod tests {
         let fake = Fake::start(&[]);
         let mut host = started(&fake.base, &ob);
         assert_eq!(host.unsent.get("duet").map(|(_, a)| a.pill()), Some("unsent – kept locally".to_string()));
-        for _ in 0..500 {
+        let mut waiting = crate::autosave::tests::waiting();
+        while waiting() {
             host.autosave(false, Instant::now());
             if host.unsent.is_empty() {
                 break;
@@ -395,7 +397,8 @@ mod tests {
 
     /// the sheet's scene answered, and the answer taken in by the frame
     fn answered(host: &mut Host) {
-        for _ in 0..500 {
+        let mut waiting = crate::autosave::tests::waiting();
+        while waiting() {
             host.autosave(false, Instant::now());
             if !host.compose.auto.busy() {
                 return;

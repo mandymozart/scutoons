@@ -47,6 +47,9 @@ impl Sleeper {
 
     /// until `ns` (on the virtual clock also until `stop`: its thread is joined)
     pub fn sleep_until(&self, ns: u64, stop: &AtomicBool) {
+        // the real sleep is short; its thread checks the flag when it wakes
+        #[cfg(not(test))]
+        let _ = stop;
         match self {
             Sleeper::Real => std::thread::sleep(Duration::from_nanos(ns.saturating_sub(crate::clock::now_ns()))),
             #[cfg(test)]

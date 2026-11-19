@@ -371,8 +371,17 @@ pub mod tests {
     }
 
     /// poll until the answer is here
+    /// how long a test waits for an answer: a loaded machine takes its time, only a hang runs into the minute
+    pub const HANG: Duration = Duration::from_secs(60);
+
     pub fn settle<T: Send + 'static>(a: &mut Autosave<T>) -> Option<(T, Result<u64, Refusal>)> {
-        a.wait(Instant::now() + Duration::from_secs(5))
+        a.wait(Instant::now() + HANG)
+    }
+
+    /// true until the hang guard has run out: `while waiting() { … }` polls a condition however loaded the machine is
+    pub fn waiting() -> impl FnMut() -> bool {
+        let end = Instant::now() + HANG;
+        move || Instant::now() < end
     }
 
     #[test]

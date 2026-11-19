@@ -140,7 +140,8 @@ mod tests {
     }
 
     fn settle(p: &mut Published, b: &Bundle) {
-        for _ in 0..500 {
+        let mut waiting = crate::autosave::tests::waiting();
+        while waiting() {
             p.follow(b);
             if !p.state.values().any(|s| *s == State::Fetching) {
                 return;

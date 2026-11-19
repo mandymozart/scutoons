@@ -638,7 +638,8 @@ mod tests {
     }
 
     fn answer(r: &mut Rigs) -> Vec<Event> {
-        for _ in 0..400 {
+        let mut waiting = crate::autosave::tests::waiting();
+        while waiting() {
             let seen = r.poll(false);
             if !r.auto.busy() {
                 return seen;
