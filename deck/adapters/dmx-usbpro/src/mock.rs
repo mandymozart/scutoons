@@ -6,6 +6,7 @@ use std::io::{self, Read, Write};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+use crate::clock::Clock;
 use crate::widget::{self, Decoder, UNIVERSE};
 use crate::Opener;
 
@@ -21,6 +22,10 @@ pub struct State {
     pub silent: bool,
     /// How often the port was opened.
     pub opens: usize,
+    /// How many writes failed because it was unplugged.
+    pub failed_writes: usize,
+    /// What stamps the frames (the adapter's virtual clock in this crate's tests, #639); `None` = real time.
+    pub(crate) clock: Option<Arc<dyn Clock>>,
     decoder: Decoder,
     reply: VecDeque<u8>,
 }
@@ -74,6 +79,7 @@ impl Write for Port {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         let mut s = self.0 .0.lock().unwrap();
         if s.unplugged {
+            s.failed_writes += 1;
             return Err(io::Error::new(io::ErrorKind::BrokenPipe, "mock: device disconnected"));
         }
         for (label, data) in s.decoder.push(buf) {
@@ -83,7 +89,8 @@ impl Write for Port {
                     assert_eq!(data.len(), UNIVERSE + 1, "start code + 512");
                     assert_eq!(data[0], 0, "start code 0");
                     let frame: [u8; UNIVERSE] = data[1..].try_into().unwrap();
-                    s.frames.push((Instant::now(), frame));
+                    let at = s.clock.as_ref().map_or_else(Instant::now, |c| c.now());
+                    s.frames.push((at, frame));
                 }
                 widget::LABEL_GET_PARAMS if !s.silent => s.reply.extend(widget::frame(3, &[0x44, 0x01, 9, 1, 40])),
                 widget::LABEL_GET_SERIAL if !s.silent => s.reply.extend(widget::frame(10, &[0x56, 0x34, 0x12, 0x00])),

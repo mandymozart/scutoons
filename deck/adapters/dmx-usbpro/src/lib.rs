@@ -10,6 +10,7 @@
 //! Venue patch: `adapter = "dmx-usbpro"`, `port = "/dev/ttyUSB0"` | `"COM3"` optional (else the first widget found,
 //! `detect`). Messages: `dmx { ch, values, fade? }` (protocol `DmxMessage`). `panic` = blackout at once.
 
+mod clock;
 pub mod detect;
 pub mod mock;
 pub mod universe;
@@ -17,6 +18,7 @@ pub mod widget;
 
 use std::io::{self, Read, Write};
 use std::sync::mpsc as std_mpsc;
+use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
@@ -25,6 +27,7 @@ use anyhow::{anyhow, Context};
 use protocol::{DeviceMsg, DmxMessage};
 use tokio::sync::mpsc;
 
+use crate::clock::Clock;
 use crate::universe::Universe;
 use crate::widget::{Decoder, Params};
 
@@ -64,6 +67,7 @@ pub struct DmxUsbProAdapter {
     outlet: String,
     port: Option<String>,
     opener: Option<Opener>,
+    clock: Arc<dyn Clock>,
     tx: Option<std_mpsc::Sender<Cmd>>,
     worker: Option<JoinHandle<()>>,
 }
@@ -78,7 +82,14 @@ impl DmxUsbProAdapter {
 
     /// With any opener (the tests' mock port).
     pub fn with_opener(outlet: impl Into<String>, port: Option<String>, opener: Opener) -> Self {
-        DmxUsbProAdapter { outlet: outlet.into(), port, opener: Some(opener), tx: None, worker: None }
+        DmxUsbProAdapter { outlet: outlet.into(), port, opener: Some(opener), clock: Arc::new(clock::Real), tx: None, worker: None }
+    }
+
+    /// On another clock (the tests' virtual one, #639).
+    #[cfg(test)]
+    pub(crate) fn with_clock(mut self, clock: Arc<dyn Clock>) -> Self {
+        self.clock = clock;
+        self
     }
 
     fn command(&self, cmd: Cmd) -> anyhow::Result<()> {
@@ -134,13 +145,13 @@ pub fn check_widget(port: &mut dyn Port, timeout: Duration) -> io::Result<Widget
 }
 
 /// The adapter's thread: connect (again), apply commands, send due frames.
-fn run(outlet: String, mut opener: Opener, rx: std_mpsc::Receiver<Cmd>) {
+fn run(outlet: String, mut opener: Opener, rx: std_mpsc::Receiver<Cmd>, clock: Arc<dyn Clock>) {
     let mut universe = Universe::default();
     let mut port: Option<Box<dyn Port>> = None;
-    let mut next_try = Instant::now();
+    let mut next_try = clock.now();
     let mut warned = false;
     loop {
-        let now = Instant::now();
+        let now = clock.now();
         if port.is_none() && now >= next_try {
             match opener() {
                 Ok((name, mut p)) => match check_widget(p.as_mut(), CHECK_TIMEOUT) {
@@ -153,7 +164,7 @@ fn run(outlet: String, mut opener: Opener, rx: std_mpsc::Receiver<Cmd>) {
                                 rate = params.map(|p| p.rate), "dmx-usbpro: widget ready"
                             ),
                         }
-                        let frame = universe.force(Instant::now());
+                        let frame = universe.force(clock.now());
                         port = write_frame(&outlet, p, &frame);
                         warned = false;
                     }
@@ -167,25 +178,25 @@ fn run(outlet: String, mut opener: Opener, rx: std_mpsc::Receiver<Cmd>) {
                 }
             }
             if port.is_none() {
-                next_try = Instant::now() + RETRY;
+                next_try = clock.now() + RETRY;
             }
         }
 
-        let deadline = if port.is_some() { universe.next_due(Instant::now()) } else { next_try };
-        match rx.recv_timeout(deadline.saturating_duration_since(Instant::now())) {
+        let deadline = if port.is_some() { universe.next_due(clock.now()) } else { next_try };
+        match clock.recv_until(&rx, deadline) {
             Ok(Cmd::Set(msg)) => {
-                if let Err(e) = universe.apply(&msg, Instant::now()) {
+                if let Err(e) = universe.apply(&msg, clock.now()) {
                     tracing::warn!(outlet, "dmx-usbpro: {e}");
                 }
             }
             Ok(Cmd::Now(msg)) => {
-                if let Err(e) = universe.apply_now(&msg, Instant::now()) {
+                if let Err(e) = universe.apply_now(&msg, clock.now()) {
                     tracing::warn!(outlet, "dmx-usbpro: {e}");
                 }
             }
             Ok(Cmd::Panic) => {
                 universe.blackout();
-                let frame = universe.force(Instant::now());
+                let frame = universe.force(clock.now());
                 if let Some(p) = port.take() {
                     port = write_frame(&outlet, p, &frame);
                 }
@@ -196,14 +207,14 @@ fn run(outlet: String, mut opener: Opener, rx: std_mpsc::Receiver<Cmd>) {
         }
 
         if let Some(p) = port.take() {
-            port = match universe.frame(Instant::now()) {
+            port = match universe.frame(clock.now()) {
                 Some(frame) => write_frame(&outlet, p, &frame),
                 None => Some(p),
             };
         }
-        if port.is_none() && next_try < Instant::now() {
+        if port.is_none() && next_try < clock.now() {
             // just lost: try again at once (a short USB hiccup), then every RETRY
-            next_try = Instant::now();
+            next_try = clock.now();
         }
     }
 }
@@ -229,7 +240,8 @@ impl Adapter for DmxUsbProAdapter {
         let opener = self.opener.take().ok_or_else(|| anyhow!("dmx-usbpro {:?} started twice", self.outlet))?;
         let (tx, rx) = std_mpsc::channel();
         let outlet = self.outlet.clone();
-        let worker = std::thread::Builder::new().name(format!("dmx-usbpro {}", self.outlet)).spawn(move || run(outlet, opener, rx))?;
+        let clock = self.clock.clone();
+        let worker = std::thread::Builder::new().name(format!("dmx-usbpro {}", self.outlet)).spawn(move || run(outlet, opener, rx, clock))?;
         self.tx = Some(tx);
         self.worker = Some(worker);
         Ok(())
