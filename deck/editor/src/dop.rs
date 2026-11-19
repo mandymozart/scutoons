@@ -251,7 +251,8 @@ pub fn phones_condition(cam: &SceneCamera, sel: &Sel) -> Option<Condition> {
 
 /// The access row (LIVE-CAMERAS.md §4): whether a phone may take this camera in a live session, who (the one condition
 /// control, any one fact) and its id the show and the QR name.
-fn phones_rows(d: &mut DrawList, t: &Tokens, a: Rect, y: &mut f32, cam: &SceneCamera, sel: &Sel, out: &mut Vec<(Rect, Field)>) {
+#[allow(clippy::too_many_arguments)]
+fn phones_rows(d: &mut DrawList, t: &Tokens, a: Rect, y: &mut f32, scene: &str, cam: &SceneCamera, sel: &Sel, out: &mut Vec<(Rect, Field)>) {
     let shot = sel.shot.and_then(|i| cam.shots.get(i));
     let whose = shot.map_or("PHONES · THE CAMERA".to_string(), |s| format!("PHONES · {}", s.id.to_uppercase()));
     *y += controls::section(d, t, a.x, *y, a.w, &whose, false);
@@ -263,8 +264,8 @@ fn phones_rows(d: &mut DrawList, t: &Tokens, a: Rect, y: &mut f32, cam: &SceneCa
         let (rects, used) = controls::chips(d, t, (a.x, *y, a.w), &names, &on);
         out.extend(rects.into_iter().enumerate().map(|(i, r)| (r, Field::PhonesFact(i))));
         *y += used + 6.0;
-        let id = shot.map_or_else(|| "scene:<this> ".to_string(), |s| format!("scene:<this> > shot:{}", s.id));
-        caption(d, t, a, y, &format!("{} · its QR: Perform › Session", id.trim()));
+        let id = deck_space::live_cameras::camera_id(scene, shot.map(|s| s.id.as_str()));
+        caption(d, t, a, y, &format!("{id} · its QR: Perform › Session"));
     }
 }
 
@@ -340,7 +341,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, a: Rect, view: &SceneView, playing: Pl
         y += used + 6.0;
     }
 
-    phones_rows(d, t, a, &mut y, &cam, sel, &mut out);
+    phones_rows(d, t, a, &mut y, &view.edit.key(), &cam, sel, &mut out);
 
     y += controls::section(d, t, a.x, y, a.w, "MOVE", false);
     let s = &sel.draft;
@@ -942,7 +943,7 @@ mod tests {
         assert!(f.contains(&Field::Phones(true)) && !f.contains(&Field::PhonesFact(0)));
         view.edit.set_phones(Some(i), true).unwrap();
         let f = fields(&mut d, &view);
-        assert!(f.contains(&Field::PhonesFact(1)) && d.texts().iter().any(|s| s.contains("who: guest and up")) && d.texts().iter().any(|s| s.contains("> shot:shot1")));
+        assert!(f.contains(&Field::PhonesFact(1)) && d.texts().iter().any(|s| s.contains("who: guest and up")) && d.texts().iter().any(|s| s.contains("scene:duet > shot:shot1")));
         view.edit.set_phones(Some(i), false).unwrap();
         view.dop.aims = vec!["character:catpope".into(), "spot:altar".into()];
         let f = fields(&mut d, &view);
