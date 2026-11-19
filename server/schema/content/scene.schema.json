@@ -649,6 +649,17 @@
           ],
           "default": "now"
         },
+        "take": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Take2"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "take: the recorded keys"
+        },
         "then": {
           "description": "the move that follows when it ends (a chain)",
           "type": [
@@ -762,6 +773,11 @@
         {
           "const": "rack",
           "description": "the frame stays, the focus shifts to the shot's (its `focus_on` subject, its lens's distance or its aim)",
+          "type": "string"
+        },
+        {
+          "const": "take",
+          "description": "a phone's recorded take (`take`): its eye and look on their times; it ends on its own shot",
           "type": "string"
         }
       ]
@@ -1155,6 +1171,55 @@
           "type": "string"
         }
       ]
+    },
+    "Take2": {
+      "additionalProperties": false,
+      "description": "A recorded take: its keys in time, the first at 0, all in one unit; the last one's time is the move's length.",
+      "properties": {
+        "key": {
+          "items": {
+            "$ref": "#/definitions/TakeKey"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "key"
+      ],
+      "type": "object"
+    },
+    "TakeKey": {
+      "additionalProperties": false,
+      "description": "A key of a recorded take: where the eye is and where it looks – yaw and pitch in degrees as a shot's (the eye stands at\nthat turn and tilt from its aim) – and when, counted from the take's start.",
+      "properties": {
+        "at": {
+          "items": {
+            "format": "float",
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "type": "array"
+        },
+        "pitch": {
+          "format": "float",
+          "type": "number"
+        },
+        "time": {
+          "$ref": "#/definitions/Length"
+        },
+        "yaw": {
+          "format": "float",
+          "type": "number"
+        }
+      },
+      "required": [
+        "at",
+        "yaw",
+        "pitch",
+        "time"
+      ],
+      "type": "object"
     },
     "Track": {
       "additionalProperties": false,

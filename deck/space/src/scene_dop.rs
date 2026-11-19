@@ -1,6 +1,6 @@
 //! A scene's camera in an editor (the DOP panel): shots set from the view, the lens, the trolley track and its points,
-//! the named moves. Every change goes through `SceneEdit::change`: the core's checks refuse it in their words.
-use crate::scene_camera::{Ease, Length, Lens, MoveDef, MoveKind, MoveSpec, Phones, SceneCamera, ShotDef, Source, Track, TrackPoint};
+//! the named moves, a phone's take kept as a move (with its end as a shot), how long a phone may go without a pose. Every change goes through `SceneEdit::change`: the core's checks refuse it in their words.
+use crate::scene_camera::{Ease, Length, Lens, MoveDef, MoveKind, MoveSpec, Phones, SceneCamera, ShotDef, Source, Take, Track, TrackPoint};
 use deck_ui::filter::{open_admits, Fact};
 use crate::scene_edit::SceneEdit;
 
@@ -82,6 +82,15 @@ impl SceneEdit {
             let mut a = p.admits.clone().unwrap_or_else(open_admits);
             fact.flip_admits(&mut a);
             p.admits = (a != open_admits()).then_some(a);
+            Ok(())
+        })
+    }
+
+    /// how long a phone holding shot `i`'s camera (none: the primary camera's) may go without a pose before it returns
+    /// (ms); none = only Leave, a take-over or the conductor frees it
+    pub fn set_release(&mut self, shot: Option<usize>, ms: Option<u64>) -> Result<(), String> {
+        self.camera_change(|c| {
+            phones_of(c, shot)?.as_mut().ok_or("no phone takes this camera")?.release_ms = ms;
             Ok(())
         })
     }
@@ -210,6 +219,23 @@ impl SceneEdit {
         Ok(at)
     }
 
+    /// A phone's take kept as a move (LIVE-CAMERAS.md §7): `take<n>`, ending on its own shot `take<n>_end` – `end`, where
+    /// the take stopped (its id is made here). Its place among the moves.
+    pub fn add_take(&mut self, take: Take, end: ShotDef) -> Result<usize, String> {
+        let mut at = 0;
+        let length = take.length().ok_or("a take has two keys at least")?;
+        self.camera_change(|c| {
+            let id = (1..).map(|i| format!("take{i}")).find(|id| [id.clone(), format!("{id}_end")].iter().all(|x| c.shot(x).is_none() && c.find_move(x).is_none())).unwrap_or_default();
+            let to = format!("{id}_end");
+            c.shots.push(ShotDef { id: to.clone(), ..end });
+            let spec = MoveSpec { length, take: Some(take), ..MoveSpec::of(MoveKind::Take) };
+            c.moves.push(MoveDef { id, to, spec, then: None });
+            at = c.moves.len() - 1;
+            Ok(())
+        })?;
+        Ok(at)
+    }
+
     pub fn set_move(&mut self, i: usize, m: MoveDef) -> Result<(), String> {
         self.camera_change(|c| {
             *c.moves.get_mut(i).ok_or("no such move")? = m;
@@ -319,6 +345,33 @@ mod tests {
         assert!(e.camera().shots[0].phones.is_some(), "set from the view: who may take it stays");
         e.set_phones(None, false).unwrap();
         assert_eq!(e.camera().phones, None);
+        let played = e.resolved(&core_rigs, &no_sets).unwrap().scene;
+        assert_eq!(played.camera, e.doc.camera, "the stage plays it");
+    }
+
+    /// a phone's release time in the access row; a take kept as a move ending on its own shot, refused when malformed
+    #[test]
+    fn a_release_time_is_set_and_a_take_is_kept_as_a_move_on_its_own_end_shot() {
+        let mut doc = SceneDocument::new("duet", "Duet", vec!["catpope".into()]);
+        doc.recast(&["character:catpope".into()]);
+        let (mut e, _) = SceneEdit::open(doc, None, &core_rigs, &no_sets).unwrap();
+        assert!(e.set_release(None, Some(5000)).is_err(), "no phone takes it: nothing to release");
+        e.set_phones(None, true).unwrap();
+        e.set_release(None, Some(5000)).unwrap();
+        assert_eq!(e.camera().phones.and_then(|p| p.release_ms), Some(5000));
+        e.set_release(None, None).unwrap();
+        assert_eq!(e.camera().phones, Some(Phones::default()));
+        let key = |x: f32, t: f32| TakeKey { at: [x, 1.6, 4.0], yaw: 0.0, pitch: 0.0, time: Length::Beats(t) };
+        let take = Take { keys: vec![key(0.0, 0.0), key(1.0, 2.0), key(2.0, 4.0)] };
+        e.add_shot(view(0.0)).unwrap();
+        let i = e.add_take(take.clone(), view(0.0)).unwrap();
+        let cam = e.camera();
+        let m = &cam.moves[i];
+        assert_eq!((m.id.as_str(), m.to.as_str(), m.spec.kind, m.spec.length), ("take1", "take1_end", MoveKind::Take, Length::Beats(4.0)));
+        assert!(cam.shot("take1_end").is_some(), "it ends on its own shot");
+        assert_eq!(e.add_take(take.clone(), view(0.0)).map(|i| e.camera().moves[i].id.clone()), Ok("take2".into()));
+        let bad = Take { keys: vec![key(0.0, 0.0), key(1.0, 0.0)] };
+        assert!(e.add_take(bad, view(0.0)).unwrap_err().contains("follow each other in time"));
         let played = e.resolved(&core_rigs, &no_sets).unwrap().scene;
         assert_eq!(played.camera, e.doc.camera, "the stage plays it");
     }

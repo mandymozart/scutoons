@@ -1,7 +1,8 @@
 //! Each move as a path from the view it starts on to the shot it ends on: `pose` at progress 0 is the start, at 1 exactly
 //! the shot. Paths come in families – around the aim (glide, orbit, spiral, zoom), a straight dolly (push, pull), the head
 //! turning where the camera stands (truck, tilt, whip), a curve through a control point (in, crane), the trolley track
-//! (fly) – and shake adds unrest that is gone at both ends. A rack focus keeps the frame; only the focus travels.
+//! (fly), a recorded take on its keys' times – and shake adds unrest that is gone at both ends. A rack focus keeps the
+//! frame; only the focus travels.
 use super::track::Path;
 use super::{wrap_pi, View};
 use crate::scene_camera::{focal_of, Lens, MoveKind, MoveSpec, Projection, Side, Turn};
@@ -89,6 +90,24 @@ fn fly(f: &View, t: &View, u: f32, path: &Path) -> View {
     View::from_eye(eye, eye + look * distance, lens(&f.lens, &t.lens, u))
 }
 
+/// the share of a take's time over which it leaves the view it starts on and arrives on its end shot
+const TAKE_BLEND: f32 = 0.15;
+
+/// A take on its keys' times (`lin`, not eased): it leaves `f` over its first moments and settles on `t` (its own end shot)
+/// over its last, so nothing jumps; the aim's distance and the lens go from `f`'s to `t`'s meanwhile.
+fn take(f: &View, t: &View, lin: f32, k: &crate::scene_camera::Take) -> Option<View> {
+    let (eye, yaw, pitch) = super::take::at(k, lin)?;
+    let (first, last) = (super::take::at(k, 0.0)?, super::take::at(k, 1.0)?);
+    let w0 = 1.0 - smooth((lin / TAKE_BLEND).min(1.0));
+    let w1 = smooth(((lin - (1.0 - TAKE_BLEND)) / TAKE_BLEND).max(0.0));
+    let eye = eye + (f.eye() - first.0) * w0 + (t.eye() - last.0) * w1;
+    let yaw = yaw + wrap_pi(f.yaw - first.1) * w0 + wrap_pi(t.yaw - last.1) * w1;
+    let pitch = pitch + (f.pitch - first.2) * w0 + (t.pitch - last.2) * w1;
+    let u = 1.0 - w0;
+    let distance = log_lerp(f.distance, t.distance, u);
+    Some(View { target: eye - super::back(yaw, pitch) * distance, yaw, pitch, distance, lens: lens(&f.lens, &t.lens, u) })
+}
+
 /// unrest in −1..1, smooth, the same at the same time
 fn unrest(secs: f64, seed: f64) -> f32 {
     let s = secs + seed * 17.3;
@@ -138,6 +157,10 @@ pub fn pose(spec: &MoveSpec, f: &View, t: &View, lin: f32, ctx: &Ctx) -> View {
         }
         MoveKind::Fly => match ctx.track.filter(|p| !p.is_empty()) {
             Some(p) => fly(f, t, u, p),
+            None => around(f, t, u, 0.0),
+        },
+        MoveKind::Take => match spec.take.as_ref().and_then(|k| take(f, t, lin, k)) {
+            Some(v) => v,
             None => around(f, t, u, 0.0),
         },
         MoveKind::Rack => {

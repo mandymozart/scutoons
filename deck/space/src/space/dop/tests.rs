@@ -788,3 +788,42 @@ fn a_held_camera_steers_the_deck_and_a_move_plays_over_it() {
     s.held(Held::Holder { camera: "scene:duet > shot:close".into(), holder: None });
     assert!(s.held.is_none() && s.held_camera().is_none(), "free: the deck's own camera");
 }
+
+/// a phone's take (take.rs): it starts where the camera is, follows its keys on their times – in beats on the clock, so a
+/// faster tempo plays it faster – and ends exactly on its own end shot
+#[test]
+fn a_recorded_take_plays_its_keys_on_their_times_and_ends_on_its_shot() {
+    use crate::scene_camera::{Take, TakeKey};
+    let key = |x: f32, yaw: f32, t: f32| TakeKey { at: [x, 1.6, 4.0], yaw, pitch: 0.0, time: Length::Beats(t) };
+    let take = Take { keys: vec![key(-2.0, 0.0, 0.0), key(0.0, 10.0, 4.0), key(2.0, 30.0, 8.0)] };
+    let mut cam = camera();
+    let (s30, c30) = 30f32.to_radians().sin_cos();
+    cam.shots.push(shot("take1_end", [2.0 - 4.0 * s30, 1.6, 4.0 - 4.0 * c30], 30.0, 0.0, 4.0, Lens::focal(50.0)));
+    let spec = MoveSpec { length: Length::Beats(8.0), take: Some(take), ..MoveSpec::of(MoveKind::Take) };
+    let mut problems = Vec::new();
+    spec.problems("move take1", &mut problems);
+    assert!(problems.is_empty(), "{problems:?}");
+    let mut dop = Dop::new(None, cam);
+    let frames = run(&mut dop, spec.clone(), "take1_end", start());
+    let end = dop.view("take1_end").unwrap();
+    assert_eq!(*frames.last().unwrap(), end, "exactly its end shot");
+    assert!((frames.len() as f32 - 4.0 * 60.0).abs() <= 2.0, "8 beats at 120 bpm: 4 s, {} frames", frames.len());
+    assert!(frames[0].gap(&start()) < 0.05, "starts where the camera was");
+    let mid = frames[120];
+    assert!(mid.eye().distance(Vec3::new(0.0, 1.6, 4.0)) < 0.05 && (mid.yaw.to_degrees() - 10.0).abs() < 1.0, "on its middle key half way: {:?}", mid.eye());
+    let step = frames.windows(2).map(|w| w[0].gap(&w[1])).fold(0.0, f32::max);
+    assert!(step < 0.8, "nothing jumps: the most a frame moves is {step}");
+    // the clock twice as fast: half the time
+    dop.play(vec![dop.cue(spec, "take1_end").unwrap()]);
+    let fast = |f: u32| Clock { secs: f64::from(f) / 60.0, beat: f64::from(f) / 15.0, bpm: 240.0, per_bar: 4, running: true };
+    let mut now = start();
+    let mut n = 0;
+    while let Some(v) = dop.step(&fast(n), now, &no_one) {
+        now = v;
+        n += 1;
+        if !dop.director.active() || n > 1000 {
+            break;
+        }
+    }
+    assert!((n as f32 - 120.0).abs() <= 2.0, "8 beats at 240 bpm: {n} frames");
+}

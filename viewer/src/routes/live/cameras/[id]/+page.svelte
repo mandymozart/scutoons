@@ -1,8 +1,9 @@
 <script lang="ts">
 	// /live/cameras/<id>?live=<code> (research/LIVE-CAMERAS.md §2, §3): one camera of a live session, reached by its QR.
 	// The phone asks first (naming a take-over), then holds the camera and steers it with its motion – the one handheld's
-	// screen (@scutoons/ui HandheldStage); Leave lets it go, a newer claim shows the warning and Take it back. A drop or a
-	// reload takes the camera again by itself while nobody else claimed it (the core's rule).
+	// screen (@scutoons/ui HandheldStage); Record / Stop has the editor record a take (kept there as a camera move); Leave
+	// lets it go, a newer claim shows the warning and Take it back. A drop or a reload takes the camera again by itself
+	// while nobody else claimed it (the core's rule).
 	import { onDestroy } from 'svelte';
 	import { page } from '$app/state';
 	import { HandheldStage } from '@scutoons/ui';
@@ -53,8 +54,12 @@
 			<a class="all" href={listHref(page.url.searchParams)} data-testid="camera-all">{m['live_cameras.all']()}</a>
 		{/snippet}
 		{#snippet actions()}
+			{#if held}
+				<button type="button" class:rec-on={s.recording} onclick={s.record} data-testid="camera-record">{s.recording ? m['live_cameras.stop']() : m['live_cameras.record']()}</button>
+			{/if}
 			<button type="button" class="secondary" onclick={s.leave} data-testid="camera-leave">{m['live_cameras.leave']()}</button>
 		{/snippet}
+		{#if s.recording}<span class="rec" data-testid="camera-rec">{m['live_cameras.recording']()}</span>{/if}
 		{#if s.status === 'connected'}
 			<CameraAsk hold={s.holding.hold} other={s.holding.other ?? (cam?.holder ? (cam.nick ?? cam.holder) : undefined)} refused={s.holding.refused} ontake={() => s.claim(shown)} onleave={s.leave} />
 		{/if}
@@ -64,6 +69,15 @@
 {/if}
 
 <style>
+	.rec {
+		padding: 0 var(--space-05);
+		background: var(--state-error);
+		color: var(--paper);
+		pointer-events: none;
+	}
+	.rec-on {
+		background: var(--state-error);
+	}
 	.all {
 		margin-left: auto;
 		color: var(--paper);

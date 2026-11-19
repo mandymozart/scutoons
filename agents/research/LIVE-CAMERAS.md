@@ -1,4 +1,4 @@
-Status 2026-11-19: steps 1–4 built, step 5 open (#605; round 1 feature/605-live-cameras, round 2 feature/605-cameras-round2): relay claims per camera (deck/relay cameras.rs), the phone's hold and the deck camera following it (deck-space live_cameras.rs), the one handheld (@scutoons/content/storyboard `Handheld`, @scutoons/ui `HandheldStage`; the creator's /h/<code> on it), the reader's /live/cameras and /live/cameras/<id> with the phone's proof, the DOP panel's PHONES row (stored as the camera's and each shot's `phones`), the Session sheet's cameras with a QR per camera, the row word `scene:<id> > camera[:<shot>]` (the relay picks the phone by the row's filter), the native and browser decks following a held camera of their scene, §6 and §9 as delegated. Open: Record (step 5).
+Status 2026-11-19: steps 1–5 built (#605; round 1 feature/605-live-cameras, round 2 feature/605-cameras-round2, step 5 feature/605-record-take): relay claims per camera (deck/relay cameras.rs), the phone's hold and the deck camera following it (deck-space live_cameras.rs), the one handheld (@scutoons/content/storyboard `Handheld`, @scutoons/ui `HandheldStage`; the creator's /h/<code> on it), the reader's /live/cameras and /live/cameras/<id> with the phone's proof, the DOP panel's PHONES row (stored as the camera's and each shot's `phones`), the Session sheet's cameras with a QR per camera, the row word `scene:<id> > camera[:<shot>]` (the relay picks the phone by the row's filter), the native and browser decks following a held camera of their scene, §6 and §9 as delegated; Record (§7): a take kept as a move of the editor's open scene (deck-space space/dop take.rs), the PHONES row's release time.
 
 # LIVE-CAMERAS – a phone takes a deck's camera by QR
 
@@ -46,18 +46,19 @@ A camera has **one holder**, under the same rule we settled for one reader drivi
 - A deck follows a held camera of the scene it plays (its primary camera, or a shot: the first pose starts from that shot's view), one at a time; another phone taking it goes on from the view held now.
 
 ## 7. Recording
-- On the camera page: **Record** saves the take as a camera move on the scene (#582's move engine: a path plus timing on beats or seconds) under a name.
+- **Record** – in the DOP panel's PHONES row (the selected camera), or on the camera page (`hand.record` from the camera's holder) – has the editor that has the camera's scene open in Build record the holder's poses; **Stop** keeps the take as a move of that scene's draft (readers save nothing). Leave or a take-over while recording keeps what was recorded.
+- The core records it as a deck follows the phone (anchored on the held camera's view, Recenter re-anchors, the follow's ease smooths) and thins it to keys (eye and look, each at its time); the times are beats while the tempo clock runs, else seconds. The move (`take<n>`, kind `take`) ends on its own shot `take<n>_end`, where the phone stopped; it starts from wherever the camera is and repeats like any move.
 - A recorded take is replayed by its address (`scene:<id> > move:<id>`) like any move, so a phone performance becomes part of the show.
-- The storyboard's existing recording becomes the same thing: a take is a move.
+- The storyboard's existing recording becomes the same thing: a take is a move – not yet (the creator's /h/<code> still records its own takes).
 
 ## 8. Steps
 1. Core and relay: camera claims per id, the singleton rule, the access check through #553. Tests as for #527.
 2. The shared handheld component; the creator's `/h/<code>` moved onto it (the refactor).
 3. Reader: `/live/cameras` (the list) and `/live/cameras/<id>` (handheld, Leave, Take it back).
 4. Editor: the DOP panel's access row and QR, and Perform's Session panel listing the cameras and who holds them.
-5. Record a take as a move.
+5. Record a take as a move (§7).
 
 ## 9. Open for the owner
 - ~~The default when a camera is taken~~ – answered: the same rules as the reader (newest wins, with the warning and Take it back).
 - ~~Do guests see cameras they can't take yet?~~ – only the ones they can (orchestrator 2026-11-19, [delegated]).
-- ~~How long without a pose before a camera returns?~~ – no default: `release_ms` per camera (the scene stores it with `phones`; the panel has no control for it yet); unset, only Leave, a take-over or the conductor frees it ([delegated]).
+- ~~How long without a pose before a camera returns?~~ – no default: `release_ms` per camera (the scene stores it with `phones`; the PHONES row's "no pose for" scrub, 0 = no limit); unset, only Leave, a take-over or the conductor frees it ([delegated]).

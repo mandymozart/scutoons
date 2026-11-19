@@ -174,6 +174,8 @@ export type MoveDef = {
 	/** in */
 	side?: Side;
 	start?: Start;
+	/** take: the recorded keys */
+	take?: Take2 | null;
 	/** the move that follows when it ends (a chain) */
 	then?: string | null;
 	/** the shot it ends on */
@@ -181,7 +183,7 @@ export type MoveDef = {
 	turn?: Turn;
 };
 
-export type MoveKind = 'cut' | 'glide' | 'in' | 'fly' | 'crane_down' | 'crane_up' | 'spiral' | 'push' | 'pull' | 'orbit' | 'truck' | 'tilt' | 'zoom' | 'dolly_zoom' | 'whip' | 'follow' | 'shake' | 'rack';
+export type MoveKind = 'cut' | 'glide' | 'in' | 'fly' | 'crane_down' | 'crane_up' | 'spiral' | 'push' | 'pull' | 'orbit' | 'truck' | 'tilt' | 'zoom' | 'dolly_zoom' | 'whip' | 'follow' | 'shake' | 'rack' | 'take';
 
 export type NodeDef = {
 	id: string;
@@ -283,6 +285,19 @@ export type Start = 'now' | 'bar';
 
 /** How many fillers a holder takes. */
 export type Take = 'one' | 'many';
+
+/** A recorded take: its keys in time, the first at 0, all in one unit; the last one's time is the move's length. */
+export type Take2 = {
+	key: TakeKey[];
+};
+
+/** A key of a recorded take: where the eye is and where it looks – yaw and pitch in degrees as a shot's (the eye stands at that turn and tilt from its aim) – and when, counted from the take's start. */
+export type TakeKey = {
+	at: [number, number, number];
+	pitch: number;
+	time: Length;
+	yaw: number;
+};
 
 /** The trolley track: its first point is the start, its last the end. */
 export type Track = {
