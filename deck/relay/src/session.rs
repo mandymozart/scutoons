@@ -1195,6 +1195,19 @@ impl Session {
                 self.cameras.set(c.cameras.clone());
                 self.tell_cameras();
             }
+            Message::CameraForce(f) if f.client.is_empty() && !f.camera.is_empty() => {
+                let mut phones: Vec<&String> = self
+                    .clients
+                    .iter()
+                    .filter(|(k, c)| c.role == Role::Reader && self.cameras.held_by(k).is_some_and(|h| h != f.camera) && protocol::filter::passes(f.r#where.as_ref(), &roles::facts(c)))
+                    .map(|(k, _)| k)
+                    .collect();
+                phones.sort();
+                match phones.first().map(|p| p.to_string()) {
+                    Some(client) => return self.conductor_cameras(id, &Message::CameraForce(protocol::CameraForce { client, camera: f.camera.clone(), r#where: None }), now),
+                    None => self.error(id, "camera", "no phone with another camera passes the filter"),
+                }
+            }
             Message::CameraForce(f) => match self.cameras.force(&f.client, &f.camera, now) {
                 Ok(()) => {
                     if let Some(settings) = self.cameras.last_flash(&f.camera).cloned() {
@@ -1584,9 +1597,16 @@ mod tests {
         // the conductor flashes (kept for the next holder) and forces ben onto the crew camera
         let flash = Message::CameraFlash(protocol::CameraFlash { camera: "scene:duet > shot:crew".into(), settings: serde_json::from_str(r#"{"label":"Crew"}"#).unwrap() });
         r.send("cond", flash, 26);
-        r.send("cond", Message::CameraForce(protocol::CameraForce { client: "ben".into(), camera: "scene:duet > shot:crew".into() }), 27);
+        r.send("cond", Message::CameraForce(protocol::CameraForce { client: "ben".into(), camera: "scene:duet > shot:crew".into(), r#where: None }), 27);
         assert_eq!((holder_of(&r, "scene:duet"), holder_of(&r, "scene:duet > shot:crew").as_deref()), (None, Some("ben")));
         assert!(r.kinds("ben").contains(&"camera.flash"), "the forced phone hears what it now is");
+        // a show row's camera word names no phone: the relay picks the one holding another camera that passes the filter
+        let phone = Some(protocol::Filter { device: Some("phone".into()), ..Default::default() });
+        r.send("cond", Message::CameraForce(protocol::CameraForce { client: String::new(), camera: "scene:duet".into(), r#where: phone }), 27);
+        assert!(r.inbox("cond").iter().any(|e| matches!(&e.message, Message::Error(x) if x.code == "camera")), "nobody says it is a phone");
+        r.send("cond", Message::CameraForce(protocol::CameraForce { client: String::new(), camera: "scene:duet".into(), r#where: None }), 27);
+        assert_eq!((holder_of(&r, "scene:duet").as_deref(), holder_of(&r, "scene:duet > shot:crew")), (Some("ben"), None), "the row's word moved ben");
+        r.send("cond", Message::CameraForce(protocol::CameraForce { client: "ben".into(), camera: "scene:duet > shot:crew".into(), r#where: None }), 27);
         r.send("ben", Message::CameraLeave(protocol::CameraLeave { camera: "scene:duet > shot:crew".into() }), 28);
         assert_eq!(holder_of(&r, "scene:duet > shot:crew"), None, "Leave");
         r.send("outL", claim("scene:duet", "ko", false), 29);

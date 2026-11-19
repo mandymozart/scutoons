@@ -2,7 +2,9 @@
 // CameraLink: the hold, the list, the flash, the claim taken again after a drop) and the one handheld (its motion as the
 // pose stream). The page shows what they say; here only what the browser keeps (live-cameras.ts) and the page's state.
 import type { LiveCamera } from '@scutoons/live';
+import { getSessionToken } from '@scutoons/api';
 import { CameraLink, loadRelay, type Holding } from '@scutoons/live-deck/hand';
+import { API_URL } from './config.ts';
 import { Handheld, type HandMode } from '@scutoons/content/storyboard';
 import { WASM_BASE } from './live-deck.ts';
 import { cameraKey, heldBefore, keepHeld, store } from './live-cameras.ts';
@@ -23,12 +25,15 @@ export class CameraSession {
 	private readonly link: CameraLink;
 	readonly hand: Handheld;
 
-	/** `relay` the session's URL; `camera` the page's camera (none: the list) */
-	constructor(relay: string, camera?: string) {
+	/** `relay` the session's URL; `camera` the page's camera (none: the list); `signedIn` whether the reader is (their
+	 *  account facts go in the phone's proof, which a camera's rule may ask) */
+	constructor(relay: string, camera?: string, signedIn = false) {
 		const s = store();
 		this.link = new CameraLink({
 			relay,
 			key: cameraKey(s),
+			api: API_URL,
+			user: signedIn ? { bearer: getSessionToken() } : undefined,
 			core: loadRelay(WASM_BASE),
 			onStatus: (st) => {
 				this.status = st.state;

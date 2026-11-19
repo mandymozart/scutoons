@@ -32,7 +32,7 @@ use deck_space::chapter::Chapter;
 use deck_space::fetched::Fetched;
 use deck_space::piece::Found;
 use deck_space::rig::address::Place;
-use deck_space::relay::{Client, Options, Out};
+use deck_space::relay::{Client, In, Options, Out};
 use image::RgbaImage;
 use protocol::{Cell, MediaItem, MediaReady, Message, Role, SpotMode};
 use std::collections::{HashMap, HashSet};
@@ -212,6 +212,8 @@ pub struct Outlet {
     pub space: Option<SpaceTarget>,
     /// #473: the cells for the deck's piece side (deck-space piece.rs `Side`; the scene view runs it)
     pub pieces: Vec<Cell>,
+    /// what came of the session's live cameras, for the scene view's space (`Space::held`)
+    pub held: Vec<deck_space::live_cameras::Held>,
     /// the API base: show media's signed links (#470)
     api: String,
     /// why the deck has no token ("" = it has one - the page says, from DeckLink)
@@ -268,6 +270,7 @@ impl Outlet {
             said: Vec::new(),
             space: None,
             pieces: Vec::new(),
+            held: Vec::new(),
             api: api.trim_end_matches('/').to_owned(),
             unpaired: "the deck is not paired yet".into(),
             fetched: Fetched::default(),
@@ -294,6 +297,7 @@ impl Outlet {
                 Out::Message(e) => self.hear(e.message, now),
                 // #556: a vote is the relay client's ballot (`ballot`), drawn by the deck: the page gets nothing of it
                 Out::Vote(_) => {}
+                Out::Deck(In::Held(h)) => self.held.push(h),
                 Out::Status(s) => {
                     self.status.link = self.relay.line();
                     out.push(Out::Status(s));

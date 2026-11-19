@@ -8,6 +8,7 @@
 	import { HandheldStage } from '@scutoons/ui';
 	import CameraAsk from '$lib/components/camera/camera-ask.svelte';
 	import { LIVE_QUIC, LIVE_URL } from '$lib/config.ts';
+	import { getSessionContext } from '$lib/contexts/session.svelte.ts';
 	import { CameraSession } from '$lib/live-camera.svelte.ts';
 	import { cameraHref, cameraName, listHref } from '$lib/live-cameras.ts';
 	import { m } from '$lib/paraglide/messages.js';
@@ -15,7 +16,8 @@
 
 	const id = page.params.id ?? '';
 	const relay = sessionOf(page.url.searchParams, LIVE_URL, LIVE_QUIC);
-	const s = relay ? new CameraSession(relay, id) : null;
+	const session = getSessionContext();
+	const s = relay ? new CameraSession(relay, id, session.isLoggedIn) : null;
 	onDestroy(() => s?.close());
 
 	const w = {

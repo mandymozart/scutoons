@@ -1,4 +1,4 @@
-Status 2026-11-19: steps 1–3 built, step 4 in part (#605, branch feature/605-live-cameras): relay claims per camera (deck/relay cameras.rs), the phone's hold and the deck camera following it (deck-space live_cameras.rs), the one handheld (@scutoons/content/storyboard `Handheld`, @scutoons/ui `HandheldStage`; the creator's /h/<code> on it), the reader's /live/cameras and /live/cameras/<id>, the editor's Session sheet with the cameras and the list's QR. Open: the DOP panel's access row and per-camera QR, the row address `camera:<id>`, the deck's native wiring of a held camera, Record (step 5), §9.
+Status 2026-11-19: steps 1–4 built, step 5 open (#605; round 1 feature/605-live-cameras, round 2 feature/605-cameras-round2): relay claims per camera (deck/relay cameras.rs), the phone's hold and the deck camera following it (deck-space live_cameras.rs), the one handheld (@scutoons/content/storyboard `Handheld`, @scutoons/ui `HandheldStage`; the creator's /h/<code> on it), the reader's /live/cameras and /live/cameras/<id> with the phone's proof, the DOP panel's PHONES row (stored as the camera's and each shot's `phones`), the Session sheet's cameras with a QR per camera, the row word `scene:<id> > camera[:<shot>]` (the relay picks the phone by the row's filter), the native and browser decks following a held camera of their scene, §6 and §9 as delegated. Open: Record (step 5).
 
 # LIVE-CAMERAS – a phone takes a deck's camera by QR
 
@@ -42,7 +42,8 @@ A camera has **one holder**, under the same rule we settled for one reader drivi
 
 ## 6. On the deck (INPUT.md's takeover rule)
 - While a phone holds a camera, that camera follows the phone. The deck's own camera (a shot, a move, the editor's view) is put aside, not changed, and returns when the phone lets go. **Recenter** starts from the camera the deck had, so nothing jumps.
-- Moves (#582) and the phone can both be in play: a move triggered while a phone holds the camera waits, or the conductor's setting lets the move win.
+- Moves (#582) and the phone can both be in play: a move triggered while a phone holds the camera plays over the phone's pose for its duration, starting from the phone's view, then hands back – the phone goes on from where the move ended (orchestrator 2026-11-19, [delegated]).
+- A deck follows a held camera of the scene it plays (its primary camera, or a shot: the first pose starts from that shot's view), one at a time; another phone taking it goes on from the view held now.
 
 ## 7. Recording
 - On the camera page: **Record** saves the take as a camera move on the scene (#582's move engine: a path plus timing on beats or seconds) under a name.
@@ -58,5 +59,5 @@ A camera has **one holder**, under the same rule we settled for one reader drivi
 
 ## 9. Open for the owner
 - ~~The default when a camera is taken~~ – answered: the same rules as the reader (newest wins, with the warning and Take it back).
-- Do guests see cameras they can't take yet (with the reason), or only the ones they can?
-- How long without a pose before a camera returns (proposal: 5 s)?
+- ~~Do guests see cameras they can't take yet?~~ – only the ones they can (orchestrator 2026-11-19, [delegated]).
+- ~~How long without a pose before a camera returns?~~ – no default: `release_ms` per camera (the scene stores it with `phones`; the panel has no control for it yet); unset, only Leave, a take-over or the conductor frees it ([delegated]).

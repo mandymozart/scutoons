@@ -961,6 +961,28 @@ mod tests {
         assert!(lines.contains(&"location:* > close_doors: nobody".to_string()), "{lines:?}");
     }
 
+    /// LIVE-CAMERAS.md §5a: a row's `scene:<id> > camera:<shot>` switches a phone onto that camera – the relay picks the
+    /// phone by the row's filter; it never goes down to the decks. A camera word on no scene is refused.
+    #[test]
+    fn a_rows_camera_word_forces_a_phone_onto_that_camera() {
+        let mut show = parse(include_str!("../fixtures/top-toy.show.json")).unwrap();
+        let row = show.rows.iter().position(|r| r.id == "yellowmouse-enters").unwrap();
+        let left = protocol::Filter { group: Some("left".into()), ..Default::default() };
+        show.rows[row].addresses = vec![crate::document::Addressed { address: "scene:duet".into(), action: "camera:close".into(), filter: Some(left.clone()) }];
+        assert!(crate::validate::validate(&show).is_empty(), "{:?}", crate::validate::validate(&show));
+        let mut sub = Subtree::new(show.clone(), ClockChoice::Parent);
+        let out = sub.fire("yellowmouse-enters", 1000);
+        let forced: Vec<&protocol::CameraForce> = out.iter().filter_map(|e| if let protocol::Message::CameraForce(f) = &e.message { Some(f) } else { None }).collect();
+        assert_eq!(forced, [&protocol::CameraForce { client: String::new(), camera: "scene:duet > shot:close".into(), r#where: Some(left) }]);
+        assert!(!out.iter().any(|e| matches!(e.message, protocol::Message::Address(_))), "not a deck's word");
+        show.rows[row].addresses[0].address = "character:yellowmouse".into();
+        assert!(crate::validate::validate(&show).iter().any(|p| p.to_string().contains("a phone takes a scene's camera")));
+        // the cameras its scenes offer go to the session once, and again only when they change
+        let cams = vec![protocol::LiveCamera { id: "scene:duet".into(), label: None, r#for: None, release_ms: None, holder: None, nick: None, away: None }];
+        assert_eq!(sub.offer_cameras(cams.clone()).len(), 1);
+        assert!(sub.offer_cameras(cams).is_empty());
+    }
+
     #[test]
     fn the_cue_sheet_says_each_row_in_order_and_what_changes() {
         let show = parse(include_str!("../fixtures/top-toy.show.json")).unwrap();

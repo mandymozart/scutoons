@@ -205,6 +205,22 @@ impl RelayClient {
         serde_json::to_string(self.c.readers()).unwrap_or_default()
     }
 
+    /// #478: the page asks the API at `api` for this client's proof with the person's sign-in (`{ ask_proof: { url } }`
+    /// says when; the answer to `proof`); the first hello waits for it. Call before `start`.
+    pub fn ask_proof(&mut self, api: &str) {
+        self.c.ask_proof(api);
+    }
+
+    /// #478: the API's answer to `ask_proof` (`status` 0: no answer)
+    pub fn proof(&mut self, now: f64, status: u16, body: &str) {
+        self.c.proof(now, status, body);
+    }
+
+    /// #478: the person signed in or out: the proof is asked again
+    pub fn proof_again(&mut self, now: f64) {
+        self.c.proof_again(now);
+    }
+
     /// the person said yes to the live camera `camera` (or Take it back): this phone holds it from the relay's
     /// answer on, and takes it again by itself after a drop or a reload; false: no reader, or no `key` in its options
     pub fn camera_claim(&mut self, camera: &str) -> bool {

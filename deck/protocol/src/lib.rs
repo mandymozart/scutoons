@@ -14,6 +14,8 @@ pub mod story_events;
 pub mod vote;
 /// #546: the one filter's rule (an address's `where`, a show cell's column), for the receiver, the relay and the core
 pub mod filter;
+/// #478: a client's proof for its live session (`GET /api/live/proof`): where it is asked, what the answer means, when again
+pub mod proof;
 
 pub use generated::*;
 

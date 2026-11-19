@@ -19,7 +19,8 @@ pub mod compose;
 pub mod frame;
 pub mod plan;
 pub mod preload;
-pub mod proof;
+/// #478: a client's proof for its live session lives with the protocol (a reader's phone asks it too, without the outlet)
+pub use protocol::proof;
 pub mod recompose;
 pub mod route;
 pub mod show;

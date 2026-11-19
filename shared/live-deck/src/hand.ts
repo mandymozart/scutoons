@@ -28,6 +28,8 @@ export interface HandLinkOptions extends Platform {
 	token?: string;
 	/** a reader phone's own secret, kept in its browser: a drop or a reload is the same holder */
 	key?: string;
+	/** #478: a reader phone asks the API here for its proof (camera.ts fetches it with the person's sign-in) */
+	proofApi?: string;
 	/** relay-web (`loadRelay('/live/')`); the link joins once it is there */
 	core: RelayModule | Promise<RelayModule>;
 	/** the core's status, the rung it is on ('QUIC' · 'WebSocket' · '' while not joined) and its HUD line */
@@ -65,6 +67,7 @@ export class HandLink {
 		if (this.stopped) return;
 		const o = this.o;
 		const core = new m.RelayClient(JSON.stringify({ relay: o.relay, role: o.role, token: o.token, key: o.key, device: o.role === 'reader' ? 'phone' : undefined })) as HandCore;
+		if (o.proofApi) (core as HandCore & { ask_proof(api: string): void }).ask_proof(o.proofApi);
 		if (this.early.state) core.hand_state(JSON.stringify(this.early.state));
 		if (this.early.view) core.hand_view(JSON.stringify(this.early.view));
 		const hooks = { onStatus: (line: string, s: RelayStatus) => o.onStatus?.(s, core.rung(), line), onOther: this.hear.bind(this) };

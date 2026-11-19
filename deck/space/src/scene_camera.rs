@@ -14,6 +14,8 @@
 //!   there (a fly-through synced to the music).
 //! - **Move:** a kind, the shot it ends on, a length in beats, bars or seconds, an ease, whether it waits for the bar line,
 //!   whether it repeats (once, loop, ping-pong), the move it chains to; `scene:<id> > move:<move>` plays it.
+//! - **Phones:** the camera and each shot may be offered to a phone in a live session (LIVE-CAMERAS.md §4): who may take it
+//!   (the one condition control's filter) and how long without a pose before it returns. Unset: no phone takes it.
 use crate::rig::address::{word, Aim};
 use crate::scene_document::Label;
 use serde::{Deserialize, Serialize};
@@ -187,6 +189,22 @@ pub struct ShotDef {
     /// in place of the lens's `focus`
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub focus_on: Option<String>,
+    /// a phone in a live session may take this shot as a camera of its own (`scene:<id> > shot:<id>`)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub phones: Option<Phones>,
+}
+
+/// Who may take a camera on a phone (LIVE-CAMERAS.md §4, §5): the one condition control's filter (any one fact; none:
+/// anyone with the code) and the time without a pose before it returns (none: only Leave, a take-over or the conductor).
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Phones {
+    #[serde(rename = "for", default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "schema", schemars(with = "Option<std::collections::BTreeMap<String, serde_json::Value>>"))]
+    pub admits: Option<protocol::Admits>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub release_ms: Option<u64>,
 }
 
 impl ShotDef {
@@ -678,11 +696,14 @@ pub struct SceneCamera {
     /// the modules on its slots (deck-catalog `slot`: `motion`, on top of its shots and moves)
     #[serde(default, rename = "module", skip_serializing_if = "Vec::is_empty")]
     pub modules: Vec<deck_catalog::slot::Attach>,
+    /// a phone in a live session may take the primary camera (`scene:<id>`)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub phones: Option<Phones>,
 }
 
 impl Default for SceneCamera {
     fn default() -> SceneCamera {
-        SceneCamera { source: Source::Scene, lens: Lens::default(), height: DEFAULT_HEIGHT, shots: Vec::new(), track: None, moves: Vec::new(), modules: Vec::new() }
+        SceneCamera { source: Source::Scene, lens: Lens::default(), height: DEFAULT_HEIGHT, shots: Vec::new(), track: None, moves: Vec::new(), modules: Vec::new(), phones: None }
     }
 }
 
@@ -791,7 +812,7 @@ mod tests {
     use super::*;
 
     fn shot(id: &str) -> ShotDef {
-        ShotDef { id: id.into(), label: Label::new(), target: [0.0, 1.0, 0.0], yaw: 20.0, pitch: 8.0, distance: 3.0, lens: Lens::default(), aim: None, focus_on: None }
+        ShotDef { id: id.into(), label: Label::new(), target: [0.0, 1.0, 0.0], yaw: 20.0, pitch: 8.0, distance: 3.0, lens: Lens::default(), aim: None, focus_on: None, phones: None }
     }
 
     #[test]

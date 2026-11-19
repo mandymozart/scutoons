@@ -40,6 +40,7 @@
 		"viewer/src/routes/live/cameras/+page.svelte": "ui: the cameras a phone may take, as the relay shows them, with who holds each",
 		"viewer/src/routes/live/cameras/[id]/+page.svelte": "ui: one live camera's phone page – the one handheld's screen, the ask, Leave, Take it back",
 		"shared/live-deck/src/camera.ts": "adapter: a reader phone's yes, Take it back and Leave for a live camera into deck-space's relay client, its hold, the cameras and the flash out (relay-web)",
+		"shared/live-deck/src/phone-proof.ts": "adapter: a reader phone's proof fetched with the person's sign-in when the core asks, the bytes back to it (relay-web, #478)",
 		"shared/live-deck/src/hand.ts": "adapter: the handheld camera's moves (pose, state, record, recenter, view) into deck-space's relay client and what it hears out (relay-web, #469)",
 		"shared/live-deck/src/gamepad.ts": "adapter: the Gamepad API's poll into DeckControls.pad, its events to the sticks",
 		"shared/live-deck/src/index.ts": "types: the package's exports",

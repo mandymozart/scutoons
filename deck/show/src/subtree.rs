@@ -85,6 +85,8 @@ pub struct Subtree {
     reported: Option<SeatState>,
     /// #478: who sits where under which name (presence's `who`), by client id
     who: BTreeMap<String, protocol::Present>,
+    /// the live cameras offered to its session's phones
+    cameras: Vec<protocol::LiveCamera>,
     /// #478 slice 3: how many sit in each role, as the relay last counted them (its `roles` to the conductor); none = no
     /// count yet
     counts: Option<BTreeMap<String, u64>>,
@@ -131,6 +133,7 @@ impl Subtree {
             clients: 0,
             reported: None,
             who: BTreeMap::new(),
+            cameras: Vec::new(),
             counts: None,
             moved: BTreeMap::new(),
             vote: crate::vote::Board::default(),
@@ -234,6 +237,16 @@ impl Subtree {
         let now = self.now(ms);
         let outs = self.conductor.on_event(&event, now);
         self.done(outs, ms)
+    }
+
+    /// The live cameras its scenes offer to phones (live_cameras.rs `offered`), for its session: sent when they changed;
+    /// the relay client sends them again at every welcome
+    pub fn offer_cameras(&mut self, cameras: Vec<protocol::LiveCamera>) -> Vec<Envelope> {
+        if self.cameras == cameras {
+            return vec![];
+        }
+        self.cameras.clone_from(&cameras);
+        vec![message(Message::Cameras(protocol::Cameras { cameras }), None)]
     }
 
     /// #478: the roles this conductor gives out, for its session (sent when it joins and with every new show)
@@ -346,7 +359,12 @@ impl Subtree {
         outs.into_iter()
             .flat_map(|o| match o {
                 Out::Send(e) => vec![*e],
-                Out::Address(a) => self.address(&a.address, &a.action, a.filter, ms),
+                Out::Address(a) => match deck_space::rig::address::PhoneCamera::parse(&a.address, &a.action) {
+                    // LIVE-CAMERAS.md §5a: a phone becomes that camera – the relay picks it by the row's filter
+                    Some(Ok(camera)) => vec![message(Message::CameraForce(protocol::CameraForce { client: String::new(), camera, r#where: a.filter }), None)],
+                    Some(Err(_)) => vec![],
+                    None => self.address(&a.address, &a.action, a.filter, ms),
+                },
                 Out::Camera { column, address, action, beat } => {
                     let only = protocol::Filter { group: Some(column), ..Default::default() };
                     self.address_on(&address, &action, Some(only), beat, ms)

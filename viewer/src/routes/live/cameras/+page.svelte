@@ -4,13 +4,15 @@
 	import { onDestroy } from 'svelte';
 	import { page } from '$app/state';
 	import { LIVE_QUIC, LIVE_URL } from '$lib/config.ts';
+	import { getSessionContext } from '$lib/contexts/session.svelte.ts';
 	import { CameraSession } from '$lib/live-camera.svelte.ts';
 	import { cameraHref, cameraName } from '$lib/live-cameras.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { sessionOf } from '$lib/reader-session.ts';
 
 	const relay = sessionOf(page.url.searchParams, LIVE_URL, LIVE_QUIC);
-	const s = relay ? new CameraSession(relay) : null;
+	const session = getSessionContext();
+	const s = relay ? new CameraSession(relay, undefined, session.isLoggedIn) : null;
 	onDestroy(() => s?.close());
 	const status = $derived(!s ? m['live_cameras.no_session']() : s.status === 'joining' ? m['live_cameras.connecting']() : s.status === 'offline' ? m['live_cameras.offline']() : '');
 </script>

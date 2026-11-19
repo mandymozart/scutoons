@@ -219,6 +219,28 @@ impl CameraWord {
     }
 }
 
+/// A show row's phone camera word (LIVE-CAMERAS.md §5a): `scene:duet > camera` makes a phone the scene's primary camera,
+/// `scene:duet > camera:close` that shot's. `camera` as an action is the conductor's, never a deck's: it switches the phone,
+/// not the picture (the relay forces it, deck-show cameras.rs).
+pub struct PhoneCamera;
+
+impl PhoneCamera {
+    /// None: not a phone camera word; else the camera's id (live_cameras.rs `camera_id`) or why it is none
+    pub fn parse(address: &str, action: &str) -> Option<Result<String, String>> {
+        let shot = match action.split_once(':') {
+            None if action == CAMERA => None,
+            Some((CAMERA, shot)) => Some(shot),
+            _ => return None,
+        };
+        let scene = Target::parse(address).ok().filter(|t| t.kind == "scene" && t.id.is_some());
+        Some(match (scene, shot.map(|s| word(s, "the shot's id"))) {
+            (None, _) => Err(format!("'{address} > {action}': a phone takes a scene's camera, scene:<id> > camera")),
+            (_, Some(Err(e))) => Err(e),
+            (Some(_), shot) => Ok(crate::live_cameras::camera_id(address, shot.and_then(Result::ok))),
+        })
+    }
+}
+
 /// the reserved place of a set's spot (glb.rs `spots`), as a camera aims at it: `spot:<name>`
 pub const SPOT: &str = "spot";
 

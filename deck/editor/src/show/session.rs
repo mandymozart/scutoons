@@ -25,6 +25,8 @@ pub struct Session {
     pub demo: Option<Readers>,
     /// a check run's live cameras (`--cameras`), in place of the relay's
     pub demo_cameras: Option<Vec<protocol::LiveCamera>>,
+    /// the live camera picked in the list (its id): the QR is its own
+    pub camera: Option<String>,
 }
 
 /// the public library's answer at `url` (the reader's own lists, no token)
@@ -60,7 +62,7 @@ impl Host {
         let state = self.link_line();
         let heard = self.link.as_ref().map(|l| l.cameras.lock().unwrap().clone());
         let cameras = self.session.demo_cameras.clone().or(heard).unwrap_or_default();
-        session_panel::panel(&Facts { base: &base, code, relay, state: &state, place: &s.place, toons: &self.toons.list, chapters: &s.chapters, readers: &readers, cameras: &cameras })
+        session_panel::panel(&Facts { base: &base, code, relay, state: &state, place: &s.place, toons: &self.toons.list, chapters: &s.chapters, readers: &readers, cameras: &cameras, picked: self.session.camera.as_deref() })
     }
 
     /// the sheet opened: the toons asked; the place starts at the show's toon
@@ -99,6 +101,10 @@ impl Host {
                 }
             }
             Hit::SessionLabel => self.typing = Some((Typing::ReaderLabel, Field::with(&self.session.place.label))),
+            Hit::SessionCamera(i) => {
+                let id = self.session_panel().cameras.get(i).map(|c| c.id.clone());
+                self.session.camera = id.filter(|id| self.session.camera.as_ref() != Some(id));
+            }
             Hit::SessionCopy => {
                 let link = self.session_panel().link;
                 if link.is_empty() {
@@ -283,10 +289,15 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, _pointer: (f
             d.text(cx, y + 2.0, small, &format!("{} more …", p.cameras.len() - i), t.color.muted);
             break;
         }
+        let r = Rect { x: cx, y, w: lw, h: row };
+        if p.picked == Some(i) {
+            d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, t.color.control);
+        }
         if c.holder.is_some() {
             d.disc(cx + 4.0, y + row * 0.5, 4.0, if c.away { t.color.muted } else { t.color.accent });
         }
         d.text(cx + 16.0, y + (row - small * 1.25) * 0.5, small, &fit(d, &camera_line(c), small, lw - 16.0), t.color.text);
+        host.hits.push((r, Hit::SessionCamera(i)));
         y += row;
     }
     d.text(cx, y + 4.0, small, &fit(d, &p.cameras_link, small, lw), t.color.accent);

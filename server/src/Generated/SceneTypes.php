@@ -29,13 +29,14 @@ namespace Scutoons\Generated;
  * @phpstan-type MoveDef array{amount?: float, ease?: Ease, follow?: string | null, height?: float, id: string, kind: MoveKind, length: Length, repeat?: Repeat, rounds?: float, side?: Side, start?: Start, then?: string | null, to: string, turn?: Turn}
  * @phpstan-type MoveKind 'cut' | 'glide' | 'in' | 'fly' | 'crane_down' | 'crane_up' | 'spiral' | 'push' | 'pull' | 'orbit' | 'truck' | 'tilt' | 'zoom' | 'dolly_zoom' | 'whip' | 'follow' | 'shake' | 'rack'
  * @phpstan-type NodeDef array<string, mixed>
+ * @phpstan-type Phones array{for?: array<string, mixed> | null, release_ms?: int | null}
  * @phpstan-type Projection 'perspective' | 'orthographic'
  * @phpstan-type Repeat 'once' | 'loop' | 'ping_pong'
  * @phpstan-type RigPin array{ref: string, version?: string | null}
- * @phpstan-type SceneCamera array{height?: float, lens?: Lens, module?: list<Attach>, move?: list<MoveDef>, shot?: list<ShotDef>, source?: Source, track?: Track | null}
+ * @phpstan-type SceneCamera array{height?: float, lens?: Lens, module?: list<Attach>, move?: list<MoveDef>, phones?: Phones | null, shot?: list<ShotDef>, source?: Source, track?: Track | null}
  * @phpstan-type SceneTransition 'fade' | 'cut' | 'blackout'
  * @phpstan-type SceneUse array{scene: string, with?: array<string, Fillers>}
- * @phpstan-type ShotDef array{aim?: string | null, distance: float, focus_on?: string | null, id: string, label?: array<string, string>, lens?: Lens, pitch: float, target: array{float, float, float}, yaw: float}
+ * @phpstan-type ShotDef array{aim?: string | null, distance: float, focus_on?: string | null, id: string, label?: array<string, string>, lens?: Lens, phones?: Phones | null, pitch: float, target: array{float, float, float}, yaw: float}
  * @phpstan-type Side 'left' | 'right'
  * @phpstan-type Source 'scene' | 'handheld'
  * @phpstan-type StageSettings array{audio_buffer?: int | null, background?: Background | null, layers?: list<Layer>, name?: string, render_scale?: float, transition?: SceneTransition, transition_secs?: float}

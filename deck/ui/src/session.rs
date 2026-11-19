@@ -65,10 +65,13 @@ pub struct Panel {
     pub qr: Qr,
     pub readers: Vec<Reader>,
     pub last: Option<Heard>,
-    /// the session's live cameras and who holds each; the list's address a phone opens (empty without a session) and its QR
+    /// the session's live cameras and who holds each; the address a phone opens (empty without a session) and its QR: the
+    /// picked camera's, else the list's
     pub cameras: Vec<Camera>,
     pub cameras_link: String,
     pub cameras_qr: Qr,
+    /// the camera picked in the list: the QR is its own
+    pub picked: Option<usize>,
 }
 
 /// the words before a place is whole

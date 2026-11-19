@@ -356,6 +356,7 @@ fn args() -> Result<Args> {
             "--who-move" => a.script.who_move = val()?.split_once('=').map(|(c, r)| (c.to_string(), r.to_string())),
             "--who-menu" => a.script.who_menu = Some(val()?),
             "--linked" => a.script.linked = val()?.split(',').map(str::trim).filter(|n| !n.is_empty()).map(String::from).collect(),
+            "--camera-pick" => a.script.camera_pick = Some(val()?),
             "--cameras" => a.script.cameras = val()?.split(',').map(str::trim).filter(|n| !n.is_empty()).map(|c| c.split_once('=').map_or((c.to_string(), None), |(id, who)| (id.to_string(), Some(who.to_string())))).collect(),
             "--reader-place" => {
                 let v = val()?;
@@ -2686,8 +2687,10 @@ impl App {
         self.show.book.clone_from(&self.book.book);
         self.show.book_why = self.book_why();
         if let Some(view) = self.scene.as_ref() {
-            let shots = view.edit.camera().shots.iter().map(|s| (s.id.clone(), dop::shot_words(s))).collect();
+            let camera = view.edit.camera();
+            let shots = camera.shots.iter().map(|s| (s.id.clone(), dop::shot_words(s))).collect();
             self.show.cameras.insert(view.edit.key(), shots);
+            self.show.offer_cameras(view.edit.key(), deck_space::live_cameras::offered(&view.edit.key(), &camera));
         }
         self.follow_library();
         if std::mem::take(&mut self.panels_moved) {
