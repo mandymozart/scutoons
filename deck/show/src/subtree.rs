@@ -352,7 +352,7 @@ impl Subtree {
         let t = self.anchor.as_ref()?;
         let at = t.at.unwrap_or(ms as i64);
         let beat = if t.running { t.beat + (ms as i64 - at) as f64 * t.bpm / 60_000.0 } else { t.beat };
-        Some(crate::conductor::Clock { bpm: t.bpm, beat, per_bar: t.per_bar.max(1) as u32 })
+        Some(crate::conductor::Clock { bpm: t.bpm, beat, per_bar: t.per_bar.max(1) as u32, running: t.running })
     }
 
     fn wire(&mut self, outs: Vec<Out>, ms: u64) -> Vec<Envelope> {

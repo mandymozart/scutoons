@@ -25,6 +25,8 @@ pub enum KnobHit {
     Take,
     /// #568: open the cell's piece in Build (build.rs)
     Build,
+    /// #630: the cell's piece on the cue (cue.rs), or off it
+    Prelisten,
 }
 
 type Answer = Result<Arc<Read>, String>;
@@ -145,6 +147,9 @@ impl Host {
         if h == KnobHit::Build {
             return self.ask_build();
         }
+        if h == KnobHit::Prelisten {
+            return self.ask_prelisten();
+        }
         let Some((row, column, piece, read)) = self.cell_knobs() else { return };
         let knobs = &read.knobs;
         let views = rows::cell_knobs(self.shown(), &row, &column, knobs, "en");
@@ -165,7 +170,7 @@ impl Host {
                 }
                 Err(why) => self.refuse(why),
             },
-            KnobHit::Build => {}
+            KnobHit::Build | KnobHit::Prelisten => {}
         }
     }
 
@@ -182,6 +187,7 @@ impl Host {
     pub fn release(&mut self) {
         self.nodes_release();
         self.wire_release();
+        self.mix_release();
         let Some(d) = self.knob_drag.take() else { return };
         if d.v == d.v0 {
             return;
@@ -259,6 +265,11 @@ pub fn side(d: &mut DrawList, t: &Tokens, host: &mut Host, (x, y, w): (f32, f32,
             let o = Rect { x, y: y + 2.0, w: ow, h: h - 4.0 };
             super::live::button(d, t, o, super::build::OPEN, t.color.control, t.color.text);
             host.hits.push((o, Hit::Knob(KnobHit::Build)));
+            let word = if host.prelistening.is_some() { super::cue::STOP } else { super::cue::PRELISTEN };
+            let pw = d.advance(small) * word.chars().count() as f32 + 2.0 * pad;
+            let p = Rect { x: o.x + o.w + pad, y: y + 2.0, w: pw, h: h - 4.0 };
+            super::live::button(d, t, p, word, if host.prelistening.is_some() { t.color.go } else { t.color.control }, t.color.text);
+            host.hits.push((p, Hit::Knob(KnobHit::Prelisten)));
             y += h;
         }
     }

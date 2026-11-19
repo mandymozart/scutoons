@@ -105,6 +105,20 @@ pub struct Stage {
     /// the far world nodes' rings (deck-space far.rs), the MIDI world nodes' way in
     far: Option<deck_space::far::FarTable>,
     midi: Option<deck_events::adapters::midi::Midi>,
+    /// a show is live (#630): what plays here is a preview on the cue (deck-engine cue.rs), its clock the show's
+    pub live: bool,
+    /// the device's cue: the preview's or a pre-listened cell's way onto it, and the cue mix
+    cue: Option<deck_engine::cue::Cue>,
+    pub cue_mix: f32,
+    /// a show cell pre-listened on the cue: what it is, and the engine's frame side
+    pub prelisten: Option<Prelisten>,
+}
+
+/// A show cell played on the cue before its row fires: the second, small engine's frame side.
+pub struct Prelisten {
+    pub label: String,
+    _handles: audio::Handles,
+    _events: Option<audio::dispatch::Running>,
 }
 
 /// a track's strip on the mixer
@@ -184,10 +198,15 @@ fn prepare(bundle: Bundle) -> Result<Ready> {
     Ok(Ready { reach, bundle, knobs: turn.played.knobs.clone(), strips: turn.played.strips(), sum: turn.played.sum(), scene, graph, tempo, space_node, ports, groups })
 }
 
+/// the scene a rig bundle plays as (a pre-listened cell's piece, #630)
+pub fn bundle_scene(bundle: Bundle) -> Result<Scene> {
+    prepare(bundle).map(|r| r.scene)
+}
+
 impl Stage {
     /// `plays` on the stage at `volume`, the difference to the rig `base` (rigs.rs `base`)
     pub fn new(base: Bundle, plays: Bundle, volume: f32) -> Result<Stage> {
-        let mut stage = Stage::start(prepare(plays)?, volume);
+        let mut stage = Stage::start(prepare(plays)?, volume, false, deck_engine::cue::MIX);
         stage.base = base;
         Ok(stage)
     }
@@ -242,6 +261,7 @@ impl Stage {
 
     /// Black and silent until `resume`: the sound device is let go, the picture goes black.
     pub fn panic(&mut self) {
+        self.prelisten = None;
         self._events = None;
         self._audio = None;
         self.handles = None;
@@ -265,7 +285,8 @@ impl Stage {
         self._events = None;
         self._audio = None;
         self.handles = None;
-        let mut next = Stage::start(ready, self.volume);
+        self.prelisten = None;
+        let mut next = Stage::start(ready, self.volume, self.live, self.cue_mix);
         next.base = self.base.clone();
         next.opened = std::mem::take(&mut self.opened);
         next.enter(self.path.clone());
@@ -323,15 +344,19 @@ impl Stage {
         Ok(())
     }
 
-    fn start(ready: Ready, volume: f32) -> Stage {
+    fn start(ready: Ready, volume: f32, live: bool, cue_mix: f32) -> Stage {
         let Ready { bundle, knobs: played_knobs, strips: played_strips, sum, scene, graph, tempo: tempo_cfg, space_node: node, ports, groups, reach } = ready;
+        let tempo_cfg = if live { tempo_cfg.preview() } else { tempo_cfg };
         let mut handles = None;
+        let mut cue = None;
         let mut audio_name = "off".to_string();
         let audio = {
             let mut factory = |rate: f32, channels: usize| {
-                let (engine, h) = audio::Engine::build_for(&graph, rate, volume, channels)?;
-                tracing::info!("audio graph: {} ({} device channels)", h.build.label(), engine.device_channels());
+                let (engine, h, c) = if live { preview(&graph, rate, volume, channels)? } else { own(&graph, rate, volume, channels)? };
+                tracing::info!("audio graph: {} ({} device channels{})", h.build.label(), engine.device_channels(), if live { ", a preview on the cue" } else { "" });
+                c.set_mix(cue_mix);
                 handles = Some(h);
+                cue = Some(c);
                 Ok(engine)
             };
             match backend::start(&backend::Options::from_deck(&backend::DeckAudio::read()), &mut factory) {
@@ -342,6 +367,7 @@ impl Stage {
                 Err(e) => {
                     tracing::warn!("audio off: {e:#}");
                     handles = None;
+                    cue = None;
                     None
                 }
             }
@@ -419,13 +445,92 @@ impl Stage {
         let master = sum.as_deref().and_then(|s| slot(s, true)).map(|(n, p, _)| (n, p));
         let node_ids = graph.nodes.iter().map(|n| n.id.clone()).collect();
         let kinds = graph.nodes.iter().map(|n| n.kind).collect();
-        Stage { controls, space, gpu: None, texture: None, pixel: None, pixel_buf: None, still: false, still_buf: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, kinds, strips, inner, master, master_peak: [0.0; 2], master_max: 0.0, volume, path: Vec::new(), opened: Vec::new(), core_node: node, groups, reach, scene: None, played_scene: None, dark: false, silent: Default::default(), beat: None, own_background, over: None, playing: false, clock_source, far, midi }
+        Stage { controls, space, gpu: None, texture: None, pixel: None, pixel_buf: None, still: false, still_buf: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, kinds, strips, inner, master, master_peak: [0.0; 2], master_max: 0.0, volume, path: Vec::new(), opened: Vec::new(), core_node: node, groups, reach, scene: None, played_scene: None, dark: false, silent: Default::default(), beat: None, own_background, over: None, playing: false, clock_source, far, midi, live, cue, cue_mix, prelisten: None }
+    }
+
+    /// A show went live or ended (#630): what plays here becomes a preview on the cue, or plays on its outlets again –
+    /// rebuilt from what plays (the rig or Show's scene), the camera and the knobs kept. A panic holds on: the next resume
+    /// builds it so.
+    pub fn set_live(&mut self, live: bool) -> Result<()> {
+        if self.live == live {
+            return Ok(());
+        }
+        self.live = live;
+        if self.dark || self._audio.is_none() {
+            return Ok(());
+        }
+        self.resume()
+    }
+
+    /// the clock locked to a live show's (#630), or let go
+    pub fn hold(&mut self, held: Option<deck_core::tempo::Held>) {
+        if held.is_some() || self.tempo.held() {
+            self.tempo.hold(held);
+        }
+    }
+
+    /// whether the clock is the live show's
+    pub fn held(&self) -> bool {
+        self.tempo.held()
+    }
+
+    /// the cue mix: 0 = the show, 1 = the preview
+    pub fn set_cue_mix(&mut self, mix: f32) {
+        self.cue_mix = mix.clamp(0.0, 1.0);
+        if let Some(c) = &self.cue {
+            c.set_mix(self.cue_mix);
+        }
+    }
+
+    /// whether the device has a cue of its own (None: no sound device)
+    pub fn cue_heard(&self) -> Option<bool> {
+        self.cue.as_ref().map(deck_engine::cue::Cue::heard)
+    }
+
+    /// A show cell's scene on the cue, a second engine beside what plays here (its knobs as the cell sets them), until
+    /// `stop_prelisten`; refused while a panic holds or without a sound device.
+    pub fn prelisten(&mut self, label: &str, scene: &Scene, set: &[(String, f32)]) -> Result<()> {
+        if self.dark {
+            bail!("a panic holds: resume first");
+        }
+        let graph = Graph::build(scene)?;
+        let rate = self.handles.as_ref().map(|h| h.clock.rate).context("no sound device")?;
+        let (engine, mut h) = audio::Engine::build_folded(&graph, rate, self.volume)?;
+        let mut controls = Controls::new(&graph, Some(h.core_mut()));
+        for (path, v) in set {
+            let (id, port) = node_port(path);
+            let Some(n) = graph.nodes.iter().position(|x| x.id == id) else { continue };
+            let Some(i) = graph.nodes[n].kind.input(port) else { continue };
+            let spec = params::spec(graph.nodes[n].kind, graph.nodes[n].kind.inputs()[i].name);
+            controls.set_base(n, i, v.clamp(spec.min.min(spec.max), spec.max.max(spec.min)));
+        }
+        let events = h.start_events().map_err(|e| tracing::warn!("pre-listen events: no thread ({e})")).ok().flatten();
+        let cue = self.cue.as_mut().context("no sound device")?;
+        if !cue.play(Some(engine.into_core())) {
+            bail!("the cue did not take it");
+        }
+        self.prelisten = Some(Prelisten { label: label.to_string(), _handles: h, _events: events });
+        Ok(())
+    }
+
+    /// the pre-listened cell off the cue: what played there before comes back (a live stage's own preview is rebuilt)
+    pub fn stop_prelisten(&mut self) -> Result<()> {
+        if self.prelisten.take().is_none() {
+            return Ok(());
+        }
+        if self.live && !self.dark {
+            return self.resume();
+        }
+        if let Some(c) = self.cue.as_mut() {
+            c.play(None);
+        }
+        Ok(())
     }
 
     /// Play or Edit (#629): the clock follows the item's own source, or the editor's
     pub fn follow(&mut self, playing: bool) {
         self.playing = playing;
-        if self.clock_source != tempo::Source::Internal {
+        if self.clock_source != tempo::Source::Internal && !self.live {
             self.tempo.set_source(if playing { self.clock_source } else { tempo::Source::Internal });
         }
     }
@@ -728,4 +833,24 @@ impl Stage {
         Some(px)
     }
 
+}
+
+/// the stage's own engine on the machine's outlets, and the device's cue beside it
+fn own(graph: &Graph, rate: f32, volume: f32, channels: usize) -> Result<(audio::Engine, audio::Handles, deck_engine::cue::Cue)> {
+    let (engine, mut h) = audio::Engine::build_for(graph, rate, volume, channels)?;
+    let cue = h.core_mut().cue.take().context("the engine's cue")?;
+    Ok((engine, h, cue))
+}
+
+/// A show is live (#630): the device's outlets are the show's – this machine plays nothing on them (an empty engine holds
+/// the device) – and the stage's graph is a preview folded onto the cue beside it; its handles are the stage's.
+fn preview(graph: &Graph, rate: f32, volume: f32, channels: usize) -> Result<(audio::Engine, audio::Handles, deck_engine::cue::Cue)> {
+    let (main, mut mh) = audio::Engine::build_for(&Graph::build(&Scene::parse("")?)?, rate, volume, channels)?;
+    let (folded, mut h) = audio::Engine::build_folded(graph, rate, volume)?;
+    let mut cue = mh.core_mut().cue.take().context("the engine's cue")?;
+    cue.play(Some(folded.into_core()));
+    // the device's callback measures both: its counters are the stage's
+    h.glitches = mh.glitches.clone();
+    h.glitch_log = mh.glitch_log.take();
+    Ok((main, h, cue))
 }

@@ -26,6 +26,7 @@ mod ask;
 pub mod author;
 pub mod band;
 pub mod build;
+pub mod cue;
 pub(crate) mod condition;
 pub mod demos;
 mod events;
@@ -221,6 +222,8 @@ pub enum Hit {
     Vote(vote::VoteHit),
     /// the selected cell's values: a knob, its ×, take current (values.rs)
     Knob(values::KnobHit),
+    /// #630: the Session panel's cue mix (cue.rs): a press takes it in the hand
+    CueMix,
     /// the scene sheet's fields, buttons and lines (new_scene.rs)
     Compose(new_scene::ComposeHit),
     /// a demo of the Demos sheet
@@ -335,6 +338,14 @@ pub struct Host {
     pub knobs: values::Loader,
     pub knob_drag: Option<values::KnobDrag>,
     pub cursor: (f32, f32),
+    /// #630, the cue (cue.rs): the mix, its drag and its bar's width; a pre-listen asked of the stage, what is on the cue
+    /// (the editor says), why nothing is heard there
+    pub cue_mix: f32,
+    pub mix_drag: Option<cue::MixDrag>,
+    pub mix_width: f32,
+    pub to_prelisten: Option<cue::Ask>,
+    pub prelistening: Option<String>,
+    pub cue_note: Option<String>,
     /// #568: Build linked to a cell, and what Build is asked to play next (build.rs)
     pub build: Option<build::BuildLink>,
     pub to_build: Option<build::ToBuild>,
@@ -396,7 +407,7 @@ impl Host {
         show_panels.floats.scrolls_itself("nodes");
         let scroll = deck_kit::editor::table::Scroll::default();
         let saves = version.map(|v| (show.id.clone(), crate::autosave::Autosave::new(Some(v)))).into_iter().collect();
-        let mut host = Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), columns: Vec::new(), group: None, context: None, show_panels, show_scroll: scroll, band: None, view_slot: Rect::default(), help: None, address: None, book: None, cameras: BTreeMap::new(), live_cameras: BTreeMap::new(), book_why: None, carrying: false, refused: None, toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, locked: false, live_asked: false, status, unloaded, bad: false, wiring: None, flow: None, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, saves, unsent: BTreeMap::new(), session: session::Session::default(), toons: toons::Toons::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), build: None, to_build: None, compose: new_scene::Composer::default(), to_stage: None, demos: Vec::new(), demo_book: None, link, api, nodes: nodes::NodeView::default() };
+        let mut host = Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), columns: Vec::new(), group: None, context: None, show_panels, show_scroll: scroll, band: None, view_slot: Rect::default(), help: None, address: None, book: None, cameras: BTreeMap::new(), live_cameras: BTreeMap::new(), book_why: None, carrying: false, refused: None, toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, locked: false, live_asked: false, status, unloaded, bad: false, wiring: None, flow: None, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, saves, unsent: BTreeMap::new(), session: session::Session::default(), toons: toons::Toons::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), cue_mix: deck_engine::cue::MIX, mix_drag: None, mix_width: 1.0, to_prelisten: None, prelistening: None, cue_note: None, build: None, to_build: None, compose: new_scene::Composer::default(), to_stage: None, demos: Vec::new(), demo_book: None, link, api, nodes: nodes::NodeView::default() };
         host.adopt_kept();
         host
     }
@@ -599,6 +610,7 @@ impl Host {
             Hit::SessionToon(_) | Hit::SessionChapter(_) | Hit::SessionLabel | Hit::SessionCopy | Hit::SessionOpen | Hit::SessionCamera(_) => self.session_press(hit),
             Hit::Vote(v) => self.vote_press(v),
             Hit::Knob(k) => self.knob_press(k),
+            Hit::CueMix => self.mix_press(),
             Hit::Port(r, c, out, k) => self.port_press(r, c, out, k),
             Hit::Compose(c) => self.compose_press(c),
             Hit::Demo(i) => self.demo_press(i),

@@ -16,6 +16,7 @@ mod click;
 mod cols;
 pub mod config;
 pub mod control;
+pub mod cue;
 #[cfg(feature = "events")]
 pub mod dispatch;
 #[cfg(all(feature = "events", feature = "modules"))]
@@ -366,6 +367,8 @@ pub struct Engine {
     tone_on: Vec<usize>,
     /// the control half (#319): stepped at the start of every quantum, before the audio steps read its Params
     control: control::Control,
+    /// a second engine on the cue (cue.rs), summed in after the limiters
+    cue: Box<cue::Side>,
 }
 
 /// What the frame thread keeps of a built engine.
@@ -400,6 +403,8 @@ pub struct Handles {
     pub notes: Vec<String>,
     /// the UI's short tones (deck-core `ui_tone`): the frame thread asks, the engine plays them on the cue, else main
     pub tones: Arc<Tones>,
+    /// a preview summed onto the cue (cue.rs): taken once by whoever hands the audio thread one
+    pub cue: Option<cue::Cue>,
     /// the hosts' events (#236): names, the sequencer, the routing for the dispatcher – `events.start()` runs them
     #[cfg(feature = "events")]
     pub events: dispatch::Events,
@@ -469,6 +474,7 @@ impl Engine {
             device: device.clone(),
             notes: Vec::new(),
             tones: Arc::new(Tones::default()),
+            cue: None,
             #[cfg(feature = "events")]
             events: dispatch::Events::new(seq),
             #[cfg(feature = "modules")]
@@ -643,6 +649,8 @@ impl Engine {
         let (feed, link) = control::link(control.slots(), handles.clock.frames.clone());
         control.attach(deck_core::tempo::BeatReader { shared: handles.tempo.clone(), frames: handles.clock.frames.clone() }, feed);
         handles.control = Some(link);
+        let (side, cue) = cue::Side::new(deck);
+        handles.cue = Some(cue);
         let engine = Engine {
             meters: handles.meters.clone(),
             bufs,
@@ -667,6 +675,7 @@ impl Engine {
             tones: handles.tones.clone(),
             tone_on: tone_channels(deck),
             control,
+            cue: Box::new(side),
         };
         Ok((engine, handles))
     }
@@ -730,6 +739,7 @@ impl Engine {
         }
         self.last_mark = Some((frames, heard_ns));
         self.stamp.write([frames, heard_ns + ns(limiter::LOOK as u64)]);
+        self.cue.mark(self.pending, heard_ns);
     }
 
     /// Fill an interleaved device buffer (`channels` per frame) of any length with the device channels (the deck
@@ -827,6 +837,7 @@ impl Engine {
             }
         }
         self.add_tone(to, n);
+        self.cue.quantum(&mut self.dev, n);
         for c in 0..self.dev.channels() {
             let peak = self.dev.ch(c)[..n].iter().fold(0.0f32, |p, x| p.max(x.abs()));
             self.device.0[c].store(peak.to_bits(), Ordering::Relaxed);
@@ -1015,9 +1026,10 @@ fn plan_outlets(feeds: &[Feed], deck: &DeckConfig, rate: f32) -> Plan {
     let mut groups: Vec<(String, Vec<usize>)> = Vec::new();
     for f in feeds {
         // the device channel of each of the outlet's channels (None = the device lacks it), then the ones there are
-        let mut slots: Vec<Option<usize>> = if !f.list.is_empty() {
+        let pinned = !deck.unpinned;
+        let mut slots: Vec<Option<usize>> = if pinned && !f.list.is_empty() {
             f.list.iter().map(|&c| (c >= 1 && c <= d).then(|| c - 1)).collect()
-        } else if f.first > 0 {
+        } else if pinned && f.first > 0 {
             (f.first..f.first + f.width).map(|c| (c <= d).then(|| c - 1)).collect()
         } else {
             deck.channels_of(&f.group, f.width)
@@ -1033,7 +1045,7 @@ fn plan_outlets(feeds: &[Feed], deck: &DeckConfig, rate: f32) -> Plan {
         // a mono outlet the scene does not pin plays on both channels of its group's pair – the spec's mono → stereo
         // up-mix, at the outlet only (owner 2026-11-03: "copy to both"); pinned (`first`, `channels`) it keeps its one channel
         let pair = deck.channels_of(&f.group, 2);
-        if f.width == 1 && f.list.is_empty() && f.first == 0 && pair.iter().all(Option::is_some) {
+        if f.width == 1 && (!pinned || (f.list.is_empty() && f.first == 0)) && pair.iter().all(Option::is_some) {
             pairs.extend(pair.iter().flatten().map(|&t| (0, t, 1.0)));
         } else if m == f.width {
             pairs.extend((0..f.width).map(|c| (c, targets[c], 1.0)));

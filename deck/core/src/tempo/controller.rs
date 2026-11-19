@@ -140,6 +140,12 @@ impl Default for Config {
 }
 
 impl Config {
+    /// the clock of a preview while a show is live (#630): the live show owns the outputs – no MIDI clock out, never the
+    /// show clock's leader
+    pub fn preview(&self) -> Config {
+        Config { midi_out: None, lead: false, ..self.clone() }
+    }
+
     /// the map the audio starts with (before the first frame publishes)
     pub fn map(&self, rate: f64) -> TempoMap {
         TempoMap::new(self.bpm, self.per_bar, rate)
@@ -220,6 +226,19 @@ pub struct Controller {
     /// first snap onto the line is the deck before the line, not an error)
     window: SyncWindow,
     counting: bool,
+    /// a live show's clock this clock is locked to (`hold`): its sources and keys stand aside while it holds
+    held: Option<Held>,
+}
+
+/// A live show's clock at a moment, as a clock locked to it follows it: its tempo, its beat at `at_ns`, bar, run.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Held {
+    pub bpm: f64,
+    pub beat: f64,
+    pub per_bar: u32,
+    pub running: bool,
+    /// when the beat was read (the caller's monotonic ns)
+    pub at_ns: u64,
 }
 
 impl Controller {
@@ -247,6 +266,7 @@ impl Controller {
             capped: false,
             window: SyncWindow::default(),
             counting: false,
+            held: None,
         }
     }
 
@@ -414,6 +434,21 @@ impl Controller {
         self.midi.lost(now_ns as f64 * 1e-9)
     }
 
+    /// Locked to a live show's clock (None: let go, the clock runs on from where it stands on its own source): each frame
+    /// follows its line as a relay follower does (a jump snaps, a small error is nudged out); keys and sources do nothing
+    /// while it holds – the tempo is the live show's.
+    pub fn hold(&mut self, h: Option<Held>) {
+        if h.is_none() || self.held.is_none_or(|o| h.is_some_and(|n| n.running != o.running || n.per_bar != o.per_bar)) {
+            self.following = false;
+        }
+        self.held = h;
+    }
+
+    /// locked to a live show's clock
+    pub fn held(&self) -> bool {
+        self.held.is_some()
+    }
+
     pub fn set_source(&mut self, s: Source, host: &mut dyn Host) {
         if s != self.source {
             self.following = false;
@@ -439,7 +474,13 @@ impl Controller {
         self.capped = false;
         // #387: on a running show's line this frame: Some(it snapped onto the line)
         let mut on_line = None;
+        if let Some(h) = self.held {
+            let f = m.frames_at(h.at_ns);
+            let target = TempoMap { frame: f, beat: h.beat, bpm: clamp_bpm(h.bpm), rate: self.map.rate, running: h.running, per_bar: h.per_bar.clamp(1, 32) };
+            self.follow(target, frontier);
+        }
         match self.source {
+            _ if self.held.is_some() => {}
             Source::Midi if !self.midi.lost(m.now_ns as f64 * 1e-9) => {
                 if let Some(l) = self.midi.line() {
                     self.map = self.external(l.to_map(&m.line, m.rate, per_bar), frontier);
@@ -532,6 +573,7 @@ impl Controller {
                 self.pinger = Pinger::default();
                 self.lead.again();
             }
+            What::Osc(_) | What::Key(_) if self.held.is_some() => {}
             What::Osc(c) if self.source == Source::Osc => self.command(c, f, m, e.at_ns, host),
             What::Osc(_) => {}
             What::Key(Key::NextSource) => self.set_source(self.source.next(), host),
@@ -621,6 +663,25 @@ mod tests {
         assert!((shared.beat_at(m.rendered) - m.rendered / RATE).abs() < 1e-9);
         let later = t.frame(&moment(3.0, 1024.0), &mut NoHost).pos.beat;
         assert!((later - (2.0 + 61.0 / 60.0)).abs() < 1e-3, "{later}");
+    }
+
+    #[test]
+    fn a_held_clock_follows_the_live_show_and_no_key_moves_it() {
+        let mut t = tempo(90.0);
+        let held = |s: f64| Held { bpm: 128.0, beat: 32.0 + s * 128.0 / 60.0, per_bar: 4, running: true, at_ns: ((5.0 + s) * 1e9) as u64 };
+        t.hold(Some(held(0.0)));
+        let n = t.frame(&moment(5.0, 256.0), &mut NoHost);
+        assert!((n.bpm - 128.0).abs() < 1e-9 && (n.pos.beat - 32.0).abs() < 1e-6, "snapped onto the show: {n:?}");
+        t.push(at(5.5, What::Key(Key::Faster)));
+        t.hold(Some(held(1.0)));
+        let n = t.frame(&moment(6.0, 256.0), &mut NoHost);
+        assert!((n.bpm - 128.0).abs() < 0.01 * 128.0 && (n.pos.beat - held(1.0).beat).abs() < 1e-3, "a key does nothing: {n:?}");
+        assert!(t.held());
+        // let go: the clock runs on from where it stands, the keys work again
+        t.hold(None);
+        t.push(at(6.5, What::Key(Key::Faster)));
+        let n = t.frame(&moment(6.5, 256.0), &mut NoHost);
+        assert!(!t.held() && (n.bpm - 129.0).abs() < 1.5, "{n:?}");
     }
 
     #[test]

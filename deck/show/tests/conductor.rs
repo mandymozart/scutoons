@@ -234,7 +234,7 @@ fn an_address_finds_what_plays_it_or_stays_silent() {
 fn a_moment_waits_for_its_grid() {
     let mut c = opened();
     // beat 5.5 of a 4/4 bar at 120 bpm: the next bar line is beat 8, 2.5 beats = 1250 ms away
-    let now = Now { ms: 10_000, clock: Some(Clock { bpm: 120.0, beat: 5.5, per_bar: 4 }) };
+    let now = Now { ms: 10_000, clock: Some(Clock { bpm: 120.0, beat: 5.5, per_bar: 4, running: true }) };
     let out = c.fire("yellowmouse-enters", now);
     let at = out.iter().filter_map(Out::envelope).find(|e| matches!(e.message, Message::Cell(_))).and_then(|e| e.at);
     assert_eq!(at, Some(11_250));

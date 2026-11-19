@@ -36,6 +36,8 @@ pub struct Clock {
     pub bpm: f64,
     pub beat: f64,
     pub per_bar: u32,
+    /// stopped, the beat stands
+    pub running: bool,
 }
 
 /// Who fired a row.

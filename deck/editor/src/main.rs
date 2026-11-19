@@ -1258,6 +1258,8 @@ impl App {
         Some(match self.hit(x, y) {
             Hit::Menu => Help::new("Menu", "Open, publish, day or night, the settings, the audio and the account; this view's panels; back to the deck's stage."),
             Hit::Tempo => Help::new(format!("{} BPM", self.stage.beat.map_or_else(|| "–".to_string(), |(b, _)| format!("{b:.1}"))), match self.stage.beat {
+                _ if self.stage.held() => "LIVE: the live show's clock, locked – what plays here follows it.",
+                _ if self.stage.live => "LIVE: locked while the show is live; it follows the show's clock once the relay sends it.",
                 Some((_, true)) => "INT: the deck's own tempo clock runs; it sets the tempo of what plays here.",
                 Some((_, false)) => "INT: the deck's own tempo clock, standing.",
                 None => "No tempo clock plays here.",
@@ -2702,6 +2704,7 @@ impl App {
             self.script_live();
         }
         self.follow_live();
+        self.follow_cue();
         if self.frames == 0 && self.args.panic {
             self.panic_pill();
         }
@@ -2865,7 +2868,7 @@ impl App {
             modes: if build { Some((modes, usize::from(self.play.playing()))) } else { shows.then_some((modes, live_on)) },
             play: None,
             beat: self.stage.beat,
-            clock: bar::Clock::Int,
+            clock: if self.stage.live { bar::Clock::Live } else { bar::Clock::Int },
             account,
             pulse,
             pointer: self.cursor,

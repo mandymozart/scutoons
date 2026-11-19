@@ -175,9 +175,26 @@ impl Engine {
     /// `build_device` with this channel map instead of deck.toml's: a test tone on a map not saved yet
     fn build_mapped(graph: &Graph, rate: f32, volume: f32, build: Build, seq: Sequencing, channels: usize, outlets: &[deck_engine::OutletMap]) -> Result<(Engine, Handles)> {
         say_map(outlets, channels);
+        Engine::build_on(graph, rate, volume, build, seq, &seams(channels, outlets))
+    }
+
+    /// A preview for a host's cue (deck-engine cue.rs, #630): every outlet group of `graph` folded onto one stereo pair, the
+    /// hosts' generators on the sequencer thread. It plays where `Cue::play` puts it (`into_core`), never on a device of its own.
+    pub fn build_folded(graph: &Graph, rate: f32, volume: f32) -> Result<(Engine, Handles)> {
+        let mut s = seams(2, &[]);
+        s.deck = deck_engine::DeckConfig::folded(&deck_engine::outlet_groups(graph));
+        Engine::build_on(graph, rate, volume, detect_build(), detect_sequencing(), &s)
+    }
+
+    /// the core engine, for a host's cue (its glitch monitor stays here: the host's callback measures both)
+    pub fn into_core(self) -> deck_engine::Engine {
+        self.core
+    }
+
+    fn build_on(graph: &Graph, rate: f32, volume: f32, build: Build, seq: Sequencing, seams: &deck_engine::Seams) -> Result<(Engine, Handles)> {
         let (monitor, glitches, glitch_log) = glitch::Monitor::new(rate);
         #[allow(unused_mut)] // the restart lanes are a field of a feature
-        let (core, mut handles) = deck_engine::Engine::build_seams(graph, rate, volume, build, seq, &seams(channels, outlets))?;
+        let (core, mut handles) = deck_engine::Engine::build_seams(graph, rate, volume, build, seq, seams)?;
         // #342: a show's module restarts are rebuilt on a loader thread (it ends with the engine)
         #[cfg(feature = "modules")]
         if let Err(e) = modules::spawn_loader(std::mem::take(&mut handles.restarts)) {
@@ -212,6 +229,24 @@ mod tests {
             let run = Engine::tone(&null, &map, &tone).unwrap();
             assert_eq!(run.name, "null");
         }
+    }
+
+    /// #630: a live show's preview – an empty engine holds the rack (main 1/2, cue 3/4) and the folded scene beside it
+    /// plays on the cue only
+    #[test]
+    fn a_folded_preview_beside_an_empty_engine_plays_on_the_cue_only() {
+        let map = |g: &str, c: &[usize]| deck_engine::OutletMap { group: g.into(), channels: c.to_vec() };
+        let rack = [map("main", &[1, 2]), map("cue", &[3, 4])];
+        let empty = Graph::build(&deck_space::scene::Scene::parse("").unwrap()).unwrap();
+        let scene = "[[node]]\nid=\"a\"\nkind=\"osc\"\nfreq=440\ngain=0.5\n[[node]]\nid=\"m\"\nkind=\"out\"\n[[link]]\nfrom=\"a\"\nto=\"m.in\"\n";
+        let graph = Graph::build(&deck_space::scene::Scene::parse(scene).unwrap()).unwrap();
+        let (mut main, mut mh) = Engine::build_mapped(&empty, 48_000.0, 1.0, detect_build(), Sequencing::InBlock, 4, &rack).unwrap();
+        let (folded, _h) = Engine::build_on(&graph, 48_000.0, 1.0, detect_build(), Sequencing::InBlock, &deck_engine::Seams::with_deck(deck_engine::DeckConfig::folded(&deck_engine::outlet_groups(&graph)))).unwrap();
+        assert!(mh.core_mut().cue.take().unwrap().play(Some(folded.into_core())));
+        let mut out = vec![0.0f32; 4800 * 4];
+        main.render(&mut out, 4, |x| x);
+        let peak = |c: usize| out.iter().skip(c).step_by(4).fold(0.0f32, |m, x| m.max(x.abs()));
+        assert!(peak(0) == 0.0 && peak(1) == 0.0 && peak(2) > 0.1 && peak(3) > 0.1, "{:?}", (0..4).map(peak).collect::<Vec<_>>());
     }
 
     /// #627: a map made for a 20-channel interface (main 1/2, cue 3/4, stem 5/6) on a 2-channel output – the groups beyond the

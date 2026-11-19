@@ -97,6 +97,8 @@ pub struct Bar<'a> {
 pub enum Clock {
     Int,
     Ext { locked: bool },
+    /// a show is live (#630): the clock is its, locked
+    Live,
 }
 
 impl Clock {
@@ -104,6 +106,7 @@ impl Clock {
         match self {
             Clock::Int => "INT",
             Clock::Ext { .. } => "EXT",
+            Clock::Live => "LIVE",
         }
     }
 }
@@ -233,7 +236,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Placed {
     let meters = reading("CPU", "48 kHz") + 2.0 * pad + reading("GPU", "240 fps");
     let lead = if b.play.is_some() { inset + ih + pad } else { end };
     // the clock as wide as its widest words: the row does not move when the source changes
-    let words = [Clock::Int, Clock::Ext { locked: true }].iter().map(|c| controls::label_width(d, t, c.word())).fold(0.0, f32::max);
+    let words = [Clock::Int, Clock::Ext { locked: true }, Clock::Live].iter().map(|c| controls::label_width(d, t, c.word())).fold(0.0, f32::max);
     let mark = t.size.rem(0.5);
     let clock_w = lead + d.advance(px) * 5.0 + pad + words + mark + end;
     // as wide in both states: the row does not move when it latches
