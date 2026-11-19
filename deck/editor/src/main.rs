@@ -80,7 +80,7 @@ pub fn cache_dir() -> PathBuf {
 
 struct Args {
     rig: String,
-    /// `--rig` was given: its tab opens (else a check run opens the default rig, a start the last tabs or Home)
+    /// `--rig` was given: its tab opens (else the last tabs or Home; a check run without item flags starts on Home)
     rig_given: bool,
     /// the tabs a check run opens (`--open scene:nave,character:catpope`; `home`: none), the one in front (`--tab`, an
     /// address or an index), the most tabs at once
@@ -89,6 +89,9 @@ struct Args {
     tab_cap: Option<usize>,
     /// a check run's tab list open at the start
     tab_list: bool,
+    /// where the tabs are remembered: a check run's own file (`--tabs-file`, a warm start tried by hand), else none in a
+    /// check run and the cache's otherwise
+    tabs_file: Option<PathBuf>,
     /// fullscreen on the current monitor (a deck's kiosk), else a 1280×720 window
     fullscreen: bool,
     /// the inspector's tab at the start: inspector | text; audio opens the Audio panel
@@ -192,7 +195,7 @@ struct Args {
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { rig_given: false, tabs: None, front: None, tab_cap: None, tab_list: false, module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Stage, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, save_state: None, tools_folded: false, closed: Vec::new(), log: false, main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false, library_related: false, pan: None, camera: false, dop: None, scene_file: None, nodes: None, node_zoom: None, open: None, page: None, pointer: None, handoff: Default::default(), f9_at: None };
+    let mut a = Args { rig_given: false, tabs: None, front: None, tab_cap: None, tab_list: false, tabs_file: None, module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Stage, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, save_state: None, tools_folded: false, closed: Vec::new(), log: false, main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false, library_related: false, pan: None, camera: false, dop: None, scene_file: None, nodes: None, node_zoom: None, open: None, page: None, pointer: None, handoff: Default::default(), f9_at: None };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -203,6 +206,7 @@ fn args() -> Result<Args> {
             }
             "--tab-cap" => a.tab_cap = Some(val()?.parse()?),
             "--tab-list" => a.tab_list = true,
+            "--tabs-file" => a.tabs_file = Some(PathBuf::from(val()?)),
             "--frames" => a.frames = Some(val()?.parse()?),
             "--screenshot" => a.screenshot = Some(PathBuf::from(val()?)),
             "--tokens" => a.tokens = Some(PathBuf::from(val()?)),
@@ -385,7 +389,7 @@ fn args() -> Result<Args> {
                 a.size = Some((w.trim().parse()?, h.trim().parse()?));
             }
             "--help" | "-h" => {
-                println!("deck-editor [--open ITEM,ITEM|home] [--tab ITEM|N] [--tab-cap N] [--tab-list] [--rig catpope] [--fullscreen] [--frames N] [--screenshot FILE] [--tokens FILE] [--size W,H] [--pointer X,Y] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5] [--menu PORT,QUERY[,pick]] [--toon TOON] [--book FILE] [--select NODE --far QUERY[,pick]] [--demo NAME] [--panic] [--colour open|pick|drop:X,Y|take:X,Y] [--save-state saving|offline|conflict] [--settings] [--close ID,ID] [--main-menu] [--module ID [--module-build] [--module-save] [--module-save-as ID]] [--scene-file FILE [--dop modules]] [--handoff FILE] [--f9 N]");
+                println!("deck-editor [--open ITEM,ITEM|home] [--tab ITEM|N] [--tab-cap N] [--tab-list] [--tabs-file FILE] [--rig catpope] [--fullscreen] [--frames N] [--screenshot FILE] [--tokens FILE] [--size W,H] [--pointer X,Y] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5] [--menu PORT,QUERY[,pick]] [--toon TOON] [--book FILE] [--select NODE --far QUERY[,pick]] [--demo NAME] [--panic] [--colour open|pick|drop:X,Y|take:X,Y] [--save-state saving|offline|conflict] [--settings] [--close ID,ID] [--main-menu] [--module ID [--module-build] [--module-save] [--module-save-as ID]] [--scene-file FILE [--dop modules]] [--handoff FILE] [--f9 N]");
                 std::process::exit(0);
             }
             other => anyhow::bail!("unknown argument {other}"),
@@ -852,7 +856,7 @@ fn run() -> Result<i32> {
     }
     let main_menu = args.main_menu;
     let app_tabs = tabs::Tabs::new(args.tab_cap.unwrap_or_else(|| tabs::cap_for(tabs::memory_mib(), std::env::var("DECK_EDITOR_TABS").ok().as_deref())));
-    let tabs_file = args.frames.is_none().then(|| tabs::file(&cache));
+    let tabs_file = args.tabs_file.clone().or_else(|| args.frames.is_none().then(|| tabs::file(&cache)));
     let tab_list = args.tab_list;
     let mut home_panels = panels::Panels::new(&panels::HOME);
     if args.log {

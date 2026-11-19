@@ -488,16 +488,16 @@ impl crate::App {
         }
     }
 
-    /// The first frame: the tabs a check run's flags or the last start name; none is Home. The stage holds the start's
-    /// rig already, so its tab is the one in front before the asked one comes forward.
+    /// The first frame: the tabs the flags name, else the last start's (`tabs_file`; a check run has one only with
+    /// `--tabs-file`); none is Home. The stage holds the start's rig already, so its tab is the one in front before the
+    /// asked one comes forward.
     pub(crate) fn start_tabs(&mut self) {
         let mut keys: Vec<String> = Vec::new();
         let rig = rig_key(&self.rigs.subject).0;
-        let check = self.args.frames.is_some();
         let shows = self.args.show_file.is_some() || self.args.show_id.is_some() || self.args.demo.is_some() || matches!(self.args.workspace, Workspace::Show | Workspace::Perform);
         let modules = self.args.module.open.is_some() || self.args.workspace == Workspace::Module;
         let flags = self.args.rig_given || modules || shows || self.args.workspace == Workspace::Home;
-        if self.args.rig_given || (check && self.args.tabs.is_none() && self.args.scene_file.is_none() && !flags) {
+        if self.args.rig_given {
             keys.push(rig.clone());
         }
         for k in self.args.tabs.clone().unwrap_or_default() {
@@ -512,7 +512,7 @@ impl crate::App {
         if shows {
             keys.push(self.live_show_key());
         }
-        if !check && keys.is_empty() && self.args.tabs.is_none() {
+        if self.tabs_file.is_some() && keys.is_empty() && self.args.tabs.is_none() && self.args.scene_file.is_none() {
             // a later start: the last tabs, or Home
             let saved = self.tabs_file.as_deref().map(tabs::load).unwrap_or_default();
             self.tabs = tabs::Tabs::from_saved(saved, self.tabs.cap);
@@ -562,6 +562,7 @@ impl crate::App {
             Some(_) => {}
             None => self.go_home(),
         }
+        self.remember_tabs();
     }
 
     /// the toolbar's tabs this frame: each one's pill, the front one's read live

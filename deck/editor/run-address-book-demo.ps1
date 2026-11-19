@@ -15,7 +15,7 @@ $exe = Join-Path $deck 'target\debug\deck-editor.exe'
 if (-not (Test-Path $exe)) { Write-Error "missing $exe - run: cargo build -p deck-editor (in $deck)"; exit 1 }
 $draft = Join-Path $deck 'target\address-book-demo.rig.toml'
 Copy-Item (Join-Path $editor 'demo\address-book\far.rig.toml') $draft -Force
-$a = @('--draft', $draft, '--select', 'drone_far', '--volume', '0')
+$a = @('--rig', 'catpope', '--draft', $draft, '--select', 'drone_far', '--volume', '0')
 if ($Toon -ne '') { $a += @('--toon', $Toon) } else { $a += @('--book', (Join-Path $editor 'demo\address-book\book.json')) }
 if ($Api -ne '') { $a += @('--api', $Api) }
 if ($Frames -gt 0) { $a += @('--far', $Query, '--frames', "$Frames", '--size', '1600,900', '--screenshot', (Join-Path $deck 'target\address-book-demo.png')) }
