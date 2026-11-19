@@ -2,8 +2,12 @@
 //! outlet groups on the device's channels, a test tone per channel and per group (on the settings shown, saved or not).
 //! Apply writes deck.toml (deck-native's `DeckAudio`) and restarts the stage's audio on it. The map's rules are the core's
 //! (`deck_engine::check_outlets`, `DeckConfig::channels_of`); this file holds the draft and lays it out.
+//! Device presets: the preset the machine plays with, the one the core recommends for a device it finds (the catalog's
+//! first, then the factory's – `Library::recommend`), a newer version of it, and "Save as preset" (a draft
+//! `device-preset:<id>` the member publishes in the creator; a factory preset's child names it in `origin`).
 use crate::stage::Stage;
 use deck_engine::{check_outlets, DeckConfig, OutletMap, Tone};
+use deck_space::device_preset::{DevicePreset, Found, Library, Source};
 use deck_kit::base::draw::DrawList;
 use deck_kit::base::tokens::Tokens;
 use deck_kit::editor::controls::{self, Rect};
@@ -26,6 +30,12 @@ pub enum Field {
     Rescan,
     /// the ASIO device the core offers for a split interface
     Offer,
+    /// the preset the core recommends for a device it found
+    Recommend,
+    /// the newer version of the preset in use
+    Update,
+    /// these settings as a preset of the member's own
+    SavePreset,
 }
 
 /// what a press asks of the stage
@@ -36,6 +46,8 @@ pub enum Ask {
     /// the tone stops: the rig plays again
     Quiet,
     Apply,
+    /// sent as a draft to the catalog
+    SavePreset(DevicePreset),
 }
 
 #[derive(Default)]
@@ -53,11 +65,23 @@ pub struct Page {
     pending: Option<Receiver<Vec<Outputs>>>,
     /// None = `backend::outputs`
     lister: Option<fn() -> Vec<Outputs>>,
+    /// the factory presets and the catalog's
+    pub library: Library,
+    /// where the catalog's presets are asked (`<api>/library/device-presets`); none = not asked
+    api: Option<String>,
+    catalog: Option<Receiver<String>>,
+    saving: Option<Receiver<Result<String, String>>>,
 }
 
 impl Page {
     pub fn new(saved: DeckAudio) -> Page {
-        Page { draft: saved.clone(), saved, ..Page::default() }
+        Page { draft: saved.clone(), saved, library: DeckAudio::library(), ..Page::default() }
+    }
+
+    /// the catalog's presets are asked from this API when the tab first shows
+    pub fn with_api(mut self, api: &str) -> Page {
+        self.api = Some(api.trim_end_matches('/').to_string());
+        self
     }
 
     /// the stage's groups, and the devices: listed once on a thread of their own, taken when they arrive
@@ -85,6 +109,30 @@ impl Page {
                 }
                 Err(TryRecvError::Empty) => {}
             }
+        }
+        if let Some(api) = self.api.take() {
+            let (tx, rx) = std::sync::mpsc::channel();
+            let kept = DeckAudio::fetched_path();
+            let _ = std::thread::Builder::new().name("device-presets".into()).spawn(move || {
+                let url = format!("{api}/library/device-presets");
+                let agent = ureq::AgentBuilder::new().timeout(std::time::Duration::from_secs(4)).build();
+                if let Some(text) = agent.get(&url).call().ok().and_then(|r| r.into_string().ok()) {
+                    let _ = std::fs::write(&kept, &text);
+                    let _ = tx.send(text);
+                }
+            });
+            self.catalog = Some(rx);
+        }
+        if let Some(Ok(text)) = self.catalog.as_ref().map(Receiver::try_recv) {
+            self.library = Library::factory().with_answer(&text);
+            self.catalog = None;
+        }
+        if let Some(Ok(done)) = self.saving.as_ref().map(Receiver::try_recv) {
+            self.said = Some(match done {
+                Ok(s) => (s, false),
+                Err(e) => (e, true),
+            });
+            self.saving = None;
         }
         let mut groups: Vec<String> = rig.to_vec();
         for o in &self.draft.audio_outlet {
@@ -128,6 +176,66 @@ impl Page {
             Some(o) => (o.channels.clone(), true),
             None => (DeckConfig::device(self.channels()).channels_of(group, 2).into_iter().flatten().map(|c| c + 1).collect(), false),
         }
+    }
+
+    /// every device listed, as the core matches presets against it, with its host and place
+    pub fn found(&self) -> Vec<(Found, (usize, usize))> {
+        let mut out = Vec::new();
+        for (h, host) in self.hosts.iter().enumerate() {
+            for (d, dev) in host.devices.iter().enumerate().filter(|(_, d)| d.error.is_none()) {
+                let f = Found { name: dev.name.clone(), description: dev.description.clone(), driver: host.name.to_lowercase(), channels: dev.channels, usb: None };
+                out.push((f, (h, d)));
+            }
+        }
+        out
+    }
+
+    /// the preset the core recommends for a device here (none when it is the one in use): its place in the library, the device
+    pub fn recommended(&self) -> Option<(usize, (usize, usize))> {
+        let found = self.found();
+        let devices: Vec<Found> = found.iter().map(|(f, _)| f.clone()).collect();
+        let o = self.library.recommend(&devices).into_iter().next()?;
+        let p = &self.library.presets[o.preset];
+        (self.draft.audio_preset.as_deref() != Some(p.document.id.as_str())).then_some((o.preset, found[o.device].1))
+    }
+
+    /// the preset in use, as the library knows it
+    pub fn preset(&self) -> Option<&deck_space::device_preset::Listed> {
+        self.draft.preset(&self.library)
+    }
+
+    /// a person's line for a preset: its name, where it is from, its version
+    pub fn preset_line(p: &deck_space::device_preset::Listed) -> String {
+        let from = match p.source {
+            Source::Factory => "factory",
+            Source::Catalog => "catalog",
+        };
+        format!("{} · {from} · v{}", p.document.name, p.version)
+    }
+
+    /// the newer version of the preset in use
+    pub fn newer(&self) -> Option<&deck_space::device_preset::Listed> {
+        self.library.newer(self.draft.audio_preset.as_deref()?, self.draft.audio_preset_version.unwrap_or(0))
+    }
+
+    /// these settings as a preset of the member's own: a child of the preset in use, else one for the chosen device
+    pub fn as_preset(&self) -> Option<DevicePreset> {
+        let host = self.host()?;
+        let dev = self.devices().get(self.device()?)?;
+        let machine = std::env::var("COMPUTERNAME").or_else(|_| std::env::var("HOSTNAME")).unwrap_or_else(|_| "deck".into());
+        let slug = |s: &str| s.to_lowercase().chars().map(|c| if c.is_ascii_alphanumeric() { c } else { '-' }).collect::<String>().split('-').filter(|w| !w.is_empty()).collect::<Vec<_>>().join("-");
+        let mut id = format!("{}.{}", slug(dev.label()), slug(&machine));
+        id.truncate(64);
+        let id = id.trim_end_matches(['-', '.']).to_string();
+        let name = format!("{} · {machine}", dev.label());
+        let settings = self.draft.settings();
+        Some(match self.preset() {
+            Some(p) => p.document.derive(&id, &name, &settings),
+            None => {
+                let found = Found { name: dev.name.clone(), description: dev.description.clone(), driver: self.hosts[host].name.to_lowercase(), channels: dev.channels, usb: None };
+                DevicePreset::from_machine(&id, &name, &found, &settings)
+            }
+        })
     }
 
     pub fn offer(&self) -> Option<backend::Offer> {
@@ -190,6 +298,30 @@ impl Page {
                 self.draft.audio_host = self.hosts[o.host].key.filter(|k| *k != "default").map(str::to_string);
                 self.draft.audio_device = Some(self.hosts[o.host].devices[o.device].name.clone());
             }
+            Field::Recommend => {
+                let Some((p, (h, d))) = self.recommended() else { return Ask::Nothing };
+                let listed = self.library.presets[p].clone();
+                let s = listed.document.settings(Some(&self.hosts[h].devices[d].name));
+                self.draft.audio_host = s.host.or_else(|| self.hosts[h].key.filter(|k| *k != "default").map(str::to_string));
+                (self.draft.audio_device, self.draft.audio_buffer, self.draft.audio_outlet) = (s.device, s.buffer, s.outlets);
+                (self.draft.audio_preset, self.draft.audio_preset_version) = (Some(listed.document.id.clone()), Some(listed.version));
+                self.said = Some((format!("{} – Apply sets the machine", Page::preset_line(&listed)), false));
+            }
+            Field::Update => {
+                let Some(v) = self.newer().map(|p| p.version) else { return Ask::Nothing };
+                let local = self.draft.local(&self.library);
+                self.draft = DeckAudio { audio_preset_version: Some(v), ..local }.resolved(&self.library);
+            }
+            Field::SavePreset => {
+                if self.saving.is_some() {
+                    return Ask::Nothing;
+                }
+                match self.as_preset() {
+                    Some(p) if p.problems().is_empty() => return Ask::SavePreset(p),
+                    Some(p) => self.said = Some((p.problems().join("; "), true)),
+                    None => self.said = Some(("choose a device first".into(), true)),
+                }
+            }
         }
         Ask::Nothing
     }
@@ -214,14 +346,30 @@ impl Page {
             Field::Apply => ("Apply".into(), "Writes deck.toml and restarts the stage's sound on it."),
             Field::Rescan => ("Rescan".into(), "Lists the hosts and devices again."),
             Field::Offer => ("ASIO".into(), "WASAPI shows this interface as stereo pairs; its ASIO device has every channel. Click to take it, Apply restarts the sound on it."),
+            Field::Recommend => ("Recommended".into(), "A preset for hardware found here: the catalog's first, then the factory's. Click to take it, Apply sets the machine."),
+            Field::Update => ("Update".into(), "A newer version of this preset is out. Click to take it; what this machine changed stays."),
+            Field::SavePreset => ("Save as preset".into(), "Sends these settings to the catalog as a draft preset of your own – a factory one's child names it. Publish it in the creator to share it."),
         }
     }
 }
 
-/// a press on the tab: the draft changes, a tone starts or stops, Apply saves and restarts the stage's audio
-pub fn act(page: &mut Page, stage: &mut Stage, f: Field) {
+/// a press on the tab: the draft changes, a tone starts or stops, Apply saves and restarts the stage's audio, a preset is sent
+pub fn act(page: &mut Page, stage: &mut Stage, api: &str, f: Field) {
     let done = match page.press(f) {
         Ask::Nothing => return,
+        Ask::SavePreset(p) => {
+            let (tx, rx) = std::sync::mpsc::channel();
+            let api = crate::show::api::Api::new(api.trim_end_matches('/').to_string());
+            let key = format!("device-preset:{}", p.id);
+            let doc = serde_json::to_value(&p).unwrap_or_default();
+            let _ = std::thread::Builder::new().name("device-preset-save".into()).spawn(move || {
+                let sent = api.save_draft(&key, &doc, None, "saved from the Audio panel");
+                let _ = tx.send(sent.map(|v| format!("saved as the draft {key} (v{v}) – publish it in the creator to share it")).map_err(|e| format!("{key}: {e}")));
+            });
+            page.saving = Some(rx);
+            page.said = Some(("saving the preset…".into(), false));
+            return;
+        }
         Ask::Tone(tone) => stage.tone(&backend::Options::from_deck(&page.draft), &page.draft.audio_outlet, &tone).map(|_| format!("test tone on {}", stage.audio)),
         Ask::Quiet => stage.restart_audio().map(|_| "the rig plays again".to_string()),
         Ask::Apply => page.draft.save().and_then(|path| {
@@ -249,7 +397,35 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, page: &mut Page, stage: &S
     let text_y = |y: f32, px: f32| y + (row - px * 1.25) * 0.5;
     let fit = |d: &DrawList, s: &str, px: f32, w: f32| controls::fit(s, (w / d.advance(px)).max(0.0) as usize);
 
-    y += controls::section(d, t, area.x, y, area.w, "HOST", true);
+    y += controls::section(d, t, area.x, y, area.w, "PRESET", true);
+    let line = match page.preset() {
+        Some(p) => Page::preset_line(p),
+        None if page.draft.audio_preset.is_some() => format!("'{}' – not known here", page.draft.audio_preset.as_deref().unwrap_or("")),
+        None => "none – this machine's own settings".into(),
+    };
+    d.text(area.x, text_y(y, font), font, &fit(d, &line, font, area.w), if page.preset().is_some() { t.color.text } else { t.color.muted });
+    y += row;
+    let link = |d: &mut DrawList, y: &mut f32, text: &str, f: Field, hits: &mut Vec<(Rect, Field)>| {
+        let r = Rect { x: area.x, y: *y, w: area.w, h: row };
+        if r.has(pointer.0, pointer.1) {
+            d.rect(r.x, r.y, r.w, r.h, t.color.control);
+        }
+        d.text(area.x, text_y(*y, small), small, &fit(d, text, small, area.w), t.color.accent);
+        hits.push((r, f));
+        *y += row;
+    };
+    if let Some(n) = page.newer() {
+        link(d, &mut y, &format!("v{} of this preset is out – take it", n.version), Field::Update, &mut hits);
+    }
+    if let Some((p, (h, dev))) = page.recommended() {
+        let text = format!("{} found: use {}", page.hosts[h].devices[dev].label(), Page::preset_line(&page.library.presets[p]));
+        link(d, &mut y, &text, Field::Recommend, &mut hits);
+    }
+    let bw = d.advance(small) * 15.0;
+    hits.push((controls::toggle(d, t, Rect { x: area.x, y: y + 2.0, w: bw, h: row - 4.0 }, "Save as preset", page.saving.is_some()), Field::SavePreset));
+    y += row + 4.0;
+
+    y += controls::section(d, t, area.x, y + 4.0, area.w, "HOST", false) + 4.0;
     let names: Vec<&str> = page.hosts.iter().map(|h| h.name.as_str()).collect();
     for (i, r) in controls::pills(d, t, area.x, y, row - 4.0, &names, page.host().unwrap_or(usize::MAX)).into_iter().enumerate() {
         hits.push((r, Field::Host(i)));
@@ -493,6 +669,42 @@ mod tests {
         p.press(Field::Host(0));
         p.press(Field::Device(0));
         assert_eq!(p.offer(), None, "the Realtek is another interface");
+    }
+
+    /// the factory's RME preset is offered for the ASIO Fireface, taken in one click, and saved as a child of it
+    #[test]
+    fn a_found_interface_gets_its_preset_and_a_changed_one_is_a_child() {
+        let mut p = Page { library: Library::factory(), ..page() };
+        p.draft = DeckAudio::default();
+        let (at, (h, d)) = p.recommended().expect("a preset for the Fireface");
+        assert_eq!((p.library.presets[at].document.id.as_str(), h, d), ("rme-ucx2.asio", 1, 0));
+        assert_eq!(p.press(Field::Recommend), Ask::Nothing);
+        assert_eq!((p.draft.audio_host.as_deref(), p.draft.audio_device.as_deref(), p.draft.audio_buffer), (Some("asio"), Some("Fireface"), Some(128)));
+        assert_eq!((p.draft.audio_preset.as_deref(), p.draft.audio_preset_version), (Some("rme-ucx2.asio"), Some(1)));
+        assert_eq!(p.shown("cue"), (vec![7, 8], true), "the preset's map");
+        assert!(p.recommended().is_none_or(|(at, _)| p.library.presets[at].document.id != "rme-ucx2.asio"), "the preset in use is not offered again");
+        assert_eq!(p.press(Field::Apply), Ask::Apply);
+        p.press(Field::Buffer(3));
+        let Ask::SavePreset(child) = p.press(Field::SavePreset) else { panic!("{:?}", p.said) };
+        assert_eq!((child.origin.as_deref(), child.buffer, child.factory), (Some("rme-ucx2.asio"), Some(256), false));
+        assert!(child.problems().is_empty() && child.id.starts_with("asio-fireface-usb."), "{child:?}");
+        assert_eq!(DeckAudio { audio_preset: Some(child.id.clone()), ..p.draft.clone() }.local(&p.library), DeckAudio { audio_preset: Some(child.id), ..p.draft.clone() }, "a preset not known yet keeps every key");
+    }
+
+    #[test]
+    fn a_newer_version_is_taken_and_the_machines_own_keys_stay() {
+        let mut doc = Library::factory().find("stereo", None).unwrap().document.clone();
+        doc.factory = false;
+        doc.buffer = Some(512);
+        let v1 = deck_space::device_preset::Listed { version: 1, source: Source::Catalog, uses: 0, document: doc.clone() };
+        let v2 = deck_space::device_preset::Listed { version: 2, document: DevicePreset { buffer: Some(1024), outlets: vec![OutletMap { group: "main".into(), channels: vec![2, 1] }], ..doc }, ..v1.clone() };
+        let mut p = Page { library: Library::default().with_catalog(&[v1, v2]), ..page() };
+        p.draft = DeckAudio { audio_preset: Some("stereo".into()), audio_preset_version: Some(1), audio_buffer: Some(64), ..DeckAudio::default() }.resolved(&p.library);
+        assert_eq!(p.newer().map(|n| n.version), Some(2));
+        p.press(Field::Update);
+        assert_eq!((p.draft.audio_preset_version, p.draft.audio_buffer), (Some(2), Some(64)), "the machine's own buffer stays");
+        assert_eq!(p.draft.audio_outlet, [OutletMap { group: "main".into(), channels: vec![2, 1] }], "the new version's map");
+        assert!(p.newer().is_none());
     }
 
     #[test]

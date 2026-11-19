@@ -89,6 +89,27 @@ export type Descriptor = {
 	wants?: string[];
 };
 
+/** A device preset: the catalog document `device-preset:<id>` and an entry of the factory file. */
+export type DevicePreset = {
+	/** frames per device period; none = the device's default */
+	buffer?: number | null;
+	/** deck.toml's `audio_device`: a part of the device's name; none = the device the preset is recommended for */
+	device?: string | null;
+	/** one of the presets every deck ships with: read-only, only the factory file sets it */
+	factory?: boolean;
+	hardware: Hardware;
+	/** deck.toml's `audio_host` (default · asio · wasapi); none = the platform's default */
+	host?: string | null;
+	/** `[a-z0-9][a-z0-9_.-]{0,63}`; a factory preset's is `<hardware>.<driver>` ('rme-ucx2.asio') */
+	id: string;
+	/** what a person reads ('RME Fireface UCX II · ASIO') */
+	name: string;
+	/** the preset this one was derived from */
+	origin?: string | null;
+	/** the outlet groups on the device's channels (deck.toml's `[[audio_outlet]]`) */
+	outlets?: OutletMap[];
+};
+
 export type Dir = "in" | "out";
 
 export type Domain = "audio" | "control" | "video";
@@ -106,6 +127,17 @@ export type FactoryPreset = {
 	name: string;
 	/** parameter name → value; a parameter not named keeps its default */
 	values?: { [key: string]: number };
+};
+
+/** The hardware a preset is for: everything it names must hold for a device, and it names at least one thing. */
+export type Hardware = {
+	/** the output channels the driver reports */
+	channels?: number | null;
+	/** the driver layer that lists it, lowercase: asio · wasapi · pipewire · alsa · coreaudio */
+	driver?: string | null;
+	/** parts of the device's name, any case: one of them is in its name or description ('Fireface') */
+	names?: string[];
+	usb?: Usb | null;
 };
 
 export type Instrument = {
@@ -147,6 +179,12 @@ export type NodeDef = {
 	id: string;
 	kind: string;
 	[key: string]: unknown;
+};
+
+/** The device channels an outlet group plays on, counted from 1, in the group's channel order. */
+export type OutletMap = {
+	channels: number[];
+	group: string;
 };
 
 export type ParamDesc = {
@@ -283,6 +321,12 @@ export type Track = {
 	/** −1 left … 1 right */
 	pan?: number;
 	preset?: string | null;
+};
+
+/** A USB device's ids, where the OS reports them. */
+export type Usb = {
+	product: number;
+	vendor: number;
 };
 
 /** A persona's or a mood's overrides: another preset per track, and single values (`<track>:<node>.<port>`). */

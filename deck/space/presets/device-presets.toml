@@ -1,0 +1,67 @@
+# The factory device presets: compiled into every deck (deck-space device_preset.rs `FACTORY`), so a fresh deck offers
+# them offline; read-only – a changed one is saved as a member's derived preset (`origin`). Curated by the admins: a change
+# here bumps the entry's `version`, and a deck that names an older one is offered the update.
+# The RME's channels in straight playback (deck/native/README.md "Host and device"): 1/2 Main, 3–6 Analog, 7/8 Phones,
+# 9/10 SPDIF, 11/12 AES, 13–20 ADAT – the cue on the phones.
+
+[[preset]]
+version = 1
+[preset.document]
+id = "rme-ucx2.asio"
+name = "RME Fireface UCX II · ASIO"
+factory = true
+host = "asio"
+device = "Fireface"
+buffer = 128
+outlets = [{ group = "main", channels = [1, 2] }, { group = "cue", channels = [7, 8] }]
+[preset.document.hardware]
+names = ["Fireface"]
+driver = "asio"
+channels = 20
+
+[[preset]]
+version = 1
+[preset.document]
+id = "rme-ucx2.pipewire"
+name = "RME Fireface UCX II · deck (PipeWire, Pro Audio)"
+factory = true
+device = "Fireface"
+outlets = [{ group = "main", channels = [1, 2] }, { group = "cue", channels = [7, 8] }]
+[preset.document.hardware]
+names = ["Fireface"]
+driver = "pipewire"
+channels = 20
+
+[[preset]]
+version = 1
+[preset.document]
+id = "x1.onboard"
+name = "ThinkPad X1 · onboard out"
+factory = true
+outlets = [{ group = "main", channels = [1, 2] }]
+[preset.document.hardware]
+names = ["Built-in Audio"]
+driver = "pipewire"
+channels = 2
+
+[[preset]]
+version = 1
+[preset.document]
+id = "stereo"
+name = "Stereo laptop"
+factory = true
+outlets = [{ group = "main", channels = [1, 2] }]
+[preset.document.hardware]
+channels = 2
+
+[[preset]]
+version = 1
+[preset.document]
+id = "analog-four"
+name = "Elektron Analog Four"
+factory = true
+device = "Analog Four"
+outlets = [{ group = "main", channels = [1, 2] }]
+[preset.document.hardware]
+names = ["Analog Four"]
+channels = 6

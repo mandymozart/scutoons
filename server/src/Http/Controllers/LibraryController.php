@@ -9,6 +9,7 @@ use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Catalog\CatalogValidator;
 use Scutoons\Domain\Library\Answer;
 use Scutoons\Domain\Library\ChapterFiles;
+use Scutoons\Domain\Library\DevicePresets;
 use Scutoons\Domain\Library\Library;
 use Scutoons\Domain\Library\SceneContent;
 use Scutoons\Domain\Roles\Roles;
@@ -29,6 +30,7 @@ use Scutoons\Http\Middleware\Cors;
  *   GET /api/library/map?locale=&toon=                  the world map for this reader (agents/MAP.md)
  *   GET /api/library/scene-content?sets=&characters=&items=  what a deck's scene needs: set models per level, portraits per
  *                                                        mood, rigs with their instruments / presets (SceneContent, #195, #258)
+ *   GET /api/library/device-presets                      { presets: [{ version, document }] } – the catalog's device presets
  *   GET /api/events                                      Event[]
  * `?draft=1` (role creator): the newest versions, no status gates, not cached. Public answers: `Cache-Control: public,
  * max-age=60`, ETag (304 on If-None-Match), `Content-Language` / `X-Content-Fallback` for localized answers, any
@@ -44,6 +46,7 @@ final class LibraryController
         private readonly Cors $cors,
         private readonly ChapterFiles $files,
         private readonly SceneContent $scenes,
+        private readonly DevicePresets $devicePresets,
     ) {
     }
 
@@ -133,6 +136,13 @@ final class LibraryController
         $content = $this->scenes->of($ids('sets'), $ids('characters'), $ids('items', CatalogValidator::ID_PATTERN), $presets, $ids('locations'));
         $body = SceneContent::json($content);
         return $this->send($request, $response, new Answer($body, '"s' . substr(sha1($body), 0, 24) . '"', false, null));
+    }
+
+    /** GET /api/library/device-presets: what a deck recommends for the hardware it finds, beside its factory presets */
+    public function devicePresets(Request $request, Response $response): Response
+    {
+        $body = (string) json_encode(['presets' => $this->devicePresets->listed()], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION);
+        return $this->send($request, $response, new Answer($body, '"d' . substr(sha1($body), 0, 24) . '"', false, null));
     }
 
     public function events(Request $request, Response $response): Response

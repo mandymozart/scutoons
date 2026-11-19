@@ -404,10 +404,8 @@ fn cpal_host(h: Host) -> Result<cpal::Host> {
     }
 }
 
-/// a device named `name` is the one deck.toml's `audio_device` = `want` picks: the name holds it, any case
-pub fn device_matches(name: &str, want: &str) -> bool {
-    name.to_lowercase().contains(&want.to_lowercase())
-}
+/// a device named `name` is the one deck.toml's `audio_device` = `want` picks (the core's rule, the device presets' too)
+pub use deck_space::device_preset::device_matches;
 
 /// the output device: the first whose name contains `name` (any case), else the host's default
 fn cpal_device(host: &cpal::Host, name: Option<&str>) -> Result<cpal::Device> {

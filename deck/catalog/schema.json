@@ -306,6 +306,70 @@
       ],
       "type": "object"
     },
+    "DevicePreset": {
+      "additionalProperties": false,
+      "description": "A device preset: the catalog document `device-preset:<id>` and an entry of the factory file.",
+      "properties": {
+        "buffer": {
+          "description": "frames per device period; none = the device's default",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "device": {
+          "description": "deck.toml's `audio_device`: a part of the device's name; none = the device the preset is recommended for",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "factory": {
+          "description": "one of the presets every deck ships with: read-only, only the factory file sets it",
+          "type": "boolean"
+        },
+        "hardware": {
+          "$ref": "#/$defs/Hardware"
+        },
+        "host": {
+          "description": "deck.toml's `audio_host` (default · asio · wasapi); none = the platform's default",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "description": "`[a-z0-9][a-z0-9_.-]{0,63}`; a factory preset's is `<hardware>.<driver>` ('rme-ucx2.asio')",
+          "type": "string"
+        },
+        "name": {
+          "description": "what a person reads ('RME Fireface UCX II · ASIO')",
+          "type": "string"
+        },
+        "origin": {
+          "description": "the preset this one was derived from",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "outlets": {
+          "description": "the outlet groups on the device's channels (deck.toml's `[[audio_outlet]]`)",
+          "items": {
+            "$ref": "#/$defs/OutletMap"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "hardware"
+      ],
+      "type": "object"
+    },
     "Dir": {
       "enum": [
         "in",
@@ -374,6 +438,46 @@
       "required": [
         "name"
       ],
+      "type": "object"
+    },
+    "Hardware": {
+      "additionalProperties": false,
+      "description": "The hardware a preset is for: everything it names must hold for a device, and it names at least one thing.",
+      "properties": {
+        "channels": {
+          "description": "the output channels the driver reports",
+          "format": "uint",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "driver": {
+          "description": "the driver layer that lists it, lowercase: asio · wasapi · pipewire · alsa · coreaudio",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "names": {
+          "description": "parts of the device's name, any case: one of them is in its name or description ('Fireface')",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "usb": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Usb"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
       "type": "object"
     },
     "Instrument": {
@@ -563,6 +667,27 @@
       "required": [
         "id",
         "kind"
+      ],
+      "type": "object"
+    },
+    "OutletMap": {
+      "description": "The device channels an outlet group plays on, counted from 1, in the group's channel order.",
+      "properties": {
+        "channels": {
+          "items": {
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "group": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "group",
+        "channels"
       ],
       "type": "object"
     },
@@ -1098,6 +1223,29 @@
       "required": [
         "id",
         "instrument"
+      ],
+      "type": "object"
+    },
+    "Usb": {
+      "additionalProperties": false,
+      "description": "A USB device's ids, where the OS reports them.",
+      "properties": {
+        "product": {
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "vendor": {
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "vendor",
+        "product"
       ],
       "type": "object"
     },

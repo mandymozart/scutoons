@@ -1,7 +1,8 @@
 //! deck-schema – everything generated from the kind catalog and the documents' types (#315, ENGINE-REFACTOR-PLAN §2.4):
 //!
 //!   server/src/Domain/Rigs/kinds.json     the explanatory catalog: every built-in kind, its ports and parameters with docs
-//!   deck/catalog/schema.json              JSON Schema (draft 2020-12) of `Catalog` and the rig `Bundle` (rig, instruments, presets)
+//!   deck/catalog/schema.json              JSON Schema (draft 2020-12) of `Catalog`, the rig `Bundle` (rig, instruments, presets)
+//!                                         and the `DevicePreset`
 //!   shared/live/src/catalog.ts            the same as TypeScript types
 //!   server/schema/content/scene.schema.json  JSON Schema (draft-07, what the API's ContentSchemas reads) of the stored
 //!                                         scene document `scene:<id>` (#243, scene_document.rs); its TS and PHP types are
@@ -71,11 +72,12 @@ fn main() {
     }
 }
 
-/// the `$defs` of `Catalog` and `Bundle` (rig + instruments + presets), draft 2020-12
+/// the `$defs` of `Catalog`, `Bundle` (rig + instruments + presets) and `DevicePreset` (the catalog's `device-preset:<id>`), draft 2020-12
 fn definitions() -> Map<String, Value> {
     let mut g = schemars::generate::SchemaSettings::draft2020_12().into_generator();
     g.subschema_for::<deck_catalog::Catalog>();
     g.subschema_for::<Bundle>();
+    g.subschema_for::<deck_space::device_preset::DevicePreset>();
     g.take_definitions(true)
 }
 

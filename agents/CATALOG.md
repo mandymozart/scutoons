@@ -271,3 +271,9 @@ fine" stores `accepted_warnings` in the entry's `data` (a list-wide warning in m
   512 KB) + what a compile wrote (`descriptor`, `wasm: { hash, bytes, toolchain }`). `Domain\Modules` (`ModuleSource` rules, `ModuleCompiler`): the compile is the
   creators', forwards to the build service (deck/build) and stores the .wasm as `modules/<hash>.wasm` on the CDN (a platform
   folder outside the asset registry); routes: server docs/API.md "Modules".
+- **Device presets** (#633, migration `2026-11-19-device-presets`): the kind `device-presets` (`catalog_device_presets`, documents
+  `device-preset:<id>`, ids `[a-z0-9][a-z0-9_.-]{0,63}`) = deck-space `device_preset.rs` `DevicePreset` – host, device, buffer, the
+  outlet groups on the device's channels, and the `hardware` it is for (names, driver, channels, USB ids), `origin` for a derived one.
+  Checked by the core on publish (`/validate` kind `device-presets`); `factory` is refused – the factory presets ship with every deck
+  (`deck/space/presets/device-presets.toml`, compiled in, offline) and are curated there. Decks read the published ones with
+  `GET /api/library/device-presets`; deck.toml names one (`audio_preset`, `audio_preset_version`) and keeps only what differs.

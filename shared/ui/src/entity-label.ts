@@ -69,7 +69,7 @@ export const ENTITY_LABELS: EntityLabels = {
 };
 
 /** the catalog documents `<kind>:<id>` (server EntityKey::CATALOG_KINDS) */
-const CATALOG = ['item', 'recipe', 'album', 'product', 'edition', 'home-scene', 'airlift-carrier', 'instrument', 'preset', 'rig', 'module'];
+const CATALOG = ['item', 'recipe', 'album', 'product', 'edition', 'home-scene', 'airlift-carrier', 'instrument', 'preset', 'rig', 'module', 'device-preset'];
 
 const NAMED: Record<string, keyof EntityLabels> = {
 	'toon-settings': 'toon',
