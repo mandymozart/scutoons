@@ -75,8 +75,14 @@ pub struct Player {
     track: Track,
     data: Arc<[u8]>,
     backend: Box<dyn DecodeBackend>,
-    /// the next sample to submit, as a stream position (laps × samples + index)
+    /// a sample's place in decode order, by its place in presentation order
+    order: Vec<u32>,
+    /// the next sample to submit, in decode order (laps × samples + its place in decode order)
     next: i64,
+    /// the stream position (presentation order) decoding started from at the last seek
+    from: i64,
+    /// the decoder was told no more packets follow
+    drained: bool,
     /// the clip starts again at its end
     pub looping: bool,
     /// how far ahead of the heard time frames are decoded, s
@@ -91,7 +97,11 @@ impl Player {
             return err("the clip's video has no frames");
         }
         backend.configure(&Stream { codec: track.codec.clone(), width: track.width, height: track.height, config: track.config.clone() })?;
-        Ok(Player { track, data: clip.data.clone(), backend, next: 0, looping: true, ahead: 0.25 })
+        let mut order = vec![0u32; track.samples.len()];
+        for (d, &shown) in track.decode.iter().enumerate() {
+            order[shown as usize] = d as u32;
+        }
+        Ok(Player { track, data: clip.data.clone(), backend, order, next: 0, from: 0, drained: false, looping: true, ahead: 0.25 })
     }
 
     pub fn track(&self) -> &Track {
@@ -121,21 +131,43 @@ impl Player {
         (pos.div_euclid(self.n()), pos.rem_euclid(self.n()) as usize)
     }
 
+    /// stream position `pos` (presentation order) in decode order
+    fn decode_pos(&self, pos: i64) -> i64 {
+        let (lap, i) = self.split(pos);
+        lap * self.n() + i64::from(self.order[i])
+    }
+
+    /// the pictures the backend has ready, into `frames`
+    fn collect(&mut self, frames: &mut Frames) -> usize {
+        let mut decoded = 0;
+        while let Some(d) = self.backend.poll() {
+            let (dl, di) = self.split(d.id);
+            let time = dl as f64 * self.length() + self.track.seconds(self.track.samples[di].pts);
+            frames.push(Frame { time, index: di, pos: d.id, picture: Arc::new(d.picture) });
+            decoded += 1;
+        }
+        decoded
+    }
+
     /// Decodes until `frames` holds the frame for `heard` and those up to `ahead` after it (or is full); a heard time
-    /// before the queue or past the next key frame seeks. Returns how many frames were decoded.
+    /// before what decoding started from, before the queue, or past the next key frame seeks. Packets go to the backend
+    /// in decode order, pictures come back in presentation order (a hardware decoder some packets later). Returns how
+    /// many frames were decoded.
     pub fn fill(&mut self, heard: f64, frames: &mut Frames) -> Result<usize, Error> {
         let want = self.position(heard.max(0.0));
-        let covered = frames.first_pos().is_some_and(|first| first <= want) && want < self.next;
         let (lap, i) = self.split(want);
         let key = self.track.key_before(i) as i64 + lap * self.n();
-        if !covered && (want < self.next || key > self.next || frames.first_pos().is_some_and(|f| f > want)) {
+        let behind = want < self.from || frames.first_pos().is_some_and(|f| f > want);
+        if behind || self.decode_pos(key) > self.next {
             self.backend.reset();
             frames.clear();
-            self.next = key;
+            self.next = self.decode_pos(key);
+            self.from = key;
+            self.drained = false;
         }
         frames.drop_before(heard);
         let end = if self.looping { i64::MAX } else { self.n() };
-        let mut decoded = 0;
+        let mut decoded = self.collect(frames);
         // a decoder that gives nothing back stops after a lap
         let mut budget = self.n() + frames.most as i64;
         while self.next < end && frames.len() < frames.most && budget > 0 {
@@ -143,16 +175,18 @@ impl Player {
             if frames.last_time().is_some_and(|t| t >= heard + self.ahead) && frames.first_pos().is_some_and(|f| f <= want) {
                 break;
             }
-            let (_, i) = self.split(self.next);
-            let s = self.track.samples[i];
-            self.backend.submit(Packet { data: &self.data[s.at..s.at + s.len], id: self.next, key: s.key })?;
+            let (lap, d) = self.split(self.next);
+            let shown = self.track.decode[d] as usize;
+            let s = self.track.samples[shown];
+            self.backend.submit(Packet { data: &self.data[s.at..s.at + s.len], id: lap * self.n() + shown as i64, key: s.key })?;
             self.next += 1;
-            while let Some(d) = self.backend.poll() {
-                let (dl, di) = self.split(d.id);
-                let time = dl as f64 * self.length() + self.track.seconds(self.track.samples[di].pts);
-                frames.push(Frame { time, index: di, pos: d.id, picture: Arc::new(d.picture) });
-                decoded += 1;
-            }
+            decoded += self.collect(frames);
+            frames.drop_before(heard);
+        }
+        if self.next >= end && !self.drained {
+            self.backend.drain();
+            self.drained = true;
+            decoded += self.collect(frames);
             frames.drop_before(heard);
         }
         Ok(decoded)

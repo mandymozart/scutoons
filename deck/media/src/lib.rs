@@ -6,6 +6,7 @@
 //! AV1 builds wherever rav1d does: natively and on wasm32-wasip1. On wasm32-unknown-unknown (the browser) rav1d does not
 //! compile – its C-shaped API imports `libc::ptrdiff_t` / `off_t` / errno values, which the `libc` crate has no
 //! definitions for on that target – so there the software backend plays HAP only. TODO(#326): rav1d for the browser.
+pub mod annexb;
 pub mod audio;
 pub mod backend;
 pub mod choose;
@@ -55,6 +56,18 @@ pub enum Format {
     /// 8-bit YUV 4:2:0 (AV1): the luma plane `width` × `height`, then U, then V at half size rounded up, rows tight –
     /// the GPU gets the planes as they are and a shader turns them into RGB (or `to_rgba`)
     Yuv420 { matrix: yuv::Matrix, full: bool },
+    /// 8-bit YUV 4:2:0 with U and V interleaved (NV12, what hardware decoders give): the luma plane, then the U, V pairs
+    /// at half size rounded up, rows tight
+    Nv12 { matrix: yuv::Matrix, full: bool },
+}
+
+/// One plane of a planar picture: its bytes, its size in texels, the bytes per texel (2: NV12's U, V pairs).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Plane<'a> {
+    pub data: &'a [u8],
+    pub width: u32,
+    pub height: u32,
+    pub texel: u32,
 }
 
 /// One decoded picture.
@@ -79,8 +92,14 @@ impl Picture {
                 px
             }
             Format::Yuv420 { matrix, full } => {
-                let [y, u, v] = self.planes().expect("a 4:2:0 picture");
-                let planes = yuv::Planes { y: (y.0, y.1 as usize), u: (u.0, u.1 as usize), v: (v.0, v.1 as usize) };
+                let p = self.planes().expect("a 4:2:0 picture");
+                let planes = yuv::Planes { y: (p[0].data, p[0].width as usize), u: (p[1].data, p[1].width as usize), v: (p[2].data, p[2].width as usize) };
+                yuv::to_rgba(&planes, self.width as usize, self.height as usize, matrix, full)
+            }
+            Format::Nv12 { matrix, full } => {
+                let p = self.planes().expect("an NV12 picture");
+                let (u, v): (Vec<u8>, Vec<u8>) = p[1].data.chunks_exact(2).map(|c| (c[0], c[1])).unzip();
+                let planes = yuv::Planes { y: (p[0].data, p[0].width as usize), u: (&u, p[1].width as usize), v: (&v, p[1].width as usize) };
                 yuv::to_rgba(&planes, self.width as usize, self.height as usize, matrix, full)
             }
         };
@@ -92,15 +111,24 @@ impl Picture {
         matches!(self.format, Format::Bc1 | Format::Bc3 | Format::Bc3YCoCg)
     }
 
-    /// A 4:2:0 picture's planes Y, U, V: (bytes, width = row length, height). None for any other format.
-    pub fn planes(&self) -> Option<[(&[u8], u32, u32); 3]> {
-        let Format::Yuv420 { .. } = self.format else { return None };
+    /// A 4:2:0 picture's planes: Y, U, V (`Yuv420`) or Y, UV (`Nv12`). None for any other format.
+    pub fn planes(&self) -> Option<Vec<Plane<'_>>> {
         let (w, h) = (self.width, self.height);
         let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
         let (luma, chroma) = ((w * h) as usize, (cw * ch) as usize);
-        let (y, rest) = self.data.split_at(luma);
-        let (u, v) = rest.split_at(chroma);
-        Some([(y, w, h), (u, cw, ch), (&v[..chroma], cw, ch)])
+        let plane = |data, width, height, texel| Plane { data, width, height, texel };
+        match self.format {
+            Format::Yuv420 { .. } => {
+                let (y, rest) = self.data.split_at(luma);
+                let (u, v) = rest.split_at(chroma);
+                Some(vec![plane(y, w, h, 1), plane(u, cw, ch, 1), plane(&v[..chroma], cw, ch, 1)])
+            }
+            Format::Nv12 { .. } => {
+                let (y, uv) = self.data.split_at(luma);
+                Some(vec![plane(y, w, h, 1), plane(&uv[..2 * chroma], cw, ch, 2)])
+            }
+            _ => None,
+        }
     }
 }
 

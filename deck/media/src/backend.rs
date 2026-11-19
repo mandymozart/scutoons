@@ -41,6 +41,8 @@ pub trait DecodeBackend: Send {
     fn submit(&mut self, packet: Packet<'_>) -> Result<(), Error>;
     /// the next picture that is ready, in presentation order
     fn poll(&mut self) -> Option<Decoded>;
+    /// no more packets follow: give out the pictures still held (a decoder that reorders keeps some back)
+    fn drain(&mut self) {}
     /// forget what was submitted (a seek, a loop)
     fn reset(&mut self);
 }

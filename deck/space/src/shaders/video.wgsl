@@ -1,7 +1,7 @@
-// A video frame on the GPU (video/gpu.rs): its planes into RGB – AV1's YUV 4:2:0, HAP Q's scaled YCoCg in DXT5 blocks –
-// and AMD's FidelityFX Super Resolution 1 (MIT): EASU upscales, RCAS sharpens. Each pass draws one triangle over its
-// target. The values stay as the video has them (gamma-encoded, what FSR expects) up to the last pass, which decodes
-// sRGB when its target encodes it again (`u.out.x`).
+// A video frame on the GPU (video/gpu.rs): its planes into RGB – AV1's YUV 4:2:0, a hardware decoder's NV12, HAP Q's
+// scaled YCoCg in DXT5 blocks – and AMD's FidelityFX Super Resolution 1 (MIT): EASU upscales, RCAS sharpens. Each pass
+// draws one triangle over its target. The values stay as the video has them (gamma-encoded, what FSR expects) up to the
+// last pass, which decodes sRGB when its target encodes it again (`u.out.x`).
 
 struct U {
     // YUV: (a, rv, gu, gv) / 256, (bu / 256, the black level, –, –), 0..255 units
@@ -47,6 +47,16 @@ fn fs_yuv(v: V) -> @location(0) vec4<f32> {
     let cr = textureSampleLevel(t2, samp, v.uv, 0.0).r * 255.0 - 128.0;
     let l = u.m0.x * y;
     let rgb = vec3<f32>(l + u.m0.y * cr, l - u.m0.z * cb - u.m0.w * cr, l + u.m1.x * cb);
+    return written(rgb / 255.0);
+}
+
+// NV12 (a hardware decoder's): luma as above, U and V interleaved in one two-channel plane
+@fragment
+fn fs_nv12(v: V) -> @location(0) vec4<f32> {
+    let y = textureSampleLevel(t0, samp, v.uv, 0.0).r * 255.0 - u.m1.y;
+    let c = textureSampleLevel(t1, samp, v.uv, 0.0).rg * 255.0 - vec2<f32>(128.0);
+    let l = u.m0.x * y;
+    let rgb = vec3<f32>(l + u.m0.y * c.y, l - u.m0.z * c.x - u.m0.w * c.y, l + u.m1.x * c.x);
     return written(rgb / 255.0);
 }
 

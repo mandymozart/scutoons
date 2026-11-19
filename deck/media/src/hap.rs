@@ -37,7 +37,7 @@ pub fn texture_len(f: Format, width: u32, height: u32) -> usize {
         Format::Bc1 => blocks * 8,
         Format::Bc3 | Format::Bc3YCoCg => blocks * 16,
         Format::Rgba8 => width as usize * height as usize * 4,
-        Format::Yuv420 { .. } => (width * height + 2 * width.div_ceil(2) * height.div_ceil(2)) as usize,
+        Format::Yuv420 { .. } | Format::Nv12 { .. } => (width * height + 2 * width.div_ceil(2) * height.div_ceil(2)) as usize,
     }
 }
 
