@@ -5,6 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Envelope, HandView } from '@scutoons/live';
 import { HandLink, handRelay } from '../src/hand.ts';
+import { CameraLink, type Holding } from '../src/camera.ts';
 import type { WebSocketLike } from '../src/client.ts';
 import { NO_CORE, relayCore } from './relay-core.ts';
 
@@ -95,3 +96,29 @@ test('the editor: a phone\'s newest pose only, its view sent again to a phone th
 	assert.deepEqual(JSON.parse(ws.sent[2]).to, { client: 'c2' });
 	editor.close();
 });
+
+test('a reader phone: its claim kept for the join, its hold from the relay\'s word, again by itself after a drop', { skip: NO_CORE || false }, async () => {
+	const holds: Holding[] = [];
+	const lists: number[] = [];
+	const phone = new CameraLink({ ...platform, relay: 'ws://relay.test:7070/live/HQ7K2M', key: 'k-phone', core: await relayCore(), onHolding: (h) => holds.push(h), onCameras: (c) => lists.push(c.length) });
+	phone.claim('scene:duet');
+	await Promise.resolve();
+	const ws = FakeSocket.last;
+	ws.open();
+	ws.say(welcome('c4'));
+	const hello = JSON.parse(ws.sent[0]);
+	assert.equal(hello.p.device, 'phone');
+	assert.deepEqual(JSON.parse(ws.sent[1]), { ...JSON.parse(ws.sent[1]), kind: 'camera.claim', p: { camera: 'scene:duet', key: 'k-phone' } });
+	ws.say({ kind: 'cameras', p: { cameras: [{ id: 'scene:duet', holder: 'c4' }] } });
+	assert.equal(holds.at(-1)?.hold, 'held');
+	assert.deepEqual(lists, [1]);
+	ws.say({ kind: 'cameras', p: { cameras: [{ id: 'scene:duet', holder: 'c5', nick: 'Ben' }] } });
+	assert.deepEqual(holds.at(-1), { hold: 'taken_over', camera: 'scene:duet', other: 'Ben' });
+	phone.claim('scene:duet');
+	ws.say({ kind: 'cameras', p: { cameras: [{ id: 'scene:duet', holder: 'c4' }] } });
+	assert.equal(holds.at(-1)?.hold, 'held', 'taken back');
+	phone.leave();
+	assert.equal(JSON.parse(ws.sent.at(-1)!).kind, 'camera.leave');
+	phone.link.close();
+});
+

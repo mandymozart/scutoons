@@ -2,14 +2,15 @@
 // (its session's conductor) on deck-space's relay client (relay.rs, relay-web's wasm) under client.ts's socket. The core
 // decides everything a link decides: the socket (QUIC first, the WebSocket last, the ladder's timing), the lane (a pose is
 // a datagram on QUIC), which pose is late or malformed, what is sent again after a rejoin or to a phone that joins late,
-// that a phone left, the rung's word. This only hands the page's moves in and the core's words out.
+// that a phone left, the rung's word. This only hands the page's moves in and the core's words out. A reader's phone
+// holding a live camera is camera.ts on this link.
 import type { HandPose, HandState, HandView } from '@scutoons/live';
 import { RelaySocket, type Platform, type RelayCoreView, type RelayModule, type RelayStatus } from './client.ts';
 
 export { loadRelay } from './client.ts';
 
 /** relay-web's `RelayClient` with a handheld session's moves */
-interface HandCore extends RelayCoreView {
+export interface HandCore extends RelayCoreView {
 	rung(): string;
 	hand_pose(t: number, p: Float64Array, q: Float64Array): boolean;
 	hand_state(json: string): void;
@@ -21,10 +22,12 @@ interface HandCore extends RelayCoreView {
 export interface HandLinkOptions extends Platform {
 	/** the session's relay URL (`handRelay`) */
 	relay: string;
-	/** the phone, or the editor that showed its code */
-	role: 'handheld' | 'conductor';
-	/** the API's token for this one session and role (the phone's: its answer to the one-time code) */
-	token: string;
+	/** the phone, or the editor that showed its code; a reader's phone (camera.ts) */
+	role: 'handheld' | 'conductor' | 'reader';
+	/** the API's token for this one session and role (the phone's: its answer to the one-time code; a reader: none) */
+	token?: string;
+	/** a reader phone's own secret, kept in its browser: a drop or a reload is the same holder */
+	key?: string;
 	/** relay-web (`loadRelay('/live/')`); the link joins once it is there */
 	core: RelayModule | Promise<RelayModule>;
 	/** the core's status, the rung it is on ('QUIC' · 'WebSocket' · '' while not joined) and its HUD line */
@@ -37,6 +40,8 @@ export interface HandLinkOptions extends Platform {
 	onAway?: (client: string) => void;
 	/** a phone hears the editor's view */
 	onView?: (view: HandView) => void;
+	/** the core's other words (camera.ts reads its own) */
+	onOther?: (w: Record<string, never>) => void;
 }
 
 /** the session's relay URL: `<live>/live/<session>`, `quic` naming the relay's QUIC door when it is not the relay's own */
@@ -46,7 +51,8 @@ export function handRelay(live: string, session: string, quic?: string): string 
 }
 
 export class HandLink {
-	private s: (RelaySocket & { core: HandCore }) | null = null;
+	/** the socket on the core, once the core is there (camera.ts moves on it) */
+	s: (RelaySocket & { core: HandCore }) | null = null;
 	private stopped = false;
 	/** what the page said before the core was there (the core keeps it from then on) */
 	private early: { state?: HandState; view?: HandView } = {};
@@ -58,7 +64,7 @@ export class HandLink {
 	private begin(m: RelayModule): void {
 		if (this.stopped) return;
 		const o = this.o;
-		const core = new m.RelayClient(JSON.stringify({ relay: o.relay, role: o.role, token: o.token })) as HandCore;
+		const core = new m.RelayClient(JSON.stringify({ relay: o.relay, role: o.role, token: o.token, key: o.key, device: o.role === 'reader' ? 'phone' : undefined })) as HandCore;
 		if (this.early.state) core.hand_state(JSON.stringify(this.early.state));
 		if (this.early.view) core.hand_view(JSON.stringify(this.early.view));
 		const hooks = { onStatus: (line: string, s: RelayStatus) => o.onStatus?.(s, core.rung(), line), onOther: this.hear.bind(this) };
@@ -75,7 +81,9 @@ export class HandLink {
 		else if ('hand_recenter' in w) o.onRecenter?.(w.hand_recenter['client']);
 		else if ('hand_away' in w) o.onAway?.(w.hand_away['client']);
 		else if ('hand_view' in w) o.onView?.(w.hand_view);
+		else o.onOther?.(w);
 	}
+
 
 	/** the phone's pose at `t` (its clock, ms): position (3) and rotation (quaternion, 4) */
 	pose(t: number, p: readonly number[], q: readonly number[]): void {
@@ -113,3 +121,5 @@ export class HandLink {
 		this.s = null;
 	}
 }
+
+export { CameraLink, type CameraLinkOptions, type Holding } from './camera.ts';

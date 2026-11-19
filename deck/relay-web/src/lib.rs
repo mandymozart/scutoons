@@ -211,6 +211,11 @@ impl RelayClient {
         self.c.camera_claim(camera)
     }
 
+    /// after a reload: the page held `camera` as the client `was` (its browser kept both) – taken again by itself
+    pub fn camera_resume(&mut self, camera: &str, was: &str) -> bool {
+        self.c.camera_resume(camera, was)
+    }
+
     /// Leave – the phone lets its camera go
     pub fn camera_leave(&mut self) -> bool {
         self.c.camera_leave()

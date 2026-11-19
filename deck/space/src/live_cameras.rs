@@ -48,7 +48,7 @@ pub enum Hold {
     /// the person said yes; the relay's word is on its way
     Asked,
     /// it holds the camera: its pose steers it
-    Holds,
+    Held,
     /// a newer claim took it: Take it back claims again
     TakenOver,
 }
@@ -101,9 +101,15 @@ impl Seat {
         CameraClaim { camera: camera.to_string(), key: self.key.clone(), resume: None }
     }
 
+    /// After a reload: the page held `camera` as the client `was` (its browser kept both) – it takes it again by itself at
+    /// the welcome, as after a drop
+    pub fn resume(&mut self, camera: &str, was: &str) {
+        (self.want, self.hold, self.was, self.returning, self.refused) = (Some(camera.to_string()), Hold::Held, Some(was.to_string()), true, None);
+    }
+
     /// Leave: the camera to let go, if it holds or asked for one
     pub fn leave(&mut self) -> Option<String> {
-        let camera = self.want.take().filter(|_| matches!(self.hold, Hold::Holds | Hold::Asked));
+        let camera = self.want.take().filter(|_| matches!(self.hold, Hold::Held | Hold::Asked));
         (self.hold, self.returning) = (Hold::None, false);
         camera
     }
@@ -114,7 +120,7 @@ impl Seat {
         let camera = self.want.clone()?;
         match self.hold {
             Hold::Asked => Some(CameraClaim { camera, key: self.key.clone(), resume: None }),
-            Hold::Holds => {
+            Hold::Held => {
                 self.returning = self.was.as_deref() != Some(me);
                 Some(CameraClaim { camera, key: self.key.clone(), resume: Some(true) })
             }
@@ -126,17 +132,17 @@ impl Seat {
     pub fn heard(&mut self, me: &str, list: Vec<LiveCamera>) {
         self.list = list;
         if let Some(c) = self.list.iter().find(|c| c.holder.as_deref() == Some(me)) {
-            (self.want, self.hold, self.was, self.returning, self.refused) = (Some(c.id.clone()), Hold::Holds, Some(me.to_string()), false, None);
+            (self.want, self.hold, self.was, self.returning, self.refused) = (Some(c.id.clone()), Hold::Held, Some(me.to_string()), false, None);
             return;
         }
         let holder = self.want.as_ref().and_then(|w| self.list.iter().find(|c| &c.id == w)).and_then(|c| c.holder.clone());
         match (self.hold, holder) {
             // still its own old id: the return is on its way
-            (Hold::Holds, Some(h)) if self.returning && self.was.as_deref() == Some(h.as_str()) => {}
-            (Hold::Holds, None) if self.returning => {}
-            (Hold::Holds, Some(_)) => (self.hold, self.returning) = (Hold::TakenOver, false),
+            (Hold::Held, Some(h)) if self.returning && self.was.as_deref() == Some(h.as_str()) => {}
+            (Hold::Held, None) if self.returning => {}
+            (Hold::Held, Some(_)) => (self.hold, self.returning) = (Hold::TakenOver, false),
             // freed: Leave elsewhere, the conductor, the release time
-            (Hold::Holds, None) => (self.hold, self.want) = (Hold::None, None),
+            (Hold::Held, None) => (self.hold, self.want) = (Hold::None, None),
             _ => {}
         }
     }
@@ -150,7 +156,7 @@ impl Seat {
     }
 
     pub fn holds(&self) -> bool {
-        self.hold == Hold::Holds
+        self.hold == Hold::Held
     }
 
     pub fn list(&self) -> &[LiveCamera] {
@@ -318,7 +324,7 @@ mod tests {
         let back = s.welcome("c5").expect("it claims again by itself");
         assert_eq!(back.resume, Some(true));
         s.heard("c5", vec![LiveCamera { away: Some(true), ..cam("a", Some("c1")) }]);
-        assert_eq!(s.now("c5").hold, Hold::Holds, "the old id is its own: no take-over shown");
+        assert_eq!(s.now("c5").hold, Hold::Held, "the old id is its own: no take-over shown");
         assert_eq!(s.now("c5").other, None);
         s.heard("c5", vec![cam("a", Some("c5"))]);
         assert!(s.holds());
@@ -327,6 +333,14 @@ mod tests {
         s.heard("c6", vec![cam("a", Some("c8"))]);
         assert_eq!(s.now("c6").hold, Hold::TakenOver);
         assert_eq!(s.welcome("c7"), None, "taken over: no claim by itself");
+        // a reload: a fresh seat, told what the browser kept
+        let mut r = Seat::new("k1");
+        r.resume("a", "c5");
+        assert_eq!(r.welcome("c11").and_then(|c| c.resume), Some(true));
+        r.heard("c11", vec![LiveCamera { away: Some(true), ..cam("a", Some("c5")) }]);
+        assert_eq!((r.now("c11").hold, r.now("c11").other), (Hold::Held, None));
+        r.heard("c11", vec![cam("a", Some("c11"))]);
+        assert!(r.holds());
     }
 
     #[test]
@@ -335,7 +349,7 @@ mod tests {
         s.claim("a");
         s.heard("c1", vec![cam("a", Some("c1")), cam("b", None)]);
         s.heard("c1", vec![cam("a", None), cam("b", Some("c1"))]);
-        assert_eq!((s.now("c1").hold, s.now("c1").camera.as_deref()), (Hold::Holds, Some("b")), "the page names the new camera");
+        assert_eq!((s.now("c1").hold, s.now("c1").camera.as_deref()), (Hold::Held, Some("b")), "the page names the new camera");
         s.heard("c1", vec![cam("a", None), cam("b", None)]);
         assert_eq!(s.now("c1").hold, Hold::None, "freed by the conductor or the release time");
         s.claim("a");

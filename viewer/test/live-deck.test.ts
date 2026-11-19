@@ -2,6 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { characterOf, codeOf, DEFAULT_CHARACTER, DEFAULT_CODE, mayJoin, nickOf, preferOf, relayOf, rigOf } from '../src/lib/live-deck.ts';
+import { cameraHref, cameraKey, cameraName, heldBefore, keepHeld, listHref, type Store } from '../src/lib/live-cameras.ts';
 import type { Me } from '@scutoons/content';
 
 const q = (s: string) => new URLSearchParams(s);
@@ -64,4 +65,25 @@ test('the rig is opt-in while the phone check is open (#191)', () => {
 	assert.equal(rigOf(new URLSearchParams('rig=1')), true);
 	assert.equal(rigOf(new URLSearchParams('')), false);
 	assert.equal(rigOf(new URLSearchParams('rig=0')), false);
+});
+
+test('the live camera pages: the key made once and kept, the camera held across a reload, the session in every link', () => {
+	const m = new Map<string, string>();
+	const s: Store = { getItem: (k) => m.get(k) ?? null, setItem: (k, v) => void m.set(k, v), removeItem: (k) => void m.delete(k) };
+	let n = 0;
+	const make = () => `k${++n}`;
+	assert.equal(cameraKey(s, make), 'k1');
+	assert.equal(cameraKey(s, make), 'k1', 'the same phone after a reload');
+	assert.equal(cameraKey(null, make), 'k2', 'no storage: a key for the page');
+	assert.equal(heldBefore(s, 'scene:duet'), null);
+	keepHeld(s, 'scene:duet', 'c4');
+	assert.equal(heldBefore(s, 'scene:duet'), 'c4');
+	assert.equal(heldBefore(s, 'scene:other'), null, 'only the camera it held');
+	keepHeld(s, null, null);
+	assert.equal(heldBefore(s, 'scene:duet'), null, 'Leave forgets it');
+	const search = q('live=H7K2&relay=ws://192.168.1.4:7071&lang=de');
+	assert.equal(cameraHref('scene:duet > shot:close', search), '/live/cameras/scene%3Aduet%20%3E%20shot%3Aclose?live=H7K2&relay=ws%3A%2F%2F192.168.1.4%3A7071');
+	assert.equal(listHref(q('live=H7K2')), '/live/cameras?live=H7K2');
+	assert.equal(cameraName({ id: 'scene:duet', label: ' ' }), 'scene:duet');
+	assert.equal(cameraName({ id: 'scene:duet', label: 'Duet close' }), 'Duet close');
 });

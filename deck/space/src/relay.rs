@@ -1292,6 +1292,22 @@ impl Client {
         true
     }
 
+    /// After a reload: the page held `camera` as the client `was` (its browser kept both) – taken again by itself at the
+    /// welcome while nobody else claimed it. False: no reader, or no key.
+    pub fn camera_resume(&mut self, camera: &str, was: &str) -> bool {
+        if self.o.role != Role::Reader || self.seat.key().is_empty() {
+            return false;
+        }
+        self.seat.resume(camera, was);
+        if self.joined {
+            if let Some(claim) = self.seat.welcome(&self.client) {
+                self.send(Message::CameraClaim(claim));
+            }
+        }
+        self.tell_holding();
+        true
+    }
+
     /// Leave – the phone lets its camera go
     pub fn camera_leave(&mut self) -> bool {
         let Some(camera) = self.seat.leave() else { return false };
@@ -2200,7 +2216,7 @@ mod tests {
         c.text(2.0, &stamped(welcome("c4", json!({}))).to_string());
         assert_eq!(claims(&mut c), [json!({ "camera": "scene:duet", "key": "k1" })], "the yes goes at the welcome");
         c.text(3.0, &stamped(json!({ "kind": "cameras", "p": { "cameras": [{ "id": "scene:duet", "holder": "c4" }] } })).to_string());
-        assert_eq!(c.holding().hold, Hold::Holds);
+        assert_eq!(c.holding().hold, Hold::Held);
         c.take();
         // a drop: the new welcome claims again with resume, no question
         c.closed(4.0, "gone");
@@ -2209,7 +2225,7 @@ mod tests {
         c.text(600.0, &stamped(welcome("c9", json!({}))).to_string());
         assert_eq!(claims(&mut c), [json!({ "camera": "scene:duet", "key": "k1", "resume": true })]);
         c.text(7.0, &stamped(json!({ "kind": "cameras", "p": { "cameras": [{ "id": "scene:duet", "holder": "c4", "away": true }] } })).to_string());
-        assert_eq!(c.holding().hold, Hold::Holds, "its old id: still its own");
+        assert_eq!(c.holding().hold, Hold::Held, "its old id: still its own");
         c.text(8.0, &stamped(json!({ "kind": "cameras", "p": { "cameras": [{ "id": "scene:duet", "holder": "c5", "nick": "Ben" }] } })).to_string());
         let h = holding(&mut c).unwrap();
         assert_eq!((h.hold, h.other.as_deref()), (Hold::TakenOver, Some("Ben")), "the warning names who took it");
