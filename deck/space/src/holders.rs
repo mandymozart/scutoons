@@ -4,7 +4,7 @@
 //! (their `look` nodes' `who`, or the being of a single member at the scene's own spot). What is wired to what across a
 //! show's row is deck-show's (far.rs); the editor draws it.
 use crate::piece::{load_played, Found};
-use crate::rig::address::{Address, Place};
+use crate::rig::address::{Address, Leaf, Place};
 use crate::rig::{Bundle, Played};
 use crate::world::{Source, World};
 
@@ -34,6 +34,33 @@ impl Reach {
     /// whether `place` plays in this piece
     pub fn holds(&self, place: &Place) -> bool {
         self.holds.contains(place)
+    }
+}
+
+/// What an input under an address is to a piece (the editor's Play, #629: a tab receives what is addressed to its item).
+#[derive(Debug, Clone, PartialEq)]
+pub enum Reached {
+    /// it is what these far world nodes listen to (their compiled ids): their events
+    Far(Vec<String>),
+    /// it names the piece itself, or one it holds: this leaf of it
+    Own(Leaf),
+    /// it is another's
+    Not,
+}
+
+impl Reach {
+    /// What `address` is to the piece at `own`: the address one of its far world nodes listens to, else one whose most
+    /// specific place (a `deck:` place says which deck, never which item) is the piece or one it holds – a character
+    /// is reached in any scene, a scene by its own place – else not.
+    pub fn reached(&self, own: &Place, address: &Address) -> Reached {
+        let far: Vec<String> = self.far.iter().filter(|f| f.address == *address).map(|f| f.node.clone()).collect();
+        if !far.is_empty() {
+            return Reached::Far(far);
+        }
+        match address.places.iter().rev().find(|p| p.kind != "deck") {
+            Some(p) if p == own || self.holds(p) => Reached::Own(address.leaf.clone()),
+            _ => Reached::Not,
+        }
     }
 }
 
@@ -139,6 +166,26 @@ mod tests {
         let c = read("item:incense_burner", |_| None).unwrap();
         assert_eq!((c.reach.holds, c.reach.far), (vec![Place::new("item", "incense_burner")], vec![]));
         assert!(read("character:nobody", find).unwrap_err().contains("not on this deck"));
+    }
+
+    /// #629: what reaches a piece in Play – its far nodes' addresses, an address whose holder is the piece (in any scene,
+    /// on any deck) or one it holds; another's not
+    #[test]
+    fn an_address_reaches_its_piece_its_far_nodes_and_what_it_holds() {
+        let r = read("character:keys", find).unwrap();
+        let own = Place::new("character", "keys");
+        let a = |s: &str| Address::parse(s).unwrap();
+        assert_eq!(r.reach.reached(&own, &r.reach.far[0].address.clone()), Reached::Far(vec!["far_in".into()]));
+        let leaf = a("/deck:pc/scene:nave/character:keys/far:in.events").leaf;
+        assert_eq!(r.reach.reached(&own, &a("/deck:pc/scene:nave/character:keys/far:in.events")), Reached::Own(leaf));
+        assert!(matches!(r.reach.reached(&own, &a("character:keys/voice:osc.freq")), Reached::Own(_)));
+        assert_eq!(r.reach.reached(&own, &a("/scene:nave/character:catpope/voice:osc.freq")), Reached::Not, "another character");
+        assert_eq!(r.reach.reached(&own, &a("/deck:keys/scene:keys/x.out")), Reached::Not, "a deck or scene of the same name is no character");
+        let scene = Reach { holds: vec![Place::new("character", "catpope")], far: vec![] };
+        let nave = Place::new("scene", "nave");
+        assert!(matches!(scene.reached(&nave, &a("/scene:nave/fft.level")), Reached::Own(_)), "the scene by its place");
+        assert!(matches!(scene.reached(&nave, &a("/scene:other/character:catpope/analog:seq.notes")), Reached::Own(_)), "who it holds");
+        assert_eq!(scene.reached(&nave, &a("/scene:other/fft.level")), Reached::Not);
     }
 
     /// a scene holds its cast: the look nodes' `who`, and the being of a single member

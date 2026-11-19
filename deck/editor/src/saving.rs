@@ -35,6 +35,9 @@ impl crate::App {
     /// ctrl+s: what the workspace edits goes now
     pub(crate) fn save_now(&mut self) {
         let now = Instant::now();
+        if self.playing() {
+            return self.note("Play: nothing to save – what you change now is dropped on Stop".to_string());
+        }
         match self.workspace {
             show::Workspace::Stage if self.scene.is_some() => {
                 if self.scene.as_ref().is_some_and(|v| v.auto.now()) {
@@ -75,6 +78,10 @@ impl crate::App {
                 Err(e) => self.refuse(e.to_string(), x, y),
             }
         }
+        // Play's changes are dropped on Stop: never saved
+        if self.playing() {
+            return;
+        }
         let Some(v) = self.scene.as_mut() else { return };
         // a member open as its rig: its knobs go into the scene on the way up, or on leaving
         if v.inside.is_none() {
@@ -114,6 +121,7 @@ impl crate::App {
 
     /// quitting: what is edited goes now, and the answers are waited for a moment
     pub(crate) fn flush_all(&mut self) {
+        self.stop_play();
         let now = Instant::now();
         self.leave_view();
         if self.autosaves {
@@ -127,6 +135,9 @@ impl crate::App {
         }
         self.module.auto.wait(until);
         self.show.wait_saves(until);
+        if self.autosaves {
+            self.wait_behind(until);
+        }
         if [&self.rigs.auto.state, &self.module.auto.state].contains(&&State::Offline) {
             tracing::warn!("quit offline: the local copies keep what was not sent");
         }

@@ -18,7 +18,7 @@ use std::path::Path;
 
 impl Host {
     /// the toon whose story events are listed: `--toon`, else the book's
-    pub(super) fn story_toon(&self) -> Option<String> {
+    pub(crate) fn story_toon(&self) -> Option<String> {
         self.toon.clone().or_else(|| self.book.as_ref().map(|b| b.toon().to_string())).filter(|t| !t.is_empty())
     }
 
