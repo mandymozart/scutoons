@@ -161,8 +161,18 @@ impl Pictures {
 #[derive(Default)]
 struct Assets {
     list: Vec<Entry>,
-    rx: Option<Receiver<Result<Vec<Entry>, String>>>,
+    /// where their paths are served from (the answer's `cdn`)
+    cdn: String,
+    rx: Option<Receiver<Result<Answer, String>>>,
     asked: bool,
+}
+
+/// the assets and their CDN base
+type Answer = (Vec<Entry>, String);
+
+/// the assets' answer's CDN base
+fn cdn_of(text: &str) -> String {
+    serde_json::from_str::<serde_json::Value>(text).ok().and_then(|v| v["cdn"].as_str().map(str::to_string)).unwrap_or_default()
 }
 
 /// the library panel's state, one for the editor
@@ -204,7 +214,7 @@ impl Library {
         let (tx, rx) = channel();
         let api = Api::new(base.to_string());
         std::thread::spawn(move || {
-            let _ = tx.send(api.assets().and_then(|t| library::assets(&t)));
+            let _ = tx.send(api.assets().and_then(|t| Ok((library::assets(&t)?, cdn_of(&t)))));
         });
         self.assets.rx = Some(rx);
     }
@@ -215,7 +225,7 @@ impl Library {
         if let Ok(text) = std::fs::read_to_string(dir.join("assets.json")) {
             self.assets.asked = true;
             match library::assets(&text) {
-                Ok(list) => self.assets.list = list,
+                Ok(list) => (self.assets.list, self.assets.cdn) = (list, cdn_of(&text)),
                 Err(e) => tracing::warn!("--catalog assets: {e}"),
             }
         }
@@ -227,11 +237,16 @@ impl Library {
         self.assets.list.clone()
     }
 
+    /// where the assets' paths are served from (empty until they are known)
+    pub fn cdn(&self) -> &str {
+        &self.assets.cdn
+    }
+
     pub fn poll(&mut self) {
         self.pictures.poll();
         if let Some(Ok(r)) = self.assets.rx.as_ref().map(Receiver::try_recv) {
             match r {
-                Ok(list) => self.assets.list = list,
+                Ok((list, cdn)) => (self.assets.list, self.assets.cdn) = (list, cdn),
                 Err(e) => tracing::info!("the library's assets: {e}"),
             }
             self.assets.rx = None;
@@ -359,7 +374,7 @@ impl crate::App {
             Workspace::Stage => Purpose::Build,
             Workspace::Module => Purpose::Module,
             Workspace::Show => Purpose::Show,
-            Workspace::Home => {
+            Workspace::Home | Workspace::Media => {
                 self.show.carrying = false;
                 return;
             }
@@ -393,7 +408,7 @@ impl crate::App {
             Workspace::Module => playing_key(None, self.module.open.as_ref().filter(|_| self.module.heard).map(|o| o.id.as_str())),
             // a Show scene on the stage: its still is the node's preview
             Workspace::Show => self.stage.scene.as_ref().map(|id| format!("scene:{id}")),
-            Workspace::Home => None,
+            Workspace::Home | Workspace::Media => None,
         };
         if self.library.playing(key, self.frames) {
             self.stage.ask_still();
@@ -424,11 +439,12 @@ impl crate::App {
         }
     }
 
-    /// an entry opened in its tab: a scene in a Scene tab, a character's rig or a module in an Asset tab
+    /// an entry opened in its tab: a scene in a Scene tab, a character's rig, a module or a medium in an Asset tab
     fn library_open_entry(&mut self, i: usize) {
         let Some(e) = self.library.entries.get(i).cloned() else { return };
         match e.kind {
             Kind::Module | Kind::Scene | Kind::Character => self.open_item(&e.address, &e.label),
+            Kind::Video | Kind::Image | Kind::Audio | Kind::Model => self.open_item(&format!("{}:{}", crate::media::word_of(e.kind), e.address), &e.label),
             _ => self.note(format!("{} has no Asset view yet", e.label)),
         }
     }

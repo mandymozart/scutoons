@@ -1182,6 +1182,7 @@ dependencies = [
  "deck-events",
  "deck-kit",
  "deck-link",
+ "deck-media",
  "deck-media-hw",
  "deck-native",
  "deck-outlet",

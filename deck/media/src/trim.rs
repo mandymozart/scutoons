@@ -1,4 +1,4 @@
-//! A use's in and out points on its file (decisions/deck.md [delegated], #632): trimming is non-destructive – the
+//! A use's in and out points on its file (decisions/deck.md [delegated]): trimming is non-destructive – the
 //! numbers live on the use (a scene's `video` node: `start`, `end`), the file is never rewritten. The use plays only the
 //! span between them, looped; a span too short or outside the file falls back to what the file has.
 

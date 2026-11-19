@@ -142,7 +142,7 @@ pub fn groups(ws: Workspace) -> &'static [Group] {
         Workspace::Stage => &[Group::Tool, Group::Look, Group::Grid, Group::Frame],
         Workspace::Show => &[Group::View, Group::Look, Group::Frame],
         Workspace::Module => &[Group::Frame],
-        Workspace::Home => &[],
+        Workspace::Home | Workspace::Media => &[],
     }
 }
 

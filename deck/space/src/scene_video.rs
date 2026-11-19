@@ -159,6 +159,13 @@ impl SceneEdit {
         self.doc.nodes.get(v)?.params.get("src")?.as_str()
     }
 
+    /// a `video` node's in and out points on its file (`start`, `end`): this use's trim, the file untouched
+    #[cfg(feature = "media")]
+    pub fn video_trim(&self, v: usize) -> deck_media::Trim {
+        let num = |k: &str| self.doc.nodes.get(v).and_then(|n| n.params.get(k)).and_then(|p| p.as_float().or_else(|| p.as_integer().map(|i| i as f64))).unwrap_or(0.0);
+        deck_media::Trim::new(num("start"), num("end"))
+    }
+
     /// A `video` node's file. Err: not a video node, or no video file (MP4, WebM, MOV, MKV).
     pub fn set_video_src(&mut self, v: usize, src: &str) -> Result<(), String> {
         let id = self.doc.nodes.get(v).filter(|n| n.kind == "video").map(|n| n.id.clone()).ok_or("no video node")?;

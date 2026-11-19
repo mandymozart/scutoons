@@ -15,7 +15,8 @@ pub fn draw(d: &mut DrawList, t: &Tokens, m: &mut Module, stage: &Stage, (w, h):
     let (pad, font, small) = (t.size.pad, t.size.font, t.size.small);
     m.hits.clear();
     let problems_h = t.size.tree_row * (1.0 + m.problems.len().max(1) as f32);
-    let shown_panels = [(crate::library::PANEL, crate::library::WIDTH, None), ("module", 360.0, None), ("problems", 640.0, Some(problems_h)), ("info", 260.0, Some(small * 1.4 * 6.0))];
+    let drives_h = t.size.row * 1.4 * m.lamps.traces.len().max(1) as f32 + t.size.row;
+    let shown_panels = [(crate::library::PANEL, crate::library::WIDTH, None), ("module", 360.0, None), ("problems", 640.0, Some(problems_h)), ("info", 260.0, Some(small * 1.4 * 6.0)), ("drives", 420.0, Some(drives_h))];
     m.panels.layout(d, t, ((w, h), crate::bar::bottom(t)), &[], &shown_panels);
 
     // the last build's problems, a click opens the code there
@@ -44,6 +45,14 @@ pub fn draw(d: &mut DrawList, t: &Tokens, m: &mut Module, stage: &Stage, (w, h):
     // the module open
     if let Some(o) = m.panels.open(d, t, "module", pointer, m.hits.len()) {
         open_module(d, t, m, stage, o.area, pointer);
+        m.panels.close(d, o, &mut m.hits);
+    }
+
+    // what it drives: its control outputs as lamps, their values over time
+    let node = m.heard.then(|| stage.node_ids.iter().position(|n| n == super::NODE)).flatten();
+    m.lamps.read(stage, node);
+    if let Some(o) = m.panels.open(d, t, "drives", pointer, m.hits.len()) {
+        super::lamps::draw(d, t, &m.lamps, m.heard, o.area);
         m.panels.close(d, o, &mut m.hits);
     }
 

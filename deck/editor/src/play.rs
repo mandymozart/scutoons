@@ -170,12 +170,31 @@ pub fn restore_scene(view: &mut SceneView, doc: SceneDocument) -> Result<bool, S
 impl crate::App {
     /// whether the front tab plays
     pub(crate) fn playing(&self) -> bool {
-        self.play.playing()
+        match self.workspace {
+            crate::show::Workspace::Media => self.media.open.as_ref().is_some_and(|o| o.playing),
+            crate::show::Workspace::Module => self.module.heard,
+            _ => self.play.playing(),
+        }
     }
 
     /// The Edit / Play switch of a Scene or Asset tab. Play keeps what Edit left (what Edit edited is sent first); Stop
     /// goes back to it.
     pub(crate) fn set_play(&mut self, on: bool) {
+        if self.workspace == crate::show::Workspace::Media {
+            return self.media_play(on);
+        }
+        // a module plays alone on the stage: Play builds it (heard once built), Stop takes it off
+        if self.workspace == crate::show::Workspace::Module {
+            match (on, self.module.heard) {
+                (true, false) => self.module.build(),
+                (false, true) => {
+                    self.module.leave(&mut self.stage);
+                    self.note("Stop: the module is off the stage".into());
+                }
+                _ => {}
+            }
+            return;
+        }
         if on == self.playing() || self.workspace != crate::show::Workspace::Stage {
             self.wire = !self.playing();
             return;
@@ -196,6 +215,9 @@ impl crate::App {
 
     /// Stop: back to what Edit left; nothing of Play was saved
     pub(crate) fn stop_play(&mut self) {
+        if self.workspace == crate::show::Workspace::Media {
+            return self.media_play(false);
+        }
         let Some(left) = self.play.left.take() else { return };
         let touched = std::mem::take(&mut self.play.touched);
         self.wire = true;

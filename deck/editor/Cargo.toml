@@ -26,6 +26,8 @@ deck-kit = { path = "../kit", features = ["editor"] }
 deck-space = { path = "../space", default-features = false, features = ["being", "gpu", "native", "media"] }
 # the hardware video decoders (Media Foundation on Windows) for the Build cards' videos
 deck-media-hw = { path = "../media/hw" }
+# #632: a medium's Asset tab – a sound's waveform (deck-media audio), a use's trim
+deck-media = { path = "../media" }
 # the motion slots' modules on the stage (deck-engine `motion`)
 deck-engine = { path = "../engine", features = ["modules", "space"] }
 # the scene camera's points on the stage (deck-space's own vectors)

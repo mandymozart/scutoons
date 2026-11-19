@@ -62,6 +62,8 @@ pub enum Workspace {
     Show,
     /// a module's code, build and audition (crate::module)
     Module,
+    /// a video, image, sound or 3D set on its own (crate::media)
+    Media,
     Home,
 }
 

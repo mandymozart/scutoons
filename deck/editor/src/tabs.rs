@@ -87,9 +87,14 @@ impl View {
     }
 }
 
-/// the name a tab shows for an address: what follows its kind (`character:catpope` → catpope)
+/// the name a tab shows for an address: what follows its kind (`character:catpope` → catpope), a medium's file name
+/// (`video:live/x/loop.mov` → loop.mov)
 pub fn name_of(key: &str) -> String {
-    key.split_once(':').map_or(key, |(_, id)| id).to_string()
+    let id = key.split_once(':').map_or(key, |(_, id)| id);
+    match Kind::of(key) {
+        Some(Kind::Media) => id.rsplit(['/', '\\']).next().unwrap_or(id).to_string(),
+        _ => id.to_string(),
+    }
 }
 
 /// one open item
@@ -340,6 +345,8 @@ mod tests {
         assert_eq!(Kind::of("show:duet").map(Kind::view), Some(View::Show));
         assert_eq!(Kind::of("catpope"), None);
         assert_eq!(name_of("character:catpope"), "catpope");
+        assert_eq!(name_of("video:live/x/loop.mov"), "loop.mov");
+        assert_eq!(name_of("image:C:\\media\\a.png"), "a.png");
     }
 
     #[test]

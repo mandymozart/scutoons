@@ -26,6 +26,9 @@ mod library;
 mod live_tabs;
 mod log;
 mod logo;
+mod media;
+mod media_draw;
+mod media_tab;
 mod mixer;
 mod module;
 mod inspector;
@@ -130,6 +133,8 @@ struct Args {
     /// #609: the hand-off this editor came with (its scene goes back to the stage), a check run's F9 at frame N
     handoff: deck_native::handoff::Handoff,
     f9_at: Option<u64>,
+    /// `--asset NODE[,play]`: the scene's video node opened in its Asset tab (its use), played at once with `,play`
+    asset: Option<(String, bool)>,
     /// a check run's selection: this graph node's id, or a track's
     select: Option<String>,
     /// a check run's knob pull on the stage, in Play
@@ -206,7 +211,7 @@ struct Args {
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { rig_given: false, tabs: None, front: None, tab_cap: None, tab_list: false, tabs_file: None, inputs: Vec::new(), input_at: None, stop_at: None, home_new: None, module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Stage, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, go_live: Vec::new(), lock: false, save_state: None, tools_folded: false, closed: Vec::new(), log: false, main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false, library_related: false, pan: None, camera: false, dop: None, scene_file: None, nodes: None, node_zoom: None, open: None, page: None, pointer: None, handoff: Default::default(), f9_at: None };
+    let mut a = Args { rig_given: false, tabs: None, front: None, tab_cap: None, tab_list: false, tabs_file: None, inputs: Vec::new(), input_at: None, stop_at: None, home_new: None, module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Stage, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, go_live: Vec::new(), lock: false, save_state: None, tools_folded: false, closed: Vec::new(), log: false, main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false, library_related: false, pan: None, camera: false, dop: None, scene_file: None, nodes: None, node_zoom: None, open: None, page: None, pointer: None, handoff: Default::default(), f9_at: None, asset: None };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -292,6 +297,10 @@ fn args() -> Result<Args> {
             "--relay" => a.relay = Some(val()?),
             "--handoff" => a.handoff = deck_native::handoff::Handoff::take(std::path::Path::new(&val()?)),
             "--f9" => a.f9_at = Some(val()?.parse()?),
+            "--asset" => {
+                let v = val()?;
+                a.asset = Some(v.strip_suffix(",play").map_or((v.clone(), false), |n| (n.to_string(), true)));
+            }
             "--api" => a.api = val()?,
             "--toon" => a.toon = Some(val()?),
             "--book" => a.book = Some(PathBuf::from(val()?)),
@@ -736,6 +745,8 @@ struct App {
     scene: Option<scene::SceneView>,
     /// the video nodes' cards: their live frames (posters.rs)
     posters: posters::Posters,
+    /// the medium in front, in its Asset tab (media.rs)
+    media: media::Media,
     /// the scene tree's last press, for a double one
     last_row: Option<(deck_space::scene_edit::Part, Instant)>,
     /// Build's grid & snap (grid.rs)
@@ -912,6 +923,7 @@ fn run() -> Result<i32> {
         last: None,
         started: Instant::now(),
         posters: Default::default(),
+        media: Default::default(),
         frames: 0,
         ui_ms: Vec::new(),
         frame_ms: Vec::new(),
@@ -1044,7 +1056,7 @@ impl App {
             show::Workspace::Stage => &self.build,
             show::Workspace::Module => &self.module.panels,
             show::Workspace::Show => &self.show.show_panels,
-            show::Workspace::Home => &self.home_panels,
+            show::Workspace::Home | show::Workspace::Media => &self.home_panels,
         }
     }
 
@@ -1053,7 +1065,7 @@ impl App {
             show::Workspace::Stage => &mut self.build,
             show::Workspace::Module => &mut self.module.panels,
             show::Workspace::Show => &mut self.show.show_panels,
-            show::Workspace::Home => &mut self.home_panels,
+            show::Workspace::Home | show::Workspace::Media => &mut self.home_panels,
         }
     }
 
@@ -1409,6 +1421,9 @@ impl App {
         if self.module.dragging() {
             return self.module.drag_to(x, &mut self.stage);
         }
+        if self.media.drag.is_some() {
+            return self.media_drag_to(x);
+        }
         if self.grid.scrub_to(x) {
             return;
         }
@@ -1544,7 +1559,11 @@ impl App {
         if let Some(p) = self.tools.press(x, y) {
             return self.tool_press(p);
         }
-        if self.workspace == show::Workspace::Module {
+        if self.workspace == show::Workspace::Media {
+            if self.media_press(x, y) {
+                return;
+            }
+        } else if self.workspace == show::Workspace::Module {
             if let Some(h) = self.module.hit(x, y) {
                 return self.module.press(h, x, &self.stage);
             }
@@ -2479,6 +2498,7 @@ impl App {
         self.script_scene();
         self.script_dop();
         self.script_slots();
+        self.script_media();
         const START: u64 = 60;
         if self.args.pull {
             let s = self.scale();
@@ -2845,7 +2865,10 @@ impl App {
         // the UI: everything in logical pixels, the pass scales
         let t0 = Instant::now();
         ui.begin();
-        ui.stage(stage_x, top, stage_w, stage_h);
+        // a medium is shown on its own: no stage behind it
+        if self.workspace != show::Workspace::Media {
+            ui.stage(stage_x, top, stage_w, stage_h);
+        }
         self.show.frame();
         self.panel.hits.clear();
         self.marks.clear();
@@ -2853,11 +2876,18 @@ impl App {
         let (pad, font, row) = (t.size.pad, t.size.font, t.size.row);
         // the toolbar: the tabs, the front one's path inside it (the state words are the status bar's)
         let build = self.workspace == show::Workspace::Stage;
+        // a Scene or Asset tab's Edit · Play: the stage's, or a medium's
+        let edits = build || (self.workspace == show::Workspace::Media && self.media.open.as_ref().is_some_and(|o| o.length().is_some())) || (self.workspace == show::Workspace::Module && self.module.open.is_some());
+        let playing = match self.workspace {
+            show::Workspace::Media => self.media.open.as_ref().is_some_and(|o| o.playing),
+            show::Workspace::Module => self.module.heard,
+            _ => self.play.playing(),
+        };
         let tab_pills: Vec<bar::TabPill> = pills.iter().map(|(name, icon, dirty, mark)| bar::TabPill { icon, name, dirty: *dirty, mark: *mark }).collect();
         let shows = matches!(self.workspace, show::Workspace::Show);
         // a Scene or Asset tab's Edit · Play; a Show tab's Go live, or End and Lock
         let (live_words, live_on, live_presses) = live_tabs::switch(self.show.live(), self.show.locked);
-        let modes: &[&str] = if build { &["Edit", "Play"] } else { live_words };
+        let modes: &[&str] = if edits { &["Edit", "Play"] } else { live_words };
         let slot = if shows { show::author::view_width(ui, t) } else { 0.0 };
         // the signing-in icon breathes, unless motion is reduced
         let pulse = if self.settings.motion.allows(true) { 0.5 + 0.5 * (self.started.elapsed().as_secs_f32() * std::f32::consts::TAU / 1.6).cos() } else { 1.0 };
@@ -2865,7 +2895,7 @@ impl App {
             tabs: &tab_pills,
             front: self.tabs.front,
             path: &path,
-            modes: if build { Some((modes, usize::from(self.play.playing()))) } else { shows.then_some((modes, live_on)) },
+            modes: if edits { Some((modes, usize::from(playing))) } else { shows.then_some((modes, live_on)) },
             play: None,
             beat: self.stage.beat,
             clock: if self.stage.live { bar::Clock::Live } else { bar::Clock::Int },
@@ -2892,7 +2922,7 @@ impl App {
             self.panel.hits.push((r, Hit::Meters));
         }
         self.panel.hits.push((placed.home, Hit::Home));
-        let mode_hits: Vec<Hit> = if build { vec![Hit::Mode(true), Hit::Mode(false)] } else { live_presses.iter().map(|p| Hit::Live(*p)).collect() };
+        let mode_hits: Vec<Hit> = if edits { vec![Hit::Mode(true), Hit::Mode(false)] } else { live_presses.iter().map(|p| Hit::Live(*p)).collect() };
         for (r, h) in placed.modes.iter().zip(mode_hits) {
             self.panel.hits.push((*r, h));
         }
@@ -2927,6 +2957,15 @@ impl App {
                         }
                     }
                 }
+                show::Workspace::Media => {
+                    self.home_panels.layout(ui, t, ((wf, hf), bar_bottom), &[], &[]);
+                    let shown = self.media.frame(&gpu.device, &gpu.queue, dt).map(|(view, fresh)| {
+                        ui.set_card(&gpu.device, media::CARD, view, fresh);
+                    });
+                    if let (Some(r), Some(())) = (media_draw::draw(ui, t, &mut self.media, (wf, hf), bar_bottom), shown) {
+                        ui.card(media::CARD, r.x, r.y, r.w, r.h);
+                    }
+                }
                 show::Workspace::Stage => {}
             }
             break 'build;
@@ -2936,7 +2975,7 @@ impl App {
         if let Some(view) = self.scene.as_mut() {
             // the `video` nodes with a file: their live frames on their cards
             let doc = &view.edit.doc;
-            let nodes: Vec<(String, String)> = view.edit.videos().into_iter().filter(|&v| doc.nodes[v].kind == "video").filter_map(|v| Some((doc.nodes[v].id.clone(), view.edit.video_src(v)?.to_string()))).collect();
+            let nodes: Vec<(String, String, deck_media::Trim)> = view.edit.videos().into_iter().filter(|&v| doc.nodes[v].kind == "video").filter_map(|v| Some((doc.nodes[v].id.clone(), view.edit.video_src(v)?.to_string(), view.edit.video_trim(v)))).collect();
             let index = |id: &str| doc.nodes.iter().position(|n| n.id == id);
             let mut posters = Vec::new();
             for (id, f) in self.posters.frame(&gpu.device, &gpu.queue, &nodes) {
@@ -2949,7 +2988,7 @@ impl App {
                     posters::Frame::Not(why) => Some(why.to_string()),
                 }));
             }
-            ui.keep_cards(&nodes.iter().map(|(id, _)| id.as_str()).collect::<Vec<_>>());
+            ui.keep_cards(&nodes.iter().map(|(id, _, _)| id.as_str()).collect::<Vec<_>>());
             view.posters = posters;
             let carry = self.carry.as_ref().and_then(|c| c.at);
             scene_stage::draw(ui, t, view, &self.stage.space, Rect { x: stage_x, y: top, w: stage_w, h: stage_h }, scale, carry);
@@ -3463,7 +3502,7 @@ impl App {
                         None => self.library.browser.hits.clear(),
                     }
                 }
-                show::Workspace::Home => self.library.browser.hits.clear(),
+                show::Workspace::Home | show::Workspace::Media => self.library.browser.hits.clear(),
             }
         }
         // the tools pill, over the workspace's panels
@@ -3475,7 +3514,7 @@ impl App {
                 show::Workspace::Stage => &mut self.build,
                 show::Workspace::Module => &mut self.module.panels,
                 show::Workspace::Show => &mut self.show.show_panels,
-                show::Workspace::Home => &mut self.home_panels,
+                show::Workspace::Home | show::Workspace::Media => &mut self.home_panels,
             };
             let mut places = Vec::new();
             if let Some(o) = panels.open(ui, t, "tools", cursor, 0) {
@@ -3494,7 +3533,7 @@ impl App {
                 show::Workspace::Stage => &mut self.build,
                 show::Workspace::Module => &mut self.module.panels,
                 show::Workspace::Show => &mut self.show.show_panels,
-                show::Workspace::Home => &mut self.home_panels,
+                show::Workspace::Home | show::Workspace::Media => &mut self.home_panels,
             };
             if let Some(o) = ws.open(ui, t, panels::SETTINGS, cursor, 0) {
                 let mut places = settings::draw(ui, t, o.area, &s);
@@ -3509,7 +3548,7 @@ impl App {
                 show::Workspace::Stage => &mut self.build,
                 show::Workspace::Module => &mut self.module.panels,
                 show::Workspace::Show => &mut self.show.show_panels,
-                show::Workspace::Home => &mut self.home_panels,
+                show::Workspace::Home | show::Workspace::Media => &mut self.home_panels,
             };
             (self.log_hits, self.opens_log) = status::draw(ui, t, (wf, hf), &self.log, ws, (typing.as_deref(), &words), self.cursor);
         }
@@ -3524,7 +3563,7 @@ impl App {
                 show::Workspace::Stage => &self.build,
                 show::Workspace::Module => &self.module.panels,
                 show::Workspace::Show => &self.show.show_panels,
-                show::Workspace::Home => &self.home_panels,
+                show::Workspace::Home | show::Workspace::Media => &self.home_panels,
             }
             .listed();
             self.menu_lines = bar::menu(ui, t, placed.menu, &|a| enabled.iter().any(|(b, on)| *b == a && *on), &listed, self.cursor);
@@ -3671,6 +3710,7 @@ impl ApplicationHandler for App {
                 }
                 self.show.release();
                 self.module.release();
+                self.media_release();
                 self.release()
             }
             WindowEvent::MouseWheel { delta, .. } => {
