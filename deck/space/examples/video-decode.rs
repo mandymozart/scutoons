@@ -1,8 +1,8 @@
 //! What a video frame costs from packet to the GPU, per decode backend – decoding (and the copy back from a hardware
-//! decoder), then the planes up and the conversion pass – and whether that keeps the clip's own frame rate:
+//! decoder), then the planes up and the conversion pass – and whether decoding keeps the clip's own frame rate:
 //!   cargo run --release -p deck-space --example video-decode -- CLIP [FRAMES]
 //! Backends: deck-media's software decoder (AV1, HAP), and on Windows Media Foundation on the GPU (DXVA) and, to compare,
-//! the same decoder on the CPU. Each frame waits for the GPU to finish, as one decoding thread would.
+//! the same decoder on the CPU. Each frame waits for the GPU to finish, so the upload is measured apart from decoding.
 use anyhow::{Context, Result};
 use deck_media::{Clip, DecodeBackend, Frames, Player, Software};
 use deck_space::video::{upload, Converter};
@@ -67,7 +67,8 @@ fn main() -> Result<()> {
         }
         let wall = start.elapsed().as_secs_f64();
         let m = (shown - 1).max(1) as f64;
-        let per = (decode + gpu_done) / m;
+        // a deck decodes on its own thread and uploads on the render thread: decoding alone must keep the frame rate
+        let per = decode / m;
         println!("{label}: {shown} frames in {wall:.2} s");
         println!("  decode {:.2} ms, upload {:.2} ms CPU / {:.2} ms until the GPU is done, worst frame {:.2} ms", decode / m * 1e3, up / m * 1e3, gpu_done / m * 1e3, worst * 1e3);
         #[cfg(windows)]
@@ -77,7 +78,7 @@ fn main() -> Result<()> {
                 println!("  of the decode: copying the NV12 picture back from the GPU {:.2} ms", (t - copied.1).as_secs_f64() / (c - copied.0) as f64 * 1e3);
             }
         }
-        println!("  {:.2} ms per frame against {:.2} ms at {fps:.0} fps: {:.1}× real time – {}", per * 1e3, 1e3 / fps, 1.0 / (per * fps), if per * fps < 1.0 { "keeps up" } else { "falls behind" });
+        println!("  decoding {:.2} ms per frame against {:.2} ms at {fps:.0} fps: {:.1}× real time – {}", per * 1e3, 1e3 / fps, 1.0 / (per * fps), if per * fps < 1.0 { "keeps up" } else { "falls behind" });
     }
     Ok(())
 }

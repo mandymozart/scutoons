@@ -1,7 +1,7 @@
 //! Windows: Media Foundation's video decoder (an MFT) with a D3D11 device manager, so the GPU's fixed-function decoder
 //! (DXVA – NVDEC, Quick Sync, VCN) does the work. Packets go in as Annex B (deck-media's `annexb`); each picture comes
-//! out as a D3D11 NV12 texture and is copied back into an NV12 `Picture` (rows tight, cropped to the stream's size),
-//! which deck-space's video pass turns into RGB. `codecs()` is the capability query: what the GPU's decoder profiles
+//! out as a D3D11 NV12 texture and is copied back into an NV12 `Picture` (rows tight, cropped to the stream's size)
+//! through a ring of staging textures, which deck-space's video pass turns into RGB. `codecs()` is the capability query: what the GPU's decoder profiles
 //! and the installed decoders both take (HEVC needs Microsoft's HEVC Video Extensions, AV1 its AV1 Video Extension).
 //! `software` = the same decoder without the GPU, for comparison only.
 use deck_media::annexb::AnnexB;
@@ -142,8 +142,23 @@ struct Live {
     frame: (u32, u32),
     matrix: Matrix,
     full: bool,
-    /// where a GPU picture is copied to be read, and its size
-    staging: Option<(ID3D11Texture2D, (u32, u32))>,
+    /// GPU pictures on their way back
+    ring: Ring,
+}
+
+/// how many GPU pictures can be on their way back at once
+const RING: usize = 4;
+
+/// GPU pictures on their way back: each copied into a staging texture of the ring and read once the GPU is done with
+/// it, so the decoder runs on meanwhile – reading each one at once waits for its decode every frame.
+#[derive(Default)]
+struct Ring {
+    /// the decoder texture's size (its height padded)
+    size: (u32, u32),
+    slots: Vec<ID3D11Texture2D>,
+    /// (the picture's id, its slot), oldest first
+    waiting: VecDeque<(i64, usize)>,
+    next: usize,
 }
 
 /// Media Foundation's decoder for one stream: on the GPU (`new`) or, for comparison, on the CPU (`software`).
@@ -205,7 +220,7 @@ impl MediaFoundation {
                 input.SetUINT64(&MF_MT_FRAME_SIZE, (u64::from(stream.width) << 32) | u64::from(stream.height)).map_err(|e| fail("media type", e))?;
             }
             mft.SetInputType(0, &input, 0).map_err(|e| fail("the stream's type", e))?;
-            let mut live = Live { mft, _gpu: gpu, provides: false, size: 0, frame: (stream.width, stream.height), matrix: Matrix::Bt709, full: false, staging: None };
+            let mut live = Live { mft, _gpu: gpu, provides: false, size: 0, frame: (stream.width, stream.height), matrix: Matrix::Bt709, full: false, ring: Ring::default() };
             output(&mut live, stream)?;
             live.mft.ProcessMessage(MFT_MESSAGE_NOTIFY_BEGIN_STREAMING, 0).map_err(|e| fail("start", e))?;
             live.mft.ProcessMessage(MFT_MESSAGE_NOTIFY_START_OF_STREAM, 0).map_err(|e| fail("start", e))?;
@@ -237,14 +252,19 @@ impl MediaFoundation {
             match r {
                 Ok(()) => {
                     if let Some(s) = sample {
-                        let picture = read(live, stream, &s)?;
                         // SAFETY: a live sample
                         let id = unsafe { s.GetSampleTime() }.map_err(|e| fail("a picture's time", e))?;
-                        self.ready.push_back(Decoded { id, picture });
+                        if !copy_in(live, stream, &s, id, &mut self.ready)? {
+                            let picture = read(live, stream, &s)?;
+                            self.ready.push_back(Decoded { id, picture });
+                        }
                         n += 1;
                     }
                 }
-                Err(e) if e.code() == MF_E_TRANSFORM_NEED_MORE_INPUT => return Ok(n),
+                Err(e) if e.code() == MF_E_TRANSFORM_NEED_MORE_INPUT => {
+                    take_back(live, stream, false, &mut self.ready)?;
+                    return Ok(n);
+                }
                 Err(e) if e.code() == MF_E_TRANSFORM_STREAM_CHANGE => output(live, stream)?,
                 Err(e) => return Err(fail("decoding", e)),
             }
@@ -299,60 +319,116 @@ unsafe fn tight(scan: *const u8, pitch: usize, rows: usize, (w, h): (u32, u32), 
     }
 }
 
-/// A decoded sample as a tight NV12 picture of the stream's size. A GPU picture (a slice of the decoder's texture array)
-/// is copied into a staging texture of our own and mapped – Media Foundation's own lock of such a buffer stalls about a
-/// frame each time.
-fn read(live: &mut Live, stream: &Stream, sample: &IMFSample) -> Result<Picture, Error> {
-    let t = Instant::now();
-    let (fw, fh) = live.frame;
-    let (w, h) = if stream.width > 0 && stream.height > 0 { (stream.width.min(fw), stream.height.min(fh)) } else { (fw, fh) };
-    let mut data = Vec::with_capacity(w as usize * h as usize + 2 * w.div_ceil(2) as usize * h.div_ceil(2) as usize);
-    // SAFETY: COM calls on live objects; a texture is mapped while its rows are read, a buffer locked while read, rows
-    // read within the pitch and the mapped / locked size
+/// A GPU picture into the ring (false: not a GPU picture). A full ring first gives its oldest back, waiting for it.
+fn copy_in(live: &mut Live, stream: &Stream, sample: &IMFSample, id: i64, ready: &mut VecDeque<Decoded>) -> Result<bool, Error> {
+    let Some(device) = live._gpu.as_ref().map(|g| g.device.clone()) else { return Ok(false) };
+    // SAFETY: COM calls on live objects; the decoder's texture slice is copied on the device's own context
     unsafe {
         let buffer = sample.GetBufferByIndex(0).map_err(|e| fail("a picture's buffer", e))?;
-        let gpu = live._gpu.as_ref().map(|g| g.device.clone());
-        match (buffer.cast::<IMFDXGIBuffer>(), gpu) {
-            (Ok(dxgi), Some(device)) => {
-                let mut raw = std::ptr::null_mut();
-                dxgi.GetResource(&ID3D11Texture2D::IID, &mut raw).map_err(|e| fail("a picture's texture", e))?;
-                let tex = ID3D11Texture2D::from_raw(raw);
-                let index = dxgi.GetSubresourceIndex().map_err(|e| fail("a picture's texture", e))?;
-                let mut desc = D3D11_TEXTURE2D_DESC::default();
-                tex.GetDesc(&mut desc);
-                if live.staging.as_ref().is_none_or(|(_, size)| *size != (desc.Width, desc.Height)) {
-                    let mine = D3D11_TEXTURE2D_DESC {
-                        Width: desc.Width,
-                        Height: desc.Height,
-                        MipLevels: 1,
-                        ArraySize: 1,
-                        Format: desc.Format,
-                        SampleDesc: windows::Win32::Graphics::Dxgi::Common::DXGI_SAMPLE_DESC { Count: 1, Quality: 0 },
-                        Usage: D3D11_USAGE_STAGING,
-                        BindFlags: 0,
-                        CPUAccessFlags: D3D11_CPU_ACCESS_READ.0 as u32,
-                        MiscFlags: 0,
-                    };
-                    let mut staging = None;
-                    device.CreateTexture2D(&mine, None, Some(&mut staging)).map_err(|e| fail("a staging texture", e))?;
-                    live.staging = staging.map(|s| (s, (desc.Width, desc.Height)));
-                }
-                let (staging, _) = live.staging.as_ref().ok_or_else(|| Error("Media Foundation: no staging texture".into()))?;
-                let ctx = device.GetImmediateContext().map_err(|e| fail("the device's context", e))?;
-                ctx.CopySubresourceRegion(staging, 0, 0, 0, 0, &tex, index, None);
-                let mut map = D3D11_MAPPED_SUBRESOURCE::default();
-                ctx.Map(staging, 0, D3D11_MAP_READ, 0, Some(&mut map)).map_err(|e| fail("reading a picture", e))?;
-                tight(map.pData as *const u8, map.RowPitch as usize, desc.Height as usize, (w, h), &mut data);
-                ctx.Unmap(staging, 0);
+        let Ok(dxgi) = buffer.cast::<IMFDXGIBuffer>() else { return Ok(false) };
+        let mut raw = std::ptr::null_mut();
+        dxgi.GetResource(&ID3D11Texture2D::IID, &mut raw).map_err(|e| fail("a picture's texture", e))?;
+        let tex = ID3D11Texture2D::from_raw(raw);
+        let index = dxgi.GetSubresourceIndex().map_err(|e| fail("a picture's texture", e))?;
+        let mut desc = D3D11_TEXTURE2D_DESC::default();
+        tex.GetDesc(&mut desc);
+        if live.ring.size != (desc.Width, desc.Height) || live.ring.slots.is_empty() {
+            take_back(live, stream, true, ready)?;
+            let mine = D3D11_TEXTURE2D_DESC {
+                Width: desc.Width,
+                Height: desc.Height,
+                MipLevels: 1,
+                ArraySize: 1,
+                Format: desc.Format,
+                SampleDesc: windows::Win32::Graphics::Dxgi::Common::DXGI_SAMPLE_DESC { Count: 1, Quality: 0 },
+                Usage: D3D11_USAGE_STAGING,
+                BindFlags: 0,
+                CPUAccessFlags: D3D11_CPU_ACCESS_READ.0 as u32,
+                MiscFlags: 0,
+            };
+            let mut slots = Vec::new();
+            for _ in 0..RING {
+                let mut t = None;
+                device.CreateTexture2D(&mine, None, Some(&mut t)).map_err(|e| fail("a staging texture", e))?;
+                slots.extend(t);
             }
-            _ => {
-                let (mut scan, mut len) = (std::ptr::null_mut(), 0u32);
-                buffer.Lock(&mut scan, None, Some(&mut len)).map_err(|e| fail("reading a picture", e))?;
-                let pitch = fw.max(1) as usize;
-                tight(scan, pitch, (len as usize / pitch * 2 / 3).min(fh as usize).max(h as usize), (w, h), &mut data);
-                let _ = buffer.Unlock();
-            }
+            live.ring = Ring { size: (desc.Width, desc.Height), slots, ..Ring::default() };
         }
+        if live.ring.waiting.len() >= RING {
+            take_one(live, stream, true, ready)?;
+        }
+        let slot = live.ring.next;
+        live.ring.next = (slot + 1) % RING;
+        let ctx = device.GetImmediateContext().map_err(|e| fail("the device's context", e))?;
+        ctx.CopySubresourceRegion(&live.ring.slots[slot], 0, 0, 0, 0, &tex, index, None);
+        ctx.Flush();
+        live.ring.waiting.push_back((id, slot));
+    }
+    Ok(true)
+}
+
+/// the ring's pictures the GPU is done with, oldest first, into `ready` (`wait`: all of them, waiting)
+fn take_back(live: &mut Live, stream: &Stream, wait: bool, ready: &mut VecDeque<Decoded>) -> Result<(), Error> {
+    while !live.ring.waiting.is_empty() {
+        if !take_one(live, stream, wait, ready)? {
+            break;
+        }
+    }
+    Ok(())
+}
+
+/// the ring's oldest picture into `ready`; false: the GPU is not done with it yet (only without `wait`)
+fn take_one(live: &mut Live, stream: &Stream, wait: bool, ready: &mut VecDeque<Decoded>) -> Result<bool, Error> {
+    let Some(&(id, slot)) = live.ring.waiting.front() else { return Ok(false) };
+    let Some(device) = live._gpu.as_ref().map(|g| g.device.clone()) else { return Ok(false) };
+    let t = Instant::now();
+    let (w, h) = shown(live, stream);
+    let mut data = Vec::with_capacity(w as usize * h as usize + 2 * w.div_ceil(2) as usize * h.div_ceil(2) as usize);
+    // SAFETY: the staging texture is mapped while its rows are read, within its row pitch and height
+    unsafe {
+        let ctx = device.GetImmediateContext().map_err(|e| fail("the device's context", e))?;
+        let tex = &live.ring.slots[slot];
+        let mut map = D3D11_MAPPED_SUBRESOURCE::default();
+        let flags = if wait { 0 } else { D3D11_MAP_FLAG_DO_NOT_WAIT.0 as u32 };
+        match ctx.Map(tex, 0, D3D11_MAP_READ, flags, Some(&mut map)) {
+            Ok(()) => {}
+            Err(e) if e.code() == windows::Win32::Graphics::Dxgi::DXGI_ERROR_WAS_STILL_DRAWING => return Ok(false),
+            Err(e) => return Err(fail("reading a picture", e)),
+        }
+        tight(map.pData as *const u8, map.RowPitch as usize, live.ring.size.1 as usize, (w, h), &mut data);
+        ctx.Unmap(tex, 0);
+    }
+    live.ring.waiting.pop_front();
+    COPIES.fetch_add(1, Ordering::Relaxed);
+    COPY_NS.fetch_add(t.elapsed().as_nanos() as u64, Ordering::Relaxed);
+    ready.push_back(Decoded { id, picture: Picture { width: w, height: h, format: Format::Nv12 { matrix: live.matrix, full: live.full }, data } });
+    Ok(true)
+}
+
+/// the picture's size: the stream's, within the decoded frame
+fn shown(live: &Live, stream: &Stream) -> (u32, u32) {
+    let (fw, fh) = live.frame;
+    if stream.width > 0 && stream.height > 0 {
+        (stream.width.min(fw), stream.height.min(fh))
+    } else {
+        (fw, fh)
+    }
+}
+
+/// A decoded sample in system memory (the decoder on the CPU) as a tight NV12 picture of the stream's size.
+fn read(live: &Live, stream: &Stream, sample: &IMFSample) -> Result<Picture, Error> {
+    let t = Instant::now();
+    let (fw, fh) = live.frame;
+    let (w, h) = shown(live, stream);
+    let mut data = Vec::with_capacity(w as usize * h as usize + 2 * w.div_ceil(2) as usize * h.div_ceil(2) as usize);
+    // SAFETY: the buffer is locked while its rows are read, within the pitch and the locked length
+    unsafe {
+        let buffer = sample.GetBufferByIndex(0).map_err(|e| fail("a picture's buffer", e))?;
+        let (mut scan, mut len) = (std::ptr::null_mut(), 0u32);
+        buffer.Lock(&mut scan, None, Some(&mut len)).map_err(|e| fail("reading a picture", e))?;
+        let pitch = fw.max(1) as usize;
+        tight(scan, pitch, (len as usize / pitch * 2 / 3).min(fh as usize).max(h as usize), (w, h), &mut data);
+        let _ = buffer.Unlock();
     }
     COPIES.fetch_add(1, Ordering::Relaxed);
     COPY_NS.fetch_add(t.elapsed().as_nanos() as u64, Ordering::Relaxed);
@@ -414,6 +490,11 @@ impl DecodeBackend for MediaFoundation {
     }
 
     fn poll(&mut self) -> Option<Decoded> {
+        if self.ready.is_empty() {
+            if let (Some(live), Some(stream)) = (self.live.as_mut(), self.stream.as_ref()) {
+                let _ = take_back(live, stream, false, &mut self.ready);
+            }
+        }
         self.ready.pop_front()
     }
 
@@ -423,11 +504,15 @@ impl DecodeBackend for MediaFoundation {
             let _ = unsafe { live.mft.ProcessMessage(MFT_MESSAGE_COMMAND_DRAIN, 0) };
             let _ = self.pull();
         }
+        if let (Some(live), Some(stream)) = (self.live.as_mut(), self.stream.as_ref()) {
+            let _ = take_back(live, stream, true, &mut self.ready);
+        }
     }
 
     fn reset(&mut self) {
         self.ready.clear();
-        if let Some(live) = &self.live {
+        if let Some(live) = &mut self.live {
+            live.ring.waiting.clear();
             // SAFETY: a live decoder
             let _ = unsafe { live.mft.ProcessMessage(MFT_MESSAGE_COMMAND_FLUSH, 0) };
         }
