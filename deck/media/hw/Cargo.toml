@@ -11,6 +11,7 @@ publish.workspace = true
 
 [dependencies]
 deck-media = { path = ".." }
+tracing.workspace = true
 
 # the version wgpu's DX12 backend already brings (gpu-allocator): no new crate, only its Media Foundation and D3D11 parts
 [target.'cfg(windows)'.dependencies]

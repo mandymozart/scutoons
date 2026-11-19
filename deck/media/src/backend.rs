@@ -1,8 +1,12 @@
 //! Where packets become pictures. The core keeps demux, the choice, decode-ahead, seeking and timing; a backend only
-//! decodes. `Software` is always there – the reference and the fallback; hardware decode-only backends (WebCodecs,
-//! VideoToolbox, MediaCodec, VA-API) implement the same trait. TODO(#326): the hardware adapters (plan P13c).
+//! decodes. `Software` is always there – the reference and the fallback; a platform's hardware decode-only backends
+//! (Media Foundation, VA-API, WebCodecs …) come from its adapter (`Hardware`, installed once by the host), and `Auto`
+//! decides per stream: hardware where the adapter decodes the codec and the deck setting allows it, else software; a
+//! hardware error goes on in software from the next key frame.
 use crate::demux::{Codec, Hap};
 use crate::{err, Error, Picture};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::OnceLock;
 
 /// what a backend decodes
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -84,6 +88,7 @@ impl DecodeBackend for Software {
     }
 
     fn configure(&mut self, stream: &Stream) -> Result<(), Error> {
+        self.stream = None;
         self.inner = match &stream.codec {
             Codec::Hap(Hap::Other) => return err("HAP: this flavour (Q Alpha, Alpha-only, R) is not decoded yet"),
             Codec::Hap(_) => Inner::Hap { width: stream.width, height: stream.height },
@@ -122,5 +127,192 @@ impl DecodeBackend for Software {
         if let Inner::Av1(d) = &mut self.inner {
             d.flush();
         }
+    }
+}
+
+/// A platform's hardware decoders, as its adapter offers them: what they decode (asked once), and one for a stream.
+pub trait Hardware: Send + Sync {
+    fn codecs(&self) -> Vec<Codec>;
+    fn backend(&self) -> Box<dyn DecodeBackend>;
+}
+
+static HARDWARE: OnceLock<Box<dyn Hardware>> = OnceLock::new();
+static HARDWARE_OFF: AtomicBool = AtomicBool::new(false);
+
+/// The host's hardware decoders (its adapter's), once at start; a second call is ignored.
+pub fn install(hardware: Box<dyn Hardware>) {
+    let _ = HARDWARE.set(hardware);
+}
+
+/// The deck setting "hardware decoding": auto (true, the default) or off. Streams opened after it follow it.
+pub fn set_hardware(on: bool) {
+    HARDWARE_OFF.store(!on, Ordering::Relaxed);
+}
+
+fn hardware() -> Option<&'static dyn Hardware> {
+    if HARDWARE_OFF.load(Ordering::Relaxed) {
+        return None;
+    }
+    HARDWARE.get().map(|h| &**h)
+}
+
+/// The codecs this deck decodes in hardware (none without an adapter, or with the setting off): the capability the
+/// derivative choice asks (`choose::Device::here`).
+pub fn hardware_codecs() -> Vec<Codec> {
+    static CODECS: OnceLock<Vec<Codec>> = OnceLock::new();
+    match hardware() {
+        Some(h) => CODECS.get_or_init(|| h.codecs()).clone(),
+        None => Vec::new(),
+    }
+}
+
+/// The backend the core picks per stream: the hardware decoder where it takes the codec, else software; when the
+/// hardware fails mid-stream, software from the next key frame (where software decodes the codec – else the error).
+#[derive(Default)]
+pub struct Auto {
+    hardware: Option<Box<dyn DecodeBackend>>,
+    software: Software,
+    /// the hardware failed: packets wait for a key frame before software takes them
+    wait_key: bool,
+}
+
+impl Auto {
+    /// whether the stream decodes in hardware
+    pub fn on_hardware(&self) -> bool {
+        self.hardware.is_some()
+    }
+}
+
+impl DecodeBackend for Auto {
+    fn caps(&self) -> Caps {
+        let hw = hardware_codecs();
+        let mut codecs = Software::codecs();
+        for c in &hw {
+            if !codecs.contains(c) {
+                codecs.push(c.clone());
+            }
+        }
+        Caps { codecs, hardware: !hw.is_empty() }
+    }
+
+    fn configure(&mut self, stream: &Stream) -> Result<(), Error> {
+        self.hardware = None;
+        self.wait_key = false;
+        if let Some(h) = hardware().filter(|_| hardware_codecs().contains(&stream.codec)) {
+            let mut b = h.backend();
+            match b.configure(stream) {
+                Ok(()) => self.hardware = Some(b),
+                Err(e) => tracing::warn!("video: hardware decoding of {:?} did not start, software instead: {e}", stream.codec),
+            }
+        }
+        match self.software.configure(stream) {
+            Err(e) if self.hardware.is_none() => Err(e),
+            _ => Ok(()),
+        }
+    }
+
+    fn submit(&mut self, packet: Packet<'_>) -> Result<(), Error> {
+        if let Some(h) = &mut self.hardware {
+            match h.submit(packet) {
+                Ok(()) => return Ok(()),
+                Err(e) if self.software.stream.is_some() => {
+                    tracing::warn!("video: the hardware decoder failed, software from the next key frame: {e}");
+                    self.hardware = None;
+                    self.wait_key = true;
+                }
+                Err(e) => return Err(e),
+            }
+        }
+        if self.wait_key && !packet.key {
+            return Ok(());
+        }
+        self.wait_key = false;
+        self.software.submit(packet)
+    }
+
+    fn poll(&mut self) -> Option<Decoded> {
+        match &mut self.hardware {
+            Some(h) => h.poll(),
+            None => self.software.poll(),
+        }
+    }
+
+    fn drain(&mut self) {
+        match &mut self.hardware {
+            Some(h) => h.drain(),
+            None => self.software.drain(),
+        }
+    }
+
+    fn reset(&mut self) {
+        match &mut self.hardware {
+            Some(h) => h.reset(),
+            None => self.software.reset(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// a "hardware" decoder for HAP that fails on its third packet
+    struct Flaky(Software, u32);
+
+    impl DecodeBackend for Flaky {
+        fn caps(&self) -> Caps {
+            Caps { codecs: vec![Codec::Hap(Hap::Rgb)], hardware: true }
+        }
+        fn configure(&mut self, stream: &Stream) -> Result<(), Error> {
+            self.0.configure(stream)
+        }
+        fn submit(&mut self, packet: Packet<'_>) -> Result<(), Error> {
+            self.1 += 1;
+            if self.1 == 3 {
+                return err("the GPU went away");
+            }
+            self.0.submit(packet)
+        }
+        fn poll(&mut self) -> Option<Decoded> {
+            self.0.poll()
+        }
+        fn reset(&mut self) {
+            self.0.reset()
+        }
+    }
+
+    struct Gpu;
+
+    impl Hardware for Gpu {
+        fn codecs(&self) -> Vec<Codec> {
+            vec![Codec::Hap(Hap::Rgb)]
+        }
+        fn backend(&self) -> Box<dyn DecodeBackend> {
+            Box::new(Flaky(Software::default(), 0))
+        }
+    }
+
+    #[test]
+    fn hardware_first_then_software_from_the_next_key_frame_and_off_by_the_setting() {
+        install(Box::new(Gpu));
+        assert_eq!(hardware_codecs(), [Codec::Hap(Hap::Rgb)]);
+        let stream = Stream { codec: Codec::Hap(Hap::Rgb), width: 4, height: 4, config: vec![] };
+        let mut a = Auto::default();
+        a.configure(&stream).unwrap();
+        assert!(a.on_hardware());
+        // one 4 × 4 DXT1 frame: a HAP section header (8 bytes, stored DXT1) and its one block
+        let frame = [8, 0, 0, 0xab, 0, 0, 0, 0, 0, 0, 0, 0];
+        let mut got = vec![];
+        for (id, key) in [(0, true), (1, false), (2, false), (3, false), (4, true), (5, false)] {
+            a.submit(Packet { data: &frame, id, key }).unwrap();
+            got.extend(std::iter::from_fn(|| a.poll()).map(|d| d.id));
+        }
+        assert!(!a.on_hardware(), "it failed on packet 2");
+        assert_eq!(got, [0, 1, 4, 5], "2 and 3 wait for the key frame 4");
+        set_hardware(false);
+        assert!(hardware_codecs().is_empty());
+        a.configure(&stream).unwrap();
+        assert!(!a.on_hardware(), "off: software");
+        set_hardware(true);
     }
 }

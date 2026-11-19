@@ -1,7 +1,7 @@
 //! A video on the deck's own playback (deck-media): a clip's player and its frame queue. Where there are threads
 //! (`native`) the player decodes ahead on one of its own and the frame's thread only picks; else both happen on the
 //! frame's thread. The stage's clock gives the heard time, the queue the frame for it.
-use deck_media::{Clip, Frames, Picture, Player, Software};
+use deck_media::{Clip, Frames, Picture, Player};
 use std::sync::Arc;
 
 /// how many decoded frames wait at most, and how far ahead of the heard time they reach (s)
@@ -30,7 +30,7 @@ enum Inner {
 
 fn player(bytes: Vec<u8>) -> Result<(Player, u32, u32), String> {
     let clip = Clip::open(bytes.into()).map_err(|e| e.0)?;
-    let mut p = Player::new(&clip, Box::new(Software::default())).map_err(|e| e.0)?;
+    let mut p = Player::open(&clip).map_err(|e| e.0)?;
     p.ahead = AHEAD;
     let (w, h) = (p.track().width, p.track().height);
     Ok((p, w, h))

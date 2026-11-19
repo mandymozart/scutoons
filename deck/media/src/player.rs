@@ -104,6 +104,11 @@ impl Player {
         Ok(Player { track, data: clip.data.clone(), backend, order, next: 0, from: 0, drained: false, looping: true, ahead: 0.25 })
     }
 
+    /// `clip`'s video through the backend the core picks (`backend::Auto`: hardware where the deck has it, else software)
+    pub fn open(clip: &Clip) -> Result<Player, Error> {
+        Player::new(clip, Box::new(crate::backend::Auto::default()))
+    }
+
     pub fn track(&self) -> &Track {
         &self.track
     }

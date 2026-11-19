@@ -8,6 +8,9 @@ use deck_media::{Clip, DecodeBackend, Frames, Player, Software};
 use deck_space::video::{upload, Converter};
 use std::time::Instant;
 
+/// makes a fresh backend of one kind
+type Make = fn() -> Box<dyn DecodeBackend>;
+
 fn main() -> Result<()> {
     let mut args = std::env::args().skip(1);
     let path = args.next().context("a clip")?;
@@ -22,13 +25,13 @@ fn main() -> Result<()> {
     let (device, gpu) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor { label: Some("video-decode"), ..Default::default() }))?;
     let mut conv = Converter::new(&device);
     println!("{path}: {:?} {} × {}, {n} frames at {fps:.1} fps, on {} ({:?})", track.codec, track.width, track.height, info.name, info.backend);
-    let mut backends: Vec<(&str, Box<dyn Fn() -> Box<dyn DecodeBackend>>)> = vec![("software (deck-media)", Box::new(|| Box::new(Software::default())))];
+    let mut backends: Vec<(&str, Make)> = vec![("software (deck-media)", || Box::new(Software::default()))];
     #[cfg(windows)]
     {
         use deck_media_hw::mf::MediaFoundation;
         println!("Media Foundation decodes on this GPU: {:?}", deck_media_hw::mf::codecs());
-        backends.push(("hardware (Media Foundation, DXVA)", Box::new(|| Box::new(MediaFoundation::new()))));
-        backends.push(("Media Foundation on the CPU", Box::new(|| Box::new(MediaFoundation::software()))));
+        backends.push(("hardware (Media Foundation, DXVA)", || Box::new(MediaFoundation::new())));
+        backends.push(("Media Foundation on the CPU", || Box::new(MediaFoundation::software())));
     }
     for (label, make) in backends {
         let mut player = match Player::new(&clip, make()) {

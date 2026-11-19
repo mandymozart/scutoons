@@ -23,7 +23,7 @@ path = "src/main.rs"
 default = ["bundled", "asio"]
 bundled = ["space", "sync", "chapter", "live", "midi", "osc", "outputs", "events", "media"]
 # the deck's own video playback (deck-media): the `video` node, video backgrounds and layers – only when a scene plays video
-media = ["deck-space/media", "deck-space/native"]
+media = ["deck-space/media", "deck-space/native", "dep:deck-media-hw"]
 # the 3D space and the deck's being (#188): glTF rooms (meshopt, WebP), the orbit camera, the 3D buttons and their labels –
 # deck-space's (deck/space, #198), with its GPU passes and its loaders on threads
 space = ["deck-space/being", "deck-engine/space", "deck-space/gpu", "deck-space/native", "dep:serde_json", "image/webp"]
@@ -71,6 +71,8 @@ gamepad = ["space", "dep:gilrs"]
 deck-core = { workspace = true, features = ["analysis", "tempo"] }
 # the scene model (graph, params, scene) and – with `space` – the 3D space itself (#198: shared with the browser)
 deck-space = { path = "../space", default-features = false, features = ["gpu"] }
+# the hardware video decoders (Media Foundation on Windows) offered to deck-media at start (`media`)
+deck-media-hw = { path = "../media/hw", optional = true }
 deck-events = { path = "../events", optional = true }
 # #317: the audio engine, the control domain and the FFT half – the universal core's; this crate keeps the device I/O
 deck-engine = { path = "../engine" }

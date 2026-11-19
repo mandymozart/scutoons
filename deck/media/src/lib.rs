@@ -19,7 +19,7 @@ pub mod yuv;
 #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
 pub mod av1;
 
-pub use backend::{Caps, DecodeBackend, Decoded, Packet, Software};
+pub use backend::{Auto, Caps, DecodeBackend, Decoded, Hardware, Packet, Software};
 pub use demux::{Clip, Codec, Hap, Sample, Track};
 pub use player::{Frame, Frames, Player};
 

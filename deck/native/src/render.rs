@@ -26,6 +26,9 @@ pub struct Renderer {
 impl Renderer {
     /// `veil` = the splash's first frame is black without the logo (#250: a scene switch fades through black)
     pub fn new(window: Arc<Window>, graph: &Graph, render_scale: f32, feeds: Vec<ChapterFeed>, veil: bool) -> Result<Renderer> {
+        // before any video opens: this platform's hardware decoders, for deck-media to choose from
+        #[cfg(feature = "media")]
+        deck_media_hw::install();
         // the device and the surface (gpu.rs, #443): the backends' fallbacks, the format, the size
         let gpu = Gpu::new(window)?;
         let format = gpu.format();
