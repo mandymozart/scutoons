@@ -80,14 +80,19 @@ mod tests {
     #[cfg(any(windows, target_os = "linux"))]
     #[test]
     fn a_busy_thread_shows_on_the_meter() {
+        // spins until the OS counts 0.05 s of CPU, not for a wall time: a loaded machine deschedules the thread, and
+        // only a reading that never moves fails
         let a = process_seconds().unwrap();
         let t = Instant::now();
         let mut x = 0u64;
-        while t.elapsed() < Duration::from_millis(100) {
-            x = std::hint::black_box(x.wrapping_add(1));
+        let mut spent = 0.0;
+        while spent < 0.05 {
+            assert!(t.elapsed() < Duration::from_secs(60), "{spent} s of CPU in a minute of spinning");
+            for _ in 0..100_000 {
+                x = std::hint::black_box(x.wrapping_add(1));
+            }
+            spent = process_seconds().unwrap() - a;
         }
-        let spent = process_seconds().unwrap() - a;
-        assert!(spent > 0.05, "{spent} s of CPU in 100 ms of spinning");
         let m = CpuMeter::spawn().unwrap();
         let t = Instant::now();
         while m.reading().is_none() && t.elapsed() < Duration::from_secs(5) {

@@ -366,15 +366,20 @@ mod tests {
 
     #[test]
     fn the_listing_runs_off_the_frame_thread() {
+        // the listing blocks until the test opens the gate: a sync that waited for it would never return
+        static GATE: (std::sync::Mutex<bool>, std::sync::Condvar) = (std::sync::Mutex::new(false), std::sync::Condvar::new());
         fn slow() -> Vec<Outputs> {
-            std::thread::sleep(std::time::Duration::from_millis(300));
+            let mut open = GATE.0.lock().unwrap();
+            while !*open {
+                open = GATE.1.wait(open).unwrap();
+            }
             vec![Outputs { name: "WASAPI".into(), key: Some("default"), devices: vec![out("Speakers", 2, true)] }]
         }
         let mut p = Page { lister: Some(slow), ..Page::new(DeckAudio::default()) };
-        let t = std::time::Instant::now();
         p.sync(&["main".into()]);
-        assert!(t.elapsed() < std::time::Duration::from_millis(100), "sync waited {:?}", t.elapsed());
         assert!(p.listing() && p.hosts.is_empty());
+        *GATE.0.lock().unwrap() = true;
+        GATE.1.notify_all();
         let end = std::time::Instant::now() + std::time::Duration::from_secs(5);
         while p.listing() && std::time::Instant::now() < end {
             std::thread::sleep(std::time::Duration::from_millis(10));

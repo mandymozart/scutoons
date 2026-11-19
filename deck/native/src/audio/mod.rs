@@ -23,6 +23,7 @@ pub mod pw_watch;
 pub mod ring;
 #[cfg(feature = "events")]
 pub mod sequencer;
+pub mod time;
 pub mod watch;
 
 pub use deck_engine::{default_for, Block, Buf, Build, Clock, Meters, MusicFeed, Param, Sequencing, Track, MAX_BLOCK, QUANTUM};

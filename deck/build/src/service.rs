@@ -400,7 +400,7 @@ mod tests {
         assert!(v["problems"][0].as_str().unwrap().starts_with("instrument x: missing field"), "{}", r.body);
     }
 
-    #[tokio::test]
+    #[tokio::test(start_paused = true)]
     async fn a_compile_answers_with_the_module() {
         let fake = Fake::new();
         let service = Arc::new(Service::new(config(2, 100), fake.clone()));
@@ -415,7 +415,7 @@ mod tests {
         assert_eq!(v["descriptor"]["name"], "fake");
     }
 
-    #[tokio::test]
+    #[tokio::test(start_paused = true)]
     async fn rustcs_errors_are_a_422_with_places() {
         let fake = Fake::new();
         *fake.result.lock().unwrap() = Some(Err(vec![Diag::error("lib.rs", 3, 9, "cannot find value `x`")]));
@@ -439,7 +439,7 @@ mod tests {
         assert_eq!(fake.started.load(Ordering::SeqCst), 0, "rustc never started");
     }
 
-    #[tokio::test]
+    #[tokio::test(start_paused = true)]
     async fn a_show_that_starts_while_waiting_stops_the_wait() {
         let fake = Fake::new();
         let service = Arc::new(Service::new(config(2, 2000), fake.clone()));
@@ -455,7 +455,7 @@ mod tests {
         assert_eq!(fake.started.load(Ordering::SeqCst), 1);
     }
 
-    #[tokio::test]
+    #[tokio::test(start_paused = true)]
     async fn one_compile_at_a_time_a_short_queue_then_busy() {
         let fake = Fake::new();
         let service = Arc::new(Service::new(config(1, 200), fake.clone()));
@@ -465,9 +465,9 @@ mod tests {
         let waiting = spawn(service.clone());
         tokio::time::sleep(Duration::from_millis(50)).await;
         // the queue (1) is full: the third is turned away at once
-        let t = std::time::Instant::now();
+        let t = tokio::time::Instant::now();
         assert_eq!(status(&service.handle(&post(Some("sesame"), GOOD)).await), (503, "busy".into()));
-        assert!(t.elapsed() < Duration::from_millis(100));
+        assert_eq!(t.elapsed(), Duration::ZERO, "no wait at all");
         // the waiting one gives up after the wait while the first still runs
         assert_eq!(status(&waiting.await.unwrap()), (503, "busy".into()));
         assert_eq!(fake.started.load(Ordering::SeqCst), 1, "only one compile ever ran at once");
@@ -480,7 +480,7 @@ mod tests {
         assert_eq!(again.await.unwrap().status, 200);
     }
 
-    #[tokio::test]
+    #[tokio::test(start_paused = true)]
     async fn a_waiting_request_gets_the_slot_when_it_frees() {
         let fake = Fake::new();
         let service = Arc::new(Service::new(config(2, 5000), fake.clone()));
