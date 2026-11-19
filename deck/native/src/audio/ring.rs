@@ -221,9 +221,15 @@ mod tests {
         assert!(DeviceClass::Native.policy().cap as usize + 4096 <= CAPACITY, "the cap and a big device buffer fit the ring");
     }
 
+    /// an engine for a device of `channels` channels with no channel map – never the machine's deck.toml (#627: its map
+    /// silenced main here)
+    fn no_map(g: &Graph, channels: usize) -> anyhow::Result<(Engine, super::super::Handles)> {
+        Engine::build_mapped(g, 48_000.0, 1.0, super::super::detect_build(), deck_engine::Sequencing::InBlock, channels, &[])
+    }
+
     fn halves() -> (Feed, Renderer) {
         let g = Graph::build(&Scene::parse(OSC).unwrap()).unwrap();
-        let (e, _) = Engine::build(&g, 48_000.0, 1.0).unwrap();
+        let (e, _) = no_map(&g, 2).unwrap();
         let (mut feed, r) = pair(e, None);
         feed.mon.settle = 0;
         (feed, r)
@@ -296,7 +302,7 @@ from=\"o\"
 to=\"out.in\"
 ";
         let g = Graph::build(&Scene::parse(scene).unwrap()).unwrap();
-        let (e, h) = Engine::build_for(&g, 48_000.0, 1.0, 6).unwrap();
+        let (e, h) = no_map(&g, 6).unwrap();
         assert_eq!(h.device.channels(), 6);
         let (mut feed, mut r) = pair(e, None);
         feed.mon.settle = 0;
@@ -318,7 +324,7 @@ to=\"out.in\"
     #[test]
     fn blocks_are_stamped_through_the_ring() {
         let g = Graph::build(&Scene::parse(OSC).unwrap()).unwrap();
-        let (e, h) = Engine::build(&g, 48_000.0, 1.0).unwrap();
+        let (e, h) = no_map(&g, 2).unwrap();
         let (mut feed, mut r) = pair(e, None);
         r.fill(0);
         let mut out = vec![0.0f32; 480 * 2];
